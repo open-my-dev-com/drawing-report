@@ -1,4 +1,4 @@
-// Q-08 평가: pdfme가 우리 확정 요구(ADR)를 수용할 수 있는지 실측
+// Q-08 평가: pdfme가 우리 확정 요구(ADR)를 수용할 수 있는지 직접 확인
 import fs from 'node:fs';
 import { generate } from '@pdfme/generator';
 import { text, table, line } from '@pdfme/schemas';

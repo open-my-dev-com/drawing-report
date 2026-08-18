@@ -17,7 +17,7 @@ paths:
   3. `src/format/migrate.ts`에 이전 버전으로부터의 마이그레이션 단계 추가 + 테스트
   4. JSON Schema 재생성: `pnpm --filter @slipkit/core build && pnpm --filter @slipkit/core generate:schemas`,
      `schemas/` 산출물 커밋
-- **pdfme 은닉** (ADR-016): pdfme 타입·API를 공개 API(`src/index.ts` 수출)에 노출 금지.
+- **pdfme 외부 비공개** (ADR-016): pdfme 타입·API를 공개 API(`src/index.ts` 수출)에 노출 금지.
   pdfme 의존은 렌더러 인터페이스 구현 내부에만 두고, 변환 계층에서 스타일 기본값 병합 필수
-  (pdfme 테이블은 스타일 속성 불완전 시 조용히 깨짐 — Q08 실측).
+  (pdfme 테이블은 스타일 속성 불완전 시 조용히 깨짐 — Q08 직접 확인).
 - 사용자 대면 오류 메시지는 한국어 (`SlipParseError` 등 기존 스타일 참조).

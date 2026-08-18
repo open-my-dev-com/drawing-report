@@ -3,7 +3,7 @@
  *
  * - 좌표·길이는 양쪽 다 mm라 단위 변환이 없다 (ADR-011).
  * - pdfme 스키마 속성은 **전부 채워서** 넘긴다 — 일부만 채우면 조용히 레이아웃이
- *   깨진다 (Q08 실측, docs/Q08-PDFME-EVAL.md).
+ *   깨진다 (Q08 직접 확인, docs/Q08-PDFME-EVAL.md).
  * - 렌더 값은 전부 `inputs`로 전달한다(`readOnly`를 쓰지 않는다). readOnly 스키마는
  *   pdfme가 `content`의 `{...}`를 자체 표현식으로 평가하는데, 수식은 우리 파서만
  *   쓴다는 ADR-010에 어긋나기 때문이다.
@@ -380,7 +380,7 @@ class SlipToPdfmeConverter {
   }
 
   // -------------------------------------------------------------------------
-  // dynamicTable — pdfme table (스타일 기본값 병합 필수, Q08 실측)
+  // dynamicTable — pdfme table (스타일 기본값 병합 필수, Q08 직접 확인)
   // -------------------------------------------------------------------------
 
   private appendDynamicTable(schemas: Schema[], element: DynamicTableElement): void {

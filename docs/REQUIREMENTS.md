@@ -25,7 +25,7 @@
 | UI 배포 형태 | **Web Component**(`<slip-designer>`, `<slip-viewer>` 등)로 배포하여 호스트 앱의 프레임워크와 무관하게 동작. React/Vue 사용자를 위한 얇은 래퍼 패키지를 별도 제공 | ADR-003 |
 | UI 내부 구현 | **Lit** (외부 API에는 영향 없는 내부 선택) | ADR-015 |
 | core의 위치 | 파일 포맷 스키마·검증·마이그레이션·수식 평가·레이아웃 엔진·PDF 렌더러는 전부 core(순수 TS, DOM 비의존)에 둔다. UI는 core의 소비자일 뿐이다 | ADR-003, ADR-011 |
-| PDF 생성 엔진 | **pdfme**(`@pdfme/generator` 등, MIT)를 core 내부의 PDF 생성·페이지 분할 실행 엔진으로 채택. 렌더러 인터페이스 뒤에 은닉해 교체 가능 구조 유지. UI·파일 포맷·서명·수식은 자체 개발 (pdfme의 React UI는 사용 안 함) | ADR-016 |
+| PDF 생성 엔진 | **pdfme**(`@pdfme/generator` 등, MIT)를 core 내부의 PDF 생성·페이지 분할 실행 엔진으로 채택. 렌더러 인터페이스 뒤에 두어 외부 비공개, 교체 가능 구조 유지. UI·파일 포맷·서명·수식은 자체 개발 (pdfme의 React UI는 사용 안 함) | ADR-016 |
 
 ## 3. 권한 모델
 

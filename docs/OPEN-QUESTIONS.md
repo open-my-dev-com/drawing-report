@@ -38,4 +38,4 @@
 
 ## ~~Q-08. pdfme 채택 전략~~ → 해결됨 (2026-08-18)
 
-**"PDF 엔진만 pdfme 채택, UI·포맷·서명·수식은 자체 개발"로 확정. ADR-016 및 실측 보고서 docs/Q08-PDFME-EVAL.md 참조.**
+**"PDF 엔진만 pdfme 채택, UI·포맷·서명·수식은 자체 개발"로 확정. ADR-016 및 평가 보고서 docs/Q08-PDFME-EVAL.md 참조.**
