@@ -305,7 +305,7 @@ describe('고정 격자(fixedGrid) 분해', () => {
 });
 
 describe('동적 행 표(dynamicTable) 변환', () => {
-  it('table 스키마의 스타일 기본값이 빠짐없이 채워진다 (Q08 실측)', () => {
+  it('table 스키마의 스타일 기본값이 빠짐없이 채워진다 (Q08 직접 확인)', () => {
     const table = findSchema(pageSchemas(makeTemplateFile()), 'items');
     expect(table.type).toBe('table');
     expect(table.showHead).toBe(true);

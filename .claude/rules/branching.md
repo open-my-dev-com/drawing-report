@@ -37,6 +37,6 @@
 ## 커밋 · PR
 
 - 커밋은 [Conventional Commits](https://www.conventionalcommits.org/):
-  `<type>(<scope>): <제목>` — type은 `feat/fix/docs/refactor/test/chore/eval(실측·평가)`,
+  `<type>(<scope>): <제목>` — type은 `feat/fix/docs/refactor/test/chore/eval(평가)`,
   제목은 한국어. 예: `feat(core): .slip 파일 Zod 스키마 정의`
 - PR 본문에 근거 ADR 번호와 검증 결과(테스트 수·통과 여부)를 기재한다.
