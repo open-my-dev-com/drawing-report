@@ -21,6 +21,8 @@ UI로 전표(양식 문서)를 쉽게 만들고, 보고, 출력할 수 있는 **
 
 | 문서 | 내용 |
 |---|---|
+| [docs/ROADMAP.md](docs/ROADMAP.md) | 로드맵 · 세션 인수인계 — 현재 상태와 다음 작업 |
+| [docs/SPEC.md](docs/SPEC.md) | `.slip` 파일 포맷 공개 규범 명세 |
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 확정된 요구사항 정리 |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | 설계 결정 로그(ADR-001~023) — 각 결정의 근거와 배경 |
 | [docs/OPEN-QUESTIONS.md](docs/OPEN-QUESTIONS.md) | 미결 사항 목록 (현재 전부 해결됨) |
