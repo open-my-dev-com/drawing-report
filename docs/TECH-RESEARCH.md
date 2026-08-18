@@ -66,7 +66,7 @@
 
 - JSON 서명의 표준은 **JWS ([RFC 7515](https://datatracker.ietf.org/doc/html/rfc7515), JOSE)**. 브라우저 Web Crypto API로 구현 가능.
 - 2025 모범 사례: 알고리즘 명시적 허용목록(`none` 금지), 키 회전용 `kid` 헤더, 검증자가 외부라면 **비대칭 서명(ES256 또는 EdDSA)** 사용 ([JWS 가이드](https://jsonic.io/guides/json-web-signature)).
-- Q-04 논의를 위한 권고 초안: 전표 서명은 JWS(ES256) + 서명 대상은 정규화(canonicalization, JCS 계열)된 전표 전체(스냅샷 포함), 서명 키는 호스트 서버 보관(권한 위임 원칙과 정합).
+- Q-04 논의를 위한 권고 초안: 전표 서명은 JWS(ES256) + 서명 대상은 정규화(canonicalization, JCS 계열)된 전표 전체(스냅샷 포함), 서명 키는 호스트 서버 보관(권한 위임 원칙에 부합).
 
 ## 9. 모노레포 도구 (ADR-002 구현 관련)
 
