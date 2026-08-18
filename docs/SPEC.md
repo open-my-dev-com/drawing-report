@@ -107,6 +107,7 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 
 색 스타일(ADR-020 — `image` 제외 전 요소): `backgroundColor`, `fontColor`,
 `borderColor`, `borderWidth`(mm), `borderStyle`(`solid`|`dashed`|`dotted`) — 전부 선택.
+(비규범: v1 PDF 렌더러는 `dashed`/`dotted`를 `solid`로 그린다.)
 
 글꼴(텍스트류): `fontName`, `fontSize`(pt), `alignment` — 전부 선택.
 
@@ -142,9 +143,14 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 `height`는 첫 페이지에서 표가 차지할 수 있는 최대 높이이며, 넘치는 행은
 다음 페이지로 자동 분할된다. 동적 행 표의 셀 병합은 v1에서 지원하지 않는다 (ADR-020).
 
+렌더 시 행 데이터는 `values[binding]`의 각 객체에서 **`head`의 각 제목을 키로** 읽는다.
+예: `head: ["품명", "금액"]`이면 행 객체 `{ "품명": "노트", "금액": 3000 }`을 기대한다.
+
 ### 5.4 `image` — 이미지
 
 `src`(필수, §3.1의 3형식). 색 스타일 필드는 없다.
+PDF 렌더 시 외부 URL 참조는 거부된다 — 렌더하려면 `data:` 또는 `asset://`로
+내장되어 있어야 한다 (ADR-014와 같은 원칙).
 
 ### 5.5 `shape` — 선/사각형
 
