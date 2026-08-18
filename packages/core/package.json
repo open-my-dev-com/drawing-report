@@ -11,10 +11,11 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": ["dist", "schemas"],
   "sideEffects": false,
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
+    "generate:schemas": "node scripts/generate-json-schema.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
