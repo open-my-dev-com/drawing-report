@@ -121,7 +121,9 @@
 
 ## 11. 개발 규칙
 
-- 브랜치·커밋 규칙은 [BRANCHING.md](BRANCHING.md)를 따른다 (ADR-023). `main` 직접 커밋 금지, 작업은 `<type>/<scope>-<topic>` 브랜치에서 PR로.
+- 브랜치·커밋 규칙은 [`.claude/rules/branching.md`](../.claude/rules/branching.md)를 따른다 (ADR-023). `main` 직접 커밋 금지, 작업은 `<type>/<scope>-<topic>` 브랜치에서 PR로.
+- `main`은 **스쿼시 머지** 전용. 미병합 브랜치 위 PR 스택 금지, 브랜치당 커밋 최소화 (ADR-024).
+- 개발 규칙은 리포 루트 **`CLAUDE.md`**로 모든 Claude Code 세션에 자동 적용되며, `.claude/settings.json`이 main 직접 푸시를 기계적으로 차단한다 (ADR-024).
 
 ## 12. 범위 제외 (Non-goals)
 
