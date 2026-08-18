@@ -1,0 +1,233 @@
+import { describe, expect, it } from 'vitest';
+import {
+  FormulaEvalError,
+  FormulaSyntaxError,
+  evaluateFormula,
+  parseFormula,
+  type FormulaContext,
+} from '../src/index.js';
+
+const ctx = (values: FormulaContext['values'] = {}, now?: Date): FormulaContext =>
+  now ? { values, now } : { values };
+
+const items = [
+  { 품명: '노트', 구분: '과세', 수량: 2, 금액: 3000 },
+  { 품명: '연필', 구분: '면세', 수량: 10, 금액: 5000 },
+  { 품명: '지우개', 구분: '과세', 수량: 5, 금액: 2000 },
+];
+
+describe('파서', () => {
+  it('연산자 우선순위: 곱셈이 덧셈보다 먼저', () => {
+    expect(evaluateFormula('1 + 2 * 3', ctx())).toBe(7);
+    expect(evaluateFormula('(1 + 2) * 3', ctx())).toBe(9);
+  });
+
+  it('비교는 산술보다 나중', () => {
+    expect(evaluateFormula('1 + 2 = 3', ctx())).toBe(true);
+    expect(evaluateFormula('2 * 3 <> 5', ctx())).toBe(true);
+  });
+
+  it('단항 부호', () => {
+    expect(evaluateFormula('-3 + 5', ctx())).toBe(2);
+    expect(evaluateFormula('--3', ctx())).toBe(3);
+  });
+
+  it('문자열 리터럴과 "" 이스케이프', () => {
+    expect(evaluateFormula('"안녕 ""세상"""', ctx())).toBe('안녕 "세상"');
+  });
+
+  it('빈 수식·문법 오류는 FormulaSyntaxError', () => {
+    expect(() => parseFormula('')).toThrow(FormulaSyntaxError);
+    expect(() => parseFormula('1 +')).toThrow(FormulaSyntaxError);
+    expect(() => parseFormula('SUM(1')).toThrow(FormulaSyntaxError);
+    expect(() => parseFormula('1 2')).toThrow(FormulaSyntaxError);
+    expect(() => parseFormula('"닫히지 않음')).toThrow(FormulaSyntaxError);
+  });
+
+  it('알 수 없는 함수는 파싱 단계에서 거부한다 (ADR-010)', () => {
+    expect(() => parseFormula('EVAL("1+1")')).toThrow(/지원하지 않는 함수/);
+  });
+
+  it('함수명은 대소문자 무관', () => {
+    expect(evaluateFormula('sum(1, 2, 3)', ctx())).toBe(6);
+  });
+});
+
+describe('참조', () => {
+  it('단순 참조와 중첩 경로', () => {
+    expect(evaluateFormula('total', ctx({ total: 3000 }))).toBe(3000);
+    expect(evaluateFormula('공급자.상호', ctx({ 공급자: { 상호: '한빛문구' } }))).toBe('한빛문구');
+  });
+
+  it('배열을 만나면 나머지 경로를 각 원소에 사상한다 (items.금액)', () => {
+    expect(evaluateFormula('SUM(items.금액)', ctx({ items }))).toBe(10000);
+  });
+
+  it('없는 키는 빈 값(null)', () => {
+    expect(evaluateFormula('IF(없는키 = 0, "기본", "값")', ctx())).toBe('값');
+    expect(evaluateFormula('CONCAT("[", 없는키, "]")', ctx())).toBe('[]');
+  });
+
+  it('범위를 산술에 직접 쓰면 평가 오류', () => {
+    expect(() => evaluateFormula('items.금액 + 1', ctx({ items }))).toThrow(FormulaEvalError);
+  });
+});
+
+describe('집계·조건부 집계', () => {
+  it('SUM / AVG / COUNT / MIN / MAX', () => {
+    const c = ctx({ items });
+    expect(evaluateFormula('SUM(items.금액)', c)).toBe(10000);
+    expect(evaluateFormula('AVG(items.수량)', c)).toBeCloseTo(17 / 3);
+    expect(evaluateFormula('COUNT(items.품명)', c)).toBe(3);
+    expect(evaluateFormula('MIN(items.금액)', c)).toBe(2000);
+    expect(evaluateFormula('MAX(items.금액)', c)).toBe(5000);
+  });
+
+  it('SUM은 빈 값을 건너뛴다', () => {
+    expect(evaluateFormula('SUM(rows.v)', ctx({ rows: [{ v: 1 }, {}, { v: 2 }] }))).toBe(3);
+  });
+
+  it('AVG는 대상이 없으면 오류', () => {
+    expect(() => evaluateFormula('AVG(rows.v)', ctx({ rows: [] }))).toThrow(FormulaEvalError);
+  });
+
+  it('SUMIF(조건 범위, 조건, 합계 범위)', () => {
+    const c = ctx({ items });
+    expect(evaluateFormula('SUMIF(items.구분, "과세", items.금액)', c)).toBe(5000);
+    expect(evaluateFormula('SUMIF(items.금액, ">=3000")', c)).toBe(8000);
+  });
+
+  it('COUNTIF와 비교 조건 문자열', () => {
+    const c = ctx({ items });
+    expect(evaluateFormula('COUNTIF(items.구분, "과세")', c)).toBe(2);
+    expect(evaluateFormula('COUNTIF(items.수량, ">4")', c)).toBe(2);
+    expect(evaluateFormula('COUNTIF(items.구분, "<>과세")', c)).toBe(1);
+  });
+});
+
+describe('산술 함수·연산', () => {
+  it('ROUND / FLOOR / CEIL 자릿수', () => {
+    expect(evaluateFormula('ROUND(1234.567, 2)', ctx())).toBe(1234.57);
+    expect(evaluateFormula('ROUND(1234.567)', ctx())).toBe(1235);
+    expect(evaluateFormula('FLOOR(1234.567, 1)', ctx())).toBe(1234.5);
+    expect(evaluateFormula('FLOOR(-15, -1)', ctx())).toBe(-20);
+    expect(evaluateFormula('CEIL(1234.001, 2)', ctx())).toBe(1234.01);
+    expect(evaluateFormula('ABS(-5)', ctx())).toBe(5);
+  });
+
+  it('0으로 나누면 오류', () => {
+    expect(() => evaluateFormula('1 / 0', ctx())).toThrow(/0으로 나눌 수 없습니다/);
+  });
+
+  it('숫자 문자열은 산술에서 수로 강제 변환', () => {
+    expect(evaluateFormula('금액 * 2', ctx({ 금액: '1500' }))).toBe(3000);
+  });
+});
+
+describe('문자열 함수', () => {
+  it('CONCAT은 수·논리·빈 값을 문자열로 잇는다', () => {
+    expect(evaluateFormula('CONCAT("합계: ", 1000, "원")', ctx())).toBe('합계: 1000원');
+  });
+
+  it('LEFT / RIGHT / MID는 유니코드 문자 단위', () => {
+    expect(evaluateFormula('LEFT("거래명세서", 2)', ctx())).toBe('거래');
+    expect(evaluateFormula('RIGHT("거래명세서", 3)', ctx())).toBe('명세서');
+    expect(evaluateFormula('MID("거래명세서", 3, 2)', ctx())).toBe('명세');
+  });
+
+  it('REPLACE는 모든 일치를 치환', () => {
+    expect(evaluateFormula('REPLACE("a-b-c", "-", "/")', ctx())).toBe('a/b/c');
+  });
+
+  it('TRIM / UPPER / LOWER', () => {
+    expect(evaluateFormula('TRIM("  x  ")', ctx())).toBe('x');
+    expect(evaluateFormula('UPPER("abc")', ctx())).toBe('ABC');
+    expect(evaluateFormula('LOWER("ABC")', ctx())).toBe('abc');
+  });
+});
+
+describe('조건', () => {
+  it('IF는 조건 분기하고 else 생략 시 빈 값', () => {
+    expect(evaluateFormula('IF(1 < 2, "참", "거짓")', ctx())).toBe('참');
+    expect(evaluateFormula('IF(FALSE, "참")', ctx())).toBe(null);
+  });
+
+  it('IF는 선택되지 않은 가지를 평가하지 않는다 (지연)', () => {
+    expect(evaluateFormula('IF(TRUE, 1, 1/0)', ctx())).toBe(1);
+  });
+
+  it('AND / OR 단락 평가', () => {
+    expect(evaluateFormula('AND(TRUE, 1 = 1)', ctx())).toBe(true);
+    expect(evaluateFormula('OR(FALSE, FALSE)', ctx())).toBe(false);
+    expect(evaluateFormula('OR(TRUE, 1/0 = 1)', ctx())).toBe(true);
+    expect(evaluateFormula('AND(FALSE, 1/0 = 1)', ctx())).toBe(false);
+  });
+
+  it('비교: 타입이 다르면 = 는 false, 순서 비교는 오류', () => {
+    expect(evaluateFormula('"1" = 1', ctx())).toBe(false);
+    expect(() => evaluateFormula('"a" < 1', ctx())).toThrow(FormulaEvalError);
+  });
+});
+
+describe('포맷 함수', () => {
+  it('FORMAT_NUMBER 천단위 콤마·소수 자릿수', () => {
+    expect(evaluateFormula('FORMAT_NUMBER(1234567)', ctx())).toBe('1,234,567');
+    expect(evaluateFormula('FORMAT_NUMBER(1234.5, 2)', ctx())).toBe('1,234.50');
+  });
+
+  it('FORMAT_DATE 패턴', () => {
+    expect(evaluateFormula('FORMAT_DATE("2026-08-18")', ctx())).toBe('2026-08-18');
+    expect(evaluateFormula('FORMAT_DATE("2026-08-18", "YYYY년 M월 D일")', ctx())).toBe('2026년 8월 18일');
+  });
+
+  it('NUMBER_TO_KOREAN 금액 한글 표기 (일십 관례)', () => {
+    expect(evaluateFormula('NUMBER_TO_KOREAN(0)', ctx())).toBe('영');
+    expect(evaluateFormula('NUMBER_TO_KOREAN(110)', ctx())).toBe('일백일십');
+    expect(evaluateFormula('NUMBER_TO_KOREAN(123456)', ctx())).toBe('일십이만삼천사백오십육');
+    expect(evaluateFormula('NUMBER_TO_KOREAN(100000100)', ctx())).toBe('일억일백');
+    expect(evaluateFormula('NUMBER_TO_KOREAN(-3000)', ctx())).toBe('마이너스삼천');
+    expect(() => evaluateFormula('NUMBER_TO_KOREAN(1.5)', ctx())).toThrow(/정수만/);
+  });
+});
+
+describe('날짜 함수', () => {
+  const now = new Date('2026-08-18T09:30:00Z');
+
+  it('TODAY는 컨텍스트 주입 시각 기준', () => {
+    expect(evaluateFormula('TODAY()', ctx({}, now))).toBe('2026-08-18');
+  });
+
+  it('DATE_ADD 일·월·년', () => {
+    expect(evaluateFormula('DATE_ADD("2026-08-18", 14)', ctx())).toBe('2026-09-01');
+    expect(evaluateFormula('DATE_ADD("2026-08-18", -1, "months")', ctx())).toBe('2026-07-18');
+    expect(evaluateFormula('DATE_ADD("2026-08-18", 2, "years")', ctx())).toBe('2028-08-18');
+  });
+
+  it('DATE_DIFF(시작, 끝)', () => {
+    expect(evaluateFormula('DATE_DIFF("2026-08-01", "2026-08-18")', ctx())).toBe(17);
+    expect(evaluateFormula('DATE_DIFF("2026-01-31", "2026-03-01", "months")', ctx())).toBe(1);
+    expect(evaluateFormula('DATE_DIFF("2024-08-18", "2026-08-17", "years")', ctx())).toBe(1);
+  });
+
+  it('잘못된 날짜는 오류', () => {
+    expect(() => evaluateFormula('DATE_ADD("어제", 1)', ctx())).toThrow(FormulaEvalError);
+  });
+});
+
+describe('세무', () => {
+  it('VAT 기본 10%, 세율 지정 가능, ROUND 조합', () => {
+    expect(evaluateFormula('VAT(10000)', ctx())).toBe(1000);
+    expect(evaluateFormula('VAT(10000, 5)', ctx())).toBe(500);
+    expect(evaluateFormula('FLOOR(VAT(공급가액))', ctx({ 공급가액: 12345 }))).toBe(1234);
+  });
+});
+
+describe('실전 조합', () => {
+  it('전표 합계란 시나리오', () => {
+    const c = ctx({ items });
+    expect(evaluateFormula('CONCAT("합계: ", FORMAT_NUMBER(SUM(items.금액) + VAT(SUM(items.금액))), "원")', c)).toBe(
+      '합계: 11,000원',
+    );
+    expect(evaluateFormula('CONCAT("금", NUMBER_TO_KOREAN(SUM(items.금액)), "원整")', c)).toBe('금일만원整');
+  });
+});

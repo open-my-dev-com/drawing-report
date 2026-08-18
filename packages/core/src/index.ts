@@ -23,3 +23,6 @@ export {
 export { slipFileJsonSchema } from './format/json-schema.js';
 export * from './storage/adapter.js';
 export { FORMULA_FUNCTIONS, type FormulaFunctionName } from './formula/functions.js';
+export { FormulaEvalError, FormulaSyntaxError } from './formula/errors.js';
+export { parseFormula, type FormulaAst } from './formula/parser.js';
+export { evaluateFormula, type FormulaContext, type FormulaValue } from './formula/evaluator.js';

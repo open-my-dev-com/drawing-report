@@ -1,6 +1,6 @@
 /**
  * v1 수식 함수 스타터셋 (ADR-017).
- * 파서·평가기는 feat/core-formula-parser에서 구현 예정 — 여기서는 목록만 확정.
+ * 구현: builtins.ts (IF/AND/OR는 지연 평가라 evaluator.ts에서 처리).
  */
 export const FORMULA_FUNCTIONS = [
   // 집계
