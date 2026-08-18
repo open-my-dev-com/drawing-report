@@ -1,0 +1,5 @@
+node_modules/
+output.pdf
+page*.png
+*.ttf
+package-lock.json
