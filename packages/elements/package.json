@@ -11,14 +11,19 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@slipkit/core": "workspace:*",
     "lit": "^3.2.0"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.11.2"
   }
 }
