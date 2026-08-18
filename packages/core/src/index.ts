@@ -26,3 +26,10 @@ export { FORMULA_FUNCTIONS, type FormulaFunctionName } from './formula/functions
 export { FormulaEvalError, FormulaSyntaxError } from './formula/errors.js';
 export { parseFormula, type FormulaAst } from './formula/parser.js';
 export { evaluateFormula, type FormulaContext, type FormulaValue } from './formula/evaluator.js';
+export {
+  SlipRenderError,
+  createPdfRenderer,
+  renderSlipToPdf,
+  type RenderOptions,
+  type SlipPdfRenderer,
+} from './render/index.js';
