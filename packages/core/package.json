@@ -1,0 +1,24 @@
+{
+  "name": "@slipkit/core",
+  "version": "0.0.1",
+  "description": "SlipKit core — .slip 파일 포맷 스키마·검증·마이그레이션·수식·렌더링 (순수 TS, DOM 비의존)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.0.0"
+  }
+}

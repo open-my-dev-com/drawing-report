@@ -1,0 +1,29 @@
+{
+  "name": "@slipkit/vue",
+  "version": "0.0.1",
+  "description": "SlipKit Vue 얇은 래퍼 — @slipkit/elements의 커스텀 엘리먼트를 Vue 관례로 노출",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean --external vue",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@slipkit/elements": "workspace:*"
+  },
+  "peerDependencies": {
+    "vue": ">=3.4"
+  },
+  "devDependencies": {
+    "vue": "^3.5.0"
+  }
+}
