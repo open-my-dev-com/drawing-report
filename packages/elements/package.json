@@ -1,0 +1,24 @@
+{
+  "name": "@slipkit/elements",
+  "version": "0.0.1",
+  "description": "SlipKit Web Component UI — <slip-designer>, <slip-viewer> 등 (Lit)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@slipkit/core": "workspace:*",
+    "lit": "^3.2.0"
+  }
+}
