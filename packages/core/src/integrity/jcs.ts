@@ -1,0 +1,43 @@
+/**
+ * RFC 8785 (JSON Canonicalization Scheme) 구현.
+ *
+ * 키 정렬 + 결정적 수·문자열 직렬화로 같은 데이터를 항상 같은 바이트로 만든다.
+ * JSON.stringify의 수·문자열 출력은 이미 RFC 8785과 일치하므로,
+ * 이 구현은 **객체 키 정렬**과 **재귀 직렬화**만 직접 처리한다.
+ */
+
+export function canonicalize(value: unknown): string {
+  if (value === null) return 'null';
+
+  switch (typeof value) {
+    case 'boolean':
+      return value ? 'true' : 'false';
+
+    case 'number':
+      if (!Number.isFinite(value)) {
+        throw new TypeError('JCS: Infinity와 NaN은 JSON으로 표현할 수 없습니다');
+      }
+      return JSON.stringify(value);
+
+    case 'string':
+      return JSON.stringify(value);
+
+    case 'object': {
+      if (Array.isArray(value)) {
+        return '[' + value.map(canonicalize).join(',') + ']';
+      }
+      const obj = value as Record<string, unknown>;
+      const entries: string[] = [];
+      for (const key of Object.keys(obj).sort()) {
+        const v = obj[key];
+        if (v !== undefined) {
+          entries.push(JSON.stringify(key) + ':' + canonicalize(v));
+        }
+      }
+      return '{' + entries.join(',') + '}';
+    }
+
+    default:
+      throw new TypeError(`JCS: 지원하지 않는 타입 — ${typeof value}`);
+  }
+}

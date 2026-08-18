@@ -33,3 +33,13 @@ export {
   type RenderOptions,
   type SlipPdfRenderer,
 } from './render/index.js';
+export {
+  SlipIntegrityError,
+  canonicalize,
+  computeContentHash,
+  computeIntegrity,
+  verifyIntegrity,
+  generateSigningKeyPair,
+  type IntegrityJwk,
+  type IntegrityKeyPair,
+} from './integrity/index.js';
