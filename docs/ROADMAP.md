@@ -1,6 +1,6 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-19 (디자이너 프리셋 추가 — GUI 디자이너 완료)
+최종 갱신: 2026-08-19 (저장소 어댑터 추가 — 기능 작업 전부 완료, 마무리 단계만 남음)
 
 ## 현재 상태
 
@@ -16,6 +16,7 @@
 - **디자이너 스냅·크기 조절 완료**: 드래그·크기 조절 시 다른 요소 가장자리·중앙선과 용지 여백선에 자동으로 붙고 정렬 안내선 표시(Alt로 해제). 선택 요소에 8방향 크기 조절 핸들(최소 2mm) (ADR-020)
 - **디자이너 복사·붙여넣기 완료**: 툴바 버튼·Ctrl+C/V로 선택 요소를 복사해 5mm씩 계단식으로 어긋난 위치에 새 요소로 추가(새 id 부여, 되돌리기 지원). 입력 필드 안에서는 단축키를 가로채지 않음 (ADR-020)
 - **디자이너 프리셋 완료 — GUI 디자이너(ADR-020 범위) 전부 완료**: 거래명세서·청구서 프리셋 2종 동봉(`presets` 공개 API). 툴바 선택 상자로 프리셋을 불러 양식 전체를 교체(되돌리기 지원). 프리셋 유효성은 실제 core 스키마(`parseSlipFile`)로 테스트
+- **저장소 어댑터 완료**: 인터페이스(`StorageAdapter`)·오류(`SlipStorageError`)는 core, 브라우저 구현 2종은 elements — `IndexedDbStorage`(save/load/delete/list, 제목·종류 필터, 커서 페이징) + `LocalFileStorage`(save=다운로드, load=파일 선택, delete/list는 `unsupported` 오류) (ADR-021/025, Q-09 해결)
 
 ## 다음 작업 (권장 순서)
 
@@ -30,7 +31,7 @@
    - ~~`feat/elements-designer-snap` — 스냅·정렬 안내선, 크기 조절 핸들~~ → **완료**
    - ~~`feat/elements-designer-clipboard` — 복사·붙여넣기~~ → **완료**
    - ~~`feat/elements-designer-presets` — 거래명세서·청구서 프리셋~~ → **완료**
-8. `feat/core-storage-adapters` — 로컬 파일·IndexedDB 어댑터 (ADR-021)
+8. ~~`feat/core-storage-adapters` — 로컬 파일·IndexedDB 어댑터 (ADR-021)~~ → **완료** (구현 위치는 ADR-025)
 
 ### 마무리 단계 (기능 작업 전부 완료 후)
 

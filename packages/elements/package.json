@@ -24,6 +24,7 @@
     "lit": "^3.2.0"
   },
   "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
     "happy-dom": "^20.11.2"
   }
 }

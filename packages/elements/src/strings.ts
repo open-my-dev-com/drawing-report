@@ -57,4 +57,13 @@ export const strings = {
     shapeRect: '사각형',
     shapeLine: '선',
   },
+  storage: {
+    ioError: '저장소 작업에 실패했습니다.',
+    notFound: '저장된 파일이 없습니다',
+    badCursor: '잘못된 목록 커서입니다',
+    noFileSelected: '선택된 파일이 없습니다.',
+    pickCancelled: '파일 선택이 취소되었습니다.',
+    deleteUnsupported: '로컬 파일 저장소는 삭제를 지원하지 않습니다.',
+    listUnsupported: '로컬 파일 저장소는 목록 조회를 지원하지 않습니다.',
+  },
 } as const;
