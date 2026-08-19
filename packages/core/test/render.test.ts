@@ -22,7 +22,7 @@ type PdfmeSchema = Record<string, unknown> & {
   height: number;
 };
 
-/** 요소 6종을 모두 담은 양식 본문. 고정 격자는 (1,0)에 2행 병합 셀을 둔다 */
+/** 요소 6종을 모두 담은 양식 본문. 고정 그리드는 (1,0)에 2행 병합 셀을 둔다 */
 function makeBody(): SlipTemplateBody {
   return {
     meta: { title: '거래명세서' },
@@ -241,7 +241,7 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
   });
 });
 
-describe('고정 격자(fixedGrid) 분해', () => {
+describe('고정 그리드(fixedGrid) 분해', () => {
   const schemas = pageSchemas(makeTemplateFile());
   const gridSchemas = schemas.filter((schema) => schema.name.startsWith('grid__'));
   const horizontals = gridSchemas.filter((schema) => schema.type === 'line' && schema.width > schema.height);
@@ -263,7 +263,7 @@ describe('고정 격자(fixedGrid) 분해', () => {
     expect(backgrounds[0]?.height).toBe(10);
   });
 
-  it('바깥 테두리는 격자 전체 폭·높이로 이어 그린다', () => {
+  it('바깥 테두리는 그리드 전체 폭·높이로 이어 그린다', () => {
     const top = horizontals.filter((schema) => Math.abs(schema.position.y - (10 - 0.1)) < 1e-6);
     expect(top).toHaveLength(1);
     expect(top[0]?.position.x).toBe(10);
@@ -279,7 +279,7 @@ describe('고정 격자(fixedGrid) 분해', () => {
     expect(inner[0]?.width).toBe(50);
   });
 
-  it('병합되지 않은 행 경계선은 격자 전체 폭으로 그린다', () => {
+  it('병합되지 않은 행 경계선은 그리드 전체 폭으로 그린다', () => {
     const line = horizontals.filter((schema) => Math.abs(schema.position.y - (20 - 0.1)) < 1e-6);
     expect(line).toHaveLength(1);
     expect(line[0]?.width).toBe(100);

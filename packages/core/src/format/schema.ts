@@ -96,14 +96,14 @@ export const fixedGridCellSchema = z.object({
   /** 0-기반 행/열 좌표 */
   row: z.number().int().nonnegative(),
   column: z.number().int().nonnegative(),
-  /** 병합 범위 (기본 1) — ADR-020: 고정 격자 표만 병합 지원 */
+  /** 병합 범위 (기본 1) — ADR-020: 고정 그리드 표만 병합 지원 */
   rowSpan: z.number().int().min(1).optional(),
   colSpan: z.number().int().min(1).optional(),
   content: z.string(),
   ...fontShape,
 });
 
-/** 행 수가 고정된 격자 틀 (공급자 정보란 등). 셀 병합 지원 — ADR-020 */
+/** 행 수가 고정된 그리드 틀 (공급자 정보란 등). 셀 병합 지원 — ADR-020 */
 export const fixedGridElementSchema = z
   .object({
     type: z.literal('fixedGrid'),
@@ -141,7 +141,7 @@ export const fixedGridElementSchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['cells', index],
-          message: `셀(${cell.row},${cell.column})의 병합 범위가 격자(${grid.rows}×${grid.columns})를 벗어납니다`,
+          message: `셀(${cell.row},${cell.column})의 병합 범위가 그리드(${grid.rows}×${grid.columns})를 벗어납니다`,
         });
         return;
       }
