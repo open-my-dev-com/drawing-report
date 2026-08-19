@@ -90,6 +90,7 @@ class SlipToPdfmeConverter {
   constructor(
     private readonly body: SlipTemplateBody,
     private readonly values: Record<string, unknown>,
+    private readonly locale?: string,
   ) {}
 
   convert(): PdfmeRenderInput {
@@ -249,7 +250,10 @@ class SlipToPdfmeConverter {
     if (element.formula !== undefined) {
       let evaluated: unknown;
       try {
-        evaluated = evaluateFormula(element.formula, { values: this.values });
+        evaluated = evaluateFormula(
+          element.formula,
+          this.locale === undefined ? { values: this.values } : { values: this.values, locale: this.locale },
+        );
       } catch (error) {
         throw new SlipRenderError(
           `${what}의 수식을 계산하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`,
@@ -627,8 +631,11 @@ function contiguousRuns(count: number, predicate: (index: number) => boolean): {
  * `.slip` 파일을 pdfme 템플릿 + 입력값으로 변환한다.
  * 양식 파일은 값이 빈 상태로, 전표 파일은 스냅샷 + values로 변환된다 (ADR-008).
  */
-export function convertSlipFile(file: SlipFile): PdfmeRenderInput {
+export function convertSlipFile(
+  file: SlipFile,
+  options?: { locale?: string },
+): PdfmeRenderInput {
   const body = file.kind === 'template' ? file.template : file.templateSnapshot;
   const values: Record<string, unknown> = file.kind === 'voucher' ? file.values : {};
-  return new SlipToPdfmeConverter(body, values).convert();
+  return new SlipToPdfmeConverter(body, values, options?.locale).convert();
 }

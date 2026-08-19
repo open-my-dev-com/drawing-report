@@ -383,3 +383,19 @@ describe('PDF 렌더링 (종단)', () => {
     expect(manyPages.getPageCount()).toBeGreaterThan(1);
   }, 30_000);
 });
+
+describe('렌더 로케일 (ADR-013)', () => {
+  it('RenderOptions.locale이 수식 포맷 함수까지 전달된다', () => {
+    const file = makeTemplateFile();
+    const field = file.template.pages[0]!.elements.find(
+      (el): el is Extract<SlipElement, { type: 'field' }> => el.type === 'field',
+    )!;
+    field.formula = 'FORMAT_NUMBER(1234567)';
+
+    const { inputs } = convertSlipFile(file, { locale: 'de-DE' });
+    expect(inputs[0]![field.id]).toBe('1.234.567');
+
+    const { inputs: koInputs } = convertSlipFile(file);
+    expect(koInputs[0]![field.id]).toBe('1,234,567');
+  });
+});

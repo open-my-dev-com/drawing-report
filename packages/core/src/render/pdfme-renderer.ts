@@ -35,7 +35,10 @@ export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer 
   const font = toEngineFont(options.fonts);
   return {
     async renderToPdf(file: SlipFile): Promise<Uint8Array> {
-      const { template, inputs } = convertSlipFile(file);
+      const { template, inputs } = convertSlipFile(
+        file,
+        options.locale === undefined ? undefined : { locale: options.locale },
+      );
       return generate({
         template,
         inputs,

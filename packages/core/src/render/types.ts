@@ -14,6 +14,11 @@ export interface RenderOptions {
    * 첫 번째 폰트를 대체 폰트로 쓴다. 생략하면 하부 엔진의 기본 폰트를 쓴다.
    */
   fonts?: { name: string; data: Uint8Array; fallback?: boolean }[];
+  /**
+   * FORMAT_NUMBER 등 수식 포맷 함수의 로케일 (BCP-47, 기본 'ko-KR') — ADR-013.
+   * 예: 'de-DE'를 지정하면 1234.5가 "1.234,5"로 표기된다.
+   */
+  locale?: string;
 }
 
 export interface SlipPdfRenderer {
