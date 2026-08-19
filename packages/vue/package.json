@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean --external vue",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -2,7 +2,6 @@ import { LitElement, css, html, nothing } from 'lit';
 import {
   parseSlipFile,
   renderSlipToPdf,
-  CURRENT_SCHEMA_VERSION,
   type SlipFile,
   type SlipTemplateFile,
   type SlipElement,
@@ -44,7 +43,8 @@ interface DragState {
   startPxY: number;
   origMmX: number;
   origMmY: number;
-  snapshot: string;
+  /** 되돌리기용 스냅샷 — 첫 이동 때 만든다 (클릭만 한 경우 직렬화 비용을 내지 않도록) */
+  snapshot: string | null;
 }
 
 interface ResizeState {
@@ -56,7 +56,8 @@ interface ResizeState {
   origY: number;
   origW: number;
   origH: number;
-  snapshot: string;
+  /** 되돌리기용 스냅샷 — 첫 크기 변경 때 만든다 */
+  snapshot: string | null;
 }
 
 export class SlipDesigner extends LitElement {
@@ -666,7 +667,7 @@ export class SlipDesigner extends LitElement {
 
   private _emitChange(): void {
     if (!this._file) return;
-    const file = JSON.parse(JSON.stringify(this._file)) as SlipFile;
+    const file = structuredClone(this._file) as SlipFile;
     this.dispatchEvent(
       new CustomEvent('slip-change', { detail: { file }, bubbles: true, composed: true }),
     );
@@ -702,7 +703,7 @@ export class SlipDesigner extends LitElement {
         origY: el.position.y,
         origW: el.width,
         origH: el.height,
-        snapshot: JSON.stringify(this._file),
+        snapshot: null,
       };
       handleEl.setPointerCapture(e.pointerId);
       e.preventDefault();
@@ -725,7 +726,7 @@ export class SlipDesigner extends LitElement {
         startPxY: e.clientY,
         origMmX: el.position.x,
         origMmY: el.position.y,
-        snapshot: JSON.stringify(this._file),
+        snapshot: null,
       };
       target.setPointerCapture(e.pointerId);
       e.preventDefault();
@@ -744,6 +745,7 @@ export class SlipDesigner extends LitElement {
 
     const el = this._findElement(this._drag.id);
     if (!el) return;
+    this._drag.snapshot ??= JSON.stringify(this._file);
 
     const dx = (e.clientX - this._drag.startPxX) / PX_PER_MM;
     const dy = (e.clientY - this._drag.startPxY) / PX_PER_MM;
@@ -778,6 +780,7 @@ export class SlipDesigner extends LitElement {
     const r = this._resize!;
     const el = this._findElement(r.id);
     if (!el) return;
+    r.snapshot ??= JSON.stringify(this._file);
 
     const dx = (e.clientX - r.startPxX) / PX_PER_MM;
     const dy = (e.clientY - r.startPxY) / PX_PER_MM;
@@ -852,7 +855,7 @@ export class SlipDesigner extends LitElement {
       const r = this._resize;
       const el = this._findElement(r.id);
       if (
-        el &&
+        el && r.snapshot &&
         (el.position.x !== r.origX || el.position.y !== r.origY ||
           el.width !== r.origW || el.height !== r.origH)
       ) {
@@ -866,7 +869,10 @@ export class SlipDesigner extends LitElement {
 
     if (!this._drag) return;
     const el = this._findElement(this._drag.id);
-    if (el && (el.position.x !== this._drag.origMmX || el.position.y !== this._drag.origMmY)) {
+    if (
+      el && this._drag.snapshot &&
+      (el.position.x !== this._drag.origMmX || el.position.y !== this._drag.origMmY)
+    ) {
       this._pushUndoSnapshot(this._drag.snapshot);
       this._emitChange();
     }
@@ -1053,11 +1059,11 @@ export class SlipDesigner extends LitElement {
         ${s.redo}
       </button>
       <span class="sep"></span>
-      <button class="page-prev" title=${s.prevPage}
+      <button class="page-prev" title=${s.prevPage} aria-label=${s.prevPage}
               @click=${() => this._goToPage(this._pageIndex - 1)}
               ?disabled=${this._pageIndex === 0}>◀</button>
       <span class="page-indicator">${this._pageIndex + 1} / ${this._pageCount()}</span>
-      <button class="page-next" title=${s.nextPage}
+      <button class="page-next" title=${s.nextPage} aria-label=${s.nextPage}
               @click=${() => this._goToPage(this._pageIndex + 1)}
               ?disabled=${this._pageIndex >= this._pageCount() - 1}>▶</button>
       <button @click=${() => this._addPage()}>${s.addPage}</button>
@@ -1069,7 +1075,7 @@ export class SlipDesigner extends LitElement {
         ${this._previewMode ? s.edit : s.preview}
       </button>
       <span class="sep"></span>
-      <select class="preset-select" @change=${this._onPresetChange}>
+      <select class="preset-select" aria-label=${s.preset} @change=${this._onPresetChange}>
         <option value="" selected>${s.preset}</option>
         ${presets.map((p, index) => html`<option value=${String(index)}>${p.name}</option>`)}
       </select>
@@ -1439,7 +1445,17 @@ export class SlipDesigner extends LitElement {
     if (el.type === 'image') return nothing;
     const s = strings.designer;
     const r = el as Record<string, unknown>;
+    // 파일 스키마와 같은 형식(#RRGGBB/#RRGGBBAA)만 저장한다 — 어긋난 값을
+    // 넣으면 나중에 저장(재검증) 시점에야 거부되어 원인을 찾기 어렵다
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    const colorOf = (e: Event): string | null => {
+      const v = valOf(e);
+      if (v && !/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) {
+        this.requestUpdate();
+        return null;
+      }
+      return v;
+    };
 
     return html`
       <div class="prop-section">
@@ -1447,32 +1463,41 @@ export class SlipDesigner extends LitElement {
         <div class="prop-row">
           <label>${s.backgroundColor}</label>
           <input .value=${(r.backgroundColor as string) ?? ''} placeholder="#RRGGBB"
-            @change=${(e: Event) => this._updateElement((el) => {
-              const v = valOf(e);
-              const r = el as Record<string, unknown>;
-              if (v) r.backgroundColor = v;
-              else delete r.backgroundColor;
-            })}>
+            @change=${(e: Event) => {
+              const v = colorOf(e);
+              if (v === null) return;
+              this._updateElement((el) => {
+                const r = el as Record<string, unknown>;
+                if (v) r.backgroundColor = v;
+                else delete r.backgroundColor;
+              });
+            }}>
         </div>
         <div class="prop-row">
           <label>${s.fontColor}</label>
           <input .value=${(r.fontColor as string) ?? ''} placeholder="#RRGGBB"
-            @change=${(e: Event) => this._updateElement((el) => {
-              const v = valOf(e);
-              const r = el as Record<string, unknown>;
-              if (v) r.fontColor = v;
-              else delete r.fontColor;
-            })}>
+            @change=${(e: Event) => {
+              const v = colorOf(e);
+              if (v === null) return;
+              this._updateElement((el) => {
+                const r = el as Record<string, unknown>;
+                if (v) r.fontColor = v;
+                else delete r.fontColor;
+              });
+            }}>
         </div>
         <div class="prop-row">
           <label>${s.borderColor}</label>
           <input .value=${(r.borderColor as string) ?? ''} placeholder="#RRGGBB"
-            @change=${(e: Event) => this._updateElement((el) => {
-              const v = valOf(e);
-              const r = el as Record<string, unknown>;
-              if (v) r.borderColor = v;
-              else delete r.borderColor;
-            })}>
+            @change=${(e: Event) => {
+              const v = colorOf(e);
+              if (v === null) return;
+              this._updateElement((el) => {
+                const r = el as Record<string, unknown>;
+                if (v) r.borderColor = v;
+                else delete r.borderColor;
+              });
+            }}>
         </div>
       </div>
     `;
