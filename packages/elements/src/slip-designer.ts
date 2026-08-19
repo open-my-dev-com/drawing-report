@@ -8,6 +8,7 @@ import {
   type RenderOptions,
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
+import { loadDefaultFonts } from './default-fonts.js';
 import { presets } from './presets.js';
 
 const PX_PER_MM = 96 / 25.4;
@@ -1001,8 +1002,10 @@ export class SlipDesigner extends LitElement {
 
     const gen = ++this._previewGeneration;
     try {
-      const opts: RenderOptions = {};
-      if (this.fonts) opts.fonts = this.fonts;
+      // 폰트 미지정 시 동봉 Pretendard 자동 사용 (ADR-012) — 한글 깨짐 방지
+      const opts: RenderOptions = {
+        fonts: this.fonts?.length ? this.fonts : await loadDefaultFonts(),
+      };
       const pdfBytes = await renderSlipToPdf(this._file, opts);
       if (gen !== this._previewGeneration) return;
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });

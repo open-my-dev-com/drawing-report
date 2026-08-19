@@ -7,6 +7,16 @@ vi.mock('@omdc-slipkit/core', () => ({
   CURRENT_SCHEMA_VERSION: '0.1.0',
 }));
 
+vi.mock('../src/default-fonts.js', () => ({
+  // 실제 폰트 데이터(4MB) 대신 즉시 해소되는 모의 — 배선만 검증한다.
+  // 실데이터 검증은 default-fonts.test.ts 담당.
+  loadDefaultFonts: () =>
+    Promise.resolve([
+      { name: 'Pretendard', data: new Uint8Array([1]), fallback: true },
+      { name: 'Pretendard-Bold', data: new Uint8Array([2]) },
+    ]),
+}));
+
 import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
 import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
 import { strings } from '../src/strings.js';
