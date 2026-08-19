@@ -7,6 +7,7 @@ import { FormulaEvalError } from './errors.js';
 /** 수식 런타임 값. 배열은 범위(참조가 배열 데이터를 가리킬 때)로 취급된다. */
 export type FormulaValue = number | string | boolean | null | FormulaValue[];
 
+/** 수식 평가에 주입되는 실행 문맥 */
 export interface FormulaContext {
   /** 전표 values — 참조(path)가 여기서 해소된다 */
   values: Record<string, unknown>;
@@ -26,6 +27,12 @@ function describe(value: FormulaValue): string {
   return JSON.stringify(value);
 }
 
+/**
+ * 값을 숫자로 강제 변환한다 — 숫자 문자열 허용, 빈 값은 0.
+ *
+ * @param what 오류 메시지에 쓸 대상 이름 (예: '집계 대상')
+ * @throws FormulaEvalError 숫자로 볼 수 없는 값이면
+ */
 export function toNumber(value: FormulaValue, what = '값'): number {
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) throw new FormulaEvalError(`${what}이(가) 유한한 수가 아닙니다`);
@@ -46,6 +53,11 @@ function toText(value: FormulaValue): string {
   throw new FormulaEvalError('범위는 문자열로 변환할 수 없습니다');
 }
 
+/**
+ * 값을 조건(논리값)으로 강제 변환한다 — 숫자는 0이 아니면 참, 빈 값은 거짓.
+ *
+ * @throws FormulaEvalError 문자열·범위 등 논리값으로 볼 수 없는 값이면
+ */
 export function toCondition(value: FormulaValue): boolean {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') return value !== 0;
@@ -91,6 +103,7 @@ function flatten(args: FormulaValue[]): (number | string | boolean | null)[] {
 // SUMIF/COUNTIF 조건 ("&gt;=10", "&lt;&gt;완료", "지급" 등 엑셀 스타일)
 // ---------------------------------------------------------------------------
 
+/** 범위가 아닌 단일 수식 값 */
 export type Scalar = number | string | boolean | null;
 
 function makeCriteria(criterion: FormulaValue): (value: Scalar) => boolean {
@@ -225,6 +238,7 @@ function roundTo(n: number, digits: number, mode: 'round' | 'floor' | 'ceil'): n
   return fn(corrected) / factor;
 }
 
+/** 즉시 평가 함수 구현 테이블 — 지연 평가가 필요한 IF·AND·OR는 evaluator가 직접 처리한다 */
 export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: FormulaContext) => FormulaValue> = {
   // --- 집계 ---
   SUM: (args) => collectNumbers(args).reduce((a, b) => a + b, 0),

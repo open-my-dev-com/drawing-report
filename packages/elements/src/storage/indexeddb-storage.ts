@@ -26,6 +26,7 @@ interface SlipRecord {
   data: string;
 }
 
+/** IndexedDbStorage 생성 옵션 */
 export interface IndexedDbStorageOptions {
   /** 데이터베이스 이름 (기본 'slipkit') */
   dbName?: string;
@@ -49,6 +50,10 @@ function request<T>(req: IDBRequest<T>, ioError: string): Promise<T> {
   });
 }
 
+/**
+ * 브라우저 IndexedDB 저장소 어댑터 (ADR-021/025) —
+ * save/load/delete/list 전부 지원, 제목·종류 필터와 커서 페이징 포함.
+ */
 export class IndexedDbStorage implements StorageAdapter {
   private readonly dbName: string;
   private readonly pageSize: number;

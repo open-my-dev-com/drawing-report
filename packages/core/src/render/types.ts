@@ -7,6 +7,7 @@
  */
 import type { SlipFile } from '../format/schema.js';
 
+/** PDF 렌더링 옵션 */
 export interface RenderOptions {
   /**
    * 사용자 폰트 등록. 한글 등 CJK 문서는 폰트를 반드시 등록해야 한다 (ADR-012).
@@ -21,6 +22,7 @@ export interface RenderOptions {
   locale?: string;
 }
 
+/** PDF 렌더러 — createPdfRenderer로 만든다 */
 export interface SlipPdfRenderer {
   /**
    * `.slip` 파일을 PDF 바이트로 렌더한다.

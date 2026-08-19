@@ -15,6 +15,10 @@ import {
 } from '@omdc-slipkit/core';
 import { getStrings, type SlipStrings } from '../strings.js';
 
+/**
+ * 로컬 파일 저장소 어댑터 — save는 다운로드, load는 파일 선택 대화상자.
+ * delete/list는 매체 특성상 지원하지 않아 `unsupported` 오류를 던진다 (ADR-025).
+ */
 export class LocalFileStorage implements StorageAdapter {
   private readonly messages: SlipStrings['storage'];
 

@@ -1,5 +1,10 @@
 import { SlipIntegrityError } from './errors.js';
 
+/**
+ * 바이트의 SHA-256 해시를 소문자 hex 64자로 돌려준다.
+ *
+ * @throws SlipIntegrityError Web Crypto API를 쓸 수 없는 환경이면
+ */
 export async function sha256Hex(data: Uint8Array): Promise<string> {
   const subtle = typeof crypto !== 'undefined' ? crypto.subtle : undefined;
   if (!subtle) {

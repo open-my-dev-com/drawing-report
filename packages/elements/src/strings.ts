@@ -6,6 +6,7 @@
  * `SlipStrings` 타입이 키 누락을 컴파일 단계에서 잡는다.
  */
 
+/** 지원하는 UI 언어 (ADR-028) */
 export type SlipLocale = 'ko' | 'en';
 
 const ko = {
@@ -165,6 +166,7 @@ const en: SlipStrings = {
   },
 };
 
+/** 언어별 문구 사전 전체 */
 export const STRINGS: Record<SlipLocale, SlipStrings> = { ko, en };
 
 /**

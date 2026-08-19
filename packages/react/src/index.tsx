@@ -5,6 +5,7 @@ import type { SlipFile } from '@omdc-slipkit/core';
 
 type SlipFonts = SlipViewerElement['fonts'];
 
+/** SlipViewer 컴포넌트 props */
 export interface SlipViewerProps {
   /** .slip JSON 문자열 */
   src: string;
@@ -22,6 +23,7 @@ export function SlipViewer({ src, locale, fonts }: SlipViewerProps) {
   return createElement('slip-viewer', { src, locale, fonts });
 }
 
+/** SlipDesigner 컴포넌트 props */
 export interface SlipDesignerProps {
   /** .slip JSON 문자열 (template 파일만) */
   src: string;

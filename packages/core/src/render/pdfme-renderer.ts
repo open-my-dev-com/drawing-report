@@ -31,6 +31,11 @@ function toEngineFont(fonts: RenderOptions['fonts']): Font | undefined {
   return Object.fromEntries(entries) as unknown as Font;
 }
 
+/**
+ * PDF 렌더러를 만든다 — 같은 폰트·로케일로 여러 파일을 렌더할 때 재사용한다.
+ *
+ * @throws SlipRenderError 폰트 지정이 잘못된 경우(대체 폰트 2개 이상, 이름 중복)
+ */
 export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer {
   const font = toEngineFont(options.fonts);
   return {

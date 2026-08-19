@@ -231,6 +231,7 @@ const fieldElementSchema = z.object({
   ...fontShape,
 });
 
+/** 요소 6종 판별 유니온 (type 필드 기준, ADR-020) */
 export const slipElementSchema = z.discriminatedUnion('type', [
   textElementSchema,
   fixedGridElementSchema,
@@ -244,6 +245,7 @@ export const slipElementSchema = z.discriminatedUnion('type', [
 // 용지 · 페이지 · 에셋
 // ---------------------------------------------------------------------------
 
+/** 용지 크기(mm)와 여백. 여백의 합은 용지 크기보다 작아야 한다 */
 export const paperSchema = z
   .object({
     width: positiveMm,
@@ -282,6 +284,7 @@ const templateMetaSchema = z.object({
   updatedAt: z.iso.datetime({ offset: true }).optional(),
 });
 
+/** 양식 본문 — 메타·용지·페이지·에셋. id 유일성과 asset:// 참조 해소를 함께 검증한다 */
 export const slipTemplateBodySchema = z
   .object({
     meta: templateMetaSchema,
@@ -345,6 +348,7 @@ export const slipTemplateBodySchema = z
 // 무결성 (ADR-019)
 // ---------------------------------------------------------------------------
 
+/** 위변조 감지 기록 — 해시 필수, 서명 선택 (ADR-019, SPEC §8) */
 export const integritySchema = z.object({
   /** RFC 8785 정규화 바이트의 SHA-256 (소문자 hex 64자) — docs/SPEC.md §8 */
   contentHash: z.string().regex(/^[0-9a-f]{64}$/, 'contentHash는 SHA-256 소문자 hex여야 합니다'),
@@ -359,6 +363,7 @@ export const integritySchema = z.object({
 // 파일 (봉투 + kind별 본문)
 // ---------------------------------------------------------------------------
 
+/** 봉투 — 본문 검증 전에 schemaVersion·kind만 먼저 확인한다 (ADR-007) */
 export const slipEnvelopeSchema = z.object({
   schemaVersion: semverSchema,
   kind: z.enum(['template', 'voucher']),
@@ -376,8 +381,10 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   ]),
 );
 
+/** JSON으로 표현 가능한 값 (전표 values의 값 타입) */
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
+/** 양식(template) 파일 전체 */
 export const slipTemplateFileSchema = z.object({
   schemaVersion: semverSchema,
   kind: z.literal('template'),
@@ -399,6 +406,7 @@ function findExternalUrlPath(body: z.infer<typeof slipTemplateBodySchema>): (str
   return null;
 }
 
+/** 전표(voucher) 파일 전체 — 발행 시 무결성 기록·단독 완결을 추가 검증한다 */
 export const slipVoucherFileSchema = z
   .object({
     schemaVersion: semverSchema,
@@ -432,6 +440,7 @@ export const slipVoucherFileSchema = z
     }
   });
 
+/** .slip 파일 — kind('template' | 'voucher') 판별 유니온 */
 export const slipFileSchema = z.discriminatedUnion('kind', [
   slipTemplateFileSchema,
   slipVoucherFileSchema,
@@ -441,6 +450,7 @@ export const slipFileSchema = z.discriminatedUnion('kind', [
 // 파싱 · 직렬화
 // ---------------------------------------------------------------------------
 
+/** .slip 파싱·검증 실패 오류 — message는 사용자 대면 한국어 */
 export class SlipParseError extends Error {
   constructor(message: string) {
     super(message);
@@ -457,6 +467,8 @@ function formatIssues(error: z.ZodError): string {
 /**
  * 이미 파싱된 JSON 값을 .slip 파일로 검증한다.
  * 구버전 문서는 현재 버전으로 마이그레이션한 뒤 검증한다 (ADR-007).
+ *
+ * @throws SlipParseError 봉투·본문 검증 또는 마이그레이션 실패 시
  */
 export function validateSlipFile(raw: unknown): SlipFile {
   const envelope = slipEnvelopeSchema.safeParse(raw);
@@ -478,7 +490,8 @@ export function validateSlipFile(raw: unknown): SlipFile {
 
 /**
  * JSON 문자열을 .slip 파일로 파싱한다.
- * 봉투/본문 검증 실패 시 SlipParseError를 던진다.
+ *
+ * @throws SlipParseError JSON이 아니거나 봉투·본문 검증 실패 시
  */
 export function parseSlipFile(json: string): SlipFile {
   let raw: unknown;
@@ -490,6 +503,7 @@ export function parseSlipFile(json: string): SlipFile {
   return validateSlipFile(raw);
 }
 
+/** .slip 파일을 저장용 JSON 문자열(들여쓰기 2칸)로 직렬화한다 */
 export function serializeSlipFile(file: SlipFile): string {
   return JSON.stringify(file, null, 2);
 }
@@ -498,20 +512,37 @@ export function serializeSlipFile(file: SlipFile): string {
 // 추론 타입 (Zod 스키마에서 산출 — 타입과 검증이 어긋날 수 없다)
 // ---------------------------------------------------------------------------
 
+/** 용지 크기·여백 */
 export type PaperSize = z.infer<typeof paperSchema>;
+/** 에셋 항목 (id · mimeType · src) */
 export type AssetEntry = z.infer<typeof assetEntrySchema>;
+/** 텍스트 요소 */
 export type TextElement = z.infer<typeof textElementSchema>;
+/** 고정 그리드의 셀 (병합 범위 포함) */
 export type FixedGridCell = z.infer<typeof fixedGridCellSchema>;
+/** 고정 그리드 요소 */
 export type FixedGridElement = z.infer<typeof fixedGridElementSchema>;
+/** 동적 행 표 요소 */
 export type DynamicTableElement = z.infer<typeof dynamicTableElementSchema>;
+/** 이미지 요소 */
 export type ImageElement = z.infer<typeof imageElementSchema>;
+/** 도형(선·사각형) 요소 */
 export type ShapeElement = z.infer<typeof shapeElementSchema>;
+/** 필드 요소 (전표 값 바인딩) */
 export type FieldElement = z.infer<typeof fieldElementSchema>;
+/** 요소 6종 유니온 */
 export type SlipElement = z.infer<typeof slipElementSchema>;
+/** 페이지 (요소 배열) */
 export type SlipPage = z.infer<typeof slipPageSchema>;
+/** 양식 본문 */
 export type SlipTemplateBody = z.infer<typeof slipTemplateBodySchema>;
+/** 무결성 기록 (ADR-019) */
 export type Integrity = z.infer<typeof integritySchema>;
+/** 양식 파일 */
 export type SlipTemplateFile = z.infer<typeof slipTemplateFileSchema>;
+/** 전표 파일 */
 export type SlipVoucherFile = z.infer<typeof slipVoucherFileSchema>;
+/** .slip 파일 (양식 또는 전표) */
 export type SlipFile = z.infer<typeof slipFileSchema>;
+/** 파일 종류 판별자 */
 export type SlipFileKind = SlipFile['kind'];

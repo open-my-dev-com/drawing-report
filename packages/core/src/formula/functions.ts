@@ -21,4 +21,5 @@ export const FORMULA_FUNCTIONS = [
   'VAT',
 ] as const;
 
+/** 등록된 수식 함수명 — 이 목록 밖의 함수는 파싱 단계에서 거부된다 */
 export type FormulaFunctionName = (typeof FORMULA_FUNCTIONS)[number];

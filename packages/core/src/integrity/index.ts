@@ -18,6 +18,12 @@ export type { IntegrityJwk, IntegrityKeyPair } from './jws.js';
 export { SlipIntegrityError } from './errors.js';
 export { canonicalize } from './jcs.js';
 
+/**
+ * 전표의 contentHash를 계산한다 — integrity 필드를 뺀 나머지를 JCS 정규화한
+ * 바이트의 SHA-256 (소문자 hex, SPEC §8).
+ *
+ * @throws SlipIntegrityError 정규화 불가(중첩 깊이 초과 등) 시
+ */
 export async function computeContentHash(voucher: SlipVoucherFile): Promise<string> {
   const { integrity: _, ...rest } = voucher;
   let canonical: string;
@@ -32,6 +38,9 @@ export async function computeContentHash(voucher: SlipVoucherFile): Promise<stri
   return sha256Hex(new TextEncoder().encode(canonical));
 }
 
+/**
+ * 발행 시 기록할 무결성 값을 만든다 — 해시 필수, 개인키를 주면 JWS(ES256) 서명 포함.
+ */
 export async function computeIntegrity(
   voucher: SlipVoucherFile,
   privateKey?: import('./jws.js').IntegrityJwk,
@@ -44,6 +53,12 @@ export async function computeIntegrity(
   return { contentHash };
 }
 
+/**
+ * 전표의 무결성 기록을 검증한다 — 해시 재계산 대조, 서명이 있으면 공개키로 서명까지 확인.
+ * 통과하면 조용히 끝나고, 문제가 있으면 오류를 던진다.
+ *
+ * @throws SlipIntegrityError 기록 없음·해시 불일치·서명 검증 실패·공개키 누락 시
+ */
 export async function verifyIntegrity(
   voucher: SlipVoucherFile,
   publicKey?: import('./jws.js').IntegrityJwk,

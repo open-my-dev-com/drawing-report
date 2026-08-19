@@ -20,10 +20,14 @@ import { FORMULA_FUNCTIONS, type FormulaFunctionName } from './functions.js';
 // AST
 // ---------------------------------------------------------------------------
 
+/** 비교 연산자 */
 export type ComparisonOperator = '=' | '<>' | '<' | '>' | '<=' | '>=';
+/** 산술 연산자 */
 export type ArithmeticOperator = '+' | '-' | '*' | '/';
+/** 이항 연산자 전체 */
 export type BinaryOperator = ComparisonOperator | ArithmeticOperator;
 
+/** 파싱 결과 구문 트리 — 노드 7종 판별 유니온 */
 export type FormulaAst =
   | { type: 'number'; value: number }
   | { type: 'string'; value: string }
