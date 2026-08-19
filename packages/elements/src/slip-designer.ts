@@ -81,6 +81,8 @@ export class SlipDesigner extends LitElement {
     }
 
     .canvas-area {
+      grid-row: 2;
+      grid-column: 1;
       overflow: auto;
       background: #e0e0e0;
       display: flex;
@@ -177,6 +179,8 @@ export class SlipDesigner extends LitElement {
     }
 
     .prop-panel {
+      grid-row: 2;
+      grid-column: 2;
       border-left: 1px solid #ddd;
       padding: 12px;
       overflow-y: auto;
