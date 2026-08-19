@@ -534,7 +534,7 @@ export class SlipDesigner extends LitElement {
       case 'dynamicTable':
         element = {
           type: 'dynamicTable', id, name, position, width: 180, height: 20,
-          head: ['\u{D56D}\u{BAA9}', '\u{C218}\u{B7C9}', '\u{AE08}\u{C561}'],
+          head: [...strings.designer.defaultTableHead],
           headWidthPercentages: [40, 30, 30],
           repeatHead: true, binding: 'items',
         };
@@ -921,7 +921,7 @@ export class SlipDesigner extends LitElement {
       ${this._previewMode
         ? html`<div class="preview-area">
             ${this._previewUrl
-              ? html`<iframe src=${this._previewUrl} title="PDF"></iframe>`
+              ? html`<iframe src=${this._previewUrl} title=${strings.designer.pdfTitle}></iframe>`
               : html`<div class="status">${strings.designer.previewLoading}</div>`}
           </div>`
         : html`
@@ -1192,7 +1192,6 @@ export class SlipDesigner extends LitElement {
   private _renderTypeProps(el: SlipElement) {
     const s = strings.designer;
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-    const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
 
     switch (el.type) {
       case 'text':

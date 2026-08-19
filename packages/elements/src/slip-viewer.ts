@@ -130,7 +130,7 @@ export class SlipViewer extends LitElement {
       return html`<div class="status error">${this._error}</div>`;
     }
     if (this._pdfUrl) {
-      return html`<iframe src=${this._pdfUrl} title="PDF 미리보기"></iframe>`;
+      return html`<iframe src=${this._pdfUrl} title=${strings.viewer.pdfTitle}></iframe>`;
     }
     return nothing;
   }

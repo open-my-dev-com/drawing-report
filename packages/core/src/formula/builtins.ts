@@ -89,7 +89,7 @@ function flatten(args: FormulaValue[]): (number | string | boolean | null)[] {
 // SUMIF/COUNTIF 조건 ("&gt;=10", "&lt;&gt;완료", "지급" 등 엑셀 스타일)
 // ---------------------------------------------------------------------------
 
-type Scalar = number | string | boolean | null;
+export type Scalar = number | string | boolean | null;
 
 function makeCriteria(criterion: FormulaValue): (value: Scalar) => boolean {
   if (Array.isArray(criterion)) throw new FormulaEvalError('조건에는 범위를 쓸 수 없습니다');

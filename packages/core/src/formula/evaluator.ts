@@ -5,7 +5,7 @@
  *   나머지 경로를 각 원소에 사상해 범위(배열)를 만든다 (예: items.금액).
  * - IF / AND / OR는 지연(단락) 평가한다.
  */
-import { BUILTIN_FUNCTIONS, toCondition, toNumber, type FormulaContext, type FormulaValue } from './builtins.js';
+import { BUILTIN_FUNCTIONS, toCondition, toNumber, type FormulaContext, type FormulaValue, type Scalar } from './builtins.js';
 import { FormulaEvalError } from './errors.js';
 import { parseFormula, type BinaryOperator, type FormulaAst } from './parser.js';
 
@@ -37,8 +37,6 @@ function toFormulaValue(value: unknown): FormulaValue {
 // ---------------------------------------------------------------------------
 // 연산자
 // ---------------------------------------------------------------------------
-
-type Scalar = number | string | boolean | null;
 
 function requireScalar(value: FormulaValue, what: string): Scalar {
   if (Array.isArray(value)) {
