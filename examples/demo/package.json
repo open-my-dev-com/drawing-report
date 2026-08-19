@@ -1,0 +1,17 @@
+{
+  "name": "slipkit-demo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "SlipKit 로컬 데모 — pnpm demo 로 실행",
+  "type": "module",
+  "scripts": {
+    "dev": "vite"
+  },
+  "dependencies": {
+    "@slipkit/core": "workspace:*",
+    "@slipkit/elements": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+}
