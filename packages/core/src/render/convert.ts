@@ -37,7 +37,7 @@ const DEFAULT_BORDER_COLOR = '#000000';
 const DEFAULT_BORDER_WIDTH = 0.2;
 /** pdfme에서 '색 없음'은 빈 문자열이다 */
 const NO_COLOR = '';
-/** 고정 격자 셀 안쪽 여백(mm) */
+/** 고정 그리드 셀 안쪽 여백(mm) */
 const GRID_CELL_PADDING = 1;
 /** 동적 표 셀 안쪽 여백(mm) */
 const TABLE_CELL_PADDING = 2;
@@ -273,7 +273,7 @@ class SlipToPdfmeConverter {
     const lineWidth = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
     const lineColor = element.borderColor ?? DEFAULT_BORDER_COLOR;
 
-    // 셀 소유 격자 (병합 반영). 값은 cells 배열의 인덱스, 빈 칸은 -1
+    // 셀 소유 그리드 (병합 반영). 값은 cells 배열의 인덱스, 빈 칸은 -1
     const owner: number[][] = Array.from({ length: rows }, () => new Array<number>(columns).fill(-1));
     element.cells.forEach((cell, index) => {
       const rowSpan = cell.rowSpan ?? 1;
@@ -312,7 +312,7 @@ class SlipToPdfmeConverter {
       );
     });
 
-    // 3) 격자선 → 선. 병합 범위의 내부 경계선은 그리지 않는다
+    // 3) 그리드선 → 선. 병합 범위의 내부 경계선은 그리지 않는다
     if (lineWidth > 0) {
       for (let r = 0; r <= rows; r++) {
         const drawable = (c: number): boolean => {
@@ -576,7 +576,7 @@ class SlipToPdfmeConverter {
 }
 
 // ---------------------------------------------------------------------------
-// 격자 계산 헬퍼
+// 그리드 계산 헬퍼
 // ---------------------------------------------------------------------------
 
 /** 비율(생략 시 균등)로 나눈 누적 경계 위치. 길이 = count + 1 */
@@ -603,7 +603,7 @@ function cellRect(
   return { x: originX + left, y: originY + top, width: right - left, height: bottom - top };
 }
 
-/** 조건을 만족하는 연속 구간(닫힌 구간)들을 모은다 — 격자선을 이어 그리기 위함 */
+/** 조건을 만족하는 연속 구간(닫힌 구간)들을 모은다 — 그리드선을 이어 그리기 위함 */
 function contiguousRuns(count: number, predicate: (index: number) => boolean): { start: number; end: number }[] {
   const runs: { start: number; end: number }[] = [];
   let start = -1;

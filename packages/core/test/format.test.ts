@@ -159,7 +159,7 @@ describe('.slip 템플릿 파싱', () => {
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/비율의 합/);
   });
 
-  it('격자 범위를 벗어난 병합 셀은 거부한다', () => {
+  it('그리드 범위를 벗어난 병합 셀은 거부한다', () => {
     const file = makeTemplate();
     getElement(file, 1, 'fixedGrid').cells.push({ row: 2, column: 0, rowSpan: 2, content: 'x' });
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/벗어납니다/);
