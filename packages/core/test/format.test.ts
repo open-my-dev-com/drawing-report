@@ -6,6 +6,7 @@ import {
   migrateSlipDocument,
   parseSlipFile,
   serializeSlipFile,
+  validateSlipFile,
   slipFileJsonSchema,
   type SlipElement,
   type SlipTemplateFile,
@@ -159,6 +160,15 @@ describe('.slip 템플릿 파싱', () => {
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/비율의 합/);
   });
 
+  it('비율 합의 오차가 0.01 이내(경계 포함)면 허용한다 (SPEC §3)', () => {
+    const file = makeTemplate();
+    getElement(file, 1, 'fixedGrid').columnWidthPercentages = [30.005, 70.005]; // 합 100.01
+    expect(() => parseSlipFile(serializeSlipFile(file))).not.toThrow();
+
+    getElement(file, 1, 'fixedGrid').columnWidthPercentages = [30, 70.02]; // 합 100.02
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/비율의 합/);
+  });
+
   it('그리드 범위를 벗어난 병합 셀은 거부한다', () => {
     const file = makeTemplate();
     getElement(file, 1, 'fixedGrid').cells.push({ row: 2, column: 0, rowSpan: 2, content: 'x' });
@@ -177,10 +187,40 @@ describe('.slip 템플릿 파싱', () => {
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/참조하는 에셋이 없습니다/);
   });
 
+  it('에셋 항목 자신의 src가 해소되지 않는 asset:// 참조면 거부한다 (SPEC §3.1)', () => {
+    const file = makeTemplate();
+    file.template.assets.push({ id: 'alias', mimeType: 'image/png', src: 'asset://missing' });
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/참조하는 에셋이 없습니다/);
+  });
+
+  it('에셋 항목의 asset:// 참조가 존재하는 에셋을 가리키면 허용한다', () => {
+    const file = makeTemplate();
+    file.template.assets.push({ id: 'alias', mimeType: 'image/png', src: 'asset://logo' });
+    expect(() => parseSlipFile(serializeSlipFile(file))).not.toThrow();
+  });
+
   it('요소 id가 중복되면 거부한다', () => {
     const file = makeTemplate();
     getElement(file, 1, 'fixedGrid').id = 'title';
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/요소 id가 중복/);
+  });
+});
+
+describe('validateSlipFile (파싱된 값 검증)', () => {
+  it('이미 파싱된 객체를 그대로 검증해 돌려준다', () => {
+    const validated = validateSlipFile(makeTemplate());
+    expect(validated.kind).toBe('template');
+  });
+
+  it('봉투가 잘못된 객체는 SlipParseError를 던진다', () => {
+    expect(() => validateSlipFile({ kind: 'template' })).toThrow(SlipParseError);
+    expect(() => validateSlipFile(null)).toThrow(SlipParseError);
+  });
+
+  it('본문이 잘못된 객체는 SlipParseError를 던진다', () => {
+    const file = makeTemplate();
+    (file.template.meta as { title: string }).title = '';
+    expect(() => validateSlipFile(file)).toThrow(SlipParseError);
   });
 });
 
