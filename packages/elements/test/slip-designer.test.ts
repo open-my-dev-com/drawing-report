@@ -376,6 +376,209 @@ describe('<slip-designer> 속성 패널', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 크기 조절 핸들
+// ---------------------------------------------------------------------------
+
+const PX_PER_MM = 96 / 25.4;
+
+async function loadDesigner() {
+  const el = await createElement();
+  el.src = '{"valid": true}';
+  await el.updateComplete;
+  await flush();
+  await el.updateComplete;
+  return el;
+}
+
+function selectElement(el: Element, id: string): HTMLElement {
+  const div = el.shadowRoot?.querySelector(`[data-id="${id}"]`) as HTMLElement;
+  div.dispatchEvent(new PointerEvent('pointerdown', {
+    bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,
+  }));
+  div.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+  return div;
+}
+
+describe('<slip-designer> 크기 조절 핸들', () => {
+  it('요소를 선택하면 8방향 핸들이 나타난다', async () => {
+    const el = await loadDesigner();
+
+    expect(el.shadowRoot?.querySelectorAll('.handle').length).toBe(0);
+
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelectorAll('.handle').length).toBe(8);
+    el.remove();
+  });
+
+  it('남동(se) 핸들을 끌면 요소 크기가 커지고 slip-change를 발행한다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+
+    // txt-1: (30,40) 60×10 → se 핸들을 +10mm/+10mm 끌면 70×20
+    const handle = el.shadowRoot?.querySelector('.handle-se') as HTMLElement;
+    expect(handle).not.toBeNull();
+    handle.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,
+    }));
+    handle.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true,
+      clientX: 10 * PX_PER_MM, clientY: 10 * PX_PER_MM, pointerId: 1,
+    }));
+    handle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+
+    expect(changes.length).toBe(1);
+    const changed = changes[0]!.detail.file.template.pages[0].elements[0];
+    expect(changed.width).toBe(70);
+    expect(changed.height).toBe(20);
+    expect(changed.position).toEqual({ x: 30, y: 40 });
+    el.remove();
+  });
+
+  it('최소 크기(2mm) 밑으로는 줄어들지 않는다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    // txt-1 너비 60mm → -100mm 끌어도 2mm에서 멈춘다
+    const handle = el.shadowRoot?.querySelector('.handle-e') as HTMLElement;
+    handle.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,
+    }));
+    handle.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: -100 * PX_PER_MM, clientY: 0, pointerId: 1,
+    }));
+    handle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+
+    const widthInput = Array.from(el.shadowRoot?.querySelectorAll('.prop-row') ?? [])
+      .find((row) => row.querySelector('label')?.textContent === strings.designer.width)
+      ?.querySelector('input') as HTMLInputElement;
+    expect(Number(widthInput.value)).toBe(2);
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 스냅·정렬 안내선
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 스냅·정렬 안내선', () => {
+  it('다른 요소 가장자리 근처로 끌면 스냅되고 안내선이 나타난다', async () => {
+    const el = await loadDesigner();
+    const div = el.shadowRoot?.querySelector('[data-id="txt-1"]') as HTMLElement;
+
+    // txt-1 왼쪽 변(x=30)을 shp-1 왼쪽 변(x=100) 근처(99mm)로 끌면 100으로 스냅
+    div.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,
+    }));
+    div.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: 69 * PX_PER_MM, clientY: 0, pointerId: 1,
+    }));
+    await el.updateComplete;
+
+    const guide = el.shadowRoot?.querySelector('.snap-guide.vertical') as HTMLElement;
+    expect(guide).not.toBeNull();
+    expect(parseFloat(guide.style.left)).toBeCloseTo(100 * PX_PER_MM, 0);
+
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    div.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+
+    // 놓으면 안내선은 사라지고 위치는 스냅된 값
+    expect(el.shadowRoot?.querySelector('.snap-guide')).toBeNull();
+    expect(changes[0]!.detail.file.template.pages[0].elements[0].position.x).toBe(100);
+    el.remove();
+  });
+
+  it('Alt를 누르면 스냅 없이 자유 이동한다', async () => {
+    const el = await loadDesigner();
+    const div = el.shadowRoot?.querySelector('[data-id="txt-1"]') as HTMLElement;
+
+    div.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,
+    }));
+    div.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: 69 * PX_PER_MM, clientY: 0,
+      pointerId: 1, altKey: true,
+    }));
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelector('.snap-guide')).toBeNull();
+
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    div.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+
+    expect(changes[0]!.detail.file.template.pages[0].elements[0].position.x).toBe(99);
+    el.remove();
+  });
+
+  it('크기 조절 중에도 움직이는 변이 후보 선에 스냅된다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    // txt-1 오른쪽 변(x=90)을 shp-1 왼쪽 변(x=100) 근처(99mm)로 늘리면 100으로 스냅 → 너비 70
+    const handle = el.shadowRoot?.querySelector('.handle-e') as HTMLElement;
+    handle.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,
+    }));
+    handle.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: 9 * PX_PER_MM, clientY: 0, pointerId: 1,
+    }));
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelector('.snap-guide.vertical')).not.toBeNull();
+
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    handle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+
+    expect(changes[0]!.detail.file.template.pages[0].elements[0].width).toBe(70);
+    el.remove();
+  });
+
+  it('되돌리기로 크기 조절 전 상태로 복구된다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    const handle = el.shadowRoot?.querySelector('.handle-se') as HTMLElement;
+    handle.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,
+    }));
+    handle.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true,
+      clientX: 10 * PX_PER_MM, clientY: 10 * PX_PER_MM, pointerId: 1,
+    }));
+    handle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    const undoBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
+      .find((b) => b.textContent?.trim() === strings.designer.undo) as HTMLElement;
+    undoBtn.click();
+    await el.updateComplete;
+
+    const restored = changes[0]!.detail.file.template.pages[0].elements[0];
+    expect(restored.width).toBe(60);
+    expect(restored.height).toBe(10);
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 미리보기
 // ---------------------------------------------------------------------------
 
