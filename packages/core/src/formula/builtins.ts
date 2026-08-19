@@ -11,9 +11,17 @@ export type FormulaValue = number | string | boolean | null | FormulaValue[];
 export interface FormulaContext {
   /** 전표 values — 참조(path)가 여기서 해소된다 */
   values: Record<string, unknown>;
-  /** TODAY() 기준 시각 (기본: 호출 시점). 테스트·재현용 주입 지점 */
+  /**
+   * TODAY() 기준 시각. 테스트·재현용 주입 지점.
+   *
+   * @defaultValue 호출 시점의 현재 시각
+   */
   now?: Date;
-  /** FORMAT_NUMBER 등 포맷 함수의 로케일 (BCP-47, 기본 'ko-KR') — ADR-013 */
+  /**
+   * FORMAT_NUMBER 등 포맷 함수의 로케일 (BCP-47) — ADR-013.
+   *
+   * @defaultValue `'ko-KR'`
+   */
   locale?: string;
 }
 
@@ -30,7 +38,9 @@ function describe(value: FormulaValue): string {
 /**
  * 값을 숫자로 강제 변환한다 — 숫자 문자열 허용, 빈 값은 0.
  *
+ * @param value 변환할 수식 값
  * @param what 오류 메시지에 쓸 대상 이름 (예: '집계 대상')
+ * @returns 변환된 숫자
  * @throws FormulaEvalError 숫자로 볼 수 없는 값이면
  */
 export function toNumber(value: FormulaValue, what = '값'): number {
@@ -56,6 +66,8 @@ function toText(value: FormulaValue): string {
 /**
  * 값을 조건(논리값)으로 강제 변환한다 — 숫자는 0이 아니면 참, 빈 값은 거짓.
  *
+ * @param value 변환할 수식 값
+ * @returns 변환된 논리값
  * @throws FormulaEvalError 문자열·범위 등 논리값으로 볼 수 없는 값이면
  */
 export function toCondition(value: FormulaValue): boolean {

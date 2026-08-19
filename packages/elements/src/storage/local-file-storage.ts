@@ -22,11 +22,19 @@ import { getStrings, type SlipStrings } from '../strings.js';
 export class LocalFileStorage implements StorageAdapter {
   private readonly messages: SlipStrings['storage'];
 
-  constructor(options: { /** 오류 메시지 언어 ('ko' | 'en', 기본 한국어) — ADR-028 */ locale?: string } = {}) {
+  /**
+   * @param options.locale 오류 메시지 언어 ('ko' | 'en', 기본 한국어) — ADR-028
+   */
+  constructor(options: { locale?: string } = {}) {
     this.messages = getStrings(options.locale).storage;
   }
 
-  /** id를 파일명으로 삼아 `.slip` 파일을 다운로드한다 */
+  /**
+   * `.slip` 파일을 다운로드로 저장한다.
+   *
+   * @param id 파일명으로 쓸 저장 키 (`.slip` 확장자는 없으면 붙인다)
+   * @param file 저장할 .slip 파일
+   */
   async save(id: string, file: SlipFile): Promise<void> {
     const json = serializeSlipFile(file);
     const blob = new Blob([json], { type: 'application/json' });
@@ -43,7 +51,14 @@ export class LocalFileStorage implements StorageAdapter {
     }
   }
 
-  /** 파일 선택 대화상자를 열어 사용자가 고른 `.slip` 파일을 읽는다 (id는 쓰지 않음) */
+  /**
+   * 파일 선택 대화상자를 열어 사용자가 고른 `.slip` 파일을 읽는다.
+   *
+   * @param _id 쓰지 않음 — 어떤 파일을 열지는 사용자가 대화상자에서 고른다
+   * @returns 선택한 파일을 파싱한 .slip 파일
+   * @throws SlipStorageError 선택 취소·파일 없음(io) 시
+   * @throws SlipParseError 고른 파일이 유효한 .slip이 아니면
+   */
   load(_id: string): Promise<SlipFile> {
     return new Promise((resolve, reject) => {
       const input = document.createElement('input');
@@ -75,10 +90,21 @@ export class LocalFileStorage implements StorageAdapter {
     });
   }
 
+  /**
+   * 지원하지 않는다 — 로컬 파일 매체에는 삭제 개념이 없다 (ADR-025).
+   *
+   * @param _id 쓰지 않음
+   * @throws SlipStorageError 항상 `unsupported` 코드로 거부
+   */
   delete(_id: string): Promise<void> {
     return Promise.reject(new SlipStorageError('unsupported', this.messages.deleteUnsupported));
   }
 
+  /**
+   * 지원하지 않는다 — 로컬 파일 매체는 목록을 조회할 수 없다 (ADR-025).
+   *
+   * @throws SlipStorageError 항상 `unsupported` 코드로 거부
+   */
   list(): Promise<SlipListPage> {
     return Promise.reject(new SlipStorageError('unsupported', this.messages.listUnsupported));
   }

@@ -388,7 +388,11 @@ export class SlipDesigner extends LitElement {
 
   src = '';
 
-  /** UI 언어 ('ko' | 'en', 기본 한국어) — ADR-028 */
+  /**
+   * UI 언어 ('ko' | 'en') — ADR-028.
+   *
+   * @defaultValue 한국어
+   */
   locale?: string;
 
   fonts?: RenderOptions['fonts'];

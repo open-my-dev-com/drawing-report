@@ -468,6 +468,8 @@ function formatIssues(error: z.ZodError): string {
  * 이미 파싱된 JSON 값을 .slip 파일로 검증한다.
  * 구버전 문서는 현재 버전으로 마이그레이션한 뒤 검증한다 (ADR-007).
  *
+ * @param raw 이미 파싱된 JSON 값 (예: `JSON.parse` 결과)
+ * @returns 검증·마이그레이션이 끝난 .slip 파일
  * @throws SlipParseError 봉투·본문 검증 또는 마이그레이션 실패 시
  */
 export function validateSlipFile(raw: unknown): SlipFile {
@@ -491,7 +493,15 @@ export function validateSlipFile(raw: unknown): SlipFile {
 /**
  * JSON 문자열을 .slip 파일로 파싱한다.
  *
+ * @param json .slip 파일 내용 (JSON 문자열)
+ * @returns 검증·마이그레이션이 끝난 .slip 파일
  * @throws SlipParseError JSON이 아니거나 봉투·본문 검증 실패 시
+ *
+ * @example
+ * ```ts
+ * const file = parseSlipFile(jsonText);
+ * if (file.kind === 'template') console.log(file.template.meta.title);
+ * ```
  */
 export function parseSlipFile(json: string): SlipFile {
   let raw: unknown;
@@ -503,7 +513,12 @@ export function parseSlipFile(json: string): SlipFile {
   return validateSlipFile(raw);
 }
 
-/** .slip 파일을 저장용 JSON 문자열(들여쓰기 2칸)로 직렬화한다 */
+/**
+ * .slip 파일을 저장용 JSON 문자열로 직렬화한다.
+ *
+ * @param file 직렬화할 .slip 파일
+ * @returns 들여쓰기 2칸의 JSON 문자열
+ */
 export function serializeSlipFile(file: SlipFile): string {
   return JSON.stringify(file, null, 2);
 }

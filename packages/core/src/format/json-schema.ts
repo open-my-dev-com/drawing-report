@@ -10,7 +10,11 @@ import { z } from 'zod';
 import { slipFileSchema } from './schema.js';
 import { CURRENT_SCHEMA_VERSION } from './version.js';
 
-/** 현재 스키마 버전의 .slip JSON Schema(draft 2020-12)를 산출한다 */
+/**
+ * 현재 스키마 버전의 .slip JSON Schema를 산출한다.
+ *
+ * @returns draft 2020-12 JSON Schema 객체 (`$id`: `urn:slipkit:schema:slip:<버전>`)
+ */
 export function slipFileJsonSchema(): Record<string, unknown> {
   const jsonSchema = z.toJSONSchema(slipFileSchema, { target: 'draft-2020-12' });
   return {

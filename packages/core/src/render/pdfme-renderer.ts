@@ -34,6 +34,8 @@ function toEngineFont(fonts: RenderOptions['fonts']): Font | undefined {
 /**
  * PDF 렌더러를 만든다 — 같은 폰트·로케일로 여러 파일을 렌더할 때 재사용한다.
  *
+ * @param options 폰트·로케일 등 렌더링 옵션
+ * @returns .slip 파일을 PDF로 렌더하는 렌더러
  * @throws SlipRenderError 폰트 지정이 잘못된 경우(대체 폰트 2개 이상, 이름 중복)
  */
 export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer {
@@ -54,7 +56,14 @@ export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer 
   };
 }
 
-/** `.slip` 파일 하나를 PDF 바이트로 렌더하는 편의 함수 */
+/**
+ * `.slip` 파일 하나를 PDF로 렌더하는 편의 함수.
+ *
+ * @param file 렌더할 .slip 파일 (양식 또는 전표)
+ * @param options 폰트·로케일 등 렌더링 옵션
+ * @returns PDF 파일 바이트
+ * @throws SlipRenderError 폰트 지정 오류·변환 실패 시
+ */
 export function renderSlipToPdf(file: SlipFile, options?: RenderOptions): Promise<Uint8Array> {
   return createPdfRenderer(options).renderToPdf(file);
 }

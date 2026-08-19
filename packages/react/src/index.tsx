@@ -9,7 +9,11 @@ type SlipFonts = SlipViewerElement['fonts'];
 export interface SlipViewerProps {
   /** .slip JSON 문자열 */
   src: string;
-  /** UI 언어 ('ko' | 'en', 기본 한국어) — ADR-028 */
+  /**
+   * UI 언어 ('ko' | 'en') — ADR-028.
+   *
+   * @defaultValue 한국어
+   */
   locale?: string;
   /** PDF 렌더링에 쓸 사용자 폰트 (ADR-012) */
   fonts?: SlipFonts;
@@ -27,7 +31,11 @@ export function SlipViewer({ src, locale, fonts }: SlipViewerProps) {
 export interface SlipDesignerProps {
   /** .slip JSON 문자열 (template 파일만) */
   src: string;
-  /** UI 언어 ('ko' | 'en', 기본 한국어) — ADR-028 */
+  /**
+   * UI 언어 ('ko' | 'en') — ADR-028.
+   *
+   * @defaultValue 한국어
+   */
   locale?: string;
   /** PDF 미리보기에 쓸 사용자 폰트 (ADR-012) */
   fonts?: SlipFonts;
