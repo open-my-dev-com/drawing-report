@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { IndexedDbStorage } from '../src/storage/indexeddb-storage.js';
 import { presets } from '../src/presets.js';
 
@@ -68,5 +68,33 @@ describe('IndexedDbStorage', () => {
     expect(second.items.length).toBe(1);
     expect(second.nextCursor).toBeUndefined();
     expect(second.items[0]!.id).not.toBe(first.items[0]!.id);
+  });
+});
+
+describe('IndexedDbStorage 열기 실패 복구', () => {
+  it('열기가 실패해도 다음 호출이 다시 시도해 복구된다', async () => {
+    const storage = freshStorage();
+
+    const spy = vi.spyOn(indexedDB, 'open').mockImplementationOnce(() => {
+      const req = {
+        onsuccess: null as (() => void) | null,
+        onerror: null as (() => void) | null,
+        onupgradeneeded: null,
+        error: new Error('일시적 실패'),
+      };
+      setTimeout(() => req.onerror?.(), 0);
+      return req as unknown as IDBOpenDBRequest;
+    });
+
+    await expect(storage.save('doc', presets[0]!.create())).rejects.toMatchObject({
+      name: 'SlipStorageError',
+      code: 'io',
+    });
+    spy.mockRestore();
+
+    // 실패한 열기가 캐시로 남아 있지 않아야 한다
+    await storage.save('doc', presets[0]!.create());
+    const loaded = await storage.load('doc');
+    expect(loaded.kind).toBe('template');
   });
 });

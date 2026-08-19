@@ -75,6 +75,9 @@ export class SlipViewer extends LitElement {
   }
 
   private _revokePdfUrl(): void {
+    // 진행 중인 렌더도 무효화한다 — 분리·소스 교체 후 완료되는 렌더가
+    // 회수할 수 없는 blob URL을 만드는 것을 막는다
+    this._renderGeneration++;
     if (this._pdfUrl) {
       URL.revokeObjectURL(this._pdfUrl);
       this._pdfUrl = null;
@@ -96,7 +99,8 @@ export class SlipViewer extends LitElement {
     let file: SlipFile;
     try {
       file = parseSlipFile(this.src);
-    } catch {
+    } catch (error) {
+      console.error('[slip-viewer] .slip 파싱 실패:', error);
       this._loading = false;
       this._error = strings.viewer.parseError;
       return;
@@ -109,7 +113,8 @@ export class SlipViewer extends LitElement {
       if (gen !== this._renderGeneration) return;
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._pdfUrl = URL.createObjectURL(blob);
-    } catch {
+    } catch (error) {
+      console.error('[slip-viewer] PDF 렌더링 실패:', error);
       if (gen !== this._renderGeneration) return;
       this._error = strings.viewer.renderError;
     } finally {
