@@ -44,11 +44,11 @@ const semverSchema = z
   .string()
   .regex(/^\d+\.\d+\.\d+$/, 'schemaVersion은 semver 형식이어야 합니다');
 
-/** 합이 100이어야 하는 비율 배열 (열 너비 등) */
+/** 합이 100이어야 하는 비율 배열 (열 너비 등) — 허용 오차 ±0.01 (SPEC §3, 경계 포함) */
 const percentagesSchema = z
   .array(z.number().positive())
   .min(1)
-  .refine((arr) => Math.abs(arr.reduce((a, b) => a + b, 0) - 100) < 0.01, {
+  .refine((arr) => Math.abs(arr.reduce((a, b) => a + b, 0) - 100) <= 0.01, {
     message: '비율의 합은 100이어야 합니다',
   });
 
@@ -280,6 +280,19 @@ export const slipTemplateBodySchema = z
         });
       }
       assetIds.add(asset.id);
+    });
+    // asset:// 참조 해소는 에셋 항목 자신의 src에도 적용된다 (SPEC §3.1)
+    body.assets.forEach((asset, index) => {
+      if (asset.src.startsWith('asset://')) {
+        const referencedId = asset.src.slice('asset://'.length);
+        if (!assetIds.has(referencedId)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['assets', index, 'src'],
+            message: `참조하는 에셋이 없습니다: ${referencedId}`,
+          });
+        }
+      }
     });
     // 요소 id 유일성(문서 전체) + asset:// 참조 해소 가능성
     const elementIds = new Set<string>();
