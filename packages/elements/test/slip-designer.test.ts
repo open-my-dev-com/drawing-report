@@ -579,6 +579,106 @@ describe('<slip-designer> 스냅·정렬 안내선', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 복사·붙여넣기
+// ---------------------------------------------------------------------------
+
+function toolbarButton(el: Element, label: string): HTMLButtonElement {
+  return Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
+    .find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
+}
+
+describe('<slip-designer> 복사·붙여넣기', () => {
+  it('클립보드가 비어 있으면 붙여넣기 버튼이 비활성화된다', async () => {
+    const el = await loadDesigner();
+    expect(toolbarButton(el, strings.designer.paste).disabled).toBe(true);
+
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    toolbarButton(el, strings.designer.copy).click();
+    await el.updateComplete;
+
+    expect(toolbarButton(el, strings.designer.paste).disabled).toBe(false);
+    el.remove();
+  });
+
+  it('복사한 요소를 붙여넣으면 새 id로 5mm 어긋난 위치에 추가되고 slip-change를 발행한다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    toolbarButton(el, strings.designer.copy).click();
+    await el.updateComplete;
+
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    toolbarButton(el, strings.designer.paste).click();
+    await el.updateComplete;
+
+    expect(changes.length).toBe(1);
+    const elements = changes[0]!.detail.file.template.pages[0].elements;
+    expect(elements.length).toBe(3);
+    const pasted = elements[2];
+    expect(pasted.id).not.toBe('txt-1');
+    expect(pasted.content).toBe('테스트 텍스트');
+    expect(pasted.position).toEqual({ x: 35, y: 45 });
+    // 붙여넣은 요소가 선택된다
+    expect(el.shadowRoot?.querySelector('.element.selected')?.getAttribute('data-id'))
+      .toBe(pasted.id);
+    el.remove();
+  });
+
+  it('연속 붙여넣기는 계단식으로 5mm씩 더 어긋난다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    toolbarButton(el, strings.designer.copy).click();
+    await el.updateComplete;
+
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    toolbarButton(el, strings.designer.paste).click();
+    await el.updateComplete;
+    toolbarButton(el, strings.designer.paste).click();
+    await el.updateComplete;
+
+    const elements = changes[1]!.detail.file.template.pages[0].elements;
+    expect(elements.length).toBe(4);
+    expect(elements[2].position).toEqual({ x: 35, y: 45 });
+    expect(elements[3].position).toEqual({ x: 40, y: 50 });
+    el.remove();
+  });
+
+  it('Ctrl+C / Ctrl+V 단축키로 복사·붙여넣기한다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true, bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true, bubbles: true }));
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(3);
+    el.remove();
+  });
+
+  it('붙여넣기는 되돌리기로 복구된다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    toolbarButton(el, strings.designer.copy).click();
+    await el.updateComplete;
+    toolbarButton(el, strings.designer.paste).click();
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(3);
+
+    toolbarButton(el, strings.designer.undo).click();
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 미리보기
 // ---------------------------------------------------------------------------
 

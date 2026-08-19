@@ -369,6 +369,7 @@ export class SlipDesigner extends LitElement {
   private _error: string | null = null;
   private _drag: DragState | null = null;
   private _resize: ResizeState | null = null;
+  private _clipboard: SlipElement | null = null;
   private _guideX: number | null = null;
   private _guideY: number | null = null;
   private _previewGeneration = 0;
@@ -413,6 +414,7 @@ export class SlipDesigner extends LitElement {
     this._resize = null;
     this._guideX = null;
     this._guideY = null;
+    this._clipboard = null;
 
     if (!this.src) {
       this._file = null;
@@ -544,6 +546,34 @@ export class SlipDesigner extends LitElement {
 
     elements.push(element);
     this._selectedId = id;
+    this._emitChange();
+    this.requestUpdate();
+  }
+
+  private _copySelected(): void {
+    const el = this._findSelectedElement();
+    if (!el) return;
+    this._clipboard = JSON.parse(JSON.stringify(el)) as SlipElement;
+    this.requestUpdate();
+  }
+
+  private _paste(): void {
+    const elements = this._currentElements();
+    if (!elements || !this._clipboard) return;
+
+    this._pushUndo();
+
+    const copy = JSON.parse(JSON.stringify(this._clipboard)) as SlipElement;
+    copy.id = crypto.randomUUID();
+    copy.position = {
+      x: round1(copy.position.x + 5),
+      y: round1(copy.position.y + 5),
+    };
+    // 연속으로 붙여넣으면 계단식으로 내려가도록 클립보드 위치를 갱신
+    this._clipboard.position = { ...copy.position };
+
+    elements.push(copy);
+    this._selectedId = copy.id;
     this._emitChange();
     this.requestUpdate();
   }
@@ -799,15 +829,22 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _onKeyDown = (e: KeyboardEvent): void => {
-    if (
-      (e.key === 'Delete' || e.key === 'Backspace') &&
-      this._selectedId &&
-      !(e.target instanceof HTMLInputElement) &&
-      !(e.target instanceof HTMLTextAreaElement) &&
-      !(e.target instanceof HTMLSelectElement)
-    ) {
+    // 입력 필드 안에서는 편집기 단축키를 가로채지 않는다
+    const inFormField =
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement ||
+      e.target instanceof HTMLSelectElement;
+
+    if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedId && !inFormField) {
       e.preventDefault();
       this._deleteSelected();
+    }
+    if (e.key === 'c' && (e.ctrlKey || e.metaKey) && !inFormField) {
+      this._copySelected();
+    }
+    if (e.key === 'v' && (e.ctrlKey || e.metaKey) && !inFormField) {
+      e.preventDefault();
+      this._paste();
     }
     if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
@@ -904,6 +941,12 @@ export class SlipDesigner extends LitElement {
       <span class="sep"></span>
       <button @click=${() => this._deleteSelected()} ?disabled=${!this._selectedId}>
         ${s.delete}
+      </button>
+      <button @click=${() => this._copySelected()} ?disabled=${!this._selectedId}>
+        ${s.copy}
+      </button>
+      <button @click=${() => this._paste()} ?disabled=${!this._clipboard}>
+        ${s.paste}
       </button>
       <span class="sep"></span>
       <button @click=${() => this._undo()} ?disabled=${this._undoStack.length === 0}>
