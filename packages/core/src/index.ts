@@ -1,6 +1,7 @@
 export * from './format/types.js';
 export {
   CURRENT_SCHEMA_VERSION,
+  SLIP_LIMITS,
   SlipParseError,
   parseSlipFile,
   serializeSlipFile,

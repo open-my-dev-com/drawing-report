@@ -155,7 +155,28 @@ class Parser {
     }
   }
 
+  /** 재귀 하강 깊이 제한 — 적대적 수식의 스택 오버플로 방지 (SPEC §5.6) */
+  private depth = 0;
+
+  private enter(): void {
+    if (++this.depth > MAX_FORMULA_DEPTH) {
+      throw new FormulaSyntaxError(
+        `수식 중첩이 너무 깊습니다 (최대 ${MAX_FORMULA_DEPTH}단계)`,
+        this.peek().pos,
+      );
+    }
+  }
+
   private comparison(): FormulaAst {
+    this.enter();
+    try {
+      return this.comparisonInner();
+    } finally {
+      this.depth--;
+    }
+  }
+
+  private comparisonInner(): FormulaAst {
     let left = this.additive();
     for (;;) {
       const op = this.matchOp('=', '<>', '<=', '>=', '<', '>');
@@ -184,7 +205,14 @@ class Parser {
 
   private unary(): FormulaAst {
     const op = this.matchOp('-', '+');
-    if (op) return { type: 'unary', operator: op as '-' | '+', operand: this.unary() };
+    if (op) {
+      this.enter();
+      try {
+        return { type: 'unary', operator: op as '-' | '+', operand: this.unary() };
+      } finally {
+        this.depth--;
+      }
+    }
     return this.primary();
   }
 
@@ -232,8 +260,16 @@ class Parser {
   }
 }
 
+/** 수식 문자열 최대 길이 — 적대적 수식의 토크나이저 부하 방지 (SPEC §5.6) */
+export const MAX_FORMULA_LENGTH = 10_000;
+/** 수식 최대 중첩 깊이 (괄호·함수 인자·부호 포함) — 스택 오버플로 방지 (SPEC §5.6) */
+export const MAX_FORMULA_DEPTH = 100;
+
 /** 수식 문자열을 AST로 파싱한다. 실패 시 FormulaSyntaxError. */
 export function parseFormula(source: string): FormulaAst {
   if (!source.trim()) throw new FormulaSyntaxError('빈 수식입니다', 0);
+  if (source.length > MAX_FORMULA_LENGTH) {
+    throw new FormulaSyntaxError(`수식이 너무 깁니다 (최대 ${MAX_FORMULA_LENGTH}자)`, 0);
+  }
   return new Parser(tokenize(source)).parse();
 }

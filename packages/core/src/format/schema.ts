@@ -29,6 +29,27 @@ const colorSchema = z
 
 const alignmentSchema = z.enum(['left', 'center', 'right']);
 
+/**
+ * 구조 크기 상한 (SPEC §3.2) — 적대적 파일이 렌더러·검증기의 메모리를
+ * 고갈시키지 못하도록 막는다. 상한을 넘는 파일은 파싱 단계에서 거부된다.
+ */
+export const SLIP_LIMITS = {
+  /** 문서당 최대 페이지 수 */
+  maxPages: 500,
+  /** 페이지당 최대 요소 수 */
+  maxElementsPerPage: 2000,
+  /** 문서당 최대 에셋 수 */
+  maxAssets: 1000,
+  /** 고정 그리드 최대 행 수 */
+  maxGridRows: 1000,
+  /** 고정 그리드 최대 열 수 */
+  maxGridColumns: 100,
+  /** 고정 그리드 최대 셀 수 */
+  maxGridCells: 100_000,
+  /** 동적 표 최대 열 수 */
+  maxTableColumns: 100,
+} as const;
+
 const HTTP_SRC = /^https?:\/\/\S+$/;
 const DATA_SRC = /^data:[\w.+-]+\/[\w.+-]+;base64,[A-Za-z0-9+/]+=*$/;
 const ASSET_SRC = /^asset:\/\/\S+$/;
@@ -109,13 +130,13 @@ export const fixedGridElementSchema = z
     type: z.literal('fixedGrid'),
     ...elementBaseShape,
     ...colorStyleShape,
-    rows: z.number().int().min(1),
-    columns: z.number().int().min(1),
+    rows: z.number().int().min(1).max(SLIP_LIMITS.maxGridRows, `rows는 최대 ${SLIP_LIMITS.maxGridRows}입니다`),
+    columns: z.number().int().min(1).max(SLIP_LIMITS.maxGridColumns, `columns는 최대 ${SLIP_LIMITS.maxGridColumns}입니다`),
     /** 열 너비 비율(%) — 길이 = columns, 합 100 */
     columnWidthPercentages: percentagesSchema,
     /** 행 높이 비율(%) — 생략 시 균등. 지정 시 길이 = rows, 합 100 */
     rowHeightPercentages: percentagesSchema.optional(),
-    cells: z.array(fixedGridCellSchema),
+    cells: z.array(fixedGridCellSchema).max(SLIP_LIMITS.maxGridCells, `셀 수는 최대 ${SLIP_LIMITS.maxGridCells}개입니다`),
   })
   .superRefine((grid, ctx) => {
     if (grid.columnWidthPercentages.length !== grid.columns) {
@@ -168,7 +189,7 @@ export const dynamicTableElementSchema = z
     type: z.literal('dynamicTable'),
     ...elementBaseShape,
     ...colorStyleShape,
-    head: z.array(z.string()).min(1),
+    head: z.array(z.string()).min(1).max(SLIP_LIMITS.maxTableColumns, `열 수는 최대 ${SLIP_LIMITS.maxTableColumns}개입니다`),
     headWidthPercentages: percentagesSchema,
     /** 페이지 분할 시 머리행 반복 (ADR-011) */
     repeatHead: z.boolean(),
@@ -248,7 +269,7 @@ export const assetEntrySchema = z.object({
 });
 
 export const slipPageSchema = z.object({
-  elements: z.array(slipElementSchema),
+  elements: z.array(slipElementSchema).max(SLIP_LIMITS.maxElementsPerPage, `페이지당 요소는 최대 ${SLIP_LIMITS.maxElementsPerPage}개입니다`),
 });
 
 // ---------------------------------------------------------------------------
@@ -265,8 +286,8 @@ export const slipTemplateBodySchema = z
   .object({
     meta: templateMetaSchema,
     paper: paperSchema,
-    pages: z.array(slipPageSchema).min(1),
-    assets: z.array(assetEntrySchema),
+    pages: z.array(slipPageSchema).min(1).max(SLIP_LIMITS.maxPages, `페이지는 최대 ${SLIP_LIMITS.maxPages}개입니다`),
+    assets: z.array(assetEntrySchema).max(SLIP_LIMITS.maxAssets, `에셋은 최대 ${SLIP_LIMITS.maxAssets}개입니다`),
   })
   .superRefine((body, ctx) => {
     // 에셋 id 유일성

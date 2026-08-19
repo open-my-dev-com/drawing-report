@@ -4,7 +4,7 @@
 > JSON Schema만으로 `.slip` 파일을 읽고 쓸 수 있어야 한다.
 > 레퍼런스 구현은 `@omdc-slipkit/core`이며, 이 문서와 구현이 어긋나면 이 문서가 우선한다.
 
-- 상태: **Draft** (schemaVersion `0.1.0`)
+- 상태: **Draft** (schemaVersion `0.1.1`)
 - 최종 갱신: 2026-08-19
 - 근거 ADR: 001, 007, 008, 011, 014, 018, 019, 020, 022
 
@@ -31,11 +31,12 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 모든 `.slip` 문서의 최상위에는 다음 두 필드가 **필수**다:
 
 ```json
-{ "schemaVersion": "0.1.0", "kind": "template" }
+{ "schemaVersion": "0.1.1", "kind": "template" }
 ```
 
 - `schemaVersion`: 이 문서가 따르는 스키마 버전. `MAJOR.MINOR.PATCH` semver 형식 필수.
-- 현재 버전은 **`0.1.0`**이다. 제품 v1 안정 릴리스 시점에 `1.0.0`으로 확정한다.
+- 현재 버전은 **`0.1.1`**이다. 제품 v1 안정 릴리스 시점에 `1.0.0`으로 확정한다.
+  (이력: 0.1.0 최초 공개 → 0.1.1 구조 크기 상한 추가(§3.2) — 필드 구조 변화 없음)
 
 ### 2.1 버전 처리 규칙 (ADR-007)
 
@@ -71,6 +72,28 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 `asset://<id>` 참조는 같은 문서 본문의 `assets` 배열에 해당 `id`가 **존재해야 한다**.
 (`asset://`는 추후 ZIP 컨테이너 확장의 장치이기도 하다 — ADR-007. 컨테이너가 추가되어도
 스키마는 변하지 않는다.)
+
+### 3.2 구조 크기 상한 (0.1.1)
+
+적대적으로 큰 파일이 구현의 메모리·스택을 고갈시키지 못하도록, 아래 상한을 넘는
+문서는 **거부해야 한다**:
+
+| 대상 | 상한 |
+|---|---|
+| `pages` 수 | 500 |
+| 페이지당 `elements` 수 | 2,000 |
+| `assets` 수 | 1,000 |
+| `fixedGrid.rows` | 1,000 |
+| `fixedGrid.columns` | 100 |
+| `fixedGrid.cells` 수 | 100,000 |
+| `dynamicTable.head` 길이 | 100 |
+| `field.formula` 길이 | 10,000자 |
+| 수식 중첩 깊이 (괄호·함수 인자·부호) | 100단계 |
+| 값(`values` 등)의 중첩 깊이 | 256단계 |
+
+위쪽 7개는 구조 검증(§9-1) 대상이라 동봉 JSON Schema에도 반영된다. 수식 길이·중첩과
+값 깊이는 수식 파싱·평가와 무결성 정규화 시점에 강제된다. 코드에서는 `SLIP_LIMITS`
+상수로 같은 값을 얻을 수 있다.
 
 ## 4. 양식 본문 (`template` / `templateSnapshot`)
 
@@ -166,18 +189,19 @@ PDF 렌더 시 외부 URL 참조는 거부된다 — 렌더하려면 `data:` 또
 | `formula` | — | 표시 전 가공 수식 (ADR-010/017). 예: `FORMAT_NUMBER(SUM(items.금액))` |
 
 수식 문법·함수 목록(29종)은 ADR-017을 따르며 별도 문서로 상세화한다.
+수식 길이·중첩 깊이는 §3.2 상한을 따른다 (초과 시 파싱 단계에서 거부).
 
 ## 6. 양식 파일 (`kind: "template"`)
 
 ```json
-{ "schemaVersion": "0.1.0", "kind": "template", "template": { ...양식 본문(§4)... } }
+{ "schemaVersion": "0.1.1", "kind": "template", "template": { ...양식 본문(§4)... } }
 ```
 
 ## 7. 전표 파일 (`kind: "voucher"`)
 
 ```json
 {
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.1.1",
   "kind": "voucher",
   "templateSnapshot": { ...양식 본문(§4)... },
   "values": { "total": 3000, "items": [ { "품명": "노트", "금액": 3000 } ] },

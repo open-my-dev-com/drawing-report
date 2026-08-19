@@ -17,9 +17,16 @@ export interface SlipMigrationStep {
 
 /**
  * 내장 마이그레이션 목록. 스키마가 개정될 때마다 단계를 추가한다.
- * (0.1.0이 최초 공개 버전이므로 아직 비어 있다.)
  */
-export const BUILT_IN_MIGRATIONS: readonly SlipMigrationStep[] = [];
+export const BUILT_IN_MIGRATIONS: readonly SlipMigrationStep[] = [
+  {
+    // 0.1.1: 구조 크기 상한 추가 (SPEC §3.2) — 필드 구조 변화가 없어 문서를 그대로 통과시킨다.
+    // 상한을 넘는 문서는 마이그레이션 뒤의 본문 검증에서 거부된다.
+    from: '0.1.0',
+    to: '0.1.1',
+    migrate: (document) => document,
+  },
+];
 
 export class SlipMigrationError extends Error {
   constructor(message: string) {
