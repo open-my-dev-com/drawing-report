@@ -5,7 +5,7 @@
  * 로직을 두지 않는다(ADR-003, UI는 core의 소비자). 유효성은 테스트에서
  * `parseSlipFile`로 확인한다.
  */
-import { CURRENT_SCHEMA_VERSION, type SlipElement, type SlipTemplateFile } from '@slipkit/core';
+import { CURRENT_SCHEMA_VERSION, type SlipElement, type SlipTemplateFile } from '@omdc-slipkit/core';
 import { strings } from './strings.js';
 
 export interface SlipPreset {

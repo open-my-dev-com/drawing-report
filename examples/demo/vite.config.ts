@@ -7,8 +7,8 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
-      '@slipkit/core': r('../../packages/core/src/index.ts'),
-      '@slipkit/elements': r('../../packages/elements/src/index.ts'),
+      '@omdc-slipkit/core': r('../../packages/core/src/index.ts'),
+      '@omdc-slipkit/elements': r('../../packages/elements/src/index.ts'),
     },
   },
   server: { port: 5173 },

@@ -1,5 +1,5 @@
 {
-  "name": "@slipkit/elements",
+  "name": "@omdc-slipkit/elements",
   "version": "0.0.1",
   "description": "SlipKit Web Component UI — <slip-designer>, <slip-viewer> 등 (Lit)",
   "type": "module",
@@ -20,7 +20,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@slipkit/core": "workspace:*",
+    "@omdc-slipkit/core": "workspace:*",
     "lit": "^3.2.0"
   },
   "devDependencies": {

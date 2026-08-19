@@ -1,6 +1,6 @@
 # SlipKit (drawing-report) — 개발 규칙
 
-UI로 전표 양식을 만들고 채워서 인쇄·PDF 출력하는 임베드형 패키지(`@slipkit/*`).
+UI로 전표 양식을 만들고 채워서 인쇄·PDF 출력하는 임베드형 패키지(`@omdc-slipkit/*`).
 pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `vue`.
 
 이 파일과 `.claude/rules/`의 규칙은 **모든 Claude Code 세션에 강제 적용**된다 (ADR-024).
@@ -31,7 +31,7 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
 ## 코드 불변 규칙 (경로 무관)
 
 - 수식은 자체 파서만 사용. `eval`·`new Function` 절대 금지 (ADR-010).
-- `@slipkit/core`는 순수 TS — DOM·브라우저·프레임워크 API 의존 금지 (ADR-002).
+- `@omdc-slipkit/core`는 순수 TS — DOM·브라우저·프레임워크 API 의존 금지 (ADR-002).
 - pdfme 타입·API를 공개 API에 노출 금지 (ADR-016).
 - **용어·문구·설정값 변경 시 SSOT 준수**: 한 곳에서 정의되고 여러 곳에서 쓰이는 것(용어,
   UI 문구, 상수 등)을 바꿀 때는 문서(SPEC·DECISIONS·REQUIREMENTS·ROADMAP)·코드 주석·

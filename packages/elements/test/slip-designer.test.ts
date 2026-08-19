@@ -1,14 +1,14 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('@slipkit/core', () => ({
+vi.mock('@omdc-slipkit/core', () => ({
   parseSlipFile: vi.fn(),
   renderSlipToPdf: vi.fn(),
   CURRENT_SCHEMA_VERSION: '0.1.0',
 }));
 
-import { parseSlipFile, renderSlipToPdf } from '@slipkit/core';
-import type { SlipFile, SlipTemplateFile } from '@slipkit/core';
+import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
+import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
 import { strings } from '../src/strings.js';
 
 const parseSlipFileMock = vi.mocked(parseSlipFile);

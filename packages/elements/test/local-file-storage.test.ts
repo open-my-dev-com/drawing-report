@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { serializeSlipFile } from '@slipkit/core';
+import { serializeSlipFile } from '@omdc-slipkit/core';
 import { LocalFileStorage } from '../src/storage/local-file-storage.js';
 import { presets } from '../src/presets.js';
 

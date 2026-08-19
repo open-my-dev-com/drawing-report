@@ -2,7 +2,7 @@
 
 > `.slip` 파일의 **공개 규범 명세**다 (ADR-022). 타 시스템은 이 문서와 동봉된
 > JSON Schema만으로 `.slip` 파일을 읽고 쓸 수 있어야 한다.
-> 레퍼런스 구현은 `@slipkit/core`이며, 이 문서와 구현이 어긋나면 이 문서가 우선한다.
+> 레퍼런스 구현은 `@omdc-slipkit/core`이며, 이 문서와 구현이 어긋나면 이 문서가 우선한다.
 
 - 상태: **Draft** (schemaVersion `0.1.0`)
 - 최종 갱신: 2026-08-19
@@ -206,7 +206,7 @@ PDF 렌더 시 외부 URL 참조는 거부된다 — 렌더하려면 `data:` 또
 
 ## 8. 무결성 (ADR-019)
 
-> 이 절이 규범이며, 계산 구현은 `@slipkit/core`의 integrity 모듈에서 제공된다
+> 이 절이 규범이며, 계산 구현은 `@omdc-slipkit/core`의 integrity 모듈에서 제공된다
 > (로드맵 `feat/core-integrity`).
 
 ### 8.1 정규화 (canonicalization)
@@ -242,7 +242,7 @@ PDF 렌더 시 외부 URL 참조는 거부된다 — 렌더하려면 `data:` 또
 
 ## 10. JSON Schema 동봉 (ADR-022)
 
-`@slipkit/core` 패키지의 `schemas/` 디렉터리에 Zod 스키마에서 산출한
+`@omdc-slipkit/core` 패키지의 `schemas/` 디렉터리에 Zod 스키마에서 산출한
 JSON Schema(draft 2020-12)를 동봉한다:
 
 - `schemas/slip-<schemaVersion>.schema.json` — 버전별
@@ -250,7 +250,7 @@ JSON Schema(draft 2020-12)를 동봉한다:
 - `$id`: `urn:slipkit:schema:slip:<schemaVersion>`
 
 코드에서는 `slipFileJsonSchema()`로 같은 것을 얻을 수 있다.
-재생성: `pnpm --filter @slipkit/core build && pnpm --filter @slipkit/core generate:schemas`.
+재생성: `pnpm --filter @omdc-slipkit/core build && pnpm --filter @omdc-slipkit/core generate:schemas`.
 
 ## 11. 확장 예약 (비규범)
 

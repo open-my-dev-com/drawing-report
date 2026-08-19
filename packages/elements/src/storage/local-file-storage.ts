@@ -12,7 +12,7 @@ import {
   type SlipFile,
   type SlipListPage,
   type StorageAdapter,
-} from '@slipkit/core';
+} from '@omdc-slipkit/core';
 import { strings } from '../strings.js';
 
 export class LocalFileStorage implements StorageAdapter {

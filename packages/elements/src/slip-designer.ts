@@ -7,7 +7,7 @@ import {
   type SlipTemplateFile,
   type SlipElement,
   type RenderOptions,
-} from '@slipkit/core';
+} from '@omdc-slipkit/core';
 import { strings } from './strings.js';
 import { presets } from './presets.js';
 

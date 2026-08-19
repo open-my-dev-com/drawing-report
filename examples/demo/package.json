@@ -8,8 +8,8 @@
     "dev": "vite"
   },
   "dependencies": {
-    "@slipkit/core": "workspace:*",
-    "@slipkit/elements": "workspace:*"
+    "@omdc-slipkit/core": "workspace:*",
+    "@omdc-slipkit/elements": "workspace:*"
   },
   "devDependencies": {
     "vite": "^7.1.0"

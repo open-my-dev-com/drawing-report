@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { createApp, h } from 'vue';
-import type { SlipFile } from '@slipkit/core';
+import type { SlipFile } from '@omdc-slipkit/core';
 import { SlipDesigner, SlipViewer } from '../src/index.js';
 
 const DUMMY_FONTS = { demo: { data: new Uint8Array([1]) } };
@@ -13,7 +13,7 @@ function mount(node: ReturnType<typeof h>): HTMLElement {
   return container;
 }
 
-describe('@slipkit/vue 래퍼', () => {
+describe('@omdc-slipkit/vue 래퍼', () => {
   it('SlipViewer는 slip-viewer 엘리먼트에 src·fonts를 전달한다', () => {
     const container = mount(h(SlipViewer, { src: '', fonts: DUMMY_FONTS }));
     const el = container.querySelector('slip-viewer') as HTMLElement & {

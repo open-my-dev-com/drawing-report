@@ -14,7 +14,7 @@ import {
   type SlipListItem,
   type SlipListPage,
   type StorageAdapter,
-} from '@slipkit/core';
+} from '@omdc-slipkit/core';
 import { strings } from '../strings.js';
 
 interface SlipRecord {

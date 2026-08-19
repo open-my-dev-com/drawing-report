@@ -2,8 +2,8 @@
  * SlipKit 데모 — 디자이너·저장소 어댑터를 실제 사용 흐름 그대로 보여준다.
  * 여기 있는 코드가 곧 호스트 앱이 SlipKit을 붙이는 방법의 예시다.
  */
-import { presets, IndexedDbStorage, LocalFileStorage } from '@slipkit/elements';
-import { serializeSlipFile, SlipStorageError, type SlipFile } from '@slipkit/core';
+import { presets, IndexedDbStorage, LocalFileStorage } from '@omdc-slipkit/elements';
+import { serializeSlipFile, SlipStorageError, type SlipFile } from '@omdc-slipkit/core';
 
 const designer = document.getElementById('designer') as HTMLElement & { src: string };
 const statusEl = document.getElementById('status')!;
