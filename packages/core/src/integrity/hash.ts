@@ -3,7 +3,7 @@ import { SlipIntegrityError } from './errors.js';
 /**
  * 바이트의 SHA-256 해시를 계산한다.
  *
- * @param data 해시할 바이트
+ * @param data - 해시할 바이트
  * @returns SHA-256 해시 (소문자 hex 64자)
  * @throws SlipIntegrityError Web Crypto API를 쓸 수 없는 환경이면
  */

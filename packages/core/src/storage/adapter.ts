@@ -42,15 +42,15 @@ export interface StorageAdapter {
   /**
    * 파일을 저장한다. 같은 id가 이미 있으면 덮어쓴다.
    *
-   * @param id 저장 키
-   * @param file 저장할 .slip 파일
+   * @param id - 저장 키
+   * @param file - 저장할 .slip 파일
    * @throws SlipStorageError 저장 실패(io)·미지원(unsupported) 시
    */
   save(id: string, file: SlipFile): Promise<void>;
   /**
    * id의 파일을 불러온다.
    *
-   * @param id 저장 키
+   * @param id - 저장 키
    * @returns 불러온 .slip 파일
    * @throws SlipStorageError 없음(not-found)·읽기 실패(io) 시
    */
@@ -58,15 +58,15 @@ export interface StorageAdapter {
   /**
    * id의 파일을 삭제한다.
    *
-   * @param id 저장 키
+   * @param id - 저장 키
    * @throws SlipStorageError 삭제 실패(io)·미지원(unsupported) 시
    */
   delete(id: string): Promise<void>;
   /**
    * 저장된 파일 목록을 페이징해 돌려준다.
    *
-   * @param filter 종류·검색어 필터 (생략하면 전체)
-   * @param cursor 이전 페이지가 돌려준 nextCursor (생략하면 첫 페이지)
+   * @param filter - 종류·검색어 필터 (생략하면 전체)
+   * @param cursor - 이전 페이지가 돌려준 nextCursor (생략하면 첫 페이지)
    * @returns 목록 한 페이지
    * @throws SlipStorageError 조회 실패(io)·미지원(unsupported) 시
    */
@@ -78,15 +78,15 @@ export interface VersionedStorageAdapter extends StorageAdapter {
   /**
    * id의 저장 버전 이력을 돌려준다.
    *
-   * @param id 저장 키
+   * @param id - 저장 키
    * @returns 버전 식별자·저장 시각 목록
    */
   listVersions(id: string): Promise<{ version: string; savedAt: string }[]>;
   /**
    * 특정 버전의 파일을 불러온다.
    *
-   * @param id 저장 키
-   * @param version listVersions가 돌려준 버전 식별자
+   * @param id - 저장 키
+   * @param version - listVersions가 돌려준 버전 식별자
    * @returns 해당 버전의 .slip 파일
    */
   loadVersion(id: string, version: string): Promise<SlipFile>;
@@ -95,7 +95,7 @@ export interface VersionedStorageAdapter extends StorageAdapter {
 /**
  * 어댑터가 버전 이력을 지원하는지 판별한다 (타입 좁히기).
  *
- * @param adapter 검사할 어댑터
+ * @param adapter - 검사할 어댑터
  * @returns 버전 이력 메서드를 구현했으면 true
  */
 export function supportsVersions(adapter: StorageAdapter): adapter is VersionedStorageAdapter {

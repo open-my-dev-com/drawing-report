@@ -145,8 +145,8 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
 /**
  * 수식을 평가한다.
  *
- * @param source 수식 문자열 또는 미리 파싱한 AST
- * @param context 실행 문맥 (전표 values·기준 시각·로케일)
+ * @param source - 수식 문자열 또는 미리 파싱한 AST
+ * @param context - 실행 문맥 (전표 values·기준 시각·로케일)
  * @returns 평가 결과 값
  * @throws FormulaSyntaxError 문자열 파싱 중 문법 오류 시
  * @throws FormulaEvalError 타입 불일치·0 나눗셈 등 평가 오류 시

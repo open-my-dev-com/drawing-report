@@ -31,7 +31,7 @@ export interface SlipPdfRenderer {
    * - `kind: 'template'` — 값이 비어 있는 빈 양식으로 렌더
    * - `kind: 'voucher'` — `templateSnapshot` + `values`로 렌더 (ADR-008)
    *
-   * @param file 렌더할 .slip 파일
+   * @param file - 렌더할 .slip 파일
    * @returns PDF 파일 바이트
    */
   renderToPdf(file: SlipFile): Promise<Uint8Array>;

@@ -1,10 +1,10 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-19 (주석 표준 TSDoc 확정 — ADR-029. v1 로드맵 전체 완료 + 후속 정리 진행 중)
+최종 갱신: 2026-08-19 (TSDoc 형식 lint 게이트 도입 — ADR-030, Q-11 해결. v1 로드맵 전체 완료)
 
 ## 현재 상태
 
-- 요구사항·설계 결정 **전부 확정** (ADR-001~029) — [DECISIONS.md](DECISIONS.md)
+- 요구사항·설계 결정 **전부 확정** (ADR-001~030) — [DECISIONS.md](DECISIONS.md)
 - `main` = 기준 브랜치 (부트스트랩 브랜치를 개명). 이후 작업은 [`.claude/rules/branching.md`](../.claude/rules/branching.md) 규칙대로 분기
 - pnpm 모노레포 스캐폴딩 완료(4패키지 빌드·타입체크·테스트 통과) — PR [#1](https://github.com/open-my-dev-com/drawing-report/pull/1)
 - **파일 포맷 완료**: [SPEC.md](SPEC.md) 규범 명세 + `.slip` 본문 상세 Zod 스키마(요소 6종·발행 규칙 검증) + schemaVersion 마이그레이션 계층 + JSON Schema 산출·동봉 (ADR-007/008/014/019/020/022)
@@ -19,7 +19,8 @@
 - **저장소 어댑터 완료**: 인터페이스(`StorageAdapter`)·오류(`SlipStorageError`)는 core, 브라우저 구현 2종은 elements — `IndexedDbStorage`(save/load/delete/list, 제목·종류 필터, 커서 페이징) + `LocalFileStorage`(save=다운로드, load=파일 선택, delete/list는 `unsupported` 오류) (ADR-021/025, Q-09 해결)
 - **국제화 반영 완료**: 수식 포맷 함수 로케일 지정(`RenderOptions.locale`, ADR-013) + UI 영어 사전·`locale` 전환(뷰어·디자이너·래퍼·저장소 어댑터, 기본 한국어, ADR-028)
 - **디자이너 다중 페이지 완료**: 툴바에서 페이지 전환(◀ 1/2 ▶)·추가·삭제(최소 1페이지 유지). 요소 편집·추가·붙여넣기는 현재 페이지 대상, 페이지 조작도 되돌리기 지원 (ADR-026, Q-10 해결)
-- **주석 표준 TSDoc 완료**: 선언 설명 주석은 TSDoc 블록, 구현 설명은 `//` 유지 (ADR-029, 규칙 `.claude/rules/comments.md`). 공개 API 전체에 문서 주석 채움 + 주요 함수에 `@throws`·`@param` 보강. 기계 검증(eslint-plugin-tsdoc) 도입 여부는 Q-11로 미결
+- **주석 표준 TSDoc 완료**: 선언 설명 주석은 TSDoc 블록, 구현 설명은 `//` 유지 (ADR-029, 규칙 `.claude/rules/comments.md`). 공개 API 전체에 문서 주석 채움 + 공개 함수에 `@param`·`@returns`·`@throws` 기본 채움
+- **TSDoc 형식 lint 게이트 완료**: eslint 최소 구성(`tsdoc/syntax` 단일 규칙) 도입, 검증 게이트가 `pnpm lint && pnpm -r typecheck && build && test` 4단계로 확장 (ADR-030, Q-11 해결). `@param`·`@returns` 누락은 도구가 못 잡으므로 지침·리뷰로 유지
 
 ## 다음 작업 (권장 순서)
 

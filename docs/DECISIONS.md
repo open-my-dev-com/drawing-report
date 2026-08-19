@@ -282,3 +282,22 @@
   혼용하고 있어(TSDoc 블록 약 150개, 선언 위 `//` 주석 혼재) 표준을 정해 통일한다.
 - **보류**: eslint-plugin-tsdoc 기계 검증 도입은 리포에 처음으로 lint 도구를 넣는 검증 게이트
   구성 변경이라 별도 쟁점(Q-11)으로 분리했다.
+
+## ADR-030: TSDoc 형식 기계 검증 도입 (eslint + tsdoc/syntax만)
+
+- 상태: 확정 (2026-08-19) — OPEN Q-11 해결
+- **결정**: 리포 루트에 eslint 최소 구성을 추가하고 규칙은 `tsdoc/syntax`(eslint-plugin-tsdoc)
+  **하나만** 켠다. `pnpm lint`를 검증 게이트 맨 앞 단계로 추가한다
+  (`pnpm lint && pnpm -r typecheck && pnpm -r build && pnpm -r test`) — 커밋 훅(bash-guard)도
+  같은 명령을 강제한다.
+  - 잡는 것: 오탈자·비표준 태그, JSDoc식 타입 중괄호(`@param {string}`), `@param 이름 - 설명`의
+    하이픈 누락, 이스케이프 안 된 `<`·`>` 등 TSDoc 문법 위반.
+  - 안 잡는 것: `@param`·`@returns` 누락, 매개변수 이름 불일치 — 지침
+    ([`.claude/rules/comments.md`](../.claude/rules/comments.md))과 리뷰로 유지한다.
+- **근거**: 최신 eslint-plugin-tsdoc(0.5.2, 2026-02)까지 규칙이 `syntax` 하나뿐임을 패키지
+  소스로 직접 확인했다. 누락 검사까지 하려면 eslint-plugin-jsdoc 조합이 필요한데, 사용자가
+  구성 단순함을 우선해 tsdoc 플러그인만 넣는 쪽을 선택했다 (2026-08-19). 도입 직후 첫 실행에서
+  형식 위반 61건(하이픈 누락 등)을 잡아 수정했다 — 형식 검사만으로도 실효가 있음을 확인.
+- **기각된 대안**: ① 도입하지 않음(지침만) — 형식 오탈자를 사람이 계속 잡아야 함,
+  ② eslint-plugin-jsdoc 조합(누락까지 강제) — 검사 범위는 넓지만 JSDoc 방언 옵션 조정 등
+  구성이 복잡해짐. 필요해지면 규칙 추가로 확장 가능.

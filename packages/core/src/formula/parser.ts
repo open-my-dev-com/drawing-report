@@ -2,13 +2,15 @@
  * 수식 파서 (ADR-010: 자체 파서, 임의 코드 실행 절대 금지).
  *
  * 문법 (엑셀 스타일):
- *   expr    := cmp
- *   cmp     := add (('=' | '<>' | '<=' | '>=' | '<' | '>') add)*
- *   add     := mul (('+' | '-') mul)*
- *   mul     := unary (('*' | '/') unary)*
- *   unary   := ('-' | '+') unary | primary
- *   primary := number | string | TRUE | FALSE | FUNC '(' args ')' | ref | '(' expr ')'
- *   ref     := ident ('.' ident)*        — 전표 values 참조 (예: items.금액)
+ * ```
+ * expr    := cmp
+ * cmp     := add (('=' | '<>' | '<=' | '>=' | '<' | '>') add)*
+ * add     := mul (('+' | '-') mul)*
+ * mul     := unary (('*' | '/') unary)*
+ * unary   := ('-' | '+') unary | primary
+ * primary := number | string | TRUE | FALSE | FUNC '(' args ')' | ref | '(' expr ')'
+ * ref     := ident ('.' ident)*        — 전표 values 참조 (예: items.금액)
+ * ```
  *
  * 문자열 리터럴은 큰따옴표, 내부 큰따옴표는 "" 로 이스케이프한다.
  * 식별자는 유니코드 문자(한글 포함)·숫자·언더스코어, 숫자로 시작 불가.
@@ -272,7 +274,7 @@ export const MAX_FORMULA_DEPTH = 100;
 /**
  * 수식 문자열을 AST로 파싱한다.
  *
- * @param source 수식 문자열 (예: `SUM(items.금액) * 1.1`)
+ * @param source - 수식 문자열 (예: `SUM(items.금액) * 1.1`)
  * @returns 파싱된 구문 트리
  * @throws FormulaSyntaxError 문법 오류·미등록 함수·길이/깊이 제한 초과 시
  */

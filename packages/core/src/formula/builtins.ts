@@ -38,8 +38,8 @@ function describe(value: FormulaValue): string {
 /**
  * 값을 숫자로 강제 변환한다 — 숫자 문자열 허용, 빈 값은 0.
  *
- * @param value 변환할 수식 값
- * @param what 오류 메시지에 쓸 대상 이름 (예: '집계 대상')
+ * @param value - 변환할 수식 값
+ * @param what - 오류 메시지에 쓸 대상 이름 (예: '집계 대상')
  * @returns 변환된 숫자
  * @throws FormulaEvalError 숫자로 볼 수 없는 값이면
  */
@@ -66,7 +66,7 @@ function toText(value: FormulaValue): string {
 /**
  * 값을 조건(논리값)으로 강제 변환한다 — 숫자는 0이 아니면 참, 빈 값은 거짓.
  *
- * @param value 변환할 수식 값
+ * @param value - 변환할 수식 값
  * @returns 변환된 논리값
  * @throws FormulaEvalError 문자열·범위 등 논리값으로 볼 수 없는 값이면
  */

@@ -48,7 +48,9 @@
 
 **"PDF 엔진만 pdfme 채택, UI·포맷·서명·수식은 자체 개발"로 확정. ADR-016 및 평가 보고서 docs/Q08-PDFME-EVAL.md 참조.**
 
-## Q-11. TSDoc 형식 기계 검증(eslint-plugin-tsdoc) 도입 여부
+## ~~Q-11. TSDoc 형식 기계 검증(eslint-plugin-tsdoc) 도입 여부~~ → 해결됨 (2026-08-19)
+
+**eslint + `tsdoc/syntax` 단일 규칙 최소 구성으로 도입, 게이트 맨 앞에 `pnpm lint` 추가. ADR-030 참조.**
 
 - 현재 TSDoc 표준(ADR-029)은 지침(`.claude/rules/comments.md`)으로만 유도한다.
   eslint + eslint-plugin-tsdoc을 추가하면 잘못된 태그·형식 오류를 기계적으로 잡을 수 있으나,
