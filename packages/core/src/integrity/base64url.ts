@@ -12,7 +12,7 @@ for (let i = 0; i < ENC.length; i++) DEC[ENC.charCodeAt(i)] = i;
 /**
  * 바이트를 base64url 문자열로 인코딩한다.
  *
- * @param bytes 인코딩할 바이트
+ * @param bytes - 인코딩할 바이트
  * @returns base64url 문자열 (패딩 없음)
  */
 export function base64urlEncode(bytes: Uint8Array): string {
@@ -36,7 +36,7 @@ export function base64urlEncode(bytes: Uint8Array): string {
 /**
  * base64url 문자열을 바이트로 디코딩한다.
  *
- * @param str base64url 문자열 (패딩 없음)
+ * @param str - base64url 문자열 (패딩 없음)
  * @returns 디코딩된 바이트
  */
 export function base64urlDecode(str: string): Uint8Array {
@@ -74,7 +74,7 @@ export function base64urlDecode(str: string): Uint8Array {
 /**
  * UTF-8 문자열을 base64url로 인코딩한다 (JWS 페이로드용).
  *
- * @param str 인코딩할 문자열
+ * @param str - 인코딩할 문자열
  * @returns base64url 문자열 (패딩 없음)
  */
 export function base64urlEncodeString(str: string): string {

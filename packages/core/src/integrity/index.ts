@@ -22,7 +22,7 @@ export { canonicalize } from './jcs.js';
  * 전표의 contentHash를 계산한다 — integrity 필드를 뺀 나머지를 JCS 정규화한
  * 바이트의 SHA-256 (소문자 hex, SPEC §8).
  *
- * @param voucher 해시를 계산할 전표 파일
+ * @param voucher - 해시를 계산할 전표 파일
  * @returns SHA-256 해시 (소문자 hex 64자)
  * @throws SlipIntegrityError 정규화 불가(중첩 깊이 초과 등) 시
  */
@@ -43,8 +43,8 @@ export async function computeContentHash(voucher: SlipVoucherFile): Promise<stri
 /**
  * 발행 시 기록할 무결성 값을 만든다 — 해시 필수, 개인키를 주면 JWS(ES256) 서명 포함.
  *
- * @param voucher 무결성을 기록할 전표 파일
- * @param privateKey 서명에 쓸 개인키 (생략하면 해시만 기록)
+ * @param voucher - 무결성을 기록할 전표 파일
+ * @param privateKey - 서명에 쓸 개인키 (생략하면 해시만 기록)
  * @returns integrity 필드에 넣을 값
  * @throws SlipIntegrityError 정규화 불가·키 오류·Web Crypto 미지원 시
  */
@@ -64,8 +64,8 @@ export async function computeIntegrity(
  * 전표의 무결성 기록을 검증한다 — 해시 재계산 대조, 서명이 있으면 공개키로 서명까지 확인.
  * 통과하면 조용히 끝나고, 문제가 있으면 오류를 던진다.
  *
- * @param voucher 검증할 전표 파일 (integrity 필드 포함)
- * @param publicKey 서명 검증에 쓸 공개키 (서명이 있는 파일이면 필수)
+ * @param voucher - 검증할 전표 파일 (integrity 필드 포함)
+ * @param publicKey - 서명 검증에 쓸 공개키 (서명이 있는 파일이면 필수)
  * @throws SlipIntegrityError 기록 없음·해시 불일치·서명 검증 실패·공개키 누락 시
  */
 export async function verifyIntegrity(
