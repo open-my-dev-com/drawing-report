@@ -12,7 +12,7 @@
 
 | 항목 | 내용 | 근거 |
 |---|---|---|
-| 제품명 | **SlipKit** — npm 스코프 `@slipkit/*`, 파일 확장자 `.slip`, 커스텀 엘리먼트 접두사 `slip-*` | ADR-018 |
+| 제품명 | **SlipKit** — npm 스코프 `@omdc-slipkit/*`, 파일 확장자 `.slip`, 커스텀 엘리먼트 접두사 `slip-*` | ADR-018, ADR-027 |
 | 제품 성격 | **범용 양식 엔진**. 문서형 전표(거래명세서·청구서·견적서 등)와 회계형 전표를 모두 "양식(템플릿)"으로 표현할 수 있어야 한다 | ADR-001 |
 | 사용 형태 | 외부 프로젝트가 npm 등으로 **설치(install)해서 자신의 앱에 임베드**하는 패키지. 독립 실행 앱이 아니다 | ADR-002 |
 | 주 사용자 | **양식 제작: 일반 사용자(비개발자)** — GUI 디자이너 필수. 전표 작성/조회: 일반 사용자 | ADR-005 |
@@ -21,7 +21,7 @@
 
 | 항목 | 내용 | 근거 |
 |---|---|---|
-| 패키지 구조 | 계층형 모노레포: `@slipkit/core`(순수 TS 로직) / `@slipkit/elements`(Web Component UI) / `@slipkit/react`·`@slipkit/vue`(얇은 래퍼) | ADR-002, ADR-003, ADR-018 |
+| 패키지 구조 | 계층형 모노레포: `@omdc-slipkit/core`(순수 TS 로직) / `@omdc-slipkit/elements`(Web Component UI) / `@omdc-slipkit/react`·`@omdc-slipkit/vue`(얇은 래퍼) | ADR-002, ADR-003, ADR-018, ADR-027 |
 | UI 배포 형태 | **Web Component**(`<slip-designer>`, `<slip-viewer>` 등)로 배포하여 호스트 앱의 프레임워크와 무관하게 동작. React/Vue 사용자를 위한 얇은 래퍼 패키지를 별도 제공 | ADR-003 |
 | UI 내부 구현 | **Lit** (외부 API에는 영향 없는 내부 선택) | ADR-015 |
 | core의 위치 | 파일 포맷 스키마·검증·마이그레이션·수식 평가·레이아웃 엔진·PDF 렌더러는 전부 core(순수 TS, DOM 비의존)에 둔다. UI는 core의 소비자일 뿐이다 | ADR-003, ADR-011 |

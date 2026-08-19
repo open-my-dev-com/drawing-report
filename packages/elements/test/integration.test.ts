@@ -15,7 +15,7 @@ import {
   verifyIntegrity,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@slipkit/core';
+} from '@omdc-slipkit/core';
 import { SlipDesigner, presets, IndexedDbStorage } from '../src/index.js';
 import { strings } from '../src/strings.js';
 

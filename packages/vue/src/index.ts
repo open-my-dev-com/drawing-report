@@ -1,7 +1,7 @@
-import '@slipkit/elements';
+import '@omdc-slipkit/elements';
 import { defineComponent, h, type PropType } from 'vue';
-import type { SlipViewer as SlipViewerElement } from '@slipkit/elements';
-import type { SlipFile } from '@slipkit/core';
+import type { SlipViewer as SlipViewerElement } from '@omdc-slipkit/elements';
+import type { SlipFile } from '@omdc-slipkit/core';
 
 type SlipFonts = SlipViewerElement['fonts'];
 

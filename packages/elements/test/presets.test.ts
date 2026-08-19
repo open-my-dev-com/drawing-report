@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSlipFile } from '@slipkit/core';
+import { parseSlipFile } from '@omdc-slipkit/core';
 import { presets } from '../src/presets.js';
 import { strings } from '../src/strings.js';
 

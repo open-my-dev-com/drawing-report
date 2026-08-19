@@ -4,7 +4,7 @@ import {
   renderSlipToPdf,
   type RenderOptions,
   type SlipFile,
-} from '@slipkit/core';
+} from '@omdc-slipkit/core';
 import { strings } from './strings.js';
 
 /**

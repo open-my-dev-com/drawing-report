@@ -1,7 +1,7 @@
-import '@slipkit/elements';
+import '@omdc-slipkit/elements';
 import { createElement, useEffect, useRef } from 'react';
-import type { SlipViewer as SlipViewerElement, SlipDesigner as SlipDesignerElement } from '@slipkit/elements';
-import type { SlipFile } from '@slipkit/core';
+import type { SlipViewer as SlipViewerElement, SlipDesigner as SlipDesignerElement } from '@omdc-slipkit/elements';
+import type { SlipFile } from '@omdc-slipkit/core';
 
 type SlipFonts = SlipViewerElement['fonts'];
 

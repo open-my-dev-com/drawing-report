@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { SlipFile } from '@slipkit/core';
+import type { SlipFile } from '@omdc-slipkit/core';
 import { SlipDesigner, SlipViewer, type SlipViewerProps } from '../src/index.js';
 
 (globalThis as Record<string, unknown>)['IS_REACT_ACT_ENVIRONMENT'] = true;
@@ -19,7 +19,7 @@ function render(node: Parameters<ReturnType<typeof createRoot>['render']>[0]): H
 
 const DUMMY_FONTS = { demo: { data: new Uint8Array([1]) } } as unknown as SlipViewerProps['fonts'];
 
-describe('@slipkit/react 래퍼', () => {
+describe('@omdc-slipkit/react 래퍼', () => {
   it('SlipViewer는 slip-viewer 엘리먼트에 src·fonts를 전달한다', () => {
     const container = render(createElement(SlipViewer, { src: '', fonts: DUMMY_FONTS }));
     const el = container.querySelector('slip-viewer') as HTMLElement & {

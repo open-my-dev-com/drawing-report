@@ -3,7 +3,7 @@ paths:
   - "packages/core/**"
 ---
 
-# @slipkit/core 규칙
+# @omdc-slipkit/core 규칙
 
 - **순수 TS만.** `window`·`document`·DOM API·브라우저 전역·프레임워크 API 사용 금지 (ADR-002).
   Node 전용 API도 라이브러리 코드에는 금지 (scripts/·테스트는 예외).
@@ -15,7 +15,7 @@ paths:
   1. `docs/SPEC.md` 갱신 (SPEC이 규범 — 구현과 어긋나면 SPEC 우선)
   2. `src/format/version.ts`의 `CURRENT_SCHEMA_VERSION` 상향
   3. `src/format/migrate.ts`에 이전 버전으로부터의 마이그레이션 단계 추가 + 테스트
-  4. JSON Schema 재생성: `pnpm --filter @slipkit/core build && pnpm --filter @slipkit/core generate:schemas`,
+  4. JSON Schema 재생성: `pnpm --filter @omdc-slipkit/core build && pnpm --filter @omdc-slipkit/core generate:schemas`,
      `schemas/` 산출물 커밋
 - **pdfme 외부 비공개** (ADR-016): pdfme 타입·API를 공개 API(`src/index.ts` 수출)에 노출 금지.
   pdfme 의존은 렌더러 인터페이스 구현 내부에만 두고, 변환 계층에서 스타일 기본값 병합 필수

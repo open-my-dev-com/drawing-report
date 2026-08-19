@@ -1,7 +1,7 @@
 {
-  "name": "@slipkit/react",
+  "name": "@omdc-slipkit/react",
   "version": "0.0.1",
-  "description": "SlipKit React 얇은 래퍼 — @slipkit/elements의 커스텀 엘리먼트를 React 관례로 노출",
+  "description": "SlipKit React 얇은 래퍼 — @omdc-slipkit/elements의 커스텀 엘리먼트를 React 관례로 노출",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,8 +20,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@slipkit/core": "workspace:*",
-    "@slipkit/elements": "workspace:*"
+    "@omdc-slipkit/core": "workspace:*",
+    "@omdc-slipkit/elements": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=19"

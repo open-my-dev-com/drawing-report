@@ -1,10 +1,10 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-19 (결합 테스트·데모 앱 완료 — **v1 로드맵 전체 완료**)
+최종 갱신: 2026-08-19 (npm 패키지명 @omdc-slipkit/*로 변경 — ADR-027. v1 로드맵 전체 완료)
 
 ## 현재 상태
 
-- 요구사항·설계 결정 **전부 확정** (ADR-001~025) — [DECISIONS.md](DECISIONS.md)
+- 요구사항·설계 결정 **전부 확정** (ADR-001~027) — [DECISIONS.md](DECISIONS.md)
 - `main` = 기준 브랜치 (부트스트랩 브랜치를 개명). 이후 작업은 [`.claude/rules/branching.md`](../.claude/rules/branching.md) 규칙대로 분기
 - pnpm 모노레포 스캐폴딩 완료(4패키지 빌드·타입체크·테스트 통과) — PR [#1](https://github.com/open-my-dev-com/drawing-report/pull/1)
 - **파일 포맷 완료**: [SPEC.md](SPEC.md) 규범 명세 + `.slip` 본문 상세 Zod 스키마(요소 6종·발행 규칙 검증) + schemaVersion 마이그레이션 계층 + JSON Schema 산출·동봉 (ADR-007/008/014/019/020/022)
