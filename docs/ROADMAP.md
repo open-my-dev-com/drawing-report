@@ -1,6 +1,6 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-19 (디자이너 스냅·크기 조절 추가)
+최종 갱신: 2026-08-19 (마무리 단계 작업 추가 — 총괄 리뷰·보안 점검·결합 테스트)
 
 ## 현재 상태
 
@@ -29,6 +29,17 @@
    - `feat/elements-designer-clipboard` — 복사·붙여넣기
    - `feat/elements-designer-presets` — 거래명세서·청구서 프리셋
 8. `feat/core-storage-adapters` — 로컬 파일·IndexedDB 어댑터 (ADR-021)
+
+### 마무리 단계 (기능 작업 전부 완료 후)
+
+9. `chore/repo-final-review` — 총괄 리뷰·시스템 점검·보안 점검
+   - 전 패키지 코드 총괄 리뷰: 공개 API·문서(SPEC·DECISIONS·REQUIREMENTS) 일치 확인, 중복·미사용 코드 정리
+   - 시스템 점검: 전 패키지 빌드·타입·테스트 상태, 패키지 간 의존 방향(UI → core 단방향), 번들 산출물 확인
+   - 보안 점검: 의존성 취약점 검사(`pnpm audit`), 불변 규칙 준수 확인(`eval` 금지 ADR-010, pdfme 외부 비공개 ADR-016, core 순수 TS ADR-002), 서명·해시 구현이 SPEC §8과 어긋나지 않는지 확인
+   - 발견 사항은 `fix/*` 브랜치로 나눠 처리
+10. `chore/repo-integration-test` — 시스템 결합 테스트
+   - 패키지 경계를 넘는 통합 시나리오: 디자이너로 양식 편집 → `.slip` 저장 → 전표 값·수식 평가 → PDF 렌더 → 해시·서명 검증까지 실제 사용 흐름 그대로 테스트
+   - 뷰어·디자이너(elements)와 react/vue 래퍼가 core와 함께 동작하는지 확인
 
 ## 진행 방식 메모
 
