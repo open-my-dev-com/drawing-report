@@ -29,7 +29,7 @@ function flush(): Promise<void> {
 
 function toolbarButton(el: Element, label: string): HTMLButtonElement {
   const button = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? []).find(
-    (b) => b.textContent?.trim() === label,
+    (b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === label,
   );
   if (!button) throw new Error(`툴바 버튼을 찾지 못했습니다: ${label}`);
   return button as HTMLButtonElement;
