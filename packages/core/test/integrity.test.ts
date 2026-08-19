@@ -224,3 +224,19 @@ describe('JWS(ES256) 서명', () => {
     await expect(verifyIntegrity(sealed)).resolves.toBeUndefined();
   });
 });
+
+describe('적대적 문서 방어 (SPEC §3.2)', () => {
+  it('너무 깊게 중첩된 values는 스택 오버플로 대신 SlipIntegrityError로 거부한다', async () => {
+    let nested: unknown = 1;
+    for (let i = 0; i < 5000; i++) nested = [nested];
+    const voucher = makeVoucher({ values: { v: nested as never } });
+    await expect(computeContentHash(voucher)).rejects.toThrow(SlipIntegrityError);
+    await expect(computeContentHash(voucher)).rejects.toThrow(/정규화할 수 없습니다/);
+  });
+
+  it('허용 깊이 안의 값은 정상 정규화된다', () => {
+    let nested: unknown = 1;
+    for (let i = 0; i < 100; i++) nested = [nested];
+    expect(canonicalize(nested)).toContain('1');
+  });
+});

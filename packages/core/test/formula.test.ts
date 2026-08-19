@@ -231,3 +231,31 @@ describe('실전 조합', () => {
     expect(evaluateFormula('CONCAT("금", NUMBER_TO_KOREAN(SUM(items.금액)), "원整")', c)).toBe('금일만원整');
   });
 });
+
+describe('적대적 수식 방어 (SPEC §3.2)', () => {
+  it('중첩이 너무 깊은 수식은 스택 오버플로 대신 FormulaSyntaxError로 거부한다', () => {
+    const deepParens = '('.repeat(500) + '1' + ')'.repeat(500);
+    expect(() => parseFormula(deepParens)).toThrow(FormulaSyntaxError);
+    expect(() => parseFormula(deepParens)).toThrow(/중첩이 너무 깊습니다/);
+
+    const deepUnary = '-'.repeat(500) + '1';
+    expect(() => parseFormula(deepUnary)).toThrow(FormulaSyntaxError);
+  });
+
+  it('허용 깊이 안의 정상 수식은 그대로 파싱된다', () => {
+    const ok = '('.repeat(50) + '1+2' + ')'.repeat(50);
+    expect(parseFormula(ok)).toBeTruthy();
+  });
+
+  it('너무 긴 수식은 FormulaSyntaxError로 거부한다', () => {
+    const long = '1+' .repeat(6000) + '1';
+    expect(() => parseFormula(long)).toThrow(/너무 깁니다/);
+  });
+
+  it('너무 깊게 중첩된 값 참조는 FormulaEvalError로 거부한다', () => {
+    let nested: unknown = 1;
+    for (let i = 0; i < 5000; i++) nested = [nested];
+    expect(() => evaluateFormula('SUM(v)', ctx({ v: nested as never }))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('SUM(v)', ctx({ v: nested as never }))).toThrow(/중첩 깊이/);
+  });
+});

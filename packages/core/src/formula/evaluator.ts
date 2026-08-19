@@ -15,22 +15,33 @@ export type { FormulaContext, FormulaValue };
 // 참조 해소
 // ---------------------------------------------------------------------------
 
-function resolvePath(value: unknown, path: string[], index: number): FormulaValue {
-  if (index >= path.length) return toFormulaValue(value);
+/** 값 순회 최대 중첩 깊이 — 적대적 values의 스택 오버플로 방지 */
+const MAX_VALUE_DEPTH = 256;
+
+function guardDepth(depth: number): void {
+  if (depth > MAX_VALUE_DEPTH) {
+    throw new FormulaEvalError(`값의 중첩 깊이가 제한(${MAX_VALUE_DEPTH})을 초과했습니다`);
+  }
+}
+
+function resolvePath(value: unknown, path: string[], index: number, depth = 0): FormulaValue {
+  guardDepth(depth);
+  if (index >= path.length) return toFormulaValue(value, depth);
   if (value === null || value === undefined) return null;
   if (Array.isArray(value)) {
-    return value.map((item) => resolvePath(item, path, index));
+    return value.map((item) => resolvePath(item, path, index, depth + 1));
   }
   if (typeof value === 'object') {
-    return resolvePath((value as Record<string, unknown>)[path[index]!], path, index + 1);
+    return resolvePath((value as Record<string, unknown>)[path[index]!], path, index + 1, depth + 1);
   }
   throw new FormulaEvalError(`'${path.slice(0, index).join('.')}'은(는) 객체가 아니라서 '.${path[index]}'를 읽을 수 없습니다`);
 }
 
-function toFormulaValue(value: unknown): FormulaValue {
+function toFormulaValue(value: unknown, depth = 0): FormulaValue {
+  guardDepth(depth);
   if (value === null || value === undefined) return null;
   if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') return value;
-  if (Array.isArray(value)) return value.map(toFormulaValue);
+  if (Array.isArray(value)) return value.map((item) => toFormulaValue(item, depth + 1));
   throw new FormulaEvalError('객체 값은 수식에서 직접 쓸 수 없습니다 (하위 필드를 참조하세요)');
 }
 

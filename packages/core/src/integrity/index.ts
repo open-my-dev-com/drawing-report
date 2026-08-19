@@ -20,7 +20,15 @@ export { canonicalize } from './jcs.js';
 
 export async function computeContentHash(voucher: SlipVoucherFile): Promise<string> {
   const { integrity: _, ...rest } = voucher;
-  const canonical = canonicalize(rest);
+  let canonical: string;
+  try {
+    canonical = canonicalize(rest);
+  } catch (error) {
+    // 정규화 불가(중첩 깊이 초과 등)를 원시 오류 대신 무결성 오류로 알린다
+    throw new SlipIntegrityError(
+      `문서를 정규화할 수 없습니다: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
   return sha256Hex(new TextEncoder().encode(canonical));
 }
 

@@ -6,7 +6,17 @@
  * 이 구현은 **객체 키 정렬**과 **재귀 직렬화**만 직접 처리한다.
  */
 
+/** 정규화가 허용하는 최대 중첩 깊이 — 적대적 문서의 스택 오버플로 방지 */
+export const MAX_CANONICALIZE_DEPTH = 256;
+
 export function canonicalize(value: unknown): string {
+  return canonicalizeAt(value, 0);
+}
+
+function canonicalizeAt(value: unknown, depth: number): string {
+  if (depth > MAX_CANONICALIZE_DEPTH) {
+    throw new RangeError(`JCS: 중첩 깊이가 제한(${MAX_CANONICALIZE_DEPTH})을 초과했습니다`);
+  }
   if (value === null) return 'null';
 
   switch (typeof value) {
@@ -24,14 +34,14 @@ export function canonicalize(value: unknown): string {
 
     case 'object': {
       if (Array.isArray(value)) {
-        return '[' + value.map(canonicalize).join(',') + ']';
+        return '[' + value.map((item) => canonicalizeAt(item, depth + 1)).join(',') + ']';
       }
       const obj = value as Record<string, unknown>;
       const entries: string[] = [];
       for (const key of Object.keys(obj).sort()) {
         const v = obj[key];
         if (v !== undefined) {
-          entries.push(JSON.stringify(key) + ':' + canonicalize(v));
+          entries.push(JSON.stringify(key) + ':' + canonicalizeAt(v, depth + 1));
         }
       }
       return '{' + entries.join(',') + '}';

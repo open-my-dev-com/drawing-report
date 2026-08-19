@@ -206,6 +206,38 @@ describe('.slip 템플릿 파싱', () => {
   });
 });
 
+describe('구조 크기 상한 (SPEC §3.2)', () => {
+  it('rows가 상한을 넘는 고정 그리드는 거부한다 (렌더 OOM 방지)', () => {
+    const file = makeTemplate();
+    getElement(file, 1, 'fixedGrid').rows = 1_000_000_000;
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/최대/);
+  });
+
+  it('페이지 수가 상한을 넘으면 거부한다', () => {
+    const file = makeTemplate();
+    file.template.pages = Array.from({ length: 501 }, () => ({ elements: [] }));
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/최대/);
+  });
+
+  it('동적 표 열 수가 상한을 넘으면 거부한다', () => {
+    const file = makeTemplate();
+    const table = getElement(file, 2, 'dynamicTable');
+    table.head = Array.from({ length: 101 }, (_, i) => `열${i}`);
+    table.headWidthPercentages = Array.from({ length: 101 }, () => 100 / 101);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/최대/);
+  });
+});
+
+describe('schemaVersion 마이그레이션 (0.1.0 → 0.1.1)', () => {
+  it('구버전(0.1.0) 파일은 현재 버전으로 끌어올려 파싱된다', () => {
+    const file = makeTemplate();
+    (file as { schemaVersion: string }).schemaVersion = '0.1.0';
+    const parsed = parseSlipFile(serializeSlipFile(file));
+    expect(parsed.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(CURRENT_SCHEMA_VERSION).toBe('0.1.1');
+  });
+});
+
 describe('validateSlipFile (파싱된 값 검증)', () => {
   it('이미 파싱된 객체를 그대로 검증해 돌려준다', () => {
     const validated = validateSlipFile(makeTemplate());
