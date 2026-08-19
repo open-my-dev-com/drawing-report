@@ -16,6 +16,8 @@ export const strings = {
     addShape: '도형',
     addField: '필드',
     delete: '삭제',
+    copy: '복사',
+    paste: '붙여넣기',
     undo: '되돌리기',
     redo: '다시 실행',
     preview: '미리보기',
