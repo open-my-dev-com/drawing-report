@@ -1,6 +1,6 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-19 (TSDoc 형식 lint 게이트 도입 — ADR-030, Q-11 해결. v1 로드맵 전체 완료)
+최종 갱신: 2026-08-19 (v2 범위 확정 — ADR-031. 다음 작업 = v2 계획 A-1부터)
 
 ## 현재 상태
 
@@ -52,14 +52,57 @@
    - react/vue 래퍼 실동작 테스트: 실제 react-dom·vue로 마운트해 `src`/`fonts` 전달과 `slip-change` 수신 확인
    - **데모 앱 동봉**(`examples/demo`): `pnpm demo`로 브라우저에서 전체 기능 확인. 라이브러리 소스 직접 참조라 수정이 바로 반영됨. 호스트 앱 연동 예시 겸용
 
-## v1 이후 (v2 후보 — 미정리, 다음에 사용자와 함께 정리)
+## v2 계획 (확정 — [ADR-031](DECISIONS.md), 2026-08-19)
 
-- 에디터 화면 구성·버튼 아이콘 커스터마이즈 (2026-08-19 사용자 요청으로 v2 배정)
-- 레이어 패널(페이지 내 요소 목록 UI), 요소 그룹화, 표 중첩 (ADR-020)
-- 동적 행 표 셀 병합 (ADR-020), 프리셋 확충
-- VLOOKUP류 수식 함수 (ADR-017)
-- 사소 개선 후보: 뷰어·디자이너 PDF 미리보기 로직 공용화, `toText`/`toDisplayText` 상호 참조 주석
-- 코드리뷰(2026-08-19)에서 보류한 항목: undo 스냅샷 총 바이트 상한(이미지 큰 양식 대비), IndexedDB `list()` 메타 분리·커서 순회(대량 저장 대비), 테스트 헬퍼 공용화, LocalFileStorage 취소 감지 폴백
+테마: **디자이너 사용 편의**. 사용자가 데모 화면을 직접 점검하며 낸 요구를 기반으로 범위 확정.
+기술 방향: Lit 유지 + 자체 CSS 디자인 토큰, 기본 한글 폰트 Pretendard 동봉. 상세는 ADR-031.
+
+### 권장 순서 (한 브랜치 = 한 항목, v1과 동일한 진행 방식)
+
+**A. 기초 품질 — 즉시 체감되는 결함·미이행 해소**
+
+1. `fix/elements-designer-line-preview` — 선 캔버스 대각선 표시 버그 (PDF는 직선인데 캔버스만 사선)
+2. `feat/elements-default-font` — Pretendard Regular·Bold 동봉, 폰트 미지정 시 자동 사용 (미리보기 한글 깨짐 해소, ADR-012 이행)
+3. `feat/elements-designer-live-style` — 캔버스에 글자 크기·정렬·색 즉시 반영
+4. `chore/elements-designer-ui-polish` — CSS 디자인 토큰 정리, 속성 패널 가로 스크롤 제거, 툴바 아이콘 버튼+툴팁, 정렬 아이콘 토글, 색 피커(팔레트+색상판+투명도)
+
+**B. 편집 상호작용**
+
+5. `feat/elements-designer-draw-create` — 도구 선택 후 드래그로 위치·크기 지정 생성 (클릭만 하면 기본 크기)
+6. `feat/elements-designer-form-settings` — 요소 미선택 시 양식 설정 패널: 제목·용지 크기·방향·여백 (v1 §10 용지 설정 이행)
+7. `feat/elements-designer-sidebar` — 왼쪽 사이드바: 페이지 썸네일(클릭 이동), 요소(레이어) 목록, 바인딩 값 목록
+
+**C. 파일 포맷 0.2.0 + 표·도형·글자**
+
+8. `feat/core-format-0-2` — 스키마 개정: 동적 표 열 구조(키·제목·너비 분리), 선 시작·끝점, 타원·삼각형, 굵게·밑줄·취소선, `sampleValues`, 요소 그룹 필드. SPEC·마이그레이션·JSON Schema 동시 갱신
+9. `feat/elements-designer-table-edit` — 표 내부 편집: 고정 그리드 행·열·셀 텍스트·병합, 동적 표 열 편집 (콤마 나열 입력 폐지)
+10. `feat/elements-designer-shape-text` — 도형 그리기(선·타원·삼각형)·글자 스타일(굵게·밑줄·취소선) UI
+
+**D. 데이터·작성 흐름**
+
+11. `feat/elements-designer-formula-modal` — 수식 편집 모달: 함수 29종 분류·설명·클릭 삽입, 바인딩 목록, 실시간 문법 검사, 결과 미리 계산
+12. `feat/elements-designer-sample-preview` — 샘플 데이터(`sampleValues`) 편집 + 채운 상태로 PDF 미리보기
+13. `feat/elements-slip-form` — 전표 작성폼 `<slip-form>`: 값 입력·동적 표 행 추가·수식 즉시 계산·발행(무결성 기록)
+14. `feat/elements-user-presets` — 프리셋 주입 API + "내 양식으로 저장"·제목별 목록 불러오기 + 양식 제목 편집
+15. `chore/demo-usability` — 데모 자동 저장·복원, 기술 용어 없는 문구, 파일명 지정
+
+**E. 고급 편집 (v3 후보에서 v2로 승격 — 2026-08-19, "완성된 도구를 만든 뒤 MCP를 연다")**
+
+16. `feat/core-formula-lookup` — VLOOKUP류(범위 검색) 함수 추가 (세부 목록은 착수 시 ADR-017 개정)
+17. `feat/elements-designer-grouping` — 요소 그룹화 UI: 묶기/해제, 그룹 단위 선택·이동 (스키마 필드는 8번에 선반영)
+18. `feat/core-table-merge` — 동적 표 셀 병합: 스키마 0.3.0 + 변환 계층(분해 렌더 검토) + 디자이너 편집
+19. `feat/core-table-nesting` — 표 중첩: 스키마 0.3.0 범위 + 변환 + 디자이너 편집
+20. `feat/elements-presets-more` — 동봉 프리셋 확충 (견적서·영수증 등)
+
+## v3 = MCP + AI (미정리 — 착수 전 사용자와 정리)
+
+- **MCP 제공 + AI 전표 자동 생성**만 다룬다 (2026-08-19 사용자 지정. 사전 리서치 완료 — 실현성 높음)
+- 편집 기능이 충분히 완성된 뒤 연동을 여는 것이 무난하다는 판단으로 고급 편집은 v2 E 묶음으로 승격
+
+## 유지보수 백로그 (버전 무관)
+
+- 사소 개선: 뷰어·디자이너 PDF 미리보기 로직 공용화, `toText`/`toDisplayText` 상호 참조 주석
+- 코드리뷰(2026-08-19) 보류 항목: undo 스냅샷 총 바이트 상한, IndexedDB `list()` 메타 분리·커서 순회, 테스트 헬퍼 공용화, LocalFileStorage 취소 감지 폴백
 - **npm 공개 전 체크리스트**: 패키지 4종에 `license`·`repository` 필드 결정·추가 필요
 
 ## 진행 방식 메모
