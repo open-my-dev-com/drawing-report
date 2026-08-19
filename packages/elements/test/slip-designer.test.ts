@@ -679,6 +679,62 @@ describe('<slip-designer> 복사·붙여넣기', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 프리셋
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 프리셋', () => {
+  it('프리셋 선택 상자에 2종이 나열된다', async () => {
+    const el = await loadDesigner();
+    const select = el.shadowRoot?.querySelector('.preset-select') as HTMLSelectElement;
+    expect(select).not.toBeNull();
+
+    const labels = Array.from(select.options).map((o) => o.textContent?.trim());
+    expect(labels).toEqual([
+      strings.designer.preset,
+      strings.designer.presetTradeStatement,
+      strings.designer.presetInvoice,
+    ]);
+    el.remove();
+  });
+
+  it('프리셋을 선택하면 양식이 교체되고 slip-change를 발행한다', async () => {
+    const el = await loadDesigner();
+
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+
+    const select = el.shadowRoot?.querySelector('.preset-select') as HTMLSelectElement;
+    select.value = '0';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(changes.length).toBe(1);
+    const file = changes[0]!.detail.file;
+    expect(file.template.meta.title).toBe(strings.designer.presetTradeStatement);
+    // 캔버스가 프리셋 요소로 교체된다 (기존 2개 → 프리셋 6개)
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(6);
+    // 선택 상자는 플레이스홀더로 돌아간다
+    expect(select.value).toBe('');
+    el.remove();
+  });
+
+  it('프리셋 적용은 되돌리기로 복구된다', async () => {
+    const el = await loadDesigner();
+
+    const select = el.shadowRoot?.querySelector('.preset-select') as HTMLSelectElement;
+    select.value = '1';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(6);
+
+    toolbarButton(el, strings.designer.undo).click();
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 미리보기
 // ---------------------------------------------------------------------------
 
