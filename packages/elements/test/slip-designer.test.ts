@@ -175,6 +175,52 @@ describe('<slip-designer> 양식 로드', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 선 요소 캔버스 표시 — PDF 변환 규칙(긴 쪽 방향 직선)과 같아야 한다
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 선 요소 캔버스 표시', () => {
+  function makeLineFile(width: number, height: number): SlipFile {
+    const file = makeTemplateFile();
+    file.template.pages[0]!.elements = [{
+      type: 'shape' as const,
+      id: 'line-1',
+      name: 'test-line',
+      position: { x: 10, y: 10 },
+      width,
+      height,
+      shape: 'line' as const,
+    }];
+    return file as unknown as SlipFile;
+  }
+
+  async function mountLine(width: number, height: number) {
+    parseSlipFileMock.mockReturnValue(makeLineFile(width, height));
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    return el;
+  }
+
+  it('가로가 긴 선은 가로 직선으로 그린다', async () => {
+    const el = await mountLine(50, 5);
+    const line = el.shadowRoot?.querySelector('.element svg line');
+    expect(line?.getAttribute('y1')).toBe(line?.getAttribute('y2'));
+    expect(line?.getAttribute('x1')).not.toBe(line?.getAttribute('x2'));
+    el.remove();
+  });
+
+  it('세로가 긴 선은 세로 직선으로 그린다', async () => {
+    const el = await mountLine(5, 50);
+    const line = el.shadowRoot?.querySelector('.element svg line');
+    expect(line?.getAttribute('x1')).toBe(line?.getAttribute('x2'));
+    expect(line?.getAttribute('y1')).not.toBe(line?.getAttribute('y2'));
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 요소 선택
 // ---------------------------------------------------------------------------
 
