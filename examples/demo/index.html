@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SlipKit 데모</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #263238;
+      color: #fff;
+      font-size: 13px;
+    }
+    header .title { font-weight: 700; margin-right: 8px; }
+    header button {
+      padding: 4px 10px;
+      border: 1px solid #546e7a;
+      border-radius: 3px;
+      background: #37474f;
+      color: #fff;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    header button:hover { background: #455a64; }
+    #status { margin-left: auto; font-size: 12px; color: #b0bec5; }
+    slip-designer { flex: 1; min-height: 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="title">SlipKit 데모</span>
+    <button id="save">IndexedDB 저장</button>
+    <button id="load">불러오기</button>
+    <button id="download">.slip 다운로드</button>
+    <button id="open">.slip 열기</button>
+    <span id="status">준비됨 — 캔버스의 요소를 끌어 옮기거나 툴바로 추가해 보세요</span>
+  </header>
+  <slip-designer id="designer"></slip-designer>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

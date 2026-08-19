@@ -17,6 +17,20 @@ UI로 전표(양식 문서)를 쉽게 만들고, 보고, 출력할 수 있는 **
 - **인쇄·PDF 1급 지원**: 용지(A4 등) 기준 레이아웃, 화면 = 인쇄 = PDF 일치. PDF 엔진은 pdfme(직접 검증 완료, 외부 비공개)
 - **파일로 완결**: 전표는 JSON 기반 `.slip` 파일로 저장 — 양식 스냅샷 내장, SHA-256 해시 필수 + JWS 서명 옵션
 
+## 로컬에서 바로 보기 (데모)
+
+별도 서버 없이 전부 브라우저 안에서 동작한다. 클론 후:
+
+```bash
+pnpm install
+pnpm demo   # → http://localhost:5173
+```
+
+디자이너(요소 추가·드래그·스냅·복사/붙여넣기·페이지·프리셋·PDF 미리보기)와
+저장소 어댑터(IndexedDB 저장/불러오기, `.slip` 다운로드/열기)를 직접 만져볼 수 있다.
+데모는 라이브러리 소스를 직접 참조하므로 코드를 고치면 새로고침 없이 바로 반영된다.
+데모 코드(`examples/demo/`)가 곧 호스트 앱이 SlipKit을 붙이는 방법의 예시다.
+
 ## 문서
 
 | 문서 | 내용 |
@@ -25,7 +39,7 @@ UI로 전표(양식 문서)를 쉽게 만들고, 보고, 출력할 수 있는 **
 | [docs/ROADMAP.md](docs/ROADMAP.md) | 로드맵 · 세션 인수인계 — 현재 상태와 다음 작업 |
 | [docs/SPEC.md](docs/SPEC.md) | `.slip` 파일 포맷 공개 규범 명세 |
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 확정된 요구사항 정리 |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | 설계 결정 로그(ADR-001~023) — 각 결정의 근거와 배경 |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | 설계 결정 로그(ADR-001~026) — 각 결정의 근거와 배경 |
 | [docs/OPEN-QUESTIONS.md](docs/OPEN-QUESTIONS.md) | 미결 사항 목록 (현재 전부 해결됨) |
 | [.claude/rules/branching.md](.claude/rules/branching.md) | 브랜치·커밋·PR 규칙 — 모든 작업은 이 규칙대로 분기 (ADR-023/024) |
 | [docs/Q08-PDFME-EVAL.md](docs/Q08-PDFME-EVAL.md) | pdfme 평가 보고서 |
