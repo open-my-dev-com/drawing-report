@@ -994,3 +994,32 @@ describe('<slip-designer> 미리보기 오류 표시', () => {
     el.remove();
   });
 });
+
+// ---------------------------------------------------------------------------
+// UI 언어 (ADR-028)
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> UI 언어', () => {
+  it('locale="en"이면 툴바가 영어로 표시된다', async () => {
+    const el = await createElement();
+    el.locale = 'en';
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    expect(toolbarButton(el, 'Text')).toBeTruthy();
+    expect(toolbarButton(el, 'Undo')).toBeTruthy();
+    el.remove();
+  });
+
+  it('locale을 바꾸면 화면 문구가 그 언어로 갱신된다', async () => {
+    const el = await loadDesigner(); // 기본 한국어
+    expect(toolbarButton(el, strings.designer.addText)).toBeTruthy();
+
+    el.locale = 'en';
+    await el.updateComplete;
+    expect(toolbarButton(el, 'Text')).toBeTruthy();
+    el.remove();
+  });
+});

@@ -15,11 +15,13 @@ export const SlipViewer = defineComponent({
   props: {
     /** .slip JSON 문자열 */
     src: { type: String, required: true },
+    /** UI 언어 ('ko' | 'en', 기본 한국어) — ADR-028 */
+    locale: { type: String, default: undefined },
     /** PDF 렌더링에 쓸 사용자 폰트 (ADR-012) */
     fonts: { type: Object as PropType<SlipFonts>, default: undefined },
   },
   setup(props) {
-    return () => h('slip-viewer', { src: props.src, '.fonts': props.fonts });
+    return () => h('slip-viewer', { src: props.src, locale: props.locale, '.fonts': props.fonts });
   },
 });
 
@@ -32,6 +34,8 @@ export const SlipDesigner = defineComponent({
   props: {
     /** .slip JSON 문자열 (template 파일만) */
     src: { type: String, required: true },
+    /** UI 언어 ('ko' | 'en', 기본 한국어) — ADR-028 */
+    locale: { type: String, default: undefined },
     /** PDF 미리보기에 쓸 사용자 폰트 (ADR-012) */
     fonts: { type: Object as PropType<SlipFonts>, default: undefined },
   },
@@ -40,6 +44,7 @@ export const SlipDesigner = defineComponent({
     return () =>
       h('slip-designer', {
         src: props.src,
+        locale: props.locale,
         '.fonts': props.fonts,
         'onSlip-change': (event: CustomEvent<{ file: SlipFile }>) =>
           emit('slip-change', event.detail.file),

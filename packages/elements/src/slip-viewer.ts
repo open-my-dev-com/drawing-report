@@ -5,7 +5,7 @@ import {
   type RenderOptions,
   type SlipFile,
 } from '@omdc-slipkit/core';
-import { strings } from './strings.js';
+import { getStrings } from './strings.js';
 
 /**
  * <slip-viewer> — .slip 파일(양식/전표) PDF 미리보기 컴포넌트.
@@ -46,6 +46,7 @@ export class SlipViewer extends LitElement {
 
   static properties = {
     src: { type: String },
+    locale: { type: String },
     fonts: { attribute: false },
     _pdfUrl: { state: true },
     _error: { state: true },
@@ -55,6 +56,9 @@ export class SlipViewer extends LitElement {
   /** .slip JSON 문자열 */
   src = '';
 
+  /** UI 언어 ('ko' | 'en', 기본 한국어) — ADR-028 */
+  locale?: string;
+
   /** PDF 렌더링에 사용할 폰트 (JS 프로퍼티 전용) */
   fonts?: RenderOptions['fonts'];
 
@@ -62,6 +66,11 @@ export class SlipViewer extends LitElement {
   private _error: string | null = null;
   private _loading = false;
   private _renderGeneration = 0;
+
+  /** 현재 locale의 뷰어 문구 */
+  private get _t() {
+    return getStrings(this.locale).viewer;
+  }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
@@ -102,7 +111,7 @@ export class SlipViewer extends LitElement {
     } catch (error) {
       console.error('[slip-viewer] .slip 파싱 실패:', error);
       this._loading = false;
-      this._error = strings.viewer.parseError;
+      this._error = this._t.parseError;
       return;
     }
 
@@ -116,7 +125,7 @@ export class SlipViewer extends LitElement {
     } catch (error) {
       console.error('[slip-viewer] PDF 렌더링 실패:', error);
       if (gen !== this._renderGeneration) return;
-      this._error = strings.viewer.renderError;
+      this._error = this._t.renderError;
     } finally {
       if (gen === this._renderGeneration) {
         this._loading = false;
@@ -126,16 +135,16 @@ export class SlipViewer extends LitElement {
 
   override render() {
     if (!this.src && !this._loading && !this._error) {
-      return html`<div class="status">${strings.viewer.noFile}</div>`;
+      return html`<div class="status">${this._t.noFile}</div>`;
     }
     if (this._loading) {
-      return html`<div class="status">${strings.viewer.loading}</div>`;
+      return html`<div class="status">${this._t.loading}</div>`;
     }
     if (this._error) {
       return html`<div class="status error">${this._error}</div>`;
     }
     if (this._pdfUrl) {
-      return html`<iframe src=${this._pdfUrl} title=${strings.viewer.pdfTitle}></iframe>`;
+      return html`<iframe src=${this._pdfUrl} title=${this._t.pdfTitle}></iframe>`;
     }
     return nothing;
   }
