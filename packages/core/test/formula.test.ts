@@ -259,3 +259,18 @@ describe('적대적 수식 방어 (SPEC §3.2)', () => {
     expect(() => evaluateFormula('SUM(v)', ctx({ v: nested as never }))).toThrow(/중첩 깊이/);
   });
 });
+
+describe('FORMAT_NUMBER 로케일 (ADR-013)', () => {
+  it('기본 로케일(ko-KR)은 천단위 콤마 표기다', () => {
+    expect(evaluateFormula('FORMAT_NUMBER(1234567.5)', ctx())).toBe('1,234,567.5');
+  });
+
+  it('컨텍스트로 로케일을 지정하면 해당 표기를 따른다', () => {
+    expect(evaluateFormula('FORMAT_NUMBER(1234567.5)', { values: {}, locale: 'de-DE' })).toBe(
+      '1.234.567,5',
+    );
+    expect(evaluateFormula('FORMAT_NUMBER(1234.5, 2)', { values: {}, locale: 'de-DE' })).toBe(
+      '1.234,50',
+    );
+  });
+});

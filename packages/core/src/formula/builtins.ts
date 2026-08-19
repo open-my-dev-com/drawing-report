@@ -12,6 +12,8 @@ export interface FormulaContext {
   values: Record<string, unknown>;
   /** TODAY() 기준 시각 (기본: 호출 시점). 테스트·재현용 주입 지점 */
   now?: Date;
+  /** FORMAT_NUMBER 등 포맷 함수의 로케일 (BCP-47, 기본 'ko-KR') — ADR-013 */
+  locale?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -327,16 +329,17 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
   },
 
   // --- 포맷 ---
-  /** FORMAT_NUMBER(수, 소수 자릿수?) — 천단위 콤마 */
-  FORMAT_NUMBER: (args) => {
+  /** FORMAT_NUMBER(수, 소수 자릿수?) — 자릿수 구분 표기. 로케일은 컨텍스트로 지정 (ADR-013) */
+  FORMAT_NUMBER: (args, ctx) => {
     arity('FORMAT_NUMBER', args, 1, 2);
     const n = toNumber(args[0] ?? null);
+    const locale = ctx.locale ?? 'ko-KR';
     if (args.length > 1) {
       const digits = requireInt(args[1] ?? null, '소수 자릿수');
       if (digits < 0 || digits > 20) throw new FormulaEvalError('소수 자릿수는 0~20이어야 합니다');
-      return n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+      return n.toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
     }
-    return n.toLocaleString('en-US', { maximumFractionDigits: 20 });
+    return n.toLocaleString(locale, { maximumFractionDigits: 20 });
   },
   /** FORMAT_DATE(날짜, 패턴? = "YYYY-MM-DD") — 토큰: YYYY YY MM M DD D HH mm ss */
   FORMAT_DATE: (args) => {
