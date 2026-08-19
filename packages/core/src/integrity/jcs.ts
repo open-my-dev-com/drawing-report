@@ -9,6 +9,14 @@
 /** 정규화가 허용하는 최대 중첩 깊이 — 적대적 문서의 스택 오버플로 방지 */
 export const MAX_CANONICALIZE_DEPTH = 256;
 
+/**
+ * 값을 RFC 8785 정규 JSON 문자열로 직렬화한다. undefined 값 키는 건너뛴다.
+ *
+ * @param value 직렬화할 값 (JSON으로 표현 가능한 값)
+ * @returns 정규 JSON 문자열 — 같은 데이터면 항상 같은 결과
+ * @throws RangeError 중첩 깊이가 {@link MAX_CANONICALIZE_DEPTH}를 넘으면
+ * @throws TypeError Infinity·NaN·함수 등 JSON으로 표현할 수 없는 값이면
+ */
 export function canonicalize(value: unknown): string {
   return canonicalizeAt(value, 0);
 }

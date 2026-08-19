@@ -12,7 +12,7 @@ function status(message: string): void {
   statusEl.textContent = message;
 }
 
-// 최초 화면은 거래명세서 프리셋으로 시작
+/** 최초 화면은 거래명세서 프리셋으로 시작 */
 let current: SlipFile = presets[0]!.create();
 designer.src = serializeSlipFile(current);
 

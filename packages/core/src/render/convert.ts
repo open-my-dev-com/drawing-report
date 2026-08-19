@@ -630,6 +630,10 @@ function contiguousRuns(count: number, predicate: (index: number) => boolean): {
 /**
  * `.slip` 파일을 pdfme 템플릿 + 입력값으로 변환한다.
  * 양식 파일은 값이 빈 상태로, 전표 파일은 스냅샷 + values로 변환된다 (ADR-008).
+ *
+ * @param file 변환할 .slip 파일
+ * @param options 수식 포맷 함수에 쓸 로케일
+ * @returns pdfme `generate()`에 넘길 템플릿과 입력값
  */
 export function convertSlipFile(
   file: SlipFile,

@@ -7,6 +7,7 @@
  */
 import { CURRENT_SCHEMA_VERSION } from './version.js';
 
+/** 마이그레이션 한 단계 — `from` 버전 문서를 받아 `to` 버전 문서를 돌려준다 */
 export interface SlipMigrationStep {
   /** 이 단계가 입력으로 받는 schemaVersion */
   from: string;
@@ -28,6 +29,7 @@ export const BUILT_IN_MIGRATIONS: readonly SlipMigrationStep[] = [
   },
 ];
 
+/** 마이그레이션 불가 오류 (미래 버전·경로 없음·순환 등) */
 export class SlipMigrationError extends Error {
   constructor(message: string) {
     super(message);
@@ -53,6 +55,11 @@ function compareSemver(a: string, b: string): number {
  * - 이미 현재 버전이면 그대로 반환
  * - 현재보다 새로운 버전이면 거부 (구현이 모르는 미래 포맷)
  * - 이어지는 마이그레이션 단계가 없는 구버전이면 거부
+ *
+ * @param document schemaVersion을 가진 .slip 문서 (파싱된 JSON 객체)
+ * @param steps 적용할 마이그레이션 단계 목록 (기본: 내장 목록)
+ * @returns 현재 schemaVersion까지 끌어올린 문서
+ * @throws SlipMigrationError 버전 형식 오류·미래 버전·경로 없음·순환 시
  */
 export function migrateSlipDocument(
   document: Record<string, unknown>,

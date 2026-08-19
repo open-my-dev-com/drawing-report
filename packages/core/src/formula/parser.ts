@@ -20,10 +20,14 @@ import { FORMULA_FUNCTIONS, type FormulaFunctionName } from './functions.js';
 // AST
 // ---------------------------------------------------------------------------
 
+/** 비교 연산자 */
 export type ComparisonOperator = '=' | '<>' | '<' | '>' | '<=' | '>=';
+/** 산술 연산자 */
 export type ArithmeticOperator = '+' | '-' | '*' | '/';
+/** 이항 연산자 전체 */
 export type BinaryOperator = ComparisonOperator | ArithmeticOperator;
 
+/** 파싱 결과 구문 트리 — 노드 7종 판별 유니온 */
 export type FormulaAst =
   | { type: 'number'; value: number }
   | { type: 'string'; value: string }
@@ -265,7 +269,13 @@ export const MAX_FORMULA_LENGTH = 10_000;
 /** 수식 최대 중첩 깊이 (괄호·함수 인자·부호 포함) — 스택 오버플로 방지 (SPEC §5.6) */
 export const MAX_FORMULA_DEPTH = 100;
 
-/** 수식 문자열을 AST로 파싱한다. 실패 시 FormulaSyntaxError. */
+/**
+ * 수식 문자열을 AST로 파싱한다.
+ *
+ * @param source 수식 문자열 (예: `SUM(items.금액) * 1.1`)
+ * @returns 파싱된 구문 트리
+ * @throws FormulaSyntaxError 문법 오류·미등록 함수·길이/깊이 제한 초과 시
+ */
 export function parseFormula(source: string): FormulaAst {
   if (!source.trim()) throw new FormulaSyntaxError('빈 수식입니다', 0);
   if (source.length > MAX_FORMULA_LENGTH) {

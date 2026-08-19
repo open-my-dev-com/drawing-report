@@ -8,6 +8,7 @@
 import { CURRENT_SCHEMA_VERSION, type SlipElement, type SlipTemplateFile } from '@omdc-slipkit/core';
 import { strings } from './strings.js';
 
+/** 디자이너에 동봉되는 양식 프리셋 */
 export interface SlipPreset {
   id: string;
   name: string;
@@ -190,6 +191,7 @@ function createInvoice(): SlipTemplateFile {
   };
 }
 
+/** 동봉 프리셋 목록 — 거래명세서 · 청구서 */
 export const presets: SlipPreset[] = [
   {
     id: 'trade-statement',

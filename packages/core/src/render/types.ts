@@ -7,6 +7,7 @@
  */
 import type { SlipFile } from '../format/schema.js';
 
+/** PDF 렌더링 옵션 */
 export interface RenderOptions {
   /**
    * 사용자 폰트 등록. 한글 등 CJK 문서는 폰트를 반드시 등록해야 한다 (ADR-012).
@@ -15,17 +16,23 @@ export interface RenderOptions {
    */
   fonts?: { name: string; data: Uint8Array; fallback?: boolean }[];
   /**
-   * FORMAT_NUMBER 등 수식 포맷 함수의 로케일 (BCP-47, 기본 'ko-KR') — ADR-013.
+   * FORMAT_NUMBER 등 수식 포맷 함수의 로케일 (BCP-47) — ADR-013.
    * 예: 'de-DE'를 지정하면 1234.5가 "1.234,5"로 표기된다.
+   *
+   * @defaultValue `'ko-KR'`
    */
   locale?: string;
 }
 
+/** PDF 렌더러 — createPdfRenderer로 만든다 */
 export interface SlipPdfRenderer {
   /**
    * `.slip` 파일을 PDF 바이트로 렌더한다.
    * - `kind: 'template'` — 값이 비어 있는 빈 양식으로 렌더
    * - `kind: 'voucher'` — `templateSnapshot` + `values`로 렌더 (ADR-008)
+   *
+   * @param file 렌더할 .slip 파일
+   * @returns PDF 파일 바이트
    */
   renderToPdf(file: SlipFile): Promise<Uint8Array>;
 }

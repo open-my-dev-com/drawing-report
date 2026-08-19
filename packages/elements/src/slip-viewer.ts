@@ -56,7 +56,11 @@ export class SlipViewer extends LitElement {
   /** .slip JSON 문자열 */
   src = '';
 
-  /** UI 언어 ('ko' | 'en', 기본 한국어) — ADR-028 */
+  /**
+   * UI 언어 ('ko' | 'en') — ADR-028.
+   *
+   * @defaultValue 한국어
+   */
   locale?: string;
 
   /** PDF 렌더링에 사용할 폰트 (JS 프로퍼티 전용) */

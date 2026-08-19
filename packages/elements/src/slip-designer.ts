@@ -60,6 +60,13 @@ interface ResizeState {
   snapshot: string | null;
 }
 
+/**
+ * <slip-designer> — 양식(.slip template) GUI 편집기 (ADR-020).
+ *
+ * 캔버스 편집(선택·드래그·크기 조절·스냅), 속성 패널, 요소 6종 추가·삭제,
+ * 복사·붙여넣기, 되돌리기·다시 실행, 다중 페이지, 프리셋 불러오기, PDF 미리보기를
+ * 제공한다. 편집으로 양식이 바뀔 때마다 `slip-change` 이벤트로 파일을 내보낸다.
+ */
 export class SlipDesigner extends LitElement {
   static styles = css`
     :host {
@@ -381,7 +388,11 @@ export class SlipDesigner extends LitElement {
 
   src = '';
 
-  /** UI 언어 ('ko' | 'en', 기본 한국어) — ADR-028 */
+  /**
+   * UI 언어 ('ko' | 'en') — ADR-028.
+   *
+   * @defaultValue 한국어
+   */
   locale?: string;
 
   fonts?: RenderOptions['fonts'];

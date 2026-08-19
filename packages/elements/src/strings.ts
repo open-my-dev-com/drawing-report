@@ -6,6 +6,7 @@
  * `SlipStrings` 타입이 키 누락을 컴파일 단계에서 잡는다.
  */
 
+/** 지원하는 UI 언어 (ADR-028) */
 export type SlipLocale = 'ko' | 'en';
 
 const ko = {
@@ -165,11 +166,15 @@ const en: SlipStrings = {
   },
 };
 
+/** 언어별 문구 사전 전체 */
 export const STRINGS: Record<SlipLocale, SlipStrings> = { ko, en };
 
 /**
  * 로케일에 맞는 문구 사전을 돌려준다. 'en-US'처럼 지역이 붙어도 언어만 보고
  * 고르며, 모르는 로케일은 한국어(기본)로 돌아간다.
+ *
+ * @param locale UI 언어 (생략하면 한국어)
+ * @returns 해당 언어의 문구 사전
  */
 export function getStrings(locale?: string): SlipStrings {
   const language = locale?.toLowerCase().split('-')[0];

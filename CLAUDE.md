@@ -18,7 +18,7 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
 - **브랜치·커밋·PR·작업 시작 절차**: `.claude/rules/branching.md` (항상 적용, 단일 원천)
 - **패키지·문서별 상세 규칙** (해당 경로 작업 시 자동 적용): `.claude/rules/core.md`(순수 TS·
   eval 금지·Zod 단일 원천·스키마 변경 체크리스트·pdfme 외부 비공개) · `ui-packages.md`(Lit·`slip-*`·
-  얇은 래퍼) · `docs.md`(ADR·SPEC 일관성)
+  얇은 래퍼) · `docs.md`(ADR·SPEC 일관성) · `comments.md`(TSDoc 주석 표준, ADR-029)
 
 ## 문서 규칙
 

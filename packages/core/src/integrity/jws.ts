@@ -6,6 +6,7 @@
 import { base64urlEncode, base64urlDecode, base64urlEncodeString } from './base64url.js';
 import { SlipIntegrityError } from './errors.js';
 
+/** 서명·검증 키 (JWK, EC P-256). 개인키는 d 포함, 공개키는 x·y만 */
 export interface IntegrityJwk {
   readonly kty: string;
   readonly crv?: string;
@@ -16,6 +17,7 @@ export interface IntegrityJwk {
   readonly [key: string]: unknown;
 }
 
+/** 새로 생성한 서명 키쌍 */
 export interface IntegrityKeyPair {
   readonly privateKey: IntegrityJwk;
   readonly publicKey: IntegrityJwk;
@@ -55,6 +57,14 @@ async function importEcKey(
   }
 }
 
+/**
+ * 페이로드를 ES256으로 서명해 JWS compact 문자열을 만든다.
+ *
+ * @param payload 서명할 문자열 (무결성 계층에서는 contentHash)
+ * @param privateKey 서명에 쓸 EC P-256 개인키
+ * @returns JWS compact 문자열 (`header.payload.signature`)
+ * @throws SlipIntegrityError 키를 가져올 수 없거나 Web Crypto를 쓸 수 없으면
+ */
 export async function jwsSign(
   payload: string,
   privateKey: IntegrityJwk,
@@ -66,6 +76,15 @@ export async function jwsSign(
   return `${HEADER_B64}.${payloadB64}.${base64urlEncode(new Uint8Array(sig))}`;
 }
 
+/**
+ * JWS compact 문자열을 검증한다 — 형식·알고리즘(ES256)·페이로드 일치·서명을 모두 확인.
+ * 통과하면 조용히 끝나고, 문제가 있으면 오류를 던진다.
+ *
+ * @param jws 검증할 JWS compact 문자열
+ * @param expectedPayload 서명 대상이었어야 하는 페이로드 (contentHash)
+ * @param publicKey 검증에 쓸 EC P-256 공개키
+ * @throws SlipIntegrityError 형식·알고리즘·페이로드·서명 중 하나라도 어긋나면
+ */
 export async function jwsVerify(
   jws: string,
   expectedPayload: string,
@@ -106,6 +125,12 @@ export async function jwsVerify(
   }
 }
 
+/**
+ * EC P-256 서명 키쌍을 새로 만든다.
+ *
+ * @returns JWK 형태의 개인키·공개키 쌍
+ * @throws SlipIntegrityError Web Crypto API를 쓸 수 없는 환경이면
+ */
 export async function generateKeyPair(): Promise<IntegrityKeyPair> {
   const subtle = requireSubtle();
   const pair = await subtle.generateKey(ECDSA_PARAMS, true, ['sign', 'verify']);
