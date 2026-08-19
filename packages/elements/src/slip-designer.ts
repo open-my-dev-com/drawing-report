@@ -149,6 +149,7 @@ export class SlipDesigner extends LitElement {
       border: 1px solid rgba(0, 0, 0, 0.15);
       cursor: move;
       overflow: hidden;
+      touch-action: none;
       user-select: none;
       font-size: 11px;
       line-height: 1.3;
@@ -226,6 +227,7 @@ export class SlipDesigner extends LitElement {
     }
     .selection-overlay .handle {
       pointer-events: auto;
+      touch-action: none;
       position: absolute;
       width: 8px;
       height: 8px;
@@ -369,6 +371,7 @@ export class SlipDesigner extends LitElement {
     _selectedId: { state: true },
     _previewMode: { state: true },
     _previewUrl: { state: true },
+    _previewError: { state: true },
     _error: { state: true },
     _guideX: { state: true },
     _guideY: { state: true },
@@ -384,6 +387,7 @@ export class SlipDesigner extends LitElement {
   private _redoStack: string[] = [];
   private _previewMode = false;
   private _previewUrl: string | null = null;
+  private _previewError: string | null = null;
   private _error: string | null = null;
   private _drag: DragState | null = null;
   private _resize: ResizeState | null = null;
@@ -427,6 +431,7 @@ export class SlipDesigner extends LitElement {
     this._undoStack = [];
     this._redoStack = [];
     this._previewMode = false;
+    this._previewError = null;
     this._pageIndex = 0;
     this._drag = null;
     this._resize = null;
@@ -442,7 +447,8 @@ export class SlipDesigner extends LitElement {
     let file: SlipFile;
     try {
       file = parseSlipFile(this.src);
-    } catch {
+    } catch (error) {
+      console.error('[slip-designer] .slip 파싱 실패:', error);
       this._file = null;
       this._error = strings.designer.parseError;
       return;
@@ -823,6 +829,21 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
+  private _onPointerCancel = (): void => {
+    // 브라우저가 제스처를 가져가 취소된 경우 — 변경을 스냅샷으로 되돌린다.
+    // 상태를 정리하지 않으면 버튼을 떼지 않은 것으로 남아 hover 이동만으로
+    // 요소가 계속 끌려다닌다.
+    const snapshot = this._drag?.snapshot ?? this._resize?.snapshot;
+    if (snapshot) {
+      this._file = JSON.parse(snapshot) as SlipTemplateFile;
+    }
+    this._drag = null;
+    this._resize = null;
+    this._guideX = null;
+    this._guideY = null;
+    this.requestUpdate();
+  };
+
   private _onPointerUp = (): void => {
     this._guideX = null;
     this._guideY = null;
@@ -929,6 +950,9 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _revokePreviewUrl(): void {
+    // 진행 중인 렌더도 무효화한다 — 분리·모드 전환·소스 교체 후 완료되는
+    // 렌더가 회수할 수 없는 blob URL을 만드는 것을 막는다
+    this._previewGeneration++;
     if (this._previewUrl) {
       URL.revokeObjectURL(this._previewUrl);
       this._previewUrl = null;
@@ -938,12 +962,14 @@ export class SlipDesigner extends LitElement {
   private async _togglePreview(): Promise<void> {
     if (this._previewMode) {
       this._previewMode = false;
+      this._previewError = null;
       this._revokePreviewUrl();
       return;
     }
     if (!this._file) return;
 
     this._previewMode = true;
+    this._previewError = null;
     this._revokePreviewUrl();
 
     const gen = ++this._previewGeneration;
@@ -954,10 +980,11 @@ export class SlipDesigner extends LitElement {
       if (gen !== this._previewGeneration) return;
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._previewUrl = URL.createObjectURL(blob);
-    } catch {
+    } catch (error) {
+      console.error('[slip-designer] PDF 미리보기 생성 실패:', error);
       if (gen !== this._previewGeneration) return;
-      this._error = strings.designer.previewError;
-      this._previewMode = false;
+      // 미리보기 화면 안에 실패를 표시한다 (편집 버튼으로 복귀 가능)
+      this._previewError = strings.designer.previewError;
     }
   }
 
@@ -978,13 +1005,16 @@ export class SlipDesigner extends LitElement {
         ? html`<div class="preview-area">
             ${this._previewUrl
               ? html`<iframe src=${this._previewUrl} title=${strings.designer.pdfTitle}></iframe>`
-              : html`<div class="status">${strings.designer.previewLoading}</div>`}
+              : this._previewError
+                ? html`<div class="status error">${this._previewError}</div>`
+                : html`<div class="status">${strings.designer.previewLoading}</div>`}
           </div>`
         : html`
             <div class="canvas-area"
                  @pointerdown=${this._onPointerDown}
                  @pointermove=${this._onPointerMove}
-                 @pointerup=${this._onPointerUp}>
+                 @pointerup=${this._onPointerUp}
+                 @pointercancel=${this._onPointerCancel}>
               ${this._renderCanvas()}
             </div>
             <div class="prop-panel">${this._renderPropertyPanel()}</div>

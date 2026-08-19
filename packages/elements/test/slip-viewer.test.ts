@@ -188,3 +188,28 @@ describe('<slip-viewer> Blob URL 관리', () => {
     expect(revokedUrls).toContain(url);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 생명주기 정리 (blob URL 누수 방지)
+// ---------------------------------------------------------------------------
+
+describe('<slip-viewer> 생명주기 정리', () => {
+  it('렌더 대기 중 컴포넌트가 제거되면 blob URL을 만들지 않는다', async () => {
+    let resolveRender!: (pdf: Uint8Array) => void;
+    renderSlipToPdfMock.mockImplementation(
+      () => new Promise<Uint8Array>((resolve) => { resolveRender = resolve; }),
+    );
+
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+
+    // 렌더가 끝나기 전에 분리
+    el.remove();
+    resolveRender(DUMMY_PDF);
+    await flush();
+
+    expect(blobUrls.length).toBe(0);
+  });
+});

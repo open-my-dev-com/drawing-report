@@ -942,3 +942,61 @@ describe('<slip-designer> 미리보기', () => {
     el.remove();
   });
 });
+
+// ---------------------------------------------------------------------------
+// pointercancel · 미리보기 오류 표시
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> pointercancel', () => {
+  it('드래그 중 취소되면 위치가 되돌아가고 이후 hover로 끌려다니지 않는다', async () => {
+    const el = await loadDesigner();
+    const div = el.shadowRoot?.querySelector('[data-id="txt-1"]') as HTMLElement;
+
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+
+    div.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,
+    }));
+    div.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: 20 * PX_PER_MM, clientY: 0, pointerId: 1,
+    }));
+    await el.updateComplete;
+
+    div.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, composed: true }));
+    await el.updateComplete;
+
+    // 위치 복원 + 변경 이벤트 없음
+    const moved = el.shadowRoot?.querySelector('[data-id="txt-1"]') as HTMLElement;
+    expect(parseFloat(moved.style.left)).toBeCloseTo(30 * PX_PER_MM, 0);
+    expect(changes.length).toBe(0);
+
+    // 취소 후 hover 이동만으로는 움직이지 않아야 한다
+    div.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: 40 * PX_PER_MM, clientY: 0, pointerId: 1,
+    }));
+    await el.updateComplete;
+    const after = el.shadowRoot?.querySelector('[data-id="txt-1"]') as HTMLElement;
+    expect(parseFloat(after.style.left)).toBeCloseTo(30 * PX_PER_MM, 0);
+    el.remove();
+  });
+});
+
+describe('<slip-designer> 미리보기 오류 표시', () => {
+  it('PDF 생성이 실패하면 미리보기 화면에 오류를 표시한다', async () => {
+    renderSlipToPdfMock.mockRejectedValueOnce(new Error('폰트 없음'));
+    const el = await loadDesigner();
+
+    const previewBtn = toolbarButton(el, strings.designer.preview);
+    previewBtn.click();
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const status = el.shadowRoot?.querySelector('.preview-area .status.error');
+    expect(status?.textContent?.trim()).toBe(strings.designer.previewError);
+    // 편집 버튼으로 복귀 가능해야 한다
+    expect(toolbarButton(el, strings.designer.edit)).toBeTruthy();
+    el.remove();
+  });
+});

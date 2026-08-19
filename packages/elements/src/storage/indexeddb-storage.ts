@@ -67,8 +67,11 @@ export class IndexedDbStorage implements StorageAdapter {
         }
       };
       req.onsuccess = () => resolve(req.result);
-      req.onerror = () =>
+      req.onerror = () => {
+        // 실패한 열기를 캐시에 남기지 않는다 — 다음 호출이 다시 시도할 수 있게
+        this.dbPromise = null;
         reject(new SlipStorageError('io', req.error?.message ?? strings.storage.ioError));
+      };
     });
     return this.dbPromise;
   }
