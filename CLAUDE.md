@@ -33,6 +33,9 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
 - 수식은 자체 파서만 사용. `eval`·`new Function` 절대 금지 (ADR-010).
 - `@slipkit/core`는 순수 TS — DOM·브라우저·프레임워크 API 의존 금지 (ADR-002).
 - pdfme 타입·API를 공개 API에 노출 금지 (ADR-016).
+- **용어·문구·설정값 변경 시 SSOT 준수**: 한 곳에서 정의되고 여러 곳에서 쓰이는 것(용어,
+  UI 문구, 상수 등)을 바꿀 때는 문서(SPEC·DECISIONS·REQUIREMENTS·ROADMAP)·코드 주석·
+  UI 문구(`strings.ts`)·테스트 설명을 모두 검색해 일괄 변경한다. 일부만 바꾸지 않는다.
 
 ## 검증 게이트 (커밋 전 필수)
 
