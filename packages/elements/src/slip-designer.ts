@@ -9,6 +9,7 @@ import {
   type RenderOptions,
 } from '@slipkit/core';
 import { strings } from './strings.js';
+import { presets } from './presets.js';
 
 const PX_PER_MM = 96 / 25.4;
 const MAX_UNDO = 50;
@@ -96,6 +97,16 @@ export class SlipDesigner extends LitElement {
     .toolbar button:disabled {
       opacity: 0.4;
       cursor: default;
+    }
+    .toolbar select {
+      padding: 4px 6px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      background: #fff;
+      font-size: 12px;
+      font-family: inherit;
+      color: inherit;
+      cursor: pointer;
     }
     .toolbar .sep {
       width: 1px;
@@ -959,8 +970,30 @@ export class SlipDesigner extends LitElement {
       <button @click=${() => this._togglePreview()}>
         ${this._previewMode ? s.edit : s.preview}
       </button>
+      <span class="sep"></span>
+      <select class="preset-select" @change=${this._onPresetChange}>
+        <option value="" selected>${s.preset}</option>
+        ${presets.map((p, index) => html`<option value=${String(index)}>${p.name}</option>`)}
+      </select>
     `;
   }
+
+  private _onPresetChange = (e: Event): void => {
+    const select = e.target as HTMLSelectElement;
+    const value = select.value;
+    select.value = '';
+    if (value === '' || !this._file) return;
+    const preset = presets[Number(value)];
+    if (!preset) return;
+
+    this._pushUndo();
+    this._file = preset.create();
+    this._selectedId = null;
+    this._pageIndex = 0;
+    this._previewMode = false;
+    this._emitChange();
+    this.requestUpdate();
+  };
 
   // ---------------------------------------------------------------------------
   // Render: canvas
