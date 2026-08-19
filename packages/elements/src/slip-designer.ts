@@ -1220,9 +1220,12 @@ export class SlipDesigner extends LitElement {
           : html`<span class="el-content">${this._strings.designer.typeImage}</span>`;
 
       case 'shape':
+        // PDF 변환 규칙과 동일하게: 긴 쪽 방향의 직선, 가운데 정렬 (convert.ts appendShape)
         return el.shape === 'line'
           ? html`<svg viewBox="0 0 100 100" preserveAspectRatio="none">
-              <line x1="0" y1="100" x2="100" y2="0" stroke="#333" stroke-width="2" />
+              ${el.width >= el.height
+                ? html`<line x1="0" y1="50" x2="100" y2="50" stroke="#333" stroke-width="2" />`
+                : html`<line x1="50" y1="0" x2="50" y2="100" stroke="#333" stroke-width="2" />`}
             </svg>`
           : nothing;
 

@@ -1,6 +1,6 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-19 (v2 범위 확정 — ADR-031. 다음 작업 = v2 계획 A-1부터)
+최종 갱신: 2026-08-19 (v2 시작 — A-1 선 표시 버그 수정 완료. 다음 작업 = A-2 기본 폰트 동봉)
 
 ## 현재 상태
 
@@ -61,7 +61,7 @@
 
 **A. 기초 품질 — 즉시 체감되는 결함·미이행 해소**
 
-1. `fix/elements-designer-line-preview` — 선 캔버스 대각선 표시 버그 (PDF는 직선인데 캔버스만 사선)
+1. ~~`fix/elements-designer-line-preview` — 선 캔버스 대각선 표시 버그 (PDF는 직선인데 캔버스만 사선)~~ → **완료**
 2. `feat/elements-default-font` — Pretendard Regular·Bold 동봉, 폰트 미지정 시 자동 사용 (미리보기 한글 깨짐 해소, ADR-012 이행)
 3. `feat/elements-designer-live-style` — 캔버스에 글자 크기·정렬·색 즉시 반영
 4. `chore/elements-designer-ui-polish` — CSS 디자인 토큰 정리, 속성 패널 가로 스크롤 제거, 툴바 아이콘 버튼+툴팁, 정렬 아이콘 토글, 색 피커(팔레트+색상판+투명도)
