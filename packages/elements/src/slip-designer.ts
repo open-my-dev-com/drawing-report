@@ -45,13 +45,14 @@ function justifyOf(alignment: 'left' | 'center' | 'right' | undefined): string {
 const PLACEHOLDER_IMG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
-const TYPE_BADGE: Record<SlipElement['type'], string> = {
-  text: 'T',
-  fixedGrid: '⊞',
-  dynamicTable: '表',
-  image: 'IMG',
-  shape: '◇',
-  field: 'F',
+/** 캔버스 요소의 종류 배지 아이콘 — 툴바의 요소 추가 아이콘과 동일 */
+const TYPE_BADGE: Record<SlipElement['type'], TemplateResult> = {
+  text: icons.text,
+  fixedGrid: icons.fixedGrid,
+  dynamicTable: icons.dynamicTable,
+  image: icons.image,
+  shape: icons.shape,
+  field: icons.field,
 };
 
 interface DragState {
@@ -227,12 +228,18 @@ export class SlipDesigner extends LitElement {
       position: absolute;
       top: 1px;
       left: 1px;
-      padding: 0 3px;
-      font-size: 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
       background: rgba(0, 0, 0, 0.06);
       border-radius: 2px;
-      color: #666;
-      line-height: 14px;
+      color: var(--sk-text-muted);
+    }
+    .element .badge svg {
+      width: 11px;
+      height: 11px;
     }
     .element .el-content {
       display: flex;
