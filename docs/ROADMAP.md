@@ -1,6 +1,6 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-19 (v2 A-2 기본 폰트 동봉 완료. 다음 작업 = A-3 캔버스 스타일 즉시 반영)
+최종 갱신: 2026-08-19 (v2 A-3 캔버스 스타일 즉시 반영 완료. 다음 작업 = A-4 UI 정리)
 
 ## 현재 상태
 
@@ -63,7 +63,7 @@
 
 1. ~~`fix/elements-designer-line-preview` — 선 캔버스 대각선 표시 버그 (PDF는 직선인데 캔버스만 사선)~~ → **완료**
 2. ~~`feat/elements-default-font` — Pretendard Regular·Bold 동봉, 폰트 미지정 시 자동 사용 (미리보기 한글 깨짐 해소, ADR-012 이행)~~ → **완료**
-3. `feat/elements-designer-live-style` — 캔버스에 글자 크기·정렬·색 즉시 반영
+3. ~~`feat/elements-designer-live-style` — 캔버스에 글자 크기·정렬·색 즉시 반영~~ → **완료** (고정 그리드 셀 문구·병합 표시, 동적 표 머리행 배경 포함)
 4. `chore/elements-designer-ui-polish` — CSS 디자인 토큰 정리, 속성 패널 가로 스크롤 제거, 툴바 아이콘 버튼+툴팁, 정렬 아이콘 토글, 색 피커(팔레트+색상판+투명도)
 
 **B. 편집 상호작용**
