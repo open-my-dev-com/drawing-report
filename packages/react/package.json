@@ -11,13 +11,16 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.tsx --format esm --dts --clean --external react",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@slipkit/core": "workspace:*",
     "@slipkit/elements": "workspace:*"
   },
   "peerDependencies": {

@@ -58,6 +58,9 @@ importers:
 
   packages/react:
     dependencies:
+      '@slipkit/core':
+        specifier: workspace:*
+        version: link:../core
       '@slipkit/elements':
         specifier: workspace:*
         version: link:../elements
@@ -71,6 +74,9 @@ importers:
 
   packages/vue:
     dependencies:
+      '@slipkit/core':
+        specifier: workspace:*
+        version: link:../core
       '@slipkit/elements':
         specifier: workspace:*
         version: link:../elements

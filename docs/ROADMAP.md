@@ -39,7 +39,8 @@
    - **점검 완료(이상 없음)**: 불변 규칙 위반 0건(`eval` 0건 ADR-010, pdfme 공개 API 노출 0건 ADR-016, core 순수 TS ADR-002), 패키지 의존 방향 단방향(react/vue → elements → core), 수식 함수 29종 ADR-017 일치, 무결성 구현 SPEC §8 일치(해시 대상·JCS 정규화·JWS ES256), JSON Schema 산출물이 현재 스키마와 동일함 직접 확인, 금지어 잔존 0건
    - **이 브랜치에서 처리**: 의존성 취약점 해소(esbuild low 1건 → override로 0건), 미사용 코드·중복 타입 정리, 하드코딩 UI 문구 2건 strings.ts 경유, 문서 표기 갱신(ADR 범위·날짜·SPEC 좌표 음수 금지 명시)
    - ~~① `fix/core-spec-alignment` — 비율 합 오차 경계(±0.01 포함으로), assets 항목 자기 `asset://` 참조 검증, `validateSlipFile`·`supportsVersions` 테스트 보강~~ → **완료**
-   - **남은 후속**: ② `fix/repo-framework-wrappers` — react/vue 래퍼에 `SlipDesigner`·`fonts`·`slip-change` 노출 ③ `feat/elements-designer-pages` — 디자이너 페이지 전환·추가·삭제 UI (Q-10 → ADR-026, v1 포함 확정)
+   - ~~② `fix/repo-framework-wrappers` — react/vue 래퍼에 `SlipDesigner`·`fonts`·`slip-change` 노출~~ → **완료**
+   - **남은 후속**: ③ `feat/elements-designer-pages` — 디자이너 페이지 전환·추가·삭제 UI (Q-10 → ADR-026, v1 포함 확정)
    - 기록해 둔 사소 개선 후보(처리 보류): 뷰어·디자이너 PDF 미리보기 로직 공용화, `toText`/`toDisplayText` 문자열화 규칙 상호 참조 주석
 10. `chore/repo-integration-test` — 시스템 결합 테스트
    - 패키지 경계를 넘는 통합 시나리오: 디자이너로 양식 편집 → `.slip` 저장 → 전표 값·수식 평가 → PDF 렌더 → 해시·서명 검증까지 실제 사용 흐름 그대로 테스트
