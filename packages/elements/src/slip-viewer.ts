@@ -6,6 +6,7 @@ import {
   type SlipFile,
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
+import { loadDefaultFonts } from './default-fonts.js';
 
 /**
  * <slip-viewer> — .slip 파일(양식/전표) PDF 미리보기 컴포넌트.
@@ -120,8 +121,10 @@ export class SlipViewer extends LitElement {
     }
 
     try {
-      const opts: RenderOptions = {};
-      if (this.fonts) opts.fonts = this.fonts;
+      // 폰트 미지정 시 동봉 Pretendard 자동 사용 (ADR-012) — 한글 깨짐 방지
+      const opts: RenderOptions = {
+        fonts: this.fonts?.length ? this.fonts : await loadDefaultFonts(),
+      };
       const pdfBytes = await renderSlipToPdf(file, opts);
       if (gen !== this._renderGeneration) return;
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });

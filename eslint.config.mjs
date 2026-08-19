@@ -9,6 +9,8 @@ import tsParser from '@typescript-eslint/parser';
 import tsdoc from 'eslint-plugin-tsdoc';
 
 export default [
+  // 생성 파일(동봉 폰트 base64, 약 4MB)은 lint에서 제외 — 주석이 없고 파싱만 느리다
+  { ignores: ['packages/elements/src/fonts/pretendard-data.ts'] },
   {
     files: ['packages/*/src/**/*.{ts,tsx}', 'packages/*/test/**/*.{ts,tsx}', 'examples/*/src/**/*.ts'],
     languageOptions: {

@@ -9,13 +9,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./fonts/pretendard": {
+      "types": "./dist/fonts/pretendard.d.ts",
+      "import": "./dist/fonts/pretendard.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "OFL-Pretendard.txt"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
+    "build": "tsup",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

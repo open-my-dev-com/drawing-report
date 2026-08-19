@@ -6,6 +6,16 @@ vi.mock('@omdc-slipkit/core', () => ({
   renderSlipToPdf: vi.fn(),
 }));
 
+vi.mock('../src/default-fonts.js', () => ({
+  // 실제 폰트 데이터(4MB) 대신 즉시 해소되는 모의 — 배선만 검증한다.
+  // 실데이터 검증은 default-fonts.test.ts 담당.
+  loadDefaultFonts: () =>
+    Promise.resolve([
+      { name: 'Pretendard', data: new Uint8Array([1]), fallback: true },
+      { name: 'Pretendard-Bold', data: new Uint8Array([2]) },
+    ]),
+}));
+
 import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
 import type { SlipFile } from '@omdc-slipkit/core';
 import { strings } from '../src/strings.js';
@@ -113,7 +123,12 @@ describe('<slip-viewer> PDF 렌더링', () => {
     await el.updateComplete;
 
     expect(parseSlipFileMock).toHaveBeenCalled();
-    expect(renderSlipToPdfMock).toHaveBeenCalledWith(DUMMY_FILE, { fonts: undefined });
+    // 폰트 미지정 → 동봉 기본 폰트(Pretendard)로 렌더 (ADR-012)
+    const call = renderSlipToPdfMock.mock.calls.at(-1)!;
+    expect(call[0]).toBe(DUMMY_FILE);
+    expect(call[1]?.fonts?.length).toBe(2);
+    expect(call[1]?.fonts?.[0]?.name).toBe('Pretendard');
+    expect(call[1]?.fonts?.[0]?.fallback).toBe(true);
 
     const iframe = el.shadowRoot?.querySelector('iframe');
     expect(iframe).not.toBeNull();

@@ -1,6 +1,6 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-19 (v2 시작 — A-1 선 표시 버그 수정 완료. 다음 작업 = A-2 기본 폰트 동봉)
+최종 갱신: 2026-08-19 (v2 A-2 기본 폰트 동봉 완료. 다음 작업 = A-3 캔버스 스타일 즉시 반영)
 
 ## 현재 상태
 
@@ -62,7 +62,7 @@
 **A. 기초 품질 — 즉시 체감되는 결함·미이행 해소**
 
 1. ~~`fix/elements-designer-line-preview` — 선 캔버스 대각선 표시 버그 (PDF는 직선인데 캔버스만 사선)~~ → **완료**
-2. `feat/elements-default-font` — Pretendard Regular·Bold 동봉, 폰트 미지정 시 자동 사용 (미리보기 한글 깨짐 해소, ADR-012 이행)
+2. ~~`feat/elements-default-font` — Pretendard Regular·Bold 동봉, 폰트 미지정 시 자동 사용 (미리보기 한글 깨짐 해소, ADR-012 이행)~~ → **완료**
 3. `feat/elements-designer-live-style` — 캔버스에 글자 크기·정렬·색 즉시 반영
 4. `chore/elements-designer-ui-polish` — CSS 디자인 토큰 정리, 속성 패널 가로 스크롤 제거, 툴바 아이콘 버튼+툴팁, 정렬 아이콘 토글, 색 피커(팔레트+색상판+투명도)
 
@@ -74,7 +74,7 @@
 
 **C. 파일 포맷 0.2.0 + 표·도형·글자**
 
-8. `feat/core-format-0-2` — 스키마 개정: 동적 표 열 구조(키·제목·너비 분리), 선 시작·끝점, 타원·삼각형, 굵게·밑줄·취소선, `sampleValues`, 요소 그룹 필드. SPEC·마이그레이션·JSON Schema 동시 갱신
+8. `feat/core-format-0-2` — 스키마 개정: 동적 표 열 구조(키·제목·너비 분리), **선 시작·끝점(자유선·사선 — 필수, 2026-08-19 확정. A-1의 캔버스 선 표시가 그려지지 않는 문제도 이 방식으로 함께 해소)**, 타원·삼각형, 굵게·밑줄·취소선, `sampleValues`, 요소 그룹 필드. SPEC·마이그레이션·JSON Schema 동시 갱신
 9. `feat/elements-designer-table-edit` — 표 내부 편집: 고정 그리드 행·열·셀 텍스트·병합, 동적 표 열 편집 (콤마 나열 입력 폐지)
 10. `feat/elements-designer-shape-text` — 도형 그리기(선·타원·삼각형)·글자 스타일(굵게·밑줄·취소선) UI
 
