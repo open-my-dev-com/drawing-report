@@ -26,6 +26,16 @@ function round1(v: number): number {
   return Math.round(v * 10) / 10;
 }
 
+/** 글자 크기(pt)를 화면 px로 — PDF와 같은 크기감 (1pt = 4/3px, 기본 10pt) */
+function fontPx(size: number | undefined): string {
+  return `${(((size ?? 10) * 4) / 3).toFixed(2)}px`;
+}
+
+/** 정렬 값을 flex 정렬로 (기본 left — PDF 변환 기본값과 동일) */
+function justifyOf(alignment: 'left' | 'center' | 'right' | undefined): string {
+  return alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
+}
+
 const PLACEHOLDER_IMG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
@@ -207,7 +217,11 @@ export class SlipDesigner extends LitElement {
       display: grid;
     }
     .element .grid-preview > div {
-      border: 1px solid rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      padding: 0 2px;
+      overflow: hidden;
+      white-space: nowrap;
     }
     .element .table-preview {
       position: absolute;
@@ -1184,9 +1198,15 @@ export class SlipDesigner extends LitElement {
 
     if (el.type !== 'image') {
       const r = el as Record<string, unknown>;
-      if (r.backgroundColor) style += `;background-color:${r.backgroundColor}`;
+      // 동적 표의 배경색은 머리행 배경으로만 쓴다 (PDF 변환과 동일) — 상자 전체를 칠하지 않는다
+      if (r.backgroundColor && el.type !== 'dynamicTable') style += `;background-color:${r.backgroundColor}`;
       if (r.fontColor) style += `;color:${r.fontColor}`;
       if (r.borderColor) style += `;border-color:${r.borderColor}`;
+      // 테두리 굵기·모양을 명시했을 때만 반영 (미지정 시 편집용 실선 유지)
+      if (typeof r.borderWidth === 'number' && r.borderWidth > 0) {
+        style += `;border-width:${(r.borderWidth * PX_PER_MM).toFixed(2)}px`;
+        style += `;border-style:${typeof r.borderStyle === 'string' ? r.borderStyle : 'solid'}`;
+      }
     }
 
     return html`
@@ -1202,18 +1222,18 @@ export class SlipDesigner extends LitElement {
   private _renderElementContent(el: SlipElement) {
     switch (el.type) {
       case 'text':
-        return html`<span class="el-content">${el.content}</span>`;
+        return html`<span class="el-content"
+          style="font-size:${fontPx(el.fontSize)};justify-content:${justifyOf(el.alignment)}"
+          >${el.content}</span>`;
 
       case 'fixedGrid':
-        return html`<div class="grid-preview"
-          style="grid-template-columns:repeat(${el.columns},1fr);grid-template-rows:repeat(${el.rows},1fr)">
-          ${Array.from({ length: el.rows * el.columns }, () => html`<div></div>`)}
-        </div>`;
+        return this._renderGridPreview(el);
 
       case 'dynamicTable':
+        // PDF 변환과 동일하게: 요소 배경색 = 머리행 배경(기본 #eeeeee), 머리행은 가운데 정렬
         return html`<div class="table-preview">
           ${el.head.map((h, i) =>
-            html`<div style="flex:${el.headWidthPercentages[i]}">${h}</div>`,
+            html`<div style="flex:${el.headWidthPercentages[i]};background-color:${el.backgroundColor ?? '#eeeeee'}">${h}</div>`,
           )}
         </div>`;
 
@@ -1233,8 +1253,60 @@ export class SlipDesigner extends LitElement {
           : nothing;
 
       case 'field':
-        return html`<span class="el-content">{${el.binding}}</span>`;
+        return html`<span class="el-content"
+          style="font-size:${fontPx(el.fontSize)};justify-content:${justifyOf(el.alignment)}"
+          >{${el.binding}}</span>`;
     }
+  }
+
+  /**
+   * 고정 그리드 캔버스 표시 — PDF 변환(convert.ts appendFixedGrid)과 같은 규칙으로
+   * 열/행 비율·셀 병합·셀 문구·셀 스타일을 그린다.
+   */
+  private _renderGridPreview(el: SlipElement & { type: 'fixedGrid' }) {
+    const { rows, columns } = el;
+    const colTracks = (el.columnWidthPercentages ?? Array.from({ length: columns }, () => 100 / columns))
+      .map((p) => `${p}fr`).join(' ');
+    const rowTracks = (el.rowHeightPercentages ?? Array.from({ length: rows }, () => 100 / rows))
+      .map((p) => `${p}fr`).join(' ');
+    const lineColor = el.borderColor ?? '#000000';
+    const lineWidth = el.borderWidth ?? 0.2;
+
+    // 셀 소유 그리드 (병합 반영) — 병합 범위의 비원점 칸은 그리지 않는다
+    const owner: number[][] = Array.from({ length: rows }, () => new Array<number>(columns).fill(-1));
+    el.cells.forEach((cell, index) => {
+      for (let r = cell.row; r < cell.row + (cell.rowSpan ?? 1); r++) {
+        for (let c = cell.column; c < cell.column + (cell.colSpan ?? 1); c++) {
+          const line = owner[r];
+          if (line) line[c] = index;
+        }
+      }
+    });
+
+    const cellBorder = lineWidth > 0 ? `1px solid ${lineColor}` : 'none';
+    const boxes = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < columns; c++) {
+        const idx = owner[r]?.[c] ?? -1;
+        if (idx === -1) {
+          boxes.push(html`<div style="grid-area:${r + 1}/${c + 1};border:${cellBorder}"></div>`);
+          continue;
+        }
+        const cell = el.cells[idx]!;
+        if (cell.row !== r || cell.column !== c) continue; // 병합 범위 내부
+        const style = [
+          `grid-area:${r + 1}/${c + 1}/span ${cell.rowSpan ?? 1}/span ${cell.colSpan ?? 1}`,
+          `border:${cellBorder}`,
+          `font-size:${fontPx(cell.fontSize)}`,
+          `justify-content:${justifyOf(cell.alignment)}`,
+          cell.backgroundColor ? `background-color:${cell.backgroundColor}` : '',
+          cell.fontColor ? `color:${cell.fontColor}` : '',
+        ].filter(Boolean).join(';');
+        boxes.push(html`<div style=${style}>${cell.content}</div>`);
+      }
+    }
+    return html`<div class="grid-preview"
+      style="grid-template-columns:${colTracks};grid-template-rows:${rowTracks}">${boxes}</div>`;
   }
 
   // ---------------------------------------------------------------------------

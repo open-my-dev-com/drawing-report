@@ -231,6 +231,66 @@ describe('<slip-designer> 선 요소 캔버스 표시', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 캔버스 스타일 즉시 반영 (v2 A-3) — 글자 크기·정렬·색이 편집 화면에 보인다
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 캔버스 스타일 반영', () => {
+  async function mountWith(elements: unknown[]): Promise<import('../src/slip-designer.js').SlipDesigner> {
+    const file = makeTemplateFile();
+    file.template.pages[0]!.elements = elements as never;
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    return el;
+  }
+
+  it('텍스트의 글자 크기·정렬이 캔버스에 반영된다 (pt → 4/3px)', async () => {
+    const el = await mountWith([{
+      type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목', fontSize: 15, alignment: 'center',
+    }]);
+    const content = el.shadowRoot?.querySelector('.el-content') as HTMLElement;
+    expect(parseFloat(content.style.fontSize)).toBeCloseTo(20, 5); // 15pt × 4/3
+    expect(content.style.justifyContent).toBe('center');
+    el.remove();
+  });
+
+  it('고정 그리드의 셀 문구·병합·셀 배경이 캔버스에 그려진다', async () => {
+    const el = await mountWith([{
+      type: 'fixedGrid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
+      width: 90, height: 30, rows: 2, columns: 3, columnWidthPercentages: [50, 25, 25],
+      cells: [
+        { row: 0, column: 0, rowSpan: 2, content: '병합 라벨', backgroundColor: '#F2F2F2' },
+        { row: 0, column: 1, content: '값' },
+      ],
+    }]);
+    const cells = el.shadowRoot?.querySelectorAll('.grid-preview > div');
+    // 전체 6칸 중 병합(2칸 차지) 원점 1 + 일반 셀 1 + 빈 칸 3 = 5개
+    expect(cells?.length).toBe(5);
+    const merged = Array.from(cells!).find((c) => c.textContent === '병합 라벨') as HTMLElement;
+    expect(merged.style.gridArea.replaceAll(' ', '')).toContain('span2');
+    expect(merged.style.backgroundColor).toBeTruthy();
+    el.remove();
+  });
+
+  it('동적 표 머리행은 배경색(기본 #eeeeee)이 칠해지고 상자 전체는 칠하지 않는다', async () => {
+    const el = await mountWith([{
+      type: 'dynamicTable', id: 'd1', name: 'd', position: { x: 10, y: 50 },
+      width: 90, height: 20, head: ['품명', '금액'], headWidthPercentages: [60, 40],
+      repeatHead: true, binding: 'items', backgroundColor: '#ffee00',
+    }]);
+    const box = el.shadowRoot?.querySelector('.element.type-dynamicTable') as HTMLElement;
+    expect(box.style.backgroundColor).toBe('');
+    const headCell = el.shadowRoot?.querySelector('.table-preview > div') as HTMLElement;
+    expect(headCell.style.backgroundColor).toBeTruthy();
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 요소 선택
 // ---------------------------------------------------------------------------
 
