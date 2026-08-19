@@ -38,8 +38,9 @@ pnpm demo   # → http://localhost:5173
 | [CLAUDE.md](CLAUDE.md) | 개발 규칙 — 모든 Claude Code 세션에 자동 적용 (ADR-024) |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | 로드맵 · 세션 인수인계 — 현재 상태와 다음 작업 |
 | [docs/SPEC.md](docs/SPEC.md) | `.slip` 파일 포맷 공개 규범 명세 |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 아키텍처 — 외부 시스템 연계 (다이어그램 포함) |
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 확정된 요구사항 정리 |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | 설계 결정 로그(ADR-001~027) — 각 결정의 근거와 배경 |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | 설계 결정 로그(ADR-001~031) — 각 결정의 근거와 배경 |
 | [docs/OPEN-QUESTIONS.md](docs/OPEN-QUESTIONS.md) | 미결 사항 목록 (현재 전부 해결됨) |
 | [.claude/rules/branching.md](.claude/rules/branching.md) | 브랜치·커밋·PR 규칙 — 모든 작업은 이 규칙대로 분기 (ADR-023/024) |
 | [docs/Q08-PDFME-EVAL.md](docs/Q08-PDFME-EVAL.md) | pdfme 평가 보고서 |
