@@ -25,7 +25,7 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
 - 새 설계 결정 → `docs/DECISIONS.md`에 ADR 추가. 기존 결정 번복은 삭제하지 않고
   `Superseded by ADR-xxx` 표시 후 새 ADR 추가.
 - `docs/REQUIREMENTS.md`는 항상 DECISIONS.md와 일치하도록 함께 갱신한다.
-- 새 쟁점은 임의로 결정하지 말고 `docs/OPEN-QUESTIONS.md`에 Q-09부터 추가하고 사용자에게 확인한다.
+- 새 쟁점은 임의로 결정하지 말고 `docs/OPEN-QUESTIONS.md`에 다음 Q 번호로 추가하고 사용자에게 확인한다.
 - 작업 완료 시 `docs/ROADMAP.md`의 현재 상태·다음 작업을 갱신한다.
 
 ## 코드 불변 규칙 (경로 무관)

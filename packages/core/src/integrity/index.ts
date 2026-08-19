@@ -12,6 +12,7 @@ import type { Integrity, SlipVoucherFile } from '../format/schema.js';
 import { canonicalize } from './jcs.js';
 import { sha256Hex } from './hash.js';
 import { jwsSign, jwsVerify, generateKeyPair } from './jws.js';
+import { SlipIntegrityError } from './errors.js';
 
 export type { IntegrityJwk, IntegrityKeyPair } from './jws.js';
 export { SlipIntegrityError } from './errors.js';
@@ -39,8 +40,6 @@ export async function verifyIntegrity(
   voucher: SlipVoucherFile,
   publicKey?: import('./jws.js').IntegrityJwk,
 ): Promise<void> {
-  const { SlipIntegrityError } = await import('./errors.js');
-
   if (!voucher.integrity) {
     throw new SlipIntegrityError('integrity 필드가 없습니다');
   }

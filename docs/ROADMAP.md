@@ -1,10 +1,10 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-19 (저장소 어댑터 추가 — 기능 작업 전부 완료, 마무리 단계만 남음)
+최종 갱신: 2026-08-19 (총괄 리뷰 1차 — 정리·보안 점검 반영)
 
 ## 현재 상태
 
-- 요구사항·설계 결정 **전부 확정** (ADR-001~023, 미결 없음) — [DECISIONS.md](DECISIONS.md)
+- 요구사항·설계 결정 **전부 확정** (ADR-001~025) — [DECISIONS.md](DECISIONS.md)
 - `main` = 기준 브랜치 (부트스트랩 브랜치를 개명). 이후 작업은 [`.claude/rules/branching.md`](../.claude/rules/branching.md) 규칙대로 분기
 - pnpm 모노레포 스캐폴딩 완료(4패키지 빌드·타입체크·테스트 통과) — PR [#1](https://github.com/open-my-dev-com/drawing-report/pull/1)
 - **파일 포맷 완료**: [SPEC.md](SPEC.md) 규범 명세 + `.slip` 본문 상세 Zod 스키마(요소 6종·발행 규칙 검증) + schemaVersion 마이그레이션 계층 + JSON Schema 산출·동봉 (ADR-007/008/014/019/020/022)
@@ -35,11 +35,11 @@
 
 ### 마무리 단계 (기능 작업 전부 완료 후)
 
-9. `chore/repo-final-review` — 총괄 리뷰·시스템 점검·보안 점검
-   - 전 패키지 코드 총괄 리뷰: 공개 API·문서(SPEC·DECISIONS·REQUIREMENTS) 일치 확인, 중복·미사용 코드 정리
-   - 시스템 점검: 전 패키지 빌드·타입·테스트 상태, 패키지 간 의존 방향(UI → core 단방향), 번들 산출물 확인
-   - 보안 점검: 의존성 취약점 검사(`pnpm audit`), 불변 규칙 준수 확인(`eval` 금지 ADR-010, pdfme 외부 비공개 ADR-016, core 순수 TS ADR-002), 서명·해시 구현이 SPEC §8과 어긋나지 않는지 확인
-   - 발견 사항은 `fix/*` 브랜치로 나눠 처리
+9. `chore/repo-final-review` — 총괄 리뷰·시스템 점검·보안 점검 → **진행 중** (2026-08-19)
+   - **점검 완료(이상 없음)**: 불변 규칙 위반 0건(`eval` 0건 ADR-010, pdfme 공개 API 노출 0건 ADR-016, core 순수 TS ADR-002), 패키지 의존 방향 단방향(react/vue → elements → core), 수식 함수 29종 ADR-017 일치, 무결성 구현 SPEC §8 일치(해시 대상·JCS 정규화·JWS ES256), JSON Schema 산출물이 현재 스키마와 동일함 직접 확인, 금지어 잔존 0건
+   - **이 브랜치에서 처리**: 의존성 취약점 해소(esbuild low 1건 → override로 0건), 미사용 코드·중복 타입 정리, 하드코딩 UI 문구 2건 strings.ts 경유, 문서 표기 갱신(ADR 범위·날짜·SPEC 좌표 음수 금지 명시)
+   - **남은 후속**: ① `fix/core-spec-alignment` — 비율 합 오차 경계(±0.01 포함으로), assets 항목 자기 `asset://` 참조 검증, `validateSlipFile`·`supportsVersions` 테스트 보강 ② `fix/repo-framework-wrappers` — react/vue 래퍼에 `SlipDesigner`·`fonts`·`slip-change` 노출 ③ `feat/elements-designer-pages` — 디자이너 페이지 전환·추가·삭제 UI (Q-10 → ADR-026, v1 포함 확정)
+   - 기록해 둔 사소 개선 후보(처리 보류): 뷰어·디자이너 PDF 미리보기 로직 공용화, `toText`/`toDisplayText` 문자열화 규칙 상호 참조 주석
 10. `chore/repo-integration-test` — 시스템 결합 테스트
    - 패키지 경계를 넘는 통합 시나리오: 디자이너로 양식 편집 → `.slip` 저장 → 전표 값·수식 평가 → PDF 렌더 → 해시·서명 검증까지 실제 사용 흐름 그대로 테스트
    - 뷰어·디자이너(elements)와 react/vue 래퍼가 core와 함께 동작하는지 확인
@@ -47,4 +47,4 @@
 ## 진행 방식 메모
 
 - 모든 결정은 사용자 Q&A로 확정하며 DECISIONS.md에 ADR로 기록, REQUIREMENTS.md와 일치하도록 유지 (README의 문서 운영 규칙 참조)
-- 새 쟁점은 OPEN-QUESTIONS.md에 Q-09부터 추가
+- 새 쟁점은 OPEN-QUESTIONS.md에 다음 Q 번호로 추가

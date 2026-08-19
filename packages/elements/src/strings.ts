@@ -4,6 +4,7 @@ export const strings = {
     loading: 'PDF를 생성하고 있습니다…',
     parseError: '.slip 파일을 읽을 수 없습니다.',
     renderError: 'PDF 렌더링에 실패했습니다.',
+    pdfTitle: 'PDF 미리보기',
   },
   designer: {
     noTemplate: '양식을 불러오세요.',
@@ -45,6 +46,8 @@ export const strings = {
     style: '스타일',
     previewLoading: 'PDF를 생성하고 있습니다…',
     previewError: 'PDF 생성에 실패했습니다.',
+    pdfTitle: 'PDF 미리보기',
+    defaultTableHead: ['항목', '수량', '금액'],
     typeText: '텍스트',
     typeFixedGrid: '고정 그리드 표',
     typeDynamicTable: '동적 행 표',
