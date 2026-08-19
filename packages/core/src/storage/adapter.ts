@@ -4,6 +4,17 @@
  */
 import type { SlipFile, SlipFileKind } from '../format/types.js';
 
+/** 저장소 작업 실패. code로 원인을 구분한다 */
+export class SlipStorageError extends Error {
+  readonly code: 'not-found' | 'unsupported' | 'io';
+
+  constructor(code: 'not-found' | 'unsupported' | 'io', message: string) {
+    super(message);
+    this.name = 'SlipStorageError';
+    this.code = code;
+  }
+}
+
 export interface SlipListFilter {
   kind?: SlipFileKind;
   /** 제목 부분 일치 등 자유 검색어 */
