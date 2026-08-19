@@ -816,6 +816,80 @@ describe('<slip-designer> 페이지', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 입력 필드 단축키 가드 (Shadow DOM 리타게팅)
+// ---------------------------------------------------------------------------
+
+/**
+ * 실제 브라우저에서는 섀도 내부 입력란의 키 이벤트가 호스트에 도달할 때
+ * target이 호스트로 재지정된다. 그 상황을 composedPath가 입력란을
+ * 돌려주는 이벤트로 재현한다.
+ */
+function retargetedKey(el: Element, key: string, init: KeyboardEventInit = {}): KeyboardEvent {
+  const input = el.shadowRoot?.querySelector('.prop-panel input') as HTMLInputElement;
+  expect(input).not.toBeNull();
+  const event = new KeyboardEvent('keydown', { key, bubbles: true, ...init });
+  Object.defineProperty(event, 'composedPath', { value: () => [input] });
+  return event;
+}
+
+describe('<slip-designer> 입력 필드 단축키 가드', () => {
+  it('속성 패널 입력란에서 Backspace를 눌러도 요소가 삭제되지 않는다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    el.dispatchEvent(retargetedKey(el, 'Backspace'));
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
+    expect(el.shadowRoot?.querySelector('.element.selected')).not.toBeNull();
+    el.remove();
+  });
+
+  it('입력란에서 Ctrl+V는 요소 붙여넣기를 실행하지 않는다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    toolbarButton(el, strings.designer.copy).click();
+    await el.updateComplete;
+
+    el.dispatchEvent(retargetedKey(el, 'v', { ctrlKey: true }));
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
+    el.remove();
+  });
+
+  it('입력란에서 Ctrl+Z는 전체 양식 undo를 실행하지 않는다', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.addText).click();
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(3);
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    el.dispatchEvent(retargetedKey(el, 'z', { ctrlKey: true }));
+    await el.updateComplete;
+
+    // 입력란 텍스트 undo가 아니라면 양식은 그대로여야 한다
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(3);
+    el.remove();
+  });
+
+  it('입력란 밖(캔버스)에서는 단축키가 그대로 동작한다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true }));
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(1);
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 미리보기
 // ---------------------------------------------------------------------------
 

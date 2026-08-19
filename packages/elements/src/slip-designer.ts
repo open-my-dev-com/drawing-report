@@ -892,20 +892,24 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _onKeyDown = (e: KeyboardEvent): void => {
-    // 입력 필드 안에서는 편집기 단축키를 가로채지 않는다
+    // 입력 필드 안에서는 편집기 단축키를 가로채지 않는다.
+    // Shadow DOM 안에서 올라온 이벤트는 호스트에서 target이 호스트 요소로
+    // 재지정(retargeting)되므로, 실제 입력 대상은 composedPath()의 첫 항목으로 판정한다.
+    const target = e.composedPath()[0] ?? e.target;
     const inFormField =
-      e.target instanceof HTMLInputElement ||
-      e.target instanceof HTMLTextAreaElement ||
-      e.target instanceof HTMLSelectElement;
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement;
+    if (inFormField) return;
 
-    if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedId && !inFormField) {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedId) {
       e.preventDefault();
       this._deleteSelected();
     }
-    if (e.key === 'c' && (e.ctrlKey || e.metaKey) && !inFormField) {
+    if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
       this._copySelected();
     }
-    if (e.key === 'v' && (e.ctrlKey || e.metaKey) && !inFormField) {
+    if (e.key === 'v' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       this._paste();
     }
