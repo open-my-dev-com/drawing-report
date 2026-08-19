@@ -7,7 +7,7 @@ import {
   type SlipElement,
   type RenderOptions,
 } from '@omdc-slipkit/core';
-import { strings } from './strings.js';
+import { getStrings } from './strings.js';
 import { presets } from './presets.js';
 
 const PX_PER_MM = 96 / 25.4;
@@ -366,6 +366,7 @@ export class SlipDesigner extends LitElement {
 
   static properties = {
     src: { type: String },
+    locale: { type: String },
     fonts: { attribute: false },
     _file: { state: true },
     _pageIndex: { state: true },
@@ -379,6 +380,10 @@ export class SlipDesigner extends LitElement {
   };
 
   src = '';
+
+  /** UI 언어 ('ko' | 'en', 기본 한국어) — ADR-028 */
+  locale?: string;
+
   fonts?: RenderOptions['fonts'];
 
   private _file: SlipTemplateFile | null = null;
@@ -396,6 +401,11 @@ export class SlipDesigner extends LitElement {
   private _guideX: number | null = null;
   private _guideY: number | null = null;
   private _previewGeneration = 0;
+
+  /** 현재 locale의 문구 사전 */
+  private get _strings() {
+    return getStrings(this.locale);
+  }
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -451,13 +461,13 @@ export class SlipDesigner extends LitElement {
     } catch (error) {
       console.error('[slip-designer] .slip 파싱 실패:', error);
       this._file = null;
-      this._error = strings.designer.parseError;
+      this._error = this._strings.designer.parseError;
       return;
     }
 
     if (file.kind !== 'template') {
       this._file = null;
-      this._error = strings.designer.onlyTemplate;
+      this._error = this._strings.designer.onlyTemplate;
       return;
     }
 
@@ -593,7 +603,7 @@ export class SlipDesigner extends LitElement {
       case 'dynamicTable':
         element = {
           type: 'dynamicTable', id, name, position, width: 180, height: 20,
-          head: [...strings.designer.defaultTableHead],
+          head: [...this._strings.designer.defaultTableHead],
           headWidthPercentages: [40, 30, 30],
           repeatHead: true, binding: 'items',
         };
@@ -990,7 +1000,7 @@ export class SlipDesigner extends LitElement {
       console.error('[slip-designer] PDF 미리보기 생성 실패:', error);
       if (gen !== this._previewGeneration) return;
       // 미리보기 화면 안에 실패를 표시한다 (편집 버튼으로 복귀 가능)
-      this._previewError = strings.designer.previewError;
+      this._previewError = this._strings.designer.previewError;
     }
   }
 
@@ -1001,7 +1011,7 @@ export class SlipDesigner extends LitElement {
   override render() {
     if (!this._file) {
       return html`<div class="empty-state ${this._error ? 'error' : ''}">
-        ${this._error ?? strings.designer.noTemplate}
+        ${this._error ?? this._strings.designer.noTemplate}
       </div>`;
     }
 
@@ -1010,10 +1020,10 @@ export class SlipDesigner extends LitElement {
       ${this._previewMode
         ? html`<div class="preview-area">
             ${this._previewUrl
-              ? html`<iframe src=${this._previewUrl} title=${strings.designer.pdfTitle}></iframe>`
+              ? html`<iframe src=${this._previewUrl} title=${this._strings.designer.pdfTitle}></iframe>`
               : this._previewError
                 ? html`<div class="status error">${this._previewError}</div>`
-                : html`<div class="status">${strings.designer.previewLoading}</div>`}
+                : html`<div class="status">${this._strings.designer.previewLoading}</div>`}
           </div>`
         : html`
             <div class="canvas-area"
@@ -1033,7 +1043,7 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _renderToolbar() {
-    const s = strings.designer;
+    const s = this._strings.designer;
     return html`
       <button @click=${() => this._addElement('text')}>${s.addText}</button>
       <button @click=${() => this._addElement('fixedGrid')}>${s.addFixedGrid}</button>
@@ -1196,7 +1206,7 @@ export class SlipDesigner extends LitElement {
       case 'image':
         return el.src.startsWith('data:')
           ? html`<img src=${el.src} alt="">`
-          : html`<span class="el-content">${strings.designer.typeImage}</span>`;
+          : html`<span class="el-content">${this._strings.designer.typeImage}</span>`;
 
       case 'shape':
         return el.shape === 'line'
@@ -1217,10 +1227,10 @@ export class SlipDesigner extends LitElement {
   private _renderPropertyPanel() {
     const el = this._findSelectedElement();
     if (!el) {
-      return html`<div class="panel-empty">${strings.designer.noSelection}</div>`;
+      return html`<div class="panel-empty">${this._strings.designer.noSelection}</div>`;
     }
 
-    const s = strings.designer;
+    const s = this._strings.designer;
     const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
 
@@ -1277,7 +1287,7 @@ export class SlipDesigner extends LitElement {
   }
 
   private _typeName(type: SlipElement['type']): string {
-    const s = strings.designer;
+    const s = this._strings.designer;
     const map: Record<SlipElement['type'], string> = {
       text: s.typeText,
       fixedGrid: s.typeFixedGrid,
@@ -1294,7 +1304,7 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _renderTypeProps(el: SlipElement) {
-    const s = strings.designer;
+    const s = this._strings.designer;
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
 
     switch (el.type) {
@@ -1403,7 +1413,7 @@ export class SlipDesigner extends LitElement {
 
   private _renderFontProps(el: SlipElement) {
     if (el.type !== 'text' && el.type !== 'field') return nothing;
-    const s = strings.designer;
+    const s = this._strings.designer;
     const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
 
@@ -1443,7 +1453,7 @@ export class SlipDesigner extends LitElement {
 
   private _renderColorProps(el: SlipElement) {
     if (el.type === 'image') return nothing;
-    const s = strings.designer;
+    const s = this._strings.designer;
     const r = el as Record<string, unknown>;
     // 파일 스키마와 같은 형식(#RRGGBB/#RRGGBBAA)만 저장한다 — 어긋난 값을
     // 넣으면 나중에 저장(재검증) 시점에야 거부되어 원인을 찾기 어렵다

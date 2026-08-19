@@ -1,10 +1,10 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-19 (npm 패키지명 @omdc-slipkit/*로 변경 — ADR-027. v1 로드맵 전체 완료)
+최종 갱신: 2026-08-19 (영어 UI 추가 — ADR-028. v1 로드맵 전체 완료 + 코드리뷰 후속·i18n 반영)
 
 ## 현재 상태
 
-- 요구사항·설계 결정 **전부 확정** (ADR-001~027) — [DECISIONS.md](DECISIONS.md)
+- 요구사항·설계 결정 **전부 확정** (ADR-001~028) — [DECISIONS.md](DECISIONS.md)
 - `main` = 기준 브랜치 (부트스트랩 브랜치를 개명). 이후 작업은 [`.claude/rules/branching.md`](../.claude/rules/branching.md) 규칙대로 분기
 - pnpm 모노레포 스캐폴딩 완료(4패키지 빌드·타입체크·테스트 통과) — PR [#1](https://github.com/open-my-dev-com/drawing-report/pull/1)
 - **파일 포맷 완료**: [SPEC.md](SPEC.md) 규범 명세 + `.slip` 본문 상세 Zod 스키마(요소 6종·발행 규칙 검증) + schemaVersion 마이그레이션 계층 + JSON Schema 산출·동봉 (ADR-007/008/014/019/020/022)
@@ -17,6 +17,7 @@
 - **디자이너 복사·붙여넣기 완료**: 툴바 버튼·Ctrl+C/V로 선택 요소를 복사해 5mm씩 계단식으로 어긋난 위치에 새 요소로 추가(새 id 부여, 되돌리기 지원). 입력 필드 안에서는 단축키를 가로채지 않음 (ADR-020)
 - **디자이너 프리셋 완료 — GUI 디자이너(ADR-020 범위) 전부 완료**: 거래명세서·청구서 프리셋 2종 동봉(`presets` 공개 API). 툴바 선택 상자로 프리셋을 불러 양식 전체를 교체(되돌리기 지원). 프리셋 유효성은 실제 core 스키마(`parseSlipFile`)로 테스트
 - **저장소 어댑터 완료**: 인터페이스(`StorageAdapter`)·오류(`SlipStorageError`)는 core, 브라우저 구현 2종은 elements — `IndexedDbStorage`(save/load/delete/list, 제목·종류 필터, 커서 페이징) + `LocalFileStorage`(save=다운로드, load=파일 선택, delete/list는 `unsupported` 오류) (ADR-021/025, Q-09 해결)
+- **국제화 반영 완료**: 수식 포맷 함수 로케일 지정(`RenderOptions.locale`, ADR-013) + UI 영어 사전·`locale` 전환(뷰어·디자이너·래퍼·저장소 어댑터, 기본 한국어, ADR-028)
 - **디자이너 다중 페이지 완료**: 툴바에서 페이지 전환(◀ 1/2 ▶)·추가·삭제(최소 1페이지 유지). 요소 편집·추가·붙여넣기는 현재 페이지 대상, 페이지 조작도 되돌리기 지원 (ADR-026, Q-10 해결)
 
 ## 다음 작업 (권장 순서)

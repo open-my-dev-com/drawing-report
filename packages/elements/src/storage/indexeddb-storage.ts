@@ -15,7 +15,7 @@ import {
   type SlipListPage,
   type StorageAdapter,
 } from '@omdc-slipkit/core';
-import { strings } from '../strings.js';
+import { getStrings, type SlipStrings } from '../strings.js';
 
 interface SlipRecord {
   id: string;
@@ -31,6 +31,8 @@ export interface IndexedDbStorageOptions {
   dbName?: string;
   /** list() 한 페이지 크기 (기본 50) */
   pageSize?: number;
+  /** 오류 메시지 언어 ('ko' | 'en', 기본 한국어) — ADR-028 */
+  locale?: string;
 }
 
 const STORE_NAME = 'slips';
@@ -40,22 +42,23 @@ function fileTitle(file: SlipFile): string {
   return file.kind === 'template' ? file.template.meta.title : file.templateSnapshot.meta.title;
 }
 
-function request<T>(req: IDBRequest<T>): Promise<T> {
+function request<T>(req: IDBRequest<T>, ioError: string): Promise<T> {
   return new Promise((resolve, reject) => {
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () =>
-      reject(new SlipStorageError('io', req.error?.message ?? strings.storage.ioError));
+    req.onerror = () => reject(new SlipStorageError('io', req.error?.message ?? ioError));
   });
 }
 
 export class IndexedDbStorage implements StorageAdapter {
   private readonly dbName: string;
   private readonly pageSize: number;
+  private readonly messages: SlipStrings['storage'];
   private dbPromise: Promise<IDBDatabase> | null = null;
 
   constructor(options: IndexedDbStorageOptions = {}) {
     this.dbName = options.dbName ?? 'slipkit';
     this.pageSize = options.pageSize ?? 50;
+    this.messages = getStrings(options.locale).storage;
   }
 
   private open(): Promise<IDBDatabase> {
@@ -70,7 +73,7 @@ export class IndexedDbStorage implements StorageAdapter {
       req.onerror = () => {
         // 실패한 열기를 캐시에 남기지 않는다 — 다음 호출이 다시 시도할 수 있게
         this.dbPromise = null;
-        reject(new SlipStorageError('io', req.error?.message ?? strings.storage.ioError));
+        reject(new SlipStorageError('io', req.error?.message ?? this.messages.ioError));
       };
     });
     return this.dbPromise;
@@ -89,25 +92,25 @@ export class IndexedDbStorage implements StorageAdapter {
       updatedAt: new Date().toISOString(),
       data: serializeSlipFile(file),
     };
-    await request((await this.store('readwrite')).put(record));
+    await request((await this.store('readwrite')).put(record), this.messages.ioError);
   }
 
   async load(id: string): Promise<SlipFile> {
-    const record = (await request((await this.store('readonly')).get(id))) as
+    const record = (await request((await this.store('readonly')).get(id), this.messages.ioError)) as
       | SlipRecord
       | undefined;
     if (!record) {
-      throw new SlipStorageError('not-found', `${strings.storage.notFound}: ${id}`);
+      throw new SlipStorageError('not-found', `${this.messages.notFound}: ${id}`);
     }
     return parseSlipFile(record.data);
   }
 
   async delete(id: string): Promise<void> {
-    await request((await this.store('readwrite')).delete(id));
+    await request((await this.store('readwrite')).delete(id), this.messages.ioError);
   }
 
   async list(filter?: SlipListFilter, cursor?: string): Promise<SlipListPage> {
-    const records = (await request((await this.store('readonly')).getAll())) as SlipRecord[];
+    const records = (await request((await this.store('readonly')).getAll(), this.messages.ioError)) as SlipRecord[];
 
     const query = filter?.query?.trim().toLowerCase();
     const matched = records
@@ -117,7 +120,7 @@ export class IndexedDbStorage implements StorageAdapter {
 
     const offset = cursor ? Number(cursor) : 0;
     if (!Number.isInteger(offset) || offset < 0) {
-      throw new SlipStorageError('io', `${strings.storage.badCursor}: ${cursor}`);
+      throw new SlipStorageError('io', `${this.messages.badCursor}: ${cursor}`);
     }
 
     const items: SlipListItem[] = matched

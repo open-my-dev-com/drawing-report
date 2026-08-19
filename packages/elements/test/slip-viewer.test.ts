@@ -213,3 +213,13 @@ describe('<slip-viewer> 생명주기 정리', () => {
     expect(blobUrls.length).toBe(0);
   });
 });
+
+describe('<slip-viewer> UI 언어 (ADR-028)', () => {
+  it('locale="en"이면 안내 문구가 영어로 표시된다', async () => {
+    const el = await createElement();
+    el.locale = 'en';
+    await el.updateComplete;
+    expect(shadowText(el)).toBe('No .slip file to display.');
+    el.remove();
+  });
+});

@@ -1,4 +1,14 @@
-export const strings = {
+/**
+ * UI 문구 리소스 (ADR-013/028).
+ *
+ * 문구는 전부 이 파일의 언어별 사전에 모으고, 컴포넌트는 `locale` 속성으로
+ * 사전을 고른다 (기본 한국어). 새 문구는 반드시 두 사전에 함께 추가한다 —
+ * `SlipStrings` 타입이 키 누락을 컴파일 단계에서 잡는다.
+ */
+
+export type SlipLocale = 'ko' | 'en';
+
+const ko = {
   viewer: {
     noFile: '표시할 .slip 파일이 없습니다.',
     loading: 'PDF를 생성하고 있습니다…',
@@ -24,12 +34,12 @@ export const strings = {
     preview: '미리보기',
     edit: '편집',
     preset: '프리셋',
+    presetTradeStatement: '거래명세서',
+    presetInvoice: '청구서',
     addPage: '페이지 추가',
     deletePage: '페이지 삭제',
     prevPage: '이전 페이지',
     nextPage: '다음 페이지',
-    presetTradeStatement: '거래명세서',
-    presetInvoice: '청구서',
     noSelection: '요소를 선택하세요.',
     name: '이름',
     width: '너비',
@@ -73,4 +83,98 @@ export const strings = {
     deleteUnsupported: '로컬 파일 저장소는 삭제를 지원하지 않습니다.',
     listUnsupported: '로컬 파일 저장소는 목록 조회를 지원하지 않습니다.',
   },
-} as const;
+};
+
+/** 문구 사전의 형태 — 두 언어가 같은 키를 갖도록 컴파일 단계에서 강제한다 */
+export type SlipStrings = typeof ko;
+
+const en: SlipStrings = {
+  viewer: {
+    noFile: 'No .slip file to display.',
+    loading: 'Generating PDF…',
+    parseError: 'Could not read the .slip file.',
+    renderError: 'PDF rendering failed.',
+    pdfTitle: 'PDF preview',
+  },
+  designer: {
+    noTemplate: 'Load a template to start.',
+    parseError: 'Could not read the .slip file.',
+    onlyTemplate: 'The designer can only edit template files.',
+    addText: 'Text',
+    addFixedGrid: 'Fixed grid',
+    addDynamicTable: 'Dynamic table',
+    addImage: 'Image',
+    addShape: 'Shape',
+    addField: 'Field',
+    delete: 'Delete',
+    copy: 'Copy',
+    paste: 'Paste',
+    undo: 'Undo',
+    redo: 'Redo',
+    preview: 'Preview',
+    edit: 'Edit',
+    preset: 'Presets',
+    presetTradeStatement: 'Transaction statement',
+    presetInvoice: 'Invoice',
+    addPage: 'Add page',
+    deletePage: 'Delete page',
+    prevPage: 'Previous page',
+    nextPage: 'Next page',
+    noSelection: 'Select an element.',
+    name: 'Name',
+    width: 'Width',
+    height: 'Height',
+    content: 'Content',
+    binding: 'Binding',
+    formula: 'Formula',
+    fontSize: 'Font size',
+    alignment: 'Align',
+    shapeType: 'Shape',
+    rows: 'Rows',
+    columns: 'Columns',
+    head: 'Header row',
+    src: 'Source',
+    backgroundColor: 'Background',
+    fontColor: 'Text color',
+    borderColor: 'Border color',
+    style: 'Style',
+    previewLoading: 'Generating PDF…',
+    previewError: 'Failed to generate the PDF.',
+    pdfTitle: 'PDF preview',
+    defaultTableHead: ['Item', 'Qty', 'Amount'],
+    typeText: 'Text',
+    typeFixedGrid: 'Fixed grid table',
+    typeDynamicTable: 'Dynamic table',
+    typeImage: 'Image',
+    typeShape: 'Shape',
+    typeField: 'Input field',
+    alignLeft: 'Left',
+    alignCenter: 'Center',
+    alignRight: 'Right',
+    shapeRect: 'Rectangle',
+    shapeLine: 'Line',
+  },
+  storage: {
+    ioError: 'Storage operation failed.',
+    notFound: 'No saved file',
+    badCursor: 'Invalid list cursor',
+    noFileSelected: 'No file was selected.',
+    pickCancelled: 'File selection was cancelled.',
+    deleteUnsupported: 'Local file storage does not support delete.',
+    listUnsupported: 'Local file storage does not support listing.',
+  },
+};
+
+export const STRINGS: Record<SlipLocale, SlipStrings> = { ko, en };
+
+/**
+ * 로케일에 맞는 문구 사전을 돌려준다. 'en-US'처럼 지역이 붙어도 언어만 보고
+ * 고르며, 모르는 로케일은 한국어(기본)로 돌아간다.
+ */
+export function getStrings(locale?: string): SlipStrings {
+  const language = locale?.toLowerCase().split('-')[0];
+  return language && language in STRINGS ? STRINGS[language as SlipLocale] : STRINGS.ko;
+}
+
+/** 한국어 사전 — 프리셋 등 한국어 고정 데이터와 기존 코드가 참조한다 */
+export const strings = ko;

@@ -13,9 +13,15 @@ import {
   type SlipListPage,
   type StorageAdapter,
 } from '@omdc-slipkit/core';
-import { strings } from '../strings.js';
+import { getStrings, type SlipStrings } from '../strings.js';
 
 export class LocalFileStorage implements StorageAdapter {
+  private readonly messages: SlipStrings['storage'];
+
+  constructor(options: { /** 오류 메시지 언어 ('ko' | 'en', 기본 한국어) — ADR-028 */ locale?: string } = {}) {
+    this.messages = getStrings(options.locale).storage;
+  }
+
   /** id를 파일명으로 삼아 `.slip` 파일을 다운로드한다 */
   async save(id: string, file: SlipFile): Promise<void> {
     const json = serializeSlipFile(file);
@@ -47,7 +53,7 @@ export class LocalFileStorage implements StorageAdapter {
         const picked = input.files?.[0];
         cleanup();
         if (!picked) {
-          reject(new SlipStorageError('io', strings.storage.noFileSelected));
+          reject(new SlipStorageError('io', this.messages.noFileSelected));
           return;
         }
         picked
@@ -57,7 +63,7 @@ export class LocalFileStorage implements StorageAdapter {
       });
       input.addEventListener('cancel', () => {
         cleanup();
-        reject(new SlipStorageError('io', strings.storage.pickCancelled));
+        reject(new SlipStorageError('io', this.messages.pickCancelled));
       });
 
       document.body.appendChild(input);
@@ -66,10 +72,10 @@ export class LocalFileStorage implements StorageAdapter {
   }
 
   delete(_id: string): Promise<void> {
-    return Promise.reject(new SlipStorageError('unsupported', strings.storage.deleteUnsupported));
+    return Promise.reject(new SlipStorageError('unsupported', this.messages.deleteUnsupported));
   }
 
   list(): Promise<SlipListPage> {
-    return Promise.reject(new SlipStorageError('unsupported', strings.storage.listUnsupported));
+    return Promise.reject(new SlipStorageError('unsupported', this.messages.listUnsupported));
   }
 }
