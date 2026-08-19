@@ -1,6 +1,6 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-19 (총괄 리뷰 1차 — 정리·보안 점검 반영)
+최종 갱신: 2026-08-19 (디자이너 다중 페이지 완료 — 총괄 리뷰 후속 전부 완료, 결합 테스트만 남음)
 
 ## 현재 상태
 
@@ -17,6 +17,7 @@
 - **디자이너 복사·붙여넣기 완료**: 툴바 버튼·Ctrl+C/V로 선택 요소를 복사해 5mm씩 계단식으로 어긋난 위치에 새 요소로 추가(새 id 부여, 되돌리기 지원). 입력 필드 안에서는 단축키를 가로채지 않음 (ADR-020)
 - **디자이너 프리셋 완료 — GUI 디자이너(ADR-020 범위) 전부 완료**: 거래명세서·청구서 프리셋 2종 동봉(`presets` 공개 API). 툴바 선택 상자로 프리셋을 불러 양식 전체를 교체(되돌리기 지원). 프리셋 유효성은 실제 core 스키마(`parseSlipFile`)로 테스트
 - **저장소 어댑터 완료**: 인터페이스(`StorageAdapter`)·오류(`SlipStorageError`)는 core, 브라우저 구현 2종은 elements — `IndexedDbStorage`(save/load/delete/list, 제목·종류 필터, 커서 페이징) + `LocalFileStorage`(save=다운로드, load=파일 선택, delete/list는 `unsupported` 오류) (ADR-021/025, Q-09 해결)
+- **디자이너 다중 페이지 완료**: 툴바에서 페이지 전환(◀ 1/2 ▶)·추가·삭제(최소 1페이지 유지). 요소 편집·추가·붙여넣기는 현재 페이지 대상, 페이지 조작도 되돌리기 지원 (ADR-026, Q-10 해결)
 
 ## 다음 작업 (권장 순서)
 
@@ -35,12 +36,13 @@
 
 ### 마무리 단계 (기능 작업 전부 완료 후)
 
-9. `chore/repo-final-review` — 총괄 리뷰·시스템 점검·보안 점검 → **진행 중** (2026-08-19)
+9. `chore/repo-final-review` — 총괄 리뷰·시스템 점검·보안 점검 → **완료** (2026-08-19)
    - **점검 완료(이상 없음)**: 불변 규칙 위반 0건(`eval` 0건 ADR-010, pdfme 공개 API 노출 0건 ADR-016, core 순수 TS ADR-002), 패키지 의존 방향 단방향(react/vue → elements → core), 수식 함수 29종 ADR-017 일치, 무결성 구현 SPEC §8 일치(해시 대상·JCS 정규화·JWS ES256), JSON Schema 산출물이 현재 스키마와 동일함 직접 확인, 금지어 잔존 0건
    - **이 브랜치에서 처리**: 의존성 취약점 해소(esbuild low 1건 → override로 0건), 미사용 코드·중복 타입 정리, 하드코딩 UI 문구 2건 strings.ts 경유, 문서 표기 갱신(ADR 범위·날짜·SPEC 좌표 음수 금지 명시)
    - ~~① `fix/core-spec-alignment` — 비율 합 오차 경계(±0.01 포함으로), assets 항목 자기 `asset://` 참조 검증, `validateSlipFile`·`supportsVersions` 테스트 보강~~ → **완료**
    - ~~② `fix/repo-framework-wrappers` — react/vue 래퍼에 `SlipDesigner`·`fonts`·`slip-change` 노출~~ → **완료**
-   - **남은 후속**: ③ `feat/elements-designer-pages` — 디자이너 페이지 전환·추가·삭제 UI (Q-10 → ADR-026, v1 포함 확정)
+   - ~~③ `feat/elements-designer-pages` — 디자이너 페이지 전환·추가·삭제 UI (Q-10 → ADR-026, v1 포함 확정)~~ → **완료**
+   - **후속 전부 완료 → 9번 종료.** 남은 로드맵 항목은 10번(결합 테스트)뿐
    - 기록해 둔 사소 개선 후보(처리 보류): 뷰어·디자이너 PDF 미리보기 로직 공용화, `toText`/`toDisplayText` 문자열화 규칙 상호 참조 주석
 10. `chore/repo-integration-test` — 시스템 결합 테스트
    - 패키지 경계를 넘는 통합 시나리오: 디자이너로 양식 편집 → `.slip` 저장 → 전표 값·수식 평가 → PDF 렌더 → 해시·서명 검증까지 실제 사용 흐름 그대로 테스트

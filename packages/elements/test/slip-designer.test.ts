@@ -735,6 +735,87 @@ describe('<slip-designer> 프리셋', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 페이지 (ADR-026)
+// ---------------------------------------------------------------------------
+
+function pageIndicator(el: Element): string {
+  return el.shadowRoot?.querySelector('.page-indicator')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+}
+
+describe('<slip-designer> 페이지', () => {
+  it('페이지 표시기가 현재/전체 페이지를 보여주고, 한 페이지면 삭제가 비활성화된다', async () => {
+    const el = await loadDesigner();
+    expect(pageIndicator(el)).toBe('1 / 1');
+    expect(toolbarButton(el, strings.designer.deletePage).disabled).toBe(true);
+    expect((el.shadowRoot?.querySelector('.page-prev') as HTMLButtonElement).disabled).toBe(true);
+    expect((el.shadowRoot?.querySelector('.page-next') as HTMLButtonElement).disabled).toBe(true);
+    el.remove();
+  });
+
+  it('페이지를 추가하면 빈 새 페이지로 이동하고 slip-change를 발행한다', async () => {
+    const el = await loadDesigner();
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+
+    toolbarButton(el, strings.designer.addPage).click();
+    await el.updateComplete;
+
+    expect(pageIndicator(el)).toBe('2 / 2');
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(0);
+    expect(changes.length).toBe(1);
+    expect(changes[0]!.detail.file.template.pages.length).toBe(2);
+    expect(changes[0]!.detail.file.template.pages[1].elements).toEqual([]);
+    el.remove();
+  });
+
+  it('이전/다음 버튼으로 페이지를 전환하면 해당 페이지 요소가 보인다', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.addPage).click();
+    await el.updateComplete;
+
+    (el.shadowRoot?.querySelector('.page-prev') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(pageIndicator(el)).toBe('1 / 2');
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
+
+    (el.shadowRoot?.querySelector('.page-next') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(pageIndicator(el)).toBe('2 / 2');
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(0);
+    el.remove();
+  });
+
+  it('현재 페이지를 삭제하면 남은 페이지로 이동한다', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.addPage).click();
+    await el.updateComplete;
+
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    toolbarButton(el, strings.designer.deletePage).click();
+    await el.updateComplete;
+
+    expect(pageIndicator(el)).toBe('1 / 1');
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
+    expect(changes[0]!.detail.file.template.pages.length).toBe(1);
+    el.remove();
+  });
+
+  it('페이지 추가는 되돌리기로 복구된다', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.addPage).click();
+    await el.updateComplete;
+    expect(pageIndicator(el)).toBe('2 / 2');
+
+    toolbarButton(el, strings.designer.undo).click();
+    await el.updateComplete;
+    expect(pageIndicator(el)).toBe('1 / 1');
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 미리보기
 // ---------------------------------------------------------------------------
 

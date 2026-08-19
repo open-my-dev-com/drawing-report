@@ -108,6 +108,12 @@ export class SlipDesigner extends LitElement {
       color: inherit;
       cursor: pointer;
     }
+    .toolbar .page-indicator {
+      min-width: 40px;
+      text-align: center;
+      font-size: 12px;
+      color: #555;
+    }
     .toolbar .sep {
       width: 1px;
       height: 20px;
@@ -359,6 +365,7 @@ export class SlipDesigner extends LitElement {
     src: { type: String },
     fonts: { attribute: false },
     _file: { state: true },
+    _pageIndex: { state: true },
     _selectedId: { state: true },
     _previewMode: { state: true },
     _previewUrl: { state: true },
@@ -469,6 +476,7 @@ export class SlipDesigner extends LitElement {
     if (this._undoStack.length === 0 || !this._file) return;
     this._redoStack.push(JSON.stringify(this._file));
     this._file = JSON.parse(this._undoStack.pop()!) as SlipTemplateFile;
+    this._clampPageIndex();
     this._validateSelection();
     this._emitChange();
   }
@@ -477,8 +485,52 @@ export class SlipDesigner extends LitElement {
     if (this._redoStack.length === 0 || !this._file) return;
     this._undoStack.push(JSON.stringify(this._file));
     this._file = JSON.parse(this._redoStack.pop()!) as SlipTemplateFile;
+    this._clampPageIndex();
     this._validateSelection();
     this._emitChange();
+  }
+
+  /** 페이지 수가 줄어드는 복원 뒤에도 현재 페이지가 범위 안에 있도록 보정 */
+  private _clampPageIndex(): void {
+    this._pageIndex = Math.max(0, Math.min(this._pageIndex, this._pageCount() - 1));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pages (ADR-026)
+  // ---------------------------------------------------------------------------
+
+  private _pageCount(): number {
+    return this._file?.template.pages.length ?? 0;
+  }
+
+  private _goToPage(index: number): void {
+    if (!this._file) return;
+    const clamped = Math.max(0, Math.min(index, this._pageCount() - 1));
+    if (clamped === this._pageIndex) return;
+    this._pageIndex = clamped;
+    this._selectedId = null;
+  }
+
+  /** 현재 페이지 뒤에 빈 페이지를 추가하고 그 페이지로 이동한다 */
+  private _addPage(): void {
+    if (!this._file) return;
+    this._pushUndo();
+    this._file.template.pages.splice(this._pageIndex + 1, 0, { elements: [] });
+    this._pageIndex += 1;
+    this._selectedId = null;
+    this._emitChange();
+    this.requestUpdate();
+  }
+
+  /** 현재 페이지를 삭제한다 (마지막 한 페이지는 삭제 불가) */
+  private _deletePage(): void {
+    if (!this._file || this._pageCount() <= 1) return;
+    this._pushUndo();
+    this._file.template.pages.splice(this._pageIndex, 1);
+    this._clampPageIndex();
+    this._selectedId = null;
+    this._emitChange();
+    this.requestUpdate();
   }
 
   // ---------------------------------------------------------------------------
@@ -965,6 +1017,18 @@ export class SlipDesigner extends LitElement {
       </button>
       <button @click=${() => this._redo()} ?disabled=${this._redoStack.length === 0}>
         ${s.redo}
+      </button>
+      <span class="sep"></span>
+      <button class="page-prev" title=${s.prevPage}
+              @click=${() => this._goToPage(this._pageIndex - 1)}
+              ?disabled=${this._pageIndex === 0}>◀</button>
+      <span class="page-indicator">${this._pageIndex + 1} / ${this._pageCount()}</span>
+      <button class="page-next" title=${s.nextPage}
+              @click=${() => this._goToPage(this._pageIndex + 1)}
+              ?disabled=${this._pageIndex >= this._pageCount() - 1}>▶</button>
+      <button @click=${() => this._addPage()}>${s.addPage}</button>
+      <button @click=${() => this._deletePage()} ?disabled=${this._pageCount() <= 1}>
+        ${s.deletePage}
       </button>
       <span class="sep"></span>
       <button @click=${() => this._togglePreview()}>
