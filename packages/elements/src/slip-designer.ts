@@ -12,13 +12,25 @@ import { strings } from './strings.js';
 
 const PX_PER_MM = 96 / 25.4;
 const MAX_UNDO = 50;
+/** 스냅이 붙는 거리(mm) — 이 안으로 들어오면 후보 선에 끌어붙인다 */
+const SNAP_MM = 1.5;
+/** 크기 조절 최소 폭·높이(mm) */
+const MIN_SIZE_MM = 2;
+
+const RESIZE_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
+type ResizeHandle = (typeof RESIZE_HANDLES)[number];
+
+/** mm 좌표를 0.1mm 단위로 반올림 */
+function round1(v: number): number {
+  return Math.round(v * 10) / 10;
+}
 
 const PLACEHOLDER_IMG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
 const TYPE_BADGE: Record<SlipElement['type'], string> = {
   text: 'T',
-  fixedGrid: '格',
+  fixedGrid: '⊞',
   dynamicTable: '表',
   image: 'IMG',
   shape: '◇',
@@ -31,6 +43,18 @@ interface DragState {
   startPxY: number;
   origMmX: number;
   origMmY: number;
+  snapshot: string;
+}
+
+interface ResizeState {
+  id: string;
+  handle: ResizeHandle;
+  startPxX: number;
+  startPxY: number;
+  origX: number;
+  origY: number;
+  origW: number;
+  origH: number;
   snapshot: string;
 }
 
@@ -178,6 +202,47 @@ export class SlipDesigner extends LitElement {
       height: 100%;
     }
 
+    .selection-overlay {
+      position: absolute;
+      pointer-events: none;
+      z-index: 15;
+    }
+    .selection-overlay .handle {
+      pointer-events: auto;
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: #fff;
+      border: 1px solid #1a73e8;
+      border-radius: 1px;
+      box-sizing: border-box;
+    }
+    .handle-nw { left: -4px; top: -4px; cursor: nwse-resize; }
+    .handle-n { left: calc(50% - 4px); top: -4px; cursor: ns-resize; }
+    .handle-ne { right: -4px; top: -4px; cursor: nesw-resize; }
+    .handle-e { right: -4px; top: calc(50% - 4px); cursor: ew-resize; }
+    .handle-se { right: -4px; bottom: -4px; cursor: nwse-resize; }
+    .handle-s { left: calc(50% - 4px); bottom: -4px; cursor: ns-resize; }
+    .handle-sw { left: -4px; bottom: -4px; cursor: nesw-resize; }
+    .handle-w { left: -4px; top: calc(50% - 4px); cursor: ew-resize; }
+
+    .snap-guide {
+      position: absolute;
+      pointer-events: none;
+      background: #e91e63;
+      z-index: 20;
+    }
+    .snap-guide.vertical {
+      top: 0;
+      bottom: 0;
+      width: 1px;
+    }
+    .snap-guide.horizontal {
+      left: 0;
+      right: 0;
+      height: 1px;
+    }
+
     .prop-panel {
       grid-row: 2;
       grid-column: 2;
@@ -287,6 +352,8 @@ export class SlipDesigner extends LitElement {
     _previewMode: { state: true },
     _previewUrl: { state: true },
     _error: { state: true },
+    _guideX: { state: true },
+    _guideY: { state: true },
   };
 
   src = '';
@@ -301,6 +368,9 @@ export class SlipDesigner extends LitElement {
   private _previewUrl: string | null = null;
   private _error: string | null = null;
   private _drag: DragState | null = null;
+  private _resize: ResizeState | null = null;
+  private _guideX: number | null = null;
+  private _guideY: number | null = null;
   private _previewGeneration = 0;
 
   // ---------------------------------------------------------------------------
@@ -339,6 +409,10 @@ export class SlipDesigner extends LitElement {
     this._redoStack = [];
     this._previewMode = false;
     this._pageIndex = 0;
+    this._drag = null;
+    this._resize = null;
+    this._guideX = null;
+    this._guideY = null;
 
     if (!this.src) {
       this._file = null;
@@ -369,7 +443,11 @@ export class SlipDesigner extends LitElement {
 
   private _pushUndo(): void {
     if (!this._file) return;
-    this._undoStack.push(JSON.stringify(this._file));
+    this._pushUndoSnapshot(JSON.stringify(this._file));
+  }
+
+  private _pushUndoSnapshot(snapshot: string): void {
+    this._undoStack.push(snapshot);
     this._redoStack = [];
     if (this._undoStack.length > MAX_UNDO) this._undoStack.shift();
   }
@@ -511,6 +589,27 @@ export class SlipDesigner extends LitElement {
   private _onPointerDown = (e: PointerEvent): void => {
     if (!this._file) return;
 
+    const handleEl = (e.target as HTMLElement).closest?.('.handle') as HTMLElement | null;
+    if (handleEl && this._selectedId) {
+      const el = this._findSelectedElement();
+      const handle = handleEl.dataset.handle as ResizeHandle | undefined;
+      if (!el || !handle) return;
+      this._resize = {
+        id: el.id,
+        handle,
+        startPxX: e.clientX,
+        startPxY: e.clientY,
+        origX: el.position.x,
+        origY: el.position.y,
+        origW: el.width,
+        origH: el.height,
+        snapshot: JSON.stringify(this._file),
+      };
+      handleEl.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
+
     const target = (e.target as HTMLElement).closest?.('.element') as HTMLElement | null;
 
     if (target) {
@@ -538,6 +637,10 @@ export class SlipDesigner extends LitElement {
   };
 
   private _onPointerMove = (e: PointerEvent): void => {
+    if (this._resize) {
+      this._onResizeMove(e);
+      return;
+    }
     if (!this._drag) return;
 
     const el = this._findElement(this._drag.id);
@@ -545,22 +648,151 @@ export class SlipDesigner extends LitElement {
 
     const dx = (e.clientX - this._drag.startPxX) / PX_PER_MM;
     const dy = (e.clientY - this._drag.startPxY) / PX_PER_MM;
-    el.position.x = Math.max(0, Math.round((this._drag.origMmX + dx) * 10) / 10);
-    el.position.y = Math.max(0, Math.round((this._drag.origMmY + dy) * 10) / 10);
+    let nx = this._drag.origMmX + dx;
+    let ny = this._drag.origMmY + dy;
+
+    // Alt를 누르면 스냅 없이 자유 이동
+    let guideX: number | null = null;
+    let guideY: number | null = null;
+    if (!e.altKey) {
+      const { xs, ys } = this._snapCandidates(el.id);
+      const sx = this._bestSnap([nx, nx + el.width / 2, nx + el.width], xs);
+      const sy = this._bestSnap([ny, ny + el.height / 2, ny + el.height], ys);
+      if (sx) {
+        nx += sx.delta;
+        guideX = sx.line;
+      }
+      if (sy) {
+        ny += sy.delta;
+        guideY = sy.line;
+      }
+    }
+
+    el.position.x = Math.max(0, round1(nx));
+    el.position.y = Math.max(0, round1(ny));
+    this._guideX = guideX;
+    this._guideY = guideY;
     this.requestUpdate();
   };
 
+  private _onResizeMove(e: PointerEvent): void {
+    const r = this._resize!;
+    const el = this._findElement(r.id);
+    if (!el) return;
+
+    const dx = (e.clientX - r.startPxX) / PX_PER_MM;
+    const dy = (e.clientY - r.startPxY) / PX_PER_MM;
+    const h = r.handle;
+
+    let left = r.origX;
+    let top = r.origY;
+    let right = r.origX + r.origW;
+    let bottom = r.origY + r.origH;
+    if (h.includes('w')) left += dx;
+    if (h.includes('e')) right += dx;
+    if (h.includes('n')) top += dy;
+    if (h.includes('s')) bottom += dy;
+
+    // 움직이는 변만 후보 선에 스냅한다 (Alt로 해제)
+    let guideX: number | null = null;
+    let guideY: number | null = null;
+    if (!e.altKey) {
+      const { xs, ys } = this._snapCandidates(r.id);
+      if (h.includes('w')) {
+        const s = this._bestSnap([left], xs);
+        if (s) { left += s.delta; guideX = s.line; }
+      }
+      if (h.includes('e')) {
+        const s = this._bestSnap([right], xs);
+        if (s) { right += s.delta; guideX = s.line; }
+      }
+      if (h.includes('n')) {
+        const s = this._bestSnap([top], ys);
+        if (s) { top += s.delta; guideY = s.line; }
+      }
+      if (h.includes('s')) {
+        const s = this._bestSnap([bottom], ys);
+        if (s) { bottom += s.delta; guideY = s.line; }
+      }
+    }
+
+    if (h.includes('w')) left = Math.min(Math.max(0, left), right - MIN_SIZE_MM);
+    if (h.includes('e')) right = Math.max(right, left + MIN_SIZE_MM);
+    if (h.includes('n')) top = Math.min(Math.max(0, top), bottom - MIN_SIZE_MM);
+    if (h.includes('s')) bottom = Math.max(bottom, top + MIN_SIZE_MM);
+
+    el.position.x = round1(left);
+    el.position.y = round1(top);
+    el.width = round1(right - left);
+    el.height = round1(bottom - top);
+    this._guideX = guideX;
+    this._guideY = guideY;
+    this.requestUpdate();
+  }
+
   private _onPointerUp = (): void => {
+    this._guideX = null;
+    this._guideY = null;
+
+    if (this._resize) {
+      const r = this._resize;
+      const el = this._findElement(r.id);
+      if (
+        el &&
+        (el.position.x !== r.origX || el.position.y !== r.origY ||
+          el.width !== r.origW || el.height !== r.origH)
+      ) {
+        this._pushUndoSnapshot(r.snapshot);
+        this._emitChange();
+      }
+      this._resize = null;
+      this.requestUpdate();
+      return;
+    }
+
     if (!this._drag) return;
     const el = this._findElement(this._drag.id);
     if (el && (el.position.x !== this._drag.origMmX || el.position.y !== this._drag.origMmY)) {
-      this._undoStack.push(this._drag.snapshot);
-      this._redoStack = [];
-      if (this._undoStack.length > MAX_UNDO) this._undoStack.shift();
+      this._pushUndoSnapshot(this._drag.snapshot);
       this._emitChange();
     }
     this._drag = null;
   };
+
+  // ---------------------------------------------------------------------------
+  // Snap helpers
+  // ---------------------------------------------------------------------------
+
+  /** 스냅 후보 선: 용지 가장자리·여백선 + 다른 요소들의 가장자리·중앙선 (mm) */
+  private _snapCandidates(excludeId: string): { xs: number[]; ys: number[] } {
+    const { paper } = this._file!.template;
+    const [pt, pr, pb, pl] = paper.padding;
+    const xs = [0, pl, paper.width - pr, paper.width];
+    const ys = [0, pt, paper.height - pb, paper.height];
+    for (const el of this._currentElements() ?? []) {
+      if (el.id === excludeId) continue;
+      xs.push(el.position.x, el.position.x + el.width / 2, el.position.x + el.width);
+      ys.push(el.position.y, el.position.y + el.height / 2, el.position.y + el.height);
+    }
+    return { xs, ys };
+  }
+
+  /** edges 중 후보 선까지의 거리가 SNAP_MM 이내인 가장 가까운 이동량을 찾는다 */
+  private _bestSnap(
+    edges: number[],
+    candidates: number[],
+  ): { delta: number; line: number } | null {
+    let best: { delta: number; line: number } | null = null;
+    for (const edge of edges) {
+      for (const line of candidates) {
+        const delta = line - edge;
+        if (Math.abs(delta) <= SNAP_MM && (!best || Math.abs(delta) < Math.abs(best.delta))) {
+          best = { delta, line };
+        }
+      }
+    }
+    return best;
+  }
 
   // ---------------------------------------------------------------------------
   // Keyboard
@@ -710,6 +942,29 @@ export class SlipDesigner extends LitElement {
           height:${(paper.height - pt - pb) * PX_PER_MM}px;
         "></div>
         ${page.elements.map((el) => this._renderElement(el))}
+        ${this._renderSelectionOverlay()}
+        ${this._guideX !== null
+          ? html`<div class="snap-guide vertical" style="left:${this._guideX * PX_PER_MM}px"></div>`
+          : nothing}
+        ${this._guideY !== null
+          ? html`<div class="snap-guide horizontal" style="top:${this._guideY * PX_PER_MM}px"></div>`
+          : nothing}
+      </div>
+    `;
+  }
+
+  private _renderSelectionOverlay() {
+    const el = this._findSelectedElement();
+    if (!el) return nothing;
+    const x = el.position.x * PX_PER_MM;
+    const y = el.position.y * PX_PER_MM;
+    const w = el.width * PX_PER_MM;
+    const h = el.height * PX_PER_MM;
+    return html`
+      <div class="selection-overlay" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">
+        ${RESIZE_HANDLES.map(
+          (handle) => html`<span class="handle handle-${handle}" data-handle=${handle}></span>`,
+        )}
       </div>
     `;
   }
