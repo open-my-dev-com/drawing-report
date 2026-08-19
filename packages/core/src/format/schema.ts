@@ -103,7 +103,7 @@ const fontShape = {
 // 요소 6종 (ADR-020)
 // ---------------------------------------------------------------------------
 
-export const textElementSchema = z.object({
+const textElementSchema = z.object({
   type: z.literal('text'),
   ...elementBaseShape,
   ...colorStyleShape,
@@ -112,7 +112,7 @@ export const textElementSchema = z.object({
   ...fontShape,
 });
 
-export const fixedGridCellSchema = z.object({
+const fixedGridCellSchema = z.object({
   ...colorStyleShape,
   /** 0-기반 행/열 좌표 */
   row: z.number().int().nonnegative(),
@@ -125,7 +125,7 @@ export const fixedGridCellSchema = z.object({
 });
 
 /** 행 수가 고정된 그리드 틀 (공급자 정보란 등). 셀 병합 지원 — ADR-020 */
-export const fixedGridElementSchema = z
+const fixedGridElementSchema = z
   .object({
     type: z.literal('fixedGrid'),
     ...elementBaseShape,
@@ -184,7 +184,7 @@ export const fixedGridElementSchema = z
   });
 
 /** 데이터 행 수에 따라 늘어나는 표. 자동 페이지 분할 대상 (ADR-011) */
-export const dynamicTableElementSchema = z
+const dynamicTableElementSchema = z
   .object({
     type: z.literal('dynamicTable'),
     ...elementBaseShape,
@@ -206,13 +206,13 @@ export const dynamicTableElementSchema = z
     }
   });
 
-export const imageElementSchema = z.object({
+const imageElementSchema = z.object({
   type: z.literal('image'),
   ...elementBaseShape,
   src: srcSchema,
 });
 
-export const shapeElementSchema = z.object({
+const shapeElementSchema = z.object({
   type: z.literal('shape'),
   ...elementBaseShape,
   ...colorStyleShape,
@@ -220,7 +220,7 @@ export const shapeElementSchema = z.object({
 });
 
 /** 전표 작성 시 값이 채워지는 입력 필드 */
-export const fieldElementSchema = z.object({
+const fieldElementSchema = z.object({
   type: z.literal('field'),
   ...elementBaseShape,
   ...colorStyleShape,
@@ -262,13 +262,13 @@ export const paperSchema = z
     }
   });
 
-export const assetEntrySchema = z.object({
+const assetEntrySchema = z.object({
   id: idSchema,
   mimeType: z.string().regex(/^[\w.+-]+\/[\w.+-]+$/, 'mimeType 형식이 아닙니다'),
   src: srcSchema,
 });
 
-export const slipPageSchema = z.object({
+const slipPageSchema = z.object({
   elements: z.array(slipElementSchema).max(SLIP_LIMITS.maxElementsPerPage, `페이지당 요소는 최대 ${SLIP_LIMITS.maxElementsPerPage}개입니다`),
 });
 
@@ -276,7 +276,7 @@ export const slipPageSchema = z.object({
 // 양식(템플릿) 본문
 // ---------------------------------------------------------------------------
 
-export const templateMetaSchema = z.object({
+const templateMetaSchema = z.object({
   title: z.string().min(1),
   createdAt: z.iso.datetime({ offset: true }).optional(),
   updatedAt: z.iso.datetime({ offset: true }).optional(),
@@ -365,7 +365,7 @@ export const slipEnvelopeSchema = z.object({
 });
 
 /** JSON으로 표현 가능한 값 (전표 values) */
-export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
     z.string(),
     z.number(),

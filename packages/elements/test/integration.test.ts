@@ -53,8 +53,8 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 무
 
   it('1) 디자이너로 양식을 편집한다 (요소 추가 + 페이지 추가)', async () => {
     const changes: SlipTemplateFile[] = [];
-    designer.addEventListener('slip-change', ((e: CustomEvent) =>
-      changes.push(e.detail.file as SlipTemplateFile)) as EventListener);
+    designer.addEventListener('slip-change', (e: Event) =>
+      changes.push((e as CustomEvent).detail.file as SlipTemplateFile));
 
     toolbarButton(designer, strings.designer.addText).click();
     await designer.updateComplete;

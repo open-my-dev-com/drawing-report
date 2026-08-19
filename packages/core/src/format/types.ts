@@ -24,9 +24,3 @@ export type {
   SlipVoucherFile,
   TextElement,
 } from './schema.js';
-
-/** 길이 단위는 항상 mm (용지 좌표계, ADR-011) */
-export type Millimeter = number;
-
-/** 이미지 참조 3종 (ADR-007): 외부 URL / data: 내장 / asset:// 내부 리소스 */
-export type AssetSrc = string;

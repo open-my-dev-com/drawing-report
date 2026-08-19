@@ -4,7 +4,7 @@ import { createApp, h } from 'vue';
 import type { SlipFile } from '@omdc-slipkit/core';
 import { SlipDesigner, SlipViewer } from '../src/index.js';
 
-const DUMMY_FONTS = { demo: { data: new Uint8Array([1]) } };
+const DUMMY_FONTS = [{ name: 'demo', data: new Uint8Array([1]) }];
 
 function mount(node: ReturnType<typeof h>): HTMLElement {
   const container = document.createElement('div');

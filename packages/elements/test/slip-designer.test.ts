@@ -50,21 +50,15 @@ function makeTemplateFile(): SlipTemplateFile {
 
 const DUMMY_PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
 
-let blobUrls: string[];
 let revokedUrls: string[];
 let uuidCounter: number;
 
 beforeEach(() => {
-  blobUrls = [];
   revokedUrls = [];
   uuidCounter = 0;
 
   let urlCounter = 0;
-  vi.spyOn(URL, 'createObjectURL').mockImplementation(() => {
-    const url = `blob:test-${++urlCounter}`;
-    blobUrls.push(url);
-    return url;
-  });
+  vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:test-${++urlCounter}`);
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url: string) => {
     revokedUrls.push(url);
   });
@@ -220,7 +214,7 @@ describe('<slip-designer> 요소 추가', () => {
     await el.updateComplete;
 
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
 
     const addBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
       .find((b) => b.textContent?.trim() === strings.designer.addText) as HTMLElement;
@@ -286,7 +280,7 @@ describe('<slip-designer> 요소 삭제', () => {
     await el.updateComplete;
 
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
 
     // 삭제 버튼 클릭
     const deleteBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
@@ -418,7 +412,7 @@ describe('<slip-designer> 크기 조절 핸들', () => {
     await el.updateComplete;
 
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
 
     // txt-1: (30,40) 60×10 → se 핸들을 +10mm/+10mm 끌면 70×20
     const handle = el.shadowRoot?.querySelector('.handle-se') as HTMLElement;
@@ -488,7 +482,7 @@ describe('<slip-designer> 스냅·정렬 안내선', () => {
     expect(parseFloat(guide.style.left)).toBeCloseTo(100 * PX_PER_MM, 0);
 
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
     div.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
     await el.updateComplete;
 
@@ -514,7 +508,7 @@ describe('<slip-designer> 스냅·정렬 안내선', () => {
     expect(el.shadowRoot?.querySelector('.snap-guide')).toBeNull();
 
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
     div.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
     await el.updateComplete;
 
@@ -540,7 +534,7 @@ describe('<slip-designer> 스냅·정렬 안내선', () => {
     expect(el.shadowRoot?.querySelector('.snap-guide.vertical')).not.toBeNull();
 
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
     handle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
     await el.updateComplete;
 
@@ -565,7 +559,7 @@ describe('<slip-designer> 스냅·정렬 안내선', () => {
     await el.updateComplete;
 
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
     const undoBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
       .find((b) => b.textContent?.trim() === strings.designer.undo) as HTMLElement;
     undoBtn.click();
@@ -610,7 +604,7 @@ describe('<slip-designer> 복사·붙여넣기', () => {
     await el.updateComplete;
 
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
     toolbarButton(el, strings.designer.paste).click();
     await el.updateComplete;
 
@@ -635,7 +629,7 @@ describe('<slip-designer> 복사·붙여넣기', () => {
     await el.updateComplete;
 
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
     toolbarButton(el, strings.designer.paste).click();
     await el.updateComplete;
     toolbarButton(el, strings.designer.paste).click();
@@ -701,7 +695,7 @@ describe('<slip-designer> 프리셋', () => {
     const el = await loadDesigner();
 
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
 
     const select = el.shadowRoot?.querySelector('.preset-select') as HTMLSelectElement;
     select.value = '0';
@@ -755,7 +749,7 @@ describe('<slip-designer> 페이지', () => {
   it('페이지를 추가하면 빈 새 페이지로 이동하고 slip-change를 발행한다', async () => {
     const el = await loadDesigner();
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
 
     toolbarButton(el, strings.designer.addPage).click();
     await el.updateComplete;
@@ -791,7 +785,7 @@ describe('<slip-designer> 페이지', () => {
     await el.updateComplete;
 
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
     toolbarButton(el, strings.designer.deletePage).click();
     await el.updateComplete;
 
@@ -953,7 +947,7 @@ describe('<slip-designer> pointercancel', () => {
     const div = el.shadowRoot?.querySelector('[data-id="txt-1"]') as HTMLElement;
 
     const changes: CustomEvent[] = [];
-    el.addEventListener('slip-change', ((e: CustomEvent) => changes.push(e)) as EventListener);
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
 
     div.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,

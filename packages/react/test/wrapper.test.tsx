@@ -17,7 +17,7 @@ function render(node: Parameters<ReturnType<typeof createRoot>['render']>[0]): H
   return container;
 }
 
-const DUMMY_FONTS = { demo: { data: new Uint8Array([1]) } } as unknown as SlipViewerProps['fonts'];
+const DUMMY_FONTS: SlipViewerProps['fonts'] = [{ name: 'demo', data: new Uint8Array([1]) }];
 
 describe('@omdc-slipkit/react 래퍼', () => {
   it('SlipViewer는 slip-viewer 엘리먼트에 src·fonts를 전달한다', () => {
