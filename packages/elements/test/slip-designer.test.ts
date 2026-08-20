@@ -2768,3 +2768,197 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     el.remove();
   });
 });
+
+// ---------------------------------------------------------------------------
+// D-15: 프리셋 주입 + 내 양식 저장·목록
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 프리셋 주입 (D-15)', () => {
+  it('presets를 주면 동봉 프리셋 대신 그 목록이 메뉴에 나오고 적용된다', async () => {
+    const el = await loadDesigner();
+    const custom = makeTemplateFile();
+    custom.template.meta.title = '우리 회사 양식';
+    (el as unknown as { presets: unknown[] }).presets = [
+      { id: 'ours', name: '우리 회사 양식', create: () => JSON.parse(JSON.stringify(custom)) },
+    ];
+    await el.updateComplete;
+
+    toolbarButton(el, strings.designer.preset).click();
+    await el.updateComplete;
+    const items = Array.from(el.shadowRoot!.querySelectorAll('.preset-menu button'))
+      .map((b) => b.textContent?.trim());
+    expect(items).toEqual(['우리 회사 양식']);
+
+    (el.shadowRoot!.querySelector('.preset-menu button') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect((el as unknown as { _file: SlipTemplateFile })._file.template.meta.title)
+      .toBe('우리 회사 양식');
+    el.remove();
+  });
+});
+
+describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
+  interface FakeStorage {
+    save: ReturnType<typeof vi.fn>;
+    load: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    list: ReturnType<typeof vi.fn>;
+  }
+
+  function makeStorage(): FakeStorage {
+    return {
+      save: vi.fn().mockResolvedValue(undefined),
+      load: vi.fn().mockResolvedValue(makeTemplateFile()),
+      delete: vi.fn().mockResolvedValue(undefined),
+      list: vi.fn().mockResolvedValue({
+        items: [
+          { id: 'a', kind: 'template', title: '거래명세서', updatedAt: '2026-08-20T00:00:00.000Z' },
+          { id: 'b', kind: 'template', title: '청구서' },
+        ],
+      }),
+    };
+  }
+
+  async function mountWithStorage(storage: FakeStorage) {
+    const el = await loadDesigner();
+    (el as unknown as { storage: FakeStorage }).storage = storage;
+    await el.updateComplete;
+    return el;
+  }
+
+  const byAria = (el: Element, label: string) =>
+    Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === label) as HTMLButtonElement;
+
+  it('storage가 없으면 저장·목록 버튼이 나오지 않는다', async () => {
+    const el = await loadDesigner();
+    expect(toolbarButton(el, strings.designer.saveAsMyForm)).toBeUndefined();
+    el.remove();
+  });
+
+  it('제목을 확인해 저장하면 어댑터에 저장되고 양식 제목도 반영된다', async () => {
+    const storage = makeStorage();
+    const el = await mountWithStorage(storage);
+
+    toolbarButton(el, strings.designer.saveAsMyForm).click();
+    await el.updateComplete;
+    const title = el.shadowRoot!.querySelector('.save-title') as HTMLInputElement;
+    expect(title.value).toBe('테스트'); // 현재 양식 제목이 초안
+    title.value = '내 거래명세서';
+    title.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+
+    (Array.from(el.shadowRoot!.querySelectorAll('.modal-foot button'))
+      .find((b) => b.textContent?.trim() === strings.designer.save) as HTMLButtonElement).click();
+    await flush();
+    await el.updateComplete;
+
+    expect(storage.save).toHaveBeenCalledTimes(1);
+    const [id, file] = storage.save.mock.calls[0]! as [string, SlipTemplateFile];
+    expect(typeof id).toBe('string');
+    expect(file.template.meta.title).toBe('내 거래명세서');
+    expect((el as unknown as { _file: SlipTemplateFile })._file.template.meta.title)
+      .toBe('내 거래명세서');
+    expect(el.shadowRoot!.textContent).toContain(strings.designer.savedNotice);
+
+    // 두 번째 저장은 같은 키로 덮어쓴다
+    toolbarButton(el, strings.designer.saveAsMyForm).click();
+    await el.updateComplete;
+    (Array.from(el.shadowRoot!.querySelectorAll('.modal-foot button'))
+      .find((b) => b.textContent?.trim() === strings.designer.save) as HTMLButtonElement).click();
+    await flush();
+    await el.updateComplete;
+    expect(storage.save.mock.calls[1]![0]).toBe(id);
+
+    // "새 양식으로 저장"을 고르면 새 키로 저장된다
+    toolbarButton(el, strings.designer.saveAsMyForm).click();
+    await el.updateComplete;
+    const asNew = Array.from(el.shadowRoot!.querySelectorAll('input'))
+      .find((i) => i.getAttribute('aria-label') === strings.designer.saveAsNew) as HTMLInputElement;
+    asNew.checked = true;
+    asNew.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    (Array.from(el.shadowRoot!.querySelectorAll('.modal-foot button'))
+      .find((b) => b.textContent?.trim() === strings.designer.save) as HTMLButtonElement).click();
+    await flush();
+    await el.updateComplete;
+    expect(storage.save.mock.calls[2]![0]).not.toBe(id);
+    el.remove();
+  });
+
+  it('목록에서 고르면 그 양식을 불러오고, 삭제·검색·더 보기가 어댑터로 이어진다', async () => {
+    const storage = makeStorage();
+    const loaded = makeTemplateFile();
+    loaded.template.meta.title = '불러온 양식';
+    storage.load.mockResolvedValue(loaded);
+    const el = await mountWithStorage(storage);
+
+    toolbarButton(el, strings.designer.myFormsList).click();
+    await flush();
+    await el.updateComplete;
+    expect(storage.list).toHaveBeenCalledWith({ kind: 'template' }, undefined);
+    expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(2);
+
+    // 검색어는 필터로 전달된다
+    const search = el.shadowRoot!.querySelector('.forms-search') as HTMLInputElement;
+    search.value = '청구';
+    search.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+    await el.updateComplete;
+    expect(storage.list).toHaveBeenLastCalledWith({ kind: 'template', query: '청구' }, undefined);
+
+    // 삭제
+    byAria(el, `청구서 ${strings.designer.delete}`).click();
+    await flush();
+    await el.updateComplete;
+    expect(storage.delete).toHaveBeenCalledWith('b');
+
+    // 불러오기 — 캔버스 교체 + 모달 닫힘 + slip-change
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
+    byAria(el, `거래명세서 ${strings.designer.edit}`).click();
+    await flush();
+    await el.updateComplete;
+    expect(storage.load).toHaveBeenCalledWith('a');
+    expect((el as unknown as { _file: SlipTemplateFile })._file.template.meta.title)
+      .toBe('불러온 양식');
+    expect(el.shadowRoot!.querySelector('.form-row')).toBeNull();
+    expect(changes.length).toBe(1);
+    el.remove();
+  });
+
+  it('더 보기는 다음 페이지 커서로 이어서 읽는다', async () => {
+    const storage = makeStorage();
+    storage.list
+      .mockResolvedValueOnce({
+        items: [{ id: 'a', kind: 'template', title: '첫 장' }],
+        nextCursor: 'c1',
+      })
+      .mockResolvedValueOnce({ items: [{ id: 'b', kind: 'template', title: '둘째 장' }] });
+    const el = await mountWithStorage(storage);
+
+    toolbarButton(el, strings.designer.myFormsList).click();
+    await flush();
+    await el.updateComplete;
+    byAria(el, strings.designer.loadMore).click();
+    await flush();
+    await el.updateComplete;
+
+    expect(storage.list).toHaveBeenLastCalledWith({ kind: 'template' }, 'c1');
+    expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(2);
+    el.remove();
+  });
+
+  it('저장소 오류는 모달에 그대로 보여준다', async () => {
+    const storage = makeStorage();
+    storage.list.mockRejectedValue(new Error('로컬 파일 저장소는 목록 조회를 지원하지 않습니다'));
+    const el = await mountWithStorage(storage);
+
+    toolbarButton(el, strings.designer.myFormsList).click();
+    await flush();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.formula-status.error')?.textContent)
+      .toContain('목록 조회를 지원하지 않습니다');
+    el.remove();
+  });
+});

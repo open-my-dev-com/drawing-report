@@ -5,9 +5,10 @@ import type {
   SlipDesigner as SlipDesignerElement,
   SlipForm as SlipFormElement,
 } from '@omdc-slipkit/elements';
-import type { IntegrityJwk, SlipFile } from '@omdc-slipkit/core';
+import type { IntegrityJwk, SlipFile, StorageAdapter } from '@omdc-slipkit/core';
 
 type SlipFonts = SlipViewerElement['fonts'];
+type SlipPresets = SlipDesignerElement['presets'];
 
 /** SlipViewer 컴포넌트 props */
 export interface SlipViewerProps {
@@ -43,6 +44,10 @@ export interface SlipDesignerProps {
   locale?: string;
   /** PDF 미리보기에 쓸 사용자 폰트 (ADR-012) */
   fonts?: SlipFonts;
+  /** 툴바 프리셋 메뉴에 쓸 양식 목록 — 주면 동봉 프리셋 대신 쓴다 */
+  presets?: SlipPresets;
+  /** "내 양식" 저장·불러오기에 쓸 저장소 어댑터 (ADR-021) */
+  storage?: StorageAdapter;
   /** 편집으로 양식이 바뀔 때마다 변경된 .slip 파일을 받는다 */
   onSlipChange?: (file: SlipFile) => void;
 }
@@ -51,7 +56,14 @@ export interface SlipDesignerProps {
  * `<slip-designer>` 래퍼. 커스텀 이벤트(slip-change)는 React가 선언적으로
  * 연결해 주지 않으므로 ref로 리스너를 붙였다 떼는 것까지만 담당한다 (ADR-003).
  */
-export function SlipDesigner({ src, locale, fonts, onSlipChange }: SlipDesignerProps) {
+export function SlipDesigner({
+  src,
+  locale,
+  fonts,
+  presets,
+  storage,
+  onSlipChange,
+}: SlipDesignerProps) {
   const ref = useRef<SlipDesignerElement>(null);
 
   useEffect(() => {
@@ -63,7 +75,7 @@ export function SlipDesigner({ src, locale, fonts, onSlipChange }: SlipDesignerP
     return () => element.removeEventListener('slip-change', handler);
   }, [onSlipChange]);
 
-  return createElement('slip-designer', { ref, src, locale, fonts });
+  return createElement('slip-designer', { ref, src, locale, fonts, presets, storage });
 }
 
 /** SlipForm 컴포넌트 props */

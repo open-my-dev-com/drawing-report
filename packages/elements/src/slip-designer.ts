@@ -8,11 +8,13 @@ import {
   type SlipTemplateFile,
   type SlipElement,
   type RenderOptions,
+  type SlipListItem,
+  type StorageAdapter,
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
 import { getFormulaHelp } from './formula-help.js';
 import { loadDefaultFonts } from './default-fonts.js';
-import { presets } from './presets.js';
+import { presets, type SlipPreset } from './presets.js';
 import { icons } from './icons.js';
 
 /** 색 피커의 팔레트 견본 — 전표에서 자주 쓰는 색 위주 */
@@ -1721,6 +1723,70 @@ export class SlipDesigner extends LitElement {
       height: 12px;
     }
 
+    /* 내 양식 목록 행 (D-15) */
+    .form-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin: 2px 0;
+    }
+    .form-open {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 6px 8px;
+      border: 1px solid var(--sk-border);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 12px;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .form-open:hover {
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    .form-open:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    .form-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .form-date {
+      flex: none;
+      font-size: 11px;
+      color: var(--sk-text-muted);
+    }
+    .save-as-new {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 8px 0 0 74px;
+      font-size: 12px;
+      color: var(--sk-text-muted);
+      cursor: pointer;
+    }
+
+    .saved-notice {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
     .preview-area {
       grid-column: 1 / -1;
     }
@@ -1777,6 +1843,13 @@ export class SlipDesigner extends LitElement {
     _sampleModalOpen: { state: true },
     _bindingEditKey: { state: true },
     _bindingAddOpen: { state: true },
+    presets: { attribute: false },
+    storage: { attribute: false },
+    _saveModalOpen: { state: true },
+    _myFormsOpen: { state: true },
+    _myFormItems: { state: true },
+    _myFormsError: { state: true },
+    _savedNotice: { state: true },
   };
 
   src = '';
@@ -1789,6 +1862,19 @@ export class SlipDesigner extends LitElement {
   locale?: string;
 
   fonts?: RenderOptions['fonts'];
+
+  /**
+   * 툴바 프리셋 메뉴에 쓸 양식 프리셋 목록 — 호스트가 자기 양식을 넣을 수 있다 (D-15).
+   * 지정하면 동봉 프리셋 대신 이 목록을 쓴다. 동봉 프리셋을 함께 두려면
+   * `presets` 수출값을 펼쳐 넣는다.
+   */
+  presets?: SlipPreset[];
+
+  /**
+   * "내 양식" 저장·불러오기에 쓸 저장소 어댑터 (ADR-021) — 지정하면 툴바에
+   * 저장·목록 버튼이 나타난다. 없으면 그 기능이 감춰진다.
+   */
+  storage?: StorageAdapter;
 
   private _file: SlipTemplateFile | null = null;
   private _pageIndex = 0;
@@ -1846,6 +1932,26 @@ export class SlipDesigner extends LitElement {
   private _bindingEditKey: string | null = null;
   /** 사이드바의 바인딩 등록 입력줄 열림 여부 (D-13) */
   private _bindingAddOpen = false;
+  /** "내 양식으로 저장" 모달 열림 여부 (D-15) */
+  private _saveModalOpen = false;
+  /** 저장 모달의 제목 초안 — 확인하면 양식 제목으로도 반영된다 */
+  private _saveTitle = '';
+  /** "내 양식 목록" 모달 열림 여부 (D-15) */
+  private _myFormsOpen = false;
+  /** 목록 모달에 표시 중인 항목들 */
+  private _myFormItems: SlipListItem[] = [];
+  /** 목록 다음 페이지 커서 — 있으면 "더 보기"가 나온다 */
+  private _myFormsCursor: string | undefined;
+  /** 목록 검색어 */
+  private _myFormsQuery = '';
+  /** 저장소 작업 오류 메시지 (어댑터가 한국어 메시지를 준다) */
+  private _myFormsError: string | null = null;
+  /** 저장 완료 안내 — 다음 편집에서 지워진다 */
+  private _savedNotice = false;
+  /** 지금 편집 중인 양식이 저장돼 있던 키 — 다시 저장하면 덮어쓴다 */
+  private _savedId: string | null = null;
+  /** 저장 모달에서 "새 양식으로 저장"을 골랐는지 — 고르면 덮어쓰지 않고 새 항목이 된다 */
+  private _saveAsNew = false;
   /** 선 끝점 핸들 드래그 상태 — 반대쪽 끝점을 고정하고 잡은 끝점만 옮긴다 */
   private _lineEnd: {
     id: string;
@@ -1930,6 +2036,11 @@ export class SlipDesigner extends LitElement {
     this._sampleModalOpen = false;
     this._bindingEditKey = null;
     this._bindingAddOpen = false;
+    this._saveModalOpen = false;
+    this._myFormsOpen = false;
+    this._myFormsError = null;
+    this._savedNotice = false;
+    this._savedId = null;
 
     if (!this.src) {
       this._file = null;
@@ -2211,6 +2322,8 @@ export class SlipDesigner extends LitElement {
 
   private _emitChange(): void {
     if (!this._file) return;
+    // 편집이 생기면 "저장했습니다" 안내는 더 이상 맞지 않는다
+    this._savedNotice = false;
     const file = structuredClone(this._file) as SlipFile;
     this.dispatchEvent(
       new CustomEvent('slip-change', { detail: { file }, bubbles: true, composed: true }),
@@ -2946,11 +3059,14 @@ export class SlipDesigner extends LitElement {
     // 모달이 열려 있으면 Esc는 모달 닫기 (모달 안 입력란의 Esc는 모달 자체가 처리)
     if (
       e.key === 'Escape' &&
-      (this._formulaModalOpen || this._columnsModalOpen || this._sampleModalOpen)
+      (this._formulaModalOpen || this._columnsModalOpen || this._sampleModalOpen ||
+        this._saveModalOpen || this._myFormsOpen)
     ) {
       this._formulaModalOpen = false;
       this._columnsModalOpen = false;
       this._sampleModalOpen = false;
+      this._saveModalOpen = false;
+      this._myFormsOpen = false;
       this.requestUpdate();
       return;
     }
@@ -3077,6 +3193,8 @@ export class SlipDesigner extends LitElement {
             ${this._renderFormulaModal()}
             ${this._renderColumnsModal()}
             ${this._renderSampleModal()}
+            ${this._renderSaveModal()}
+            ${this._renderMyFormsModal()}
           `}
     `;
   }
@@ -3151,6 +3269,16 @@ export class SlipDesigner extends LitElement {
           pressed: this._presetMenuOpen,
         })}
       </div>
+      ${this.storage
+        ? html`
+            <div class="tool-group">
+              ${this._iconButton(s.saveAsMyForm, icons.save, () => this._openSaveModal())}
+              ${this._iconButton(s.myFormsList, icons.folderOpen, () => void this._openMyForms())}
+            </div>
+            ${this._savedNotice
+              ? html`<span class="saved-notice">${s.savedNotice}</span>`
+              : nothing}`
+        : nothing}
       ${this._presetMenuOpen
         ? html`
             <div class="menu-backdrop" @click=${() => {
@@ -3159,7 +3287,7 @@ export class SlipDesigner extends LitElement {
             }}></div>
             <div class="preset-menu" role="menu" aria-label=${s.preset}
                  style="left:${this._presetMenuPos.left}px;top:${this._presetMenuPos.top}px">
-              ${presets.map((p, index) => html`
+              ${this._presetList().map((p, index) => html`
                 <button role="menuitem" @click=${() => this._applyPreset(index)}>${p.name}</button>`)}
             </div>`
         : nothing}
@@ -3198,6 +3326,11 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
+  /** 프리셋 메뉴에 보여줄 목록 — 호스트가 주입했으면 그것을, 아니면 동봉 프리셋을 쓴다 */
+  private _presetList(): SlipPreset[] {
+    return this.presets?.length ? this.presets : presets;
+  }
+
   /** 프리셋 메뉴 열기·닫기 — 버튼 바로 아래에 고정 위치로 띄운다 (툴바 스크롤에 잘리지 않게) */
   private _togglePresetMenu(e: Event): void {
     if (this._presetMenuOpen) {
@@ -3215,7 +3348,7 @@ export class SlipDesigner extends LitElement {
     this._presetMenuOpen = false;
     this.requestUpdate();
     if (!this._file) return;
-    const preset = presets[index];
+    const preset = this._presetList()[index];
     if (!preset) return;
 
     this._pushUndo();
@@ -5218,6 +5351,249 @@ export class SlipDesigner extends LitElement {
         @click=${() => commitRows([...rows.map((r) => ({ ...r })), {}])}>
         ${icons.pageAdd}<span>${s.addRow}</span>
       </button>
+    `;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 내 양식 저장·불러오기 (D-15, ADR-021)
+  // ---------------------------------------------------------------------------
+
+  /** 저장 모달 열기 — 제목 초안은 지금 양식 제목에서 시작한다 */
+  private _openSaveModal(): void {
+    if (!this._file) return;
+    this._saveTitle = this._file.template.meta.title;
+    this._saveAsNew = false;
+    this._myFormsError = null;
+    this._saveModalOpen = true;
+    this.requestUpdate();
+  }
+
+  /**
+   * 저장 확인 — 제목이 바뀌었으면 양식 제목에도 반영하고 저장소에 넣는다.
+   * 목록에서 불러온 양식이면 같은 키에 덮어쓴다.
+   */
+  private async _confirmSave(): Promise<void> {
+    const adapter = this.storage;
+    if (!adapter || !this._file) return;
+    const title = this._saveTitle.trim();
+    // 제목은 스키마상 1자 이상 — 빈 제목이면 저장하지 않는다
+    if (!title) {
+      this.requestUpdate();
+      return;
+    }
+    if (title !== this._file.template.meta.title) {
+      this._updateFile((f) => {
+        f.template.meta.title = title;
+      });
+    }
+    const id = this._saveAsNew || !this._savedId ? crypto.randomUUID() : this._savedId;
+    try {
+      await adapter.save(id, structuredClone(this._file) as SlipFile);
+    } catch (error) {
+      this._myFormsError = error instanceof Error ? error.message : String(error);
+      this.requestUpdate();
+      return;
+    }
+    this._savedId = id;
+    this._saveModalOpen = false;
+    this._savedNotice = true;
+    this.requestUpdate();
+  }
+
+  /** 목록 모달 열기 — 첫 페이지를 읽어 온다 */
+  private async _openMyForms(): Promise<void> {
+    this._myFormsOpen = true;
+    this._myFormsQuery = '';
+    this.requestUpdate();
+    await this._loadMyForms();
+  }
+
+  /**
+   * 저장된 양식 목록을 읽는다. cursor를 주면 다음 페이지를 이어 붙이고,
+   * 없으면 처음부터 다시 읽는다 (검색어 변경 등).
+   */
+  private async _loadMyForms(cursor?: string): Promise<void> {
+    const adapter = this.storage;
+    if (!adapter) return;
+    this._myFormsError = null;
+    const filter = this._myFormsQuery.trim()
+      ? { kind: 'template' as const, query: this._myFormsQuery.trim() }
+      : { kind: 'template' as const };
+    try {
+      const page = await adapter.list(filter, cursor);
+      this._myFormItems = cursor ? [...this._myFormItems, ...page.items] : page.items;
+      this._myFormsCursor = page.nextCursor;
+    } catch (error) {
+      this._myFormItems = [];
+      this._myFormsCursor = undefined;
+      this._myFormsError = error instanceof Error ? error.message : String(error);
+    }
+    this.requestUpdate();
+  }
+
+  /** 목록에서 고른 양식을 캔버스로 불러온다 (되돌리기 지원) */
+  private async _loadMyForm(id: string): Promise<void> {
+    const adapter = this.storage;
+    if (!adapter) return;
+    let file: SlipFile;
+    try {
+      file = await adapter.load(id);
+    } catch (error) {
+      this._myFormsError = error instanceof Error ? error.message : String(error);
+      this.requestUpdate();
+      return;
+    }
+    if (file.kind !== 'template') {
+      this._myFormsError = this._strings.designer.onlyTemplate;
+      this.requestUpdate();
+      return;
+    }
+    this._pushUndo();
+    this._file = file;
+    this._savedId = id;
+    this._selectedId = null;
+    this._selectedCell = null;
+    this._cellEditing = false;
+    this._pageIndex = 0;
+    this._previewMode = false;
+    this._myFormsOpen = false;
+    this._savedNotice = false;
+    this._emitChange();
+    this.requestUpdate();
+  }
+
+  /** 목록에서 양식을 지운다 (지운 항목이 지금 편집 중이던 것이면 저장 키만 푼다) */
+  private async _deleteMyForm(id: string): Promise<void> {
+    const adapter = this.storage;
+    if (!adapter) return;
+    try {
+      await adapter.delete(id);
+    } catch (error) {
+      this._myFormsError = error instanceof Error ? error.message : String(error);
+      this.requestUpdate();
+      return;
+    }
+    if (this._savedId === id) this._savedId = null;
+    this._myFormItems = this._myFormItems.filter((item) => item.id !== id);
+    this.requestUpdate();
+  }
+
+  /** "내 양식으로 저장" 모달 — 제목을 확인하고 저장한다 */
+  private _renderSaveModal() {
+    if (!this._saveModalOpen || !this._file) return nothing;
+    const s = this._strings.designer;
+    const close = (): void => {
+      this._saveModalOpen = false;
+      this.requestUpdate();
+    };
+    return html`
+      <div class="menu-backdrop modal-backdrop" @click=${close}></div>
+      <div class="modal" role="dialog" aria-label=${s.saveAsMyForm}
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            close();
+          }
+        }}>
+        <div class="modal-head">
+          <span>${s.saveAsMyForm}</span>
+          <button class="modal-close" title=${s.close} aria-label=${s.close}
+            @click=${close}>${icons.close}</button>
+        </div>
+        <div class="modal-body">
+          <div class="prop-row">
+            <label>${s.formTitle}</label>
+            <input class="save-title" .value=${this._saveTitle} aria-label=${s.formTitle}
+              @input=${(e: Event) => {
+                this._saveTitle = (e.target as HTMLInputElement).value;
+              }}
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter') void this._confirmSave();
+              }}>
+          </div>
+          ${this._savedId
+            ? html`
+                <label class="save-as-new">
+                  <input type="checkbox" .checked=${this._saveAsNew} aria-label=${s.saveAsNew}
+                    @change=${(e: Event) => {
+                      this._saveAsNew = (e.target as HTMLInputElement).checked;
+                      this.requestUpdate();
+                    }}>
+                  <span>${s.saveAsNew}</span>
+                </label>`
+            : nothing}
+          ${this._myFormsError
+            ? html`<div class="formula-status error">${this._myFormsError}</div>`
+            : nothing}
+        </div>
+        <div class="modal-foot">
+          <button class="btn" @click=${close}>${s.cancel}</button>
+          <button class="btn primary" @click=${() => void this._confirmSave()}>${s.save}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /** "내 양식 목록" 모달 — 검색·불러오기·삭제·더 보기 */
+  private _renderMyFormsModal() {
+    if (!this._myFormsOpen) return nothing;
+    const s = this._strings.designer;
+    const close = (): void => {
+      this._myFormsOpen = false;
+      this.requestUpdate();
+    };
+    return html`
+      <div class="menu-backdrop modal-backdrop" @click=${close}></div>
+      <div class="modal" role="dialog" aria-label=${s.myFormsList}
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            close();
+          }
+        }}>
+        <div class="modal-head">
+          <span>${s.myFormsList}</span>
+          <button class="modal-close" title=${s.close} aria-label=${s.close}
+            @click=${close}>${icons.close}</button>
+        </div>
+        <div class="modal-body">
+          <div class="prop-row">
+            <label>${s.search}</label>
+            <input class="forms-search" .value=${this._myFormsQuery} aria-label=${s.search}
+              @change=${(e: Event) => {
+                this._myFormsQuery = (e.target as HTMLInputElement).value;
+                void this._loadMyForms();
+              }}>
+          </div>
+          ${this._myFormsError
+            ? html`<div class="formula-status error">${this._myFormsError}</div>`
+            : nothing}
+          ${this._myFormItems.length === 0 && !this._myFormsError
+            ? html`<div class="side-empty">${s.noSavedForms}</div>`
+            : nothing}
+          ${this._myFormItems.map((item) => html`
+            <div class="form-row">
+              <button class="form-open" aria-label="${item.title} ${s.edit}"
+                @click=${() => void this._loadMyForm(item.id)}>
+                <span class="form-title">${item.title}</span>
+                ${item.updatedAt
+                  ? html`<span class="form-date">${item.updatedAt.slice(0, 10)}</span>`
+                  : nothing}
+              </button>
+              <button class="col-remove" title=${s.delete} aria-label="${item.title} ${s.delete}"
+                @click=${() => void this._deleteMyForm(item.id)}>${icons.remove}</button>
+            </div>`)}
+          ${this._myFormsCursor
+            ? html`<button class="col-add" aria-label=${s.loadMore}
+                @click=${() => void this._loadMyForms(this._myFormsCursor)}>
+                ${icons.down}<span>${s.loadMore}</span>
+              </button>`
+            : nothing}
+        </div>
+        <div class="modal-foot">
+          <button class="btn primary" @click=${close}>${s.close}</button>
+        </div>
+      </div>
     `;
   }
 }
