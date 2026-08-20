@@ -804,6 +804,114 @@ describe('<slip-designer> 사이드바', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 좌표 기준점 (B-8) — X·Y 표시·입력의 기준 9점, 파일은 늘 좌상단 좌표
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 좌표 기준점', () => {
+  function anchorDot(el: Element, name: string): HTMLButtonElement {
+    return Array.from(el.shadowRoot!.querySelectorAll('.anchor-dot'))
+      .find((b) => b.getAttribute('aria-label') === `${strings.designer.anchor}: ${name}`) as HTMLButtonElement;
+  }
+
+  function xyInputs(el: Element): [HTMLInputElement, HTMLInputElement] {
+    const rows = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'));
+    const x = rows.find((r) => r.querySelector('label')?.textContent?.trim() === 'X')!
+      .querySelector('input') as HTMLInputElement;
+    const y = rows.find((r) => r.querySelector('label')?.textContent?.trim() === 'Y')!
+      .querySelector('input') as HTMLInputElement;
+    return [x, y];
+  }
+
+  // 픽스처 텍스트 요소: position (30, 40), 크기 60×10
+
+  it('기본 기준점은 좌상 — X·Y 표시가 저장 좌표와 같다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    expect(anchorDot(el, strings.designer.anchorTL).getAttribute('aria-pressed')).toBe('true');
+    const [x, y] = xyInputs(el);
+    expect(x.value).toBe('30');
+    expect(y.value).toBe('40');
+    el.remove();
+  });
+
+  it('중앙 기준을 고르면 X·Y가 중앙 좌표로 표시되고 파일 좌표는 그대로다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
+
+    anchorDot(el, strings.designer.anchorC).click();
+    await el.updateComplete;
+
+    const [x, y] = xyInputs(el);
+    expect(x.value).toBe('60'); // 30 + 60/2
+    expect(y.value).toBe('45'); // 40 + 10/2
+    const text = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements[0]!;
+    expect(text.position).toEqual({ x: 30, y: 40 });
+    // 기준점 변경만으로는 파일이 바뀌지 않는다
+    expect(changes.length).toBe(0);
+    el.remove();
+  });
+
+  it('중앙 기준으로 X를 입력하면 좌상단 좌표로 환산해 저장한다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    anchorDot(el, strings.designer.anchorC).click();
+    await el.updateComplete;
+
+    const [x] = xyInputs(el);
+    x.value = '100';
+    x.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const text = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements[0]!;
+    expect(text.position.x).toBe(70); // 100 - 60/2
+    expect(text.position.y).toBe(40);
+    // 표시도 입력한 기준점 좌표를 유지한다
+    expect(xyInputs(el)[0].value).toBe('100');
+    el.remove();
+  });
+
+  it('우하 기준은 X·Y를 오른쪽 아래 모서리 좌표로 표시한다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    anchorDot(el, strings.designer.anchorBR).click();
+    await el.updateComplete;
+
+    const [x, y] = xyInputs(el);
+    expect(x.value).toBe('90'); // 30 + 60
+    expect(y.value).toBe('50'); // 40 + 10
+    el.remove();
+  });
+
+  it('환산 결과가 음수가 되는 입력은 0으로 눌러 붙인다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    anchorDot(el, strings.designer.anchorBR).click();
+    await el.updateComplete;
+
+    const [x] = xyInputs(el);
+    x.value = '10'; // 10 - 60 = -50 → 0
+    x.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const text = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements[0]!;
+    expect(text.position.x).toBe(0);
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 양식 설정 패널 (B-6) — 제목·용지 크기·방향·여백
 // ---------------------------------------------------------------------------
 
