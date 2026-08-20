@@ -6,6 +6,7 @@ import { presets, IndexedDbStorage, LocalFileStorage } from '@omdc-slipkit/eleme
 import { serializeSlipFile, SlipStorageError, type SlipFile } from '@omdc-slipkit/core';
 
 const designer = document.getElementById('designer') as HTMLElement & { src: string };
+const form = document.getElementById('form') as HTMLElement & { src: string };
 const statusEl = document.getElementById('status')!;
 
 function status(message: string): void {
@@ -20,6 +21,29 @@ designer.src = serializeSlipFile(current);
 designer.addEventListener('slip-change', (event) => {
   current = (event as CustomEvent<{ file: SlipFile }>).detail.file;
   status('편집됨 (저장 안 됨)');
+});
+
+/** 양식 편집 ↔ 전표 작성 전환 — 작성 모드로 갈 때 지금 양식을 그대로 넘긴다 */
+function setMode(fill: boolean): void {
+  designer.hidden = fill;
+  form.hidden = !fill;
+  document.getElementById('mode-design')!.setAttribute('aria-pressed', String(!fill));
+  document.getElementById('mode-fill')!.setAttribute('aria-pressed', String(fill));
+  if (fill) {
+    form.src = serializeSlipFile(current);
+    status('전표를 작성한 뒤 발행하면 해시가 기록됩니다');
+  } else {
+    status('양식을 편집합니다');
+  }
+}
+
+document.getElementById('mode-design')!.addEventListener('click', () => setMode(false));
+document.getElementById('mode-fill')!.addEventListener('click', () => setMode(true));
+
+// 발행된 전표는 그대로 저장·다운로드 대상이 된다 (무결성 기록 포함)
+form.addEventListener('slip-issue', (event) => {
+  current = (event as CustomEvent<{ file: SlipFile }>).detail.file;
+  status('전표를 발행했습니다 — 저장·다운로드하면 무결성 기록까지 함께 담깁니다');
 });
 
 const DOC_ID = 'demo-template';
@@ -38,7 +62,9 @@ document.getElementById('load')!.addEventListener('click', () => {
     .load(DOC_ID)
     .then((file) => {
       current = file;
-      designer.src = serializeSlipFile(file);
+      setMode(file.kind === 'voucher');
+      if (file.kind === 'voucher') form.src = serializeSlipFile(file);
+      else designer.src = serializeSlipFile(file);
       status('IndexedDB에서 불러왔습니다');
     })
     .catch((error: unknown) => {
@@ -62,7 +88,9 @@ document.getElementById('open')!.addEventListener('click', () => {
     .load('')
     .then((file) => {
       current = file;
-      designer.src = serializeSlipFile(file);
+      setMode(file.kind === 'voucher');
+      if (file.kind === 'voucher') form.src = serializeSlipFile(file);
+      else designer.src = serializeSlipFile(file);
       status('.slip 파일을 열었습니다');
     })
     .catch((error: unknown) => status(`열기 실패: ${String(error)}`));

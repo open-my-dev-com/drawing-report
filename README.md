@@ -7,7 +7,7 @@ UI로 전표(양식 문서)를 쉽게 만들고, 보고, 출력할 수 있는 **
 
 - npm 스코프: `@omdc-slipkit/*` (`core` / `elements` / `react` / `vue`)
 - 파일 확장자: `.slip`
-- 커스텀 엘리먼트: `<slip-designer>`, `<slip-viewer>` 등
+- 커스텀 엘리먼트: `<slip-designer>`, `<slip-form>`, `<slip-viewer>` 등
 
 ## 핵심 성격
 

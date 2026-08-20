@@ -1,7 +1,7 @@
 import '@omdc-slipkit/elements';
 import { defineComponent, h, type PropType } from 'vue';
 import type { SlipViewer as SlipViewerElement } from '@omdc-slipkit/elements';
-import type { SlipFile } from '@omdc-slipkit/core';
+import type { IntegrityJwk, SlipFile } from '@omdc-slipkit/core';
 
 type SlipFonts = SlipViewerElement['fonts'];
 
@@ -56,6 +56,42 @@ export const SlipDesigner = defineComponent({
         '.fonts': props.fonts,
         'onSlip-change': (event: CustomEvent<{ file: SlipFile }>) =>
           emit('slip-change', event.detail.file),
+      });
+  },
+});
+
+/**
+ * `<slip-form>` 래퍼. 값 입력·발행 결과를 `slip-change`·`slip-issue` 이벤트로
+ * 그대로 다시 내보낸다 (ADR-003 — 얇은 래퍼).
+ */
+export const SlipForm = defineComponent({
+  name: 'SlipForm',
+  props: {
+    /** .slip JSON 문자열 (양식 또는 작성 중 전표) */
+    src: { type: String, required: true },
+    /**
+     * UI 언어 ('ko' | 'en') — ADR-028.
+     *
+     * @defaultValue 한국어
+     */
+    locale: { type: String, default: undefined },
+    /** PDF 미리보기에 쓸 사용자 폰트 (ADR-012) */
+    fonts: { type: Object as PropType<SlipFonts>, default: undefined },
+    /** 발행 서명에 쓸 개인키 (JWK) — 없으면 해시만 기록한다 (SPEC §8.3) */
+    signingKey: { type: Object as PropType<IntegrityJwk>, default: undefined },
+  },
+  emits: ['slip-change', 'slip-issue'],
+  setup(props, { emit }) {
+    return () =>
+      h('slip-form', {
+        src: props.src,
+        locale: props.locale,
+        '.fonts': props.fonts,
+        '.signingKey': props.signingKey,
+        'onSlip-change': (event: CustomEvent<{ file: SlipFile }>) =>
+          emit('slip-change', event.detail.file),
+        'onSlip-issue': (event: CustomEvent<{ file: SlipFile }>) =>
+          emit('slip-issue', event.detail.file),
       });
   },
 });

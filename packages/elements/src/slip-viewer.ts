@@ -22,6 +22,11 @@ export class SlipViewer extends LitElement {
       min-height: 200px;
     }
 
+    /* 호스트가 hidden으로 감출 수 있게 한다 — :host의 display가 기본 규칙을 덮기 때문 */
+    :host([hidden]) {
+      display: none;
+    }
+
     iframe {
       display: block;
       width: 100%;

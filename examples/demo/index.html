@@ -34,12 +34,17 @@
     }
     header button:hover { background: #455a64; }
     #status { margin-left: auto; font-size: 12px; color: #b0bec5; }
-    slip-designer { flex: 1; min-height: 0; }
+    slip-designer, slip-form { flex: 1; min-height: 0; }
+    header button[aria-pressed='true'] { background: #1a73e8; border-color: #1a73e8; }
+    header .sep { width: 1px; height: 18px; background: #546e7a; margin: 0 4px; }
   </style>
 </head>
 <body>
   <header>
     <span class="title">SlipKit 데모</span>
+    <button id="mode-design" aria-pressed="true">양식 편집</button>
+    <button id="mode-fill" aria-pressed="false">전표 작성</button>
+    <span class="sep"></span>
     <button id="save">IndexedDB 저장</button>
     <button id="load">불러오기</button>
     <button id="download">.slip 다운로드</button>
@@ -47,6 +52,7 @@
     <span id="status">준비됨 — 캔버스의 요소를 끌어 옮기거나 툴바로 추가해 보세요</span>
   </header>
   <slip-designer id="designer"></slip-designer>
+  <slip-form id="form" hidden></slip-form>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
