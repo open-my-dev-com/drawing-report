@@ -50,6 +50,9 @@ const DOC_ID = 'demo-template';
 const idb = new IndexedDbStorage({ dbName: 'slipkit-demo' });
 const local = new LocalFileStorage();
 
+// 디자이너의 "내 양식" 저장·목록도 같은 IndexedDB 어댑터를 쓴다 (D-15)
+(designer as unknown as { storage: typeof idb }).storage = idb;
+
 document.getElementById('save')!.addEventListener('click', () => {
   idb
     .save(DOC_ID, current)
