@@ -1,7 +1,11 @@
 import '@omdc-slipkit/elements';
 import { createElement, useEffect, useRef } from 'react';
-import type { SlipViewer as SlipViewerElement, SlipDesigner as SlipDesignerElement } from '@omdc-slipkit/elements';
-import type { SlipFile } from '@omdc-slipkit/core';
+import type {
+  SlipViewer as SlipViewerElement,
+  SlipDesigner as SlipDesignerElement,
+  SlipForm as SlipFormElement,
+} from '@omdc-slipkit/elements';
+import type { IntegrityJwk, SlipFile } from '@omdc-slipkit/core';
 
 type SlipFonts = SlipViewerElement['fonts'];
 
@@ -60,4 +64,63 @@ export function SlipDesigner({ src, locale, fonts, onSlipChange }: SlipDesignerP
   }, [onSlipChange]);
 
   return createElement('slip-designer', { ref, src, locale, fonts });
+}
+
+/** SlipForm 컴포넌트 props */
+export interface SlipFormProps {
+  /** .slip JSON 문자열 (양식 또는 작성 중 전표) */
+  src: string;
+  /**
+   * UI 언어 ('ko' | 'en') — ADR-028.
+   *
+   * @defaultValue 한국어
+   */
+  locale?: string;
+  /** PDF 미리보기에 쓸 사용자 폰트 (ADR-012) */
+  fonts?: SlipFonts;
+  /** 발행 서명에 쓸 개인키 (JWK) — 없으면 해시만 기록한다 (SPEC §8.3) */
+  signingKey?: IntegrityJwk;
+  /** 값을 채울 때마다 작성 중 전표 파일을 받는다 */
+  onSlipChange?: (file: SlipFile) => void;
+  /** 발행이 끝나면 무결성 기록이 담긴 전표 파일을 받는다 */
+  onSlipIssue?: (file: SlipFile) => void;
+}
+
+/**
+ * `<slip-form>` 래퍼. 커스텀 이벤트(slip-change·slip-issue)를 ref로 연결했다
+ * 떼는 것까지만 담당한다 (ADR-003 — 얇은 래퍼).
+ */
+export function SlipForm({
+  src,
+  locale,
+  fonts,
+  signingKey,
+  onSlipChange,
+  onSlipIssue,
+}: SlipFormProps) {
+  const ref = useRef<SlipFormElement>(null);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const handlers: [string, (event: Event) => void][] = [];
+    if (onSlipChange) {
+      handlers.push([
+        'slip-change',
+        (event) => onSlipChange((event as CustomEvent<{ file: SlipFile }>).detail.file),
+      ]);
+    }
+    if (onSlipIssue) {
+      handlers.push([
+        'slip-issue',
+        (event) => onSlipIssue((event as CustomEvent<{ file: SlipFile }>).detail.file),
+      ]);
+    }
+    for (const [name, handler] of handlers) element.addEventListener(name, handler);
+    return () => {
+      for (const [name, handler] of handlers) element.removeEventListener(name, handler);
+    };
+  }, [onSlipChange, onSlipIssue]);
+
+  return createElement('slip-form', { ref, src, locale, fonts, signingKey });
 }

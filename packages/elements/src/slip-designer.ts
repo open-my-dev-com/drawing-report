@@ -325,6 +325,11 @@ export class SlipDesigner extends LitElement {
       overflow: hidden;
     }
 
+    /* 호스트가 hidden으로 감출 수 있게 한다 — :host의 display가 기본 규칙을 덮기 때문 */
+    :host([hidden]) {
+      display: none;
+    }
+
     *,
     *::before,
     *::after {
