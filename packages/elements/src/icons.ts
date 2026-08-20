@@ -55,6 +55,8 @@ export const icons = {
   pageRemove: icon(svg`<path d="M5 12h14" />`),
   /** lucide: layout-template */
   preset: icon(svg`<rect width="18" height="7" x="3" y="3" rx="1" /><rect width="9" height="7" x="3" y="14" rx="1" /><rect width="5" height="7" x="16" y="14" rx="1" />`),
+  /** lucide: database */
+  database: icon(svg`<ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5V19A9 3 0 0 0 21 19V5" /><path d="M3 12A9 3 0 0 0 21 12" />`),
   /** lucide: sigma */
   formula: icon(svg`<path d="M18 7V5a1 1 0 0 0-1-1H6.5a.5.5 0 0 0-.4.8l4.5 6a2 2 0 0 1 0 2.4l-4.5 6a.5.5 0 0 0 .4.8H17a1 1 0 0 0 1-1v-2" />`),
   /** lucide: x */

@@ -2518,3 +2518,253 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 });
+
+// ---------------------------------------------------------------------------
+// D-13: 사이드바 바인딩 등록·삭제·논리명 편집 + 샘플 데이터 편집·채운 미리보기
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 바인딩 관리 (D-13)', () => {
+  const byAria = (el: Element, label: string) =>
+    Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === label) as HTMLButtonElement;
+
+  function fileOf(el: Element): SlipTemplateFile {
+    return (el as unknown as { _file: SlipTemplateFile })._file;
+  }
+
+  async function addBinding(el: import('../src/slip-designer.js').SlipDesigner, key: string, label: string) {
+    byAria(el, strings.designer.addBinding).click();
+    await el.updateComplete;
+    const keyInput = el.shadowRoot!.querySelector('.binding-new-key') as HTMLInputElement;
+    const labelInput = el.shadowRoot!.querySelector('.binding-new-label') as HTMLInputElement;
+    keyInput.value = key;
+    labelInput.value = label;
+    byAria(el, `${strings.designer.addBinding} ${strings.designer.confirm}`).click();
+    await el.updateComplete;
+  }
+
+  it('사이드바에서 바인딩을 등록하면 정의부에 추가되고 논리명으로 표시된다', async () => {
+    const el = await loadDesigner();
+    await addBinding(el, 'issueDate', '발행일');
+
+    const defs = (fileOf(el).template as { bindings?: { key: string; label?: string }[] }).bindings;
+    expect(defs).toEqual([{ key: 'issueDate', label: '발행일' }]);
+    const rows = Array.from(el.shadowRoot!.querySelectorAll('.side-row'));
+    expect(rows.some((r) => r.textContent?.includes('발행일'))).toBe(true);
+    el.remove();
+  });
+
+  it('중복 키 등록은 무시된다', async () => {
+    const el = await loadDesigner();
+    await addBinding(el, 'issueDate', '발행일');
+    await addBinding(el, 'issueDate', '다른 이름');
+
+    const defs = (fileOf(el).template as { bindings?: { key: string }[] }).bindings;
+    expect(defs?.length).toBe(1);
+    el.remove();
+  });
+
+  it('논리명 편집은 정의부에 없던 키(요소 사용처)도 항목을 만들어 기록한다', async () => {
+    const el = await loadDesigner();
+    // 필드를 추가하면 기본 바인딩(field_xxxx)이 사용처 기준으로 목록에 나온다
+    await addByCanvasClick(el, strings.designer.addField);
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
+
+    byAria(el, `${field.binding} ${strings.designer.editLabel}`).click();
+    await el.updateComplete;
+    const input = el.shadowRoot!.querySelector('.binding-label-edit') as HTMLInputElement;
+    input.value = '합계 금액';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const defs = (fileOf(el).template as { bindings?: { key: string; label?: string }[] }).bindings;
+    expect(defs).toEqual([{ key: field.binding, label: '합계 금액' }]);
+    el.remove();
+  });
+
+  it('정의부 삭제는 항목을 제거하고, 요소가 쓰는 키는 목록에 남으며 삭제가 비활성화된다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addField);
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
+    // 정의부에 등록해 두고 지운다
+    await addBinding(el, 'standalone', '독립 바인딩');
+    byAria(el, `standalone ${strings.designer.delete}`).click();
+    await el.updateComplete;
+
+    expect((fileOf(el).template as { bindings?: unknown[] }).bindings).toBeUndefined();
+    // 요소 사용처 기반 행은 남고 그 삭제 버튼은 비활성 (정의부 항목이 아님)
+    expect(byAria(el, `${field.binding} ${strings.designer.delete}`).disabled).toBe(true);
+    el.remove();
+  });
+});
+
+describe('<slip-designer> 샘플 데이터 (D-13)', () => {
+  const byAria = (el: Element, label: string) =>
+    Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === label) as HTMLButtonElement;
+
+  function fileOf(el: Element): SlipTemplateFile {
+    return (el as unknown as { _file: SlipTemplateFile })._file;
+  }
+
+  async function openSampleModal(el: import('../src/slip-designer.js').SlipDesigner) {
+    byAria(el, strings.designer.sampleData).click();
+    await el.updateComplete;
+  }
+
+  it('필드 바인딩의 샘플 값을 입력하면 sampleValues에 저장된다 (숫자 표기는 수로)', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addField);
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
+    await openSampleModal(el);
+
+    const input = Array.from(el.shadowRoot!.querySelectorAll('.modal input'))
+      .find((i) => i.getAttribute('aria-label') === `${strings.designer.sampleData} ${field.binding}`) as HTMLInputElement;
+    input.value = '12500';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const samples = (fileOf(el).template as { sampleValues?: Record<string, unknown> }).sampleValues;
+    expect(samples?.[field.binding]).toBe(12500);
+
+    // 빈 값으로 바꾸면 지워지고, 전부 비면 sampleValues 자체가 사라진다
+    input.value = '';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect((fileOf(el).template as { sampleValues?: unknown }).sampleValues).toBeUndefined();
+    el.remove();
+  });
+
+  it('동적 표 바인딩은 열 구조대로 행을 추가·편집한다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addDynamicTable);
+    await openSampleModal(el);
+
+    // 표 바인딩(items)은 행 편집 그리드로 나온다
+    expect(el.shadowRoot!.querySelector('.sample-grid')).not.toBeNull();
+    byAria(el, `items ${strings.designer.addRow}`).click();
+    await el.updateComplete;
+
+    const cell = Array.from(el.shadowRoot!.querySelectorAll('.sample-grid input'))
+      .find((i) => i.getAttribute('aria-label') === 'items 1 col1') as HTMLInputElement;
+    cell.value = '노트';
+    cell.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const samples = (fileOf(el).template as { sampleValues?: Record<string, unknown> }).sampleValues;
+    expect(samples?.items).toEqual([{ col1: '노트' }]);
+
+    // 행 삭제로 비우면 값도 사라진다
+    byAria(el, `items 1 ${strings.designer.delete}`).click();
+    await el.updateComplete;
+    expect((fileOf(el).template as { sampleValues?: unknown }).sampleValues).toBeUndefined();
+    el.remove();
+  });
+
+  it('샘플 값이 있으면 미리보기는 그 값으로 채운 전표를 렌더한다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addField);
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
+    await openSampleModal(el);
+    const input = Array.from(el.shadowRoot!.querySelectorAll('.modal input'))
+      .find((i) => i.getAttribute('aria-label') === `${strings.designer.sampleData} ${field.binding}`) as HTMLInputElement;
+    input.value = '9900';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    // 모달 닫기
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await el.updateComplete;
+
+    renderSlipToPdfMock.mockClear();
+    toolbarButton(el, strings.designer.preview).click();
+    await el.updateComplete;
+    await flush();
+
+    const rendered = renderSlipToPdfMock.mock.calls[0]?.[0] as never as {
+      kind: string; values?: Record<string, unknown>; issued?: boolean;
+    };
+    expect(rendered.kind).toBe('voucher');
+    expect(rendered.values?.[field.binding]).toBe(9900);
+    expect(rendered.issued).toBe(false);
+    el.remove();
+  });
+
+  it('샘플 값이 없으면 미리보기는 양식 그대로 렌더한다', async () => {
+    const el = await loadDesigner();
+    renderSlipToPdfMock.mockClear();
+    toolbarButton(el, strings.designer.preview).click();
+    await el.updateComplete;
+    await flush();
+    const rendered = renderSlipToPdfMock.mock.calls[0]?.[0] as never as { kind: string };
+    expect(rendered.kind).toBe('template');
+    el.remove();
+  });
+
+  it('바인딩이 10개를 넘으면 10개 단위 페이지로 나뉜다', async () => {
+    const el = await loadDesigner();
+    (fileOf(el).template as { bindings?: { key: string }[] }).bindings =
+      Array.from({ length: 12 }, (_, i) => ({ key: `b${i + 1}` }));
+    await openSampleModal(el);
+
+    const inputs = () => el.shadowRoot!.querySelectorAll('.modal .prop-row input');
+    expect(inputs().length).toBe(10);
+    const pageButtons = () => el.shadowRoot!.querySelectorAll('.page-btn');
+    expect(pageButtons().length).toBe(2);
+    expect(pageButtons()[0]?.getAttribute('aria-pressed')).toBe('true');
+
+    // 다음 버튼으로도, 페이지 번호 버튼으로도 바로 이동할 수 있다
+    byAria(el, `${strings.designer.sampleData} ${strings.designer.nextPage}`).click();
+    await el.updateComplete;
+    expect(inputs().length).toBe(2);
+    expect(pageButtons()[1]?.getAttribute('aria-pressed')).toBe('true');
+    (pageButtons()[0] as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(inputs().length).toBe(10);
+
+    // 10개 이하면 페이지 표시가 없다
+    (fileOf(el).template as { bindings?: { key: string }[] }).bindings =
+      Array.from({ length: 3 }, (_, i) => ({ key: `b${i + 1}` }));
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await el.updateComplete;
+    await openSampleModal(el);
+    expect(el.shadowRoot!.querySelector('.sample-pager')).toBeNull();
+    el.remove();
+  });
+
+  it('JSON 탭에서 샘플 전체를 붙여 넣어 적용할 수 있고, 잘못된 JSON은 적용이 막힌다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addField);
+    await openSampleModal(el);
+
+    byAria(el, `${strings.designer.sampleData}: JSON`).click();
+    await el.updateComplete;
+    const textarea = el.shadowRoot!.querySelector('.sample-json') as HTMLTextAreaElement;
+    const applyBtn = () => Array.from(el.shadowRoot!.querySelectorAll('.modal-foot button'))
+      .find((b) => b.textContent?.trim() === strings.designer.apply) as HTMLButtonElement;
+
+    // 잘못된 JSON → 오류 표시 + 적용 비활성
+    textarea.value = '{ "a": ';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+    expect(applyBtn().disabled).toBe(true);
+    expect(el.shadowRoot!.querySelector('.formula-status.error')).not.toBeNull();
+
+    // 배열 최상위도 거부
+    textarea.value = '[1, 2]';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+    expect(applyBtn().disabled).toBe(true);
+
+    // 올바른 객체 → 적용하면 sampleValues 전체가 교체된다
+    textarea.value = '{ "tradeDate": "2026-08-20", "items": [{ "amount": 1000 }] }';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+    expect(applyBtn().disabled).toBe(false);
+    applyBtn().click();
+    await el.updateComplete;
+
+    const samples = (fileOf(el).template as { sampleValues?: Record<string, unknown> }).sampleValues;
+    expect(samples).toEqual({ tradeDate: '2026-08-20', items: [{ amount: 1000 }] });
+    el.remove();
+  });
+});
