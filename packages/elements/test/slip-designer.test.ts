@@ -2699,4 +2699,29 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     expect(rendered.kind).toBe('template');
     el.remove();
   });
+
+  it('바인딩이 10개를 넘으면 10개 단위 페이지로 나뉜다', async () => {
+    const el = await loadDesigner();
+    (fileOf(el).template as { bindings?: { key: string }[] }).bindings =
+      Array.from({ length: 12 }, (_, i) => ({ key: `b${i + 1}` }));
+    await openSampleModal(el);
+
+    const inputs = () => el.shadowRoot!.querySelectorAll('.modal .prop-row input');
+    expect(inputs().length).toBe(10);
+    expect(el.shadowRoot!.querySelector('.sample-pager')?.textContent).toContain('1 / 2');
+
+    byAria(el, `${strings.designer.sampleData} ${strings.designer.nextPage}`).click();
+    await el.updateComplete;
+    expect(inputs().length).toBe(2);
+    expect(el.shadowRoot!.querySelector('.sample-pager')?.textContent).toContain('2 / 2');
+
+    // 10개 이하면 페이지 표시가 없다
+    (fileOf(el).template as { bindings?: { key: string }[] }).bindings =
+      Array.from({ length: 3 }, (_, i) => ({ key: `b${i + 1}` }));
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await el.updateComplete;
+    await openSampleModal(el);
+    expect(el.shadowRoot!.querySelector('.sample-pager')).toBeNull();
+    el.remove();
+  });
 });

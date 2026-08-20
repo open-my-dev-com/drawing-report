@@ -82,6 +82,8 @@ const PX_PER_MM = 96 / 25.4;
 const MAX_UNDO = 50;
 /** 테두리 굵기 선택지(mm) — 없음(0)과 이 단계들만 select로 제공한다 (C-11) */
 const BORDER_WIDTH_STEPS = [0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.5, 2] as const;
+/** 샘플 데이터 모달의 한 페이지에 보여줄 바인딩 수 (D-13) */
+const SAMPLE_PAGE_SIZE = 10;
 /** 스냅이 붙는 거리(mm) — 이 안으로 들어오면 후보 선에 끌어붙인다 */
 const SNAP_MM = 1.5;
 /** 크기 조절 최소 폭·높이(mm) */
@@ -588,7 +590,27 @@ export class SlipDesigner extends LitElement {
       font-family: inherit;
       color: inherit;
     }
-    /* 샘플 데이터 모달의 행 편집 그리드 (D-13) */
+    /* 샘플 데이터 모달의 행 편집 그리드 (D-13) — 열이 많으면 가로 스크롤 */
+    .modal.modal-wide {
+      width: min(760px, calc(100vw - 32px));
+    }
+    .sample-pager {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin: 6px 0;
+    }
+    .sample-pager .page-indicator {
+      min-width: 40px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--sk-text-muted);
+    }
+    .sample-scroll {
+      overflow-x: auto;
+      margin-bottom: 4px;
+    }
     .sample-grid {
       display: grid;
       gap: 4px;
@@ -1743,6 +1765,8 @@ export class SlipDesigner extends LitElement {
   private _columnsModalOpen = false;
   /** 샘플 데이터 편집 모달 열림 여부 — 양식의 sampleValues를 편집한다 (D-13) */
   private _sampleModalOpen = false;
+  /** 샘플 데이터 모달의 현재 페이지 — 바인딩이 많으면 10개 단위로 나눠 보여준다 */
+  private _samplePage = 0;
   /** 사이드바에서 논리명을 인라인 편집 중인 바인딩 키 (D-13) */
   private _bindingEditKey: string | null = null;
   /** 사이드바의 바인딩 등록 입력줄 열림 여부 (D-13) */
@@ -3231,6 +3255,7 @@ export class SlipDesigner extends LitElement {
           <button class="side-mini" title=${s.sampleData} aria-label=${s.sampleData}
             @click=${() => {
               this._sampleModalOpen = true;
+              this._samplePage = 0;
               this.requestUpdate();
             }}>${icons.database}</button>
           <button class="side-mini" title=${s.addBinding} aria-label=${s.addBinding}
@@ -4924,10 +4949,17 @@ export class SlipDesigner extends LitElement {
       }
     }
     const bindings = this._collectBindings();
+    // 바인딩이 많으면 10개 단위 페이지로 나눠 스크롤을 짧게 유지한다
+    const pageCount = Math.max(1, Math.ceil(bindings.length / SAMPLE_PAGE_SIZE));
+    const pageIndex = Math.min(this._samplePage, pageCount - 1);
+    const visible = bindings.slice(
+      pageIndex * SAMPLE_PAGE_SIZE,
+      (pageIndex + 1) * SAMPLE_PAGE_SIZE,
+    );
 
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${close}></div>
-      <div class="modal" role="dialog" aria-label=${s.sampleModalTitle}
+      <div class="modal modal-wide" role="dialog" aria-label=${s.sampleModalTitle}
         @keydown=${(e: KeyboardEvent) => {
           if (e.key === 'Escape') {
             e.stopPropagation();
@@ -4942,7 +4974,27 @@ export class SlipDesigner extends LitElement {
         <div class="modal-body">
           <div class="cell-hint">${s.sampleHint}</div>
           ${bindings.length === 0 ? html`<div class="side-empty">—</div>` : nothing}
-          ${bindings.map((b) => {
+          ${pageCount > 1
+            ? html`
+                <div class="sample-pager">
+                  <button class="side-mini" title=${s.prevPage}
+                    aria-label="${s.sampleData} ${s.prevPage}"
+                    ?disabled=${pageIndex === 0}
+                    @click=${() => {
+                      this._samplePage = pageIndex - 1;
+                      this.requestUpdate();
+                    }}>${icons.pagePrev}</button>
+                  <span class="page-indicator">${pageIndex + 1} / ${pageCount}</span>
+                  <button class="side-mini" title=${s.nextPage}
+                    aria-label="${s.sampleData} ${s.nextPage}"
+                    ?disabled=${pageIndex >= pageCount - 1}
+                    @click=${() => {
+                      this._samplePage = pageIndex + 1;
+                      this.requestUpdate();
+                    }}>${icons.pageNext}</button>
+                </div>`
+            : nothing}
+          ${visible.map((b) => {
             const columns = tableOf.get(b.key);
             if (columns) return this._renderSampleTable(b, columns, samples[b.key]);
             return html`
@@ -4979,25 +5031,28 @@ export class SlipDesigner extends LitElement {
       this._setSampleValue(b.key, next.length > 0 ? next : undefined);
     return html`
       <div class="modal-section-title" title=${b.key}>${b.label}</div>
-      <div class="sample-grid" style="grid-template-columns:repeat(${columns.length}, 1fr) 22px">
-        ${columns.map((col) => html`<span class="sample-col">${col.title || col.key}</span>`)}
-        <span></span>
-        ${rows.map((row, rowIndex) => html`
-          ${columns.map((col) => html`
-            <input .value=${sampleScalarText(row[col.key])}
-              aria-label="${b.key} ${rowIndex + 1} ${col.key}"
-              @change=${(e: Event) => {
-                const next = rows.map((r) => ({ ...r }));
-                const text = (e.target as HTMLInputElement).value;
-                if (text === '') delete next[rowIndex]![col.key];
-                else next[rowIndex]![col.key] = parseSampleScalar(text);
-                commitRows(next);
-              }}>`)}
-          <button class="col-remove" title=${s.delete}
-            aria-label="${b.key} ${rowIndex + 1} ${s.delete}"
-            @click=${() => commitRows(rows.filter((_, i) => i !== rowIndex).map((r) => ({ ...r })))}>
-            ${icons.pageRemove}
-          </button>`)}
+      <div class="sample-scroll">
+        <div class="sample-grid"
+          style="grid-template-columns:repeat(${columns.length}, minmax(90px, 1fr)) 22px">
+          ${columns.map((col) => html`<span class="sample-col">${col.title || col.key}</span>`)}
+          <span></span>
+          ${rows.map((row, rowIndex) => html`
+            ${columns.map((col) => html`
+              <input .value=${sampleScalarText(row[col.key])}
+                aria-label="${b.key} ${rowIndex + 1} ${col.key}"
+                @change=${(e: Event) => {
+                  const next = rows.map((r) => ({ ...r }));
+                  const text = (e.target as HTMLInputElement).value;
+                  if (text === '') delete next[rowIndex]![col.key];
+                  else next[rowIndex]![col.key] = parseSampleScalar(text);
+                  commitRows(next);
+                }}>`)}
+            <button class="col-remove" title=${s.delete}
+              aria-label="${b.key} ${rowIndex + 1} ${s.delete}"
+              @click=${() => commitRows(rows.filter((_, i) => i !== rowIndex).map((r) => ({ ...r })))}>
+              ${icons.pageRemove}
+            </button>`)}
+        </div>
       </div>
       <button class="col-add" aria-label="${b.key} ${s.addRow}"
         @click=${() => commitRows([...rows.map((r) => ({ ...r })), {}])}>
