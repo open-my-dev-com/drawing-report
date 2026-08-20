@@ -514,6 +514,105 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
       padding: 2px 6px;
     }
+    /* 사이드바 바인딩 관리 (D-13) — 제목 줄의 작은 버튼과 인라인 입력줄 */
+    .side-title-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+    .side-title-row .side-title {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    .side-mini {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      color: var(--sk-text-muted);
+      cursor: pointer;
+    }
+    .side-mini:hover:not(:disabled) {
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+    }
+    .side-mini:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+    .side-mini[aria-pressed='true'] {
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+      border-color: var(--sk-accent);
+    }
+    .side-mini svg {
+      width: 12px;
+      height: 12px;
+    }
+    .side-mini:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    .side-row-wrap {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .side-row-wrap .side-row {
+      flex: 1;
+      min-width: 0;
+    }
+    .side-inline {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      margin: 2px 0 6px;
+    }
+    .side-inline input {
+      flex: 1;
+      min-width: 56px;
+      width: 0;
+      padding: 3px 6px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-size: 11px;
+      font-family: inherit;
+      color: inherit;
+    }
+    /* 샘플 데이터 모달의 행 편집 그리드 (D-13) */
+    .sample-grid {
+      display: grid;
+      gap: 4px;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .sample-col {
+      font-size: 10px;
+      color: var(--sk-text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sample-grid input {
+      min-width: 0;
+      width: 100%;
+      padding: 4px 6px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-size: 12px;
+      font-family: inherit;
+      color: inherit;
+    }
 
     .canvas-area {
       grid-row: 2;
@@ -1582,6 +1681,9 @@ export class SlipDesigner extends LitElement {
     _lineGhost: { state: true },
     _formulaModalOpen: { state: true },
     _columnsModalOpen: { state: true },
+    _sampleModalOpen: { state: true },
+    _bindingEditKey: { state: true },
+    _bindingAddOpen: { state: true },
   };
 
   src = '';
@@ -1639,6 +1741,12 @@ export class SlipDesigner extends LitElement {
   private _formulaDraft = '';
   /** 동적 표 열 편집 모달 열림 여부 — 선택된 동적 표의 columns를 편집한다 (D-12) */
   private _columnsModalOpen = false;
+  /** 샘플 데이터 편집 모달 열림 여부 — 양식의 sampleValues를 편집한다 (D-13) */
+  private _sampleModalOpen = false;
+  /** 사이드바에서 논리명을 인라인 편집 중인 바인딩 키 (D-13) */
+  private _bindingEditKey: string | null = null;
+  /** 사이드바의 바인딩 등록 입력줄 열림 여부 (D-13) */
+  private _bindingAddOpen = false;
   /** 선 끝점 핸들 드래그 상태 — 반대쪽 끝점을 고정하고 잡은 끝점만 옮긴다 */
   private _lineEnd: {
     id: string;
@@ -1720,6 +1828,9 @@ export class SlipDesigner extends LitElement {
     this._lineEnd = null;
     this._formulaModalOpen = false;
     this._columnsModalOpen = false;
+    this._sampleModalOpen = false;
+    this._bindingEditKey = null;
+    this._bindingAddOpen = false;
 
     if (!this.src) {
       this._file = null;
@@ -2734,9 +2845,13 @@ export class SlipDesigner extends LitElement {
     if (inFormField) return;
 
     // 모달이 열려 있으면 Esc는 모달 닫기 (모달 안 입력란의 Esc는 모달 자체가 처리)
-    if (e.key === 'Escape' && (this._formulaModalOpen || this._columnsModalOpen)) {
+    if (
+      e.key === 'Escape' &&
+      (this._formulaModalOpen || this._columnsModalOpen || this._sampleModalOpen)
+    ) {
       this._formulaModalOpen = false;
       this._columnsModalOpen = false;
+      this._sampleModalOpen = false;
       this.requestUpdate();
       return;
     }
@@ -2804,7 +2919,20 @@ export class SlipDesigner extends LitElement {
       const opts: RenderOptions = {
         fonts: this.fonts?.length ? this.fonts : await loadDefaultFonts(),
       };
-      const pdfBytes = await renderSlipToPdf(this._file, opts);
+      // 샘플 값이 있으면 그 값으로 채운 전표 상태로 미리보기 (D-13).
+      // 파일 자체는 양식 그대로 두고 렌더 입력만 전표 형태로 만든다.
+      const sample = this._file.template.sampleValues;
+      const target: SlipFile =
+        sample && Object.keys(sample).length > 0
+          ? {
+              schemaVersion: this._file.schemaVersion,
+              kind: 'voucher',
+              templateSnapshot: this._file.template,
+              values: sample,
+              issued: false,
+            }
+          : this._file;
+      const pdfBytes = await renderSlipToPdf(target, opts);
       if (gen !== this._previewGeneration) return;
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._previewUrl = URL.createObjectURL(blob);
@@ -2849,6 +2977,7 @@ export class SlipDesigner extends LitElement {
             <div class="prop-panel">${this._renderPropertyPanel()}</div>
             ${this._renderFormulaModal()}
             ${this._renderColumnsModal()}
+            ${this._renderSampleModal()}
           `}
     `;
   }
@@ -3024,29 +3153,44 @@ export class SlipDesigner extends LitElement {
 
     const elements = this._currentElements() ?? [];
 
-    // 양식 전체의 바인딩 목록 — 같은 이름은 처음 나온 요소 하나로 대표한다.
-    // 정의부(ADR-032)에 논리명이 있으면 그 이름으로 표시한다 (물리명은 title로 확인)
+    // 양식 전체의 바인딩 목록 — 정의부(ADR-032)와 요소 사용처를 합친다. 정의부에
+    // 논리명이 있으면 그 이름으로 표시하고(물리명은 title로 확인), 사용처가 있으면
+    // 클릭 시 해당 요소로 이동한다. 등록·삭제·논리명 편집은 D-13.
     const labelOf = new Map<string, string>(
       (file.template.bindings ?? [])
         .filter((b) => b.label !== undefined)
         .map((b) => [b.key, b.label!]),
     );
-    const bindings: { binding: string; label: string; pageIndex: number; id: string; glyph: TemplateResult }[] = [];
-    const seen = new Set<string>();
+    const definedKeys = new Set((file.template.bindings ?? []).map((b) => b.key));
+    const usage = new Map<string, { pageIndex: number; id: string; glyph: TemplateResult }>();
     file.template.pages.forEach((page, pageIndex) => {
       for (const el of page.elements) {
-        if (el.type !== 'field' && el.type !== 'dynamicTable') continue;
-        if (seen.has(el.binding)) continue;
-        seen.add(el.binding);
-        bindings.push({
-          binding: el.binding,
-          label: labelOf.get(el.binding) ?? el.binding,
-          pageIndex,
-          id: el.id,
-          glyph: TYPE_BADGE[el.type],
-        });
+        if ((el.type === 'field' || el.type === 'dynamicTable') && !usage.has(el.binding)) {
+          usage.set(el.binding, { pageIndex, id: el.id, glyph: TYPE_BADGE[el.type] });
+        }
       }
     });
+    const bindings: {
+      key: string;
+      label: string;
+      rawLabel: string | undefined;
+      defined: boolean;
+      use: { pageIndex: number; id: string; glyph: TemplateResult } | undefined;
+    }[] = [];
+    const seen = new Set<string>();
+    const pushBinding = (key: string): void => {
+      if (seen.has(key)) return;
+      seen.add(key);
+      bindings.push({
+        key,
+        label: labelOf.get(key) ?? key,
+        rawLabel: labelOf.get(key),
+        defined: definedKeys.has(key),
+        use: usage.get(key),
+      });
+    };
+    for (const def of file.template.bindings ?? []) pushBinding(def.key);
+    for (const key of usage.keys()) pushBinding(key);
 
     return html`
       <div class="side-section">
@@ -3082,16 +3226,145 @@ export class SlipDesigner extends LitElement {
       </div>
 
       <div class="side-section">
-        <div class="side-title">${s.sidebarBindings}</div>
-        ${bindings.length === 0
+        <div class="side-title-row">
+          <span class="side-title">${s.sidebarBindings}</span>
+          <button class="side-mini" title=${s.sampleData} aria-label=${s.sampleData}
+            @click=${() => {
+              this._sampleModalOpen = true;
+              this.requestUpdate();
+            }}>${icons.database}</button>
+          <button class="side-mini" title=${s.addBinding} aria-label=${s.addBinding}
+            aria-pressed=${String(this._bindingAddOpen)}
+            @click=${() => {
+              this._bindingAddOpen = !this._bindingAddOpen;
+              this.requestUpdate();
+            }}>${icons.pageAdd}</button>
+        </div>
+        ${this._bindingAddOpen ? this._renderBindingAddForm() : nothing}
+        ${bindings.length === 0 && !this._bindingAddOpen
           ? html`<div class="side-empty">—</div>`
-          : bindings.map((b) => html`
-              <button class="side-row" title=${b.binding}
-                @click=${() => this._selectFromSidebar(b.pageIndex, b.id)}>
-                ${b.glyph}<span>${b.label}</span>
-              </button>`)}
+          : bindings.map((b) => this._renderBindingRow(b))}
       </div>
     `;
+  }
+
+  /** 바인딩 등록 입력줄 — 물리명(필수)·논리명(선택)을 받아 정의부에 추가한다 (D-13) */
+  private _renderBindingAddForm() {
+    const s = this._strings.designer;
+    const commit = (): void => {
+      const key =
+        (this.renderRoot.querySelector('.binding-new-key') as HTMLInputElement | null)?.value ?? '';
+      const label =
+        (this.renderRoot.querySelector('.binding-new-label') as HTMLInputElement | null)?.value ?? '';
+      this._addBindingDef(key.trim(), label.trim());
+    };
+    return html`
+      <div class="side-inline">
+        <input class="binding-new-key" placeholder=${s.bindingKey}
+          aria-label="${s.addBinding} ${s.bindingKey}"
+          @keydown=${(e: KeyboardEvent) => {
+            if (e.key === 'Enter') commit();
+          }}>
+        <input class="binding-new-label" placeholder=${s.bindingLabel}
+          aria-label="${s.addBinding} ${s.bindingLabel}"
+          @keydown=${(e: KeyboardEvent) => {
+            if (e.key === 'Enter') commit();
+          }}>
+        <button class="side-mini" title=${s.confirm} aria-label="${s.addBinding} ${s.confirm}"
+          @click=${commit}>${icons.pageAdd}</button>
+      </div>
+    `;
+  }
+
+  /** 바인딩 한 줄 — 클릭 이동(사용처가 있을 때) + 논리명 편집·정의부 삭제 (D-13) */
+  private _renderBindingRow(b: {
+    key: string;
+    label: string;
+    rawLabel: string | undefined;
+    defined: boolean;
+    use: { pageIndex: number; id: string; glyph: TemplateResult } | undefined;
+  }) {
+    const s = this._strings.designer;
+    if (this._bindingEditKey === b.key) {
+      return html`
+        <div class="side-inline">
+          <input class="binding-label-edit" .value=${b.rawLabel ?? ''} placeholder=${s.bindingLabel}
+            aria-label="${b.key} ${s.bindingLabel}"
+            @keydown=${(e: KeyboardEvent) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                this._bindingEditKey = null;
+                this.requestUpdate();
+              }
+            }}
+            @change=${(e: Event) =>
+              this._commitBindingLabel(b.key, (e.target as HTMLInputElement).value)}>
+        </div>
+      `;
+    }
+    return html`
+      <div class="side-row-wrap">
+        <button class="side-row" title=${b.key}
+          @click=${() => {
+            if (b.use) this._selectFromSidebar(b.use.pageIndex, b.use.id);
+          }}>
+          ${b.use?.glyph ?? icons.field}<span>${b.label}</span>
+        </button>
+        <button class="side-mini" title=${s.editLabel} aria-label="${b.key} ${s.editLabel}"
+          @click=${() => {
+            this._bindingEditKey = b.key;
+            this.requestUpdate();
+          }}>${icons.edit}</button>
+        <button class="side-mini" title=${s.delete} aria-label="${b.key} ${s.delete}"
+          ?disabled=${!b.defined}
+          @click=${() => this._removeBindingDef(b.key)}>${icons.remove}</button>
+      </div>
+    `;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 바인딩 정의부 편집 (D-13, ADR-032)
+  // ---------------------------------------------------------------------------
+
+  /** 정의부에 새 바인딩을 추가한다 — 빈 키·중복 키는 무시 */
+  private _addBindingDef(key: string, label: string): void {
+    const file = this._file;
+    if (!file || !key || (file.template.bindings ?? []).some((b) => b.key === key)) {
+      this.requestUpdate();
+      return;
+    }
+    this._bindingAddOpen = false;
+    this._updateFile((f) => {
+      const defs = f.template.bindings ?? [];
+      defs.push(label ? { key, label } : { key });
+      f.template.bindings = defs;
+    });
+  }
+
+  /** 논리명을 바꾼다 — 정의부에 없던 키면 항목을 만들어 기록한다 (빈 값은 논리명 제거) */
+  private _commitBindingLabel(key: string, label: string): void {
+    this._bindingEditKey = null;
+    const trimmed = label.trim();
+    this._updateFile((f) => {
+      const defs = f.template.bindings ?? [];
+      const def = defs.find((b) => b.key === key);
+      if (def) {
+        if (trimmed) def.label = trimmed;
+        else delete (def as { label?: string }).label;
+      } else {
+        defs.push(trimmed ? { key, label: trimmed } : { key });
+      }
+      f.template.bindings = defs;
+    });
+  }
+
+  /** 정의부에서 바인딩을 제거한다 — 요소가 쓰는 키면 목록에는 사용처 기준으로 남는다 */
+  private _removeBindingDef(key: string): void {
+    this._updateFile((f) => {
+      const defs = (f.template.bindings ?? []).filter((b) => b.key !== key);
+      if (defs.length > 0) f.template.bindings = defs;
+      else delete (f.template as { bindings?: unknown }).bindings;
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -4605,6 +4878,147 @@ export class SlipDesigner extends LitElement {
       </div>
     `;
   }
+
+  // ---------------------------------------------------------------------------
+  // 샘플 데이터 편집 (D-13)
+  // ---------------------------------------------------------------------------
+
+  /** 샘플 값 하나를 넣거나 지운다 — sampleValues가 비면 필드 자체를 지운다 */
+  private _setSampleValue(key: string, value: unknown): void {
+    this._updateFile((f) => {
+      const template = f.template;
+      if (value === undefined || value === '') {
+        if (template.sampleValues) {
+          delete template.sampleValues[key];
+          if (Object.keys(template.sampleValues).length === 0) {
+            delete (template as { sampleValues?: unknown }).sampleValues;
+          }
+        }
+      } else {
+        (template.sampleValues ??= {})[key] = value as never;
+      }
+    });
+  }
+
+  /**
+   * 샘플 데이터 편집 모달 (D-13) — 바인딩마다 시험 값을 채운다. 동적 표 바인딩은
+   * 그 표의 열 구조대로 행을 편집한다. 숫자 표기는 수로 저장해 수식 계산이 되게 한다.
+   */
+  private _renderSampleModal() {
+    if (!this._sampleModalOpen || !this._file) return nothing;
+    const s = this._strings.designer;
+    const template = this._file.template;
+    const samples: Record<string, unknown> = template.sampleValues ?? {};
+    const close = (): void => {
+      this._sampleModalOpen = false;
+      this.requestUpdate();
+    };
+
+    // 동적 표 바인딩 → 열 구조 (같은 바인딩을 쓰는 첫 표 기준)
+    const tableOf = new Map<string, { key: string; title: string }[]>();
+    for (const page of template.pages) {
+      for (const el of page.elements) {
+        if (el.type === 'dynamicTable' && !tableOf.has(el.binding)) {
+          tableOf.set(el.binding, el.columns.map((c) => ({ key: c.key, title: c.title })));
+        }
+      }
+    }
+    const bindings = this._collectBindings();
+
+    return html`
+      <div class="menu-backdrop modal-backdrop" @click=${close}></div>
+      <div class="modal" role="dialog" aria-label=${s.sampleModalTitle}
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            close();
+          }
+        }}>
+        <div class="modal-head">
+          <span>${s.sampleModalTitle}</span>
+          <button class="modal-close" title=${s.close} aria-label=${s.close}
+            @click=${close}>${icons.close}</button>
+        </div>
+        <div class="modal-body">
+          <div class="cell-hint">${s.sampleHint}</div>
+          ${bindings.length === 0 ? html`<div class="side-empty">—</div>` : nothing}
+          ${bindings.map((b) => {
+            const columns = tableOf.get(b.key);
+            if (columns) return this._renderSampleTable(b, columns, samples[b.key]);
+            return html`
+              <div class="prop-row">
+                <label title=${b.key}>${b.label}</label>
+                <input .value=${sampleScalarText(samples[b.key])}
+                  aria-label="${s.sampleData} ${b.key}"
+                  @change=${(e: Event) =>
+                    this._setSampleValue(b.key, parseSampleScalar((e.target as HTMLInputElement).value))}>
+              </div>`;
+          })}
+        </div>
+        <div class="modal-foot">
+          <button class="btn primary" @click=${close}>${s.close}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /** 동적 표 바인딩의 샘플 행 편집 — 열 구조대로 셀 입력, 행 추가·삭제 */
+  private _renderSampleTable(
+    b: { key: string; label: string },
+    columns: { key: string; title: string }[],
+    raw: unknown,
+  ) {
+    const s = this._strings.designer;
+    const rows = Array.isArray(raw)
+      ? raw.filter(
+          (r): r is Record<string, unknown> =>
+            typeof r === 'object' && r !== null && !Array.isArray(r),
+        )
+      : [];
+    const commitRows = (next: Record<string, unknown>[]): void =>
+      this._setSampleValue(b.key, next.length > 0 ? next : undefined);
+    return html`
+      <div class="modal-section-title" title=${b.key}>${b.label}</div>
+      <div class="sample-grid" style="grid-template-columns:repeat(${columns.length}, 1fr) 22px">
+        ${columns.map((col) => html`<span class="sample-col">${col.title || col.key}</span>`)}
+        <span></span>
+        ${rows.map((row, rowIndex) => html`
+          ${columns.map((col) => html`
+            <input .value=${sampleScalarText(row[col.key])}
+              aria-label="${b.key} ${rowIndex + 1} ${col.key}"
+              @change=${(e: Event) => {
+                const next = rows.map((r) => ({ ...r }));
+                const text = (e.target as HTMLInputElement).value;
+                if (text === '') delete next[rowIndex]![col.key];
+                else next[rowIndex]![col.key] = parseSampleScalar(text);
+                commitRows(next);
+              }}>`)}
+          <button class="col-remove" title=${s.delete}
+            aria-label="${b.key} ${rowIndex + 1} ${s.delete}"
+            @click=${() => commitRows(rows.filter((_, i) => i !== rowIndex).map((r) => ({ ...r })))}>
+            ${icons.pageRemove}
+          </button>`)}
+      </div>
+      <button class="col-add" aria-label="${b.key} ${s.addRow}"
+        @click=${() => commitRows([...rows.map((r) => ({ ...r })), {}])}>
+        ${icons.pageAdd}<span>${s.addRow}</span>
+      </button>
+    `;
+  }
+}
+
+/** 샘플 입력값 해석 — 숫자 표기는 수로, 그 밖은 문자열로 (수식 계산이 자연스럽게 되도록) */
+function parseSampleScalar(text: string): string | number {
+  const trimmed = text.trim();
+  return trimmed !== '' && /^-?\d+(\.\d+)?$/.test(trimmed) ? Number(trimmed) : text;
+}
+
+/** 샘플 값을 입력창 표시용 문자열로 — 배열·객체는 표 편집이 담당하므로 빈 값 취급 */
+function sampleScalarText(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') return '';
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  return String(value);
 }
 
 /** 수식 미리 계산 결과를 표시용 문자열로 (수식 엔진의 문자열화 규칙과 같은 방향) */
