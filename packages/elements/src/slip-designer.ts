@@ -1002,6 +1002,31 @@ export class SlipDesigner extends LitElement {
       outline: 2px solid var(--sk-accent);
       outline-offset: -2px;
     }
+    .merge-inputs {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .merge-inputs span {
+      font-size: 11px;
+      color: var(--sk-text-muted);
+      flex-shrink: 0;
+    }
+    .merge-inputs input {
+      flex: 1;
+      min-width: 0;
+      width: 0;
+      padding: 3px 6px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-size: 12px;
+      font-family: inherit;
+      color: inherit;
+    }
+
     .cell-hint {
       font-size: 11px;
       color: var(--sk-text-muted);
@@ -3112,15 +3137,16 @@ export class SlipDesigner extends LitElement {
                       this._commitCellContent(valOf(e));
                     }}>
                 </div>
-                <div class="prop-pair">
-                  <div class="prop-row">
-                    <label>${s.rowSpan}</label>
+                <div class="prop-row">
+                  <label>${s.merge}</label>
+                  <div class="merge-inputs">
+                    <span>${s.rows}</span>
                     <input type="number" min="1" .value=${String(selectedCellDef?.rowSpan ?? 1)}
+                      aria-label="${s.merge} ${s.rows}"
                       @change=${(e: Event) => this._setCellSpan('rowSpan', Number(valOf(e)))}>
-                  </div>
-                  <div class="prop-row">
-                    <label>${s.colSpan}</label>
+                    <span>${s.columns}</span>
                     <input type="number" min="1" .value=${String(selectedCellDef?.colSpan ?? 1)}
+                      aria-label="${s.merge} ${s.columns}"
                       @change=${(e: Event) => this._setCellSpan('colSpan', Number(valOf(e)))}>
                   </div>
                 </div>

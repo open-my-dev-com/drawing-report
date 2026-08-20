@@ -1046,13 +1046,15 @@ describe('<slip-designer> 표 내부 편집', () => {
     editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await el.updateComplete;
 
-    setField(panelField(el, strings.designer.colSpan), '2');
+    const colSpanInput = () => Array.from(el.shadowRoot!.querySelectorAll('input'))
+      .find((i) => i.getAttribute('aria-label') === `${strings.designer.merge} ${strings.designer.columns}`) as HTMLInputElement;
+    setField(colSpanInput(), '2');
     await el.updateComplete;
     expect(gridOf(el).cells.find((c) => c.row === 0 && c.column === 0)?.colSpan).toBe(2);
 
     // (0,2)에 셀을 만들고 colSpan 3(겹침)을 시도 → 무시
     gridOf(el).cells.push({ row: 0, column: 2, content: '충돌' });
-    setField(panelField(el, strings.designer.colSpan), '3');
+    setField(colSpanInput(), '3');
     await el.updateComplete;
     expect(gridOf(el).cells.find((c) => c.row === 0 && c.column === 0)?.colSpan).toBe(2);
     el.remove();
