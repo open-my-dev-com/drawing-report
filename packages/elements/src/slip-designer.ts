@@ -140,6 +140,58 @@ function polygonPointsPx(sides: number, width: number, height: number): [number,
   return raw.map(([x, y]) => [((x - minX) / spanX) * width, ((y - minY) / spanY) * height]);
 }
 
+/**
+ * 비율 배열의 길이를 바꾼다 — 늘어나면 기존을 비례 축소하고 새 항목이 균등 몫을,
+ * 줄어들면 남은 항목을 비례 확대해 합 100을 유지한다
+ */
+function resizePercentages(list: number[], count: number): number[] {
+  if (count === list.length) return list;
+  let next: number[];
+  if (count > list.length) {
+    const added = count - list.length;
+    next = list.map((value) => (value * list.length) / count);
+    for (let i = 0; i < added; i++) next.push(100 / count);
+  } else {
+    next = list.slice(0, count);
+  }
+  const sum = next.reduce((acc, value) => acc + value, 0) || 1;
+  next = next.map((value) => Math.round(((value * 100) / sum) * 100) / 100);
+  // 반올림 잔차는 마지막 항목으로 흡수해 합을 정확히 100으로 맞춘다
+  const rest = next.slice(0, -1).reduce((acc, value) => acc + value, 0);
+  next[next.length - 1] = Math.round((100 - rest) * 100) / 100;
+  return next;
+}
+
+/** 열 너비 합을 100으로 정규화 — keepIndex는 값을 유지하고 잔차는 다른 항목이 흡수 */
+function normalizeWidths<T extends { widthPercentage: number }>(columns: T[], keepIndex = -1): T[] {
+  const rounded = columns.map((col) => ({
+    ...col,
+    widthPercentage: Math.round(col.widthPercentage * 100) / 100,
+  }));
+  const sum = rounded.reduce((acc, col) => acc + col.widthPercentage, 0);
+  const diff = Math.round((100 - sum) * 100) / 100;
+  if (diff !== 0) {
+    // 잔차 흡수 대상: keepIndex가 아닌 마지막 열
+    for (let i = rounded.length - 1; i >= 0; i--) {
+      if (i !== keepIndex) {
+        rounded[i]!.widthPercentage = Math.round((rounded[i]!.widthPercentage + diff) * 100) / 100;
+        break;
+      }
+    }
+  }
+  return rounded;
+}
+
+/** 비율(생략 시 균등)로 나눈 누적 경계 위치(mm) — 길이 = count + 1 */
+function cumulativeOffsets(total: number, count: number, percentages?: number[]): number[] {
+  const offsets = [0];
+  for (let i = 0; i < count; i++) {
+    const size = percentages ? (total * (percentages[i] ?? 0)) / 100 : total / count;
+    offsets.push((offsets[i] ?? 0) + size);
+  }
+  return offsets;
+}
+
 /** #RRGGBB(AA) → HSV(h 0~360, s·v 0~1) — 색 피커 초기 위치 계산용 */
 function hexToHsv(hex: string): { h: number; s: number; v: number } {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -193,6 +245,8 @@ interface DragState {
   origMmY: number;
   /** 되돌리기용 스냅샷 — 첫 이동 때 만든다 (클릭만 한 경우 직렬화 비용을 내지 않도록) */
   snapshot: string | null;
+  /** pointerdown 시점에 이미 선택돼 있던 요소인지 — 재클릭(셀 편집 진입) 판정용 */
+  wasSelected: boolean;
 }
 
 interface ResizeState {
@@ -933,6 +987,96 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
     }
 
+    .cell-editor {
+      position: absolute;
+      z-index: 30;
+      padding: 1px 3px;
+      border: 2px solid var(--sk-accent);
+      border-radius: 2px;
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 12px;
+      color: inherit;
+    }
+    .grid-preview .cell-selected {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -2px;
+    }
+    .cell-hint {
+      font-size: 11px;
+      color: var(--sk-text-muted);
+      line-height: 1.5;
+    }
+    .col-edit-head {
+      display: grid;
+      grid-template-columns: 1fr 1fr 44px 22px;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--sk-text-muted);
+      margin-bottom: 2px;
+    }
+    .col-edit {
+      display: grid;
+      grid-template-columns: 1fr 1fr 44px 22px;
+      gap: 4px;
+      margin: 2px 0;
+      align-items: center;
+    }
+    .col-edit input {
+      min-width: 0;
+      width: 100%;
+      padding: 3px 4px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-size: 11px;
+      font-family: inherit;
+      color: inherit;
+    }
+    .col-edit .col-remove {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      color: var(--sk-text-muted);
+      cursor: pointer;
+    }
+    .col-edit .col-remove svg {
+      width: 12px;
+      height: 12px;
+    }
+    .col-edit .col-remove:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+    .col-add {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+      padding: 4px 8px;
+      border: 1px dashed var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--sk-text-muted);
+      cursor: pointer;
+    }
+    .col-add svg {
+      width: 12px;
+      height: 12px;
+    }
+    .col-add:hover {
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+
     .menu-backdrop {
       position: fixed;
       inset: 0;
@@ -1020,6 +1164,8 @@ export class SlipDesigner extends LitElement {
     _drawRect: { state: true },
     _presetMenuOpen: { state: true },
     _anchorIndex: { state: true },
+    _selectedCell: { state: true },
+    _cellEditing: { state: true },
   };
 
   src = '';
@@ -1064,6 +1210,10 @@ export class SlipDesigner extends LitElement {
   private _presetMenuPos = { left: 0, top: 0 };
   /** 속성 패널 X·Y가 기준으로 삼는 기준점 (ANCHORS 인덱스, 기본 좌상단) */
   private _anchorIndex = 0;
+  /** 선택된 고정 그리드 셀 좌표 — 병합 편집·인라인 편집 대상 (C-10) */
+  private _selectedCell: { row: number; column: number } | null = null;
+  /** 인라인 셀 편집 중인지 — true면 캔버스에 입력 상자를 띄운다 */
+  private _cellEditing = false;
 
   /** 현재 locale의 문구 사전 */
   private get _strings() {
@@ -1092,6 +1242,14 @@ export class SlipDesigner extends LitElement {
     if (changed.has('src')) {
       this._parseSource();
     }
+    // 인라인 셀 편집을 열면 바로 입력할 수 있게 포커스를 준다
+    if (this._cellEditing) {
+      const editor = this.renderRoot.querySelector('.cell-editor') as HTMLInputElement | null;
+      if (editor && this.shadowRoot?.activeElement !== editor) {
+        editor.focus();
+        editor.select?.();
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1116,6 +1274,8 @@ export class SlipDesigner extends LitElement {
     this._drawRect = null;
     this._draw = null;
     this._presetMenuOpen = false;
+    this._selectedCell = null;
+    this._cellEditing = false;
 
     if (!this.src) {
       this._file = null;
@@ -1193,6 +1353,8 @@ export class SlipDesigner extends LitElement {
     if (clamped === this._pageIndex) return;
     this._pageIndex = clamped;
     this._selectedId = null;
+    this._selectedCell = null;
+    this._cellEditing = false;
   }
 
   /** 현재 페이지 뒤에 빈 페이지를 추가하고 그 페이지로 이동한다 */
@@ -1236,6 +1398,17 @@ export class SlipDesigner extends LitElement {
   private _validateSelection(): void {
     if (this._selectedId && !this._findElement(this._selectedId)) {
       this._selectedId = null;
+    }
+    // 셀 선택은 고정 그리드 범위 안에서만 유효하다 (undo 복원 뒤에도 보정)
+    if (this._selectedCell) {
+      const el = this._findSelectedElement();
+      if (
+        !el || el.type !== 'fixedGrid' ||
+        this._selectedCell.row >= el.rows || this._selectedCell.column >= el.columns
+      ) {
+        this._selectedCell = null;
+        this._cellEditing = false;
+      }
     }
   }
 
@@ -1283,12 +1456,12 @@ export class SlipDesigner extends LitElement {
       case 'dynamicTable':
         element = {
           type: 'dynamicTable', id, name, position, width: 180, height: 20,
-          // 물리 키는 camelCase 고정, 제목은 UI 언어를 따른다 (ADR-032)
-          columns: this._strings.designer.defaultTableHead.map((title, index) => ({
-            key: `col${index + 1}`,
-            title,
-            widthPercentage: index === 0 ? 40 : 30,
-          })),
+          // 새 표는 빈 제목 3열로 시작 — 제목·키·너비는 속성 패널에서 편집 (ADR-031)
+          columns: [
+            { key: 'col1', title: '', widthPercentage: 34 },
+            { key: 'col2', title: '', widthPercentage: 33 },
+            { key: 'col3', title: '', widthPercentage: 33 },
+          ],
           repeatHead: true, binding: 'items',
         };
         break;
@@ -1453,12 +1626,20 @@ export class SlipDesigner extends LitElement {
       return;
     }
 
+    // 인라인 셀 입력 상자 안 클릭은 편집기에 맡긴다 (여기서 가로채면 입력이 불가능)
+    if ((e.target as HTMLElement).closest?.('.cell-editor')) return;
+
     const target = (e.target as HTMLElement).closest?.('.element') as HTMLElement | null;
 
     if (target) {
       const id = target.dataset.id;
       if (!id) return;
+      const wasSelected = this._selectedId === id;
       this._selectedId = id;
+      if (!wasSelected) {
+        this._selectedCell = null;
+        this._cellEditing = false;
+      }
 
       const el = this._findElement(id);
       if (!el) return;
@@ -1470,11 +1651,14 @@ export class SlipDesigner extends LitElement {
         origMmX: el.position.x,
         origMmY: el.position.y,
         snapshot: null,
+        wasSelected,
       };
       target.setPointerCapture(e.pointerId);
       e.preventDefault();
     } else {
       this._selectedId = null;
+      this._selectedCell = null;
+      this._cellEditing = false;
     }
     this.requestUpdate();
   };
@@ -1609,7 +1793,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   };
 
-  private _onPointerUp = (): void => {
+  private _onPointerUp = (e: PointerEvent): void => {
     if (this._draw) {
       const d = this._draw;
       const rect = this._drawRect;
@@ -1658,16 +1842,227 @@ export class SlipDesigner extends LitElement {
     }
 
     if (!this._drag) return;
-    const el = this._findElement(this._drag.id);
-    if (
-      el && this._drag.snapshot &&
-      (el.position.x !== this._drag.origMmX || el.position.y !== this._drag.origMmY)
-    ) {
-      this._pushUndoSnapshot(this._drag.snapshot);
-      this._emitChange();
-    }
+    const drag = this._drag;
     this._drag = null;
+    const el = this._findElement(drag.id);
+    if (
+      el && drag.snapshot &&
+      (el.position.x !== drag.origMmX || el.position.y !== drag.origMmY)
+    ) {
+      this._pushUndoSnapshot(drag.snapshot);
+      this._emitChange();
+      return;
+    }
+    // 움직이지 않은 재클릭: 고정 그리드면 그 자리의 셀을 선택하고 인라인 편집을 연다 (C-10)
+    if (el && el.type === 'fixedGrid' && drag.wasSelected && drag.snapshot === null) {
+      const cell = this._cellAtPoint(el, e);
+      if (cell) {
+        this._selectedCell = cell;
+        this._cellEditing = true;
+        this.requestUpdate();
+      }
+    }
   };
+
+  // ---------------------------------------------------------------------------
+  // 고정 그리드 셀 편집 (C-10)
+  // ---------------------------------------------------------------------------
+
+  /** 포인터 위치가 가리키는 셀 좌표 — 병합 범위면 병합 원점 좌표를 돌려준다 */
+  private _cellAtPoint(
+    el: SlipElement & { type: 'fixedGrid' },
+    e: PointerEvent,
+  ): { row: number; column: number } | null {
+    const point = this._paperPoint(e);
+    const relX = point.x - el.position.x;
+    const relY = point.y - el.position.y;
+    if (relX < 0 || relY < 0 || relX > el.width || relY > el.height) return null;
+
+    const colOffsets = cumulativeOffsets(el.width, el.columns, el.columnWidthPercentages);
+    const rowOffsets = cumulativeOffsets(el.height, el.rows, el.rowHeightPercentages);
+    // 경계 오른쪽/아래를 눌러도 마지막 칸으로 보정한다
+    const indexOf = (value: number, offsets: number[], count: number): number => {
+      const found = offsets.findIndex((offset) => value < offset) - 1;
+      return found < 0 ? count - 1 : Math.min(count - 1, found);
+    };
+    const column = indexOf(relX, colOffsets, el.columns);
+    const row = indexOf(relY, rowOffsets, el.rows);
+
+    // 병합 범위 안이면 원점 셀로 보정
+    for (const cell of el.cells) {
+      const rowSpan = cell.rowSpan ?? 1;
+      const colSpan = cell.colSpan ?? 1;
+      if (row >= cell.row && row < cell.row + rowSpan && column >= cell.column && column < cell.column + colSpan) {
+        return { row: cell.row, column: cell.column };
+      }
+    }
+    return { row, column };
+  }
+
+  /** 셀(병합 범위 포함)의 캔버스 px 사각형 — 인라인 편집 상자 위치용 */
+  private _cellRectPx(
+    el: SlipElement & { type: 'fixedGrid' },
+    row: number,
+    column: number,
+  ): { left: number; top: number; width: number; height: number } {
+    const colOffsets = cumulativeOffsets(el.width, el.columns, el.columnWidthPercentages);
+    const rowOffsets = cumulativeOffsets(el.height, el.rows, el.rowHeightPercentages);
+    const cell = el.cells.find((c) => c.row === row && c.column === column);
+    const rowSpan = cell?.rowSpan ?? 1;
+    const colSpan = cell?.colSpan ?? 1;
+    const left = (el.position.x + (colOffsets[column] ?? 0)) * PX_PER_MM;
+    const top = (el.position.y + (rowOffsets[row] ?? 0)) * PX_PER_MM;
+    const width = ((colOffsets[column + colSpan] ?? 0) - (colOffsets[column] ?? 0)) * PX_PER_MM;
+    const height = ((rowOffsets[row + rowSpan] ?? 0) - (rowOffsets[row] ?? 0)) * PX_PER_MM;
+    return { left, top, width, height };
+  }
+
+  /** 인라인 편집 확정 — 셀이 있으면 내용을 바꾸고, 없으면 새 셀을 만든다 */
+  private _commitCellContent(value: string): void {
+    const target = this._selectedCell;
+    if (!target) return;
+    this._cellEditing = false;
+    const el = this._findSelectedElement();
+    if (!el || el.type !== 'fixedGrid') return;
+    const existing = el.cells.find((c) => c.row === target.row && c.column === target.column);
+    if (!existing && value === '') {
+      this.requestUpdate();
+      return;
+    }
+    if (existing && existing.content === value) {
+      this.requestUpdate();
+      return;
+    }
+    this._updateElement((element) => {
+      if (element.type !== 'fixedGrid') return;
+      const cell = element.cells.find((c) => c.row === target.row && c.column === target.column);
+      if (cell) cell.content = value;
+      else element.cells.push({ row: target.row, column: target.column, content: value });
+    });
+  }
+
+  /** 행·열 수 변경 — 비율은 비례 재배분, 범위 밖 셀은 제거하고 넘치는 병합은 줄인다 */
+  private _setGridSize(rows: number, columns: number): void {
+    this._updateElement((el) => {
+      if (el.type !== 'fixedGrid') return;
+      el.columnWidthPercentages = resizePercentages(el.columnWidthPercentages, columns);
+      if (el.rowHeightPercentages) {
+        el.rowHeightPercentages = resizePercentages(el.rowHeightPercentages, rows);
+      }
+      el.rows = rows;
+      el.columns = columns;
+      el.cells = el.cells.filter((cell) => cell.row < rows && cell.column < columns);
+      for (const cell of el.cells) {
+        if (cell.rowSpan !== undefined && cell.row + cell.rowSpan > rows) {
+          const clamped = rows - cell.row;
+          if (clamped <= 1) delete cell.rowSpan;
+          else cell.rowSpan = clamped;
+        }
+        if (cell.colSpan !== undefined && cell.column + cell.colSpan > columns) {
+          const clamped = columns - cell.column;
+          if (clamped <= 1) delete cell.colSpan;
+          else cell.colSpan = clamped;
+        }
+      }
+    });
+  }
+
+  /** 선택 셀의 병합 범위 변경 — 그리드를 벗어나거나 다른 셀과 겹치면 무시한다 */
+  private _setCellSpan(kind: 'rowSpan' | 'colSpan', value: number): void {
+    const target = this._selectedCell;
+    const el = this._findSelectedElement();
+    if (!target || !el || el.type !== 'fixedGrid') return;
+    if (!Number.isInteger(value) || value < 1) {
+      this.requestUpdate();
+      return;
+    }
+    const current = el.cells.find((c) => c.row === target.row && c.column === target.column);
+    const rowSpan = kind === 'rowSpan' ? value : (current?.rowSpan ?? 1);
+    const colSpan = kind === 'colSpan' ? value : (current?.colSpan ?? 1);
+    // 그리드 범위 검사
+    if (target.row + rowSpan > el.rows || target.column + colSpan > el.columns) {
+      this.requestUpdate();
+      return;
+    }
+    // 다른 셀과 겹침 검사 (파일 스키마 규칙과 동일 — 저장 시점 오류를 미리 막는다)
+    const overlaps = el.cells.some((cell) => {
+      if (cell === current) return false;
+      const cellRowSpan = cell.rowSpan ?? 1;
+      const cellColSpan = cell.colSpan ?? 1;
+      return (
+        target.row < cell.row + cellRowSpan &&
+        cell.row < target.row + rowSpan &&
+        target.column < cell.column + cellColSpan &&
+        cell.column < target.column + colSpan
+      );
+    });
+    if (overlaps) {
+      this.requestUpdate();
+      return;
+    }
+    this._updateElement((element) => {
+      if (element.type !== 'fixedGrid') return;
+      let cell = element.cells.find((c) => c.row === target.row && c.column === target.column);
+      if (!cell) {
+        cell = { row: target.row, column: target.column, content: '' };
+        element.cells.push(cell);
+      }
+      const record = cell as Record<string, unknown>;
+      if (rowSpan > 1) record.rowSpan = rowSpan;
+      else delete record.rowSpan;
+      if (colSpan > 1) record.colSpan = colSpan;
+      else delete record.colSpan;
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // 동적 표 열 편집 (C-10)
+  // ---------------------------------------------------------------------------
+
+  /** 열 추가 — 기존 열을 비례 축소하고 새 열(빈 제목)이 균등 몫을 갖는다 */
+  private _addTableColumn(): void {
+    this._updateElement((el) => {
+      if (el.type !== 'dynamicTable') return;
+      const count = el.columns.length + 1;
+      const used = new Set(el.columns.map((col) => col.key));
+      let index = count;
+      while (used.has(`col${index}`)) index++;
+      const scaled = el.columns.map((col) => ({
+        ...col,
+        widthPercentage: (col.widthPercentage * el.columns.length) / count,
+      }));
+      scaled.push({ key: `col${index}`, title: '', widthPercentage: 100 / count });
+      el.columns = normalizeWidths(scaled);
+    });
+  }
+
+  /** 열 삭제 (최소 1열 유지) — 남은 열을 비례 확대해 합 100을 유지한다 */
+  private _removeTableColumn(index: number): void {
+    this._updateElement((el) => {
+      if (el.type !== 'dynamicTable' || el.columns.length <= 1) return;
+      el.columns = normalizeWidths(el.columns.filter((_, i) => i !== index));
+    });
+  }
+
+  /** 열 너비 변경 — 나머지 열이 비례로 남은 몫을 나눠 갖는다 (합 100 유지) */
+  private _setTableColumnWidth(index: number, value: number): void {
+    const el = this._findSelectedElement();
+    if (!el || el.type !== 'dynamicTable') return;
+    if (!Number.isFinite(value) || value <= 0 || value >= 100) {
+      this.requestUpdate();
+      return;
+    }
+    this._updateElement((element) => {
+      if (element.type !== 'dynamicTable') return;
+      const othersTotal = element.columns.reduce(
+        (acc, col, i) => (i === index ? acc : acc + col.widthPercentage), 0);
+      const factor = (100 - value) / (othersTotal || 1);
+      element.columns = normalizeWidths(element.columns.map((col, i) =>
+        i === index
+          ? { ...col, widthPercentage: value }
+          : { ...col, widthPercentage: col.widthPercentage * factor }), index);
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Snap helpers
@@ -2068,8 +2463,33 @@ export class SlipDesigner extends LitElement {
               height:${this._drawRect.h * PX_PER_MM}px;
             "></div>`
           : nothing}
+        ${this._renderCellEditor()}
       </div>
     `;
+  }
+
+  /** 인라인 셀 편집 입력 상자 — 선택 셀 위에 겹쳐 그린다 (C-10) */
+  private _renderCellEditor() {
+    if (!this._cellEditing || !this._selectedCell) return nothing;
+    const el = this._findSelectedElement();
+    if (!el || el.type !== 'fixedGrid') return nothing;
+    const { row, column } = this._selectedCell;
+    const rect = this._cellRectPx(el, row, column);
+    const cell = el.cells.find((c) => c.row === row && c.column === column);
+    return html`<input class="cell-editor"
+      style="left:${rect.left}px;top:${rect.top}px;width:${Math.max(24, rect.width)}px;height:${Math.max(16, rect.height)}px"
+      .value=${cell?.content ?? ''}
+      @keydown=${(e: KeyboardEvent) => {
+        if (e.key === 'Enter') {
+          this._commitCellContent((e.target as HTMLInputElement).value);
+        } else if (e.key === 'Escape') {
+          this._cellEditing = false;
+          this.requestUpdate();
+        }
+      }}
+      @blur=${(e: Event) => {
+        if (this._cellEditing) this._commitCellContent((e.target as HTMLInputElement).value);
+      }}>`;
   }
 
   private _renderSelectionOverlay() {
@@ -2218,6 +2638,7 @@ export class SlipDesigner extends LitElement {
    */
   private _renderGridPreview(el: SlipElement & { type: 'fixedGrid' }) {
     const { rows, columns } = el;
+    const selected = el.id === this._selectedId;
     const colTracks = (el.columnWidthPercentages ?? Array.from({ length: columns }, () => 100 / columns))
       .map((p) => `${p}fr`).join(' ');
     const rowTracks = (el.rowHeightPercentages ?? Array.from({ length: rows }, () => 100 / rows))
@@ -2242,11 +2663,14 @@ export class SlipDesigner extends LitElement {
       for (let c = 0; c < columns; c++) {
         const idx = owner[r]?.[c] ?? -1;
         if (idx === -1) {
-          boxes.push(html`<div style="grid-area:${r + 1}/${c + 1};border:${cellBorder}"></div>`);
+          const emptySelected = selected && this._selectedCell?.row === r && this._selectedCell?.column === c;
+          boxes.push(html`<div class=${emptySelected ? 'cell-selected' : ''}
+            style="grid-area:${r + 1}/${c + 1};border:${cellBorder}"></div>`);
           continue;
         }
         const cell = el.cells[idx]!;
         if (cell.row !== r || cell.column !== c) continue; // 병합 범위 내부
+        const cellSelected = selected && this._selectedCell?.row === r && this._selectedCell?.column === c;
         const style = [
           `grid-area:${r + 1}/${c + 1}/span ${cell.rowSpan ?? 1}/span ${cell.colSpan ?? 1}`,
           `border:${cellBorder}`,
@@ -2255,7 +2679,7 @@ export class SlipDesigner extends LitElement {
           cell.backgroundColor ? `background-color:${cell.backgroundColor}` : '',
           cell.fontColor ? `color:${cell.fontColor}` : '',
         ].filter(Boolean).join(';') + textStyleCss(cell);
-        boxes.push(html`<div style=${style}>${cell.content}</div>`);
+        boxes.push(html`<div class=${cellSelected ? 'cell-selected' : ''} style=${style}>${cell.content}</div>`);
       }
     }
     return html`<div class="grid-preview"
@@ -2622,21 +3046,71 @@ export class SlipDesigner extends LitElement {
           </div>
         `;
 
-      case 'fixedGrid':
+      case 'fixedGrid': {
+        const cellTarget = this._selectedCell;
+        const selectedCellDef = cellTarget
+          ? el.cells.find((c) => c.row === cellTarget.row && c.column === cellTarget.column)
+          : undefined;
+        // 행·열 수는 정수 1~100만 받는다 (밖의 값은 되돌림)
+        const sizeOf = (e: Event): number | null => {
+          const v = Number((e.target as HTMLInputElement).value);
+          if (!Number.isInteger(v) || v < 1 || v > 100) {
+            this.requestUpdate();
+            return null;
+          }
+          return v;
+        };
         return html`
           <div class="prop-section">
             <div class="prop-pair">
               <div class="prop-row">
                 <label>${s.rows}</label>
-                <input type="number" .value=${String(el.rows)} disabled>
+                <input type="number" min="1" max="100" .value=${String(el.rows)}
+                  @change=${(e: Event) => {
+                    const v = sizeOf(e);
+                    if (v !== null) this._setGridSize(v, el.columns);
+                  }}>
               </div>
               <div class="prop-row">
                 <label>${s.columns}</label>
-                <input type="number" .value=${String(el.columns)} disabled>
+                <input type="number" min="1" max="100" .value=${String(el.columns)}
+                  @change=${(e: Event) => {
+                    const v = sizeOf(e);
+                    if (v !== null) this._setGridSize(el.rows, v);
+                  }}>
               </div>
             </div>
           </div>
+          ${cellTarget
+            ? html`
+              <div class="prop-section">
+                <div class="prop-section-title">
+                  ${s.cell} (${cellTarget.row + 1}, ${cellTarget.column + 1})
+                </div>
+                <div class="prop-row">
+                  <label>${s.content}</label>
+                  <input .value=${selectedCellDef?.content ?? ''}
+                    @change=${(e: Event) => {
+                      this._selectedCell = cellTarget;
+                      this._commitCellContent(valOf(e));
+                    }}>
+                </div>
+                <div class="prop-pair">
+                  <div class="prop-row">
+                    <label>${s.rowSpan}</label>
+                    <input type="number" min="1" .value=${String(selectedCellDef?.rowSpan ?? 1)}
+                      @change=${(e: Event) => this._setCellSpan('rowSpan', Number(valOf(e)))}>
+                  </div>
+                  <div class="prop-row">
+                    <label>${s.colSpan}</label>
+                    <input type="number" min="1" .value=${String(selectedCellDef?.colSpan ?? 1)}
+                      @change=${(e: Event) => this._setCellSpan('colSpan', Number(valOf(e)))}>
+                  </div>
+                </div>
+              </div>`
+            : html`<div class="prop-section"><div class="cell-hint">${s.cellHint}</div></div>`}
         `;
+      }
 
       case 'dynamicTable':
         return html`
@@ -2648,10 +3122,47 @@ export class SlipDesigner extends LitElement {
                   if (el.type === 'dynamicTable') el.binding = valOf(e);
                 })}>
             </div>
-            <div class="prop-row">
-              <label>${s.head}</label>
-              <input .value=${el.columns.map((col) => col.title).join(', ')} disabled>
+          </div>
+          <div class="prop-section">
+            <div class="prop-section-title">${s.columns}</div>
+            <div class="col-edit-head">
+              <span>${s.formTitle}</span><span>${s.columnKey}</span><span>${s.columnWidthPct}</span>
             </div>
+            ${el.columns.map((col, index) => html`
+              <div class="col-edit">
+                <input class="col-title" .value=${col.title}
+                  aria-label="${s.columns} ${index + 1} ${s.formTitle}"
+                  @change=${(e: Event) => this._updateElement((element) => {
+                    if (element.type === 'dynamicTable') {
+                      element.columns[index]!.title = valOf(e);
+                    }
+                  })}>
+                <input class="col-key" .value=${col.key}
+                  aria-label="${s.columns} ${index + 1} ${s.columnKey}"
+                  @change=${(e: Event) => {
+                    const v = valOf(e).trim();
+                    // 물리 키는 비어 있거나 다른 열과 겹치면 안 된다 (스키마 규칙)
+                    if (!v || el.columns.some((c, i) => i !== index && c.key === v)) {
+                      this.requestUpdate();
+                      return;
+                    }
+                    this._updateElement((element) => {
+                      if (element.type === 'dynamicTable') {
+                        element.columns[index]!.key = v;
+                      }
+                    });
+                  }}>
+                <input class="col-width" type="number" min="1" max="99" step="1"
+                  .value=${String(Math.round(col.widthPercentage * 100) / 100)}
+                  aria-label="${s.columns} ${index + 1} ${s.columnWidthPct}"
+                  @change=${(e: Event) => this._setTableColumnWidth(index, Number(valOf(e)))}>
+                <button class="col-remove" title=${s.delete}
+                  aria-label="${s.columns} ${index + 1} ${s.delete}"
+                  ?disabled=${el.columns.length <= 1}
+                  @click=${() => this._removeTableColumn(index)}>${icons.pageRemove}</button>
+              </div>`)}
+            <button class="col-add" aria-label=${s.addColumn}
+              @click=${() => this._addTableColumn()}>${icons.pageAdd}<span>${s.addColumn}</span></button>
           </div>
         `;
 

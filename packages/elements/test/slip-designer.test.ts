@@ -914,6 +914,236 @@ describe('<slip-designer> 사이드바', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 표 내부 편집 (C-10) — 고정 그리드 행·열·셀·병합, 동적 표 열 편집
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 표 내부 편집', () => {
+  const PX = 96 / 25.4;
+
+  function makeGridFile(): SlipFile {
+    const file = makeTemplateFile();
+    file.template.pages[0]!.elements = [{
+      type: 'fixedGrid' as const,
+      id: 'grid-1',
+      name: 'grid',
+      position: { x: 10, y: 10 },
+      width: 90,
+      height: 30,
+      rows: 3,
+      columns: 3,
+      columnWidthPercentages: [40, 30, 30],
+      cells: [{ row: 0, column: 0, content: '라벨' }],
+    } as never];
+    return file as unknown as SlipFile;
+  }
+
+  async function mountGrid() {
+    parseSlipFileMock.mockReturnValue(makeGridFile());
+    const el = await loadDesigner();
+    selectElement(el, 'grid-1');
+    await el.updateComplete;
+    return el;
+  }
+
+  function gridOf(el: Element) {
+    return (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements[0]! as never as {
+      rows: number; columns: number; columnWidthPercentages: number[];
+      cells: { row: number; column: number; content: string; rowSpan?: number; colSpan?: number }[];
+    };
+  }
+
+  function panelField(el: Element, label: string): HTMLInputElement {
+    const row = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === label);
+    if (!row) throw new Error(`패널 입력을 찾지 못했습니다: ${label}`);
+    return row.querySelector('input') as HTMLInputElement;
+  }
+
+  function setField(field: HTMLInputElement, value: string): void {
+    field.value = value;
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  /** 선택된 그리드를 (mm 좌표로) 한 번 더 클릭한다 — 셀 선택·인라인 편집 진입 */
+  async function clickCell(el: Element, mmX: number, mmY: number) {
+    const div = el.shadowRoot!.querySelector('[data-id="grid-1"]') as HTMLElement;
+    div.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: mmX * PX, clientY: mmY * PX, pointerId: 1,
+    }));
+    div.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true, composed: true, clientX: mmX * PX, clientY: mmY * PX, pointerId: 1,
+    }));
+    await (el as { updateComplete?: Promise<unknown> }).updateComplete;
+  }
+
+  it('열 수를 늘리면 너비가 비례 재배분되고 합은 100으로 유지된다', async () => {
+    const el = await mountGrid();
+    setField(panelField(el, strings.designer.columns), '4');
+    await el.updateComplete;
+
+    const grid = gridOf(el);
+    expect(grid.columns).toBe(4);
+    expect(grid.columnWidthPercentages.length).toBe(4);
+    const sum = grid.columnWidthPercentages.reduce((a, b) => a + b, 0);
+    expect(Math.abs(sum - 100)).toBeLessThanOrEqual(0.01);
+    el.remove();
+  });
+
+  it('행·열을 줄이면 범위 밖 셀이 제거된다', async () => {
+    const el = await mountGrid();
+    // (2,2)에 셀 추가해 두고 2×2로 줄인다
+    const grid = gridOf(el);
+    grid.cells.push({ row: 2, column: 2, content: '밖' });
+    setField(panelField(el, strings.designer.rows), '2');
+    await el.updateComplete;
+    setField(panelField(el, strings.designer.columns), '2');
+    await el.updateComplete;
+
+    const after = gridOf(el);
+    expect(after.rows).toBe(2);
+    expect(after.columns).toBe(2);
+    expect(after.cells.some((c) => c.row >= 2 || c.column >= 2)).toBe(false);
+    // 남은 셀은 유지
+    expect(after.cells.some((c) => c.content === '라벨')).toBe(true);
+    el.remove();
+  });
+
+  it('선택된 그리드를 다시 클릭하면 셀이 선택되고 인라인 입력으로 내용이 저장된다', async () => {
+    const el = await mountGrid();
+    // 그리드 원점(10,10) + 첫 칸 안쪽 (5,5)
+    await clickCell(el, 15, 15);
+
+    const editor = el.shadowRoot!.querySelector('.cell-editor') as HTMLInputElement;
+    expect(editor).not.toBeNull();
+    expect(editor.value).toBe('라벨');
+
+    editor.value = '상호';
+    editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await el.updateComplete;
+
+    expect(gridOf(el).cells.find((c) => c.row === 0 && c.column === 0)?.content).toBe('상호');
+    expect(el.shadowRoot!.querySelector('.cell-editor')).toBeNull();
+    el.remove();
+  });
+
+  it('빈 칸을 클릭해 입력하면 새 셀이 만들어진다', async () => {
+    const el = await mountGrid();
+    // 두 번째 열(40%~70% → 36mm~63mm 폭 기준), (1,1) 칸 근처: x=10+50, y=10+15
+    await clickCell(el, 60, 25);
+    const editor = el.shadowRoot!.querySelector('.cell-editor') as HTMLInputElement;
+    editor.value = '새 값';
+    editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await el.updateComplete;
+
+    expect(gridOf(el).cells.some((c) => c.content === '새 값')).toBe(true);
+    el.remove();
+  });
+
+  it('선택 셀의 병합 값을 늘리면 저장되고, 다른 셀과 겹치는 값은 무시된다', async () => {
+    const el = await mountGrid();
+    await clickCell(el, 15, 15); // (0,0) 선택
+    const editor = el.shadowRoot!.querySelector('.cell-editor') as HTMLInputElement;
+    editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await el.updateComplete;
+
+    setField(panelField(el, strings.designer.colSpan), '2');
+    await el.updateComplete;
+    expect(gridOf(el).cells.find((c) => c.row === 0 && c.column === 0)?.colSpan).toBe(2);
+
+    // (0,2)에 셀을 만들고 colSpan 3(겹침)을 시도 → 무시
+    gridOf(el).cells.push({ row: 0, column: 2, content: '충돌' });
+    setField(panelField(el, strings.designer.colSpan), '3');
+    await el.updateComplete;
+    expect(gridOf(el).cells.find((c) => c.row === 0 && c.column === 0)?.colSpan).toBe(2);
+    el.remove();
+  });
+
+  it('동적 표 열의 제목·키를 편집하고, 중복 키는 무시된다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addDynamicTable);
+
+    const title = el.shadowRoot!.querySelector('.col-edit .col-title') as HTMLInputElement;
+    title.value = '품명';
+    title.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const key = el.shadowRoot!.querySelector('.col-edit .col-key') as HTMLInputElement;
+    key.value = 'itemName';
+    key.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const table = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
+      columns: { key: string; title: string; widthPercentage: number }[];
+    };
+    expect(table.columns[0]).toMatchObject({ key: 'itemName', title: '품명' });
+
+    // 두 번째 열 키를 첫 열과 같게 → 무시
+    const keys = el.shadowRoot!.querySelectorAll('.col-edit .col-key');
+    const second = keys[1] as HTMLInputElement;
+    second.value = 'itemName';
+    second.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(table.columns[1]!.key).toBe('col2');
+    el.remove();
+  });
+
+  it('열 추가·삭제 시 너비 합이 100으로 유지되고, 마지막 한 열은 삭제할 수 없다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addDynamicTable);
+
+    (el.shadowRoot!.querySelector('.col-add') as HTMLElement).click();
+    await el.updateComplete;
+
+    const tableOf = () => (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
+      columns: { key: string; title: string; widthPercentage: number }[];
+    };
+    expect(tableOf().columns.length).toBe(4);
+    let sum = tableOf().columns.reduce((a, c) => a + c.widthPercentage, 0);
+    expect(Math.abs(sum - 100)).toBeLessThanOrEqual(0.01);
+
+    // 3개 삭제 → 1개 남음, 마지막 삭제 버튼은 비활성
+    for (let i = 0; i < 3; i++) {
+      (el.shadowRoot!.querySelector('.col-edit .col-remove:not([disabled])') as HTMLElement).click();
+      await el.updateComplete;
+    }
+    expect(tableOf().columns.length).toBe(1);
+    sum = tableOf().columns.reduce((a, c) => a + c.widthPercentage, 0);
+    expect(Math.abs(sum - 100)).toBeLessThanOrEqual(0.01);
+    expect((el.shadowRoot!.querySelector('.col-edit .col-remove') as HTMLButtonElement).disabled).toBe(true);
+    el.remove();
+  });
+
+  it('열 너비를 바꾸면 나머지 열이 비례로 줄어 합 100을 유지한다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addDynamicTable);
+
+    const width = el.shadowRoot!.querySelector('.col-edit .col-width') as HTMLInputElement;
+    width.value = '60';
+    width.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const table = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
+      columns: { widthPercentage: number }[];
+    };
+    expect(table.columns[0]!.widthPercentage).toBe(60);
+    const sum = table.columns.reduce((a, c) => a + c.widthPercentage, 0);
+    expect(Math.abs(sum - 100)).toBeLessThanOrEqual(0.01);
+    el.remove();
+  });
+
+  it('새 동적 표는 빈 제목 3열로 시작한다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addDynamicTable);
+    const table = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
+      columns: { key: string; title: string }[];
+    };
+    expect(table.columns.map((c) => c.title)).toEqual(['', '', '']);
+    expect(table.columns.map((c) => c.key)).toEqual(['col1', 'col2', 'col3']);
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 좌표 기준점 (B-8) — X·Y 표시·입력의 기준 9점, 파일은 늘 좌상단 좌표
 // ---------------------------------------------------------------------------
 
