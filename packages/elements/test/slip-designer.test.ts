@@ -1,11 +1,16 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', () => ({
-  parseSlipFile: vi.fn(),
-  renderSlipToPdf: vi.fn(),
-  CURRENT_SCHEMA_VERSION: '0.1.0',
-}));
+vi.mock('@omdc-slipkit/core', async () => {
+  // 파싱·렌더만 모의하고 수식 엔진(parseFormula 등)은 실제 구현을 쓴다 — 수식 모달 검증용
+  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+  return {
+    ...actual,
+    parseSlipFile: vi.fn(),
+    renderSlipToPdf: vi.fn(),
+    CURRENT_SCHEMA_VERSION: '0.1.0',
+  };
+});
 
 vi.mock('../src/default-fonts.js', () => ({
   // 실제 폰트 데이터(4MB) 대신 즉시 해소되는 모의 — 배선만 검증한다.
@@ -1161,16 +1166,29 @@ describe('<slip-designer> 표 내부 편집', () => {
     el.remove();
   });
 
-  it('동적 표 열의 제목·키를 편집하고, 중복 키는 무시된다', async () => {
+  /** 동적 표 열 편집 모달을 연다 (D-12: 키·추가·삭제·순서는 모달에서) */
+  async function openColumnsModal(el: Element): Promise<void> {
+    const open = Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === strings.designer.columnsModalTitle) as HTMLButtonElement;
+    open.click();
+    await (el as { updateComplete?: Promise<unknown> }).updateComplete;
+  }
+
+  it('동적 표 열의 제목은 패널에서, 키는 모달에서 편집하고, 중복 키는 무시된다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addDynamicTable);
 
+    // 제목은 패널의 빠른 수정으로
     const title = el.shadowRoot!.querySelector('.col-edit .col-title') as HTMLInputElement;
     title.value = '품명';
     title.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
 
-    const key = el.shadowRoot!.querySelector('.col-edit .col-key') as HTMLInputElement;
+    // 데이터 키는 열 편집 모달에서
+    await openColumnsModal(el);
+    const key = Array.from(el.shadowRoot!.querySelectorAll('.col-modal-row input'))
+      .find((i) => i.getAttribute('aria-label') ===
+        `${strings.designer.columnsModalTitle} 1 ${strings.designer.columnKey}`) as HTMLInputElement;
     key.value = 'itemName';
     key.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
@@ -1181,8 +1199,9 @@ describe('<slip-designer> 표 내부 편집', () => {
     expect(table.columns[0]).toMatchObject({ key: 'itemName', title: '품명' });
 
     // 두 번째 열 키를 첫 열과 같게 → 무시
-    const keys = el.shadowRoot!.querySelectorAll('.col-edit .col-key');
-    const second = keys[1] as HTMLInputElement;
+    const second = Array.from(el.shadowRoot!.querySelectorAll('.col-modal-row input'))
+      .find((i) => i.getAttribute('aria-label') ===
+        `${strings.designer.columnsModalTitle} 2 ${strings.designer.columnKey}`) as HTMLInputElement;
     second.value = 'itemName';
     second.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
@@ -1190,9 +1209,33 @@ describe('<slip-designer> 표 내부 편집', () => {
     el.remove();
   });
 
+  it('모달에서 열 순서를 옮기면 columns 배열 순서가 바뀐다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addDynamicTable);
+    await openColumnsModal(el);
+
+    const down = Array.from(el.shadowRoot!.querySelectorAll('.col-order button'))
+      .find((b) => b.getAttribute('aria-label') ===
+        `${strings.designer.columns} 1 ${strings.designer.orderBackward}`) as HTMLButtonElement;
+    down.click();
+    await el.updateComplete;
+
+    const table = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
+      columns: { key: string }[];
+    };
+    expect(table.columns.map((c) => c.key)).toEqual(['col2', 'col1', 'col3']);
+    // 첫 열의 앞으로 버튼은 비활성
+    const up = Array.from(el.shadowRoot!.querySelectorAll('.col-order button'))
+      .find((b) => b.getAttribute('aria-label') ===
+        `${strings.designer.columns} 1 ${strings.designer.orderForward}`) as HTMLButtonElement;
+    expect(up.disabled).toBe(true);
+    el.remove();
+  });
+
   it('열 추가·삭제 시 너비 합이 100으로 유지되고, 마지막 한 열은 삭제할 수 없다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addDynamicTable);
+    await openColumnsModal(el);
 
     (el.shadowRoot!.querySelector('.col-add') as HTMLElement).click();
     await el.updateComplete;
@@ -1206,13 +1249,13 @@ describe('<slip-designer> 표 내부 편집', () => {
 
     // 3개 삭제 → 1개 남음, 마지막 삭제 버튼은 비활성
     for (let i = 0; i < 3; i++) {
-      (el.shadowRoot!.querySelector('.col-edit .col-remove:not([disabled])') as HTMLElement).click();
+      (el.shadowRoot!.querySelector('.col-modal-row .col-remove:not([disabled])') as HTMLElement).click();
       await el.updateComplete;
     }
     expect(tableOf().columns.length).toBe(1);
     sum = tableOf().columns.reduce((a, c) => a + c.widthPercentage, 0);
     expect(Math.abs(sum - 100)).toBeLessThanOrEqual(0.01);
-    expect((el.shadowRoot!.querySelector('.col-edit .col-remove') as HTMLButtonElement).disabled).toBe(true);
+    expect((el.shadowRoot!.querySelector('.col-modal-row .col-remove') as HTMLButtonElement).disabled).toBe(true);
     el.remove();
   });
 
@@ -2357,6 +2400,121 @@ describe('<slip-designer> 글자 스타일·테두리 편집 (C-11)', () => {
     expect(titles).toContain(strings.designer.styleText);
     expect(titles).toContain(strings.designer.styleBackground);
     expect(titles).toContain(strings.designer.styleBorder);
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D-12: 수식 편집 모달
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
+  async function openFormulaModal(el: import('../src/slip-designer.js').SlipDesigner): Promise<void> {
+    await addByCanvasClick(el, strings.designer.addField);
+    const open = Array.from(el.shadowRoot!.querySelectorAll('.row-btn'))
+      .find((b) => b.getAttribute('aria-label') === strings.designer.formulaModalTitle) as HTMLButtonElement;
+    open.click();
+    await el.updateComplete;
+  }
+
+  function formulaInput(el: Element): HTMLTextAreaElement {
+    return el.shadowRoot!.querySelector('.formula-input') as HTMLTextAreaElement;
+  }
+
+  function setDraft(el: Element, value: string): void {
+    const input = formulaInput(el);
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function applyButton(el: Element): HTMLButtonElement {
+    return Array.from(el.shadowRoot!.querySelectorAll('.modal-foot button'))
+      .find((b) => b.textContent?.trim() === strings.designer.apply) as HTMLButtonElement;
+  }
+
+  it('함수 29종이 분류와 설명과 함께 나열된다 (ADR-017)', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+
+    const rows = el.shadowRoot!.querySelectorAll('.fn-row');
+    expect(rows.length).toBe(29);
+    expect(el.shadowRoot!.querySelectorAll('.fn-category').length).toBe(7);
+    // 각 항목에 사용법·설명이 있다
+    expect(rows[0]?.querySelector('.fn-signature')?.textContent).toContain('SUM');
+    expect(rows[0]?.querySelector('.fn-desc')?.textContent?.length).toBeGreaterThan(0);
+    el.remove();
+  });
+
+  it('함수를 클릭하면 커서 위치에 삽입된다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+
+    const sumRow = Array.from(el.shadowRoot!.querySelectorAll('.fn-row'))
+      .find((b) => b.getAttribute('aria-label') === 'SUM') as HTMLButtonElement;
+    sumRow.click();
+    await el.updateComplete;
+    expect(formulaInput(el).value).toBe('SUM()');
+    el.remove();
+  });
+
+  it('문법 오류는 실시간으로 표시되고 적용이 비활성화된다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+
+    setDraft(el, 'SUM(1,');
+    await el.updateComplete;
+    const status = el.shadowRoot!.querySelector('.formula-status');
+    expect(status?.classList.contains('error')).toBe(true);
+    expect(status?.textContent).toContain(strings.designer.syntaxError);
+    expect(applyButton(el).disabled).toBe(true);
+    el.remove();
+  });
+
+  it('올바른 수식은 결과를 미리 계산해 보여주고, 적용하면 요소에 저장된다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+
+    setDraft(el, 'ROUND(1.5) + 1');
+    await el.updateComplete;
+    const status = el.shadowRoot!.querySelector('.formula-status');
+    expect(status?.classList.contains('error')).toBe(false);
+    expect(status?.textContent).toContain(`${strings.designer.previewResult}: 3`);
+
+    applyButton(el).click();
+    await el.updateComplete;
+    const field = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements.at(-1)! as never as { formula?: string };
+    expect(field.formula).toBe('ROUND(1.5) + 1');
+    // 모달은 닫힌다
+    expect(el.shadowRoot!.querySelector('.modal')).toBeNull();
+    el.remove();
+  });
+
+  it('바인딩 목록이 칩으로 나오고 클릭하면 삽입된다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+
+    const chips = el.shadowRoot!.querySelectorAll('.binding-chip');
+    // 방금 만든 필드의 기본 바인딩이 하나 있다
+    expect(chips.length).toBeGreaterThan(0);
+    (chips[0] as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(formulaInput(el).value.length).toBeGreaterThan(0);
+    el.remove();
+  });
+
+  it('Escape로 적용 없이 닫힌다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+    setDraft(el, 'SUM(1)');
+    await el.updateComplete;
+
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.modal')).toBeNull();
+    const field = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements.at(-1)! as never as { formula?: string };
+    expect(field.formula).toBeUndefined();
     el.remove();
   });
 });

@@ -55,6 +55,14 @@ export const icons = {
   pageRemove: icon(svg`<path d="M5 12h14" />`),
   /** lucide: layout-template */
   preset: icon(svg`<rect width="18" height="7" x="3" y="3" rx="1" /><rect width="9" height="7" x="3" y="14" rx="1" /><rect width="5" height="7" x="16" y="14" rx="1" />`),
+  /** lucide: sigma */
+  formula: icon(svg`<path d="M18 7V5a1 1 0 0 0-1-1H6.5a.5.5 0 0 0-.4.8l4.5 6a2 2 0 0 1 0 2.4l-4.5 6a.5.5 0 0 0 .4.8H17a1 1 0 0 0 1-1v-2" />`),
+  /** lucide: x */
+  close: icon(svg`<path d="M18 6 6 18" /><path d="m6 6 12 12" />`),
+  /** lucide: chevron-up */
+  up: icon(svg`<path d="m18 15-6-6-6 6" />`),
+  /** lucide: chevron-down */
+  down: icon(svg`<path d="m6 9 6 6 6-6" />`),
   /** lucide: bold */
   bold: icon(svg`<path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8" />`),
   /** lucide: underline */

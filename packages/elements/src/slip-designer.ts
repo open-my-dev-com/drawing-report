@@ -2,12 +2,15 @@ import { LitElement, css, html, nothing, svg, type TemplateResult } from 'lit';
 import {
   parseSlipFile,
   renderSlipToPdf,
+  parseFormula,
+  evaluateFormula,
   type SlipFile,
   type SlipTemplateFile,
   type SlipElement,
   type RenderOptions,
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
+import { getFormulaHelp } from './formula-help.js';
 import { loadDefaultFonts } from './default-fonts.js';
 import { presets } from './presets.js';
 import { icons } from './icons.js';
@@ -307,6 +310,7 @@ export class SlipDesigner extends LitElement {
       --sk-accent: #1a73e8;
       --sk-accent-soft: #e7f0fd;
       --sk-guide: #e91e63;
+      --sk-danger: #c62828;
       --sk-radius: 4px;
 
       display: grid;
@@ -1154,7 +1158,7 @@ export class SlipDesigner extends LitElement {
     }
     .col-edit-head {
       display: grid;
-      grid-template-columns: 1fr 1fr 44px 22px;
+      grid-template-columns: 1fr 52px;
       gap: 4px;
       font-size: 10px;
       color: var(--sk-text-muted);
@@ -1162,7 +1166,7 @@ export class SlipDesigner extends LitElement {
     }
     .col-edit {
       display: grid;
-      grid-template-columns: 1fr 1fr 44px 22px;
+      grid-template-columns: 1fr 52px;
       gap: 4px;
       margin: 2px 0;
       align-items: center;
@@ -1178,7 +1182,7 @@ export class SlipDesigner extends LitElement {
       font-family: inherit;
       color: inherit;
     }
-    .col-edit .col-remove {
+    .col-remove {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -1191,15 +1195,16 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
       cursor: pointer;
     }
-    .col-edit .col-remove svg {
+    .col-remove svg {
       width: 12px;
       height: 12px;
     }
-    .col-edit .col-remove:disabled {
+    .col-remove:disabled {
       opacity: 0.35;
       cursor: default;
     }
-    .col-add {
+    .col-add,
+    .col-modal-open {
       display: inline-flex;
       align-items: center;
       gap: 4px;
@@ -1213,11 +1218,13 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
       cursor: pointer;
     }
-    .col-add svg {
+    .col-add svg,
+    .col-modal-open svg {
       width: 12px;
       height: 12px;
     }
-    .col-add:hover {
+    .col-add:hover,
+    .col-modal-open:hover {
       border-color: var(--sk-accent);
       color: var(--sk-accent);
     }
@@ -1261,6 +1268,265 @@ export class SlipDesigner extends LitElement {
     .preset-menu button:focus-visible {
       outline: 2px solid var(--sk-accent);
       outline-offset: -1px;
+    }
+
+    /* 모달 — 편집 항목이 많은 기능은 패널 대신 모달로 (D-12, 편집 UI 배치 원칙) */
+    .modal-backdrop {
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 50;
+    }
+    .modal {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(560px, calc(100vw - 32px));
+      max-height: min(680px, calc(100vh - 48px));
+      display: flex;
+      flex-direction: column;
+      z-index: 51;
+      background: var(--sk-surface);
+      border: 1px solid var(--sk-border);
+      border-radius: var(--sk-radius);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    }
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--sk-border);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .modal-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border: none;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      color: var(--sk-text-muted);
+      cursor: pointer;
+    }
+    .modal-close:hover {
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+    }
+    .modal-close svg {
+      width: 14px;
+      height: 14px;
+    }
+    .modal-body {
+      padding: 12px 14px;
+      overflow-y: auto;
+    }
+    .modal-foot {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 10px 14px;
+      border-top: 1px solid var(--sk-border);
+    }
+    .btn {
+      padding: 6px 14px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 12px;
+      color: inherit;
+      cursor: pointer;
+    }
+    .btn:hover:not(:disabled) {
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    .btn.primary {
+      background: var(--sk-accent);
+      border-color: var(--sk-accent);
+      color: #fff;
+    }
+    .btn.primary:hover:not(:disabled) {
+      color: #fff;
+      opacity: 0.9;
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .btn:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    .formula-input {
+      width: 100%;
+      resize: vertical;
+      padding: 6px 8px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: inherit;
+    }
+    .formula-input:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -1px;
+    }
+    .formula-status {
+      min-height: 18px;
+      margin: 4px 0 6px;
+      font-size: 11px;
+      color: var(--sk-text-muted);
+      overflow-wrap: break-word;
+    }
+    .formula-status.error {
+      color: var(--sk-danger);
+    }
+    .modal-section-title {
+      margin: 10px 0 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--sk-text-muted);
+    }
+    .binding-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .binding-chip {
+      padding: 3px 8px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: 10px;
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 11px;
+      color: inherit;
+      cursor: pointer;
+    }
+    .binding-chip:hover {
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    .fn-category {
+      margin: 8px 0 2px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .fn-row {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+      width: 100%;
+      padding: 4px 8px;
+      border: none;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      font-family: inherit;
+      text-align: left;
+      color: inherit;
+      cursor: pointer;
+    }
+    .fn-row:hover {
+      background: var(--sk-accent-soft);
+    }
+    .fn-row:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -1px;
+    }
+    .fn-signature {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11.5px;
+    }
+    .fn-desc {
+      font-size: 11px;
+      color: var(--sk-text-muted);
+    }
+    .row-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      color: var(--sk-text-muted);
+      cursor: pointer;
+    }
+    .row-btn:hover {
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    .row-btn:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    .row-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+    .col-modal-head {
+      display: grid;
+      grid-template-columns: 46px 1fr 1fr 56px 24px;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--sk-text-muted);
+      margin-bottom: 2px;
+    }
+    .col-modal-row {
+      display: grid;
+      grid-template-columns: 46px 1fr 1fr 56px 24px;
+      gap: 4px;
+      align-items: center;
+      margin: 2px 0;
+    }
+    .col-modal-row input {
+      min-width: 0;
+      width: 100%;
+      padding: 4px 6px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-size: 12px;
+      font-family: inherit;
+      color: inherit;
+    }
+    .col-order {
+      display: inline-flex;
+      gap: 2px;
+    }
+    .col-order button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 22px;
+      padding: 0;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      color: var(--sk-text-muted);
+      cursor: pointer;
+    }
+    .col-order button:hover:not(:disabled) {
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    .col-order button:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+    .col-order button svg {
+      width: 12px;
+      height: 12px;
     }
 
     .preview-area {
@@ -1314,6 +1580,8 @@ export class SlipDesigner extends LitElement {
     _cellEditing: { state: true },
     _lineDraft: { state: true },
     _lineGhost: { state: true },
+    _formulaModalOpen: { state: true },
+    _columnsModalOpen: { state: true },
   };
 
   src = '';
@@ -1365,6 +1633,12 @@ export class SlipDesigner extends LitElement {
   private _lineDraft: { x: number; y: number } | null = null;
   /** 선 두 번 클릭 생성 중 커서 위치(mm) — 시작점에서 여기까지 반투명 미리보기 선을 그린다 */
   private _lineGhost: { x: number; y: number } | null = null;
+  /** 수식 편집 모달 열림 여부 — 선택된 필드 요소의 formula를 편집한다 (D-12) */
+  private _formulaModalOpen = false;
+  /** 수식 모달의 편집 중 초안 — 적용을 눌러야 요소에 반영된다 */
+  private _formulaDraft = '';
+  /** 동적 표 열 편집 모달 열림 여부 — 선택된 동적 표의 columns를 편집한다 (D-12) */
+  private _columnsModalOpen = false;
   /** 선 끝점 핸들 드래그 상태 — 반대쪽 끝점을 고정하고 잡은 끝점만 옮긴다 */
   private _lineEnd: {
     id: string;
@@ -1444,6 +1718,8 @@ export class SlipDesigner extends LitElement {
     this._lineDraft = null;
     this._lineGhost = null;
     this._lineEnd = null;
+    this._formulaModalOpen = false;
+    this._columnsModalOpen = false;
 
     if (!this.src) {
       this._file = null;
@@ -2373,6 +2649,40 @@ export class SlipDesigner extends LitElement {
     });
   }
 
+  /** 열 제목 변경 — 패널 빠른 수정과 열 편집 모달 공용 */
+  private _setTableColumnTitle(index: number, value: string): void {
+    this._updateElement((element) => {
+      if (element.type === 'dynamicTable') element.columns[index]!.title = value;
+    });
+  }
+
+  /** 열 데이터 키 변경 — 비어 있거나 다른 열과 겹치면 무시한다 (스키마 규칙) */
+  private _setTableColumnKey(index: number, value: string): void {
+    const el = this._findSelectedElement();
+    if (!el || el.type !== 'dynamicTable') return;
+    const v = value.trim();
+    if (!v || el.columns.some((c, i) => i !== index && c.key === v)) {
+      this.requestUpdate();
+      return;
+    }
+    this._updateElement((element) => {
+      if (element.type === 'dynamicTable') element.columns[index]!.key = v;
+    });
+  }
+
+  /** 열 순서 이동 — delta -1은 앞으로, +1은 뒤로 (범위 밖은 무시) */
+  private _moveTableColumn(index: number, delta: number): void {
+    this._updateElement((el) => {
+      if (el.type !== 'dynamicTable') return;
+      const target = index + delta;
+      if (target < 0 || target >= el.columns.length) return;
+      const columns = [...el.columns];
+      const [moved] = columns.splice(index, 1);
+      columns.splice(target, 0, moved!);
+      el.columns = columns;
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Snap helpers
   // ---------------------------------------------------------------------------
@@ -2422,6 +2732,14 @@ export class SlipDesigner extends LitElement {
       target instanceof HTMLTextAreaElement ||
       target instanceof HTMLSelectElement;
     if (inFormField) return;
+
+    // 모달이 열려 있으면 Esc는 모달 닫기 (모달 안 입력란의 Esc는 모달 자체가 처리)
+    if (e.key === 'Escape' && (this._formulaModalOpen || this._columnsModalOpen)) {
+      this._formulaModalOpen = false;
+      this._columnsModalOpen = false;
+      this.requestUpdate();
+      return;
+    }
 
     if (e.key === 'Escape' && (this._pendingTool || this._draw || this._lineDraft)) {
       this._pendingTool = null;
@@ -2529,6 +2847,8 @@ export class SlipDesigner extends LitElement {
               ${this._renderCanvas()}
             </div>
             <div class="prop-panel">${this._renderPropertyPanel()}</div>
+            ${this._renderFormulaModal()}
+            ${this._renderColumnsModal()}
           `}
     `;
   }
@@ -3395,6 +3715,8 @@ export class SlipDesigner extends LitElement {
                   if (v) r.formula = v;
                   else delete r.formula;
                 })}>
+              <button class="row-btn" title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
+                @click=${() => this._openFormulaModal()}>${icons.formula}</button>
             </div>
           </div>
         `;
@@ -3563,6 +3885,7 @@ export class SlipDesigner extends LitElement {
       }
 
       case 'dynamicTable':
+        // 패널에는 제목·너비 빠른 수정만 — 키·추가·삭제·순서는 열 편집 모달에서 (D-12)
         return html`
           <div class="prop-section">
             <div class="prop-row">
@@ -3576,43 +3899,23 @@ export class SlipDesigner extends LitElement {
           <div class="prop-section">
             <div class="prop-section-title">${s.columns}</div>
             <div class="col-edit-head">
-              <span>${s.formTitle}</span><span>${s.columnKey}</span><span>${s.columnWidthPct}</span>
+              <span>${s.formTitle}</span><span>${s.columnWidthPct}</span>
             </div>
             ${el.columns.map((col, index) => html`
               <div class="col-edit">
                 <input class="col-title" .value=${col.title}
                   aria-label="${s.columns} ${index + 1} ${s.formTitle}"
-                  @change=${(e: Event) => this._updateElement((element) => {
-                    if (element.type === 'dynamicTable') {
-                      element.columns[index]!.title = valOf(e);
-                    }
-                  })}>
-                <input class="col-key" .value=${col.key}
-                  aria-label="${s.columns} ${index + 1} ${s.columnKey}"
-                  @change=${(e: Event) => {
-                    const v = valOf(e).trim();
-                    // 물리 키는 비어 있거나 다른 열과 겹치면 안 된다 (스키마 규칙)
-                    if (!v || el.columns.some((c, i) => i !== index && c.key === v)) {
-                      this.requestUpdate();
-                      return;
-                    }
-                    this._updateElement((element) => {
-                      if (element.type === 'dynamicTable') {
-                        element.columns[index]!.key = v;
-                      }
-                    });
-                  }}>
+                  @change=${(e: Event) => this._setTableColumnTitle(index, valOf(e))}>
                 <input class="col-width" type="number" min="1" max="99" step="1"
                   .value=${String(Math.round(col.widthPercentage * 100) / 100)}
                   aria-label="${s.columns} ${index + 1} ${s.columnWidthPct}"
                   @change=${(e: Event) => this._setTableColumnWidth(index, Number(valOf(e)))}>
-                <button class="col-remove" title=${s.delete}
-                  aria-label="${s.columns} ${index + 1} ${s.delete}"
-                  ?disabled=${el.columns.length <= 1}
-                  @click=${() => this._removeTableColumn(index)}>${icons.pageRemove}</button>
               </div>`)}
-            <button class="col-add" aria-label=${s.addColumn}
-              @click=${() => this._addTableColumn()}>${icons.pageAdd}<span>${s.addColumn}</span></button>
+            <button class="col-modal-open" aria-label=${s.columnsModalTitle}
+              @click=${() => {
+                this._columnsModalOpen = true;
+                this.requestUpdate();
+              }}>${icons.edit}<span>${s.columnsModalTitle}</span></button>
           </div>
         `;
 
@@ -4066,6 +4369,250 @@ export class SlipDesigner extends LitElement {
       </div>
     `;
   }
+
+  // ---------------------------------------------------------------------------
+  // Render: modals (D-12 — 편집 UI 배치 원칙: 항목이 많은 편집은 모달로)
+  // ---------------------------------------------------------------------------
+
+  /** 양식 전체의 바인딩 목록 (정의부 + 요소 사용처, 중복 없이) — 수식 모달의 클릭 삽입용 */
+  private _collectBindings(): { key: string; label: string }[] {
+    const file = this._file;
+    if (!file) return [];
+    const list: { key: string; label: string }[] = [];
+    const seen = new Set<string>();
+    const labelOf = new Map<string, string>(
+      (file.template.bindings ?? [])
+        .filter((b) => b.label !== undefined)
+        .map((b) => [b.key, b.label!]),
+    );
+    const push = (key: string): void => {
+      if (seen.has(key)) return;
+      seen.add(key);
+      list.push({ key, label: labelOf.get(key) ?? key });
+    };
+    for (const def of file.template.bindings ?? []) push(def.key);
+    for (const page of file.template.pages) {
+      for (const el of page.elements) {
+        if (el.type === 'field' || el.type === 'dynamicTable') push(el.binding);
+      }
+    }
+    return list;
+  }
+
+  /** 수식 모달을 연다 — 선택된 필드의 현재 수식을 초안으로 담는다 */
+  private _openFormulaModal(): void {
+    const el = this._findSelectedElement();
+    if (!el || el.type !== 'field') return;
+    this._formulaDraft = el.formula ?? '';
+    this._formulaModalOpen = true;
+    this.requestUpdate();
+  }
+
+  private _closeFormulaModal(): void {
+    this._formulaModalOpen = false;
+    this.requestUpdate();
+  }
+
+  /** 수식 모달의 초안을 선택된 필드에 반영한다 (빈 초안은 수식 제거) */
+  private _applyFormulaModal(): void {
+    const draft = this._formulaDraft.trim();
+    this._formulaModalOpen = false;
+    this._updateElement((el) => {
+      if (el.type !== 'field') return;
+      const r = el as Record<string, unknown>;
+      if (draft) r.formula = draft;
+      else delete r.formula;
+    });
+  }
+
+  /** 수식 입력창의 커서 위치에 텍스트를 끼워 넣는다 — after는 커서 뒤에 붙는다 (닫는 괄호) */
+  private _insertFormulaText(text: string, after = ''): void {
+    const input = this.renderRoot.querySelector('.formula-input') as HTMLTextAreaElement | null;
+    const draft = this._formulaDraft;
+    const start = input?.selectionStart ?? draft.length;
+    const end = input?.selectionEnd ?? draft.length;
+    this._formulaDraft = draft.slice(0, start) + text + after + draft.slice(end);
+    this.requestUpdate();
+    void this.updateComplete.then(() => {
+      const next = this.renderRoot.querySelector('.formula-input') as HTMLTextAreaElement | null;
+      if (next) {
+        next.focus();
+        const caret = start + text.length;
+        next.setSelectionRange(caret, caret);
+      }
+    });
+  }
+
+  /**
+   * 수식 편집 모달 — 초안 편집, 실시간 문법 검사(자체 파서, ADR-010), 샘플 값
+   * (`sampleValues`) 기준 결과 미리 계산, 바인딩·함수 29종 클릭 삽입 (ADR-017).
+   */
+  private _renderFormulaModal() {
+    if (!this._formulaModalOpen) return nothing;
+    const el = this._findSelectedElement();
+    if (!el || el.type !== 'field') return nothing;
+    const s = this._strings.designer;
+    const draft = this._formulaDraft;
+
+    let syntaxError: string | null = null;
+    let preview: string | null = null;
+    let previewError: string | null = null;
+    if (draft.trim() !== '') {
+      try {
+        parseFormula(draft);
+        try {
+          preview = formulaPreviewText(
+            evaluateFormula(draft, { values: this._file?.template.sampleValues ?? {} }),
+          );
+        } catch (error) {
+          // 문법은 맞지만 계산이 안 되는 경우 (샘플 값 없음 등) — 안내만 하고 적용은 허용
+          previewError = error instanceof Error ? error.message : String(error);
+        }
+      } catch (error) {
+        syntaxError = error instanceof Error ? error.message : String(error);
+      }
+    }
+    const bindings = this._collectBindings();
+
+    return html`
+      <div class="menu-backdrop modal-backdrop" @click=${() => this._closeFormulaModal()}></div>
+      <div class="modal" role="dialog" aria-label=${s.formulaModalTitle}
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            this._closeFormulaModal();
+          }
+        }}>
+        <div class="modal-head">
+          <span>${s.formulaModalTitle}</span>
+          <button class="modal-close" title=${s.close} aria-label=${s.close}
+            @click=${() => this._closeFormulaModal()}>${icons.close}</button>
+        </div>
+        <div class="modal-body">
+          <textarea class="formula-input" rows="3" spellcheck="false"
+            aria-label=${s.formula} .value=${draft}
+            @input=${(e: Event) => {
+              this._formulaDraft = (e.target as HTMLTextAreaElement).value;
+              this.requestUpdate();
+            }}></textarea>
+          <div class="formula-status ${syntaxError ? 'error' : ''}">
+            ${syntaxError
+              ? `${s.syntaxError}: ${syntaxError}`
+              : draft.trim() === ''
+                ? ''
+                : previewError
+                  ? `${s.previewUnavailable}: ${previewError}`
+                  : `${s.previewResult}: ${preview}`}
+          </div>
+          ${bindings.length > 0
+            ? html`
+                <div class="modal-section-title">${s.formulaBindings}</div>
+                <div class="binding-chips">
+                  ${bindings.map((b) => html`
+                    <button class="binding-chip" title=${b.key}
+                      @click=${() => this._insertFormulaText(b.key)}>${b.label}</button>`)}
+                </div>`
+            : nothing}
+          <div class="modal-section-title">${s.formulaFunctions}</div>
+          ${getFormulaHelp(this.locale).map((category) => html`
+            <div class="fn-category">${category.title}</div>
+            ${category.functions.map((fn) => html`
+              <button class="fn-row" aria-label=${fn.name}
+                @click=${() => this._insertFormulaText(`${fn.name}(`, ')')}>
+                <span class="fn-signature">${fn.signature}</span>
+                <span class="fn-desc">${fn.description}</span>
+              </button>`)}`)}
+        </div>
+        <div class="modal-foot">
+          <button class="btn" @click=${() => this._closeFormulaModal()}>${s.cancel}</button>
+          <button class="btn primary" ?disabled=${syntaxError !== null}
+            @click=${() => this._applyFormulaModal()}>${s.apply}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 동적 표 열 편집 모달 — 열 전체 관리(제목·데이터 키·너비·추가·삭제·순서 이동).
+   * 편집은 즉시 반영되고 각 변경이 되돌리기 단위가 된다.
+   */
+  private _renderColumnsModal() {
+    if (!this._columnsModalOpen) return nothing;
+    const el = this._findSelectedElement();
+    if (!el || el.type !== 'dynamicTable') return nothing;
+    const s = this._strings.designer;
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    const close = (): void => {
+      this._columnsModalOpen = false;
+      this.requestUpdate();
+    };
+
+    return html`
+      <div class="menu-backdrop modal-backdrop" @click=${close}></div>
+      <div class="modal" role="dialog" aria-label=${s.columnsModalTitle}
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            close();
+          }
+        }}>
+        <div class="modal-head">
+          <span>${s.columnsModalTitle}</span>
+          <button class="modal-close" title=${s.close} aria-label=${s.close}
+            @click=${close}>${icons.close}</button>
+        </div>
+        <div class="modal-body">
+          <div class="col-modal-head">
+            <span></span>
+            <span>${s.formTitle}</span>
+            <span>${s.columnKey}</span>
+            <span>${s.columnWidthPct}</span>
+            <span></span>
+          </div>
+          ${el.columns.map((col, index) => html`
+            <div class="col-modal-row">
+              <span class="col-order">
+                <button title=${s.orderForward}
+                  aria-label="${s.columns} ${index + 1} ${s.orderForward}"
+                  ?disabled=${index === 0}
+                  @click=${() => this._moveTableColumn(index, -1)}>${icons.up}</button>
+                <button title=${s.orderBackward}
+                  aria-label="${s.columns} ${index + 1} ${s.orderBackward}"
+                  ?disabled=${index === el.columns.length - 1}
+                  @click=${() => this._moveTableColumn(index, 1)}>${icons.down}</button>
+              </span>
+              <input .value=${col.title}
+                aria-label="${s.columnsModalTitle} ${index + 1} ${s.formTitle}"
+                @change=${(e: Event) => this._setTableColumnTitle(index, valOf(e))}>
+              <input .value=${col.key}
+                aria-label="${s.columnsModalTitle} ${index + 1} ${s.columnKey}"
+                @change=${(e: Event) => this._setTableColumnKey(index, valOf(e))}>
+              <input type="number" min="1" max="99" step="1"
+                .value=${String(Math.round(col.widthPercentage * 100) / 100)}
+                aria-label="${s.columnsModalTitle} ${index + 1} ${s.columnWidthPct}"
+                @change=${(e: Event) => this._setTableColumnWidth(index, Number(valOf(e)))}>
+              <button class="col-remove" title=${s.delete}
+                aria-label="${s.columnsModalTitle} ${index + 1} ${s.delete}"
+                ?disabled=${el.columns.length <= 1}
+                @click=${() => this._removeTableColumn(index)}>${icons.pageRemove}</button>
+            </div>`)}
+          <button class="col-add" aria-label=${s.addColumn}
+            @click=${() => this._addTableColumn()}>${icons.pageAdd}<span>${s.addColumn}</span></button>
+        </div>
+        <div class="modal-foot">
+          <button class="btn primary" @click=${close}>${s.close}</button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+/** 수식 미리 계산 결과를 표시용 문자열로 (수식 엔진의 문자열화 규칙과 같은 방향) */
+function formulaPreviewText(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  if (Array.isArray(value)) return JSON.stringify(value);
+  return String(value);
 }
 
 customElements.define('slip-designer', SlipDesigner);
