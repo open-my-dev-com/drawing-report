@@ -674,15 +674,15 @@ describe('<slip-designer> 되돌리기·다시 실행', () => {
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 속성 패널', () => {
-  it('요소 미선택 시 안내 메시지를 표시한다', async () => {
+  it('요소 미선택 시 양식 설정 패널을 표시한다', async () => {
     const el = await createElement();
     el.src = '{"valid": true}';
     await el.updateComplete;
     await flush();
     await el.updateComplete;
 
-    const panelText = el.shadowRoot?.querySelector('.panel-empty')?.textContent?.trim();
-    expect(panelText).toBe(strings.designer.noSelection);
+    const typeName = el.shadowRoot?.querySelector('.type-name')?.textContent?.trim();
+    expect(typeName).toBe(strings.designer.formSettings);
     el.remove();
   });
 
@@ -702,6 +702,112 @@ describe('<slip-designer> 속성 패널', () => {
 
     const typeName = el.shadowRoot?.querySelector('.type-name')?.textContent?.trim();
     expect(typeName).toBe(strings.designer.typeText);
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 양식 설정 패널 (B-6) — 제목·용지 크기·방향·여백
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 양식 설정 패널', () => {
+  /** 라벨 문구로 속성 패널의 입력(input/select)을 찾는다 */
+  function panelField(el: Element, label: string): HTMLInputElement | HTMLSelectElement {
+    const row = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === label);
+    if (!row) throw new Error(`패널 입력을 찾지 못했습니다: ${label}`);
+    return row.querySelector('input, select') as HTMLInputElement | HTMLSelectElement;
+  }
+
+  function currentFile(el: Element): SlipTemplateFile {
+    return (el as unknown as { _file: SlipTemplateFile })._file;
+  }
+
+  function setField(field: HTMLInputElement | HTMLSelectElement, value: string): void {
+    field.value = value;
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  it('제목을 바꾸면 meta.title이 갱신되고 slip-change를 발행한다 (빈 값은 무시)', async () => {
+    const el = await loadDesigner();
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
+
+    setField(panelField(el, strings.designer.formTitle), '새 양식 제목');
+    await el.updateComplete;
+    expect(currentFile(el).template.meta.title).toBe('새 양식 제목');
+    expect(changes.length).toBe(1);
+
+    setField(panelField(el, strings.designer.formTitle), '   ');
+    await el.updateComplete;
+    expect(currentFile(el).template.meta.title).toBe('새 양식 제목');
+    expect(changes.length).toBe(1);
+    el.remove();
+  });
+
+  it('용지 프리셋을 고르면 크기가 바뀌고 캔버스 용지도 함께 바뀐다', async () => {
+    const el = await loadDesigner();
+
+    setField(panelField(el, strings.designer.paperSize), '1'); // A5 148×210
+    await el.updateComplete;
+
+    const { paper } = currentFile(el).template;
+    expect(paper.width).toBe(148);
+    expect(paper.height).toBe(210);
+    const paperDiv = el.shadowRoot?.querySelector('.paper') as HTMLElement;
+    expect(parseFloat(paperDiv.style.width)).toBeCloseTo(148 * PX_PER_MM, 0);
+    el.remove();
+  });
+
+  it('방향을 가로로 바꾸면 너비·높이가 서로 바뀐다', async () => {
+    const el = await loadDesigner();
+    const landscapeBtn = Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') ===
+        `${strings.designer.orientation}: ${strings.designer.landscape}`) as HTMLButtonElement;
+    expect(landscapeBtn.getAttribute('aria-pressed')).toBe('false');
+
+    landscapeBtn.click();
+    await el.updateComplete;
+
+    const { paper } = currentFile(el).template;
+    expect(paper.width).toBe(297);
+    expect(paper.height).toBe(210);
+    el.remove();
+  });
+
+  it('여백을 바꾸면 padding에 반영되고, 용지를 넘는 값은 무시한다', async () => {
+    const el = await loadDesigner();
+
+    setField(panelField(el, strings.designer.marginTop), '25');
+    await el.updateComplete;
+    expect(currentFile(el).template.paper.padding).toEqual([25, 15, 20, 15]);
+
+    // 왼쪽+오른쪽 여백 합이 용지 너비를 넘는 값은 되돌린다
+    setField(panelField(el, strings.designer.marginLeft), '300');
+    await el.updateComplete;
+    expect(currentFile(el).template.paper.padding).toEqual([25, 15, 20, 15]);
+    el.remove();
+  });
+
+  it('너비를 여백 합 이하로 줄이는 값은 무시한다', async () => {
+    const el = await loadDesigner();
+
+    setField(panelField(el, strings.designer.width), '20'); // 좌우 여백 합 30 이하
+    await el.updateComplete;
+    expect(currentFile(el).template.paper.width).toBe(210);
+    el.remove();
+  });
+
+  it('용지 변경은 되돌리기로 복구된다', async () => {
+    const el = await loadDesigner();
+
+    setField(panelField(el, strings.designer.paperSize), '1'); // A5
+    await el.updateComplete;
+    expect(currentFile(el).template.paper.width).toBe(148);
+
+    toolbarButton(el, strings.designer.undo).click();
+    await el.updateComplete;
+    expect(currentFile(el).template.paper.width).toBe(210);
     el.remove();
   });
 });

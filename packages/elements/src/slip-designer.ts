@@ -17,6 +17,14 @@ const COLOR_PALETTE = [
   '#000000', '#ffffff', '#f2f2f2', '#d93025', '#f9ab00', '#188038', '#1a73e8', '#9334e6',
 ] as const;
 
+/** 용지 크기 프리셋 (mm, 세로 기준) — 선택하면 현재 방향을 유지한 채 적용된다 */
+const PAPER_PRESETS = [
+  { name: 'A4', width: 210, height: 297 },
+  { name: 'A5', width: 148, height: 210 },
+  { name: 'B5', width: 176, height: 250 },
+  { name: 'Letter', width: 215.9, height: 279.4 },
+] as const;
+
 const PX_PER_MM = 96 / 25.4;
 const MAX_UNDO = 50;
 /** 스냅이 붙는 거리(mm) — 이 안으로 들어오면 후보 선에 끌어붙인다 */
@@ -392,11 +400,6 @@ export class SlipDesigner extends LitElement {
       overflow-x: hidden;
       background: var(--sk-bg);
     }
-    .panel-empty {
-      color: var(--sk-text-muted);
-      text-align: center;
-      padding-top: 40px;
-    }
     .prop-section {
       margin-bottom: 14px;
       padding-bottom: 10px;
@@ -492,6 +495,13 @@ export class SlipDesigner extends LitElement {
       background: var(--sk-accent-soft);
       color: var(--sk-accent);
       border-color: var(--sk-accent);
+    }
+    /* 글자 라벨 토글 (방향 등) — 아이콘 토글의 고정 폭을 글자에 맞게 되돌린다 */
+    .toggle-group .orient-btn {
+      width: auto;
+      padding: 0 10px;
+      font-size: 12px;
+      font-family: inherit;
     }
     .toggle-group button:focus-visible {
       outline: 2px solid var(--sk-accent);
@@ -1784,10 +1794,161 @@ export class SlipDesigner extends LitElement {
   // Render: property panel
   // ---------------------------------------------------------------------------
 
+  /** 파일 차원 속성(제목·용지 등)을 되돌리기 스냅샷과 함께 고친다 */
+  private _updateFile(fn: (file: SlipTemplateFile) => void): void {
+    if (!this._file) return;
+    this._pushUndo();
+    fn(this._file);
+    this._emitChange();
+    this.requestUpdate();
+  }
+
+  /**
+   * 양식 설정 패널 — 요소를 선택하지 않았을 때 표시한다.
+   * 제목·용지 크기(프리셋/직접 입력)·방향·여백을 편집한다. 방향과 프리셋은
+   * 파일에 없는 화면 차원 개념이라 너비·높이로만 반영된다 (포맷 불변).
+   */
+  private _renderFormSettings() {
+    const file = this._file!;
+    const s = this._strings.designer;
+    const { paper } = file.template;
+    const [pt, pr, pb, pl] = paper.padding;
+    const landscape = paper.width > paper.height;
+    // 현재 크기와 일치하는 프리셋 (방향 무관 비교)
+    const presetIndex = PAPER_PRESETS.findIndex(
+      (p) =>
+        (p.width === paper.width && p.height === paper.height) ||
+        (p.width === paper.height && p.height === paper.width),
+    );
+
+    // 여백 합이 용지보다 작아야 한다는 스키마 규칙을 어기는 값은 되돌린다
+    const setSize = (width: number, height: number): void => {
+      if (width <= pl + pr || height <= pt + pb) {
+        this.requestUpdate();
+        return;
+      }
+      this._updateFile((f) => {
+        f.template.paper.width = round1(width);
+        f.template.paper.height = round1(height);
+      });
+    };
+    const setPadding = (index: 0 | 1 | 2 | 3, value: number): void => {
+      if (Number.isNaN(value) || value < 0) {
+        this.requestUpdate();
+        return;
+      }
+      const next = [...paper.padding] as [number, number, number, number];
+      next[index] = round1(value);
+      if (next[3] + next[1] >= paper.width || next[0] + next[2] >= paper.height) {
+        this.requestUpdate();
+        return;
+      }
+      this._updateFile((f) => {
+        f.template.paper.padding = next;
+      });
+    };
+    const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
+
+    return html`
+      <div class="type-name">${s.formSettings}</div>
+
+      <div class="prop-section">
+        <div class="prop-row">
+          <label>${s.formTitle}</label>
+          <input .value=${file.template.meta.title}
+                 @change=${(e: Event) => {
+                   const v = (e.target as HTMLInputElement).value.trim();
+                   // 스키마상 제목은 1자 이상 — 빈 값은 되돌린다
+                   if (!v) {
+                     this.requestUpdate();
+                     return;
+                   }
+                   this._updateFile((f) => { f.template.meta.title = v; });
+                 }}>
+        </div>
+      </div>
+
+      <div class="prop-section">
+        <div class="prop-row">
+          <label>${s.paperSize}</label>
+          <select .value=${presetIndex >= 0 ? String(presetIndex) : 'custom'}
+                  @change=${(e: Event) => {
+                    const v = (e.target as HTMLSelectElement).value;
+                    if (v === 'custom') return;
+                    const p = PAPER_PRESETS[Number(v)]!;
+                    // 프리셋은 세로 기준 — 현재 방향을 유지해 적용
+                    setSize(landscape ? p.height : p.width, landscape ? p.width : p.height);
+                  }}>
+            ${PAPER_PRESETS.map((p, i) => html`
+              <option value=${String(i)} ?selected=${i === presetIndex}>
+                ${p.name} (${p.width}×${p.height})
+              </option>`)}
+            <option value="custom" ?selected=${presetIndex < 0}>${s.paperCustom}</option>
+          </select>
+        </div>
+        <div class="prop-pair">
+          <div class="prop-row">
+            <label>${s.width}</label>
+            <input type="number" step="0.5" min="1" .value=${String(paper.width)}
+                   @change=${(e: Event) => setSize(numOf(e), paper.height)}>
+          </div>
+          <div class="prop-row">
+            <label>${s.height}</label>
+            <input type="number" step="0.5" min="1" .value=${String(paper.height)}
+                   @change=${(e: Event) => setSize(paper.width, numOf(e))}>
+          </div>
+        </div>
+        <div class="prop-row">
+          <label>${s.orientation}</label>
+          <div class="toggle-group" role="group" aria-label=${s.orientation}>
+            ${([
+              [false, s.portrait],
+              [true, s.landscape],
+            ] as const).map(([toLandscape, label]) => html`
+              <button class="orient-btn" title=${label} aria-label="${s.orientation}: ${label}"
+                aria-pressed=${String(landscape === toLandscape)}
+                @click=${() => {
+                  if (landscape === toLandscape) return;
+                  setSize(paper.height, paper.width);
+                }}>${label}</button>`)}
+          </div>
+        </div>
+      </div>
+
+      <div class="prop-section">
+        <div class="prop-section-title">${s.margin}</div>
+        <div class="prop-pair">
+          <div class="prop-row">
+            <label>${s.marginTop}</label>
+            <input type="number" step="1" min="0" .value=${String(pt)}
+                   @change=${(e: Event) => setPadding(0, numOf(e))}>
+          </div>
+          <div class="prop-row">
+            <label>${s.marginRight}</label>
+            <input type="number" step="1" min="0" .value=${String(pr)}
+                   @change=${(e: Event) => setPadding(1, numOf(e))}>
+          </div>
+        </div>
+        <div class="prop-pair">
+          <div class="prop-row">
+            <label>${s.marginBottom}</label>
+            <input type="number" step="1" min="0" .value=${String(pb)}
+                   @change=${(e: Event) => setPadding(2, numOf(e))}>
+          </div>
+          <div class="prop-row">
+            <label>${s.marginLeft}</label>
+            <input type="number" step="1" min="0" .value=${String(pl)}
+                   @change=${(e: Event) => setPadding(3, numOf(e))}>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   private _renderPropertyPanel() {
     const el = this._findSelectedElement();
     if (!el) {
-      return html`<div class="panel-empty">${this._strings.designer.noSelection}</div>`;
+      return this._renderFormSettings();
     }
 
     const s = this._strings.designer;
