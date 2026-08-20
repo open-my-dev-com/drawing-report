@@ -14,14 +14,17 @@ import type { Schema, Template } from '@pdfme/common';
 import { evaluateFormula } from '../formula/evaluator.js';
 import type {
   DynamicTableElement,
+  EllipseElement,
   FieldElement,
   FixedGridCell,
   FixedGridElement,
   ImageElement,
-  ShapeElement,
+  LineElement,
+  RectElement,
   SlipElement,
   SlipFile,
   SlipTemplateBody,
+  PolygonElement,
   TextElement,
 } from '../format/schema.js';
 import { SlipRenderError } from './errors.js';
@@ -41,6 +44,16 @@ const NO_COLOR = '';
 const GRID_CELL_PADDING = 1;
 /** 동적 표 셀 안쪽 여백(mm) */
 const TABLE_CELL_PADDING = 2;
+/**
+ * 파선·점선의 선분·간격 길이(mm) — 하부 엔진이 파선을 직접 지원하지 않아
+ * 짧은 선분 여러 개로 분해해 그린다 (직선만 가능, ADR-032)
+ */
+const DASH_PATTERNS = {
+  dashed: { on: 2.4, off: 1.2 },
+  dotted: { on: 0.4, off: 0.8 },
+} as const;
+
+type BorderStyle = 'solid' | 'dashed' | 'dotted';
 
 type Alignment = 'left' | 'center' | 'right';
 type VerticalAlignment = 'top' | 'middle' | 'bottom';
@@ -91,7 +104,20 @@ class SlipToPdfmeConverter {
     private readonly body: SlipTemplateBody,
     private readonly values: Record<string, unknown>,
     private readonly locale?: string,
+    private readonly fontNames: readonly string[] = [],
+    private readonly fallbackFontName?: string,
   ) {}
+
+  /**
+   * 굵게에 쓸 폰트 이름 — 유효 폰트(명시 fontName, 없으면 대체 폰트)의 `<이름>-Bold`가
+   * 렌더 옵션 폰트 목록에 있으면 그 이름을, 없으면 undefined(굵게 무시, ADR-032)
+   */
+  private resolveBoldFont(fontName: string | undefined): string | undefined {
+    const base = fontName ?? this.fallbackFontName;
+    if (!base) return undefined;
+    const candidate = `${base}-Bold`;
+    return this.fontNames.includes(candidate) ? candidate : undefined;
+  }
 
   convert(): PdfmeRenderInput {
     const schemas = this.body.pages.map((page) => {
@@ -148,8 +174,17 @@ class SlipToPdfmeConverter {
       case 'image':
         this.appendImage(schemas, element);
         return;
-      case 'shape':
-        this.appendShape(schemas, element);
+      case 'line':
+        this.appendLine(schemas, element);
+        return;
+      case 'rect':
+        this.appendRect(schemas, element);
+        return;
+      case 'ellipse':
+        this.appendEllipse(schemas, element);
+        return;
+      case 'polygon':
+        this.appendPolygon(schemas, element);
         return;
     }
   }
@@ -173,8 +208,15 @@ class SlipToPdfmeConverter {
       borderColor?: string | undefined;
       borderWidth?: number | undefined;
       padding: number;
+      bold?: boolean | undefined;
+      underline?: boolean | undefined;
+      strikethrough?: boolean | undefined;
     },
   ): Record<string, unknown> {
+    // 굵게 = 굵은 폰트로 전환 (없으면 무시, ADR-032)
+    const fontName = style.bold === true
+      ? (this.resolveBoldFont(style.fontName) ?? style.fontName)
+      : style.fontName;
     const schema: Record<string, unknown> = {
       name,
       type: 'text',
@@ -194,11 +236,11 @@ class SlipToPdfmeConverter {
       borderWidth: box(style.borderWidth ?? 0),
       padding: box(style.padding),
       opacity: 1,
-      strikethrough: false,
-      underline: false,
+      strikethrough: style.strikethrough === true,
+      underline: style.underline === true,
     };
     // fontName을 undefined로 두면 pdfme가 대체(fallback) 폰트를 쓴다
-    if (style.fontName !== undefined) schema.fontName = style.fontName;
+    if (fontName !== undefined) schema.fontName = fontName;
     return schema;
   }
 
@@ -218,6 +260,9 @@ class SlipToPdfmeConverter {
         borderColor: element.borderColor,
         borderWidth: element.borderWidth,
         padding: 0,
+        bold: element.bold,
+        underline: element.underline,
+        strikethrough: element.strikethrough,
       },
     );
     // 고정 문구는 가공 없이 그대로 (pdfme 표현식 평가를 타지 않도록 inputs로 전달)
@@ -240,6 +285,9 @@ class SlipToPdfmeConverter {
         borderColor: element.borderColor,
         borderWidth: element.borderWidth,
         padding: 0,
+        bold: element.bold,
+        underline: element.underline,
+        strikethrough: element.strikethrough,
       },
     );
     this.push(schemas, schema, this.fieldValue(element));
@@ -276,6 +324,7 @@ class SlipToPdfmeConverter {
     const originY = element.position.y;
     const lineWidth = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
     const lineColor = element.borderColor ?? DEFAULT_BORDER_COLOR;
+    const lineStyle: BorderStyle = element.borderStyle ?? 'solid';
 
     // 셀 소유 그리드 (병합 반영). 값은 cells 배열의 인덱스, 빈 칸은 -1
     const owner: number[][] = Array.from({ length: rows }, () => new Array<number>(columns).fill(-1));
@@ -335,6 +384,7 @@ class SlipToPdfmeConverter {
             end - x,
             lineWidth,
             lineColor,
+            lineStyle,
           );
         }
       }
@@ -355,6 +405,7 @@ class SlipToPdfmeConverter {
             lineWidth,
             end - y,
             lineColor,
+            lineStyle,
           );
         }
       }
@@ -377,6 +428,9 @@ class SlipToPdfmeConverter {
           fontColor: cell.fontColor ?? element.fontColor,
           backgroundColor: NO_COLOR,
           padding: GRID_CELL_PADDING,
+          bold: cell.bold,
+          underline: cell.underline,
+          strikethrough: cell.strikethrough,
         },
       );
       this.push(schemas, schema, cell.content);
@@ -413,8 +467,8 @@ class SlipToPdfmeConverter {
       showHead: true,
       // 페이지 분할 시 머리행 반복 (ADR-011)
       repeatHead: element.repeatHead,
-      head: [...element.head],
-      headWidthPercentages: [...element.headWidthPercentages],
+      head: element.columns.map((col) => col.title),
+      headWidthPercentages: element.columns.map((col) => col.widthPercentage),
       tableStyles: { borderColor, borderWidth },
       headStyles: {
         ...cellStyle,
@@ -441,8 +495,8 @@ class SlipToPdfmeConverter {
         throw new SlipRenderError(`${what}의 ${index + 1}번째 행은 객체여야 합니다`);
       }
       const record = row as Record<string, unknown>;
-      // 행 데이터는 head의 각 제목을 키로 읽는다
-      return element.head.map((title) => toDisplayText(record[title], `${what}의 '${title}' 칸`));
+      // 행 데이터는 열의 물리 키로 읽는다 (제목을 바꿔도 데이터가 깨지지 않는다, ADR-032)
+      return element.columns.map((col) => toDisplayText(record[col.key], `${what}의 '${col.key}' 칸`));
     });
   }
 
@@ -486,36 +540,25 @@ class SlipToPdfmeConverter {
     );
   }
 
-  private appendShape(schemas: Schema[], element: ShapeElement): void {
+  /** 사각형 요소 — 파선·점선이면 배경 사각형 + 네 변을 분해한 선으로 (ADR-032) */
+  private appendRect(schemas: Schema[], element: RectElement): void {
     const borderWidth = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
     const borderColor = element.borderColor ?? DEFAULT_BORDER_COLOR;
-    if (element.shape === 'line') {
-      // 긴 쪽 방향의 직선으로 본다 (SPEC에 시작·끝점 개념이 없어 사선은 지원하지 않는다)
-      if (element.width >= element.height) {
-        this.pushLine(
-          schemas,
-          element.id,
-          {
-            x: element.position.x,
-            y: Math.max(0, element.position.y + element.height / 2 - borderWidth / 2),
-          },
-          element.width,
-          borderWidth,
-          borderColor,
-        );
-      } else {
-        this.pushLine(
-          schemas,
-          element.id,
-          {
-            x: Math.max(0, element.position.x + element.width / 2 - borderWidth / 2),
-            y: element.position.y,
-          },
-          borderWidth,
-          element.height,
-          borderColor,
+    const style: BorderStyle = element.borderStyle ?? 'solid';
+    if (style !== 'solid' && borderWidth > 0) {
+      if (element.backgroundColor !== undefined) {
+        this.pushRectangle(
+          schemas, `${element.id}__bg`, element.position,
+          element.width, element.height, element.backgroundColor,
         );
       }
+      const { x, y } = element.position;
+      const w = element.width;
+      const h = element.height;
+      this.pushLine(schemas, `${element.id}__t`, { x, y: Math.max(0, y - borderWidth / 2) }, w, borderWidth, borderColor, style);
+      this.pushLine(schemas, `${element.id}__b`, { x, y: Math.max(0, y + h - borderWidth / 2) }, w, borderWidth, borderColor, style);
+      this.pushLine(schemas, `${element.id}__l`, { x: Math.max(0, x - borderWidth / 2), y }, borderWidth, h, borderColor, style);
+      this.pushLine(schemas, `${element.id}__r`, { x: Math.max(0, x + w - borderWidth / 2), y }, borderWidth, h, borderColor, style);
       return;
     }
     this.pushRectangle(
@@ -527,6 +570,160 @@ class SlipToPdfmeConverter {
       element.backgroundColor ?? NO_COLOR,
       borderWidth,
       borderColor,
+      element.radius ?? 0,
+    );
+  }
+
+  /** 타원 요소 — 곡선 테두리는 파선 분해가 불가능해 실선 고정 (ADR-032) */
+  private appendEllipse(schemas: Schema[], element: EllipseElement): void {
+    this.push(
+      schemas,
+      {
+        name: element.id,
+        type: 'ellipse',
+        position: element.position,
+        width: element.width,
+        height: element.height,
+        color: element.backgroundColor ?? NO_COLOR,
+        borderWidth: element.borderWidth ?? DEFAULT_BORDER_WIDTH,
+        borderColor: element.borderColor ?? DEFAULT_BORDER_COLOR,
+        opacity: 1,
+        rotate: 0,
+      },
+      '',
+    );
+  }
+
+  /** 선 요소 — lineDirection대로 수평·수직·대각선을 그린다 (ADR-032) */
+  private appendLine(schemas: Schema[], element: LineElement): void {
+    const thickness = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
+    const color = element.borderColor ?? DEFAULT_BORDER_COLOR;
+    const style: BorderStyle = element.borderStyle ?? 'solid';
+    const direction = element.lineDirection ?? 'horizontal';
+    if (direction === 'horizontal') {
+      this.pushLine(
+        schemas,
+        element.id,
+        { x: element.position.x, y: Math.max(0, element.position.y + element.height / 2 - thickness / 2) },
+        element.width,
+        thickness,
+        color,
+        style,
+      );
+      return;
+    }
+    if (direction === 'vertical') {
+      this.pushLine(
+        schemas,
+        element.id,
+        { x: Math.max(0, element.position.x + element.width / 2 - thickness / 2), y: element.position.y },
+        thickness,
+        element.height,
+        color,
+        style,
+      );
+      return;
+    }
+    // 대각선 — 상자의 두 모서리를 잇는다. down = 좌상→우하, up = 좌하→우상
+    const w = element.width;
+    const h = element.height;
+    const length = Math.hypot(w, h);
+    if (length <= 0) return;
+    const angle = (Math.atan2(h, w) * 180) / Math.PI;
+    const rotate = direction === 'down' ? angle : -angle;
+    if (style === 'solid') {
+      this.pushRotatedSegment(
+        schemas,
+        element.id,
+        element.position.x + w / 2,
+        element.position.y + h / 2,
+        length,
+        thickness,
+        rotate,
+        color,
+      );
+      return;
+    }
+    // 파선·점선 — 대각선 방향 단위벡터를 따라 짧은 선분으로 분해
+    const pattern = DASH_PATTERNS[style];
+    const ux = w / length;
+    const uy = (direction === 'down' ? h : -h) / length;
+    const startX = element.position.x;
+    const startY = direction === 'down' ? element.position.y : element.position.y + h;
+    let offset = 0;
+    let index = 0;
+    while (offset < length) {
+      const segment = Math.min(pattern.on, length - offset);
+      const midOffset = offset + segment / 2;
+      this.pushRotatedSegment(
+        schemas,
+        `${element.id}__d${index++}`,
+        startX + ux * midOffset,
+        startY + uy * midOffset,
+        segment,
+        thickness,
+        rotate,
+        color,
+      );
+      offset += pattern.on + pattern.off;
+    }
+  }
+
+  /** 중심(cx,cy)·길이·기울기(도)로 회전된 선분 하나를 추가한다 (회전 기준 = 상자 중심) */
+  private pushRotatedSegment(
+    schemas: Schema[],
+    name: string,
+    cx: number,
+    cy: number,
+    length: number,
+    thickness: number,
+    rotate: number,
+    color: string,
+  ): void {
+    this.push(
+      schemas,
+      {
+        name,
+        type: 'line',
+        position: { x: cx - length / 2, y: cy - thickness / 2 },
+        width: length,
+        height: thickness,
+        color,
+        opacity: 1,
+        rotate,
+      },
+      '',
+    );
+  }
+
+  /** 정다각형 — svg 폴리곤으로 그린다 (첫 꼭짓점 위쪽, 상자에 내접, ADR-032) */
+  private appendPolygon(schemas: Schema[], element: PolygonElement): void {
+    const borderWidth = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
+    const borderColor = element.borderColor ?? DEFAULT_BORDER_COLOR;
+    const w = element.width;
+    const h = element.height;
+    const fill = element.backgroundColor ?? 'none';
+    const points = polygonPoints(element.sides, w, h)
+      .map(([x, y]) => `${round3(x)},${round3(y)}`)
+      .join(' ');
+    // viewBox를 mm 크기 그대로 두어 stroke-width가 mm 단위로 일치한다
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">` +
+      `<polygon points="${points}" fill="${fill}" ` +
+      `stroke="${borderWidth > 0 ? borderColor : 'none'}" stroke-width="${borderWidth}"/></svg>`;
+    this.push(
+      schemas,
+      {
+        name: element.id,
+        type: 'svg',
+        position: element.position,
+        width: w,
+        height: h,
+        content: '',
+        opacity: 1,
+        rotate: 0,
+      },
+      svg,
     );
   }
 
@@ -541,12 +738,42 @@ class SlipToPdfmeConverter {
     width: number,
     height: number,
     color: string,
+    style: BorderStyle = 'solid',
   ): void {
-    this.push(
-      schemas,
-      { name, type: 'line', position, width, height, color, opacity: 1, rotate: 0 },
-      '',
-    );
+    if (style === 'solid') {
+      this.push(
+        schemas,
+        { name, type: 'line', position, width, height, color, opacity: 1, rotate: 0 },
+        '',
+      );
+      return;
+    }
+    // 파선·점선 — 진행 방향(긴 쪽)을 따라 짧은 선분으로 분해한다 (ADR-032)
+    const pattern = DASH_PATTERNS[style];
+    const horizontal = width >= height;
+    const length = horizontal ? width : height;
+    let offset = 0;
+    let index = 0;
+    while (offset < length) {
+      const segment = Math.min(pattern.on, length - offset);
+      this.push(
+        schemas,
+        {
+          name: `${name}~${index++}`,
+          type: 'line',
+          position: horizontal
+            ? { x: position.x + offset, y: position.y }
+            : { x: position.x, y: position.y + offset },
+          width: horizontal ? segment : width,
+          height: horizontal ? height : segment,
+          color,
+          opacity: 1,
+          rotate: 0,
+        },
+        '',
+      );
+      offset += pattern.on + pattern.off;
+    }
   }
 
   private pushRectangle(
@@ -558,6 +785,7 @@ class SlipToPdfmeConverter {
     color: string,
     borderWidth = 0,
     borderColor = DEFAULT_BORDER_COLOR,
+    radius = 0,
   ): void {
     this.push(
       schemas,
@@ -570,13 +798,39 @@ class SlipToPdfmeConverter {
         color,
         borderWidth,
         borderColor,
-        radius: 0,
+        radius,
         opacity: 1,
         rotate: 0,
       },
       '',
     );
   }
+}
+
+
+/** 좌표를 0.001 단위로 반올림 — svg 문자열이 불필요하게 길어지지 않게 */
+function round3(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+/**
+ * 정다각형 꼭짓점 좌표(첫 꼭짓점 위쪽) — 단위원 위의 점을 상자(width×height)에
+ * 꽉 차게 정규화한다. 삼각형(sides 3)이면 (w/2,0)·(w,h)·(0,h)가 된다.
+ */
+function polygonPoints(sides: number, width: number, height: number): [number, number][] {
+  const raw: [number, number][] = Array.from({ length: sides }, (_, index) => {
+    const angle = -Math.PI / 2 + (index * 2 * Math.PI) / sides;
+    return [Math.cos(angle), Math.sin(angle)];
+  });
+  const xs = raw.map(([x]) => x);
+  const ys = raw.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const spanX = maxX - minX || 1;
+  const spanY = maxY - minY || 1;
+  return raw.map(([x, y]) => [((x - minX) / spanX) * width, ((y - minY) / spanY) * height]);
 }
 
 // ---------------------------------------------------------------------------
@@ -632,14 +886,21 @@ function contiguousRuns(count: number, predicate: (index: number) => boolean): {
  * 양식 파일은 값이 빈 상태로, 전표 파일은 스냅샷 + values로 변환된다 (ADR-008).
  *
  * @param file - 변환할 .slip 파일
- * @param options - 수식 포맷 함수에 쓸 로케일
+ * @param options - `locale`: 수식 포맷 함수 로케일 · `fontNames`: 렌더 옵션의 폰트 이름
+ *   목록(굵게 폰트 탐색용) · `fallbackFontName`: 대체 폰트 이름
  * @returns pdfme `generate()`에 넘길 템플릿과 입력값
  */
 export function convertSlipFile(
   file: SlipFile,
-  options?: { locale?: string },
+  options?: { locale?: string; fontNames?: readonly string[]; fallbackFontName?: string },
 ): PdfmeRenderInput {
   const body = file.kind === 'template' ? file.template : file.templateSnapshot;
   const values: Record<string, unknown> = file.kind === 'voucher' ? file.values : {};
-  return new SlipToPdfmeConverter(body, values, options?.locale).convert();
+  return new SlipToPdfmeConverter(
+    body,
+    values,
+    options?.locale,
+    options?.fontNames ?? [],
+    options?.fallbackFontName,
+  ).convert();
 }

@@ -48,6 +48,8 @@ export const SLIP_LIMITS = {
   maxGridCells: 100_000,
   /** 동적 표 최대 열 수 */
   maxTableColumns: 100,
+  /** 바인딩 정의부 최대 항목 수 */
+  maxBindings: 500,
 } as const;
 
 const HTTP_SRC = /^https?:\/\/\S+$/;
@@ -91,12 +93,21 @@ const elementBaseShape = {
   position: z.object({ x: nonNegativeMm, y: nonNegativeMm }),
   width: nonNegativeMm,
   height: nonNegativeMm,
+  /** 그룹 식별자 — 같은 값을 가진 요소들을 한 묶음으로 다룬다 (ADR-032, 편집 UI는 v2 후반) */
+  group: z.string().min(1).optional(),
 };
 
 const fontShape = {
   fontName: z.string().min(1).optional(),
   fontSize: z.number().positive().optional(),
   alignment: alignmentSchema.optional(),
+  /**
+   * 굵게 — 렌더 시 유효 폰트의 `<이름>-Bold` 폰트로 전환한다.
+   * 굵은 폰트가 없으면 PDF에서는 무시된다 (ADR-032, SPEC §5)
+   */
+  bold: z.boolean().optional(),
+  underline: z.boolean().optional(),
+  strikethrough: z.boolean().optional(),
 };
 
 // ---------------------------------------------------------------------------
@@ -183,27 +194,52 @@ const fixedGridElementSchema = z
     });
   });
 
+/** 동적 표의 열 — 물리 데이터 키·표시 제목·너비를 분리한다 (ADR-032) */
+const tableColumnSchema = z.object({
+  /** 행 객체에서 값을 읽는 물리 키 — 제목을 바꿔도 데이터·수식이 깨지지 않는다 */
+  key: idSchema,
+  /** 머리행에 표시하는 제목 */
+  title: z.string(),
+  /** 열 너비 비율(%) — 전체 합 100 */
+  widthPercentage: z.number().positive(),
+});
+
 /** 데이터 행 수에 따라 늘어나는 표. 자동 페이지 분할 대상 (ADR-011) */
 const dynamicTableElementSchema = z
   .object({
     type: z.literal('dynamicTable'),
     ...elementBaseShape,
     ...colorStyleShape,
-    head: z.array(z.string()).min(1).max(SLIP_LIMITS.maxTableColumns, `열 수는 최대 ${SLIP_LIMITS.maxTableColumns}개입니다`),
-    headWidthPercentages: percentagesSchema,
+    /** 열 정의 (키·제목·너비, ADR-032) */
+    columns: z
+      .array(tableColumnSchema)
+      .min(1)
+      .max(SLIP_LIMITS.maxTableColumns, `열 수는 최대 ${SLIP_LIMITS.maxTableColumns}개입니다`),
     /** 페이지 분할 시 머리행 반복 (ADR-011) */
     repeatHead: z.boolean(),
     /** 바인딩할 데이터 키 (전표 values의 배열 필드) */
     binding: idSchema,
   })
   .superRefine((table, ctx) => {
-    if (table.headWidthPercentages.length !== table.head.length) {
+    const sum = table.columns.reduce((acc, col) => acc + col.widthPercentage, 0);
+    if (Math.abs(sum - 100) > 0.01) {
       ctx.addIssue({
         code: 'custom',
-        path: ['headWidthPercentages'],
-        message: `headWidthPercentages 길이(${table.headWidthPercentages.length})는 head 길이(${table.head.length})와 같아야 합니다`,
+        path: ['columns'],
+        message: '열 너비 비율의 합은 100이어야 합니다',
       });
     }
+    const keys = new Set<string>();
+    table.columns.forEach((col, index) => {
+      if (keys.has(col.key)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['columns', index, 'key'],
+          message: `열 키가 중복됩니다: ${col.key}`,
+        });
+      }
+      keys.add(col.key);
+    });
   });
 
 const imageElementSchema = z.object({
@@ -212,11 +248,69 @@ const imageElementSchema = z.object({
   src: srcSchema,
 });
 
-const shapeElementSchema = z.object({
-  type: z.literal('shape'),
+// 도형은 종류마다 의미 있는 스타일이 달라 독립 요소 타입으로 나눈다 (ADR-032):
+// 선 = 색·굵기·형태·방향, 사각형 = 배경·테두리·반경, 타원·삼각형 = 배경·테두리(실선 고정)
+
+/** 선 요소 — 상자의 두 모서리(또는 중앙선)를 잇는 선분 (ADR-032) */
+const lineElementSchema = z.object({
+  type: z.literal('line'),
   ...elementBaseShape,
-  ...colorStyleShape,
-  shape: z.enum(['line', 'rect']),
+  /** 선 색 (기본 #000000) */
+  borderColor: colorSchema.optional(),
+  /** 선 굵기(mm, 기본 0.2) */
+  borderWidth: nonNegativeMm.optional(),
+  /** 선 형태 — 파선·점선은 짧은 선분으로 분해해 그린다 (ADR-032) */
+  borderStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
+  /**
+   * 선 방향 (기본 horizontal). down = 좌상→우하, up = 좌하→우상 —
+   * 상자의 두 모서리를 잇는 대각선으로 임의 선분을 표현한다
+   */
+  lineDirection: z.enum(['horizontal', 'vertical', 'down', 'up']).optional(),
+});
+
+/** 사각형 요소 */
+const rectElementSchema = z
+  .object({
+    type: z.literal('rect'),
+    ...elementBaseShape,
+    backgroundColor: colorSchema.optional(),
+    borderColor: colorSchema.optional(),
+    borderWidth: nonNegativeMm.optional(),
+    borderStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
+    /** 모서리 반경(mm) — 파선·점선과 동시 지정 금지 (곡선 구간은 분해 렌더 불가, ADR-032) */
+    radius: nonNegativeMm.optional(),
+  })
+  .superRefine((rect, ctx) => {
+    if (rect.radius !== undefined && rect.radius > 0 && rect.borderStyle !== undefined && rect.borderStyle !== 'solid') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['radius'],
+        message: 'radius와 파선·점선 테두리는 함께 지정할 수 없습니다',
+      });
+    }
+  });
+
+/** 타원 요소 — 상자에 내접. 곡선 테두리라 형태는 실선 고정 (ADR-032) */
+const ellipseElementSchema = z.object({
+  type: z.literal('ellipse'),
+  ...elementBaseShape,
+  backgroundColor: colorSchema.optional(),
+  borderColor: colorSchema.optional(),
+  borderWidth: nonNegativeMm.optional(),
+});
+
+/**
+ * 정다각형 요소 — 변 수(3=삼각형, 5=오각형, 6=육각형…)로 모양을 정하고 상자에
+ * 내접한다 (첫 꼭짓점 위쪽, ADR-032). 테두리는 실선 고정
+ */
+const polygonElementSchema = z.object({
+  type: z.literal('polygon'),
+  ...elementBaseShape,
+  /** 변 수 (3~12) */
+  sides: z.number().int().min(3, '변 수는 3 이상이어야 합니다').max(12, '변 수는 최대 12입니다'),
+  backgroundColor: colorSchema.optional(),
+  borderColor: colorSchema.optional(),
+  borderWidth: nonNegativeMm.optional(),
 });
 
 /** 전표 작성 시 값이 채워지는 입력 필드 */
@@ -231,13 +325,16 @@ const fieldElementSchema = z.object({
   ...fontShape,
 });
 
-/** 요소 6종 판별 유니온 (type 필드 기준, ADR-020) */
+/** 요소 9종 판별 유니온 (type 필드 기준, ADR-020/032) */
 export const slipElementSchema = z.discriminatedUnion('type', [
   textElementSchema,
   fixedGridElementSchema,
   dynamicTableElementSchema,
   imageElementSchema,
-  shapeElementSchema,
+  lineElementSchema,
+  rectElementSchema,
+  ellipseElementSchema,
+  polygonElementSchema,
   fieldElementSchema,
 ]);
 
@@ -275,8 +372,33 @@ const slipPageSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// 전표 값 (JSON 값 — 양식 sampleValues와 전표 values가 함께 쓴다)
+// ---------------------------------------------------------------------------
+
+/** JSON으로 표현 가능한 값 (전표 values의 값 타입) */
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+/** JSON으로 표현 가능한 값 (전표 values) */
+const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonValueSchema),
+    z.record(z.string(), jsonValueSchema),
+  ]),
+);
+
+// ---------------------------------------------------------------------------
 // 양식(템플릿) 본문
 // ---------------------------------------------------------------------------
+
+/** 바인딩 정의 — 물리명(key)은 파일·수식·연동에, 논리명(label)은 화면 표시에 (ADR-032) */
+const bindingDefSchema = z.object({
+  key: idSchema,
+  label: z.string().min(1).optional(),
+});
 
 const templateMetaSchema = z.object({
   title: z.string().min(1),
@@ -291,8 +413,27 @@ export const slipTemplateBodySchema = z
     paper: paperSchema,
     pages: z.array(slipPageSchema).min(1).max(SLIP_LIMITS.maxPages, `페이지는 최대 ${SLIP_LIMITS.maxPages}개입니다`),
     assets: z.array(assetEntrySchema).max(SLIP_LIMITS.maxAssets, `에셋은 최대 ${SLIP_LIMITS.maxAssets}개입니다`),
+    /** 바인딩 정의부 (선택, ADR-032) — 요소가 미등록 키를 쓰는 것도 허용한다 */
+    bindings: z
+      .array(bindingDefSchema)
+      .max(SLIP_LIMITS.maxBindings, `바인딩 정의는 최대 ${SLIP_LIMITS.maxBindings}개입니다`)
+      .optional(),
+    /** 미리보기용 샘플 값 (선택, ADR-032) — 발행·무결성과 무관, 전표 생성 시 미포함 */
+    sampleValues: z.record(z.string(), jsonValueSchema).optional(),
   })
   .superRefine((body, ctx) => {
+    // 바인딩 정의부 key 유일성 (ADR-032)
+    const bindingKeys = new Set<string>();
+    body.bindings?.forEach((binding, index) => {
+      if (bindingKeys.has(binding.key)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['bindings', index, 'key'],
+          message: `바인딩 key가 중복됩니다: ${binding.key}`,
+        });
+      }
+      bindingKeys.add(binding.key);
+    });
     // 에셋 id 유일성
     const assetIds = new Set<string>();
     body.assets.forEach((asset, index) => {
@@ -368,21 +509,6 @@ export const slipEnvelopeSchema = z.object({
   schemaVersion: semverSchema,
   kind: z.enum(['template', 'voucher']),
 });
-
-/** JSON으로 표현 가능한 값 (전표 values) */
-const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(jsonValueSchema),
-    z.record(z.string(), jsonValueSchema),
-  ]),
-);
-
-/** JSON으로 표현 가능한 값 (전표 values의 값 타입) */
-export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 /** 양식(template) 파일 전체 */
 export const slipTemplateFileSchema = z.object({
@@ -539,13 +665,23 @@ export type FixedGridCell = z.infer<typeof fixedGridCellSchema>;
 export type FixedGridElement = z.infer<typeof fixedGridElementSchema>;
 /** 동적 행 표 요소 */
 export type DynamicTableElement = z.infer<typeof dynamicTableElementSchema>;
+/** 동적 표의 열 정의 (물리 키·표시 제목·너비, ADR-032) */
+export type TableColumn = z.infer<typeof tableColumnSchema>;
+/** 바인딩 정의 (물리명 key + 논리명 label, ADR-032) */
+export type BindingDef = z.infer<typeof bindingDefSchema>;
 /** 이미지 요소 */
 export type ImageElement = z.infer<typeof imageElementSchema>;
-/** 도형(선·사각형) 요소 */
-export type ShapeElement = z.infer<typeof shapeElementSchema>;
+/** 선 요소 (ADR-032) */
+export type LineElement = z.infer<typeof lineElementSchema>;
+/** 사각형 요소 (ADR-032) */
+export type RectElement = z.infer<typeof rectElementSchema>;
+/** 타원 요소 (ADR-032) */
+export type EllipseElement = z.infer<typeof ellipseElementSchema>;
+/** 정다각형 요소 (ADR-032) — sides 3=삼각형, 5=오각형 … */
+export type PolygonElement = z.infer<typeof polygonElementSchema>;
 /** 필드 요소 (전표 값 바인딩) */
 export type FieldElement = z.infer<typeof fieldElementSchema>;
-/** 요소 6종 유니온 */
+/** 요소 9종 유니온 */
 export type SlipElement = z.infer<typeof slipElementSchema>;
 /** 페이지 (요소 배열) */
 export type SlipPage = z.infer<typeof slipPageSchema>;

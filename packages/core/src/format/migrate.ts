@@ -27,7 +27,58 @@ export const BUILT_IN_MIGRATIONS: readonly SlipMigrationStep[] = [
     to: '0.1.1',
     migrate: (document) => document,
   },
+  {
+    // 0.2.0 (ADR-032): 동적 표 head/headWidthPercentages → columns(키=옛 제목이라 전표 값 호환),
+    // shape 요소를 독립 타입(line/rect)으로 분해 — 선은 lineDirection 명시(옛 규칙 = 긴 쪽 방향).
+    from: '0.1.1',
+    to: '0.2.0',
+    migrate: migrateTo020,
+  },
 ];
+
+function migrateTo020(document: Record<string, unknown>): Record<string, unknown> {
+  // 문서는 파싱된 JSON이므로 JSON 왕복 복사로 충분하다 (원본은 건드리지 않는다)
+  const next = JSON.parse(JSON.stringify(document)) as Record<string, unknown>;
+  const body = (next['kind'] === 'template' ? next['template'] : next['templateSnapshot']) as
+    | { pages?: { elements?: Record<string, unknown>[] }[] }
+    | undefined;
+  for (const page of body?.pages ?? []) {
+    for (const element of page.elements ?? []) {
+      // 옛 필드가 있을 때만 변환한다 — 이미 신형이면 그대로 통과 (구조가 어긋난 문서는
+      // 마이그레이션 뒤의 본문 검증이 거부한다)
+      if (element['type'] === 'dynamicTable' && Array.isArray(element['head'])) {
+        const head = element['head'] as unknown[];
+        const widths = Array.isArray(element['headWidthPercentages'])
+          ? (element['headWidthPercentages'] as unknown[])
+          : [];
+        element['columns'] = head.map((title, index) => ({
+          key: String(title),
+          title: String(title),
+          widthPercentage: widths[index] ?? 0,
+        }));
+        delete element['head'];
+        delete element['headWidthPercentages'];
+      }
+      // 0.1.x의 shape 요소는 독립 타입으로 분해한다 (ADR-032: 종류마다 스타일이 달라 타입 분리)
+      if (element['type'] === 'shape') {
+        if (element['shape'] === 'line') {
+          element['type'] = 'line';
+          const width = typeof element['width'] === 'number' ? element['width'] : 0;
+          const height = typeof element['height'] === 'number' ? element['height'] : 0;
+          element['lineDirection'] = width >= height ? 'horizontal' : 'vertical';
+          // 선에 의미 없는 스타일은 버린다 (0.1.x에서도 렌더에 쓰이지 않았다)
+          delete element['backgroundColor'];
+          delete element['fontColor'];
+        } else {
+          element['type'] = 'rect';
+          delete element['fontColor'];
+        }
+        delete element['shape'];
+      }
+    }
+  }
+  return next;
+}
 
 /** 마이그레이션 불가 오류 (미래 버전·경로 없음·순환 등) */
 export class SlipMigrationError extends Error {

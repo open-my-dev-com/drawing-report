@@ -6,7 +6,7 @@
  */
 import { generate } from '@pdfme/generator';
 import type { Font } from '@pdfme/common';
-import { image, line, rectangle, table, text } from '@pdfme/schemas';
+import { ellipse, image, line, rectangle, svg, table, text } from '@pdfme/schemas';
 import type { SlipFile } from '../format/schema.js';
 import { convertSlipFile } from './convert.js';
 import { SlipRenderError } from './errors.js';
@@ -40,16 +40,21 @@ function toEngineFont(fonts: RenderOptions['fonts']): Font | undefined {
  */
 export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer {
   const font = toEngineFont(options.fonts);
+  // 굵게 폰트 탐색용 정보 — 변환 계층이 `<이름>-Bold` 폰트를 찾을 수 있게 한다 (ADR-032)
+  const fontNames = options.fonts?.map((f) => f.name) ?? [];
+  const fallbackFontName = options.fonts?.find((f) => f.fallback === true)?.name
+    ?? options.fonts?.[0]?.name;
   return {
     async renderToPdf(file: SlipFile): Promise<Uint8Array> {
-      const { template, inputs } = convertSlipFile(
-        file,
-        options.locale === undefined ? undefined : { locale: options.locale },
-      );
+      const { template, inputs } = convertSlipFile(file, {
+        ...(options.locale === undefined ? {} : { locale: options.locale }),
+        fontNames,
+        ...(fallbackFontName === undefined ? {} : { fallbackFontName }),
+      });
       return generate({
         template,
         inputs,
-        plugins: { text, table, line, rectangle, image },
+        plugins: { text, table, line, rectangle, ellipse, svg, image },
         ...(font ? { options: { font } } : {}),
       });
     },
