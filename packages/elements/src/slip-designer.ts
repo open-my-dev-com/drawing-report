@@ -286,6 +286,8 @@ export class SlipDesigner extends LitElement {
       box-shadow: 0 0 0 1px var(--sk-accent);
     }
     .thumb-paper {
+      /* span이 인라인으로 남으면 width·height가 무시돼 축소 상자가 밖으로 흘러나온다 */
+      display: block;
       position: relative;
       margin: 4px auto 0;
       background: #fff;
