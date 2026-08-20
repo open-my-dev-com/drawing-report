@@ -1058,6 +1058,37 @@ describe('<slip-designer> 표 내부 편집', () => {
     el.remove();
   });
 
+  it('선택 셀에 배경색·글자 크기·정렬을 지정하면 셀 스타일로 저장된다', async () => {
+    const el = await mountGrid();
+    await clickCell(el, 15, 15); // (0,0) 선택
+    const editor = el.shadowRoot!.querySelector('.cell-editor') as HTMLInputElement;
+    editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await el.updateComplete;
+
+    // 셀 배경색 — 셀 전용 색 버튼을 펼쳐 견본 클릭
+    const byAria = (label: string) => Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === label) as HTMLButtonElement;
+    // 선택 셀 섹션의 배경색 버튼(요소 스타일 섹션에도 같은 라벨이 있어 첫 번째=셀 섹션)
+    const bgButtons = Array.from(el.shadowRoot!.querySelectorAll('.color-btn'))
+      .filter((b) => b.getAttribute('aria-label') === strings.designer.backgroundColor);
+    (bgButtons[0] as HTMLElement).click();
+    await el.updateComplete;
+    byAria(`${strings.designer.backgroundColor} #d93025`).click();
+    await el.updateComplete;
+
+    // 글자 크기·정렬
+    setField(panelField(el, strings.designer.fontSize), '14');
+    await el.updateComplete;
+    byAria(`${strings.designer.cell} ${strings.designer.alignment}: ${strings.designer.alignCenter}`).click();
+    await el.updateComplete;
+
+    const cell = gridOf(el).cells.find((c) => c.row === 0 && c.column === 0)! as never as Record<string, unknown>;
+    expect(cell.backgroundColor).toBe('#d93025');
+    expect(cell.fontSize).toBe(14);
+    expect(cell.alignment).toBe('center');
+    el.remove();
+  });
+
   it('동적 표 열의 제목·키를 편집하고, 중복 키는 무시된다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addDynamicTable);

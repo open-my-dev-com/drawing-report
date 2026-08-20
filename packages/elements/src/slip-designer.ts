@@ -2015,6 +2015,23 @@ export class SlipDesigner extends LitElement {
     });
   }
 
+  /** 선택 셀의 스타일 필드를 넣거나(null이면 지운다) — 셀이 없으면 빈 내용으로 만든다 */
+  private _updateCellStyle(key: string, value: unknown): void {
+    const target = this._selectedCell;
+    if (!target) return;
+    this._updateElement((element) => {
+      if (element.type !== 'fixedGrid') return;
+      let cell = element.cells.find((c) => c.row === target.row && c.column === target.column);
+      if (!cell) {
+        cell = { row: target.row, column: target.column, content: '' };
+        element.cells.push(cell);
+      }
+      const record = cell as Record<string, unknown>;
+      if (value === null || value === undefined || value === '') delete record[key];
+      else record[key] = value;
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // 동적 표 열 편집 (C-10)
   // ---------------------------------------------------------------------------
@@ -3107,6 +3124,35 @@ export class SlipDesigner extends LitElement {
                       @change=${(e: Event) => this._setCellSpan('colSpan', Number(valOf(e)))}>
                   </div>
                 </div>
+                <div class="prop-row">
+                  <label>${s.fontSize}</label>
+                  <input type="number" step="0.5" .value=${String(selectedCellDef?.fontSize ?? '')}
+                    @change=${(e: Event) => {
+                      const v = Number(valOf(e));
+                      this._updateCellStyle('fontSize', v > 0 ? v : null);
+                    }}>
+                </div>
+                <div class="prop-row">
+                  <label>${s.alignment}</label>
+                  <div class="toggle-group" role="group" aria-label="${s.cell} ${s.alignment}">
+                    ${([
+                      ['left', s.alignLeft, icons.alignLeft],
+                      ['center', s.alignCenter, icons.alignCenter],
+                      ['right', s.alignRight, icons.alignRight],
+                    ] as const).map(([value, label, glyph]) => html`
+                      <button title=${label} aria-label="${s.cell} ${s.alignment}: ${label}"
+                        aria-pressed=${String((selectedCellDef?.alignment ?? 'left') === value)}
+                        @click=${() => this._updateCellStyle('alignment', value === 'left' ? null : value)}>${glyph}</button>`)}
+                  </div>
+                </div>
+                ${this._renderColorControl(
+                  s.backgroundColor, selectedCellDef?.backgroundColor, 'cellBackgroundColor',
+                  (v) => this._updateCellStyle('backgroundColor', v),
+                )}
+                ${this._renderColorControl(
+                  s.fontColor, selectedCellDef?.fontColor, 'cellFontColor',
+                  (v) => this._updateCellStyle('fontColor', v),
+                )}
               </div>`
             : html`<div class="prop-section"><div class="cell-hint">${s.cellHint}</div></div>`}
         `;
@@ -3274,7 +3320,26 @@ export class SlipDesigner extends LitElement {
    * 펼쳐져 바로 고를 수 있다. 저장 형식은 파일 스키마와 동일한
    * #RRGGBB(투명도 100%) / #RRGGBBAA.
    */
-  private _renderColorControl(label: string, current: string | undefined, key: string) {
+  private _renderColorControl(
+    label: string,
+    current: string | undefined,
+    key: string,
+    apply?: (value: string | null) => void,
+  ) {
+    // 색을 어디에 저장할지 — 기본은 선택 요소의 스타일 필드, 셀 편집 등은 콜백으로 대체
+    const commit = (value: string | null): void => {
+      if (apply) {
+        if (value) {
+          const hsv = hexToHsv(value);
+          if (hsv.s > 0) this._pickerH = hsv.h;
+          this._pickerS = hsv.s;
+          this._pickerV = hsv.v;
+        }
+        apply(value);
+      } else {
+        this._applyColor(key, value);
+      }
+    };
     const s = this._strings.designer;
     const base = current?.slice(0, 7) ?? '#000000';
     const alphaPct = current && current.length === 9
@@ -3319,13 +3384,13 @@ export class SlipDesigner extends LitElement {
         <div class="color-pop">
           <div class="color-extras">
             <button class="swatch none" title=${s.colorNone} aria-label="${label}: ${s.colorNone}"
-              @click=${() => this._applyColor(key, null)}></button>
+              @click=${() => commit(null)}></button>
             ${COLOR_PALETTE.map((c) => html`<button class="swatch" style="background:${c}"
               title=${c} aria-label="${label} ${c}"
-              @click=${() => this._applyColor(key, compose(c, alphaPct))}></button>`)}
+              @click=${() => commit(compose(c, alphaPct))}></button>`)}
             ${this._getCustomColors().map((c) => html`<button class="swatch custom" style="background:${c}"
               title=${c} aria-label="${label} ${c}"
-              @click=${() => this._applyColor(key, c)}></button>`)}
+              @click=${() => commit(c)}></button>`)}
             <button class="swatch-save" title=${s.saveColor} aria-label="${label}: ${s.saveColor}"
               ?disabled=${!current}
               @click=${() => {
@@ -3351,7 +3416,7 @@ export class SlipDesigner extends LitElement {
               if (this._svDragKey !== key) return;
               this._svDragKey = null;
               this._svPointTo(e);
-              this._applyColor(key, compose(hsvToHex(this._pickerH, this._pickerS, this._pickerV), alphaPct));
+              commit(compose(hsvToHex(this._pickerH, this._pickerS, this._pickerV), alphaPct));
             }}
             @pointercancel=${() => { this._svDragKey = null; }}>
             <span class="sv-thumb"
@@ -3365,7 +3430,7 @@ export class SlipDesigner extends LitElement {
               this.requestUpdate();
             }}
             @change=${() =>
-              this._applyColor(key, compose(hsvToHex(this._pickerH, this._pickerS, this._pickerV), alphaPct))}>
+              commit(compose(hsvToHex(this._pickerH, this._pickerS, this._pickerV), alphaPct))}>
           <div class="color-pop-row">
             <input .value=${current ?? ''} placeholder="#RRGGBB"
               @change=${(e: Event) => {
@@ -3375,13 +3440,13 @@ export class SlipDesigner extends LitElement {
                   this.requestUpdate();
                   return;
                 }
-                this._applyColor(key, v || null);
+                commit(v || null);
               }}>
             <input type="number" class="alpha-input" min="0" max="100" .value=${String(alphaPct)}
               title=${s.opacity} aria-label="${label} ${s.opacity}"
               @change=${(e: Event) => {
                 if (!current) return;
-                this._applyColor(key, compose(base, Number((e.target as HTMLInputElement).value)));
+                commit(compose(base, Number((e.target as HTMLInputElement).value)));
               }}>
             <span class="alpha-suffix">%</span>
           </div>
