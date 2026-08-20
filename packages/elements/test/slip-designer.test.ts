@@ -210,45 +210,59 @@ describe('<slip-designer> 양식 로드', () => {
 // 선 요소 캔버스 표시 — PDF 변환 규칙(긴 쪽 방향 직선)과 같아야 한다
 // ---------------------------------------------------------------------------
 
-describe('<slip-designer> 선 요소 캔버스 표시', () => {
-  function makeLineFile(width: number, height: number): SlipFile {
+describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)', () => {
+  function makeLineFile(direction?: 'horizontal' | 'vertical' | 'down' | 'up'): SlipFile {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{
       type: 'shape' as const,
       id: 'line-1',
       name: 'test-line',
       position: { x: 10, y: 10 },
-      width,
-      height,
+      width: 50,
+      height: 20,
       shape: 'line' as const,
-    }];
+      ...(direction ? { lineDirection: direction } : {}),
+    } as never];
     return file as unknown as SlipFile;
   }
 
-  async function mountLine(width: number, height: number) {
-    parseSlipFileMock.mockReturnValue(makeLineFile(width, height));
+  async function mountLine(direction?: 'horizontal' | 'vertical' | 'down' | 'up') {
+    parseSlipFileMock.mockReturnValue(makeLineFile(direction));
     const el = await createElement();
     el.src = '{"valid": true}';
     await el.updateComplete;
     await flush();
     await el.updateComplete;
-    return el;
+    return el.shadowRoot?.querySelector('.element svg line');
   }
 
-  it('가로가 긴 선은 가로 직선으로 그린다', async () => {
-    const el = await mountLine(50, 5);
-    const line = el.shadowRoot?.querySelector('.element svg line');
+  it('기본(미지정)·horizontal은 가로 직선으로 그린다', async () => {
+    const line = await mountLine();
     expect(line?.getAttribute('y1')).toBe(line?.getAttribute('y2'));
     expect(line?.getAttribute('x1')).not.toBe(line?.getAttribute('x2'));
-    el.remove();
   });
 
-  it('세로가 긴 선은 세로 직선으로 그린다', async () => {
-    const el = await mountLine(5, 50);
-    const line = el.shadowRoot?.querySelector('.element svg line');
+  it('vertical은 세로 직선으로 그린다', async () => {
+    const line = await mountLine('vertical');
     expect(line?.getAttribute('x1')).toBe(line?.getAttribute('x2'));
     expect(line?.getAttribute('y1')).not.toBe(line?.getAttribute('y2'));
-    el.remove();
+  });
+
+  it('down은 좌상→우하, up은 좌하→우상 대각선으로 그린다', async () => {
+    const down = await mountLine('down');
+    expect(Number(down?.getAttribute('x1'))).toBe(0);
+    expect(Number(down?.getAttribute('y1'))).toBe(0);
+    expect(Number(down?.getAttribute('x2'))).toBeGreaterThan(0);
+    expect(Number(down?.getAttribute('y2'))).toBeGreaterThan(0);
+
+    const up = await mountLine('up');
+    expect(Number(up?.getAttribute('y1'))).toBeGreaterThan(0);
+    expect(Number(up?.getAttribute('y2'))).toBe(0);
+  });
+
+  it('선 조각은 SVG 네임스페이스로 생성된다 (실브라우저에서 보이기 위한 조건)', async () => {
+    const line = await mountLine('down');
+    expect(line?.namespaceURI).toBe('http://www.w3.org/2000/svg');
   });
 });
 
@@ -301,7 +315,11 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
   it('동적 표 머리행은 배경색(기본 #eeeeee)이 칠해지고 상자 전체는 칠하지 않는다', async () => {
     const el = await mountWith([{
       type: 'dynamicTable', id: 'd1', name: 'd', position: { x: 10, y: 50 },
-      width: 90, height: 20, head: ['품명', '금액'], headWidthPercentages: [60, 40],
+      width: 90, height: 20,
+      columns: [
+        { key: 'itemName', title: '품명', widthPercentage: 60 },
+        { key: 'amount', title: '금액', widthPercentage: 40 },
+      ],
       repeatHead: true, binding: 'items', backgroundColor: '#ffee00',
     }]);
     const box = el.shadowRoot?.querySelector('.element.type-dynamicTable') as HTMLElement;
@@ -822,7 +840,8 @@ describe('<slip-designer> 사이드바', () => {
         } as never,
         {
           type: 'dynamicTable' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
-          width: 180, height: 20, head: ['a'], headWidthPercentages: [100],
+          width: 180, height: 20,
+          columns: [{ key: 'a', title: 'a', widthPercentage: 100 }],
           repeatHead: true, binding: 'items',
         } as never,
       ],

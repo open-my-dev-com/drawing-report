@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
+import { LitElement, css, html, nothing, svg, type TemplateResult } from 'lit';
 import {
   parseSlipFile,
   renderSlipToPdf,
@@ -98,6 +98,29 @@ function fontPx(size: number | undefined): string {
 /** 정렬 값을 flex 정렬로 (기본 left — PDF 변환 기본값과 동일) */
 function justifyOf(alignment: 'left' | 'center' | 'right' | undefined): string {
   return alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
+}
+
+/** 글자 스타일(굵게·밑줄·취소선)을 CSS 조각으로 — 앞에 ;가 붙은 형태 (0.2.0, ADR-032) */
+function textStyleCss(style: {
+  bold?: boolean | undefined;
+  underline?: boolean | undefined;
+  strikethrough?: boolean | undefined;
+}): string {
+  const decorations = [
+    style.underline === true ? 'underline' : '',
+    style.strikethrough === true ? 'line-through' : '',
+  ].filter(Boolean).join(' ');
+  return (
+    (style.bold === true ? ';font-weight:700' : '') +
+    (decorations ? `;text-decoration:${decorations}` : '')
+  );
+}
+
+/** 캔버스 도형의 파선·점선 근사 표시용 stroke-dasharray (px) — PDF 분해 렌더 패턴과 동일 비율 */
+function dashArrayOf(style: 'solid' | 'dashed' | 'dotted' | undefined): string | undefined {
+  if (style === 'dashed') return `${2.4 * PX_PER_MM} ${1.2 * PX_PER_MM}`;
+  if (style === 'dotted') return `${0.4 * PX_PER_MM} ${0.8 * PX_PER_MM}`;
+  return undefined;
 }
 
 /** #RRGGBB(AA) → HSV(h 0~360, s·v 0~1) — 색 피커 초기 위치 계산용 */
@@ -1212,8 +1235,12 @@ export class SlipDesigner extends LitElement {
       case 'dynamicTable':
         element = {
           type: 'dynamicTable', id, name, position, width: 180, height: 20,
-          head: [...this._strings.designer.defaultTableHead],
-          headWidthPercentages: [40, 30, 30],
+          // 물리 키는 camelCase 고정, 제목은 UI 언어를 따른다 (ADR-032)
+          columns: this._strings.designer.defaultTableHead.map((title, index) => ({
+            key: `col${index + 1}`,
+            title,
+            widthPercentage: index === 0 ? 40 : 30,
+          })),
           repeatHead: true, binding: 'items',
         };
         break;
@@ -1855,15 +1882,27 @@ export class SlipDesigner extends LitElement {
 
     const elements = this._currentElements() ?? [];
 
-    // 양식 전체의 바인딩 목록 — 같은 이름은 처음 나온 요소 하나로 대표한다
-    const bindings: { binding: string; pageIndex: number; id: string; glyph: TemplateResult }[] = [];
+    // 양식 전체의 바인딩 목록 — 같은 이름은 처음 나온 요소 하나로 대표한다.
+    // 정의부(ADR-032)에 논리명이 있으면 그 이름으로 표시한다 (물리명은 title로 확인)
+    const labelOf = new Map<string, string>(
+      (file.template.bindings ?? [])
+        .filter((b) => b.label !== undefined)
+        .map((b) => [b.key, b.label!]),
+    );
+    const bindings: { binding: string; label: string; pageIndex: number; id: string; glyph: TemplateResult }[] = [];
     const seen = new Set<string>();
     file.template.pages.forEach((page, pageIndex) => {
       for (const el of page.elements) {
         if (el.type !== 'field' && el.type !== 'dynamicTable') continue;
         if (seen.has(el.binding)) continue;
         seen.add(el.binding);
-        bindings.push({ binding: el.binding, pageIndex, id: el.id, glyph: TYPE_BADGE[el.type] });
+        bindings.push({
+          binding: el.binding,
+          label: labelOf.get(el.binding) ?? el.binding,
+          pageIndex,
+          id: el.id,
+          glyph: TYPE_BADGE[el.type],
+        });
       }
     });
 
@@ -1907,7 +1946,7 @@ export class SlipDesigner extends LitElement {
           : bindings.map((b) => html`
               <button class="side-row" title=${b.binding}
                 @click=${() => this._selectFromSidebar(b.pageIndex, b.id)}>
-                ${b.glyph}<span>${b.binding}</span>
+                ${b.glyph}<span>${b.label}</span>
               </button>`)}
       </div>
     `;
@@ -1980,7 +2019,9 @@ export class SlipDesigner extends LitElement {
 
     let style = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
 
-    if (el.type !== 'image') {
+    // 선·타원·삼각형은 svg로 그린다 — 상자(div)에 배경·테두리를 칠하면 PDF와 어긋난다
+    const drawnAsSvg = el.type === 'shape' && el.shape !== 'rect';
+    if (el.type !== 'image' && !drawnAsSvg) {
       const r = el as Record<string, unknown>;
       // 동적 표의 배경색은 머리행 배경으로만 쓴다 (PDF 변환과 동일) — 상자 전체를 칠하지 않는다
       if (r.backgroundColor && el.type !== 'dynamicTable') style += `;background-color:${r.backgroundColor}`;
@@ -1989,6 +2030,15 @@ export class SlipDesigner extends LitElement {
       // 테두리 굵기를 명시했을 때만 반영 (미지정 시 편집용 실선 유지)
       if (typeof r.borderWidth === 'number' && r.borderWidth > 0) {
         style += `;border-width:${(r.borderWidth * PX_PER_MM).toFixed(2)}px`;
+      }
+      if (el.type === 'shape' && el.shape === 'rect') {
+        // 모서리 반경·테두리 형태는 사각형 도형에서만 PDF와 함께 지원 (ADR-032)
+        if (el.radius !== undefined && el.radius > 0) {
+          style += `;border-radius:${(el.radius * PX_PER_MM).toFixed(2)}px`;
+        }
+        if (el.borderStyle === 'dashed' || el.borderStyle === 'dotted') {
+          style += `;border-style:${el.borderStyle}`;
+        }
       }
     }
 
@@ -2006,7 +2056,7 @@ export class SlipDesigner extends LitElement {
     switch (el.type) {
       case 'text':
         return html`<span class="el-content"
-          style="font-size:${fontPx(el.fontSize)};justify-content:${justifyOf(el.alignment)}"
+          style="font-size:${fontPx(el.fontSize)};justify-content:${justifyOf(el.alignment)}${textStyleCss(el)}"
           >${el.content}</span>`;
 
       case 'fixedGrid':
@@ -2015,8 +2065,8 @@ export class SlipDesigner extends LitElement {
       case 'dynamicTable':
         // PDF 변환과 동일하게: 요소 배경색 = 머리행 배경(기본 #eeeeee), 머리행은 가운데 정렬
         return html`<div class="table-preview">
-          ${el.head.map((h, i) =>
-            html`<div style="flex:${el.headWidthPercentages[i]};background-color:${el.backgroundColor ?? '#eeeeee'}">${h}</div>`,
+          ${el.columns.map((col) =>
+            html`<div style="flex:${col.widthPercentage};background-color:${el.backgroundColor ?? '#eeeeee'}">${col.title}</div>`,
           )}
         </div>`;
 
@@ -2026,20 +2076,55 @@ export class SlipDesigner extends LitElement {
           : html`<span class="el-content">${this._strings.designer.typeImage}</span>`;
 
       case 'shape':
-        // PDF 변환 규칙과 동일하게: 긴 쪽 방향의 직선, 가운데 정렬 (convert.ts appendShape)
-        return el.shape === 'line'
-          ? html`<svg viewBox="0 0 100 100" preserveAspectRatio="none">
-              ${el.width >= el.height
-                ? html`<line x1="0" y1="50" x2="100" y2="50" stroke="#333" stroke-width="2" />`
-                : html`<line x1="50" y1="0" x2="50" y2="100" stroke="#333" stroke-width="2" />`}
-            </svg>`
-          : nothing;
+        return this._renderShapePreview(el);
 
       case 'field':
         return html`<span class="el-content"
-          style="font-size:${fontPx(el.fontSize)};justify-content:${justifyOf(el.alignment)}"
+          style="font-size:${fontPx(el.fontSize)};justify-content:${justifyOf(el.alignment)}${textStyleCss(el)}"
           >{${el.binding}}</span>`;
     }
+  }
+
+  /**
+   * 도형 캔버스 표시 — PDF 변환(convert.ts appendShape)과 같은 규칙으로
+   * 선 방향·타원·삼각형·파선을 그린다 (사각형은 상자 div의 배경·테두리로 표시).
+   * svg 안의 조각은 lit svg 템플릿으로 만들어야 SVG 네임스페이스로 생성된다.
+   */
+  private _renderShapePreview(el: SlipElement & { type: 'shape' }) {
+    if (el.shape === 'rect') return nothing;
+
+    const w = Math.max(1, el.width * PX_PER_MM);
+    const h = Math.max(1, el.height * PX_PER_MM);
+    const stroke = el.borderColor ?? '#000000';
+    const strokeWidth = Math.max(1, (el.borderWidth ?? 0.2) * PX_PER_MM);
+    const dash = dashArrayOf(el.borderStyle);
+    const fill = el.backgroundColor ?? 'none';
+
+    if (el.shape === 'line') {
+      const direction = el.lineDirection ?? 'horizontal';
+      const [x1, y1, x2, y2] =
+        direction === 'horizontal' ? [0, h / 2, w, h / 2]
+        : direction === 'vertical' ? [w / 2, 0, w / 2, h]
+        : direction === 'down' ? [0, 0, w, h]
+        : [0, h, w, 0];
+      return html`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        ${svg`<line x1=${x1} y1=${y1} x2=${x2} y2=${y2} stroke=${stroke}
+          stroke-width=${strokeWidth} stroke-dasharray=${dash ?? nothing} />`}
+      </svg>`;
+    }
+    if (el.shape === 'ellipse') {
+      // 곡선 테두리는 실선 고정 (PDF 렌더 규칙과 동일, ADR-032)
+      return html`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        ${svg`<ellipse cx=${w / 2} cy=${h / 2} rx=${Math.max(0, (w - strokeWidth) / 2)}
+          ry=${Math.max(0, (h - strokeWidth) / 2)} fill=${fill} stroke=${stroke}
+          stroke-width=${strokeWidth} />`}
+      </svg>`;
+    }
+    // triangle — 위 꼭짓점·아래 밑변 (convert.ts appendTriangle과 동일)
+    return html`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      ${svg`<polygon points="${w / 2},0 ${w},${h} 0,${h}" fill=${fill} stroke=${stroke}
+        stroke-width=${strokeWidth} />`}
+    </svg>`;
   }
 
   /**
@@ -2084,7 +2169,7 @@ export class SlipDesigner extends LitElement {
           `justify-content:${justifyOf(cell.alignment)}`,
           cell.backgroundColor ? `background-color:${cell.backgroundColor}` : '',
           cell.fontColor ? `color:${cell.fontColor}` : '',
-        ].filter(Boolean).join(';');
+        ].filter(Boolean).join(';') + textStyleCss(cell);
         boxes.push(html`<div style=${style}>${cell.content}</div>`);
       }
     }
@@ -2410,12 +2495,40 @@ export class SlipDesigner extends LitElement {
               <label>${s.shapeType}</label>
               <select .value=${el.shape}
                 @change=${(e: Event) => this._updateElement((el) => {
-                  if (el.type === 'shape') el.shape = valOf(e) as 'line' | 'rect';
+                  if (el.type !== 'shape') return;
+                  const next = valOf(e) as 'line' | 'rect' | 'ellipse' | 'triangle';
+                  el.shape = next;
+                  // 종류 전용 필드는 옮겨 다니지 않게 정리한다 (스키마 검증 규칙, ADR-032)
+                  const r = el as Record<string, unknown>;
+                  if (next !== 'line') delete r.lineDirection;
+                  if (next !== 'rect') delete r.radius;
                 })}>
-                <option value="rect">${s.shapeRect}</option>
-                <option value="line">${s.shapeLine}</option>
+                <option value="rect" ?selected=${el.shape === 'rect'}>${s.shapeRect}</option>
+                <option value="line" ?selected=${el.shape === 'line'}>${s.shapeLine}</option>
+                <option value="ellipse" ?selected=${el.shape === 'ellipse'}>${s.shapeEllipse}</option>
+                <option value="triangle" ?selected=${el.shape === 'triangle'}>${s.shapeTriangle}</option>
               </select>
             </div>
+            ${el.shape === 'line' ? html`
+              <div class="prop-row">
+                <label>${s.lineDirection}</label>
+                <select .value=${el.lineDirection ?? 'horizontal'}
+                  @change=${(e: Event) => this._updateElement((el) => {
+                    if (el.type === 'shape') {
+                      el.lineDirection = valOf(e) as 'horizontal' | 'vertical' | 'down' | 'up';
+                    }
+                  })}>
+                  ${([
+                    ['horizontal', s.lineHorizontal],
+                    ['vertical', s.lineVertical],
+                    ['down', s.lineDown],
+                    ['up', s.lineUp],
+                  ] as const).map(([value, label]) => html`
+                    <option value=${value} ?selected=${(el.lineDirection ?? 'horizontal') === value}>
+                      ${label}
+                    </option>`)}
+                </select>
+              </div>` : nothing}
           </div>
         `;
 
@@ -2447,7 +2560,7 @@ export class SlipDesigner extends LitElement {
             </div>
             <div class="prop-row">
               <label>${s.head}</label>
-              <input .value=${el.head.join(', ')} disabled>
+              <input .value=${el.columns.map((col) => col.title).join(', ')} disabled>
             </div>
           </div>
         `;

@@ -88,10 +88,10 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 무
       kind: 'voucher',
       templateSnapshot: designed.template,
       values: {
-        거래일자: '2026-08-19',
+        tradeDate: '2026-08-19',
         items: [
-          { 품명: '노트', 규격: 'A5', 수량: 2, 단가: 1500, 금액: 3000 },
-          { 품명: '볼펜', 규격: '0.5mm', 수량: 10, 단가: 500, 금액: 5000 },
+          { itemName: '노트', spec: 'A5', quantity: 2, unitPrice: 1500, amount: 3000 },
+          { itemName: '볼펜', spec: '0.5mm', quantity: 10, unitPrice: 500, amount: 5000 },
         ],
       },
       issued: false,

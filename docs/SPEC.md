@@ -4,8 +4,8 @@
 > JSON Schema만으로 `.slip` 파일을 읽고 쓸 수 있어야 한다.
 > 레퍼런스 구현은 `@omdc-slipkit/core`이며, 이 문서와 구현이 어긋나면 이 문서가 우선한다.
 
-- 상태: **Draft** (schemaVersion `0.1.1`)
-- 최종 갱신: 2026-08-19
+- 상태: **Draft** (schemaVersion `0.2.0`)
+- 최종 갱신: 2026-08-20
 - 근거 ADR: 001, 007, 008, 011, 014, 018, 019, 020, 022
 
 이 문서에서 **필수/금지/해야 한다**는 규범 요구사항을, *권장*은 비규범 권고를 뜻한다.
@@ -31,12 +31,13 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 모든 `.slip` 문서의 최상위에는 다음 두 필드가 **필수**다:
 
 ```json
-{ "schemaVersion": "0.1.1", "kind": "template" }
+{ "schemaVersion": "0.2.0", "kind": "template" }
 ```
 
 - `schemaVersion`: 이 문서가 따르는 스키마 버전. `MAJOR.MINOR.PATCH` semver 형식 필수.
-- 현재 버전은 **`0.1.1`**이다. 제품 v1 안정 릴리스 시점에 `1.0.0`으로 확정한다.
-  (이력: 0.1.0 최초 공개 → 0.1.1 구조 크기 상한 추가(§3.2) — 필드 구조 변화 없음)
+- 현재 버전은 **`0.2.0`**이다. 제품 v1 안정 릴리스 시점에 `1.0.0`으로 확정한다.
+  (이력: 0.1.0 최초 공개 → 0.1.1 구조 크기 상한 추가(§3.2) → 0.2.0 동적 표 열 구조·선 방향·
+  타원/삼각형·글자 스타일·바인딩 정의부·샘플 값·요소 그룹 (ADR-032))
 
 ### 2.1 버전 처리 규칙 (ADR-007)
 
@@ -86,7 +87,8 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 | `fixedGrid.rows` | 1,000 |
 | `fixedGrid.columns` | 100 |
 | `fixedGrid.cells` 수 | 100,000 |
-| `dynamicTable.head` 길이 | 100 |
+| `dynamicTable.columns` 길이 | 100 |
+| `bindings` 길이 | 500 |
 | `field.formula` 길이 | 10,000자 |
 | 수식 중첩 깊이 (괄호·함수 인자·부호) | 100단계 |
 | 값(`values` 등)의 중첩 깊이 | 256단계 |
@@ -113,6 +115,8 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 | `paper` | ✅ | 용지 크기(mm)와 여백. `padding`은 `[top, right, bottom, left]`. 여백 합은 용지보다 작아야 한다 |
 | `pages` | ✅ | 1개 이상의 페이지. 각 페이지는 `elements` 배열 (ADR-011: 페이지는 1급 개념) |
 | `assets` | ✅ | 내장 리소스 목록 (빈 배열 가능). `id`는 문서 내 유일 필수 |
+| `bindings` | — | 바인딩 정의부 (ADR-032): `{ key, label? }` 배열. **물리명 `key`**는 파일·수식·백엔드 연동에, **논리명 `label`**은 화면 표시에 쓴다. `key`는 목록 안에서 유일. 정의부는 보조 정보이며 요소가 미등록 키를 쓰는 것도 허용된다 |
+| `sampleValues` | — | 미리보기용 샘플 값 (ADR-032): 바인딩 물리명 → JSON 값. 발행·무결성 계산과 무관하며 전표 생성 시 복사하지 않는다 |
 
 요소 `id`는 **문서 전체에서 유일**해야 한다(페이지가 달라도 중복 금지).
 
@@ -127,12 +131,19 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 | `name` | ✅ | 디자이너에 표시되는 이름 |
 | `position` | ✅ | `{ x, y }` mm, 용지 좌상단 기준. **음수 금지** (x, y ≥ 0) |
 | `width` / `height` | ✅ | mm (0 허용 — 예: 수평선의 height) |
+| `group` | — | 그룹 식별자 (ADR-032). 같은 값을 가진 요소들을 한 묶음으로 다룬다 |
 
 색 스타일(ADR-020 — `image` 제외 전 요소): `backgroundColor`, `fontColor`,
 `borderColor`, `borderWidth`(mm), `borderStyle`(`solid`|`dashed`|`dotted`) — 전부 선택.
-(비규범: v1 PDF 렌더러는 `dashed`/`dotted`를 `solid`로 그린다.)
 
-글꼴(텍스트류): `fontName`, `fontSize`(pt), `alignment` — 전부 선택.
+`borderStyle`의 렌더 규칙(0.2.0, ADR-032): 파선·점선은 **직선에만** 적용된다 —
+선 요소, 사각형(`radius` 미지정), 고정 그리드선. 그 밖(텍스트·필드 테두리, 동적 표,
+타원·삼각형)은 `solid`로 그린다. 파선 = 2.4mm 선 + 1.2mm 간격, 점선 = 0.4mm 점 + 0.8mm 간격.
+
+글꼴(텍스트류 — `text`·`field`·고정 그리드 셀): `fontName`, `fontSize`(pt), `alignment`,
+`bold`, `underline`, `strikethrough` — 전부 선택 (0.2.0, ADR-032).
+`bold`는 유효 폰트(요소 `fontName`, 없으면 대체 폰트)의 `<이름>-Bold` 폰트가 렌더 옵션에
+있을 때 그 폰트로 그리며, 없으면 PDF에서 무시된다.
 
 ### 5.1 `text` — 텍스트
 
@@ -158,16 +169,18 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 
 | 필드 | 필수 | 내용 |
 |---|---|---|
-| `head` | ✅ | 열 제목 배열 (1개 이상) |
-| `headWidthPercentages` | ✅ | 길이 = `head` 길이, 합 100 |
+| `columns` | ✅ | 열 정의 배열 (1개 이상, ADR-032): `{ key, title, widthPercentage }`. `key` = 행 객체에서 값을 읽는 물리 키(목록 안 유일), `title` = 머리행 표시 제목, `widthPercentage` 합 100 |
 | `repeatHead` | ✅ | 페이지 분할 시 머리행 반복 여부 |
 | `binding` | ✅ | 전표 `values`에서 행 배열을 담는 키 |
 
 `height`는 첫 페이지에서 표가 차지할 수 있는 최대 높이이며, 넘치는 행은
 다음 페이지로 자동 분할된다. 동적 행 표의 셀 병합은 v1에서 지원하지 않는다 (ADR-020).
 
-렌더 시 행 데이터는 `values[binding]`의 각 객체에서 **`head`의 각 제목을 키로** 읽는다.
-예: `head: ["품명", "금액"]`이면 행 객체 `{ "품명": "노트", "금액": 3000 }`을 기대한다.
+렌더 시 행 데이터는 `values[binding]`의 각 객체에서 **각 열의 `key`로** 읽는다.
+예: `columns`의 key가 `["item", "amount"]`이면 행 객체 `{ "item": "노트", "amount": 3000 }`을
+기대한다. 제목(`title`)을 바꿔도 데이터·수식은 깨지지 않는다.
+(0.1.x의 `head`/`headWidthPercentages`는 마이그레이션 시 `key = title = 옛 제목`인
+`columns`로 변환된다 — 기존 전표 값과 그대로 호환.)
 
 ### 5.4 `image` — 이미지
 
@@ -175,9 +188,18 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 PDF 렌더 시 외부 URL 참조는 거부된다 — 렌더하려면 `data:` 또는 `asset://`로
 내장되어 있어야 한다 (ADR-014와 같은 원칙).
 
-### 5.5 `shape` — 선/사각형
+### 5.5 `shape` — 선/사각형/타원/삼각형
 
-`shape`(필수): `line` | `rect`. 선의 두께·색은 `borderWidth`/`borderColor`로 지정한다.
+`shape`(필수): `line` | `rect` | `ellipse` | `triangle` (0.2.0에서 타원·삼각형 추가, ADR-032).
+선의 두께·색은 `borderWidth`/`borderColor`로 지정한다.
+
+| 필드 | 필수 | 내용 |
+|---|---|---|
+| `lineDirection` | — | 선 전용 (기본 `horizontal`): `horizontal`(상자 세로 중앙의 수평선) | `vertical`(가로 중앙의 수직선) | `down`(좌상→우하 대각선) | `up`(좌하→우상 대각선). 임의 선분은 상자(position·width·height)와 방향으로 표현한다 |
+| `radius` | — | 사각형 전용 모서리 반경(mm). 파선·점선 테두리와 동시 지정 금지(곡선 구간은 분해 렌더 불가) |
+
+타원·삼각형은 상자에 내접해 그린다. 삼각형은 위 꼭짓점·아래 밑변 고정이다.
+타원·삼각형의 테두리는 `solid`로만 그려진다 (`borderStyle` 렌더 규칙 참조).
 
 ### 5.6 `field` — 입력 필드
 
@@ -194,14 +216,14 @@ PDF 렌더 시 외부 URL 참조는 거부된다 — 렌더하려면 `data:` 또
 ## 6. 양식 파일 (`kind: "template"`)
 
 ```json
-{ "schemaVersion": "0.1.1", "kind": "template", "template": { ...양식 본문(§4)... } }
+{ "schemaVersion": "0.2.0", "kind": "template", "template": { ...양식 본문(§4)... } }
 ```
 
 ## 7. 전표 파일 (`kind: "voucher"`)
 
 ```json
 {
-  "schemaVersion": "0.1.1",
+  "schemaVersion": "0.2.0",
   "kind": "voucher",
   "templateSnapshot": { ...양식 본문(§4)... },
   "values": { "total": 3000, "items": [ { "품명": "노트", "금액": 3000 } ] },

@@ -67,8 +67,11 @@ function makeBody(): SlipTemplateBody {
             position: { x: 15, y: 60 },
             width: 180,
             height: 60,
-            head: ['품명', '수량', '금액'],
-            headWidthPercentages: [50, 20, 30],
+            columns: [
+              { key: '품명', title: '품명', widthPercentage: 50 },
+              { key: '수량', title: '수량', widthPercentage: 20 },
+              { key: '금액', title: '금액', widthPercentage: 30 },
+            ],
             repeatHead: true,
             binding: 'items',
           },
@@ -338,7 +341,7 @@ describe('동적 행 표(dynamicTable) 변환', () => {
     expect(table.columnStyles).toEqual({});
   });
 
-  it('행 데이터는 head의 각 제목을 키로 읽어 문자열화한다', () => {
+  it('행 데이터는 열의 물리 키로 읽어 문자열화한다', () => {
     const { inputs } = convertSlipFile(makeVoucher(2));
     expect(JSON.parse(inputs[0]?.items ?? '[]')).toEqual([
       ['테스트 품목 1', '1', '1000'],
@@ -361,6 +364,102 @@ describe('동적 행 표(dynamicTable) 변환', () => {
     expect(() => convertSlipFile(voucher)).toThrow(/객체 배열이어야 합니다/);
     voucher.values.items = [1, 2];
     expect(() => convertSlipFile(voucher)).toThrow(/행은 객체여야 합니다/);
+  });
+});
+
+describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
+  function makeShapeFile(elements: SlipElement[]): SlipTemplateFile {
+    return {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'template',
+      template: {
+        meta: { title: '도형 시험' },
+        paper: { width: 210, height: 297, padding: [10, 10, 10, 10] },
+        pages: [{ elements }],
+        assets: [],
+      },
+    };
+  }
+  const base = { id: 's1', name: '도형', position: { x: 20, y: 30 }, width: 60, height: 30 };
+
+  it('대각선(down)은 상자 대각선 길이·기울기의 회전된 선으로 변환된다', () => {
+    const [schemas] = convertSlipFile(
+      makeShapeFile([{ type: 'shape', shape: 'line', lineDirection: 'down', ...base }]),
+    ).template.schemas as PdfmeSchema[][];
+    const line = schemas!.find((s) => s.name === 's1')!;
+    expect(line.type).toBe('line');
+    expect(line.width).toBeCloseTo(Math.hypot(60, 30), 5);
+    expect(line.rotate).toBeCloseTo((Math.atan2(30, 60) * 180) / Math.PI, 5);
+    // up 대각선은 반대 기울기
+    const [up] = convertSlipFile(
+      makeShapeFile([{ type: 'shape', shape: 'line', lineDirection: 'up', ...base }]),
+    ).template.schemas as PdfmeSchema[][];
+    expect((up!.find((s) => s.name === 's1')!.rotate as number)).toBeLessThan(0);
+  });
+
+  it('파선은 짧은 선분 여러 개로 분해된다 (하부 엔진 파선 미지원)', () => {
+    const [schemas] = convertSlipFile(
+      makeShapeFile([{
+        type: 'shape', shape: 'line', lineDirection: 'horizontal', borderStyle: 'dashed', ...base,
+      }]),
+    ).template.schemas as PdfmeSchema[][];
+    const segments = schemas!.filter((s) => s.type === 'line');
+    expect(segments.length).toBeGreaterThan(5);
+    // 선분 길이 = 파선 패턴(2.4mm) 이하
+    for (const seg of segments) expect(seg.width).toBeLessThanOrEqual(2.4);
+  });
+
+  it('타원은 ellipse로, 삼각형은 svg 폴리곤으로 변환된다', () => {
+    const { template, inputs } = convertSlipFile(
+      makeShapeFile([
+        { type: 'shape', shape: 'ellipse', ...base, id: 'e1', backgroundColor: '#ffee00' },
+        { type: 'shape', shape: 'triangle', ...base, id: 't1', position: { x: 20, y: 80 } },
+      ]),
+    );
+    const [schemas] = template.schemas as PdfmeSchema[][];
+    expect(schemas!.find((s) => s.name === 'e1')!.type).toBe('ellipse');
+    expect(schemas!.find((s) => s.name === 't1')!.type).toBe('svg');
+    expect(inputs[0]?.t1).toContain('<polygon');
+  });
+
+  it('사각형 모서리 반경이 radius로 전달된다', () => {
+    const [schemas] = convertSlipFile(
+      makeShapeFile([{ type: 'shape', shape: 'rect', radius: 3, ...base }]),
+    ).template.schemas as PdfmeSchema[][];
+    expect(schemas!.find((s) => s.name === 's1')!.radius).toBe(3);
+  });
+
+  it('굵게는 폰트 목록의 <이름>-Bold 폰트로 전환되고, 밑줄·취소선은 그대로 전달된다', () => {
+    const file = makeShapeFile([{
+      type: 'text', id: 'b1', name: '굵은 글', position: { x: 20, y: 30 },
+      width: 60, height: 10, content: '합계', bold: true, underline: true, strikethrough: true,
+    }]);
+    const [schemas] = convertSlipFile(file, {
+      fontNames: ['Pretendard', 'Pretendard-Bold'],
+      fallbackFontName: 'Pretendard',
+    }).template.schemas as PdfmeSchema[][];
+    const text = schemas!.find((s) => s.name === 'b1')!;
+    expect(text.fontName).toBe('Pretendard-Bold');
+    expect(text.underline).toBe(true);
+    expect(text.strikethrough).toBe(true);
+
+    // 굵은 폰트가 없으면 굵게는 무시된다 (fontName 미지정 유지)
+    const [noBold] = convertSlipFile(file, {
+      fontNames: ['Pretendard'], fallbackFontName: 'Pretendard',
+    }).template.schemas as PdfmeSchema[][];
+    expect(noBold!.find((s) => s.name === 'b1')!.fontName).toBeUndefined();
+  });
+
+  it('새 도형·사선·파선을 담은 양식이 실제 PDF로 렌더된다', async () => {
+    const pdf = await renderSlipToPdf(
+      makeShapeFile([
+        { type: 'shape', shape: 'line', lineDirection: 'down', borderStyle: 'dashed', ...base, id: 'l1' },
+        { type: 'shape', shape: 'ellipse', ...base, id: 'e1', position: { x: 20, y: 80 } },
+        { type: 'shape', shape: 'triangle', ...base, id: 't1', position: { x: 20, y: 130 } },
+        { type: 'shape', shape: 'rect', radius: 4, ...base, id: 'r1', position: { x: 20, y: 180 }, borderWidth: 0.5 },
+      ]),
+    );
+    expect(ascii(pdf, 4)).toBe('%PDF');
   });
 });
 

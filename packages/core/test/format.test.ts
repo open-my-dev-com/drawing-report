@@ -72,8 +72,12 @@ function makeTemplate(): SlipTemplateFile {
               position: { x: 15, y: 80 },
               width: 180,
               height: 120,
-              head: ['품명', '수량', '단가', '금액'],
-              headWidthPercentages: [40, 15, 20, 25],
+              columns: [
+                { key: '품명', title: '품명', widthPercentage: 40 },
+                { key: '수량', title: '수량', widthPercentage: 15 },
+                { key: '단가', title: '단가', widthPercentage: 20 },
+                { key: '금액', title: '금액', widthPercentage: 25 },
+              ],
               repeatHead: true,
               binding: 'items',
             },
@@ -222,19 +226,53 @@ describe('구조 크기 상한 (SPEC §3.2)', () => {
   it('동적 표 열 수가 상한을 넘으면 거부한다', () => {
     const file = makeTemplate();
     const table = getElement(file, 2, 'dynamicTable');
-    table.head = Array.from({ length: 101 }, (_, i) => `열${i}`);
-    table.headWidthPercentages = Array.from({ length: 101 }, () => 100 / 101);
+    table.columns = Array.from({ length: 101 }, (_, i) => ({
+      key: `열${i}`, title: `열${i}`, widthPercentage: 100 / 101,
+    }));
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/최대/);
   });
 });
 
-describe('schemaVersion 마이그레이션 (0.1.0 → 0.1.1)', () => {
+describe('schemaVersion 마이그레이션 (구버전 → 0.2.0)', () => {
   it('구버전(0.1.0) 파일은 현재 버전으로 끌어올려 파싱된다', () => {
     const file = makeTemplate();
     (file as { schemaVersion: string }).schemaVersion = '0.1.0';
     const parsed = parseSlipFile(serializeSlipFile(file));
     expect(parsed.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(CURRENT_SCHEMA_VERSION).toBe('0.1.1');
+    expect(CURRENT_SCHEMA_VERSION).toBe('0.2.0');
+  });
+
+  it('0.1.1 동적 표(head 방식)는 columns(키=옛 제목)로 변환된다 — 전표 값 호환', () => {
+    const file = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    file['schemaVersion'] = '0.1.1';
+    const pages = (file['template'] as { pages: { elements: Record<string, unknown>[] }[] }).pages;
+    const table = pages[0]!.elements.find((el) => el['type'] === 'dynamicTable')!;
+    delete table['columns'];
+    table['head'] = ['품명', '금액'];
+    table['headWidthPercentages'] = [60, 40];
+
+    const parsed = parseSlipFile(JSON.stringify(file));
+    if (parsed.kind !== 'template') throw new Error('template이어야 한다');
+    const migrated = parsed.template.pages[0]!.elements.find((el) => el.type === 'dynamicTable')!;
+    if (migrated.type !== 'dynamicTable') throw new Error('dynamicTable이어야 한다');
+    expect(migrated.columns).toEqual([
+      { key: '품명', title: '품명', widthPercentage: 60 },
+      { key: '금액', title: '금액', widthPercentage: 40 },
+    ]);
+    expect('head' in migrated).toBe(false);
+  });
+
+  it('0.1.1 선 요소는 lineDirection이 옛 규칙(긴 쪽 방향)으로 명시된다', () => {
+    const file = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    file['schemaVersion'] = '0.1.1';
+    const parsed = parseSlipFile(JSON.stringify(file));
+    if (parsed.kind !== 'template') throw new Error('template이어야 한다');
+    const line = parsed.template.pages[0]!.elements.find(
+      (el) => el.type === 'shape' && el.shape === 'line',
+    )!;
+    if (line.type !== 'shape') throw new Error('shape이어야 한다');
+    // 픽스처 구분선은 가로가 긴 선 → horizontal
+    expect(line.lineDirection).toBe('horizontal');
   });
 });
 

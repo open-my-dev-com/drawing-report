@@ -50,6 +50,12 @@ function createTradeStatement(): SlipTemplateFile {
     template: {
       meta: { title: strings.designer.presetTradeStatement },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
+      // 바인딩 정의부 (ADR-032): 물리명은 camelCase, 화면에는 논리명 표시
+      bindings: [
+        { key: 'tradeDate', label: '거래일자' },
+        { key: 'items', label: '품목' },
+        { key: 'totalAmount', label: '합계금액' },
+      ],
       pages: [
         {
           elements: [
@@ -71,7 +77,7 @@ function createTradeStatement(): SlipTemplateFile {
               position: { x: 135, y: 38 },
               width: 60,
               height: 8,
-              binding: '거래일자',
+              binding: 'tradeDate',
               alignment: 'right',
             },
             infoGrid('supplier', '공급자 정보', 50),
@@ -82,8 +88,13 @@ function createTradeStatement(): SlipTemplateFile {
               position: { x: 15, y: 90 },
               width: 180,
               height: 25,
-              head: ['품명', '규격', '수량', '단가', '금액'],
-              headWidthPercentages: [30, 20, 15, 15, 20],
+              columns: [
+                { key: 'itemName', title: '품명', widthPercentage: 30 },
+                { key: 'spec', title: '규격', widthPercentage: 20 },
+                { key: 'quantity', title: '수량', widthPercentage: 15 },
+                { key: 'unitPrice', title: '단가', widthPercentage: 15 },
+                { key: 'amount', title: '금액', widthPercentage: 20 },
+              ],
               repeatHead: true,
               binding: 'items',
             },
@@ -94,8 +105,8 @@ function createTradeStatement(): SlipTemplateFile {
               position: { x: 115, y: 125 },
               width: 80,
               height: 10,
-              binding: '합계금액',
-              formula: 'SUM(items.금액)',
+              binding: 'totalAmount',
+              formula: 'SUM(items.amount)',
               fontSize: 12,
               alignment: 'right',
             },
@@ -124,6 +135,11 @@ function createInvoice(): SlipTemplateFile {
     template: {
       meta: { title: strings.designer.presetInvoice },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
+      bindings: [
+        { key: 'invoiceDate', label: '청구일자' },
+        { key: 'items', label: '청구 항목' },
+        { key: 'totalAmount', label: '청구금액' },
+      ],
       pages: [
         {
           elements: [
@@ -145,7 +161,7 @@ function createInvoice(): SlipTemplateFile {
               position: { x: 135, y: 38 },
               width: 60,
               height: 8,
-              binding: '청구일자',
+              binding: 'invoiceDate',
               alignment: 'right',
             },
             infoGrid('biller', '청구인 정보', 50),
@@ -156,8 +172,12 @@ function createInvoice(): SlipTemplateFile {
               position: { x: 15, y: 90 },
               width: 180,
               height: 25,
-              head: ['항목', '수량', '단가', '금액'],
-              headWidthPercentages: [40, 15, 20, 25],
+              columns: [
+                { key: 'itemName', title: '항목', widthPercentage: 40 },
+                { key: 'quantity', title: '수량', widthPercentage: 15 },
+                { key: 'unitPrice', title: '단가', widthPercentage: 20 },
+                { key: 'amount', title: '금액', widthPercentage: 25 },
+              ],
               repeatHead: true,
               binding: 'items',
             },
@@ -168,8 +188,8 @@ function createInvoice(): SlipTemplateFile {
               position: { x: 115, y: 125 },
               width: 80,
               height: 10,
-              binding: '청구금액',
-              formula: 'SUM(items.금액)',
+              binding: 'totalAmount',
+              formula: 'SUM(items.amount)',
               fontSize: 12,
               alignment: 'right',
             },
