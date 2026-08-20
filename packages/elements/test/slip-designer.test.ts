@@ -452,6 +452,60 @@ describe('<slip-designer> UI 정리 (A-4)', () => {
     expect(text.backgroundColor).toBe('#00ff00');
     el.remove();
   });
+
+  it('현재 색을 자주 쓰는 색으로 저장하면 커스텀 견본이 생기고 localStorage에 유지된다', async () => {
+    localStorage.removeItem('slipkit-designer-custom-colors');
+    const el = await mountAndSelectText();
+    byAriaLabel(el, strings.designer.backgroundColor).click();
+    await el.updateComplete;
+
+    // 색이 없으면 저장 버튼 비활성
+    const saveLabel = `${strings.designer.backgroundColor}: ${strings.designer.saveColor}`;
+    expect(byAriaLabel(el, saveLabel).disabled).toBe(true);
+
+    // 직접 입력으로 색 지정 후 저장
+    const hex = Array.from(el.shadowRoot!.querySelectorAll('input'))
+      .find((i) => i.getAttribute('placeholder') === '#RRGGBB')!;
+    hex.value = '#123456';
+    hex.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    byAriaLabel(el, saveLabel).click();
+    await el.updateComplete;
+
+    const custom = el.shadowRoot!.querySelector('.swatch.custom');
+    expect(custom?.getAttribute('title')).toBe('#123456');
+    expect(JSON.parse(localStorage.getItem('slipkit-designer-custom-colors')!)).toEqual(['#123456']);
+
+    // 저장된 견본 클릭으로 다른 속성에도 그 색을 쓸 수 있다
+    byAriaLabel(el, `${strings.designer.backgroundColor} #123456`).click();
+    await el.updateComplete;
+    const text = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements[0]! as Record<string, unknown>;
+    expect(text.backgroundColor).toBe('#123456');
+    el.remove();
+  });
+
+  it('커스텀 색이 30개를 넘으면 가장 오래된 것부터 밀려난다', async () => {
+    const thirty = Array.from({ length: 30 }, (_, i) =>
+      `#${(i + 1).toString(16).padStart(2, '0')}0000`);
+    localStorage.setItem('slipkit-designer-custom-colors', JSON.stringify(thirty));
+    const el = await mountAndSelectText();
+    byAriaLabel(el, strings.designer.backgroundColor).click();
+    await el.updateComplete;
+
+    const hex = Array.from(el.shadowRoot!.querySelectorAll('input'))
+      .find((i) => i.getAttribute('placeholder') === '#RRGGBB')!;
+    hex.value = '#00ff77';
+    hex.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    byAriaLabel(el, `${strings.designer.backgroundColor}: ${strings.designer.saveColor}`).click();
+    await el.updateComplete;
+
+    const stored = JSON.parse(localStorage.getItem('slipkit-designer-custom-colors')!) as string[];
+    expect(stored.length).toBe(30);
+    expect(stored).not.toContain(thirty[0]); // 가장 오래된 색이 밀려남
+    expect(stored.at(-1)).toBe('#00ff77');
+    el.remove();
+  });
 });
 
 // ---------------------------------------------------------------------------

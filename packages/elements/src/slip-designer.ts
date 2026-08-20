@@ -17,6 +17,40 @@ const COLOR_PALETTE = [
   '#000000', '#ffffff', '#f2f2f2', '#d93025', '#f9ab00', '#188038', '#1a73e8', '#9334e6',
 ] as const;
 
+/** 사용자가 저장한 자주 쓰는 색의 localStorage 키 */
+const CUSTOM_COLORS_KEY = 'slipkit-designer-custom-colors';
+/** 저장 가능한 커스텀 색 최대 개수 — 넘치면 가장 오래된 것부터 밀어낸다 */
+const MAX_CUSTOM_COLORS = 30;
+
+/** 저장된 커스텀 색 목록을 읽는다 (저장소를 못 쓰는 환경이면 빈 목록) */
+function loadCustomColors(): string[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_COLORS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((c): c is string => typeof c === 'string').slice(0, MAX_CUSTOM_COLORS);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 색을 커스텀 목록에 저장하고 갱신된 목록을 돌려준다.
+ * 이미 있으면 맨 뒤로 옮기고(최근 사용), 30개가 넘으면 가장 오래된 것을 밀어낸다.
+ */
+function saveCustomColor(color: string): string[] {
+  const list = loadCustomColors().filter((c) => c !== color);
+  list.push(color);
+  while (list.length > MAX_CUSTOM_COLORS) list.shift();
+  try {
+    localStorage.setItem(CUSTOM_COLORS_KEY, JSON.stringify(list));
+  } catch {
+    // 저장 실패(용량·프라이빗 모드 등)해도 편집 자체는 계속되게 조용히 넘어간다
+  }
+  return list;
+}
+
 /** 용지 크기 프리셋 (mm, 세로 기준) — 선택하면 현재 방향을 유지한 채 적용된다 */
 const PAPER_PRESETS = [
   { name: 'A4', width: 210, height: 297 },
@@ -286,6 +320,8 @@ export class SlipDesigner extends LitElement {
       box-shadow: 0 0 0 1px var(--sk-accent);
     }
     .thumb-paper {
+      /* span이 인라인으로 남으면 width·height가 무시돼 축소 상자가 밖으로 흘러나온다 */
+      display: block;
       position: relative;
       margin: 4px auto 0;
       background: #fff;
@@ -794,6 +830,35 @@ export class SlipDesigner extends LitElement {
       background:
         linear-gradient(to top left, transparent 44%, var(--sk-guide) 45%, var(--sk-guide) 55%, transparent 56%),
         var(--sk-surface);
+    }
+    .swatch-save {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      padding: 0;
+      border: 1px dashed var(--sk-border-strong);
+      border-radius: 50%;
+      background: var(--sk-surface);
+      color: var(--sk-text-muted);
+      cursor: pointer;
+    }
+    .swatch-save svg {
+      width: 10px;
+      height: 10px;
+    }
+    .swatch-save:hover:not(:disabled) {
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    .swatch-save:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+    .swatch-save:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
     }
     .alpha-input {
       flex: 0 0 44px;
@@ -2447,6 +2512,14 @@ export class SlipDesigner extends LitElement {
   /** 색 버튼 펼침 상태 — 열려 있는 색 속성 키 (한 번에 하나) */
   private _openColorKey: string | null = null;
 
+  /** 저장된 커스텀 색 캐시 — 첫 사용 때 localStorage에서 읽는다 */
+  private _customColorsCache: string[] | null = null;
+
+  private _getCustomColors(): string[] {
+    this._customColorsCache ??= loadCustomColors();
+    return this._customColorsCache;
+  }
+
   /** 색상판 커서 위치 (HSV) — 피커를 열 때 현재 색으로 맞춘다 */
   private _pickerH = 0;
   private _pickerS = 1;
@@ -2536,6 +2609,17 @@ export class SlipDesigner extends LitElement {
             ${COLOR_PALETTE.map((c) => html`<button class="swatch" style="background:${c}"
               title=${c} aria-label="${label} ${c}"
               @click=${() => this._applyColor(key, compose(c, alphaPct))}></button>`)}
+            ${this._getCustomColors().map((c) => html`<button class="swatch custom" style="background:${c}"
+              title=${c} aria-label="${label} ${c}"
+              @click=${() => this._applyColor(key, c)}></button>`)}
+            <button class="swatch-save" title=${s.saveColor} aria-label="${label}: ${s.saveColor}"
+              ?disabled=${!current}
+              @click=${() => {
+                // 기본 팔레트에 이미 있는 색은 중복 저장하지 않는다
+                if (!current || (COLOR_PALETTE as readonly string[]).includes(current)) return;
+                this._customColorsCache = saveCustomColor(current);
+                this.requestUpdate();
+              }}>${icons.pageAdd}</button>
           </div>
           <div class="sv-area" aria-label="${label} ${s.style}"
             style="background:linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${this._pickerH}, 100%, 50%))"
