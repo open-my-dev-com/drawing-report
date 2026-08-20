@@ -410,17 +410,20 @@ describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
     for (const seg of segments) expect(seg.width).toBeLessThanOrEqual(2.4);
   });
 
-  it('타원은 ellipse로, 삼각형은 svg 폴리곤으로 변환된다', () => {
+  it('타원은 ellipse로, 다각형(오각형)은 svg 폴리곤으로 변환된다', () => {
     const { template, inputs } = convertSlipFile(
       makeShapeFile([
         { type: 'ellipse', ...base, id: 'e1', backgroundColor: '#ffee00' },
-        { type: 'triangle', ...base, id: 't1', position: { x: 20, y: 80 } },
+        { type: 'polygon', sides: 5, ...base, id: 't1', position: { x: 20, y: 80 } },
       ]),
     );
     const [schemas] = template.schemas as PdfmeSchema[][];
     expect(schemas!.find((s) => s.name === 'e1')!.type).toBe('ellipse');
     expect(schemas!.find((s) => s.name === 't1')!.type).toBe('svg');
     expect(inputs[0]?.t1).toContain('<polygon');
+    // 오각형 = 꼭짓점 5개
+    const pointsAttr = /points="([^"]+)"/.exec(inputs[0]?.t1 ?? '')?.[1] ?? '';
+    expect(pointsAttr.split(' ').length).toBe(5);
   });
 
   it('사각형 모서리 반경이 radius로 전달된다', () => {
@@ -456,7 +459,7 @@ describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
       makeShapeFile([
         { type: 'line', lineDirection: 'down', borderStyle: 'dashed', ...base, id: 'l1' },
         { type: 'ellipse', ...base, id: 'e1', position: { x: 20, y: 80 } },
-        { type: 'triangle', ...base, id: 't1', position: { x: 20, y: 130 } },
+        { type: 'polygon', sides: 6, ...base, id: 't1', position: { x: 20, y: 130 } },
         { type: 'rect', radius: 4, ...base, id: 'r1', position: { x: 20, y: 180 }, borderWidth: 0.5 },
       ]),
     );

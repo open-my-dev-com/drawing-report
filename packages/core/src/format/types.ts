@@ -17,6 +17,7 @@ export type {
   JsonValue,
   LineElement,
   PaperSize,
+  PolygonElement,
   RectElement,
   SlipElement,
   SlipFile,
@@ -27,5 +28,4 @@ export type {
   SlipVoucherFile,
   TableColumn,
   TextElement,
-  TriangleElement,
 } from './schema.js';

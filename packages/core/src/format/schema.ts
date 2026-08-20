@@ -299,10 +299,15 @@ const ellipseElementSchema = z.object({
   borderWidth: nonNegativeMm.optional(),
 });
 
-/** 삼각형 요소 — 상자에 내접 (위 꼭짓점·아래 밑변). 테두리는 실선 고정 (ADR-032) */
-const triangleElementSchema = z.object({
-  type: z.literal('triangle'),
+/**
+ * 정다각형 요소 — 변 수(3=삼각형, 5=오각형, 6=육각형…)로 모양을 정하고 상자에
+ * 내접한다 (첫 꼭짓점 위쪽, ADR-032). 테두리는 실선 고정
+ */
+const polygonElementSchema = z.object({
+  type: z.literal('polygon'),
   ...elementBaseShape,
+  /** 변 수 (3~12) */
+  sides: z.number().int().min(3, '변 수는 3 이상이어야 합니다').max(12, '변 수는 최대 12입니다'),
   backgroundColor: colorSchema.optional(),
   borderColor: colorSchema.optional(),
   borderWidth: nonNegativeMm.optional(),
@@ -329,7 +334,7 @@ export const slipElementSchema = z.discriminatedUnion('type', [
   lineElementSchema,
   rectElementSchema,
   ellipseElementSchema,
-  triangleElementSchema,
+  polygonElementSchema,
   fieldElementSchema,
 ]);
 
@@ -672,8 +677,8 @@ export type LineElement = z.infer<typeof lineElementSchema>;
 export type RectElement = z.infer<typeof rectElementSchema>;
 /** 타원 요소 (ADR-032) */
 export type EllipseElement = z.infer<typeof ellipseElementSchema>;
-/** 삼각형 요소 (ADR-032) */
-export type TriangleElement = z.infer<typeof triangleElementSchema>;
+/** 정다각형 요소 (ADR-032) — sides 3=삼각형, 5=오각형 … */
+export type PolygonElement = z.infer<typeof polygonElementSchema>;
 /** 필드 요소 (전표 값 바인딩) */
 export type FieldElement = z.infer<typeof fieldElementSchema>;
 /** 요소 9종 유니온 */

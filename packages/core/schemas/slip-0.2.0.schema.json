@@ -802,7 +802,7 @@
                           "properties": {
                             "type": {
                               "type": "string",
-                              "const": "triangle"
+                              "const": "polygon"
                             },
                             "id": {
                               "type": "string",
@@ -841,6 +841,11 @@
                               "type": "string",
                               "minLength": 1
                             },
+                            "sides": {
+                              "type": "integer",
+                              "minimum": 3,
+                              "maximum": 12
+                            },
                             "backgroundColor": {
                               "type": "string",
                               "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
@@ -860,7 +865,8 @@
                             "name",
                             "position",
                             "width",
-                            "height"
+                            "height",
+                            "sides"
                           ],
                           "additionalProperties": false
                         },
@@ -1858,7 +1864,7 @@
                           "properties": {
                             "type": {
                               "type": "string",
-                              "const": "triangle"
+                              "const": "polygon"
                             },
                             "id": {
                               "type": "string",
@@ -1897,6 +1903,11 @@
                               "type": "string",
                               "minLength": 1
                             },
+                            "sides": {
+                              "type": "integer",
+                              "minimum": 3,
+                              "maximum": 12
+                            },
                             "backgroundColor": {
                               "type": "string",
                               "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
@@ -1916,7 +1927,8 @@
                             "name",
                             "position",
                             "width",
-                            "height"
+                            "height",
+                            "sides"
                           ],
                           "additionalProperties": false
                         },

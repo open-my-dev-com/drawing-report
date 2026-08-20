@@ -24,8 +24,8 @@ import type {
   SlipElement,
   SlipFile,
   SlipTemplateBody,
+  PolygonElement,
   TextElement,
-  TriangleElement,
 } from '../format/schema.js';
 import { SlipRenderError } from './errors.js';
 
@@ -183,8 +183,8 @@ class SlipToPdfmeConverter {
       case 'ellipse':
         this.appendEllipse(schemas, element);
         return;
-      case 'triangle':
-        this.appendTriangle(schemas, element);
+      case 'polygon':
+        this.appendPolygon(schemas, element);
         return;
     }
   }
@@ -696,17 +696,20 @@ class SlipToPdfmeConverter {
     );
   }
 
-  /** 삼각형 — svg 폴리곤으로 그린다 (위 꼭짓점·아래 밑변, ADR-032) */
-  private appendTriangle(schemas: Schema[], element: TriangleElement): void {
+  /** 정다각형 — svg 폴리곤으로 그린다 (첫 꼭짓점 위쪽, 상자에 내접, ADR-032) */
+  private appendPolygon(schemas: Schema[], element: PolygonElement): void {
     const borderWidth = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
     const borderColor = element.borderColor ?? DEFAULT_BORDER_COLOR;
     const w = element.width;
     const h = element.height;
     const fill = element.backgroundColor ?? 'none';
+    const points = polygonPoints(element.sides, w, h)
+      .map(([x, y]) => `${round3(x)},${round3(y)}`)
+      .join(' ');
     // viewBox를 mm 크기 그대로 두어 stroke-width가 mm 단위로 일치한다
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">` +
-      `<polygon points="${w / 2},0 ${w},${h} 0,${h}" fill="${fill}" ` +
+      `<polygon points="${points}" fill="${fill}" ` +
       `stroke="${borderWidth > 0 ? borderColor : 'none'}" stroke-width="${borderWidth}"/></svg>`;
     this.push(
       schemas,
@@ -802,6 +805,32 @@ class SlipToPdfmeConverter {
       '',
     );
   }
+}
+
+
+/** 좌표를 0.001 단위로 반올림 — svg 문자열이 불필요하게 길어지지 않게 */
+function round3(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+/**
+ * 정다각형 꼭짓점 좌표(첫 꼭짓점 위쪽) — 단위원 위의 점을 상자(width×height)에
+ * 꽉 차게 정규화한다. 삼각형(sides 3)이면 (w/2,0)·(w,h)·(0,h)가 된다.
+ */
+function polygonPoints(sides: number, width: number, height: number): [number, number][] {
+  const raw: [number, number][] = Array.from({ length: sides }, (_, index) => {
+    const angle = -Math.PI / 2 + (index * 2 * Math.PI) / sides;
+    return [Math.cos(angle), Math.sin(angle)];
+  });
+  const xs = raw.map(([x]) => x);
+  const ys = raw.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const spanX = maxX - minX || 1;
+  const spanY = maxY - minY || 1;
+  return raw.map(([x, y]) => [((x - minX) / spanX) * width, ((y - minY) / spanY) * height]);
 }
 
 // ---------------------------------------------------------------------------

@@ -658,7 +658,7 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
       strings.designer.shapeLine,
       strings.designer.shapeRect,
       strings.designer.shapeEllipse,
-      strings.designer.shapeTriangle,
+      strings.designer.shapePolygon,
       strings.designer.addField,
     ];
 

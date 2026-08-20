@@ -37,7 +37,7 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 - `schemaVersion`: 이 문서가 따르는 스키마 버전. `MAJOR.MINOR.PATCH` semver 형식 필수.
 - 현재 버전은 **`0.2.0`**이다. 제품 v1 안정 릴리스 시점에 `1.0.0`으로 확정한다.
   (이력: 0.1.0 최초 공개 → 0.1.1 구조 크기 상한 추가(§3.2) → 0.2.0 동적 표 열 구조·도형 4종
-  독립 타입 분리(선 방향·타원/삼각형·반경)·글자 스타일·바인딩 정의부·샘플 값·요소 그룹 (ADR-032))
+  독립 타입 분리(선 방향·타원/정다각형·반경)·글자 스타일·바인딩 정의부·샘플 값·요소 그룹 (ADR-032))
 
 ### 2.1 버전 처리 규칙 (ADR-007)
 
@@ -191,7 +191,7 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 PDF 렌더 시 외부 URL 참조는 거부된다 — 렌더하려면 `data:` 또는 `asset://`로
 내장되어 있어야 한다 (ADR-014와 같은 원칙).
 
-### 5.5 도형 4종 — `line` / `rect` / `ellipse` / `triangle`
+### 5.5 도형 4종 — `line` / `rect` / `ellipse` / `polygon`
 
 0.2.0에서 도형을 독립 요소 타입으로 분리했다 (ADR-032) — 종류마다 의미 있는 스타일이
 다르기 때문이다. (0.1.x의 `shape` 요소는 마이그레이션 시 해당 타입으로 자동 변환된다.)
@@ -201,9 +201,10 @@ PDF 렌더 시 외부 URL 참조는 거부된다 — 렌더하려면 `data:` 또
 | `line` 선 | `borderColor`(선 색) · `borderWidth`(굵기 mm) · `borderStyle`(형태) | `lineDirection` (기본 `horizontal`): `horizontal`(상자 세로 중앙의 수평선) \| `vertical`(가로 중앙의 수직선) \| `down`(좌상→우하 대각선) \| `up`(좌하→우상 대각선). 임의 선분은 상자(position·width·height)와 방향으로 표현한다 |
 | `rect` 사각형 | `backgroundColor` · `borderColor` · `borderWidth` · `borderStyle` | `radius` 모서리 반경(mm). 파선·점선 테두리와 동시 지정 금지(곡선 구간은 분해 렌더 불가) |
 | `ellipse` 타원 | `backgroundColor` · `borderColor` · `borderWidth` (테두리는 실선 고정) | — |
-| `triangle` 삼각형 | `backgroundColor` · `borderColor` · `borderWidth` (테두리는 실선 고정) | — |
+| `polygon` 정다각형 | `backgroundColor` · `borderColor` · `borderWidth` (테두리는 실선 고정) | `sides`(필수, 3~12): 변 수 — 3=삼각형, 5=오각형, 6=육각형 … |
 
-타원·삼각형은 상자에 내접해 그린다. 삼각형은 위 꼭짓점·아래 밑변 고정이다.
+타원·정다각형은 상자에 내접해 그린다. 정다각형은 첫 꼭짓점이 위쪽이며, 꼭짓점들을
+상자에 꽉 차게 정규화한다 (삼각형이면 위 꼭짓점·아래 밑변).
 
 ### 5.6 `field` — 입력 필드
 

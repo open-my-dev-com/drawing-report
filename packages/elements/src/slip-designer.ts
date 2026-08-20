@@ -123,6 +123,23 @@ function dashArrayOf(style: 'solid' | 'dashed' | 'dotted' | undefined): string |
   return undefined;
 }
 
+/** 정다각형 꼭짓점(px) — PDF 변환(convert.ts polygonPoints)과 같은 상자 내접 규칙 */
+function polygonPointsPx(sides: number, width: number, height: number): [number, number][] {
+  const raw: [number, number][] = Array.from({ length: sides }, (_, index) => {
+    const angle = -Math.PI / 2 + (index * 2 * Math.PI) / sides;
+    return [Math.cos(angle), Math.sin(angle)];
+  });
+  const xs = raw.map(([x]) => x);
+  const ys = raw.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const spanX = maxX - minX || 1;
+  const spanY = maxY - minY || 1;
+  return raw.map(([x, y]) => [((x - minX) / spanX) * width, ((y - minY) / spanY) * height]);
+}
+
 /** #RRGGBB(AA) → HSV(h 0~360, s·v 0~1) — 색 피커 초기 위치 계산용 */
 function hexToHsv(hex: string): { h: number; s: number; v: number } {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -164,7 +181,7 @@ const TYPE_BADGE: Record<SlipElement['type'], TemplateResult> = {
   line: icons.line,
   rect: icons.shape,
   ellipse: icons.ellipse,
-  triangle: icons.triangle,
+  polygon: icons.polygon,
   field: icons.field,
 };
 
@@ -533,7 +550,7 @@ export class SlipDesigner extends LitElement {
     }
     .element.type-line svg,
     .element.type-ellipse svg,
-    .element.type-triangle svg {
+    .element.type-polygon svg {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -542,7 +559,7 @@ export class SlipDesigner extends LitElement {
     /* 선·타원·삼각형은 도형 자체만 보이게 — 편집용 상자 테두리를 지운다 (선택 시 강조는 유지) */
     .element.type-line,
     .element.type-ellipse,
-    .element.type-triangle {
+    .element.type-polygon {
       border-color: transparent;
     }
     /* 선은 배지도 겹쳐 보여 지운다 — 선 자체가 곧 표식이다 */
@@ -1292,8 +1309,9 @@ export class SlipDesigner extends LitElement {
       case 'ellipse':
         element = { type: 'ellipse', id, name, position, width: 60, height: 30 };
         break;
-      case 'triangle':
-        element = { type: 'triangle', id, name, position, width: 40, height: 30 };
+      case 'polygon':
+        // 기본은 삼각형(변 3) — 변 수는 속성 패널에서 3~12로 조절 (오각형 등, ADR-032)
+        element = { type: 'polygon', id, name, position, width: 40, height: 30, sides: 3 };
         break;
       case 'field':
         element = {
@@ -1838,7 +1856,7 @@ export class SlipDesigner extends LitElement {
           ['line', s.shapeLine, icons.line],
           ['rect', s.shapeRect, icons.shape],
           ['ellipse', s.shapeEllipse, icons.ellipse],
-          ['triangle', s.shapeTriangle, icons.triangle],
+          ['polygon', s.shapePolygon, icons.polygon],
           ['field', s.addField, icons.field],
         ] as const).map(([type, label, glyph]) =>
           this._iconButton(label, glyph, () => this._selectTool(type), {
@@ -2080,7 +2098,7 @@ export class SlipDesigner extends LitElement {
     let style = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
 
     // 선·타원·삼각형은 svg로 그린다 — 상자(div)에 배경·테두리를 칠하면 PDF와 어긋난다
-    const drawnAsSvg = el.type === 'line' || el.type === 'ellipse' || el.type === 'triangle';
+    const drawnAsSvg = el.type === 'line' || el.type === 'ellipse' || el.type === 'polygon';
     if (el.type !== 'image' && !drawnAsSvg) {
       const r = el as Record<string, unknown>;
       // 동적 표의 배경색은 머리행 배경으로만 쓴다 (PDF 변환과 동일) — 상자 전체를 칠하지 않는다
@@ -2137,7 +2155,7 @@ export class SlipDesigner extends LitElement {
 
       case 'line':
       case 'ellipse':
-      case 'triangle':
+      case 'polygon':
         return this._renderShapePreview(el);
 
       case 'rect':
@@ -2155,7 +2173,7 @@ export class SlipDesigner extends LitElement {
    * 선 방향·타원·삼각형·파선을 그린다 (사각형은 상자 div의 배경·테두리로 표시).
    * svg 안의 조각은 lit svg 템플릿으로 만들어야 SVG 네임스페이스로 생성된다.
    */
-  private _renderShapePreview(el: SlipElement & { type: 'line' | 'ellipse' | 'triangle' }) {
+  private _renderShapePreview(el: SlipElement & { type: 'line' | 'ellipse' | 'polygon' }) {
     const w = Math.max(1, el.width * PX_PER_MM);
     const h = Math.max(1, el.height * PX_PER_MM);
     const stroke = el.borderColor ?? '#000000';
@@ -2183,9 +2201,12 @@ export class SlipDesigner extends LitElement {
           stroke-width=${strokeWidth} />`}
       </svg>`;
     }
-    // triangle — 위 꼭짓점·아래 밑변 (convert.ts appendTriangle과 동일)
+    // polygon — 정다각형을 상자에 내접 (convert.ts appendPolygon과 같은 규칙)
+    const points = polygonPointsPx(el.sides, w, h)
+      .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
+      .join(' ');
     return html`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-      ${svg`<polygon points="${w / 2},0 ${w},${h} 0,${h}" fill=${fill} stroke=${stroke}
+      ${svg`<polygon points=${points} fill=${fill} stroke=${stroke}
         stroke-width=${strokeWidth} />`}
     </svg>`;
   }
@@ -2501,7 +2522,7 @@ export class SlipDesigner extends LitElement {
       line: s.shapeLine,
       rect: s.shapeRect,
       ellipse: s.shapeEllipse,
-      triangle: s.shapeTriangle,
+      polygon: s.shapePolygon,
       field: s.typeField,
     };
     return map[type];
@@ -2576,6 +2597,27 @@ export class SlipDesigner extends LitElement {
                     ${label}
                   </option>`)}
               </select>
+            </div>
+          </div>
+        `;
+
+      case 'polygon':
+        return html`
+          <div class="prop-section">
+            <div class="prop-row">
+              <label>${s.sides}</label>
+              <input type="number" min="3" max="12" step="1" .value=${String(el.sides)}
+                @change=${(e: Event) => {
+                  const v = Number((e.target as HTMLInputElement).value);
+                  // 스키마 범위(3~12) 밖 값은 되돌린다
+                  if (!Number.isInteger(v) || v < 3 || v > 12) {
+                    this.requestUpdate();
+                    return;
+                  }
+                  this._updateElement((el) => {
+                    if (el.type === 'polygon') el.sides = v;
+                  });
+                }}>
             </div>
           </div>
         `;
