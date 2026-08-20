@@ -707,6 +707,103 @@ describe('<slip-designer> 속성 패널', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 왼쪽 사이드바 (B-7) — 페이지 썸네일·요소 목록·바인딩 목록
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 사이드바', () => {
+  function sideSection(el: Element, title: string): Element {
+    const section = Array.from(el.shadowRoot!.querySelectorAll('.side-section'))
+      .find((sec) => sec.querySelector('.side-title')?.textContent?.trim() === title);
+    if (!section) throw new Error(`사이드바 섹션을 찾지 못했습니다: ${title}`);
+    return section;
+  }
+
+  it('페이지 썸네일이 페이지 수만큼 보이고, 클릭하면 그 페이지로 이동한다', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.addPage).click();
+    await el.updateComplete;
+
+    const thumbs = sideSection(el, strings.designer.sidebarPages).querySelectorAll('.thumb');
+    expect(thumbs.length).toBe(2);
+    // 페이지 추가 직후엔 2페이지가 현재 — 1페이지 썸네일 클릭으로 되돌아간다
+    expect(thumbs[1]?.classList.contains('current')).toBe(true);
+    (thumbs[0] as HTMLElement).click();
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelector('.page-indicator')?.textContent?.replace(/\s+/g, ' ').trim())
+      .toBe('1 / 2');
+    // 1페이지 요소(2개)가 캔버스에 보인다
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
+    el.remove();
+  });
+
+  it('썸네일 안에 그 페이지 요소들이 축소 상자로 그려진다', async () => {
+    const el = await loadDesigner();
+    const firstThumb = sideSection(el, strings.designer.sidebarPages).querySelector('.thumb');
+    expect(firstThumb?.querySelectorAll('.thumb-el').length).toBe(2);
+    el.remove();
+  });
+
+  it('요소 목록에 현재 페이지 요소가 나열되고, 클릭하면 그 요소가 선택된다', async () => {
+    const el = await loadDesigner();
+    const rows = sideSection(el, strings.designer.sidebarElements).querySelectorAll('.side-row');
+    expect(Array.from(rows).map((r) => r.textContent?.trim())).toEqual(['test-text', 'test-shape']);
+
+    (rows[1] as HTMLElement).click();
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelector('.element.selected')?.getAttribute('data-id')).toBe('shp-1');
+    const after = sideSection(el, strings.designer.sidebarElements).querySelectorAll('.side-row');
+    expect(after[1]?.classList.contains('selected')).toBe(true);
+    el.remove();
+  });
+
+  it('바인딩 목록은 양식 전체의 field·동적 표 바인딩을 모으고, 클릭하면 페이지를 옮겨 선택한다', async () => {
+    const file = makeTemplateFile();
+    file.template.pages.push({
+      elements: [
+        {
+          type: 'field' as const, id: 'fld-1', name: 'f1', position: { x: 10, y: 10 },
+          width: 60, height: 10, binding: '합계금액',
+        } as never,
+        {
+          type: 'dynamicTable' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
+          width: 180, height: 20, head: ['a'], headWidthPercentages: [100],
+          repeatHead: true, binding: 'items',
+        } as never,
+      ],
+    });
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    const rows = sideSection(el, strings.designer.sidebarBindings).querySelectorAll('.side-row');
+    expect(Array.from(rows).map((r) => r.textContent?.trim())).toEqual(['합계금액', 'items']);
+
+    (rows[0] as HTMLElement).click();
+    await el.updateComplete;
+
+    // 2페이지로 이동해 해당 field가 선택된다
+    expect(el.shadowRoot?.querySelector('.page-indicator')?.textContent?.replace(/\s+/g, ' ').trim())
+      .toBe('2 / 2');
+    expect(el.shadowRoot?.querySelector('.element.selected')?.getAttribute('data-id')).toBe('fld-1');
+    el.remove();
+  });
+
+  it('미리보기 모드에서는 사이드바가 표시되지 않는다', async () => {
+    const el = await loadDesigner();
+    expect(el.shadowRoot?.querySelector('.sidebar')).not.toBeNull();
+
+    toolbarButton(el, strings.designer.preview).click();
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelector('.sidebar')).toBeNull();
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 양식 설정 패널 (B-6) — 제목·용지 크기·방향·여백
 // ---------------------------------------------------------------------------
 
