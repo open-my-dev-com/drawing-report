@@ -291,6 +291,94 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
 });
 
 // ---------------------------------------------------------------------------
+// UI 정리 (v2 A-4) — 아이콘 툴바·정렬 토글·색 피커
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> UI 정리 (A-4)', () => {
+  async function mountAndSelectText(): Promise<import('../src/slip-designer.js').SlipDesigner> {
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    (el.shadowRoot?.querySelector('.element[data-id="txt-1"]') as HTMLElement).dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, composed: true }),
+    );
+    await el.updateComplete;
+    return el;
+  }
+
+  function byAriaLabel(el: Element, label: string): HTMLButtonElement {
+    return Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === label) as HTMLButtonElement;
+  }
+
+  it('툴바 버튼은 아이콘(svg) + 이름(title·aria-label)으로 표시된다', async () => {
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const buttons = el.shadowRoot?.querySelectorAll('.toolbar button');
+    expect(buttons!.length).toBeGreaterThan(10);
+    for (const b of Array.from(buttons!)) {
+      expect(b.querySelector('svg')).not.toBeNull();
+      expect(b.getAttribute('aria-label')).toBeTruthy();
+      expect(b.getAttribute('title')).toBe(b.getAttribute('aria-label'));
+    }
+    el.remove();
+  });
+
+  it('정렬은 아이콘 토글로 바꾼다 — 가운데 클릭 시 alignment가 저장되고 눌림 상태가 바뀐다', async () => {
+    const el = await mountAndSelectText();
+    const label = `${strings.designer.alignment}: ${strings.designer.alignCenter}`;
+    const centerBtn = byAriaLabel(el, label);
+    expect(centerBtn.getAttribute('aria-pressed')).toBe('false');
+
+    centerBtn.click();
+    await el.updateComplete;
+
+    const text = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements[0]!;
+    expect((text as Record<string, unknown>).alignment).toBe('center');
+    expect(byAriaLabel(el, label).getAttribute('aria-pressed')).toBe('true');
+    el.remove();
+  });
+
+  it('색 피커 — 팔레트 견본 클릭으로 색을 지정하고, 없음으로 지운다', async () => {
+    const el = await mountAndSelectText();
+    const swatch = byAriaLabel(el, `${strings.designer.backgroundColor} #d93025`);
+    swatch.click();
+    await el.updateComplete;
+
+    const file = (el as unknown as { _file: SlipTemplateFile })._file;
+    const text = file.template.pages[0]!.elements[0]! as Record<string, unknown>;
+    expect(text.backgroundColor).toBe('#d93025');
+
+    byAriaLabel(el, `${strings.designer.backgroundColor}: ${strings.designer.colorNone}`).click();
+    await el.updateComplete;
+    expect(text.backgroundColor ?? undefined).toBeUndefined();
+    el.remove();
+  });
+
+  it('색 피커 — 투명도를 내리면 #RRGGBBAA 8자리로 저장된다', async () => {
+    const el = await mountAndSelectText();
+    byAriaLabel(el, `${strings.designer.backgroundColor} #1a73e8`).click();
+    await el.updateComplete;
+
+    const alpha = Array.from(el.shadowRoot!.querySelectorAll('input'))
+      .find((i) => i.getAttribute('aria-label') === `${strings.designer.backgroundColor} ${strings.designer.opacity}`)!;
+    alpha.value = '50';
+    alpha.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const text = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements[0]! as Record<string, unknown>;
+    expect(text.backgroundColor).toBe('#1a73e880');
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 요소 선택
 // ---------------------------------------------------------------------------
 
@@ -333,7 +421,7 @@ describe('<slip-designer> 요소 추가', () => {
     el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
 
     const addBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-      .find((b) => b.textContent?.trim() === strings.designer.addText) as HTMLElement;
+      .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === strings.designer.addText) as HTMLElement;
     expect(addBtn).not.toBeUndefined();
     addBtn.click();
     await el.updateComplete;
@@ -363,7 +451,7 @@ describe('<slip-designer> 요소 추가', () => {
     ];
 
     for (const label of typeLabels) {
-      const btn = Array.from(buttons ?? []).find((b) => b.textContent?.trim() === label) as HTMLElement;
+      const btn = Array.from(buttons ?? []).find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === label) as HTMLElement;
       expect(btn, `${label} 버튼이 있어야 한다`).not.toBeUndefined();
       btn.click();
       await el.updateComplete;
@@ -400,7 +488,7 @@ describe('<slip-designer> 요소 삭제', () => {
 
     // 삭제 버튼 클릭
     const deleteBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-      .find((b) => b.textContent?.trim() === strings.designer.delete) as HTMLElement;
+      .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === strings.designer.delete) as HTMLElement;
     deleteBtn.click();
     await el.updateComplete;
 
@@ -425,21 +513,21 @@ describe('<slip-designer> 되돌리기·다시 실행', () => {
 
     // 요소 추가
     const addBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-      .find((b) => b.textContent?.trim() === strings.designer.addText) as HTMLElement;
+      .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === strings.designer.addText) as HTMLElement;
     addBtn.click();
     await el.updateComplete;
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(3);
 
     // 되돌리기
     const undoBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-      .find((b) => b.textContent?.trim() === strings.designer.undo) as HTMLElement;
+      .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === strings.designer.undo) as HTMLElement;
     undoBtn.click();
     await el.updateComplete;
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
 
     // 다시 실행
     const redoBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-      .find((b) => b.textContent?.trim() === strings.designer.redo) as HTMLElement;
+      .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === strings.designer.redo) as HTMLElement;
     redoBtn.click();
     await el.updateComplete;
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(3);
@@ -677,7 +765,7 @@ describe('<slip-designer> 스냅·정렬 안내선', () => {
     const changes: CustomEvent[] = [];
     el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
     const undoBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-      .find((b) => b.textContent?.trim() === strings.designer.undo) as HTMLElement;
+      .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === strings.designer.undo) as HTMLElement;
     undoBtn.click();
     await el.updateComplete;
 
@@ -694,7 +782,7 @@ describe('<slip-designer> 스냅·정렬 안내선', () => {
 
 function toolbarButton(el: Element, label: string): HTMLButtonElement {
   return Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-    .find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
+    .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === label) as HTMLButtonElement;
 }
 
 describe('<slip-designer> 복사·붙여넣기', () => {
@@ -857,8 +945,8 @@ describe('<slip-designer> 페이지', () => {
     const el = await loadDesigner();
     expect(pageIndicator(el)).toBe('1 / 1');
     expect(toolbarButton(el, strings.designer.deletePage).disabled).toBe(true);
-    expect((el.shadowRoot?.querySelector('.page-prev') as HTMLButtonElement).disabled).toBe(true);
-    expect((el.shadowRoot?.querySelector('.page-next') as HTMLButtonElement).disabled).toBe(true);
+    expect(toolbarButton(el, strings.designer.prevPage).disabled).toBe(true);
+    expect(toolbarButton(el, strings.designer.nextPage).disabled).toBe(true);
     el.remove();
   });
 
@@ -883,12 +971,12 @@ describe('<slip-designer> 페이지', () => {
     toolbarButton(el, strings.designer.addPage).click();
     await el.updateComplete;
 
-    (el.shadowRoot?.querySelector('.page-prev') as HTMLButtonElement).click();
+    toolbarButton(el, strings.designer.prevPage).click();
     await el.updateComplete;
     expect(pageIndicator(el)).toBe('1 / 2');
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
 
-    (el.shadowRoot?.querySelector('.page-next') as HTMLButtonElement).click();
+    toolbarButton(el, strings.designer.nextPage).click();
     await el.updateComplete;
     expect(pageIndicator(el)).toBe('2 / 2');
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(0);
@@ -1012,7 +1100,7 @@ describe('<slip-designer> 미리보기', () => {
     await el.updateComplete;
 
     const previewBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-      .find((b) => b.textContent?.trim() === strings.designer.preview) as HTMLElement;
+      .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === strings.designer.preview) as HTMLElement;
     previewBtn.click();
     await el.updateComplete;
     await flush();
@@ -1034,7 +1122,7 @@ describe('<slip-designer> 미리보기', () => {
 
     // 미리보기 진입
     const previewBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-      .find((b) => b.textContent?.trim() === strings.designer.preview) as HTMLElement;
+      .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === strings.designer.preview) as HTMLElement;
     previewBtn.click();
     await el.updateComplete;
     await flush();
@@ -1042,7 +1130,7 @@ describe('<slip-designer> 미리보기', () => {
 
     // 편집으로 복귀
     const editBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-      .find((b) => b.textContent?.trim() === strings.designer.edit) as HTMLElement;
+      .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === strings.designer.edit) as HTMLElement;
     editBtn.click();
     await el.updateComplete;
 

@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing } from 'lit';
+import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
 import {
   parseSlipFile,
   renderSlipToPdf,
@@ -10,6 +10,12 @@ import {
 import { getStrings } from './strings.js';
 import { loadDefaultFonts } from './default-fonts.js';
 import { presets } from './presets.js';
+import { icons } from './icons.js';
+
+/** 색 피커의 팔레트 견본 — 전표에서 자주 쓰는 색 위주 */
+const COLOR_PALETTE = [
+  '#000000', '#ffffff', '#f2f2f2', '#d93025', '#f9ab00', '#188038', '#1a73e8', '#9334e6',
+] as const;
 
 const PX_PER_MM = 96 / 25.4;
 const MAX_UNDO = 50;
@@ -39,13 +45,14 @@ function justifyOf(alignment: 'left' | 'center' | 'right' | undefined): string {
 const PLACEHOLDER_IMG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
-const TYPE_BADGE: Record<SlipElement['type'], string> = {
-  text: 'T',
-  fixedGrid: '⊞',
-  dynamicTable: '表',
-  image: 'IMG',
-  shape: '◇',
-  field: 'F',
+/** 캔버스 요소의 종류 배지 아이콘 — 툴바의 요소 추가 아이콘과 동일 */
+const TYPE_BADGE: Record<SlipElement['type'], TemplateResult> = {
+  text: icons.text,
+  fixedGrid: icons.fixedGrid,
+  dynamicTable: icons.dynamicTable,
+  image: icons.image,
+  shape: icons.shape,
+  field: icons.field,
 };
 
 interface DragState {
@@ -81,62 +88,99 @@ interface ResizeState {
 export class SlipDesigner extends LitElement {
   static styles = css`
     :host {
+      /* 디자인 토큰 (ADR-031) — 색·모서리는 전부 여기서만 정의한다 */
+      --sk-bg: #f6f7f8;
+      --sk-surface: #ffffff;
+      --sk-canvas-bg: #e2e4e7;
+      --sk-border: #d8dadf;
+      --sk-border-strong: #c4c7cd;
+      --sk-text: #2e3238;
+      --sk-text-muted: #798088;
+      --sk-accent: #1a73e8;
+      --sk-accent-soft: #e7f0fd;
+      --sk-guide: #e91e63;
+      --sk-radius: 4px;
+
       display: grid;
       grid-template-rows: auto 1fr;
       grid-template-columns: 1fr 260px;
       height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
       font-size: 13px;
-      color: #333;
+      color: var(--sk-text);
       overflow: hidden;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
     }
 
     .toolbar {
       grid-column: 1 / -1;
       display: flex;
       align-items: center;
-      gap: 2px;
+      gap: 3px;
       padding: 4px 8px;
-      border-bottom: 1px solid #ddd;
-      background: #f5f5f5;
+      border-bottom: 1px solid var(--sk-border);
+      background: var(--sk-bg);
     }
     .toolbar button {
-      padding: 4px 10px;
-      border: 1px solid #ccc;
-      border-radius: 3px;
-      background: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: var(--sk-radius);
+      background: transparent;
       cursor: pointer;
-      font-size: 12px;
-      font-family: inherit;
-      color: inherit;
+      color: var(--sk-text);
+    }
+    .toolbar button svg {
+      width: 16px;
+      height: 16px;
     }
     .toolbar button:hover:not(:disabled) {
-      background: #e8e8e8;
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+    }
+    .toolbar button:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    .toolbar button[aria-pressed='true'] {
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+      border-color: var(--sk-accent);
     }
     .toolbar button:disabled {
-      opacity: 0.4;
+      opacity: 0.35;
       cursor: default;
     }
     .toolbar select {
       padding: 4px 6px;
-      border: 1px solid #ccc;
-      border-radius: 3px;
-      background: #fff;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
       font-size: 12px;
       font-family: inherit;
       color: inherit;
       cursor: pointer;
+      height: 28px;
     }
     .toolbar .page-indicator {
       min-width: 40px;
       text-align: center;
       font-size: 12px;
-      color: #555;
+      color: var(--sk-text-muted);
     }
     .toolbar .sep {
       width: 1px;
       height: 20px;
-      background: #ddd;
+      background: var(--sk-border);
       margin: 0 4px;
     }
 
@@ -144,7 +188,7 @@ export class SlipDesigner extends LitElement {
       grid-row: 2;
       grid-column: 1;
       overflow: auto;
-      background: #e0e0e0;
+      background: var(--sk-canvas-bg);
       display: flex;
       align-items: flex-start;
       justify-content: center;
@@ -177,19 +221,25 @@ export class SlipDesigner extends LitElement {
       pointer-events: none;
     }
     .element.selected {
-      box-shadow: 0 0 0 2px #1a73e8;
+      box-shadow: 0 0 0 2px var(--sk-accent);
       z-index: 10;
     }
     .element .badge {
       position: absolute;
       top: 1px;
       left: 1px;
-      padding: 0 3px;
-      font-size: 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
       background: rgba(0, 0, 0, 0.06);
       border-radius: 2px;
-      color: #666;
-      line-height: 14px;
+      color: var(--sk-text-muted);
+    }
+    .element .badge svg {
+      width: 11px;
+      height: 11px;
     }
     .element .el-content {
       display: flex;
@@ -255,7 +305,7 @@ export class SlipDesigner extends LitElement {
       width: 8px;
       height: 8px;
       background: #fff;
-      border: 1px solid #1a73e8;
+      border: 1px solid var(--sk-accent);
       border-radius: 1px;
       box-sizing: border-box;
     }
@@ -271,7 +321,7 @@ export class SlipDesigner extends LitElement {
     .snap-guide {
       position: absolute;
       pointer-events: none;
-      background: #e91e63;
+      background: var(--sk-guide);
       z-index: 20;
     }
     .snap-guide.vertical {
@@ -288,20 +338,21 @@ export class SlipDesigner extends LitElement {
     .prop-panel {
       grid-row: 2;
       grid-column: 2;
-      border-left: 1px solid #ddd;
+      border-left: 1px solid var(--sk-border);
       padding: 12px;
       overflow-y: auto;
-      background: #fafafa;
+      overflow-x: hidden;
+      background: var(--sk-bg);
     }
     .panel-empty {
-      color: #999;
+      color: var(--sk-text-muted);
       text-align: center;
       padding-top: 40px;
     }
     .prop-section {
       margin-bottom: 14px;
       padding-bottom: 10px;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid var(--sk-border);
     }
     .prop-section:last-child {
       border-bottom: none;
@@ -309,13 +360,13 @@ export class SlipDesigner extends LitElement {
     .prop-section-title {
       font-size: 11px;
       font-weight: 600;
-      color: #888;
+      color: var(--sk-text-muted);
       margin-bottom: 6px;
     }
     .type-name {
       font-size: 12px;
       font-weight: 600;
-      color: #444;
+      color: var(--sk-text);
       margin-bottom: 10px;
     }
     .prop-row {
@@ -327,7 +378,7 @@ export class SlipDesigner extends LitElement {
     .prop-row label {
       min-width: 52px;
       font-size: 12px;
-      color: #666;
+      color: var(--sk-text-muted);
       flex-shrink: 0;
     }
     .prop-row input,
@@ -335,16 +386,23 @@ export class SlipDesigner extends LitElement {
     .prop-row textarea {
       flex: 1;
       min-width: 0;
+      width: 0;
       padding: 3px 6px;
-      border: 1px solid #ccc;
-      border-radius: 3px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
       font-size: 12px;
       font-family: inherit;
       color: inherit;
     }
-    .prop-row input[type='number'] {
-      width: 65px;
-      flex: 0 0 65px;
+    .prop-row input:focus-visible,
+    .prop-row select:focus-visible,
+    .prop-row textarea:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -1px;
+    }
+    .prop-pair .prop-row label {
+      min-width: 34px;
     }
     .prop-row textarea {
       resize: vertical;
@@ -355,6 +413,87 @@ export class SlipDesigner extends LitElement {
     }
     .prop-pair .prop-row {
       flex: 1;
+      min-width: 0;
+    }
+
+    .toggle-group {
+      display: inline-flex;
+      gap: 2px;
+    }
+    .toggle-group button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 24px;
+      padding: 0;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      color: var(--sk-text);
+      cursor: pointer;
+    }
+    .toggle-group button svg {
+      width: 14px;
+      height: 14px;
+    }
+    .toggle-group button[aria-pressed='true'] {
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+      border-color: var(--sk-accent);
+    }
+    .toggle-group button:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+
+    .color-well {
+      flex: 0 0 28px;
+      width: 28px;
+      height: 24px;
+      padding: 1px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      cursor: pointer;
+    }
+    .color-extras {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin: 2px 0 8px 58px;
+    }
+    .swatch {
+      width: 14px;
+      height: 14px;
+      padding: 0;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .swatch:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    .swatch.none {
+      background:
+        linear-gradient(to top left, transparent 44%, var(--sk-guide) 45%, var(--sk-guide) 55%, transparent 56%),
+        var(--sk-surface);
+    }
+    .alpha-input {
+      flex: 0 0 44px;
+      width: 44px;
+      padding: 2px 4px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-size: 11px;
+      font-family: inherit;
+    }
+    .alpha-suffix {
+      font-size: 11px;
+      color: var(--sk-text-muted);
     }
 
     .preview-area {
@@ -1070,48 +1209,48 @@ export class SlipDesigner extends LitElement {
   // Render: toolbar
   // ---------------------------------------------------------------------------
 
+  /** 아이콘 버튼 — 이름은 툴팁(title)과 접근성 라벨(aria-label)로 제공한다 */
+  private _iconButton(
+    label: string,
+    glyph: TemplateResult,
+    onClick: () => void,
+    opts: { disabled?: boolean; pressed?: boolean } = {},
+  ) {
+    return html`<button title=${label} aria-label=${label}
+      aria-pressed=${opts.pressed === undefined ? nothing : String(opts.pressed)}
+      ?disabled=${opts.disabled === true}
+      @click=${onClick}>${glyph}</button>`;
+  }
+
   private _renderToolbar() {
     const s = this._strings.designer;
     return html`
-      <button @click=${() => this._addElement('text')}>${s.addText}</button>
-      <button @click=${() => this._addElement('fixedGrid')}>${s.addFixedGrid}</button>
-      <button @click=${() => this._addElement('dynamicTable')}>${s.addDynamicTable}</button>
-      <button @click=${() => this._addElement('image')}>${s.addImage}</button>
-      <button @click=${() => this._addElement('shape')}>${s.addShape}</button>
-      <button @click=${() => this._addElement('field')}>${s.addField}</button>
+      ${this._iconButton(s.addText, icons.text, () => this._addElement('text'))}
+      ${this._iconButton(s.addFixedGrid, icons.fixedGrid, () => this._addElement('fixedGrid'))}
+      ${this._iconButton(s.addDynamicTable, icons.dynamicTable, () => this._addElement('dynamicTable'))}
+      ${this._iconButton(s.addImage, icons.image, () => this._addElement('image'))}
+      ${this._iconButton(s.addShape, icons.shape, () => this._addElement('shape'))}
+      ${this._iconButton(s.addField, icons.field, () => this._addElement('field'))}
       <span class="sep"></span>
-      <button @click=${() => this._deleteSelected()} ?disabled=${!this._selectedId}>
-        ${s.delete}
-      </button>
-      <button @click=${() => this._copySelected()} ?disabled=${!this._selectedId}>
-        ${s.copy}
-      </button>
-      <button @click=${() => this._paste()} ?disabled=${!this._clipboard}>
-        ${s.paste}
-      </button>
+      ${this._iconButton(s.delete, icons.remove, () => this._deleteSelected(), { disabled: !this._selectedId })}
+      ${this._iconButton(s.copy, icons.copy, () => this._copySelected(), { disabled: !this._selectedId })}
+      ${this._iconButton(s.paste, icons.paste, () => this._paste(), { disabled: !this._clipboard })}
       <span class="sep"></span>
-      <button @click=${() => this._undo()} ?disabled=${this._undoStack.length === 0}>
-        ${s.undo}
-      </button>
-      <button @click=${() => this._redo()} ?disabled=${this._redoStack.length === 0}>
-        ${s.redo}
-      </button>
+      ${this._iconButton(s.undo, icons.undo, () => this._undo(), { disabled: this._undoStack.length === 0 })}
+      ${this._iconButton(s.redo, icons.redo, () => this._redo(), { disabled: this._redoStack.length === 0 })}
       <span class="sep"></span>
-      <button class="page-prev" title=${s.prevPage} aria-label=${s.prevPage}
-              @click=${() => this._goToPage(this._pageIndex - 1)}
-              ?disabled=${this._pageIndex === 0}>◀</button>
+      ${this._iconButton(s.prevPage, icons.pagePrev, () => this._goToPage(this._pageIndex - 1), { disabled: this._pageIndex === 0 })}
       <span class="page-indicator">${this._pageIndex + 1} / ${this._pageCount()}</span>
-      <button class="page-next" title=${s.nextPage} aria-label=${s.nextPage}
-              @click=${() => this._goToPage(this._pageIndex + 1)}
-              ?disabled=${this._pageIndex >= this._pageCount() - 1}>▶</button>
-      <button @click=${() => this._addPage()}>${s.addPage}</button>
-      <button @click=${() => this._deletePage()} ?disabled=${this._pageCount() <= 1}>
-        ${s.deletePage}
-      </button>
+      ${this._iconButton(s.nextPage, icons.pageNext, () => this._goToPage(this._pageIndex + 1), { disabled: this._pageIndex >= this._pageCount() - 1 })}
+      ${this._iconButton(s.addPage, icons.pageAdd, () => this._addPage())}
+      ${this._iconButton(s.deletePage, icons.pageRemove, () => this._deletePage(), { disabled: this._pageCount() <= 1 })}
       <span class="sep"></span>
-      <button @click=${() => this._togglePreview()}>
-        ${this._previewMode ? s.edit : s.preview}
-      </button>
+      ${this._iconButton(
+        this._previewMode ? s.edit : s.preview,
+        this._previewMode ? icons.edit : icons.preview,
+        () => this._togglePreview(),
+        { pressed: this._previewMode },
+      )}
       <span class="sep"></span>
       <select class="preset-select" aria-label=${s.preset} @change=${this._onPresetChange}>
         <option value="" selected>${s.preset}</option>
@@ -1202,10 +1341,9 @@ export class SlipDesigner extends LitElement {
       if (r.backgroundColor && el.type !== 'dynamicTable') style += `;background-color:${r.backgroundColor}`;
       if (r.fontColor) style += `;color:${r.fontColor}`;
       if (r.borderColor) style += `;border-color:${r.borderColor}`;
-      // 테두리 굵기·모양을 명시했을 때만 반영 (미지정 시 편집용 실선 유지)
+      // 테두리 굵기를 명시했을 때만 반영 (미지정 시 편집용 실선 유지)
       if (typeof r.borderWidth === 'number' && r.borderWidth > 0) {
         style += `;border-width:${(r.borderWidth * PX_PER_MM).toFixed(2)}px`;
-        style += `;border-style:${typeof r.borderStyle === 'string' ? r.borderStyle : 'solid'}`;
       }
     }
 
@@ -1504,7 +1642,6 @@ export class SlipDesigner extends LitElement {
     if (el.type !== 'text' && el.type !== 'field') return nothing;
     const s = this._strings.designer;
     const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
 
     return html`
       <div class="prop-row">
@@ -1521,17 +1658,20 @@ export class SlipDesigner extends LitElement {
       </div>
       <div class="prop-row">
         <label>${s.alignment}</label>
-        <select .value=${el.alignment ?? 'left'}
-          @change=${(e: Event) => this._updateElement((el) => {
-            const v = valOf(e) as 'left' | 'center' | 'right';
-            const r = el as Record<string, unknown>;
-            if (v !== 'left') r.alignment = v;
-            else delete r.alignment;
-          })}>
-          <option value="left">${s.alignLeft}</option>
-          <option value="center">${s.alignCenter}</option>
-          <option value="right">${s.alignRight}</option>
-        </select>
+        <div class="toggle-group" role="group" aria-label=${s.alignment}>
+          ${([
+            ['left', s.alignLeft, icons.alignLeft],
+            ['center', s.alignCenter, icons.alignCenter],
+            ['right', s.alignRight, icons.alignRight],
+          ] as const).map(([value, label, glyph]) => html`
+            <button title=${label} aria-label="${s.alignment}: ${label}"
+              aria-pressed=${String((el.alignment ?? 'left') === value)}
+              @click=${() => this._updateElement((target) => {
+                const r = target as Record<string, unknown>;
+                if (value !== 'left') r.alignment = value;
+                else delete r.alignment;
+              })}>${glyph}</button>`)}
+        </div>
       </div>
     `;
   }
@@ -1540,61 +1680,85 @@ export class SlipDesigner extends LitElement {
   // Render: color props
   // ---------------------------------------------------------------------------
 
+  /** 스타일 속성 키에 색 값을 넣거나(v) 지운다(null) */
+  private _applyColor(key: string, value: string | null): void {
+    this._updateElement((el) => {
+      const r = el as Record<string, unknown>;
+      if (value) r[key] = value;
+      else delete r[key];
+    });
+  }
+
+  /**
+   * 색 입력 한 벌 — 색상판(color well) + 직접 입력 + 팔레트 견본 + 투명도(%).
+   * 저장 형식은 파일 스키마와 동일한 #RRGGBB(투명도 100%) / #RRGGBBAA.
+   */
+  private _renderColorControl(label: string, current: string | undefined, key: string) {
+    const s = this._strings.designer;
+    const base = current?.slice(0, 7) ?? '#000000';
+    const alphaPct = current && current.length === 9
+      ? Math.round((parseInt(current.slice(7, 9), 16) / 255) * 100)
+      : 100;
+    const compose = (hex: string, pct: number): string => {
+      const clamped = Math.max(0, Math.min(100, pct));
+      if (clamped >= 100) return hex;
+      return hex + Math.round((clamped / 100) * 255).toString(16).padStart(2, '0');
+    };
+
+    return html`
+      <div class="prop-row">
+        <label>${label}</label>
+        <input type="color" class="color-well" aria-label=${label} .value=${base}
+          @input=${(e: Event) => this._applyColor(key, compose((e.target as HTMLInputElement).value, alphaPct))}>
+        <input .value=${current ?? ''} placeholder="#RRGGBB"
+          @change=${(e: Event) => {
+            // 파일 스키마와 같은 형식만 저장 — 어긋난 값은 저장 시점에야 거부되어 원인 찾기 어려움
+            const v = (e.target as HTMLInputElement).value;
+            if (v && !/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) {
+              this.requestUpdate();
+              return;
+            }
+            this._applyColor(key, v || null);
+          }}>
+      </div>
+      <div class="color-extras">
+        <button class="swatch none" title=${s.colorNone} aria-label="${label}: ${s.colorNone}"
+          @click=${() => this._applyColor(key, null)}></button>
+        ${COLOR_PALETTE.map((c) => html`<button class="swatch" style="background:${c}"
+          title=${c} aria-label="${label} ${c}"
+          @click=${() => this._applyColor(key, compose(c, alphaPct))}></button>`)}
+        <input type="number" class="alpha-input" min="0" max="100" .value=${String(alphaPct)}
+          title=${s.opacity} aria-label="${label} ${s.opacity}"
+          @change=${(e: Event) => {
+            if (!current) return;
+            this._applyColor(key, compose(base, Number((e.target as HTMLInputElement).value)));
+          }}>
+        <span class="alpha-suffix">%</span>
+      </div>
+    `;
+  }
+
   private _renderColorProps(el: SlipElement) {
     if (el.type === 'image') return nothing;
     const s = this._strings.designer;
     const r = el as Record<string, unknown>;
-    // 파일 스키마와 같은 형식(#RRGGBB/#RRGGBBAA)만 저장한다 — 어긋난 값을
-    // 넣으면 나중에 저장(재검증) 시점에야 거부되어 원인을 찾기 어렵다
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-    const colorOf = (e: Event): string | null => {
-      const v = valOf(e);
-      if (v && !/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) {
-        this.requestUpdate();
-        return null;
-      }
-      return v;
-    };
+    const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
 
     return html`
       <div class="prop-section">
         <div class="prop-section-title">${s.style}</div>
+        ${this._renderColorControl(s.backgroundColor, r.backgroundColor as string | undefined, 'backgroundColor')}
+        ${this._renderColorControl(s.fontColor, r.fontColor as string | undefined, 'fontColor')}
+        ${this._renderColorControl(s.borderColor, r.borderColor as string | undefined, 'borderColor')}
         <div class="prop-row">
-          <label>${s.backgroundColor}</label>
-          <input .value=${(r.backgroundColor as string) ?? ''} placeholder="#RRGGBB"
+          <label>${s.borderWidth}</label>
+          <input type="number" step="0.1" min="0" .value=${String((r.borderWidth as number) ?? '')}
             @change=${(e: Event) => {
-              const v = colorOf(e);
-              if (v === null) return;
-              this._updateElement((el) => {
-                const r = el as Record<string, unknown>;
-                if (v) r.backgroundColor = v;
-                else delete r.backgroundColor;
-              });
-            }}>
-        </div>
-        <div class="prop-row">
-          <label>${s.fontColor}</label>
-          <input .value=${(r.fontColor as string) ?? ''} placeholder="#RRGGBB"
-            @change=${(e: Event) => {
-              const v = colorOf(e);
-              if (v === null) return;
-              this._updateElement((el) => {
-                const r = el as Record<string, unknown>;
-                if (v) r.fontColor = v;
-                else delete r.fontColor;
-              });
-            }}>
-        </div>
-        <div class="prop-row">
-          <label>${s.borderColor}</label>
-          <input .value=${(r.borderColor as string) ?? ''} placeholder="#RRGGBB"
-            @change=${(e: Event) => {
-              const v = colorOf(e);
-              if (v === null) return;
-              this._updateElement((el) => {
-                const r = el as Record<string, unknown>;
-                if (v) r.borderColor = v;
-                else delete r.borderColor;
+              const v = numOf(e);
+              this._updateElement((target) => {
+                const t = target as Record<string, unknown>;
+                if (v > 0) t.borderWidth = v;
+                else delete t.borderWidth;
               });
             }}>
         </div>
