@@ -902,7 +902,7 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  it('바인딩 목록은 양식 전체의 field·동적 표 바인딩을 모으고, 클릭하면 페이지를 옮겨 선택한다', async () => {
+  it('바인딩 목록은 양식 전체의 field·동적 표 바인딩을 모으고, 동적 표는 하위 열까지 보여준다', async () => {
     const file = makeTemplateFile();
     file.template.pages.push({
       elements: [
@@ -921,16 +921,92 @@ describe('<slip-designer> 사이드바', () => {
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await loadDesigner();
 
-    const rows = sideSection(el, strings.designer.sidebarBindings).querySelectorAll('.side-row');
+    const section = sideSection(el, strings.designer.sidebarBindings);
+    const rows = section.querySelectorAll('.side-row');
     expect(Array.from(rows).map((r) => r.textContent?.trim())).toEqual(['합계금액', 'items']);
+    // 동적 표 바인딩은 하위 열이 한 단 들여쓰여 함께 나온다 (ADR-034)
+    expect(Array.from(section.querySelectorAll('.side-col-row')).map((r) => r.textContent?.trim()))
+      .toEqual(['a']);
 
+    // 바인딩을 고르면 오른쪽 패널이 바인딩 편집으로 바뀌고, "쓰는 곳"에서 요소로 이동한다
     (rows[0] as HTMLElement).click();
     await el.updateComplete;
+    expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
+      .toBe(strings.designer.sidebarBindings);
 
-    // 2페이지로 이동해 해당 field가 선택된다
+    (el.shadowRoot?.querySelector('.usage-row') as HTMLElement).click();
+    await el.updateComplete;
     expect(el.shadowRoot?.querySelector('.page-indicator')?.textContent?.replace(/\s+/g, ' ').trim())
       .toBe('2 / 2');
     expect(el.shadowRoot?.querySelector('.element.selected')?.getAttribute('data-id')).toBe('fld-1');
+    el.remove();
+  });
+
+  it('표 열을 고르면 그 표가 있는 페이지로 옮겨 열 설정이 열린다', async () => {
+    const file = makeTemplateFile();
+    file.template.pages.push({
+      elements: [
+        {
+          type: 'dynamicTable' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
+          width: 180, height: 20,
+          columns: [
+            { key: 'name', title: '품명', widthPercentage: 60 },
+            { key: 'amount', title: '금액', widthPercentage: 40 },
+          ],
+          repeatHead: true, binding: 'items',
+        } as never,
+      ],
+    });
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    const cols = sideSection(el, strings.designer.sidebarBindings).querySelectorAll('.side-col-row');
+    expect(Array.from(cols).map((c) => c.textContent?.trim())).toEqual(['품명', '금액']);
+
+    (cols[1] as HTMLElement).click();
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelector('.page-indicator')?.textContent?.replace(/\s+/g, ' ').trim())
+      .toBe('2 / 2');
+    expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
+      .toBe(strings.designer.columnPanelTitle);
+    expect((el.shadowRoot?.querySelector('.col-panel-key') as HTMLInputElement).value).toBe('amount');
+
+    // 열 제목을 고치면 그 열에만 반영된다
+    const title = el.shadowRoot?.querySelector('.col-panel-title') as HTMLInputElement;
+    title.value = '공급가액';
+    title.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    const table = file.template.pages[1]!.elements[0] as never as { columns: { title: string }[] };
+    expect(table.columns.map((c) => c.title)).toEqual(['품명', '공급가액']);
+    el.remove();
+  });
+
+  it('요소 목록은 페이지별로 묶이고, 줄의 삭제 버튼으로 그 요소를 지운다', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.addPage).click();
+    await el.updateComplete;
+
+    const section = sideSection(el, strings.designer.sidebarElements);
+    // 페이지가 여럿이면 페이지 머리가 붙고, 현재(2)페이지만 펼쳐진다
+    expect(section.querySelectorAll('.side-page-head').length).toBe(2);
+    expect(section.querySelectorAll('.side-row').length).toBe(0);
+
+    (section.querySelectorAll('.side-page-head')[0] as HTMLElement).click();
+    await el.updateComplete;
+
+    expect(sideSection(el, strings.designer.sidebarElements).querySelectorAll('.side-row').length)
+      .toBe(2);
+
+    const remove = Array.from(
+      sideSection(el, strings.designer.sidebarElements).querySelectorAll('button'),
+    ).find((b) => b.getAttribute('aria-label') === `test-text ${strings.designer.delete}`)!;
+    remove.click();
+    await el.updateComplete;
+
+    expect(sideSection(el, strings.designer.sidebarElements).querySelectorAll('.side-row').length)
+      .toBe(1);
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(1);
     el.remove();
   });
 
@@ -2523,7 +2599,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
 // D-13: 사이드바 바인딩 등록·삭제·논리명 편집 + 샘플 데이터 편집·채운 미리보기
 // ---------------------------------------------------------------------------
 
-describe('<slip-designer> 바인딩 관리 (D-13)', () => {
+describe('<slip-designer> 바인딩 관리 (ADR-034)', () => {
   const byAria = (el: Element, label: string) =>
     Array.from(el.shadowRoot!.querySelectorAll('button'))
       .find((b) => b.getAttribute('aria-label') === label) as HTMLButtonElement;
@@ -2532,53 +2608,123 @@ describe('<slip-designer> 바인딩 관리 (D-13)', () => {
     return (el as unknown as { _file: SlipTemplateFile })._file;
   }
 
-  async function addBinding(el: import('../src/slip-designer.js').SlipDesigner, key: string, label: string) {
+  function defsOf(el: Element): { key: string; label?: string }[] | undefined {
+    return (fileOf(el).template as { bindings?: { key: string; label?: string }[] }).bindings;
+  }
+
+  /** 사이드바 + 버튼 — 기본 이름으로 값을 만들고 바로 고른다 */
+  async function addBinding(el: import('../src/slip-designer.js').SlipDesigner) {
     byAria(el, strings.designer.addBinding).click();
-    await el.updateComplete;
-    const keyInput = el.shadowRoot!.querySelector('.binding-new-key') as HTMLInputElement;
-    const labelInput = el.shadowRoot!.querySelector('.binding-new-label') as HTMLInputElement;
-    keyInput.value = key;
-    labelInput.value = label;
-    byAria(el, `${strings.designer.addBinding} ${strings.designer.confirm}`).click();
     await el.updateComplete;
   }
 
-  it('사이드바에서 바인딩을 등록하면 정의부에 추가되고 논리명으로 표시된다', async () => {
+  it('+ 버튼은 기본 이름으로 값을 바로 만들고 그 값의 편집 패널을 연다', async () => {
     const el = await loadDesigner();
-    await addBinding(el, 'issueDate', '발행일');
+    await addBinding(el);
 
-    const defs = (fileOf(el).template as { bindings?: { key: string; label?: string }[] }).bindings;
-    expect(defs).toEqual([{ key: 'issueDate', label: '발행일' }]);
+    expect(defsOf(el)).toEqual([{ key: 'value1', label: `${strings.designer.newBindingName} 1` }]);
+    // 오른쪽 패널이 바인딩 편집으로 바뀐다
+    expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
+      .toBe(strings.designer.sidebarBindings);
+    expect((el.shadowRoot?.querySelector('.binding-key-input') as HTMLInputElement).value)
+      .toBe('value1');
+
+    // 두 번째는 겹치지 않는 이름으로 이어진다
+    await addBinding(el);
+    expect(defsOf(el)?.map((d) => d.key)).toEqual(['value1', 'value2']);
+    el.remove();
+  });
+
+  it('패널에서 물리명을 바꾸면 그 값을 쓰는 요소와 샘플 값도 함께 따라간다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addField);
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
+    const created = field.binding;
+    fileOf(el).template.sampleValues = { [created]: '1,000' } as never;
+
+    // 사이드바에서 그 값을 골라 패널에서 물리명을 고친다
+    const row = Array.from(el.shadowRoot!.querySelectorAll('.side-row'))
+      .find((r) => r.getAttribute('title') === created) as HTMLElement;
+    row.click();
+    await el.updateComplete;
+
+    const keyInput = el.shadowRoot!.querySelector('.binding-key-input') as HTMLInputElement;
+    keyInput.value = 'totalAmount';
+    keyInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(defsOf(el)).toEqual([{ key: 'totalAmount' }]);
+    expect(field.binding).toBe('totalAmount');
+    expect(fileOf(el).template.sampleValues).toEqual({ totalAmount: '1,000' });
+    el.remove();
+  });
+
+  it('이미 쓰는 물리명으로는 바꾸지 않는다', async () => {
+    const el = await loadDesigner();
+    await addBinding(el);
+    await addBinding(el);
+
+    const keyInput = el.shadowRoot!.querySelector('.binding-key-input') as HTMLInputElement;
+    keyInput.value = 'value1';
+    keyInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(defsOf(el)?.map((d) => d.key)).toEqual(['value1', 'value2']);
+    // 입력칸은 원래 이름으로 되돌아가고 이유를 알려준다
+    expect(keyInput.value).toBe('value2');
+    expect(el.shadowRoot?.querySelector('.cell-hint.error')?.textContent?.trim())
+      .toBe(strings.designer.keyInUse);
+    el.remove();
+  });
+
+  it('패널에서 논리명을 고치면 목록 표시가 바뀐다', async () => {
+    const el = await loadDesigner();
+    await addBinding(el);
+
+    const labelInput = el.shadowRoot!.querySelector('.binding-label-input') as HTMLInputElement;
+    labelInput.value = '합계 금액';
+    labelInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(defsOf(el)).toEqual([{ key: 'value1', label: '합계 금액' }]);
     const rows = Array.from(el.shadowRoot!.querySelectorAll('.side-row'));
-    expect(rows.some((r) => r.textContent?.includes('발행일'))).toBe(true);
+    expect(rows.some((r) => r.textContent?.includes('합계 금액'))).toBe(true);
     el.remove();
   });
 
-  it('중복 키 등록은 무시된다', async () => {
+  it('요소를 추가하면 그 값이 정의부에 함께 등록된다', async () => {
     const el = await loadDesigner();
-    await addBinding(el, 'issueDate', '발행일');
-    await addBinding(el, 'issueDate', '다른 이름');
-
-    const defs = (fileOf(el).template as { bindings?: { key: string }[] }).bindings;
-    expect(defs?.length).toBe(1);
-    el.remove();
-  });
-
-  it('논리명 편집은 정의부에 없던 키(요소 사용처)도 항목을 만들어 기록한다', async () => {
-    const el = await loadDesigner();
-    // 필드를 추가하면 기본 바인딩(field_xxxx)이 사용처 기준으로 목록에 나온다
     await addByCanvasClick(el, strings.designer.addField);
     const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
 
-    byAria(el, `${field.binding} ${strings.designer.editLabel}`).click();
+    expect(defsOf(el)).toEqual([{ key: field.binding }]);
+    el.remove();
+  });
+
+  it('요소 패널의 선택 상자로 등록된 값을 고르거나 새 값을 만들어 붙인다', async () => {
+    const el = await loadDesigner();
+    await addBinding(el);
+    await addByCanvasClick(el, strings.designer.addField);
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
+
+    const select = el.shadowRoot!.querySelector('.binding-select') as HTMLSelectElement;
+    // 등록된 값 + "새 값 등록" 항목이 나온다
+    expect(Array.from(select.options).map((o) => o.textContent?.trim()))
+      .toEqual([`${strings.designer.newBindingName} 1`, field.binding, strings.designer.bindingNew]);
+
+    select.value = 'value1';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
-    const input = el.shadowRoot!.querySelector('.binding-label-edit') as HTMLInputElement;
-    input.value = '합계 금액';
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(field.binding).toBe('value1');
+
+    // "새 값 등록"을 고르면 값을 만들어 그대로 이 요소에 붙인다
+    const select2 = el.shadowRoot!.querySelector('.binding-select') as HTMLSelectElement;
+    select2.value = select2.options[select2.options.length - 1]!.value;
+    select2.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
 
-    const defs = (fileOf(el).template as { bindings?: { key: string; label?: string }[] }).bindings;
-    expect(defs).toEqual([{ key: field.binding, label: '합계 금액' }]);
+    expect(field.binding).toBe('value2');
+    expect(defsOf(el)?.map((d) => d.key)).toContain('value2');
     el.remove();
   });
 
@@ -2586,13 +2732,12 @@ describe('<slip-designer> 바인딩 관리 (D-13)', () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addField);
     const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
-    // 정의부에 등록해 두고 지운다
-    await addBinding(el, 'standalone', '독립 바인딩');
-    byAria(el, `standalone ${strings.designer.delete}`).click();
+
+    byAria(el, `${field.binding} ${strings.designer.delete}`).click();
     await el.updateComplete;
 
-    expect((fileOf(el).template as { bindings?: unknown[] }).bindings).toBeUndefined();
-    // 요소 사용처 기반 행은 남고 그 삭제 버튼은 비활성 (정의부 항목이 아님)
+    // 정의부에서는 빠지지만 요소가 쓰고 있으니 목록에는 남고, 그 삭제 버튼은 비활성
+    expect(defsOf(el)).toBeUndefined();
     expect(byAria(el, `${field.binding} ${strings.designer.delete}`).disabled).toBe(true);
     el.remove();
   });

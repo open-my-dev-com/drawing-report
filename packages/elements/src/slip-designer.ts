@@ -24,6 +24,9 @@ const COLOR_PALETTE = [
 
 /** 사용자가 저장한 자주 쓰는 색의 localStorage 키 */
 const CUSTOM_COLORS_KEY = 'slipkit-designer-custom-colors';
+/** 바인딩 선택 상자의 "새 값 등록" 항목 값 — 물리명으로 쓸 수 없는 문자라 겹치지 않는다 */
+const NEW_BINDING_OPTION = '\u0000new';
+
 /** 저장 가능한 커스텀 색 최대 개수 — 넘치면 가장 오래된 것부터 밀어낸다 */
 const MAX_CUSTOM_COLORS = 30;
 
@@ -292,6 +295,44 @@ interface ResizeState {
   /** 되돌리기용 스냅샷 — 첫 크기 변경 때 만든다 */
   snapshot: string | null;
 }
+
+/**
+ * 사이드바에서 요소가 아닌 것을 고른 상태 (ADR-034).
+ *
+ * 바인딩은 요소와 별개의 1급 항목이고, 표 열은 그 표 바인딩의 하위 항목이다.
+ * 둘 다 오른쪽 패널에서 편집한다.
+ */
+/** 동적 표 요소 — 사이드바에서 하위 열까지 보여줄 때 쓴다 */
+type DynamicTableElement = Extract<SlipElement, { type: 'dynamicTable' }>;
+
+/** 바인딩을 쓰는 요소 한 곳 (ADR-034의 "쓰는 곳") */
+interface BindingUse {
+  pageIndex: number;
+  id: string;
+  name: string;
+  type: 'field' | 'dynamicTable';
+}
+
+/** 사이드바·패널이 함께 쓰는 바인딩 한 항목 — 정의부와 사용처를 합친 것 */
+interface BindingInfo {
+  /** 물리명 — 전표 값의 키 */
+  key: string;
+  /** 화면에 보이는 이름 — 논리명이 없으면 물리명 */
+  label: string;
+  /** 정의부에 적힌 논리명 (없으면 undefined) */
+  rawLabel: string | undefined;
+  /** 정의부에 등록된 항목인지 (요소만 쓰는 키는 false) */
+  defined: boolean;
+  /** 이 값을 쓰는 요소들 */
+  uses: BindingUse[];
+  /** 동적 표가 쓰는 바인딩이면 그 표 (하위 열 표시용) */
+  table: { pageIndex: number; element: DynamicTableElement } | undefined;
+}
+
+type SideSelection =
+  | { kind: 'binding'; key: string }
+  | { kind: 'column'; elementId: string; index: number }
+  | null;
 
 /**
  * <slip-designer> — 양식(.slip template) GUI 편집기 (ADR-020).
@@ -578,24 +619,96 @@ export class SlipDesigner extends LitElement {
       flex: 1;
       min-width: 0;
     }
-    .side-inline {
+    /* 요소 목록의 페이지 묶음 머리 — 현재 페이지만 펼친다 (ADR-034) */
+    .side-page-head {
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
-      gap: 4px;
-      margin: 2px 0 6px;
-    }
-    .side-inline input {
-      flex: 1;
-      min-width: 56px;
-      width: 0;
+      justify-content: space-between;
+      gap: 6px;
+      width: 100%;
+      margin: 4px 0 2px;
       padding: 3px 6px;
-      border: 1px solid var(--sk-border-strong);
+      border: none;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--sk-text-muted);
+    }
+    .side-page-head:hover {
+      background: var(--sk-accent-soft);
+    }
+    .side-page-head.current {
+      color: var(--sk-accent);
+      font-weight: 600;
+    }
+    /* 동적 표 바인딩의 하위 열 — 한 단 들여 쓴다 (ADR-034) */
+    .side-col-row {
+      display: flex;
+      align-items: center;
+      width: calc(100% - 16px);
+      margin: 1px 0 1px 16px;
+      padding: 3px 6px;
+      border: 1px solid transparent;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--sk-text-muted);
+      text-align: left;
+    }
+    .side-col-row span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .side-col-row:hover {
+      background: var(--sk-accent-soft);
+    }
+    .side-col-row.selected {
+      background: var(--sk-accent-soft);
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    /* 바인딩 패널의 "쓰는 곳" 한 줄 (ADR-034) */
+    .usage-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      margin: 2px 0;
+      padding: 4px 6px;
+      border: 1px solid var(--sk-border);
       border-radius: var(--sk-radius);
       background: var(--sk-surface);
-      font-size: 11px;
+      cursor: pointer;
       font-family: inherit;
-      color: inherit;
+      font-size: 12px;
+      color: var(--sk-text);
+      text-align: left;
+    }
+    .usage-row:hover {
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    .usage-row svg {
+      flex: 0 0 12px;
+      width: 12px;
+      height: 12px;
+    }
+    .usage-row > span:first-of-type {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .usage-page {
+      flex: none;
+      font-size: 11px;
+      color: var(--sk-text-muted);
     }
     /* 샘플 데이터 모달의 행 편집 그리드 (D-13) — 열이 많으면 가로 스크롤 */
     .modal.modal-wide {
@@ -1350,6 +1463,9 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
       line-height: 1.5;
     }
+    .cell-hint.error {
+      color: var(--sk-danger);
+    }
     .col-edit-head {
       display: grid;
       grid-template-columns: 1fr 52px;
@@ -1841,8 +1957,8 @@ export class SlipDesigner extends LitElement {
     _formulaModalOpen: { state: true },
     _columnsModalOpen: { state: true },
     _sampleModalOpen: { state: true },
-    _bindingEditKey: { state: true },
-    _bindingAddOpen: { state: true },
+    _sideSelection: { state: true },
+    _bindingKeyError: { state: true },
     presets: { attribute: false },
     storage: { attribute: false },
     _saveModalOpen: { state: true },
@@ -1928,10 +2044,13 @@ export class SlipDesigner extends LitElement {
   private _sampleJsonMode = false;
   /** JSON 모드의 편집 중 초안 — 적용을 눌러야 sampleValues에 반영된다 */
   private _sampleJsonDraft = '';
-  /** 사이드바에서 논리명을 인라인 편집 중인 바인딩 키 (D-13) */
-  private _bindingEditKey: string | null = null;
-  /** 사이드바의 바인딩 등록 입력줄 열림 여부 (D-13) */
-  private _bindingAddOpen = false;
+  /**
+   * 사이드바에서 요소가 아닌 것을 골랐을 때의 선택 대상 (ADR-034) — 바인딩 또는 표 열.
+   * 요소를 고르면 `null`로 돌아가고, 오른쪽 패널이 이 값에 따라 편집 화면을 바꾼다.
+   */
+  private _sideSelection: SideSelection = null;
+  /** 바인딩 패널에서 이미 쓰는 물리명으로 바꾸려 했는지 — 안내를 보여준다 */
+  private _bindingKeyError = false;
   /** "내 양식으로 저장" 모달 열림 여부 (D-15) */
   private _saveModalOpen = false;
   /** 저장 모달의 제목 초안 — 확인하면 양식 제목으로도 반영된다 */
@@ -2034,8 +2153,8 @@ export class SlipDesigner extends LitElement {
     this._formulaModalOpen = false;
     this._columnsModalOpen = false;
     this._sampleModalOpen = false;
-    this._bindingEditKey = null;
-    this._bindingAddOpen = false;
+    this._sideSelection = null;
+    this._bindingKeyError = false;
     this._saveModalOpen = false;
     this._myFormsOpen = false;
     this._myFormsError = null;
@@ -2118,6 +2237,7 @@ export class SlipDesigner extends LitElement {
     if (clamped === this._pageIndex) return;
     this._pageIndex = clamped;
     this._selectedId = null;
+    this._sideSelection = null;
     this._selectedCell = null;
     this._cellEditing = false;
   }
@@ -2129,6 +2249,7 @@ export class SlipDesigner extends LitElement {
     this._file.template.pages.splice(this._pageIndex + 1, 0, { elements: [] });
     this._pageIndex += 1;
     this._selectedId = null;
+    this._sideSelection = null;
     this._emitChange();
     this.requestUpdate();
   }
@@ -2140,6 +2261,7 @@ export class SlipDesigner extends LitElement {
     this._file.template.pages.splice(this._pageIndex, 1);
     this._clampPageIndex();
     this._selectedId = null;
+    this._sideSelection = null;
     this._emitChange();
     this.requestUpdate();
   }
@@ -2271,6 +2393,11 @@ export class SlipDesigner extends LitElement {
 
     elements.push(element);
     this._selectedId = id;
+    this._sideSelection = null;
+    // 값을 쓰는 요소는 그 바인딩을 정의부에 함께 등록한다 — 목록이 값의 단일 원천 (ADR-034)
+    if (element.type === 'field' || element.type === 'dynamicTable') {
+      this._ensureBindingDef(element.binding);
+    }
     this._emitChange();
     this.requestUpdate();
   }
@@ -2299,6 +2426,10 @@ export class SlipDesigner extends LitElement {
 
     elements.push(copy);
     this._selectedId = copy.id;
+    this._sideSelection = null;
+    if (copy.type === 'field' || copy.type === 'dynamicTable') {
+      this._ensureBindingDef(copy.binding);
+    }
     this._emitChange();
     this.requestUpdate();
   }
@@ -2312,6 +2443,7 @@ export class SlipDesigner extends LitElement {
     this._pushUndo();
     elements.splice(idx, 1);
     this._selectedId = null;
+    this._sideSelection = null;
     this._emitChange();
     this.requestUpdate();
   }
@@ -2476,6 +2608,7 @@ export class SlipDesigner extends LitElement {
       if (!id) return;
       const wasSelected = this._selectedId === id;
       this._selectedId = id;
+      this._sideSelection = null;
       if (!wasSelected) {
         this._selectedCell = null;
         this._cellEditing = false;
@@ -2497,6 +2630,7 @@ export class SlipDesigner extends LitElement {
       e.preventDefault();
     } else {
       this._selectedId = null;
+      this._sideSelection = null;
       this._selectedCell = null;
       this._cellEditing = false;
     }
@@ -3354,6 +3488,7 @@ export class SlipDesigner extends LitElement {
     this._pushUndo();
     this._file = preset.create();
     this._selectedId = null;
+    this._sideSelection = null;
     this._pageIndex = 0;
     this._previewMode = false;
     this._emitChange();
@@ -3361,19 +3496,86 @@ export class SlipDesigner extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // Render: sidebar (B-7)
+  // Render: sidebar (B-7, 요소·바인딩 분리 ADR-034)
   // ---------------------------------------------------------------------------
 
   /** 사이드바에서 요소를 골랐을 때 — 필요하면 페이지를 옮기고 그 요소를 선택한다 */
   private _selectFromSidebar(pageIndex: number, id: string): void {
     this._goToPage(pageIndex);
     this._selectedId = id;
+    this._sideSelection = null;
+    this.requestUpdate();
+  }
+
+  /** 사이드바에서 바인딩을 골랐을 때 — 오른쪽 패널이 그 바인딩 편집으로 바뀐다 (ADR-034) */
+  private _selectBinding(key: string): void {
+    this._bindingKeyError = false;
+    this._selectedId = null;
+    this._selectedCell = null;
+    this._cellEditing = false;
+    this._sideSelection = { kind: 'binding', key };
+    this.requestUpdate();
+  }
+
+  /** 사이드바에서 표 열을 골랐을 때 — 그 표가 있는 페이지로 옮기고 열 편집을 연다 (ADR-034) */
+  private _selectColumn(pageIndex: number, elementId: string, index: number): void {
+    this._goToPage(pageIndex);
+    this._selectedId = elementId;
+    this._selectedCell = null;
+    this._cellEditing = false;
+    this._sideSelection = { kind: 'column', elementId, index };
     this.requestUpdate();
   }
 
   /**
-   * 왼쪽 사이드바 — 페이지 썸네일(클릭 이동), 현재 페이지 요소 목록(클릭 선택),
-   * 양식 전체에서 쓰는 바인딩 목록(클릭 시 해당 요소로 이동·선택).
+   * 양식 전체의 바인딩 목록 — 정의부(ADR-032)와 요소 사용처를 합친다.
+   * 정의부에 논리명이 있으면 그 이름으로 표시하고(물리명은 title로 확인),
+   * 동적 표 바인딩이면 그 표를 함께 담아 하위 열까지 보여 준다.
+   */
+  private _bindingList(): BindingInfo[] {
+    const file = this._file;
+    if (!file) return [];
+    const defs = file.template.bindings ?? [];
+    const labelOf = new Map(
+      defs.filter((b) => b.label !== undefined).map((b) => [b.key, b.label!] as const),
+    );
+    const definedKeys = new Set(defs.map((b) => b.key));
+
+    const uses = new Map<string, BindingUse[]>();
+    const tableOf = new Map<string, { pageIndex: number; element: DynamicTableElement }>();
+    file.template.pages.forEach((page, pageIndex) => {
+      for (const el of page.elements) {
+        if (el.type !== 'field' && el.type !== 'dynamicTable') continue;
+        const list = uses.get(el.binding) ?? [];
+        list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
+        uses.set(el.binding, list);
+        if (el.type === 'dynamicTable' && !tableOf.has(el.binding)) {
+          tableOf.set(el.binding, { pageIndex, element: el });
+        }
+      }
+    });
+
+    const list: BindingInfo[] = [];
+    const seen = new Set<string>();
+    for (const key of [...defs.map((d) => d.key), ...uses.keys()]) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      list.push({
+        key,
+        label: labelOf.get(key) ?? key,
+        rawLabel: labelOf.get(key),
+        defined: definedKeys.has(key),
+        uses: uses.get(key) ?? [],
+        table: tableOf.get(key),
+      });
+    }
+    return list;
+  }
+
+  /**
+   * 왼쪽 사이드바 — 목록·선택·추가·삭제만 한다 (ADR-034). 값 편집은 오른쪽 패널이 맡는다.
+   * 페이지 썸네일(클릭 이동), 페이지별 요소 목록(클릭 선택·삭제),
+   * 양식 전체의 바인딩 목록(클릭 선택, 동적 표는 하위 열까지).
    */
   private _renderSidebar() {
     const file = this._file!;
@@ -3382,52 +3584,13 @@ export class SlipDesigner extends LitElement {
     // 썸네일 폭(px)에 맞춘 축소 비율 — 높이는 용지 비율대로
     const thumbW = 132;
     const scale = thumbW / paper.width;
-
-    const elements = this._currentElements() ?? [];
-
-    // 양식 전체의 바인딩 목록 — 정의부(ADR-032)와 요소 사용처를 합친다. 정의부에
-    // 논리명이 있으면 그 이름으로 표시하고(물리명은 title로 확인), 사용처가 있으면
-    // 클릭 시 해당 요소로 이동한다. 등록·삭제·논리명 편집은 D-13.
-    const labelOf = new Map<string, string>(
-      (file.template.bindings ?? [])
-        .filter((b) => b.label !== undefined)
-        .map((b) => [b.key, b.label!]),
-    );
-    const definedKeys = new Set((file.template.bindings ?? []).map((b) => b.key));
-    const usage = new Map<string, { pageIndex: number; id: string; glyph: TemplateResult }>();
-    file.template.pages.forEach((page, pageIndex) => {
-      for (const el of page.elements) {
-        if ((el.type === 'field' || el.type === 'dynamicTable') && !usage.has(el.binding)) {
-          usage.set(el.binding, { pageIndex, id: el.id, glyph: TYPE_BADGE[el.type] });
-        }
-      }
-    });
-    const bindings: {
-      key: string;
-      label: string;
-      rawLabel: string | undefined;
-      defined: boolean;
-      use: { pageIndex: number; id: string; glyph: TemplateResult } | undefined;
-    }[] = [];
-    const seen = new Set<string>();
-    const pushBinding = (key: string): void => {
-      if (seen.has(key)) return;
-      seen.add(key);
-      bindings.push({
-        key,
-        label: labelOf.get(key) ?? key,
-        rawLabel: labelOf.get(key),
-        defined: definedKeys.has(key),
-        use: usage.get(key),
-      });
-    };
-    for (const def of file.template.bindings ?? []) pushBinding(def.key);
-    for (const key of usage.keys()) pushBinding(key);
+    const pages = file.template.pages;
+    const bindings = this._bindingList();
 
     return html`
       <div class="side-section">
         <div class="side-title">${s.sidebarPages}</div>
-        ${file.template.pages.map((page, i) => html`
+        ${pages.map((page, i) => html`
           <button class="thumb ${i === this._pageIndex ? 'current' : ''}"
             aria-label="${s.sidebarPages} ${i + 1}"
             aria-pressed=${String(i === this._pageIndex)}
@@ -3447,14 +3610,29 @@ export class SlipDesigner extends LitElement {
 
       <div class="side-section">
         <div class="side-title">${s.sidebarElements}</div>
-        ${elements.length === 0
-          ? html`<div class="side-empty">—</div>`
-          : elements.map((el) => html`
-              <button class="side-row ${el.id === this._selectedId ? 'selected' : ''}"
-                title=${el.name}
-                @click=${() => this._selectFromSidebar(this._pageIndex, el.id)}>
-                ${TYPE_BADGE[el.type]}<span>${el.name}</span>
-              </button>`)}
+        ${pages.map((page, i) => html`
+          ${pages.length > 1
+            ? html`<button class="side-page-head ${i === this._pageIndex ? 'current' : ''}"
+                aria-label="${s.sidebarElements} ${s.sidebarPages} ${i + 1}"
+                aria-expanded=${String(i === this._pageIndex)}
+                @click=${() => this._goToPage(i)}>
+                <span>${s.sidebarPages} ${i + 1}</span><span>${page.elements.length}</span>
+              </button>`
+            : nothing}
+          ${i !== this._pageIndex
+            ? nothing
+            : page.elements.length === 0
+              ? html`<div class="side-empty">—</div>`
+              : page.elements.map((el) => html`
+                  <div class="side-row-wrap">
+                    <button class="side-row ${el.id === this._selectedId && !this._sideSelection ? 'selected' : ''}"
+                      title=${el.name}
+                      @click=${() => this._selectFromSidebar(i, el.id)}>
+                      ${TYPE_BADGE[el.type]}<span>${el.name}</span>
+                    </button>
+                    <button class="side-mini" title=${s.delete} aria-label="${el.name} ${s.delete}"
+                      @click=${() => this._deleteElementById(i, el.id)}>${icons.remove}</button>
+                  </div>`)}`)}
       </div>
 
       <div class="side-section">
@@ -3468,116 +3646,126 @@ export class SlipDesigner extends LitElement {
               this.requestUpdate();
             }}>${icons.database}</button>
           <button class="side-mini" title=${s.addBinding} aria-label=${s.addBinding}
-            aria-pressed=${String(this._bindingAddOpen)}
-            @click=${() => {
-              this._bindingAddOpen = !this._bindingAddOpen;
-              this.requestUpdate();
-            }}>${icons.pageAdd}</button>
+            @click=${() => this._addBinding()}>${icons.pageAdd}</button>
         </div>
-        ${this._bindingAddOpen ? this._renderBindingAddForm() : nothing}
-        ${bindings.length === 0 && !this._bindingAddOpen
+        ${bindings.length === 0
           ? html`<div class="side-empty">—</div>`
           : bindings.map((b) => this._renderBindingRow(b))}
       </div>
     `;
   }
 
-  /** 바인딩 등록 입력줄 — 물리명(필수)·논리명(선택)을 받아 정의부에 추가한다 (D-13) */
-  private _renderBindingAddForm() {
+  /** 바인딩 한 줄 — 클릭하면 오른쪽 패널에서 편집, 동적 표 바인딩은 하위 열까지 (ADR-034) */
+  private _renderBindingRow(b: BindingInfo) {
     const s = this._strings.designer;
-    const commit = (): void => {
-      const key =
-        (this.renderRoot.querySelector('.binding-new-key') as HTMLInputElement | null)?.value ?? '';
-      const label =
-        (this.renderRoot.querySelector('.binding-new-label') as HTMLInputElement | null)?.value ?? '';
-      this._addBindingDef(key.trim(), label.trim());
-    };
-    return html`
-      <div class="side-inline">
-        <input class="binding-new-key" placeholder=${s.bindingKey}
-          aria-label="${s.addBinding} ${s.bindingKey}"
-          @keydown=${(e: KeyboardEvent) => {
-            if (e.key === 'Enter') commit();
-          }}>
-        <input class="binding-new-label" placeholder=${s.bindingLabel}
-          aria-label="${s.addBinding} ${s.bindingLabel}"
-          @keydown=${(e: KeyboardEvent) => {
-            if (e.key === 'Enter') commit();
-          }}>
-        <button class="side-mini" title=${s.confirm} aria-label="${s.addBinding} ${s.confirm}"
-          @click=${commit}>${icons.pageAdd}</button>
-      </div>
-    `;
-  }
-
-  /** 바인딩 한 줄 — 클릭 이동(사용처가 있을 때) + 논리명 편집·정의부 삭제 (D-13) */
-  private _renderBindingRow(b: {
-    key: string;
-    label: string;
-    rawLabel: string | undefined;
-    defined: boolean;
-    use: { pageIndex: number; id: string; glyph: TemplateResult } | undefined;
-  }) {
-    const s = this._strings.designer;
-    if (this._bindingEditKey === b.key) {
-      return html`
-        <div class="side-inline">
-          <input class="binding-label-edit" .value=${b.rawLabel ?? ''} placeholder=${s.bindingLabel}
-            aria-label="${b.key} ${s.bindingLabel}"
-            @keydown=${(e: KeyboardEvent) => {
-              if (e.key === 'Escape') {
-                e.stopPropagation();
-                this._bindingEditKey = null;
-                this.requestUpdate();
-              }
-            }}
-            @change=${(e: Event) =>
-              this._commitBindingLabel(b.key, (e.target as HTMLInputElement).value)}>
-        </div>
-      `;
-    }
+    const sel = this._sideSelection;
+    const selected = sel?.kind === 'binding' && sel.key === b.key;
     return html`
       <div class="side-row-wrap">
-        <button class="side-row" title=${b.key}
-          @click=${() => {
-            if (b.use) this._selectFromSidebar(b.use.pageIndex, b.use.id);
-          }}>
-          ${b.use?.glyph ?? icons.field}<span>${b.label}</span>
+        <button class="side-row ${selected ? 'selected' : ''}" title=${b.key}
+          @click=${() => this._selectBinding(b.key)}>
+          ${b.table ? TYPE_BADGE.dynamicTable : TYPE_BADGE.field}<span>${b.label}</span>
         </button>
-        <button class="side-mini" title=${s.editLabel} aria-label="${b.key} ${s.editLabel}"
-          @click=${() => {
-            this._bindingEditKey = b.key;
-            this.requestUpdate();
-          }}>${icons.edit}</button>
         <button class="side-mini" title=${s.delete} aria-label="${b.key} ${s.delete}"
           ?disabled=${!b.defined}
           @click=${() => this._removeBindingDef(b.key)}>${icons.remove}</button>
       </div>
+      ${(b.table?.element.columns ?? []).map((col, index) => html`
+        <button class="side-col-row ${
+          sel?.kind === 'column' && sel.elementId === b.table!.element.id && sel.index === index
+            ? 'selected'
+            : ''
+        }" title=${col.key}
+          aria-label="${b.key} ${s.columns} ${index + 1}"
+          @click=${() => this._selectColumn(b.table!.pageIndex, b.table!.element.id, index)}>
+          <span>${col.title || col.key}</span>
+        </button>`)}
     `;
   }
 
   // ---------------------------------------------------------------------------
-  // 바인딩 정의부 편집 (D-13, ADR-032)
+  // 요소·바인딩 정의부 편집 (D-13, ADR-032 · 개편 ADR-034)
   // ---------------------------------------------------------------------------
 
-  /** 정의부에 새 바인딩을 추가한다 — 빈 키·중복 키는 무시 */
-  private _addBindingDef(key: string, label: string): void {
+  /** 사이드바에서 요소를 지운다 — 그 페이지에서만 찾아 제거한다 */
+  private _deleteElementById(pageIndex: number, id: string): void {
+    const elements = this._file?.template.pages[pageIndex]?.elements;
+    if (!elements) return;
+    const idx = elements.findIndex((el) => el.id === id);
+    if (idx < 0) return;
+
+    this._pushUndo();
+    elements.splice(idx, 1);
+    if (this._selectedId === id) {
+      this._selectedId = null;
+      this._selectedCell = null;
+      this._cellEditing = false;
+    }
+    this._emitChange();
+    this.requestUpdate();
+  }
+
+  /** 바인딩을 기본 이름으로 즉시 만들고 고른다 — 이름은 오른쪽 패널에서 고친다 (ADR-034) */
+  private _addBinding(): void {
+    if (!this._file) return;
+    const { key, label } = this._nextBinding();
+    this._updateFile((f) => {
+      const defs = f.template.bindings ?? [];
+      defs.push({ key, label });
+      f.template.bindings = defs;
+    });
+    this._selectBinding(key);
+  }
+
+  /** 요소가 쓰는 바인딩을 정의부에 등록해 둔다 — 이미 있으면 그대로 둔다 (ADR-034) */
+  private _ensureBindingDef(key: string): void {
     const file = this._file;
-    if (!file || !key || (file.template.bindings ?? []).some((b) => b.key === key)) {
+    if (!file || !key) return;
+    const defs = file.template.bindings ?? [];
+    if (defs.some((b) => b.key === key)) return;
+    defs.push({ key });
+    file.template.bindings = defs;
+  }
+
+  /**
+   * 물리명을 바꾼다 — 정의부와 이 이름을 쓰는 요소·샘플 값을 함께 고친다.
+   * 빈 이름이나 이미 쓰는 이름은 무시한다.
+   */
+  private _renameBindingKey(key: string, next: string, input?: HTMLInputElement): void {
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === key || this._bindingList().some((b) => b.key === trimmed)) {
+      // 되돌린 값이 화면에 남지 않게 입력칸을 지금 이름으로 되돌린다
+      if (input) input.value = key;
+      this._bindingKeyError = trimmed !== key && trimmed !== '';
       this.requestUpdate();
       return;
     }
-    this._bindingAddOpen = false;
+    this._bindingKeyError = false;
     this._updateFile((f) => {
       const defs = f.template.bindings ?? [];
-      defs.push(label ? { key, label } : { key });
+      const def = defs.find((b) => b.key === key);
+      if (def) def.key = trimmed;
+      else defs.push({ key: trimmed });
       f.template.bindings = defs;
+      for (const page of f.template.pages) {
+        for (const el of page.elements) {
+          if ((el.type === 'field' || el.type === 'dynamicTable') && el.binding === key) {
+            el.binding = trimmed;
+          }
+        }
+      }
+      const samples = f.template.sampleValues;
+      if (samples && key in samples) {
+        samples[trimmed] = samples[key]!;
+        delete samples[key];
+      }
     });
+    this._sideSelection = { kind: 'binding', key: trimmed };
+    this.requestUpdate();
   }
 
   /** 논리명을 바꾼다 — 정의부에 없던 키면 항목을 만들어 기록한다 (빈 값은 논리명 제거) */
   private _commitBindingLabel(key: string, label: string): void {
-    this._bindingEditKey = null;
     const trimmed = label.trim();
     this._updateFile((f) => {
       const defs = f.template.bindings ?? [];
@@ -3599,6 +3787,12 @@ export class SlipDesigner extends LitElement {
       if (defs.length > 0) f.template.bindings = defs;
       else delete (f.template as { bindings?: unknown }).bindings;
     });
+    // 목록에서 사라진 바인딩을 고른 채로 두지 않는다
+    const sel = this._sideSelection;
+    if (sel?.kind === 'binding' && sel.key === key && !this._bindingList().some((b) => b.key === key)) {
+      this._sideSelection = null;
+      this.requestUpdate();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -4092,6 +4286,16 @@ export class SlipDesigner extends LitElement {
   }
 
   private _renderPropertyPanel() {
+    // 선택 대상은 요소 · 바인딩 · 표 열 셋 — 아무것도 고르지 않았으면 양식 설정 (ADR-034)
+    const sel = this._sideSelection;
+    if (sel?.kind === 'column') {
+      const table = this._findElement(sel.elementId);
+      if (table?.type === 'dynamicTable' && table.columns[sel.index]) {
+        return this._renderColumnPanel(table, sel.index);
+      }
+    }
+    if (sel?.kind === 'binding') return this._renderBindingPanel(sel.key);
+
     const el = this._findSelectedElement();
     if (!el) {
       return this._renderFormSettings();
@@ -4164,6 +4368,152 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
+  /**
+   * 바인딩 패널 — 사이드바에서 바인딩을 골랐을 때 (ADR-034).
+   * 물리명·논리명을 고치고, 이 값을 쓰는 요소 목록에서 눌러 그 요소로 이동한다.
+   */
+  private _renderBindingPanel(key: string) {
+    const s = this._strings.designer;
+    const info = this._bindingList().find((b) => b.key === key);
+    if (!info) return this._renderFormSettings();
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+
+    return html`
+      <div class="type-name">${s.sidebarBindings}</div>
+
+      <div class="prop-section">
+        <div class="prop-row">
+          <label>${s.bindingKey}</label>
+          <input class="binding-key-input" .value=${info.key}
+            @change=${(e: Event) =>
+              this._renameBindingKey(info.key, valOf(e), e.target as HTMLInputElement)}>
+        </div>
+        ${this._bindingKeyError
+          ? html`<div class="cell-hint error">${s.keyInUse}</div>`
+          : nothing}
+        <div class="prop-row">
+          <label>${s.bindingLabel}</label>
+          <input class="binding-label-input" .value=${info.rawLabel ?? ''} placeholder=${info.key}
+            @change=${(e: Event) => this._commitBindingLabel(info.key, valOf(e))}>
+        </div>
+      </div>
+
+      <div class="prop-section">
+        <div class="prop-section-title">${s.bindingUsage}</div>
+        ${info.uses.length === 0
+          ? html`<div class="side-empty">${s.bindingUnused}</div>`
+          : info.uses.map((u) => html`
+              <button class="usage-row" title=${u.name}
+                @click=${() => this._selectFromSidebar(u.pageIndex, u.id)}>
+                ${TYPE_BADGE[u.type]}<span>${u.name}</span>
+                <span class="usage-page">${s.sidebarPages} ${u.pageIndex + 1}</span>
+              </button>`)}
+      </div>
+    `;
+  }
+
+  /** 표 열 패널 — 사이드바에서 동적 표의 열을 골랐을 때 (ADR-034) */
+  private _renderColumnPanel(el: DynamicTableElement, index: number) {
+    const s = this._strings.designer;
+    const col = el.columns[index]!;
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+
+    return html`
+      <div class="type-name">${s.columnPanelTitle}</div>
+
+      <div class="prop-section">
+        <div class="prop-row">
+          <label>${s.typeDynamicTable}</label>
+          <input .value=${el.name} disabled>
+        </div>
+        <div class="prop-row">
+          <label>${s.formTitle}</label>
+          <input class="col-panel-title" .value=${col.title}
+            @change=${(e: Event) => this._setTableColumnTitle(index, valOf(e))}>
+        </div>
+        <div class="prop-row">
+          <label>${s.columnKey}</label>
+          <input class="col-panel-key" .value=${col.key}
+            @change=${(e: Event) => this._setTableColumnKey(index, valOf(e))}>
+        </div>
+        <div class="prop-row">
+          <label>${s.columnWidthPct}</label>
+          <input class="col-panel-width" type="number" min="1" max="99" step="1"
+            .value=${String(Math.round(col.widthPercentage * 100) / 100)}
+            @change=${(e: Event) => this._setTableColumnWidth(index, Number(valOf(e)))}>
+        </div>
+      </div>
+
+      <div class="prop-section">
+        <button class="col-modal-open" aria-label=${s.columnsModalTitle}
+          @click=${() => {
+            this._columnsModalOpen = true;
+            this.requestUpdate();
+          }}>${icons.edit}<span>${s.columnsModalTitle}</span></button>
+      </div>
+    `;
+  }
+
+  /**
+   * 요소가 쓸 값을 등록된 목록에서 고르는 선택 상자 (ADR-034) —
+   * "새 값 등록"을 고르면 기본 이름으로 값을 만들어 바로 이 요소에 붙인다.
+   */
+  private _renderBindingSelect(current: string) {
+    const s = this._strings.designer;
+    const list = this._bindingList();
+
+    return html`
+      <div class="prop-row">
+        <label>${s.binding}</label>
+        <select class="binding-select" aria-label=${s.binding}
+          @change=${(e: Event) => {
+            const value = (e.target as HTMLSelectElement).value;
+            if (value === NEW_BINDING_OPTION) this._assignNewBinding();
+            else {
+              this._updateElement((el) => {
+                if (el.type === 'field' || el.type === 'dynamicTable') el.binding = value;
+              });
+            }
+          }}>
+          ${list.map((b) => html`
+            <option value=${b.key} ?selected=${b.key === current}>${b.label}</option>`)}
+          <option value=${NEW_BINDING_OPTION}>${s.bindingNew}</option>
+        </select>
+      </div>
+    `;
+  }
+
+  /** 새 값을 만들어 지금 고른 요소에 붙인다 — 등록과 연결을 한 번에 (ADR-034) */
+  private _assignNewBinding(): void {
+    const el = this._findSelectedElement();
+    if (!el || (el.type !== 'field' && el.type !== 'dynamicTable')) {
+      this.requestUpdate();
+      return;
+    }
+    const { key, label } = this._nextBinding();
+    const id = el.id;
+    this._updateFile((f) => {
+      const defs = f.template.bindings ?? [];
+      defs.push({ key, label });
+      f.template.bindings = defs;
+      for (const page of f.template.pages) {
+        for (const target of page.elements) {
+          if (target.id === id && (target.type === 'field' || target.type === 'dynamicTable')) {
+            target.binding = key;
+          }
+        }
+      }
+    });
+  }
+
+  /** 아직 쓰지 않는 기본 바인딩 이름 한 쌍(물리명·논리명)을 만든다 */
+  private _nextBinding(): { key: string; label: string } {
+    const used = new Set(this._bindingList().map((b) => b.key));
+    let n = 1;
+    while (used.has(`value${n}`)) n += 1;
+    return { key: `value${n}`, label: `${this._strings.designer.newBindingName} ${n}` };
+  }
+
   private _typeName(type: SlipElement['type']): string {
     const s = this._strings.designer;
     const map: Record<SlipElement['type'], string> = {
@@ -4205,13 +4555,7 @@ export class SlipDesigner extends LitElement {
       case 'field':
         return html`
           <div class="prop-section">
-            <div class="prop-row">
-              <label>${s.binding}</label>
-              <input .value=${el.binding}
-                @change=${(e: Event) => this._updateElement((el) => {
-                  if (el.type === 'field') el.binding = valOf(e);
-                })}>
-            </div>
+            ${this._renderBindingSelect(el.binding)}
             <div class="prop-row">
               <label>${s.formula}</label>
               <input .value=${el.formula ?? ''}
@@ -4395,13 +4739,7 @@ export class SlipDesigner extends LitElement {
         // 패널에는 제목·너비 빠른 수정만 — 키·추가·삭제·순서는 열 편집 모달에서 (D-12)
         return html`
           <div class="prop-section">
-            <div class="prop-row">
-              <label>${s.binding}</label>
-              <input .value=${el.binding}
-                @change=${(e: Event) => this._updateElement((el) => {
-                  if (el.type === 'dynamicTable') el.binding = valOf(e);
-                })}>
-            </div>
+            ${this._renderBindingSelect(el.binding)}
           </div>
           <div class="prop-section">
             <div class="prop-section-title">${s.columns}</div>
@@ -5452,6 +5790,7 @@ export class SlipDesigner extends LitElement {
     this._file = file;
     this._savedId = id;
     this._selectedId = null;
+    this._sideSelection = null;
     this._selectedCell = null;
     this._cellEditing = false;
     this._pageIndex = 0;
