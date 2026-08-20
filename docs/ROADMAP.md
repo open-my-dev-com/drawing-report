@@ -76,14 +76,14 @@
 
 **C. 파일 포맷 0.2.0 + 표·도형·글자**
 
-9. `feat/core-format-0-2` — 스키마 개정: 동적 표 열 구조(키·제목·너비 분리), **선 시작·끝점(자유선·사선 — 필수, 2026-08-19 확정. A-1의 캔버스 선 표시가 그려지지 않는 문제도 이 방식으로 함께 해소)**, 타원·삼각형, 굵게·밑줄·취소선, `sampleValues`, 요소 그룹 필드. SPEC·마이그레이션·JSON Schema 동시 갱신
+9. `feat/core-format-0-2` — 스키마 개정: 동적 표 열 구조(키·제목·너비 분리), **선 시작·끝점(자유선·사선 — 필수, 2026-08-19 확정. A-1의 캔버스 선 표시가 그려지지 않는 문제도 이 방식으로 함께 해소)**, 타원·삼각형, 굵게·밑줄·취소선, `sampleValues`, 요소 그룹 필드, **바인딩 정의부(2026-08-20 확정): 물리명 `key` + 논리명 `label` 목록 — 화면에는 논리명, 파일·수식·백엔드 연동은 물리명. 동봉 프리셋 바인딩도 camelCase 물리명 + 한국어 논리명으로 전환**. SPEC·마이그레이션·JSON Schema 동시 갱신
 10. `feat/elements-designer-table-edit` — 표 내부 편집: 고정 그리드 행·열·셀 텍스트·병합, 동적 표 열 편집 (콤마 나열 입력 폐지)
 11. `feat/elements-designer-shape-text` — 도형 그리기(선·타원·삼각형)·글자 스타일(굵게·밑줄·취소선) UI
 
 **D. 데이터·작성 흐름**
 
 12. `feat/elements-designer-formula-modal` — 수식 편집 모달: 함수 29종 분류·설명·클릭 삽입, 바인딩 목록, 실시간 문법 검사, 결과 미리 계산
-13. `feat/elements-designer-sample-preview` — 샘플 데이터(`sampleValues`) 편집 + 채운 상태로 PDF 미리보기
+13. `feat/elements-designer-sample-preview` — 샘플 데이터(`sampleValues`) 편집 + 채운 상태로 PDF 미리보기 + **사이드바에서 바인딩 등록·삭제·논리명 편집(2026-08-20 확정 — 요소 없이도 바인딩을 미리 정의해 필드·수식에서 골라 쓰게)**
 14. `feat/elements-slip-form` — 전표 작성폼 `<slip-form>`: 값 입력·동적 표 행 추가·수식 즉시 계산·발행(무결성 기록)
 15. `feat/elements-user-presets` — 프리셋 주입 API + "내 양식으로 저장"·제목별 목록 불러오기 + 양식 제목 편집
 16. `chore/demo-usability` — 데모 자동 저장·복원, 기술 용어 없는 문구, 파일명 지정
