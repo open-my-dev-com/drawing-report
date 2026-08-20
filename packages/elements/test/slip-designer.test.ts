@@ -345,8 +345,10 @@ describe('<slip-designer> UI 정리 (A-4)', () => {
     el.remove();
   });
 
-  it('색 피커 — 팔레트 견본 클릭으로 색을 지정하고, 없음으로 지운다', async () => {
+  it('색 피커 — 색 버튼을 펼쳐 팔레트 견본으로 색을 지정하고, 없음으로 지운다', async () => {
     const el = await mountAndSelectText();
+    byAriaLabel(el, strings.designer.backgroundColor).click(); // 색 버튼 펼침
+    await el.updateComplete;
     const swatch = byAriaLabel(el, `${strings.designer.backgroundColor} #d93025`);
     swatch.click();
     await el.updateComplete;
@@ -361,8 +363,39 @@ describe('<slip-designer> UI 정리 (A-4)', () => {
     el.remove();
   });
 
+  it('툴바 버튼은 아이콘 아래에 작은 이름 라벨을 함께 표시한다', async () => {
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    for (const b of Array.from(el.shadowRoot!.querySelectorAll('.toolbar button'))) {
+      expect(b.querySelector('.btn-label')?.textContent).toBe(b.getAttribute('aria-label'));
+    }
+    el.remove();
+  });
+
+  it('색 미지정이면 색 버튼 칩이 없음 표시로 보이고, 색을 고르면 색으로 바뀐다', async () => {
+    const el = await mountAndSelectText();
+    const btn = byAriaLabel(el, strings.designer.backgroundColor);
+    expect(btn.querySelector('.color-chip')?.classList.contains('none')).toBe(true);
+    expect(btn.textContent).toContain(strings.designer.colorNone);
+
+    btn.click(); // 펼침
+    await el.updateComplete;
+    byAriaLabel(el, `${strings.designer.backgroundColor} #1a73e8`).click();
+    await el.updateComplete;
+    const after = byAriaLabel(el, strings.designer.backgroundColor);
+    expect(after.querySelector('.color-chip')?.classList.contains('none')).toBe(false);
+    expect(after.textContent).toContain('#1a73e8');
+    el.remove();
+  });
+
   it('색 피커 — 투명도를 내리면 #RRGGBBAA 8자리로 저장된다', async () => {
     const el = await mountAndSelectText();
+    byAriaLabel(el, strings.designer.backgroundColor).click(); // 색 버튼 펼침
+    await el.updateComplete;
     byAriaLabel(el, `${strings.designer.backgroundColor} #1a73e8`).click();
     await el.updateComplete;
 

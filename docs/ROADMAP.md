@@ -1,6 +1,6 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-20 (v2 A 묶음 완료. 다음 작업 = B-5 드래그로 요소 생성)
+최종 갱신: 2026-08-20 (A-4 후속 조정 완료 — 툴바 라벨·색 버튼 통합. B-8 좌표 기준점 항목 추가, 총 21개. 다음 작업 = B-5 드래그로 요소 생성)
 
 ## 현재 상태
 
@@ -65,34 +65,36 @@
 2. ~~`feat/elements-default-font` — Pretendard Regular·Bold 동봉, 폰트 미지정 시 자동 사용 (미리보기 한글 깨짐 해소, ADR-012 이행)~~ → **완료**
 3. ~~`feat/elements-designer-live-style` — 캔버스에 글자 크기·정렬·색 즉시 반영~~ → **완료** (고정 그리드 셀 문구·병합 표시, 동적 표 머리행 배경 포함)
 4. ~~`chore/elements-designer-ui-polish` — CSS 디자인 토큰 정리, 속성 패널 가로 스크롤 제거, 툴바 아이콘 버튼+툴팁, 정렬 아이콘 토글, 색 피커(팔레트+색상판+투명도)~~ → **완료** (테두리 굵기 편집 추가. 테두리 모양(파선 등)은 PDF 변환 미지원이라 UI 제외 — 지원 시점에 함께 추가)
+   - ~~후속 조정 (2026-08-20 화면 점검 피드백): 툴바를 아이콘+아래 작은 이름+기능 그룹 묶음으로, 색 입력을 색 버튼 하나로 통합(누르면 팔레트·색상판·투명도 펼침), 색 미지정을 없음 표시로~~ → **완료**
 
 **B. 편집 상호작용**
 
 5. `feat/elements-designer-draw-create` — 도구 선택 후 드래그로 위치·크기 지정 생성 (클릭만 하면 기본 크기)
 6. `feat/elements-designer-form-settings` — 요소 미선택 시 양식 설정 패널: 제목·용지 크기·방향·여백 (v1 §10 용지 설정 이행)
 7. `feat/elements-designer-sidebar` — 왼쪽 사이드바: 페이지 썸네일(클릭 이동), 요소(레이어) 목록, 바인딩 값 목록
+8. `feat/elements-designer-anchor` — 좌표 기준점 선택(좌상~우하 9점): 속성 패널 X·Y를 선택한 기준점으로 표시·입력, 기준 변경 시 자동 환산. 파일에는 늘 좌상단 좌표로 저장(포맷 불변) — 2026-08-20 추가
 
 **C. 파일 포맷 0.2.0 + 표·도형·글자**
 
-8. `feat/core-format-0-2` — 스키마 개정: 동적 표 열 구조(키·제목·너비 분리), **선 시작·끝점(자유선·사선 — 필수, 2026-08-19 확정. A-1의 캔버스 선 표시가 그려지지 않는 문제도 이 방식으로 함께 해소)**, 타원·삼각형, 굵게·밑줄·취소선, `sampleValues`, 요소 그룹 필드. SPEC·마이그레이션·JSON Schema 동시 갱신
-9. `feat/elements-designer-table-edit` — 표 내부 편집: 고정 그리드 행·열·셀 텍스트·병합, 동적 표 열 편집 (콤마 나열 입력 폐지)
-10. `feat/elements-designer-shape-text` — 도형 그리기(선·타원·삼각형)·글자 스타일(굵게·밑줄·취소선) UI
+9. `feat/core-format-0-2` — 스키마 개정: 동적 표 열 구조(키·제목·너비 분리), **선 시작·끝점(자유선·사선 — 필수, 2026-08-19 확정. A-1의 캔버스 선 표시가 그려지지 않는 문제도 이 방식으로 함께 해소)**, 타원·삼각형, 굵게·밑줄·취소선, `sampleValues`, 요소 그룹 필드. SPEC·마이그레이션·JSON Schema 동시 갱신
+10. `feat/elements-designer-table-edit` — 표 내부 편집: 고정 그리드 행·열·셀 텍스트·병합, 동적 표 열 편집 (콤마 나열 입력 폐지)
+11. `feat/elements-designer-shape-text` — 도형 그리기(선·타원·삼각형)·글자 스타일(굵게·밑줄·취소선) UI
 
 **D. 데이터·작성 흐름**
 
-11. `feat/elements-designer-formula-modal` — 수식 편집 모달: 함수 29종 분류·설명·클릭 삽입, 바인딩 목록, 실시간 문법 검사, 결과 미리 계산
-12. `feat/elements-designer-sample-preview` — 샘플 데이터(`sampleValues`) 편집 + 채운 상태로 PDF 미리보기
-13. `feat/elements-slip-form` — 전표 작성폼 `<slip-form>`: 값 입력·동적 표 행 추가·수식 즉시 계산·발행(무결성 기록)
-14. `feat/elements-user-presets` — 프리셋 주입 API + "내 양식으로 저장"·제목별 목록 불러오기 + 양식 제목 편집
-15. `chore/demo-usability` — 데모 자동 저장·복원, 기술 용어 없는 문구, 파일명 지정
+12. `feat/elements-designer-formula-modal` — 수식 편집 모달: 함수 29종 분류·설명·클릭 삽입, 바인딩 목록, 실시간 문법 검사, 결과 미리 계산
+13. `feat/elements-designer-sample-preview` — 샘플 데이터(`sampleValues`) 편집 + 채운 상태로 PDF 미리보기
+14. `feat/elements-slip-form` — 전표 작성폼 `<slip-form>`: 값 입력·동적 표 행 추가·수식 즉시 계산·발행(무결성 기록)
+15. `feat/elements-user-presets` — 프리셋 주입 API + "내 양식으로 저장"·제목별 목록 불러오기 + 양식 제목 편집
+16. `chore/demo-usability` — 데모 자동 저장·복원, 기술 용어 없는 문구, 파일명 지정
 
 **E. 고급 편집 (v3 후보에서 v2로 승격 — 2026-08-19, "완성된 도구를 만든 뒤 MCP를 연다")**
 
-16. `feat/core-formula-lookup` — VLOOKUP류(범위 검색) 함수 추가 (세부 목록은 착수 시 ADR-017 개정)
-17. `feat/elements-designer-grouping` — 요소 그룹화 UI: 묶기/해제, 그룹 단위 선택·이동 (스키마 필드는 8번에 선반영)
-18. `feat/core-table-merge` — 동적 표 셀 병합: 스키마 0.3.0 + 변환 계층(분해 렌더 검토) + 디자이너 편집
-19. `feat/core-table-nesting` — 표 중첩: 스키마 0.3.0 범위 + 변환 + 디자이너 편집
-20. `feat/elements-presets-more` — 동봉 프리셋 확충 (견적서·영수증 등)
+17. `feat/core-formula-lookup` — VLOOKUP류(범위 검색) 함수 추가 (세부 목록은 착수 시 ADR-017 개정)
+18. `feat/elements-designer-grouping` — 요소 그룹화 UI: 묶기/해제, 그룹 단위 선택·이동 (스키마 필드는 9번에 선반영)
+19. `feat/core-table-merge` — 동적 표 셀 병합: 스키마 0.3.0 + 변환 계층(분해 렌더 검토) + 디자이너 편집
+20. `feat/core-table-nesting` — 표 중첩: 스키마 0.3.0 범위 + 변환 + 디자이너 편집
+21. `feat/elements-presets-more` — 동봉 프리셋 확충 (견적서·영수증 등)
 
 ## v3 = MCP + AI (미정리 — 착수 전 사용자와 정리)
 
