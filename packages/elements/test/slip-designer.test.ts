@@ -114,6 +114,15 @@ async function addByCanvasClick(
 ): Promise<void> {
   toolbarButton(el, label).click();
   await el.updateComplete;
+  await clickCanvasAt(el, clientX, clientY);
+}
+
+/** 캔버스(용지)를 한 번 클릭한다 */
+async function clickCanvasAt(
+  el: import('../src/slip-designer.js').SlipDesigner,
+  clientX = 200,
+  clientY = 200,
+): Promise<void> {
   const paper = el.shadowRoot!.querySelector('.paper') as HTMLElement;
   paper.dispatchEvent(new PointerEvent('pointerdown', {
     bubbles: true, composed: true, clientX, clientY, pointerId: 1,
@@ -121,6 +130,19 @@ async function addByCanvasClick(
   paper.dispatchEvent(new PointerEvent('pointerup', {
     bubbles: true, composed: true, clientX, clientY, pointerId: 1,
   }));
+  await el.updateComplete;
+}
+
+/** 도형 버튼을 눌러 메뉴를 열고 종류를 고른다 (C-11: 도형 선택 메뉴) */
+async function pickShapeTool(
+  el: import('../src/slip-designer.js').SlipDesigner,
+  label: string,
+): Promise<void> {
+  toolbarButton(el, strings.designer.shape).click();
+  await el.updateComplete;
+  const item = Array.from(el.shadowRoot?.querySelectorAll('.preset-menu button') ?? [])
+    .find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
+  item.click();
   await el.updateComplete;
 }
 
@@ -594,8 +616,7 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
 
   it('드래그하면 끌어낸 사각형의 위치·크기로 생성되고 점선 미리보기가 표시된다', async () => {
     const el = await loadDesigner();
-    toolbarButton(el, strings.designer.shapeRect).click();
-    await el.updateComplete;
+    await pickShapeTool(el, strings.designer.shapeRect);
 
     const paper = el.shadowRoot!.querySelector('.paper') as HTMLElement;
     paper.dispatchEvent(new PointerEvent('pointerdown', {
@@ -650,21 +671,30 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
 
   it('9종 요소를 모두 추가할 수 있다', async () => {
     const el = await loadDesigner();
-    const typeLabels = [
+    // 직접 도구 버튼이 있는 종류
+    for (const label of [
       strings.designer.addText,
       strings.designer.addFixedGrid,
       strings.designer.addDynamicTable,
       strings.designer.addImage,
-      strings.designer.shapeLine,
-      strings.designer.shapeRect,
-      strings.designer.shapeEllipse,
-      strings.designer.shapePolygon,
       strings.designer.addField,
-    ];
-
-    for (const label of typeLabels) {
+    ]) {
       await addByCanvasClick(el, label);
     }
+    // 도형은 메뉴에서 골라 그린다 (C-11)
+    for (const label of [
+      strings.designer.shapeRect,
+      strings.designer.shapeEllipse,
+      strings.designer.shapeTriangle,
+    ]) {
+      await pickShapeTool(el, label);
+      await clickCanvasAt(el);
+    }
+    // 선은 두 번 클릭(시작점 → 끝점)으로 만든다 (C-11)
+    toolbarButton(el, strings.designer.shapeLine).click();
+    await el.updateComplete;
+    await clickCanvasAt(el, 100, 100);
+    await clickCanvasAt(el, 300, 100);
 
     const elements = el.shadowRoot?.querySelectorAll('.element');
     expect(elements?.length).toBe(2 + 9);
@@ -1088,6 +1118,46 @@ describe('<slip-designer> 표 내부 편집', () => {
     expect(cell.backgroundColor).toBe('#d93025');
     expect(cell.fontSize).toBe(14);
     expect(cell.alignment).toBe('center');
+    el.remove();
+  });
+
+  it('선택 셀의 테두리를 없음으로 하면 굵기 0이 저장된다 (합계 박스, ADR-033)', async () => {
+    const el = await mountGrid();
+    await clickCell(el, 15, 15); // (0,0) 선택
+    const editor = el.shadowRoot!.querySelector('.cell-editor') as HTMLInputElement;
+    editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await el.updateComplete;
+
+    // 셀 섹션의 테두리 굵기 버튼(첫 번째)을 펼쳐 없음 선택
+    const widthButtons = Array.from(el.shadowRoot!.querySelectorAll('.width-btn'));
+    (widthButtons[0] as HTMLElement).click();
+    await el.updateComplete;
+    const noneOption = Array.from(el.shadowRoot!.querySelectorAll('.width-pop button'))
+      .find((b) => b.getAttribute('aria-label') ===
+        `${strings.designer.borderWidth}: ${strings.designer.colorNone}`) as HTMLButtonElement;
+    noneOption.click();
+    await el.updateComplete;
+
+    const cell = gridOf(el).cells.find((c) => c.row === 0 && c.column === 0)! as never as Record<string, unknown>;
+    expect(cell.borderWidth).toBe(0);
+
+    // 굵기 단계를 고르면 그 값이 저장된다
+    (el.shadowRoot!.querySelector('.width-btn') as HTMLElement).click();
+    await el.updateComplete;
+    const step = Array.from(el.shadowRoot!.querySelectorAll('.width-pop button'))
+      .find((b) => b.getAttribute('aria-label') === `${strings.designer.borderWidth}: 0.5mm`) as HTMLButtonElement;
+    step.click();
+    await el.updateComplete;
+    expect(cell.borderWidth).toBe(0.5);
+
+    // 셀 테두리 형태를 점선으로
+    const shapeSelect = Array.from(el.shadowRoot!.querySelectorAll('select'))
+      .find((sel) => sel.getAttribute('aria-label') ===
+        `${strings.designer.cell} ${strings.designer.borderShape}`) as HTMLSelectElement;
+    shapeSelect.value = 'dotted';
+    shapeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(cell.borderStyle).toBe('dotted');
     el.remove();
   });
 
@@ -2060,6 +2130,233 @@ describe('<slip-designer> UI 언어', () => {
     el.locale = 'en';
     await el.updateComplete;
     expect(toolbarButton(el, 'Text')).toBeTruthy();
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C-11: 도형 선택 메뉴 · 선 전용 편집 · 글자 스타일 · 테두리 편집
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 도형 선택 메뉴', () => {
+  it('도형 버튼을 누르면 사각형·타원·삼각형·오각형·육각형 선택지가 열린다', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.shape).click();
+    await el.updateComplete;
+
+    const labels = Array.from(el.shadowRoot!.querySelectorAll('.preset-menu button'))
+      .map((b) => b.textContent?.trim());
+    expect(labels).toEqual([
+      strings.designer.shapeRect,
+      strings.designer.shapeEllipse,
+      strings.designer.shapeTriangle,
+      strings.designer.shapePentagon,
+      strings.designer.shapeHexagon,
+    ]);
+    el.remove();
+  });
+
+  it('오각형을 고르고 캔버스를 클릭하면 변 5개 다각형이 생긴다', async () => {
+    const el = await loadDesigner();
+    await pickShapeTool(el, strings.designer.shapePentagon);
+    expect(toolbarButton(el, strings.designer.shape).getAttribute('aria-pressed')).toBe('true');
+    await clickCanvasAt(el);
+
+    const added = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements.at(-1)! as never as { type: string; sides?: number };
+    expect(added.type).toBe('polygon');
+    expect(added.sides).toBe(5);
+    el.remove();
+  });
+});
+
+describe('<slip-designer> 선 전용 편집 (C-11)', () => {
+  const PX = 96 / 25.4;
+
+  it('선 도구 첫 클릭은 시작점만 기록하고, 둘째 클릭에 선이 생긴다', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.shapeLine).click();
+    await el.updateComplete;
+
+    await clickCanvasAt(el, 20 * PX, 50 * PX);
+    // 아직 요소가 생기지 않고 도구가 유지된다
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
+    expect(toolbarButton(el, strings.designer.shapeLine).getAttribute('aria-pressed')).toBe('true');
+
+    // 커서를 움직이면 반투명 미리보기 선이 보인다
+    const paper = el.shadowRoot!.querySelector('.paper') as HTMLElement;
+    paper.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: 60 * PX, clientY: 50 * PX, pointerId: 1,
+    }));
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector('.line-ghost')).not.toBeNull();
+
+    await clickCanvasAt(el, 60 * PX, 50 * PX);
+    const added = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements.at(-1)! as never as { type: string; lineDirection?: string; position: { x: number }; width: number };
+    expect(added.type).toBe('line');
+    expect(added.lineDirection).toBe('horizontal');
+    expect(added.position.x).toBeCloseTo(20, 0);
+    expect(added.width).toBeCloseTo(40, 0);
+    expect(el.shadowRoot?.querySelector('.line-ghost')).toBeNull();
+    el.remove();
+  });
+
+  it('Escape는 두 번 클릭 생성을 취소한다', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.shapeLine).click();
+    await el.updateComplete;
+    await clickCanvasAt(el, 100, 100);
+
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector('.line-ghost')).toBeNull();
+    expect(toolbarButton(el, strings.designer.shapeLine).getAttribute('aria-pressed')).toBe('false');
+
+    // 이후 클릭해도 요소가 생기지 않는다
+    await clickCanvasAt(el, 200, 100);
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
+    el.remove();
+  });
+
+  it('선을 선택하면 8방향 핸들 대신 선 하이라이트와 끝점 핸들 2개가 나타난다', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.shapeLine).click();
+    await el.updateComplete;
+    await clickCanvasAt(el, 20 * PX, 50 * PX);
+    await clickCanvasAt(el, 60 * PX, 50 * PX);
+
+    // 방금 만든 선이 선택돼 있다
+    expect(el.shadowRoot?.querySelectorAll('.endpoint').length).toBe(2);
+    expect(el.shadowRoot?.querySelector('.handle-nw')).toBeNull();
+    expect(el.shadowRoot?.querySelector('.line-highlight')).not.toBeNull();
+    el.remove();
+  });
+
+  it('끝점을 끌면 반대쪽 끝점은 고정된 채 상자·선 방향이 다시 계산된다', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.shapeLine).click();
+    await el.updateComplete;
+    await clickCanvasAt(el, 20 * PX, 50 * PX);
+    await clickCanvasAt(el, 60 * PX, 50 * PX);
+
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
+
+    // 두 번째 끝점(오른쪽)을 아래로 끌어 사선(↘)으로 만든다
+    const handle = el.shadowRoot!.querySelectorAll('.endpoint')[1] as HTMLElement;
+    handle.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 60 * PX, clientY: 50 * PX, pointerId: 1,
+    }));
+    handle.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: 80 * PX, clientY: 90 * PX, pointerId: 1,
+    }));
+    handle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true, pointerId: 1 }));
+    await el.updateComplete;
+
+    const line = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements.at(-1)! as never as {
+        lineDirection?: string; position: { x: number; y: number }; width: number; height: number;
+      };
+    expect(line.lineDirection).toBe('down');
+    expect(line.position.x).toBeCloseTo(20, 0);
+    expect(line.width).toBeCloseTo(60, 0);
+    // 고정 끝점은 수평선 상자 세로 중앙(y=51)이라 높이는 90-51=39
+    expect(line.height).toBeCloseTo(39, 0);
+    expect(changes.length).toBe(1);
+    el.remove();
+  });
+});
+
+describe('<slip-designer> 글자 스타일·테두리 편집 (C-11)', () => {
+  const byAria = (el: Element, label: string) =>
+    Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === label) as HTMLButtonElement;
+
+  it('텍스트 요소의 굵게·밑줄·취소선 토글이 값을 넣고 지운다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    byAria(el, strings.designer.bold).click();
+    await el.updateComplete;
+    byAria(el, strings.designer.underline).click();
+    await el.updateComplete;
+
+    const text = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements[0]! as never as Record<string, unknown>;
+    expect(text.bold).toBe(true);
+    expect(text.underline).toBe(true);
+    expect(byAria(el, strings.designer.bold).getAttribute('aria-pressed')).toBe('true');
+
+    byAria(el, strings.designer.bold).click();
+    await el.updateComplete;
+    expect(text.bold).toBeUndefined();
+    el.remove();
+  });
+
+  it('테두리 굵기 선택에 없음과 정해진 단계가 굵기 미리보기 선과 함께 나열된다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'shp-1'); // 사각형 — 기본 0.2mm
+    await el.updateComplete;
+
+    (el.shadowRoot!.querySelector('.width-btn') as HTMLElement).click();
+    await el.updateComplete;
+
+    const options = Array.from(el.shadowRoot!.querySelectorAll('.width-pop button'));
+    expect(options[0]?.getAttribute('aria-label'))
+      .toBe(`${strings.designer.borderWidth}: ${strings.designer.colorNone}`);
+    // 단계 항목마다 굵기 미리보기 선이 있다
+    expect(options.slice(1).every((b) => b.querySelector('.width-line'))).toBe(true);
+
+    // 0.8mm를 고르면 저장되고 버튼 표시도 바뀐다
+    (options.find((b) => b.getAttribute('aria-label') === `${strings.designer.borderWidth}: 0.8mm`) as HTMLButtonElement).click();
+    await el.updateComplete;
+    const rect = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements[1]! as never as Record<string, unknown>;
+    expect(rect.borderWidth).toBe(0.8);
+    expect(el.shadowRoot!.querySelector('.width-btn')?.textContent).toContain('0.8mm');
+    el.remove();
+  });
+
+  it('사각형에 파선을 고르면 모서리 반경이 지워지고 반경 입력이 비활성화된다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'shp-1');
+    await el.updateComplete;
+
+    const radiusInput = () => Array.from(el.shadowRoot!.querySelectorAll('input'))
+      .find((i) => i.getAttribute('aria-label') === strings.designer.cornerRadius) as HTMLInputElement;
+    radiusInput().value = '3';
+    radiusInput().dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const rect = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements[1]! as never as Record<string, unknown>;
+    expect(rect.radius).toBe(3);
+
+    const shapeSelect = Array.from(el.shadowRoot!.querySelectorAll('select'))
+      .find((sel) => sel.getAttribute('aria-label') ===
+        `${strings.designer.styleBorder} ${strings.designer.borderShape}`) as HTMLSelectElement;
+    shapeSelect.value = 'dashed';
+    shapeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(rect.borderStyle).toBe('dashed');
+    expect(rect.radius).toBeUndefined();
+    expect(radiusInput().disabled).toBe(true);
+    el.remove();
+  });
+
+  it('스타일 항목이 텍스트/배경/테두리 그룹으로 나뉘어 표시된다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+
+    const titles = Array.from(el.shadowRoot!.querySelectorAll('.prop-section-title'))
+      .map((t) => t.textContent?.trim());
+    expect(titles).toContain(strings.designer.styleText);
+    expect(titles).toContain(strings.designer.styleBackground);
+    expect(titles).toContain(strings.designer.styleBorder);
     el.remove();
   });
 });
