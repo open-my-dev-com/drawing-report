@@ -33,26 +33,79 @@
       cursor: pointer;
     }
     header button:hover { background: #455a64; }
-    #status { margin-left: auto; font-size: 12px; color: #b0bec5; }
-    slip-designer, slip-form { flex: 1; min-height: 0; }
     header button[aria-pressed='true'] { background: #1a73e8; border-color: #1a73e8; }
     header .sep { width: 1px; height: 18px; background: #546e7a; margin: 0 4px; }
+    header button[hidden] { display: none; }
+    #autosave { margin-left: auto; font-size: 11px; color: #78909c; }
+    #status { font-size: 12px; color: #b0bec5; }
+    slip-designer, slip-form { flex: 1; min-height: 0; }
+
+    dialog {
+      border: none;
+      border-radius: 6px;
+      padding: 0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+    dialog form { display: flex; flex-direction: column; min-width: 320px; }
+    dialog h2 { padding: 12px 14px; font-size: 14px; border-bottom: 1px solid #e0e0e0; }
+    dialog .body { padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+    dialog label { font-size: 12px; color: #666; }
+    dialog input {
+      padding: 6px 8px;
+      border: 1px solid #c4c7cd;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    dialog .foot {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 10px 14px;
+      border-top: 1px solid #e0e0e0;
+    }
+    dialog .foot button {
+      padding: 6px 14px;
+      border: 1px solid #c4c7cd;
+      border-radius: 4px;
+      background: #fff;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    dialog .foot button[value='ok'] { background: #1a73e8; border-color: #1a73e8; color: #fff; }
   </style>
 </head>
 <body>
   <header>
     <span class="title">SlipKit 데모</span>
-    <button id="mode-design" aria-pressed="true">양식 편집</button>
-    <button id="mode-fill" aria-pressed="false">전표 작성</button>
+    <button id="mode-design" aria-pressed="true">양식 만들기</button>
+    <button id="mode-fill" aria-pressed="false">전표 쓰기</button>
+    <button id="new-slip" hidden>새 전표</button>
     <span class="sep"></span>
-    <button id="save">IndexedDB 저장</button>
-    <button id="load">불러오기</button>
-    <button id="download">.slip 다운로드</button>
-    <button id="open">.slip 열기</button>
-    <span id="status">준비됨 — 캔버스의 요소를 끌어 옮기거나 툴바로 추가해 보세요</span>
+    <button id="download">파일로 내려받기</button>
+    <button id="open">파일 열기</button>
+    <span id="autosave"></span>
+    <span id="status">양식을 만들고, 전표 쓰기로 넘어가 값을 채워 보세요</span>
   </header>
   <slip-designer id="designer"></slip-designer>
   <slip-form id="form" hidden></slip-form>
+
+  <dialog id="filename-dialog">
+    <form method="dialog">
+      <h2>파일로 내려받기</h2>
+      <div class="body">
+        <label for="filename">파일 이름</label>
+        <input id="filename" name="filename" autocomplete="off" />
+      </div>
+      <div class="foot">
+        <button value="cancel">취소</button>
+        <button value="ok">내려받기</button>
+      </div>
+    </form>
+  </dialog>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
