@@ -43,13 +43,12 @@ function makeTemplateFile(): SlipTemplateFile {
             content: '테스트 텍스트',
           },
           {
-            type: 'shape' as const,
+            type: 'rect' as const,
             id: 'shp-1',
             name: 'test-shape',
             position: { x: 100, y: 80 },
             width: 50,
             height: 30,
-            shape: 'rect' as const,
           },
         ],
       }],
@@ -214,13 +213,12 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
   function makeLineFile(direction?: 'horizontal' | 'vertical' | 'down' | 'up'): SlipFile {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{
-      type: 'shape' as const,
+      type: 'line' as const,
       id: 'line-1',
       name: 'test-line',
       position: { x: 10, y: 10 },
       width: 50,
       height: 20,
-      shape: 'line' as const,
       ...(direction ? { lineDirection: direction } : {}),
     } as never];
     return file as unknown as SlipFile;
@@ -596,7 +594,7 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
 
   it('드래그하면 끌어낸 사각형의 위치·크기로 생성되고 점선 미리보기가 표시된다', async () => {
     const el = await loadDesigner();
-    toolbarButton(el, strings.designer.addShape).click();
+    toolbarButton(el, strings.designer.shapeRect).click();
     await el.updateComplete;
 
     const paper = el.shadowRoot!.querySelector('.paper') as HTMLElement;
@@ -616,7 +614,7 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
 
     expect(el.shadowRoot?.querySelector('.draw-ghost')).toBeNull();
     const added = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)!;
-    expect(added.type).toBe('shape');
+    expect(added.type).toBe('rect');
     expect(added.position.x).toBeCloseTo(10, 0);
     expect(added.position.y).toBeCloseTo(20, 0);
     expect(added.width).toBeCloseTo(30, 0);
@@ -650,14 +648,17 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
     el.remove();
   });
 
-  it('6종 요소를 모두 추가할 수 있다', async () => {
+  it('9종 요소를 모두 추가할 수 있다', async () => {
     const el = await loadDesigner();
     const typeLabels = [
       strings.designer.addText,
       strings.designer.addFixedGrid,
       strings.designer.addDynamicTable,
       strings.designer.addImage,
-      strings.designer.addShape,
+      strings.designer.shapeLine,
+      strings.designer.shapeRect,
+      strings.designer.shapeEllipse,
+      strings.designer.shapeTriangle,
       strings.designer.addField,
     ];
 
@@ -666,7 +667,43 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
     }
 
     const elements = el.shadowRoot?.querySelectorAll('.element');
-    expect(elements?.length).toBe(2 + 6);
+    expect(elements?.length).toBe(2 + 9);
+    el.remove();
+  });
+
+  it('선 도구는 드래그 방향대로 사선(↘·↗) 선을 만든다', async () => {
+    const el = await loadDesigner();
+    const PX = 96 / 25.4;
+    const paper = el.shadowRoot!.querySelector('.paper') as HTMLElement;
+
+    // 좌상→우하 드래그 = down
+    toolbarButton(el, strings.designer.shapeLine).click();
+    await el.updateComplete;
+    paper.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 10 * PX, clientY: 10 * PX, pointerId: 1,
+    }));
+    paper.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: 50 * PX, clientY: 30 * PX, pointerId: 1,
+    }));
+    paper.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true, pointerId: 1 }));
+    await el.updateComplete;
+    let added = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as { type: string; lineDirection?: string };
+    expect(added.type).toBe('line');
+    expect(added.lineDirection).toBe('down');
+
+    // 좌하→우상 드래그 = up
+    toolbarButton(el, strings.designer.shapeLine).click();
+    await el.updateComplete;
+    paper.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 10 * PX, clientY: 90 * PX, pointerId: 1,
+    }));
+    paper.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: 50 * PX, clientY: 60 * PX, pointerId: 1,
+    }));
+    paper.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true, pointerId: 1 }));
+    await el.updateComplete;
+    added = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as { type: string; lineDirection?: string };
+    expect(added.lineDirection).toBe('up');
     el.remove();
   });
 });

@@ -29,7 +29,7 @@ export const BUILT_IN_MIGRATIONS: readonly SlipMigrationStep[] = [
   },
   {
     // 0.2.0 (ADR-032): 동적 표 head/headWidthPercentages → columns(키=옛 제목이라 전표 값 호환),
-    // 선(shape line)에 lineDirection 명시(옛 규칙 = 긴 쪽 방향).
+    // shape 요소를 독립 타입(line/rect)으로 분해 — 선은 lineDirection 명시(옛 규칙 = 긴 쪽 방향).
     from: '0.1.1',
     to: '0.2.0',
     migrate: migrateTo020,
@@ -59,14 +59,21 @@ function migrateTo020(document: Record<string, unknown>): Record<string, unknown
         delete element['head'];
         delete element['headWidthPercentages'];
       }
-      if (
-        element['type'] === 'shape' &&
-        element['shape'] === 'line' &&
-        element['lineDirection'] === undefined
-      ) {
-        const width = typeof element['width'] === 'number' ? element['width'] : 0;
-        const height = typeof element['height'] === 'number' ? element['height'] : 0;
-        element['lineDirection'] = width >= height ? 'horizontal' : 'vertical';
+      // 0.1.x의 shape 요소는 독립 타입으로 분해한다 (ADR-032: 종류마다 스타일이 달라 타입 분리)
+      if (element['type'] === 'shape') {
+        if (element['shape'] === 'line') {
+          element['type'] = 'line';
+          const width = typeof element['width'] === 'number' ? element['width'] : 0;
+          const height = typeof element['height'] === 'number' ? element['height'] : 0;
+          element['lineDirection'] = width >= height ? 'horizontal' : 'vertical';
+          // 선에 의미 없는 스타일은 버린다 (0.1.x에서도 렌더에 쓰이지 않았다)
+          delete element['backgroundColor'];
+          delete element['fontColor'];
+        } else {
+          element['type'] = 'rect';
+          delete element['fontColor'];
+        }
+        delete element['shape'];
       }
     }
   }

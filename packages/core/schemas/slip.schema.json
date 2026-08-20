@@ -576,7 +576,87 @@
                           "properties": {
                             "type": {
                               "type": "string",
-                              "const": "shape"
+                              "const": "line"
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "position": {
+                              "type": "object",
+                              "properties": {
+                                "x": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "y": {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "width": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "height": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "group": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "borderColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "borderWidth": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "borderStyle": {
+                              "type": "string",
+                              "enum": [
+                                "solid",
+                                "dashed",
+                                "dotted"
+                              ]
+                            },
+                            "lineDirection": {
+                              "type": "string",
+                              "enum": [
+                                "horizontal",
+                                "vertical",
+                                "down",
+                                "up"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "position",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "rect"
                             },
                             "id": {
                               "type": "string",
@@ -619,10 +699,6 @@
                               "type": "string",
                               "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
                             },
-                            "fontColor": {
-                              "type": "string",
-                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
-                            },
                             "borderColor": {
                               "type": "string",
                               "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
@@ -639,24 +715,6 @@
                                 "dotted"
                               ]
                             },
-                            "shape": {
-                              "type": "string",
-                              "enum": [
-                                "line",
-                                "rect",
-                                "ellipse",
-                                "triangle"
-                              ]
-                            },
-                            "lineDirection": {
-                              "type": "string",
-                              "enum": [
-                                "horizontal",
-                                "vertical",
-                                "down",
-                                "up"
-                              ]
-                            },
                             "radius": {
                               "type": "number",
                               "minimum": 0
@@ -668,8 +726,141 @@
                             "name",
                             "position",
                             "width",
-                            "height",
-                            "shape"
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "ellipse"
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "position": {
+                              "type": "object",
+                              "properties": {
+                                "x": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "y": {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "width": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "height": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "group": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "backgroundColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "borderColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "borderWidth": {
+                              "type": "number",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "position",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "triangle"
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "position": {
+                              "type": "object",
+                              "properties": {
+                                "x": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "y": {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "width": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "height": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "group": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "backgroundColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "borderColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "borderWidth": {
+                              "type": "number",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "position",
+                            "width",
+                            "height"
                           ],
                           "additionalProperties": false
                         },
@@ -1441,7 +1632,87 @@
                           "properties": {
                             "type": {
                               "type": "string",
-                              "const": "shape"
+                              "const": "line"
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "position": {
+                              "type": "object",
+                              "properties": {
+                                "x": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "y": {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "width": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "height": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "group": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "borderColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "borderWidth": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "borderStyle": {
+                              "type": "string",
+                              "enum": [
+                                "solid",
+                                "dashed",
+                                "dotted"
+                              ]
+                            },
+                            "lineDirection": {
+                              "type": "string",
+                              "enum": [
+                                "horizontal",
+                                "vertical",
+                                "down",
+                                "up"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "position",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "rect"
                             },
                             "id": {
                               "type": "string",
@@ -1484,10 +1755,6 @@
                               "type": "string",
                               "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
                             },
-                            "fontColor": {
-                              "type": "string",
-                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
-                            },
                             "borderColor": {
                               "type": "string",
                               "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
@@ -1504,24 +1771,6 @@
                                 "dotted"
                               ]
                             },
-                            "shape": {
-                              "type": "string",
-                              "enum": [
-                                "line",
-                                "rect",
-                                "ellipse",
-                                "triangle"
-                              ]
-                            },
-                            "lineDirection": {
-                              "type": "string",
-                              "enum": [
-                                "horizontal",
-                                "vertical",
-                                "down",
-                                "up"
-                              ]
-                            },
                             "radius": {
                               "type": "number",
                               "minimum": 0
@@ -1533,8 +1782,141 @@
                             "name",
                             "position",
                             "width",
-                            "height",
-                            "shape"
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "ellipse"
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "position": {
+                              "type": "object",
+                              "properties": {
+                                "x": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "y": {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "width": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "height": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "group": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "backgroundColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "borderColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "borderWidth": {
+                              "type": "number",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "position",
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "triangle"
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "position": {
+                              "type": "object",
+                              "properties": {
+                                "x": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "y": {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "width": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "height": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "group": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "backgroundColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "borderColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "borderWidth": {
+                              "type": "number",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "position",
+                            "width",
+                            "height"
                           ],
                           "additionalProperties": false
                         },

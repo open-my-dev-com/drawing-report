@@ -36,8 +36,8 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 
 - `schemaVersion`: 이 문서가 따르는 스키마 버전. `MAJOR.MINOR.PATCH` semver 형식 필수.
 - 현재 버전은 **`0.2.0`**이다. 제품 v1 안정 릴리스 시점에 `1.0.0`으로 확정한다.
-  (이력: 0.1.0 최초 공개 → 0.1.1 구조 크기 상한 추가(§3.2) → 0.2.0 동적 표 열 구조·선 방향·
-  타원/삼각형·글자 스타일·바인딩 정의부·샘플 값·요소 그룹 (ADR-032))
+  (이력: 0.1.0 최초 공개 → 0.1.1 구조 크기 상한 추가(§3.2) → 0.2.0 동적 표 열 구조·도형 4종
+  독립 타입 분리(선 방향·타원/삼각형·반경)·글자 스타일·바인딩 정의부·샘플 값·요소 그룹 (ADR-032))
 
 ### 2.1 버전 처리 규칙 (ADR-007)
 
@@ -120,7 +120,7 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 
 요소 `id`는 **문서 전체에서 유일**해야 한다(페이지가 달라도 중복 금지).
 
-## 5. 요소 6종 (ADR-020)
+## 5. 요소 9종 (ADR-020/032)
 
 모든 요소의 공통 필드:
 
@@ -133,12 +133,15 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 | `width` / `height` | ✅ | mm (0 허용 — 예: 수평선의 height) |
 | `group` | — | 그룹 식별자 (ADR-032). 같은 값을 가진 요소들을 한 묶음으로 다룬다 |
 
-색 스타일(ADR-020 — `image` 제외 전 요소): `backgroundColor`, `fontColor`,
-`borderColor`, `borderWidth`(mm), `borderStyle`(`solid`|`dashed`|`dotted`) — 전부 선택.
+색 스타일(ADR-020/032): 텍스트류·표(`text`·`fixedGrid`·`dynamicTable`·`field`)는
+`backgroundColor`, `fontColor`, `borderColor`, `borderWidth`(mm),
+`borderStyle`(`solid`|`dashed`|`dotted`)을 갖는다 — 전부 선택.
+도형 4종(`line`·`rect`·`ellipse`·`triangle`)은 **종류마다 의미 있는 스타일만** 갖는다
+(§5.5) — 0.2.0에서 도형을 독립 타입으로 분리한 이유다 (ADR-032).
 
 `borderStyle`의 렌더 규칙(0.2.0, ADR-032): 파선·점선은 **직선에만** 적용된다 —
-선 요소, 사각형(`radius` 미지정), 고정 그리드선. 그 밖(텍스트·필드 테두리, 동적 표,
-타원·삼각형)은 `solid`로 그린다. 파선 = 2.4mm 선 + 1.2mm 간격, 점선 = 0.4mm 점 + 0.8mm 간격.
+선 요소, 사각형(`radius` 미지정), 고정 그리드선. 그 밖(텍스트·필드 테두리, 동적 표)은
+`solid`로 그린다. 파선 = 2.4mm 선 + 1.2mm 간격, 점선 = 0.4mm 점 + 0.8mm 간격.
 
 글꼴(텍스트류 — `text`·`field`·고정 그리드 셀): `fontName`, `fontSize`(pt), `alignment`,
 `bold`, `underline`, `strikethrough` — 전부 선택 (0.2.0, ADR-032).
@@ -188,18 +191,19 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 PDF 렌더 시 외부 URL 참조는 거부된다 — 렌더하려면 `data:` 또는 `asset://`로
 내장되어 있어야 한다 (ADR-014와 같은 원칙).
 
-### 5.5 `shape` — 선/사각형/타원/삼각형
+### 5.5 도형 4종 — `line` / `rect` / `ellipse` / `triangle`
 
-`shape`(필수): `line` | `rect` | `ellipse` | `triangle` (0.2.0에서 타원·삼각형 추가, ADR-032).
-선의 두께·색은 `borderWidth`/`borderColor`로 지정한다.
+0.2.0에서 도형을 독립 요소 타입으로 분리했다 (ADR-032) — 종류마다 의미 있는 스타일이
+다르기 때문이다. (0.1.x의 `shape` 요소는 마이그레이션 시 해당 타입으로 자동 변환된다.)
 
-| 필드 | 필수 | 내용 |
+| 타입 | 스타일 필드 (전부 선택) | 전용 필드 |
 |---|---|---|
-| `lineDirection` | — | 선 전용 (기본 `horizontal`): `horizontal`(상자 세로 중앙의 수평선) | `vertical`(가로 중앙의 수직선) | `down`(좌상→우하 대각선) | `up`(좌하→우상 대각선). 임의 선분은 상자(position·width·height)와 방향으로 표현한다 |
-| `radius` | — | 사각형 전용 모서리 반경(mm). 파선·점선 테두리와 동시 지정 금지(곡선 구간은 분해 렌더 불가) |
+| `line` 선 | `borderColor`(선 색) · `borderWidth`(굵기 mm) · `borderStyle`(형태) | `lineDirection` (기본 `horizontal`): `horizontal`(상자 세로 중앙의 수평선) \| `vertical`(가로 중앙의 수직선) \| `down`(좌상→우하 대각선) \| `up`(좌하→우상 대각선). 임의 선분은 상자(position·width·height)와 방향으로 표현한다 |
+| `rect` 사각형 | `backgroundColor` · `borderColor` · `borderWidth` · `borderStyle` | `radius` 모서리 반경(mm). 파선·점선 테두리와 동시 지정 금지(곡선 구간은 분해 렌더 불가) |
+| `ellipse` 타원 | `backgroundColor` · `borderColor` · `borderWidth` (테두리는 실선 고정) | — |
+| `triangle` 삼각형 | `backgroundColor` · `borderColor` · `borderWidth` (테두리는 실선 고정) | — |
 
 타원·삼각형은 상자에 내접해 그린다. 삼각형은 위 꼭짓점·아래 밑변 고정이다.
-타원·삼각형의 테두리는 `solid`로만 그려진다 (`borderStyle` 렌더 규칙 참조).
 
 ### 5.6 `field` — 입력 필드
 

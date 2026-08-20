@@ -161,7 +161,10 @@ const TYPE_BADGE: Record<SlipElement['type'], TemplateResult> = {
   fixedGrid: icons.fixedGrid,
   dynamicTable: icons.dynamicTable,
   image: icons.image,
-  shape: icons.shape,
+  line: icons.line,
+  rect: icons.shape,
+  ellipse: icons.ellipse,
+  triangle: icons.triangle,
   field: icons.field,
 };
 
@@ -528,11 +531,26 @@ export class SlipDesigner extends LitElement {
       font-size: 10px;
       overflow: hidden;
     }
-    .element.type-shape svg {
+    .element.type-line svg,
+    .element.type-ellipse svg,
+    .element.type-triangle svg {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
+    }
+    /* 선·타원·삼각형은 도형 자체만 보이게 — 편집용 상자 테두리를 지운다 (선택 시 강조는 유지) */
+    .element.type-line,
+    .element.type-ellipse,
+    .element.type-triangle {
+      border-color: transparent;
+    }
+    /* 선은 배지도 겹쳐 보여 지운다 — 선 자체가 곧 표식이다 */
+    .element.type-line .badge {
+      display: none;
+    }
+    .element.type-line {
+      overflow: visible;
     }
 
     .selection-overlay {
@@ -1017,7 +1035,14 @@ export class SlipDesigner extends LitElement {
   private _pendingTool: SlipElement['type'] | null = null;
   /** 드래그 생성 중 임시 사각형(mm) — 캔버스에 점선 미리보기로 표시 */
   private _drawRect: { x: number; y: number; w: number; h: number } | null = null;
-  private _draw: { type: SlipElement['type']; startX: number; startY: number; moved: boolean } | null = null;
+  private _draw: {
+    type: SlipElement['type'];
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+    moved: boolean;
+  } | null = null;
   private _presetMenuOpen = false;
   private _presetMenuPos = { left: 0, top: 0 };
   /** 속성 패널 X·Y가 기준으로 삼는 기준점 (ANCHORS 인덱스, 기본 좌상단) */
@@ -1207,7 +1232,13 @@ export class SlipDesigner extends LitElement {
    */
   private _addElement(
     type: SlipElement['type'],
-    place?: { position: { x: number; y: number }; width?: number; height?: number },
+    place?: {
+      position: { x: number; y: number };
+      width?: number;
+      height?: number;
+      /** 선 전용 — 드래그 방향에서 추론한 선 방향 */
+      lineDirection?: 'horizontal' | 'vertical' | 'down' | 'up';
+    },
   ): void {
     const elements = this._currentElements();
     if (!elements || !this._file) return;
@@ -1249,8 +1280,20 @@ export class SlipDesigner extends LitElement {
           type: 'image', id, name, position, width: 40, height: 40, src: PLACEHOLDER_IMG,
         };
         break;
-      case 'shape':
-        element = { type: 'shape', id, name, position, width: 60, height: 30, shape: 'rect' };
+      case 'line':
+        element = {
+          type: 'line', id, name, position, width: 60, height: 2,
+          lineDirection: place?.lineDirection ?? 'horizontal',
+        };
+        break;
+      case 'rect':
+        element = { type: 'rect', id, name, position, width: 60, height: 30 };
+        break;
+      case 'ellipse':
+        element = { type: 'ellipse', id, name, position, width: 60, height: 30 };
+        break;
+      case 'triangle':
+        element = { type: 'triangle', id, name, position, width: 40, height: 30 };
         break;
       case 'field':
         element = {
@@ -1365,7 +1408,7 @@ export class SlipDesigner extends LitElement {
     // 생성 도구가 선택돼 있으면 클릭·드래그는 요소 생성이다 (선택·이동보다 우선)
     if (this._pendingTool) {
       const p = this._paperPoint(e);
-      this._draw = { type: this._pendingTool, startX: p.x, startY: p.y, moved: false };
+      this._draw = { type: this._pendingTool, startX: p.x, startY: p.y, endX: p.x, endY: p.y, moved: false };
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
       e.preventDefault();
       return;
@@ -1421,6 +1464,8 @@ export class SlipDesigner extends LitElement {
   private _onPointerMove = (e: PointerEvent): void => {
     if (this._draw) {
       const p = this._paperPoint(e);
+      this._draw.endX = p.x;
+      this._draw.endY = p.y;
       const w = Math.abs(p.x - this._draw.startX);
       const h = Math.abs(p.y - this._draw.startY);
       // 1mm 넘게 움직였을 때만 드래그로 본다 (클릭 손떨림은 기본 크기 생성)
@@ -1554,8 +1599,20 @@ export class SlipDesigner extends LitElement {
       this._drawRect = null;
       this._pendingTool = null;
       if (d.moved && rect) {
-        // 드래그: 끌어낸 사각형의 위치·크기로 생성 (최소 크기는 _addElement가 보정)
-        this._addElement(d.type, { position: { x: rect.x, y: rect.y }, width: rect.w, height: rect.h });
+        // 드래그: 끌어낸 사각형의 위치·크기로 생성 (최소 크기는 _addElement가 보정).
+        // 선은 드래그한 방향이 곧 선 방향 — 시작점→끝점을 잇는다 (ADR-032)
+        const place: Parameters<typeof this._addElement>[1] = {
+          position: { x: rect.x, y: rect.y }, width: rect.w, height: rect.h,
+        };
+        if (d.type === 'line') {
+          const dx = d.endX - d.startX;
+          const dy = d.endY - d.startY;
+          place.lineDirection =
+            Math.abs(dy) <= 1 ? 'horizontal'
+            : Math.abs(dx) <= 1 ? 'vertical'
+            : dx * dy > 0 ? 'down' : 'up';
+        }
+        this._addElement(d.type, place);
       } else {
         // 클릭: 그 위치에 종류별 기본 크기로 생성
         this._addElement(d.type, { position: { x: round1(d.startX), y: round1(d.startY) } });
@@ -1778,7 +1835,10 @@ export class SlipDesigner extends LitElement {
           ['fixedGrid', s.addFixedGrid, icons.fixedGrid],
           ['dynamicTable', s.addDynamicTable, icons.dynamicTable],
           ['image', s.addImage, icons.image],
-          ['shape', s.addShape, icons.shape],
+          ['line', s.shapeLine, icons.line],
+          ['rect', s.shapeRect, icons.shape],
+          ['ellipse', s.shapeEllipse, icons.ellipse],
+          ['triangle', s.shapeTriangle, icons.triangle],
           ['field', s.addField, icons.field],
         ] as const).map(([type, label, glyph]) =>
           this._iconButton(label, glyph, () => this._selectTool(type), {
@@ -2020,7 +2080,7 @@ export class SlipDesigner extends LitElement {
     let style = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
 
     // 선·타원·삼각형은 svg로 그린다 — 상자(div)에 배경·테두리를 칠하면 PDF와 어긋난다
-    const drawnAsSvg = el.type === 'shape' && el.shape !== 'rect';
+    const drawnAsSvg = el.type === 'line' || el.type === 'ellipse' || el.type === 'triangle';
     if (el.type !== 'image' && !drawnAsSvg) {
       const r = el as Record<string, unknown>;
       // 동적 표의 배경색은 머리행 배경으로만 쓴다 (PDF 변환과 동일) — 상자 전체를 칠하지 않는다
@@ -2031,7 +2091,7 @@ export class SlipDesigner extends LitElement {
       if (typeof r.borderWidth === 'number' && r.borderWidth > 0) {
         style += `;border-width:${(r.borderWidth * PX_PER_MM).toFixed(2)}px`;
       }
-      if (el.type === 'shape' && el.shape === 'rect') {
+      if (el.type === 'rect') {
         // 모서리 반경·테두리 형태는 사각형 도형에서만 PDF와 함께 지원 (ADR-032)
         if (el.radius !== undefined && el.radius > 0) {
           style += `;border-radius:${(el.radius * PX_PER_MM).toFixed(2)}px`;
@@ -2075,8 +2135,13 @@ export class SlipDesigner extends LitElement {
           ? html`<img src=${el.src} alt="">`
           : html`<span class="el-content">${this._strings.designer.typeImage}</span>`;
 
-      case 'shape':
+      case 'line':
+      case 'ellipse':
+      case 'triangle':
         return this._renderShapePreview(el);
+
+      case 'rect':
+        return nothing;
 
       case 'field':
         return html`<span class="el-content"
@@ -2090,17 +2155,14 @@ export class SlipDesigner extends LitElement {
    * 선 방향·타원·삼각형·파선을 그린다 (사각형은 상자 div의 배경·테두리로 표시).
    * svg 안의 조각은 lit svg 템플릿으로 만들어야 SVG 네임스페이스로 생성된다.
    */
-  private _renderShapePreview(el: SlipElement & { type: 'shape' }) {
-    if (el.shape === 'rect') return nothing;
-
+  private _renderShapePreview(el: SlipElement & { type: 'line' | 'ellipse' | 'triangle' }) {
     const w = Math.max(1, el.width * PX_PER_MM);
     const h = Math.max(1, el.height * PX_PER_MM);
     const stroke = el.borderColor ?? '#000000';
     const strokeWidth = Math.max(1, (el.borderWidth ?? 0.2) * PX_PER_MM);
-    const dash = dashArrayOf(el.borderStyle);
-    const fill = el.backgroundColor ?? 'none';
 
-    if (el.shape === 'line') {
+    if (el.type === 'line') {
+      const dash = dashArrayOf(el.borderStyle);
       const direction = el.lineDirection ?? 'horizontal';
       const [x1, y1, x2, y2] =
         direction === 'horizontal' ? [0, h / 2, w, h / 2]
@@ -2112,7 +2174,8 @@ export class SlipDesigner extends LitElement {
           stroke-width=${strokeWidth} stroke-dasharray=${dash ?? nothing} />`}
       </svg>`;
     }
-    if (el.shape === 'ellipse') {
+    const fill = el.backgroundColor ?? 'none';
+    if (el.type === 'ellipse') {
       // 곡선 테두리는 실선 고정 (PDF 렌더 규칙과 동일, ADR-032)
       return html`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
         ${svg`<ellipse cx=${w / 2} cy=${h / 2} rx=${Math.max(0, (w - strokeWidth) / 2)}
@@ -2126,6 +2189,7 @@ export class SlipDesigner extends LitElement {
         stroke-width=${strokeWidth} />`}
     </svg>`;
   }
+
 
   /**
    * 고정 그리드 캔버스 표시 — PDF 변환(convert.ts appendFixedGrid)과 같은 규칙으로
@@ -2434,7 +2498,10 @@ export class SlipDesigner extends LitElement {
       fixedGrid: s.typeFixedGrid,
       dynamicTable: s.typeDynamicTable,
       image: s.typeImage,
-      shape: s.typeShape,
+      line: s.shapeLine,
+      rect: s.shapeRect,
+      ellipse: s.shapeEllipse,
+      triangle: s.shapeTriangle,
       field: s.typeField,
     };
     return map[type];
@@ -2488,47 +2555,28 @@ export class SlipDesigner extends LitElement {
           </div>
         `;
 
-      case 'shape':
+      case 'line':
         return html`
           <div class="prop-section">
             <div class="prop-row">
-              <label>${s.shapeType}</label>
-              <select .value=${el.shape}
+              <label>${s.lineDirection}</label>
+              <select .value=${el.lineDirection ?? 'horizontal'}
                 @change=${(e: Event) => this._updateElement((el) => {
-                  if (el.type !== 'shape') return;
-                  const next = valOf(e) as 'line' | 'rect' | 'ellipse' | 'triangle';
-                  el.shape = next;
-                  // 종류 전용 필드는 옮겨 다니지 않게 정리한다 (스키마 검증 규칙, ADR-032)
-                  const r = el as Record<string, unknown>;
-                  if (next !== 'line') delete r.lineDirection;
-                  if (next !== 'rect') delete r.radius;
+                  if (el.type === 'line') {
+                    el.lineDirection = valOf(e) as 'horizontal' | 'vertical' | 'down' | 'up';
+                  }
                 })}>
-                <option value="rect" ?selected=${el.shape === 'rect'}>${s.shapeRect}</option>
-                <option value="line" ?selected=${el.shape === 'line'}>${s.shapeLine}</option>
-                <option value="ellipse" ?selected=${el.shape === 'ellipse'}>${s.shapeEllipse}</option>
-                <option value="triangle" ?selected=${el.shape === 'triangle'}>${s.shapeTriangle}</option>
+                ${([
+                  ['horizontal', s.lineHorizontal],
+                  ['vertical', s.lineVertical],
+                  ['down', s.lineDown],
+                  ['up', s.lineUp],
+                ] as const).map(([value, label]) => html`
+                  <option value=${value} ?selected=${(el.lineDirection ?? 'horizontal') === value}>
+                    ${label}
+                  </option>`)}
               </select>
             </div>
-            ${el.shape === 'line' ? html`
-              <div class="prop-row">
-                <label>${s.lineDirection}</label>
-                <select .value=${el.lineDirection ?? 'horizontal'}
-                  @change=${(e: Event) => this._updateElement((el) => {
-                    if (el.type === 'shape') {
-                      el.lineDirection = valOf(e) as 'horizontal' | 'vertical' | 'down' | 'up';
-                    }
-                  })}>
-                  ${([
-                    ['horizontal', s.lineHorizontal],
-                    ['vertical', s.lineVertical],
-                    ['down', s.lineDown],
-                    ['up', s.lineUp],
-                  ] as const).map(([value, label]) => html`
-                    <option value=${value} ?selected=${(el.lineDirection ?? 'horizontal') === value}>
-                      ${label}
-                    </option>`)}
-                </select>
-              </div>` : nothing}
           </div>
         `;
 
@@ -2793,12 +2841,20 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     const r = el as Record<string, unknown>;
     const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
+    // 타입마다 의미 있는 스타일만 노출한다 (ADR-032: 선은 배경·글자색 없음, 도형은 글자색 없음)
+    const hasBackground = el.type !== 'line';
+    const hasFontColor =
+      el.type === 'text' || el.type === 'field' || el.type === 'fixedGrid' || el.type === 'dynamicTable';
 
     return html`
       <div class="prop-section">
         <div class="prop-section-title">${s.style}</div>
-        ${this._renderColorControl(s.backgroundColor, r.backgroundColor as string | undefined, 'backgroundColor')}
-        ${this._renderColorControl(s.fontColor, r.fontColor as string | undefined, 'fontColor')}
+        ${hasBackground
+          ? this._renderColorControl(s.backgroundColor, r.backgroundColor as string | undefined, 'backgroundColor')
+          : nothing}
+        ${hasFontColor
+          ? this._renderColorControl(s.fontColor, r.fontColor as string | undefined, 'fontColor')
+          : nothing}
         ${this._renderColorControl(s.borderColor, r.borderColor as string | undefined, 'borderColor')}
         <div class="prop-row">
           <label>${s.borderWidth}</label>

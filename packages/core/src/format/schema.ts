@@ -248,38 +248,40 @@ const imageElementSchema = z.object({
   src: srcSchema,
 });
 
-const shapeElementSchema = z
+// 도형은 종류마다 의미 있는 스타일이 달라 독립 요소 타입으로 나눈다 (ADR-032):
+// 선 = 색·굵기·형태·방향, 사각형 = 배경·테두리·반경, 타원·삼각형 = 배경·테두리(실선 고정)
+
+/** 선 요소 — 상자의 두 모서리(또는 중앙선)를 잇는 선분 (ADR-032) */
+const lineElementSchema = z.object({
+  type: z.literal('line'),
+  ...elementBaseShape,
+  /** 선 색 (기본 #000000) */
+  borderColor: colorSchema.optional(),
+  /** 선 굵기(mm, 기본 0.2) */
+  borderWidth: nonNegativeMm.optional(),
+  /** 선 형태 — 파선·점선은 짧은 선분으로 분해해 그린다 (ADR-032) */
+  borderStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
+  /**
+   * 선 방향 (기본 horizontal). down = 좌상→우하, up = 좌하→우상 —
+   * 상자의 두 모서리를 잇는 대각선으로 임의 선분을 표현한다
+   */
+  lineDirection: z.enum(['horizontal', 'vertical', 'down', 'up']).optional(),
+});
+
+/** 사각형 요소 */
+const rectElementSchema = z
   .object({
-    type: z.literal('shape'),
+    type: z.literal('rect'),
     ...elementBaseShape,
-    ...colorStyleShape,
-    /** 도형 종류 — 타원·삼각형은 상자에 내접해 그린다 (ADR-032) */
-    shape: z.enum(['line', 'rect', 'ellipse', 'triangle']),
-    /**
-     * 선 방향 (선 전용, 기본 horizontal). down = 좌상→우하, up = 좌하→우상 —
-     * 상자의 두 모서리를 잇는 대각선으로 임의 선분을 표현한다 (ADR-032)
-     */
-    lineDirection: z.enum(['horizontal', 'vertical', 'down', 'up']).optional(),
-    /** 모서리 반경(mm) — 사각형 전용 (ADR-032) */
+    backgroundColor: colorSchema.optional(),
+    borderColor: colorSchema.optional(),
+    borderWidth: nonNegativeMm.optional(),
+    borderStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
+    /** 모서리 반경(mm) — 파선·점선과 동시 지정 금지 (곡선 구간은 분해 렌더 불가, ADR-032) */
     radius: nonNegativeMm.optional(),
   })
-  .superRefine((shape, ctx) => {
-    if (shape.lineDirection !== undefined && shape.shape !== 'line') {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['lineDirection'],
-        message: 'lineDirection은 선(line)에만 지정할 수 있습니다',
-      });
-    }
-    if (shape.radius !== undefined && shape.shape !== 'rect') {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['radius'],
-        message: 'radius는 사각형(rect)에만 지정할 수 있습니다',
-      });
-    }
-    // 모서리 곡선 구간은 파선·점선 분해 렌더가 불가능하다 (ADR-032)
-    if (shape.radius !== undefined && shape.radius > 0 && shape.borderStyle !== undefined && shape.borderStyle !== 'solid') {
+  .superRefine((rect, ctx) => {
+    if (rect.radius !== undefined && rect.radius > 0 && rect.borderStyle !== undefined && rect.borderStyle !== 'solid') {
       ctx.addIssue({
         code: 'custom',
         path: ['radius'],
@@ -287,6 +289,24 @@ const shapeElementSchema = z
       });
     }
   });
+
+/** 타원 요소 — 상자에 내접. 곡선 테두리라 형태는 실선 고정 (ADR-032) */
+const ellipseElementSchema = z.object({
+  type: z.literal('ellipse'),
+  ...elementBaseShape,
+  backgroundColor: colorSchema.optional(),
+  borderColor: colorSchema.optional(),
+  borderWidth: nonNegativeMm.optional(),
+});
+
+/** 삼각형 요소 — 상자에 내접 (위 꼭짓점·아래 밑변). 테두리는 실선 고정 (ADR-032) */
+const triangleElementSchema = z.object({
+  type: z.literal('triangle'),
+  ...elementBaseShape,
+  backgroundColor: colorSchema.optional(),
+  borderColor: colorSchema.optional(),
+  borderWidth: nonNegativeMm.optional(),
+});
 
 /** 전표 작성 시 값이 채워지는 입력 필드 */
 const fieldElementSchema = z.object({
@@ -300,13 +320,16 @@ const fieldElementSchema = z.object({
   ...fontShape,
 });
 
-/** 요소 6종 판별 유니온 (type 필드 기준, ADR-020) */
+/** 요소 9종 판별 유니온 (type 필드 기준, ADR-020/032) */
 export const slipElementSchema = z.discriminatedUnion('type', [
   textElementSchema,
   fixedGridElementSchema,
   dynamicTableElementSchema,
   imageElementSchema,
-  shapeElementSchema,
+  lineElementSchema,
+  rectElementSchema,
+  ellipseElementSchema,
+  triangleElementSchema,
   fieldElementSchema,
 ]);
 
@@ -643,11 +666,17 @@ export type TableColumn = z.infer<typeof tableColumnSchema>;
 export type BindingDef = z.infer<typeof bindingDefSchema>;
 /** 이미지 요소 */
 export type ImageElement = z.infer<typeof imageElementSchema>;
-/** 도형(선·사각형) 요소 */
-export type ShapeElement = z.infer<typeof shapeElementSchema>;
+/** 선 요소 (ADR-032) */
+export type LineElement = z.infer<typeof lineElementSchema>;
+/** 사각형 요소 (ADR-032) */
+export type RectElement = z.infer<typeof rectElementSchema>;
+/** 타원 요소 (ADR-032) */
+export type EllipseElement = z.infer<typeof ellipseElementSchema>;
+/** 삼각형 요소 (ADR-032) */
+export type TriangleElement = z.infer<typeof triangleElementSchema>;
 /** 필드 요소 (전표 값 바인딩) */
 export type FieldElement = z.infer<typeof fieldElementSchema>;
-/** 요소 6종 유니온 */
+/** 요소 9종 유니온 */
 export type SlipElement = z.infer<typeof slipElementSchema>;
 /** 페이지 (요소 배열) */
 export type SlipPage = z.infer<typeof slipPageSchema>;

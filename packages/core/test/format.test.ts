@@ -91,13 +91,13 @@ function makeTemplate(): SlipTemplateFile {
               src: 'asset://logo',
             },
             {
-              type: 'shape',
+              type: 'line',
               id: 'divider',
               name: '구분선',
               position: { x: 15, y: 32 },
               width: 180,
               height: 0,
-              shape: 'line',
+              lineDirection: 'horizontal',
               borderColor: '#000000',
               borderWidth: 0.3,
             },
@@ -262,17 +262,29 @@ describe('schemaVersion 마이그레이션 (구버전 → 0.2.0)', () => {
     expect('head' in migrated).toBe(false);
   });
 
-  it('0.1.1 선 요소는 lineDirection이 옛 규칙(긴 쪽 방향)으로 명시된다', () => {
+  it('0.1.1 shape 요소는 독립 타입(line·rect)으로 분해된다', () => {
     const file = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     file['schemaVersion'] = '0.1.1';
+    const pages = (file['template'] as { pages: { elements: Record<string, unknown>[] }[] }).pages;
+    // 픽스처의 신형 선을 옛 shape 형식으로 되돌리고, 옛 사각형 하나를 추가한다
+    const divider = pages[0]!.elements.find((el) => el['id'] === 'divider')!;
+    divider['type'] = 'shape';
+    divider['shape'] = 'line';
+    delete divider['lineDirection'];
+    pages[0]!.elements.push({
+      type: 'shape', shape: 'rect', id: 'old-box', name: '옛 사각형',
+      position: { x: 10, y: 200 }, width: 50, height: 20, backgroundColor: '#EEEEEE',
+    });
+
     const parsed = parseSlipFile(JSON.stringify(file));
     if (parsed.kind !== 'template') throw new Error('template이어야 한다');
-    const line = parsed.template.pages[0]!.elements.find(
-      (el) => el.type === 'shape' && el.shape === 'line',
-    )!;
-    if (line.type !== 'shape') throw new Error('shape이어야 한다');
-    // 픽스처 구분선은 가로가 긴 선 → horizontal
+    const line = parsed.template.pages[0]!.elements.find((el) => el.id === 'divider')!;
+    // 가로가 긴 선 → line 타입 + horizontal 명시
+    expect(line.type).toBe('line');
+    if (line.type !== 'line') throw new Error('line이어야 한다');
     expect(line.lineDirection).toBe('horizontal');
+    const box = parsed.template.pages[0]!.elements.find((el) => el.id === 'old-box')!;
+    expect(box.type).toBe('rect');
   });
 });
 

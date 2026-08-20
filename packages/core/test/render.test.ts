@@ -85,13 +85,13 @@ function makeBody(): SlipTemplateBody {
             src: 'asset://logo',
           },
           {
-            type: 'shape',
+            type: 'line',
             id: 'divider',
             name: '구분선',
             position: { x: 15, y: 45 },
             width: 180,
             height: 0,
-            shape: 'line',
+            lineDirection: 'horizontal',
             borderColor: '#333333',
             borderWidth: 0.4,
           },
@@ -207,10 +207,11 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(divider.height).toBe(0.4);
   });
 
-  it('shape rect는 rectangle 스키마로 변환된다', () => {
+  it('rect 요소는 rectangle 스키마로 변환된다', () => {
     const file = makeTemplateFile();
     patchElement(file.template, 'divider', {
-      shape: 'rect',
+      type: 'rect',
+      lineDirection: undefined,
       height: 20,
       backgroundColor: '#FFEEEE',
     } as Partial<SlipElement>);
@@ -384,7 +385,7 @@ describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
 
   it('대각선(down)은 상자 대각선 길이·기울기의 회전된 선으로 변환된다', () => {
     const [schemas] = convertSlipFile(
-      makeShapeFile([{ type: 'shape', shape: 'line', lineDirection: 'down', ...base }]),
+      makeShapeFile([{ type: 'line', lineDirection: 'down', ...base }]),
     ).template.schemas as PdfmeSchema[][];
     const line = schemas!.find((s) => s.name === 's1')!;
     expect(line.type).toBe('line');
@@ -392,7 +393,7 @@ describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
     expect(line.rotate).toBeCloseTo((Math.atan2(30, 60) * 180) / Math.PI, 5);
     // up 대각선은 반대 기울기
     const [up] = convertSlipFile(
-      makeShapeFile([{ type: 'shape', shape: 'line', lineDirection: 'up', ...base }]),
+      makeShapeFile([{ type: 'line', lineDirection: 'up', ...base }]),
     ).template.schemas as PdfmeSchema[][];
     expect((up!.find((s) => s.name === 's1')!.rotate as number)).toBeLessThan(0);
   });
@@ -400,7 +401,7 @@ describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
   it('파선은 짧은 선분 여러 개로 분해된다 (하부 엔진 파선 미지원)', () => {
     const [schemas] = convertSlipFile(
       makeShapeFile([{
-        type: 'shape', shape: 'line', lineDirection: 'horizontal', borderStyle: 'dashed', ...base,
+        type: 'line', lineDirection: 'horizontal', borderStyle: 'dashed', ...base,
       }]),
     ).template.schemas as PdfmeSchema[][];
     const segments = schemas!.filter((s) => s.type === 'line');
@@ -412,8 +413,8 @@ describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
   it('타원은 ellipse로, 삼각형은 svg 폴리곤으로 변환된다', () => {
     const { template, inputs } = convertSlipFile(
       makeShapeFile([
-        { type: 'shape', shape: 'ellipse', ...base, id: 'e1', backgroundColor: '#ffee00' },
-        { type: 'shape', shape: 'triangle', ...base, id: 't1', position: { x: 20, y: 80 } },
+        { type: 'ellipse', ...base, id: 'e1', backgroundColor: '#ffee00' },
+        { type: 'triangle', ...base, id: 't1', position: { x: 20, y: 80 } },
       ]),
     );
     const [schemas] = template.schemas as PdfmeSchema[][];
@@ -424,7 +425,7 @@ describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
 
   it('사각형 모서리 반경이 radius로 전달된다', () => {
     const [schemas] = convertSlipFile(
-      makeShapeFile([{ type: 'shape', shape: 'rect', radius: 3, ...base }]),
+      makeShapeFile([{ type: 'rect', radius: 3, ...base }]),
     ).template.schemas as PdfmeSchema[][];
     expect(schemas!.find((s) => s.name === 's1')!.radius).toBe(3);
   });
@@ -453,10 +454,10 @@ describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
   it('새 도형·사선·파선을 담은 양식이 실제 PDF로 렌더된다', async () => {
     const pdf = await renderSlipToPdf(
       makeShapeFile([
-        { type: 'shape', shape: 'line', lineDirection: 'down', borderStyle: 'dashed', ...base, id: 'l1' },
-        { type: 'shape', shape: 'ellipse', ...base, id: 'e1', position: { x: 20, y: 80 } },
-        { type: 'shape', shape: 'triangle', ...base, id: 't1', position: { x: 20, y: 130 } },
-        { type: 'shape', shape: 'rect', radius: 4, ...base, id: 'r1', position: { x: 20, y: 180 }, borderWidth: 0.5 },
+        { type: 'line', lineDirection: 'down', borderStyle: 'dashed', ...base, id: 'l1' },
+        { type: 'ellipse', ...base, id: 'e1', position: { x: 20, y: 80 } },
+        { type: 'triangle', ...base, id: 't1', position: { x: 20, y: 130 } },
+        { type: 'rect', radius: 4, ...base, id: 'r1', position: { x: 20, y: 180 }, borderWidth: 0.5 },
       ]),
     );
     expect(ascii(pdf, 4)).toBe('%PDF');

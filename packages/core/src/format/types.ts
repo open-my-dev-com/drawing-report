@@ -6,15 +6,18 @@
  */
 export type {
   AssetEntry,
+  BindingDef,
   DynamicTableElement,
+  EllipseElement,
   FieldElement,
   FixedGridCell,
   FixedGridElement,
   ImageElement,
   Integrity,
   JsonValue,
+  LineElement,
   PaperSize,
-  ShapeElement,
+  RectElement,
   SlipElement,
   SlipFile,
   SlipFileKind,
@@ -22,5 +25,7 @@ export type {
   SlipTemplateBody,
   SlipTemplateFile,
   SlipVoucherFile,
+  TableColumn,
   TextElement,
+  TriangleElement,
 } from './schema.js';

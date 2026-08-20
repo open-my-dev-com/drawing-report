@@ -14,15 +14,18 @@ import type { Schema, Template } from '@pdfme/common';
 import { evaluateFormula } from '../formula/evaluator.js';
 import type {
   DynamicTableElement,
+  EllipseElement,
   FieldElement,
   FixedGridCell,
   FixedGridElement,
   ImageElement,
-  ShapeElement,
+  LineElement,
+  RectElement,
   SlipElement,
   SlipFile,
   SlipTemplateBody,
   TextElement,
+  TriangleElement,
 } from '../format/schema.js';
 import { SlipRenderError } from './errors.js';
 
@@ -171,8 +174,17 @@ class SlipToPdfmeConverter {
       case 'image':
         this.appendImage(schemas, element);
         return;
-      case 'shape':
-        this.appendShape(schemas, element);
+      case 'line':
+        this.appendLine(schemas, element);
+        return;
+      case 'rect':
+        this.appendRect(schemas, element);
+        return;
+      case 'ellipse':
+        this.appendEllipse(schemas, element);
+        return;
+      case 'triangle':
+        this.appendTriangle(schemas, element);
         return;
     }
   }
@@ -528,78 +540,65 @@ class SlipToPdfmeConverter {
     );
   }
 
-  private appendShape(schemas: Schema[], element: ShapeElement): void {
+  /** 사각형 요소 — 파선·점선이면 배경 사각형 + 네 변을 분해한 선으로 (ADR-032) */
+  private appendRect(schemas: Schema[], element: RectElement): void {
     const borderWidth = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
     const borderColor = element.borderColor ?? DEFAULT_BORDER_COLOR;
     const style: BorderStyle = element.borderStyle ?? 'solid';
-
-    switch (element.shape) {
-      case 'line':
-        this.appendLineShape(schemas, element, borderWidth, borderColor, style);
-        return;
-      case 'ellipse':
-        // 곡선 테두리는 파선 분해가 불가능해 실선 고정 (ADR-032)
-        this.push(
-          schemas,
-          {
-            name: element.id,
-            type: 'ellipse',
-            position: element.position,
-            width: element.width,
-            height: element.height,
-            color: element.backgroundColor ?? NO_COLOR,
-            borderWidth,
-            borderColor,
-            opacity: 1,
-            rotate: 0,
-          },
-          '',
-        );
-        return;
-      case 'triangle':
-        this.appendTriangle(schemas, element, borderWidth, borderColor);
-        return;
-      case 'rect':
-        if (style !== 'solid' && borderWidth > 0) {
-          // 파선·점선 테두리 = 배경 사각형 + 네 변을 분해한 선 (ADR-032)
-          if (element.backgroundColor !== undefined) {
-            this.pushRectangle(
-              schemas, `${element.id}__bg`, element.position,
-              element.width, element.height, element.backgroundColor,
-            );
-          }
-          const { x, y } = element.position;
-          const w = element.width;
-          const h = element.height;
-          this.pushLine(schemas, `${element.id}__t`, { x, y: Math.max(0, y - borderWidth / 2) }, w, borderWidth, borderColor, style);
-          this.pushLine(schemas, `${element.id}__b`, { x, y: Math.max(0, y + h - borderWidth / 2) }, w, borderWidth, borderColor, style);
-          this.pushLine(schemas, `${element.id}__l`, { x: Math.max(0, x - borderWidth / 2), y }, borderWidth, h, borderColor, style);
-          this.pushLine(schemas, `${element.id}__r`, { x: Math.max(0, x + w - borderWidth / 2), y }, borderWidth, h, borderColor, style);
-          return;
-        }
+    if (style !== 'solid' && borderWidth > 0) {
+      if (element.backgroundColor !== undefined) {
         this.pushRectangle(
-          schemas,
-          element.id,
-          element.position,
-          element.width,
-          element.height,
-          element.backgroundColor ?? NO_COLOR,
-          borderWidth,
-          borderColor,
-          element.radius ?? 0,
+          schemas, `${element.id}__bg`, element.position,
+          element.width, element.height, element.backgroundColor,
         );
-        return;
+      }
+      const { x, y } = element.position;
+      const w = element.width;
+      const h = element.height;
+      this.pushLine(schemas, `${element.id}__t`, { x, y: Math.max(0, y - borderWidth / 2) }, w, borderWidth, borderColor, style);
+      this.pushLine(schemas, `${element.id}__b`, { x, y: Math.max(0, y + h - borderWidth / 2) }, w, borderWidth, borderColor, style);
+      this.pushLine(schemas, `${element.id}__l`, { x: Math.max(0, x - borderWidth / 2), y }, borderWidth, h, borderColor, style);
+      this.pushLine(schemas, `${element.id}__r`, { x: Math.max(0, x + w - borderWidth / 2), y }, borderWidth, h, borderColor, style);
+      return;
     }
+    this.pushRectangle(
+      schemas,
+      element.id,
+      element.position,
+      element.width,
+      element.height,
+      element.backgroundColor ?? NO_COLOR,
+      borderWidth,
+      borderColor,
+      element.radius ?? 0,
+    );
+  }
+
+  /** 타원 요소 — 곡선 테두리는 파선 분해가 불가능해 실선 고정 (ADR-032) */
+  private appendEllipse(schemas: Schema[], element: EllipseElement): void {
+    this.push(
+      schemas,
+      {
+        name: element.id,
+        type: 'ellipse',
+        position: element.position,
+        width: element.width,
+        height: element.height,
+        color: element.backgroundColor ?? NO_COLOR,
+        borderWidth: element.borderWidth ?? DEFAULT_BORDER_WIDTH,
+        borderColor: element.borderColor ?? DEFAULT_BORDER_COLOR,
+        opacity: 1,
+        rotate: 0,
+      },
+      '',
+    );
   }
 
   /** 선 요소 — lineDirection대로 수평·수직·대각선을 그린다 (ADR-032) */
-  private appendLineShape(
-    schemas: Schema[],
-    element: ShapeElement,
-    thickness: number,
-    color: string,
-    style: BorderStyle,
-  ): void {
+  private appendLine(schemas: Schema[], element: LineElement): void {
+    const thickness = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
+    const color = element.borderColor ?? DEFAULT_BORDER_COLOR;
+    const style: BorderStyle = element.borderStyle ?? 'solid';
     const direction = element.lineDirection ?? 'horizontal';
     if (direction === 'horizontal') {
       this.pushLine(
@@ -698,12 +697,9 @@ class SlipToPdfmeConverter {
   }
 
   /** 삼각형 — svg 폴리곤으로 그린다 (위 꼭짓점·아래 밑변, ADR-032) */
-  private appendTriangle(
-    schemas: Schema[],
-    element: ShapeElement,
-    borderWidth: number,
-    borderColor: string,
-  ): void {
+  private appendTriangle(schemas: Schema[], element: TriangleElement): void {
+    const borderWidth = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
+    const borderColor = element.borderColor ?? DEFAULT_BORDER_COLOR;
     const w = element.width;
     const h = element.height;
     const fill = element.backgroundColor ?? 'none';

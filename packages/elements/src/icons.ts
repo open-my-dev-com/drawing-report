@@ -23,6 +23,12 @@ export const icons = {
   image: icon(svg`<rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />`),
   /** lucide: square */
   shape: icon(svg`<rect width="18" height="18" x="3" y="3" rx="2" />`),
+  /** lucide: slash */
+  line: icon(svg`<path d="M22 2 2 22" />`),
+  /** lucide: circle */
+  ellipse: icon(svg`<circle cx="12" cy="12" r="10" />`),
+  /** lucide: triangle */
+  triangle: icon(svg`<path d="M13.73 4a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />`),
   /** lucide: text-cursor-input */
   field: icon(svg`<path d="M12 20h-1a2 2 0 0 1-2-2 2 2 0 0 1-2 2H6" /><path d="M13 8h7a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-7" /><path d="M5 16H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1" /><path d="M6 4h1a2 2 0 0 1 2 2 2 2 0 0 1 2-2h1" /><path d="M9 6v12" />`),
   /** lucide: undo-2 */
