@@ -326,6 +326,25 @@ class SlipToPdfmeConverter {
     const lineColor = element.borderColor ?? DEFAULT_BORDER_COLOR;
     const lineStyle: BorderStyle = element.borderStyle ?? 'solid';
 
+    // 셀 유효 테두리 — 셀에 지정한 값이 요소 값보다 우선한다 (ADR-033, SPEC §5.2)
+    const cellBorderOf = (index: number): GridEdgeBorder => {
+      const cell = index >= 0 ? element.cells[index] : undefined;
+      return {
+        width: cell?.borderWidth ?? lineWidth,
+        color: cell?.borderColor ?? lineColor,
+        style: cell?.borderStyle ?? lineStyle,
+      };
+    };
+    // 두 셀이 공유하는 변은 굵은 쪽 설정을 따른다 — 같으면 아래·오른쪽 셀
+    // (CSS border-collapse의 충돌 규칙과 같은 방향, ADR-033)
+    const edgeBorderOf = (front: number | null, back: number | null): GridEdgeBorder => {
+      if (front === null) return cellBorderOf(back ?? -1);
+      if (back === null) return cellBorderOf(front);
+      const a = cellBorderOf(front);
+      const b = cellBorderOf(back);
+      return b.width >= a.width ? b : a;
+    };
+
     // 셀 소유 그리드 (병합 반영). 값은 cells 배열의 인덱스, 빈 칸은 -1
     const owner: number[][] = Array.from({ length: rows }, () => new Array<number>(columns).fill(-1));
     element.cells.forEach((cell, index) => {
@@ -365,50 +384,71 @@ class SlipToPdfmeConverter {
       );
     });
 
-    // 3) 그리드선 → 선. 병합 범위의 내부 경계선은 그리지 않는다
-    if (lineWidth > 0) {
-      for (let r = 0; r <= rows; r++) {
-        const drawable = (c: number): boolean => {
-          if (r === 0 || r === rows) return true;
-          const above = owner[r - 1]?.[c] ?? -1;
-          const below = owner[r]?.[c] ?? -1;
-          return !(above !== -1 && above === below);
-        };
-        for (const run of contiguousRuns(columns, drawable)) {
-          const x = originX + (columnOffsets[run.start] ?? 0);
-          const end = originX + (columnOffsets[run.end + 1] ?? 0);
-          this.pushLine(
-            schemas,
-            `${element.id}__h-${r}-${run.start}`,
-            { x, y: Math.max(0, originY + (rowOffsets[r] ?? 0) - lineWidth / 2) },
-            end - x,
-            lineWidth,
-            lineColor,
-            lineStyle,
-          );
+    // 3) 그리드선 → 선. 병합 범위의 내부 경계선은 그리지 않고, 변마다 이웃 셀의
+    //    테두리 설정(굵은 쪽 우선)을 적용해 같은 스타일 구간끼리 이어 그린다 (ADR-033)
+    for (let r = 0; r <= rows; r++) {
+      let run: { start: number; border: GridEdgeBorder } | null = null;
+      const flush = (endExclusive: number): void => {
+        if (!run) return;
+        const x = originX + (columnOffsets[run.start] ?? 0);
+        const end = originX + (columnOffsets[endExclusive] ?? 0);
+        this.pushLine(
+          schemas,
+          `${element.id}__h-${r}-${run.start}`,
+          { x, y: Math.max(0, originY + (rowOffsets[r] ?? 0) - run.border.width / 2) },
+          end - x,
+          run.border.width,
+          run.border.color,
+          run.border.style,
+        );
+        run = null;
+      };
+      for (let c = 0; c < columns; c++) {
+        const above = r > 0 ? (owner[r - 1]?.[c] ?? -1) : null;
+        const below = r < rows ? (owner[r]?.[c] ?? -1) : null;
+        const mergedInterior = above !== null && below !== null && above !== -1 && above === below;
+        const border = mergedInterior ? null : edgeBorderOf(above, below);
+        if (border === null || border.width <= 0) {
+          flush(c);
+          continue;
         }
+        if (run && sameGridBorder(run.border, border)) continue;
+        flush(c);
+        run = { start: c, border };
       }
-      for (let c = 0; c <= columns; c++) {
-        const drawable = (r: number): boolean => {
-          if (c === 0 || c === columns) return true;
-          const left = owner[r]?.[c - 1] ?? -1;
-          const right = owner[r]?.[c] ?? -1;
-          return !(left !== -1 && left === right);
-        };
-        for (const run of contiguousRuns(rows, drawable)) {
-          const y = originY + (rowOffsets[run.start] ?? 0);
-          const end = originY + (rowOffsets[run.end + 1] ?? 0);
-          this.pushLine(
-            schemas,
-            `${element.id}__v-${c}-${run.start}`,
-            { x: Math.max(0, originX + (columnOffsets[c] ?? 0) - lineWidth / 2), y },
-            lineWidth,
-            end - y,
-            lineColor,
-            lineStyle,
-          );
+      flush(columns);
+    }
+    for (let c = 0; c <= columns; c++) {
+      let run: { start: number; border: GridEdgeBorder } | null = null;
+      const flush = (endExclusive: number): void => {
+        if (!run) return;
+        const y = originY + (rowOffsets[run.start] ?? 0);
+        const end = originY + (rowOffsets[endExclusive] ?? 0);
+        this.pushLine(
+          schemas,
+          `${element.id}__v-${c}-${run.start}`,
+          { x: Math.max(0, originX + (columnOffsets[c] ?? 0) - run.border.width / 2), y },
+          run.border.width,
+          end - y,
+          run.border.color,
+          run.border.style,
+        );
+        run = null;
+      };
+      for (let r = 0; r < rows; r++) {
+        const left = c > 0 ? (owner[r]?.[c - 1] ?? -1) : null;
+        const right = c < columns ? (owner[r]?.[c] ?? -1) : null;
+        const mergedInterior = left !== null && right !== null && left !== -1 && left === right;
+        const border = mergedInterior ? null : edgeBorderOf(left, right);
+        if (border === null || border.width <= 0) {
+          flush(r);
+          continue;
         }
+        if (run && sameGridBorder(run.border, border)) continue;
+        flush(r);
+        run = { start: r, border };
       }
+      flush(rows);
     }
 
     // 4) 셀 문구 → 텍스트
@@ -861,20 +901,16 @@ function cellRect(
   return { x: originX + left, y: originY + top, width: right - left, height: bottom - top };
 }
 
-/** 조건을 만족하는 연속 구간(닫힌 구간)들을 모은다 — 그리드선을 이어 그리기 위함 */
-function contiguousRuns(count: number, predicate: (index: number) => boolean): { start: number; end: number }[] {
-  const runs: { start: number; end: number }[] = [];
-  let start = -1;
-  for (let i = 0; i < count; i++) {
-    if (predicate(i)) {
-      if (start === -1) start = i;
-    } else if (start !== -1) {
-      runs.push({ start, end: i - 1 });
-      start = -1;
-    }
-  }
-  if (start !== -1) runs.push({ start, end: count - 1 });
-  return runs;
+/** 그리드 한 변에 적용되는 유효 테두리 (셀 값 ?? 요소 값, ADR-033) */
+interface GridEdgeBorder {
+  width: number;
+  color: string;
+  style: BorderStyle;
+}
+
+/** 두 변 테두리가 같은 스타일인지 — 같은 구간끼리 한 선으로 이어 그리기 위함 */
+function sameGridBorder(a: GridEdgeBorder, b: GridEdgeBorder): boolean {
+  return a.width === b.width && a.color === b.color && a.style === b.style;
 }
 
 // ---------------------------------------------------------------------------

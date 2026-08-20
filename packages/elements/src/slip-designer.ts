@@ -77,6 +77,8 @@ const ANCHORS = [
 
 const PX_PER_MM = 96 / 25.4;
 const MAX_UNDO = 50;
+/** 테두리 굵기 선택지(mm) — 없음(0)과 이 단계들만 select로 제공한다 (C-11) */
+const BORDER_WIDTH_STEPS = [0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.5, 2] as const;
 /** 스냅이 붙는 거리(mm) — 이 안으로 들어오면 후보 선에 끌어붙인다 */
 const SNAP_MM = 1.5;
 /** 크기 조절 최소 폭·높이(mm) */
@@ -138,6 +140,28 @@ function polygonPointsPx(sides: number, width: number, height: number): [number,
   const spanX = maxX - minX || 1;
   const spanY = maxY - minY || 1;
   return raw.map(([x, y]) => [((x - minX) / spanX) * width, ((y - minY) / spanY) * height]);
+}
+
+/** 선 요소의 양 끝점(mm) — 선 방향에 따라 상자의 어느 모서리·중앙을 잇는지 정해진다 */
+function lineEndpoints(el: {
+  position: { x: number; y: number };
+  width: number;
+  height: number;
+  lineDirection?: 'horizontal' | 'vertical' | 'down' | 'up' | undefined;
+}): [{ x: number; y: number }, { x: number; y: number }] {
+  const { x, y } = el.position;
+  const w = el.width;
+  const h = el.height;
+  switch (el.lineDirection ?? 'horizontal') {
+    case 'vertical':
+      return [{ x: x + w / 2, y }, { x: x + w / 2, y: y + h }];
+    case 'down':
+      return [{ x, y }, { x: x + w, y: y + h }];
+    case 'up':
+      return [{ x, y: y + h }, { x: x + w, y }];
+    default:
+      return [{ x, y: y + h / 2 }, { x: x + w, y: y + h / 2 }];
+  }
 }
 
 /**
@@ -623,6 +647,10 @@ export class SlipDesigner extends LitElement {
     .element.type-line {
       overflow: visible;
     }
+    /* 선 선택 표시는 상자 대신 선 하이라이트 + 끝점 핸들이 담당한다 (C-11) */
+    .element.type-line.selected {
+      box-shadow: none;
+    }
 
     .selection-overlay {
       position: absolute;
@@ -648,6 +676,32 @@ export class SlipDesigner extends LitElement {
     .handle-s { left: calc(50% - 4px); bottom: -4px; cursor: ns-resize; }
     .handle-sw { left: -4px; bottom: -4px; cursor: nesw-resize; }
     .handle-w { left: -4px; top: calc(50% - 4px); cursor: ew-resize; }
+
+    /* 선 선택 하이라이트·그리기 미리보기 — 상자 대신 선 자체를 강조한다 (C-11) */
+    .selection-overlay .line-highlight {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+    }
+    .selection-overlay .endpoint {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      cursor: move;
+    }
+    .line-ghost {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.5;
+      pointer-events: none;
+      z-index: 25;
+    }
 
     .snap-guide {
       position: absolute;
@@ -987,6 +1041,72 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
     }
 
+    /* 테두리 굵기 선택 — 버튼과 펼침 목록에 굵기 미리보기 선을 함께 그린다 (C-11) */
+    .width-btn {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 6px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      cursor: pointer;
+      font-family: inherit;
+      color: inherit;
+    }
+    .width-btn[aria-expanded='true'] {
+      border-color: var(--sk-accent);
+    }
+    .width-btn:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    .width-line {
+      flex: 1;
+      min-width: 24px;
+      border-top: 1px solid currentColor;
+    }
+    .width-value {
+      font-size: 11px;
+      color: var(--sk-text-muted);
+      white-space: nowrap;
+    }
+    .width-pop {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin: 2px 0 8px 74px;
+      padding: 4px;
+      border: 1px solid var(--sk-border);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+    }
+    .width-pop button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 6px;
+      border: none;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      cursor: pointer;
+      font-family: inherit;
+      color: inherit;
+    }
+    .width-pop button:hover {
+      background: var(--sk-accent-soft);
+    }
+    .width-pop button[aria-pressed='true'] {
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+    }
+    .width-pop button:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -1px;
+    }
+
     .cell-editor {
       position: absolute;
       z-index: 30;
@@ -1188,9 +1308,12 @@ export class SlipDesigner extends LitElement {
     _pendingTool: { state: true },
     _drawRect: { state: true },
     _presetMenuOpen: { state: true },
+    _shapeMenuOpen: { state: true },
     _anchorIndex: { state: true },
     _selectedCell: { state: true },
     _cellEditing: { state: true },
+    _lineDraft: { state: true },
+    _lineGhost: { state: true },
   };
 
   src = '';
@@ -1233,6 +1356,22 @@ export class SlipDesigner extends LitElement {
   } | null = null;
   private _presetMenuOpen = false;
   private _presetMenuPos = { left: 0, top: 0 };
+  /** 도형 선택 메뉴 상태 — 도형 버튼을 누르면 종류(사각형·타원·다각형)를 골라 그린다 */
+  private _shapeMenuOpen = false;
+  private _shapeMenuPos = { left: 0, top: 0 };
+  /** 다각형 도구로 만들 변 수 — 도형 메뉴에서 삼각형(3)·오각형(5)·육각형(6)을 고르면 바뀐다 */
+  private _pendingSides = 3;
+  /** 선 두 번 클릭 생성의 시작점(mm) — 첫 클릭 후 설정되고 둘째 클릭에 선이 만들어진다 */
+  private _lineDraft: { x: number; y: number } | null = null;
+  /** 선 두 번 클릭 생성 중 커서 위치(mm) — 시작점에서 여기까지 반투명 미리보기 선을 그린다 */
+  private _lineGhost: { x: number; y: number } | null = null;
+  /** 선 끝점 핸들 드래그 상태 — 반대쪽 끝점을 고정하고 잡은 끝점만 옮긴다 */
+  private _lineEnd: {
+    id: string;
+    fixed: { x: number; y: number };
+    snapshot: string | null;
+    orig: { x: number; y: number; w: number; h: number; direction: string | undefined };
+  } | null = null;
   /** 속성 패널 X·Y가 기준으로 삼는 기준점 (ANCHORS 인덱스, 기본 좌상단) */
   private _anchorIndex = 0;
   /** 선택된 고정 그리드 셀 좌표 — 병합 편집·인라인 편집 대상 (C-10) */
@@ -1299,8 +1438,12 @@ export class SlipDesigner extends LitElement {
     this._drawRect = null;
     this._draw = null;
     this._presetMenuOpen = false;
+    this._shapeMenuOpen = false;
     this._selectedCell = null;
     this._cellEditing = false;
+    this._lineDraft = null;
+    this._lineGhost = null;
+    this._lineEnd = null;
 
     if (!this.src) {
       this._file = null;
@@ -1508,8 +1651,10 @@ export class SlipDesigner extends LitElement {
         element = { type: 'ellipse', id, name, position, width: 60, height: 30 };
         break;
       case 'polygon':
-        // 기본은 삼각형(변 3) — 변 수는 속성 패널에서 3~12로 조절 (오각형 등, ADR-032)
-        element = { type: 'polygon', id, name, position, width: 40, height: 30, sides: 3 };
+        // 변 수는 도형 메뉴에서 고른 값(삼각형 3·오각형 5·육각형 6), 이후 속성 패널에서 3~12로 조절
+        element = {
+          type: 'polygon', id, name, position, width: 40, height: 30, sides: this._pendingSides,
+        };
         break;
       case 'field':
         element = {
@@ -1604,6 +1749,56 @@ export class SlipDesigner extends LitElement {
     this._pendingTool = this._pendingTool === type ? null : type;
     this._draw = null;
     this._drawRect = null;
+    this._lineDraft = null;
+    this._lineGhost = null;
+    this.requestUpdate();
+  }
+
+  /**
+   * 선 도구 놓기 — 드래그면 시작점→끝점 선을 바로 만들고, 클릭이면 두 번 클릭
+   * 생성으로 넘어간다: 첫 클릭은 시작점 기록(도구 유지), 둘째 클릭이 끝점 (C-11)
+   */
+  private _finishLineDraw(d: { startX: number; startY: number; endX: number; endY: number; moved: boolean }): void {
+    if (!d.moved && !this._lineDraft) {
+      this._lineDraft = { x: d.startX, y: d.startY };
+      this._lineGhost = { x: d.endX, y: d.endY };
+      this.requestUpdate();
+      return;
+    }
+    const from = this._lineDraft ?? { x: d.startX, y: d.startY };
+    this._lineDraft = null;
+    this._lineGhost = null;
+    this._pendingTool = null;
+    this._createLineBetween(from, { x: d.endX, y: d.endY });
+  }
+
+  /** 두 점을 잇는 선을 만든다 — 상자는 두 점의 외접 사각형, 방향은 기울기 부호로 (ADR-032) */
+  private _createLineBetween(
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+  ): void {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    this._addElement('line', {
+      position: { x: round1(Math.min(from.x, to.x)), y: round1(Math.min(from.y, to.y)) },
+      width: Math.abs(dx),
+      height: Math.abs(dy),
+      lineDirection:
+        Math.abs(dy) <= 1 ? 'horizontal'
+        : Math.abs(dx) <= 1 ? 'vertical'
+        : dx * dy > 0 ? 'down' : 'up',
+    });
+  }
+
+  /** 도형 메뉴에서 종류를 골라 그리기 도구로 삼는다 — 다각형은 변 수까지 정한다 */
+  private _selectShapeTool(type: 'rect' | 'ellipse' | 'polygon', sides = 3): void {
+    this._shapeMenuOpen = false;
+    this._pendingSides = sides;
+    this._pendingTool = type;
+    this._draw = null;
+    this._drawRect = null;
+    this._lineDraft = null;
+    this._lineGhost = null;
     this.requestUpdate();
   }
 
@@ -1626,6 +1821,27 @@ export class SlipDesigner extends LitElement {
       const p = this._paperPoint(e);
       this._draw = { type: this._pendingTool, startX: p.x, startY: p.y, endX: p.x, endY: p.y, moved: false };
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+      return;
+    }
+
+    // 선 끝점 핸들 — 반대쪽 끝점을 고정하고 잡은 끝점만 옮긴다 (C-11)
+    const endpointEl = (e.target as HTMLElement).closest?.('.endpoint') as HTMLElement | null;
+    if (endpointEl && this._selectedId) {
+      const el = this._findSelectedElement();
+      if (!el || el.type !== 'line') return;
+      const which = endpointEl.dataset.endpoint === '1' ? 1 : 0;
+      const points = lineEndpoints(el);
+      this._lineEnd = {
+        id: el.id,
+        fixed: points[which === 0 ? 1 : 0]!,
+        snapshot: null,
+        orig: {
+          x: el.position.x, y: el.position.y, w: el.width, h: el.height,
+          direction: el.lineDirection,
+        },
+      };
+      endpointEl.setPointerCapture(e.pointerId);
       e.preventDefault();
       return;
     }
@@ -1697,6 +1913,11 @@ export class SlipDesigner extends LitElement {
       const h = Math.abs(p.y - this._draw.startY);
       // 1mm 넘게 움직였을 때만 드래그로 본다 (클릭 손떨림은 기본 크기 생성)
       if (w > 1 || h > 1) this._draw.moved = true;
+      if (this._draw.type === 'line') {
+        // 선은 상자 대신 시작점→커서 미리보기 선으로 보여준다 (C-11)
+        this.requestUpdate();
+        return;
+      }
       this._drawRect = {
         x: round1(Math.min(this._draw.startX, p.x)),
         y: round1(Math.min(this._draw.startY, p.y)),
@@ -1704,6 +1925,16 @@ export class SlipDesigner extends LitElement {
         h: round1(h),
       };
       this.requestUpdate();
+      return;
+    }
+    // 선 두 번 클릭 생성 중 — 커서를 따라 반투명 미리보기 선을 움직인다
+    if (this._lineDraft && this._pendingTool === 'line') {
+      this._lineGhost = this._paperPoint(e);
+      this.requestUpdate();
+      return;
+    }
+    if (this._lineEnd) {
+      this._onLineEndMove(e);
       return;
     }
     if (this._resize) {
@@ -1801,18 +2032,43 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
+  /** 선 끝점 드래그 — 고정 끝점→커서 벡터로 상자와 선 방향을 다시 계산한다 (C-11) */
+  private _onLineEndMove(e: PointerEvent): void {
+    const state = this._lineEnd!;
+    const el = this._findElement(state.id);
+    if (!el || el.type !== 'line') return;
+    state.snapshot ??= JSON.stringify(this._file);
+
+    const p = this._paperPoint(e);
+    const dx = p.x - state.fixed.x;
+    const dy = p.y - state.fixed.y;
+    // 드래그 생성과 같은 규칙: 1mm 이내는 수평·수직, 그 밖은 기울기 부호로 사선 방향
+    el.lineDirection =
+      Math.abs(dy) <= 1 ? 'horizontal'
+      : Math.abs(dx) <= 1 ? 'vertical'
+      : dx * dy > 0 ? 'down' : 'up';
+    el.position.x = round1(Math.min(p.x, state.fixed.x));
+    el.position.y = round1(Math.min(p.y, state.fixed.y));
+    el.width = round1(Math.abs(dx));
+    el.height = round1(Math.abs(dy));
+    this.requestUpdate();
+  }
+
   private _onPointerCancel = (): void => {
     // 브라우저가 제스처를 가져가 취소된 경우 — 변경을 스냅샷으로 되돌린다.
     // 상태를 정리하지 않으면 버튼을 떼지 않은 것으로 남아 hover 이동만으로
     // 요소가 계속 끌려다닌다.
-    const snapshot = this._drag?.snapshot ?? this._resize?.snapshot;
+    const snapshot = this._drag?.snapshot ?? this._resize?.snapshot ?? this._lineEnd?.snapshot;
     if (snapshot) {
       this._file = JSON.parse(snapshot) as SlipTemplateFile;
     }
     this._drag = null;
     this._resize = null;
+    this._lineEnd = null;
     this._draw = null;
     this._drawRect = null;
+    this._lineDraft = null;
+    this._lineGhost = null;
     this._guideX = null;
     this._guideY = null;
     this.requestUpdate();
@@ -1824,22 +2080,16 @@ export class SlipDesigner extends LitElement {
       const rect = this._drawRect;
       this._draw = null;
       this._drawRect = null;
+      if (d.type === 'line') {
+        this._finishLineDraw(d);
+        return;
+      }
       this._pendingTool = null;
       if (d.moved && rect) {
-        // 드래그: 끌어낸 사각형의 위치·크기로 생성 (최소 크기는 _addElement가 보정).
-        // 선은 드래그한 방향이 곧 선 방향 — 시작점→끝점을 잇는다 (ADR-032)
-        const place: Parameters<typeof this._addElement>[1] = {
+        // 드래그: 끌어낸 사각형의 위치·크기로 생성 (최소 크기는 _addElement가 보정)
+        this._addElement(d.type, {
           position: { x: rect.x, y: rect.y }, width: rect.w, height: rect.h,
-        };
-        if (d.type === 'line') {
-          const dx = d.endX - d.startX;
-          const dy = d.endY - d.startY;
-          place.lineDirection =
-            Math.abs(dy) <= 1 ? 'horizontal'
-            : Math.abs(dx) <= 1 ? 'vertical'
-            : dx * dy > 0 ? 'down' : 'up';
-        }
-        this._addElement(d.type, place);
+        });
       } else {
         // 클릭: 그 위치에 종류별 기본 크기로 생성
         this._addElement(d.type, { position: { x: round1(d.startX), y: round1(d.startY) } });
@@ -1849,6 +2099,23 @@ export class SlipDesigner extends LitElement {
 
     this._guideX = null;
     this._guideY = null;
+
+    if (this._lineEnd) {
+      const state = this._lineEnd;
+      this._lineEnd = null;
+      const el = this._findElement(state.id);
+      if (
+        el && el.type === 'line' && state.snapshot &&
+        (el.position.x !== state.orig.x || el.position.y !== state.orig.y ||
+          el.width !== state.orig.w || el.height !== state.orig.h ||
+          el.lineDirection !== state.orig.direction)
+      ) {
+        this._pushUndoSnapshot(state.snapshot);
+        this._emitChange();
+      }
+      this.requestUpdate();
+      return;
+    }
 
     if (this._resize) {
       const r = this._resize;
@@ -2156,10 +2423,12 @@ export class SlipDesigner extends LitElement {
       target instanceof HTMLSelectElement;
     if (inFormField) return;
 
-    if (e.key === 'Escape' && (this._pendingTool || this._draw)) {
+    if (e.key === 'Escape' && (this._pendingTool || this._draw || this._lineDraft)) {
       this._pendingTool = null;
       this._draw = null;
       this._drawRect = null;
+      this._lineDraft = null;
+      this._lineGhost = null;
       this.requestUpdate();
     }
     if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedId) {
@@ -2291,15 +2560,21 @@ export class SlipDesigner extends LitElement {
           ['dynamicTable', s.addDynamicTable, icons.dynamicTable],
           ['image', s.addImage, icons.image],
           ['line', s.shapeLine, icons.line],
-          ['rect', s.shapeRect, icons.shape],
-          ['ellipse', s.shapeEllipse, icons.ellipse],
-          ['polygon', s.shapePolygon, icons.polygon],
-          ['field', s.addField, icons.field],
         ] as const).map(([type, label, glyph]) =>
           this._iconButton(label, glyph, () => this._selectTool(type), {
             pressed: this._pendingTool === type,
           }),
         )}
+        ${this._iconButton(s.shape, icons.shape, (e) => this._toggleShapeMenu(e), {
+          pressed:
+            this._shapeMenuOpen ||
+            this._pendingTool === 'rect' ||
+            this._pendingTool === 'ellipse' ||
+            this._pendingTool === 'polygon',
+        })}
+        ${this._iconButton(s.addField, icons.field, () => this._selectTool('field'), {
+          pressed: this._pendingTool === 'field',
+        })}
       </div>
       <div class="tool-group">
         ${this._iconButton(s.delete, icons.remove, () => this._deleteSelected(), { disabled: !this._selectedId })}
@@ -2340,7 +2615,39 @@ export class SlipDesigner extends LitElement {
                 <button role="menuitem" @click=${() => this._applyPreset(index)}>${p.name}</button>`)}
             </div>`
         : nothing}
+      ${this._shapeMenuOpen
+        ? html`
+            <div class="menu-backdrop" @click=${() => {
+              this._shapeMenuOpen = false;
+              this.requestUpdate();
+            }}></div>
+            <div class="preset-menu" role="menu" aria-label=${s.shape}
+                 style="left:${this._shapeMenuPos.left}px;top:${this._shapeMenuPos.top}px">
+              ${([
+                [s.shapeRect, 'rect', 3],
+                [s.shapeEllipse, 'ellipse', 3],
+                [s.shapeTriangle, 'polygon', 3],
+                [s.shapePentagon, 'polygon', 5],
+                [s.shapeHexagon, 'polygon', 6],
+              ] as const).map(([label, type, sides]) => html`
+                <button role="menuitem" @click=${() => this._selectShapeTool(type, sides)}>
+                  ${label}
+                </button>`)}
+            </div>`
+        : nothing}
     `;
+  }
+
+  /** 도형 메뉴 열기·닫기 — 프리셋 메뉴와 같은 방식으로 버튼 아래에 띄운다 (C-11) */
+  private _toggleShapeMenu(e: Event): void {
+    if (this._shapeMenuOpen) {
+      this._shapeMenuOpen = false;
+    } else {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      this._shapeMenuPos = { left: rect.left, top: rect.bottom + 4 };
+      this._shapeMenuOpen = true;
+    }
+    this.requestUpdate();
   }
 
   /** 프리셋 메뉴 열기·닫기 — 버튼 바로 아래에 고정 위치로 띄운다 (툴바 스크롤에 잘리지 않게) */
@@ -2505,6 +2812,7 @@ export class SlipDesigner extends LitElement {
               height:${this._drawRect.h * PX_PER_MM}px;
             "></div>`
           : nothing}
+        ${this._renderLineGhost(pw, ph)}
         ${this._renderCellEditor()}
       </div>
     `;
@@ -2534,6 +2842,23 @@ export class SlipDesigner extends LitElement {
       }}>`;
   }
 
+  /** 선 그리기 미리보기 — 드래그 중이거나 두 번 클릭 생성 중일 때 반투명 선 (C-11) */
+  private _renderLineGhost(paperW: number, paperH: number) {
+    const from = this._draw?.type === 'line' && this._draw.moved
+      ? { x: this._draw.startX, y: this._draw.startY }
+      : this._lineDraft;
+    const to = this._draw?.type === 'line' && this._draw.moved
+      ? { x: this._draw.endX, y: this._draw.endY }
+      : this._lineGhost;
+    if (!from || !to) return nothing;
+    return html`<svg class="line-ghost" viewBox="0 0 ${paperW} ${paperH}"
+      preserveAspectRatio="none">
+      ${svg`<line x1=${from.x * PX_PER_MM} y1=${from.y * PX_PER_MM}
+        x2=${to.x * PX_PER_MM} y2=${to.y * PX_PER_MM}
+        stroke="var(--sk-accent)" stroke-width="2" stroke-linecap="round" />`}
+    </svg>`;
+  }
+
   private _renderSelectionOverlay() {
     const el = this._findSelectedElement();
     if (!el) return nothing;
@@ -2541,6 +2866,29 @@ export class SlipDesigner extends LitElement {
     const y = el.position.y * PX_PER_MM;
     const w = el.width * PX_PER_MM;
     const h = el.height * PX_PER_MM;
+    // 선은 상자·8방향 핸들 대신 선 하이라이트 + 양 끝점 핸들 2개로 표시한다 (C-11)
+    if (el.type === 'line') {
+      const [p0, p1] = lineEndpoints(el);
+      const rel = (p: { x: number; y: number }) => ({
+        x: (p.x - el.position.x) * PX_PER_MM,
+        y: (p.y - el.position.y) * PX_PER_MM,
+      });
+      const r0 = rel(p0);
+      const r1 = rel(p1);
+      return html`
+        <div class="selection-overlay" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">
+          <svg class="line-highlight" viewBox="0 0 ${Math.max(1, w)} ${Math.max(1, h)}"
+            preserveAspectRatio="none">
+            ${svg`<line x1=${r0.x} y1=${r0.y} x2=${r1.x} y2=${r1.y}
+              stroke="var(--sk-accent)" stroke-width="6" stroke-linecap="round"
+              opacity="0.35" />`}
+          </svg>
+          ${([r0, r1] as const).map((p, index) => html`
+            <span class="handle endpoint" data-endpoint=${String(index)}
+              style="left:${p.x}px;top:${p.y}px"></span>`)}
+        </div>
+      `;
+    }
     return html`
       <div class="selection-overlay" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">
         ${RESIZE_HANDLES.map(
@@ -2687,6 +3035,18 @@ export class SlipDesigner extends LitElement {
       .map((p) => `${p}fr`).join(' ');
     const lineColor = el.borderColor ?? '#000000';
     const lineWidth = el.borderWidth ?? 0.2;
+    // 셀별 테두리 — 셀 값이 요소 값보다 우선한다 (ADR-033). 공유 변은 이웃 셀이
+    // 각자 자기 테두리를 그리는 근사 표시라 PDF의 굵은 쪽 우선 규칙과 거의 같다
+    const borderCssOf = (cell?: {
+      borderWidth?: number | undefined;
+      borderColor?: string | undefined;
+      borderStyle?: string | undefined;
+    }): string => {
+      const width = cell?.borderWidth ?? lineWidth;
+      if (width <= 0) return 'none';
+      const px = Math.max(1, Math.round(width * PX_PER_MM));
+      return `${px}px ${cell?.borderStyle ?? el.borderStyle ?? 'solid'} ${cell?.borderColor ?? lineColor}`;
+    };
 
     // 셀 소유 그리드 (병합 반영) — 병합 범위의 비원점 칸은 그리지 않는다
     const owner: number[][] = Array.from({ length: rows }, () => new Array<number>(columns).fill(-1));
@@ -2699,7 +3059,6 @@ export class SlipDesigner extends LitElement {
       }
     });
 
-    const cellBorder = lineWidth > 0 ? `1px solid ${lineColor}` : 'none';
     const boxes = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < columns; c++) {
@@ -2707,7 +3066,7 @@ export class SlipDesigner extends LitElement {
         if (idx === -1) {
           const emptySelected = selected && this._selectedCell?.row === r && this._selectedCell?.column === c;
           boxes.push(html`<div class=${emptySelected ? 'cell-selected' : ''}
-            style="grid-area:${r + 1}/${c + 1};border:${cellBorder}"></div>`);
+            style="grid-area:${r + 1}/${c + 1};border:${borderCssOf()}"></div>`);
           continue;
         }
         const cell = el.cells[idx]!;
@@ -2715,7 +3074,7 @@ export class SlipDesigner extends LitElement {
         const cellSelected = selected && this._selectedCell?.row === r && this._selectedCell?.column === c;
         const style = [
           `grid-area:${r + 1}/${c + 1}/span ${cell.rowSpan ?? 1}/span ${cell.colSpan ?? 1}`,
-          `border:${cellBorder}`,
+          `border:${borderCssOf(cell)}`,
           `font-size:${fontPx(cell.fontSize)}`,
           `justify-content:${justifyOf(cell.alignment)}`,
           cell.backgroundColor ? `background-color:${cell.backgroundColor}` : '',
@@ -2974,7 +3333,7 @@ export class SlipDesigner extends LitElement {
       </div>
 
       ${this._renderTypeProps(el)}
-      ${el.type !== 'image' ? this._renderColorProps(el) : nothing}
+      ${this._renderStyleGroups(el)}
     `;
   }
 
@@ -3013,7 +3372,6 @@ export class SlipDesigner extends LitElement {
                   if (el.type === 'text') el.content = (e.target as HTMLTextAreaElement).value;
                 })}></textarea>
             </div>
-            ${this._renderFontProps(el)}
           </div>
         `;
 
@@ -3038,7 +3396,6 @@ export class SlipDesigner extends LitElement {
                   else delete r.formula;
                 })}>
             </div>
-            ${this._renderFontProps(el)}
           </div>
         `;
 
@@ -3171,6 +3528,11 @@ export class SlipDesigner extends LitElement {
                         @click=${() => this._updateCellStyle('alignment', value === 'left' ? null : value)}>${glyph}</button>`)}
                   </div>
                 </div>
+                ${this._renderTextStyleToggles(
+                  selectedCellDef ?? {},
+                  (key, value) => this._updateCellStyle(key, value ? true : null),
+                  `${s.cell} `,
+                )}
                 ${this._renderColorControl(
                   s.backgroundColor, selectedCellDef?.backgroundColor, 'cellBackgroundColor',
                   (v) => this._updateCellStyle('backgroundColor', v),
@@ -3178,6 +3540,22 @@ export class SlipDesigner extends LitElement {
                 ${this._renderColorControl(
                   s.fontColor, selectedCellDef?.fontColor, 'cellFontColor',
                   (v) => this._updateCellStyle('fontColor', v),
+                )}
+                ${this._renderColorControl(
+                  s.borderColor, selectedCellDef?.borderColor, 'cellBorderColor',
+                  (v) => this._updateCellStyle('borderColor', v),
+                )}
+                ${this._renderBorderWidthSelect(
+                  selectedCellDef?.borderWidth,
+                  el.borderWidth ?? 0.2,
+                  true,
+                  'cellBorderWidth',
+                  (v) => this._updateCellStyle('borderWidth', v),
+                )}
+                ${this._renderBorderShapeRow(
+                  selectedCellDef?.borderStyle,
+                  `${s.cell} ${s.borderShape}`,
+                  (v) => this._updateCellStyle('borderStyle', v),
                 )}
               </div>`
             : html`<div class="prop-section"><div class="cell-hint">${s.cellHint}</div></div>`}
@@ -3480,38 +3858,211 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  private _renderColorProps(el: SlipElement) {
+  /** 굵게·밑줄·취소선 토글 한 줄 — 요소·셀 공용 (적용 대상은 콜백으로 정한다, C-11) */
+  private _renderTextStyleToggles(
+    current: {
+      bold?: boolean | undefined;
+      underline?: boolean | undefined;
+      strikethrough?: boolean | undefined;
+    },
+    apply: (key: 'bold' | 'underline' | 'strikethrough', value: boolean) => void,
+    ariaPrefix = '',
+  ) {
+    const s = this._strings.designer;
+    return html`
+      <div class="prop-row">
+        <label>${s.style}</label>
+        <div class="toggle-group" role="group" aria-label="${ariaPrefix}${s.style}">
+          ${([
+            ['bold', s.bold, icons.bold],
+            ['underline', s.underline, icons.underline],
+            ['strikethrough', s.strikethrough, icons.strikethrough],
+          ] as const).map(([key, label, glyph]) => html`
+            <button title=${label} aria-label="${ariaPrefix}${label}"
+              aria-pressed=${String(current[key] === true)}
+              @click=${() => apply(key, current[key] !== true)}>${glyph}</button>`)}
+        </div>
+      </div>
+    `;
+  }
+
+  /** 테두리 굵기 선택이 펼쳐져 있는 대상 키 (한 번에 하나) */
+  private _openWidthKey: string | null = null;
+
+  /**
+   * 테두리 굵기 선택 한 줄 — 버튼을 누르면 없음(0)과 정해진 단계가 굵기 미리보기
+   * 선과 함께 펼쳐진다 (C-11). 저장은 콜백으로 (요소·셀 공용).
+   *
+   * @param current - 명시된 굵기 (미지정이면 fallback이 유효값)
+   * @param fallback - 미지정일 때의 유효 굵기 (요소 기본값 또는 셀이 상속하는 요소 값)
+   * @param allowNone - 없음(0) 선택지를 보여줄지 — 선 요소는 굵기 0이 의미 없어 뺀다
+   */
+  private _renderBorderWidthSelect(
+    current: number | undefined,
+    fallback: number,
+    allowNone: boolean,
+    key: string,
+    apply: (value: number) => void,
+  ) {
+    const s = this._strings.designer;
+    const effective = current ?? fallback;
+    const open = this._openWidthKey === key;
+    // 단계 밖의 기존 값(이전 편집·외부 파일)도 고를 수 있게 목록에 끼워 넣는다
+    const steps = [...new Set<number>([...BORDER_WIDTH_STEPS, ...(effective > 0 ? [effective] : [])])]
+      .sort((a, b) => a - b);
+    const previewPx = (w: number): number => Math.min(6, Math.max(1, Math.round(w * PX_PER_MM)));
+    const pick = (value: number): void => {
+      this._openWidthKey = null;
+      apply(value);
+    };
+    return html`
+      <div class="prop-row">
+        <label>${s.borderWidth}</label>
+        <button class="width-btn" aria-label=${s.borderWidth} aria-expanded=${String(open)}
+          @click=${() => {
+            this._openWidthKey = open ? null : key;
+            this.requestUpdate();
+          }}>
+          ${effective > 0
+            ? html`<span class="width-line" style="border-top-width:${previewPx(effective)}px"></span>
+                <span class="width-value">${effective}mm</span>`
+            : html`<span class="width-value">${s.colorNone}</span>`}
+        </button>
+      </div>
+      ${open ? html`
+        <div class="width-pop" role="menu" aria-label=${s.borderWidth}>
+          ${allowNone ? html`
+            <button role="menuitem" aria-label="${s.borderWidth}: ${s.colorNone}"
+              aria-pressed=${String(effective <= 0)}
+              @click=${() => pick(0)}>
+              <span class="width-value">${s.colorNone}</span>
+            </button>` : nothing}
+          ${steps.map((w) => html`
+            <button role="menuitem" aria-label="${s.borderWidth}: ${w}mm"
+              aria-pressed=${String(w === effective)}
+              @click=${() => pick(w)}>
+              <span class="width-line" style="border-top-width:${previewPx(w)}px"></span>
+              <span class="width-value">${w}mm</span>
+            </button>`)}
+        </div>` : nothing}
+    `;
+  }
+
+  /** 테두리 형태(실선·파선·점선) 선택 한 줄 — 실선은 기본값이라 콜백에 null로 전달 */
+  private _renderBorderShapeRow(
+    current: 'solid' | 'dashed' | 'dotted' | undefined,
+    ariaLabel: string,
+    apply: (value: 'dashed' | 'dotted' | null) => void,
+  ) {
+    const s = this._strings.designer;
+    return html`
+      <div class="prop-row">
+        <label>${s.borderShape}</label>
+        <select aria-label=${ariaLabel}
+          @change=${(e: Event) => {
+            const v = (e.target as HTMLSelectElement).value;
+            apply(v === 'dashed' || v === 'dotted' ? v : null);
+          }}>
+          ${([
+            ['solid', s.borderSolid],
+            ['dashed', s.borderDashed],
+            ['dotted', s.borderDotted],
+          ] as const).map(([value, label]) => html`
+            <option value=${value} ?selected=${(current ?? 'solid') === value}>${label}</option>`)}
+        </select>
+      </div>
+    `;
+  }
+
+  /**
+   * 스타일 그룹 — 텍스트(글자색·크기·정렬·굵게 등) / 배경 / 테두리로 나눠 보여준다 (C-11).
+   * 종류마다 의미 있는 항목만 노출한다 (ADR-032: 선은 배경·글자색 없음, 도형은 글자색 없음).
+   */
+  private _renderStyleGroups(el: SlipElement) {
     if (el.type === 'image') return nothing;
     const s = this._strings.designer;
     const r = el as Record<string, unknown>;
-    const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
-    // 타입마다 의미 있는 스타일만 노출한다 (ADR-032: 선은 배경·글자색 없음, 도형은 글자색 없음)
-    const hasBackground = el.type !== 'line';
     const hasFontColor =
       el.type === 'text' || el.type === 'field' || el.type === 'fixedGrid' || el.type === 'dynamicTable';
+    const hasTextDecor = el.type === 'text' || el.type === 'field';
+    const hasBackground = el.type !== 'line';
+    // 테두리 형태(파선·점선)는 직선 분해 렌더가 가능한 종류만 (ADR-032)
+    const hasBorderShape = el.type === 'line' || el.type === 'rect' || el.type === 'fixedGrid';
+    // 텍스트·필드는 기본 테두리 없음, 나머지는 기본 0.2mm (PDF 변환 계층과 동일)
+    const defaultWidth = el.type === 'text' || el.type === 'field' ? 0 : 0.2;
 
     return html`
+      ${hasFontColor ? html`
+        <div class="prop-section">
+          <div class="prop-section-title">${s.styleText}</div>
+          ${this._renderColorControl(s.fontColor, r.fontColor as string | undefined, 'fontColor')}
+          ${hasTextDecor ? this._renderFontProps(el) : nothing}
+          ${hasTextDecor
+            ? this._renderTextStyleToggles(
+                el as { bold?: boolean; underline?: boolean; strikethrough?: boolean },
+                (key, value) => this._updateElement((target) => {
+                  const t = target as Record<string, unknown>;
+                  if (value) t[key] = true;
+                  else delete t[key];
+                }),
+              )
+            : nothing}
+        </div>` : nothing}
+      ${hasBackground ? html`
+        <div class="prop-section">
+          <div class="prop-section-title">${s.styleBackground}</div>
+          ${this._renderColorControl(s.backgroundColor, r.backgroundColor as string | undefined, 'backgroundColor')}
+        </div>` : nothing}
       <div class="prop-section">
-        <div class="prop-section-title">${s.style}</div>
-        ${hasBackground
-          ? this._renderColorControl(s.backgroundColor, r.backgroundColor as string | undefined, 'backgroundColor')
-          : nothing}
-        ${hasFontColor
-          ? this._renderColorControl(s.fontColor, r.fontColor as string | undefined, 'fontColor')
-          : nothing}
+        <div class="prop-section-title">${s.styleBorder}</div>
         ${this._renderColorControl(s.borderColor, r.borderColor as string | undefined, 'borderColor')}
-        <div class="prop-row">
-          <label>${s.borderWidth}</label>
-          <input type="number" step="0.1" min="0" .value=${String((r.borderWidth as number) ?? '')}
-            @change=${(e: Event) => {
-              const v = numOf(e);
-              this._updateElement((target) => {
+        ${this._renderBorderWidthSelect(
+          r.borderWidth as number | undefined,
+          defaultWidth,
+          el.type !== 'line',
+          'borderWidth',
+          (v) => this._updateElement((target) => {
+            const t = target as Record<string, unknown>;
+            // 텍스트·필드의 없음(0)은 기본값과 같아 파일에 남기지 않는다
+            if (v === 0 && defaultWidth === 0) delete t.borderWidth;
+            else t.borderWidth = v;
+          }),
+        )}
+        ${hasBorderShape
+          ? this._renderBorderShapeRow(
+              r.borderStyle as 'solid' | 'dashed' | 'dotted' | undefined,
+              `${s.styleBorder} ${s.borderShape}`,
+              (v) => this._updateElement((target) => {
                 const t = target as Record<string, unknown>;
-                if (v > 0) t.borderWidth = v;
-                else delete t.borderWidth;
-              });
-            }}>
-        </div>
+                if (v === null) delete t.borderStyle;
+                else {
+                  t.borderStyle = v;
+                  // 모서리 반경은 파선·점선과 함께 쓸 수 없다 (스키마 규칙, ADR-032)
+                  if (target.type === 'rect') delete t.radius;
+                }
+              }),
+            )
+          : nothing}
+        ${el.type === 'rect' ? html`
+          <div class="prop-row">
+            <label>${s.cornerRadius}</label>
+            <input type="number" step="0.5" min="0" .value=${String(el.radius ?? 0)}
+              aria-label=${s.cornerRadius}
+              ?disabled=${el.borderStyle === 'dashed' || el.borderStyle === 'dotted'}
+              @change=${(e: Event) => {
+                const v = Number((e.target as HTMLInputElement).value);
+                if (Number.isNaN(v) || v < 0) {
+                  this.requestUpdate();
+                  return;
+                }
+                this._updateElement((target) => {
+                  if (target.type !== 'rect') return;
+                  const t = target as Record<string, unknown>;
+                  if (v > 0) t.radius = v;
+                  else delete t.radius;
+                });
+              }}>
+          </div>` : nothing}
       </div>
     `;
   }

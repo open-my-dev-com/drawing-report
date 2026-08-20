@@ -5,6 +5,7 @@ import { SlipRenderError } from '../src/render/errors.js';
 import {
   CURRENT_SCHEMA_VERSION,
   renderSlipToPdf,
+  type FixedGridElement,
   type SlipElement,
   type SlipTemplateBody,
   type SlipTemplateFile,
@@ -305,6 +306,87 @@ describe('고정 그리드(fixedGrid) 분해', () => {
     const merged = texts.find((schema) => inputs[0]?.[schema.name] === '주소');
     expect(merged?.height).toBe(20);
     expect(merged?.verticalAlignment).toBe('middle');
+  });
+});
+
+describe('고정 그리드 셀별 테두리 (ADR-033)', () => {
+  // 2×2 그리드: 경계 x=10·60·110, y=10·20·30 (열 50/50, 행 균등 10mm)
+  function makeGridFile(cells: FixedGridElement['cells']): SlipTemplateFile {
+    return {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'template',
+      template: {
+        meta: { title: '셀 테두리 시험' },
+        paper: { width: 210, height: 297, padding: [10, 10, 10, 10] },
+        pages: [
+          {
+            elements: [
+              {
+                type: 'fixedGrid', id: 'grid', name: '그리드',
+                position: { x: 10, y: 10 }, width: 100, height: 20,
+                rows: 2, columns: 2, columnWidthPercentages: [50, 50], cells,
+              },
+            ],
+          },
+        ],
+        assets: [],
+      },
+    };
+  }
+  const linesOf = (file: SlipTemplateFile) =>
+    pageSchemas(file).filter((schema) => schema.type === 'line');
+  const at = (lines: PdfmeSchema[], x: number, y: number) =>
+    lines.filter(
+      (line) => Math.abs(line.position.x - x) < 1e-6 && Math.abs(line.position.y - y) < 1e-6,
+    );
+
+  it('셀 테두리 굵기 0이면 그 셀 둘레 변을 그리지 않는다 (합계 박스)', () => {
+    const lines = linesOf(makeGridFile([{ row: 1, column: 0, content: '', borderWidth: 0 }]));
+    // 아래 변: 왼쪽 칸(굵기 0)은 사라지고 오른쪽 칸만 남는다
+    const bottom = lines.filter((line) => Math.abs(line.position.y - (30 - 0.1)) < 1e-6);
+    expect(bottom).toHaveLength(1);
+    expect(bottom[0]?.position.x).toBe(60);
+    expect(bottom[0]?.width).toBe(50);
+    // 왼쪽 변: 위 행(기본 테두리)만 남는다
+    const left = at(lines, 10 - 0.1, 10);
+    expect(left).toHaveLength(1);
+    expect(left[0]?.height).toBe(10);
+    // 가운데 변: 오른쪽 이웃 셀이 기본 테두리라 굵은 쪽이 이겨 전체 높이로 남는다
+    const middle = at(lines, 60 - 0.1, 10);
+    expect(middle).toHaveLength(1);
+    expect(middle[0]?.height).toBe(20);
+  });
+
+  it('셀 테두리가 요소 값보다 굵으면 공유 변도 그 셀 설정으로 그린다', () => {
+    const lines = linesOf(
+      makeGridFile([{ row: 0, column: 0, content: '', borderWidth: 0.6, borderColor: '#CC0000' }]),
+    );
+    // 위 변 왼쪽 칸: 0.6mm 빨강 (중심 정렬이라 y = 10 - 0.3)
+    const top = at(lines, 10, 10 - 0.3);
+    expect(top).toHaveLength(1);
+    expect(top[0]?.width).toBe(50);
+    expect(top[0]?.height).toBe(0.6);
+    expect(top[0]?.color).toBe('#CC0000');
+    // 행 경계(공유 변): 아래 셀은 기본 0.2지만 굵은 쪽(0.6 빨강)이 이긴다
+    const shared = at(lines, 10, 20 - 0.3);
+    expect(shared).toHaveLength(1);
+    expect(shared[0]?.color).toBe('#CC0000');
+    // 위 변 오른쪽 칸은 기본 테두리 그대로 — 스타일이 달라 별도 선분으로 나뉜다
+    const topRight = at(lines, 60, 10 - 0.1);
+    expect(topRight).toHaveLength(1);
+    expect(topRight[0]?.height).toBe(0.2);
+  });
+
+  it('굵기가 같은 공유 변은 아래·오른쪽 셀 설정을 따른다', () => {
+    const lines = linesOf(
+      makeGridFile([
+        { row: 0, column: 0, content: '', borderWidth: 0.4, borderColor: '#FF0000' },
+        { row: 1, column: 0, content: '', borderWidth: 0.4, borderColor: '#0000FF' },
+      ]),
+    );
+    const shared = at(lines, 10, 20 - 0.2);
+    expect(shared).toHaveLength(1);
+    expect(shared[0]?.color).toBe('#0000FF');
   });
 });
 
