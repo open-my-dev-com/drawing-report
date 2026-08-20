@@ -25,6 +25,22 @@ const PAPER_PRESETS = [
   { name: 'Letter', width: 215.9, height: 279.4 },
 ] as const;
 
+/**
+ * 좌표 기준점 9점 (좌상~우하) — 속성 패널 X·Y의 표시·입력 기준.
+ * 화면 차원 개념이라 파일에는 늘 좌상단 좌표로 저장된다 (포맷 불변).
+ */
+const ANCHORS = [
+  { key: 'anchorTL', ax: 0, ay: 0 },
+  { key: 'anchorT', ax: 0.5, ay: 0 },
+  { key: 'anchorTR', ax: 1, ay: 0 },
+  { key: 'anchorL', ax: 0, ay: 0.5 },
+  { key: 'anchorC', ax: 0.5, ay: 0.5 },
+  { key: 'anchorR', ax: 1, ay: 0.5 },
+  { key: 'anchorBL', ax: 0, ay: 1 },
+  { key: 'anchorB', ax: 0.5, ay: 1 },
+  { key: 'anchorBR', ax: 1, ay: 1 },
+] as const;
+
 const PX_PER_MM = 96 / 25.4;
 const MAX_UNDO = 50;
 /** 스냅이 붙는 거리(mm) — 이 안으로 들어오면 후보 선에 끌어붙인다 */
@@ -607,6 +623,29 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-accent);
       border-color: var(--sk-accent);
     }
+    .anchor-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 14px);
+      gap: 3px;
+    }
+    .anchor-dot {
+      width: 14px;
+      height: 14px;
+      padding: 0;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: 3px;
+      background: var(--sk-surface);
+      cursor: pointer;
+    }
+    .anchor-dot[aria-pressed='true'] {
+      background: var(--sk-accent);
+      border-color: var(--sk-accent);
+    }
+    .anchor-dot:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+
     /* 글자 라벨 토글 (방향 등) — 아이콘 토글의 고정 폭을 글자에 맞게 되돌린다 */
     .toggle-group .orient-btn {
       width: auto;
@@ -857,6 +896,7 @@ export class SlipDesigner extends LitElement {
     _pendingTool: { state: true },
     _drawRect: { state: true },
     _presetMenuOpen: { state: true },
+    _anchorIndex: { state: true },
   };
 
   src = '';
@@ -892,6 +932,8 @@ export class SlipDesigner extends LitElement {
   private _draw: { type: SlipElement['type']; startX: number; startY: number; moved: boolean } | null = null;
   private _presetMenuOpen = false;
   private _presetMenuPos = { left: 0, top: 0 };
+  /** 속성 패널 X·Y가 기준으로 삼는 기준점 (ANCHORS 인덱스, 기본 좌상단) */
+  private _anchorIndex = 0;
 
   /** 현재 locale의 문구 사전 */
   private get _strings() {
@@ -2140,6 +2182,28 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
+  /**
+   * 좌표 기준점 선택 줄 — 3×3 점 격자. 기준점을 바꾸면 X·Y 표시만 그 기준으로
+   * 다시 환산되고 요소의 실제 위치·파일 내용은 바뀌지 않는다.
+   */
+  private _renderAnchorRow() {
+    const s = this._strings.designer;
+    return html`
+      <div class="prop-row">
+        <label>${s.anchor}</label>
+        <div class="anchor-grid" role="group" aria-label=${s.anchor}>
+          ${ANCHORS.map((a, i) => html`
+            <button class="anchor-dot" title=${s[a.key]} aria-label="${s.anchor}: ${s[a.key]}"
+              aria-pressed=${String(i === this._anchorIndex)}
+              @click=${() => {
+                this._anchorIndex = i;
+                this.requestUpdate();
+              }}></button>`)}
+        </div>
+      </div>
+    `;
+  }
+
   private _renderPropertyPanel() {
     const el = this._findSelectedElement();
     if (!el) {
@@ -2149,6 +2213,7 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    const anchor = ANCHORS[this._anchorIndex] ?? ANCHORS[0];
 
     return html`
       <div class="type-name">${this._typeName(el.type)}</div>
@@ -2159,21 +2224,31 @@ export class SlipDesigner extends LitElement {
           <input .value=${el.name}
                  @change=${(e: Event) => this._updateElement((el) => { el.name = valOf(e); })}>
         </div>
+        ${this._renderAnchorRow()}
         <div class="prop-pair">
           <div class="prop-row">
             <label>X</label>
-            <input type="number" step="0.5" .value=${String(el.position.x)}
+            <input type="number" step="0.5" .value=${String(round1(el.position.x + anchor.ax * el.width))}
                    @change=${(e: Event) => {
                      const v = numOf(e);
-                     if (!Number.isNaN(v)) this._updateElement((el) => { el.position.x = Math.max(0, v); });
+                     if (!Number.isNaN(v)) {
+                       // 입력값은 기준점 좌표 — 저장은 늘 좌상단 좌표로 환산
+                       this._updateElement((el) => {
+                         el.position.x = Math.max(0, round1(v - anchor.ax * el.width));
+                       });
+                     }
                    }}>
           </div>
           <div class="prop-row">
             <label>Y</label>
-            <input type="number" step="0.5" .value=${String(el.position.y)}
+            <input type="number" step="0.5" .value=${String(round1(el.position.y + anchor.ay * el.height))}
                    @change=${(e: Event) => {
                      const v = numOf(e);
-                     if (!Number.isNaN(v)) this._updateElement((el) => { el.position.y = Math.max(0, v); });
+                     if (!Number.isNaN(v)) {
+                       this._updateElement((el) => {
+                         el.position.y = Math.max(0, round1(v - anchor.ay * el.height));
+                       });
+                     }
                    }}>
           </div>
         </div>
