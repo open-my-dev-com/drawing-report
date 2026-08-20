@@ -594,18 +594,81 @@ export class SlipDesigner extends LitElement {
     .modal.modal-wide {
       width: min(760px, calc(100vw - 32px));
     }
+    .sample-tabs {
+      display: inline-flex;
+      gap: 2px;
+      margin-bottom: 8px;
+      padding: 2px;
+      border: 1px solid var(--sk-border);
+      border-radius: var(--sk-radius);
+      background: var(--sk-bg);
+    }
+    .sample-tabs button {
+      padding: 4px 12px;
+      border: 1px solid transparent;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--sk-text-muted);
+      cursor: pointer;
+    }
+    .sample-tabs button[aria-selected='true'] {
+      background: var(--sk-surface);
+      border-color: var(--sk-border-strong);
+      color: var(--sk-text);
+    }
+    .sample-tabs button:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    .sample-json {
+      width: 100%;
+      resize: vertical;
+      padding: 8px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: inherit;
+    }
+    .sample-json:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -1px;
+    }
     .sample-pager {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      flex-wrap: wrap;
+      gap: 4px;
       margin: 6px 0;
     }
-    .sample-pager .page-indicator {
-      min-width: 40px;
-      text-align: center;
-      font-size: 12px;
+    .page-btn {
+      min-width: 22px;
+      height: 22px;
+      padding: 0 5px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 11px;
       color: var(--sk-text-muted);
+      cursor: pointer;
+    }
+    .page-btn:hover {
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    .page-btn[aria-pressed='true'] {
+      background: var(--sk-accent);
+      border-color: var(--sk-accent);
+      color: #fff;
+    }
+    .page-btn:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
     }
     .sample-scroll {
       overflow-x: auto;
@@ -616,6 +679,9 @@ export class SlipDesigner extends LitElement {
       gap: 4px;
       align-items: center;
       margin-bottom: 4px;
+      /* 열이 많으면 그리드 상자를 내용 크기로 키워 스크롤 컨테이너가 끝까지 스크롤되게 한다 */
+      width: max-content;
+      min-width: 100%;
     }
     .sample-col {
       font-size: 10px;
@@ -1767,6 +1833,10 @@ export class SlipDesigner extends LitElement {
   private _sampleModalOpen = false;
   /** 샘플 데이터 모달의 현재 페이지 — 바인딩이 많으면 10개 단위로 나눠 보여준다 */
   private _samplePage = 0;
+  /** 샘플 데이터 모달의 JSON 직접 입력 모드 여부 (입력폼 ↔ JSON 탭) */
+  private _sampleJsonMode = false;
+  /** JSON 모드의 편집 중 초안 — 적용을 눌러야 sampleValues에 반영된다 */
+  private _sampleJsonDraft = '';
   /** 사이드바에서 논리명을 인라인 편집 중인 바인딩 키 (D-13) */
   private _bindingEditKey: string | null = null;
   /** 사이드바의 바인딩 등록 입력줄 열림 여부 (D-13) */
@@ -3256,6 +3326,7 @@ export class SlipDesigner extends LitElement {
             @click=${() => {
               this._sampleModalOpen = true;
               this._samplePage = 0;
+              this._sampleJsonMode = false;
               this.requestUpdate();
             }}>${icons.database}</button>
           <button class="side-mini" title=${s.addBinding} aria-label=${s.addBinding}
@@ -4957,6 +5028,19 @@ export class SlipDesigner extends LitElement {
       (pageIndex + 1) * SAMPLE_PAGE_SIZE,
     );
 
+    // JSON 모드 — 초안을 실시간 검사해 오류면 적용을 막는다
+    let jsonError: string | null = null;
+    if (this._sampleJsonMode && this._sampleJsonDraft.trim() !== '') {
+      try {
+        const parsed: unknown = JSON.parse(this._sampleJsonDraft);
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+          jsonError = s.jsonNotObject;
+        }
+      } catch {
+        jsonError = s.jsonInvalid;
+      }
+    }
+
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${close}></div>
       <div class="modal modal-wide" role="dialog" aria-label=${s.sampleModalTitle}
@@ -4972,46 +5056,117 @@ export class SlipDesigner extends LitElement {
             @click=${close}>${icons.close}</button>
         </div>
         <div class="modal-body">
-          <div class="cell-hint">${s.sampleHint}</div>
-          ${bindings.length === 0 ? html`<div class="side-empty">—</div>` : nothing}
-          ${pageCount > 1
+          <div class="sample-tabs" role="tablist" aria-label=${s.sampleModalTitle}>
+            ${([
+              [false, s.formMode],
+              [true, 'JSON'],
+            ] as const).map(([jsonMode, label]) => html`
+              <button role="tab" aria-selected=${String(this._sampleJsonMode === jsonMode)}
+                aria-label="${s.sampleData}: ${label}"
+                @click=${() => {
+                  if (this._sampleJsonMode === jsonMode) return;
+                  this._sampleJsonMode = jsonMode;
+                  if (jsonMode) {
+                    // JSON 탭에 들어올 때 현재 샘플 값을 초안으로 담는다
+                    const current = this._file?.template.sampleValues;
+                    this._sampleJsonDraft =
+                      current && Object.keys(current).length > 0
+                        ? JSON.stringify(current, null, 2)
+                        : '';
+                  }
+                  this.requestUpdate();
+                }}>${label}</button>`)}
+          </div>
+          ${this._sampleJsonMode
             ? html`
-                <div class="sample-pager">
-                  <button class="side-mini" title=${s.prevPage}
-                    aria-label="${s.sampleData} ${s.prevPage}"
-                    ?disabled=${pageIndex === 0}
-                    @click=${() => {
-                      this._samplePage = pageIndex - 1;
-                      this.requestUpdate();
-                    }}>${icons.pagePrev}</button>
-                  <span class="page-indicator">${pageIndex + 1} / ${pageCount}</span>
-                  <button class="side-mini" title=${s.nextPage}
-                    aria-label="${s.sampleData} ${s.nextPage}"
-                    ?disabled=${pageIndex >= pageCount - 1}
-                    @click=${() => {
-                      this._samplePage = pageIndex + 1;
-                      this.requestUpdate();
-                    }}>${icons.pageNext}</button>
+                <div class="cell-hint">${s.jsonHint}</div>
+                <textarea class="sample-json" rows="14" spellcheck="false"
+                  aria-label="${s.sampleData} JSON"
+                  placeholder=${'{\n  "tradeDate": "2026-08-20",\n  "items": [{ "amount": 1000 }]\n}'}
+                  .value=${this._sampleJsonDraft}
+                  @input=${(e: Event) => {
+                    this._sampleJsonDraft = (e.target as HTMLTextAreaElement).value;
+                    this.requestUpdate();
+                  }}></textarea>
+                <div class="formula-status ${jsonError ? 'error' : ''}">
+                  ${jsonError ? `${s.syntaxError}: ${jsonError}` : ''}
                 </div>`
-            : nothing}
-          ${visible.map((b) => {
-            const columns = tableOf.get(b.key);
-            if (columns) return this._renderSampleTable(b, columns, samples[b.key]);
-            return html`
-              <div class="prop-row">
-                <label title=${b.key}>${b.label}</label>
-                <input .value=${sampleScalarText(samples[b.key])}
-                  aria-label="${s.sampleData} ${b.key}"
-                  @change=${(e: Event) =>
-                    this._setSampleValue(b.key, parseSampleScalar((e.target as HTMLInputElement).value))}>
-              </div>`;
-          })}
+            : html`
+                <div class="cell-hint">${s.sampleHint}</div>
+                ${bindings.length === 0 ? html`<div class="side-empty">—</div>` : nothing}
+                ${pageCount > 1
+                  ? html`
+                      <div class="sample-pager">
+                        <button class="side-mini" title=${s.prevPage}
+                          aria-label="${s.sampleData} ${s.prevPage}"
+                          ?disabled=${pageIndex === 0}
+                          @click=${() => {
+                            this._samplePage = pageIndex - 1;
+                            this.requestUpdate();
+                          }}>${icons.pagePrev}</button>
+                        ${Array.from({ length: pageCount }, (_, i) => html`
+                          <button class="page-btn"
+                            aria-label="${s.sampleData} ${s.sidebarPages} ${i + 1}"
+                            aria-pressed=${String(i === pageIndex)}
+                            @click=${() => {
+                              this._samplePage = i;
+                              this.requestUpdate();
+                            }}>${i + 1}</button>`)}
+                        <button class="side-mini" title=${s.nextPage}
+                          aria-label="${s.sampleData} ${s.nextPage}"
+                          ?disabled=${pageIndex >= pageCount - 1}
+                          @click=${() => {
+                            this._samplePage = pageIndex + 1;
+                            this.requestUpdate();
+                          }}>${icons.pageNext}</button>
+                      </div>`
+                  : nothing}
+                ${visible.map((b) => {
+                  const columns = tableOf.get(b.key);
+                  if (columns) return this._renderSampleTable(b, columns, samples[b.key]);
+                  return html`
+                    <div class="prop-row">
+                      <label title=${b.key}>${b.label}</label>
+                      <input .value=${sampleScalarText(samples[b.key])}
+                        aria-label="${s.sampleData} ${b.key}"
+                        @change=${(e: Event) =>
+                          this._setSampleValue(b.key, parseSampleScalar((e.target as HTMLInputElement).value))}>
+                    </div>`;
+                })}`}
         </div>
         <div class="modal-foot">
-          <button class="btn primary" @click=${close}>${s.close}</button>
+          ${this._sampleJsonMode
+            ? html`<button class="btn primary" ?disabled=${jsonError !== null}
+                @click=${() => this._applySampleJson()}>${s.apply}</button>`
+            : nothing}
+          <button class="btn ${this._sampleJsonMode ? '' : 'primary'}" @click=${close}>
+            ${s.close}
+          </button>
         </div>
       </div>
     `;
+  }
+
+  /** JSON 초안을 sampleValues 전체에 반영한다 — 빈 입력·빈 객체는 샘플 제거 */
+  private _applySampleJson(): void {
+    let parsed: unknown = {};
+    const draft = this._sampleJsonDraft.trim();
+    if (draft !== '') {
+      try {
+        parsed = JSON.parse(draft);
+      } catch {
+        return;
+      }
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return;
+    const record = parsed as Record<string, unknown>;
+    this._updateFile((f) => {
+      if (Object.keys(record).length === 0) {
+        delete (f.template as { sampleValues?: unknown }).sampleValues;
+      } else {
+        f.template.sampleValues = record as never;
+      }
+    });
   }
 
   /** 동적 표 바인딩의 샘플 행 편집 — 열 구조대로 셀 입력, 행 추가·삭제 */

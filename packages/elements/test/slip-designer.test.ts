@@ -2708,12 +2708,18 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
 
     const inputs = () => el.shadowRoot!.querySelectorAll('.modal .prop-row input');
     expect(inputs().length).toBe(10);
-    expect(el.shadowRoot!.querySelector('.sample-pager')?.textContent).toContain('1 / 2');
+    const pageButtons = () => el.shadowRoot!.querySelectorAll('.page-btn');
+    expect(pageButtons().length).toBe(2);
+    expect(pageButtons()[0]?.getAttribute('aria-pressed')).toBe('true');
 
+    // 다음 버튼으로도, 페이지 번호 버튼으로도 바로 이동할 수 있다
     byAria(el, `${strings.designer.sampleData} ${strings.designer.nextPage}`).click();
     await el.updateComplete;
     expect(inputs().length).toBe(2);
-    expect(el.shadowRoot!.querySelector('.sample-pager')?.textContent).toContain('2 / 2');
+    expect(pageButtons()[1]?.getAttribute('aria-pressed')).toBe('true');
+    (pageButtons()[0] as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(inputs().length).toBe(10);
 
     // 10개 이하면 페이지 표시가 없다
     (fileOf(el).template as { bindings?: { key: string }[] }).bindings =
@@ -2722,6 +2728,43 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     await el.updateComplete;
     await openSampleModal(el);
     expect(el.shadowRoot!.querySelector('.sample-pager')).toBeNull();
+    el.remove();
+  });
+
+  it('JSON 탭에서 샘플 전체를 붙여 넣어 적용할 수 있고, 잘못된 JSON은 적용이 막힌다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addField);
+    await openSampleModal(el);
+
+    byAria(el, `${strings.designer.sampleData}: JSON`).click();
+    await el.updateComplete;
+    const textarea = el.shadowRoot!.querySelector('.sample-json') as HTMLTextAreaElement;
+    const applyBtn = () => Array.from(el.shadowRoot!.querySelectorAll('.modal-foot button'))
+      .find((b) => b.textContent?.trim() === strings.designer.apply) as HTMLButtonElement;
+
+    // 잘못된 JSON → 오류 표시 + 적용 비활성
+    textarea.value = '{ "a": ';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+    expect(applyBtn().disabled).toBe(true);
+    expect(el.shadowRoot!.querySelector('.formula-status.error')).not.toBeNull();
+
+    // 배열 최상위도 거부
+    textarea.value = '[1, 2]';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+    expect(applyBtn().disabled).toBe(true);
+
+    // 올바른 객체 → 적용하면 sampleValues 전체가 교체된다
+    textarea.value = '{ "tradeDate": "2026-08-20", "items": [{ "amount": 1000 }] }';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+    expect(applyBtn().disabled).toBe(false);
+    applyBtn().click();
+    await el.updateComplete;
+
+    const samples = (fileOf(el).template as { sampleValues?: Record<string, unknown> }).sampleValues;
+    expect(samples).toEqual({ tradeDate: '2026-08-20', items: [{ amount: 1000 }] });
     el.remove();
   });
 });
