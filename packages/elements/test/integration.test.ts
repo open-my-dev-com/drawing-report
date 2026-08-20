@@ -56,7 +56,16 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 무
     designer.addEventListener('slip-change', (e: Event) =>
       changes.push((e as CustomEvent).detail.file as SlipTemplateFile));
 
+    // 텍스트 도구 선택 → 캔버스 클릭으로 생성 (B-5 흐름)
     toolbarButton(designer, strings.designer.addText).click();
+    await designer.updateComplete;
+    const paper = designer.shadowRoot!.querySelector('.paper') as HTMLElement;
+    paper.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 200, clientY: 200, pointerId: 1,
+    }));
+    paper.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true, composed: true, pointerId: 1,
+    }));
     await designer.updateComplete;
     toolbarButton(designer, strings.designer.addPage).click();
     await designer.updateComplete;

@@ -42,6 +42,35 @@ function justifyOf(alignment: 'left' | 'center' | 'right' | undefined): string {
   return alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
 }
 
+/** #RRGGBB(AA) → HSV(h 0~360, s·v 0~1) — 색 피커 초기 위치 계산용 */
+function hexToHsv(hex: string): { h: number; s: number; v: number } {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0;
+  if (d > 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return { h, s: max === 0 ? 0 : d / max, v: max };
+}
+
+/** HSV(h 0~360, s·v 0~1) → #RRGGBB */
+function hsvToHex(h: number, s: number, v: number): string {
+  const f = (n: number): number => {
+    const k = (n + h / 60) % 6;
+    return v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
+  };
+  const to = (x: number): string => Math.round(x * 255).toString(16).padStart(2, '0');
+  return `#${to(f(5))}${to(f(3))}${to(f(1))}`;
+}
+
 const PLACEHOLDER_IMG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
@@ -183,17 +212,6 @@ export class SlipDesigner extends LitElement {
       opacity: 0.35;
       cursor: default;
     }
-    .toolbar select {
-      padding: 4px 6px;
-      border: 1px solid var(--sk-border-strong);
-      border-radius: var(--sk-radius);
-      background: var(--sk-surface);
-      font-size: 12px;
-      font-family: inherit;
-      color: inherit;
-      cursor: pointer;
-      height: 28px;
-    }
     .toolbar .page-indicator {
       min-width: 40px;
       text-align: center;
@@ -210,6 +228,19 @@ export class SlipDesigner extends LitElement {
       align-items: flex-start;
       justify-content: center;
       padding: 24px;
+    }
+    /* 생성 도구 선택 중 — 캔버스 어디를 눌러도 그리기이므로 십자 커서로 알린다 */
+    .canvas-area.drawing,
+    .canvas-area.drawing .element {
+      cursor: crosshair;
+    }
+    .draw-ghost {
+      position: absolute;
+      border: 1px dashed var(--sk-accent);
+      background: var(--sk-accent-soft);
+      opacity: 0.6;
+      pointer-events: none;
+      z-index: 25;
     }
     .paper {
       position: relative;
@@ -392,11 +423,14 @@ export class SlipDesigner extends LitElement {
       margin: 3px 0;
       gap: 6px;
     }
+    /* 라벨 폭을 고정해 모든 입력 박스의 시작 위치를 맞춘다 (긴 라벨은 줄바꿈) */
     .prop-row label {
-      min-width: 52px;
+      width: 68px;
+      flex: none;
       font-size: 12px;
+      line-height: 1.25;
+      overflow-wrap: break-word;
       color: var(--sk-text-muted);
-      flex-shrink: 0;
     }
     .prop-row input,
     .prop-row select,
@@ -419,7 +453,7 @@ export class SlipDesigner extends LitElement {
       outline-offset: -1px;
     }
     .prop-pair .prop-row label {
-      min-width: 34px;
+      width: 34px;
     }
     .prop-row textarea {
       resize: vertical;
@@ -509,7 +543,7 @@ export class SlipDesigner extends LitElement {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      margin: 2px 0 8px 58px;
+      margin: 2px 0 8px 74px;
       padding: 6px;
       border: 1px solid var(--sk-border);
       border-radius: var(--sk-radius);
@@ -520,7 +554,7 @@ export class SlipDesigner extends LitElement {
       align-items: center;
       gap: 4px;
     }
-    .color-pop-row input:not(.color-well):not(.alpha-input) {
+    .color-pop-row input:not(.alpha-input) {
       flex: 1;
       min-width: 0;
       width: 0;
@@ -531,15 +565,52 @@ export class SlipDesigner extends LitElement {
       font-family: inherit;
       color: inherit;
     }
-    .color-well {
-      flex: 0 0 28px;
-      width: 28px;
-      height: 24px;
-      padding: 1px;
-      border: 1px solid var(--sk-border-strong);
+    .sv-area {
+      position: relative;
+      height: 90px;
+      border: 1px solid var(--sk-border);
       border-radius: var(--sk-radius);
-      background: var(--sk-surface);
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .sv-thumb {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 3px rgba(0, 0, 0, 0.6);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .hue-slider {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 100%;
+      height: 12px;
+      margin: 0;
+      border: 1px solid var(--sk-border);
+      border-radius: 6px;
+      background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
       cursor: pointer;
+    }
+    .hue-slider::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+    }
+    .hue-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
     }
     .color-extras {
       display: flex;
@@ -577,6 +648,47 @@ export class SlipDesigner extends LitElement {
     .alpha-suffix {
       font-size: 11px;
       color: var(--sk-text-muted);
+    }
+
+    .menu-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+    }
+    .preset-menu {
+      position: fixed;
+      z-index: 41;
+      display: flex;
+      flex-direction: column;
+      min-width: 140px;
+      padding: 4px;
+      border: 1px solid var(--sk-border);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .preset-menu button {
+      /* 툴바 안에 렌더되므로 .toolbar button의 아이콘 버튼 크기 규칙을 되돌린다 */
+      display: block;
+      min-width: 0;
+      height: auto;
+      padding: 6px 10px;
+      border: none;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      text-align: left;
+      font-family: inherit;
+      font-size: 12px;
+      color: inherit;
+      cursor: pointer;
+    }
+    .preset-menu button:hover {
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+    }
+    .preset-menu button:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -1px;
     }
 
     .preview-area {
@@ -621,6 +733,9 @@ export class SlipDesigner extends LitElement {
     _error: { state: true },
     _guideX: { state: true },
     _guideY: { state: true },
+    _pendingTool: { state: true },
+    _drawRect: { state: true },
+    _presetMenuOpen: { state: true },
   };
 
   src = '';
@@ -649,6 +764,13 @@ export class SlipDesigner extends LitElement {
   private _guideX: number | null = null;
   private _guideY: number | null = null;
   private _previewGeneration = 0;
+  /** 선택된 생성 도구 — 캔버스를 클릭·드래그하면 이 종류의 요소를 만든다 (한 번 만들면 해제) */
+  private _pendingTool: SlipElement['type'] | null = null;
+  /** 드래그 생성 중 임시 사각형(mm) — 캔버스에 점선 미리보기로 표시 */
+  private _drawRect: { x: number; y: number; w: number; h: number } | null = null;
+  private _draw: { type: SlipElement['type']; startX: number; startY: number; moved: boolean } | null = null;
+  private _presetMenuOpen = false;
+  private _presetMenuPos = { left: 0, top: 0 };
 
   /** 현재 locale의 문구 사전 */
   private get _strings() {
@@ -697,6 +819,10 @@ export class SlipDesigner extends LitElement {
     this._guideX = null;
     this._guideY = null;
     this._clipboard = null;
+    this._pendingTool = null;
+    this._drawRect = null;
+    this._draw = null;
+    this._presetMenuOpen = false;
 
     if (!this.src) {
       this._file = null;
@@ -824,7 +950,14 @@ export class SlipDesigner extends LitElement {
   // Element CRUD
   // ---------------------------------------------------------------------------
 
-  private _addElement(type: SlipElement['type']): void {
+  /**
+   * 요소를 추가한다. place를 주면 그 위치(드래그 생성이면 크기까지)로 만들고,
+   * 없으면 여백 원점에서 계단식으로 어긋난 기본 위치에 만든다.
+   */
+  private _addElement(
+    type: SlipElement['type'],
+    place?: { position: { x: number; y: number }; width?: number; height?: number },
+  ): void {
     const elements = this._currentElements();
     if (!elements || !this._file) return;
 
@@ -834,7 +967,7 @@ export class SlipDesigner extends LitElement {
     const { paper } = this._file.template;
     const [padTop, , , padLeft] = paper.padding;
     const offset = (elements.length * 5) % 50;
-    const position = { x: padLeft + offset, y: padTop + offset };
+    const position = place?.position ?? { x: padLeft + offset, y: padTop + offset };
     const name = `${type}-${id.slice(0, 4)}`;
 
     let element: SlipElement;
@@ -871,6 +1004,14 @@ export class SlipDesigner extends LitElement {
         };
         break;
     }
+
+    if (place?.width !== undefined) element.width = Math.max(MIN_SIZE_MM, round1(place.width));
+    if (place?.height !== undefined) element.height = Math.max(MIN_SIZE_MM, round1(place.height));
+    // 용지 밖으로 나가지 않게 위치 보정 (가장자리를 클릭해 만들 때)
+    element.position = {
+      x: round1(Math.max(0, Math.min(element.position.x, paper.width - element.width))),
+      y: round1(Math.max(0, Math.min(element.position.y, paper.height - element.height))),
+    };
 
     elements.push(element);
     this._selectedId = id;
@@ -944,8 +1085,36 @@ export class SlipDesigner extends LitElement {
   // Pointer events (canvas drag)
   // ---------------------------------------------------------------------------
 
+  /** 생성 도구 선택·해제 — 같은 도구를 다시 누르면 해제된다 */
+  private _selectTool(type: SlipElement['type']): void {
+    this._pendingTool = this._pendingTool === type ? null : type;
+    this._draw = null;
+    this._drawRect = null;
+    this.requestUpdate();
+  }
+
+  /** 포인터 좌표를 용지 기준 mm 좌표로 (용지 밖은 가장자리로 보정) */
+  private _paperPoint(e: PointerEvent): { x: number; y: number } {
+    const rect = (this.renderRoot.querySelector('.paper') as HTMLElement | null)
+      ?.getBoundingClientRect();
+    const { paper } = this._file!.template;
+    return {
+      x: Math.max(0, Math.min((e.clientX - (rect?.left ?? 0)) / PX_PER_MM, paper.width)),
+      y: Math.max(0, Math.min((e.clientY - (rect?.top ?? 0)) / PX_PER_MM, paper.height)),
+    };
+  }
+
   private _onPointerDown = (e: PointerEvent): void => {
     if (!this._file) return;
+
+    // 생성 도구가 선택돼 있으면 클릭·드래그는 요소 생성이다 (선택·이동보다 우선)
+    if (this._pendingTool) {
+      const p = this._paperPoint(e);
+      this._draw = { type: this._pendingTool, startX: p.x, startY: p.y, moved: false };
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+      return;
+    }
 
     const handleEl = (e.target as HTMLElement).closest?.('.handle') as HTMLElement | null;
     if (handleEl && this._selectedId) {
@@ -995,6 +1164,21 @@ export class SlipDesigner extends LitElement {
   };
 
   private _onPointerMove = (e: PointerEvent): void => {
+    if (this._draw) {
+      const p = this._paperPoint(e);
+      const w = Math.abs(p.x - this._draw.startX);
+      const h = Math.abs(p.y - this._draw.startY);
+      // 1mm 넘게 움직였을 때만 드래그로 본다 (클릭 손떨림은 기본 크기 생성)
+      if (w > 1 || h > 1) this._draw.moved = true;
+      this._drawRect = {
+        x: round1(Math.min(this._draw.startX, p.x)),
+        y: round1(Math.min(this._draw.startY, p.y)),
+        w: round1(w),
+        h: round1(h),
+      };
+      this.requestUpdate();
+      return;
+    }
     if (this._resize) {
       this._onResizeMove(e);
       return;
@@ -1100,12 +1284,30 @@ export class SlipDesigner extends LitElement {
     }
     this._drag = null;
     this._resize = null;
+    this._draw = null;
+    this._drawRect = null;
     this._guideX = null;
     this._guideY = null;
     this.requestUpdate();
   };
 
   private _onPointerUp = (): void => {
+    if (this._draw) {
+      const d = this._draw;
+      const rect = this._drawRect;
+      this._draw = null;
+      this._drawRect = null;
+      this._pendingTool = null;
+      if (d.moved && rect) {
+        // 드래그: 끌어낸 사각형의 위치·크기로 생성 (최소 크기는 _addElement가 보정)
+        this._addElement(d.type, { position: { x: rect.x, y: rect.y }, width: rect.w, height: rect.h });
+      } else {
+        // 클릭: 그 위치에 종류별 기본 크기로 생성
+        this._addElement(d.type, { position: { x: round1(d.startX), y: round1(d.startY) } });
+      }
+      return;
+    }
+
     this._guideX = null;
     this._guideY = null;
 
@@ -1187,6 +1389,12 @@ export class SlipDesigner extends LitElement {
       target instanceof HTMLSelectElement;
     if (inFormField) return;
 
+    if (e.key === 'Escape' && (this._pendingTool || this._draw)) {
+      this._pendingTool = null;
+      this._draw = null;
+      this._drawRect = null;
+      this.requestUpdate();
+    }
     if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedId) {
       e.preventDefault();
       this._deleteSelected();
@@ -1276,7 +1484,7 @@ export class SlipDesigner extends LitElement {
                 : html`<div class="status">${this._strings.designer.previewLoading}</div>`}
           </div>`
         : html`
-            <div class="canvas-area"
+            <div class="canvas-area ${this._pendingTool ? 'drawing' : ''}"
                  @pointerdown=${this._onPointerDown}
                  @pointermove=${this._onPointerMove}
                  @pointerup=${this._onPointerUp}
@@ -1296,7 +1504,7 @@ export class SlipDesigner extends LitElement {
   private _iconButton(
     label: string,
     glyph: TemplateResult,
-    onClick: () => void,
+    onClick: (e: Event) => void,
     opts: { disabled?: boolean; pressed?: boolean } = {},
   ) {
     return html`<button title=${label} aria-label=${label}
@@ -1309,12 +1517,18 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     return html`
       <div class="tool-group">
-        ${this._iconButton(s.addText, icons.text, () => this._addElement('text'))}
-        ${this._iconButton(s.addFixedGrid, icons.fixedGrid, () => this._addElement('fixedGrid'))}
-        ${this._iconButton(s.addDynamicTable, icons.dynamicTable, () => this._addElement('dynamicTable'))}
-        ${this._iconButton(s.addImage, icons.image, () => this._addElement('image'))}
-        ${this._iconButton(s.addShape, icons.shape, () => this._addElement('shape'))}
-        ${this._iconButton(s.addField, icons.field, () => this._addElement('field'))}
+        ${([
+          ['text', s.addText, icons.text],
+          ['fixedGrid', s.addFixedGrid, icons.fixedGrid],
+          ['dynamicTable', s.addDynamicTable, icons.dynamicTable],
+          ['image', s.addImage, icons.image],
+          ['shape', s.addShape, icons.shape],
+          ['field', s.addField, icons.field],
+        ] as const).map(([type, label, glyph]) =>
+          this._iconButton(label, glyph, () => this._selectTool(type), {
+            pressed: this._pendingTool === type,
+          }),
+        )}
       </div>
       <div class="tool-group">
         ${this._iconButton(s.delete, icons.remove, () => this._deleteSelected(), { disabled: !this._selectedId })}
@@ -1338,19 +1552,44 @@ export class SlipDesigner extends LitElement {
           { pressed: this._previewMode },
         )}
       </div>
-      <select class="preset-select" aria-label=${s.preset} @change=${this._onPresetChange}>
-        <option value="" selected>${s.preset}</option>
-        ${presets.map((p, index) => html`<option value=${String(index)}>${p.name}</option>`)}
-      </select>
+      <div class="tool-group">
+        ${this._iconButton(s.preset, icons.preset, (e) => this._togglePresetMenu(e), {
+          pressed: this._presetMenuOpen,
+        })}
+      </div>
+      ${this._presetMenuOpen
+        ? html`
+            <div class="menu-backdrop" @click=${() => {
+              this._presetMenuOpen = false;
+              this.requestUpdate();
+            }}></div>
+            <div class="preset-menu" role="menu" aria-label=${s.preset}
+                 style="left:${this._presetMenuPos.left}px;top:${this._presetMenuPos.top}px">
+              ${presets.map((p, index) => html`
+                <button role="menuitem" @click=${() => this._applyPreset(index)}>${p.name}</button>`)}
+            </div>`
+        : nothing}
     `;
   }
 
-  private _onPresetChange = (e: Event): void => {
-    const select = e.target as HTMLSelectElement;
-    const value = select.value;
-    select.value = '';
-    if (value === '' || !this._file) return;
-    const preset = presets[Number(value)];
+  /** 프리셋 메뉴 열기·닫기 — 버튼 바로 아래에 고정 위치로 띄운다 (툴바 스크롤에 잘리지 않게) */
+  private _togglePresetMenu(e: Event): void {
+    if (this._presetMenuOpen) {
+      this._presetMenuOpen = false;
+    } else {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      this._presetMenuPos = { left: rect.left, top: rect.bottom + 4 };
+      this._presetMenuOpen = true;
+    }
+    this.requestUpdate();
+  }
+
+  /** 선택한 프리셋으로 양식 전체를 교체한다 (되돌리기 지원) */
+  private _applyPreset(index: number): void {
+    this._presetMenuOpen = false;
+    this.requestUpdate();
+    if (!this._file) return;
+    const preset = presets[index];
     if (!preset) return;
 
     this._pushUndo();
@@ -1360,7 +1599,7 @@ export class SlipDesigner extends LitElement {
     this._previewMode = false;
     this._emitChange();
     this.requestUpdate();
-  };
+  }
 
   // ---------------------------------------------------------------------------
   // Render: canvas
@@ -1391,6 +1630,14 @@ export class SlipDesigner extends LitElement {
           : nothing}
         ${this._guideY !== null
           ? html`<div class="snap-guide horizontal" style="top:${this._guideY * PX_PER_MM}px"></div>`
+          : nothing}
+        ${this._drawRect
+          ? html`<div class="draw-ghost" style="
+              left:${this._drawRect.x * PX_PER_MM}px;
+              top:${this._drawRect.y * PX_PER_MM}px;
+              width:${this._drawRect.w * PX_PER_MM}px;
+              height:${this._drawRect.h * PX_PER_MM}px;
+            "></div>`
           : nothing}
       </div>
     `;
@@ -1769,8 +2016,22 @@ export class SlipDesigner extends LitElement {
   /** 색 버튼 펼침 상태 — 열려 있는 색 속성 키 (한 번에 하나) */
   private _openColorKey: string | null = null;
 
-  /** 스타일 속성 키에 색 값을 넣거나(v) 지운다(null) */
+  /** 색상판 커서 위치 (HSV) — 피커를 열 때 현재 색으로 맞춘다 */
+  private _pickerH = 0;
+  private _pickerS = 1;
+  private _pickerV = 1;
+  /** 색상판(SV 영역) 드래그 중인 색 속성 키 */
+  private _svDragKey: string | null = null;
+
+  /** 스타일 속성 키에 색 값을 넣거나(v) 지운다(null). 피커 커서도 그 색으로 맞춘다 */
   private _applyColor(key: string, value: string | null): void {
+    if (value) {
+      const { h, s, v } = hexToHsv(value);
+      // 무채색은 색조 정보가 없다 — 기존 색조를 유지해 색상판이 튀지 않게 한다
+      if (s > 0) this._pickerH = h;
+      this._pickerS = s;
+      this._pickerV = v;
+    }
     this._updateElement((el) => {
       const r = el as Record<string, unknown>;
       if (value) r[key] = value;
@@ -1778,10 +2039,22 @@ export class SlipDesigner extends LitElement {
     });
   }
 
+  /** 색상판에서 포인터 위치를 채도·명도로 바꿔 커서를 옮긴다 (적용은 떼는 순간) */
+  private _svPointTo(e: PointerEvent): void {
+    const area = e.currentTarget as HTMLElement;
+    const rect = area.getBoundingClientRect();
+    const w = rect.width || 1;
+    const h = rect.height || 1;
+    this._pickerS = Math.max(0, Math.min((e.clientX - rect.left) / w, 1));
+    this._pickerV = 1 - Math.max(0, Math.min((e.clientY - rect.top) / h, 1));
+    this.requestUpdate();
+  }
+
   /**
-   * 색 입력 한 벌 — 현재 색을 보여주는 버튼 하나로 통합하고, 누르면 아래로
-   * 팔레트 견본·색상판·직접 입력·투명도(%)·없음이 펼쳐진다.
-   * 저장 형식은 파일 스키마와 동일한 #RRGGBB(투명도 100%) / #RRGGBBAA.
+   * 색 입력 한 벌 — 현재 색을 보여주는 버튼 하나. 누르면 자주 쓰는 색 견본과
+   * 색상판(채도·명도)·색조 슬라이더·직접 입력·투명도(%)·없음이 전부 한 피커 안에
+   * 펼쳐져 바로 고를 수 있다. 저장 형식은 파일 스키마와 동일한
+   * #RRGGBB(투명도 100%) / #RRGGBBAA.
    */
   private _renderColorControl(label: string, current: string | undefined, key: string) {
     const s = this._strings.designer;
@@ -1801,7 +2074,22 @@ export class SlipDesigner extends LitElement {
         <label>${label}</label>
         <button class="color-btn" aria-label=${label} aria-expanded=${String(open)}
           @click=${() => {
-            this._openColorKey = open ? null : key;
+            if (open) {
+              this._openColorKey = null;
+            } else {
+              this._openColorKey = key;
+              // 피커 커서를 현재 색으로 (미지정이면 선명한 빨강에서 시작)
+              if (current) {
+                const hsv = hexToHsv(current);
+                if (hsv.s > 0) this._pickerH = hsv.h;
+                this._pickerS = hsv.s;
+                this._pickerV = hsv.v;
+              } else {
+                this._pickerH = 0;
+                this._pickerS = 1;
+                this._pickerV = 1;
+              }
+            }
             this.requestUpdate();
           }}>
           <span class="color-chip ${current ? '' : 'none'}"
@@ -1818,9 +2106,38 @@ export class SlipDesigner extends LitElement {
               title=${c} aria-label="${label} ${c}"
               @click=${() => this._applyColor(key, compose(c, alphaPct))}></button>`)}
           </div>
+          <div class="sv-area" aria-label="${label} ${s.style}"
+            style="background:linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${this._pickerH}, 100%, 50%))"
+            @pointerdown=${(e: PointerEvent) => {
+              this._svDragKey = key;
+              (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+              e.preventDefault();
+              e.stopPropagation();
+              this._svPointTo(e);
+            }}
+            @pointermove=${(e: PointerEvent) => {
+              if (this._svDragKey === key) this._svPointTo(e);
+            }}
+            @pointerup=${(e: PointerEvent) => {
+              if (this._svDragKey !== key) return;
+              this._svDragKey = null;
+              this._svPointTo(e);
+              this._applyColor(key, compose(hsvToHex(this._pickerH, this._pickerS, this._pickerV), alphaPct));
+            }}
+            @pointercancel=${() => { this._svDragKey = null; }}>
+            <span class="sv-thumb"
+              style="left:${(this._pickerS * 100).toFixed(1)}%;top:${((1 - this._pickerV) * 100).toFixed(1)}%"></span>
+          </div>
+          <input type="range" class="hue-slider" min="0" max="360" step="1"
+            .value=${String(Math.round(this._pickerH))}
+            title="${label} ${s.hue}" aria-label="${label} ${s.hue}"
+            @input=${(e: Event) => {
+              this._pickerH = Number((e.target as HTMLInputElement).value);
+              this.requestUpdate();
+            }}
+            @change=${() =>
+              this._applyColor(key, compose(hsvToHex(this._pickerH, this._pickerS, this._pickerV), alphaPct))}>
           <div class="color-pop-row">
-            <input type="color" class="color-well" aria-label="${label} ${s.style}" .value=${base}
-              @input=${(e: Event) => this._applyColor(key, compose((e.target as HTMLInputElement).value, alphaPct))}>
             <input .value=${current ?? ''} placeholder="#RRGGBB"
               @change=${(e: Event) => {
                 // 파일 스키마와 같은 형식만 저장 — 어긋난 값은 저장 시점에야 거부되어 원인 찾기 어려움

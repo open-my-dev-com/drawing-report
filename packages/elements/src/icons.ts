@@ -47,6 +47,8 @@ export const icons = {
   pageAdd: icon(svg`<path d="M5 12h14" /><path d="M12 5v14" />`),
   /** lucide: minus */
   pageRemove: icon(svg`<path d="M5 12h14" />`),
+  /** lucide: layout-template */
+  preset: icon(svg`<rect width="18" height="7" x="3" y="3" rx="1" /><rect width="9" height="7" x="3" y="14" rx="1" /><rect width="5" height="7" x="16" y="14" rx="1" />`),
   /** lucide: align-left */
   alignLeft: icon(svg`<path d="M21 5H3" /><path d="M15 12H3" /><path d="M17 19H3" />`),
   /** lucide: align-center */

@@ -103,6 +103,28 @@ function shadowText(el: Element): string {
   return el.shadowRoot?.textContent?.trim() ?? '';
 }
 
+/**
+ * 생성 도구를 누른 뒤 캔버스를 클릭해 요소를 만든다 (B-5 흐름).
+ * happy-dom은 getBoundingClientRect가 0이라 mm 좌표 = clientX / PX_PER_MM.
+ */
+async function addByCanvasClick(
+  el: import('../src/slip-designer.js').SlipDesigner,
+  label: string,
+  clientX = 200,
+  clientY = 200,
+): Promise<void> {
+  toolbarButton(el, label).click();
+  await el.updateComplete;
+  const paper = el.shadowRoot!.querySelector('.paper') as HTMLElement;
+  paper.dispatchEvent(new PointerEvent('pointerdown', {
+    bubbles: true, composed: true, clientX, clientY, pointerId: 1,
+  }));
+  paper.dispatchEvent(new PointerEvent('pointerup', {
+    bubbles: true, composed: true, clientX, clientY, pointerId: 1,
+  }));
+  await el.updateComplete;
+}
+
 // ---------------------------------------------------------------------------
 // 빈 상태
 // ---------------------------------------------------------------------------
@@ -409,6 +431,27 @@ describe('<slip-designer> UI 정리 (A-4)', () => {
     expect(text.backgroundColor).toBe('#1a73e880');
     el.remove();
   });
+
+  it('색 피커 — 버튼 한 번에 견본·색상판·색조가 함께 펼쳐지고, 색조 변경이 바로 저장된다', async () => {
+    const el = await mountAndSelectText();
+    byAriaLabel(el, strings.designer.backgroundColor).click();
+    await el.updateComplete;
+
+    // 한 번의 클릭으로 팔레트 견본과 색상판·색조 슬라이더가 전부 보인다 (별도 창 없음)
+    expect(el.shadowRoot?.querySelector('.sv-area')).not.toBeNull();
+    expect(el.shadowRoot?.querySelectorAll('.swatch').length).toBeGreaterThan(2);
+
+    const hue = Array.from(el.shadowRoot!.querySelectorAll('input'))
+      .find((i) => i.getAttribute('aria-label') === `${strings.designer.backgroundColor} ${strings.designer.hue}`)!;
+    hue.value = '120';
+    hue.dispatchEvent(new Event('input', { bubbles: true }));
+    hue.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const text = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements[0]! as Record<string, unknown>;
+    expect(text.backgroundColor).toBe('#00ff00');
+    el.remove();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -442,38 +485,101 @@ describe('<slip-designer> 요소 선택', () => {
 // 요소 추가
 // ---------------------------------------------------------------------------
 
-describe('<slip-designer> 요소 추가', () => {
-  it('텍스트 요소를 추가하고 slip-change 이벤트를 발행한다', async () => {
-    const el = await createElement();
-    el.src = '{"valid": true}';
-    await el.updateComplete;
-    await flush();
-    await el.updateComplete;
+describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드래그, B-5)', () => {
+  const PX = 96 / 25.4;
+
+  it('도구 버튼은 누르면 눌림 상태가 되고, 캔버스를 클릭해야 그 위치에 요소가 생긴다', async () => {
+    const el = await loadDesigner();
 
     const changes: CustomEvent[] = [];
     el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
 
-    const addBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-      .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === strings.designer.addText) as HTMLElement;
-    expect(addBtn).not.toBeUndefined();
+    const addBtn = toolbarButton(el, strings.designer.addText);
     addBtn.click();
     await el.updateComplete;
 
-    const elements = el.shadowRoot?.querySelectorAll('.element');
-    expect(elements?.length).toBe(3);
+    // 도구만 선택한 상태 — 아직 요소가 생기지 않는다
+    expect(toolbarButton(el, strings.designer.addText).getAttribute('aria-pressed')).toBe('true');
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
+    expect(changes.length).toBe(0);
+
+    // 캔버스 클릭 → 그 위치에 기본 크기로 생성, 도구는 해제
+    const paper = el.shadowRoot!.querySelector('.paper') as HTMLElement;
+    paper.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 50 * PX, clientY: 40 * PX, pointerId: 1,
+    }));
+    paper.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true, pointerId: 1 }));
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(3);
     expect(changes.length).toBe(1);
     expect(changes[0]!.detail.file.kind).toBe('template');
+    const added = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)!;
+    expect(added.position.x).toBeCloseTo(50, 0);
+    expect(added.position.y).toBeCloseTo(40, 0);
+    expect(added.width).toBe(60); // 텍스트 기본 크기
+    expect(toolbarButton(el, strings.designer.addText).getAttribute('aria-pressed')).toBe('false');
+    el.remove();
+  });
+
+  it('드래그하면 끌어낸 사각형의 위치·크기로 생성되고 점선 미리보기가 표시된다', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.addShape).click();
+    await el.updateComplete;
+
+    const paper = el.shadowRoot!.querySelector('.paper') as HTMLElement;
+    paper.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 10 * PX, clientY: 20 * PX, pointerId: 1,
+    }));
+    paper.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: 40 * PX, clientY: 35 * PX, pointerId: 1,
+    }));
+    await el.updateComplete;
+
+    // 드래그 중에는 점선 미리보기가 보인다
+    expect(el.shadowRoot?.querySelector('.draw-ghost')).not.toBeNull();
+
+    paper.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true, pointerId: 1 }));
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelector('.draw-ghost')).toBeNull();
+    const added = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)!;
+    expect(added.type).toBe('shape');
+    expect(added.position.x).toBeCloseTo(10, 0);
+    expect(added.position.y).toBeCloseTo(20, 0);
+    expect(added.width).toBeCloseTo(30, 0);
+    expect(added.height).toBeCloseTo(15, 0);
+    el.remove();
+  });
+
+  it('Escape나 같은 도구 재클릭으로 도구 선택이 취소된다', async () => {
+    const el = await loadDesigner();
+
+    toolbarButton(el, strings.designer.addText).click();
+    await el.updateComplete;
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await el.updateComplete;
+    expect(toolbarButton(el, strings.designer.addText).getAttribute('aria-pressed')).toBe('false');
+
+    toolbarButton(el, strings.designer.addText).click();
+    await el.updateComplete;
+    toolbarButton(el, strings.designer.addText).click();
+    await el.updateComplete;
+    expect(toolbarButton(el, strings.designer.addText).getAttribute('aria-pressed')).toBe('false');
+
+    // 해제된 뒤 캔버스 클릭은 요소를 만들지 않는다
+    const paper = el.shadowRoot!.querySelector('.paper') as HTMLElement;
+    paper.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 100, clientY: 100, pointerId: 1,
+    }));
+    paper.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true, pointerId: 1 }));
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
     el.remove();
   });
 
   it('6종 요소를 모두 추가할 수 있다', async () => {
-    const el = await createElement();
-    el.src = '{"valid": true}';
-    await el.updateComplete;
-    await flush();
-    await el.updateComplete;
-
-    const buttons = el.shadowRoot?.querySelectorAll('.toolbar button');
+    const el = await loadDesigner();
     const typeLabels = [
       strings.designer.addText,
       strings.designer.addFixedGrid,
@@ -484,10 +590,7 @@ describe('<slip-designer> 요소 추가', () => {
     ];
 
     for (const label of typeLabels) {
-      const btn = Array.from(buttons ?? []).find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === label) as HTMLElement;
-      expect(btn, `${label} 버튼이 있어야 한다`).not.toBeUndefined();
-      btn.click();
-      await el.updateComplete;
+      await addByCanvasClick(el, label);
     }
 
     const elements = el.shadowRoot?.querySelectorAll('.element');
@@ -544,11 +647,8 @@ describe('<slip-designer> 되돌리기·다시 실행', () => {
     await flush();
     await el.updateComplete;
 
-    // 요소 추가
-    const addBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-      .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === strings.designer.addText) as HTMLElement;
-    addBtn.click();
-    await el.updateComplete;
+    // 요소 추가 (도구 선택 → 캔버스 클릭)
+    await addByCanvasClick(el, strings.designer.addText);
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(3);
 
     // 되돌리기
@@ -914,29 +1014,39 @@ describe('<slip-designer> 복사·붙여넣기', () => {
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 프리셋', () => {
-  it('프리셋 선택 상자에 2종이 나열된다', async () => {
-    const el = await loadDesigner();
-    const select = el.shadowRoot?.querySelector('.preset-select') as HTMLSelectElement;
-    expect(select).not.toBeNull();
+  /** 프리셋 버튼을 눌러 메뉴를 펼치고 항목 버튼들을 돌려준다 */
+  async function openPresetMenu(
+    el: import('../src/slip-designer.js').SlipDesigner,
+  ): Promise<HTMLButtonElement[]> {
+    toolbarButton(el, strings.designer.preset).click();
+    await el.updateComplete;
+    return Array.from(el.shadowRoot!.querySelectorAll('.preset-menu button')) as HTMLButtonElement[];
+  }
 
-    const labels = Array.from(select.options).map((o) => o.textContent?.trim());
-    expect(labels).toEqual([
-      strings.designer.preset,
+  it('프리셋 버튼을 누르면 메뉴에 2종이 나열되고, 다시 누르면 닫힌다', async () => {
+    const el = await loadDesigner();
+    expect(el.shadowRoot?.querySelector('.preset-menu')).toBeNull();
+
+    const items = await openPresetMenu(el);
+    expect(items.map((b) => b.textContent?.trim())).toEqual([
       strings.designer.presetTradeStatement,
       strings.designer.presetInvoice,
     ]);
+
+    toolbarButton(el, strings.designer.preset).click();
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector('.preset-menu')).toBeNull();
     el.remove();
   });
 
-  it('프리셋을 선택하면 양식이 교체되고 slip-change를 발행한다', async () => {
+  it('메뉴에서 프리셋을 고르면 양식이 교체되고 slip-change를 발행하며 메뉴가 닫힌다', async () => {
     const el = await loadDesigner();
 
     const changes: CustomEvent[] = [];
     el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
 
-    const select = el.shadowRoot?.querySelector('.preset-select') as HTMLSelectElement;
-    select.value = '0';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    const items = await openPresetMenu(el);
+    items[0]!.click();
     await el.updateComplete;
 
     expect(changes.length).toBe(1);
@@ -944,17 +1054,27 @@ describe('<slip-designer> 프리셋', () => {
     expect(file.template.meta.title).toBe(strings.designer.presetTradeStatement);
     // 캔버스가 프리셋 요소로 교체된다 (기존 2개 → 프리셋 6개)
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(6);
-    // 선택 상자는 플레이스홀더로 돌아간다
-    expect(select.value).toBe('');
+    expect(el.shadowRoot?.querySelector('.preset-menu')).toBeNull();
+    el.remove();
+  });
+
+  it('메뉴 바깥(배경)을 클릭하면 적용 없이 닫힌다', async () => {
+    const el = await loadDesigner();
+    await openPresetMenu(el);
+
+    (el.shadowRoot!.querySelector('.menu-backdrop') as HTMLElement).click();
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelector('.preset-menu')).toBeNull();
+    expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
     el.remove();
   });
 
   it('프리셋 적용은 되돌리기로 복구된다', async () => {
     const el = await loadDesigner();
 
-    const select = el.shadowRoot?.querySelector('.preset-select') as HTMLSelectElement;
-    select.value = '1';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    const items = await openPresetMenu(el);
+    items[1]!.click();
     await el.updateComplete;
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(6);
 
@@ -1093,8 +1213,7 @@ describe('<slip-designer> 입력 필드 단축키 가드', () => {
 
   it('입력란에서 Ctrl+Z는 전체 양식 undo를 실행하지 않는다', async () => {
     const el = await loadDesigner();
-    toolbarButton(el, strings.designer.addText).click();
-    await el.updateComplete;
+    await addByCanvasClick(el, strings.designer.addText);
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(3);
     selectElement(el, 'txt-1');
     await el.updateComplete;
