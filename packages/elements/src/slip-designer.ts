@@ -140,7 +140,7 @@ export class SlipDesigner extends LitElement {
 
       display: grid;
       grid-template-rows: auto 1fr;
-      grid-template-columns: 1fr 260px;
+      grid-template-columns: 176px 1fr 260px;
       height: 100%;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
       font-size: 13px;
@@ -227,9 +227,120 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
     }
 
-    .canvas-area {
+    .sidebar {
       grid-row: 2;
       grid-column: 1;
+      border-right: 1px solid var(--sk-border);
+      background: var(--sk-bg);
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 10px;
+    }
+    .side-section {
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--sk-border);
+    }
+    .side-section:last-child {
+      border-bottom: none;
+    }
+    .side-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--sk-text-muted);
+      margin-bottom: 6px;
+    }
+    .thumb {
+      display: block;
+      width: 100%;
+      padding: 0;
+      margin: 0 0 8px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: transparent;
+      cursor: pointer;
+      text-align: center;
+    }
+    .thumb:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    .thumb.current {
+      border-color: var(--sk-accent);
+      box-shadow: 0 0 0 1px var(--sk-accent);
+    }
+    .thumb-paper {
+      position: relative;
+      margin: 4px auto 0;
+      background: #fff;
+      border: 1px solid var(--sk-border);
+      overflow: hidden;
+    }
+    .thumb-el {
+      position: absolute;
+      background: var(--sk-accent-soft);
+      border: 1px solid var(--sk-border-strong);
+    }
+    .thumb-label {
+      display: block;
+      font-size: 11px;
+      color: var(--sk-text-muted);
+      padding: 2px 0 3px;
+    }
+    .thumb.current .thumb-label {
+      color: var(--sk-accent);
+    }
+    .side-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      padding: 4px 6px;
+      margin: 1px 0;
+      border: 1px solid transparent;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--sk-text);
+      text-align: left;
+    }
+    .side-row svg {
+      flex: 0 0 12px;
+      width: 12px;
+      height: 12px;
+      color: var(--sk-text-muted);
+    }
+    .side-row span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .side-row:hover {
+      background: var(--sk-accent-soft);
+    }
+    .side-row.selected {
+      background: var(--sk-accent-soft);
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    .side-row.selected svg {
+      color: var(--sk-accent);
+    }
+    .side-row:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    .side-empty {
+      font-size: 11px;
+      color: var(--sk-text-muted);
+      padding: 2px 6px;
+    }
+
+    .canvas-area {
+      grid-row: 2;
+      grid-column: 2;
       overflow: auto;
       background: var(--sk-canvas-bg);
       display: flex;
@@ -393,7 +504,7 @@ export class SlipDesigner extends LitElement {
 
     .prop-panel {
       grid-row: 2;
-      grid-column: 2;
+      grid-column: 3;
       border-left: 1px solid var(--sk-border);
       padding: 12px;
       overflow-y: auto;
@@ -1494,6 +1605,7 @@ export class SlipDesigner extends LitElement {
                 : html`<div class="status">${this._strings.designer.previewLoading}</div>`}
           </div>`
         : html`
+            <aside class="sidebar">${this._renderSidebar()}</aside>
             <div class="canvas-area ${this._pendingTool ? 'drawing' : ''}"
                  @pointerdown=${this._onPointerDown}
                  @pointermove=${this._onPointerMove}
@@ -1609,6 +1721,89 @@ export class SlipDesigner extends LitElement {
     this._previewMode = false;
     this._emitChange();
     this.requestUpdate();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Render: sidebar (B-7)
+  // ---------------------------------------------------------------------------
+
+  /** 사이드바에서 요소를 골랐을 때 — 필요하면 페이지를 옮기고 그 요소를 선택한다 */
+  private _selectFromSidebar(pageIndex: number, id: string): void {
+    this._goToPage(pageIndex);
+    this._selectedId = id;
+    this.requestUpdate();
+  }
+
+  /**
+   * 왼쪽 사이드바 — 페이지 썸네일(클릭 이동), 현재 페이지 요소 목록(클릭 선택),
+   * 양식 전체에서 쓰는 바인딩 목록(클릭 시 해당 요소로 이동·선택).
+   */
+  private _renderSidebar() {
+    const file = this._file!;
+    const s = this._strings.designer;
+    const { paper } = file.template;
+    // 썸네일 폭(px)에 맞춘 축소 비율 — 높이는 용지 비율대로
+    const thumbW = 132;
+    const scale = thumbW / paper.width;
+
+    const elements = this._currentElements() ?? [];
+
+    // 양식 전체의 바인딩 목록 — 같은 이름은 처음 나온 요소 하나로 대표한다
+    const bindings: { binding: string; pageIndex: number; id: string; glyph: TemplateResult }[] = [];
+    const seen = new Set<string>();
+    file.template.pages.forEach((page, pageIndex) => {
+      for (const el of page.elements) {
+        if (el.type !== 'field' && el.type !== 'dynamicTable') continue;
+        if (seen.has(el.binding)) continue;
+        seen.add(el.binding);
+        bindings.push({ binding: el.binding, pageIndex, id: el.id, glyph: TYPE_BADGE[el.type] });
+      }
+    });
+
+    return html`
+      <div class="side-section">
+        <div class="side-title">${s.sidebarPages}</div>
+        ${file.template.pages.map((page, i) => html`
+          <button class="thumb ${i === this._pageIndex ? 'current' : ''}"
+            aria-label="${s.sidebarPages} ${i + 1}"
+            aria-pressed=${String(i === this._pageIndex)}
+            @click=${() => this._goToPage(i)}>
+            <span class="thumb-paper"
+              style="width:${thumbW}px;height:${(paper.height * scale).toFixed(1)}px">
+              ${page.elements.map((el) => html`<span class="thumb-el" style="
+                left:${(el.position.x * scale).toFixed(1)}px;
+                top:${(el.position.y * scale).toFixed(1)}px;
+                width:${Math.max(2, el.width * scale).toFixed(1)}px;
+                height:${Math.max(2, el.height * scale).toFixed(1)}px;
+              "></span>`)}
+            </span>
+            <span class="thumb-label">${i + 1} / ${this._pageCount()}</span>
+          </button>`)}
+      </div>
+
+      <div class="side-section">
+        <div class="side-title">${s.sidebarElements}</div>
+        ${elements.length === 0
+          ? html`<div class="side-empty">—</div>`
+          : elements.map((el) => html`
+              <button class="side-row ${el.id === this._selectedId ? 'selected' : ''}"
+                title=${el.name}
+                @click=${() => this._selectFromSidebar(this._pageIndex, el.id)}>
+                ${TYPE_BADGE[el.type]}<span>${el.name}</span>
+              </button>`)}
+      </div>
+
+      <div class="side-section">
+        <div class="side-title">${s.sidebarBindings}</div>
+        ${bindings.length === 0
+          ? html`<div class="side-empty">—</div>`
+          : bindings.map((b) => html`
+              <button class="side-row" title=${b.binding}
+                @click=${() => this._selectFromSidebar(b.pageIndex, b.id)}>
+                ${b.glyph}<span>${b.binding}</span>
+              </button>`)}
+      </div>
+    `;
   }
 
   // ---------------------------------------------------------------------------
