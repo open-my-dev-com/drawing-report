@@ -1,0 +1,27 @@
+{
+  "name": "slipkit-demo-shared",
+  "private": true,
+  "version": "0.0.0",
+  "description": "SlipKit 데모 3종(바닐라·React·Vue)이 함께 쓰는 로직 — 프레임워크와 무관한 부분만",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./demo.css": "./demo.css"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@omdc-slipkit/core": "workspace:*",
+    "@omdc-slipkit/elements": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  },
+  "files": [
+    "src",
+    "demo.css"
+  ]
+}
