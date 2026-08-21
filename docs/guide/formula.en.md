@@ -17,9 +17,11 @@ All 29 built-in functions in the SlipKit formula engine. Unregistered function n
 | `MAX` | `MAX(value, ...)` | Maximum. Returns 0 if no values |
 
 ```
-SUM(items.amount)           → sum of item amounts
-AVG(items.unitPrice)        → average unit price
-COUNT(items.productName)    → number of rows with a product name
+SUM(items.amount)                → sum of item amounts
+SUM(items.amount, shippingFee)   → item total + shipping fee
+AVG(items.unitPrice)             → average unit price
+COUNT(items.productName)         → number of rows with a product name
+MIN(price1, price2, price3)      → smallest of the three values
 ```
 
 ## Conditional Aggregation
