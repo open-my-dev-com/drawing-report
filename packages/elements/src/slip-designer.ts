@@ -1876,6 +1876,38 @@ export class SlipDesigner extends LitElement {
       border-color: var(--sk-accent);
       color: var(--sk-accent);
     }
+    /* 표 바인딩의 하위 열 칩 — 상위 값과 구분되게 옅게 (F-21) */
+    .binding-chip.column {
+      border-style: dashed;
+      color: var(--sk-text-muted);
+    }
+    /* 수식 규칙 안내 한 줄 (F-21) */
+    .formula-hint {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--sk-text-muted);
+      line-height: 1.5;
+    }
+    /* 표 바인딩 뒤에 점을 찍었을 때 뜨는 열 제안 줄 (F-21) */
+    .formula-suggest {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+      padding: 6px 8px;
+      border: 1px solid var(--sk-accent);
+      border-radius: var(--sk-radius);
+      background: var(--sk-accent-soft);
+    }
+    .formula-suggest-label {
+      font-size: 11px;
+      color: var(--sk-accent);
+    }
+    .formula-suggest .binding-chip {
+      border-style: solid;
+      color: inherit;
+    }
     .fn-category {
       margin: 8px 0 2px;
       font-size: 11px;
@@ -5766,8 +5798,61 @@ export class SlipDesigner extends LitElement {
         next.focus();
         const caret = start + text.length;
         next.setSelectionRange(caret, caret);
+        this._formulaCaret = caret;
       }
     });
+  }
+
+  /** 수식 입력칸의 커서 위치 — 열 자동완성 판단에 쓴다 (F-21) */
+  private _formulaCaret = 0;
+
+  /** 커서 위치를 기록한다 — 키 이동·클릭으로 옮겼을 때도 자동완성이 따라오게 (F-21) */
+  private _syncFormulaCaret(e: Event): void {
+    const caret = (e.target as HTMLTextAreaElement).selectionStart;
+    if (caret === this._formulaCaret) return;
+    this._formulaCaret = caret;
+    this.requestUpdate();
+  }
+
+  /**
+   * 커서 앞에 `표바인딩.` 형태를 치고 있으면 그 표의 열 목록을 제안한다 (F-21).
+   * 이미 몇 글자 쳤으면 그 글자로 시작하는 열만 남긴다.
+   *
+   * @returns 제안할 열 목록과 이어 붙일 위치 — 제안할 것이 없으면 null
+   */
+  private _columnSuggestion(): {
+    columns: { key: string; title: string }[];
+    typedLength: number;
+  } | null {
+    const caret = Math.min(this._formulaCaret, this._formulaDraft.length);
+    const before = this._formulaDraft.slice(0, caret);
+    const match = /([A-Za-z0-9_가-힣]+)\.([A-Za-z0-9_가-힣]*)$/.exec(before);
+    if (!match) return null;
+
+    const table = this._bindingList().find((b) => b.key === match[1] && b.table);
+    if (!table?.table) return null;
+    const typed = match[2] ?? '';
+    const columns = table.table.element.columns
+      .filter((col) => col.key.toLowerCase().startsWith(typed.toLowerCase()))
+      .map((col) => ({ key: col.key, title: col.title }));
+    return columns.length > 0 ? { columns, typedLength: typed.length } : null;
+  }
+
+  /** 열 자동완성 줄 — `표바인딩.`까지 쳤을 때 그 표의 열을 눌러 이어 넣는다 (F-21) */
+  private _renderColumnSuggestions() {
+    const suggestion = this._columnSuggestion();
+    if (!suggestion) return nothing;
+    const s = this._strings.designer;
+
+    return html`
+      <div class="formula-suggest" role="group" aria-label=${s.formulaColumnSuggest}>
+        <span class="formula-suggest-label">${s.formulaColumnSuggest}</span>
+        ${suggestion.columns.map((col) => html`
+          <button class="binding-chip column" title=${col.key}
+            @click=${() => this._insertFormulaText(col.key.slice(suggestion.typedLength))}
+            >${col.title ? `${col.title} · ${col.key}` : col.key}</button>`)}
+      </div>
+    `;
   }
 
   /**
@@ -5799,7 +5884,8 @@ export class SlipDesigner extends LitElement {
         syntaxError = error instanceof Error ? error.message : String(error);
       }
     }
-    const bindings = this._collectBindings();
+    // 표 바인딩은 하위 열까지 보여줘야 하므로 사이드바와 같은 목록을 쓴다 (F-21)
+    const bindings = this._bindingList();
 
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${() => this._closeFormulaModal()}></div>
@@ -5819,9 +5905,13 @@ export class SlipDesigner extends LitElement {
           <textarea class="formula-input" rows="3" spellcheck="false"
             aria-label=${s.formula} .value=${draft}
             @input=${(e: Event) => {
-              this._formulaDraft = (e.target as HTMLTextAreaElement).value;
+              const input = e.target as HTMLTextAreaElement;
+              this._formulaDraft = input.value;
+              this._formulaCaret = input.selectionStart;
               this.requestUpdate();
-            }}></textarea>
+            }}
+            @keyup=${(e: Event) => this._syncFormulaCaret(e)}
+            @click=${(e: Event) => this._syncFormulaCaret(e)}></textarea>
           <div class="formula-status ${syntaxError ? 'error' : ''}">
             ${syntaxError
               ? `${s.syntaxError}: ${syntaxError}`
@@ -5831,13 +5921,19 @@ export class SlipDesigner extends LitElement {
                   ? `${s.previewUnavailable}: ${previewError}`
                   : `${s.previewResult}: ${preview}`}
           </div>
+          ${this._renderColumnSuggestions()}
+          <div class="formula-hint">${s.formulaQuoteHint}</div>
           ${bindings.length > 0
             ? html`
                 <div class="modal-section-title">${s.formulaBindings}</div>
                 <div class="binding-chips">
                   ${bindings.map((b) => html`
                     <button class="binding-chip" title=${b.key}
-                      @click=${() => this._insertFormulaText(b.key)}>${b.label}</button>`)}
+                      @click=${() => this._insertFormulaText(b.key)}>${b.label}</button>
+                    ${(b.table?.element.columns ?? []).map((col) => html`
+                      <button class="binding-chip column" title="${b.key}.${col.key}"
+                        @click=${() => this._insertFormulaText(`${b.key}.${col.key}`)}
+                        >${col.title || col.key}</button>`)}`)}
                 </div>`
             : nothing}
           <div class="modal-section-title">${s.formulaFunctions}</div>
