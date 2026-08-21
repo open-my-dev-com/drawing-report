@@ -2931,6 +2931,70 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
       .find((b) => b.textContent?.trim() === strings.designer.apply) as HTMLButtonElement;
   }
 
+  /** 동적 표(items, 열 3개)를 담은 양식으로 디자이너를 띄운다 */
+  async function loadWithTable(): Promise<import('../src/slip-designer.js').SlipDesigner> {
+    const file = makeTemplateFile();
+    file.template.pages[0]!.elements = [{
+      type: 'dynamicTable' as const, id: 'tbl-1', name: '품목 표',
+      position: { x: 10, y: 10 }, width: 180, height: 20,
+      columns: [
+        { key: 'itemName', title: '품명', widthPercentage: 50 },
+        { key: 'amount', title: '금액', widthPercentage: 30 },
+        { key: 'quantity', title: '수량', widthPercentage: 20 },
+      ],
+      repeatHead: true, binding: 'items',
+    } as never];
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    return loadDesigner();
+  }
+
+  it('문자열 따옴표 규칙을 모달에서 안내한다 (F-21)', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+
+    expect(el.shadowRoot!.querySelector('.formula-hint')?.textContent?.trim())
+      .toBe(strings.designer.formulaQuoteHint);
+    el.remove();
+  });
+
+  it('바인딩 목록에 표의 하위 열까지 나오고, 누르면 표바인딩.열키로 삽입된다 (F-21)', async () => {
+    const el = await loadWithTable();
+    await openFormulaModal(el);
+
+    const columnChips = Array.from(el.shadowRoot!.querySelectorAll('.binding-chip.column'));
+    expect(columnChips.map((c) => c.textContent?.trim())).toEqual(['품명', '금액', '수량']);
+
+    (columnChips[1] as HTMLElement).click();
+    await el.updateComplete;
+    expect(formulaInput(el).value).toBe('items.amount');
+    el.remove();
+  });
+
+  it('표 바인딩 뒤에 점을 찍으면 열을 제안하고, 고르면 이어 붙는다 (F-21)', async () => {
+    const el = await loadWithTable();
+    await openFormulaModal(el);
+
+    // 제안은 표 바인딩 뒤에 점을 찍었을 때만 나온다
+    expect(el.shadowRoot!.querySelector('.formula-suggest')).toBeNull();
+
+    setDraft(el, 'SUM(items.');
+    await el.updateComplete;
+    const suggested = () => Array.from(el.shadowRoot!.querySelectorAll('.formula-suggest .binding-chip'));
+    expect(suggested().map((c) => c.textContent?.trim()))
+      .toEqual(['품명 · itemName', '금액 · amount', '수량 · quantity']);
+
+    // 몇 글자 치면 그 글자로 시작하는 열만 남는다
+    setDraft(el, 'SUM(items.a');
+    await el.updateComplete;
+    expect(suggested().map((c) => c.textContent?.trim())).toEqual(['금액 · amount']);
+
+    // 고르면 이미 친 글자 뒤에 나머지가 이어 붙는다
+    (suggested()[0] as HTMLElement).click();
+    await el.updateComplete;
+    expect(formulaInput(el).value).toBe('SUM(items.amount');
+    el.remove();
+  });
+
   it('함수 29종이 분류와 설명과 함께 나열된다 (ADR-017)', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);
