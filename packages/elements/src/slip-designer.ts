@@ -132,7 +132,7 @@ const DEFAULT_BORDER_COLOR = '#000000';
 /** 선 굵기 기본값(mm) — PDF 변환 계층(convert.ts DEFAULT_BORDER_WIDTH)과 같아야 한다 */
 const DEFAULT_LINE_WIDTH = 0.2;
 /**
- * 넣을 수 있는 그림 파일의 기본 최대 크기(바이트, 2MB) — 호스트가 `maxImageBytes`로 바꾼다 (G-36).
+ * 넣을 수 있는 이미지 파일의 기본 최대 크기(바이트, 2MB) — 호스트가 `maxImageBytes`로 바꾼다 (G-36).
  * base64로 담기면 약 33% 커지므로 2MB 원본이 파일에는 ~2.7MB로 들어간다.
  */
 const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
@@ -1872,7 +1872,7 @@ export class SlipDesigner extends LitElement {
       font-weight: 600;
       color: var(--sk-text-muted);
     }
-    /* 그림 고르기 (G-36) — 경로는 base64라 못 읽으니 그림 자체를 보여준다 */
+    /* 이미지 선택 (G-36) — 경로는 base64라 못 읽으니 이미지 자체를 보여준다 */
     .image-hint {
       margin: 6px 0;
       font-size: 11px;
@@ -2243,10 +2243,10 @@ export class SlipDesigner extends LitElement {
   storage?: StorageAdapter;
 
   /**
-   * 넣을 수 있는 그림 파일의 최대 크기(바이트) — 기본 2MB (G-36).
+   * 넣을 수 있는 이미지 파일의 최대 크기(바이트) — 기본 2MB (G-36).
    *
    * @remarks
-   * 그림은 base64로 양식 파일 안에 담기므로 원본보다 **약 33% 커진다**.
+   * 이미지는 base64로 양식 파일 안에 담기므로 원본보다 **약 33% 커진다**.
    * 큰 사진을 그대로 넣으면 전표 파일이 무거워져 저장·전송에 부담이 되므로,
    * 호스트가 자기 시스템에 맞는 값으로 조일 수 있게 열어 둔다.
    * HTML 속성으로도 줄 수 있다: `<slip-designer max-image-bytes="1048576">`.
@@ -2299,9 +2299,9 @@ export class SlipDesigner extends LitElement {
   private _columnsModalOpen = false;
   /** 샘플 데이터 편집 모달 열림 여부 — 양식의 sampleValues를 편집한다 (D-13) */
   private _sampleModalOpen = false;
-  /** 그림 고르기 모달 열림 여부 — 선택된 이미지 요소의 src를 정한다 (G-36) */
+  /** 이미지 선택 모달 열림 여부 — 선택된 이미지 요소의 src를 정한다 (G-36) */
   private _imageModalOpen = false;
-  /** 그림 고르기에서 막힌 이유 (너무 큼·그림 아님·읽기 실패) — 없으면 null */
+  /** 이미지 선택에서 막힌 이유 (너무 큼·이미지 아님·읽기 실패) — 없으면 null */
   private _imageError: string | null = null;
   /** 샘플 데이터 모달의 현재 페이지 — 바인딩이 많으면 10개 단위로 나눠 보여준다 */
   private _samplePage = 0;
@@ -5343,7 +5343,7 @@ export class SlipDesigner extends LitElement {
         `;
 
       case 'image': {
-        // 경로 문자열은 base64라 사람이 읽을 수 없다 — 지금 그림을 그대로 보여준다 (G-36)
+        // 경로 문자열은 base64라 사람이 읽을 수 없다 — 지금 이미지를 그대로 보여준다 (G-36)
         const chosen = el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
         return html`
           <div class="prop-section">
@@ -5920,8 +5920,8 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 이 양식에 이미 넣어 둔 그림 목록 — 모든 페이지의 이미지 요소에서 모아 중복을 없앤다.
-   * 자리표시 그림은 아직 고르지 않은 상태이므로 뺀다 (G-36).
+   * 이 양식에 등록된 이미지 목록 — 모든 페이지의 이미지 요소에서 모아 중복을 없앤다.
+   * 자리표시 이미지는 아직 고르지 않은 상태이므로 뺀다 (G-36).
    */
   private _usedImages(): string[] {
     const file = this._file;
@@ -5937,7 +5937,7 @@ export class SlipDesigner extends LitElement {
     return [...seen];
   }
 
-  /** 그림 고르기 모달을 연다 */
+  /** 이미지 선택 모달을 연다 */
   private _openImageModal(): void {
     this._imageError = null;
     this._imageModalOpen = true;
@@ -5948,7 +5948,7 @@ export class SlipDesigner extends LitElement {
     this._imageError = null;
   }
 
-  /** 고른 그림을 선택된 이미지 요소에 넣고 모달을 닫는다 */
+  /** 업로드한 이미지를 선택된 이미지 요소에 넣고 모달을 닫는다 */
   private _applyImageSrc(src: string): void {
     this._updateElement((target) => {
       if (target.type === 'image') target.src = src;
@@ -5957,11 +5957,11 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 파일 선택 대화 상자를 열어 고른 그림을 base64로 바꿔 넣는다 (G-36).
+   * 파일 선택 대화 상자를 열어 업로드한 이미지를 base64로 바꿔 넣는다 (G-36).
    *
    * @remarks
    * 주소(URL)는 받지 않는다 — PDF 변환이 `data:`·`asset://`만 풀 수 있어
-   * 주소로 두면 미리보기부터 깨진다. 주소로 받아야 하는 그림은 호스트 서버가
+   * 주소로 두면 미리보기부터 깨진다. 주소로 받아야 하는 이미지는 호스트 서버가
    * 중계해 base64로 바꿔 넘긴다.
    */
   private _pickImageFile(): void {
@@ -6197,7 +6197,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 그림 고르기 모달 — 파일에서 골라 넣거나, 이 양식에 이미 넣어 둔 그림을 다시 쓴다 (G-36).
+   * 이미지 선택 모달 — 파일에서 골라 넣거나, 이 양식에 등록된 이미지를 다시 쓴다 (G-36).
    * 주소(URL) 입력은 두지 않는다 — PDF로 나오지 않기 때문이다.
    */
   private _renderImageModal() {

@@ -3686,10 +3686,10 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 그림 올리기 (G-36) — 파일에서 골라 base64로 담고, 이미 넣은 그림을 다시 쓴다
+// 이미지 업로드 (G-36) — 파일에서 골라 base64로 담고, 등록된 이미지를 다시 쓴다
 // ---------------------------------------------------------------------------
 
-describe('<slip-designer> 그림 올리기', () => {
+describe('<slip-designer> 이미지 업로드', () => {
   const PNG_A = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAA1BMVEUAAACnej3aAAAAAXRSTlMAQObYZgAAAApJREFUCNdjYAAAAAIAAeIhvDMAAAAASUVORK5CYII=';
   const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
@@ -3698,7 +3698,7 @@ describe('<slip-designer> 그림 올리기', () => {
     file.template.pages[0]!.elements = srcs.map((src, i) => ({
       type: 'image' as const,
       id: `img-${i + 1}`,
-      name: `그림 ${i + 1}`,
+      name: `이미지 ${i + 1}`,
       position: { x: 10 + i * 50, y: 10 },
       width: 40,
       height: 40,
@@ -3723,7 +3723,7 @@ describe('<slip-designer> 그림 올리기', () => {
         || b.textContent?.includes(strings.designer.imageChange)) as HTMLButtonElement;
   }
 
-  it('그림을 고르지 않은 요소는 안 골랐음을 알리고 캔버스에도 글자로 보인다', async () => {
+  it('이미지를 선택하지 않은 요소는 안 골랐음을 알리고 캔버스에도 글자로 보인다', async () => {
     const el = await mountImages([PLACEHOLDER]);
     selectElement(el, 'img-1');
     await el.updateComplete;
@@ -3735,7 +3735,7 @@ describe('<slip-designer> 그림 올리기', () => {
     el.remove();
   });
 
-  it('그림을 고른 요소는 패널과 캔버스에 그 그림을 보여준다', async () => {
+  it('이미지를 고른 요소는 패널과 캔버스에 그 이미지를 보여준다', async () => {
     const el = await mountImages([PNG_A]);
     selectElement(el, 'img-1');
     await el.updateComplete;
@@ -3746,7 +3746,7 @@ describe('<slip-designer> 그림 올리기', () => {
     el.remove();
   });
 
-  it('이미 넣은 그림을 골라 다른 요소에 다시 쓴다', async () => {
+  it('이미 등록된 이미지를 골라 다른 요소에 다시 쓴다', async () => {
     const el = await mountImages([PNG_A, PLACEHOLDER]);
     selectElement(el, 'img-2');
     await el.updateComplete;
@@ -3755,7 +3755,7 @@ describe('<slip-designer> 그림 올리기', () => {
     await el.updateComplete;
 
     const choices = Array.from(el.shadowRoot!.querySelectorAll('.image-choice'));
-    // 자리표시는 목록에 넣지 않는다 — 고른 그림 하나만 나온다
+    // 자리표시는 목록에 넣지 않는다 — 업로드한 이미지 하나만 나온다
     expect(choices.length).toBe(1);
     (choices[0] as HTMLButtonElement).click();
     await el.updateComplete;

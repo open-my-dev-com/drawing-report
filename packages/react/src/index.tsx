@@ -48,7 +48,7 @@ export interface SlipDesignerProps {
   presets?: SlipPresets;
   /** "내 양식" 저장·불러오기에 쓸 저장소 어댑터 (ADR-021) */
   storage?: StorageAdapter;
-  /** 넣을 수 있는 그림 파일의 최대 크기(바이트) — 기본 2MB (G-36) */
+  /** 넣을 수 있는 이미지 파일의 최대 크기(바이트) — 기본 2MB (G-36) */
   maxImageBytes?: number;
   /** 편집으로 양식이 바뀔 때마다 변경된 .slip 파일을 받는다 */
   onSlipChange?: (file: SlipFile) => void;
