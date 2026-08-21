@@ -47,8 +47,8 @@ const file = parseSlipFile(jsonString);
 // SlipFile 객체 → JSON 문자열
 const json = serializeSlipFile(file);
 
-// 발행 규칙 검증 (발행 가능한 상태인지 확인)
-const errors = validateSlipFile(file);
+// 이미 파싱된 JSON 값을 검증 (JSON.parse 결과 등)
+const validated = validateSlipFile(jsonValue);
 ```
 
 - `parseSlipFile`은 JSON 문자열을 받아 `SlipFile` 객체로 변환합니다. 구버전 파일일 경우에는 현재 스키마 버전으로 자동 마이그레이션이 됩니다.
@@ -68,7 +68,7 @@ const result = evaluateFormula(ast, {
 // result → 6000
 ```
 
-29종의 내장 함수를 지원합니다 (SUM, IF, ROUND, TEXT 등). 함수별 사용법은 **[수식 함수 참조](formula.md)** 를 참고해 주세요.
+29종의 내장 함수를 지원합니다 (SUM, IF, ROUND, CONCAT 등). 함수별 사용법은 **[수식 함수 참조](formula.md)** 를 참고해 주세요.
 등록되지 않은 함수는 파싱 단계에서 거부됩니다.
 
 ## 4. PDF 렌더링

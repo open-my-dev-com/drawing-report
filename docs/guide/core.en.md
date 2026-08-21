@@ -47,8 +47,8 @@ const file = parseSlipFile(jsonString);
 // SlipFile → JSON string
 const json = serializeSlipFile(file);
 
-// Validate issuing rules (check if file is ready to issue)
-const errors = validateSlipFile(file);
+// Validate a pre-parsed JSON value (e.g. JSON.parse result)
+const validated = validateSlipFile(jsonValue);
 ```
 
 - `parseSlipFile` takes a JSON string and returns a `SlipFile` object. Older schema versions are automatically migrated to the current version.
@@ -68,7 +68,7 @@ const result = evaluateFormula(ast, {
 // result → 6000
 ```
 
-29 built-in functions are supported (SUM, IF, ROUND, TEXT, etc.). See **[Formula Function Reference](formula.en.md)** for details on each function.
+29 built-in functions are supported (SUM, IF, ROUND, CONCAT, etc.). See **[Formula Function Reference](formula.en.md)** for details on each function.
 Unregistered function names are rejected at parse time.
 
 ## 4. PDF Rendering

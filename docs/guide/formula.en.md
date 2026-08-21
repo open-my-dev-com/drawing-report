@@ -31,11 +31,21 @@ MIN(price1, price2, price3)      → smallest of the three values
 | `SUMIF` | `SUMIF(criteriaRange, criteria, [sumRange])` | Sum of items matching the criteria. If sumRange is omitted, the criteria range is summed |
 | `COUNTIF` | `COUNTIF(range, criteria)` | Count of items matching the criteria |
 
-Criteria support Excel-style strings: `">=10"`, `"<>done"`, `"paid"`, etc.
+Criteria use Excel-style strings.
+
+| Criteria | Meaning | Note |
+|---|---|---|
+| `"food"` | Equals "food" | `=` can be omitted (bare value means equality) |
+| `"=food"` | Equals "food" | Same as above |
+| `"<>done"` | Not equal to "done" | Inequality |
+| `">=10"` | 10 or greater | Numeric comparison |
+| `"<1000"` | Less than 1000 | Numeric comparison |
 
 ```
-SUMIF(items.category, "food", items.amount)   → sum of food category
-COUNTIF(items.status, "done")                  → count of done items
+SUMIF(items.category, "food", items.amount)    → sum of "food" category
+SUMIF(items.amount, ">=10000")                 → sum of amounts ≥ 10,000
+COUNTIF(items.status, "done")                   → count of "done" rows
+COUNTIF(items.status, "<>done")                 → count of non-"done" rows
 ```
 
 ## Arithmetic

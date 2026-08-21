@@ -92,7 +92,7 @@ function App() {
 <script setup lang="ts">
 import { SlipDesigner, SlipForm, SlipViewer } from '@omdc-slipkit/vue';
 import { serializeSlipFile, type SlipFile } from '@omdc-slipkit/core';
-import { shallowRef } from 'vue';
+import { shallowRef, computed } from 'vue';
 
 const template = shallowRef(initialTemplate());
 const src = computed(() => serializeSlipFile(template.value));
