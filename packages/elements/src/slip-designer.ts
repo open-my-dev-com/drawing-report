@@ -4502,10 +4502,6 @@ export class SlipDesigner extends LitElement {
 
       <div class="prop-section">
         <div class="prop-row">
-          <label>${s.typeDynamicTable}</label>
-          <input .value=${el.name} disabled>
-        </div>
-        <div class="prop-row">
           <label>${s.formTitle}</label>
           <input class="col-panel-title" .value=${col.title}
             @change=${(e: Event) => this._setTableColumnTitle(index, valOf(e))}>
