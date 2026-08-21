@@ -45,6 +45,8 @@ export const icons = {
   preview: icon(svg`<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" />`),
   /** lucide: pencil */
   edit: icon(svg`<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" />`),
+  /** lucide: file — 사이드바 페이지 목록의 줄 표식 (G-35) */
+  page: icon(svg`<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" />`),
   /** lucide: chevron-left */
   pagePrev: icon(svg`<path d="m15 18-6-6 6-6" />`),
   /** lucide: chevron-right */

@@ -928,16 +928,19 @@ describe('<slip-designer> 사이드바', () => {
     return section;
   }
 
-  it('페이지 썸네일이 페이지 수만큼 보이고, 클릭하면 그 페이지로 이동한다', async () => {
+  it('페이지가 한 줄씩 나열되고, 누르면 그 페이지로 이동한다 (G-35)', async () => {
     const el = await loadDesigner();
     toolbarButton(el, strings.designer.addPage).click();
     await el.updateComplete;
 
-    const thumbs = sideSection(el, strings.designer.sidebarPages).querySelectorAll('.thumb');
-    expect(thumbs.length).toBe(2);
-    // 페이지 추가 직후엔 2페이지가 현재 — 1페이지 썸네일 클릭으로 되돌아간다
-    expect(thumbs[1]?.classList.contains('current')).toBe(true);
-    (thumbs[0] as HTMLElement).click();
+    const rows = sideSection(el, strings.designer.sidebarPages).querySelectorAll('.page-row');
+    expect(rows.length).toBe(2);
+    expect(Array.from(rows).map((r) => r.textContent?.trim()))
+      .toEqual([strings.designer.pageLabel.replace('{n}', '1'),
+                strings.designer.pageLabel.replace('{n}', '2')]);
+    // 페이지 추가 직후엔 2쪽이 현재 — 1쪽 줄을 눌러 되돌아간다
+    expect(rows[1]?.classList.contains('selected')).toBe(true);
+    (rows[0] as HTMLElement).click();
     await el.updateComplete;
 
     expect(el.shadowRoot?.querySelector('.page-indicator')?.textContent?.replace(/\s+/g, ' ').trim())
@@ -947,10 +950,27 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  it('썸네일 안에 그 페이지 요소들이 축소 상자로 그려진다', async () => {
+  it('페이지 줄은 평소에 썸네일을 띄우지 않는다 — 목록이 길어지지 않게 (G-35)', async () => {
     const el = await loadDesigner();
-    const firstThumb = sideSection(el, strings.designer.sidebarPages).querySelector('.thumb');
-    expect(firstThumb?.querySelectorAll('.thumb-el').length).toBe(2);
+    expect(el.shadowRoot!.querySelector('.page-thumb-pop')).toBeNull();
+    el.remove();
+  });
+
+  it('페이지 줄에 포커스가 가면 그 페이지 썸네일이 뜬다 (G-35)', async () => {
+    const el = await loadDesigner();
+    const row = sideSection(el, strings.designer.sidebarPages)
+      .querySelector('.page-row') as HTMLElement;
+    row.dispatchEvent(new FocusEvent('focus', { bubbles: false }));
+    await el.updateComplete;
+
+    const pop = el.shadowRoot!.querySelector('.page-thumb-pop');
+    expect(pop).not.toBeNull();
+    // 그 페이지의 요소(2개)가 축소 상자로 그려진다
+    expect(pop?.querySelectorAll('.thumb-el').length).toBe(2);
+
+    row.dispatchEvent(new FocusEvent('blur', { bubbles: false }));
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.page-thumb-pop')).toBeNull();
     el.remove();
   });
 
