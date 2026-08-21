@@ -3,7 +3,9 @@
 [한국어](core.md)
 
 `@omdc-slipkit/core` is a pure TypeScript library with no DOM or browser dependencies.
-It works in Node.js as-is, making it suitable for server-side PDF generation and slip verification.
+It works in Node.js as-is.
+
+You can send a `.slip` file to core without installing any UI packages, enabling server-side PDF generation and slip verification.
 
 ## Table of Contents
 
@@ -16,14 +18,15 @@ It works in Node.js as-is, making it suitable for server-side PDF generation and
 
 ### Reference Pages
 
+- **[Formula Function Reference](formula.en.md)** — usage, parameters, and examples for all 29 built-in functions
 - **[Type Reference](types.en.md)** — field definitions and defaults for `SlipFile`, fonts, `StorageAdapter`, `IntegrityJwk`, and more
 
 ---
 
 ## 1. Installation
 
-If you're using a UI package (`elements` / `react` / `vue`), core is included as a transitive dependency — no separate install needed.
-Install it directly only when using core standalone on the server.
+If your project uses a UI package (`elements` / `react` / `vue`), core is included as a transitive dependency (no separate install needed).
+When separating UI from a slip server, install core directly on the server.
 
 ```bash
 npm install @omdc-slipkit/core
@@ -48,11 +51,9 @@ const json = serializeSlipFile(file);
 const errors = validateSlipFile(file);
 ```
 
-- `parseSlipFile` takes a JSON string and returns a `SlipFile`. Older schema versions
-  are automatically migrated to the current version.
+- `parseSlipFile` takes a JSON string and returns a `SlipFile` object. Older schema versions are automatically migrated to the current version.
 - `serializeSlipFile` converts a `SlipFile` object to a JSON string.
-- `validateSlipFile` validates an already-parsed JSON value (e.g. a `JSON.parse` result)
-  and returns a `SlipFile`. Throws `SlipParseError` if invalid.
+- `validateSlipFile` validates an already-parsed JSON value (e.g. a `JSON.parse` result) and returns a `SlipFile`. Throws `SlipParseError` if invalid.
 
 ## 3. Formulas
 
@@ -67,8 +68,8 @@ const result = evaluateFormula(ast, {
 // result → 6000
 ```
 
-29 built-in functions are supported (SUM, IF, ROUND, TEXT, etc.).
-No `eval` or `new Function` is used — unregistered function names are rejected at parse time.
+29 built-in functions are supported (SUM, IF, ROUND, TEXT, etc.). See **[Formula Function Reference](formula.en.md)** for details on each function.
+Unregistered function names are rejected at parse time.
 
 ## 4. PDF Rendering
 
@@ -81,7 +82,7 @@ const pdfBytes = await renderSlipToPdf(file, {
 // pdfBytes: Uint8Array — raw PDF file bytes
 ```
 
-- Pass Korean fonts in `fonts` to render Korean text correctly.
+- Register the correct fonts via `fonts`. Incorrect or missing fonts may cause garbled text in the PDF output.
 - The `locale` option controls number formatting in formula output (default `'ko-KR'`).
 - See [Type Reference](types.en.md#font) for font type details.
 
@@ -106,27 +107,23 @@ const result = await verifyIntegrity(signed);
 // result.hashValid, result.signatureValid
 ```
 
-Uses SHA-256 hashing + JWS (ES256) signing with RFC 8785 (JCS) canonicalization,
-implemented via Web Crypto API.
+Verifies the integrity of a `.slip` file.
+Uses SHA-256 hashing + JWS (ES256) signing with RFC 8785 (JCS) canonicalization, implemented via Web Crypto API.
 
 ## 6. Backend Integration
 
-SlipKit is a server-less embeddable library. Integration with external backends
-is based on the `.slip` file (plain JSON) as the contract.
+SlipKit is a server-less embeddable library that integrates with external backends through `.slip` files.
 See [ARCHITECTURE.md](../ARCHITECTURE.md) for detailed diagrams and patterns.
 
-### Default Pattern: Backend Only Handles JSON
+### Flow 1: Backend sends JSON request → receives PDF binary
 
-1. Backend serves the template `.slip` and prepares voucher data (values) as JSON
-2. The browser's core assembles the voucher, evaluates formulas, and issues it
-3. The issued voucher `.slip` is sent back to the backend for storage
+1. Backend sends the `.slip` template and voucher data (values) as JSON.
+2. Core assembles the voucher, evaluates formulas, and issues it.
+3. The issued voucher is rendered to PDF binary and returned to the backend.
 
-The backend doesn't need to parse the `.slip` — just store and relay the JSON.
-Use the bundled JSON Schema for structural validation if needed.
+### Flow 2: Server-side batch PDF generation (e.g. nightly jobs)
 
-### Server-Side PDF Generation
-
-When unattended batch issuance is needed (e.g. nightly jobs), run core in Node:
+When unattended issuance is needed at a specific time (nightly batch, etc.), run core in Node.
 
 ```ts
 import { parseSlipFile, renderSlipToPdf, computeIntegrity } from '@omdc-slipkit/core';
@@ -136,4 +133,4 @@ const issued = await computeIntegrity(file);
 const pdf = await renderSlipToPdf(issued, { fonts });
 ```
 
-Core is pure TypeScript and runs on Node 20+ without modification.
+Core runs on Node 20+ only.

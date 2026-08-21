@@ -58,7 +58,7 @@ storage adapters, and backend integration.
 
 | Document | Description |
 |---|---|
-| [docs/guide/](docs/guide/README.en.md) | **Integration Guide** — install, embed, API ([Korean](docs/guide/README.md)) + [Type Reference](docs/guide/types.en.md) · [Fonts & Presets](docs/guide/fonts-and-presets.en.md) |
+| [docs/guide/](docs/guide/README.en.md) | **Integration Guide** — install, embed, API ([Korean](docs/guide/README.md)) + [Formula Functions](docs/guide/formula.en.md) · [Type Reference](docs/guide/types.en.md) · [Fonts & Presets](docs/guide/fonts-and-presets.en.md) |
 | [docs/SPEC.md](docs/SPEC.md) | `.slip` file format specification |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture — external system integration (with diagrams) |
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | Confirmed requirements |

@@ -17,6 +17,7 @@ How to install SlipKit and embed the form designer, data-entry form, and viewer 
 ### Related Documents
 
 - **[Core API Guide](core.en.md)** — parsing, formulas, PDF rendering, integrity, backend integration (including standalone Node.js usage)
+- **[Formula Function Reference](formula.en.md)** — usage, parameters, and examples for all 29 built-in functions
 - **[Type Reference](types.en.md)** — field definitions and defaults for `SlipFile`, fonts, `SlipPreset`, `StorageAdapter`, `IntegrityJwk`, and more
 - **[Bundled Fonts & Presets](fonts-and-presets.en.md)** — Pretendard font details, built-in presets (trade statement, invoice), and locale behavior
 

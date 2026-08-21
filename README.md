@@ -56,7 +56,7 @@ pnpm demo:vue     # Vue    → http://localhost:5175
 
 | 문서 | 내용 |
 |---|---|
-| [docs/guide/](docs/guide/) | **사용 가이드** — 설치·연동·API ([English](docs/guide/README.en.md)) + [타입 참조](docs/guide/types.md) · [폰트·프리셋](docs/guide/fonts-and-presets.md) |
+| [docs/guide/](docs/guide/) | **사용 가이드** — 설치·연동·API ([English](docs/guide/README.en.md)) + [수식 함수](docs/guide/formula.md) · [타입 참조](docs/guide/types.md) · [폰트·프리셋](docs/guide/fonts-and-presets.md) |
 | [docs/SPEC.md](docs/SPEC.md) | `.slip` 파일 포맷 공개 규범 명세 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 아키텍처 — 외부 시스템 연계 (다이어그램 포함) |
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 확정된 요구사항 정리 |
