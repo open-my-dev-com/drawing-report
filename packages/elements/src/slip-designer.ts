@@ -97,6 +97,20 @@ const RULER_PX = 18;
 
 /** 격자 간격 선택지(mm) — 없음은 별도 (F-20) */
 const GRID_GAPS = [1, 5, 10] as const;
+
+/**
+ * 격자 색 선택지 (F-20) — 양식에 회색 표가 많으면 회색 격자가 묻히므로 색으로 구분한다.
+ * swatch는 메뉴 견본에 보이는 진한 색, line은 실제 격자선 색(옅게).
+ */
+const GRID_COLORS = [
+  { id: 'gray', nameKey: 'colorGray', swatch: '#80868b', line: 'rgba(0, 0, 0, 0.08)' },
+  { id: 'blue', nameKey: 'colorBlue', swatch: '#1a73e8', line: 'rgba(26, 115, 232, 0.2)' },
+  { id: 'red', nameKey: 'colorRed', swatch: '#d93025', line: 'rgba(217, 48, 37, 0.16)' },
+  { id: 'green', nameKey: 'colorGreen', swatch: '#188038', line: 'rgba(24, 128, 56, 0.16)' },
+] as const;
+
+/** 격자 색 선택지의 id */
+type GridColorId = (typeof GRID_COLORS)[number]['id'];
 /** 크기 조절 최소 폭·높이(mm) */
 const MIN_SIZE_MM = 2;
 
@@ -910,14 +924,31 @@ export class SlipDesigner extends LitElement {
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
       flex-shrink: 0;
     }
-    /* 격자 — 요소보다 뒤에 깔린다 (F-20) */
+    /* 격자 — 요소보다 뒤에 깔린다. 선 색·간격은 인라인 스타일로 (F-20) */
     .grid-overlay {
       position: absolute;
       inset: 0;
       pointer-events: none;
-      background-image:
-        linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+    }
+    /* 격자 색 견본 줄 — 격자가 켜져 있을 때만 메뉴에 보인다 (F-20) */
+    .grid-colors {
+      display: flex;
+      gap: 6px;
+      padding: 6px 10px;
+      border-top: 1px solid var(--sk-border);
+      margin-top: 4px;
+    }
+    .preset-menu .grid-colors button {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: 3px;
+    }
+    .preset-menu .grid-colors button[aria-pressed='true'] {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
     }
     /* 커서 좌표 — 캔버스 오른쪽 아래에 붙어 스크롤해도 자리를 지킨다 (F-20) */
     .coords {
@@ -3655,9 +3686,28 @@ export class SlipDesigner extends LitElement {
               ${GRID_GAPS.map((gap) => html`
                 <button role="menuitem" aria-pressed=${String(this._gridGap === gap)}
                   @click=${() => this._setGridGap(gap)}>${gap}mm</button>`)}
+              ${this._gridGap !== null
+                ? html`<div class="grid-colors" role="group" aria-label=${s.gridColor}>
+                    ${GRID_COLORS.map((color) => html`
+                      <button style="background:${color.swatch}"
+                        title=${s[color.nameKey]}
+                        aria-label="${s.gridColor}: ${s[color.nameKey]}"
+                        aria-pressed=${String(this._gridColor === color.id)}
+                        @click=${() => {
+                          this._gridColor = color.id;
+                          this._gridMenuOpen = false;
+                          this.requestUpdate();
+                        }}></button>`)}
+                  </div>`
+                : nothing}
             </div>`
         : nothing}
     `;
+  }
+
+  /** 지금 고른 격자선 색 (F-20) */
+  private _gridLine(): string {
+    return GRID_COLORS.find((color) => color.id === this._gridColor)!.line;
   }
 
   /** 격자 간격 메뉴 열기·닫기 — 도형·프리셋 메뉴와 같은 방식 (F-20) */
@@ -4085,6 +4135,9 @@ export class SlipDesigner extends LitElement {
         ${this._gridGap !== null
           ? html`<div class="grid-overlay" style="
               background-size:${this._gridGap}mm ${this._gridGap}mm;
+              background-image:
+                linear-gradient(to right, ${this._gridLine()} 1px, transparent 1px),
+                linear-gradient(to bottom, ${this._gridLine()} 1px, transparent 1px);
             "></div>`
           : nothing}
         <div class="padding-guide" style="
@@ -5195,6 +5248,9 @@ export class SlipDesigner extends LitElement {
 
   /** 격자 간격 메뉴 열림 여부 */
   private _gridMenuOpen = false;
+
+  /** 격자선 색 — 격자 메뉴에서 고른다 (F-20, 기본 회색) */
+  private _gridColor: GridColorId = 'gray';
 
   /** 격자 간격 메뉴 위치 (버튼 아래) */
   private _gridMenuPos = { left: 0, top: 0 };

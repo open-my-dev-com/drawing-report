@@ -1865,6 +1865,36 @@ describe('<slip-designer> 눈금자·격자 (F-20)', () => {
     el.remove();
   });
 
+  it('격자를 켜야 색 견본이 나오고, 고른 색으로 격자선이 그려진다', async () => {
+    const el = await loadDesigner();
+
+    // 격자가 꺼져 있으면 색을 고를 일이 없으므로 견본을 두지 않는다
+    toolbarButton(el, strings.designer.grid).click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.grid-colors button').length).toBe(0);
+
+    const gap = Array.from(el.shadowRoot!.querySelectorAll('.preset-menu button'))
+      .find((b) => b.textContent?.trim() === '5mm') as HTMLButtonElement;
+    gap.click();
+    await el.updateComplete;
+
+    // 기본은 회색이 골라져 있다
+    toolbarButton(el, strings.designer.grid).click();
+    await el.updateComplete;
+    const swatch = (name: string) => Array.from(el.shadowRoot!.querySelectorAll('.grid-colors button'))
+      .find((b) => b.getAttribute('aria-label')
+        === `${strings.designer.gridColor}: ${name}`) as HTMLButtonElement;
+    expect(swatch(strings.designer.colorGray).getAttribute('aria-pressed')).toBe('true');
+
+    // 파랑을 고르면 격자선 색이 바뀌고 메뉴는 닫힌다
+    swatch(strings.designer.colorBlue).click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.preset-menu')).toBeNull();
+    const overlay = el.shadowRoot!.querySelector('.grid-overlay') as HTMLElement;
+    expect(overlay.style.backgroundImage).toContain('26, 115, 232');
+    el.remove();
+  });
+
   it('격자를 켜면 요소를 끌 때 격자에 맞아떨어진다 (Alt로 해제)', async () => {
     const el = await loadDesigner();
     await pickGrid(el, '10mm');
