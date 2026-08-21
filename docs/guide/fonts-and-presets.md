@@ -2,13 +2,13 @@
 
 [English](fonts-and-presets.en.md)
 
-SlipKit이 동봉하는 폰트와 프리셋의 상세, 그리고 언어 설정에 따른 동작을 설명한다.
+SlipKit이 동봉하는 폰트와 프리셋의 상세, 그리고 언어 설정에 따른 동작을 설명합니다.
 
 ---
 
 ## 동봉 폰트: Pretendard
 
-SlipKit은 **Pretendard Regular**과 **Pretendard Bold** 두 가지를 동봉한다.
+SlipKit은 **Pretendard Regular**과 **Pretendard Bold** 두 가지를 동봉합니다.
 
 | 항목 | 내용 |
 |---|---|
@@ -21,13 +21,13 @@ SlipKit은 **Pretendard Regular**과 **Pretendard Bold** 두 가지를 동봉한
 ### 자동 로드
 
 컴포넌트(`<slip-designer>`, `<slip-form>`, `<slip-viewer>`)에 `fonts` 속성을 **지정하지 않으면**
-Pretendard를 자동으로 불러온다. 한글이 깨지지 않도록 Regular에 `fallback: true`가 설정되어 있다.
+Pretendard를 자동으로 불러옵니다. 한글이 깨지지 않도록 Regular에 `fallback: true`가 설정되어 있습니다.
 
-로드는 필요한 시점에 한 번만 일어난다 — 컴포넌트가 처음 렌더링될 때 비동기로 가져온다.
+로드는 필요한 시점에 한 번만 일어납니다 — 컴포넌트가 처음 렌더링될 때 비동기로 가져옵니다.
 
 ### 직접 사용
 
-동봉 폰트를 명시적으로 가져와 사용자 폰트와 함께 쓸 수도 있다.
+동봉 폰트를 명시적으로 가져와 사용자 폰트와 함께 쓸 수도 있습니다.
 
 ```ts
 import pretendardFonts from '@omdc-slipkit/elements/fonts/pretendard';
@@ -43,13 +43,13 @@ designer.fonts = [
 ```
 
 `fonts` 속성을 지정하면 자동 로드가 일어나지 않으므로, 한글이 필요하면 `pretendardFonts`를
-배열에 포함해야 한다.
+배열에 포함해야 합니다.
 
 ---
 
 ## 동봉 프리셋
 
-디자이너에 프리셋 2종이 동봉되어 있다.
+디자이너에 프리셋 2종이 동봉되어 있습니다.
 
 | 프리셋 | 구성 |
 |---|---|
@@ -58,13 +58,13 @@ designer.fonts = [
 
 ### 프리셋과 언어
 
-프리셋 메뉴의 **이름**(거래명세서, 청구서)은 `locale`에 따라 번역된다 —
-영어로 전환하면 "Transaction statement", "Invoice"로 표시된다.
+프리셋 메뉴의 **이름**(거래명세서, 청구서)은 `locale`에 따라 번역됩니다 —
+영어로 전환하면 "Transaction statement", "Invoice"로 표시됩니다.
 
-하지만 프리셋의 **내용**(셀 텍스트, 바인딩 논리명, 열 제목 등)은 한국어 고정이다.
-예를 들어 거래명세서 프리셋을 선택하면 `locale="en"`이어도 셀에 "등록번호", "상호"가 적혀 있다.
+하지만 프리셋의 **내용**(셀 텍스트, 바인딩 논리명, 열 제목 등)은 한국어 고정입니다.
+예를 들어 거래명세서 프리셋을 선택하면 `locale="en"`이어도 셀에 "등록번호", "상호"가 적혀 있습니다.
 
-영문 양식이 필요하면 `presets` 속성에 직접 만든 프리셋을 전달한다.
+영문 양식이 필요하면 `presets` 속성에 직접 만든 프리셋을 전달해 주세요.
 
 ### 직접 프리셋 만들기
 
@@ -94,4 +94,4 @@ const myPresets: SlipPreset[] = [
 <slip-designer .presets=${myPresets}></slip-designer>
 ```
 
-`presets`를 지정하면 동봉 프리셋 대신 전달한 목록이 메뉴에 나타난다.
+`presets`를 지정하면 동봉 프리셋 대신 전달한 목록이 메뉴에 나타납니다.

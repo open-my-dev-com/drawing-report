@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-호스트 앱에 SlipKit을 설치하고 양식 디자이너·전표 작성폼·뷰어를 붙이는 방법을 설명한다.
+호스트 앱에 SlipKit을 설치하고 양식 디자이너·전표 작성폼·뷰어를 붙이는 방법을 설명합니다.
 
 ## 목차
 
@@ -38,8 +38,8 @@ npm install @omdc-slipkit/vue
 # peerDependency: vue >= 3.4
 ```
 
-`@omdc-slipkit/core`는 elements·react·vue가 의존하므로 따로 설치하지 않아도 된다.
-서버에서 core만 단독으로 쓸 때(Node에서 PDF 생성 등)만 직접 설치한다.
+`@omdc-slipkit/core`는 elements·react·vue가 의존하므로 따로 설치하지 않아도 됩니다.
+서버에서 core만 단독으로 쓸 때(Node에서 PDF 생성 등)만 직접 설치합니다.
 
 ```bash
 npm install @omdc-slipkit/core
@@ -108,13 +108,13 @@ function onDesignerChange(file: SlipFile) {
 ```
 
 > Vue에서 `slip-` 접두사를 커스텀 엘리먼트로 인식하도록 빌드 설정을 추가하면 래퍼 없이
-> `<slip-designer>`를 직접 써도 된다.
+> `<slip-designer>`를 직접 써도 됩니다.
 
 ## 3. 컴포넌트 API
 
 ### `<slip-designer>` — 양식 디자이너
 
-양식(template)을 시각적으로 편집하는 GUI 에디터.
+양식(template)을 시각적으로 편집하는 GUI 에디터입니다.
 
 | 속성 | 타입 | 설명 |
 |---|---|---|
@@ -130,7 +130,7 @@ function onDesignerChange(file: SlipFile) {
 
 ### `<slip-form>` — 전표 작성폼
 
-양식에 값을 채우고 발행하는 입력 화면. 오른쪽에 채운 상태의 PDF 미리보기를 보여준다.
+양식에 값을 채우고 발행하는 입력 화면입니다. 오른쪽에 채운 상태의 PDF 미리보기를 보여줍니다.
 
 | 속성 | 타입 | 설명 |
 |---|---|---|
@@ -146,7 +146,7 @@ function onDesignerChange(file: SlipFile) {
 
 ### `<slip-viewer>` — 뷰어
 
-발행된 전표나 양식을 PDF로 렌더링해 보여주는 읽기 전용 뷰어.
+발행된 전표나 양식을 PDF로 렌더링해 보여주는 읽기 전용 뷰어입니다.
 
 | 속성 | 타입 | 설명 |
 |---|---|---|
@@ -156,9 +156,9 @@ function onDesignerChange(file: SlipFile) {
 
 ## 4. 이벤트
 
-컴포넌트가 보내는 이벤트는 `CustomEvent`이며 `detail.file`에 현재 `.slip` 파일 객체가 담긴다.
-**호스트 앱은 이 이벤트로 컴포넌트 안의 데이터를 받는다** — 컴포넌트가 직접 저장하지 않으므로,
-이벤트를 받아 저장하지 않으면 편집 내용이 사라진다.
+컴포넌트가 보내는 이벤트는 `CustomEvent`이며 `detail.file`에 현재 `.slip` 파일 객체가 담깁니다.
+**호스트 앱은 이 이벤트로 컴포넌트 안의 데이터를 받습니다** — 컴포넌트가 직접 저장하지 않으므로,
+이벤트를 받아 저장하지 않으면 편집 내용이 사라집니다.
 
 ```ts
 // 바닐라
@@ -193,7 +193,7 @@ designer.addEventListener('slip-change', (e) => {
   });
 });
 
-// 작성폼: 발행이 끝나면 전표를 서버에 올린다
+// 작성폼: 발행이 끝나면 전표를 서버에 올립니다
 form.addEventListener('slip-issue', (e) => {
   const voucher = e.detail.file;
   fetch('/api/vouchers', {
@@ -205,12 +205,12 @@ form.addEventListener('slip-issue', (e) => {
 
 ## 5. 저장소 어댑터
 
-`StorageAdapter` 인터페이스를 구현하면 "내 양식 저장·불러오기" 기능을 쓸 수 있다.
-elements 패키지에 브라우저용 구현 2종이 들어 있다.
+`StorageAdapter` 인터페이스를 구현하면 "내 양식 저장·불러오기" 기능을 쓸 수 있습니다.
+elements 패키지에 브라우저용 구현 2종이 들어 있습니다.
 
 ### IndexedDB 저장소
 
-브라우저의 IndexedDB에 양식을 저장한다. 제목·종류 필터와 커서 페이징을 지원한다.
+브라우저의 IndexedDB에 양식을 저장합니다. 제목·종류 필터와 커서 페이징을 지원합니다.
 
 ```ts
 import { IndexedDbStorage } from '@omdc-slipkit/elements';
@@ -220,7 +220,7 @@ const store = new IndexedDbStorage({ dbName: 'my-app-slips' });
 
 ### 로컬 파일 저장소
 
-저장은 파일 다운로드, 열기는 파일 선택 대화 상자로 동작한다.
+저장은 파일 다운로드, 열기는 파일 선택 대화 상자로 동작합니다.
 
 ```ts
 import { LocalFileStorage } from '@omdc-slipkit/elements';
@@ -232,7 +232,7 @@ const file = await localFile.load('');           // 파일 선택
 
 ### 직접 구현
 
-서버 API로 양식을 관리하려면 `StorageAdapter` 인터페이스를 직접 구현하면 된다.
+서버 API로 양식을 관리하려면 `StorageAdapter` 인터페이스를 직접 구현하면 됩니다.
 
 ```ts
 import type { StorageAdapter } from '@omdc-slipkit/core';
@@ -247,10 +247,10 @@ const serverStorage: StorageAdapter = {
 
 ## 6. 폰트 설정
 
-SlipKit은 Pretendard Regular·Bold를 기본 폰트로 동봉한다. 폰트를 지정하지 않으면
-자동으로 사용되어 한글이 깨지지 않는다.
+SlipKit은 Pretendard Regular·Bold를 기본 폰트로 동봉합니다. 폰트를 지정하지 않으면
+자동으로 사용되어 한글이 깨지지 않습니다.
 
-사용자 폰트를 추가하려면 `fonts` 속성에 배열로 전달한다.
+사용자 폰트를 추가하려면 `fonts` 속성에 배열로 전달합니다.
 
 ```ts
 import pretendardFonts from '@omdc-slipkit/elements/fonts/pretendard';
@@ -267,7 +267,7 @@ designer.fonts = [
 
 ## 7. 언어 설정
 
-UI 언어는 `locale` 속성으로 바꾼다. 기본값은 한국어(`'ko'`).
+UI 언어는 `locale` 속성으로 바꿉니다. 기본값은 한국어(`'ko'`)입니다.
 
 ```html
 <slip-designer locale="en"></slip-designer>
@@ -277,6 +277,6 @@ UI 언어는 `locale` 속성으로 바꾼다. 기본값은 한국어(`'ko'`).
 <SlipDesigner src={src} locale="en" />
 ```
 
-수식 함수의 결과 포맷(숫자 자릿수 구분 등)도 로케일에 따라 바뀐다.
+수식 함수의 결과 포맷(숫자 자릿수 구분 등)도 로케일에 따라 바뀝니다.
 
-서버에서 `.slip` 파일을 직접 다루거나 PDF를 만들어야 하면 **[Core API 가이드](core.md)**를 참고한다.
+서버에서 `.slip` 파일을 직접 다루거나 PDF를 만들어야 하면 **[Core API 가이드](core.md)** 를 참고해 주세요.
