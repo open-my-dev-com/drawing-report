@@ -982,53 +982,23 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  it('썸네일로 페이지를 고르면 페이지 설정이 열리고, 순서를 옮길 수 있다', async () => {
+  it('툴바에서 페이지 순서를 옮기면 그 페이지 요소가 그대로 따라간다', async () => {
     const el = await loadDesigner();
     toolbarButton(el, strings.designer.addPage).click();
     await el.updateComplete;
     // 2페이지에 요소를 하나 만들어 순서가 바뀌는지 확인한다
     await addByCanvasClick(el, strings.designer.addText);
 
-    const thumbs = sideSection(el, strings.designer.sidebarPages).querySelectorAll('.thumb');
-    (thumbs[1] as HTMLElement).click();
-    await el.updateComplete;
-
-    expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.replace(/\s+/g, ' ').trim())
-      .toBe(`${strings.designer.sidebarPages} 2`);
-    expect(sideSection(el, strings.designer.sidebarPages)
-      .querySelectorAll('.thumb')[1]?.classList.contains('selected')).toBe(true);
-
-    // 앞으로 옮기면 1페이지가 되고, 선택은 옮겨간 페이지를 따라간다
-    const forward = Array.from(el.shadowRoot!.querySelectorAll('button'))
-      .find((b) => b.getAttribute('aria-label')
-        === `${strings.designer.sidebarPages} ${strings.designer.orderForward}`)!;
-    forward.click();
+    toolbarButton(el, strings.designer.pageMoveForward).click();
     await el.updateComplete;
 
     const file = (el as unknown as { _file: SlipTemplateFile })._file;
     expect(file.template.pages.map((pg) => pg.elements.length)).toEqual([1, 2]);
+    // 보고 있던 페이지를 그대로 따라간다
     expect(el.shadowRoot?.querySelector('.page-indicator')?.textContent?.replace(/\s+/g, ' ').trim())
       .toBe('1 / 2');
-    expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.replace(/\s+/g, ' ').trim())
-      .toBe(`${strings.designer.sidebarPages} 1`);
-    el.remove();
-  });
-
-  it('요소를 고르면 페이지 선택이 풀리고 요소 설정이 열린다', async () => {
-    const el = await loadDesigner();
-    (sideSection(el, strings.designer.sidebarPages).querySelector('.thumb') as HTMLElement).click();
-    await el.updateComplete;
-    expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.replace(/\s+/g, ' ').trim())
-      .toBe(`${strings.designer.sidebarPages} 1`);
-
-    (sideSection(el, strings.designer.sidebarElements).querySelector('.side-row') as HTMLElement)
-      .click();
-    await el.updateComplete;
-
-    expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
-      .toBe(strings.designer.typeText);
-    expect(sideSection(el, strings.designer.sidebarPages)
-      .querySelector('.thumb')?.classList.contains('selected')).toBe(false);
+    // 첫 페이지에서는 더 앞으로 옮길 수 없다
+    expect(toolbarButton(el, strings.designer.pageMoveForward).disabled).toBe(true);
     el.remove();
   });
 
