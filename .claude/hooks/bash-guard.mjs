@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * PreToolUse(Bash) 훅 — 개발 규칙 기계적 강제 (ADR-024).
+ * PreToolUse(Bash) 훅 — 개발 규칙 보호 (ADR-024).
  *
  * 1) main 보호: main으로의 push, main 위에서의 commit/push를 차단한다.
- * 2) 검증 게이트: git commit 전에 `pnpm lint && pnpm -r typecheck && build && test`를
- *    실행해 실패하면 커밋을 차단한다 (CLAUDE.md 검증 게이트의 강제 장치).
+ * 2) 검증 게이트: git commit 전에 `pnpm lint && pnpm -r typecheck && pnpm -r build && pnpm -r test`를
+ *    실행해 실패하면 커밋을 차단한다.
  *
  * 종료 코드 2 = 차단 (stderr가 Claude에게 사유로 전달됨). 0 = 통과.
  */
@@ -69,7 +69,7 @@ if (hasGitCommit) {
     const tail = output.length > 1500 ? `...(생략)...\n${output.slice(-1500)}` : output;
     block(
       `[bash-guard] 검증 게이트 실패 — 커밋이 차단되었습니다 (CLAUDE.md).\n` +
-        `pnpm lint && pnpm -r typecheck && pnpm -r build && pnpm -r test 가 전부 통과해야 커밋할 수 있습니다.\n` +
+        `pnpm lint && pnpm -r typecheck && pnpm -r build && pnpm -r test 가 모두 통과해야 커밋할 수 있습니다.\n` +
         `실패하는 테스트를 스킵·삭제·완화로 통과시키지 마세요.\n\n${tail}`,
     );
   }

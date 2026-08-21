@@ -54,6 +54,8 @@ export const SlipDesigner = defineComponent({
     presets: { type: Array as PropType<SlipPresets>, default: undefined },
     /** "내 양식" 저장·불러오기에 쓸 저장소 어댑터 (ADR-021) */
     storage: { type: Object as PropType<StorageAdapter>, default: undefined },
+    /** 넣을 수 있는 이미지 파일의 최대 크기(바이트) — 기본 2MB (G-36) */
+    maxImageBytes: { type: Number, default: undefined },
   },
   emits: ['slip-change'],
   setup(props, { emit }) {
@@ -64,6 +66,7 @@ export const SlipDesigner = defineComponent({
         '.fonts': props.fonts,
         '.presets': props.presets,
         '.storage': props.storage,
+        '.maxImageBytes': props.maxImageBytes,
         'onSlip-change': (event: CustomEvent<{ file: SlipFile }>) =>
           emit('slip-change', event.detail.file),
       });

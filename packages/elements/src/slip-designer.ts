@@ -131,6 +131,11 @@ const DEFAULT_FONT_COLOR = '#000000';
 const DEFAULT_BORDER_COLOR = '#000000';
 /** 선 굵기 기본값(mm) — PDF 변환 계층(convert.ts DEFAULT_BORDER_WIDTH)과 같아야 한다 */
 const DEFAULT_LINE_WIDTH = 0.2;
+/**
+ * 넣을 수 있는 이미지 파일의 기본 최대 크기(바이트, 2MB) — 호스트가 `maxImageBytes`로 바꾼다 (G-36).
+ * base64로 담기면 약 33% 커지므로 2MB 원본이 파일에는 ~2.7MB로 들어간다.
+ */
+const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 /** 글자 크기(pt)를 화면 px로 — PDF와 같은 크기감 (1pt = 4/3px, 기본 10pt) */
 function fontPx(size: number | undefined): string {
@@ -1867,6 +1872,53 @@ export class SlipDesigner extends LitElement {
       font-weight: 600;
       color: var(--sk-text-muted);
     }
+    /* 이미지 선택 (G-36) — 경로는 base64라 못 읽으니 이미지 자체를 보여준다 */
+    .image-hint {
+      margin: 6px 0;
+      font-size: 11px;
+      color: var(--sk-text-muted);
+    }
+    .image-error {
+      margin: 6px 0;
+      font-size: 11px;
+      color: var(--sk-danger, #c0392b);
+    }
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+      gap: 6px;
+    }
+    .image-choice {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 72px;
+      padding: 4px;
+      border: 1px solid var(--sk-border);
+      border-radius: var(--sk-radius);
+      background: var(--sk-bg);
+      cursor: pointer;
+    }
+    .image-choice.selected {
+      border-color: var(--sk-accent);
+      box-shadow: 0 0 0 1px var(--sk-accent);
+    }
+    .image-choice img,
+    .image-current img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .image-current {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 80px;
+      margin-bottom: 6px;
+      padding: 4px;
+      border: 1px solid var(--sk-border);
+      border-radius: var(--sk-radius);
+    }
     .binding-chips {
       display: flex;
       flex-wrap: wrap;
@@ -2152,6 +2204,9 @@ export class SlipDesigner extends LitElement {
     _formulaModalOpen: { state: true },
     _columnsModalOpen: { state: true },
     _sampleModalOpen: { state: true },
+    _imageModalOpen: { state: true },
+    _imageError: { state: true },
+    maxImageBytes: { type: Number, attribute: 'max-image-bytes' },
     _sideSelection: { state: true },
     _bindingKeyError: { state: true },
     presets: { attribute: false },
@@ -2186,6 +2241,17 @@ export class SlipDesigner extends LitElement {
    * 저장·목록 버튼이 나타난다. 없으면 그 기능이 감춰진다.
    */
   storage?: StorageAdapter;
+
+  /**
+   * 넣을 수 있는 이미지 파일의 최대 크기(바이트) — 기본 2MB (G-36).
+   *
+   * @remarks
+   * 이미지는 base64로 양식 파일 안에 담기므로 원본보다 **약 33% 커진다**.
+   * 큰 사진을 그대로 넣으면 전표 파일이 무거워져 저장·전송에 부담이 되므로,
+   * 호스트가 자기 시스템에 맞는 값으로 조일 수 있게 열어 둔다.
+   * HTML 속성으로도 줄 수 있다: `<slip-designer max-image-bytes="1048576">`.
+   */
+  maxImageBytes = DEFAULT_MAX_IMAGE_BYTES;
 
   private _file: SlipTemplateFile | null = null;
   private _pageIndex = 0;
@@ -2233,6 +2299,10 @@ export class SlipDesigner extends LitElement {
   private _columnsModalOpen = false;
   /** 샘플 데이터 편집 모달 열림 여부 — 양식의 sampleValues를 편집한다 (D-13) */
   private _sampleModalOpen = false;
+  /** 이미지 선택 모달 열림 여부 — 선택된 이미지 요소의 src를 정한다 (G-36) */
+  private _imageModalOpen = false;
+  /** 이미지 선택에서 막힌 이유 (너무 큼·이미지 아님·읽기 실패) — 없으면 null */
+  private _imageError: string | null = null;
   /** 샘플 데이터 모달의 현재 페이지 — 바인딩이 많으면 10개 단위로 나눠 보여준다 */
   private _samplePage = 0;
   /** 샘플 데이터 모달의 JSON 직접 입력 모드 여부 (입력폼 ↔ JSON 탭) */
@@ -2353,6 +2423,8 @@ export class SlipDesigner extends LitElement {
     this._formulaModalOpen = false;
     this._columnsModalOpen = false;
     this._sampleModalOpen = false;
+    this._imageModalOpen = false;
+    this._imageError = null;
     this._sideSelection = null;
     this._bindingKeyError = false;
     this._saveModalOpen = false;
@@ -3444,11 +3516,13 @@ export class SlipDesigner extends LitElement {
     if (
       e.key === 'Escape' &&
       (this._formulaModalOpen || this._columnsModalOpen || this._sampleModalOpen ||
-        this._saveModalOpen || this._myFormsOpen)
+        this._imageModalOpen || this._saveModalOpen || this._myFormsOpen)
     ) {
       this._formulaModalOpen = false;
       this._columnsModalOpen = false;
       this._sampleModalOpen = false;
+      this._imageModalOpen = false;
+      this._imageError = null;
       this._saveModalOpen = false;
       this._myFormsOpen = false;
       this.requestUpdate();
@@ -3585,6 +3659,7 @@ export class SlipDesigner extends LitElement {
               : nothing}
             <div class="prop-panel">${this._renderPropertyPanel()}</div>
             ${this._renderFormulaModal()}
+            ${this._renderImageModal()}
             ${this._renderColumnsModal()}
             ${this._renderSampleModal()}
             ${this._renderSaveModal()}
@@ -4424,7 +4499,8 @@ export class SlipDesigner extends LitElement {
         </div>`;
 
       case 'image':
-        return el.src.startsWith('data:')
+        // 자리표시(1×1 투명 PNG)는 그리면 빈 상자로만 보인다 — 아직 안 골랐음을 글자로 알린다 (G-36)
+        return el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:')
           ? html`<img src=${el.src} alt="">`
           : html`<span class="el-content">${this._strings.designer.typeImage}</span>`;
 
@@ -5266,15 +5342,20 @@ export class SlipDesigner extends LitElement {
           </div>
         `;
 
-      case 'image':
+      case 'image': {
+        // 경로 문자열은 base64라 사람이 읽을 수 없다 — 지금 이미지를 그대로 보여준다 (G-36)
+        const chosen = el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
         return html`
           <div class="prop-section">
-            <div class="prop-row">
-              <label>${s.src}</label>
-              <input .value=${el.src.length > 40 ? el.src.slice(0, 40) + '…' : el.src} disabled>
-            </div>
+            ${chosen
+              ? html`<div class="image-current"><img src=${el.src} alt=""></div>`
+              : html`<p class="image-hint">${s.imageNone}</p>`}
+            <button class="col-modal-open" @click=${() => this._openImageModal()}>
+              ${icons.image}<span>${chosen ? s.imageChange : s.imagePick}</span>
+            </button>
           </div>
         `;
+      }
 
       default:
         return nothing;
@@ -5831,6 +5912,93 @@ export class SlipDesigner extends LitElement {
     return list;
   }
 
+  /** 바이트 수를 사람이 읽는 크기로 (오류 문구용) */
+  private static _formatBytes(bytes: number): string {
+    if (bytes >= 1024 * 1024) return `${Math.round((bytes / (1024 * 1024)) * 10) / 10}MB`;
+    if (bytes >= 1024) return `${Math.round(bytes / 1024)}KB`;
+    return `${bytes}B`;
+  }
+
+  /**
+   * 이 양식에 등록된 이미지 목록 — 모든 페이지의 이미지 요소에서 모아 중복을 없앤다.
+   * 자리표시 이미지는 아직 고르지 않은 상태이므로 뺀다 (G-36).
+   */
+  private _usedImages(): string[] {
+    const file = this._file;
+    if (!file) return [];
+    const seen = new Set<string>();
+    for (const page of file.template.pages) {
+      for (const el of page.elements) {
+        if (el.type !== 'image') continue;
+        if (el.src === PLACEHOLDER_IMG || !el.src.startsWith('data:')) continue;
+        seen.add(el.src);
+      }
+    }
+    return [...seen];
+  }
+
+  /** 이미지 선택 모달을 연다 */
+  private _openImageModal(): void {
+    this._imageError = null;
+    this._imageModalOpen = true;
+  }
+
+  private _closeImageModal(): void {
+    this._imageModalOpen = false;
+    this._imageError = null;
+  }
+
+  /** 업로드한 이미지를 선택된 이미지 요소에 넣고 모달을 닫는다 */
+  private _applyImageSrc(src: string): void {
+    this._updateElement((target) => {
+      if (target.type === 'image') target.src = src;
+    });
+    this._closeImageModal();
+  }
+
+  /**
+   * 파일 선택 대화 상자를 열어 업로드한 이미지를 base64로 바꿔 넣는다 (G-36).
+   *
+   * @remarks
+   * 주소(URL)는 받지 않는다 — PDF 변환이 `data:`·`asset://`만 풀 수 있어
+   * 주소로 두면 미리보기부터 깨진다. 주소로 받아야 하는 이미지는 호스트 서버가
+   * 중계해 base64로 바꿔 넘긴다.
+   */
+  private _pickImageFile(): void {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const s = this._strings.designer;
+      if (!file.type.startsWith('image/')) {
+        this._imageError = s.imageNotImage;
+        return;
+      }
+      if (file.size > this.maxImageBytes) {
+        this._imageError = s.imageTooLarge
+          .replace('{max}', SlipDesigner._formatBytes(this.maxImageBytes))
+          .replace('{size}', SlipDesigner._formatBytes(file.size));
+        return;
+      }
+      const reader = new FileReader();
+      reader.addEventListener('load', () => {
+        const src = typeof reader.result === 'string' ? reader.result : '';
+        if (!src.startsWith('data:')) {
+          this._imageError = s.imageReadFailed;
+          return;
+        }
+        this._applyImageSrc(src);
+      });
+      reader.addEventListener('error', () => {
+        this._imageError = s.imageReadFailed;
+      });
+      reader.readAsDataURL(file);
+    });
+    input.click();
+  }
+
   /** 수식 모달을 연다 — 선택된 필드의 현재 수식을 초안으로 담는다 */
   private _openFormulaModal(): void {
     const el = this._findSelectedElement();
@@ -6023,6 +6191,60 @@ export class SlipDesigner extends LitElement {
           <button class="btn" @click=${() => this._closeFormulaModal()}>${s.cancel}</button>
           <button class="btn primary" ?disabled=${syntaxError !== null}
             @click=${() => this._applyFormulaModal()}>${s.apply}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 이미지 선택 모달 — 파일에서 골라 넣거나, 이 양식에 등록된 이미지를 다시 쓴다 (G-36).
+   * 주소(URL) 입력은 두지 않는다 — PDF로 나오지 않기 때문이다.
+   */
+  private _renderImageModal() {
+    if (!this._imageModalOpen) return nothing;
+    const el = this._findSelectedElement();
+    if (!el || el.type !== 'image') return nothing;
+    const s = this._strings.designer;
+    const close = (): void => this._closeImageModal();
+    const used = this._usedImages();
+
+    return html`
+      <div class="menu-backdrop modal-backdrop" @click=${close}></div>
+      <div class="modal" role="dialog" aria-label=${s.imageModalTitle}
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            close();
+          }
+        }}>
+        <div class="modal-head">
+          <span>${s.imageModalTitle}</span>
+          <button class="modal-close" title=${s.close} aria-label=${s.close}
+            @click=${close}>${icons.close}</button>
+        </div>
+        <div class="modal-body">
+          <button class="btn primary" @click=${() => this._pickImageFile()}>${s.imagePick}</button>
+          <p class="image-hint">${s.imageSizeHint
+            .replace('{max}', SlipDesigner._formatBytes(this.maxImageBytes))}</p>
+          ${this._imageError
+            ? html`<p class="image-error" role="alert">${this._imageError}</p>`
+            : nothing}
+
+          <div class="modal-section-title">${s.imageReuse}</div>
+          ${used.length === 0
+            ? html`<p class="image-hint">${s.imageEmptyReuse}</p>`
+            : html`<div class="image-grid">
+                ${used.map((src, i) => html`
+                  <button class="image-choice ${src === el.src ? 'selected' : ''}"
+                    aria-label="${s.imageReuse} ${i + 1}"
+                    aria-pressed=${String(src === el.src)}
+                    @click=${() => this._applyImageSrc(src)}>
+                    <img src=${src} alt="">
+                  </button>`)}
+              </div>`}
+        </div>
+        <div class="modal-foot">
+          <button class="btn" @click=${close}>${s.close}</button>
         </div>
       </div>
     `;
