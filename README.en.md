@@ -36,8 +36,7 @@ calculation, issuing) in a single view. Edits are auto-saved in the browser and 
 page reloads. You can also download and open `.slip` files.
 The demo references the library source directly, so code changes are reflected immediately.
 
-**All three demos have the same features — only the integration method differs.**
-Pick the one that matches your framework:
+**Three demos — pick the example that matches the framework you use. (There is no difference in features.)**
 
 | Example | Integration |
 |---|---|
