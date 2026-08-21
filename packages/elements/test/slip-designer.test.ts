@@ -2534,6 +2534,31 @@ describe('<slip-designer> 패널 표시 정리 (F-18)', () => {
     el.remove();
   });
 
+  it('요소 종류 배지는 평소 숨었다가 고른 요소에만 보이고, 종류 보기로 전부 켠다', async () => {
+    const el = await loadDesigner();
+    const badges = () => Array.from(el.shadowRoot!.querySelectorAll('.element .badge'));
+    const canvas = () => el.shadowRoot!.querySelector('.canvas-area')!;
+
+    // 배지는 요소마다 있지만 평소에는 숨어 있고, 고른 요소에만 보인다
+    expect(badges().length).toBe(2);
+    expect(badges().filter((n) => getComputedStyle(n).display !== 'none').length).toBe(0);
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    expect(badges().filter((n) => getComputedStyle(n).display !== 'none').length).toBe(1);
+
+    // 툴바의 종류 보기를 켜면 캔버스가 전부 보이는 상태로 바뀐다
+    toolbarButton(el, strings.designer.showBadges).click();
+    await el.updateComplete;
+    expect(canvas().classList.contains('show-badges')).toBe(true);
+    expect(toolbarButton(el, strings.designer.showBadges).getAttribute('aria-pressed')).toBe('true');
+
+    // Ctrl+B로 다시 끈다
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', ctrlKey: true, bubbles: true }));
+    await el.updateComplete;
+    expect(canvas().classList.contains('show-badges')).toBe(false);
+    el.remove();
+  });
+
   it('텍스트의 줄바꿈이 캔버스에도 그대로 보인다 (PDF와 같게)', async () => {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{

@@ -883,11 +883,19 @@ export class SlipDesigner extends LitElement {
       box-shadow: 0 0 0 2px var(--sk-accent);
       z-index: 10;
     }
+    /*
+     * 요소 종류 배지 — 평소에는 숨기고 마우스를 올리거나 고른 요소에만 보여준다.
+     * 캔버스 글 위치를 PDF와 맞추려면 상자 안쪽 여백을 둘 수 없기 때문 (F-18).
+     * 툴바의 "종류 보기"를 켜면 전부 보인다.
+     */
     .element .badge {
       position: absolute;
       top: 1px;
       left: 1px;
-      display: inline-flex;
+      /* 표·그리드 미리보기가 나중에 그려져 배지를 덮지 않도록 */
+      z-index: 1;
+      display: none;
+      align-items: center;
       align-items: center;
       justify-content: center;
       width: 16px;
@@ -895,6 +903,11 @@ export class SlipDesigner extends LitElement {
       background: rgba(0, 0, 0, 0.06);
       border-radius: 2px;
       color: var(--sk-text-muted);
+    }
+    .element:hover .badge,
+    .element.selected .badge,
+    .canvas-area.show-badges .badge {
+      display: inline-flex;
     }
     .element .badge svg {
       width: 11px;
@@ -905,7 +918,6 @@ export class SlipDesigner extends LitElement {
       display: block;
       width: 100%;
       height: 100%;
-      padding: 2px 4px 2px 22px;
       overflow: hidden;
       white-space: pre-wrap;
       /* 줄바꿈 위치도 PDF와 맞춘다 — 낱말 단위로 끊고, 한 낱말이 상자보다 길 때만 낱말 안에서 끊는다 */
@@ -931,7 +943,8 @@ export class SlipDesigner extends LitElement {
     .element .grid-preview > div {
       display: flex;
       align-items: center;
-      padding: 0 2px;
+      /* PDF 변환 계층의 셀 안쪽 여백과 같은 값 (GRID_CELL_PADDING = 1mm) */
+      padding: 0 1mm;
       overflow: hidden;
       white-space: nowrap;
     }
@@ -3260,6 +3273,11 @@ export class SlipDesigner extends LitElement {
       e.preventDefault();
       this._redo();
     }
+    if ((e.key === 'b' || e.key === 'B') && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      this._showBadges = !this._showBadges;
+      this.requestUpdate();
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -3343,7 +3361,9 @@ export class SlipDesigner extends LitElement {
           </div>`
         : html`
             <aside class="sidebar">${this._renderSidebar()}</aside>
-            <div class="canvas-area ${this._pendingTool ? 'drawing' : ''}"
+            <div class="canvas-area ${this._pendingTool ? 'drawing' : ''} ${
+              this._showBadges ? 'show-badges' : ''
+            }"
                  @pointerdown=${this._onPointerDown}
                  @pointermove=${this._onPointerMove}
                  @pointerup=${this._onPointerUp}
@@ -3430,6 +3450,10 @@ export class SlipDesigner extends LitElement {
           () => this._togglePreview(),
           { pressed: this._previewMode },
         )}
+        ${this._iconButton(s.showBadges, icons.badges, () => {
+          this._showBadges = !this._showBadges;
+          this.requestUpdate();
+        }, { pressed: this._showBadges, disabled: this._previewMode })}
       </div>
       <div class="tool-group">
         ${this._iconButton(s.preset, icons.preset, (e) => this._togglePresetMenu(e), {
@@ -4881,6 +4905,13 @@ export class SlipDesigner extends LitElement {
    * 하나만 담기 때문에 다른 것을 열면 먼저 열려 있던 것이 자동으로 닫힌다 (ADR-034).
    */
   private _openPopKey: string | null = null;
+
+  /**
+   * 모든 요소의 종류 배지를 한 번에 보여줄지 (F-18). 평소에는 마우스를 올리거나
+   * 고른 요소에만 보이며, 툴바의 "종류 보기"(Ctrl/Cmd+B)로 전부 켤 수 있다.
+   * 화면에서만 쓰는 값이라 파일에는 저장하지 않는다.
+   */
+  private _showBadges = false;
 
   /** 저장된 커스텀 색 캐시 — 첫 사용 때 localStorage에서 읽는다 */
   private _customColorsCache: string[] | null = null;
