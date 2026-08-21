@@ -17,9 +17,11 @@ SlipKit 수식 엔진의 내장 함수 29종입니다. 등록되지 않은 함�
 | `MAX` | `MAX(값, ...)` | 최댓값. 값이 없으면 0 |
 
 ```
-SUM(items.amount)           → 항목별 금액의 합
-AVG(items.unitPrice)        → 단가 평균
-COUNT(items.productName)    → 상품명이 있는 행 수
+SUM(items.amount)                → 항목별 금액의 합
+SUM(items.amount, shippingFee)   → 항목 합계 + 배송비
+AVG(items.unitPrice)             → 단가 평균
+COUNT(items.productName)         → 상품명이 있는 행 수
+MIN(price1, price2, price3)      → 세 값 중 최솟값
 ```
 
 ## 조건부 집계
