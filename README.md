@@ -1,5 +1,7 @@
 # SlipKit
 
+[English](README.en.md)
+
 UI로 전표(양식 문서)를 쉽게 만들고, 보고, 출력할 수 있는 **임베드형 패키지 툴**.
 
 외부 프로젝트가 이 패키지를 설치(install)하면 자신의 앱 안에서 전표 양식을 디자인하고,
@@ -34,7 +36,7 @@ pnpm demo:vue     # Vue    → http://localhost:5175
 파일로 내려받기·열기로 `.slip` 파일을 주고받을 수 있다.
 데모는 라이브러리 소스를 직접 참조하므로 코드를 고치면 새로고침 없이 바로 반영된다.
 
-**데모 3종은 기능이 같고 붙이는 방법만 다르다** — 쓰는 프레임워크에 맞는 예시를 골라 보면 된다.
+**데모 3종 - 사용하는 프레임워크에 맞는 예시를 참조하세요.(기능에서의 차이는 없습니다.)**
 
 | 예시 | 붙이는 방법 |
 |---|---|
@@ -45,18 +47,24 @@ pnpm demo:vue     # Vue    → http://localhost:5175
 무엇을 저장하고 언제 이어 쓰는지 같은 **화면과 무관한 로직은
 [`examples/shared`](examples/shared)** 한곳에 두고 세 데모가 함께 쓴다.
 
+## 사용 가이드
+
+호스트 앱에 SlipKit을 붙이는 방법은 **[사용 가이드](docs/guide/)** 를 보면 된다.
+설치부터 양식 디자이너·전표 작성폼·뷰어 연동, 저장소 어댑터, 서버 연계까지 단계별로 설명한다.
+
 ## 문서
 
 | 문서 | 내용 |
 |---|---|
-| [CLAUDE.md](CLAUDE.md) | 개발 규칙 — 모든 Claude Code 세션에 자동 적용 (ADR-024) |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | 로드맵 · 세션 인수인계 — 현재 상태와 다음 작업 |
+| [docs/guide/](docs/guide/) | **사용 가이드** — 설치·연동·API ([English](docs/guide/README.en.md)) + [수식 함수](docs/guide/formula.md) · [타입 참조](docs/guide/types.md) · [폰트·프리셋](docs/guide/fonts-and-presets.md) |
 | [docs/SPEC.md](docs/SPEC.md) | `.slip` 파일 포맷 공개 규범 명세 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 아키텍처 — 외부 시스템 연계 (다이어그램 포함) |
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 확정된 요구사항 정리 |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | 설계 결정 로그(ADR-001~031) — 각 결정의 근거와 배경 |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | 설계 결정 로그(ADR-001~035) — 각 결정의 근거와 배경 |
 | [docs/OPEN-QUESTIONS.md](docs/OPEN-QUESTIONS.md) | 미결 사항 목록 (현재 전부 해결됨) |
-| [.claude/rules/branching.md](.claude/rules/branching.md) | 브랜치·커밋·PR 규칙 — 모든 작업은 이 규칙대로 분기 (ADR-023/024) |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | 로드맵 · 세션 인수인계 — 현재 상태와 다음 작업 |
+| [CLAUDE.md](CLAUDE.md) | 개발 규칙 — 모든 Claude Code 세션에 자동 적용 (ADR-024) |
+| [.claude/rules/branching.md](.claude/rules/branching.md) | 브랜치·커밋·PR 규칙 (ADR-023/024) |
 | [docs/Q08-PDFME-EVAL.md](docs/Q08-PDFME-EVAL.md) | pdfme 평가 보고서 |
 | [docs/TECH-RESEARCH.md](docs/TECH-RESEARCH.md) | 기술 동향 리서치 (2026-08) |
 
