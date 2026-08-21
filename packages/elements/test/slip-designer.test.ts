@@ -1260,6 +1260,31 @@ describe('<slip-designer> 표 내부 편집', () => {
     el.remove();
   });
 
+  it('고정 그리드 열 수를 늘리면 마지막 열이 절반씩 나뉘고, 줄이면 이웃이 돌려받는다 (F-19)', async () => {
+    const el = await mountGrid();
+    const widths = () => gridOf(el).columnWidthPercentages;
+    expect(widths()).toEqual([40, 30, 30]);
+
+    // 3 → 4: 마지막 30이 15씩 나뉘고 앞의 두 열은 그대로
+    setField(panelField(el, strings.designer.columns), '4');
+    await el.updateComplete;
+    expect(widths()).toEqual([40, 30, 15, 15]);
+
+    // 4 → 3: 지운 열의 몫을 앞 열이 돌려받아 원래 비율로 정확히 복귀
+    setField(panelField(el, strings.designer.columns), '3');
+    await el.updateComplete;
+    expect(widths()).toEqual([40, 30, 30]);
+
+    // 여러 칸을 한 번에 늘렸다 줄여도 원래대로 온다
+    setField(panelField(el, strings.designer.columns), '6');
+    await el.updateComplete;
+    expect(widths().length).toBe(6);
+    setField(panelField(el, strings.designer.columns), '3');
+    await el.updateComplete;
+    expect(widths()).toEqual([40, 30, 30]);
+    el.remove();
+  });
+
   /** 동적 표 열 편집 모달을 연다 (D-12: 키·추가·삭제·순서는 모달에서) */
   async function openColumnsModal(el: Element): Promise<void> {
     const open = Array.from(el.shadowRoot!.querySelectorAll('button'))
@@ -1326,6 +1351,42 @@ describe('<slip-designer> 표 내부 편집', () => {
     el.remove();
   });
 
+  it('열 추가는 마지막 열을 절반씩 나눠 갖고, 삭제는 이웃이 돌려받아 원래대로 온다 (F-19)', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addDynamicTable);
+    await openColumnsModal(el);
+
+    const widths = () => ((el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements.at(-1)! as never as { columns: { widthPercentage: number }[] })
+      .columns.map((c) => c.widthPercentage);
+    expect(widths()).toEqual([34, 33, 33]);
+
+    // 추가: 마지막 열 33이 16.5씩 나뉘고 앞의 두 열은 그대로
+    (el.shadowRoot!.querySelector('.col-add') as HTMLElement).click();
+    await el.updateComplete;
+    expect(widths()).toEqual([34, 33, 16.5, 16.5]);
+
+    // 삭제: 지운 열의 몫을 앞 열이 돌려받아 추가 전 비율로 정확히 복귀
+    (el.shadowRoot!.querySelectorAll('.col-modal-row .col-remove')[3] as HTMLElement).click();
+    await el.updateComplete;
+    expect(widths()).toEqual([34, 33, 33]);
+
+    // 추가↔삭제를 반복해도 비율이 어긋나지 않는다
+    for (let i = 0; i < 3; i++) {
+      (el.shadowRoot!.querySelector('.col-add') as HTMLElement).click();
+      await el.updateComplete;
+      (el.shadowRoot!.querySelectorAll('.col-modal-row .col-remove')[3] as HTMLElement).click();
+      await el.updateComplete;
+    }
+    expect(widths()).toEqual([34, 33, 33]);
+
+    // 가운데 열을 지우면 그 왼쪽 열이 돌려받는다
+    (el.shadowRoot!.querySelectorAll('.col-modal-row .col-remove')[1] as HTMLElement).click();
+    await el.updateComplete;
+    expect(widths()).toEqual([67, 33]);
+    el.remove();
+  });
+
   it('열 추가·삭제 시 너비 합이 100으로 유지되고, 마지막 한 열은 삭제할 수 없다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addDynamicTable);
@@ -1353,21 +1414,41 @@ describe('<slip-designer> 표 내부 편집', () => {
     el.remove();
   });
 
-  it('열 너비를 바꾸면 나머지 열이 비례로 줄어 합 100을 유지한다', async () => {
+  it('열 너비를 바꾸면 이웃 열 하나만 주고받고 나머지는 그대로다 (F-19)', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addDynamicTable);
+
+    const widthInput = () => el.shadowRoot!.querySelector('.col-edit .col-width') as HTMLInputElement;
+    const table = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
+      columns: { widthPercentage: number }[];
+    };
+    expect(table.columns.map((c) => c.widthPercentage)).toEqual([34, 33, 33]);
+
+    // 첫 열 34 → 40: 오른쪽 이웃(둘째 열)이 6을 내주고 셋째 열은 그대로
+    setField(widthInput(), '40');
+    await el.updateComplete;
+    expect(table.columns.map((c) => c.widthPercentage)).toEqual([40, 27, 33]);
+
+    // 되돌리면 이웃도 원래 값으로 돌아온다
+    setField(widthInput(), '34');
+    await el.updateComplete;
+    expect(table.columns.map((c) => c.widthPercentage)).toEqual([34, 33, 33]);
+    el.remove();
+  });
+
+  it('이웃 열이 최소 너비 아래로 내려가지 않는 선까지만 넓어진다 (F-19)', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addDynamicTable);
 
     const width = el.shadowRoot!.querySelector('.col-edit .col-width') as HTMLInputElement;
-    width.value = '60';
-    width.dispatchEvent(new Event('change', { bubbles: true }));
+    setField(width, '90');
     await el.updateComplete;
 
     const table = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
       columns: { widthPercentage: number }[];
     };
-    expect(table.columns[0]!.widthPercentage).toBe(60);
-    const sum = table.columns.reduce((a, c) => a + c.widthPercentage, 0);
-    expect(Math.abs(sum - 100)).toBeLessThanOrEqual(0.01);
+    // 34 + 33 - 1 = 66까지만 넓어지고 셋째 열은 건드리지 않는다
+    expect(table.columns.map((c) => c.widthPercentage)).toEqual([66, 1, 33]);
     el.remove();
   });
 
