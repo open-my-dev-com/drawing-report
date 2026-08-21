@@ -4411,22 +4411,18 @@ export class SlipDesigner extends LitElement {
 
   /**
    * 페이지 패널 — 썸네일에서 페이지를 골랐을 때 (ADR-034).
-   * 페이지 순서 이동·추가·삭제를 여기서 하고, 용지 설정은 양식 전체 설정으로 안내한다.
+   * 지금은 페이지 순서만 다룬다. 용지 설정은 양식 전체 설정으로 안내한다.
+   * 페이지 이름·페이지 번호 표시는 파일 포맷 개정이 필요해 0.3.0으로 미뤘다 (ADR-035).
    */
   private _renderPagePanel(index: number) {
     const s = this._strings.designer;
     const pages = this._file?.template.pages ?? [];
-    const page = pages[index];
-    if (!page) return this._renderFormSettings();
+    if (!pages[index]) return this._renderFormSettings();
 
     return html`
       <div class="type-name">${s.sidebarPages} ${index + 1}</div>
 
       <div class="prop-section">
-        <div class="prop-row">
-          <label>${s.elementCount}</label>
-          <input .value=${String(page.elements.length)} disabled>
-        </div>
         <div class="prop-row">
           <label>${s.pageOrder}</label>
           <span class="page-order">
@@ -4438,20 +4434,6 @@ export class SlipDesigner extends LitElement {
               @click=${() => this._movePage(1)}>${icons.down}</button>
           </span>
         </div>
-      </div>
-
-      <div class="prop-section">
-        <button class="col-modal-open" aria-label=${s.addPage}
-          @click=${() => {
-            this._addPage();
-            this._sideSelection = { kind: 'page', index: this._pageIndex };
-          }}>${icons.pageAdd}<span>${s.addPage}</span></button>
-        <button class="col-modal-open" aria-label=${s.deletePage}
-          ?disabled=${pages.length <= 1}
-          @click=${() => {
-            this._deletePage();
-            this._sideSelection = { kind: 'page', index: this._pageIndex };
-          }}>${icons.pageRemove}<span>${s.deletePage}</span></button>
       </div>
 
       <div class="prop-section">
