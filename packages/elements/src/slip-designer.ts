@@ -102,9 +102,17 @@ function round1(v: number): number {
   return Math.round(v * 10) / 10;
 }
 
+/**
+ * 지정하지 않았을 때 PDF 변환 계층이 실제로 쓰는 값 (core `convert.ts`와 같은 값).
+ * 속성 패널이 "지금 적용 중인 값"을 흐리게 보여줄 때 쓴다 (ADR-034).
+ */
+const DEFAULT_FONT_SIZE = 10;
+const DEFAULT_FONT_COLOR = '#000000';
+const DEFAULT_BORDER_COLOR = '#000000';
+
 /** 글자 크기(pt)를 화면 px로 — PDF와 같은 크기감 (1pt = 4/3px, 기본 10pt) */
 function fontPx(size: number | undefined): string {
-  return `${(((size ?? 10) * 4) / 3).toFixed(2)}px`;
+  return `${(((size ?? DEFAULT_FONT_SIZE) * 4) / 3).toFixed(2)}px`;
 }
 
 /** 정렬 값을 flex 정렬로 (기본 left — PDF 변환 기본값과 동일) */
@@ -875,11 +883,19 @@ export class SlipDesigner extends LitElement {
       box-shadow: 0 0 0 2px var(--sk-accent);
       z-index: 10;
     }
+    /*
+     * 요소 종류 배지 — 평소에는 숨기고 마우스를 올리거나 고른 요소에만 보여준다.
+     * 캔버스 글 위치를 PDF와 맞추려면 상자 안쪽 여백을 둘 수 없기 때문 (F-18).
+     * 툴바의 "종류 보기"를 켜면 전부 보인다.
+     */
     .element .badge {
       position: absolute;
       top: 1px;
       left: 1px;
-      display: inline-flex;
+      /* 표·그리드 미리보기가 나중에 그려져 배지를 덮지 않도록 */
+      z-index: 1;
+      display: none;
+      align-items: center;
       align-items: center;
       justify-content: center;
       width: 16px;
@@ -888,19 +904,26 @@ export class SlipDesigner extends LitElement {
       border-radius: 2px;
       color: var(--sk-text-muted);
     }
+    .element:hover .badge,
+    .element.selected .badge,
+    .canvas-area.show-badges .badge {
+      display: inline-flex;
+    }
     .element .badge svg {
       width: 11px;
       height: 11px;
     }
+    /* 텍스트·필드 표시 — PDF(pdfme)와 같게: 위쪽 정렬, 줄바꿈 유지, 넘치면 자동 줄바꿈 */
     .element .el-content {
-      display: flex;
-      align-items: center;
+      display: block;
       width: 100%;
       height: 100%;
-      padding: 2px 4px 2px 22px;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      white-space: pre-wrap;
+      /* 줄바꿈 위치도 PDF와 맞춘다 — 낱말 단위로 끊고, 한 낱말이 상자보다 길 때만 낱말 안에서 끊는다 */
+      word-break: keep-all;
+      overflow-wrap: break-word;
+      line-height: 1;
     }
     .element.type-image {
       background: #f5f5f5;
@@ -920,7 +943,8 @@ export class SlipDesigner extends LitElement {
     .element .grid-preview > div {
       display: flex;
       align-items: center;
-      padding: 0 2px;
+      /* PDF 변환 계층의 셀 안쪽 여백과 같은 값 (GRID_CELL_PADDING = 1mm) */
+      padding: 0 1mm;
       overflow: hidden;
       white-space: nowrap;
     }
@@ -1378,6 +1402,22 @@ export class SlipDesigner extends LitElement {
       flex: 1;
       min-width: 24px;
       border-top: 1px solid currentColor;
+    }
+    /* 테두리 형태 미리보기 — 실선·파선·점선을 그대로 보여준다 (ADR-034) */
+    .shape-line {
+      flex: 1;
+      min-width: 24px;
+      border-top: 2px solid currentColor;
+    }
+    .shape-line.shape-dashed {
+      border-top-style: dashed;
+    }
+    .shape-line.shape-dotted {
+      border-top-style: dotted;
+    }
+    /* 지정하지 않아 기본값·상속값이 적용 중인 항목 (ADR-034) */
+    .dim {
+      opacity: 0.55;
     }
     .width-value {
       font-size: 11px;
@@ -3233,6 +3273,11 @@ export class SlipDesigner extends LitElement {
       e.preventDefault();
       this._redo();
     }
+    if ((e.key === 'b' || e.key === 'B') && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      this._showBadges = !this._showBadges;
+      this.requestUpdate();
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -3316,7 +3361,9 @@ export class SlipDesigner extends LitElement {
           </div>`
         : html`
             <aside class="sidebar">${this._renderSidebar()}</aside>
-            <div class="canvas-area ${this._pendingTool ? 'drawing' : ''}"
+            <div class="canvas-area ${this._pendingTool ? 'drawing' : ''} ${
+              this._showBadges ? 'show-badges' : ''
+            }"
                  @pointerdown=${this._onPointerDown}
                  @pointermove=${this._onPointerMove}
                  @pointerup=${this._onPointerUp}
@@ -3403,6 +3450,10 @@ export class SlipDesigner extends LitElement {
           () => this._togglePreview(),
           { pressed: this._previewMode },
         )}
+        ${this._iconButton(s.showBadges, icons.badges, () => {
+          this._showBadges = !this._showBadges;
+          this.requestUpdate();
+        }, { pressed: this._showBadges, disabled: this._previewMode })}
       </div>
       <div class="tool-group">
         ${this._iconButton(s.preset, icons.preset, (e) => this._togglePresetMenu(e), {
@@ -3986,7 +4037,7 @@ export class SlipDesigner extends LitElement {
     switch (el.type) {
       case 'text':
         return html`<span class="el-content"
-          style="font-size:${fontPx(el.fontSize)};justify-content:${justifyOf(el.alignment)}${textStyleCss(el)}"
+          style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(el)}"
           >${el.content}</span>`;
 
       case 'fixedGrid':
@@ -4015,7 +4066,7 @@ export class SlipDesigner extends LitElement {
 
       case 'field':
         return html`<span class="el-content"
-          style="font-size:${fontPx(el.fontSize)};justify-content:${justifyOf(el.alignment)}${textStyleCss(el)}"
+          style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(el)}"
           >{${el.binding}}</span>`;
     }
   }
@@ -4699,7 +4750,10 @@ export class SlipDesigner extends LitElement {
                 </div>
                 <div class="prop-row">
                   <label>${s.fontSize}</label>
-                  <input type="number" step="0.5" .value=${String(selectedCellDef?.fontSize ?? '')}
+                  <input type="number" step="0.5"
+                    class=${selectedCellDef?.fontSize === undefined ? 'dim' : ''}
+                    .value=${String(selectedCellDef?.fontSize ?? '')}
+                    placeholder=${String(DEFAULT_FONT_SIZE)}
                     @change=${(e: Event) => {
                       const v = Number(valOf(e));
                       this._updateCellStyle('fontSize', v > 0 ? v : null);
@@ -4726,14 +4780,20 @@ export class SlipDesigner extends LitElement {
                 ${this._renderColorControl(
                   s.backgroundColor, selectedCellDef?.backgroundColor, 'cellBackgroundColor',
                   (v) => this._updateCellStyle('backgroundColor', v),
+                  undefined,
+                  `${s.cell} ${s.backgroundColor}`,
                 )}
                 ${this._renderColorControl(
                   s.fontColor, selectedCellDef?.fontColor, 'cellFontColor',
                   (v) => this._updateCellStyle('fontColor', v),
+                  el.fontColor ?? DEFAULT_FONT_COLOR,
+                  `${s.cell} ${s.fontColor}`,
                 )}
                 ${this._renderColorControl(
                   s.borderColor, selectedCellDef?.borderColor, 'cellBorderColor',
                   (v) => this._updateCellStyle('borderColor', v),
+                  el.borderColor ?? DEFAULT_BORDER_COLOR,
+                  `${s.cell} ${s.borderColor}`,
                 )}
                 ${this._renderBorderWidthSelect(
                   selectedCellDef?.borderWidth,
@@ -4745,6 +4805,7 @@ export class SlipDesigner extends LitElement {
                 ${this._renderBorderShapeRow(
                   selectedCellDef?.borderStyle,
                   `${s.cell} ${s.borderShape}`,
+                  'cellBorderStyle',
                   (v) => this._updateCellStyle('borderStyle', v),
                 )}
               </div>`
@@ -4804,7 +4865,8 @@ export class SlipDesigner extends LitElement {
     return html`
       <div class="prop-row">
         <label>${s.fontSize}</label>
-        <input type="number" step="0.5" .value=${String(el.fontSize ?? '')}
+        <input type="number" step="0.5" class=${el.fontSize === undefined ? 'dim' : ''}
+          .value=${String(el.fontSize ?? '')} placeholder=${String(DEFAULT_FONT_SIZE)}
           @change=${(e: Event) => {
             const v = numOf(e);
             this._updateElement((el) => {
@@ -4838,8 +4900,18 @@ export class SlipDesigner extends LitElement {
   // Render: color props
   // ---------------------------------------------------------------------------
 
-  /** 색 버튼 펼침 상태 — 열려 있는 색 속성 키 (한 번에 하나) */
-  private _openColorKey: string | null = null;
+  /**
+   * 속성 패널에서 지금 펼쳐져 있는 항목의 키 (색 피커·테두리 굵기·테두리 형태 공용).
+   * 하나만 담기 때문에 다른 것을 열면 먼저 열려 있던 것이 자동으로 닫힌다 (ADR-034).
+   */
+  private _openPopKey: string | null = null;
+
+  /**
+   * 모든 요소의 종류 배지를 한 번에 보여줄지 (F-18). 평소에는 마우스를 올리거나
+   * 고른 요소에만 보이며, 툴바의 "종류 보기"(Ctrl/Cmd+B)로 전부 켤 수 있다.
+   * 화면에서만 쓰는 값이라 파일에는 저장하지 않는다.
+   */
+  private _showBadges = false;
 
   /** 저장된 커스텀 색 캐시 — 첫 사용 때 localStorage에서 읽는다 */
   private _customColorsCache: string[] | null = null;
@@ -4888,12 +4960,21 @@ export class SlipDesigner extends LitElement {
    * 색상판(채도·명도)·색조 슬라이더·직접 입력·투명도(%)·없음이 전부 한 피커 안에
    * 펼쳐져 바로 고를 수 있다. 저장 형식은 파일 스키마와 동일한
    * #RRGGBB(투명도 100%) / #RRGGBBAA.
+   *
+   * @param label - 화면에 보이는 항목 이름
+   * @param current - 지정된 색 (없으면 undefined)
+   * @param key - 펼침 상태를 구분할 키 — 다른 항목을 열면 이 색은 닫힌다
+   * @param apply - 색을 저장하는 콜백 (없으면 선택 요소의 스타일 필드에 저장)
+   * @param fallback - 지정하지 않았을 때 실제로 적용되는 색 — 흐리게 보여준다 (ADR-034)
+   * @param ariaLabel - 보조기기용 이름 (요소·셀에 같은 항목이 함께 뜰 때 구분)
    */
   private _renderColorControl(
     label: string,
     current: string | undefined,
     key: string,
     apply?: (value: string | null) => void,
+    fallback?: string | undefined,
+    ariaLabel?: string,
   ) {
     // 색을 어디에 저장할지 — 기본은 선택 요소의 스타일 필드, 셀 편집 등은 콜백으로 대체
     const commit = (value: string | null): void => {
@@ -4919,17 +5000,22 @@ export class SlipDesigner extends LitElement {
       if (clamped >= 100) return hex;
       return hex + Math.round((clamped / 100) * 255).toString(16).padStart(2, '0');
     };
-    const open = this._openColorKey === key;
+    const open = this._openPopKey === key;
+    // 지정하지 않았으면 실제로 적용 중인 색(상속값·기본값)을 흐리게 보여준다 (ADR-034).
+    // 배경처럼 물려받는 값이 없는 항목은 그대로 "없음"이다.
+    const shown = current ?? fallback;
+    // 요소와 셀에 같은 이름의 항목이 함께 뜨므로 보조기기용 이름은 따로 받는다
+    const name = ariaLabel ?? label;
 
     return html`
       <div class="prop-row">
         <label>${label}</label>
-        <button class="color-btn" aria-label=${label} aria-expanded=${String(open)}
+        <button class="color-btn" aria-label=${name} aria-expanded=${String(open)}
           @click=${() => {
             if (open) {
-              this._openColorKey = null;
+              this._openPopKey = null;
             } else {
-              this._openColorKey = key;
+              this._openPopKey = key;
               // 피커 커서를 현재 색으로 (미지정이면 선명한 빨강에서 시작)
               if (current) {
                 const hsv = hexToHsv(current);
@@ -4944,23 +5030,24 @@ export class SlipDesigner extends LitElement {
             }
             this.requestUpdate();
           }}>
-          <span class="color-chip ${current ? '' : 'none'}"
-            style=${current ? `background:${base}` : nothing}></span>
-          <span class="color-value">${current ?? s.colorNone}</span>
+          <span class="color-chip ${shown ? '' : 'none'}"
+            style=${shown ? `background:${shown.slice(0, 7)}` : nothing}></span>
+          <span class="color-value ${current === undefined ? 'dim' : ''}"
+            >${shown ?? s.colorNone}</span>
         </button>
       </div>
       ${open ? html`
         <div class="color-pop">
           <div class="color-extras">
-            <button class="swatch none" title=${s.colorNone} aria-label="${label}: ${s.colorNone}"
+            <button class="swatch none" title=${s.colorNone} aria-label="${name}: ${s.colorNone}"
               @click=${() => commit(null)}></button>
             ${COLOR_PALETTE.map((c) => html`<button class="swatch" style="background:${c}"
-              title=${c} aria-label="${label} ${c}"
+              title=${c} aria-label="${name} ${c}"
               @click=${() => commit(compose(c, alphaPct))}></button>`)}
             ${this._getCustomColors().map((c) => html`<button class="swatch custom" style="background:${c}"
-              title=${c} aria-label="${label} ${c}"
+              title=${c} aria-label="${name} ${c}"
               @click=${() => commit(c)}></button>`)}
-            <button class="swatch-save" title=${s.saveColor} aria-label="${label}: ${s.saveColor}"
+            <button class="swatch-save" title=${s.saveColor} aria-label="${name}: ${s.saveColor}"
               ?disabled=${!current}
               @click=${() => {
                 // 기본 팔레트에 이미 있는 색은 중복 저장하지 않는다
@@ -4969,7 +5056,7 @@ export class SlipDesigner extends LitElement {
                 this.requestUpdate();
               }}>${icons.pageAdd}</button>
           </div>
-          <div class="sv-area" aria-label="${label} ${s.style}"
+          <div class="sv-area" aria-label="${name} ${s.style}"
             style="background:linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${this._pickerH}, 100%, 50%))"
             @pointerdown=${(e: PointerEvent) => {
               this._svDragKey = key;
@@ -4993,7 +5080,7 @@ export class SlipDesigner extends LitElement {
           </div>
           <input type="range" class="hue-slider" min="0" max="360" step="1"
             .value=${String(Math.round(this._pickerH))}
-            title="${label} ${s.hue}" aria-label="${label} ${s.hue}"
+            title="${name} ${s.hue}" aria-label="${name} ${s.hue}"
             @input=${(e: Event) => {
               this._pickerH = Number((e.target as HTMLInputElement).value);
               this.requestUpdate();
@@ -5051,9 +5138,6 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /** 테두리 굵기 선택이 펼쳐져 있는 대상 키 (한 번에 하나) */
-  private _openWidthKey: string | null = null;
-
   /**
    * 테두리 굵기 선택 한 줄 — 버튼을 누르면 없음(0)과 정해진 단계가 굵기 미리보기
    * 선과 함께 펼쳐진다 (C-11). 저장은 콜백으로 (요소·셀 공용).
@@ -5071,13 +5155,13 @@ export class SlipDesigner extends LitElement {
   ) {
     const s = this._strings.designer;
     const effective = current ?? fallback;
-    const open = this._openWidthKey === key;
+    const open = this._openPopKey === key;
     // 단계 밖의 기존 값(이전 편집·외부 파일)도 고를 수 있게 목록에 끼워 넣는다
     const steps = [...new Set<number>([...BORDER_WIDTH_STEPS, ...(effective > 0 ? [effective] : [])])]
       .sort((a, b) => a - b);
     const previewPx = (w: number): number => Math.min(6, Math.max(1, Math.round(w * PX_PER_MM)));
     const pick = (value: number): void => {
-      this._openWidthKey = null;
+      this._openPopKey = null;
       apply(value);
     };
     return html`
@@ -5085,13 +5169,14 @@ export class SlipDesigner extends LitElement {
         <label>${s.borderWidth}</label>
         <button class="width-btn" aria-label=${s.borderWidth} aria-expanded=${String(open)}
           @click=${() => {
-            this._openWidthKey = open ? null : key;
+            this._openPopKey = open ? null : key;
             this.requestUpdate();
           }}>
           ${effective > 0
             ? html`<span class="width-line" style="border-top-width:${previewPx(effective)}px"></span>
-                <span class="width-value">${effective}mm</span>`
-            : html`<span class="width-value">${s.colorNone}</span>`}
+                <span class="width-value ${current === undefined ? 'dim' : ''}">${effective}mm</span>`
+            : html`<span class="width-value ${current === undefined ? 'dim' : ''}"
+                >${s.colorNone}</span>`}
         </button>
       </div>
       ${open ? html`
@@ -5113,29 +5198,58 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /** 테두리 형태(실선·파선·점선) 선택 한 줄 — 실선은 기본값이라 콜백에 null로 전달 */
+  /**
+   * 테두리 형태(실선·파선·점선) 선택 한 줄 — 굵기와 같은 방식으로 실제 선 모양을
+   * 보여 주며 펼쳐진다 (ADR-034). 실선은 기본값이라 콜백에 null로 전달한다.
+   *
+   * @param current - 명시된 형태 (미지정이면 실선)
+   * @param ariaLabel - 보조기기용 이름 (요소·셀 구분)
+   * @param key - 펼침 상태를 구분할 키 — 다른 항목을 열면 이 줄은 닫힌다
+   * @param apply - 고른 값을 저장하는 콜백
+   */
   private _renderBorderShapeRow(
     current: 'solid' | 'dashed' | 'dotted' | undefined,
     ariaLabel: string,
+    key: string,
     apply: (value: 'dashed' | 'dotted' | null) => void,
   ) {
     const s = this._strings.designer;
+    const effective = current ?? 'solid';
+    const open = this._openPopKey === key;
+    const shapes = [
+      ['solid', s.borderSolid],
+      ['dashed', s.borderDashed],
+      ['dotted', s.borderDotted],
+    ] as const;
+    const labelOf = (shape: 'solid' | 'dashed' | 'dotted'): string =>
+      shapes.find(([value]) => value === shape)![1];
+    const pick = (shape: 'solid' | 'dashed' | 'dotted'): void => {
+      this._openPopKey = null;
+      apply(shape === 'solid' ? null : shape);
+    };
+
     return html`
       <div class="prop-row">
         <label>${s.borderShape}</label>
-        <select aria-label=${ariaLabel}
-          @change=${(e: Event) => {
-            const v = (e.target as HTMLSelectElement).value;
-            apply(v === 'dashed' || v === 'dotted' ? v : null);
+        <button class="width-btn" aria-label=${ariaLabel} aria-expanded=${String(open)}
+          @click=${() => {
+            this._openPopKey = open ? null : key;
+            this.requestUpdate();
           }}>
-          ${([
-            ['solid', s.borderSolid],
-            ['dashed', s.borderDashed],
-            ['dotted', s.borderDotted],
-          ] as const).map(([value, label]) => html`
-            <option value=${value} ?selected=${(current ?? 'solid') === value}>${label}</option>`)}
-        </select>
+          <span class="shape-line shape-${effective}"></span>
+          <span class="width-value ${current === undefined ? 'dim' : ''}">${labelOf(effective)}</span>
+        </button>
       </div>
+      ${open ? html`
+        <div class="width-pop" role="menu" aria-label=${ariaLabel}>
+          ${shapes.map(([value, label]) => html`
+            <button role="menuitem" aria-label="${ariaLabel}: ${label}"
+              aria-pressed=${String(value === effective)}
+              @click=${() => pick(value)}>
+              <span class="shape-line shape-${value}"></span>
+              <span class="width-value">${label}</span>
+            </button>`)}
+        </div>` : nothing}
     `;
   }
 
@@ -5160,7 +5274,9 @@ export class SlipDesigner extends LitElement {
       ${hasFontColor ? html`
         <div class="prop-section">
           <div class="prop-section-title">${s.styleText}</div>
-          ${this._renderColorControl(s.fontColor, r.fontColor as string | undefined, 'fontColor')}
+          ${this._renderColorControl(
+            s.fontColor, r.fontColor as string | undefined, 'fontColor', undefined, DEFAULT_FONT_COLOR,
+          )}
           ${hasTextDecor ? this._renderFontProps(el) : nothing}
           ${hasTextDecor
             ? this._renderTextStyleToggles(
@@ -5180,7 +5296,9 @@ export class SlipDesigner extends LitElement {
         </div>` : nothing}
       <div class="prop-section">
         <div class="prop-section-title">${s.styleBorder}</div>
-        ${this._renderColorControl(s.borderColor, r.borderColor as string | undefined, 'borderColor')}
+        ${this._renderColorControl(
+          s.borderColor, r.borderColor as string | undefined, 'borderColor', undefined, DEFAULT_BORDER_COLOR,
+        )}
         ${this._renderBorderWidthSelect(
           r.borderWidth as number | undefined,
           defaultWidth,
@@ -5197,6 +5315,7 @@ export class SlipDesigner extends LitElement {
           ? this._renderBorderShapeRow(
               r.borderStyle as 'solid' | 'dashed' | 'dotted' | undefined,
               `${s.styleBorder} ${s.borderShape}`,
+              'borderStyle',
               (v) => this._updateElement((target) => {
                 const t = target as Record<string, unknown>;
                 if (v === null) delete t.borderStyle;
@@ -5211,7 +5330,8 @@ export class SlipDesigner extends LitElement {
         ${el.type === 'rect' ? html`
           <div class="prop-row">
             <label>${s.cornerRadius}</label>
-            <input type="number" step="0.5" min="0" .value=${String(el.radius ?? 0)}
+            <input type="number" step="0.5" min="0" class=${el.radius === undefined ? 'dim' : ''}
+              .value=${String(el.radius ?? '')} placeholder="0"
               aria-label=${s.cornerRadius}
               ?disabled=${el.borderStyle === 'dashed' || el.borderStyle === 'dotted'}
               @change=${(e: Event) => {
