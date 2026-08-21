@@ -91,6 +91,26 @@ const BORDER_WIDTH_STEPS = [0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.5, 2] as const;
 const SAMPLE_PAGE_SIZE = 10;
 /** 스냅이 붙는 거리(mm) — 이 안으로 들어오면 후보 선에 끌어붙인다 */
 const SNAP_MM = 1.5;
+
+/** 눈금자 두께(px) — 캔버스 위·왼쪽에 붙는다 (F-20) */
+const RULER_PX = 18;
+
+/** 격자 간격 선택지(mm) — 없음은 별도 (F-20) */
+const GRID_GAPS = [1, 5, 10] as const;
+
+/**
+ * 격자 색 선택지 (F-20) — 양식에 회색 표가 많으면 회색 격자가 묻히므로 색으로 구분한다.
+ * swatch는 메뉴 견본에 보이는 진한 색, line은 실제 격자선 색(옅게).
+ */
+const GRID_COLORS = [
+  { id: 'gray', nameKey: 'colorGray', swatch: '#80868b', line: 'rgba(0, 0, 0, 0.08)' },
+  { id: 'blue', nameKey: 'colorBlue', swatch: '#1a73e8', line: 'rgba(26, 115, 232, 0.2)' },
+  { id: 'red', nameKey: 'colorRed', swatch: '#d93025', line: 'rgba(217, 48, 37, 0.16)' },
+  { id: 'green', nameKey: 'colorGreen', swatch: '#188038', line: 'rgba(24, 128, 56, 0.16)' },
+] as const;
+
+/** 격자 색 선택지의 id */
+type GridColorId = (typeof GRID_COLORS)[number]['id'];
 /** 크기 조절 최소 폭·높이(mm) */
 const MIN_SIZE_MM = 2;
 
@@ -865,11 +885,85 @@ export class SlipDesigner extends LitElement {
       pointer-events: none;
       z-index: 25;
     }
+    /* 눈금자 + 용지 묶음 — 자와 용지가 함께 스크롤돼 눈금이 어긋나지 않는다 (F-20) */
+    .paper-wrap {
+      display: grid;
+      grid-template-columns: ${RULER_PX}px auto;
+      grid-template-rows: ${RULER_PX}px auto;
+      flex-shrink: 0;
+    }
+    .ruler-corner {
+      grid-row: 1;
+      grid-column: 1;
+      background: var(--sk-surface);
+      border-right: 1px solid var(--sk-border);
+      border-bottom: 1px solid var(--sk-border);
+    }
+    .ruler {
+      background: var(--sk-surface);
+      color: var(--sk-text-muted);
+      overflow: hidden;
+    }
+    .ruler-h {
+      grid-row: 1;
+      grid-column: 2;
+      height: ${RULER_PX}px;
+      border-bottom: 1px solid var(--sk-border);
+    }
+    .ruler-v {
+      grid-row: 2;
+      grid-column: 1;
+      width: ${RULER_PX}px;
+      border-right: 1px solid var(--sk-border);
+    }
     .paper {
+      grid-row: 2;
+      grid-column: 2;
       position: relative;
       background: #fff;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
       flex-shrink: 0;
+    }
+    /* 격자 — 요소보다 뒤에 깔린다. 선 색·간격은 인라인 스타일로 (F-20) */
+    .grid-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    /* 격자 색 견본 줄 — 격자가 켜져 있을 때만 메뉴에 보인다 (F-20) */
+    .grid-colors {
+      display: flex;
+      gap: 6px;
+      padding: 6px 10px;
+      border-top: 1px solid var(--sk-border);
+      margin-top: 4px;
+    }
+    .preset-menu .grid-colors button {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: 3px;
+    }
+    .preset-menu .grid-colors button[aria-pressed='true'] {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    /* 커서 좌표 — 캔버스 오른쪽 아래에 붙어 스크롤해도 자리를 지킨다 (F-20) */
+    .coords {
+      grid-row: 2;
+      grid-column: 2;
+      align-self: end;
+      justify-self: end;
+      margin: 8px;
+      padding: 2px 8px;
+      border-radius: var(--sk-radius);
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      pointer-events: none;
     }
     .padding-guide {
       position: absolute;
@@ -2755,10 +2849,17 @@ export class SlipDesigner extends LitElement {
       if (sx) {
         nx += sx.delta;
         guideX = sx.line;
+      } else {
+        // 붙을 요소·여백선이 없으면 격자에 맞춘다 (F-20)
+        const g = this._gridDelta(nx);
+        if (g !== null) nx += g;
       }
       if (sy) {
         ny += sy.delta;
         guideY = sy.line;
+      } else {
+        const g = this._gridDelta(ny);
+        if (g !== null) ny += g;
       }
     }
 
@@ -2793,21 +2894,27 @@ export class SlipDesigner extends LitElement {
     let guideY: number | null = null;
     if (!e.altKey) {
       const { xs, ys } = this._snapCandidates(r.id);
+      // 붙을 요소·여백선이 없는 변은 격자에 맞춘다 (F-20)
+      const toGrid = (value: number): number => value + (this._gridDelta(value) ?? 0);
       if (h.includes('w')) {
         const s = this._bestSnap([left], xs);
         if (s) { left += s.delta; guideX = s.line; }
+        else left = toGrid(left);
       }
       if (h.includes('e')) {
         const s = this._bestSnap([right], xs);
         if (s) { right += s.delta; guideX = s.line; }
+        else right = toGrid(right);
       }
       if (h.includes('n')) {
         const s = this._bestSnap([top], ys);
         if (s) { top += s.delta; guideY = s.line; }
+        else top = toGrid(top);
       }
       if (h.includes('s')) {
         const s = this._bestSnap([bottom], ys);
         if (s) { bottom += s.delta; guideY = s.line; }
+        else bottom = toGrid(bottom);
       }
     }
 
@@ -3427,6 +3534,9 @@ export class SlipDesigner extends LitElement {
                  @pointercancel=${this._onPointerCancel}>
               ${this._renderCanvas()}
             </div>
+            ${this._cursorMm
+              ? html`<div class="coords">${this._cursorMm.x} · ${this._cursorMm.y} mm</div>`
+              : nothing}
             <div class="prop-panel">${this._renderPropertyPanel()}</div>
             ${this._renderFormulaModal()}
             ${this._renderColumnsModal()}
@@ -3511,6 +3621,10 @@ export class SlipDesigner extends LitElement {
           this._showBadges = !this._showBadges;
           this.requestUpdate();
         }, { pressed: this._showBadges, disabled: this._previewMode })}
+        ${this._iconButton(s.grid, icons.grid, (e) => this._toggleGridMenu(e), {
+          pressed: this._gridMenuOpen || this._gridGap !== null,
+          disabled: this._previewMode,
+        })}
       </div>
       <div class="tool-group">
         ${this._iconButton(s.preset, icons.preset, (e) => this._togglePresetMenu(e), {
@@ -3559,7 +3673,75 @@ export class SlipDesigner extends LitElement {
                 </button>`)}
             </div>`
         : nothing}
+      ${this._gridMenuOpen
+        ? html`
+            <div class="menu-backdrop" @click=${() => {
+              this._gridMenuOpen = false;
+              this.requestUpdate();
+            }}></div>
+            <div class="preset-menu" role="menu" aria-label=${s.gridGap}
+                 style="left:${this._gridMenuPos.left}px;top:${this._gridMenuPos.top}px">
+              <button role="menuitem" aria-pressed=${String(this._gridGap === null)}
+                @click=${() => this._setGridGap(null)}>${s.gridNone}</button>
+              ${GRID_GAPS.map((gap) => html`
+                <button role="menuitem" aria-pressed=${String(this._gridGap === gap)}
+                  @click=${() => this._setGridGap(gap)}>${gap}mm</button>`)}
+              ${this._gridGap !== null
+                ? html`<div class="grid-colors" role="group" aria-label=${s.gridColor}>
+                    ${GRID_COLORS.map((color) => html`
+                      <button style="background:${color.swatch}"
+                        title=${s[color.nameKey]}
+                        aria-label="${s.gridColor}: ${s[color.nameKey]}"
+                        aria-pressed=${String(this._gridColor === color.id)}
+                        @click=${() => {
+                          this._gridColor = color.id;
+                          this._gridMenuOpen = false;
+                          this.requestUpdate();
+                        }}></button>`)}
+                  </div>`
+                : nothing}
+            </div>`
+        : nothing}
     `;
+  }
+
+  /** 지금 고른 격자선 색 (F-20) */
+  private _gridLine(): string {
+    return GRID_COLORS.find((color) => color.id === this._gridColor)!.line;
+  }
+
+  /** 격자 간격 메뉴 열기·닫기 — 도형·프리셋 메뉴와 같은 방식 (F-20) */
+  private _toggleGridMenu(e: Event): void {
+    if (this._gridMenuOpen) {
+      this._gridMenuOpen = false;
+    } else {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      this._gridMenuPos = { left: rect.left, top: rect.bottom + 4 };
+      this._gridMenuOpen = true;
+    }
+    this.requestUpdate();
+  }
+
+  /** 격자 간격을 고른다 — null이면 격자를 끈다 (F-20) */
+  private _setGridGap(gap: number | null): void {
+    this._gridGap = gap;
+    this._gridMenuOpen = false;
+    this.requestUpdate();
+  }
+
+  /**
+   * 격자에 맞아떨어지게 하는 이동량 — 격자를 껐으면 null (F-20).
+   *
+   * 격자를 켜면 거리와 무관하게 가장 가까운 격자선으로 맞춘다. 다른 요소·여백선에
+   * 붙는 쪽이 우선이고, Alt를 누르면 둘 다 건너뛴다.
+   *
+   * @param value - 지금 위치(mm)
+   * @returns 더해야 할 이동량(mm) 또는 null
+   */
+  private _gridDelta(value: number): number | null {
+    const gap = this._gridGap;
+    if (gap === null) return null;
+    return Math.round(value / gap) * gap - value;
   }
 
   /** 도형 메뉴 열기·닫기 — 프리셋 메뉴와 같은 방식으로 버튼 아래에 띄운다 (C-11) */
@@ -3939,7 +4121,25 @@ export class SlipDesigner extends LitElement {
     const [pt, pr, pb, pl] = paper.padding;
 
     return html`
+      <div class="paper-wrap" style="--paper-w:${pw}px;--paper-h:${ph}px"
+        @pointermove=${(e: PointerEvent) => this._trackCursor(e)}
+        @pointerleave=${() => {
+          if (this._cursorMm === null) return;
+          this._cursorMm = null;
+          this.requestUpdate();
+        }}>
+        <div class="ruler-corner"></div>
+        ${this._renderRuler('h', paper.width, pw)}
+        ${this._renderRuler('v', paper.height, ph)}
       <div class="paper" style="width:${pw}px;height:${ph}px">
+        ${this._gridGap !== null
+          ? html`<div class="grid-overlay" style="
+              background-size:${this._gridGap}mm ${this._gridGap}mm;
+              background-image:
+                linear-gradient(to right, ${this._gridLine()} 1px, transparent 1px),
+                linear-gradient(to bottom, ${this._gridLine()} 1px, transparent 1px);
+            "></div>`
+          : nothing}
         <div class="padding-guide" style="
           left:${pl * PX_PER_MM}px;
           top:${pt * PX_PER_MM}px;
@@ -3964,6 +4164,75 @@ export class SlipDesigner extends LitElement {
           : nothing}
         ${this._renderLineGhost(pw, ph)}
         ${this._renderCellEditor()}
+      </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 커서 위치를 용지 좌표(mm)로 기록한다 — 눈금자 표시선과 좌표 표시에 쓴다 (F-20).
+   * 용지 밖이면 지운다.
+   */
+  private _trackCursor(e: PointerEvent): void {
+    const paper = this.renderRoot.querySelector('.paper');
+    if (!paper) return;
+    const rect = paper.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / PX_PER_MM;
+    const y = (e.clientY - rect.top) / PX_PER_MM;
+    const { paper: size } = this._file!.template;
+    const inside = x >= 0 && y >= 0 && x <= size.width && y <= size.height;
+    const next = inside ? { x: round1(x), y: round1(y) } : null;
+    if (next?.x === this._cursorMm?.x && next?.y === this._cursorMm?.y) return;
+    this._cursorMm = next;
+    this.requestUpdate();
+  }
+
+  /**
+   * mm 눈금자 — 10mm마다 긴 눈금과 숫자, 5mm마다 짧은 눈금을 그린다 (F-20).
+   * 커서가 용지 위에 있으면 그 위치에 표시선을 함께 그린다.
+   *
+   * @param axis - 'h'는 위쪽 가로 자, 'v'는 왼쪽 세로 자
+   * @param lengthMm - 용지 길이(mm)
+   * @param lengthPx - 용지 길이(px)
+   * @returns 눈금자 조각
+   */
+  private _renderRuler(axis: 'h' | 'v', lengthMm: number, lengthPx: number) {
+    const horizontal = axis === 'h';
+    const marks: TemplateResult[] = [];
+    for (let mm = 0; mm <= Math.floor(lengthMm); mm += 5) {
+      const long = mm % 10 === 0;
+      const pos = mm * PX_PER_MM;
+      marks.push(svg`<line
+        x1=${horizontal ? pos : RULER_PX - (long ? 7 : 4)}
+        y1=${horizontal ? RULER_PX - (long ? 7 : 4) : pos}
+        x2=${horizontal ? pos : RULER_PX}
+        y2=${horizontal ? RULER_PX : pos}
+        stroke="currentColor" stroke-width="1" />`);
+      if (long && mm > 0) {
+        marks.push(svg`<text
+          x=${horizontal ? pos + 2 : RULER_PX - 3}
+          y=${horizontal ? 8 : pos - 2}
+          font-size="8" fill="currentColor"
+          text-anchor=${horizontal ? 'start' : 'end'}>${mm}</text>`);
+      }
+    }
+    const cursor = this._cursorMm;
+    const cursorPos = cursor ? (horizontal ? cursor.x : cursor.y) * PX_PER_MM : null;
+
+    return html`
+      <div class="ruler ruler-${axis}"
+        style=${horizontal ? `width:${lengthPx}px` : `height:${lengthPx}px`}>
+        <svg width=${horizontal ? lengthPx : RULER_PX} height=${horizontal ? RULER_PX : lengthPx}>
+          ${marks}
+          ${cursorPos === null
+            ? nothing
+            : svg`<line
+                x1=${horizontal ? cursorPos : 0}
+                y1=${horizontal ? 0 : cursorPos}
+                x2=${horizontal ? cursorPos : RULER_PX}
+                y2=${horizontal ? RULER_PX : cursorPos}
+                stroke="var(--sk-accent)" stroke-width="1" />`}
+        </svg>
       </div>
     `;
   }
@@ -4969,6 +5238,25 @@ export class SlipDesigner extends LitElement {
    * 화면에서만 쓰는 값이라 파일에는 저장하지 않는다.
    */
   private _showBadges = false;
+
+  /**
+   * 캔버스 격자 간격(mm) — null이면 격자를 그리지 않는다 (F-20).
+   * 격자를 켜면 요소를 옮기거나 크기를 바꿀 때 격자에 맞아떨어진다(Alt로 해제).
+   * 화면에서만 쓰는 값이라 파일에는 저장하지 않는다.
+   */
+  private _gridGap: number | null = null;
+
+  /** 격자 간격 메뉴 열림 여부 */
+  private _gridMenuOpen = false;
+
+  /** 격자선 색 — 격자 메뉴에서 고른다 (F-20, 기본 회색) */
+  private _gridColor: GridColorId = 'gray';
+
+  /** 격자 간격 메뉴 위치 (버튼 아래) */
+  private _gridMenuPos = { left: 0, top: 0 };
+
+  /** 커서가 용지 위에 있을 때의 위치(mm) — 눈금자 표시와 좌표 표시에 쓴다 (F-20) */
+  private _cursorMm: { x: number; y: number } | null = null;
 
   /** 저장된 커스텀 색 캐시 — 첫 사용 때 localStorage에서 읽는다 */
   private _customColorsCache: string[] | null = null;
