@@ -1387,6 +1387,38 @@ describe('<slip-designer> 표 내부 편집', () => {
     el.remove();
   });
 
+  it('너비 균등하게를 누르면 모든 열이 같은 너비가 된다 (F-19)', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addDynamicTable);
+    await openColumnsModal(el);
+
+    const widths = () => ((el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements.at(-1)! as never as { columns: { widthPercentage: number }[] })
+      .columns.map((c) => c.widthPercentage);
+
+    // 한 열을 크게 벌려 놓은 뒤 균등 정렬
+    const width = el.shadowRoot!.querySelector('.col-edit .col-width') as HTMLInputElement;
+    width.value = '60';
+    width.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(widths()).not.toEqual([33.33, 33.33, 33.34]);
+
+    const even = Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === strings.designer.evenWidths) as HTMLButtonElement;
+    even.click();
+    await el.updateComplete;
+
+    // 반올림 잔여는 마지막 열이 흡수해 합이 정확히 100
+    expect(widths()).toEqual([33.33, 33.33, 33.34]);
+    expect(widths().reduce((a, b) => a + b, 0)).toBe(100);
+
+    // 되돌리기로 이전 너비가 돌아온다
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+    await el.updateComplete;
+    expect(widths()).not.toEqual([33.33, 33.33, 33.34]);
+    el.remove();
+  });
+
   it('열 추가·삭제 시 너비 합이 100으로 유지되고, 마지막 한 열은 삭제할 수 없다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addDynamicTable);

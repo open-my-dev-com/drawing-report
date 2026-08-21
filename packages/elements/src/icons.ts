@@ -81,6 +81,8 @@ export const icons = {
   alignCenter: icon(svg`<path d="M21 5H3" /><path d="M17 12H7" /><path d="M19 19H5" />`),
   /** lucide: align-right */
   alignRight: icon(svg`<path d="M21 5H3" /><path d="M21 12H9" /><path d="M21 19H7" />`),
+  /** 모든 열을 같은 너비로 (F-19) — 폭이 같은 칸 세 개 */
+  evenWidths: icon(svg`<rect width="18" height="14" x="3" y="5" rx="1" /><path d="M9 5v14" /><path d="M15 5v14" />`),
   /** 요소 종류 표시 켜기·끄기 (F-18) — 이름표 모양 */
   badges: icon(svg`<path d="M3.5 5.5A2 2 0 0 1 5.5 3.5h4.7a2 2 0 0 1 1.42.59l7.79 7.8a2 2 0 0 1 0 2.82l-4.7 4.7a2 2 0 0 1-2.83 0l-7.79-7.8a2 2 0 0 1-.59-1.41z" /><circle cx="7.5" cy="7.5" r="1.2" />`),
 };

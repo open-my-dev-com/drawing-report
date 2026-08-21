@@ -1565,6 +1565,10 @@ export class SlipDesigner extends LitElement {
       opacity: 0.35;
       cursor: default;
     }
+    .col-modal-actions {
+      display: flex;
+      gap: 6px;
+    }
     .col-add,
     .col-modal-open {
       display: inline-flex;
@@ -1579,6 +1583,10 @@ export class SlipDesigner extends LitElement {
       font-size: 11px;
       color: var(--sk-text-muted);
       cursor: pointer;
+    }
+    .col-add:disabled {
+      opacity: 0.35;
+      cursor: default;
     }
     .col-add svg,
     .col-modal-open svg {
@@ -3126,6 +3134,22 @@ export class SlipDesigner extends LitElement {
         ...el.columns.map((col, i) => ({ ...col, widthPercentage: widths[i]! })),
         { key: `col${index}`, title: '', widthPercentage: widths[widths.length - 1]! },
       ];
+    });
+  }
+
+  /**
+   * 모든 열을 같은 너비로 맞춘다 — 하나하나 입력하지 않고 한 번에 고르게 만든다.
+   * 반올림 잔여는 마지막 열이 흡수해 합이 정확히 100이 된다.
+   */
+  private _evenTableColumnWidths(): void {
+    this._updateElement((el) => {
+      if (el.type !== 'dynamicTable' || el.columns.length <= 1) return;
+      const each = round2(100 / el.columns.length);
+      const last = round2(100 - each * (el.columns.length - 1));
+      el.columns = el.columns.map((col, i) => ({
+        ...col,
+        widthPercentage: i === el.columns.length - 1 ? last : each,
+      }));
     });
   }
 
@@ -5611,8 +5635,15 @@ export class SlipDesigner extends LitElement {
                 ?disabled=${el.columns.length <= 1}
                 @click=${() => this._removeTableColumn(index)}>${icons.pageRemove}</button>
             </div>`)}
-          <button class="col-add" aria-label=${s.addColumn}
-            @click=${() => this._addTableColumn()}>${icons.pageAdd}<span>${s.addColumn}</span></button>
+          <div class="col-modal-actions">
+            <button class="col-add" aria-label=${s.addColumn}
+              @click=${() => this._addTableColumn()}>${icons.pageAdd}<span>${s.addColumn}</span></button>
+            <button class="col-add" aria-label=${s.evenWidths}
+              ?disabled=${el.columns.length <= 1}
+              @click=${() => this._evenTableColumnWidths()}>
+              ${icons.evenWidths}<span>${s.evenWidths}</span>
+            </button>
+          </div>
         </div>
         <div class="modal-foot">
           <button class="btn primary" @click=${close}>${s.close}</button>
