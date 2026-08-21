@@ -182,46 +182,58 @@ function lineEndpoints(el: {
   }
 }
 
+/** 열·행이 가질 수 있는 가장 작은 너비·높이 비율(%) — 이보다 좁아지지 않는다 */
+const MIN_COLUMN_PERCENTAGE = 1;
+
+/** 백분율을 소수점 둘째 자리로 반올림 */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 /**
- * 비율 배열의 길이를 바꾼다 — 늘어나면 기존을 비례 축소하고 새 항목이 균등 몫을,
- * 줄어들면 남은 항목을 비례 확대해 합 100을 유지한다
+ * 마지막 항목을 절반씩 나눠 새 항목을 만든다 — 나머지 항목은 건드리지 않는다 (ADR-034).
+ * 잔여 오차는 새 항목이 흡수해 합이 정확히 유지된다.
+ *
+ * @param list - 백분율 목록 (합 100)
+ * @returns 항목이 하나 늘어난 새 목록
  */
-function resizePercentages(list: number[], count: number): number[] {
-  if (count === list.length) return list;
-  let next: number[];
-  if (count > list.length) {
-    const added = count - list.length;
-    next = list.map((value) => (value * list.length) / count);
-    for (let i = 0; i < added; i++) next.push(100 / count);
-  } else {
-    next = list.slice(0, count);
-  }
-  const sum = next.reduce((acc, value) => acc + value, 0) || 1;
-  next = next.map((value) => Math.round(((value * 100) / sum) * 100) / 100);
-  // 반올림 잔차는 마지막 항목으로 흡수해 합을 정확히 100으로 맞춘다
-  const rest = next.slice(0, -1).reduce((acc, value) => acc + value, 0);
-  next[next.length - 1] = Math.round((100 - rest) * 100) / 100;
+function splitLastPercentage(list: number[]): number[] {
+  const last = list[list.length - 1];
+  if (last === undefined) return [100];
+  const kept = round2(last / 2);
+  return [...list.slice(0, -1), kept, round2(last - kept)];
+}
+
+/**
+ * 항목 하나를 지우고 그 몫을 이웃이 돌려받는다 — 앞 항목이 있으면 앞, 없으면 뒤 (ADR-034).
+ * 나머지 항목은 건드리지 않아 추가↔삭제가 정확히 원래대로 돌아온다.
+ *
+ * @param list - 백분율 목록 (합 100)
+ * @param index - 지울 항목 위치
+ * @returns 항목이 하나 줄어든 새 목록 (한 항목만 남으면 100)
+ */
+function removePercentageToNeighbor(list: number[], index: number): number[] {
+  if (list.length <= 1) return [100];
+  const removed = list[index] ?? 0;
+  const next = list.filter((_, i) => i !== index);
+  const neighbor = index > 0 ? index - 1 : 0;
+  next[neighbor] = round2((next[neighbor] ?? 0) + removed);
   return next;
 }
 
-/** 열 너비 합을 100으로 정규화 — keepIndex는 값을 유지하고 잔차는 다른 항목이 흡수 */
-function normalizeWidths<T extends { widthPercentage: number }>(columns: T[], keepIndex = -1): T[] {
-  const rounded = columns.map((col) => ({
-    ...col,
-    widthPercentage: Math.round(col.widthPercentage * 100) / 100,
-  }));
-  const sum = rounded.reduce((acc, col) => acc + col.widthPercentage, 0);
-  const diff = Math.round((100 - sum) * 100) / 100;
-  if (diff !== 0) {
-    // 잔차 흡수 대상: keepIndex가 아닌 마지막 열
-    for (let i = rounded.length - 1; i >= 0; i--) {
-      if (i !== keepIndex) {
-        rounded[i]!.widthPercentage = Math.round((rounded[i]!.widthPercentage + diff) * 100) / 100;
-        break;
-      }
-    }
-  }
-  return rounded;
+/**
+ * 항목 수를 바꾼다 — 늘릴 때는 마지막을 절반씩 나누고, 줄일 때는 뒤에서부터 지워
+ * 그 몫을 앞 항목이 돌려받는다. 손대지 않은 항목은 그대로라 되돌리면 원래 비율로 온다.
+ *
+ * @param list - 백분율 목록 (합 100)
+ * @param count - 바뀐 항목 수
+ * @returns 길이가 count인 새 목록
+ */
+function resizePercentages(list: number[], count: number): number[] {
+  let next = [...list];
+  while (next.length < count) next = splitLastPercentage(next);
+  while (next.length > count) next = removePercentageToNeighbor(next, next.length - 1);
+  return next;
 }
 
 /** 비율(생략 시 균등)로 나눈 누적 경계 위치(mm) — 길이 = count + 1 */
@@ -1553,6 +1565,10 @@ export class SlipDesigner extends LitElement {
       opacity: 0.35;
       cursor: default;
     }
+    .col-modal-actions {
+      display: flex;
+      gap: 6px;
+    }
     .col-add,
     .col-modal-open {
       display: inline-flex;
@@ -1567,6 +1583,10 @@ export class SlipDesigner extends LitElement {
       font-size: 11px;
       color: var(--sk-text-muted);
       cursor: pointer;
+    }
+    .col-add:disabled {
+      opacity: 0.35;
+      cursor: default;
     }
     .col-add svg,
     .col-modal-open svg {
@@ -3105,44 +3125,81 @@ export class SlipDesigner extends LitElement {
   private _addTableColumn(): void {
     this._updateElement((el) => {
       if (el.type !== 'dynamicTable') return;
-      const count = el.columns.length + 1;
       const used = new Set(el.columns.map((col) => col.key));
-      let index = count;
+      let index = el.columns.length + 1;
       while (used.has(`col${index}`)) index++;
-      const scaled = el.columns.map((col) => ({
-        ...col,
-        widthPercentage: (col.widthPercentage * el.columns.length) / count,
-      }));
-      scaled.push({ key: `col${index}`, title: '', widthPercentage: 100 / count });
-      el.columns = normalizeWidths(scaled);
+      // 마지막 열 너비를 절반씩 나눠 갖는다 — 나머지 열은 그대로 (ADR-034)
+      const widths = splitLastPercentage(el.columns.map((col) => col.widthPercentage));
+      el.columns = [
+        ...el.columns.map((col, i) => ({ ...col, widthPercentage: widths[i]! })),
+        { key: `col${index}`, title: '', widthPercentage: widths[widths.length - 1]! },
+      ];
     });
   }
 
-  /** 열 삭제 (최소 1열 유지) — 남은 열을 비례 확대해 합 100을 유지한다 */
+  /**
+   * 모든 열을 같은 너비로 맞춘다 — 하나하나 입력하지 않고 한 번에 고르게 만든다.
+   * 반올림 잔여는 마지막 열이 흡수해 합이 정확히 100이 된다.
+   */
+  private _evenTableColumnWidths(): void {
+    this._updateElement((el) => {
+      if (el.type !== 'dynamicTable' || el.columns.length <= 1) return;
+      const each = round2(100 / el.columns.length);
+      const last = round2(100 - each * (el.columns.length - 1));
+      el.columns = el.columns.map((col, i) => ({
+        ...col,
+        widthPercentage: i === el.columns.length - 1 ? last : each,
+      }));
+    });
+  }
+
+  /** 열 삭제 (최소 1열 유지) — 지운 열의 너비는 이웃 열이 돌려받는다 (ADR-034) */
   private _removeTableColumn(index: number): void {
     this._updateElement((el) => {
       if (el.type !== 'dynamicTable' || el.columns.length <= 1) return;
-      el.columns = normalizeWidths(el.columns.filter((_, i) => i !== index));
+      const widths = removePercentageToNeighbor(
+        el.columns.map((col) => col.widthPercentage), index,
+      );
+      el.columns = el.columns
+        .filter((_, i) => i !== index)
+        .map((col, i) => ({ ...col, widthPercentage: widths[i]! }));
     });
   }
 
-  /** 열 너비 변경 — 나머지 열이 비례로 남은 몫을 나눠 갖는다 (합 100 유지) */
+  /**
+   * 열 너비 변경 — 늘리거나 줄인 만큼을 **이웃 열 하나**가 주고받는다 (ADR-034).
+   * 이웃은 오른쪽 열, 마지막 열이면 왼쪽 열이다. 나머지 열은 건드리지 않는다.
+   * 이웃이 최소 너비(1%) 아래로 내려가면 거기까지만 바뀐다.
+   */
   private _setTableColumnWidth(index: number, value: number): void {
     const el = this._findSelectedElement();
-    if (!el || el.type !== 'dynamicTable') return;
-    if (!Number.isFinite(value) || value <= 0 || value >= 100) {
+    if (!el || el.type !== 'dynamicTable' || el.columns.length <= 1) {
+      this.requestUpdate();
+      return;
+    }
+    if (!Number.isFinite(value) || value < MIN_COLUMN_PERCENTAGE || value >= 100) {
+      this.requestUpdate();
+      return;
+    }
+    const neighbor = index + 1 < el.columns.length ? index + 1 : index - 1;
+    const current = el.columns[index]!.widthPercentage;
+    const neighborWidth = el.columns[neighbor]!.widthPercentage;
+    // 이웃이 최소 너비 아래로 내려가지 않는 선까지만 넓힌다
+    const limit = round2(current + neighborWidth - MIN_COLUMN_PERCENTAGE);
+    const applied = Math.min(round2(value), limit);
+    if (applied === current) {
       this.requestUpdate();
       return;
     }
     this._updateElement((element) => {
       if (element.type !== 'dynamicTable') return;
-      const othersTotal = element.columns.reduce(
-        (acc, col, i) => (i === index ? acc : acc + col.widthPercentage), 0);
-      const factor = (100 - value) / (othersTotal || 1);
-      element.columns = normalizeWidths(element.columns.map((col, i) =>
-        i === index
-          ? { ...col, widthPercentage: value }
-          : { ...col, widthPercentage: col.widthPercentage * factor }), index);
+      element.columns = element.columns.map((col, i) => {
+        if (i === index) return { ...col, widthPercentage: applied };
+        if (i === neighbor) {
+          return { ...col, widthPercentage: round2(neighborWidth - (applied - current)) };
+        }
+        return col;
+      });
     });
   }
 
@@ -5578,8 +5635,15 @@ export class SlipDesigner extends LitElement {
                 ?disabled=${el.columns.length <= 1}
                 @click=${() => this._removeTableColumn(index)}>${icons.pageRemove}</button>
             </div>`)}
-          <button class="col-add" aria-label=${s.addColumn}
-            @click=${() => this._addTableColumn()}>${icons.pageAdd}<span>${s.addColumn}</span></button>
+          <div class="col-modal-actions">
+            <button class="col-add" aria-label=${s.addColumn}
+              @click=${() => this._addTableColumn()}>${icons.pageAdd}<span>${s.addColumn}</span></button>
+            <button class="col-add" aria-label=${s.evenWidths}
+              ?disabled=${el.columns.length <= 1}
+              @click=${() => this._evenTableColumnWidths()}>
+              ${icons.evenWidths}<span>${s.evenWidths}</span>
+            </button>
+          </div>
         </div>
         <div class="modal-foot">
           <button class="btn primary" @click=${close}>${s.close}</button>
