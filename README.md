@@ -23,7 +23,9 @@ UI로 전표(양식 문서)를 쉽게 만들고, 보고, 출력할 수 있는 **
 
 ```bash
 pnpm install
-pnpm demo   # → http://localhost:5173
+pnpm demo         # 바닐라 → http://localhost:5173
+pnpm demo:react   # React  → http://localhost:5174
+pnpm demo:vue     # Vue    → http://localhost:5175
 ```
 
 양식 만들기(요소 추가·드래그·스냅·표·도형·수식·샘플 데이터·내 양식 저장)와
@@ -31,7 +33,17 @@ pnpm demo   # → http://localhost:5173
 편집 내용은 브라우저에 자동 저장되어 새로고침해도 이어서 작업할 수 있고,
 파일로 내려받기·열기로 `.slip` 파일을 주고받을 수 있다.
 데모는 라이브러리 소스를 직접 참조하므로 코드를 고치면 새로고침 없이 바로 반영된다.
-데모 코드(`examples/demo/`)가 곧 호스트 앱이 SlipKit을 붙이는 방법의 예시다.
+
+**데모 3종은 기능이 같고 붙이는 방법만 다르다** — 쓰는 프레임워크에 맞는 예시를 골라 보면 된다.
+
+| 예시 | 붙이는 방법 |
+|---|---|
+| [`examples/demo`](examples/demo) | 커스텀 엘리먼트를 그대로 (`<slip-designer>`·`<slip-form>`) |
+| [`examples/react-demo`](examples/react-demo) | `@omdc-slipkit/react` 래퍼 컴포넌트 + 훅 |
+| [`examples/vue-demo`](examples/vue-demo) | `@omdc-slipkit/vue` 래퍼 컴포넌트 + SFC |
+
+무엇을 저장하고 언제 이어 쓰는지 같은 **화면과 무관한 로직은
+[`examples/shared`](examples/shared)** 한곳에 두고 세 데모가 함께 쓴다.
 
 ## 문서
 
