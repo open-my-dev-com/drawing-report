@@ -81,6 +81,8 @@ export const icons = {
   alignCenter: icon(svg`<path d="M21 5H3" /><path d="M17 12H7" /><path d="M19 19H5" />`),
   /** lucide: align-right */
   alignRight: icon(svg`<path d="M21 5H3" /><path d="M21 12H9" /><path d="M21 19H7" />`),
+  /** 캔버스 격자 (F-20) — 모눈 모양 */
+  grid: icon(svg`<rect width="18" height="18" x="3" y="3" rx="1" /><path d="M9 3v18" /><path d="M15 3v18" /><path d="M3 9h18" /><path d="M3 15h18" />`),
   /** 모든 열을 같은 너비로 (F-19) — 폭이 같은 칸 세 개 */
   evenWidths: icon(svg`<rect width="18" height="14" x="3" y="5" rx="1" /><path d="M9 5v14" /><path d="M15 5v14" />`),
   /** 요소 종류 표시 켜기·끄기 (F-18) — 이름표 모양 */

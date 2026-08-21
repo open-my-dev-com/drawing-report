@@ -1823,6 +1823,98 @@ describe('<slip-designer> 크기 조절 핸들', () => {
 // 스냅·정렬 안내선
 // ---------------------------------------------------------------------------
 
+describe('<slip-designer> 눈금자·격자 (F-20)', () => {
+  /** 격자 간격 메뉴에서 항목을 고른다 (없음·1mm·5mm·10mm) */
+  async function pickGrid(
+    el: import('../src/slip-designer.js').SlipDesigner,
+    label: string,
+  ): Promise<void> {
+    toolbarButton(el, strings.designer.grid).click();
+    await el.updateComplete;
+    const option = Array.from(el.shadowRoot!.querySelectorAll('.preset-menu button'))
+      .find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
+    option.click();
+    await el.updateComplete;
+  }
+
+  it('용지 위·왼쪽에 mm 눈금자가 붙고 10mm마다 숫자가 나온다', async () => {
+    const el = await loadDesigner();
+
+    expect(el.shadowRoot!.querySelectorAll('.ruler').length).toBe(2);
+    expect(el.shadowRoot!.querySelector('.ruler-corner')).not.toBeNull();
+
+    const numbers = Array.from(el.shadowRoot!.querySelectorAll('.ruler-h text'))
+      .map((t) => t.textContent);
+    expect(numbers.slice(0, 3)).toEqual(['10', '20', '30']);
+    el.remove();
+  });
+
+  it('격자 간격을 고르면 그 간격으로 격자가 깔리고, 없음으로 끈다', async () => {
+    const el = await loadDesigner();
+    expect(el.shadowRoot!.querySelector('.grid-overlay')).toBeNull();
+
+    await pickGrid(el, '5mm');
+    const overlay = el.shadowRoot!.querySelector('.grid-overlay') as HTMLElement;
+    expect(overlay).not.toBeNull();
+    expect(overlay.style.backgroundSize).toBe('5mm 5mm');
+    expect(toolbarButton(el, strings.designer.grid).getAttribute('aria-pressed')).toBe('true');
+
+    await pickGrid(el, strings.designer.gridNone);
+    expect(el.shadowRoot!.querySelector('.grid-overlay')).toBeNull();
+    expect(toolbarButton(el, strings.designer.grid).getAttribute('aria-pressed')).toBe('false');
+    el.remove();
+  });
+
+  it('격자를 켜면 요소를 끌 때 격자에 맞아떨어진다 (Alt로 해제)', async () => {
+    const el = await loadDesigner();
+    await pickGrid(el, '10mm');
+
+    // txt-1(x=30, y=40)을 어중간한 위치로 끌면 10mm 격자로 맞춰진다
+    const div = el.shadowRoot!.querySelector('[data-id="txt-1"]') as HTMLElement;
+    const drag = async (dxMm: number, dyMm: number, altKey = false) => {
+      div.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1, altKey,
+      }));
+      div.dispatchEvent(new PointerEvent('pointermove', {
+        bubbles: true, composed: true,
+        clientX: dxMm * PX_PER_MM, clientY: dyMm * PX_PER_MM, pointerId: 1, altKey,
+      }));
+      div.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+      await el.updateComplete;
+    };
+
+    await drag(23.4, 16.7);
+    const text = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements[0]! as never as { position: { x: number; y: number } };
+    expect(text.position.x % 10).toBe(0);
+    expect(text.position.y % 10).toBe(0);
+
+    // Alt를 누르면 격자를 무시하고 자유롭게 놓인다
+    const before = { ...text.position };
+    await drag(3.3, 2.2, true);
+    expect(text.position.x).not.toBe(before.x);
+    expect(text.position.x % 10).not.toBe(0);
+    el.remove();
+  });
+
+  it('커서가 용지 위에 있으면 좌표(mm)를 보여주고, 벗어나면 감춘다', async () => {
+    const el = await loadDesigner();
+    const wrap = el.shadowRoot!.querySelector('.paper-wrap') as HTMLElement;
+
+    wrap.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: 20 * PX_PER_MM, clientY: 30 * PX_PER_MM, pointerId: 1,
+    }));
+    await el.updateComplete;
+    const coords = el.shadowRoot!.querySelector('.coords');
+    expect(coords?.textContent).toContain('mm');
+
+    wrap.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true, composed: true }));
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.coords')).toBeNull();
+    el.remove();
+  });
+});
+
 describe('<slip-designer> 스냅·정렬 안내선', () => {
   it('다른 요소 가장자리 근처로 끌면 스냅되고 안내선이 나타난다', async () => {
     const el = await loadDesigner();
