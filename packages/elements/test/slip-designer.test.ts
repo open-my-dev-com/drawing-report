@@ -237,7 +237,10 @@ describe('<slip-designer> 양식 로드', () => {
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)', () => {
-  function makeLineFile(direction?: 'horizontal' | 'vertical' | 'down' | 'up'): SlipFile {
+  function makeLineFile(
+    direction?: 'horizontal' | 'vertical' | 'down' | 'up',
+    borderWidth?: number,
+  ): SlipFile {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{
       type: 'line' as const,
@@ -247,12 +250,16 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
       width: 50,
       height: 20,
       ...(direction ? { lineDirection: direction } : {}),
+      ...(borderWidth !== undefined ? { borderWidth } : {}),
     } as never];
     return file as unknown as SlipFile;
   }
 
-  async function mountLine(direction?: 'horizontal' | 'vertical' | 'down' | 'up') {
-    parseSlipFileMock.mockReturnValue(makeLineFile(direction));
+  async function mountLine(
+    direction?: 'horizontal' | 'vertical' | 'down' | 'up',
+    borderWidth?: number,
+  ) {
+    parseSlipFileMock.mockReturnValue(makeLineFile(direction, borderWidth));
     const el = await createElement();
     el.src = '{"valid": true}';
     await el.updateComplete;
@@ -288,6 +295,65 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
   it('선 조각은 SVG 네임스페이스로 생성된다 (실브라우저에서 보이기 위한 조건)', async () => {
     const line = await mountLine('down');
     expect(line?.namespaceURI).toBe('http://www.w3.org/2000/svg');
+  });
+
+  it('선 굵기는 상자 높이가 아니라 borderWidth에서 온다 (G-32)', async () => {
+    const thin = await mountLine('horizontal', 0.5);
+    const thick = await mountLine('horizontal', 4);
+    // 상자(50x20mm)는 그대로인데 굵기만 8배 → stroke-width도 8배여야 한다
+    const thinWidth = Number(thin?.getAttribute('stroke-width'));
+    const thickWidth = Number(thick?.getAttribute('stroke-width'));
+    expect(thinWidth).toBeGreaterThan(0);
+    expect(thickWidth / thinWidth).toBeCloseTo(8, 5);
+  });
+
+  it('가로선 패널은 길이·선 굵기만 두고 높이 칸은 없앤다 (G-32)', async () => {
+    parseSlipFileMock.mockReturnValue(makeLineFile('horizontal'));
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    selectElement(el, 'line-1');
+    await el.updateComplete;
+
+    const labels = Array.from(el.shadowRoot!.querySelectorAll('.prop-row label'))
+      .map((l) => l.textContent?.trim());
+    expect(labels).toContain(strings.designer.length);
+    expect(labels).toContain(strings.designer.lineWidth);
+    // 가로선의 높이는 길이도 굵기도 아니라 내놓지 않는다
+    expect(labels).not.toContain(strings.designer.height);
+    // 테두리가 아니라 선 자체의 것이므로 이름도 다르다
+    expect(labels).toContain(strings.designer.lineColor);
+    expect(labels).not.toContain(strings.designer.borderColor);
+    expect(labels).not.toContain(strings.designer.borderWidth);
+    el.remove();
+  });
+
+  it('사선은 두 축이 모두 끝점을 정하므로 너비·높이를 그대로 둔다 (G-32)', async () => {
+    parseSlipFileMock.mockReturnValue(makeLineFile('down'));
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    selectElement(el, 'line-1');
+    await el.updateComplete;
+
+    const labels = Array.from(el.shadowRoot!.querySelectorAll('.prop-row label'))
+      .map((l) => l.textContent?.trim());
+    expect(labels).toContain(strings.designer.width);
+    expect(labels).toContain(strings.designer.height);
+    expect(labels).not.toContain(strings.designer.length);
+    el.remove();
+  });
+
+  it('선 svg는 자르지 않는다 — 상자보다 굵은 선도 PDF처럼 그대로 보여야 한다 (G-32)', async () => {
+    // happy-dom은 CSS를 계산하지 않으므로 규칙 자체가 살아 있는지로 확인한다.
+    // PDF(convert.ts appendLine)는 상자 밖까지 그리므로 캔버스도 자르면 안 된다.
+    const { SlipDesigner } = await import('../src/slip-designer.js');
+    const css = [SlipDesigner.styles].flat(Infinity).map(String).join('\n');
+    expect(css).toMatch(/\.element\.type-line svg\s*\{[^}]*overflow:\s*visible/);
   });
 });
 
@@ -1547,6 +1613,30 @@ describe('<slip-designer> 좌표 기준점', () => {
     expect(text.position).toEqual({ x: 30, y: 40 });
     // 기준점 변경만으로는 파일이 바뀌지 않는다
     expect(changes.length).toBe(0);
+    el.remove();
+  });
+
+  it('기준점은 요소마다 따로 기억한다 — 한 요소에서 바꿔도 다른 요소는 그대로 (G-32)', async () => {
+    const el = await loadDesigner();
+
+    // txt-1(60×10)만 중앙 기준으로 바꾼다
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    anchorDot(el, strings.designer.anchorC).click();
+    await el.updateComplete;
+    expect(xyInputs(el)[0].value).toBe('60'); // 30 + 60/2
+
+    // shp-1(50×30, position 100,80)은 손대지 않았으니 좌상 기준 그대로여야 한다
+    selectElement(el, 'shp-1');
+    await el.updateComplete;
+    expect(anchorDot(el, strings.designer.anchorTL).getAttribute('aria-pressed')).toBe('true');
+    expect(xyInputs(el).map((i) => i.value)).toEqual(['100', '80']);
+
+    // txt-1로 돌아오면 아까 고른 중앙 기준이 그대로 남아 있다
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    expect(anchorDot(el, strings.designer.anchorC).getAttribute('aria-pressed')).toBe('true');
+    expect(xyInputs(el)[0].value).toBe('60');
     el.remove();
   });
 

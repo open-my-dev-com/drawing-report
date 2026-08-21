@@ -129,6 +129,8 @@ function round1(v: number): number {
 const DEFAULT_FONT_SIZE = 10;
 const DEFAULT_FONT_COLOR = '#000000';
 const DEFAULT_BORDER_COLOR = '#000000';
+/** 선 굵기 기본값(mm) — PDF 변환 계층(convert.ts DEFAULT_BORDER_WIDTH)과 같아야 한다 */
+const DEFAULT_LINE_WIDTH = 0.2;
 
 /** 글자 크기(pt)를 화면 px로 — PDF와 같은 크기감 (1pt = 4/3px, 기본 10pt) */
 function fontPx(size: number | undefined): string {
@@ -1086,6 +1088,14 @@ export class SlipDesigner extends LitElement {
       display: none;
     }
     .element.type-line {
+      overflow: visible;
+    }
+    /*
+     * 선은 상자보다 굵을 수 있다 — PDF는 상자 밖까지 그리므로(convert.ts appendLine이
+     * 상자 가운데를 기준으로 굵기만큼 그린다) svg도 자르지 않아야 화면과 PDF가 맞는다.
+     * 타원·정다각형은 PDF도 상자 안에서만 그리므로 자르는 채로 둔다.
+     */
+    .element.type-line svg {
       overflow: visible;
     }
     /* 선 선택 표시는 상자 대신 선 하이라이트 + 끝점 핸들이 담당한다 (C-11) */
@@ -2135,7 +2145,6 @@ export class SlipDesigner extends LitElement {
     _drawRect: { state: true },
     _presetMenuOpen: { state: true },
     _shapeMenuOpen: { state: true },
-    _anchorIndex: { state: true },
     _selectedCell: { state: true },
     _cellEditing: { state: true },
     _lineDraft: { state: true },
@@ -2264,8 +2273,13 @@ export class SlipDesigner extends LitElement {
     snapshot: string | null;
     orig: { x: number; y: number; w: number; h: number; direction: string | undefined };
   } | null = null;
-  /** 속성 패널 X·Y가 기준으로 삼는 기준점 (ANCHORS 인덱스, 기본 좌상단) */
-  private _anchorIndex = 0;
+  /**
+   * 속성 패널 X·Y가 기준으로 삼는 기준점을 **요소별로** 기억한다
+   * (요소 id → ANCHORS 인덱스, 없으면 좌상단). 제목은 가운데, 상자는 좌상단처럼
+   * 요소마다 기준을 달리 잡을 수 있어야 한다 (B-8 의도, G-32에서 이행).
+   * 화면 전용 값이라 파일에 저장하지 않는다 — 새로 열면 다시 좌상단으로 시작한다.
+   */
+  private _anchorByElement = new Map<string, number>();
   /** 선택된 고정 그리드 셀 좌표 — 병합 편집·인라인 편집 대상 (C-10) */
   private _selectedCell: { row: number; column: number } | null = null;
   /** 인라인 셀 편집 중인지 — true면 캔버스에 입력 상자를 띄운다 */
@@ -4697,17 +4711,36 @@ export class SlipDesigner extends LitElement {
    * 좌표 기준점 선택 줄 — 3×3 점 격자. 기준점을 바꾸면 X·Y 표시만 그 기준으로
    * 다시 환산되고 요소의 실제 위치·파일 내용은 바뀌지 않는다.
    */
-  private _renderAnchorRow() {
+  /**
+   * 요소의 기본 기준점 — 곧은 선은 길이 방향이 아닌 축을 가운데로 잡는다.
+   *
+   * @remarks
+   * 가로선은 상자 가운데에 그려지므로(convert.ts appendLine) 좌상단 기준이면 Y가
+   * 선의 자리가 아니라 상자 위쪽을 가리켜 헷갈린다. 좌중앙으로 잡으면 Y가 곧
+   * 선이 놓이는 자리가 된다. 세로선은 반대로 상중앙 (G-32).
+   */
+  private _defaultAnchorIndex(el: SlipElement): number {
+    if (el.type !== 'line') return 0;
+    switch (el.lineDirection ?? 'horizontal') {
+      case 'horizontal': return 3; // 좌중앙 — Y가 곧 선의 자리
+      case 'vertical': return 1; // 상중앙 — X가 곧 선의 자리
+      default: return 0; // 사선은 상자 두 모서리를 잇는다 — 좌상단 그대로
+    }
+  }
+
+  private _renderAnchorRow(el: SlipElement) {
     const s = this._strings.designer;
+    const current = this._anchorByElement.get(el.id) ?? this._defaultAnchorIndex(el);
+    const elementId = el.id;
     return html`
       <div class="prop-row">
         <label>${s.anchor}</label>
         <div class="anchor-grid" role="group" aria-label=${s.anchor}>
           ${ANCHORS.map((a, i) => html`
             <button class="anchor-dot" title=${s[a.key]} aria-label="${s.anchor}: ${s[a.key]}"
-              aria-pressed=${String(i === this._anchorIndex)}
+              aria-pressed=${String(i === current)}
               @click=${() => {
-                this._anchorIndex = i;
+                this._anchorByElement.set(elementId, i);
                 this.requestUpdate();
               }}></button>`)}
         </div>
@@ -4734,7 +4767,8 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-    const anchor = ANCHORS[this._anchorIndex] ?? ANCHORS[0];
+    const anchor =
+      ANCHORS[this._anchorByElement.get(el.id) ?? this._defaultAnchorIndex(el)] ?? ANCHORS[0];
 
     return html`
       <div class="type-name">${this._typeName(el.type)}</div>
@@ -4745,7 +4779,7 @@ export class SlipDesigner extends LitElement {
           <input .value=${el.name}
                  @change=${(e: Event) => this._updateElement((el) => { el.name = valOf(e); })}>
         </div>
-        ${this._renderAnchorRow()}
+        ${this._renderAnchorRow(el)}
         <div class="prop-pair">
           <div class="prop-row">
             <label>X</label>
@@ -4773,29 +4807,61 @@ export class SlipDesigner extends LitElement {
                    }}>
           </div>
         </div>
-        <div class="prop-pair">
-          <div class="prop-row">
-            <label>${s.width}</label>
-            <input type="number" step="0.5" min="1" .value=${String(el.width)}
-                   @change=${(e: Event) => {
-                     const v = numOf(e);
-                     if (!Number.isNaN(v)) this._updateElement((el) => { el.width = Math.max(0, v); });
-                   }}>
-          </div>
-          <div class="prop-row">
-            <label>${s.height}</label>
-            <input type="number" step="0.5" min="1" .value=${String(el.height)}
-                   @change=${(e: Event) => {
-                     const v = numOf(e);
-                     if (!Number.isNaN(v)) this._updateElement((el) => { el.height = Math.max(0, v); });
-                   }}>
-          </div>
-        </div>
+        ${this._renderSizeRows(el)}
       </div>
 
       ${this._renderTypeProps(el)}
       ${this._renderStyleGroups(el)}
     `;
+  }
+
+  /**
+   * 크기 칸 — 보통은 너비·높이 둘, **곧은 선은 길이 하나와 굵기**로 보여준다.
+   *
+   * @remarks
+   * 가로선의 높이(세로선의 너비)는 길이도 굵기도 아니고 선을 반만큼 밀 뿐이라
+   * 내놓으면 굵기 칸으로 오해된다. 대신 진짜 굵기를 크기 옆에 둔다 (G-32).
+   * 사선은 너비·높이가 둘 다 끝점을 정하므로 그대로 보여준다.
+   */
+  private _renderSizeRows(el: SlipElement) {
+    const s = this._strings.designer;
+    const setSize = (key: 'width' | 'height') => (e: Event) => {
+      const v = Number((e.target as HTMLInputElement).value);
+      if (!Number.isNaN(v)) this._updateElement((target) => { target[key] = Math.max(0, v); });
+    };
+    const sizeRow = (label: string, key: 'width' | 'height') => html`
+      <div class="prop-row">
+        <label>${label}</label>
+        <input type="number" step="0.5" min="1" .value=${String(el[key])}
+               aria-label=${label} @change=${setSize(key)}>
+      </div>`;
+
+    const straight =
+      el.type === 'line' &&
+      ((el.lineDirection ?? 'horizontal') === 'horizontal' ||
+        el.lineDirection === 'vertical');
+    if (straight) {
+      const lengthKey = (el.lineDirection ?? 'horizontal') === 'horizontal' ? 'width' : 'height';
+      return html`
+        <div class="prop-pair">
+          ${sizeRow(s.length, lengthKey)}
+          ${this._renderBorderWidthSelect(
+            el.borderWidth,
+            DEFAULT_LINE_WIDTH,
+            false,
+            'borderWidth',
+            (v) => this._updateElement((target) => {
+              (target as Record<string, unknown>).borderWidth = v;
+            }),
+            s.lineWidth,
+          )}
+        </div>`;
+    }
+    return html`
+      <div class="prop-pair">
+        ${sizeRow(s.width, 'width')}
+        ${sizeRow(s.height, 'height')}
+      </div>`;
   }
 
   /**
@@ -5529,8 +5595,11 @@ export class SlipDesigner extends LitElement {
     allowNone: boolean,
     key: string,
     apply: (value: number) => void,
+    /** 라벨 — 선은 테두리가 아니라 선 자체의 굵기라 다르게 부른다 (G-32) */
+    labelText?: string,
   ) {
     const s = this._strings.designer;
+    const label = labelText ?? s.borderWidth;
     const effective = current ?? fallback;
     const open = this._openPopKey === key;
     // 단계 밖의 기존 값(이전 편집·외부 파일)도 고를 수 있게 목록에 끼워 넣는다
@@ -5543,8 +5612,8 @@ export class SlipDesigner extends LitElement {
     };
     return html`
       <div class="prop-row">
-        <label>${s.borderWidth}</label>
-        <button class="width-btn" aria-label=${s.borderWidth} aria-expanded=${String(open)}
+        <label>${label}</label>
+        <button class="width-btn" aria-label=${label} aria-expanded=${String(open)}
           @click=${() => {
             this._openPopKey = open ? null : key;
             this.requestUpdate();
@@ -5557,15 +5626,15 @@ export class SlipDesigner extends LitElement {
         </button>
       </div>
       ${open ? html`
-        <div class="width-pop" role="menu" aria-label=${s.borderWidth}>
+        <div class="width-pop" role="menu" aria-label=${label}>
           ${allowNone ? html`
-            <button role="menuitem" aria-label="${s.borderWidth}: ${s.colorNone}"
+            <button role="menuitem" aria-label="${label}: ${s.colorNone}"
               aria-pressed=${String(effective <= 0)}
               @click=${() => pick(0)}>
               <span class="width-value">${s.colorNone}</span>
             </button>` : nothing}
           ${steps.map((w) => html`
-            <button role="menuitem" aria-label="${s.borderWidth}: ${w}mm"
+            <button role="menuitem" aria-label="${label}: ${w}mm"
               aria-pressed=${String(w === effective)}
               @click=${() => pick(w)}>
               <span class="width-line" style="border-top-width:${previewPx(w)}px"></span>
@@ -5642,6 +5711,9 @@ export class SlipDesigner extends LitElement {
       el.type === 'text' || el.type === 'field' || el.type === 'fixedGrid' || el.type === 'dynamicTable';
     const hasTextDecor = el.type === 'text' || el.type === 'field';
     const hasBackground = el.type !== 'line';
+    // 선은 테두리를 두르는 게 아니라 선 자체가 색·굵기·모양을 갖는다 (G-32).
+    // 굵기는 크기 칸 옆으로 옮겼으므로(_renderSizeRows) 여기서는 빼고 색·모양만 남긴다.
+    const isLine = el.type === 'line';
     // 테두리 형태(파선·점선)는 직선 분해 렌더가 가능한 종류만 (ADR-032)
     const hasBorderShape = el.type === 'line' || el.type === 'rect' || el.type === 'fixedGrid';
     // 텍스트·필드는 기본 테두리 없음, 나머지는 기본 0.2mm (PDF 변환 계층과 동일)
@@ -5672,14 +5744,15 @@ export class SlipDesigner extends LitElement {
           ${this._renderColorControl(s.backgroundColor, r.backgroundColor as string | undefined, 'backgroundColor')}
         </div>` : nothing}
       <div class="prop-section">
-        <div class="prop-section-title">${s.styleBorder}</div>
+        <div class="prop-section-title">${isLine ? s.styleLine : s.styleBorder}</div>
         ${this._renderColorControl(
-          s.borderColor, r.borderColor as string | undefined, 'borderColor', undefined, DEFAULT_BORDER_COLOR,
+          isLine ? s.lineColor : s.borderColor,
+          r.borderColor as string | undefined, 'borderColor', undefined, DEFAULT_BORDER_COLOR,
         )}
-        ${this._renderBorderWidthSelect(
+        ${isLine ? nothing : this._renderBorderWidthSelect(
           r.borderWidth as number | undefined,
           defaultWidth,
-          el.type !== 'line',
+          true,
           'borderWidth',
           (v) => this._updateElement((target) => {
             const t = target as Record<string, unknown>;
@@ -5691,7 +5764,7 @@ export class SlipDesigner extends LitElement {
         ${hasBorderShape
           ? this._renderBorderShapeRow(
               r.borderStyle as 'solid' | 'dashed' | 'dotted' | undefined,
-              `${s.styleBorder} ${s.borderShape}`,
+              isLine ? s.lineShape : `${s.styleBorder} ${s.borderShape}`,
               'borderStyle',
               (v) => this._updateElement((target) => {
                 const t = target as Record<string, unknown>;
