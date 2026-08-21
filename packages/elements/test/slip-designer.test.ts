@@ -315,7 +315,7 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     }]);
     const content = el.shadowRoot?.querySelector('.el-content') as HTMLElement;
     expect(parseFloat(content.style.fontSize)).toBeCloseTo(20, 5); // 15pt × 4/3
-    expect(content.style.justifyContent).toBe('center');
+    expect(content.style.textAlign).toBe('center');
     el.remove();
   });
 
@@ -1201,12 +1201,11 @@ describe('<slip-designer> 표 내부 편집', () => {
     // 셀 배경색 — 셀 전용 색 버튼을 펼쳐 견본 클릭
     const byAria = (label: string) => Array.from(el.shadowRoot!.querySelectorAll('button'))
       .find((b) => b.getAttribute('aria-label') === label) as HTMLButtonElement;
-    // 선택 셀 섹션의 배경색 버튼(요소 스타일 섹션에도 같은 라벨이 있어 첫 번째=셀 섹션)
-    const bgButtons = Array.from(el.shadowRoot!.querySelectorAll('.color-btn'))
-      .filter((b) => b.getAttribute('aria-label') === strings.designer.backgroundColor);
-    (bgButtons[0] as HTMLElement).click();
+    // 셀 전용 색 버튼 (요소 스타일 섹션과 이름으로 구분된다, F-18)
+    const cellBg = `${strings.designer.cell} ${strings.designer.backgroundColor}`;
+    byAria(cellBg).click();
     await el.updateComplete;
-    byAria(`${strings.designer.backgroundColor} #d93025`).click();
+    byAria(`${cellBg} #d93025`).click();
     await el.updateComplete;
 
     // 글자 크기·정렬
@@ -1251,13 +1250,12 @@ describe('<slip-designer> 표 내부 편집', () => {
     await el.updateComplete;
     expect(cell.borderWidth).toBe(0.5);
 
-    // 셀 테두리 형태를 점선으로
-    const shapeSelect = Array.from(el.shadowRoot!.querySelectorAll('select'))
-      .find((sel) => sel.getAttribute('aria-label') ===
-        `${strings.designer.cell} ${strings.designer.borderShape}`) as HTMLSelectElement;
-    shapeSelect.value = 'dotted';
-    shapeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+    // 셀 테두리 형태를 점선으로 (굵기와 같은 미리보기 버튼 + 펼침 메뉴, F-18)
+    await pickBorderShape(
+      el,
+      `${strings.designer.cell} ${strings.designer.borderShape}`,
+      strings.designer.borderDotted,
+    );
     expect(cell.borderStyle).toBe('dotted');
     el.remove();
   });
@@ -1612,6 +1610,25 @@ async function loadDesigner() {
   await flush();
   await el.updateComplete;
   return el;
+}
+
+/**
+ * 테두리 형태를 고른다 (F-18: 선택 상자 대신 선 모양 미리보기 버튼 + 펼침 메뉴).
+ * ariaLabel은 버튼·메뉴를 구분하는 이름(요소용·셀용), shapeLabel은 실선·파선·점선 이름.
+ */
+async function pickBorderShape(
+  el: import('../src/slip-designer.js').SlipDesigner,
+  ariaLabel: string,
+  shapeLabel: string,
+): Promise<void> {
+  const button = Array.from(el.shadowRoot!.querySelectorAll('.width-btn'))
+    .find((b) => b.getAttribute('aria-label') === ariaLabel) as HTMLButtonElement;
+  button.click();
+  await el.updateComplete;
+  const option = Array.from(el.shadowRoot!.querySelectorAll('.width-pop button'))
+    .find((b) => b.getAttribute('aria-label') === `${ariaLabel}: ${shapeLabel}`) as HTMLButtonElement;
+  option.click();
+  await el.updateComplete;
 }
 
 function selectElement(el: Element, id: string): HTMLElement {
@@ -2407,6 +2424,133 @@ describe('<slip-designer> 선 전용 편집 (C-11)', () => {
   });
 });
 
+describe('<slip-designer> 패널 표시 정리 (F-18)', () => {
+  function fileOf(el: Element): SlipTemplateFile {
+    return (el as unknown as { _file: SlipTemplateFile })._file;
+  }
+
+  it('펼쳐지는 항목은 한 번에 하나만 열린다 — 다른 것을 열면 먼저 것이 닫힌다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'shp-1'); // 사각형 — 배경색·테두리색·굵기·형태가 모두 있다
+    await el.updateComplete;
+
+    (el.shadowRoot!.querySelector('.color-btn') as HTMLElement).click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.color-pop').length).toBe(1);
+
+    // 테두리 굵기를 열면 색 피커가 닫힌다
+    (el.shadowRoot!.querySelector('.width-btn') as HTMLElement).click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.color-pop').length).toBe(0);
+    expect(el.shadowRoot!.querySelectorAll('.width-pop').length).toBe(1);
+
+    // 다시 색을 열면 굵기가 닫힌다
+    (el.shadowRoot!.querySelector('.color-btn') as HTMLElement).click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.width-pop').length).toBe(0);
+    expect(el.shadowRoot!.querySelectorAll('.color-pop').length).toBe(1);
+    el.remove();
+  });
+
+  it('테두리 형태도 굵기처럼 선 모양 미리보기와 함께 펼쳐진다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'shp-1');
+    await el.updateComplete;
+
+    const shapeButton = Array.from(el.shadowRoot!.querySelectorAll('.width-btn'))
+      .find((b) => b.getAttribute('aria-label')
+        === `${strings.designer.styleBorder} ${strings.designer.borderShape}`) as HTMLButtonElement;
+    // 버튼에도 지금 형태의 선 모양이 보인다
+    expect(shapeButton.querySelector('.shape-line.shape-solid')).not.toBeNull();
+
+    shapeButton.click();
+    await el.updateComplete;
+    const options = Array.from(el.shadowRoot!.querySelectorAll('.width-pop button'));
+    expect(options.map((o) => o.querySelector('.shape-line')?.className))
+      .toEqual(['shape-line shape-solid', 'shape-line shape-dashed', 'shape-line shape-dotted']);
+    el.remove();
+  });
+
+  it('지정하지 않은 항목은 실제 적용 중인 값을 흐리게 보여준다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1'); // 글자색·크기 미지정 텍스트
+    await el.updateComplete;
+
+    const fontColor = Array.from(el.shadowRoot!.querySelectorAll('.color-btn'))
+      .find((b) => b.getAttribute('aria-label') === strings.designer.fontColor)!;
+    // 미지정이지만 실제로 적용되는 검정을 흐리게 보여준다
+    expect(fontColor.querySelector('.color-value')?.textContent?.trim()).toBe('#000000');
+    expect(fontColor.querySelector('.color-value')?.classList.contains('dim')).toBe(true);
+
+    const fontSize = el.shadowRoot!.querySelector('input[placeholder="10"]') as HTMLInputElement;
+    expect(fontSize.value).toBe('');
+    expect(fontSize.classList.contains('dim')).toBe(true);
+
+    // 값을 지정하면 흐린 표시가 사라진다
+    fontSize.value = '14';
+    fontSize.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    const after = el.shadowRoot!.querySelector('input[placeholder="10"]') as HTMLInputElement;
+    expect(after.value).toBe('14');
+    expect(after.classList.contains('dim')).toBe(false);
+    el.remove();
+  });
+
+  it('고정 그리드 셀은 요소에서 물려받는 글자색을 흐리게 보여준다', async () => {
+    const file = makeTemplateFile();
+    file.template.pages[0]!.elements = [{
+      type: 'fixedGrid' as const, id: 'grd-1', name: 'g', position: { x: 10, y: 10 },
+      width: 90, height: 30, rows: 2, columns: 2, columnWidthPercentages: [50, 50],
+      fontColor: '#1a73e8',
+      cells: [{ row: 0, column: 0, content: '가' }],
+    } as never];
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    // 표를 고른 뒤 그 자리를 한 번 더 누르면 셀 선택 모드가 되어 (0,0) 셀이 골라진다
+    const PX = 96 / 25.4;
+    const grid = el.shadowRoot!.querySelector('[data-id="grd-1"]') as HTMLElement;
+    for (let i = 0; i < 2; i += 1) {
+      grid.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true, composed: true, clientX: 15 * PX, clientY: 15 * PX, pointerId: 1,
+      }));
+      grid.dispatchEvent(new PointerEvent('pointerup', {
+        bubbles: true, composed: true, clientX: 15 * PX, clientY: 15 * PX, pointerId: 1,
+      }));
+      await el.updateComplete;
+    }
+
+    const cellFontColor = Array.from(el.shadowRoot!.querySelectorAll('.color-btn'))
+      .find((b) => b.getAttribute('aria-label')
+        === `${strings.designer.cell} ${strings.designer.fontColor}`)!;
+    // 셀에 지정하지 않았으면 표 요소의 글자색이 적용되므로 그 값을 흐리게 보여준다
+    expect(cellFontColor.querySelector('.color-value')?.textContent?.trim()).toBe('#1a73e8');
+    expect(cellFontColor.querySelector('.color-value')?.classList.contains('dim')).toBe(true);
+
+    // 요소 쪽 글자색은 지정된 값이라 흐리지 않다
+    const elementFontColor = Array.from(el.shadowRoot!.querySelectorAll('.color-btn'))
+      .find((b) => b.getAttribute('aria-label') === strings.designer.fontColor)!;
+    expect(elementFontColor.querySelector('.color-value')?.classList.contains('dim')).toBe(false);
+    el.remove();
+  });
+
+  it('텍스트의 줄바꿈이 캔버스에도 그대로 보인다 (PDF와 같게)', async () => {
+    const file = makeTemplateFile();
+    file.template.pages[0]!.elements = [{
+      type: 'text' as const, id: 'txt-nl', name: 'nl', position: { x: 10, y: 10 },
+      width: 60, height: 20, content: '첫째 줄\n둘째 줄',
+    } as never];
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    const content = el.shadowRoot?.querySelector('.el-content') as HTMLElement;
+    expect(content.textContent).toBe('첫째 줄\n둘째 줄');
+    // 한 줄로 눌리지 않도록 줄바꿈을 살려 표시한다
+    expect(getComputedStyle(content).whiteSpace).toBe('pre-wrap');
+    el.remove();
+  });
+});
+
 describe('<slip-designer> 글자 스타일·테두리 편집 (C-11)', () => {
   const byAria = (el: Element, label: string) =>
     Array.from(el.shadowRoot!.querySelectorAll('button'))
@@ -2473,12 +2617,11 @@ describe('<slip-designer> 글자 스타일·테두리 편집 (C-11)', () => {
       .elements[1]! as never as Record<string, unknown>;
     expect(rect.radius).toBe(3);
 
-    const shapeSelect = Array.from(el.shadowRoot!.querySelectorAll('select'))
-      .find((sel) => sel.getAttribute('aria-label') ===
-        `${strings.designer.styleBorder} ${strings.designer.borderShape}`) as HTMLSelectElement;
-    shapeSelect.value = 'dashed';
-    shapeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+    await pickBorderShape(
+      el,
+      `${strings.designer.styleBorder} ${strings.designer.borderShape}`,
+      strings.designer.borderDashed,
+    );
 
     expect(rect.borderStyle).toBe('dashed');
     expect(rect.radius).toBeUndefined();
