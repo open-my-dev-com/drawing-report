@@ -299,8 +299,8 @@ interface ResizeState {
 /**
  * 사이드바에서 요소가 아닌 것을 고른 상태 (ADR-034).
  *
- * 바인딩은 요소와 별개의 1급 항목이고, 표 열은 그 표 바인딩의 하위 항목이다.
- * 둘 다 오른쪽 패널에서 편집한다.
+ * 페이지·바인딩은 요소와 별개의 1급 항목이고, 표 열은 그 표 바인딩의 하위 항목이다.
+ * 전부 오른쪽 패널에서 편집한다.
  */
 /** 동적 표 요소 — 사이드바에서 하위 열까지 보여줄 때 쓴다 */
 type DynamicTableElement = Extract<SlipElement, { type: 'dynamicTable' }>;
@@ -330,6 +330,7 @@ interface BindingInfo {
 }
 
 type SideSelection =
+  | { kind: 'page'; index: number }
   | { kind: 'binding'; key: string }
   | { kind: 'column'; elementId: string; index: number }
   | null;
@@ -493,6 +494,10 @@ export class SlipDesigner extends LitElement {
     .thumb.current {
       border-color: var(--sk-accent);
       box-shadow: 0 0 0 1px var(--sk-accent);
+    }
+    /* 고른 페이지 — 현재 페이지 표시(테두리)에 더해 옅은 바탕으로 구분 (ADR-034) */
+    .thumb.selected {
+      background: var(--sk-accent-soft);
     }
     .thumb-paper {
       /* span이 인라인으로 남으면 width·height가 무시돼 축소 상자가 밖으로 흘러나온다 */
@@ -1809,11 +1814,13 @@ export class SlipDesigner extends LitElement {
       font-family: inherit;
       color: inherit;
     }
-    .col-order {
+    .col-order,
+    .page-order {
       display: inline-flex;
       gap: 2px;
     }
-    .col-order button {
+    .col-order button,
+    .page-order button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -1826,15 +1833,18 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
       cursor: pointer;
     }
-    .col-order button:hover:not(:disabled) {
+    .col-order button:hover:not(:disabled),
+    .page-order button:hover:not(:disabled) {
       border-color: var(--sk-accent);
       color: var(--sk-accent);
     }
-    .col-order button:disabled {
+    .col-order button:disabled,
+    .page-order button:disabled {
       opacity: 0.3;
       cursor: default;
     }
-    .col-order button svg {
+    .col-order button svg,
+    .page-order button svg {
       width: 12px;
       height: 12px;
     }
@@ -3507,6 +3517,32 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
+  /** 썸네일에서 페이지를 골랐을 때 — 그 페이지로 옮기고 오른쪽에 페이지 설정을 연다 (ADR-034) */
+  private _selectPage(index: number): void {
+    this._goToPage(index);
+    this._selectedId = null;
+    this._selectedCell = null;
+    this._cellEditing = false;
+    this._sideSelection = { kind: 'page', index: this._pageIndex };
+    this.requestUpdate();
+  }
+
+  /** 페이지 순서를 옮긴다 — delta -1은 앞으로, +1은 뒤로 (요소는 그대로 따라간다) */
+  private _movePage(delta: number): void {
+    const pages = this._file?.template.pages;
+    if (!pages) return;
+    const target = this._pageIndex + delta;
+    if (target < 0 || target >= pages.length) return;
+
+    this._pushUndo();
+    const [moved] = pages.splice(this._pageIndex, 1);
+    pages.splice(target, 0, moved!);
+    this._pageIndex = target;
+    this._sideSelection = { kind: 'page', index: target };
+    this._emitChange();
+    this.requestUpdate();
+  }
+
   /** 사이드바에서 바인딩을 골랐을 때 — 오른쪽 패널이 그 바인딩 편집으로 바뀐다 (ADR-034) */
   private _selectBinding(key: string): void {
     this._bindingKeyError = false;
@@ -3591,10 +3627,14 @@ export class SlipDesigner extends LitElement {
       <div class="side-section">
         <div class="side-title">${s.sidebarPages}</div>
         ${pages.map((page, i) => html`
-          <button class="thumb ${i === this._pageIndex ? 'current' : ''}"
+          <button class="thumb ${i === this._pageIndex ? 'current' : ''} ${
+            this._sideSelection?.kind === 'page' && this._sideSelection.index === i
+              ? 'selected'
+              : ''
+          }"
             aria-label="${s.sidebarPages} ${i + 1}"
             aria-pressed=${String(i === this._pageIndex)}
-            @click=${() => this._goToPage(i)}>
+            @click=${() => this._selectPage(i)}>
             <span class="thumb-paper"
               style="width:${thumbW}px;height:${(paper.height * scale).toFixed(1)}px">
               ${page.elements.map((el) => html`<span class="thumb-el" style="
@@ -3615,7 +3655,7 @@ export class SlipDesigner extends LitElement {
             ? html`<button class="side-page-head ${i === this._pageIndex ? 'current' : ''}"
                 aria-label="${s.sidebarElements} ${s.sidebarPages} ${i + 1}"
                 aria-expanded=${String(i === this._pageIndex)}
-                @click=${() => this._goToPage(i)}>
+                @click=${() => this._selectPage(i)}>
                 <span>${s.sidebarPages} ${i + 1}</span><span>${page.elements.length}</span>
               </button>`
             : nothing}
@@ -4288,6 +4328,7 @@ export class SlipDesigner extends LitElement {
   private _renderPropertyPanel() {
     // 선택 대상은 요소 · 바인딩 · 표 열 셋 — 아무것도 고르지 않았으면 양식 설정 (ADR-034)
     const sel = this._sideSelection;
+    if (sel?.kind === 'page') return this._renderPagePanel(sel.index);
     if (sel?.kind === 'column') {
       const table = this._findElement(sel.elementId);
       if (table?.type === 'dynamicTable' && table.columns[sel.index]) {
@@ -4365,6 +4406,62 @@ export class SlipDesigner extends LitElement {
 
       ${this._renderTypeProps(el)}
       ${this._renderStyleGroups(el)}
+    `;
+  }
+
+  /**
+   * 페이지 패널 — 썸네일에서 페이지를 골랐을 때 (ADR-034).
+   * 페이지 순서 이동·추가·삭제를 여기서 하고, 용지 설정은 양식 전체 설정으로 안내한다.
+   */
+  private _renderPagePanel(index: number) {
+    const s = this._strings.designer;
+    const pages = this._file?.template.pages ?? [];
+    const page = pages[index];
+    if (!page) return this._renderFormSettings();
+
+    return html`
+      <div class="type-name">${s.sidebarPages} ${index + 1}</div>
+
+      <div class="prop-section">
+        <div class="prop-row">
+          <label>${s.elementCount}</label>
+          <input .value=${String(page.elements.length)} disabled>
+        </div>
+        <div class="prop-row">
+          <label>${s.pageOrder}</label>
+          <span class="page-order">
+            <button title=${s.orderForward} aria-label="${s.sidebarPages} ${s.orderForward}"
+              ?disabled=${index === 0}
+              @click=${() => this._movePage(-1)}>${icons.up}</button>
+            <button title=${s.orderBackward} aria-label="${s.sidebarPages} ${s.orderBackward}"
+              ?disabled=${index === pages.length - 1}
+              @click=${() => this._movePage(1)}>${icons.down}</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="prop-section">
+        <button class="col-modal-open" aria-label=${s.addPage}
+          @click=${() => {
+            this._addPage();
+            this._sideSelection = { kind: 'page', index: this._pageIndex };
+          }}>${icons.pageAdd}<span>${s.addPage}</span></button>
+        <button class="col-modal-open" aria-label=${s.deletePage}
+          ?disabled=${pages.length <= 1}
+          @click=${() => {
+            this._deletePage();
+            this._sideSelection = { kind: 'page', index: this._pageIndex };
+          }}>${icons.pageRemove}<span>${s.deletePage}</span></button>
+      </div>
+
+      <div class="prop-section">
+        <div class="cell-hint">${s.paperNote}</div>
+        <button class="col-modal-open" aria-label=${s.formSettings}
+          @click=${() => {
+            this._sideSelection = null;
+            this.requestUpdate();
+          }}>${icons.edit}<span>${s.formSettings}</span></button>
+      </div>
     `;
   }
 
