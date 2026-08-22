@@ -967,7 +967,10 @@ export class SlipDesigner extends LitElement {
       flex: 0 0 14px;
     }
     /* 그리드 값의 반복 구간 필드 — 펼침 표시 아래로 한 단 들여 쓴다 (ADR-034/037, G-25) */
-    .side-col-row {
+    /* 값 목록의 반복 구간 필드 하위 줄(.side-col-row)과 요소 목록의 그리드 칸 하위 줄
+       (.side-cell-row, G-44)은 생김새가 같다 */
+    .side-col-row,
+    .side-cell-row {
       display: flex;
       align-items: center;
       width: calc(100% - 16px);
@@ -982,15 +985,18 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
       text-align: left;
     }
-    .side-col-row span {
+    .side-col-row span,
+    .side-cell-row span {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .side-col-row:hover {
+    .side-col-row:hover,
+    .side-cell-row:hover {
       background: var(--sk-accent-soft);
     }
-    .side-col-row.selected {
+    .side-col-row.selected,
+    .side-cell-row.selected {
       background: var(--sk-accent-soft);
       border-color: var(--sk-accent);
       color: var(--sk-accent);
@@ -2561,6 +2567,7 @@ export class SlipDesigner extends LitElement {
     maxImageBytes: { type: Number, attribute: 'max-image-bytes' },
     _sideSelection: { state: true },
     _expandedBindings: { state: true },
+    _expandedElements: { state: true },
     _bindingKeyError: { state: true },
     _pageKeyError: { state: true },
     presets: { attribute: false },
@@ -2681,6 +2688,11 @@ export class SlipDesigner extends LitElement {
    * 기본은 접힘이고, 그 값이나 하위 항목을 고르면 저절로 열린다.
    */
   private _expandedBindings = new Set<string>();
+  /**
+   * 요소 목록에서 펼쳐 둔 그리드 id 모음 (G-44) — 값·수식이 붙은 칸을 하위 줄로 본다.
+   * 기본은 접힘이고, 그 그리드나 그 안의 칸을 고르면 저절로 열린다.
+   */
+  private _expandedElements = new Set<string>();
   /** 바인딩 패널에서 이미 쓰는 물리명으로 바꾸려 했는지 — 안내를 보여준다 */
   private _bindingKeyError = false;
   /** 페이지 물리명이 다른 페이지와 겹쳐 되돌렸는지 — 안내를 보여준다 (G-46) */
@@ -4388,6 +4400,7 @@ export class SlipDesigner extends LitElement {
     this._selectedCell = { row: field.row, column: field.column };
     this._cellEditing = false;
     this._sideSelection = null;
+    this._expandedElements.add(field.gridId);
     this.requestUpdate();
   }
 
@@ -4399,7 +4412,10 @@ export class SlipDesigner extends LitElement {
    */
   private _expandBindingOfElement(id: string): void {
     const el = this._findElement(id);
-    if (isGrid(el) && el.repeat) this._expandedBindings.add(el.repeat.binding);
+    if (!isGrid(el)) return;
+    if (el.repeat) this._expandedBindings.add(el.repeat.binding);
+    // 값·수식 칸이 있으면 요소 목록에서도 그 그리드를 펼쳐 둔다 (G-44)
+    if (this._gridValueCells(el).length > 0) this._expandedElements.add(id);
   }
 
   /** 페이지 순서를 옮긴다 — delta -1은 앞으로, +1은 뒤로 (요소는 그대로 따라간다) */
@@ -4594,17 +4610,7 @@ export class SlipDesigner extends LitElement {
             ? nothing
             : page.elements.length === 0
               ? html`<div class="side-empty">—</div>`
-              : page.elements.map((el) => html`
-                  <div class="side-row-wrap">
-                    <span class="side-twisty-gap"></span>
-                    <button class="side-row ${el.id === this._selectedId && !this._sideSelection ? 'selected' : ''}"
-                      title=${el.name}
-                      @click=${() => this._selectFromSidebar(i, el.id)}>
-                      ${TYPE_BADGE[el.type]}<span>${el.name}</span>
-                    </button>
-                    <button class="side-mini" title=${s.delete} aria-label="${el.name} ${s.delete}"
-                      @click=${() => this._deleteElementById(i, el.id)}>${icons.remove}</button>
-                  </div>`)}`)}
+              : page.elements.map((el) => this._renderElementRow(i, el))}`)}
       </div>
 
       <div class="side-section">
@@ -4693,6 +4699,101 @@ export class SlipDesigner extends LitElement {
   private _toggleBindingRow(key: string): void {
     if (this._expandedBindings.has(key)) this._expandedBindings.delete(key);
     else this._expandedBindings.add(key);
+    this.requestUpdate();
+  }
+
+  /**
+   * 요소 목록 한 줄 (G-44) — 그리드는 값·수식이 붙은 칸을 하위 줄로 펼쳐 볼 수 있다.
+   * 하위 줄을 누르면 그 칸이 곧장 선택된다(오른쪽 패널이 칸 편집으로 바뀐다).
+   *
+   * @param pageIndex - 이 요소가 있는 페이지 번호
+   * @param el - 그릴 요소
+   * @returns 요소 줄과 (그리드면) 펼쳐진 칸 하위 줄
+   */
+  private _renderElementRow(pageIndex: number, el: SlipElement) {
+    const s = this._strings.designer;
+    const cells = isGrid(el) ? this._gridValueCells(el) : [];
+    const hasCells = cells.length > 0;
+    const expanded = hasCells && this._expandedElements.has(el.id);
+    // 칸이 선택돼 있으면 그리드 줄 자체는 선택 표시하지 않는다 — 하위 칸 줄이 대신 표시된다
+    const rowSelected = el.id === this._selectedId && !this._sideSelection && this._selectedCell === null;
+    return html`
+      <div class="side-row-wrap">
+        ${this._renderTwisty(hasCells, expanded, el.name, () => this._toggleElementRow(el.id))}
+        <button class="side-row ${rowSelected ? 'selected' : ''}" title=${el.name}
+          @click=${() => this._selectFromSidebar(pageIndex, el.id)}>
+          ${TYPE_BADGE[el.type]}<span>${el.name}</span>
+        </button>
+        <button class="side-mini" title=${s.delete} aria-label="${el.name} ${s.delete}"
+          @click=${() => this._deleteElementById(pageIndex, el.id)}>${icons.remove}</button>
+      </div>
+      ${expanded
+        ? cells.map((c) => {
+            const cellSelected = this._selectedId === el.id
+              && this._selectedCell?.row === c.row && this._selectedCell?.column === c.column;
+            return html`
+              <button class="side-cell-row ${cellSelected ? 'selected' : ''}" title=${c.label}
+                @click=${() => this._selectGridCell(pageIndex, el.id, c.row, c.column)}>
+                <span>${c.label}</span></button>`;
+          })
+        : nothing}
+    `;
+  }
+
+  /**
+   * 그리드에서 값·수식이 붙은 칸의 목록 (G-44) — 행·열 순으로 정렬한다.
+   * 고정 문구만 든 칸은 넣지 않는다(목록을 보면 아는 값은 따로 표시하지 않는다는 원칙).
+   *
+   * @param grid - 그리드 요소
+   * @returns 칸의 위치와 표시 이름(값은 논리명, 수식은 식)
+   */
+  private _gridValueCells(grid: GridElement): { row: number; column: number; label: string }[] {
+    const s = this._strings.designer;
+    const labelOf = new Map(
+      (this._file?.template.bindings ?? [])
+        .filter((b) => b.label !== undefined)
+        .map((b) => [b.key, b.label!] as const),
+    );
+    return grid.cells
+      .filter((c) => c.binding !== undefined || c.formula !== undefined)
+      .slice()
+      .sort((a, b) => a.row - b.row || a.column - b.column)
+      .map((c) => {
+        const name = c.binding !== undefined ? labelOf.get(c.binding) ?? c.binding : c.formula ?? '';
+        return {
+          row: c.row,
+          column: c.column,
+          label: s.gridCellLabel
+            .replace('{r}', String(c.row + 1))
+            .replace('{c}', String(c.column + 1))
+            .replace('{name}', name),
+        };
+      });
+  }
+
+  /** 요소 목록에서 그리드의 하위 줄을 열고 닫는다 (G-44) — 고르는 것과는 별개다 */
+  private _toggleElementRow(id: string): void {
+    if (this._expandedElements.has(id)) this._expandedElements.delete(id);
+    else this._expandedElements.add(id);
+    this.requestUpdate();
+  }
+
+  /**
+   * 요소 목록의 칸 하위 줄을 골랐을 때 — 그 칸으로 곧장 간다 (G-44).
+   * 칸을 고르면 오른쪽 패널이 칸 편집으로 바뀌므로 선택은 한 갈래로 유지된다.
+   *
+   * @param pageIndex - 그리드가 있는 페이지 번호
+   * @param gridId - 그리드 요소 id
+   * @param row - 칸의 행
+   * @param column - 칸의 열
+   */
+  private _selectGridCell(pageIndex: number, gridId: string, row: number, column: number): void {
+    this._goToPage(pageIndex);
+    this._selectedId = gridId;
+    this._selectedCell = { row, column };
+    this._cellEditing = false;
+    this._sideSelection = null;
+    this._expandedElements.add(gridId);
     this.requestUpdate();
   }
 

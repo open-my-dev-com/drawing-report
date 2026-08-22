@@ -4085,6 +4085,34 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
       .map((r) => r.textContent?.trim())).toEqual(['품명']);
     el.remove();
   });
+
+  it('요소 목록에서 그리드를 펼치면 값·수식 칸만 하위 줄로 나오고 누르면 그 칸이 선택된다 (G-44)', async () => {
+    const el = await mount(); // 그리드를 고르면 요소 목록에서도 저절로 펼쳐진다
+    const cellRows = Array.from(el.shadowRoot!.querySelectorAll('.side-cell-row'));
+    // 값(바인딩)이 붙은 칸만 나온다 — 고정 문구 칸(품명 헤더)은 넣지 않는다
+    expect(cellRows.length).toBe(1);
+    expect(cellRows[0]!.textContent).toContain('품명');
+    expect(cellRows[0]!.textContent).toContain('2행'); // 2행 1열
+
+    // 하위 줄을 누르면 그 칸이 선택된다
+    (cellRows[0] as HTMLElement).click();
+    await el.updateComplete;
+    const sel = (el as unknown as { _selectedCell: { row: number; column: number } | null })._selectedCell;
+    expect(sel).toEqual({ row: 1, column: 0 });
+    el.remove();
+  });
+
+  it('요소 목록의 그리드 하위 줄은 펼침 표시로 접을 수 있다 (G-44)', async () => {
+    const el = await mount();
+    expect(el.shadowRoot!.querySelectorAll('.side-cell-row').length).toBe(1);
+    // 요소 목록 그리드 줄의 펼침 표시를 눌러 접는다
+    const twisty = Array.from(el.shadowRoot!.querySelectorAll('.side-twisty'))
+      .find((b) => b.getAttribute('aria-label')?.startsWith('test-grid')) as HTMLButtonElement;
+    twisty.click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.side-cell-row').length).toBe(0);
+    el.remove();
+  });
 });
 
 describe('<slip-designer> 변동 이미지 (G-47)', () => {
