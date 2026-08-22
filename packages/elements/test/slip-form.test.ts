@@ -349,3 +349,63 @@ describe('<slip-form> UI 언어', () => {
     el.remove();
   });
 });
+
+const SAMPLE_PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+/** 변동 이미지 요소가 있는 양식 (G-47) */
+function makeImageTemplate(): SlipTemplateFile {
+  return {
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    kind: 'template',
+    template: {
+      meta: { title: '도장 양식' },
+      paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
+      pages: [{
+        elements: [{
+          type: 'image', id: 'img-stamp', name: '도장',
+          position: { x: 150, y: 15 }, width: 30, height: 30, binding: 'stamp',
+        }],
+      }],
+      assets: [],
+      bindings: [{ key: 'stamp', label: '도장 이미지', valueType: 'image' }],
+    },
+  };
+}
+
+describe('<slip-form> 변동 이미지 (G-47)', () => {
+  it('변동 이미지 바인딩에 이미지 업로드 입력을 낸다', async () => {
+    const el = await mount(makeImageTemplate());
+    // 텍스트 입력이 아니라 업로드 버튼과 "선택된 이미지 없음" 안내가 나온다
+    const pick = buttonByLabel(el, `도장 이미지 ${strings.form.imageUpload}`);
+    expect(pick).not.toBeNull();
+    expect(el.shadowRoot?.textContent).toContain(strings.form.imageNone);
+    // 이미지 바인딩에는 한 줄 텍스트 입력을 만들지 않는다
+    const textInput = Array.from(el.shadowRoot!.querySelectorAll('input'))
+      .find((i) => i.getAttribute('aria-label') === '도장 이미지');
+    expect(textInput).toBeUndefined();
+    el.remove();
+  });
+
+  it('이미지 값이 있으면 미리보기와 지우기 버튼을 보여준다', async () => {
+    const voucher: SlipVoucherFile = {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'voucher',
+      templateSnapshot: makeImageTemplate().template,
+      values: { stamp: SAMPLE_PNG },
+      issued: false,
+    };
+    const el = await mount(voucher);
+    const img = el.shadowRoot?.querySelector('.image-current img') as HTMLImageElement | null;
+    expect(img?.getAttribute('src')).toBe(SAMPLE_PNG);
+    const clear = buttonByLabel(el, `도장 이미지 ${strings.form.imageClear}`);
+    expect(clear).not.toBeNull();
+
+    // 지우면 값이 빠지고 안내로 돌아간다
+    clear.click();
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector('.image-current')).toBeNull();
+    expect(el.shadowRoot?.textContent).toContain(strings.form.imageNone);
+    el.remove();
+  });
+});

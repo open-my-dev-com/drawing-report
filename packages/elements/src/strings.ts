@@ -179,6 +179,11 @@ const ko = {
     imageTooLarge: '이미지 용량 초과 — 최대 {max} (선택한 파일 {size})',
     imageNotImage: '이미지 파일이 아닙니다',
     imageReadFailed: '파일을 읽을 수 없습니다',
+    /* 변동 이미지 (G-47) — 이미지 요소를 고정(src) 또는 변동(binding) 중 하나로 둔다 */
+    imageMode: '이미지 방식',
+    imageFixed: '고정 이미지',
+    imageVariable: '변동 이미지',
+    imageClear: '이미지 지우기',
     styleLine: '선',
     lineColor: '선 색',
     lineWidth: '선 굵기',
@@ -252,6 +257,13 @@ const ko = {
     previewLoading: 'PDF를 생성하고 있습니다…',
     previewError: 'PDF 생성에 실패했습니다.',
     pdfTitle: 'PDF 미리보기',
+    /* 변동 이미지 입력 (G-47) */
+    imageUpload: '이미지 선택',
+    imageClear: '이미지 지우기',
+    imageNone: '선택된 이미지 없음',
+    imageTooLarge: '이미지 용량 초과 — 최대 {max} (선택한 파일 {size})',
+    imageNotImage: '이미지 파일이 아닙니다',
+    imageReadFailed: '파일을 읽을 수 없습니다',
   },
   storage: {
     ioError: '저장소 작업에 실패했습니다.',
@@ -435,6 +447,11 @@ const en: SlipStrings = {
     imageTooLarge: 'Image too large — max {max} (selected file is {size})',
     imageNotImage: 'Not an image file',
     imageReadFailed: 'Could not read the file',
+    /* Variable image (G-47) — an image element is either fixed (src) or bound (binding) */
+    imageMode: 'Image mode',
+    imageFixed: 'Fixed image',
+    imageVariable: 'Variable image',
+    imageClear: 'Clear image',
     styleLine: 'Line',
     lineColor: 'Line color',
     lineWidth: 'Line width',
@@ -508,6 +525,13 @@ const en: SlipStrings = {
     previewLoading: 'Generating PDF…',
     previewError: 'Failed to generate the PDF.',
     pdfTitle: 'PDF preview',
+    /* Variable image input (G-47) */
+    imageUpload: 'Select image',
+    imageClear: 'Clear image',
+    imageNone: 'No image selected',
+    imageTooLarge: 'Image too large — max {max} (selected file is {size})',
+    imageNotImage: 'Not an image file',
+    imageReadFailed: 'Could not read the file',
   },
   storage: {
     ioError: 'Storage operation failed.',

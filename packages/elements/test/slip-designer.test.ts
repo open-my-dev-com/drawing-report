@@ -4086,3 +4086,74 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 });
+
+describe('<slip-designer> 변동 이미지 (G-47)', () => {
+  const byAria = (el: Element, label: string) =>
+    Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === label) as HTMLButtonElement;
+
+  function templateWithImage(): SlipTemplateFile {
+    const file = makeTemplateFile();
+    file.template.pages[0]!.elements.push({
+      type: 'image' as const, id: 'img-1', name: '로고',
+      position: { x: 120, y: 20 }, width: 30, height: 20,
+      src: 'data:image/png;base64,AAAA',
+    } as never);
+    return file;
+  }
+
+  const imageEl = (el: Element) =>
+    (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements.find((e) => e.id === 'img-1') as never as Record<string, unknown>;
+
+  it('이미지를 변동으로 바꾸면 값이 생기고 src가 빠진다 (되돌리면 반대)', async () => {
+    parseSlipFileMock.mockReturnValue(templateWithImage() as unknown as SlipFile);
+    const el = await loadDesigner();
+    selectElement(el, 'img-1');
+    await el.updateComplete;
+
+    // 변동으로 전환 — binding·valueType이 생기고 src가 사라진다
+    byAria(el, strings.designer.imageMode);
+    const toVariable = Array.from(el.shadowRoot!.querySelectorAll('.toggle-group button'))
+      .find((b) => b.textContent?.trim() === strings.designer.imageVariable) as HTMLButtonElement;
+    toVariable.click();
+    await el.updateComplete;
+    expect(typeof imageEl(el).binding).toBe('string');
+    expect(imageEl(el).src).toBeUndefined();
+    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.bindings ?? [];
+    const def = defs.find((b) => b.key === imageEl(el).binding);
+    expect(def?.valueType).toBe('image');
+
+    // 다시 고정으로 — binding이 빠지고 src가 돌아온다
+    const toFixed = Array.from(el.shadowRoot!.querySelectorAll('.toggle-group button'))
+      .find((b) => b.textContent?.trim() === strings.designer.imageFixed) as HTMLButtonElement;
+    toFixed.click();
+    await el.updateComplete;
+    expect(imageEl(el).binding).toBeUndefined();
+    expect(typeof imageEl(el).src).toBe('string');
+    el.remove();
+  });
+
+  it('변동 이미지 값은 샘플 데이터 모달에서 이미지 업로드 입력으로 나온다', async () => {
+    const file = templateWithImage();
+    const img = file.template.pages[0]!.elements.find((e) => e.id === 'img-1') as never as Record<string, unknown>;
+    delete img.src;
+    img.binding = 'stamp';
+    file.template.bindings = [{ key: 'stamp', label: '도장', valueType: 'image' }];
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    // 사이드바 샘플 데이터 버튼으로 모달을 연다
+    byAria(el, strings.designer.sampleData).click();
+    await el.updateComplete;
+
+    // 이미지 바인딩에는 업로드 버튼이 나오고 한 줄 텍스트 입력은 없다
+    const pick = Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === `도장 ${strings.designer.imagePick}`);
+    expect(pick).toBeTruthy();
+    const textInput = Array.from(el.shadowRoot!.querySelectorAll('input'))
+      .find((i) => i.getAttribute('aria-label') === `${strings.designer.sampleData} stamp`);
+    expect(textInput).toBeUndefined();
+    el.remove();
+  });
+});

@@ -21,6 +21,7 @@ import { getFormulaHelp } from './formula-help.js';
 import { loadDefaultFonts } from './default-fonts.js';
 import { presets, type SlipPreset } from './presets.js';
 import { icons } from './icons.js';
+import { pickImageFile, formatBytes } from './image-file.js';
 
 /** 색 피커의 팔레트 견본 — 전표에서 자주 쓰는 색 위주 */
 const COLOR_PALETTE = [
@@ -525,7 +526,7 @@ interface BindingUse {
   pageIndex: number;
   id: string;
   name: string;
-  type: 'field' | 'grid';
+  type: 'field' | 'grid' | 'image';
 }
 
 /** 사이드바·패널이 함께 쓰는 바인딩 한 항목 — 정의부와 사용처를 합친 것 */
@@ -2198,6 +2199,19 @@ export class SlipDesigner extends LitElement {
       border: 1px solid var(--sk-border);
       border-radius: var(--sk-radius);
     }
+    /* 샘플 데이터 모달의 변동 이미지 입력 (G-47) */
+    .sample-image {
+      align-items: flex-start;
+    }
+    .sample-image-body {
+      flex: 1;
+      min-width: 0;
+    }
+    .sample-image-btns {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
     .binding-chips {
       display: flex;
       flex-wrap: wrap;
@@ -2487,6 +2501,7 @@ export class SlipDesigner extends LitElement {
     _thumbPage: { state: true },
     _thumbPos: { state: true },
     _imageError: { state: true },
+    _sampleImageError: { state: true },
     maxImageBytes: { type: Number, attribute: 'max-image-bytes' },
     _sideSelection: { state: true },
     _expandedBindings: { state: true },
@@ -2592,6 +2607,8 @@ export class SlipDesigner extends LitElement {
   private _thumbPos: { top: number; left: number } | null = null;
   /** 이미지 선택에서 막힌 이유 (너무 큼·이미지 아님·읽기 실패) — 없으면 null */
   private _imageError: string | null = null;
+  /** 샘플 데이터 모달의 변동 이미지 업로드에서 막힌 이유 — 없으면 null (G-47) */
+  private _sampleImageError: string | null = null;
   /** 샘플 데이터 모달의 현재 페이지 — 바인딩이 많으면 10개 단위로 나눠 보여준다 */
   private _samplePage = 0;
   /** 샘플 데이터 모달의 JSON 직접 입력 모드 여부 (입력폼 ↔ JSON 탭) */
@@ -4420,6 +4437,13 @@ export class SlipDesigner extends LitElement {
           }
           continue;
         }
+        // 변동 이미지도 값을 쓴다 — 사이드바 값 목록에 "쓰는 곳"으로 올린다 (G-47)
+        if (el.type === 'image' && el.binding !== undefined) {
+          const list = uses.get(el.binding) ?? [];
+          list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
+          uses.set(el.binding, list);
+          continue;
+        }
         if (el.type !== 'field') continue;
         const list = uses.get(el.binding) ?? [];
         list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
@@ -4532,6 +4556,7 @@ export class SlipDesigner extends LitElement {
               this._sampleModalOpen = true;
               this._samplePage = 0;
               this._sampleJsonMode = false;
+              this._sampleImageError = null;
               this.requestUpdate();
             }}>${icons.database}</button>
           <button class="side-mini" title=${s.addBinding} aria-label=${s.addBinding}
@@ -5020,11 +5045,20 @@ export class SlipDesigner extends LitElement {
       case 'grid':
         return this._renderGridElementPreview(el);
 
-      case 'image':
+      case 'image': {
+        // 변동 이미지는 샘플 값이 있으면 그 이미지로, 없으면 값 이름으로 그린다 —
+        // 미리보기(PDF)도 샘플 값으로 렌더하므로 화면과 어긋나지 않는다 (G-47, ADR-012)
+        if (el.binding !== undefined) {
+          const sample = this._file?.template.sampleValues?.[el.binding];
+          return typeof sample === 'string' && sample.startsWith('data:')
+            ? html`<img src=${sample} alt="">`
+            : html`<span class="el-content">{${el.binding}}</span>`;
+        }
         // 자리표시(1×1 투명 PNG)는 그리면 빈 상자로만 보인다 — 아직 안 골랐음을 글자로 알린다 (G-36)
         return el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:')
           ? html`<img src=${el.src} alt="">`
           : html`<span class="el-content">${this._strings.designer.typeImage}</span>`;
+      }
 
       case 'line':
       case 'ellipse':
@@ -5724,6 +5758,107 @@ export class SlipDesigner extends LitElement {
     return { key: `value${n}`, label: `${this._strings.designer.newBindingName} ${n}` };
   }
 
+  /**
+   * 이미지 요소를 고정(src) ↔ 변동(binding)으로 바꾼다 (G-47). 스키마가 둘을 배타로
+   * 검사하므로 한쪽을 켜면 다른 쪽을 지운다. 변동으로 바꾸면 새 값을 만들어 붙인다.
+   *
+   * @param variable - true면 변동(binding), false면 고정(src)
+   */
+  private _setImageVariable(variable: boolean): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'image') {
+      this.requestUpdate();
+      return;
+    }
+    const id = el.id;
+    if (variable) {
+      if (el.binding !== undefined) return;
+      const { key, label } = this._nextBinding();
+      this._updateFile((f) => {
+        const defs = f.template.bindings ?? [];
+        // 변동 이미지 값은 이미지 종류로 등록해 작성폼·샘플 편집이 이미지 입력을 낸다 (0.5.0 valueType)
+        defs.push({ key, label, valueType: 'image' });
+        f.template.bindings = defs;
+        for (const page of f.template.pages) {
+          for (const target of page.elements) {
+            if (target.id === id && target.type === 'image') {
+              target.binding = key;
+              delete target.src;
+            }
+          }
+        }
+      });
+    } else {
+      this._updateFile((f) => {
+        for (const page of f.template.pages) {
+          for (const target of page.elements) {
+            if (target.id === id && target.type === 'image') {
+              delete target.binding;
+              target.src = PLACEHOLDER_IMG;
+            }
+          }
+        }
+      });
+    }
+  }
+
+  /** 변동 이미지의 값 키를 고르는 select — 등록된 값 목록 + 새 값 (G-47) */
+  private _renderImageBindingSelect(current: string) {
+    const s = this._strings.designer;
+    const list = this._bindingList();
+    return html`
+      <div class="prop-row">
+        <label>${s.binding}</label>
+        <select class="binding-select" aria-label=${s.binding}
+          @change=${(e: Event) => {
+            const value = (e.target as HTMLSelectElement).value;
+            if (value === NEW_BINDING_OPTION) this._assignNewImageBinding();
+            else {
+              this._updateFile((f) => {
+                for (const page of f.template.pages) {
+                  for (const target of page.elements) {
+                    if (target.id === this._selectedId && target.type === 'image') {
+                      target.binding = value;
+                      delete target.src;
+                    }
+                  }
+                }
+              });
+              this._ensureBindingDef(value);
+            }
+          }}>
+          ${list.map((b) => html`
+            <option value=${b.key} ?selected=${b.key === current}>${b.label}</option>`)}
+          <option value=${NEW_BINDING_OPTION}>${s.bindingNew}</option>
+        </select>
+      </div>
+    `;
+  }
+
+  /** 새 값을 만들어 지금 고른 이미지 요소에 변동 값으로 붙인다 (G-47) */
+  private _assignNewImageBinding(): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'image') {
+      this.requestUpdate();
+      return;
+    }
+    const { key, label } = this._nextBinding();
+    const id = el.id;
+    this._updateFile((f) => {
+      const defs = f.template.bindings ?? [];
+      defs.push({ key, label, valueType: 'image' });
+      f.template.bindings = defs;
+      for (const page of f.template.pages) {
+        for (const target of page.elements) {
+          if (target.id === id && target.type === 'image') {
+            target.binding = key;
+            delete target.src;
+          }
+        }
+      }
+    });
+  }
+
   private _typeName(type: SlipElement['type']): string {
     const s = this._strings.designer;
     const map: Record<SlipElement['type'], string> = {
@@ -6055,16 +6190,31 @@ export class SlipDesigner extends LitElement {
       }
 
       case 'image': {
+        // 이미지 요소는 고정(src)과 변동(binding) 중 하나다 — 전표마다 다른 이미지를
+        // 넣으려면 변동으로 두고 값 키를 고른다 (G-47, 스키마는 둘을 배타로 검사한다)
+        const variable = el.binding !== undefined;
         // 경로 문자열은 base64라 사람이 읽을 수 없다 — 지금 이미지를 그대로 보여준다 (G-36)
         const chosen = el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
         return html`
           <div class="prop-section">
-            ${chosen
-              ? html`<div class="image-current"><img src=${el.src} alt=""></div>`
-              : html`<p class="image-hint">${s.imageNone}</p>`}
-            <button class="col-modal-open" @click=${() => this._openImageModal()}>
-              ${icons.image}<span>${chosen ? s.imageChange : s.imagePick}</span>
-            </button>
+            <div class="prop-row">
+              <label>${s.imageMode}</label>
+              <div class="toggle-group" role="group" aria-label=${s.imageMode}>
+                <button aria-pressed=${String(!variable)}
+                  @click=${() => this._setImageVariable(false)}>${s.imageFixed}</button>
+                <button aria-pressed=${String(variable)}
+                  @click=${() => this._setImageVariable(true)}>${s.imageVariable}</button>
+              </div>
+            </div>
+            ${variable
+              ? this._renderImageBindingSelect(el.binding ?? '')
+              : html`
+                ${chosen
+                  ? html`<div class="image-current"><img src=${el.src} alt=""></div>`
+                  : html`<p class="image-hint">${s.imageNone}</p>`}
+                <button class="col-modal-open" @click=${() => this._openImageModal()}>
+                  ${icons.image}<span>${chosen ? s.imageChange : s.imagePick}</span>
+                </button>`}
           </div>
         `;
       }
@@ -6673,6 +6823,7 @@ export class SlipDesigner extends LitElement {
     for (const page of file.template.pages) {
       for (const el of page.elements) {
         if (el.type === 'field') push(el.binding);
+        if (el.type === 'image' && el.binding !== undefined) push(el.binding);
         if (el.type === 'grid') {
           if (el.repeat) push(el.repeat.binding);
           for (const cell of el.cells) {
@@ -6736,39 +6887,58 @@ export class SlipDesigner extends LitElement {
    * 주소로 두면 미리보기부터 깨진다. 주소로 받아야 하는 이미지는 호스트 서버가
    * 중계해 base64로 바꿔 넘긴다.
    */
-  private _pickImageFile(): void {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.addEventListener('change', () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      const s = this._strings.designer;
-      if (!file.type.startsWith('image/')) {
-        this._imageError = s.imageNotImage;
-        return;
+  private async _pickImageFile(): Promise<void> {
+    const result = await pickImageFile(this.maxImageBytes);
+    if (result.ok) {
+      this._imageError = null;
+      this._applyImageSrc(result.src);
+      return;
+    }
+    this._imageError = this._imagePickErrorText(result);
+    this.requestUpdate();
+  }
+
+  /** 이미지 선택 오류를 문구로 (G-47 공용 도우미 결과 → 디자이너 사전) */
+  private _imagePickErrorText(
+    result: { ok: false; reason: 'notImage' | 'tooLarge'; size: number } | { ok: false; reason: 'readFailed' },
+  ): string {
+    const s = this._strings.designer;
+    if (result.reason === 'notImage') return s.imageNotImage;
+    if (result.reason === 'readFailed') return s.imageReadFailed;
+    return s.imageTooLarge
+      .replace('{max}', formatBytes(this.maxImageBytes))
+      .replace('{size}', formatBytes(result.size));
+  }
+
+  /**
+   * 변동 이미지 값 키 목록 — 이미지 요소가 `binding`으로 쓰는 키와 값 종류가 이미지인
+   * 정의부 키를 모은다 (G-47). 작성폼·샘플 편집이 이 키에는 이미지 입력을 낸다.
+   */
+  private _imageBindingKeys(): Set<string> {
+    const file = this._file;
+    const keys = new Set<string>();
+    if (!file) return keys;
+    for (const def of file.template.bindings ?? []) {
+      if (def.valueType === 'image') keys.add(def.key);
+    }
+    for (const page of file.template.pages) {
+      for (const el of page.elements) {
+        if (el.type === 'image' && el.binding !== undefined) keys.add(el.binding);
       }
-      if (file.size > this.maxImageBytes) {
-        this._imageError = s.imageTooLarge
-          .replace('{max}', SlipDesigner._formatBytes(this.maxImageBytes))
-          .replace('{size}', SlipDesigner._formatBytes(file.size));
-        return;
-      }
-      const reader = new FileReader();
-      reader.addEventListener('load', () => {
-        const src = typeof reader.result === 'string' ? reader.result : '';
-        if (!src.startsWith('data:')) {
-          this._imageError = s.imageReadFailed;
-          return;
-        }
-        this._applyImageSrc(src);
-      });
-      reader.addEventListener('error', () => {
-        this._imageError = s.imageReadFailed;
-      });
-      reader.readAsDataURL(file);
-    });
-    input.click();
+    }
+    return keys;
+  }
+
+  /** 샘플 데이터 모달에서 변동 이미지 값 하나를 파일에서 골라 담는다 (G-47) */
+  private async _pickSampleImage(key: string): Promise<void> {
+    const result = await pickImageFile(this.maxImageBytes);
+    if (result.ok) {
+      this._sampleImageError = null;
+      this._setSampleValue(key, result.src);
+      return;
+    }
+    this._sampleImageError = this._imagePickErrorText(result);
+    this.requestUpdate();
   }
 
   /** 수식 모달을 연다 — 선택된 필드의 현재 수식을 초안으로 담는다 */
@@ -7070,6 +7240,8 @@ export class SlipDesigner extends LitElement {
       }
     }
     const bindings = this._collectBindings();
+    // 변동 이미지 값은 텍스트가 아니라 이미지 업로드로 받는다 (G-47)
+    const imageKeys = this._imageBindingKeys();
     // 바인딩이 많으면 10개 단위 페이지로 나눠 스크롤을 짧게 유지한다
     const pageCount = Math.max(1, Math.ceil(bindings.length / SAMPLE_PAGE_SIZE));
     const pageIndex = Math.min(this._samplePage, pageCount - 1);
@@ -7171,9 +7343,13 @@ export class SlipDesigner extends LitElement {
                           }}>${icons.pageNext}</button>
                       </div>`
                   : nothing}
+                ${this._sampleImageError
+                  ? html`<p class="image-error" role="alert">${this._sampleImageError}</p>`
+                  : nothing}
                 ${visible.map((b) => {
                   const columns = tableOf.get(b.key);
                   if (columns) return this._renderSampleTable(b, columns, samples[b.key]);
+                  if (imageKeys.has(b.key)) return this._renderSampleImage(b, samples[b.key]);
                   return html`
                     <div class="prop-row">
                       <label title=${b.key}>${b.label}</label>
@@ -7220,6 +7396,33 @@ export class SlipDesigner extends LitElement {
   }
 
   /** 반복 구간 값의 샘플 행 편집 — 항목 필드대로 칸 입력, 행 추가·삭제 */
+  /** 변동 이미지 값 하나의 샘플 입력 — 파일에서 골라 넣고, 넣은 이미지를 보여준다 (G-47) */
+  private _renderSampleImage(b: { key: string; label: string }, raw: unknown) {
+    const s = this._strings.designer;
+    const chosen = typeof raw === 'string' && raw.startsWith('data:');
+    return html`
+      <div class="prop-row sample-image">
+        <label title=${b.key}>${b.label}</label>
+        <div class="sample-image-body">
+          ${chosen
+            ? html`<div class="image-current"><img src=${raw as string} alt=""></div>`
+            : html`<p class="image-hint">${s.imageNone}</p>`}
+          <div class="sample-image-btns">
+            <button class="col-modal-open" aria-label="${b.label} ${s.imagePick}"
+              @click=${() => this._pickSampleImage(b.key)}>
+              ${icons.image}<span>${chosen ? s.imageChange : s.imagePick}</span>
+            </button>
+            ${chosen
+              ? html`<button class="side-mini" title=${s.imageClear}
+                  aria-label="${b.label} ${s.imageClear}"
+                  @click=${() => this._setSampleValue(b.key, undefined)}>${icons.close}</button>`
+              : nothing}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   private _renderSampleTable(
     b: { key: string; label: string },
     columns: { key: string; title: string }[],

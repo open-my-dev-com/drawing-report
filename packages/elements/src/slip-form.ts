@@ -16,9 +16,13 @@ import {
 import { getStrings } from './strings.js';
 import { loadDefaultFonts } from './default-fonts.js';
 import { icons } from './icons.js';
+import { pickImageFile, formatBytes } from './image-file.js';
 
 /** PDF 미리보기를 다시 만들기까지 기다리는 시간(ms) — 타자 중 매번 렌더하지 않기 위함 */
 const PREVIEW_DEBOUNCE_MS = 500;
+
+/** 넣을 수 있는 이미지 파일의 기본 최대 크기(바이트, 2MB) — 호스트가 `maxImageBytes`로 바꾼다 (G-47) */
+const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 /** 작성폼이 만들어 주는 입력 한 칸 */
 interface FormInput {
@@ -30,6 +34,8 @@ interface FormInput {
   columns?: { key: string; title: string }[];
   /** 수식으로 자동 계산되는 칸이면 그 수식 (입력받지 않고 계산 결과만 보여준다) */
   formula?: string;
+  /** 변동 이미지 값이면 이미지 업로드 입력을 낸다 (G-47) */
+  image?: boolean;
 }
 
 /**
@@ -266,6 +272,52 @@ export class SlipForm extends LitElement {
       height: 12px;
     }
 
+    /* 변동 이미지 입력 (G-47) */
+    .image-current {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 96px;
+      margin: 4px 0;
+      padding: 4px;
+      border: 1px solid var(--sk-border);
+      border-radius: var(--sk-radius);
+    }
+    .image-current img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .image-hint {
+      margin: 4px 0;
+      font-size: 12px;
+      color: var(--sk-text-muted);
+    }
+    .image-btns {
+      display: flex;
+      gap: 6px;
+    }
+    .image-pick,
+    .image-clear {
+      padding: 4px 10px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .image-pick:hover:not(:disabled),
+    .image-clear:hover:not(:disabled) {
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    .image-pick:disabled,
+    .image-clear:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
     .btn {
       padding: 6px 14px;
       border: 1px solid var(--sk-border-strong);
@@ -364,6 +416,7 @@ export class SlipForm extends LitElement {
     locale: { type: String },
     fonts: { attribute: false },
     signingKey: { attribute: false },
+    maxImageBytes: { type: Number, attribute: 'max-image-bytes' },
     _values: { state: true },
     _issued: { state: true },
     _issuing: { state: true },
@@ -371,6 +424,7 @@ export class SlipForm extends LitElement {
     _previewUrl: { state: true },
     _previewError: { state: true },
     _error: { state: true },
+    _imageError: { state: true },
   };
 
   /** .slip JSON 문자열 — 양식(template) 또는 작성 중 전표(voucher) */
@@ -389,7 +443,15 @@ export class SlipForm extends LitElement {
   /** 발행 서명에 쓸 개인키 (JWK) — 주지 않으면 해시만 기록한다 (SPEC §8.3) */
   signingKey?: IntegrityJwk;
 
+  /**
+   * 넣을 수 있는 변동 이미지 파일의 최대 크기(바이트) — 호스트가 자기 시스템에 맞게 조인다 (G-47).
+   *
+   * @defaultValue 2MB
+   */
+  maxImageBytes = DEFAULT_MAX_IMAGE_BYTES;
+
   private _body: SlipTemplateBody | null = null;
+  private _imageError: string | null = null;
   private _schemaVersion = '';
   private _values: Record<string, unknown> = {};
   private _issued = false;
@@ -484,6 +546,17 @@ export class SlipForm extends LitElement {
       inputs.push({ key, label: labelOf.get(key) ?? name ?? key, ...input });
     };
 
+    // 변동 이미지 값은 텍스트가 아니라 이미지 업로드로 받는다 (G-47) — 값 종류가 이미지인
+    // 정의부 키도 포함한다
+    const imageKeys = new Set<string>(
+      (body.bindings ?? []).filter((b) => b.valueType === 'image').map((b) => b.key),
+    );
+    for (const page of body.pages) {
+      for (const el of page.elements) {
+        if (el.type === 'image' && el.binding !== undefined) imageKeys.add(el.binding);
+      }
+    }
+
     for (const page of body.pages) {
       for (const element of page.elements) {
         if (element.type === 'field') {
@@ -492,6 +565,8 @@ export class SlipForm extends LitElement {
             element.formula === undefined ? {} : { formula: element.formula },
             element.name,
           );
+        } else if (element.type === 'image' && element.binding !== undefined) {
+          add(element.binding, { image: true }, element.name);
         } else if (element.type === 'grid' && element.repeat) {
           // 반복 구간 칸이 읽는 항목 필드가 곧 입력 표의 열이 된다 (ADR-037)
           const { fromRow, toRow } = element.repeat;
@@ -508,7 +583,9 @@ export class SlipForm extends LitElement {
         }
       }
     }
-    for (const def of body.bindings ?? []) add(def.key, {});
+    for (const def of body.bindings ?? []) {
+      add(def.key, imageKeys.has(def.key) ? { image: true } : {});
+    }
     return inputs;
   }
 
@@ -688,6 +765,7 @@ export class SlipForm extends LitElement {
         <div class="pane-body">
           ${this._issued ? html`<div class="notice">${t.issuedNotice}</div>` : nothing}
           ${this._issueError ? html`<div class="notice error">${this._issueError}</div>` : nothing}
+          ${this._imageError ? html`<div class="notice error" role="alert">${this._imageError}</div>` : nothing}
           ${inputs.length === 0
             ? html`<div class="empty">${t.noInputs}</div>`
             : inputs.map((input) => this._renderInput(input))}
@@ -706,6 +784,7 @@ export class SlipForm extends LitElement {
   private _renderInput(input: FormInput) {
     const t = this._t;
     if (input.columns) return this._renderRowInput(input, input.columns);
+    if (input.image) return this._renderImageInput(input);
 
     if (input.formula !== undefined) {
       // 수식 칸은 입력받지 않는다 — 값이 바뀔 때마다 즉시 계산해 결과만 보여준다
@@ -737,6 +816,51 @@ export class SlipForm extends LitElement {
             this._setValue(input.key, parseInputValue((e.target as HTMLInputElement).value))}>
       </div>
     `;
+  }
+
+  /** 변동 이미지 입력 (G-47) — 파일에서 골라 base64로 담고, 넣은 이미지를 보여준다 */
+  private _renderImageInput(input: FormInput) {
+    const t = this._t;
+    const raw = this._values[input.key];
+    const chosen = typeof raw === 'string' && raw.startsWith('data:');
+    return html`
+      <div class="field">
+        <label>${input.label}</label>
+        ${chosen
+          ? html`<div class="image-current"><img src=${raw as string} alt=""></div>`
+          : html`<p class="image-hint">${t.imageNone}</p>`}
+        <div class="image-btns">
+          <button type="button" class="image-pick" ?disabled=${this._issued}
+            aria-label="${input.label} ${t.imageUpload}"
+            @click=${() => this._pickImage(input.key)}>${t.imageUpload}</button>
+          ${chosen
+            ? html`<button type="button" class="image-clear" ?disabled=${this._issued}
+                aria-label="${input.label} ${t.imageClear}"
+                @click=${() => this._setValue(input.key, undefined)}>${t.imageClear}</button>`
+            : nothing}
+        </div>
+      </div>
+    `;
+  }
+
+  /** 파일에서 이미지를 골라 base64로 값에 담는다 (G-47) */
+  private async _pickImage(key: string): Promise<void> {
+    if (this._issued) return;
+    const t = this._t;
+    const result = await pickImageFile(this.maxImageBytes);
+    if (result.ok) {
+      this._imageError = null;
+      this._setValue(key, result.src);
+      return;
+    }
+    if (result.reason === 'notImage') this._imageError = t.imageNotImage;
+    else if (result.reason === 'readFailed') this._imageError = t.imageReadFailed;
+    else {
+      this._imageError = t.imageTooLarge
+        .replace('{max}', formatBytes(this.maxImageBytes))
+        .replace('{size}', formatBytes(result.size));
+    }
+    this.requestUpdate();
   }
 
   private _renderRowInput(input: FormInput, columns: { key: string; title: string }[]) {
