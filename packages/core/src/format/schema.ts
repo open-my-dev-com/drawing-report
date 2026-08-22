@@ -50,6 +50,10 @@ export const SLIP_LIMITS = {
   maxGridColumnTracks: 100,
   /** 그리드(grid) 반복 구간의 페이지당 최대 항목 수 */
   maxRepeatPerPage: 1000,
+  /** 줄간격 배수 상한 (0.5.0) */
+  maxLineHeight: 10,
+  /** 자간 절대값 상한(pt, 0.5.0) */
+  maxCharacterSpacing: 100,
 } as const;
 
 const HTTP_SRC = /^https?:\/\/\S+$/;
@@ -97,17 +101,36 @@ const elementBaseShape = {
   group: z.string().min(1).optional(),
 };
 
+/** 수직 정렬 — 상자 안에서 글이 놓이는 세로 자리 (0.5.0) */
+const verticalAlignmentSchema = z.enum(['top', 'middle', 'bottom']);
+
 const fontShape = {
   fontName: z.string().min(1).optional(),
   fontSize: z.number().positive().optional(),
   alignment: alignmentSchema.optional(),
+  /** 수직 정렬 (0.5.0) — 생략하면 상단 */
+  verticalAlignment: verticalAlignmentSchema.optional(),
   /**
    * 굵게 — 렌더 시 유효 폰트의 `<이름>-Bold` 폰트로 전환한다.
    * 굵은 폰트가 없으면 PDF에서는 무시된다 (ADR-032, SPEC §5)
    */
   bold: z.boolean().optional(),
+  /**
+   * 기울임 (0.5.0) — 굵게와 같은 방식으로 `<이름>-Italic` 폰트로 전환한다.
+   * 자형 폰트가 없으면 PDF에서는 무시된다 — 기울이기 흉내는 내지 않는다 (ADR-032)
+   */
+  italic: z.boolean().optional(),
   underline: z.boolean().optional(),
   strikethrough: z.boolean().optional(),
+  /** 줄간격 배수 (0.5.0) — 생략하면 1 */
+  lineHeight: z.number().positive().max(SLIP_LIMITS.maxLineHeight).optional(),
+  /** 자간(pt, 0.5.0) — 생략하면 0. 음수는 글자를 좁힌다 */
+  characterSpacing: z.number().min(-SLIP_LIMITS.maxCharacterSpacing).max(SLIP_LIMITS.maxCharacterSpacing).optional(),
+  /**
+   * 세로쓰기 (0.5.0) — 글자를 한 자씩 세로로 쌓는다.
+   * 하부 엔진에 세로쓰기 기능이 없어 변환 계층이 직접 쌓는다 (직접 확인).
+   */
+  vertical: z.boolean().optional(),
 };
 
 // ---------------------------------------------------------------------------
@@ -131,7 +154,14 @@ const textElementSchema = z.object({
 const overflowSchema = z.enum(['clip', 'shrink']);
 
 /** 그리드 열 — 너비는 mm 절대값이라 열을 더해도 다른 열이 변하지 않는다 (ADR-037) */
-const gridColumnSchema = z.object({ width: positiveMm });
+const gridColumnSchema = z.object({
+  width: positiveMm,
+  /**
+   * 데이터 자동 병합 (0.5.0, ADR-038) — 반복 구간에서 앞 벌과 값이 같은 칸을 세로로 합친다.
+   * 반복 구간 밖은 영향받지 않는다. 켜려면 그 열의 반복 구간 칸이 구간 전체 높이를 차지해야 한다.
+   */
+  autoMerge: z.boolean().optional(),
+});
 
 /** 그리드 행 — 높이는 mm 절대값 */
 const gridRowSchema = z.object({ height: positiveMm });
@@ -289,11 +319,67 @@ const gridElementSchema = z
     });
   });
 
-const imageElementSchema = z.object({
-  type: z.literal('image'),
-  ...elementBaseShape,
-  src: srcSchema,
-});
+const imageElementSchema = z
+  .object({
+    type: z.literal('image'),
+    ...elementBaseShape,
+    /** 고정 이미지의 자리 (§3.1의 3형식). `binding`을 쓰면 생략할 수 있다 */
+    src: srcSchema.optional(),
+    /**
+     * 전표 값에서 이미지를 읽어 오는 키 (0.5.0) — 전표마다 다른 이미지를 넣는다.
+     * 값은 `data:` base64만 받는다 (ADR-036) — `values`는 JSON이라 바이너리를 담지 못하고,
+     * core는 네트워크를 쓰지 않아 URL을 받아올 수 없다 (ADR-002).
+     */
+    binding: idSchema.optional(),
+  })
+  .superRefine((image, ctx) => {
+    // 둘 다 없으면 그릴 것이 없고, 둘 다 있으면 어느 쪽을 그릴지 정해지지 않는다
+    if (image.src === undefined && image.binding === undefined) {
+      ctx.addIssue({ code: 'custom', path: ['src'], message: '이미지는 src 또는 binding 중 하나가 필요합니다' });
+    }
+    if (image.src !== undefined && image.binding !== undefined) {
+      ctx.addIssue({ code: 'custom', path: ['binding'], message: '이미지는 src와 binding을 함께 가질 수 없습니다' });
+    }
+  });
+
+/**
+ * 바코드 종류 (0.5.0) — 하부 엔진이 그릴 수 있는 12종을 그대로 연다.
+ * 전표에 흔한 `qrcode`·`code128`·`ean13`을 앞에 둔다.
+ */
+const barcodeKindSchema = z.enum([
+  'qrcode', 'code128', 'ean13',
+  'code39', 'ean8', 'upca', 'upce', 'itf14', 'nw7',
+  'japanpost', 'gs1datamatrix', 'pdf417',
+]);
+
+/** 바코드 요소 (0.5.0) — 값은 고정 문구·전표 값·수식 중 하나 */
+const barcodeElementSchema = z
+  .object({
+    type: z.literal('barcode'),
+    ...elementBaseShape,
+    /** 바코드 종류 */
+    kind: barcodeKindSchema,
+    /** 고정 문구 */
+    content: z.string().optional(),
+    /** 전표 values의 키 */
+    binding: idSchema.optional(),
+    /** 표시 전 가공 수식 (ADR-010/017) */
+    formula: z.string().optional(),
+    /** 막대·점 색 (생략하면 검정) */
+    fontColor: colorSchema.optional(),
+    /** 바탕색 (생략하면 없음) */
+    backgroundColor: colorSchema.optional(),
+  })
+  .superRefine((barcode, ctx) => {
+    const sources = [barcode.content, barcode.binding, barcode.formula].filter((v) => v !== undefined);
+    if (sources.length !== 1) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['content'],
+        message: '바코드는 content·binding·formula 중 하나만 가져야 합니다',
+      });
+    }
+  });
 
 // 도형은 종류마다 의미 있는 스타일이 달라 독립 요소 타입으로 나눈다 (ADR-032):
 // 선 = 색·굵기·형태·방향, 사각형 = 배경·테두리·반경, 타원·삼각형 = 배경·테두리(실선 고정)
@@ -372,11 +458,12 @@ const fieldElementSchema = z.object({
   ...fontShape,
 });
 
-/** 요소 8종 판별 유니온 (type 필드 기준, ADR-020/032/037) */
+/** 요소 9종 판별 유니온 (type 필드 기준, ADR-020/032/037 + 바코드 0.5.0) */
 export const slipElementSchema = z.discriminatedUnion('type', [
   textElementSchema,
   gridElementSchema,
   imageElementSchema,
+  barcodeElementSchema,
   lineElementSchema,
   rectElementSchema,
   ellipseElementSchema,
@@ -413,8 +500,28 @@ const assetEntrySchema = z.object({
   src: srcSchema,
 });
 
+/** 페이지 번호를 찍는 자리 (0.5.0) — 아래·위 가장자리의 좌·중앙·우 */
+const pageNumberPositionSchema = z.enum([
+  'bottom-left', 'bottom-center', 'bottom-right',
+  'top-left', 'top-center', 'top-right',
+]);
+
+/** 페이지 번호 표시 (0.5.0) — 실제 번호는 PDF 후처리로 넣는다 */
+const pageNumberSchema = z.object({
+  position: pageNumberPositionSchema,
+  /** `{n}`은 현재 쪽, `{total}`은 전체 쪽 수로 바뀐다 (생략하면 `{n} / {total}`) */
+  format: z.string().min(1).optional(),
+  fontSize: z.number().positive().optional(),
+});
+
 const slipPageSchema = z.object({
   elements: z.array(slipElementSchema).max(SLIP_LIMITS.maxElementsPerPage, `페이지당 요소는 최대 ${SLIP_LIMITS.maxElementsPerPage}개입니다`),
+  /** 페이지 물리명 (0.5.0) — 문서 안에서 유일. 호스트가 페이지를 가리킬 때 쓴다 */
+  key: idSchema.optional(),
+  /** 페이지 논리명 (0.5.0) — 썸네일·목록에 번호 대신 보인다 */
+  label: z.string().min(1).optional(),
+  /** 페이지 번호 표시 (0.5.0) — 생략하면 찍지 않는다 */
+  pageNumber: pageNumberSchema.optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -441,9 +548,14 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 // ---------------------------------------------------------------------------
 
 /** 바인딩 정의 — 물리명(key)은 파일·수식·연동에, 논리명(label)은 화면 표시에 (ADR-032) */
+/** 바인딩 값의 종류 (0.5.0) — 작성폼 입력 방식과 쓸 수 있는 함수를 가리는 데 쓴다 */
+const bindingValueTypeSchema = z.enum(['text', 'number', 'date', 'boolean', 'image', 'list']);
+
 const bindingDefSchema = z.object({
   key: idSchema,
   label: z.string().min(1).optional(),
+  /** 값 종류 (0.5.0) — 생략하면 글자로 다룬다 */
+  valueType: bindingValueTypeSchema.optional(),
 });
 
 const templateMetaSchema = z.object({
@@ -517,7 +629,7 @@ export const slipTemplateBodySchema = z
           });
         }
         elementIds.add(element.id);
-        if (element.type === 'image' && element.src.startsWith('asset://')) {
+        if (element.type === 'image' && element.src?.startsWith('asset://') === true) {
           const assetId = element.src.slice('asset://'.length);
           if (!assetIds.has(assetId)) {
             ctx.addIssue({
@@ -570,7 +682,7 @@ function findExternalUrlPath(body: z.infer<typeof slipTemplateBodySchema>): (str
   }
   for (const [p, page] of body.pages.entries()) {
     for (const [e, element] of page.elements.entries()) {
-      if (element.type === 'image' && HTTP_SRC.test(element.src)) {
+      if (element.type === 'image' && element.src !== undefined && HTTP_SRC.test(element.src)) {
         return ['pages', p, 'elements', e, 'src'];
       }
     }
@@ -728,6 +840,14 @@ export type EllipseElement = z.infer<typeof ellipseElementSchema>;
 export type PolygonElement = z.infer<typeof polygonElementSchema>;
 /** 필드 요소 (전표 값 바인딩) */
 export type FieldElement = z.infer<typeof fieldElementSchema>;
+/** 바코드 요소 (0.5.0) */
+export type BarcodeElement = z.infer<typeof barcodeElementSchema>;
+/** 바코드 종류 (0.5.0) */
+export type BarcodeKind = z.infer<typeof barcodeKindSchema>;
+/** 바인딩 값 종류 (0.5.0) */
+export type BindingValueType = z.infer<typeof bindingValueTypeSchema>;
+/** 페이지 번호 표시 (0.5.0) */
+export type PageNumber = z.infer<typeof pageNumberSchema>;
 /** 요소 9종 유니온 */
 export type SlipElement = z.infer<typeof slipElementSchema>;
 /** 페이지 (요소 배열) */

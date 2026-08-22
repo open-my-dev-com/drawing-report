@@ -220,13 +220,85 @@ describe('구조 크기 상한 (SPEC §3.2)', () => {
   });
 });
 
-describe('schemaVersion 마이그레이션 (구버전 → 0.4.0)', () => {
+describe('schemaVersion 마이그레이션 (구버전 → 0.5.0)', () => {
   it('구버전(0.1.0) 파일은 현재 버전으로 끌어올려 파싱된다', () => {
     const file = makeTemplate();
     (file as { schemaVersion: string }).schemaVersion = '0.1.0';
     const parsed = parseSlipFile(serializeSlipFile(file));
     expect(parsed.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(CURRENT_SCHEMA_VERSION).toBe('0.4.0');
+    expect(CURRENT_SCHEMA_VERSION).toBe('0.5.0');
+  });
+
+  it('이미지는 src와 binding 중 하나만 가진다 (0.5.0)', () => {
+    const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    const pages = (base['template'] as { pages: { elements: Record<string, unknown>[] }[] }).pages;
+    const image = { type: 'image', id: 'img-x', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10 };
+
+    pages[0]!.elements.push({ ...image });
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/src 또는 binding/);
+
+    pages[0]!.elements[pages[0]!.elements.length - 1] = { ...image, src: 'data:image/png;base64,AA==', binding: 'sign' };
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/함께 가질 수 없습니다/);
+
+    // 하나만 있으면 통과한다
+    pages[0]!.elements[pages[0]!.elements.length - 1] = { ...image, binding: 'sign' };
+    expect(() => parseSlipFile(JSON.stringify(base))).not.toThrow();
+  });
+
+  it('바코드는 content·binding·formula 중 하나만 가진다 (0.5.0)', () => {
+    const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    const pages = (base['template'] as { pages: { elements: Record<string, unknown>[] }[] }).pages;
+    const barcode = {
+      type: 'barcode', id: 'bc-1', name: '전표번호', kind: 'qrcode',
+      position: { x: 10, y: 10 }, width: 20, height: 20,
+    };
+
+    pages[0]!.elements.push({ ...barcode });
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/하나만 가져야/);
+
+    pages[0]!.elements[pages[0]!.elements.length - 1] = { ...barcode, content: 'A', binding: 'code' };
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/하나만 가져야/);
+
+    pages[0]!.elements[pages[0]!.elements.length - 1] = { ...barcode, binding: 'code' };
+    const parsed = parseSlipFile(JSON.stringify(base));
+    if (parsed.kind !== 'template') throw new Error('template이어야 한다');
+    const saved = parsed.template.pages[0]!.elements.at(-1)!;
+    expect(saved.type).toBe('barcode');
+  });
+
+  it('그리드 열의 자동 병합과 페이지 이름·번호를 담을 수 있다 (0.5.0)', () => {
+    const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    const template = base['template'] as {
+      pages: { elements: Record<string, unknown>[]; key?: string; label?: string; pageNumber?: unknown }[];
+      bindings?: { key: string; label?: string; valueType?: string }[];
+    };
+    const grid = template.pages[0]!.elements.find((el) => el['type'] === 'grid')!;
+    (grid['columns'] as Record<string, unknown>[])[0]!['autoMerge'] = true;
+    template.pages[0]!.key = 'first';
+    template.pages[0]!.label = '첫 장';
+    template.pages[0]!.pageNumber = { position: 'bottom-center' };
+    template.bindings = [{ key: 'items', label: '품목', valueType: 'list' }];
+
+    const parsed = parseSlipFile(JSON.stringify(base));
+    if (parsed.kind !== 'template') throw new Error('template이어야 한다');
+    const page = parsed.template.pages[0]!;
+    expect(page.label).toBe('첫 장');
+    expect(page.pageNumber?.position).toBe('bottom-center');
+    expect(parsed.template.bindings?.[0]?.valueType).toBe('list');
+    const saved = page.elements.find((el) => el.type === 'grid')!;
+    if (saved.type !== 'grid') throw new Error('grid여야 한다');
+    expect(saved.columns[0]?.autoMerge).toBe(true);
+  });
+
+  it('0.4.0 파일은 그대로 0.5.0이 된다 — 0.5.0이 더한 것은 전부 선택 필드다', () => {
+    const file = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    file['schemaVersion'] = '0.4.0';
+    const before = structuredClone(file['template']);
+
+    const parsed = parseSlipFile(JSON.stringify(file));
+    expect(parsed.schemaVersion).toBe('0.5.0');
+    if (parsed.kind !== 'template') throw new Error('template이어야 한다');
+    expect(parsed.template).toEqual(before);
   });
 
   it('0.3.0의 고정 그리드는 mm 트랙을 가진 그리드로 옮겨진다 (ADR-037 3단계)', () => {

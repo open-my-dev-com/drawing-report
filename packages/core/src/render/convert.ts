@@ -13,6 +13,7 @@
 import type { Schema, Template } from '@pdfme/common';
 import { evaluateFormula } from '../formula/evaluator.js';
 import type {
+  BarcodeElement,
   EllipseElement,
   FieldElement,
   GridCell,
@@ -22,6 +23,7 @@ import type {
   RectElement,
   SlipElement,
   SlipFile,
+  SlipPage,
   SlipTemplateBody,
   PolygonElement,
   TextElement,
@@ -35,6 +37,10 @@ import type { SlipFont } from './types.js';
 // ---------------------------------------------------------------------------
 
 const DEFAULT_FONT_SIZE = 10;
+/** 페이지 번호 기본 글자 크기(pt, 0.5.0) */
+const PAGE_NUMBER_FONT_SIZE = 9;
+/** pt → mm */
+const PT_TO_MM = 25.4 / 72;
 const DEFAULT_FONT_COLOR = '#000000';
 const DEFAULT_BORDER_COLOR = '#000000';
 /** 선·테두리 두께 기본값(mm) */
@@ -80,6 +86,22 @@ export interface PdfmeRenderInput {
 // 값 문자열화 (수식 엔진 CONCAT의 문자열화 규칙과 같다)
 // ---------------------------------------------------------------------------
 
+/**
+ * 세로쓰기 — 글자를 한 자씩 줄바꿈으로 쌓는다 (0.5.0).
+ *
+ * 하부 엔진에 세로쓰기 기능이 없어 변환 계층이 직접 쌓는다(직접 확인). 상자 하나는 세로 한 줄이므로
+ * 원문의 줄바꿈은 자리를 차지하지 않도록 없앤다 — 여러 줄을 세로로 쓰려면 상자를 나눈다.
+ * 자소 하나가 여러 코드 단위인 글자(이모지 등)를 쪼개지 않도록 코드 포인트 단위로 나눈다.
+ *
+ * @param text - 원래 글
+ * @param vertical - 세로쓰기 여부 (거짓이면 원문 그대로)
+ * @returns 세로쓰기면 한 자씩 줄을 나눈 글, 아니면 원문
+ */
+function stackVertically(text: string, vertical: boolean | undefined): string {
+  if (vertical !== true) return text;
+  return [...text.replace(/\r\n|\r|\n/g, '')].join('\n');
+}
+
 function toDisplayText(value: unknown, what: string): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
@@ -115,10 +137,38 @@ class SlipToPdfmeConverter {
    * 렌더 옵션 폰트 목록에 있으면 그 이름을, 없으면 undefined(굵게 무시, ADR-032)
    */
   private resolveBoldFont(fontName: string | undefined): string | undefined {
+    return this.resolveVariantFontName(fontName, 'Bold');
+  }
+
+  /**
+   * 굵게·기울임에 쓸 폰트 이름 — 유효 폰트의 `<이름>-<변형>`이 렌더 옵션에 있으면 그 이름을,
+   * 없으면 `undefined`(그 변형은 PDF에서 무시된다, ADR-032 · 0.5.0)
+   */
+  private resolveVariantFontName(fontName: string | undefined, variant: string): string | undefined {
     const base = fontName ?? this.fallbackFontName;
     if (!base) return undefined;
-    const candidate = `${base}-Bold`;
+    const candidate = `${base}-${variant}`;
     return this.fontNames.includes(candidate) ? candidate : undefined;
+  }
+
+  /**
+   * 굵게·기울임을 함께 고려한 폰트 이름 — 둘 다면 `<이름>-BoldItalic`을 먼저 찾는다.
+   * 맞는 변형이 없으면 원래 폰트를 그대로 쓴다 — 기울이기 흉내는 내지 않는다 (ADR-032).
+   */
+  private resolveVariantFont(
+    fontName: string | undefined,
+    bold: boolean | undefined,
+    italic: boolean | undefined,
+  ): string | undefined {
+    if (bold === true && italic === true) {
+      return this.resolveVariantFontName(fontName, 'BoldItalic')
+        ?? this.resolveVariantFontName(fontName, 'Bold')
+        ?? this.resolveVariantFontName(fontName, 'Italic')
+        ?? fontName;
+    }
+    if (bold === true) return this.resolveVariantFontName(fontName, 'Bold') ?? fontName;
+    if (italic === true) return this.resolveVariantFontName(fontName, 'Italic') ?? fontName;
+    return fontName;
   }
 
   convert(): PdfmeRenderInput {
@@ -135,6 +185,8 @@ class SlipToPdfmeConverter {
         schemas.push(pageSchemas);
       }
     }
+    // 페이지 번호는 전체 쪽 수가 정해진 뒤에야 찍을 수 있다 — 페이지를 다 만든 뒤 얹는다 (0.5.0)
+    this.appendPageNumbers(schemas);
     const template: Template = {
       basePdf: {
         width: this.body.paper.width,
@@ -144,6 +196,58 @@ class SlipToPdfmeConverter {
       schemas,
     };
     return { template, inputs: [this.inputs] };
+  }
+
+  /**
+   * 페이지 번호 찍기 (0.5.0) — 양식 페이지가 정한 자리에 `{n} / {total}`을 넣는다.
+   *
+   * 실제 번호는 출력 페이지가 다 만들어진 뒤에야 알 수 있다(반복 그리드가 넘치면 한 양식 페이지가
+   * 여러 출력 페이지가 된다). 그래서 페이지를 다 만든 뒤 마지막에 얹는다.
+   *
+   * @param schemas - 페이지별 스키마 목록 (여기에 번호 상자를 더한다)
+   */
+  private appendPageNumbers(schemas: Schema[][]): void {
+    const total = schemas.length;
+    let output = 0;
+    for (const page of this.body.pages) {
+      const count = this.renderPageCount(page.elements);
+      for (let i = 0; i < count; i++, output++) {
+        const setting = page.pageNumber;
+        const target = schemas[output];
+        if (!setting || !target) continue;
+        const text = (setting.format ?? '{n} / {total}')
+          .replace(/\{n\}/g, String(output + 1))
+          .replace(/\{total\}/g, String(total));
+        target.push(this.pageNumberSchema(setting, output, text));
+      }
+    }
+  }
+
+  /** 페이지 번호 상자 하나 — 자리는 용지 여백 안쪽 가장자리에 맞춘다 (0.5.0) */
+  private pageNumberSchema(
+    setting: NonNullable<SlipPage['pageNumber']>,
+    output: number,
+    text: string,
+  ): Schema {
+    const { width, height, padding } = this.body.paper;
+    const [top, right, bottom, left] = padding;
+    const boxWidth = width - left - right;
+    const fontSize = setting.fontSize ?? PAGE_NUMBER_FONT_SIZE;
+    const boxHeight = (fontSize * PT_TO_MM) * 1.6;
+    const isTop = setting.position.startsWith('top-');
+    const y = isTop ? Math.max(0, top - boxHeight) : height - bottom;
+    const alignment: Alignment = setting.position.endsWith('-left')
+      ? 'left'
+      : setting.position.endsWith('-right') ? 'right' : 'center';
+    const schema = this.textSchema(
+      `__page-number-${output}`,
+      { x: left, y },
+      boxWidth,
+      boxHeight,
+      { alignment, verticalAlignment: 'middle', fontSize, padding: 0 },
+    );
+    this.inputs[`__page-number-${output}`] = text;
+    return schema as unknown as Schema;
   }
 
   /** 한 슬립 페이지가 차지하는 출력 페이지 수 — 반복 그리드 중 가장 많은 페이지를 따른다 (SPEC §5.7) */
@@ -190,6 +294,9 @@ class SlipToPdfmeConverter {
       case 'image':
         this.appendImage(schemas, element);
         return;
+      case 'barcode':
+        this.appendBarcode(schemas, element);
+        return;
       case 'line':
         this.appendLine(schemas, element);
         return;
@@ -225,14 +332,15 @@ class SlipToPdfmeConverter {
       borderWidth?: number | undefined;
       padding: number;
       bold?: boolean | undefined;
+      italic?: boolean | undefined;
       underline?: boolean | undefined;
       strikethrough?: boolean | undefined;
+      lineHeight?: number | undefined;
+      characterSpacing?: number | undefined;
     },
   ): Record<string, unknown> {
-    // 굵게 = 굵은 폰트로 전환 (없으면 무시, ADR-032)
-    const fontName = style.bold === true
-      ? (this.resolveBoldFont(style.fontName) ?? style.fontName)
-      : style.fontName;
+    // 굵게·기울임 = 변형 폰트로 전환 (없으면 무시, ADR-032 · 0.5.0)
+    const fontName = this.resolveVariantFont(style.fontName, style.bold, style.italic);
     const schema: Record<string, unknown> = {
       name,
       type: 'text',
@@ -243,8 +351,8 @@ class SlipToPdfmeConverter {
       alignment: style.alignment ?? 'left',
       verticalAlignment: style.verticalAlignment,
       fontSize: style.fontSize ?? DEFAULT_FONT_SIZE,
-      lineHeight: 1,
-      characterSpacing: 0,
+      lineHeight: style.lineHeight ?? 1,
+      characterSpacing: style.characterSpacing ?? 0,
       fontColor: style.fontColor ?? DEFAULT_FONT_COLOR,
       backgroundColor: style.backgroundColor ?? NO_COLOR,
       borderColor: style.borderColor ?? DEFAULT_BORDER_COLOR,
@@ -270,19 +378,22 @@ class SlipToPdfmeConverter {
         fontName: element.fontName,
         fontSize: element.fontSize,
         alignment: element.alignment,
-        verticalAlignment: 'top',
+        verticalAlignment: element.verticalAlignment ?? 'top',
         fontColor: element.fontColor,
         backgroundColor: element.backgroundColor,
         borderColor: element.borderColor,
         borderWidth: element.borderWidth,
         padding: 0,
         bold: element.bold,
+        italic: element.italic,
         underline: element.underline,
         strikethrough: element.strikethrough,
+        lineHeight: element.lineHeight,
+        characterSpacing: element.characterSpacing,
       },
     );
     // 고정 문구는 가공 없이 그대로 (pdfme 표현식 평가를 타지 않도록 inputs로 전달)
-    this.push(schemas, schema, element.content);
+    this.push(schemas, schema, stackVertically(element.content, element.vertical));
   }
 
   private appendField(schemas: Schema[], element: FieldElement): void {
@@ -295,18 +406,21 @@ class SlipToPdfmeConverter {
         fontName: element.fontName,
         fontSize: element.fontSize,
         alignment: element.alignment,
-        verticalAlignment: 'top',
+        verticalAlignment: element.verticalAlignment ?? 'top',
         fontColor: element.fontColor,
         backgroundColor: element.backgroundColor,
         borderColor: element.borderColor,
         borderWidth: element.borderWidth,
         padding: 0,
         bold: element.bold,
+        italic: element.italic,
         underline: element.underline,
         strikethrough: element.strikethrough,
+        lineHeight: element.lineHeight,
+        characterSpacing: element.characterSpacing,
       },
     );
-    this.push(schemas, schema, this.fieldValue(element));
+    this.push(schemas, schema, stackVertically(this.fieldValue(element), element.vertical));
   }
 
   private fieldValue(element: FieldElement): string {
@@ -376,8 +490,13 @@ class SlipToPdfmeConverter {
       fontSize: cell.fontSize ?? element.fontSize,
       alignment: cell.alignment ?? element.alignment,
       bold: cell.bold ?? element.bold,
+      italic: cell.italic ?? element.italic,
       underline: cell.underline ?? element.underline,
       strikethrough: cell.strikethrough ?? element.strikethrough,
+      verticalAlignment: cell.verticalAlignment ?? element.verticalAlignment,
+      lineHeight: cell.lineHeight ?? element.lineHeight,
+      characterSpacing: cell.characterSpacing ?? element.characterSpacing,
+      vertical: cell.vertical ?? element.vertical,
       fontColor: cell.fontColor ?? element.fontColor,
       backgroundColor: cell.backgroundColor,
       borderColor: cell.borderColor,
@@ -635,16 +754,19 @@ class SlipToPdfmeConverter {
           fontName: cell.fontName,
           fontSize: cell.fontSize,
           alignment: cell.alignment,
-          verticalAlignment: 'middle',
+          verticalAlignment: cell.verticalAlignment ?? 'middle',
           fontColor: cell.fontColor,
           backgroundColor: NO_COLOR,
           padding,
           bold: cell.bold,
+          italic: cell.italic,
           underline: cell.underline,
           strikethrough: cell.strikethrough,
+          lineHeight: cell.lineHeight,
+          characterSpacing: cell.characterSpacing,
         },
       );
-      let value = cell.text;
+      let value = stackVertically(cell.text, cell.vertical);
       if (overflow === 'shrink') {
         // 칸에 들어갈 때까지 글자 크기를 줄인다 — 하부 엔진이 세로 기준으로 맞춘다
         schema.dynamicFontSize = { min: MIN_SHRINK_FONT_SIZE, max: fontSize, fit: 'vertical' };
@@ -689,10 +811,18 @@ class SlipToPdfmeConverter {
     this.push(schemas, schema, this.resolveImageSrc(element));
   }
 
-  /** src 해소 (§3.1): data:는 그대로, asset://은 문서 assets에서, 외부 URL은 거부 (ADR-014) */
+  /**
+   * src 해소 (§3.1): data:는 그대로, asset://은 문서 assets에서, 외부 URL은 거부 (ADR-014).
+   * `binding`을 쓰는 변동 이미지는 전표 값에서 base64를 읽는다 (0.5.0, ADR-036).
+   */
   private resolveImageSrc(element: ImageElement): string {
     const what = `이미지 '${element.name}'(${element.id})`;
-    const src = element.src;
+    const src = element.binding !== undefined
+      ? this.boundImageSrc(element, element.binding, what)
+      : element.src;
+    if (src === undefined) {
+      throw new SlipRenderError(`${what}에 그릴 이미지가 없습니다 (src 또는 binding 필요)`);
+    }
     if (src.startsWith('data:')) return src;
     if (src.startsWith('asset://')) {
       const assetId = src.slice('asset://'.length);
@@ -710,6 +840,72 @@ class SlipToPdfmeConverter {
     throw new SlipRenderError(
       `${what}는 외부 URL(${src})을 참조합니다. PDF로 출력하려면 이미지를 파일에 내장(data: base64 또는 asset://)해야 합니다`,
     );
+  }
+
+  /**
+   * 바코드 요소 (0.5.0) — 하부 엔진의 바코드 스키마로 넘긴다.
+   * 값 규칙(EAN-13은 숫자 13자리 등)은 엔진이 검사하며, 어긋나면 렌더가 실패한다.
+   */
+  private appendBarcode(schemas: Schema[], element: BarcodeElement): void {
+    const schema: Schema = {
+      name: element.id,
+      type: element.kind,
+      position: element.position,
+      width: element.width,
+      height: element.height,
+      content: '',
+      barColor: element.fontColor ?? DEFAULT_FONT_COLOR,
+      backgroundColor: element.backgroundColor ?? NO_COLOR,
+    } as unknown as Schema;
+    this.push(schemas, schema, this.barcodeValue(element));
+  }
+
+  /** 바코드에 넣을 값 — 고정 문구·전표 값·수식 중 하나 (0.5.0) */
+  private barcodeValue(element: BarcodeElement): string {
+    const what = `바코드 '${element.name}'(${element.id})`;
+    if (element.content !== undefined) return element.content;
+    if (element.formula !== undefined) {
+      let evaluated: unknown;
+      try {
+        evaluated = evaluateFormula(
+          element.formula,
+          this.locale === undefined ? { values: this.values } : { values: this.values, locale: this.locale },
+        );
+      } catch (error) {
+        throw new SlipRenderError(`${what}의 수식 평가에 실패했습니다: ${(error as Error).message}`);
+      }
+      return toDisplayText(evaluated, what);
+    }
+    if (element.binding !== undefined) return toDisplayText(this.values[element.binding], what);
+    return '';
+  }
+
+  /**
+   * 변동 이미지의 값 읽기 (0.5.0) — 전표 값에서 base64를 꺼낸다.
+   *
+   * @param element - 이미지 요소
+   * @param binding - 값 키
+   * @param what - 오류 문구에 쓸 요소 이름
+   * @returns `data:` base64 문자열. 값이 없으면 `undefined`(빈 자리로 둔다)
+   * @throws SlipRenderError 값이 문자열이 아니거나 base64가 아닐 때
+   */
+  private boundImageSrc(
+    element: ImageElement,
+    binding: string,
+    what: string,
+  ): string | undefined {
+    const value = this.values[binding];
+    if (value === undefined || value === null || value === '') return undefined;
+    if (typeof value !== 'string') {
+      throw new SlipRenderError(`${what}의 값 '${binding}'은 이미지 문자열이어야 합니다`);
+    }
+    if (!value.startsWith('data:')) {
+      // core는 네트워크를 쓰지 않는다 (ADR-002) — 주소는 호스트가 base64로 바꿔 보낸다 (ADR-036)
+      throw new SlipRenderError(
+        `${what}의 값 '${binding}'은 data: base64여야 합니다 (주소는 호스트가 내장해 보내야 합니다)`,
+      );
+    }
+    return value;
   }
 
   /** 사각형 요소 — 파선·점선이면 배경 사각형 + 네 변을 분해한 선으로 (ADR-032) */
@@ -1020,8 +1216,15 @@ interface DrawGridCell {
   fontSize?: number | undefined;
   alignment?: Alignment | undefined;
   bold?: boolean | undefined;
+  italic?: boolean | undefined;
   underline?: boolean | undefined;
   strikethrough?: boolean | undefined;
+  /** 수직 정렬 — 지정하지 않으면 칸 가운데 (0.5.0) */
+  verticalAlignment?: VerticalAlignment | undefined;
+  lineHeight?: number | undefined;
+  characterSpacing?: number | undefined;
+  /** 세로쓰기 (0.5.0) */
+  vertical?: boolean | undefined;
   fontColor?: string | undefined;
   backgroundColor?: string | undefined;
   borderColor?: string | undefined;

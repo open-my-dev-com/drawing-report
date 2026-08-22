@@ -47,6 +47,14 @@ export const BUILT_IN_MIGRATIONS: readonly SlipMigrationStep[] = [
     to: '0.4.0',
     migrate: migrateTo040,
   },
+  {
+    // 0.5.0: 더한 것이 전부 선택 필드라 구조가 바뀌지 않는다 —
+    // 글자 조판(수직 정렬·기울임·줄간격·자간·세로쓰기), 페이지 이름·번호, 변동 이미지 binding,
+    // 바인딩 값 종류, 그리드 열 autoMerge, 바코드 요소. 옛 파일은 그대로 유효하다.
+    from: '0.4.0',
+    to: '0.5.0',
+    migrate: (document) => document,
+  },
 ];
 
 /** 기본 행 높이(mm) — 옛 동적 표에는 행 높이 개념이 없어 여기서 정한다 */

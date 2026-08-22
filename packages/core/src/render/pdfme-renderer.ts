@@ -6,7 +6,7 @@
  */
 import { generate } from '@pdfme/generator';
 import type { Font } from '@pdfme/common';
-import { ellipse, image, line, rectangle, svg, table, text } from '@pdfme/schemas';
+import { barcodes, ellipse, image, line, rectangle, svg, table, text } from '@pdfme/schemas';
 import type { SlipFile } from '../format/schema.js';
 import { convertSlipFile } from './convert.js';
 import { SlipRenderError } from './errors.js';
@@ -55,7 +55,7 @@ export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer 
       return generate({
         template,
         inputs,
-        plugins: { text, table, line, rectangle, ellipse, svg, image },
+        plugins: { text, table, line, rectangle, ellipse, svg, image, ...barcodes },
         ...(font ? { options: { font } } : {}),
       });
     },
