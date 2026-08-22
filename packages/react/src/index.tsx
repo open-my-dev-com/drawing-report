@@ -97,6 +97,8 @@ export interface SlipFormProps {
   fonts?: SlipFonts;
   /** 발행 서명에 쓸 개인키 (JWK) — 없으면 해시만 기록한다 (SPEC §8.3) */
   signingKey?: IntegrityJwk;
+  /** 변동 이미지 입력의 최대 파일 크기(바이트) — 기본 2MB (G-47) */
+  maxImageBytes?: number;
   /** 값을 채울 때마다 작성 중 전표 파일을 받는다 */
   onSlipChange?: (file: SlipFile) => void;
   /** 발행이 끝나면 무결성 기록이 담긴 전표 파일을 받는다 */
@@ -112,6 +114,7 @@ export function SlipForm({
   locale,
   fonts,
   signingKey,
+  maxImageBytes,
   onSlipChange,
   onSlipIssue,
 }: SlipFormProps) {
@@ -139,5 +142,5 @@ export function SlipForm({
     };
   }, [onSlipChange, onSlipIssue]);
 
-  return createElement('slip-form', { ref, src, locale, fonts, signingKey });
+  return createElement('slip-form', { ref, src, locale, fonts, signingKey, maxImageBytes });
 }

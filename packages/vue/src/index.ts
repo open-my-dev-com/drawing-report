@@ -92,6 +92,8 @@ export const SlipForm = defineComponent({
     fonts: { type: Object as PropType<SlipFonts>, default: undefined },
     /** 발행 서명에 쓸 개인키 (JWK) — 없으면 해시만 기록한다 (SPEC §8.3) */
     signingKey: { type: Object as PropType<IntegrityJwk>, default: undefined },
+    /** 변동 이미지 입력의 최대 파일 크기(바이트) — 기본 2MB (G-47) */
+    maxImageBytes: { type: Number, default: undefined },
   },
   emits: ['slip-change', 'slip-issue'],
   setup(props, { emit }) {
@@ -101,6 +103,7 @@ export const SlipForm = defineComponent({
         locale: props.locale,
         '.fonts': props.fonts,
         '.signingKey': props.signingKey,
+        '.maxImageBytes': props.maxImageBytes,
         'onSlip-change': (event: CustomEvent<{ file: SlipFile }>) =>
           emit('slip-change', event.detail.file),
         'onSlip-issue': (event: CustomEvent<{ file: SlipFile }>) =>
