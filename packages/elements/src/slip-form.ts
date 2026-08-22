@@ -14,9 +14,9 @@ import {
   type SlipVoucherFile,
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
-import { loadDefaultFonts } from './default-fonts.js';
 import { icons } from './icons.js';
 import { pickImageFile, formatBytes } from './image-file.js';
+import { resolveFonts, type SlipFontProvider } from './settings.js';
 
 /** PDF 미리보기를 다시 만들기까지 기다리는 시간(ms) — 타자 중 매번 렌더하지 않기 위함 */
 const PREVIEW_DEBOUNCE_MS = 500;
@@ -414,7 +414,7 @@ export class SlipForm extends LitElement {
   static properties = {
     src: { type: String },
     locale: { type: String },
-    fonts: { attribute: false },
+    settings: { attribute: false },
     signingKey: { attribute: false },
     maxImageBytes: { type: Number, attribute: 'max-image-bytes' },
     _values: { state: true },
@@ -437,8 +437,8 @@ export class SlipForm extends LitElement {
    */
   locale?: string;
 
-  /** PDF 미리보기에 쓸 사용자 폰트 (ADR-012) */
-  fonts?: RenderOptions['fonts'];
+  /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040, JS 프로퍼티 전용) — 없으면 동봉 기본 */
+  settings?: SlipFontProvider;
 
   /** 발행 서명에 쓸 개인키 (JWK) — 주지 않으면 해시만 기록한다 (SPEC §8.3) */
   signingKey?: IntegrityJwk;
@@ -722,7 +722,7 @@ export class SlipForm extends LitElement {
     try {
       // 폰트 미지정 시 동봉 Pretendard 자동 사용 (ADR-012) — 한글 깨짐 방지
       const opts: RenderOptions = {
-        fonts: this.fonts?.length ? this.fonts : await loadDefaultFonts(),
+        fonts: await resolveFonts(this.settings),
       };
       const pdfBytes = await renderSlipToPdf(this._buildVoucher(this._issued), opts);
       if (gen !== this._previewGeneration) return;

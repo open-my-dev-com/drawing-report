@@ -136,10 +136,23 @@ describe('<slip-viewer> PDF 렌더링', () => {
     el.remove();
   });
 
-  it('fonts 프로퍼티를 renderSlipToPdf에 전달한다', async () => {
+  it('settings.getFonts로 공급한 폰트를 renderSlipToPdf에 전달한다 (ADR-040)', async () => {
     const el = await createElement();
     const fonts = [{ name: 'TestFont', data: new Uint8Array([1, 2, 3]) }];
-    el.fonts = fonts;
+    el.settings = { getFonts: () => fonts };
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    expect(renderSlipToPdfMock).toHaveBeenCalledWith(DUMMY_FILE, { fonts });
+    el.remove();
+  });
+
+  it('settings.getFonts가 비동기(Promise)여도 그 폰트로 렌더한다 (ADR-040 — 서버 fetch 대응)', async () => {
+    const el = await createElement();
+    const fonts = [{ name: 'AsyncFont', data: new Uint8Array([9]) }];
+    el.settings = { getFonts: () => Promise.resolve(fonts) };
     el.src = '{"valid": true}';
     await el.updateComplete;
     await flush();

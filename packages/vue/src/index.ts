@@ -1,18 +1,18 @@
 import '@omdc-slipkit/elements';
 import { defineComponent, h, type PropType } from 'vue';
 import type {
-  SlipViewer as SlipViewerElement,
   SlipDesigner as SlipDesignerElement,
+  SlipFontProvider,
+  SlipDesignerSettings,
 } from '@omdc-slipkit/elements';
 import type { IntegrityJwk, SlipFile, StorageAdapter } from '@omdc-slipkit/core';
 
-type SlipFonts = SlipViewerElement['fonts'];
 type SlipPresets = SlipDesignerElement['presets'];
 
 /**
  * Vue는 커스텀 엘리먼트를 네이티브로 지원한다.
  * (호스트 앱 빌드 설정에서 `slip-` 접두사를 custom element로 표시하면 이 래퍼 없이도 사용 가능)
- * fonts 같은 객체 값은 `.` 접두사로 JS 프로퍼티에 바인딩한다.
+ * settings 같은 객체 값은 `.` 접두사로 JS 프로퍼티에 바인딩한다.
  */
 export const SlipViewer = defineComponent({
   name: 'SlipViewer',
@@ -25,11 +25,11 @@ export const SlipViewer = defineComponent({
      * @defaultValue 한국어
      */
     locale: { type: String, default: undefined },
-    /** PDF 렌더링에 쓸 사용자 폰트 (ADR-012) */
-    fonts: { type: Object as PropType<SlipFonts>, default: undefined },
+    /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
+    settings: { type: Object as PropType<SlipFontProvider>, default: undefined },
   },
   setup(props) {
-    return () => h('slip-viewer', { src: props.src, locale: props.locale, '.fonts': props.fonts });
+    return () => h('slip-viewer', { src: props.src, locale: props.locale, '.settings': props.settings });
   },
 });
 
@@ -48,8 +48,8 @@ export const SlipDesigner = defineComponent({
      * @defaultValue 한국어
      */
     locale: { type: String, default: undefined },
-    /** PDF 미리보기에 쓸 사용자 폰트 (ADR-012) */
-    fonts: { type: Object as PropType<SlipFonts>, default: undefined },
+    /** 호스트 설정 인터페이스 (ADR-040) — 폰트 공급 + 용지 목록 공급·저장 */
+    settings: { type: Object as PropType<SlipDesignerSettings>, default: undefined },
     /** 툴바 프리셋 메뉴에 쓸 양식 목록 — 주면 동봉 프리셋 대신 쓴다 */
     presets: { type: Array as PropType<SlipPresets>, default: undefined },
     /** "내 양식" 저장·불러오기에 쓸 저장소 어댑터 (ADR-021) */
@@ -63,7 +63,7 @@ export const SlipDesigner = defineComponent({
       h('slip-designer', {
         src: props.src,
         locale: props.locale,
-        '.fonts': props.fonts,
+        '.settings': props.settings,
         '.presets': props.presets,
         '.storage': props.storage,
         '.maxImageBytes': props.maxImageBytes,
@@ -88,8 +88,8 @@ export const SlipForm = defineComponent({
      * @defaultValue 한국어
      */
     locale: { type: String, default: undefined },
-    /** PDF 미리보기에 쓸 사용자 폰트 (ADR-012) */
-    fonts: { type: Object as PropType<SlipFonts>, default: undefined },
+    /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
+    settings: { type: Object as PropType<SlipFontProvider>, default: undefined },
     /** 발행 서명에 쓸 개인키 (JWK) — 없으면 해시만 기록한다 (SPEC §8.3) */
     signingKey: { type: Object as PropType<IntegrityJwk>, default: undefined },
     /** 변동 이미지 입력의 최대 파일 크기(바이트) — 기본 2MB (G-47) */
@@ -101,7 +101,7 @@ export const SlipForm = defineComponent({
       h('slip-form', {
         src: props.src,
         locale: props.locale,
-        '.fonts': props.fonts,
+        '.settings': props.settings,
         '.signingKey': props.signingKey,
         '.maxImageBytes': props.maxImageBytes,
         'onSlip-change': (event: CustomEvent<{ file: SlipFile }>) =>
