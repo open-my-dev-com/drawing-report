@@ -34,6 +34,14 @@ export const BUILT_IN_MIGRATIONS: readonly SlipMigrationStep[] = [
     to: '0.2.0',
     migrate: migrateTo020,
   },
+  {
+    // 0.3.0 (ADR-037): 그리드 요소(grid) 신설. 기존 fixedGrid·dynamicTable은 그대로 유효하므로
+    // 이 단계에서 바꿀 것이 없다 — 두 요소를 grid로 옮기는 마이그레이션은 디자이너가
+    // grid를 편집할 수 있게 된 뒤(ADR-037 3단계)에 추가한다.
+    from: '0.2.0',
+    to: '0.3.0',
+    migrate: (document) => document,
+  },
 ];
 
 function migrateTo020(document: Record<string, unknown>): Record<string, unknown> {

@@ -50,6 +50,12 @@ export const SLIP_LIMITS = {
   maxTableColumns: 100,
   /** 바인딩 정의부 최대 항목 수 */
   maxBindings: 500,
+  /** 그리드(grid) 최대 행 수 */
+  maxGridRowTracks: 1000,
+  /** 그리드(grid) 최대 열 수 */
+  maxGridColumnTracks: 100,
+  /** 그리드(grid) 반복 구간의 페이지당 최대 항목 수 */
+  maxRepeatPerPage: 1000,
 } as const;
 
 const HTTP_SRC = /^https?:\/\/\S+$/;
@@ -198,7 +204,7 @@ const fixedGridElementSchema = z
 const tableColumnSchema = z.object({
   /** 행 객체에서 값을 읽는 물리 키 — 제목을 바꿔도 데이터·수식이 깨지지 않는다 */
   key: idSchema,
-  /** 머리행에 표시하는 제목 */
+  /** 헤더에 표시하는 제목 */
   title: z.string(),
   /** 열 너비 비율(%) — 전체 합 100 */
   widthPercentage: z.number().positive(),
@@ -215,7 +221,7 @@ const dynamicTableElementSchema = z
       .array(tableColumnSchema)
       .min(1)
       .max(SLIP_LIMITS.maxTableColumns, `열 수는 최대 ${SLIP_LIMITS.maxTableColumns}개입니다`),
-    /** 페이지 분할 시 머리행 반복 (ADR-011) */
+    /** 페이지 분할 시 헤더 반복 (ADR-011) */
     repeatHead: z.boolean(),
     /** 바인딩할 데이터 키 (전표 values의 배열 필드) */
     binding: idSchema,
@@ -239,6 +245,172 @@ const dynamicTableElementSchema = z
         });
       }
       keys.add(col.key);
+    });
+  });
+
+// ---------------------------------------------------------------------------
+// grid — 고정 틀과 반복 목록을 하나로 다루는 그리드 (0.3.0, ADR-037)
+// ---------------------------------------------------------------------------
+
+/** 칸을 넘치는 글의 처리 — 잘라내거나 글자 크기를 줄여 넣는다 (ADR-037) */
+const overflowSchema = z.enum(['clip', 'shrink']);
+
+/** 그리드 열 — 너비는 mm 절대값이라 열을 더해도 다른 열이 변하지 않는다 (ADR-037) */
+const gridColumnSchema = z.object({ width: positiveMm });
+
+/** 그리드 행 — 높이는 mm 절대값 */
+const gridRowSchema = z.object({ height: positiveMm });
+
+const gridCellSchema = z.object({
+  ...colorStyleShape,
+  /** 0-기반 행/열 좌표 */
+  row: z.number().int().nonnegative(),
+  column: z.number().int().nonnegative(),
+  /** 병합 범위 (기본 1) */
+  rowSpan: z.number().int().min(1).optional(),
+  colSpan: z.number().int().min(1).optional(),
+  /** 고정 문구 */
+  content: z.string().optional(),
+  /** 값 키 — 반복 구간 안이면 그 항목의 필드, 밖이면 전표 values의 키 */
+  binding: idSchema.optional(),
+  /** 표시 전 가공 수식 (ADR-010/017) */
+  formula: z.string().optional(),
+  /** 칸을 넘치는 글의 처리 — 요소 값을 덮어쓴다 */
+  overflow: overflowSchema.optional(),
+  ...fontShape,
+});
+
+/** 반복 구간 — 지정한 행 범위가 항목 배열만큼 복제된다 (ADR-037) */
+const gridRepeatSchema = z.object({
+  /** 전표 values에서 항목 배열(객체 배열)을 담는 키 */
+  binding: idSchema,
+  /** 반복할 행 범위 (0-기반, 양끝 포함) */
+  fromRow: z.number().int().nonnegative(),
+  toRow: z.number().int().nonnegative(),
+  /** 한 페이지에 담는 항목 수 (행 수가 아니다) */
+  perPage: z
+    .number()
+    .int()
+    .min(1)
+    .max(SLIP_LIMITS.maxRepeatPerPage, `perPage는 최대 ${SLIP_LIMITS.maxRepeatPerPage}입니다`),
+  /** 이어지는 페이지에 반복 구간 위쪽 행을 다시 그릴지 */
+  repeatHeader: z.boolean(),
+});
+
+/** 고정 틀과 반복 목록을 하나로 다루는 그리드 (0.3.0, ADR-037) */
+const gridElementSchema = z
+  .object({
+    type: z.literal('grid'),
+    ...elementBaseShape,
+    ...colorStyleShape,
+    ...fontShape,
+    /** 열 정의 — 너비(mm) */
+    columns: z
+      .array(gridColumnSchema)
+      .min(1)
+      .max(SLIP_LIMITS.maxGridColumnTracks, `열 수는 최대 ${SLIP_LIMITS.maxGridColumnTracks}개입니다`),
+    /** 행 정의 — 높이(mm) */
+    rows: z
+      .array(gridRowSchema)
+      .min(1)
+      .max(SLIP_LIMITS.maxGridRowTracks, `행 수는 최대 ${SLIP_LIMITS.maxGridRowTracks}개입니다`),
+    cells: z.array(gridCellSchema).max(SLIP_LIMITS.maxGridCells, `셀 수는 최대 ${SLIP_LIMITS.maxGridCells}개입니다`),
+    /** 반복 구간 — 없으면 고정 틀 */
+    repeat: gridRepeatSchema.optional(),
+    /** 칸을 넘치는 글의 처리 (기본 clip) */
+    overflow: overflowSchema.optional(),
+  })
+  .superRefine((grid, ctx) => {
+    const rows = grid.rows.length;
+    const columns = grid.columns.length;
+    // 요소 상자는 행 높이·열 너비의 합이다 — 비율이 아니므로 어긋나면 그리는 자리가 달라진다
+    const totalWidth = grid.columns.reduce((sum, col) => sum + col.width, 0);
+    // 반복 구간은 페이지마다 perPage번 복제되므로 요소 높이도 그만큼이다 (SPEC §5.7)
+    const templateHeight = grid.rows.reduce((sum, row) => sum + row.height, 0);
+    const bandHeight = grid.repeat
+      ? grid.rows
+          .slice(grid.repeat.fromRow, grid.repeat.toRow + 1)
+          .reduce((sum, row) => sum + row.height, 0)
+      : 0;
+    const totalHeight = templateHeight + (grid.repeat ? (grid.repeat.perPage - 1) * bandHeight : 0);
+    if (Math.abs(totalWidth - grid.width) > 0.01) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['columns'],
+        message: `열 너비의 합(${totalWidth})은 width(${grid.width})와 같아야 합니다`,
+      });
+    }
+    if (Math.abs(totalHeight - grid.height) > 0.01) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['rows'],
+        message:
+          `행 높이의 합(${totalHeight})은 height(${grid.height})와 같아야 합니다`
+          + (grid.repeat ? ' — 반복 구간은 perPage번 복제된 높이로 셉니다' : ''),
+      });
+    }
+    if (grid.repeat) {
+      const { fromRow, toRow } = grid.repeat;
+      if (fromRow > toRow) {
+        ctx.addIssue({ code: 'custom', path: ['repeat', 'fromRow'], message: 'fromRow는 toRow보다 클 수 없습니다' });
+      } else if (toRow >= rows) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['repeat', 'toRow'],
+          message: `반복 구간(${fromRow}~${toRow})이 행 수(${rows})를 벗어납니다`,
+        });
+      }
+    }
+    // 셀 범위·겹침 검사 (병합 포함)
+    const occupied = new Set<string>();
+    grid.cells.forEach((cell, index) => {
+      const rowSpan = cell.rowSpan ?? 1;
+      const colSpan = cell.colSpan ?? 1;
+      const sources = [cell.content, cell.binding, cell.formula].filter((v) => v !== undefined);
+      if (sources.length > 1) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['cells', index],
+          message: `셀(${cell.row},${cell.column})은 content·binding·formula 중 하나만 가질 수 있습니다`,
+        });
+      }
+      if (cell.row + rowSpan > rows || cell.column + colSpan > columns) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['cells', index],
+          message: `셀(${cell.row},${cell.column})의 병합 범위가 그리드(${rows}×${columns})를 벗어납니다`,
+        });
+        return;
+      }
+      // 병합이 반복 구간 경계를 넘으면 복제할 때 모양이 무너진다
+      if (grid.repeat && rowSpan > 1) {
+        const { fromRow, toRow } = grid.repeat;
+        const last = cell.row + rowSpan - 1;
+        const startsInside = cell.row >= fromRow && cell.row <= toRow;
+        const endsInside = last >= fromRow && last <= toRow;
+        if (startsInside !== endsInside || (startsInside && endsInside && (cell.row < fromRow || last > toRow))) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['cells', index],
+            message: `셀(${cell.row},${cell.column})의 병합이 반복 구간(${fromRow}~${toRow}) 경계를 넘습니다`,
+          });
+          return;
+        }
+      }
+      for (let r = cell.row; r < cell.row + rowSpan; r++) {
+        for (let c = cell.column; c < cell.column + colSpan; c++) {
+          const key = `${r},${c}`;
+          if (occupied.has(key)) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['cells', index],
+              message: `셀(${r},${c})이 다른 셀과 겹칩니다`,
+            });
+            return;
+          }
+          occupied.add(key);
+        }
+      }
     });
   });
 
@@ -325,11 +497,12 @@ const fieldElementSchema = z.object({
   ...fontShape,
 });
 
-/** 요소 9종 판별 유니온 (type 필드 기준, ADR-020/032) */
+/** 요소 10종 판별 유니온 (type 필드 기준, ADR-020/032/037) */
 export const slipElementSchema = z.discriminatedUnion('type', [
   textElementSchema,
   fixedGridElementSchema,
   dynamicTableElementSchema,
+  gridElementSchema,
   imageElementSchema,
   lineElementSchema,
   rectElementSchema,
@@ -665,6 +838,15 @@ export type FixedGridCell = z.infer<typeof fixedGridCellSchema>;
 export type FixedGridElement = z.infer<typeof fixedGridElementSchema>;
 /** 동적 행 표 요소 */
 export type DynamicTableElement = z.infer<typeof dynamicTableElementSchema>;
+
+/** 그리드 셀 (0.3.0, ADR-037) */
+export type GridCell = z.infer<typeof gridCellSchema>;
+
+/** 그리드의 반복 구간 (0.3.0, ADR-037) */
+export type GridRepeat = z.infer<typeof gridRepeatSchema>;
+
+/** 그리드 요소 — 고정 틀과 반복 목록을 하나로 다룬다 (0.3.0, ADR-037) */
+export type GridElement = z.infer<typeof gridElementSchema>;
 /** 동적 표의 열 정의 (물리 키·표시 제목·너비, ADR-032) */
 export type TableColumn = z.infer<typeof tableColumnSchema>;
 /** 바인딩 정의 (물리명 key + 논리명 label, ADR-032) */

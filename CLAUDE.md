@@ -16,6 +16,8 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
 ## 규칙 위치
 
 - **브랜치·커밋·PR·작업 시작 절차**: `.claude/rules/branching.md`
+- **용어 사전**: `.claude/rules/terms.md` — 이름을 붙이기 전에 먼저 본다. 그리드(요소)와
+  격자(캔버스 모눈)처럼 헷갈리는 말의 구분, 용어를 바꿀 때 훑을 곳 목록
 - **패키지·문서별 상세 규칙**: `.claude/rules/core.md`(순수 TS·
   eval 금지·Zod 단일 원천·스키마 변경 체크리스트·pdfme 외부 비공개) · `ui-packages.md`(Lit·`slip-*`·
   얇은 래퍼) · `docs.md`(ADR·SPEC 일관성) · `comments.md`(TSDoc 주석 표준, ADR-029)
@@ -44,7 +46,8 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
 - pdfme 타입·API를 공개 API에 노출 금지 (ADR-016).
 - **용어·문구·설정값 변경 시 SSOT 준수**: 한 곳에서 정의되고 여러 곳에서 쓰이는 것(용어,
   UI 문구, 상수 등)을 바꿀 때는 문서(SPEC·DECISIONS·REQUIREMENTS·ROADMAP)·코드 주석·
-  UI 문구(`strings.ts`)·테스트 설명을 모두 검색해 일괄 변경한다. 일부만 바꾸지 않는다.
+  사용자 대면 오류 메시지·UI 문구(`strings.ts`)·테스트 설명을 모두 검색해 일괄 변경한다.
+  일부만 바꾸지 않는다. 대상 목록과 확정된 용어는 `.claude/rules/terms.md`에 있다.
 
 ## 검증 게이트
 

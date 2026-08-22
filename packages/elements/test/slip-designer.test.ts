@@ -403,7 +403,7 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     el.remove();
   });
 
-  it('동적 표 머리행은 배경색(기본 #eeeeee)이 칠해지고 상자 전체는 칠하지 않는다', async () => {
+  it('동적 표 헤더는 배경색(기본 #eeeeee)이 칠해지고 상자 전체는 칠하지 않는다', async () => {
     const el = await mountWith([{
       type: 'dynamicTable', id: 'd1', name: 'd', position: { x: 10, y: 50 },
       width: 90, height: 20,
@@ -938,7 +938,7 @@ describe('<slip-designer> 사이드바', () => {
     expect(Array.from(rows).map((r) => r.textContent?.trim()))
       .toEqual([strings.designer.pageLabel.replace('{n}', '1'),
                 strings.designer.pageLabel.replace('{n}', '2')]);
-    // 페이지 추가 직후엔 2쪽이 현재 — 1쪽 줄을 눌러 되돌아간다
+    // 페이지 추가 직후엔 2페이지가 현재 — 1페이지 줄을 눌러 되돌아간다
     expect(rows[1]?.classList.contains('selected')).toBe(true);
     (rows[0] as HTMLElement).click();
     await el.updateComplete;

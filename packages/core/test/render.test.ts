@@ -584,3 +584,252 @@ describe('렌더 로케일 (ADR-013)', () => {
     expect(koInputs[0]![field.id]).toBe('1,234,567');
   });
 });
+
+// ---------------------------------------------------------------------------
+// grid — 고정 틀과 반복 목록을 하나로 다루는 그리드 (ADR-037)
+// ---------------------------------------------------------------------------
+
+/**
+ * 머리 1행 + 반복 1행 + 꼬리 1행짜리 그리드.
+ * 열 너비 60+40mm, 행 높이 8mm → 반복 3개면 높이 8 + 3x8 + 8 = 40mm.
+ */
+function makeGridBody(options?: {
+  perPage?: number;
+  repeatHeader?: boolean;
+  overflow?: 'clip' | 'shrink';
+}): SlipTemplateBody {
+  const perPage = options?.perPage ?? 3;
+  return {
+    meta: { title: '그리드 시험' },
+    paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
+    pages: [
+      {
+        elements: [
+          {
+            type: 'text',
+            id: 'title',
+            name: '제목',
+            position: { x: 15, y: 10 },
+            width: 100,
+            height: 8,
+            content: '거래명세서',
+          },
+          {
+            type: 'grid',
+            id: 'items',
+            name: '품목',
+            position: { x: 15, y: 30 },
+            width: 100,
+            height: 8 + perPage * 8 + 8,
+            columns: [{ width: 60 }, { width: 40 }],
+            rows: [{ height: 8 }, { height: 8 }, { height: 8 }],
+            ...(options?.overflow === undefined ? {} : { overflow: options.overflow }),
+            repeat: {
+              binding: 'items',
+              fromRow: 1,
+              toRow: 1,
+              perPage,
+              repeatHeader: options?.repeatHeader ?? true,
+            },
+            cells: [
+              { row: 0, column: 0, content: '품명', backgroundColor: '#EEEEEE' },
+              { row: 0, column: 1, content: '금액' },
+              { row: 1, column: 0, binding: '품명' },
+              { row: 1, column: 1, binding: '금액' },
+              { row: 2, column: 0, content: '합계' },
+              { row: 2, column: 1, formula: 'FORMAT_NUMBER(SUM(items.금액))' },
+            ],
+          },
+        ],
+      },
+    ],
+    assets: [],
+  };
+}
+
+function makeGridVoucher(itemCount: number, options?: Parameters<typeof makeGridBody>[0]): SlipVoucherFile {
+  return {
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    kind: 'voucher',
+    templateSnapshot: makeGridBody(options),
+    values: {
+      items: Array.from({ length: itemCount }, (_, index) => ({
+        품명: `품목 ${index + 1}`,
+        금액: (index + 1) * 1000,
+      })),
+    },
+    issued: false,
+  };
+}
+
+/** 그리드가 낸 텍스트 스키마의 값 목록 (그린 순서대로) */
+function gridTexts(file: SlipVoucherFile | SlipTemplateFile, pageIndex = 0): string[] {
+  const { template, inputs } = convertSlipFile(file);
+  const schemas = (template.schemas[pageIndex] ?? []) as unknown as PdfmeSchema[];
+  return schemas
+    .filter((schema) => schema.type === 'text' && String(schema.name).includes('__cell-'))
+    .map((schema) => inputs[0]?.[schema.name] ?? '');
+}
+
+describe('그리드(grid) 변환 — 반복 구간 (ADR-037)', () => {
+  it('반복 구간이 항목 수만큼 복제되고 셀 값·수식이 채워진다', () => {
+    const texts = gridTexts(makeGridVoucher(3));
+    // 값 칸은 그대로, 수식 칸(합계)만 포맷된다
+    expect(texts).toEqual(['품명', '금액', '품목 1', '1000', '품목 2', '2000', '품목 3', '3000', '합계', '6,000']);
+  });
+
+  it('항목이 적으면 남는 칸은 빈 줄로 남고 그리드 크기는 그대로다', () => {
+    const { template } = convertSlipFile(makeGridVoucher(1));
+    const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
+    // 빈 줄에는 글자가 없다 — 머리 2 + 항목 2 + 꼬리 2
+    expect(gridTexts(makeGridVoucher(1))).toEqual(['품명', '금액', '품목 1', '1000', '합계', '1,000']);
+    // 괘선은 빈 줄까지 그린다 — 가로선이 행 경계 수(5개: 0~4)만큼 있다
+    const horizontals = schemas.filter((s) => String(s.name).includes('__h-'));
+    expect(horizontals.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('항목이 perPage를 넘으면 페이지가 늘고 나머지 요소도 함께 다시 그려진다', () => {
+    const { template } = convertSlipFile(makeGridVoucher(7));
+    // 7항목 / 페이지당 3 → 3페이지
+    expect(template.schemas).toHaveLength(3);
+    expect(gridTexts(makeGridVoucher(7), 0)).toContain('품목 3');
+    expect(gridTexts(makeGridVoucher(7), 1)).toContain('품목 4');
+    expect(gridTexts(makeGridVoucher(7), 2)).toContain('품목 7');
+    // 그리드 밖 요소는 페이지마다 다시 그린다
+    const page2 = (template.schemas[1] ?? []) as unknown as PdfmeSchema[];
+    expect(page2.some((s) => String(s.name).startsWith('title'))).toBe(true);
+  });
+
+  it('헤더를 반복하지 않으면 이어지는 페이지에서 그 자리를 비운다', () => {
+    const file = makeGridVoucher(5, { repeatHeader: false });
+    expect(gridTexts(file, 0)).toContain('품명');
+    expect(gridTexts(file, 1)).not.toContain('품명');
+    // 그리드 높이는 그대로라 꼬리 행은 같은 자리에 남는다
+    const { template } = convertSlipFile(file);
+    const first = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
+    const second = (template.schemas[1] ?? []) as unknown as PdfmeSchema[];
+    const tailOf = (schemas: PdfmeSchema[]): number =>
+      schemas.filter((s) => s.type === 'text' && String(s.name).includes('__cell-')).slice(-1)[0]!.position.y;
+    expect(tailOf(second)).toBe(tailOf(first));
+  });
+
+  it('반복 구간이 없으면 고정 틀로 그린다', () => {
+    const body = makeGridBody();
+    const grid = body.pages[0]!.elements[1] as Extract<SlipElement, { type: 'grid' }>;
+    delete (grid as { repeat?: unknown }).repeat;
+    grid.height = 24;
+    grid.cells = [{ row: 0, column: 0, content: '상호' }, { row: 0, column: 1, content: '테스트상사' }];
+    const file: SlipTemplateFile = { schemaVersion: CURRENT_SCHEMA_VERSION, kind: 'template', template: body };
+    expect(gridTexts(file)).toEqual(['상호', '테스트상사']);
+  });
+
+  it('행이 아래로 쌓이고 꼬리 행은 반복 끝 바로 아래에 놓인다', () => {
+    const { template } = convertSlipFile(makeGridVoucher(3));
+    const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
+    const cells = schemas.filter((s) => s.type === 'text' && String(s.name).includes('__cell-'));
+    // 그리드 origin y=30, 행 높이 8 — 머리 30, 반복 38·46·54, 꼬리 62
+    expect(cells.map((c) => c.position.y)).toEqual([30, 30, 38, 38, 46, 46, 54, 54, 62, 62]);
+    // 열 너비 60·40 — 두 번째 열은 x=15+60
+    expect(cells.map((c) => c.position.x)).toEqual([15, 75, 15, 75, 15, 75, 15, 75, 15, 75]);
+  });
+
+  it('반복 값이 배열이 아니면 한국어 오류로 거부한다', () => {
+    const voucher = makeGridVoucher(2);
+    voucher.values.items = { a: 1 };
+    expect(() => convertSlipFile(voucher)).toThrow(SlipRenderError);
+    expect(() => convertSlipFile(voucher)).toThrow(/객체 배열이어야 합니다/);
+  });
+
+  it('넘치는 글을 줄여 넣기로 두면 글자 크기를 줄이도록 표시한다', () => {
+    const file = makeGridVoucher(1, { overflow: 'shrink' });
+    const { template } = convertSlipFile(file);
+    const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
+    const cell = schemas.find((s) => s.type === 'text' && String(s.name).includes('__cell-'))!;
+    expect(cell.dynamicFontSize).toEqual({ min: 4, max: 10, fit: 'vertical' });
+  });
+
+  it('여러 쪽이 실제 PDF로도 그만큼 나온다', async () => {
+    const pdf = await PDFDocument.load(await renderSlipToPdf(makeGridVoucher(7)));
+    expect(pdf.getPageCount()).toBe(3);
+  }, 30_000);
+});
+
+describe('그리드(grid) 칸을 넘치는 글 (ADR-037)', () => {
+  /** 재기용 폰트 — 하부 엔진 기본 폰트를 그대로 쓴다 (테스트 전용) */
+  async function defaultFonts(): Promise<{ name: string; data: Uint8Array; fallback: boolean }[]> {
+    const { getDefaultFont } = await import('@pdfme/common');
+    const font = getDefaultFont();
+    const name = Object.keys(font)[0]!;
+    return [{ name, data: font[name]!.data as Uint8Array, fallback: true }];
+  }
+
+  /** 두 줄이 들어가는 칸에 긴 글을 넣은 그리드 */
+  function longTextFile(overflow: 'clip' | 'shrink'): SlipTemplateFile {
+    return {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'template',
+      template: {
+        meta: { title: '넘침' },
+        paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
+        pages: [
+          {
+            elements: [
+              {
+                type: 'grid',
+                id: 'g',
+                name: '그리드',
+                position: { x: 15, y: 30 },
+                width: 40,
+                height: 10,
+                overflow,
+                columns: [{ width: 40 }],
+                rows: [{ height: 10 }],
+                cells: [
+                  {
+                    row: 0,
+                    column: 0,
+                    content: 'The quick brown fox jumps over the lazy dog near the river bank at dawn',
+                    fontSize: 10,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        assets: [],
+      },
+    };
+  }
+
+  it('잘라내기는 칸에 들어가는 줄까지만 남긴다', async () => {
+    const fonts = await defaultFonts();
+    const { inputs } = convertSlipFile(longTextFile('clip'), { fonts });
+    const value = Object.values(inputs[0] ?? {}).find((v) => v.includes('quick'))!;
+    const lines = value.split('\n');
+    // 10mm - 여백 2mm = 8mm에 10pt 글자는 두 줄까지 들어간다
+    expect(lines).toHaveLength(2);
+    // 낱말 중간에서 끊기지 않는다
+    for (const line of lines) expect(line).not.toMatch(/\w-$/);
+    expect(lines[0]).toMatch(/^The quick/);
+    expect(value.length).toBeLessThan(
+      'The quick brown fox jumps over the lazy dog near the river bank at dawn'.length,
+    );
+  });
+
+  it('폰트를 주지 않으면 자르지 않고 그대로 넘긴다', () => {
+    const { inputs } = convertSlipFile(longTextFile('clip'));
+    const value = Object.values(inputs[0] ?? {}).find((v) => v.includes('quick'))!;
+    expect(value).toBe('The quick brown fox jumps over the lazy dog near the river bank at dawn');
+  });
+
+  it('줄여 넣기는 자르지 않고 글자 크기를 줄이도록 표시한다', async () => {
+    const fonts = await defaultFonts();
+    const { template, inputs } = convertSlipFile(longTextFile('shrink'), { fonts });
+    const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
+    const cell = schemas.find((s) => s.type === 'text' && String(s.name).includes('__cell-'))!;
+    expect(cell.dynamicFontSize).toEqual({ min: 4, max: 10, fit: 'vertical' });
+    expect(inputs[0]?.[cell.name]).toBe(
+      'The quick brown fox jumps over the lazy dog near the river bank at dawn',
+    );
+  });
+});

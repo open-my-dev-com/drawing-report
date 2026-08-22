@@ -233,13 +233,13 @@ describe('구조 크기 상한 (SPEC §3.2)', () => {
   });
 });
 
-describe('schemaVersion 마이그레이션 (구버전 → 0.2.0)', () => {
+describe('schemaVersion 마이그레이션 (구버전 → 0.3.0)', () => {
   it('구버전(0.1.0) 파일은 현재 버전으로 끌어올려 파싱된다', () => {
     const file = makeTemplate();
     (file as { schemaVersion: string }).schemaVersion = '0.1.0';
     const parsed = parseSlipFile(serializeSlipFile(file));
     expect(parsed.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(CURRENT_SCHEMA_VERSION).toBe('0.2.0');
+    expect(CURRENT_SCHEMA_VERSION).toBe('0.3.0');
   });
 
   it('0.1.1 동적 표(head 방식)는 columns(키=옛 제목)로 변환된다 — 전표 값 호환', () => {
@@ -374,5 +374,98 @@ describe('JSON Schema 산출 (ADR-022)', () => {
     expect(schema.$schema).toContain('2020-12');
     expect(schema.$id).toBe(`urn:slipkit:schema:slip:${CURRENT_SCHEMA_VERSION}`);
     expect(JSON.stringify(schema)).toContain('templateSnapshot');
+  });
+});
+
+describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
+  type Grid = Extract<SlipElement, { type: 'grid' }>;
+
+  function makeGridFile(patch: Partial<Grid> = {}): SlipTemplateFile {
+    const grid: Grid = {
+      type: 'grid',
+      id: 'items',
+      name: '품목',
+      position: { x: 15, y: 30 },
+      width: 100,
+      height: 32,
+      columns: [{ width: 60 }, { width: 40 }],
+      rows: [{ height: 8 }, { height: 8 }, { height: 8 }],
+      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+      cells: [{ row: 0, column: 0, content: '품명' }],
+      ...patch,
+    };
+    return {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'template',
+      template: {
+        meta: { title: '그리드' },
+        paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
+        pages: [{ elements: [grid] }],
+        assets: [],
+      },
+    };
+  }
+
+  it('열 너비의 합이 width와 같아야 한다', () => {
+    expect(() => parseSlipFile(serializeSlipFile(makeGridFile()))).not.toThrow();
+    expect(() => parseSlipFile(serializeSlipFile(makeGridFile({ width: 120 })))).toThrow(/열 너비의 합/);
+  });
+
+  it('height는 반복 구간이 perPage번 복제된 높이여야 한다', () => {
+    // 8(머리) + 2x8(반복) + 8(꼬리) = 32
+    expect(() => parseSlipFile(serializeSlipFile(makeGridFile({ height: 24 })))).toThrow(/행 높이의 합/);
+    expect(() =>
+      parseSlipFile(
+        serializeSlipFile(
+          makeGridFile({
+            height: 40,
+            repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 3, repeatHeader: true },
+          }),
+        ),
+      ),
+    ).not.toThrow();
+  });
+
+  it('반복 구간이 없으면 행 높이의 합이 곧 height다', () => {
+    const file = makeGridFile({ height: 24 });
+    delete (file.template.pages[0]!.elements[0] as { repeat?: unknown }).repeat;
+    expect(() => parseSlipFile(serializeSlipFile(file))).not.toThrow();
+  });
+
+  it('반복 구간이 행 범위를 벗어나면 거부한다', () => {
+    expect(() =>
+      parseSlipFile(
+        serializeSlipFile(
+          makeGridFile({ repeat: { binding: 'items', fromRow: 1, toRow: 5, perPage: 2, repeatHeader: true } }),
+        ),
+      ),
+    ).toThrow(/반복 구간/);
+  });
+
+  it('셀은 content·binding·formula 중 하나만 가질 수 있다', () => {
+    expect(() =>
+      parseSlipFile(serializeSlipFile(makeGridFile({ cells: [{ row: 0, column: 0, content: 'a', binding: 'b' }] }))),
+    ).toThrow(/하나만/);
+  });
+
+  it('병합이 반복 구간 경계를 넘으면 거부한다', () => {
+    expect(() =>
+      parseSlipFile(
+        serializeSlipFile(makeGridFile({ cells: [{ row: 0, column: 0, rowSpan: 2, content: '머리' }] })),
+      ),
+    ).toThrow(/반복 구간.*경계/);
+  });
+
+  it('셀이 그리드를 벗어나거나 겹치면 거부한다', () => {
+    expect(() =>
+      parseSlipFile(serializeSlipFile(makeGridFile({ cells: [{ row: 0, column: 3, content: 'a' }] }))),
+    ).toThrow(/벗어납니다/);
+    expect(() =>
+      parseSlipFile(
+        serializeSlipFile(
+          makeGridFile({ cells: [{ row: 0, column: 0, content: 'a' }, { row: 0, column: 0, content: 'b' }] }),
+        ),
+      ),
+    ).toThrow(/겹칩니다/);
   });
 });
