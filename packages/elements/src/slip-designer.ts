@@ -4078,16 +4078,13 @@ export class SlipDesigner extends LitElement {
         })}
       </div>
       <div class="tool-group">
-        ${this._iconButton(s.delete, icons.remove, () => this._deleteSelected(), { disabled: !this._selectedId })}
         ${this._iconButton(s.copy, icons.copy, () => this._copySelected(), { disabled: !this._selectedId })}
         ${this._iconButton(s.paste, icons.paste, () => this._paste(), { disabled: !this._clipboard })}
         ${this._iconButton(s.undo, icons.undo, () => this._undo(), { disabled: this._undoStack.length === 0 })}
         ${this._iconButton(s.redo, icons.redo, () => this._redo(), { disabled: this._redoStack.length === 0 })}
       </div>
       <div class="tool-group">
-        ${this._iconButton(s.prevPage, icons.pagePrev, () => this._goToPage(this._pageIndex - 1), { disabled: this._pageIndex === 0 })}
         <span class="page-indicator">${this._pageIndex + 1} / ${this._pageCount()}</span>
-        ${this._iconButton(s.nextPage, icons.pageNext, () => this._goToPage(this._pageIndex + 1), { disabled: this._pageIndex >= this._pageCount() - 1 })}
         ${this._iconButton(s.addPage, icons.pageAdd, () => this._addPage())}
         ${this._iconButton(s.deletePage, icons.pageRemove, () => this._deletePage(), { disabled: this._pageCount() <= 1 })}
       </div>
