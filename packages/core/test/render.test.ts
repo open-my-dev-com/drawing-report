@@ -928,3 +928,99 @@ describe('바코드·변동 이미지·페이지 번호 변환 (0.5.0)', () => {
     expect(inputs[0]!['__page-number-0']).toBe('1 / 1');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 데이터 자동 병합 (0.5.0, ADR-038)
+// ---------------------------------------------------------------------------
+
+describe('데이터 자동 병합 (0.5.0, ADR-038)', () => {
+  function makeBody(autoMergeProduct: boolean, perPage = 4): SlipTemplateBody {
+    return {
+      meta: { title: '자동 병합' },
+      paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
+      pages: [{
+        elements: [{
+          type: 'grid', id: 'g', name: '주문',
+          position: { x: 15, y: 30 }, width: 100, height: 8 * (1 + perPage),
+          columns: [{ width: 60, ...(autoMergeProduct ? { autoMerge: true } : {}) }, { width: 40 }],
+          rows: [{ height: 8 }, { height: 8 }],
+          repeat: { binding: 'rows', fromRow: 1, toRow: 1, perPage, repeatHeader: true },
+          cells: [
+            { row: 0, column: 0, content: '품명' },
+            { row: 0, column: 1, content: '주문자' },
+            { row: 1, column: 0, binding: 'product' },
+            { row: 1, column: 1, binding: 'orderer' },
+          ],
+        }],
+      }],
+      assets: [],
+    };
+  }
+  function makeVoucher(
+    rows: Record<string, string>[],
+    autoMerge = true,
+    perPage = 4,
+  ): SlipVoucherFile {
+    return {
+      schemaVersion: CURRENT_SCHEMA_VERSION, kind: 'voucher',
+      templateSnapshot: makeBody(autoMerge, perPage), values: { rows }, issued: false,
+    };
+  }
+  /** 반복 구간 칸(값·수식)의 텍스트만, 페이지별 */
+  function bandTexts(file: SlipVoucherFile, pageIndex = 0): string[] {
+    return gridTexts(file, pageIndex);
+  }
+
+  it('앞 벌과 값이 같은 칸은 한 번만 그려진다 (합쳐짐)', () => {
+    const texts = bandTexts(makeVoucher([
+      { product: '노트', orderer: '주문자 A' },
+      { product: '노트', orderer: '주문자 B' },
+      { product: '연필', orderer: '주문자 C' },
+    ]));
+    // 품명 열은 노트가 한 번만(둘째는 흡수), 연필은 따로. 주문자 열은 전부 나온다
+    expect(texts).toEqual(['품명', '주문자', '노트', '주문자 A', '주문자 B', '연필', '주문자 C']);
+  });
+
+  it('합쳐진 칸은 흡수한 벌 수만큼 세로로 늘어난다', () => {
+    const { template } = convertSlipFile(makeVoucher([
+      { product: '노트', orderer: '주문자 A' },
+      { product: '노트', orderer: '주문자 B' },
+    ]));
+    const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
+    // 품명 노트 칸의 높이가 한 벌(8mm)이 아니라 두 벌(16mm)이다
+    const noteCell = schemas.find((s) => s.type === 'text' && String(s.name).includes('__cell-')
+      && (convertSlipFile(makeVoucher([{ product: '노트', orderer: '주문자 A' }, { product: '노트', orderer: '주문자 B' }])).inputs[0]?.[s.name] === '노트'))!;
+    expect(noteCell).toBeDefined();
+    expect(Math.round(Number(noteCell.height))).toBe(16);
+  });
+
+  it('열을 켜지 않으면 값이 같아도 합치지 않는다', () => {
+    const texts = bandTexts(makeVoucher([
+      { product: '노트', orderer: '주문자 A' },
+      { product: '노트', orderer: '주문자 B' },
+    ], false));
+    expect(texts).toEqual(['품명', '주문자', '노트', '주문자 A', '노트', '주문자 B']);
+  });
+
+  it('빈 값은 합치지 않고, 사이에 낀 빈 값은 병합을 끊는다', () => {
+    const texts = bandTexts(makeVoucher([
+      { product: '노트', orderer: '주문자 A' },
+      { product: '', orderer: '주문자 B' },
+      { product: '노트', orderer: '주문자 C' },
+    ]));
+    // 빈 값이 끼면 앞뒤 노트가 따로 그려진다
+    expect(texts).toEqual(['품명', '주문자', '노트', '주문자 A', '주문자 B', '노트', '주문자 C']);
+  });
+
+  it('페이지가 바뀌면 병합을 끊고 값을 다시 쓴다', () => {
+    const file = makeVoucher([
+      { product: '노트', orderer: 'A' },
+      { product: '노트', orderer: 'B' },
+      { product: '노트', orderer: 'C' },
+    ], true, 2);
+    // 페이지당 2 → 2페이지. 1페이지: 노트(A,B 합침). 2페이지: 노트 다시 쓴다(C)
+    expect(bandTexts(file, 0)).toEqual(['품명', '주문자', '노트', 'A', 'B']);
+    expect(bandTexts(file, 1)).toContain('노트');
+    expect(bandTexts(file, 1)).toContain('C');
+  });
+});

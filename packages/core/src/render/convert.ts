@@ -538,12 +538,46 @@ class SlipToPdfmeConverter {
         if (cell.row < fromRow) cells.push(toDrawCell(cell, 0, undefined, true));
       }
     }
+    // 데이터 자동 병합 (ADR-038): 켠 열은 앞 벌과 값이 같은 칸을 세로로 합친다.
+    // 페이지 단위로만 본다 — chunk가 이 페이지 몫이라 페이지가 바뀌면 저절로 끊기고 값이 다시 그려진다.
+    const autoMergeColumns = new Set<number>();
+    element.columns.forEach((column, c) => {
+      if (column.autoMerge === true) autoMergeColumns.add(c);
+    });
+    const cellMerges = (cell: GridCell): boolean => {
+      const colSpan = cell.colSpan ?? 1;
+      for (let c = cell.column; c < cell.column + colSpan; c++) {
+        if (autoMergeColumns.has(c)) return true;
+      }
+      return false;
+    };
+    // 반복 구간 칸(틀 좌표)별 병합 기준 칸 — 앞 벌과 값이 같으면 이 칸의 높이를 늘린다
+    const anchors = new Map<string, { cell: DrawGridCell; text: string }>();
+
     for (let i = 0; i < perPage; i++) {
       const item = chunk[i];
+      const hasItem = item !== undefined;
       for (const cell of element.cells) {
-        if (cell.row >= fromRow && cell.row <= toRow) {
-          cells.push(toDrawCell(cell, i * bandRows, item, item !== undefined));
+        if (cell.row < fromRow || cell.row > toRow) continue;
+        const draw = toDrawCell(cell, i * bandRows, item, hasItem);
+        if (!cellMerges(cell)) {
+          cells.push(draw);
+          continue;
         }
+        const key = `${cell.row},${cell.column}`;
+        // 빈 값·항목 없음은 합치지 않는다 — 병합을 끊고 그대로 그린다 (ADR-038)
+        if (!hasItem || draw.text === '') {
+          anchors.delete(key);
+          cells.push(draw);
+          continue;
+        }
+        const anchor = anchors.get(key);
+        if (anchor && anchor.text === draw.text) {
+          anchor.cell.rowSpan += bandRows;
+          continue; // 앞 칸에 흡수 — 이 칸은 그리지 않는다
+        }
+        anchors.set(key, { cell: draw, text: draw.text });
+        cells.push(draw);
       }
     }
     for (const cell of element.cells) {

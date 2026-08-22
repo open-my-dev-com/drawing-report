@@ -268,6 +268,8 @@ const gridElementSchema = z
     }
     // 셀 범위·겹침 검사 (병합 포함)
     const occupied = new Set<string>();
+    // (행,열) → 그 칸을 차지하는 셀의 원점 좌표 — 자동 병합 검사(구간 전체를 한 칸이 덮는지)에 쓴다
+    const cellOriginAt = new Map<string, string>();
     grid.cells.forEach((cell, index) => {
       const rowSpan = cell.rowSpan ?? 1;
       const colSpan = cell.colSpan ?? 1;
@@ -314,6 +316,33 @@ const gridElementSchema = z
             return;
           }
           occupied.add(key);
+          cellOriginAt.set(key, `${cell.row},${cell.column}`);
+        }
+      }
+    });
+
+    // 데이터 자동 병합 (ADR-038): 켠 열은 그 열의 반복 구간 칸이 구간 전체를 한 칸으로 덮어야 한다.
+    // 한 줄 구간이면 저절로 성립하고, 여러 줄인데 칸이 줄마다 갈라지면(원점이 다르면) 거부한다.
+    grid.columns.forEach((column, c) => {
+      if (column.autoMerge !== true) return;
+      if (!grid.repeat) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['columns', c, 'autoMerge'],
+          message: `${c}열의 자동 병합은 반복 구간이 있어야 켤 수 있습니다`,
+        });
+        return;
+      }
+      const { fromRow, toRow } = grid.repeat;
+      const topOrigin = cellOriginAt.get(`${fromRow},${c}`);
+      for (let r = fromRow; r <= toRow; r++) {
+        if (cellOriginAt.get(`${r},${c}`) !== topOrigin) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['columns', c, 'autoMerge'],
+            message: `${c}열의 자동 병합은 그 열의 반복 구간 칸이 구간 전체 높이를 차지할 때만 켤 수 있습니다`,
+          });
+          return;
         }
       }
     });
