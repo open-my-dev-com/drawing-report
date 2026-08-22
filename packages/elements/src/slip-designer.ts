@@ -136,6 +136,8 @@ const DEFAULT_LINE_WIDTH = 0.2;
  * base64로 담기면 약 33% 커지므로 2MB 원본이 파일에는 ~2.7MB로 들어간다.
  */
 const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+/** 사이드바 페이지 줄에 올렸을 때 뜨는 썸네일의 폭(px) (G-35) */
+const THUMB_WIDTH_PX = 132;
 
 /** 글자 크기(pt)를 화면 px로 — PDF와 같은 크기감 (1pt = 4/3px, 기본 10pt) */
 function fontPx(size: number | undefined): string {
@@ -521,6 +523,25 @@ export class SlipDesigner extends LitElement {
       font-weight: 600;
       color: var(--sk-text-muted);
       margin-bottom: 6px;
+    }
+    /*
+     * 페이지 목록 (G-35) — 요소 목록과 같은 한 줄짜리 항목이다.
+     * 썸네일을 그대로 세우면 한 장이 사이드바 폭만큼 높이를 먹어, 페이지가 늘면
+     * 아래의 요소·값 목록이 화면 밖으로 밀린다. 줄에 올리거나 포커스가 갔을 때만 띄운다.
+     */
+    .page-row-wrap {
+      position: relative;
+    }
+    .page-thumb-pop {
+      /* 사이드바가 overflow를 자르므로 화면 기준(fixed)으로 띄운다 */
+      position: fixed;
+      z-index: 30;
+      padding: 4px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-bg);
+      box-shadow: var(--sk-shadow, 0 2px 8px rgba(0, 0, 0, 0.15));
+      pointer-events: none;
     }
     .thumb {
       display: block;
@@ -2205,6 +2226,8 @@ export class SlipDesigner extends LitElement {
     _columnsModalOpen: { state: true },
     _sampleModalOpen: { state: true },
     _imageModalOpen: { state: true },
+    _thumbPage: { state: true },
+    _thumbPos: { state: true },
     _imageError: { state: true },
     maxImageBytes: { type: Number, attribute: 'max-image-bytes' },
     _sideSelection: { state: true },
@@ -2301,6 +2324,14 @@ export class SlipDesigner extends LitElement {
   private _sampleModalOpen = false;
   /** 이미지 선택 모달 열림 여부 — 선택된 이미지 요소의 src를 정한다 (G-36) */
   private _imageModalOpen = false;
+  /**
+   * 썸네일을 띄워 둔 페이지 번호 — 없으면 null (G-35).
+   * 페이지 목록은 요소 목록처럼 한 줄씩이고, 줄에 마우스를 올리거나 포커스가 가면
+   * 그 줄 옆에 썸네일이 뜬다.
+   */
+  private _thumbPage: number | null = null;
+  /** 띄운 썸네일의 화면 기준 좌표 — 사이드바가 잘라내지 못하게 fixed로 놓는다 (G-35) */
+  private _thumbPos: { top: number; left: number } | null = null;
   /** 이미지 선택에서 막힌 이유 (너무 큼·이미지 아님·읽기 실패) — 없으면 null */
   private _imageError: string | null = null;
   /** 샘플 데이터 모달의 현재 페이지 — 바인딩이 많으면 10개 단위로 나눠 보여준다 */
@@ -2501,6 +2532,36 @@ export class SlipDesigner extends LitElement {
 
   private _pageCount(): number {
     return this._file?.template.pages.length ?? 0;
+  }
+
+  /**
+   * 페이지 줄에 마우스를 올리거나 포커스가 갔을 때 그 줄 옆에 썸네일을 띄운다 (G-35).
+   * 사이드바가 넘치는 부분을 잘라내므로 화면 기준 좌표를 재서 fixed로 놓고,
+   * 아래쪽이 화면 밖으로 나가면 위로 끌어올린다.
+   */
+  private _showPageThumb(index: number, event: Event): void {
+    const row = event.currentTarget as HTMLElement | null;
+    if (!row) return;
+    const rect = row.getBoundingClientRect();
+    const height = this._thumbHeightPx();
+    const margin = 8;
+    const top = Math.max(margin, Math.min(rect.top, window.innerHeight - height - margin));
+    this._thumbPage = index;
+    this._thumbPos = { top, left: rect.right + 6 };
+  }
+
+  /** 올린 줄에서 벗어나면 썸네일을 감춘다 — 이미 다른 줄로 옮겨 갔으면 그대로 둔다 */
+  private _hidePageThumb(index: number): void {
+    if (this._thumbPage !== index) return;
+    this._thumbPage = null;
+    this._thumbPos = null;
+  }
+
+  /** 띄울 썸네일의 높이(px) — 용지 비율에 테두리·여백을 더한 값 */
+  private _thumbHeightPx(): number {
+    const paper = this._file?.template.paper;
+    if (!paper) return 0;
+    return (THUMB_WIDTH_PX / paper.width) * paper.height + 10;
   }
 
   private _goToPage(index: number): void {
@@ -4014,7 +4075,7 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     const { paper } = file.template;
     // 썸네일 폭(px)에 맞춘 축소 비율 — 높이는 용지 비율대로
-    const thumbW = 132;
+    const thumbW = THUMB_WIDTH_PX;
     const scale = thumbW / paper.width;
     const pages = file.template.pages;
     const bindings = this._bindingList();
@@ -4023,21 +4084,32 @@ export class SlipDesigner extends LitElement {
       <div class="side-section">
         <div class="side-title">${s.sidebarPages}</div>
         ${pages.map((page, i) => html`
-          <button class="thumb ${i === this._pageIndex ? 'current' : ''}"
-            aria-label="${s.sidebarPages} ${i + 1}"
-            aria-pressed=${String(i === this._pageIndex)}
-            @click=${() => this._goToPage(i)}>
-            <span class="thumb-paper"
-              style="width:${thumbW}px;height:${(paper.height * scale).toFixed(1)}px">
-              ${page.elements.map((el) => html`<span class="thumb-el" style="
-                left:${(el.position.x * scale).toFixed(1)}px;
-                top:${(el.position.y * scale).toFixed(1)}px;
-                width:${Math.max(2, el.width * scale).toFixed(1)}px;
-                height:${Math.max(2, el.height * scale).toFixed(1)}px;
-              "></span>`)}
-            </span>
-            <span class="thumb-label">${i + 1} / ${this._pageCount()}</span>
-          </button>`)}
+          <div class="page-row-wrap">
+            <button class="side-row page-row ${i === this._pageIndex ? 'selected' : ''}"
+              aria-label="${s.sidebarPages} ${i + 1}"
+              aria-pressed=${String(i === this._pageIndex)}
+              @click=${() => this._goToPage(i)}
+              @pointerenter=${(e: Event) => this._showPageThumb(i, e)}
+              @pointerleave=${() => this._hidePageThumb(i)}
+              @focus=${(e: Event) => this._showPageThumb(i, e)}
+              @blur=${() => this._hidePageThumb(i)}>
+              ${icons.page}<span>${s.pageLabel.replace('{n}', String(i + 1))}</span>
+            </button>
+            ${this._thumbPage === i && this._thumbPos
+              ? html`<div class="page-thumb-pop" role="presentation"
+                  style="top:${this._thumbPos.top}px;left:${this._thumbPos.left}px">
+                  <span class="thumb-paper"
+                    style="width:${thumbW}px;height:${(paper.height * scale).toFixed(1)}px">
+                    ${page.elements.map((el) => html`<span class="thumb-el" style="
+                      left:${(el.position.x * scale).toFixed(1)}px;
+                      top:${(el.position.y * scale).toFixed(1)}px;
+                      width:${Math.max(2, el.width * scale).toFixed(1)}px;
+                      height:${Math.max(2, el.height * scale).toFixed(1)}px;
+                    "></span>`)}
+                  </span>
+                </div>`
+              : nothing}
+          </div>`)}
       </div>
 
       <div class="side-section">
