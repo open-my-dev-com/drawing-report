@@ -930,6 +930,12 @@ describe('<slip-designer> 사이드바', () => {
     return section;
   }
 
+  /** 값 목록의 하위 줄은 기본이 접힘이라, 보려면 펼침 표시를 먼저 누른다 (G-25) */
+  function twisty(el: Element, name: string): HTMLButtonElement | undefined {
+    return Array.from(el.shadowRoot!.querySelectorAll('.side-twisty'))
+      .find((b) => b.getAttribute('aria-label')?.startsWith(`${name} `)) as HTMLButtonElement;
+  }
+
   it('페이지가 한 줄씩 나열되고, 누르면 그 페이지로 이동한다 (G-35)', async () => {
     const el = await loadDesigner();
     toolbarButton(el, strings.designer.addPage).click();
@@ -990,6 +996,86 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
+  /** 값 하나(합계금액)와 반복 구간을 가진 그리드 하나(items · 하위 필드 a)를 둔 양식 */
+  function makeFileWithRepeatGrid(): ReturnType<typeof makeTemplateFile> {
+    const file = makeTemplateFile();
+    file.template.pages.push({
+      elements: [
+        {
+          type: 'field' as const, id: 'fld-1', name: 'f1', position: { x: 10, y: 10 },
+          width: 60, height: 10, binding: '합계금액',
+        } as never,
+        {
+          type: 'grid' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
+          width: 180, height: 8 * 3,
+          rows: [{ height: 8 }, { height: 8 }],
+          columns: [{ width: 180 }],
+          repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+          cells: [{ row: 1, column: 0, binding: 'a' }],
+        } as never,
+      ],
+    });
+    return file;
+  }
+
+  it('하위가 있는 줄에만 펼침 표시가 붙고, 기본은 접혀 있다 (G-25)', async () => {
+    parseSlipFileMock.mockReturnValue(makeFileWithRepeatGrid() as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    // 기본은 접힘 — 하위 줄이 하나도 보이지 않는다
+    expect(el.shadowRoot!.querySelectorAll('.side-col-row').length).toBe(0);
+    // 하위가 있는 값에만 펼침 표시가 붙는다
+    expect(twisty(el, 'items')).toBeDefined();
+    expect(twisty(el, '합계금액')).toBeUndefined();
+    el.remove();
+  });
+
+  it('펼침 표시를 누르면 하위 줄이 열리고, 다시 누르면 닫힌다 (G-25)', async () => {
+    parseSlipFileMock.mockReturnValue(makeFileWithRepeatGrid() as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    const open = twisty(el, 'items')!;
+    expect(open.getAttribute('aria-expanded')).toBe('false');
+    open.click();
+    await el.updateComplete;
+    expect(Array.from(el.shadowRoot!.querySelectorAll('.side-col-row'))
+      .map((r) => r.textContent?.trim())).toEqual(['a']);
+    expect(twisty(el, 'items')!.getAttribute('aria-expanded')).toBe('true');
+
+    twisty(el, 'items')!.click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.side-col-row').length).toBe(0);
+    el.remove();
+  });
+
+  it('그 값이나 그 그리드를 고르면 하위 줄이 저절로 열린다 (G-25)', async () => {
+    parseSlipFileMock.mockReturnValue(makeFileWithRepeatGrid() as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    // 값을 고르면 열린다
+    const bindingRow = Array.from(sideSection(el, strings.designer.sidebarBindings)
+      .querySelectorAll('.side-row')).find((r) => r.textContent?.trim() === 'items') as HTMLElement;
+    bindingRow.click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.side-col-row').length).toBe(1);
+
+    // 저절로 열린 뒤에도 접을 수 있다
+    twisty(el, 'items')!.click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.side-col-row').length).toBe(0);
+
+    // 그 값을 쓰는 그리드를 요소 목록에서 골라도 열린다 (요소 목록은 현재 페이지만 편다)
+    (Array.from(sideSection(el, strings.designer.sidebarPages)
+      .querySelectorAll('.side-row'))[1] as HTMLElement).click();
+    await el.updateComplete;
+    const gridRow = Array.from(sideSection(el, strings.designer.sidebarElements)
+      .querySelectorAll('.side-row')).find((r) => r.textContent?.trim() === 't1') as HTMLElement;
+    gridRow.click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.side-col-row').length).toBe(1);
+    el.remove();
+  });
+
   it('바인딩 목록은 양식 전체의 field·그리드 바인딩을 모으고, 반복 구간 필드는 하위 줄로 보여준다', async () => {
     const file = makeTemplateFile();
     file.template.pages.push({
@@ -1014,8 +1100,12 @@ describe('<slip-designer> 사이드바', () => {
     const section = sideSection(el, strings.designer.sidebarBindings);
     const rows = section.querySelectorAll('.side-row');
     expect(Array.from(rows).map((r) => r.textContent?.trim())).toEqual(['합계금액', 'items']);
-    // 반복 구간이 쓰는 값은 그 구간 칸의 항목 필드가 한 단 들여쓰여 함께 나온다 (ADR-034/037)
-    expect(Array.from(section.querySelectorAll('.side-col-row')).map((r) => r.textContent?.trim()))
+    // 반복 구간이 쓰는 값은 그 구간 칸의 항목 필드가 한 단 들여쓰여 나온다 (ADR-034/037).
+    // 기본은 접힘이라 펼침 표시를 눌러야 보인다 (G-25)
+    twisty(el, 'items')!.click();
+    await el.updateComplete;
+    expect(Array.from(sideSection(el, strings.designer.sidebarBindings)
+      .querySelectorAll('.side-col-row')).map((r) => r.textContent?.trim()))
       .toEqual(['a']);
 
     // 바인딩을 고르면 오른쪽 패널이 바인딩 편집으로 바뀌고, "쓰는 곳"에서 요소로 이동한다
@@ -1053,7 +1143,9 @@ describe('<slip-designer> 사이드바', () => {
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await loadDesigner();
 
-    // 하위 줄 이름은 반복 구간 위쪽 같은 열의 고정 문구, 없으면 물리명이다
+    // 하위 줄 이름은 반복 구간 위쪽 같은 열의 고정 문구, 없으면 물리명이다 (펼쳐야 보인다)
+    twisty(el, 'items')!.click();
+    await el.updateComplete;
     const cols = sideSection(el, strings.designer.sidebarBindings).querySelectorAll('.side-col-row');
     expect(Array.from(cols).map((c) => c.textContent?.trim())).toEqual(['품명', 'amount']);
 

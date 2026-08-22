@@ -692,6 +692,13 @@ export class SlipDesigner extends LitElement {
      */
     .page-row-wrap {
       position: relative;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .page-row-wrap .side-row {
+      flex: 1;
+      min-width: 0;
     }
     .page-thumb-pop {
       /* 사이드바가 overflow를 자르므로 화면 기준(fixed)으로 띄운다 */
@@ -872,7 +879,37 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-accent);
       font-weight: 600;
     }
-    /* 그리드 값의 반복 구간 필드 — 한 단 들여 쓴다 (ADR-034/037) */
+    /*
+     * 목록 줄 앞의 펼침 표시 (G-25) — 하위 줄이 있는 줄에만 나온다.
+     * 하위가 없는 줄에는 같은 폭의 빈 자리(.side-twisty-gap)를 두어 이름이 나란히 시작한다.
+     */
+    .side-twisty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 14px;
+      width: 14px;
+      height: 18px;
+      padding: 0;
+      border: none;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      cursor: pointer;
+      color: var(--sk-text-muted);
+    }
+    .side-twisty svg {
+      width: 11px;
+      height: 11px;
+    }
+    .side-twisty:hover {
+      background: var(--sk-accent-soft);
+      color: var(--sk-text);
+    }
+    /* 펼침 표시가 없는 줄의 빈 자리 — 세 목록의 이름이 같은 자리에서 시작한다 */
+    .side-twisty-gap {
+      flex: 0 0 14px;
+    }
+    /* 그리드 값의 반복 구간 필드 — 펼침 표시 아래로 한 단 들여 쓴다 (ADR-034/037, G-25) */
     .side-col-row {
       display: flex;
       align-items: center;
@@ -2416,6 +2453,7 @@ export class SlipDesigner extends LitElement {
     _imageError: { state: true },
     maxImageBytes: { type: Number, attribute: 'max-image-bytes' },
     _sideSelection: { state: true },
+    _expandedBindings: { state: true },
     _bindingKeyError: { state: true },
     presets: { attribute: false },
     storage: { attribute: false },
@@ -2524,10 +2562,15 @@ export class SlipDesigner extends LitElement {
   /** JSON 모드의 편집 중 초안 — 적용을 눌러야 sampleValues에 반영된다 */
   private _sampleJsonDraft = '';
   /**
-   * 사이드바에서 요소가 아닌 것을 골랐을 때의 선택 대상 (ADR-034) — 바인딩 또는 표 열.
+   * 사이드바에서 요소가 아닌 것을 골랐을 때의 선택 대상 (ADR-034) — 지금은 바인딩뿐이다.
    * 요소를 고르면 `null`로 돌아가고, 오른쪽 패널이 이 값에 따라 편집 화면을 바꾼다.
    */
   private _sideSelection: SideSelection = null;
+  /**
+   * 값 목록에서 하위 줄을 펼쳐 둔 바인딩 물리명 (G-25) — 화면 상태다.
+   * 기본은 접힘이고, 그 값이나 하위 항목을 고르면 저절로 열린다.
+   */
+  private _expandedBindings = new Set<string>();
   /** 바인딩 패널에서 이미 쓰는 물리명으로 바꾸려 했는지 — 안내를 보여준다 */
   private _bindingKeyError = false;
   /** "내 양식으로 저장" 모달 열림 여부 (D-15) */
@@ -3137,6 +3180,7 @@ export class SlipDesigner extends LitElement {
       const wasSelected = this._selectedId === id;
       this._selectedId = id;
       this._sideSelection = null;
+      this._expandBindingOfElement(id);
       if (!wasSelected) {
         this._selectedCell = null;
         this._cellEditing = false;
@@ -4203,6 +4247,7 @@ export class SlipDesigner extends LitElement {
     this._selectedCell = null;
     this._cellEditing = false;
     this._sideSelection = null;
+    this._expandBindingOfElement(id);
     this.requestUpdate();
   }
 
@@ -4217,6 +4262,17 @@ export class SlipDesigner extends LitElement {
     this._cellEditing = false;
     this._sideSelection = null;
     this.requestUpdate();
+  }
+
+  /**
+   * 고른 것이 반복 구간을 가진 그리드면 그 구간이 쓰는 값의 하위 줄을 펼쳐 둔다 (G-25) —
+   * 그리드를 고르면 값 목록에서도 그 항목 필드가 보인다.
+   *
+   * @param id - 고른 요소 id
+   */
+  private _expandBindingOfElement(id: string): void {
+    const el = this._findElement(id);
+    if (isGrid(el) && el.repeat) this._expandedBindings.add(el.repeat.binding);
   }
 
   /** 페이지 순서를 옮긴다 — delta -1은 앞으로, +1은 뒤로 (요소는 그대로 따라간다) */
@@ -4241,6 +4297,8 @@ export class SlipDesigner extends LitElement {
     this._selectedCell = null;
     this._cellEditing = false;
     this._sideSelection = { kind: 'binding', key };
+    // 고른 값의 하위 줄은 저절로 열린다 — 접어 두었어도 무엇이 딸렸는지 바로 보인다 (G-25)
+    this._expandedBindings.add(key);
     this.requestUpdate();
   }
 
@@ -4341,6 +4399,7 @@ export class SlipDesigner extends LitElement {
         <div class="side-title">${s.sidebarPages}</div>
         ${pages.map((page, i) => html`
           <div class="page-row-wrap">
+            <span class="side-twisty-gap"></span>
             <button class="side-row page-row ${i === this._pageIndex ? 'selected' : ''}"
               aria-label="${s.sidebarPages} ${i + 1}"
               aria-pressed=${String(i === this._pageIndex)}
@@ -4385,6 +4444,7 @@ export class SlipDesigner extends LitElement {
               ? html`<div class="side-empty">—</div>`
               : page.elements.map((el) => html`
                   <div class="side-row-wrap">
+                    <span class="side-twisty-gap"></span>
                     <button class="side-row ${el.id === this._selectedId && !this._sideSelection ? 'selected' : ''}"
                       title=${el.name}
                       @click=${() => this._selectFromSidebar(i, el.id)}>
@@ -4416,15 +4476,46 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
+   * 목록 줄 앞의 펼침 표시 (G-25) — 하위 줄이 있는 줄에만 붙는다.
+   *
+   * 하위가 없는 줄에는 같은 폭의 빈 자리를 두어 이름 시작 위치가 어긋나지 않게 한다.
+   * 요소 목록에도 하위 줄이 생기면 같은 표시를 쓴다.
+   *
+   * @param hasChildren - 하위 줄이 있는지
+   * @param expanded - 지금 펼쳐져 있는지
+   * @param name - 무엇을 펼치고 접는지 (읽어 주는 이름에 쓴다)
+   * @param toggle - 눌렀을 때 펼침을 뒤집는 처리
+   * @returns 펼침 표시 또는 빈 자리
+   */
+  private _renderTwisty(
+    hasChildren: boolean,
+    expanded: boolean,
+    name: string,
+    toggle: () => void,
+  ) {
+    if (!hasChildren) return html`<span class="side-twisty-gap"></span>`;
+    const s = this._strings.designer;
+    const label = expanded ? s.collapseRow : s.expandRow;
+    return html`
+      <button class="side-twisty" aria-label="${name} ${label}" title=${label}
+        aria-expanded=${String(expanded)}
+        @click=${toggle}>${expanded ? icons.treeOpen : icons.treeClosed}</button>`;
+  }
+
+  /**
    * 바인딩 한 줄 — 클릭하면 오른쪽 패널에서 편집 (ADR-034).
-   * 반복 구간이 쓰는 값이면 그 구간 칸이 읽는 항목 필드까지 한 단 들여 함께 보인다 (ADR-037).
+   * 반복 구간이 쓰는 값이면 그 구간 칸이 읽는 항목 필드가 하위 줄로 붙는다 (ADR-037).
+   * 하위 줄은 앞의 펼침 표시로 열고 닫는다 — 기본은 접힘이다 (G-25).
    */
   private _renderBindingRow(b: BindingInfo) {
     const s = this._strings.designer;
     const sel = this._sideSelection;
     const selected = sel?.kind === 'binding' && sel.key === b.key;
+    const hasFields = b.repeatFields.length > 0;
+    const expanded = hasFields && this._expandedBindings.has(b.key);
     return html`
       <div class="side-row-wrap">
+        ${this._renderTwisty(hasFields, expanded, b.label, () => this._toggleBindingRow(b.key))}
         <button class="side-row ${selected ? 'selected' : ''}" title=${b.key}
           @click=${() => this._selectBinding(b.key)}>
           ${TYPE_BADGE.field}<span>${b.label}</span>
@@ -4433,14 +4524,23 @@ export class SlipDesigner extends LitElement {
           ?disabled=${!b.defined}
           @click=${() => this._removeBindingDef(b.key)}>${icons.remove}</button>
       </div>
-      ${b.repeatFields.map((f) => {
-        const cellSelected = this._selectedId === f.gridId
-          && this._selectedCell?.row === f.row && this._selectedCell?.column === f.column;
-        return html`
-          <button class="side-col-row ${cellSelected ? 'selected' : ''}" title="${b.key}.${f.key}"
-            @click=${() => this._selectRepeatField(f)}><span>${f.title}</span></button>`;
-      })}
+      ${expanded
+        ? b.repeatFields.map((f) => {
+            const cellSelected = this._selectedId === f.gridId
+              && this._selectedCell?.row === f.row && this._selectedCell?.column === f.column;
+            return html`
+              <button class="side-col-row ${cellSelected ? 'selected' : ''}" title="${b.key}.${f.key}"
+                @click=${() => this._selectRepeatField(f)}><span>${f.title}</span></button>`;
+          })
+        : nothing}
     `;
+  }
+
+  /** 값 목록의 하위 줄을 열고 닫는다 (G-25) — 고르는 것과는 별개다 */
+  private _toggleBindingRow(key: string): void {
+    if (this._expandedBindings.has(key)) this._expandedBindings.delete(key);
+    else this._expandedBindings.add(key);
+    this.requestUpdate();
   }
 
   // ---------------------------------------------------------------------------
