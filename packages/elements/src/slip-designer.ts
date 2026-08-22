@@ -19,7 +19,7 @@ import {
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
 import { getFormulaHelp } from './formula-help.js';
-import { loadDefaultFonts } from './default-fonts.js';
+import { resolveFonts, type SlipDesignerSettings } from './settings.js';
 import { presets, type SlipPreset } from './presets.js';
 import { icons } from './icons.js';
 import { pickImageFile, formatBytes } from './image-file.js';
@@ -2547,7 +2547,7 @@ export class SlipDesigner extends LitElement {
   static properties = {
     src: { type: String },
     locale: { type: String },
-    fonts: { attribute: false },
+    settings: { attribute: false },
     _file: { state: true },
     _pageIndex: { state: true },
     _selectedId: { state: true },
@@ -2598,7 +2598,11 @@ export class SlipDesigner extends LitElement {
    */
   locale?: string;
 
-  fonts?: RenderOptions['fonts'];
+  /**
+   * 호스트 설정 인터페이스 (ADR-040, JS 프로퍼티 전용) — 렌더 폰트 공급과 용지 목록 공급·저장.
+   * 없으면 동봉 기본 폰트·용지만 쓴다.
+   */
+  settings?: SlipDesignerSettings;
 
   /**
    * 툴바 프리셋 메뉴에 쓸 양식 프리셋 목록 — 호스트가 자기 양식을 넣을 수 있다 (D-15).
@@ -4156,9 +4160,9 @@ export class SlipDesigner extends LitElement {
 
     const gen = ++this._previewGeneration;
     try {
-      // 폰트 미지정 시 동봉 Pretendard 자동 사용 (ADR-012) — 한글 깨짐 방지
+      // 폰트 미공급 시 동봉 Pretendard 자동 사용 (ADR-012/040) — 한글 깨짐 방지
       const opts: RenderOptions = {
-        fonts: this.fonts?.length ? this.fonts : await loadDefaultFonts(),
+        fonts: await resolveFonts(this.settings),
       };
       // 샘플 값이 있으면 그 값으로 채운 전표 상태로 미리보기 (D-13).
       // 파일 자체는 양식 그대로 두고 렌더 입력만 전표 형태로 만든다.

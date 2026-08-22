@@ -4,10 +4,11 @@ import type {
   SlipViewer as SlipViewerElement,
   SlipDesigner as SlipDesignerElement,
   SlipForm as SlipFormElement,
+  SlipFontProvider,
+  SlipDesignerSettings,
 } from '@omdc-slipkit/elements';
 import type { IntegrityJwk, SlipFile, StorageAdapter } from '@omdc-slipkit/core';
 
-type SlipFonts = SlipViewerElement['fonts'];
 type SlipPresets = SlipDesignerElement['presets'];
 
 /** SlipViewer 컴포넌트 props */
@@ -20,16 +21,16 @@ export interface SlipViewerProps {
    * @defaultValue 한국어
    */
   locale?: string;
-  /** PDF 렌더링에 쓸 사용자 폰트 (ADR-012) */
-  fonts?: SlipFonts;
+  /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
+  settings?: SlipFontProvider;
 }
 
 /**
  * React 19는 커스텀 엘리먼트를 완전 지원하므로(ADR-015 근거) 래퍼는 태그를 그대로 노출한다.
- * fonts 같은 객체 값은 React 19가 엘리먼트의 JS 프로퍼티로 전달한다.
+ * settings 같은 객체 값은 React 19가 엘리먼트의 JS 프로퍼티로 전달한다.
  */
-export function SlipViewer({ src, locale, fonts }: SlipViewerProps) {
-  return createElement('slip-viewer', { src, locale, fonts });
+export function SlipViewer({ src, locale, settings }: SlipViewerProps) {
+  return createElement('slip-viewer', { src, locale, settings });
 }
 
 /** SlipDesigner 컴포넌트 props */
@@ -42,8 +43,8 @@ export interface SlipDesignerProps {
    * @defaultValue 한국어
    */
   locale?: string;
-  /** PDF 미리보기에 쓸 사용자 폰트 (ADR-012) */
-  fonts?: SlipFonts;
+  /** 호스트 설정 인터페이스 (ADR-040) — 폰트 공급 + 용지 목록 공급·저장 */
+  settings?: SlipDesignerSettings;
   /** 툴바 프리셋 메뉴에 쓸 양식 목록 — 주면 동봉 프리셋 대신 쓴다 */
   presets?: SlipPresets;
   /** "내 양식" 저장·불러오기에 쓸 저장소 어댑터 (ADR-021) */
@@ -61,7 +62,7 @@ export interface SlipDesignerProps {
 export function SlipDesigner({
   src,
   locale,
-  fonts,
+  settings,
   presets,
   storage,
   maxImageBytes,
@@ -79,7 +80,7 @@ export function SlipDesigner({
   }, [onSlipChange]);
 
   return createElement('slip-designer', {
-    ref, src, locale, fonts, presets, storage, maxImageBytes,
+    ref, src, locale, settings, presets, storage, maxImageBytes,
   });
 }
 
@@ -93,8 +94,8 @@ export interface SlipFormProps {
    * @defaultValue 한국어
    */
   locale?: string;
-  /** PDF 미리보기에 쓸 사용자 폰트 (ADR-012) */
-  fonts?: SlipFonts;
+  /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
+  settings?: SlipFontProvider;
   /** 발행 서명에 쓸 개인키 (JWK) — 없으면 해시만 기록한다 (SPEC §8.3) */
   signingKey?: IntegrityJwk;
   /** 변동 이미지 입력의 최대 파일 크기(바이트) — 기본 2MB (G-47) */
@@ -112,7 +113,7 @@ export interface SlipFormProps {
 export function SlipForm({
   src,
   locale,
-  fonts,
+  settings,
   signingKey,
   maxImageBytes,
   onSlipChange,
@@ -142,5 +143,5 @@ export function SlipForm({
     };
   }, [onSlipChange, onSlipIssue]);
 
-  return createElement('slip-form', { ref, src, locale, fonts, signingKey, maxImageBytes });
+  return createElement('slip-form', { ref, src, locale, settings, signingKey, maxImageBytes });
 }

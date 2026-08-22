@@ -6,7 +6,7 @@ import {
   type SlipFile,
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
-import { loadDefaultFonts } from './default-fonts.js';
+import { resolveFonts, type SlipFontProvider } from './settings.js';
 
 /**
  * <slip-viewer> — .slip 파일(양식/전표) PDF 미리보기 컴포넌트.
@@ -53,7 +53,7 @@ export class SlipViewer extends LitElement {
   static properties = {
     src: { type: String },
     locale: { type: String },
-    fonts: { attribute: false },
+    settings: { attribute: false },
     _pdfUrl: { state: true },
     _error: { state: true },
     _loading: { state: true },
@@ -69,8 +69,8 @@ export class SlipViewer extends LitElement {
    */
   locale?: string;
 
-  /** PDF 렌더링에 사용할 폰트 (JS 프로퍼티 전용) */
-  fonts?: RenderOptions['fonts'];
+  /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040, JS 프로퍼티 전용) — 없으면 동봉 기본 */
+  settings?: SlipFontProvider;
 
   private _pdfUrl: string | null = null;
   private _error: string | null = null;
@@ -88,7 +88,7 @@ export class SlipViewer extends LitElement {
   }
 
   override updated(changed: Map<string, unknown>): void {
-    if (changed.has('src') || changed.has('fonts')) {
+    if (changed.has('src') || changed.has('settings')) {
       void this._renderPdf();
     }
   }
@@ -126,9 +126,9 @@ export class SlipViewer extends LitElement {
     }
 
     try {
-      // 폰트 미지정 시 동봉 Pretendard 자동 사용 (ADR-012) — 한글 깨짐 방지
+      // 폰트 미공급 시 동봉 Pretendard 자동 사용 (ADR-012/040) — 한글 깨짐 방지
       const opts: RenderOptions = {
-        fonts: this.fonts?.length ? this.fonts : await loadDefaultFonts(),
+        fonts: await resolveFonts(this.settings),
       };
       const pdfBytes = await renderSlipToPdf(file, opts);
       if (gen !== this._renderGeneration) return;

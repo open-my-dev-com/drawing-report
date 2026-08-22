@@ -17,18 +17,20 @@ function render(node: Parameters<ReturnType<typeof createRoot>['render']>[0]): H
   return container;
 }
 
-const DUMMY_FONTS: SlipViewerProps['fonts'] = [{ name: 'demo', data: new Uint8Array([1]) }];
+const DUMMY_SETTINGS: SlipViewerProps['settings'] = {
+  getFonts: () => [{ name: 'demo', data: new Uint8Array([1]) }],
+};
 
 describe('@omdc-slipkit/react 래퍼', () => {
-  it('SlipViewer는 slip-viewer 엘리먼트에 src·fonts를 전달한다', () => {
-    const container = render(createElement(SlipViewer, { src: '', fonts: DUMMY_FONTS }));
+  it('SlipViewer는 slip-viewer 엘리먼트에 src·settings를 전달한다', () => {
+    const container = render(createElement(SlipViewer, { src: '', settings: DUMMY_SETTINGS }));
     const el = container.querySelector('slip-viewer') as HTMLElement & {
       src: string;
-      fonts?: unknown;
+      settings?: unknown;
     };
     expect(el).not.toBeNull();
     expect(el.src).toBe('');
-    expect(el.fonts).toBe(DUMMY_FONTS);
+    expect(el.settings).toBe(DUMMY_SETTINGS);
   });
 
   it('SlipDesigner는 slip-change 이벤트를 onSlipChange 콜백으로 전달한다', () => {
