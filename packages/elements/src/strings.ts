@@ -88,6 +88,9 @@ const ko = {
     formTitle: '제목',
     paperSize: '용지 크기',
     paperCustom: '직접 입력',
+    /* 용지 공급·저장 (G-31) */
+    paperSaveThis: '이 크기 저장',
+    paperSizeName: '용지 이름',
     orientation: '방향',
     portrait: '세로',
     landscape: '가로',
@@ -372,6 +375,9 @@ const en: SlipStrings = {
     formTitle: 'Title',
     paperSize: 'Paper size',
     paperCustom: 'Custom',
+    /* Paper size supply/save (G-31) */
+    paperSaveThis: 'Save this size',
+    paperSizeName: 'Size name',
     orientation: 'Orientation',
     portrait: 'Portrait',
     landscape: 'Landscape',

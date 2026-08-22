@@ -35,6 +35,11 @@
 - **주석 표준 TSDoc 완료**: 선언 설명 주석은 TSDoc 블록, 구현 설명은 `//` 유지 (ADR-029, 규칙 `.claude/rules/comments.md`). 공개 API 전체에 문서 주석 채움 + 공개 함수에 `@param`·`@returns`·`@throws` 기본 채움
 - **TSDoc 형식 lint 게이트 완료**: eslint 최소 구성(`tsdoc/syntax` 단일 규칙) 도입, 검증 게이트가 `pnpm lint && pnpm -r typecheck && build && test` 4단계로 확장 (ADR-030, Q-11 해결). `@param`·`@returns` 누락은 도구가 못 잡으므로 지침·리뷰로 유지
 
+- **용지 공급·저장 인터페이스 완료 — G 3단계 종료** (2026-08-22, G-31, ADR-040): 용지 고르개가
+  호스트 목록(`settings.getPaperSizes`)을 동봉 4종 뒤에 더해 보이고, 직접 입력한 크기는 "이 크기 저장"으로
+  `savePaperSize`에 보관돼 다음에 다시 나온다. 실제 크기는 늘 `.slip`의 `paper`에 담겨 렌더되고 인터페이스는
+  고르개 목록·기억만 담당한다(포맷 불변). 실브라우저로 호스트 용지가 목록에 붙는 것 직접 확인. **남은 v2는
+  G-40(일본어)·G-48(총괄 리뷰)뿐**
 - **폰트 공급 인터페이스 완료 + 3단계 재정리** (2026-08-22, G-39, ADR-040/041): 렌더 폰트를 호스트가
   `SlipFontProvider.getFonts(): Font[] | Promise<Font[]>`로 공급하는 인터페이스를 두고, 뷰어·작성폼·
   디자이너 3종의 `fonts` 속성을 `settings`로 통일했다(동기 배열·비동기 서버 fetch 모두 포괄, react·vue
@@ -337,17 +342,16 @@
 38. ~~`feat/core-table-subtotal` — **페이지마다 소계** (ADR-011 미이행분)~~ → **보류** ([ADR-041](DECISIONS.md)):
     필요가 확인되면 다시 판단한다. 구간별 합은 반복 없는 그리드로 우회된다(ADR-037).
 
-39. `feat/repo-font-provider` — **폰트 공급 인터페이스** (ADR-040으로 재정의 — 옛 "글꼴 등록 화면" 폐기):
+39. ~~`feat/repo-font-provider` — **폰트 공급 인터페이스** (ADR-040)~~ → **완료** (2026-08-22):
     렌더 폰트를 `SlipFontProvider.getFonts(): Font[] | Promise<Font[]>`로 공급받는다. 뷰어·작성폼·
-    디자이너 3종 공용이고 기존 `fonts` 속성을 대체한다(동기 배열·비동기 서버 fetch 모두 포괄). 디자이너
-    안 폰트 업로드는 넣지 않는다 — 업로드해도 보관 위치는 호스트 몫이라 공급 인터페이스로 충분하다.
-    react·vue 래퍼·데모까지 `fonts` → `settings`로 옮긴다(1.0 전 파괴적 변경). core `RenderOptions.fonts`는 그대로.
+    디자이너 3종 공용이고 기존 `fonts` 속성을 `settings`로 대체했다(동기 배열·비동기 서버 fetch 모두 포괄).
+    디자이너 안 폰트 업로드는 넣지 않았다. react·vue 래퍼·데모·테스트까지 옮겼고 core `RenderOptions.fonts`는 그대로.
 
-31. `feat/elements-designer-paper-settings` — **용지 공급·저장 인터페이스** (ADR-040으로 재정의): 용지
-    목록을 호스트가 `SlipDesignerSettings.getPaperSizes`로 공급하고, 디자이너에서 직접 입력한 크기를
-    `savePaperSize`로 되돌려 보관한다. 동봉 4종(A4·A5·B5·Letter) 뒤에 더한다. 실제 용지 크기는 늘
-    `.slip`의 `paper`에 담겨 PDF에서 효력을 갖고, 인터페이스는 고르개 목록·기억만 담당한다(포맷 불변).
-    폰트 공급(39)과 같은 설정 인터페이스(`SlipDesignerSettings extends SlipFontProvider`)에 얹는다.
+31. ~~`feat/elements-designer-paper-settings` — **용지 공급·저장 인터페이스** (ADR-040)~~ → **완료**
+    (2026-08-22): 용지 목록을 호스트가 `SlipDesignerSettings.getPaperSizes`로 공급하고(동봉 4종 뒤에
+    더함), 디자이너에서 직접 입력한 크기를 "이 크기 저장"으로 `savePaperSize`에 되돌려 보관한다(다음에
+    다시 고르개에 나온다). 실제 용지 크기는 늘 `.slip`의 `paper`에 담겨 PDF에서 효력을 갖고, 인터페이스는
+    고르개 목록·기억만 담당한다(포맷 불변). **G 3단계 종료** — 남은 것은 40(일본어)·48(총괄 리뷰).
 
 30. ~~`feat/elements-presets-more` — 동봉 프리셋 확충~~ → **보류** ([ADR-041](DECISIONS.md)): 프리셋
     주입(`presets`)으로 호스트가 자기 양식을 넣을 수 있어 동봉 확충의 값이 크지 않다.
