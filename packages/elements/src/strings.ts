@@ -76,6 +76,8 @@ const ko = {
     barcodeWarnCode39: 'CODE39는 대문자·숫자·일부 기호(- . $ / + % 공백)만 됩니다',
     expandRow: '펼치기',
     collapseRow: '접기',
+    /* 요소 목록에서 그리드를 펼쳤을 때 값·수식 칸 줄 (G-44) */
+    gridCellLabel: '{r}행 {c}열 → {name}',
     formSettings: '양식 설정',
     formTitle: '제목',
     paperSize: '용지 크기',
@@ -352,6 +354,8 @@ const en: SlipStrings = {
     barcodeWarnCode39: 'CODE39 allows only uppercase letters, digits, and - . $ / + % space',
     expandRow: 'Expand',
     collapseRow: 'Collapse',
+    /* Value/formula cell rows when a grid is expanded in the element list (G-44) */
+    gridCellLabel: 'Row {r}, Col {c} → {name}',
     formSettings: 'Form settings',
     formTitle: 'Title',
     paperSize: 'Paper size',
