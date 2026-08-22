@@ -812,3 +812,119 @@ describe('그리드(grid) 칸을 넘치는 글 (ADR-037)', () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// 0.5.0 — 글자 조판 · 바코드 · 변동 이미지 · 페이지 번호
+// ---------------------------------------------------------------------------
+
+describe('글자 조판 변환 (0.5.0)', () => {
+  function makeFile(elements: SlipElement[]): SlipTemplateFile {
+    return {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'template',
+      template: {
+        meta: { title: '조판 시험' },
+        paper: { width: 210, height: 297, padding: [10, 10, 10, 10] },
+        pages: [{ elements }],
+        assets: [],
+      },
+    };
+  }
+  const base = { id: 't1', name: '글', position: { x: 10, y: 10 }, width: 60, height: 20 };
+
+  it('수직 정렬·줄간격·자간이 그대로 넘어간다', () => {
+    const [schemas] = convertSlipFile(makeFile([{
+      type: 'text', ...base, content: '가나다',
+      verticalAlignment: 'bottom', lineHeight: 1.8, characterSpacing: 2,
+    }])).template.schemas as PdfmeSchema[][];
+    const text = schemas!.find((s) => s.name === 't1') as Record<string, unknown>;
+    expect(text['verticalAlignment']).toBe('bottom');
+    expect(text['lineHeight']).toBe(1.8);
+    expect(text['characterSpacing']).toBe(2);
+  });
+
+  it('지정하지 않으면 위 정렬·줄간격 1·자간 0이다', () => {
+    const [schemas] = convertSlipFile(makeFile([{ type: 'text', ...base, content: '가' }]))
+      .template.schemas as PdfmeSchema[][];
+    const text = schemas!.find((s) => s.name === 't1') as Record<string, unknown>;
+    expect(text['verticalAlignment']).toBe('top');
+    expect(text['lineHeight']).toBe(1);
+    expect(text['characterSpacing']).toBe(0);
+  });
+
+  it('세로쓰기는 글자를 한 자씩 쌓고 원문 줄바꿈은 없앤다', () => {
+    const { inputs } = convertSlipFile(makeFile([{
+      type: 'text', ...base, content: '가나\n다', vertical: true,
+    }]));
+    expect(inputs[0]!['t1']).toBe('가\n나\n다');
+  });
+
+  it('기울임은 자형 폰트가 있을 때만 그 폰트로 바뀐다 (없으면 무시)', () => {
+    const file = makeFile([{ type: 'text', ...base, content: '가', italic: true, fontName: 'Han' }]);
+    const withoutItalic = convertSlipFile(file).template.schemas as PdfmeSchema[][];
+    expect((withoutItalic[0]!.find((s) => s.name === 't1') as Record<string, unknown>)['fontName'])
+      .toBe('Han');
+
+    const withItalic = convertSlipFile(file, { fontNames: ['Han', 'Han-Italic'] })
+      .template.schemas as PdfmeSchema[][];
+    expect((withItalic[0]!.find((s) => s.name === 't1') as Record<string, unknown>)['fontName'])
+      .toBe('Han-Italic');
+  });
+});
+
+describe('바코드·변동 이미지·페이지 번호 변환 (0.5.0)', () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+  function makeVoucher(elements: SlipElement[], values: Record<string, unknown>, pageNumber?: unknown) {
+    const template = {
+      meta: { title: '0.5.0' },
+      paper: { width: 210, height: 297, padding: [20, 15, 20, 15] as [number, number, number, number] },
+      pages: [{ elements, ...(pageNumber ? { pageNumber } : {}) }],
+      assets: [],
+    };
+    return {
+      schemaVersion: CURRENT_SCHEMA_VERSION, kind: 'voucher' as const,
+      templateSnapshot: template, values, issued: false,
+    } as never;
+  }
+
+  it('바코드는 종류를 스키마 타입으로 쓰고 값은 inputs로 간다', () => {
+    const { template, inputs } = convertSlipFile(makeVoucher(
+      [{ type: 'barcode', id: 'bc', name: 'QR', kind: 'qrcode',
+         position: { x: 10, y: 10 }, width: 20, height: 20, binding: 'code' }],
+      { code: 'SLIP-1' },
+    ));
+    const [schemas] = template.schemas as PdfmeSchema[][];
+    const barcode = schemas!.find((s) => s.name === 'bc') as Record<string, unknown>;
+    expect(barcode['type']).toBe('qrcode');
+    expect(inputs[0]!['bc']).toBe('SLIP-1');
+  });
+
+  it('변동 이미지는 전표 값의 base64를 그린다', () => {
+    const { inputs } = convertSlipFile(makeVoucher(
+      [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, binding: 'sign' }],
+      { sign: PNG },
+    ));
+    expect(inputs[0]!['sig']).toBe(PNG);
+  });
+
+  it('변동 이미지 값이 base64가 아니면 거부한다 (주소는 호스트가 내장해야 한다)', () => {
+    expect(() => convertSlipFile(makeVoucher(
+      [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, binding: 'sign' }],
+      { sign: 'https://example.com/a.png' },
+    ))).toThrow(/data: base64/);
+  });
+
+  it('페이지 번호는 {n}·{total}을 실제 값으로 채워 넣는다', () => {
+    const { template, inputs } = convertSlipFile(makeVoucher(
+      [{ type: 'text', id: 't', name: '글', position: { x: 10, y: 10 }, width: 40, height: 10, content: '가' }],
+      {},
+      { position: 'bottom-center' },
+    ));
+    const [schemas] = template.schemas as PdfmeSchema[][];
+    const number = schemas!.find((s) => s.name === '__page-number-0') as Record<string, unknown>;
+    expect(number).toBeDefined();
+    expect(number['alignment']).toBe('center');
+    expect(inputs[0]!['__page-number-0']).toBe('1 / 1');
+  });
+});

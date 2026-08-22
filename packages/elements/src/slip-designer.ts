@@ -468,6 +468,8 @@ const TYPE_BADGE: Record<SlipElement['type'], TemplateResult> = {
   ellipse: icons.ellipse,
   polygon: icons.polygon,
   field: icons.field,
+  // 바코드 요소(0.5.0) — 디자이너 도구는 G-33에서 붙인다. 배지는 밖에서 들어온 양식에도 필요하다
+  barcode: icons.barcode,
 };
 
 interface DragState {
@@ -2948,6 +2950,13 @@ export class SlipDesigner extends LitElement {
           binding: `field_${id.slice(0, 4)}`,
         };
         break;
+      case 'barcode':
+        // 전표에 가장 흔한 QR로 시작한다 — 종류·값 편집은 G-33에서 붙인다 (0.5.0)
+        element = {
+          type: 'barcode', id, name, position, width: 25, height: 25,
+          kind: 'qrcode', binding: `barcode_${id.slice(0, 4)}`,
+        };
+        break;
     }
 
     if (place?.width !== undefined) element.width = Math.max(MIN_SIZE_MM, round1(place.width));
@@ -4921,7 +4930,7 @@ export class SlipDesigner extends LitElement {
 
       case 'image':
         // 자리표시(1×1 투명 PNG)는 그리면 빈 상자로만 보인다 — 아직 안 골랐음을 글자로 알린다 (G-36)
-        return el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:')
+        return el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:')
           ? html`<img src=${el.src} alt="">`
           : html`<span class="el-content">${this._strings.designer.typeImage}</span>`;
 
@@ -5505,6 +5514,7 @@ export class SlipDesigner extends LitElement {
       ellipse: s.shapeEllipse,
       polygon: s.shapePolygon,
       field: s.typeField,
+      barcode: s.typeBarcode,
     };
     return map[type];
   }
@@ -5825,7 +5835,7 @@ export class SlipDesigner extends LitElement {
 
       case 'image': {
         // 경로 문자열은 base64라 사람이 읽을 수 없다 — 지금 이미지를 그대로 보여준다 (G-36)
-        const chosen = el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
+        const chosen = el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
         return html`
           <div class="prop-section">
             ${chosen
@@ -6416,7 +6426,7 @@ export class SlipDesigner extends LitElement {
     for (const page of file.template.pages) {
       for (const el of page.elements) {
         if (el.type !== 'image') continue;
-        if (el.src === PLACEHOLDER_IMG || !el.src.startsWith('data:')) continue;
+        if (el.src === undefined || el.src === PLACEHOLDER_IMG || !el.src.startsWith('data:')) continue;
         seen.add(el.src);
       }
     }
