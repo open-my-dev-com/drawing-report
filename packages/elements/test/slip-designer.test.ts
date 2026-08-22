@@ -834,10 +834,8 @@ describe('<slip-designer> 요소 삭제', () => {
     const changes: CustomEvent[] = [];
     el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
 
-    // 삭제 버튼 클릭
-    const deleteBtn = Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
-      .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === strings.designer.delete) as HTMLElement;
-    deleteBtn.click();
+    // 툴바 삭제 버튼은 뺐다 — Delete 키로 지운다 (G-34, 사이드바 줄 삭제·Delete 키로 대체)
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
     await el.updateComplete;
 
     const elements = el.shadowRoot?.querySelectorAll('.element');
@@ -2307,8 +2305,9 @@ describe('<slip-designer> 페이지', () => {
     const el = await loadDesigner();
     expect(pageIndicator(el)).toBe('1 / 1');
     expect(toolbarButton(el, strings.designer.deletePage).disabled).toBe(true);
-    expect(toolbarButton(el, strings.designer.prevPage).disabled).toBe(true);
-    expect(toolbarButton(el, strings.designer.nextPage).disabled).toBe(true);
+    // 이전·다음 페이지 버튼은 툴바에서 뺐다 — 사이드바 페이지 줄로 옮긴다 (G-34)
+    expect(toolbarButton(el, strings.designer.prevPage)).toBeUndefined();
+    expect(toolbarButton(el, strings.designer.nextPage)).toBeUndefined();
     el.remove();
   });
 
@@ -2328,17 +2327,18 @@ describe('<slip-designer> 페이지', () => {
     el.remove();
   });
 
-  it('이전/다음 버튼으로 페이지를 전환하면 해당 페이지 요소가 보인다', async () => {
+  it('사이드바 페이지 줄로 페이지를 전환하면 해당 페이지 요소가 보인다 (G-34)', async () => {
     const el = await loadDesigner();
     toolbarButton(el, strings.designer.addPage).click();
     await el.updateComplete;
 
-    toolbarButton(el, strings.designer.prevPage).click();
+    const pageRows = () => el.shadowRoot!.querySelectorAll('.page-row');
+    (pageRows()[0] as HTMLElement).click();
     await el.updateComplete;
     expect(pageIndicator(el)).toBe('1 / 2');
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
 
-    toolbarButton(el, strings.designer.nextPage).click();
+    (pageRows()[1] as HTMLElement).click();
     await el.updateComplete;
     expect(pageIndicator(el)).toBe('2 / 2');
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(0);
