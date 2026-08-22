@@ -4,7 +4,7 @@
 > 각 항목의 결정 배경·근거는 [DECISIONS.md](DECISIONS.md)의 해당 ADR 번호를 참조.
 > 미결 사항은 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) 참조.
 
-최종 갱신: 2026-08-21
+최종 갱신: 2026-08-22
 
 ---
 

@@ -15,7 +15,8 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
 
 ## 규칙 위치
 
-- **브랜치·커밋·PR·작업 시작 절차**: `.claude/rules/branching.md`
+- **브랜치·커밋·PR·작업 시작 절차**: `.claude/rules/branching.md` — **PR 올리기 전 자가점검 표**가
+  여기 있다. PR을 만들거나 갱신하기 전에 반드시 훑는다
 - **용어 사전**: `.claude/rules/terms.md` — 이름을 붙이기 전에 먼저 본다. 그리드(요소)와
   격자(캔버스 모눈)처럼 헷갈리는 말의 구분, 용어를 바꿀 때 훑을 곳 목록
 - **패키지·문서별 상세 규칙**: `.claude/rules/core.md`(순수 TS·

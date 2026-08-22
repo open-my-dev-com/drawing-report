@@ -3805,3 +3805,265 @@ describe('<slip-designer> 이미지 업로드', () => {
     el.remove();
   });
 });
+
+// ---------------------------------------------------------------------------
+// 그리드 편집 (ADR-037 2단계)
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
+  const PX = 96 / 25.4;
+  const s = strings.designer;
+
+  /** 헤더 1행 + 반복 1행 + 꼬리 1행, 행 10mm·열 30mm짜리 그리드 하나만 둔 양식 */
+  function makeGridElementFile(): SlipTemplateFile {
+    return {
+      schemaVersion: '0.1.0',
+      kind: 'template',
+      template: {
+        meta: { title: '그리드' },
+        paper: { width: 210, height: 297, padding: [20, 15, 20, 15] as [number, number, number, number] },
+        pages: [{
+          elements: [{
+            type: 'grid' as const,
+            id: 'g-1',
+            name: 'test-grid',
+            position: { x: 10, y: 10 },
+            width: 60,
+            height: 60,
+            columns: [{ width: 30 }, { width: 30 }],
+            rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
+            repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 4, repeatHeader: true },
+            cells: [
+              { row: 0, column: 0, content: '품명' },
+              { row: 1, column: 0, binding: '품명' },
+            ],
+          }],
+          assets: [],
+        }],
+        assets: [],
+        sampleValues: { items: [{ 품명: '사과' }, { 품명: '배' }] },
+      },
+    } as unknown as SlipTemplateFile;
+  }
+
+  async function mount() {
+    parseSlipFileMock.mockReturnValue(makeGridElementFile() as unknown as SlipFile);
+    const el = await loadDesigner();
+    selectElement(el, 'g-1');
+    await el.updateComplete;
+    return el;
+  }
+
+  type TestGrid = {
+    width: number; height: number;
+    columns: { width: number }[];
+    rows: { height: number }[];
+    repeat?: { binding: string; fromRow: number; toRow: number; perPage: number; repeatHeader: boolean };
+    overflow?: string;
+    cells: { row: number; column: number; content?: string; binding?: string; formula?: string; rowSpan?: number }[];
+  };
+
+  function gridOf(el: Element): TestGrid {
+    return (el as unknown as { _file: SlipTemplateFile })._file
+      .template.pages[0]!.elements[0]! as unknown as TestGrid;
+  }
+
+  function row(el: Element, label: string): Element {
+    const found = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === label);
+    if (!found) throw new Error(`패널 줄을 찾지 못했습니다: ${label}`);
+    return found;
+  }
+
+  function setNumber(el: Element, label: string, value: string): void {
+    const input = row(el, label).querySelector('input') as HTMLInputElement;
+    input.value = value;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  /** 그리드 안 mm 좌표를 눌러 셀을 고른다 (선택된 요소 재클릭) */
+  async function clickCell(el: Element, mmX: number, mmY: number) {
+    const div = el.shadowRoot!.querySelector('[data-id="g-1"]') as HTMLElement;
+    for (const type of ['pointerdown', 'pointerup']) {
+      div.dispatchEvent(new PointerEvent(type, {
+        bubbles: true, composed: true, clientX: mmX * PX, clientY: mmY * PX, pointerId: 1,
+      }));
+    }
+    await (el as { updateComplete?: Promise<unknown> }).updateComplete;
+  }
+
+  it('툴바에서 그리드를 만들면 반복 구간을 가진 채로 생긴다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, s.addGrid);
+
+    const elements = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements;
+    const created = elements[elements.length - 1] as unknown as TestGrid & { type: string };
+    expect(created.type).toBe('grid');
+    expect(created.repeat?.repeatHeader).toBe(true);
+    // 열 너비·행 높이의 합이 상자와 같아야 저장된다 (SPEC §5.7)
+    expect(created.width).toBeCloseTo(created.columns.reduce((a, c) => a + c.width, 0), 2);
+    const band = created.rows.slice(created.repeat!.fromRow, created.repeat!.toRow + 1)
+      .reduce((a, r) => a + r.height, 0);
+    const template = created.rows.reduce((a, r) => a + r.height, 0);
+    expect(created.height).toBeCloseTo(template + (created.repeat!.perPage - 1) * band, 2);
+    el.remove();
+  });
+
+  it('캔버스에 반복 구간이 페이지당 항목 수만큼 펼쳐져 보인다', async () => {
+    const el = await mount();
+    // 헤더 1 + 반복 4 + 꼬리 1 = 6줄
+    const preview = el.shadowRoot!.querySelector('[data-id="g-1"] .grid-preview') as HTMLElement;
+    expect(preview.style.gridTemplateRows.split(' ').length).toBe(6);
+    el.remove();
+  });
+
+  it('반복 칸은 샘플 값으로 채워 보이고, 값이 없으면 값 이름을 보여준다', async () => {
+    const el = await mount();
+    const texts = Array.from(el.shadowRoot!.querySelectorAll('[data-id="g-1"] .grid-preview > div'))
+      .map((d) => d.textContent?.trim() ?? '')
+      .filter(Boolean);
+    expect(texts).toContain('품명');
+    expect(texts).toContain('사과');
+    expect(texts).toContain('배');
+    // 샘플이 2건뿐이라 나머지 반복 줄은 값 이름으로 보인다
+    expect(texts).toContain('{품명}');
+    el.remove();
+  });
+
+  it('행을 더하면 다른 행 높이는 그대로고 상자만 커진다', async () => {
+    const el = await mount();
+    const before = gridOf(el);
+    const beforeHeight = before.height;
+    (row(el, s.rows).querySelectorAll('button')[1] as HTMLButtonElement).click();
+    await el.updateComplete;
+
+    const after = gridOf(el);
+    expect(after.rows.length).toBe(4);
+    expect(after.rows.slice(0, 3).map((r) => r.height)).toEqual([10, 10, 10]);
+    expect(after.height).toBeCloseTo(beforeHeight + 10, 2);
+    el.remove();
+  });
+
+  it('행 높이·열 너비를 mm로 고치면 그 트랙만 바뀌고 상자가 따라간다', async () => {
+    const el = await mount();
+    await clickCell(el, 15, 25); // 반복 구간 첫 벌 (요소 y=10, 행 10mm)
+    await el.updateComplete;
+
+    setNumber(el, s.rowHeight, '20');
+    await el.updateComplete;
+    const grid = gridOf(el);
+    expect(grid.rows.map((r) => r.height)).toEqual([10, 20, 10]);
+    // 반복 구간이 4벌이므로 높이 = 10 + 4x20 + 10
+    expect(grid.height).toBeCloseTo(100, 2);
+
+    setNumber(el, s.columnWidth, '50');
+    await el.updateComplete;
+    expect(gridOf(el).columns.map((c) => c.width)).toEqual([50, 30]);
+    expect(gridOf(el).width).toBeCloseTo(80, 2);
+    el.remove();
+  });
+
+  it('반복 구간을 끄면 사라지고, 다시 켜면 고른 행으로 잡힌다', async () => {
+    const el = await mount();
+    const toggle = row(el, s.repeatOn).querySelector('input') as HTMLInputElement;
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(gridOf(el).repeat).toBeUndefined();
+    // 반복이 없으면 상자 높이는 행 높이의 합 그대로다
+    expect(gridOf(el).height).toBeCloseTo(30, 2);
+
+    const on = row(el, s.repeatOn).querySelector('input') as HTMLInputElement;
+    on.checked = true;
+    on.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(gridOf(el).repeat).toBeDefined();
+    el.remove();
+  });
+
+  it('반복 구간 행 범위가 행 수를 벗어나면 받아들이지 않는다', async () => {
+    const el = await mount();
+    setNumber(el, s.repeatTo, '9');
+    await el.updateComplete;
+    expect(gridOf(el).repeat?.toRow).toBe(1);
+    el.remove();
+  });
+
+  it('페이지당 항목 수를 바꾸면 상자 높이가 그만큼 늘어난다', async () => {
+    const el = await mount();
+    setNumber(el, s.repeatPerPage, '6');
+    await el.updateComplete;
+    const grid = gridOf(el);
+    expect(grid.repeat?.perPage).toBe(6);
+    // 10(헤더) + 6x10(반복) + 10(꼬리)
+    expect(grid.height).toBeCloseTo(80, 2);
+    el.remove();
+  });
+
+  it('칸에 담을 것을 고르면 나머지 둘은 지워진다', async () => {
+    const el = await mount();
+    await clickCell(el, 15, 25);
+    await el.updateComplete;
+
+    const select = row(el, s.cellSource).querySelector('select') as HTMLSelectElement;
+    select.value = 'formula';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const input = row(el, s.formula).querySelector('input') as HTMLInputElement;
+    input.value = 'SUM(items.금액)';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const cell = gridOf(el).cells.find((c) => c.row === 1 && c.column === 0)!;
+    expect(cell.formula).toBe('SUM(items.금액)');
+    expect(cell.binding).toBeUndefined();
+    expect(cell.content).toBeUndefined();
+    el.remove();
+  });
+
+  it('반복 구간의 몇 번째 벌을 눌러도 같은 틀 칸이 골라진다', async () => {
+    const el = await mount();
+    await clickCell(el, 15, 25); // 첫 벌 (y 20~30)
+    const first = (el as unknown as { _selectedCell: { row: number; column: number } })._selectedCell;
+    await clickCell(el, 15, 45); // 셋째 벌 (y 40~50)
+    const third = (el as unknown as { _selectedCell: { row: number; column: number } })._selectedCell;
+    expect(first).toEqual({ row: 1, column: 0 });
+    expect(third).toEqual({ row: 1, column: 0 });
+    el.remove();
+  });
+
+  it('반복 구간 경계를 넘는 병합은 받아들이지 않는다', async () => {
+    const el = await mount();
+    await clickCell(el, 15, 15); // 헤더 행 (y 10~20)
+    await el.updateComplete;
+    const merge = el.shadowRoot!.querySelector(`[aria-label="${s.merge} ${s.rows}"]`) as HTMLInputElement;
+    merge.value = '2';
+    merge.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const cell = gridOf(el).cells.find((c) => c.row === 0 && c.column === 0)!;
+    expect(cell.rowSpan).toBeUndefined();
+    el.remove();
+  });
+
+  it('넘칠 때 처리를 줄여 넣기로 바꿀 수 있다', async () => {
+    const el = await mount();
+    const select = row(el, s.overflow).querySelector('select') as HTMLSelectElement;
+    select.value = 'shrink';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(gridOf(el).overflow).toBe('shrink');
+    el.remove();
+  });
+
+  it('그리드가 쓰는 값이 사이드바 값 목록에 나온다', async () => {
+    const el = await mount();
+    const labels = Array.from(el.shadowRoot!.querySelectorAll('.side-row'))
+      .map((r) => r.textContent?.trim() ?? '');
+    expect(labels.some((l) => l.includes('items'))).toBe(true);
+    expect(labels.some((l) => l.includes('품명'))).toBe(true);
+    el.remove();
+  });
+});

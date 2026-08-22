@@ -58,6 +58,9 @@ export class TextMeasurer {
   private readonly fallbackName: string | undefined;
   private readonly sources = new Map<string, Uint8Array>();
 
+  /**
+   * @param fonts - 렌더 옵션에 등록된 폰트 목록. 비우면 재기를 하지 않는다
+   */
   constructor(fonts: readonly SlipFont[] = []) {
     for (const font of fonts) this.sources.set(font.name, font.data);
     this.fallbackName = fonts.find((f) => f.fallback === true)?.name ?? fonts[0]?.name;

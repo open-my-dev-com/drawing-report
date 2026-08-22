@@ -77,6 +77,50 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 무
     expect(designed.template.pages[0]!.elements.length).toBe(7);
   });
 
+  it('1-1) 디자이너로 만든 그리드는 그대로 저장되고 값을 채우면 PDF로 렌더된다 (ADR-037)', async () => {
+    const changes: SlipTemplateFile[] = [];
+    const collect = (e: Event) => changes.push((e as CustomEvent).detail.file as SlipTemplateFile);
+    designer.addEventListener('slip-change', collect);
+
+    toolbarButton(designer, strings.designer.addGrid).click();
+    await designer.updateComplete;
+    const paper = designer.shadowRoot!.querySelector('.paper') as HTMLElement;
+    for (const type of ['pointerdown', 'pointerup']) {
+      paper.dispatchEvent(new PointerEvent(type, {
+        bubbles: true, composed: true, clientX: 120, clientY: 500, pointerId: 1,
+      }));
+    }
+    await designer.updateComplete;
+    designer.removeEventListener('slip-change', collect);
+
+    const withGrid = changes.at(-1)!;
+    // 앞 단계에서 페이지를 더해 현재 페이지가 바뀌었을 수 있다 — 전체에서 찾는다
+    const grid = withGrid.template.pages.flatMap((page) => page.elements).find((el) => el.type === 'grid');
+    expect(grid).toBeDefined();
+    // 만든 그대로 core 스키마를 통과한다 — 트랙 합과 상자가 어긋나면 여기서 걸린다
+    expect(() => parseSlipFile(serializeSlipFile(withGrid))).not.toThrow();
+
+    // 페이지당 항목 수를 넘는 데이터를 줘도 변환이 끝까지 간다 (페이지 수 검증은 core 테스트가 맡는다)
+    const repeat = grid!.type === 'grid' ? grid!.repeat! : undefined!;
+    const voucher: SlipVoucherFile = {
+      schemaVersion: withGrid.schemaVersion,
+      kind: 'voucher',
+      templateSnapshot: withGrid.template,
+      values: {
+        [repeat.binding]: Array.from({ length: repeat.perPage * 2 + 1 }, (_, i) => ({ 품명: `품목 ${i + 1}` })),
+      },
+      issued: false,
+    };
+    const pdf = await renderSlipToPdf(voucher);
+    expect(Array.from(pdf.slice(0, 5))).toEqual([0x25, 0x50, 0x44, 0x46, 0x2d]);
+
+    // 그리드를 지워 뒤 단계(프리셋 기준 개수 검사)에 영향을 주지 않는다
+    designer.src = serializeSlipFile(designed);
+    await designer.updateComplete;
+    await flush();
+    await designer.updateComplete;
+  }, 30_000);
+
   it('2) 편집 결과는 core 스키마를 통과하는 유효한 .slip 파일이다', () => {
     const roundTripped = parseSlipFile(serializeSlipFile(designed));
     expect(roundTripped).toEqual(designed);

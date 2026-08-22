@@ -7,6 +7,9 @@ import {
   type SlipFile,
   type SlipTemplateFile,
   type SlipElement,
+  type GridElement,
+  type GridCell,
+  type GridRepeat,
   type RenderOptions,
   type SlipListItem,
   type StorageAdapter,
@@ -266,6 +269,72 @@ function resizePercentages(list: number[], count: number): number[] {
 }
 
 /** 비율(생략 시 균등)로 나눈 누적 경계 위치(mm) — 길이 = count + 1 */
+/** 새 그리드의 기본 행 높이(mm) */
+const GRID_DEFAULT_ROW_MM = 8;
+/** 새 그리드가 한 페이지에 담는 기본 항목 수 */
+const GRID_DEFAULT_PER_PAGE = 5;
+
+/**
+ * 열 너비·행 높이의 합으로 요소 상자를 다시 계산한다 — 스키마가 둘의 일치를 요구한다
+ * (SPEC §5.7). 반복 구간은 화면·PDF에서 `perPage`번 복제되므로 높이에 그만큼 더한다.
+ */
+function recomputeGridBox(el: GridElement): void {
+  el.width = round1(el.columns.reduce((sum, column) => sum + column.width, 0));
+  const templateHeight = el.rows.reduce((sum, row) => sum + row.height, 0);
+  const bandHeight = el.repeat
+    ? el.rows.slice(el.repeat.fromRow, el.repeat.toRow + 1).reduce((sum, row) => sum + row.height, 0)
+    : 0;
+  el.height = round1(templateHeight + (el.repeat ? (el.repeat.perPage - 1) * bandHeight : 0));
+}
+
+/**
+ * 끌어서 만들거나 크기를 바꿨을 때 트랙을 새 상자에 맞춘다 — 트랙끼리의 비율은 지킨다.
+ * 맞춘 뒤 상자를 트랙 합으로 되돌려 스키마 규칙을 정확히 지킨다.
+ */
+function syncGridTracks(el: GridElement): void {
+  const scaled = (sizes: number[], target: number): number[] => {
+    const total = sizes.reduce((sum, size) => sum + size, 0);
+    if (total <= 0) return sizes.map(() => Math.max(MIN_SIZE_MM, round1(target / sizes.length)));
+    return sizes.map((size) => Math.max(MIN_SIZE_MM, round1((size / total) * target)));
+  };
+  el.columns = scaled(el.columns.map((column) => column.width), el.width).map((width) => ({ width }));
+
+  // 행은 펼친 높이가 상자 높이가 되도록 줄인다 (반복 구간은 여러 벌로 보인다)
+  const perPage = el.repeat ? el.repeat.perPage : 1;
+  const heights = el.rows.map((row) => row.height);
+  const bandHeight = el.repeat
+    ? heights.slice(el.repeat.fromRow, el.repeat.toRow + 1).reduce((sum, h) => sum + h, 0)
+    : 0;
+  const expanded = heights.reduce((sum, h) => sum + h, 0) + (perPage - 1) * bandHeight;
+  const ratio = expanded > 0 ? el.height / expanded : 1;
+  el.rows = heights.map((height) => ({ height: Math.max(MIN_SIZE_MM, round1(height * ratio)) }));
+  recomputeGridBox(el);
+}
+
+/** 행·열이 줄어든 뒤 격자를 벗어나는 병합 범위를 줄인다 */
+function clampGridSpans(el: GridElement): void {
+  for (const cell of el.cells) {
+    const record = cell as Record<string, unknown>;
+    if (cell.rowSpan !== undefined && cell.row + cell.rowSpan > el.rows.length) {
+      const clamped = el.rows.length - cell.row;
+      if (clamped <= 1) delete record.rowSpan;
+      else cell.rowSpan = clamped;
+    }
+    if (cell.colSpan !== undefined && cell.column + cell.colSpan > el.columns.length) {
+      const clamped = el.columns.length - cell.column;
+      if (clamped <= 1) delete record.colSpan;
+      else cell.colSpan = clamped;
+    }
+  }
+}
+
+/** 트랙 크기(mm) 배열 → 누적 오프셋 (길이 = 트랙 수 + 1) */
+function trackOffsets(sizes: readonly number[]): number[] {
+  const offsets = [0];
+  for (const size of sizes) offsets.push((offsets[offsets.length - 1] ?? 0) + size);
+  return offsets;
+}
+
 function cumulativeOffsets(total: number, count: number, percentages?: number[]): number[] {
   const offsets = [0];
   for (let i = 0; i < count; i++) {
@@ -273,6 +342,94 @@ function cumulativeOffsets(total: number, count: number, percentages?: number[])
     offsets.push((offsets[i] ?? 0) + size);
   }
   return offsets;
+}
+
+/** 셀 격자를 가진 요소 — 고정 그리드와 그리드가 셀 편집 코드를 함께 쓴다 (ADR-037) */
+type CellGridElement = Extract<SlipElement, { type: 'fixedGrid' } | { type: 'grid' }>;
+
+function isCellGrid(el: SlipElement | undefined): el is CellGridElement {
+  return el?.type === 'fixedGrid' || el?.type === 'grid';
+}
+
+/** 행·열 수 — 고정 그리드는 수로, 그리드는 트랙 배열 길이로 갖는다 */
+function gridDims(el: CellGridElement): { rows: number; columns: number } {
+  return el.type === 'fixedGrid'
+    ? { rows: el.rows, columns: el.columns }
+    : { rows: el.rows.length, columns: el.columns.length };
+}
+
+/** 반복 구간이 한 페이지에 복제되는 횟수 (반복이 없으면 1) */
+function repeatCount(el: CellGridElement): number {
+  return el.type === 'grid' && el.repeat ? el.repeat.perPage : 1;
+}
+
+/**
+ * 캔버스에 그릴 행 높이(mm) 목록 — 그리드의 반복 구간은 `perPage`번 펼친다.
+ * 파일에는 틀 한 벌만 있고 화면·PDF에는 펼친 모습이 보인다 (SPEC §5.7).
+ */
+function expandedRowHeights(el: CellGridElement): number[] {
+  if (el.type === 'fixedGrid') {
+    const offsets = cumulativeOffsets(el.height, el.rows, el.rowHeightPercentages);
+    return Array.from({ length: el.rows }, (_, i) => (offsets[i + 1] ?? 0) - (offsets[i] ?? 0));
+  }
+  const heights = el.rows.map((row) => row.height);
+  if (!el.repeat) return heights;
+  const { fromRow, toRow, perPage } = el.repeat;
+  const band = heights.slice(fromRow, toRow + 1);
+  return [
+    ...heights.slice(0, fromRow),
+    ...Array.from({ length: perPage }, () => band).flat(),
+    ...heights.slice(toRow + 1),
+  ];
+}
+
+/** 캔버스에 그릴 열 너비(mm) 목록 */
+function columnWidths(el: CellGridElement): number[] {
+  if (el.type === 'fixedGrid') {
+    const offsets = cumulativeOffsets(el.width, el.columns, el.columnWidthPercentages);
+    return Array.from({ length: el.columns }, (_, i) => (offsets[i + 1] ?? 0) - (offsets[i] ?? 0));
+  }
+  return el.columns.map((column) => column.width);
+}
+
+/**
+ * 화면에 펼쳐진 행 번호 → 파일에 담긴 틀의 행 번호.
+ * 반복 구간은 화면에 여러 벌 보이지만 파일에는 한 벌뿐이라, 어느 벌을 눌러도
+ * 같은 틀 행을 가리켜야 한다 (ADR-037).
+ */
+function templateRowOf(el: CellGridElement, expandedRow: number): number {
+  if (el.type !== 'grid' || !el.repeat) return expandedRow;
+  const { fromRow, toRow, perPage } = el.repeat;
+  const bandRows = toRow - fromRow + 1;
+  if (expandedRow < fromRow) return expandedRow;
+  const afterBand = fromRow + perPage * bandRows;
+  if (expandedRow >= afterBand) return expandedRow - (perPage - 1) * bandRows;
+  return fromRow + ((expandedRow - fromRow) % bandRows);
+}
+
+/** 틀의 행 번호 → 화면에서 그 행이 처음 나타나는 행 번호 */
+function firstExpandedRowOf(el: CellGridElement, templateRow: number): number {
+  if (el.type !== 'grid' || !el.repeat) return templateRow;
+  const { toRow, perPage } = el.repeat;
+  const bandRows = toRow - (el.repeat.fromRow) + 1;
+  return templateRow > toRow ? templateRow + (perPage - 1) * bandRows : templateRow;
+}
+
+/**
+ * 그 자리의 셀을 찾고, 없으면 빈 셀을 만들어 돌려준다.
+ * 고정 그리드와 그리드의 셀 모양이 달라 만드는 자리만 나눈다.
+ */
+function ensureCell(el: CellGridElement, row: number, column: number): Record<string, unknown> {
+  const found = el.cells.find((c) => c.row === row && c.column === column);
+  if (found) return found as unknown as Record<string, unknown>;
+  if (el.type === 'fixedGrid') {
+    const created = { row, column, content: '' };
+    el.cells.push(created);
+    return created as unknown as Record<string, unknown>;
+  }
+  const created: GridCell = { row, column, content: '' };
+  el.cells.push(created);
+  return created as unknown as Record<string, unknown>;
 }
 
 /** #RRGGBB(AA) → HSV(h 0~360, s·v 0~1) — 색 피커 초기 위치 계산용 */
@@ -304,8 +461,8 @@ function hsvToHex(h: number, s: number, v: number): string {
   return `#${to(f(5))}${to(f(3))}${to(f(1))}`;
 }
 
-/** 디자이너가 만들 수 있는 요소 종류 — 그리드(grid)는 편집 화면이 아직 없다 (ADR-037 2단계) */
-type CreatableType = Exclude<SlipElement['type'], 'grid'>;
+/** 디자이너가 만들 수 있는 요소 종류 */
+type CreatableType = SlipElement['type'];
 
 const PLACEHOLDER_IMG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
@@ -315,8 +472,7 @@ const TYPE_BADGE: Record<SlipElement['type'], TemplateResult> = {
   text: icons.text,
   fixedGrid: icons.fixedGrid,
   dynamicTable: icons.dynamicTable,
-  // 그리드는 아직 디자이너에서 만들 수 없다 — 배지는 고정 그리드 아이콘을 함께 쓴다 (ADR-037 2단계)
-  grid: icons.fixedGrid,
+  grid: icons.gridElement,
   image: icons.image,
   line: icons.line,
   rect: icons.shape,
@@ -364,7 +520,7 @@ interface BindingUse {
   pageIndex: number;
   id: string;
   name: string;
-  type: 'field' | 'dynamicTable';
+  type: 'field' | 'dynamicTable' | 'grid';
 }
 
 /** 사이드바·패널이 함께 쓰는 바인딩 한 항목 — 정의부와 사용처를 합친 것 */
@@ -1620,6 +1776,30 @@ export class SlipDesigner extends LitElement {
       outline: 2px solid var(--sk-accent);
       outline-offset: -2px;
     }
+    /* 행·열 수 조절 — 값을 가운데 두고 좌우로 빼고 더한다 (ADR-037) */
+    .step-inputs {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 6px;
+    }
+    .step-inputs span {
+      min-width: 20px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    /* 반복 구간 안의 칸임을 알리는 표시 */
+    .cell-band {
+      margin-left: 6px;
+      padding: 0 5px;
+      border-radius: 8px;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--sk-accent);
+      background: var(--sk-accent-soft);
+    }
     .merge-inputs {
       flex: 1;
       min-width: 0;
@@ -2224,6 +2404,7 @@ export class SlipDesigner extends LitElement {
     _presetMenuOpen: { state: true },
     _shapeMenuOpen: { state: true },
     _selectedCell: { state: true },
+    _cellSourceKind: { state: true },
     _cellEditing: { state: true },
     _lineDraft: { state: true },
     _lineGhost: { state: true },
@@ -2388,6 +2569,11 @@ export class SlipDesigner extends LitElement {
   private _anchorByElement = new Map<string, number>();
   /** 선택된 고정 그리드 셀 좌표 — 병합 편집·인라인 편집 대상 (C-10) */
   private _selectedCell: { row: number; column: number } | null = null;
+  /**
+   * 그리드 칸에 담을 것(문구·값·수식) 중 지금 고른 종류 — 화면 상태다.
+   * 아직 아무것도 입력하지 않으면 파일에 남지 않으므로 여기서 기억한다 (ADR-037).
+   */
+  private _cellSourceKind: 'content' | 'binding' | 'formula' | null = null;
   /** 인라인 셀 편집 중인지 — true면 캔버스에 입력 상자를 띄운다 */
   private _cellEditing = false;
 
@@ -2690,6 +2876,28 @@ export class SlipDesigner extends LitElement {
           repeatHead: true, binding: 'items',
         };
         break;
+      case 'grid':
+        // 헤더 1행 + 반복 1행 + 꼬리 1행으로 시작한다 — 목록형 표가 가장 흔한 쓰임이고,
+        // 반복을 끄면 그대로 고정 틀이 된다 (ADR-037)
+        element = {
+          type: 'grid', id, name, position,
+          width: 90, height: GRID_DEFAULT_ROW_MM * (2 + GRID_DEFAULT_PER_PAGE),
+          columns: [{ width: 30 }, { width: 30 }, { width: 30 }],
+          rows: [
+            { height: GRID_DEFAULT_ROW_MM },
+            { height: GRID_DEFAULT_ROW_MM },
+            { height: GRID_DEFAULT_ROW_MM },
+          ],
+          repeat: {
+            binding: `items_${id.slice(0, 4)}`,
+            fromRow: 1,
+            toRow: 1,
+            perPage: GRID_DEFAULT_PER_PAGE,
+            repeatHeader: true,
+          },
+          cells: [],
+        };
+        break;
       case 'image':
         element = {
           type: 'image', id, name, position, width: 40, height: 40, src: PLACEHOLDER_IMG,
@@ -2723,6 +2931,8 @@ export class SlipDesigner extends LitElement {
 
     if (place?.width !== undefined) element.width = Math.max(MIN_SIZE_MM, round1(place.width));
     if (place?.height !== undefined) element.height = Math.max(MIN_SIZE_MM, round1(place.height));
+    // 그리드는 열 너비·행 높이의 합이 곧 상자다 — 끌어낸 크기에 트랙을 맞춘다 (SPEC §5.7)
+    if (element.type === 'grid') syncGridTracks(element);
     // 용지 밖으로 나가지 않게 위치 보정 (가장자리를 클릭해 만들 때)
     element.position = {
       x: round1(Math.max(0, Math.min(element.position.x, paper.width - element.width))),
@@ -2735,6 +2945,9 @@ export class SlipDesigner extends LitElement {
     // 값을 쓰는 요소는 그 바인딩을 정의부에 함께 등록한다 — 목록이 값의 단일 원천 (ADR-034)
     if (element.type === 'field' || element.type === 'dynamicTable') {
       this._ensureBindingDef(element.binding);
+    }
+    if (element.type === 'grid' && element.repeat) {
+      this._ensureBindingDef(element.repeat.binding);
     }
     this._emitChange();
     this.requestUpdate();
@@ -2970,6 +3183,7 @@ export class SlipDesigner extends LitElement {
       this._selectedId = null;
       this._sideSelection = null;
       this._selectedCell = null;
+      this._cellSourceKind = null;
       this._cellEditing = false;
     }
     this.requestUpdate();
@@ -3111,6 +3325,7 @@ export class SlipDesigner extends LitElement {
     el.position.y = round1(top);
     el.width = round1(right - left);
     el.height = round1(bottom - top);
+    if (el.type === 'grid') syncGridTracks(el);
     this._guideX = guideX;
     this._guideY = guideY;
     this.requestUpdate();
@@ -3229,10 +3444,13 @@ export class SlipDesigner extends LitElement {
       this._emitChange();
       return;
     }
-    // 움직이지 않은 재클릭: 고정 그리드면 그 자리의 셀을 선택하고 인라인 편집을 연다 (C-10)
-    if (el && el.type === 'fixedGrid' && drag.wasSelected && drag.snapshot === null) {
+    // 움직이지 않은 재클릭: 셀 격자면 그 자리의 셀을 선택하고 인라인 편집을 연다 (C-10, ADR-037)
+    if (isCellGrid(el) && drag.wasSelected && drag.snapshot === null) {
       const cell = this._cellAtPoint(el, e);
       if (cell) {
+        if (this._selectedCell?.row !== cell.row || this._selectedCell?.column !== cell.column) {
+          this._cellSourceKind = null;
+        }
         this._selectedCell = cell;
         this._cellEditing = true;
         this.requestUpdate();
@@ -3246,7 +3464,7 @@ export class SlipDesigner extends LitElement {
 
   /** 포인터 위치가 가리키는 셀 좌표 — 병합 범위면 병합 원점 좌표를 돌려준다 */
   private _cellAtPoint(
-    el: SlipElement & { type: 'fixedGrid' },
+    el: CellGridElement,
     e: PointerEvent,
   ): { row: number; column: number } | null {
     const point = this._paperPoint(e);
@@ -3254,15 +3472,17 @@ export class SlipDesigner extends LitElement {
     const relY = point.y - el.position.y;
     if (relX < 0 || relY < 0 || relX > el.width || relY > el.height) return null;
 
-    const colOffsets = cumulativeOffsets(el.width, el.columns, el.columnWidthPercentages);
-    const rowOffsets = cumulativeOffsets(el.height, el.rows, el.rowHeightPercentages);
+    const colOffsets = trackOffsets(columnWidths(el));
+    const rowOffsets = trackOffsets(expandedRowHeights(el));
+    const dims = gridDims(el);
     // 경계 오른쪽/아래를 눌러도 마지막 칸으로 보정한다
     const indexOf = (value: number, offsets: number[], count: number): number => {
       const found = offsets.findIndex((offset) => value < offset) - 1;
       return found < 0 ? count - 1 : Math.min(count - 1, found);
     };
-    const column = indexOf(relX, colOffsets, el.columns);
-    const row = indexOf(relY, rowOffsets, el.rows);
+    const column = indexOf(relX, colOffsets, dims.columns);
+    // 반복 구간은 화면에 여러 벌 보이므로 눌린 자리를 틀의 행으로 되돌린다
+    const row = templateRowOf(el, indexOf(relY, rowOffsets, rowOffsets.length - 1));
 
     // 병합 범위 안이면 원점 셀로 보정
     for (const cell of el.cells) {
@@ -3277,13 +3497,15 @@ export class SlipDesigner extends LitElement {
 
   /** 셀(병합 범위 포함)의 캔버스 px 사각형 — 인라인 편집 상자 위치용 */
   private _cellRectPx(
-    el: SlipElement & { type: 'fixedGrid' },
+    el: CellGridElement,
     row: number,
     column: number,
   ): { left: number; top: number; width: number; height: number } {
-    const colOffsets = cumulativeOffsets(el.width, el.columns, el.columnWidthPercentages);
-    const rowOffsets = cumulativeOffsets(el.height, el.rows, el.rowHeightPercentages);
-    const cell = el.cells.find((c) => c.row === row && c.column === column);
+    const colOffsets = trackOffsets(columnWidths(el));
+    const rowOffsets = trackOffsets(expandedRowHeights(el));
+    // 반복 구간 셀은 화면의 첫 번째 벌 자리에 편집 상자를 띄운다
+    row = firstExpandedRowOf(el, row);
+    const cell = el.cells.find((c) => c.row === templateRowOf(el, row) && c.column === column);
     const rowSpan = cell?.rowSpan ?? 1;
     const colSpan = cell?.colSpan ?? 1;
     const left = (el.position.x + (colOffsets[column] ?? 0)) * PX_PER_MM;
@@ -3299,8 +3521,13 @@ export class SlipDesigner extends LitElement {
     if (!target) return;
     this._cellEditing = false;
     const el = this._findSelectedElement();
-    if (!el || el.type !== 'fixedGrid') return;
+    if (!isCellGrid(el)) return;
     const existing = el.cells.find((c) => c.row === target.row && c.column === target.column);
+    // 값·수식을 붙인 칸은 문구를 직접 못 쓴다 — 셋 중 하나만 가질 수 있다 (SPEC §5.7)
+    if (existing && ('binding' in existing || 'formula' in existing)) {
+      this.requestUpdate();
+      return;
+    }
     if (!existing && value === '') {
       this.requestUpdate();
       return;
@@ -3310,10 +3537,8 @@ export class SlipDesigner extends LitElement {
       return;
     }
     this._updateElement((element) => {
-      if (element.type !== 'fixedGrid') return;
-      const cell = element.cells.find((c) => c.row === target.row && c.column === target.column);
-      if (cell) cell.content = value;
-      else element.cells.push({ row: target.row, column: target.column, content: value });
+      if (!isCellGrid(element)) return;
+      ensureCell(element, target.row, target.column).content = value;
     });
   }
 
@@ -3347,18 +3572,30 @@ export class SlipDesigner extends LitElement {
   private _setCellSpan(kind: 'rowSpan' | 'colSpan', value: number): void {
     const target = this._selectedCell;
     const el = this._findSelectedElement();
-    if (!target || !el || el.type !== 'fixedGrid') return;
+    if (!target || !isCellGrid(el)) return;
     if (!Number.isInteger(value) || value < 1) {
       this.requestUpdate();
       return;
     }
+    const dims = gridDims(el);
     const current = el.cells.find((c) => c.row === target.row && c.column === target.column);
     const rowSpan = kind === 'rowSpan' ? value : (current?.rowSpan ?? 1);
     const colSpan = kind === 'colSpan' ? value : (current?.colSpan ?? 1);
     // 그리드 범위 검사
-    if (target.row + rowSpan > el.rows || target.column + colSpan > el.columns) {
+    if (target.row + rowSpan > dims.rows || target.column + colSpan > dims.columns) {
       this.requestUpdate();
       return;
+    }
+    // 병합이 반복 구간 경계를 넘으면 복제할 때 모양이 무너진다 (SPEC §5.7)
+    if (el.type === 'grid' && el.repeat && rowSpan > 1) {
+      const { fromRow, toRow } = el.repeat;
+      const last = target.row + rowSpan - 1;
+      const startsInside = target.row >= fromRow && target.row <= toRow;
+      const endsInside = last >= fromRow && last <= toRow;
+      if (startsInside !== endsInside) {
+        this.requestUpdate();
+        return;
+      }
     }
     // 다른 셀과 겹침 검사 (파일 스키마 규칙과 동일 — 저장 시점 오류를 미리 막는다)
     const overlaps = el.cells.some((cell) => {
@@ -3377,13 +3614,8 @@ export class SlipDesigner extends LitElement {
       return;
     }
     this._updateElement((element) => {
-      if (element.type !== 'fixedGrid') return;
-      let cell = element.cells.find((c) => c.row === target.row && c.column === target.column);
-      if (!cell) {
-        cell = { row: target.row, column: target.column, content: '' };
-        element.cells.push(cell);
-      }
-      const record = cell as Record<string, unknown>;
+      if (!isCellGrid(element)) return;
+      const record = ensureCell(element, target.row, target.column);
       if (rowSpan > 1) record.rowSpan = rowSpan;
       else delete record.rowSpan;
       if (colSpan > 1) record.colSpan = colSpan;
@@ -3396,15 +3628,169 @@ export class SlipDesigner extends LitElement {
     const target = this._selectedCell;
     if (!target) return;
     this._updateElement((element) => {
-      if (element.type !== 'fixedGrid') return;
-      let cell = element.cells.find((c) => c.row === target.row && c.column === target.column);
-      if (!cell) {
-        cell = { row: target.row, column: target.column, content: '' };
-        element.cells.push(cell);
-      }
-      const record = cell as Record<string, unknown>;
+      if (!isCellGrid(element)) return;
+      const record = ensureCell(element, target.row, target.column);
       if (value === null || value === undefined || value === '') delete record[key];
       else record[key] = value;
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // 그리드 편집 (ADR-037 2단계)
+  // ---------------------------------------------------------------------------
+
+  /** 그리드 요소를 고치고 상자를 트랙 합으로 되맞춘다 */
+  private _updateGrid(fn: (el: GridElement) => void): void {
+    this._updateElement((el) => {
+      if (el.type !== 'grid') return;
+      fn(el);
+      recomputeGridBox(el);
+    });
+  }
+
+  /**
+   * 행을 더하거나 뺀다 — 맨 아래에 붙이고 맨 아래에서 뺀다.
+   * mm 트랙이라 다른 행 높이는 그대로고 상자만 늘거나 준다 (ADR-037).
+   */
+  private _changeGridRows(delta: number): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid') return;
+    const next = el.rows.length + delta;
+    if (next < 1 || next > 100) return;
+    // 반복 구간이 남을 자리가 없어지면 줄이지 않는다
+    if (delta < 0 && el.repeat && next <= el.repeat.toRow) return;
+    this._updateGrid((grid) => {
+      if (delta > 0) {
+        grid.rows.push({ height: grid.rows[grid.rows.length - 1]?.height ?? GRID_DEFAULT_ROW_MM });
+      } else {
+        grid.rows.pop();
+        grid.cells = grid.cells.filter((cell) => cell.row < grid.rows.length);
+        clampGridSpans(grid);
+      }
+    });
+  }
+
+  /** 열을 더하거나 뺀다 — 맨 오른쪽에 붙이고 맨 오른쪽에서 뺀다 */
+  private _changeGridColumns(delta: number): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid') return;
+    const next = el.columns.length + delta;
+    if (next < 1 || next > 100) return;
+    this._updateGrid((grid) => {
+      if (delta > 0) {
+        grid.columns.push({ width: grid.columns[grid.columns.length - 1]?.width ?? 30 });
+      } else {
+        grid.columns.pop();
+        grid.cells = grid.cells.filter((cell) => cell.column < grid.columns.length);
+        clampGridSpans(grid);
+      }
+    });
+  }
+
+  /** 행 높이·열 너비(mm)를 직접 정한다 — 그 트랙만 바뀌고 나머지는 그대로다 */
+  private _setGridTrack(kind: 'row' | 'column', index: number, mm: number): void {
+    if (!Number.isFinite(mm) || mm < MIN_SIZE_MM) {
+      this.requestUpdate();
+      return;
+    }
+    this._updateGrid((grid) => {
+      if (kind === 'row') {
+        const row = grid.rows[index];
+        if (row) row.height = round1(mm);
+      } else {
+        const column = grid.columns[index];
+        if (column) column.width = round1(mm);
+      }
+    });
+  }
+
+  /** 반복 구간을 켜고 끈다 — 켤 때는 지금 선택한 행(없으면 둘째 행)을 구간으로 잡는다 */
+  private _toggleGridRepeat(on: boolean): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid') return;
+    if (!on) {
+      this._updateGrid((grid) => {
+        delete (grid as { repeat?: unknown }).repeat;
+      });
+      return;
+    }
+    const row = Math.min(this._selectedCell?.row ?? Math.min(1, el.rows.length - 1), el.rows.length - 1);
+    const key = `items_${el.id.slice(0, 4)}`;
+    this._ensureBindingDef(key);
+    this._updateGrid((grid) => {
+      grid.repeat = {
+        binding: key,
+        fromRow: row,
+        toRow: row,
+        perPage: GRID_DEFAULT_PER_PAGE,
+        repeatHeader: true,
+      };
+    });
+  }
+
+  /** 반복 구간의 설정을 바꾼다 — 행 범위가 어긋나거나 병합이 경계를 넘으면 무시한다 */
+  private _updateGridRepeat(patch: Partial<GridRepeat>): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid' || !el.repeat) return;
+    const next = { ...el.repeat, ...patch };
+    if (next.fromRow > next.toRow || next.toRow >= el.rows.length || next.fromRow < 0) {
+      this.requestUpdate();
+      return;
+    }
+    if (!Number.isInteger(next.perPage) || next.perPage < 1 || next.perPage > 1000) {
+      this.requestUpdate();
+      return;
+    }
+    // 반복 구간 경계를 넘는 병합이 생기면 받아들이지 않는다 (SPEC §5.7)
+    const crosses = el.cells.some((cell) => {
+      const last = cell.row + (cell.rowSpan ?? 1) - 1;
+      const startsInside = cell.row >= next.fromRow && cell.row <= next.toRow;
+      const endsInside = last >= next.fromRow && last <= next.toRow;
+      return startsInside !== endsInside;
+    });
+    if (crosses) {
+      this.requestUpdate();
+      return;
+    }
+    if (patch.binding !== undefined) this._ensureBindingDef(patch.binding);
+    this._updateGrid((grid) => {
+      grid.repeat = next;
+    });
+  }
+
+  /**
+   * 칸에 담을 것의 종류를 고른다 — 값·수식은 빈 채로 둘 수 없어(값 이름은 한 글자 이상)
+   * 아직 입력이 없는 동안은 화면 상태로만 기억한다 (ADR-037).
+   */
+  private _chooseGridCellSource(kind: 'content' | 'binding' | 'formula'): void {
+    this._cellSourceKind = kind;
+    const target = this._selectedCell;
+    if (!target) return;
+    this._updateElement((element) => {
+      if (element.type !== 'grid') return;
+      const cell = ensureCell(element, target.row, target.column);
+      delete cell.content;
+      delete cell.binding;
+      delete cell.formula;
+      if (kind === 'content') cell.content = '';
+    });
+  }
+
+  /**
+   * 셀에 무엇을 담을지 고른다 — 고정 문구·값·수식 중 하나만 가질 수 있다 (SPEC §5.7).
+   * 종류를 바꾸면 나머지 둘은 지운다.
+   */
+  private _setGridCellSource(kind: 'content' | 'binding' | 'formula', value: string): void {
+    const target = this._selectedCell;
+    if (!target) return;
+    this._updateElement((element) => {
+      if (element.type !== 'grid') return;
+      const cell = ensureCell(element, target.row, target.column);
+      delete cell.content;
+      delete cell.binding;
+      delete cell.formula;
+      if (value !== '') cell[kind] = value;
+      else if (kind === 'content') cell.content = '';
     });
   }
 
@@ -3757,6 +4143,7 @@ export class SlipDesigner extends LitElement {
       <div class="tool-group">
         ${([
           ['text', s.addText, icons.text],
+          ['grid', s.addGrid, icons.gridElement],
           ['fixedGrid', s.addFixedGrid, icons.fixedGrid],
           ['dynamicTable', s.addDynamicTable, icons.dynamicTable],
           ['image', s.addImage, icons.image],
@@ -4043,6 +4430,18 @@ export class SlipDesigner extends LitElement {
     const tableOf = new Map<string, { pageIndex: number; element: DynamicTableElement }>();
     file.template.pages.forEach((page, pageIndex) => {
       for (const el of page.elements) {
+        // 그리드는 반복 구간의 값과 셀에 붙인 값을 함께 쓴다 (ADR-037)
+        if (el.type === 'grid') {
+          const keys = new Set<string>();
+          if (el.repeat) keys.add(el.repeat.binding);
+          for (const cell of el.cells) if (cell.binding !== undefined) keys.add(cell.binding);
+          for (const key of keys) {
+            const list = uses.get(key) ?? [];
+            list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
+            uses.set(key, list);
+          }
+          continue;
+        }
         if (el.type !== 'field' && el.type !== 'dynamicTable') continue;
         const list = uses.get(el.binding) ?? [];
         list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
@@ -4567,6 +4966,9 @@ export class SlipDesigner extends LitElement {
       case 'fixedGrid':
         return this._renderGridPreview(el);
 
+      case 'grid':
+        return this._renderGridElementPreview(el);
+
       case 'dynamicTable':
         // PDF 변환과 동일하게: 요소 배경색 = 헤더 배경(기본 #eeeeee), 헤더는 가운데 정렬
         return html`<div class="table-preview">
@@ -4644,6 +5046,109 @@ export class SlipDesigner extends LitElement {
    * 고정 그리드 캔버스 표시 — PDF 변환(convert.ts appendFixedGrid)과 같은 규칙으로
    * 열/행 비율·셀 병합·셀 문구·셀 스타일을 그린다.
    */
+  /**
+   * 그리드 요소의 캔버스 표시 — 반복 구간을 `perPage`번 펼쳐 실제로 인쇄될 모습을 보여준다.
+   * 값·수식 칸은 샘플 값이 있으면 그 값으로, 없으면 값 이름으로 채운다 (ADR-037).
+   */
+  private _renderGridElementPreview(el: GridElement) {
+    const selected = el.id === this._selectedId;
+    const widths = columnWidths(el);
+    const heights = expandedRowHeights(el);
+    const colTracks = widths.map((w) => `${w}fr`).join(' ');
+    const rowTracks = heights.map((h) => `${h}fr`).join(' ');
+    const lineColor = el.borderColor ?? '#000000';
+    const lineWidth = el.borderWidth ?? 0.2;
+    const borderCssOf = (cell?: GridCell): string => {
+      const width = cell?.borderWidth ?? lineWidth;
+      if (width <= 0) return 'none';
+      const px = Math.max(1, Math.round(width * PX_PER_MM));
+      return `${px}px ${cell?.borderStyle ?? el.borderStyle ?? 'solid'} ${cell?.borderColor ?? lineColor}`;
+    };
+
+    const repeat = el.repeat;
+    const bandRows = repeat ? repeat.toRow - repeat.fromRow + 1 : 0;
+    const items = this._repeatSampleItems(el);
+
+    // 틀의 셀을 화면 행으로 옮긴다 — 반복 구간은 벌마다 한 번씩
+    const placed: { cell: GridCell; row: number; item: Record<string, unknown> | undefined }[] = [];
+    for (const cell of el.cells) {
+      if (!repeat || cell.row < repeat.fromRow) {
+        placed.push({ cell, row: cell.row, item: undefined });
+      } else if (cell.row > repeat.toRow) {
+        placed.push({ cell, row: cell.row + (repeat.perPage - 1) * bandRows, item: undefined });
+      } else {
+        for (let i = 0; i < repeat.perPage; i++) {
+          placed.push({ cell, row: cell.row + i * bandRows, item: items[i] });
+        }
+      }
+    }
+
+    const boxes = placed.map(({ cell, row, item }) => {
+      const isSelectedCell =
+        selected && this._selectedCell?.row === cell.row && this._selectedCell?.column === cell.column;
+      const style = [
+        `grid-area:${row + 1}/${cell.column + 1}/span ${cell.rowSpan ?? 1}/span ${cell.colSpan ?? 1}`,
+        `border:${borderCssOf(cell)}`,
+        `font-size:${fontPx(cell.fontSize ?? el.fontSize)}`,
+        `justify-content:${justifyOf(cell.alignment ?? el.alignment)}`,
+        cell.backgroundColor ? `background-color:${cell.backgroundColor}` : '',
+        (cell.fontColor ?? el.fontColor) ? `color:${cell.fontColor ?? el.fontColor}` : '',
+      ].filter(Boolean).join(';') + textStyleCss({ ...el, ...cell });
+      return html`<div class=${isSelectedCell ? 'cell-selected' : ''} style=${style}
+        >${this._gridCellPreviewText(cell, item)}</div>`;
+    });
+
+    // 셀이 없는 칸도 괘선은 그려야 빈 줄까지 보이는 실제 모습이 된다 (SPEC §5.7)
+    const taken = new Set<string>();
+    for (const { cell, row } of placed) {
+      for (let r = row; r < row + (cell.rowSpan ?? 1); r++) {
+        for (let c = cell.column; c < cell.column + (cell.colSpan ?? 1); c++) taken.add(`${r},${c}`);
+      }
+    }
+    const blanks = [];
+    for (let r = 0; r < heights.length; r++) {
+      for (let c = 0; c < widths.length; c++) {
+        if (taken.has(`${r},${c}`)) continue;
+        const templateRow = templateRowOf(el, r);
+        const blankSelected =
+          selected && this._selectedCell?.row === templateRow && this._selectedCell?.column === c;
+        blanks.push(html`<div class=${blankSelected ? 'cell-selected' : ''}
+          style="grid-area:${r + 1}/${c + 1};border:${borderCssOf()}"></div>`);
+      }
+    }
+
+    return html`<div class="grid-preview"
+      style="grid-template-columns:${colTracks};grid-template-rows:${rowTracks}">${blanks}${boxes}</div>`;
+  }
+
+  /** 반복 구간이 미리보기에 쓸 샘플 항목 목록 — 없으면 빈 배열 */
+  private _repeatSampleItems(el: GridElement): Record<string, unknown>[] {
+    if (!el.repeat) return [];
+    const sample = this._file?.template.sampleValues?.[el.repeat.binding];
+    if (!Array.isArray(sample)) return [];
+    return sample
+      .filter((row) => typeof row === 'object' && row !== null && !Array.isArray(row))
+      .map((row) => row as unknown as Record<string, unknown>);
+  }
+
+  /** 셀에 보일 글 — 고정 문구는 그대로, 값·수식은 샘플 값으로 채우고 없으면 이름을 보여준다 */
+  private _gridCellPreviewText(cell: GridCell, item: Record<string, unknown> | undefined): string {
+    const values = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
+    if (cell.binding !== undefined) {
+      const value = values[cell.binding];
+      return value === undefined || value === null ? `{${cell.binding}}` : String(value);
+    }
+    if (cell.formula !== undefined) {
+      try {
+        const result = evaluateFormula(cell.formula, { values });
+        return result === null ? '' : String(result);
+      } catch {
+        return `= ${cell.formula}`;
+      }
+    }
+    return cell.content ?? '';
+  }
+
   private _renderGridPreview(el: SlipElement & { type: 'fixedGrid' }) {
     const { rows, columns } = el;
     const selected = el.id === this._selectedId;
@@ -5263,6 +5768,232 @@ export class SlipDesigner extends LitElement {
             </div>
           </div>
         `;
+
+      case 'grid': {
+        const cellTarget = this._selectedCell;
+        const cellDef = cellTarget
+          ? el.cells.find((c) => c.row === cellTarget.row && c.column === cellTarget.column)
+          : undefined;
+        const repeat = el.repeat;
+        const source: 'content' | 'binding' | 'formula' =
+          this._cellSourceKind
+          ?? (cellDef?.binding !== undefined ? 'binding' : cellDef?.formula !== undefined ? 'formula' : 'content');
+        const inBand =
+          cellTarget !== null && repeat !== undefined
+          && cellTarget.row >= repeat.fromRow && cellTarget.row <= repeat.toRow;
+        const numberOf = (e: Event): number => Number((e.target as HTMLInputElement).value);
+        return html`
+          <div class="prop-section">
+            <div class="prop-pair">
+              <div class="prop-row">
+                <label>${s.rows}</label>
+                <div class="step-inputs">
+                  <button class="row-btn" aria-label="${s.rows} -" @click=${() => this._changeGridRows(-1)}>-</button>
+                  <span>${el.rows.length}</span>
+                  <button class="row-btn" aria-label="${s.rows} +" @click=${() => this._changeGridRows(1)}>+</button>
+                </div>
+              </div>
+              <div class="prop-row">
+                <label>${s.columns}</label>
+                <div class="step-inputs">
+                  <button class="row-btn" aria-label="${s.columns} -" @click=${() => this._changeGridColumns(-1)}>-</button>
+                  <span>${el.columns.length}</span>
+                  <button class="row-btn" aria-label="${s.columns} +" @click=${() => this._changeGridColumns(1)}>+</button>
+                </div>
+              </div>
+            </div>
+            ${cellTarget
+              ? html`
+                <div class="prop-row">
+                  <label>${s.rowHeight}</label>
+                  <input type="number" min="2" step="0.5"
+                    .value=${String(el.rows[cellTarget.row]?.height ?? '')}
+                    @change=${(e: Event) => this._setGridTrack('row', cellTarget.row, numberOf(e))}>
+                </div>
+                <div class="prop-row">
+                  <label>${s.columnWidth}</label>
+                  <input type="number" min="2" step="0.5"
+                    .value=${String(el.columns[cellTarget.column]?.width ?? '')}
+                    @change=${(e: Event) => this._setGridTrack('column', cellTarget.column, numberOf(e))}>
+                </div>`
+              : nothing}
+            <div class="prop-row">
+              <label>${s.overflow}</label>
+              <select aria-label=${s.overflow} .value=${el.overflow ?? 'clip'}
+                @change=${(e: Event) => this._updateGrid((grid) => {
+                  const value = (e.target as HTMLSelectElement).value;
+                  if (value === 'clip') delete (grid as { overflow?: unknown }).overflow;
+                  else grid.overflow = 'shrink';
+                })}>
+                <option value="clip" ?selected=${(el.overflow ?? 'clip') === 'clip'}>${s.overflowClip}</option>
+                <option value="shrink" ?selected=${el.overflow === 'shrink'}>${s.overflowShrink}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="prop-section">
+            <div class="prop-section-title">${s.repeatSection}</div>
+            <div class="prop-row">
+              <label>${s.repeatOn}</label>
+              <input type="checkbox" aria-label=${s.repeatOn} .checked=${repeat !== undefined}
+                @change=${(e: Event) => this._toggleGridRepeat((e.target as HTMLInputElement).checked)}>
+            </div>
+            ${repeat
+              ? html`
+                <div class="prop-row">
+                  <label>${s.binding}</label>
+                  <select class="binding-select" aria-label="${s.repeatSection} ${s.binding}"
+                    @change=${(e: Event) => this._updateGridRepeat({ binding: (e.target as HTMLSelectElement).value })}>
+                    ${this._bindingList().map((b) => html`
+                      <option value=${b.key} ?selected=${b.key === repeat.binding}>${b.label}</option>`)}
+                    ${this._bindingList().some((b) => b.key === repeat.binding)
+                      ? nothing
+                      : html`<option value=${repeat.binding} selected>${repeat.binding}</option>`}
+                  </select>
+                </div>
+                <div class="prop-pair">
+                  <div class="prop-row">
+                    <label>${s.repeatFrom}</label>
+                    <input type="number" min="1" max=${String(el.rows.length)} .value=${String(repeat.fromRow + 1)}
+                      @change=${(e: Event) => this._updateGridRepeat({ fromRow: numberOf(e) - 1 })}>
+                  </div>
+                  <div class="prop-row">
+                    <label>${s.repeatTo}</label>
+                    <input type="number" min="1" max=${String(el.rows.length)} .value=${String(repeat.toRow + 1)}
+                      @change=${(e: Event) => this._updateGridRepeat({ toRow: numberOf(e) - 1 })}>
+                  </div>
+                </div>
+                <div class="prop-row">
+                  <label>${s.repeatPerPage}</label>
+                  <input type="number" min="1" max="1000" .value=${String(repeat.perPage)}
+                    @change=${(e: Event) => this._updateGridRepeat({ perPage: numberOf(e) })}>
+                </div>
+                <div class="prop-row">
+                  <label>${s.repeatHeader}</label>
+                  <input type="checkbox" aria-label=${s.repeatHeader} .checked=${repeat.repeatHeader}
+                    @change=${(e: Event) =>
+                      this._updateGridRepeat({ repeatHeader: (e.target as HTMLInputElement).checked })}>
+                </div>`
+              : nothing}
+          </div>
+
+          ${cellTarget
+            ? html`
+              <div class="prop-section">
+                <div class="prop-section-title">
+                  ${s.cell} (${cellTarget.row + 1}, ${cellTarget.column + 1})
+                  ${inBand ? html`<span class="cell-band">${s.repeatCellHint}</span>` : nothing}
+                </div>
+                <div class="prop-row">
+                  <label>${s.cellSource}</label>
+                  <select aria-label=${s.cellSource} .value=${source}
+                    @change=${(e: Event) =>
+                      this._chooseGridCellSource((e.target as HTMLSelectElement).value as 'content' | 'binding' | 'formula')}>
+                    <option value="content" ?selected=${source === 'content'}>${s.cellSourceText}</option>
+                    <option value="binding" ?selected=${source === 'binding'}>${s.cellSourceBinding}</option>
+                    <option value="formula" ?selected=${source === 'formula'}>${s.cellSourceFormula}</option>
+                  </select>
+                </div>
+                ${source === 'content'
+                  ? html`
+                    <div class="prop-row">
+                      <label>${s.content}</label>
+                      <input .value=${cellDef?.content ?? ''}
+                        @change=${(e: Event) => {
+                          this._selectedCell = cellTarget;
+                          this._commitCellContent(valOf(e));
+                        }}>
+                    </div>`
+                  : source === 'binding'
+                    ? html`
+                      <div class="prop-row">
+                        <label>${s.binding}</label>
+                        <input .value=${cellDef?.binding ?? ''} placeholder=${inBand ? s.repeatFieldHint : ''}
+                          @change=${(e: Event) => this._setGridCellSource('binding', valOf(e))}>
+                      </div>`
+                    : html`
+                      <div class="prop-row">
+                        <label>${s.formula}</label>
+                        <input .value=${cellDef?.formula ?? ''}
+                          @change=${(e: Event) => this._setGridCellSource('formula', valOf(e))}>
+                      </div>`}
+                <div class="prop-row">
+                  <label>${s.merge}</label>
+                  <div class="merge-inputs">
+                    <span>${s.rows}</span>
+                    <input type="number" min="1" .value=${String(cellDef?.rowSpan ?? 1)}
+                      aria-label="${s.merge} ${s.rows}"
+                      @change=${(e: Event) => this._setCellSpan('rowSpan', Number(valOf(e)))}>
+                    <span>${s.columns}</span>
+                    <input type="number" min="1" .value=${String(cellDef?.colSpan ?? 1)}
+                      aria-label="${s.merge} ${s.columns}"
+                      @change=${(e: Event) => this._setCellSpan('colSpan', Number(valOf(e)))}>
+                  </div>
+                </div>
+                <div class="prop-row">
+                  <label>${s.fontSize}</label>
+                  <input type="number" step="0.5"
+                    class=${cellDef?.fontSize === undefined ? 'dim' : ''}
+                    .value=${String(cellDef?.fontSize ?? '')}
+                    placeholder=${String(el.fontSize ?? DEFAULT_FONT_SIZE)}
+                    @change=${(e: Event) => {
+                      const v = Number(valOf(e));
+                      this._updateCellStyle('fontSize', v > 0 ? v : null);
+                    }}>
+                </div>
+                <div class="prop-row">
+                  <label>${s.alignment}</label>
+                  <div class="toggle-group" role="group" aria-label="${s.cell} ${s.alignment}">
+                    ${([
+                      ['left', s.alignLeft, icons.alignLeft],
+                      ['center', s.alignCenter, icons.alignCenter],
+                      ['right', s.alignRight, icons.alignRight],
+                    ] as const).map(([value, label, glyph]) => html`
+                      <button title=${label} aria-label="${s.cell} ${s.alignment}: ${label}"
+                        aria-pressed=${String((cellDef?.alignment ?? el.alignment ?? 'left') === value)}
+                        @click=${() => this._updateCellStyle('alignment', value === 'left' ? null : value)}>${glyph}</button>`)}
+                  </div>
+                </div>
+                ${this._renderTextStyleToggles(
+                  cellDef ?? {},
+                  (key, value) => this._updateCellStyle(key, value ? true : null),
+                  `${s.cell} `,
+                )}
+                ${this._renderColorControl(
+                  s.backgroundColor, cellDef?.backgroundColor, 'cellBackgroundColor',
+                  (v) => this._updateCellStyle('backgroundColor', v),
+                  undefined,
+                  `${s.cell} ${s.backgroundColor}`,
+                )}
+                ${this._renderColorControl(
+                  s.fontColor, cellDef?.fontColor, 'cellFontColor',
+                  (v) => this._updateCellStyle('fontColor', v),
+                  el.fontColor ?? DEFAULT_FONT_COLOR,
+                  `${s.cell} ${s.fontColor}`,
+                )}
+                ${this._renderColorControl(
+                  s.borderColor, cellDef?.borderColor, 'cellBorderColor',
+                  (v) => this._updateCellStyle('borderColor', v),
+                  el.borderColor ?? DEFAULT_BORDER_COLOR,
+                  `${s.cell} ${s.borderColor}`,
+                )}
+                ${this._renderBorderWidthSelect(
+                  cellDef?.borderWidth,
+                  el.borderWidth ?? 0.2,
+                  true,
+                  'cellBorderWidth',
+                  (v) => this._updateCellStyle('borderWidth', v),
+                )}
+                ${this._renderBorderShapeRow(
+                  cellDef?.borderStyle,
+                  `${s.cell} ${s.borderShape}`,
+                  'cellBorderStyle',
+                  (v) => this._updateCellStyle('borderStyle', v),
+                )}
+              </div>`
+            : html`<div class="prop-section"><div class="cell-hint">${s.cellHint}</div></div>`}
+        `;
+      }
 
       case 'fixedGrid': {
         const cellTarget = this._selectedCell;
