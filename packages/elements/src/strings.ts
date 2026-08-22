@@ -78,6 +78,12 @@ const ko = {
     collapseRow: '접기',
     /* 요소 목록에서 그리드를 펼쳤을 때 값·수식 칸 줄 (G-44) */
     gridCellLabel: '{r}행 {c}열 → {name}',
+    /* 요소 그룹화 (G-27) */
+    groupSelection: '여러 요소',
+    selectedCount: '고른 요소',
+    groupElements: '그룹으로 묶기',
+    ungroupElements: '그룹 해제',
+    groupHint: '사이드바에서 Ctrl(⌘)+클릭으로 여러 요소를 고른 뒤 묶습니다. 묶으면 하나만 눌러도 함께 선택·이동됩니다.',
     formSettings: '양식 설정',
     formTitle: '제목',
     paperSize: '용지 크기',
@@ -356,6 +362,12 @@ const en: SlipStrings = {
     collapseRow: 'Collapse',
     /* Value/formula cell rows when a grid is expanded in the element list (G-44) */
     gridCellLabel: 'Row {r}, Col {c} → {name}',
+    /* Element grouping (G-27) */
+    groupSelection: 'Multiple elements',
+    selectedCount: 'Selected',
+    groupElements: 'Group',
+    ungroupElements: 'Ungroup',
+    groupHint: 'Ctrl(⌘)+click rows in the sidebar to pick several elements, then group them. Once grouped, clicking one selects and moves them together.',
     formSettings: 'Form settings',
     formTitle: 'Title',
     paperSize: 'Paper size',

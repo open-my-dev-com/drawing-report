@@ -532,6 +532,8 @@ interface DragState {
   snapshot: string | null;
   /** pointerdown 시점에 이미 선택돼 있던 요소인지 — 재클릭(셀 편집 진입) 판정용 */
   wasSelected: boolean;
+  /** 함께 옮길 선택 요소들의 원래 위치 (그룹·다중 이동, G-27) */
+  members: { id: string; origX: number; origY: number }[];
 }
 
 interface ResizeState {
@@ -1522,6 +1524,13 @@ export class SlipDesigner extends LitElement {
       font-weight: 600;
       color: var(--sk-text);
       margin-bottom: 10px;
+    }
+    /* 그룹 패널의 묶기·해제 버튼 줄 (G-27) */
+    .group-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 6px 0;
     }
     .prop-row {
       display: flex;
@@ -2542,6 +2551,7 @@ export class SlipDesigner extends LitElement {
     _file: { state: true },
     _pageIndex: { state: true },
     _selectedId: { state: true },
+    _selectedIds: { state: true },
     _previewMode: { state: true },
     _previewUrl: { state: true },
     _previewError: { state: true },
@@ -2616,7 +2626,14 @@ export class SlipDesigner extends LitElement {
 
   private _file: SlipTemplateFile | null = null;
   private _pageIndex = 0;
+  /** 주 선택 요소 — 속성 패널·크기 조절 핸들은 이 하나를 대상으로 한다 */
   private _selectedId: string | null = null;
+  /**
+   * 선택된 요소 id 모음 (G-27) — 단일 선택이면 원소 하나, 그룹·다중 선택이면 여럿.
+   * 늘 `_selectedId`를 포함한다(비었으면 `_selectedId`도 null). 캔버스·사이드바 강조,
+   * 그룹 단위 이동·삭제·그룹화의 대상이 된다.
+   */
+  private _selectedIds = new Set<string>();
   private _undoStack: string[] = [];
   private _redoStack: string[] = [];
   private _previewMode = false;
@@ -2785,7 +2802,7 @@ export class SlipDesigner extends LitElement {
   private _parseSource(): void {
     this._revokePreviewUrl();
     this._error = null;
-    this._selectedId = null;
+    this._clearSelection();
     this._undoStack = [];
     this._redoStack = [];
     this._previewMode = false;
@@ -2937,7 +2954,7 @@ export class SlipDesigner extends LitElement {
     const clamped = Math.max(0, Math.min(index, this._pageCount() - 1));
     if (clamped === this._pageIndex) return;
     this._pageIndex = clamped;
-    this._selectedId = null;
+    this._clearSelection();
     this._sideSelection = null;
     this._selectedCell = null;
     this._cellEditing = false;
@@ -2949,7 +2966,7 @@ export class SlipDesigner extends LitElement {
     this._pushUndo();
     this._file.template.pages.splice(this._pageIndex + 1, 0, { elements: [] });
     this._pageIndex += 1;
-    this._selectedId = null;
+    this._clearSelection();
     this._sideSelection = null;
     this._emitChange();
     this.requestUpdate();
@@ -2961,7 +2978,7 @@ export class SlipDesigner extends LitElement {
     this._pushUndo();
     this._file.template.pages.splice(this._pageIndex, 1);
     this._clampPageIndex();
-    this._selectedId = null;
+    this._clearSelection();
     this._sideSelection = null;
     this._emitChange();
     this.requestUpdate();
@@ -2983,9 +3000,62 @@ export class SlipDesigner extends LitElement {
     return this._selectedId ? this._findElement(this._selectedId) : undefined;
   }
 
+  /** 현재 페이지에서 같은 그룹 id를 가진 요소들 (G-27) */
+  private _pageGroupMembers(group: string): SlipElement[] {
+    return (this._currentElements() ?? []).filter((el) => el.group === group);
+  }
+
+  /** 선택을 모두 비운다 (G-27) — 주 선택과 선택 모음을 함께 지운다 */
+  private _clearSelection(): void {
+    this._selectedId = null;
+    this._selectedIds = new Set();
+  }
+
+  /**
+   * 요소 하나를 단독 선택한다 (G-27) — 그룹에 속하면 그룹 전체를 함께 고른다.
+   * 그룹을 묶으면 한 개만 눌러도 그룹 전체가 선택·이동된다.
+   *
+   * @param id - 고를 요소 id
+   */
+  private _selectElement(id: string): void {
+    this._selectedId = id;
+    const group = this._findElement(id)?.group;
+    this._selectedIds = group
+      ? new Set(this._pageGroupMembers(group).map((el) => el.id))
+      : new Set([id]);
+  }
+
+  /**
+   * 사이드바 Ctrl/Cmd+클릭으로 선택 모음에 넣거나 뺀다 (G-27, 그룹화 대상 고르기).
+   * 넣으면 그 요소가 주 선택이 되고, 주 선택을 빼면 남은 것 중 하나가 주 선택이 된다.
+   *
+   * @param id - 토글할 요소 id
+   */
+  private _toggleInSelection(id: string): void {
+    const next = new Set(this._selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+      if (this._selectedId === id) this._selectedId = next.values().next().value ?? null;
+    } else {
+      next.add(id);
+      this._selectedId = id;
+    }
+    this._selectedIds = next;
+    this._selectedCell = null;
+    this._cellEditing = false;
+    this._sideSelection = null;
+    this.requestUpdate();
+  }
+
   private _validateSelection(): void {
     if (this._selectedId && !this._findElement(this._selectedId)) {
       this._selectedId = null;
+    }
+    // 선택 모음에서 사라진 요소를 걸러낸다 (undo 복원·삭제 뒤 보정, G-27)
+    if (this._selectedIds.size > 0) {
+      const alive = new Set([...this._selectedIds].filter((id) => this._findElement(id)));
+      if (alive.size !== this._selectedIds.size) this._selectedIds = alive;
+      if (this._selectedId === null) this._selectedId = alive.values().next().value ?? null;
     }
     // 칸 선택은 그리드 범위 안에서만 유효하다 (undo 복원 뒤에도 보정)
     if (this._selectedCell) {
@@ -3106,7 +3176,7 @@ export class SlipDesigner extends LitElement {
     };
 
     elements.push(element);
-    this._selectedId = id;
+    this._selectElement(id);
     this._sideSelection = null;
     // 값을 쓰는 요소는 그 바인딩을 정의부에 함께 등록한다 — 목록이 값의 단일 원천 (ADR-034)
     if (element.type === 'field') {
@@ -3142,7 +3212,9 @@ export class SlipDesigner extends LitElement {
     this._clipboard.position = { ...copy.position };
 
     elements.push(copy);
+    // 붙여넣은 사본만 고른다 (원본과 같은 그룹이어도 사본 하나만)
     this._selectedId = copy.id;
+    this._selectedIds = new Set([copy.id]);
     this._sideSelection = null;
     if (copy.type === 'field') this._ensureBindingDef(copy.binding);
     if (copy.type === 'grid' && copy.repeat) this._ensureBindingDef(copy.repeat.binding);
@@ -3150,15 +3222,18 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
+  /** 선택된 요소를 모두 지운다 (G-27) — 그룹·다중 선택이면 함께 지운다 */
   private _deleteSelected(): void {
     const elements = this._currentElements();
-    if (!elements || !this._selectedId) return;
-    const idx = elements.findIndex((el) => el.id === this._selectedId);
-    if (idx < 0) return;
+    if (!elements || this._selectedIds.size === 0) return;
+    const ids = this._selectedIds;
+    if (!elements.some((el) => ids.has(el.id))) return;
 
     this._pushUndo();
-    elements.splice(idx, 1);
-    this._selectedId = null;
+    for (let i = elements.length - 1; i >= 0; i -= 1) {
+      if (ids.has(elements[i]!.id)) elements.splice(i, 1);
+    }
+    this._clearSelection();
     this._sideSelection = null;
     this._emitChange();
     this.requestUpdate();
@@ -3323,7 +3398,8 @@ export class SlipDesigner extends LitElement {
       const id = target.dataset.id;
       if (!id) return;
       const wasSelected = this._selectedId === id;
-      this._selectedId = id;
+      // 그룹에 속하면 그룹 전체가 함께 선택된다 (G-27)
+      this._selectElement(id);
       this._sideSelection = null;
       this._expandBindingOfElement(id);
       if (!wasSelected) {
@@ -3334,6 +3410,11 @@ export class SlipDesigner extends LitElement {
       const el = this._findElement(id);
       if (!el) return;
 
+      // 선택된 요소(그룹·다중)를 함께 옮기려 각 원래 위치를 기억한다 (G-27)
+      const members = [...this._selectedIds]
+        .map((mid) => this._findElement(mid))
+        .filter((m): m is SlipElement => m !== undefined)
+        .map((m) => ({ id: m.id, origX: m.position.x, origY: m.position.y }));
       this._drag = {
         id,
         startPxX: e.clientX,
@@ -3342,11 +3423,12 @@ export class SlipDesigner extends LitElement {
         origMmY: el.position.y,
         snapshot: null,
         wasSelected,
+        members,
       };
       target.setPointerCapture(e.pointerId);
       e.preventDefault();
     } else {
-      this._selectedId = null;
+      this._clearSelection();
       this._sideSelection = null;
       this._selectedCell = null;
       this._cellSourceKind = null;
@@ -3407,7 +3489,8 @@ export class SlipDesigner extends LitElement {
     let guideX: number | null = null;
     let guideY: number | null = null;
     if (!e.altKey) {
-      const { xs, ys } = this._snapCandidates(el.id);
+      // 함께 움직이는 선택 요소는 스냅 후보에서 뺀다 (G-27)
+      const { xs, ys } = this._snapCandidates(new Set(this._drag.members.map((m) => m.id)));
       const sx = this._bestSnap([nx, nx + el.width / 2, nx + el.width], xs);
       const sy = this._bestSnap([ny, ny + el.height / 2, ny + el.height], ys);
       if (sx) {
@@ -3427,8 +3510,15 @@ export class SlipDesigner extends LitElement {
       }
     }
 
-    el.position.x = Math.max(0, round1(nx));
-    el.position.y = Math.max(0, round1(ny));
+    // 주 요소를 옮긴 만큼(스냅 반영) 선택된 요소를 모두 같은 양으로 옮긴다 (G-27)
+    const deltaX = nx - this._drag.origMmX;
+    const deltaY = ny - this._drag.origMmY;
+    for (const m of this._drag.members) {
+      const me = this._findElement(m.id);
+      if (!me) continue;
+      me.position.x = Math.max(0, round1(m.origX + deltaX));
+      me.position.y = Math.max(0, round1(m.origY + deltaY));
+    }
     this._guideX = guideX;
     this._guideY = guideY;
     this.requestUpdate();
@@ -3939,13 +4029,15 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   /** 스냅 후보 선: 용지 가장자리·여백선 + 다른 요소들의 가장자리·중앙선 (mm) */
-  private _snapCandidates(excludeId: string): { xs: number[]; ys: number[] } {
+  private _snapCandidates(exclude: string | ReadonlySet<string>): { xs: number[]; ys: number[] } {
+    // 그룹·다중 이동 때는 함께 움직이는 요소들을 후보에서 모두 뺀다 (G-27)
+    const excluded = typeof exclude === 'string' ? new Set([exclude]) : exclude;
     const { paper } = this._file!.template;
     const [pt, pr, pb, pl] = paper.padding;
     const xs = [0, pl, paper.width - pr, paper.width];
     const ys = [0, pt, paper.height - pb, paper.height];
     for (const el of this._currentElements() ?? []) {
-      if (el.id === excludeId) continue;
+      if (excluded.has(el.id)) continue;
       xs.push(el.position.x, el.position.x + el.width / 2, el.position.x + el.width);
       ys.push(el.position.y, el.position.y + el.height / 2, el.position.y + el.height);
     }
@@ -4367,7 +4459,7 @@ export class SlipDesigner extends LitElement {
 
     this._pushUndo();
     this._file = preset.create();
-    this._selectedId = null;
+    this._clearSelection();
     this._sideSelection = null;
     this._pageIndex = 0;
     this._previewMode = false;
@@ -4380,9 +4472,14 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   /** 사이드바에서 요소를 골랐을 때 — 필요하면 페이지를 옮기고 그 요소를 선택한다 */
-  private _selectFromSidebar(pageIndex: number, id: string): void {
+  private _selectFromSidebar(pageIndex: number, id: string, additive = false): void {
     this._goToPage(pageIndex);
-    this._selectedId = id;
+    // Ctrl/Cmd+클릭이면 선택 모음에 넣거나 뺀다 (그룹화 대상 고르기, G-27)
+    if (additive) {
+      this._toggleInSelection(id);
+      return;
+    }
+    this._selectElement(id);
     this._selectedCell = null;
     this._cellEditing = false;
     this._sideSelection = null;
@@ -4396,7 +4493,9 @@ export class SlipDesigner extends LitElement {
    */
   private _selectRepeatField(field: RepeatField): void {
     this._goToPage(field.pageIndex);
+    // 칸을 고를 땐 그 그리드 하나만 선택한다(그룹 확장하지 않음)
     this._selectedId = field.gridId;
+    this._selectedIds = new Set([field.gridId]);
     this._selectedCell = { row: field.row, column: field.column };
     this._cellEditing = false;
     this._sideSelection = null;
@@ -4440,7 +4539,7 @@ export class SlipDesigner extends LitElement {
    */
   private _selectPage(index: number): void {
     this._goToPage(index);
-    this._selectedId = null;
+    this._clearSelection();
     this._selectedCell = null;
     this._cellEditing = false;
     this._sideSelection = { kind: 'page' };
@@ -4450,7 +4549,7 @@ export class SlipDesigner extends LitElement {
   /** 사이드바에서 바인딩을 골랐을 때 — 오른쪽 패널이 그 바인딩 편집으로 바뀐다 (ADR-034) */
   private _selectBinding(key: string): void {
     this._bindingKeyError = false;
-    this._selectedId = null;
+    this._clearSelection();
     this._selectedCell = null;
     this._cellEditing = false;
     this._sideSelection = { kind: 'binding', key };
@@ -4715,13 +4814,14 @@ export class SlipDesigner extends LitElement {
     const cells = isGrid(el) ? this._gridValueCells(el) : [];
     const hasCells = cells.length > 0;
     const expanded = hasCells && this._expandedElements.has(el.id);
-    // 칸이 선택돼 있으면 그리드 줄 자체는 선택 표시하지 않는다 — 하위 칸 줄이 대신 표시된다
-    const rowSelected = el.id === this._selectedId && !this._sideSelection && this._selectedCell === null;
+    // 그룹·다중 선택이면 선택 모음에 든 줄을 모두 강조한다. 칸이 선택돼 있으면 그리드 줄
+    // 자체는 강조하지 않는다 — 하위 칸 줄이 대신 표시된다 (G-27 · G-44)
+    const rowSelected = this._selectedIds.has(el.id) && !this._sideSelection && this._selectedCell === null;
     return html`
       <div class="side-row-wrap">
         ${this._renderTwisty(hasCells, expanded, el.name, () => this._toggleElementRow(el.id))}
         <button class="side-row ${rowSelected ? 'selected' : ''}" title=${el.name}
-          @click=${() => this._selectFromSidebar(pageIndex, el.id)}>
+          @click=${(e: MouseEvent) => this._selectFromSidebar(pageIndex, el.id, e.ctrlKey || e.metaKey)}>
           ${TYPE_BADGE[el.type]}<span>${el.name}</span>
         </button>
         <button class="side-mini" title=${s.delete} aria-label="${el.name} ${s.delete}"
@@ -4789,7 +4889,9 @@ export class SlipDesigner extends LitElement {
    */
   private _selectGridCell(pageIndex: number, gridId: string, row: number, column: number): void {
     this._goToPage(pageIndex);
+    // 칸을 고를 땐 그 그리드 하나만 선택한다(그룹 확장하지 않음)
     this._selectedId = gridId;
+    this._selectedIds = new Set([gridId]);
     this._selectedCell = { row, column };
     this._cellEditing = false;
     this._sideSelection = null;
@@ -4810,8 +4912,11 @@ export class SlipDesigner extends LitElement {
 
     this._pushUndo();
     elements.splice(idx, 1);
-    if (this._selectedId === id) {
-      this._selectedId = null;
+    if (this._selectedIds.has(id)) {
+      const next = new Set(this._selectedIds);
+      next.delete(id);
+      this._selectedIds = next;
+      if (this._selectedId === id) this._selectedId = next.values().next().value ?? null;
       this._selectedCell = null;
       this._cellEditing = false;
     }
@@ -5116,6 +5221,8 @@ export class SlipDesigner extends LitElement {
   }
 
   private _renderSelectionOverlay() {
+    // 크기 조절 핸들·끝점은 요소 하나를 고른 때만 — 그룹·다중 선택이면 강조만 하고 이동만 된다 (G-27)
+    if (this._selectedIds.size > 1) return nothing;
     const el = this._findSelectedElement();
     if (!el) return nothing;
     const x = el.position.x * PX_PER_MM;
@@ -5159,7 +5266,8 @@ export class SlipDesigner extends LitElement {
     const y = el.position.y * PX_PER_MM;
     const w = el.width * PX_PER_MM;
     const h = el.height * PX_PER_MM;
-    const selected = el.id === this._selectedId;
+    // 그룹·다중 선택이면 선택된 요소를 모두 강조한다 (G-27)
+    const selected = this._selectedIds.has(el.id);
 
     let style = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
 
@@ -5751,11 +5859,79 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
+  /**
+   * 그룹 패널 (G-27) — 여러 요소를 골랐을 때 묶기·해제를 보인다.
+   * 고른 것이 모두 같은 그룹이면 해제만, 아니면 묶기(+ 일부가 그룹이면 해제도) 보인다.
+   */
+  private _renderGroupPanel() {
+    const s = this._strings.designer;
+    const els = [...this._selectedIds]
+      .map((id) => this._findElement(id))
+      .filter((el): el is SlipElement => el !== undefined);
+    const groups = new Set(els.map((el) => el.group));
+    const allSameGroup = els.length > 0 && groups.size === 1 && !groups.has(undefined);
+    const anyGrouped = els.some((el) => el.group !== undefined);
+    return html`
+      <div class="type-name">${s.groupSelection}</div>
+      <div class="prop-section">
+        <div class="prop-row">
+          <label>${s.selectedCount}</label>
+          <span>${els.length}</span>
+        </div>
+        <div class="group-actions">
+          ${allSameGroup
+            ? nothing
+            : html`<button class="btn primary" @click=${() => this._groupSelected()}>
+                ${s.groupElements}</button>`}
+          ${anyGrouped
+            ? html`<button class="btn" @click=${() => this._ungroupSelected()}>
+                ${s.ungroupElements}</button>`
+            : nothing}
+        </div>
+        <p class="image-hint">${s.groupHint}</p>
+      </div>
+    `;
+  }
+
+  /** 고른 요소들을 한 그룹으로 묶는다 (G-27) — 공통 그룹 id를 부여한다 */
+  private _groupSelected(): void {
+    if (this._selectedIds.size < 2) return;
+    const ids = new Set(this._selectedIds);
+    const gid = `grp-${crypto.randomUUID().slice(0, 8)}`;
+    this._updateFile((f) => {
+      for (const page of f.template.pages) {
+        for (const el of page.elements) {
+          if (ids.has(el.id)) el.group = gid;
+        }
+      }
+    });
+  }
+
+  /** 고른 요소들이 속한 그룹을 모두 해제한다 (G-27) */
+  private _ungroupSelected(): void {
+    const groups = new Set<string>();
+    for (const id of this._selectedIds) {
+      const g = this._findElement(id)?.group;
+      if (g !== undefined) groups.add(g);
+    }
+    if (groups.size === 0) return;
+    this._updateFile((f) => {
+      for (const page of f.template.pages) {
+        for (const el of page.elements) {
+          if (el.group !== undefined && groups.has(el.group)) delete el.group;
+        }
+      }
+    });
+  }
+
   private _renderPropertyPanel() {
     // 선택 대상은 요소·바인딩·페이지 셋 — 아무것도 고르지 않았으면 양식 설정 (ADR-034, G-46)
     const sel = this._sideSelection;
     if (sel?.kind === 'binding') return this._renderBindingPanel(sel.key);
     if (sel?.kind === 'page') return this._renderPageSettings();
+
+    // 여러 요소를 골랐으면 그룹 패널(묶기/해제)을 보인다 (G-27)
+    if (this._selectedIds.size > 1) return this._renderGroupPanel();
 
     const el = this._findSelectedElement();
     if (!el) {
@@ -7936,7 +8112,7 @@ export class SlipDesigner extends LitElement {
     this._pushUndo();
     this._file = file;
     this._savedId = id;
-    this._selectedId = null;
+    this._clearSelection();
     this._sideSelection = null;
     this._selectedCell = null;
     this._cellEditing = false;

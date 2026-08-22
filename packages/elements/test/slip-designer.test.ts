@@ -4241,3 +4241,95 @@ describe('<slip-designer> 바코드 요소 (G-33)', () => {
     el.remove();
   });
 });
+
+describe('<slip-designer> 요소 그룹화 (G-27)', () => {
+  const elById = (el: Element, id: string) =>
+    (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements.find((e) => e.id === id) as never as Record<string, unknown>;
+  const selectedIds = (el: Element) =>
+    (el as unknown as { _selectedIds: Set<string> })._selectedIds;
+
+  function sidebarRow(el: Element, name: string): HTMLButtonElement {
+    return Array.from(el.shadowRoot!.querySelectorAll('.side-row'))
+      .find((r) => r.querySelector('span')?.textContent?.trim() === name) as HTMLButtonElement;
+  }
+  function panelButton(el: Element, label: string): HTMLButtonElement {
+    return Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
+  }
+  async function groupBoth(el: import('../src/slip-designer.js').SlipDesigner) {
+    sidebarRow(el, 'test-text').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await el.updateComplete;
+    sidebarRow(el, 'test-shape').dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+    await el.updateComplete;
+    panelButton(el, strings.designer.groupElements).click();
+    await el.updateComplete;
+  }
+
+  it('사이드바 Ctrl+클릭으로 여러 요소를 골라 묶으면 같은 그룹이 된다', async () => {
+    const el = await loadDesigner();
+    sidebarRow(el, 'test-text').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await el.updateComplete;
+    sidebarRow(el, 'test-shape').dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+    await el.updateComplete;
+    expect(selectedIds(el).size).toBe(2);
+
+    panelButton(el, strings.designer.groupElements).click();
+    await el.updateComplete;
+    const g1 = elById(el, 'txt-1').group;
+    const g2 = elById(el, 'shp-1').group;
+    expect(typeof g1).toBe('string');
+    expect(g1).toBe(g2);
+    el.remove();
+  });
+
+  it('그룹의 한 요소만 눌러도 그룹 전체가 선택되고 함께 움직인다', async () => {
+    const el = await loadDesigner();
+    await groupBoth(el);
+
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    expect(selectedIds(el).size).toBe(2);
+
+    // txt-1(30,40)을 +5mm/+5mm 끌면 shp-1(100,80)도 같이 움직인다
+    const div = el.shadowRoot!.querySelector('[data-id="txt-1"]') as HTMLElement;
+    div.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,
+    }));
+    div.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, composed: true, clientX: 5 * PX_PER_MM, clientY: 5 * PX_PER_MM, pointerId: 1,
+    }));
+    div.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+    expect(elById(el, 'txt-1').position).toEqual({ x: 35, y: 45 });
+    expect(elById(el, 'shp-1').position).toEqual({ x: 105, y: 85 });
+    el.remove();
+  });
+
+  it('그룹 해제하면 그룹이 사라진다', async () => {
+    const el = await loadDesigner();
+    await groupBoth(el);
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    panelButton(el, strings.designer.ungroupElements).click();
+    await el.updateComplete;
+    expect(elById(el, 'txt-1').group).toBeUndefined();
+    expect(elById(el, 'shp-1').group).toBeUndefined();
+    el.remove();
+  });
+
+  it('다중 선택 상태에서 Delete로 모두 지운다', async () => {
+    const el = await loadDesigner();
+    sidebarRow(el, 'test-text').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await el.updateComplete;
+    sidebarRow(el, 'test-shape').dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+    await el.updateComplete;
+    expect(selectedIds(el).size).toBe(2);
+
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
+    await el.updateComplete;
+    const elements = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements;
+    expect(elements.length).toBe(0);
+    el.remove();
+  });
+});
