@@ -385,10 +385,12 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     el.remove();
   });
 
-  it('고정 그리드의 셀 문구·병합·셀 배경이 캔버스에 그려진다', async () => {
+  it('그리드의 셀 문구·병합·셀 배경이 캔버스에 그려진다', async () => {
     const el = await mountWith([{
-      type: 'fixedGrid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
-      width: 90, height: 30, rows: 2, columns: 3, columnWidthPercentages: [50, 25, 25],
+      type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
+      width: 90, height: 30,
+      rows: [{ height: 15 }, { height: 15 }],
+      columns: [{ width: 45 }, { width: 22.5 }, { width: 22.5 }],
       cells: [
         { row: 0, column: 0, rowSpan: 2, content: '병합 라벨', backgroundColor: '#F2F2F2' },
         { row: 0, column: 1, content: '값' },
@@ -403,19 +405,20 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     el.remove();
   });
 
-  it('동적 표 헤더는 배경색(기본 #eeeeee)이 칠해지고 상자 전체는 칠하지 않는다', async () => {
+  it('그리드 헤더 칸의 배경색이 캔버스에 그려진다', async () => {
     const el = await mountWith([{
-      type: 'dynamicTable', id: 'd1', name: 'd', position: { x: 10, y: 50 },
-      width: 90, height: 20,
-      columns: [
-        { key: 'itemName', title: '품명', widthPercentage: 60 },
-        { key: 'amount', title: '금액', widthPercentage: 40 },
+      type: 'grid', id: 'd1', name: 'd', position: { x: 10, y: 50 },
+      width: 90, height: 8 * 4,
+      rows: [{ height: 8 }, { height: 8 }],
+      columns: [{ width: 54 }, { width: 36 }],
+      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 3, repeatHeader: true },
+      cells: [
+        { row: 0, column: 0, content: '품명', backgroundColor: '#ffee00' },
+        { row: 1, column: 0, binding: 'itemName' },
       ],
-      repeatHead: true, binding: 'items', backgroundColor: '#ffee00',
     }]);
-    const box = el.shadowRoot?.querySelector('.element.type-dynamicTable') as HTMLElement;
-    expect(box.style.backgroundColor).toBe('');
-    const headCell = el.shadowRoot?.querySelector('.table-preview > div') as HTMLElement;
+    const headCell = Array.from(el.shadowRoot!.querySelectorAll('.grid-preview > div'))
+      .find((d) => d.textContent?.trim() === '품명') as HTMLElement;
     expect(headCell.style.backgroundColor).toBeTruthy();
     el.remove();
   });
@@ -740,13 +743,12 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
     el.remove();
   });
 
-  it('9종 요소를 모두 추가할 수 있다', async () => {
+  it('8종 요소를 모두 추가할 수 있다', async () => {
     const el = await loadDesigner();
     // 직접 도구 버튼이 있는 종류
     for (const label of [
       strings.designer.addText,
-      strings.designer.addFixedGrid,
-      strings.designer.addDynamicTable,
+      strings.designer.addGrid,
       strings.designer.addImage,
       strings.designer.addField,
     ]) {
@@ -768,7 +770,7 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
     await clickCanvasAt(el, 300, 100);
 
     const elements = el.shadowRoot?.querySelectorAll('.element');
-    expect(elements?.length).toBe(2 + 9);
+    expect(elements?.length).toBe(2 + 8);
     el.remove();
   });
 
@@ -988,7 +990,7 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  it('바인딩 목록은 양식 전체의 field·동적 표 바인딩을 모으고, 동적 표는 하위 열까지 보여준다', async () => {
+  it('바인딩 목록은 양식 전체의 field·그리드 바인딩을 모으고, 반복 구간 필드는 하위 줄로 보여준다', async () => {
     const file = makeTemplateFile();
     file.template.pages.push({
       elements: [
@@ -997,10 +999,12 @@ describe('<slip-designer> 사이드바', () => {
           width: 60, height: 10, binding: '합계금액',
         } as never,
         {
-          type: 'dynamicTable' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
-          width: 180, height: 20,
-          columns: [{ key: 'a', title: 'a', widthPercentage: 100 }],
-          repeatHead: true, binding: 'items',
+          type: 'grid' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
+          width: 180, height: 8 * 3,
+          rows: [{ height: 8 }, { height: 8 }],
+          columns: [{ width: 180 }],
+          repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+          cells: [{ row: 1, column: 0, binding: 'a' }],
         } as never,
       ],
     });
@@ -1010,7 +1014,7 @@ describe('<slip-designer> 사이드바', () => {
     const section = sideSection(el, strings.designer.sidebarBindings);
     const rows = section.querySelectorAll('.side-row');
     expect(Array.from(rows).map((r) => r.textContent?.trim())).toEqual(['합계금액', 'items']);
-    // 동적 표 바인딩은 하위 열이 한 단 들여쓰여 함께 나온다 (ADR-034)
+    // 반복 구간이 쓰는 값은 그 구간 칸의 항목 필드가 한 단 들여쓰여 함께 나온다 (ADR-034/037)
     expect(Array.from(section.querySelectorAll('.side-col-row')).map((r) => r.textContent?.trim()))
       .toEqual(['a']);
 
@@ -1028,43 +1032,47 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  it('표 열을 고르면 그 표가 있는 페이지로 옮겨 열 설정이 열린다', async () => {
+  it('반복 구간 필드를 고르면 그 그리드가 있는 페이지로 옮겨 그 칸이 열린다 (ADR-037)', async () => {
     const file = makeTemplateFile();
     file.template.pages.push({
       elements: [
         {
-          type: 'dynamicTable' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
-          width: 180, height: 20,
-          columns: [
-            { key: 'name', title: '품명', widthPercentage: 60 },
-            { key: 'amount', title: '금액', widthPercentage: 40 },
+          type: 'grid' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
+          width: 180, height: 8 * 3,
+          rows: [{ height: 8 }, { height: 8 }],
+          columns: [{ width: 108 }, { width: 72 }],
+          repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+          cells: [
+            { row: 0, column: 0, content: '품명' },
+            { row: 1, column: 0, binding: 'name' },
+            { row: 1, column: 1, binding: 'amount' },
           ],
-          repeatHead: true, binding: 'items',
         } as never,
       ],
     });
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await loadDesigner();
 
+    // 하위 줄 이름은 반복 구간 위쪽 같은 열의 고정 문구, 없으면 물리명이다
     const cols = sideSection(el, strings.designer.sidebarBindings).querySelectorAll('.side-col-row');
-    expect(Array.from(cols).map((c) => c.textContent?.trim())).toEqual(['품명', '금액']);
+    expect(Array.from(cols).map((c) => c.textContent?.trim())).toEqual(['품명', 'amount']);
 
     (cols[1] as HTMLElement).click();
     await el.updateComplete;
 
     expect(el.shadowRoot?.querySelector('.page-indicator')?.textContent?.replace(/\s+/g, ' ').trim())
       .toBe('2 / 2');
-    expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
-      .toBe(strings.designer.columnPanelTitle);
-    expect((el.shadowRoot?.querySelector('.col-panel-key') as HTMLInputElement).value).toBe('amount');
+    expect(el.shadowRoot?.querySelector('.element.selected')?.getAttribute('data-id')).toBe('tbl-1');
+    // 그 칸이 골라져 칸 편집이 열린다 (선택은 요소·칸 한 갈래로 유지된다)
+    const titles = Array.from(el.shadowRoot!.querySelectorAll('.prop-section-title'))
+      .map((t) => t.textContent?.replace(/\s+/g, ' ').trim());
+    expect(titles.some((t) => t?.startsWith(`${strings.designer.cell} (2, 2)`))).toBe(true);
 
-    // 열 제목을 고치면 그 열에만 반영된다
-    const title = el.shadowRoot?.querySelector('.col-panel-title') as HTMLInputElement;
-    title.value = '공급가액';
-    title.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
-    const table = file.template.pages[1]!.elements[0] as never as { columns: { title: string }[] };
-    expect(table.columns.map((c) => c.title)).toEqual(['품명', '공급가액']);
+    // 칸에 붙은 항목 필드가 그대로 보인다 (반복 구간의 값 줄과 이름이 같아 칸 쪽 줄을 본다)
+    const bindingRow = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .filter((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.binding)
+      .at(-1);
+    expect((bindingRow?.querySelector('input') as HTMLInputElement).value).toBe('amount');
     el.remove();
   });
 
@@ -1131,7 +1139,7 @@ describe('<slip-designer> 사이드바', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 표 내부 편집 (C-10) — 고정 그리드 행·열·셀·병합, 동적 표 열 편집
+// 표 내부 편집 (C-10) — 그리드 행·열·칸·병합
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 표 내부 편집', () => {
@@ -1140,15 +1148,14 @@ describe('<slip-designer> 표 내부 편집', () => {
   function makeGridFile(): SlipFile {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{
-      type: 'fixedGrid' as const,
+      type: 'grid' as const,
       id: 'grid-1',
       name: 'grid',
       position: { x: 10, y: 10 },
       width: 90,
       height: 30,
-      rows: 3,
-      columns: 3,
-      columnWidthPercentages: [40, 30, 30],
+      rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
+      columns: [{ width: 36 }, { width: 27 }, { width: 27 }],
       cells: [{ row: 0, column: 0, content: '라벨' }],
     } as never];
     return file as unknown as SlipFile;
@@ -1164,9 +1171,18 @@ describe('<slip-designer> 표 내부 편집', () => {
 
   function gridOf(el: Element) {
     return (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements[0]! as never as {
-      rows: number; columns: number; columnWidthPercentages: number[];
-      cells: { row: number; column: number; content: string; rowSpan?: number; colSpan?: number }[];
+      width: number; height: number;
+      rows: { height: number }[]; columns: { width: number }[];
+      cells: { row: number; column: number; content?: string; rowSpan?: number; colSpan?: number }[];
     };
+  }
+
+  /** 행·열 수 조절 버튼 (-, +) */
+  function stepButton(el: Element, label: string, sign: '-' | '+'): HTMLButtonElement {
+    const row = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === label);
+    if (!row) throw new Error(`패널 줄을 찾지 못했습니다: ${label}`);
+    return row.querySelectorAll('button')[sign === '-' ? 0 : 1] as HTMLButtonElement;
   }
 
   function panelField(el: Element, label: string): HTMLInputElement {
@@ -1193,32 +1209,30 @@ describe('<slip-designer> 표 내부 편집', () => {
     await (el as { updateComplete?: Promise<unknown> }).updateComplete;
   }
 
-  it('열 수를 늘리면 너비가 비례 재배분되고 합은 100으로 유지된다', async () => {
+  it('열을 더하면 다른 열 너비는 그대로고 상자만 넓어진다 (mm 트랙, ADR-037)', async () => {
     const el = await mountGrid();
-    setField(panelField(el, strings.designer.columns), '4');
+    stepButton(el, strings.designer.columns, '+').click();
     await el.updateComplete;
 
     const grid = gridOf(el);
-    expect(grid.columns).toBe(4);
-    expect(grid.columnWidthPercentages.length).toBe(4);
-    const sum = grid.columnWidthPercentages.reduce((a, b) => a + b, 0);
-    expect(Math.abs(sum - 100)).toBeLessThanOrEqual(0.01);
+    expect(grid.columns.length).toBe(4);
+    expect(grid.columns.slice(0, 3).map((c) => c.width)).toEqual([36, 27, 27]);
+    expect(grid.width).toBeCloseTo(grid.columns.reduce((a, c) => a + c.width, 0), 2);
     el.remove();
   });
 
   it('행·열을 줄이면 범위 밖 셀이 제거된다', async () => {
     const el = await mountGrid();
-    // (2,2)에 셀 추가해 두고 2×2로 줄인다
-    const grid = gridOf(el);
-    grid.cells.push({ row: 2, column: 2, content: '밖' });
-    setField(panelField(el, strings.designer.rows), '2');
+    // (2,2)에 셀 추가해 두고 2행 2열로 줄인다
+    gridOf(el).cells.push({ row: 2, column: 2, content: '밖' });
+    stepButton(el, strings.designer.rows, '-').click();
     await el.updateComplete;
-    setField(panelField(el, strings.designer.columns), '2');
+    stepButton(el, strings.designer.columns, '-').click();
     await el.updateComplete;
 
     const after = gridOf(el);
-    expect(after.rows).toBe(2);
-    expect(after.columns).toBe(2);
+    expect(after.rows.length).toBe(2);
+    expect(after.columns.length).toBe(2);
     expect(after.cells.some((c) => c.row >= 2 || c.column >= 2)).toBe(false);
     // 남은 셀은 유지
     expect(after.cells.some((c) => c.content === '라벨')).toBe(true);
@@ -1346,240 +1360,6 @@ describe('<slip-designer> 표 내부 편집', () => {
     el.remove();
   });
 
-  it('고정 그리드 열 수를 늘리면 마지막 열이 절반씩 나뉘고, 줄이면 이웃이 돌려받는다 (F-19)', async () => {
-    const el = await mountGrid();
-    const widths = () => gridOf(el).columnWidthPercentages;
-    expect(widths()).toEqual([40, 30, 30]);
-
-    // 3 → 4: 마지막 30이 15씩 나뉘고 앞의 두 열은 그대로
-    setField(panelField(el, strings.designer.columns), '4');
-    await el.updateComplete;
-    expect(widths()).toEqual([40, 30, 15, 15]);
-
-    // 4 → 3: 지운 열의 몫을 앞 열이 돌려받아 원래 비율로 정확히 복귀
-    setField(panelField(el, strings.designer.columns), '3');
-    await el.updateComplete;
-    expect(widths()).toEqual([40, 30, 30]);
-
-    // 여러 칸을 한 번에 늘렸다 줄여도 원래대로 온다
-    setField(panelField(el, strings.designer.columns), '6');
-    await el.updateComplete;
-    expect(widths().length).toBe(6);
-    setField(panelField(el, strings.designer.columns), '3');
-    await el.updateComplete;
-    expect(widths()).toEqual([40, 30, 30]);
-    el.remove();
-  });
-
-  /** 동적 표 열 편집 모달을 연다 (D-12: 키·추가·삭제·순서는 모달에서) */
-  async function openColumnsModal(el: Element): Promise<void> {
-    const open = Array.from(el.shadowRoot!.querySelectorAll('button'))
-      .find((b) => b.getAttribute('aria-label') === strings.designer.columnsModalTitle) as HTMLButtonElement;
-    open.click();
-    await (el as { updateComplete?: Promise<unknown> }).updateComplete;
-  }
-
-  it('동적 표 열의 제목은 패널에서, 키는 모달에서 편집하고, 중복 키는 무시된다', async () => {
-    const el = await loadDesigner();
-    await addByCanvasClick(el, strings.designer.addDynamicTable);
-
-    // 제목은 패널의 빠른 수정으로
-    const title = el.shadowRoot!.querySelector('.col-edit .col-title') as HTMLInputElement;
-    title.value = '품명';
-    title.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
-
-    // 데이터 키는 열 편집 모달에서
-    await openColumnsModal(el);
-    const key = Array.from(el.shadowRoot!.querySelectorAll('.col-modal-row input'))
-      .find((i) => i.getAttribute('aria-label') ===
-        `${strings.designer.columnsModalTitle} 1 ${strings.designer.columnKey}`) as HTMLInputElement;
-    key.value = 'itemName';
-    key.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
-
-    const table = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
-      columns: { key: string; title: string; widthPercentage: number }[];
-    };
-    expect(table.columns[0]).toMatchObject({ key: 'itemName', title: '품명' });
-
-    // 두 번째 열 키를 첫 열과 같게 → 무시
-    const second = Array.from(el.shadowRoot!.querySelectorAll('.col-modal-row input'))
-      .find((i) => i.getAttribute('aria-label') ===
-        `${strings.designer.columnsModalTitle} 2 ${strings.designer.columnKey}`) as HTMLInputElement;
-    second.value = 'itemName';
-    second.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
-    expect(table.columns[1]!.key).toBe('col2');
-    el.remove();
-  });
-
-  it('모달에서 열 순서를 옮기면 columns 배열 순서가 바뀐다', async () => {
-    const el = await loadDesigner();
-    await addByCanvasClick(el, strings.designer.addDynamicTable);
-    await openColumnsModal(el);
-
-    const down = Array.from(el.shadowRoot!.querySelectorAll('.col-order button'))
-      .find((b) => b.getAttribute('aria-label') ===
-        `${strings.designer.columns} 1 ${strings.designer.orderBackward}`) as HTMLButtonElement;
-    down.click();
-    await el.updateComplete;
-
-    const table = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
-      columns: { key: string }[];
-    };
-    expect(table.columns.map((c) => c.key)).toEqual(['col2', 'col1', 'col3']);
-    // 첫 열의 앞으로 버튼은 비활성
-    const up = Array.from(el.shadowRoot!.querySelectorAll('.col-order button'))
-      .find((b) => b.getAttribute('aria-label') ===
-        `${strings.designer.columns} 1 ${strings.designer.orderForward}`) as HTMLButtonElement;
-    expect(up.disabled).toBe(true);
-    el.remove();
-  });
-
-  it('열 추가는 마지막 열을 절반씩 나눠 갖고, 삭제는 이웃이 돌려받아 원래대로 온다 (F-19)', async () => {
-    const el = await loadDesigner();
-    await addByCanvasClick(el, strings.designer.addDynamicTable);
-    await openColumnsModal(el);
-
-    const widths = () => ((el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
-      .elements.at(-1)! as never as { columns: { widthPercentage: number }[] })
-      .columns.map((c) => c.widthPercentage);
-    expect(widths()).toEqual([34, 33, 33]);
-
-    // 추가: 마지막 열 33이 16.5씩 나뉘고 앞의 두 열은 그대로
-    (el.shadowRoot!.querySelector('.col-add') as HTMLElement).click();
-    await el.updateComplete;
-    expect(widths()).toEqual([34, 33, 16.5, 16.5]);
-
-    // 삭제: 지운 열의 몫을 앞 열이 돌려받아 추가 전 비율로 정확히 복귀
-    (el.shadowRoot!.querySelectorAll('.col-modal-row .col-remove')[3] as HTMLElement).click();
-    await el.updateComplete;
-    expect(widths()).toEqual([34, 33, 33]);
-
-    // 추가↔삭제를 반복해도 비율이 어긋나지 않는다
-    for (let i = 0; i < 3; i++) {
-      (el.shadowRoot!.querySelector('.col-add') as HTMLElement).click();
-      await el.updateComplete;
-      (el.shadowRoot!.querySelectorAll('.col-modal-row .col-remove')[3] as HTMLElement).click();
-      await el.updateComplete;
-    }
-    expect(widths()).toEqual([34, 33, 33]);
-
-    // 가운데 열을 지우면 그 왼쪽 열이 돌려받는다
-    (el.shadowRoot!.querySelectorAll('.col-modal-row .col-remove')[1] as HTMLElement).click();
-    await el.updateComplete;
-    expect(widths()).toEqual([67, 33]);
-    el.remove();
-  });
-
-  it('너비 균등하게를 누르면 모든 열이 같은 너비가 된다 (F-19)', async () => {
-    const el = await loadDesigner();
-    await addByCanvasClick(el, strings.designer.addDynamicTable);
-    await openColumnsModal(el);
-
-    const widths = () => ((el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
-      .elements.at(-1)! as never as { columns: { widthPercentage: number }[] })
-      .columns.map((c) => c.widthPercentage);
-
-    // 한 열을 크게 벌려 놓은 뒤 균등 정렬
-    const width = el.shadowRoot!.querySelector('.col-edit .col-width') as HTMLInputElement;
-    width.value = '60';
-    width.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
-    expect(widths()).not.toEqual([33.33, 33.33, 33.34]);
-
-    const even = Array.from(el.shadowRoot!.querySelectorAll('button'))
-      .find((b) => b.getAttribute('aria-label') === strings.designer.evenWidths) as HTMLButtonElement;
-    even.click();
-    await el.updateComplete;
-
-    // 반올림 잔여는 마지막 열이 흡수해 합이 정확히 100
-    expect(widths()).toEqual([33.33, 33.33, 33.34]);
-    expect(widths().reduce((a, b) => a + b, 0)).toBe(100);
-
-    // 되돌리기로 이전 너비가 돌아온다
-    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
-    await el.updateComplete;
-    expect(widths()).not.toEqual([33.33, 33.33, 33.34]);
-    el.remove();
-  });
-
-  it('열 추가·삭제 시 너비 합이 100으로 유지되고, 마지막 한 열은 삭제할 수 없다', async () => {
-    const el = await loadDesigner();
-    await addByCanvasClick(el, strings.designer.addDynamicTable);
-    await openColumnsModal(el);
-
-    (el.shadowRoot!.querySelector('.col-add') as HTMLElement).click();
-    await el.updateComplete;
-
-    const tableOf = () => (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
-      columns: { key: string; title: string; widthPercentage: number }[];
-    };
-    expect(tableOf().columns.length).toBe(4);
-    let sum = tableOf().columns.reduce((a, c) => a + c.widthPercentage, 0);
-    expect(Math.abs(sum - 100)).toBeLessThanOrEqual(0.01);
-
-    // 3개 삭제 → 1개 남음, 마지막 삭제 버튼은 비활성
-    for (let i = 0; i < 3; i++) {
-      (el.shadowRoot!.querySelector('.col-modal-row .col-remove:not([disabled])') as HTMLElement).click();
-      await el.updateComplete;
-    }
-    expect(tableOf().columns.length).toBe(1);
-    sum = tableOf().columns.reduce((a, c) => a + c.widthPercentage, 0);
-    expect(Math.abs(sum - 100)).toBeLessThanOrEqual(0.01);
-    expect((el.shadowRoot!.querySelector('.col-modal-row .col-remove') as HTMLButtonElement).disabled).toBe(true);
-    el.remove();
-  });
-
-  it('열 너비를 바꾸면 이웃 열 하나만 주고받고 나머지는 그대로다 (F-19)', async () => {
-    const el = await loadDesigner();
-    await addByCanvasClick(el, strings.designer.addDynamicTable);
-
-    const widthInput = () => el.shadowRoot!.querySelector('.col-edit .col-width') as HTMLInputElement;
-    const table = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
-      columns: { widthPercentage: number }[];
-    };
-    expect(table.columns.map((c) => c.widthPercentage)).toEqual([34, 33, 33]);
-
-    // 첫 열 34 → 40: 오른쪽 이웃(둘째 열)이 6을 내주고 셋째 열은 그대로
-    setField(widthInput(), '40');
-    await el.updateComplete;
-    expect(table.columns.map((c) => c.widthPercentage)).toEqual([40, 27, 33]);
-
-    // 되돌리면 이웃도 원래 값으로 돌아온다
-    setField(widthInput(), '34');
-    await el.updateComplete;
-    expect(table.columns.map((c) => c.widthPercentage)).toEqual([34, 33, 33]);
-    el.remove();
-  });
-
-  it('이웃 열이 최소 너비 아래로 내려가지 않는 선까지만 넓어진다 (F-19)', async () => {
-    const el = await loadDesigner();
-    await addByCanvasClick(el, strings.designer.addDynamicTable);
-
-    const width = el.shadowRoot!.querySelector('.col-edit .col-width') as HTMLInputElement;
-    setField(width, '90');
-    await el.updateComplete;
-
-    const table = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
-      columns: { widthPercentage: number }[];
-    };
-    // 34 + 33 - 1 = 66까지만 넓어지고 셋째 열은 건드리지 않는다
-    expect(table.columns.map((c) => c.widthPercentage)).toEqual([66, 1, 33]);
-    el.remove();
-  });
-
-  it('새 동적 표는 빈 제목 3열로 시작한다', async () => {
-    const el = await loadDesigner();
-    await addByCanvasClick(el, strings.designer.addDynamicTable);
-    const table = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)! as never as {
-      columns: { key: string; title: string }[];
-    };
-    expect(table.columns.map((c) => c.title)).toEqual(['', '', '']);
-    expect(table.columns.map((c) => c.key)).toEqual(['col1', 'col2', 'col3']);
-    el.remove();
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2841,11 +2621,12 @@ describe('<slip-designer> 패널 표시 정리 (F-18)', () => {
     el.remove();
   });
 
-  it('고정 그리드 셀은 요소에서 물려받는 글자색을 흐리게 보여준다', async () => {
+  it('그리드 셀은 요소에서 물려받는 글자색을 흐리게 보여준다', async () => {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{
-      type: 'fixedGrid' as const, id: 'grd-1', name: 'g', position: { x: 10, y: 10 },
-      width: 90, height: 30, rows: 2, columns: 2, columnWidthPercentages: [50, 50],
+      type: 'grid' as const, id: 'grd-1', name: 'g', position: { x: 10, y: 10 },
+      width: 90, height: 30,
+      rows: [{ height: 15 }, { height: 15 }], columns: [{ width: 45 }, { width: 45 }],
       fontColor: '#1a73e8',
       cells: [{ row: 0, column: 0, content: '가' }],
     } as never];
@@ -3041,18 +2822,23 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
       .find((b) => b.textContent?.trim() === strings.designer.apply) as HTMLButtonElement;
   }
 
-  /** 동적 표(items, 열 3개)를 담은 양식으로 디자이너를 띄운다 */
+  /** 반복 구간이 값 3개를 읽는 그리드를 담은 양식으로 디자이너를 띄운다 */
   async function loadWithTable(): Promise<import('../src/slip-designer.js').SlipDesigner> {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{
-      type: 'dynamicTable' as const, id: 'tbl-1', name: '품목 표',
-      position: { x: 10, y: 10 }, width: 180, height: 20,
-      columns: [
-        { key: 'itemName', title: '품명', widthPercentage: 50 },
-        { key: 'amount', title: '금액', widthPercentage: 30 },
-        { key: 'quantity', title: '수량', widthPercentage: 20 },
+      type: 'grid' as const, id: 'tbl-1', name: '품목 표',
+      position: { x: 10, y: 10 }, width: 180, height: 8 * 3,
+      rows: [{ height: 8 }, { height: 8 }],
+      columns: [{ width: 90 }, { width: 54 }, { width: 36 }],
+      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+      cells: [
+        { row: 0, column: 0, content: '품명' },
+        { row: 0, column: 1, content: '금액' },
+        { row: 0, column: 2, content: '수량' },
+        { row: 1, column: 0, binding: 'itemName' },
+        { row: 1, column: 1, binding: 'amount' },
+        { row: 1, column: 2, binding: 'quantity' },
       ],
-      repeatHead: true, binding: 'items',
     } as never];
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     return loadDesigner();
@@ -3377,24 +3163,37 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     el.remove();
   });
 
-  it('동적 표 바인딩은 열 구조대로 행을 추가·편집한다', async () => {
+  it('반복 구간 바인딩은 항목 필드대로 행을 추가·편집한다 (ADR-037)', async () => {
+    const file = makeTemplateFile();
+    file.template.pages[0]!.elements = [{
+      type: 'grid' as const, id: 'g-items', name: '품목 그리드',
+      position: { x: 10, y: 10 }, width: 90, height: 8 * 3,
+      rows: [{ height: 8 }, { height: 8 }],
+      columns: [{ width: 60 }, { width: 30 }],
+      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+      cells: [
+        { row: 0, column: 0, content: '품명' },
+        { row: 1, column: 0, binding: 'itemName' },
+        { row: 1, column: 1, binding: 'amount' },
+      ],
+    } as never];
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await loadDesigner();
-    await addByCanvasClick(el, strings.designer.addDynamicTable);
     await openSampleModal(el);
 
-    // 표 바인딩(items)은 행 편집 그리드로 나온다
+    // 반복 바인딩(items)은 행 편집 그리드로 나온다
     expect(el.shadowRoot!.querySelector('.sample-grid')).not.toBeNull();
     byAria(el, `items ${strings.designer.addRow}`).click();
     await el.updateComplete;
 
     const cell = Array.from(el.shadowRoot!.querySelectorAll('.sample-grid input'))
-      .find((i) => i.getAttribute('aria-label') === 'items 1 col1') as HTMLInputElement;
+      .find((i) => i.getAttribute('aria-label') === 'items 1 itemName') as HTMLInputElement;
     cell.value = '노트';
     cell.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
 
     const samples = (fileOf(el).template as { sampleValues?: Record<string, unknown> }).sampleValues;
-    expect(samples?.items).toEqual([{ col1: '노트' }]);
+    expect(samples?.items).toEqual([{ itemName: '노트' }]);
 
     // 행 삭제로 비우면 값도 사라진다
     byAria(el, `items 1 ${strings.designer.delete}`).click();
@@ -4058,12 +3857,14 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('그리드가 쓰는 값이 사이드바 값 목록에 나온다', async () => {
+  it('그리드가 쓰는 값은 사이드바에, 반복 구간 칸의 항목 필드는 그 하위 줄에 나온다', async () => {
     const el = await mount();
     const labels = Array.from(el.shadowRoot!.querySelectorAll('.side-row'))
       .map((r) => r.textContent?.trim() ?? '');
     expect(labels.some((l) => l.includes('items'))).toBe(true);
-    expect(labels.some((l) => l.includes('품명'))).toBe(true);
+    // 반복 구간 칸이 읽는 것은 항목의 필드이지 전표 값의 키가 아니다 — 하위 줄로만 나온다
+    expect(Array.from(el.shadowRoot!.querySelectorAll('.side-col-row'))
+      .map((r) => r.textContent?.trim())).toEqual(['품명']);
     el.remove();
   });
 });

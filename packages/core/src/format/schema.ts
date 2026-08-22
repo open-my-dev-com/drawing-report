@@ -40,14 +40,8 @@ export const SLIP_LIMITS = {
   maxElementsPerPage: 2000,
   /** 문서당 최대 에셋 수 */
   maxAssets: 1000,
-  /** 고정 그리드 최대 행 수 */
-  maxGridRows: 1000,
-  /** 고정 그리드 최대 열 수 */
-  maxGridColumns: 100,
-  /** 고정 그리드 최대 셀 수 */
+  /** 그리드 최대 셀 수 */
   maxGridCells: 100_000,
-  /** 동적 표 최대 열 수 */
-  maxTableColumns: 100,
   /** 바인딩 정의부 최대 항목 수 */
   maxBindings: 500,
   /** 그리드(grid) 최대 행 수 */
@@ -128,125 +122,6 @@ const textElementSchema = z.object({
   content: z.string(),
   ...fontShape,
 });
-
-const fixedGridCellSchema = z.object({
-  ...colorStyleShape,
-  /** 0-기반 행/열 좌표 */
-  row: z.number().int().nonnegative(),
-  column: z.number().int().nonnegative(),
-  /** 병합 범위 (기본 1) — ADR-020: 고정 그리드 표만 병합 지원 */
-  rowSpan: z.number().int().min(1).optional(),
-  colSpan: z.number().int().min(1).optional(),
-  content: z.string(),
-  ...fontShape,
-});
-
-/** 행 수가 고정된 그리드 틀 (공급자 정보란 등). 셀 병합 지원 — ADR-020 */
-const fixedGridElementSchema = z
-  .object({
-    type: z.literal('fixedGrid'),
-    ...elementBaseShape,
-    ...colorStyleShape,
-    rows: z.number().int().min(1).max(SLIP_LIMITS.maxGridRows, `rows는 최대 ${SLIP_LIMITS.maxGridRows}입니다`),
-    columns: z.number().int().min(1).max(SLIP_LIMITS.maxGridColumns, `columns는 최대 ${SLIP_LIMITS.maxGridColumns}입니다`),
-    /** 열 너비 비율(%) — 길이 = columns, 합 100 */
-    columnWidthPercentages: percentagesSchema,
-    /** 행 높이 비율(%) — 생략 시 균등. 지정 시 길이 = rows, 합 100 */
-    rowHeightPercentages: percentagesSchema.optional(),
-    cells: z.array(fixedGridCellSchema).max(SLIP_LIMITS.maxGridCells, `셀 수는 최대 ${SLIP_LIMITS.maxGridCells}개입니다`),
-  })
-  .superRefine((grid, ctx) => {
-    if (grid.columnWidthPercentages.length !== grid.columns) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['columnWidthPercentages'],
-        message: `columnWidthPercentages 길이(${grid.columnWidthPercentages.length})는 columns(${grid.columns})와 같아야 합니다`,
-      });
-    }
-    if (grid.rowHeightPercentages && grid.rowHeightPercentages.length !== grid.rows) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['rowHeightPercentages'],
-        message: `rowHeightPercentages 길이(${grid.rowHeightPercentages.length})는 rows(${grid.rows})와 같아야 합니다`,
-      });
-    }
-    // 셀 범위·겹침 검사 (병합 포함)
-    const occupied = new Set<string>();
-    grid.cells.forEach((cell, index) => {
-      const rowSpan = cell.rowSpan ?? 1;
-      const colSpan = cell.colSpan ?? 1;
-      if (cell.row + rowSpan > grid.rows || cell.column + colSpan > grid.columns) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['cells', index],
-          message: `셀(${cell.row},${cell.column})의 병합 범위가 그리드(${grid.rows}×${grid.columns})를 벗어납니다`,
-        });
-        return;
-      }
-      for (let r = cell.row; r < cell.row + rowSpan; r++) {
-        for (let c = cell.column; c < cell.column + colSpan; c++) {
-          const key = `${r},${c}`;
-          if (occupied.has(key)) {
-            ctx.addIssue({
-              code: 'custom',
-              path: ['cells', index],
-              message: `셀(${r},${c})이 다른 셀과 겹칩니다`,
-            });
-            return;
-          }
-          occupied.add(key);
-        }
-      }
-    });
-  });
-
-/** 동적 표의 열 — 물리 데이터 키·표시 제목·너비를 분리한다 (ADR-032) */
-const tableColumnSchema = z.object({
-  /** 행 객체에서 값을 읽는 물리 키 — 제목을 바꿔도 데이터·수식이 깨지지 않는다 */
-  key: idSchema,
-  /** 헤더에 표시하는 제목 */
-  title: z.string(),
-  /** 열 너비 비율(%) — 전체 합 100 */
-  widthPercentage: z.number().positive(),
-});
-
-/** 데이터 행 수에 따라 늘어나는 표. 자동 페이지 분할 대상 (ADR-011) */
-const dynamicTableElementSchema = z
-  .object({
-    type: z.literal('dynamicTable'),
-    ...elementBaseShape,
-    ...colorStyleShape,
-    /** 열 정의 (키·제목·너비, ADR-032) */
-    columns: z
-      .array(tableColumnSchema)
-      .min(1)
-      .max(SLIP_LIMITS.maxTableColumns, `열 수는 최대 ${SLIP_LIMITS.maxTableColumns}개입니다`),
-    /** 페이지 분할 시 헤더 반복 (ADR-011) */
-    repeatHead: z.boolean(),
-    /** 바인딩할 데이터 키 (전표 values의 배열 필드) */
-    binding: idSchema,
-  })
-  .superRefine((table, ctx) => {
-    const sum = table.columns.reduce((acc, col) => acc + col.widthPercentage, 0);
-    if (Math.abs(sum - 100) > 0.01) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['columns'],
-        message: '열 너비 비율의 합은 100이어야 합니다',
-      });
-    }
-    const keys = new Set<string>();
-    table.columns.forEach((col, index) => {
-      if (keys.has(col.key)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['columns', index, 'key'],
-          message: `열 키가 중복됩니다: ${col.key}`,
-        });
-      }
-      keys.add(col.key);
-    });
-  });
 
 // ---------------------------------------------------------------------------
 // grid — 고정 틀과 반복 목록을 하나로 다루는 그리드 (0.3.0, ADR-037)
@@ -497,11 +372,9 @@ const fieldElementSchema = z.object({
   ...fontShape,
 });
 
-/** 요소 10종 판별 유니온 (type 필드 기준, ADR-020/032/037) */
+/** 요소 8종 판별 유니온 (type 필드 기준, ADR-020/032/037) */
 export const slipElementSchema = z.discriminatedUnion('type', [
   textElementSchema,
-  fixedGridElementSchema,
-  dynamicTableElementSchema,
   gridElementSchema,
   imageElementSchema,
   lineElementSchema,
@@ -832,12 +705,6 @@ export type PaperSize = z.infer<typeof paperSchema>;
 export type AssetEntry = z.infer<typeof assetEntrySchema>;
 /** 텍스트 요소 */
 export type TextElement = z.infer<typeof textElementSchema>;
-/** 고정 그리드의 셀 (병합 범위 포함) */
-export type FixedGridCell = z.infer<typeof fixedGridCellSchema>;
-/** 고정 그리드 요소 */
-export type FixedGridElement = z.infer<typeof fixedGridElementSchema>;
-/** 동적 행 표 요소 */
-export type DynamicTableElement = z.infer<typeof dynamicTableElementSchema>;
 
 /** 그리드 셀 (0.3.0, ADR-037) */
 export type GridCell = z.infer<typeof gridCellSchema>;
@@ -847,8 +714,6 @@ export type GridRepeat = z.infer<typeof gridRepeatSchema>;
 
 /** 그리드 요소 — 고정 틀과 반복 목록을 하나로 다룬다 (0.3.0, ADR-037) */
 export type GridElement = z.infer<typeof gridElementSchema>;
-/** 동적 표의 열 정의 (물리 키·표시 제목·너비, ADR-032) */
-export type TableColumn = z.infer<typeof tableColumnSchema>;
 /** 바인딩 정의 (물리명 key + 논리명 label, ADR-032) */
 export type BindingDef = z.infer<typeof bindingDefSchema>;
 /** 이미지 요소 */

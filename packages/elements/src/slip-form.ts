@@ -5,6 +5,7 @@ import {
   parseSlipFile,
   renderSlipToPdf,
   serializeSlipFile,
+  type GridElement,
   type IntegrityJwk,
   type JsonValue,
   type RenderOptions,
@@ -40,6 +41,18 @@ function parseInputValue(text: string): string | number {
   return trimmed !== '' && /^-?\d+(\.\d+)?$/.test(trimmed) ? Number(trimmed) : text;
 }
 
+/**
+ * 반복 구간 열의 이름 — 반복 구간 바로 위 행부터 거슬러 올라가며 같은 열의 고정 문구를 찾는다.
+ * 그리드 헤더에 적힌 이름을 그대로 쓰면 작성폼의 열 이름이 전표와 같아진다 (ADR-037).
+ */
+function gridHeaderTitle(grid: GridElement, column: number, fromRow: number): string | undefined {
+  for (let row = fromRow - 1; row >= 0; row -= 1) {
+    const cell = grid.cells.find((c) => c.row === row && c.column === column);
+    if (cell?.content !== undefined && cell.content !== '') return cell.content;
+  }
+  return undefined;
+}
+
 /** 담긴 값을 입력창에 보여줄 문자열로 (객체·배열은 표 입력이 따로 다룬다) */
 function inputText(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -60,7 +73,7 @@ function resultText(value: unknown): string {
  * `<slip-form>` — 전표 작성폼 (v2 D-14).
  *
  * 양식(template)이나 작성 중 전표(voucher)를 받아 바인딩마다 입력 칸을 만들고,
- * 동적 표 바인딩은 열 구조대로 행을 넣고 뺄 수 있게 한다. 수식 필드는 입력받지 않고
+ * 반복 구간이 쓰는 값은 항목 필드대로 행을 넣고 뺄 수 있게 한다. 수식 필드는 입력받지 않고
  * 값이 바뀔 때마다 즉시 계산해 보여주며, 오른쪽 미리보기는 PDF 변환 결과를 그대로
  * 표시한다 (화면·PDF 불일치 불가, ADR-012/016).
  *
@@ -479,12 +492,19 @@ export class SlipForm extends LitElement {
             element.formula === undefined ? {} : { formula: element.formula },
             element.name,
           );
-        } else if (element.type === 'dynamicTable') {
-          add(
-            element.binding,
-            { columns: element.columns.map((c) => ({ key: c.key, title: c.title })) },
-            element.name,
-          );
+        } else if (element.type === 'grid' && element.repeat) {
+          // 반복 구간 칸이 읽는 항목 필드가 곧 입력 표의 열이 된다 (ADR-037)
+          const { fromRow, toRow } = element.repeat;
+          const band = element.cells
+            .filter((cell) => cell.row >= fromRow && cell.row <= toRow && cell.binding !== undefined)
+            .sort((a, b) => a.column - b.column || a.row - b.row);
+          const columns: { key: string; title: string }[] = [];
+          for (const cell of band) {
+            const key = cell.binding as string;
+            if (columns.some((c) => c.key === key)) continue;
+            columns.push({ key, title: gridHeaderTitle(element, cell.column, fromRow) ?? key });
+          }
+          add(element.repeat.binding, { columns }, element.name);
         }
       }
     }

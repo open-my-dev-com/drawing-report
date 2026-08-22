@@ -94,8 +94,12 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 무
     designer.removeEventListener('slip-change', collect);
 
     const withGrid = changes.at(-1)!;
-    // 앞 단계에서 페이지를 더해 현재 페이지가 바뀌었을 수 있다 — 전체에서 찾는다
-    const grid = withGrid.template.pages.flatMap((page) => page.elements).find((el) => el.type === 'grid');
+    // 앞 단계에서 페이지를 더해 현재 페이지가 바뀌었을 수 있고 프리셋에도 그리드가 있다 —
+    // 방금 만든 것만 골라내려고 앞 단계에 없던 id를 찾는다
+    const before = new Set(designed.template.pages.flatMap((page) => page.elements).map((el) => el.id));
+    const grid = withGrid.template.pages
+      .flatMap((page) => page.elements)
+      .find((el) => el.type === 'grid' && !before.has(el.id));
     expect(grid).toBeDefined();
     // 만든 그대로 core 스키마를 통과한다 — 트랙 합과 상자가 어긋나면 여기서 걸린다
     expect(() => parseSlipFile(serializeSlipFile(withGrid))).not.toThrow();

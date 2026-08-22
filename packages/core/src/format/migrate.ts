@@ -35,14 +35,99 @@ export const BUILT_IN_MIGRATIONS: readonly SlipMigrationStep[] = [
     migrate: migrateTo020,
   },
   {
-    // 0.3.0 (ADR-037): 그리드 요소(grid) 신설. 기존 fixedGrid·dynamicTable은 그대로 유효하므로
-    // 이 단계에서 바꿀 것이 없다 — 두 요소를 grid로 옮기는 마이그레이션은 디자이너가
-    // grid를 편집할 수 있게 된 뒤(ADR-037 3단계)에 추가한다.
+    // 0.3.0 (ADR-037): 그리드 요소(grid) 신설. 이 단계에서는 구조가 바뀌지 않는다 —
+    // 기존 두 요소를 옮기는 것은 다음 단계(0.4.0)가 맡는다.
     from: '0.2.0',
     to: '0.3.0',
     migrate: (document) => document,
   },
+  {
+    // 0.4.0 (ADR-037 3단계): fixedGrid·dynamicTable을 grid로 옮기고 두 요소를 없앤다.
+    from: '0.3.0',
+    to: '0.4.0',
+    migrate: migrateTo040,
+  },
 ];
+
+/** 기본 행 높이(mm) — 옛 동적 표에는 행 높이 개념이 없어 여기서 정한다 */
+const LEGACY_ROW_HEIGHT_MM = 8;
+
+/**
+ * 0.3.0 → 0.4.0: 고정 그리드·동적 표를 그리드로 옮긴다 (ADR-037 3단계).
+ *
+ * - 고정 그리드: 비율 트랙을 상자 크기에 맞춘 mm 트랙으로 환산한다. 셀은 그대로 옮긴다.
+ * - 동적 표: 헤더 1행 + 반복 1행짜리 그리드가 된다. 열 제목은 헤더 칸의 고정 문구로,
+ *   열의 물리 키는 반복 칸의 값으로 간다. 페이지당 항목 수는 옛 상자 높이에서 셈한다.
+ */
+function migrateTo040(document: Record<string, unknown>): Record<string, unknown> {
+  const next = JSON.parse(JSON.stringify(document)) as Record<string, unknown>;
+  const body = (next['kind'] === 'template' ? next['template'] : next['templateSnapshot']) as
+    | { pages?: { elements?: Record<string, unknown>[] }[] }
+    | undefined;
+  for (const page of body?.pages ?? []) {
+    const elements = page.elements ?? [];
+    elements.forEach((element, index) => {
+      if (element['type'] === 'fixedGrid') elements[index] = fixedGridToGrid(element);
+      else if (element['type'] === 'dynamicTable') elements[index] = dynamicTableToGrid(element);
+    });
+  }
+  return next;
+}
+
+/** 비율(%) 배열 → mm 트랙 크기 배열. 비율이 없으면 균등하게 나눈다 */
+function percentagesToMm(total: number, count: number, percentages?: unknown): number[] {
+  const list = Array.isArray(percentages) ? (percentages as number[]) : undefined;
+  return Array.from({ length: count }, (_, i) =>
+    list ? (total * (list[i] ?? 0)) / 100 : total / count,
+  );
+}
+
+function fixedGridToGrid(element: Record<string, unknown>): Record<string, unknown> {
+  const width = Number(element['width'] ?? 0);
+  const height = Number(element['height'] ?? 0);
+  const rowCount = Number(element['rows'] ?? 1);
+  const columnCount = Number(element['columns'] ?? 1);
+  const next: Record<string, unknown> = { ...element, type: 'grid' };
+  next['columns'] = percentagesToMm(width, columnCount, element['columnWidthPercentages'])
+    .map((size) => ({ width: size }));
+  next['rows'] = percentagesToMm(height, rowCount, element['rowHeightPercentages'])
+    .map((size) => ({ height: size }));
+  delete next['columnWidthPercentages'];
+  delete next['rowHeightPercentages'];
+  return next;
+}
+
+function dynamicTableToGrid(element: Record<string, unknown>): Record<string, unknown> {
+  const width = Number(element['width'] ?? 0);
+  const height = Number(element['height'] ?? 0);
+  const columns = (Array.isArray(element['columns']) ? element['columns'] : []) as {
+    key: string;
+    title: string;
+    widthPercentage: number;
+  }[];
+  // 옛 상자 높이에서 헤더 한 줄을 빼고 남는 만큼을 페이지당 항목 수로 본다
+  const perPage = Math.max(1, Math.round((height - LEGACY_ROW_HEIGHT_MM) / LEGACY_ROW_HEIGHT_MM));
+  const cells: Record<string, unknown>[] = [];
+  columns.forEach((column, index) => {
+    cells.push({ row: 0, column: index, content: column.title, alignment: 'center' });
+    cells.push({ row: 1, column: index, binding: column.key });
+  });
+  const next: Record<string, unknown> = { ...element, type: 'grid' };
+  next['columns'] = columns.map((column) => ({ width: (width * column.widthPercentage) / 100 }));
+  next['rows'] = [{ height: LEGACY_ROW_HEIGHT_MM }, { height: LEGACY_ROW_HEIGHT_MM }];
+  next['height'] = LEGACY_ROW_HEIGHT_MM * (1 + perPage);
+  next['repeat'] = {
+    binding: String(element['binding'] ?? 'items'),
+    fromRow: 1,
+    toRow: 1,
+    perPage,
+    repeatHeader: element['repeatHead'] === true,
+  };
+  next['cells'] = cells;
+  delete next['repeatHead'];
+  delete next['binding'];
+  return next;
+}
 
 function migrateTo020(document: Record<string, unknown>): Record<string, unknown> {
   // 문서는 파싱된 JSON이므로 JSON 왕복 복사로 충분하다 (원본은 건드리지 않는다)

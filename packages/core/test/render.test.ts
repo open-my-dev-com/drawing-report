@@ -5,7 +5,7 @@ import { SlipRenderError } from '../src/render/errors.js';
 import {
   CURRENT_SCHEMA_VERSION,
   renderSlipToPdf,
-  type FixedGridElement,
+  type GridElement,
   type SlipElement,
   type SlipTemplateBody,
   type SlipTemplateFile,
@@ -23,7 +23,7 @@ type PdfmeSchema = Record<string, unknown> & {
   height: number;
 };
 
-/** 요소 6종을 모두 담은 양식 본문. 고정 그리드는 (1,0)에 2행 병합 셀을 둔다 */
+/** 여러 종류의 요소를 담은 양식 본문. 그리드는 (1,0)에 2행 병합 칸을 둔다 */
 function makeBody(): SlipTemplateBody {
   return {
     meta: { title: '거래명세서' },
@@ -43,15 +43,14 @@ function makeBody(): SlipTemplateBody {
             alignment: 'center',
           },
           {
-            type: 'fixedGrid',
+            type: 'grid',
             id: 'grid',
             name: '공급자 정보',
             position: { x: 10, y: 10 },
             width: 100,
             height: 30,
-            rows: 3,
-            columns: 2,
-            columnWidthPercentages: [50, 50],
+            rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
+            columns: [{ width: 50 }, { width: 50 }],
             borderWidth: 0.2,
             cells: [
               { row: 0, column: 0, content: '상호', backgroundColor: '#EEEEEE' },
@@ -62,19 +61,23 @@ function makeBody(): SlipTemplateBody {
             ],
           },
           {
-            type: 'dynamicTable',
+            type: 'grid',
             id: 'items',
             name: '품목',
             position: { x: 15, y: 60 },
             width: 180,
-            height: 60,
-            columns: [
-              { key: '품명', title: '품명', widthPercentage: 50 },
-              { key: '수량', title: '수량', widthPercentage: 20 },
-              { key: '금액', title: '금액', widthPercentage: 30 },
+            height: 8 * 7,
+            columns: [{ width: 90 }, { width: 36 }, { width: 54 }],
+            rows: [{ height: 8 }, { height: 8 }],
+            repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 6, repeatHeader: true },
+            cells: [
+              { row: 0, column: 0, content: '품명' },
+              { row: 0, column: 1, content: '수량' },
+              { row: 0, column: 2, content: '금액' },
+              { row: 1, column: 0, binding: '품명' },
+              { row: 1, column: 1, binding: '수량' },
+              { row: 1, column: 2, binding: '금액' },
             ],
-            repeatHead: true,
-            binding: 'items',
           },
           {
             type: 'image',
@@ -246,7 +249,7 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
   });
 });
 
-describe('고정 그리드(fixedGrid) 분해', () => {
+describe('그리드(grid) 분해', () => {
   const schemas = pageSchemas(makeTemplateFile());
   const gridSchemas = schemas.filter((schema) => schema.name.startsWith('grid__'));
   const horizontals = gridSchemas.filter((schema) => schema.type === 'line' && schema.width > schema.height);
@@ -309,9 +312,9 @@ describe('고정 그리드(fixedGrid) 분해', () => {
   });
 });
 
-describe('고정 그리드 셀별 테두리 (ADR-033)', () => {
+describe('그리드 셀별 테두리 (ADR-033)', () => {
   // 2×2 그리드: 경계 x=10·60·110, y=10·20·30 (열 50/50, 행 균등 10mm)
-  function makeGridFile(cells: FixedGridElement['cells']): SlipTemplateFile {
+  function makeGridFile(cells: GridElement['cells']): SlipTemplateFile {
     return {
       schemaVersion: CURRENT_SCHEMA_VERSION,
       kind: 'template',
@@ -322,9 +325,10 @@ describe('고정 그리드 셀별 테두리 (ADR-033)', () => {
           {
             elements: [
               {
-                type: 'fixedGrid', id: 'grid', name: '그리드',
+                type: 'grid', id: 'grid', name: '그리드',
                 position: { x: 10, y: 10 }, width: 100, height: 20,
-                rows: 2, columns: 2, columnWidthPercentages: [50, 50], cells,
+                rows: [{ height: 10 }, { height: 10 }],
+                columns: [{ width: 50 }, { width: 50 }], cells,
               },
             ],
           },
@@ -390,63 +394,38 @@ describe('고정 그리드 셀별 테두리 (ADR-033)', () => {
   });
 });
 
-describe('동적 행 표(dynamicTable) 변환', () => {
-  it('table 스키마의 스타일 기본값이 빠짐없이 채워진다 (Q08 직접 확인)', () => {
-    const table = findSchema(pageSchemas(makeTemplateFile()), 'items');
-    expect(table.type).toBe('table');
-    expect(table.showHead).toBe(true);
-    expect(table.repeatHead).toBe(true);
-    expect(table.head).toEqual(['품명', '수량', '금액']);
-    expect(table.headWidthPercentages).toEqual([50, 20, 30]);
-    expect(table.tableStyles).toEqual({ borderColor: '#000000', borderWidth: 0.2 });
+describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
+  /** 그리드가 낸 텍스트 값 목록 (그린 순서대로) */
+  function itemTexts(file: SlipTemplateFile | SlipVoucherFile): string[] {
+    const { template, inputs } = convertSlipFile(file);
+    const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
+    return schemas
+      .filter((schema) => schema.type === 'text' && String(schema.name).includes('items__'))
+      .map((schema) => inputs[0]?.[schema.name] ?? '');
+  }
 
-    const cellStyleKeys = [
-      'alignment',
-      'verticalAlignment',
-      'fontSize',
-      'lineHeight',
-      'characterSpacing',
-      'fontColor',
-      'backgroundColor',
-      'borderColor',
-      'borderWidth',
-      'padding',
-    ];
-    const headStyles = table.headStyles as Record<string, unknown>;
-    const bodyStyles = table.bodyStyles as Record<string, unknown>;
-    for (const key of cellStyleKeys) {
-      expect(headStyles).toHaveProperty(key);
-      expect(bodyStyles).toHaveProperty(key);
-    }
-    expect(bodyStyles).toHaveProperty('alternateBackgroundColor');
-    expect(headStyles.borderWidth).toEqual({ top: 0.2, right: 0.2, bottom: 0.2, left: 0.2 });
-    expect(headStyles.padding).toEqual({ top: 2, right: 2, bottom: 2, left: 2 });
-    expect(table.columnStyles).toEqual({});
+  it('반복 구간이 전표 값으로 채워지고 헤더는 고정 문구를 쓴다', () => {
+    const texts = itemTexts(makeVoucher(2));
+    expect(texts.slice(0, 3)).toEqual(['품명', '수량', '금액']);
+    expect(texts).toContain('테스트 품목 1');
+    expect(texts).toContain('2000');
   });
 
-  it('행 데이터는 열의 물리 키로 읽어 문자열화한다', () => {
-    const { inputs } = convertSlipFile(makeVoucher(2));
-    expect(JSON.parse(inputs[0]?.items ?? '[]')).toEqual([
-      ['테스트 품목 1', '1', '1000'],
-      ['테스트 품목 2', '2', '2000'],
-    ]);
-  });
-
-  it('양식(template) 파일은 빈 행으로 변환된다', () => {
-    const { inputs } = convertSlipFile(makeTemplateFile());
-    expect(inputs[0]?.items).toBe('[]');
-    // 값이 비었으므로 수식 없는 필드는 빈 문자열이 된다
+  it('양식(빈 값) 파일은 반복 칸이 비어 헤더만 남는다', () => {
+    const texts = itemTexts(makeTemplateFile());
+    expect(texts).toEqual(['품명', '수량', '금액']);
+    // 값이 비었으므로 수식 없는 필드도 빈 문자열이 된다
     const file = makeTemplateFile();
     patchElement(file.template, 'total', { formula: undefined });
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 
-  it('바인딩 값이 객체 배열이 아니면 한국어 오류로 거부한다', () => {
+  it('반복 값이 객체 배열이 아니면 한국어 오류로 거부한다', () => {
     const voucher = makeVoucher();
     voucher.values.items = '표가 아님';
     expect(() => convertSlipFile(voucher)).toThrow(/객체 배열이어야 합니다/);
     voucher.values.items = [1, 2];
-    expect(() => convertSlipFile(voucher)).toThrow(/행은 객체여야 합니다/);
+    expect(() => convertSlipFile(voucher)).toThrow(/항목은 객체여야 합니다/);
   });
 });
 
