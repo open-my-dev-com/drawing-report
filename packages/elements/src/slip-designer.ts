@@ -304,6 +304,9 @@ function hsvToHex(h: number, s: number, v: number): string {
   return `#${to(f(5))}${to(f(3))}${to(f(1))}`;
 }
 
+/** 디자이너가 만들 수 있는 요소 종류 — 그리드(grid)는 편집 화면이 아직 없다 (ADR-037 2단계) */
+type CreatableType = Exclude<SlipElement['type'], 'grid'>;
+
 const PLACEHOLDER_IMG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
@@ -312,6 +315,8 @@ const TYPE_BADGE: Record<SlipElement['type'], TemplateResult> = {
   text: icons.text,
   fixedGrid: icons.fixedGrid,
   dynamicTable: icons.dynamicTable,
+  // 그리드는 아직 디자이너에서 만들 수 없다 — 배지는 고정 그리드 아이콘을 함께 쓴다 (ADR-037 2단계)
+  grid: icons.fixedGrid,
   image: icons.image,
   line: icons.line,
   rect: icons.shape,
@@ -2292,11 +2297,11 @@ export class SlipDesigner extends LitElement {
   private _guideY: number | null = null;
   private _previewGeneration = 0;
   /** 선택된 생성 도구 — 캔버스를 클릭·드래그하면 이 종류의 요소를 만든다 (한 번 만들면 해제) */
-  private _pendingTool: SlipElement['type'] | null = null;
+  private _pendingTool: CreatableType | null = null;
   /** 드래그 생성 중 임시 사각형(mm) — 캔버스에 점선 미리보기로 표시 */
   private _drawRect: { x: number; y: number; w: number; h: number } | null = null;
   private _draw: {
-    type: SlipElement['type'];
+    type: CreatableType;
     startX: number;
     startY: number;
     endX: number;
@@ -2641,7 +2646,7 @@ export class SlipDesigner extends LitElement {
    * 없으면 여백 원점에서 계단식으로 어긋난 기본 위치에 만든다.
    */
   private _addElement(
-    type: SlipElement['type'],
+    type: CreatableType,
     place?: {
       position: { x: number; y: number };
       width?: number;
@@ -2809,7 +2814,7 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   /** 생성 도구 선택·해제 — 같은 도구를 다시 누르면 해제된다 */
-  private _selectTool(type: SlipElement['type']): void {
+  private _selectTool(type: CreatableType): void {
     this._pendingTool = this._pendingTool === type ? null : type;
     this._draw = null;
     this._drawRect = null;
@@ -4523,7 +4528,7 @@ export class SlipDesigner extends LitElement {
     const drawnAsSvg = el.type === 'line' || el.type === 'ellipse' || el.type === 'polygon';
     if (el.type !== 'image' && !drawnAsSvg) {
       const r = el as Record<string, unknown>;
-      // 동적 표의 배경색은 머리행 배경으로만 쓴다 (PDF 변환과 동일) — 상자 전체를 칠하지 않는다
+      // 동적 표의 배경색은 헤더 배경으로만 쓴다 (PDF 변환과 동일) — 상자 전체를 칠하지 않는다
       if (r.backgroundColor && el.type !== 'dynamicTable') style += `;background-color:${r.backgroundColor}`;
       if (r.fontColor) style += `;color:${r.fontColor}`;
       if (r.borderColor) style += `;border-color:${r.borderColor}`;
@@ -4563,7 +4568,7 @@ export class SlipDesigner extends LitElement {
         return this._renderGridPreview(el);
 
       case 'dynamicTable':
-        // PDF 변환과 동일하게: 요소 배경색 = 머리행 배경(기본 #eeeeee), 머리행은 가운데 정렬
+        // PDF 변환과 동일하게: 요소 배경색 = 헤더 배경(기본 #eeeeee), 헤더는 가운데 정렬
         return html`<div class="table-preview">
           ${el.columns.map((col) =>
             html`<div style="flex:${col.widthPercentage};background-color:${el.backgroundColor ?? '#eeeeee'}">${col.title}</div>`,
@@ -5160,6 +5165,7 @@ export class SlipDesigner extends LitElement {
       text: s.typeText,
       fixedGrid: s.typeFixedGrid,
       dynamicTable: s.typeDynamicTable,
+      grid: s.typeGrid,
       image: s.typeImage,
       line: s.shapeLine,
       rect: s.shapeRect,

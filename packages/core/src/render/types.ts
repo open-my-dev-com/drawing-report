@@ -7,6 +7,16 @@
  */
 import type { SlipFile } from '../format/schema.js';
 
+/** 등록 폰트 하나 */
+export interface SlipFont {
+  /** 폰트 이름 — 요소의 `fontName`이 이 이름을 가리킨다 */
+  name: string;
+  /** 폰트 파일 바이트 (ttf·otf) */
+  data: Uint8Array;
+  /** 대체 폰트로 쓸지 — 하나만 지정할 수 있다 */
+  fallback?: boolean;
+}
+
 /** PDF 렌더링 옵션 */
 export interface RenderOptions {
   /**
@@ -14,7 +24,7 @@ export interface RenderOptions {
    * `fallback: true`인 폰트는 하나만 지정할 수 있으며, 아무것도 지정하지 않으면
    * 첫 번째 폰트를 대체 폰트로 쓴다. 생략하면 하부 엔진의 기본 폰트를 쓴다.
    */
-  fonts?: { name: string; data: Uint8Array; fallback?: boolean }[];
+  fonts?: SlipFont[];
   /**
    * FORMAT_NUMBER 등 수식 포맷 함수의 로케일 (BCP-47) — ADR-013.
    * 예: 'de-DE'를 지정하면 1234.5가 "1.234,5"로 표기된다.

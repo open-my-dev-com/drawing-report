@@ -50,6 +50,7 @@ export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer 
         ...(options.locale === undefined ? {} : { locale: options.locale }),
         fontNames,
         ...(fallbackFontName === undefined ? {} : { fallbackFontName }),
+        ...(options.fonts === undefined ? {} : { fonts: options.fonts }),
       });
       return generate({
         template,

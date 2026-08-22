@@ -26,6 +26,7 @@
     "@pdfme/common": "^6.1.12",
     "@pdfme/generator": "^6.1.12",
     "@pdfme/schemas": "^6.1.12",
+    "fontkit": "^2.0.4",
     "zod": "^4.0.0"
   }
 }

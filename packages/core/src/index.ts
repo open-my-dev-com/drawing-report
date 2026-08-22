@@ -32,6 +32,7 @@ export {
   createPdfRenderer,
   renderSlipToPdf,
   type RenderOptions,
+  type SlipFont,
   type SlipPdfRenderer,
 } from './render/index.js';
 export {
