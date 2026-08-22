@@ -11,6 +11,7 @@ import {
   type GridCell,
   type GridRepeat,
   type PageNumberPosition,
+  type BarcodeKind,
   type SlipPage,
   type RenderOptions,
   type SlipListItem,
@@ -103,6 +104,37 @@ const RULER_PX = 18;
 
 /** 격자 간격 선택지(mm) — 없음은 별도 (F-20) */
 const GRID_GAPS = [1, 5, 10] as const;
+
+/**
+ * 바코드 종류 표시 순서·이름 (G-33) — 전표에 흔한 QR·CODE128·EAN-13을 앞에 둔다.
+ * 이름은 국제 표준의 고유명사라 로케일과 무관하게 같다(strings.ts로 옮기지 않는다).
+ */
+const BARCODE_KINDS: readonly { value: BarcodeKind; label: string }[] = [
+  { value: 'qrcode', label: 'QR 코드' },
+  { value: 'code128', label: 'CODE128' },
+  { value: 'ean13', label: 'EAN-13' },
+  { value: 'code39', label: 'CODE39' },
+  { value: 'ean8', label: 'EAN-8' },
+  { value: 'upca', label: 'UPC-A' },
+  { value: 'upce', label: 'UPC-E' },
+  { value: 'itf14', label: 'ITF-14' },
+  { value: 'nw7', label: 'NW-7 (CODABAR)' },
+  { value: 'japanpost', label: 'Japan Post' },
+  { value: 'gs1datamatrix', label: 'GS1 DataMatrix' },
+  { value: 'pdf417', label: 'PDF417' },
+];
+
+/** 2차원 바코드 종류 — 캔버스 견본을 정사각 격자로 그린다 (G-33). 나머지는 막대 줄로 그린다 */
+const BARCODE_2D: ReadonlySet<BarcodeKind> = new Set(['qrcode', 'gs1datamatrix']);
+
+/**
+ * 고정 값이 종류의 값 규칙에 어긋나는지 검사한다 (G-33, 편집 중 경고용).
+ * 자리 수가 정해진 종류와 CODE39만 확실히 검사하고, 자유로운 종류(QR·CODE128 등)는 검사하지 않는다.
+ * 바인딩·수식 값은 전표를 채울 때 정해지므로 이 함수로 검사하지 않는다.
+ */
+const BARCODE_DIGIT_RULES: Partial<Record<BarcodeKind, number>> = {
+  ean13: 13, ean8: 8, upca: 12, itf14: 14,
+};
 
 /**
  * 격자 색 선택지 (F-20) — 양식에 회색 표가 많으면 회색 격자가 묻히므로 색으로 구분한다.
@@ -1303,6 +1335,30 @@ export class SlipDesigner extends LitElement {
       object-fit: contain;
       position: absolute;
       inset: 0;
+    }
+    /* 바코드 견본 (G-33) — 격자·막대 그림 위에 종류·값을 겹쳐 보여준다 */
+    .element .barcode-preview {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .element .barcode-svg {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+    }
+    .element .barcode-caption {
+      flex: 0 0 auto;
+      padding: 0 1px;
+      font-size: 8px;
+      line-height: 1.1;
+      color: var(--sk-text-muted);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .element .grid-preview {
       position: absolute;
@@ -4111,6 +4167,9 @@ export class SlipDesigner extends LitElement {
         ${this._iconButton(s.addField, icons.field, () => this._selectTool('field'), {
           pressed: this._pendingTool === 'field',
         })}
+        ${this._iconButton(s.addBarcode, icons.barcode, () => this._selectTool('barcode'), {
+          pressed: this._pendingTool === 'barcode',
+        })}
       </div>
       <div class="tool-group">
         ${this._iconButton(s.copy, icons.copy, () => this._copySelected(), { disabled: !this._selectedId })}
@@ -5072,7 +5131,53 @@ export class SlipDesigner extends LitElement {
         return html`<span class="el-content"
           style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(el)}"
           >{${el.binding}}</span>`;
+
+      case 'barcode':
+        return this._renderBarcodePreview(el);
     }
+  }
+
+  /**
+   * 바코드 캔버스 견본 (G-33) — 진짜 바코드는 PDF 미리보기가 그린다(ADR-012). 편집 중에는
+   * 종류에 맞는 생김새 견본(2차원은 정사각 격자, 1차원은 막대 줄)과 값·종류를 보여
+   * 자리와 크기를 가늠하게 한다. 실제 데이터로 그리지 않으므로 화면·PDF 불일치가 아니다.
+   */
+  private _renderBarcodePreview(el: SlipElement & { type: 'barcode' }) {
+    const label = el.content ?? (el.binding !== undefined ? `{${el.binding}}` : el.formula ?? '');
+    const color = el.fontColor ?? '#000000';
+    const kindLabel = BARCODE_KINDS.find((k) => k.value === el.kind)?.label ?? el.kind;
+    // 종류·값을 함께 보여 무엇을 담았는지 알게 한다 (빈 상자만 두면 알 수 없다)
+    const caption = html`<span class="barcode-caption">${kindLabel}${label ? ` · ${label}` : ''}</span>`;
+    if (BARCODE_2D.has(el.kind)) {
+      // 2차원 견본 — 모서리 3곳의 위치 탐지 무늬 + 바둑판 채움 (실제 인코딩 아님)
+      const n = 11;
+      const cells = Array.from({ length: n }, (_, r) =>
+        Array.from({ length: n }, (_, c) => {
+          const finder = (r < 3 && c < 3) || (r < 3 && c >= n - 3) || (r >= n - 3 && c < 3);
+          const on = finder || (r + c) % 2 === 0;
+          return on ? svg`<rect x=${c} y=${r} width="1" height="1" fill=${color} />` : nothing;
+        }),
+      );
+      return html`
+        <div class="barcode-preview">
+          <svg viewBox="0 0 ${n} ${n}" preserveAspectRatio="none" class="barcode-svg">${cells}</svg>
+          ${caption}
+        </div>`;
+    }
+    // 1차원 견본 — 굵기가 다른 세로 막대 줄 (실제 인코딩 아님)
+    const pattern = [2, 1, 1, 3, 1, 2, 1, 1, 2, 3, 1, 1, 2, 1, 3, 1, 1, 2, 1, 2];
+    const total = pattern.reduce((sum, w) => sum + w, 0);
+    let x = 0;
+    const bars = pattern.map((w, i) => {
+      const bar = i % 2 === 0 ? svg`<rect x=${x} y="0" width=${w} height="1" fill=${color} />` : nothing;
+      x += w;
+      return bar;
+    });
+    return html`
+      <div class="barcode-preview">
+        <svg viewBox="0 0 ${total} 1" preserveAspectRatio="none" class="barcode-svg">${bars}</svg>
+        ${caption}
+      </div>`;
   }
 
   /**
@@ -5859,6 +5964,122 @@ export class SlipDesigner extends LitElement {
     });
   }
 
+  /**
+   * 바코드 값의 종류를 고른다 — 고정 문구·값·수식 중 하나만 가진다 (SPEC §5.6). 종류를
+   * 바꾸면 나머지 둘은 지운다. 값(바인딩)으로 바꾸면 유효한 키가 필요하므로 새 값을 만들어 붙인다.
+   *
+   * @param kind - 고를 값 종류
+   */
+  private _chooseBarcodeSource(kind: 'content' | 'binding' | 'formula'): void {
+    if (kind === 'binding') {
+      this._assignNewBarcodeBinding();
+      return;
+    }
+    this._updateElement((element) => {
+      if (element.type !== 'barcode') return;
+      const r = element as Record<string, unknown>;
+      delete r.content;
+      delete r.binding;
+      delete r.formula;
+      r[kind] = '';
+    });
+  }
+
+  /**
+   * 바코드의 고정 문구·수식 값을 넣는다 — 나머지 소스는 지운다 (G-33).
+   *
+   * @param kind - `content` 또는 `formula`
+   * @param value - 넣을 문자열 (빈 값이어도 그 소스는 유지한다)
+   */
+  private _setBarcodeSource(kind: 'content' | 'formula', value: string): void {
+    this._updateElement((element) => {
+      if (element.type !== 'barcode') return;
+      const r = element as Record<string, unknown>;
+      delete r.content;
+      delete r.binding;
+      delete r.formula;
+      r[kind] = value;
+    });
+  }
+
+  /** 바코드 값(바인딩)의 키를 고르는 select — 등록된 값 목록 + 새 값 (G-33) */
+  private _renderBarcodeBindingSelect(current: string) {
+    const s = this._strings.designer;
+    const list = this._bindingList();
+    return html`
+      <div class="prop-row">
+        <label>${s.binding}</label>
+        <select class="binding-select" aria-label=${s.binding}
+          @change=${(e: Event) => {
+            const value = (e.target as HTMLSelectElement).value;
+            if (value === NEW_BINDING_OPTION) this._assignNewBarcodeBinding();
+            else {
+              this._updateElement((element) => {
+                if (element.type !== 'barcode') return;
+                const r = element as Record<string, unknown>;
+                delete r.content;
+                delete r.formula;
+                r.binding = value;
+              });
+              this._ensureBindingDef(value);
+            }
+          }}>
+          ${list.map((b) => html`
+            <option value=${b.key} ?selected=${b.key === current}>${b.label}</option>`)}
+          <option value=${NEW_BINDING_OPTION}>${s.bindingNew}</option>
+        </select>
+      </div>
+    `;
+  }
+
+  /** 새 값을 만들어 지금 고른 바코드 요소에 값(바인딩)으로 붙인다 (G-33) */
+  private _assignNewBarcodeBinding(): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'barcode') {
+      this.requestUpdate();
+      return;
+    }
+    const { key, label } = this._nextBinding();
+    const id = el.id;
+    this._updateFile((f) => {
+      const defs = f.template.bindings ?? [];
+      defs.push({ key, label });
+      f.template.bindings = defs;
+      for (const page of f.template.pages) {
+        for (const target of page.elements) {
+          if (target.id === id && target.type === 'barcode') {
+            const r = target as Record<string, unknown>;
+            delete r.content;
+            delete r.formula;
+            r.binding = key;
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * 고정 바코드 값이 종류 규칙에 어긋나면 경고 문구를, 문제없으면 null을 돌려준다 (G-33).
+   * 자리 수가 정해진 종류(EAN-13 등)와 CODE39만 검사한다 — 자유로운 종류는 검사하지 않는다.
+   *
+   * @param kind - 바코드 종류
+   * @param content - 검사할 고정 값
+   * @returns 경고 문구 또는 null
+   */
+  private _barcodeContentWarning(kind: BarcodeKind, content: string): string | null {
+    const s = this._strings.designer;
+    if (content === '') return null;
+    const digits = BARCODE_DIGIT_RULES[kind];
+    if (digits !== undefined && !new RegExp(`^\\d{${digits}}$`).test(content)) {
+      const name = BARCODE_KINDS.find((k) => k.value === kind)?.label ?? kind;
+      return s.barcodeWarnDigits.replace('{name}', name).replace('{n}', String(digits));
+    }
+    if (kind === 'code39' && !/^[A-Z0-9\-.$/+% ]+$/.test(content)) {
+      return s.barcodeWarnCode39;
+    }
+    return null;
+  }
+
   private _typeName(type: SlipElement['type']): string {
     const s = this._strings.designer;
     const map: Record<SlipElement['type'], string> = {
@@ -5916,6 +6137,54 @@ export class SlipDesigner extends LitElement {
             </div>
           </div>
         `;
+
+      case 'barcode': {
+        // 값은 고정 문구·값(바인딩)·수식 중 하나 — 어느 것이 정해졌는지로 종류를 가른다 (SPEC §5.6)
+        const source: 'content' | 'binding' | 'formula' =
+          el.binding !== undefined ? 'binding' : el.formula !== undefined ? 'formula' : 'content';
+        // 편집 중 경고 — 고정 값이 종류 규칙에 어긋날 때만 (바인딩·수식 값은 전표에서 정해진다, G-33)
+        const warning = source === 'content' ? this._barcodeContentWarning(el.kind, el.content ?? '') : null;
+        return html`
+          <div class="prop-section">
+            <div class="prop-row">
+              <label>${s.barcodeKind}</label>
+              <select aria-label=${s.barcodeKind} .value=${el.kind}
+                @change=${(e: Event) => this._updateElement((target) => {
+                  if (target.type === 'barcode') target.kind = (e.target as HTMLSelectElement).value as BarcodeKind;
+                })}>
+                ${BARCODE_KINDS.map((k) => html`
+                  <option value=${k.value} ?selected=${k.value === el.kind}>${k.label}</option>`)}
+              </select>
+            </div>
+            <div class="prop-row">
+              <label>${s.barcodeValue}</label>
+              <select aria-label=${s.barcodeValue} .value=${source}
+                @change=${(e: Event) =>
+                  this._chooseBarcodeSource((e.target as HTMLSelectElement).value as 'content' | 'binding' | 'formula')}>
+                <option value="content" ?selected=${source === 'content'}>${s.cellSourceText}</option>
+                <option value="binding" ?selected=${source === 'binding'}>${s.cellSourceBinding}</option>
+                <option value="formula" ?selected=${source === 'formula'}>${s.cellSourceFormula}</option>
+              </select>
+            </div>
+            ${source === 'content'
+              ? html`
+                <div class="prop-row">
+                  <label>${s.content}</label>
+                  <input .value=${el.content ?? ''}
+                    @change=${(e: Event) => this._setBarcodeSource('content', valOf(e))}>
+                </div>
+                ${warning ? html`<p class="image-error" role="alert">${warning}</p>` : nothing}`
+              : source === 'binding'
+                ? this._renderBarcodeBindingSelect(el.binding ?? '')
+                : html`
+                  <div class="prop-row">
+                    <label>${s.formula}</label>
+                    <input .value=${el.formula ?? ''}
+                      @change=${(e: Event) => this._setBarcodeSource('formula', valOf(e))}>
+                  </div>`}
+          </div>
+        `;
+      }
 
       case 'line':
         return html`

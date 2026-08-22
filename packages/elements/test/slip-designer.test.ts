@@ -4157,3 +4157,59 @@ describe('<slip-designer> 변동 이미지 (G-47)', () => {
     el.remove();
   });
 });
+
+describe('<slip-designer> 바코드 요소 (G-33)', () => {
+  const lastElement = (el: Element) => {
+    const els = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements;
+    return els[els.length - 1] as never as Record<string, unknown>;
+  };
+  const selectEl = (el: HTMLElement, id: string) => selectElement(el, id);
+
+  it('바코드 도구로 만들면 qrcode·바인딩으로 생성된다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addBarcode);
+    const bc = lastElement(el);
+    expect(bc.type).toBe('barcode');
+    expect(bc.kind).toBe('qrcode');
+    expect(typeof bc.binding).toBe('string');
+    // 캔버스에 견본(svg)이 그려진다
+    expect(el.shadowRoot!.querySelector('.barcode-preview svg')).not.toBeNull();
+    el.remove();
+  });
+
+  it('종류를 바꾸고 값 소스를 고정 문구로 바꾼다', async () => {
+    const el = await loadDesigner();
+    await addByCanvasClick(el, strings.designer.addBarcode);
+    const bc = lastElement(el);
+    selectEl(el, bc.id as string);
+    await el.updateComplete;
+
+    // 종류 변경
+    const kindSelect = Array.from(el.shadowRoot!.querySelectorAll('select'))
+      .find((s) => s.getAttribute('aria-label') === strings.designer.barcodeKind) as HTMLSelectElement;
+    kindSelect.value = 'ean13';
+    kindSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(lastElement(el).kind).toBe('ean13');
+
+    // 값 소스를 고정 문구로 — content가 생기고 binding이 빠진다
+    const sourceSelect = Array.from(el.shadowRoot!.querySelectorAll('select'))
+      .find((s) => s.getAttribute('aria-label') === strings.designer.barcodeValue) as HTMLSelectElement;
+    sourceSelect.value = 'content';
+    sourceSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(lastElement(el).binding).toBeUndefined();
+    expect(lastElement(el).content).toBe('');
+
+    // 잘못된 EAN-13 값 — 경고가 뜬다
+    const input = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.content)!
+      .querySelector('input') as HTMLInputElement;
+    input.value = '123';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(lastElement(el).content).toBe('123');
+    expect(el.shadowRoot!.querySelector('.image-error')?.textContent).toContain('13');
+    el.remove();
+  });
+});

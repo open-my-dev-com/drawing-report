@@ -6,7 +6,10 @@
  */
 export type {
   AssetEntry,
+  BarcodeElement,
+  BarcodeKind,
   BindingDef,
+  BindingValueType,
   EllipseElement,
   FieldElement,
   GridCell,
