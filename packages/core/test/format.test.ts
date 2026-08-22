@@ -266,13 +266,39 @@ describe('schemaVersion 마이그레이션 (구버전 → 0.5.0)', () => {
     expect(saved.type).toBe('barcode');
   });
 
+  it('반복 구간 칸이 구간 전체를 덮지 않는 열은 자동 병합을 켤 수 없다 (ADR-038)', () => {
+    const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
+    const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
+    // 반복 구간을 2행으로 넓히고 그 열이 줄마다 따로 칸을 갖게 만든다
+    grid['rows'] = [{ height: 8 }, { height: 8 }, { height: 8 }];
+    grid['height'] = 8 + 10 * (8 + 8);
+    (grid['repeat'] as Record<string, unknown>)['toRow'] = 2;
+    grid['cells'] = [
+      { row: 0, column: 0, content: '품명' },
+      { row: 1, column: 0, binding: '품명' },
+      { row: 2, column: 0, binding: '규격' },
+    ];
+    (grid['columns'] as Record<string, unknown>[])[0]!['autoMerge'] = true;
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/구간 전체 높이/);
+  });
+
+  it('반복 구간이 없는 그리드의 열은 자동 병합을 켤 수 없다 (ADR-038)', () => {
+    const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
+    const grid = template.pages[0]!.elements.find((el) => el['id'] === 'supplier')!;
+    (grid['columns'] as Record<string, unknown>[])[0]!['autoMerge'] = true;
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/반복 구간이 있어야/);
+  });
+
   it('그리드 열의 자동 병합과 페이지 이름·번호를 담을 수 있다 (0.5.0)', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as {
       pages: { elements: Record<string, unknown>[]; key?: string; label?: string; pageNumber?: unknown }[];
       bindings?: { key: string; label?: string; valueType?: string }[];
     };
-    const grid = template.pages[0]!.elements.find((el) => el['type'] === 'grid')!;
+    // 반복 구간이 있는 그리드('items')여야 자동 병합을 켤 수 있다 — 한 줄 구간이라 저절로 성립한다
+    const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
     (grid['columns'] as Record<string, unknown>[])[0]!['autoMerge'] = true;
     template.pages[0]!.key = 'first';
     template.pages[0]!.label = '첫 장';
@@ -285,7 +311,7 @@ describe('schemaVersion 마이그레이션 (구버전 → 0.5.0)', () => {
     expect(page.label).toBe('첫 장');
     expect(page.pageNumber?.position).toBe('bottom-center');
     expect(parsed.template.bindings?.[0]?.valueType).toBe('list');
-    const saved = page.elements.find((el) => el.type === 'grid')!;
+    const saved = page.elements.find((el) => el.id === 'items')!;
     if (saved.type !== 'grid') throw new Error('grid여야 한다');
     expect(saved.columns[0]?.autoMerge).toBe(true);
   });
