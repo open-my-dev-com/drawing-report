@@ -197,6 +197,13 @@ describe('.slip 템플릿 파싱', () => {
     getElement(file, 1, 'grid').id = 'title';
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/요소 id가 중복/);
   });
+
+  it('페이지 물리명(key)이 중복되면 거부한다 (0.5.0, SPEC §4)', () => {
+    const file = makeTemplate();
+    file.template.pages[0]!.key = 'cover';
+    file.template.pages.push({ elements: [], key: 'cover' });
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/페이지 key가 중복/);
+  });
 });
 
 describe('구조 크기 상한 (SPEC §3.2)', () => {

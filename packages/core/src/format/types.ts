@@ -16,6 +16,8 @@ export type {
   Integrity,
   JsonValue,
   LineElement,
+  PageNumber,
+  PageNumberPosition,
   PaperSize,
   PolygonElement,
   RectElement,

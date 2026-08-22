@@ -946,8 +946,8 @@ describe('<slip-designer> 사이드바', () => {
     expect(Array.from(rows).map((r) => r.textContent?.trim()))
       .toEqual([strings.designer.pageLabel.replace('{n}', '1'),
                 strings.designer.pageLabel.replace('{n}', '2')]);
-    // 페이지 추가 직후엔 2페이지가 현재 — 1페이지 줄을 눌러 되돌아간다
-    expect(rows[1]?.classList.contains('selected')).toBe(true);
+    // 페이지 추가 직후엔 2페이지가 현재 — 1페이지 줄을 눌러 되돌아간다 (G-46: 현재 페이지는 current)
+    expect(rows[1]?.classList.contains('current')).toBe(true);
     (rows[0] as HTMLElement).click();
     await el.updateComplete;
 
@@ -955,6 +955,9 @@ describe('<slip-designer> 사이드바', () => {
       .toBe('1 / 2');
     // 1페이지 요소(2개)가 캔버스에 보인다
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
+    // 페이지 줄을 누르면 오른쪽 패널이 페이지 설정으로 바뀐다 (G-46)
+    expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
+      .toBe(strings.designer.pageSettings);
     el.remove();
   });
 
@@ -980,6 +983,77 @@ describe('<slip-designer> 사이드바', () => {
     await el.updateComplete;
     expect(el.shadowRoot!.querySelector('.page-thumb-pop')).toBeNull();
     el.remove();
+  });
+
+  it('페이지 이름을 정하면 썸네일·목록에 번호 대신 그 이름이 나온다 (G-46)', async () => {
+    const el = await loadDesigner();
+    (sideSection(el, strings.designer.sidebarPages).querySelector('.page-row') as HTMLElement).click();
+    await el.updateComplete;
+
+    const nameInput = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.pageName)!
+      .querySelector('input') as HTMLInputElement;
+    nameInput.value = '표지';
+    nameInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const row = sideSection(el, strings.designer.sidebarPages).querySelector('.page-row');
+    expect(row?.textContent?.trim()).toBe('표지');
+    const file = (el as unknown as { _file: SlipTemplateFile })._file;
+    expect(file.template.pages[0]!.label).toBe('표지');
+  });
+
+  it('페이지 번호 표시를 켜면 위치를 고를 수 있고 캔버스에 X / X 자리표시가 나온다 (G-46)', async () => {
+    const el = await loadDesigner();
+    (sideSection(el, strings.designer.sidebarPages).querySelector('.page-row') as HTMLElement).click();
+    await el.updateComplete;
+
+    const toggle = Array.from(el.shadowRoot!.querySelectorAll('input[type="checkbox"]'))
+      .find((c) => c.getAttribute('aria-label') === strings.designer.pageNumberShow) as HTMLInputElement;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const file = (el as unknown as { _file: SlipTemplateFile })._file;
+    expect(file.template.pages[0]!.pageNumber?.position).toBe('bottom-center');
+    // 캔버스에 자리표시가 나온다 — 실제 번호는 PDF 후처리 (ADR-012)
+    const mark = el.shadowRoot!.querySelector('.page-number-mark');
+    expect(mark?.textContent?.trim()).toBe('X / X');
+
+    // 위치를 바꾸면 반영된다
+    const posSelect = Array.from(el.shadowRoot!.querySelectorAll('select'))
+      .find((sel) => sel.getAttribute('aria-label') === strings.designer.pageNumberPosition) as HTMLSelectElement;
+    posSelect.value = 'top-right';
+    posSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(file.template.pages[0]!.pageNumber?.position).toBe('top-right');
+  });
+
+  it('페이지 물리명이 다른 페이지와 겹치면 되돌리고 안내한다 (G-46)', async () => {
+    const el = await loadDesigner();
+    toolbarButton(el, strings.designer.addPage).click();
+    await el.updateComplete;
+    const setKey = async (value: string) => {
+      const keyInput = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+        .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.pageKey)!
+        .querySelector('input') as HTMLInputElement;
+      keyInput.value = value;
+      keyInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await el.updateComplete;
+    };
+    // 2페이지가 현재 — 물리명 cover를 준다
+    (Array.from(sideSection(el, strings.designer.sidebarPages).querySelectorAll('.page-row'))[1] as HTMLElement).click();
+    await el.updateComplete;
+    await setKey('cover');
+    const file = (el as unknown as { _file: SlipTemplateFile })._file;
+    expect(file.template.pages[1]!.key).toBe('cover');
+
+    // 1페이지로 가서 같은 물리명을 주면 거부된다
+    (Array.from(sideSection(el, strings.designer.sidebarPages).querySelectorAll('.page-row'))[0] as HTMLElement).click();
+    await el.updateComplete;
+    await setKey('cover');
+    expect(file.template.pages[0]!.key).toBeUndefined();
+    expect(el.shadowRoot!.querySelector('.cell-hint.error')).not.toBeNull();
   });
 
   it('요소 목록에 현재 페이지 요소가 나열되고, 클릭하면 그 요소가 선택된다', async () => {
@@ -1168,14 +1242,20 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  it('툴바에서 페이지 순서를 옮기면 그 페이지 요소가 그대로 따라간다', async () => {
+  it('페이지 설정 패널에서 순서를 옮기면 그 페이지 요소가 그대로 따라간다 (G-46)', async () => {
     const el = await loadDesigner();
     toolbarButton(el, strings.designer.addPage).click();
     await el.updateComplete;
     // 2페이지에 요소를 하나 만들어 순서가 바뀌는지 확인한다
     await addByCanvasClick(el, strings.designer.addText);
 
-    toolbarButton(el, strings.designer.pageMoveForward).click();
+    // 페이지 순서 이동은 툴바가 아니라 페이지 설정 패널에 있다 (G-46: 툴바에서 옮김)
+    const pageRows = sideSection(el, strings.designer.sidebarPages).querySelectorAll('.page-row');
+    (pageRows[1] as HTMLElement).click();
+    await el.updateComplete;
+    const moveForward = Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === strings.designer.pageMoveForward) as HTMLButtonElement;
+    moveForward.click();
     await el.updateComplete;
 
     const file = (el as unknown as { _file: SlipTemplateFile })._file;
@@ -1184,7 +1264,9 @@ describe('<slip-designer> 사이드바', () => {
     expect(el.shadowRoot?.querySelector('.page-indicator')?.textContent?.replace(/\s+/g, ' ').trim())
       .toBe('1 / 2');
     // 첫 페이지에서는 더 앞으로 옮길 수 없다
-    expect(toolbarButton(el, strings.designer.pageMoveForward).disabled).toBe(true);
+    const moveForwardAgain = Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === strings.designer.pageMoveForward) as HTMLButtonElement;
+    expect(moveForwardAgain.disabled).toBe(true);
     el.remove();
   });
 
