@@ -13,11 +13,8 @@
 import type { Schema, Template } from '@pdfme/common';
 import { evaluateFormula } from '../formula/evaluator.js';
 import type {
-  DynamicTableElement,
   EllipseElement,
   FieldElement,
-  FixedGridCell,
-  FixedGridElement,
   GridCell,
   GridElement,
   ImageElement,
@@ -44,10 +41,8 @@ const DEFAULT_BORDER_COLOR = '#000000';
 const DEFAULT_BORDER_WIDTH = 0.2;
 /** pdfme에서 '색 없음'은 빈 문자열이다 */
 const NO_COLOR = '';
-/** 고정 그리드 셀 안쪽 여백(mm) */
+/** 그리드 칸 안쪽 여백(mm) */
 const GRID_CELL_PADDING = 1;
-/** 동적 표 셀 안쪽 여백(mm) */
-const TABLE_CELL_PADDING = 2;
 /** 글자를 줄여 넣을 때의 최소 크기(pt) — 이보다 작으면 읽을 수 없다 (ADR-037) */
 const MIN_SHRINK_FONT_SIZE = 4;
 /**
@@ -188,12 +183,6 @@ class SlipToPdfmeConverter {
         return;
       case 'field':
         this.appendField(schemas, element);
-        return;
-      case 'fixedGrid':
-        this.appendFixedGrid(schemas, element);
-        return;
-      case 'dynamicTable':
-        this.appendDynamicTable(schemas, element);
         return;
       case 'grid':
         this.appendGrid(schemas, element, renderPage);
@@ -342,41 +331,6 @@ class SlipToPdfmeConverter {
   // -------------------------------------------------------------------------
   // fixedGrid — 선·사각형·텍스트로 분해 (ADR-020)
   // -------------------------------------------------------------------------
-
-  private appendFixedGrid(schemas: Schema[], element: FixedGridElement): void {
-    const { rows, columns } = element;
-    this.drawGrid(schemas, {
-      idPrefix: element.id,
-      origin: { x: element.position.x, y: element.position.y },
-      columnOffsets: trackOffsets(element.width, columns, element.columnWidthPercentages),
-      rowOffsets: trackOffsets(element.height, rows, element.rowHeightPercentages),
-      rows,
-      columns,
-      cells: element.cells.map((cell) => ({
-        row: cell.row,
-        column: cell.column,
-        rowSpan: cell.rowSpan ?? 1,
-        colSpan: cell.colSpan ?? 1,
-        text: cell.content,
-        fontName: cell.fontName,
-        fontSize: cell.fontSize,
-        alignment: cell.alignment,
-        bold: cell.bold,
-        underline: cell.underline,
-        strikethrough: cell.strikethrough,
-        fontColor: cell.fontColor ?? element.fontColor,
-        backgroundColor: cell.backgroundColor,
-        borderColor: cell.borderColor,
-        borderWidth: cell.borderWidth,
-        borderStyle: cell.borderStyle,
-      })),
-      backgroundColor: element.backgroundColor,
-      borderColor: element.borderColor,
-      borderWidth: element.borderWidth,
-      borderStyle: element.borderStyle,
-      padding: GRID_CELL_PADDING,
-    });
-  }
 
   // -------------------------------------------------------------------------
   // grid — 고정 틀과 반복 목록을 하나로 다루는 그리드 (ADR-037)
@@ -719,69 +673,6 @@ class SlipToPdfmeConverter {
   }
 
   // -------------------------------------------------------------------------
-  // dynamicTable — pdfme table (스타일 기본값 병합 필수, Q08 직접 확인)
-  // -------------------------------------------------------------------------
-
-  private appendDynamicTable(schemas: Schema[], element: DynamicTableElement): void {
-    const borderColor = element.borderColor ?? DEFAULT_BORDER_COLOR;
-    const borderWidth = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
-    const fontColor = element.fontColor ?? DEFAULT_FONT_COLOR;
-    const cellStyle = {
-      alignment: 'left' as Alignment,
-      verticalAlignment: 'middle' as VerticalAlignment,
-      fontSize: DEFAULT_FONT_SIZE,
-      lineHeight: 1,
-      characterSpacing: 0,
-      fontColor,
-      backgroundColor: NO_COLOR,
-      borderColor,
-      borderWidth: box(borderWidth),
-      padding: box(TABLE_CELL_PADDING),
-    };
-    const schema: Record<string, unknown> = {
-      name: element.id,
-      type: 'table',
-      position: element.position,
-      width: element.width,
-      height: element.height,
-      content: '[]',
-      showHead: true,
-      // 페이지 분할 시 헤더 반복 (ADR-011)
-      repeatHead: element.repeatHead,
-      head: element.columns.map((col) => col.title),
-      headWidthPercentages: element.columns.map((col) => col.widthPercentage),
-      tableStyles: { borderColor, borderWidth },
-      headStyles: {
-        ...cellStyle,
-        alignment: 'center' as Alignment,
-        // 요소의 배경색은 헤더 배경으로 쓴다
-        backgroundColor: element.backgroundColor ?? '#eeeeee',
-      },
-      bodyStyles: { ...cellStyle, alternateBackgroundColor: NO_COLOR },
-      columnStyles: {},
-      opacity: 1,
-    };
-    this.push(schemas, schema, JSON.stringify(this.tableRows(element)));
-  }
-
-  private tableRows(element: DynamicTableElement): string[][] {
-    const raw = this.values[element.binding];
-    const what = `동적 표 '${element.name}'(${element.id})`;
-    if (raw === undefined || raw === null) return [];
-    if (!Array.isArray(raw)) {
-      throw new SlipRenderError(`${what}의 값 '${element.binding}'은(는) 객체 배열이어야 합니다`);
-    }
-    return raw.map((row, index) => {
-      if (typeof row !== 'object' || row === null || Array.isArray(row)) {
-        throw new SlipRenderError(`${what}의 ${index + 1}번째 행은 객체여야 합니다`);
-      }
-      const record = row as Record<string, unknown>;
-      // 행 데이터는 열의 물리 키로 읽는다 (제목을 바꿔도 데이터가 깨지지 않는다, ADR-032)
-      return element.columns.map((col) => toDisplayText(record[col.key], `${what}의 '${col.key}' 칸`));
-    });
-  }
-
-  // -------------------------------------------------------------------------
   // image · shape
   // -------------------------------------------------------------------------
 
@@ -1118,30 +1009,6 @@ function polygonPoints(sides: number, width: number, height: number): [number, n
 // 그리드 계산 헬퍼
 // ---------------------------------------------------------------------------
 
-/** 비율(생략 시 균등)로 나눈 누적 경계 위치. 길이 = count + 1 */
-function trackOffsets(total: number, count: number, percentages?: number[]): number[] {
-  const offsets = [0];
-  for (let i = 0; i < count; i++) {
-    const size = percentages ? (total * (percentages[i] ?? 0)) / 100 : total / count;
-    offsets.push((offsets[i] ?? 0) + size);
-  }
-  return offsets;
-}
-
-function cellRect(
-  cell: FixedGridCell,
-  columnOffsets: number[],
-  rowOffsets: number[],
-  originX: number,
-  originY: number,
-): { x: number; y: number; width: number; height: number } {
-  const left = columnOffsets[cell.column] ?? 0;
-  const right = columnOffsets[cell.column + (cell.colSpan ?? 1)] ?? left;
-  const top = rowOffsets[cell.row] ?? 0;
-  const bottom = rowOffsets[cell.row + (cell.rowSpan ?? 1)] ?? top;
-  return { x: originX + left, y: originY + top, width: right - left, height: bottom - top };
-}
-
 /** 그리드 그리기에 넘기는 셀 하나 — 값·스타일이 이미 풀린 상태다 (ADR-037) */
 interface DrawGridCell {
   row: number;
@@ -1163,7 +1030,7 @@ interface DrawGridCell {
   overflow?: 'clip' | 'shrink' | undefined;
 }
 
-/** 그리드 그리기 입력 — `fixedGrid`와 `grid` 두 요소가 함께 쓴다 */
+/** 그리드 그리기 입력 */
 interface DrawGridOptions {
   idPrefix: string;
   origin: { x: number; y: number };

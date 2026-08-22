@@ -148,6 +148,6 @@ FLOOR(VAT(12345), 0)      → 1234  (truncate sub-won)
 ## Formula Syntax
 
 - **Strings**: Wrap in double quotes. To include a quote inside a string, double it (`""`)
-- **Range references**: `bindingName.columnKey` refers to dynamic table column data (e.g. `items.amount`)
+- **Range references**: `bindingName.fieldName` refers to item fields in a grid repeat band (e.g. `items.amount`)
 - **Arithmetic**: `+` `-` `*` `/` with parentheses `()` for precedence
 - **Comparison**: `=` `<>` `<` `>` `<=` `>=`

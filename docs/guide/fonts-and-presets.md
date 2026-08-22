@@ -77,7 +77,7 @@ const myPresets: SlipPreset[] = [
     id: 'my-invoice',
     name: 'Invoice',
     create: (): SlipTemplateFile => ({
-      schemaVersion: '0.3.0',
+      schemaVersion: '0.4.0',
       kind: 'template',
       template: {
         meta: { title: 'Invoice' },

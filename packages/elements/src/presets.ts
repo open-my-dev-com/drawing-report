@@ -17,19 +17,31 @@ export interface SlipPreset {
 }
 
 const LABEL_BG = '#F2F2F2';
+/** 품목 그리드의 헤더 배경 */
+const HEAD_BG = '#EEEEEE';
+/** 품목 그리드의 행 높이(mm) */
+const ROW_MM = 8;
+/** 품목 그리드가 한 페이지에 담는 항목 수 */
+const ITEMS_PER_PAGE = 8;
+/** 품목 그리드의 윗변 y(mm) */
+const ITEMS_Y = 90;
+/** 품목 그리드가 차지하는 높이(mm) — 헤더 1행 + 항목 수만큼의 반복 구간 */
+const ITEMS_H = ROW_MM * (1 + ITEMS_PER_PAGE);
+/** 합계·맺음말은 품목 그리드 아래에 놓는다 — 항목 수를 바꿔도 겹치지 않는다 */
+const TOTAL_Y = ITEMS_Y + ITEMS_H + 10;
+const FOOTER_Y = TOTAL_Y + 20;
 
-/** 상호·성명·주소를 적는 3×4 정보 표 (라벨 칸은 회색 배경) */
+/** 상호·성명·주소를 적는 3행 4열 정보 그리드 (라벨 칸은 회색 배경) */
 function infoGrid(id: string, name: string, y: number): SlipElement {
   return {
-    type: 'fixedGrid',
+    type: 'grid',
     id,
     name,
     position: { x: 15, y },
     width: 180,
     height: 30,
-    rows: 3,
-    columns: 4,
-    columnWidthPercentages: [15, 35, 15, 35],
+    rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
+    columns: [{ width: 27 }, { width: 63 }, { width: 27 }, { width: 63 }],
     cells: [
       { row: 0, column: 0, content: '등록번호', backgroundColor: LABEL_BG, alignment: 'center' },
       { row: 0, column: 1, colSpan: 3, content: '' },
@@ -82,27 +94,45 @@ function createTradeStatement(): SlipTemplateFile {
             },
             infoGrid('supplier', '공급자 정보', 50),
             {
-              type: 'dynamicTable',
+              type: 'grid',
               id: 'items',
               name: '품목 표',
-              position: { x: 15, y: 90 },
+              position: { x: 15, y: ITEMS_Y },
               width: 180,
-              height: 25,
+              height: ITEMS_H,
               columns: [
-                { key: 'itemName', title: '품명', widthPercentage: 30 },
-                { key: 'spec', title: '규격', widthPercentage: 20 },
-                { key: 'quantity', title: '수량', widthPercentage: 15 },
-                { key: 'unitPrice', title: '단가', widthPercentage: 15 },
-                { key: 'amount', title: '금액', widthPercentage: 20 },
+                { width: 54 },
+                { width: 36 },
+                { width: 27 },
+                { width: 27 },
+                { width: 36 },
               ],
-              repeatHead: true,
-              binding: 'items',
+              rows: [{ height: ROW_MM }, { height: ROW_MM }],
+              repeat: {
+                binding: 'items',
+                fromRow: 1,
+                toRow: 1,
+                perPage: ITEMS_PER_PAGE,
+                repeatHeader: true,
+              },
+              cells: [
+                { row: 0, column: 0, content: '품명', backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 1, content: '규격', backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 2, content: '수량', backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 3, content: '단가', backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 4, content: '금액', backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 1, column: 0, binding: 'itemName' },
+                { row: 1, column: 1, binding: 'spec' },
+                { row: 1, column: 2, binding: 'quantity', alignment: 'right' },
+                { row: 1, column: 3, binding: 'unitPrice', alignment: 'right' },
+                { row: 1, column: 4, binding: 'amount', alignment: 'right' },
+              ],
             },
             {
               type: 'field',
               id: 'total',
               name: '합계금액',
-              position: { x: 115, y: 125 },
+              position: { x: 115, y: TOTAL_Y },
               width: 80,
               height: 10,
               binding: 'totalAmount',
@@ -114,7 +144,7 @@ function createTradeStatement(): SlipTemplateFile {
               type: 'text',
               id: 'footer',
               name: '맺음말',
-              position: { x: 15, y: 145 },
+              position: { x: 15, y: FOOTER_Y },
               width: 180,
               height: 8,
               content: '위와 같이 거래합니다.',
@@ -166,26 +196,42 @@ function createInvoice(): SlipTemplateFile {
             },
             infoGrid('biller', '청구인 정보', 50),
             {
-              type: 'dynamicTable',
+              type: 'grid',
               id: 'items',
               name: '청구 항목 표',
-              position: { x: 15, y: 90 },
+              position: { x: 15, y: ITEMS_Y },
               width: 180,
-              height: 25,
+              height: ITEMS_H,
               columns: [
-                { key: 'itemName', title: '항목', widthPercentage: 40 },
-                { key: 'quantity', title: '수량', widthPercentage: 15 },
-                { key: 'unitPrice', title: '단가', widthPercentage: 20 },
-                { key: 'amount', title: '금액', widthPercentage: 25 },
+                { width: 72 },
+                { width: 27 },
+                { width: 36 },
+                { width: 45 },
               ],
-              repeatHead: true,
-              binding: 'items',
+              rows: [{ height: ROW_MM }, { height: ROW_MM }],
+              repeat: {
+                binding: 'items',
+                fromRow: 1,
+                toRow: 1,
+                perPage: ITEMS_PER_PAGE,
+                repeatHeader: true,
+              },
+              cells: [
+                { row: 0, column: 0, content: '항목', backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 1, content: '수량', backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 2, content: '단가', backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 3, content: '금액', backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 1, column: 0, binding: 'itemName' },
+                { row: 1, column: 1, binding: 'quantity', alignment: 'right' },
+                { row: 1, column: 2, binding: 'unitPrice', alignment: 'right' },
+                { row: 1, column: 3, binding: 'amount', alignment: 'right' },
+              ],
             },
             {
               type: 'field',
               id: 'total',
               name: '청구금액',
-              position: { x: 115, y: 125 },
+              position: { x: 115, y: TOTAL_Y },
               width: 80,
               height: 10,
               binding: 'totalAmount',
@@ -197,7 +243,7 @@ function createInvoice(): SlipTemplateFile {
               type: 'text',
               id: 'footer',
               name: '맺음말',
-              position: { x: 15, y: 145 },
+              position: { x: 15, y: FOOTER_Y },
               width: 180,
               height: 8,
               content: '위 금액을 청구합니다.',

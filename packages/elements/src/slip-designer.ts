@@ -344,34 +344,37 @@ function cumulativeOffsets(total: number, count: number, percentages?: number[])
   return offsets;
 }
 
-/** 셀 격자를 가진 요소 — 고정 그리드와 그리드가 셀 편집 코드를 함께 쓴다 (ADR-037) */
-type CellGridElement = Extract<SlipElement, { type: 'fixedGrid' } | { type: 'grid' }>;
-
-function isCellGrid(el: SlipElement | undefined): el is CellGridElement {
-  return el?.type === 'fixedGrid' || el?.type === 'grid';
-}
-
-/** 행·열 수 — 고정 그리드는 수로, 그리드는 트랙 배열 길이로 갖는다 */
-function gridDims(el: CellGridElement): { rows: number; columns: number } {
-  return el.type === 'fixedGrid'
-    ? { rows: el.rows, columns: el.columns }
-    : { rows: el.rows.length, columns: el.columns.length };
-}
-
-/** 반복 구간이 한 페이지에 복제되는 횟수 (반복이 없으면 1) */
-function repeatCount(el: CellGridElement): number {
-  return el.type === 'grid' && el.repeat ? el.repeat.perPage : 1;
+function isGrid(el: SlipElement | undefined): el is GridElement {
+  return el?.type === 'grid';
 }
 
 /**
- * 캔버스에 그릴 행 높이(mm) 목록 — 그리드의 반복 구간은 `perPage`번 펼친다.
+ * 반복 구간 열의 이름 — 반복 구간 바로 위 행부터 거슬러 올라가며 같은 열의 고정 문구를 찾는다.
+ * 헤더에 적어 둔 이름을 그대로 쓰면 사이드바·수식 목록의 열 이름이 캔버스와 같아진다 (ADR-037).
+ */
+function gridHeaderTitle(grid: GridElement, column: number, fromRow: number): string | undefined {
+  for (let row = fromRow - 1; row >= 0; row -= 1) {
+    const cell = grid.cells.find((c) => c.row === row && c.column === column);
+    if (cell?.content !== undefined && cell.content !== '') return cell.content;
+  }
+  return undefined;
+}
+
+/** 그 행이 반복 구간 안인지 (틀 좌표 기준) */
+function inRepeatBand(el: GridElement, row: number): boolean {
+  return el.repeat !== undefined && row >= el.repeat.fromRow && row <= el.repeat.toRow;
+}
+
+/** 행·열 수 */
+function gridDims(el: GridElement): { rows: number; columns: number } {
+  return { rows: el.rows.length, columns: el.columns.length };
+}
+
+/**
+ * 캔버스에 그릴 행 높이(mm) 목록 — 반복 구간은 `perPage`번 펼친다.
  * 파일에는 틀 한 벌만 있고 화면·PDF에는 펼친 모습이 보인다 (SPEC §5.7).
  */
-function expandedRowHeights(el: CellGridElement): number[] {
-  if (el.type === 'fixedGrid') {
-    const offsets = cumulativeOffsets(el.height, el.rows, el.rowHeightPercentages);
-    return Array.from({ length: el.rows }, (_, i) => (offsets[i + 1] ?? 0) - (offsets[i] ?? 0));
-  }
+function expandedRowHeights(el: GridElement): number[] {
   const heights = el.rows.map((row) => row.height);
   if (!el.repeat) return heights;
   const { fromRow, toRow, perPage } = el.repeat;
@@ -384,11 +387,7 @@ function expandedRowHeights(el: CellGridElement): number[] {
 }
 
 /** 캔버스에 그릴 열 너비(mm) 목록 */
-function columnWidths(el: CellGridElement): number[] {
-  if (el.type === 'fixedGrid') {
-    const offsets = cumulativeOffsets(el.width, el.columns, el.columnWidthPercentages);
-    return Array.from({ length: el.columns }, (_, i) => (offsets[i + 1] ?? 0) - (offsets[i] ?? 0));
-  }
+function columnWidths(el: GridElement): number[] {
   return el.columns.map((column) => column.width);
 }
 
@@ -397,8 +396,8 @@ function columnWidths(el: CellGridElement): number[] {
  * 반복 구간은 화면에 여러 벌 보이지만 파일에는 한 벌뿐이라, 어느 벌을 눌러도
  * 같은 틀 행을 가리켜야 한다 (ADR-037).
  */
-function templateRowOf(el: CellGridElement, expandedRow: number): number {
-  if (el.type !== 'grid' || !el.repeat) return expandedRow;
+function templateRowOf(el: GridElement, expandedRow: number): number {
+  if (!el.repeat) return expandedRow;
   const { fromRow, toRow, perPage } = el.repeat;
   const bandRows = toRow - fromRow + 1;
   if (expandedRow < fromRow) return expandedRow;
@@ -408,25 +407,17 @@ function templateRowOf(el: CellGridElement, expandedRow: number): number {
 }
 
 /** 틀의 행 번호 → 화면에서 그 행이 처음 나타나는 행 번호 */
-function firstExpandedRowOf(el: CellGridElement, templateRow: number): number {
-  if (el.type !== 'grid' || !el.repeat) return templateRow;
-  const { toRow, perPage } = el.repeat;
-  const bandRows = toRow - (el.repeat.fromRow) + 1;
+function firstExpandedRowOf(el: GridElement, templateRow: number): number {
+  if (!el.repeat) return templateRow;
+  const { fromRow, toRow, perPage } = el.repeat;
+  const bandRows = toRow - fromRow + 1;
   return templateRow > toRow ? templateRow + (perPage - 1) * bandRows : templateRow;
 }
 
-/**
- * 그 자리의 셀을 찾고, 없으면 빈 셀을 만들어 돌려준다.
- * 고정 그리드와 그리드의 셀 모양이 달라 만드는 자리만 나눈다.
- */
-function ensureCell(el: CellGridElement, row: number, column: number): Record<string, unknown> {
+/** 그 자리의 셀을 찾고, 없으면 빈 셀을 만들어 돌려준다 */
+function ensureCell(el: GridElement, row: number, column: number): Record<string, unknown> {
   const found = el.cells.find((c) => c.row === row && c.column === column);
   if (found) return found as unknown as Record<string, unknown>;
-  if (el.type === 'fixedGrid') {
-    const created = { row, column, content: '' };
-    el.cells.push(created);
-    return created as unknown as Record<string, unknown>;
-  }
   const created: GridCell = { row, column, content: '' };
   el.cells.push(created);
   return created as unknown as Record<string, unknown>;
@@ -470,8 +461,6 @@ const PLACEHOLDER_IMG =
 /** 캔버스 요소의 종류 배지 아이콘 — 툴바의 요소 추가 아이콘과 동일 */
 const TYPE_BADGE: Record<SlipElement['type'], TemplateResult> = {
   text: icons.text,
-  fixedGrid: icons.fixedGrid,
-  dynamicTable: icons.dynamicTable,
   grid: icons.gridElement,
   image: icons.image,
   line: icons.line,
@@ -512,15 +501,12 @@ interface ResizeState {
  * 바인딩은 요소와 별개의 1급 항목이고, 표 열은 그 표 바인딩의 하위 항목이다.
  * 둘 다 오른쪽 패널에서 편집한다.
  */
-/** 동적 표 요소 — 사이드바에서 하위 열까지 보여줄 때 쓴다 */
-type DynamicTableElement = Extract<SlipElement, { type: 'dynamicTable' }>;
-
 /** 바인딩을 쓰는 요소 한 곳 (ADR-034의 "쓰는 곳") */
 interface BindingUse {
   pageIndex: number;
   id: string;
   name: string;
-  type: 'field' | 'dynamicTable' | 'grid';
+  type: 'field' | 'grid';
 }
 
 /** 사이드바·패널이 함께 쓰는 바인딩 한 항목 — 정의부와 사용처를 합친 것 */
@@ -535,13 +521,27 @@ interface BindingInfo {
   defined: boolean;
   /** 이 값을 쓰는 요소들 */
   uses: BindingUse[];
-  /** 동적 표가 쓰는 바인딩이면 그 표 (하위 열 표시용) */
-  table: { pageIndex: number; element: DynamicTableElement } | undefined;
+  /** 반복 구간이 이 값을 쓰는 그리드라면, 그 구간 칸이 읽는 항목 필드들 (ADR-037) */
+  repeatFields: RepeatField[];
+}
+
+/** 반복 구간 칸이 읽는 항목 필드 — 사이드바에서 그 칸으로 곧장 가기 위해 자리도 함께 담는다 */
+interface RepeatField {
+  /** 항목 필드 물리명 — 수식에서 `표바인딩.필드`로 쓴다 */
+  key: string;
+  /** 화면에 보일 이름 — 반복 구간 위쪽 같은 열의 고정 문구, 없으면 물리명 */
+  title: string;
+  /** 이 필드를 읽는 칸이 있는 페이지 */
+  pageIndex: number;
+  /** 그 그리드 요소 id */
+  gridId: string;
+  /** 그 칸의 틀 좌표 */
+  row: number;
+  column: number;
 }
 
 type SideSelection =
   | { kind: 'binding'; key: string }
-  | { kind: 'column'; elementId: string; index: number }
   | null;
 
 /**
@@ -872,7 +872,7 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-accent);
       font-weight: 600;
     }
-    /* 동적 표 바인딩의 하위 열 — 한 단 들여 쓴다 (ADR-034) */
+    /* 그리드 값의 반복 구간 필드 — 한 단 들여 쓴다 (ADR-034/037) */
     .side-col-row {
       display: flex;
       align-items: center;
@@ -2409,7 +2409,6 @@ export class SlipDesigner extends LitElement {
     _lineDraft: { state: true },
     _lineGhost: { state: true },
     _formulaModalOpen: { state: true },
-    _columnsModalOpen: { state: true },
     _sampleModalOpen: { state: true },
     _imageModalOpen: { state: true },
     _thumbPage: { state: true },
@@ -2504,8 +2503,6 @@ export class SlipDesigner extends LitElement {
   private _formulaModalOpen = false;
   /** 수식 모달의 편집 중 초안 — 적용을 눌러야 요소에 반영된다 */
   private _formulaDraft = '';
-  /** 동적 표 열 편집 모달 열림 여부 — 선택된 동적 표의 columns를 편집한다 (D-12) */
-  private _columnsModalOpen = false;
   /** 샘플 데이터 편집 모달 열림 여부 — 양식의 sampleValues를 편집한다 (D-13) */
   private _sampleModalOpen = false;
   /** 이미지 선택 모달 열림 여부 — 선택된 이미지 요소의 src를 정한다 (G-36) */
@@ -2567,7 +2564,7 @@ export class SlipDesigner extends LitElement {
    * 화면 전용 값이라 파일에 저장하지 않는다 — 새로 열면 다시 좌상단으로 시작한다.
    */
   private _anchorByElement = new Map<string, number>();
-  /** 선택된 고정 그리드 셀 좌표 — 병합 편집·인라인 편집 대상 (C-10) */
+  /** 선택된 그리드 칸 좌표 — 병합 편집·인라인 편집 대상 (C-10) */
   private _selectedCell: { row: number; column: number } | null = null;
   /**
    * 그리드 칸에 담을 것(문구·값·수식) 중 지금 고른 종류 — 화면 상태다.
@@ -2643,7 +2640,6 @@ export class SlipDesigner extends LitElement {
     this._lineGhost = null;
     this._lineEnd = null;
     this._formulaModalOpen = false;
-    this._columnsModalOpen = false;
     this._sampleModalOpen = false;
     this._imageModalOpen = false;
     this._imageError = null;
@@ -2810,12 +2806,12 @@ export class SlipDesigner extends LitElement {
     if (this._selectedId && !this._findElement(this._selectedId)) {
       this._selectedId = null;
     }
-    // 셀 선택은 고정 그리드 범위 안에서만 유효하다 (undo 복원 뒤에도 보정)
+    // 칸 선택은 그리드 범위 안에서만 유효하다 (undo 복원 뒤에도 보정)
     if (this._selectedCell) {
       const el = this._findSelectedElement();
       if (
-        !el || el.type !== 'fixedGrid' ||
-        this._selectedCell.row >= el.rows || this._selectedCell.column >= el.columns
+        !isGrid(el) ||
+        this._selectedCell.row >= el.rows.length || this._selectedCell.column >= el.columns.length
       ) {
         this._selectedCell = null;
         this._cellEditing = false;
@@ -2857,24 +2853,6 @@ export class SlipDesigner extends LitElement {
     switch (type) {
       case 'text':
         element = { type: 'text', id, name, position, width: 60, height: 10, content: '' };
-        break;
-      case 'fixedGrid':
-        element = {
-          type: 'fixedGrid', id, name, position, width: 180, height: 40,
-          rows: 3, columns: 3, columnWidthPercentages: [34, 33, 33], cells: [],
-        };
-        break;
-      case 'dynamicTable':
-        element = {
-          type: 'dynamicTable', id, name, position, width: 180, height: 20,
-          // 새 표는 빈 제목 3열로 시작 — 제목·키·너비는 속성 패널에서 편집 (ADR-031)
-          columns: [
-            { key: 'col1', title: '', widthPercentage: 34 },
-            { key: 'col2', title: '', widthPercentage: 33 },
-            { key: 'col3', title: '', widthPercentage: 33 },
-          ],
-          repeatHead: true, binding: 'items',
-        };
         break;
       case 'grid':
         // 헤더 1행 + 반복 1행 + 꼬리 1행으로 시작한다 — 목록형 표가 가장 흔한 쓰임이고,
@@ -2943,7 +2921,7 @@ export class SlipDesigner extends LitElement {
     this._selectedId = id;
     this._sideSelection = null;
     // 값을 쓰는 요소는 그 바인딩을 정의부에 함께 등록한다 — 목록이 값의 단일 원천 (ADR-034)
-    if (element.type === 'field' || element.type === 'dynamicTable') {
+    if (element.type === 'field') {
       this._ensureBindingDef(element.binding);
     }
     if (element.type === 'grid' && element.repeat) {
@@ -2978,9 +2956,8 @@ export class SlipDesigner extends LitElement {
     elements.push(copy);
     this._selectedId = copy.id;
     this._sideSelection = null;
-    if (copy.type === 'field' || copy.type === 'dynamicTable') {
-      this._ensureBindingDef(copy.binding);
-    }
+    if (copy.type === 'field') this._ensureBindingDef(copy.binding);
+    if (copy.type === 'grid' && copy.repeat) this._ensureBindingDef(copy.repeat.binding);
     this._emitChange();
     this.requestUpdate();
   }
@@ -3445,7 +3422,7 @@ export class SlipDesigner extends LitElement {
       return;
     }
     // 움직이지 않은 재클릭: 셀 격자면 그 자리의 셀을 선택하고 인라인 편집을 연다 (C-10, ADR-037)
-    if (isCellGrid(el) && drag.wasSelected && drag.snapshot === null) {
+    if (isGrid(el) && drag.wasSelected && drag.snapshot === null) {
       const cell = this._cellAtPoint(el, e);
       if (cell) {
         if (this._selectedCell?.row !== cell.row || this._selectedCell?.column !== cell.column) {
@@ -3459,12 +3436,12 @@ export class SlipDesigner extends LitElement {
   };
 
   // ---------------------------------------------------------------------------
-  // 고정 그리드 셀 편집 (C-10)
+  // 그리드 칸 편집 (C-10, ADR-037)
   // ---------------------------------------------------------------------------
 
   /** 포인터 위치가 가리키는 셀 좌표 — 병합 범위면 병합 원점 좌표를 돌려준다 */
   private _cellAtPoint(
-    el: CellGridElement,
+    el: GridElement,
     e: PointerEvent,
   ): { row: number; column: number } | null {
     const point = this._paperPoint(e);
@@ -3497,7 +3474,7 @@ export class SlipDesigner extends LitElement {
 
   /** 셀(병합 범위 포함)의 캔버스 px 사각형 — 인라인 편집 상자 위치용 */
   private _cellRectPx(
-    el: CellGridElement,
+    el: GridElement,
     row: number,
     column: number,
   ): { left: number; top: number; width: number; height: number } {
@@ -3521,7 +3498,7 @@ export class SlipDesigner extends LitElement {
     if (!target) return;
     this._cellEditing = false;
     const el = this._findSelectedElement();
-    if (!isCellGrid(el)) return;
+    if (!isGrid(el)) return;
     const existing = el.cells.find((c) => c.row === target.row && c.column === target.column);
     // 값·수식을 붙인 칸은 문구를 직접 못 쓴다 — 셋 중 하나만 가질 수 있다 (SPEC §5.7)
     if (existing && ('binding' in existing || 'formula' in existing)) {
@@ -3537,34 +3514,8 @@ export class SlipDesigner extends LitElement {
       return;
     }
     this._updateElement((element) => {
-      if (!isCellGrid(element)) return;
+      if (!isGrid(element)) return;
       ensureCell(element, target.row, target.column).content = value;
-    });
-  }
-
-  /** 행·열 수 변경 — 비율은 비례 재배분, 범위 밖 셀은 제거하고 넘치는 병합은 줄인다 */
-  private _setGridSize(rows: number, columns: number): void {
-    this._updateElement((el) => {
-      if (el.type !== 'fixedGrid') return;
-      el.columnWidthPercentages = resizePercentages(el.columnWidthPercentages, columns);
-      if (el.rowHeightPercentages) {
-        el.rowHeightPercentages = resizePercentages(el.rowHeightPercentages, rows);
-      }
-      el.rows = rows;
-      el.columns = columns;
-      el.cells = el.cells.filter((cell) => cell.row < rows && cell.column < columns);
-      for (const cell of el.cells) {
-        if (cell.rowSpan !== undefined && cell.row + cell.rowSpan > rows) {
-          const clamped = rows - cell.row;
-          if (clamped <= 1) delete cell.rowSpan;
-          else cell.rowSpan = clamped;
-        }
-        if (cell.colSpan !== undefined && cell.column + cell.colSpan > columns) {
-          const clamped = columns - cell.column;
-          if (clamped <= 1) delete cell.colSpan;
-          else cell.colSpan = clamped;
-        }
-      }
     });
   }
 
@@ -3572,7 +3523,7 @@ export class SlipDesigner extends LitElement {
   private _setCellSpan(kind: 'rowSpan' | 'colSpan', value: number): void {
     const target = this._selectedCell;
     const el = this._findSelectedElement();
-    if (!target || !isCellGrid(el)) return;
+    if (!target || !isGrid(el)) return;
     if (!Number.isInteger(value) || value < 1) {
       this.requestUpdate();
       return;
@@ -3614,7 +3565,7 @@ export class SlipDesigner extends LitElement {
       return;
     }
     this._updateElement((element) => {
-      if (!isCellGrid(element)) return;
+      if (!isGrid(element)) return;
       const record = ensureCell(element, target.row, target.column);
       if (rowSpan > 1) record.rowSpan = rowSpan;
       else delete record.rowSpan;
@@ -3628,7 +3579,7 @@ export class SlipDesigner extends LitElement {
     const target = this._selectedCell;
     if (!target) return;
     this._updateElement((element) => {
-      if (!isCellGrid(element)) return;
+      if (!isGrid(element)) return;
       const record = ensureCell(element, target.row, target.column);
       if (value === null || value === undefined || value === '') delete record[key];
       else record[key] = value;
@@ -3795,126 +3746,6 @@ export class SlipDesigner extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // 동적 표 열 편집 (C-10)
-  // ---------------------------------------------------------------------------
-
-  /** 열 추가 — 기존 열을 비례 축소하고 새 열(빈 제목)이 균등 몫을 갖는다 */
-  private _addTableColumn(): void {
-    this._updateElement((el) => {
-      if (el.type !== 'dynamicTable') return;
-      const used = new Set(el.columns.map((col) => col.key));
-      let index = el.columns.length + 1;
-      while (used.has(`col${index}`)) index++;
-      // 마지막 열 너비를 절반씩 나눠 갖는다 — 나머지 열은 그대로 (ADR-034)
-      const widths = splitLastPercentage(el.columns.map((col) => col.widthPercentage));
-      el.columns = [
-        ...el.columns.map((col, i) => ({ ...col, widthPercentage: widths[i]! })),
-        { key: `col${index}`, title: '', widthPercentage: widths[widths.length - 1]! },
-      ];
-    });
-  }
-
-  /**
-   * 모든 열을 같은 너비로 맞춘다 — 하나하나 입력하지 않고 한 번에 고르게 만든다.
-   * 반올림 잔여는 마지막 열이 흡수해 합이 정확히 100이 된다.
-   */
-  private _evenTableColumnWidths(): void {
-    this._updateElement((el) => {
-      if (el.type !== 'dynamicTable' || el.columns.length <= 1) return;
-      const each = round2(100 / el.columns.length);
-      const last = round2(100 - each * (el.columns.length - 1));
-      el.columns = el.columns.map((col, i) => ({
-        ...col,
-        widthPercentage: i === el.columns.length - 1 ? last : each,
-      }));
-    });
-  }
-
-  /** 열 삭제 (최소 1열 유지) — 지운 열의 너비는 이웃 열이 돌려받는다 (ADR-034) */
-  private _removeTableColumn(index: number): void {
-    this._updateElement((el) => {
-      if (el.type !== 'dynamicTable' || el.columns.length <= 1) return;
-      const widths = removePercentageToNeighbor(
-        el.columns.map((col) => col.widthPercentage), index,
-      );
-      el.columns = el.columns
-        .filter((_, i) => i !== index)
-        .map((col, i) => ({ ...col, widthPercentage: widths[i]! }));
-    });
-  }
-
-  /**
-   * 열 너비 변경 — 늘리거나 줄인 만큼을 **이웃 열 하나**가 주고받는다 (ADR-034).
-   * 이웃은 오른쪽 열, 마지막 열이면 왼쪽 열이다. 나머지 열은 건드리지 않는다.
-   * 이웃이 최소 너비(1%) 아래로 내려가면 거기까지만 바뀐다.
-   */
-  private _setTableColumnWidth(index: number, value: number): void {
-    const el = this._findSelectedElement();
-    if (!el || el.type !== 'dynamicTable' || el.columns.length <= 1) {
-      this.requestUpdate();
-      return;
-    }
-    if (!Number.isFinite(value) || value < MIN_COLUMN_PERCENTAGE || value >= 100) {
-      this.requestUpdate();
-      return;
-    }
-    const neighbor = index + 1 < el.columns.length ? index + 1 : index - 1;
-    const current = el.columns[index]!.widthPercentage;
-    const neighborWidth = el.columns[neighbor]!.widthPercentage;
-    // 이웃이 최소 너비 아래로 내려가지 않는 선까지만 넓힌다
-    const limit = round2(current + neighborWidth - MIN_COLUMN_PERCENTAGE);
-    const applied = Math.min(round2(value), limit);
-    if (applied === current) {
-      this.requestUpdate();
-      return;
-    }
-    this._updateElement((element) => {
-      if (element.type !== 'dynamicTable') return;
-      element.columns = element.columns.map((col, i) => {
-        if (i === index) return { ...col, widthPercentage: applied };
-        if (i === neighbor) {
-          return { ...col, widthPercentage: round2(neighborWidth - (applied - current)) };
-        }
-        return col;
-      });
-    });
-  }
-
-  /** 열 제목 변경 — 패널 빠른 수정과 열 편집 모달 공용 */
-  private _setTableColumnTitle(index: number, value: string): void {
-    this._updateElement((element) => {
-      if (element.type === 'dynamicTable') element.columns[index]!.title = value;
-    });
-  }
-
-  /** 열 데이터 키 변경 — 비어 있거나 다른 열과 겹치면 무시한다 (스키마 규칙) */
-  private _setTableColumnKey(index: number, value: string): void {
-    const el = this._findSelectedElement();
-    if (!el || el.type !== 'dynamicTable') return;
-    const v = value.trim();
-    if (!v || el.columns.some((c, i) => i !== index && c.key === v)) {
-      this.requestUpdate();
-      return;
-    }
-    this._updateElement((element) => {
-      if (element.type === 'dynamicTable') element.columns[index]!.key = v;
-    });
-  }
-
-  /** 열 순서 이동 — delta -1은 앞으로, +1은 뒤로 (범위 밖은 무시) */
-  private _moveTableColumn(index: number, delta: number): void {
-    this._updateElement((el) => {
-      if (el.type !== 'dynamicTable') return;
-      const target = index + delta;
-      if (target < 0 || target >= el.columns.length) return;
-      const columns = [...el.columns];
-      const [moved] = columns.splice(index, 1);
-      columns.splice(target, 0, moved!);
-      el.columns = columns;
-    });
-  }
-
-  // ---------------------------------------------------------------------------
   // Snap helpers
   // ---------------------------------------------------------------------------
 
@@ -3967,11 +3798,10 @@ export class SlipDesigner extends LitElement {
     // 모달이 열려 있으면 Esc는 모달 닫기 (모달 안 입력란의 Esc는 모달 자체가 처리)
     if (
       e.key === 'Escape' &&
-      (this._formulaModalOpen || this._columnsModalOpen || this._sampleModalOpen ||
+      (this._formulaModalOpen || this._sampleModalOpen ||
         this._imageModalOpen || this._saveModalOpen || this._myFormsOpen)
     ) {
       this._formulaModalOpen = false;
-      this._columnsModalOpen = false;
       this._sampleModalOpen = false;
       this._imageModalOpen = false;
       this._imageError = null;
@@ -4112,7 +3942,6 @@ export class SlipDesigner extends LitElement {
             <div class="prop-panel">${this._renderPropertyPanel()}</div>
             ${this._renderFormulaModal()}
             ${this._renderImageModal()}
-            ${this._renderColumnsModal()}
             ${this._renderSampleModal()}
             ${this._renderSaveModal()}
             ${this._renderMyFormsModal()}
@@ -4144,8 +3973,6 @@ export class SlipDesigner extends LitElement {
         ${([
           ['text', s.addText, icons.text],
           ['grid', s.addGrid, icons.gridElement],
-          ['fixedGrid', s.addFixedGrid, icons.fixedGrid],
-          ['dynamicTable', s.addDynamicTable, icons.dynamicTable],
           ['image', s.addImage, icons.image],
           ['line', s.shapeLine, icons.line],
         ] as const).map(([type, label, glyph]) =>
@@ -4373,6 +4200,21 @@ export class SlipDesigner extends LitElement {
   private _selectFromSidebar(pageIndex: number, id: string): void {
     this._goToPage(pageIndex);
     this._selectedId = id;
+    this._selectedCell = null;
+    this._cellEditing = false;
+    this._sideSelection = null;
+    this.requestUpdate();
+  }
+
+  /**
+   * 사이드바에서 반복 구간 필드를 골랐을 때 — 그 필드를 읽는 칸으로 곧장 간다 (ADR-037).
+   * 칸을 고르면 오른쪽 패널이 칸 편집으로 바뀌므로 선택은 한 갈래로 유지된다.
+   */
+  private _selectRepeatField(field: RepeatField): void {
+    this._goToPage(field.pageIndex);
+    this._selectedId = field.gridId;
+    this._selectedCell = { row: field.row, column: field.column };
+    this._cellEditing = false;
     this._sideSelection = null;
     this.requestUpdate();
   }
@@ -4402,20 +4244,10 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 사이드바에서 표 열을 골랐을 때 — 그 표가 있는 페이지로 옮기고 열 편집을 연다 (ADR-034) */
-  private _selectColumn(pageIndex: number, elementId: string, index: number): void {
-    this._goToPage(pageIndex);
-    this._selectedId = elementId;
-    this._selectedCell = null;
-    this._cellEditing = false;
-    this._sideSelection = { kind: 'column', elementId, index };
-    this.requestUpdate();
-  }
-
   /**
    * 양식 전체의 바인딩 목록 — 정의부(ADR-032)와 요소 사용처를 합친다.
    * 정의부에 논리명이 있으면 그 이름으로 표시하고(물리명은 title로 확인),
-   * 동적 표 바인딩이면 그 표를 함께 담아 하위 열까지 보여 준다.
+   * 반복 구간이 쓰는 값이면 그 구간 칸이 읽는 항목 필드까지 함께 담는다 (ADR-037).
    */
   private _bindingList(): BindingInfo[] {
     const file = this._file;
@@ -4427,14 +4259,37 @@ export class SlipDesigner extends LitElement {
     const definedKeys = new Set(defs.map((b) => b.key));
 
     const uses = new Map<string, BindingUse[]>();
-    const tableOf = new Map<string, { pageIndex: number; element: DynamicTableElement }>();
+    const fieldsOf = new Map<string, RepeatField[]>();
     file.template.pages.forEach((page, pageIndex) => {
       for (const el of page.elements) {
         // 그리드는 반복 구간의 값과 셀에 붙인 값을 함께 쓴다 (ADR-037)
         if (el.type === 'grid') {
+          if (el.repeat) {
+            const { fromRow, toRow } = el.repeat;
+            const fields = fieldsOf.get(el.repeat.binding) ?? [];
+            const band = el.cells
+              .filter((c) => c.row >= fromRow && c.row <= toRow && c.binding !== undefined)
+              .sort((a, b) => a.column - b.column || a.row - b.row);
+            for (const cell of band) {
+              const key = cell.binding as string;
+              if (fields.some((f) => f.key === key)) continue;
+              fields.push({
+                key,
+                title: gridHeaderTitle(el, cell.column, fromRow) ?? key,
+                pageIndex,
+                gridId: el.id,
+                row: cell.row,
+                column: cell.column,
+              });
+            }
+            fieldsOf.set(el.repeat.binding, fields);
+          }
           const keys = new Set<string>();
           if (el.repeat) keys.add(el.repeat.binding);
-          for (const cell of el.cells) if (cell.binding !== undefined) keys.add(cell.binding);
+          // 반복 구간 안의 칸이 읽는 것은 항목의 필드다 — 전표 values의 키가 아니므로 목록에 올리지 않는다
+          for (const cell of el.cells) {
+            if (cell.binding !== undefined && !inRepeatBand(el, cell.row)) keys.add(cell.binding);
+          }
           for (const key of keys) {
             const list = uses.get(key) ?? [];
             list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
@@ -4442,13 +4297,10 @@ export class SlipDesigner extends LitElement {
           }
           continue;
         }
-        if (el.type !== 'field' && el.type !== 'dynamicTable') continue;
+        if (el.type !== 'field') continue;
         const list = uses.get(el.binding) ?? [];
         list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
         uses.set(el.binding, list);
-        if (el.type === 'dynamicTable' && !tableOf.has(el.binding)) {
-          tableOf.set(el.binding, { pageIndex, element: el });
-        }
       }
     });
 
@@ -4463,7 +4315,7 @@ export class SlipDesigner extends LitElement {
         rawLabel: labelOf.get(key),
         defined: definedKeys.has(key),
         uses: uses.get(key) ?? [],
-        table: tableOf.get(key),
+        repeatFields: fieldsOf.get(key) ?? [],
       });
     }
     return list;
@@ -4472,7 +4324,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 왼쪽 사이드바 — 목록·선택·추가·삭제만 한다 (ADR-034). 값 편집은 오른쪽 패널이 맡는다.
    * 페이지 썸네일(클릭 이동), 페이지별 요소 목록(클릭 선택·삭제),
-   * 양식 전체의 바인딩 목록(클릭 선택, 동적 표는 하위 열까지).
+   * 양식 전체의 바인딩 목록(클릭 선택, 반복 구간이 쓰는 값은 항목 필드까지).
    */
   private _renderSidebar() {
     const file = this._file!;
@@ -4563,7 +4415,10 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /** 바인딩 한 줄 — 클릭하면 오른쪽 패널에서 편집, 동적 표 바인딩은 하위 열까지 (ADR-034) */
+  /**
+   * 바인딩 한 줄 — 클릭하면 오른쪽 패널에서 편집 (ADR-034).
+   * 반복 구간이 쓰는 값이면 그 구간 칸이 읽는 항목 필드까지 한 단 들여 함께 보인다 (ADR-037).
+   */
   private _renderBindingRow(b: BindingInfo) {
     const s = this._strings.designer;
     const sel = this._sideSelection;
@@ -4572,22 +4427,19 @@ export class SlipDesigner extends LitElement {
       <div class="side-row-wrap">
         <button class="side-row ${selected ? 'selected' : ''}" title=${b.key}
           @click=${() => this._selectBinding(b.key)}>
-          ${b.table ? TYPE_BADGE.dynamicTable : TYPE_BADGE.field}<span>${b.label}</span>
+          ${TYPE_BADGE.field}<span>${b.label}</span>
         </button>
         <button class="side-mini" title=${s.delete} aria-label="${b.key} ${s.delete}"
           ?disabled=${!b.defined}
           @click=${() => this._removeBindingDef(b.key)}>${icons.remove}</button>
       </div>
-      ${(b.table?.element.columns ?? []).map((col, index) => html`
-        <button class="side-col-row ${
-          sel?.kind === 'column' && sel.elementId === b.table!.element.id && sel.index === index
-            ? 'selected'
-            : ''
-        }" title=${col.key}
-          aria-label="${b.key} ${s.columns} ${index + 1}"
-          @click=${() => this._selectColumn(b.table!.pageIndex, b.table!.element.id, index)}>
-          <span>${col.title || col.key}</span>
-        </button>`)}
+      ${b.repeatFields.map((f) => {
+        const cellSelected = this._selectedId === f.gridId
+          && this._selectedCell?.row === f.row && this._selectedCell?.column === f.column;
+        return html`
+          <button class="side-col-row ${cellSelected ? 'selected' : ''}" title="${b.key}.${f.key}"
+            @click=${() => this._selectRepeatField(f)}><span>${f.title}</span></button>`;
+      })}
     `;
   }
 
@@ -4657,8 +4509,10 @@ export class SlipDesigner extends LitElement {
       f.template.bindings = defs;
       for (const page of f.template.pages) {
         for (const el of page.elements) {
-          if ((el.type === 'field' || el.type === 'dynamicTable') && el.binding === key) {
-            el.binding = trimmed;
+          if (el.type === 'field' && el.binding === key) el.binding = trimmed;
+          if (el.type === 'grid') {
+            if (el.repeat?.binding === key) el.repeat.binding = trimmed;
+            for (const cell of el.cells) if (cell.binding === key) cell.binding = trimmed;
           }
         }
       }
@@ -4838,7 +4692,7 @@ export class SlipDesigner extends LitElement {
   private _renderCellEditor() {
     if (!this._cellEditing || !this._selectedCell) return nothing;
     const el = this._findSelectedElement();
-    if (!el || el.type !== 'fixedGrid') return nothing;
+    if (!isGrid(el)) return nothing;
     const { row, column } = this._selectedCell;
     const rect = this._cellRectPx(el, row, column);
     const cell = el.cells.find((c) => c.row === row && c.column === column);
@@ -4927,8 +4781,7 @@ export class SlipDesigner extends LitElement {
     const drawnAsSvg = el.type === 'line' || el.type === 'ellipse' || el.type === 'polygon';
     if (el.type !== 'image' && !drawnAsSvg) {
       const r = el as Record<string, unknown>;
-      // 동적 표의 배경색은 헤더 배경으로만 쓴다 (PDF 변환과 동일) — 상자 전체를 칠하지 않는다
-      if (r.backgroundColor && el.type !== 'dynamicTable') style += `;background-color:${r.backgroundColor}`;
+      if (r.backgroundColor) style += `;background-color:${r.backgroundColor}`;
       if (r.fontColor) style += `;color:${r.fontColor}`;
       if (r.borderColor) style += `;border-color:${r.borderColor}`;
       // 테두리 굵기를 명시했을 때만 반영 (미지정 시 편집용 실선 유지)
@@ -4963,19 +4816,8 @@ export class SlipDesigner extends LitElement {
           style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(el)}"
           >${el.content}</span>`;
 
-      case 'fixedGrid':
-        return this._renderGridPreview(el);
-
       case 'grid':
         return this._renderGridElementPreview(el);
-
-      case 'dynamicTable':
-        // PDF 변환과 동일하게: 요소 배경색 = 헤더 배경(기본 #eeeeee), 헤더는 가운데 정렬
-        return html`<div class="table-preview">
-          ${el.columns.map((col) =>
-            html`<div style="flex:${col.widthPercentage};background-color:${el.backgroundColor ?? '#eeeeee'}">${col.title}</div>`,
-          )}
-        </div>`;
 
       case 'image':
         // 자리표시(1×1 투명 PNG)는 그리면 빈 상자로만 보인다 — 아직 안 골랐음을 글자로 알린다 (G-36)
@@ -5041,11 +4883,6 @@ export class SlipDesigner extends LitElement {
     </svg>`;
   }
 
-
-  /**
-   * 고정 그리드 캔버스 표시 — PDF 변환(convert.ts appendFixedGrid)과 같은 규칙으로
-   * 열/행 비율·셀 병합·셀 문구·셀 스타일을 그린다.
-   */
   /**
    * 그리드 요소의 캔버스 표시 — 반복 구간을 `perPage`번 펼쳐 실제로 인쇄될 모습을 보여준다.
    * 값·수식 칸은 샘플 값이 있으면 그 값으로, 없으면 값 이름으로 채운다 (ADR-037).
@@ -5147,67 +4984,6 @@ export class SlipDesigner extends LitElement {
       }
     }
     return cell.content ?? '';
-  }
-
-  private _renderGridPreview(el: SlipElement & { type: 'fixedGrid' }) {
-    const { rows, columns } = el;
-    const selected = el.id === this._selectedId;
-    const colTracks = (el.columnWidthPercentages ?? Array.from({ length: columns }, () => 100 / columns))
-      .map((p) => `${p}fr`).join(' ');
-    const rowTracks = (el.rowHeightPercentages ?? Array.from({ length: rows }, () => 100 / rows))
-      .map((p) => `${p}fr`).join(' ');
-    const lineColor = el.borderColor ?? '#000000';
-    const lineWidth = el.borderWidth ?? 0.2;
-    // 셀별 테두리 — 셀 값이 요소 값보다 우선한다 (ADR-033). 공유 변은 이웃 셀이
-    // 각자 자기 테두리를 그리는 근사 표시라 PDF의 굵은 쪽 우선 규칙과 거의 같다
-    const borderCssOf = (cell?: {
-      borderWidth?: number | undefined;
-      borderColor?: string | undefined;
-      borderStyle?: string | undefined;
-    }): string => {
-      const width = cell?.borderWidth ?? lineWidth;
-      if (width <= 0) return 'none';
-      const px = Math.max(1, Math.round(width * PX_PER_MM));
-      return `${px}px ${cell?.borderStyle ?? el.borderStyle ?? 'solid'} ${cell?.borderColor ?? lineColor}`;
-    };
-
-    // 셀 소유 그리드 (병합 반영) — 병합 범위의 비원점 칸은 그리지 않는다
-    const owner: number[][] = Array.from({ length: rows }, () => new Array<number>(columns).fill(-1));
-    el.cells.forEach((cell, index) => {
-      for (let r = cell.row; r < cell.row + (cell.rowSpan ?? 1); r++) {
-        for (let c = cell.column; c < cell.column + (cell.colSpan ?? 1); c++) {
-          const line = owner[r];
-          if (line) line[c] = index;
-        }
-      }
-    });
-
-    const boxes = [];
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < columns; c++) {
-        const idx = owner[r]?.[c] ?? -1;
-        if (idx === -1) {
-          const emptySelected = selected && this._selectedCell?.row === r && this._selectedCell?.column === c;
-          boxes.push(html`<div class=${emptySelected ? 'cell-selected' : ''}
-            style="grid-area:${r + 1}/${c + 1};border:${borderCssOf()}"></div>`);
-          continue;
-        }
-        const cell = el.cells[idx]!;
-        if (cell.row !== r || cell.column !== c) continue; // 병합 범위 내부
-        const cellSelected = selected && this._selectedCell?.row === r && this._selectedCell?.column === c;
-        const style = [
-          `grid-area:${r + 1}/${c + 1}/span ${cell.rowSpan ?? 1}/span ${cell.colSpan ?? 1}`,
-          `border:${borderCssOf(cell)}`,
-          `font-size:${fontPx(cell.fontSize)}`,
-          `justify-content:${justifyOf(cell.alignment)}`,
-          cell.backgroundColor ? `background-color:${cell.backgroundColor}` : '',
-          cell.fontColor ? `color:${cell.fontColor}` : '',
-        ].filter(Boolean).join(';') + textStyleCss(cell);
-        boxes.push(html`<div class=${cellSelected ? 'cell-selected' : ''} style=${style}>${cell.content}</div>`);
-      }
-    }
-    return html`<div class="grid-preview"
-      style="grid-template-columns:${colTracks};grid-template-rows:${rowTracks}">${boxes}</div>`;
   }
 
   // ---------------------------------------------------------------------------
@@ -5407,14 +5183,8 @@ export class SlipDesigner extends LitElement {
   }
 
   private _renderPropertyPanel() {
-    // 선택 대상은 요소 · 바인딩 · 표 열 셋 — 아무것도 고르지 않았으면 양식 설정 (ADR-034)
+    // 선택 대상은 요소와 바인딩 둘 — 아무것도 고르지 않았으면 양식 설정 (ADR-034)
     const sel = this._sideSelection;
-    if (sel?.kind === 'column') {
-      const table = this._findElement(sel.elementId);
-      if (table?.type === 'dynamicTable' && table.columns[sel.index]) {
-        return this._renderColumnPanel(table, sel.index);
-      }
-    }
     if (sel?.kind === 'binding') return this._renderBindingPanel(sel.key);
 
     const el = this._findSelectedElement();
@@ -5566,44 +5336,6 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /** 표 열 패널 — 사이드바에서 동적 표의 열을 골랐을 때 (ADR-034) */
-  private _renderColumnPanel(el: DynamicTableElement, index: number) {
-    const s = this._strings.designer;
-    const col = el.columns[index]!;
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-
-    return html`
-      <div class="type-name">${s.columnPanelTitle}</div>
-
-      <div class="prop-section">
-        <div class="prop-row">
-          <label>${s.formTitle}</label>
-          <input class="col-panel-title" .value=${col.title}
-            @change=${(e: Event) => this._setTableColumnTitle(index, valOf(e))}>
-        </div>
-        <div class="prop-row">
-          <label>${s.columnKey}</label>
-          <input class="col-panel-key" .value=${col.key}
-            @change=${(e: Event) => this._setTableColumnKey(index, valOf(e))}>
-        </div>
-        <div class="prop-row">
-          <label>${s.columnWidthPct}</label>
-          <input class="col-panel-width" type="number" min="1" max="99" step="1"
-            .value=${String(Math.round(col.widthPercentage * 100) / 100)}
-            @change=${(e: Event) => this._setTableColumnWidth(index, Number(valOf(e)))}>
-        </div>
-      </div>
-
-      <div class="prop-section">
-        <button class="col-modal-open" aria-label=${s.columnsModalTitle}
-          @click=${() => {
-            this._columnsModalOpen = true;
-            this.requestUpdate();
-          }}>${icons.edit}<span>${s.columnsModalTitle}</span></button>
-      </div>
-    `;
-  }
-
   /**
    * 요소가 쓸 값을 등록된 목록에서 고르는 선택 상자 (ADR-034) —
    * "새 값 등록"을 고르면 기본 이름으로 값을 만들어 바로 이 요소에 붙인다.
@@ -5621,7 +5353,7 @@ export class SlipDesigner extends LitElement {
             if (value === NEW_BINDING_OPTION) this._assignNewBinding();
             else {
               this._updateElement((el) => {
-                if (el.type === 'field' || el.type === 'dynamicTable') el.binding = value;
+                if (el.type === 'field') el.binding = value;
               });
             }
           }}>
@@ -5636,7 +5368,7 @@ export class SlipDesigner extends LitElement {
   /** 새 값을 만들어 지금 고른 요소에 붙인다 — 등록과 연결을 한 번에 (ADR-034) */
   private _assignNewBinding(): void {
     const el = this._findSelectedElement();
-    if (!el || (el.type !== 'field' && el.type !== 'dynamicTable')) {
+    if (el?.type !== 'field') {
       this.requestUpdate();
       return;
     }
@@ -5648,9 +5380,7 @@ export class SlipDesigner extends LitElement {
       f.template.bindings = defs;
       for (const page of f.template.pages) {
         for (const target of page.elements) {
-          if (target.id === id && (target.type === 'field' || target.type === 'dynamicTable')) {
-            target.binding = key;
-          }
+          if (target.id === id && target.type === 'field') target.binding = key;
         }
       }
     });
@@ -5668,8 +5398,6 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     const map: Record<SlipElement['type'], string> = {
       text: s.typeText,
-      fixedGrid: s.typeFixedGrid,
-      dynamicTable: s.typeDynamicTable,
       grid: s.typeGrid,
       image: s.typeImage,
       line: s.shapeLine,
@@ -5994,162 +5722,6 @@ export class SlipDesigner extends LitElement {
             : html`<div class="prop-section"><div class="cell-hint">${s.cellHint}</div></div>`}
         `;
       }
-
-      case 'fixedGrid': {
-        const cellTarget = this._selectedCell;
-        const selectedCellDef = cellTarget
-          ? el.cells.find((c) => c.row === cellTarget.row && c.column === cellTarget.column)
-          : undefined;
-        // 행·열 수는 정수 1~100만 받는다 (밖의 값은 되돌림)
-        const sizeOf = (e: Event): number | null => {
-          const v = Number((e.target as HTMLInputElement).value);
-          if (!Number.isInteger(v) || v < 1 || v > 100) {
-            this.requestUpdate();
-            return null;
-          }
-          return v;
-        };
-        return html`
-          <div class="prop-section">
-            <div class="prop-pair">
-              <div class="prop-row">
-                <label>${s.rows}</label>
-                <input type="number" min="1" max="100" .value=${String(el.rows)}
-                  @change=${(e: Event) => {
-                    const v = sizeOf(e);
-                    if (v !== null) this._setGridSize(v, el.columns);
-                  }}>
-              </div>
-              <div class="prop-row">
-                <label>${s.columns}</label>
-                <input type="number" min="1" max="100" .value=${String(el.columns)}
-                  @change=${(e: Event) => {
-                    const v = sizeOf(e);
-                    if (v !== null) this._setGridSize(el.rows, v);
-                  }}>
-              </div>
-            </div>
-          </div>
-          ${cellTarget
-            ? html`
-              <div class="prop-section">
-                <div class="prop-section-title">
-                  ${s.cell} (${cellTarget.row + 1}, ${cellTarget.column + 1})
-                </div>
-                <div class="prop-row">
-                  <label>${s.content}</label>
-                  <input .value=${selectedCellDef?.content ?? ''}
-                    @change=${(e: Event) => {
-                      this._selectedCell = cellTarget;
-                      this._commitCellContent(valOf(e));
-                    }}>
-                </div>
-                <div class="prop-row">
-                  <label>${s.merge}</label>
-                  <div class="merge-inputs">
-                    <span>${s.rows}</span>
-                    <input type="number" min="1" .value=${String(selectedCellDef?.rowSpan ?? 1)}
-                      aria-label="${s.merge} ${s.rows}"
-                      @change=${(e: Event) => this._setCellSpan('rowSpan', Number(valOf(e)))}>
-                    <span>${s.columns}</span>
-                    <input type="number" min="1" .value=${String(selectedCellDef?.colSpan ?? 1)}
-                      aria-label="${s.merge} ${s.columns}"
-                      @change=${(e: Event) => this._setCellSpan('colSpan', Number(valOf(e)))}>
-                  </div>
-                </div>
-                <div class="prop-row">
-                  <label>${s.fontSize}</label>
-                  <input type="number" step="0.5"
-                    class=${selectedCellDef?.fontSize === undefined ? 'dim' : ''}
-                    .value=${String(selectedCellDef?.fontSize ?? '')}
-                    placeholder=${String(DEFAULT_FONT_SIZE)}
-                    @change=${(e: Event) => {
-                      const v = Number(valOf(e));
-                      this._updateCellStyle('fontSize', v > 0 ? v : null);
-                    }}>
-                </div>
-                <div class="prop-row">
-                  <label>${s.alignment}</label>
-                  <div class="toggle-group" role="group" aria-label="${s.cell} ${s.alignment}">
-                    ${([
-                      ['left', s.alignLeft, icons.alignLeft],
-                      ['center', s.alignCenter, icons.alignCenter],
-                      ['right', s.alignRight, icons.alignRight],
-                    ] as const).map(([value, label, glyph]) => html`
-                      <button title=${label} aria-label="${s.cell} ${s.alignment}: ${label}"
-                        aria-pressed=${String((selectedCellDef?.alignment ?? 'left') === value)}
-                        @click=${() => this._updateCellStyle('alignment', value === 'left' ? null : value)}>${glyph}</button>`)}
-                  </div>
-                </div>
-                ${this._renderTextStyleToggles(
-                  selectedCellDef ?? {},
-                  (key, value) => this._updateCellStyle(key, value ? true : null),
-                  `${s.cell} `,
-                )}
-                ${this._renderColorControl(
-                  s.backgroundColor, selectedCellDef?.backgroundColor, 'cellBackgroundColor',
-                  (v) => this._updateCellStyle('backgroundColor', v),
-                  undefined,
-                  `${s.cell} ${s.backgroundColor}`,
-                )}
-                ${this._renderColorControl(
-                  s.fontColor, selectedCellDef?.fontColor, 'cellFontColor',
-                  (v) => this._updateCellStyle('fontColor', v),
-                  el.fontColor ?? DEFAULT_FONT_COLOR,
-                  `${s.cell} ${s.fontColor}`,
-                )}
-                ${this._renderColorControl(
-                  s.borderColor, selectedCellDef?.borderColor, 'cellBorderColor',
-                  (v) => this._updateCellStyle('borderColor', v),
-                  el.borderColor ?? DEFAULT_BORDER_COLOR,
-                  `${s.cell} ${s.borderColor}`,
-                )}
-                ${this._renderBorderWidthSelect(
-                  selectedCellDef?.borderWidth,
-                  el.borderWidth ?? 0.2,
-                  true,
-                  'cellBorderWidth',
-                  (v) => this._updateCellStyle('borderWidth', v),
-                )}
-                ${this._renderBorderShapeRow(
-                  selectedCellDef?.borderStyle,
-                  `${s.cell} ${s.borderShape}`,
-                  'cellBorderStyle',
-                  (v) => this._updateCellStyle('borderStyle', v),
-                )}
-              </div>`
-            : html`<div class="prop-section"><div class="cell-hint">${s.cellHint}</div></div>`}
-        `;
-      }
-
-      case 'dynamicTable':
-        // 패널에는 제목·너비 빠른 수정만 — 키·추가·삭제·순서는 열 편집 모달에서 (D-12)
-        return html`
-          <div class="prop-section">
-            ${this._renderBindingSelect(el.binding)}
-          </div>
-          <div class="prop-section">
-            <div class="prop-section-title">${s.columns}</div>
-            <div class="col-edit-head">
-              <span>${s.formTitle}</span><span>${s.columnWidthPct}</span>
-            </div>
-            ${el.columns.map((col, index) => html`
-              <div class="col-edit">
-                <input class="col-title" .value=${col.title}
-                  aria-label="${s.columns} ${index + 1} ${s.formTitle}"
-                  @change=${(e: Event) => this._setTableColumnTitle(index, valOf(e))}>
-                <input class="col-width" type="number" min="1" max="99" step="1"
-                  .value=${String(Math.round(col.widthPercentage * 100) / 100)}
-                  aria-label="${s.columns} ${index + 1} ${s.columnWidthPct}"
-                  @change=${(e: Event) => this._setTableColumnWidth(index, Number(valOf(e)))}>
-              </div>`)}
-            <button class="col-modal-open" aria-label=${s.columnsModalTitle}
-              @click=${() => {
-                this._columnsModalOpen = true;
-                this.requestUpdate();
-              }}>${icons.edit}<span>${s.columnsModalTitle}</span></button>
-          </div>
-        `;
 
       case 'image': {
         // 경로 문자열은 base64라 사람이 읽을 수 없다 — 지금 이미지를 그대로 보여준다 (G-36)
@@ -6597,15 +6169,14 @@ export class SlipDesigner extends LitElement {
     if (el.type === 'image') return nothing;
     const s = this._strings.designer;
     const r = el as Record<string, unknown>;
-    const hasFontColor =
-      el.type === 'text' || el.type === 'field' || el.type === 'fixedGrid' || el.type === 'dynamicTable';
+    const hasFontColor = el.type === 'text' || el.type === 'field' || el.type === 'grid';
     const hasTextDecor = el.type === 'text' || el.type === 'field';
     const hasBackground = el.type !== 'line';
     // 선은 테두리를 두르는 게 아니라 선 자체가 색·굵기·모양을 갖는다 (G-32).
     // 굵기는 크기 칸 옆으로 옮겼으므로(_renderSizeRows) 여기서는 빼고 색·모양만 남긴다.
     const isLine = el.type === 'line';
     // 테두리 형태(파선·점선)는 직선 분해 렌더가 가능한 종류만 (ADR-032)
-    const hasBorderShape = el.type === 'line' || el.type === 'rect' || el.type === 'fixedGrid';
+    const hasBorderShape = el.type === 'line' || el.type === 'rect' || el.type === 'grid';
     // 텍스트·필드는 기본 테두리 없음, 나머지는 기본 0.2mm (PDF 변환 계층과 동일)
     const defaultWidth = el.type === 'text' || el.type === 'field' ? 0 : 0.2;
 
@@ -6715,7 +6286,13 @@ export class SlipDesigner extends LitElement {
     for (const def of file.template.bindings ?? []) push(def.key);
     for (const page of file.template.pages) {
       for (const el of page.elements) {
-        if (el.type === 'field' || el.type === 'dynamicTable') push(el.binding);
+        if (el.type === 'field') push(el.binding);
+        if (el.type === 'grid') {
+          if (el.repeat) push(el.repeat.binding);
+          for (const cell of el.cells) {
+            if (cell.binding !== undefined && !inRepeatBand(el, cell.row)) push(cell.binding);
+          }
+        }
       }
     }
     return list;
@@ -6879,12 +6456,12 @@ export class SlipDesigner extends LitElement {
     const match = /([A-Za-z0-9_가-힣]+)\.([A-Za-z0-9_가-힣]*)$/.exec(before);
     if (!match) return null;
 
-    const table = this._bindingList().find((b) => b.key === match[1] && b.table);
-    if (!table?.table) return null;
+    const target = this._bindingList().find((b) => b.key === match[1] && b.repeatFields.length > 0);
+    if (!target) return null;
     const typed = match[2] ?? '';
-    const columns = table.table.element.columns
-      .filter((col) => col.key.toLowerCase().startsWith(typed.toLowerCase()))
-      .map((col) => ({ key: col.key, title: col.title }));
+    const columns = target.repeatFields
+      .filter((field) => field.key.toLowerCase().startsWith(typed.toLowerCase()))
+      .map((field) => ({ key: field.key, title: field.title }));
     return columns.length > 0 ? { columns, typedLength: typed.length } : null;
   }
 
@@ -6980,10 +6557,10 @@ export class SlipDesigner extends LitElement {
                   ${bindings.map((b) => html`
                     <button class="binding-chip" title=${b.key}
                       @click=${() => this._insertFormulaText(b.key)}>${b.label}</button>
-                    ${(b.table?.element.columns ?? []).map((col) => html`
-                      <button class="binding-chip column" title="${b.key}.${col.key}"
-                        @click=${() => this._insertFormulaText(`${b.key}.${col.key}`)}
-                        >${col.title || col.key}</button>`)}`)}
+                    ${b.repeatFields.map((field) => html`
+                      <button class="binding-chip column" title="${b.key}.${field.key}"
+                        @click=${() => this._insertFormulaText(`${b.key}.${field.key}`)}
+                        >${field.title}</button>`)}`)}
                 </div>`
             : nothing}
           <div class="modal-section-title">${s.formulaFunctions}</div>
@@ -7059,91 +6636,6 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /**
-   * 동적 표 열 편집 모달 — 열 전체 관리(제목·데이터 키·너비·추가·삭제·순서 이동).
-   * 편집은 즉시 반영되고 각 변경이 되돌리기 단위가 된다.
-   */
-  private _renderColumnsModal() {
-    if (!this._columnsModalOpen) return nothing;
-    const el = this._findSelectedElement();
-    if (!el || el.type !== 'dynamicTable') return nothing;
-    const s = this._strings.designer;
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-    const close = (): void => {
-      this._columnsModalOpen = false;
-      this.requestUpdate();
-    };
-
-    return html`
-      <div class="menu-backdrop modal-backdrop" @click=${close}></div>
-      <div class="modal" role="dialog" aria-label=${s.columnsModalTitle}
-        @keydown=${(e: KeyboardEvent) => {
-          if (e.key === 'Escape') {
-            e.stopPropagation();
-            close();
-          }
-        }}>
-        <div class="modal-head">
-          <span>${s.columnsModalTitle}</span>
-          <button class="modal-close" title=${s.close} aria-label=${s.close}
-            @click=${close}>${icons.close}</button>
-        </div>
-        <div class="modal-body">
-          <div class="col-modal-head">
-            <span></span>
-            <span>${s.formTitle}</span>
-            <span>${s.columnKey}</span>
-            <span>${s.columnWidthPct}</span>
-            <span></span>
-          </div>
-          ${el.columns.map((col, index) => html`
-            <div class="col-modal-row">
-              <span class="col-order">
-                <button title=${s.orderForward}
-                  aria-label="${s.columns} ${index + 1} ${s.orderForward}"
-                  ?disabled=${index === 0}
-                  @click=${() => this._moveTableColumn(index, -1)}>${icons.up}</button>
-                <button title=${s.orderBackward}
-                  aria-label="${s.columns} ${index + 1} ${s.orderBackward}"
-                  ?disabled=${index === el.columns.length - 1}
-                  @click=${() => this._moveTableColumn(index, 1)}>${icons.down}</button>
-              </span>
-              <input .value=${col.title}
-                aria-label="${s.columnsModalTitle} ${index + 1} ${s.formTitle}"
-                @change=${(e: Event) => this._setTableColumnTitle(index, valOf(e))}>
-              <input .value=${col.key}
-                aria-label="${s.columnsModalTitle} ${index + 1} ${s.columnKey}"
-                @change=${(e: Event) => this._setTableColumnKey(index, valOf(e))}>
-              <input type="number" min="1" max="99" step="1"
-                .value=${String(Math.round(col.widthPercentage * 100) / 100)}
-                aria-label="${s.columnsModalTitle} ${index + 1} ${s.columnWidthPct}"
-                @change=${(e: Event) => this._setTableColumnWidth(index, Number(valOf(e)))}>
-              <button class="col-remove" title=${s.delete}
-                aria-label="${s.columnsModalTitle} ${index + 1} ${s.delete}"
-                ?disabled=${el.columns.length <= 1}
-                @click=${() => this._removeTableColumn(index)}>${icons.pageRemove}</button>
-            </div>`)}
-          <div class="col-modal-actions">
-            <button class="col-add" aria-label=${s.addColumn}
-              @click=${() => this._addTableColumn()}>${icons.pageAdd}<span>${s.addColumn}</span></button>
-            <button class="col-add" aria-label=${s.evenWidths}
-              ?disabled=${el.columns.length <= 1}
-              @click=${() => this._evenTableColumnWidths()}>
-              ${icons.evenWidths}<span>${s.evenWidths}</span>
-            </button>
-          </div>
-        </div>
-        <div class="modal-foot">
-          <button class="btn primary" @click=${close}>${s.close}</button>
-        </div>
-      </div>
-    `;
-  }
-
-  // ---------------------------------------------------------------------------
-  // 샘플 데이터 편집 (D-13)
-  // ---------------------------------------------------------------------------
-
   /** 샘플 값 하나를 넣거나 지운다 — sampleValues가 비면 필드 자체를 지운다 */
   private _setSampleValue(key: string, value: unknown): void {
     this._updateFile((f) => {
@@ -7162,7 +6654,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 샘플 데이터 편집 모달 (D-13) — 바인딩마다 시험 값을 채운다. 동적 표 바인딩은
+   * 샘플 데이터 편집 모달 (D-13) — 바인딩마다 시험 값을 채운다. 반복 구간이 쓰는 값은
    * 그 표의 열 구조대로 행을 편집한다. 숫자 표기는 수로 저장해 수식 계산이 되게 한다.
    */
   private _renderSampleModal() {
@@ -7175,13 +6667,20 @@ export class SlipDesigner extends LitElement {
       this.requestUpdate();
     };
 
-    // 동적 표 바인딩 → 열 구조 (같은 바인딩을 쓰는 첫 표 기준)
+    // 반복 값 → 항목 필드 구조 (같은 값을 쓰는 첫 그리드 기준, ADR-037)
     const tableOf = new Map<string, { key: string; title: string }[]>();
     for (const page of template.pages) {
       for (const el of page.elements) {
-        if (el.type === 'dynamicTable' && !tableOf.has(el.binding)) {
-          tableOf.set(el.binding, el.columns.map((c) => ({ key: c.key, title: c.title })));
+        if (el.type !== 'grid' || !el.repeat || tableOf.has(el.repeat.binding)) continue;
+        const { fromRow, toRow } = el.repeat;
+        const fields: { key: string; title: string }[] = [];
+        for (const cell of el.cells) {
+          if (cell.row >= fromRow && cell.row <= toRow && cell.binding !== undefined
+            && !fields.some((f) => f.key === cell.binding)) {
+            fields.push({ key: cell.binding, title: cell.binding });
+          }
         }
+        if (fields.length > 0) tableOf.set(el.repeat.binding, fields);
       }
     }
     const bindings = this._collectBindings();
@@ -7334,7 +6833,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 동적 표 바인딩의 샘플 행 편집 — 열 구조대로 셀 입력, 행 추가·삭제 */
+  /** 반복 구간 값의 샘플 행 편집 — 항목 필드대로 칸 입력, 행 추가·삭제 */
   private _renderSampleTable(
     b: { key: string; label: string },
     columns: { key: string; title: string }[],

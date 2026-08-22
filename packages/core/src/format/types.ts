@@ -7,11 +7,8 @@
 export type {
   AssetEntry,
   BindingDef,
-  DynamicTableElement,
   EllipseElement,
   FieldElement,
-  FixedGridCell,
-  FixedGridElement,
   GridCell,
   GridElement,
   GridRepeat,
@@ -29,6 +26,5 @@ export type {
   SlipTemplateBody,
   SlipTemplateFile,
   SlipVoucherFile,
-  TableColumn,
   TextElement,
 } from './schema.js';

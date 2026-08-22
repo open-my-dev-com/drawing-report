@@ -42,13 +42,17 @@ function makeTemplate(withExternalImage = false): SlipTemplateFile {
       position: { x: 15, y: 20 }, width: 60, height: 8, binding: 'tradeDate',
     },
     {
-      type: 'dynamicTable', id: 't-items', name: '품목 표',
+      type: 'grid', id: 't-items', name: '품목 표',
       position: { x: 15, y: 40 }, width: 180, height: 40,
-      columns: [
-        { key: 'itemName', title: '품명', widthPercentage: 60 },
-        { key: 'amount', title: '금액', widthPercentage: 40 },
+      columns: [{ width: 108 }, { width: 72 }],
+      rows: [{ height: 8 }, { height: 8 }],
+      cells: [
+        { row: 0, column: 0, content: '품명' },
+        { row: 0, column: 1, content: '금액' },
+        { row: 1, column: 0, binding: 'itemName' },
+        { row: 1, column: 1, binding: 'amount' },
       ],
-      repeatHead: true, binding: 'items',
+      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 4, repeatHeader: true },
     },
     {
       type: 'field', id: 'f-total', name: '합계 필드',
@@ -163,7 +167,7 @@ describe('<slip-form> 입력 칸 구성', () => {
     const el = await mount();
     expect(inputByLabel(el, '거래일자')).toBeTruthy();
     expect(inputByLabel(el, '비고')).toBeTruthy(); // 요소 없이 정의부에만 있는 바인딩
-    // 동적 표는 열 구조대로 머리글이 나온다
+    // 반복 구간이 쓰는 값은 그리드 헤더에 적힌 이름으로 열이 나온다
     const titles = Array.from(el.shadowRoot!.querySelectorAll('.col-title')).map((s) => s.textContent);
     expect(titles).toEqual(['품명', '금액']);
     el.remove();
@@ -199,7 +203,7 @@ describe('<slip-form> 값 입력·행 편집', () => {
     el.remove();
   });
 
-  it('동적 표는 행을 추가·편집·삭제할 수 있다', async () => {
+  it('반복 구간이 쓰는 값은 행을 추가·편집·삭제할 수 있다', async () => {
     const el = await mount();
     const changes: SlipVoucherFile[] = [];
     el.addEventListener('slip-change', (e) => {

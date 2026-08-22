@@ -48,15 +48,14 @@ function makeTemplate(): SlipTemplateFile {
               alignment: 'center',
             },
             {
-              type: 'fixedGrid',
+              type: 'grid',
               id: 'supplier',
               name: '공급자 정보',
               position: { x: 15, y: 35 },
               width: 90,
               height: 30,
-              rows: 3,
-              columns: 2,
-              columnWidthPercentages: [30, 70],
+              rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
+              columns: [{ width: 27 }, { width: 63 }],
               cells: [
                 { row: 0, column: 0, content: '상호', backgroundColor: '#EEEEEE' },
                 { row: 0, column: 1, content: '{공급자상호}' },
@@ -66,20 +65,19 @@ function makeTemplate(): SlipTemplateFile {
               ],
             },
             {
-              type: 'dynamicTable',
+              type: 'grid',
               id: 'items',
               name: '품목',
               position: { x: 15, y: 80 },
               width: 180,
-              height: 120,
-              columns: [
-                { key: '품명', title: '품명', widthPercentage: 40 },
-                { key: '수량', title: '수량', widthPercentage: 15 },
-                { key: '단가', title: '단가', widthPercentage: 20 },
-                { key: '금액', title: '금액', widthPercentage: 25 },
+              height: 8 * 11,
+              columns: [{ width: 72 }, { width: 27 }, { width: 36 }, { width: 45 }],
+              rows: [{ height: 8 }, { height: 8 }],
+              repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 10, repeatHeader: true },
+              cells: [
+                { row: 0, column: 0, content: '품명' },
+                { row: 1, column: 0, binding: '품명' },
               ],
-              repeatHead: true,
-              binding: 'items',
             },
             {
               type: 'image',
@@ -158,30 +156,21 @@ describe('.slip 템플릿 파싱', () => {
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(SlipParseError);
   });
 
-  it('열 너비 비율 합이 100이 아니면 거부한다', () => {
+  it('열 너비의 합이 width와 다르면 거부한다', () => {
     const file = makeTemplate();
-    getElement(file, 1, 'fixedGrid').columnWidthPercentages = [30, 60];
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/비율의 합/);
-  });
-
-  it('비율 합의 오차가 0.01 이내(경계 포함)면 허용한다 (SPEC §3)', () => {
-    const file = makeTemplate();
-    getElement(file, 1, 'fixedGrid').columnWidthPercentages = [30.005, 70.005]; // 합 100.01
-    expect(() => parseSlipFile(serializeSlipFile(file))).not.toThrow();
-
-    getElement(file, 1, 'fixedGrid').columnWidthPercentages = [30, 70.02]; // 합 100.02
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/비율의 합/);
+    getElement(file, 1, 'grid').columns = [{ width: 27 }, { width: 50 }];
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/열 너비의 합/);
   });
 
   it('그리드 범위를 벗어난 병합 셀은 거부한다', () => {
     const file = makeTemplate();
-    getElement(file, 1, 'fixedGrid').cells.push({ row: 2, column: 0, rowSpan: 2, content: 'x' });
+    getElement(file, 1, 'grid').cells.push({ row: 2, column: 0, rowSpan: 2, content: 'x' });
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/벗어납니다/);
   });
 
   it('겹치는 셀은 거부한다', () => {
     const file = makeTemplate();
-    getElement(file, 1, 'fixedGrid').cells.push({ row: 0, column: 1, content: '중복' });
+    getElement(file, 1, 'grid').cells.push({ row: 0, column: 1, content: '중복' });
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/겹칩니다/);
   });
 
@@ -205,15 +194,15 @@ describe('.slip 템플릿 파싱', () => {
 
   it('요소 id가 중복되면 거부한다', () => {
     const file = makeTemplate();
-    getElement(file, 1, 'fixedGrid').id = 'title';
+    getElement(file, 1, 'grid').id = 'title';
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/요소 id가 중복/);
   });
 });
 
 describe('구조 크기 상한 (SPEC §3.2)', () => {
-  it('rows가 상한을 넘는 고정 그리드는 거부한다 (렌더 OOM 방지)', () => {
+  it('행 수가 상한을 넘는 그리드는 거부한다 (렌더 OOM 방지)', () => {
     const file = makeTemplate();
-    getElement(file, 1, 'fixedGrid').rows = 1_000_000_000;
+    getElement(file, 1, 'grid').rows = Array.from({ length: 1001 }, () => ({ height: 1 }));
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/최대/);
   });
 
@@ -223,54 +212,104 @@ describe('구조 크기 상한 (SPEC §3.2)', () => {
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/최대/);
   });
 
-  it('동적 표 열 수가 상한을 넘으면 거부한다', () => {
+  it('열 수가 상한을 넘는 그리드는 거부한다', () => {
     const file = makeTemplate();
-    const table = getElement(file, 2, 'dynamicTable');
-    table.columns = Array.from({ length: 101 }, (_, i) => ({
-      key: `열${i}`, title: `열${i}`, widthPercentage: 100 / 101,
-    }));
+    const grid = getElement(file, 2, 'grid');
+    grid.columns = Array.from({ length: 101 }, () => ({ width: 1 }));
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/최대/);
   });
 });
 
-describe('schemaVersion 마이그레이션 (구버전 → 0.3.0)', () => {
+describe('schemaVersion 마이그레이션 (구버전 → 0.4.0)', () => {
   it('구버전(0.1.0) 파일은 현재 버전으로 끌어올려 파싱된다', () => {
     const file = makeTemplate();
     (file as { schemaVersion: string }).schemaVersion = '0.1.0';
     const parsed = parseSlipFile(serializeSlipFile(file));
     expect(parsed.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(CURRENT_SCHEMA_VERSION).toBe('0.3.0');
+    expect(CURRENT_SCHEMA_VERSION).toBe('0.4.0');
   });
 
-  it('0.2.0 파일은 구조가 바뀌지 않은 채 0.3.0으로 올라간다 (ADR-037: 기존 두 요소를 그대로 둔다)', () => {
+  it('0.3.0의 고정 그리드는 mm 트랙을 가진 그리드로 옮겨진다 (ADR-037 3단계)', () => {
     const file = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
-    file['schemaVersion'] = '0.2.0';
-    const before = JSON.parse(JSON.stringify(file['template'])) as unknown;
+    file['schemaVersion'] = '0.3.0';
+    const pages = (file['template'] as { pages: { elements: Record<string, unknown>[] }[] }).pages;
+    const grid = pages[0]!.elements.find((el) => el['id'] === 'supplier')!;
+    // 옛 형식으로 되돌린다 — 비율 트랙 + 행·열 수
+    grid['type'] = 'fixedGrid';
+    grid['rows'] = 3;
+    grid['columns'] = 2;
+    grid['columnWidthPercentages'] = [30, 70];
+    grid['rowHeightPercentages'] = undefined;
+    delete grid['repeat'];
 
     const parsed = parseSlipFile(JSON.stringify(file));
     if (parsed.kind !== 'template') throw new Error('template이어야 한다');
-    expect(parsed.schemaVersion).toBe('0.3.0');
-    // 고정 그리드·동적 표는 손대지 않는다 — grid로 옮기는 것은 ADR-037 3단계
-    expect(parsed.template).toEqual(before);
+    const migrated = parsed.template.pages[0]!.elements.find((el) => el.id === 'supplier')!;
+    if (migrated.type !== 'grid') throw new Error('grid여야 한다');
+    // 너비 90mm를 30:70으로 나눈 mm 트랙
+    expect(migrated.columns).toEqual([{ width: 27 }, { width: 63 }]);
+    expect(migrated.rows).toEqual([{ height: 10 }, { height: 10 }, { height: 10 }]);
+    expect(migrated.repeat).toBeUndefined();
+    // 셀은 그대로 옮겨진다
+    expect(migrated.cells.some((c) => c.content === '상호')).toBe(true);
   });
 
-  it('0.1.1 동적 표(head 방식)는 columns(키=옛 제목)로 변환된다 — 전표 값 호환', () => {
+  it('0.3.0의 동적 표는 헤더 1행 + 반복 1행짜리 그리드가 된다 (ADR-037 3단계)', () => {
+    const file = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    file['schemaVersion'] = '0.3.0';
+    const pages = (file['template'] as { pages: { elements: Record<string, unknown>[] }[] }).pages;
+    const table = pages[0]!.elements.find((el) => el['id'] === 'items')!;
+    table['type'] = 'dynamicTable';
+    table['columns'] = [
+      { key: '품명', title: '품명', widthPercentage: 60 },
+      { key: '금액', title: '금액', widthPercentage: 40 },
+    ];
+    table['height'] = 48; // 헤더 8 + 본문 40 → 항목 5개
+    table['repeatHead'] = true;
+    table['binding'] = 'items';
+    delete table['rows'];
+    delete table['repeat'];
+    delete table['cells'];
+
+    const parsed = parseSlipFile(JSON.stringify(file));
+    if (parsed.kind !== 'template') throw new Error('template이어야 한다');
+    const migrated = parsed.template.pages[0]!.elements.find((el) => el.id === 'items')!;
+    if (migrated.type !== 'grid') throw new Error('grid여야 한다');
+    expect(migrated.columns).toEqual([{ width: 108 }, { width: 72 }]);
+    expect(migrated.repeat).toEqual({
+      binding: 'items', fromRow: 1, toRow: 1, perPage: 5, repeatHeader: true,
+    });
+    // 열 제목은 헤더 칸의 고정 문구, 물리 키는 반복 칸의 값이 된다
+    expect(migrated.cells.find((c) => c.row === 0 && c.column === 0)?.content).toBe('품명');
+    expect(migrated.cells.find((c) => c.row === 1 && c.column === 1)?.binding).toBe('금액');
+    // 헤더 1행 + 반복 5벌
+    expect(migrated.height).toBe(48);
+  });
+
+  it('0.1.1 동적 표(head 방식)는 단계를 거쳐 그리드가 된다 — 전표 값 호환', () => {
     const file = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     file['schemaVersion'] = '0.1.1';
     const pages = (file['template'] as { pages: { elements: Record<string, unknown>[] }[] }).pages;
-    const table = pages[0]!.elements.find((el) => el['type'] === 'dynamicTable')!;
+    // 픽스처의 그리드를 0.1.1 시절의 동적 표(head 방식)로 되돌린다
+    const table = pages[0]!.elements.find((el) => el['id'] === 'items')!;
+    table['type'] = 'dynamicTable';
+    table['height'] = 48;
+    table['repeatHead'] = true;
+    table['binding'] = 'items';
     delete table['columns'];
+    delete table['rows'];
+    delete table['repeat'];
+    delete table['cells'];
     table['head'] = ['품명', '금액'];
     table['headWidthPercentages'] = [60, 40];
 
     const parsed = parseSlipFile(JSON.stringify(file));
     if (parsed.kind !== 'template') throw new Error('template이어야 한다');
-    const migrated = parsed.template.pages[0]!.elements.find((el) => el.type === 'dynamicTable')!;
-    if (migrated.type !== 'dynamicTable') throw new Error('dynamicTable이어야 한다');
-    expect(migrated.columns).toEqual([
-      { key: '품명', title: '품명', widthPercentage: 60 },
-      { key: '금액', title: '금액', widthPercentage: 40 },
-    ]);
+    const migrated = parsed.template.pages[0]!.elements.find((el) => el.id === 'items')!;
+    if (migrated.type !== 'grid') throw new Error('grid여야 한다');
+    // 옛 제목이 키가 되고(전표 값 호환), 반복 칸이 그 키를 읽는다
+    expect(migrated.cells.find((c) => c.row === 1 && c.column === 0)?.binding).toBe('품명');
+    expect(migrated.cells.find((c) => c.row === 0 && c.column === 1)?.content).toBe('금액');
     expect('head' in migrated).toBe(false);
   });
 
