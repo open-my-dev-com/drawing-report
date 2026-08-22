@@ -10,6 +10,8 @@ import {
   type GridElement,
   type GridCell,
   type GridRepeat,
+  type PageNumberPosition,
+  type SlipPage,
   type RenderOptions,
   type SlipListItem,
   type StorageAdapter,
@@ -544,6 +546,7 @@ interface RepeatField {
 
 type SideSelection =
   | { kind: 'binding'; key: string }
+  | { kind: 'page' }
   | null;
 
 /**
@@ -881,6 +884,10 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-accent);
       font-weight: 600;
     }
+    /* 현재 페이지지만 선택 대상은 아닐 때 — 이름만 강조 (G-46) */
+    .page-row.current {
+      font-weight: 600;
+    }
     /*
      * 목록 줄 앞의 펼침 표시 (G-25) — 하위 줄이 있는 줄에만 나온다.
      * 하위가 없는 줄에는 같은 폭의 빈 자리(.side-twisty-gap)를 두어 이름이 나란히 시작한다.
@@ -1196,6 +1203,15 @@ export class SlipDesigner extends LitElement {
     .padding-guide {
       position: absolute;
       border: 1px dashed rgba(0, 0, 0, 0.1);
+      pointer-events: none;
+    }
+    /* 페이지 번호 자리표시 (G-46) — 실제 번호는 PDF 후처리, 캔버스는 X / X만 */
+    .page-number-mark {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      font-size: 9px;
+      color: var(--sk-text-muted);
       pointer-events: none;
     }
 
@@ -2457,6 +2473,7 @@ export class SlipDesigner extends LitElement {
     _sideSelection: { state: true },
     _expandedBindings: { state: true },
     _bindingKeyError: { state: true },
+    _pageKeyError: { state: true },
     presets: { attribute: false },
     storage: { attribute: false },
     _saveModalOpen: { state: true },
@@ -2575,6 +2592,8 @@ export class SlipDesigner extends LitElement {
   private _expandedBindings = new Set<string>();
   /** 바인딩 패널에서 이미 쓰는 물리명으로 바꾸려 했는지 — 안내를 보여준다 */
   private _bindingKeyError = false;
+  /** 페이지 물리명이 다른 페이지와 겹쳐 되돌렸는지 — 안내를 보여준다 (G-46) */
+  private _pageKeyError = false;
   /** "내 양식으로 저장" 모달 열림 여부 (D-15) */
   private _saveModalOpen = false;
   /** 저장 모달의 제목 초안 — 확인하면 양식 제목으로도 반영된다 */
@@ -2764,6 +2783,20 @@ export class SlipDesigner extends LitElement {
 
   private _pageCount(): number {
     return this._file?.template.pages.length ?? 0;
+  }
+
+  /**
+   * 썸네일·목록에 보일 페이지 이름 — 논리명(label)이 있으면 그것, 없으면 `{n}페이지` (G-46).
+   *
+   * @param page - 페이지
+   * @param index - 페이지 번호(0-기반)
+   * @returns 화면에 보일 이름
+   */
+  private _pageDisplayName(page: { label?: string | undefined }, index: number): string {
+    const label = page.label?.trim();
+    return label !== undefined && label !== ''
+      ? label
+      : this._strings.designer.pageLabel.replace('{n}', String(index + 1));
   }
 
   /**
@@ -4055,12 +4088,6 @@ export class SlipDesigner extends LitElement {
         ${this._iconButton(s.prevPage, icons.pagePrev, () => this._goToPage(this._pageIndex - 1), { disabled: this._pageIndex === 0 })}
         <span class="page-indicator">${this._pageIndex + 1} / ${this._pageCount()}</span>
         ${this._iconButton(s.nextPage, icons.pageNext, () => this._goToPage(this._pageIndex + 1), { disabled: this._pageIndex >= this._pageCount() - 1 })}
-        ${this._iconButton(s.pageMoveForward, icons.up, () => this._movePage(-1), {
-          disabled: this._pageIndex === 0,
-        })}
-        ${this._iconButton(s.pageMoveBackward, icons.down, () => this._movePage(1), {
-          disabled: this._pageIndex >= this._pageCount() - 1,
-        })}
         ${this._iconButton(s.addPage, icons.pageAdd, () => this._addPage())}
         ${this._iconButton(s.deletePage, icons.pageRemove, () => this._deletePage(), { disabled: this._pageCount() <= 1 })}
       </div>
@@ -4299,6 +4326,20 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
+  /**
+   * 사이드바 페이지 줄을 골랐을 때 — 그 페이지로 옮기고 오른쪽 패널을 페이지 설정으로 바꾼다 (G-46).
+   *
+   * @param index - 고른 페이지 번호(0-기반)
+   */
+  private _selectPage(index: number): void {
+    this._goToPage(index);
+    this._selectedId = null;
+    this._selectedCell = null;
+    this._cellEditing = false;
+    this._sideSelection = { kind: 'page' };
+    this.requestUpdate();
+  }
+
   /** 사이드바에서 바인딩을 골랐을 때 — 오른쪽 패널이 그 바인딩 편집으로 바뀐다 (ADR-034) */
   private _selectBinding(key: string): void {
     this._bindingKeyError = false;
@@ -4409,15 +4450,19 @@ export class SlipDesigner extends LitElement {
         ${pages.map((page, i) => html`
           <div class="page-row-wrap">
             <span class="side-twisty-gap"></span>
-            <button class="side-row page-row ${i === this._pageIndex ? 'selected' : ''}"
+            <button class="side-row page-row ${
+              this._sideSelection?.kind === 'page' && i === this._pageIndex
+                ? 'selected'
+                : i === this._pageIndex ? 'current' : ''
+            }"
               aria-label="${s.sidebarPages} ${i + 1}"
               aria-pressed=${String(i === this._pageIndex)}
-              @click=${() => this._goToPage(i)}
+              @click=${() => this._selectPage(i)}
               @pointerenter=${(e: Event) => this._showPageThumb(i, e)}
               @pointerleave=${() => this._hidePageThumb(i)}
               @focus=${(e: Event) => this._showPageThumb(i, e)}
               @blur=${() => this._hidePageThumb(i)}>
-              ${icons.page}<span>${s.pageLabel.replace('{n}', String(i + 1))}</span>
+              ${icons.page}<span>${this._pageDisplayName(page, i)}</span>
             </button>
             ${this._thumbPage === i && this._thumbPos
               ? html`<div class="page-thumb-pop" role="presentation"
@@ -4444,7 +4489,7 @@ export class SlipDesigner extends LitElement {
                 aria-label="${s.sidebarElements} ${s.sidebarPages} ${i + 1}"
                 aria-expanded=${String(i === this._pageIndex)}
                 @click=${() => this._goToPage(i)}>
-                <span>${s.sidebarPages} ${i + 1}</span><span>${page.elements.length}</span>
+                <span>${this._pageDisplayName(page, i)}</span><span>${page.elements.length}</span>
               </button>`
             : nothing}
           ${i !== this._pageIndex
@@ -4670,6 +4715,37 @@ export class SlipDesigner extends LitElement {
   // Render: canvas
   // ---------------------------------------------------------------------------
 
+  /**
+   * 캔버스에 페이지 번호 자리표시를 그린다 (G-46) — 실제 번호는 PDF 후처리로 들어가므로
+   * 캔버스에는 `X / X`만 보인다 (ADR-012: 화면에 못 그리는 실제 값을 지어내지 않는다).
+   *
+   * @param page - 현재 페이지
+   * @param paper - 용지 크기
+   * @param padding - 여백 `[상, 우, 하, 좌]`(mm)
+   * @returns 번호 자리표시 조각. 번호 표시가 꺼져 있으면 빈 것
+   */
+  private _renderPageNumberPlaceholder(
+    page: SlipPage,
+    paper: { width: number; height: number },
+    padding: [number, number, number, number],
+  ) {
+    const setting = page.pageNumber;
+    if (!setting) return nothing;
+    const [pt, pr, pb, pl] = padding;
+    const isTop = setting.position.startsWith('top-');
+    const align = setting.position.endsWith('-left')
+      ? 'flex-start'
+      : setting.position.endsWith('-right') ? 'flex-end' : 'center';
+    const boxH = 6;
+    const left = pl * PX_PER_MM;
+    const width = (paper.width - pl - pr) * PX_PER_MM;
+    const top = (isTop ? Math.max(0, pt - boxH) : paper.height - pb) * PX_PER_MM;
+    return html`<div class="page-number-mark" style="
+      left:${left}px; top:${top}px; width:${width}px; height:${boxH * PX_PER_MM}px;
+      justify-content:${align};
+    ">X / X</div>`;
+  }
+
   private _renderCanvas() {
     if (!this._file) return nothing;
     const { paper } = this._file.template;
@@ -4706,6 +4782,7 @@ export class SlipDesigner extends LitElement {
           width:${(paper.width - pl - pr) * PX_PER_MM}px;
           height:${(paper.height - pt - pb) * PX_PER_MM}px;
         "></div>
+        ${this._renderPageNumberPlaceholder(page, paper, [pt, pr, pb, pl])}
         ${page.elements.map((el) => this._renderElement(el))}
         ${this._renderSelectionOverlay()}
         ${this._guideX !== null
@@ -5113,6 +5190,134 @@ export class SlipDesigner extends LitElement {
    * 제목·용지 크기(프리셋/직접 입력)·방향·여백을 편집한다. 방향과 프리셋은
    * 파일에 없는 화면 차원 개념이라 너비·높이로만 반영된다 (포맷 불변).
    */
+  /**
+   * 페이지 설정 패널 (G-46) — 이름·번호 표시·순서를 그 페이지 화면에서 정한다.
+   * 설정 대상은 늘 현재 페이지다 — 사이드바에서 다른 페이지를 고르면 그 페이지로 옮겨 이 패널이 갱신된다.
+   *
+   * @returns 페이지 설정 패널 조각
+   */
+  private _renderPageSettings() {
+    const file = this._file!;
+    const s = this._strings.designer;
+    const index = this._pageIndex;
+    const page = file.template.pages[index];
+    if (!page) return this._renderFormSettings();
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+
+    // 번호 위치 6종 — 아래·위 가장자리의 좌·중앙·우 (SPEC §4)
+    const positions: { value: PageNumberPosition; label: string }[] = [
+      { value: 'bottom-left', label: s.pagePosBottomLeft },
+      { value: 'bottom-center', label: s.pagePosBottomCenter },
+      { value: 'bottom-right', label: s.pagePosBottomRight },
+      { value: 'top-left', label: s.pagePosTopLeft },
+      { value: 'top-center', label: s.pagePosTopCenter },
+      { value: 'top-right', label: s.pagePosTopRight },
+    ];
+    const pageNumber = page.pageNumber;
+
+    return html`
+      <div class="type-name">${s.pageSettings}</div>
+
+      <div class="prop-section">
+        <div class="prop-row">
+          <label>${s.pageName}</label>
+          <input .value=${page.label ?? ''}
+            placeholder=${s.pageLabel.replace('{n}', String(index + 1))}
+            @change=${(e: Event) => {
+              const v = valOf(e).trim();
+              this._updateFile((f) => {
+                const target = f.template.pages[index]!;
+                if (v === '') delete target.label;
+                else target.label = v;
+              });
+            }}>
+        </div>
+        <div class="cell-hint">${s.pageNameHint}</div>
+        <div class="prop-row">
+          <label>${s.pageKey}</label>
+          <input class=${this._pageKeyError ? 'error' : ''} .value=${page.key ?? ''}
+            @change=${(e: Event) => this._commitPageKey(index, valOf(e))}>
+        </div>
+        ${this._pageKeyError ? html`<div class="cell-hint error">${s.keyInUse}</div>` : nothing}
+      </div>
+
+      <div class="prop-section">
+        <div class="prop-row">
+          <label>${s.pageNumberShow}</label>
+          <input type="checkbox" aria-label=${s.pageNumberShow} .checked=${pageNumber !== undefined}
+            @change=${(e: Event) => this._togglePageNumber(index, (e.target as HTMLInputElement).checked)}>
+        </div>
+        ${pageNumber
+          ? html`
+            <div class="prop-row">
+              <label>${s.pageNumberPosition}</label>
+              <select aria-label=${s.pageNumberPosition}
+                @change=${(e: Event) =>
+                  this._updateFile((f) => {
+                    f.template.pages[index]!.pageNumber = {
+                      ...f.template.pages[index]!.pageNumber!,
+                      position: (e.target as HTMLSelectElement).value as PageNumberPosition,
+                    };
+                  })}>
+                ${positions.map((p) => html`
+                  <option value=${p.value} ?selected=${p.value === pageNumber.position}>${p.label}</option>`)}
+              </select>
+            </div>`
+          : nothing}
+      </div>
+
+      <div class="prop-section">
+        <div class="prop-section-title">${s.pageOrder}</div>
+        <div class="prop-row">
+          <div class="step-inputs">
+            <button class="row-btn" aria-label=${s.pageMoveForward}
+              ?disabled=${index === 0} @click=${() => this._movePage(-1)}>${icons.up}</button>
+            <span>${index + 1} / ${this._pageCount()}</span>
+            <button class="row-btn" aria-label=${s.pageMoveBackward}
+              ?disabled=${index >= this._pageCount() - 1} @click=${() => this._movePage(1)}>${icons.down}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 페이지 물리명을 고친다 — 빈 값이면 지우고, 다른 페이지와 겹치면 되돌린다 (G-46, SPEC §4).
+   *
+   * @param index - 페이지 번호(0-기반)
+   * @param raw - 입력한 물리명
+   */
+  private _commitPageKey(index: number, raw: string): void {
+    const key = raw.trim();
+    const pages = this._file?.template.pages;
+    if (!pages) return;
+    this._pageKeyError = false;
+    if (key !== '' && pages.some((p, i) => i !== index && p.key === key)) {
+      this._pageKeyError = true;
+      this.requestUpdate();
+      return;
+    }
+    this._updateFile((f) => {
+      const target = f.template.pages[index]!;
+      if (key === '') delete target.key;
+      else target.key = key;
+    });
+  }
+
+  /**
+   * 페이지 번호 표시를 켜고 끈다 — 켜면 기본 위치(아래 가운데)로 시작한다 (G-46).
+   *
+   * @param index - 페이지 번호(0-기반)
+   * @param on - 켤지 여부
+   */
+  private _togglePageNumber(index: number, on: boolean): void {
+    this._updateFile((f) => {
+      const target = f.template.pages[index]!;
+      if (on) target.pageNumber = { position: 'bottom-center' };
+      else delete target.pageNumber;
+    });
+  }
+
   private _renderFormSettings() {
     const file = this._file!;
     const s = this._strings.designer;
@@ -5292,9 +5497,10 @@ export class SlipDesigner extends LitElement {
   }
 
   private _renderPropertyPanel() {
-    // 선택 대상은 요소와 바인딩 둘 — 아무것도 고르지 않았으면 양식 설정 (ADR-034)
+    // 선택 대상은 요소·바인딩·페이지 셋 — 아무것도 고르지 않았으면 양식 설정 (ADR-034, G-46)
     const sel = this._sideSelection;
     if (sel?.kind === 'binding') return this._renderBindingPanel(sel.key);
+    if (sel?.kind === 'page') return this._renderPageSettings();
 
     const el = this._findSelectedElement();
     if (!el) {

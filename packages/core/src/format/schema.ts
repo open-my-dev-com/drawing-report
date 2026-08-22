@@ -646,6 +646,20 @@ export const slipTemplateBodySchema = z
         }
       }
     });
+    // 페이지 물리명(key) 유일성 (0.5.0, SPEC §4) — 호스트가 페이지를 가리키는 이름이라 겹치면 안 된다
+    const pageKeys = new Set<string>();
+    body.pages.forEach((page, pageIndex) => {
+      if (page.key === undefined) return;
+      if (pageKeys.has(page.key)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['pages', pageIndex, 'key'],
+          message: `페이지 key가 중복됩니다: ${page.key}`,
+        });
+      }
+      pageKeys.add(page.key);
+    });
+
     // 요소 id 유일성(문서 전체) + asset:// 참조 해소 가능성
     const elementIds = new Set<string>();
     body.pages.forEach((page, pageIndex) => {
@@ -877,6 +891,8 @@ export type BarcodeKind = z.infer<typeof barcodeKindSchema>;
 export type BindingValueType = z.infer<typeof bindingValueTypeSchema>;
 /** 페이지 번호 표시 (0.5.0) */
 export type PageNumber = z.infer<typeof pageNumberSchema>;
+/** 페이지 번호 위치 (0.5.0) */
+export type PageNumberPosition = z.infer<typeof pageNumberPositionSchema>;
 /** 요소 9종 유니온 */
 export type SlipElement = z.infer<typeof slipElementSchema>;
 /** 페이지 (요소 배열) */
