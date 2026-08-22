@@ -17,6 +17,11 @@ export const icons = {
   text: icon(svg`<path d="M12 4v16" /><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" /><path d="M9 20h6" />`),
   /** lucide: grid-3x3 */
   fixedGrid: icon(svg`<rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path d="M3 15h18" /><path d="M9 3v18" /><path d="M15 3v18" />`),
+  /**
+   * 그리드 요소 (ADR-037) — 표 모양에 반복 구간을 칠해 구분한다.
+   * 캔버스 모눈 아이콘(`grid`)과 다른 그림이어야 툴바에서 헷갈리지 않는다
+   */
+  gridElement: icon(svg`<rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path d="M3 15h18" /><path d="M12 3v18" /><rect x="3" y="9" width="18" height="6" fill="currentColor" opacity="0.25" stroke="none" />`),
   /** lucide: table */
   dynamicTable: icon(svg`<path d="M12 3v18" /><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path d="M3 15h18" />`),
   /** lucide: image */

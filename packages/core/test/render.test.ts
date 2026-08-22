@@ -590,7 +590,7 @@ describe('렌더 로케일 (ADR-013)', () => {
 // ---------------------------------------------------------------------------
 
 /**
- * 머리 1행 + 반복 1행 + 꼬리 1행짜리 그리드.
+ * 헤더 1행 + 반복 1행 + 꼬리 1행짜리 그리드.
  * 열 너비 60+40mm, 행 높이 8mm → 반복 3개면 높이 8 + 3x8 + 8 = 40mm.
  */
 function makeGridBody(options?: {
@@ -681,7 +681,7 @@ describe('그리드(grid) 변환 — 반복 구간 (ADR-037)', () => {
   it('항목이 적으면 남는 칸은 빈 줄로 남고 그리드 크기는 그대로다', () => {
     const { template } = convertSlipFile(makeGridVoucher(1));
     const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
-    // 빈 줄에는 글자가 없다 — 머리 2 + 항목 2 + 꼬리 2
+    // 빈 줄에는 글자가 없다 — 헤더 2 + 항목 2 + 꼬리 2
     expect(gridTexts(makeGridVoucher(1))).toEqual(['품명', '금액', '품목 1', '1000', '합계', '1,000']);
     // 괘선은 빈 줄까지 그린다 — 가로선이 행 경계 수(5개: 0~4)만큼 있다
     const horizontals = schemas.filter((s) => String(s.name).includes('__h-'));
@@ -727,7 +727,7 @@ describe('그리드(grid) 변환 — 반복 구간 (ADR-037)', () => {
     const { template } = convertSlipFile(makeGridVoucher(3));
     const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
     const cells = schemas.filter((s) => s.type === 'text' && String(s.name).includes('__cell-'));
-    // 그리드 origin y=30, 행 높이 8 — 머리 30, 반복 38·46·54, 꼬리 62
+    // 그리드 origin y=30, 행 높이 8 — 헤더 30, 반복 38·46·54, 꼬리 62
     expect(cells.map((c) => c.position.y)).toEqual([30, 30, 38, 38, 46, 46, 54, 54, 62, 62]);
     // 열 너비 60·40 — 두 번째 열은 x=15+60
     expect(cells.map((c) => c.position.x)).toEqual([15, 75, 15, 75, 15, 75, 15, 75, 15, 75]);

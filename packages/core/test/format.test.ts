@@ -242,6 +242,18 @@ describe('schemaVersion 마이그레이션 (구버전 → 0.3.0)', () => {
     expect(CURRENT_SCHEMA_VERSION).toBe('0.3.0');
   });
 
+  it('0.2.0 파일은 구조가 바뀌지 않은 채 0.3.0으로 올라간다 (ADR-037: 기존 두 요소를 그대로 둔다)', () => {
+    const file = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    file['schemaVersion'] = '0.2.0';
+    const before = JSON.parse(JSON.stringify(file['template'])) as unknown;
+
+    const parsed = parseSlipFile(JSON.stringify(file));
+    if (parsed.kind !== 'template') throw new Error('template이어야 한다');
+    expect(parsed.schemaVersion).toBe('0.3.0');
+    // 고정 그리드·동적 표는 손대지 않는다 — grid로 옮기는 것은 ADR-037 3단계
+    expect(parsed.template).toEqual(before);
+  });
+
   it('0.1.1 동적 표(head 방식)는 columns(키=옛 제목)로 변환된다 — 전표 값 호환', () => {
     const file = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     file['schemaVersion'] = '0.1.1';
@@ -412,7 +424,7 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
   });
 
   it('height는 반복 구간이 perPage번 복제된 높이여야 한다', () => {
-    // 8(머리) + 2x8(반복) + 8(꼬리) = 32
+    // 8(헤더) + 2x8(반복) + 8(꼬리) = 32
     expect(() => parseSlipFile(serializeSlipFile(makeGridFile({ height: 24 })))).toThrow(/행 높이의 합/);
     expect(() =>
       parseSlipFile(
@@ -451,7 +463,7 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
   it('병합이 반복 구간 경계를 넘으면 거부한다', () => {
     expect(() =>
       parseSlipFile(
-        serializeSlipFile(makeGridFile({ cells: [{ row: 0, column: 0, rowSpan: 2, content: '머리' }] })),
+        serializeSlipFile(makeGridFile({ cells: [{ row: 0, column: 0, rowSpan: 2, content: '헤더' }] })),
       ),
     ).toThrow(/반복 구간.*경계/);
   });
