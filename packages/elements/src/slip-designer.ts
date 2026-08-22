@@ -159,14 +159,29 @@ function textStyleCss(style: {
   bold?: boolean | undefined;
   underline?: boolean | undefined;
   strikethrough?: boolean | undefined;
+  verticalAlignment?: 'top' | 'middle' | 'bottom' | undefined;
+  lineHeight?: number | undefined;
+  characterSpacing?: number | undefined;
+  vertical?: boolean | undefined;
 }): string {
   const decorations = [
     style.underline === true ? 'underline' : '',
     style.strikethrough === true ? 'line-through' : '',
   ].filter(Boolean).join(' ');
+  // 수직 정렬은 flex column의 세로 배치로 (기본 상단), 글자 조판은 인라인 CSS로 그려 PDF와 맞춘다 (0.5.0, ADR-012)
+  const justify = style.verticalAlignment === 'middle'
+    ? 'center'
+    : style.verticalAlignment === 'bottom' ? 'flex-end' : 'flex-start';
+  // 기울임(italic)은 캔버스에 그리지 않는다 — PDF는 Italic 변형 폰트가 없으면 곧게 나오는데,
+  // 브라우저는 없는 자형을 흉내 내 기울여 캔버스만 어긋난다(ADR-012). 화면·PDF 일치를 위해 넣지 않는다
   return (
     (style.bold === true ? ';font-weight:700' : '') +
-    (decorations ? `;text-decoration:${decorations}` : '')
+    (decorations ? `;text-decoration:${decorations}` : '') +
+    `;justify-content:${justify}` +
+    (style.lineHeight !== undefined ? `;line-height:${style.lineHeight}` : '') +
+    (style.characterSpacing !== undefined ? `;letter-spacing:${(style.characterSpacing * 4) / 3}px` : '') +
+    // 세로쓰기 — PDF는 글자를 한 자씩 쌓는다. 캔버스는 세로쓰기 모드로 근사한다 (한 자씩 위에서 아래로)
+    (style.vertical === true ? ';writing-mode:vertical-rl;text-orientation:upright' : '')
   );
 }
 
@@ -1265,7 +1280,10 @@ export class SlipDesigner extends LitElement {
     }
     /* 텍스트·필드 표시 — PDF(pdfme)와 같게: 위쪽 정렬, 줄바꿈 유지, 넘치면 자동 줄바꿈 */
     .element .el-content {
-      display: block;
+      /* flex column으로 수직 정렬(justify-content)을 준다 — 기본은 상단 (0.5.0) */
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
       width: 100%;
       height: 100%;
       overflow: hidden;
@@ -6091,6 +6109,61 @@ export class SlipDesigner extends LitElement {
                 else delete r.alignment;
               })}>${glyph}</button>`)}
         </div>
+      </div>
+      <div class="prop-row">
+        <label>${s.verticalAlignment}</label>
+        <div class="toggle-group" role="group" aria-label=${s.verticalAlignment}>
+          ${([
+            ['top', s.alignTop, icons.alignTop],
+            ['middle', s.alignMiddle, icons.alignMiddle],
+            ['bottom', s.alignBottom, icons.alignBottom],
+          ] as const).map(([value, label, glyph]) => html`
+            <button title=${label} aria-label="${s.verticalAlignment}: ${label}"
+              aria-pressed=${String((el.verticalAlignment ?? 'top') === value)}
+              @click=${() => this._updateElement((target) => {
+                const r = target as Record<string, unknown>;
+                if (value !== 'top') r.verticalAlignment = value;
+                else delete r.verticalAlignment;
+              })}>${glyph}</button>`)}
+        </div>
+      </div>
+      <div class="prop-pair">
+        <div class="prop-row">
+          <label>${s.lineHeight}</label>
+          <input type="number" step="0.1" min="0.1" class=${el.lineHeight === undefined ? 'dim' : ''}
+            .value=${String(el.lineHeight ?? '')} placeholder="1"
+            @change=${(e: Event) => {
+              const v = numOf(e);
+              this._updateElement((target) => {
+                const r = target as Record<string, unknown>;
+                if (v > 0) r.lineHeight = v;
+                else delete r.lineHeight;
+              });
+            }}>
+        </div>
+        <div class="prop-row">
+          <label>${s.characterSpacing}</label>
+          <input type="number" step="0.1" class=${el.characterSpacing === undefined ? 'dim' : ''}
+            .value=${String(el.characterSpacing ?? '')} placeholder="0"
+            @change=${(e: Event) => {
+              const raw = (e.target as HTMLInputElement).value.trim();
+              const v = numOf(e);
+              this._updateElement((target) => {
+                const r = target as Record<string, unknown>;
+                if (raw !== '' && v !== 0) r.characterSpacing = v;
+                else delete r.characterSpacing;
+              });
+            }}>
+        </div>
+      </div>
+      <div class="prop-row">
+        <label>${s.verticalWriting}</label>
+        <input type="checkbox" aria-label=${s.verticalWriting} .checked=${el.vertical === true}
+          @change=${(e: Event) => this._updateElement((target) => {
+            const r = target as Record<string, unknown>;
+            if ((e.target as HTMLInputElement).checked) r.vertical = true;
+            else delete r.vertical;
+          })}>
       </div>
     `;
   }

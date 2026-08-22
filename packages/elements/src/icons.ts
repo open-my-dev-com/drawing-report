@@ -90,6 +90,12 @@ export const icons = {
   evenWidths: icon(svg`<rect width="18" height="14" x="3" y="5" rx="1" /><path d="M9 5v14" /><path d="M15 5v14" />`),
   /** 요소 종류 표시 켜기·끄기 (F-18) — 이름표 모양 */
   badges: icon(svg`<path d="M3.5 5.5A2 2 0 0 1 5.5 3.5h4.7a2 2 0 0 1 1.42.59l7.79 7.8a2 2 0 0 1 0 2.82l-4.7 4.7a2 2 0 0 1-2.83 0l-7.79-7.8a2 2 0 0 1-.59-1.41z" /><circle cx="7.5" cy="7.5" r="1.2" />`),
+  /** 세로 정렬 위 (0.5.0) — 위 변에 붙은 막대 */
+  alignTop: icon(svg`<rect x="7" y="9" width="10" height="11" rx="1" /><path d="M4 4h16" />`),
+  /** 세로 정렬 가운데 (0.5.0) */
+  alignMiddle: icon(svg`<rect x="7" y="7" width="10" height="10" rx="1" /><path d="M4 12h16" />`),
+  /** 세로 정렬 아래 (0.5.0) */
+  alignBottom: icon(svg`<rect x="7" y="4" width="10" height="11" rx="1" /><path d="M4 20h16" />`),
   /** 바코드 요소 (0.5.0) — 굵기가 다른 막대 줄 */
   barcode: icon(svg`<path d="M4 5v14" /><path d="M8 5v14" /><path d="M12 5v14" /><path d="M17 5v14" /><path d="M21 5v14" />`),
   /** 목록에서 접혀 있는 줄 (G-25) — 오른쪽 꺾쇠 */

@@ -2903,6 +2903,50 @@ describe('<slip-designer> 글자 스타일·테두리 편집 (C-11)', () => {
     el.remove();
   });
 
+  it('수직 정렬·줄간격·자간·세로쓰기를 속성 패널에서 정한다 (G-45)', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    const text = () => (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements[0]! as never as Record<string, unknown>;
+    const rowInput = (labelText: string) => Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === labelText)!
+      .querySelector('input') as HTMLInputElement;
+
+    // 수직 정렬 — 가운데
+    byAria(el, `${strings.designer.verticalAlignment}: ${strings.designer.alignMiddle}`).click();
+    await el.updateComplete;
+    expect(text().verticalAlignment).toBe('middle');
+
+    // 줄간격 1.5
+    const lh = rowInput(strings.designer.lineHeight);
+    lh.value = '1.5';
+    lh.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(text().lineHeight).toBe(1.5);
+
+    // 자간 2
+    const cs = rowInput(strings.designer.characterSpacing);
+    cs.value = '2';
+    cs.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(text().characterSpacing).toBe(2);
+
+    // 세로쓰기 켜기
+    const vertical = Array.from(el.shadowRoot!.querySelectorAll('input[type="checkbox"]'))
+      .find((c) => c.getAttribute('aria-label') === strings.designer.verticalWriting) as HTMLInputElement;
+    vertical.checked = true;
+    vertical.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(text().vertical).toBe(true);
+
+    // 기본값으로 되돌리면 필드가 지워진다
+    byAria(el, `${strings.designer.verticalAlignment}: ${strings.designer.alignTop}`).click();
+    await el.updateComplete;
+    expect(text().verticalAlignment).toBeUndefined();
+    el.remove();
+  });
+
   it('테두리 굵기 선택에 없음과 정해진 단계가 굵기 미리보기 선과 함께 나열된다', async () => {
     const el = await loadDesigner();
     selectElement(el, 'shp-1'); // 사각형 — 기본 0.2mm
