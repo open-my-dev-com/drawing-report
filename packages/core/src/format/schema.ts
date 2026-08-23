@@ -203,163 +203,180 @@ const gridRepeatSchema = z.object({
 });
 
 /** 고정 틀과 반복 목록을 하나로 다루는 그리드 (0.3.0, ADR-037) */
-const gridElementSchema = z
-  .object({
-    type: z.literal('grid'),
-    ...elementBaseShape,
-    ...colorStyleShape,
-    ...fontShape,
-    /** 열 정의 — 너비(mm) */
-    columns: z
-      .array(gridColumnSchema)
-      .min(1)
-      .max(SLIP_LIMITS.maxGridColumnTracks, `열 수는 최대 ${SLIP_LIMITS.maxGridColumnTracks}개입니다`),
-    /** 행 정의 — 높이(mm) */
-    rows: z
-      .array(gridRowSchema)
-      .min(1)
-      .max(SLIP_LIMITS.maxGridRowTracks, `행 수는 최대 ${SLIP_LIMITS.maxGridRowTracks}개입니다`),
-    cells: z.array(gridCellSchema).max(SLIP_LIMITS.maxGridCells, `셀 수는 최대 ${SLIP_LIMITS.maxGridCells}개입니다`),
-    /** 반복 구간 — 없으면 고정 틀 */
-    repeat: gridRepeatSchema.optional(),
-    /** 칸을 넘치는 글의 처리 (기본 clip) */
-    overflow: overflowSchema.optional(),
-  })
-  .superRefine((grid, ctx) => {
-    const rows = grid.rows.length;
-    const columns = grid.columns.length;
-    // 요소 상자는 행 높이·열 너비의 합이다 — 비율이 아니므로 어긋나면 그리는 자리가 달라진다
-    const totalWidth = grid.columns.reduce((sum, col) => sum + col.width, 0);
-    // 반복 구간은 페이지마다 perPage번 복제되므로 요소 높이도 그만큼이다 (SPEC §5.7)
-    const templateHeight = grid.rows.reduce((sum, row) => sum + row.height, 0);
-    const bandHeight = grid.repeat
-      ? grid.rows
-          .slice(grid.repeat.fromRow, grid.repeat.toRow + 1)
-          .reduce((sum, row) => sum + row.height, 0)
-      : 0;
-    const totalHeight = templateHeight + (grid.repeat ? (grid.repeat.perPage - 1) * bandHeight : 0);
-    if (Math.abs(totalWidth - grid.width) > 0.01) {
+const gridElementObject = z.object({
+  type: z.literal('grid'),
+  ...elementBaseShape,
+  ...colorStyleShape,
+  ...fontShape,
+  /** 열 정의 — 너비(mm) */
+  columns: z
+    .array(gridColumnSchema)
+    .min(1)
+    .max(SLIP_LIMITS.maxGridColumnTracks, `열 수는 최대 ${SLIP_LIMITS.maxGridColumnTracks}개입니다`),
+  /** 행 정의 — 높이(mm) */
+  rows: z
+    .array(gridRowSchema)
+    .min(1)
+    .max(SLIP_LIMITS.maxGridRowTracks, `행 수는 최대 ${SLIP_LIMITS.maxGridRowTracks}개입니다`),
+  cells: z.array(gridCellSchema).max(SLIP_LIMITS.maxGridCells, `셀 수는 최대 ${SLIP_LIMITS.maxGridCells}개입니다`),
+  /** 반복 구간 — 없으면 고정 틀 */
+  repeat: gridRepeatSchema.optional(),
+  /** 칸을 넘치는 글의 처리 (기본 clip) */
+  overflow: overflowSchema.optional(),
+});
+
+// 그리드 교차 필드 검증 — 관심사별 헬퍼로 나눠 각각 따로 읽힌다 (ADR-037).
+type GridInput = z.infer<typeof gridElementObject>;
+
+/** 요소 상자 = 행 높이·열 너비의 합인지 검사 (비율이 아니라 mm 절대값, SPEC §5.7) */
+function checkGridTrackSums(grid: GridInput, ctx: z.RefinementCtx): void {
+  const totalWidth = grid.columns.reduce((sum, col) => sum + col.width, 0);
+  const templateHeight = grid.rows.reduce((sum, row) => sum + row.height, 0);
+  // 반복 구간은 페이지마다 perPage번 복제되므로 요소 높이도 그만큼이다
+  const bandHeight = grid.repeat
+    ? grid.rows.slice(grid.repeat.fromRow, grid.repeat.toRow + 1).reduce((sum, row) => sum + row.height, 0)
+    : 0;
+  const totalHeight = templateHeight + (grid.repeat ? (grid.repeat.perPage - 1) * bandHeight : 0);
+  if (Math.abs(totalWidth - grid.width) > 0.01) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['columns'],
+      message: `열 너비의 합(${totalWidth})은 width(${grid.width})와 같아야 합니다`,
+    });
+  }
+  if (Math.abs(totalHeight - grid.height) > 0.01) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['rows'],
+      message:
+        `행 높이의 합(${totalHeight})은 height(${grid.height})와 같아야 합니다`
+        + (grid.repeat ? ' — 반복 구간은 perPage번 복제된 높이로 셉니다' : ''),
+    });
+  }
+}
+
+/** 반복 구간 범위가 유효한지 검사 (fromRow ≤ toRow, 행 수 안) */
+function checkGridRepeatRange(grid: GridInput, ctx: z.RefinementCtx): void {
+  if (!grid.repeat) return;
+  const { fromRow, toRow } = grid.repeat;
+  if (fromRow > toRow) {
+    ctx.addIssue({ code: 'custom', path: ['repeat', 'fromRow'], message: 'fromRow는 toRow보다 클 수 없습니다' });
+  } else if (toRow >= grid.rows.length) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['repeat', 'toRow'],
+      message: `반복 구간(${fromRow}~${toRow})이 행 수(${grid.rows.length})를 벗어납니다`,
+    });
+  }
+}
+
+/**
+ * 셀의 소스 배타·범위·병합 경계·겹침을 검사한다.
+ *
+ * @returns (행,열) → 그 칸을 차지하는 셀의 원점 좌표 맵 — 자동 병합 검사에서 소비한다
+ */
+function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, string> {
+  const rows = grid.rows.length;
+  const columns = grid.columns.length;
+  const occupied = new Set<string>();
+  const cellOriginAt = new Map<string, string>();
+  grid.cells.forEach((cell, index) => {
+    const rowSpan = cell.rowSpan ?? 1;
+    const colSpan = cell.colSpan ?? 1;
+    const sources = [cell.content, cell.binding, cell.formula].filter((v) => v !== undefined);
+    if (sources.length > 1) {
       ctx.addIssue({
         code: 'custom',
-        path: ['columns'],
-        message: `열 너비의 합(${totalWidth})은 width(${grid.width})와 같아야 합니다`,
+        path: ['cells', index],
+        message: `셀(${cell.row},${cell.column})은 content·binding·formula 중 하나만 가질 수 있습니다`,
       });
     }
-    if (Math.abs(totalHeight - grid.height) > 0.01) {
+    if (cell.row + rowSpan > rows || cell.column + colSpan > columns) {
       ctx.addIssue({
         code: 'custom',
-        path: ['rows'],
-        message:
-          `행 높이의 합(${totalHeight})은 height(${grid.height})와 같아야 합니다`
-          + (grid.repeat ? ' — 반복 구간은 perPage번 복제된 높이로 셉니다' : ''),
+        path: ['cells', index],
+        message: `셀(${cell.row},${cell.column})의 병합 범위가 그리드(${rows}×${columns})를 벗어납니다`,
       });
+      return;
     }
-    if (grid.repeat) {
+    // 병합이 반복 구간 경계를 넘으면 복제할 때 모양이 무너진다.
+    // 합법인 경우는 셋뿐이다: 구간보다 완전히 위 · 완전히 아래 · 구간 안에 완전히 포함.
+    // 경계를 걸치거나 구간을 통째로 감싸는 병합은 거부한다.
+    if (grid.repeat && rowSpan > 1) {
       const { fromRow, toRow } = grid.repeat;
-      if (fromRow > toRow) {
-        ctx.addIssue({ code: 'custom', path: ['repeat', 'fromRow'], message: 'fromRow는 toRow보다 클 수 없습니다' });
-      } else if (toRow >= rows) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['repeat', 'toRow'],
-          message: `반복 구간(${fromRow}~${toRow})이 행 수(${rows})를 벗어납니다`,
-        });
-      }
-    }
-    // 셀 범위·겹침 검사 (병합 포함)
-    const occupied = new Set<string>();
-    // (행,열) → 그 칸을 차지하는 셀의 원점 좌표 — 자동 병합 검사(구간 전체를 한 칸이 덮는지)에 쓴다
-    const cellOriginAt = new Map<string, string>();
-    grid.cells.forEach((cell, index) => {
-      const rowSpan = cell.rowSpan ?? 1;
-      const colSpan = cell.colSpan ?? 1;
-      const sources = [cell.content, cell.binding, cell.formula].filter((v) => v !== undefined);
-      if (sources.length > 1) {
+      const last = cell.row + rowSpan - 1;
+      const entirelyAbove = last < fromRow;
+      const entirelyBelow = cell.row > toRow;
+      const entirelyInside = cell.row >= fromRow && last <= toRow;
+      if (!(entirelyAbove || entirelyBelow || entirelyInside)) {
         ctx.addIssue({
           code: 'custom',
           path: ['cells', index],
-          message: `셀(${cell.row},${cell.column})은 content·binding·formula 중 하나만 가질 수 있습니다`,
-        });
-      }
-      if (cell.row + rowSpan > rows || cell.column + colSpan > columns) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['cells', index],
-          message: `셀(${cell.row},${cell.column})의 병합 범위가 그리드(${rows}×${columns})를 벗어납니다`,
+          message: `셀(${cell.row},${cell.column})의 병합이 반복 구간(${fromRow}~${toRow}) 경계를 넘습니다`,
         });
         return;
       }
-      // 병합이 반복 구간 경계를 넘으면 복제할 때 모양이 무너진다.
-      // 합법인 경우는 셋뿐이다: 구간보다 완전히 위 · 완전히 아래 · 구간 안에 완전히 포함.
-      // 경계를 걸치거나 구간을 통째로 감싸는 병합은 거부한다.
-      if (grid.repeat && rowSpan > 1) {
-        const { fromRow, toRow } = grid.repeat;
-        const last = cell.row + rowSpan - 1;
-        const entirelyAbove = last < fromRow;
-        const entirelyBelow = cell.row > toRow;
-        const entirelyInside = cell.row >= fromRow && last <= toRow;
-        if (!(entirelyAbove || entirelyBelow || entirelyInside)) {
+    }
+    for (let r = cell.row; r < cell.row + rowSpan; r++) {
+      for (let c = cell.column; c < cell.column + colSpan; c++) {
+        const key = `${r},${c}`;
+        if (occupied.has(key)) {
           ctx.addIssue({
             code: 'custom',
             path: ['cells', index],
-            message: `셀(${cell.row},${cell.column})의 병합이 반복 구간(${fromRow}~${toRow}) 경계를 넘습니다`,
+            message: `셀(${r},${c})이 다른 셀과 겹칩니다`,
           });
           return;
         }
+        occupied.add(key);
+        cellOriginAt.set(key, `${cell.row},${cell.column}`);
       }
-      for (let r = cell.row; r < cell.row + rowSpan; r++) {
-        for (let c = cell.column; c < cell.column + colSpan; c++) {
-          const key = `${r},${c}`;
-          if (occupied.has(key)) {
-            ctx.addIssue({
-              code: 'custom',
-              path: ['cells', index],
-              message: `셀(${r},${c})이 다른 셀과 겹칩니다`,
-            });
-            return;
-          }
-          occupied.add(key);
-          cellOriginAt.set(key, `${cell.row},${cell.column}`);
-        }
-      }
-    });
-
-    // 데이터 자동 병합 (ADR-038): 켠 열은 그 열의 반복 구간 칸이 구간 전체를 한 칸으로 덮어야 한다.
-    // 한 줄 구간이면 저절로 성립하고, 여러 줄인데 칸이 줄마다 갈라지면(원점이 다르면) 거부한다.
-    grid.columns.forEach((column, c) => {
-      if (column.autoMerge !== true) return;
-      if (!grid.repeat) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['columns', c, 'autoMerge'],
-          message: `${c}열의 자동 병합은 반복 구간이 있어야 켤 수 있습니다`,
-        });
-        return;
-      }
-      const { fromRow, toRow } = grid.repeat;
-      const topOrigin = cellOriginAt.get(`${fromRow},${c}`);
-      // 그 열의 반복 구간에 칸이 아예 없으면(빈 열) 덮을 칸이 없으므로 켤 수 없다.
-      // (그냥 두면 모든 조회가 undefined === undefined로 통과해 버린다.)
-      if (topOrigin === undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['columns', c, 'autoMerge'],
-          message: `${c}열의 자동 병합은 그 열의 반복 구간 칸이 구간 전체 높이를 차지할 때만 켤 수 있습니다`,
-        });
-        return;
-      }
-      for (let r = fromRow; r <= toRow; r++) {
-        if (cellOriginAt.get(`${r},${c}`) !== topOrigin) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['columns', c, 'autoMerge'],
-            message: `${c}열의 자동 병합은 그 열의 반복 구간 칸이 구간 전체 높이를 차지할 때만 켤 수 있습니다`,
-          });
-          return;
-        }
-      }
-    });
+    }
   });
+  return cellOriginAt;
+}
+
+/**
+ * 데이터 자동 병합 열 검사 (ADR-038) — 켠 열은 그 열의 반복 구간 칸이 구간 전체를 한 칸으로
+ * 덮어야 한다. 한 줄 구간이면 저절로 성립하고, 여러 줄인데 칸이 줄마다 갈라지면 거부한다.
+ *
+ * @param cellOriginAt - {@link checkGridCells}가 만든 (행,열)→원점 맵
+ */
+function checkGridAutoMerge(grid: GridInput, ctx: z.RefinementCtx, cellOriginAt: Map<string, string>): void {
+  grid.columns.forEach((column, c) => {
+    if (column.autoMerge !== true) return;
+    if (!grid.repeat) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['columns', c, 'autoMerge'],
+        message: `${c}열의 자동 병합은 반복 구간이 있어야 켤 수 있습니다`,
+      });
+      return;
+    }
+    const { fromRow, toRow } = grid.repeat;
+    const topOrigin = cellOriginAt.get(`${fromRow},${c}`);
+    const notCovered = `${c}열의 자동 병합은 그 열의 반복 구간 칸이 구간 전체 높이를 차지할 때만 켤 수 있습니다`;
+    // 그 열의 반복 구간에 칸이 아예 없으면(빈 열) 덮을 칸이 없으므로 켤 수 없다.
+    // (그냥 두면 모든 조회가 undefined === undefined로 통과해 버린다.)
+    if (topOrigin === undefined) {
+      ctx.addIssue({ code: 'custom', path: ['columns', c, 'autoMerge'], message: notCovered });
+      return;
+    }
+    for (let r = fromRow; r <= toRow; r++) {
+      if (cellOriginAt.get(`${r},${c}`) !== topOrigin) {
+        ctx.addIssue({ code: 'custom', path: ['columns', c, 'autoMerge'], message: notCovered });
+        return;
+      }
+    }
+  });
+}
+
+const gridElementSchema = gridElementObject.superRefine((grid, ctx) => {
+  checkGridTrackSums(grid, ctx);
+  checkGridRepeatRange(grid, ctx);
+  const cellOriginAt = checkGridCells(grid, ctx);
+  checkGridAutoMerge(grid, ctx, cellOriginAt);
+});
 
 const imageElementSchema = z
   .object({
