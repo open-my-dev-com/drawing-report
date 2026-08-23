@@ -274,3 +274,34 @@ describe('FORMAT_NUMBER 로케일 (ADR-013)', () => {
     );
   });
 });
+
+describe('경계·잘못된 입력 방어 (G-48)', () => {
+  it('문자열이 유한한 10진수가 아니면 숫자로 받지 않는다 (Infinity·16진수)', () => {
+    expect(() => evaluateFormula('a + 0', ctx({ a: '1e400' }))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('a + 0', ctx({ a: 'Infinity' }))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('a + 0', ctx({ a: '0x1F' }))).toThrow(FormulaEvalError);
+    // 정상 10진 문자열은 그대로 받는다
+    expect(evaluateFormula('a + 1', ctx({ a: '2.5' }))).toBe(3.5);
+  });
+
+  it('너무 큰 숫자 리터럴(Infinity)은 파싱 단계에서 거부한다', () => {
+    expect(() => evaluateFormula('1e400', ctx())).toThrow(FormulaSyntaxError);
+  });
+
+  it('FORMAT_DATE는 실제 존재하지 않는 날짜를 롤오버하지 않고 거부한다', () => {
+    expect(() => evaluateFormula('FORMAT_DATE("2026-13-45")', ctx())).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('FORMAT_DATE("2026-02-30")', ctx())).toThrow(FormulaEvalError);
+    expect(evaluateFormula('FORMAT_DATE("2026-02-28")', ctx())).toBe('2026-02-28');
+  });
+
+  it('DATE_ADD는 월·해 가감 시 대상 달의 마지막 날로 클램프한다', () => {
+    expect(evaluateFormula('DATE_ADD("2026-01-31", 1, "months")', ctx())).toBe('2026-02-28');
+    expect(evaluateFormula('DATE_ADD("2024-01-31", 1, "months")', ctx())).toBe('2024-02-29');
+    expect(evaluateFormula('DATE_ADD("2026-01-15", 1, "months")', ctx())).toBe('2026-02-15');
+  });
+
+  it('NUMBER_TO_KOREAN은 안전 정수 범위를 넘으면 거부한다', () => {
+    expect(() => evaluateFormula('NUMBER_TO_KOREAN(a)', ctx({ a: 1e20 }))).toThrow(FormulaEvalError);
+    expect(evaluateFormula('NUMBER_TO_KOREAN(110)', ctx())).toBe('일백일십');
+  });
+});

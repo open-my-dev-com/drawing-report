@@ -289,13 +289,16 @@ const gridElementSchema = z
         });
         return;
       }
-      // 병합이 반복 구간 경계를 넘으면 복제할 때 모양이 무너진다
+      // 병합이 반복 구간 경계를 넘으면 복제할 때 모양이 무너진다.
+      // 합법인 경우는 셋뿐이다: 구간보다 완전히 위 · 완전히 아래 · 구간 안에 완전히 포함.
+      // 경계를 걸치거나 구간을 통째로 감싸는 병합은 거부한다.
       if (grid.repeat && rowSpan > 1) {
         const { fromRow, toRow } = grid.repeat;
         const last = cell.row + rowSpan - 1;
-        const startsInside = cell.row >= fromRow && cell.row <= toRow;
-        const endsInside = last >= fromRow && last <= toRow;
-        if (startsInside !== endsInside || (startsInside && endsInside && (cell.row < fromRow || last > toRow))) {
+        const entirelyAbove = last < fromRow;
+        const entirelyBelow = cell.row > toRow;
+        const entirelyInside = cell.row >= fromRow && last <= toRow;
+        if (!(entirelyAbove || entirelyBelow || entirelyInside)) {
           ctx.addIssue({
             code: 'custom',
             path: ['cells', index],
@@ -335,6 +338,16 @@ const gridElementSchema = z
       }
       const { fromRow, toRow } = grid.repeat;
       const topOrigin = cellOriginAt.get(`${fromRow},${c}`);
+      // 그 열의 반복 구간에 칸이 아예 없으면(빈 열) 덮을 칸이 없으므로 켤 수 없다.
+      // (그냥 두면 모든 조회가 undefined === undefined로 통과해 버린다.)
+      if (topOrigin === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['columns', c, 'autoMerge'],
+          message: `${c}열의 자동 병합은 그 열의 반복 구간 칸이 구간 전체 높이를 차지할 때만 켤 수 있습니다`,
+        });
+        return;
+      }
       for (let r = fromRow; r <= toRow; r++) {
         if (cellOriginAt.get(`${r},${c}`) !== topOrigin) {
           ctx.addIssue({
@@ -637,7 +650,14 @@ export const slipTemplateBodySchema = z
     body.assets.forEach((asset, index) => {
       if (asset.src.startsWith('asset://')) {
         const referencedId = asset.src.slice('asset://'.length);
-        if (!assetIds.has(referencedId)) {
+        if (referencedId === asset.id) {
+          // 자기 자신을 가리키면 해소가 무한 루프가 된다
+          ctx.addIssue({
+            code: 'custom',
+            path: ['assets', index, 'src'],
+            message: `에셋이 자기 자신을 참조합니다: ${asset.id}`,
+          });
+        } else if (!assetIds.has(referencedId)) {
           ctx.addIssue({
             code: 'custom',
             path: ['assets', index, 'src'],
@@ -810,7 +830,17 @@ export function validateSlipFile(raw: unknown): SlipFile {
   } catch (error) {
     throw new SlipParseError(error instanceof Error ? error.message : String(error));
   }
-  const result = slipFileSchema.safeParse(migrated);
+  let result: ReturnType<typeof slipFileSchema.safeParse>;
+  try {
+    result = slipFileSchema.safeParse(migrated);
+  } catch (error) {
+    // z.lazy 값 스키마의 재귀가 지나치게 깊은 값에서 스택을 넘기면 RangeError가
+    // safeParse를 벗어난다 — @throws 계약대로 SlipParseError로 감싼다 (SPEC §3.2).
+    if (error instanceof RangeError) {
+      throw new SlipParseError('.slip 본문의 값 중첩이 너무 깊습니다');
+    }
+    throw error;
+  }
   if (!result.success) {
     throw new SlipParseError(`.slip 본문 검증 실패: ${formatIssues(result.error)}`);
   }

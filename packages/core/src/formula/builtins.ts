@@ -43,13 +43,19 @@ function describe(value: FormulaValue): string {
  * @returns 변환된 숫자
  * @throws FormulaEvalError 숫자로 볼 수 없는 값이면
  */
+// 10진 실수 표기만 허용한다 — 16진(0x1F)·2진·"Infinity" 같은 JS `Number()` 특례가
+// 문자열 경로로 새어 들어오는 것을 막는다(숫자 경로의 유한성 검사와 규칙을 맞춘다).
+const DECIMAL_NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+
 export function toNumber(value: FormulaValue, what = '값'): number {
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) throw new FormulaEvalError(`${what}이(가) 유한한 수가 아닙니다`);
     return value;
   }
-  if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) {
-    return Number(value);
+  if (typeof value === 'string' && DECIMAL_NUMBER.test(value.trim())) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) throw new FormulaEvalError(`${what}이(가) 유한한 수가 아닙니다`);
+    return n;
   }
   if (value === null) return 0;
   throw new FormulaEvalError(`${what}은(는) 숫자여야 합니다: ${describe(value)}`);
@@ -160,7 +166,22 @@ const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 function parseDate(value: FormulaValue, what = '날짜'): Date {
   if (typeof value === 'string') {
     const m = DATE_ONLY.exec(value);
-    if (m) return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+    if (m) {
+      const year = Number(m[1]);
+      const month = Number(m[2]);
+      const day = Number(m[3]);
+      const date = new Date(Date.UTC(year, month - 1, day));
+      // Date.UTC는 범위 밖 월·일을 다음 달·해로 넘겨 버리므로(2026-13-45 → 2027-02-14),
+      // 구성요소가 그대로 보존됐는지 확인해 잘못된 날짜를 거부한다.
+      if (
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day
+      ) {
+        return date;
+      }
+      throw new FormulaEvalError(`${what}이(가) 실제 존재하는 날짜가 아닙니다: ${describe(value)}`);
+    }
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) return parsed;
   }
@@ -211,7 +232,8 @@ function numberToKorean(n: number): string {
   if (n === 0) return '영';
   const sign = n < 0 ? '마이너스' : '';
   let abs = Math.abs(n);
-  if (abs >= 1e20) throw new FormulaEvalError('NUMBER_TO_KOREAN 지원 범위를 넘었습니다');
+  // 안전 정수 범위를 넘으면 % 10000·나눗셈이 부정확해져 잘못된 자릿값을 읽는다.
+  if (abs > Number.MAX_SAFE_INTEGER) throw new FormulaEvalError('NUMBER_TO_KOREAN 지원 범위를 넘었습니다');
   const groups: string[] = [];
   let groupIndex = 0;
   while (abs > 0) {
@@ -388,9 +410,18 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
     const date = parseDate(args[0] ?? null);
     const amount = requireInt(args[1] ?? null, '증감량');
     const unit = toDateUnit(args.length > 2 ? (args[2] ?? null) : null);
-    if (unit === 'days') date.setUTCDate(date.getUTCDate() + amount);
-    else if (unit === 'months') date.setUTCMonth(date.getUTCMonth() + amount);
-    else date.setUTCFullYear(date.getUTCFullYear() + amount);
+    if (unit === 'days') {
+      date.setUTCDate(date.getUTCDate() + amount);
+    } else {
+      // 월·해 가감은 대상 달의 마지막 날로 맞춘다 — setUTCMonth는 짧은 달에서 다음 달로
+      // 넘어가므로(1/31 + 1개월 → 3/3), 원래 일을 대상 달 말일로 클램프한다(EDATE 방식).
+      const day = date.getUTCDate();
+      date.setUTCDate(1);
+      if (unit === 'months') date.setUTCMonth(date.getUTCMonth() + amount);
+      else date.setUTCFullYear(date.getUTCFullYear() + amount);
+      const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+      date.setUTCDate(Math.min(day, lastDay));
+    }
     return toIsoDate(date);
   },
   /** DATE_DIFF(시작, 끝, 단위? = "days") — 끝 - 시작 */

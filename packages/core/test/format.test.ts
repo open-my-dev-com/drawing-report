@@ -625,3 +625,66 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
     ).toThrow(/겹칩니다/);
   });
 });
+
+describe('스키마 방어 보강 (G-48)', () => {
+  it('에셋이 자기 자신을 asset://로 참조하면 거부한다', () => {
+    const file = makeTemplate();
+    file.template.assets = [{ id: 'logo', mimeType: 'image/png', src: 'asset://logo' }];
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/자기 자신을 참조/);
+  });
+
+  it('값 중첩이 지나치게 깊으면 RangeError가 아니라 SlipParseError를 던진다', () => {
+    // 반복문으로 배열을 쌓아(재귀 아님) 깊은 값을 만든다 — JSON.stringify/parse의 자체
+    // 스택 한계를 피하고, Zod z.lazy 재귀가 넘치는 경로만 검증한다.
+    let nested: unknown = 0;
+    for (let i = 0; i < 50000; i++) nested = [nested];
+    const raw = {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'voucher',
+      templateSnapshot: makeTemplate().template,
+      values: { deep: nested },
+      issued: false,
+    };
+    expect(() => validateSlipFile(raw)).toThrow(SlipParseError);
+  });
+
+  it('병합 칸이 반복 구간을 통째로 감싸면 거부한다', () => {
+    const file = makeTemplate();
+    const page = file.template.pages[0]!;
+    page.elements = [
+      {
+        type: 'grid',
+        id: 'g',
+        name: '표',
+        position: { x: 10, y: 10 },
+        width: 50,
+        height: 32, // 3행(24) + (perPage 2 - 1) * 반복행(8)
+        columns: [{ width: 50 }],
+        rows: [{ height: 8 }, { height: 8 }, { height: 8 }],
+        repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: false },
+        cells: [{ row: 0, column: 0, rowSpan: 3, content: '감싸기' }],
+      },
+    ];
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/경계를 넘습니다/);
+  });
+
+  it('반복 구간에 칸이 없는 열의 autoMerge는 거부한다', () => {
+    const file = makeTemplate();
+    const page = file.template.pages[0]!;
+    page.elements = [
+      {
+        type: 'grid',
+        id: 'g',
+        name: '표',
+        position: { x: 10, y: 10 },
+        width: 50,
+        height: 24, // 2행(16) + (perPage 2 - 1) * 반복행(8)
+        columns: [{ width: 25 }, { width: 25, autoMerge: true }],
+        rows: [{ height: 8 }, { height: 8 }],
+        repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: false },
+        cells: [{ row: 1, column: 0, binding: '품명' }],
+      },
+    ];
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/구간 전체 높이/);
+  });
+});
