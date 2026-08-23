@@ -404,10 +404,14 @@ pdf-lib 임베더 비호환이라 Google Fonts 정적 TTF를 서브셋, 실PDF �
     - **가독성**: 수식 평가·텍스트 스타일 헬퍼, 페이지 번호 워크 단일화, `gridElementSchema.superRefine`·
       `gridLayout` 분리, 바인딩 셀렉트 3벌·`_collectBindings` 통합, 값 소스 지우기 공용화, 매직넘버 상수화
     - **G-40 마감 누락**: 폰트 로케일 정규화, 수식 도움말 ja, locale 주석·QR 라벨
-    - **npm 준비**: `repository`·`publishConfig`·`schemas` export (license만 남음)
-    - **남은 큰 항목(회귀 위험 커 사용자 리뷰와 함께 판단 권장)**: `_renderTypeProps` 8분할, 세로쓰기·데이터
-      자동 병합의 캔버스 정합, IndexedDB 커서 페이징, `requestUpdate` reject·`as Record` 캐스트 정리, `drawGrid`
-      두 패스 통합
+    - **npm 준비**: `repository`·`publishConfig`·`schemas` export
+    - **라이선스**: BUSL-1.1 확정 (Licensor JangHyeonho, Change Date 2031-01-01 → Apache-2.0)
+    - **수식 엄격 타입 + 변환 함수(ADR-044)**: 숫자 자리는 숫자만, 글자→숫자는 `TO_NUMBER` 명시,
+      `TO_NUMBER`·`TO_STRING`·`TO_DATE` 추가(29→32종), number 바인딩 빈 값 0 정규화(SSOT)
+    - **큰 구조 리팩터·캔버스 정합 처리 완료**: `_renderTypeProps` 요소 종류별 분할(+그리드 칸 편집기),
+      `drawGrid` 가로·세로 패스 `drawGridLines` 통합, 세로쓰기·데이터 자동 병합 캔버스 정합(PDF와 동일),
+      `requestUpdate` reject → `_rejectInput`·`as Record` → `setOptional`·커밋/색 시드 중복 통합
+    - **보류(사용자 판단)**: IndexedDB `list()` 커서 페이징 — 이번엔 넣지 않음
     - **원래 계획(세 갈래)**:
     - **코드 리뷰(다관점)**: 정확성 · 가독성 · 유지보수성 · 보안 · 성능 · 데드코드 제거 · 중복코드 제거
     - **기능 리뷰(유저 친화성)**: 만들어 놓은 것이 실제로 쓸 만한지 본다. 미리 정한 항목만 훑지 않고
