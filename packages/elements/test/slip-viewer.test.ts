@@ -4,6 +4,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('@omdc-slipkit/core', () => ({
   parseSlipFile: vi.fn(),
   renderSlipToPdf: vi.fn(),
+  verifyIntegrity: vi.fn(),
 }));
 
 vi.mock('../src/default-fonts.js', () => ({
@@ -16,12 +17,13 @@ vi.mock('../src/default-fonts.js', () => ({
     ]),
 }));
 
-import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
+import { parseSlipFile, renderSlipToPdf, verifyIntegrity } from '@omdc-slipkit/core';
 import type { SlipFile } from '@omdc-slipkit/core';
 import { strings } from '../src/strings.js';
 
 const parseSlipFileMock = vi.mocked(parseSlipFile);
 const renderSlipToPdfMock = vi.mocked(renderSlipToPdf);
+const verifyIntegrityMock = vi.mocked(verifyIntegrity);
 
 const DUMMY_FILE: SlipFile = {
   schemaVersion: '0.1.0',
@@ -54,6 +56,7 @@ beforeEach(() => {
 
   parseSlipFileMock.mockReturnValue(DUMMY_FILE);
   renderSlipToPdfMock.mockResolvedValue(DUMMY_PDF);
+  verifyIntegrityMock.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -239,6 +242,49 @@ describe('<slip-viewer> 생명주기 정리', () => {
     await flush();
 
     expect(blobUrls.length).toBe(0);
+  });
+});
+
+describe('<slip-viewer> 무결성 검증 (G-48, SPEC §8)', () => {
+  const ISSUED: SlipFile = {
+    schemaVersion: '0.5.0', kind: 'voucher',
+    templateSnapshot: (DUMMY_FILE as { template: unknown }).template,
+    values: {}, issued: true, integrity: { contentHash: 'a'.repeat(64) },
+  } as unknown as SlipFile;
+
+  it('발행 전표의 무결성 검증이 실패하면 PDF를 그리지 않고 오류를 표시한다', async () => {
+    parseSlipFileMock.mockReturnValue(ISSUED);
+    verifyIntegrityMock.mockRejectedValue(new Error('contentHash 불일치'));
+    const el = await createElement();
+    el.src = '{"issued":true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    expect(shadowText(el)).toBe(strings.viewer.integrityError);
+    expect(el.shadowRoot?.querySelector('iframe')).toBeNull();
+    expect(renderSlipToPdfMock).not.toHaveBeenCalled();
+    el.remove();
+  });
+
+  it('무결성 검증이 통과하면 PDF를 그린다', async () => {
+    parseSlipFileMock.mockReturnValue(ISSUED);
+    const el = await createElement();
+    el.src = '{"issued":true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector('iframe')).not.toBeNull();
+    el.remove();
+  });
+
+  it('양식(template)은 무결성 검증을 하지 않는다', async () => {
+    const el = await createElement();
+    el.src = '{"kind":"template"}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    expect(verifyIntegrityMock).not.toHaveBeenCalled();
+    el.remove();
   });
 });
 

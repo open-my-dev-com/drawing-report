@@ -2,6 +2,8 @@ import { LitElement, css, html, nothing } from 'lit';
 import {
   parseSlipFile,
   renderSlipToPdf,
+  verifyIntegrity,
+  type IntegrityJwk,
   type RenderOptions,
   type SlipFile,
 } from '@omdc-slipkit/core';
@@ -54,6 +56,7 @@ export class SlipViewer extends LitElement {
     src: { type: String },
     locale: { type: String },
     settings: { attribute: false },
+    verificationKey: { attribute: false },
     _pdfUrl: { state: true },
     _error: { state: true },
     _loading: { state: true },
@@ -72,6 +75,13 @@ export class SlipViewer extends LitElement {
   /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040, JS 프로퍼티 전용) — 없으면 동봉 기본 */
   settings?: SlipFontProvider;
 
+  /**
+   * 발행 전표 무결성 검증에 쓸 공개키 (JWK, JS 프로퍼티 전용, SPEC §8).
+   * 발행된 전표는 로드 시 해시를 재계산해 변조를 검사하며, 이 키가 있으면 서명까지 확인한다.
+   * 검증에 실패하면 PDF를 그리지 않고 오류를 표시한다(변조된 문서를 그대로 보여주지 않는다).
+   */
+  verificationKey?: IntegrityJwk;
+
   private _pdfUrl: string | null = null;
   private _error: string | null = null;
   private _loading = false;
@@ -88,7 +98,7 @@ export class SlipViewer extends LitElement {
   }
 
   override updated(changed: Map<string, unknown>): void {
-    if (changed.has('src') || changed.has('settings')) {
+    if (changed.has('src') || changed.has('settings') || changed.has('verificationKey')) {
       void this._renderPdf();
     }
   }
@@ -123,6 +133,21 @@ export class SlipViewer extends LitElement {
       this._loading = false;
       this._error = this._t.parseError;
       return;
+    }
+
+    // 발행된 전표는 렌더 전에 무결성을 검증한다 — 해시 재계산으로 변조를 잡고, 공개키가
+    // 있으면 서명까지 확인한다. 실패하면 변조 가능성이 있는 문서를 그리지 않고 오류를 낸다 (SPEC §8).
+    if (file.kind === 'voucher' && file.issued) {
+      try {
+        await verifyIntegrity(file, this.verificationKey);
+      } catch (error) {
+        console.error('[slip-viewer] 무결성 검증 실패:', error);
+        if (gen !== this._renderGeneration) return;
+        this._loading = false;
+        this._error = this._t.integrityError;
+        return;
+      }
+      if (gen !== this._renderGeneration) return;
     }
 
     try {

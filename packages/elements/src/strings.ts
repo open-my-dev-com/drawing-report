@@ -15,6 +15,7 @@ const ko = {
     loading: 'PDF를 생성하고 있습니다…',
     parseError: '.slip 파일을 읽을 수 없습니다.',
     renderError: 'PDF 렌더링에 실패했습니다.',
+    integrityError: '무결성 검증에 실패했습니다 — 문서가 변조되었을 수 있습니다.',
     pdfTitle: 'PDF 미리보기',
   },
   designer: {
@@ -302,6 +303,7 @@ const en: SlipStrings = {
     loading: 'Generating PDF…',
     parseError: 'Could not read the .slip file.',
     renderError: 'PDF rendering failed.',
+    integrityError: 'Integrity verification failed — the document may have been tampered with.',
     pdfTitle: 'PDF preview',
   },
   designer: {
@@ -584,6 +586,7 @@ const ja: SlipStrings = {
     loading: 'PDF を生成しています…',
     parseError: '.slip ファイルを読み込めません。',
     renderError: 'PDF のレンダリングに失敗しました。',
+    integrityError: '整合性の検証に失敗しました — 文書が改ざんされている可能性があります。',
     pdfTitle: 'PDF プレビュー',
   },
   designer: {
