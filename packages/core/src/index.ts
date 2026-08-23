@@ -32,6 +32,7 @@ export {
   SlipRenderError,
   createPdfRenderer,
   renderSlipToPdf,
+  stackVertically,
   type RenderOptions,
   type SlipFont,
   type SlipPdfRenderer,

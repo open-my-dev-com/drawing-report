@@ -5,3 +5,4 @@
 export type { RenderOptions, SlipFont, SlipPdfRenderer } from './types.js';
 export { SlipRenderError } from './errors.js';
 export { createPdfRenderer, renderSlipToPdf } from './pdfme-renderer.js';
+export { stackVertically } from './text-layout.js';

@@ -31,6 +31,7 @@ import type {
 import { normalizeNumericBindings } from '../format/normalize.js';
 import { SlipRenderError } from './errors.js';
 import { TextMeasurer } from './measure.js';
+import { stackVertically } from './text-layout.js';
 import type { SlipFont } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -100,11 +101,6 @@ export interface PdfmeRenderInput {
  * @param vertical - 세로쓰기 여부 (거짓이면 원문 그대로)
  * @returns 세로쓰기면 한 자씩 줄을 나눈 글, 아니면 원문
  */
-function stackVertically(text: string, vertical: boolean | undefined): string {
-  if (vertical !== true) return text;
-  return [...text.replace(/\r\n|\r|\n/g, '')].join('\n');
-}
-
 function toDisplayText(value: unknown, what: string): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;

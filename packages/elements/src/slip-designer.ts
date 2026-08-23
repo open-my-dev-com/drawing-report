@@ -4,6 +4,7 @@ import {
   renderSlipToPdf,
   parseFormula,
   evaluateFormula,
+  stackVertically,
   type SlipFile,
   type SlipTemplateFile,
   type SlipElement,
@@ -234,9 +235,9 @@ function textStyleCss(
     (decorations ? `;text-decoration:${decorations}` : '') +
     verticalAlign +
     (style.lineHeight !== undefined ? `;line-height:${style.lineHeight}` : '') +
-    (style.characterSpacing !== undefined ? `;letter-spacing:${(style.characterSpacing * 4) / 3}px` : '') +
-    // 세로쓰기 — PDF는 글자를 한 자씩 쌓는다. 캔버스는 세로쓰기 모드로 근사한다 (한 자씩 위에서 아래로)
-    (style.vertical === true ? ';writing-mode:vertical-rl;text-orientation:upright' : '')
+    (style.characterSpacing !== undefined ? `;letter-spacing:${(style.characterSpacing * 4) / 3}px` : '')
+    // 세로쓰기는 CSS writing-mode가 아니라 글자를 한 자씩 쌓아 그린다(stackVertically) — PDF와
+    // 같은 문자열을 그려 긴 글의 열 넘김·줄바꿈 처리가 어긋나지 않는다 (ADR-012).
   );
 }
 
@@ -5392,7 +5393,7 @@ export class SlipDesigner extends LitElement {
       case 'text':
         return html`<span class="el-content"
           style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(el)}"
-          >${el.content}</span>`;
+          >${stackVertically(el.content, el.vertical)}</span>`;
 
       case 'grid':
         return this._renderGridElementPreview(el);
@@ -5539,21 +5540,55 @@ export class SlipDesigner extends LitElement {
     const bandRows = repeat ? repeat.toRow - repeat.fromRow + 1 : 0;
     const items = this._repeatSampleItems(el);
 
-    // 틀의 셀을 화면 행으로 옮긴다 — 반복 구간은 벌마다 한 번씩
-    const placed: { cell: GridCell; row: number; item: Record<string, unknown> | undefined }[] = [];
+    // 자동 병합 열 — 반복 구간에서 앞 벌과 값이 같은 칸을 세로로 합친다 (ADR-038)
+    const autoMergeColumns = new Set<number>();
+    el.columns.forEach((column, c) => {
+      if (column.autoMerge === true) autoMergeColumns.add(c);
+    });
+    const cellMerges = (cell: GridCell): boolean => {
+      for (let c = cell.column; c < cell.column + (cell.colSpan ?? 1); c++) {
+        if (autoMergeColumns.has(c)) return true;
+      }
+      return false;
+    };
+
+    // 틀의 셀을 화면 행으로 옮긴다 — 반복 구간은 벌마다 한 번씩. 자동 병합 열은 앞 벌과 값이
+    // 같으면 세로로 합쳐(rowSpan을 늘려) PDF(expandRepeatBand)와 같은 모습을 보인다 (ADR-012/038).
+    type Placed = { cell: GridCell; row: number; rowSpan: number; item: Record<string, unknown> | undefined };
+    const placed: Placed[] = [];
     for (const cell of el.cells) {
+      const baseSpan = cell.rowSpan ?? 1;
       if (!repeat || cell.row < repeat.fromRow) {
-        placed.push({ cell, row: cell.row, item: undefined });
+        placed.push({ cell, row: cell.row, rowSpan: baseSpan, item: undefined });
       } else if (cell.row > repeat.toRow) {
-        placed.push({ cell, row: cell.row + (repeat.perPage - 1) * bandRows, item: undefined });
-      } else {
+        placed.push({ cell, row: cell.row + (repeat.perPage - 1) * bandRows, rowSpan: baseSpan, item: undefined });
+      } else if (!cellMerges(cell)) {
         for (let i = 0; i < repeat.perPage; i++) {
-          placed.push({ cell, row: cell.row + i * bandRows, item: items[i] });
+          placed.push({ cell, row: cell.row + i * bandRows, rowSpan: baseSpan, item: items[i] });
+        }
+      } else {
+        let anchor: { entry: Placed; text: string } | null = null;
+        for (let i = 0; i < repeat.perPage; i++) {
+          const item = items[i];
+          const text = this._gridCellPreviewText(cell, item);
+          // 빈 값·항목 없음은 합치지 않고 병합을 끊는다 (ADR-038)
+          if (item === undefined || text === '') {
+            placed.push({ cell, row: cell.row + i * bandRows, rowSpan: baseSpan, item });
+            anchor = null;
+            continue;
+          }
+          if (anchor && anchor.text === text) {
+            anchor.entry.rowSpan += bandRows; // 앞 칸에 흡수 — 이 칸은 그리지 않는다
+            continue;
+          }
+          const entry: Placed = { cell, row: cell.row + i * bandRows, rowSpan: baseSpan, item };
+          placed.push(entry);
+          anchor = { entry, text };
         }
       }
     }
 
-    const boxes = placed.map(({ cell, row, item }) => {
+    const boxes = placed.map(({ cell, row, rowSpan, item }) => {
       const isSelectedCell =
         selected && this._selectedCell?.row === cell.row && this._selectedCell?.column === cell.column;
       // 그리드 칸은 flex row라 가로 정렬은 justify-content, 세로 정렬은 align-items다.
@@ -5561,22 +5596,24 @@ export class SlipDesigner extends LitElement {
       // 가로 정렬을 덮지 않게 한다 (ADR-012 — 캔버스·PDF 정렬 일치).
       const merged = { ...el, ...cell };
       const style = [
-        `grid-area:${row + 1}/${cell.column + 1}/span ${cell.rowSpan ?? 1}/span ${cell.colSpan ?? 1}`,
+        `grid-area:${row + 1}/${cell.column + 1}/span ${rowSpan}/span ${cell.colSpan ?? 1}`,
         `border:${borderCssOf(cell)}`,
         `font-size:${fontPx(cell.fontSize ?? el.fontSize)}`,
         `justify-content:${justifyOf(cell.alignment ?? el.alignment)}`,
         `align-items:${verticalFlexAlign(merged.verticalAlignment)}`,
+        // 세로쓰기 칸은 쌓은 글자의 줄바꿈이 살아야 한 열로 보인다 (ADR-012)
+        cell.vertical === true ? 'white-space:pre-wrap' : '',
         cell.backgroundColor ? `background-color:${cell.backgroundColor}` : '',
         (cell.fontColor ?? el.fontColor) ? `color:${cell.fontColor ?? el.fontColor}` : '',
       ].filter(Boolean).join(';') + textStyleCss(merged, { omitVerticalAlign: true });
       return html`<div class=${isSelectedCell ? 'cell-selected' : ''} style=${style}
-        >${this._gridCellPreviewText(cell, item)}</div>`;
+        >${stackVertically(this._gridCellPreviewText(cell, item), cell.vertical)}</div>`;
     });
 
     // 셀이 없는 칸도 괘선은 그려야 빈 줄까지 보이는 실제 모습이 된다 (SPEC §5.7)
     const taken = new Set<string>();
-    for (const { cell, row } of placed) {
-      for (let r = row; r < row + (cell.rowSpan ?? 1); r++) {
+    for (const { cell, row, rowSpan } of placed) {
+      for (let r = row; r < row + rowSpan; r++) {
         for (let c = cell.column; c < cell.column + (cell.colSpan ?? 1); c++) taken.add(`${r},${c}`);
       }
     }

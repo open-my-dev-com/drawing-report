@@ -405,6 +405,46 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     el.remove();
   });
 
+  it('세로쓰기 텍스트는 캔버스에서 글자를 한 자씩 쌓는다 (PDF stackVertically와 동일, ADR-012)', async () => {
+    const el = await mountWith([{
+      type: 'text', id: 'v1', name: 'v', position: { x: 10, y: 10 },
+      width: 10, height: 40, content: '가나\n다', vertical: true,
+    }]);
+    const content = el.shadowRoot?.querySelector('.el-content') as HTMLElement;
+    // 원래 줄바꿈은 없애고 글자마다 줄바꿈을 넣어 한 열로 쌓는다 (writing-mode 근사가 아님)
+    expect(content.textContent).toBe('가\n나\n다');
+    expect(content.style.writingMode).toBe('');
+    el.remove();
+  });
+
+  it('자동 병합 열은 앞 벌과 값이 같으면 캔버스에서 세로로 합친다 (ADR-038·012)', async () => {
+    const file = makeTemplateFile();
+    file.template.sampleValues = { items: [{ g: 'A' }, { g: 'A' }, { g: 'B' }] } as never;
+    file.template.pages[0]!.elements = [{
+      type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
+      width: 40, height: 24,
+      rows: [{ height: 8 }],
+      columns: [{ width: 40, autoMerge: true }],
+      repeat: { binding: 'items', fromRow: 0, toRow: 0, perPage: 3, repeatHeader: false },
+      cells: [{ row: 0, column: 0, binding: 'g' }],
+    }] as never;
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const boxes = Array.from(el.shadowRoot!.querySelectorAll('.grid-preview > div')) as HTMLElement[];
+    const aCell = boxes.find((c) => c.textContent === 'A');
+    const bCell = boxes.find((c) => c.textContent === 'B');
+    // A·A는 하나로 합쳐 세로 2칸, B는 따로 1칸 — 값 칸은 둘뿐이다
+    expect(aCell?.style.gridArea.replaceAll(' ', '')).toContain('span2');
+    expect(bCell).toBeTruthy();
+    expect(boxes.filter((c) => c.textContent === 'A' || c.textContent === 'B').length).toBe(2);
+    el.remove();
+  });
+
   it('그리드 헤더 칸의 배경색이 캔버스에 그려진다', async () => {
     const el = await mountWith([{
       type: 'grid', id: 'd1', name: 'd', position: { x: 10, y: 50 },
