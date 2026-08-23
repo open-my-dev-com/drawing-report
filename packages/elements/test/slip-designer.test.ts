@@ -1252,7 +1252,8 @@ describe('<slip-designer> 사이드바', () => {
 
     const section = sideSection(el, strings.designer.sidebarBindings);
     const rows = section.querySelectorAll('.side-row');
-    expect(Array.from(rows).map((r) => r.textContent?.trim())).toEqual(['합계금액', 'items']);
+    // 반복 구간이 쓰는 값은 열 때 정의부에 목록으로 등록되므로 정의부 항목이 앞에 온다 (ADR-047)
+    expect(Array.from(rows).map((r) => r.textContent?.trim())).toEqual(['items', '합계금액']);
     // 반복 구간이 쓰는 값은 그 구간 칸의 항목 필드가 한 단 들여쓰여 나온다 (ADR-034/037).
     // 기본은 접힘이라 펼침 표시를 눌러야 보인다 (G-25)
     twisty(el, 'items')!.click();
@@ -1262,7 +1263,8 @@ describe('<slip-designer> 사이드바', () => {
       .toEqual(['a']);
 
     // 파라미터을 고르면 오른쪽 패널이 파라미터 편집으로 바뀌고, "쓰는 곳"에서 요소로 이동한다
-    (rows[0] as HTMLElement).click();
+    // (rows[0]은 목록 파라미터 items — 값 하나짜리 합계금액으로 확인한다)
+    (rows[1] as HTMLElement).click();
     await el.updateComplete;
     expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
       .toBe(strings.designer.sidebarBindings);
@@ -2962,6 +2964,29 @@ describe('<slip-designer> 패널 표시 정리 (F-18)', () => {
     el.remove();
   });
 
+  it('숫자 칸에 잘못된 값을 넣으면 지우지 않고 되돌리며 오류를 알린다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    const sizeInput = () => Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.fontSize)!
+      .querySelector('input') as HTMLInputElement;
+
+    const input = sizeInput();
+    // 숫자 칸에 글자를 넣으면 브라우저가 값을 빈 문자열로 준다 (badInput)
+    Object.defineProperty(input, 'validity', { value: { badInput: true }, configurable: true });
+    input.value = '';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    // 값이 사라지지 않고 되돌아온다
+    expect(sizeInput().value).toBe('10');
+    // 무엇이 잘못됐는지 알린다 (조용히 비우지 않는다)
+    expect(el.shadowRoot!.querySelector('.input-error')?.textContent?.trim())
+      .toBe(strings.designer.invalidInput);
+    el.remove();
+  });
+
   it('지정하지 않은 항목은 실제 적용 중인 값을 흐리게 보여준다', async () => {
     const el = await loadDesigner();
     selectElement(el, 'txt-1'); // 글자색·크기 미지정 텍스트
@@ -2973,17 +2998,29 @@ describe('<slip-designer> 패널 표시 정리 (F-18)', () => {
     expect(fontColor.querySelector('.color-value')?.textContent?.trim()).toBe('#000000');
     expect(fontColor.querySelector('.color-value')?.classList.contains('dim')).toBe(true);
 
-    const fontSize = el.shadowRoot!.querySelector('input[placeholder="10"]') as HTMLInputElement;
-    expect(fontSize.value).toBe('');
+    const sizeInput = () => Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.fontSize)!
+      .querySelector('input') as HTMLInputElement;
+
+    // 미지정이어도 **실제 적용 중인 값**이 값으로 들어 있다 — placeholder로만 보이면
+    // 스피너가 빈 값에서 시작해 보고 있는 값과 조작 결과가 어긋난다
+    const fontSize = sizeInput();
+    expect(fontSize.value).toBe('10');
     expect(fontSize.classList.contains('dim')).toBe(true);
 
     // 값을 지정하면 흐린 표시가 사라진다
     fontSize.value = '14';
     fontSize.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
-    const after = el.shadowRoot!.querySelector('input[placeholder="10"]') as HTMLInputElement;
+    const after = sizeInput();
     expect(after.value).toBe('14');
     expect(after.classList.contains('dim')).toBe(false);
+
+    // 기본값과 같은 값을 넣으면 파일에는 적지 않는다(다시 흐리게)
+    after.value = '10';
+    after.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(sizeInput().classList.contains('dim')).toBe(true);
     el.remove();
   });
 

@@ -31,7 +31,7 @@ const ITEMS_H = ROW_MM * (1 + ITEMS_PER_PAGE);
 const TOTAL_Y = ITEMS_Y + ITEMS_H + 10;
 const FOOTER_Y = TOTAL_Y + 20;
 
-/** 상호·성명·주소를 적는 3행 4열 정보 그리드 (라벨 칸은 회색 배경) */
+/** 상호·성명·주소를 적는 3행 4열 정보 그리드 (라벨 셀은 회색 배경) */
 function infoGrid(id: string, name: string, y: number): SlipElement {
   return {
     type: 'grid',
@@ -64,9 +64,20 @@ function createTradeStatement(): SlipTemplateFile {
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
       // 파라미터 정의부 (ADR-032): 물리명은 camelCase, 화면에는 논리명 표시
       bindings: [
-        { key: 'tradeDate', label: '거래일자' },
-        { key: 'items', label: '품목' },
-        { key: 'totalAmount', label: '합계금액' },
+        { key: 'tradeDate', label: '거래일자', valueType: 'date' },
+        {
+          key: 'items',
+          label: '품목',
+          valueType: 'list',
+          fields: [
+            { key: 'itemName', label: '품명' },
+            { key: 'spec', label: '규격' },
+            { key: 'quantity', label: '수량', valueType: 'number' },
+            { key: 'unitPrice', label: '단가', valueType: 'number' },
+            { key: 'amount', label: '금액', valueType: 'number' },
+          ],
+        },
+        { key: 'totalAmount', label: '합계금액', valueType: 'number' },
       ],
       pages: [
         {
@@ -166,9 +177,19 @@ function createInvoice(): SlipTemplateFile {
       meta: { title: strings.designer.presetInvoice },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
       bindings: [
-        { key: 'invoiceDate', label: '청구일자' },
-        { key: 'items', label: '청구 항목' },
-        { key: 'totalAmount', label: '청구금액' },
+        { key: 'invoiceDate', label: '청구일자', valueType: 'date' },
+        {
+          key: 'items',
+          label: '청구 항목',
+          valueType: 'list',
+          fields: [
+            { key: 'itemName', label: '항목' },
+            { key: 'quantity', label: '수량', valueType: 'number' },
+            { key: 'unitPrice', label: '단가', valueType: 'number' },
+            { key: 'amount', label: '금액', valueType: 'number' },
+          ],
+        },
+        { key: 'totalAmount', label: '청구금액', valueType: 'number' },
       ],
       pages: [
         {

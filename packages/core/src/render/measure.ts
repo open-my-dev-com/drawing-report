@@ -1,12 +1,12 @@
 /**
- * 글자 재기 — 칸 안에서 줄이 바뀌는 자리와 줄 높이를 구한다 (ADR-037).
+ * 글자 재기 — 셀 안에서 줄이 바뀌는 자리와 줄 높이를 구한다 (ADR-037).
  *
- * 그리드의 칸은 높이가 정해져 있어, 칸을 넘치는 글을 잘라내려면 **몇 줄이 들어가는지**를
+ * 그리드의 셀은 높이가 정해져 있어, 셀을 넘치는 글을 잘라내려면 **몇 줄이 들어가는지**를
  * 그리기 전에 알아야 한다. 하부 엔진의 계산 규칙과 어긋나면 화면과 PDF가 달라지므로
  * (ADR-012), 폭·높이 계산과 줄 나누기를 엔진과 같은 규칙으로 맞춘다:
  *
  * - 낱말 나누기는 `Intl.Segmenter`(granularity `word`) — 낱말 중간에서 끊지 않고,
- *   낱말 하나가 칸보다 길 때만 글자 단위로 쪼갠다.
+ *   낱말 하나가 셀보다 길 때만 글자 단위로 쪼갠다.
  * - 글자 폭은 폰트의 advance width 합 + 자간.
  * - 첫 줄 높이는 폰트의 ascent 기준, 둘째 줄부터는 `줄간격 x 글자 크기`.
  *
@@ -28,7 +28,7 @@ interface FontMetrics {
   bbox: { maxY: number; minY: number };
 }
 
-/** 한 칸의 글자 모양 — 재기에 필요한 값만 */
+/** 한 셀의 글자 모양 — 재기에 필요한 값만 */
 export interface MeasureStyle {
   /** 글꼴 이름 (미지정이면 대체 폰트) */
   fontName?: string | undefined;
@@ -105,7 +105,7 @@ export class TextMeasurer {
   }
 
   /**
-   * 칸 폭에 맞춰 줄을 나눈다.
+   * 셀 폭에 맞춰 줄을 나눈다.
    *
    * @param text - 나눌 글
    * @param widthMm - 글을 담을 폭(mm, 안쪽 여백을 뺀 값)
@@ -141,7 +141,7 @@ export class TextMeasurer {
           current = segment;
           currentWidth = segmentWidth;
         } else {
-          // 낱말 하나가 칸보다 길다 — 이때만 글자 단위로 쪼갠다
+          // 낱말 하나가 셀보다 길다 — 이때만 글자 단위로 쪼갠다
           for (const char of segment) {
             const charWidth = this.widthPt(char, metrics, style);
             if (currentWidth + charWidth > boxWidthPt && current !== '') push();

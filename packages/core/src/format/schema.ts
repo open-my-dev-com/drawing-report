@@ -152,15 +152,15 @@ const textElementSchema = z.object({
 // grid — 고정 틀과 반복 목록을 하나로 다루는 그리드 (ADR-037)
 // ---------------------------------------------------------------------------
 
-/** 칸을 넘치는 글의 처리 — 잘라내거나 글자 크기를 줄여 넣는다 (ADR-037) */
+/** 셀을 넘치는 글의 처리 — 잘라내거나 글자 크기를 줄여 넣는다 (ADR-037) */
 const overflowSchema = z.enum(['clip', 'shrink']);
 
 /** 그리드 열 — 너비는 mm 절대값이라 열을 더해도 다른 열이 변하지 않는다 (ADR-037) */
 const gridColumnSchema = z.object({
   width: positiveMm,
   /**
-   * 데이터 자동 병합 (ADR-038) — 반복 구간에서 앞 벌과 값이 같은 칸을 세로로 합친다.
-   * 반복 구간 밖은 영향받지 않는다. 켜려면 그 열의 반복 구간 칸이 구간 전체 높이를 차지해야 한다.
+   * 데이터 자동 병합 (ADR-038) — 반복 구간에서 앞 벌과 값이 같은 셀을 세로로 합친다.
+   * 반복 구간 밖은 영향받지 않는다. 켜려면 그 열의 반복 구간 셀이 구간 전체 높이를 차지해야 한다.
    */
   autoMerge: z.boolean().optional(),
 });
@@ -182,7 +182,7 @@ const gridCellSchema = z.object({
   binding: idSchema.optional(),
   /** 표시 전 가공 수식 (ADR-010/017) */
   formula: z.string().optional(),
-  /** 칸을 넘치는 글의 처리 — 요소 값을 덮어쓴다 */
+  /** 셀을 넘치는 글의 처리 — 요소 값을 덮어쓴다 */
   overflow: overflowSchema.optional(),
   ...fontShape,
 });
@@ -242,7 +242,7 @@ const gridElementObject = z.object({
   cells: z.array(gridCellSchema).max(SLIP_LIMITS.maxGridCells, `셀 수는 최대 ${SLIP_LIMITS.maxGridCells}개입니다`),
   /** 반복 구간 — 없으면 고정 틀 */
   repeat: gridRepeatSchema.optional(),
-  /** 칸을 넘치는 글의 처리 (기본 clip) */
+  /** 셀을 넘치는 글의 처리 (기본 clip) */
   overflow: overflowSchema.optional(),
 });
 
@@ -294,7 +294,7 @@ function checkGridRepeatRange(grid: GridInput, ctx: z.RefinementCtx): void {
 /**
  * 셀의 소스 배타·범위·병합 경계·겹침을 검사한다.
  *
- * @returns (행,열) → 그 칸을 차지하는 셀의 원점 좌표 맵 — 자동 병합 검사에서 소비한다
+ * @returns (행,열) → 그 셀을 차지하는 셀의 원점 좌표 맵 — 자동 병합 검사에서 소비한다
  */
 function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, string> {
   const rows = grid.rows.length;
@@ -358,8 +358,8 @@ function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, stri
 }
 
 /**
- * 데이터 자동 병합 열 검사 (ADR-038) — 켠 열은 그 열의 반복 구간 칸이 구간 전체를 한 칸으로
- * 덮어야 한다. 한 줄 구간이면 저절로 성립하고, 여러 줄인데 칸이 줄마다 갈라지면 거부한다.
+ * 데이터 자동 병합 열 검사 (ADR-038) — 켠 열은 그 열의 반복 구간 셀이 구간 전체를 한 셀으로
+ * 덮어야 한다. 한 줄 구간이면 저절로 성립하고, 여러 줄인데 셀이 줄마다 갈라지면 거부한다.
  *
  * @param cellOriginAt - {@link checkGridCells}가 만든 (행,열)→원점 맵
  */
@@ -376,8 +376,8 @@ function checkGridAutoMerge(grid: GridInput, ctx: z.RefinementCtx, cellOriginAt:
     }
     const { fromRow, toRow } = grid.repeat;
     const topOrigin = cellOriginAt.get(`${fromRow},${c}`);
-    const notCovered = `${c}열의 자동 병합은 그 열의 반복 구간 칸이 구간 전체 높이를 차지할 때만 켤 수 있습니다`;
-    // 그 열의 반복 구간에 칸이 아예 없으면(빈 열) 덮을 칸이 없으므로 켤 수 없다.
+    const notCovered = `${c}열의 자동 병합은 그 열의 반복 구간 셀이 구간 전체 높이를 차지할 때만 켤 수 있습니다`;
+    // 그 열의 반복 구간에 셀이 아예 없으면(빈 열) 덮을 셀이 없으므로 켤 수 없다.
     // (그냥 두면 모든 조회가 undefined === undefined로 통과해 버린다.)
     if (topOrigin === undefined) {
       ctx.addIssue({ code: 'custom', path: ['columns', c, 'autoMerge'], message: notCovered });
@@ -967,7 +967,7 @@ export function parseSlipFile(json: string): SlipFile {
  * .slip 파일을 저장용 JSON 문자열로 직렬화한다.
  *
  * @param file - 직렬화할 .slip 파일
- * @returns 들여쓰기 2칸의 JSON 문자열
+ * @returns 들여쓰기 2셀의 JSON 문자열
  */
 export function serializeSlipFile(file: SlipFile): string {
   return JSON.stringify(file, null, 2);

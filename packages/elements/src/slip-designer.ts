@@ -222,7 +222,7 @@ function verticalFlexAlign(v: 'top' | 'middle' | 'bottom' | undefined): string {
  *
  * @param style - 요소·셀의 글자 스타일
  * @param opts - `omitVerticalAlign`이 true면 justify-content를 넣지 않는다. flex column인
- *   `.el-content`는 justify-content가 세로축이라 그대로 두지만, flex row인 그리드 칸은
+ *   `.el-content`는 justify-content가 세로축이라 그대로 두지만, flex row인 그리드 셀은
  *   호출부가 세로 정렬을 align-items로 따로 넣으므로 여기서 justify-content를 빼야
  *   가로 정렬을 덮지 않는다 (ADR-012).
  */
@@ -666,7 +666,7 @@ interface BindingInfo {
 
 /**
  * 목록 파라미터의 하위 필드 한 개 (ADR-047) — 정의부에서 오며,
- * 그 필드를 읽는 그리드 칸이 있으면 그 자리도 함께 담아 사이드바에서 곧장 갈 수 있다.
+ * 그 필드를 읽는 그리드 셀이 있으면 그 자리도 함께 담아 사이드바에서 곧장 갈 수 있다.
  */
 interface BindingFieldInfo {
   /** 항목 필드 물리명 — 수식에서 `목록파라미터.필드`로 쓴다 */
@@ -677,9 +677,7 @@ interface BindingFieldInfo {
   rawLabel: string | undefined;
   /** 값 종류 */
   valueType: BindingValueType | undefined;
-  /** 정의부에 등록된 필드인지 — 그리드 칸만 쓰는 키는 false (옛 파일 호환) */
-  defined: boolean;
-  /** 이 필드를 읽는 그리드 칸의 자리 (없으면 undefined) */
+  /** 이 필드를 읽는 그리드 셀의 자리 (없으면 undefined) */
   at: { pageIndex: number; gridId: string; row: number; column: number } | undefined;
 }
 
@@ -717,7 +715,7 @@ export class SlipDesigner extends LitElement {
 
       display: grid;
       grid-template-rows: auto 1fr;
-      grid-template-columns: 176px 1fr 260px;
+      grid-template-columns: 176px 1fr 300px;
       height: 100%;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
       font-size: 13px;
@@ -1061,7 +1059,7 @@ export class SlipDesigner extends LitElement {
       flex: 0 0 14px;
     }
     /* 그리드 값의 반복 구간 필드 — 펼침 표시 아래로 한 단 들여 쓴다 (ADR-034/037, G-25) */
-    /* 값 목록의 반복 구간 필드 하위 줄(.side-col-row)과 요소 목록의 그리드 칸 하위 줄
+    /* 값 목록의 반복 구간 필드 하위 줄(.side-col-row)과 요소 목록의 그리드 셀 하위 줄
        (.side-cell-row, G-44)은 생김새가 같다 */
     .side-col-row,
     .side-cell-row {
@@ -1096,7 +1094,7 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-accent);
     }
     /* 파라미터 패널의 "쓰는 곳" 한 줄 (ADR-034) */
-    /* 칸 편집 중 그리드로 돌아가는 줄 — 지금 어느 그리드의 칸인지 보이게 한다 (ADR-034) */
+    /* 셀 편집 중 그리드로 돌아가는 줄 — 지금 어느 그리드의 셀인지 보이게 한다 (ADR-034) */
     .grid-back {
       margin-bottom: 6px;
     }
@@ -1104,6 +1102,16 @@ export class SlipDesigner extends LitElement {
       transform: rotate(180deg);
     }
     /* 패널에서 항목을 더하는 줄 — 사이드바 추가 버튼과 같은 결로 (ADR-047) */
+    /* 물리친 입력 안내 — 값이 조용히 사라진 것처럼 보이지 않게 무엇이 잘못됐는지 알린다 */
+    .input-error {
+      margin: 0 0 6px;
+      padding: 5px 8px;
+      border: 1px solid var(--sk-danger);
+      border-radius: var(--sk-radius);
+      background: color-mix(in srgb, var(--sk-danger) 8%, transparent);
+      font-size: 12px;
+      color: var(--sk-danger);
+    }
     .prop-add-row {
       display: flex;
       align-items: center;
@@ -1128,8 +1136,24 @@ export class SlipDesigner extends LitElement {
       width: 12px;
       height: 12px;
     }
+    /* 하위 필드를 더하는 줄 — 하위 줄과 같은 자리에 놓되 목록 항목은 아니다 */
     .side-add-field {
-      color: var(--sk-muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+      padding: 3px 6px 3px 18px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      text-align: left;
+      color: var(--sk-text-muted);
+    }
+    .side-add-field:hover {
+      color: var(--sk-accent);
     }
     .side-add-field svg {
       flex: 0 0 12px;
@@ -1512,7 +1536,7 @@ export class SlipDesigner extends LitElement {
       /* PDF 변환 계층의 셀 안쪽 여백과 같은 값 (GRID_CELL_PADDING = 1mm, 사방) */
       padding: 1mm;
       overflow: hidden;
-      /* PDF는 칸을 넘치는 글을 낱말 단위로 줄바꿈한다 — 캔버스도 같게 접어 화면·PDF를 맞춘다 (ADR-012).
+      /* PDF는 셀을 넘치는 글을 낱말 단위로 줄바꿈한다 — 캔버스도 같게 접어 화면·PDF를 맞춘다 (ADR-012).
          줄바꿈 문자는 pre-line으로 그대로 보인다 */
       white-space: pre-line;
       overflow-wrap: anywhere;
@@ -1683,7 +1707,7 @@ export class SlipDesigner extends LitElement {
       overflow-wrap: break-word;
       color: var(--sk-text-muted);
     }
-    /* 긴 라벨은 68px 칸에서 여러 줄로 접혀 읽기 나쁘다 — 라벨을 위, 입력을 아래로 둔다 */
+    /* 긴 라벨은 68px 셀에서 여러 줄로 접혀 읽기 나쁘다 — 라벨을 위, 입력을 아래로 둔다 */
     .prop-row.stacked {
       flex-direction: column;
       align-items: stretch;
@@ -1716,8 +1740,8 @@ export class SlipDesigner extends LitElement {
       color: inherit;
     }
     /*
-     * 체크박스는 글상자와 달리 늘려도 쓸모가 없다 — 늘어난 칸 안에서 혼자 가운데로 보여
-     * 다른 줄과 어긋났다. 크기를 고정하고 왼쪽에 세워 다른 입력칸과 시작 위치를 맞춘다.
+     * 체크박스는 글상자와 달리 늘려도 쓸모가 없다 — 늘어난 셀 안에서 혼자 가운데로 보여
+     * 다른 줄과 어긋났다. 크기를 고정하고 왼쪽에 세워 다른 입력셀과 시작 위치를 맞춘다.
      */
     .prop-row input[type='checkbox'] {
       flex: none;
@@ -1742,7 +1766,7 @@ export class SlipDesigner extends LitElement {
     }
     .prop-pair {
       display: flex;
-      /* 앞 칸의 마지막 버튼과 뒤 칸의 라벨이 맞닿아 보이지 않게 벌린다 */
+      /* 앞 셀의 마지막 버튼과 뒤 셀의 라벨이 맞닿아 보이지 않게 벌린다 */
       gap: 14px;
     }
     .prop-pair .prop-row {
@@ -2088,8 +2112,8 @@ export class SlipDesigner extends LitElement {
     }
 
     /*
-     * 인라인 칸 편집 상자 — 배경·글자색·크기·정렬은 칸에서 물려받아 인라인으로 준다.
-     * 여기서 배경을 칠하면 칸에 준 배경색이 편집 중에만 사라져 색을 보며 고칠 수 없다.
+     * 인라인 셀 편집 상자 — 배경·글자색·크기·정렬은 셀에서 물려받아 인라인으로 준다.
+     * 여기서 배경을 칠하면 셀에 준 배경색이 편집 중에만 사라져 색을 보며 고칠 수 없다.
      */
     .cell-editor {
       position: absolute;
@@ -2119,7 +2143,7 @@ export class SlipDesigner extends LitElement {
       text-align: center;
       font-variant-numeric: tabular-nums;
     }
-    /* 반복 구간 안의 칸임을 알리는 표시 */
+    /* 반복 구간 안의 셀임을 알리는 표시 */
     .cell-band {
       margin-left: 6px;
       padding: 0 5px;
@@ -2744,6 +2768,7 @@ export class SlipDesigner extends LitElement {
     _selectedIds: { state: true },
     _hostPaperSizes: { state: true },
     _hostBarcodeKinds: { state: true },
+    _inputError: { state: true },
     _paperSaveName: { state: true },
     _previewMode: { state: true },
     _previewUrl: { state: true },
@@ -2911,12 +2936,14 @@ export class SlipDesigner extends LitElement {
    */
   private _expandedBindings = new Set<string>();
   /**
-   * 요소 목록에서 펼쳐 둔 그리드 id 모음 (G-44) — 값·수식이 붙은 칸을 하위 줄로 본다.
-   * 기본은 접힘이고, 그 그리드나 그 안의 칸을 고르면 저절로 열린다.
+   * 요소 목록에서 펼쳐 둔 그리드 id 모음 (G-44) — 값·수식이 붙은 셀을 하위 줄로 본다.
+   * 기본은 접힘이고, 그 그리드나 그 안의 셀을 고르면 저절로 열린다.
    */
   private _expandedElements = new Set<string>();
   /** 파라미터 패널에서 이미 쓰는 물리명으로 바꾸려 했는지 — 안내를 보여준다 */
   private _bindingKeyError = false;
+  /** 물리친 입력의 안내 문구 — 다음 성공한 편집에서 지운다 */
+  private _inputError: string | null = null;
   /** 페이지 물리명이 다른 페이지와 겹쳐 되돌렸는지 — 안내를 보여준다 (G-46) */
   private _pageKeyError = false;
   /** "내 양식으로 저장" 모달 열림 여부 (D-15) */
@@ -2956,10 +2983,10 @@ export class SlipDesigner extends LitElement {
    * 화면 전용 값이라 파일에 저장하지 않는다 — 새로 열면 다시 좌상단으로 시작한다.
    */
   private _anchorByElement = new Map<string, number>();
-  /** 선택된 그리드 칸 좌표 — 병합 편집·인라인 편집 대상 (C-10) */
+  /** 선택된 그리드 셀 좌표 — 병합 편집·인라인 편집 대상 (C-10) */
   private _selectedCell: { row: number; column: number } | null = null;
   /**
-   * 그리드 칸에 담을 것(문구·값·수식) 중 지금 고른 종류 — 화면 상태다.
+   * 그리드 셀에 담을 것(문구·값·수식) 중 지금 고른 종류 — 화면 상태다.
    * 아직 아무것도 입력하지 않으면 파일에 남지 않으므로 여기서 기억한다 (ADR-037).
    */
   private _cellSourceKind: 'content' | 'binding' | 'formula' | null = null;
@@ -3070,6 +3097,49 @@ export class SlipDesigner extends LitElement {
     }
 
     this._file = file;
+    this._declareRepeatParameters();
+  }
+
+  /**
+   * 반복 구간이 쓰는 파라미터를 정의부에 맞춰 둔다 (ADR-047).
+   *
+   * @remarks
+   * 반복 구간이 있다는 것은 그 값이 **목록**이라는 뜻이고, 구간 안 셀이 읽는 이름은 그 항목의
+   * **하위 필드**다. 정의부에 없으면 목록에 뜨는데 고칠 수 없는 어정쩡한 상태가 생기므로,
+   * 열 때 정의부를 실제 쓰임과 맞춘다. 이미 선언된 종류·논리명은 건드리지 않는다.
+   */
+  private _declareRepeatParameters(): void {
+    const file = this._file;
+    if (!file) return;
+    const defs = file.template.bindings ?? [];
+    let changed = false;
+    for (const page of file.template.pages) {
+      for (const el of page.elements) {
+        if (el.type !== 'grid' || !el.repeat) continue;
+        const { fromRow, toRow, binding: listKey } = el.repeat;
+        let def = defs.find((b) => b.key === listKey);
+        if (!def) {
+          def = { key: listKey };
+          defs.push(def);
+          changed = true;
+        }
+        if (def.valueType !== 'list') {
+          def.valueType = 'list';
+          changed = true;
+        }
+        const fields = def.fields ?? [];
+        for (const cell of el.cells) {
+          if (cell.binding === undefined || cell.row < fromRow || cell.row > toRow) continue;
+          if (fields.some((f) => f.key === cell.binding)) continue;
+          // 하위 필드의 이름은 반복 구간 위쪽 같은 열에 직접 입력된 글을 쓴다 (ADR-037)
+          const title = gridHeaderTitle(el, cell.column, fromRow);
+          fields.push(title === undefined ? { key: cell.binding } : { key: cell.binding, label: title });
+          changed = true;
+        }
+        if (fields.length > 0) def.fields = fields;
+      }
+    }
+    if (changed) file.template.bindings = defs;
   }
 
   // ---------------------------------------------------------------------------
@@ -3089,10 +3159,23 @@ export class SlipDesigner extends LitElement {
 
   /**
    * 잘못된 입력·할 수 없는 편집을 물리친다 — 모델은 그대로 두고 다시 그려 입력칸이 모델
-   * 값으로 되돌아오게 한다. 스키마 범위 밖 값, 규칙에 어긋나는 병합, 대상이 아닌 요소 등에서
-   * 쓴다. `requestUpdate()`와 동작은 같지만 "값을 바꾸지 않고 되돌린다"는 의도를 이름으로 드러낸다.
+   * 값으로 되돌아오게 하고, **왜 안 됐는지 알린다**.
+   *
+   * @remarks
+   * 전에는 조용히 되돌리기만 해서, 숫자 칸에 글자를 넣으면 값이 그냥 사라진 것처럼 보였다.
+   * 무엇이 잘못됐는지 알 수 없으므로 오류 문구를 남기고 다음 성공한 편집에서 지운다.
+   *
+   * @param message - 보일 문구 (생략하면 기본 안내)
    */
-  private _rejectInput(): void {
+  private _rejectInput(message?: string): void {
+    this._inputError = message ?? this._strings.designer.invalidInput;
+    this.requestUpdate();
+  }
+
+  /** 물리친 입력 안내를 지운다 — 편집이 성공했거나 고른 대상이 바뀌면 부른다 */
+  private _clearInputError(): void {
+    if (this._inputError === null) return;
+    this._inputError = null;
     this.requestUpdate();
   }
 
@@ -3279,7 +3362,7 @@ export class SlipDesigner extends LitElement {
       if (alive.size !== this._selectedIds.size) this._selectedIds = alive;
       if (this._selectedId === null) this._selectedId = alive.values().next().value ?? null;
     }
-    // 칸 선택은 그리드 범위 안에서만 유효하다 (undo 복원 뒤에도 보정)
+    // 셀 선택은 그리드 범위 안에서만 유효하다 (undo 복원 뒤에도 보정)
     if (this._selectedCell) {
       const el = this._findSelectedElement();
       if (
@@ -3557,6 +3640,64 @@ export class SlipDesigner extends LitElement {
     this._lineDraft = null;
     this._lineGhost = null;
     this.requestUpdate();
+  }
+
+  /**
+   * 기본값이 있는 수 입력 한 줄 — **지금 적용 중인 값**을 실제 값으로 보여준다.
+   *
+   * @remarks
+   * 전에는 기본값을 `placeholder`로만 보여 주고 `value`를 비워 뒀다. 화면에는 `10`이 보이는데
+   * 상자는 비어 있어, 스피너 `+`를 누르면 0에서 시작해 `0.5`가 되는 것처럼 보고 있는 값과
+   * 조작 결과가 어긋났다. 이제 물려받는 값도 값으로 채우고 흐리게(`dim`) 보여 구분한다 —
+   * 기본값과 같은 값을 넣으면 파일에는 적지 않는다(파일을 깨끗하게 유지).
+   *
+   * 잘못된 입력(숫자 칸에 글자 등)은 **지우지 않고 되돌린 뒤 알린다** — 조용히 비우면
+   * 무엇이 잘못됐는지 알 수 없다.
+   *
+   * @param label - 항목 이름
+   * @param current - 파일에 적힌 값 (없으면 undefined)
+   * @param fallback - 지정하지 않았을 때 실제로 적용되는 값
+   * @param apply - 저장 콜백. 기본값과 같으면 `null`이 와서 필드를 지운다
+   * @param opts - `step`·`min` 등 입력 상자 설정
+   * @returns 수 입력 한 줄
+   */
+  private _renderDefaultedNumberRow(
+    label: string,
+    current: number | undefined,
+    fallback: number,
+    apply: (value: number | null) => void,
+    opts: { step?: string; min?: string; ariaLabel?: string } = {},
+  ) {
+    const commit = (e: Event): void => {
+      const input = e.target as HTMLInputElement;
+      // 숫자 칸에 글자를 넣으면 브라우저가 값을 빈 문자열로 준다 — 지우지 않고 되돌린다
+      if (input.validity.badInput) {
+        input.value = String(current ?? fallback);
+        this._rejectInput();
+        return;
+      }
+      const raw = input.value.trim();
+      if (raw === '') {
+        apply(null);
+        return;
+      }
+      const v = Number(raw);
+      if (!Number.isFinite(v) || (opts.min !== undefined && v < Number(opts.min))) {
+        input.value = String(current ?? fallback);
+        this._rejectInput();
+        return;
+      }
+      apply(v === fallback ? null : v);
+    };
+    return html`
+      <div class="prop-row">
+        <label>${label}</label>
+        <input type="number" step=${opts.step ?? '0.5'} min=${opts.min ?? nothing}
+          aria-label=${opts.ariaLabel ?? label}
+          class=${current === undefined ? 'dim' : ''}
+          .value=${String(current ?? fallback)}
+          @change=${commit}>
+      </div>`;
   }
 
   /** 키보드 단축키가 듣도록 호스트에 포커스를 준다 — 이미 안쪽에 있으면 건드리지 않는다 */
@@ -3966,7 +4107,7 @@ export class SlipDesigner extends LitElement {
   };
 
   // ---------------------------------------------------------------------------
-  // 그리드 칸 편집 (C-10, ADR-037)
+  // 그리드 셀 편집 (C-10, ADR-037)
   // ---------------------------------------------------------------------------
 
   /** 포인터 위치가 가리키는 셀 좌표 — 병합 범위면 병합 원점 좌표를 돌려준다 */
@@ -3982,7 +4123,7 @@ export class SlipDesigner extends LitElement {
     const colOffsets = trackOffsets(columnWidths(el));
     const rowOffsets = trackOffsets(expandedRowHeights(el));
     const dims = gridDims(el);
-    // 경계 오른쪽/아래를 눌러도 마지막 칸으로 보정한다
+    // 경계 오른쪽/아래를 눌러도 마지막 셀으로 보정한다
     const indexOf = (value: number, offsets: number[], count: number): number => {
       const found = offsets.findIndex((offset) => value < offset) - 1;
       return found < 0 ? count - 1 : Math.min(count - 1, found);
@@ -4030,7 +4171,7 @@ export class SlipDesigner extends LitElement {
     const el = this._findSelectedElement();
     if (!isGrid(el)) return;
     const existing = el.cells.find((c) => c.row === target.row && c.column === target.column);
-    // 값·수식을 붙인 칸은 문구를 직접 못 쓴다 — 셋 중 하나만 가질 수 있다 (SPEC §5.7)
+    // 값·수식을 붙인 셀은 문구를 직접 못 쓴다 — 셋 중 하나만 가질 수 있다 (SPEC §5.7)
     if (existing && ('binding' in existing || 'formula' in existing)) {
       this._rejectInput();
       return;
@@ -4251,7 +4392,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 칸에 담을 것의 종류를 고른다 — 값·수식은 빈 채로 둘 수 없어(값 이름은 한 글자 이상)
+   * 셀에 담을 것의 종류를 고른다 — 값·수식은 빈 채로 둘 수 없어(값 이름은 한 글자 이상)
    * 아직 입력이 없는 동안은 화면 상태로만 기억한다 (ADR-037).
    */
   private _chooseGridCellSource(kind: 'content' | 'binding' | 'formula'): void {
@@ -4481,7 +4622,12 @@ export class SlipDesigner extends LitElement {
             ${this._cursorMm
               ? html`<div class="coords">${this._cursorMm.x} · ${this._cursorMm.y} mm</div>`
               : nothing}
-            <div class="prop-panel">${this._renderPropertyPanel()}</div>
+            <div class="prop-panel">
+              ${this._inputError
+                ? html`<div class="input-error" role="alert">${this._inputError}</div>`
+                : nothing}
+              ${this._renderPropertyPanel()}
+            </div>
             ${this._renderFormulaModal()}
             ${this._renderImageModal()}
             ${this._renderSampleModal()}
@@ -4758,8 +4904,8 @@ export class SlipDesigner extends LitElement {
    *
    * @remarks
    * 하위 필드는 정의부의 항목이므로 **오른쪽 패널에서 그 필드를 편집**한다. 그 필드를 읽는
-   * 그리드 칸이 있으면 그 칸도 함께 비춰 어디에 쓰이는지 보이게 한다 — 요소로 자동 연결되지
-   * 않으며, 칸이 없어도 필드는 그대로 편집된다 (ADR-034의 요소·파라미터 분리).
+   * 그리드 셀이 있으면 그 셀도 함께 비춰 어디에 쓰이는지 보이게 한다 — 요소로 자동 연결되지
+   * 않으며, 셀이 없어도 필드는 그대로 편집된다 (ADR-034의 요소·파라미터 분리).
    */
   private _selectBindingField(listKey: string, field: BindingFieldInfo): void {
     if (field.at) {
@@ -4784,7 +4930,7 @@ export class SlipDesigner extends LitElement {
     const el = this._findElement(id);
     if (!isGrid(el)) return;
     if (el.repeat) this._expandedBindings.add(el.repeat.binding);
-    // 값·수식 칸이 있으면 요소 목록에서도 그 그리드를 펼쳐 둔다 (G-44)
+    // 값·수식 셀이 있으면 요소 목록에서도 그 그리드를 펼쳐 둔다 (G-44)
     if (this._gridValueCells(el).length > 0) this._expandedElements.add(id);
   }
 
@@ -4832,7 +4978,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 양식 전체의 파라미터 목록 — 정의부(ADR-032)와 요소 사용처를 합친다.
    * 정의부에 논리명이 있으면 그 이름으로 표시하고(물리명은 title로 확인),
-   * 반복 구간이 쓰는 값이면 그 구간 칸이 읽는 항목 필드까지 함께 담는다 (ADR-037).
+   * 반복 구간이 쓰는 값이면 그 구간 셀이 읽는 항목 필드까지 함께 담는다 (ADR-037).
    */
   private _bindingList(): BindingInfo[] {
     const file = this._file;
@@ -4841,10 +4987,8 @@ export class SlipDesigner extends LitElement {
     const defOf = new Map(defs.map((b) => [b.key, b] as const));
 
     const uses = new Map<string, BindingUse[]>();
-    // 그리드 반복 구간 칸이 어느 항목 필드를 어디서 읽는지 — 정의부 필드에 자리를 붙이는 데 쓴다
+    // 그리드 반복 구간 셀이 어느 항목 필드를 어디서 읽는지 — 정의부 필드에 자리를 붙이는 데 쓴다
     const fieldAt = new Map<string, Map<string, NonNullable<BindingFieldInfo['at']>>>();
-    // 정의부에 없는데 칸이 쓰고 있는 필드 (옛 파일 호환 — 목록에서 감추지 않는다)
-    const strayFields = new Map<string, Map<string, string>>();
 
     file.template.pages.forEach((page, pageIndex) => {
       for (const el of page.elements) {
@@ -4852,9 +4996,7 @@ export class SlipDesigner extends LitElement {
         if (el.type === 'grid') {
           if (el.repeat) {
             const { fromRow, toRow, binding: listKey } = el.repeat;
-            const declared = new Set((defOf.get(listKey)?.fields ?? []).map((f) => f.key));
             const at = fieldAt.get(listKey) ?? new Map();
-            const stray = strayFields.get(listKey) ?? new Map();
             const band = el.cells
               .filter((c) => c.row >= fromRow && c.row <= toRow && c.binding !== undefined)
               .sort((a, b) => a.column - b.column || a.row - b.row);
@@ -4863,16 +5005,12 @@ export class SlipDesigner extends LitElement {
               if (!at.has(key)) {
                 at.set(key, { pageIndex, gridId: el.id, row: cell.row, column: cell.column });
               }
-              if (!declared.has(key) && !stray.has(key)) {
-                stray.set(key, gridHeaderTitle(el, cell.column, fromRow) ?? key);
-              }
             }
             fieldAt.set(listKey, at);
-            strayFields.set(listKey, stray);
           }
           const keys = new Set<string>();
           if (el.repeat) keys.add(el.repeat.binding);
-          // 반복 구간 안의 칸이 읽는 것은 항목의 필드다 — 전표 values의 키가 아니므로 목록에 올리지 않는다
+          // 반복 구간 안의 셀이 읽는 것은 항목의 필드다 — 전표 values의 키가 아니므로 목록에 올리지 않는다
           for (const cell of el.cells) {
             if (cell.binding !== undefined && !inRepeatBand(el, cell.row)) keys.add(cell.binding);
           }
@@ -4904,25 +5042,14 @@ export class SlipDesigner extends LitElement {
       seen.add(key);
       const def = defOf.get(key);
       const at = fieldAt.get(key);
-      // 정의부의 필드가 단일 원천 — 뒤에 옛 파일의 미등록 필드를 덧붙인다 (ADR-047)
+      // 정의부가 하위 필드의 단일 원천이다 (ADR-047) — 로드 시 반복 구간과 맞춰 둔다
       const fields: BindingFieldInfo[] = (def?.fields ?? []).map((f) => ({
         key: f.key,
         title: f.label ?? f.key,
         rawLabel: f.label,
         valueType: f.valueType,
-        defined: true,
         at: at?.get(f.key),
       }));
-      for (const [strayKey, title] of strayFields.get(key) ?? []) {
-        fields.push({
-          key: strayKey,
-          title,
-          rawLabel: undefined,
-          valueType: undefined,
-          defined: false,
-          at: at?.get(strayKey),
-        });
-      }
       list.push({
         key,
         label: def?.label ?? key,
@@ -5056,7 +5183,7 @@ export class SlipDesigner extends LitElement {
 
   /**
    * 파라미터 한 줄 — 클릭하면 오른쪽 패널에서 편집 (ADR-034).
-   * 반복 구간이 쓰는 값이면 그 구간 칸이 읽는 항목 필드가 하위 줄로 붙는다 (ADR-037).
+   * 반복 구간이 쓰는 값이면 그 구간 셀이 읽는 항목 필드가 하위 줄로 붙는다 (ADR-037).
    * 하위 줄은 앞의 펼침 표시로 열고 닫는다 — 기본은 접힘이다 (G-25).
    */
   private _renderBindingRow(b: BindingInfo) {
@@ -5085,7 +5212,6 @@ export class SlipDesigner extends LitElement {
                 <button class="side-col-row ${fieldSelected ? 'selected' : ''}" title="${b.key}.${f.key}"
                   @click=${() => this._selectBindingField(b.key, f)}><span>${f.title}</span></button>
                 <button class="side-mini" title=${s.delete} aria-label="${f.key} ${s.delete}"
-                  ?disabled=${!f.defined}
                   @click=${() => this._removeBindingField(b.key, f.key)}>${icons.remove}</button>
               </div>`;
           })
@@ -5094,7 +5220,7 @@ export class SlipDesigner extends LitElement {
         ? html`
           <div class="side-row-wrap">
             <span class="side-twisty-gap"></span>
-            <button class="side-col-row side-add-field" @click=${() => this._addBindingField(b.key)}>
+            <button class="side-add-field" @click=${() => this._addBindingField(b.key)}>
               ${icons.add}<span>${s.addBindingField}</span>
             </button>
           </div>`
@@ -5110,20 +5236,20 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 요소 목록 한 줄 (G-44) — 그리드는 값·수식이 붙은 칸을 하위 줄로 펼쳐 볼 수 있다.
-   * 하위 줄을 누르면 그 칸이 곧장 선택된다(오른쪽 패널이 칸 편집으로 바뀐다).
+   * 요소 목록 한 줄 (G-44) — 그리드는 값·수식이 붙은 셀을 하위 줄로 펼쳐 볼 수 있다.
+   * 하위 줄을 누르면 그 셀이 곧장 선택된다(오른쪽 패널이 셀 편집으로 바뀐다).
    *
    * @param pageIndex - 이 요소가 있는 페이지 번호
    * @param el - 그릴 요소
-   * @returns 요소 줄과 (그리드면) 펼쳐진 칸 하위 줄
+   * @returns 요소 줄과 (그리드면) 펼쳐진 셀 하위 줄
    */
   private _renderElementRow(pageIndex: number, el: SlipElement) {
     const s = this._strings.designer;
     const cells = isGrid(el) ? this._gridValueCells(el) : [];
     const hasCells = cells.length > 0;
     const expanded = hasCells && this._expandedElements.has(el.id);
-    // 그룹·다중 선택이면 선택 모음에 든 줄을 모두 강조한다. 칸이 선택돼 있으면 그리드 줄
-    // 자체는 강조하지 않는다 — 하위 칸 줄이 대신 표시된다 (G-27 · G-44)
+    // 그룹·다중 선택이면 선택 모음에 든 줄을 모두 강조한다. 셀이 선택돼 있으면 그리드 줄
+    // 자체는 강조하지 않는다 — 하위 셀 줄이 대신 표시된다 (G-27 · G-44)
     const rowSelected = this._selectedIds.has(el.id) && !this._sideSelection && this._selectedCell === null;
     return html`
       <div class="side-row-wrap">
@@ -5149,44 +5275,27 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 그리드에서 값·수식이 붙은 칸의 목록 (G-44) — 행·열 순으로 정렬한다.
-   * 직접 입력한 글만 든 칸은 넣지 않는다(목록을 보면 아는 값은 따로 표시하지 않는다는 원칙).
+   * 그리드에서 값·수식이 붙은 셀의 목록 (G-44) — 행·열 순으로 정렬한다.
+   * 직접 입력한 글만 든 셀은 넣지 않는다(목록을 보면 아는 값은 따로 표시하지 않는다는 원칙).
    *
    * @param grid - 그리드 요소
-   * @returns 칸의 위치와 표시 이름(값은 논리명, 수식은 식)
+   * @returns 셀의 위치와 표시 이름(값은 논리명, 수식은 식)
    */
   private _gridValueCells(grid: GridElement): { row: number; column: number; label: string; at: string }[] {
     const s = this._strings.designer;
-    const defs = this._file?.template.bindings ?? [];
-    const labelOf = new Map(
-      defs.filter((b) => b.label !== undefined).map((b) => [b.key, b.label!] as const),
-    );
-    // 반복 구간 안의 칸은 항목 필드를 읽는다 — 그 목록 파라미터의 하위 필드에서 이름을 찾는다 (ADR-047)
-    const fieldLabelOf = new Map(
-      (defs.find((b) => b.key === grid.repeat?.binding)?.fields ?? [])
-        .filter((f) => f.label !== undefined)
-        .map((f) => [f.key, f.label!] as const),
-    );
     return grid.cells
       .filter((c) => c.binding !== undefined || c.formula !== undefined)
       .slice()
       .sort((a, b) => a.row - b.row || a.column - b.column)
       .map((c) => {
-        const inBand = inRepeatBand(grid, c.row);
-        const name = c.binding !== undefined
-          ? (inBand ? fieldLabelOf.get(c.binding) : labelOf.get(c.binding)) ?? c.binding
-          : c.formula ?? '';
-        return {
-          row: c.row,
-          column: c.column,
-          // 줄에는 칸 이름만 보인다 — 자리(행·열)는 툴팁으로 돌린다 (목록을 보면 아는 값은
-          // 따로 표시하지 않는다는 원칙, ADR-034)
-          label: name,
-          at: s.gridCellLabel
-            .replace('{r}', String(c.row + 1))
-            .replace('{c}', String(c.column + 1))
-            .replace('{name}', name),
-        };
+        // 요소 목록에는 **셀 이름**만 보인다 — 파라미터 이름은 파라미터 목록의 몫이다
+        // (요소·파라미터 분리, ADR-034/047). 셀의 이름은 그 열 헤더에 직접 입력된 글이고,
+        // 헤더가 없으면 자리(행·열)로 부른다.
+        const header = gridHeaderTitle(grid, c.column, grid.repeat?.fromRow ?? grid.rows.length);
+        const at = s.gridCellAt
+          .replace('{r}', String(c.row + 1))
+          .replace('{c}', String(c.column + 1));
+        return { row: c.row, column: c.column, label: header ?? at, at };
       });
   }
 
@@ -5198,17 +5307,17 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 요소 목록의 칸 하위 줄을 골랐을 때 — 그 칸으로 곧장 간다 (G-44).
-   * 칸을 고르면 오른쪽 패널이 칸 편집으로 바뀌므로 선택은 한 갈래로 유지된다.
+   * 요소 목록의 셀 하위 줄을 골랐을 때 — 그 셀으로 곧장 간다 (G-44).
+   * 셀을 고르면 오른쪽 패널이 셀 편집으로 바뀌므로 선택은 한 갈래로 유지된다.
    *
    * @param pageIndex - 그리드가 있는 페이지 번호
    * @param gridId - 그리드 요소 id
-   * @param row - 칸의 행
-   * @param column - 칸의 열
+   * @param row - 셀의 행
+   * @param column - 셀의 열
    */
   private _selectGridCell(pageIndex: number, gridId: string, row: number, column: number): void {
     this._goToPage(pageIndex);
-    // 칸을 고를 땐 그 그리드 하나만 선택한다(그룹 확장하지 않음)
+    // 셀을 고를 땐 그 그리드 하나만 선택한다(그룹 확장하지 않음)
     this._selectedId = gridId;
     this._selectedIds = new Set([gridId]);
     this._selectedCell = { row, column };
@@ -5282,7 +5391,7 @@ export class SlipDesigner extends LitElement {
   private _renameBindingKey(key: string, next: string, input?: HTMLInputElement): void {
     const trimmed = next.trim();
     if (!trimmed || trimmed === key || this._bindingList().some((b) => b.key === trimmed)) {
-      // 되돌린 값이 화면에 남지 않게 입력칸을 지금 이름으로 되돌린다
+      // 되돌린 값이 화면에 남지 않게 입력셀을 지금 이름으로 되돌린다
       if (input) input.value = key;
       this._bindingKeyError = trimmed !== key && trimmed !== '';
       this.requestUpdate();
@@ -5301,7 +5410,7 @@ export class SlipDesigner extends LitElement {
           if (el.type === 'grid') {
             if (el.repeat?.binding === key) el.repeat.binding = trimmed;
             for (const cell of el.cells) {
-              // 반복 구간 안 칸의 파라미터은 항목 필드(별도 네임스페이스)라 전표 값 키 이름
+              // 반복 구간 안 셀의 파라미터은 항목 필드(별도 네임스페이스)라 전표 값 키 이름
               // 변경 대상이 아니다 — 같은 이름이 우연히 겹쳐도 건드리지 않는다
               const inBand =
                 el.repeat !== undefined && cell.row >= el.repeat.fromRow && cell.row <= el.repeat.toRow;
@@ -5377,12 +5486,12 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 하위 필드의 물리명을 바꾼다 — 이 필드를 읽는 반복 구간 칸도 함께 따라간다 (ADR-047).
+   * 하위 필드의 물리명을 바꾼다 — 이 필드를 읽는 반복 구간 셀도 함께 따라간다 (ADR-047).
    *
    * @param listKey - 목록 파라미터 물리명
    * @param key - 지금 필드 물리명
    * @param next - 새 물리명
-   * @param input - 되돌릴 입력칸 (중복·빈 이름일 때)
+   * @param input - 되돌릴 입력셀 (중복·빈 이름일 때)
    */
   private _renameBindingField(listKey: string, key: string, next: string, input?: HTMLInputElement): void {
     const trimmed = next.trim();
@@ -5399,7 +5508,7 @@ export class SlipDesigner extends LitElement {
       const def = defs.find((b) => b.key === listKey);
       const field = def?.fields?.find((x) => x.key === key);
       if (field) field.key = trimmed;
-      // 이 목록을 반복 구간으로 쓰는 그리드의 칸만 따라간다 — 항목 필드는 별도 네임스페이스다
+      // 이 목록을 반복 구간으로 쓰는 그리드의 셀만 따라간다 — 항목 필드는 별도 네임스페이스다
       for (const page of f.template.pages) {
         for (const el of page.elements) {
           if (el.type !== 'grid' || el.repeat?.binding !== listKey) continue;
@@ -5442,7 +5551,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 목록 파라미터에서 하위 필드를 지운다 — 그 필드를 읽던 칸의 값은 비운다 (ADR-047) */
+  /** 목록 파라미터에서 하위 필드를 지운다 — 그 필드를 읽던 셀의 값은 비운다 (ADR-047) */
   private _removeBindingField(listKey: string, key: string): void {
     this._updateFile((f) => {
       const def = (f.template.bindings ?? []).find((b) => b.key === listKey);
@@ -5728,8 +5837,8 @@ export class SlipDesigner extends LitElement {
     const { row, column } = this._selectedCell;
     const rect = this._cellRectPx(el, row, column);
     const cell = el.cells.find((c) => c.row === row && c.column === column);
-    // 입력 상자가 자기 배경색으로 칠하면 칸에 준 배경색이 편집하는 동안만 사라져
-    // 색을 확인하며 고칠 수 없다 — 칸의 실제 표시 스타일을 그대로 물려받는다
+    // 입력 상자가 자기 배경색으로 칠하면 셀에 준 배경색이 편집하는 동안만 사라져
+    // 색을 확인하며 고칠 수 없다 — 셀의 실제 표시 스타일을 그대로 물려받는다
     const bg = cell?.backgroundColor ?? el.backgroundColor;
     const fg = cell?.fontColor ?? el.fontColor;
     const size = cell?.fontSize ?? el.fontSize;
@@ -5999,7 +6108,7 @@ export class SlipDesigner extends LitElement {
 
   /**
    * 그리드 요소의 캔버스 표시 — 반복 구간을 `perPage`번 펼쳐 실제로 인쇄될 모습을 보여준다.
-   * 값·수식 칸은 샘플 값이 있으면 그 값으로, 없으면 값 이름으로 채운다 (ADR-037).
+   * 값·수식 셀은 샘플 값이 있으면 그 값으로, 없으면 값 이름으로 채운다 (ADR-037).
    */
   private _renderGridElementPreview(el: GridElement) {
     const selected = el.id === this._selectedId;
@@ -6020,7 +6129,7 @@ export class SlipDesigner extends LitElement {
     const bandRows = repeat ? repeat.toRow - repeat.fromRow + 1 : 0;
     const items = this._repeatSampleItems(el);
 
-    // 자동 병합 열 — 반복 구간에서 앞 벌과 값이 같은 칸을 세로로 합친다 (ADR-038)
+    // 자동 병합 열 — 반복 구간에서 앞 벌과 값이 같은 셀을 세로로 합친다 (ADR-038)
     const autoMergeColumns = new Set<number>();
     el.columns.forEach((column, c) => {
       if (column.autoMerge === true) autoMergeColumns.add(c);
@@ -6060,7 +6169,7 @@ export class SlipDesigner extends LitElement {
             continue;
           }
           if (anchor && anchor.text === text) {
-            anchor.entry.rowSpan += bandRows; // 앞 칸에 흡수 — 이 칸은 그리지 않는다
+            anchor.entry.rowSpan += bandRows; // 앞 셀에 흡수 — 이 셀은 그리지 않는다
             continue;
           }
           const entry: Placed = { cell, row: cell.row + i * bandRows, rowSpan: baseSpan, item };
@@ -6073,7 +6182,7 @@ export class SlipDesigner extends LitElement {
     const boxes = placed.map(({ cell, row, rowSpan, item }) => {
       const isSelectedCell =
         selected && this._selectedCell?.row === cell.row && this._selectedCell?.column === cell.column;
-      // 그리드 칸은 flex row라 가로 정렬은 justify-content, 세로 정렬은 align-items다.
+      // 그리드 셀은 flex row라 가로 정렬은 justify-content, 세로 정렬은 align-items다.
       // textStyleCss는 세로 정렬을 justify-content로 넣으므로(flex column용) 여기선 빼서
       // 가로 정렬을 덮지 않게 한다 (ADR-012 — 캔버스·PDF 정렬 일치).
       const merged = { ...el, ...cell };
@@ -6083,7 +6192,7 @@ export class SlipDesigner extends LitElement {
         `font-size:${fontPx(cell.fontSize ?? el.fontSize)}`,
         `justify-content:${justifyOf(cell.alignment ?? el.alignment)}`,
         `align-items:${verticalFlexAlign(merged.verticalAlignment)}`,
-        // 세로쓰기 칸은 쌓은 글자의 줄바꿈이 살아야 한 열로 보인다 (ADR-012)
+        // 세로쓰기 셀은 쌓은 글자의 줄바꿈이 살아야 한 열로 보인다 (ADR-012)
         cell.vertical === true ? 'white-space:pre-wrap' : '',
         cell.backgroundColor ? `background-color:${cell.backgroundColor}` : '',
         (cell.fontColor ?? el.fontColor) ? `color:${cell.fontColor ?? el.fontColor}` : '',
@@ -6092,7 +6201,7 @@ export class SlipDesigner extends LitElement {
         >${stackVertically(this._gridCellPreviewText(cell, item), cell.vertical)}</div>`;
     });
 
-    // 셀이 없는 칸도 괘선은 그려야 빈 줄까지 보이는 실제 모습이 된다 (SPEC §5.7)
+    // 셀이 없는 셀도 괘선은 그려야 빈 줄까지 보이는 실제 모습이 된다 (SPEC §5.7)
     const taken = new Set<string>();
     for (const { cell, row, rowSpan } of placed) {
       for (let r = row; r < row + rowSpan; r++) {
@@ -6144,7 +6253,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 자동 병합 판단용 칸 값 — 표시용 placeholder가 아니라 실제 값을 돌려준다.
+   * 자동 병합 판단용 셀 값 — 표시용 placeholder가 아니라 실제 값을 돌려준다.
    * 빈 값(미입력·null·수식 null)은 빈 문자열이라 합치지 않는다 — PDF(convert.ts gridCellText·
    * toDisplayText)와 같은 규칙으로 화면·PDF가 어긋나지 않게 한다 (ADR-038·012).
    */
@@ -6171,6 +6280,8 @@ export class SlipDesigner extends LitElement {
 
   /** 파일 차원 속성(제목·용지 등)을 되돌리기 스냅샷과 함께 고친다 */
   private _updateFile(fn: (file: SlipTemplateFile) => void): void {
+    // 편집이 실제로 이뤄졌으니 앞서 물리친 입력 안내는 지운다
+    this._inputError = null;
     if (!this._file) return;
     this._pushUndo();
     fn(this._file);
@@ -6674,11 +6785,11 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 크기 칸 — 보통은 너비·높이 둘, **곧은 선은 길이 하나와 굵기**로 보여준다.
+   * 크기 셀 — 보통은 너비·높이 둘, **곧은 선은 길이 하나와 굵기**로 보여준다.
    *
    * @remarks
    * 가로선의 높이(세로선의 너비)는 길이도 굵기도 아니고 선을 반만큼 밀 뿐이라
-   * 내놓으면 굵기 칸으로 오해된다. 대신 진짜 굵기를 크기 옆에 둔다 (G-32).
+   * 내놓으면 굵기 셀으로 오해된다. 대신 진짜 굵기를 크기 옆에 둔다 (G-32).
    * 사선은 너비·높이가 둘 다 끝점을 정하므로 그대로 보여준다.
    */
   private _renderSizeRows(el: SlipElement) {
@@ -6716,7 +6827,7 @@ export class SlipDesigner extends LitElement {
         </div>`;
     }
     // 사선은 두 축이 모두 끝점을 정하므로 너비·높이를 그대로 두되, 선 굵기는 함께 보인다 —
-    // 곧은 선에만 굵기를 두면 방향을 바꿀 때 굵기 칸이 사라져 고칠 수가 없었다
+    // 곧은 선에만 굵기를 두면 방향을 바꿀 때 굵기 셀이 사라져 고칠 수가 없었다
     if (el.type === 'line') {
       return html`
         <div class="prop-pair">
@@ -6747,7 +6858,7 @@ export class SlipDesigner extends LitElement {
    */
   /**
    * 목록 파라미터의 하위 필드 편집 패널 (ADR-047) — 이름·논리명·값 종류를 여기서 고친다.
-   * 그 필드를 읽는 그리드 칸이 있으면 어디에 쓰이는지 함께 보인다.
+   * 그 필드를 읽는 그리드 셀이 있으면 어디에 쓰이는지 함께 보인다.
    *
    * @param listKey - 목록 파라미터 물리명
    * @param fieldKey - 하위 필드 물리명
@@ -6765,13 +6876,13 @@ export class SlipDesigner extends LitElement {
       <div class="prop-section">
         <div class="prop-row">
           <label>${s.bindingParent}</label>
-          <button class="usage-row" @click=${() => this._selectBinding(listKey)}>
+          <button class="usage-row parent-row" @click=${() => this._selectBinding(listKey)}>
             ${TYPE_BADGE.field}<span>${parent.label}</span>
           </button>
         </div>
         <div class="prop-row">
           <label>${s.bindingKey}</label>
-          <input class="binding-key-input" .value=${info.key} ?disabled=${!info.defined}
+          <input class="binding-key-input" .value=${info.key}
             @change=${(e: Event) =>
               this._renameBindingField(listKey, info.key, valOf(e), e.target as HTMLInputElement)}>
         </div>
@@ -6780,12 +6891,12 @@ export class SlipDesigner extends LitElement {
           : nothing}
         <div class="prop-row">
           <label>${s.bindingLabel}</label>
-          <input .value=${info.rawLabel ?? ''} placeholder=${info.key} ?disabled=${!info.defined}
+          <input .value=${info.rawLabel ?? ''} placeholder=${info.key}
             @change=${(e: Event) => this._updateBindingField(listKey, info.key, { label: valOf(e) })}>
         </div>
         <div class="prop-row">
           <label>${s.bindingValueType}</label>
-          <select aria-label=${s.bindingValueType} .value=${info.valueType ?? ''} ?disabled=${!info.defined}
+          <select aria-label=${s.bindingValueType} .value=${info.valueType ?? ''}
             @change=${(e: Event) => this._updateBindingField(listKey, info.key, { valueType: valOf(e) })}>
             ${BINDING_FIELD_VALUE_TYPES.map((t) => html`
               <option value=${t.value} ?selected=${(info.valueType ?? '') === t.value}>
@@ -6793,7 +6904,6 @@ export class SlipDesigner extends LitElement {
               </option>`)}
           </select>
         </div>
-        ${info.defined ? nothing : html`<div class="cell-hint">${s.bindingFieldUndeclared}</div>`}
       </div>
 
       <div class="prop-section">
@@ -6810,7 +6920,7 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /** 하위 필드를 읽는 그리드 칸으로 간다 — 「쓰는 곳」에서만 쓴다 (자동 연결이 아니다) */
+  /** 하위 필드를 읽는 그리드 셀으로 간다 — 「쓰는 곳」에서만 쓴다 (자동 연결이 아니다) */
   private _selectGridCellAt(at: { pageIndex: number; gridId: string; row: number; column: number }): void {
     this._goToPage(at.pageIndex);
     this._selectedId = at.gridId;
@@ -6865,7 +6975,7 @@ export class SlipDesigner extends LitElement {
             ${info.fields.length === 0
               ? html`<div class="side-empty">${s.bindingFieldsEmpty}</div>`
               : info.fields.map((f) => html`
-                  <button class="usage-row" title="${info.key}.${f.key}"
+                  <button class="usage-row field-row" title="${info.key}.${f.key}"
                     @click=${() => this._selectBindingField(info.key, f)}>
                     ${TYPE_BADGE.field}<span>${f.title}</span>
                   </button>`)}
@@ -6903,16 +7013,16 @@ export class SlipDesigner extends LitElement {
    * @returns 파라미터 선택 조각
    */
   /**
-   * 그리드 칸이 읽을 값을 고르는 선택 상자 (ADR-034/047) — 자유 입력을 없애 오타를 막는다.
+   * 그리드 셀이 읽을 값을 고르는 선택 상자 (ADR-034/047) — 자유 입력을 없애 오타를 막는다.
    *
    * @remarks
-   * 반복 구간 **안**의 칸은 항목의 필드를 읽으므로 그 반복 구간이 쓰는 목록 파라미터의
-   * `fields`만 후보로 낸다. 구간 **밖**의 칸은 전표 값을 읽으므로 최상위 파라미터를 낸다.
-   * 목록 파라미터는 칸 하나에 담을 수 없어 후보에서 뺀다.
+   * 반복 구간 **안**의 셀은 항목의 필드를 읽으므로 그 반복 구간이 쓰는 목록 파라미터의
+   * `fields`만 후보로 낸다. 구간 **밖**의 셀은 전표 값을 읽으므로 최상위 파라미터를 낸다.
+   * 목록 파라미터는 셀 하나에 담을 수 없어 후보에서 뺀다.
    *
    * @param el - 대상 그리드
-   * @param current - 지금 칸에 설정된 값 키
-   * @param inBand - 이 칸이 반복 구간 안인지
+   * @param current - 지금 셀에 설정된 값 키
+   * @param inBand - 이 셀이 반복 구간 안인지
    * @returns 값 선택 조각
    */
   private _gridCellBindingSelect(el: GridElement, current: string, inBand: boolean) {
@@ -6947,20 +7057,20 @@ export class SlipDesigner extends LitElement {
       </select>`;
   }
 
-  /** 반복 구간 칸에서 "하위 필드 추가"를 골랐을 때 — 만들고 그 칸에 바로 붙인다 */
+  /** 반복 구간 셀에서 "하위 필드 추가"를 골랐을 때 — 만들고 그 셀에 바로 붙인다 */
   private _addBindingFieldForCell(listKey: string): void {
     const before = new Set((this._bindingList().find((b) => b.key === listKey)?.fields ?? []).map((f) => f.key));
     const cell = this._selectedCell;
     this._addBindingField(listKey);
     const created = (this._bindingList().find((b) => b.key === listKey)?.fields ?? [])
       .find((f) => !before.has(f.key));
-    // 칸에서 시작한 흐름이므로 선택을 칸으로 되돌리고 그 값을 붙인다
+    // 셀에서 시작한 흐름이므로 선택을 셀으로 되돌리고 그 값을 붙인다
     this._sideSelection = null;
     this._selectedCell = cell;
     if (created) this._setGridCellSource('binding', created.key);
   }
 
-  /** 구간 밖 칸에서 "새 값 등록"을 골랐을 때 — 파라미터를 만들고 그 칸에 붙인다 */
+  /** 구간 밖 셀에서 "새 값 등록"을 골랐을 때 — 파라미터를 만들고 그 셀에 붙인다 */
   private _newBindingForCell(): void {
     const cell = this._selectedCell;
     const { key, label } = this._nextBinding();
@@ -7444,7 +7554,7 @@ export class SlipDesigner extends LitElement {
         `;
   }
 
-  /** 그리드 요소의 행·열·반복 구간·칸 편집 */
+  /** 그리드 요소의 행·열·반복 구간·셀 편집 */
   private _renderGridProps(el: GridElement) {
     const s = this._strings.designer;
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
@@ -7460,11 +7570,10 @@ export class SlipDesigner extends LitElement {
           cellTarget !== null && repeat !== undefined
           && cellTarget.row >= repeat.fromRow && cellTarget.row <= repeat.toRow;
         const numberOf = (e: Event): number => Number((e.target as HTMLInputElement).value);
-        // 그리드 자체 옵션 — 칸을 고르면 감춘다(무엇을 고치는 중인지 헷갈리지 않게, ADR-034)
+        // 그리드 자체 옵션 — 셀을 고르면 감춘다(무엇을 고치는 중인지 헷갈리지 않게, ADR-034)
         const gridOwnProps = html`
           <div class="prop-section">
-            <div class="prop-pair">
-              <div class="prop-row">
+            <div class="prop-row">
                 <label>${s.rows}</label>
                 <div class="step-inputs">
                   <button class="row-btn" aria-label="${s.rows} -" @click=${() => this._changeGridRows(-1)}>-</button>
@@ -7480,7 +7589,6 @@ export class SlipDesigner extends LitElement {
                   <button class="row-btn" aria-label="${s.columns} +" @click=${() => this._changeGridColumns(1)}>+</button>
                 </div>
               </div>
-            </div>
             <div class="prop-row stacked">
               <label>${s.overflow}</label>
               <select aria-label=${s.overflow} .value=${el.overflow ?? 'clip'}
@@ -7563,7 +7671,7 @@ export class SlipDesigner extends LitElement {
         `;
   }
 
-  /** 칸 선택을 풀고 그리드 자체 편집으로 돌아간다 (ADR-034 — 고른 대상 하나만 편집한다) */
+  /** 셀 선택을 풀고 그리드 자체 편집으로 돌아간다 (ADR-034 — 고른 대상 하나만 편집한다) */
   private _clearCellSelection(): void {
     this._selectedCell = null;
     this._cellEditing = false;
@@ -7571,7 +7679,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 그리드 칸(선택된 셀)의 값·병합·글자·색·테두리 편집. 선택된 칸이 없으면 안내를 보인다 */
+  /** 그리드 셀(선택된 셀)의 값·병합·글자·색·테두리 편집. 선택된 셀이 없으면 안내를 보인다 */
   private _renderGridCellProps(
     el: GridElement,
     cellTarget: { row: number; column: number } | null,
@@ -7649,17 +7757,11 @@ export class SlipDesigner extends LitElement {
                       @change=${(e: Event) => this._setCellSpan('colSpan', Number(valOf(e)))}>
                   </div>
                 </div>
-                <div class="prop-row">
-                  <label>${s.fontSize}</label>
-                  <input type="number" step="0.5"
-                    class=${cellDef?.fontSize === undefined ? 'dim' : ''}
-                    .value=${String(cellDef?.fontSize ?? '')}
-                    placeholder=${String(el.fontSize ?? DEFAULT_FONT_SIZE)}
-                    @change=${(e: Event) => {
-                      const v = Number(valOf(e));
-                      this._updateCellStyle('fontSize', v > 0 ? v : null);
-                    }}>
-                </div>
+                ${this._renderDefaultedNumberRow(
+                  s.fontSize, cellDef?.fontSize, el.fontSize ?? DEFAULT_FONT_SIZE,
+                  (v) => this._updateCellStyle('fontSize', v),
+                  { step: '0.5', min: '0.5', ariaLabel: `${s.cell} ${s.fontSize}` },
+                )}
                 <div class="prop-row">
                   <label>${s.alignment}</label>
                   <div class="toggle-group" role="group" aria-label="${s.cell} ${s.alignment}">
@@ -7751,15 +7853,11 @@ export class SlipDesigner extends LitElement {
     const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
 
     return html`
-      <div class="prop-row">
-        <label>${s.fontSize}</label>
-        <input type="number" step="0.5" class=${el.fontSize === undefined ? 'dim' : ''}
-          .value=${String(el.fontSize ?? '')} placeholder=${String(DEFAULT_FONT_SIZE)}
-          @change=${(e: Event) => {
-            const v = numOf(e);
-            this._updateElement((el) => setOptional(el, 'fontSize', v > 0 ? v : null));
-          }}>
-      </div>
+      ${this._renderDefaultedNumberRow(
+        s.fontSize, el.fontSize, DEFAULT_FONT_SIZE,
+        (v) => this._updateElement((target) => setOptional(target, 'fontSize', v)),
+        { step: '0.5', min: '0.5' },
+      )}
       <div class="prop-row">
         <label>${s.alignment}</label>
         <div class="toggle-group" role="group" aria-label=${s.alignment}>
@@ -7788,28 +7886,16 @@ export class SlipDesigner extends LitElement {
                 setOptional(target, 'verticalAlignment', value !== 'top' ? value : null))}>${glyph}</button>`)}
         </div>
       </div>
-      <div class="prop-pair">
-        <div class="prop-row">
-          <label>${s.lineHeight}</label>
-          <input type="number" step="0.1" min="0.1" class=${el.lineHeight === undefined ? 'dim' : ''}
-            .value=${String(el.lineHeight ?? '')} placeholder="1"
-            @change=${(e: Event) => {
-              const v = numOf(e);
-              this._updateElement((target) => setOptional(target, 'lineHeight', v > 0 ? v : null));
-            }}>
-        </div>
-        <div class="prop-row">
-          <label>${s.characterSpacing}</label>
-          <input type="number" step="0.1" class=${el.characterSpacing === undefined ? 'dim' : ''}
-            .value=${String(el.characterSpacing ?? '')} placeholder="0"
-            @change=${(e: Event) => {
-              const raw = (e.target as HTMLInputElement).value.trim();
-              const v = numOf(e);
-              this._updateElement((target) =>
-                setOptional(target, 'characterSpacing', raw !== '' && v !== 0 ? v : null));
-            }}>
-        </div>
-      </div>
+      ${this._renderDefaultedNumberRow(
+        s.lineHeight, el.lineHeight, 1,
+        (v) => this._updateElement((target) => setOptional(target, 'lineHeight', v)),
+        { step: '0.1', min: '0.1' },
+      )}
+      ${this._renderDefaultedNumberRow(
+        s.characterSpacing, el.characterSpacing, 0,
+        (v) => this._updateElement((target) => setOptional(target, 'characterSpacing', v)),
+        { step: '0.1' },
+      )}
       <div class="prop-row">
         <label>${s.verticalWriting}</label>
         <input type="checkbox" aria-label=${s.verticalWriting} .checked=${el.vertical === true}
@@ -8206,7 +8292,7 @@ export class SlipDesigner extends LitElement {
     const hasTextDecor = el.type === 'text' || el.type === 'field';
     const hasBackground = el.type !== 'line';
     // 선은 테두리를 두르는 게 아니라 선 자체가 색·굵기·모양을 갖는다 (G-32).
-    // 굵기는 크기 칸 옆으로 옮겼으므로(_renderSizeRows) 여기서는 빼고 색·모양만 남긴다.
+    // 굵기는 크기 셀 옆으로 옮겼으므로(_renderSizeRows) 여기서는 빼고 색·모양만 남긴다.
     const isLine = el.type === 'line';
     // 테두리 형태(파선·점선)는 직선 분해 렌더가 가능한 종류만 (ADR-032)
     const hasBorderShape = el.type === 'line' || el.type === 'rect' || el.type === 'grid';
@@ -8452,7 +8538,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 수식 입력칸의 커서 위치 — 열 자동완성 판단에 쓴다 (F-21) */
+  /** 수식 입력셀의 커서 위치 — 열 자동완성 판단에 쓴다 (F-21) */
   private _formulaCaret = 0;
 
   /** 커서 위치를 기록한다 — 키 이동·클릭으로 옮겼을 때도 자동완성이 따라오게 (F-21) */
@@ -8862,7 +8948,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 반복 구간 값의 샘플 행 편집 — 항목 필드대로 칸 입력, 행 추가·삭제 */
+  /** 반복 구간 값의 샘플 행 편집 — 항목 필드대로 셀 입력, 행 추가·삭제 */
   /** 변동 이미지 값 하나의 샘플 입력 — 파일에서 골라 넣고, 넣은 이미지를 보여준다 (G-47) */
   private _renderSampleImage(b: { key: string; label: string }, raw: unknown) {
     const s = this._strings.designer;

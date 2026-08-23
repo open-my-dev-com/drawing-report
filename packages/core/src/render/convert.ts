@@ -51,7 +51,7 @@ const DEFAULT_BORDER_COLOR = '#000000';
 const DEFAULT_BORDER_WIDTH = 0.2;
 /** pdfme에서 '색 없음'은 빈 문자열이다 */
 const NO_COLOR = '';
-/** 그리드 칸 안쪽 여백(mm) */
+/** 그리드 셀 안쪽 여백(mm) */
 const GRID_CELL_PADDING = 1;
 /** 글자를 줄여 넣을 때의 최소 크기(pt) — 이보다 작으면 읽을 수 없다 (ADR-037) */
 const MIN_SHRINK_FONT_SIZE = 4;
@@ -429,7 +429,7 @@ class SlipToPdfmeConverter {
 
   /**
    * 요소 수식을 평가한다 — locale 컨텍스트 구성과 오류 재포장을 한곳에 모은다
-   * (필드·그리드 칸·바코드가 공유한다).
+   * (필드·그리드 셀·바코드가 공유한다).
    *
    * @param formula - 평가할 수식 문자열
    * @param scope - 수식이 참조할 값 범위(전표 값, 반복 항목 등)
@@ -488,10 +488,10 @@ class SlipToPdfmeConverter {
 
   /** 그리드 한 페이지의 실제 행 높이·셀 목록을 만든다 (반복 구간 펼치기, ADR-037) */
   /**
-   * 그리드 칸 하나를 그리기용 셀로 바꾼다 — 셀에 지정이 없으면 요소 기본값을 물려받는다.
+   * 그리드 셀 하나를 그리기용 셀로 바꾼다 — 셀에 지정이 없으면 요소 기본값을 물려받는다.
    *
    * @param element - 셀이 속한 그리드 (기본 스타일·값 계산에 쓴다)
-   * @param cell - 원본 칸
+   * @param cell - 원본 셀
    * @param rowShift - 반복 복제로 아래로 민 행 수
    * @param item - 이 벌의 항목 값 (반복 구간 밖이면 undefined)
    * @param hasItem - 값을 계산해 넣을지 (헤더·꼬리·빈 벌은 false)
@@ -533,7 +533,7 @@ class SlipToPdfmeConverter {
   /**
    * 반복 구간 행을 이 페이지 몫만큼 펼쳐 그리기용 셀로 만든다 (ADR-037/038).
    *
-   * 켠 열(autoMerge)은 앞 벌과 값이 같은 칸을 세로로 합친다 — 페이지 단위로만 보므로
+   * 켠 열(autoMerge)은 앞 벌과 값이 같은 셀을 세로로 합친다 — 페이지 단위로만 보므로
    * (chunk가 이 페이지 몫) 페이지가 바뀌면 저절로 끊기고 값이 다시 그려진다. 빈 값·항목 없음은
    * 합치지 않고 그대로 그린다.
    *
@@ -565,7 +565,7 @@ class SlipToPdfmeConverter {
       }
       return false;
     };
-    // 반복 구간 칸(틀 좌표)별 병합 기준 칸 — 앞 벌과 값이 같으면 이 칸의 높이를 늘린다
+    // 반복 구간 셀(틀 좌표)별 병합 기준 셀 — 앞 벌과 값이 같으면 이 셀의 높이를 늘린다
     const anchors = new Map<string, { cell: DrawGridCell; text: string }>();
     const cells: DrawGridCell[] = [];
 
@@ -589,7 +589,7 @@ class SlipToPdfmeConverter {
         const anchor = anchors.get(key);
         if (anchor && anchor.text === draw.text) {
           anchor.cell.rowSpan += bandRows;
-          continue; // 앞 칸에 흡수 — 이 칸은 그리지 않는다
+          continue; // 앞 셀에 흡수 — 이 셀은 그리지 않는다
         }
         anchors.set(key, { cell: draw, text: draw.text });
         cells.push(draw);
@@ -711,7 +711,7 @@ class SlipToPdfmeConverter {
       return b.width >= a.width ? b : a;
     };
 
-    // 셀 소유 그리드 (병합 반영). 값은 cells 배열의 인덱스, 빈 칸은 -1
+    // 셀 소유 그리드 (병합 반영). 값은 cells 배열의 인덱스, 빈 셀은 -1
     const owner: number[][] = Array.from({ length: rows }, () => new Array<number>(columns).fill(-1));
     cells.forEach((cell, index) => {
       for (let r = cell.row; r < cell.row + cell.rowSpan; r++) {
@@ -784,7 +784,7 @@ class SlipToPdfmeConverter {
       lines: columns,
       cells: rows,
       idPrefix: `${grid.idPrefix}__v`,
-      // 비운 행에서 세로선 구간을 끊는다 (해당 칸에는 세로선을 긋지 않는다)
+      // 비운 행에서 세로선 구간을 끊는다 (해당 셀에는 세로선을 긋지 않는다)
       breakAt: (r) => blankRows.has(r),
       neighbors: (c, r) => [
         c > 0 ? (owner[r]?.[c - 1] ?? -1) : null,
@@ -834,7 +834,7 @@ class SlipToPdfmeConverter {
       );
       let value = stackVertically(cell.text, cell.vertical);
       if (overflow === 'shrink') {
-        // 칸에 들어갈 때까지 글자 크기를 줄인다 — 하부 엔진이 세로 기준으로 맞춘다
+        // 셀에 들어갈 때까지 글자 크기를 줄인다 — 하부 엔진이 세로 기준으로 맞춘다
         schema.dynamicFontSize = { min: MIN_SHRINK_FONT_SIZE, max: fontSize, fit: 'vertical' };
       } else if (overflow === 'clip') {
         value = this.clipToBox(value, rect.width - padding * 2, rect.height - padding * 2, {
@@ -855,7 +855,7 @@ class SlipToPdfmeConverter {
    * 한 선으로 이어 그린다 (ADR-033). 가로·세로 패스가 축만 다르고 구조가 같아 공통화했다.
    *
    * @param axis - 축 서술 (경계선 수·셀 수·빈 행 처리·이웃·선분 그리기)
-   * @param edgeBorderOf - 맞닿는 두 칸의 유효 테두리 (굵은 쪽 우선)
+   * @param edgeBorderOf - 맞닿는 두 셀의 유효 테두리 (굵은 쪽 우선)
    * @param schemas - 선 스키마를 담을 배열
    */
   private drawGridLines(
@@ -891,7 +891,7 @@ class SlipToPdfmeConverter {
     }
   }
 
-  /** 칸 높이를 넘는 줄을 잘라낸다. 잴 수 없으면 그대로 둔다 (ADR-037) */
+  /** 셀 높이를 넘는 줄을 잘라낸다. 잴 수 없으면 그대로 둔다 (ADR-037) */
   private clipToBox(
     text: string,
     widthMm: number,
@@ -1326,7 +1326,7 @@ interface DrawGridCell {
   italic?: boolean | undefined;
   underline?: boolean | undefined;
   strikethrough?: boolean | undefined;
-  /** 수직 정렬 — 지정하지 않으면 칸 가운데 */
+  /** 수직 정렬 — 지정하지 않으면 셀 가운데 */
   verticalAlignment?: VerticalAlignment | undefined;
   lineHeight?: number | undefined;
   characterSpacing?: number | undefined;
@@ -1358,7 +1358,7 @@ interface DrawGridOptions {
   padding: number;
   /** 그리지 않고 비우는 행 (헤더 미반복, SPEC §5.7) */
   blankRows?: Set<number>;
-  /** 칸을 넘치는 글의 기본 처리 */
+  /** 셀을 넘치는 글의 기본 처리 */
   overflow?: 'clip' | 'shrink' | undefined;
 }
 
@@ -1405,7 +1405,7 @@ interface GridLineAxis {
   skipLine?: (line: number) => boolean;
   /** 이 셀 위치(cell)에서 구간을 끊을지 — 세로선의 빈 행 처리 (없으면 안 끊음) */
   breakAt?: (cell: number) => boolean;
-  /** 경계선(line)의 셀(cell) 위치에서 맞닿는 두 칸의 소유자 인덱스 `[앞, 뒤]` (범위 밖은 null) */
+  /** 경계선(line)의 셀(cell) 위치에서 맞닿는 두 셀의 소유자 인덱스 `[앞, 뒤]` (범위 밖은 null) */
   neighbors: (line: number, cell: number) => [number | null, number | null];
   /** 경계선(line)의 [start, endExclusive) 구간을 border로 한 선분으로 그린다 */
   emit: (
@@ -1434,7 +1434,7 @@ function sameGridBorder(a: GridEdgeBorder, b: GridEdgeBorder): boolean {
  * @param file - 변환할 .slip 파일
  * @param options - `locale`: 수식 포맷 함수 로케일 · `fontNames`: 렌더 옵션의 폰트 이름
  *   목록(굵게 폰트 탐색용) · `fallbackFontName`: 대체 폰트 이름 · `fonts`: 폰트 데이터
- *   (칸을 넘치는 글을 잘라낼 때 글자를 재는 데 쓴다, ADR-037)
+ *   (셀을 넘치는 글을 잘라낼 때 글자를 재는 데 쓴다, ADR-037)
  * @returns pdfme `generate()`에 넘길 템플릿과 입력값
  */
 export function convertSlipFile(

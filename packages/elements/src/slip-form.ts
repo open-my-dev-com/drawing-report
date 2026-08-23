@@ -25,7 +25,7 @@ const PREVIEW_DEBOUNCE_MS = 500;
 /** 넣을 수 있는 이미지 파일의 기본 최대 크기(바이트, 2MB) — 호스트가 `maxImageBytes`로 바꾼다 (G-47) */
 const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
-/** 작성폼이 만들어 주는 입력 한 칸 */
+/** 작성폼이 만들어 주는 입력 한 셀 */
 interface FormInput {
   /** 값을 담을 파라미터 키 (전표 values의 키) */
   key: string;
@@ -33,7 +33,7 @@ interface FormInput {
   label: string;
   /** 표 입력이면 열 구조, 아니면 한 줄 입력 */
   columns?: { key: string; title: string }[];
-  /** 수식으로 자동 계산되는 칸이면 그 수식 (입력받지 않고 계산 결과만 보여준다) */
+  /** 수식으로 자동 계산되는 셀이면 그 수식 (입력받지 않고 계산 결과만 보여준다) */
   formula?: string;
   /** 변동 이미지 값이면 이미지 업로드 입력을 낸다 (G-47) */
   image?: boolean;
@@ -79,7 +79,7 @@ function resultText(value: unknown): string {
 /**
  * `<slip-form>` — 전표 작성폼 (v2 D-14).
  *
- * 양식(template)이나 작성 중 전표(voucher)를 받아 파라미터마다 입력 칸을 만들고,
+ * 양식(template)이나 작성 중 전표(voucher)를 받아 파라미터마다 입력 셀을 만들고,
  * 반복 구간이 쓰는 값은 항목 필드대로 행을 넣고 뺄 수 있게 한다. 수식 필드는 입력받지 않고
  * 값이 바뀔 때마다 즉시 계산해 보여주며, 오른쪽 미리보기는 PDF 변환 결과를 그대로
  * 표시한다 (화면·PDF 불일치 불가, ADR-012/016).
@@ -530,7 +530,7 @@ export class SlipForm extends LitElement {
   // ---------------------------------------------------------------------------
 
   /**
-   * 양식에서 입력 칸 목록을 만든다 — 전표에 실리는 순서(문서 읽는 순서)대로 요소를
+   * 양식에서 입력 셀 목록을 만든다 — 전표에 실리는 순서(문서 읽는 순서)대로 요소를
    * 훑고, 요소가 쓰지 않지만 정의부에만 있는 파라미터(수식에서만 참조하는 값 등)을 뒤에 붙인다.
    */
   private _collectInputs(): FormInput[] {
@@ -569,7 +569,7 @@ export class SlipForm extends LitElement {
         } else if (element.type === 'image' && element.binding !== undefined) {
           add(element.binding, { image: true }, element.name);
         } else if (element.type === 'grid' && element.repeat) {
-          // 반복 구간 칸이 읽는 항목 필드가 곧 입력 표의 열이 된다 (ADR-037)
+          // 반복 구간 셀이 읽는 항목 필드가 곧 입력 표의 열이 된다 (ADR-037)
           const { fromRow, toRow } = element.repeat;
           const band = element.cells
             .filter((cell) => cell.row >= fromRow && cell.row <= toRow && cell.binding !== undefined)
@@ -793,7 +793,7 @@ export class SlipForm extends LitElement {
     if (input.image) return this._renderImageInput(input);
 
     if (input.formula !== undefined) {
-      // 수식 칸은 입력받지 않는다 — 값이 바뀔 때마다 즉시 계산해 결과만 보여준다
+      // 수식 셀은 입력받지 않는다 — 값이 바뀔 때마다 즉시 계산해 결과만 보여준다
       let text = '';
       let error: string | null = null;
       try {
