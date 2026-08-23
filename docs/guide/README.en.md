@@ -121,7 +121,7 @@ A visual editor for designing templates.
 |---|---|---|
 | `src` | `string` | `.slip` JSON string (template file) |
 | `locale` | `'ko' \| 'en' \| 'ja'` | UI language (default: `'ko'`) |
-| `settings` | `SlipDesignerSettings` | Font supply (`getFonts`) plus paper-size supply/save (`getPaperSizes`/`savePaperSize`). Falls back to the bundled font for the locale (ADR-040/042) |
+| `settings` | `SlipDesignerSettings` | Font supply (`getFonts`), paper-size supply/save (`getPaperSizes`/`savePaperSize`), and barcode-kind narrowing (`getBarcodeKinds`). Falls back to the bundled font for the locale and shows all 12 barcode kinds (ADR-040/042/048) |
 | `presets` | `SlipPreset[]` | Template list for the preset menu — replaces built-in presets if given |
 | `storage` | `StorageAdapter` | Storage adapter for save/load of user templates |
 

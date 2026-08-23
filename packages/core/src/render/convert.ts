@@ -253,9 +253,21 @@ class SlipToPdfmeConverter {
     for (const element of elements) {
       if (element.type !== 'grid' || !element.repeat) continue;
       const items = this.repeatItems(element, element.repeat.binding);
-      count = Math.max(count, Math.ceil(items.length / element.repeat.perPage) || 1);
+      const drawn = this.drawnItemCount(items.length, element.repeat);
+      count = Math.max(count, Math.ceil(drawn / element.repeat.perPage) || 1);
     }
     return count;
+  }
+
+  /**
+   * 실제로 그릴 항목 수 — 양식이 상한(`maxItems`)을 정했으면 거기서 끊는다 (ADR-048).
+   *
+   * @param total - 전표가 준 항목 수
+   * @param repeat - 반복 구간 설정
+   * @returns 그릴 항목 수
+   */
+  private drawnItemCount(total: number, repeat: { maxItems?: number | undefined }): number {
+    return repeat.maxItems === undefined ? total : Math.min(total, repeat.maxItems);
   }
 
   /** pdfme는 이름으로 값을 찾으므로 문서 전체에서 이름이 유일해야 한다 */
@@ -538,7 +550,9 @@ class SlipToPdfmeConverter {
     const { fromRow, toRow, perPage } = repeat;
     const bandRows = toRow - fromRow + 1;
     const items = this.repeatItems(element, repeat.binding);
-    const chunk = items.slice(renderPage * perPage, (renderPage + 1) * perPage);
+    // 양식이 상한을 정했으면 거기까지만 그린다 — 넘는 항목은 페이지를 늘리지 않는다 (ADR-048)
+    const drawn = this.drawnItemCount(items.length, repeat);
+    const chunk = items.slice(renderPage * perPage, Math.min((renderPage + 1) * perPage, drawn));
 
     const autoMergeColumns = new Set<number>();
     element.columns.forEach((column, c) => {

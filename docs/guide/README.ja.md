@@ -120,7 +120,7 @@ function onDesignerChange(file: SlipFile) {
 |---|---|---|
 | `src` | `string` | `.slip` JSON 文字列 (template ファイル) |
 | `locale` | `'ko' \| 'en' \| 'ja'` | UI 言語 (既定: `'ko'`) |
-| `settings` | `SlipDesignerSettings` | フォント供給（`getFonts`）と用紙一覧の供給・保存（`getPaperSizes`/`savePaperSize`）。未指定の場合は言語に合わせた同梱フォントを使用 (ADR-040/042) |
+| `settings` | `SlipDesignerSettings` | フォント供給（`getFonts`）・用紙一覧の供給/保存（`getPaperSizes`/`savePaperSize`）・バーコード種類の絞り込み（`getBarcodeKinds`）。未指定の場合は言語に合わせた同梱フォントを使い、バーコードは12種すべて表示 (ADR-040/042/048) |
 | `presets` | `SlipPreset[]` | プリセットメニューに使うテンプレート一覧 — 指定すると同梱プリセットの代わりに表示 |
 | `storage` | `StorageAdapter` | 「マイテンプレートの保存・読み込み」に使うストレージアダプター |
 

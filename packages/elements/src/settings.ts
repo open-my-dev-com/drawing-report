@@ -6,7 +6,7 @@
  * 호스트가 구현하는 공급 인터페이스로 받는다. 값을 돌려받는 pull이라 이벤트보다 메서드가 맞다.
  * 실제 저장 위치는 전적으로 호스트 몫이다.
  */
-import type { RenderOptions } from '@omdc-slipkit/core';
+import type { BarcodeKind, RenderOptions } from '@omdc-slipkit/core';
 import { loadDefaultFonts } from './default-fonts.js';
 import { normalizeLocale } from './strings.js';
 
@@ -44,6 +44,16 @@ export interface PaperSize {
  * 용지 목록 공급은 읽기, 사용자가 직접 입력한 용지 보관은 쓰기다. 셋 다 선택이다.
  */
 export interface SlipDesignerSettings extends SlipFontProvider {
+  /**
+   * 디자이너 바코드 고르개에 보일 종류 목록 — 호스트가 쓰는 것만 남긴다 (ADR-048).
+   *
+   * @remarks
+   * 하부 엔진이 그릴 수 있는 12종을 전부 보이면 대부분의 호스트에 필요 없는 선택지가 늘어난다.
+   * 폰트·용지와 같은 방식으로 후보를 좁힌다. 주지 않으면 12종을 모두 보인다.
+   *
+   * @returns 보일 바코드 종류 목록 (빈 배열이면 12종 전부)
+   */
+  getBarcodeKinds?(): BarcodeKind[] | Promise<BarcodeKind[]>;
   /**
    * 용지 고르개에 더할 목록을 돌려준다(동봉 4종 뒤에 붙는다).
    *

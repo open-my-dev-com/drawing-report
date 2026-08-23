@@ -50,6 +50,8 @@ export const SLIP_LIMITS = {
   maxGridColumnTracks: 100,
   /** 그리드(grid) 반복 구간의 페이지당 최대 항목 수 */
   maxRepeatPerPage: 1000,
+  /** 그리드(grid) 반복 구간이 그릴 수 있는 항목 수 상한 (`repeat.maxItems`의 상한) */
+  maxRepeatItems: 100_000,
   /** 줄간격 배수 상한 */
   maxLineHeight: 10,
   /** 자간 절대값 상한(pt) */
@@ -200,7 +202,26 @@ const gridRepeatSchema = z.object({
     .max(SLIP_LIMITS.maxRepeatPerPage, `perPage는 최대 ${SLIP_LIMITS.maxRepeatPerPage}입니다`),
   /** 이어지는 페이지에 반복 구간 위쪽 행을 다시 그릴지 */
   repeatHeader: z.boolean(),
-});
+  /**
+   * 그릴 항목 수 상한 (선택, ADR-048) — 넘는 항목은 그리지 않는다.
+   * 정하지 않으면 항목 수만큼 페이지가 늘어난다. `perPage` 이상이어야 한다.
+   */
+  maxItems: z
+    .number()
+    .int()
+    .min(1)
+    .max(SLIP_LIMITS.maxRepeatItems, `maxItems는 최대 ${SLIP_LIMITS.maxRepeatItems}입니다`)
+    .optional(),
+})
+  .superRefine((repeat, ctx) => {
+    if (repeat.maxItems !== undefined && repeat.maxItems < repeat.perPage) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['maxItems'],
+        message: 'maxItems는 perPage보다 작을 수 없습니다',
+      });
+    }
+  });
 
 /** 고정 틀과 반복 목록을 하나로 다루는 그리드 (ADR-037) */
 const gridElementObject = z.object({

@@ -528,6 +528,11 @@
                                 },
                                 "repeatHeader": {
                                   "type": "boolean"
+                                },
+                                "maxItems": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 100000
                                 }
                               },
                               "required": [
@@ -1834,6 +1839,11 @@
                                 },
                                 "repeatHeader": {
                                   "type": "boolean"
+                                },
+                                "maxItems": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 100000
                                 }
                               },
                               "required": [

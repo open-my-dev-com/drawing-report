@@ -298,6 +298,14 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/반복 구간이 있어야/);
   });
 
+  it('maxItems가 perPage보다 작으면 거부한다 (ADR-048)', () => {
+    const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
+    const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
+    (grid['repeat'] as Record<string, unknown>)['maxItems'] = 3;
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/perPage보다 작을 수 없습니다/);
+  });
+
   it('목록 파라미터는 항목의 하위 필드를 정의부에 담을 수 있다 (ADR-047)', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as { bindings?: unknown };

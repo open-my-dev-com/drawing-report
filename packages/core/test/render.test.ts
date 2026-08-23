@@ -941,6 +941,26 @@ describe('바코드·변동 이미지·페이지 번호 변환', () => {
 // 데이터 자동 병합 (ADR-038)
 // ---------------------------------------------------------------------------
 
+describe('반복 항목 수 상한 (ADR-048)', () => {
+  it('maxItems를 넘는 항목은 그리지 않고 페이지도 늘리지 않는다', () => {
+    const voucher = makeVoucher(20);
+    const grid = voucher.templateSnapshot.pages[0]!.elements
+      .find((el) => el.id === 'items') as GridElement;
+    grid.repeat = { ...grid.repeat!, perPage: 6, maxItems: 8 };
+    const { template } = convertSlipFile(voucher);
+    // 8개까지만 그리므로 6+2 = 2페이지 (상한이 없었다면 20/6 = 4페이지)
+    expect(template.schemas).toHaveLength(2);
+  });
+
+  it('maxItems를 정하지 않으면 항목 수만큼 페이지가 늘어난다', () => {
+    const voucher = makeVoucher(20);
+    const grid = voucher.templateSnapshot.pages[0]!.elements
+      .find((el) => el.id === 'items') as GridElement;
+    grid.repeat = { ...grid.repeat!, perPage: 6 };
+    expect(convertSlipFile(voucher).template.schemas).toHaveLength(4);
+  });
+});
+
 describe('데이터 자동 병합 (ADR-038)', () => {
   function makeBody(autoMergeProduct: boolean, perPage = 4): SlipTemplateBody {
     return {

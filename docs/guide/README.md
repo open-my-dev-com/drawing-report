@@ -120,7 +120,7 @@ function onDesignerChange(file: SlipFile) {
 |---|---|---|
 | `src` | `string` | `.slip` JSON 문자열 (template 파일) |
 | `locale` | `'ko' \| 'en' \| 'ja'` | UI 언어 (기본: `'ko'`) |
-| `settings` | `SlipDesignerSettings` | 폰트 공급(`getFonts`)과 용지 목록 공급·저장(`getPaperSizes`/`savePaperSize`). 미지정 시 언어에 맞는 동봉 폰트 사용 (ADR-040/042) |
+| `settings` | `SlipDesignerSettings` | 폰트 공급(`getFonts`)·용지 목록 공급/저장(`getPaperSizes`/`savePaperSize`)·바코드 종류 좁히기(`getBarcodeKinds`). 미지정 시 언어에 맞는 동봉 폰트를 쓰고 바코드는 12종을 모두 보입니다 (ADR-040/042/048) |
 | `presets` | `SlipPreset[]` | 프리셋 메뉴에 쓸 양식 목록 — 지정하면 동봉 프리셋 대신 표시 |
 | `storage` | `StorageAdapter` | "내 양식 저장·불러오기"에 쓸 저장소 어댑터 |
 

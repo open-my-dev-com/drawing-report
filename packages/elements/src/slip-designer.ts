@@ -386,6 +386,7 @@ const GRID_DEFAULT_PER_PAGE = 5;
 /** 디자이너에서 다룰 수 있는 그리드 행·열 수 상한 — 스키마 한도(SLIP_LIMITS)보다 낮은 편집 편의용 상한 */
 const GRID_MAX_TRACKS_UI = 100;
 /** 반복 구간 페이지당 항목 수 상한 (편집 입력 방어) */
+const GRID_MAX_ITEMS_UI = 100_000;
 const GRID_MAX_PER_PAGE_UI = 1000;
 /** 요소를 새로 만들 때 겹치지 않게 계단식으로 미는 간격·되돌아오는 주기(mm) */
 const NEW_ELEMENT_CASCADE_STEP_MM = 5;
@@ -2736,6 +2737,7 @@ export class SlipDesigner extends LitElement {
     _selectedId: { state: true },
     _selectedIds: { state: true },
     _hostPaperSizes: { state: true },
+    _hostBarcodeKinds: { state: true },
     _paperSaveName: { state: true },
     _previewMode: { state: true },
     _previewUrl: { state: true },
@@ -2827,6 +2829,8 @@ export class SlipDesigner extends LitElement {
   private _selectedIds = new Set<string>();
   /** 호스트가 `settings.getPaperSizes`로 공급한 용지 목록 (동봉 4종 뒤에 붙는다, G-31) */
   private _hostPaperSizes: PaperSize[] = [];
+  /** 호스트가 `settings.getBarcodeKinds`로 좁힌 바코드 종류 (빈 배열이면 12종 전부, ADR-048) */
+  private _hostBarcodeKinds: BarcodeKind[] = [];
   /** "이 크기 저장"에 쓸 이름 입력 초안 (G-31) */
   private _paperSaveName = '';
   private _undoStack: string[] = [];
@@ -2986,6 +2990,7 @@ export class SlipDesigner extends LitElement {
     // 호스트가 준 용지 목록을 불러 온다 (G-31) — settings가 바뀌면 다시 불러온다
     if (changed.has('settings')) {
       void this._loadPaperSizes();
+      void this._loadBarcodeKinds();
     }
     // 인라인 셀 편집을 열면 바로 입력할 수 있게 포커스를 준다
     if (this._cellEditing) {
@@ -4199,10 +4204,21 @@ export class SlipDesigner extends LitElement {
   }
 
   /** 반복 구간의 설정을 바꾼다 — 행 범위가 어긋나거나 병합이 경계를 넘으면 무시한다 */
-  private _updateGridRepeat(patch: Partial<GridRepeat>): void {
+  private _updateGridRepeat(
+    patch: Omit<Partial<GridRepeat>, 'maxItems'> & { maxItems?: number | null },
+  ): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'grid' || !el.repeat) return;
-    const next = { ...el.repeat, ...patch };
+    const next = { ...el.repeat, ...patch } as GridRepeat & { maxItems?: number | null };
+    // 상한 없음(null)은 필드를 지운다 — 스키마에 없는 값을 남기지 않는다 (ADR-048)
+    if (patch.maxItems === null) delete (next as { maxItems?: unknown }).maxItems;
+    else if (patch.maxItems !== undefined) {
+      const v = patch.maxItems;
+      if (!Number.isInteger(v) || v < next.perPage || v > GRID_MAX_ITEMS_UI) {
+        this._rejectInput();
+        return;
+      }
+    }
     if (next.fromRow > next.toRow || next.toRow >= el.rows.length || next.fromRow < 0) {
       this._rejectInput();
       return;
@@ -5625,6 +5641,44 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
+  /**
+   * 샘플 값 JSON의 뼈대 — 선언된 파라미터를 모두 담고 지금 값을 얹는다 (ADR-047).
+   *
+   * @remarks
+   * 입력폼 탭과 JSON 탭이 같은 것을 보여야 한다. 비워 둔 값도 키로 남겨야 무엇을 채우면
+   * 되는지 알 수 있고, 두 탭을 오갈 때 내용이 달라지지 않는다.
+   *
+   * @returns 파라미터 물리명 → 값 (없으면 종류에 맞는 빈 값)
+   */
+  private _sampleSkeleton(): Record<string, unknown> {
+    const samples = this._file?.template.sampleValues ?? {};
+    const emptyFor = (type: BindingValueType | undefined): unknown => {
+      switch (type) {
+        case 'number': return 0;
+        case 'boolean': return false;
+        case 'list': return [];
+        default: return '';
+      }
+    };
+    const out: Record<string, unknown> = {};
+    for (const b of this._bindingList()) {
+      const current = samples[b.key];
+      if (current !== undefined) {
+        out[b.key] = current;
+        continue;
+      }
+      // 목록은 항목 하나를 뼈대로 넣어 어떤 필드를 채우면 되는지 보인다
+      if (b.valueType === 'list' && b.fields.length > 0) {
+        const item: Record<string, unknown> = {};
+        for (const f of b.fields) item[f.key] = emptyFor(f.valueType);
+        out[b.key] = [item];
+        continue;
+      }
+      out[b.key] = emptyFor(b.valueType);
+    }
+    return out;
+  }
+
   /** 인라인 셀 편집 입력 상자 — 선택 셀 위에 겹쳐 그린다 (C-10) */
   private _renderCellEditor() {
     if (!this._cellEditing || !this._selectedCell) return nothing;
@@ -6209,6 +6263,20 @@ export class SlipDesigner extends LitElement {
       if (on) target.pageNumber = { position: 'bottom-center' };
       else delete target.pageNumber;
     });
+  }
+
+  /** 호스트가 좁힌 바코드 종류를 불러 온다 (ADR-048) — 없거나 비면 12종을 모두 보인다 */
+  private async _loadBarcodeKinds(): Promise<void> {
+    const kinds = this.settings?.getBarcodeKinds ? await this.settings.getBarcodeKinds() : [];
+    this._hostBarcodeKinds = kinds ?? [];
+    this.requestUpdate();
+  }
+
+  /** 바코드 고르개에 보일 종류 — 호스트가 좁혔으면 그 목록, 아니면 전부 (ADR-048) */
+  private _barcodeKinds(): readonly { value: BarcodeKind; label: string }[] {
+    if (this._hostBarcodeKinds.length === 0) return BARCODE_KINDS;
+    const allowed = new Set(this._hostBarcodeKinds);
+    return BARCODE_KINDS.filter((k) => allowed.has(k.value));
   }
 
   /** 호스트가 공급하는 용지 목록을 불러 온다 (G-31) — 없으면 빈 목록 */
@@ -7158,6 +7226,7 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     return html`
       <div class="prop-section">
+        ${this._renderTextFieldKindRow('text')}
         <div class="prop-section-title">${s.content}</div>
         <div class="prop-row">
           <textarea rows="3" .value=${el.content}
@@ -7169,12 +7238,65 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
+  /**
+   * 텍스트 ↔ 필드 전환 줄 — 같은 자리에 놓을 것을 바꿔 끼운다.
+   *
+   * @remarks
+   * 둘은 상자·글자 스타일이 같고 담는 것만 다르다(직접 쓴 글 / 파라미터·수식). 지우고 다시
+   * 만들지 않아도 되게 종류를 바꿀 수 있게 한다 — 자리·크기·글자 스타일은 그대로 두고
+   * 담는 것만 갈아 끼우며, 요소 종류가 바뀌므로 배지·아이콘도 따라 바뀐다.
+   *
+   * @param current - 지금 종류
+   * @returns 종류 전환 조각
+   */
+  private _renderTextFieldKindRow(current: 'text' | 'field') {
+    const s = this._strings.designer;
+    return html`
+      <div class="prop-row">
+        <label>${s.elementKind}</label>
+        <div class="toggle-group text" role="group" aria-label=${s.elementKind}>
+          ${([['text', s.typeText], ['field', s.typeField]] as const).map(([kind, label]) => html`
+            <button aria-pressed=${String(current === kind)}
+              @click=${() => this._convertTextField(kind)}>${label}</button>`)}
+        </div>
+      </div>`;
+  }
+
+  /**
+   * 텍스트 ↔ 필드로 갈아 끼운다 — 자리·크기·글자 스타일은 그대로 둔다.
+   *
+   * @remarks
+   * 텍스트의 글은 필드로 바꿀 때 버린다(필드는 파라미터·수식에서 값을 읽는다). 반대로
+   * 필드를 텍스트로 바꾸면 파라미터·수식을 버리고 빈 글로 시작한다 — 두 방향 모두
+   * 되돌리기로 복구된다.
+   *
+   * @param to - 바꿀 종류
+   */
+  private _convertTextField(to: 'text' | 'field'): void {
+    const el = this._findSelectedElement();
+    if (!el || (el.type !== 'text' && el.type !== 'field') || el.type === to) return;
+    this._updateElement((target) => {
+      const r = target as Record<string, unknown>;
+      if (to === 'field') {
+        delete r.content;
+        r.type = 'field';
+        r.binding = '';
+      } else {
+        delete r.binding;
+        delete r.formula;
+        r.type = 'text';
+        r.content = '';
+      }
+    });
+  }
+
   /** 필드 요소의 파라미터·수식 편집 */
   private _renderFieldProps(el: FieldElement) {
     const s = this._strings.designer;
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
     return html`
       <div class="prop-section">
+        ${this._renderTextFieldKindRow('field')}
         ${this._renderBindingSelect(el.binding)}
         <div class="prop-row">
           <label>${s.formula}</label>
@@ -7208,7 +7330,10 @@ export class SlipDesigner extends LitElement {
                 @change=${(e: Event) => this._updateElement((target) => {
                   if (target.type === 'barcode') target.kind = (e.target as HTMLSelectElement).value as BarcodeKind;
                 })}>
-                ${BARCODE_KINDS.map((k) => html`
+                ${this._barcodeKinds().some((k) => k.value === el.kind)
+                  ? nothing
+                  : html`<option value=${el.kind} selected>${el.kind}</option>`}
+                ${this._barcodeKinds().map((k) => html`
                   <option value=${k.value} ?selected=${k.value === el.kind}>${k.label}</option>`)}
               </select>
             </div>
@@ -7365,6 +7490,17 @@ export class SlipDesigner extends LitElement {
                   <label>${s.repeatPerPage}</label>
                   <input type="number" min="1" max="1000" .value=${String(repeat.perPage)}
                     @change=${(e: Event) => this._updateGridRepeat({ perPage: numberOf(e) })}>
+                </div>
+                <div class="prop-row stacked">
+                  <label>${s.repeatMaxItems}</label>
+                  <input type="number" min=${String(repeat.perPage)} max="100000"
+                    class=${repeat.maxItems === undefined ? 'dim' : ''}
+                    placeholder=${s.repeatMaxItemsNone}
+                    .value=${repeat.maxItems === undefined ? '' : String(repeat.maxItems)}
+                    @change=${(e: Event) => {
+                      const raw = (e.target as HTMLInputElement).value.trim();
+                      this._updateGridRepeat({ maxItems: raw === '' ? null : Number(raw) });
+                    }}>
                 </div>
                 <div class="prop-row stacked">
                   <label>${s.repeatHeader}</label>
@@ -8578,12 +8714,10 @@ export class SlipDesigner extends LitElement {
                   if (this._sampleJsonMode === jsonMode) return;
                   this._sampleJsonMode = jsonMode;
                   if (jsonMode) {
-                    // JSON 탭에 들어올 때 현재 샘플 값을 초안으로 담는다
-                    const current = this._file?.template.sampleValues;
-                    this._sampleJsonDraft =
-                      current && Object.keys(current).length > 0
-                        ? JSON.stringify(current, null, 2)
-                        : '';
+                    // 두 탭이 같은 것을 보여야 한다 — 선언된 파라미터를 모두 담은 뼈대에
+                    // 지금 샘플 값을 얹는다. 입력폼에서 비워 둔 값도 키로 보여야 무엇을
+                    // 채우면 되는지 알 수 있다 (빈 JSON을 내놓으면 두 탭이 어긋난다)
+                    this._sampleJsonDraft = JSON.stringify(this._sampleSkeleton(), null, 2);
                   }
                   this.requestUpdate();
                 }}>${label}</button>`)}
@@ -8593,7 +8727,6 @@ export class SlipDesigner extends LitElement {
                 <div class="cell-hint">${s.jsonHint}</div>
                 <textarea class="sample-json" rows="14" spellcheck="false"
                   aria-label="${s.sampleData} JSON"
-                  placeholder=${'{\n  "tradeDate": "2026-08-20",\n  "items": [{ "amount": 1000 }]\n}'}
                   .value=${this._sampleJsonDraft}
                   @input=${(e: Event) => {
                     this._sampleJsonDraft = (e.target as HTMLTextAreaElement).value;
