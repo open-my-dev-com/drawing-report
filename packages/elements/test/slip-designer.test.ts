@@ -1302,6 +1302,50 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
+  it('반복 구간이 쓰는 파라미터는 열 때 목록으로 선언되고 하위 필드가 채워진다 (ADR-047)', async () => {
+    const file = makeTemplateFile();
+    // 정의부에 종류가 없는 상태 — 옛 프리셋이 그랬다
+    file.template.bindings = [{ key: 'items', label: '품목' }];
+    file.template.pages[0]!.elements = [{
+      type: 'grid' as const, id: 'g-1', name: 'g', position: { x: 10, y: 10 },
+      width: 60, height: 20,
+      rows: [{ height: 10 }, { height: 10 }],
+      columns: [{ width: 60 }],
+      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 1, repeatHeader: true },
+      cells: [
+        { row: 0, column: 0, content: '품명' },
+        { row: 1, column: 0, binding: 'itemName' },
+      ],
+    } as never];
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.bindings!;
+    const items = defs.find((b) => b.key === 'items')!;
+    // 반복 구간이 있다는 것은 그 값이 목록이라는 뜻이다
+    expect(items.valueType).toBe('list');
+    // 구간 칸이 읽는 이름이 하위 필드로 선언되고, 이름은 헤더의 직접 입력한 글을 쓴다
+    expect(items.fields?.map((f) => [f.key, f.label])).toEqual([['itemName', '품명']]);
+    el.remove();
+  });
+
+  it('샘플 JSON은 저장된 행에 없는 하위 필드도 키로 보여준다 (입력폼 탭과 어긋나지 않게)', async () => {
+    const file = makeTemplateFile();
+    file.template.bindings = [{
+      key: 'items', valueType: 'list',
+      fields: [{ key: 'name' }, { key: 'amount', valueType: 'number' }],
+    }];
+    // 저장된 행에는 name만 있다
+    file.template.sampleValues = { items: [{ name: '사과' }] };
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    const skeleton = (el as unknown as { _sampleSkeleton: () => Record<string, unknown> })
+      ._sampleSkeleton();
+    expect(skeleton['items']).toEqual([{ name: '사과', amount: 0 }]);
+    el.remove();
+  });
+
   it('파라미터에 값 종류를 지정할 수 있고, 목록이면 하위 필드를 그리드 없이 만들 수 있다 (ADR-047)', async () => {
     const file = makeTemplateFile();
     file.template.bindings = [{ key: 'rows', label: '품목' }];

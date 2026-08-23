@@ -114,6 +114,29 @@ const BINDING_VALUE_TYPES: readonly { value: string; stringKey: 'valueTypeUnset'
   { value: 'list', stringKey: 'valueTypeList' },
 ];
 
+/**
+ * 파라미터 타입별 아이콘 — 목록에서 그 값이 무슨 종류인지 한눈에 보이게 한다.
+ * 종류를 지정하지 않았으면 글자로 다루므로(SPEC §4) 글자 아이콘을 쓴다.
+ */
+const VALUE_TYPE_BADGE: Record<string, TemplateResult> = {
+  text: icons.typeText,
+  number: icons.typeNumber,
+  date: icons.typeDate,
+  boolean: icons.typeBoolean,
+  image: icons.typeImage,
+  list: icons.typeList,
+};
+
+/**
+ * 파라미터·하위 필드 줄에 붙일 아이콘.
+ *
+ * @param valueType - 값 종류 (없으면 글자)
+ * @returns 그 종류의 아이콘
+ */
+function valueTypeBadge(valueType: string | undefined): TemplateResult {
+  return VALUE_TYPE_BADGE[valueType ?? 'text'] ?? icons.typeText;
+}
+
 /** 하위 필드의 값 종류 선택지 — 항목은 평평한 객체라 목록은 고를 수 없다 (ADR-038/047) */
 const BINDING_FIELD_VALUE_TYPES = BINDING_VALUE_TYPES.filter((t) => t.value !== 'list');
 
@@ -252,7 +275,12 @@ function textStyleCss(
     (style.bold === true ? ';font-weight:700' : '') +
     (decorations ? `;text-decoration:${decorations}` : '') +
     verticalAlign +
-    (style.lineHeight !== undefined ? `;line-height:${style.lineHeight}` : '') +
+    // 줄 간격은 **줄 사이**를 벌리는 값이다. CSS는 한 줄짜리 글에도 위아래로 반씩(half-leading)
+    // 여백을 만들어, 개행이 없는데도 글자가 아래로 밀려 PDF와 어긋난다 — 하부 엔진은 첫 줄을
+    // 위에 붙이고 그 아래로만 벌린다. 위쪽 반만큼을 되돌려 첫 줄 자리를 PDF와 맞춘다 (ADR-012).
+    (style.lineHeight !== undefined && style.lineHeight !== 1
+      ? `;line-height:${style.lineHeight};margin-top:${(-(style.lineHeight - 1) / 2).toFixed(4)}em`
+      : '') +
     (style.characterSpacing !== undefined ? `;letter-spacing:${(style.characterSpacing * 4) / 3}px` : '')
     // 세로쓰기는 CSS writing-mode가 아니라 글자를 한 자씩 쌓아 그린다(stackVertically) — PDF와
     // 같은 문자열을 그려 긴 글의 열 넘김·줄바꿈 처리가 어긋나지 않는다 (ADR-012).
@@ -1077,6 +1105,12 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
       text-align: left;
     }
+    .side-col-row svg {
+      flex: 0 0 12px;
+      width: 12px;
+      height: 12px;
+      margin-right: 4px;
+    }
     .side-col-row span,
     .side-cell-row span {
       overflow: hidden;
@@ -1724,6 +1758,20 @@ export class SlipDesigner extends LitElement {
     .prop-row.stacked input.stacked-check {
       width: auto;
       align-self: flex-start;
+    }
+    /*
+     * 선택 상자는 브라우저 기본 모양이 제각각이라 어떤 줄은 목록처럼, 어떤 줄은 글상자처럼
+     * 보였다. 화살표 표시를 직접 그려 모든 선택 상자가 같은 모습이 되게 한다.
+     */
+    .prop-row select,
+    select.binding-select {
+      appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+        linear-gradient(135deg, currentColor 50%, transparent 50%);
+      background-position: right 11px center, right 7px center;
+      background-size: 4px 4px, 4px 4px;
+      background-repeat: no-repeat;
+      padding-right: 20px;
     }
     .prop-row input,
     .prop-row select,
@@ -2768,6 +2816,7 @@ export class SlipDesigner extends LitElement {
     _selectedIds: { state: true },
     _hostPaperSizes: { state: true },
     _hostBarcodeKinds: { state: true },
+    _fontNames: { state: true },
     _inputError: { state: true },
     _paperSaveName: { state: true },
     _previewMode: { state: true },
@@ -2862,6 +2911,8 @@ export class SlipDesigner extends LitElement {
   private _hostPaperSizes: PaperSize[] = [];
   /** 호스트가 `settings.getBarcodeKinds`로 좁힌 바코드 종류 (빈 배열이면 12종 전부, ADR-048) */
   private _hostBarcodeKinds: BarcodeKind[] = [];
+  /** 고를 수 있는 폰트 이름 — 호스트 공급 폰트와 동봉 기본 폰트에서 모은다 (ADR-040) */
+  private _fontNames: string[] = [];
   /** "이 크기 저장"에 쓸 이름 입력 초안 (G-31) */
   private _paperSaveName = '';
   private _undoStack: string[] = [];
@@ -3024,6 +3075,7 @@ export class SlipDesigner extends LitElement {
     if (changed.has('settings')) {
       void this._loadPaperSizes();
       void this._loadBarcodeKinds();
+      void this._loadFontNames();
     }
     // 인라인 셀 편집을 열면 바로 입력할 수 있게 포커스를 준다
     if (this._cellEditing) {
@@ -3571,9 +3623,23 @@ export class SlipDesigner extends LitElement {
     );
   }
 
+  /**
+   * 고른 요소를 고친다.
+   *
+   * @remarks
+   * 고른 요소가 없으면 **조용히 버리지 않고 되돌렸음을 알린다** — 패널은 무언가 골랐을 때만
+   * 뜨므로 여기 걸린다는 것은 선택이 어긋났다는 뜻이고, 말없이 넘기면 "고쳤는데 가끔 반영이
+   * 안 된다"로 보인다.
+   *
+   * @param fn - 요소를 고치는 함수
+   */
   private _updateElement(fn: (el: SlipElement) => void): void {
     const el = this._findSelectedElement();
-    if (!el) return;
+    if (!el) {
+      this._rejectInput();
+      return;
+    }
+    this._inputError = null;
     this._pushUndo();
     fn(el);
     this._emitChange();
@@ -4413,7 +4479,11 @@ export class SlipDesigner extends LitElement {
    */
   private _setGridCellSource(kind: 'content' | 'binding' | 'formula', value: string): void {
     const target = this._selectedCell;
-    if (!target) return;
+    // 고른 셀이 없으면 값을 버리지 말고 알린다 — 말없이 넘기면 "가끔 반영이 안 된다"로 보인다
+    if (!target) {
+      this._rejectInput();
+      return;
+    }
     this._updateElement((element) => {
       if (element.type !== 'grid') return;
       const cell = ensureCell(element, target.row, target.column);
@@ -5197,7 +5267,7 @@ export class SlipDesigner extends LitElement {
         ${this._renderTwisty(hasFields, expanded, b.label, () => this._toggleBindingRow(b.key))}
         <button class="side-row ${selected ? 'selected' : ''}" title=${b.key}
           @click=${() => this._selectBinding(b.key)}>
-          ${TYPE_BADGE.field}<span>${b.label}</span>
+          ${valueTypeBadge(b.valueType)}<span>${b.label}</span>
         </button>
         <button class="side-mini" title=${s.delete} aria-label="${b.key} ${s.delete}"
           ?disabled=${!b.defined}
@@ -5210,7 +5280,8 @@ export class SlipDesigner extends LitElement {
               <div class="side-row-wrap">
                 <span class="side-twisty-gap"></span>
                 <button class="side-col-row ${fieldSelected ? 'selected' : ''}" title="${b.key}.${f.key}"
-                  @click=${() => this._selectBindingField(b.key, f)}><span>${f.title}</span></button>
+                  @click=${() => this._selectBindingField(b.key, f)}
+                  >${valueTypeBadge(f.valueType)}<span>${f.title}</span></button>
                 <button class="side-mini" title=${s.delete} aria-label="${f.key} ${s.delete}"
                   @click=${() => this._removeBindingField(b.key, f.key)}>${icons.remove}</button>
               </div>`;
@@ -5810,21 +5881,34 @@ export class SlipDesigner extends LitElement {
         default: return '';
       }
     };
+    /** 항목 하나를 선언된 하위 필드와 맞춘다 — 비워 둔 필드도 키로 남는다 */
+    const withFields = (
+      row: Record<string, unknown>,
+      fields: readonly BindingFieldInfo[],
+    ): Record<string, unknown> => {
+      const item: Record<string, unknown> = {};
+      for (const f of fields) item[f.key] = row[f.key] ?? emptyFor(f.valueType);
+      // 선언에 없는데 값이 든 키도 잃지 않는다
+      for (const [k, v] of Object.entries(row)) if (!(k in item)) item[k] = v;
+      return item;
+    };
+
     const out: Record<string, unknown> = {};
     for (const b of this._bindingList()) {
       const current = samples[b.key];
-      if (current !== undefined) {
-        out[b.key] = current;
+      // 목록은 항목마다 선언된 하위 필드를 모두 담는다 — 저장된 행에 없는 필드가
+      // JSON에서 통째로 빠지면 입력폼 탭과 내용이 어긋난다
+      if (b.valueType === 'list') {
+        const rows = Array.isArray(current) ? current : [];
+        out[b.key] = rows.length > 0
+          ? rows.map((row) =>
+              typeof row === 'object' && row !== null && !Array.isArray(row)
+                ? withFields(row as Record<string, unknown>, b.fields)
+                : row)
+          : b.fields.length > 0 ? [withFields({}, b.fields)] : [];
         continue;
       }
-      // 목록은 항목 하나를 뼈대로 넣어 어떤 필드를 채우면 되는지 보인다
-      if (b.valueType === 'list' && b.fields.length > 0) {
-        const item: Record<string, unknown> = {};
-        for (const f of b.fields) item[f.key] = emptyFor(f.valueType);
-        out[b.key] = [item];
-        continue;
-      }
-      out[b.key] = emptyFor(b.valueType);
+      out[b.key] = current !== undefined ? current : emptyFor(b.valueType);
     }
     return out;
   }
@@ -6417,6 +6501,22 @@ export class SlipDesigner extends LitElement {
     });
   }
 
+  /**
+   * 고를 수 있는 폰트 이름을 모은다 (ADR-040).
+   *
+   * @remarks
+   * 굵게·기울임은 토글이고 렌더가 `<이름>-Bold` 같은 변형 폰트로 알아서 전환하므로(ADR-032),
+   * 고르개에는 **변형이 아닌 이름만** 낸다.
+   */
+  private async _loadFontNames(): Promise<void> {
+    const fonts = await resolveFonts(this.settings, this.locale);
+    const names = fonts
+      .map((f) => f.name)
+      .filter((n) => !/-(Bold|Italic|BoldItalic)$/.test(n));
+    this._fontNames = [...new Set(names)];
+    this.requestUpdate();
+  }
+
   /** 호스트가 좁힌 바코드 종류를 불러 온다 (ADR-048) — 없거나 비면 12종을 모두 보인다 */
   private async _loadBarcodeKinds(): Promise<void> {
     const kinds = this.settings?.getBarcodeKinds ? await this.settings.getBarcodeKinds() : [];
@@ -6877,7 +6977,7 @@ export class SlipDesigner extends LitElement {
         <div class="prop-row">
           <label>${s.bindingParent}</label>
           <button class="usage-row parent-row" @click=${() => this._selectBinding(listKey)}>
-            ${TYPE_BADGE.field}<span>${parent.label}</span>
+            ${valueTypeBadge(parent.valueType)}<span>${parent.label}</span>
           </button>
         </div>
         <div class="prop-row">
@@ -6977,7 +7077,7 @@ export class SlipDesigner extends LitElement {
               : info.fields.map((f) => html`
                   <button class="usage-row field-row" title="${info.key}.${f.key}"
                     @click=${() => this._selectBindingField(info.key, f)}>
-                    ${TYPE_BADGE.field}<span>${f.title}</span>
+                    ${valueTypeBadge(f.valueType)}<span>${f.title}</span>
                   </button>`)}
             <button class="prop-add-row" @click=${() => this._addBindingField(info.key)}>
               ${icons.add}<span>${s.addBindingField}</span>
@@ -7445,10 +7545,14 @@ export class SlipDesigner extends LitElement {
   private _renderFieldProps(el: FieldElement) {
     const s = this._strings.designer;
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    // 수식이 있으면 표시 값은 수식 결과다 — 파라미터는 그 값의 이름으로만 남는다 (SPEC §5.4).
+    // 둘을 나란히 두면 파라미터가 표시에 쓰이는 것처럼 보여 헷갈리므로 그 사실을 밝힌다.
+    const formulaWins = el.formula !== undefined && el.formula !== '';
     return html`
       <div class="prop-section">
         ${this._renderTextFieldKindRow('field')}
         ${this._renderBindingSelect(el.binding)}
+        ${formulaWins ? html`<div class="cell-hint">${s.formulaOverridesBinding}</div>` : nothing}
         <div class="prop-row">
           <label>${s.formula}</label>
           <input .value=${el.formula ?? ''}
@@ -7757,6 +7861,11 @@ export class SlipDesigner extends LitElement {
                       @change=${(e: Event) => this._setCellSpan('colSpan', Number(valOf(e)))}>
                   </div>
                 </div>
+                ${this._renderFontNameRow(
+                  cellDef?.fontName,
+                  (v) => this._updateCellStyle('fontName', v),
+                  `${s.cell} ${s.fontName}`,
+                )}
                 ${this._renderDefaultedNumberRow(
                   s.fontSize, cellDef?.fontSize, el.fontSize ?? DEFAULT_FONT_SIZE,
                   (v) => this._updateCellStyle('fontSize', v),
@@ -7775,6 +7884,30 @@ export class SlipDesigner extends LitElement {
                         @click=${() => this._updateCellStyle('alignment', value === 'left' ? null : value)}>${glyph}</button>`)}
                   </div>
                 </div>
+                <div class="prop-row">
+                  <label>${s.verticalAlignment}</label>
+                  <div class="toggle-group" role="group" aria-label="${s.cell} ${s.verticalAlignment}">
+                    ${([
+                      ['top', s.alignTop, icons.alignTop],
+                      ['middle', s.alignMiddle, icons.alignMiddle],
+                      ['bottom', s.alignBottom, icons.alignBottom],
+                    ] as const).map(([value, label, glyph]) => html`
+                      <button title=${label} aria-label="${s.cell} ${s.verticalAlignment}: ${label}"
+                        aria-pressed=${String((cellDef?.verticalAlignment ?? el.verticalAlignment ?? 'top') === value)}
+                        @click=${() => this._updateCellStyle('verticalAlignment', value === 'top' ? null : value)}
+                        >${glyph}</button>`)}
+                  </div>
+                </div>
+                ${this._renderDefaultedNumberRow(
+                  s.lineHeight, cellDef?.lineHeight, el.lineHeight ?? 1,
+                  (v) => this._updateCellStyle('lineHeight', v),
+                  { step: '0.1', min: '0.1', ariaLabel: `${s.cell} ${s.lineHeight}` },
+                )}
+                ${this._renderDefaultedNumberRow(
+                  s.characterSpacing, cellDef?.characterSpacing, el.characterSpacing ?? 0,
+                  (v) => this._updateCellStyle('characterSpacing', v),
+                  { step: '0.1', ariaLabel: `${s.cell} ${s.characterSpacing}` },
+                )}
                 ${this._renderTextStyleToggles(
                   cellDef ?? {},
                   (key, value) => this._updateCellStyle(key, value ? true : null),
@@ -7847,12 +7980,48 @@ export class SlipDesigner extends LitElement {
         `;
   }
 
+  /**
+   * 폰트 고르개 한 줄 (ADR-040) — 호스트가 공급한 폰트 중에서 고른다.
+   *
+   * @param current - 지금 지정된 폰트 이름 (없으면 기본 폰트)
+   * @param apply - 저장 콜백 (빈 값이면 지정 해제)
+   * @param ariaLabel - 보조기기용 이름
+   * @returns 폰트 선택 줄. 고를 폰트가 하나뿐이면 낼 것이 없어 빈 것
+   */
+  private _renderFontNameRow(
+    current: string | undefined,
+    apply: (value: string | null) => void,
+    ariaLabel?: string,
+  ) {
+    const s = this._strings.designer;
+    // 고를 것이 없으면(공급 폰트 없음) 줄을 두지 않는다 — 빈 고르개는 자리만 차지한다
+    if (this._fontNames.length <= 1 && current === undefined) return nothing;
+    const options = current !== undefined && !this._fontNames.includes(current)
+      ? [current, ...this._fontNames]
+      : this._fontNames;
+    return html`
+      <div class="prop-row">
+        <label>${s.fontName}</label>
+        <select aria-label=${ariaLabel ?? s.fontName}
+          class=${current === undefined ? 'dim' : ''}
+          @change=${(e: Event) => apply((e.target as HTMLSelectElement).value || null)}>
+          <option value="" ?selected=${current === undefined}>${s.fontDefault}</option>
+          ${options.map((name) => html`
+            <option value=${name} ?selected=${name === current}>${name}</option>`)}
+        </select>
+      </div>`;
+  }
+
   private _renderFontProps(el: SlipElement) {
     if (el.type !== 'text' && el.type !== 'field') return nothing;
     const s = this._strings.designer;
     const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
 
     return html`
+      ${this._renderFontNameRow(
+        (el as { fontName?: string }).fontName,
+        (v) => this._updateElement((target) => setOptional(target, 'fontName', v)),
+      )}
       ${this._renderDefaultedNumberRow(
         s.fontSize, el.fontSize, DEFAULT_FONT_SIZE,
         (v) => this._updateElement((target) => setOptional(target, 'fontSize', v)),

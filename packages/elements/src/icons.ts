@@ -53,6 +53,18 @@ export const icons = {
   /** lucide: chevron-right */
   pageNext: icon(svg`<path d="m9 18 6-6-6-6" />`),
   /** lucide: plus */
+  /** 파라미터 타입: 글자 — 대문자 T와 밑줄 */
+  typeText: icon(svg`<path d="M5 6V5h14v1" /><path d="M12 5v14" /><path d="M9 19h6" />`),
+  /** 파라미터 타입: 숫자 — 우물 정(#) */
+  typeNumber: icon(svg`<path d="M4 9h16" /><path d="M4 15h16" /><path d="M10 3 8 21" /><path d="M16 3l-2 18" />`),
+  /** 파라미터 타입: 날짜 — 달력 */
+  typeDate: icon(svg`<rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18" /><path d="M8 3v4" /><path d="M16 3v4" />`),
+  /** 파라미터 타입: 참/거짓 — 체크 상자 */
+  typeBoolean: icon(svg`<rect x="3" y="3" width="18" height="18" rx="2" /><path d="M8 12l3 3 5-6" />`),
+  /** 파라미터 타입: 이미지 — 산과 해 */
+  typeImage: icon(svg`<rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9.5" r="1.5" /><path d="m21 16-5-5L5 20" />`),
+  /** 파라미터 타입: 목록 — 글머리 목록 */
+  typeList: icon(svg`<path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" />`),
   /** 항목 더하기 — 목록·패널 공용 더하기 표시 */
   add: icon(svg`<path d="M5 12h14" /><path d="M12 5v14" />`),
   pageAdd: icon(svg`<path d="M5 12h14" /><path d="M12 5v14" />`),
