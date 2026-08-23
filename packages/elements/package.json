@@ -13,11 +13,16 @@
     "./fonts/pretendard": {
       "types": "./dist/fonts/pretendard.d.ts",
       "import": "./dist/fonts/pretendard.js"
+    },
+    "./fonts/noto-sans-jp": {
+      "types": "./dist/fonts/noto-sans-jp.d.ts",
+      "import": "./dist/fonts/noto-sans-jp.js"
     }
   },
   "files": [
     "dist",
-    "OFL-Pretendard.txt"
+    "OFL-Pretendard.txt",
+    "OFL-NotoSansJP.txt"
   ],
   "scripts": {
     "build": "tsup",

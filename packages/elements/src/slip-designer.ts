@@ -17,7 +17,7 @@ import {
   type SlipListItem,
   type StorageAdapter,
 } from '@omdc-slipkit/core';
-import { getStrings } from './strings.js';
+import { getStrings, type SlipLocale } from './strings.js';
 import { getFormulaHelp } from './formula-help.js';
 import { resolveFonts, type SlipDesignerSettings, type PaperSize } from './settings.js';
 import { presets, type SlipPreset } from './presets.js';
@@ -4172,7 +4172,7 @@ export class SlipDesigner extends LitElement {
     try {
       // 폰트 미공급 시 동봉 Pretendard 자동 사용 (ADR-012/040) — 한글 깨짐 방지
       const opts: RenderOptions = {
-        fonts: await resolveFonts(this.settings),
+        fonts: await resolveFonts(this.settings, this.locale as SlipLocale),
       };
       // 샘플 값이 있으면 그 값으로 채운 전표 상태로 미리보기 (D-13).
       // 파일 자체는 양식 그대로 두고 렌더 입력만 전표 형태로 만든다.

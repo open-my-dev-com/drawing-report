@@ -1,6 +1,6 @@
 # Core API Guide
 
-[한국어](core.md)
+[한국어](core.md) · [日本語](core.ja.md)
 
 `@omdc-slipkit/core` is a pure TypeScript library with no DOM or browser dependencies.
 It works in Node.js as-is.

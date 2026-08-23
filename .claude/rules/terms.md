@@ -42,12 +42,34 @@
 
 CLAUDE.md의 SSOT 규칙대로 **한 번에 전부** 바꾼다 — 일부만 바꾸지 않는다:
 
-1. 문서 — `docs/SPEC.md` · `DECISIONS.md` · `REQUIREMENTS.md` · `ROADMAP.md` · `docs/guide/*`(한국어·영어 모두)
+1. 문서 — `docs/SPEC.md` · `DECISIONS.md` · `REQUIREMENTS.md` · `ROADMAP.md` · `docs/guide/*`(한국어·영어·일본어 모두)
 2. 코드 주석 (TSDoc·`//` 둘 다)
 3. **사용자 대면 오류 메시지** — `SlipRenderError`·`SlipParseError` 등에 담기는 문구
-4. UI 문구 — `packages/elements/src/strings.ts`의 한국어·영어 사전
+4. UI 문구 — `packages/elements/src/strings.ts`의 한국어·영어·일본어 사전
 5. 테스트 설명 (`describe`·`it` 제목)
 6. 커밋 메시지·PR 제목·본문
 
 바꾼 뒤 `grep -rn "<옛 용어>"`로 잔존 0건을 확인한다. 남겨야 할 것이 있으면
 (위 표의 `격자`처럼 다른 뜻으로 쓰이는 경우) 이 파일에 그 이유를 적는다.
+
+## 문서 3벌 유지 (ADR-042)
+
+가이드(`docs/guide/*`)와 리포 `README`는 **한국어·영어·일본어 3벌**이다(`*.md`·`*.en.md`·`*.ja.md`).
+한 벌을 고치면 나머지 두 벌도 같은 자리에서 함께 고친다 — 한 벌만 바뀌면 어긋난다.
+새 가이드를 더할 때도 세 벌을 함께 만든다.
+
+## 일본어 용어 대응 (ADR-042)
+
+일본어 사전·문서에서 헷갈리기 쉬운 우리말 용어의 대응이다. 새 일본어 문구를 쓸 때 맞춘다.
+
+| 우리말 | 일본어 | 비고 |
+|---|---|---|
+| 그리드(요소) | グリッド | 표 요소 `grid` |
+| 격자(캔버스 모눈) | 方眼 | 화면 전용. `グリッド`로 쓰지 않는다 — 그리드와 겹친다 |
+| 헤더 | ヘッダー | |
+| 병합 | 結合 | 셀 결합(`rowSpan`·`colSpan`) |
+| 양식(template) | テンプレート | `kind: 'template'` |
+| 전표(voucher) | 伝票 | `kind: 'voucher'` |
+| 발행 | 発行 | |
+| 반복 구간 | 繰り返し範囲 | |
+| 바인딩 | バインディング | |

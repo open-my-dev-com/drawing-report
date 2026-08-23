@@ -1,6 +1,6 @@
 # Type Reference
 
-[한국어](types.md)
+[한국어](types.md) · [日本語](types.ja.md)
 
 Key types your host app interacts with, including field descriptions and default values.
 For the full schema specification, see [SPEC.md](../SPEC.md).
@@ -49,8 +49,8 @@ Template body (`template`):
 
 ## Font
 
-Font object used for PDF rendering and previews. Both `RenderOptions.fonts` and
-component `fonts` properties accept an array of these.
+Font object used for PDF rendering and previews. Both core's `RenderOptions.fonts` and a
+component's `settings.getFonts` (ADR-040) accept an array of these.
 
 ```ts
 { name: string; data: Uint8Array; fallback?: boolean }
@@ -62,9 +62,10 @@ component `fonts` properties accept an array of these.
 | `data` | `Uint8Array` | — | Font file bytes (OTF/TTF) |
 | `fallback` | `boolean` | `false` | If `true`, used as the fallback font (only one allowed). When omitted for all fonts, the first font becomes the fallback |
 
-**When unspecified**: If no `fonts` are passed to a component (`<slip-designer>`,
-`<slip-form>`, `<slip-viewer>`), the bundled Pretendard fonts (Regular + Bold) are
-loaded automatically. See [Bundled Fonts & Presets](fonts-and-presets.en.md) for details.
+**When unspecified**: If no `settings` is passed to a component (`<slip-designer>`,
+`<slip-form>`, `<slip-viewer>`), the bundled font for the locale is loaded automatically
+(Pretendard for Korean/English, Noto Sans JP for Japanese). See
+[Bundled Fonts & Presets](fonts-and-presets.en.md) for details.
 
 ---
 
@@ -163,5 +164,5 @@ import type { RenderOptions } from '@omdc-slipkit/core';
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `fonts` | `Font[]` | — | Fonts for PDF rendering. Required for Korean documents |
+| `fonts` | `Font[]` | — | Fonts for PDF rendering. Required for Korean and Japanese documents |
 | `locale` | `string` | `'ko-KR'` | BCP-47 locale for formula formatting functions (number grouping, etc.) |

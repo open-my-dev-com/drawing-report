@@ -1,6 +1,6 @@
 # SlipKit 사용 가이드
 
-[English](README.en.md)
+[English](README.en.md) · [日本語](README.ja.md)
 
 호스트 앱에 SlipKit을 설치하고 양식 디자이너·전표 작성폼·뷰어를 붙이는 방법을 설명합니다.
 
@@ -19,7 +19,7 @@
 - **[Core API 가이드](core.md)** — 파싱·수식·PDF 렌더링·무결성·서버 연계 (Node.js 단독 사용 포함)
 - **[수식 함수 참조](formula.md)** — 내장 함수 29종의 사용법·인자·예시
 - **[주요 타입 참조](types.md)** — `SlipFile`, 폰트, `SlipPreset`, `StorageAdapter`, `IntegrityJwk` 등 타입별 필드와 기본값
-- **[동봉 폰트·프리셋](fonts-and-presets.md)** — Pretendard 폰트 상세, 동봉 프리셋(거래명세서·청구서)의 구성과 언어 처리
+- **[동봉 폰트·프리셋](fonts-and-presets.md)** — 동봉 폰트(Pretendard·Noto Sans JP) 상세, 폰트 공급, 동봉 프리셋(거래명세서·청구서)의 구성과 언어 처리
 
 ---
 
@@ -119,8 +119,8 @@ function onDesignerChange(file: SlipFile) {
 | 속성 | 타입 | 설명 |
 |---|---|---|
 | `src` | `string` | `.slip` JSON 문자열 (template 파일) |
-| `locale` | `'ko' \| 'en'` | UI 언어 (기본: `'ko'`) |
-| `fonts` | `Font[]` | PDF 미리보기에 쓸 사용자 폰트 |
+| `locale` | `'ko' \| 'en' \| 'ja'` | UI 언어 (기본: `'ko'`) |
+| `settings` | `SlipDesignerSettings` | 폰트 공급(`getFonts`)과 용지 목록 공급·저장(`getPaperSizes`/`savePaperSize`). 미지정 시 언어에 맞는 동봉 폰트 사용 (ADR-040/042) |
 | `presets` | `SlipPreset[]` | 프리셋 메뉴에 쓸 양식 목록 — 지정하면 동봉 프리셋 대신 표시 |
 | `storage` | `StorageAdapter` | "내 양식 저장·불러오기"에 쓸 저장소 어댑터 |
 
@@ -135,8 +135,8 @@ function onDesignerChange(file: SlipFile) {
 | 속성 | 타입 | 설명 |
 |---|---|---|
 | `src` | `string` | `.slip` JSON 문자열 (양식 또는 작성 중 전표) |
-| `locale` | `'ko' \| 'en'` | UI 언어 (기본: `'ko'`) |
-| `fonts` | `Font[]` | PDF 미리보기에 쓸 사용자 폰트 |
+| `locale` | `'ko' \| 'en' \| 'ja'` | UI 언어 (기본: `'ko'`) |
+| `settings` | `SlipFontProvider` | 폰트 공급(`getFonts`). 미지정 시 언어에 맞는 동봉 폰트 사용 (ADR-040/042) |
 | `signingKey` | `IntegrityJwk` | 발행 시 서명에 쓸 ES256 개인키 (JWK). 없으면 해시만 기록 |
 
 | 이벤트 | detail | 설명 |
@@ -151,8 +151,8 @@ function onDesignerChange(file: SlipFile) {
 | 속성 | 타입 | 설명 |
 |---|---|---|
 | `src` | `string` | `.slip` JSON 문자열 |
-| `locale` | `'ko' \| 'en'` | UI 언어 (기본: `'ko'`) |
-| `fonts` | `Font[]` | PDF 렌더링에 쓸 사용자 폰트 |
+| `locale` | `'ko' \| 'en' \| 'ja'` | UI 언어 (기본: `'ko'`) |
+| `settings` | `SlipFontProvider` | 폰트 공급(`getFonts`). 미지정 시 언어에 맞는 동봉 폰트 사용 (ADR-040/042) |
 
 ## 4. 이벤트
 
@@ -247,36 +247,39 @@ const serverStorage: StorageAdapter = {
 
 ## 6. 폰트 설정
 
-SlipKit은 Pretendard Regular·Bold를 기본 폰트로 동봉합니다. 폰트를 지정하지 않으면
-자동으로 사용되어 한글이 깨지지 않습니다.
+SlipKit은 언어별 기본 폰트를 동봉합니다 — 한국어·영어는 Pretendard, 일본어는 Noto Sans JP.
+`settings`를 지정하지 않으면 `locale`에 맞는 폰트가 자동으로 쓰여 글자가 깨지지 않습니다.
 
-사용자 폰트를 추가하려면 `fonts` 속성에 배열로 전달합니다.
+호스트가 폰트를 공급하려면 `settings.getFonts`를 구현해 전달합니다(동기 배열 또는 서버 fetch Promise).
 
 ```ts
 import pretendardFonts from '@omdc-slipkit/elements/fonts/pretendard';
 
-// 동봉 폰트를 명시적으로 전달
-designer.fonts = pretendardFonts;
-
-// 사용자 폰트 추가
-designer.fonts = [
-  ...pretendardFonts,
-  { name: 'NotoSans', data: notoSansArrayBuffer },
-];
+designer.settings = {
+  getFonts: () => [
+    ...pretendardFonts,
+    { name: 'NotoSans', data: notoSansArrayBuffer },
+  ],
+};
 ```
+
+폰트 공급 인터페이스와 동봉 폰트의 상세는 **[동봉 폰트·프리셋](fonts-and-presets.md)** 을 참고해 주세요.
 
 ## 7. 언어 설정
 
-UI 언어는 `locale` 속성으로 바꿉니다. 기본값은 한국어(`'ko'`)입니다.
+UI 언어는 `locale` 속성으로 바꿉니다. 지원 언어는 한국어(`'ko'`, 기본)·영어(`'en'`)·일본어(`'ja'`)입니다.
 
 ```html
-<slip-designer locale="en"></slip-designer>
+<slip-designer locale="ja"></slip-designer>
 ```
 
 ```tsx
-<SlipDesigner src={src} locale="en" />
+<SlipDesigner src={src} locale="ja" />
 ```
 
-수식 함수의 결과 포맷(숫자 자릿수 구분 등)도 로케일에 따라 바뀝니다.
+일본어(`'ja'`)는 기본 폰트(Noto Sans JP)를 동봉해 언어만 바꿔도 렌더됩니다 — 굵게나 더 넓은 글자
+범위가 필요하면 `settings.getFonts`로 폰트를 공급합니다.
+
+수식 함수의 결과 포맷(숫자 자릿수 구분 등)도 로케일에 따라 바뀝니다(`ja-JP` 포함).
 
 서버에서 `.slip` 파일을 직접 다루거나 PDF를 만들어야 하면 **[Core API 가이드](core.md)** 를 참고해 주세요.

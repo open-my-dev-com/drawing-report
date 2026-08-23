@@ -1,29 +1,66 @@
 # 동봉 폰트·프리셋
 
-[English](fonts-and-presets.en.md)
+[English](fonts-and-presets.en.md) · [日本語](fonts-and-presets.ja.md)
 
-SlipKit이 동봉하는 폰트와 프리셋의 상세, 그리고 언어 설정에 따른 동작을 설명합니다.
+SlipKit이 동봉하는 폰트와 프리셋의 상세, 폰트를 호스트가 공급하는 방법, 그리고 언어 설정에 따른
+동작을 설명합니다.
 
 ---
 
-## 동봉 폰트: Pretendard
+## 폰트 공급: `settings.getFonts` (ADR-040)
 
-SlipKit은 **Pretendard Regular**과 **Pretendard Bold** 두 가지를 동봉합니다.
+렌더 폰트는 호스트가 **공급 인터페이스**로 넘깁니다. 컴포넌트(`<slip-designer>`, `<slip-form>`,
+`<slip-viewer>`)의 `settings` 속성에 `getFonts`를 구현한 객체를 주면, 미리보기·PDF가 그 폰트로
+렌더됩니다. 폰트를 어디에 두는지(번들·서버 폴더 등)는 호스트가 정하므로, 라이브러리는 값을 돌려받는
+pull 방식으로만 받습니다.
 
-| 항목 | 내용 |
-|---|---|
-| 서체 | Pretendard |
-| 두께 | Regular (기본), Bold |
-| 형식 | OTF |
-| 라이선스 | SIL Open Font License 1.1 |
-| 크기 | 합계 약 3 MB (base64 인코딩 포함) |
+```ts
+import type { SlipFontProvider } from '@omdc-slipkit/elements';
 
-### 자동 로드
+const settings: SlipFontProvider = {
+  // 동기 배열도, 서버에서 가져오는 Promise도 됩니다.
+  getFonts: () => [
+    { name: 'MyFont', data: myFontBuffer },
+    { name: 'MyFont-Bold', data: myFontBoldBuffer },
+  ],
+};
 
-컴포넌트(`<slip-designer>`, `<slip-form>`, `<slip-viewer>`)에 `fonts` 속성을 **지정하지 않으면**
-Pretendard를 자동으로 불러옵니다. 한글이 깨지지 않도록 Regular에 `fallback: true`가 설정되어 있습니다.
+designer.settings = settings;
+```
 
-로드는 필요한 시점에 한 번만 일어납니다 — 컴포넌트가 처음 렌더링될 때 비동기로 가져옵니다.
+| 항목 | 형 | 설명 |
+|---|---|---|
+| `getFonts?` | `() => SlipFont[] \| Promise<SlipFont[]>` | 렌더에 쓸 폰트 목록. 비었거나 주지 않으면 동봉 기본 폰트를 씁니다 |
+
+`SlipFont`는 core `RenderOptions.fonts`의 원소와 같습니다(`{ name, data, fallback? }`).
+
+> 디자이너는 `settings`에 용지 목록 공급·저장(`getPaperSizes`/`savePaperSize`)이 더해진
+> `SlipDesignerSettings`를 받습니다 — 자세한 내용은 [사용 가이드](README.md)의 용지 설정을 참고해 주세요.
+
+---
+
+## 동봉 기본 폰트
+
+`settings.getFonts`로 폰트를 **주지 않으면**, 컴포넌트는 `locale`에 맞는 동봉 기본 폰트를 자동으로
+불러옵니다. 각 언어로 바로 렌더되도록 언어마다 기본 폰트 1종을 담았습니다.
+
+| 언어(`locale`) | 기본 폰트 | 두께 | 형식 | 크기(대략) |
+|---|---|---|---|---|
+| `ko`(기본) · `en` | Pretendard | Regular · Bold | OTF | 약 3 MB |
+| `ja` | Noto Sans JP | Regular | TTF(서브셋) | 약 4.8 MB |
+
+- Regular에 `fallback: true`가 설정되어, 다른 폰트에 없는 글자를 이 폰트가 그립니다.
+- 로드는 필요한 시점에 한 번만 일어나며(비동기), 언어별로 재사용됩니다.
+- 폰트 데이터는 **서브패스**로 격리되어 동적 import되므로, 해당 언어를 쓰지 않는 호스트의 번들에는
+  들어가지 않습니다.
+- 라이선스: Pretendard는 SIL Open Font License 1.1(`OFL-Pretendard.txt`), Noto Sans JP도
+  SIL Open Font License 1.1(`OFL-NotoSansJP.txt`).
+
+### 일본어 폰트의 범위 (ADR-042)
+
+동봉 Noto Sans JP는 **Regular 한 두께**이며, 일본어 상용 글자(가나·상용 한자·라틴·전각/반각)로
+줄인 서브셋입니다. **굵게(Bold)나 서브셋 밖의 글자**가 필요하면 `settings.getFonts`로 폰트를
+공급해 주세요 — 동봉은 "기본 하나", 확장은 공급 인터페이스로 나눕니다.
 
 ### 직접 사용
 
@@ -31,19 +68,19 @@ Pretendard를 자동으로 불러옵니다. 한글이 깨지지 않도록 Regula
 
 ```ts
 import pretendardFonts from '@omdc-slipkit/elements/fonts/pretendard';
+import notoSansJpFonts from '@omdc-slipkit/elements/fonts/noto-sans-jp';
 
-// 동봉 폰트만 쓸 때
-designer.fonts = pretendardFonts;
-
-// 사용자 폰트를 추가할 때
-designer.fonts = [
-  ...pretendardFonts,
-  { name: 'NotoSans', data: notoSansBuffer },
-];
+designer.settings = {
+  getFonts: () => [
+    ...pretendardFonts,
+    ...notoSansJpFonts,
+    { name: 'MyFont', data: myFontBuffer },
+  ],
+};
 ```
 
-`fonts` 속성을 지정하면 자동 로드가 일어나지 않으므로, 한글이 필요하면 `pretendardFonts`를
-배열에 포함해야 합니다.
+`getFonts`가 목록을 돌려주면 동봉 자동 로드는 일어나지 않으므로, 필요한 동봉 폰트는 배열에
+직접 포함해야 합니다.
 
 ---
 
@@ -62,9 +99,10 @@ designer.fonts = [
 영어로 전환하면 "Transaction statement", "Invoice"로 표시됩니다.
 
 하지만 프리셋의 **내용**(셀 텍스트, 바인딩 논리명, 열 제목 등)은 한국어 고정입니다.
-예를 들어 거래명세서 프리셋을 선택하면 `locale="en"`이어도 셀에 "등록번호", "상호"가 적혀 있습니다.
+예를 들어 거래명세서 프리셋을 선택하면 `locale="en"`이나 `locale="ja"`여도 셀에 "등록번호",
+"상호"가 적혀 있습니다.
 
-영문 양식이 필요하면 `presets` 속성에 직접 만든 프리셋을 전달해 주세요.
+영문·일문 양식이 필요하면 `presets` 속성에 직접 만든 프리셋을 전달해 주세요.
 
 ### 직접 프리셋 만들기
 
@@ -77,7 +115,7 @@ const myPresets: SlipPreset[] = [
     id: 'my-invoice',
     name: 'Invoice',
     create: (): SlipTemplateFile => ({
-      schemaVersion: '0.4.0',
+      schemaVersion: '0.5.0',
       kind: 'template',
       template: {
         meta: { title: 'Invoice' },

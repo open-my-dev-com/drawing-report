@@ -1,6 +1,6 @@
 # SlipKit Integration Guide
 
-[한국어](README.md)
+[한국어](README.md) · [日本語](README.ja.md)
 
 How to install SlipKit and embed the form designer, data-entry form, and viewer in your app.
 
@@ -19,7 +19,7 @@ How to install SlipKit and embed the form designer, data-entry form, and viewer 
 - **[Core API Guide](core.en.md)** — parsing, formulas, PDF rendering, integrity, backend integration (including standalone Node.js usage)
 - **[Formula Function Reference](formula.en.md)** — usage, parameters, and examples for all 29 built-in functions
 - **[Type Reference](types.en.md)** — field definitions and defaults for `SlipFile`, fonts, `SlipPreset`, `StorageAdapter`, `IntegrityJwk`, and more
-- **[Bundled Fonts & Presets](fonts-and-presets.en.md)** — Pretendard font details, built-in presets (trade statement, invoice), and locale behavior
+- **[Bundled Fonts & Presets](fonts-and-presets.en.md)** — Bundled fonts (Pretendard, Noto Sans JP), font supply, built-in presets (trade statement, invoice), and locale behavior
 
 ---
 
@@ -120,8 +120,8 @@ A visual editor for designing templates.
 | Property | Type | Description |
 |---|---|---|
 | `src` | `string` | `.slip` JSON string (template file) |
-| `locale` | `'ko' \| 'en'` | UI language (default: `'ko'`) |
-| `fonts` | `Font[]` | Custom fonts for PDF preview |
+| `locale` | `'ko' \| 'en' \| 'ja'` | UI language (default: `'ko'`) |
+| `settings` | `SlipDesignerSettings` | Font supply (`getFonts`) plus paper-size supply/save (`getPaperSizes`/`savePaperSize`). Falls back to the bundled font for the locale (ADR-040/042) |
 | `presets` | `SlipPreset[]` | Template list for the preset menu — replaces built-in presets if given |
 | `storage` | `StorageAdapter` | Storage adapter for save/load of user templates |
 
@@ -136,8 +136,8 @@ Fill a template with values and issue the slip. Shows a live PDF preview on the 
 | Property | Type | Description |
 |---|---|---|
 | `src` | `string` | `.slip` JSON string (template or in-progress voucher) |
-| `locale` | `'ko' \| 'en'` | UI language (default: `'ko'`) |
-| `fonts` | `Font[]` | Custom fonts for PDF preview |
+| `locale` | `'ko' \| 'en' \| 'ja'` | UI language (default: `'ko'`) |
+| `settings` | `SlipFontProvider` | Font supply (`getFonts`). Falls back to the bundled font for the locale (ADR-040/042) |
 | `signingKey` | `IntegrityJwk` | ES256 private key (JWK) for signing on issue. Omit for hash-only |
 
 | Event | detail | Description |
@@ -152,8 +152,8 @@ Read-only viewer that renders a slip or template as PDF.
 | Property | Type | Description |
 |---|---|---|
 | `src` | `string` | `.slip` JSON string |
-| `locale` | `'ko' \| 'en'` | UI language (default: `'ko'`) |
-| `fonts` | `Font[]` | Custom fonts for PDF rendering |
+| `locale` | `'ko' \| 'en' \| 'ja'` | UI language (default: `'ko'`) |
+| `settings` | `SlipFontProvider` | Font supply (`getFonts`). Falls back to the bundled font for the locale (ADR-040/042) |
 
 ## 4. Events
 
@@ -248,37 +248,44 @@ const serverStorage: StorageAdapter = {
 
 ## 6. Font Configuration
 
-SlipKit bundles Pretendard Regular and Bold as default fonts.
-When no fonts are specified, they are used automatically so Korean text renders correctly.
+SlipKit bundles a default font per language — Pretendard for Korean/English, Noto Sans JP for
+Japanese. When `settings` is not specified, the font matching the `locale` is used automatically so
+text renders correctly.
 
-To add custom fonts, pass them via the `fonts` property:
+To supply fonts from the host, implement `settings.getFonts` (a synchronous array or a server-fetch
+Promise):
 
 ```ts
 import pretendardFonts from '@omdc-slipkit/elements/fonts/pretendard';
 
-// Explicitly pass the bundled fonts
-designer.fonts = pretendardFonts;
-
-// Add custom fonts alongside the defaults
-designer.fonts = [
-  ...pretendardFonts,
-  { name: 'NotoSans', data: notoSansArrayBuffer },
-];
+designer.settings = {
+  getFonts: () => [
+    ...pretendardFonts,
+    { name: 'NotoSans', data: notoSansArrayBuffer },
+  ],
+};
 ```
+
+See **[Bundled Fonts & Presets](fonts-and-presets.en.md)** for the provider interface and the bundled
+fonts in detail.
 
 ## 7. Locale
 
-Set the `locale` property to change the UI language. Default is Korean (`'ko'`).
+Set the `locale` property to change the UI language. Supported: Korean (`'ko'`, default), English
+(`'en'`), Japanese (`'ja'`).
 
 ```html
-<slip-designer locale="en"></slip-designer>
+<slip-designer locale="ja"></slip-designer>
 ```
 
 ```tsx
-<SlipDesigner src={src} locale="en" />
+<SlipDesigner src={src} locale="ja" />
 ```
 
-Formula result formatting (number grouping, etc.) also follows the locale.
+Japanese (`'ja'`) bundles a default font (Noto Sans JP) so it renders by just switching the language —
+supply a font via `settings.getFonts` for bold or a wider glyph range.
+
+Formula result formatting (number grouping, etc.) also follows the locale (including `ja-JP`).
 
 For server-side usage (parsing `.slip` files, generating PDFs, verifying integrity),
 see the **[Core API Guide](core.en.md)**.
