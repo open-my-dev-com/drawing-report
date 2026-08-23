@@ -41,6 +41,8 @@ const DEFAULT_FONT_SIZE = 10;
 const PAGE_NUMBER_FONT_SIZE = 9;
 /** pt → mm */
 const PT_TO_MM = 25.4 / 72;
+/** 페이지 번호 상자 높이 = 글자 높이 × 이 배수 — 세로 중앙 정렬이 잘리지 않게 여유를 둔다 */
+const PAGE_NUMBER_BOX_LINE_HEIGHT = 1.6;
 const DEFAULT_FONT_COLOR = '#000000';
 const DEFAULT_BORDER_COLOR = '#000000';
 /** 선·테두리 두께 기본값(mm) */
@@ -233,7 +235,7 @@ class SlipToPdfmeConverter {
     const [top, right, bottom, left] = padding;
     const boxWidth = width - left - right;
     const fontSize = setting.fontSize ?? PAGE_NUMBER_FONT_SIZE;
-    const boxHeight = (fontSize * PT_TO_MM) * 1.6;
+    const boxHeight = fontSize * PT_TO_MM * PAGE_NUMBER_BOX_LINE_HEIGHT;
     const isTop = setting.position.startsWith('top-');
     const y = isTop ? Math.max(0, top - boxHeight) : height - bottom;
     const alignment: Alignment = setting.position.endsWith('-left')
@@ -423,21 +425,33 @@ class SlipToPdfmeConverter {
     this.push(schemas, schema, stackVertically(this.fieldValue(element), element.vertical));
   }
 
+  /**
+   * 요소 수식을 평가한다 — locale 컨텍스트 구성과 오류 재포장을 한곳에 모은다
+   * (필드·그리드 칸·바코드가 공유한다).
+   *
+   * @param formula - 평가할 수식 문자열
+   * @param scope - 수식이 참조할 값 범위(전표 값, 반복 항목 등)
+   * @param what - 오류 메시지에 쓸 대상 이름
+   * @returns 평가 결과 값
+   * @throws SlipRenderError 수식 계산에 실패하면
+   */
+  private evaluate(formula: string, scope: Record<string, unknown>, what: string): unknown {
+    try {
+      return evaluateFormula(
+        formula,
+        this.locale === undefined ? { values: scope } : { values: scope, locale: this.locale },
+      );
+    } catch (error) {
+      throw new SlipRenderError(
+        `${what}의 수식을 계산하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   private fieldValue(element: FieldElement): string {
     const what = `필드 '${element.name}'(${element.id})`;
     if (element.formula !== undefined) {
-      let evaluated: unknown;
-      try {
-        evaluated = evaluateFormula(
-          element.formula,
-          this.locale === undefined ? { values: this.values } : { values: this.values, locale: this.locale },
-        );
-      } catch (error) {
-        throw new SlipRenderError(
-          `${what}의 수식을 계산하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-      return toDisplayText(evaluated, what);
+      return toDisplayText(this.evaluate(element.formula, this.values, what), what);
     }
     return toDisplayText(this.values[element.binding], what);
   }
@@ -608,17 +622,7 @@ class SlipToPdfmeConverter {
     // 반복 구간 안에서는 그 항목의 필드가 이름 그대로 보인다 (같은 이름이면 항목이 우선)
     const scope = item === undefined ? this.values : { ...this.values, ...item };
     if (cell.formula !== undefined) {
-      try {
-        const evaluated = evaluateFormula(
-          cell.formula,
-          this.locale === undefined ? { values: scope } : { values: scope, locale: this.locale },
-        );
-        return toDisplayText(evaluated, what);
-      } catch (error) {
-        throw new SlipRenderError(
-          `${what}의 수식을 계산하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
+      return toDisplayText(this.evaluate(cell.formula, scope, what), what);
     }
     if (cell.binding !== undefined) return toDisplayText(scope[cell.binding], what);
     return cell.content ?? '';
@@ -895,16 +899,7 @@ class SlipToPdfmeConverter {
     const what = `바코드 '${element.name}'(${element.id})`;
     if (element.content !== undefined) return element.content;
     if (element.formula !== undefined) {
-      let evaluated: unknown;
-      try {
-        evaluated = evaluateFormula(
-          element.formula,
-          this.locale === undefined ? { values: this.values } : { values: this.values, locale: this.locale },
-        );
-      } catch (error) {
-        throw new SlipRenderError(`${what}의 수식 평가에 실패했습니다: ${(error as Error).message}`);
-      }
-      return toDisplayText(evaluated, what);
+      return toDisplayText(this.evaluate(element.formula, this.values, what), what);
     }
     if (element.binding !== undefined) return toDisplayText(this.values[element.binding], what);
     return '';
