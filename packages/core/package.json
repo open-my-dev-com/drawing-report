@@ -3,15 +3,27 @@
   "version": "0.0.1",
   "description": "SlipKit core — .slip 파일 포맷 스키마·검증·마이그레이션·수식·렌더링 (순수 TS, DOM 비의존)",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/open-my-dev-com/drawing-report.git",
+    "directory": "packages/core"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./schemas/*": "./schemas/*"
   },
-  "files": ["dist", "schemas"],
+  "files": [
+    "dist",
+    "schemas"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",

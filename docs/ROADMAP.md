@@ -522,7 +522,9 @@ pdf-lib 임베더 비호환이라 Google Fonts 정적 TTF를 서브셋, 실PDF �
 - 사소 개선: 뷰어·디자이너 PDF 미리보기 로직 공용화, `toText`/`toDisplayText` 상호 참조 주석
 - 배경 그라디언트 (2026-08-20 아이디어): PDF 변환 계층이 그라디언트를 그릴 수 있는지 확인된 뒤에만 진행 — 화면만 되는 불일치 금지
 - 코드리뷰(2026-08-19) 보류 항목: undo 스냅샷 총 바이트 상한, IndexedDB `list()` 메타 분리·커서 순회, 테스트 헬퍼 공용화, LocalFileStorage 취소 감지 폴백
-- **npm 공개 전 체크리스트**: 패키지 4종에 `license`·`repository` 필드 결정·추가 필요
+- **npm 공개 전 체크리스트**: 패키지 4종에 `repository`·`publishConfig.access:"public"` 추가 완료,
+  core에 `./schemas/*` 서브패스 export 추가 완료(G-48). **`license` 필드만 남음** — 라이선스 종류가
+  법적 선택이라 사용자 확정 필요(정하면 4종 `license` 필드 + 루트 LICENSE 파일 추가)
 
 ## 진행 방식 메모
 

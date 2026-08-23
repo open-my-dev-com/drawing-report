@@ -3,6 +3,14 @@
   "version": "0.0.1",
   "description": "SlipKit React 얇은 래퍼 — @omdc-slipkit/elements의 커스텀 엘리먼트를 React 관례로 노출",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/open-my-dev-com/drawing-report.git",
+    "directory": "packages/react"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
