@@ -19,7 +19,7 @@ import {
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
 import { getFormulaHelp } from './formula-help.js';
-import { resolveFonts, type SlipDesignerSettings } from './settings.js';
+import { resolveFonts, type SlipDesignerSettings, type PaperSize } from './settings.js';
 import { presets, type SlipPreset } from './presets.js';
 import { icons } from './icons.js';
 import { pickImageFile, formatBytes } from './image-file.js';
@@ -2552,6 +2552,8 @@ export class SlipDesigner extends LitElement {
     _pageIndex: { state: true },
     _selectedId: { state: true },
     _selectedIds: { state: true },
+    _hostPaperSizes: { state: true },
+    _paperSaveName: { state: true },
     _previewMode: { state: true },
     _previewUrl: { state: true },
     _previewError: { state: true },
@@ -2638,6 +2640,10 @@ export class SlipDesigner extends LitElement {
    * 그룹 단위 이동·삭제·그룹화의 대상이 된다.
    */
   private _selectedIds = new Set<string>();
+  /** 호스트가 `settings.getPaperSizes`로 공급한 용지 목록 (동봉 4종 뒤에 붙는다, G-31) */
+  private _hostPaperSizes: PaperSize[] = [];
+  /** "이 크기 저장"에 쓸 이름 입력 초안 (G-31) */
+  private _paperSaveName = '';
   private _undoStack: string[] = [];
   private _redoStack: string[] = [];
   private _previewMode = false;
@@ -2788,6 +2794,10 @@ export class SlipDesigner extends LitElement {
   override updated(changed: Map<string, unknown>): void {
     if (changed.has('src')) {
       this._parseSource();
+    }
+    // 호스트가 준 용지 목록을 불러 온다 (G-31) — settings가 바뀌면 다시 불러온다
+    if (changed.has('settings')) {
+      void this._loadPaperSizes();
     }
     // 인라인 셀 편집을 열면 바로 입력할 수 있게 포커스를 준다
     if (this._cellEditing) {
@@ -5685,18 +5695,45 @@ export class SlipDesigner extends LitElement {
     });
   }
 
+  /** 호스트가 공급하는 용지 목록을 불러 온다 (G-31) — 없으면 빈 목록 */
+  private async _loadPaperSizes(): Promise<void> {
+    const sizes = this.settings?.getPaperSizes ? await this.settings.getPaperSizes() : [];
+    this._hostPaperSizes = sizes ?? [];
+    this.requestUpdate();
+  }
+
+  /**
+   * 지금 용지 크기를 호스트에 보관한다 (G-31) — 다음에 `getPaperSizes`로 고르개에 돌아온다.
+   * 이름이 비었거나 `savePaperSize`를 주지 않았으면 아무것도 하지 않는다.
+   *
+   * @param name - 고르개에 보일 용지 이름
+   */
+  private async _savePaperSize(name: string): Promise<void> {
+    const trimmed = name.trim();
+    if (!trimmed || !this.settings?.savePaperSize || !this._file) return;
+    const { paper } = this._file.template;
+    await this.settings.savePaperSize({ name: trimmed, width: paper.width, height: paper.height });
+    this._paperSaveName = '';
+    // 보관한 크기가 고르개에 나타나도록 목록을 다시 불러온다
+    await this._loadPaperSizes();
+  }
+
   private _renderFormSettings() {
     const file = this._file!;
     const s = this._strings.designer;
     const { paper } = file.template;
     const [pt, pr, pb, pl] = paper.padding;
     const landscape = paper.width > paper.height;
-    // 현재 크기와 일치하는 프리셋 (방향 무관 비교)
-    const presetIndex = PAPER_PRESETS.findIndex(
+    // 동봉 4종 + 호스트가 공급한 용지 (뒤에 붙는다, G-31)
+    const allSizes: PaperSize[] = [...PAPER_PRESETS, ...this._hostPaperSizes];
+    // 현재 크기와 일치하는 항목 (방향 무관 비교)
+    const presetIndex = allSizes.findIndex(
       (p) =>
         (p.width === paper.width && p.height === paper.height) ||
         (p.width === paper.height && p.height === paper.width),
     );
+    // 직접 입력한 크기(목록에 없음)이고 호스트가 보관을 받으면 "이 크기 저장"을 보인다
+    const canSaveSize = presetIndex < 0 && this.settings?.savePaperSize !== undefined;
 
     // 여백 합이 용지보다 작아야 한다는 스키마 규칙을 어기는 값은 되돌린다
     const setSize = (width: number, height: number): void => {
@@ -5752,17 +5789,30 @@ export class SlipDesigner extends LitElement {
                   @change=${(e: Event) => {
                     const v = (e.target as HTMLSelectElement).value;
                     if (v === 'custom') return;
-                    const p = PAPER_PRESETS[Number(v)]!;
+                    const p = allSizes[Number(v)]!;
                     // 프리셋은 세로 기준 — 현재 방향을 유지해 적용
                     setSize(landscape ? p.height : p.width, landscape ? p.width : p.height);
                   }}>
-            ${PAPER_PRESETS.map((p, i) => html`
+            ${allSizes.map((p, i) => html`
               <option value=${String(i)} ?selected=${i === presetIndex}>
                 ${p.name} (${p.width}×${p.height})
               </option>`)}
             <option value="custom" ?selected=${presetIndex < 0}>${s.paperCustom}</option>
           </select>
         </div>
+        ${canSaveSize
+          ? html`
+            <div class="prop-row">
+              <label>${s.paperSaveThis}</label>
+              <input class="paper-save-name" .value=${this._paperSaveName}
+                     placeholder=${s.paperSizeName}
+                     aria-label=${s.paperSizeName}
+                     @input=${(e: Event) => { this._paperSaveName = (e.target as HTMLInputElement).value; }}>
+              <button class="row-btn" title=${s.paperSaveThis} aria-label=${s.paperSaveThis}
+                ?disabled=${this._paperSaveName.trim() === ''}
+                @click=${() => void this._savePaperSize(this._paperSaveName)}>${icons.save}</button>
+            </div>`
+          : nothing}
         <div class="prop-pair">
           <div class="prop-row">
             <label>${s.width}</label>

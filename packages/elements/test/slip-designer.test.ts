@@ -4333,3 +4333,68 @@ describe('<slip-designer> 요소 그룹화 (G-27)', () => {
     el.remove();
   });
 });
+
+describe('<slip-designer> 용지 공급·저장 (G-31)', () => {
+  const paperSelect = (el: Element): HTMLSelectElement =>
+    Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.paperSize)!
+      .querySelector('select') as HTMLSelectElement;
+  const rowInput = (el: Element, labelText: string): HTMLInputElement =>
+    Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === labelText)!
+      .querySelector('input') as HTMLInputElement;
+  const paper = (el: Element) =>
+    (el as unknown as { _file: SlipTemplateFile })._file.template.paper;
+
+  it('settings.getPaperSizes로 준 용지가 고르개에 나오고 고르면 적용된다', async () => {
+    const el = await loadDesigner();
+    el.settings = { getPaperSizes: () => [{ name: '라벨 100x150', width: 100, height: 150 }] };
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const select = paperSelect(el);
+    const labels = Array.from(select.options).map((o) => o.textContent?.trim() ?? '');
+    expect(labels.some((l) => l.includes('라벨 100x150'))).toBe(true);
+
+    // 동봉 4종 뒤(인덱스 4)가 호스트 용지 — 고르면 적용된다
+    select.value = '4';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(paper(el).width).toBe(100);
+    expect(paper(el).height).toBe(150);
+    el.remove();
+  });
+
+  it('직접 입력한 크기를 savePaperSize로 보관한다', async () => {
+    const saved: { name: string; width: number; height: number }[] = [];
+    const el = await loadDesigner();
+    el.settings = { savePaperSize: (size) => { saved.push(size); } };
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    // 프리셋에 없는 크기로 바꾸면 "이 크기 저장"이 나타난다
+    const widthInput = rowInput(el, strings.designer.width);
+    widthInput.value = '123';
+    widthInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(paper(el).width).toBe(123);
+
+    const nameInput = Array.from(el.shadowRoot!.querySelectorAll('input'))
+      .find((i) => i.getAttribute('aria-label') === strings.designer.paperSizeName) as HTMLInputElement;
+    expect(nameInput).toBeTruthy();
+    nameInput.value = '내 용지';
+    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+
+    const saveBtn = Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.getAttribute('aria-label') === strings.designer.paperSaveThis) as HTMLButtonElement;
+    saveBtn.click();
+    await el.updateComplete;
+    await flush();
+
+    expect(saved).toEqual([{ name: '내 용지', width: 123, height: 297 }]);
+    el.remove();
+  });
+});
