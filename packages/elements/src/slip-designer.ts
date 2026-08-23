@@ -5632,11 +5632,6 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 양식 설정 패널 — 요소를 선택하지 않았을 때 표시한다.
-   * 제목·용지 크기(프리셋/직접 입력)·방향·여백을 편집한다. 방향과 프리셋은
-   * 파일에 없는 화면 차원 개념이라 너비·높이로만 반영된다 (포맷 불변).
-   */
-  /**
    * 페이지 설정 패널 (G-46) — 이름·번호 표시·순서를 그 페이지 화면에서 정한다.
    * 설정 대상은 늘 현재 페이지다 — 사이드바에서 다른 페이지를 고르면 그 페이지로 옮겨 이 패널이 갱신된다.
    *
@@ -5787,6 +5782,13 @@ export class SlipDesigner extends LitElement {
     await this._loadPaperSizes();
   }
 
+  /**
+   * 양식 설정 패널 — 요소를 선택하지 않았을 때 표시한다.
+   * 제목·용지 크기(프리셋/직접 입력)·방향·여백을 편집한다. 방향과 프리셋은
+   * 파일에 없는 화면 차원 개념이라 너비·높이로만 반영된다 (포맷 불변).
+   *
+   * @returns 양식 설정 패널 조각
+   */
   private _renderFormSettings() {
     const file = this._file!;
     const s = this._strings.designer;
@@ -6209,22 +6211,26 @@ export class SlipDesigner extends LitElement {
    * 요소가 쓸 값을 등록된 목록에서 고르는 선택 상자 (ADR-034) —
    * "새 값 등록"을 고르면 기본 이름으로 값을 만들어 바로 이 요소에 붙인다.
    */
-  private _renderBindingSelect(current: string) {
+  /**
+   * 바인딩 선택 드롭다운의 공통 틀 — 라벨·목록·"새 값 등록" 항목은 같고, "새 값"과
+   * 기존 값 선택 시 동작만 요소마다 다르므로 콜백으로 받는다.
+   *
+   * @param current - 현재 선택된 바인딩 키
+   * @param onNew - "새 값 등록"을 골랐을 때
+   * @param onPick - 기존 바인딩을 골랐을 때 (선택한 키)
+   * @returns 바인딩 선택 조각
+   */
+  private _bindingSelect(current: string, onNew: () => void, onPick: (value: string) => void) {
     const s = this._strings.designer;
     const list = this._bindingList();
-
     return html`
       <div class="prop-row">
         <label>${s.binding}</label>
         <select class="binding-select" aria-label=${s.binding}
           @change=${(e: Event) => {
             const value = (e.target as HTMLSelectElement).value;
-            if (value === NEW_BINDING_OPTION) this._assignNewBinding();
-            else {
-              this._updateElement((el) => {
-                if (el.type === 'field') el.binding = value;
-              });
-            }
+            if (value === NEW_BINDING_OPTION) onNew();
+            else onPick(value);
           }}>
           ${list.map((b) => html`
             <option value=${b.key} ?selected=${b.key === current}>${b.label}</option>`)}
@@ -6232,6 +6238,16 @@ export class SlipDesigner extends LitElement {
         </select>
       </div>
     `;
+  }
+
+  private _renderBindingSelect(current: string) {
+    return this._bindingSelect(
+      current,
+      () => this._assignNewBinding(),
+      (value) => this._updateElement((el) => {
+        if (el.type === 'field') el.binding = value;
+      }),
+    );
   }
 
   /** 새 값을 만들어 지금 고른 요소에 붙인다 — 등록과 연결을 한 번에 (ADR-034) */
@@ -6309,35 +6325,23 @@ export class SlipDesigner extends LitElement {
 
   /** 변동 이미지의 값 키를 고르는 select — 등록된 값 목록 + 새 값 (G-47) */
   private _renderImageBindingSelect(current: string) {
-    const s = this._strings.designer;
-    const list = this._bindingList();
-    return html`
-      <div class="prop-row">
-        <label>${s.binding}</label>
-        <select class="binding-select" aria-label=${s.binding}
-          @change=${(e: Event) => {
-            const value = (e.target as HTMLSelectElement).value;
-            if (value === NEW_BINDING_OPTION) this._assignNewImageBinding();
-            else {
-              this._updateFile((f) => {
-                for (const page of f.template.pages) {
-                  for (const target of page.elements) {
-                    if (target.id === this._selectedId && target.type === 'image') {
-                      target.binding = value;
-                      delete target.src;
-                    }
-                  }
-                }
-              });
-              this._ensureBindingDef(value);
+    return this._bindingSelect(
+      current,
+      () => this._assignNewImageBinding(),
+      (value) => {
+        this._updateFile((f) => {
+          for (const page of f.template.pages) {
+            for (const target of page.elements) {
+              if (target.id === this._selectedId && target.type === 'image') {
+                target.binding = value;
+                delete target.src;
+              }
             }
-          }}>
-          ${list.map((b) => html`
-            <option value=${b.key} ?selected=${b.key === current}>${b.label}</option>`)}
-          <option value=${NEW_BINDING_OPTION}>${s.bindingNew}</option>
-        </select>
-      </div>
-    `;
+          }
+        });
+        this._ensureBindingDef(value);
+      },
+    );
   }
 
   /** 새 값을 만들어 지금 고른 이미지 요소에 변동 값으로 붙인다 (G-47) */
@@ -6400,32 +6404,20 @@ export class SlipDesigner extends LitElement {
 
   /** 바코드 값(바인딩)의 키를 고르는 select — 등록된 값 목록 + 새 값 (G-33) */
   private _renderBarcodeBindingSelect(current: string) {
-    const s = this._strings.designer;
-    const list = this._bindingList();
-    return html`
-      <div class="prop-row">
-        <label>${s.binding}</label>
-        <select class="binding-select" aria-label=${s.binding}
-          @change=${(e: Event) => {
-            const value = (e.target as HTMLSelectElement).value;
-            if (value === NEW_BINDING_OPTION) this._assignNewBarcodeBinding();
-            else {
-              this._updateElement((element) => {
-                if (element.type !== 'barcode') return;
-                const r = element as Record<string, unknown>;
-                delete r.content;
-                delete r.formula;
-                r.binding = value;
-              });
-              this._ensureBindingDef(value);
-            }
-          }}>
-          ${list.map((b) => html`
-            <option value=${b.key} ?selected=${b.key === current}>${b.label}</option>`)}
-          <option value=${NEW_BINDING_OPTION}>${s.bindingNew}</option>
-        </select>
-      </div>
-    `;
+    return this._bindingSelect(
+      current,
+      () => this._assignNewBarcodeBinding(),
+      (value) => {
+        this._updateElement((element) => {
+          if (element.type !== 'barcode') return;
+          const r = element as Record<string, unknown>;
+          delete r.content;
+          delete r.formula;
+          r.binding = value;
+        });
+        this._ensureBindingDef(value);
+      },
+    );
   }
 
   /** 새 값을 만들어 지금 고른 바코드 요소에 값(바인딩)으로 붙인다 (G-33) */
