@@ -2217,6 +2217,31 @@ describe('<slip-designer> 복사·붙여넣기', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 미리보기 편집 잠금 (G-48)
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 미리보기 편집 잠금', () => {
+  it('미리보기 중에는 Delete·되돌리기 단축키가 문서를 바꾸지 않는다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    const before = el.shadowRoot!.querySelectorAll('.element').length;
+
+    toolbarButton(el, strings.designer.preview).click();
+    await el.updateComplete;
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+    await el.updateComplete;
+
+    // 편집으로 되돌리면 요소 수가 그대로여야 한다 (미리보기 중 편집이 무시됨)
+    toolbarButton(el, strings.designer.edit).click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.element').length).toBe(before);
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 프리셋
 // ---------------------------------------------------------------------------
 

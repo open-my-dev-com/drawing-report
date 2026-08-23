@@ -1414,10 +1414,13 @@ export class SlipDesigner extends LitElement {
     .element .grid-preview > div {
       display: flex;
       align-items: center;
-      /* PDF 변환 계층의 셀 안쪽 여백과 같은 값 (GRID_CELL_PADDING = 1mm) */
-      padding: 0 1mm;
+      /* PDF 변환 계층의 셀 안쪽 여백과 같은 값 (GRID_CELL_PADDING = 1mm, 사방) */
+      padding: 1mm;
       overflow: hidden;
-      white-space: nowrap;
+      /* PDF는 칸을 넘치는 글을 낱말 단위로 줄바꿈한다 — 캔버스도 같게 접어 화면·PDF를 맞춘다 (ADR-012).
+         줄바꿈 문자는 pre-line으로 그대로 보인다 */
+      white-space: pre-line;
+      overflow-wrap: anywhere;
     }
     .element .table-preview {
       position: absolute;
@@ -4161,6 +4164,9 @@ export class SlipDesigner extends LitElement {
       this._lineGhost = null;
       this.requestUpdate();
     }
+    // 미리보기 중에는 편집 단축키를 막는다 — PDF iframe은 토글할 때만 다시 그리므로,
+    // 미리보기 상태에서 요소를 지우거나 되돌리면 표시된 PDF가 실제 문서와 어긋난다 (ADR-012).
+    if (this._previewMode) return;
     if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedId) {
       e.preventDefault();
       this._deleteSelected();
@@ -4320,6 +4326,7 @@ export class SlipDesigner extends LitElement {
         ] as const).map(([type, label, glyph]) =>
           this._iconButton(label, glyph, () => this._selectTool(type), {
             pressed: this._pendingTool === type,
+            disabled: this._previewMode,
           }),
         )}
         ${this._iconButton(s.shape, icons.shape, (e) => this._toggleShapeMenu(e), {
@@ -4328,24 +4335,27 @@ export class SlipDesigner extends LitElement {
             this._pendingTool === 'rect' ||
             this._pendingTool === 'ellipse' ||
             this._pendingTool === 'polygon',
+          disabled: this._previewMode,
         })}
         ${this._iconButton(s.addField, icons.field, () => this._selectTool('field'), {
           pressed: this._pendingTool === 'field',
+          disabled: this._previewMode,
         })}
         ${this._iconButton(s.addBarcode, icons.barcode, () => this._selectTool('barcode'), {
           pressed: this._pendingTool === 'barcode',
+          disabled: this._previewMode,
         })}
       </div>
       <div class="tool-group">
-        ${this._iconButton(s.copy, icons.copy, () => this._copySelected(), { disabled: !this._selectedId })}
-        ${this._iconButton(s.paste, icons.paste, () => this._paste(), { disabled: !this._clipboard })}
-        ${this._iconButton(s.undo, icons.undo, () => this._undo(), { disabled: this._undoStack.length === 0 })}
-        ${this._iconButton(s.redo, icons.redo, () => this._redo(), { disabled: this._redoStack.length === 0 })}
+        ${this._iconButton(s.copy, icons.copy, () => this._copySelected(), { disabled: !this._selectedId || this._previewMode })}
+        ${this._iconButton(s.paste, icons.paste, () => this._paste(), { disabled: !this._clipboard || this._previewMode })}
+        ${this._iconButton(s.undo, icons.undo, () => this._undo(), { disabled: this._undoStack.length === 0 || this._previewMode })}
+        ${this._iconButton(s.redo, icons.redo, () => this._redo(), { disabled: this._redoStack.length === 0 || this._previewMode })}
       </div>
       <div class="tool-group">
         <span class="page-indicator">${this._pageIndex + 1} / ${this._pageCount()}</span>
-        ${this._iconButton(s.addPage, icons.pageAdd, () => this._addPage())}
-        ${this._iconButton(s.deletePage, icons.pageRemove, () => this._deletePage(), { disabled: this._pageCount() <= 1 })}
+        ${this._iconButton(s.addPage, icons.pageAdd, () => this._addPage(), { disabled: this._previewMode })}
+        ${this._iconButton(s.deletePage, icons.pageRemove, () => this._deletePage(), { disabled: this._pageCount() <= 1 || this._previewMode })}
       </div>
       <div class="tool-group">
         ${this._iconButton(
@@ -4366,6 +4376,7 @@ export class SlipDesigner extends LitElement {
       <div class="tool-group">
         ${this._iconButton(s.preset, icons.preset, (e) => this._togglePresetMenu(e), {
           pressed: this._presetMenuOpen,
+          disabled: this._previewMode,
         })}
       </div>
       ${this.storage

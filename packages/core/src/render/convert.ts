@@ -853,6 +853,10 @@ class SlipToPdfmeConverter {
         value = this.clipToBox(value, rect.width - padding * 2, rect.height - padding * 2, {
           fontName: schema.fontName as string | undefined,
           fontSize,
+          // 실제 렌더에 쓰는 자간·줄간격으로 재야 잘라낼 줄 수가 맞는다 (그러지 않으면
+          // 넘칠 부분이 남거나 과하게 잘린다)
+          characterSpacing: cell.characterSpacing,
+          lineHeight: cell.lineHeight,
         });
       }
       this.push(schemas, schema, value);
@@ -864,7 +868,12 @@ class SlipToPdfmeConverter {
     text: string,
     widthMm: number,
     heightMm: number,
-    style: { fontName?: string | undefined; fontSize: number },
+    style: {
+      fontName?: string | undefined;
+      fontSize: number;
+      characterSpacing?: number | undefined;
+      lineHeight?: number | undefined;
+    },
   ): string {
     if (widthMm <= 0 || heightMm <= 0) return text;
     const lines = this.measurer.splitLines(text, widthMm, style);
