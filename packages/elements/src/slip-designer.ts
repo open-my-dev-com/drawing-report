@@ -7676,7 +7676,7 @@ export class SlipDesigner extends LitElement {
 
   /**
    * 수식 편집 모달 — 초안 편집, 실시간 문법 검사(자체 파서, ADR-010), 샘플 값
-   * (`sampleValues`) 기준 결과 미리 계산, 바인딩·함수 29종 클릭 삽입 (ADR-017).
+   * (`sampleValues`) 기준 결과 미리 계산, 바인딩·함수 32종 클릭 삽입 (ADR-017·044).
    */
   private _renderFormulaModal() {
     if (!this._formulaModalOpen) return nothing;

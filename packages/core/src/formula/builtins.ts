@@ -1,5 +1,5 @@
 /**
- * v1 수식 함수 29종 구현 (ADR-017).
+ * 수식 함수 32종 구현 (ADR-017, 타입 변환 3종은 ADR-044).
  * IF·AND·OR는 지연 평가가 필요해 evaluator에서 특수 처리한다 — 여기 없음.
  */
 import { FormulaEvalError } from './errors.js';
@@ -36,29 +36,54 @@ function describe(value: FormulaValue): string {
 }
 
 /**
- * 값을 숫자로 강제 변환한다 — 숫자 문자열 허용, 빈 값은 0.
+ * 값을 숫자로 강제 변환한다 — 숫자와 빈 값(0)만 받는다 (ADR-044).
+ *
+ * @remarks
+ * 숫자를 요구하는 자리(산술 연산, SUM·AVG 등)는 문자열을 자동 변환하지 않는다.
+ * 글자를 숫자로 바꾸려면 수식에서 `TO_NUMBER`로 명시한다 — 실패할 수 있는 변환은
+ * 조용히 넘기지 않고 드러낸다. 빈 값(null)은 0으로 본다 (미입력 = 0).
  *
  * @param value - 변환할 수식 값
  * @param what - 오류 메시지에 쓸 대상 이름 (예: '집계 대상')
  * @returns 변환된 숫자
- * @throws FormulaEvalError 숫자로 볼 수 없는 값이면
+ * @throws FormulaEvalError 숫자가 아닌 값(글자·논리·범위)이면
  */
-// 10진 실수 표기만 허용한다 — 16진(0x1F)·2진·"Infinity" 같은 JS `Number()` 특례가
-// 문자열 경로로 새어 들어오는 것을 막는다(숫자 경로의 유한성 검사와 규칙을 맞춘다).
-const DECIMAL_NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
-
 export function toNumber(value: FormulaValue, what = '값'): number {
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) throw new FormulaEvalError(`${what}이(가) 유한한 수가 아닙니다`);
     return value;
   }
-  if (typeof value === 'string' && DECIMAL_NUMBER.test(value.trim())) {
-    const n = Number(value);
-    if (!Number.isFinite(n)) throw new FormulaEvalError(`${what}이(가) 유한한 수가 아닙니다`);
+  if (value === null) return 0;
+  throw new FormulaEvalError(`${what}은(는) 숫자여야 합니다 (글자는 TO_NUMBER로 변환하세요): ${describe(value)}`);
+}
+
+// 10진 실수 표기만 허용한다 — 16진(0x1F)·2진·"Infinity" 같은 JS `Number()` 특례가
+// TO_NUMBER 경로로 새어 들어오는 것을 막는다(숫자 경로의 유한성 검사와 규칙을 맞춘다).
+const DECIMAL_NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+
+/**
+ * 글자·논리 값을 숫자로 명시 변환한다 (TO_NUMBER, ADR-044).
+ *
+ * @param value - 변환할 값
+ * @returns 변환된 숫자 (빈 값·빈 문자열은 0, 논리는 1/0)
+ * @throws FormulaEvalError 숫자로 볼 수 없는 문자열·범위면
+ */
+function coerceToNumber(value: FormulaValue): number {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new FormulaEvalError('값이 유한한 수가 아닙니다');
+    return value;
+  }
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  if (value === null) return 0;
+  if (Array.isArray(value)) throw new FormulaEvalError('TO_NUMBER: 범위는 숫자로 바꿀 수 없습니다');
+  const text = value.trim();
+  if (text === '') return 0;
+  if (DECIMAL_NUMBER.test(text)) {
+    const n = Number(text);
+    if (!Number.isFinite(n)) throw new FormulaEvalError('TO_NUMBER: 값이 유한한 수가 아닙니다');
     return n;
   }
-  if (value === null) return 0;
-  throw new FormulaEvalError(`${what}은(는) 숫자여야 합니다: ${describe(value)}`);
+  throw new FormulaEvalError(`TO_NUMBER: 숫자로 바꿀 수 없습니다: ${describe(value)}`);
 }
 
 function toText(value: FormulaValue): string {
@@ -253,7 +278,7 @@ function numberToKorean(n: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// 함수 테이블 (지연 평가가 필요한 IF/AND/OR 제외 26종)
+// 함수 테이블 (지연 평가가 필요한 IF/AND/OR 제외 29종)
 // ---------------------------------------------------------------------------
 
 function arity(name: string, args: FormulaValue[], min: number, max = min): void {
@@ -446,5 +471,22 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
     const rate = args.length > 1 ? toNumber(args[1] ?? null, '세율') : 10;
     if (rate < 0) throw new FormulaEvalError('VAT: 세율은 0 이상이어야 합니다');
     return (amount * rate) / 100;
+  },
+
+  // --- 타입 변환 (ADR-044) ---
+  /** TO_NUMBER(값) — 글자·논리를 숫자로. 빈 값·빈 문자열은 0, 숫자로 볼 수 없으면 오류 */
+  TO_NUMBER: (args) => {
+    arity('TO_NUMBER', args, 1);
+    return coerceToNumber(args[0] ?? null);
+  },
+  /** TO_STRING(값) — 숫자·논리·빈 값을 글자로. 범위는 바꿀 수 없다 */
+  TO_STRING: (args) => {
+    arity('TO_STRING', args, 1);
+    return toText(args[0] ?? null);
+  },
+  /** TO_DATE(값) — 날짜 문자열을 검증해 ISO(YYYY-MM-DD)로 정규화한다 */
+  TO_DATE: (args) => {
+    arity('TO_DATE', args, 1);
+    return toIsoDate(parseDate(args[0] ?? null));
   },
 };

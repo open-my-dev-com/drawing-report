@@ -18,7 +18,7 @@ You can send a `.slip` file to core without installing any UI packages, enabling
 
 ### Reference Pages
 
-- **[Formula Function Reference](formula.en.md)** — usage, parameters, and examples for all 29 built-in functions
+- **[Formula Function Reference](formula.en.md)** — usage, parameters, and examples for all 32 built-in functions
 - **[Type Reference](types.en.md)** — field definitions and defaults for `SlipFile`, fonts, `StorageAdapter`, `IntegrityJwk`, and more
 
 ---
@@ -68,7 +68,7 @@ const result = evaluateFormula(ast, {
 // result → 6000
 ```
 
-29 built-in functions are supported (SUM, IF, ROUND, CONCAT, etc.). See **[Formula Function Reference](formula.en.md)** for details on each function.
+32 built-in functions are supported (SUM, IF, ROUND, CONCAT, etc.). See **[Formula Function Reference](formula.en.md)** for details on each function.
 Unregistered function names are rejected at parse time.
 
 ## 4. PDF Rendering

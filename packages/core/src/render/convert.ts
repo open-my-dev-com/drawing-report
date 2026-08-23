@@ -28,6 +28,7 @@ import type {
   PolygonElement,
   TextElement,
 } from '../format/schema.js';
+import { normalizeNumericBindings } from '../format/normalize.js';
 import { SlipRenderError } from './errors.js';
 import { TextMeasurer } from './measure.js';
 import type { SlipFont } from './types.js';
@@ -1391,7 +1392,9 @@ export function convertSlipFile(
   },
 ): PdfmeRenderInput {
   const body = file.kind === 'template' ? file.template : file.templateSnapshot;
-  const values: Record<string, unknown> = file.kind === 'voucher' ? file.values : {};
+  const rawValues: Record<string, unknown> = file.kind === 'voucher' ? file.values : {};
+  // number 바인딩의 빈 값을 0으로 정규화한다 (ADR-044) — 엄격 타입 수식이 미입력을 0으로 보게.
+  const values = normalizeNumericBindings(rawValues, body.bindings);
   return new SlipToPdfmeConverter(
     body,
     values,

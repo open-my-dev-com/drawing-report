@@ -4,10 +4,12 @@ import {
   SlipMigrationError,
   SlipParseError,
   migrateSlipDocument,
+  normalizeNumericBindings,
   parseSlipFile,
   serializeSlipFile,
   validateSlipFile,
   slipFileJsonSchema,
+  type BindingDef,
   type SlipElement,
   type SlipTemplateFile,
   type SlipVoucherFile,
@@ -718,5 +720,34 @@ describe('발행 전표 변동 이미지 값 검증 (G-48)', () => {
   });
   it('변동 이미지 값이 비어 있으면(이미지 없음) 통과한다', () => {
     expect(() => parseSlipFile(JSON.stringify(voucherWithImageBinding('')))).not.toThrow();
+  });
+});
+
+describe('normalizeNumericBindings (ADR-044)', () => {
+  const bindings: BindingDef[] = [
+    { key: '금액', valueType: 'number' },
+    { key: '적요', valueType: 'text' },
+    { key: '수량' },
+  ];
+
+  it('number 바인딩의 빈 값(미입력·null·빈 문자열)을 0으로 바꾼다', () => {
+    expect(normalizeNumericBindings({ 금액: '' }, bindings)).toEqual({ 금액: 0 });
+    expect(normalizeNumericBindings({ 금액: null }, bindings)).toEqual({ 금액: 0 });
+    expect(normalizeNumericBindings({}, bindings)).toEqual({ 금액: 0 });
+  });
+
+  it('number가 아닌 바인딩·이미 수인 값은 건드리지 않는다', () => {
+    expect(normalizeNumericBindings({ 금액: 1500, 적요: '', 수량: '' }, bindings)).toEqual({
+      금액: 1500,
+      적요: '',
+      수량: '',
+    });
+  });
+
+  it('바뀔 값이 없으면 입력 객체를 그대로(같은 참조) 돌려준다', () => {
+    const values = { 금액: 1500, 적요: '메모' };
+    expect(normalizeNumericBindings(values, bindings)).toBe(values);
+    const noBindings = { 금액: '' };
+    expect(normalizeNumericBindings(noBindings)).toBe(noBindings);
   });
 });

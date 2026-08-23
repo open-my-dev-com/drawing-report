@@ -86,7 +86,8 @@
 |---|---|---|
 | 방식 | **내장 수식 엔진**. 양식 필드에 엑셀 스타일 수식 문자열을 기입 | ADR-010 |
 | 함수 범위 | 모든 함수를 넣지 않고 **자주 쓰이는 함수를 엄선**한 세트로 시작 | ADR-010 |
-| v1 함수 목록(확정) | 집계 `SUM AVG COUNT MIN MAX` · 조건부 집계 `SUMIF COUNTIF` · 산술 `+ - * / ROUND FLOOR CEIL ABS` · 문자열 `CONCAT LEFT RIGHT MID REPLACE TRIM UPPER LOWER` · 조건 `IF AND OR` + 비교연산자 · 포맷 `FORMAT_NUMBER FORMAT_DATE NUMBER_TO_KOREAN` · 날짜 `TODAY DATE_ADD DATE_DIFF` · 세무 `VAT` | ADR-017 |
+| 함수 목록(확정, 32종) | 집계 `SUM AVG COUNT MIN MAX` · 조건부 집계 `SUMIF COUNTIF` · 산술 `+ - * / ROUND FLOOR CEIL ABS` · 문자열 `CONCAT LEFT RIGHT MID REPLACE TRIM UPPER LOWER` · 조건 `IF AND OR` + 비교연산자 · 포맷 `FORMAT_NUMBER FORMAT_DATE NUMBER_TO_KOREAN` · 날짜 `TODAY DATE_ADD DATE_DIFF` · 세무 `VAT` · 타입 변환 `TO_NUMBER TO_STRING TO_DATE` | ADR-017·044 |
+| 수식 타입 규칙 | 숫자를 요구하는 자리는 숫자만 받는다(글자 자동 변환 없음, 빈 값=0). 글자 자리는 숫자·논리를 자동 글자화. 글자→숫자는 `TO_NUMBER`로 명시. `number` 바인딩의 빈 값은 받는 시점에 0으로 정규화 | ADR-044 |
 
 ## 8. 레이아웃 · 페이지 · 출력
 

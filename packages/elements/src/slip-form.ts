@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from 'lit';
 import {
   computeIntegrity,
   evaluateFormula,
+  normalizeNumericBindings,
   parseSlipFile,
   renderSlipToPdf,
   serializeSlipFile,
@@ -638,11 +639,16 @@ export class SlipForm extends LitElement {
 
   /** 현재 입력 상태의 전표 파일을 만든다 */
   private _buildVoucher(issued: boolean): SlipVoucherFile {
+    // number 바인딩의 빈 값을 0으로 정규화한다 (ADR-044) — 엄격 타입 수식이 미입력을 0으로 보게.
+    const values = normalizeNumericBindings(
+      JSON.parse(JSON.stringify(this._values)) as Record<string, unknown>,
+      this._body?.bindings,
+    ) as Record<string, JsonValue>;
     const voucher: SlipVoucherFile = {
       schemaVersion: this._schemaVersion,
       kind: 'voucher',
       templateSnapshot: JSON.parse(JSON.stringify(this._body)) as SlipTemplateBody,
-      values: JSON.parse(JSON.stringify(this._values)) as Record<string, JsonValue>,
+      values,
       issued,
     };
     if (issued && this._integrity) voucher.integrity = this._integrity;
@@ -791,7 +797,9 @@ export class SlipForm extends LitElement {
       let text = '';
       let error: string | null = null;
       try {
-        text = resultText(evaluateFormula(input.formula, { values: this._values }));
+        // number 바인딩 빈 값→0을 반영해 계산한다 (ADR-044) — 미리보기·발행과 같은 값.
+        const values = normalizeNumericBindings(this._values, this._body?.bindings);
+        text = resultText(evaluateFormula(input.formula, { values }));
       } catch (e) {
         error = e instanceof Error ? e.message : String(e);
       }

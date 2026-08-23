@@ -4,7 +4,7 @@ import { getFormulaHelp } from '../src/formula-help.js';
 
 describe('수식 함수 도움말 (D-12)', () => {
   it.each(['ko', 'en', 'ja'] as const)(
-    '%s 도움말이 core 함수 목록(29종, ADR-017)과 빠짐없이 일치한다',
+    '%s 도움말이 core 함수 목록(32종, ADR-017·044)과 빠짐없이 일치한다',
     (locale) => {
       const names = getFormulaHelp(locale).flatMap((category) =>
         category.functions.map((fn) => fn.name),

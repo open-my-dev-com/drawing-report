@@ -3134,13 +3134,13 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 
-  it('함수 29종이 분류와 설명과 함께 나열된다 (ADR-017)', async () => {
+  it('함수 32종이 분류와 설명과 함께 나열된다 (ADR-017·044)', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);
 
     const rows = el.shadowRoot!.querySelectorAll('.fn-row');
-    expect(rows.length).toBe(29);
-    expect(el.shadowRoot!.querySelectorAll('.fn-category').length).toBe(7);
+    expect(rows.length).toBe(32);
+    expect(el.shadowRoot!.querySelectorAll('.fn-category').length).toBe(8);
     // 각 항목에 사용법·설명이 있다
     expect(rows[0]?.querySelector('.fn-signature')?.textContent).toContain('SUM');
     expect(rows[0]?.querySelector('.fn-desc')?.textContent?.length).toBeGreaterThan(0);

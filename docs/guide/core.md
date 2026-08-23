@@ -18,7 +18,7 @@ Node.js에서도 그대로 쓸 수 있습니다.
 
 ### 상세 참조
 
-- **[수식 함수 참조](formula.md)** — 내장 함수 29종의 사용법·인자·예시
+- **[수식 함수 참조](formula.md)** — 내장 함수 32종의 사용법·인자·예시
 - **[주요 타입 참조](types.md)** — `SlipFile`, 폰트, `StorageAdapter`, `IntegrityJwk` 등 타입별 필드와 기본값
 
 ---
@@ -68,7 +68,7 @@ const result = evaluateFormula(ast, {
 // result → 6000
 ```
 
-29종의 내장 함수를 지원합니다 (SUM, IF, ROUND, CONCAT 등). 함수별 사용법은 **[수식 함수 참조](formula.md)** 를 참고해 주세요.
+32종의 내장 함수를 지원합니다 (SUM, IF, ROUND, CONCAT 등). 함수별 사용법은 **[수식 함수 참조](formula.md)** 를 참고해 주세요.
 등록되지 않은 함수는 파싱 단계에서 거부됩니다.
 
 ## 4. PDF 렌더링
