@@ -7,6 +7,12 @@ import {
   type SlipFile,
   type SlipTemplateFile,
   type SlipElement,
+  type TextElement,
+  type FieldElement,
+  type BarcodeElement,
+  type LineElement,
+  type PolygonElement,
+  type ImageElement,
   type GridElement,
   type GridCell,
   type GridRepeat,
@@ -6489,45 +6495,71 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _renderTypeProps(el: SlipElement) {
-    const s = this._strings.designer;
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-
     switch (el.type) {
       case 'text':
-        return html`
-          <div class="prop-section">
-            <div class="prop-section-title">${s.content}</div>
-            <div class="prop-row">
-              <textarea rows="3" .value=${el.content}
-                @change=${(e: Event) => this._updateElement((el) => {
-                  if (el.type === 'text') el.content = (e.target as HTMLTextAreaElement).value;
-                })}></textarea>
-            </div>
-          </div>
-        `;
-
+        return this._renderTextProps(el);
       case 'field':
-        return html`
-          <div class="prop-section">
-            ${this._renderBindingSelect(el.binding)}
-            <div class="prop-row">
-              <label>${s.formula}</label>
-              <input .value=${el.formula ?? ''}
-                @change=${(e: Event) => this._updateElement((el) => {
-                  if (el.type !== 'field') return;
-                  const v = valOf(e);
-                  const r = el as Record<string, unknown>;
-                  if (v) r.formula = v;
-                  else delete r.formula;
-                })}>
-              <button class="row-btn" title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
-                @click=${() => this._openFormulaModal()}>${icons.formula}</button>
-            </div>
-          </div>
-        `;
+        return this._renderFieldProps(el);
+      case 'barcode':
+        return this._renderBarcodeProps(el);
+      case 'line':
+        return this._renderLineProps(el);
+      case 'polygon':
+        return this._renderPolygonProps(el);
+      case 'grid':
+        return this._renderGridProps(el);
+      case 'image':
+        return this._renderImageProps(el);
+      default:
+        return nothing;
+    }
+  }
 
-      case 'barcode': {
-        // 값은 고정 문구·값(바인딩)·수식 중 하나 — 어느 것이 정해졌는지로 종류를 가른다 (SPEC §5.6)
+  /** 텍스트 요소의 고정 문구 편집 */
+  private _renderTextProps(el: TextElement) {
+    const s = this._strings.designer;
+    return html`
+      <div class="prop-section">
+        <div class="prop-section-title">${s.content}</div>
+        <div class="prop-row">
+          <textarea rows="3" .value=${el.content}
+            @change=${(e: Event) => this._updateElement((el) => {
+              if (el.type === 'text') el.content = (e.target as HTMLTextAreaElement).value;
+            })}></textarea>
+        </div>
+      </div>
+    `;
+  }
+
+  /** 필드 요소의 바인딩·수식 편집 */
+  private _renderFieldProps(el: FieldElement) {
+    const s = this._strings.designer;
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    return html`
+      <div class="prop-section">
+        ${this._renderBindingSelect(el.binding)}
+        <div class="prop-row">
+          <label>${s.formula}</label>
+          <input .value=${el.formula ?? ''}
+            @change=${(e: Event) => this._updateElement((el) => {
+              if (el.type !== 'field') return;
+              const v = valOf(e);
+              const r = el as Record<string, unknown>;
+              if (v) r.formula = v;
+              else delete r.formula;
+            })}>
+          <button class="row-btn" title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
+            @click=${() => this._openFormulaModal()}>${icons.formula}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /** 바코드 요소의 종류·값(고정·바인딩·수식) 편집 */
+  private _renderBarcodeProps(el: BarcodeElement) {
+    const s = this._strings.designer;
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    // 값은 고정 문구·값(바인딩)·수식 중 하나 — 어느 것이 정해졌는지로 종류를 가른다 (SPEC §5.6)
         const source: 'content' | 'binding' | 'formula' =
           el.binding !== undefined ? 'binding' : el.formula !== undefined ? 'formula' : 'content';
         // 편집 중 경고 — 고정 값이 종류 규칙에 어긋날 때만 (바인딩·수식 값은 전표에서 정해진다, G-33)
@@ -6572,10 +6604,13 @@ export class SlipDesigner extends LitElement {
                   </div>`}
           </div>
         `;
-      }
+  }
 
-      case 'line':
-        return html`
+  /** 선 요소의 방향 편집 */
+  private _renderLineProps(el: LineElement) {
+    const s = this._strings.designer;
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    return html`
           <div class="prop-section">
             <div class="prop-row">
               <label>${s.lineDirection}</label>
@@ -6598,9 +6633,12 @@ export class SlipDesigner extends LitElement {
             </div>
           </div>
         `;
+  }
 
-      case 'polygon':
-        return html`
+  /** 정다각형 요소의 변 수 편집 */
+  private _renderPolygonProps(el: PolygonElement) {
+    const s = this._strings.designer;
+    return html`
           <div class="prop-section">
             <div class="prop-row">
               <label>${s.sides}</label>
@@ -6619,9 +6657,13 @@ export class SlipDesigner extends LitElement {
             </div>
           </div>
         `;
+  }
 
-      case 'grid': {
-        const cellTarget = this._selectedCell;
+  /** 그리드 요소의 행·열·반복 구간·칸 편집 */
+  private _renderGridProps(el: GridElement) {
+    const s = this._strings.designer;
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    const cellTarget = this._selectedCell;
         const cellDef = cellTarget
           ? el.cells.find((c) => c.row === cellTarget.row && c.column === cellTarget.column)
           : undefined;
@@ -6727,9 +6769,22 @@ export class SlipDesigner extends LitElement {
                 </div>`
               : nothing}
           </div>
+          ${this._renderGridCellProps(el, cellTarget, cellDef, source, inBand)}
+        `;
+  }
 
-          ${cellTarget
-            ? html`
+  /** 그리드 칸(선택된 셀)의 값·병합·글자·색·테두리 편집. 선택된 칸이 없으면 안내를 보인다 */
+  private _renderGridCellProps(
+    el: GridElement,
+    cellTarget: { row: number; column: number } | null,
+    cellDef: GridCell | undefined,
+    source: 'content' | 'binding' | 'formula',
+    inBand: boolean,
+  ) {
+    const s = this._strings.designer;
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    return cellTarget
+      ? html`
               <div class="prop-section">
                 <div class="prop-section-title">
                   ${s.cell} (${cellTarget.row + 1}, ${cellTarget.column + 1})
@@ -6842,14 +6897,15 @@ export class SlipDesigner extends LitElement {
                   (v) => this._updateCellStyle('borderStyle', v),
                 )}
               </div>`
-            : html`<div class="prop-section"><div class="cell-hint">${s.cellHint}</div></div>`}
-        `;
-      }
+      : html`<div class="prop-section"><div class="cell-hint">${s.cellHint}</div></div>`;
+  }
 
-      case 'image': {
-        // 이미지 요소는 고정(src)과 변동(binding) 중 하나다 — 전표마다 다른 이미지를
-        // 넣으려면 변동으로 두고 값 키를 고른다 (G-47, 스키마는 둘을 배타로 검사한다)
-        const variable = el.binding !== undefined;
+  /** 이미지 요소의 고정·변동(src·binding) 편집 */
+  private _renderImageProps(el: ImageElement) {
+    const s = this._strings.designer;
+    // 이미지 요소는 고정(src)과 변동(binding) 중 하나다 — 전표마다 다른 이미지를
+    // 넣으려면 변동으로 두고 값 키를 고른다 (G-47, 스키마는 둘을 배타로 검사한다)
+    const variable = el.binding !== undefined;
         // 경로 문자열은 base64라 사람이 읽을 수 없다 — 지금 이미지를 그대로 보여준다 (G-36)
         const chosen = el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
         return html`
@@ -6874,11 +6930,6 @@ export class SlipDesigner extends LitElement {
                 </button>`}
           </div>
         `;
-      }
-
-      default:
-        return nothing;
-    }
   }
 
   private _renderFontProps(el: SlipElement) {
