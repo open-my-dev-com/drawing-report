@@ -200,7 +200,7 @@ function verticalFlexAlign(v: 'top' | 'middle' | 'bottom' | undefined): string {
 }
 
 /**
- * 글자 스타일(굵게·밑줄·취소선·조판)을 CSS 조각으로 — 앞에 ;가 붙은 형태 (0.2.0, ADR-032).
+ * 글자 스타일(굵게·밑줄·취소선·조판)을 CSS 조각으로 — 앞에 ;가 붙은 형태 (ADR-032).
  *
  * @param style - 요소·셀의 글자 스타일
  * @param opts - `omitVerticalAlign`이 true면 justify-content를 넣지 않는다. flex column인
@@ -224,7 +224,7 @@ function textStyleCss(
     style.underline === true ? 'underline' : '',
     style.strikethrough === true ? 'line-through' : '',
   ].filter(Boolean).join(' ');
-  // 수직 정렬은 flex column의 세로 배치로 (기본 상단), 글자 조판은 인라인 CSS로 그려 PDF와 맞춘다 (0.5.0, ADR-012)
+  // 수직 정렬은 flex column의 세로 배치로 (기본 상단), 글자 조판은 인라인 CSS로 그려 PDF와 맞춘다 (ADR-012)
   const verticalAlign = opts?.omitVerticalAlign
     ? ''
     : `;justify-content:${verticalFlexAlign(style.verticalAlignment)}`;
@@ -582,7 +582,7 @@ const TYPE_BADGE: Record<SlipElement['type'], TemplateResult> = {
   ellipse: icons.ellipse,
   polygon: icons.polygon,
   field: icons.field,
-  // 바코드 요소(0.5.0) — 디자이너 도구는 G-33에서 붙인다. 배지는 밖에서 들어온 양식에도 필요하다
+  // 바코드 요소 — 디자이너 도구는 G-33에서 붙인다. 배지는 밖에서 들어온 양식에도 필요하다
   barcode: icons.barcode,
 };
 
@@ -1385,7 +1385,7 @@ export class SlipDesigner extends LitElement {
     }
     /* 텍스트·필드 표시 — PDF(pdfme)와 같게: 위쪽 정렬, 줄바꿈 유지, 넘치면 자동 줄바꿈 */
     .element .el-content {
-      /* flex column으로 수직 정렬(justify-content)을 준다 — 기본은 상단 (0.5.0) */
+      /* flex column으로 수직 정렬(justify-content)을 준다 — 기본은 상단 */
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
@@ -3252,7 +3252,7 @@ export class SlipDesigner extends LitElement {
         };
         break;
       case 'barcode':
-        // 전표에 가장 흔한 QR로 시작한다 — 종류·값 편집은 G-33에서 붙인다 (0.5.0)
+        // 전표에 가장 흔한 QR로 시작한다 — 종류·값 편집은 G-33에서 붙인다
         element = {
           type: 'barcode', id, name, position, width: 25, height: 25,
           kind: 'qrcode', binding: `barcode_${id.slice(0, 4)}`,
@@ -6400,7 +6400,7 @@ export class SlipDesigner extends LitElement {
       const { key, label } = this._nextBinding();
       this._updateFile((f) => {
         const defs = f.template.bindings ?? [];
-        // 변동 이미지 값은 이미지 종류로 등록해 작성폼·샘플 편집이 이미지 입력을 낸다 (0.5.0 valueType)
+        // 변동 이미지 값은 이미지 종류로 등록해 작성폼·샘플 편집이 이미지 입력을 낸다 (valueType)
         defs.push({ key, label, valueType: 'image' });
         f.template.bindings = defs;
         for (const page of f.template.pages) {

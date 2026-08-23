@@ -437,7 +437,7 @@ describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
   });
 });
 
-describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
+describe('도형·글자 스타일 변환 (ADR-032)', () => {
   function makeShapeFile(elements: SlipElement[]): SlipTemplateFile {
     return {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -822,10 +822,10 @@ describe('그리드(grid) 칸을 넘치는 글 (ADR-037)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 0.5.0 — 글자 조판 · 바코드 · 변동 이미지 · 페이지 번호
+// 글자 조판 · 바코드 · 변동 이미지 · 페이지 번호
 // ---------------------------------------------------------------------------
 
-describe('글자 조판 변환 (0.5.0)', () => {
+describe('글자 조판 변환', () => {
   function makeFile(elements: SlipElement[]): SlipTemplateFile {
     return {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -880,12 +880,12 @@ describe('글자 조판 변환 (0.5.0)', () => {
   });
 });
 
-describe('바코드·변동 이미지·페이지 번호 변환 (0.5.0)', () => {
+describe('바코드·변동 이미지·페이지 번호 변환', () => {
   const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
   function makeVoucher(elements: SlipElement[], values: Record<string, unknown>, pageNumber?: unknown) {
     const template = {
-      meta: { title: '0.5.0' },
+      meta: { title: '바코드·이미지·페이지번호' },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] as [number, number, number, number] },
       pages: [{ elements, ...(pageNumber ? { pageNumber } : {}) }],
       assets: [],
@@ -938,10 +938,10 @@ describe('바코드·변동 이미지·페이지 번호 변환 (0.5.0)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 데이터 자동 병합 (0.5.0, ADR-038)
+// 데이터 자동 병합 (ADR-038)
 // ---------------------------------------------------------------------------
 
-describe('데이터 자동 병합 (0.5.0, ADR-038)', () => {
+describe('데이터 자동 병합 (ADR-038)', () => {
   function makeBody(autoMergeProduct: boolean, perPage = 4): SlipTemplateBody {
     return {
       meta: { title: '자동 병합' },

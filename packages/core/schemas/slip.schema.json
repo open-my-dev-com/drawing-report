@@ -1,6 +1,6 @@
 {
-  "$id": "urn:slipkit:schema:slip:0.5.0",
-  "title": "SlipKit .slip file (schemaVersion 0.5.0)",
+  "$id": "urn:slipkit:schema:slip:0.1.0",
+  "title": "SlipKit .slip file (schemaVersion 0.1.0)",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "oneOf": [
     {

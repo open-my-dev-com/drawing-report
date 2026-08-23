@@ -247,7 +247,7 @@ describe('<slip-viewer> 생명주기 정리', () => {
 
 describe('<slip-viewer> 무결성 검증 (G-48, SPEC §8)', () => {
   const ISSUED: SlipFile = {
-    schemaVersion: '0.5.0', kind: 'voucher',
+    schemaVersion: '0.1.0', kind: 'voucher',
     templateSnapshot: (DUMMY_FILE as { template: unknown }).template,
     values: {}, issued: true, integrity: { contentHash: 'a'.repeat(64) },
   } as unknown as SlipFile;

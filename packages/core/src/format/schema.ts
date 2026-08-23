@@ -50,9 +50,9 @@ export const SLIP_LIMITS = {
   maxGridColumnTracks: 100,
   /** 그리드(grid) 반복 구간의 페이지당 최대 항목 수 */
   maxRepeatPerPage: 1000,
-  /** 줄간격 배수 상한 (0.5.0) */
+  /** 줄간격 배수 상한 */
   maxLineHeight: 10,
-  /** 자간 절대값 상한(pt, 0.5.0) */
+  /** 자간 절대값 상한(pt) */
   maxCharacterSpacing: 100,
 } as const;
 
@@ -101,14 +101,14 @@ const elementBaseShape = {
   group: z.string().min(1).optional(),
 };
 
-/** 수직 정렬 — 상자 안에서 글이 놓이는 세로 자리 (0.5.0) */
+/** 수직 정렬 — 상자 안에서 글이 놓이는 세로 자리 */
 const verticalAlignmentSchema = z.enum(['top', 'middle', 'bottom']);
 
 const fontShape = {
   fontName: z.string().min(1).optional(),
   fontSize: z.number().positive().optional(),
   alignment: alignmentSchema.optional(),
-  /** 수직 정렬 (0.5.0) — 생략하면 상단 */
+  /** 수직 정렬 — 생략하면 상단 */
   verticalAlignment: verticalAlignmentSchema.optional(),
   /**
    * 굵게 — 렌더 시 유효 폰트의 `<이름>-Bold` 폰트로 전환한다.
@@ -116,18 +116,18 @@ const fontShape = {
    */
   bold: z.boolean().optional(),
   /**
-   * 기울임 (0.5.0) — 굵게와 같은 방식으로 `<이름>-Italic` 폰트로 전환한다.
+   * 기울임 — 굵게와 같은 방식으로 `<이름>-Italic` 폰트로 전환한다.
    * 자형 폰트가 없으면 PDF에서는 무시된다 — 기울이기 흉내는 내지 않는다 (ADR-032)
    */
   italic: z.boolean().optional(),
   underline: z.boolean().optional(),
   strikethrough: z.boolean().optional(),
-  /** 줄간격 배수 (0.5.0) — 생략하면 1 */
+  /** 줄간격 배수 — 생략하면 1 */
   lineHeight: z.number().positive().max(SLIP_LIMITS.maxLineHeight).optional(),
-  /** 자간(pt, 0.5.0) — 생략하면 0. 음수는 글자를 좁힌다 */
+  /** 자간(pt) — 생략하면 0. 음수는 글자를 좁힌다 */
   characterSpacing: z.number().min(-SLIP_LIMITS.maxCharacterSpacing).max(SLIP_LIMITS.maxCharacterSpacing).optional(),
   /**
-   * 세로쓰기 (0.5.0) — 글자를 한 자씩 세로로 쌓는다.
+   * 세로쓰기 — 글자를 한 자씩 세로로 쌓는다.
    * 하부 엔진에 세로쓰기 기능이 없어 변환 계층이 직접 쌓는다 (직접 확인).
    */
   vertical: z.boolean().optional(),
@@ -147,7 +147,7 @@ const textElementSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// grid — 고정 틀과 반복 목록을 하나로 다루는 그리드 (0.3.0, ADR-037)
+// grid — 고정 틀과 반복 목록을 하나로 다루는 그리드 (ADR-037)
 // ---------------------------------------------------------------------------
 
 /** 칸을 넘치는 글의 처리 — 잘라내거나 글자 크기를 줄여 넣는다 (ADR-037) */
@@ -157,7 +157,7 @@ const overflowSchema = z.enum(['clip', 'shrink']);
 const gridColumnSchema = z.object({
   width: positiveMm,
   /**
-   * 데이터 자동 병합 (0.5.0, ADR-038) — 반복 구간에서 앞 벌과 값이 같은 칸을 세로로 합친다.
+   * 데이터 자동 병합 (ADR-038) — 반복 구간에서 앞 벌과 값이 같은 칸을 세로로 합친다.
    * 반복 구간 밖은 영향받지 않는다. 켜려면 그 열의 반복 구간 칸이 구간 전체 높이를 차지해야 한다.
    */
   autoMerge: z.boolean().optional(),
@@ -202,7 +202,7 @@ const gridRepeatSchema = z.object({
   repeatHeader: z.boolean(),
 });
 
-/** 고정 틀과 반복 목록을 하나로 다루는 그리드 (0.3.0, ADR-037) */
+/** 고정 틀과 반복 목록을 하나로 다루는 그리드 (ADR-037) */
 const gridElementObject = z.object({
   type: z.literal('grid'),
   ...elementBaseShape,
@@ -385,7 +385,7 @@ const imageElementSchema = z
     /** 고정 이미지의 자리 (§3.1의 3형식). `binding`을 쓰면 생략할 수 있다 */
     src: srcSchema.optional(),
     /**
-     * 전표 값에서 이미지를 읽어 오는 키 (0.5.0) — 전표마다 다른 이미지를 넣는다.
+     * 전표 값에서 이미지를 읽어 오는 키 — 전표마다 다른 이미지를 넣는다.
      * 값은 `data:` base64만 받는다 (ADR-036) — `values`는 JSON이라 바이너리를 담지 못하고,
      * core는 네트워크를 쓰지 않아 URL을 받아올 수 없다 (ADR-002).
      */
@@ -402,7 +402,7 @@ const imageElementSchema = z
   });
 
 /**
- * 바코드 종류 (0.5.0) — 하부 엔진이 그릴 수 있는 12종을 그대로 연다.
+ * 바코드 종류 — 하부 엔진이 그릴 수 있는 12종을 그대로 연다.
  * 전표에 흔한 `qrcode`·`code128`·`ean13`을 앞에 둔다.
  */
 const barcodeKindSchema = z.enum([
@@ -411,7 +411,7 @@ const barcodeKindSchema = z.enum([
   'japanpost', 'gs1datamatrix', 'pdf417',
 ]);
 
-/** 바코드 요소 (0.5.0) — 값은 고정 문구·전표 값·수식 중 하나 */
+/** 바코드 요소 — 값은 고정 문구·전표 값·수식 중 하나 */
 const barcodeElementSchema = z
   .object({
     type: z.literal('barcode'),
@@ -517,7 +517,7 @@ const fieldElementSchema = z.object({
   ...fontShape,
 });
 
-/** 요소 9종 판별 유니온 (type 필드 기준, ADR-020/032/037 + 바코드 0.5.0) */
+/** 요소 9종 판별 유니온 (type 필드 기준, ADR-020/032/037 + 바코드) */
 export const slipElementSchema = z.discriminatedUnion('type', [
   textElementSchema,
   gridElementSchema,
@@ -559,13 +559,13 @@ const assetEntrySchema = z.object({
   src: srcSchema,
 });
 
-/** 페이지 번호를 찍는 자리 (0.5.0) — 아래·위 가장자리의 좌·중앙·우 */
+/** 페이지 번호를 찍는 자리 — 아래·위 가장자리의 좌·중앙·우 */
 const pageNumberPositionSchema = z.enum([
   'bottom-left', 'bottom-center', 'bottom-right',
   'top-left', 'top-center', 'top-right',
 ]);
 
-/** 페이지 번호 표시 (0.5.0) — 실제 번호는 PDF 후처리로 넣는다 */
+/** 페이지 번호 표시 — 실제 번호는 PDF 후처리로 넣는다 */
 const pageNumberSchema = z.object({
   position: pageNumberPositionSchema,
   /** `{n}`은 현재 쪽, `{total}`은 전체 쪽 수로 바뀐다 (생략하면 `{n} / {total}`) */
@@ -575,11 +575,11 @@ const pageNumberSchema = z.object({
 
 const slipPageSchema = z.object({
   elements: z.array(slipElementSchema).max(SLIP_LIMITS.maxElementsPerPage, `페이지당 요소는 최대 ${SLIP_LIMITS.maxElementsPerPage}개입니다`),
-  /** 페이지 물리명 (0.5.0) — 문서 안에서 유일. 호스트가 페이지를 가리킬 때 쓴다 */
+  /** 페이지 물리명 — 문서 안에서 유일. 호스트가 페이지를 가리킬 때 쓴다 */
   key: idSchema.optional(),
-  /** 페이지 논리명 (0.5.0) — 썸네일·목록에 번호 대신 보인다 */
+  /** 페이지 논리명 — 썸네일·목록에 번호 대신 보인다 */
   label: z.string().min(1).optional(),
-  /** 페이지 번호 표시 (0.5.0) — 생략하면 찍지 않는다 */
+  /** 페이지 번호 표시 — 생략하면 찍지 않는다 */
   pageNumber: pageNumberSchema.optional(),
 });
 
@@ -607,13 +607,13 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 // ---------------------------------------------------------------------------
 
 /** 바인딩 정의 — 물리명(key)은 파일·수식·연동에, 논리명(label)은 화면 표시에 (ADR-032) */
-/** 바인딩 값의 종류 (0.5.0) — 작성폼 입력 방식과 쓸 수 있는 함수를 가리는 데 쓴다 */
+/** 바인딩 값의 종류 — 작성폼 입력 방식과 쓸 수 있는 함수를 가리는 데 쓴다 */
 const bindingValueTypeSchema = z.enum(['text', 'number', 'date', 'boolean', 'image', 'list']);
 
 const bindingDefSchema = z.object({
   key: idSchema,
   label: z.string().min(1).optional(),
-  /** 값 종류 (0.5.0) — 생략하면 글자로 다룬다 */
+  /** 값 종류 — 생략하면 글자로 다룬다 */
   valueType: bindingValueTypeSchema.optional(),
 });
 
@@ -683,7 +683,7 @@ export const slipTemplateBodySchema = z
         }
       }
     });
-    // 페이지 물리명(key) 유일성 (0.5.0, SPEC §4) — 호스트가 페이지를 가리키는 이름이라 겹치면 안 된다
+    // 페이지 물리명(key) 유일성 (SPEC §4) — 호스트가 페이지를 가리키는 이름이라 겹치면 안 된다
     const pageKeys = new Set<string>();
     body.pages.forEach((page, pageIndex) => {
       if (page.key === undefined) return;
@@ -926,13 +926,13 @@ export type AssetEntry = z.infer<typeof assetEntrySchema>;
 /** 텍스트 요소 */
 export type TextElement = z.infer<typeof textElementSchema>;
 
-/** 그리드 셀 (0.3.0, ADR-037) */
+/** 그리드 셀 (ADR-037) */
 export type GridCell = z.infer<typeof gridCellSchema>;
 
-/** 그리드의 반복 구간 (0.3.0, ADR-037) */
+/** 그리드의 반복 구간 (ADR-037) */
 export type GridRepeat = z.infer<typeof gridRepeatSchema>;
 
-/** 그리드 요소 — 고정 틀과 반복 목록을 하나로 다룬다 (0.3.0, ADR-037) */
+/** 그리드 요소 — 고정 틀과 반복 목록을 하나로 다룬다 (ADR-037) */
 export type GridElement = z.infer<typeof gridElementSchema>;
 /** 바인딩 정의 (물리명 key + 논리명 label, ADR-032) */
 export type BindingDef = z.infer<typeof bindingDefSchema>;
@@ -948,15 +948,15 @@ export type EllipseElement = z.infer<typeof ellipseElementSchema>;
 export type PolygonElement = z.infer<typeof polygonElementSchema>;
 /** 필드 요소 (전표 값 바인딩) */
 export type FieldElement = z.infer<typeof fieldElementSchema>;
-/** 바코드 요소 (0.5.0) */
+/** 바코드 요소 */
 export type BarcodeElement = z.infer<typeof barcodeElementSchema>;
-/** 바코드 종류 (0.5.0) */
+/** 바코드 종류 */
 export type BarcodeKind = z.infer<typeof barcodeKindSchema>;
-/** 바인딩 값 종류 (0.5.0) */
+/** 바인딩 값 종류 */
 export type BindingValueType = z.infer<typeof bindingValueTypeSchema>;
-/** 페이지 번호 표시 (0.5.0) */
+/** 페이지 번호 표시 */
 export type PageNumber = z.infer<typeof pageNumberSchema>;
-/** 페이지 번호 위치 (0.5.0) */
+/** 페이지 번호 위치 */
 export type PageNumberPosition = z.infer<typeof pageNumberPositionSchema>;
 /** 요소 9종 유니온 */
 export type SlipElement = z.infer<typeof slipElementSchema>;
