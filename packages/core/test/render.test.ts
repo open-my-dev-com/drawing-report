@@ -69,14 +69,14 @@ function makeBody(): SlipTemplateBody {
             height: 8 * 7,
             columns: [{ width: 90 }, { width: 36 }, { width: 54 }],
             rows: [{ height: 8 }, { height: 8 }],
-            repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 6, repeatHeader: true },
+            repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 6, repeatHeader: true },
             cells: [
               { row: 0, column: 0, content: '품명' },
               { row: 0, column: 1, content: '수량' },
               { row: 0, column: 2, content: '금액' },
-              { row: 1, column: 0, binding: '품명' },
-              { row: 1, column: 1, binding: '수량' },
-              { row: 1, column: 2, binding: '금액' },
+              { row: 1, column: 0, parameter: '품명' },
+              { row: 1, column: 1, parameter: '수량' },
+              { row: 1, column: 2, parameter: '금액' },
             ],
           },
           {
@@ -183,9 +183,9 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(inputs[0]?.total).toBe('6,000');
   });
 
-  it('field는 수식이 없으면 binding 값을 문자열화한다 (CONCAT과 같은 규칙)', () => {
+  it('field는 수식이 없으면 parameter 값을 문자열화한다 (CONCAT과 같은 규칙)', () => {
     const voucher = makeVoucher();
-    patchElement(voucher.templateSnapshot, 'total', { formula: undefined, binding: 'total' } as never);
+    patchElement(voucher.templateSnapshot, 'total', { formula: undefined, parameter: 'total' } as never);
     voucher.values.total = true;
     expect(convertSlipFile(voucher).inputs[0]?.total).toBe('TRUE');
     voucher.values.total = null;
@@ -196,15 +196,15 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
 
   it('빈 양식은 number 파라미터 필드를 0으로 채우지 않는다 (ADR-045 회귀 방지)', () => {
     const file = makeTemplateFile();
-    file.template.bindings = [{ key: 'total', valueType: 'number' }];
-    patchElement(file.template, 'total', { formula: undefined, binding: 'total' } as never);
+    file.template.parameters = [{ key: 'total', valueType: 'number' }];
+    patchElement(file.template, 'total', { formula: undefined, parameter: 'total' } as never);
     // 양식(값 없음)이라 number 파라미터 필드는 0이 아니라 공백이어야 한다 — 정규화는 전표에만 적용
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 
   it('field 값이 배열·객체면 한국어 오류로 거부한다', () => {
     const voucher = makeVoucher();
-    patchElement(voucher.templateSnapshot, 'total', { formula: undefined, binding: 'total' } as never);
+    patchElement(voucher.templateSnapshot, 'total', { formula: undefined, parameter: 'total' } as never);
     voucher.values.total = { a: 1 };
     expect(() => convertSlipFile(voucher)).toThrow(SlipRenderError);
     expect(() => convertSlipFile(voucher)).toThrow(/텍스트로 표시할 수 없습니다/);
@@ -423,7 +423,7 @@ describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
     expect(texts).toEqual(['품명', '수량', '금액']);
     // 값이 비었으므로 수식 없는 필드도 빈 문자열이 된다
     const file = makeTemplateFile();
-    patchElement(file.template, 'total', { formula: undefined, binding: 'total' } as never);
+    patchElement(file.template, 'total', { formula: undefined, parameter: 'total' } as never);
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 
@@ -611,7 +611,7 @@ function makeGridBody(options?: {
             rows: [{ height: 8 }, { height: 8 }, { height: 8 }],
             ...(options?.overflow === undefined ? {} : { overflow: options.overflow }),
             repeat: {
-              binding: 'items',
+              parameter: 'items',
               fromRow: 1,
               toRow: 1,
               perPage,
@@ -620,8 +620,8 @@ function makeGridBody(options?: {
             cells: [
               { row: 0, column: 0, content: '품명', backgroundColor: '#EEEEEE' },
               { row: 0, column: 1, content: '금액' },
-              { row: 1, column: 0, binding: '품명' },
-              { row: 1, column: 1, binding: '금액' },
+              { row: 1, column: 0, parameter: '품명' },
+              { row: 1, column: 1, parameter: '금액' },
               { row: 2, column: 0, content: '합계' },
               { row: 2, column: 1, formula: 'FORMAT_NUMBER(SUM(items.금액))' },
             ],
@@ -898,7 +898,7 @@ describe('바코드·변동 이미지·페이지 번호 변환', () => {
   it('바코드는 종류를 스키마 타입으로 쓰고 값은 inputs로 간다', () => {
     const { template, inputs } = convertSlipFile(makeVoucher(
       [{ type: 'barcode', id: 'bc', name: 'QR', kind: 'qrcode',
-         position: { x: 10, y: 10 }, width: 20, height: 20, binding: 'code' }],
+         position: { x: 10, y: 10 }, width: 20, height: 20, parameter: 'code' }],
       { code: 'SLIP-1' },
     ));
     const [schemas] = template.schemas as PdfmeSchema[][];
@@ -909,7 +909,7 @@ describe('바코드·변동 이미지·페이지 번호 변환', () => {
 
   it('변동 이미지는 전표 값의 base64를 그린다', () => {
     const { inputs } = convertSlipFile(makeVoucher(
-      [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, binding: 'sign' }],
+      [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, parameter: 'sign' }],
       { sign: PNG },
     ));
     expect(inputs[0]!['sig']).toBe(PNG);
@@ -917,7 +917,7 @@ describe('바코드·변동 이미지·페이지 번호 변환', () => {
 
   it('변동 이미지 값이 base64가 아니면 거부한다 (주소는 호스트가 내장해야 한다)', () => {
     expect(() => convertSlipFile(makeVoucher(
-      [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, binding: 'sign' }],
+      [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, parameter: 'sign' }],
       { sign: 'https://example.com/a.png' },
     ))).toThrow(/data: base64/);
   });
@@ -971,12 +971,12 @@ describe('데이터 자동 병합 (ADR-038)', () => {
           position: { x: 15, y: 30 }, width: 100, height: 8 * (1 + perPage),
           columns: [{ width: 60, ...(autoMergeProduct ? { autoMerge: true } : {}) }, { width: 40 }],
           rows: [{ height: 8 }, { height: 8 }],
-          repeat: { binding: 'rows', fromRow: 1, toRow: 1, perPage, repeatHeader: true },
+          repeat: { parameter: 'rows', fromRow: 1, toRow: 1, perPage, repeatHeader: true },
           cells: [
             { row: 0, column: 0, content: '품명' },
             { row: 0, column: 1, content: '주문자' },
-            { row: 1, column: 0, binding: 'product' },
-            { row: 1, column: 1, binding: 'orderer' },
+            { row: 1, column: 0, parameter: 'product' },
+            { row: 1, column: 1, parameter: 'orderer' },
           ],
         }],
       }],

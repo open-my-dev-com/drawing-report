@@ -20,7 +20,7 @@ import {
   type GridRepeat,
   type PageNumberPosition,
   type BarcodeKind,
-  type BindingValueType,
+  type ParameterValueType,
   type SlipPage,
   type RenderOptions,
   type SlipListItem,
@@ -624,15 +624,15 @@ function ensureCell(el: GridElement, row: number, column: number): Record<string
 }
 
 /**
- * 값 소스 배타 규칙 — content·binding·formula를 모두 지운다 (SPEC §5.6/§5.7).
+ * 값 소스 배타 규칙 — content·parameter·formula를 모두 지운다 (SPEC §5.6/§5.7).
  * 셀·바코드가 소스 종류를 바꿀 때 쓰며, 지운 뒤 호출부가 하나만 설정한다
  * (설정 방식은 대상마다 달라 여기서는 지우기만 한다).
  *
- * @param record - content·binding·formula를 가질 수 있는 셀 또는 요소
+ * @param record - content·parameter·formula를 가질 수 있는 셀 또는 요소
  */
-function clearValueSources(record: { content?: unknown; binding?: unknown; formula?: unknown }): void {
+function clearValueSources(record: { content?: unknown; parameter?: unknown; formula?: unknown }): void {
   delete record.content;
-  delete record.binding;
+  delete record.parameter;
   delete record.formula;
 }
 
@@ -715,11 +715,11 @@ interface ResizeState {
 /**
  * 사이드바에서 요소가 아닌 것을 고른 상태 (ADR-034).
  *
- * 파라미터은 요소와 별개의 1급 항목이고, 표 열은 그 표 파라미터의 하위 항목이다.
+ * 파라미터는 요소와 별개의 1급 항목이고, 표 열은 그 표 파라미터의 하위 항목이다.
  * 둘 다 오른쪽 패널에서 편집한다.
  */
-/** 파라미터을 쓰는 요소 한 곳 (ADR-034의 "쓰는 곳") */
-interface BindingUse {
+/** 파라미터를 쓰는 요소 한 곳 (ADR-034의 "쓰는 곳") */
+interface ParameterUse {
   pageIndex: number;
   id: string;
   name: string;
@@ -727,7 +727,7 @@ interface BindingUse {
 }
 
 /** 사이드바·패널이 함께 쓰는 파라미터 한 항목 — 정의부와 사용처를 합친 것 */
-interface BindingInfo {
+interface ParameterInfo {
   /** 물리명 — 전표 값의 키 */
   key: string;
   /** 화면에 보이는 이름 — 논리명이 없으면 물리명 */
@@ -735,20 +735,20 @@ interface BindingInfo {
   /** 정의부에 적힌 논리명 (없으면 undefined) */
   rawLabel: string | undefined;
   /** 값 종류 — 정의부에 없으면 undefined(글자로 다룬다) */
-  valueType: BindingValueType | undefined;
+  valueType: ParameterValueType | undefined;
   /** 정의부에 등록된 항목인지 (요소만 쓰는 키는 false) */
   defined: boolean;
   /** 이 값을 쓰는 요소들 */
-  uses: BindingUse[];
+  uses: ParameterUse[];
   /** 목록 파라미터의 하위 필드 — 정의부가 단일 원천이다 (ADR-047) */
-  fields: BindingFieldInfo[];
+  fields: ParameterFieldInfo[];
 }
 
 /**
  * 목록 파라미터의 하위 필드 한 개 (ADR-047) — 정의부에서 오며,
  * 그 필드를 읽는 그리드 셀이 있으면 그 자리도 함께 담아 사이드바에서 곧장 갈 수 있다.
  */
-interface BindingFieldInfo {
+interface ParameterFieldInfo {
   /** 항목 필드 물리명 — 수식에서 `목록파라미터.필드`로 쓴다 */
   key: string;
   /** 화면에 보일 이름 — 논리명이 없으면 물리명 */
@@ -756,14 +756,14 @@ interface BindingFieldInfo {
   /** 정의부에 적힌 논리명 (없으면 undefined) */
   rawLabel: string | undefined;
   /** 값 종류 */
-  valueType: BindingValueType | undefined;
+  valueType: ParameterValueType | undefined;
   /** 이 필드를 읽는 그리드 셀의 자리 (없으면 undefined) */
   at: { pageIndex: number; gridId: string; row: number; column: number } | undefined;
 }
 
 type SideSelection =
-  | { kind: 'binding'; key: string }
-  | { kind: 'bindingField'; key: string; field: string }
+  | { kind: 'parameter'; key: string }
+  | { kind: 'parameterField'; key: string; field: string }
   | { kind: 'page' }
   | null;
 
@@ -1816,7 +1816,7 @@ export class SlipDesigner extends LitElement {
      * 보였다. 화살표 표시를 직접 그려 모든 선택 상자가 같은 모습이 되게 한다.
      */
     .prop-row select,
-    select.binding-select {
+    select.parameter-select {
       appearance: none;
       background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
         linear-gradient(135deg, currentColor 50%, transparent 50%);
@@ -2591,7 +2591,7 @@ export class SlipDesigner extends LitElement {
       align-items: center;
       gap: 6px;
     }
-    .binding-chips {
+    .parameter-chips {
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
@@ -2602,7 +2602,7 @@ export class SlipDesigner extends LitElement {
       opacity: 0.6;
       font-size: 10px;
     }
-    .binding-chip {
+    .parameter-chip {
       padding: 3px 8px;
       border: 1px solid var(--sk-border-strong);
       border-radius: 10px;
@@ -2612,12 +2612,12 @@ export class SlipDesigner extends LitElement {
       color: inherit;
       cursor: pointer;
     }
-    .binding-chip:hover {
+    .parameter-chip:hover {
       border-color: var(--sk-accent);
       color: var(--sk-accent);
     }
     /* 표 파라미터의 하위 열 칩 — 상위 값과 구분되게 옅게 (F-21) */
-    .binding-chip.column {
+    .parameter-chip.column {
       border-style: dashed;
       color: var(--sk-text-muted);
     }
@@ -2644,7 +2644,7 @@ export class SlipDesigner extends LitElement {
       font-size: 11px;
       color: var(--sk-accent);
     }
-    .formula-suggest .binding-chip {
+    .formula-suggest .parameter-chip {
       border-style: solid;
       color: inherit;
     }
@@ -2895,9 +2895,9 @@ export class SlipDesigner extends LitElement {
     _sampleImageError: { state: true },
     maxImageBytes: { type: Number, attribute: 'max-image-bytes' },
     _sideSelection: { state: true },
-    _expandedBindings: { state: true },
+    _expandedParameters: { state: true },
     _expandedElements: { state: true },
-    _bindingKeyError: { state: true },
+    _parameterKeyError: { state: true },
     _pageKeyError: { state: true },
     presets: { attribute: false },
     storage: { attribute: false },
@@ -3022,7 +3022,7 @@ export class SlipDesigner extends LitElement {
   private _imageError: string | null = null;
   /** 샘플 데이터 모달의 변동 이미지 업로드에서 막힌 이유 — 없으면 null (G-47) */
   private _sampleImageError: string | null = null;
-  /** 샘플 데이터 모달의 현재 페이지 — 파라미터이 많으면 10개 단위로 나눠 보여준다 */
+  /** 샘플 데이터 모달의 현재 페이지 — 파라미터가 많으면 10개 단위로 나눠 보여준다 */
   private _samplePage = 0;
   /** 샘플 데이터 모달의 JSON 직접 입력 모드 여부 (입력폼 ↔ JSON 탭) */
   private _sampleJsonMode = false;
@@ -3037,14 +3037,14 @@ export class SlipDesigner extends LitElement {
    * 값 목록에서 하위 줄을 펼쳐 둔 파라미터 물리명 (G-25) — 화면 상태다.
    * 기본은 접힘이고, 그 값이나 하위 항목을 고르면 저절로 열린다.
    */
-  private _expandedBindings = new Set<string>();
+  private _expandedParameters = new Set<string>();
   /**
    * 요소 목록에서 펼쳐 둔 그리드 id 모음 (G-44) — 값·수식이 붙은 셀을 하위 줄로 본다.
    * 기본은 접힘이고, 그 그리드나 그 안의 셀을 고르면 저절로 열린다.
    */
   private _expandedElements = new Set<string>();
   /** 파라미터 패널에서 이미 쓰는 물리명으로 바꾸려 했는지 — 안내를 보여준다 */
-  private _bindingKeyError = false;
+  private _parameterKeyError = false;
   /** 물리친 입력의 안내 문구 — 다음 성공한 편집에서 지운다 */
   private _inputError: string | null = null;
   /** 페이지 물리명이 다른 페이지와 겹쳐 되돌렸는지 — 안내를 보여준다 (G-46) */
@@ -3092,7 +3092,7 @@ export class SlipDesigner extends LitElement {
    * 그리드 셀에 담을 것(문구·값·수식) 중 지금 고른 종류 — 화면 상태다.
    * 아직 아무것도 입력하지 않으면 파일에 남지 않으므로 여기서 기억한다 (ADR-037).
    */
-  private _cellSourceKind: 'content' | 'binding' | 'formula' | null = null;
+  private _cellSourceKind: 'content' | 'parameter' | 'formula' | null = null;
   /** 인라인 셀 편집 중인지 — true면 캔버스에 입력 상자를 띄운다 */
   private _cellEditing = false;
 
@@ -3172,7 +3172,7 @@ export class SlipDesigner extends LitElement {
     this._imageModalOpen = false;
     this._imageError = null;
     this._sideSelection = null;
-    this._bindingKeyError = false;
+    this._parameterKeyError = false;
     this._saveModalOpen = false;
     this._myFormsOpen = false;
     this._myFormsError = null;
@@ -3215,12 +3215,12 @@ export class SlipDesigner extends LitElement {
   private _declareRepeatParameters(): void {
     const file = this._file;
     if (!file) return;
-    const defs = file.template.bindings ?? [];
+    const defs = file.template.parameters ?? [];
     let changed = false;
     for (const page of file.template.pages) {
       for (const el of page.elements) {
         if (el.type !== 'grid' || !el.repeat) continue;
-        const { fromRow, toRow, binding: listKey } = el.repeat;
+        const { fromRow, toRow, parameter: listKey } = el.repeat;
         let def = defs.find((b) => b.key === listKey);
         if (!def) {
           def = { key: listKey };
@@ -3233,17 +3233,17 @@ export class SlipDesigner extends LitElement {
         }
         const fields = def.fields ?? [];
         for (const cell of el.cells) {
-          if (cell.binding === undefined || cell.row < fromRow || cell.row > toRow) continue;
-          if (fields.some((f) => f.key === cell.binding)) continue;
+          if (cell.parameter === undefined || cell.row < fromRow || cell.row > toRow) continue;
+          if (fields.some((f) => f.key === cell.parameter)) continue;
           // 하위 필드의 이름은 반복 구간 위쪽 같은 열에 직접 입력된 글을 쓴다 (ADR-037)
           const title = gridHeaderTitle(el, cell.column, fromRow);
-          fields.push(title === undefined ? { key: cell.binding } : { key: cell.binding, label: title });
+          fields.push(title === undefined ? { key: cell.parameter } : { key: cell.parameter, label: title });
           changed = true;
         }
         if (fields.length > 0) def.fields = fields;
       }
     }
-    if (changed) file.template.bindings = defs;
+    if (changed) file.template.parameters = defs;
   }
 
   // ---------------------------------------------------------------------------
@@ -3527,7 +3527,7 @@ export class SlipDesigner extends LitElement {
             { height: GRID_DEFAULT_ROW_MM },
           ],
           repeat: {
-            binding: `items_${id.slice(0, 4)}`,
+            parameter: `items_${id.slice(0, 4)}`,
             fromRow: 1,
             toRow: 1,
             perPage: GRID_DEFAULT_PER_PAGE,
@@ -3562,14 +3562,14 @@ export class SlipDesigner extends LitElement {
       case 'field':
         element = {
           type: 'field', id, name, position, width: 60, height: 10,
-          binding: `field_${id.slice(0, 4)}`,
+          parameter: `field_${id.slice(0, 4)}`,
         };
         break;
       case 'barcode':
         // 전표에 가장 흔한 QR로 시작한다 — 종류·값 편집은 G-33에서 붙인다
         element = {
           type: 'barcode', id, name, position, width: 25, height: 25,
-          kind: 'qrcode', binding: `barcode_${id.slice(0, 4)}`,
+          kind: 'qrcode', parameter: `barcode_${id.slice(0, 4)}`,
         };
         break;
     }
@@ -3587,12 +3587,12 @@ export class SlipDesigner extends LitElement {
     elements.push(element);
     this._selectElement(id);
     this._sideSelection = null;
-    // 값을 쓰는 요소는 그 파라미터을 정의부에 함께 등록한다 — 목록이 값의 단일 원천 (ADR-034)
-    if (element.type === 'field' && element.binding !== undefined) {
-      this._ensureBindingDef(element.binding);
+    // 값을 쓰는 요소는 그 파라미터를 정의부에 함께 등록한다 — 목록이 값의 단일 원천 (ADR-034)
+    if (element.type === 'field' && element.parameter !== undefined) {
+      this._ensureParameterDef(element.parameter);
     }
     if (element.type === 'grid' && element.repeat) {
-      this._ensureBindingDef(element.repeat.binding, 'list');
+      this._ensureParameterDef(element.repeat.parameter, 'list');
     }
     this._emitChange();
     this.requestUpdate();
@@ -3626,8 +3626,8 @@ export class SlipDesigner extends LitElement {
         groupRemap.set(copy.group, mapped);
         copy.group = mapped;
       }
-      if (copy.type === 'field' && copy.binding !== undefined) this._ensureBindingDef(copy.binding);
-      if (copy.type === 'grid' && copy.repeat) this._ensureBindingDef(copy.repeat.binding, 'list');
+      if (copy.type === 'field' && copy.parameter !== undefined) this._ensureParameterDef(copy.parameter);
+      if (copy.type === 'grid' && copy.repeat) this._ensureParameterDef(copy.repeat.parameter, 'list');
       elements.push(copy);
       pasted.push(copy);
     }
@@ -3928,7 +3928,7 @@ export class SlipDesigner extends LitElement {
       // 그룹에 속하면 그룹 전체가 함께 선택된다 (G-27)
       this._selectElement(id);
       this._sideSelection = null;
-      this._expandBindingOfElement(id);
+      this._expandParameterOfElement(id);
       if (!wasSelected) {
         this._selectedCell = null;
         this._cellEditing = false;
@@ -4310,7 +4310,7 @@ export class SlipDesigner extends LitElement {
     if (!isGrid(el)) return;
     const existing = el.cells.find((c) => c.row === target.row && c.column === target.column);
     // 값·수식을 붙인 셀은 문구를 직접 못 쓴다 — 셋 중 하나만 가질 수 있다 (SPEC §5.7)
-    if (existing && ('binding' in existing || 'formula' in existing)) {
+    if (existing && ('parameter' in existing || 'formula' in existing)) {
       this._rejectInput();
       return;
     }
@@ -4476,10 +4476,10 @@ export class SlipDesigner extends LitElement {
     }
     const row = Math.min(this._selectedCell?.row ?? Math.min(1, el.rows.length - 1), el.rows.length - 1);
     const key = `items_${el.id.slice(0, 4)}`;
-    this._ensureBindingDef(key, 'list');
+    this._ensureParameterDef(key, 'list');
     this._updateGrid((grid) => {
       grid.repeat = {
-        binding: key,
+        parameter: key,
         fromRow: row,
         toRow: row,
         perPage: GRID_DEFAULT_PER_PAGE,
@@ -4523,7 +4523,7 @@ export class SlipDesigner extends LitElement {
       this._rejectInput();
       return;
     }
-    if (patch.binding !== undefined) this._ensureBindingDef(patch.binding, 'list');
+    if (patch.parameter !== undefined) this._ensureParameterDef(patch.parameter, 'list');
     this._updateGrid((grid) => {
       grid.repeat = next;
     });
@@ -4533,7 +4533,7 @@ export class SlipDesigner extends LitElement {
    * 셀에 담을 것의 종류를 고른다 — 값·수식은 빈 채로 둘 수 없어(값 이름은 한 글자 이상)
    * 아직 입력이 없는 동안은 화면 상태로만 기억한다 (ADR-037).
    */
-  private _chooseGridCellSource(kind: 'content' | 'binding' | 'formula'): void {
+  private _chooseGridCellSource(kind: 'content' | 'parameter' | 'formula'): void {
     this._cellSourceKind = kind;
     const target = this._selectedCell;
     if (!target) return;
@@ -4549,7 +4549,7 @@ export class SlipDesigner extends LitElement {
    * 셀에 무엇을 담을지 고른다 — 직접 입력·파라미터·수식 중 하나만 가질 수 있다 (SPEC §5.7).
    * 종류를 바꾸면 나머지 둘은 지운다.
    */
-  private _setGridCellSource(kind: 'content' | 'binding' | 'formula', value: string): void {
+  private _setGridCellSource(kind: 'content' | 'parameter' | 'formula', value: string): void {
     const target = this._selectedCell;
     // 고른 셀이 없으면 값을 버리지 말고 알린다 — 말없이 넘기면 "가끔 반영이 안 된다"로 보인다
     if (!target) {
@@ -5037,7 +5037,7 @@ export class SlipDesigner extends LitElement {
     this._selectedCell = null;
     this._cellEditing = false;
     this._sideSelection = null;
-    this._expandBindingOfElement(id);
+    this._expandParameterOfElement(id);
     this.requestUpdate();
   }
 
@@ -5049,12 +5049,12 @@ export class SlipDesigner extends LitElement {
    * 그리드 셀이 있으면 그 셀도 함께 비춰 어디에 쓰이는지 보이게 한다 — 요소로 자동 연결되지
    * 않으며, 셀이 없어도 필드는 그대로 편집된다 (ADR-034의 요소·파라미터 분리).
    */
-  private _selectBindingField(listKey: string, field: BindingFieldInfo): void {
+  private _selectParameterField(listKey: string, field: ParameterFieldInfo): void {
     if (field.at) {
       this._goToPage(field.at.pageIndex);
       this._expandedElements.add(field.at.gridId);
     }
-    this._sideSelection = { kind: 'bindingField', key: listKey, field: field.key };
+    this._sideSelection = { kind: 'parameterField', key: listKey, field: field.key };
     this._selectedId = null;
     this._selectedIds = new Set();
     this._selectedCell = null;
@@ -5068,10 +5068,10 @@ export class SlipDesigner extends LitElement {
    *
    * @param id - 고른 요소 id
    */
-  private _expandBindingOfElement(id: string): void {
+  private _expandParameterOfElement(id: string): void {
     const el = this._findElement(id);
     if (!isGrid(el)) return;
-    if (el.repeat) this._expandedBindings.add(el.repeat.binding);
+    if (el.repeat) this._expandedParameters.add(el.repeat.parameter);
     // 값·수식 셀이 있으면 요소 목록에서도 그 그리드를 펼쳐 둔다 (G-44)
     if (this._gridValueCells(el).length > 0) this._expandedElements.add(id);
   }
@@ -5105,15 +5105,15 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 사이드바에서 파라미터을 골랐을 때 — 오른쪽 패널이 그 파라미터 편집으로 바뀐다 (ADR-034) */
-  private _selectBinding(key: string): void {
-    this._bindingKeyError = false;
+  /** 사이드바에서 파라미터를 골랐을 때 — 오른쪽 패널이 그 파라미터 편집으로 바뀐다 (ADR-034) */
+  private _selectParameter(key: string): void {
+    this._parameterKeyError = false;
     this._clearSelection();
     this._selectedCell = null;
     this._cellEditing = false;
-    this._sideSelection = { kind: 'binding', key };
+    this._sideSelection = { kind: 'parameter', key };
     // 고른 값의 하위 줄은 저절로 열린다 — 접어 두었어도 무엇이 딸렸는지 바로 보인다 (G-25)
-    this._expandedBindings.add(key);
+    this._expandedParameters.add(key);
     this.requestUpdate();
   }
 
@@ -5122,28 +5122,28 @@ export class SlipDesigner extends LitElement {
    * 정의부에 논리명이 있으면 그 이름으로 표시하고(물리명은 title로 확인),
    * 반복 구간이 쓰는 값이면 그 구간 셀이 읽는 항목 필드까지 함께 담는다 (ADR-037).
    */
-  private _bindingList(): BindingInfo[] {
+  private _parameterList(): ParameterInfo[] {
     const file = this._file;
     if (!file) return [];
-    const defs = file.template.bindings ?? [];
+    const defs = file.template.parameters ?? [];
     const defOf = new Map(defs.map((b) => [b.key, b] as const));
 
-    const uses = new Map<string, BindingUse[]>();
+    const uses = new Map<string, ParameterUse[]>();
     // 그리드 반복 구간 셀이 어느 항목 필드를 어디서 읽는지 — 정의부 필드에 자리를 붙이는 데 쓴다
-    const fieldAt = new Map<string, Map<string, NonNullable<BindingFieldInfo['at']>>>();
+    const fieldAt = new Map<string, Map<string, NonNullable<ParameterFieldInfo['at']>>>();
 
     file.template.pages.forEach((page, pageIndex) => {
       for (const el of page.elements) {
         // 그리드는 반복 구간의 값과 셀에 붙인 값을 함께 쓴다 (ADR-037)
         if (el.type === 'grid') {
           if (el.repeat) {
-            const { fromRow, toRow, binding: listKey } = el.repeat;
+            const { fromRow, toRow, parameter: listKey } = el.repeat;
             const at = fieldAt.get(listKey) ?? new Map();
             const band = el.cells
-              .filter((c) => c.row >= fromRow && c.row <= toRow && c.binding !== undefined)
+              .filter((c) => c.row >= fromRow && c.row <= toRow && c.parameter !== undefined)
               .sort((a, b) => a.column - b.column || a.row - b.row);
             for (const cell of band) {
-              const key = cell.binding as string;
+              const key = cell.parameter as string;
               if (!at.has(key)) {
                 at.set(key, { pageIndex, gridId: el.id, row: cell.row, column: cell.column });
               }
@@ -5151,10 +5151,10 @@ export class SlipDesigner extends LitElement {
             fieldAt.set(listKey, at);
           }
           const keys = new Set<string>();
-          if (el.repeat) keys.add(el.repeat.binding);
+          if (el.repeat) keys.add(el.repeat.parameter);
           // 반복 구간 안의 셀이 읽는 것은 항목의 필드다 — 전표 values의 키가 아니므로 목록에 올리지 않는다
           for (const cell of el.cells) {
-            if (cell.binding !== undefined && !inRepeatBand(el, cell.row)) keys.add(cell.binding);
+            if (cell.parameter !== undefined && !inRepeatBand(el, cell.row)) keys.add(cell.parameter);
           }
           for (const key of keys) {
             const list = uses.get(key) ?? [];
@@ -5164,21 +5164,21 @@ export class SlipDesigner extends LitElement {
           continue;
         }
         // 변동 이미지도 값을 쓴다 — 사이드바 값 목록에 "쓰는 곳"으로 올린다 (G-47)
-        if (el.type === 'image' && el.binding !== undefined) {
-          const list = uses.get(el.binding) ?? [];
+        if (el.type === 'image' && el.parameter !== undefined) {
+          const list = uses.get(el.parameter) ?? [];
           list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
-          uses.set(el.binding, list);
+          uses.set(el.parameter, list);
           continue;
         }
         // 수식만 쓰는 필드는 파라미터를 갖지 않는다 (ADR-049)
-        if (el.type !== 'field' || el.binding === undefined) continue;
-        const list = uses.get(el.binding) ?? [];
+        if (el.type !== 'field' || el.parameter === undefined) continue;
+        const list = uses.get(el.parameter) ?? [];
         list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
-        uses.set(el.binding, list);
+        uses.set(el.parameter, list);
       }
     });
 
-    const list: BindingInfo[] = [];
+    const list: ParameterInfo[] = [];
     const seen = new Set<string>();
     for (const key of [...defs.map((d) => d.key), ...uses.keys()]) {
       if (seen.has(key)) continue;
@@ -5186,7 +5186,7 @@ export class SlipDesigner extends LitElement {
       const def = defOf.get(key);
       const at = fieldAt.get(key);
       // 정의부가 하위 필드의 단일 원천이다 (ADR-047) — 로드 시 반복 구간과 맞춰 둔다
-      const fields: BindingFieldInfo[] = (def?.fields ?? []).map((f) => ({
+      const fields: ParameterFieldInfo[] = (def?.fields ?? []).map((f) => ({
         key: f.key,
         title: f.label ?? f.key,
         rawLabel: f.label,
@@ -5219,7 +5219,7 @@ export class SlipDesigner extends LitElement {
     const thumbW = THUMB_WIDTH_PX;
     const scale = thumbW / paper.width;
     const pages = file.template.pages;
-    const bindings = this._bindingList();
+    const parameters = this._parameterList();
 
     return html`
       <div class="side-section">
@@ -5278,7 +5278,7 @@ export class SlipDesigner extends LitElement {
 
       <div class="side-section">
         <div class="side-title-row">
-          <span class="side-title">${s.sidebarBindings}</span>
+          <span class="side-title">${s.sidebarParameters}</span>
           <button class="side-mini" title=${s.sampleData} aria-label=${s.sampleData}
             @click=${() => {
               this._sampleModalOpen = true;
@@ -5287,12 +5287,12 @@ export class SlipDesigner extends LitElement {
               this._sampleImageError = null;
               this.requestUpdate();
             }}>${icons.database}</button>
-          <button class="side-mini" title=${s.addBinding} aria-label=${s.addBinding}
-            @click=${() => this._addBinding()}>${icons.pageAdd}</button>
+          <button class="side-mini" title=${s.addParameter} aria-label=${s.addParameter}
+            @click=${() => this._addParameter()}>${icons.pageAdd}</button>
         </div>
-        ${bindings.length === 0
+        ${parameters.length === 0
           ? html`<div class="side-empty">—</div>`
-          : bindings.map((b) => this._renderBindingRow(b))}
+          : parameters.map((b) => this._renderParameterRow(b))}
       </div>
     `;
   }
@@ -5329,34 +5329,34 @@ export class SlipDesigner extends LitElement {
    * 반복 구간이 쓰는 값이면 그 구간 셀이 읽는 항목 필드가 하위 줄로 붙는다 (ADR-037).
    * 하위 줄은 앞의 펼침 표시로 열고 닫는다 — 기본은 접힘이다 (G-25).
    */
-  private _renderBindingRow(b: BindingInfo) {
+  private _renderParameterRow(b: ParameterInfo) {
     const s = this._strings.designer;
     const sel = this._sideSelection;
-    const selected = sel?.kind === 'binding' && sel.key === b.key;
+    const selected = sel?.kind === 'parameter' && sel.key === b.key;
     const hasFields = b.fields.length > 0;
-    const expanded = hasFields && this._expandedBindings.has(b.key);
+    const expanded = hasFields && this._expandedParameters.has(b.key);
     return html`
       <div class="side-row-wrap">
-        ${this._renderTwisty(hasFields, expanded, b.label, () => this._toggleBindingRow(b.key))}
+        ${this._renderTwisty(hasFields, expanded, b.label, () => this._toggleParameterRow(b.key))}
         <button class="side-row ${selected ? 'selected' : ''}" title=${b.key}
-          @click=${() => this._selectBinding(b.key)}>
+          @click=${() => this._selectParameter(b.key)}>
           ${valueTypeBadge(b.valueType)}<span>${b.label}</span>
         </button>
         <button class="side-mini" title=${s.delete} aria-label="${b.key} ${s.delete}"
           ?disabled=${!b.defined}
-          @click=${() => this._removeBindingDef(b.key)}>${icons.remove}</button>
+          @click=${() => this._removeParameterDef(b.key)}>${icons.remove}</button>
       </div>
       ${expanded
         ? b.fields.map((f) => {
-            const fieldSelected = sel?.kind === 'bindingField' && sel.key === b.key && sel.field === f.key;
+            const fieldSelected = sel?.kind === 'parameterField' && sel.key === b.key && sel.field === f.key;
             return html`
               <div class="side-row-wrap">
                 <span class="side-twisty-gap"></span>
                 <button class="side-col-row ${fieldSelected ? 'selected' : ''}" title="${b.key}.${f.key}"
-                  @click=${() => this._selectBindingField(b.key, f)}
+                  @click=${() => this._selectParameterField(b.key, f)}
                   >${valueTypeBadge(f.valueType)}<span>${f.title}</span></button>
                 <button class="side-mini" title=${s.delete} aria-label="${f.key} ${s.delete}"
-                  @click=${() => this._removeBindingField(b.key, f.key)}>${icons.remove}</button>
+                  @click=${() => this._removeParameterField(b.key, f.key)}>${icons.remove}</button>
               </div>`;
           })
         : nothing}
@@ -5364,8 +5364,8 @@ export class SlipDesigner extends LitElement {
         ? html`
           <div class="side-row-wrap">
             <span class="side-twisty-gap"></span>
-            <button class="side-add-field" @click=${() => this._addBindingField(b.key)}>
-              ${icons.add}<span>${s.addBindingField}</span>
+            <button class="side-add-field" @click=${() => this._addParameterField(b.key)}>
+              ${icons.add}<span>${s.addParameterField}</span>
             </button>
           </div>`
         : nothing}
@@ -5373,9 +5373,9 @@ export class SlipDesigner extends LitElement {
   }
 
   /** 값 목록의 하위 줄을 열고 닫는다 (G-25) — 고르는 것과는 별개다 */
-  private _toggleBindingRow(key: string): void {
-    if (this._expandedBindings.has(key)) this._expandedBindings.delete(key);
-    else this._expandedBindings.add(key);
+  private _toggleParameterRow(key: string): void {
+    if (this._expandedParameters.has(key)) this._expandedParameters.delete(key);
+    else this._expandedParameters.add(key);
     this.requestUpdate();
   }
 
@@ -5428,7 +5428,7 @@ export class SlipDesigner extends LitElement {
   private _gridValueCells(grid: GridElement): { row: number; column: number; label: string; at: string }[] {
     const s = this._strings.designer;
     return grid.cells
-      .filter((c) => c.binding !== undefined || c.formula !== undefined)
+      .filter((c) => c.parameter !== undefined || c.formula !== undefined)
       .slice()
       .sort((a, b) => a.row - b.row || a.column - b.column)
       .map((c) => {
@@ -5496,16 +5496,16 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 파라미터을 기본 이름으로 즉시 만들고 고른다 — 이름은 오른쪽 패널에서 고친다 (ADR-034) */
-  private _addBinding(): void {
+  /** 파라미터를 기본 이름으로 즉시 만들고 고른다 — 이름은 오른쪽 패널에서 고친다 (ADR-034) */
+  private _addParameter(): void {
     if (!this._file) return;
-    const { key, label } = this._nextBinding();
+    const { key, label } = this._nextParameter();
     this._updateFile((f) => {
-      const defs = f.template.bindings ?? [];
+      const defs = f.template.parameters ?? [];
       defs.push({ key, label });
-      f.template.bindings = defs;
+      f.template.parameters = defs;
     });
-    this._selectBinding(key);
+    this._selectParameter(key);
   }
 
   /**
@@ -5514,10 +5514,10 @@ export class SlipDesigner extends LitElement {
    * @param key - 파라미터 물리명
    * @param valueType - 등록할 값 종류. 이미 있는 항목이면 종류가 비어 있을 때만 채운다
    */
-  private _ensureBindingDef(key: string, valueType?: BindingValueType): void {
+  private _ensureParameterDef(key: string, valueType?: ParameterValueType): void {
     const file = this._file;
     if (!file || !key) return;
-    const defs = file.template.bindings ?? [];
+    const defs = file.template.parameters ?? [];
     const found = defs.find((b) => b.key === key);
     if (found) {
       // 반복 구간이 쓰는 값은 목록이어야 하위 필드를 선언할 수 있다 (ADR-047)
@@ -5525,40 +5525,40 @@ export class SlipDesigner extends LitElement {
       return;
     }
     defs.push(valueType === undefined ? { key } : { key, valueType });
-    file.template.bindings = defs;
+    file.template.parameters = defs;
   }
 
   /**
    * 물리명을 바꾼다 — 정의부와 이 이름을 쓰는 요소·샘플 값을 함께 고친다.
    * 빈 이름이나 이미 쓰는 이름은 무시한다.
    */
-  private _renameBindingKey(key: string, next: string, input?: HTMLInputElement): void {
+  private _renameParameterKey(key: string, next: string, input?: HTMLInputElement): void {
     const trimmed = next.trim();
-    if (!trimmed || trimmed === key || this._bindingList().some((b) => b.key === trimmed)) {
+    if (!trimmed || trimmed === key || this._parameterList().some((b) => b.key === trimmed)) {
       // 되돌린 값이 화면에 남지 않게 입력셀을 지금 이름으로 되돌린다
       if (input) input.value = key;
-      this._bindingKeyError = trimmed !== key && trimmed !== '';
+      this._parameterKeyError = trimmed !== key && trimmed !== '';
       this.requestUpdate();
       return;
     }
-    this._bindingKeyError = false;
+    this._parameterKeyError = false;
     this._updateFile((f) => {
-      const defs = f.template.bindings ?? [];
+      const defs = f.template.parameters ?? [];
       const def = defs.find((b) => b.key === key);
       if (def) def.key = trimmed;
       else defs.push({ key: trimmed });
-      f.template.bindings = defs;
+      f.template.parameters = defs;
       for (const page of f.template.pages) {
         for (const el of page.elements) {
-          if (el.type === 'field' && el.binding === key) el.binding = trimmed;
+          if (el.type === 'field' && el.parameter === key) el.parameter = trimmed;
           if (el.type === 'grid') {
-            if (el.repeat?.binding === key) el.repeat.binding = trimmed;
+            if (el.repeat?.parameter === key) el.repeat.parameter = trimmed;
             for (const cell of el.cells) {
-              // 반복 구간 안 셀의 파라미터은 항목 필드(별도 네임스페이스)라 전표 값 키 이름
+              // 반복 구간 안 셀의 파라미터는 항목 필드(별도 네임스페이스)라 전표 값 키 이름
               // 변경 대상이 아니다 — 같은 이름이 우연히 겹쳐도 건드리지 않는다
               const inBand =
                 el.repeat !== undefined && cell.row >= el.repeat.fromRow && cell.row <= el.repeat.toRow;
-              if (!inBand && cell.binding === key) cell.binding = trimmed;
+              if (!inBand && cell.parameter === key) cell.parameter = trimmed;
             }
           }
         }
@@ -5569,15 +5569,15 @@ export class SlipDesigner extends LitElement {
         delete samples[key];
       }
     });
-    this._sideSelection = { kind: 'binding', key: trimmed };
+    this._sideSelection = { kind: 'parameter', key: trimmed };
     this.requestUpdate();
   }
 
   /** 논리명을 바꾼다 — 정의부에 없던 키면 항목을 만들어 기록한다 (빈 값은 논리명 제거) */
-  private _commitBindingLabel(key: string, label: string): void {
+  private _commitParameterLabel(key: string, label: string): void {
     const trimmed = label.trim();
     this._updateFile((f) => {
-      const defs = f.template.bindings ?? [];
+      const defs = f.template.parameters ?? [];
       const def = defs.find((b) => b.key === key);
       if (def) {
         if (trimmed) def.label = trimmed;
@@ -5585,7 +5585,7 @@ export class SlipDesigner extends LitElement {
       } else {
         defs.push(trimmed ? { key, label: trimmed } : { key });
       }
-      f.template.bindings = defs;
+      f.template.parameters = defs;
     });
   }
 
@@ -5595,37 +5595,37 @@ export class SlipDesigner extends LitElement {
    * @param key - 파라미터 물리명
    * @param valueType - 새 값 종류 (빈 문자열이면 지정 없음 = 글자)
    */
-  private _setBindingValueType(key: string, valueType: string): void {
+  private _setParameterValueType(key: string, valueType: string): void {
     this._updateFile((f) => {
-      const defs = f.template.bindings ?? [];
+      const defs = f.template.parameters ?? [];
       const def = defs.find((b) => b.key === key) ?? { key };
       if (!defs.includes(def)) defs.push(def);
-      if (valueType) def.valueType = valueType as BindingValueType;
+      if (valueType) def.valueType = valueType as ParameterValueType;
       else delete (def as { valueType?: unknown }).valueType;
       // 목록이 아니면 하위 필드는 스키마가 거부한다 — 종류를 바꿀 때 함께 정리한다
       if (valueType !== 'list') delete (def as { fields?: unknown }).fields;
-      f.template.bindings = defs;
+      f.template.parameters = defs;
     });
   }
 
   /** 목록 파라미터에 하위 필드를 기본 이름으로 더하고 고른다 (ADR-047) */
-  private _addBindingField(listKey: string): void {
-    const existing = this._bindingList().find((b) => b.key === listKey)?.fields ?? [];
+  private _addParameterField(listKey: string): void {
+    const existing = this._parameterList().find((b) => b.key === listKey)?.fields ?? [];
     const used = new Set(existing.map((f) => f.key));
     let n = existing.length + 1;
     while (used.has(`field${n}`)) n += 1;
     const key = `field${n}`;
     this._updateFile((f) => {
-      const defs = f.template.bindings ?? [];
+      const defs = f.template.parameters ?? [];
       const def = defs.find((b) => b.key === listKey);
       if (!def) return;
       const fields = def.fields ?? [];
       fields.push({ key });
       def.fields = fields;
-      f.template.bindings = defs;
+      f.template.parameters = defs;
     });
-    this._expandedBindings.add(listKey);
-    this._sideSelection = { kind: 'bindingField', key: listKey, field: key };
+    this._expandedParameters.add(listKey);
+    this._sideSelection = { kind: 'parameterField', key: listKey, field: key };
     this.requestUpdate();
   }
 
@@ -5637,33 +5637,33 @@ export class SlipDesigner extends LitElement {
    * @param next - 새 물리명
    * @param input - 되돌릴 입력셀 (중복·빈 이름일 때)
    */
-  private _renameBindingField(listKey: string, key: string, next: string, input?: HTMLInputElement): void {
+  private _renameParameterField(listKey: string, key: string, next: string, input?: HTMLInputElement): void {
     const trimmed = next.trim();
-    const siblings = this._bindingList().find((b) => b.key === listKey)?.fields ?? [];
+    const siblings = this._parameterList().find((b) => b.key === listKey)?.fields ?? [];
     if (!trimmed || trimmed === key || siblings.some((f) => f.key === trimmed)) {
       if (input) input.value = key;
-      this._bindingKeyError = trimmed !== key && trimmed !== '';
+      this._parameterKeyError = trimmed !== key && trimmed !== '';
       this.requestUpdate();
       return;
     }
-    this._bindingKeyError = false;
+    this._parameterKeyError = false;
     this._updateFile((f) => {
-      const defs = f.template.bindings ?? [];
+      const defs = f.template.parameters ?? [];
       const def = defs.find((b) => b.key === listKey);
       const field = def?.fields?.find((x) => x.key === key);
       if (field) field.key = trimmed;
       // 이 목록을 반복 구간으로 쓰는 그리드의 셀만 따라간다 — 항목 필드는 별도 네임스페이스다
       for (const page of f.template.pages) {
         for (const el of page.elements) {
-          if (el.type !== 'grid' || el.repeat?.binding !== listKey) continue;
+          if (el.type !== 'grid' || el.repeat?.parameter !== listKey) continue;
           const { fromRow, toRow } = el.repeat;
           for (const cell of el.cells) {
-            if (cell.row >= fromRow && cell.row <= toRow && cell.binding === key) cell.binding = trimmed;
+            if (cell.row >= fromRow && cell.row <= toRow && cell.parameter === key) cell.parameter = trimmed;
           }
         }
       }
     });
-    this._sideSelection = { kind: 'bindingField', key: listKey, field: trimmed };
+    this._sideSelection = { kind: 'parameterField', key: listKey, field: trimmed };
     this.requestUpdate();
   }
 
@@ -5674,13 +5674,13 @@ export class SlipDesigner extends LitElement {
    * @param key - 필드 물리명
    * @param patch - 바꿀 값 (빈 문자열이면 그 항목을 지운다)
    */
-  private _updateBindingField(
+  private _updateParameterField(
     listKey: string,
     key: string,
     patch: { label?: string; valueType?: string },
   ): void {
     this._updateFile((f) => {
-      const def = (f.template.bindings ?? []).find((b) => b.key === listKey);
+      const def = (f.template.parameters ?? []).find((b) => b.key === listKey);
       const field = def?.fields?.find((x) => x.key === key);
       if (!field) return;
       if (patch.label !== undefined) {
@@ -5689,49 +5689,49 @@ export class SlipDesigner extends LitElement {
         else delete (field as { label?: string }).label;
       }
       if (patch.valueType !== undefined) {
-        if (patch.valueType) field.valueType = patch.valueType as BindingValueType;
+        if (patch.valueType) field.valueType = patch.valueType as ParameterValueType;
         else delete (field as { valueType?: unknown }).valueType;
       }
     });
   }
 
   /** 목록 파라미터에서 하위 필드를 지운다 — 그 필드를 읽던 셀의 값은 비운다 (ADR-047) */
-  private _removeBindingField(listKey: string, key: string): void {
+  private _removeParameterField(listKey: string, key: string): void {
     this._updateFile((f) => {
-      const def = (f.template.bindings ?? []).find((b) => b.key === listKey);
+      const def = (f.template.parameters ?? []).find((b) => b.key === listKey);
       if (!def?.fields) return;
       const rest = def.fields.filter((x) => x.key !== key);
       if (rest.length > 0) def.fields = rest;
       else delete (def as { fields?: unknown }).fields;
       for (const page of f.template.pages) {
         for (const el of page.elements) {
-          if (el.type !== 'grid' || el.repeat?.binding !== listKey) continue;
+          if (el.type !== 'grid' || el.repeat?.parameter !== listKey) continue;
           const { fromRow, toRow } = el.repeat;
           for (const cell of el.cells) {
-            if (cell.row >= fromRow && cell.row <= toRow && cell.binding === key) {
-              delete (cell as { binding?: string }).binding;
+            if (cell.row >= fromRow && cell.row <= toRow && cell.parameter === key) {
+              delete (cell as { parameter?: string }).parameter;
             }
           }
         }
       }
     });
     const sel = this._sideSelection;
-    if (sel?.kind === 'bindingField' && sel.key === listKey && sel.field === key) {
-      this._sideSelection = { kind: 'binding', key: listKey };
+    if (sel?.kind === 'parameterField' && sel.key === listKey && sel.field === key) {
+      this._sideSelection = { kind: 'parameter', key: listKey };
     }
     this.requestUpdate();
   }
 
-  /** 정의부에서 파라미터을 제거한다 — 요소가 쓰는 키면 목록에는 사용처 기준으로 남는다 */
-  private _removeBindingDef(key: string): void {
+  /** 정의부에서 파라미터를 제거한다 — 요소가 쓰는 키면 목록에는 사용처 기준으로 남는다 */
+  private _removeParameterDef(key: string): void {
     this._updateFile((f) => {
-      const defs = (f.template.bindings ?? []).filter((b) => b.key !== key);
-      if (defs.length > 0) f.template.bindings = defs;
-      else delete (f.template as { bindings?: unknown }).bindings;
+      const defs = (f.template.parameters ?? []).filter((b) => b.key !== key);
+      if (defs.length > 0) f.template.parameters = defs;
+      else delete (f.template as { parameters?: unknown }).parameters;
     });
-    // 목록에서 사라진 파라미터을 고른 채로 두지 않는다
+    // 목록에서 사라진 파라미터를 고른 채로 두지 않는다
     const sel = this._sideSelection;
-    if (sel?.kind === 'binding' && sel.key === key && !this._bindingList().some((b) => b.key === key)) {
+    if (sel?.kind === 'parameter' && sel.key === key && !this._parameterList().some((b) => b.key === key)) {
       this._sideSelection = null;
       this.requestUpdate();
     }
@@ -5912,7 +5912,7 @@ export class SlipDesigner extends LitElement {
    */
   private _formulaProbeValues(): Record<string, unknown> {
     const samples = this._file?.template.sampleValues ?? {};
-    const probeFor = (type: BindingValueType | undefined): unknown => {
+    const probeFor = (type: ParameterValueType | undefined): unknown => {
       switch (type) {
         case 'number': return 1;
         case 'boolean': return true;
@@ -5922,7 +5922,7 @@ export class SlipDesigner extends LitElement {
       }
     };
     const out: Record<string, unknown> = { ...samples };
-    for (const b of this._bindingList()) {
+    for (const b of this._parameterList()) {
       if (out[b.key] !== undefined) continue;
       if (b.valueType === 'list') {
         const item: Record<string, unknown> = {};
@@ -5946,7 +5946,7 @@ export class SlipDesigner extends LitElement {
    */
   private _sampleSkeleton(): Record<string, unknown> {
     const samples = this._file?.template.sampleValues ?? {};
-    const emptyFor = (type: BindingValueType | undefined): unknown => {
+    const emptyFor = (type: ParameterValueType | undefined): unknown => {
       switch (type) {
         case 'number': return 0;
         case 'boolean': return false;
@@ -5957,7 +5957,7 @@ export class SlipDesigner extends LitElement {
     /** 항목 하나를 선언된 하위 필드와 맞춘다 — 비워 둔 필드도 키로 남는다 */
     const withFields = (
       row: Record<string, unknown>,
-      fields: readonly BindingFieldInfo[],
+      fields: readonly ParameterFieldInfo[],
     ): Record<string, unknown> => {
       const item: Record<string, unknown> = {};
       for (const f of fields) item[f.key] = row[f.key] ?? emptyFor(f.valueType);
@@ -5967,7 +5967,7 @@ export class SlipDesigner extends LitElement {
     };
 
     const out: Record<string, unknown> = {};
-    for (const b of this._bindingList()) {
+    for (const b of this._parameterList()) {
       const current = samples[b.key];
       // 목록은 항목마다 선언된 하위 필드를 모두 담는다 — 저장된 행에 없는 필드가
       // JSON에서 통째로 빠지면 입력폼 탭과 내용이 어긋난다
@@ -6147,11 +6147,11 @@ export class SlipDesigner extends LitElement {
       case 'image': {
         // 변동 이미지는 샘플 값이 있으면 그 이미지로, 없으면 값 이름으로 그린다 —
         // 미리보기(PDF)도 샘플 값으로 렌더하므로 화면과 어긋나지 않는다 (G-47, ADR-012)
-        if (el.binding !== undefined) {
-          const sample = this._file?.template.sampleValues?.[el.binding];
+        if (el.parameter !== undefined) {
+          const sample = this._file?.template.sampleValues?.[el.parameter];
           return typeof sample === 'string' && sample.startsWith('data:')
             ? html`<img src=${sample} alt="">`
-            : html`<span class="el-content">{${el.binding}}</span>`;
+            : html`<span class="el-content">{${el.parameter}}</span>`;
         }
         // 자리표시(1×1 투명 PNG)는 그리면 빈 상자로만 보인다 — 아직 안 골랐음을 글자로 알린다 (G-36)
         return el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:')
@@ -6170,7 +6170,7 @@ export class SlipDesigner extends LitElement {
       case 'field':
         return html`<span class="el-content"
           style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(el)}"
-          >${stackVertically(`{${el.binding}}`, el.vertical)}</span>`;
+          >${stackVertically(`{${el.parameter}}`, el.vertical)}</span>`;
 
       case 'barcode':
         return this._renderBarcodePreview(el);
@@ -6183,7 +6183,7 @@ export class SlipDesigner extends LitElement {
    * 자리와 크기를 가늠하게 한다. 실제 데이터로 그리지 않으므로 화면·PDF 불일치가 아니다.
    */
   private _renderBarcodePreview(el: SlipElement & { type: 'barcode' }) {
-    const label = el.content ?? (el.binding !== undefined ? `{${el.binding}}` : el.formula ?? '');
+    const label = el.content ?? (el.parameter !== undefined ? `{${el.parameter}}` : el.formula ?? '');
     const color = el.fontColor ?? '#000000';
     const kindLabel = BARCODE_KINDS.find((k) => k.value === el.kind)?.label ?? el.kind;
     // 종류·값을 함께 보여 무엇을 담았는지 알게 한다 (빈 상자만 두면 알 수 없다)
@@ -6316,7 +6316,7 @@ export class SlipDesigner extends LitElement {
         let anchor: { entry: Placed; text: string } | null = null;
         for (let i = 0; i < repeat.perPage; i++) {
           const item = items[i];
-          // 병합 판단은 표시용 placeholder({binding})가 아니라 실제 값으로 한다 — 빈 값이면
+          // 병합 판단은 표시용 placeholder({parameter})가 아니라 실제 값으로 한다 — 빈 값이면
           // 합치지 않는다(PDF expandRepeatBand과 동일, ADR-038/012). 표시 텍스트는 아래 boxes에서 따로 그린다.
           const text = this._gridCellMergeText(cell, item);
           // 빈 값·항목 없음은 합치지 않고 병합을 끊는다 (ADR-038)
@@ -6384,7 +6384,7 @@ export class SlipDesigner extends LitElement {
   /** 반복 구간이 미리보기에 쓸 샘플 항목 목록 — 없으면 빈 배열 */
   private _repeatSampleItems(el: GridElement): Record<string, unknown>[] {
     if (!el.repeat) return [];
-    const sample = this._file?.template.sampleValues?.[el.repeat.binding];
+    const sample = this._file?.template.sampleValues?.[el.repeat.parameter];
     if (!Array.isArray(sample)) return [];
     return sample
       .filter((row) => typeof row === 'object' && row !== null && !Array.isArray(row))
@@ -6394,9 +6394,9 @@ export class SlipDesigner extends LitElement {
   /** 셀에 보일 글 — 직접 입력한 글은 그대로, 파라미터·수식은 샘플 값으로 채우고 없으면 이름을 보여준다 */
   private _gridCellPreviewText(cell: GridCell, item: Record<string, unknown> | undefined): string {
     const values = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
-    if (cell.binding !== undefined) {
-      const value = values[cell.binding];
-      return value === undefined || value === null ? `{${cell.binding}}` : String(value);
+    if (cell.parameter !== undefined) {
+      const value = values[cell.parameter];
+      return value === undefined || value === null ? `{${cell.parameter}}` : String(value);
     }
     if (cell.formula !== undefined) {
       try {
@@ -6416,8 +6416,8 @@ export class SlipDesigner extends LitElement {
    */
   private _gridCellMergeText(cell: GridCell, item: Record<string, unknown> | undefined): string {
     const values = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
-    if (cell.binding !== undefined) {
-      const value = values[cell.binding];
+    if (cell.parameter !== undefined) {
+      const value = values[cell.parameter];
       return value === null || value === undefined ? '' : String(value);
     }
     if (cell.formula !== undefined) {
@@ -6894,8 +6894,8 @@ export class SlipDesigner extends LitElement {
   private _renderPropertyPanel() {
     // 선택 대상은 요소·파라미터·페이지 셋 — 아무것도 고르지 않았으면 양식 설정 (ADR-034, G-46)
     const sel = this._sideSelection;
-    if (sel?.kind === 'binding') return this._renderBindingPanel(sel.key);
-    if (sel?.kind === 'bindingField') return this._renderBindingFieldPanel(sel.key, sel.field);
+    if (sel?.kind === 'parameter') return this._renderParameterPanel(sel.key);
+    if (sel?.kind === 'parameterField') return this._renderParameterFieldPanel(sel.key, sel.field);
     if (sel?.kind === 'page') return this._renderPageSettings();
 
     // 여러 요소를 골랐으면 그룹 패널(묶기/해제)을 보인다 (G-27)
@@ -7014,7 +7014,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 파라미터 패널 — 사이드바에서 파라미터을 골랐을 때 (ADR-034).
+   * 파라미터 패널 — 사이드바에서 파라미터를 골랐을 때 (ADR-034).
    * 물리명·논리명을 고치고, 이 값을 쓰는 요소 목록에서 눌러 그 요소로 이동한다.
    */
   /**
@@ -7025,40 +7025,40 @@ export class SlipDesigner extends LitElement {
    * @param fieldKey - 하위 필드 물리명
    * @returns 하위 필드 편집 조각
    */
-  private _renderBindingFieldPanel(listKey: string, fieldKey: string) {
+  private _renderParameterFieldPanel(listKey: string, fieldKey: string) {
     const s = this._strings.designer;
-    const parent = this._bindingList().find((b) => b.key === listKey);
+    const parent = this._parameterList().find((b) => b.key === listKey);
     const info = parent?.fields.find((f) => f.key === fieldKey);
     if (!parent || !info) return this._renderFormSettings();
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
 
     return html`
-      <div class="type-name">${s.bindingField}</div>
+      <div class="type-name">${s.parameterField}</div>
       <div class="prop-section">
         <div class="prop-row">
-          <label>${s.bindingParent}</label>
-          <button class="usage-row parent-row" @click=${() => this._selectBinding(listKey)}>
+          <label>${s.parameterParent}</label>
+          <button class="usage-row parent-row" @click=${() => this._selectParameter(listKey)}>
             ${valueTypeBadge(parent.valueType)}<span>${parent.label}</span>
           </button>
         </div>
         <div class="prop-row">
-          <label>${s.bindingKey}</label>
-          <input class="binding-key-input" .value=${info.key}
+          <label>${s.parameterKey}</label>
+          <input class="parameter-key-input" .value=${info.key}
             @change=${(e: Event) =>
-              this._renameBindingField(listKey, info.key, valOf(e), e.target as HTMLInputElement)}>
+              this._renameParameterField(listKey, info.key, valOf(e), e.target as HTMLInputElement)}>
         </div>
-        ${this._bindingKeyError
+        ${this._parameterKeyError
           ? html`<div class="cell-hint error">${s.keyInUse}</div>`
           : nothing}
         <div class="prop-row">
-          <label>${s.bindingLabel}</label>
+          <label>${s.parameterLabel}</label>
           <input .value=${info.rawLabel ?? ''} placeholder=${info.key}
-            @change=${(e: Event) => this._updateBindingField(listKey, info.key, { label: valOf(e) })}>
+            @change=${(e: Event) => this._updateParameterField(listKey, info.key, { label: valOf(e) })}>
         </div>
         <div class="prop-row">
-          <label>${s.bindingValueType}</label>
-          <select aria-label=${s.bindingValueType} .value=${live(info.valueType ?? '')}
-            @change=${(e: Event) => this._updateBindingField(listKey, info.key, { valueType: valOf(e) })}>
+          <label>${s.parameterValueType}</label>
+          <select aria-label=${s.parameterValueType} .value=${live(info.valueType ?? '')}
+            @change=${(e: Event) => this._updateParameterField(listKey, info.key, { valueType: valOf(e) })}>
             ${BINDING_FIELD_VALUE_TYPES.map((t) => html`
               <option value=${t.value} ?selected=${(info.valueType ?? '') === t.value}>
                 ${s[t.stringKey]}
@@ -7068,9 +7068,9 @@ export class SlipDesigner extends LitElement {
       </div>
 
       <div class="prop-section">
-        <div class="prop-section-title">${s.bindingUsage}</div>
+        <div class="prop-section-title">${s.parameterUsage}</div>
         ${info.at === undefined
-          ? html`<div class="side-empty">${s.bindingUnused}</div>`
+          ? html`<div class="side-empty">${s.parameterUnused}</div>`
           : html`
             <button class="usage-row"
               @click=${() => this._selectGridCellAt(info.at!)}>
@@ -7093,34 +7093,34 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  private _renderBindingPanel(key: string) {
+  private _renderParameterPanel(key: string) {
     const s = this._strings.designer;
-    const info = this._bindingList().find((b) => b.key === key);
+    const info = this._parameterList().find((b) => b.key === key);
     if (!info) return this._renderFormSettings();
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
 
     return html`
-      <div class="type-name">${s.sidebarBindings}</div>
+      <div class="type-name">${s.sidebarParameters}</div>
 
       <div class="prop-section">
         <div class="prop-row">
-          <label>${s.bindingKey}</label>
-          <input class="binding-key-input" .value=${info.key}
+          <label>${s.parameterKey}</label>
+          <input class="parameter-key-input" .value=${info.key}
             @change=${(e: Event) =>
-              this._renameBindingKey(info.key, valOf(e), e.target as HTMLInputElement)}>
+              this._renameParameterKey(info.key, valOf(e), e.target as HTMLInputElement)}>
         </div>
-        ${this._bindingKeyError
+        ${this._parameterKeyError
           ? html`<div class="cell-hint error">${s.keyInUse}</div>`
           : nothing}
         <div class="prop-row">
-          <label>${s.bindingLabel}</label>
-          <input class="binding-label-input" .value=${info.rawLabel ?? ''} placeholder=${info.key}
-            @change=${(e: Event) => this._commitBindingLabel(info.key, valOf(e))}>
+          <label>${s.parameterLabel}</label>
+          <input class="parameter-label-input" .value=${info.rawLabel ?? ''} placeholder=${info.key}
+            @change=${(e: Event) => this._commitParameterLabel(info.key, valOf(e))}>
         </div>
         <div class="prop-row">
-          <label>${s.bindingValueType}</label>
-          <select aria-label=${s.bindingValueType} .value=${live(info.valueType ?? '')}
-            @change=${(e: Event) => this._setBindingValueType(info.key, valOf(e))}>
+          <label>${s.parameterValueType}</label>
+          <select aria-label=${s.parameterValueType} .value=${live(info.valueType ?? '')}
+            @change=${(e: Event) => this._setParameterValueType(info.key, valOf(e))}>
             ${BINDING_VALUE_TYPES.map((t) => html`
               <option value=${t.value} ?selected=${(info.valueType ?? '') === t.value}>
                 ${s[t.stringKey]}
@@ -7132,24 +7132,24 @@ export class SlipDesigner extends LitElement {
       ${info.valueType === 'list'
         ? html`
           <div class="prop-section">
-            <div class="prop-section-title">${s.bindingFields}</div>
+            <div class="prop-section-title">${s.parameterFields}</div>
             ${info.fields.length === 0
-              ? html`<div class="side-empty">${s.bindingFieldsEmpty}</div>`
+              ? html`<div class="side-empty">${s.parameterFieldsEmpty}</div>`
               : info.fields.map((f) => html`
                   <button class="usage-row field-row" title="${info.key}.${f.key}"
-                    @click=${() => this._selectBindingField(info.key, f)}>
+                    @click=${() => this._selectParameterField(info.key, f)}>
                     ${valueTypeBadge(f.valueType)}<span>${f.title}</span>
                   </button>`)}
-            <button class="prop-add-row" @click=${() => this._addBindingField(info.key)}>
-              ${icons.add}<span>${s.addBindingField}</span>
+            <button class="prop-add-row" @click=${() => this._addParameterField(info.key)}>
+              ${icons.add}<span>${s.addParameterField}</span>
             </button>
           </div>`
         : nothing}
 
       <div class="prop-section">
-        <div class="prop-section-title">${s.bindingUsage}</div>
+        <div class="prop-section-title">${s.parameterUsage}</div>
         ${info.uses.length === 0
-          ? html`<div class="side-empty">${s.bindingUnused}</div>`
+          ? html`<div class="side-empty">${s.parameterUnused}</div>`
           : info.uses.map((u) => html`
               <button class="usage-row" title=${u.name}
                 @click=${() => this._selectFromSidebar(u.pageIndex, u.id)}>
@@ -7170,7 +7170,7 @@ export class SlipDesigner extends LitElement {
    *
    * @param current - 현재 선택된 파라미터 키
    * @param onNew - "새 값 등록"을 골랐을 때
-   * @param onPick - 기존 파라미터을 골랐을 때 (선택한 키)
+   * @param onPick - 기존 파라미터를 골랐을 때 (선택한 키)
    * @returns 파라미터 선택 조각
    */
   /**
@@ -7186,10 +7186,10 @@ export class SlipDesigner extends LitElement {
    * @param inBand - 이 셀이 반복 구간 안인지
    * @returns 값 선택 조각
    */
-  private _gridCellBindingSelect(el: GridElement, current: string, inBand: boolean) {
+  private _gridCellParameterSelect(el: GridElement, current: string, inBand: boolean) {
     const s = this._strings.designer;
-    const all = this._bindingList();
-    const listKey = el.repeat?.binding;
+    const all = this._parameterList();
+    const listKey = el.repeat?.parameter;
     const options = inBand
       ? (all.find((b) => b.key === listKey)?.fields ?? []).map((f) => ({ key: f.key, label: f.title }))
       : all.filter((b) => b.valueType !== 'list').map((b) => ({ key: b.key, label: b.label }));
@@ -7199,58 +7199,58 @@ export class SlipDesigner extends LitElement {
     }
     const canAdd = !inBand || listKey !== undefined;
     return html`
-      <select aria-label=${s.binding} .value=${live(current)}
+      <select aria-label=${s.parameter} .value=${live(current)}
         @change=${(e: Event) => {
           const v = (e.target as HTMLSelectElement).value;
           if (v === NEW_BINDING_OPTION) {
-            if (inBand) { if (listKey) this._addBindingFieldForCell(listKey); }
-            else this._newBindingForCell();
+            if (inBand) { if (listKey) this._addParameterFieldForCell(listKey); }
+            else this._newParameterForCell();
             return;
           }
-          this._setGridCellSource('binding', v);
+          this._setGridCellSource('parameter', v);
         }}>
-        <option value="" ?selected=${current === ''}>${s.bindingUnpicked}</option>
+        <option value="" ?selected=${current === ''}>${s.parameterUnpicked}</option>
         ${options.map((o) => html`
           <option value=${o.key} ?selected=${o.key === current}>${o.label}</option>`)}
         ${canAdd
-          ? html`<option value=${NEW_BINDING_OPTION}>${inBand ? s.addBindingField : s.bindingNew}</option>`
+          ? html`<option value=${NEW_BINDING_OPTION}>${inBand ? s.addParameterField : s.parameterNew}</option>`
           : nothing}
       </select>`;
   }
 
   /** 반복 구간 셀에서 "하위 필드 추가"를 골랐을 때 — 만들고 그 셀에 바로 붙인다 */
-  private _addBindingFieldForCell(listKey: string): void {
-    const before = new Set((this._bindingList().find((b) => b.key === listKey)?.fields ?? []).map((f) => f.key));
+  private _addParameterFieldForCell(listKey: string): void {
+    const before = new Set((this._parameterList().find((b) => b.key === listKey)?.fields ?? []).map((f) => f.key));
     const cell = this._selectedCell;
-    this._addBindingField(listKey);
-    const created = (this._bindingList().find((b) => b.key === listKey)?.fields ?? [])
+    this._addParameterField(listKey);
+    const created = (this._parameterList().find((b) => b.key === listKey)?.fields ?? [])
       .find((f) => !before.has(f.key));
     // 셀에서 시작한 흐름이므로 선택을 셀으로 되돌리고 그 값을 붙인다
     this._sideSelection = null;
     this._selectedCell = cell;
-    if (created) this._setGridCellSource('binding', created.key);
+    if (created) this._setGridCellSource('parameter', created.key);
   }
 
   /** 구간 밖 셀에서 "새 값 등록"을 골랐을 때 — 파라미터를 만들고 그 셀에 붙인다 */
-  private _newBindingForCell(): void {
+  private _newParameterForCell(): void {
     const cell = this._selectedCell;
-    const { key, label } = this._nextBinding();
+    const { key, label } = this._nextParameter();
     this._updateFile((f) => {
-      const defs = f.template.bindings ?? [];
+      const defs = f.template.parameters ?? [];
       defs.push({ key, label });
-      f.template.bindings = defs;
+      f.template.parameters = defs;
     });
     this._selectedCell = cell;
-    this._setGridCellSource('binding', key);
+    this._setGridCellSource('parameter', key);
   }
 
-  private _bindingSelect(current: string, onNew: () => void, onPick: (value: string) => void) {
+  private _parameterSelect(current: string, onNew: () => void, onPick: (value: string) => void) {
     const s = this._strings.designer;
-    const list = this._bindingList();
+    const list = this._parameterList();
     return html`
       <div class="prop-row">
-        <label>${s.binding}</label>
-        <select class="binding-select" aria-label=${s.binding} .value=${live(current)}
+        <label>${s.parameter}</label>
+        <select class="parameter-select" aria-label=${s.parameter} .value=${live(current)}
           @change=${(e: Event) => {
             const value = (e.target as HTMLSelectElement).value;
             if (value === NEW_BINDING_OPTION) onNew();
@@ -7258,56 +7258,56 @@ export class SlipDesigner extends LitElement {
           }}>
           ${list.map((b) => html`
             <option value=${b.key} ?selected=${b.key === current}>${b.label}</option>`)}
-          <option value=${NEW_BINDING_OPTION}>${s.bindingNew}</option>
+          <option value=${NEW_BINDING_OPTION}>${s.parameterNew}</option>
         </select>
       </div>
     `;
   }
 
-  private _renderBindingSelect(current: string) {
-    return this._bindingSelect(
+  private _renderParameterSelect(current: string) {
+    return this._parameterSelect(
       current,
-      () => this._assignNewBinding(),
+      () => this._assignNewParameter(),
       (value) => this._updateElement((el) => {
-        if (el.type === 'field') el.binding = value;
+        if (el.type === 'field') el.parameter = value;
       }),
     );
   }
 
   /** 새 값을 만들어 지금 고른 요소에 붙인다 — 등록과 연결을 한 번에 (ADR-034) */
-  private _assignNewBinding(): void {
+  private _assignNewParameter(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'field') {
       this._rejectInput();
       return;
     }
-    const { key, label } = this._nextBinding();
+    const { key, label } = this._nextParameter();
     const id = el.id;
     this._updateFile((f) => {
-      const defs = f.template.bindings ?? [];
+      const defs = f.template.parameters ?? [];
       defs.push({ key, label });
-      f.template.bindings = defs;
+      f.template.parameters = defs;
       for (const page of f.template.pages) {
         for (const target of page.elements) {
-          if (target.id === id && target.type === 'field') target.binding = key;
+          if (target.id === id && target.type === 'field') target.parameter = key;
         }
       }
     });
   }
 
   /** 아직 쓰지 않는 기본 파라미터 이름 한 쌍(물리명·논리명)을 만든다 */
-  private _nextBinding(): { key: string; label: string } {
-    const used = new Set(this._bindingList().map((b) => b.key));
+  private _nextParameter(): { key: string; label: string } {
+    const used = new Set(this._parameterList().map((b) => b.key));
     let n = 1;
     while (used.has(`value${n}`)) n += 1;
-    return { key: `value${n}`, label: `${this._strings.designer.newBindingName} ${n}` };
+    return { key: `value${n}`, label: `${this._strings.designer.newParameterName} ${n}` };
   }
 
   /**
-   * 이미지 요소를 고정(src) ↔ 변동(binding)으로 바꾼다 (G-47). 스키마가 둘을 배타로
+   * 이미지 요소를 고정(src) ↔ 변동(parameter)으로 바꾼다 (G-47). 스키마가 둘을 배타로
    * 검사하므로 한쪽을 켜면 다른 쪽을 지운다. 변동으로 바꾸면 새 값을 만들어 붙인다.
    *
-   * @param variable - true면 변동(binding), false면 고정(src)
+   * @param variable - true면 변동(parameter), false면 고정(src)
    */
   private _setImageVariable(variable: boolean): void {
     const el = this._findSelectedElement();
@@ -7317,17 +7317,17 @@ export class SlipDesigner extends LitElement {
     }
     const id = el.id;
     if (variable) {
-      if (el.binding !== undefined) return;
-      const { key, label } = this._nextBinding();
+      if (el.parameter !== undefined) return;
+      const { key, label } = this._nextParameter();
       this._updateFile((f) => {
-        const defs = f.template.bindings ?? [];
+        const defs = f.template.parameters ?? [];
         // 변동 이미지 값은 이미지 종류로 등록해 작성폼·샘플 편집이 이미지 입력을 낸다 (valueType)
         defs.push({ key, label, valueType: 'image' });
-        f.template.bindings = defs;
+        f.template.parameters = defs;
         for (const page of f.template.pages) {
           for (const target of page.elements) {
             if (target.id === id && target.type === 'image') {
-              target.binding = key;
+              target.parameter = key;
               delete target.src;
             }
           }
@@ -7338,7 +7338,7 @@ export class SlipDesigner extends LitElement {
         for (const page of f.template.pages) {
           for (const target of page.elements) {
             if (target.id === id && target.type === 'image') {
-              delete target.binding;
+              delete target.parameter;
               target.src = PLACEHOLDER_IMG;
             }
           }
@@ -7348,43 +7348,43 @@ export class SlipDesigner extends LitElement {
   }
 
   /** 변동 이미지의 값 키를 고르는 select — 등록된 값 목록 + 새 값 (G-47) */
-  private _renderImageBindingSelect(current: string) {
-    return this._bindingSelect(
+  private _renderImageParameterSelect(current: string) {
+    return this._parameterSelect(
       current,
-      () => this._assignNewImageBinding(),
+      () => this._assignNewImageParameter(),
       (value) => {
         this._updateFile((f) => {
           for (const page of f.template.pages) {
             for (const target of page.elements) {
               if (target.id === this._selectedId && target.type === 'image') {
-                target.binding = value;
+                target.parameter = value;
                 delete target.src;
               }
             }
           }
         });
-        this._ensureBindingDef(value, 'image');
+        this._ensureParameterDef(value, 'image');
       },
     );
   }
 
   /** 새 값을 만들어 지금 고른 이미지 요소에 변동 값으로 붙인다 (G-47) */
-  private _assignNewImageBinding(): void {
+  private _assignNewImageParameter(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'image') {
       this._rejectInput();
       return;
     }
-    const { key, label } = this._nextBinding();
+    const { key, label } = this._nextParameter();
     const id = el.id;
     this._updateFile((f) => {
-      const defs = f.template.bindings ?? [];
+      const defs = f.template.parameters ?? [];
       defs.push({ key, label, valueType: 'image' });
-      f.template.bindings = defs;
+      f.template.parameters = defs;
       for (const page of f.template.pages) {
         for (const target of page.elements) {
           if (target.id === id && target.type === 'image') {
-            target.binding = key;
+            target.parameter = key;
             delete target.src;
           }
         }
@@ -7398,9 +7398,9 @@ export class SlipDesigner extends LitElement {
    *
    * @param kind - 고를 값 종류
    */
-  private _chooseBarcodeSource(kind: 'content' | 'binding' | 'formula'): void {
-    if (kind === 'binding') {
-      this._assignNewBarcodeBinding();
+  private _chooseBarcodeSource(kind: 'content' | 'parameter' | 'formula'): void {
+    if (kind === 'parameter') {
+      this._assignNewBarcodeParameter();
       return;
     }
     this._updateElement((element) => {
@@ -7427,43 +7427,43 @@ export class SlipDesigner extends LitElement {
   }
 
   /** 바코드 값(파라미터)의 키를 고르는 select — 등록된 값 목록 + 새 값 (G-33) */
-  private _renderBarcodeBindingSelect(current: string) {
-    return this._bindingSelect(
+  private _renderBarcodeParameterSelect(current: string) {
+    return this._parameterSelect(
       current,
-      () => this._assignNewBarcodeBinding(),
+      () => this._assignNewBarcodeParameter(),
       (value) => {
         this._updateElement((element) => {
           if (element.type !== 'barcode') return;
           const r = element as Record<string, unknown>;
           delete r.content;
           delete r.formula;
-          r.binding = value;
+          r.parameter = value;
         });
-        this._ensureBindingDef(value);
+        this._ensureParameterDef(value);
       },
     );
   }
 
   /** 새 값을 만들어 지금 고른 바코드 요소에 값(파라미터)으로 붙인다 (G-33) */
-  private _assignNewBarcodeBinding(): void {
+  private _assignNewBarcodeParameter(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'barcode') {
       this._rejectInput();
       return;
     }
-    const { key, label } = this._nextBinding();
+    const { key, label } = this._nextParameter();
     const id = el.id;
     this._updateFile((f) => {
-      const defs = f.template.bindings ?? [];
+      const defs = f.template.parameters ?? [];
       defs.push({ key, label });
-      f.template.bindings = defs;
+      f.template.parameters = defs;
       for (const page of f.template.pages) {
         for (const target of page.elements) {
           if (target.id === id && target.type === 'barcode') {
             const r = target as Record<string, unknown>;
             delete r.content;
             delete r.formula;
-            r.binding = key;
+            r.parameter = key;
           }
         }
       }
@@ -7593,9 +7593,9 @@ export class SlipDesigner extends LitElement {
         delete r.content;
         delete r.formula;
         r.type = 'field';
-        r.binding = '';
+        r.parameter = '';
       } else {
-        delete r.binding;
+        delete r.parameter;
         delete r.formula;
         r.type = 'text';
         r.content = '';
@@ -7608,7 +7608,7 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
     // 값 소스는 파라미터·수식 중 하나다 — 그리드 셀·바코드와 같은 규칙 (ADR-049)
-    const source: 'binding' | 'formula' = el.formula !== undefined ? 'formula' : 'binding';
+    const source: 'parameter' | 'formula' = el.formula !== undefined ? 'formula' : 'parameter';
     return html`
       <div class="prop-section">
         ${this._renderTextFieldKindRow('field')}
@@ -7616,13 +7616,13 @@ export class SlipDesigner extends LitElement {
           <label>${s.cellSource}</label>
           <select aria-label=${s.cellSource} .value=${live(source)}
             @change=${(e: Event) =>
-              this._setFieldSource((e.target as HTMLSelectElement).value as 'binding' | 'formula')}>
-            <option value="binding" ?selected=${source === 'binding'}>${s.cellSourceBinding}</option>
+              this._setFieldSource((e.target as HTMLSelectElement).value as 'parameter' | 'formula')}>
+            <option value="parameter" ?selected=${source === 'parameter'}>${s.cellSourceParameter}</option>
             <option value="formula" ?selected=${source === 'formula'}>${s.cellSourceFormula}</option>
           </select>
         </div>
-        ${source === 'binding'
-          ? this._renderBindingSelect(el.binding ?? '')
+        ${source === 'parameter'
+          ? this._renderParameterSelect(el.parameter ?? '')
           : html`
             <div class="prop-row">
               <label>${s.formula}</label>
@@ -7647,15 +7647,15 @@ export class SlipDesigner extends LitElement {
    *
    * @param kind - 바꿀 소스
    */
-  private _setFieldSource(kind: 'binding' | 'formula'): void {
+  private _setFieldSource(kind: 'parameter' | 'formula'): void {
     this._updateElement((target) => {
       if (target.type !== 'field') return;
       const r = target as Record<string, unknown>;
-      if (kind === 'binding') {
+      if (kind === 'parameter') {
         delete r.formula;
-        if (r.binding === undefined) r.binding = '';
+        if (r.parameter === undefined) r.parameter = '';
       } else {
-        delete r.binding;
+        delete r.parameter;
         if (r.formula === undefined) r.formula = '';
       }
     });
@@ -7666,8 +7666,8 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
     // 값은 직접 입력·파라미터·수식 중 하나 — 어느 것이 정해졌는지로 종류를 가른다 (SPEC §5.6)
-        const source: 'content' | 'binding' | 'formula' =
-          el.binding !== undefined ? 'binding' : el.formula !== undefined ? 'formula' : 'content';
+        const source: 'content' | 'parameter' | 'formula' =
+          el.parameter !== undefined ? 'parameter' : el.formula !== undefined ? 'formula' : 'content';
         // 편집 중 경고 — 고정 값이 종류 규칙에 어긋날 때만 (파라미터·수식 값은 전표에서 정해진다, G-33)
         const warning = source === 'content' ? this._barcodeContentWarning(el.kind, el.content ?? '') : null;
         return html`
@@ -7689,9 +7689,9 @@ export class SlipDesigner extends LitElement {
               <label>${s.barcodeValue}</label>
               <select aria-label=${s.barcodeValue} .value=${live(source)}
                 @change=${(e: Event) =>
-                  this._chooseBarcodeSource((e.target as HTMLSelectElement).value as 'content' | 'binding' | 'formula')}>
+                  this._chooseBarcodeSource((e.target as HTMLSelectElement).value as 'content' | 'parameter' | 'formula')}>
                 <option value="content" ?selected=${source === 'content'}>${s.cellSourceText}</option>
-                <option value="binding" ?selected=${source === 'binding'}>${s.cellSourceBinding}</option>
+                <option value="parameter" ?selected=${source === 'parameter'}>${s.cellSourceParameter}</option>
                 <option value="formula" ?selected=${source === 'formula'}>${s.cellSourceFormula}</option>
               </select>
             </div>
@@ -7703,8 +7703,8 @@ export class SlipDesigner extends LitElement {
                     @change=${(e: Event) => this._setBarcodeSource('content', valOf(e))}>
                 </div>
                 ${warning ? html`<p class="image-error" role="alert">${warning}</p>` : nothing}`
-              : source === 'binding'
-                ? this._renderBarcodeBindingSelect(el.binding ?? '')
+              : source === 'parameter'
+                ? this._renderBarcodeParameterSelect(el.parameter ?? '')
                 : html`
                   <div class="prop-row">
                     <label>${s.formula}</label>
@@ -7760,9 +7760,9 @@ export class SlipDesigner extends LitElement {
           ? el.cells.find((c) => c.row === cellTarget.row && c.column === cellTarget.column)
           : undefined;
         const repeat = el.repeat;
-        const source: 'content' | 'binding' | 'formula' =
+        const source: 'content' | 'parameter' | 'formula' =
           this._cellSourceKind
-          ?? (cellDef?.binding !== undefined ? 'binding' : cellDef?.formula !== undefined ? 'formula' : 'content');
+          ?? (cellDef?.parameter !== undefined ? 'parameter' : cellDef?.formula !== undefined ? 'formula' : 'content');
         const inBand =
           cellTarget !== null && repeat !== undefined
           && cellTarget.row >= repeat.fromRow && cellTarget.row <= repeat.toRow;
@@ -7810,15 +7810,15 @@ export class SlipDesigner extends LitElement {
             ${repeat
               ? html`
                 <div class="prop-row">
-                  <label>${s.binding}</label>
-                  <select class="binding-select" aria-label="${s.repeatSection} ${s.binding}"
-                    .value=${live(repeat.binding)}
-                    @change=${(e: Event) => this._updateGridRepeat({ binding: (e.target as HTMLSelectElement).value })}>
-                    ${this._bindingList().filter((b) => b.valueType === 'list' || b.key === repeat.binding).map((b) => html`
-                      <option value=${b.key} ?selected=${b.key === repeat.binding}>${b.label}</option>`)}
-                    ${this._bindingList().some((b) => b.key === repeat.binding)
+                  <label>${s.parameter}</label>
+                  <select class="parameter-select" aria-label="${s.repeatSection} ${s.parameter}"
+                    .value=${live(repeat.parameter)}
+                    @change=${(e: Event) => this._updateGridRepeat({ parameter: (e.target as HTMLSelectElement).value })}>
+                    ${this._parameterList().filter((b) => b.valueType === 'list' || b.key === repeat.parameter).map((b) => html`
+                      <option value=${b.key} ?selected=${b.key === repeat.parameter}>${b.label}</option>`)}
+                    ${this._parameterList().some((b) => b.key === repeat.parameter)
                       ? nothing
-                      : html`<option value=${repeat.binding} selected>${repeat.binding}</option>`}
+                      : html`<option value=${repeat.parameter} selected>${repeat.parameter}</option>`}
                   </select>
                 </div>
                 <div class="prop-pair">
@@ -7882,7 +7882,7 @@ export class SlipDesigner extends LitElement {
     el: GridElement,
     cellTarget: { row: number; column: number } | null,
     cellDef: GridCell | undefined,
-    source: 'content' | 'binding' | 'formula',
+    source: 'content' | 'parameter' | 'formula',
     inBand: boolean,
   ) {
     const s = this._strings.designer;
@@ -7898,9 +7898,9 @@ export class SlipDesigner extends LitElement {
                   <label>${s.cellSource}</label>
                   <select aria-label=${s.cellSource} .value=${live(source)}
                     @change=${(e: Event) =>
-                      this._chooseGridCellSource((e.target as HTMLSelectElement).value as 'content' | 'binding' | 'formula')}>
+                      this._chooseGridCellSource((e.target as HTMLSelectElement).value as 'content' | 'parameter' | 'formula')}>
                     <option value="content" ?selected=${source === 'content'}>${s.cellSourceText}</option>
-                    <option value="binding" ?selected=${source === 'binding'}>${s.cellSourceBinding}</option>
+                    <option value="parameter" ?selected=${source === 'parameter'}>${s.cellSourceParameter}</option>
                     <option value="formula" ?selected=${source === 'formula'}>${s.cellSourceFormula}</option>
                   </select>
                 </div>
@@ -7914,11 +7914,11 @@ export class SlipDesigner extends LitElement {
                           this._commitCellContent(valOf(e));
                         }}>
                     </div>`
-                  : source === 'binding'
+                  : source === 'parameter'
                     ? html`
                       <div class="prop-row">
-                        <label>${s.binding}</label>
-                        ${this._gridCellBindingSelect(el, cellDef?.binding ?? '', inBand)}
+                        <label>${s.parameter}</label>
+                        ${this._gridCellParameterSelect(el, cellDef?.parameter ?? '', inBand)}
                       </div>`
                     : html`
                       <div class="prop-row">
@@ -8042,12 +8042,12 @@ export class SlipDesigner extends LitElement {
       : html`<div class="prop-section"><div class="cell-hint">${s.cellHint}</div></div>`;
   }
 
-  /** 이미지 요소의 고정·변동(src·binding) 편집 */
+  /** 이미지 요소의 고정·변동(src·parameter) 편집 */
   private _renderImageProps(el: ImageElement) {
     const s = this._strings.designer;
-    // 이미지 요소는 고정(src)과 변동(binding) 중 하나다 — 전표마다 다른 이미지를
+    // 이미지 요소는 고정(src)과 변동(parameter) 중 하나다 — 전표마다 다른 이미지를
     // 넣으려면 변동으로 두고 값 키를 고른다 (G-47, 스키마는 둘을 배타로 검사한다)
-    const variable = el.binding !== undefined;
+    const variable = el.parameter !== undefined;
         // 경로 문자열은 base64라 사람이 읽을 수 없다 — 지금 이미지를 그대로 보여준다 (G-36)
         const chosen = el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
         return html`
@@ -8062,7 +8062,7 @@ export class SlipDesigner extends LitElement {
               </div>
             </div>
             ${variable
-              ? this._renderImageBindingSelect(el.binding ?? '')
+              ? this._renderImageParameterSelect(el.parameter ?? '')
               : html`
                 ${chosen
                   ? html`<div class="image-current"><img src=${el.src} alt=""></div>`
@@ -8644,13 +8644,13 @@ export class SlipDesigner extends LitElement {
 
   /** 양식 전체의 파라미터 목록 (정의부 + 요소 사용처, 중복 없이) — 수식 모달의 클릭 삽입용 */
   /**
-   * 파라미터 키·논리명 목록 — {@link _bindingList}에서 뽑아 쓴다(순회 규칙을 두 곳에
+   * 파라미터 키·논리명 목록 — {@link _parameterList}에서 뽑아 쓴다(순회 규칙을 두 곳에
    * 복제하지 않도록). 수식 모달 등 키·라벨만 필요한 곳에서 쓴다.
    *
    * @returns 파라미터 키와 논리명 목록
    */
-  private _collectBindings(): { key: string; label: string }[] {
-    return this._bindingList().map((b) => ({ key: b.key, label: b.label }));
+  private _collectParameters(): { key: string; label: string }[] {
+    return this._parameterList().map((b) => ({ key: b.key, label: b.label }));
   }
 
   /** 바이트 수를 사람이 읽는 크기로 (오류 문구용) */
@@ -8729,19 +8729,19 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 변동 이미지 값 키 목록 — 이미지 요소가 `binding`으로 쓰는 키와 값 종류가 이미지인
+   * 변동 이미지 값 키 목록 — 이미지 요소가 `parameter`로 쓰는 키와 값 종류가 이미지인
    * 정의부 키를 모은다 (G-47). 작성폼·샘플 편집이 이 키에는 이미지 입력을 낸다.
    */
-  private _imageBindingKeys(): Set<string> {
+  private _imageParameterKeys(): Set<string> {
     const file = this._file;
     const keys = new Set<string>();
     if (!file) return keys;
-    for (const def of file.template.bindings ?? []) {
+    for (const def of file.template.parameters ?? []) {
       if (def.valueType === 'image') keys.add(def.key);
     }
     for (const page of file.template.pages) {
       for (const el of page.elements) {
-        if (el.type === 'image' && el.binding !== undefined) keys.add(el.binding);
+        if (el.type === 'image' && el.parameter !== undefined) keys.add(el.parameter);
       }
     }
     return keys;
@@ -8828,7 +8828,7 @@ export class SlipDesigner extends LitElement {
     const match = /([A-Za-z0-9_가-힣]+)\.([A-Za-z0-9_가-힣]*)$/.exec(before);
     if (!match) return null;
 
-    const target = this._bindingList().find((b) => b.key === match[1] && b.fields.length > 0);
+    const target = this._parameterList().find((b) => b.key === match[1] && b.fields.length > 0);
     if (!target) return null;
     const typed = match[2] ?? '';
     const columns = target.fields
@@ -8847,7 +8847,7 @@ export class SlipDesigner extends LitElement {
       <div class="formula-suggest" role="group" aria-label=${s.formulaColumnSuggest}>
         <span class="formula-suggest-label">${s.formulaColumnSuggest}</span>
         ${suggestion.columns.map((col) => html`
-          <button class="binding-chip column" title=${col.key}
+          <button class="parameter-chip column" title=${col.key}
             @click=${() => this._insertFormulaText(col.key.slice(suggestion.typedLength))}
             >${col.title ? `${col.title} · ${col.key}` : col.key}</button>`)}
       </div>
@@ -8885,8 +8885,8 @@ export class SlipDesigner extends LitElement {
         syntaxError = error instanceof Error ? error.message : String(error);
       }
     }
-    // 표 파라미터은 하위 열까지 보여줘야 하므로 사이드바와 같은 목록을 쓴다 (F-21)
-    const bindings = this._bindingList();
+    // 표 파라미터는 하위 열까지 보여줘야 하므로 사이드바와 같은 목록을 쓴다 (F-21)
+    const parameters = this._parameterList();
 
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${() => this._closeFormulaModal()}></div>
@@ -8924,17 +8924,17 @@ export class SlipDesigner extends LitElement {
           </div>
           ${this._renderColumnSuggestions()}
           <div class="formula-hint">${s.formulaQuoteHint}</div>
-          ${bindings.length > 0
+          ${parameters.length > 0
             ? html`
-                <div class="modal-section-title">${s.formulaBindings}</div>
-                <div class="binding-chips">
-                  ${bindings.map((b) => html`
-                    <button class="binding-chip" title="${b.key}${b.valueType ? ` (${b.valueType})` : ''}"
+                <div class="modal-section-title">${s.formulaParameters}</div>
+                <div class="parameter-chips">
+                  ${parameters.map((b) => html`
+                    <button class="parameter-chip" title="${b.key}${b.valueType ? ` (${b.valueType})` : ''}"
                       @click=${() => this._insertFormulaText(b.key)}>${b.label}${
                         b.valueType ? html`<span class="chip-type">${b.valueType}</span>` : nothing
                       }</button>
                     ${b.fields.map((field) => html`
-                      <button class="binding-chip column" title="${b.key}.${field.key}"
+                      <button class="parameter-chip column" title="${b.key}.${field.key}"
                         @click=${() => this._insertFormulaText(`${b.key}.${field.key}`)}
                         >${field.title}</button>`)}`)}
                 </div>`
@@ -9047,25 +9047,25 @@ export class SlipDesigner extends LitElement {
     const tableOf = new Map<string, { key: string; title: string }[]>();
     for (const page of template.pages) {
       for (const el of page.elements) {
-        if (el.type !== 'grid' || !el.repeat || tableOf.has(el.repeat.binding)) continue;
+        if (el.type !== 'grid' || !el.repeat || tableOf.has(el.repeat.parameter)) continue;
         const { fromRow, toRow } = el.repeat;
         const fields: { key: string; title: string }[] = [];
         for (const cell of el.cells) {
-          if (cell.row >= fromRow && cell.row <= toRow && cell.binding !== undefined
-            && !fields.some((f) => f.key === cell.binding)) {
-            fields.push({ key: cell.binding, title: cell.binding });
+          if (cell.row >= fromRow && cell.row <= toRow && cell.parameter !== undefined
+            && !fields.some((f) => f.key === cell.parameter)) {
+            fields.push({ key: cell.parameter, title: cell.parameter });
           }
         }
-        if (fields.length > 0) tableOf.set(el.repeat.binding, fields);
+        if (fields.length > 0) tableOf.set(el.repeat.parameter, fields);
       }
     }
-    const bindings = this._collectBindings();
+    const parameters = this._collectParameters();
     // 변동 이미지 값은 텍스트가 아니라 이미지 업로드로 받는다 (G-47)
-    const imageKeys = this._imageBindingKeys();
-    // 파라미터이 많으면 10개 단위 페이지로 나눠 스크롤을 짧게 유지한다
-    const pageCount = Math.max(1, Math.ceil(bindings.length / SAMPLE_PAGE_SIZE));
+    const imageKeys = this._imageParameterKeys();
+    // 파라미터가 많으면 10개 단위 페이지로 나눠 스크롤을 짧게 유지한다
+    const pageCount = Math.max(1, Math.ceil(parameters.length / SAMPLE_PAGE_SIZE));
     const pageIndex = Math.min(this._samplePage, pageCount - 1);
-    const visible = bindings.slice(
+    const visible = parameters.slice(
       pageIndex * SAMPLE_PAGE_SIZE,
       (pageIndex + 1) * SAMPLE_PAGE_SIZE,
     );
@@ -9132,7 +9132,7 @@ export class SlipDesigner extends LitElement {
                 </div>`
             : html`
                 <div class="cell-hint">${s.sampleHint}</div>
-                ${bindings.length === 0 ? html`<div class="side-empty">—</div>` : nothing}
+                ${parameters.length === 0 ? html`<div class="side-empty">—</div>` : nothing}
                 ${pageCount > 1
                   ? html`
                       <div class="sample-pager">

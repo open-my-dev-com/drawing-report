@@ -88,7 +88,7 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 | `grid.cells` 수 | 100,000 |
 | `grid.repeat.perPage` | 1,000 |
 | `grid.repeat.maxItems` | 100,000 |
-| `bindings` 길이 | 500 |
+| `parameters` 길이 | 500 |
 | 줄간격 배수 | 10 |
 | 자간 절대값 | 100pt |
 | `field.formula` 길이 | 10,000자 |
@@ -117,7 +117,7 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 | `paper` | ✅ | 용지 크기(mm)와 여백. `padding`은 `[top, right, bottom, left]`. 여백 합은 용지보다 작아야 한다 |
 | `pages` | ✅ | 1개 이상의 페이지. 각 페이지는 `elements` 배열 (ADR-011: 페이지는 1급 개념). 페이지는 `key`(물리명, 문서 내 유일)·`label`(논리명)·`pageNumber`를 가질 수 있다 — 전부 선택 |
 | `assets` | ✅ | 내장 리소스 목록 (빈 배열 가능). `id`는 문서 내 유일 필수 |
-| `bindings` | — | 파라미터 정의부 (ADR-032/047): `{ key, label?, valueType?, fields? }` 배열. **물리명 `key`**는 파일·수식·백엔드 연동에, **논리명 `label`**은 화면 표시에 쓴다. `key`는 목록 안에서 유일. 정의부는 보조 정보이며 요소가 미등록 키를 쓰는 것도 허용된다. **값 종류 `valueType`**(`text`\|`number`\|`date`\|`boolean`\|`image`\|`list`, 선택)은 작성폼 입력 방식과 쓸 수 있는 함수를 가리는 데 쓰며 생략하면 글자로 다룬다. **하위 필드 `fields`**(선택)는 `valueType: 'list'`일 때만 둘 수 있고 항목 하나가 가진 값을 `{ key, label?, valueType? }`로 선언한다 — 항목은 평평한 객체라 하위 필드는 다시 하위를 갖지 않는다(ADR-038). `fields`의 `key`도 그 목록 안에서 유일해야 한다 |
+| `parameters` | — | 파라미터 정의부 (ADR-032/047): `{ key, label?, valueType?, fields? }` 배열. **물리명 `key`**는 파일·수식·백엔드 연동에, **논리명 `label`**은 화면 표시에 쓴다. `key`는 목록 안에서 유일. 정의부는 보조 정보이며 요소가 미등록 키를 쓰는 것도 허용된다. **값 종류 `valueType`**(`text`\|`number`\|`date`\|`boolean`\|`image`\|`list`, 선택)은 작성폼 입력 방식과 쓸 수 있는 함수를 가리는 데 쓰며 생략하면 글자로 다룬다. **하위 필드 `fields`**(선택)는 `valueType: 'list'`일 때만 둘 수 있고 항목 하나가 가진 값을 `{ key, label?, valueType? }`로 선언한다 — 항목은 평평한 객체라 하위 필드는 다시 하위를 갖지 않는다(ADR-038). `fields`의 `key`도 그 목록 안에서 유일해야 한다 |
 | `sampleValues` | — | 미리보기용 샘플 값 (ADR-032): 파라미터 물리명 → JSON 값. 발행·무결성 계산과 무관하며 전표 생성 시 복사하지 않는다 |
 
 요소 `id`는 **문서 전체에서 유일**해야 한다(페이지가 달라도 중복 금지).
@@ -176,10 +176,10 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 
 ### 5.2 `image` — 이미지
 
-`src`(§3.1의 3형식) 또는 `binding` 중 **하나**를 갖는다. 색 스타일 필드는 없다.
+`src`(§3.1의 3형식) 또는 `parameter` 중 **하나**를 갖는다. 색 스타일 필드는 없다.
 
 - `src` — 양식에 박히는 **고정 이미지**.
-- `binding` — 전표 값에서 읽는 **변동 이미지**(서명·도장·상품 사진). 값은 **`data:` base64만**
+- `parameter` — 전표 값에서 읽는 **변동 이미지**(서명·도장·상품 사진). 값은 **`data:` base64만**
   받는다 (ADR-036) — 전표 `values`는 JSON이라 바이너리를 담지 못하고, 이 라이브러리는 네트워크를
   쓰지 않아 주소를 받아올 수 없다 (ADR-002). 값이 비면 그 자리는 빈 채로 둔다.
 
@@ -208,12 +208,12 @@ PDF 렌더 시 외부 URL 참조는 거부된다 — 렌더하려면 `data:` 또
 
 전표 작성 시 값이 채워지는 자리.
 
-값 소스는 **`binding`과 `formula` 중 정확히 하나**다 (ADR-049) — 그리드 셀·바코드와 같은 규칙이다.
+값 소스는 **`parameter`와 `formula` 중 정확히 하나**다 (ADR-049) — 그리드 셀·바코드와 같은 규칙이다.
 둘을 함께 두면 거부한다.
 
 | 필드 | 필수 | 내용 |
 |---|---|---|
-| `binding` | 둘 중 하나 | 전표 `values`의 키 — 사람이 채우는 값 |
+| `parameter` | 둘 중 하나 | 전표 `values`의 키 — 사람이 채우는 값 |
 | `formula` | 둘 중 하나 | 표시 값을 계산하는 수식 (ADR-010/017). 예: `FORMAT_NUMBER(SUM(items.금액))`. 빈 문자열이면 빈 글로 그린다 |
 
 수식 문법·함수 목록(32종)은 ADR-017·044를 따르며 별도 문서로 상세화한다.
@@ -254,12 +254,12 @@ height = 위쪽 행 높이 + perPage x 반복 구간 높이 + 아래쪽 행 높�
 | `row` / `column` | ✅ | 0-기반 좌표 |
 | `rowSpan` / `colSpan` | — | 병합 범위 (기본 1) |
 | `content` | — | 직접 입력한 글 |
-| `binding` | — | 값 키. 반복 구간 안이면 **그 항목의 필드**, 밖이면 전표 `values`의 키 |
+| `parameter` | — | 값 키. 반복 구간 안이면 **그 항목의 필드**, 밖이면 전표 `values`의 키 |
 | `formula` | — | 표시 전 가공 수식 (ADR-010/017) |
 | `overflow` | — | 요소 값을 덮어쓴다 |
 | 색·글꼴 | — | §5의 색 스타일·글꼴 필드. 셀에 없으면 요소 값을 물려받는다 |
 
-`content`·`binding`·`formula`는 **함께 쓸 수 없다** — 하나만 지정한다. 셋 다 없으면 빈 셀이다.
+`content`·`parameter`·`formula`는 **함께 쓸 수 없다** — 하나만 지정한다. 셋 다 없으면 빈 셀이다.
 셀(병합 범위 포함)은 그리드를 벗어나거나 서로 겹치면 안 된다.
 
 **셀별 테두리 렌더 규칙** (ADR-033): 셀의 `borderColor`·`borderWidth`·`borderStyle`은
@@ -287,7 +287,7 @@ height = 위쪽 행 높이 + perPage x 반복 구간 높이 + 아래쪽 행 높�
 
 | 필드 | 필수 | 내용 |
 |---|---|---|
-| `binding` | ✅ | 전표 `values`에서 항목 배열(객체 배열)을 담는 키 |
+| `parameter` | ✅ | 전표 `values`에서 항목 배열(객체 배열)을 담는 키 |
 | `fromRow` / `toRow` | ✅ | 반복할 행 범위(0-기반, 양끝 포함). `fromRow` ≤ `toRow` |
 | `perPage` | ✅ | 한 페이지에 담는 **항목 수**(1 이상). 행 수가 아니다 |
 | `repeatHeader` | ✅ | 이어지는 페이지에 반복 구간 **위쪽 행**을 다시 그릴지 |
@@ -322,7 +322,7 @@ height = 위쪽 행 높이 + perPage x 반복 구간 높이 + 아래쪽 행 높�
 | 필드 | 필수 | 내용 |
 |---|---|---|
 | `kind` | ✅ | 바코드 종류(아래 12종) |
-| `content` / `binding` / `formula` | ✅ | 값 — **셋 중 하나만** 갖는다. 직접 입력한 글 / 전표 `values`의 키 / 표시 전 가공 수식 |
+| `content` / `parameter` / `formula` | ✅ | 값 — **셋 중 하나만** 갖는다. 직접 입력한 글 / 전표 `values`의 키 / 표시 전 가공 수식 |
 | `fontColor` | — | 막대·점 색 (생략하면 검정) |
 | `backgroundColor` | — | 바탕색 (생략하면 없음) |
 
@@ -354,7 +354,7 @@ height = 위쪽 행 높이 + perPage x 반복 구간 높이 + 아래쪽 행 높�
 | 필드 | 필수 | 내용 |
 |---|---|---|
 | `templateSnapshot` | ✅ | **생성 시점 양식 전체의 복사본** (ADR-008). 이후 원본 양식이 바뀌어도 전표는 불변 |
-| `values` | ✅ | 파라미터 키 → 값(JSON 값). `grid.repeat.binding` 키에는 객체 배열을 담는다 |
+| `values` | ✅ | 파라미터 키 → 값(JSON 값). `grid.repeat.parameter` 키에는 객체 배열을 담는다 |
 | `issued` | ✅ | 발행(확정) 여부 |
 | `integrity` | 발행 시 ✅ | §8 무결성 정보 |
 

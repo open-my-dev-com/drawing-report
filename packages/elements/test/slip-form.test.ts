@@ -39,7 +39,7 @@ function makeTemplate(withExternalImage = false): SlipTemplateFile {
   const elements: SlipTemplateFile['template']['pages'][number]['elements'] = [
     {
       type: 'field', id: 'f-date', name: '날짜 필드',
-      position: { x: 15, y: 20 }, width: 60, height: 8, binding: 'tradeDate',
+      position: { x: 15, y: 20 }, width: 60, height: 8, parameter: 'tradeDate',
     },
     {
       type: 'grid', id: 't-items', name: '품목 표',
@@ -49,10 +49,10 @@ function makeTemplate(withExternalImage = false): SlipTemplateFile {
       cells: [
         { row: 0, column: 0, content: '품명' },
         { row: 0, column: 1, content: '금액' },
-        { row: 1, column: 0, binding: 'itemName' },
-        { row: 1, column: 1, binding: 'amount' },
+        { row: 1, column: 0, parameter: 'itemName' },
+        { row: 1, column: 1, parameter: 'amount' },
       ],
-      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 4, repeatHeader: true },
+      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 4, repeatHeader: true },
     },
     {
       type: 'field', id: 'f-total', name: '합계 필드',
@@ -75,7 +75,7 @@ function makeTemplate(withExternalImage = false): SlipTemplateFile {
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
       pages: [{ elements }],
       assets: [],
-      bindings: [
+      parameters: [
         { key: 'tradeDate', label: '거래일자' },
         { key: 'items', label: '품목' },
         { key: 'totalAmount', label: '합계금액' },
@@ -364,11 +364,11 @@ function makeImageTemplate(): SlipTemplateFile {
       pages: [{
         elements: [{
           type: 'image', id: 'img-stamp', name: '도장',
-          position: { x: 150, y: 15 }, width: 30, height: 30, binding: 'stamp',
+          position: { x: 150, y: 15 }, width: 30, height: 30, parameter: 'stamp',
         }],
       }],
       assets: [],
-      bindings: [{ key: 'stamp', label: '도장 이미지', valueType: 'image' }],
+      parameters: [{ key: 'stamp', label: '도장 이미지', valueType: 'image' }],
     },
   };
 }

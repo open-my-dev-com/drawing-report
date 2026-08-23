@@ -31,7 +31,7 @@ Template body (`template`):
 | `paper` | `PaperSize` | Paper size and margins (unit: mm) |
 | `pages` | `SlipPage[]` | Page array (at least 1) |
 | `assets` | `AssetEntry[]` | Embedded resources (images, etc.) |
-| `bindings?` | `BindingDef[]` | Parameter definitions — physical key (`key`), display label (`label`), value type (`valueType`), and item fields (`fields`, list only) |
+| `parameters?` | `ParameterDef[]` | Parameter definitions — physical key (`key`), display label (`label`), value type (`valueType`), and item fields (`fields`, list only) |
 | `sampleValues?` | `Record<string, JsonValue>` | Sample values for preview (not included in issued vouchers) |
 
 ### Voucher

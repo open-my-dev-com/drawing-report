@@ -479,8 +479,8 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
       width: 40, height: 24,
       rows: [{ height: 8 }],
       columns: [{ width: 40, autoMerge: true }],
-      repeat: { binding: 'items', fromRow: 0, toRow: 0, perPage: 3, repeatHeader: false },
-      cells: [{ row: 0, column: 0, binding: 'g' }],
+      repeat: { parameter: 'items', fromRow: 0, toRow: 0, perPage: 3, repeatHeader: false },
+      cells: [{ row: 0, column: 0, parameter: 'g' }],
     }] as never;
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await createElement();
@@ -507,8 +507,8 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
       width: 40, height: 24,
       rows: [{ height: 8 }],
       columns: [{ width: 40, autoMerge: true }],
-      repeat: { binding: 'items', fromRow: 0, toRow: 0, perPage: 3, repeatHeader: false },
-      cells: [{ row: 0, column: 0, binding: 'g' }],
+      repeat: { parameter: 'items', fromRow: 0, toRow: 0, perPage: 3, repeatHeader: false },
+      cells: [{ row: 0, column: 0, parameter: 'g' }],
     }] as never;
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await createElement();
@@ -530,10 +530,10 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
       width: 90, height: 8 * 4,
       rows: [{ height: 8 }, { height: 8 }],
       columns: [{ width: 54 }, { width: 36 }],
-      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 3, repeatHeader: true },
+      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 3, repeatHeader: true },
       cells: [
         { row: 0, column: 0, content: '품명', backgroundColor: '#ffee00' },
-        { row: 1, column: 0, binding: 'itemName' },
+        { row: 1, column: 0, parameter: 'itemName' },
       ],
     }]);
     const headCell = Array.from(el.shadowRoot!.querySelectorAll('.grid-preview > div'))
@@ -1194,15 +1194,15 @@ describe('<slip-designer> 사이드바', () => {
       elements: [
         {
           type: 'field' as const, id: 'fld-1', name: 'f1', position: { x: 10, y: 10 },
-          width: 60, height: 10, binding: '합계금액',
+          width: 60, height: 10, parameter: '합계금액',
         } as never,
         {
           type: 'grid' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
           width: 180, height: 8 * 3,
           rows: [{ height: 8 }, { height: 8 }],
           columns: [{ width: 180 }],
-          repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
-          cells: [{ row: 1, column: 0, binding: 'a' }],
+          repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+          cells: [{ row: 1, column: 0, parameter: 'a' }],
         } as never,
       ],
     });
@@ -1244,9 +1244,9 @@ describe('<slip-designer> 사이드바', () => {
     const el = await loadDesigner();
 
     // 값을 고르면 열린다
-    const bindingRow = Array.from(sideSection(el, strings.designer.sidebarBindings)
+    const parameterRow = Array.from(sideSection(el, strings.designer.sidebarParameters)
       .querySelectorAll('.side-row')).find((r) => r.textContent?.trim() === 'items') as HTMLElement;
-    bindingRow.click();
+    parameterRow.click();
     await el.updateComplete;
     expect(el.shadowRoot!.querySelectorAll('.side-col-row').length).toBe(1);
 
@@ -1267,28 +1267,28 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  it('파라미터 목록은 양식 전체의 field·그리드 파라미터을 모으고, 반복 구간 필드는 하위 줄로 보여준다', async () => {
+  it('파라미터 목록은 양식 전체의 field·그리드 파라미터를 모으고, 반복 구간 필드는 하위 줄로 보여준다', async () => {
     const file = makeTemplateFile();
     file.template.pages.push({
       elements: [
         {
           type: 'field' as const, id: 'fld-1', name: 'f1', position: { x: 10, y: 10 },
-          width: 60, height: 10, binding: '합계금액',
+          width: 60, height: 10, parameter: '합계금액',
         } as never,
         {
           type: 'grid' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
           width: 180, height: 8 * 3,
           rows: [{ height: 8 }, { height: 8 }],
           columns: [{ width: 180 }],
-          repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
-          cells: [{ row: 1, column: 0, binding: 'a' }],
+          repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+          cells: [{ row: 1, column: 0, parameter: 'a' }],
         } as never,
       ],
     });
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await loadDesigner();
 
-    const section = sideSection(el, strings.designer.sidebarBindings);
+    const section = sideSection(el, strings.designer.sidebarParameters);
     const rows = section.querySelectorAll('.side-row');
     // 반복 구간이 쓰는 값은 열 때 정의부에 목록으로 등록되므로 정의부 항목이 앞에 온다 (ADR-047)
     expect(Array.from(rows).map((r) => r.textContent?.trim())).toEqual(['items', '합계금액']);
@@ -1296,16 +1296,16 @@ describe('<slip-designer> 사이드바', () => {
     // 기본은 접힘이라 펼침 표시를 눌러야 보인다 (G-25)
     twisty(el, 'items')!.click();
     await el.updateComplete;
-    expect(Array.from(sideSection(el, strings.designer.sidebarBindings)
+    expect(Array.from(sideSection(el, strings.designer.sidebarParameters)
       .querySelectorAll('.side-col-row')).map((r) => r.textContent?.trim()))
       .toEqual(['a']);
 
-    // 파라미터을 고르면 오른쪽 패널이 파라미터 편집으로 바뀌고, "쓰는 곳"에서 요소로 이동한다
+    // 파라미터를 고르면 오른쪽 패널이 파라미터 편집으로 바뀌고, "쓰는 곳"에서 요소로 이동한다
     // (rows[0]은 목록 파라미터 items — 값 하나짜리 합계금액으로 확인한다)
     (rows[1] as HTMLElement).click();
     await el.updateComplete;
     expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
-      .toBe(strings.designer.sidebarBindings);
+      .toBe(strings.designer.sidebarParameters);
 
     (el.shadowRoot?.querySelector('.usage-row') as HTMLElement).click();
     await el.updateComplete;
@@ -1317,7 +1317,7 @@ describe('<slip-designer> 사이드바', () => {
 
   it('샘플 값이 없어도 선언된 종류로 수식의 타입 어긋남이 드러난다 (ADR-044/047)', async () => {
     const file = makeTemplateFile();
-    file.template.bindings = [{ key: 'memo', valueType: 'text' }];
+    file.template.parameters = [{ key: 'memo', valueType: 'text' }];
     file.template.pages[0]!.elements = [{
       type: 'field' as const, id: 'f-1', name: 'f', position: { x: 10, y: 10 },
       width: 40, height: 8, formula: '',
@@ -1343,22 +1343,22 @@ describe('<slip-designer> 사이드바', () => {
   it('반복 구간이 쓰는 파라미터는 열 때 목록으로 선언되고 하위 필드가 채워진다 (ADR-047)', async () => {
     const file = makeTemplateFile();
     // 정의부에 종류가 없는 상태 — 옛 프리셋이 그랬다
-    file.template.bindings = [{ key: 'items', label: '품목' }];
+    file.template.parameters = [{ key: 'items', label: '품목' }];
     file.template.pages[0]!.elements = [{
       type: 'grid' as const, id: 'g-1', name: 'g', position: { x: 10, y: 10 },
       width: 60, height: 20,
       rows: [{ height: 10 }, { height: 10 }],
       columns: [{ width: 60 }],
-      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 1, repeatHeader: true },
+      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 1, repeatHeader: true },
       cells: [
         { row: 0, column: 0, content: '품명' },
-        { row: 1, column: 0, binding: 'itemName' },
+        { row: 1, column: 0, parameter: 'itemName' },
       ],
     } as never];
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await loadDesigner();
 
-    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.bindings!;
+    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.parameters!;
     const items = defs.find((b) => b.key === 'items')!;
     // 반복 구간이 있다는 것은 그 값이 목록이라는 뜻이다
     expect(items.valueType).toBe('list');
@@ -1369,7 +1369,7 @@ describe('<slip-designer> 사이드바', () => {
 
   it('샘플 JSON은 저장된 행에 없는 하위 필드도 키로 보여준다 (입력폼 탭과 어긋나지 않게)', async () => {
     const file = makeTemplateFile();
-    file.template.bindings = [{
+    file.template.parameters = [{
       key: 'items', valueType: 'list',
       fields: [{ key: 'name' }, { key: 'amount', valueType: 'number' }],
     }];
@@ -1386,56 +1386,56 @@ describe('<slip-designer> 사이드바', () => {
 
   it('파라미터에 값 종류를 지정할 수 있고, 목록이면 하위 필드를 그리드 없이 만들 수 있다 (ADR-047)', async () => {
     const file = makeTemplateFile();
-    file.template.bindings = [{ key: 'rows', label: '품목' }];
+    file.template.parameters = [{ key: 'rows', label: '품목' }];
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await loadDesigner();
 
     // 파라미터를 고르면 값 종류를 지정할 수 있다
-    const row = Array.from(sideSection(el, strings.designer.sidebarBindings).querySelectorAll('.side-row'))
+    const row = Array.from(sideSection(el, strings.designer.sidebarParameters).querySelectorAll('.side-row'))
       .find((r) => r.textContent?.includes('품목')) as HTMLElement;
     row.click();
     await el.updateComplete;
 
     const typeRow = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
-      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.bindingValueType);
+      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.parameterValueType);
     const select = typeRow!.querySelector('select') as HTMLSelectElement;
     select.value = 'list';
     select.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
 
-    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.bindings!;
+    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.parameters!;
     expect(defs[0]!.valueType).toBe('list');
 
     // 그리드를 만들지 않고도 하위 필드를 더할 수 있다 (그리드 종속 구조 해소)
     (el.shadowRoot!.querySelector('.prop-add-row') as HTMLElement).click();
     await el.updateComplete;
-    const after = (el as unknown as { _file: SlipTemplateFile })._file.template.bindings!;
+    const after = (el as unknown as { _file: SlipTemplateFile })._file.template.parameters!;
     expect(after[0]!.fields?.map((f) => f.key)).toEqual(['field1']);
     // 만든 필드가 곧바로 편집 대상이 된다
     expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
-      .toBe(strings.designer.bindingField);
+      .toBe(strings.designer.parameterField);
     el.remove();
   });
 
   it('목록이 아닌 종류로 바꾸면 하위 필드가 함께 정리된다 (스키마가 거부하는 조합을 남기지 않는다)', async () => {
     const file = makeTemplateFile();
-    file.template.bindings = [{ key: 'rows', valueType: 'list', fields: [{ key: 'amount' }] }];
+    file.template.parameters = [{ key: 'rows', valueType: 'list', fields: [{ key: 'amount' }] }];
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await loadDesigner();
 
-    const row = Array.from(sideSection(el, strings.designer.sidebarBindings).querySelectorAll('.side-row'))
+    const row = Array.from(sideSection(el, strings.designer.sidebarParameters).querySelectorAll('.side-row'))
       .find((r) => r.textContent?.includes('rows')) as HTMLElement;
     row.click();
     await el.updateComplete;
 
     const typeRow = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
-      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.bindingValueType);
+      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.parameterValueType);
     const select = typeRow!.querySelector('select') as HTMLSelectElement;
     select.value = 'number';
     select.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
 
-    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.bindings!;
+    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.parameters!;
     expect(defs[0]!.valueType).toBe('number');
     expect(defs[0]!.fields).toBeUndefined();
     el.remove();
@@ -1450,11 +1450,11 @@ describe('<slip-designer> 사이드바', () => {
           width: 180, height: 8 * 3,
           rows: [{ height: 8 }, { height: 8 }],
           columns: [{ width: 108 }, { width: 72 }],
-          repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+          repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
           cells: [
             { row: 0, column: 0, content: '품명' },
-            { row: 1, column: 0, binding: 'name' },
-            { row: 1, column: 1, binding: 'amount' },
+            { row: 1, column: 0, parameter: 'name' },
+            { row: 1, column: 1, parameter: 'amount' },
           ],
         } as never,
       ],
@@ -1465,7 +1465,7 @@ describe('<slip-designer> 사이드바', () => {
     // 하위 줄 이름은 반복 구간 위쪽 같은 열의 직접 입력한 글, 없으면 물리명이다 (펼쳐야 보인다)
     twisty(el, 'items')!.click();
     await el.updateComplete;
-    const cols = sideSection(el, strings.designer.sidebarBindings).querySelectorAll('.side-col-row');
+    const cols = sideSection(el, strings.designer.sidebarParameters).querySelectorAll('.side-col-row');
     expect(Array.from(cols).map((c) => c.textContent?.trim())).toEqual(['품명', 'amount']);
 
     (cols[1] as HTMLElement).click();
@@ -1479,9 +1479,9 @@ describe('<slip-designer> 사이드바', () => {
 
     // 오른쪽 패널이 그 하위 필드 편집으로 바뀐다
     expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
-      .toBe(strings.designer.bindingField);
+      .toBe(strings.designer.parameterField);
     const keyRow = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
-      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.bindingKey);
+      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.parameterKey);
     expect((keyRow?.querySelector('input') as HTMLInputElement).value).toBe('amount');
 
     // 「쓰는 곳」에 그 필드를 읽는 칸이 나온다 (자동 연결이 아니라 이동 수단이다)
@@ -3367,14 +3367,14 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
       position: { x: 10, y: 10 }, width: 180, height: 8 * 3,
       rows: [{ height: 8 }, { height: 8 }],
       columns: [{ width: 90 }, { width: 54 }, { width: 36 }],
-      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
       cells: [
         { row: 0, column: 0, content: '품명' },
         { row: 0, column: 1, content: '금액' },
         { row: 0, column: 2, content: '수량' },
-        { row: 1, column: 0, binding: 'itemName' },
-        { row: 1, column: 1, binding: 'amount' },
-        { row: 1, column: 2, binding: 'quantity' },
+        { row: 1, column: 0, parameter: 'itemName' },
+        { row: 1, column: 1, parameter: 'amount' },
+        { row: 1, column: 2, parameter: 'quantity' },
       ],
     } as never];
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
@@ -3394,7 +3394,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     const el = await loadWithTable();
     await openFormulaModal(el);
 
-    const columnChips = Array.from(el.shadowRoot!.querySelectorAll('.binding-chip.column'));
+    const columnChips = Array.from(el.shadowRoot!.querySelectorAll('.parameter-chip.column'));
     expect(columnChips.map((c) => c.textContent?.trim())).toEqual(['품명', '금액', '수량']);
 
     (columnChips[1] as HTMLElement).click();
@@ -3412,7 +3412,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
 
     setDraft(el, 'SUM(items.');
     await el.updateComplete;
-    const suggested = () => Array.from(el.shadowRoot!.querySelectorAll('.formula-suggest .binding-chip'));
+    const suggested = () => Array.from(el.shadowRoot!.querySelectorAll('.formula-suggest .parameter-chip'));
     expect(suggested().map((c) => c.textContent?.trim()))
       .toEqual(['품명 · itemName', '금액 · amount', '수량 · quantity']);
 
@@ -3490,8 +3490,8 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     const el = await loadDesigner();
     await openFormulaModal(el);
 
-    const chips = el.shadowRoot!.querySelectorAll('.binding-chip');
-    // 방금 만든 필드의 기본 파라미터이 하나 있다
+    const chips = el.shadowRoot!.querySelectorAll('.parameter-chip');
+    // 방금 만든 필드의 기본 파라미터가 하나 있다
     expect(chips.length).toBeGreaterThan(0);
     (chips[0] as HTMLButtonElement).click();
     await el.updateComplete;
@@ -3530,28 +3530,28 @@ describe('<slip-designer> 파라미터 관리 (ADR-034)', () => {
   }
 
   function defsOf(el: Element): { key: string; label?: string }[] | undefined {
-    return (fileOf(el).template as { bindings?: { key: string; label?: string }[] }).bindings;
+    return (fileOf(el).template as { parameters?: { key: string; label?: string }[] }).parameters;
   }
 
   /** 사이드바 + 버튼 — 기본 이름으로 값을 만들고 바로 고른다 */
-  async function addBinding(el: import('../src/slip-designer.js').SlipDesigner) {
-    byAria(el, strings.designer.addBinding).click();
+  async function addParameter(el: import('../src/slip-designer.js').SlipDesigner) {
+    byAria(el, strings.designer.addParameter).click();
     await el.updateComplete;
   }
 
   it('+ 버튼은 기본 이름으로 값을 바로 만들고 그 값의 편집 패널을 연다', async () => {
     const el = await loadDesigner();
-    await addBinding(el);
+    await addParameter(el);
 
-    expect(defsOf(el)).toEqual([{ key: 'value1', label: `${strings.designer.newBindingName} 1` }]);
+    expect(defsOf(el)).toEqual([{ key: 'value1', label: `${strings.designer.newParameterName} 1` }]);
     // 오른쪽 패널이 파라미터 편집으로 바뀐다
     expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
-      .toBe(strings.designer.sidebarBindings);
-    expect((el.shadowRoot?.querySelector('.binding-key-input') as HTMLInputElement).value)
+      .toBe(strings.designer.sidebarParameters);
+    expect((el.shadowRoot?.querySelector('.parameter-key-input') as HTMLInputElement).value)
       .toBe('value1');
 
     // 두 번째는 겹치지 않는 이름으로 이어진다
-    await addBinding(el);
+    await addParameter(el);
     expect(defsOf(el)?.map((d) => d.key)).toEqual(['value1', 'value2']);
     el.remove();
   });
@@ -3559,8 +3559,8 @@ describe('<slip-designer> 파라미터 관리 (ADR-034)', () => {
   it('패널에서 물리명을 바꾸면 그 값을 쓰는 요소와 샘플 값도 함께 따라간다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addField);
-    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
-    const created = field.binding;
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { parameter: string };
+    const created = field.parameter;
     fileOf(el).template.sampleValues = { [created]: '1,000' } as never;
 
     // 사이드바에서 그 값을 골라 패널에서 물리명을 고친다
@@ -3569,23 +3569,23 @@ describe('<slip-designer> 파라미터 관리 (ADR-034)', () => {
     row.click();
     await el.updateComplete;
 
-    const keyInput = el.shadowRoot!.querySelector('.binding-key-input') as HTMLInputElement;
+    const keyInput = el.shadowRoot!.querySelector('.parameter-key-input') as HTMLInputElement;
     keyInput.value = 'totalAmount';
     keyInput.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
 
     expect(defsOf(el)).toEqual([{ key: 'totalAmount' }]);
-    expect(field.binding).toBe('totalAmount');
+    expect(field.parameter).toBe('totalAmount');
     expect(fileOf(el).template.sampleValues).toEqual({ totalAmount: '1,000' });
     el.remove();
   });
 
   it('이미 쓰는 물리명으로는 바꾸지 않는다', async () => {
     const el = await loadDesigner();
-    await addBinding(el);
-    await addBinding(el);
+    await addParameter(el);
+    await addParameter(el);
 
-    const keyInput = el.shadowRoot!.querySelector('.binding-key-input') as HTMLInputElement;
+    const keyInput = el.shadowRoot!.querySelector('.parameter-key-input') as HTMLInputElement;
     keyInput.value = 'value1';
     keyInput.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
@@ -3600,9 +3600,9 @@ describe('<slip-designer> 파라미터 관리 (ADR-034)', () => {
 
   it('패널에서 논리명을 고치면 목록 표시가 바뀐다', async () => {
     const el = await loadDesigner();
-    await addBinding(el);
+    await addParameter(el);
 
-    const labelInput = el.shadowRoot!.querySelector('.binding-label-input') as HTMLInputElement;
+    const labelInput = el.shadowRoot!.querySelector('.parameter-label-input') as HTMLInputElement;
     labelInput.value = '합계 금액';
     labelInput.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
@@ -3616,35 +3616,35 @@ describe('<slip-designer> 파라미터 관리 (ADR-034)', () => {
   it('요소를 추가하면 그 값이 정의부에 함께 등록된다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addField);
-    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { parameter: string };
 
-    expect(defsOf(el)).toEqual([{ key: field.binding }]);
+    expect(defsOf(el)).toEqual([{ key: field.parameter }]);
     el.remove();
   });
 
   it('요소 패널의 선택 상자로 등록된 값을 고르거나 새 값을 만들어 붙인다', async () => {
     const el = await loadDesigner();
-    await addBinding(el);
+    await addParameter(el);
     await addByCanvasClick(el, strings.designer.addField);
-    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { parameter: string };
 
-    const select = el.shadowRoot!.querySelector('.binding-select') as HTMLSelectElement;
+    const select = el.shadowRoot!.querySelector('.parameter-select') as HTMLSelectElement;
     // 등록된 값 + "새 값 등록" 항목이 나온다
     expect(Array.from(select.options).map((o) => o.textContent?.trim()))
-      .toEqual([`${strings.designer.newBindingName} 1`, field.binding, strings.designer.bindingNew]);
+      .toEqual([`${strings.designer.newParameterName} 1`, field.parameter, strings.designer.parameterNew]);
 
     select.value = 'value1';
     select.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
-    expect(field.binding).toBe('value1');
+    expect(field.parameter).toBe('value1');
 
     // "새 값 등록"을 고르면 값을 만들어 그대로 이 요소에 붙인다
-    const select2 = el.shadowRoot!.querySelector('.binding-select') as HTMLSelectElement;
+    const select2 = el.shadowRoot!.querySelector('.parameter-select') as HTMLSelectElement;
     select2.value = select2.options[select2.options.length - 1]!.value;
     select2.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
 
-    expect(field.binding).toBe('value2');
+    expect(field.parameter).toBe('value2');
     expect(defsOf(el)?.map((d) => d.key)).toContain('value2');
     el.remove();
   });
@@ -3652,14 +3652,14 @@ describe('<slip-designer> 파라미터 관리 (ADR-034)', () => {
   it('정의부 삭제는 항목을 제거하고, 요소가 쓰는 키는 목록에 남으며 삭제가 비활성화된다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addField);
-    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { parameter: string };
 
-    byAria(el, `${field.binding} ${strings.designer.delete}`).click();
+    byAria(el, `${field.parameter} ${strings.designer.delete}`).click();
     await el.updateComplete;
 
     // 정의부에서는 빠지지만 요소가 쓰고 있으니 목록에는 남고, 그 삭제 버튼은 비활성
     expect(defsOf(el)).toBeUndefined();
-    expect(byAria(el, `${field.binding} ${strings.designer.delete}`).disabled).toBe(true);
+    expect(byAria(el, `${field.parameter} ${strings.designer.delete}`).disabled).toBe(true);
     el.remove();
   });
 });
@@ -3681,17 +3681,17 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
   it('필드 파라미터의 샘플 값을 입력하면 sampleValues에 저장된다 (숫자 표기는 수로)', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addField);
-    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { parameter: string };
     await openSampleModal(el);
 
     const input = Array.from(el.shadowRoot!.querySelectorAll('.modal input'))
-      .find((i) => i.getAttribute('aria-label') === `${strings.designer.sampleData} ${field.binding}`) as HTMLInputElement;
+      .find((i) => i.getAttribute('aria-label') === `${strings.designer.sampleData} ${field.parameter}`) as HTMLInputElement;
     input.value = '12500';
     input.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
 
     const samples = (fileOf(el).template as { sampleValues?: Record<string, unknown> }).sampleValues;
-    expect(samples?.[field.binding]).toBe(12500);
+    expect(samples?.[field.parameter]).toBe(12500);
 
     // 빈 값으로 바꾸면 지워지고, 전부 비면 sampleValues 자체가 사라진다
     input.value = '';
@@ -3701,18 +3701,18 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     el.remove();
   });
 
-  it('반복 구간 파라미터은 항목 필드대로 행을 추가·편집한다 (ADR-037)', async () => {
+  it('반복 구간 파라미터는 항목 필드대로 행을 추가·편집한다 (ADR-037)', async () => {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{
       type: 'grid' as const, id: 'g-items', name: '품목 그리드',
       position: { x: 10, y: 10 }, width: 90, height: 8 * 3,
       rows: [{ height: 8 }, { height: 8 }],
       columns: [{ width: 60 }, { width: 30 }],
-      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
       cells: [
         { row: 0, column: 0, content: '품명' },
-        { row: 1, column: 0, binding: 'itemName' },
-        { row: 1, column: 1, binding: 'amount' },
+        { row: 1, column: 0, parameter: 'itemName' },
+        { row: 1, column: 1, parameter: 'amount' },
       ],
     } as never];
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
@@ -3743,10 +3743,10 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
   it('샘플 값이 있으면 미리보기는 그 값으로 채운 전표를 렌더한다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addField);
-    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { parameter: string };
     await openSampleModal(el);
     const input = Array.from(el.shadowRoot!.querySelectorAll('.modal input'))
-      .find((i) => i.getAttribute('aria-label') === `${strings.designer.sampleData} ${field.binding}`) as HTMLInputElement;
+      .find((i) => i.getAttribute('aria-label') === `${strings.designer.sampleData} ${field.parameter}`) as HTMLInputElement;
     input.value = '9900';
     input.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
@@ -3763,7 +3763,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
       kind: string; values?: Record<string, unknown>; issued?: boolean;
     };
     expect(rendered.kind).toBe('voucher');
-    expect(rendered.values?.[field.binding]).toBe(9900);
+    expect(rendered.values?.[field.parameter]).toBe(9900);
     expect(rendered.issued).toBe(false);
     el.remove();
   });
@@ -3779,9 +3779,9 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     el.remove();
   });
 
-  it('파라미터이 10개를 넘으면 10개 단위 페이지로 나뉜다', async () => {
+  it('파라미터가 10개를 넘으면 10개 단위 페이지로 나뉜다', async () => {
     const el = await loadDesigner();
-    (fileOf(el).template as { bindings?: { key: string }[] }).bindings =
+    (fileOf(el).template as { parameters?: { key: string }[] }).parameters =
       Array.from({ length: 12 }, (_, i) => ({ key: `b${i + 1}` }));
     await openSampleModal(el);
 
@@ -3801,7 +3801,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     expect(inputs().length).toBe(10);
 
     // 10개 이하면 페이지 표시가 없다
-    (fileOf(el).template as { bindings?: { key: string }[] }).bindings =
+    (fileOf(el).template as { parameters?: { key: string }[] }).parameters =
       Array.from({ length: 3 }, (_, i) => ({ key: `b${i + 1}` }));
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await el.updateComplete;
@@ -4188,10 +4188,10 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
             height: 60,
             columns: [{ width: 30 }, { width: 30 }],
             rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
-            repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 4, repeatHeader: true },
+            repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 4, repeatHeader: true },
             cells: [
               { row: 0, column: 0, content: '품명' },
-              { row: 1, column: 0, binding: '품명' },
+              { row: 1, column: 0, parameter: '품명' },
             ],
           }],
           assets: [],
@@ -4214,9 +4214,9 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     width: number; height: number;
     columns: { width: number }[];
     rows: { height: number }[];
-    repeat?: { binding: string; fromRow: number; toRow: number; perPage: number; repeatHeader: boolean };
+    repeat?: { parameter: string; fromRow: number; toRow: number; perPage: number; repeatHeader: boolean };
     overflow?: string;
-    cells: { row: number; column: number; content?: string; binding?: string; formula?: string; rowSpan?: number }[];
+    cells: { row: number; column: number; content?: string; parameter?: string; formula?: string; rowSpan?: number }[];
   };
 
   function gridOf(el: Element): TestGrid {
@@ -4374,7 +4374,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
 
     const cell = gridOf(el).cells.find((c) => c.row === 1 && c.column === 0)!;
     expect(cell.formula).toBe('SUM(items.금액)');
-    expect(cell.binding).toBeUndefined();
+    expect(cell.parameter).toBeUndefined();
     expect(cell.content).toBeUndefined();
     el.remove();
   });
@@ -4446,7 +4446,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
   it('셀 파라미터를 포커스 이동 없이 연달아 바꿔도 매번 반영된다 (Lit select 회귀)', async () => {
     const el = await mount();
     (el as unknown as { _updateFile: (fn: (f: SlipTemplateFile) => void) => void })._updateFile((f) => {
-      f.template.bindings = [{
+      f.template.parameters = [{
         key: 'items', valueType: 'list',
         fields: [{ key: '품명' }, { key: '수량' }, { key: '단가' }],
       }];
@@ -4456,16 +4456,16 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     await el.updateComplete;
 
     const sel = () => Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
-      .find((r) => r.querySelector('label')?.textContent?.trim() === s.binding)!
+      .find((r) => r.querySelector('label')?.textContent?.trim() === s.parameter)!
       .querySelector('select') as HTMLSelectElement;
-    const cellBinding = () => gridOf(el).cells.find((c) => c.row === 1 && c.column === 0)?.binding;
+    const cellParameter = () => gridOf(el).cells.find((c) => c.row === 1 && c.column === 0)?.parameter;
 
     for (const value of ['수량', '단가', '품명']) {
       const box = sel();
       box.value = value;
       box.dispatchEvent(new Event('change', { bubbles: true }));
       await el.updateComplete;
-      expect(cellBinding()).toBe(value);
+      expect(cellParameter()).toBe(value);
       expect(sel().value).toBe(value);
     }
     el.remove();
@@ -4547,24 +4547,24 @@ describe('<slip-designer> 변동 이미지 (G-47)', () => {
     selectElement(el, 'img-1');
     await el.updateComplete;
 
-    // 변동으로 전환 — binding·valueType이 생기고 src가 사라진다
+    // 변동으로 전환 — parameter·valueType이 생기고 src가 사라진다
     byAria(el, strings.designer.imageMode);
     const toVariable = Array.from(el.shadowRoot!.querySelectorAll('.toggle-group button'))
       .find((b) => b.textContent?.trim() === strings.designer.imageVariable) as HTMLButtonElement;
     toVariable.click();
     await el.updateComplete;
-    expect(typeof imageEl(el).binding).toBe('string');
+    expect(typeof imageEl(el).parameter).toBe('string');
     expect(imageEl(el).src).toBeUndefined();
-    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.bindings ?? [];
-    const def = defs.find((b) => b.key === imageEl(el).binding);
+    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.parameters ?? [];
+    const def = defs.find((b) => b.key === imageEl(el).parameter);
     expect(def?.valueType).toBe('image');
 
-    // 다시 고정으로 — binding이 빠지고 src가 돌아온다
+    // 다시 고정으로 — parameter가 빠지고 src가 돌아온다
     const toFixed = Array.from(el.shadowRoot!.querySelectorAll('.toggle-group button'))
       .find((b) => b.textContent?.trim() === strings.designer.imageFixed) as HTMLButtonElement;
     toFixed.click();
     await el.updateComplete;
-    expect(imageEl(el).binding).toBeUndefined();
+    expect(imageEl(el).parameter).toBeUndefined();
     expect(typeof imageEl(el).src).toBe('string');
     el.remove();
   });
@@ -4573,8 +4573,8 @@ describe('<slip-designer> 변동 이미지 (G-47)', () => {
     const file = templateWithImage();
     const img = file.template.pages[0]!.elements.find((e) => e.id === 'img-1') as never as Record<string, unknown>;
     delete img.src;
-    img.binding = 'stamp';
-    file.template.bindings = [{ key: 'stamp', label: '도장', valueType: 'image' }];
+    img.parameter = 'stamp';
+    file.template.parameters = [{ key: 'stamp', label: '도장', valueType: 'image' }];
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await loadDesigner();
 
@@ -4600,13 +4600,13 @@ describe('<slip-designer> 바코드 요소 (G-33)', () => {
   };
   const selectEl = (el: HTMLElement, id: string) => selectElement(el, id);
 
-  it('바코드 도구로 만들면 qrcode·파라미터으로 생성된다', async () => {
+  it('바코드 도구로 만들면 qrcode·파라미터로 생성된다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addBarcode);
     const bc = lastElement(el);
     expect(bc.type).toBe('barcode');
     expect(bc.kind).toBe('qrcode');
-    expect(typeof bc.binding).toBe('string');
+    expect(typeof bc.parameter).toBe('string');
     // 캔버스에 견본(svg)이 그려진다
     expect(el.shadowRoot!.querySelector('.barcode-preview svg')).not.toBeNull();
     el.remove();
@@ -4627,13 +4627,13 @@ describe('<slip-designer> 바코드 요소 (G-33)', () => {
     await el.updateComplete;
     expect(lastElement(el).kind).toBe('ean13');
 
-    // 값 소스를 직접 입력으로 — content가 생기고 binding이 빠진다
+    // 값 소스를 직접 입력으로 — content가 생기고 parameter가 빠진다
     const sourceSelect = Array.from(el.shadowRoot!.querySelectorAll('select'))
       .find((s) => s.getAttribute('aria-label') === strings.designer.barcodeValue) as HTMLSelectElement;
     sourceSelect.value = 'content';
     sourceSelect.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
-    expect(lastElement(el).binding).toBeUndefined();
+    expect(lastElement(el).parameter).toBeUndefined();
     expect(lastElement(el).content).toBe('');
 
     // 잘못된 EAN-13 값 — 경고가 뜬다

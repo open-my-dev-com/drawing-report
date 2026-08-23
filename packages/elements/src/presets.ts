@@ -63,7 +63,7 @@ function createTradeStatement(): SlipTemplateFile {
       meta: { title: strings.designer.presetTradeStatement },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
       // 파라미터 정의부 (ADR-032): 물리명은 camelCase, 화면에는 논리명 표시
-      bindings: [
+      parameters: [
         { key: 'tradeDate', label: '거래일자', valueType: 'date' },
         {
           key: 'items',
@@ -100,7 +100,7 @@ function createTradeStatement(): SlipTemplateFile {
               position: { x: 135, y: 38 },
               width: 60,
               height: 8,
-              binding: 'tradeDate',
+              parameter: 'tradeDate',
               alignment: 'right',
             },
             infoGrid('supplier', '공급자 정보', 50),
@@ -120,7 +120,7 @@ function createTradeStatement(): SlipTemplateFile {
               ],
               rows: [{ height: ROW_MM }, { height: ROW_MM }],
               repeat: {
-                binding: 'items',
+                parameter: 'items',
                 fromRow: 1,
                 toRow: 1,
                 perPage: ITEMS_PER_PAGE,
@@ -132,11 +132,11 @@ function createTradeStatement(): SlipTemplateFile {
                 { row: 0, column: 2, content: '수량', backgroundColor: HEAD_BG, alignment: 'center' },
                 { row: 0, column: 3, content: '단가', backgroundColor: HEAD_BG, alignment: 'center' },
                 { row: 0, column: 4, content: '금액', backgroundColor: HEAD_BG, alignment: 'center' },
-                { row: 1, column: 0, binding: 'itemName' },
-                { row: 1, column: 1, binding: 'spec' },
-                { row: 1, column: 2, binding: 'quantity', alignment: 'right' },
-                { row: 1, column: 3, binding: 'unitPrice', alignment: 'right' },
-                { row: 1, column: 4, binding: 'amount', alignment: 'right' },
+                { row: 1, column: 0, parameter: 'itemName' },
+                { row: 1, column: 1, parameter: 'spec' },
+                { row: 1, column: 2, parameter: 'quantity', alignment: 'right' },
+                { row: 1, column: 3, parameter: 'unitPrice', alignment: 'right' },
+                { row: 1, column: 4, parameter: 'amount', alignment: 'right' },
               ],
             },
             {
@@ -175,7 +175,7 @@ function createInvoice(): SlipTemplateFile {
     template: {
       meta: { title: strings.designer.presetInvoice },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
-      bindings: [
+      parameters: [
         { key: 'invoiceDate', label: '청구일자', valueType: 'date' },
         {
           key: 'items',
@@ -211,7 +211,7 @@ function createInvoice(): SlipTemplateFile {
               position: { x: 135, y: 38 },
               width: 60,
               height: 8,
-              binding: 'invoiceDate',
+              parameter: 'invoiceDate',
               alignment: 'right',
             },
             infoGrid('biller', '청구인 정보', 50),
@@ -230,7 +230,7 @@ function createInvoice(): SlipTemplateFile {
               ],
               rows: [{ height: ROW_MM }, { height: ROW_MM }],
               repeat: {
-                binding: 'items',
+                parameter: 'items',
                 fromRow: 1,
                 toRow: 1,
                 perPage: ITEMS_PER_PAGE,
@@ -241,10 +241,10 @@ function createInvoice(): SlipTemplateFile {
                 { row: 0, column: 1, content: '수량', backgroundColor: HEAD_BG, alignment: 'center' },
                 { row: 0, column: 2, content: '단가', backgroundColor: HEAD_BG, alignment: 'center' },
                 { row: 0, column: 3, content: '금액', backgroundColor: HEAD_BG, alignment: 'center' },
-                { row: 1, column: 0, binding: 'itemName' },
-                { row: 1, column: 1, binding: 'quantity', alignment: 'right' },
-                { row: 1, column: 2, binding: 'unitPrice', alignment: 'right' },
-                { row: 1, column: 3, binding: 'amount', alignment: 'right' },
+                { row: 1, column: 0, parameter: 'itemName' },
+                { row: 1, column: 1, parameter: 'quantity', alignment: 'right' },
+                { row: 1, column: 2, parameter: 'unitPrice', alignment: 'right' },
+                { row: 1, column: 3, parameter: 'amount', alignment: 'right' },
               ],
             },
             {

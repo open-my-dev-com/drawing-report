@@ -4,12 +4,12 @@ import {
   SlipMigrationError,
   SlipParseError,
   migrateSlipDocument,
-  normalizeNumericBindings,
+  normalizeNumericParameters,
   parseSlipFile,
   serializeSlipFile,
   validateSlipFile,
   slipFileJsonSchema,
-  type BindingDef,
+  type ParameterDef,
   type SlipElement,
   type SlipTemplateFile,
   type SlipVoucherFile,
@@ -75,10 +75,10 @@ function makeTemplate(): SlipTemplateFile {
               height: 8 * 11,
               columns: [{ width: 72 }, { width: 27 }, { width: 36 }, { width: 45 }],
               rows: [{ height: 8 }, { height: 8 }],
-              repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 10, repeatHeader: true },
+              repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 10, repeatHeader: true },
               cells: [
                 { row: 0, column: 0, content: '품명' },
-                { row: 1, column: 0, binding: '품명' },
+                { row: 1, column: 0, parameter: '품명' },
               ],
             },
             {
@@ -235,23 +235,23 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     expect(parsed.schemaVersion).toBe('0.1.0');
   });
 
-  it('이미지는 src와 binding 중 하나만 가진다', () => {
+  it('이미지는 src와 parameter 중 하나만 가진다', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const pages = (base['template'] as { pages: { elements: Record<string, unknown>[] }[] }).pages;
     const image = { type: 'image', id: 'img-x', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10 };
 
     pages[0]!.elements.push({ ...image });
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/src 또는 binding/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/src 또는 parameter/);
 
-    pages[0]!.elements[pages[0]!.elements.length - 1] = { ...image, src: 'data:image/png;base64,AA==', binding: 'sign' };
+    pages[0]!.elements[pages[0]!.elements.length - 1] = { ...image, src: 'data:image/png;base64,AA==', parameter: 'sign' };
     expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/함께 가질 수 없습니다/);
 
     // 하나만 있으면 통과한다
-    pages[0]!.elements[pages[0]!.elements.length - 1] = { ...image, binding: 'sign' };
+    pages[0]!.elements[pages[0]!.elements.length - 1] = { ...image, parameter: 'sign' };
     expect(() => parseSlipFile(JSON.stringify(base))).not.toThrow();
   });
 
-  it('바코드는 content·binding·formula 중 하나만 가진다', () => {
+  it('바코드는 content·parameter·formula 중 하나만 가진다', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const pages = (base['template'] as { pages: { elements: Record<string, unknown>[] }[] }).pages;
     const barcode = {
@@ -262,10 +262,10 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     pages[0]!.elements.push({ ...barcode });
     expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/하나만 가져야/);
 
-    pages[0]!.elements[pages[0]!.elements.length - 1] = { ...barcode, content: 'A', binding: 'code' };
+    pages[0]!.elements[pages[0]!.elements.length - 1] = { ...barcode, content: 'A', parameter: 'code' };
     expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/하나만 가져야/);
 
-    pages[0]!.elements[pages[0]!.elements.length - 1] = { ...barcode, binding: 'code' };
+    pages[0]!.elements[pages[0]!.elements.length - 1] = { ...barcode, parameter: 'code' };
     const parsed = parseSlipFile(JSON.stringify(base));
     if (parsed.kind !== 'template') throw new Error('template이어야 한다');
     const saved = parsed.template.pages[0]!.elements.at(-1)!;
@@ -282,8 +282,8 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     (grid['repeat'] as Record<string, unknown>)['toRow'] = 2;
     grid['cells'] = [
       { row: 0, column: 0, content: '품명' },
-      { row: 1, column: 0, binding: '품명' },
-      { row: 2, column: 0, binding: '규격' },
+      { row: 1, column: 0, parameter: '품명' },
+      { row: 2, column: 0, parameter: '규격' },
     ];
     (grid['columns'] as Record<string, unknown>[])[0]!['autoMerge'] = true;
     expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/구간 전체 높이/);
@@ -310,8 +310,8 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
     const field = template.pages[0]!.elements.find((el) => el['id'] === 'total')!;
     // 수식이 있는데 파라미터까지 두면 무엇이 쓰이는지 알 수 없다
-    field['binding'] = 'total';
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/binding·formula 중 하나만/);
+    field['parameter'] = 'total';
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/parameter·formula 중 하나만/);
   });
 
   it('필드에 파라미터도 수식도 없으면 거부한다 (ADR-049)', () => {
@@ -319,36 +319,36 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
     const field = template.pages[0]!.elements.find((el) => el['id'] === 'total')!;
     delete field['formula'];
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/binding·formula 중 하나만/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/parameter·formula 중 하나만/);
   });
 
   it('목록 파라미터는 항목의 하위 필드를 정의부에 담을 수 있다 (ADR-047)', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
-    const template = base['template'] as { bindings?: unknown };
-    template.bindings = [
+    const template = base['template'] as { parameters?: unknown };
+    template.parameters = [
       { key: 'items', label: '품목', valueType: 'list', fields: [
         { key: 'name', label: '품명' },
         { key: 'amount', label: '금액', valueType: 'number' },
       ] },
     ];
     const parsed = parseSlipFile(JSON.stringify(base));
-    const defs = (parsed as { template: { bindings?: { key: string; fields?: { key: string; valueType?: string }[] }[] } })
-      .template.bindings!;
+    const defs = (parsed as { template: { parameters?: { key: string; fields?: { key: string; valueType?: string }[] }[] } })
+      .template.parameters!;
     expect(defs[0]!.fields?.map((f) => f.key)).toEqual(['name', 'amount']);
     expect(defs[0]!.fields?.[1]?.valueType).toBe('number');
   });
 
   it('목록이 아닌 파라미터에는 하위 필드를 둘 수 없다 (ADR-047)', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
-    const template = base['template'] as { bindings?: unknown };
-    template.bindings = [{ key: 'total', valueType: 'number', fields: [{ key: 'x' }] }];
+    const template = base['template'] as { parameters?: unknown };
+    template.parameters = [{ key: 'total', valueType: 'number', fields: [{ key: 'x' }] }];
     expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/valueType이 'list'인/);
   });
 
   it('하위 필드 이름이 겹치면 거부한다 (ADR-047)', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
-    const template = base['template'] as { bindings?: unknown };
-    template.bindings = [{ key: 'items', valueType: 'list', fields: [{ key: 'a' }, { key: 'a' }] }];
+    const template = base['template'] as { parameters?: unknown };
+    template.parameters = [{ key: 'items', valueType: 'list', fields: [{ key: 'a' }, { key: 'a' }] }];
     expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/하위 필드 이름이 중복됩니다/);
   });
 
@@ -356,7 +356,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as {
       pages: { elements: Record<string, unknown>[]; key?: string; label?: string; pageNumber?: unknown }[];
-      bindings?: { key: string; label?: string; valueType?: string }[];
+      parameters?: { key: string; label?: string; valueType?: string }[];
     };
     // 반복 구간이 있는 그리드('items')여야 자동 병합을 켤 수 있다 — 한 줄 구간이라 저절로 성립한다
     const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
@@ -364,14 +364,14 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     template.pages[0]!.key = 'first';
     template.pages[0]!.label = '첫 장';
     template.pages[0]!.pageNumber = { position: 'bottom-center' };
-    template.bindings = [{ key: 'items', label: '품목', valueType: 'list' }];
+    template.parameters = [{ key: 'items', label: '품목', valueType: 'list' }];
 
     const parsed = parseSlipFile(JSON.stringify(base));
     if (parsed.kind !== 'template') throw new Error('template이어야 한다');
     const page = parsed.template.pages[0]!;
     expect(page.label).toBe('첫 장');
     expect(page.pageNumber?.position).toBe('bottom-center');
-    expect(parsed.template.bindings?.[0]?.valueType).toBe('list');
+    expect(parsed.template.parameters?.[0]?.valueType).toBe('list');
     const saved = page.elements.find((el) => el.id === 'items')!;
     if (saved.type !== 'grid') throw new Error('grid여야 한다');
     expect(saved.columns[0]?.autoMerge).toBe(true);
@@ -481,7 +481,7 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
       height: 32,
       columns: [{ width: 60 }, { width: 40 }],
       rows: [{ height: 8 }, { height: 8 }, { height: 8 }],
-      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
       cells: [{ row: 0, column: 0, content: '품명' }],
       ...patch,
     };
@@ -510,7 +510,7 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
         serializeSlipFile(
           makeGridFile({
             height: 40,
-            repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 3, repeatHeader: true },
+            repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 3, repeatHeader: true },
           }),
         ),
       ),
@@ -527,15 +527,15 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
     expect(() =>
       parseSlipFile(
         serializeSlipFile(
-          makeGridFile({ repeat: { binding: 'items', fromRow: 1, toRow: 5, perPage: 2, repeatHeader: true } }),
+          makeGridFile({ repeat: { parameter: 'items', fromRow: 1, toRow: 5, perPage: 2, repeatHeader: true } }),
         ),
       ),
     ).toThrow(/반복 구간/);
   });
 
-  it('셀은 content·binding·formula 중 하나만 가질 수 있다', () => {
+  it('셀은 content·parameter·formula 중 하나만 가질 수 있다', () => {
     expect(() =>
-      parseSlipFile(serializeSlipFile(makeGridFile({ cells: [{ row: 0, column: 0, content: 'a', binding: 'b' }] }))),
+      parseSlipFile(serializeSlipFile(makeGridFile({ cells: [{ row: 0, column: 0, content: 'a', parameter: 'b' }] }))),
     ).toThrow(/하나만/);
   });
 
@@ -596,7 +596,7 @@ describe('스키마 방어 보강 (G-48)', () => {
         height: 32, // 3행(24) + (perPage 2 - 1) * 반복행(8)
         columns: [{ width: 50 }],
         rows: [{ height: 8 }, { height: 8 }, { height: 8 }],
-        repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: false },
+        repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: false },
         cells: [{ row: 0, column: 0, rowSpan: 3, content: '감싸기' }],
       },
     ];
@@ -616,8 +616,8 @@ describe('스키마 방어 보강 (G-48)', () => {
         height: 24, // 2행(16) + (perPage 2 - 1) * 반복행(8)
         columns: [{ width: 25 }, { width: 25, autoMerge: true }],
         rows: [{ height: 8 }, { height: 8 }],
-        repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: false },
-        cells: [{ row: 1, column: 0, binding: '품명' }],
+        repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: false },
+        cells: [{ row: 1, column: 0, parameter: '품명' }],
       },
     ];
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/구간 전체 높이/);
@@ -625,11 +625,11 @@ describe('스키마 방어 보강 (G-48)', () => {
 });
 
 describe('발행 전표 변동 이미지 값 검증 (G-48)', () => {
-  function voucherWithImageBinding(value: unknown): unknown {
+  function voucherWithImageParameter(value: unknown): unknown {
     const template = makeTemplate().template;
     template.pages[0]!.elements.push({
       type: 'image', id: 'stamp', name: '도장',
-      position: { x: 10, y: 10 }, width: 20, height: 20, binding: 'stamp',
+      position: { x: 10, y: 10 }, width: 20, height: 20, parameter: 'stamp',
     });
     return {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -641,36 +641,36 @@ describe('발행 전표 변동 이미지 값 검증 (G-48)', () => {
     };
   }
   it('변동 이미지 값이 외부 URL이면 거부한다', () => {
-    expect(() => parseSlipFile(JSON.stringify(voucherWithImageBinding('http://evil.com/x.png'))))
+    expect(() => parseSlipFile(JSON.stringify(voucherWithImageParameter('http://evil.com/x.png'))))
       .toThrow(/외부 URL 이미지/);
   });
   it('변동 이미지 값이 깨진 data:면 거부한다', () => {
-    expect(() => parseSlipFile(JSON.stringify(voucherWithImageBinding('data:nonsense'))))
+    expect(() => parseSlipFile(JSON.stringify(voucherWithImageParameter('data:nonsense'))))
       .toThrow(/data:.*base64/);
   });
   it('변동 이미지 값이 올바른 data: base64면 통과한다', () => {
-    expect(() => parseSlipFile(JSON.stringify(voucherWithImageBinding(PNG_1PX)))).not.toThrow();
+    expect(() => parseSlipFile(JSON.stringify(voucherWithImageParameter(PNG_1PX)))).not.toThrow();
   });
   it('변동 이미지 값이 비어 있으면(이미지 없음) 통과한다', () => {
-    expect(() => parseSlipFile(JSON.stringify(voucherWithImageBinding('')))).not.toThrow();
+    expect(() => parseSlipFile(JSON.stringify(voucherWithImageParameter('')))).not.toThrow();
   });
 });
 
-describe('normalizeNumericBindings (ADR-044)', () => {
-  const bindings: BindingDef[] = [
+describe('normalizeNumericParameters (ADR-044)', () => {
+  const parameters: ParameterDef[] = [
     { key: '금액', valueType: 'number' },
     { key: '적요', valueType: 'text' },
     { key: '수량' },
   ];
 
   it('number 파라미터의 빈 값(미입력·null·빈 문자열)을 0으로 바꾼다', () => {
-    expect(normalizeNumericBindings({ 금액: '' }, bindings)).toEqual({ 금액: 0 });
-    expect(normalizeNumericBindings({ 금액: null }, bindings)).toEqual({ 금액: 0 });
-    expect(normalizeNumericBindings({}, bindings)).toEqual({ 금액: 0 });
+    expect(normalizeNumericParameters({ 금액: '' }, parameters)).toEqual({ 금액: 0 });
+    expect(normalizeNumericParameters({ 금액: null }, parameters)).toEqual({ 금액: 0 });
+    expect(normalizeNumericParameters({}, parameters)).toEqual({ 금액: 0 });
   });
 
   it('number가 아닌 파라미터·이미 수인 값은 건드리지 않는다', () => {
-    expect(normalizeNumericBindings({ 금액: 1500, 적요: '', 수량: '' }, bindings)).toEqual({
+    expect(normalizeNumericParameters({ 금액: 1500, 적요: '', 수량: '' }, parameters)).toEqual({
       금액: 1500,
       적요: '',
       수량: '',
@@ -679,8 +679,8 @@ describe('normalizeNumericBindings (ADR-044)', () => {
 
   it('바뀔 값이 없으면 입력 객체를 그대로(같은 참조) 돌려준다', () => {
     const values = { 금액: 1500, 적요: '메모' };
-    expect(normalizeNumericBindings(values, bindings)).toBe(values);
-    const noBindings = { 금액: '' };
-    expect(normalizeNumericBindings(noBindings)).toBe(noBindings);
+    expect(normalizeNumericParameters(values, parameters)).toBe(values);
+    const noParameters = { 금액: '' };
+    expect(normalizeNumericParameters(noParameters)).toBe(noParameters);
   });
 });

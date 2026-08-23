@@ -2,7 +2,7 @@ import { LitElement, css, html, nothing } from 'lit';
 import {
   computeIntegrity,
   evaluateFormula,
-  normalizeNumericBindings,
+  normalizeNumericParameters,
   parseSlipFile,
   renderSlipToPdf,
   serializeSlipFile,
@@ -537,7 +537,7 @@ export class SlipForm extends LitElement {
     const body = this._body;
     if (!body) return [];
     const labelOf = new Map<string, string>(
-      (body.bindings ?? []).filter((b) => b.label !== undefined).map((b) => [b.key, b.label!]),
+      (body.parameters ?? []).filter((b) => b.label !== undefined).map((b) => [b.key, b.label!]),
     );
     const inputs: FormInput[] = [];
     const seen = new Set<string>();
@@ -550,11 +550,11 @@ export class SlipForm extends LitElement {
     // 변동 이미지 값은 텍스트가 아니라 이미지 업로드로 받는다 (G-47) — 값 종류가 이미지인
     // 정의부 키도 포함한다
     const imageKeys = new Set<string>(
-      (body.bindings ?? []).filter((b) => b.valueType === 'image').map((b) => b.key),
+      (body.parameters ?? []).filter((b) => b.valueType === 'image').map((b) => b.key),
     );
     for (const page of body.pages) {
       for (const el of page.elements) {
-        if (el.type === 'image' && el.binding !== undefined) imageKeys.add(el.binding);
+        if (el.type === 'image' && el.parameter !== undefined) imageKeys.add(el.parameter);
       }
     }
 
@@ -563,29 +563,29 @@ export class SlipForm extends LitElement {
         if (element.type === 'field') {
           // 파라미터 필드는 사람이 채우고, 수식 필드는 계산 결과만 보여준다 (ADR-049) —
           // 수식 필드는 전표 값의 키가 아니므로 요소 id를 줄 식별자로 쓴다
-          if (element.binding !== undefined) add(element.binding, {}, element.name);
+          if (element.parameter !== undefined) add(element.parameter, {}, element.name);
           else if (element.formula !== undefined) {
             add(element.id, { formula: element.formula }, element.name);
           }
-        } else if (element.type === 'image' && element.binding !== undefined) {
-          add(element.binding, { image: true }, element.name);
+        } else if (element.type === 'image' && element.parameter !== undefined) {
+          add(element.parameter, { image: true }, element.name);
         } else if (element.type === 'grid' && element.repeat) {
           // 반복 구간 셀이 읽는 항목 필드가 곧 입력 표의 열이 된다 (ADR-037)
           const { fromRow, toRow } = element.repeat;
           const band = element.cells
-            .filter((cell) => cell.row >= fromRow && cell.row <= toRow && cell.binding !== undefined)
+            .filter((cell) => cell.row >= fromRow && cell.row <= toRow && cell.parameter !== undefined)
             .sort((a, b) => a.column - b.column || a.row - b.row);
           const columns: { key: string; title: string }[] = [];
           for (const cell of band) {
-            const key = cell.binding as string;
+            const key = cell.parameter as string;
             if (columns.some((c) => c.key === key)) continue;
             columns.push({ key, title: gridHeaderTitle(element, cell.column, fromRow) ?? key });
           }
-          add(element.repeat.binding, { columns }, element.name);
+          add(element.repeat.parameter, { columns }, element.name);
         }
       }
     }
-    for (const def of body.bindings ?? []) {
+    for (const def of body.parameters ?? []) {
       add(def.key, imageKeys.has(def.key) ? { image: true } : {});
     }
     return inputs;
@@ -641,9 +641,9 @@ export class SlipForm extends LitElement {
   /** 현재 입력 상태의 전표 파일을 만든다 */
   private _buildVoucher(issued: boolean): SlipVoucherFile {
     // number 파라미터의 빈 값을 0으로 정규화한다 (ADR-044) — 엄격 타입 수식이 미입력을 0으로 보게.
-    const values = normalizeNumericBindings(
+    const values = normalizeNumericParameters(
       JSON.parse(JSON.stringify(this._values)) as Record<string, unknown>,
-      this._body?.bindings,
+      this._body?.parameters,
     ) as Record<string, JsonValue>;
     const voucher: SlipVoucherFile = {
       schemaVersion: this._schemaVersion,
@@ -799,7 +799,7 @@ export class SlipForm extends LitElement {
       let error: string | null = null;
       try {
         // number 파라미터 빈 값→0을 반영해 계산한다 (ADR-044) — 미리보기·발행과 같은 값.
-        const values = normalizeNumericBindings(this._values, this._body?.bindings);
+        const values = normalizeNumericParameters(this._values, this._body?.parameters);
         text = resultText(evaluateFormula(input.formula, { values }));
       } catch (e) {
         error = e instanceof Error ? e.message : String(e);

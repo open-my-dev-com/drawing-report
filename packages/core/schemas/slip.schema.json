@@ -433,7 +433,7 @@
                                   "content": {
                                     "type": "string"
                                   },
-                                  "binding": {
+                                  "parameter": {
                                     "type": "string",
                                     "minLength": 1
                                   },
@@ -507,7 +507,7 @@
                             "repeat": {
                               "type": "object",
                               "properties": {
-                                "binding": {
+                                "parameter": {
                                   "type": "string",
                                   "minLength": 1
                                 },
@@ -536,7 +536,7 @@
                                 }
                               },
                               "required": [
-                                "binding",
+                                "parameter",
                                 "fromRow",
                                 "toRow",
                                 "perPage",
@@ -612,7 +612,7 @@
                             "src": {
                               "type": "string"
                             },
-                            "binding": {
+                            "parameter": {
                               "type": "string",
                               "minLength": 1
                             }
@@ -691,7 +691,7 @@
                             "content": {
                               "type": "string"
                             },
-                            "binding": {
+                            "parameter": {
                               "type": "string",
                               "minLength": 1
                             },
@@ -1085,7 +1085,7 @@
                                 "dotted"
                               ]
                             },
-                            "binding": {
+                            "parameter": {
                               "type": "string",
                               "minLength": 1
                             },
@@ -1224,7 +1224,7 @@
                 "additionalProperties": false
               }
             },
-            "bindings": {
+            "parameters": {
               "maxItems": 500,
               "type": "array",
               "items": {
@@ -1743,7 +1743,7 @@
                                   "content": {
                                     "type": "string"
                                   },
-                                  "binding": {
+                                  "parameter": {
                                     "type": "string",
                                     "minLength": 1
                                   },
@@ -1817,7 +1817,7 @@
                             "repeat": {
                               "type": "object",
                               "properties": {
-                                "binding": {
+                                "parameter": {
                                   "type": "string",
                                   "minLength": 1
                                 },
@@ -1846,7 +1846,7 @@
                                 }
                               },
                               "required": [
-                                "binding",
+                                "parameter",
                                 "fromRow",
                                 "toRow",
                                 "perPage",
@@ -1922,7 +1922,7 @@
                             "src": {
                               "type": "string"
                             },
-                            "binding": {
+                            "parameter": {
                               "type": "string",
                               "minLength": 1
                             }
@@ -2001,7 +2001,7 @@
                             "content": {
                               "type": "string"
                             },
-                            "binding": {
+                            "parameter": {
                               "type": "string",
                               "minLength": 1
                             },
@@ -2395,7 +2395,7 @@
                                 "dotted"
                               ]
                             },
-                            "binding": {
+                            "parameter": {
                               "type": "string",
                               "minLength": 1
                             },
@@ -2534,7 +2534,7 @@
                 "additionalProperties": false
               }
             },
-            "bindings": {
+            "parameters": {
               "maxItems": 500,
               "type": "array",
               "items": {

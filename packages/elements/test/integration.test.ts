@@ -116,7 +116,7 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 무
       kind: 'voucher',
       templateSnapshot: withGrid.template,
       values: {
-        [repeat.binding]: Array.from({ length: repeat.perPage * 2 + 1 }, (_, i) => ({ 품명: `품목 ${i + 1}` })),
+        [repeat.parameter]: Array.from({ length: repeat.perPage * 2 + 1 }, (_, i) => ({ 품명: `품목 ${i + 1}` })),
       },
       issued: false,
     };

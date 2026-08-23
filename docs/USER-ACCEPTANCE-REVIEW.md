@@ -43,7 +43,9 @@
 - 3. 고정 문구 => "직접 입력"으로 수정 
 **[완료]** — UI 문구 3개 언어 + SPEC·코드 주석·테스트까지 일괄(SSOT)
 - 4. 바인딩 => "파라미터"로 수정 요청 
-**[완료]** — UI 문구 3개 언어·문서(SPEC·DECISIONS·REQUIREMENTS·가이드 3벌)·`terms.md`·코드 주석·테스트 설명까지 일괄. 코드 식별자 `binding`은 영어 규칙대로 유지
+**[완료]** — UI 문구 3개 언어·문서(SPEC·DECISIONS·REQUIREMENTS·가이드 3벌)·`terms.md`·코드 주석·테스트 설명까지 일괄.
+  - **후속(ADR-051)**: 포맷 키·코드 식별자도 `binding`→`parameter`으로 마저 통일했다 —
+    `bindings[]`→`parameters[]`, 값 키 `binding`→`parameter`, `BindingDef`→`ParameterDef` 등. 스키마는 0.1.0 그대로.
 - 5. 종류 보기 => "요소 확인"으로 수정 요청 **[완료]**
 
 ### [선]

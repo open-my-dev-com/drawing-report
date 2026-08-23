@@ -28,7 +28,7 @@ import type {
   PolygonElement,
   TextElement,
 } from '../format/schema.js';
-import { normalizeNumericBindings } from '../format/normalize.js';
+import { normalizeNumericParameters } from '../format/normalize.js';
 import { SlipRenderError } from './errors.js';
 import { TextMeasurer } from './measure.js';
 import { stackVertically } from './text-layout.js';
@@ -252,7 +252,7 @@ class SlipToPdfmeConverter {
     let count = 1;
     for (const element of elements) {
       if (element.type !== 'grid' || !element.repeat) continue;
-      const items = this.repeatItems(element, element.repeat.binding);
+      const items = this.repeatItems(element, element.repeat.parameter);
       const drawn = this.drawnItemCount(items.length, element.repeat);
       count = Math.max(count, Math.ceil(drawn / element.repeat.perPage) || 1);
     }
@@ -463,7 +463,7 @@ class SlipToPdfmeConverter {
       if (element.formula.trim() === '') return '';
       return toDisplayText(this.evaluate(element.formula, this.values, what), what);
     }
-    return element.binding === undefined ? '' : toDisplayText(this.values[element.binding], what);
+    return element.parameter === undefined ? '' : toDisplayText(this.values[element.parameter], what);
   }
 
   // -------------------------------------------------------------------------
@@ -557,7 +557,7 @@ class SlipToPdfmeConverter {
   ): DrawGridCell[] {
     const { fromRow, toRow, perPage } = repeat;
     const bandRows = toRow - fromRow + 1;
-    const items = this.repeatItems(element, repeat.binding);
+    const items = this.repeatItems(element, repeat.parameter);
     // 양식이 상한을 정했으면 거기까지만 그린다 — 넘는 항목은 페이지를 늘리지 않는다 (ADR-048)
     const drawn = this.drawnItemCount(items.length, repeat);
     const chunk = items.slice(renderPage * perPage, Math.min((renderPage + 1) * perPage, drawn));
@@ -654,12 +654,12 @@ class SlipToPdfmeConverter {
   }
 
   /** 반복 구간이 읽는 항목 배열 */
-  private repeatItems(element: GridElement, binding: string): Record<string, unknown>[] {
-    const raw = this.values[binding];
+  private repeatItems(element: GridElement, parameter: string): Record<string, unknown>[] {
+    const raw = this.values[parameter];
     const what = `그리드 '${element.name}'(${element.id})`;
     if (raw === undefined || raw === null) return [];
     if (!Array.isArray(raw)) {
-      throw new SlipRenderError(`${what}의 반복 값 '${binding}'은(는) 객체 배열이어야 합니다`);
+      throw new SlipRenderError(`${what}의 반복 값 '${parameter}'은(는) 객체 배열이어야 합니다`);
     }
     return raw.map((row, index) => {
       if (typeof row !== 'object' || row === null || Array.isArray(row)) {
@@ -681,7 +681,7 @@ class SlipToPdfmeConverter {
     if (cell.formula !== undefined) {
       return toDisplayText(this.evaluate(cell.formula, scope, what), what);
     }
-    if (cell.binding !== undefined) return toDisplayText(scope[cell.binding], what);
+    if (cell.parameter !== undefined) return toDisplayText(scope[cell.parameter], what);
     return cell.content ?? '';
   }
 
@@ -937,15 +937,15 @@ class SlipToPdfmeConverter {
 
   /**
    * src 해소 (§3.1): data:는 그대로, asset://은 문서 assets에서, 외부 URL은 거부 (ADR-036).
-   * `binding`을 쓰는 변동 이미지는 전표 값에서 base64를 읽는다 (ADR-036).
+   * `parameter`를 쓰는 변동 이미지는 전표 값에서 base64를 읽는다 (ADR-036).
    */
   private resolveImageSrc(element: ImageElement): string {
     const what = `이미지 '${element.name}'(${element.id})`;
-    const src = element.binding !== undefined
-      ? this.boundImageSrc(element, element.binding, what)
+    const src = element.parameter !== undefined
+      ? this.boundImageSrc(element, element.parameter, what)
       : element.src;
     if (src === undefined) {
-      throw new SlipRenderError(`${what}에 그릴 이미지가 없습니다 (src 또는 binding 필요)`);
+      throw new SlipRenderError(`${what}에 그릴 이미지가 없습니다 (src 또는 parameter 필요)`);
     }
     if (src.startsWith('data:')) return src;
     if (src.startsWith('asset://')) {
@@ -991,7 +991,7 @@ class SlipToPdfmeConverter {
     if (element.formula !== undefined) {
       return toDisplayText(this.evaluate(element.formula, this.values, what), what);
     }
-    if (element.binding !== undefined) return toDisplayText(this.values[element.binding], what);
+    if (element.parameter !== undefined) return toDisplayText(this.values[element.parameter], what);
     return '';
   }
 
@@ -999,25 +999,25 @@ class SlipToPdfmeConverter {
    * 변동 이미지의 값 읽기 — 전표 값에서 base64를 꺼낸다.
    *
    * @param element - 이미지 요소
-   * @param binding - 값 키
+   * @param parameter - 값 키
    * @param what - 오류 문구에 쓸 요소 이름
    * @returns `data:` base64 문자열. 값이 없으면 `undefined`(빈 자리로 둔다)
    * @throws SlipRenderError 값이 문자열이 아니거나 base64가 아닐 때
    */
   private boundImageSrc(
     element: ImageElement,
-    binding: string,
+    parameter: string,
     what: string,
   ): string | undefined {
-    const value = this.values[binding];
+    const value = this.values[parameter];
     if (value === undefined || value === null || value === '') return undefined;
     if (typeof value !== 'string') {
-      throw new SlipRenderError(`${what}의 값 '${binding}'은 이미지 문자열이어야 합니다`);
+      throw new SlipRenderError(`${what}의 값 '${parameter}'은 이미지 문자열이어야 합니다`);
     }
     if (!value.startsWith('data:')) {
       // core는 네트워크를 쓰지 않는다 (ADR-002) — 주소는 호스트가 base64로 바꿔 보낸다 (ADR-036)
       throw new SlipRenderError(
-        `${what}의 값 '${binding}'은 data: base64여야 합니다 (주소는 호스트가 내장해 보내야 합니다)`,
+        `${what}의 값 '${parameter}'은 data: base64여야 합니다 (주소는 호스트가 내장해 보내야 합니다)`,
       );
     }
     return value;
@@ -1458,7 +1458,7 @@ export function convertSlipFile(
   // number 파라미터의 빈 값을 0으로 정규화한다 (ADR-044) — 값이 있는 전표에만 적용한다.
   // 양식(값 없음)은 그대로 비워 둔다 — 빈 양식의 number 필드를 0으로 채우지 않는다.
   const values: Record<string, unknown> =
-    file.kind === 'voucher' ? normalizeNumericBindings(file.values, body.bindings) : {};
+    file.kind === 'voucher' ? normalizeNumericParameters(file.values, body.parameters) : {};
   return new SlipToPdfmeConverter(
     body,
     values,

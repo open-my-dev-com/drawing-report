@@ -31,7 +31,7 @@ import type { SlipFile } from '@omdc-slipkit/core';
 | `paper` | `PaperSize` | 용지 크기·여백 (단위: mm) |
 | `pages` | `SlipPage[]` | 페이지 배열 (최소 1) |
 | `assets` | `AssetEntry[]` | 내장 리소스 (이미지 등) |
-| `bindings?` | `BindingDef[]` | 파라미터 정의부 — 물리명(`key`)·논리명(`label`)·값 종류(`valueType`)·하위 필드(`fields`, 목록 종류만) |
+| `parameters?` | `ParameterDef[]` | 파라미터 정의부 — 물리명(`key`)·논리명(`label`)·값 종류(`valueType`)·하위 필드(`fields`, 목록 종류만) |
 | `sampleValues?` | `Record<string, JsonValue>` | 미리보기용 샘플 값 (발행에는 미포함) |
 
 ### 전표 (voucher)

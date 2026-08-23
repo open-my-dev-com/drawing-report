@@ -31,7 +31,7 @@ import type { SlipFile } from '@omdc-slipkit/core';
 | `paper` | `PaperSize` | 用紙サイズ・余白 (単位: mm) |
 | `pages` | `SlipPage[]` | ページ配列 (最小 1) |
 | `assets` | `AssetEntry[]` | 内蔵リソース (画像など) |
-| `bindings?` | `BindingDef[]` | パラメータ定義部 — 物理名（`key`）・論理名（`label`）・値の種類（`valueType`）・項目フィールド（`fields`、リストのみ） |
+| `parameters?` | `ParameterDef[]` | パラメータ定義部 — 物理名（`key`）・論理名（`label`）・値の種類（`valueType`）・項目フィールド（`fields`、リストのみ） |
 | `sampleValues?` | `Record<string, JsonValue>` | プレビュー用のサンプル値 (発行には含まれない) |
 
 ### 伝票 (voucher)

@@ -43,7 +43,7 @@ export const SLIP_LIMITS = {
   /** 그리드 최대 셀 수 */
   maxGridCells: 100_000,
   /** 파라미터 정의부 최대 항목 수 */
-  maxBindings: 500,
+  maxParameters: 500,
   /** 그리드(grid) 최대 행 수 */
   maxGridRowTracks: 1000,
   /** 그리드(grid) 최대 열 수 */
@@ -179,7 +179,7 @@ const gridCellSchema = z.object({
   /** 직접 입력한 글 */
   content: z.string().optional(),
   /** 값 키 — 반복 구간 안이면 그 항목의 필드, 밖이면 전표 values의 키 */
-  binding: idSchema.optional(),
+  parameter: idSchema.optional(),
   /** 표시 전 가공 수식 (ADR-010/017) */
   formula: z.string().optional(),
   /** 셀을 넘치는 글의 처리 — 요소 값을 덮어쓴다 */
@@ -190,7 +190,7 @@ const gridCellSchema = z.object({
 /** 반복 구간 — 지정한 행 범위가 항목 배열만큼 복제된다 (ADR-037) */
 const gridRepeatSchema = z.object({
   /** 전표 values에서 항목 배열(객체 배열)을 담는 키 */
-  binding: idSchema,
+  parameter: idSchema,
   /** 반복할 행 범위 (0-기반, 양끝 포함) */
   fromRow: z.number().int().nonnegative(),
   toRow: z.number().int().nonnegative(),
@@ -304,12 +304,12 @@ function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, stri
   grid.cells.forEach((cell, index) => {
     const rowSpan = cell.rowSpan ?? 1;
     const colSpan = cell.colSpan ?? 1;
-    const sources = [cell.content, cell.binding, cell.formula].filter((v) => v !== undefined);
+    const sources = [cell.content, cell.parameter, cell.formula].filter((v) => v !== undefined);
     if (sources.length > 1) {
       ctx.addIssue({
         code: 'custom',
         path: ['cells', index],
-        message: `셀(${cell.row},${cell.column})은 content·binding·formula 중 하나만 가질 수 있습니다`,
+        message: `셀(${cell.row},${cell.column})은 content·parameter·formula 중 하나만 가질 수 있습니다`,
       });
     }
     if (cell.row + rowSpan > rows || cell.column + colSpan > columns) {
@@ -403,22 +403,22 @@ const imageElementSchema = z
   .object({
     type: z.literal('image'),
     ...elementBaseShape,
-    /** 고정 이미지의 자리 (§3.1의 3형식). `binding`을 쓰면 생략할 수 있다 */
+    /** 고정 이미지의 자리 (§3.1의 3형식). `parameter`를 쓰면 생략할 수 있다 */
     src: srcSchema.optional(),
     /**
      * 전표 값에서 이미지를 읽어 오는 키 — 전표마다 다른 이미지를 넣는다.
      * 값은 `data:` base64만 받는다 (ADR-036) — `values`는 JSON이라 바이너리를 담지 못하고,
      * core는 네트워크를 쓰지 않아 URL을 받아올 수 없다 (ADR-002).
      */
-    binding: idSchema.optional(),
+    parameter: idSchema.optional(),
   })
   .superRefine((image, ctx) => {
     // 둘 다 없으면 그릴 것이 없고, 둘 다 있으면 어느 쪽을 그릴지 정해지지 않는다
-    if (image.src === undefined && image.binding === undefined) {
-      ctx.addIssue({ code: 'custom', path: ['src'], message: '이미지는 src 또는 binding 중 하나가 필요합니다' });
+    if (image.src === undefined && image.parameter === undefined) {
+      ctx.addIssue({ code: 'custom', path: ['src'], message: '이미지는 src 또는 parameter 중 하나가 필요합니다' });
     }
-    if (image.src !== undefined && image.binding !== undefined) {
-      ctx.addIssue({ code: 'custom', path: ['binding'], message: '이미지는 src와 binding을 함께 가질 수 없습니다' });
+    if (image.src !== undefined && image.parameter !== undefined) {
+      ctx.addIssue({ code: 'custom', path: ['parameter'], message: '이미지는 src와 parameter를 함께 가질 수 없습니다' });
     }
   });
 
@@ -442,7 +442,7 @@ const barcodeElementSchema = z
     /** 직접 입력한 글 */
     content: z.string().optional(),
     /** 전표 values의 키 */
-    binding: idSchema.optional(),
+    parameter: idSchema.optional(),
     /** 표시 전 가공 수식 (ADR-010/017) */
     formula: z.string().optional(),
     /** 막대·점 색 (생략하면 검정) */
@@ -451,12 +451,12 @@ const barcodeElementSchema = z
     backgroundColor: colorSchema.optional(),
   })
   .superRefine((barcode, ctx) => {
-    const sources = [barcode.content, barcode.binding, barcode.formula].filter((v) => v !== undefined);
+    const sources = [barcode.content, barcode.parameter, barcode.formula].filter((v) => v !== undefined);
     if (sources.length !== 1) {
       ctx.addIssue({
         code: 'custom',
         path: ['content'],
-        message: '바코드는 content·binding·formula 중 하나만 가져야 합니다',
+        message: '바코드는 content·parameter·formula 중 하나만 가져야 합니다',
       });
     }
   });
@@ -540,18 +540,18 @@ const fieldElementSchema = z
     ...elementBaseShape,
     ...colorStyleShape,
     /** 전표 values의 키 — 수식을 쓰면 두지 않는다 */
-    binding: idSchema.optional(),
+    parameter: idSchema.optional(),
     /** 표시 값을 계산하는 수식 (ADR-010/017), 예: FORMAT_NUMBER(...) */
     formula: z.string().optional(),
     ...fontShape,
   })
   .superRefine((field, ctx) => {
-    const sources = [field.binding, field.formula].filter((v) => v !== undefined);
+    const sources = [field.parameter, field.formula].filter((v) => v !== undefined);
     if (sources.length !== 1) {
       ctx.addIssue({
         code: 'custom',
-        path: ['binding'],
-        message: `필드 '${field.name}'는 binding·formula 중 하나만 가져야 합니다`,
+        path: ['parameter'],
+        message: `필드 '${field.name}'는 parameter·formula 중 하나만 가져야 합니다`,
       });
     }
   });
@@ -646,30 +646,30 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 // ---------------------------------------------------------------------------
 
 /** 파라미터 값의 종류 — 작성폼 입력 방식과 쓸 수 있는 함수를 가리는 데 쓴다 */
-const bindingValueTypeSchema = z.enum(['text', 'number', 'date', 'boolean', 'image', 'list']);
+const parameterValueTypeSchema = z.enum(['text', 'number', 'date', 'boolean', 'image', 'list']);
 
 /**
  * 목록 파라미터의 하위 필드 정의 — 항목 하나가 가진 값이다 (ADR-047).
  * 항목은 평평한 객체라 하위 필드는 다시 하위를 갖지 않는다 (ADR-038).
  */
-const bindingFieldSchema = z.object({
+const parameterFieldSchema = z.object({
   key: idSchema,
   label: z.string().min(1).optional(),
-  valueType: bindingValueTypeSchema.optional(),
+  valueType: parameterValueTypeSchema.optional(),
 });
 
 /**
  * 파라미터 정의 — 물리명(key)은 파일·수식·연동에, 논리명(label)은 화면 표시에 (ADR-032).
  * `valueType: 'list'`면 항목이 가진 값을 `fields`로 선언한다 (ADR-047).
  */
-const bindingDefSchema = z
+const parameterDefSchema = z
   .object({
     key: idSchema,
     label: z.string().min(1).optional(),
     /** 값 종류 — 생략하면 글자로 다룬다 */
-    valueType: bindingValueTypeSchema.optional(),
+    valueType: parameterValueTypeSchema.optional(),
     /** 목록 항목의 하위 필드 — `valueType: 'list'`에서만 쓴다 (ADR-047) */
-    fields: z.array(bindingFieldSchema).optional(),
+    fields: z.array(parameterFieldSchema).optional(),
   })
   .superRefine((def, ctx) => {
     if (def.fields === undefined) return;
@@ -707,25 +707,25 @@ export const slipTemplateBodySchema = z
     pages: z.array(slipPageSchema).min(1).max(SLIP_LIMITS.maxPages, `페이지는 최대 ${SLIP_LIMITS.maxPages}개입니다`),
     assets: z.array(assetEntrySchema).max(SLIP_LIMITS.maxAssets, `에셋은 최대 ${SLIP_LIMITS.maxAssets}개입니다`),
     /** 파라미터 정의부 (선택, ADR-032) — 요소가 미등록 키를 쓰는 것도 허용한다 */
-    bindings: z
-      .array(bindingDefSchema)
-      .max(SLIP_LIMITS.maxBindings, `파라미터 정의는 최대 ${SLIP_LIMITS.maxBindings}개입니다`)
+    parameters: z
+      .array(parameterDefSchema)
+      .max(SLIP_LIMITS.maxParameters, `파라미터 정의는 최대 ${SLIP_LIMITS.maxParameters}개입니다`)
       .optional(),
     /** 미리보기용 샘플 값 (선택, ADR-032) — 발행·무결성과 무관, 전표 생성 시 미포함 */
     sampleValues: z.record(z.string(), jsonValueSchema).optional(),
   })
   .superRefine((body, ctx) => {
     // 파라미터 정의부 key 유일성 (ADR-032)
-    const bindingKeys = new Set<string>();
-    body.bindings?.forEach((binding, index) => {
-      if (bindingKeys.has(binding.key)) {
+    const parameterKeys = new Set<string>();
+    body.parameters?.forEach((parameter, index) => {
+      if (parameterKeys.has(parameter.key)) {
         ctx.addIssue({
           code: 'custom',
-          path: ['bindings', index, 'key'],
-          message: `파라미터 key가 중복됩니다: ${binding.key}`,
+          path: ['parameters', index, 'key'],
+          message: `파라미터 key가 중복됩니다: ${parameter.key}`,
         });
       }
-      bindingKeys.add(binding.key);
+      parameterKeys.add(parameter.key);
     });
     // 에셋 id 유일성
     const assetIds = new Set<string>();
@@ -883,12 +883,12 @@ export const slipVoucherFileSchema = z
     // 한다(외부 URL·깨진 data: 모두 거부). 비어 있으면 이미지 없음이라 허용한다.
     for (const page of voucher.templateSnapshot.pages) {
       for (const element of page.elements) {
-        if (element.type !== 'image' || element.binding === undefined) continue;
-        const value = voucher.values[element.binding];
+        if (element.type !== 'image' || element.parameter === undefined) continue;
+        const value = voucher.values[element.parameter];
         if (typeof value === 'string' && value !== '' && !DATA_SRC.test(value)) {
           ctx.addIssue({
             code: 'custom',
-            path: ['values', element.binding],
+            path: ['values', element.parameter],
             message: HTTP_SRC.test(value)
               ? '발행(issued)된 전표는 외부 URL 이미지를 포함할 수 없습니다 (base64 내장 필요)'
               : '변동 이미지 값은 data:<mime>;base64 형식이어야 합니다',
@@ -1011,9 +1011,9 @@ export type GridRepeat = z.infer<typeof gridRepeatSchema>;
 /** 그리드 요소 — 고정 틀과 반복 목록을 하나로 다룬다 (ADR-037) */
 export type GridElement = z.infer<typeof gridElementSchema>;
 /** 파라미터 정의 (물리명 key + 논리명 label, ADR-032/047) */
-export type BindingDef = z.infer<typeof bindingDefSchema>;
+export type ParameterDef = z.infer<typeof parameterDefSchema>;
 /** 목록 파라미터의 하위 필드 정의 (ADR-047) */
-export type BindingField = z.infer<typeof bindingFieldSchema>;
+export type ParameterField = z.infer<typeof parameterFieldSchema>;
 /** 이미지 요소 */
 export type ImageElement = z.infer<typeof imageElementSchema>;
 /** 선 요소 (ADR-032) */
@@ -1031,7 +1031,7 @@ export type BarcodeElement = z.infer<typeof barcodeElementSchema>;
 /** 바코드 종류 */
 export type BarcodeKind = z.infer<typeof barcodeKindSchema>;
 /** 파라미터 값 종류 */
-export type BindingValueType = z.infer<typeof bindingValueTypeSchema>;
+export type ParameterValueType = z.infer<typeof parameterValueTypeSchema>;
 /** 페이지 번호 표시 */
 export type PageNumber = z.infer<typeof pageNumberSchema>;
 /** 페이지 번호 위치 */
