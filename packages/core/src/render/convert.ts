@@ -481,12 +481,24 @@ class SlipToPdfmeConverter {
   }
 
   /** 그리드 한 페이지의 실제 행 높이·셀 목록을 만든다 (반복 구간 펼치기, ADR-037) */
-  private gridLayout(
+  /**
+   * 그리드 칸 하나를 그리기용 셀로 바꾼다 — 셀에 지정이 없으면 요소 기본값을 물려받는다.
+   *
+   * @param element - 셀이 속한 그리드 (기본 스타일·값 계산에 쓴다)
+   * @param cell - 원본 칸
+   * @param rowShift - 반복 복제로 아래로 민 행 수
+   * @param item - 이 벌의 항목 값 (반복 구간 밖이면 undefined)
+   * @param hasItem - 값을 계산해 넣을지 (헤더·꼬리·빈 벌은 false)
+   * @returns 그리기용 셀
+   */
+  private toDrawCell(
     element: GridElement,
-    renderPage: number,
-  ): { rowHeights: number[]; cells: DrawGridCell[]; blankRows: Set<number> } {
-    const templateHeights = element.rows.map((row) => row.height);
-    const toDrawCell = (cell: GridCell, rowShift: number, item: Record<string, unknown> | undefined, hasItem: boolean): DrawGridCell => ({
+    cell: GridCell,
+    rowShift: number,
+    item: Record<string, unknown> | undefined,
+    hasItem: boolean,
+  ): DrawGridCell {
+    return {
       row: cell.row + rowShift,
       column: cell.column,
       rowSpan: cell.rowSpan ?? 1,
@@ -509,43 +521,31 @@ class SlipToPdfmeConverter {
       borderWidth: cell.borderWidth,
       borderStyle: cell.borderStyle,
       overflow: cell.overflow,
-    });
+    };
+  }
 
-    const repeat = element.repeat;
-    if (!repeat) {
-      return {
-        rowHeights: templateHeights,
-        cells: element.cells.map((cell) => toDrawCell(cell, 0, undefined, true)),
-        blankRows: new Set<number>(),
-      };
-    }
-
-    const { fromRow, toRow, perPage, repeatHeader } = repeat;
+  /**
+   * 반복 구간 행을 이 페이지 몫만큼 펼쳐 그리기용 셀로 만든다 (ADR-037/038).
+   *
+   * 켠 열(autoMerge)은 앞 벌과 값이 같은 칸을 세로로 합친다 — 페이지 단위로만 보므로
+   * (chunk가 이 페이지 몫) 페이지가 바뀌면 저절로 끊기고 값이 다시 그려진다. 빈 값·항목 없음은
+   * 합치지 않고 그대로 그린다.
+   *
+   * @param element - 그리드 요소
+   * @param repeat - 반복 구간 설정
+   * @param renderPage - 몇 번째 출력 페이지인지 (0부터)
+   * @returns 반복 구간에서 나온 그리기용 셀 목록
+   */
+  private expandRepeatBand(
+    element: GridElement,
+    repeat: NonNullable<GridElement['repeat']>,
+    renderPage: number,
+  ): DrawGridCell[] {
+    const { fromRow, toRow, perPage } = repeat;
     const bandRows = toRow - fromRow + 1;
     const items = this.repeatItems(element, repeat.binding);
     const chunk = items.slice(renderPage * perPage, (renderPage + 1) * perPage);
 
-    const rowHeights: number[] = [
-      ...templateHeights.slice(0, fromRow),
-      ...Array.from({ length: perPage }, () => templateHeights.slice(fromRow, toRow + 1)).flat(),
-      ...templateHeights.slice(toRow + 1),
-    ];
-
-    const blankRows = new Set<number>();
-    // 이어지는 페이지에서 헤더를 반복하지 않으면 그 자리를 비운다 — 그리드 크기는 그대로라
-    // 아래 요소의 자리가 흔들리지 않는다 (SPEC §5.7)
-    const hideHeader = renderPage > 0 && !repeatHeader;
-    if (hideHeader) for (let r = 0; r < fromRow; r++) blankRows.add(r);
-
-    // 위에서 아래 순서로 담는다 — 그리는 순서가 그리드 모양과 같아야 읽기 쉽다
-    const cells: DrawGridCell[] = [];
-    if (!hideHeader) {
-      for (const cell of element.cells) {
-        if (cell.row < fromRow) cells.push(toDrawCell(cell, 0, undefined, true));
-      }
-    }
-    // 데이터 자동 병합 (ADR-038): 켠 열은 앞 벌과 값이 같은 칸을 세로로 합친다.
-    // 페이지 단위로만 본다 — chunk가 이 페이지 몫이라 페이지가 바뀌면 저절로 끊기고 값이 다시 그려진다.
     const autoMergeColumns = new Set<number>();
     element.columns.forEach((column, c) => {
       if (column.autoMerge === true) autoMergeColumns.add(c);
@@ -559,13 +559,14 @@ class SlipToPdfmeConverter {
     };
     // 반복 구간 칸(틀 좌표)별 병합 기준 칸 — 앞 벌과 값이 같으면 이 칸의 높이를 늘린다
     const anchors = new Map<string, { cell: DrawGridCell; text: string }>();
+    const cells: DrawGridCell[] = [];
 
     for (let i = 0; i < perPage; i++) {
       const item = chunk[i];
       const hasItem = item !== undefined;
       for (const cell of element.cells) {
         if (cell.row < fromRow || cell.row > toRow) continue;
-        const draw = toDrawCell(cell, i * bandRows, item, hasItem);
+        const draw = this.toDrawCell(element, cell, i * bandRows, item, hasItem);
         if (!cellMerges(cell)) {
           cells.push(draw);
           continue;
@@ -586,8 +587,52 @@ class SlipToPdfmeConverter {
         cells.push(draw);
       }
     }
+    return cells;
+  }
+
+  private gridLayout(
+    element: GridElement,
+    renderPage: number,
+  ): { rowHeights: number[]; cells: DrawGridCell[]; blankRows: Set<number> } {
+    const templateHeights = element.rows.map((row) => row.height);
+    const repeat = element.repeat;
+    if (!repeat) {
+      return {
+        rowHeights: templateHeights,
+        cells: element.cells.map((cell) => this.toDrawCell(element, cell, 0, undefined, true)),
+        blankRows: new Set<number>(),
+      };
+    }
+
+    const { fromRow, toRow, perPage, repeatHeader } = repeat;
+    const bandRows = toRow - fromRow + 1;
+
+    // 행 높이: 반복 구간(band)을 perPage번 되풀이해 앞·뒤 고정 행 사이에 끼운다.
+    // 결과 높이가 gridElementSchema가 검증한 요소 높이(templateHeight + (perPage-1)*bandHeight)와
+    // 정확히 같아 자리가 어긋나지 않는다 (checkGridTrackSums 참조).
+    const band = templateHeights.slice(fromRow, toRow + 1);
+    const rowHeights: number[] = [
+      ...templateHeights.slice(0, fromRow),
+      ...Array.from({ length: perPage }, () => band).flat(),
+      ...templateHeights.slice(toRow + 1),
+    ];
+
+    // 이어지는 페이지에서 헤더를 반복하지 않으면 그 자리를 비운다 — 그리드 크기는 그대로라
+    // 아래 요소의 자리가 흔들리지 않는다 (SPEC §5.7)
+    const hideHeader = renderPage > 0 && !repeatHeader;
+    const blankRows = new Set<number>();
+    if (hideHeader) for (let r = 0; r < fromRow; r++) blankRows.add(r);
+
+    // 위에서 아래 순서로 담는다 — 헤더 → 반복 구간 → 꼬리
+    const cells: DrawGridCell[] = [];
+    if (!hideHeader) {
+      for (const cell of element.cells) {
+        if (cell.row < fromRow) cells.push(this.toDrawCell(element, cell, 0, undefined, true));
+      }
+    }
+    cells.push(...this.expandRepeatBand(element, repeat, renderPage));
     for (const cell of element.cells) {
-      if (cell.row > toRow) cells.push(toDrawCell(cell, (perPage - 1) * bandRows, undefined, true));
+      if (cell.row > toRow) cells.push(this.toDrawCell(element, cell, (perPage - 1) * bandRows, undefined, true));
     }
     return { rowHeights, cells, blankRows };
   }
@@ -696,7 +741,11 @@ class SlipToPdfmeConverter {
     });
 
     // 3) 그리드선 → 선. 병합 범위의 내부 경계선은 그리지 않고, 변마다 이웃 셀의
-    //    테두리 설정(굵은 쪽 우선)을 적용해 같은 스타일 구간끼리 이어 그린다 (ADR-033)
+    //    테두리 설정(굵은 쪽 우선)을 적용해 같은 스타일 구간끼리 이어 그린다 (ADR-033).
+    //    아래 두 루프는 가로선 패스(행 경계, r=0..rows)와 세로선 패스(열 경계, c=0..columns)로
+    //    구조가 나란하다 — 축(offsets·owner 이웃·pushLine 인자)만 뒤바뀐다. 억지로 합치지 않고
+    //    나란히 둔 건 축 뒤바뀜을 감춘 헬퍼보다 두 패스를 그대로 읽는 편이 검토에 안전해서다.
+    //    가로선 패스에만 빈 행 가장자리 처리가 더 있다(헤더 미반복 시 위/아래 끝 선을 지운다).
     for (let r = 0; r <= rows; r++) {
       // 비운 행에 둘러싸인 가로선은 그리지 않는다 (헤더 미반복, SPEC §5.7)
       if (blankRows.has(r - 1) && blankRows.has(r)) continue;
