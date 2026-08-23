@@ -7461,35 +7461,14 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   /** 양식 전체의 바인딩 목록 (정의부 + 요소 사용처, 중복 없이) — 수식 모달의 클릭 삽입용 */
+  /**
+   * 바인딩 키·논리명 목록 — {@link _bindingList}에서 뽑아 쓴다(순회 규칙을 두 곳에
+   * 복제하지 않도록). 수식 모달 등 키·라벨만 필요한 곳에서 쓴다.
+   *
+   * @returns 바인딩 키와 논리명 목록
+   */
   private _collectBindings(): { key: string; label: string }[] {
-    const file = this._file;
-    if (!file) return [];
-    const list: { key: string; label: string }[] = [];
-    const seen = new Set<string>();
-    const labelOf = new Map<string, string>(
-      (file.template.bindings ?? [])
-        .filter((b) => b.label !== undefined)
-        .map((b) => [b.key, b.label!]),
-    );
-    const push = (key: string): void => {
-      if (seen.has(key)) return;
-      seen.add(key);
-      list.push({ key, label: labelOf.get(key) ?? key });
-    };
-    for (const def of file.template.bindings ?? []) push(def.key);
-    for (const page of file.template.pages) {
-      for (const el of page.elements) {
-        if (el.type === 'field') push(el.binding);
-        if (el.type === 'image' && el.binding !== undefined) push(el.binding);
-        if (el.type === 'grid') {
-          if (el.repeat) push(el.repeat.binding);
-          for (const cell of el.cells) {
-            if (cell.binding !== undefined && !inRepeatBand(el, cell.row)) push(cell.binding);
-          }
-        }
-      }
-    }
-    return list;
+    return this._bindingList().map((b) => ({ key: b.key, label: b.label }));
   }
 
   /** 바이트 수를 사람이 읽는 크기로 (오류 문구용) */
