@@ -177,6 +177,9 @@ class SlipToPdfmeConverter {
     // 반복 그리드가 넘치면 그 슬립 페이지를 여러 출력 페이지로 낸다 (ADR-037).
     // 나머지 요소는 페이지마다 그대로 다시 그린다 — 그리드 크기가 고정이라 자리가 흔들리지 않는다.
     const schemas: Schema[][] = [];
+    // 출력 페이지마다 그것을 만든 원본 슬립 페이지를 기록해 둔다 — 페이지 번호를 얹을 때
+    // 같은 페이지 워크를 다시 돌지 않도록(두 워크가 어긋날 위험 제거).
+    const outputPages: SlipPage[] = [];
     for (const page of this.body.pages) {
       const pageCount = this.renderPageCount(page.elements);
       for (let renderPage = 0; renderPage < pageCount; renderPage++) {
@@ -185,10 +188,11 @@ class SlipToPdfmeConverter {
           this.appendElement(pageSchemas, element, renderPage);
         }
         schemas.push(pageSchemas);
+        outputPages.push(page);
       }
     }
     // 페이지 번호는 전체 쪽 수가 정해진 뒤에야 찍을 수 있다 — 페이지를 다 만든 뒤 얹는다 (0.5.0)
-    this.appendPageNumbers(schemas);
+    this.appendPageNumbers(schemas, outputPages);
     const template: Template = {
       basePdf: {
         width: this.body.paper.width,
@@ -207,21 +211,18 @@ class SlipToPdfmeConverter {
    * 여러 출력 페이지가 된다). 그래서 페이지를 다 만든 뒤 마지막에 얹는다.
    *
    * @param schemas - 페이지별 스키마 목록 (여기에 번호 상자를 더한다)
+   * @param outputPages - 출력 페이지마다의 원본 슬립 페이지 (convert에서 만든 매핑)
    */
-  private appendPageNumbers(schemas: Schema[][]): void {
+  private appendPageNumbers(schemas: Schema[][], outputPages: readonly SlipPage[]): void {
     const total = schemas.length;
-    let output = 0;
-    for (const page of this.body.pages) {
-      const count = this.renderPageCount(page.elements);
-      for (let i = 0; i < count; i++, output++) {
-        const setting = page.pageNumber;
-        const target = schemas[output];
-        if (!setting || !target) continue;
-        const text = (setting.format ?? '{n} / {total}')
-          .replace(/\{n\}/g, String(output + 1))
-          .replace(/\{total\}/g, String(total));
-        target.push(this.pageNumberSchema(setting, output, text));
-      }
+    for (let output = 0; output < total; output++) {
+      const setting = outputPages[output]?.pageNumber;
+      const target = schemas[output];
+      if (!setting || !target) continue;
+      const text = (setting.format ?? '{n} / {total}')
+        .replace(/\{n\}/g, String(output + 1))
+        .replace(/\{total\}/g, String(total));
+      target.push(this.pageNumberSchema(setting, output, text));
     }
   }
 
@@ -370,29 +371,40 @@ class SlipToPdfmeConverter {
     return schema;
   }
 
+  /**
+   * 텍스트·필드 요소에서 textSchema에 넘길 글자 스타일 객체를 뽑는다 — 두 요소가
+   * 같은 글자 스타일 필드를 갖기 때문에 한곳에서 만든다(새 스타일 추가 시 한 군데만 고친다).
+   *
+   * @param element - 텍스트 또는 필드 요소
+   * @returns textSchema의 style 인자 형태의 스타일 객체
+   */
+  private textStyleFromElement(element: TextElement | FieldElement) {
+    return {
+      fontName: element.fontName,
+      fontSize: element.fontSize,
+      alignment: element.alignment,
+      verticalAlignment: element.verticalAlignment ?? 'top',
+      fontColor: element.fontColor,
+      backgroundColor: element.backgroundColor,
+      borderColor: element.borderColor,
+      borderWidth: element.borderWidth,
+      padding: 0,
+      bold: element.bold,
+      italic: element.italic,
+      underline: element.underline,
+      strikethrough: element.strikethrough,
+      lineHeight: element.lineHeight,
+      characterSpacing: element.characterSpacing,
+    } as const;
+  }
+
   private appendText(schemas: Schema[], element: TextElement): void {
     const schema = this.textSchema(
       element.id,
       element.position,
       element.width,
       element.height,
-      {
-        fontName: element.fontName,
-        fontSize: element.fontSize,
-        alignment: element.alignment,
-        verticalAlignment: element.verticalAlignment ?? 'top',
-        fontColor: element.fontColor,
-        backgroundColor: element.backgroundColor,
-        borderColor: element.borderColor,
-        borderWidth: element.borderWidth,
-        padding: 0,
-        bold: element.bold,
-        italic: element.italic,
-        underline: element.underline,
-        strikethrough: element.strikethrough,
-        lineHeight: element.lineHeight,
-        characterSpacing: element.characterSpacing,
-      },
+      this.textStyleFromElement(element),
     );
     // 고정 문구는 가공 없이 그대로 (pdfme 표현식 평가를 타지 않도록 inputs로 전달)
     this.push(schemas, schema, stackVertically(element.content, element.vertical));
@@ -404,23 +416,7 @@ class SlipToPdfmeConverter {
       element.position,
       element.width,
       element.height,
-      {
-        fontName: element.fontName,
-        fontSize: element.fontSize,
-        alignment: element.alignment,
-        verticalAlignment: element.verticalAlignment ?? 'top',
-        fontColor: element.fontColor,
-        backgroundColor: element.backgroundColor,
-        borderColor: element.borderColor,
-        borderWidth: element.borderWidth,
-        padding: 0,
-        bold: element.bold,
-        italic: element.italic,
-        underline: element.underline,
-        strikethrough: element.strikethrough,
-        lineHeight: element.lineHeight,
-        characterSpacing: element.characterSpacing,
-      },
+      this.textStyleFromElement(element),
     );
     this.push(schemas, schema, stackVertically(this.fieldValue(element), element.vertical));
   }
