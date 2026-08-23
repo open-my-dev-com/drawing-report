@@ -960,8 +960,8 @@ export class SlipDesigner extends LitElement {
       align-items: center;
       justify-content: center;
       flex: none;
-      width: 20px;
-      height: 20px;
+      width: 24px;
+      height: 24px;
       padding: 0;
       border: 1px solid transparent;
       border-radius: var(--sk-radius);
@@ -1712,6 +1712,19 @@ export class SlipDesigner extends LitElement {
       font-family: inherit;
       color: inherit;
     }
+    /*
+     * 체크박스는 글상자와 달리 늘려도 쓸모가 없다 — 늘어난 칸 안에서 혼자 가운데로 보여
+     * 다른 줄과 어긋났다. 크기를 고정하고 왼쪽에 세워 다른 입력칸과 시작 위치를 맞춘다.
+     */
+    .prop-row input[type='checkbox'] {
+      flex: none;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      padding: 0;
+      accent-color: var(--sk-accent);
+      cursor: pointer;
+    }
     .prop-row input:focus-visible,
     .prop-row select:focus-visible,
     .prop-row textarea:focus-visible {
@@ -1726,7 +1739,8 @@ export class SlipDesigner extends LitElement {
     }
     .prop-pair {
       display: flex;
-      gap: 6px;
+      /* 앞 칸의 마지막 버튼과 뒤 칸의 라벨이 맞닿아 보이지 않게 벌린다 */
+      gap: 14px;
     }
     .prop-pair .prop-row {
       flex: 1;
@@ -1742,7 +1756,7 @@ export class SlipDesigner extends LitElement {
       align-items: center;
       justify-content: center;
       width: 28px;
-      height: 24px;
+      height: 26px;
       padding: 0;
       border: 1px solid var(--sk-border-strong);
       border-radius: var(--sk-radius);
@@ -1753,6 +1767,19 @@ export class SlipDesigner extends LitElement {
     .toggle-group button svg {
       width: 14px;
       height: 14px;
+    }
+    /*
+     * 글자를 담는 토글 — 아이콘 전용 28px 상자에 글자를 넣으면 넘쳐 깨진다.
+     * 내용에 맞춰 늘리고 아이콘 버튼과 같은 높이를 유지한다.
+     */
+    .toggle-group.text button {
+      width: auto;
+      min-width: 0;
+      height: 26px;
+      padding: 0 10px;
+      font-family: inherit;
+      font-size: 12px;
+      white-space: nowrap;
     }
     .toggle-group button[aria-pressed='true'] {
       background: var(--sk-accent-soft);
@@ -2057,13 +2084,16 @@ export class SlipDesigner extends LitElement {
       outline-offset: -1px;
     }
 
+    /*
+     * 인라인 칸 편집 상자 — 배경·글자색·크기·정렬은 칸에서 물려받아 인라인으로 준다.
+     * 여기서 배경을 칠하면 칸에 준 배경색이 편집 중에만 사라져 색을 보며 고칠 수 없다.
+     */
     .cell-editor {
       position: absolute;
       z-index: 30;
       padding: 1px 3px;
       border: 2px solid var(--sk-accent);
       border-radius: 2px;
-      background: var(--sk-surface);
       font-family: inherit;
       font-size: 12px;
       color: inherit;
@@ -2082,7 +2112,7 @@ export class SlipDesigner extends LitElement {
       gap: 6px;
     }
     .step-inputs span {
-      min-width: 20px;
+      min-width: 24px;
       text-align: center;
       font-variant-numeric: tabular-nums;
     }
@@ -3516,6 +3546,14 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
+  /** 키보드 단축키가 듣도록 호스트에 포커스를 준다 — 이미 안쪽에 있으면 건드리지 않는다 */
+  private _focusHost(): void {
+    if (this.contains(document.activeElement) || this.renderRoot.contains(this.shadowRoot?.activeElement ?? null)) {
+      return;
+    }
+    this.focus({ preventScroll: true });
+  }
+
   /** 포인터 좌표를 용지 기준 mm 좌표로 (용지 밖은 가장자리로 보정) */
   private _paperPoint(e: PointerEvent): { x: number; y: number } {
     const rect = (this.renderRoot.querySelector('.paper') as HTMLElement | null)
@@ -3529,6 +3567,11 @@ export class SlipDesigner extends LitElement {
 
   private _onPointerDown = (e: PointerEvent): void => {
     if (!this._file) return;
+    // 아래 갈래들이 끌기를 위해 preventDefault를 부르는데, 그러면 브라우저 기본 포커스 이동이
+    // 함께 막힌다. 도구 버튼으로 요소를 만들면 그 버튼이 다시 그려지며 포커스가 컴포넌트 밖으로
+    // 빠져, 갓 만든 요소를 Delete·Backspace로 지울 수 없었다. 캔버스를 누른 순간 호스트가
+    // 포커스를 갖게 해 단축키가 곧바로 듣게 한다.
+    this._focusHost();
 
     // 생성 도구가 선택돼 있으면 클릭·드래그는 요소 생성이다 (선택·이동보다 우선)
     if (this._pendingTool) {
@@ -5588,8 +5631,20 @@ export class SlipDesigner extends LitElement {
     const { row, column } = this._selectedCell;
     const rect = this._cellRectPx(el, row, column);
     const cell = el.cells.find((c) => c.row === row && c.column === column);
+    // 입력 상자가 자기 배경색으로 칠하면 칸에 준 배경색이 편집하는 동안만 사라져
+    // 색을 확인하며 고칠 수 없다 — 칸의 실제 표시 스타일을 그대로 물려받는다
+    const bg = cell?.backgroundColor ?? el.backgroundColor;
+    const fg = cell?.fontColor ?? el.fontColor;
+    const size = cell?.fontSize ?? el.fontSize;
+    const align = cell?.alignment ?? el.alignment;
+    const inherited = [
+      bg ? `background:${bg}` : 'background:transparent',
+      fg ? `color:${fg}` : '',
+      size ? `font-size:${fontPx(size)}` : '',
+      align ? `text-align:${align}` : '',
+    ].filter(Boolean).join(';');
     return html`<input class="cell-editor"
-      style="left:${rect.left}px;top:${rect.top}px;width:${Math.max(24, rect.width)}px;height:${Math.max(16, rect.height)}px"
+      style="left:${rect.left}px;top:${rect.top}px;width:${Math.max(24, rect.width)}px;height:${Math.max(16, rect.height)}px;${inherited}"
       .value=${cell?.content ?? ''}
       @keydown=${(e: KeyboardEvent) => {
         if (e.key === 'Enter') {
@@ -7480,7 +7535,7 @@ export class SlipDesigner extends LitElement {
           <div class="prop-section">
             <div class="prop-row">
               <label>${s.imageMode}</label>
-              <div class="toggle-group" role="group" aria-label=${s.imageMode}>
+              <div class="toggle-group text" role="group" aria-label=${s.imageMode}>
                 <button aria-pressed=${String(!variable)}
                   @click=${() => this._setImageVariable(false)}>${s.imageFixed}</button>
                 <button aria-pressed=${String(variable)}

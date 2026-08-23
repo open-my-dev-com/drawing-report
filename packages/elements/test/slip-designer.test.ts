@@ -4256,6 +4256,45 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
+  it('인라인 칸 편집 상자는 칸의 배경색을 그대로 쓴다 (편집 중 색이 사라지지 않게)', async () => {
+    const el = await mount();
+    // 칸에 배경색을 준 뒤 그 칸을 두 번 눌러 인라인 편집을 연다
+    (el as unknown as { _selectedCell: { row: number; column: number } | null })._selectedCell =
+      { row: 0, column: 0 };
+    (el as unknown as { _updateCellStyle: (k: string, v: unknown) => void })
+      ._updateCellStyle('backgroundColor', '#ffeeaa');
+    await el.updateComplete;
+    (el as unknown as { _cellEditing: boolean })._cellEditing = true;
+    (el as unknown as { requestUpdate: () => void }).requestUpdate();
+    await el.updateComplete;
+
+    const editor = el.shadowRoot!.querySelector('.cell-editor') as HTMLInputElement;
+    expect(editor).not.toBeNull();
+    expect(editor.getAttribute('style')).toContain('background:#ffeeaa');
+    el.remove();
+  });
+
+  it('그리드 칸을 고르면 그리드 자체 옵션은 감추고 그리드로 돌아가는 줄을 보인다 (ADR-034)', async () => {
+    const el = await mount();
+    // 칸을 고르기 전에는 그리드 옵션(행 수)이 보인다
+    const labels = () => Array.from(el.shadowRoot!.querySelectorAll('.prop-row label'))
+      .map((l) => l.textContent?.trim());
+    expect(labels()).toContain(s.rows);
+
+    await clickCell(el, 15, 25);
+    await el.updateComplete;
+    // 칸을 고르면 그리드 옵션은 사라지고 칸 편집만 남는다
+    expect(labels()).not.toContain(s.rows);
+    expect(labels()).toContain(s.merge);
+    // 그리드로 돌아갈 수 있다
+    const back = el.shadowRoot!.querySelector('.grid-back') as HTMLButtonElement;
+    expect(back).not.toBeNull();
+    back.click();
+    await el.updateComplete;
+    expect(labels()).toContain(s.rows);
+    el.remove();
+  });
+
   it('요소 목록에서 그리드를 펼치면 값·수식 칸만 하위 줄로 나오고 누르면 그 칸이 선택된다 (G-44)', async () => {
     const el = await mount(); // 그리드를 고르면 요소 목록에서도 저절로 펼쳐진다
     const cellRows = Array.from(el.shadowRoot!.querySelectorAll('.side-cell-row'));
