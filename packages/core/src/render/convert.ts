@@ -1436,9 +1436,10 @@ export function convertSlipFile(
   },
 ): PdfmeRenderInput {
   const body = file.kind === 'template' ? file.template : file.templateSnapshot;
-  const rawValues: Record<string, unknown> = file.kind === 'voucher' ? file.values : {};
-  // number 바인딩의 빈 값을 0으로 정규화한다 (ADR-044) — 엄격 타입 수식이 미입력을 0으로 보게.
-  const values = normalizeNumericBindings(rawValues, body.bindings);
+  // number 바인딩의 빈 값을 0으로 정규화한다 (ADR-044) — 값이 있는 전표에만 적용한다.
+  // 양식(값 없음)은 그대로 비워 둔다 — 빈 양식의 number 필드를 0으로 채우지 않는다.
+  const values: Record<string, unknown> =
+    file.kind === 'voucher' ? normalizeNumericBindings(file.values, body.bindings) : {};
   return new SlipToPdfmeConverter(
     body,
     values,

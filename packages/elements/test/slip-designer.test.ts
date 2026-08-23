@@ -445,6 +445,31 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     el.remove();
   });
 
+  it('자동 병합은 빈 값(null)에서는 합치지 않는다 — placeholder가 아니라 실제 값 기준 (ADR-038·012)', async () => {
+    const file = makeTemplateFile();
+    file.template.sampleValues = { items: [{ g: null }, { g: null }, { g: 'B' }] } as never;
+    file.template.pages[0]!.elements = [{
+      type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
+      width: 40, height: 24,
+      rows: [{ height: 8 }],
+      columns: [{ width: 40, autoMerge: true }],
+      repeat: { binding: 'items', fromRow: 0, toRow: 0, perPage: 3, repeatHeader: false },
+      cells: [{ row: 0, column: 0, binding: 'g' }],
+    }] as never;
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    // 빈 값 칸({g} placeholder)은 병합되지 않아 span 2가 없다 (PDF는 빈 값에서 끊는다)
+    const boxes = Array.from(el.shadowRoot!.querySelectorAll('.grid-preview > div')) as HTMLElement[];
+    const merged = boxes.filter((c) => c.style.gridArea.replaceAll(' ', '').includes('span2'));
+    expect(merged.length).toBe(0);
+    el.remove();
+  });
+
   it('그리드 헤더 칸의 배경색이 캔버스에 그려진다', async () => {
     const el = await mountWith([{
       type: 'grid', id: 'd1', name: 'd', position: { x: 10, y: 50 },

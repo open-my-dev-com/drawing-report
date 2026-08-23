@@ -5460,7 +5460,7 @@ export class SlipDesigner extends LitElement {
       case 'field':
         return html`<span class="el-content"
           style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(el)}"
-          >{${el.binding}}</span>`;
+          >${stackVertically(`{${el.binding}}`, el.vertical)}</span>`;
 
       case 'barcode':
         return this._renderBarcodePreview(el);
@@ -5606,7 +5606,9 @@ export class SlipDesigner extends LitElement {
         let anchor: { entry: Placed; text: string } | null = null;
         for (let i = 0; i < repeat.perPage; i++) {
           const item = items[i];
-          const text = this._gridCellPreviewText(cell, item);
+          // 병합 판단은 표시용 placeholder({binding})가 아니라 실제 값으로 한다 — 빈 값이면
+          // 합치지 않는다(PDF expandRepeatBand과 동일, ADR-038/012). 표시 텍스트는 아래 boxes에서 따로 그린다.
+          const text = this._gridCellMergeText(cell, item);
           // 빈 값·항목 없음은 합치지 않고 병합을 끊는다 (ADR-038)
           if (item === undefined || text === '') {
             placed.push({ cell, row: cell.row + i * bandRows, rowSpan: baseSpan, item });
@@ -5692,6 +5694,28 @@ export class SlipDesigner extends LitElement {
         return result === null ? '' : String(result);
       } catch {
         return `= ${cell.formula}`;
+      }
+    }
+    return cell.content ?? '';
+  }
+
+  /**
+   * 자동 병합 판단용 칸 값 — 표시용 placeholder가 아니라 실제 값을 돌려준다.
+   * 빈 값(미입력·null·수식 null)은 빈 문자열이라 합치지 않는다 — PDF(convert.ts gridCellText·
+   * toDisplayText)와 같은 규칙으로 화면·PDF가 어긋나지 않게 한다 (ADR-038·012).
+   */
+  private _gridCellMergeText(cell: GridCell, item: Record<string, unknown> | undefined): string {
+    const values = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
+    if (cell.binding !== undefined) {
+      const value = values[cell.binding];
+      return value === null || value === undefined ? '' : String(value);
+    }
+    if (cell.formula !== undefined) {
+      try {
+        const result = evaluateFormula(cell.formula, { values });
+        return result === null ? '' : String(result);
+      } catch {
+        return '';
       }
     }
     return cell.content ?? '';
