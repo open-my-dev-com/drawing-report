@@ -802,6 +802,24 @@ export const slipVoucherFileSchema = z
         message: '발행(issued)된 전표는 외부 URL 이미지를 포함할 수 없습니다 (base64 내장 필요)',
       });
     }
+    // 변동 이미지 값(values)도 훑는다 — 템플릿 src만 보던 검사의 사각지대(ADR-014).
+    // 이미지 요소가 참조하는 바인딩 값이 채워져 있으면 고정 src와 같은 data: base64 형식이어야
+    // 한다(외부 URL·깨진 data: 모두 거부). 비어 있으면 이미지 없음이라 허용한다.
+    for (const page of voucher.templateSnapshot.pages) {
+      for (const element of page.elements) {
+        if (element.type !== 'image' || element.binding === undefined) continue;
+        const value = voucher.values[element.binding];
+        if (typeof value === 'string' && value !== '' && !DATA_SRC.test(value)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['values', element.binding],
+            message: HTTP_SRC.test(value)
+              ? '발행(issued)된 전표는 외부 URL 이미지를 포함할 수 없습니다 (base64 내장 필요)'
+              : '변동 이미지 값은 data:<mime>;base64 형식이어야 합니다',
+          });
+        }
+      }
+    }
   });
 
 /** .slip 파일 — kind('template' | 'voucher') 판별 유니온 */

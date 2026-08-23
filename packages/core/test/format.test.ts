@@ -688,3 +688,35 @@ describe('스키마 방어 보강 (G-48)', () => {
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/구간 전체 높이/);
   });
 });
+
+describe('발행 전표 변동 이미지 값 검증 (G-48)', () => {
+  function voucherWithImageBinding(value: unknown): unknown {
+    const template = makeTemplate().template;
+    template.pages[0]!.elements.push({
+      type: 'image', id: 'stamp', name: '도장',
+      position: { x: 10, y: 10 }, width: 20, height: 20, binding: 'stamp',
+    });
+    return {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'voucher',
+      templateSnapshot: template,
+      values: { items: [], total: 0, stamp: value },
+      issued: true,
+      integrity: { contentHash: 'a'.repeat(64) },
+    };
+  }
+  it('변동 이미지 값이 외부 URL이면 거부한다', () => {
+    expect(() => parseSlipFile(JSON.stringify(voucherWithImageBinding('http://evil.com/x.png'))))
+      .toThrow(/외부 URL 이미지/);
+  });
+  it('변동 이미지 값이 깨진 data:면 거부한다', () => {
+    expect(() => parseSlipFile(JSON.stringify(voucherWithImageBinding('data:nonsense'))))
+      .toThrow(/data:.*base64/);
+  });
+  it('변동 이미지 값이 올바른 data: base64면 통과한다', () => {
+    expect(() => parseSlipFile(JSON.stringify(voucherWithImageBinding(PNG_1PX)))).not.toThrow();
+  });
+  it('변동 이미지 값이 비어 있으면(이미지 없음) 통과한다', () => {
+    expect(() => parseSlipFile(JSON.stringify(voucherWithImageBinding('')))).not.toThrow();
+  });
+});
