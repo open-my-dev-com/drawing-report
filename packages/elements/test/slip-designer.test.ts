@@ -1259,7 +1259,64 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  it('반복 구간 필드를 고르면 그 그리드가 있는 페이지로 옮겨 그 칸이 열린다 (ADR-037)', async () => {
+  it('파라미터에 값 종류를 지정할 수 있고, 목록이면 하위 필드를 그리드 없이 만들 수 있다 (ADR-047)', async () => {
+    const file = makeTemplateFile();
+    file.template.bindings = [{ key: 'rows', label: '품목' }];
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    // 파라미터를 고르면 값 종류를 지정할 수 있다
+    const row = Array.from(sideSection(el, strings.designer.sidebarBindings).querySelectorAll('.side-row'))
+      .find((r) => r.textContent?.includes('품목')) as HTMLElement;
+    row.click();
+    await el.updateComplete;
+
+    const typeRow = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.bindingValueType);
+    const select = typeRow!.querySelector('select') as HTMLSelectElement;
+    select.value = 'list';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.bindings!;
+    expect(defs[0]!.valueType).toBe('list');
+
+    // 그리드를 만들지 않고도 하위 필드를 더할 수 있다 (그리드 종속 구조 해소)
+    (el.shadowRoot!.querySelector('.prop-add-row') as HTMLElement).click();
+    await el.updateComplete;
+    const after = (el as unknown as { _file: SlipTemplateFile })._file.template.bindings!;
+    expect(after[0]!.fields?.map((f) => f.key)).toEqual(['field1']);
+    // 만든 필드가 곧바로 편집 대상이 된다
+    expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
+      .toBe(strings.designer.bindingField);
+    el.remove();
+  });
+
+  it('목록이 아닌 종류로 바꾸면 하위 필드가 함께 정리된다 (스키마가 거부하는 조합을 남기지 않는다)', async () => {
+    const file = makeTemplateFile();
+    file.template.bindings = [{ key: 'rows', valueType: 'list', fields: [{ key: 'amount' }] }];
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    const row = Array.from(sideSection(el, strings.designer.sidebarBindings).querySelectorAll('.side-row'))
+      .find((r) => r.textContent?.includes('rows')) as HTMLElement;
+    row.click();
+    await el.updateComplete;
+
+    const typeRow = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.bindingValueType);
+    const select = typeRow!.querySelector('select') as HTMLSelectElement;
+    select.value = 'number';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.bindings!;
+    expect(defs[0]!.valueType).toBe('number');
+    expect(defs[0]!.fields).toBeUndefined();
+    el.remove();
+  });
+
+  it('목록 파라미터의 하위 필드를 고르면 요소가 아니라 그 필드가 편집된다 (ADR-047)', async () => {
     const file = makeTemplateFile();
     file.template.pages.push({
       elements: [
@@ -1289,19 +1346,23 @@ describe('<slip-designer> 사이드바', () => {
     (cols[1] as HTMLElement).click();
     await el.updateComplete;
 
+    // 그 필드를 읽는 칸이 있는 페이지로 옮겨 어디에 쓰이는지 보인다
     expect(el.shadowRoot?.querySelector('.page-indicator')?.textContent?.replace(/\s+/g, ' ').trim())
       .toBe('2 / 2');
-    expect(el.shadowRoot?.querySelector('.element.selected')?.getAttribute('data-id')).toBe('tbl-1');
-    // 그 칸이 골라져 칸 편집이 열린다 (선택은 요소·칸 한 갈래로 유지된다)
-    const titles = Array.from(el.shadowRoot!.querySelectorAll('.prop-section-title'))
-      .map((t) => t.textContent?.replace(/\s+/g, ' ').trim());
-    expect(titles.some((t) => t?.startsWith(`${strings.designer.cell} (2, 2)`))).toBe(true);
+    // 요소로 자동 연결되지 않는다 — 고른 것은 파라미터의 하위 필드다 (ADR-034/047)
+    expect(el.shadowRoot?.querySelector('.element.selected')).toBeNull();
 
-    // 칸에 붙은 항목 필드가 그대로 보인다 (반복 구간의 값 줄과 이름이 같아 칸 쪽 줄을 본다)
-    const bindingRow = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
-      .filter((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.binding)
-      .at(-1);
-    expect((bindingRow?.querySelector('input') as HTMLInputElement).value).toBe('amount');
+    // 오른쪽 패널이 그 하위 필드 편집으로 바뀐다
+    expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
+      .toBe(strings.designer.bindingField);
+    const keyRow = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.bindingKey);
+    expect((keyRow?.querySelector('input') as HTMLInputElement).value).toBe('amount');
+
+    // 「쓰는 곳」에 그 필드를 읽는 칸이 나온다 (자동 연결이 아니라 이동 수단이다)
+    const usage = Array.from(el.shadowRoot!.querySelectorAll('.usage-row'))
+      .map((u) => u.textContent?.replace(/\s+/g, ' ').trim());
+    expect(usage.some((u) => u?.includes(`${strings.designer.cell} (2, 2)`))).toBe(true);
     el.remove();
   });
 
@@ -4200,8 +4261,9 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     const cellRows = Array.from(el.shadowRoot!.querySelectorAll('.side-cell-row'));
     // 값(바인딩)이 붙은 칸만 나온다 — 고정 문구 칸(품명 헤더)은 넣지 않는다
     expect(cellRows.length).toBe(1);
-    expect(cellRows[0]!.textContent).toContain('품명');
-    expect(cellRows[0]!.textContent).toContain('2행'); // 2행 1열
+    // 줄에는 칸 이름만 보인다 — 자리(행·열)는 툴팁으로 돌렸다 (ADR-034)
+    expect(cellRows[0]!.textContent?.trim()).toBe('품명');
+    expect(cellRows[0]!.getAttribute('title')).toContain('2행'); // 2행 1열
 
     // 하위 줄을 누르면 그 칸이 선택된다
     (cellRows[0] as HTMLElement).click();

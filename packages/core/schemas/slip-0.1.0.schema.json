@@ -1244,6 +1244,37 @@
                       "image",
                       "list"
                     ]
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "valueType": {
+                          "type": "string",
+                          "enum": [
+                            "text",
+                            "number",
+                            "date",
+                            "boolean",
+                            "image",
+                            "list"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key"
+                      ],
+                      "additionalProperties": false
+                    }
                   }
                 },
                 "required": [
@@ -2519,6 +2550,37 @@
                       "image",
                       "list"
                     ]
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "valueType": {
+                          "type": "string",
+                          "enum": [
+                            "text",
+                            "number",
+                            "date",
+                            "boolean",
+                            "image",
+                            "list"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key"
+                      ],
+                      "additionalProperties": false
+                    }
                   }
                 },
                 "required": [

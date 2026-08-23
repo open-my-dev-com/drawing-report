@@ -298,6 +298,36 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/반복 구간이 있어야/);
   });
 
+  it('목록 파라미터는 항목의 하위 필드를 정의부에 담을 수 있다 (ADR-047)', () => {
+    const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    const template = base['template'] as { bindings?: unknown };
+    template.bindings = [
+      { key: 'items', label: '품목', valueType: 'list', fields: [
+        { key: 'name', label: '품명' },
+        { key: 'amount', label: '금액', valueType: 'number' },
+      ] },
+    ];
+    const parsed = parseSlipFile(JSON.stringify(base));
+    const defs = (parsed as { template: { bindings?: { key: string; fields?: { key: string; valueType?: string }[] }[] } })
+      .template.bindings!;
+    expect(defs[0]!.fields?.map((f) => f.key)).toEqual(['name', 'amount']);
+    expect(defs[0]!.fields?.[1]?.valueType).toBe('number');
+  });
+
+  it('목록이 아닌 파라미터에는 하위 필드를 둘 수 없다 (ADR-047)', () => {
+    const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    const template = base['template'] as { bindings?: unknown };
+    template.bindings = [{ key: 'total', valueType: 'number', fields: [{ key: 'x' }] }];
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/valueType이 'list'인/);
+  });
+
+  it('하위 필드 이름이 겹치면 거부한다 (ADR-047)', () => {
+    const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    const template = base['template'] as { bindings?: unknown };
+    template.bindings = [{ key: 'items', valueType: 'list', fields: [{ key: 'a' }, { key: 'a' }] }];
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/하위 필드 이름이 중복됩니다/);
+  });
+
   it('그리드 열의 자동 병합과 페이지 이름·번호를 담을 수 있다', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as {

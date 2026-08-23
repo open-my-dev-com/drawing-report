@@ -19,6 +19,7 @@ import {
   type GridRepeat,
   type PageNumberPosition,
   type BarcodeKind,
+  type BindingValueType,
   type SlipPage,
   type RenderOptions,
   type SlipListItem,
@@ -99,6 +100,23 @@ const ANCHORS = [
 
 const PX_PER_MM = 96 / 25.4;
 const MAX_UNDO = 50;
+/**
+ * 파라미터 값 종류 선택지 (ADR-047) — 빈 값은 "지정 없음"(글자로 다룬다)이다.
+ * 종류를 지정하면 작성폼 입력 방식과 수식에서 받아들이는 타입이 정해진다 (ADR-044).
+ */
+const BINDING_VALUE_TYPES: readonly { value: string; stringKey: 'valueTypeUnset' | 'valueTypeText' | 'valueTypeNumber' | 'valueTypeDate' | 'valueTypeBoolean' | 'valueTypeImage' | 'valueTypeList' }[] = [
+  { value: '', stringKey: 'valueTypeUnset' },
+  { value: 'text', stringKey: 'valueTypeText' },
+  { value: 'number', stringKey: 'valueTypeNumber' },
+  { value: 'date', stringKey: 'valueTypeDate' },
+  { value: 'boolean', stringKey: 'valueTypeBoolean' },
+  { value: 'image', stringKey: 'valueTypeImage' },
+  { value: 'list', stringKey: 'valueTypeList' },
+];
+
+/** 하위 필드의 값 종류 선택지 — 항목은 평평한 객체라 목록은 고를 수 없다 (ADR-038/047) */
+const BINDING_FIELD_VALUE_TYPES = BINDING_VALUE_TYPES.filter((t) => t.value !== 'list');
+
 /** 테두리 굵기 선택지(mm) — 없음(0)과 이 단계들만 select로 제공한다 (C-11) */
 const BORDER_WIDTH_STEPS = [0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.5, 2] as const;
 /** 샘플 데이터 모달의 한 페이지에 보여줄 바인딩 수 (D-13) */
@@ -627,7 +645,7 @@ interface BindingUse {
   type: 'field' | 'grid' | 'image';
 }
 
-/** 사이드바·패널이 함께 쓰는 바인딩 한 항목 — 정의부와 사용처를 합친 것 */
+/** 사이드바·패널이 함께 쓰는 파라미터 한 항목 — 정의부와 사용처를 합친 것 */
 interface BindingInfo {
   /** 물리명 — 전표 값의 키 */
   key: string;
@@ -635,31 +653,38 @@ interface BindingInfo {
   label: string;
   /** 정의부에 적힌 논리명 (없으면 undefined) */
   rawLabel: string | undefined;
+  /** 값 종류 — 정의부에 없으면 undefined(글자로 다룬다) */
+  valueType: BindingValueType | undefined;
   /** 정의부에 등록된 항목인지 (요소만 쓰는 키는 false) */
   defined: boolean;
   /** 이 값을 쓰는 요소들 */
   uses: BindingUse[];
-  /** 반복 구간이 이 값을 쓰는 그리드라면, 그 구간 칸이 읽는 항목 필드들 (ADR-037) */
-  repeatFields: RepeatField[];
+  /** 목록 파라미터의 하위 필드 — 정의부가 단일 원천이다 (ADR-047) */
+  fields: BindingFieldInfo[];
 }
 
-/** 반복 구간 칸이 읽는 항목 필드 — 사이드바에서 그 칸으로 곧장 가기 위해 자리도 함께 담는다 */
-interface RepeatField {
-  /** 항목 필드 물리명 — 수식에서 `표바인딩.필드`로 쓴다 */
+/**
+ * 목록 파라미터의 하위 필드 한 개 (ADR-047) — 정의부에서 오며,
+ * 그 필드를 읽는 그리드 칸이 있으면 그 자리도 함께 담아 사이드바에서 곧장 갈 수 있다.
+ */
+interface BindingFieldInfo {
+  /** 항목 필드 물리명 — 수식에서 `목록파라미터.필드`로 쓴다 */
   key: string;
-  /** 화면에 보일 이름 — 반복 구간 위쪽 같은 열의 고정 문구, 없으면 물리명 */
+  /** 화면에 보일 이름 — 논리명이 없으면 물리명 */
   title: string;
-  /** 이 필드를 읽는 칸이 있는 페이지 */
-  pageIndex: number;
-  /** 그 그리드 요소 id */
-  gridId: string;
-  /** 그 칸의 틀 좌표 */
-  row: number;
-  column: number;
+  /** 정의부에 적힌 논리명 (없으면 undefined) */
+  rawLabel: string | undefined;
+  /** 값 종류 */
+  valueType: BindingValueType | undefined;
+  /** 정의부에 등록된 필드인지 — 그리드 칸만 쓰는 키는 false (옛 파일 호환) */
+  defined: boolean;
+  /** 이 필드를 읽는 그리드 칸의 자리 (없으면 undefined) */
+  at: { pageIndex: number; gridId: string; row: number; column: number } | undefined;
 }
 
 type SideSelection =
   | { kind: 'binding'; key: string }
+  | { kind: 'bindingField'; key: string; field: string }
   | { kind: 'page' }
   | null;
 
@@ -1068,6 +1093,47 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-accent);
     }
     /* 바인딩 패널의 "쓰는 곳" 한 줄 (ADR-034) */
+    /* 칸 편집 중 그리드로 돌아가는 줄 — 지금 어느 그리드의 칸인지 보이게 한다 (ADR-034) */
+    .grid-back {
+      margin-bottom: 6px;
+    }
+    .grid-back svg:first-child {
+      transform: rotate(180deg);
+    }
+    /* 패널에서 항목을 더하는 줄 — 사이드바 추가 버튼과 같은 결로 (ADR-047) */
+    .prop-add-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      margin-top: 4px;
+      padding: 5px 6px;
+      border: 1px dashed var(--sk-border);
+      border-radius: var(--sk-radius);
+      background: transparent;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--sk-muted);
+    }
+    .prop-add-row:hover {
+      border-color: var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    .prop-add-row svg {
+      width: 12px;
+      height: 12px;
+    }
+    .side-add-field {
+      color: var(--sk-muted);
+    }
+    .side-add-field svg {
+      flex: 0 0 12px;
+      width: 12px;
+      height: 12px;
+      margin-right: 4px;
+    }
     .usage-row {
       display: flex;
       align-items: center;
@@ -3278,7 +3344,7 @@ export class SlipDesigner extends LitElement {
       this._ensureBindingDef(element.binding);
     }
     if (element.type === 'grid' && element.repeat) {
-      this._ensureBindingDef(element.repeat.binding);
+      this._ensureBindingDef(element.repeat.binding, 'list');
     }
     this._emitChange();
     this.requestUpdate();
@@ -3313,7 +3379,7 @@ export class SlipDesigner extends LitElement {
         copy.group = mapped;
       }
       if (copy.type === 'field') this._ensureBindingDef(copy.binding);
-      if (copy.type === 'grid' && copy.repeat) this._ensureBindingDef(copy.repeat.binding);
+      if (copy.type === 'grid' && copy.repeat) this._ensureBindingDef(copy.repeat.binding, 'list');
       elements.push(copy);
       pasted.push(copy);
     }
@@ -4057,7 +4123,7 @@ export class SlipDesigner extends LitElement {
     }
     const row = Math.min(this._selectedCell?.row ?? Math.min(1, el.rows.length - 1), el.rows.length - 1);
     const key = `items_${el.id.slice(0, 4)}`;
-    this._ensureBindingDef(key);
+    this._ensureBindingDef(key, 'list');
     this._updateGrid((grid) => {
       grid.repeat = {
         binding: key,
@@ -4093,7 +4159,7 @@ export class SlipDesigner extends LitElement {
       this._rejectInput();
       return;
     }
-    if (patch.binding !== undefined) this._ensureBindingDef(patch.binding);
+    if (patch.binding !== undefined) this._ensureBindingDef(patch.binding, 'list');
     this._updateGrid((grid) => {
       grid.repeat = next;
     });
@@ -4603,18 +4669,23 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 사이드바에서 반복 구간 필드를 골랐을 때 — 그 필드를 읽는 칸으로 곧장 간다 (ADR-037).
-   * 칸을 고르면 오른쪽 패널이 칸 편집으로 바뀌므로 선택은 한 갈래로 유지된다.
+   * 사이드바에서 목록 파라미터의 하위 필드를 골랐을 때 (ADR-047).
+   *
+   * @remarks
+   * 하위 필드는 정의부의 항목이므로 **오른쪽 패널에서 그 필드를 편집**한다. 그 필드를 읽는
+   * 그리드 칸이 있으면 그 칸도 함께 비춰 어디에 쓰이는지 보이게 한다 — 요소로 자동 연결되지
+   * 않으며, 칸이 없어도 필드는 그대로 편집된다 (ADR-034의 요소·파라미터 분리).
    */
-  private _selectRepeatField(field: RepeatField): void {
-    this._goToPage(field.pageIndex);
-    // 칸을 고를 땐 그 그리드 하나만 선택한다(그룹 확장하지 않음)
-    this._selectedId = field.gridId;
-    this._selectedIds = new Set([field.gridId]);
-    this._selectedCell = { row: field.row, column: field.column };
+  private _selectBindingField(listKey: string, field: BindingFieldInfo): void {
+    if (field.at) {
+      this._goToPage(field.at.pageIndex);
+      this._expandedElements.add(field.at.gridId);
+    }
+    this._sideSelection = { kind: 'bindingField', key: listKey, field: field.key };
+    this._selectedId = null;
+    this._selectedIds = new Set();
+    this._selectedCell = null;
     this._cellEditing = false;
-    this._sideSelection = null;
-    this._expandedElements.add(field.gridId);
     this.requestUpdate();
   }
 
@@ -4682,36 +4753,37 @@ export class SlipDesigner extends LitElement {
     const file = this._file;
     if (!file) return [];
     const defs = file.template.bindings ?? [];
-    const labelOf = new Map(
-      defs.filter((b) => b.label !== undefined).map((b) => [b.key, b.label!] as const),
-    );
-    const definedKeys = new Set(defs.map((b) => b.key));
+    const defOf = new Map(defs.map((b) => [b.key, b] as const));
 
     const uses = new Map<string, BindingUse[]>();
-    const fieldsOf = new Map<string, RepeatField[]>();
+    // 그리드 반복 구간 칸이 어느 항목 필드를 어디서 읽는지 — 정의부 필드에 자리를 붙이는 데 쓴다
+    const fieldAt = new Map<string, Map<string, NonNullable<BindingFieldInfo['at']>>>();
+    // 정의부에 없는데 칸이 쓰고 있는 필드 (옛 파일 호환 — 목록에서 감추지 않는다)
+    const strayFields = new Map<string, Map<string, string>>();
+
     file.template.pages.forEach((page, pageIndex) => {
       for (const el of page.elements) {
         // 그리드는 반복 구간의 값과 셀에 붙인 값을 함께 쓴다 (ADR-037)
         if (el.type === 'grid') {
           if (el.repeat) {
-            const { fromRow, toRow } = el.repeat;
-            const fields = fieldsOf.get(el.repeat.binding) ?? [];
+            const { fromRow, toRow, binding: listKey } = el.repeat;
+            const declared = new Set((defOf.get(listKey)?.fields ?? []).map((f) => f.key));
+            const at = fieldAt.get(listKey) ?? new Map();
+            const stray = strayFields.get(listKey) ?? new Map();
             const band = el.cells
               .filter((c) => c.row >= fromRow && c.row <= toRow && c.binding !== undefined)
               .sort((a, b) => a.column - b.column || a.row - b.row);
             for (const cell of band) {
               const key = cell.binding as string;
-              if (fields.some((f) => f.key === key)) continue;
-              fields.push({
-                key,
-                title: gridHeaderTitle(el, cell.column, fromRow) ?? key,
-                pageIndex,
-                gridId: el.id,
-                row: cell.row,
-                column: cell.column,
-              });
+              if (!at.has(key)) {
+                at.set(key, { pageIndex, gridId: el.id, row: cell.row, column: cell.column });
+              }
+              if (!declared.has(key) && !stray.has(key)) {
+                stray.set(key, gridHeaderTitle(el, cell.column, fromRow) ?? key);
+              }
             }
-            fieldsOf.set(el.repeat.binding, fields);
+            fieldAt.set(listKey, at);
+            strayFields.set(listKey, stray);
           }
           const keys = new Set<string>();
           if (el.repeat) keys.add(el.repeat.binding);
@@ -4745,13 +4817,35 @@ export class SlipDesigner extends LitElement {
     for (const key of [...defs.map((d) => d.key), ...uses.keys()]) {
       if (seen.has(key)) continue;
       seen.add(key);
+      const def = defOf.get(key);
+      const at = fieldAt.get(key);
+      // 정의부의 필드가 단일 원천 — 뒤에 옛 파일의 미등록 필드를 덧붙인다 (ADR-047)
+      const fields: BindingFieldInfo[] = (def?.fields ?? []).map((f) => ({
+        key: f.key,
+        title: f.label ?? f.key,
+        rawLabel: f.label,
+        valueType: f.valueType,
+        defined: true,
+        at: at?.get(f.key),
+      }));
+      for (const [strayKey, title] of strayFields.get(key) ?? []) {
+        fields.push({
+          key: strayKey,
+          title,
+          rawLabel: undefined,
+          valueType: undefined,
+          defined: false,
+          at: at?.get(strayKey),
+        });
+      }
       list.push({
         key,
-        label: labelOf.get(key) ?? key,
-        rawLabel: labelOf.get(key),
-        defined: definedKeys.has(key),
+        label: def?.label ?? key,
+        rawLabel: def?.label,
+        valueType: def?.valueType,
+        defined: def !== undefined,
         uses: uses.get(key) ?? [],
-        repeatFields: fieldsOf.get(key) ?? [],
+        fields,
       });
     }
     return list;
@@ -4884,7 +4978,7 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     const sel = this._sideSelection;
     const selected = sel?.kind === 'binding' && sel.key === b.key;
-    const hasFields = b.repeatFields.length > 0;
+    const hasFields = b.fields.length > 0;
     const expanded = hasFields && this._expandedBindings.has(b.key);
     return html`
       <div class="side-row-wrap">
@@ -4898,13 +4992,27 @@ export class SlipDesigner extends LitElement {
           @click=${() => this._removeBindingDef(b.key)}>${icons.remove}</button>
       </div>
       ${expanded
-        ? b.repeatFields.map((f) => {
-            const cellSelected = this._selectedId === f.gridId
-              && this._selectedCell?.row === f.row && this._selectedCell?.column === f.column;
+        ? b.fields.map((f) => {
+            const fieldSelected = sel?.kind === 'bindingField' && sel.key === b.key && sel.field === f.key;
             return html`
-              <button class="side-col-row ${cellSelected ? 'selected' : ''}" title="${b.key}.${f.key}"
-                @click=${() => this._selectRepeatField(f)}><span>${f.title}</span></button>`;
+              <div class="side-row-wrap">
+                <span class="side-twisty-gap"></span>
+                <button class="side-col-row ${fieldSelected ? 'selected' : ''}" title="${b.key}.${f.key}"
+                  @click=${() => this._selectBindingField(b.key, f)}><span>${f.title}</span></button>
+                <button class="side-mini" title=${s.delete} aria-label="${f.key} ${s.delete}"
+                  ?disabled=${!f.defined}
+                  @click=${() => this._removeBindingField(b.key, f.key)}>${icons.remove}</button>
+              </div>`;
           })
+        : nothing}
+      ${b.valueType === 'list'
+        ? html`
+          <div class="side-row-wrap">
+            <span class="side-twisty-gap"></span>
+            <button class="side-col-row side-add-field" @click=${() => this._addBindingField(b.key)}>
+              ${icons.add}<span>${s.addBindingField}</span>
+            </button>
+          </div>`
         : nothing}
     `;
   }
@@ -4947,7 +5055,7 @@ export class SlipDesigner extends LitElement {
             const cellSelected = this._selectedId === el.id
               && this._selectedCell?.row === c.row && this._selectedCell?.column === c.column;
             return html`
-              <button class="side-cell-row ${cellSelected ? 'selected' : ''}" title=${c.label}
+              <button class="side-cell-row ${cellSelected ? 'selected' : ''}" title=${c.at}
                 @click=${() => this._selectGridCell(pageIndex, el.id, c.row, c.column)}>
                 <span>${c.label}</span></button>`;
           })
@@ -4962,23 +5070,34 @@ export class SlipDesigner extends LitElement {
    * @param grid - 그리드 요소
    * @returns 칸의 위치와 표시 이름(값은 논리명, 수식은 식)
    */
-  private _gridValueCells(grid: GridElement): { row: number; column: number; label: string }[] {
+  private _gridValueCells(grid: GridElement): { row: number; column: number; label: string; at: string }[] {
     const s = this._strings.designer;
+    const defs = this._file?.template.bindings ?? [];
     const labelOf = new Map(
-      (this._file?.template.bindings ?? [])
-        .filter((b) => b.label !== undefined)
-        .map((b) => [b.key, b.label!] as const),
+      defs.filter((b) => b.label !== undefined).map((b) => [b.key, b.label!] as const),
+    );
+    // 반복 구간 안의 칸은 항목 필드를 읽는다 — 그 목록 파라미터의 하위 필드에서 이름을 찾는다 (ADR-047)
+    const fieldLabelOf = new Map(
+      (defs.find((b) => b.key === grid.repeat?.binding)?.fields ?? [])
+        .filter((f) => f.label !== undefined)
+        .map((f) => [f.key, f.label!] as const),
     );
     return grid.cells
       .filter((c) => c.binding !== undefined || c.formula !== undefined)
       .slice()
       .sort((a, b) => a.row - b.row || a.column - b.column)
       .map((c) => {
-        const name = c.binding !== undefined ? labelOf.get(c.binding) ?? c.binding : c.formula ?? '';
+        const inBand = inRepeatBand(grid, c.row);
+        const name = c.binding !== undefined
+          ? (inBand ? fieldLabelOf.get(c.binding) : labelOf.get(c.binding)) ?? c.binding
+          : c.formula ?? '';
         return {
           row: c.row,
           column: c.column,
-          label: s.gridCellLabel
+          // 줄에는 칸 이름만 보인다 — 자리(행·열)는 툴팁으로 돌린다 (목록을 보면 아는 값은
+          // 따로 표시하지 않는다는 원칙, ADR-034)
+          label: name,
+          at: s.gridCellLabel
             .replace('{r}', String(c.row + 1))
             .replace('{c}', String(c.column + 1))
             .replace('{name}', name),
@@ -5051,13 +5170,23 @@ export class SlipDesigner extends LitElement {
     this._selectBinding(key);
   }
 
-  /** 요소가 쓰는 바인딩을 정의부에 등록해 둔다 — 이미 있으면 그대로 둔다 (ADR-034) */
-  private _ensureBindingDef(key: string): void {
+  /**
+   * 요소가 쓰는 파라미터를 정의부에 등록해 둔다 — 목록이 값의 단일 원천이 되게 한다 (ADR-034).
+   *
+   * @param key - 파라미터 물리명
+   * @param valueType - 등록할 값 종류. 이미 있는 항목이면 종류가 비어 있을 때만 채운다
+   */
+  private _ensureBindingDef(key: string, valueType?: BindingValueType): void {
     const file = this._file;
     if (!file || !key) return;
     const defs = file.template.bindings ?? [];
-    if (defs.some((b) => b.key === key)) return;
-    defs.push({ key });
+    const found = defs.find((b) => b.key === key);
+    if (found) {
+      // 반복 구간이 쓰는 값은 목록이어야 하위 필드를 선언할 수 있다 (ADR-047)
+      if (valueType !== undefined && found.valueType === undefined) found.valueType = valueType;
+      return;
+    }
+    defs.push(valueType === undefined ? { key } : { key, valueType });
     file.template.bindings = defs;
   }
 
@@ -5120,6 +5249,139 @@ export class SlipDesigner extends LitElement {
       }
       f.template.bindings = defs;
     });
+  }
+
+  /**
+   * 파라미터의 값 종류를 바꾼다 (ADR-047) — 목록이 아니게 되면 하위 필드도 함께 지운다.
+   *
+   * @param key - 파라미터 물리명
+   * @param valueType - 새 값 종류 (빈 문자열이면 지정 없음 = 글자)
+   */
+  private _setBindingValueType(key: string, valueType: string): void {
+    this._updateFile((f) => {
+      const defs = f.template.bindings ?? [];
+      const def = defs.find((b) => b.key === key) ?? { key };
+      if (!defs.includes(def)) defs.push(def);
+      if (valueType) def.valueType = valueType as BindingValueType;
+      else delete (def as { valueType?: unknown }).valueType;
+      // 목록이 아니면 하위 필드는 스키마가 거부한다 — 종류를 바꿀 때 함께 정리한다
+      if (valueType !== 'list') delete (def as { fields?: unknown }).fields;
+      f.template.bindings = defs;
+    });
+  }
+
+  /** 목록 파라미터에 하위 필드를 기본 이름으로 더하고 고른다 (ADR-047) */
+  private _addBindingField(listKey: string): void {
+    const existing = this._bindingList().find((b) => b.key === listKey)?.fields ?? [];
+    const used = new Set(existing.map((f) => f.key));
+    let n = existing.length + 1;
+    while (used.has(`field${n}`)) n += 1;
+    const key = `field${n}`;
+    this._updateFile((f) => {
+      const defs = f.template.bindings ?? [];
+      const def = defs.find((b) => b.key === listKey);
+      if (!def) return;
+      const fields = def.fields ?? [];
+      fields.push({ key });
+      def.fields = fields;
+      f.template.bindings = defs;
+    });
+    this._expandedBindings.add(listKey);
+    this._sideSelection = { kind: 'bindingField', key: listKey, field: key };
+    this.requestUpdate();
+  }
+
+  /**
+   * 하위 필드의 물리명을 바꾼다 — 이 필드를 읽는 반복 구간 칸도 함께 따라간다 (ADR-047).
+   *
+   * @param listKey - 목록 파라미터 물리명
+   * @param key - 지금 필드 물리명
+   * @param next - 새 물리명
+   * @param input - 되돌릴 입력칸 (중복·빈 이름일 때)
+   */
+  private _renameBindingField(listKey: string, key: string, next: string, input?: HTMLInputElement): void {
+    const trimmed = next.trim();
+    const siblings = this._bindingList().find((b) => b.key === listKey)?.fields ?? [];
+    if (!trimmed || trimmed === key || siblings.some((f) => f.key === trimmed)) {
+      if (input) input.value = key;
+      this._bindingKeyError = trimmed !== key && trimmed !== '';
+      this.requestUpdate();
+      return;
+    }
+    this._bindingKeyError = false;
+    this._updateFile((f) => {
+      const defs = f.template.bindings ?? [];
+      const def = defs.find((b) => b.key === listKey);
+      const field = def?.fields?.find((x) => x.key === key);
+      if (field) field.key = trimmed;
+      // 이 목록을 반복 구간으로 쓰는 그리드의 칸만 따라간다 — 항목 필드는 별도 네임스페이스다
+      for (const page of f.template.pages) {
+        for (const el of page.elements) {
+          if (el.type !== 'grid' || el.repeat?.binding !== listKey) continue;
+          const { fromRow, toRow } = el.repeat;
+          for (const cell of el.cells) {
+            if (cell.row >= fromRow && cell.row <= toRow && cell.binding === key) cell.binding = trimmed;
+          }
+        }
+      }
+    });
+    this._sideSelection = { kind: 'bindingField', key: listKey, field: trimmed };
+    this.requestUpdate();
+  }
+
+  /**
+   * 하위 필드의 논리명·값 종류를 바꾼다 (ADR-047).
+   *
+   * @param listKey - 목록 파라미터 물리명
+   * @param key - 필드 물리명
+   * @param patch - 바꿀 값 (빈 문자열이면 그 항목을 지운다)
+   */
+  private _updateBindingField(
+    listKey: string,
+    key: string,
+    patch: { label?: string; valueType?: string },
+  ): void {
+    this._updateFile((f) => {
+      const def = (f.template.bindings ?? []).find((b) => b.key === listKey);
+      const field = def?.fields?.find((x) => x.key === key);
+      if (!field) return;
+      if (patch.label !== undefined) {
+        const trimmed = patch.label.trim();
+        if (trimmed) field.label = trimmed;
+        else delete (field as { label?: string }).label;
+      }
+      if (patch.valueType !== undefined) {
+        if (patch.valueType) field.valueType = patch.valueType as BindingValueType;
+        else delete (field as { valueType?: unknown }).valueType;
+      }
+    });
+  }
+
+  /** 목록 파라미터에서 하위 필드를 지운다 — 그 필드를 읽던 칸의 값은 비운다 (ADR-047) */
+  private _removeBindingField(listKey: string, key: string): void {
+    this._updateFile((f) => {
+      const def = (f.template.bindings ?? []).find((b) => b.key === listKey);
+      if (!def?.fields) return;
+      const rest = def.fields.filter((x) => x.key !== key);
+      if (rest.length > 0) def.fields = rest;
+      else delete (def as { fields?: unknown }).fields;
+      for (const page of f.template.pages) {
+        for (const el of page.elements) {
+          if (el.type !== 'grid' || el.repeat?.binding !== listKey) continue;
+          const { fromRow, toRow } = el.repeat;
+          for (const cell of el.cells) {
+            if (cell.row >= fromRow && cell.row <= toRow && cell.binding === key) {
+              delete (cell as { binding?: string }).binding;
+            }
+          }
+        }
+      }
+    });
+    const sel = this._sideSelection;
+    if (sel?.kind === 'bindingField' && sel.key === listKey && sel.field === key) {
+      this._sideSelection = { kind: 'binding', key: listKey };
+    }
+    this.requestUpdate();
   }
 
   /** 정의부에서 바인딩을 제거한다 — 요소가 쓰는 키면 목록에는 사용처 기준으로 남는다 */
@@ -6156,6 +6418,7 @@ export class SlipDesigner extends LitElement {
     // 선택 대상은 요소·바인딩·페이지 셋 — 아무것도 고르지 않았으면 양식 설정 (ADR-034, G-46)
     const sel = this._sideSelection;
     if (sel?.kind === 'binding') return this._renderBindingPanel(sel.key);
+    if (sel?.kind === 'bindingField') return this._renderBindingFieldPanel(sel.key, sel.field);
     if (sel?.kind === 'page') return this._renderPageSettings();
 
     // 여러 요소를 골랐으면 그룹 패널(묶기/해제)을 보인다 (G-27)
@@ -6270,6 +6533,83 @@ export class SlipDesigner extends LitElement {
    * 바인딩 패널 — 사이드바에서 바인딩을 골랐을 때 (ADR-034).
    * 물리명·논리명을 고치고, 이 값을 쓰는 요소 목록에서 눌러 그 요소로 이동한다.
    */
+  /**
+   * 목록 파라미터의 하위 필드 편집 패널 (ADR-047) — 이름·논리명·값 종류를 여기서 고친다.
+   * 그 필드를 읽는 그리드 칸이 있으면 어디에 쓰이는지 함께 보인다.
+   *
+   * @param listKey - 목록 파라미터 물리명
+   * @param fieldKey - 하위 필드 물리명
+   * @returns 하위 필드 편집 조각
+   */
+  private _renderBindingFieldPanel(listKey: string, fieldKey: string) {
+    const s = this._strings.designer;
+    const parent = this._bindingList().find((b) => b.key === listKey);
+    const info = parent?.fields.find((f) => f.key === fieldKey);
+    if (!parent || !info) return this._renderFormSettings();
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+
+    return html`
+      <div class="type-name">${s.bindingField}</div>
+      <div class="prop-section">
+        <div class="prop-row">
+          <label>${s.bindingParent}</label>
+          <button class="usage-row" @click=${() => this._selectBinding(listKey)}>
+            ${TYPE_BADGE.field}<span>${parent.label}</span>
+          </button>
+        </div>
+        <div class="prop-row">
+          <label>${s.bindingKey}</label>
+          <input class="binding-key-input" .value=${info.key} ?disabled=${!info.defined}
+            @change=${(e: Event) =>
+              this._renameBindingField(listKey, info.key, valOf(e), e.target as HTMLInputElement)}>
+        </div>
+        ${this._bindingKeyError
+          ? html`<div class="cell-hint error">${s.keyInUse}</div>`
+          : nothing}
+        <div class="prop-row">
+          <label>${s.bindingLabel}</label>
+          <input .value=${info.rawLabel ?? ''} placeholder=${info.key} ?disabled=${!info.defined}
+            @change=${(e: Event) => this._updateBindingField(listKey, info.key, { label: valOf(e) })}>
+        </div>
+        <div class="prop-row">
+          <label>${s.bindingValueType}</label>
+          <select aria-label=${s.bindingValueType} .value=${info.valueType ?? ''} ?disabled=${!info.defined}
+            @change=${(e: Event) => this._updateBindingField(listKey, info.key, { valueType: valOf(e) })}>
+            ${BINDING_FIELD_VALUE_TYPES.map((t) => html`
+              <option value=${t.value} ?selected=${(info.valueType ?? '') === t.value}>
+                ${s[t.stringKey]}
+              </option>`)}
+          </select>
+        </div>
+        ${info.defined ? nothing : html`<div class="cell-hint">${s.bindingFieldUndeclared}</div>`}
+      </div>
+
+      <div class="prop-section">
+        <div class="prop-section-title">${s.bindingUsage}</div>
+        ${info.at === undefined
+          ? html`<div class="side-empty">${s.bindingUnused}</div>`
+          : html`
+            <button class="usage-row"
+              @click=${() => this._selectGridCellAt(info.at!)}>
+              ${TYPE_BADGE.grid}<span>${s.cell} (${info.at.row + 1}, ${info.at.column + 1})</span>
+              <span class="usage-page">${s.sidebarPages} ${info.at.pageIndex + 1}</span>
+            </button>`}
+      </div>
+    `;
+  }
+
+  /** 하위 필드를 읽는 그리드 칸으로 간다 — 「쓰는 곳」에서만 쓴다 (자동 연결이 아니다) */
+  private _selectGridCellAt(at: { pageIndex: number; gridId: string; row: number; column: number }): void {
+    this._goToPage(at.pageIndex);
+    this._selectedId = at.gridId;
+    this._selectedIds = new Set([at.gridId]);
+    this._selectedCell = { row: at.row, column: at.column };
+    this._cellEditing = false;
+    this._sideSelection = null;
+    this._expandedElements.add(at.gridId);
+    this.requestUpdate();
+  }
+
   private _renderBindingPanel(key: string) {
     const s = this._strings.designer;
     const info = this._bindingList().find((b) => b.key === key);
@@ -6294,7 +6634,34 @@ export class SlipDesigner extends LitElement {
           <input class="binding-label-input" .value=${info.rawLabel ?? ''} placeholder=${info.key}
             @change=${(e: Event) => this._commitBindingLabel(info.key, valOf(e))}>
         </div>
+        <div class="prop-row">
+          <label>${s.bindingValueType}</label>
+          <select aria-label=${s.bindingValueType} .value=${info.valueType ?? ''}
+            @change=${(e: Event) => this._setBindingValueType(info.key, valOf(e))}>
+            ${BINDING_VALUE_TYPES.map((t) => html`
+              <option value=${t.value} ?selected=${(info.valueType ?? '') === t.value}>
+                ${s[t.stringKey]}
+              </option>`)}
+          </select>
+        </div>
       </div>
+
+      ${info.valueType === 'list'
+        ? html`
+          <div class="prop-section">
+            <div class="prop-section-title">${s.bindingFields}</div>
+            ${info.fields.length === 0
+              ? html`<div class="side-empty">${s.bindingFieldsEmpty}</div>`
+              : info.fields.map((f) => html`
+                  <button class="usage-row" title="${info.key}.${f.key}"
+                    @click=${() => this._selectBindingField(info.key, f)}>
+                    ${TYPE_BADGE.field}<span>${f.title}</span>
+                  </button>`)}
+            <button class="prop-add-row" @click=${() => this._addBindingField(info.key)}>
+              ${icons.add}<span>${s.addBindingField}</span>
+            </button>
+          </div>`
+        : nothing}
 
       <div class="prop-section">
         <div class="prop-section-title">${s.bindingUsage}</div>
@@ -6323,6 +6690,77 @@ export class SlipDesigner extends LitElement {
    * @param onPick - 기존 바인딩을 골랐을 때 (선택한 키)
    * @returns 바인딩 선택 조각
    */
+  /**
+   * 그리드 칸이 읽을 값을 고르는 선택 상자 (ADR-034/047) — 자유 입력을 없애 오타를 막는다.
+   *
+   * @remarks
+   * 반복 구간 **안**의 칸은 항목의 필드를 읽으므로 그 반복 구간이 쓰는 목록 파라미터의
+   * `fields`만 후보로 낸다. 구간 **밖**의 칸은 전표 값을 읽으므로 최상위 파라미터를 낸다.
+   * 목록 파라미터는 칸 하나에 담을 수 없어 후보에서 뺀다.
+   *
+   * @param el - 대상 그리드
+   * @param current - 지금 칸에 설정된 값 키
+   * @param inBand - 이 칸이 반복 구간 안인지
+   * @returns 값 선택 조각
+   */
+  private _gridCellBindingSelect(el: GridElement, current: string, inBand: boolean) {
+    const s = this._strings.designer;
+    const all = this._bindingList();
+    const listKey = el.repeat?.binding;
+    const options = inBand
+      ? (all.find((b) => b.key === listKey)?.fields ?? []).map((f) => ({ key: f.key, label: f.title }))
+      : all.filter((b) => b.valueType !== 'list').map((b) => ({ key: b.key, label: b.label }));
+    // 정의부에 없는 값이 이미 들어 있으면 후보에 넣어 둔다 — 고르는 순간 사라지지 않게
+    if (current && !options.some((o) => o.key === current)) {
+      options.unshift({ key: current, label: current });
+    }
+    const canAdd = !inBand || listKey !== undefined;
+    return html`
+      <select aria-label=${s.binding} .value=${current}
+        @change=${(e: Event) => {
+          const v = (e.target as HTMLSelectElement).value;
+          if (v === NEW_BINDING_OPTION) {
+            if (inBand) { if (listKey) this._addBindingFieldForCell(listKey); }
+            else this._newBindingForCell();
+            return;
+          }
+          this._setGridCellSource('binding', v);
+        }}>
+        <option value="" ?selected=${current === ''}>${s.bindingUnpicked}</option>
+        ${options.map((o) => html`
+          <option value=${o.key} ?selected=${o.key === current}>${o.label}</option>`)}
+        ${canAdd
+          ? html`<option value=${NEW_BINDING_OPTION}>${inBand ? s.addBindingField : s.bindingNew}</option>`
+          : nothing}
+      </select>`;
+  }
+
+  /** 반복 구간 칸에서 "하위 필드 추가"를 골랐을 때 — 만들고 그 칸에 바로 붙인다 */
+  private _addBindingFieldForCell(listKey: string): void {
+    const before = new Set((this._bindingList().find((b) => b.key === listKey)?.fields ?? []).map((f) => f.key));
+    const cell = this._selectedCell;
+    this._addBindingField(listKey);
+    const created = (this._bindingList().find((b) => b.key === listKey)?.fields ?? [])
+      .find((f) => !before.has(f.key));
+    // 칸에서 시작한 흐름이므로 선택을 칸으로 되돌리고 그 값을 붙인다
+    this._sideSelection = null;
+    this._selectedCell = cell;
+    if (created) this._setGridCellSource('binding', created.key);
+  }
+
+  /** 구간 밖 칸에서 "새 값 등록"을 골랐을 때 — 파라미터를 만들고 그 칸에 붙인다 */
+  private _newBindingForCell(): void {
+    const cell = this._selectedCell;
+    const { key, label } = this._nextBinding();
+    this._updateFile((f) => {
+      const defs = f.template.bindings ?? [];
+      defs.push({ key, label });
+      f.template.bindings = defs;
+    });
+    this._selectedCell = cell;
+    this._setGridCellSource('binding', key);
+  }
+
   private _bindingSelect(current: string, onNew: () => void, onPick: (value: string) => void) {
     const s = this._strings.designer;
     const list = this._bindingList();
@@ -6442,7 +6880,7 @@ export class SlipDesigner extends LitElement {
             }
           }
         });
-        this._ensureBindingDef(value);
+        this._ensureBindingDef(value, 'image');
       },
     );
   }
@@ -6770,7 +7208,8 @@ export class SlipDesigner extends LitElement {
           cellTarget !== null && repeat !== undefined
           && cellTarget.row >= repeat.fromRow && cellTarget.row <= repeat.toRow;
         const numberOf = (e: Event): number => Number((e.target as HTMLInputElement).value);
-        return html`
+        // 그리드 자체 옵션 — 칸을 고르면 감춘다(무엇을 고치는 중인지 헷갈리지 않게, ADR-034)
+        const gridOwnProps = html`
           <div class="prop-section">
             <div class="prop-pair">
               <div class="prop-row">
@@ -6790,21 +7229,6 @@ export class SlipDesigner extends LitElement {
                 </div>
               </div>
             </div>
-            ${cellTarget
-              ? html`
-                <div class="prop-row">
-                  <label>${s.rowHeight}</label>
-                  <input type="number" min="2" step="0.5"
-                    .value=${String(el.rows[cellTarget.row]?.height ?? '')}
-                    @change=${(e: Event) => this._setGridTrack('row', cellTarget.row, numberOf(e))}>
-                </div>
-                <div class="prop-row">
-                  <label>${s.columnWidth}</label>
-                  <input type="number" min="2" step="0.5"
-                    .value=${String(el.columns[cellTarget.column]?.width ?? '')}
-                    @change=${(e: Event) => this._setGridTrack('column', cellTarget.column, numberOf(e))}>
-                </div>`
-              : nothing}
             <div class="prop-row">
               <label>${s.overflow}</label>
               <select aria-label=${s.overflow} .value=${el.overflow ?? 'clip'}
@@ -6863,9 +7287,25 @@ export class SlipDesigner extends LitElement {
                       this._updateGridRepeat({ repeatHeader: (e.target as HTMLInputElement).checked })}>
                 </div>`
               : nothing}
-          </div>
+          </div>`;
+        return html`
+          ${cellTarget === null
+            ? gridOwnProps
+            : html`
+              <button class="usage-row grid-back" title=${el.name}
+                @click=${() => this._clearCellSelection()}>
+                ${icons.treeClosed}${TYPE_BADGE.grid}<span>${el.name}</span>
+              </button>`}
           ${this._renderGridCellProps(el, cellTarget, cellDef, source, inBand)}
         `;
+  }
+
+  /** 칸 선택을 풀고 그리드 자체 편집으로 돌아간다 (ADR-034 — 고른 대상 하나만 편집한다) */
+  private _clearCellSelection(): void {
+    this._selectedCell = null;
+    this._cellEditing = false;
+    this._cellSourceKind = null;
+    this.requestUpdate();
   }
 
   /** 그리드 칸(선택된 셀)의 값·병합·글자·색·테두리 편집. 선택된 칸이 없으면 안내를 보인다 */
@@ -6909,8 +7349,7 @@ export class SlipDesigner extends LitElement {
                     ? html`
                       <div class="prop-row">
                         <label>${s.binding}</label>
-                        <input .value=${cellDef?.binding ?? ''} placeholder=${inBand ? s.repeatFieldHint : ''}
-                          @change=${(e: Event) => this._setGridCellSource('binding', valOf(e))}>
+                        ${this._gridCellBindingSelect(el, cellDef?.binding ?? '', inBand)}
                       </div>`
                     : html`
                       <div class="prop-row">
@@ -6918,6 +7357,22 @@ export class SlipDesigner extends LitElement {
                         <input .value=${cellDef?.formula ?? ''}
                           @change=${(e: Event) => this._setGridCellSource('formula', valOf(e))}>
                       </div>`}
+                <div class="prop-pair">
+                  <div class="prop-row">
+                    <label>${s.rowHeight}</label>
+                    <input type="number" min="2" step="0.5"
+                      .value=${String(el.rows[cellTarget.row]?.height ?? '')}
+                      @change=${(e: Event) =>
+                        this._setGridTrack('row', cellTarget.row, Number((e.target as HTMLInputElement).value))}>
+                  </div>
+                  <div class="prop-row">
+                    <label>${s.columnWidth}</label>
+                    <input type="number" min="2" step="0.5"
+                      .value=${String(el.columns[cellTarget.column]?.width ?? '')}
+                      @change=${(e: Event) =>
+                        this._setGridTrack('column', cellTarget.column, Number((e.target as HTMLInputElement).value))}>
+                  </div>
+                </div>
                 <div class="prop-row">
                   <label>${s.merge}</label>
                   <div class="merge-inputs">
@@ -7760,10 +8215,10 @@ export class SlipDesigner extends LitElement {
     const match = /([A-Za-z0-9_가-힣]+)\.([A-Za-z0-9_가-힣]*)$/.exec(before);
     if (!match) return null;
 
-    const target = this._bindingList().find((b) => b.key === match[1] && b.repeatFields.length > 0);
+    const target = this._bindingList().find((b) => b.key === match[1] && b.fields.length > 0);
     if (!target) return null;
     const typed = match[2] ?? '';
-    const columns = target.repeatFields
+    const columns = target.fields
       .filter((field) => field.key.toLowerCase().startsWith(typed.toLowerCase()))
       .map((field) => ({ key: field.key, title: field.title }));
     return columns.length > 0 ? { columns, typedLength: typed.length } : null;
@@ -7861,7 +8316,7 @@ export class SlipDesigner extends LitElement {
                   ${bindings.map((b) => html`
                     <button class="binding-chip" title=${b.key}
                       @click=${() => this._insertFormulaText(b.key)}>${b.label}</button>
-                    ${b.repeatFields.map((field) => html`
+                    ${b.fields.map((field) => html`
                       <button class="binding-chip column" title="${b.key}.${field.key}"
                         @click=${() => this._insertFormulaText(`${b.key}.${field.key}`)}
                         >${field.title}</button>`)}`)}

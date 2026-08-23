@@ -53,6 +53,8 @@ export const icons = {
   /** lucide: chevron-right */
   pageNext: icon(svg`<path d="m9 18 6-6-6-6" />`),
   /** lucide: plus */
+  /** 항목 더하기 — 목록·패널 공용 더하기 표시 */
+  add: icon(svg`<path d="M5 12h14" /><path d="M12 5v14" />`),
   pageAdd: icon(svg`<path d="M5 12h14" /><path d="M12 5v14" />`),
   /** lucide: minus */
   pageRemove: icon(svg`<path d="M5 12h14" />`),

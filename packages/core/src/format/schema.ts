@@ -2,7 +2,7 @@
  * .slip 파일 포맷 상세 스키마 (Zod-first — 여기서 정의한 스키마가 진실의 원천).
  *
  * 근거 ADR: 007(JSON 자체 스키마·마이그레이션) · 008(양식 스냅샷) · 011(용지 좌표계) ·
- * 014(이미지 하이브리드) · 019(해시·서명) · 020(요소 6종) · 022(JSON Schema 동봉).
+ * 019(해시·서명) · 020(요소 종류) · 022(JSON Schema 동봉) · 036(이미지 base64) · 047(파라미터 정의부).
  * 규범 명세는 docs/SPEC.md — 이 파일과 SPEC.md가 어긋나면 SPEC.md를 기준으로 고친다.
  */
 import { z } from 'zod';
@@ -606,16 +606,53 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 // 양식(템플릿) 본문
 // ---------------------------------------------------------------------------
 
-/** 바인딩 정의 — 물리명(key)은 파일·수식·연동에, 논리명(label)은 화면 표시에 (ADR-032) */
-/** 바인딩 값의 종류 — 작성폼 입력 방식과 쓸 수 있는 함수를 가리는 데 쓴다 */
+/** 파라미터 값의 종류 — 작성폼 입력 방식과 쓸 수 있는 함수를 가리는 데 쓴다 */
 const bindingValueTypeSchema = z.enum(['text', 'number', 'date', 'boolean', 'image', 'list']);
 
-const bindingDefSchema = z.object({
+/**
+ * 목록 파라미터의 하위 필드 정의 — 항목 하나가 가진 값이다 (ADR-047).
+ * 항목은 평평한 객체라 하위 필드는 다시 하위를 갖지 않는다 (ADR-038).
+ */
+const bindingFieldSchema = z.object({
   key: idSchema,
   label: z.string().min(1).optional(),
-  /** 값 종류 — 생략하면 글자로 다룬다 */
   valueType: bindingValueTypeSchema.optional(),
 });
+
+/**
+ * 파라미터 정의 — 물리명(key)은 파일·수식·연동에, 논리명(label)은 화면 표시에 (ADR-032).
+ * `valueType: 'list'`면 항목이 가진 값을 `fields`로 선언한다 (ADR-047).
+ */
+const bindingDefSchema = z
+  .object({
+    key: idSchema,
+    label: z.string().min(1).optional(),
+    /** 값 종류 — 생략하면 글자로 다룬다 */
+    valueType: bindingValueTypeSchema.optional(),
+    /** 목록 항목의 하위 필드 — `valueType: 'list'`에서만 쓴다 (ADR-047) */
+    fields: z.array(bindingFieldSchema).optional(),
+  })
+  .superRefine((def, ctx) => {
+    if (def.fields === undefined) return;
+    if (def.valueType !== 'list') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['fields'],
+        message: "하위 필드는 valueType이 'list'인 파라미터에만 둘 수 있습니다",
+      });
+    }
+    const seen = new Set<string>();
+    def.fields.forEach((field, index) => {
+      if (seen.has(field.key)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['fields', index, 'key'],
+          message: `하위 필드 이름이 중복됩니다: ${field.key}`,
+        });
+      }
+      seen.add(field.key);
+    });
+  });
 
 const templateMetaSchema = z.object({
   title: z.string().min(1),
@@ -934,8 +971,10 @@ export type GridRepeat = z.infer<typeof gridRepeatSchema>;
 
 /** 그리드 요소 — 고정 틀과 반복 목록을 하나로 다룬다 (ADR-037) */
 export type GridElement = z.infer<typeof gridElementSchema>;
-/** 바인딩 정의 (물리명 key + 논리명 label, ADR-032) */
+/** 파라미터 정의 (물리명 key + 논리명 label, ADR-032/047) */
 export type BindingDef = z.infer<typeof bindingDefSchema>;
+/** 목록 파라미터의 하위 필드 정의 (ADR-047) */
+export type BindingField = z.infer<typeof bindingFieldSchema>;
 /** 이미지 요소 */
 export type ImageElement = z.infer<typeof imageElementSchema>;
 /** 선 요소 (ADR-032) */
