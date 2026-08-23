@@ -22,8 +22,12 @@ interface SlipRecord {
   kind: SlipFile['kind'];
   title: string;
   updatedAt: string;
-  /** serializeSlipFile 결과 (JSON 문자열) */
-  data: string;
+  /**
+   * serializeSlipFile 결과를 담은 Blob (본문). 목록은 이 필드를 읽지 않아 본문 바이트를
+   * 메모리에 올리지 않는다 — IndexedDB는 Blob을 느긋한 핸들로 돌려주기 때문이다 (ADR-045).
+   * 옛 버전(v1)은 문자열로 저장했고 마이그레이션에서 Blob으로 바꾼다.
+   */
+  data: Blob | string;
 }
 
 /** IndexedDbStorage 생성 옵션 */
@@ -41,7 +45,7 @@ export interface IndexedDbStorageOptions {
    */
   pageSize?: number;
   /**
-   * 오류 메시지 언어 ('ko' | 'en') — ADR-028.
+   * 오류 메시지 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
    *
    * @defaultValue 한국어
    */
@@ -49,7 +53,8 @@ export interface IndexedDbStorageOptions {
 }
 
 const STORE_NAME = 'slips';
-const DB_VERSION = 1;
+// v2: 본문을 문자열 → Blob으로 옮겨 목록 조회가 본문을 안 읽게 한다 (ADR-045)
+const DB_VERSION = 2;
 
 function fileTitle(file: SlipFile): string {
   return file.kind === 'template' ? file.template.meta.title : file.templateSnapshot.meta.title;
@@ -84,9 +89,24 @@ export class IndexedDbStorage implements StorageAdapter {
   private open(): Promise<IDBDatabase> {
     this.dbPromise ??= new Promise((resolve, reject) => {
       const req = indexedDB.open(this.dbName, DB_VERSION);
-      req.onupgradeneeded = () => {
-        if (!req.result.objectStoreNames.contains(STORE_NAME)) {
-          req.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      req.onupgradeneeded = (event) => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        }
+        // v1 → v2: 문자열로 저장된 본문을 Blob으로 옮긴다 (ADR-045). versionchange
+        // 트랜잭션 안에서 커서로 훑어 그 자리에서 바꾼다 — 새 DB(oldVersion 0)는 대상이 없다.
+        if (event.oldVersion >= 1 && event.oldVersion < 2) {
+          const store = req.transaction!.objectStore(STORE_NAME);
+          store.openCursor().onsuccess = (e) => {
+            const cursor = (e.target as IDBRequest<IDBCursorWithValue | null>).result;
+            if (!cursor) return;
+            const record = cursor.value as SlipRecord;
+            if (typeof record.data === 'string') {
+              cursor.update({ ...record, data: new Blob([record.data]) });
+            }
+            cursor.continue();
+          };
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -117,7 +137,7 @@ export class IndexedDbStorage implements StorageAdapter {
       kind: file.kind,
       title: fileTitle(file),
       updatedAt: new Date().toISOString(),
-      data: serializeSlipFile(file),
+      data: new Blob([serializeSlipFile(file)]),
     };
     await request((await this.store('readwrite')).put(record), this.messages.ioError);
   }
@@ -136,7 +156,9 @@ export class IndexedDbStorage implements StorageAdapter {
     if (!record) {
       throw new SlipStorageError('not-found', `${this.messages.notFound}: ${id}`);
     }
-    return parseSlipFile(record.data);
+    // 본문은 Blob(신규)이거나 문자열(마이그레이션 전 옛 데이터)일 수 있다
+    const data = typeof record.data === 'string' ? record.data : await record.data.text();
+    return parseSlipFile(data);
   }
 
   /**
@@ -151,6 +173,12 @@ export class IndexedDbStorage implements StorageAdapter {
 
   /**
    * 저장된 파일 목록을 최근 수정순으로 페이징해 돌려준다.
+   *
+   * @remarks
+   * 메타(id·kind·title·updatedAt)만 읽어 목록을 만든다 — 본문(`data`)은 Blob이라 여기서
+   * 건드리지 않으면 바이트가 메모리에 올라오지 않는다 (ADR-045). 오프셋 커서라 페이지 사이에
+   * 저장·삭제가 일어나면 경계가 밀릴 수 있으므로, 화면은 목록을 한 번 받아 그 위에서
+   * 페이징하는 편이 안전하다.
    *
    * @param filter - 종류·제목 검색어 필터 (생략하면 전체)
    * @param cursor - 이전 페이지가 돌려준 nextCursor (생략하면 첫 페이지)

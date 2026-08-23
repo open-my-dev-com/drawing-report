@@ -2,7 +2,7 @@
 
 [한국어](formula.md) · [日本語](formula.ja.md)
 
-All 29 built-in functions in the SlipKit formula engine. Unregistered function names are rejected at parse time.
+All 32 built-in functions in the SlipKit formula engine. Unregistered function names are rejected at parse time.
 
 ---
 
@@ -143,6 +143,22 @@ VAT(10000, 8)             → 800
 FLOOR(VAT(12345), 0)      → 1234  (truncate sub-won)
 ```
 
+## Type conversion
+
+| Function | Usage | Description |
+|---|---|---|
+| `TO_NUMBER` | `TO_NUMBER(value)` | Text/boolean to number. Empty is 0 |
+| `TO_STRING` | `TO_STRING(value)` | Number/boolean to text |
+| `TO_DATE` | `TO_DATE(value)` | Validate a date string and normalize to `YYYY-MM-DD` |
+
+Where a number is required (arithmetic, `SUM`, …), text is **not** auto-coerced — wrap it in `TO_NUMBER`.
+
+```
+TO_NUMBER("1500") * 2     → 3000
+TO_STRING(3) = "3"        → TRUE
+TO_DATE("2026-01-05T09:00:00Z") → "2026-01-05"
+```
+
 ---
 
 ## Formula Syntax
@@ -150,4 +166,5 @@ FLOOR(VAT(12345), 0)      → 1234  (truncate sub-won)
 - **Strings**: Wrap in double quotes. To include a quote inside a string, double it (`""`)
 - **Range references**: `bindingName.fieldName` refers to item fields in a grid repeat band (e.g. `items.amount`)
 - **Arithmetic**: `+` `-` `*` `/` with parentheses `()` for precedence
-- **Comparison**: `=` `<>` `<` `>` `<=` `>=`
+- **Comparison**: `=` `<>` `<` `>` `<=` `>=` — compares **same types only** (`3 = "3"` is false)
+- **Types**: number slots take numbers only; empty/missing is 0; convert text to number with `TO_NUMBER` (number to text is automatic)

@@ -28,8 +28,10 @@ import type {
   PolygonElement,
   TextElement,
 } from '../format/schema.js';
+import { normalizeNumericBindings } from '../format/normalize.js';
 import { SlipRenderError } from './errors.js';
 import { TextMeasurer } from './measure.js';
+import { stackVertically } from './text-layout.js';
 import type { SlipFont } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -41,6 +43,8 @@ const DEFAULT_FONT_SIZE = 10;
 const PAGE_NUMBER_FONT_SIZE = 9;
 /** pt → mm */
 const PT_TO_MM = 25.4 / 72;
+/** 페이지 번호 상자 높이 = 글자 높이 × 이 배수 — 세로 중앙 정렬이 잘리지 않게 여유를 둔다 */
+const PAGE_NUMBER_BOX_LINE_HEIGHT = 1.6;
 const DEFAULT_FONT_COLOR = '#000000';
 const DEFAULT_BORDER_COLOR = '#000000';
 /** 선·테두리 두께 기본값(mm) */
@@ -97,11 +101,6 @@ export interface PdfmeRenderInput {
  * @param vertical - 세로쓰기 여부 (거짓이면 원문 그대로)
  * @returns 세로쓰기면 한 자씩 줄을 나눈 글, 아니면 원문
  */
-function stackVertically(text: string, vertical: boolean | undefined): string {
-  if (vertical !== true) return text;
-  return [...text.replace(/\r\n|\r|\n/g, '')].join('\n');
-}
-
 function toDisplayText(value: unknown, what: string): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
@@ -175,6 +174,9 @@ class SlipToPdfmeConverter {
     // 반복 그리드가 넘치면 그 슬립 페이지를 여러 출력 페이지로 낸다 (ADR-037).
     // 나머지 요소는 페이지마다 그대로 다시 그린다 — 그리드 크기가 고정이라 자리가 흔들리지 않는다.
     const schemas: Schema[][] = [];
+    // 출력 페이지마다 그것을 만든 원본 슬립 페이지를 기록해 둔다 — 페이지 번호를 얹을 때
+    // 같은 페이지 워크를 다시 돌지 않도록(두 워크가 어긋날 위험 제거).
+    const outputPages: SlipPage[] = [];
     for (const page of this.body.pages) {
       const pageCount = this.renderPageCount(page.elements);
       for (let renderPage = 0; renderPage < pageCount; renderPage++) {
@@ -183,10 +185,11 @@ class SlipToPdfmeConverter {
           this.appendElement(pageSchemas, element, renderPage);
         }
         schemas.push(pageSchemas);
+        outputPages.push(page);
       }
     }
     // 페이지 번호는 전체 쪽 수가 정해진 뒤에야 찍을 수 있다 — 페이지를 다 만든 뒤 얹는다 (0.5.0)
-    this.appendPageNumbers(schemas);
+    this.appendPageNumbers(schemas, outputPages);
     const template: Template = {
       basePdf: {
         width: this.body.paper.width,
@@ -205,21 +208,18 @@ class SlipToPdfmeConverter {
    * 여러 출력 페이지가 된다). 그래서 페이지를 다 만든 뒤 마지막에 얹는다.
    *
    * @param schemas - 페이지별 스키마 목록 (여기에 번호 상자를 더한다)
+   * @param outputPages - 출력 페이지마다의 원본 슬립 페이지 (convert에서 만든 매핑)
    */
-  private appendPageNumbers(schemas: Schema[][]): void {
+  private appendPageNumbers(schemas: Schema[][], outputPages: readonly SlipPage[]): void {
     const total = schemas.length;
-    let output = 0;
-    for (const page of this.body.pages) {
-      const count = this.renderPageCount(page.elements);
-      for (let i = 0; i < count; i++, output++) {
-        const setting = page.pageNumber;
-        const target = schemas[output];
-        if (!setting || !target) continue;
-        const text = (setting.format ?? '{n} / {total}')
-          .replace(/\{n\}/g, String(output + 1))
-          .replace(/\{total\}/g, String(total));
-        target.push(this.pageNumberSchema(setting, output, text));
-      }
+    for (let output = 0; output < total; output++) {
+      const setting = outputPages[output]?.pageNumber;
+      const target = schemas[output];
+      if (!setting || !target) continue;
+      const text = (setting.format ?? '{n} / {total}')
+        .replace(/\{n\}/g, String(output + 1))
+        .replace(/\{total\}/g, String(total));
+      target.push(this.pageNumberSchema(setting, output, text));
     }
   }
 
@@ -233,7 +233,7 @@ class SlipToPdfmeConverter {
     const [top, right, bottom, left] = padding;
     const boxWidth = width - left - right;
     const fontSize = setting.fontSize ?? PAGE_NUMBER_FONT_SIZE;
-    const boxHeight = (fontSize * PT_TO_MM) * 1.6;
+    const boxHeight = fontSize * PT_TO_MM * PAGE_NUMBER_BOX_LINE_HEIGHT;
     const isTop = setting.position.startsWith('top-');
     const y = isTop ? Math.max(0, top - boxHeight) : height - bottom;
     const alignment: Alignment = setting.position.endsWith('-left')
@@ -368,29 +368,40 @@ class SlipToPdfmeConverter {
     return schema;
   }
 
+  /**
+   * 텍스트·필드 요소에서 textSchema에 넘길 글자 스타일 객체를 뽑는다 — 두 요소가
+   * 같은 글자 스타일 필드를 갖기 때문에 한곳에서 만든다(새 스타일 추가 시 한 군데만 고친다).
+   *
+   * @param element - 텍스트 또는 필드 요소
+   * @returns textSchema의 style 인자 형태의 스타일 객체
+   */
+  private textStyleFromElement(element: TextElement | FieldElement) {
+    return {
+      fontName: element.fontName,
+      fontSize: element.fontSize,
+      alignment: element.alignment,
+      verticalAlignment: element.verticalAlignment ?? 'top',
+      fontColor: element.fontColor,
+      backgroundColor: element.backgroundColor,
+      borderColor: element.borderColor,
+      borderWidth: element.borderWidth,
+      padding: 0,
+      bold: element.bold,
+      italic: element.italic,
+      underline: element.underline,
+      strikethrough: element.strikethrough,
+      lineHeight: element.lineHeight,
+      characterSpacing: element.characterSpacing,
+    } as const;
+  }
+
   private appendText(schemas: Schema[], element: TextElement): void {
     const schema = this.textSchema(
       element.id,
       element.position,
       element.width,
       element.height,
-      {
-        fontName: element.fontName,
-        fontSize: element.fontSize,
-        alignment: element.alignment,
-        verticalAlignment: element.verticalAlignment ?? 'top',
-        fontColor: element.fontColor,
-        backgroundColor: element.backgroundColor,
-        borderColor: element.borderColor,
-        borderWidth: element.borderWidth,
-        padding: 0,
-        bold: element.bold,
-        italic: element.italic,
-        underline: element.underline,
-        strikethrough: element.strikethrough,
-        lineHeight: element.lineHeight,
-        characterSpacing: element.characterSpacing,
-      },
+      this.textStyleFromElement(element),
     );
     // 고정 문구는 가공 없이 그대로 (pdfme 표현식 평가를 타지 않도록 inputs로 전달)
     this.push(schemas, schema, stackVertically(element.content, element.vertical));
@@ -402,49 +413,41 @@ class SlipToPdfmeConverter {
       element.position,
       element.width,
       element.height,
-      {
-        fontName: element.fontName,
-        fontSize: element.fontSize,
-        alignment: element.alignment,
-        verticalAlignment: element.verticalAlignment ?? 'top',
-        fontColor: element.fontColor,
-        backgroundColor: element.backgroundColor,
-        borderColor: element.borderColor,
-        borderWidth: element.borderWidth,
-        padding: 0,
-        bold: element.bold,
-        italic: element.italic,
-        underline: element.underline,
-        strikethrough: element.strikethrough,
-        lineHeight: element.lineHeight,
-        characterSpacing: element.characterSpacing,
-      },
+      this.textStyleFromElement(element),
     );
     this.push(schemas, schema, stackVertically(this.fieldValue(element), element.vertical));
+  }
+
+  /**
+   * 요소 수식을 평가한다 — locale 컨텍스트 구성과 오류 재포장을 한곳에 모은다
+   * (필드·그리드 칸·바코드가 공유한다).
+   *
+   * @param formula - 평가할 수식 문자열
+   * @param scope - 수식이 참조할 값 범위(전표 값, 반복 항목 등)
+   * @param what - 오류 메시지에 쓸 대상 이름
+   * @returns 평가 결과 값
+   * @throws SlipRenderError 수식 계산에 실패하면
+   */
+  private evaluate(formula: string, scope: Record<string, unknown>, what: string): unknown {
+    try {
+      return evaluateFormula(
+        formula,
+        this.locale === undefined ? { values: scope } : { values: scope, locale: this.locale },
+      );
+    } catch (error) {
+      throw new SlipRenderError(
+        `${what}의 수식을 계산하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private fieldValue(element: FieldElement): string {
     const what = `필드 '${element.name}'(${element.id})`;
     if (element.formula !== undefined) {
-      let evaluated: unknown;
-      try {
-        evaluated = evaluateFormula(
-          element.formula,
-          this.locale === undefined ? { values: this.values } : { values: this.values, locale: this.locale },
-        );
-      } catch (error) {
-        throw new SlipRenderError(
-          `${what}의 수식을 계산하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-      return toDisplayText(evaluated, what);
+      return toDisplayText(this.evaluate(element.formula, this.values, what), what);
     }
     return toDisplayText(this.values[element.binding], what);
   }
-
-  // -------------------------------------------------------------------------
-  // fixedGrid — 선·사각형·텍스트로 분해 (ADR-020)
-  // -------------------------------------------------------------------------
 
   // -------------------------------------------------------------------------
   // grid — 고정 틀과 반복 목록을 하나로 다루는 그리드 (ADR-037)
@@ -475,12 +478,24 @@ class SlipToPdfmeConverter {
   }
 
   /** 그리드 한 페이지의 실제 행 높이·셀 목록을 만든다 (반복 구간 펼치기, ADR-037) */
-  private gridLayout(
+  /**
+   * 그리드 칸 하나를 그리기용 셀로 바꾼다 — 셀에 지정이 없으면 요소 기본값을 물려받는다.
+   *
+   * @param element - 셀이 속한 그리드 (기본 스타일·값 계산에 쓴다)
+   * @param cell - 원본 칸
+   * @param rowShift - 반복 복제로 아래로 민 행 수
+   * @param item - 이 벌의 항목 값 (반복 구간 밖이면 undefined)
+   * @param hasItem - 값을 계산해 넣을지 (헤더·꼬리·빈 벌은 false)
+   * @returns 그리기용 셀
+   */
+  private toDrawCell(
     element: GridElement,
-    renderPage: number,
-  ): { rowHeights: number[]; cells: DrawGridCell[]; blankRows: Set<number> } {
-    const templateHeights = element.rows.map((row) => row.height);
-    const toDrawCell = (cell: GridCell, rowShift: number, item: Record<string, unknown> | undefined, hasItem: boolean): DrawGridCell => ({
+    cell: GridCell,
+    rowShift: number,
+    item: Record<string, unknown> | undefined,
+    hasItem: boolean,
+  ): DrawGridCell {
+    return {
       row: cell.row + rowShift,
       column: cell.column,
       rowSpan: cell.rowSpan ?? 1,
@@ -503,43 +518,31 @@ class SlipToPdfmeConverter {
       borderWidth: cell.borderWidth,
       borderStyle: cell.borderStyle,
       overflow: cell.overflow,
-    });
+    };
+  }
 
-    const repeat = element.repeat;
-    if (!repeat) {
-      return {
-        rowHeights: templateHeights,
-        cells: element.cells.map((cell) => toDrawCell(cell, 0, undefined, true)),
-        blankRows: new Set<number>(),
-      };
-    }
-
-    const { fromRow, toRow, perPage, repeatHeader } = repeat;
+  /**
+   * 반복 구간 행을 이 페이지 몫만큼 펼쳐 그리기용 셀로 만든다 (ADR-037/038).
+   *
+   * 켠 열(autoMerge)은 앞 벌과 값이 같은 칸을 세로로 합친다 — 페이지 단위로만 보므로
+   * (chunk가 이 페이지 몫) 페이지가 바뀌면 저절로 끊기고 값이 다시 그려진다. 빈 값·항목 없음은
+   * 합치지 않고 그대로 그린다.
+   *
+   * @param element - 그리드 요소
+   * @param repeat - 반복 구간 설정
+   * @param renderPage - 몇 번째 출력 페이지인지 (0부터)
+   * @returns 반복 구간에서 나온 그리기용 셀 목록
+   */
+  private expandRepeatBand(
+    element: GridElement,
+    repeat: NonNullable<GridElement['repeat']>,
+    renderPage: number,
+  ): DrawGridCell[] {
+    const { fromRow, toRow, perPage } = repeat;
     const bandRows = toRow - fromRow + 1;
     const items = this.repeatItems(element, repeat.binding);
     const chunk = items.slice(renderPage * perPage, (renderPage + 1) * perPage);
 
-    const rowHeights: number[] = [
-      ...templateHeights.slice(0, fromRow),
-      ...Array.from({ length: perPage }, () => templateHeights.slice(fromRow, toRow + 1)).flat(),
-      ...templateHeights.slice(toRow + 1),
-    ];
-
-    const blankRows = new Set<number>();
-    // 이어지는 페이지에서 헤더를 반복하지 않으면 그 자리를 비운다 — 그리드 크기는 그대로라
-    // 아래 요소의 자리가 흔들리지 않는다 (SPEC §5.7)
-    const hideHeader = renderPage > 0 && !repeatHeader;
-    if (hideHeader) for (let r = 0; r < fromRow; r++) blankRows.add(r);
-
-    // 위에서 아래 순서로 담는다 — 그리는 순서가 그리드 모양과 같아야 읽기 쉽다
-    const cells: DrawGridCell[] = [];
-    if (!hideHeader) {
-      for (const cell of element.cells) {
-        if (cell.row < fromRow) cells.push(toDrawCell(cell, 0, undefined, true));
-      }
-    }
-    // 데이터 자동 병합 (ADR-038): 켠 열은 앞 벌과 값이 같은 칸을 세로로 합친다.
-    // 페이지 단위로만 본다 — chunk가 이 페이지 몫이라 페이지가 바뀌면 저절로 끊기고 값이 다시 그려진다.
     const autoMergeColumns = new Set<number>();
     element.columns.forEach((column, c) => {
       if (column.autoMerge === true) autoMergeColumns.add(c);
@@ -553,13 +556,14 @@ class SlipToPdfmeConverter {
     };
     // 반복 구간 칸(틀 좌표)별 병합 기준 칸 — 앞 벌과 값이 같으면 이 칸의 높이를 늘린다
     const anchors = new Map<string, { cell: DrawGridCell; text: string }>();
+    const cells: DrawGridCell[] = [];
 
     for (let i = 0; i < perPage; i++) {
       const item = chunk[i];
       const hasItem = item !== undefined;
       for (const cell of element.cells) {
         if (cell.row < fromRow || cell.row > toRow) continue;
-        const draw = toDrawCell(cell, i * bandRows, item, hasItem);
+        const draw = this.toDrawCell(element, cell, i * bandRows, item, hasItem);
         if (!cellMerges(cell)) {
           cells.push(draw);
           continue;
@@ -580,8 +584,52 @@ class SlipToPdfmeConverter {
         cells.push(draw);
       }
     }
+    return cells;
+  }
+
+  private gridLayout(
+    element: GridElement,
+    renderPage: number,
+  ): { rowHeights: number[]; cells: DrawGridCell[]; blankRows: Set<number> } {
+    const templateHeights = element.rows.map((row) => row.height);
+    const repeat = element.repeat;
+    if (!repeat) {
+      return {
+        rowHeights: templateHeights,
+        cells: element.cells.map((cell) => this.toDrawCell(element, cell, 0, undefined, true)),
+        blankRows: new Set<number>(),
+      };
+    }
+
+    const { fromRow, toRow, perPage, repeatHeader } = repeat;
+    const bandRows = toRow - fromRow + 1;
+
+    // 행 높이: 반복 구간(band)을 perPage번 되풀이해 앞·뒤 고정 행 사이에 끼운다.
+    // 결과 높이가 gridElementSchema가 검증한 요소 높이(templateHeight + (perPage-1)*bandHeight)와
+    // 정확히 같아 자리가 어긋나지 않는다 (checkGridTrackSums 참조).
+    const band = templateHeights.slice(fromRow, toRow + 1);
+    const rowHeights: number[] = [
+      ...templateHeights.slice(0, fromRow),
+      ...Array.from({ length: perPage }, () => band).flat(),
+      ...templateHeights.slice(toRow + 1),
+    ];
+
+    // 이어지는 페이지에서 헤더를 반복하지 않으면 그 자리를 비운다 — 그리드 크기는 그대로라
+    // 아래 요소의 자리가 흔들리지 않는다 (SPEC §5.7)
+    const hideHeader = renderPage > 0 && !repeatHeader;
+    const blankRows = new Set<number>();
+    if (hideHeader) for (let r = 0; r < fromRow; r++) blankRows.add(r);
+
+    // 위에서 아래 순서로 담는다 — 헤더 → 반복 구간 → 꼬리
+    const cells: DrawGridCell[] = [];
+    if (!hideHeader) {
+      for (const cell of element.cells) {
+        if (cell.row < fromRow) cells.push(this.toDrawCell(element, cell, 0, undefined, true));
+      }
+    }
+    cells.push(...this.expandRepeatBand(element, repeat, renderPage));
     for (const cell of element.cells) {
-      if (cell.row > toRow) cells.push(toDrawCell(cell, (perPage - 1) * bandRows, undefined, true));
+      if (cell.row > toRow) cells.push(this.toDrawCell(element, cell, (perPage - 1) * bandRows, undefined, true));
     }
     return { rowHeights, cells, blankRows };
   }
@@ -612,17 +660,7 @@ class SlipToPdfmeConverter {
     // 반복 구간 안에서는 그 항목의 필드가 이름 그대로 보인다 (같은 이름이면 항목이 우선)
     const scope = item === undefined ? this.values : { ...this.values, ...item };
     if (cell.formula !== undefined) {
-      try {
-        const evaluated = evaluateFormula(
-          cell.formula,
-          this.locale === undefined ? { values: scope } : { values: scope, locale: this.locale },
-        );
-        return toDisplayText(evaluated, what);
-      } catch (error) {
-        throw new SlipRenderError(
-          `${what}의 수식을 계산하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
+      return toDisplayText(this.evaluate(cell.formula, scope, what), what);
     }
     if (cell.binding !== undefined) return toDisplayText(scope[cell.binding], what);
     return cell.content ?? '';
@@ -700,78 +738,61 @@ class SlipToPdfmeConverter {
     });
 
     // 3) 그리드선 → 선. 병합 범위의 내부 경계선은 그리지 않고, 변마다 이웃 셀의
-    //    테두리 설정(굵은 쪽 우선)을 적용해 같은 스타일 구간끼리 이어 그린다 (ADR-033)
-    for (let r = 0; r <= rows; r++) {
+    //    테두리 설정(굵은 쪽 우선)을 적용해 같은 스타일 구간끼리 이어 그린다 (ADR-033).
+    //    가로선(행 경계)과 세로선(열 경계)은 축만 뒤바뀔 뿐 루프 구조가 같아 한 헬퍼로 그린다.
+    //    두 축의 차이는 `GridLineAxis` 콜백에 드러나 있다 — 특히 빈 행 처리가 다르다:
+    //    가로선은 빈 행에 둘러싸인 줄 전체를 지우고(skipLine), 세로선은 빈 행에서 구간을 끊는다(breakAt).
+    this.drawGridLines({
+      lines: rows,
+      cells: columns,
+      idPrefix: `${grid.idPrefix}__h`,
       // 비운 행에 둘러싸인 가로선은 그리지 않는다 (헤더 미반복, SPEC §5.7)
-      if (blankRows.has(r - 1) && blankRows.has(r)) continue;
-      if ((r === 0 && blankRows.has(0)) || (r === rows && blankRows.has(rows - 1))) continue;
-      let run: { start: number; border: GridEdgeBorder } | null = null;
-      const flush = (endExclusive: number): void => {
-        if (!run) return;
-        const x = originX + (columnOffsets[run.start] ?? 0);
+      skipLine: (r) =>
+        (blankRows.has(r - 1) && blankRows.has(r)) ||
+        (r === 0 && blankRows.has(0)) ||
+        (r === rows && blankRows.has(rows - 1)),
+      neighbors: (r, c) => [
+        r > 0 ? (owner[r - 1]?.[c] ?? -1) : null,
+        r < rows ? (owner[r]?.[c] ?? -1) : null,
+      ],
+      emit: (schemas2, id, r, start, endExclusive, border) => {
+        const x = originX + (columnOffsets[start] ?? 0);
         const end = originX + (columnOffsets[endExclusive] ?? 0);
         this.pushLine(
-          schemas,
-          `${grid.idPrefix}__h-${r}-${run.start}`,
-          { x, y: Math.max(0, originY + (rowOffsets[r] ?? 0) - run.border.width / 2) },
+          schemas2,
+          id,
+          { x, y: Math.max(0, originY + (rowOffsets[r] ?? 0) - border.width / 2) },
           end - x,
-          run.border.width,
-          run.border.color,
-          run.border.style,
+          border.width,
+          border.color,
+          border.style,
         );
-        run = null;
-      };
-      for (let c = 0; c < columns; c++) {
-        const above = r > 0 ? (owner[r - 1]?.[c] ?? -1) : null;
-        const below = r < rows ? (owner[r]?.[c] ?? -1) : null;
-        const mergedInterior = above !== null && below !== null && above !== -1 && above === below;
-        const border = mergedInterior ? null : edgeBorderOf(above, below);
-        if (border === null || border.width <= 0) {
-          flush(c);
-          continue;
-        }
-        if (run && sameGridBorder(run.border, border)) continue;
-        flush(c);
-        run = { start: c, border };
-      }
-      flush(columns);
-    }
-    for (let c = 0; c <= columns; c++) {
-      let run: { start: number; border: GridEdgeBorder } | null = null;
-      const flush = (endExclusive: number): void => {
-        if (!run) return;
-        const y = originY + (rowOffsets[run.start] ?? 0);
+      },
+    }, edgeBorderOf, schemas);
+    this.drawGridLines({
+      lines: columns,
+      cells: rows,
+      idPrefix: `${grid.idPrefix}__v`,
+      // 비운 행에서 세로선 구간을 끊는다 (해당 칸에는 세로선을 긋지 않는다)
+      breakAt: (r) => blankRows.has(r),
+      neighbors: (c, r) => [
+        c > 0 ? (owner[r]?.[c - 1] ?? -1) : null,
+        c < columns ? (owner[r]?.[c] ?? -1) : null,
+      ],
+      emit: (schemas2, id, c, start, endExclusive, border) => {
+        const y = originY + (rowOffsets[start] ?? 0);
         const end = originY + (rowOffsets[endExclusive] ?? 0);
         this.pushLine(
-          schemas,
-          `${grid.idPrefix}__v-${c}-${run.start}`,
-          { x: Math.max(0, originX + (columnOffsets[c] ?? 0) - run.border.width / 2), y },
-          run.border.width,
+          schemas2,
+          id,
+          { x: Math.max(0, originX + (columnOffsets[c] ?? 0) - border.width / 2), y },
+          border.width,
           end - y,
-          run.border.color,
-          run.border.style,
+          border.color,
+          border.style,
         );
-        run = null;
-      };
-      for (let r = 0; r < rows; r++) {
-        if (blankRows.has(r)) {
-          flush(r);
-          continue;
-        }
-        const left = c > 0 ? (owner[r]?.[c - 1] ?? -1) : null;
-        const right = c < columns ? (owner[r]?.[c] ?? -1) : null;
-        const mergedInterior = left !== null && right !== null && left !== -1 && left === right;
-        const border = mergedInterior ? null : edgeBorderOf(left, right);
-        if (border === null || border.width <= 0) {
-          flush(r);
-          continue;
-        }
-        if (run && sameGridBorder(run.border, border)) continue;
-        flush(r);
-        run = { start: r, border };
-      }
-      flush(rows);
-    }
+      },
+    }, edgeBorderOf, schemas);
 
     // 4) 셀 문구 → 텍스트
     cells.forEach((cell, index) => {
@@ -808,10 +829,55 @@ class SlipToPdfmeConverter {
         value = this.clipToBox(value, rect.width - padding * 2, rect.height - padding * 2, {
           fontName: schema.fontName as string | undefined,
           fontSize,
+          // 실제 렌더에 쓰는 자간·줄간격으로 재야 잘라낼 줄 수가 맞는다 (그러지 않으면
+          // 넘칠 부분이 남거나 과하게 잘린다)
+          characterSpacing: cell.characterSpacing,
+          lineHeight: cell.lineHeight,
         });
       }
       this.push(schemas, schema, value);
     });
+  }
+
+  /**
+   * 한 축(가로/세로)의 그리드선을 그린다 — 병합 내부 경계는 건너뛰고, 같은 스타일 구간을
+   * 한 선으로 이어 그린다 (ADR-033). 가로·세로 패스가 축만 다르고 구조가 같아 공통화했다.
+   *
+   * @param axis - 축 서술 (경계선 수·셀 수·빈 행 처리·이웃·선분 그리기)
+   * @param edgeBorderOf - 맞닿는 두 칸의 유효 테두리 (굵은 쪽 우선)
+   * @param schemas - 선 스키마를 담을 배열
+   */
+  private drawGridLines(
+    axis: GridLineAxis,
+    edgeBorderOf: (front: number | null, back: number | null) => GridEdgeBorder,
+    schemas: Schema[],
+  ): void {
+    for (let line = 0; line <= axis.lines; line++) {
+      if (axis.skipLine?.(line)) continue;
+      let run: { start: number; border: GridEdgeBorder } | null = null;
+      const flush = (endExclusive: number): void => {
+        if (!run) return;
+        axis.emit(schemas, `${axis.idPrefix}-${line}-${run.start}`, line, run.start, endExclusive, run.border);
+        run = null;
+      };
+      for (let cell = 0; cell < axis.cells; cell++) {
+        if (axis.breakAt?.(cell)) {
+          flush(cell);
+          continue;
+        }
+        const [front, back] = axis.neighbors(line, cell);
+        const mergedInterior = front !== null && back !== null && front !== -1 && front === back;
+        const border = mergedInterior ? null : edgeBorderOf(front, back);
+        if (border === null || border.width <= 0) {
+          flush(cell);
+          continue;
+        }
+        if (run && sameGridBorder(run.border, border)) continue;
+        flush(cell);
+        run = { start: cell, border };
+      }
+      flush(axis.cells);
+    }
   }
 
   /** 칸 높이를 넘는 줄을 잘라낸다. 잴 수 없으면 그대로 둔다 (ADR-037) */
@@ -819,7 +885,12 @@ class SlipToPdfmeConverter {
     text: string,
     widthMm: number,
     heightMm: number,
-    style: { fontName?: string | undefined; fontSize: number },
+    style: {
+      fontName?: string | undefined;
+      fontSize: number;
+      characterSpacing?: number | undefined;
+      lineHeight?: number | undefined;
+    },
   ): string {
     if (widthMm <= 0 || heightMm <= 0) return text;
     const lines = this.measurer.splitLines(text, widthMm, style);
@@ -899,16 +970,7 @@ class SlipToPdfmeConverter {
     const what = `바코드 '${element.name}'(${element.id})`;
     if (element.content !== undefined) return element.content;
     if (element.formula !== undefined) {
-      let evaluated: unknown;
-      try {
-        evaluated = evaluateFormula(
-          element.formula,
-          this.locale === undefined ? { values: this.values } : { values: this.values, locale: this.locale },
-        );
-      } catch (error) {
-        throw new SlipRenderError(`${what}의 수식 평가에 실패했습니다: ${(error as Error).message}`);
-      }
-      return toDisplayText(evaluated, what);
+      return toDisplayText(this.evaluate(element.formula, this.values, what), what);
     }
     if (element.binding !== undefined) return toDisplayText(this.values[element.binding], what);
     return '';
@@ -1317,6 +1379,34 @@ interface GridEdgeBorder {
   style: BorderStyle;
 }
 
+/**
+ * 그리드선 한 축(가로 또는 세로)의 서술 — `drawGridLines`가 공통 루프에 끼워 쓴다.
+ * 가로선은 `lines`=행 경계, `cells`=열이고 세로선은 그 반대다. 두 축의 차이는 이 콜백에 드러난다.
+ */
+interface GridLineAxis {
+  /** 그릴 경계선 수 (0..lines) — 가로선이면 rows, 세로선이면 columns */
+  lines: number;
+  /** 한 경계선을 훑을 셀 수 — 가로선이면 columns, 세로선이면 rows */
+  cells: number;
+  /** 선 id 접두사 (`..._h` / `..._v`) */
+  idPrefix: string;
+  /** 이 경계선(line) 전체를 건너뛸지 — 가로선의 빈 행 가장자리 처리 (없으면 안 건너뜀) */
+  skipLine?: (line: number) => boolean;
+  /** 이 셀 위치(cell)에서 구간을 끊을지 — 세로선의 빈 행 처리 (없으면 안 끊음) */
+  breakAt?: (cell: number) => boolean;
+  /** 경계선(line)의 셀(cell) 위치에서 맞닿는 두 칸의 소유자 인덱스 `[앞, 뒤]` (범위 밖은 null) */
+  neighbors: (line: number, cell: number) => [number | null, number | null];
+  /** 경계선(line)의 [start, endExclusive) 구간을 border로 한 선분으로 그린다 */
+  emit: (
+    schemas: Schema[],
+    id: string,
+    line: number,
+    start: number,
+    endExclusive: number,
+    border: GridEdgeBorder,
+  ) => void;
+}
+
 /** 두 변 테두리가 같은 스타일인지 — 같은 구간끼리 한 선으로 이어 그리기 위함 */
 function sameGridBorder(a: GridEdgeBorder, b: GridEdgeBorder): boolean {
   return a.width === b.width && a.color === b.color && a.style === b.style;
@@ -1346,7 +1436,10 @@ export function convertSlipFile(
   },
 ): PdfmeRenderInput {
   const body = file.kind === 'template' ? file.template : file.templateSnapshot;
-  const values: Record<string, unknown> = file.kind === 'voucher' ? file.values : {};
+  // number 바인딩의 빈 값을 0으로 정규화한다 (ADR-044) — 값이 있는 전표에만 적용한다.
+  // 양식(값 없음)은 그대로 비워 둔다 — 빈 양식의 number 필드를 0으로 채우지 않는다.
+  const values: Record<string, unknown> =
+    file.kind === 'voucher' ? normalizeNumericBindings(file.values, body.bindings) : {};
   return new SlipToPdfmeConverter(
     body,
     values,

@@ -71,3 +71,11 @@ pnpm demo:vue     # Vue    → http://localhost:5175
 > **문서 운영 규칙**: 새로운 설계 결정은 반드시 DECISIONS.md에 추가하고,
 > 기존 결정과 모순되는 변경은 기존 결정을 "Superseded"로 표시한 뒤 새 결정으로 기록한다.
 > REQUIREMENTS.md는 항상 DECISIONS.md와 일치해야 한다.
+
+## 라이선스
+
+Business Source License 1.1 (**BUSL-1.1**) — 소스 공개형이며 OSI 오픈소스는 아니다.
+자기 앱에 embed하는 프로덕션 사용은 허용하되, SlipKit과 경쟁하는 호스티드·임베드 상용
+제품·서비스로 제3자에게 제공하려면 상용 라이선스가 필요하다. **Change Date 2031-01-01**에
+Apache License 2.0으로 전환된다. 전문은 [LICENSE](LICENSE), 저작권자는 JangHyeonho.
+동봉 폰트 Pretendard·Noto Sans JP는 각각 SIL Open Font License 1.1이다(코드 라이선스와 별개).

@@ -1,6 +1,13 @@
 # 로드맵 / 세션 인수인계
 
-최종 갱신: 2026-08-23 (**G-40 일본어 대응 완료** — UI 언어에 일본어(`ja`)를 더하고, 기본 일본어 폰트
+최종 갱신: 2026-08-23 (**G-48 총괄 리뷰 진행 중** — 11개 병렬 에이전트로 리뷰 후 확실한 버그·보안·
+가독성 항목을 `chore/repo-final-review-v2`에서 수정(정확성 core 다수, ADR-012 정합, 뷰어 무결성 검증
+ADR-043, 가독성 리팩터, npm 준비, 라이선스 BUSL-1.1 확정). 이어 **수식 엄격 타입 + 변환 함수**를 더했다
+(ADR-044): 숫자 자리는 숫자만 받고 글자→숫자는 `TO_NUMBER`로 명시, `TO_NUMBER`·`TO_STRING`·`TO_DATE`
+3종 추가(29→32종), `number` 바인딩 빈 값은 받는 시점에 0으로 정규화(`normalizeNumericBindings`, SSOT).
+큰 구조 리팩터·캔버스 정합도 이어 처리했고(요소 종류별 분할·drawGrid 통합·세로쓰기/자동 병합 캔버스 정합·
+편집 핸들러 중복 정리), **IndexedDB 저장소를 Blob 본문 분리 + 화면 스냅샷 페이징으로 개선**했다(ADR-045).
+리뷰 보드는 아티팩트로 정리. 이전: **G-40 일본어 대응 완료** — UI 언어에 일본어(`ja`)를 더하고, 기본 일본어 폰트
 Noto Sans JP Regular 서브셋을 서브패스로 동봉해 `locale="ja"`면 자동으로 쓰이게 했다(가변 폰트 인스턴싱본은
 pdf-lib 임베더 비호환이라 Google Fonts 정적 TTF를 서브셋, 실PDF 확인). 가이드 5종+리포 README에 일본어판을
 더하고, 옛 `fonts` 속성을 가리키던 폰트 문서를 `settings.getFonts`로 바로잡았다. 대자·한자 숫자 함수는
@@ -25,7 +32,7 @@ pdf-lib 임베더 비호환이라 Google Fonts 정적 TTF를 서브셋, 실PDF �
 - `main` = 기준 브랜치 (부트스트랩 브랜치를 개명). 이후 작업은 [`.claude/rules/branching.md`](../.claude/rules/branching.md) 규칙대로 분기
 - pnpm 모노레포 스캐폴딩 완료(4패키지 빌드·타입체크·테스트 통과) — PR [#1](https://github.com/open-my-dev-com/drawing-report/pull/1)
 - **파일 포맷 완료**: [SPEC.md](SPEC.md) 규범 명세 + `.slip` 본문 상세 Zod 스키마(요소 6종·발행 규칙 검증) + schemaVersion 마이그레이션 계층 + JSON Schema 산출·동봉 (ADR-007/008/014/019/020/022)
-- **수식 엔진 완료**: 자체 토크나이저·파서(`eval` 금지, 미등록 함수는 파싱 단계 거부) + 평가기(IF/AND/OR 지연 평가, `items.금액` 범위 참조) + 함수 29종 (ADR-010/017)
+- **수식 엔진 완료**: 자체 토크나이저·파서(`eval` 금지, 미등록 함수는 파싱 단계 거부) + 평가기(IF/AND/OR 지연 평가, `items.금액` 범위 참조) + 함수 32종 (ADR-010/017/044, 엄격 타입·타입 변환 3종 포함)
 - **PDF 렌더러 완료**: `.slip` → pdfme 변환 계층(요소 6종 매핑, 고정 그리드는 선·사각형·텍스트 분해, 표 스타일 기본값 병합) + pdfme 외부 비공개(공개 API에 pdfme 노출 0건) + field 수식 평가 연동 + 자동 페이지 분할 확인 (ADR-011/016)
 - **무결성 완료**: RFC 8785(JCS) 정규화 + SHA-256 해시 + JWS(ES256) 서명·검증, 외부 의존 없이 Web Crypto API 직접 구현 (ADR-019, SPEC §8)
 - **뷰어 완료**: `<slip-viewer>` Lit 웹컴포넌트 — `.slip` → PDF 렌더링 → iframe 미리보기. 화면·PDF 불일치가 구조적으로 불가능 (ADR-012/016). UI 문구 리소스 파일 분리 (ADR-013)
@@ -387,7 +394,30 @@ pdf-lib 임베더 비호환이라 Google Fonts 정적 TTF를 서브셋, 실PDF �
 
 ### v2 마무리 — 총괄 리뷰 (40번까지 전부 끝난 뒤)
 
-48. `chore/repo-final-review-v2` — **v2 총괄 리뷰** (v1의 9번과 같은 성격). 세 갈래로 본다.
+48. `chore/repo-final-review-v2` — **v2 총괄 리뷰** (v1의 9번과 같은 성격) → **진행 중** (2026-08-23):
+    11개 병렬 에이전트로 다관점 코드리뷰·유저 친화성·버그 찾기를 훑고, 발견을 중복 제거·소스 대조
+    검증했다(리뷰 보드 아티팩트로 정리 — 심각도·상태·유형별). **확실한 버그·보안·가독성 항목을 이 브랜치에서
+    수정**했다(각 게이트 통과):
+    - **정확성(core)**: `toNumber` 무한대/16진수 유입, `parseDate` 롤오버, `DATE_ADD` 월오버플로,
+      병합칸 반복구간 포위, 자기참조 `asset://`, autoMerge 빈 열, 깊은 중첩 크래시, clip 측정 자간·줄간격 누락
+    - **화면·PDF 정합(ADR-012)**: 그리드 칸 가로·세로 정렬, 칸 줄바꿈·여백, 미리보기 중 편집 잠금
+    - **보안**: 뷰어 발행 전표 무결성 검증(fail-closed, `verificationKey`, ADR-043), 변동 이미지 값 자기완결성,
+      base64url 무검증 보강
+    - **가독성**: 수식 평가·텍스트 스타일 헬퍼, 페이지 번호 워크 단일화, `gridElementSchema.superRefine`·
+      `gridLayout` 분리, 바인딩 셀렉트 3벌·`_collectBindings` 통합, 값 소스 지우기 공용화, 매직넘버 상수화
+    - **G-40 마감 누락**: 폰트 로케일 정규화, 수식 도움말 ja, locale 주석·QR 라벨
+    - **npm 준비**: `repository`·`publishConfig`·`schemas` export
+    - **라이선스**: BUSL-1.1 확정 (Licensor JangHyeonho, Change Date 2031-01-01 → Apache-2.0)
+    - **수식 엄격 타입 + 변환 함수(ADR-044)**: 숫자 자리는 숫자만, 글자→숫자는 `TO_NUMBER` 명시,
+      `TO_NUMBER`·`TO_STRING`·`TO_DATE` 추가(29→32종), number 바인딩 빈 값 0 정규화(SSOT)
+    - **큰 구조 리팩터·캔버스 정합 처리 완료**: `_renderTypeProps` 요소 종류별 분할(+그리드 칸 편집기),
+      `drawGrid` 가로·세로 패스 `drawGridLines` 통합, 세로쓰기·데이터 자동 병합 캔버스 정합(PDF와 동일),
+      `requestUpdate` reject → `_rejectInput`·`as Record` → `setOptional`·커밋/색 시드 중복 통합
+    - **IndexedDB 저장소 최적화(ADR-045)**: 본문을 Blob으로 분리해 목록이 본문을 안 읽게 하고(메타만),
+      목록 모달은 메타를 한 번 받아 스냅샷으로 쥐고 검색·번호 페이지(1234)를 화면에서 처리(오프셋
+      중복·누락 해소). 한 레코드 유지라 "목록=열림" 불변식·orphan 없음. 손상 파일은 열 때 오류. DB v1→v2
+      마이그레이션. 커서식 keyset 페이징·메타/본문 store 분리·zip 컨테이너는 기각(ADR-045 근거)
+    - **원래 계획(세 갈래)**:
     - **코드 리뷰(다관점)**: 정확성 · 가독성 · 유지보수성 · 보안 · 성능 · 데드코드 제거 · 중복코드 제거
     - **기능 리뷰(유저 친화성)**: 만들어 놓은 것이 실제로 쓸 만한지 본다. 미리 정한 항목만 훑지 않고
       **처음 쓰는 사람의 입장에서 양식을 하나 끝까지 만들어 보며** 걸리는 곳을 찾는다. 조작을 찾을 수 있는지,
@@ -522,7 +552,11 @@ pdf-lib 임베더 비호환이라 Google Fonts 정적 TTF를 서브셋, 실PDF �
 - 사소 개선: 뷰어·디자이너 PDF 미리보기 로직 공용화, `toText`/`toDisplayText` 상호 참조 주석
 - 배경 그라디언트 (2026-08-20 아이디어): PDF 변환 계층이 그라디언트를 그릴 수 있는지 확인된 뒤에만 진행 — 화면만 되는 불일치 금지
 - 코드리뷰(2026-08-19) 보류 항목: undo 스냅샷 총 바이트 상한, IndexedDB `list()` 메타 분리·커서 순회, 테스트 헬퍼 공용화, LocalFileStorage 취소 감지 폴백
-- **npm 공개 전 체크리스트**: 패키지 4종에 `license`·`repository` 필드 결정·추가 필요
+- **npm 공개 전 체크리스트**: 패키지 4종에 `repository`·`publishConfig.access:"public"`·`license: "BUSL-1.1"`
+  추가 완료, core에 `./schemas/*` 서브패스 export 추가, 루트 LICENSE(BSL 1.1, Licensor JangHyeonho,
+  Change Date 2031-01-01, Change License Apache-2.0)·패키지별 LICENSE 사본 추가 완료(G-48). 라이선스는
+  **소스 공개형(BUSL-1.1)** — 자기 앱 embed 프로덕션은 허용, 경쟁 재판매는 상용 라이선스 필요, 2031-01-01에
+  Apache-2.0 전환. 동봉 폰트는 OFL 1.1 유지. **체크리스트 완료**
 
 ## 진행 방식 메모
 

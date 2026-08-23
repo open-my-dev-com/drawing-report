@@ -22,6 +22,7 @@ export {
   type SlipMigrationStep,
 } from './format/migrate.js';
 export { slipFileJsonSchema } from './format/json-schema.js';
+export { normalizeNumericBindings } from './format/normalize.js';
 export * from './storage/adapter.js';
 export { FORMULA_FUNCTIONS, type FormulaFunctionName } from './formula/functions.js';
 export { FormulaEvalError, FormulaSyntaxError } from './formula/errors.js';
@@ -31,6 +32,7 @@ export {
   SlipRenderError,
   createPdfRenderer,
   renderSlipToPdf,
+  stackVertically,
   type RenderOptions,
   type SlipFont,
   type SlipPdfRenderer,

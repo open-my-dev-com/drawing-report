@@ -3,6 +3,15 @@
   "version": "0.0.1",
   "description": "SlipKit Web Component UI — <slip-designer>, <slip-viewer> 등 (Lit)",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/open-my-dev-com/drawing-report.git",
+    "directory": "packages/elements"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "BUSL-1.1",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -22,7 +31,8 @@
   "files": [
     "dist",
     "OFL-Pretendard.txt",
-    "OFL-NotoSansJP.txt"
+    "OFL-NotoSansJP.txt",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsup",

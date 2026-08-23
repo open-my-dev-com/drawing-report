@@ -3,6 +3,15 @@
   "version": "0.0.1",
   "description": "SlipKit Vue 얇은 래퍼 — @omdc-slipkit/elements의 커스텀 엘리먼트를 Vue 관례로 노출",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/open-my-dev-com/drawing-report.git",
+    "directory": "packages/vue"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "BUSL-1.1",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -12,7 +21,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean --external vue",

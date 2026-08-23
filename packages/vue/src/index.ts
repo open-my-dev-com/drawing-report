@@ -20,16 +20,23 @@ export const SlipViewer = defineComponent({
     /** .slip JSON 문자열 */
     src: { type: String, required: true },
     /**
-     * UI 언어 ('ko' | 'en') — ADR-028.
+     * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
      *
      * @defaultValue 한국어
      */
     locale: { type: String, default: undefined },
     /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
     settings: { type: Object as PropType<SlipFontProvider>, default: undefined },
+    /** 발행 전표 무결성 검증 공개키 (JWK, SPEC §8) — 검증 실패 시 PDF를 그리지 않는다 */
+    verificationKey: { type: Object as PropType<IntegrityJwk>, default: undefined },
   },
   setup(props) {
-    return () => h('slip-viewer', { src: props.src, locale: props.locale, '.settings': props.settings });
+    return () => h('slip-viewer', {
+      src: props.src,
+      locale: props.locale,
+      '.settings': props.settings,
+      '.verificationKey': props.verificationKey,
+    });
   },
 });
 
@@ -43,7 +50,7 @@ export const SlipDesigner = defineComponent({
     /** .slip JSON 문자열 (template 파일만) */
     src: { type: String, required: true },
     /**
-     * UI 언어 ('ko' | 'en') — ADR-028.
+     * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
      *
      * @defaultValue 한국어
      */
@@ -83,7 +90,7 @@ export const SlipForm = defineComponent({
     /** .slip JSON 문자열 (양식 또는 작성 중 전표) */
     src: { type: String, required: true },
     /**
-     * UI 언어 ('ko' | 'en') — ADR-028.
+     * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
      *
      * @defaultValue 한국어
      */

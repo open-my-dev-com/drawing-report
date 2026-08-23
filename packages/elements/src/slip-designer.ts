@@ -4,9 +4,16 @@ import {
   renderSlipToPdf,
   parseFormula,
   evaluateFormula,
+  stackVertically,
   type SlipFile,
   type SlipTemplateFile,
   type SlipElement,
+  type TextElement,
+  type FieldElement,
+  type BarcodeElement,
+  type LineElement,
+  type PolygonElement,
+  type ImageElement,
   type GridElement,
   type GridCell,
   type GridRepeat,
@@ -17,7 +24,7 @@ import {
   type SlipListItem,
   type StorageAdapter,
 } from '@omdc-slipkit/core';
-import { getStrings, type SlipLocale } from './strings.js';
+import { getStrings } from './strings.js';
 import { getFormulaHelp } from './formula-help.js';
 import { resolveFonts, type SlipDesignerSettings, type PaperSize } from './settings.js';
 import { presets, type SlipPreset } from './presets.js';
@@ -110,7 +117,7 @@ const GRID_GAPS = [1, 5, 10] as const;
  * 이름은 국제 표준의 고유명사라 로케일과 무관하게 같다(strings.ts로 옮기지 않는다).
  */
 const BARCODE_KINDS: readonly { value: BarcodeKind; label: string }[] = [
-  { value: 'qrcode', label: 'QR 코드' },
+  { value: 'qrcode', label: 'QR Code' },
   { value: 'code128', label: 'CODE128' },
   { value: 'ean13', label: 'EAN-13' },
   { value: 'code39', label: 'CODE39' },
@@ -187,35 +194,68 @@ function justifyOf(alignment: 'left' | 'center' | 'right' | undefined): string {
   return alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
 }
 
-/** 글자 스타일(굵게·밑줄·취소선)을 CSS 조각으로 — 앞에 ;가 붙은 형태 (0.2.0, ADR-032) */
-function textStyleCss(style: {
-  bold?: boolean | undefined;
-  underline?: boolean | undefined;
-  strikethrough?: boolean | undefined;
-  verticalAlignment?: 'top' | 'middle' | 'bottom' | undefined;
-  lineHeight?: number | undefined;
-  characterSpacing?: number | undefined;
-  vertical?: boolean | undefined;
-}): string {
+/** 수직 정렬(top/middle/bottom)을 flexbox 정렬값으로 — 기본은 상단(flex-start) */
+function verticalFlexAlign(v: 'top' | 'middle' | 'bottom' | undefined): string {
+  return v === 'middle' ? 'center' : v === 'bottom' ? 'flex-end' : 'flex-start';
+}
+
+/**
+ * 글자 스타일(굵게·밑줄·취소선·조판)을 CSS 조각으로 — 앞에 ;가 붙은 형태 (0.2.0, ADR-032).
+ *
+ * @param style - 요소·셀의 글자 스타일
+ * @param opts - `omitVerticalAlign`이 true면 justify-content를 넣지 않는다. flex column인
+ *   `.el-content`는 justify-content가 세로축이라 그대로 두지만, flex row인 그리드 칸은
+ *   호출부가 세로 정렬을 align-items로 따로 넣으므로 여기서 justify-content를 빼야
+ *   가로 정렬을 덮지 않는다 (ADR-012).
+ */
+function textStyleCss(
+  style: {
+    bold?: boolean | undefined;
+    underline?: boolean | undefined;
+    strikethrough?: boolean | undefined;
+    verticalAlignment?: 'top' | 'middle' | 'bottom' | undefined;
+    lineHeight?: number | undefined;
+    characterSpacing?: number | undefined;
+    vertical?: boolean | undefined;
+  },
+  opts?: { omitVerticalAlign?: boolean },
+): string {
   const decorations = [
     style.underline === true ? 'underline' : '',
     style.strikethrough === true ? 'line-through' : '',
   ].filter(Boolean).join(' ');
   // 수직 정렬은 flex column의 세로 배치로 (기본 상단), 글자 조판은 인라인 CSS로 그려 PDF와 맞춘다 (0.5.0, ADR-012)
-  const justify = style.verticalAlignment === 'middle'
-    ? 'center'
-    : style.verticalAlignment === 'bottom' ? 'flex-end' : 'flex-start';
+  const verticalAlign = opts?.omitVerticalAlign
+    ? ''
+    : `;justify-content:${verticalFlexAlign(style.verticalAlignment)}`;
   // 기울임(italic)은 캔버스에 그리지 않는다 — PDF는 Italic 변형 폰트가 없으면 곧게 나오는데,
   // 브라우저는 없는 자형을 흉내 내 기울여 캔버스만 어긋난다(ADR-012). 화면·PDF 일치를 위해 넣지 않는다
   return (
     (style.bold === true ? ';font-weight:700' : '') +
     (decorations ? `;text-decoration:${decorations}` : '') +
-    `;justify-content:${justify}` +
+    verticalAlign +
     (style.lineHeight !== undefined ? `;line-height:${style.lineHeight}` : '') +
-    (style.characterSpacing !== undefined ? `;letter-spacing:${(style.characterSpacing * 4) / 3}px` : '') +
-    // 세로쓰기 — PDF는 글자를 한 자씩 쌓는다. 캔버스는 세로쓰기 모드로 근사한다 (한 자씩 위에서 아래로)
-    (style.vertical === true ? ';writing-mode:vertical-rl;text-orientation:upright' : '')
+    (style.characterSpacing !== undefined ? `;letter-spacing:${(style.characterSpacing * 4) / 3}px` : '')
+    // 세로쓰기는 CSS writing-mode가 아니라 글자를 한 자씩 쌓아 그린다(stackVertically) — PDF와
+    // 같은 문자열을 그려 긴 글의 열 넘김·줄바꿈 처리가 어긋나지 않는다 (ADR-012).
   );
+}
+
+/**
+ * 요소·셀의 선택 필드를 설정하거나(값이 있으면) 지운다(null·undefined면).
+ *
+ * @remarks
+ * 판별 유니온인 요소에 선택 스타일 필드를 쓰려면 캐스트로 타입을 벗겨야 하는데, 그 캐스트를
+ * 이 한곳에 가둬 호출부는 타입 안전한 값 계산만 하게 한다 (스타일 편집 핸들러 공용).
+ *
+ * @param target - 필드를 고칠 요소·셀 객체
+ * @param key - 고칠 선택 필드 이름
+ * @param value - 넣을 값 (null·undefined면 필드를 지운다)
+ */
+function setOptional(target: object, key: string, value: unknown): void {
+  const record = target as Record<string, unknown>;
+  if (value === null || value === undefined) delete record[key];
+  else record[key] = value;
 }
 
 /** 캔버스 도형의 파선·점선 근사 표시용 stroke-dasharray (px) — PDF 분해 렌더 패턴과 동일 비율 */
@@ -321,8 +361,19 @@ function resizePercentages(list: number[], count: number): number[] {
 /** 비율(생략 시 균등)로 나눈 누적 경계 위치(mm) — 길이 = count + 1 */
 /** 새 그리드의 기본 행 높이(mm) */
 const GRID_DEFAULT_ROW_MM = 8;
+/** 새 그리드의 기본 열 너비(mm) */
+const GRID_DEFAULT_COL_MM = 30;
 /** 새 그리드가 한 페이지에 담는 기본 항목 수 */
 const GRID_DEFAULT_PER_PAGE = 5;
+/** 디자이너에서 다룰 수 있는 그리드 행·열 수 상한 — 스키마 한도(SLIP_LIMITS)보다 낮은 편집 편의용 상한 */
+const GRID_MAX_TRACKS_UI = 100;
+/** 반복 구간 페이지당 항목 수 상한 (편집 입력 방어) */
+const GRID_MAX_PER_PAGE_UI = 1000;
+/** 요소를 새로 만들 때 겹치지 않게 계단식으로 미는 간격·되돌아오는 주기(mm) */
+const NEW_ELEMENT_CASCADE_STEP_MM = 5;
+const NEW_ELEMENT_CASCADE_WRAP_MM = 50;
+/** "내 양식" 목록 모달의 한 페이지 항목 수 (번호 페이징) */
+const MY_FORMS_PAGE_SIZE = 10;
 
 /**
  * 열 너비·행 높이의 합으로 요소 상자를 다시 계산한다 — 스키마가 둘의 일치를 요구한다
@@ -471,6 +522,19 @@ function ensureCell(el: GridElement, row: number, column: number): Record<string
   const created: GridCell = { row, column, content: '' };
   el.cells.push(created);
   return created as unknown as Record<string, unknown>;
+}
+
+/**
+ * 값 소스 배타 규칙 — content·binding·formula를 모두 지운다 (SPEC §5.6/§5.7).
+ * 셀·바코드가 소스 종류를 바꿀 때 쓰며, 지운 뒤 호출부가 하나만 설정한다
+ * (설정 방식은 대상마다 달라 여기서는 지우기만 한다).
+ *
+ * @param record - content·binding·formula를 가질 수 있는 셀 또는 요소
+ */
+function clearValueSources(record: { content?: unknown; binding?: unknown; formula?: unknown }): void {
+  delete record.content;
+  delete record.binding;
+  delete record.formula;
 }
 
 /** #RRGGBB(AA) → HSV(h 0~360, s·v 0~1) — 색 피커 초기 위치 계산용 */
@@ -1376,10 +1440,13 @@ export class SlipDesigner extends LitElement {
     .element .grid-preview > div {
       display: flex;
       align-items: center;
-      /* PDF 변환 계층의 셀 안쪽 여백과 같은 값 (GRID_CELL_PADDING = 1mm) */
-      padding: 0 1mm;
+      /* PDF 변환 계층의 셀 안쪽 여백과 같은 값 (GRID_CELL_PADDING = 1mm, 사방) */
+      padding: 1mm;
       overflow: hidden;
-      white-space: nowrap;
+      /* PDF는 칸을 넘치는 글을 낱말 단위로 줄바꿈한다 — 캔버스도 같게 접어 화면·PDF를 맞춘다 (ADR-012).
+         줄바꿈 문자는 pre-line으로 그대로 보인다 */
+      white-space: pre-line;
+      overflow-wrap: anywhere;
     }
     .element .table-preview {
       position: absolute;
@@ -2587,6 +2654,8 @@ export class SlipDesigner extends LitElement {
     _saveModalOpen: { state: true },
     _myFormsOpen: { state: true },
     _myFormItems: { state: true },
+    _myFormsPage: { state: true },
+    _myFormsQuery: { state: true },
     _myFormsError: { state: true },
     _savedNotice: { state: true },
   };
@@ -2594,7 +2663,7 @@ export class SlipDesigner extends LitElement {
   src = '';
 
   /**
-   * UI 언어 ('ko' | 'en') — ADR-028.
+   * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
    *
    * @defaultValue 한국어
    */
@@ -2652,7 +2721,7 @@ export class SlipDesigner extends LitElement {
   private _error: string | null = null;
   private _drag: DragState | null = null;
   private _resize: ResizeState | null = null;
-  private _clipboard: SlipElement | null = null;
+  private _clipboard: SlipElement[] | null = null;
   private _guideX: number | null = null;
   private _guideY: number | null = null;
   private _previewGeneration = 0;
@@ -2730,10 +2799,13 @@ export class SlipDesigner extends LitElement {
   private _saveTitle = '';
   /** "내 양식 목록" 모달 열림 여부 (D-15) */
   private _myFormsOpen = false;
-  /** 목록 모달에 표시 중인 항목들 */
+  /**
+   * 모달을 열 때 한 번 받아 쥐는 전체 양식 메타 목록(스냅샷) — 검색·페이지 이동은 이 위에서
+   * 메모리로 한다. 페이지 사이에 저장·삭제가 일어나도 목록이 흔들리지 않는다 (ADR-045).
+   */
   private _myFormItems: SlipListItem[] = [];
-  /** 목록 다음 페이지 커서 — 있으면 "더 보기"가 나온다 */
-  private _myFormsCursor: string | undefined;
+  /** 목록 모달의 현재 페이지 (0부터). 검색·삭제로 항목이 줄면 범위 안으로 되돌린다 */
+  private _myFormsPage = 0;
   /** 목록 검색어 */
   private _myFormsQuery = '';
   /** 저장소 작업 오류 메시지 (어댑터가 한국어 메시지를 준다) */
@@ -2886,6 +2958,15 @@ export class SlipDesigner extends LitElement {
     this._undoStack.push(snapshot);
     this._redoStack = [];
     if (this._undoStack.length > MAX_UNDO) this._undoStack.shift();
+  }
+
+  /**
+   * 잘못된 입력·할 수 없는 편집을 물리친다 — 모델은 그대로 두고 다시 그려 입력칸이 모델
+   * 값으로 되돌아오게 한다. 스키마 범위 밖 값, 규칙에 어긋나는 병합, 대상이 아닌 요소 등에서
+   * 쓴다. `requestUpdate()`와 동작은 같지만 "값을 바꾸지 않고 되돌린다"는 의도를 이름으로 드러낸다.
+   */
+  private _rejectInput(): void {
+    this.requestUpdate();
   }
 
   private _undo(): void {
@@ -3110,7 +3191,7 @@ export class SlipDesigner extends LitElement {
     const id = crypto.randomUUID();
     const { paper } = this._file.template;
     const [padTop, , , padLeft] = paper.padding;
-    const offset = (elements.length * 5) % 50;
+    const offset = (elements.length * NEW_ELEMENT_CASCADE_STEP_MM) % NEW_ELEMENT_CASCADE_WRAP_MM;
     const position = place?.position ?? { x: padLeft + offset, y: padTop + offset };
     const name = `${type}-${id.slice(0, 4)}`;
 
@@ -3125,7 +3206,7 @@ export class SlipDesigner extends LitElement {
         element = {
           type: 'grid', id, name, position,
           width: 90, height: GRID_DEFAULT_ROW_MM * (2 + GRID_DEFAULT_PER_PAGE),
-          columns: [{ width: 30 }, { width: 30 }, { width: 30 }],
+          columns: [{ width: GRID_DEFAULT_COL_MM }, { width: GRID_DEFAULT_COL_MM }, { width: GRID_DEFAULT_COL_MM }],
           rows: [
             { height: GRID_DEFAULT_ROW_MM },
             { height: GRID_DEFAULT_ROW_MM },
@@ -3204,34 +3285,47 @@ export class SlipDesigner extends LitElement {
   }
 
   private _copySelected(): void {
-    const el = this._findSelectedElement();
-    if (!el) return;
-    this._clipboard = JSON.parse(JSON.stringify(el)) as SlipElement;
+    const elements = this._currentElements();
+    if (!elements || this._selectedIds.size === 0) return;
+    // 선택된 요소를 모두 복사한다 — 그룹·다중 선택이면 삭제·이동과 같은 대상으로 다룬다.
+    const selected = elements.filter((el) => this._selectedIds.has(el.id));
+    if (selected.length === 0) return;
+    this._clipboard = JSON.parse(JSON.stringify(selected)) as SlipElement[];
     this.requestUpdate();
   }
 
   private _paste(): void {
     const elements = this._currentElements();
-    if (!elements || !this._clipboard) return;
+    if (!elements || !this._clipboard || this._clipboard.length === 0) return;
 
     this._pushUndo();
 
-    const copy = JSON.parse(JSON.stringify(this._clipboard)) as SlipElement;
-    copy.id = crypto.randomUUID();
-    copy.position = {
-      x: round1(copy.position.x + 5),
-      y: round1(copy.position.y + 5),
-    };
+    // 복사한 요소들이 같은 그룹이면 사본도 함께 묶되, 원본 그룹과는 다른 새 그룹으로 둔다.
+    const groupRemap = new Map<string, string>();
+    const pasted: SlipElement[] = [];
+    for (const src of this._clipboard) {
+      const copy = JSON.parse(JSON.stringify(src)) as SlipElement;
+      copy.id = crypto.randomUUID();
+      copy.position = { x: round1(copy.position.x + 5), y: round1(copy.position.y + 5) };
+      if (copy.group !== undefined) {
+        const mapped = groupRemap.get(copy.group) ?? crypto.randomUUID();
+        groupRemap.set(copy.group, mapped);
+        copy.group = mapped;
+      }
+      if (copy.type === 'field') this._ensureBindingDef(copy.binding);
+      if (copy.type === 'grid' && copy.repeat) this._ensureBindingDef(copy.repeat.binding);
+      elements.push(copy);
+      pasted.push(copy);
+    }
     // 연속으로 붙여넣으면 계단식으로 내려가도록 클립보드 위치를 갱신
-    this._clipboard.position = { ...copy.position };
+    for (const src of this._clipboard) {
+      src.position = { x: round1(src.position.x + 5), y: round1(src.position.y + 5) };
+    }
 
-    elements.push(copy);
-    // 붙여넣은 사본만 고른다 (원본과 같은 그룹이어도 사본 하나만)
-    this._selectedId = copy.id;
-    this._selectedIds = new Set([copy.id]);
+    // 붙여넣은 사본들을 고른다
+    this._selectedId = pasted[0]!.id;
+    this._selectedIds = new Set(pasted.map((el) => el.id));
     this._sideSelection = null;
-    if (copy.type === 'field') this._ensureBindingDef(copy.binding);
-    if (copy.type === 'grid' && copy.repeat) this._ensureBindingDef(copy.repeat.binding);
     this._emitChange();
     this.requestUpdate();
   }
@@ -3643,6 +3737,22 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   };
 
+  /**
+   * 드래그·크기 조절·끝점 이동이 실제로 값을 바꿨으면 스냅샷을 되돌리기에 쌓고 변경을 알린다.
+   *
+   * @param snapshot - 조작 시작 시 찍어 둔 되돌리기 스냅샷 (없으면 커밋하지 않음)
+   * @param changed - 위치·크기가 실제로 바뀌었는지
+   * @returns 커밋했으면 true
+   */
+  private _commitIfMoved(snapshot: string | null, changed: boolean): boolean {
+    if (snapshot !== null && changed) {
+      this._pushUndoSnapshot(snapshot);
+      this._emitChange();
+      return true;
+    }
+    return false;
+  }
+
   private _onPointerUp = (e: PointerEvent): void => {
     if (this._draw) {
       const d = this._draw;
@@ -3673,15 +3783,11 @@ export class SlipDesigner extends LitElement {
       const state = this._lineEnd;
       this._lineEnd = null;
       const el = this._findElement(state.id);
-      if (
-        el && el.type === 'line' && state.snapshot &&
+      const changed = !!el && el.type === 'line' &&
         (el.position.x !== state.orig.x || el.position.y !== state.orig.y ||
           el.width !== state.orig.w || el.height !== state.orig.h ||
-          el.lineDirection !== state.orig.direction)
-      ) {
-        this._pushUndoSnapshot(state.snapshot);
-        this._emitChange();
-      }
+          el.lineDirection !== state.orig.direction);
+      this._commitIfMoved(state.snapshot, changed);
       this.requestUpdate();
       return;
     }
@@ -3689,14 +3795,10 @@ export class SlipDesigner extends LitElement {
     if (this._resize) {
       const r = this._resize;
       const el = this._findElement(r.id);
-      if (
-        el && r.snapshot &&
+      const changed = !!el &&
         (el.position.x !== r.origX || el.position.y !== r.origY ||
-          el.width !== r.origW || el.height !== r.origH)
-      ) {
-        this._pushUndoSnapshot(r.snapshot);
-        this._emitChange();
-      }
+          el.width !== r.origW || el.height !== r.origH);
+      this._commitIfMoved(r.snapshot, changed);
       this._resize = null;
       this.requestUpdate();
       return;
@@ -3706,14 +3808,9 @@ export class SlipDesigner extends LitElement {
     const drag = this._drag;
     this._drag = null;
     const el = this._findElement(drag.id);
-    if (
-      el && drag.snapshot &&
-      (el.position.x !== drag.origMmX || el.position.y !== drag.origMmY)
-    ) {
-      this._pushUndoSnapshot(drag.snapshot);
-      this._emitChange();
-      return;
-    }
+    const dragChanged = !!el &&
+      (el.position.x !== drag.origMmX || el.position.y !== drag.origMmY);
+    if (this._commitIfMoved(drag.snapshot, dragChanged)) return;
     // 움직이지 않은 재클릭: 셀 격자면 그 자리의 셀을 선택하고 인라인 편집을 연다 (C-10, ADR-037)
     if (isGrid(el) && drag.wasSelected && drag.snapshot === null) {
       const cell = this._cellAtPoint(el, e);
@@ -3795,15 +3892,15 @@ export class SlipDesigner extends LitElement {
     const existing = el.cells.find((c) => c.row === target.row && c.column === target.column);
     // 값·수식을 붙인 칸은 문구를 직접 못 쓴다 — 셋 중 하나만 가질 수 있다 (SPEC §5.7)
     if (existing && ('binding' in existing || 'formula' in existing)) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     if (!existing && value === '') {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     if (existing && existing.content === value) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     this._updateElement((element) => {
@@ -3818,7 +3915,7 @@ export class SlipDesigner extends LitElement {
     const el = this._findSelectedElement();
     if (!target || !isGrid(el)) return;
     if (!Number.isInteger(value) || value < 1) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     const dims = gridDims(el);
@@ -3827,7 +3924,7 @@ export class SlipDesigner extends LitElement {
     const colSpan = kind === 'colSpan' ? value : (current?.colSpan ?? 1);
     // 그리드 범위 검사
     if (target.row + rowSpan > dims.rows || target.column + colSpan > dims.columns) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     // 병합이 반복 구간 경계를 넘으면 복제할 때 모양이 무너진다 (SPEC §5.7)
@@ -3837,7 +3934,7 @@ export class SlipDesigner extends LitElement {
       const startsInside = target.row >= fromRow && target.row <= toRow;
       const endsInside = last >= fromRow && last <= toRow;
       if (startsInside !== endsInside) {
-        this.requestUpdate();
+        this._rejectInput();
         return;
       }
     }
@@ -3854,7 +3951,7 @@ export class SlipDesigner extends LitElement {
       );
     });
     if (overlaps) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     this._updateElement((element) => {
@@ -3900,7 +3997,7 @@ export class SlipDesigner extends LitElement {
     const el = this._findSelectedElement();
     if (el?.type !== 'grid') return;
     const next = el.rows.length + delta;
-    if (next < 1 || next > 100) return;
+    if (next < 1 || next > GRID_MAX_TRACKS_UI) return;
     // 반복 구간이 남을 자리가 없어지면 줄이지 않는다
     if (delta < 0 && el.repeat && next <= el.repeat.toRow) return;
     this._updateGrid((grid) => {
@@ -3919,10 +4016,10 @@ export class SlipDesigner extends LitElement {
     const el = this._findSelectedElement();
     if (el?.type !== 'grid') return;
     const next = el.columns.length + delta;
-    if (next < 1 || next > 100) return;
+    if (next < 1 || next > GRID_MAX_TRACKS_UI) return;
     this._updateGrid((grid) => {
       if (delta > 0) {
-        grid.columns.push({ width: grid.columns[grid.columns.length - 1]?.width ?? 30 });
+        grid.columns.push({ width: grid.columns[grid.columns.length - 1]?.width ?? GRID_DEFAULT_COL_MM });
       } else {
         grid.columns.pop();
         grid.cells = grid.cells.filter((cell) => cell.column < grid.columns.length);
@@ -3934,7 +4031,7 @@ export class SlipDesigner extends LitElement {
   /** 행 높이·열 너비(mm)를 직접 정한다 — 그 트랙만 바뀌고 나머지는 그대로다 */
   private _setGridTrack(kind: 'row' | 'column', index: number, mm: number): void {
     if (!Number.isFinite(mm) || mm < MIN_SIZE_MM) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     this._updateGrid((grid) => {
@@ -3978,11 +4075,11 @@ export class SlipDesigner extends LitElement {
     if (el?.type !== 'grid' || !el.repeat) return;
     const next = { ...el.repeat, ...patch };
     if (next.fromRow > next.toRow || next.toRow >= el.rows.length || next.fromRow < 0) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
-    if (!Number.isInteger(next.perPage) || next.perPage < 1 || next.perPage > 1000) {
-      this.requestUpdate();
+    if (!Number.isInteger(next.perPage) || next.perPage < 1 || next.perPage > GRID_MAX_PER_PAGE_UI) {
+      this._rejectInput();
       return;
     }
     // 반복 구간 경계를 넘는 병합이 생기면 받아들이지 않는다 (SPEC §5.7)
@@ -3993,7 +4090,7 @@ export class SlipDesigner extends LitElement {
       return startsInside !== endsInside;
     });
     if (crosses) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     if (patch.binding !== undefined) this._ensureBindingDef(patch.binding);
@@ -4013,9 +4110,7 @@ export class SlipDesigner extends LitElement {
     this._updateElement((element) => {
       if (element.type !== 'grid') return;
       const cell = ensureCell(element, target.row, target.column);
-      delete cell.content;
-      delete cell.binding;
-      delete cell.formula;
+      clearValueSources(cell);
       if (kind === 'content') cell.content = '';
     });
   }
@@ -4030,9 +4125,7 @@ export class SlipDesigner extends LitElement {
     this._updateElement((element) => {
       if (element.type !== 'grid') return;
       const cell = ensureCell(element, target.row, target.column);
-      delete cell.content;
-      delete cell.binding;
-      delete cell.formula;
+      clearValueSources(cell);
       if (value !== '') cell[kind] = value;
       else if (kind === 'content') cell.content = '';
     });
@@ -4114,6 +4207,9 @@ export class SlipDesigner extends LitElement {
       this._lineGhost = null;
       this.requestUpdate();
     }
+    // 미리보기 중에는 편집 단축키를 막는다 — PDF iframe은 토글할 때만 다시 그리므로,
+    // 미리보기 상태에서 요소를 지우거나 되돌리면 표시된 PDF가 실제 문서와 어긋난다 (ADR-012).
+    if (this._previewMode) return;
     if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedId) {
       e.preventDefault();
       this._deleteSelected();
@@ -4172,7 +4268,7 @@ export class SlipDesigner extends LitElement {
     try {
       // 폰트 미공급 시 동봉 Pretendard 자동 사용 (ADR-012/040) — 한글 깨짐 방지
       const opts: RenderOptions = {
-        fonts: await resolveFonts(this.settings, this.locale as SlipLocale),
+        fonts: await resolveFonts(this.settings, this.locale),
       };
       // 샘플 값이 있으면 그 값으로 채운 전표 상태로 미리보기 (D-13).
       // 파일 자체는 양식 그대로 두고 렌더 입력만 전표 형태로 만든다.
@@ -4273,6 +4369,7 @@ export class SlipDesigner extends LitElement {
         ] as const).map(([type, label, glyph]) =>
           this._iconButton(label, glyph, () => this._selectTool(type), {
             pressed: this._pendingTool === type,
+            disabled: this._previewMode,
           }),
         )}
         ${this._iconButton(s.shape, icons.shape, (e) => this._toggleShapeMenu(e), {
@@ -4281,24 +4378,27 @@ export class SlipDesigner extends LitElement {
             this._pendingTool === 'rect' ||
             this._pendingTool === 'ellipse' ||
             this._pendingTool === 'polygon',
+          disabled: this._previewMode,
         })}
         ${this._iconButton(s.addField, icons.field, () => this._selectTool('field'), {
           pressed: this._pendingTool === 'field',
+          disabled: this._previewMode,
         })}
         ${this._iconButton(s.addBarcode, icons.barcode, () => this._selectTool('barcode'), {
           pressed: this._pendingTool === 'barcode',
+          disabled: this._previewMode,
         })}
       </div>
       <div class="tool-group">
-        ${this._iconButton(s.copy, icons.copy, () => this._copySelected(), { disabled: !this._selectedId })}
-        ${this._iconButton(s.paste, icons.paste, () => this._paste(), { disabled: !this._clipboard })}
-        ${this._iconButton(s.undo, icons.undo, () => this._undo(), { disabled: this._undoStack.length === 0 })}
-        ${this._iconButton(s.redo, icons.redo, () => this._redo(), { disabled: this._redoStack.length === 0 })}
+        ${this._iconButton(s.copy, icons.copy, () => this._copySelected(), { disabled: !this._selectedId || this._previewMode })}
+        ${this._iconButton(s.paste, icons.paste, () => this._paste(), { disabled: !this._clipboard || this._previewMode })}
+        ${this._iconButton(s.undo, icons.undo, () => this._undo(), { disabled: this._undoStack.length === 0 || this._previewMode })}
+        ${this._iconButton(s.redo, icons.redo, () => this._redo(), { disabled: this._redoStack.length === 0 || this._previewMode })}
       </div>
       <div class="tool-group">
         <span class="page-indicator">${this._pageIndex + 1} / ${this._pageCount()}</span>
-        ${this._iconButton(s.addPage, icons.pageAdd, () => this._addPage())}
-        ${this._iconButton(s.deletePage, icons.pageRemove, () => this._deletePage(), { disabled: this._pageCount() <= 1 })}
+        ${this._iconButton(s.addPage, icons.pageAdd, () => this._addPage(), { disabled: this._previewMode })}
+        ${this._iconButton(s.deletePage, icons.pageRemove, () => this._deletePage(), { disabled: this._pageCount() <= 1 || this._previewMode })}
       </div>
       <div class="tool-group">
         ${this._iconButton(
@@ -4319,6 +4419,7 @@ export class SlipDesigner extends LitElement {
       <div class="tool-group">
         ${this._iconButton(s.preset, icons.preset, (e) => this._togglePresetMenu(e), {
           pressed: this._presetMenuOpen,
+          disabled: this._previewMode,
         })}
       </div>
       ${this.storage
@@ -4985,7 +5086,13 @@ export class SlipDesigner extends LitElement {
           if (el.type === 'field' && el.binding === key) el.binding = trimmed;
           if (el.type === 'grid') {
             if (el.repeat?.binding === key) el.repeat.binding = trimmed;
-            for (const cell of el.cells) if (cell.binding === key) cell.binding = trimmed;
+            for (const cell of el.cells) {
+              // 반복 구간 안 칸의 바인딩은 항목 필드(별도 네임스페이스)라 전표 값 키 이름
+              // 변경 대상이 아니다 — 같은 이름이 우연히 겹쳐도 건드리지 않는다
+              const inBand =
+                el.repeat !== undefined && cell.row >= el.repeat.fromRow && cell.row <= el.repeat.toRow;
+              if (!inBand && cell.binding === key) cell.binding = trimmed;
+            }
           }
         }
       }
@@ -5322,7 +5429,7 @@ export class SlipDesigner extends LitElement {
       case 'text':
         return html`<span class="el-content"
           style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(el)}"
-          >${el.content}</span>`;
+          >${stackVertically(el.content, el.vertical)}</span>`;
 
       case 'grid':
         return this._renderGridElementPreview(el);
@@ -5353,7 +5460,7 @@ export class SlipDesigner extends LitElement {
       case 'field':
         return html`<span class="el-content"
           style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(el)}"
-          >{${el.binding}}</span>`;
+          >${stackVertically(`{${el.binding}}`, el.vertical)}</span>`;
 
       case 'barcode':
         return this._renderBarcodePreview(el);
@@ -5412,7 +5519,7 @@ export class SlipDesigner extends LitElement {
     const w = Math.max(1, el.width * PX_PER_MM);
     const h = Math.max(1, el.height * PX_PER_MM);
     const stroke = el.borderColor ?? '#000000';
-    const strokeWidth = Math.max(1, (el.borderWidth ?? 0.2) * PX_PER_MM);
+    const strokeWidth = Math.max(1, (el.borderWidth ?? DEFAULT_LINE_WIDTH) * PX_PER_MM);
 
     if (el.type === 'line') {
       const dash = dashArrayOf(el.borderStyle);
@@ -5457,7 +5564,7 @@ export class SlipDesigner extends LitElement {
     const colTracks = widths.map((w) => `${w}fr`).join(' ');
     const rowTracks = heights.map((h) => `${h}fr`).join(' ');
     const lineColor = el.borderColor ?? '#000000';
-    const lineWidth = el.borderWidth ?? 0.2;
+    const lineWidth = el.borderWidth ?? DEFAULT_LINE_WIDTH;
     const borderCssOf = (cell?: GridCell): string => {
       const width = cell?.borderWidth ?? lineWidth;
       if (width <= 0) return 'none';
@@ -5469,39 +5576,82 @@ export class SlipDesigner extends LitElement {
     const bandRows = repeat ? repeat.toRow - repeat.fromRow + 1 : 0;
     const items = this._repeatSampleItems(el);
 
-    // 틀의 셀을 화면 행으로 옮긴다 — 반복 구간은 벌마다 한 번씩
-    const placed: { cell: GridCell; row: number; item: Record<string, unknown> | undefined }[] = [];
+    // 자동 병합 열 — 반복 구간에서 앞 벌과 값이 같은 칸을 세로로 합친다 (ADR-038)
+    const autoMergeColumns = new Set<number>();
+    el.columns.forEach((column, c) => {
+      if (column.autoMerge === true) autoMergeColumns.add(c);
+    });
+    const cellMerges = (cell: GridCell): boolean => {
+      for (let c = cell.column; c < cell.column + (cell.colSpan ?? 1); c++) {
+        if (autoMergeColumns.has(c)) return true;
+      }
+      return false;
+    };
+
+    // 틀의 셀을 화면 행으로 옮긴다 — 반복 구간은 벌마다 한 번씩. 자동 병합 열은 앞 벌과 값이
+    // 같으면 세로로 합쳐(rowSpan을 늘려) PDF(expandRepeatBand)와 같은 모습을 보인다 (ADR-012/038).
+    type Placed = { cell: GridCell; row: number; rowSpan: number; item: Record<string, unknown> | undefined };
+    const placed: Placed[] = [];
     for (const cell of el.cells) {
+      const baseSpan = cell.rowSpan ?? 1;
       if (!repeat || cell.row < repeat.fromRow) {
-        placed.push({ cell, row: cell.row, item: undefined });
+        placed.push({ cell, row: cell.row, rowSpan: baseSpan, item: undefined });
       } else if (cell.row > repeat.toRow) {
-        placed.push({ cell, row: cell.row + (repeat.perPage - 1) * bandRows, item: undefined });
-      } else {
+        placed.push({ cell, row: cell.row + (repeat.perPage - 1) * bandRows, rowSpan: baseSpan, item: undefined });
+      } else if (!cellMerges(cell)) {
         for (let i = 0; i < repeat.perPage; i++) {
-          placed.push({ cell, row: cell.row + i * bandRows, item: items[i] });
+          placed.push({ cell, row: cell.row + i * bandRows, rowSpan: baseSpan, item: items[i] });
+        }
+      } else {
+        let anchor: { entry: Placed; text: string } | null = null;
+        for (let i = 0; i < repeat.perPage; i++) {
+          const item = items[i];
+          // 병합 판단은 표시용 placeholder({binding})가 아니라 실제 값으로 한다 — 빈 값이면
+          // 합치지 않는다(PDF expandRepeatBand과 동일, ADR-038/012). 표시 텍스트는 아래 boxes에서 따로 그린다.
+          const text = this._gridCellMergeText(cell, item);
+          // 빈 값·항목 없음은 합치지 않고 병합을 끊는다 (ADR-038)
+          if (item === undefined || text === '') {
+            placed.push({ cell, row: cell.row + i * bandRows, rowSpan: baseSpan, item });
+            anchor = null;
+            continue;
+          }
+          if (anchor && anchor.text === text) {
+            anchor.entry.rowSpan += bandRows; // 앞 칸에 흡수 — 이 칸은 그리지 않는다
+            continue;
+          }
+          const entry: Placed = { cell, row: cell.row + i * bandRows, rowSpan: baseSpan, item };
+          placed.push(entry);
+          anchor = { entry, text };
         }
       }
     }
 
-    const boxes = placed.map(({ cell, row, item }) => {
+    const boxes = placed.map(({ cell, row, rowSpan, item }) => {
       const isSelectedCell =
         selected && this._selectedCell?.row === cell.row && this._selectedCell?.column === cell.column;
+      // 그리드 칸은 flex row라 가로 정렬은 justify-content, 세로 정렬은 align-items다.
+      // textStyleCss는 세로 정렬을 justify-content로 넣으므로(flex column용) 여기선 빼서
+      // 가로 정렬을 덮지 않게 한다 (ADR-012 — 캔버스·PDF 정렬 일치).
+      const merged = { ...el, ...cell };
       const style = [
-        `grid-area:${row + 1}/${cell.column + 1}/span ${cell.rowSpan ?? 1}/span ${cell.colSpan ?? 1}`,
+        `grid-area:${row + 1}/${cell.column + 1}/span ${rowSpan}/span ${cell.colSpan ?? 1}`,
         `border:${borderCssOf(cell)}`,
         `font-size:${fontPx(cell.fontSize ?? el.fontSize)}`,
         `justify-content:${justifyOf(cell.alignment ?? el.alignment)}`,
+        `align-items:${verticalFlexAlign(merged.verticalAlignment)}`,
+        // 세로쓰기 칸은 쌓은 글자의 줄바꿈이 살아야 한 열로 보인다 (ADR-012)
+        cell.vertical === true ? 'white-space:pre-wrap' : '',
         cell.backgroundColor ? `background-color:${cell.backgroundColor}` : '',
         (cell.fontColor ?? el.fontColor) ? `color:${cell.fontColor ?? el.fontColor}` : '',
-      ].filter(Boolean).join(';') + textStyleCss({ ...el, ...cell });
+      ].filter(Boolean).join(';') + textStyleCss(merged, { omitVerticalAlign: true });
       return html`<div class=${isSelectedCell ? 'cell-selected' : ''} style=${style}
-        >${this._gridCellPreviewText(cell, item)}</div>`;
+        >${stackVertically(this._gridCellPreviewText(cell, item), cell.vertical)}</div>`;
     });
 
     // 셀이 없는 칸도 괘선은 그려야 빈 줄까지 보이는 실제 모습이 된다 (SPEC §5.7)
     const taken = new Set<string>();
-    for (const { cell, row } of placed) {
-      for (let r = row; r < row + (cell.rowSpan ?? 1); r++) {
+    for (const { cell, row, rowSpan } of placed) {
+      for (let r = row; r < row + rowSpan; r++) {
         for (let c = cell.column; c < cell.column + (cell.colSpan ?? 1); c++) taken.add(`${r},${c}`);
       }
     }
@@ -5549,6 +5699,28 @@ export class SlipDesigner extends LitElement {
     return cell.content ?? '';
   }
 
+  /**
+   * 자동 병합 판단용 칸 값 — 표시용 placeholder가 아니라 실제 값을 돌려준다.
+   * 빈 값(미입력·null·수식 null)은 빈 문자열이라 합치지 않는다 — PDF(convert.ts gridCellText·
+   * toDisplayText)와 같은 규칙으로 화면·PDF가 어긋나지 않게 한다 (ADR-038·012).
+   */
+  private _gridCellMergeText(cell: GridCell, item: Record<string, unknown> | undefined): string {
+    const values = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
+    if (cell.binding !== undefined) {
+      const value = values[cell.binding];
+      return value === null || value === undefined ? '' : String(value);
+    }
+    if (cell.formula !== undefined) {
+      try {
+        const result = evaluateFormula(cell.formula, { values });
+        return result === null ? '' : String(result);
+      } catch {
+        return '';
+      }
+    }
+    return cell.content ?? '';
+  }
+
   // ---------------------------------------------------------------------------
   // Render: property panel
   // ---------------------------------------------------------------------------
@@ -5562,11 +5734,6 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /**
-   * 양식 설정 패널 — 요소를 선택하지 않았을 때 표시한다.
-   * 제목·용지 크기(프리셋/직접 입력)·방향·여백을 편집한다. 방향과 프리셋은
-   * 파일에 없는 화면 차원 개념이라 너비·높이로만 반영된다 (포맷 불변).
-   */
   /**
    * 페이지 설정 패널 (G-46) — 이름·번호 표시·순서를 그 페이지 화면에서 정한다.
    * 설정 대상은 늘 현재 페이지다 — 사이드바에서 다른 페이지를 고르면 그 페이지로 옮겨 이 패널이 갱신된다.
@@ -5718,6 +5885,13 @@ export class SlipDesigner extends LitElement {
     await this._loadPaperSizes();
   }
 
+  /**
+   * 양식 설정 패널 — 요소를 선택하지 않았을 때 표시한다.
+   * 제목·용지 크기(프리셋/직접 입력)·방향·여백을 편집한다. 방향과 프리셋은
+   * 파일에 없는 화면 차원 개념이라 너비·높이로만 반영된다 (포맷 불변).
+   *
+   * @returns 양식 설정 패널 조각
+   */
   private _renderFormSettings() {
     const file = this._file!;
     const s = this._strings.designer;
@@ -5738,7 +5912,7 @@ export class SlipDesigner extends LitElement {
     // 여백 합이 용지보다 작아야 한다는 스키마 규칙을 어기는 값은 되돌린다
     const setSize = (width: number, height: number): void => {
       if (width <= pl + pr || height <= pt + pb) {
-        this.requestUpdate();
+        this._rejectInput();
         return;
       }
       this._updateFile((f) => {
@@ -5748,13 +5922,13 @@ export class SlipDesigner extends LitElement {
     };
     const setPadding = (index: 0 | 1 | 2 | 3, value: number): void => {
       if (Number.isNaN(value) || value < 0) {
-        this.requestUpdate();
+        this._rejectInput();
         return;
       }
       const next = [...paper.padding] as [number, number, number, number];
       next[index] = round1(value);
       if (next[3] + next[1] >= paper.width || next[0] + next[2] >= paper.height) {
-        this.requestUpdate();
+        this._rejectInput();
         return;
       }
       this._updateFile((f) => {
@@ -5774,7 +5948,7 @@ export class SlipDesigner extends LitElement {
                    const v = (e.target as HTMLInputElement).value.trim();
                    // 스키마상 제목은 1자 이상 — 빈 값은 되돌린다
                    if (!v) {
-                     this.requestUpdate();
+                     this._rejectInput();
                      return;
                    }
                    this._updateFile((f) => { f.template.meta.title = v; });
@@ -6140,22 +6314,26 @@ export class SlipDesigner extends LitElement {
    * 요소가 쓸 값을 등록된 목록에서 고르는 선택 상자 (ADR-034) —
    * "새 값 등록"을 고르면 기본 이름으로 값을 만들어 바로 이 요소에 붙인다.
    */
-  private _renderBindingSelect(current: string) {
+  /**
+   * 바인딩 선택 드롭다운의 공통 틀 — 라벨·목록·"새 값 등록" 항목은 같고, "새 값"과
+   * 기존 값 선택 시 동작만 요소마다 다르므로 콜백으로 받는다.
+   *
+   * @param current - 현재 선택된 바인딩 키
+   * @param onNew - "새 값 등록"을 골랐을 때
+   * @param onPick - 기존 바인딩을 골랐을 때 (선택한 키)
+   * @returns 바인딩 선택 조각
+   */
+  private _bindingSelect(current: string, onNew: () => void, onPick: (value: string) => void) {
     const s = this._strings.designer;
     const list = this._bindingList();
-
     return html`
       <div class="prop-row">
         <label>${s.binding}</label>
         <select class="binding-select" aria-label=${s.binding}
           @change=${(e: Event) => {
             const value = (e.target as HTMLSelectElement).value;
-            if (value === NEW_BINDING_OPTION) this._assignNewBinding();
-            else {
-              this._updateElement((el) => {
-                if (el.type === 'field') el.binding = value;
-              });
-            }
+            if (value === NEW_BINDING_OPTION) onNew();
+            else onPick(value);
           }}>
           ${list.map((b) => html`
             <option value=${b.key} ?selected=${b.key === current}>${b.label}</option>`)}
@@ -6165,11 +6343,21 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
+  private _renderBindingSelect(current: string) {
+    return this._bindingSelect(
+      current,
+      () => this._assignNewBinding(),
+      (value) => this._updateElement((el) => {
+        if (el.type === 'field') el.binding = value;
+      }),
+    );
+  }
+
   /** 새 값을 만들어 지금 고른 요소에 붙인다 — 등록과 연결을 한 번에 (ADR-034) */
   private _assignNewBinding(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'field') {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     const { key, label } = this._nextBinding();
@@ -6203,7 +6391,7 @@ export class SlipDesigner extends LitElement {
   private _setImageVariable(variable: boolean): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'image') {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     const id = el.id;
@@ -6240,42 +6428,30 @@ export class SlipDesigner extends LitElement {
 
   /** 변동 이미지의 값 키를 고르는 select — 등록된 값 목록 + 새 값 (G-47) */
   private _renderImageBindingSelect(current: string) {
-    const s = this._strings.designer;
-    const list = this._bindingList();
-    return html`
-      <div class="prop-row">
-        <label>${s.binding}</label>
-        <select class="binding-select" aria-label=${s.binding}
-          @change=${(e: Event) => {
-            const value = (e.target as HTMLSelectElement).value;
-            if (value === NEW_BINDING_OPTION) this._assignNewImageBinding();
-            else {
-              this._updateFile((f) => {
-                for (const page of f.template.pages) {
-                  for (const target of page.elements) {
-                    if (target.id === this._selectedId && target.type === 'image') {
-                      target.binding = value;
-                      delete target.src;
-                    }
-                  }
-                }
-              });
-              this._ensureBindingDef(value);
+    return this._bindingSelect(
+      current,
+      () => this._assignNewImageBinding(),
+      (value) => {
+        this._updateFile((f) => {
+          for (const page of f.template.pages) {
+            for (const target of page.elements) {
+              if (target.id === this._selectedId && target.type === 'image') {
+                target.binding = value;
+                delete target.src;
+              }
             }
-          }}>
-          ${list.map((b) => html`
-            <option value=${b.key} ?selected=${b.key === current}>${b.label}</option>`)}
-          <option value=${NEW_BINDING_OPTION}>${s.bindingNew}</option>
-        </select>
-      </div>
-    `;
+          }
+        });
+        this._ensureBindingDef(value);
+      },
+    );
   }
 
   /** 새 값을 만들어 지금 고른 이미지 요소에 변동 값으로 붙인다 (G-47) */
   private _assignNewImageBinding(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'image') {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     const { key, label } = this._nextBinding();
@@ -6309,9 +6485,7 @@ export class SlipDesigner extends LitElement {
     this._updateElement((element) => {
       if (element.type !== 'barcode') return;
       const r = element as Record<string, unknown>;
-      delete r.content;
-      delete r.binding;
-      delete r.formula;
+      clearValueSources(r);
       r[kind] = '';
     });
   }
@@ -6326,48 +6500,34 @@ export class SlipDesigner extends LitElement {
     this._updateElement((element) => {
       if (element.type !== 'barcode') return;
       const r = element as Record<string, unknown>;
-      delete r.content;
-      delete r.binding;
-      delete r.formula;
+      clearValueSources(r);
       r[kind] = value;
     });
   }
 
   /** 바코드 값(바인딩)의 키를 고르는 select — 등록된 값 목록 + 새 값 (G-33) */
   private _renderBarcodeBindingSelect(current: string) {
-    const s = this._strings.designer;
-    const list = this._bindingList();
-    return html`
-      <div class="prop-row">
-        <label>${s.binding}</label>
-        <select class="binding-select" aria-label=${s.binding}
-          @change=${(e: Event) => {
-            const value = (e.target as HTMLSelectElement).value;
-            if (value === NEW_BINDING_OPTION) this._assignNewBarcodeBinding();
-            else {
-              this._updateElement((element) => {
-                if (element.type !== 'barcode') return;
-                const r = element as Record<string, unknown>;
-                delete r.content;
-                delete r.formula;
-                r.binding = value;
-              });
-              this._ensureBindingDef(value);
-            }
-          }}>
-          ${list.map((b) => html`
-            <option value=${b.key} ?selected=${b.key === current}>${b.label}</option>`)}
-          <option value=${NEW_BINDING_OPTION}>${s.bindingNew}</option>
-        </select>
-      </div>
-    `;
+    return this._bindingSelect(
+      current,
+      () => this._assignNewBarcodeBinding(),
+      (value) => {
+        this._updateElement((element) => {
+          if (element.type !== 'barcode') return;
+          const r = element as Record<string, unknown>;
+          delete r.content;
+          delete r.formula;
+          r.binding = value;
+        });
+        this._ensureBindingDef(value);
+      },
+    );
   }
 
   /** 새 값을 만들어 지금 고른 바코드 요소에 값(바인딩)으로 붙인다 (G-33) */
   private _assignNewBarcodeBinding(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'barcode') {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     const { key, label } = this._nextBinding();
@@ -6432,45 +6592,69 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _renderTypeProps(el: SlipElement) {
-    const s = this._strings.designer;
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-
     switch (el.type) {
       case 'text':
-        return html`
-          <div class="prop-section">
-            <div class="prop-section-title">${s.content}</div>
-            <div class="prop-row">
-              <textarea rows="3" .value=${el.content}
-                @change=${(e: Event) => this._updateElement((el) => {
-                  if (el.type === 'text') el.content = (e.target as HTMLTextAreaElement).value;
-                })}></textarea>
-            </div>
-          </div>
-        `;
-
+        return this._renderTextProps(el);
       case 'field':
-        return html`
-          <div class="prop-section">
-            ${this._renderBindingSelect(el.binding)}
-            <div class="prop-row">
-              <label>${s.formula}</label>
-              <input .value=${el.formula ?? ''}
-                @change=${(e: Event) => this._updateElement((el) => {
-                  if (el.type !== 'field') return;
-                  const v = valOf(e);
-                  const r = el as Record<string, unknown>;
-                  if (v) r.formula = v;
-                  else delete r.formula;
-                })}>
-              <button class="row-btn" title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
-                @click=${() => this._openFormulaModal()}>${icons.formula}</button>
-            </div>
-          </div>
-        `;
+        return this._renderFieldProps(el);
+      case 'barcode':
+        return this._renderBarcodeProps(el);
+      case 'line':
+        return this._renderLineProps(el);
+      case 'polygon':
+        return this._renderPolygonProps(el);
+      case 'grid':
+        return this._renderGridProps(el);
+      case 'image':
+        return this._renderImageProps(el);
+      default:
+        return nothing;
+    }
+  }
 
-      case 'barcode': {
-        // 값은 고정 문구·값(바인딩)·수식 중 하나 — 어느 것이 정해졌는지로 종류를 가른다 (SPEC §5.6)
+  /** 텍스트 요소의 고정 문구 편집 */
+  private _renderTextProps(el: TextElement) {
+    const s = this._strings.designer;
+    return html`
+      <div class="prop-section">
+        <div class="prop-section-title">${s.content}</div>
+        <div class="prop-row">
+          <textarea rows="3" .value=${el.content}
+            @change=${(e: Event) => this._updateElement((el) => {
+              if (el.type === 'text') el.content = (e.target as HTMLTextAreaElement).value;
+            })}></textarea>
+        </div>
+      </div>
+    `;
+  }
+
+  /** 필드 요소의 바인딩·수식 편집 */
+  private _renderFieldProps(el: FieldElement) {
+    const s = this._strings.designer;
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    return html`
+      <div class="prop-section">
+        ${this._renderBindingSelect(el.binding)}
+        <div class="prop-row">
+          <label>${s.formula}</label>
+          <input .value=${el.formula ?? ''}
+            @change=${(e: Event) => this._updateElement((el) => {
+              if (el.type !== 'field') return;
+              const v = valOf(e);
+              setOptional(el, 'formula', v || null);
+            })}>
+          <button class="row-btn" title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
+            @click=${() => this._openFormulaModal()}>${icons.formula}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /** 바코드 요소의 종류·값(고정·바인딩·수식) 편집 */
+  private _renderBarcodeProps(el: BarcodeElement) {
+    const s = this._strings.designer;
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    // 값은 고정 문구·값(바인딩)·수식 중 하나 — 어느 것이 정해졌는지로 종류를 가른다 (SPEC §5.6)
         const source: 'content' | 'binding' | 'formula' =
           el.binding !== undefined ? 'binding' : el.formula !== undefined ? 'formula' : 'content';
         // 편집 중 경고 — 고정 값이 종류 규칙에 어긋날 때만 (바인딩·수식 값은 전표에서 정해진다, G-33)
@@ -6515,10 +6699,13 @@ export class SlipDesigner extends LitElement {
                   </div>`}
           </div>
         `;
-      }
+  }
 
-      case 'line':
-        return html`
+  /** 선 요소의 방향 편집 */
+  private _renderLineProps(el: LineElement) {
+    const s = this._strings.designer;
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    return html`
           <div class="prop-section">
             <div class="prop-row">
               <label>${s.lineDirection}</label>
@@ -6541,9 +6728,12 @@ export class SlipDesigner extends LitElement {
             </div>
           </div>
         `;
+  }
 
-      case 'polygon':
-        return html`
+  /** 정다각형 요소의 변 수 편집 */
+  private _renderPolygonProps(el: PolygonElement) {
+    const s = this._strings.designer;
+    return html`
           <div class="prop-section">
             <div class="prop-row">
               <label>${s.sides}</label>
@@ -6552,7 +6742,7 @@ export class SlipDesigner extends LitElement {
                   const v = Number((e.target as HTMLInputElement).value);
                   // 스키마 범위(3~12) 밖 값은 되돌린다
                   if (!Number.isInteger(v) || v < 3 || v > 12) {
-                    this.requestUpdate();
+                    this._rejectInput();
                     return;
                   }
                   this._updateElement((el) => {
@@ -6562,9 +6752,13 @@ export class SlipDesigner extends LitElement {
             </div>
           </div>
         `;
+  }
 
-      case 'grid': {
-        const cellTarget = this._selectedCell;
+  /** 그리드 요소의 행·열·반복 구간·칸 편집 */
+  private _renderGridProps(el: GridElement) {
+    const s = this._strings.designer;
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    const cellTarget = this._selectedCell;
         const cellDef = cellTarget
           ? el.cells.find((c) => c.row === cellTarget.row && c.column === cellTarget.column)
           : undefined;
@@ -6670,9 +6864,22 @@ export class SlipDesigner extends LitElement {
                 </div>`
               : nothing}
           </div>
+          ${this._renderGridCellProps(el, cellTarget, cellDef, source, inBand)}
+        `;
+  }
 
-          ${cellTarget
-            ? html`
+  /** 그리드 칸(선택된 셀)의 값·병합·글자·색·테두리 편집. 선택된 칸이 없으면 안내를 보인다 */
+  private _renderGridCellProps(
+    el: GridElement,
+    cellTarget: { row: number; column: number } | null,
+    cellDef: GridCell | undefined,
+    source: 'content' | 'binding' | 'formula',
+    inBand: boolean,
+  ) {
+    const s = this._strings.designer;
+    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
+    return cellTarget
+      ? html`
               <div class="prop-section">
                 <div class="prop-section-title">
                   ${s.cell} (${cellTarget.row + 1}, ${cellTarget.column + 1})
@@ -6773,7 +6980,7 @@ export class SlipDesigner extends LitElement {
                 )}
                 ${this._renderBorderWidthSelect(
                   cellDef?.borderWidth,
-                  el.borderWidth ?? 0.2,
+                  el.borderWidth ?? DEFAULT_LINE_WIDTH,
                   true,
                   'cellBorderWidth',
                   (v) => this._updateCellStyle('borderWidth', v),
@@ -6785,14 +6992,15 @@ export class SlipDesigner extends LitElement {
                   (v) => this._updateCellStyle('borderStyle', v),
                 )}
               </div>`
-            : html`<div class="prop-section"><div class="cell-hint">${s.cellHint}</div></div>`}
-        `;
-      }
+      : html`<div class="prop-section"><div class="cell-hint">${s.cellHint}</div></div>`;
+  }
 
-      case 'image': {
-        // 이미지 요소는 고정(src)과 변동(binding) 중 하나다 — 전표마다 다른 이미지를
-        // 넣으려면 변동으로 두고 값 키를 고른다 (G-47, 스키마는 둘을 배타로 검사한다)
-        const variable = el.binding !== undefined;
+  /** 이미지 요소의 고정·변동(src·binding) 편집 */
+  private _renderImageProps(el: ImageElement) {
+    const s = this._strings.designer;
+    // 이미지 요소는 고정(src)과 변동(binding) 중 하나다 — 전표마다 다른 이미지를
+    // 넣으려면 변동으로 두고 값 키를 고른다 (G-47, 스키마는 둘을 배타로 검사한다)
+    const variable = el.binding !== undefined;
         // 경로 문자열은 base64라 사람이 읽을 수 없다 — 지금 이미지를 그대로 보여준다 (G-36)
         const chosen = el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
         return html`
@@ -6817,11 +7025,6 @@ export class SlipDesigner extends LitElement {
                 </button>`}
           </div>
         `;
-      }
-
-      default:
-        return nothing;
-    }
   }
 
   private _renderFontProps(el: SlipElement) {
@@ -6836,11 +7039,7 @@ export class SlipDesigner extends LitElement {
           .value=${String(el.fontSize ?? '')} placeholder=${String(DEFAULT_FONT_SIZE)}
           @change=${(e: Event) => {
             const v = numOf(e);
-            this._updateElement((el) => {
-              const r = el as Record<string, unknown>;
-              if (v > 0) r.fontSize = v;
-              else delete r.fontSize;
-            });
+            this._updateElement((el) => setOptional(el, 'fontSize', v > 0 ? v : null));
           }}>
       </div>
       <div class="prop-row">
@@ -6853,11 +7052,8 @@ export class SlipDesigner extends LitElement {
           ] as const).map(([value, label, glyph]) => html`
             <button title=${label} aria-label="${s.alignment}: ${label}"
               aria-pressed=${String((el.alignment ?? 'left') === value)}
-              @click=${() => this._updateElement((target) => {
-                const r = target as Record<string, unknown>;
-                if (value !== 'left') r.alignment = value;
-                else delete r.alignment;
-              })}>${glyph}</button>`)}
+              @click=${() => this._updateElement((target) =>
+                setOptional(target, 'alignment', value !== 'left' ? value : null))}>${glyph}</button>`)}
         </div>
       </div>
       <div class="prop-row">
@@ -6870,11 +7066,8 @@ export class SlipDesigner extends LitElement {
           ] as const).map(([value, label, glyph]) => html`
             <button title=${label} aria-label="${s.verticalAlignment}: ${label}"
               aria-pressed=${String((el.verticalAlignment ?? 'top') === value)}
-              @click=${() => this._updateElement((target) => {
-                const r = target as Record<string, unknown>;
-                if (value !== 'top') r.verticalAlignment = value;
-                else delete r.verticalAlignment;
-              })}>${glyph}</button>`)}
+              @click=${() => this._updateElement((target) =>
+                setOptional(target, 'verticalAlignment', value !== 'top' ? value : null))}>${glyph}</button>`)}
         </div>
       </div>
       <div class="prop-pair">
@@ -6884,11 +7077,7 @@ export class SlipDesigner extends LitElement {
             .value=${String(el.lineHeight ?? '')} placeholder="1"
             @change=${(e: Event) => {
               const v = numOf(e);
-              this._updateElement((target) => {
-                const r = target as Record<string, unknown>;
-                if (v > 0) r.lineHeight = v;
-                else delete r.lineHeight;
-              });
+              this._updateElement((target) => setOptional(target, 'lineHeight', v > 0 ? v : null));
             }}>
         </div>
         <div class="prop-row">
@@ -6898,22 +7087,16 @@ export class SlipDesigner extends LitElement {
             @change=${(e: Event) => {
               const raw = (e.target as HTMLInputElement).value.trim();
               const v = numOf(e);
-              this._updateElement((target) => {
-                const r = target as Record<string, unknown>;
-                if (raw !== '' && v !== 0) r.characterSpacing = v;
-                else delete r.characterSpacing;
-              });
+              this._updateElement((target) =>
+                setOptional(target, 'characterSpacing', raw !== '' && v !== 0 ? v : null));
             }}>
         </div>
       </div>
       <div class="prop-row">
         <label>${s.verticalWriting}</label>
         <input type="checkbox" aria-label=${s.verticalWriting} .checked=${el.vertical === true}
-          @change=${(e: Event) => this._updateElement((target) => {
-            const r = target as Record<string, unknown>;
-            if ((e.target as HTMLInputElement).checked) r.vertical = true;
-            else delete r.vertical;
-          })}>
+          @change=${(e: Event) => this._updateElement((target) =>
+            setOptional(target, 'vertical', (e.target as HTMLInputElement).checked ? true : null))}>
       </div>
     `;
   }
@@ -6978,11 +7161,7 @@ export class SlipDesigner extends LitElement {
       this._pickerS = s;
       this._pickerV = v;
     }
-    this._updateElement((el) => {
-      const r = el as Record<string, unknown>;
-      if (value) r[key] = value;
-      else delete r[key];
-    });
+    this._updateElement((el) => setOptional(el, key, value || null));
   }
 
   /** 색상판에서 포인터 위치를 채도·명도로 바꿔 커서를 옮긴다 (적용은 떼는 순간) */
@@ -6994,6 +7173,14 @@ export class SlipDesigner extends LitElement {
     this._pickerS = Math.max(0, Math.min((e.clientX - rect.left) / w, 1));
     this._pickerV = 1 - Math.max(0, Math.min((e.clientY - rect.top) / h, 1));
     this.requestUpdate();
+  }
+
+  /** HSV 피커 커서를 hex 색으로 맞춘다 — 채도 0(무채색)이면 색조는 그대로 둔다 */
+  private _seedPicker(hex: string): void {
+    const hsv = hexToHsv(hex);
+    if (hsv.s > 0) this._pickerH = hsv.h;
+    this._pickerS = hsv.s;
+    this._pickerV = hsv.v;
   }
 
   /**
@@ -7020,12 +7207,7 @@ export class SlipDesigner extends LitElement {
     // 색을 어디에 저장할지 — 기본은 선택 요소의 스타일 필드, 셀 편집 등은 콜백으로 대체
     const commit = (value: string | null): void => {
       if (apply) {
-        if (value) {
-          const hsv = hexToHsv(value);
-          if (hsv.s > 0) this._pickerH = hsv.h;
-          this._pickerS = hsv.s;
-          this._pickerV = hsv.v;
-        }
+        if (value) this._seedPicker(value);
         apply(value);
       } else {
         this._applyColor(key, value);
@@ -7059,10 +7241,7 @@ export class SlipDesigner extends LitElement {
               this._openPopKey = key;
               // 피커 커서를 현재 색으로 (미지정이면 선명한 빨강에서 시작)
               if (current) {
-                const hsv = hexToHsv(current);
-                if (hsv.s > 0) this._pickerH = hsv.h;
-                this._pickerS = hsv.s;
-                this._pickerV = hsv.v;
+                this._seedPicker(current);
               } else {
                 this._pickerH = 0;
                 this._pickerS = 1;
@@ -7134,7 +7313,7 @@ export class SlipDesigner extends LitElement {
                 // 파일 스키마와 같은 형식만 저장 — 어긋난 값은 저장 시점에야 거부되어 원인 찾기 어려움
                 const v = (e.target as HTMLInputElement).value;
                 if (v && !/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) {
-                  this.requestUpdate();
+                  this._rejectInput();
                   return;
                 }
                 commit(v || null);
@@ -7313,8 +7492,8 @@ export class SlipDesigner extends LitElement {
     const isLine = el.type === 'line';
     // 테두리 형태(파선·점선)는 직선 분해 렌더가 가능한 종류만 (ADR-032)
     const hasBorderShape = el.type === 'line' || el.type === 'rect' || el.type === 'grid';
-    // 텍스트·필드는 기본 테두리 없음, 나머지는 기본 0.2mm (PDF 변환 계층과 동일)
-    const defaultWidth = el.type === 'text' || el.type === 'field' ? 0 : 0.2;
+    // 텍스트·필드는 기본 테두리 없음, 나머지는 기본 굵기 (PDF 변환 계층과 동일)
+    const defaultWidth = el.type === 'text' || el.type === 'field' ? 0 : DEFAULT_LINE_WIDTH;
 
     return html`
       ${hasFontColor ? html`
@@ -7327,11 +7506,8 @@ export class SlipDesigner extends LitElement {
           ${hasTextDecor
             ? this._renderTextStyleToggles(
                 el as { bold?: boolean; underline?: boolean; strikethrough?: boolean },
-                (key, value) => this._updateElement((target) => {
-                  const t = target as Record<string, unknown>;
-                  if (value) t[key] = true;
-                  else delete t[key];
-                }),
+                (key, value) => this._updateElement((target) =>
+                  setOptional(target, key, value ? true : null)),
               )
             : nothing}
         </div>` : nothing}
@@ -7351,12 +7527,9 @@ export class SlipDesigner extends LitElement {
           defaultWidth,
           true,
           'borderWidth',
-          (v) => this._updateElement((target) => {
-            const t = target as Record<string, unknown>;
-            // 텍스트·필드의 없음(0)은 기본값과 같아 파일에 남기지 않는다
-            if (v === 0 && defaultWidth === 0) delete t.borderWidth;
-            else t.borderWidth = v;
-          }),
+          // 텍스트·필드의 없음(0)은 기본값과 같아 파일에 남기지 않는다
+          (v) => this._updateElement((target) =>
+            setOptional(target, 'borderWidth', v === 0 && defaultWidth === 0 ? null : v)),
         )}
         ${hasBorderShape
           ? this._renderBorderShapeRow(
@@ -7384,14 +7557,12 @@ export class SlipDesigner extends LitElement {
               @change=${(e: Event) => {
                 const v = Number((e.target as HTMLInputElement).value);
                 if (Number.isNaN(v) || v < 0) {
-                  this.requestUpdate();
+                  this._rejectInput();
                   return;
                 }
                 this._updateElement((target) => {
                   if (target.type !== 'rect') return;
-                  const t = target as Record<string, unknown>;
-                  if (v > 0) t.radius = v;
-                  else delete t.radius;
+                  setOptional(target, 'radius', v > 0 ? v : null);
                 });
               }}>
           </div>` : nothing}
@@ -7404,35 +7575,14 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   /** 양식 전체의 바인딩 목록 (정의부 + 요소 사용처, 중복 없이) — 수식 모달의 클릭 삽입용 */
+  /**
+   * 바인딩 키·논리명 목록 — {@link _bindingList}에서 뽑아 쓴다(순회 규칙을 두 곳에
+   * 복제하지 않도록). 수식 모달 등 키·라벨만 필요한 곳에서 쓴다.
+   *
+   * @returns 바인딩 키와 논리명 목록
+   */
   private _collectBindings(): { key: string; label: string }[] {
-    const file = this._file;
-    if (!file) return [];
-    const list: { key: string; label: string }[] = [];
-    const seen = new Set<string>();
-    const labelOf = new Map<string, string>(
-      (file.template.bindings ?? [])
-        .filter((b) => b.label !== undefined)
-        .map((b) => [b.key, b.label!]),
-    );
-    const push = (key: string): void => {
-      if (seen.has(key)) return;
-      seen.add(key);
-      list.push({ key, label: labelOf.get(key) ?? key });
-    };
-    for (const def of file.template.bindings ?? []) push(def.key);
-    for (const page of file.template.pages) {
-      for (const el of page.elements) {
-        if (el.type === 'field') push(el.binding);
-        if (el.type === 'image' && el.binding !== undefined) push(el.binding);
-        if (el.type === 'grid') {
-          if (el.repeat) push(el.repeat.binding);
-          for (const cell of el.cells) {
-            if (cell.binding !== undefined && !inRepeatBand(el, cell.row)) push(cell.binding);
-          }
-        }
-      }
-    }
-    return list;
+    return this._bindingList().map((b) => ({ key: b.key, label: b.label }));
   }
 
   /** 바이트 수를 사람이 읽는 크기로 (오류 문구용) */
@@ -7561,9 +7711,7 @@ export class SlipDesigner extends LitElement {
     this._formulaModalOpen = false;
     this._updateElement((el) => {
       if (el.type !== 'field') return;
-      const r = el as Record<string, unknown>;
-      if (draft) r.formula = draft;
-      else delete r.formula;
+      setOptional(el, 'formula', draft || null);
     });
   }
 
@@ -7640,7 +7788,7 @@ export class SlipDesigner extends LitElement {
 
   /**
    * 수식 편집 모달 — 초안 편집, 실시간 문법 검사(자체 파서, ADR-010), 샘플 값
-   * (`sampleValues`) 기준 결과 미리 계산, 바인딩·함수 29종 클릭 삽입 (ADR-017).
+   * (`sampleValues`) 기준 결과 미리 계산, 바인딩·함수 32종 클릭 삽입 (ADR-017·044).
    */
   private _renderFormulaModal() {
     if (!this._formulaModalOpen) return nothing;
@@ -8093,7 +8241,7 @@ export class SlipDesigner extends LitElement {
     const title = this._saveTitle.trim();
     // 제목은 스키마상 1자 이상 — 빈 제목이면 저장하지 않는다
     if (!title) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     if (title !== this._file.template.meta.title) {
@@ -8115,35 +8263,46 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 목록 모달 열기 — 첫 페이지를 읽어 온다 */
+  /** 목록 모달 열기 — 전체 목록(메타)을 한 번 받아 쥔다 */
   private async _openMyForms(): Promise<void> {
     this._myFormsOpen = true;
     this._myFormsQuery = '';
+    this._myFormsPage = 0;
     this.requestUpdate();
     await this._loadMyForms();
   }
 
   /**
-   * 저장된 양식 목록을 읽는다. cursor를 주면 다음 페이지를 이어 붙이고,
-   * 없으면 처음부터 다시 읽는다 (검색어 변경 등).
+   * 저장된 양식 목록(메타)을 전부 받아 스냅샷으로 쥔다 (ADR-045). 검색·페이지 이동은
+   * 이 스냅샷 위에서 메모리로 하므로, 페이지 사이에 저장·삭제가 일어나도 목록이 흔들리지
+   * 않는다. 메타만 읽어 본문(이미지)은 메모리에 올라오지 않는다.
    */
-  private async _loadMyForms(cursor?: string): Promise<void> {
+  private async _loadMyForms(): Promise<void> {
     const adapter = this.storage;
     if (!adapter) return;
     this._myFormsError = null;
-    const filter = this._myFormsQuery.trim()
-      ? { kind: 'template' as const, query: this._myFormsQuery.trim() }
-      : { kind: 'template' as const };
     try {
-      const page = await adapter.list(filter, cursor);
-      this._myFormItems = cursor ? [...this._myFormItems, ...page.items] : page.items;
-      this._myFormsCursor = page.nextCursor;
+      const items: SlipListItem[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await adapter.list({ kind: 'template' }, cursor);
+        items.push(...page.items);
+        cursor = page.nextCursor;
+      } while (cursor);
+      this._myFormItems = items;
     } catch (error) {
       this._myFormItems = [];
-      this._myFormsCursor = undefined;
       this._myFormsError = error instanceof Error ? error.message : String(error);
     }
+    this._myFormsPage = 0;
     this.requestUpdate();
+  }
+
+  /** 검색어에 맞는 항목(스냅샷을 메모리로 거른 것) */
+  private _filteredMyForms(): SlipListItem[] {
+    const query = this._myFormsQuery.trim().toLowerCase();
+    if (!query) return this._myFormItems;
+    return this._myFormItems.filter((item) => item.title.toLowerCase().includes(query));
   }
 
   /** 목록에서 고른 양식을 캔버스로 불러온다 (되돌리기 지원) */
@@ -8191,6 +8350,9 @@ export class SlipDesigner extends LitElement {
     }
     if (this._savedId === id) this._savedId = null;
     this._myFormItems = this._myFormItems.filter((item) => item.id !== id);
+    // 마지막 페이지의 유일한 항목을 지웠으면 앞 페이지로 당긴다
+    const lastPage = Math.max(0, Math.ceil(this._filteredMyForms().length / MY_FORMS_PAGE_SIZE) - 1);
+    if (this._myFormsPage > lastPage) this._myFormsPage = lastPage;
     this.requestUpdate();
   }
 
@@ -8276,40 +8438,62 @@ export class SlipDesigner extends LitElement {
           <div class="prop-row">
             <label>${s.search}</label>
             <input class="forms-search" .value=${this._myFormsQuery} aria-label=${s.search}
-              @change=${(e: Event) => {
+              @input=${(e: Event) => {
                 this._myFormsQuery = (e.target as HTMLInputElement).value;
-                void this._loadMyForms();
+                this._myFormsPage = 0;
+                this.requestUpdate();
               }}>
           </div>
           ${this._myFormsError
             ? html`<div class="formula-status error">${this._myFormsError}</div>`
             : nothing}
-          ${this._myFormItems.length === 0 && !this._myFormsError
-            ? html`<div class="side-empty">${s.noSavedForms}</div>`
-            : nothing}
-          ${this._myFormItems.map((item) => html`
-            <div class="form-row">
-              <button class="form-open" aria-label="${item.title} ${s.edit}"
-                @click=${() => void this._loadMyForm(item.id)}>
-                <span class="form-title">${item.title}</span>
-                ${item.updatedAt
-                  ? html`<span class="form-date">${item.updatedAt.slice(0, 10)}</span>`
-                  : nothing}
-              </button>
-              <button class="col-remove" title=${s.delete} aria-label="${item.title} ${s.delete}"
-                @click=${() => void this._deleteMyForm(item.id)}>${icons.remove}</button>
-            </div>`)}
-          ${this._myFormsCursor
-            ? html`<button class="col-add" aria-label=${s.loadMore}
-                @click=${() => void this._loadMyForms(this._myFormsCursor)}>
-                ${icons.down}<span>${s.loadMore}</span>
-              </button>`
-            : nothing}
+          ${this._renderMyFormsPage()}
         </div>
         <div class="modal-foot">
           <button class="btn primary" @click=${close}>${s.close}</button>
         </div>
       </div>
+    `;
+  }
+
+  /** 목록 모달 본문 — 검색으로 거른 스냅샷을 번호 페이지로 나눠 그린다 (ADR-045) */
+  private _renderMyFormsPage() {
+    const s = this._strings.designer;
+    const filtered = this._filteredMyForms();
+    if (filtered.length === 0) {
+      return this._myFormsError ? nothing : html`<div class="side-empty">${s.noSavedForms}</div>`;
+    }
+    const pageCount = Math.ceil(filtered.length / MY_FORMS_PAGE_SIZE);
+    const page = Math.min(this._myFormsPage, pageCount - 1);
+    const items = filtered.slice(page * MY_FORMS_PAGE_SIZE, (page + 1) * MY_FORMS_PAGE_SIZE);
+    return html`
+      ${items.map((item) => html`
+        <div class="form-row">
+          <button class="form-open" aria-label="${item.title} ${s.edit}"
+            @click=${() => void this._loadMyForm(item.id)}>
+            <span class="form-title">${item.title}</span>
+            ${item.updatedAt
+              ? html`<span class="form-date">${item.updatedAt.slice(0, 10)}</span>`
+              : nothing}
+          </button>
+          <button class="col-remove" title=${s.delete} aria-label="${item.title} ${s.delete}"
+            @click=${() => void this._deleteMyForm(item.id)}>${icons.remove}</button>
+        </div>`)}
+      ${pageCount > 1
+        ? html`
+          <div class="sample-pager">
+            <button class="side-mini" title=${s.prevPage} aria-label="${s.myFormsList} ${s.prevPage}"
+              ?disabled=${page === 0}
+              @click=${() => { this._myFormsPage = page - 1; this.requestUpdate(); }}>${icons.pagePrev}</button>
+            ${Array.from({ length: pageCount }, (_, i) => html`
+              <button class="page-btn" aria-label="${s.myFormsList} ${s.sidebarPages} ${i + 1}"
+                aria-pressed=${String(i === page)}
+                @click=${() => { this._myFormsPage = i; this.requestUpdate(); }}>${i + 1}</button>`)}
+            <button class="side-mini" title=${s.nextPage} aria-label="${s.myFormsList} ${s.nextPage}"
+              ?disabled=${page >= pageCount - 1}
+              @click=${() => { this._myFormsPage = page + 1; this.requestUpdate(); }}>${icons.pageNext}</button>
+          </div>`
+        : nothing}
     `;
   }
 }

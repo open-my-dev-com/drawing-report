@@ -19,6 +19,8 @@ export const FORMULA_FUNCTIONS = [
   'TODAY', 'DATE_ADD', 'DATE_DIFF',
   // 세무
   'VAT',
+  // 타입 변환 (ADR-044) — 숫자 자리에 글자를 넣으려면 명시적으로 감싼다
+  'TO_NUMBER', 'TO_STRING', 'TO_DATE',
 ] as const;
 
 /** 등록된 수식 함수명 — 이 목록 밖의 함수는 파싱 단계에서 거부된다 */

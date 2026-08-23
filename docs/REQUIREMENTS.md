@@ -52,6 +52,7 @@
 | 버전 이력 | 별도의 **선택 인터페이스** — 구현한 어댑터에서만 이력 UI 노출 |
 | 기본 동봉 | ① 로컬 파일 다운로드/업로드 ② IndexedDB |
 | 구현 위치 | 인터페이스·타입·오류는 core, 브라우저 구현 2종은 elements (ADR-025). 로컬 파일 어댑터는 delete/list 미지원(`unsupported` 오류) |
+| IndexedDB 구현 (ADR-045) | 본문을 Blob으로 저장(메타는 형제 필드) — `list()`는 메타만 읽어 본문을 메모리에 안 올린다. 목록 모달은 메타를 한 번 받아 스냅샷으로 쥐고 검색·번호 페이지를 화면에서 처리(중복·누락 없음). 열 때 손상 파일은 오류 표시. DB v1→v2 마이그레이션 |
 | 폰트 공급 | 렌더 폰트는 호스트가 공급 인터페이스(`SlipFontProvider.getFonts`)로 준다 — 디자이너 업로드·저장소 어댑터 보관은 하지 않는다. 공급이 없으면 `locale`에 맞는 동봉 기본 폰트를 쓴다(한국어·영어 Pretendard, 일본어 Noto Sans JP) (ADR-040/042, 옛 ADR-012/021 계획 대체) |
 
 ### 교환 포맷 스펙 공개 (ADR-022)
@@ -76,6 +77,7 @@
 |---|---|---|
 | 위변조 방지 서명 | 전표 내용의 해시/서명을 파일에 내장하여 "발행 후 수정되지 않았음"을 검증 가능하게 한다. **기본 제공** | ADR-009 |
 | 서명 상세 | **SHA-256 내용 해시 필수 내장**(키 없이 훼손 탐지) + 호스트 키 제공 시 **JWS(ES256) 공개키 서명**으로 발행자 증명(옵션). 대상은 양식 스냅샷 포함 전체. JSON 정규화 규칙을 스펙에 명시 | ADR-019 |
+| 뷰어 검증 | `<slip-viewer>`는 **발행 전표를 로드할 때 무결성을 검증**한다(해시 재계산, `verificationKey` 있으면 서명까지). 실패하면 PDF를 그리지 않고 오류 표시(fail-closed) | ADR-043 |
 | 암호화 | ~~파일 내용 암호화를 옵션으로 제공~~ → **v2에서 넣지 않음** (ADR-041). 위변조 방지 서명은 그대로 | ADR-009, ADR-041 |
 | 수식 안전성 | 수식은 자체 파서로 해석. 임의 코드 실행(`eval`, `Function` 등) 절대 금지 | ADR-010 |
 
@@ -85,7 +87,8 @@
 |---|---|---|
 | 방식 | **내장 수식 엔진**. 양식 필드에 엑셀 스타일 수식 문자열을 기입 | ADR-010 |
 | 함수 범위 | 모든 함수를 넣지 않고 **자주 쓰이는 함수를 엄선**한 세트로 시작 | ADR-010 |
-| v1 함수 목록(확정) | 집계 `SUM AVG COUNT MIN MAX` · 조건부 집계 `SUMIF COUNTIF` · 산술 `+ - * / ROUND FLOOR CEIL ABS` · 문자열 `CONCAT LEFT RIGHT MID REPLACE TRIM UPPER LOWER` · 조건 `IF AND OR` + 비교연산자 · 포맷 `FORMAT_NUMBER FORMAT_DATE NUMBER_TO_KOREAN` · 날짜 `TODAY DATE_ADD DATE_DIFF` · 세무 `VAT` | ADR-017 |
+| 함수 목록(확정, 32종) | 집계 `SUM AVG COUNT MIN MAX` · 조건부 집계 `SUMIF COUNTIF` · 산술 `+ - * / ROUND FLOOR CEIL ABS` · 문자열 `CONCAT LEFT RIGHT MID REPLACE TRIM UPPER LOWER` · 조건 `IF AND OR` + 비교연산자 · 포맷 `FORMAT_NUMBER FORMAT_DATE NUMBER_TO_KOREAN` · 날짜 `TODAY DATE_ADD DATE_DIFF` · 세무 `VAT` · 타입 변환 `TO_NUMBER TO_STRING TO_DATE` | ADR-017·044 |
+| 수식 타입 규칙 | 숫자를 요구하는 자리는 숫자만 받는다(글자 자동 변환 없음, 빈 값=0). 글자 자리는 숫자·논리를 자동 글자화. 글자→숫자는 `TO_NUMBER`로 명시. `number` 바인딩의 빈 값은 받는 시점에 0으로 정규화 | ADR-044 |
 
 ## 8. 레이아웃 · 페이지 · 출력
 

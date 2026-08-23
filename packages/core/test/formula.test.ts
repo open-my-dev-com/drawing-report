@@ -119,8 +119,12 @@ describe('산술 함수·연산', () => {
     expect(() => evaluateFormula('1 / 0', ctx())).toThrow(/0으로 나눌 수 없습니다/);
   });
 
-  it('숫자 문자열은 산술에서 수로 강제 변환', () => {
-    expect(evaluateFormula('금액 * 2', ctx({ 금액: '1500' }))).toBe(3000);
+  it('숫자 자리에 글자를 넣으면 오류 — 자동 변환하지 않는다 (ADR-044)', () => {
+    expect(() => evaluateFormula('금액 * 2', ctx({ 금액: '1500' }))).toThrow(/숫자여야 합니다/);
+  });
+
+  it('TO_NUMBER로 감싸면 글자를 수로 변환한다 (ADR-044)', () => {
+    expect(evaluateFormula('TO_NUMBER(금액) * 2', ctx({ 금액: '1500' }))).toBe(3000);
   });
 });
 
@@ -272,5 +276,68 @@ describe('FORMAT_NUMBER 로케일 (ADR-013)', () => {
     expect(evaluateFormula('FORMAT_NUMBER(1234.5, 2)', { values: {}, locale: 'de-DE' })).toBe(
       '1.234,50',
     );
+  });
+});
+
+describe('경계·잘못된 입력 방어 (G-48)', () => {
+  it('TO_NUMBER는 유한한 10진수만 받는다 (Infinity·16진수 거부, ADR-044)', () => {
+    expect(() => evaluateFormula('TO_NUMBER(a)', ctx({ a: '1e400' }))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('TO_NUMBER(a)', ctx({ a: 'Infinity' }))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('TO_NUMBER(a)', ctx({ a: '0x1F' }))).toThrow(FormulaEvalError);
+    // 정상 10진 문자열은 그대로 받는다
+    expect(evaluateFormula('TO_NUMBER(a) + 1', ctx({ a: '2.5' }))).toBe(3.5);
+  });
+
+  it('너무 큰 숫자 리터럴(Infinity)은 파싱 단계에서 거부한다', () => {
+    expect(() => evaluateFormula('1e400', ctx())).toThrow(FormulaSyntaxError);
+  });
+
+  it('FORMAT_DATE는 실제 존재하지 않는 날짜를 롤오버하지 않고 거부한다', () => {
+    expect(() => evaluateFormula('FORMAT_DATE("2026-13-45")', ctx())).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('FORMAT_DATE("2026-02-30")', ctx())).toThrow(FormulaEvalError);
+    expect(evaluateFormula('FORMAT_DATE("2026-02-28")', ctx())).toBe('2026-02-28');
+  });
+
+  it('DATE_ADD는 월·해 가감 시 대상 달의 마지막 날로 클램프한다', () => {
+    expect(evaluateFormula('DATE_ADD("2026-01-31", 1, "months")', ctx())).toBe('2026-02-28');
+    expect(evaluateFormula('DATE_ADD("2024-01-31", 1, "months")', ctx())).toBe('2024-02-29');
+    expect(evaluateFormula('DATE_ADD("2026-01-15", 1, "months")', ctx())).toBe('2026-02-15');
+  });
+
+  it('NUMBER_TO_KOREAN은 안전 정수 범위를 넘으면 거부한다', () => {
+    expect(() => evaluateFormula('NUMBER_TO_KOREAN(a)', ctx({ a: 1e20 }))).toThrow(FormulaEvalError);
+    expect(evaluateFormula('NUMBER_TO_KOREAN(110)', ctx())).toBe('일백일십');
+  });
+});
+
+describe('타입 변환 함수 (ADR-044)', () => {
+  it('TO_NUMBER: 글자·논리를 수로, 빈 값·빈 문자열은 0', () => {
+    expect(evaluateFormula('TO_NUMBER("1500")', ctx())).toBe(1500);
+    expect(evaluateFormula('TO_NUMBER("-3.5")', ctx())).toBe(-3.5);
+    expect(evaluateFormula('TO_NUMBER(a)', ctx({ a: '' }))).toBe(0);
+    expect(evaluateFormula('TO_NUMBER(a)', ctx({ a: null }))).toBe(0);
+    expect(evaluateFormula('TO_NUMBER(TRUE)', ctx())).toBe(1);
+    expect(evaluateFormula('TO_NUMBER(FALSE)', ctx())).toBe(0);
+  });
+
+  it('TO_NUMBER: 숫자로 볼 수 없는 글자는 오류', () => {
+    expect(() => evaluateFormula('TO_NUMBER("abc")', ctx())).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('TO_NUMBER(items)', ctx({ items: [1, 2] }))).toThrow(FormulaEvalError);
+  });
+
+  it('TO_STRING: 수·논리·빈 값을 글자로', () => {
+    expect(evaluateFormula('TO_STRING(1500)', ctx())).toBe('1500');
+    expect(evaluateFormula('TO_STRING(TRUE)', ctx())).toBe('TRUE');
+    expect(evaluateFormula('TO_STRING(a)', ctx({ a: null }))).toBe('');
+    // 비교가 엄격해도 TO_STRING/TO_NUMBER로 타입을 맞추면 같다고 본다
+    expect(evaluateFormula('TO_STRING(3) = "3"', ctx())).toBe(true);
+    expect(evaluateFormula('3 = a', ctx({ a: '3' }))).toBe(false);
+  });
+
+  it('TO_DATE: 날짜 문자열을 ISO(YYYY-MM-DD)로 정규화·검증', () => {
+    expect(evaluateFormula('TO_DATE("2026-01-05")', ctx())).toBe('2026-01-05');
+    // 시각이 붙은 ISO 문자열은 날짜만 남긴다
+    expect(evaluateFormula('TO_DATE("2026-01-05T09:30:00Z")', ctx())).toBe('2026-01-05');
+    expect(() => evaluateFormula('TO_DATE("2026-13-45")', ctx())).toThrow(FormulaEvalError);
   });
 });

@@ -71,3 +71,11 @@ pnpm demo:vue     # Vue    → http://localhost:5175
 > **ドキュメント運用ルール**: 新しい設計決定は必ずDECISIONS.mdに追加し、
 > 既存の決定と矛盾する変更は既存の決定を "Superseded" と表示したうえで新しい決定として記録する。
 > REQUIREMENTS.mdは常にDECISIONS.mdと一致していなければならない。
+
+## ライセンス
+
+Business Source License 1.1（**BUSL-1.1**）— ソース公開型で、OSI のオープンソースではありません。
+自分のアプリに組み込む本番利用は許可されますが、SlipKit と競合するホスト型・組み込み型の商用製品・
+サービスとして第三者に提供するには商用ライセンスが必要です。**Change Date 2031-01-01** に Apache
+License 2.0 へ移行します。全文は [LICENSE](LICENSE)、著作権者は JangHyeonho。同梱フォント
+Pretendard・Noto Sans JP はそれぞれ SIL Open Font License 1.1 です（コードのライセンスとは別）。

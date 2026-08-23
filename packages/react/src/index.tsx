@@ -16,21 +16,23 @@ export interface SlipViewerProps {
   /** .slip JSON 문자열 */
   src: string;
   /**
-   * UI 언어 ('ko' | 'en') — ADR-028.
+   * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
    *
    * @defaultValue 한국어
    */
   locale?: string;
   /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
   settings?: SlipFontProvider;
+  /** 발행 전표 무결성 검증 공개키 (JWK, SPEC §8) — 검증 실패 시 PDF를 그리지 않는다 */
+  verificationKey?: IntegrityJwk;
 }
 
 /**
  * React 19는 커스텀 엘리먼트를 완전 지원하므로(ADR-015 근거) 래퍼는 태그를 그대로 노출한다.
  * settings 같은 객체 값은 React 19가 엘리먼트의 JS 프로퍼티로 전달한다.
  */
-export function SlipViewer({ src, locale, settings }: SlipViewerProps) {
-  return createElement('slip-viewer', { src, locale, settings });
+export function SlipViewer({ src, locale, settings, verificationKey }: SlipViewerProps) {
+  return createElement('slip-viewer', { src, locale, settings, verificationKey });
 }
 
 /** SlipDesigner 컴포넌트 props */
@@ -38,7 +40,7 @@ export interface SlipDesignerProps {
   /** .slip JSON 문자열 (template 파일만) */
   src: string;
   /**
-   * UI 언어 ('ko' | 'en') — ADR-028.
+   * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
    *
    * @defaultValue 한국어
    */
@@ -89,7 +91,7 @@ export interface SlipFormProps {
   /** .slip JSON 문자열 (양식 또는 작성 중 전표) */
   src: string;
   /**
-   * UI 언어 ('ko' | 'en') — ADR-028.
+   * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
    *
    * @defaultValue 한국어
    */

@@ -195,6 +195,14 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(convertSlipFile(voucher).inputs[0]?.total).toBe('1234');
   });
 
+  it('빈 양식은 number 바인딩 필드를 0으로 채우지 않는다 (ADR-045 회귀 방지)', () => {
+    const file = makeTemplateFile();
+    file.template.bindings = [{ key: 'total', valueType: 'number' }];
+    patchElement(file.template, 'total', { formula: undefined });
+    // 양식(값 없음)이라 number 바인딩 필드는 0이 아니라 공백이어야 한다 — 정규화는 전표에만 적용
+    expect(convertSlipFile(file).inputs[0]?.total).toBe('');
+  });
+
   it('field 값이 배열·객체면 한국어 오류로 거부한다', () => {
     const voucher = makeVoucher();
     patchElement(voucher.templateSnapshot, 'total', { formula: undefined });

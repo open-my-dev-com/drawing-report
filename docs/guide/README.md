@@ -17,7 +17,7 @@
 ### 관련 문서
 
 - **[Core API 가이드](core.md)** — 파싱·수식·PDF 렌더링·무결성·서버 연계 (Node.js 단독 사용 포함)
-- **[수식 함수 참조](formula.md)** — 내장 함수 29종의 사용법·인자·예시
+- **[수식 함수 참조](formula.md)** — 내장 함수 32종의 사용법·인자·예시
 - **[주요 타입 참조](types.md)** — `SlipFile`, 폰트, `SlipPreset`, `StorageAdapter`, `IntegrityJwk` 등 타입별 필드와 기본값
 - **[동봉 폰트·프리셋](fonts-and-presets.md)** — 동봉 폰트(Pretendard·Noto Sans JP) 상세, 폰트 공급, 동봉 프리셋(거래명세서·청구서)의 구성과 언어 처리
 

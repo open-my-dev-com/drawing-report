@@ -405,6 +405,71 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     el.remove();
   });
 
+  it('세로쓰기 텍스트는 캔버스에서 글자를 한 자씩 쌓는다 (PDF stackVertically와 동일, ADR-012)', async () => {
+    const el = await mountWith([{
+      type: 'text', id: 'v1', name: 'v', position: { x: 10, y: 10 },
+      width: 10, height: 40, content: '가나\n다', vertical: true,
+    }]);
+    const content = el.shadowRoot?.querySelector('.el-content') as HTMLElement;
+    // 원래 줄바꿈은 없애고 글자마다 줄바꿈을 넣어 한 열로 쌓는다 (writing-mode 근사가 아님)
+    expect(content.textContent).toBe('가\n나\n다');
+    expect(content.style.writingMode).toBe('');
+    el.remove();
+  });
+
+  it('자동 병합 열은 앞 벌과 값이 같으면 캔버스에서 세로로 합친다 (ADR-038·012)', async () => {
+    const file = makeTemplateFile();
+    file.template.sampleValues = { items: [{ g: 'A' }, { g: 'A' }, { g: 'B' }] } as never;
+    file.template.pages[0]!.elements = [{
+      type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
+      width: 40, height: 24,
+      rows: [{ height: 8 }],
+      columns: [{ width: 40, autoMerge: true }],
+      repeat: { binding: 'items', fromRow: 0, toRow: 0, perPage: 3, repeatHeader: false },
+      cells: [{ row: 0, column: 0, binding: 'g' }],
+    }] as never;
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const boxes = Array.from(el.shadowRoot!.querySelectorAll('.grid-preview > div')) as HTMLElement[];
+    const aCell = boxes.find((c) => c.textContent === 'A');
+    const bCell = boxes.find((c) => c.textContent === 'B');
+    // A·A는 하나로 합쳐 세로 2칸, B는 따로 1칸 — 값 칸은 둘뿐이다
+    expect(aCell?.style.gridArea.replaceAll(' ', '')).toContain('span2');
+    expect(bCell).toBeTruthy();
+    expect(boxes.filter((c) => c.textContent === 'A' || c.textContent === 'B').length).toBe(2);
+    el.remove();
+  });
+
+  it('자동 병합은 빈 값(null)에서는 합치지 않는다 — placeholder가 아니라 실제 값 기준 (ADR-038·012)', async () => {
+    const file = makeTemplateFile();
+    file.template.sampleValues = { items: [{ g: null }, { g: null }, { g: 'B' }] } as never;
+    file.template.pages[0]!.elements = [{
+      type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
+      width: 40, height: 24,
+      rows: [{ height: 8 }],
+      columns: [{ width: 40, autoMerge: true }],
+      repeat: { binding: 'items', fromRow: 0, toRow: 0, perPage: 3, repeatHeader: false },
+      cells: [{ row: 0, column: 0, binding: 'g' }],
+    }] as never;
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    // 빈 값 칸({g} placeholder)은 병합되지 않아 span 2가 없다 (PDF는 빈 값에서 끊는다)
+    const boxes = Array.from(el.shadowRoot!.querySelectorAll('.grid-preview > div')) as HTMLElement[];
+    const merged = boxes.filter((c) => c.style.gridArea.replaceAll(' ', '').includes('span2'));
+    expect(merged.length).toBe(0);
+    el.remove();
+  });
+
   it('그리드 헤더 칸의 배경색이 캔버스에 그려진다', async () => {
     const el = await mountWith([{
       type: 'grid', id: 'd1', name: 'd', position: { x: 10, y: 50 },
@@ -2217,6 +2282,31 @@ describe('<slip-designer> 복사·붙여넣기', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 미리보기 편집 잠금 (G-48)
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 미리보기 편집 잠금', () => {
+  it('미리보기 중에는 Delete·되돌리기 단축키가 문서를 바꾸지 않는다', async () => {
+    const el = await loadDesigner();
+    selectElement(el, 'txt-1');
+    await el.updateComplete;
+    const before = el.shadowRoot!.querySelectorAll('.element').length;
+
+    toolbarButton(el, strings.designer.preview).click();
+    await el.updateComplete;
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+    await el.updateComplete;
+
+    // 편집으로 되돌리면 요소 수가 그대로여야 한다 (미리보기 중 편집이 무시됨)
+    toolbarButton(el, strings.designer.edit).click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.element').length).toBe(before);
+    el.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 프리셋
 // ---------------------------------------------------------------------------
 
@@ -3109,13 +3199,13 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 
-  it('함수 29종이 분류와 설명과 함께 나열된다 (ADR-017)', async () => {
+  it('함수 32종이 분류와 설명과 함께 나열된다 (ADR-017·044)', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);
 
     const rows = el.shadowRoot!.querySelectorAll('.fn-row');
-    expect(rows.length).toBe(29);
-    expect(el.shadowRoot!.querySelectorAll('.fn-category').length).toBe(7);
+    expect(rows.length).toBe(32);
+    expect(el.shadowRoot!.querySelectorAll('.fn-category').length).toBe(8);
     // 각 항목에 사용법·설명이 있다
     expect(rows[0]?.querySelector('.fn-signature')?.textContent).toContain('SUM');
     expect(rows[0]?.querySelector('.fn-desc')?.textContent?.length).toBeGreaterThan(0);
@@ -3645,7 +3735,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     el.remove();
   });
 
-  it('목록에서 고르면 그 양식을 불러오고, 삭제·검색·더 보기가 어댑터로 이어진다', async () => {
+  it('목록에서 고르면 그 양식을 불러오고, 검색은 화면에서 거르며, 삭제·불러오기는 어댑터로 이어진다', async () => {
     const storage = makeStorage();
     const loaded = makeTemplateFile();
     loaded.template.meta.title = '불러온 양식';
@@ -3658,19 +3748,27 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     expect(storage.list).toHaveBeenCalledWith({ kind: 'template' }, undefined);
     expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(2);
 
-    // 검색어는 필터로 전달된다
+    // 검색은 스냅샷을 화면에서 거른다 — 어댑터를 다시 부르지 않는다 (ADR-045)
+    storage.list.mockClear();
     const search = el.shadowRoot!.querySelector('.forms-search') as HTMLInputElement;
     search.value = '청구';
-    search.dispatchEvent(new Event('change', { bubbles: true }));
-    await flush();
+    search.dispatchEvent(new Event('input', { bubbles: true }));
     await el.updateComplete;
-    expect(storage.list).toHaveBeenLastCalledWith({ kind: 'template', query: '청구' }, undefined);
+    expect(storage.list).not.toHaveBeenCalled();
+    expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(1);
+
+    // 검색어를 지우면 다시 둘 다 보인다
+    search.value = '';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(2);
 
     // 삭제
     byAria(el, `청구서 ${strings.designer.delete}`).click();
     await flush();
     await el.updateComplete;
     expect(storage.delete).toHaveBeenCalledWith('b');
+    expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(1);
 
     // 불러오기 — 캔버스 교체 + 모달 닫힘 + slip-change
     const changes: CustomEvent[] = [];
@@ -3686,24 +3784,35 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     el.remove();
   });
 
-  it('더 보기는 다음 페이지 커서로 이어서 읽는다', async () => {
+  it('목록을 커서로 전부 받아 번호 페이지로 나눠 보인다 (ADR-045)', async () => {
     const storage = makeStorage();
+    // 12개를 두 커서 페이지로 나눠 돌려준다 — 모달은 전부 모아 스냅샷으로 쥔다
+    const many = Array.from({ length: 12 }, (_, i) =>
+      ({ id: `f${i}`, kind: 'template' as const, title: `양식 ${i}` }));
     storage.list
-      .mockResolvedValueOnce({
-        items: [{ id: 'a', kind: 'template', title: '첫 장' }],
-        nextCursor: 'c1',
-      })
-      .mockResolvedValueOnce({ items: [{ id: 'b', kind: 'template', title: '둘째 장' }] });
+      .mockResolvedValueOnce({ items: many.slice(0, 10), nextCursor: 'c1' })
+      .mockResolvedValueOnce({ items: many.slice(10) });
     const el = await mountWithStorage(storage);
 
     toolbarButton(el, strings.designer.myFormsList).click();
     await flush();
     await el.updateComplete;
-    byAria(el, strings.designer.loadMore).click();
-    await flush();
-    await el.updateComplete;
 
-    expect(storage.list).toHaveBeenLastCalledWith({ kind: 'template' }, 'c1');
+    // 커서로 두 번 조회해 전부 모은다
+    expect(storage.list).toHaveBeenCalledTimes(2);
+    expect(storage.list).toHaveBeenNthCalledWith(1, { kind: 'template' }, undefined);
+    expect(storage.list).toHaveBeenNthCalledWith(2, { kind: 'template' }, 'c1');
+
+    // 한 페이지 10개 → 첫 페이지 10개 + 번호 버튼 2개
+    expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(10);
+    const pageBtns = Array.from(el.shadowRoot!.querySelectorAll('.page-btn')) as HTMLButtonElement[];
+    expect(pageBtns.length).toBe(2);
+
+    // 2페이지로 이동 — 어댑터 재조회 없이 나머지 2개
+    storage.list.mockClear();
+    pageBtns[1]!.click();
+    await el.updateComplete;
+    expect(storage.list).not.toHaveBeenCalled();
     expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(2);
     el.remove();
   });
@@ -4280,6 +4389,28 @@ describe('<slip-designer> 요소 그룹화 (G-27)', () => {
     const g2 = elById(el, 'shp-1').group;
     expect(typeof g1).toBe('string');
     expect(g1).toBe(g2);
+    el.remove();
+  });
+
+  it('그룹을 복사·붙여넣기하면 사본도 함께 새 그룹으로 묶인다 (G-48)', async () => {
+    const el = await loadDesigner();
+    await groupBoth(el);
+    const origGroup = elById(el, 'txt-1').group;
+
+    toolbarButton(el, strings.designer.copy).click();
+    await el.updateComplete;
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
+    toolbarButton(el, strings.designer.paste).click();
+    await el.updateComplete;
+
+    const elements = changes.at(-1)!.detail.file.template.pages[0].elements;
+    // 원본 2개 + 사본 2개
+    expect(elements.length).toBe(4);
+    const pasted = elements.slice(2);
+    expect(pasted[0].group).toBe(pasted[1].group); // 사본끼리 같은 그룹
+    expect(pasted[0].group).not.toBe(origGroup); // 원본 그룹과는 다른 새 그룹
+    expect(selectedIds(el).size).toBe(2); // 사본 2개가 선택됨
     el.remove();
   });
 

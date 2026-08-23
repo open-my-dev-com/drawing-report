@@ -66,7 +66,10 @@ function tokenize(source: string): Token[] {
     if (/[0-9]/.test(ch) || (ch === '.' && /[0-9]/.test(source[i + 1] ?? ''))) {
       const match = /^\d*\.?\d+(?:[eE][+-]?\d+)?/.exec(source.slice(i));
       if (!match) throw new FormulaSyntaxError('숫자 형식이 잘못되었습니다', pos);
-      tokens.push({ type: 'number', value: Number(match[0]), pos });
+      const num = Number(match[0]);
+      // 지수가 지나치게 큰 리터럴(1e400)은 Infinity가 되어 렌더로 새어 나가므로 거부한다.
+      if (!Number.isFinite(num)) throw new FormulaSyntaxError('숫자가 너무 큽니다', pos);
+      tokens.push({ type: 'number', value: num, pos });
       i += match[0].length;
       continue;
     }

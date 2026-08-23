@@ -17,7 +17,7 @@
 ### 関連ドキュメント
 
 - **[Core API ガイド](core.md)** — パース・数式・PDF レンダリング・整合性・サーバー連携（Node.js 単独利用を含む）
-- **[数式関数リファレンス](formula.md)** — 組み込み関数 29 種の使い方・引数・例
+- **[数式関数リファレンス](formula.md)** — 組み込み関数 32 種の使い方・引数・例
 - **[主要型リファレンス](types.md)** — `SlipFile`、フォント、`SlipPreset`、`StorageAdapter`、`IntegrityJwk` など型ごとのフィールドと既定値
 - **[同梱フォント・プリセット](fonts-and-presets.md)** — 同梱フォント（Pretendard・Noto Sans JP）の詳細、フォント供給、同梱プリセット（取引明細書・請求書）の構成と言語処理
 
