@@ -23,7 +23,7 @@ export class LocalFileStorage implements StorageAdapter {
   private readonly messages: SlipStrings['storage'];
 
   /**
-   * @param options - `locale`: 오류 메시지 언어 ('ko' | 'en', 기본 한국어) — ADR-028
+   * @param options - `locale`: 오류 메시지 언어 ('ko' | 'en' | 'ja', 기본 한국어) — ADR-028/042
    */
   constructor(options: { locale?: string } = {}) {
     this.messages = getStrings(options.locale).storage;

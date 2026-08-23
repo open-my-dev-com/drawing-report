@@ -41,7 +41,7 @@ export interface IndexedDbStorageOptions {
    */
   pageSize?: number;
   /**
-   * 오류 메시지 언어 ('ko' | 'en') — ADR-028.
+   * 오류 메시지 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
    *
    * @defaultValue 한국어
    */

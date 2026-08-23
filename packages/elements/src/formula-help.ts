@@ -153,7 +153,74 @@ const en: FormulaHelpCategory[] = [
   },
 ];
 
-const HELP = { ko, en } as const;
+const ja: FormulaHelpCategory[] = [
+  {
+    title: '集計',
+    functions: [
+      { name: 'SUM', signature: 'SUM(範囲, …)', description: '値・範囲の合計 (例: SUM(items.amount))' },
+      { name: 'AVG', signature: 'AVG(範囲, …)', description: '値・範囲の平均' },
+      { name: 'COUNT', signature: 'COUNT(範囲, …)', description: '空の値を除いた項目数' },
+      { name: 'MIN', signature: 'MIN(範囲, …)', description: '最小値 (値がなければ0)' },
+      { name: 'MAX', signature: 'MAX(範囲, …)', description: '最大値 (値がなければ0)' },
+      { name: 'SUMIF', signature: 'SUMIF(範囲, 条件, 合計範囲?)', description: '条件に合う値だけを合計する (条件の例: ">=1000")' },
+      { name: 'COUNTIF', signature: 'COUNTIF(範囲, 条件)', description: '条件に合う項目数' },
+    ],
+  },
+  {
+    title: '算術',
+    functions: [
+      { name: 'ROUND', signature: 'ROUND(数値, 桁数?)', description: '四捨五入 (桁数を省略すると整数に)' },
+      { name: 'FLOOR', signature: 'FLOOR(数値, 桁数?)', description: '切り捨て' },
+      { name: 'CEIL', signature: 'CEIL(数値, 桁数?)', description: '切り上げ' },
+      { name: 'ABS', signature: 'ABS(数値)', description: '絶対値' },
+    ],
+  },
+  {
+    title: '文字列',
+    functions: [
+      { name: 'CONCAT', signature: 'CONCAT(値, …)', description: '複数の値を文字列として連結する' },
+      { name: 'LEFT', signature: 'LEFT(文字列, 文字数?)', description: '左から指定した文字数だけ' },
+      { name: 'RIGHT', signature: 'RIGHT(文字列, 文字数?)', description: '右から指定した文字数だけ' },
+      { name: 'MID', signature: 'MID(文字列, 開始, 長さ)', description: '開始位置(1から)から指定した長さだけ' },
+      { name: 'REPLACE', signature: 'REPLACE(文字列, 検索, 置換)', description: '一致する部分をすべて置き換える' },
+      { name: 'TRIM', signature: 'TRIM(文字列)', description: '前後の空白を除去' },
+      { name: 'UPPER', signature: 'UPPER(文字列)', description: '英字を大文字に' },
+      { name: 'LOWER', signature: 'LOWER(文字列)', description: '英字を小文字に' },
+    ],
+  },
+  {
+    title: '条件',
+    functions: [
+      { name: 'IF', signature: 'IF(条件, 真のとき, 偽のとき)', description: '条件に応じて2つの値のいずれか' },
+      { name: 'AND', signature: 'AND(条件, …)', description: 'すべて真なら真' },
+      { name: 'OR', signature: 'OR(条件, …)', description: 'いずれかが真なら真' },
+    ],
+  },
+  {
+    title: '書式',
+    functions: [
+      { name: 'FORMAT_NUMBER', signature: 'FORMAT_NUMBER(数値, 小数桁数?)', description: '1,234,567のように桁区切り表記' },
+      { name: 'FORMAT_DATE', signature: 'FORMAT_DATE(日付, パターン?)', description: '日付の表記 (既定 YYYY-MM-DD)' },
+      { name: 'NUMBER_TO_KOREAN', signature: 'NUMBER_TO_KOREAN(数値)', description: '金額を韓国語表記に (例: 일만이천삼백)' },
+    ],
+  },
+  {
+    title: '日付',
+    functions: [
+      { name: 'TODAY', signature: 'TODAY()', description: '今日の日付 (YYYY-MM-DD)' },
+      { name: 'DATE_ADD', signature: 'DATE_ADD(日付, 増減量, 単位?)', description: '日付の加算・減算 (単位: days・months・years)' },
+      { name: 'DATE_DIFF', signature: 'DATE_DIFF(開始, 終了, 単位?)', description: '2つの日付の差 (終了 − 開始)' },
+    ],
+  },
+  {
+    title: '税務',
+    functions: [
+      { name: 'VAT', signature: 'VAT(課税標準額, 税率?)', description: '消費税額 (既定の税率10%)' },
+    ],
+  },
+];
+
+const HELP = { ko, en, ja } as const;
 
 /**
  * 로케일에 맞는 함수 도움말을 돌려준다. 'en-US'처럼 지역이 붙어도 언어만 보고

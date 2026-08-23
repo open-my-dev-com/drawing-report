@@ -8,7 +8,7 @@
  */
 import type { RenderOptions } from '@omdc-slipkit/core';
 import { loadDefaultFonts } from './default-fonts.js';
-import type { SlipLocale } from './strings.js';
+import { normalizeLocale } from './strings.js';
 
 /** 렌더에 쓸 폰트 하나 — `RenderOptions.fonts`의 원소와 같다 */
 export type SlipFont = NonNullable<RenderOptions['fonts']>[number];
@@ -63,13 +63,14 @@ export interface SlipDesignerSettings extends SlipFontProvider {
  * 호스트가 주면 그 목록을, 비었거나 없으면 언어에 맞는 동봉 기본 폰트를 쓴다.
  *
  * @param provider - 폰트 공급 인터페이스 (없을 수 있음)
- * @param locale - UI 언어. 기본 폰트를 고를 때만 쓴다(`'ja'`면 일본어 폰트).
+ * @param locale - UI 언어. 기본 폰트를 고를 때만 쓴다. 'ja-JP'처럼 지역이 붙어도
+ *   언어만 보고 고른다(문구 사전과 같은 규칙, ADR-042).
  * @returns 렌더에 넘길 폰트 목록
  */
 export async function resolveFonts(
   provider: SlipFontProvider | undefined,
-  locale?: SlipLocale,
+  locale?: string,
 ): Promise<SlipFont[]> {
   const supplied = provider?.getFonts ? await provider.getFonts() : undefined;
-  return supplied && supplied.length > 0 ? supplied : await loadDefaultFonts(locale);
+  return supplied && supplied.length > 0 ? supplied : await loadDefaultFonts(normalizeLocale(locale));
 }

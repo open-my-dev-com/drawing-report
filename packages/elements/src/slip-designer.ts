@@ -17,7 +17,7 @@ import {
   type SlipListItem,
   type StorageAdapter,
 } from '@omdc-slipkit/core';
-import { getStrings, type SlipLocale } from './strings.js';
+import { getStrings } from './strings.js';
 import { getFormulaHelp } from './formula-help.js';
 import { resolveFonts, type SlipDesignerSettings, type PaperSize } from './settings.js';
 import { presets, type SlipPreset } from './presets.js';
@@ -110,7 +110,7 @@ const GRID_GAPS = [1, 5, 10] as const;
  * 이름은 국제 표준의 고유명사라 로케일과 무관하게 같다(strings.ts로 옮기지 않는다).
  */
 const BARCODE_KINDS: readonly { value: BarcodeKind; label: string }[] = [
-  { value: 'qrcode', label: 'QR 코드' },
+  { value: 'qrcode', label: 'QR Code' },
   { value: 'code128', label: 'CODE128' },
   { value: 'ean13', label: 'EAN-13' },
   { value: 'code39', label: 'CODE39' },
@@ -2594,7 +2594,7 @@ export class SlipDesigner extends LitElement {
   src = '';
 
   /**
-   * UI 언어 ('ko' | 'en') — ADR-028.
+   * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
    *
    * @defaultValue 한국어
    */
@@ -4172,7 +4172,7 @@ export class SlipDesigner extends LitElement {
     try {
       // 폰트 미공급 시 동봉 Pretendard 자동 사용 (ADR-012/040) — 한글 깨짐 방지
       const opts: RenderOptions = {
-        fonts: await resolveFonts(this.settings, this.locale as SlipLocale),
+        fonts: await resolveFonts(this.settings, this.locale),
       };
       // 샘플 값이 있으면 그 값으로 채운 전표 상태로 미리보기 (D-13).
       // 파일 자체는 양식 그대로 두고 렌더 입력만 전표 형태로 만든다.

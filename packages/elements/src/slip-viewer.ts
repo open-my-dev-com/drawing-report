@@ -5,7 +5,7 @@ import {
   type RenderOptions,
   type SlipFile,
 } from '@omdc-slipkit/core';
-import { getStrings, type SlipLocale } from './strings.js';
+import { getStrings } from './strings.js';
 import { resolveFonts, type SlipFontProvider } from './settings.js';
 
 /**
@@ -63,7 +63,7 @@ export class SlipViewer extends LitElement {
   src = '';
 
   /**
-   * UI 언어 ('ko' | 'en') — ADR-028.
+   * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
    *
    * @defaultValue 한국어
    */
@@ -128,7 +128,7 @@ export class SlipViewer extends LitElement {
     try {
       // 폰트 미공급 시 동봉 Pretendard 자동 사용 (ADR-012/040) — 한글 깨짐 방지
       const opts: RenderOptions = {
-        fonts: await resolveFonts(this.settings, this.locale as SlipLocale),
+        fonts: await resolveFonts(this.settings, this.locale),
       };
       const pdfBytes = await renderSlipToPdf(file, opts);
       if (gen !== this._renderGeneration) return;

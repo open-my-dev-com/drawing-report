@@ -866,6 +866,19 @@ const ja: SlipStrings = {
 export const STRINGS: Record<SlipLocale, SlipStrings> = { ko, en, ja };
 
 /**
+ * 로케일 문자열을 지원 언어({@link SlipLocale}) 하나로 정규화한다. 'en-US'·'ja-JP'처럼
+ * 지역이 붙어도 언어만 보고 고르며, 모르는 로케일은 한국어(기본)로 돌아간다.
+ * 문구 사전 선택과 동봉 기본 폰트 선택이 같은 규칙을 쓰도록 한곳에 둔다 (ADR-028/042).
+ *
+ * @param locale - UI 언어 (생략하면 한국어)
+ * @returns 정규화된 지원 언어 코드
+ */
+export function normalizeLocale(locale?: string): SlipLocale {
+  const language = locale?.toLowerCase().split('-')[0];
+  return language && language in STRINGS ? (language as SlipLocale) : 'ko';
+}
+
+/**
  * 로케일에 맞는 문구 사전을 돌려준다. 'en-US'처럼 지역이 붙어도 언어만 보고
  * 고르며, 모르는 로케일은 한국어(기본)로 돌아간다.
  *
@@ -873,8 +886,7 @@ export const STRINGS: Record<SlipLocale, SlipStrings> = { ko, en, ja };
  * @returns 해당 언어의 문구 사전
  */
 export function getStrings(locale?: string): SlipStrings {
-  const language = locale?.toLowerCase().split('-')[0];
-  return language && language in STRINGS ? STRINGS[language as SlipLocale] : STRINGS.ko;
+  return STRINGS[normalizeLocale(locale)];
 }
 
 /** 한국어 사전 — 프리셋 등 한국어 고정 데이터와 기존 코드가 참조한다 */
