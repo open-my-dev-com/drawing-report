@@ -108,7 +108,6 @@ function makeTemplate(): SlipTemplateFile {
               position: { x: 140, y: 210 },
               width: 55,
               height: 8,
-              binding: 'total',
               formula: 'FORMAT_NUMBER(SUM(items.금액))',
               alignment: 'right',
             },
@@ -304,6 +303,23 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
     (grid['repeat'] as Record<string, unknown>)['maxItems'] = 3;
     expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/perPage보다 작을 수 없습니다/);
+  });
+
+  it('필드는 파라미터와 수식 중 하나만 가져야 한다 (ADR-049)', () => {
+    const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
+    const field = template.pages[0]!.elements.find((el) => el['id'] === 'total')!;
+    // 수식이 있는데 파라미터까지 두면 무엇이 쓰이는지 알 수 없다
+    field['binding'] = 'total';
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/binding·formula 중 하나만/);
+  });
+
+  it('필드에 파라미터도 수식도 없으면 거부한다 (ADR-049)', () => {
+    const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
+    const field = template.pages[0]!.elements.find((el) => el['id'] === 'total')!;
+    delete field['formula'];
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/binding·formula 중 하나만/);
   });
 
   it('목록 파라미터는 항목의 하위 필드를 정의부에 담을 수 있다 (ADR-047)', () => {

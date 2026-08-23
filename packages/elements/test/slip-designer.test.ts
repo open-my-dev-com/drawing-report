@@ -336,6 +336,7 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
     const labels = Array.from(el.shadowRoot!.querySelectorAll('.prop-row label'))
       .map((l) => l.textContent?.trim());
     expect(labels).toContain(strings.designer.length);
+    expect(labels).toContain(strings.designer.lineAngle);
     expect(labels).toContain(strings.designer.lineWidth);
     // 가로선의 높이는 길이도 굵기도 아니라 내놓지 않는다
     expect(labels).not.toContain(strings.designer.height);
@@ -346,7 +347,41 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
     el.remove();
   });
 
-  it('사선은 두 축이 모두 끝점을 정하므로 너비·높이를 그대로 둔다 (G-32)', async () => {
+  it('길이·각도를 고치면 상자와 방향으로 되돌아 저장된다 (ADR-050)', async () => {
+    parseSlipFileMock.mockReturnValue(makeLineFile('horizontal'));
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    selectElement(el, 'line-1');
+    await el.updateComplete;
+
+    const rowInput = (label: string) => Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === label)!
+      .querySelector('input') as HTMLInputElement;
+    const line = () => (el as unknown as { _file: SlipTemplateFile })._file
+      .template.pages[0]!.elements[0]! as unknown as
+      { width: number; height: number; lineDirection?: string };
+
+    // 45°로 바꾸면 사선이 되고 두 축이 같은 길이가 된다
+    const angle = rowInput(strings.designer.lineAngle);
+    angle.value = '45';
+    angle.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(line().lineDirection).toBe('down');
+    expect(line().width).toBeCloseTo(line().height, 1);
+
+    // 90°는 곧은 세로선으로 맞춰진다 (손으로 넣은 값이 사선이 되지 않게)
+    const angle2 = rowInput(strings.designer.lineAngle);
+    angle2.value = '90';
+    angle2.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(line().lineDirection).toBe('vertical');
+    expect(line().width).toBe(0);
+    el.remove();
+  });
+
+  it('선은 방향과 무관하게 길이·각도·선 굵기만 둔다 (ADR-050)', async () => {
     parseSlipFileMock.mockReturnValue(makeLineFile('down'));
     const el = await createElement();
     el.src = '{"valid": true}';
@@ -358,9 +393,12 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
 
     const labels = Array.from(el.shadowRoot!.querySelectorAll('.prop-row label'))
       .map((l) => l.textContent?.trim());
-    expect(labels).toContain(strings.designer.width);
-    expect(labels).toContain(strings.designer.height);
-    expect(labels).not.toContain(strings.designer.length);
+    // 방향이 바뀌어도 셀 구성이 그대로다 — 가로선이든 사선이든 길이·각도·굵기
+    expect(labels).toContain(strings.designer.length);
+    expect(labels).toContain(strings.designer.lineAngle);
+    expect(labels).toContain(strings.designer.lineWidth);
+    expect(labels).not.toContain(strings.designer.width);
+    expect(labels).not.toContain(strings.designer.height);
     el.remove();
   });
 
@@ -1282,7 +1320,7 @@ describe('<slip-designer> 사이드바', () => {
     file.template.bindings = [{ key: 'memo', valueType: 'text' }];
     file.template.pages[0]!.elements = [{
       type: 'field' as const, id: 'f-1', name: 'f', position: { x: 10, y: 10 },
-      width: 40, height: 8, binding: 'total', formula: '',
+      width: 40, height: 8, formula: '',
     } as never];
     delete (file.template as { sampleValues?: unknown }).sampleValues;
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
@@ -3292,6 +3330,14 @@ describe('<slip-designer> 글자 스타일·테두리 편집 (C-11)', () => {
 describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
   async function openFormulaModal(el: import('../src/slip-designer.js').SlipDesigner): Promise<void> {
     await addByCanvasClick(el, strings.designer.addField);
+    // 필드의 값 소스는 파라미터·수식 배타다 — 수식으로 바꿔야 수식 칸이 나온다 (ADR-049)
+    const source = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.cellSource)!
+      .querySelector('select') as HTMLSelectElement;
+    source.value = 'formula';
+    source.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
     const open = Array.from(el.shadowRoot!.querySelectorAll('.row-btn'))
       .find((b) => b.getAttribute('aria-label') === strings.designer.formulaModalTitle) as HTMLButtonElement;
     open.click();
@@ -3464,7 +3510,8 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     expect(el.shadowRoot!.querySelector('.modal')).toBeNull();
     const field = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
       .elements.at(-1)! as never as { formula?: string };
-    expect(field.formula).toBeUndefined();
+    // 수식 소스로 바꾸면 빈 수식이 자리를 잡는다 — Escape는 초안을 적용하지 않았을 뿐이다
+    expect(field.formula).toBe('');
     el.remove();
   });
 });

@@ -106,7 +106,6 @@ function makeBody(): SlipTemplateBody {
             position: { x: 140, y: 210 },
             width: 55,
             height: 8,
-            binding: 'total',
             formula: 'FORMAT_NUMBER(SUM(items.금액))',
             alignment: 'right',
           },
@@ -186,7 +185,7 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
 
   it('field는 수식이 없으면 binding 값을 문자열화한다 (CONCAT과 같은 규칙)', () => {
     const voucher = makeVoucher();
-    patchElement(voucher.templateSnapshot, 'total', { formula: undefined });
+    patchElement(voucher.templateSnapshot, 'total', { formula: undefined, binding: 'total' } as never);
     voucher.values.total = true;
     expect(convertSlipFile(voucher).inputs[0]?.total).toBe('TRUE');
     voucher.values.total = null;
@@ -198,14 +197,14 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
   it('빈 양식은 number 파라미터 필드를 0으로 채우지 않는다 (ADR-045 회귀 방지)', () => {
     const file = makeTemplateFile();
     file.template.bindings = [{ key: 'total', valueType: 'number' }];
-    patchElement(file.template, 'total', { formula: undefined });
+    patchElement(file.template, 'total', { formula: undefined, binding: 'total' } as never);
     // 양식(값 없음)이라 number 파라미터 필드는 0이 아니라 공백이어야 한다 — 정규화는 전표에만 적용
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 
   it('field 값이 배열·객체면 한국어 오류로 거부한다', () => {
     const voucher = makeVoucher();
-    patchElement(voucher.templateSnapshot, 'total', { formula: undefined });
+    patchElement(voucher.templateSnapshot, 'total', { formula: undefined, binding: 'total' } as never);
     voucher.values.total = { a: 1 };
     expect(() => convertSlipFile(voucher)).toThrow(SlipRenderError);
     expect(() => convertSlipFile(voucher)).toThrow(/텍스트로 표시할 수 없습니다/);
@@ -424,7 +423,7 @@ describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
     expect(texts).toEqual(['품명', '수량', '금액']);
     // 값이 비었으므로 수식 없는 필드도 빈 문자열이 된다
     const file = makeTemplateFile();
-    patchElement(file.template, 'total', { formula: undefined });
+    patchElement(file.template, 'total', { formula: undefined, binding: 'total' } as never);
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 

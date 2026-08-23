@@ -561,11 +561,12 @@ export class SlipForm extends LitElement {
     for (const page of body.pages) {
       for (const element of page.elements) {
         if (element.type === 'field') {
-          add(
-            element.binding,
-            element.formula === undefined ? {} : { formula: element.formula },
-            element.name,
-          );
+          // 파라미터 필드는 사람이 채우고, 수식 필드는 계산 결과만 보여준다 (ADR-049) —
+          // 수식 필드는 전표 값의 키가 아니므로 요소 id를 줄 식별자로 쓴다
+          if (element.binding !== undefined) add(element.binding, {}, element.name);
+          else if (element.formula !== undefined) {
+            add(element.id, { formula: element.formula }, element.name);
+          }
         } else if (element.type === 'image' && element.binding !== undefined) {
           add(element.binding, { image: true }, element.name);
         } else if (element.type === 'grid' && element.repeat) {

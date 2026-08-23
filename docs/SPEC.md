@@ -6,7 +6,7 @@
 
 - 상태: **Draft** (schemaVersion `0.1.0`)
 - 최종 갱신: 2026-08-23
-- 근거 ADR: 001, 007, 008, 011, 018, 019, 020, 022, 032, 036, 037, 046, 047, 048
+- 근거 ADR: 001, 007, 008, 011, 018, 019, 020, 022, 032, 036, 037, 046, 047, 048, 049, 050
 
 이 문서에서 **필수/금지/해야 한다**는 규범 요구사항을, *권장*은 비규범 권고를 뜻한다.
 
@@ -196,7 +196,7 @@ PDF 렌더 시 외부 URL 참조는 거부된다 — 렌더하려면 `data:` 또
 
 | 타입 | 스타일 필드 (전부 선택) | 전용 필드 |
 |---|---|---|
-| `line` 선 | `borderColor`(선 색) · `borderWidth`(굵기 mm) · `borderStyle`(형태) | `lineDirection` (기본 `horizontal`): `horizontal`(상자 세로 중앙의 수평선) \| `vertical`(가로 중앙의 수직선) \| `down`(좌상→우하 대각선) \| `up`(좌하→우상 대각선). 임의 선분은 상자(position·width·height)와 방향으로 표현한다 |
+| `line` 선 | `borderColor`(선 색) · `borderWidth`(굵기 mm) · `borderStyle`(형태) | `lineDirection` (기본 `horizontal`): `horizontal`(상자 세로 중앙의 수평선) \| `vertical`(가로 중앙의 수직선) \| `down`(좌상→우하 대각선) \| `up`(좌하→우상 대각선). 임의 선분은 상자(position·width·height)와 방향으로 표현한다. 편집 화면은 이 인코딩을 **길이·각도**로 바꿔 보여준다(ADR-050) — 파일 형식은 그대로다 |
 | `rect` 사각형 | `backgroundColor` · `borderColor` · `borderWidth` · `borderStyle` | `radius` 모서리 반경(mm). 파선·점선 테두리와 동시 지정 금지(곡선 구간은 분해 렌더 불가) |
 | `ellipse` 타원 | `backgroundColor` · `borderColor` · `borderWidth` (테두리는 실선 고정) | — |
 | `polygon` 정다각형 | `backgroundColor` · `borderColor` · `borderWidth` (테두리는 실선 고정) | `sides`(필수, 3~12): 변 수 — 3=삼각형, 5=오각형, 6=육각형 … |
@@ -208,10 +208,13 @@ PDF 렌더 시 외부 URL 참조는 거부된다 — 렌더하려면 `data:` 또
 
 전표 작성 시 값이 채워지는 자리.
 
+값 소스는 **`binding`과 `formula` 중 정확히 하나**다 (ADR-049) — 그리드 셀·바코드와 같은 규칙이다.
+둘을 함께 두면 거부한다.
+
 | 필드 | 필수 | 내용 |
 |---|---|---|
-| `binding` | ✅ | 전표 `values`의 키 |
-| `formula` | — | 표시 전 가공 수식 (ADR-010/017). 예: `FORMAT_NUMBER(SUM(items.금액))` |
+| `binding` | 둘 중 하나 | 전표 `values`의 키 — 사람이 채우는 값 |
+| `formula` | 둘 중 하나 | 표시 값을 계산하는 수식 (ADR-010/017). 예: `FORMAT_NUMBER(SUM(items.금액))`. 빈 문자열이면 빈 글로 그린다 |
 
 수식 문법·함수 목록(32종)은 ADR-017·044를 따르며 별도 문서로 상세화한다.
 수식 길이·중첩 깊이는 §3.2 상한을 따른다 (초과 시 파싱 단계에서 거부).

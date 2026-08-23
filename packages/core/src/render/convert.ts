@@ -450,12 +450,20 @@ class SlipToPdfmeConverter {
     }
   }
 
+  /**
+   * 필드가 보일 값 — 파라미터와 수식 중 하나에서 온다 (ADR-049, 스키마가 배타를 강제한다).
+   *
+   * @param element - 필드 요소
+   * @returns 표시용 문자열
+   */
   private fieldValue(element: FieldElement): string {
     const what = `필드 '${element.name}'(${element.id})`;
     if (element.formula !== undefined) {
+      // 수식 소스로 막 바꿔 아직 비어 있는 상태 — 빈 글로 둔다(파싱 오류로 미리보기를 깨지 않는다)
+      if (element.formula.trim() === '') return '';
       return toDisplayText(this.evaluate(element.formula, this.values, what), what);
     }
-    return toDisplayText(this.values[element.binding], what);
+    return element.binding === undefined ? '' : toDisplayText(this.values[element.binding], what);
   }
 
   // -------------------------------------------------------------------------

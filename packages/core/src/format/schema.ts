@@ -526,17 +526,35 @@ const polygonElementSchema = z.object({
   borderWidth: nonNegativeMm.optional(),
 });
 
-/** 전표 작성 시 값이 채워지는 입력 필드 */
-const fieldElementSchema = z.object({
-  type: z.literal('field'),
-  ...elementBaseShape,
-  ...colorStyleShape,
-  /** 전표 values의 키 */
-  binding: idSchema,
-  /** 표시 전 가공용 수식 (ADR-010/017), 예: FORMAT_NUMBER(...) */
-  formula: z.string().optional(),
-  ...fontShape,
-});
+/**
+ * 전표 작성 시 값이 채워지는 입력 필드.
+ *
+ * @remarks
+ * 값 소스는 **파라미터와 수식 중 하나**다 (ADR-049) — 그리드 셀·바코드와 같은 규칙이다.
+ * 둘을 함께 두면 수식이 이기고 파라미터는 아무 일도 하지 않아, 화면에서 무엇이 쓰이는지
+ * 알 수 없었다.
+ */
+const fieldElementSchema = z
+  .object({
+    type: z.literal('field'),
+    ...elementBaseShape,
+    ...colorStyleShape,
+    /** 전표 values의 키 — 수식을 쓰면 두지 않는다 */
+    binding: idSchema.optional(),
+    /** 표시 값을 계산하는 수식 (ADR-010/017), 예: FORMAT_NUMBER(...) */
+    formula: z.string().optional(),
+    ...fontShape,
+  })
+  .superRefine((field, ctx) => {
+    const sources = [field.binding, field.formula].filter((v) => v !== undefined);
+    if (sources.length !== 1) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['binding'],
+        message: `필드 '${field.name}'는 binding·formula 중 하나만 가져야 합니다`,
+      });
+    }
+  });
 
 /** 요소 9종 판별 유니온 (type 필드 기준, ADR-020/032/037 + 바코드) */
 export const slipElementSchema = z.discriminatedUnion('type', [

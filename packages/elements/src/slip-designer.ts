@@ -1,4 +1,5 @@
 import { LitElement, css, html, nothing, svg, type TemplateResult } from 'lit';
+import { live } from 'lit/directives/live.js';
 import {
   parseSlipFile,
   renderSlipToPdf,
@@ -224,6 +225,57 @@ const DEFAULT_LINE_WIDTH = 0.2;
 const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 /** 사이드바 페이지 줄에 올렸을 때 뜨는 썸네일의 폭(px) (G-35) */
 const THUMB_WIDTH_PX = 132;
+
+/**
+ * 선의 길이와 각도 — 상자와 방향으로 저장된 값을 사람이 다루는 값으로 바꾼다 (ADR-050).
+ *
+ * @remarks
+ * 파일에는 선이 **상자(width·height) + 방향**으로 담긴다(ADR-032). 화면에서는 방향에 따라
+ * 칸이 바뀌지 않도록 길이·각도 하나로 다룬다. 각도는 화면 좌표계에서 **시계 방향이 양수**이며
+ * 0°가 오른쪽(→), 90°가 아래(↓)다.
+ *
+ * @param el - 선 요소
+ * @returns 길이(mm)와 각도(도)
+ */
+function lineLengthAngle(el: LineElement): { length: number; angle: number } {
+  const w = el.width;
+  const h = el.height;
+  switch (el.lineDirection ?? 'horizontal') {
+    case 'horizontal': return { length: w, angle: 0 };
+    case 'vertical': return { length: h, angle: 90 };
+    // 사선은 상자의 두 모서리를 잇는다 — 대각선 길이와 기울기가 곧 길이·각도다
+    case 'down': return { length: Math.hypot(w, h), angle: (Math.atan2(h, w) * 180) / Math.PI };
+    default: return { length: Math.hypot(w, h), angle: -(Math.atan2(h, w) * 180) / Math.PI };
+  }
+}
+
+/**
+ * 길이·각도를 상자와 방향으로 되돌린다 (ADR-050) — 저장 형식은 그대로 둔다.
+ *
+ * @remarks
+ * 각도는 0·90·180·270°에 가까우면(±0.5°) 곧은 선으로 맞춘다 — 손으로 89.9°를 넣어
+ * 사선이 되는 것보다 곧게 붙는 편이 쓰기 좋다.
+ *
+ * @param length - 길이(mm)
+ * @param angle - 각도(도, 시계 방향)
+ * @returns 상자 크기와 방향
+ */
+function lineBoxFromLengthAngle(
+  length: number,
+  angle: number,
+): { width: number; height: number; lineDirection: 'horizontal' | 'vertical' | 'down' | 'up' } {
+  const len = Math.max(0, length);
+  // -180~180으로 정규화하고, 반대 방향은 같은 선이므로 0~180으로 접는다
+  let a = ((angle % 360) + 360) % 360;
+  if (a >= 180) a -= 180;
+  const SNAP = 0.5;
+  if (a <= SNAP || a >= 180 - SNAP) return { width: len, height: 0, lineDirection: 'horizontal' };
+  if (Math.abs(a - 90) <= SNAP) return { width: 0, height: len, lineDirection: 'vertical' };
+  const rad = (a * Math.PI) / 180;
+  const width = Math.abs(len * Math.cos(rad));
+  const height = Math.abs(len * Math.sin(rad));
+  return { width, height, lineDirection: a < 90 ? 'down' : 'up' };
+}
 
 /** 글자 크기(pt)를 화면 px로 — PDF와 같은 크기감 (1pt = 4/3px, 기본 10pt) */
 function fontPx(size: number | undefined): string {
@@ -3536,7 +3588,7 @@ export class SlipDesigner extends LitElement {
     this._selectElement(id);
     this._sideSelection = null;
     // 값을 쓰는 요소는 그 파라미터을 정의부에 함께 등록한다 — 목록이 값의 단일 원천 (ADR-034)
-    if (element.type === 'field') {
+    if (element.type === 'field' && element.binding !== undefined) {
       this._ensureBindingDef(element.binding);
     }
     if (element.type === 'grid' && element.repeat) {
@@ -3574,7 +3626,7 @@ export class SlipDesigner extends LitElement {
         groupRemap.set(copy.group, mapped);
         copy.group = mapped;
       }
-      if (copy.type === 'field') this._ensureBindingDef(copy.binding);
+      if (copy.type === 'field' && copy.binding !== undefined) this._ensureBindingDef(copy.binding);
       if (copy.type === 'grid' && copy.repeat) this._ensureBindingDef(copy.repeat.binding, 'list');
       elements.push(copy);
       pasted.push(copy);
@@ -3764,6 +3816,26 @@ export class SlipDesigner extends LitElement {
           .value=${String(current ?? fallback)}
           @change=${commit}>
       </div>`;
+  }
+
+  /**
+   * 선의 길이·각도를 적용한다 (ADR-050) — 상자와 방향으로 되돌려 저장한다.
+   *
+   * @param length - 길이(mm)
+   * @param angle - 각도(도)
+   */
+  private _applyLineLengthAngle(length: number, angle: number): void {
+    if (!Number.isFinite(length) || !Number.isFinite(angle) || length < 0) {
+      this._rejectInput();
+      return;
+    }
+    const box = lineBoxFromLengthAngle(length, angle);
+    this._updateElement((target) => {
+      if (target.type !== 'line') return;
+      target.width = round1(box.width);
+      target.height = round1(box.height);
+      target.lineDirection = box.lineDirection;
+    });
   }
 
   /** 키보드 단축키가 듣도록 호스트에 포커스를 준다 — 이미 안쪽에 있으면 건드리지 않는다 */
@@ -5098,7 +5170,8 @@ export class SlipDesigner extends LitElement {
           uses.set(el.binding, list);
           continue;
         }
-        if (el.type !== 'field') continue;
+        // 수식만 쓰는 필드는 파라미터를 갖지 않는다 (ADR-049)
+        if (el.type !== 'field' || el.binding === undefined) continue;
         const list = uses.get(el.binding) ?? [];
         list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
         uses.set(el.binding, list);
@@ -6905,34 +6978,22 @@ export class SlipDesigner extends LitElement {
                aria-label=${label} @change=${setSize(key)}>
       </div>`;
 
-    const straight =
-      el.type === 'line' &&
-      ((el.lineDirection ?? 'horizontal') === 'horizontal' ||
-        el.lineDirection === 'vertical');
-    if (straight) {
-      const lengthKey = (el.lineDirection ?? 'horizontal') === 'horizontal' ? 'width' : 'height';
-      return html`
-        <div class="prop-pair">
-          ${sizeRow(s.length, lengthKey)}
-          ${this._renderBorderWidthSelect(
-            el.borderWidth,
-            DEFAULT_LINE_WIDTH,
-            false,
-            'borderWidth',
-            (v) => this._updateElement((target) => {
-              (target as Record<string, unknown>).borderWidth = v;
-            }),
-            s.lineWidth,
-          )}
-        </div>`;
-    }
-    // 사선은 두 축이 모두 끝점을 정하므로 너비·높이를 그대로 두되, 선 굵기는 함께 보인다 —
-    // 곧은 선에만 굵기를 두면 방향을 바꿀 때 굵기 셀이 사라져 고칠 수가 없었다
+    // 선은 방향과 무관하게 **길이·각도·선 굵기** 셋으로 다룬다 (ADR-050).
+    // 방향에 따라 `길이`와 `너비·높이`가 오가면 같은 요소인데 칸이 바뀌어 헷갈렸다.
     if (el.type === 'line') {
+      const { length, angle } = lineLengthAngle(el);
       return html`
         <div class="prop-pair">
-          ${sizeRow(s.width, 'width')}
-          ${sizeRow(s.height, 'height')}
+          ${this._renderDefaultedNumberRow(
+            s.length, Number(length.toFixed(1)), length,
+            (v) => this._applyLineLengthAngle(v ?? length, angle),
+            { step: '0.5', min: '0' },
+          )}
+          ${this._renderDefaultedNumberRow(
+            s.lineAngle, Number(angle.toFixed(1)), angle,
+            (v) => this._applyLineLengthAngle(length, v ?? angle),
+            { step: '1' },
+          )}
         </div>
         ${this._renderBorderWidthSelect(
           el.borderWidth,
@@ -7530,6 +7591,7 @@ export class SlipDesigner extends LitElement {
       const r = target as Record<string, unknown>;
       if (to === 'field') {
         delete r.content;
+        delete r.formula;
         r.type = 'field';
         r.binding = '';
       } else {
@@ -7545,27 +7607,58 @@ export class SlipDesigner extends LitElement {
   private _renderFieldProps(el: FieldElement) {
     const s = this._strings.designer;
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-    // 수식이 있으면 표시 값은 수식 결과다 — 파라미터는 그 값의 이름으로만 남는다 (SPEC §5.4).
-    // 둘을 나란히 두면 파라미터가 표시에 쓰이는 것처럼 보여 헷갈리므로 그 사실을 밝힌다.
-    const formulaWins = el.formula !== undefined && el.formula !== '';
+    // 값 소스는 파라미터·수식 중 하나다 — 그리드 셀·바코드와 같은 규칙 (ADR-049)
+    const source: 'binding' | 'formula' = el.formula !== undefined ? 'formula' : 'binding';
     return html`
       <div class="prop-section">
         ${this._renderTextFieldKindRow('field')}
-        ${this._renderBindingSelect(el.binding)}
-        ${formulaWins ? html`<div class="cell-hint">${s.formulaOverridesBinding}</div>` : nothing}
         <div class="prop-row">
-          <label>${s.formula}</label>
-          <input .value=${el.formula ?? ''}
-            @change=${(e: Event) => this._updateElement((el) => {
-              if (el.type !== 'field') return;
-              const v = valOf(e);
-              setOptional(el, 'formula', v || null);
-            })}>
-          <button class="row-btn" title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
-            @click=${() => this._openFormulaModal()}>${icons.formula}</button>
+          <label>${s.cellSource}</label>
+          <select aria-label=${s.cellSource} .value=${live(source)}
+            @change=${(e: Event) =>
+              this._setFieldSource((e.target as HTMLSelectElement).value as 'binding' | 'formula')}>
+            <option value="binding" ?selected=${source === 'binding'}>${s.cellSourceBinding}</option>
+            <option value="formula" ?selected=${source === 'formula'}>${s.cellSourceFormula}</option>
+          </select>
         </div>
+        ${source === 'binding'
+          ? this._renderBindingSelect(el.binding ?? '')
+          : html`
+            <div class="prop-row">
+              <label>${s.formula}</label>
+              <input .value=${live(el.formula ?? '')}
+                @change=${(e: Event) => this._updateElement((target) => {
+                  if (target.type !== 'field') return;
+                  setOptional(target, 'formula', valOf(e) || null);
+                })}>
+              <button class="row-btn" title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
+                @click=${() => this._openFormulaModal()}>${icons.formula}</button>
+            </div>`}
       </div>
     `;
+  }
+
+  /**
+   * 필드가 값을 어디서 가져올지 고른다 — 파라미터와 수식은 배타다 (ADR-049).
+   *
+   * @remarks
+   * 그리드 셀의 값 소스 고르개와 같은 규칙이다. 소스를 바꾸면 반대쪽 값은 지운다 —
+   * 둘이 함께 남으면 스키마가 거부하고, 무엇이 쓰이는지도 알 수 없다.
+   *
+   * @param kind - 바꿀 소스
+   */
+  private _setFieldSource(kind: 'binding' | 'formula'): void {
+    this._updateElement((target) => {
+      if (target.type !== 'field') return;
+      const r = target as Record<string, unknown>;
+      if (kind === 'binding') {
+        delete r.formula;
+        if (r.binding === undefined) r.binding = '';
+      } else {
+        delete r.binding;
+        if (r.formula === undefined) r.formula = '';
+      }
+    });
   }
 
   /** 바코드 요소의 종류·값(고정·파라미터·수식) 편집 */

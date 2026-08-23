@@ -57,7 +57,7 @@ function makeTemplate(withExternalImage = false): SlipTemplateFile {
     {
       type: 'field', id: 'f-total', name: '합계 필드',
       position: { x: 140, y: 100 }, width: 55, height: 8,
-      binding: 'totalAmount', formula: 'SUM(items.amount)',
+      formula: 'SUM(items.amount)',
     },
   ];
   if (withExternalImage) {
@@ -175,7 +175,7 @@ describe('<slip-form> 입력 칸 구성', () => {
 
   it('수식 필드는 입력받지 않고 계산 결과만 보여준다', async () => {
     const el = await mount();
-    const computed = inputByLabel(el, `합계금액 (${strings.form.computed})`);
+    const computed = inputByLabel(el, `합계 필드 (${strings.form.computed})`);
     expect(computed.disabled).toBe(true);
     el.remove();
   });
@@ -227,7 +227,7 @@ describe('<slip-form> 값 입력·행 편집', () => {
 
   it('행 값이 바뀌면 수식 칸이 즉시 다시 계산된다', async () => {
     const el = await mount();
-    const total = () => inputByLabel(el, `합계금액 (${strings.form.computed})`).value;
+    const total = () => inputByLabel(el, `합계 필드 (${strings.form.computed})`).value;
     expect(total()).toBe('0');
 
     buttonByLabel(el, `품목 ${strings.form.addRow}`).click();

@@ -1148,8 +1148,7 @@
                             "name",
                             "position",
                             "width",
-                            "height",
-                            "binding"
+                            "height"
                           ],
                           "additionalProperties": false
                         }
@@ -2459,8 +2458,7 @@
                             "name",
                             "position",
                             "width",
-                            "height",
-                            "binding"
+                            "height"
                           ],
                           "additionalProperties": false
                         }
