@@ -372,6 +372,8 @@ const GRID_MAX_PER_PAGE_UI = 1000;
 /** 요소를 새로 만들 때 겹치지 않게 계단식으로 미는 간격·되돌아오는 주기(mm) */
 const NEW_ELEMENT_CASCADE_STEP_MM = 5;
 const NEW_ELEMENT_CASCADE_WRAP_MM = 50;
+/** "내 양식" 목록 모달의 한 페이지 항목 수 (번호 페이징) */
+const MY_FORMS_PAGE_SIZE = 10;
 
 /**
  * 열 너비·행 높이의 합으로 요소 상자를 다시 계산한다 — 스키마가 둘의 일치를 요구한다
@@ -2652,6 +2654,8 @@ export class SlipDesigner extends LitElement {
     _saveModalOpen: { state: true },
     _myFormsOpen: { state: true },
     _myFormItems: { state: true },
+    _myFormsPage: { state: true },
+    _myFormsQuery: { state: true },
     _myFormsError: { state: true },
     _savedNotice: { state: true },
   };
@@ -2795,10 +2799,13 @@ export class SlipDesigner extends LitElement {
   private _saveTitle = '';
   /** "내 양식 목록" 모달 열림 여부 (D-15) */
   private _myFormsOpen = false;
-  /** 목록 모달에 표시 중인 항목들 */
+  /**
+   * 모달을 열 때 한 번 받아 쥐는 전체 양식 메타 목록(스냅샷) — 검색·페이지 이동은 이 위에서
+   * 메모리로 한다. 페이지 사이에 저장·삭제가 일어나도 목록이 흔들리지 않는다 (ADR-045).
+   */
   private _myFormItems: SlipListItem[] = [];
-  /** 목록 다음 페이지 커서 — 있으면 "더 보기"가 나온다 */
-  private _myFormsCursor: string | undefined;
+  /** 목록 모달의 현재 페이지 (0부터). 검색·삭제로 항목이 줄면 범위 안으로 되돌린다 */
+  private _myFormsPage = 0;
   /** 목록 검색어 */
   private _myFormsQuery = '';
   /** 저장소 작업 오류 메시지 (어댑터가 한국어 메시지를 준다) */
@@ -8232,35 +8239,46 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 목록 모달 열기 — 첫 페이지를 읽어 온다 */
+  /** 목록 모달 열기 — 전체 목록(메타)을 한 번 받아 쥔다 */
   private async _openMyForms(): Promise<void> {
     this._myFormsOpen = true;
     this._myFormsQuery = '';
+    this._myFormsPage = 0;
     this.requestUpdate();
     await this._loadMyForms();
   }
 
   /**
-   * 저장된 양식 목록을 읽는다. cursor를 주면 다음 페이지를 이어 붙이고,
-   * 없으면 처음부터 다시 읽는다 (검색어 변경 등).
+   * 저장된 양식 목록(메타)을 전부 받아 스냅샷으로 쥔다 (ADR-045). 검색·페이지 이동은
+   * 이 스냅샷 위에서 메모리로 하므로, 페이지 사이에 저장·삭제가 일어나도 목록이 흔들리지
+   * 않는다. 메타만 읽어 본문(이미지)은 메모리에 올라오지 않는다.
    */
-  private async _loadMyForms(cursor?: string): Promise<void> {
+  private async _loadMyForms(): Promise<void> {
     const adapter = this.storage;
     if (!adapter) return;
     this._myFormsError = null;
-    const filter = this._myFormsQuery.trim()
-      ? { kind: 'template' as const, query: this._myFormsQuery.trim() }
-      : { kind: 'template' as const };
     try {
-      const page = await adapter.list(filter, cursor);
-      this._myFormItems = cursor ? [...this._myFormItems, ...page.items] : page.items;
-      this._myFormsCursor = page.nextCursor;
+      const items: SlipListItem[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await adapter.list({ kind: 'template' }, cursor);
+        items.push(...page.items);
+        cursor = page.nextCursor;
+      } while (cursor);
+      this._myFormItems = items;
     } catch (error) {
       this._myFormItems = [];
-      this._myFormsCursor = undefined;
       this._myFormsError = error instanceof Error ? error.message : String(error);
     }
+    this._myFormsPage = 0;
     this.requestUpdate();
+  }
+
+  /** 검색어에 맞는 항목(스냅샷을 메모리로 거른 것) */
+  private _filteredMyForms(): SlipListItem[] {
+    const query = this._myFormsQuery.trim().toLowerCase();
+    if (!query) return this._myFormItems;
+    return this._myFormItems.filter((item) => item.title.toLowerCase().includes(query));
   }
 
   /** 목록에서 고른 양식을 캔버스로 불러온다 (되돌리기 지원) */
@@ -8308,6 +8326,9 @@ export class SlipDesigner extends LitElement {
     }
     if (this._savedId === id) this._savedId = null;
     this._myFormItems = this._myFormItems.filter((item) => item.id !== id);
+    // 마지막 페이지의 유일한 항목을 지웠으면 앞 페이지로 당긴다
+    const lastPage = Math.max(0, Math.ceil(this._filteredMyForms().length / MY_FORMS_PAGE_SIZE) - 1);
+    if (this._myFormsPage > lastPage) this._myFormsPage = lastPage;
     this.requestUpdate();
   }
 
@@ -8393,40 +8414,62 @@ export class SlipDesigner extends LitElement {
           <div class="prop-row">
             <label>${s.search}</label>
             <input class="forms-search" .value=${this._myFormsQuery} aria-label=${s.search}
-              @change=${(e: Event) => {
+              @input=${(e: Event) => {
                 this._myFormsQuery = (e.target as HTMLInputElement).value;
-                void this._loadMyForms();
+                this._myFormsPage = 0;
+                this.requestUpdate();
               }}>
           </div>
           ${this._myFormsError
             ? html`<div class="formula-status error">${this._myFormsError}</div>`
             : nothing}
-          ${this._myFormItems.length === 0 && !this._myFormsError
-            ? html`<div class="side-empty">${s.noSavedForms}</div>`
-            : nothing}
-          ${this._myFormItems.map((item) => html`
-            <div class="form-row">
-              <button class="form-open" aria-label="${item.title} ${s.edit}"
-                @click=${() => void this._loadMyForm(item.id)}>
-                <span class="form-title">${item.title}</span>
-                ${item.updatedAt
-                  ? html`<span class="form-date">${item.updatedAt.slice(0, 10)}</span>`
-                  : nothing}
-              </button>
-              <button class="col-remove" title=${s.delete} aria-label="${item.title} ${s.delete}"
-                @click=${() => void this._deleteMyForm(item.id)}>${icons.remove}</button>
-            </div>`)}
-          ${this._myFormsCursor
-            ? html`<button class="col-add" aria-label=${s.loadMore}
-                @click=${() => void this._loadMyForms(this._myFormsCursor)}>
-                ${icons.down}<span>${s.loadMore}</span>
-              </button>`
-            : nothing}
+          ${this._renderMyFormsPage()}
         </div>
         <div class="modal-foot">
           <button class="btn primary" @click=${close}>${s.close}</button>
         </div>
       </div>
+    `;
+  }
+
+  /** 목록 모달 본문 — 검색으로 거른 스냅샷을 번호 페이지로 나눠 그린다 (ADR-045) */
+  private _renderMyFormsPage() {
+    const s = this._strings.designer;
+    const filtered = this._filteredMyForms();
+    if (filtered.length === 0) {
+      return this._myFormsError ? nothing : html`<div class="side-empty">${s.noSavedForms}</div>`;
+    }
+    const pageCount = Math.ceil(filtered.length / MY_FORMS_PAGE_SIZE);
+    const page = Math.min(this._myFormsPage, pageCount - 1);
+    const items = filtered.slice(page * MY_FORMS_PAGE_SIZE, (page + 1) * MY_FORMS_PAGE_SIZE);
+    return html`
+      ${items.map((item) => html`
+        <div class="form-row">
+          <button class="form-open" aria-label="${item.title} ${s.edit}"
+            @click=${() => void this._loadMyForm(item.id)}>
+            <span class="form-title">${item.title}</span>
+            ${item.updatedAt
+              ? html`<span class="form-date">${item.updatedAt.slice(0, 10)}</span>`
+              : nothing}
+          </button>
+          <button class="col-remove" title=${s.delete} aria-label="${item.title} ${s.delete}"
+            @click=${() => void this._deleteMyForm(item.id)}>${icons.remove}</button>
+        </div>`)}
+      ${pageCount > 1
+        ? html`
+          <div class="sample-pager">
+            <button class="side-mini" title=${s.prevPage} aria-label="${s.myFormsList} ${s.prevPage}"
+              ?disabled=${page === 0}
+              @click=${() => { this._myFormsPage = page - 1; this.requestUpdate(); }}>${icons.pagePrev}</button>
+            ${Array.from({ length: pageCount }, (_, i) => html`
+              <button class="page-btn" aria-label="${s.myFormsList} ${s.sidebarPages} ${i + 1}"
+                aria-pressed=${String(i === page)}
+                @click=${() => { this._myFormsPage = i; this.requestUpdate(); }}>${i + 1}</button>`)}
+            <button class="side-mini" title=${s.nextPage} aria-label="${s.myFormsList} ${s.nextPage}"
+              ?disabled=${page >= pageCount - 1}
+              @click=${() => { this._myFormsPage = page + 1; this.requestUpdate(); }}>${icons.pageNext}</button>
+          </div>`
+        : nothing}
     `;
   }
 }

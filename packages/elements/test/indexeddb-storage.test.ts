@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it, vi } from 'vitest';
+import { serializeSlipFile } from '@omdc-slipkit/core';
 import { IndexedDbStorage } from '../src/storage/indexeddb-storage.js';
 import { presets } from '../src/presets.js';
 
@@ -96,5 +97,40 @@ describe('IndexedDbStorage 열기 실패 복구', () => {
     await storage.save('doc', presets[0]!.create());
     const loaded = await storage.load('doc');
     expect(loaded.kind).toBe('template');
+  });
+
+  it('v1(문자열 본문)으로 저장된 것을 v2(Blob)로 마이그레이션해 로드한다 (ADR-045)', async () => {
+    const dbName = `test-mig-${++dbCounter}`;
+    const file = presets[0]!.create();
+    // 옛 v1 형식으로 직접 저장한다 — data가 문자열
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open(dbName, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('slips', { keyPath: 'id' });
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction('slips', 'readwrite');
+        tx.objectStore('slips').put({
+          id: 'old-1',
+          kind: file.kind,
+          title: 'old',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          data: serializeSlipFile(file),
+        });
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
+      req.onerror = () => reject(req.error);
+    });
+
+    // v2로 열며 마이그레이션 → 문자열 본문도 그대로 로드된다
+    const storage = new IndexedDbStorage({ dbName });
+    const loaded = await storage.load('old-1');
+    expect(loaded).toEqual(file);
+    // 목록에도 그대로 나온다
+    const page = await storage.list();
+    expect(page.items.map((i) => i.id)).toContain('old-1');
   });
 });

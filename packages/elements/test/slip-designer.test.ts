@@ -3710,7 +3710,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     el.remove();
   });
 
-  it('목록에서 고르면 그 양식을 불러오고, 삭제·검색·더 보기가 어댑터로 이어진다', async () => {
+  it('목록에서 고르면 그 양식을 불러오고, 검색은 화면에서 거르며, 삭제·불러오기는 어댑터로 이어진다', async () => {
     const storage = makeStorage();
     const loaded = makeTemplateFile();
     loaded.template.meta.title = '불러온 양식';
@@ -3723,19 +3723,27 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     expect(storage.list).toHaveBeenCalledWith({ kind: 'template' }, undefined);
     expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(2);
 
-    // 검색어는 필터로 전달된다
+    // 검색은 스냅샷을 화면에서 거른다 — 어댑터를 다시 부르지 않는다 (ADR-045)
+    storage.list.mockClear();
     const search = el.shadowRoot!.querySelector('.forms-search') as HTMLInputElement;
     search.value = '청구';
-    search.dispatchEvent(new Event('change', { bubbles: true }));
-    await flush();
+    search.dispatchEvent(new Event('input', { bubbles: true }));
     await el.updateComplete;
-    expect(storage.list).toHaveBeenLastCalledWith({ kind: 'template', query: '청구' }, undefined);
+    expect(storage.list).not.toHaveBeenCalled();
+    expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(1);
+
+    // 검색어를 지우면 다시 둘 다 보인다
+    search.value = '';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(2);
 
     // 삭제
     byAria(el, `청구서 ${strings.designer.delete}`).click();
     await flush();
     await el.updateComplete;
     expect(storage.delete).toHaveBeenCalledWith('b');
+    expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(1);
 
     // 불러오기 — 캔버스 교체 + 모달 닫힘 + slip-change
     const changes: CustomEvent[] = [];
@@ -3751,24 +3759,35 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     el.remove();
   });
 
-  it('더 보기는 다음 페이지 커서로 이어서 읽는다', async () => {
+  it('목록을 커서로 전부 받아 번호 페이지로 나눠 보인다 (ADR-045)', async () => {
     const storage = makeStorage();
+    // 12개를 두 커서 페이지로 나눠 돌려준다 — 모달은 전부 모아 스냅샷으로 쥔다
+    const many = Array.from({ length: 12 }, (_, i) =>
+      ({ id: `f${i}`, kind: 'template' as const, title: `양식 ${i}` }));
     storage.list
-      .mockResolvedValueOnce({
-        items: [{ id: 'a', kind: 'template', title: '첫 장' }],
-        nextCursor: 'c1',
-      })
-      .mockResolvedValueOnce({ items: [{ id: 'b', kind: 'template', title: '둘째 장' }] });
+      .mockResolvedValueOnce({ items: many.slice(0, 10), nextCursor: 'c1' })
+      .mockResolvedValueOnce({ items: many.slice(10) });
     const el = await mountWithStorage(storage);
 
     toolbarButton(el, strings.designer.myFormsList).click();
     await flush();
     await el.updateComplete;
-    byAria(el, strings.designer.loadMore).click();
-    await flush();
-    await el.updateComplete;
 
-    expect(storage.list).toHaveBeenLastCalledWith({ kind: 'template' }, 'c1');
+    // 커서로 두 번 조회해 전부 모은다
+    expect(storage.list).toHaveBeenCalledTimes(2);
+    expect(storage.list).toHaveBeenNthCalledWith(1, { kind: 'template' }, undefined);
+    expect(storage.list).toHaveBeenNthCalledWith(2, { kind: 'template' }, 'c1');
+
+    // 한 페이지 10개 → 첫 페이지 10개 + 번호 버튼 2개
+    expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(10);
+    const pageBtns = Array.from(el.shadowRoot!.querySelectorAll('.page-btn')) as HTMLButtonElement[];
+    expect(pageBtns.length).toBe(2);
+
+    // 2페이지로 이동 — 어댑터 재조회 없이 나머지 2개
+    storage.list.mockClear();
+    pageBtns[1]!.click();
+    await el.updateComplete;
+    expect(storage.list).not.toHaveBeenCalled();
     expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(2);
     el.remove();
   });

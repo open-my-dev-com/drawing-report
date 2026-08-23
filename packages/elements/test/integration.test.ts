@@ -5,7 +5,12 @@
  * 해시·서명 검증 → 저장소 어댑터 저장·조회까지 패키지 경계를 넘어 확인한다.
  */
 import 'fake-indexeddb/auto';
+import { Blob as NodeBlob } from 'node:buffer';
 import { beforeAll, describe, expect, it } from 'vitest';
+
+// happy-dom의 Blob은 fake-indexeddb의 구조화 복제와 호환되지 않아 왕복 시 빈 객체가 된다
+// (실제 브라우저에선 Blob이 IndexedDB를 정상 왕복한다). 저장소 왕복을 확인하려고 Node Blob을 쓴다.
+globalThis.Blob = NodeBlob as unknown as typeof globalThis.Blob;
 import {
   computeIntegrity,
   generateSigningKeyPair,
