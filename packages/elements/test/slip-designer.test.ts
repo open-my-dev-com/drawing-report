@@ -4283,6 +4283,28 @@ describe('<slip-designer> 요소 그룹화 (G-27)', () => {
     el.remove();
   });
 
+  it('그룹을 복사·붙여넣기하면 사본도 함께 새 그룹으로 묶인다 (G-48)', async () => {
+    const el = await loadDesigner();
+    await groupBoth(el);
+    const origGroup = elById(el, 'txt-1').group;
+
+    toolbarButton(el, strings.designer.copy).click();
+    await el.updateComplete;
+    const changes: CustomEvent[] = [];
+    el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
+    toolbarButton(el, strings.designer.paste).click();
+    await el.updateComplete;
+
+    const elements = changes.at(-1)!.detail.file.template.pages[0].elements;
+    // 원본 2개 + 사본 2개
+    expect(elements.length).toBe(4);
+    const pasted = elements.slice(2);
+    expect(pasted[0].group).toBe(pasted[1].group); // 사본끼리 같은 그룹
+    expect(pasted[0].group).not.toBe(origGroup); // 원본 그룹과는 다른 새 그룹
+    expect(selectedIds(el).size).toBe(2); // 사본 2개가 선택됨
+    el.remove();
+  });
+
   it('그룹의 한 요소만 눌러도 그룹 전체가 선택되고 함께 움직인다', async () => {
     const el = await loadDesigner();
     await groupBoth(el);

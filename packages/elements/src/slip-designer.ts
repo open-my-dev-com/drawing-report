@@ -187,30 +187,46 @@ function justifyOf(alignment: 'left' | 'center' | 'right' | undefined): string {
   return alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
 }
 
-/** 글자 스타일(굵게·밑줄·취소선)을 CSS 조각으로 — 앞에 ;가 붙은 형태 (0.2.0, ADR-032) */
-function textStyleCss(style: {
-  bold?: boolean | undefined;
-  underline?: boolean | undefined;
-  strikethrough?: boolean | undefined;
-  verticalAlignment?: 'top' | 'middle' | 'bottom' | undefined;
-  lineHeight?: number | undefined;
-  characterSpacing?: number | undefined;
-  vertical?: boolean | undefined;
-}): string {
+/** 수직 정렬(top/middle/bottom)을 flexbox 정렬값으로 — 기본은 상단(flex-start) */
+function verticalFlexAlign(v: 'top' | 'middle' | 'bottom' | undefined): string {
+  return v === 'middle' ? 'center' : v === 'bottom' ? 'flex-end' : 'flex-start';
+}
+
+/**
+ * 글자 스타일(굵게·밑줄·취소선·조판)을 CSS 조각으로 — 앞에 ;가 붙은 형태 (0.2.0, ADR-032).
+ *
+ * @param style - 요소·셀의 글자 스타일
+ * @param opts - `omitVerticalAlign`이 true면 justify-content를 넣지 않는다. flex column인
+ *   `.el-content`는 justify-content가 세로축이라 그대로 두지만, flex row인 그리드 칸은
+ *   호출부가 세로 정렬을 align-items로 따로 넣으므로 여기서 justify-content를 빼야
+ *   가로 정렬을 덮지 않는다 (ADR-012).
+ */
+function textStyleCss(
+  style: {
+    bold?: boolean | undefined;
+    underline?: boolean | undefined;
+    strikethrough?: boolean | undefined;
+    verticalAlignment?: 'top' | 'middle' | 'bottom' | undefined;
+    lineHeight?: number | undefined;
+    characterSpacing?: number | undefined;
+    vertical?: boolean | undefined;
+  },
+  opts?: { omitVerticalAlign?: boolean },
+): string {
   const decorations = [
     style.underline === true ? 'underline' : '',
     style.strikethrough === true ? 'line-through' : '',
   ].filter(Boolean).join(' ');
   // 수직 정렬은 flex column의 세로 배치로 (기본 상단), 글자 조판은 인라인 CSS로 그려 PDF와 맞춘다 (0.5.0, ADR-012)
-  const justify = style.verticalAlignment === 'middle'
-    ? 'center'
-    : style.verticalAlignment === 'bottom' ? 'flex-end' : 'flex-start';
+  const verticalAlign = opts?.omitVerticalAlign
+    ? ''
+    : `;justify-content:${verticalFlexAlign(style.verticalAlignment)}`;
   // 기울임(italic)은 캔버스에 그리지 않는다 — PDF는 Italic 변형 폰트가 없으면 곧게 나오는데,
   // 브라우저는 없는 자형을 흉내 내 기울여 캔버스만 어긋난다(ADR-012). 화면·PDF 일치를 위해 넣지 않는다
   return (
     (style.bold === true ? ';font-weight:700' : '') +
     (decorations ? `;text-decoration:${decorations}` : '') +
-    `;justify-content:${justify}` +
+    verticalAlign +
     (style.lineHeight !== undefined ? `;line-height:${style.lineHeight}` : '') +
     (style.characterSpacing !== undefined ? `;letter-spacing:${(style.characterSpacing * 4) / 3}px` : '') +
     // 세로쓰기 — PDF는 글자를 한 자씩 쌓는다. 캔버스는 세로쓰기 모드로 근사한다 (한 자씩 위에서 아래로)
@@ -2652,7 +2668,7 @@ export class SlipDesigner extends LitElement {
   private _error: string | null = null;
   private _drag: DragState | null = null;
   private _resize: ResizeState | null = null;
-  private _clipboard: SlipElement | null = null;
+  private _clipboard: SlipElement[] | null = null;
   private _guideX: number | null = null;
   private _guideY: number | null = null;
   private _previewGeneration = 0;
@@ -3204,34 +3220,47 @@ export class SlipDesigner extends LitElement {
   }
 
   private _copySelected(): void {
-    const el = this._findSelectedElement();
-    if (!el) return;
-    this._clipboard = JSON.parse(JSON.stringify(el)) as SlipElement;
+    const elements = this._currentElements();
+    if (!elements || this._selectedIds.size === 0) return;
+    // 선택된 요소를 모두 복사한다 — 그룹·다중 선택이면 삭제·이동과 같은 대상으로 다룬다.
+    const selected = elements.filter((el) => this._selectedIds.has(el.id));
+    if (selected.length === 0) return;
+    this._clipboard = JSON.parse(JSON.stringify(selected)) as SlipElement[];
     this.requestUpdate();
   }
 
   private _paste(): void {
     const elements = this._currentElements();
-    if (!elements || !this._clipboard) return;
+    if (!elements || !this._clipboard || this._clipboard.length === 0) return;
 
     this._pushUndo();
 
-    const copy = JSON.parse(JSON.stringify(this._clipboard)) as SlipElement;
-    copy.id = crypto.randomUUID();
-    copy.position = {
-      x: round1(copy.position.x + 5),
-      y: round1(copy.position.y + 5),
-    };
+    // 복사한 요소들이 같은 그룹이면 사본도 함께 묶되, 원본 그룹과는 다른 새 그룹으로 둔다.
+    const groupRemap = new Map<string, string>();
+    const pasted: SlipElement[] = [];
+    for (const src of this._clipboard) {
+      const copy = JSON.parse(JSON.stringify(src)) as SlipElement;
+      copy.id = crypto.randomUUID();
+      copy.position = { x: round1(copy.position.x + 5), y: round1(copy.position.y + 5) };
+      if (copy.group !== undefined) {
+        const mapped = groupRemap.get(copy.group) ?? crypto.randomUUID();
+        groupRemap.set(copy.group, mapped);
+        copy.group = mapped;
+      }
+      if (copy.type === 'field') this._ensureBindingDef(copy.binding);
+      if (copy.type === 'grid' && copy.repeat) this._ensureBindingDef(copy.repeat.binding);
+      elements.push(copy);
+      pasted.push(copy);
+    }
     // 연속으로 붙여넣으면 계단식으로 내려가도록 클립보드 위치를 갱신
-    this._clipboard.position = { ...copy.position };
+    for (const src of this._clipboard) {
+      src.position = { x: round1(src.position.x + 5), y: round1(src.position.y + 5) };
+    }
 
-    elements.push(copy);
-    // 붙여넣은 사본만 고른다 (원본과 같은 그룹이어도 사본 하나만)
-    this._selectedId = copy.id;
-    this._selectedIds = new Set([copy.id]);
+    // 붙여넣은 사본들을 고른다
+    this._selectedId = pasted[0]!.id;
+    this._selectedIds = new Set(pasted.map((el) => el.id));
     this._sideSelection = null;
-    if (copy.type === 'field') this._ensureBindingDef(copy.binding);
-    if (copy.type === 'grid' && copy.repeat) this._ensureBindingDef(copy.repeat.binding);
     this._emitChange();
     this.requestUpdate();
   }
@@ -5412,7 +5441,7 @@ export class SlipDesigner extends LitElement {
     const w = Math.max(1, el.width * PX_PER_MM);
     const h = Math.max(1, el.height * PX_PER_MM);
     const stroke = el.borderColor ?? '#000000';
-    const strokeWidth = Math.max(1, (el.borderWidth ?? 0.2) * PX_PER_MM);
+    const strokeWidth = Math.max(1, (el.borderWidth ?? DEFAULT_LINE_WIDTH) * PX_PER_MM);
 
     if (el.type === 'line') {
       const dash = dashArrayOf(el.borderStyle);
@@ -5457,7 +5486,7 @@ export class SlipDesigner extends LitElement {
     const colTracks = widths.map((w) => `${w}fr`).join(' ');
     const rowTracks = heights.map((h) => `${h}fr`).join(' ');
     const lineColor = el.borderColor ?? '#000000';
-    const lineWidth = el.borderWidth ?? 0.2;
+    const lineWidth = el.borderWidth ?? DEFAULT_LINE_WIDTH;
     const borderCssOf = (cell?: GridCell): string => {
       const width = cell?.borderWidth ?? lineWidth;
       if (width <= 0) return 'none';
@@ -5486,14 +5515,19 @@ export class SlipDesigner extends LitElement {
     const boxes = placed.map(({ cell, row, item }) => {
       const isSelectedCell =
         selected && this._selectedCell?.row === cell.row && this._selectedCell?.column === cell.column;
+      // 그리드 칸은 flex row라 가로 정렬은 justify-content, 세로 정렬은 align-items다.
+      // textStyleCss는 세로 정렬을 justify-content로 넣으므로(flex column용) 여기선 빼서
+      // 가로 정렬을 덮지 않게 한다 (ADR-012 — 캔버스·PDF 정렬 일치).
+      const merged = { ...el, ...cell };
       const style = [
         `grid-area:${row + 1}/${cell.column + 1}/span ${cell.rowSpan ?? 1}/span ${cell.colSpan ?? 1}`,
         `border:${borderCssOf(cell)}`,
         `font-size:${fontPx(cell.fontSize ?? el.fontSize)}`,
         `justify-content:${justifyOf(cell.alignment ?? el.alignment)}`,
+        `align-items:${verticalFlexAlign(merged.verticalAlignment)}`,
         cell.backgroundColor ? `background-color:${cell.backgroundColor}` : '',
         (cell.fontColor ?? el.fontColor) ? `color:${cell.fontColor ?? el.fontColor}` : '',
-      ].filter(Boolean).join(';') + textStyleCss({ ...el, ...cell });
+      ].filter(Boolean).join(';') + textStyleCss(merged, { omitVerticalAlign: true });
       return html`<div class=${isSelectedCell ? 'cell-selected' : ''} style=${style}
         >${this._gridCellPreviewText(cell, item)}</div>`;
     });
@@ -6773,7 +6807,7 @@ export class SlipDesigner extends LitElement {
                 )}
                 ${this._renderBorderWidthSelect(
                   cellDef?.borderWidth,
-                  el.borderWidth ?? 0.2,
+                  el.borderWidth ?? DEFAULT_LINE_WIDTH,
                   true,
                   'cellBorderWidth',
                   (v) => this._updateCellStyle('borderWidth', v),
@@ -7313,8 +7347,8 @@ export class SlipDesigner extends LitElement {
     const isLine = el.type === 'line';
     // 테두리 형태(파선·점선)는 직선 분해 렌더가 가능한 종류만 (ADR-032)
     const hasBorderShape = el.type === 'line' || el.type === 'rect' || el.type === 'grid';
-    // 텍스트·필드는 기본 테두리 없음, 나머지는 기본 0.2mm (PDF 변환 계층과 동일)
-    const defaultWidth = el.type === 'text' || el.type === 'field' ? 0 : 0.2;
+    // 텍스트·필드는 기본 테두리 없음, 나머지는 기본 굵기 (PDF 변환 계층과 동일)
+    const defaultWidth = el.type === 'text' || el.type === 'field' ? 0 : DEFAULT_LINE_WIDTH;
 
     return html`
       ${hasFontColor ? html`
