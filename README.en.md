@@ -64,3 +64,12 @@ storage adapters, and backend integration.
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Architecture Decision Records (ADR-001–035) |
 | [docs/OPEN-QUESTIONS.md](docs/OPEN-QUESTIONS.md) | Open questions (all resolved) |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Roadmap and session hand-off |
+
+## License
+
+Business Source License 1.1 (**BUSL-1.1**) — source-available, not an OSI open-source license.
+Production use embedded in your own app is permitted, but offering SlipKit to third parties as a
+hosted or embedded commercial product/service that competes with SlipKit requires a commercial
+license. On the **Change Date, 2031-01-01**, it converts to the Apache License 2.0. Full text in
+[LICENSE](LICENSE); copyright holder JangHyeonho. The bundled fonts Pretendard and Noto Sans JP are
+each under the SIL Open Font License 1.1 (separate from the code license).
