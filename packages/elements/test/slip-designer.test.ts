@@ -4443,6 +4443,34 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
+  it('셀 파라미터를 포커스 이동 없이 연달아 바꿔도 매번 반영된다 (Lit select 회귀)', async () => {
+    const el = await mount();
+    (el as unknown as { _updateFile: (fn: (f: SlipTemplateFile) => void) => void })._updateFile((f) => {
+      f.template.bindings = [{
+        key: 'items', valueType: 'list',
+        fields: [{ key: '품명' }, { key: '수량' }, { key: '단가' }],
+      }];
+    });
+    await el.updateComplete;
+    await clickCell(el, 15, 25);
+    await el.updateComplete;
+
+    const sel = () => Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((r) => r.querySelector('label')?.textContent?.trim() === s.binding)!
+      .querySelector('select') as HTMLSelectElement;
+    const cellBinding = () => gridOf(el).cells.find((c) => c.row === 1 && c.column === 0)?.binding;
+
+    for (const value of ['수량', '단가', '품명']) {
+      const box = sel();
+      box.value = value;
+      box.dispatchEvent(new Event('change', { bubbles: true }));
+      await el.updateComplete;
+      expect(cellBinding()).toBe(value);
+      expect(sel().value).toBe(value);
+    }
+    el.remove();
+  });
+
   it('그리드 칸을 고르면 그리드 자체 옵션은 감추고 그리드로 돌아가는 줄을 보인다 (ADR-034)', async () => {
     const el = await mount();
     // 칸을 고르기 전에는 그리드 옵션(행 수)이 보인다

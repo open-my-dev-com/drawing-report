@@ -6701,7 +6701,7 @@ export class SlipDesigner extends LitElement {
       <div class="prop-section">
         <div class="prop-row">
           <label>${s.paperSize}</label>
-          <select .value=${presetIndex >= 0 ? String(presetIndex) : 'custom'}
+          <select .value=${live(presetIndex >= 0 ? String(presetIndex) : 'custom')}
                   @change=${(e: Event) => {
                     const v = (e.target as HTMLSelectElement).value;
                     if (v === 'custom') return;
@@ -7057,7 +7057,7 @@ export class SlipDesigner extends LitElement {
         </div>
         <div class="prop-row">
           <label>${s.bindingValueType}</label>
-          <select aria-label=${s.bindingValueType} .value=${info.valueType ?? ''}
+          <select aria-label=${s.bindingValueType} .value=${live(info.valueType ?? '')}
             @change=${(e: Event) => this._updateBindingField(listKey, info.key, { valueType: valOf(e) })}>
             ${BINDING_FIELD_VALUE_TYPES.map((t) => html`
               <option value=${t.value} ?selected=${(info.valueType ?? '') === t.value}>
@@ -7119,7 +7119,7 @@ export class SlipDesigner extends LitElement {
         </div>
         <div class="prop-row">
           <label>${s.bindingValueType}</label>
-          <select aria-label=${s.bindingValueType} .value=${info.valueType ?? ''}
+          <select aria-label=${s.bindingValueType} .value=${live(info.valueType ?? '')}
             @change=${(e: Event) => this._setBindingValueType(info.key, valOf(e))}>
             ${BINDING_VALUE_TYPES.map((t) => html`
               <option value=${t.value} ?selected=${(info.valueType ?? '') === t.value}>
@@ -7199,7 +7199,7 @@ export class SlipDesigner extends LitElement {
     }
     const canAdd = !inBand || listKey !== undefined;
     return html`
-      <select aria-label=${s.binding} .value=${current}
+      <select aria-label=${s.binding} .value=${live(current)}
         @change=${(e: Event) => {
           const v = (e.target as HTMLSelectElement).value;
           if (v === NEW_BINDING_OPTION) {
@@ -7250,7 +7250,7 @@ export class SlipDesigner extends LitElement {
     return html`
       <div class="prop-row">
         <label>${s.binding}</label>
-        <select class="binding-select" aria-label=${s.binding}
+        <select class="binding-select" aria-label=${s.binding} .value=${live(current)}
           @change=${(e: Event) => {
             const value = (e.target as HTMLSelectElement).value;
             if (value === NEW_BINDING_OPTION) onNew();
@@ -7674,7 +7674,7 @@ export class SlipDesigner extends LitElement {
           <div class="prop-section">
             <div class="prop-row">
               <label>${s.barcodeKind}</label>
-              <select aria-label=${s.barcodeKind} .value=${el.kind}
+              <select aria-label=${s.barcodeKind} .value=${live(el.kind)}
                 @change=${(e: Event) => this._updateElement((target) => {
                   if (target.type === 'barcode') target.kind = (e.target as HTMLSelectElement).value as BarcodeKind;
                 })}>
@@ -7687,7 +7687,7 @@ export class SlipDesigner extends LitElement {
             </div>
             <div class="prop-row">
               <label>${s.barcodeValue}</label>
-              <select aria-label=${s.barcodeValue} .value=${source}
+              <select aria-label=${s.barcodeValue} .value=${live(source)}
                 @change=${(e: Event) =>
                   this._chooseBarcodeSource((e.target as HTMLSelectElement).value as 'content' | 'binding' | 'formula')}>
                 <option value="content" ?selected=${source === 'content'}>${s.cellSourceText}</option>
@@ -7788,7 +7788,7 @@ export class SlipDesigner extends LitElement {
               </div>
             <div class="prop-row stacked">
               <label>${s.overflow}</label>
-              <select aria-label=${s.overflow} .value=${el.overflow ?? 'clip'}
+              <select aria-label=${s.overflow} .value=${live(el.overflow ?? 'clip')}
                 @change=${(e: Event) => this._updateGrid((grid) => {
                   const value = (e.target as HTMLSelectElement).value;
                   if (value === 'clip') delete (grid as { overflow?: unknown }).overflow;
@@ -7812,6 +7812,7 @@ export class SlipDesigner extends LitElement {
                 <div class="prop-row">
                   <label>${s.binding}</label>
                   <select class="binding-select" aria-label="${s.repeatSection} ${s.binding}"
+                    .value=${live(repeat.binding)}
                     @change=${(e: Event) => this._updateGridRepeat({ binding: (e.target as HTMLSelectElement).value })}>
                     ${this._bindingList().filter((b) => b.valueType === 'list' || b.key === repeat.binding).map((b) => html`
                       <option value=${b.key} ?selected=${b.key === repeat.binding}>${b.label}</option>`)}
@@ -7895,7 +7896,7 @@ export class SlipDesigner extends LitElement {
                 </div>
                 <div class="prop-row">
                   <label>${s.cellSource}</label>
-                  <select aria-label=${s.cellSource} .value=${source}
+                  <select aria-label=${s.cellSource} .value=${live(source)}
                     @change=${(e: Event) =>
                       this._chooseGridCellSource((e.target as HTMLSelectElement).value as 'content' | 'binding' | 'formula')}>
                     <option value="content" ?selected=${source === 'content'}>${s.cellSourceText}</option>
@@ -8097,6 +8098,7 @@ export class SlipDesigner extends LitElement {
         <label>${s.fontName}</label>
         <select aria-label=${ariaLabel ?? s.fontName}
           class=${current === undefined ? 'dim' : ''}
+          .value=${live(current ?? '')}
           @change=${(e: Event) => apply((e.target as HTMLSelectElement).value || null)}>
           <option value="" ?selected=${current === undefined}>${s.fontDefault}</option>
           ${options.map((name) => html`
