@@ -982,7 +982,7 @@ describe('<slip-designer> 속성 패널', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 왼쪽 사이드바 (B-7) — 페이지 썸네일·요소 목록·바인딩 목록
+// 왼쪽 사이드바 (B-7) — 페이지 썸네일·요소 목록·파라미터 목록
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 사이드바', () => {
@@ -1213,7 +1213,7 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  it('바인딩 목록은 양식 전체의 field·그리드 바인딩을 모으고, 반복 구간 필드는 하위 줄로 보여준다', async () => {
+  it('파라미터 목록은 양식 전체의 field·그리드 파라미터을 모으고, 반복 구간 필드는 하위 줄로 보여준다', async () => {
     const file = makeTemplateFile();
     file.template.pages.push({
       elements: [
@@ -1245,7 +1245,7 @@ describe('<slip-designer> 사이드바', () => {
       .querySelectorAll('.side-col-row')).map((r) => r.textContent?.trim()))
       .toEqual(['a']);
 
-    // 바인딩을 고르면 오른쪽 패널이 바인딩 편집으로 바뀌고, "쓰는 곳"에서 요소로 이동한다
+    // 파라미터을 고르면 오른쪽 패널이 파라미터 편집으로 바뀌고, "쓰는 곳"에서 요소로 이동한다
     (rows[0] as HTMLElement).click();
     await el.updateComplete;
     expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
@@ -1337,7 +1337,7 @@ describe('<slip-designer> 사이드바', () => {
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await loadDesigner();
 
-    // 하위 줄 이름은 반복 구간 위쪽 같은 열의 고정 문구, 없으면 물리명이다 (펼쳐야 보인다)
+    // 하위 줄 이름은 반복 구간 위쪽 같은 열의 직접 입력한 글, 없으면 물리명이다 (펼쳐야 보인다)
     twisty(el, 'items')!.click();
     await el.updateComplete;
     const cols = sideSection(el, strings.designer.sidebarBindings).querySelectorAll('.side-col-row');
@@ -2985,7 +2985,7 @@ describe('<slip-designer> 패널 표시 정리 (F-18)', () => {
     el.remove();
   });
 
-  it('요소 종류 배지는 평소 숨었다가 고른 요소에만 보이고, 종류 보기로 전부 켠다', async () => {
+  it('요소 종류 배지는 평소 숨었다가 고른 요소에만 보이고, 요소 확인로 전부 켠다', async () => {
     const el = await loadDesigner();
     const badges = () => Array.from(el.shadowRoot!.querySelectorAll('.element .badge'));
     const canvas = () => el.shadowRoot!.querySelector('.canvas-area')!;
@@ -2997,7 +2997,7 @@ describe('<slip-designer> 패널 표시 정리 (F-18)', () => {
     await el.updateComplete;
     expect(badges().filter((n) => getComputedStyle(n).display !== 'none').length).toBe(1);
 
-    // 툴바의 종류 보기를 켜면 캔버스가 전부 보이는 상태로 바뀐다
+    // 툴바의 요소 확인를 켜면 캔버스가 전부 보이는 상태로 바뀐다
     toolbarButton(el, strings.designer.showBadges).click();
     await el.updateComplete;
     expect(canvas().classList.contains('show-badges')).toBe(true);
@@ -3222,7 +3222,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 
-  it('바인딩 목록에 표의 하위 열까지 나오고, 누르면 표바인딩.열키로 삽입된다 (F-21)', async () => {
+  it('파라미터 목록에 표의 하위 열까지 나오고, 누르면 표파라미터.열키로 삽입된다 (F-21)', async () => {
     const el = await loadWithTable();
     await openFormulaModal(el);
 
@@ -3235,11 +3235,11 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 
-  it('표 바인딩 뒤에 점을 찍으면 열을 제안하고, 고르면 이어 붙는다 (F-21)', async () => {
+  it('표 파라미터 뒤에 점을 찍으면 열을 제안하고, 고르면 이어 붙는다 (F-21)', async () => {
     const el = await loadWithTable();
     await openFormulaModal(el);
 
-    // 제안은 표 바인딩 뒤에 점을 찍었을 때만 나온다
+    // 제안은 표 파라미터 뒤에 점을 찍었을 때만 나온다
     expect(el.shadowRoot!.querySelector('.formula-suggest')).toBeNull();
 
     setDraft(el, 'SUM(items.');
@@ -3318,12 +3318,12 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 
-  it('바인딩 목록이 칩으로 나오고 클릭하면 삽입된다', async () => {
+  it('파라미터 목록이 칩으로 나오고 클릭하면 삽입된다', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);
 
     const chips = el.shadowRoot!.querySelectorAll('.binding-chip');
-    // 방금 만든 필드의 기본 바인딩이 하나 있다
+    // 방금 만든 필드의 기본 파라미터이 하나 있다
     expect(chips.length).toBeGreaterThan(0);
     (chips[0] as HTMLButtonElement).click();
     await el.updateComplete;
@@ -3348,10 +3348,10 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// D-13: 사이드바 바인딩 등록·삭제·논리명 편집 + 샘플 데이터 편집·채운 미리보기
+// D-13: 사이드바 파라미터 등록·삭제·논리명 편집 + 샘플 데이터 편집·채운 미리보기
 // ---------------------------------------------------------------------------
 
-describe('<slip-designer> 바인딩 관리 (ADR-034)', () => {
+describe('<slip-designer> 파라미터 관리 (ADR-034)', () => {
   const byAria = (el: Element, label: string) =>
     Array.from(el.shadowRoot!.querySelectorAll('button'))
       .find((b) => b.getAttribute('aria-label') === label) as HTMLButtonElement;
@@ -3375,7 +3375,7 @@ describe('<slip-designer> 바인딩 관리 (ADR-034)', () => {
     await addBinding(el);
 
     expect(defsOf(el)).toEqual([{ key: 'value1', label: `${strings.designer.newBindingName} 1` }]);
-    // 오른쪽 패널이 바인딩 편집으로 바뀐다
+    // 오른쪽 패널이 파라미터 편집으로 바뀐다
     expect(el.shadowRoot?.querySelector('.type-name')?.textContent?.trim())
       .toBe(strings.designer.sidebarBindings);
     expect((el.shadowRoot?.querySelector('.binding-key-input') as HTMLInputElement).value)
@@ -3509,7 +3509,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     await el.updateComplete;
   }
 
-  it('필드 바인딩의 샘플 값을 입력하면 sampleValues에 저장된다 (숫자 표기는 수로)', async () => {
+  it('필드 파라미터의 샘플 값을 입력하면 sampleValues에 저장된다 (숫자 표기는 수로)', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addField);
     const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { binding: string };
@@ -3532,7 +3532,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     el.remove();
   });
 
-  it('반복 구간 바인딩은 항목 필드대로 행을 추가·편집한다 (ADR-037)', async () => {
+  it('반복 구간 파라미터은 항목 필드대로 행을 추가·편집한다 (ADR-037)', async () => {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{
       type: 'grid' as const, id: 'g-items', name: '품목 그리드',
@@ -3550,7 +3550,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     const el = await loadDesigner();
     await openSampleModal(el);
 
-    // 반복 바인딩(items)은 행 편집 그리드로 나온다
+    // 반복 파라미터(items)은 행 편집 그리드로 나온다
     expect(el.shadowRoot!.querySelector('.sample-grid')).not.toBeNull();
     byAria(el, `items ${strings.designer.addRow}`).click();
     await el.updateComplete;
@@ -3610,7 +3610,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     el.remove();
   });
 
-  it('바인딩이 10개를 넘으면 10개 단위 페이지로 나뉜다', async () => {
+  it('파라미터이 10개를 넘으면 10개 단위 페이지로 나뉜다', async () => {
     const el = await loadDesigner();
     (fileOf(el).template as { bindings?: { key: string }[] }).bindings =
       Array.from({ length: 12 }, (_, i) => ({ key: `b${i + 1}` }));
@@ -4259,7 +4259,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
   it('요소 목록에서 그리드를 펼치면 값·수식 칸만 하위 줄로 나오고 누르면 그 칸이 선택된다 (G-44)', async () => {
     const el = await mount(); // 그리드를 고르면 요소 목록에서도 저절로 펼쳐진다
     const cellRows = Array.from(el.shadowRoot!.querySelectorAll('.side-cell-row'));
-    // 값(바인딩)이 붙은 칸만 나온다 — 고정 문구 칸(품명 헤더)은 넣지 않는다
+    // 값(파라미터)이 붙은 칸만 나온다 — 직접 입력한 글 칸(품명 헤더)은 넣지 않는다
     expect(cellRows.length).toBe(1);
     // 줄에는 칸 이름만 보인다 — 자리(행·열)는 툴팁으로 돌렸다 (ADR-034)
     expect(cellRows[0]!.textContent?.trim()).toBe('품명');
@@ -4346,7 +4346,7 @@ describe('<slip-designer> 변동 이미지 (G-47)', () => {
     byAria(el, strings.designer.sampleData).click();
     await el.updateComplete;
 
-    // 이미지 바인딩에는 업로드 버튼이 나오고 한 줄 텍스트 입력은 없다
+    // 이미지 파라미터에는 업로드 버튼이 나오고 한 줄 텍스트 입력은 없다
     const pick = Array.from(el.shadowRoot!.querySelectorAll('button'))
       .find((b) => b.getAttribute('aria-label') === `도장 ${strings.designer.imagePick}`);
     expect(pick).toBeTruthy();
@@ -4364,7 +4364,7 @@ describe('<slip-designer> 바코드 요소 (G-33)', () => {
   };
   const selectEl = (el: HTMLElement, id: string) => selectElement(el, id);
 
-  it('바코드 도구로 만들면 qrcode·바인딩으로 생성된다', async () => {
+  it('바코드 도구로 만들면 qrcode·파라미터으로 생성된다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addBarcode);
     const bc = lastElement(el);
@@ -4376,7 +4376,7 @@ describe('<slip-designer> 바코드 요소 (G-33)', () => {
     el.remove();
   });
 
-  it('종류를 바꾸고 값 소스를 고정 문구로 바꾼다', async () => {
+  it('종류를 바꾸고 값 소스를 직접 입력으로 바꾼다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addBarcode);
     const bc = lastElement(el);
@@ -4391,7 +4391,7 @@ describe('<slip-designer> 바코드 요소 (G-33)', () => {
     await el.updateComplete;
     expect(lastElement(el).kind).toBe('ean13');
 
-    // 값 소스를 고정 문구로 — content가 생기고 binding이 빠진다
+    // 값 소스를 직접 입력으로 — content가 생기고 binding이 빠진다
     const sourceSelect = Array.from(el.shadowRoot!.querySelectorAll('select'))
       .find((s) => s.getAttribute('aria-label') === strings.designer.barcodeValue) as HTMLSelectElement;
     sourceSelect.value = 'content';

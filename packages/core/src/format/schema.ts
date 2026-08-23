@@ -42,7 +42,7 @@ export const SLIP_LIMITS = {
   maxAssets: 1000,
   /** 그리드 최대 셀 수 */
   maxGridCells: 100_000,
-  /** 바인딩 정의부 최대 항목 수 */
+  /** 파라미터 정의부 최대 항목 수 */
   maxBindings: 500,
   /** 그리드(grid) 최대 행 수 */
   maxGridRowTracks: 1000,
@@ -141,7 +141,7 @@ const textElementSchema = z.object({
   type: z.literal('text'),
   ...elementBaseShape,
   ...colorStyleShape,
-  /** 고정 문구 또는 수식/플레이스홀더 포함 문자열 */
+  /** 직접 입력한 글 (수식·플레이스홀더 포함 가능) */
   content: z.string(),
   ...fontShape,
 });
@@ -174,7 +174,7 @@ const gridCellSchema = z.object({
   /** 병합 범위 (기본 1) */
   rowSpan: z.number().int().min(1).optional(),
   colSpan: z.number().int().min(1).optional(),
-  /** 고정 문구 */
+  /** 직접 입력한 글 */
   content: z.string().optional(),
   /** 값 키 — 반복 구간 안이면 그 항목의 필드, 밖이면 전표 values의 키 */
   binding: idSchema.optional(),
@@ -411,14 +411,14 @@ const barcodeKindSchema = z.enum([
   'japanpost', 'gs1datamatrix', 'pdf417',
 ]);
 
-/** 바코드 요소 — 값은 고정 문구·전표 값·수식 중 하나 */
+/** 바코드 요소 — 값은 직접 입력·전표 값·수식 중 하나 */
 const barcodeElementSchema = z
   .object({
     type: z.literal('barcode'),
     ...elementBaseShape,
     /** 바코드 종류 */
     kind: barcodeKindSchema,
-    /** 고정 문구 */
+    /** 직접 입력한 글 */
     content: z.string().optional(),
     /** 전표 values의 키 */
     binding: idSchema.optional(),
@@ -667,23 +667,23 @@ export const slipTemplateBodySchema = z
     paper: paperSchema,
     pages: z.array(slipPageSchema).min(1).max(SLIP_LIMITS.maxPages, `페이지는 최대 ${SLIP_LIMITS.maxPages}개입니다`),
     assets: z.array(assetEntrySchema).max(SLIP_LIMITS.maxAssets, `에셋은 최대 ${SLIP_LIMITS.maxAssets}개입니다`),
-    /** 바인딩 정의부 (선택, ADR-032) — 요소가 미등록 키를 쓰는 것도 허용한다 */
+    /** 파라미터 정의부 (선택, ADR-032) — 요소가 미등록 키를 쓰는 것도 허용한다 */
     bindings: z
       .array(bindingDefSchema)
-      .max(SLIP_LIMITS.maxBindings, `바인딩 정의는 최대 ${SLIP_LIMITS.maxBindings}개입니다`)
+      .max(SLIP_LIMITS.maxBindings, `파라미터 정의는 최대 ${SLIP_LIMITS.maxBindings}개입니다`)
       .optional(),
     /** 미리보기용 샘플 값 (선택, ADR-032) — 발행·무결성과 무관, 전표 생성 시 미포함 */
     sampleValues: z.record(z.string(), jsonValueSchema).optional(),
   })
   .superRefine((body, ctx) => {
-    // 바인딩 정의부 key 유일성 (ADR-032)
+    // 파라미터 정의부 key 유일성 (ADR-032)
     const bindingKeys = new Set<string>();
     body.bindings?.forEach((binding, index) => {
       if (bindingKeys.has(binding.key)) {
         ctx.addIssue({
           code: 'custom',
           path: ['bindings', index, 'key'],
-          message: `바인딩 key가 중복됩니다: ${binding.key}`,
+          message: `파라미터 key가 중복됩니다: ${binding.key}`,
         });
       }
       bindingKeys.add(binding.key);
@@ -814,7 +814,7 @@ export const slipVoucherFileSchema = z
     kind: z.literal('voucher'),
     /** 생성 시점 양식 전체 스냅샷 (ADR-008) */
     templateSnapshot: slipTemplateBodySchema,
-    /** 필드 바인딩 키 → 값 */
+    /** 필드 파라미터 키 → 값 */
     values: z.record(z.string(), jsonValueSchema),
     /** 발행(확정) 여부. 발행 시 이미지 내장(ADR-036)·무결성 기록(ADR-019) */
     issued: z.boolean(),
@@ -840,7 +840,7 @@ export const slipVoucherFileSchema = z
       });
     }
     // 변동 이미지 값(values)도 훑는다 — 템플릿 src만 보던 검사의 사각지대(ADR-036).
-    // 이미지 요소가 참조하는 바인딩 값이 채워져 있으면 고정 src와 같은 data: base64 형식이어야
+    // 이미지 요소가 참조하는 파라미터 값이 채워져 있으면 고정 src와 같은 data: base64 형식이어야
     // 한다(외부 URL·깨진 data: 모두 거부). 비어 있으면 이미지 없음이라 허용한다.
     for (const page of voucher.templateSnapshot.pages) {
       for (const element of page.elements) {
@@ -985,13 +985,13 @@ export type RectElement = z.infer<typeof rectElementSchema>;
 export type EllipseElement = z.infer<typeof ellipseElementSchema>;
 /** 정다각형 요소 (ADR-032) — sides 3=삼각형, 5=오각형 … */
 export type PolygonElement = z.infer<typeof polygonElementSchema>;
-/** 필드 요소 (전표 값 바인딩) */
+/** 필드 요소 (전표 값 파라미터) */
 export type FieldElement = z.infer<typeof fieldElementSchema>;
 /** 바코드 요소 */
 export type BarcodeElement = z.infer<typeof barcodeElementSchema>;
 /** 바코드 종류 */
 export type BarcodeKind = z.infer<typeof barcodeKindSchema>;
-/** 바인딩 값 종류 */
+/** 파라미터 값 종류 */
 export type BindingValueType = z.infer<typeof bindingValueTypeSchema>;
 /** 페이지 번호 표시 */
 export type PageNumber = z.infer<typeof pageNumberSchema>;

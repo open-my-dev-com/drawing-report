@@ -62,7 +62,7 @@ import { parseFormula, evaluateFormula } from '@omdc-slipkit/core';
 
 const ast = parseFormula('SUM(items.amount)');
 const result = evaluateFormula(ast, {
-  bindings: { /* binding values */ },
+  bindings: { /* parameter values */ },
   items: { amount: [1000, 2000, 3000] },
 });
 // result → 6000

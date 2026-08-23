@@ -62,7 +62,7 @@ function createTradeStatement(): SlipTemplateFile {
     template: {
       meta: { title: strings.designer.presetTradeStatement },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
-      // 바인딩 정의부 (ADR-032): 물리명은 camelCase, 화면에는 논리명 표시
+      // 파라미터 정의부 (ADR-032): 물리명은 camelCase, 화면에는 논리명 표시
       bindings: [
         { key: 'tradeDate', label: '거래일자' },
         { key: 'items', label: '품목' },

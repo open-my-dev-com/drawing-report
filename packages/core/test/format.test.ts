@@ -639,13 +639,13 @@ describe('normalizeNumericBindings (ADR-044)', () => {
     { key: '수량' },
   ];
 
-  it('number 바인딩의 빈 값(미입력·null·빈 문자열)을 0으로 바꾼다', () => {
+  it('number 파라미터의 빈 값(미입력·null·빈 문자열)을 0으로 바꾼다', () => {
     expect(normalizeNumericBindings({ 금액: '' }, bindings)).toEqual({ 금액: 0 });
     expect(normalizeNumericBindings({ 금액: null }, bindings)).toEqual({ 금액: 0 });
     expect(normalizeNumericBindings({}, bindings)).toEqual({ 금액: 0 });
   });
 
-  it('number가 아닌 바인딩·이미 수인 값은 건드리지 않는다', () => {
+  it('number가 아닌 파라미터·이미 수인 값은 건드리지 않는다', () => {
     expect(normalizeNumericBindings({ 금액: 1500, 적요: '', 수량: '' }, bindings)).toEqual({
       금액: 1500,
       적요: '',

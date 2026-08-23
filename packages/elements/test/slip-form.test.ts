@@ -163,10 +163,10 @@ describe('<slip-form> 기본 상태', () => {
 });
 
 describe('<slip-form> 입력 칸 구성', () => {
-  it('바인딩마다 입력 칸을 만들고 논리명으로 보여준다 (정의부에만 있는 값 포함)', async () => {
+  it('파라미터마다 입력 칸을 만들고 논리명으로 보여준다 (정의부에만 있는 값 포함)', async () => {
     const el = await mount();
     expect(inputByLabel(el, '거래일자')).toBeTruthy();
-    expect(inputByLabel(el, '비고')).toBeTruthy(); // 요소 없이 정의부에만 있는 바인딩
+    expect(inputByLabel(el, '비고')).toBeTruthy(); // 요소 없이 정의부에만 있는 파라미터
     // 반복 구간이 쓰는 값은 그리드 헤더에 적힌 이름으로 열이 나온다
     const titles = Array.from(el.shadowRoot!.querySelectorAll('.col-title')).map((s) => s.textContent);
     expect(titles).toEqual(['품명', '금액']);
@@ -374,13 +374,13 @@ function makeImageTemplate(): SlipTemplateFile {
 }
 
 describe('<slip-form> 변동 이미지 (G-47)', () => {
-  it('변동 이미지 바인딩에 이미지 업로드 입력을 낸다', async () => {
+  it('변동 이미지 파라미터에 이미지 업로드 입력을 낸다', async () => {
     const el = await mount(makeImageTemplate());
     // 텍스트 입력이 아니라 업로드 버튼과 "선택된 이미지 없음" 안내가 나온다
     const pick = buttonByLabel(el, `도장 이미지 ${strings.form.imageUpload}`);
     expect(pick).not.toBeNull();
     expect(el.shadowRoot?.textContent).toContain(strings.form.imageNone);
-    // 이미지 바인딩에는 한 줄 텍스트 입력을 만들지 않는다
+    // 이미지 파라미터에는 한 줄 텍스트 입력을 만들지 않는다
     const textInput = Array.from(el.shadowRoot!.querySelectorAll('input'))
       .find((i) => i.getAttribute('aria-label') === '도장 이미지');
     expect(textInput).toBeUndefined();

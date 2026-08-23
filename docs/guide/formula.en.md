@@ -164,7 +164,7 @@ TO_DATE("2026-01-05T09:00:00Z") → "2026-01-05"
 ## Formula Syntax
 
 - **Strings**: Wrap in double quotes. To include a quote inside a string, double it (`""`)
-- **Range references**: `bindingName.fieldName` refers to item fields in a grid repeat band (e.g. `items.amount`)
+- **Range references**: `parameterName.fieldName` refers to item fields in a grid repeat band (e.g. `items.amount`)
 - **Arithmetic**: `+` `-` `*` `/` with parentheses `()` for precedence
 - **Comparison**: `=` `<>` `<` `>` `<=` `>=` — compares **same types only** (`3 = "3"` is false)
 - **Types**: number slots take numbers only; empty/missing is 0; convert text to number with `TO_NUMBER` (number to text is automatic)

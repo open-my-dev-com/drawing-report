@@ -400,7 +400,7 @@ class SlipToPdfmeConverter {
       element.height,
       this.textStyleFromElement(element),
     );
-    // 고정 문구는 가공 없이 그대로 (pdfme 표현식 평가를 타지 않도록 inputs로 전달)
+    // 직접 입력한 글은 가공 없이 그대로 (pdfme 표현식 평가를 타지 않도록 inputs로 전달)
     this.push(schemas, schema, stackVertically(element.content, element.vertical));
   }
 
@@ -647,7 +647,7 @@ class SlipToPdfmeConverter {
     });
   }
 
-  /** 셀에 표시할 글 — 고정 문구 · 값 · 수식 중 하나 (SPEC §5.7) */
+  /** 셀에 표시할 글 — 직접 입력 · 파라미터 · 수식 중 하나 (SPEC §5.7) */
   private gridCellText(
     element: GridElement,
     cell: GridCell,
@@ -962,7 +962,7 @@ class SlipToPdfmeConverter {
     this.push(schemas, schema, this.barcodeValue(element));
   }
 
-  /** 바코드에 넣을 값 — 고정 문구·전표 값·수식 중 하나 */
+  /** 바코드에 넣을 값 — 직접 입력·전표 값·수식 중 하나 */
   private barcodeValue(element: BarcodeElement): string {
     const what = `바코드 '${element.name}'(${element.id})`;
     if (element.content !== undefined) return element.content;
@@ -1433,7 +1433,7 @@ export function convertSlipFile(
   },
 ): PdfmeRenderInput {
   const body = file.kind === 'template' ? file.template : file.templateSnapshot;
-  // number 바인딩의 빈 값을 0으로 정규화한다 (ADR-044) — 값이 있는 전표에만 적용한다.
+  // number 파라미터의 빈 값을 0으로 정규화한다 (ADR-044) — 값이 있는 전표에만 적용한다.
   // 양식(값 없음)은 그대로 비워 둔다 — 빈 양식의 number 필드를 0으로 채우지 않는다.
   const values: Record<string, unknown> =
     file.kind === 'voucher' ? normalizeNumericBindings(file.values, body.bindings) : {};

@@ -31,7 +31,7 @@ import type { SlipFile } from '@omdc-slipkit/core';
 | `paper` | `PaperSize` | 용지 크기·여백 (단위: mm) |
 | `pages` | `SlipPage[]` | 페이지 배열 (최소 1) |
 | `assets` | `AssetEntry[]` | 내장 리소스 (이미지 등) |
-| `bindings?` | `BindingDef[]` | 바인딩 정의부 — 물리명(`key`)과 논리명(`label`) |
+| `bindings?` | `BindingDef[]` | 파라미터 정의부 — 물리명(`key`)·논리명(`label`)·값 종류(`valueType`)·하위 필드(`fields`, 목록 종류만) |
 | `sampleValues?` | `Record<string, JsonValue>` | 미리보기용 샘플 값 (발행에는 미포함) |
 
 ### 전표 (voucher)
@@ -41,7 +41,7 @@ import type { SlipFile } from '@omdc-slipkit/core';
 | `schemaVersion` | `string` | 스키마 버전 |
 | `kind` | `'voucher'` | 파일 종류 |
 | `templateSnapshot` | 양식 본문과 동일 | 생성 시점 양식 전체 스냅샷 |
-| `values` | `Record<string, JsonValue>` | 바인딩 키 → 채운 값 |
+| `values` | `Record<string, JsonValue>` | 파라미터 키 → 채운 값 |
 | `issued` | `boolean` | 발행 완료 여부 |
 | `integrity?` | `Integrity` | 해시·서명 기록 (발행 시 필수) |
 

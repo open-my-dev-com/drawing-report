@@ -27,9 +27,9 @@ const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 /** 작성폼이 만들어 주는 입력 한 칸 */
 interface FormInput {
-  /** 값을 담을 바인딩 키 (전표 values의 키) */
+  /** 값을 담을 파라미터 키 (전표 values의 키) */
   key: string;
-  /** 화면에 보여줄 이름 — 바인딩 논리명 → 요소 이름 → 물리명 순 */
+  /** 화면에 보여줄 이름 — 파라미터 논리명 → 요소 이름 → 물리명 순 */
   label: string;
   /** 표 입력이면 열 구조, 아니면 한 줄 입력 */
   columns?: { key: string; title: string }[];
@@ -49,7 +49,7 @@ function parseInputValue(text: string): string | number {
 }
 
 /**
- * 반복 구간 열의 이름 — 반복 구간 바로 위 행부터 거슬러 올라가며 같은 열의 고정 문구를 찾는다.
+ * 반복 구간 열의 이름 — 반복 구간 바로 위 행부터 거슬러 올라가며 같은 열에 직접 입력된 글을 찾는다.
  * 그리드 헤더에 적힌 이름을 그대로 쓰면 작성폼의 열 이름이 전표와 같아진다 (ADR-037).
  */
 function gridHeaderTitle(grid: GridElement, column: number, fromRow: number): string | undefined {
@@ -79,7 +79,7 @@ function resultText(value: unknown): string {
 /**
  * `<slip-form>` — 전표 작성폼 (v2 D-14).
  *
- * 양식(template)이나 작성 중 전표(voucher)를 받아 바인딩마다 입력 칸을 만들고,
+ * 양식(template)이나 작성 중 전표(voucher)를 받아 파라미터마다 입력 칸을 만들고,
  * 반복 구간이 쓰는 값은 항목 필드대로 행을 넣고 뺄 수 있게 한다. 수식 필드는 입력받지 않고
  * 값이 바뀔 때마다 즉시 계산해 보여주며, 오른쪽 미리보기는 PDF 변환 결과를 그대로
  * 표시한다 (화면·PDF 불일치 불가, ADR-012/016).
@@ -531,7 +531,7 @@ export class SlipForm extends LitElement {
 
   /**
    * 양식에서 입력 칸 목록을 만든다 — 전표에 실리는 순서(문서 읽는 순서)대로 요소를
-   * 훑고, 요소가 쓰지 않지만 정의부에만 있는 바인딩(수식에서만 참조하는 값 등)을 뒤에 붙인다.
+   * 훑고, 요소가 쓰지 않지만 정의부에만 있는 파라미터(수식에서만 참조하는 값 등)을 뒤에 붙인다.
    */
   private _collectInputs(): FormInput[] {
     const body = this._body;
@@ -639,7 +639,7 @@ export class SlipForm extends LitElement {
 
   /** 현재 입력 상태의 전표 파일을 만든다 */
   private _buildVoucher(issued: boolean): SlipVoucherFile {
-    // number 바인딩의 빈 값을 0으로 정규화한다 (ADR-044) — 엄격 타입 수식이 미입력을 0으로 보게.
+    // number 파라미터의 빈 값을 0으로 정규화한다 (ADR-044) — 엄격 타입 수식이 미입력을 0으로 보게.
     const values = normalizeNumericBindings(
       JSON.parse(JSON.stringify(this._values)) as Record<string, unknown>,
       this._body?.bindings,
@@ -797,7 +797,7 @@ export class SlipForm extends LitElement {
       let text = '';
       let error: string | null = null;
       try {
-        // number 바인딩 빈 값→0을 반영해 계산한다 (ADR-044) — 미리보기·발행과 같은 값.
+        // number 파라미터 빈 값→0을 반영해 계산한다 (ADR-044) — 미리보기·발행과 같은 값.
         const values = normalizeNumericBindings(this._values, this._body?.bindings);
         text = resultText(evaluateFormula(input.formula, { values }));
       } catch (e) {

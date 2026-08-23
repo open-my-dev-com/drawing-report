@@ -12,7 +12,7 @@ type SlipPresets = SlipDesignerElement['presets'];
 /**
  * Vue는 커스텀 엘리먼트를 네이티브로 지원한다.
  * (호스트 앱 빌드 설정에서 `slip-` 접두사를 custom element로 표시하면 이 래퍼 없이도 사용 가능)
- * settings 같은 객체 값은 `.` 접두사로 JS 프로퍼티에 바인딩한다.
+ * settings 같은 객체 값은 `.` 접두사로 JS 프로퍼티에 파라미터한다.
  */
 export const SlipViewer = defineComponent({
   name: 'SlipViewer',

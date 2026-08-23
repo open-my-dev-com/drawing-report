@@ -100,7 +100,7 @@ The designer bundles two presets.
 
 The preset menu **names** (Transaction statement, Invoice) are translated by `locale`.
 
-However, the preset **contents** (cell text, binding labels, column titles, etc.) are fixed in Korean.
+However, the preset **contents** (cell text, parameter labels, column titles, etc.) are fixed in Korean.
 For example, selecting the transaction-statement preset shows "등록번호", "상호" in cells even under
 `locale="en"` or `locale="ja"`.
 

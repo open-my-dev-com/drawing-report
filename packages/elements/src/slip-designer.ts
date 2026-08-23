@@ -39,7 +39,7 @@ const COLOR_PALETTE = [
 
 /** 사용자가 저장한 자주 쓰는 색의 localStorage 키 */
 const CUSTOM_COLORS_KEY = 'slipkit-designer-custom-colors';
-/** 바인딩 선택 상자의 "새 값 등록" 항목 값 — 물리명으로 쓸 수 없는 문자라 겹치지 않는다 */
+/** 파라미터 선택 상자의 "새 값 등록" 항목 값 — 물리명으로 쓸 수 없는 문자라 겹치지 않는다 */
 const NEW_BINDING_OPTION = '\u0000new';
 
 /** 저장 가능한 커스텀 색 최대 개수 — 넘치면 가장 오래된 것부터 밀어낸다 */
@@ -119,7 +119,7 @@ const BINDING_FIELD_VALUE_TYPES = BINDING_VALUE_TYPES.filter((t) => t.value !== 
 
 /** 테두리 굵기 선택지(mm) — 없음(0)과 이 단계들만 select로 제공한다 (C-11) */
 const BORDER_WIDTH_STEPS = [0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.5, 2] as const;
-/** 샘플 데이터 모달의 한 페이지에 보여줄 바인딩 수 (D-13) */
+/** 샘플 데이터 모달의 한 페이지에 보여줄 파라미터 수 (D-13) */
 const SAMPLE_PAGE_SIZE = 10;
 /** 스냅이 붙는 거리(mm) — 이 안으로 들어오면 후보 선에 끌어붙인다 */
 const SNAP_MM = 1.5;
@@ -155,7 +155,7 @@ const BARCODE_2D: ReadonlySet<BarcodeKind> = new Set(['qrcode', 'gs1datamatrix']
 /**
  * 고정 값이 종류의 값 규칙에 어긋나는지 검사한다 (G-33, 편집 중 경고용).
  * 자리 수가 정해진 종류와 CODE39만 확실히 검사하고, 자유로운 종류(QR·CODE128 등)는 검사하지 않는다.
- * 바인딩·수식 값은 전표를 채울 때 정해지므로 이 함수로 검사하지 않는다.
+ * 파라미터·수식 값은 전표를 채울 때 정해지므로 이 함수로 검사하지 않는다.
  */
 const BARCODE_DIGIT_RULES: Partial<Record<BarcodeKind, number>> = {
   ean13: 13, ean8: 8, upca: 12, itf14: 14,
@@ -468,7 +468,7 @@ function isGrid(el: SlipElement | undefined): el is GridElement {
 }
 
 /**
- * 반복 구간 열의 이름 — 반복 구간 바로 위 행부터 거슬러 올라가며 같은 열의 고정 문구를 찾는다.
+ * 반복 구간 열의 이름 — 반복 구간 바로 위 행부터 거슬러 올라가며 같은 열에 직접 입력된 글을 찾는다.
  * 헤더에 적어 둔 이름을 그대로 쓰면 사이드바·수식 목록의 열 이름이 캔버스와 같아진다 (ADR-037).
  */
 function gridHeaderTitle(grid: GridElement, column: number, fromRow: number): string | undefined {
@@ -634,10 +634,10 @@ interface ResizeState {
 /**
  * 사이드바에서 요소가 아닌 것을 고른 상태 (ADR-034).
  *
- * 바인딩은 요소와 별개의 1급 항목이고, 표 열은 그 표 바인딩의 하위 항목이다.
+ * 파라미터은 요소와 별개의 1급 항목이고, 표 열은 그 표 파라미터의 하위 항목이다.
  * 둘 다 오른쪽 패널에서 편집한다.
  */
-/** 바인딩을 쓰는 요소 한 곳 (ADR-034의 "쓰는 곳") */
+/** 파라미터을 쓰는 요소 한 곳 (ADR-034의 "쓰는 곳") */
 interface BindingUse {
   pageIndex: number;
   id: string;
@@ -944,7 +944,7 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
       padding: 2px 6px;
     }
-    /* 사이드바 바인딩 관리 (D-13) — 제목 줄의 작은 버튼과 인라인 입력줄 */
+    /* 사이드바 파라미터 관리 (D-13) — 제목 줄의 작은 버튼과 인라인 입력줄 */
     .side-title-row {
       display: flex;
       align-items: center;
@@ -1092,7 +1092,7 @@ export class SlipDesigner extends LitElement {
       border-color: var(--sk-accent);
       color: var(--sk-accent);
     }
-    /* 바인딩 패널의 "쓰는 곳" 한 줄 (ADR-034) */
+    /* 파라미터 패널의 "쓰는 곳" 한 줄 (ADR-034) */
     /* 칸 편집 중 그리드로 돌아가는 줄 — 지금 어느 그리드의 칸인지 보이게 한다 (ADR-034) */
     .grid-back {
       margin-bottom: 6px;
@@ -1422,7 +1422,7 @@ export class SlipDesigner extends LitElement {
     /*
      * 요소 종류 배지 — 평소에는 숨기고 마우스를 올리거나 고른 요소에만 보여준다.
      * 캔버스 글 위치를 PDF와 맞추려면 상자 안쪽 여백을 둘 수 없기 때문 (F-18).
-     * 툴바의 "종류 보기"를 켜면 전부 보인다.
+     * 툴바의 "요소 확인"을 켜면 전부 보인다.
      */
     .element .badge {
       position: absolute;
@@ -1679,6 +1679,24 @@ export class SlipDesigner extends LitElement {
       line-height: 1.25;
       overflow-wrap: break-word;
       color: var(--sk-text-muted);
+    }
+    /* 긴 라벨은 68px 칸에서 여러 줄로 접혀 읽기 나쁘다 — 라벨을 위, 입력을 아래로 둔다 */
+    .prop-row.stacked {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 3px;
+    }
+    .prop-row.stacked label {
+      width: auto;
+    }
+    .prop-row.stacked input,
+    .prop-row.stacked select {
+      width: 100%;
+    }
+    /* 체크박스는 폭을 늘리지 않는다 — 글상자와 달리 늘려도 누를 자리만 넓어지지 않는다 */
+    .prop-row.stacked input.stacked-check {
+      width: auto;
+      align-self: flex-start;
     }
     .prop-row input,
     .prop-row select,
@@ -2435,7 +2453,7 @@ export class SlipDesigner extends LitElement {
       border-color: var(--sk-accent);
       color: var(--sk-accent);
     }
-    /* 표 바인딩의 하위 열 칩 — 상위 값과 구분되게 옅게 (F-21) */
+    /* 표 파라미터의 하위 열 칩 — 상위 값과 구분되게 옅게 (F-21) */
     .binding-chip.column {
       border-style: dashed;
       color: var(--sk-text-muted);
@@ -2447,7 +2465,7 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
       line-height: 1.5;
     }
-    /* 표 바인딩 뒤에 점을 찍었을 때 뜨는 열 제안 줄 (F-21) */
+    /* 표 파라미터 뒤에 점을 찍었을 때 뜨는 열 제안 줄 (F-21) */
     .formula-suggest {
       display: flex;
       flex-wrap: wrap;
@@ -2834,19 +2852,19 @@ export class SlipDesigner extends LitElement {
   private _imageError: string | null = null;
   /** 샘플 데이터 모달의 변동 이미지 업로드에서 막힌 이유 — 없으면 null (G-47) */
   private _sampleImageError: string | null = null;
-  /** 샘플 데이터 모달의 현재 페이지 — 바인딩이 많으면 10개 단위로 나눠 보여준다 */
+  /** 샘플 데이터 모달의 현재 페이지 — 파라미터이 많으면 10개 단위로 나눠 보여준다 */
   private _samplePage = 0;
   /** 샘플 데이터 모달의 JSON 직접 입력 모드 여부 (입력폼 ↔ JSON 탭) */
   private _sampleJsonMode = false;
   /** JSON 모드의 편집 중 초안 — 적용을 눌러야 sampleValues에 반영된다 */
   private _sampleJsonDraft = '';
   /**
-   * 사이드바에서 요소가 아닌 것을 골랐을 때의 선택 대상 (ADR-034) — 지금은 바인딩뿐이다.
+   * 사이드바에서 요소가 아닌 것을 골랐을 때의 선택 대상 (ADR-034) — 지금은 파라미터뿐이다.
    * 요소를 고르면 `null`로 돌아가고, 오른쪽 패널이 이 값에 따라 편집 화면을 바꾼다.
    */
   private _sideSelection: SideSelection = null;
   /**
-   * 값 목록에서 하위 줄을 펼쳐 둔 바인딩 물리명 (G-25) — 화면 상태다.
+   * 값 목록에서 하위 줄을 펼쳐 둔 파라미터 물리명 (G-25) — 화면 상태다.
    * 기본은 접힘이고, 그 값이나 하위 항목을 고르면 저절로 열린다.
    */
   private _expandedBindings = new Set<string>();
@@ -2855,7 +2873,7 @@ export class SlipDesigner extends LitElement {
    * 기본은 접힘이고, 그 그리드나 그 안의 칸을 고르면 저절로 열린다.
    */
   private _expandedElements = new Set<string>();
-  /** 바인딩 패널에서 이미 쓰는 물리명으로 바꾸려 했는지 — 안내를 보여준다 */
+  /** 파라미터 패널에서 이미 쓰는 물리명으로 바꾸려 했는지 — 안내를 보여준다 */
   private _bindingKeyError = false;
   /** 페이지 물리명이 다른 페이지와 겹쳐 되돌렸는지 — 안내를 보여준다 (G-46) */
   private _pageKeyError = false;
@@ -3339,7 +3357,7 @@ export class SlipDesigner extends LitElement {
     elements.push(element);
     this._selectElement(id);
     this._sideSelection = null;
-    // 값을 쓰는 요소는 그 바인딩을 정의부에 함께 등록한다 — 목록이 값의 단일 원천 (ADR-034)
+    // 값을 쓰는 요소는 그 파라미터을 정의부에 함께 등록한다 — 목록이 값의 단일 원천 (ADR-034)
     if (element.type === 'field') {
       this._ensureBindingDef(element.binding);
     }
@@ -4182,7 +4200,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 셀에 무엇을 담을지 고른다 — 고정 문구·값·수식 중 하나만 가질 수 있다 (SPEC §5.7).
+   * 셀에 무엇을 담을지 고른다 — 직접 입력·파라미터·수식 중 하나만 가질 수 있다 (SPEC §5.7).
    * 종류를 바꾸면 나머지 둘은 지운다.
    */
   private _setGridCellSource(kind: 'content' | 'binding' | 'formula', value: string): void {
@@ -4649,7 +4667,7 @@ export class SlipDesigner extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // Render: sidebar (B-7, 요소·바인딩 분리 ADR-034)
+  // Render: sidebar (B-7, 요소·파라미터 분리 ADR-034)
   // ---------------------------------------------------------------------------
 
   /** 사이드바에서 요소를 골랐을 때 — 필요하면 페이지를 옮기고 그 요소를 선택한다 */
@@ -4732,7 +4750,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 사이드바에서 바인딩을 골랐을 때 — 오른쪽 패널이 그 바인딩 편집으로 바뀐다 (ADR-034) */
+  /** 사이드바에서 파라미터을 골랐을 때 — 오른쪽 패널이 그 파라미터 편집으로 바뀐다 (ADR-034) */
   private _selectBinding(key: string): void {
     this._bindingKeyError = false;
     this._clearSelection();
@@ -4745,7 +4763,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 양식 전체의 바인딩 목록 — 정의부(ADR-032)와 요소 사용처를 합친다.
+   * 양식 전체의 파라미터 목록 — 정의부(ADR-032)와 요소 사용처를 합친다.
    * 정의부에 논리명이 있으면 그 이름으로 표시하고(물리명은 title로 확인),
    * 반복 구간이 쓰는 값이면 그 구간 칸이 읽는 항목 필드까지 함께 담는다 (ADR-037).
    */
@@ -4854,7 +4872,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 왼쪽 사이드바 — 목록·선택·추가·삭제만 한다 (ADR-034). 값 편집은 오른쪽 패널이 맡는다.
    * 페이지 썸네일(클릭 이동), 페이지별 요소 목록(클릭 선택·삭제),
-   * 양식 전체의 바인딩 목록(클릭 선택, 반복 구간이 쓰는 값은 항목 필드까지).
+   * 양식 전체의 파라미터 목록(클릭 선택, 반복 구간이 쓰는 값은 항목 필드까지).
    */
   private _renderSidebar() {
     const file = this._file!;
@@ -4970,7 +4988,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 바인딩 한 줄 — 클릭하면 오른쪽 패널에서 편집 (ADR-034).
+   * 파라미터 한 줄 — 클릭하면 오른쪽 패널에서 편집 (ADR-034).
    * 반복 구간이 쓰는 값이면 그 구간 칸이 읽는 항목 필드가 하위 줄로 붙는다 (ADR-037).
    * 하위 줄은 앞의 펼침 표시로 열고 닫는다 — 기본은 접힘이다 (G-25).
    */
@@ -5065,7 +5083,7 @@ export class SlipDesigner extends LitElement {
 
   /**
    * 그리드에서 값·수식이 붙은 칸의 목록 (G-44) — 행·열 순으로 정렬한다.
-   * 고정 문구만 든 칸은 넣지 않는다(목록을 보면 아는 값은 따로 표시하지 않는다는 원칙).
+   * 직접 입력한 글만 든 칸은 넣지 않는다(목록을 보면 아는 값은 따로 표시하지 않는다는 원칙).
    *
    * @param grid - 그리드 요소
    * @returns 칸의 위치와 표시 이름(값은 논리명, 수식은 식)
@@ -5134,7 +5152,7 @@ export class SlipDesigner extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // 요소·바인딩 정의부 편집 (D-13, ADR-032 · 개편 ADR-034)
+  // 요소·파라미터 정의부 편집 (D-13, ADR-032 · 개편 ADR-034)
   // ---------------------------------------------------------------------------
 
   /** 사이드바에서 요소를 지운다 — 그 페이지에서만 찾아 제거한다 */
@@ -5158,7 +5176,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 바인딩을 기본 이름으로 즉시 만들고 고른다 — 이름은 오른쪽 패널에서 고친다 (ADR-034) */
+  /** 파라미터을 기본 이름으로 즉시 만들고 고른다 — 이름은 오른쪽 패널에서 고친다 (ADR-034) */
   private _addBinding(): void {
     if (!this._file) return;
     const { key, label } = this._nextBinding();
@@ -5216,7 +5234,7 @@ export class SlipDesigner extends LitElement {
           if (el.type === 'grid') {
             if (el.repeat?.binding === key) el.repeat.binding = trimmed;
             for (const cell of el.cells) {
-              // 반복 구간 안 칸의 바인딩은 항목 필드(별도 네임스페이스)라 전표 값 키 이름
+              // 반복 구간 안 칸의 파라미터은 항목 필드(별도 네임스페이스)라 전표 값 키 이름
               // 변경 대상이 아니다 — 같은 이름이 우연히 겹쳐도 건드리지 않는다
               const inBand =
                 el.repeat !== undefined && cell.row >= el.repeat.fromRow && cell.row <= el.repeat.toRow;
@@ -5384,14 +5402,14 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 정의부에서 바인딩을 제거한다 — 요소가 쓰는 키면 목록에는 사용처 기준으로 남는다 */
+  /** 정의부에서 파라미터을 제거한다 — 요소가 쓰는 키면 목록에는 사용처 기준으로 남는다 */
   private _removeBindingDef(key: string): void {
     this._updateFile((f) => {
       const defs = (f.template.bindings ?? []).filter((b) => b.key !== key);
       if (defs.length > 0) f.template.bindings = defs;
       else delete (f.template as { bindings?: unknown }).bindings;
     });
-    // 목록에서 사라진 바인딩을 고른 채로 두지 않는다
+    // 목록에서 사라진 파라미터을 고른 채로 두지 않는다
     const sel = this._sideSelection;
     if (sel?.kind === 'binding' && sel.key === key && !this._bindingList().some((b) => b.key === key)) {
       this._sideSelection = null;
@@ -5943,7 +5961,7 @@ export class SlipDesigner extends LitElement {
       .map((row) => row as unknown as Record<string, unknown>);
   }
 
-  /** 셀에 보일 글 — 고정 문구는 그대로, 값·수식은 샘플 값으로 채우고 없으면 이름을 보여준다 */
+  /** 셀에 보일 글 — 직접 입력한 글은 그대로, 파라미터·수식은 샘플 값으로 채우고 없으면 이름을 보여준다 */
   private _gridCellPreviewText(cell: GridCell, item: Record<string, unknown> | undefined): string {
     const values = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
     if (cell.binding !== undefined) {
@@ -6415,7 +6433,7 @@ export class SlipDesigner extends LitElement {
   }
 
   private _renderPropertyPanel() {
-    // 선택 대상은 요소·바인딩·페이지 셋 — 아무것도 고르지 않았으면 양식 설정 (ADR-034, G-46)
+    // 선택 대상은 요소·파라미터·페이지 셋 — 아무것도 고르지 않았으면 양식 설정 (ADR-034, G-46)
     const sel = this._sideSelection;
     if (sel?.kind === 'binding') return this._renderBindingPanel(sel.key);
     if (sel?.kind === 'bindingField') return this._renderBindingFieldPanel(sel.key, sel.field);
@@ -6530,7 +6548,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 바인딩 패널 — 사이드바에서 바인딩을 골랐을 때 (ADR-034).
+   * 파라미터 패널 — 사이드바에서 파라미터을 골랐을 때 (ADR-034).
    * 물리명·논리명을 고치고, 이 값을 쓰는 요소 목록에서 눌러 그 요소로 이동한다.
    */
   /**
@@ -6682,13 +6700,13 @@ export class SlipDesigner extends LitElement {
    * "새 값 등록"을 고르면 기본 이름으로 값을 만들어 바로 이 요소에 붙인다.
    */
   /**
-   * 바인딩 선택 드롭다운의 공통 틀 — 라벨·목록·"새 값 등록" 항목은 같고, "새 값"과
+   * 파라미터 선택 드롭다운의 공통 틀 — 라벨·목록·"새 값 등록" 항목은 같고, "새 값"과
    * 기존 값 선택 시 동작만 요소마다 다르므로 콜백으로 받는다.
    *
-   * @param current - 현재 선택된 바인딩 키
+   * @param current - 현재 선택된 파라미터 키
    * @param onNew - "새 값 등록"을 골랐을 때
-   * @param onPick - 기존 바인딩을 골랐을 때 (선택한 키)
-   * @returns 바인딩 선택 조각
+   * @param onPick - 기존 파라미터을 골랐을 때 (선택한 키)
+   * @returns 파라미터 선택 조각
    */
   /**
    * 그리드 칸이 읽을 값을 고르는 선택 상자 (ADR-034/047) — 자유 입력을 없애 오타를 막는다.
@@ -6812,7 +6830,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 아직 쓰지 않는 기본 바인딩 이름 한 쌍(물리명·논리명)을 만든다 */
+  /** 아직 쓰지 않는 기본 파라미터 이름 한 쌍(물리명·논리명)을 만든다 */
   private _nextBinding(): { key: string; label: string } {
     const used = new Set(this._bindingList().map((b) => b.key));
     let n = 1;
@@ -6910,8 +6928,8 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 바코드 값의 종류를 고른다 — 고정 문구·값·수식 중 하나만 가진다 (SPEC §5.6). 종류를
-   * 바꾸면 나머지 둘은 지운다. 값(바인딩)으로 바꾸면 유효한 키가 필요하므로 새 값을 만들어 붙인다.
+   * 바코드 값의 종류를 고른다 — 직접 입력·파라미터·수식 중 하나만 가진다 (SPEC §5.6). 종류를
+   * 바꾸면 나머지 둘은 지운다. 값(파라미터)으로 바꾸면 유효한 키가 필요하므로 새 값을 만들어 붙인다.
    *
    * @param kind - 고를 값 종류
    */
@@ -6929,7 +6947,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 바코드의 고정 문구·수식 값을 넣는다 — 나머지 소스는 지운다 (G-33).
+   * 바코드에 직접 입력한 글·수식을 넣는다 — 나머지 소스는 지운다 (G-33).
    *
    * @param kind - `content` 또는 `formula`
    * @param value - 넣을 문자열 (빈 값이어도 그 소스는 유지한다)
@@ -6943,7 +6961,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 바코드 값(바인딩)의 키를 고르는 select — 등록된 값 목록 + 새 값 (G-33) */
+  /** 바코드 값(파라미터)의 키를 고르는 select — 등록된 값 목록 + 새 값 (G-33) */
   private _renderBarcodeBindingSelect(current: string) {
     return this._bindingSelect(
       current,
@@ -6961,7 +6979,7 @@ export class SlipDesigner extends LitElement {
     );
   }
 
-  /** 새 값을 만들어 지금 고른 바코드 요소에 값(바인딩)으로 붙인다 (G-33) */
+  /** 새 값을 만들어 지금 고른 바코드 요소에 값(파라미터)으로 붙인다 (G-33) */
   private _assignNewBarcodeBinding(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'barcode') {
@@ -7050,7 +7068,7 @@ export class SlipDesigner extends LitElement {
     }
   }
 
-  /** 텍스트 요소의 고정 문구 편집 */
+  /** 텍스트 요소의 글 편집 */
   private _renderTextProps(el: TextElement) {
     const s = this._strings.designer;
     return html`
@@ -7066,7 +7084,7 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /** 필드 요소의 바인딩·수식 편집 */
+  /** 필드 요소의 파라미터·수식 편집 */
   private _renderFieldProps(el: FieldElement) {
     const s = this._strings.designer;
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
@@ -7088,14 +7106,14 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /** 바코드 요소의 종류·값(고정·바인딩·수식) 편집 */
+  /** 바코드 요소의 종류·값(고정·파라미터·수식) 편집 */
   private _renderBarcodeProps(el: BarcodeElement) {
     const s = this._strings.designer;
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-    // 값은 고정 문구·값(바인딩)·수식 중 하나 — 어느 것이 정해졌는지로 종류를 가른다 (SPEC §5.6)
+    // 값은 직접 입력·파라미터·수식 중 하나 — 어느 것이 정해졌는지로 종류를 가른다 (SPEC §5.6)
         const source: 'content' | 'binding' | 'formula' =
           el.binding !== undefined ? 'binding' : el.formula !== undefined ? 'formula' : 'content';
-        // 편집 중 경고 — 고정 값이 종류 규칙에 어긋날 때만 (바인딩·수식 값은 전표에서 정해진다, G-33)
+        // 편집 중 경고 — 고정 값이 종류 규칙에 어긋날 때만 (파라미터·수식 값은 전표에서 정해진다, G-33)
         const warning = source === 'content' ? this._barcodeContentWarning(el.kind, el.content ?? '') : null;
         return html`
           <div class="prop-section">
@@ -7229,7 +7247,7 @@ export class SlipDesigner extends LitElement {
                 </div>
               </div>
             </div>
-            <div class="prop-row">
+            <div class="prop-row stacked">
               <label>${s.overflow}</label>
               <select aria-label=${s.overflow} .value=${el.overflow ?? 'clip'}
                 @change=${(e: Event) => this._updateGrid((grid) => {
@@ -7256,7 +7274,7 @@ export class SlipDesigner extends LitElement {
                   <label>${s.binding}</label>
                   <select class="binding-select" aria-label="${s.repeatSection} ${s.binding}"
                     @change=${(e: Event) => this._updateGridRepeat({ binding: (e.target as HTMLSelectElement).value })}>
-                    ${this._bindingList().map((b) => html`
+                    ${this._bindingList().filter((b) => b.valueType === 'list' || b.key === repeat.binding).map((b) => html`
                       <option value=${b.key} ?selected=${b.key === repeat.binding}>${b.label}</option>`)}
                     ${this._bindingList().some((b) => b.key === repeat.binding)
                       ? nothing
@@ -7275,14 +7293,14 @@ export class SlipDesigner extends LitElement {
                       @change=${(e: Event) => this._updateGridRepeat({ toRow: numberOf(e) - 1 })}>
                   </div>
                 </div>
-                <div class="prop-row">
+                <div class="prop-row stacked">
                   <label>${s.repeatPerPage}</label>
                   <input type="number" min="1" max="1000" .value=${String(repeat.perPage)}
                     @change=${(e: Event) => this._updateGridRepeat({ perPage: numberOf(e) })}>
                 </div>
-                <div class="prop-row">
+                <div class="prop-row stacked">
                   <label>${s.repeatHeader}</label>
-                  <input type="checkbox" aria-label=${s.repeatHeader} .checked=${repeat.repeatHeader}
+                  <input type="checkbox" class="stacked-check" aria-label=${s.repeatHeader} .checked=${repeat.repeatHeader}
                     @change=${(e: Event) =>
                       this._updateGridRepeat({ repeatHeader: (e.target as HTMLInputElement).checked })}>
                 </div>`
@@ -7568,7 +7586,7 @@ export class SlipDesigner extends LitElement {
 
   /**
    * 모든 요소의 종류 배지를 한 번에 보여줄지 (F-18). 평소에는 마우스를 올리거나
-   * 고른 요소에만 보이며, 툴바의 "종류 보기"(Ctrl/Cmd+B)로 전부 켤 수 있다.
+   * 고른 요소에만 보이며, 툴바의 "요소 확인"(Ctrl/Cmd+B)로 전부 켤 수 있다.
    * 화면에서만 쓰는 값이라 파일에는 저장하지 않는다.
    */
   private _showBadges = false;
@@ -8029,12 +8047,12 @@ export class SlipDesigner extends LitElement {
   // Render: modals (D-12 — 편집 UI 배치 원칙: 항목이 많은 편집은 모달로)
   // ---------------------------------------------------------------------------
 
-  /** 양식 전체의 바인딩 목록 (정의부 + 요소 사용처, 중복 없이) — 수식 모달의 클릭 삽입용 */
+  /** 양식 전체의 파라미터 목록 (정의부 + 요소 사용처, 중복 없이) — 수식 모달의 클릭 삽입용 */
   /**
-   * 바인딩 키·논리명 목록 — {@link _bindingList}에서 뽑아 쓴다(순회 규칙을 두 곳에
+   * 파라미터 키·논리명 목록 — {@link _bindingList}에서 뽑아 쓴다(순회 규칙을 두 곳에
    * 복제하지 않도록). 수식 모달 등 키·라벨만 필요한 곳에서 쓴다.
    *
-   * @returns 바인딩 키와 논리명 목록
+   * @returns 파라미터 키와 논리명 목록
    */
   private _collectBindings(): { key: string; label: string }[] {
     return this._bindingList().map((b) => ({ key: b.key, label: b.label }));
@@ -8201,7 +8219,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 커서 앞에 `표바인딩.` 형태를 치고 있으면 그 표의 열 목록을 제안한다 (F-21).
+   * 커서 앞에 `표파라미터.` 형태를 치고 있으면 그 표의 열 목록을 제안한다 (F-21).
    * 이미 몇 글자 쳤으면 그 글자로 시작하는 열만 남긴다.
    *
    * @returns 제안할 열 목록과 이어 붙일 위치 — 제안할 것이 없으면 null
@@ -8224,7 +8242,7 @@ export class SlipDesigner extends LitElement {
     return columns.length > 0 ? { columns, typedLength: typed.length } : null;
   }
 
-  /** 열 자동완성 줄 — `표바인딩.`까지 쳤을 때 그 표의 열을 눌러 이어 넣는다 (F-21) */
+  /** 열 자동완성 줄 — `표파라미터.`까지 쳤을 때 그 표의 열을 눌러 이어 넣는다 (F-21) */
   private _renderColumnSuggestions() {
     const suggestion = this._columnSuggestion();
     if (!suggestion) return nothing;
@@ -8243,7 +8261,7 @@ export class SlipDesigner extends LitElement {
 
   /**
    * 수식 편집 모달 — 초안 편집, 실시간 문법 검사(자체 파서, ADR-010), 샘플 값
-   * (`sampleValues`) 기준 결과 미리 계산, 바인딩·함수 32종 클릭 삽입 (ADR-017·044).
+   * (`sampleValues`) 기준 결과 미리 계산, 파라미터·함수 32종 클릭 삽입 (ADR-017·044).
    */
   private _renderFormulaModal() {
     if (!this._formulaModalOpen) return nothing;
@@ -8270,7 +8288,7 @@ export class SlipDesigner extends LitElement {
         syntaxError = error instanceof Error ? error.message : String(error);
       }
     }
-    // 표 바인딩은 하위 열까지 보여줘야 하므로 사이드바와 같은 목록을 쓴다 (F-21)
+    // 표 파라미터은 하위 열까지 보여줘야 하므로 사이드바와 같은 목록을 쓴다 (F-21)
     const bindings = this._bindingList();
 
     return html`
@@ -8413,7 +8431,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 샘플 데이터 편집 모달 (D-13) — 바인딩마다 시험 값을 채운다. 반복 구간이 쓰는 값은
+   * 샘플 데이터 편집 모달 (D-13) — 파라미터마다 시험 값을 채운다. 반복 구간이 쓰는 값은
    * 그 표의 열 구조대로 행을 편집한다. 숫자 표기는 수로 저장해 수식 계산이 되게 한다.
    */
   private _renderSampleModal() {
@@ -8445,7 +8463,7 @@ export class SlipDesigner extends LitElement {
     const bindings = this._collectBindings();
     // 변동 이미지 값은 텍스트가 아니라 이미지 업로드로 받는다 (G-47)
     const imageKeys = this._imageBindingKeys();
-    // 바인딩이 많으면 10개 단위 페이지로 나눠 스크롤을 짧게 유지한다
+    // 파라미터이 많으면 10개 단위 페이지로 나눠 스크롤을 짧게 유지한다
     const pageCount = Math.max(1, Math.ceil(bindings.length / SAMPLE_PAGE_SIZE));
     const pageIndex = Math.min(this._samplePage, pageCount - 1);
     const visible = bindings.slice(

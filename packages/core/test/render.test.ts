@@ -167,7 +167,7 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(template.schemas).toHaveLength(1);
   });
 
-  it('text는 text 스키마로, 고정 문구를 그대로 값으로 넘긴다', () => {
+  it('text는 text 스키마로, 직접 입력한 글를 그대로 값으로 넘긴다', () => {
     const { template, inputs } = convertSlipFile(makeTemplateFile());
     const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
     const title = findSchema(schemas, 'title');
@@ -195,11 +195,11 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(convertSlipFile(voucher).inputs[0]?.total).toBe('1234');
   });
 
-  it('빈 양식은 number 바인딩 필드를 0으로 채우지 않는다 (ADR-045 회귀 방지)', () => {
+  it('빈 양식은 number 파라미터 필드를 0으로 채우지 않는다 (ADR-045 회귀 방지)', () => {
     const file = makeTemplateFile();
     file.template.bindings = [{ key: 'total', valueType: 'number' }];
     patchElement(file.template, 'total', { formula: undefined });
-    // 양식(값 없음)이라 number 바인딩 필드는 0이 아니라 공백이어야 한다 — 정규화는 전표에만 적용
+    // 양식(값 없음)이라 number 파라미터 필드는 0이 아니라 공백이어야 한다 — 정규화는 전표에만 적용
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 
@@ -412,7 +412,7 @@ describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
       .map((schema) => inputs[0]?.[schema.name] ?? '');
   }
 
-  it('반복 구간이 전표 값으로 채워지고 헤더는 고정 문구를 쓴다', () => {
+  it('반복 구간이 전표 값으로 채워지고 헤더는 직접 입력한 글를 쓴다', () => {
     const texts = itemTexts(makeVoucher(2));
     expect(texts.slice(0, 3)).toEqual(['품명', '수량', '금액']);
     expect(texts).toContain('테스트 품목 1');
