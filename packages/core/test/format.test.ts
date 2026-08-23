@@ -356,7 +356,7 @@ describe('.slip 전표(voucher) 파싱', () => {
     expect(() => parseSlipFile(serializeSlipFile(voucher))).toThrow(/integrity/);
   });
 
-  it('발행된 전표에 외부 URL 이미지가 있으면 거부한다 (ADR-014)', () => {
+  it('발행된 전표에 외부 URL 이미지가 있으면 거부한다 (ADR-036)', () => {
     const voucher = makeIssuedVoucher();
     voucher.templateSnapshot.assets[0]!.src = 'https://example.com/logo.png';
     expect(() => parseSlipFile(serializeSlipFile(voucher))).toThrow(/외부 URL/);

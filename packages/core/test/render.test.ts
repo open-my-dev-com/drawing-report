@@ -247,7 +247,7 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(convertSlipFile(file).inputs[0]?.logo).toBe(PNG_1PX);
   });
 
-  it('image가 외부 URL이면 한국어 오류로 거부한다 (ADR-014)', () => {
+  it('image가 외부 URL이면 한국어 오류로 거부한다 (ADR-036)', () => {
     const file = makeTemplateFile();
     patchElement(file.template, 'logo', {
       src: 'https://cdn.example.com/logo.png',

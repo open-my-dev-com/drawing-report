@@ -914,7 +914,7 @@ class SlipToPdfmeConverter {
   }
 
   /**
-   * src 해소 (§3.1): data:는 그대로, asset://은 문서 assets에서, 외부 URL은 거부 (ADR-014).
+   * src 해소 (§3.1): data:는 그대로, asset://은 문서 assets에서, 외부 URL은 거부 (ADR-036).
    * `binding`을 쓰는 변동 이미지는 전표 값에서 base64를 읽는다 (ADR-036).
    */
   private resolveImageSrc(element: ImageElement): string {

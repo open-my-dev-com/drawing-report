@@ -755,7 +755,7 @@ export const slipTemplateFileSchema = z.object({
   template: slipTemplateBodySchema,
 });
 
-/** 스냅샷 안에서 외부 URL 참조를 찾는다 (발행 파일 완결성 검사용, ADR-014) */
+/** 스냅샷 안에서 외부 URL 참조를 찾는다 (발행 파일 완결성 검사용, ADR-036) */
 function findExternalUrlPath(body: z.infer<typeof slipTemplateBodySchema>): (string | number)[] | null {
   for (const [a, asset] of body.assets.entries()) {
     if (HTTP_SRC.test(asset.src)) return ['assets', a, 'src'];
@@ -779,7 +779,7 @@ export const slipVoucherFileSchema = z
     templateSnapshot: slipTemplateBodySchema,
     /** 필드 바인딩 키 → 값 */
     values: z.record(z.string(), jsonValueSchema),
-    /** 발행(확정) 여부. 발행 시 이미지 내장(ADR-014)·무결성 기록(ADR-019) */
+    /** 발행(확정) 여부. 발행 시 이미지 내장(ADR-036)·무결성 기록(ADR-019) */
     issued: z.boolean(),
     integrity: integritySchema.optional(),
   })
@@ -793,7 +793,7 @@ export const slipVoucherFileSchema = z
         message: '발행(issued)된 전표는 integrity.contentHash가 필수입니다',
       });
     }
-    // ADR-014: 발행 파일은 외부 URL 의존 없이 단독 완결이어야 한다
+    // ADR-036: 발행 파일은 외부 URL 의존 없이 단독 완결이어야 한다
     const externalPath = findExternalUrlPath(voucher.templateSnapshot);
     if (externalPath) {
       ctx.addIssue({
@@ -802,7 +802,7 @@ export const slipVoucherFileSchema = z
         message: '발행(issued)된 전표는 외부 URL 이미지를 포함할 수 없습니다 (base64 내장 필요)',
       });
     }
-    // 변동 이미지 값(values)도 훑는다 — 템플릿 src만 보던 검사의 사각지대(ADR-014).
+    // 변동 이미지 값(values)도 훑는다 — 템플릿 src만 보던 검사의 사각지대(ADR-036).
     // 이미지 요소가 참조하는 바인딩 값이 채워져 있으면 고정 src와 같은 data: base64 형식이어야
     // 한다(외부 URL·깨진 data: 모두 거부). 비어 있으면 이미지 없음이라 허용한다.
     for (const page of voucher.templateSnapshot.pages) {

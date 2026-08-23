@@ -65,7 +65,7 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 
 | 형식 | 예 | 용도 |
 |---|---|---|
-| 외부 URL | `https://cdn.example.com/logo.png` | 작성·편집 중에만 (ADR-014) |
+| 외부 URL | `https://cdn.example.com/logo.png` | 스키마상 허용하나 **PDF로 렌더할 수 없다** — 파일에는 base64(`data:`)로 담는다 (ADR-036) |
 | data URI | `data:image/png;base64,iVBOR...` | 파일 내장 |
 | 내부 에셋 | `asset://logo` | 같은 문서 `assets` 항목의 `id` 참조 |
 
