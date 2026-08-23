@@ -2472,6 +2472,12 @@ export class SlipDesigner extends LitElement {
       flex-wrap: wrap;
       gap: 4px;
     }
+    /* 파라미터 칩의 값 종류 — 무엇을 넣는지 고르기 전에 보이게 한다 (ADR-047) */
+    .chip-type {
+      margin-left: 4px;
+      opacity: 0.6;
+      font-size: 10px;
+    }
     .binding-chip {
       padding: 3px 8px;
       border: 1px solid var(--sk-border-strong);
@@ -5642,6 +5648,41 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
+   * 수식 미리 계산에 쓸 값 — 샘플 값을 먼저 쓰고, 없는 파라미터는 선언된 종류의 시험값으로 메운다.
+   *
+   * @remarks
+   * 샘플 값이 없으면 아무것도 검사되지 않아, 타입이 어긋난 수식을 그대로 저장할 수 있었다
+   * (ADR-044의 엄격 타입이 평가 시점에만 작동하기 때문). 종류에 맞는 대표값을 넣어 두면
+   * 샘플을 채우지 않아도 `SUM(글자값)` 같은 어긋남이 편집 중에 드러난다.
+   *
+   * @returns 파라미터 물리명 → 값
+   */
+  private _formulaProbeValues(): Record<string, unknown> {
+    const samples = this._file?.template.sampleValues ?? {};
+    const probeFor = (type: BindingValueType | undefined): unknown => {
+      switch (type) {
+        case 'number': return 1;
+        case 'boolean': return true;
+        case 'date': return '2026-01-01';
+        case 'image': return '';
+        default: return '가';
+      }
+    };
+    const out: Record<string, unknown> = { ...samples };
+    for (const b of this._bindingList()) {
+      if (out[b.key] !== undefined) continue;
+      if (b.valueType === 'list') {
+        const item: Record<string, unknown> = {};
+        for (const f of b.fields) item[f.key] = probeFor(f.valueType);
+        out[b.key] = [item];
+        continue;
+      }
+      out[b.key] = probeFor(b.valueType);
+    }
+    return out;
+  }
+
+  /**
    * 샘플 값 JSON의 뼈대 — 선언된 파라미터를 모두 담고 지금 값을 얹는다 (ADR-047).
    *
    * @remarks
@@ -8481,11 +8522,13 @@ export class SlipDesigner extends LitElement {
       try {
         parseFormula(draft);
         try {
+          // 샘플 값이 없는 파라미터는 **선언된 종류의 시험값**으로 메운다 (ADR-044/047).
+          // 그래야 샘플을 채우지 않아도 타입이 어긋난 수식(`SUM(글자값)` 등)이 여기서 드러난다.
           preview = formulaPreviewText(
-            evaluateFormula(draft, { values: this._file?.template.sampleValues ?? {} }),
+            evaluateFormula(draft, { values: this._formulaProbeValues() }),
           );
         } catch (error) {
-          // 문법은 맞지만 계산이 안 되는 경우 (샘플 값 없음 등) — 안내만 하고 적용은 허용
+          // 문법은 맞지만 계산이 안 되는 경우 — 안내만 하고 적용은 허용
           previewError = error instanceof Error ? error.message : String(error);
         }
       } catch (error) {
@@ -8536,8 +8579,10 @@ export class SlipDesigner extends LitElement {
                 <div class="modal-section-title">${s.formulaBindings}</div>
                 <div class="binding-chips">
                   ${bindings.map((b) => html`
-                    <button class="binding-chip" title=${b.key}
-                      @click=${() => this._insertFormulaText(b.key)}>${b.label}</button>
+                    <button class="binding-chip" title="${b.key}${b.valueType ? ` (${b.valueType})` : ''}"
+                      @click=${() => this._insertFormulaText(b.key)}>${b.label}${
+                        b.valueType ? html`<span class="chip-type">${b.valueType}</span>` : nothing
+                      }</button>
                     ${b.fields.map((field) => html`
                       <button class="binding-chip column" title="${b.key}.${field.key}"
                         @click=${() => this._insertFormulaText(`${b.key}.${field.key}`)}

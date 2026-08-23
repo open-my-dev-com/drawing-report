@@ -1275,6 +1275,31 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
+  it('샘플 값이 없어도 선언된 종류로 수식의 타입 어긋남이 드러난다 (ADR-044/047)', async () => {
+    const file = makeTemplateFile();
+    file.template.bindings = [{ key: 'memo', valueType: 'text' }];
+    file.template.pages[0]!.elements = [{
+      type: 'field' as const, id: 'f-1', name: 'f', position: { x: 10, y: 10 },
+      width: 40, height: 8, binding: 'total', formula: '',
+    } as never];
+    delete (file.template as { sampleValues?: unknown }).sampleValues;
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+    selectElement(el, 'f-1');
+    await el.updateComplete;
+
+    // 수식 모달을 열고 글자 파라미터를 숫자 자리에 넣는다
+    (el as unknown as { _formulaModalOpen: boolean })._formulaModalOpen = true;
+    (el as unknown as { _formulaDraft: string })._formulaDraft = 'SUM(memo)';
+    (el as unknown as { requestUpdate: () => void }).requestUpdate();
+    await el.updateComplete;
+
+    // 샘플 값이 하나도 없어도 종류 시험값으로 평가돼 오류가 드러난다
+    const status = el.shadowRoot!.querySelector('.formula-status');
+    expect(status?.textContent?.trim()).not.toBe('');
+    el.remove();
+  });
+
   it('파라미터에 값 종류를 지정할 수 있고, 목록이면 하위 필드를 그리드 없이 만들 수 있다 (ADR-047)', async () => {
     const file = makeTemplateFile();
     file.template.bindings = [{ key: 'rows', label: '품목' }];
