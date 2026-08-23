@@ -1,6 +1,6 @@
 # 수식 함수 참조
 
-[English](formula.en.md)
+[English](formula.en.md) · [日本語](formula.ja.md)
 
 SlipKit 수식 엔진의 내장 함수 29종입니다. 등록되지 않은 함수 이름은 파싱 단계에서 거부됩니다.
 

@@ -1,6 +1,6 @@
 # 주요 타입 참조
 
-[English](types.en.md)
+[English](types.en.md) · [日本語](types.ja.md)
 
 호스트 앱에서 다루게 되는 주요 타입의 필드와 기본값을 정리했습니다.
 전체 스키마 상세는 [SPEC.md](../SPEC.md)를 참고해 주세요.
@@ -49,8 +49,8 @@ import type { SlipFile } from '@omdc-slipkit/core';
 
 ## Font
 
-PDF 렌더링과 미리보기에 쓰는 폰트 객체입니다. `RenderOptions.fonts`와 컴포넌트의 `fonts` 속성이
-이 배열을 받습니다.
+PDF 렌더링과 미리보기에 쓰는 폰트 객체입니다. core `RenderOptions.fonts`와 컴포넌트의
+`settings.getFonts`(ADR-040)가 이 배열을 받습니다.
 
 ```ts
 { name: string; data: Uint8Array; fallback?: boolean }
@@ -62,9 +62,9 @@ PDF 렌더링과 미리보기에 쓰는 폰트 객체입니다. `RenderOptions.f
 | `data` | `Uint8Array` | — | 폰트 파일 바이트 (OTF/TTF) |
 | `fallback` | `boolean` | `false` | `true`이면 대체 폰트로 사용 (하나만 지정 가능). 아무것도 지정하지 않으면 첫 번째 폰트를 대체 폰트로 씁니다 |
 
-**미지정 시**: 컴포넌트(`<slip-designer>`, `<slip-form>`, `<slip-viewer>`)에 `fonts`를
-지정하지 않으면 동봉 Pretendard(Regular + Bold)를 자동으로 불러옵니다.
-상세는 [동봉 폰트·프리셋](fonts-and-presets.md)을 참고해 주세요.
+**미지정 시**: 컴포넌트(`<slip-designer>`, `<slip-form>`, `<slip-viewer>`)에 `settings`를
+지정하지 않으면 `locale`에 맞는 동봉 폰트를 자동으로 불러옵니다(한국어·영어 Pretendard,
+일본어 Noto Sans JP). 상세는 [동봉 폰트·프리셋](fonts-and-presets.md)을 참고해 주세요.
 
 ---
 
@@ -163,5 +163,5 @@ import type { RenderOptions } from '@omdc-slipkit/core';
 
 | 필드 | 타입 | 기본값 | 설명 |
 |---|---|---|---|
-| `fonts` | `Font[]` | — | PDF에 쓸 폰트 목록. 한글 문서는 필수 |
+| `fonts` | `Font[]` | — | PDF에 쓸 폰트 목록. 한글·일본어 문서는 필수 |
 | `locale` | `string` | `'ko-KR'` | 수식 포맷 함수의 로케일 (BCP-47). 숫자 자릿수 구분 등에 영향 |

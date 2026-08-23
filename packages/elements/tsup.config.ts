@@ -6,6 +6,7 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     'fonts/pretendard': 'src/fonts/pretendard.ts',
+    'fonts/noto-sans-jp': 'src/fonts/noto-sans-jp.ts',
   },
   format: 'esm',
   dts: true,

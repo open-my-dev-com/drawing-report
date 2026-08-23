@@ -1,6 +1,6 @@
 # SlipKit
 
-[한국어](README.md)
+[한국어](README.md) · [日本語](README.ja.md)
 
 An **embeddable package** for designing, filling, and printing slip forms (structured document templates) through a visual UI.
 

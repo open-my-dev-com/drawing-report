@@ -1,6 +1,6 @@
 # SlipKit
 
-[English](README.en.md)
+[English](README.en.md) · [日本語](README.ja.md)
 
 UI로 전표(양식 문서)를 쉽게 만들고, 보고, 출력할 수 있는 **임베드형 패키지 툴**.
 

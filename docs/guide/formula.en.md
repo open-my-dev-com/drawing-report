@@ -1,6 +1,6 @@
 # Formula Function Reference
 
-[한국어](formula.md)
+[한국어](formula.md) · [日本語](formula.ja.md)
 
 All 29 built-in functions in the SlipKit formula engine. Unregistered function names are rejected at parse time.
 

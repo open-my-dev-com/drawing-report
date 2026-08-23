@@ -13,7 +13,7 @@ import {
   type SlipTemplateBody,
   type SlipVoucherFile,
 } from '@omdc-slipkit/core';
-import { getStrings } from './strings.js';
+import { getStrings, type SlipLocale } from './strings.js';
 import { icons } from './icons.js';
 import { pickImageFile, formatBytes } from './image-file.js';
 import { resolveFonts, type SlipFontProvider } from './settings.js';
@@ -722,7 +722,7 @@ export class SlipForm extends LitElement {
     try {
       // 폰트 미지정 시 동봉 Pretendard 자동 사용 (ADR-012) — 한글 깨짐 방지
       const opts: RenderOptions = {
-        fonts: await resolveFonts(this.settings),
+        fonts: await resolveFonts(this.settings, this.locale as SlipLocale),
       };
       const pdfBytes = await renderSlipToPdf(this._buildVoucher(this._issued), opts);
       if (gen !== this._previewGeneration) return;
