@@ -241,6 +241,23 @@ function textStyleCss(
   );
 }
 
+/**
+ * 요소·셀의 선택 필드를 설정하거나(값이 있으면) 지운다(null·undefined면).
+ *
+ * @remarks
+ * 판별 유니온인 요소에 선택 스타일 필드를 쓰려면 캐스트로 타입을 벗겨야 하는데, 그 캐스트를
+ * 이 한곳에 가둬 호출부는 타입 안전한 값 계산만 하게 한다 (스타일 편집 핸들러 공용).
+ *
+ * @param target - 필드를 고칠 요소·셀 객체
+ * @param key - 고칠 선택 필드 이름
+ * @param value - 넣을 값 (null·undefined면 필드를 지운다)
+ */
+function setOptional(target: object, key: string, value: unknown): void {
+  const record = target as Record<string, unknown>;
+  if (value === null || value === undefined) delete record[key];
+  else record[key] = value;
+}
+
 /** 캔버스 도형의 파선·점선 근사 표시용 stroke-dasharray (px) — PDF 분해 렌더 패턴과 동일 비율 */
 function dashArrayOf(style: 'solid' | 'dashed' | 'dotted' | undefined): string | undefined {
   if (style === 'dashed') return `${2.4 * PX_PER_MM} ${1.2 * PX_PER_MM}`;
@@ -2936,6 +2953,15 @@ export class SlipDesigner extends LitElement {
     if (this._undoStack.length > MAX_UNDO) this._undoStack.shift();
   }
 
+  /**
+   * 잘못된 입력·할 수 없는 편집을 물리친다 — 모델은 그대로 두고 다시 그려 입력칸이 모델
+   * 값으로 되돌아오게 한다. 스키마 범위 밖 값, 규칙에 어긋나는 병합, 대상이 아닌 요소 등에서
+   * 쓴다. `requestUpdate()`와 동작은 같지만 "값을 바꾸지 않고 되돌린다"는 의도를 이름으로 드러낸다.
+   */
+  private _rejectInput(): void {
+    this.requestUpdate();
+  }
+
   private _undo(): void {
     if (this._undoStack.length === 0 || !this._file) return;
     this._redoStack.push(JSON.stringify(this._file));
@@ -3704,6 +3730,22 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   };
 
+  /**
+   * 드래그·크기 조절·끝점 이동이 실제로 값을 바꿨으면 스냅샷을 되돌리기에 쌓고 변경을 알린다.
+   *
+   * @param snapshot - 조작 시작 시 찍어 둔 되돌리기 스냅샷 (없으면 커밋하지 않음)
+   * @param changed - 위치·크기가 실제로 바뀌었는지
+   * @returns 커밋했으면 true
+   */
+  private _commitIfMoved(snapshot: string | null, changed: boolean): boolean {
+    if (snapshot !== null && changed) {
+      this._pushUndoSnapshot(snapshot);
+      this._emitChange();
+      return true;
+    }
+    return false;
+  }
+
   private _onPointerUp = (e: PointerEvent): void => {
     if (this._draw) {
       const d = this._draw;
@@ -3734,15 +3776,11 @@ export class SlipDesigner extends LitElement {
       const state = this._lineEnd;
       this._lineEnd = null;
       const el = this._findElement(state.id);
-      if (
-        el && el.type === 'line' && state.snapshot &&
+      const changed = !!el && el.type === 'line' &&
         (el.position.x !== state.orig.x || el.position.y !== state.orig.y ||
           el.width !== state.orig.w || el.height !== state.orig.h ||
-          el.lineDirection !== state.orig.direction)
-      ) {
-        this._pushUndoSnapshot(state.snapshot);
-        this._emitChange();
-      }
+          el.lineDirection !== state.orig.direction);
+      this._commitIfMoved(state.snapshot, changed);
       this.requestUpdate();
       return;
     }
@@ -3750,14 +3788,10 @@ export class SlipDesigner extends LitElement {
     if (this._resize) {
       const r = this._resize;
       const el = this._findElement(r.id);
-      if (
-        el && r.snapshot &&
+      const changed = !!el &&
         (el.position.x !== r.origX || el.position.y !== r.origY ||
-          el.width !== r.origW || el.height !== r.origH)
-      ) {
-        this._pushUndoSnapshot(r.snapshot);
-        this._emitChange();
-      }
+          el.width !== r.origW || el.height !== r.origH);
+      this._commitIfMoved(r.snapshot, changed);
       this._resize = null;
       this.requestUpdate();
       return;
@@ -3767,14 +3801,9 @@ export class SlipDesigner extends LitElement {
     const drag = this._drag;
     this._drag = null;
     const el = this._findElement(drag.id);
-    if (
-      el && drag.snapshot &&
-      (el.position.x !== drag.origMmX || el.position.y !== drag.origMmY)
-    ) {
-      this._pushUndoSnapshot(drag.snapshot);
-      this._emitChange();
-      return;
-    }
+    const dragChanged = !!el &&
+      (el.position.x !== drag.origMmX || el.position.y !== drag.origMmY);
+    if (this._commitIfMoved(drag.snapshot, dragChanged)) return;
     // 움직이지 않은 재클릭: 셀 격자면 그 자리의 셀을 선택하고 인라인 편집을 연다 (C-10, ADR-037)
     if (isGrid(el) && drag.wasSelected && drag.snapshot === null) {
       const cell = this._cellAtPoint(el, e);
@@ -3856,15 +3885,15 @@ export class SlipDesigner extends LitElement {
     const existing = el.cells.find((c) => c.row === target.row && c.column === target.column);
     // 값·수식을 붙인 칸은 문구를 직접 못 쓴다 — 셋 중 하나만 가질 수 있다 (SPEC §5.7)
     if (existing && ('binding' in existing || 'formula' in existing)) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     if (!existing && value === '') {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     if (existing && existing.content === value) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     this._updateElement((element) => {
@@ -3879,7 +3908,7 @@ export class SlipDesigner extends LitElement {
     const el = this._findSelectedElement();
     if (!target || !isGrid(el)) return;
     if (!Number.isInteger(value) || value < 1) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     const dims = gridDims(el);
@@ -3888,7 +3917,7 @@ export class SlipDesigner extends LitElement {
     const colSpan = kind === 'colSpan' ? value : (current?.colSpan ?? 1);
     // 그리드 범위 검사
     if (target.row + rowSpan > dims.rows || target.column + colSpan > dims.columns) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     // 병합이 반복 구간 경계를 넘으면 복제할 때 모양이 무너진다 (SPEC §5.7)
@@ -3898,7 +3927,7 @@ export class SlipDesigner extends LitElement {
       const startsInside = target.row >= fromRow && target.row <= toRow;
       const endsInside = last >= fromRow && last <= toRow;
       if (startsInside !== endsInside) {
-        this.requestUpdate();
+        this._rejectInput();
         return;
       }
     }
@@ -3915,7 +3944,7 @@ export class SlipDesigner extends LitElement {
       );
     });
     if (overlaps) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     this._updateElement((element) => {
@@ -3995,7 +4024,7 @@ export class SlipDesigner extends LitElement {
   /** 행 높이·열 너비(mm)를 직접 정한다 — 그 트랙만 바뀌고 나머지는 그대로다 */
   private _setGridTrack(kind: 'row' | 'column', index: number, mm: number): void {
     if (!Number.isFinite(mm) || mm < MIN_SIZE_MM) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     this._updateGrid((grid) => {
@@ -4039,11 +4068,11 @@ export class SlipDesigner extends LitElement {
     if (el?.type !== 'grid' || !el.repeat) return;
     const next = { ...el.repeat, ...patch };
     if (next.fromRow > next.toRow || next.toRow >= el.rows.length || next.fromRow < 0) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     if (!Number.isInteger(next.perPage) || next.perPage < 1 || next.perPage > GRID_MAX_PER_PAGE_UI) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     // 반복 구간 경계를 넘는 병합이 생기면 받아들이지 않는다 (SPEC §5.7)
@@ -4054,7 +4083,7 @@ export class SlipDesigner extends LitElement {
       return startsInside !== endsInside;
     });
     if (crosses) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     if (patch.binding !== undefined) this._ensureBindingDef(patch.binding);
@@ -5852,7 +5881,7 @@ export class SlipDesigner extends LitElement {
     // 여백 합이 용지보다 작아야 한다는 스키마 규칙을 어기는 값은 되돌린다
     const setSize = (width: number, height: number): void => {
       if (width <= pl + pr || height <= pt + pb) {
-        this.requestUpdate();
+        this._rejectInput();
         return;
       }
       this._updateFile((f) => {
@@ -5862,13 +5891,13 @@ export class SlipDesigner extends LitElement {
     };
     const setPadding = (index: 0 | 1 | 2 | 3, value: number): void => {
       if (Number.isNaN(value) || value < 0) {
-        this.requestUpdate();
+        this._rejectInput();
         return;
       }
       const next = [...paper.padding] as [number, number, number, number];
       next[index] = round1(value);
       if (next[3] + next[1] >= paper.width || next[0] + next[2] >= paper.height) {
-        this.requestUpdate();
+        this._rejectInput();
         return;
       }
       this._updateFile((f) => {
@@ -5888,7 +5917,7 @@ export class SlipDesigner extends LitElement {
                    const v = (e.target as HTMLInputElement).value.trim();
                    // 스키마상 제목은 1자 이상 — 빈 값은 되돌린다
                    if (!v) {
-                     this.requestUpdate();
+                     this._rejectInput();
                      return;
                    }
                    this._updateFile((f) => { f.template.meta.title = v; });
@@ -6297,7 +6326,7 @@ export class SlipDesigner extends LitElement {
   private _assignNewBinding(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'field') {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     const { key, label } = this._nextBinding();
@@ -6331,7 +6360,7 @@ export class SlipDesigner extends LitElement {
   private _setImageVariable(variable: boolean): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'image') {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     const id = el.id;
@@ -6391,7 +6420,7 @@ export class SlipDesigner extends LitElement {
   private _assignNewImageBinding(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'image') {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     const { key, label } = this._nextBinding();
@@ -6467,7 +6496,7 @@ export class SlipDesigner extends LitElement {
   private _assignNewBarcodeBinding(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'barcode') {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     const { key, label } = this._nextBinding();
@@ -6581,9 +6610,7 @@ export class SlipDesigner extends LitElement {
             @change=${(e: Event) => this._updateElement((el) => {
               if (el.type !== 'field') return;
               const v = valOf(e);
-              const r = el as Record<string, unknown>;
-              if (v) r.formula = v;
-              else delete r.formula;
+              setOptional(el, 'formula', v || null);
             })}>
           <button class="row-btn" title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
             @click=${() => this._openFormulaModal()}>${icons.formula}</button>
@@ -6684,7 +6711,7 @@ export class SlipDesigner extends LitElement {
                   const v = Number((e.target as HTMLInputElement).value);
                   // 스키마 범위(3~12) 밖 값은 되돌린다
                   if (!Number.isInteger(v) || v < 3 || v > 12) {
-                    this.requestUpdate();
+                    this._rejectInput();
                     return;
                   }
                   this._updateElement((el) => {
@@ -6981,11 +7008,7 @@ export class SlipDesigner extends LitElement {
           .value=${String(el.fontSize ?? '')} placeholder=${String(DEFAULT_FONT_SIZE)}
           @change=${(e: Event) => {
             const v = numOf(e);
-            this._updateElement((el) => {
-              const r = el as Record<string, unknown>;
-              if (v > 0) r.fontSize = v;
-              else delete r.fontSize;
-            });
+            this._updateElement((el) => setOptional(el, 'fontSize', v > 0 ? v : null));
           }}>
       </div>
       <div class="prop-row">
@@ -6998,11 +7021,8 @@ export class SlipDesigner extends LitElement {
           ] as const).map(([value, label, glyph]) => html`
             <button title=${label} aria-label="${s.alignment}: ${label}"
               aria-pressed=${String((el.alignment ?? 'left') === value)}
-              @click=${() => this._updateElement((target) => {
-                const r = target as Record<string, unknown>;
-                if (value !== 'left') r.alignment = value;
-                else delete r.alignment;
-              })}>${glyph}</button>`)}
+              @click=${() => this._updateElement((target) =>
+                setOptional(target, 'alignment', value !== 'left' ? value : null))}>${glyph}</button>`)}
         </div>
       </div>
       <div class="prop-row">
@@ -7015,11 +7035,8 @@ export class SlipDesigner extends LitElement {
           ] as const).map(([value, label, glyph]) => html`
             <button title=${label} aria-label="${s.verticalAlignment}: ${label}"
               aria-pressed=${String((el.verticalAlignment ?? 'top') === value)}
-              @click=${() => this._updateElement((target) => {
-                const r = target as Record<string, unknown>;
-                if (value !== 'top') r.verticalAlignment = value;
-                else delete r.verticalAlignment;
-              })}>${glyph}</button>`)}
+              @click=${() => this._updateElement((target) =>
+                setOptional(target, 'verticalAlignment', value !== 'top' ? value : null))}>${glyph}</button>`)}
         </div>
       </div>
       <div class="prop-pair">
@@ -7029,11 +7046,7 @@ export class SlipDesigner extends LitElement {
             .value=${String(el.lineHeight ?? '')} placeholder="1"
             @change=${(e: Event) => {
               const v = numOf(e);
-              this._updateElement((target) => {
-                const r = target as Record<string, unknown>;
-                if (v > 0) r.lineHeight = v;
-                else delete r.lineHeight;
-              });
+              this._updateElement((target) => setOptional(target, 'lineHeight', v > 0 ? v : null));
             }}>
         </div>
         <div class="prop-row">
@@ -7043,22 +7056,16 @@ export class SlipDesigner extends LitElement {
             @change=${(e: Event) => {
               const raw = (e.target as HTMLInputElement).value.trim();
               const v = numOf(e);
-              this._updateElement((target) => {
-                const r = target as Record<string, unknown>;
-                if (raw !== '' && v !== 0) r.characterSpacing = v;
-                else delete r.characterSpacing;
-              });
+              this._updateElement((target) =>
+                setOptional(target, 'characterSpacing', raw !== '' && v !== 0 ? v : null));
             }}>
         </div>
       </div>
       <div class="prop-row">
         <label>${s.verticalWriting}</label>
         <input type="checkbox" aria-label=${s.verticalWriting} .checked=${el.vertical === true}
-          @change=${(e: Event) => this._updateElement((target) => {
-            const r = target as Record<string, unknown>;
-            if ((e.target as HTMLInputElement).checked) r.vertical = true;
-            else delete r.vertical;
-          })}>
+          @change=${(e: Event) => this._updateElement((target) =>
+            setOptional(target, 'vertical', (e.target as HTMLInputElement).checked ? true : null))}>
       </div>
     `;
   }
@@ -7123,11 +7130,7 @@ export class SlipDesigner extends LitElement {
       this._pickerS = s;
       this._pickerV = v;
     }
-    this._updateElement((el) => {
-      const r = el as Record<string, unknown>;
-      if (value) r[key] = value;
-      else delete r[key];
-    });
+    this._updateElement((el) => setOptional(el, key, value || null));
   }
 
   /** 색상판에서 포인터 위치를 채도·명도로 바꿔 커서를 옮긴다 (적용은 떼는 순간) */
@@ -7139,6 +7142,14 @@ export class SlipDesigner extends LitElement {
     this._pickerS = Math.max(0, Math.min((e.clientX - rect.left) / w, 1));
     this._pickerV = 1 - Math.max(0, Math.min((e.clientY - rect.top) / h, 1));
     this.requestUpdate();
+  }
+
+  /** HSV 피커 커서를 hex 색으로 맞춘다 — 채도 0(무채색)이면 색조는 그대로 둔다 */
+  private _seedPicker(hex: string): void {
+    const hsv = hexToHsv(hex);
+    if (hsv.s > 0) this._pickerH = hsv.h;
+    this._pickerS = hsv.s;
+    this._pickerV = hsv.v;
   }
 
   /**
@@ -7165,12 +7176,7 @@ export class SlipDesigner extends LitElement {
     // 색을 어디에 저장할지 — 기본은 선택 요소의 스타일 필드, 셀 편집 등은 콜백으로 대체
     const commit = (value: string | null): void => {
       if (apply) {
-        if (value) {
-          const hsv = hexToHsv(value);
-          if (hsv.s > 0) this._pickerH = hsv.h;
-          this._pickerS = hsv.s;
-          this._pickerV = hsv.v;
-        }
+        if (value) this._seedPicker(value);
         apply(value);
       } else {
         this._applyColor(key, value);
@@ -7204,10 +7210,7 @@ export class SlipDesigner extends LitElement {
               this._openPopKey = key;
               // 피커 커서를 현재 색으로 (미지정이면 선명한 빨강에서 시작)
               if (current) {
-                const hsv = hexToHsv(current);
-                if (hsv.s > 0) this._pickerH = hsv.h;
-                this._pickerS = hsv.s;
-                this._pickerV = hsv.v;
+                this._seedPicker(current);
               } else {
                 this._pickerH = 0;
                 this._pickerS = 1;
@@ -7279,7 +7282,7 @@ export class SlipDesigner extends LitElement {
                 // 파일 스키마와 같은 형식만 저장 — 어긋난 값은 저장 시점에야 거부되어 원인 찾기 어려움
                 const v = (e.target as HTMLInputElement).value;
                 if (v && !/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) {
-                  this.requestUpdate();
+                  this._rejectInput();
                   return;
                 }
                 commit(v || null);
@@ -7472,11 +7475,8 @@ export class SlipDesigner extends LitElement {
           ${hasTextDecor
             ? this._renderTextStyleToggles(
                 el as { bold?: boolean; underline?: boolean; strikethrough?: boolean },
-                (key, value) => this._updateElement((target) => {
-                  const t = target as Record<string, unknown>;
-                  if (value) t[key] = true;
-                  else delete t[key];
-                }),
+                (key, value) => this._updateElement((target) =>
+                  setOptional(target, key, value ? true : null)),
               )
             : nothing}
         </div>` : nothing}
@@ -7496,12 +7496,9 @@ export class SlipDesigner extends LitElement {
           defaultWidth,
           true,
           'borderWidth',
-          (v) => this._updateElement((target) => {
-            const t = target as Record<string, unknown>;
-            // 텍스트·필드의 없음(0)은 기본값과 같아 파일에 남기지 않는다
-            if (v === 0 && defaultWidth === 0) delete t.borderWidth;
-            else t.borderWidth = v;
-          }),
+          // 텍스트·필드의 없음(0)은 기본값과 같아 파일에 남기지 않는다
+          (v) => this._updateElement((target) =>
+            setOptional(target, 'borderWidth', v === 0 && defaultWidth === 0 ? null : v)),
         )}
         ${hasBorderShape
           ? this._renderBorderShapeRow(
@@ -7529,14 +7526,12 @@ export class SlipDesigner extends LitElement {
               @change=${(e: Event) => {
                 const v = Number((e.target as HTMLInputElement).value);
                 if (Number.isNaN(v) || v < 0) {
-                  this.requestUpdate();
+                  this._rejectInput();
                   return;
                 }
                 this._updateElement((target) => {
                   if (target.type !== 'rect') return;
-                  const t = target as Record<string, unknown>;
-                  if (v > 0) t.radius = v;
-                  else delete t.radius;
+                  setOptional(target, 'radius', v > 0 ? v : null);
                 });
               }}>
           </div>` : nothing}
@@ -7685,9 +7680,7 @@ export class SlipDesigner extends LitElement {
     this._formulaModalOpen = false;
     this._updateElement((el) => {
       if (el.type !== 'field') return;
-      const r = el as Record<string, unknown>;
-      if (draft) r.formula = draft;
-      else delete r.formula;
+      setOptional(el, 'formula', draft || null);
     });
   }
 
@@ -8217,7 +8210,7 @@ export class SlipDesigner extends LitElement {
     const title = this._saveTitle.trim();
     // 제목은 스키마상 1자 이상 — 빈 제목이면 저장하지 않는다
     if (!title) {
-      this.requestUpdate();
+      this._rejectInput();
       return;
     }
     if (title !== this._file.template.meta.title) {
