@@ -743,81 +743,60 @@ class SlipToPdfmeConverter {
 
     // 3) 그리드선 → 선. 병합 범위의 내부 경계선은 그리지 않고, 변마다 이웃 셀의
     //    테두리 설정(굵은 쪽 우선)을 적용해 같은 스타일 구간끼리 이어 그린다 (ADR-033).
-    //    아래 두 루프는 가로선 패스(행 경계, r=0..rows)와 세로선 패스(열 경계, c=0..columns)로
-    //    구조가 나란하다 — 축(offsets·owner 이웃·pushLine 인자)만 뒤바뀐다. 억지로 합치지 않고
-    //    나란히 둔 건 축 뒤바뀜을 감춘 헬퍼보다 두 패스를 그대로 읽는 편이 검토에 안전해서다.
-    //    가로선 패스에만 빈 행 가장자리 처리가 더 있다(헤더 미반복 시 위/아래 끝 선을 지운다).
-    for (let r = 0; r <= rows; r++) {
+    //    가로선(행 경계)과 세로선(열 경계)은 축만 뒤바뀔 뿐 루프 구조가 같아 한 헬퍼로 그린다.
+    //    두 축의 차이는 `GridLineAxis` 콜백에 드러나 있다 — 특히 빈 행 처리가 다르다:
+    //    가로선은 빈 행에 둘러싸인 줄 전체를 지우고(skipLine), 세로선은 빈 행에서 구간을 끊는다(breakAt).
+    this.drawGridLines({
+      lines: rows,
+      cells: columns,
+      idPrefix: `${grid.idPrefix}__h`,
       // 비운 행에 둘러싸인 가로선은 그리지 않는다 (헤더 미반복, SPEC §5.7)
-      if (blankRows.has(r - 1) && blankRows.has(r)) continue;
-      if ((r === 0 && blankRows.has(0)) || (r === rows && blankRows.has(rows - 1))) continue;
-      let run: { start: number; border: GridEdgeBorder } | null = null;
-      const flush = (endExclusive: number): void => {
-        if (!run) return;
-        const x = originX + (columnOffsets[run.start] ?? 0);
+      skipLine: (r) =>
+        (blankRows.has(r - 1) && blankRows.has(r)) ||
+        (r === 0 && blankRows.has(0)) ||
+        (r === rows && blankRows.has(rows - 1)),
+      neighbors: (r, c) => [
+        r > 0 ? (owner[r - 1]?.[c] ?? -1) : null,
+        r < rows ? (owner[r]?.[c] ?? -1) : null,
+      ],
+      emit: (schemas2, id, r, start, endExclusive, border) => {
+        const x = originX + (columnOffsets[start] ?? 0);
         const end = originX + (columnOffsets[endExclusive] ?? 0);
         this.pushLine(
-          schemas,
-          `${grid.idPrefix}__h-${r}-${run.start}`,
-          { x, y: Math.max(0, originY + (rowOffsets[r] ?? 0) - run.border.width / 2) },
+          schemas2,
+          id,
+          { x, y: Math.max(0, originY + (rowOffsets[r] ?? 0) - border.width / 2) },
           end - x,
-          run.border.width,
-          run.border.color,
-          run.border.style,
+          border.width,
+          border.color,
+          border.style,
         );
-        run = null;
-      };
-      for (let c = 0; c < columns; c++) {
-        const above = r > 0 ? (owner[r - 1]?.[c] ?? -1) : null;
-        const below = r < rows ? (owner[r]?.[c] ?? -1) : null;
-        const mergedInterior = above !== null && below !== null && above !== -1 && above === below;
-        const border = mergedInterior ? null : edgeBorderOf(above, below);
-        if (border === null || border.width <= 0) {
-          flush(c);
-          continue;
-        }
-        if (run && sameGridBorder(run.border, border)) continue;
-        flush(c);
-        run = { start: c, border };
-      }
-      flush(columns);
-    }
-    for (let c = 0; c <= columns; c++) {
-      let run: { start: number; border: GridEdgeBorder } | null = null;
-      const flush = (endExclusive: number): void => {
-        if (!run) return;
-        const y = originY + (rowOffsets[run.start] ?? 0);
+      },
+    }, edgeBorderOf, schemas);
+    this.drawGridLines({
+      lines: columns,
+      cells: rows,
+      idPrefix: `${grid.idPrefix}__v`,
+      // 비운 행에서 세로선 구간을 끊는다 (해당 칸에는 세로선을 긋지 않는다)
+      breakAt: (r) => blankRows.has(r),
+      neighbors: (c, r) => [
+        c > 0 ? (owner[r]?.[c - 1] ?? -1) : null,
+        c < columns ? (owner[r]?.[c] ?? -1) : null,
+      ],
+      emit: (schemas2, id, c, start, endExclusive, border) => {
+        const y = originY + (rowOffsets[start] ?? 0);
         const end = originY + (rowOffsets[endExclusive] ?? 0);
         this.pushLine(
-          schemas,
-          `${grid.idPrefix}__v-${c}-${run.start}`,
-          { x: Math.max(0, originX + (columnOffsets[c] ?? 0) - run.border.width / 2), y },
-          run.border.width,
+          schemas2,
+          id,
+          { x: Math.max(0, originX + (columnOffsets[c] ?? 0) - border.width / 2), y },
+          border.width,
           end - y,
-          run.border.color,
-          run.border.style,
+          border.color,
+          border.style,
         );
-        run = null;
-      };
-      for (let r = 0; r < rows; r++) {
-        if (blankRows.has(r)) {
-          flush(r);
-          continue;
-        }
-        const left = c > 0 ? (owner[r]?.[c - 1] ?? -1) : null;
-        const right = c < columns ? (owner[r]?.[c] ?? -1) : null;
-        const mergedInterior = left !== null && right !== null && left !== -1 && left === right;
-        const border = mergedInterior ? null : edgeBorderOf(left, right);
-        if (border === null || border.width <= 0) {
-          flush(r);
-          continue;
-        }
-        if (run && sameGridBorder(run.border, border)) continue;
-        flush(r);
-        run = { start: r, border };
-      }
-      flush(rows);
-    }
+      },
+    }, edgeBorderOf, schemas);
 
     // 4) 셀 문구 → 텍스트
     cells.forEach((cell, index) => {
@@ -862,6 +841,47 @@ class SlipToPdfmeConverter {
       }
       this.push(schemas, schema, value);
     });
+  }
+
+  /**
+   * 한 축(가로/세로)의 그리드선을 그린다 — 병합 내부 경계는 건너뛰고, 같은 스타일 구간을
+   * 한 선으로 이어 그린다 (ADR-033). 가로·세로 패스가 축만 다르고 구조가 같아 공통화했다.
+   *
+   * @param axis - 축 서술 (경계선 수·셀 수·빈 행 처리·이웃·선분 그리기)
+   * @param edgeBorderOf - 맞닿는 두 칸의 유효 테두리 (굵은 쪽 우선)
+   * @param schemas - 선 스키마를 담을 배열
+   */
+  private drawGridLines(
+    axis: GridLineAxis,
+    edgeBorderOf: (front: number | null, back: number | null) => GridEdgeBorder,
+    schemas: Schema[],
+  ): void {
+    for (let line = 0; line <= axis.lines; line++) {
+      if (axis.skipLine?.(line)) continue;
+      let run: { start: number; border: GridEdgeBorder } | null = null;
+      const flush = (endExclusive: number): void => {
+        if (!run) return;
+        axis.emit(schemas, `${axis.idPrefix}-${line}-${run.start}`, line, run.start, endExclusive, run.border);
+        run = null;
+      };
+      for (let cell = 0; cell < axis.cells; cell++) {
+        if (axis.breakAt?.(cell)) {
+          flush(cell);
+          continue;
+        }
+        const [front, back] = axis.neighbors(line, cell);
+        const mergedInterior = front !== null && back !== null && front !== -1 && front === back;
+        const border = mergedInterior ? null : edgeBorderOf(front, back);
+        if (border === null || border.width <= 0) {
+          flush(cell);
+          continue;
+        }
+        if (run && sameGridBorder(run.border, border)) continue;
+        flush(cell);
+        run = { start: cell, border };
+      }
+      flush(axis.cells);
+    }
   }
 
   /** 칸 높이를 넘는 줄을 잘라낸다. 잴 수 없으면 그대로 둔다 (ADR-037) */
@@ -1361,6 +1381,34 @@ interface GridEdgeBorder {
   width: number;
   color: string;
   style: BorderStyle;
+}
+
+/**
+ * 그리드선 한 축(가로 또는 세로)의 서술 — `drawGridLines`가 공통 루프에 끼워 쓴다.
+ * 가로선은 `lines`=행 경계, `cells`=열이고 세로선은 그 반대다. 두 축의 차이는 이 콜백에 드러난다.
+ */
+interface GridLineAxis {
+  /** 그릴 경계선 수 (0..lines) — 가로선이면 rows, 세로선이면 columns */
+  lines: number;
+  /** 한 경계선을 훑을 셀 수 — 가로선이면 columns, 세로선이면 rows */
+  cells: number;
+  /** 선 id 접두사 (`..._h` / `..._v`) */
+  idPrefix: string;
+  /** 이 경계선(line) 전체를 건너뛸지 — 가로선의 빈 행 가장자리 처리 (없으면 안 건너뜀) */
+  skipLine?: (line: number) => boolean;
+  /** 이 셀 위치(cell)에서 구간을 끊을지 — 세로선의 빈 행 처리 (없으면 안 끊음) */
+  breakAt?: (cell: number) => boolean;
+  /** 경계선(line)의 셀(cell) 위치에서 맞닿는 두 칸의 소유자 인덱스 `[앞, 뒤]` (범위 밖은 null) */
+  neighbors: (line: number, cell: number) => [number | null, number | null];
+  /** 경계선(line)의 [start, endExclusive) 구간을 border로 한 선분으로 그린다 */
+  emit: (
+    schemas: Schema[],
+    id: string,
+    line: number,
+    start: number,
+    endExclusive: number,
+    border: GridEdgeBorder,
+  ) => void;
 }
 
 /** 두 변 테두리가 같은 스타일인지 — 같은 구간끼리 한 선으로 이어 그리기 위함 */
