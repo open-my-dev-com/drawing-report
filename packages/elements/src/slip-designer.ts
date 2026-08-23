@@ -5043,7 +5043,13 @@ export class SlipDesigner extends LitElement {
           if (el.type === 'field' && el.binding === key) el.binding = trimmed;
           if (el.type === 'grid') {
             if (el.repeat?.binding === key) el.repeat.binding = trimmed;
-            for (const cell of el.cells) if (cell.binding === key) cell.binding = trimmed;
+            for (const cell of el.cells) {
+              // 반복 구간 안 칸의 바인딩은 항목 필드(별도 네임스페이스)라 전표 값 키 이름
+              // 변경 대상이 아니다 — 같은 이름이 우연히 겹쳐도 건드리지 않는다
+              const inBand =
+                el.repeat !== undefined && cell.row >= el.repeat.fromRow && cell.row <= el.repeat.toRow;
+              if (!inBand && cell.binding === key) cell.binding = trimmed;
+            }
           }
         }
       }
