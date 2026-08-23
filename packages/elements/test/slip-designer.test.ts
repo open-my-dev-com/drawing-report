@@ -292,6 +292,22 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
     expect(Number(up?.getAttribute('y2'))).toBe(0);
   });
 
+  it('사선에도 선 굵기 칸이 나온다 (방향을 바꿔도 굵기를 고칠 수 있게)', async () => {
+    parseSlipFileMock.mockReturnValue(makeLineFile('down'));
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    (el.shadowRoot!.querySelector('[data-id="line-1"]') as HTMLElement).dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, composed: true, pointerId: 1 }),
+    );
+    await el.updateComplete;
+    const labels = Array.from(el.shadowRoot!.querySelectorAll('.prop-row label'))
+      .map((l) => l.textContent?.trim());
+    expect(labels).toContain(strings.designer.lineWidth);
+    el.remove();
+  });
+
   it('선 조각은 SVG 네임스페이스로 생성된다 (실브라우저에서 보이기 위한 조건)', async () => {
     const line = await mountLine('down');
     expect(line?.namespaceURI).toBe('http://www.w3.org/2000/svg');

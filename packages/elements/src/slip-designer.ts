@@ -709,6 +709,8 @@ export class SlipDesigner extends LitElement {
       --sk-accent: #1a73e8;
       --sk-accent-soft: #e7f0fd;
       --sk-guide: #e91e63;
+      /* 테두리가 없는 요소의 자리를 알려 주는 편집 보조선 — 화면 전용(PDF에는 없다) */
+      --sk-guide-faint: rgba(0, 0, 0, 0.15);
       --sk-danger: #c62828;
       --sk-radius: 4px;
 
@@ -1404,7 +1406,7 @@ export class SlipDesigner extends LitElement {
     .element {
       position: absolute;
       box-sizing: border-box;
-      border: 1px solid rgba(0, 0, 0, 0.15);
+      border: 1px solid var(--sk-guide-faint);
       cursor: move;
       overflow: hidden;
       touch-action: none;
@@ -5733,10 +5735,22 @@ export class SlipDesigner extends LitElement {
       const r = el as Record<string, unknown>;
       if (r.backgroundColor) style += `;background-color:${r.backgroundColor}`;
       if (r.fontColor) style += `;color:${r.fontColor}`;
-      if (r.borderColor) style += `;border-color:${r.borderColor}`;
-      // 테두리 굵기를 명시했을 때만 반영 (미지정 시 편집용 실선 유지)
-      if (typeof r.borderWidth === 'number' && r.borderWidth > 0) {
-        style += `;border-width:${(r.borderWidth * PX_PER_MM).toFixed(2)}px`;
+      /*
+       * 테두리는 **PDF가 실제로 그릴 것**을 그대로 그린다 (ADR-012).
+       * 사각형·그리드는 굵기를 지정하지 않아도 변환 계층이 기본 굵기·검정으로 그리므로,
+       * 캔버스만 흐린 편집 보조선을 두면 화면과 PDF가 어긋난다. 굵기가 0(없음)일 때만
+       * 그릴 것이 없으므로 보조선을 남겨 요소 자리를 보이게 한다.
+       */
+      const effectiveWidth = typeof r.borderWidth === 'number'
+        ? r.borderWidth
+        : (el.type === 'text' || el.type === 'field' ? 0 : DEFAULT_LINE_WIDTH);
+      if (effectiveWidth > 0) {
+        const color = (r.borderColor as string | undefined) ?? DEFAULT_BORDER_COLOR;
+        style += `;border-color:${color}`;
+        style += `;border-width:${(effectiveWidth * PX_PER_MM).toFixed(2)}px`;
+      } else {
+        // 테두리 없음 — 편집 보조선만 남긴다(화면 전용, PDF에는 아무것도 안 그린다)
+        style += ';border-color:var(--sk-guide-faint)';
       }
       if (el.type === 'rect') {
         // 모서리 반경·테두리 형태는 사각형 도형에서만 PDF와 함께 지원 (ADR-032)
@@ -6386,20 +6400,17 @@ export class SlipDesigner extends LitElement {
    * 다시 환산되고 요소의 실제 위치·파일 내용은 바뀌지 않는다.
    */
   /**
-   * 요소의 기본 기준점 — 곧은 선은 길이 방향이 아닌 축을 가운데로 잡는다.
+   * 요소의 기본 기준점 — 선은 **시작점 하나**로 고정한다.
    *
    * @remarks
-   * 가로선은 상자 가운데에 그려지므로(convert.ts appendLine) 좌상단 기준이면 Y가
-   * 선의 자리가 아니라 상자 위쪽을 가리켜 헷갈린다. 좌중앙으로 잡으면 Y가 곧
-   * 선이 놓이는 자리가 된다. 세로선은 반대로 상중앙 (G-32).
+   * 곧은 선은 상자 가운데에 그려지므로(convert.ts appendLine) 좌상단 기준이면 Y가 선의 자리가
+   * 아니라 상자 위쪽을 가리켜 헷갈린다. 그래서 길이 방향이 아닌 축을 가운데로 잡아 왔는데,
+   * 방향마다 기준점이 달라 방향을 바꾸면 값이 튀어 보였다. 지금은 방향을 패널에서 바꿀 수 없고
+   * (끝점을 끌어 정한다) 선의 기준점은 **좌중앙 하나**로 둔다 — 가로선은 Y가, 세로선은 시작
+   * 모서리가 곧 선의 자리다.
    */
   private _defaultAnchorIndex(el: SlipElement): number {
-    if (el.type !== 'line') return 0;
-    switch (el.lineDirection ?? 'horizontal') {
-      case 'horizontal': return 3; // 좌중앙 — Y가 곧 선의 자리
-      case 'vertical': return 1; // 상중앙 — X가 곧 선의 자리
-      default: return 0; // 사선은 상자 두 모서리를 잇는다 — 좌상단 그대로
-    }
+    return el.type === 'line' ? 3 : 0;
   }
 
   private _renderAnchorRow(el: SlipElement) {
@@ -6594,6 +6605,25 @@ export class SlipDesigner extends LitElement {
             s.lineWidth,
           )}
         </div>`;
+    }
+    // 사선은 두 축이 모두 끝점을 정하므로 너비·높이를 그대로 두되, 선 굵기는 함께 보인다 —
+    // 곧은 선에만 굵기를 두면 방향을 바꿀 때 굵기 칸이 사라져 고칠 수가 없었다
+    if (el.type === 'line') {
+      return html`
+        <div class="prop-pair">
+          ${sizeRow(s.width, 'width')}
+          ${sizeRow(s.height, 'height')}
+        </div>
+        ${this._renderBorderWidthSelect(
+          el.borderWidth,
+          DEFAULT_LINE_WIDTH,
+          false,
+          'borderWidth',
+          (v) => this._updateElement((target) => {
+            (target as Record<string, unknown>).borderWidth = v;
+          }),
+          s.lineWidth,
+        )}`;
     }
     return html`
       <div class="prop-pair">
@@ -7212,33 +7242,16 @@ export class SlipDesigner extends LitElement {
         `;
   }
 
-  /** 선 요소의 방향 편집 */
-  private _renderLineProps(el: LineElement) {
-    const s = this._strings.designer;
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-    return html`
-          <div class="prop-section">
-            <div class="prop-row">
-              <label>${s.lineDirection}</label>
-              <select .value=${el.lineDirection ?? 'horizontal'}
-                @change=${(e: Event) => this._updateElement((el) => {
-                  if (el.type === 'line') {
-                    el.lineDirection = valOf(e) as 'horizontal' | 'vertical' | 'down' | 'up';
-                  }
-                })}>
-                ${([
-                  ['horizontal', s.lineHorizontal],
-                  ['vertical', s.lineVertical],
-                  ['down', s.lineDown],
-                  ['up', s.lineUp],
-                ] as const).map(([value, label]) => html`
-                  <option value=${value} ?selected=${(el.lineDirection ?? 'horizontal') === value}>
-                    ${label}
-                  </option>`)}
-              </select>
-            </div>
-          </div>
-        `;
+  /**
+   * 선 요소 패널 — 방향은 두지 않는다.
+   *
+   * @remarks
+   * 방향은 **끝점 핸들을 끌면 그때 정해진다**(`_onEndpointMove`) — 캔버스에서 이미 하는 일을
+   * 패널에 겹쳐 두지 않는다는 원칙이다 (CLAUDE.md 「작업 원칙」). 방향을 패널에서 바꿀 수 있으면
+   * 기준점 기본값도 함께 바뀌어 값이 튀어 보였다. 남는 것은 자리·길이·굵기·색·형태뿐이다.
+   */
+  private _renderLineProps(_el: LineElement) {
+    return nothing;
   }
 
   /** 정다각형 요소의 변 수 편집 */
