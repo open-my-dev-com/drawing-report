@@ -337,8 +337,17 @@ function resizePercentages(list: number[], count: number): number[] {
 /** 비율(생략 시 균등)로 나눈 누적 경계 위치(mm) — 길이 = count + 1 */
 /** 새 그리드의 기본 행 높이(mm) */
 const GRID_DEFAULT_ROW_MM = 8;
+/** 새 그리드의 기본 열 너비(mm) */
+const GRID_DEFAULT_COL_MM = 30;
 /** 새 그리드가 한 페이지에 담는 기본 항목 수 */
 const GRID_DEFAULT_PER_PAGE = 5;
+/** 디자이너에서 다룰 수 있는 그리드 행·열 수 상한 — 스키마 한도(SLIP_LIMITS)보다 낮은 편집 편의용 상한 */
+const GRID_MAX_TRACKS_UI = 100;
+/** 반복 구간 페이지당 항목 수 상한 (편집 입력 방어) */
+const GRID_MAX_PER_PAGE_UI = 1000;
+/** 요소를 새로 만들 때 겹치지 않게 계단식으로 미는 간격·되돌아오는 주기(mm) */
+const NEW_ELEMENT_CASCADE_STEP_MM = 5;
+const NEW_ELEMENT_CASCADE_WRAP_MM = 50;
 
 /**
  * 열 너비·행 높이의 합으로 요소 상자를 다시 계산한다 — 스키마가 둘의 일치를 요구한다
@@ -487,6 +496,19 @@ function ensureCell(el: GridElement, row: number, column: number): Record<string
   const created: GridCell = { row, column, content: '' };
   el.cells.push(created);
   return created as unknown as Record<string, unknown>;
+}
+
+/**
+ * 값 소스 배타 규칙 — content·binding·formula를 모두 지운다 (SPEC §5.6/§5.7).
+ * 셀·바코드가 소스 종류를 바꿀 때 쓰며, 지운 뒤 호출부가 하나만 설정한다
+ * (설정 방식은 대상마다 달라 여기서는 지우기만 한다).
+ *
+ * @param record - content·binding·formula를 가질 수 있는 셀 또는 요소
+ */
+function clearValueSources(record: { content?: unknown; binding?: unknown; formula?: unknown }): void {
+  delete record.content;
+  delete record.binding;
+  delete record.formula;
 }
 
 /** #RRGGBB(AA) → HSV(h 0~360, s·v 0~1) — 색 피커 초기 위치 계산용 */
@@ -3126,7 +3148,7 @@ export class SlipDesigner extends LitElement {
     const id = crypto.randomUUID();
     const { paper } = this._file.template;
     const [padTop, , , padLeft] = paper.padding;
-    const offset = (elements.length * 5) % 50;
+    const offset = (elements.length * NEW_ELEMENT_CASCADE_STEP_MM) % NEW_ELEMENT_CASCADE_WRAP_MM;
     const position = place?.position ?? { x: padLeft + offset, y: padTop + offset };
     const name = `${type}-${id.slice(0, 4)}`;
 
@@ -3141,7 +3163,7 @@ export class SlipDesigner extends LitElement {
         element = {
           type: 'grid', id, name, position,
           width: 90, height: GRID_DEFAULT_ROW_MM * (2 + GRID_DEFAULT_PER_PAGE),
-          columns: [{ width: 30 }, { width: 30 }, { width: 30 }],
+          columns: [{ width: GRID_DEFAULT_COL_MM }, { width: GRID_DEFAULT_COL_MM }, { width: GRID_DEFAULT_COL_MM }],
           rows: [
             { height: GRID_DEFAULT_ROW_MM },
             { height: GRID_DEFAULT_ROW_MM },
@@ -3929,7 +3951,7 @@ export class SlipDesigner extends LitElement {
     const el = this._findSelectedElement();
     if (el?.type !== 'grid') return;
     const next = el.rows.length + delta;
-    if (next < 1 || next > 100) return;
+    if (next < 1 || next > GRID_MAX_TRACKS_UI) return;
     // 반복 구간이 남을 자리가 없어지면 줄이지 않는다
     if (delta < 0 && el.repeat && next <= el.repeat.toRow) return;
     this._updateGrid((grid) => {
@@ -3948,10 +3970,10 @@ export class SlipDesigner extends LitElement {
     const el = this._findSelectedElement();
     if (el?.type !== 'grid') return;
     const next = el.columns.length + delta;
-    if (next < 1 || next > 100) return;
+    if (next < 1 || next > GRID_MAX_TRACKS_UI) return;
     this._updateGrid((grid) => {
       if (delta > 0) {
-        grid.columns.push({ width: grid.columns[grid.columns.length - 1]?.width ?? 30 });
+        grid.columns.push({ width: grid.columns[grid.columns.length - 1]?.width ?? GRID_DEFAULT_COL_MM });
       } else {
         grid.columns.pop();
         grid.cells = grid.cells.filter((cell) => cell.column < grid.columns.length);
@@ -4010,7 +4032,7 @@ export class SlipDesigner extends LitElement {
       this.requestUpdate();
       return;
     }
-    if (!Number.isInteger(next.perPage) || next.perPage < 1 || next.perPage > 1000) {
+    if (!Number.isInteger(next.perPage) || next.perPage < 1 || next.perPage > GRID_MAX_PER_PAGE_UI) {
       this.requestUpdate();
       return;
     }
@@ -4042,9 +4064,7 @@ export class SlipDesigner extends LitElement {
     this._updateElement((element) => {
       if (element.type !== 'grid') return;
       const cell = ensureCell(element, target.row, target.column);
-      delete cell.content;
-      delete cell.binding;
-      delete cell.formula;
+      clearValueSources(cell);
       if (kind === 'content') cell.content = '';
     });
   }
@@ -4059,9 +4079,7 @@ export class SlipDesigner extends LitElement {
     this._updateElement((element) => {
       if (element.type !== 'grid') return;
       const cell = ensureCell(element, target.row, target.column);
-      delete cell.content;
-      delete cell.binding;
-      delete cell.formula;
+      clearValueSources(cell);
       if (value !== '') cell[kind] = value;
       else if (kind === 'content') cell.content = '';
     });
@@ -6343,9 +6361,7 @@ export class SlipDesigner extends LitElement {
     this._updateElement((element) => {
       if (element.type !== 'barcode') return;
       const r = element as Record<string, unknown>;
-      delete r.content;
-      delete r.binding;
-      delete r.formula;
+      clearValueSources(r);
       r[kind] = '';
     });
   }
@@ -6360,9 +6376,7 @@ export class SlipDesigner extends LitElement {
     this._updateElement((element) => {
       if (element.type !== 'barcode') return;
       const r = element as Record<string, unknown>;
-      delete r.content;
-      delete r.binding;
-      delete r.formula;
+      clearValueSources(r);
       r[kind] = value;
     });
   }
