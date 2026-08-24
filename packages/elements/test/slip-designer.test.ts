@@ -459,6 +459,24 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     el.remove();
   });
 
+  it('필드 미리보기는 파라미터면 {키}, 수식이면 수식을 보인다 (수식 필드에 {undefined} 금지, ADR-049)', async () => {
+    const paramField = await mountWith([{
+      type: 'field', id: 'f1', name: 'f', position: { x: 10, y: 10 },
+      width: 40, height: 10, parameter: 'tradeDate',
+    }]);
+    expect((paramField.shadowRoot?.querySelector('.el-content') as HTMLElement).textContent).toBe('{tradeDate}');
+    paramField.remove();
+
+    const formulaField = await mountWith([{
+      type: 'field', id: 'f2', name: 'f', position: { x: 10, y: 10 },
+      width: 40, height: 10, formula: 'SUM(items.amount)',
+    }]);
+    const content = (formulaField.shadowRoot?.querySelector('.el-content') as HTMLElement).textContent;
+    expect(content).toBe('SUM(items.amount)');
+    expect(content).not.toContain('undefined');
+    formulaField.remove();
+  });
+
   it('세로쓰기 텍스트는 캔버스에서 글자를 한 자씩 쌓는다 (PDF stackVertically와 동일, ADR-012)', async () => {
     const el = await mountWith([{
       type: 'text', id: 'v1', name: 'v', position: { x: 10, y: 10 },

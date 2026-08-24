@@ -56,7 +56,7 @@ pnpm demo:vue     # Vue    → http://localhost:5175
 
 | ドキュメント | 内容 |
 |---|---|
-| [docs/guide/](docs/guide/) | **利用ガイド** — インストール・連携・API ([日本語](docs/guide/README.ja.md)) + [数式関数](docs/guide/formula.ja.md) · [型リファレンス](docs/guide/types.ja.md) · [フォント・プリセット](docs/guide/fonts-and-presets.ja.md) |
+| [docs/guide/](docs/guide/) | **利用ガイド** — インストール・連携・API ([日本語](docs/guide/README.ja.md)) + [デザイナーガイド](docs/guide/designer.ja.md)（画面キャプチャ） · [数式関数](docs/guide/formula.ja.md) · [型リファレンス](docs/guide/types.ja.md) · [フォント・プリセット](docs/guide/fonts-and-presets.ja.md) |
 | [docs/SPEC.md](docs/SPEC.md) | `.slip` ファイルフォーマットの公開規範仕様 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | アーキテクチャ — 外部システム連携 (ダイアグラム含む) |
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 確定した要件の整理 |

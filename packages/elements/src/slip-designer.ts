@@ -6167,10 +6167,14 @@ export class SlipDesigner extends LitElement {
       case 'rect':
         return nothing;
 
-      case 'field':
+      case 'field': {
+        // 필드는 파라미터 XOR 수식이다 (ADR-049) — 파라미터면 값 키를 `{키}`로,
+        // 수식이면 수식 그대로 보인다. 수식 필드에 `{undefined}`가 뜨지 않게 한다.
+        const label = el.parameter !== undefined ? `{${el.parameter}}` : (el.formula ?? '');
         return html`<span class="el-content"
           style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(el)}"
-          >${stackVertically(`{${el.parameter}}`, el.vertical)}</span>`;
+          >${stackVertically(label, el.vertical)}</span>`;
+      }
 
       case 'barcode':
         return this._renderBarcodePreview(el);

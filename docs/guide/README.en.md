@@ -4,6 +4,10 @@
 
 How to install SlipKit and embed the form designer, data-entry form, and viewer in your app.
 
+![Form designer screen](images/en/overview.png)
+
+> See the **[Form Designer Guide](designer.en.md)** for a screen-by-screen walkthrough of the designer.
+
 ## Table of Contents
 
 1. [Installation](#1-installation)
@@ -16,6 +20,7 @@ How to install SlipKit and embed the form designer, data-entry form, and viewer 
 
 ### Related Documents
 
+- **[Form Designer Guide](designer.en.md)** — the designer's layout and how to use elements, parameters, grids, formulas, and preview (with screenshots)
 - **[Core API Guide](core.en.md)** — parsing, formulas, PDF rendering, integrity, backend integration (including standalone Node.js usage)
 - **[Formula Function Reference](formula.en.md)** — usage, parameters, and examples for all 32 built-in functions
 - **[Type Reference](types.en.md)** — field definitions and defaults for `SlipFile`, fonts, `SlipPreset`, `StorageAdapter`, `IntegrityJwk`, and more

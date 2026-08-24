@@ -4,6 +4,12 @@
 
 All 32 built-in functions in the SlipKit formula engine. Unregistered function names are rejected at parse time.
 
+The designer's formula editor lets you build formulas with parameter chips and the function list, and shows the result immediately.
+
+![The designer's formula editor](images/en/formula.png)
+
+> For the formula workflow in the designer, see the **[Form Designer Guide §5](designer.en.md#5-formulas)**.
+
 ---
 
 ## Aggregation
