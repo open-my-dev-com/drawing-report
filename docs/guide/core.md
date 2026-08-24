@@ -101,8 +101,22 @@ const pdf = await renderSlipToPdf(voucher, { fonts });
 - 전표는 생성 시점의 양식을 `templateSnapshot`으로 통째로 담습니다 — 나중에 양식이 바뀌어도 이 전표는
   그대로 렌더됩니다 (ADR-008). `buildVoucher`가 반환한 전표는 입력 양식·값과 참조를 공유하지 않습니다.
 - 목록 값의 개수가 한 페이지 항목 수를 넘으면 페이지가 자동으로 늘어납니다.
-- 값을 확정해 위변조 표시를 남기려면 [§6 무결성](#6-무결성-해시서명)의 `computeIntegrity`로 무결성을
-  기록하고 `issued: true`로 바꿉니다.
+
+### 발행(확정)
+
+값을 확정해 위변조 감지 표시를 남기는 것이 **발행**입니다. **먼저 `issued: true`로 바꾼 뒤** 그 전표로
+무결성을 계산해 붙입니다 — 순서가 중요합니다. 해시가 `issued`까지 포함하므로, 발행 상태로 만든 다음에
+해시해야 나중에 검증이 맞습니다([§6 무결성](#6-무결성-해시서명)).
+
+```ts
+import { computeIntegrity } from '@omdc-slipkit/core';
+
+const issued = { ...voucher, issued: true };            // 1) 먼저 발행 상태로
+issued.integrity = await computeIntegrity(issued);      // 2) 그 전표를 해시 (서명하려면 두 번째 인자로 개인키)
+```
+
+`computeIntegrity`는 전표를 받아 `{ contentHash, signature? }`만 돌려줍니다 — 전표를 만들지 않으니
+`buildVoucher` **뒤에** 옵니다.
 
 > `buildVoucher` 없이 직접 조립해도 됩니다 — 전표는 `{ schemaVersion, kind: 'voucher', templateSnapshot,
 > values, issued }` 객체이며, `buildVoucher`는 여기에 깊은 복사와 number 정규화를 더해 줄 뿐입니다.

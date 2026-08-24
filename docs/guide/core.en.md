@@ -104,8 +104,22 @@ const pdf = await renderSlipToPdf(voucher, { fonts });
   if the template changes later (ADR-008). The voucher `buildVoucher` returns shares no references with the
   input template or values.
 - When a list has more items than fit on one page, pages are added automatically.
-- To finalize the values and record a tamper-evidence mark, record integrity with `computeIntegrity` and set
-  `issued: true` — see [§6 Integrity](#6-integrity-hash--signature).
+
+### Issuing (finalizing)
+
+Finalizing the values with a tamper-evidence mark is **issuing**. Set `issued: true` **first**, then compute
+integrity over that voucher — order matters: the hash covers `issued`, so you must hash the already-issued
+voucher for verification to match later (see [§6 Integrity](#6-integrity-hash--signature)).
+
+```ts
+import { computeIntegrity } from '@omdc-slipkit/core';
+
+const issued = { ...voucher, issued: true };           // 1) mark issued first
+issued.integrity = await computeIntegrity(issued);     // 2) then hash it (pass a private key as 2nd arg to sign)
+```
+
+`computeIntegrity` takes a voucher and returns only `{ contentHash, signature? }` — it doesn't build a
+voucher, so it comes **after** `buildVoucher`.
 
 > You can also assemble it by hand — a voucher is just `{ schemaVersion, kind: 'voucher', templateSnapshot,
 > values, issued }`; `buildVoucher` merely adds a deep copy and number normalization. Validate a hand-built

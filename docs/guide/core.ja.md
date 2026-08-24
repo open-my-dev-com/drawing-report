@@ -104,8 +104,22 @@ const pdf = await renderSlipToPdf(voucher, { fonts });
   同じようにレンダリングされます (ADR-008)。`buildVoucher` が返す伝票は、入力のテンプレート・値と参照を
   共有しません。
 - リストの項目数が 1 ページに収まる数を超えると、ページが自動で増えます。
-- 値を確定して改ざん検知の記録を残すには、`computeIntegrity` で整合性を記録し `issued: true` にします
-  — [§6 整合性](#6-整合性-ハッシュ署名)を参照してください。
+
+### 発行（確定）
+
+値を確定して改ざん検知の記録を残すのが**発行**です。**先に `issued: true` にしてから**、その伝票で整合性を
+計算して付けます — 順序が重要です。ハッシュは `issued` まで含むため、発行状態にしてからハッシュしないと
+後の検証が合いません（[§6 整合性](#6-整合性-ハッシュ署名)）。
+
+```ts
+import { computeIntegrity } from '@omdc-slipkit/core';
+
+const issued = { ...voucher, issued: true };           // 1) 先に発行状態へ
+issued.integrity = await computeIntegrity(issued);     // 2) その伝票をハッシュ（署名するには第2引数に秘密鍵）
+```
+
+`computeIntegrity` は伝票を受け取り `{ contentHash, signature? }` だけを返します — 伝票を作らないので
+`buildVoucher` の**後**に来ます。
 
 > `buildVoucher` を使わず自分で組み立てることもできます — 伝票は `{ schemaVersion, kind: 'voucher',
 > templateSnapshot, values, issued }` オブジェクトで、`buildVoucher` はそこにディープコピーと number
