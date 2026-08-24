@@ -6,8 +6,7 @@ This guide walks through building a form (template) with `<slip-designer>`, with
 For wiring the component into your app (install, props, events) see the **[Usage Guide](README.en.md)**;
 for the `.slip` file format see the **[SPEC](../SPEC.md)**.
 
-The screens below show the bundled demo (`pnpm demo`) with the bundled "Trade Statement" preset open.
-The sample document content (titles, labels) is Korean — the guide illustrates the tool, not the data.
+The screens below show the bundled demo (`pnpm demo`) with the "Trade Statement" preset open.
 
 ## Contents
 
