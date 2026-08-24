@@ -15,6 +15,7 @@ Node.js에서도 그대로 쓸 수 있습니다.
 4. [수식](#4-수식)
 5. [PDF 렌더링](#5-pdf-렌더링)
 6. [서버 연계 패턴](#6-서버-연계-패턴)
+7. [파일 암호화 (선택)](#7-파일-암호화-선택)
 
 ### 상세 참조
 
@@ -168,3 +169,26 @@ const pdf = await renderSlipToPdf(file, { fonts });
 ```
 
 core는 Node 20 이상에서만 동작합니다.
+
+## 7. 파일 암호화 (선택)
+
+`.slip`은 JSON이라 편집기로 열면 내용이 다 보입니다. 민감한 양식·전표를 잠가 두려면
+`encryptSlipFile`로 암호화합니다 (AES-256-GCM, ADR-054).
+
+```ts
+import { encryptSlipFile, decryptSlipFile, isEncryptedSlipFile } from '@omdc-slipkit/core';
+
+// 잠그기 — 암호(passphrase) 또는 32바이트 원시 키(Uint8Array)
+const locked = await encryptSlipFile(file, '비밀-암호');   // 봉투 JSON 문자열
+
+// 풀기 — 같은 키. 복호화 후 자동으로 검증까지 합니다
+const file2 = await decryptSlipFile(locked, '비밀-암호');
+
+isEncryptedSlipFile(locked);   // true — 표준 .slip과 구분
+```
+
+- **키 관리는 호스트 책임**입니다 — core는 키를 만들거나 보관하지 않습니다.
+- 잠근 파일은 **표준 `.slip`이 아닙니다.** 받는 쪽이 같은 키로 풀어야 읽을 수 있어 시스템 간
+  그대로 주고받을 수 없습니다.
+- 틀린 키나 변조된 파일은 복호화 단계에서 걸러집니다(AES-GCM 인증).
+- 봉투 형식은 [SPEC §8](../SPEC.md)을 보세요.

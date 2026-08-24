@@ -15,6 +15,7 @@ Node.js でもそのまま利用できます。
 4. [数式](#4-数式)
 5. [PDF レンダリング](#5-pdf-レンダリング)
 6. [サーバー連携パターン](#6-サーバー連携パターン)
+7. [ファイル暗号化 (任意)](#7-ファイル暗号化-任意)
 
 ### 詳細リファレンス
 
@@ -171,3 +172,26 @@ const pdf = await renderSlipToPdf(file, { fonts });
 ```
 
 core は Node 20 以上でのみ動作します。
+
+## 7. ファイル暗号化 (任意)
+
+`.slip` は JSON なので、エディタで開くと内容がすべて見えます。機微なテンプレート・伝票をロックするには
+`encryptSlipFile` で暗号化します (AES-256-GCM, ADR-054)。
+
+```ts
+import { encryptSlipFile, decryptSlipFile, isEncryptedSlipFile } from '@omdc-slipkit/core';
+
+// ロック — パスフレーズ（文字列）または 32 バイトの生キー（Uint8Array）
+const locked = await encryptSlipFile(file, 'secret-passphrase');   // 封筒 JSON 文字列
+
+// アンロック — 同じキー。復号後に検証まで行います
+const file2 = await decryptSlipFile(locked, 'secret-passphrase');
+
+isEncryptedSlipFile(locked);   // true — 通常の .slip と区別
+```
+
+- **キー管理はホストの責任**です — core はキーを作成も保管もしません。
+- ロックしたファイルは**通常の `.slip` ではありません。** 受け取る側が同じキーで復号する必要があり、
+  システム間でそのままやり取りできません。
+- 誤ったキーや改ざんされたファイルは復号段階で弾かれます（AES-GCM 認証）。
+- 封筒フォーマットは [SPEC §8](../SPEC.md) を参照してください。

@@ -15,6 +15,7 @@ You can send a `.slip` file to core without installing any UI packages, enabling
 4. [Formulas](#4-formulas)
 5. [PDF Rendering](#5-pdf-rendering)
 6. [Backend Integration](#6-backend-integration)
+7. [File encryption (optional)](#7-file-encryption-optional)
 
 ### Reference Pages
 
@@ -171,3 +172,26 @@ const pdf = await renderSlipToPdf(file, { fonts });
 ```
 
 Core runs on Node 20+ only.
+
+## 7. File encryption (optional)
+
+A `.slip` is JSON, so opening it in an editor reveals everything. To lock a sensitive template or
+voucher, encrypt it with `encryptSlipFile` (AES-256-GCM, ADR-054).
+
+```ts
+import { encryptSlipFile, decryptSlipFile, isEncryptedSlipFile } from '@omdc-slipkit/core';
+
+// Lock — a passphrase (string) or a 32-byte raw key (Uint8Array)
+const locked = await encryptSlipFile(file, 'secret-passphrase');   // envelope JSON string
+
+// Unlock — the same key. Decryption also validates the content
+const file2 = await decryptSlipFile(locked, 'secret-passphrase');
+
+isEncryptedSlipFile(locked);   // true — distinguishes it from a plain .slip
+```
+
+- **Key management is the host's responsibility** — core neither creates nor stores keys.
+- A locked file is **not a standard `.slip`.** The recipient must decrypt it with the same key, so it
+  can't be exchanged between systems as-is.
+- A wrong key or a tampered file is rejected at decryption (AES-GCM authentication).
+- For the envelope format, see [SPEC §8](../SPEC.md).
