@@ -11,10 +11,11 @@ You can send a `.slip` file to core without installing any UI packages, enabling
 
 1. [Installation](#1-installation)
 2. [File Parsing & Serialization](#2-file-parsing--serialization)
-3. [Formulas](#3-formulas)
-4. [PDF Rendering](#4-pdf-rendering)
-5. [Integrity (Hash & Signature)](#5-integrity-hash--signature)
-6. [Backend Integration](#6-backend-integration)
+3. [Building a voucher — filling a template with values](#3-building-a-voucher--filling-a-template-with-values)
+4. [Formulas](#4-formulas)
+5. [PDF Rendering](#5-pdf-rendering)
+6. [Integrity (Hash & Signature)](#6-integrity-hash--signature)
+7. [Backend Integration](#7-backend-integration)
 
 ### Reference Pages
 
@@ -55,7 +56,70 @@ const validated = validateSlipFile(jsonValue);
 - `serializeSlipFile` converts a `SlipFile` object to a JSON string.
 - `validateSlipFile` validates an already-parsed JSON value (e.g. a `JSON.parse` result) and returns a `SlipFile`. Throws `SlipParseError` if invalid.
 
-## 3. Formulas
+## 3. Building a voucher — filling a template with values
+
+To create a voucher with core alone (no UI), you **fill a template with values** and assemble the voucher
+object yourself. The template is linked as a `.slip` file, but the parameter data is passed via a `values`
+object.
+
+### Shape of the values object
+
+Keys are the template's **parameter physical names (`key`)**; the value depends on the parameter type.
+
+| Parameter type | Value |
+|---|---|
+| text · number · date · boolean | the value itself (`'2026-08-24'` · `12000` · `true`) |
+| image | a `data:` base64 string (no external URLs — core does not use the network) |
+| list | an **array of objects** — each item keyed by its sub-field `key` |
+
+```ts
+const values = {
+  tradeDate: '2026-08-24',          // a date parameter
+  items: [                          // a list parameter — filled by sub-field key
+    { itemName: 'Pencil', spec: 'HB', quantity: 12, unitPrice: 300, amount: 3600 },
+    { itemName: 'Notebook', spec: 'A5', quantity: 5, unitPrice: 1200, amount: 6000 },
+  ],
+  // totalAmount is computed by the formula SUM(items.amount), so you may omit it
+};
+```
+
+### Template + values → voucher
+
+A voucher is a `templateSnapshot` (a snapshot of the template) plus `values` plus `issued`. Pass the object
+straight to `renderSlipToPdf` to get a PDF with the values filled in.
+
+```ts
+import {
+  parseSlipFile,
+  renderSlipToPdf,
+  normalizeNumericParameters,
+  type SlipVoucherFile,
+} from '@omdc-slipkit/core';
+
+const template = parseSlipFile(templateJson);
+if (template.kind !== 'template') throw new Error('not a template file');
+
+const voucher: SlipVoucherFile = {
+  schemaVersion: template.schemaVersion,
+  kind: 'voucher',
+  templateSnapshot: template.template,   // snapshot at creation time (ADR-008)
+  // normalize empty number-parameter values to 0 (for strict-typed formulas; optional)
+  values: normalizeNumericParameters(values, template.template.parameters),
+  issued: false,
+};
+
+const pdf = await renderSlipToPdf(voucher, { fonts });
+```
+
+- Fields computed by a formula (e.g. the total) don't need to be in `values` — they're computed at render time.
+- `templateSnapshot` embeds the whole template as of creation, so the voucher renders the same even if the
+  template changes later (ADR-008).
+- When a list has more items than fit on one page, pages are added automatically.
+- To validate the assembled object up front, run `validateSlipFile(voucher)`.
+- To finalize the values and record a tamper-evidence mark, build an `issued: true` voucher with
+  `computeIntegrity` — see [§6 Integrity](#6-integrity-hash--signature).
+
+## 4. Formulas
 
 ```ts
 import { parseFormula, evaluateFormula } from '@omdc-slipkit/core';
@@ -70,7 +134,7 @@ const result = evaluateFormula(ast, {
 32 built-in functions are supported (SUM, IF, ROUND, CONCAT, etc.). See **[Formula Function Reference](formula.en.md)** for details on each function.
 Unregistered function names are rejected at parse time.
 
-## 4. PDF Rendering
+## 5. PDF Rendering
 
 ```ts
 import { renderSlipToPdf } from '@omdc-slipkit/core';
@@ -85,7 +149,7 @@ const pdfBytes = await renderSlipToPdf(file, {
 - The `locale` option controls number formatting in formula output (default `'ko-KR'`).
 - See [Type Reference](types.en.md#font) for font type details.
 
-## 5. Integrity (Hash & Signature)
+## 6. Integrity (Hash & Signature)
 
 ```ts
 import {
@@ -109,7 +173,7 @@ const result = await verifyIntegrity(signed);
 Verifies the integrity of a `.slip` file.
 Uses SHA-256 hashing + JWS (ES256) signing with RFC 8785 (JCS) canonicalization, implemented via Web Crypto API.
 
-## 6. Backend Integration
+## 7. Backend Integration
 
 SlipKit is a server-less embeddable library that integrates with external backends through `.slip` files.
 See [ARCHITECTURE.md](../ARCHITECTURE.md) for detailed diagrams and patterns.

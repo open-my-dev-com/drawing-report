@@ -11,10 +11,11 @@ Node.js에서도 그대로 쓸 수 있습니다.
 
 1. [설치](#1-설치)
 2. [파일 파싱·직렬화](#2-파일-파싱직렬화)
-3. [수식](#3-수식)
-4. [PDF 렌더링](#4-pdf-렌더링)
-5. [무결성 (해시·서명)](#5-무결성-해시서명)
-6. [서버 연계 패턴](#6-서버-연계-패턴)
+3. [전표 조립 — 양식에 값 채우기](#3-전표-조립--양식에-값-채우기)
+4. [수식](#4-수식)
+5. [PDF 렌더링](#5-pdf-렌더링)
+6. [무결성 (해시·서명)](#6-무결성-해시서명)
+7. [서버 연계 패턴](#7-서버-연계-패턴)
 
 ### 상세 참조
 
@@ -55,7 +56,69 @@ const validated = validateSlipFile(jsonValue);
 - `serializeSlipFile`은 `SlipFile` 객체를 JSON 문자열로 변환합니다.
 - `validateSlipFile`은 파싱된 JSON 값(`JSON.parse` 결과 등)을 검증해 `SlipFile`로 돌려줍니다. 파일이 유효하지 않으면 `SlipParseError`를 던집니다.
 
-## 3. 수식
+## 3. 전표 조립 — 양식에 값 채우기
+
+UI 없이 core만으로 전표를 만들 때는 **양식(template)에 값(values)을 채워** 전표(voucher) 객체를 직접
+조립합니다. 양식은 `.slip` 파일로 연계하지만, 파라미터에 넣을 데이터는 이 `values` 객체로 넘깁니다.
+
+### values 객체의 모양
+
+키는 양식의 **파라미터 물리명(`key`)**, 값은 파라미터 타입에 따라 다릅니다.
+
+| 파라미터 타입 | 값 |
+|---|---|
+| 글자·숫자·날짜·참거짓 | 그 값 그대로 (`'2026-08-24'` · `12000` · `true`) |
+| 이미지 | `data:` base64 문자열 (외부 URL 불가 — core는 네트워크를 쓰지 않습니다) |
+| 목록(list) | **객체 배열** — 항목마다 하위 필드 `key`로 값을 담습니다 |
+
+```ts
+const values = {
+  tradeDate: '2026-08-24',          // date 파라미터
+  items: [                          // list 파라미터 — 하위 필드 key로 채운다
+    { itemName: '연필', spec: 'HB', quantity: 12, unitPrice: 300, amount: 3600 },
+    { itemName: '공책', spec: 'A5', quantity: 5, unitPrice: 1200, amount: 6000 },
+  ],
+  // totalAmount는 수식 SUM(items.amount)로 계산되므로 넣지 않아도 됩니다
+};
+```
+
+### 양식 + 값 → 전표
+
+전표는 `templateSnapshot`(양식 스냅샷) + `values` + `issued`로 이뤄집니다. 이 객체를 그대로
+`renderSlipToPdf`에 넘기면 값이 채워진 PDF가 나옵니다.
+
+```ts
+import {
+  parseSlipFile,
+  renderSlipToPdf,
+  normalizeNumericParameters,
+  type SlipVoucherFile,
+} from '@omdc-slipkit/core';
+
+const template = parseSlipFile(templateJson);
+if (template.kind !== 'template') throw new Error('양식 파일이 아닙니다');
+
+const voucher: SlipVoucherFile = {
+  schemaVersion: template.schemaVersion,
+  kind: 'voucher',
+  templateSnapshot: template.template,   // 생성 시점 양식 스냅샷 (ADR-008)
+  // number 파라미터의 빈 값을 0으로 맞춘다 (엄격 타입 수식용, 선택)
+  values: normalizeNumericParameters(values, template.template.parameters),
+  issued: false,
+};
+
+const pdf = await renderSlipToPdf(voucher, { fonts });
+```
+
+- 수식으로 계산되는 필드(예: 합계금액)는 `values`에 넣지 않아도 렌더 시 자동으로 계산됩니다.
+- `templateSnapshot`은 전표를 만든 시점의 양식을 통째로 담습니다 — 나중에 양식이 바뀌어도 이 전표는
+  그대로 렌더됩니다 (ADR-008).
+- 목록 값의 개수가 한 페이지 항목 수를 넘으면 페이지가 자동으로 늘어납니다.
+- 조립한 객체가 규칙에 맞는지 미리 확인하려면 `validateSlipFile(voucher)`로 검증할 수 있습니다.
+- 값을 확정해 위변조 표시를 남기려면 [§6 무결성](#6-무결성-해시서명)의 `computeIntegrity`로
+  `issued: true` 전표를 만듭니다.
+
+## 4. 수식
 
 ```ts
 import { parseFormula, evaluateFormula } from '@omdc-slipkit/core';
@@ -70,7 +133,7 @@ const result = evaluateFormula(ast, {
 32종의 내장 함수를 지원합니다 (SUM, IF, ROUND, CONCAT 등). 함수별 사용법은 **[수식 함수 참조](formula.md)** 를 참고해 주세요.
 등록되지 않은 함수는 파싱 단계에서 거부됩니다.
 
-## 4. PDF 렌더링
+## 5. PDF 렌더링
 
 ```ts
 import { renderSlipToPdf } from '@omdc-slipkit/core';
@@ -85,7 +148,7 @@ const pdfBytes = await renderSlipToPdf(file, {
 - `locale` 옵션으로 수식 포맷 함수의 숫자 표기를 변경할 수 있습니다. (기본 `'ko-KR'`).
 - 폰트 타입 상세는 [타입 참조](types.md#font)를 참고해 주세요.
 
-## 5. 무결성 (해시·서명)
+## 6. 무결성 (해시·서명)
 
 ```ts
 import {
@@ -109,7 +172,7 @@ const result = await verifyIntegrity(signed);
 `.slip`파일에 대한 무결성을 확인합니다.
 SHA-256 해시 + JWS(ES256) 서명. RFC 8785(JCS) 정규화를 거치며 Web Crypto API로 구현됩니다.
 
-## 6. 서버 연계 패턴
+## 7. 서버 연계 패턴
 
 SlipKit은 서버가 없는 임베드형 라이브러리로 외부 백엔드와 `.slip` 파일을 통해 연계가 됩니다. 
 자세한 아키텍처는 [ARCHITECTURE.md](../ARCHITECTURE.md)를 참고해 주세요.

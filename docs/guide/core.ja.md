@@ -11,10 +11,11 @@ Node.js でもそのまま利用できます。
 
 1. [インストール](#1-インストール)
 2. [ファイルのパース・シリアライズ](#2-ファイルのパースシリアライズ)
-3. [数式](#3-数式)
-4. [PDF レンダリング](#4-pdf-レンダリング)
-5. [整合性 (ハッシュ・署名)](#5-整合性-ハッシュ署名)
-6. [サーバー連携パターン](#6-サーバー連携パターン)
+3. [伝票の組み立て — テンプレートに値を入れる](#3-伝票の組み立て--テンプレートに値を入れる)
+4. [数式](#4-数式)
+5. [PDF レンダリング](#5-pdf-レンダリング)
+6. [整合性 (ハッシュ・署名)](#6-整合性-ハッシュ署名)
+7. [サーバー連携パターン](#7-サーバー連携パターン)
 
 ### 詳細リファレンス
 
@@ -55,7 +56,70 @@ const validated = validateSlipFile(jsonValue);
 - `serializeSlipFile` は `SlipFile` オブジェクトを JSON 文字列に変換します。
 - `validateSlipFile` はパース済みの JSON 値(`JSON.parse` の結果など)を検証し、`SlipFile` として返します。ファイルが不正な場合は `SlipParseError` を投げます。
 
-## 3. 数式
+## 3. 伝票の組み立て — テンプレートに値を入れる
+
+UI なしで core だけで伝票を作るときは、**テンプレートに値（values）を入れて**伝票（voucher）オブジェクトを
+自分で組み立てます。テンプレートは `.slip` ファイルで連携しますが、パラメータに入れるデータはこの
+`values` オブジェクトで渡します。
+
+### values オブジェクトの形
+
+キーはテンプレートの**パラメータ物理名（`key`）**、値はパラメータタイプによって異なります。
+
+| パラメータタイプ | 値 |
+|---|---|
+| 文字・数値・日付・真偽 | その値そのまま（`'2026-08-24'` · `12000` · `true`） |
+| 画像 | `data:` base64 文字列（外部 URL 不可 — core はネットワークを使いません） |
+| リスト（list） | **オブジェクトの配列** — 項目ごとに項目フィールドの `key` で値を入れます |
+
+```ts
+const values = {
+  tradeDate: '2026-08-24',          // date パラメータ
+  items: [                          // list パラメータ — 項目フィールドの key で入れる
+    { itemName: '鉛筆', spec: 'HB', quantity: 12, unitPrice: 300, amount: 3600 },
+    { itemName: 'ノート', spec: 'A5', quantity: 5, unitPrice: 1200, amount: 6000 },
+  ],
+  // totalAmount は数式 SUM(items.amount) で計算されるので入れなくてよい
+};
+```
+
+### テンプレート + 値 → 伝票
+
+伝票は `templateSnapshot`（テンプレートのスナップショット）+ `values` + `issued` からなります。この
+オブジェクトをそのまま `renderSlipToPdf` に渡すと、値が入った PDF が得られます。
+
+```ts
+import {
+  parseSlipFile,
+  renderSlipToPdf,
+  normalizeNumericParameters,
+  type SlipVoucherFile,
+} from '@omdc-slipkit/core';
+
+const template = parseSlipFile(templateJson);
+if (template.kind !== 'template') throw new Error('テンプレートファイルではありません');
+
+const voucher: SlipVoucherFile = {
+  schemaVersion: template.schemaVersion,
+  kind: 'voucher',
+  templateSnapshot: template.template,   // 作成時点のテンプレートスナップショット (ADR-008)
+  // number パラメータの空値を 0 に揃える（厳密型の数式向け・任意）
+  values: normalizeNumericParameters(values, template.template.parameters),
+  issued: false,
+};
+
+const pdf = await renderSlipToPdf(voucher, { fonts });
+```
+
+- 数式で計算されるフィールド（例: 合計金額）は `values` に入れなくてもレンダリング時に自動計算されます。
+- `templateSnapshot` は作成時点のテンプレートを丸ごと保持するので、後でテンプレートが変わってもこの伝票は
+  同じようにレンダリングされます (ADR-008)。
+- リストの項目数が 1 ページに収まる数を超えると、ページが自動で増えます。
+- 組み立てたオブジェクトが正しいか事前に確認するには `validateSlipFile(voucher)` で検証できます。
+- 値を確定して改ざん検知の記録を残すには、`computeIntegrity` で `issued: true` の伝票を作ります
+  — [§6 整合性](#6-整合性-ハッシュ署名)を参照してください。
+
+## 4. 数式
 
 ```ts
 import { parseFormula, evaluateFormula } from '@omdc-slipkit/core';
@@ -70,7 +134,7 @@ const result = evaluateFormula(ast, {
 32 種の組み込み関数をサポートしています (SUM、IF、ROUND、CONCAT など)。関数ごとの使い方は **[数式関数リファレンス](formula.md)** を参照してください。
 登録されていない関数はパース段階で拒否されます。
 
-## 4. PDF レンダリング
+## 5. PDF レンダリング
 
 ```ts
 import { renderSlipToPdf } from '@omdc-slipkit/core';
@@ -85,7 +149,7 @@ const pdfBytes = await renderSlipToPdf(file, {
 - `locale` オプションで数式フォーマット関数の数値表記を変更できます。(既定は `'ko-KR'`)。
 - フォント型の詳細は [型リファレンス](types.md#font) を参照してください。
 
-## 5. 整合性 (ハッシュ・署名)
+## 6. 整合性 (ハッシュ・署名)
 
 ```ts
 import {
@@ -109,7 +173,7 @@ const result = await verifyIntegrity(signed);
 `.slip` ファイルの整合性を確認します。
 SHA-256 ハッシュ + JWS(ES256) 署名。RFC 8785(JCS) による正規化を経て、Web Crypto API で実装されています。
 
-## 6. サーバー連携パターン
+## 7. サーバー連携パターン
 
 SlipKit はサーバーを持たない組み込み型ライブラリで、外部バックエンドとは `.slip` ファイルを通じて連携します。
 詳しいアーキテクチャは [ARCHITECTURE.md](../ARCHITECTURE.md) を参照してください。
