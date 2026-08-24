@@ -196,3 +196,6 @@ isEncryptedSlipFile(locked);   // true — distinguishes it from a plain .slip
   can't be exchanged between systems as-is.
 - A wrong key or a tampered file is rejected at decryption (AES-GCM authentication).
 - For the envelope format, see [SPEC §8](../SPEC.md).
+- To encrypt automatically when saving from the UI (the designer, etc.), don't call the core functions
+  directly — use the storage adapter's `encryption` option (ADR-055): see
+  [Type Reference](types.en.md#encryption-on-save-optional-adr-055).

@@ -10,3 +10,4 @@ export {
 } from './settings.js';
 export { IndexedDbStorage, type IndexedDbStorageOptions } from './storage/indexeddb-storage.js';
 export { LocalFileStorage } from './storage/local-file-storage.js';
+export { SAMPLE_ENCRYPTION_KEY, type StorageEncryption } from './storage/encryption.js';

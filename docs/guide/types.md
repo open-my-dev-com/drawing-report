@@ -120,6 +120,41 @@ import type { StorageAdapter } from '@omdc-slipkit/core';
 | `IndexedDbStorage` | `@omdc-slipkit/elements` | 브라우저 IndexedDB. 제목·종류 필터, 커서 페이징 지원 |
 | `LocalFileStorage` | `@omdc-slipkit/elements` | 저장은 파일 다운로드, 불러오기는 파일 선택 대화 상자. `delete`·`list`는 `unsupported` |
 
+### 저장 시 암호화 (선택, ADR-055)
+
+동봉 어댑터 2종은 생성 옵션 `encryption`으로 **저장할 때 자동으로 암호화**할 수 있습니다.
+켜 두면 저장 시 core의 암호화(AES-256-GCM)로 `.slip` 내용을 잠그고, 불러올 때 자동으로 풉니다.
+
+```ts
+import { IndexedDbStorage, type StorageEncryption } from '@omdc-slipkit/elements';
+
+const storage = new IndexedDbStorage({
+  encryption: { enabled: true, key: hostKey },   // 호스트가 공급하는 암호/원시 키
+});
+```
+
+| 필드 | 값 | 동작 |
+|---|---|---|
+| `enabled` | `boolean` | `true`면 저장 시 암호화, `false`(또는 설정 생략)면 평문 저장 |
+| `key` | `string \| Uint8Array` (선택) | 저장 시 잠글 키 — 암호(passphrase) 또는 32바이트 원시 키 |
+| `previousKeys` | `(string \| Uint8Array)[]` (선택) | 불러올 때 추가로 시도할 예전 키들 — 키 변경(회전) 대비 |
+
+- `enabled: true`인데 `key`가 없으면 **데모용 샘플 기본키**(`SAMPLE_ENCRYPTION_KEY`)로 잠급니다.
+  이 키는 코드에 박혀 있어 **실보안이 아닙니다** — 실제로 보호하려면 호스트가 `key`를 반드시 주세요.
+- **불러오기는 설정과 무관하게** 암호화 파일을 자동 감지해 풉니다 — 옛 평문 저장분도 그대로 읽힙니다.
+- `IndexedDbStorage`는 본문만 잠그고 목록 조회용 제목은 평문으로 둡니다(목록에 제목이 보이도록).
+  민감한 내용은 본문 안(파라미터·직접 입력·이미지)이라 잠깁니다.
+- 키 관리는 호스트 책임입니다(ADR-054). core 단독 사용 시의 암호화는 [Core 가이드 §7](core.md#7-파일-암호화-선택)을 보세요.
+
+**중간에 켜기·키 바꾸기**
+
+- **암호화 안 하다가 켜기**: `enabled`를 `true`로 바꾸면 그 뒤 저장분부터 잠깁니다. 이미 평문으로
+  저장돼 있던 파일은 자동으로 잠기지 않고, 열었다가 **다시 저장할 때** 잠깁니다.
+- **키 바꾸기(회전)**: 새 키를 `key`에, 옛 키를 `previousKeys`에 두세요. 불러올 때 현재 키가 안 맞으면
+  예전 키들을 차례로 시도하므로 옛 파일도 열리고, 그 파일을 **다시 저장하면 새 키로 옮겨집니다.**
+- **암호화 끄기**: `enabled: false`로 바꿔도 이미 잠긴 파일은 봉투로 남아 있습니다 — `key`(·`previousKeys`)를
+  남겨 두면 계속 읽을 수 있고, 새 저장분만 평문이 됩니다.
+
 ---
 
 ## RenderOptions

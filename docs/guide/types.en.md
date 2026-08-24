@@ -121,6 +121,44 @@ Errors are thrown as `SlipStorageError` with a `code` to identify the cause:
 | `IndexedDbStorage` | `@omdc-slipkit/elements` | Browser IndexedDB. Supports title/kind filtering and cursor-based pagination |
 | `LocalFileStorage` | `@omdc-slipkit/elements` | Save triggers download; load opens file picker. `delete` and `list` throw `unsupported` |
 
+### Encryption on save (optional, ADR-055)
+
+Both bundled adapters can **encrypt automatically on save** via the `encryption` constructor option.
+When enabled, saving locks the `.slip` content with core's encryption (AES-256-GCM); loading unlocks it
+automatically.
+
+```ts
+import { IndexedDbStorage, type StorageEncryption } from '@omdc-slipkit/elements';
+
+const storage = new IndexedDbStorage({
+  encryption: { enabled: true, key: hostKey },   // a host-supplied passphrase or raw key
+});
+```
+
+| Field | Value | Behavior |
+|---|---|---|
+| `enabled` | `boolean` | `true` encrypts on save; `false` (or omitting `encryption`) stores plaintext |
+| `key` | `string \| Uint8Array` (optional) | the key to lock with on save — a passphrase or a 32-byte raw key |
+| `previousKeys` | `(string \| Uint8Array)[]` (optional) | extra keys tried on load — for key rotation |
+
+- With `enabled: true` and no `key`, a **sample default key** (`SAMPLE_ENCRYPTION_KEY`) is used. This key
+  is baked into the source and is **not real security** — supply your own `key` to actually protect files.
+- **Loading auto-detects** encrypted files regardless of the setting — old plaintext saves still load.
+- `IndexedDbStorage` encrypts only the body and keeps the title plaintext (so titles show in the list).
+  Sensitive content lives in the body (parameters, direct input, images) and is encrypted.
+- Key management is the host's responsibility (ADR-054). For encryption when using core alone, see
+  [Core Guide §7](core.en.md#7-file-encryption-optional).
+
+**Turning it on later, or changing the key**
+
+- **Off → on**: set `enabled: true` and saves from then on are locked. Files already stored as plaintext
+  aren't locked retroactively — they get locked when you open and **save them again.**
+- **Key rotation**: put the new key in `key` and the old key in `previousKeys`. On load, if the current key
+  doesn't match, the previous keys are tried in turn, so old files still open — and **saving them again
+  migrates them to the new key.**
+- **Turning it off**: setting `enabled: false` leaves already-locked files as envelopes — keep `key` (and
+  `previousKeys`) to keep reading them; only new saves become plaintext.
+
 ---
 
 ## RenderOptions

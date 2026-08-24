@@ -120,6 +120,41 @@ import type { StorageAdapter } from '@omdc-slipkit/core';
 | `IndexedDbStorage` | `@omdc-slipkit/elements` | ブラウザの IndexedDB。タイトル・種別フィルタ、カーソルページングに対応 |
 | `LocalFileStorage` | `@omdc-slipkit/elements` | 保存はファイルダウンロード、読み込みはファイル選択ダイアログ。`delete`・`list` は `unsupported` |
 
+### 保存時の暗号化（任意, ADR-055）
+
+同梱アダプタ 2 種は、生成オプション `encryption` で**保存時に自動で暗号化**できます。
+有効にすると保存時に core の暗号化（AES-256-GCM）で `.slip` の内容をロックし、読み込み時に自動で解除します。
+
+```ts
+import { IndexedDbStorage, type StorageEncryption } from '@omdc-slipkit/elements';
+
+const storage = new IndexedDbStorage({
+  encryption: { enabled: true, key: hostKey },   // ホストが供給するパスフレーズまたは生キー
+});
+```
+
+| フィールド | 値 | 動作 |
+|---|---|---|
+| `enabled` | `boolean` | `true` で保存時に暗号化、`false`（または `encryption` 省略）で平文保存 |
+| `key` | `string \| Uint8Array`（任意） | 保存時にロックするキー — パスフレーズまたは 32 バイトの生キー |
+| `previousKeys` | `(string \| Uint8Array)[]`（任意） | 読み込み時に追加で試す旧キー — キー変更（ローテーション）対応 |
+
+- `enabled: true` で `key` がないと、**デモ用サンプル既定キー**（`SAMPLE_ENCRYPTION_KEY`）でロックします。
+  このキーはソースに埋め込まれており**実際のセキュリティにはなりません** — 実際に保護するには `key` を渡してください。
+- **読み込みは設定に関係なく**暗号化ファイルを自動検出して解除します — 旧来の平文保存もそのまま読めます。
+- `IndexedDbStorage` は本文のみをロックし、一覧表示用のタイトルは平文で残します（一覧にタイトルが出るように）。
+  機微な内容は本文内（パラメータ・直接入力・画像）にあり暗号化されます。
+- キー管理はホストの責任です（ADR-054）。core 単体使用時の暗号化は [Core ガイド §7](core.ja.md#7-ファイル暗号化-任意) を参照してください。
+
+**途中で有効化する・キーを変える**
+
+- **オフ → オン**: `enabled: true` にすると以降の保存分からロックされます。すでに平文で保存済みの
+  ファイルは遡ってロックされず、開いて**保存し直したとき**にロックされます。
+- **キーのローテーション**: 新しいキーを `key` に、古いキーを `previousKeys` に入れます。読み込み時に
+  現在のキーが合わなければ旧キーを順に試すので古いファイルも開け、**保存し直すと新しいキーへ移行します。**
+- **オフにする**: `enabled: false` にしてもロック済みファイルは封筒のまま残ります — `key`（と
+  `previousKeys`）を残しておけば読み続けられ、新しい保存分だけ平文になります。
+
 ---
 
 ## RenderOptions

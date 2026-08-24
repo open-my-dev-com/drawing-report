@@ -7,8 +7,6 @@
  */
 import {
   SlipStorageError,
-  parseSlipFile,
-  serializeSlipFile,
   type SlipFile,
   type SlipListFilter,
   type SlipListItem,
@@ -16,6 +14,11 @@ import {
   type StorageAdapter,
 } from '@omdc-slipkit/core';
 import { getStrings, type SlipStrings } from '../strings.js';
+import {
+  serializeForStorage,
+  deserializeFromStorage,
+  type StorageEncryption,
+} from './encryption.js';
 
 interface SlipRecord {
   id: string;
@@ -50,6 +53,11 @@ export interface IndexedDbStorageOptions {
    * @defaultValue 한국어
    */
   locale?: string;
+  /**
+   * 저장 시 `.slip` 내용을 암호화할지 설정 (ADR-055). 생략하거나 `enabled: false`면
+   * 평문으로 저장한다. 불러오기는 설정과 무관하게 암호화 봉투를 자동 감지해 푼다.
+   */
+  encryption?: StorageEncryption;
 }
 
 const STORE_NAME = 'slips';
@@ -75,15 +83,17 @@ export class IndexedDbStorage implements StorageAdapter {
   private readonly dbName: string;
   private readonly pageSize: number;
   private readonly messages: SlipStrings['storage'];
+  private readonly encryption: StorageEncryption | undefined;
   private dbPromise: Promise<IDBDatabase> | null = null;
 
   /**
-   * @param options - 데이터베이스 이름·페이지 크기·오류 메시지 언어
+   * @param options - 데이터베이스 이름·페이지 크기·오류 메시지 언어·암호화 설정
    */
   constructor(options: IndexedDbStorageOptions = {}) {
     this.dbName = options.dbName ?? 'slipkit';
     this.pageSize = options.pageSize ?? 50;
     this.messages = getStrings(options.locale).storage;
+    this.encryption = options.encryption;
   }
 
   private open(): Promise<IDBDatabase> {
@@ -132,12 +142,15 @@ export class IndexedDbStorage implements StorageAdapter {
    * @throws SlipStorageError 데이터베이스 쓰기 실패(io) 시
    */
   async save(id: string, file: SlipFile): Promise<void> {
+    // 암호화가 켜져 있으면 본문(data)만 잠근다 — id·kind·title은 목록 조회용 메타라
+    // 평문으로 남는다(제목은 그대로 보인다). 민감한 내용은 본문 안(파라미터·직접 입력·
+    // 이미지)이라 본문 암호화로 가려진다 (ADR-055).
     const record: SlipRecord = {
       id,
       kind: file.kind,
       title: fileTitle(file),
       updatedAt: new Date().toISOString(),
-      data: new Blob([serializeSlipFile(file)]),
+      data: new Blob([await serializeForStorage(file, this.encryption)]),
     };
     await request((await this.store('readwrite')).put(record), this.messages.ioError);
   }
@@ -148,6 +161,7 @@ export class IndexedDbStorage implements StorageAdapter {
    * @param id - 저장 키
    * @returns 불러온 .slip 파일
    * @throws SlipStorageError 없음(not-found)·읽기 실패(io) 시
+   * @throws SlipEncryptionError 암호화 저장분인데 키가 맞지 않으면 (ADR-055)
    */
   async load(id: string): Promise<SlipFile> {
     const record = (await request((await this.store('readonly')).get(id), this.messages.ioError)) as
@@ -158,7 +172,7 @@ export class IndexedDbStorage implements StorageAdapter {
     }
     // 본문은 Blob(신규)이거나 문자열(마이그레이션 전 옛 데이터)일 수 있다
     const data = typeof record.data === 'string' ? record.data : await record.data.text();
-    return parseSlipFile(data);
+    return deserializeFromStorage(data, this.encryption);
   }
 
   /**

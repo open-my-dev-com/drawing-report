@@ -56,8 +56,11 @@ describe('파일 암호화 (ADR-054)', () => {
   it('암호문이 변조되면 복호화에 실패한다 (AES-GCM 인증)', async () => {
     const locked = await encryptSlipFile(template(), 'pw');
     const env = JSON.parse(locked) as { data: string };
-    // data 마지막 글자를 바꿔 변조
-    env.data = env.data.slice(0, -1) + (env.data.endsWith('A') ? 'B' : 'A');
+    // 암호문 첫 바이트의 한 비트를 실제로 뒤집는다. base64url 끝글자만 바꾸면 남는 패딩
+    // 비트라 디코드 결과가 안 바뀔 수 있어 결정적이지 않다 — 바이트로 풀어 뒤집는다.
+    const bytes = Buffer.from(env.data, 'base64url');
+    bytes[0] = (bytes[0] ?? 0) ^ 0x01;
+    env.data = bytes.toString('base64url');
     await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toBeInstanceOf(SlipEncryptionError);
   });
 

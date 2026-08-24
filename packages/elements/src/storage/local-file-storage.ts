@@ -7,13 +7,16 @@
  */
 import {
   SlipStorageError,
-  parseSlipFile,
-  serializeSlipFile,
   type SlipFile,
   type SlipListPage,
   type StorageAdapter,
 } from '@omdc-slipkit/core';
 import { getStrings, type SlipStrings } from '../strings.js';
+import {
+  serializeForStorage,
+  deserializeFromStorage,
+  type StorageEncryption,
+} from './encryption.js';
 
 /**
  * 로컬 파일 저장소 어댑터 — save는 다운로드, load는 파일 선택 대화상자.
@@ -21,12 +24,15 @@ import { getStrings, type SlipStrings } from '../strings.js';
  */
 export class LocalFileStorage implements StorageAdapter {
   private readonly messages: SlipStrings['storage'];
+  private readonly encryption: StorageEncryption | undefined;
 
   /**
-   * @param options - `locale`: 오류 메시지 언어 ('ko' | 'en' | 'ja', 기본 한국어) — ADR-028/042
+   * @param options - `locale`: 오류 메시지 언어 ('ko' | 'en' | 'ja', 기본 한국어) — ADR-028/042.
+   *   `encryption`: 저장 시 암호화 설정 (ADR-055) — 생략·비활성이면 평문 저장
    */
-  constructor(options: { locale?: string } = {}) {
+  constructor(options: { locale?: string; encryption?: StorageEncryption } = {}) {
     this.messages = getStrings(options.locale).storage;
+    this.encryption = options.encryption;
   }
 
   /**
@@ -36,7 +42,7 @@ export class LocalFileStorage implements StorageAdapter {
    * @param file - 저장할 .slip 파일
    */
   async save(id: string, file: SlipFile): Promise<void> {
-    const json = serializeSlipFile(file);
+    const json = await serializeForStorage(file, this.encryption);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     try {
@@ -57,6 +63,7 @@ export class LocalFileStorage implements StorageAdapter {
    * @param _id - 쓰지 않음 — 어떤 파일을 열지는 사용자가 대화상자에서 고른다
    * @returns 선택한 파일을 파싱한 .slip 파일
    * @throws SlipStorageError 선택 취소·파일 없음(io) 시
+   * @throws SlipEncryptionError 암호화 파일인데 키가 맞지 않으면 (ADR-055)
    * @throws SlipParseError 고른 파일이 유효한 .slip이 아니면
    */
   load(_id: string): Promise<SlipFile> {
@@ -77,7 +84,8 @@ export class LocalFileStorage implements StorageAdapter {
         }
         picked
           .text()
-          .then((text) => resolve(parseSlipFile(text)))
+          .then((text) => deserializeFromStorage(text, this.encryption))
+          .then(resolve)
           .catch((error: unknown) => reject(error));
       });
       input.addEventListener('cancel', () => {

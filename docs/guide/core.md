@@ -193,3 +193,5 @@ isEncryptedSlipFile(locked);   // true — 표준 .slip과 구분
   그대로 주고받을 수 없습니다.
 - 틀린 키나 변조된 파일은 복호화 단계에서 걸러집니다(AES-GCM 인증).
 - 봉투 형식은 [SPEC §8](../SPEC.md)을 보세요.
+- UI(디자이너 등)에서 저장할 때 자동으로 잠그려면 core 함수를 직접 부르지 말고 저장소 어댑터의
+  `encryption` 설정을 쓰세요 (ADR-055) — [타입 참조](types.md#저장-시-암호화-선택-adr-055).
