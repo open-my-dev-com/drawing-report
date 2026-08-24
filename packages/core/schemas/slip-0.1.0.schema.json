@@ -2626,23 +2626,6 @@
         },
         "issued": {
           "type": "boolean"
-        },
-        "integrity": {
-          "type": "object",
-          "properties": {
-            "contentHash": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{64}$"
-            },
-            "signature": {
-              "type": "string",
-              "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]*\\.[A-Za-z0-9_-]+$"
-            }
-          },
-          "required": [
-            "contentHash"
-          ],
-          "additionalProperties": false
         }
       },
       "required": [

@@ -21,7 +21,6 @@ import {
   CURRENT_SCHEMA_VERSION,
   renderSlipToPdf,
   serializeSlipFile,
-  verifyIntegrity,
   type SlipTemplateFile,
   type SlipVoucherFile,
 } from '@omdc-slipkit/core';
@@ -272,10 +271,7 @@ describe('<slip-form> 발행', () => {
     expect(issued.length).toBe(1);
     const file = issued[0]!;
     expect(file.issued).toBe(true);
-    expect(file.integrity?.contentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(file.values.tradeDate).toBe('2026-08-20');
-    // 기록된 해시는 실제로 검증을 통과한다 (SPEC §8)
-    await expect(verifyIntegrity(file)).resolves.toBeUndefined();
 
     // 폼은 잠기고 발행 표시가 나온다
     expect(el.shadowRoot?.textContent).toContain(strings.form.issued);

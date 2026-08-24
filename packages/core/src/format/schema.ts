@@ -800,21 +800,6 @@ export const slipTemplateBodySchema = z
   });
 
 // ---------------------------------------------------------------------------
-// 무결성 (ADR-019)
-// ---------------------------------------------------------------------------
-
-/** 위변조 감지 기록 — 해시 필수, 서명 선택 (ADR-019, SPEC §8) */
-export const integritySchema = z.object({
-  /** RFC 8785 정규화 바이트의 SHA-256 (소문자 hex 64자) — docs/SPEC.md §8 */
-  contentHash: z.string().regex(/^[0-9a-f]{64}$/, 'contentHash는 SHA-256 소문자 hex여야 합니다'),
-  /** JWS(ES256) compact serialization — 호스트 키 제공 시 */
-  signature: z
-    .string()
-    .regex(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+$/, 'signature는 JWS compact 형식이어야 합니다')
-    .optional(),
-});
-
-// ---------------------------------------------------------------------------
 // 파일 (봉투 + kind별 본문)
 // ---------------------------------------------------------------------------
 
@@ -857,18 +842,9 @@ export const slipVoucherFileSchema = z
     values: z.record(z.string(), jsonValueSchema),
     /** 발행(확정) 여부. 발행 시 이미지 내장(ADR-036)·무결성 기록(ADR-019) */
     issued: z.boolean(),
-    integrity: integritySchema.optional(),
   })
   .superRefine((voucher, ctx) => {
     if (!voucher.issued) return;
-    // ADR-019: 발행 파일은 SHA-256 해시 필수
-    if (!voucher.integrity) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['integrity'],
-        message: '발행(issued)된 전표는 integrity.contentHash가 필수입니다',
-      });
-    }
     // ADR-036: 발행 파일은 외부 URL 의존 없이 단독 완결이어야 한다
     const externalPath = findExternalUrlPath(voucher.templateSnapshot);
     if (externalPath) {
@@ -1042,8 +1018,6 @@ export type SlipElement = z.infer<typeof slipElementSchema>;
 export type SlipPage = z.infer<typeof slipPageSchema>;
 /** 양식 본문 */
 export type SlipTemplateBody = z.infer<typeof slipTemplateBodySchema>;
-/** 무결성 기록 (ADR-019) */
-export type Integrity = z.infer<typeof integritySchema>;
 /** 양식 파일 */
 export type SlipTemplateFile = z.infer<typeof slipTemplateFileSchema>;
 /** 전표 파일 */

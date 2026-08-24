@@ -14,13 +14,12 @@ Node.js でもそのまま利用できます。
 3. [伝票の組み立て — テンプレートに値を入れる](#3-伝票の組み立て--テンプレートに値を入れる)
 4. [数式](#4-数式)
 5. [PDF レンダリング](#5-pdf-レンダリング)
-6. [整合性 (ハッシュ・署名)](#6-整合性-ハッシュ署名)
-7. [サーバー連携パターン](#7-サーバー連携パターン)
+6. [サーバー連携パターン](#6-サーバー連携パターン)
 
 ### 詳細リファレンス
 
 - **[数式関数リファレンス](formula.md)** — 組み込み関数 32 種の使い方・引数・例
-- **[主要な型リファレンス](types.md)** — `SlipFile`、フォント、`StorageAdapter`、`IntegrityJwk` など型ごとのフィールドと既定値
+- **[主要な型リファレンス](types.md)** — `SlipFile`、フォント、`StorageAdapter` など型ごとのフィールドと既定値
 
 ---
 
@@ -107,19 +106,13 @@ const pdf = await renderSlipToPdf(voucher, { fonts });
 
 ### 発行（確定）
 
-値を確定して改ざん検知の記録を残すのが**発行**です。**先に `issued: true` にしてから**、その伝票で整合性を
-計算して付けます — 順序が重要です。ハッシュは `issued` まで含むため、発行状態にしてからハッシュしないと
-後の検証が合いません（[§6 整合性](#6-整合性-ハッシュ署名)）。
+発行とは値を確定して**ロックする**ことです — `issued: true` にすると作成フォームが入力を止めます。
+発行済み伝票もレンダリングは同じです。
 
 ```ts
-import { computeIntegrity } from '@omdc-slipkit/core';
-
-const issued = { ...voucher, issued: true };           // 1) 先に発行状態へ
-issued.integrity = await computeIntegrity(issued);     // 2) その伝票をハッシュ（署名するには第2引数に秘密鍵）
+const issued = { ...voucher, issued: true };
+const pdf = await renderSlipToPdf(issued, { fonts });
 ```
-
-`computeIntegrity` は伝票を受け取り `{ contentHash, signature? }` だけを返します — 伝票を作らないので
-`buildVoucher` の**後**に来ます。
 
 > `buildVoucher` を使わず自分で組み立てることもできます — 伝票は `{ schemaVersion, kind: 'voucher',
 > templateSnapshot, values, issued }` オブジェクトで、`buildVoucher` はそこにディープコピーと number
@@ -155,31 +148,7 @@ const pdfBytes = await renderSlipToPdf(file, {
 - `locale` オプションで数式フォーマット関数の数値表記を変更できます。(既定は `'ko-KR'`)。
 - フォント型の詳細は [型リファレンス](types.md#font) を参照してください。
 
-## 6. 整合性 (ハッシュ・署名)
-
-```ts
-import {
-  computeIntegrity,
-  verifyIntegrity,
-  generateSigningKeyPair,
-} from '@omdc-slipkit/core';
-
-// ハッシュのみを記録
-const hashed = await computeIntegrity(file);
-
-// 署名まで記録
-const keyPair = await generateSigningKeyPair();
-const signed = await computeIntegrity(file, { privateKey: keyPair.privateKey });
-
-// 検証
-const result = await verifyIntegrity(signed);
-// result.hashValid, result.signatureValid
-```
-
-`.slip` ファイルの整合性を確認します。
-SHA-256 ハッシュ + JWS(ES256) 署名。RFC 8785(JCS) による正規化を経て、Web Crypto API で実装されています。
-
-## 7. サーバー連携パターン
+## 6. サーバー連携パターン
 
 SlipKit はサーバーを持たない組み込み型ライブラリで、外部バックエンドとは `.slip` ファイルを通じて連携します。
 詳しいアーキテクチャは [ARCHITECTURE.md](../ARCHITECTURE.md) を参照してください。
@@ -195,11 +164,10 @@ SlipKit はサーバーを持たない組み込み型ライブラリで、外部
 リクエストなしに特定の時間帯に発行が必要な場合(夜間バッチなど)は、core を Node で実行すればよいです。
 
 ```ts
-import { parseSlipFile, renderSlipToPdf, computeIntegrity } from '@omdc-slipkit/core';
+import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
 
 const file = parseSlipFile(jsonFromDb);
-const issued = await computeIntegrity(file);
-const pdf = await renderSlipToPdf(issued, { fonts });
+const pdf = await renderSlipToPdf(file, { fonts });
 ```
 
 core は Node 20 以上でのみ動作します。

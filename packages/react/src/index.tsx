@@ -7,7 +7,7 @@ import type {
   SlipFontProvider,
   SlipDesignerSettings,
 } from '@omdc-slipkit/elements';
-import type { IntegrityJwk, SlipFile, StorageAdapter } from '@omdc-slipkit/core';
+import type { SlipFile, StorageAdapter } from '@omdc-slipkit/core';
 
 type SlipPresets = SlipDesignerElement['presets'];
 
@@ -24,15 +24,14 @@ export interface SlipViewerProps {
   /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
   settings?: SlipFontProvider;
   /** 발행 전표 무결성 검증 공개키 (JWK, SPEC §8) — 검증 실패 시 PDF를 그리지 않는다 */
-  verificationKey?: IntegrityJwk;
 }
 
 /**
  * React 19는 커스텀 엘리먼트를 완전 지원하므로(ADR-015 근거) 래퍼는 태그를 그대로 노출한다.
  * settings 같은 객체 값은 React 19가 엘리먼트의 JS 프로퍼티로 전달한다.
  */
-export function SlipViewer({ src, locale, settings, verificationKey }: SlipViewerProps) {
-  return createElement('slip-viewer', { src, locale, settings, verificationKey });
+export function SlipViewer({ src, locale, settings }: SlipViewerProps) {
+  return createElement('slip-viewer', { src, locale, settings });
 }
 
 /** SlipDesigner 컴포넌트 props */
@@ -99,7 +98,6 @@ export interface SlipFormProps {
   /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
   settings?: SlipFontProvider;
   /** 발행 서명에 쓸 개인키 (JWK) — 없으면 해시만 기록한다 (SPEC §8.3) */
-  signingKey?: IntegrityJwk;
   /** 변동 이미지 입력의 최대 파일 크기(바이트) — 기본 2MB (G-47) */
   maxImageBytes?: number;
   /** 값을 채울 때마다 작성 중 전표 파일을 받는다 */
@@ -116,7 +114,6 @@ export function SlipForm({
   src,
   locale,
   settings,
-  signingKey,
   maxImageBytes,
   onSlipChange,
   onSlipIssue,
@@ -145,5 +142,5 @@ export function SlipForm({
     };
   }, [onSlipChange, onSlipIssue]);
 
-  return createElement('slip-form', { ref, src, locale, settings, signingKey, maxImageBytes });
+  return createElement('slip-form', { ref, src, locale, settings, maxImageBytes });
 }

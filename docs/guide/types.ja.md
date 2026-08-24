@@ -43,7 +43,6 @@ import type { SlipFile } from '@omdc-slipkit/core';
 | `templateSnapshot` | テンプレート本体と同一 | 作成時点のテンプレート全体のスナップショット |
 | `values` | `Record<string, JsonValue>` | バインディングキー → 入力した値 |
 | `issued` | `boolean` | 発行済みかどうか |
-| `integrity?` | `Integrity` | ハッシュ・署名の記録 (発行時は必須) |
 
 ---
 
@@ -120,36 +119,6 @@ import type { StorageAdapter } from '@omdc-slipkit/core';
 |---|---|---|
 | `IndexedDbStorage` | `@omdc-slipkit/elements` | ブラウザの IndexedDB。タイトル・種別フィルタ、カーソルページングに対応 |
 | `LocalFileStorage` | `@omdc-slipkit/elements` | 保存はファイルダウンロード、読み込みはファイル選択ダイアログ。`delete`・`list` は `unsupported` |
-
----
-
-## IntegrityJwk
-
-整合性の署名・検証に使う EC P-256 鍵（JWK 形式）です。
-
-```ts
-import type { IntegrityJwk } from '@omdc-slipkit/core';
-```
-
-| フィールド | 型 | 説明 |
-|---|---|---|
-| `kty` | `string` | 鍵タイプ (`'EC'`) |
-| `crv` | `string` | 曲線 (`'P-256'`) |
-| `x` | `string` | 公開鍵の x 座標 (base64url) |
-| `y` | `string` | 公開鍵の y 座標 (base64url) |
-| `d` | `string` | 秘密鍵 (base64url) — 署名にのみ必要、検証には不要 |
-| `kid` | `string` | 鍵識別子 (任意) |
-
-鍵ペアを自分で作成するには、次のように書きます:
-
-```ts
-import { generateSigningKeyPair } from '@omdc-slipkit/core';
-
-const { privateKey, publicKey } = await generateSigningKeyPair();
-```
-
-**未指定の場合**: `<slip-form>` に `signingKey` を指定しないと、発行時にハッシュ（SHA-256）のみを記録し、
-署名は行いません。
 
 ---
 

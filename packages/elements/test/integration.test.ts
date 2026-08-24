@@ -12,12 +12,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 // (실제 브라우저에선 Blob이 IndexedDB를 정상 왕복한다). 저장소 왕복을 확인하려고 Node Blob을 쓴다.
 globalThis.Blob = NodeBlob as unknown as typeof globalThis.Blob;
 import {
-  computeIntegrity,
-  generateSigningKeyPair,
   parseSlipFile,
   renderSlipToPdf,
   serializeSlipFile,
-  verifyIntegrity,
   type SlipTemplateFile,
   type SlipVoucherFile,
 } from '@omdc-slipkit/core';
@@ -157,21 +154,6 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 무
     issuedVoucher = { ...voucher, issued: true };
   });
 
-  it('4) 발행 전표에 해시·서명을 기록하고 검증한다 (SPEC §8)', async () => {
-    const keyPair = await generateSigningKeyPair();
-    issuedVoucher.integrity = await computeIntegrity(issuedVoucher, keyPair.privateKey);
-
-    // 발행 규칙까지 포함해 유효한 파일이어야 한다
-    const reparsed = parseSlipFile(serializeSlipFile(issuedVoucher));
-    expect(reparsed.kind).toBe('voucher');
-
-    await expect(verifyIntegrity(issuedVoucher, keyPair.publicKey)).resolves.toBeUndefined();
-
-    // 값을 위조하면 해시 검증이 실패해야 한다
-    const tampered = JSON.parse(JSON.stringify(issuedVoucher)) as SlipVoucherFile;
-    (tampered.values as Record<string, unknown>)['items'] = [];
-    await expect(verifyIntegrity(tampered, keyPair.publicKey)).rejects.toThrow(/변조/);
-  });
 
   it('5) 저장소 어댑터로 양식·전표를 저장·조회한다 (ADR-021)', async () => {
     const storage = new IndexedDbStorage({ dbName: 'integration-test' });

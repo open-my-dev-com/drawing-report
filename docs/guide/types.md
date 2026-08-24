@@ -43,7 +43,6 @@ import type { SlipFile } from '@omdc-slipkit/core';
 | `templateSnapshot` | 양식 본문과 동일 | 생성 시점 양식 전체 스냅샷 |
 | `values` | `Record<string, JsonValue>` | 파라미터 키 → 채운 값 |
 | `issued` | `boolean` | 발행 완료 여부 |
-| `integrity?` | `Integrity` | 해시·서명 기록 (발행 시 필수) |
 
 ---
 
@@ -120,36 +119,6 @@ import type { StorageAdapter } from '@omdc-slipkit/core';
 |---|---|---|
 | `IndexedDbStorage` | `@omdc-slipkit/elements` | 브라우저 IndexedDB. 제목·종류 필터, 커서 페이징 지원 |
 | `LocalFileStorage` | `@omdc-slipkit/elements` | 저장은 파일 다운로드, 불러오기는 파일 선택 대화 상자. `delete`·`list`는 `unsupported` |
-
----
-
-## IntegrityJwk
-
-무결성 서명·검증에 쓰는 EC P-256 키(JWK 형식)입니다.
-
-```ts
-import type { IntegrityJwk } from '@omdc-slipkit/core';
-```
-
-| 필드 | 타입 | 설명 |
-|---|---|---|
-| `kty` | `string` | 키 타입 (`'EC'`) |
-| `crv` | `string` | 곡선 (`'P-256'`) |
-| `x` | `string` | 공개키 x 좌표 (base64url) |
-| `y` | `string` | 공개키 y 좌표 (base64url) |
-| `d` | `string` | 개인키 (base64url) — 서명에만 필요, 검증에는 불필요 |
-| `kid` | `string` | 키 식별자 (선택) |
-
-키쌍을 직접 만들려면 다음과 같이 씁니다:
-
-```ts
-import { generateSigningKeyPair } from '@omdc-slipkit/core';
-
-const { privateKey, publicKey } = await generateSigningKeyPair();
-```
-
-**미지정 시**: `<slip-form>`에 `signingKey`를 지정하지 않으면 발행 시 해시(SHA-256)만 기록하고
-서명은 하지 않습니다.
 
 ---
 

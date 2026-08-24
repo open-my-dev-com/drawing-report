@@ -23,8 +23,7 @@ function clone<T>(value: T): T {
  *   같은 결과를 내도록.
  * - 수식으로 계산되는 값(예: 합계금액)은 `values`에 넣지 않아도 렌더 시 계산된다.
  * - 결과는 입력 양식·값과 참조를 공유하지 않는 독립 객체다.
- * - 값을 확정(발행)하려면 이 전표에 {@link computeIntegrity}로 무결성을 기록하고
- *   `issued: true`로 바꾼다.
+ * - 값을 확정하려면 `issued: true`로 바꾼다 — 작성폼에서 더 고칠 수 없게 잠긴다.
  *
  * @param template - 바탕 양식 파일 (`parseSlipFile` 결과 등, `kind: 'template'`)
  * @param values - 파라미터 값 묶음 (물리명 → 값)

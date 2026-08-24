@@ -20,7 +20,7 @@
 | kind | 내용 |
 |---|---|
 | `template` | 양식(템플릿) — 용지·페이지·요소 정의 |
-| `voucher` | 전표 — 생성 시점의 양식 **전체 스냅샷** + 기입값 + 무결성 정보 |
+| `voucher` | 전표 — 생성 시점의 양식 **전체 스냅샷** + 기입값 |
 
 전표 파일은 양식 저장소 없이 **파일 단독으로 열람 가능**해야 한다(자기완결, ADR-008).
 
@@ -96,7 +96,7 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 | 값(`values` 등)의 중첩 깊이 | 256단계 |
 
 위쪽 8개는 구조 검증(§9-1) 대상이라 동봉 JSON Schema에도 반영된다. 수식 길이·중첩과
-값 깊이는 수식 파싱·평가와 무결성 정규화 시점에 강제된다. 코드에서는 `SLIP_LIMITS`
+값 깊이는 수식 파싱·평가 시점에 강제된다. 코드에서는 `SLIP_LIMITS`
 상수로 같은 값을 얻을 수 있다.
 
 ## 4. 양식 본문 (`template` / `templateSnapshot`)
@@ -118,7 +118,7 @@ MIME 타입(비규범 권장): `application/vnd.slipkit.slip+json`
 | `pages` | ✅ | 1개 이상의 페이지. 각 페이지는 `elements` 배열 (ADR-011: 페이지는 1급 개념). 페이지는 `key`(물리명, 문서 내 유일)·`label`(논리명)·`pageNumber`를 가질 수 있다 — 전부 선택 |
 | `assets` | ✅ | 내장 리소스 목록 (빈 배열 가능). `id`는 문서 내 유일 필수 |
 | `parameters` | — | 파라미터 정의부 (ADR-032/047): `{ key, label?, valueType?, fields? }` 배열. **물리명 `key`**는 파일·수식·백엔드 연동에, **논리명 `label`**은 화면 표시에 쓴다. `key`는 목록 안에서 유일. 정의부는 보조 정보이며 요소가 미등록 키를 쓰는 것도 허용된다. **값 종류 `valueType`**(`text`\|`number`\|`date`\|`boolean`\|`image`\|`list`, 선택)은 작성폼 입력 방식과 쓸 수 있는 함수를 가리는 데 쓰며 생략하면 글자로 다룬다. **하위 필드 `fields`**(선택)는 `valueType: 'list'`일 때만 둘 수 있고 항목 하나가 가진 값을 `{ key, label?, valueType? }`로 선언한다 — 항목은 평평한 객체라 하위 필드는 다시 하위를 갖지 않는다(ADR-038). `fields`의 `key`도 그 목록 안에서 유일해야 한다 |
-| `sampleValues` | — | 미리보기용 샘플 값 (ADR-032): 파라미터 물리명 → JSON 값. 발행·무결성 계산과 무관하며 전표 생성 시 복사하지 않는다 |
+| `sampleValues` | — | 미리보기용 샘플 값 (ADR-032): 파라미터 물리명 → JSON 값. 발행과 무관하며 전표 생성 시 복사하지 않는다 |
 
 요소 `id`는 **문서 전체에서 유일**해야 한다(페이지가 달라도 중복 금지).
 
@@ -346,8 +346,7 @@ height = 위쪽 행 높이 + perPage x 반복 구간 높이 + 아래쪽 행 높�
   "kind": "voucher",
   "templateSnapshot": { ...양식 본문(§4)... },
   "values": { "total": 3000, "items": [ { "품명": "노트", "금액": 3000 } ] },
-  "issued": true,
-  "integrity": { "contentHash": "<sha-256 hex>", "signature": "<JWS>" }
+  "issued": true
 }
 ```
 
@@ -355,47 +354,21 @@ height = 위쪽 행 높이 + perPage x 반복 구간 높이 + 아래쪽 행 높�
 |---|---|---|
 | `templateSnapshot` | ✅ | **생성 시점 양식 전체의 복사본** (ADR-008). 이후 원본 양식이 바뀌어도 전표는 불변 |
 | `values` | ✅ | 파라미터 키 → 값(JSON 값). `grid.repeat.parameter` 키에는 객체 배열을 담는다 |
-| `issued` | ✅ | 발행(확정) 여부 |
-| `integrity` | 발행 시 ✅ | §8 무결성 정보 |
+| `issued` | ✅ | 발행(확정·잠금) 여부 |
 
 ### 7.1 발행(issued) 규칙
 
-`issued: true`인 파일은:
+발행은 값을 확정해 **잠그는** 것이다(작성폼은 발행 후 입력을 막는다). `issued: true`인 파일은:
 
-1. `integrity.contentHash`가 **필수**다 (ADR-019).
-2. `templateSnapshot` 안의 어떤 `src`도 **외부 URL이면 안 된다** — 발행 시점에
+1. `templateSnapshot` 안의 어떤 `src`도 **외부 URL이면 안 된다** — 발행 시점에
    base64(`data:`) 또는 `asset://` 내장 리소스로 변환해야 한다 (ADR-036, 파일 단독 완결).
-3. 발행된 전표의 내용은 이후 **수정하면 안 된다**(수정은 해시 검증 실패로 탐지된다).
 
-`issued: false`(작성 중)인 파일은 외부 URL 참조와 `integrity` 생략이 허용된다.
+`issued: false`(작성 중)인 파일은 외부 URL 참조가 허용된다.
 
-## 8. 무결성 (ADR-019)
+## 8. 암호화 (선택, ADR-054)
 
-> 이 절이 규범이며, 계산 구현은 `@omdc-slipkit/core`의 integrity 모듈에서 제공된다
-> (로드맵 `feat/core-integrity`).
-
-### 8.1 정규화 (canonicalization)
-
-해시·서명 계산 전에 문서를 **RFC 8785 (JSON Canonicalization Scheme, JCS)** 로
-정규화한다 — 같은 내용이면 항상 같은 바이트가 되도록(키 정렬, 수 표현, UTF-8).
-
-### 8.2 contentHash (필수)
-
-- 대상: **`integrity` 필드를 제거한 문서 전체** (봉투 + `templateSnapshot` + `values` + `issued`).
-  스냅샷을 포함하므로 스냅샷 위조도 탐지된다 (ADR-019).
-- 계산: 대상을 JCS 정규화한 UTF-8 바이트의 **SHA-256**, 소문자 hex 64자.
-- 키 없이도 훼손·변조를 탐지할 수 있는 기본 무결성 계층이다.
-
-### 8.3 signature (선택)
-
-- 호스트가 키를 제공하면 **JWS(ES256), compact serialization**으로 발행자를 증명한다.
-- JWS 페이로드: `contentHash`의 hex 문자열(UTF-8 바이트).
-- 서명 키 관리·서명 주체는 호스트 책임이다 (ADR-004 권한 위임 원칙에 부합 — 통상 호스트 서버가 서명).
-
-### 8.4 암호화 (선택, ADR-009)
-
-파일 내용 암호화는 옵션이며 키 관리는 호스트 책임이다. 암호화된 파일은
-표준 교환성이 제한된다. 상세 방식은 추후 부록으로 확정한다.
+파일 내용을 암호로 잠가 편집기로 열어도 내용이 보이지 않게 하는 **선택** 기능이다.
+상세 봉투·알고리즘은 §8.1에 규정한다.
 
 ## 9. 검증 수준
 
@@ -403,7 +376,6 @@ height = 위쪽 행 높이 + perPage x 반복 구간 높이 + 아래쪽 행 높�
 2. **교차 규칙 검증**: JSON Schema로 표현되지 않는 교차 필드 규칙 — 비율 합 100,
    그리드 셀 범위·겹침, `asset://` 참조 해소, 요소/에셋 id 유일성, §7.1 발행 규칙.
    레퍼런스 구현(`parseSlipFile`)이 기준이다.
-3. **무결성 검증**: §8 해시·서명 확인.
 
 ## 10. JSON Schema 동봉 (ADR-022)
 

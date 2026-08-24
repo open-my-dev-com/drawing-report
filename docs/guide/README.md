@@ -21,9 +21,9 @@
 ### 관련 문서
 
 - **[양식 디자이너 사용 가이드](designer.md)** — 디자이너 화면 구성과 요소·파라미터·그리드·수식·미리보기 사용법 (화면 캡처 포함)
-- **[Core API 가이드](core.md)** — 파싱·수식·PDF 렌더링·무결성·서버 연계 (Node.js 단독 사용 포함)
+- **[Core API 가이드](core.md)** — 파싱·수식·PDF 렌더링·서버 연계 (Node.js 단독 사용 포함)
 - **[수식 함수 참조](formula.md)** — 내장 함수 32종의 사용법·인자·예시
-- **[주요 타입 참조](types.md)** — `SlipFile`, 폰트, `SlipPreset`, `StorageAdapter`, `IntegrityJwk` 등 타입별 필드와 기본값
+- **[주요 타입 참조](types.md)** — `SlipFile`, 폰트, `SlipPreset`, `StorageAdapter` 등 타입별 필드와 기본값
 - **[동봉 폰트·프리셋](fonts-and-presets.md)** — 동봉 폰트(Pretendard·Noto Sans JP) 상세, 폰트 공급, 동봉 프리셋(거래명세서·청구서)의 구성과 언어 처리
 
 ---
@@ -142,12 +142,11 @@ function onDesignerChange(file: SlipFile) {
 | `src` | `string` | `.slip` JSON 문자열 (양식 또는 작성 중 전표) |
 | `locale` | `'ko' \| 'en' \| 'ja'` | UI 언어 (기본: `'ko'`) |
 | `settings` | `SlipFontProvider` | 폰트 공급(`getFonts`). 미지정 시 언어에 맞는 동봉 폰트 사용 (ADR-040/042) |
-| `signingKey` | `IntegrityJwk` | 발행 시 서명에 쓸 ES256 개인키 (JWK). 없으면 해시만 기록 |
 
 | 이벤트 | detail | 설명 |
 |---|---|---|
 | `slip-change` | `{ file: SlipFile }` | 값을 채울 때마다 작성 중 전표를 내보냄 |
-| `slip-issue` | `{ file: SlipFile }` | 발행이 완료되면 무결성 기록이 담긴 전표를 내보냄 |
+| `slip-issue` | `{ file: SlipFile }` | 발행(확정)되면 잠긴 전표를 내보냄 |
 
 ### `<slip-viewer>` — 뷰어
 
@@ -184,7 +183,7 @@ designer.addEventListener('slip-change', (e) => {
 |---|---|---|---|
 | `slip-change` (디자이너) | 양식을 편집할 때마다 | `template` | 양식 자동 저장, 상태 동기화 |
 | `slip-change` (작성폼) | 전표에 값을 채울 때마다 | `voucher` | 작성 중 전표 임시 저장 (새로고침 후 이어 쓰기) |
-| `slip-issue` (작성폼) | 발행 버튼을 누르면 | `voucher` (무결성 기록 포함) | 발행 완료된 전표를 서버에 저장 |
+| `slip-issue` (작성폼) | 발행 버튼을 누르면 | `voucher` (확정·잠금) | 발행된 전표를 서버에 저장 |
 
 ### 활용 예시
 

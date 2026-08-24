@@ -21,9 +21,9 @@ How to install SlipKit and embed the form designer, data-entry form, and viewer 
 ### Related Documents
 
 - **[Form Designer Guide](designer.en.md)** — the designer's layout and how to use elements, parameters, grids, formulas, and preview (with screenshots)
-- **[Core API Guide](core.en.md)** — parsing, formulas, PDF rendering, integrity, backend integration (including standalone Node.js usage)
+- **[Core API Guide](core.en.md)** — parsing, formulas, PDF rendering, backend integration (including standalone Node.js usage)
 - **[Formula Function Reference](formula.en.md)** — usage, parameters, and examples for all 32 built-in functions
-- **[Type Reference](types.en.md)** — field definitions and defaults for `SlipFile`, fonts, `SlipPreset`, `StorageAdapter`, `IntegrityJwk`, and more
+- **[Type Reference](types.en.md)** — field definitions and defaults for `SlipFile`, fonts, `SlipPreset`, `StorageAdapter`, and more
 - **[Bundled Fonts & Presets](fonts-and-presets.en.md)** — Bundled fonts (Pretendard, Noto Sans JP), font supply, built-in presets (trade statement, invoice), and locale behavior
 
 ---
@@ -143,12 +143,11 @@ Fill a template with values and issue the slip. Shows a live PDF preview on the 
 | `src` | `string` | `.slip` JSON string (template or in-progress voucher) |
 | `locale` | `'ko' \| 'en' \| 'ja'` | UI language (default: `'ko'`) |
 | `settings` | `SlipFontProvider` | Font supply (`getFonts`). Falls back to the bundled font for the locale (ADR-040/042) |
-| `signingKey` | `IntegrityJwk` | ES256 private key (JWK) for signing on issue. Omit for hash-only |
 
 | Event | detail | Description |
 |---|---|---|
 | `slip-change` | `{ file: SlipFile }` | Fires on every value edit with the in-progress voucher |
-| `slip-issue` | `{ file: SlipFile }` | Fires when the voucher is issued with integrity record |
+| `slip-issue` | `{ file: SlipFile }` | Fires when the voucher is issued (finalized and locked) |
 
 ### `<slip-viewer>` — Viewer
 
@@ -185,7 +184,7 @@ designer.addEventListener('slip-change', (e) => {
 |---|---|---|---|
 | `slip-change` (designer) | On every template edit | `template` | Auto-save the template, sync state |
 | `slip-change` (form) | On every value entry | `voucher` | Save draft voucher (resume after reload) |
-| `slip-issue` (form) | When the issue button is pressed | `voucher` (with integrity) | Send the finalized voucher to the server |
+| `slip-issue` (form) | When the issue button is pressed | `voucher` (finalized) | Send the finalized voucher to the server |
 
 ### Usage Examples
 
@@ -292,5 +291,5 @@ supply a font via `settings.getFonts` for bold or a wider glyph range.
 
 Formula result formatting (number grouping, etc.) also follows the locale (including `ja-JP`).
 
-For server-side usage (parsing `.slip` files, generating PDFs, verifying integrity),
+For server-side usage (parsing `.slip` files, generating PDFs),
 see the **[Core API Guide](core.en.md)**.

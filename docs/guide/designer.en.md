@@ -125,8 +125,7 @@ left and the preview on the right updates live; formula values (like the total) 
 
 ![Voucher entry form](images/en/fill.png)
 
-Pressing **Issue** locks the content and records integrity data (hash, signature) so you can later verify
-the content hasn't changed.
+Pressing **Issue** finalizes and locks the content — an issued voucher can no longer be edited.
 
 ## 8. Saving and loading
 

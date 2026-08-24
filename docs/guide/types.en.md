@@ -43,7 +43,6 @@ Template body (`template`):
 | `templateSnapshot` | same as template body | Full template snapshot from creation time |
 | `values` | `Record<string, JsonValue>` | Parameter key → filled value |
 | `issued` | `boolean` | Whether the voucher has been issued |
-| `integrity?` | `Integrity` | Hash & signature record (required when issued) |
 
 ---
 
@@ -121,36 +120,6 @@ Errors are thrown as `SlipStorageError` with a `code` to identify the cause:
 |---|---|---|
 | `IndexedDbStorage` | `@omdc-slipkit/elements` | Browser IndexedDB. Supports title/kind filtering and cursor-based pagination |
 | `LocalFileStorage` | `@omdc-slipkit/elements` | Save triggers download; load opens file picker. `delete` and `list` throw `unsupported` |
-
----
-
-## IntegrityJwk
-
-EC P-256 key in JWK format for signing and verifying integrity.
-
-```ts
-import type { IntegrityJwk } from '@omdc-slipkit/core';
-```
-
-| Field | Type | Description |
-|---|---|---|
-| `kty` | `string` | Key type (`'EC'`) |
-| `crv` | `string` | Curve (`'P-256'`) |
-| `x` | `string` | Public key x coordinate (base64url) |
-| `y` | `string` | Public key y coordinate (base64url) |
-| `d` | `string` | Private key (base64url) — needed for signing only, not for verification |
-| `kid` | `string` | Key identifier (optional) |
-
-To generate a key pair:
-
-```ts
-import { generateSigningKeyPair } from '@omdc-slipkit/core';
-
-const { privateKey, publicKey } = await generateSigningKeyPair();
-```
-
-**When unspecified**: If `signingKey` is not passed to `<slip-form>`, only a SHA-256 hash
-is recorded on issue — no signature.
 
 ---
 

@@ -14,13 +14,12 @@ Node.js에서도 그대로 쓸 수 있습니다.
 3. [전표 조립 — 양식에 값 채우기](#3-전표-조립--양식에-값-채우기)
 4. [수식](#4-수식)
 5. [PDF 렌더링](#5-pdf-렌더링)
-6. [무결성 (해시·서명)](#6-무결성-해시서명)
-7. [서버 연계 패턴](#7-서버-연계-패턴)
+6. [서버 연계 패턴](#6-서버-연계-패턴)
 
 ### 상세 참조
 
 - **[수식 함수 참조](formula.md)** — 내장 함수 32종의 사용법·인자·예시
-- **[주요 타입 참조](types.md)** — `SlipFile`, 폰트, `StorageAdapter`, `IntegrityJwk` 등 타입별 필드와 기본값
+- **[주요 타입 참조](types.md)** — `SlipFile`, 폰트, `StorageAdapter` 등 타입별 필드와 기본값
 
 ---
 
@@ -104,19 +103,13 @@ const pdf = await renderSlipToPdf(voucher, { fonts });
 
 ### 발행(확정)
 
-값을 확정해 위변조 감지 표시를 남기는 것이 **발행**입니다. **먼저 `issued: true`로 바꾼 뒤** 그 전표로
-무결성을 계산해 붙입니다 — 순서가 중요합니다. 해시가 `issued`까지 포함하므로, 발행 상태로 만든 다음에
-해시해야 나중에 검증이 맞습니다([§6 무결성](#6-무결성-해시서명)).
+값을 확정해 **잠그는** 것이 **발행**입니다 — `issued: true`로 바꾸면 작성폼이 입력을 막습니다.
+발행된 전표도 렌더는 동일합니다.
 
 ```ts
-import { computeIntegrity } from '@omdc-slipkit/core';
-
-const issued = { ...voucher, issued: true };            // 1) 먼저 발행 상태로
-issued.integrity = await computeIntegrity(issued);      // 2) 그 전표를 해시 (서명하려면 두 번째 인자로 개인키)
+const issued = { ...voucher, issued: true };
+const pdf = await renderSlipToPdf(issued, { fonts });
 ```
-
-`computeIntegrity`는 전표를 받아 `{ contentHash, signature? }`만 돌려줍니다 — 전표를 만들지 않으니
-`buildVoucher` **뒤에** 옵니다.
 
 > `buildVoucher` 없이 직접 조립해도 됩니다 — 전표는 `{ schemaVersion, kind: 'voucher', templateSnapshot,
 > values, issued }` 객체이며, `buildVoucher`는 여기에 깊은 복사와 number 정규화를 더해 줄 뿐입니다.
@@ -152,31 +145,7 @@ const pdfBytes = await renderSlipToPdf(file, {
 - `locale` 옵션으로 수식 포맷 함수의 숫자 표기를 변경할 수 있습니다. (기본 `'ko-KR'`).
 - 폰트 타입 상세는 [타입 참조](types.md#font)를 참고해 주세요.
 
-## 6. 무결성 (해시·서명)
-
-```ts
-import {
-  computeIntegrity,
-  verifyIntegrity,
-  generateSigningKeyPair,
-} from '@omdc-slipkit/core';
-
-// 해시만 기록
-const hashed = await computeIntegrity(file);
-
-// 서명까지 기록
-const keyPair = await generateSigningKeyPair();
-const signed = await computeIntegrity(file, { privateKey: keyPair.privateKey });
-
-// 검증
-const result = await verifyIntegrity(signed);
-// result.hashValid, result.signatureValid
-```
-
-`.slip`파일에 대한 무결성을 확인합니다.
-SHA-256 해시 + JWS(ES256) 서명. RFC 8785(JCS) 정규화를 거치며 Web Crypto API로 구현됩니다.
-
-## 7. 서버 연계 패턴
+## 6. 서버 연계 패턴
 
 SlipKit은 서버가 없는 임베드형 라이브러리로 외부 백엔드와 `.slip` 파일을 통해 연계가 됩니다. 
 자세한 아키텍처는 [ARCHITECTURE.md](../ARCHITECTURE.md)를 참고해 주세요.
@@ -192,11 +161,10 @@ SlipKit은 서버가 없는 임베드형 라이브러리로 외부 백엔드와 
 요청 없이 특정 시간대에 발행이 필요하는 경우(야간 배치 등) core를 Node를 활용하여 실행시키면 됩니다.
 
 ```ts
-import { parseSlipFile, renderSlipToPdf, computeIntegrity } from '@omdc-slipkit/core';
+import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
 
 const file = parseSlipFile(jsonFromDb);
-const issued = await computeIntegrity(file);
-const pdf = await renderSlipToPdf(issued, { fonts });
+const pdf = await renderSlipToPdf(file, { fonts });
 ```
 
 core는 Node 20 이상에서만 동작합니다.

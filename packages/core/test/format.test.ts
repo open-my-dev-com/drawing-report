@@ -127,7 +127,6 @@ function makeIssuedVoucher(): SlipVoucherFile {
     templateSnapshot: makeTemplate().template,
     values: { items: [{ 품명: '노트', 수량: 2, 단가: 1500, 금액: 3000 }], total: 3000 },
     issued: true,
-    integrity: { contentHash: 'a'.repeat(64) },
   };
 }
 
@@ -405,31 +404,19 @@ describe('.slip 전표(voucher) 파싱', () => {
     if (parsed.kind === 'voucher') expect(parsed.issued).toBe(true);
   });
 
-  it('발행된 전표에 integrity가 없으면 거부한다 (ADR-019)', () => {
-    const voucher = makeIssuedVoucher();
-    delete voucher.integrity;
-    expect(() => parseSlipFile(serializeSlipFile(voucher))).toThrow(/integrity/);
-  });
-
   it('발행된 전표에 외부 URL 이미지가 있으면 거부한다 (ADR-036)', () => {
     const voucher = makeIssuedVoucher();
     voucher.templateSnapshot.assets[0]!.src = 'https://example.com/logo.png';
     expect(() => parseSlipFile(serializeSlipFile(voucher))).toThrow(/외부 URL/);
   });
 
-  it('작성 중(미발행) 전표는 외부 URL 이미지와 integrity 생략을 허용한다', () => {
+  it('작성 중(미발행) 전표는 외부 URL 이미지를 허용한다', () => {
     const voucher = makeIssuedVoucher();
     voucher.issued = false;
-    delete voucher.integrity;
     voucher.templateSnapshot.assets[0]!.src = 'https://example.com/logo.png';
     expect(parseSlipFile(serializeSlipFile(voucher)).kind).toBe('voucher');
   });
 
-  it('contentHash 형식이 틀리면 거부한다', () => {
-    const voucher = makeIssuedVoucher();
-    voucher.integrity = { contentHash: 'XYZ' };
-    expect(() => parseSlipFile(serializeSlipFile(voucher))).toThrow(/contentHash/);
-  });
 });
 
 describe('schemaVersion 마이그레이션 (ADR-007)', () => {
@@ -638,7 +625,6 @@ describe('발행 전표 변동 이미지 값 검증 (G-48)', () => {
       templateSnapshot: template,
       values: { items: [], total: 0, stamp: value },
       issued: true,
-      integrity: { contentHash: 'a'.repeat(64) },
     };
   }
   it('변동 이미지 값이 외부 URL이면 거부한다', () => {

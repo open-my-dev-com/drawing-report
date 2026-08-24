@@ -5,7 +5,7 @@ import type {
   SlipFontProvider,
   SlipDesignerSettings,
 } from '@omdc-slipkit/elements';
-import type { IntegrityJwk, SlipFile, StorageAdapter } from '@omdc-slipkit/core';
+import type { SlipFile, StorageAdapter } from '@omdc-slipkit/core';
 
 type SlipPresets = SlipDesignerElement['presets'];
 
@@ -28,14 +28,12 @@ export const SlipViewer = defineComponent({
     /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
     settings: { type: Object as PropType<SlipFontProvider>, default: undefined },
     /** 발행 전표 무결성 검증 공개키 (JWK, SPEC §8) — 검증 실패 시 PDF를 그리지 않는다 */
-    verificationKey: { type: Object as PropType<IntegrityJwk>, default: undefined },
   },
   setup(props) {
     return () => h('slip-viewer', {
       src: props.src,
       locale: props.locale,
       '.settings': props.settings,
-      '.verificationKey': props.verificationKey,
     });
   },
 });
@@ -98,7 +96,6 @@ export const SlipForm = defineComponent({
     /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
     settings: { type: Object as PropType<SlipFontProvider>, default: undefined },
     /** 발행 서명에 쓸 개인키 (JWK) — 없으면 해시만 기록한다 (SPEC §8.3) */
-    signingKey: { type: Object as PropType<IntegrityJwk>, default: undefined },
     /** 변동 이미지 입력의 최대 파일 크기(바이트) — 기본 2MB (G-47) */
     maxImageBytes: { type: Number, default: undefined },
   },
@@ -109,7 +106,6 @@ export const SlipForm = defineComponent({
         src: props.src,
         locale: props.locale,
         '.settings': props.settings,
-        '.signingKey': props.signingKey,
         '.maxImageBytes': props.maxImageBytes,
         'onSlip-change': (event: CustomEvent<{ file: SlipFile }>) =>
           emit('slip-change', event.detail.file),

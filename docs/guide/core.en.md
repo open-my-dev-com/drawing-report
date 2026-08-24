@@ -14,13 +14,12 @@ You can send a `.slip` file to core without installing any UI packages, enabling
 3. [Building a voucher — filling a template with values](#3-building-a-voucher--filling-a-template-with-values)
 4. [Formulas](#4-formulas)
 5. [PDF Rendering](#5-pdf-rendering)
-6. [Integrity (Hash & Signature)](#6-integrity-hash--signature)
-7. [Backend Integration](#7-backend-integration)
+6. [Backend Integration](#6-backend-integration)
 
 ### Reference Pages
 
 - **[Formula Function Reference](formula.en.md)** — usage, parameters, and examples for all 32 built-in functions
-- **[Type Reference](types.en.md)** — field definitions and defaults for `SlipFile`, fonts, `StorageAdapter`, `IntegrityJwk`, and more
+- **[Type Reference](types.en.md)** — field definitions and defaults for `SlipFile`, fonts, `StorageAdapter`, and more
 
 ---
 
@@ -107,19 +106,13 @@ const pdf = await renderSlipToPdf(voucher, { fonts });
 
 ### Issuing (finalizing)
 
-Finalizing the values with a tamper-evidence mark is **issuing**. Set `issued: true` **first**, then compute
-integrity over that voucher — order matters: the hash covers `issued`, so you must hash the already-issued
-voucher for verification to match later (see [§6 Integrity](#6-integrity-hash--signature)).
+Issuing means finalizing the values and **locking** them — set `issued: true` and the entry form stops
+accepting input. An issued voucher renders the same way.
 
 ```ts
-import { computeIntegrity } from '@omdc-slipkit/core';
-
-const issued = { ...voucher, issued: true };           // 1) mark issued first
-issued.integrity = await computeIntegrity(issued);     // 2) then hash it (pass a private key as 2nd arg to sign)
+const issued = { ...voucher, issued: true };
+const pdf = await renderSlipToPdf(issued, { fonts });
 ```
-
-`computeIntegrity` takes a voucher and returns only `{ contentHash, signature? }` — it doesn't build a
-voucher, so it comes **after** `buildVoucher`.
 
 > You can also assemble it by hand — a voucher is just `{ schemaVersion, kind: 'voucher', templateSnapshot,
 > values, issued }`; `buildVoucher` merely adds a deep copy and number normalization. Validate a hand-built
@@ -155,31 +148,7 @@ const pdfBytes = await renderSlipToPdf(file, {
 - The `locale` option controls number formatting in formula output (default `'ko-KR'`).
 - See [Type Reference](types.en.md#font) for font type details.
 
-## 6. Integrity (Hash & Signature)
-
-```ts
-import {
-  computeIntegrity,
-  verifyIntegrity,
-  generateSigningKeyPair,
-} from '@omdc-slipkit/core';
-
-// Hash only
-const hashed = await computeIntegrity(file);
-
-// Hash + signature
-const keyPair = await generateSigningKeyPair();
-const signed = await computeIntegrity(file, { privateKey: keyPair.privateKey });
-
-// Verify
-const result = await verifyIntegrity(signed);
-// result.hashValid, result.signatureValid
-```
-
-Verifies the integrity of a `.slip` file.
-Uses SHA-256 hashing + JWS (ES256) signing with RFC 8785 (JCS) canonicalization, implemented via Web Crypto API.
-
-## 7. Backend Integration
+## 6. Backend Integration
 
 SlipKit is a server-less embeddable library that integrates with external backends through `.slip` files.
 See [ARCHITECTURE.md](../ARCHITECTURE.md) for detailed diagrams and patterns.
@@ -195,11 +164,10 @@ See [ARCHITECTURE.md](../ARCHITECTURE.md) for detailed diagrams and patterns.
 When unattended issuance is needed at a specific time (nightly batch, etc.), run core in Node.
 
 ```ts
-import { parseSlipFile, renderSlipToPdf, computeIntegrity } from '@omdc-slipkit/core';
+import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
 
 const file = parseSlipFile(jsonFromDb);
-const issued = await computeIntegrity(file);
-const pdf = await renderSlipToPdf(issued, { fonts });
+const pdf = await renderSlipToPdf(file, { fonts });
 ```
 
 Core runs on Node 20+ only.

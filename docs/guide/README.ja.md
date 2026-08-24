@@ -21,9 +21,9 @@
 ### 関連ドキュメント
 
 - **[フォームデザイナー利用ガイド](designer.ja.md)** — デザイナーの画面構成と、要素・パラメータ・グリッド・数式・プレビューの使い方（画面キャプチャ付き）
-- **[Core API ガイド](core.ja.md)** — パース・数式・PDF レンダリング・整合性・サーバー連携（Node.js 単独利用を含む）
+- **[Core API ガイド](core.ja.md)** — パース・数式・PDF レンダリング・サーバー連携（Node.js 単独利用を含む）
 - **[数式関数リファレンス](formula.ja.md)** — 組み込み関数 32 種の使い方・引数・例
-- **[主要型リファレンス](types.ja.md)** — `SlipFile`、フォント、`SlipPreset`、`StorageAdapter`、`IntegrityJwk` など型ごとのフィールドと既定値
+- **[主要型リファレンス](types.ja.md)** — `SlipFile`、フォント、`SlipPreset`、`StorageAdapter` など型ごとのフィールドと既定値
 - **[同梱フォント・プリセット](fonts-and-presets.ja.md)** — 同梱フォント（Pretendard・Noto Sans JP）の詳細、フォント供給、同梱プリセット（取引明細書・請求書）の構成と言語処理
 
 ---
@@ -142,12 +142,11 @@ function onDesignerChange(file: SlipFile) {
 | `src` | `string` | `.slip` JSON 文字列 (テンプレートまたは入力中の伝票) |
 | `locale` | `'ko' \| 'en' \| 'ja'` | UI 言語 (既定: `'ko'`) |
 | `settings` | `SlipFontProvider` | フォント供給（`getFonts`）。未指定の場合は言語に合わせた同梱フォントを使用 (ADR-040/042) |
-| `signingKey` | `IntegrityJwk` | 発行時の署名に使う ES256 秘密鍵 (JWK)。なければハッシュのみ記録 |
 
 | イベント | detail | 説明 |
 |---|---|---|
 | `slip-change` | `{ file: SlipFile }` | 値を入力するたびに入力中の伝票を送出 |
-| `slip-issue` | `{ file: SlipFile }` | 発行が完了すると整合性記録を含む伝票を送出 |
+| `slip-issue` | `{ file: SlipFile }` | 発行（確定）されるとロックされた伝票を送出 |
 
 ### `<slip-viewer>` — ビューアー
 
@@ -184,7 +183,7 @@ designer.addEventListener('slip-change', (e) => {
 |---|---|---|---|
 | `slip-change` (デザイナー) | テンプレートを編集するたびに | `template` | テンプレートの自動保存、状態同期 |
 | `slip-change` (入力フォーム) | 伝票に値を入力するたびに | `voucher` | 入力中の伝票を一時保存 (リロード後に続きから入力) |
-| `slip-issue` (入力フォーム) | 発行ボタンを押すと | `voucher` (整合性記録を含む) | 発行済みの伝票をサーバーに保存 |
+| `slip-issue` (入力フォーム) | 発行ボタンを押すと | `voucher` (確定・ロック) | 発行済みの伝票をサーバーに保存 |
 
 ### 活用例
 

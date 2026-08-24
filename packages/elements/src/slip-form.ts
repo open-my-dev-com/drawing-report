@@ -1,14 +1,12 @@
 import { LitElement, css, html, nothing } from 'lit';
 import {
   buildVoucher,
-  computeIntegrity,
   evaluateFormula,
   normalizeNumericParameters,
   parseSlipFile,
   renderSlipToPdf,
   serializeSlipFile,
   type GridElement,
-  type IntegrityJwk,
   type JsonValue,
   type RenderOptions,
   type SlipFile,
@@ -418,7 +416,6 @@ export class SlipForm extends LitElement {
     src: { type: String },
     locale: { type: String },
     settings: { attribute: false },
-    signingKey: { attribute: false },
     maxImageBytes: { type: Number, attribute: 'max-image-bytes' },
     _values: { state: true },
     _issued: { state: true },
@@ -443,9 +440,6 @@ export class SlipForm extends LitElement {
   /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040, JS 프로퍼티 전용) — 없으면 동봉 기본 */
   settings?: SlipFontProvider;
 
-  /** 발행 서명에 쓸 개인키 (JWK) — 주지 않으면 해시만 기록한다 (SPEC §8.3) */
-  signingKey?: IntegrityJwk;
-
   /**
    * 넣을 수 있는 변동 이미지 파일의 최대 크기(바이트) — 호스트가 자기 시스템에 맞게 조인다 (G-47).
    *
@@ -460,7 +454,6 @@ export class SlipForm extends LitElement {
   private _issued = false;
   private _issuing = false;
   private _issueError: string | null = null;
-  private _integrity: SlipVoucherFile['integrity'];
   private _error: string | null = null;
   private _previewUrl: string | null = null;
   private _previewError: string | null = null;
@@ -494,7 +487,6 @@ export class SlipForm extends LitElement {
     this._error = null;
     this._issueError = null;
     this._previewError = null;
-    this._integrity = undefined;
 
     if (!this.src) {
       this._body = null;
@@ -521,7 +513,6 @@ export class SlipForm extends LitElement {
       this._body = file.templateSnapshot;
       this._values = JSON.parse(JSON.stringify(file.values)) as Record<string, unknown>;
       this._issued = file.issued;
-      this._integrity = file.integrity;
     }
     this._schemaVersion = file.schemaVersion;
     this.requestUpdate();
@@ -650,7 +641,6 @@ export class SlipForm extends LitElement {
     };
     const voucher = buildVoucher(template, this._values as Record<string, JsonValue>);
     voucher.issued = issued;
-    if (issued && this._integrity) voucher.integrity = this._integrity;
     return voucher;
   }
 
@@ -666,8 +656,8 @@ export class SlipForm extends LitElement {
   }
 
   /**
-   * 발행 — 해시(서명 키가 있으면 서명까지)를 기록하고 발행 규칙(SPEC §7.1)까지
-   * 검증한 전표를 `slip-issue`로 내보낸다. 검증에 걸리면 폼은 잠기지 않는다.
+   * 발행 — 값을 확정해 잠그고, 발행 규칙(SPEC §7.1)까지 검증한 전표를
+   * `slip-issue`로 내보낸다. 검증에 걸리면 폼은 잠기지 않는다.
    */
   private async _issue(): Promise<void> {
     if (!this._body || this._issued || this._issuing) return;
@@ -677,7 +667,6 @@ export class SlipForm extends LitElement {
 
     const voucher = this._buildVoucher(true);
     try {
-      voucher.integrity = await computeIntegrity(voucher, this.signingKey);
       // 발행 규칙(외부 URL 금지 등)은 파서가 기준이다 — 통과해야 발행으로 인정한다
       parseSlipFile(serializeSlipFile(voucher));
     } catch (error) {
@@ -688,7 +677,6 @@ export class SlipForm extends LitElement {
       return;
     }
 
-    this._integrity = voucher.integrity;
     this._issued = true;
     this._issuing = false;
     this.dispatchEvent(

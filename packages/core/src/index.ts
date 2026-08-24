@@ -12,7 +12,6 @@ export {
   slipVoucherFileSchema,
   slipTemplateBodySchema,
   slipElementSchema,
-  integritySchema,
   paperSchema,
 } from './format/schema.js';
 export {
@@ -38,13 +37,3 @@ export {
   type SlipFont,
   type SlipPdfRenderer,
 } from './render/index.js';
-export {
-  SlipIntegrityError,
-  canonicalize,
-  computeContentHash,
-  computeIntegrity,
-  verifyIntegrity,
-  generateSigningKeyPair,
-  type IntegrityJwk,
-  type IntegrityKeyPair,
-} from './integrity/index.js';

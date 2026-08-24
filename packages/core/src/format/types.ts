@@ -17,7 +17,6 @@ export type {
   GridElement,
   GridRepeat,
   ImageElement,
-  Integrity,
   JsonValue,
   LineElement,
   PageNumber,
