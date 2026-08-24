@@ -148,6 +148,7 @@ const pdfBytes = await renderSlipToPdf(file, {
 - Register the correct fonts via `fonts`. Incorrect or missing fonts may cause garbled text in the PDF output.
 - The `locale` option controls number formatting in formula output (default `'ko-KR'`).
 - See [Type Reference](types.en.md#font) for font type details.
+- To load fonts asynchronously (e.g. from a server folder), pass a `getFonts` provider function instead of the array (ADR-040).
 
 ## 6. Backend Integration
 

@@ -10,10 +10,10 @@ import { barcodes, ellipse, image, line, rectangle, svg, table, text } from '@pd
 import type { SlipFile } from '../format/schema.js';
 import { convertSlipFile } from './convert.js';
 import { SlipRenderError } from './errors.js';
-import type { RenderOptions, SlipPdfRenderer } from './types.js';
+import type { RenderOptions, SlipFont, SlipPdfRenderer } from './types.js';
 
 /** 사용자 폰트를 하부 엔진 형식으로 옮긴다. 없으면 undefined(엔진 기본 폰트). */
-function toEngineFont(fonts: RenderOptions['fonts']): Font | undefined {
+function toEngineFont(fonts: readonly SlipFont[] | undefined): Font | undefined {
   if (!fonts || fonts.length === 0) return undefined;
   const fallbackCount = fonts.filter((font) => font.fallback === true).length;
   if (fallbackCount > 1) {
@@ -39,18 +39,20 @@ function toEngineFont(fonts: RenderOptions['fonts']): Font | undefined {
  * @throws SlipRenderError 폰트 지정이 잘못된 경우(대체 폰트 2개 이상, 이름 중복)
  */
 export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer {
-  const font = toEngineFont(options.fonts);
-  // 굵게 폰트 탐색용 정보 — 변환 계층이 `<이름>-Bold` 폰트를 찾을 수 있게 한다 (ADR-032)
-  const fontNames = options.fonts?.map((f) => f.name) ?? [];
-  const fallbackFontName = options.fonts?.find((f) => f.fallback === true)?.name
-    ?? options.fonts?.[0]?.name;
   return {
     async renderToPdf(file: SlipFile): Promise<Uint8Array> {
+      // 폰트 공급 함수(getFonts)가 있으면 그 결과를 `fonts`보다 우선한다 (ADR-040).
+      // 비동기 공급이라 렌더 시점에 해석한다 — core는 함수를 호출만 하고 I/O는 안 한다(ADR-002).
+      const fonts = options.getFonts ? await options.getFonts() : options.fonts;
+      const font = toEngineFont(fonts);
+      // 굵게 폰트 탐색용 정보 — 변환 계층이 `<이름>-Bold` 폰트를 찾을 수 있게 한다 (ADR-032)
+      const fontNames = fonts?.map((f) => f.name) ?? [];
+      const fallbackFontName = fonts?.find((f) => f.fallback === true)?.name ?? fonts?.[0]?.name;
       const { template, inputs } = convertSlipFile(file, {
         ...(options.locale === undefined ? {} : { locale: options.locale }),
         fontNames,
         ...(fallbackFontName === undefined ? {} : { fallbackFontName }),
-        ...(options.fonts === undefined ? {} : { fonts: options.fonts }),
+        ...(fonts === undefined ? {} : { fonts: fonts as SlipFont[] }),
       });
       return generate({
         template,

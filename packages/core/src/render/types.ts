@@ -26,6 +26,12 @@ export interface RenderOptions {
    */
   fonts?: SlipFont[];
   /**
+   * 폰트를 **당겨 오는 공급 함수** (선택, ADR-040) — 서버 폴더·네트워크 등에서 비동기로
+   * 받아야 할 때 쓴다. 주면 렌더 시 호출해 그 결과를 `fonts`보다 우선해 쓴다. core는 이 함수를
+   * 호출(await)만 할 뿐 I/O를 직접 하지 않는다(ADR-002).
+   */
+  getFonts?: () => readonly SlipFont[] | Promise<readonly SlipFont[]>;
+  /**
    * FORMAT_NUMBER 등 수식 포맷 함수의 로케일 (BCP-47) — ADR-013.
    * 예: 'de-DE'를 지정하면 1234.5가 "1.234,5"로 표기된다.
    *

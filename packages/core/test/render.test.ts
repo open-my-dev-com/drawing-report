@@ -547,6 +547,18 @@ describe('PDF 렌더링 (종단)', () => {
     expect(ascii(pdf, 4)).toBe('%PDF');
   });
 
+  it('getFonts 공급 함수로 폰트를 받아 렌더한다 (ADR-040)', async () => {
+    let called = 0;
+    const pdf = await renderSlipToPdf(makeVoucher(3), {
+      getFonts: async () => {
+        called += 1;
+        return [];
+      },
+    });
+    expect(called).toBe(1);
+    expect(ascii(pdf, 4)).toBe('%PDF');
+  });
+
   it('행이 많으면 자동으로 여러 페이지로 나뉜다 (ADR-011, Q08)', async () => {
     const onePage = await PDFDocument.load(await renderSlipToPdf(makeVoucher(3)));
     expect(onePage.getPageCount()).toBe(1);
