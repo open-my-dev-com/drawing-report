@@ -3,6 +3,7 @@ import {
   CURRENT_SCHEMA_VERSION,
   SlipMigrationError,
   SlipParseError,
+  buildVoucher,
   migrateSlipDocument,
   normalizeNumericParameters,
   parseSlipFile,
@@ -682,5 +683,58 @@ describe('normalizeNumericParameters (ADR-044)', () => {
     expect(normalizeNumericParameters(values, parameters)).toBe(values);
     const noParameters = { 금액: '' };
     expect(normalizeNumericParameters(noParameters)).toBe(noParameters);
+  });
+});
+
+describe('buildVoucher (ADR-052)', () => {
+  function template(): SlipTemplateFile {
+    return {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'template',
+      template: {
+        meta: { title: '거래명세서' },
+        paper: { width: 210, height: 297, padding: [10, 10, 10, 10] },
+        parameters: [
+          { key: 'tradeDate', valueType: 'date' },
+          { key: 'total', valueType: 'number' },
+          { key: 'items', valueType: 'list', fields: [{ key: 'amount', valueType: 'number' }] },
+        ],
+        pages: [{ elements: [] }],
+        assets: [],
+      },
+    };
+  }
+
+  it('양식+값으로 발행 전(issued:false) 전표를 조립한다', () => {
+    const voucher = buildVoucher(template(), { tradeDate: '2026-08-24' });
+    expect(voucher.kind).toBe('voucher');
+    expect(voucher.issued).toBe(false);
+    expect(voucher.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(voucher.templateSnapshot.meta.title).toBe('거래명세서');
+    expect(voucher.values.tradeDate).toBe('2026-08-24');
+  });
+
+  it('number 파라미터의 빈 값은 0으로 맞추고, 목록 값은 그대로 담는다 (ADR-044)', () => {
+    const voucher = buildVoucher(template(), {
+      total: '',
+      items: [{ amount: 1000 }, { amount: 2000 }],
+    });
+    expect(voucher.values.total).toBe(0);
+    expect(voucher.values.items).toEqual([{ amount: 1000 }, { amount: 2000 }]);
+  });
+
+  it('입력 양식·값과 참조를 공유하지 않는다 (전표를 고쳐도 원본 불변)', () => {
+    const values = { items: [{ amount: 1000 }] };
+    const source = template();
+    const voucher = buildVoucher(source, values);
+    (voucher.values.items as { amount: number }[])[0]!.amount = 9999;
+    voucher.templateSnapshot.meta.title = '바뀜';
+    expect(values.items[0]!.amount).toBe(1000);
+    expect(source.template.meta.title).toBe('거래명세서');
+  });
+
+  it('조립 결과는 유효한 전표 파일이다', () => {
+    const voucher = buildVoucher(template(), { tradeDate: '2026-08-24', total: 3000 });
+    expect(() => parseSlipFile(serializeSlipFile(voucher))).not.toThrow();
   });
 });

@@ -84,39 +84,29 @@ const values = {
 
 ### 양식 + 값 → 전표
 
-전표는 `templateSnapshot`(양식 스냅샷) + `values` + `issued`로 이뤄집니다. 이 객체를 그대로
-`renderSlipToPdf`에 넘기면 값이 채워진 PDF가 나옵니다.
+`buildVoucher(양식, 값)`이 양식 스냅샷 내장 · number 파라미터 빈 값 0 정규화(ADR-044) · 전표 조립을
+한 번에 해줍니다. 나온 전표를 `renderSlipToPdf`에 넘기면 값이 채워진 PDF가 나옵니다.
 
 ```ts
-import {
-  parseSlipFile,
-  renderSlipToPdf,
-  normalizeNumericParameters,
-  type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+import { parseSlipFile, buildVoucher, renderSlipToPdf } from '@omdc-slipkit/core';
 
 const template = parseSlipFile(templateJson);
 if (template.kind !== 'template') throw new Error('양식 파일이 아닙니다');
 
-const voucher: SlipVoucherFile = {
-  schemaVersion: template.schemaVersion,
-  kind: 'voucher',
-  templateSnapshot: template.template,   // 생성 시점 양식 스냅샷 (ADR-008)
-  // number 파라미터의 빈 값을 0으로 맞춘다 (엄격 타입 수식용, 선택)
-  values: normalizeNumericParameters(values, template.template.parameters),
-  issued: false,
-};
-
+const voucher = buildVoucher(template, values);   // 발행 전(issued: false) 전표
 const pdf = await renderSlipToPdf(voucher, { fonts });
 ```
 
 - 수식으로 계산되는 필드(예: 합계금액)는 `values`에 넣지 않아도 렌더 시 자동으로 계산됩니다.
-- `templateSnapshot`은 전표를 만든 시점의 양식을 통째로 담습니다 — 나중에 양식이 바뀌어도 이 전표는
-  그대로 렌더됩니다 (ADR-008).
+- 전표는 생성 시점의 양식을 `templateSnapshot`으로 통째로 담습니다 — 나중에 양식이 바뀌어도 이 전표는
+  그대로 렌더됩니다 (ADR-008). `buildVoucher`가 반환한 전표는 입력 양식·값과 참조를 공유하지 않습니다.
 - 목록 값의 개수가 한 페이지 항목 수를 넘으면 페이지가 자동으로 늘어납니다.
-- 조립한 객체가 규칙에 맞는지 미리 확인하려면 `validateSlipFile(voucher)`로 검증할 수 있습니다.
-- 값을 확정해 위변조 표시를 남기려면 [§6 무결성](#6-무결성-해시서명)의 `computeIntegrity`로
-  `issued: true` 전표를 만듭니다.
+- 값을 확정해 위변조 표시를 남기려면 [§6 무결성](#6-무결성-해시서명)의 `computeIntegrity`로 무결성을
+  기록하고 `issued: true`로 바꿉니다.
+
+> `buildVoucher` 없이 직접 조립해도 됩니다 — 전표는 `{ schemaVersion, kind: 'voucher', templateSnapshot,
+> values, issued }` 객체이며, `buildVoucher`는 여기에 깊은 복사와 number 정규화를 더해 줄 뿐입니다.
+> 직접 만든 객체는 `validateSlipFile(voucher)`로 검증할 수 있습니다.
 
 ## 4. 수식
 

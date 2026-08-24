@@ -1,5 +1,6 @@
 import { LitElement, css, html, nothing } from 'lit';
 import {
+  buildVoucher,
   computeIntegrity,
   evaluateFormula,
   normalizeNumericParameters,
@@ -12,6 +13,7 @@ import {
   type RenderOptions,
   type SlipFile,
   type SlipTemplateBody,
+  type SlipTemplateFile,
   type SlipVoucherFile,
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
@@ -638,20 +640,16 @@ export class SlipForm extends LitElement {
   // 전표 만들기 · 발행
   // ---------------------------------------------------------------------------
 
-  /** 현재 입력 상태의 전표 파일을 만든다 */
+  /** 현재 입력 상태의 전표 파일을 만든다 — 조립·정규화는 core의 buildVoucher와 공유한다 (ADR-052) */
   private _buildVoucher(issued: boolean): SlipVoucherFile {
-    // number 파라미터의 빈 값을 0으로 정규화한다 (ADR-044) — 엄격 타입 수식이 미입력을 0으로 보게.
-    const values = normalizeNumericParameters(
-      JSON.parse(JSON.stringify(this._values)) as Record<string, unknown>,
-      this._body?.parameters,
-    ) as Record<string, JsonValue>;
-    const voucher: SlipVoucherFile = {
+    const template: SlipTemplateFile = {
       schemaVersion: this._schemaVersion,
-      kind: 'voucher',
-      templateSnapshot: JSON.parse(JSON.stringify(this._body)) as SlipTemplateBody,
-      values,
-      issued,
+      kind: 'template',
+      // 호출 지점(_emitChange·_issue)이 this._body가 있을 때만 부른다
+      template: this._body as SlipTemplateBody,
     };
+    const voucher = buildVoucher(template, this._values as Record<string, JsonValue>);
+    voucher.issued = issued;
     if (issued && this._integrity) voucher.integrity = this._integrity;
     return voucher;
   }

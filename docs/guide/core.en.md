@@ -85,39 +85,31 @@ const values = {
 
 ### Template + values → voucher
 
-A voucher is a `templateSnapshot` (a snapshot of the template) plus `values` plus `issued`. Pass the object
-straight to `renderSlipToPdf` to get a PDF with the values filled in.
+`buildVoucher(template, values)` does it all: embeds the template snapshot, normalizes empty number
+parameters to 0 (ADR-044), and assembles the voucher. Pass the result to `renderSlipToPdf` to get a PDF
+with the values filled in.
 
 ```ts
-import {
-  parseSlipFile,
-  renderSlipToPdf,
-  normalizeNumericParameters,
-  type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+import { parseSlipFile, buildVoucher, renderSlipToPdf } from '@omdc-slipkit/core';
 
 const template = parseSlipFile(templateJson);
 if (template.kind !== 'template') throw new Error('not a template file');
 
-const voucher: SlipVoucherFile = {
-  schemaVersion: template.schemaVersion,
-  kind: 'voucher',
-  templateSnapshot: template.template,   // snapshot at creation time (ADR-008)
-  // normalize empty number-parameter values to 0 (for strict-typed formulas; optional)
-  values: normalizeNumericParameters(values, template.template.parameters),
-  issued: false,
-};
-
+const voucher = buildVoucher(template, values);   // an unissued (issued: false) voucher
 const pdf = await renderSlipToPdf(voucher, { fonts });
 ```
 
 - Fields computed by a formula (e.g. the total) don't need to be in `values` — they're computed at render time.
-- `templateSnapshot` embeds the whole template as of creation, so the voucher renders the same even if the
-  template changes later (ADR-008).
+- The voucher embeds the whole template at creation time as `templateSnapshot`, so it renders the same even
+  if the template changes later (ADR-008). The voucher `buildVoucher` returns shares no references with the
+  input template or values.
 - When a list has more items than fit on one page, pages are added automatically.
-- To validate the assembled object up front, run `validateSlipFile(voucher)`.
-- To finalize the values and record a tamper-evidence mark, build an `issued: true` voucher with
-  `computeIntegrity` — see [§6 Integrity](#6-integrity-hash--signature).
+- To finalize the values and record a tamper-evidence mark, record integrity with `computeIntegrity` and set
+  `issued: true` — see [§6 Integrity](#6-integrity-hash--signature).
+
+> You can also assemble it by hand — a voucher is just `{ schemaVersion, kind: 'voucher', templateSnapshot,
+> values, issued }`; `buildVoucher` merely adds a deep copy and number normalization. Validate a hand-built
+> object with `validateSlipFile(voucher)`.
 
 ## 4. Formulas
 

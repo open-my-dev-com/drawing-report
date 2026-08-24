@@ -85,39 +85,31 @@ const values = {
 
 ### テンプレート + 値 → 伝票
 
-伝票は `templateSnapshot`（テンプレートのスナップショット）+ `values` + `issued` からなります。この
-オブジェクトをそのまま `renderSlipToPdf` に渡すと、値が入った PDF が得られます。
+`buildVoucher(テンプレート, 値)` が、テンプレートスナップショットの埋め込み・number パラメータの空値を
+0 に揃える正規化（ADR-044）・伝票の組み立てをまとめて行います。返ってきた伝票を `renderSlipToPdf` に
+渡すと、値が入った PDF が得られます。
 
 ```ts
-import {
-  parseSlipFile,
-  renderSlipToPdf,
-  normalizeNumericParameters,
-  type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+import { parseSlipFile, buildVoucher, renderSlipToPdf } from '@omdc-slipkit/core';
 
 const template = parseSlipFile(templateJson);
 if (template.kind !== 'template') throw new Error('テンプレートファイルではありません');
 
-const voucher: SlipVoucherFile = {
-  schemaVersion: template.schemaVersion,
-  kind: 'voucher',
-  templateSnapshot: template.template,   // 作成時点のテンプレートスナップショット (ADR-008)
-  // number パラメータの空値を 0 に揃える（厳密型の数式向け・任意）
-  values: normalizeNumericParameters(values, template.template.parameters),
-  issued: false,
-};
-
+const voucher = buildVoucher(template, values);   // 発行前（issued: false）の伝票
 const pdf = await renderSlipToPdf(voucher, { fonts });
 ```
 
 - 数式で計算されるフィールド（例: 合計金額）は `values` に入れなくてもレンダリング時に自動計算されます。
-- `templateSnapshot` は作成時点のテンプレートを丸ごと保持するので、後でテンプレートが変わってもこの伝票は
-  同じようにレンダリングされます (ADR-008)。
+- 伝票は作成時点のテンプレートを `templateSnapshot` として丸ごと保持するので、後でテンプレートが変わっても
+  同じようにレンダリングされます (ADR-008)。`buildVoucher` が返す伝票は、入力のテンプレート・値と参照を
+  共有しません。
 - リストの項目数が 1 ページに収まる数を超えると、ページが自動で増えます。
-- 組み立てたオブジェクトが正しいか事前に確認するには `validateSlipFile(voucher)` で検証できます。
-- 値を確定して改ざん検知の記録を残すには、`computeIntegrity` で `issued: true` の伝票を作ります
+- 値を確定して改ざん検知の記録を残すには、`computeIntegrity` で整合性を記録し `issued: true` にします
   — [§6 整合性](#6-整合性-ハッシュ署名)を参照してください。
+
+> `buildVoucher` を使わず自分で組み立てることもできます — 伝票は `{ schemaVersion, kind: 'voucher',
+> templateSnapshot, values, issued }` オブジェクトで、`buildVoucher` はそこにディープコピーと number
+> 正規化を加えるだけです。手組みしたオブジェクトは `validateSlipFile(voucher)` で検証できます。
 
 ## 4. 数式
 
