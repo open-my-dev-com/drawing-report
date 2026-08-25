@@ -7,6 +7,63 @@
 
 ---
 
+## 컴포넌트 설정 한눈에
+
+호스트가 세 컴포넌트에 주입하는 설정을 한자리에 모았습니다. ●는 그 컴포넌트가 받는 설정입니다.
+
+| 설정(속성) | `<slip-designer>` | `<slip-form>` | `<slip-viewer>` | 타입 | 안 주면 |
+|---|:---:|:---:|:---:|---|---|
+| `src` | ● | ● | ● | `string` (HTML 속성) | 빈 화면 |
+| `locale` | ● | ● | ● | `'ko' \| 'en' \| 'ja'` (HTML 속성) | 한국어 |
+| `settings` | ● | ● | ● | JS 프로퍼티 ([아래](#컴포넌트-설정--settings-adr-040)) | 동봉 폰트·용지 |
+| `presets` | ● | — | — | `SlipPreset[]` (JS 프로퍼티) | 동봉 프리셋 2종 |
+| `storage` | ● | — | — | `StorageAdapter` (JS 프로퍼티) | 저장·목록 버튼 숨김 |
+| `maxImageBytes` | ● | ● | — | `number` (속성 `max-image-bytes`) | 2MB |
+
+- **HTML 속성 vs JS 프로퍼티**: `src`·`locale`·`max-image-bytes`는 HTML 속성으로도 주지만,
+  `settings`·`presets`·`storage`는 객체·함수라 **JS 프로퍼티로만** 넘깁니다(`el.storage = ...`).
+- `settings`는 컴포넌트마다 모양이 다릅니다 — 디자이너는 폰트+바코드+용지(`SlipDesignerSettings`),
+  작성폼·뷰어는 폰트만(`SlipFontProvider`). [상세](#컴포넌트-설정--settings-adr-040).
+- 저장소에 거는 **암호화**는 컴포넌트가 아니라 어댑터 생성 옵션입니다 → [저장 시 암호화](#저장-시-암호화-선택-adr-055).
+
+각 설정 타입의 상세는 아래 절에 있습니다: [settings](#컴포넌트-설정--settings-adr-040) ·
+[SlipPreset](#slippreset) · [StorageAdapter](#storageadapter) · [Font](#font) · [RenderOptions](#renderoptions).
+
+---
+
+## 컴포넌트 설정 — settings (ADR-040)
+
+컴포넌트의 `settings` 프로퍼티로 호스트가 렌더 폰트 등 자원을 공급합니다. 작성폼·뷰어는 폰트만
+(`SlipFontProvider`), 디자이너는 여기에 바코드·용지를 더합니다(`SlipDesignerSettings`).
+
+```ts
+import type { SlipFontProvider, SlipDesignerSettings } from '@omdc-slipkit/elements';
+
+interface SlipFontProvider {
+  getFonts?(): SlipFont[] | Promise<SlipFont[]>;   // 렌더 폰트 (없으면 동봉 기본)
+}
+
+interface SlipDesignerSettings extends SlipFontProvider {
+  getBarcodeKinds?(): BarcodeKind[] | Promise<BarcodeKind[]>;  // 바코드 고르개 후보 (없으면 12종 전부)
+  getPaperSizes?():   PaperSize[]  | Promise<PaperSize[]>;     // 용지 고르개에 더할 목록 (동봉 4종 뒤에)
+  savePaperSize?(size: PaperSize): void | Promise<void>;       // 사용자가 직접 만든 용지를 호스트가 보관
+}
+```
+
+| 메서드 | 컴포넌트 | 안 주면 |
+|---|---|---|
+| `getFonts` | 디자이너·작성폼·뷰어 | `locale`에 맞는 동봉 폰트 |
+| `getBarcodeKinds` | 디자이너 | 엔진이 그릴 수 있는 12종 전부 |
+| `getPaperSizes` | 디자이너 | 동봉 용지 4종만 |
+| `savePaperSize` | 디자이너 | 직접 입력 용지를 보관하지 않음 |
+
+- 전부 **선택**이며 동기 배열·비동기(`Promise`) 둘 다 됩니다 — 서버 폴더에서 폰트를 받아도 됩니다.
+- `settings`는 HTML 속성이 아니라 **JS 프로퍼티**로만 넘깁니다(`el.settings = { getFonts }`).
+- `PaperSize`는 화면 고르개용 프리셋입니다(`{ name, width, height }`, 단위 mm) — `.slip`엔 늘 실제
+  너비·높이만 담겨 파일 포맷과 무관합니다.
+
+---
+
 ## SlipFile
 
 `.slip` 파일의 최상위 타입입니다. `kind`로 양식(template)과 전표(voucher)를 구분합니다.
@@ -177,4 +234,5 @@ import type { RenderOptions } from '@omdc-slipkit/core';
 | 필드 | 타입 | 기본값 | 설명 |
 |---|---|---|---|
 | `fonts` | `Font[]` | — | PDF에 쓸 폰트 목록. 한글·일본어 문서는 필수 |
+| `getFonts` | `() => Font[] \| Promise<Font[]>` | — | 폰트를 비동기로 공급하는 함수(서버 폴더 등). 주면 `fonts`보다 우선 (ADR-040) |
 | `locale` | `string` | `'ko-KR'` | 수식 포맷 함수의 로케일 (BCP-47). 숫자 자릿수 구분 등에 영향 |

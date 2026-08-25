@@ -7,6 +7,67 @@ For the full schema specification, see [SPEC.md](../SPEC.md).
 
 ---
 
+## Configuration at a glance
+
+Everything the host injects into the three components, in one place. ● means that component accepts it.
+
+| Setting (property) | `<slip-designer>` | `<slip-form>` | `<slip-viewer>` | Type | If omitted |
+|---|:---:|:---:|:---:|---|---|
+| `src` | ● | ● | ● | `string` (HTML attribute) | empty view |
+| `locale` | ● | ● | ● | `'ko' \| 'en' \| 'ja'` (HTML attribute) | Korean |
+| `settings` | ● | ● | ● | JS property ([below](#component-settings-adr-040)) | bundled fonts/papers |
+| `presets` | ● | — | — | `SlipPreset[]` (JS property) | 2 bundled presets |
+| `storage` | ● | — | — | `StorageAdapter` (JS property) | save/list buttons hidden |
+| `maxImageBytes` | ● | ● | — | `number` (attribute `max-image-bytes`) | 2MB |
+
+- **HTML attribute vs JS property**: `src`, `locale`, and `max-image-bytes` can be set as HTML attributes,
+  but `settings`, `presets`, and `storage` are objects/functions, so they're set **as JS properties only**
+  (`el.storage = ...`).
+- `settings` has a different shape per component — the designer takes fonts + barcodes + papers
+  (`SlipDesignerSettings`); the form and viewer take fonts only (`SlipFontProvider`).
+  [Details](#component-settings-adr-040).
+- **Encryption** is a storage-adapter constructor option, not a component setting →
+  [Encryption on save](#encryption-on-save-optional-adr-055).
+
+Detail sections: [settings](#component-settings-adr-040) · [SlipPreset](#slippreset) ·
+[StorageAdapter](#storageadapter) · [Font](#font) · [RenderOptions](#renderoptions).
+
+---
+
+## Component settings (ADR-040)
+
+The host supplies resources such as render fonts via each component's `settings` property. The form and
+viewer take fonts only (`SlipFontProvider`); the designer adds barcodes and paper sizes
+(`SlipDesignerSettings`).
+
+```ts
+import type { SlipFontProvider, SlipDesignerSettings } from '@omdc-slipkit/elements';
+
+interface SlipFontProvider {
+  getFonts?(): SlipFont[] | Promise<SlipFont[]>;   // render fonts (bundled defaults if omitted)
+}
+
+interface SlipDesignerSettings extends SlipFontProvider {
+  getBarcodeKinds?(): BarcodeKind[] | Promise<BarcodeKind[]>;  // barcode picker options (all 12 if omitted)
+  getPaperSizes?():   PaperSize[]  | Promise<PaperSize[]>;     // extra paper sizes (after the 4 bundled)
+  savePaperSize?(size: PaperSize): void | Promise<void>;       // persist a user-entered paper size
+}
+```
+
+| Method | Components | If omitted |
+|---|---|---|
+| `getFonts` | designer, form, viewer | bundled fonts for `locale` |
+| `getBarcodeKinds` | designer | all 12 kinds the engine can draw |
+| `getPaperSizes` | designer | the 4 bundled papers only |
+| `savePaperSize` | designer | user-entered papers aren't persisted |
+
+- All are **optional** and may return a sync array or a `Promise` — fonts can come from a server folder.
+- `settings` is passed **as a JS property only**, not an HTML attribute (`el.settings = { getFonts }`).
+- `PaperSize` is a picker preset (`{ name, width, height }`, in mm) — a `.slip` always stores the actual
+  width/height, independent of the file format.
+
+---
+
 ## SlipFile
 
 The top-level type for a `.slip` file. The `kind` field distinguishes templates from vouchers.
@@ -181,4 +242,5 @@ import type { RenderOptions } from '@omdc-slipkit/core';
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `fonts` | `Font[]` | — | Fonts for PDF rendering. Required for Korean and Japanese documents |
+| `getFonts` | `() => Font[] \| Promise<Font[]>` | — | A function that supplies fonts asynchronously (e.g. a server folder). Takes precedence over `fonts` (ADR-040) |
 | `locale` | `string` | `'ko-KR'` | BCP-47 locale for formula formatting functions (number grouping, etc.) |
