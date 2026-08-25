@@ -102,8 +102,8 @@ See the following documents for how to connect SlipKit to an application.
 | [Form Designer Guide](docs/guide/designer.en.md) | The designer screen and form-building features |
 | [Core API Guide](docs/guide/core.en.md) | File handling, voucher assembly, formula evaluation, and PDF generation |
 | [Formula Function Reference](docs/guide/formula.en.md) | Supported formula functions and usage examples |
-| [Type Reference](docs/guide/types.en.md) | Key types and field definitions |
-| [Fonts and Presets](docs/guide/fonts-and-presets.en.md) | Default fonts, custom fonts, and form preset configuration |
+| [Configuration Guide](docs/guide/configuration.en.md) | Language, fonts, paper, barcodes, presets, and storage settings |
+| [API Reference](docs/guide/api-reference.en.md) | Functions, types, components, events, and errors |
 
 ## Technical documents
 

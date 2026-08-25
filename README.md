@@ -102,8 +102,8 @@ pnpm demo:vue
 | [양식 디자이너 가이드](docs/guide/designer.md) | 디자이너 화면과 양식 제작 기능 |
 | [Core API 가이드](docs/guide/core.md) | 파일 처리, 전표 조립, 수식 평가 및 PDF 생성 |
 | [수식 함수 참조](docs/guide/formula.md) | 지원하는 수식 함수와 사용 예제 |
-| [타입 참조](docs/guide/types.md) | 주요 타입과 필드 정의 |
-| [폰트 및 프리셋](docs/guide/fonts-and-presets.md) | 기본 폰트, 사용자 폰트 및 양식 프리셋 설정 |
+| [환경 설정 가이드](docs/guide/configuration.md) | 언어·폰트·용지·바코드·프리셋·저장소 설정 |
+| [API 참조](docs/guide/api-reference.md) | 함수·타입·컴포넌트·이벤트·오류 참조 |
 
 ## 기술 문서
 

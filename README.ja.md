@@ -102,8 +102,8 @@ pnpm demo:vue
 | [テンプレートデザイナーガイド](docs/guide/designer.ja.md) | デザイナー画面とテンプレート作成機能 |
 | [Core API ガイド](docs/guide/core.ja.md) | ファイル処理、伝票の組み立て、数式評価、PDF 生成 |
 | [数式関数リファレンス](docs/guide/formula.ja.md) | 対応する数式関数と使用例 |
-| [型リファレンス](docs/guide/types.ja.md) | 主要な型とフィールド定義 |
-| [フォントとプリセット](docs/guide/fonts-and-presets.ja.md) | 既定フォント、カスタムフォント、テンプレートプリセットの設定 |
+| [環境設定ガイド](docs/guide/configuration.ja.md) | 言語・フォント・用紙・バーコード・プリセット・ストレージの設定 |
+| [API リファレンス](docs/guide/api-reference.ja.md) | 関数・型・コンポーネント・イベント・エラーの参照 |
 
 ## 技術ドキュメント
 
