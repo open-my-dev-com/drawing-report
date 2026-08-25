@@ -502,4 +502,3 @@ SlipKit components do not automatically persist edits. You must save the file re
 - [Form Designer Guide](designer.en.md): how to build a template on screen
 - [Core API Guide](core.en.md): file validation and PDF generation in Node.js
 - [Formula Function Reference](formula.en.md): formulas you can use in a template
-- [Type Reference](types.en.md): component configuration and public types
