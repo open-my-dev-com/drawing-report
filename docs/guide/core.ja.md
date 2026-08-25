@@ -1,213 +1,690 @@
-# Core API ガイド
+# Core 利用ガイド
 
 [한국어](core.md) · [English](core.en.md)
 
-`@omdc-slipkit/core` は DOM やブラウザに依存しない純粋な TypeScript ライブラリです。
-Node.js でもそのまま利用できます。
+`@omdc-slipkit/core` は、`.slip` ファイルの検証、伝票の組み立て、数式の評価、PDF 生成、ファイル暗号化を提供する TypeScript ライブラリです。
 
-別途 UI をインストールせずに、Slip ファイルを Core に渡してサーバー側で PDF を生成したり、伝票を検証したりできます。
+DOM に依存しないため、Node.js サーバーとブラウザアプリケーションのどちらでも利用できます。テンプレートデザイナーや伝票入力画面のような UI は提供しません。
 
-## 目次
+このドキュメントでは、Core を使って次の作業を行う方法を説明します。
 
-1. [インストール](#1-インストール)
-2. [ファイルのパース・シリアライズ](#2-ファイルのパースシリアライズ)
-3. [伝票の組み立て — テンプレートに値を入れる](#3-伝票の組み立て--テンプレートに値を入れる)
-4. [数式](#4-数式)
-5. [PDF レンダリング](#5-pdf-レンダリング)
-6. [サーバー連携パターン](#6-サーバー連携パターン)
-7. [ファイル暗号化 (任意)](#7-ファイル暗号化-任意)
+- 外部から受け取った `.slip` ファイルのパースと検証
+- テンプレートと入力値からの伝票作成
+- テンプレートまたは伝票の PDF への変換
+- アプリケーションでの数式の直接評価
+- `.slip` ファイルの暗号化と復号
 
-### 詳細リファレンス
+> [!NOTE]
+> UI コンポーネントをアプリケーションに接続するには[はじめに](getting-started.ja.md)を、デザイナー・入力フォーム・ビューアーの状態と保存フローを接続するには[アプリケーション統合ガイド](integration.ja.md)を参照してください。
 
-- **[数式関数リファレンス](formula.md)** — 組み込み関数 32 種の使い方・引数・例
-- **[主要な型リファレンス](types.md)** — `SlipFile`、フォント、`StorageAdapter` など型ごとのフィールドと既定値
+## Core の利用フロー
 
----
+サーバーでテンプレートを読み込み、伝票と PDF を作成する一般的なフローは次のとおりです。
 
-## 1. インストール
+```mermaid
+flowchart LR
+    A[".slip JSON"] --> B["parseSlipFile"]
+    B --> C["テンプレート"]
+    C --> D["buildVoucher"]
+    E["入力値"] --> D
+    D --> F["作成中の伝票"]
+    F --> G["発行と検証"]
+    G --> H["発行済み伝票"]
+    H --> I["render"]
+    I --> J["PDF バイト"]
+```
 
-UI パッケージ(`elements` / `react` / `vue`)を使うプロジェクトでは core が依存関係として一緒に入ります。(別途インストール不要)
-UI と伝票サーバーを分離する場合、つまりサーバー側で core のみを単独で使う場合にインストールします。
+ファイルの読み込みと検証には独立した関数を使い、フォント・ロケール・暗号化キーのように複数の作業で共有する設定は `createSlipKit` に一度だけ渡す方法を推奨します。
+
+| 作業 | 推奨 API |
+|---|---|
+| JSON 文字列のパースと検証 | `parseSlipFile` |
+| すでにパース済みの値の検証 | `validateSlipFile` |
+| 保存用の JSON 文字列の生成 | `serializeSlipFile` |
+| テンプレートと値からの伝票の組み立て | `buildVoucher` または `slip.buildVoucher` |
+| PDF の生成 | `slip.render` |
+| 数式の評価 | `slip.evaluate` |
+| ファイルの暗号化・復号 | `slip.encrypt`, `slip.decrypt` |
+
+## インストールと実行環境
+
+> [!IMPORTANT]
+> SlipKit は現在公開前のレビュー段階であり、`@omdc-slipkit/*` パッケージは npm レジストリにまだ公開されていません。
+> 現時点ではリポジトリをクローンして、同梱のソースとデモで確認できます。
+
+パッケージが公開された後は、次のようにインストールします。
 
 ```bash
 npm install @omdc-slipkit/core
 ```
 
-## 2. ファイルのパース・シリアライズ
+主にサポートする実行環境は次のとおりです。
+
+- Node.js 20 以上
+- ESM と TypeScript をサポートするブラウザビルド環境
+- 暗号化機能を使う場合は Web Crypto API をサポートする環境
+
+> [!TIP]
+> `@omdc-slipkit/elements`、`@omdc-slipkit/react`、`@omdc-slipkit/vue` を使う場合でも、アプリケーションコードで Core を直接 import するなら、`@omdc-slipkit/core` を直接の依存関係としてインストールしてください。
+
+## クイック例: テンプレートから PDF を作成する
+
+次の例は、Node.js でテンプレートファイルを読み込み、値を入力した伝票を発行してから PDF ファイルとして保存します。
+
+プロジェクトに次のファイルがあると仮定します。
+
+```text
+templates/
+└── trade-statement.slip
+
+fonts/
+├── Pretendard-Regular.otf
+└── Pretendard-Bold.otf
+
+src/
+└── generate-voucher.ts
+```
+
+`src/generate-voucher.ts`:
+
+```ts
+import { readFile, writeFile } from 'node:fs/promises';
+
+import {
+  createSlipKit,
+  parseSlipFile,
+  validateSlipFile,
+} from '@omdc-slipkit/core';
+
+const [regularFont, boldFont] = await Promise.all([
+  readFile(
+    new URL(
+      '../fonts/Pretendard-Regular.otf',
+      import.meta.url,
+    ),
+  ),
+  readFile(
+    new URL(
+      '../fonts/Pretendard-Bold.otf',
+      import.meta.url,
+    ),
+  ),
+]);
+
+const slip = createSlipKit({
+  locale: 'ko-KR',
+  getFonts: () => [
+    {
+      name: 'Pretendard',
+      data: regularFont,
+      fallback: true,
+    },
+    {
+      name: 'Pretendard-Bold',
+      data: boldFont,
+    },
+  ],
+});
+
+const templateJson = await readFile(
+  new URL(
+    '../templates/trade-statement.slip',
+    import.meta.url,
+  ),
+  'utf8',
+);
+
+const file = parseSlipFile(templateJson);
+
+if (file.kind !== 'template') {
+  throw new Error('テンプレートファイルではありません。');
+}
+
+const draftVoucher = slip.buildVoucher(file, {
+  tradeDate: '2026-08-25',
+  customerName: '株式会社サンプル',
+  items: [
+    {
+      itemName: '鉛筆',
+      quantity: 12,
+      unitPrice: 300,
+      amount: 3600,
+    },
+    {
+      itemName: 'ノート',
+      quantity: 5,
+      unitPrice: 1200,
+      amount: 6000,
+    },
+  ],
+});
+
+const issuedVoucher = validateSlipFile({
+  ...draftVoucher,
+  issued: true,
+});
+
+const pdfBytes = await slip.render(issuedVoucher);
+
+await writeFile('trade-statement.pdf', pdfBytes);
+```
+
+この例では次の順序で処理します。
+
+1. PDF に使うフォントを準備します。
+2. `parseSlipFile` でテンプレートファイルを検証します。
+3. `buildVoucher` で入力値を埋めた伝票を作成します。
+4. 伝票を発行状態に変更してから、再度検証します。
+5. `render` で PDF バイトを生成します。
+6. 生成されたバイトを PDF ファイルとして保存します。
+
+> [!IMPORTANT]
+> 韓国語・日本語のように標準 PDF フォントにない文字を出力するには、その文字を含むフォントを必ず供給する必要があります。
+> Core には UI パッケージの同梱フォントが自動的に適用されません。
+
+## `.slip` ファイルのパースと検証
+
+### JSON 文字列のパース
+
+ファイル、データベース、または HTTP レスポンスから受け取った JSON 文字列は `parseSlipFile` で読み込みます。
 
 ```ts
 import {
   parseSlipFile,
-  serializeSlipFile,
-  validateSlipFile,
+  type SlipFile,
 } from '@omdc-slipkit/core';
 
-// JSON 文字列 → SlipFile オブジェクト (旧バージョンなら自動マイグレーション)
-const file = parseSlipFile(jsonString);
-
-// SlipFile オブジェクト → JSON 文字列
-const json = serializeSlipFile(file);
-
-// すでにパース済みの JSON 値を検証 (JSON.parse の結果など)
-const validated = validateSlipFile(jsonValue);
+function readSlip(json: string): SlipFile {
+  return parseSlipFile(json);
+}
 ```
 
-- `parseSlipFile` は JSON 文字列を受け取り、`SlipFile` オブジェクトに変換します。旧バージョンのファイルの場合は現在のスキーマバージョンへ自動的にマイグレーションされます。
-- `serializeSlipFile` は `SlipFile` オブジェクトを JSON 文字列に変換します。
-- `validateSlipFile` はパース済みの JSON 値(`JSON.parse` の結果など)を検証し、`SlipFile` として返します。ファイルが不正な場合は `SlipParseError` を投げます。
+`parseSlipFile` は次の作業をまとめて行います。
 
-## 3. 伝票の組み立て — テンプレートに値を入れる
+1. JSON 文字列のパース
+2. `schemaVersion` と `kind` の確認
+3. テンプレートまたは伝票本体の検証
+4. サポートされるマイグレーション経路があれば現在の形式へ変換
 
-UI なしで core だけで伝票を作るときは、**テンプレートに値（values）を入れて**伝票（voucher）オブジェクトを
-自分で組み立てます。テンプレートは `.slip` ファイルで連携しますが、パラメータに入れるデータはこの
-`values` オブジェクトで渡します。
+不正な JSON や `.slip` のルールに合わない場合は `SlipParseError` が発生します。
 
-### values オブジェクトの形
+### すでにパース済みの値の検証
 
-キーはテンプレートの**パラメータ物理名（`key`）**、値はパラメータタイプによって異なります。
+HTTP フレームワークがリクエストボディをすでにオブジェクトに変換している場合や、`JSON.parse` を直接使った場合は `validateSlipFile` を使います。
 
-| パラメータタイプ | 値 |
-|---|---|
-| 文字・数値・日付・真偽 | その値そのまま（`'2026-08-24'` · `12000` · `true`） |
-| 画像 | `data:` base64 文字列（外部 URL 不可 — core はネットワークを使いません） |
-| リスト（list） | **オブジェクトの配列** — 項目ごとに項目フィールドの `key` で値を入れます |
+```ts
+import {
+  validateSlipFile,
+  type SlipFile,
+} from '@omdc-slipkit/core';
+
+function validateRequestBody(body: unknown): SlipFile {
+  return validateSlipFile(body);
+}
+```
+
+> [!IMPORTANT]
+> TypeScript の型宣言は、実行中に入ってくる値を検証しません。
+> ファイルアップロード、HTTP リクエスト、データベースのような外部境界から受け取った値は、必ず `parseSlipFile` または `validateSlipFile` で検証してください。
+
+### テンプレートと伝票の区別
+
+検証済みのファイルは `kind` で区別します。
+
+```ts
+const file = parseSlipFile(json);
+
+if (file.kind === 'template') {
+  console.log(file.template.meta.title);
+} else {
+  console.log(file.templateSnapshot.meta.title);
+  console.log(file.values);
+  console.log(file.issued);
+}
+```
+
+| `kind` | 意味 | 主な本体 |
+|---|---|---|
+| `'template'` | 伝票の構造と表示方法を定義するテンプレート | `template` |
+| `'voucher'` | テンプレートに実際の値を入力した伝票 | `templateSnapshot`, `values`, `issued` |
+
+伝票には、作成時点のテンプレート全体が `templateSnapshot` として入っています。元のテンプレートが後で変更されても、既存の伝票は自身のスナップショットを使います。
+
+### JSON 文字列として保存
+
+検証済みのファイルオブジェクトを保存または送信するときは `serializeSlipFile` を使います。
+
+```ts
+import {
+  serializeSlipFile,
+  type SlipFile,
+} from '@omdc-slipkit/core';
+
+function toJson(file: SlipFile): string {
+  return serializeSlipFile(file);
+}
+```
+
+> [!CAUTION]
+> `serializeSlipFile` はオブジェクトを JSON 文字列に変換しますが、オブジェクト自体を再検証はしません。
+> アプリケーションで直接組み立てたり修正したりしたオブジェクトなら、保存前に `validateSlipFile` で検証してください。
+
+## テンプレートと値から伝票を作成する
+
+`buildVoucher` は、テンプレートと入力値を組み合わせて作成中の伝票を作ります。
+
+```ts
+import {
+  buildVoucher,
+  type JsonValue,
+  type SlipTemplateFile,
+  type SlipVoucherFile,
+} from '@omdc-slipkit/core';
+
+function createVoucher(
+  template: SlipTemplateFile,
+  values: Record<string, JsonValue>,
+): SlipVoucherFile {
+  return buildVoucher(template, values);
+}
+```
+
+`createSlipKit` を使っている場合は、同じ機能をインスタンスから呼び出せます。
+
+```ts
+const voucher = slip.buildVoucher(template, values);
+```
+
+`buildVoucher` が返す伝票は次の状態です。
+
+```ts
+{
+  kind: 'voucher',
+  issued: false,
+  templateSnapshot: /* 作成時点のテンプレート */,
+  values: /* 渡した入力値 */,
+}
+```
+
+入力したテンプレートと値はディープコピーされるため、返された伝票と元のオブジェクトは参照を共有しません。
+
+### パラメータごとの値の形
+
+`values` のキーは、テンプレートに定義したパラメータの物理名です。
+
+| パラメータのタイプ | 値の形 | 例 |
+|---|---|---|
+| 文字 | `string` | `'株式会社サンプル'` |
+| 数値 | `number` | `12000` |
+| 日付 | ISO 日付文字列 | `'2026-08-25'` |
+| 真偽 | `boolean` | `true` |
+| 画像 | `data:` Base64 文字列 | `'data:image/png;base64,...'` |
+| リスト | オブジェクトの配列 | `[{ itemName: '鉛筆' }]` |
+
+リストパラメータは、項目ごとに下位フィールドの物理名をキーとして持つオブジェクトの配列を使います。
 
 ```ts
 const values = {
-  tradeDate: '2026-08-24',          // date パラメータ
-  items: [                          // list パラメータ — 項目フィールドの key で入れる
-    { itemName: '鉛筆', spec: 'HB', quantity: 12, unitPrice: 300, amount: 3600 },
-    { itemName: 'ノート', spec: 'A5', quantity: 5, unitPrice: 1200, amount: 6000 },
+  customerName: '株式会社サンプル',
+  items: [
+    {
+      itemName: '鉛筆',
+      quantity: 12,
+      unitPrice: 300,
+    },
+    {
+      itemName: 'ノート',
+      quantity: 5,
+      unitPrice: 1200,
+    },
   ],
-  // totalAmount は数式 SUM(items.amount) で計算されるので入れなくてよい
 };
 ```
 
-### テンプレート + 値 → 伝票
+`valueType: 'number'` として定義した最上位パラメータが未入力、`null`、または空文字列の場合、`buildVoucher` が `0` に正規化します。
 
-`buildVoucher(テンプレート, 値)` が、テンプレートスナップショットの埋め込み・number パラメータの空値を
-0 に揃える正規化（ADR-044）・伝票の組み立てをまとめて行います。返ってきた伝票を `render` に
-渡すと、値が入った PDF が得られます。
+数式で計算される値は、`values` にあらかじめ入れる必要はありません。PDF レンダリングの過程で、伝票の値とテンプレートの数式を使って計算されます。
 
-```ts
-import { parseSlipFile, createSlipKit } from '@omdc-slipkit/core';
+## 伝票を発行する
 
-const slip = createSlipKit({ getFonts });   // 設定はここで一度（下記 §5）
+`buildVoucher` が作る伝票は `issued: false` の作成中の伝票です。
 
-const template = parseSlipFile(templateJson);
-if (template.kind !== 'template') throw new Error('テンプレートファイルではありません');
-
-const voucher = slip.buildVoucher(template, values);   // 発行前（issued: false）の伝票
-const pdf = await slip.render(voucher);
-```
-
-- 数式で計算されるフィールド（例: 合計金額）は `values` に入れなくてもレンダリング時に自動計算されます。
-- 伝票は作成時点のテンプレートを `templateSnapshot` として丸ごと保持するので、後でテンプレートが変わっても
-  同じようにレンダリングされます (ADR-008)。`buildVoucher` が返す伝票は、入力のテンプレート・値と参照を
-  共有しません。
-- リストの項目数が 1 ページに収まる数を超えると、ページが自動で増えます。
-
-### 発行（確定）
-
-発行とは値を確定して**ロックする**ことです — `issued: true` にすると作成フォームが入力を止めます。
-発行済み伝票もレンダリングは同じです。
+値を確定するには、`issued` を `true` に変更してからファイル全体を検証します。
 
 ```ts
-const issued = { ...voucher, issued: true };
-const pdf = await slip.render(issued);
+import {
+  validateSlipFile,
+  type SlipVoucherFile,
+} from '@omdc-slipkit/core';
+
+function issueVoucher(
+  draft: SlipVoucherFile,
+): SlipVoucherFile {
+  const validated = validateSlipFile({
+    ...draft,
+    issued: true,
+  });
+
+  if (validated.kind !== 'voucher') {
+    throw new Error('伝票ファイルではありません。');
+  }
+
+  return validated;
+}
 ```
 
-> `buildVoucher` を使わず自分で組み立てることもできます — 伝票は `{ schemaVersion, kind: 'voucher',
-> templateSnapshot, values, issued }` オブジェクトで、`buildVoucher` はそこにディープコピーと number
-> 正規化を加えるだけです。手組みしたオブジェクトは `validateSlipFile(voucher)` で検証できます。
+発行検証では、外部 URL 画像のように、発行済み伝票が単独で保管できなくなる値も確認します。発行済み伝票に必要な画像は `data:` Base64 の形で含める必要があります。
 
-## 4. 数式
+> [!WARNING]
+> `issued: true` は伝票の業務上の状態を表します。
+> 電子署名や暗号学的な改ざん防止機能ではないため、サーバー側で発行済み伝票の編集権限と保存履歴を別途管理する必要があります。
 
-```ts
-import { parseFormula, evaluateFormula } from '@omdc-slipkit/core';
+> [!IMPORTANT]
+> 伝票を保存するときは、`values` だけを別に保存せず、`SlipVoucherFile` 全体を保存してください。
+> `templateSnapshot` と `issued` の状態が一緒にあってこそ、後で同じテンプレートで伝票をレンダリングできます。
 
-const ast = parseFormula('SUM(items.amount)');
-const result = evaluateFormula(ast, {
-  values: { items: { amount: [1000, 2000, 3000] } },
-});
-// result → 6000
-```
+## PDF を生成する
 
-32 種の組み込み関数をサポートしています (SUM、IF、ROUND、CONCAT など)。関数ごとの使い方は **[数式関数リファレンス](formula.md)** を参照してください。
-登録されていない関数はパース段階で拒否されます。
+### 設定を再利用する方法
 
-## 5. PDF レンダリング
-
-フォント・ロケールなどの設定は `createSlipKit` で**一度**与え、以降 `render(file)` はファイルだけを
-受け取ります — レンダー呼び出しごとにフォントを渡しません (ADR-056)。
+同じフォントとロケールで複数のファイルをレンダリングするなら、`createSlipKit` で設定を一度構成します。
 
 ```ts
 import { createSlipKit } from '@omdc-slipkit/core';
 
 const slip = createSlipKit({
-  getFonts: () => [{ name: 'Pretendard', data: fontBuffer, fallback: true }],
   locale: 'ko-KR',
+  getFonts: () => [
+    {
+      name: 'Pretendard',
+      data: regularFont,
+      fallback: true,
+    },
+  ],
 });
 
-const pdfBytes = await slip.render(file);   // Uint8Array — PDF ファイルのバイト列
+const firstPdf = await slip.render(firstVoucher);
+const secondPdf = await slip.render(secondVoucher);
 ```
 
-- フォントは設定の `getFonts` で一度供給します — 同期配列でも、サーバーから受け取る Promise でも構いません (ADR-040)。
-  韓国語・日本語の文書はフォントを必ず供給してください。なければ文字化けすることがあります。
-- `locale` は数式フォーマット関数（FORMAT_NUMBER など）の数値表記に使われます（既定は `'ko-KR'`）。
-- フォント型の詳細は [型リファレンス](types.md#font) を参照してください。
-- 低レベルの `createPdfRenderer(設定)` / `renderSlipToPdf(file, 設定)` もありますが、設定を一度持つ
-  `createSlipKit` を推奨します。インスタンスは `render` のほか `buildVoucher`・`evaluate`・`encrypt`/`decrypt` も提供します。
+- テンプレートをレンダリングすると、値が空のドキュメントが生成されます。
+- 伝票をレンダリングすると、`templateSnapshot` と `values` が反映されます。
+- 戻り値は PDF ファイルの `Uint8Array` です。
+- `locale` は `FORMAT_NUMBER` のような数式のフォーマット関数の表示方法に使われます。
 
-## 6. サーバー連携パターン
+フォントの構成方法は[設定ガイド](configuration.ja.md)を参照してください。
 
-SlipKit はサーバーを持たない組み込み型ライブラリで、外部バックエンドとは `.slip` ファイルを通じて連携します。
-詳しいアーキテクチャは [ARCHITECTURE.md](../ARCHITECTURE.md) を参照してください。
+### ファイルを一つそのままレンダリングする方法
 
-### 基本フロー 1 : バックエンドから JSON でリクエストし -> 伝票結果を JSON バイナリとして取得する形式。
-
-1. バックエンドから `.slip` と伝票に入れるデータ(values)を JSON で送信します。
-2. このパッケージの core を通じて伝票を組み立て、数式を計算して発行します。
-3. 発行された伝票 `.pdf` をバイナリに変換したうえで、バックエンドに返します。
-
-### 基本フロー 2 : 夜間バッチなどでサーバー側で PDF を生成する必要がある場合
-
-リクエストなしに特定の時間帯に発行が必要な場合(夜間バッチなど)は、core を Node で実行すればよいです。
+設定を再利用する必要がなければ、`renderSlipToPdf` を直接使えます。
 
 ```ts
-import { parseSlipFile, createSlipKit } from '@omdc-slipkit/core';
+import {
+  renderSlipToPdf,
+  type SlipFile,
+} from '@omdc-slipkit/core';
 
-const slip = createSlipKit({ getFonts });   // 設定は一度
-const file = parseSlipFile(jsonFromDb);
-const pdf = await slip.render(file);
+async function renderOne(
+  file: SlipFile,
+): Promise<Uint8Array> {
+  return renderSlipToPdf(file, {
+    locale: 'ko-KR',
+    getFonts: () => [
+      {
+        name: 'Pretendard',
+        data: regularFont,
+        fallback: true,
+      },
+    ],
+  });
+}
 ```
 
-core は Node 20 以上でのみ動作します。
+### ブラウザで PDF をダウンロードする
 
-## 7. ファイル暗号化 (任意)
-
-`.slip` は JSON なので、エディタで開くと内容がすべて見えます。機微なテンプレート・伝票をロックするには
-暗号化します (AES-256-GCM, ADR-054)。キーを設定に**一度**与えると `slip.encrypt`/`slip.decrypt` がそれを使います (ADR-056)。
+ブラウザでは、PDF バイトを `Blob` に変換してダウンロードできます。
 
 ```ts
-import { createSlipKit, isEncryptedSlipFile } from '@omdc-slipkit/core';
+function downloadPdf(
+  filename: string,
+  pdfBytes: Uint8Array,
+): void {
+  const blob = new Blob(
+    [pdfBytes.buffer as ArrayBuffer],
+    {
+      type: 'application/pdf',
+    },
+  );
 
-// キーは設定に一度 — パスフレーズ（文字列）または 32 バイトの生キー（Uint8Array）
-const slip = createSlipKit({ encryption: { key: 'secret-passphrase' } });
+  const url = URL.createObjectURL(blob);
 
-const locked = await slip.encrypt(file);    // 封筒 JSON 文字列
-const file2 = await slip.decrypt(locked);   // 復号後に検証まで
+  try {
+    const anchor = document.createElement('a');
 
-isEncryptedSlipFile(locked);   // true — 通常の .slip と区別
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 ```
 
-- ファイルごとに異なるキーは引数で上書きします — `slip.encrypt(file, otherKey)`。キーを変えたら設定に
-  `encryption.previousKeys` を置くと、旧キーでロックしたファイルも `decrypt` が開きます（ローテーション）。
-- 設定インスタンスなしの単独関数でも構いません — `encryptSlipFile(file, key)` · `decryptSlipFile(json, key)`。
-- **キー管理はホストの責任**です — core はキーを作成も保管もしません。
-- ロックしたファイルは**通常の `.slip` ではありません。** 受け取る側が同じキーで復号する必要があり、
-  システム間でそのままやり取りできません。
-- 誤ったキーや改ざんされたファイルは復号段階で弾かれます（AES-GCM 認証）。
-- 封筒フォーマットは [SPEC §8](../SPEC.md) を参照してください。
-- UI（デザイナーなど）から保存する際に自動でロックするには、core 関数を直接呼ばずに保存アダプタの
-  `encryption` オプションを使ってください（ADR-055）: [型リファレンス](types.ja.md#保存時の暗号化任意-adr-055)。
+## 数式を評価する
+
+テンプレートレンダリングの外で数式を直接計算するには `evaluate` を使います。
+
+```ts
+const result = slip.evaluate(
+  'SUM(items.amount)',
+  {
+    values: {
+      items: [
+        { amount: 3600 },
+        { amount: 6000 },
+      ],
+    },
+  },
+);
+
+console.log(result);
+// 9600
+```
+
+`TODAY()` のように現在時刻によって結果が変わる数式は、基準時刻を渡すことで再現できます。
+
+```ts
+const result = slip.evaluate(
+  'TODAY()',
+  {
+    values: {},
+    now: new Date('2026-08-25T00:00:00Z'),
+  },
+);
+```
+
+`createSlipKit` に指定した `locale` は、評価コンテキストに個別の `locale` がない場合に使われます。
+
+```ts
+const slip = createSlipKit({
+  locale: 'de-DE',
+});
+
+const formatted = slip.evaluate(
+  'FORMAT_NUMBER(1234.5)',
+  {
+    values: {},
+  },
+);
+
+console.log(formatted);
+// 1.234,5
+```
+
+設定が不要なら、`evaluateFormula` 独立関数を直接使えます。
+
+```ts
+import {
+  evaluateFormula,
+} from '@omdc-slipkit/core';
+
+const result = evaluateFormula(
+  'quantity * unitPrice',
+  {
+    values: {
+      quantity: 12,
+      unitPrice: 300,
+    },
+  },
+);
+```
+
+サポート関数と数式の文法は[数式関数リファレンス](formula.ja.md)を確認してください。
+
+## `.slip` ファイルを暗号化する
+
+`.slip` ファイルは JSON なので、暗号化しなければ一般的なエディタでも内容を確認できます。
+
+機密性の高いテンプレートや伝票をファイルの形で保管する必要があるなら、任意で AES-256-GCM 暗号化を使えます。
+
+```ts
+import {
+  createSlipKit,
+  isEncryptedSlipFile,
+} from '@omdc-slipkit/core';
+
+const encryptionKey =
+  process.env.SLIPKIT_ENCRYPTION_KEY;
+
+if (!encryptionKey) {
+  throw new Error(
+    'SLIPKIT_ENCRYPTION_KEY が設定されていません。',
+  );
+}
+
+const slip = createSlipKit({
+  encryption: {
+    key: encryptionKey,
+  },
+});
+
+const encryptedJson =
+  await slip.encrypt(file);
+
+console.log(
+  isEncryptedSlipFile(encryptedJson),
+);
+// true
+
+const restored =
+  await slip.decrypt(encryptedJson);
+```
+
+暗号化キーには次の二つの形を使えます。
+
+| キー | 動作 |
+|---|---|
+| `string` | パスフレーズとして使い、PBKDF2-SHA256 で AES キーを生成 |
+| 32 バイトの `Uint8Array` | AES-256 の生キーとして直接使用 |
+
+> [!CAUTION]
+> 暗号化キーをソースコードや保存ファイルに一緒に入れないでください。
+> キーの生成、保管、受け渡し、破棄は、ホストアプリケーションのセキュリティポリシーに従って管理する必要があります。
+
+### キーの変更に備える
+
+暗号化キーを変更した場合は、`previousKeys` に以前のキーを渡すことで、過去のファイルも復号できます。
+
+```ts
+const slip = createSlipKit({
+  encryption: {
+    key: currentKey,
+    previousKeys: [
+      previousKey,
+    ],
+  },
+});
+
+const restored =
+  await slip.decrypt(encryptedJson);
+```
+
+`decrypt` は現在のキーを先に使い、失敗すると `previousKeys` を順番に試します。以前のファイルを読み込んだ後、再度暗号化して保存すれば、新しいキーに切り替えられます。
+
+> [!IMPORTANT]
+> 暗号化された結果は、標準の `.slip` ファイル構造ではなく、別個の暗号化エンベロープ JSON です。
+> `parseSlipFile`、PDF レンダラー、または UI コンポーネントに直接渡すことはできず、先に `decrypt` で復号する必要があります。
+
+`isEncryptedSlipFile` は暗号化エンベロープの目印を確認するためのものです。ファイルが正常に復号されることや、改ざんされていないことを保証するものではありません。
+
+## エラー処理
+
+Core は作業の段階に応じて、異なるエラータイプを提供します。
+
+| エラー | 発生する作業 |
+|---|---|
+| `SlipParseError` | JSON パース、スキーマ検証、マイグレーション |
+| `SlipRenderError` | PDF 変換またはフォント構成 |
+| `FormulaSyntaxError` | 数式の文法解析 |
+| `FormulaEvalError` | 数式の実行と型計算 |
+| `SlipEncryptionError` | 暗号化、復号、キー検証 |
+
+外部ファイルを処理するときは、エラーをユーザー向けのレスポンスやアプリケーションログに変換します。
+
+```ts
+import {
+  parseSlipFile,
+  SlipParseError,
+} from '@omdc-slipkit/core';
+
+function parseUploadedSlip(
+  json: string,
+) {
+  try {
+    return parseSlipFile(json);
+  } catch (error) {
+    if (error instanceof SlipParseError) {
+      throw new Error(
+        `正しい .slip ファイルではありません: ${error.message}`,
+      );
+    }
+
+    throw error;
+  }
+}
+```
+
+> [!CAUTION]
+> サーバーログに伝票全体、画像の Base64 データ、暗号化キー、またはユーザーの機密な入力値をそのまま記録しないでください。
+> エラーの種類と必要な識別情報だけを残すのが安全です。
+
+## 避けるべき実装
+
+- 外部から受け取った JSON を型アサーションだけで使用
+- `serializeSlipFile` がオブジェクトを検証すると仮定
+- 伝票の `values` だけを保存し、テンプレートスナップショットを破棄
+- 発行済み伝票で外部 URL 画像をそのまま使用
+- `issued: true` を電子署名や改ざん防止と解釈
+- 韓国語・日本語の PDF を作成しながら、その文字を含むフォントを供給しない
+- ファイルをレンダリングするたびに同じフォントを読み直す
+- 暗号化キーをソースコードやファイルと一緒に保存
+- 暗号化エンベロープ JSON を復号せずに `.slip` パーサーへ渡す
+
+## 完了確認
+
+- [ ] 外部から受け取った `.slip` ファイルをパースして検証する。
+- [ ] テンプレートと伝票を `kind` で区別する。
+- [ ] 伝票全体を `templateSnapshot`、`values`、`issued` と一緒に保存する。
+- [ ] 発行状態に変更した伝票を再度検証する。
+- [ ] 出力言語に必要なフォントを供給する。
+- [ ] PDF バイトをファイルまたは HTTP レスポンスとして正しく渡す。
+- [ ] 数式エラーと PDF レンダリングエラーを区別して処理する。
+- [ ] 暗号化キーをファイルデータと分離して管理する。
+
+## 関連ドキュメント
+
+- [はじめに](getting-started.ja.md)
+- [アプリケーション統合ガイド](integration.ja.md)
+- [設定ガイド](configuration.ja.md)
+- [API リファレンス](api-reference.ja.md)
+- [数式関数リファレンス](formula.ja.md)
