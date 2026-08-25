@@ -101,7 +101,7 @@ import type { SlipFile } from '@omdc-slipkit/core';
 | `schemaVersion` | `string` | スキーマバージョン |
 | `kind` | `'voucher'` | ファイル種別 |
 | `templateSnapshot` | テンプレート本体と同一 | 作成時点のテンプレート全体のスナップショット |
-| `values` | `Record<string, JsonValue>` | バインディングキー → 入力した値 |
+| `values` | `Record<string, JsonValue>` | パラメータキー → 入力した値 |
 | `issued` | `boolean` | 発行済みかどうか |
 
 ---
