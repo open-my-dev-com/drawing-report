@@ -128,8 +128,17 @@ When enabled, saving locks the `.slip` content with core's encryption (AES-256-G
 automatically.
 
 ```ts
+interface StorageEncryption {
+  enabled: boolean;                        // whether to encrypt on save (false/omitted = plaintext)
+  key?: string | Uint8Array;               // key to lock with — passphrase or 32-byte raw key (falls back to the sample key)
+  previousKeys?: (string | Uint8Array)[];  // extra keys tried on load (for key rotation)
+}
+```
+
+```ts
 import { IndexedDbStorage, type StorageEncryption } from '@omdc-slipkit/elements';
 
+// pass it to the constructor's encryption option — LocalFileStorage is the same
 const storage = new IndexedDbStorage({
   encryption: { enabled: true, key: hostKey },   // a host-supplied passphrase or raw key
 });

@@ -126,8 +126,17 @@ import type { StorageAdapter } from '@omdc-slipkit/core';
 有効にすると保存時に core の暗号化（AES-256-GCM）で `.slip` の内容をロックし、読み込み時に自動で解除します。
 
 ```ts
+interface StorageEncryption {
+  enabled: boolean;                        // 保存時に暗号化するか (false・省略で平文)
+  key?: string | Uint8Array;               // ロックするキー — パスフレーズまたは 32 バイトの生キー (なければサンプル既定キー)
+  previousKeys?: (string | Uint8Array)[];  // 読み込み時に追加で試す旧キー (キーローテーション対応)
+}
+```
+
+```ts
 import { IndexedDbStorage, type StorageEncryption } from '@omdc-slipkit/elements';
 
+// 生成オプションの encryption に渡す — LocalFileStorage も同じ
 const storage = new IndexedDbStorage({
   encryption: { enabled: true, key: hostKey },   // ホストが供給するパスフレーズまたは生キー
 });

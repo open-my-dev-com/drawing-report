@@ -126,8 +126,17 @@ import type { StorageAdapter } from '@omdc-slipkit/core';
 켜 두면 저장 시 core의 암호화(AES-256-GCM)로 `.slip` 내용을 잠그고, 불러올 때 자동으로 풉니다.
 
 ```ts
+interface StorageEncryption {
+  enabled: boolean;                        // 저장 시 암호화 여부 (false·생략이면 평문)
+  key?: string | Uint8Array;               // 잠글 키 — 암호 또는 32바이트 원시 키 (없으면 샘플 기본키)
+  previousKeys?: (string | Uint8Array)[];  // 불러올 때 추가로 시도할 예전 키들 (키 회전 대비)
+}
+```
+
+```ts
 import { IndexedDbStorage, type StorageEncryption } from '@omdc-slipkit/elements';
 
+// 생성 옵션의 encryption에 넘긴다 — LocalFileStorage도 동일
 const storage = new IndexedDbStorage({
   encryption: { enabled: true, key: hostKey },   // 호스트가 공급하는 암호/원시 키
 });
