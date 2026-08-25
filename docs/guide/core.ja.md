@@ -86,17 +86,19 @@ const values = {
 ### テンプレート + 値 → 伝票
 
 `buildVoucher(テンプレート, 値)` が、テンプレートスナップショットの埋め込み・number パラメータの空値を
-0 に揃える正規化（ADR-044）・伝票の組み立てをまとめて行います。返ってきた伝票を `renderSlipToPdf` に
+0 に揃える正規化（ADR-044）・伝票の組み立てをまとめて行います。返ってきた伝票を `render` に
 渡すと、値が入った PDF が得られます。
 
 ```ts
-import { parseSlipFile, buildVoucher, renderSlipToPdf } from '@omdc-slipkit/core';
+import { parseSlipFile, createSlipKit } from '@omdc-slipkit/core';
+
+const slip = createSlipKit({ getFonts });   // 設定はここで一度（下記 §5）
 
 const template = parseSlipFile(templateJson);
 if (template.kind !== 'template') throw new Error('テンプレートファイルではありません');
 
-const voucher = buildVoucher(template, values);   // 発行前（issued: false）の伝票
-const pdf = await renderSlipToPdf(voucher, { fonts });
+const voucher = slip.buildVoucher(template, values);   // 発行前（issued: false）の伝票
+const pdf = await slip.render(voucher);
 ```
 
 - 数式で計算されるフィールド（例: 合計金額）は `values` に入れなくてもレンダリング時に自動計算されます。
@@ -112,7 +114,7 @@ const pdf = await renderSlipToPdf(voucher, { fonts });
 
 ```ts
 const issued = { ...voucher, issued: true };
-const pdf = await renderSlipToPdf(issued, { fonts });
+const pdf = await slip.render(issued);
 ```
 
 > `buildVoucher` を使わず自分で組み立てることもできます — 伝票は `{ schemaVersion, kind: 'voucher',
@@ -136,19 +138,26 @@ const result = evaluateFormula(ast, {
 
 ## 5. PDF レンダリング
 
-```ts
-import { renderSlipToPdf } from '@omdc-slipkit/core';
+フォント・ロケールなどの設定は `createSlipKit` で**一度**与え、以降 `render(file)` はファイルだけを
+受け取ります — レンダー呼び出しごとにフォントを渡しません (ADR-056)。
 
-const pdfBytes = await renderSlipToPdf(file, {
-  fonts: [{ name: 'Pretendard', data: fontBuffer }],
+```ts
+import { createSlipKit } from '@omdc-slipkit/core';
+
+const slip = createSlipKit({
+  getFonts: () => [{ name: 'Pretendard', data: fontBuffer, fallback: true }],
+  locale: 'ko-KR',
 });
-// pdfBytes: Uint8Array — PDF ファイルのバイト列
+
+const pdfBytes = await slip.render(file);   // Uint8Array — PDF ファイルのバイト列
 ```
 
-- `fonts` に正しいフォントを登録する必要があります。フォントが不正な場合、PDF 出力時に文字化けすることがあります。
-- `locale` オプションで数式フォーマット関数の数値表記を変更できます。(既定は `'ko-KR'`)。
+- フォントは設定の `getFonts` で一度供給します — 同期配列でも、サーバーから受け取る Promise でも構いません (ADR-040)。
+  韓国語・日本語の文書はフォントを必ず供給してください。なければ文字化けすることがあります。
+- `locale` は数式フォーマット関数（FORMAT_NUMBER など）の数値表記に使われます（既定は `'ko-KR'`）。
 - フォント型の詳細は [型リファレンス](types.md#font) を参照してください。
-- サーバーフォルダなどからフォントを非同期で受け取る場合は、配列の代わりに `getFonts` 供給関数を渡せます (ADR-040)。
+- 低レベルの `createPdfRenderer(設定)` / `renderSlipToPdf(file, 設定)` もありますが、設定を一度持つ
+  `createSlipKit` を推奨します。インスタンスは `render` のほか `buildVoucher`・`evaluate`・`encrypt`/`decrypt` も提供します。
 
 ## 6. サーバー連携パターン
 
@@ -166,10 +175,11 @@ SlipKit はサーバーを持たない組み込み型ライブラリで、外部
 リクエストなしに特定の時間帯に発行が必要な場合(夜間バッチなど)は、core を Node で実行すればよいです。
 
 ```ts
-import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
+import { parseSlipFile, createSlipKit } from '@omdc-slipkit/core';
 
+const slip = createSlipKit({ getFonts });   // 設定は一度
 const file = parseSlipFile(jsonFromDb);
-const pdf = await renderSlipToPdf(file, { fonts });
+const pdf = await slip.render(file);
 ```
 
 core は Node 20 以上でのみ動作します。
@@ -177,20 +187,23 @@ core は Node 20 以上でのみ動作します。
 ## 7. ファイル暗号化 (任意)
 
 `.slip` は JSON なので、エディタで開くと内容がすべて見えます。機微なテンプレート・伝票をロックするには
-`encryptSlipFile` で暗号化します (AES-256-GCM, ADR-054)。
+暗号化します (AES-256-GCM, ADR-054)。キーを設定に**一度**与えると `slip.encrypt`/`slip.decrypt` がそれを使います (ADR-056)。
 
 ```ts
-import { encryptSlipFile, decryptSlipFile, isEncryptedSlipFile } from '@omdc-slipkit/core';
+import { createSlipKit, isEncryptedSlipFile } from '@omdc-slipkit/core';
 
-// ロック — パスフレーズ（文字列）または 32 バイトの生キー（Uint8Array）
-const locked = await encryptSlipFile(file, 'secret-passphrase');   // 封筒 JSON 文字列
+// キーは設定に一度 — パスフレーズ（文字列）または 32 バイトの生キー（Uint8Array）
+const slip = createSlipKit({ encryption: { key: 'secret-passphrase' } });
 
-// アンロック — 同じキー。復号後に検証まで行います
-const file2 = await decryptSlipFile(locked, 'secret-passphrase');
+const locked = await slip.encrypt(file);    // 封筒 JSON 文字列
+const file2 = await slip.decrypt(locked);   // 復号後に検証まで
 
 isEncryptedSlipFile(locked);   // true — 通常の .slip と区別
 ```
 
+- ファイルごとに異なるキーは引数で上書きします — `slip.encrypt(file, otherKey)`。キーを変えたら設定に
+  `encryption.previousKeys` を置くと、旧キーでロックしたファイルも `decrypt` が開きます（ローテーション）。
+- 設定インスタンスなしの単独関数でも構いません — `encryptSlipFile(file, key)` · `decryptSlipFile(json, key)`。
 - **キー管理はホストの責任**です — core はキーを作成も保管もしません。
 - ロックしたファイルは**通常の `.slip` ではありません。** 受け取る側が同じキーで復号する必要があり、
   システム間でそのままやり取りできません。

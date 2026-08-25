@@ -610,3 +610,28 @@
   컴포넌트에 두면 배선이 갈라진다 · ⓑ 저장 시 사용자에게 암호를 매번 입력받기 — 유출 대비 "저장 시
   자동 잠금" 목적과 안 맞고 배치·야간 저장에 못 쓴다 · ⓒ 샘플키를 core에 두기 — ADR-054(“core는 키를
   만들지 않는다”)와 어긋난다.
+
+## ADR-056: core 사용 진입점을 "설정을 지닌 인스턴스"로 통일 — `createSlipKit`
+
+- **문제**: 폰트·로케일·암호화 키처럼 여러 작업에 걸치는 설정이 함수 호출마다 인자로 흩어져 있었다.
+  렌더할 때마다 폰트를 넘기고(`renderSlipToPdf(file, { fonts })`), 암호화할 때마다 키를 넘겼다. ADR-040은
+  폰트 공급을 provider로 분리하며 "`getFonts`가 `fonts` 배열을 대체한다"고 정했으나 그건 UI 컴포넌트에만
+  적용됐고, core `RenderOptions`엔 `fonts`가 남아 "렌더 때 폰트 넘기기"가 그대로였다. 설정이 늘면 함수
+  시그니처가 전부 흔들리고, 키를 매번 넘기다 빠뜨리거나 엉뚱한 키를 주는 오용 여지가 있었다.
+- **결정**: 설정을 한 번 지닌 인스턴스를 core 사용의 표준 진입점으로 둔다.
+  - **`createSlipKit(config)`** 팩토리가 인스턴스를 돌려준다(자바식 `new Core(설정)`에 대응하나 팩토리 형태).
+    설정: `getFonts`(폰트 provider) · `locale` · `encryption?: { key, previousKeys? }`. 설정이 늘어도 이 객체에
+    필드만 더하면 되고 각 실행 함수 시그니처는 흔들리지 않는다.
+  - **메서드**: `render(file)` · `buildVoucher(t, v)` · `evaluate(source, ctx)` · `encrypt(file, keyOverride?)` ·
+    `decrypt(json, keyOverride?)`. 설정을 쓰는 것(render=폰트·locale, evaluate=locale, encrypt/decrypt=키)은
+    설정에서 자동으로 가져오고, **파일마다 다른 값은 메서드 인자로 덮어쓴다**(암호화 키·수식 데이터).
+  - **순수 함수 병행**: `parseSlipFile`·`buildVoucher`·`encryptSlipFile` 등은 그대로 단독 export한다.
+    인스턴스는 "설정을 지닌 편의 진입점"이며 내부에서 같은 함수를 부른다.
+  - **`RenderOptions.fonts` 제거**: 폰트는 `getFonts`로만 받는다(렌더 호출마다 넘기지 않음). `createPdfRenderer`·
+    `renderSlipToPdf`는 저수준으로 남기되 폰트 배열 인자는 없앤다. 동봉 UI 컴포넌트도 `getFonts`로 공급한다.
+- **근거**: 여러 작업에 걸치는 설정(폰트·locale·키)을 한 곳에서 한 번 다뤄, 시그니처 안정성과 키 오용 방지를
+  얻는다. `evaluate`의 locale, `render`의 폰트처럼 실제로 설정을 쓰는 자리만 인스턴스로 묶고, 설정이 필요 없는
+  파싱·조립은 순수 함수로 남겨 파사드가 과하게 커지지 않게 한다.
+- **기각한 대안**: ⓐ 통합 `Core` 파사드에 parse까지 다 묶기 — 설정을 안 쓰는 메서드에도 설정이 걸친다 ·
+  ⓑ 클래스 `new SlipKit()` — 팩토리와 동등하고 기존 `createPdfRenderer` 계열과 결이 안 맞는다 ·
+  ⓒ 설정 없이 함수마다 인자 유지(현행) — 설정 늘 때마다 시그니처가 흔들리고 키 오용 여지가 남는다.

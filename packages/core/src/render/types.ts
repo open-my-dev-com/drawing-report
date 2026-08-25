@@ -20,15 +20,14 @@ export interface SlipFont {
 /** PDF 렌더링 옵션 */
 export interface RenderOptions {
   /**
-   * 사용자 폰트 등록. 한글 등 CJK 문서는 폰트를 반드시 등록해야 한다 (ADR-012).
-   * `fallback: true`인 폰트는 하나만 지정할 수 있으며, 아무것도 지정하지 않으면
-   * 첫 번째 폰트를 대체 폰트로 쓴다. 생략하면 하부 엔진의 기본 폰트를 쓴다.
-   */
-  fonts?: SlipFont[];
-  /**
-   * 폰트를 **당겨 오는 공급 함수** (선택, ADR-040) — 서버 폴더·네트워크 등에서 비동기로
-   * 받아야 할 때 쓴다. 주면 렌더 시 호출해 그 결과를 `fonts`보다 우선해 쓴다. core는 이 함수를
-   * 호출(await)만 할 뿐 I/O를 직접 하지 않는다(ADR-002).
+   * 렌더 폰트를 **당겨 오는 공급 함수** (선택, ADR-040/056) — 서버 폴더·네트워크 등에서 비동기로
+   * 받아도 된다. 렌더 시 호출해 그 결과를 폰트로 쓴다. 한글 등 CJK 문서는 폰트를 반드시 공급해야
+   * 한다(ADR-012). `fallback: true`인 폰트는 하나만 지정할 수 있고, 없으면 첫 폰트를 대체로 쓴다.
+   * 생략하면 하부 엔진의 기본 폰트를 쓴다. core는 이 함수를 호출(await)만 할 뿐 I/O는 안 한다(ADR-002).
+   *
+   * @remarks
+   * 폰트를 렌더 호출마다 넘기지 않고 설정에서 한 번 준다 — {@link createSlipKit} 또는
+   * {@link createPdfRenderer}를 만들 때 지정한다 (ADR-056).
    */
   getFonts?: () => readonly SlipFont[] | Promise<readonly SlipFont[]>;
   /**

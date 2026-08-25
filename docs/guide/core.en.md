@@ -86,17 +86,19 @@ const values = {
 ### Template + values → voucher
 
 `buildVoucher(template, values)` does it all: embeds the template snapshot, normalizes empty number
-parameters to 0 (ADR-044), and assembles the voucher. Pass the result to `renderSlipToPdf` to get a PDF
+parameters to 0 (ADR-044), and assembles the voucher. Pass the result to `render` to get a PDF
 with the values filled in.
 
 ```ts
-import { parseSlipFile, buildVoucher, renderSlipToPdf } from '@omdc-slipkit/core';
+import { parseSlipFile, createSlipKit } from '@omdc-slipkit/core';
+
+const slip = createSlipKit({ getFonts });   // configure once (see §5)
 
 const template = parseSlipFile(templateJson);
 if (template.kind !== 'template') throw new Error('not a template file');
 
-const voucher = buildVoucher(template, values);   // an unissued (issued: false) voucher
-const pdf = await renderSlipToPdf(voucher, { fonts });
+const voucher = slip.buildVoucher(template, values);   // an unissued (issued: false) voucher
+const pdf = await slip.render(voucher);
 ```
 
 - Fields computed by a formula (e.g. the total) don't need to be in `values` — they're computed at render time.
@@ -112,7 +114,7 @@ accepting input. An issued voucher renders the same way.
 
 ```ts
 const issued = { ...voucher, issued: true };
-const pdf = await renderSlipToPdf(issued, { fonts });
+const pdf = await slip.render(issued);
 ```
 
 > You can also assemble it by hand — a voucher is just `{ schemaVersion, kind: 'voucher', templateSnapshot,
@@ -136,19 +138,26 @@ Unregistered function names are rejected at parse time.
 
 ## 5. PDF Rendering
 
-```ts
-import { renderSlipToPdf } from '@omdc-slipkit/core';
+Configuration such as fonts and locale is given **once** via `createSlipKit`; `render(file)` then takes
+only the file — you don't pass fonts on each render call (ADR-056).
 
-const pdfBytes = await renderSlipToPdf(file, {
-  fonts: [{ name: 'Pretendard', data: fontBuffer }],
+```ts
+import { createSlipKit } from '@omdc-slipkit/core';
+
+const slip = createSlipKit({
+  getFonts: () => [{ name: 'Pretendard', data: fontBuffer, fallback: true }],
+  locale: 'ko-KR',
 });
-// pdfBytes: Uint8Array — raw PDF file bytes
+
+const pdfBytes = await slip.render(file);   // Uint8Array — raw PDF file bytes
 ```
 
-- Register the correct fonts via `fonts`. Incorrect or missing fonts may cause garbled text in the PDF output.
-- The `locale` option controls number formatting in formula output (default `'ko-KR'`).
+- Fonts are supplied once via `getFonts` — a sync array or a Promise from a server folder (ADR-040).
+  Korean/Japanese documents must supply fonts, or text may be garbled.
+- `locale` controls number formatting in formula output (FORMAT_NUMBER, etc.; default `'ko-KR'`).
 - See [Type Reference](types.en.md#font) for font type details.
-- To load fonts asynchronously (e.g. from a server folder), pass a `getFonts` provider function instead of the array (ADR-040).
+- The low-level `createPdfRenderer(config)` / `renderSlipToPdf(file, config)` also exist, but prefer
+  `createSlipKit`, which holds config once and also offers `buildVoucher`, `evaluate`, and `encrypt`/`decrypt`.
 
 ## 6. Backend Integration
 
@@ -166,10 +175,11 @@ See [ARCHITECTURE.md](../ARCHITECTURE.md) for detailed diagrams and patterns.
 When unattended issuance is needed at a specific time (nightly batch, etc.), run core in Node.
 
 ```ts
-import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
+import { parseSlipFile, createSlipKit } from '@omdc-slipkit/core';
 
+const slip = createSlipKit({ getFonts });   // configure once
 const file = parseSlipFile(jsonFromDb);
-const pdf = await renderSlipToPdf(file, { fonts });
+const pdf = await slip.render(file);
 ```
 
 Core runs on Node 20+ only.
@@ -177,20 +187,24 @@ Core runs on Node 20+ only.
 ## 7. File encryption (optional)
 
 A `.slip` is JSON, so opening it in an editor reveals everything. To lock a sensitive template or
-voucher, encrypt it with `encryptSlipFile` (AES-256-GCM, ADR-054).
+voucher, encrypt it (AES-256-GCM, ADR-054). Give the key to the config **once** and `slip.encrypt`/
+`slip.decrypt` use it (ADR-056).
 
 ```ts
-import { encryptSlipFile, decryptSlipFile, isEncryptedSlipFile } from '@omdc-slipkit/core';
+import { createSlipKit, isEncryptedSlipFile } from '@omdc-slipkit/core';
 
-// Lock — a passphrase (string) or a 32-byte raw key (Uint8Array)
-const locked = await encryptSlipFile(file, 'secret-passphrase');   // envelope JSON string
+// Key given once — a passphrase (string) or a 32-byte raw key (Uint8Array)
+const slip = createSlipKit({ encryption: { key: 'secret-passphrase' } });
 
-// Unlock — the same key. Decryption also validates the content
-const file2 = await decryptSlipFile(locked, 'secret-passphrase');
+const locked = await slip.encrypt(file);    // envelope JSON string
+const file2 = await slip.decrypt(locked);   // decrypts and validates
 
 isEncryptedSlipFile(locked);   // true — distinguishes it from a plain .slip
 ```
 
+- Override the key per file with an argument — `slip.encrypt(file, otherKey)`. After a key change, put the
+  old key in `encryption.previousKeys` and `decrypt` still opens files locked with it (rotation).
+- The standalone functions work without a config instance too — `encryptSlipFile(file, key)` · `decryptSlipFile(json, key)`.
 - **Key management is the host's responsibility** — core neither creates nor stores keys.
 - A locked file is **not a standard `.slip`.** The recipient must decrypt it with the same key, so it
   can't be exchanged between systems as-is.

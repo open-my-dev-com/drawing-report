@@ -9,10 +9,10 @@
  * Noto Sans JP(가나+한자)이다. 언어마다 기본 하나는 있게 하되(ADR-042) 더 넓은 범위·
  * 굵기는 호스트가 `settings.getFonts`로 공급한다(ADR-040).
  */
-import type { RenderOptions } from '@omdc-slipkit/core';
+import type { SlipFont } from '@omdc-slipkit/core';
 import type { SlipLocale } from './strings.js';
 
-type FontList = NonNullable<RenderOptions['fonts']>;
+type FontList = SlipFont[];
 
 const cache = new Map<'ko' | 'ja', Promise<FontList>>();
 

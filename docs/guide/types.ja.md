@@ -226,9 +226,33 @@ const storage = new IndexedDbStorage({
 
 ---
 
+## createSlipKit — core 設定インスタンス (ADR-056)
+
+フォント・ロケール・暗号化キーを**一度**設定し、その設定でレンダー・組み立て・数式・暗号化を実行する
+入口です。呼び出しごとにフォントやキーを渡しません。使い方は
+[Core ガイド §5](core.ja.md#5-pdf-レンダリング) を参照してください。
+
+```ts
+import { createSlipKit, type SlipKitConfig } from '@omdc-slipkit/core';
+
+interface SlipKitConfig {
+  getFonts?: () => SlipFont[] | Promise<SlipFont[]>;   // レンダーフォント（なければエンジン既定）
+  locale?: string;                                      // フォーマットロケール（既定 'ko-KR'）
+  encryption?: { key: string | Uint8Array; previousKeys?: (string | Uint8Array)[] };  // 暗号化の既定キー
+}
+```
+
+| メソッド | 説明 |
+|---|---|
+| `render(file)` | PDF バイト列にレンダー（設定のフォント・locale を使用） |
+| `buildVoucher(t, v)` | テンプレート＋値 → 発行前の伝票 |
+| `evaluate(source, ctx)` | 数式を評価（`ctx` に locale がなければ設定 locale） |
+| `encrypt(file, key?)` / `decrypt(json, key?)` | 設定キーで暗号化・復号（引数でファイルごとに上書き） |
+
 ## RenderOptions
 
-`renderSlipToPdf` と `createPdfRenderer` に渡す PDF レンダリングオプションです。
+低レベルの `renderSlipToPdf`・`createPdfRenderer` に渡すオプションです。通常は上の `createSlipKit` を使い、
+これを直接触ることはほとんどありません。
 
 ```ts
 import type { RenderOptions } from '@omdc-slipkit/core';
@@ -236,6 +260,5 @@ import type { RenderOptions } from '@omdc-slipkit/core';
 
 | フィールド | 型 | デフォルト値 | 説明 |
 |---|---|---|---|
-| `fonts` | `Font[]` | — | PDF に使うフォントの一覧。韓国語・日本語の文書では必須 |
-| `getFonts` | `() => Font[] \| Promise<Font[]>` | — | フォントを非同期で供給する関数（サーバーフォルダなど）。指定すると `fonts` より優先 (ADR-040) |
+| `getFonts` | `() => Font[] \| Promise<Font[]>` | — | レンダーフォントを供給する関数（同期配列・サーバー fetch）。韓国語・日本語の文書では必須 (ADR-040/056) |
 | `locale` | `string` | `'ko-KR'` | 数式フォーマット関数のロケール (BCP-47)。数値の桁区切りなどに影響 |

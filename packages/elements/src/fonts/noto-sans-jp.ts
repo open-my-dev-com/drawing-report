@@ -12,7 +12,7 @@
  * 폰트 저작권: Copyright 2014-2021 Adobe — with Reserved Font Name 'Source'. SIL Open Font License 1.1.
  * 라이선스 전문은 패키지 루트의 `OFL-NotoSansJP.txt`.
  */
-import type { RenderOptions } from '@omdc-slipkit/core';
+import type { SlipFont } from '@omdc-slipkit/core';
 import { NOTO_SANS_JP_REGULAR_B64 } from './noto-sans-jp-data.js';
 
 function decode(b64: string): Uint8Array {
@@ -27,7 +27,7 @@ function decode(b64: string): Uint8Array {
  *
  * Regular에 `fallback: true`가 설정되어 있어, 다른 폰트에 없는 일본어 글자를 이 폰트가 그린다.
  */
-export const NOTO_SANS_JP_FONTS: NonNullable<RenderOptions['fonts']> = [
+export const NOTO_SANS_JP_FONTS: SlipFont[] = [
   { name: 'Noto Sans JP', data: decode(NOTO_SANS_JP_REGULAR_B64), fallback: true },
 ];
 

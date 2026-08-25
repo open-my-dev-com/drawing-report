@@ -4700,9 +4700,10 @@ export class SlipDesigner extends LitElement {
 
     const gen = ++this._previewGeneration;
     try {
-      // 폰트 미공급 시 동봉 Pretendard 자동 사용 (ADR-012/040) — 한글 깨짐 방지
+      // 폰트 미공급 시 동봉 Pretendard 자동 사용 (ADR-012/040) — 한글 깨짐 방지.
+      // 폰트는 렌더 호출마다 넘기지 않고 getFonts 공급 함수로 준다 (ADR-056).
       const opts: RenderOptions = {
-        fonts: await resolveFonts(this.settings, this.locale),
+        getFonts: () => resolveFonts(this.settings, this.locale),
       };
       // 샘플 값이 있으면 그 값으로 채운 전표 상태로 미리보기 (D-13).
       // 파일 자체는 양식 그대로 두고 렌더 입력만 전표 형태로 만든다.

@@ -85,16 +85,18 @@ const values = {
 ### 양식 + 값 → 전표
 
 `buildVoucher(양식, 값)`이 양식 스냅샷 내장 · number 파라미터 빈 값 0 정규화(ADR-044) · 전표 조립을
-한 번에 해줍니다. 나온 전표를 `renderSlipToPdf`에 넘기면 값이 채워진 PDF가 나옵니다.
+한 번에 해줍니다. 나온 전표를 `render`에 넘기면 값이 채워진 PDF가 나옵니다.
 
 ```ts
-import { parseSlipFile, buildVoucher, renderSlipToPdf } from '@omdc-slipkit/core';
+import { parseSlipFile, createSlipKit } from '@omdc-slipkit/core';
+
+const slip = createSlipKit({ getFonts });   // 설정은 여기서 한 번 (아래 §5)
 
 const template = parseSlipFile(templateJson);
 if (template.kind !== 'template') throw new Error('양식 파일이 아닙니다');
 
-const voucher = buildVoucher(template, values);   // 발행 전(issued: false) 전표
-const pdf = await renderSlipToPdf(voucher, { fonts });
+const voucher = slip.buildVoucher(template, values);   // 발행 전(issued: false) 전표
+const pdf = await slip.render(voucher);
 ```
 
 - 수식으로 계산되는 필드(예: 합계금액)는 `values`에 넣지 않아도 렌더 시 자동으로 계산됩니다.
@@ -109,7 +111,7 @@ const pdf = await renderSlipToPdf(voucher, { fonts });
 
 ```ts
 const issued = { ...voucher, issued: true };
-const pdf = await renderSlipToPdf(issued, { fonts });
+const pdf = await slip.render(issued);
 ```
 
 > `buildVoucher` 없이 직접 조립해도 됩니다 — 전표는 `{ schemaVersion, kind: 'voucher', templateSnapshot,
@@ -133,19 +135,26 @@ const result = evaluateFormula(ast, {
 
 ## 5. PDF 렌더링
 
-```ts
-import { renderSlipToPdf } from '@omdc-slipkit/core';
+폰트·로케일 같은 설정은 `createSlipKit`로 **한 번** 주고, 이후 `render(file)`는 파일만 받습니다 —
+렌더 호출마다 폰트를 넘기지 않습니다 (ADR-056).
 
-const pdfBytes = await renderSlipToPdf(file, {
-  fonts: [{ name: 'Pretendard', data: fontBuffer }],
+```ts
+import { createSlipKit } from '@omdc-slipkit/core';
+
+const slip = createSlipKit({
+  getFonts: () => [{ name: 'Pretendard', data: fontBuffer, fallback: true }],
+  locale: 'ko-KR',
 });
-// pdfBytes: Uint8Array — PDF 파일 바이트
+
+const pdfBytes = await slip.render(file);   // Uint8Array — PDF 파일 바이트
 ```
 
-- `fonts`에 올바른 폰트를 등록해야합니다. 폰트가 잘못되어 있을 경우 PDF 출력시 깨질 수 있습니다.
-- `locale` 옵션으로 수식 포맷 함수의 숫자 표기를 변경할 수 있습니다. (기본 `'ko-KR'`).
+- 폰트는 설정의 `getFonts`로 한 번 공급합니다 — 동기 배열도, 서버에서 받아오는 Promise도 됩니다 (ADR-040).
+  한글·일본어 문서는 폰트를 반드시 공급해야 하며, 없으면 글자가 깨질 수 있습니다.
+- `locale`은 수식 포맷 함수(FORMAT_NUMBER 등)의 숫자 표기에 쓰입니다 (기본 `'ko-KR'`).
 - 폰트 타입 상세는 [타입 참조](types.md#font)를 참고해 주세요.
-- 서버 폴더 등에서 폰트를 비동기로 받아야 하면 배열 대신 `getFonts` 공급 함수를 넘길 수 있습니다 (ADR-040).
+- 저수준 함수 `createPdfRenderer(설정)`·`renderSlipToPdf(file, 설정)`도 있으나, 설정을 한 번 지니는
+  `createSlipKit`을 권합니다. 인스턴스는 `render` 외에 `buildVoucher`·`evaluate`·`encrypt`/`decrypt`도 제공합니다.
 
 ## 6. 서버 연계 패턴
 
@@ -163,31 +172,35 @@ SlipKit은 서버가 없는 임베드형 라이브러리로 외부 백엔드와 
 요청 없이 특정 시간대에 발행이 필요하는 경우(야간 배치 등) core를 Node를 활용하여 실행시키면 됩니다.
 
 ```ts
-import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
+import { parseSlipFile, createSlipKit } from '@omdc-slipkit/core';
 
+const slip = createSlipKit({ getFonts });   // 설정은 한 번
 const file = parseSlipFile(jsonFromDb);
-const pdf = await renderSlipToPdf(file, { fonts });
+const pdf = await slip.render(file);
 ```
 
 core는 Node 20 이상에서만 동작합니다.
 
 ## 7. 파일 암호화 (선택)
 
-`.slip`은 JSON이라 편집기로 열면 내용이 다 보입니다. 민감한 양식·전표를 잠가 두려면
-`encryptSlipFile`로 암호화합니다 (AES-256-GCM, ADR-054).
+`.slip`은 JSON이라 편집기로 열면 내용이 다 보입니다. 민감한 양식·전표를 잠가 두려면 암호화합니다
+(AES-256-GCM, ADR-054). 키를 **설정에 한 번** 주면 `slip.encrypt`/`slip.decrypt`가 그 키를 씁니다 (ADR-056).
 
 ```ts
-import { encryptSlipFile, decryptSlipFile, isEncryptedSlipFile } from '@omdc-slipkit/core';
+import { createSlipKit, isEncryptedSlipFile } from '@omdc-slipkit/core';
 
-// 잠그기 — 암호(passphrase) 또는 32바이트 원시 키(Uint8Array)
-const locked = await encryptSlipFile(file, '비밀-암호');   // 봉투 JSON 문자열
+// 키는 설정에 한 번 — 암호(passphrase) 또는 32바이트 원시 키(Uint8Array)
+const slip = createSlipKit({ encryption: { key: '비밀-암호' } });
 
-// 풀기 — 같은 키. 복호화 후 자동으로 검증까지 합니다
-const file2 = await decryptSlipFile(locked, '비밀-암호');
+const locked = await slip.encrypt(file);    // 봉투 JSON 문자열
+const file2 = await slip.decrypt(locked);   // 복호화 후 자동으로 검증까지
 
 isEncryptedSlipFile(locked);   // true — 표준 .slip과 구분
 ```
 
+- 파일마다 다른 키는 인자로 덮어씁니다 — `slip.encrypt(file, otherKey)`. 키를 바꿨으면 설정에
+  `encryption.previousKeys`를 두면 옛 키로 잠근 파일도 `decrypt`가 풉니다(회전).
+- 설정 인스턴스 없이 단독 함수로도 됩니다 — `encryptSlipFile(file, key)` · `decryptSlipFile(json, key)`.
 - **키 관리는 호스트 책임**입니다 — core는 키를 만들거나 보관하지 않습니다.
 - 잠근 파일은 **표준 `.slip`이 아닙니다.** 받는 쪽이 같은 키로 풀어야 읽을 수 있어 시스템 간
   그대로 주고받을 수 없습니다.

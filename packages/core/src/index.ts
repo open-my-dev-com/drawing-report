@@ -23,6 +23,7 @@ export {
 export { slipFileJsonSchema } from './format/json-schema.js';
 export { normalizeNumericParameters } from './format/normalize.js';
 export { buildVoucher } from './format/voucher.js';
+export { createSlipKit, type SlipKit, type SlipKitConfig } from './slipkit.js';
 export {
   encryptSlipFile,
   decryptSlipFile,

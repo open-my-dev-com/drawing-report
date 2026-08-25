@@ -59,6 +59,11 @@ v1·v2 기능 작업은 **전부 완료**됐다. 남은 것은 공개 전 인수
     (`IndexedDbStorage`·`LocalFileStorage`)에 호스트가 주입하는 `encryption` 설정(`{ enabled, key? }`)을
     얹어, 켜면 저장 시 자동으로 잠그고 불러올 때 자동으로 푼다. 키가 없으면 데모용 샘플 기본키로 잠근다
     (실보안 아님 — 실제 보호는 호스트 키). 폰트·용지 provider와 같은 주입 방식(ADR-040)
+  - **core 사용 진입점을 설정 인스턴스로 통일**(ADR-056) — 폰트·로케일·암호화 키를 호출마다 인자로
+    흩뿌리던 것을 `createSlipKit(config)` 하나로 모았다. 설정을 한 번 주고 `render`·`buildVoucher`·`evaluate`·
+    `encrypt`/`decrypt`를 실행하며, 파일별 키는 인자로 override한다. `RenderOptions.fonts`를 없애 렌더할 때
+    폰트를 넘기지 않게 하고(폰트는 `getFonts`로만), 동봉 컴포넌트도 `getFonts`로 공급하게 맞췄다. 순수
+    함수(`parseSlipFile` 등)는 그대로 병행 export
 - **예정**: 소스 코드 리뷰 — 사용자가 코드를 하나씩 짚으며 질문·수정. 복잡도(가독성)를 우선으로 본다.
 
 앞서 G-48 총괄 리뷰(`chore/repo-final-review-v2`, main 병합 완료)에서 11개 병렬 에이전트로 다관점 코드

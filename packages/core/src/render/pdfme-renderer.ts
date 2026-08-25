@@ -41,9 +41,9 @@ function toEngineFont(fonts: readonly SlipFont[] | undefined): Font | undefined 
 export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer {
   return {
     async renderToPdf(file: SlipFile): Promise<Uint8Array> {
-      // 폰트 공급 함수(getFonts)가 있으면 그 결과를 `fonts`보다 우선한다 (ADR-040).
+      // 폰트는 공급 함수(getFonts)로만 받는다 (ADR-040/056) — 렌더 호출마다 넘기지 않는다.
       // 비동기 공급이라 렌더 시점에 해석한다 — core는 함수를 호출만 하고 I/O는 안 한다(ADR-002).
-      const fonts = options.getFonts ? await options.getFonts() : options.fonts;
+      const fonts = options.getFonts ? await options.getFonts() : undefined;
       const font = toEngineFont(fonts);
       // 굵게 폰트 탐색용 정보 — 변환 계층이 `<이름>-Bold` 폰트를 찾을 수 있게 한다 (ADR-032)
       const fontNames = fonts?.map((f) => f.name) ?? [];

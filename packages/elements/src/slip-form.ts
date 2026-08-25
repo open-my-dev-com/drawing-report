@@ -713,9 +713,10 @@ export class SlipForm extends LitElement {
     this._previewError = null;
     const gen = ++this._previewGeneration;
     try {
-      // 폰트 미지정 시 동봉 Pretendard 자동 사용 (ADR-012) — 한글 깨짐 방지
+      // 폰트 미지정 시 동봉 Pretendard 자동 사용 (ADR-012) — 한글 깨짐 방지.
+      // 폰트는 렌더 호출마다 넘기지 않고 getFonts 공급 함수로 준다 (ADR-056).
       const opts: RenderOptions = {
-        fonts: await resolveFonts(this.settings, this.locale),
+        getFonts: () => resolveFonts(this.settings, this.locale),
       };
       const pdfBytes = await renderSlipToPdf(this._buildVoucher(this._issued), opts);
       if (gen !== this._previewGeneration) return;

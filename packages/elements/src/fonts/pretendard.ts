@@ -9,7 +9,7 @@
  * 폰트 저작권: Copyright (c) 2021, Kil Hyung-jin — SIL Open Font License 1.1.
  * 라이선스 전문은 패키지 루트의 `OFL-Pretendard.txt`.
  */
-import type { RenderOptions } from '@omdc-slipkit/core';
+import type { SlipFont } from '@omdc-slipkit/core';
 import { PRETENDARD_REGULAR_B64, PRETENDARD_BOLD_B64 } from './pretendard-data.js';
 
 function decode(b64: string): Uint8Array {
@@ -20,7 +20,7 @@ function decode(b64: string): Uint8Array {
 }
 
 /** 동봉 폰트 등록 목록 — Regular가 대체(fallback) 폰트다 */
-export const PRETENDARD_FONTS: NonNullable<RenderOptions['fonts']> = [
+export const PRETENDARD_FONTS: SlipFont[] = [
   { name: 'Pretendard', data: decode(PRETENDARD_REGULAR_B64), fallback: true },
   { name: 'Pretendard-Bold', data: decode(PRETENDARD_BOLD_B64) },
 ];

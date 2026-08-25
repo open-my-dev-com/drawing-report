@@ -123,12 +123,13 @@ describe('<slip-viewer> PDF 렌더링', () => {
     await el.updateComplete;
 
     expect(parseSlipFileMock).toHaveBeenCalled();
-    // 폰트 미지정 → 동봉 기본 폰트(Pretendard)로 렌더 (ADR-012)
+    // 폰트 미지정 → 동봉 기본 폰트(Pretendard)로 렌더 (ADR-012). 폰트는 getFonts 공급 함수로 넘긴다 (ADR-056)
     const call = renderSlipToPdfMock.mock.calls.at(-1)!;
     expect(call[0]).toBe(DUMMY_FILE);
-    expect(call[1]?.fonts?.length).toBe(2);
-    expect(call[1]?.fonts?.[0]?.name).toBe('Pretendard');
-    expect(call[1]?.fonts?.[0]?.fallback).toBe(true);
+    const fonts = await call[1]?.getFonts?.();
+    expect(fonts?.length).toBe(2);
+    expect(fonts?.[0]?.name).toBe('Pretendard');
+    expect(fonts?.[0]?.fallback).toBe(true);
 
     const iframe = el.shadowRoot?.querySelector('iframe');
     expect(iframe).not.toBeNull();
@@ -145,7 +146,10 @@ describe('<slip-viewer> PDF 렌더링', () => {
     await flush();
     await el.updateComplete;
 
-    expect(renderSlipToPdfMock).toHaveBeenCalledWith(DUMMY_FILE, { fonts });
+    // 폰트는 getFonts 공급 함수로 넘어간다 (ADR-056) — 그 함수를 풀면 공급한 폰트가 나온다
+    const call = renderSlipToPdfMock.mock.calls.at(-1)!;
+    expect(call[0]).toBe(DUMMY_FILE);
+    expect(await call[1]?.getFonts?.()).toEqual(fonts);
     el.remove();
   });
 
@@ -158,7 +162,9 @@ describe('<slip-viewer> PDF 렌더링', () => {
     await flush();
     await el.updateComplete;
 
-    expect(renderSlipToPdfMock).toHaveBeenCalledWith(DUMMY_FILE, { fonts });
+    const call = renderSlipToPdfMock.mock.calls.at(-1)!;
+    expect(call[0]).toBe(DUMMY_FILE);
+    expect(await call[1]?.getFonts?.()).toEqual(fonts);
     el.remove();
   });
 });

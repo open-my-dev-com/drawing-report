@@ -6,12 +6,12 @@
  * 호스트가 구현하는 공급 인터페이스로 받는다. 값을 돌려받는 pull이라 이벤트보다 메서드가 맞다.
  * 실제 저장 위치는 전적으로 호스트 몫이다.
  */
-import type { BarcodeKind, RenderOptions } from '@omdc-slipkit/core';
+import type { BarcodeKind, SlipFont } from '@omdc-slipkit/core';
 import { loadDefaultFonts } from './default-fonts.js';
 import { normalizeLocale } from './strings.js';
 
-/** 렌더에 쓸 폰트 하나 — `RenderOptions.fonts`의 원소와 같다 */
-export type SlipFont = NonNullable<RenderOptions['fonts']>[number];
+/** 렌더에 쓸 폰트 하나 — core `SlipFont`를 재수출한다 */
+export type { SlipFont };
 
 /**
  * 렌더 폰트를 호스트가 공급하는 인터페이스 — 뷰어·작성폼·디자이너 공용 (ADR-040).

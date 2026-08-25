@@ -231,9 +231,33 @@ const storage = new IndexedDbStorage({
 
 ---
 
+## createSlipKit — core config instance (ADR-056)
+
+The entry point that holds fonts, locale, and an encryption key **once** and runs render/build/formula/
+encrypt with that config — you don't pass fonts or keys on each call. See
+[Core Guide §5](core.en.md#5-pdf-rendering) for usage.
+
+```ts
+import { createSlipKit, type SlipKitConfig } from '@omdc-slipkit/core';
+
+interface SlipKitConfig {
+  getFonts?: () => SlipFont[] | Promise<SlipFont[]>;   // render fonts (engine default if omitted)
+  locale?: string;                                      // formatting locale (default 'ko-KR')
+  encryption?: { key: string | Uint8Array; previousKeys?: (string | Uint8Array)[] };  // default encryption key
+}
+```
+
+| Method | Description |
+|---|---|
+| `render(file)` | Render to PDF bytes (uses the config's fonts/locale) |
+| `buildVoucher(t, v)` | Template + values → unissued voucher |
+| `evaluate(source, ctx)` | Evaluate a formula (config locale if `ctx` has none) |
+| `encrypt(file, key?)` / `decrypt(json, key?)` | Encrypt/decrypt with the config key (per-call override via the argument) |
+
 ## RenderOptions
 
-Options for `renderSlipToPdf` and `createPdfRenderer`.
+Options for the low-level `renderSlipToPdf` and `createPdfRenderer`. Prefer `createSlipKit` above; you
+rarely touch these directly.
 
 ```ts
 import type { RenderOptions } from '@omdc-slipkit/core';
@@ -241,6 +265,5 @@ import type { RenderOptions } from '@omdc-slipkit/core';
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `fonts` | `Font[]` | — | Fonts for PDF rendering. Required for Korean and Japanese documents |
-| `getFonts` | `() => Font[] \| Promise<Font[]>` | — | A function that supplies fonts asynchronously (e.g. a server folder). Takes precedence over `fonts` (ADR-040) |
+| `getFonts` | `() => Font[] \| Promise<Font[]>` | — | A function that supplies render fonts (sync array or server fetch). Required for Korean/Japanese documents (ADR-040/056) |
 | `locale` | `string` | `'ko-KR'` | BCP-47 locale for formula formatting functions (number grouping, etc.) |
