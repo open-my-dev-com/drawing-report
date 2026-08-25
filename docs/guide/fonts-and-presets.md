@@ -67,13 +67,13 @@ designer.settings = settings;
 동봉 폰트를 명시적으로 가져와 사용자 폰트와 함께 쓸 수도 있습니다.
 
 ```ts
-import pretendardFonts from '@omdc-slipkit/elements/fonts/pretendard';
-import notoSansJpFonts from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+import { PRETENDARD_FONTS } from '@omdc-slipkit/elements/fonts/pretendard';
+import { NOTO_SANS_JP_FONTS } from '@omdc-slipkit/elements/fonts/noto-sans-jp';
 
 designer.settings = {
   getFonts: () => [
-    ...pretendardFonts,
-    ...notoSansJpFonts,
+    ...PRETENDARD_FONTS,
+    ...NOTO_SANS_JP_FONTS,
     { name: 'MyFont', data: myFontBuffer },
   ],
 };
@@ -119,7 +119,7 @@ const myPresets: SlipPreset[] = [
       kind: 'template',
       template: {
         meta: { title: 'Invoice' },
-        paper: { width: 210, height: 297, margins: { top: 10, right: 10, bottom: 10, left: 10 } },
+        paper: { width: 210, height: 297, padding: [10, 10, 10, 10] },
         pages: [{ elements: [] }],
         assets: [],
       },

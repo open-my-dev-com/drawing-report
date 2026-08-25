@@ -257,11 +257,11 @@ SlipKit は言語ごとの既定フォントを同梱しています — 韓国�
 ホストがフォントを供給するには、`settings.getFonts` を実装して渡します（同期配列またはサーバー fetch の Promise）。
 
 ```ts
-import pretendardFonts from '@omdc-slipkit/elements/fonts/pretendard';
+import { PRETENDARD_FONTS } from '@omdc-slipkit/elements/fonts/pretendard';
 
 designer.settings = {
   getFonts: () => [
-    ...pretendardFonts,
+    ...PRETENDARD_FONTS,
     { name: 'NotoSans', data: notoSansArrayBuffer },
   ],
 };

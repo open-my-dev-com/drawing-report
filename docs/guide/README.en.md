@@ -260,11 +260,11 @@ To supply fonts from the host, implement `settings.getFonts` (a synchronous arra
 Promise):
 
 ```ts
-import pretendardFonts from '@omdc-slipkit/elements/fonts/pretendard';
+import { PRETENDARD_FONTS } from '@omdc-slipkit/elements/fonts/pretendard';
 
 designer.settings = {
   getFonts: () => [
-    ...pretendardFonts,
+    ...PRETENDARD_FONTS,
     { name: 'NotoSans', data: notoSansArrayBuffer },
   ],
 };

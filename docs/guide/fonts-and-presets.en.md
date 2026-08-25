@@ -70,13 +70,13 @@ provider interface.
 You can import the bundled fonts explicitly and combine them with your own fonts.
 
 ```ts
-import pretendardFonts from '@omdc-slipkit/elements/fonts/pretendard';
-import notoSansJpFonts from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+import { PRETENDARD_FONTS } from '@omdc-slipkit/elements/fonts/pretendard';
+import { NOTO_SANS_JP_FONTS } from '@omdc-slipkit/elements/fonts/noto-sans-jp';
 
 designer.settings = {
   getFonts: () => [
-    ...pretendardFonts,
-    ...notoSansJpFonts,
+    ...PRETENDARD_FONTS,
+    ...NOTO_SANS_JP_FONTS,
     { name: 'MyFont', data: myFontBuffer },
   ],
 };
@@ -121,7 +121,7 @@ const myPresets: SlipPreset[] = [
       kind: 'template',
       template: {
         meta: { title: 'Invoice' },
-        paper: { width: 210, height: 297, margins: { top: 10, right: 10, bottom: 10, left: 10 } },
+        paper: { width: 210, height: 297, padding: [10, 10, 10, 10] },
         pages: [{ elements: [] }],
         assets: [],
       },

@@ -257,11 +257,11 @@ SlipKit은 언어별 기본 폰트를 동봉합니다 — 한국어·영어는 P
 호스트가 폰트를 공급하려면 `settings.getFonts`를 구현해 전달합니다(동기 배열 또는 서버 fetch Promise).
 
 ```ts
-import pretendardFonts from '@omdc-slipkit/elements/fonts/pretendard';
+import { PRETENDARD_FONTS } from '@omdc-slipkit/elements/fonts/pretendard';
 
 designer.settings = {
   getFonts: () => [
-    ...pretendardFonts,
+    ...PRETENDARD_FONTS,
     { name: 'NotoSans', data: notoSansArrayBuffer },
   ],
 };
