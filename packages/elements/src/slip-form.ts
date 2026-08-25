@@ -84,8 +84,8 @@ function resultText(value: unknown): string {
  * 값이 바뀔 때마다 즉시 계산해 보여주며, 오른쪽 미리보기는 PDF 변환 결과를 그대로
  * 표시한다 (화면·PDF 불일치 불가, ADR-012/016).
  *
- * 발행하면 해시(서명 키를 주면 서명까지)를 기록한 전표를 `slip-issue` 이벤트로 내보내고
- * 폼을 잠근다 (SPEC §7.1·§8). 작성 중 변경은 `slip-change`로 계속 알린다.
+ * 발행하면 값을 확정·잠근 전표를 `slip-issue` 이벤트로 내보내고 폼을 잠근다 (SPEC §7.1).
+ * 작성 중 변경은 `slip-change`로 계속 알린다.
  */
 export class SlipForm extends LitElement {
   static styles = css`

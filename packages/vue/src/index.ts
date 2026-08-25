@@ -27,7 +27,6 @@ export const SlipViewer = defineComponent({
     locale: { type: String, default: undefined },
     /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
     settings: { type: Object as PropType<SlipFontProvider>, default: undefined },
-    /** 발행 전표 무결성 검증 공개키 (JWK, SPEC §8) — 검증 실패 시 PDF를 그리지 않는다 */
   },
   setup(props) {
     return () => h('slip-viewer', {
@@ -95,7 +94,6 @@ export const SlipForm = defineComponent({
     locale: { type: String, default: undefined },
     /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
     settings: { type: Object as PropType<SlipFontProvider>, default: undefined },
-    /** 발행 서명에 쓸 개인키 (JWK) — 없으면 해시만 기록한다 (SPEC §8.3) */
     /** 변동 이미지 입력의 최대 파일 크기(바이트) — 기본 2MB (G-47) */
     maxImageBytes: { type: Number, default: undefined },
   },

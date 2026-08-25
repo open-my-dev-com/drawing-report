@@ -867,7 +867,7 @@ const ja: SlipStrings = {
     noSavedForms: '保存されたテンプレートがありません。',
     savedNotice: 'マイテンプレートに保存しました。',
     formMode: '入力フォーム',
-    jsonHint: 'バインディング名をキーにした JSON をそのまま貼り付けて試せます。',
+    jsonHint: 'パラメータ名をキーにした JSON をそのまま貼り付けて試せます。',
     jsonInvalid: '正しい JSON ではありません',
     jsonNotObject: '最も外側はオブジェクト（{ }）の形である必要があります',
   },

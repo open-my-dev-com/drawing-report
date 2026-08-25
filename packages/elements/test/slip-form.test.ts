@@ -2,8 +2,8 @@
 /**
  * `<slip-form>` 전표 작성폼 테스트 (D-14).
  *
- * PDF 렌더만 모의하고 파싱·수식·무결성은 실제 core 구현을 쓴다 —
- * 발행 규칙·해시 기록이 실제로 지켜지는지 확인하기 위함.
+ * PDF 렌더만 모의하고 파싱·수식은 실제 core 구현을 쓴다 —
+ * 발행 규칙(값 확정·잠금)이 실제로 지켜지는지 확인하기 위함.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
@@ -100,7 +100,7 @@ function flush(): Promise<void> {
 }
 
 /**
- * 조건이 참이 될 때까지 기다린다 — 발행(해시 계산)·미리보기(디바운스)는 비동기라
+ * 조건이 참이 될 때까지 기다린다 — 발행·미리보기(디바운스)는 비동기라
  * 고정 시간 대기로는 부하가 걸린 실행에서 흔들린다.
  */
 async function waitFor(predicate: () => boolean, timeoutMs = 5000): Promise<void> {
@@ -255,7 +255,7 @@ describe('<slip-form> 값 입력·행 편집', () => {
 });
 
 describe('<slip-form> 발행', () => {
-  it('발행하면 해시를 기록한 전표를 slip-issue로 내보내고 폼이 잠긴다', async () => {
+  it('발행하면 확정·잠긴 전표를 slip-issue로 내보내고 폼이 잠긴다', async () => {
     const el = await mount();
     const issued: SlipVoucherFile[] = [];
     el.addEventListener('slip-issue', (e) => {

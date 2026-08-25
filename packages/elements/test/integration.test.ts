@@ -2,7 +2,7 @@
 /**
  * 시스템 결합 테스트 (로드맵 10번) — 모킹 없이 실제 사용 흐름 그대로:
  * 디자이너로 양식 편집 → .slip 저장 → 전표 값·수식 평가 → PDF 렌더 →
- * 해시·서명 검증 → 저장소 어댑터 저장·조회까지 패키지 경계를 넘어 확인한다.
+ * 저장소 어댑터 저장·조회까지 패키지 경계를 넘어 확인한다.
  */
 import 'fake-indexeddb/auto';
 import { Blob as NodeBlob } from 'node:buffer';
@@ -41,7 +41,7 @@ function toolbarButton(el: Element, label: string): HTMLButtonElement {
 let designed: SlipTemplateFile;
 let issuedVoucher: SlipVoucherFile;
 
-describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 무결성 → 저장소', () => {
+describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 저장소', () => {
   let designer: SlipDesigner;
 
   beforeAll(async () => {

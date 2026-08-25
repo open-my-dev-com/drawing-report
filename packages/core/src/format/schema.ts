@@ -2,7 +2,7 @@
  * .slip 파일 포맷 상세 스키마 (Zod-first — 여기서 정의한 스키마가 진실의 원천).
  *
  * 근거 ADR: 007(JSON 자체 스키마·마이그레이션) · 008(양식 스냅샷) · 011(용지 좌표계) ·
- * 019(해시·서명) · 020(요소 종류) · 022(JSON Schema 동봉) · 036(이미지 base64) · 047(파라미터 정의부).
+ * 020(요소 종류) · 022(JSON Schema 동봉) · 036(이미지 base64) · 047(파라미터 정의부).
  * 규범 명세는 docs/SPEC.md — 이 파일과 SPEC.md가 어긋나면 SPEC.md를 기준으로 고친다.
  */
 import { z } from 'zod';
@@ -711,7 +711,7 @@ export const slipTemplateBodySchema = z
       .array(parameterDefSchema)
       .max(SLIP_LIMITS.maxParameters, `파라미터 정의는 최대 ${SLIP_LIMITS.maxParameters}개입니다`)
       .optional(),
-    /** 미리보기용 샘플 값 (선택, ADR-032) — 발행·무결성과 무관, 전표 생성 시 미포함 */
+    /** 미리보기용 샘플 값 (선택, ADR-032) — 발행과 무관, 전표 생성 시 미포함 */
     sampleValues: z.record(z.string(), jsonValueSchema).optional(),
   })
   .superRefine((body, ctx) => {
@@ -831,7 +831,7 @@ function findExternalUrlPath(body: z.infer<typeof slipTemplateBodySchema>): (str
   return null;
 }
 
-/** 전표(voucher) 파일 전체 — 발행 시 무결성 기록·단독 완결을 추가 검증한다 */
+/** 전표(voucher) 파일 전체 — 발행 시 단독 완결(외부 URL 없음)을 추가 검증한다 */
 export const slipVoucherFileSchema = z
   .object({
     schemaVersion: semverSchema,
@@ -840,7 +840,7 @@ export const slipVoucherFileSchema = z
     templateSnapshot: slipTemplateBodySchema,
     /** 필드 파라미터 키 → 값 */
     values: z.record(z.string(), jsonValueSchema),
-    /** 발행(확정) 여부. 발행 시 이미지 내장(ADR-036)·무결성 기록(ADR-019) */
+    /** 발행(확정) 여부. 발행 시 이미지 내장(ADR-036) */
     issued: z.boolean(),
   })
   .superRefine((voucher, ctx) => {
