@@ -1,5 +1,7 @@
 # Application Integration Guide
 
+[한국어](integration.md) · [日本語](integration.ja.md)
+
 This document explains how to connect SlipKit's designer, entry form, and viewer, and how to manage in your application the templates and vouchers received from each component.
 
 If you haven't run the form designer yet, start with [Getting started](getting-started.en.md).
@@ -140,6 +142,14 @@ The Vue event handler functions receive the `SlipFile` object directly.
 
 </details>
 
+> [!IMPORTANT]
+> `designerSrc` and `formSrc` are the input passed when each component starts editing.
+> Do not pass the result received via `slip-change` straight back to the `src` of the component currently being edited.
+>
+> Manage the latest template and voucher received via events as separate application state or a save target. Update a component's `src` only when opening a different file or starting a new editing session.
+
+For a basic example of separating the designer's input from the editing result, see [Getting started](getting-started.en.md#3-connect-the-designer).
+
 ## Connecting the three components
 
 The following example connects template design, voucher entry, and issued-voucher viewing using Web Components.
@@ -258,7 +268,7 @@ form.addEventListener('slip-issue', (event) => {
 
 startButton.addEventListener('click', () => {
   const source =
-    draftVoucher && canContinueVoucher(draftVoucher, template)
+    draftVoucher && canResumeVoucher(draftVoucher)
       ? draftVoucher
       : template;
 
@@ -269,20 +279,14 @@ startButton.addEventListener('click', () => {
   formScreen.hidden = false;
 });
 
-function canContinueVoucher(
+function canResumeVoucher(
   voucher: SlipVoucherFile,
-  currentTemplate: SlipTemplateFile,
 ): boolean {
-  if (voucher.issued) {
-    return false;
-  }
-
-  return (
-    JSON.stringify(voucher.templateSnapshot) ===
-    JSON.stringify(currentTemplate.template)
-  );
+  return !voucher.issued;
 }
 ```
+
+In this example, if there is an in-progress voucher, it continues using the `templateSnapshot` stored in the voucher; if the voucher is issued, it starts a new voucher with the current template.
 
 ### When to update the entry form's `src`
 
@@ -301,26 +305,79 @@ In React and Vue as well, we recommend managing the entry form's input `formSrc`
 
 ## Continuing an in-progress voucher
 
-An in-progress voucher holds the template snapshot from its creation time.
+An in-progress voucher holds the template from its creation time as `templateSnapshot`.
 
-If you continue an old in-progress voucher after the current template has changed, the template the user is looking at and the template stored in the voucher may differ.
+Even if the original template changes later, reopening an in-progress voucher uses the template snapshot stored in the voucher. So technically, you can continue an `issued: false` voucher regardless of the current template.
 
-Before continuing, check the following conditions.
+However, the host application must choose one of the following depending on its service policy.
 
-- Whether `issued` is `false`
-- Whether `templateSnapshot` matches the current template
+1. Continue with the existing template the in-progress voucher holds.
+2. Continue only vouchers created from the same version as the current template.
+3. If the template has changed, let the user choose whether to continue the existing voucher or create a new one.
 
-The `canContinueVoucher` example above checks both conditions.
+The `canResumeVoucher` example above uses the first policy.
 
-If the conditions don't match, you must choose one of the following.
+```ts
+function canResumeVoucher(
+  voucher: SlipVoucherFile,
+): boolean {
+  return !voucher.issued;
+}
+```
 
-1. Start a new voucher with the current template.
-2. Continue editing using the existing voucher's template snapshot.
-3. Let the user choose which template to use.
+### Continuing only when it matches the current template version
 
-> [!NOTE]
+To continue only vouchers created from the same version as the current template, we recommend managing the template ID and version separately in the host application.
+
+The `.slip` file itself does not define the host application's template ID or revision number as required fields. So manage storage records like the following in your application or server.
+
+```ts
+interface TemplateRecord {
+  id: string;
+  revision: number;
+  file: SlipTemplateFile;
+}
+
+interface VoucherRecord {
+  id: string;
+  templateId: string;
+  templateRevision: number;
+  file: SlipVoucherFile;
+}
+```
+
+Record the ID and version of the template used when the voucher was first created into the voucher's storage record.
+
+```ts
+function canResumeWithCurrentTemplate(
+  voucher: VoucherRecord,
+  currentTemplate: TemplateRecord,
+): boolean {
+  return (
+    !voucher.file.issued &&
+    voucher.templateId === currentTemplate.id &&
+    voucher.templateRevision === currentTemplate.revision
+  );
+}
+```
+
+This metadata does not replace the `.slip` file's `templateSnapshot`.
+
+- `templateSnapshot` is used to render the voucher as it looked at the time.
+- `templateId` and `templateRevision` are used by the host application to judge the template's relationship and version.
+
+> [!CAUTION]
+> Do not use `JSON.stringify(voucher.templateSnapshot) === JSON.stringify(currentTemplate.template)` as your template-version criterion in production.
+>
+> A different object property order can produce a different string even when the content is the same, and a change unrelated to the voucher-entry structure — such as sample data — can be judged as a different template. The comparison cost also grows as the template gets larger.
+
+If you cannot manage a template ID and version, you can generate and store a hash from normalized template data. Even then, use a canonical form with a fixed property order, not a plain `JSON.stringify` result.
+
+> [!IMPORTANT]
 > Do not automatically replace an existing voucher's `templateSnapshot` with the current template.
 > If the template differs, the existing input values' parameters may not match the new template's parameters.
+>
+> If you need to work with the current template, create a new voucher instead of transforming the existing one, or use a separately defined data-migration procedure.
 
 ## Saving changes
 
@@ -695,11 +752,11 @@ It's good to handle the following failures distinctly in your application.
 - Updating the same entry form's `src` on every `slip-change`
 - Mistaking the `storage` property for an auto-save feature
 - Saving only an in-progress voucher's `values`
-- Continuing a voucher whose snapshot differs from the current template without checking
+- Judging that a template ID or version is the same based solely on a `JSON.stringify` result
 - Interpreting `issued: true` as a digital signature or tamper protection
 - Using `.slip` JSON received from a server without validating it
 - Ignoring a save failure and showing a success state
-- Automatically editing an issued voucher to match changes to the original template
+- Automatically replacing an existing voucher's `templateSnapshot` with the current template
 
 ## Integration checklist
 
@@ -709,7 +766,9 @@ It's good to handle the following failures distinctly in your application.
 - [ ] Manage templates and vouchers in separate states or storage keys.
 - [ ] Delay auto-save requests appropriately.
 - [ ] Save the issue event immediately.
-- [ ] Check the template snapshot before continuing an in-progress voucher.
+- [ ] Decide the policy for which template an in-progress voucher continues with.
+- [ ] If template-version matching is needed, manage the template ID and revision number in the host.
+- [ ] Do not automatically replace an existing voucher's `templateSnapshot` with the current template.
 - [ ] Validate `.slip` files exchanged with the outside.
 - [ ] Show save failures and rendering failures to the user.
 - [ ] Display issued vouchers read-only in the viewer.

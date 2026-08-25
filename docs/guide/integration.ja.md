@@ -1,5 +1,7 @@
 # アプリケーション統合ガイド
 
+[한국어](integration.md) · [English](integration.en.md)
+
 このドキュメントは、SlipKit のデザイナー・作成フォーム・ビューアを接続し、各コンポーネントから受け取ったテンプレートと伝票をアプリケーションで管理する方法を説明します。
 
 まだテンプレートデザイナーを実行していない場合は、[スタートガイド](getting-started.ja.md) を進めてください。
@@ -140,6 +142,14 @@ Vue のイベント処理関数には、`SlipFile` オブジェクトが直接�
 
 </details>
 
+> [!IMPORTANT]
+> `designerSrc` と `formSrc` は、各コンポーネントで編集を始めるときに渡す入力です。
+> `slip-change` で受け取った結果を、現在編集中のコンポーネントの `src` にそのまま渡し直さないでください。
+>
+> イベントで受け取った最新のテンプレートと伝票は、別のアプリケーション状態または保存対象として管理します。別のファイルを開くときや、新しい編集セッションを始めるときだけ、そのコンポーネントの `src` を更新してください。
+
+デザイナーの入力と編集結果を分ける基本的な例は、[スタートガイド](getting-started.ja.md#3-デザイナーの接続) を確認してください。
+
 ## 3 つのコンポーネントを接続する
 
 次の例は、Web Component を使ってテンプレート設計、伝票作成、発行伝票の閲覧を接続します。
@@ -258,7 +268,7 @@ form.addEventListener('slip-issue', (event) => {
 
 startButton.addEventListener('click', () => {
   const source =
-    draftVoucher && canContinueVoucher(draftVoucher, template)
+    draftVoucher && canResumeVoucher(draftVoucher)
       ? draftVoucher
       : template;
 
@@ -269,20 +279,14 @@ startButton.addEventListener('click', () => {
   formScreen.hidden = false;
 });
 
-function canContinueVoucher(
+function canResumeVoucher(
   voucher: SlipVoucherFile,
-  currentTemplate: SlipTemplateFile,
 ): boolean {
-  if (voucher.issued) {
-    return false;
-  }
-
-  return (
-    JSON.stringify(voucher.templateSnapshot) ===
-    JSON.stringify(currentTemplate.template)
-  );
+  return !voucher.issued;
 }
 ```
+
+この例では、作成中の伝票があれば伝票に保存された `templateSnapshot` を使って続けて作成し、発行された伝票なら現在のテンプレートで新しい伝票を始めます。
 
 ### 作成フォームの `src` を更新するタイミング
 
@@ -301,26 +305,79 @@ React と Vue でも、作成フォームの入力用 `formSrc` とイベント�
 
 ## 作成中の伝票を続けて書く
 
-作成中の伝票は、作成時点のテンプレートスナップショットを持っています。
+作成中の伝票は、作成時点のテンプレートを `templateSnapshot` として持っています。
 
-現在のテンプレートが変更されたあとに古い作成中の伝票をそのまま続けて書くと、ユーザーが見ているテンプレートと伝票に保存されたテンプレートが異なる場合があります。
+元のテンプレートがあとで変更されても、作成中の伝票を再度開くと、伝票に保存されたテンプレートスナップショットが使われます。したがって技術的には、現在のテンプレートに関係なく `issued: false` の伝票を続けて作成できます。
 
-続けて書く前に、次の条件を確認します。
+ただしホストアプリケーションは、サービスポリシーに応じて次のいずれかを選択する必要があります。
 
-- `issued` が `false` かどうか
-- `templateSnapshot` が現在のテンプレートと同じかどうか
+1. 作成中の伝票が持つ既存のテンプレートで作成を続けます。
+2. 現在のテンプレートと同じバージョンから作成された伝票だけを続けて作成します。
+3. テンプレートが変更された場合は、既存の伝票を続けて作成するか、新しい伝票を作るかをユーザーに選ばせます。
 
-前述の `canContinueVoucher` の例は、両方の条件を確認します。
+前述の `canResumeVoucher` の例は、1 つ目のポリシーを使います。
 
-条件が合わない場合は、次のいずれかを選択する必要があります。
+```ts
+function canResumeVoucher(
+  voucher: SlipVoucherFile,
+): boolean {
+  return !voucher.issued;
+}
+```
 
-1. 現在のテンプレートで新しい伝票を開始します。
-2. 既存の伝票のテンプレートスナップショットを使って作成を続けます。
-3. どのテンプレートを使うかをユーザーに選ばせます。
+### 現在のテンプレートバージョンと一致するときだけ続けて書く
 
-> [!NOTE]
+現在のテンプレートと同じバージョンから作成された伝票だけを続けて書くには、ホストアプリケーションでテンプレート ID とバージョンを別途管理する方法を推奨します。
+
+`.slip` ファイル自体には、ホストアプリケーションのテンプレート ID や改訂番号が必須フィールドとして定義されていません。したがって、次のような保存レコードをアプリケーションやサーバーで管理します。
+
+```ts
+interface TemplateRecord {
+  id: string;
+  revision: number;
+  file: SlipTemplateFile;
+}
+
+interface VoucherRecord {
+  id: string;
+  templateId: string;
+  templateRevision: number;
+  file: SlipVoucherFile;
+}
+```
+
+伝票を最初に作るときに使ったテンプレートの ID とバージョンを、伝票の保存レコードに一緒に記録します。
+
+```ts
+function canResumeWithCurrentTemplate(
+  voucher: VoucherRecord,
+  currentTemplate: TemplateRecord,
+): boolean {
+  return (
+    !voucher.file.issued &&
+    voucher.templateId === currentTemplate.id &&
+    voucher.templateRevision === currentTemplate.revision
+  );
+}
+```
+
+このメタデータは、`.slip` ファイルの `templateSnapshot` を代わりにするものではありません。
+
+- `templateSnapshot` は、伝票を当時の見た目でレンダリングするために使います。
+- `templateId` と `templateRevision` は、ホストアプリケーションでテンプレートの関係とバージョンを判断するために使います。
+
+> [!CAUTION]
+> `JSON.stringify(voucher.templateSnapshot) === JSON.stringify(currentTemplate.template)` を、運用環境のテンプレートバージョンの判別基準として使わないでください。
+>
+> オブジェクトのプロパティ順序が異なると、内容が同じでも別の文字列になることがあり、サンプルデータのように伝票作成の構造と直接関係のない変更でも、別のテンプレートと判断してしまうことがあります。テンプレートが大きくなるほど、比較コストも増えます。
+
+テンプレート ID とバージョンを管理できない場合は、正規化したテンプレートデータからハッシュを生成して保存できます。この場合も、単純な `JSON.stringify` の結果ではなく、プロパティ順序を固定した正規形式を使う必要があります。
+
+> [!IMPORTANT]
 > 既存の伝票の `templateSnapshot` を現在のテンプレートに自動で置き換えないでください。
 > テンプレートが異なると、既存の入力値のパラメータと新しいテンプレートのパラメータが合わない場合があります。
+>
+> 現在のテンプレートで作成する必要があるなら、既存の伝票を変形するのではなく、新しい伝票を作るか、別途定義したデータマイグレーションの手順を使ってください。
 
 ## 変更内容を保存する
 
@@ -695,11 +752,11 @@ Vue:
 - `slip-change` が発生するたびに同じ作成フォームの `src` を更新する
 - `storage` プロパティを自動保存機能と誤解する
 - 作成中の伝票の `values` だけを保存する
-- 現在のテンプレートと異なるスナップショットを持つ伝票を、確認せずに続けて書く
+- `JSON.stringify` の結果だけで、テンプレート ID やバージョンが同じと判断する
 - `issued: true` を電子署名や改ざん防止として解釈する
 - サーバーから受け取った `.slip` JSON を検証せずに使う
 - 保存の失敗を無視して成功状態を表示する
-- 発行伝票を、元のテンプレートの変更に合わせて自動修正する
+- 既存の伝票の `templateSnapshot` を現在のテンプレートに自動で置き換える
 
 ## 統合チェックリスト
 
@@ -709,7 +766,9 @@ Vue:
 - [ ] テンプレートと伝票を別々の状態または保存キーで管理します。
 - [ ] 自動保存リクエストを適切に遅延します。
 - [ ] 発行イベントはすぐに保存します。
-- [ ] 作成中の伝票を続けて書く前に、テンプレートスナップショットを確認します。
+- [ ] 作成中の伝票をどのテンプレートで続けて書くか、ポリシーを決めました。
+- [ ] テンプレートバージョンの一致が必要なら、ホストでテンプレート ID と改訂番号を管理します。
+- [ ] 既存の伝票の `templateSnapshot` を現在のテンプレートに自動で置き換えません。
 - [ ] 外部とやり取りする `.slip` ファイルを検証します。
 - [ ] 保存失敗とレンダリング失敗をユーザーに表示します。
 - [ ] 発行された伝票をビューアで読み取り専用で表示します。

@@ -1,5 +1,7 @@
 # 애플리케이션 통합 가이드
 
+[English](integration.en.md) · [日本語](integration.ja.md)
+
 이 문서는 SlipKit의 디자이너·작성폼·뷰어를 연결하고, 각 컴포넌트에서 받은 양식과 전표를 애플리케이션에서 관리하는 방법을 설명합니다.
 
 먼저 양식 디자이너를 실행하지 않았다면 [시작하기](getting-started.md)를 진행하세요.
@@ -140,6 +142,14 @@ Vue 이벤트 처리 함수에는 `SlipFile` 객체가 직접 전달됩니다.
 
 </details>
 
+> [!IMPORTANT]
+> `designerSrc`와 `formSrc`는 각 컴포넌트에서 편집을 시작할 때 전달하는 입력입니다.
+> `slip-change`로 받은 결과를 현재 편집 중인 컴포넌트의 `src`에 곧바로 다시 전달하지 마세요.
+>
+> 이벤트로 받은 최신 양식과 전표는 별도의 애플리케이션 상태 또는 저장 대상으로 관리합니다. 다른 파일을 열거나 새로운 편집 세션을 시작할 때만 해당 컴포넌트의 `src`를 갱신하세요.
+
+디자이너의 입력과 편집 결과를 분리하는 기본 예제는 [시작하기](getting-started.md#3-디자이너-연결)를 확인하세요.
+
 ## 세 컴포넌트 연결하기
 
 다음 예제는 Web Component를 이용해 양식 설계, 전표 작성, 발행 전표 조회를 연결합니다.
@@ -258,7 +268,7 @@ form.addEventListener('slip-issue', (event) => {
 
 startButton.addEventListener('click', () => {
   const source =
-    draftVoucher && canContinueVoucher(draftVoucher, template)
+    draftVoucher && canResumeVoucher(draftVoucher)
       ? draftVoucher
       : template;
 
@@ -269,20 +279,14 @@ startButton.addEventListener('click', () => {
   formScreen.hidden = false;
 });
 
-function canContinueVoucher(
+function canResumeVoucher(
   voucher: SlipVoucherFile,
-  currentTemplate: SlipTemplateFile,
 ): boolean {
-  if (voucher.issued) {
-    return false;
-  }
-
-  return (
-    JSON.stringify(voucher.templateSnapshot) ===
-    JSON.stringify(currentTemplate.template)
-  );
+  return !voucher.issued;
 }
 ```
+
+이 예제에서는 작성 중인 전표가 있으면 전표에 저장된 `templateSnapshot`을 이용해 이어서 작성하고, 발행된 전표라면 현재 양식으로 새 전표를 시작합니다.
 
 ### 작성폼의 `src`를 갱신하는 시점
 
@@ -301,26 +305,79 @@ React와 Vue에서도 작성폼 입력용 `formSrc`와 이벤트로 받은 `draf
 
 ## 작성 중 전표 이어서 쓰기
 
-작성 중 전표는 생성 당시의 양식 스냅샷을 가지고 있습니다.
+작성 중 전표는 생성 당시의 양식을 `templateSnapshot`으로 가지고 있습니다.
 
-현재 양식이 변경된 후 예전 작성 중 전표를 그대로 이어 쓰면 사용자가 보고 있는 양식과 전표에 저장된 양식이 달라질 수 있습니다.
+원본 양식이 이후 변경되더라도 작성 중 전표를 다시 열면 전표에 저장된 양식 스냅샷이 사용됩니다. 따라서 기술적으로는 현재 양식과 관계없이 `issued: false`인 전표를 이어서 작성할 수 있습니다.
 
-이어 쓰기 전에 다음 조건을 확인합니다.
+다만 호스트 애플리케이션은 서비스 정책에 따라 다음 중 하나를 선택해야 합니다.
 
-- `issued`가 `false`인지
-- `templateSnapshot`이 현재 양식과 같은지
+1. 작성 중 전표가 가진 기존 양식으로 계속 작성합니다.
+2. 현재 양식과 같은 버전에서 생성된 전표만 이어서 작성합니다.
+3. 양식이 변경되었다면 사용자에게 기존 전표를 계속 작성할지 새 전표를 만들지 선택하게 합니다.
 
-앞의 `canContinueVoucher` 예제는 두 조건을 확인합니다.
+앞의 `canResumeVoucher` 예제는 첫 번째 정책을 사용합니다.
 
-조건이 맞지 않으면 다음 중 하나를 선택해야 합니다.
+```ts
+function canResumeVoucher(
+  voucher: SlipVoucherFile,
+): boolean {
+  return !voucher.issued;
+}
+```
 
-1. 현재 양식으로 새 전표를 시작합니다.
-2. 기존 전표의 양식 스냅샷을 사용해 계속 작성합니다.
-3. 사용자에게 어느 양식을 사용할지 선택하게 합니다.
+### 현재 양식 버전과 일치할 때만 이어 쓰기
 
-> [!NOTE]
+현재 양식과 같은 버전에서 생성된 전표만 이어 쓰려면 호스트 애플리케이션에서 양식 ID와 버전을 별도로 관리하는 방법을 권장합니다.
+
+`.slip` 파일 자체에는 호스트 애플리케이션의 양식 ID나 개정 번호가 필수 필드로 정의되어 있지 않습니다. 따라서 다음과 같은 저장 레코드를 애플리케이션이나 서버에서 관리합니다.
+
+```ts
+interface TemplateRecord {
+  id: string;
+  revision: number;
+  file: SlipTemplateFile;
+}
+
+interface VoucherRecord {
+  id: string;
+  templateId: string;
+  templateRevision: number;
+  file: SlipVoucherFile;
+}
+```
+
+전표를 처음 만들 때 사용한 양식의 ID와 버전을 전표 저장 레코드에 함께 기록합니다.
+
+```ts
+function canResumeWithCurrentTemplate(
+  voucher: VoucherRecord,
+  currentTemplate: TemplateRecord,
+): boolean {
+  return (
+    !voucher.file.issued &&
+    voucher.templateId === currentTemplate.id &&
+    voucher.templateRevision === currentTemplate.revision
+  );
+}
+```
+
+이 메타데이터는 `.slip` 파일의 `templateSnapshot`을 대신하지 않습니다.
+
+- `templateSnapshot`은 전표를 당시 모습으로 렌더링하기 위해 사용합니다.
+- `templateId`와 `templateRevision`은 호스트 애플리케이션에서 양식의 관계와 버전을 판단하기 위해 사용합니다.
+
+> [!CAUTION]
+> `JSON.stringify(voucher.templateSnapshot) === JSON.stringify(currentTemplate.template)`을 운영 환경의 양식 버전 판별 기준으로 사용하지 마세요.
+>
+> 객체 프로퍼티 순서가 다르면 내용이 같아도 다른 문자열이 될 수 있으며, 샘플 데이터처럼 전표 작성 구조와 직접 관계없는 변경에도 다른 양식으로 판단할 수 있습니다. 양식이 커질수록 비교 비용도 증가합니다.
+
+양식 ID와 버전을 관리할 수 없다면 정규화된 양식 데이터로 해시를 생성하여 저장할 수 있습니다. 이 경우에도 단순 `JSON.stringify` 결과가 아니라 프로퍼티 순서를 고정한 정규 형식을 사용해야 합니다.
+
+> [!IMPORTANT]
 > 기존 전표의 `templateSnapshot`을 현재 양식으로 자동 교체하지 마세요.
 > 양식이 달라지면 기존 입력값의 파라미터와 새 양식의 파라미터가 맞지 않을 수 있습니다.
+>
+> 현재 양식으로 작성해야 한다면 기존 전표를 변형하는 대신 새 전표를 만들거나, 별도로 정의한 데이터 마이그레이션 절차를 사용하세요.
 
 ## 변경 내용 저장하기
 
@@ -695,11 +752,11 @@ Vue:
 - `slip-change`가 발생할 때마다 같은 작성폼의 `src` 갱신
 - `storage` 프로퍼티를 자동 저장 기능으로 오해
 - 작성 중 전표의 `values`만 저장
-- 현재 양식과 다른 스냅샷을 가진 전표를 확인 없이 이어 쓰기
+- `JSON.stringify` 결과만으로 양식 ID나 버전이 같다고 판단
 - `issued: true`를 전자서명이나 위변조 방지로 해석
 - 서버에서 받은 `.slip` JSON을 검증하지 않고 사용
 - 저장 실패를 무시하고 성공 상태 표시
-- 발행 전표를 원본 양식 변경에 맞춰 자동 수정
+- 기존 전표의 `templateSnapshot`을 현재 양식으로 자동 교체
 
 ## 통합 확인 목록
 
@@ -709,7 +766,9 @@ Vue:
 - [ ] 양식과 전표를 서로 다른 상태 또는 저장 키로 관리합니다.
 - [ ] 자동 저장 요청을 적절히 지연합니다.
 - [ ] 발행 이벤트는 즉시 저장합니다.
-- [ ] 작성 중 전표를 이어 쓰기 전에 양식 스냅샷을 확인합니다.
+- [ ] 작성 중 전표를 어떤 양식으로 이어 쓸지 정책을 정했습니다.
+- [ ] 양식 버전 일치 여부가 필요하면 호스트에서 양식 ID와 개정 번호를 관리합니다.
+- [ ] 기존 전표의 `templateSnapshot`을 현재 양식으로 자동 교체하지 않습니다.
 - [ ] 외부와 주고받는 `.slip` 파일을 검증합니다.
 - [ ] 저장 실패와 렌더링 실패를 사용자에게 표시합니다.
 - [ ] 발행된 전표를 뷰어에서 읽기 전용으로 표시합니다.
