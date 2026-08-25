@@ -12,7 +12,7 @@ import {
   MODE_KEY,
   TEMPLATE_KEY,
   VOUCHER_KEY,
-  canContinueVoucher,
+  canResumeVoucher,
   createStores,
   initialTemplate,
   messages,
@@ -84,7 +84,7 @@ function setMode(fill: boolean, message?: string): void {
   localStorage.setItem(MODE_KEY, fill ? 'fill' : 'design');
 
   if (fill) {
-    const continuing = canContinueVoucher(voucher, template);
+    const continuing = canResumeVoucher(voucher);
     if (!continuing) voucher = null;
     form.src = serializeSlipFile(continuing ? voucher! : template);
     status(message ?? (continuing ? messages.fillContinue : messages.fillNew));

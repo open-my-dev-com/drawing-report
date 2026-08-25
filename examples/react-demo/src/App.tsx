@@ -17,7 +17,7 @@ import {
   MODE_KEY,
   TEMPLATE_KEY,
   VOUCHER_KEY,
-  canContinueVoucher,
+  canResumeVoucher,
   createStores,
   initialTemplate,
   messages,
@@ -32,6 +32,8 @@ export function App() {
   const { store, localFile } = useMemo(() => createStores('slipkit-demo-react'), []);
 
   const [template, setTemplate] = useState<SlipTemplateFile>(() => initialTemplate());
+  // 디자이너에 넣는 시작 입력 — 편집 중에는 바꾸지 않고, 외부 양식을 명시적으로 열 때만 갱신한다
+  const [designerSrc, setDesignerSrc] = useState<string>(() => serializeSlipFile(template));
   const [voucher, setVoucher] = useState<SlipVoucherFile | null>(null);
   const [filling, setFilling] = useState(false);
   const [status, setStatus] = useState<string>(messages.welcome);
@@ -75,7 +77,7 @@ export function App() {
       return;
     }
     const current = latest.current;
-    const continuing = canContinueVoucher(current.voucher, current.template);
+    const continuing = canResumeVoucher(current.voucher);
     if (!continuing) setVoucher(null);
     setFormSrc(serializeSlipFile(continuing ? current.voucher! : current.template));
     setStatus(message ?? (continuing ? messages.fillContinue : messages.fillNew));
@@ -92,6 +94,7 @@ export function App() {
       if (savedTemplate?.kind === 'template') {
         setTemplate(savedTemplate);
         latest.current.template = savedTemplate;
+        setDesignerSrc(serializeSlipFile(savedTemplate));
       }
       if (savedVoucher?.kind === 'voucher') {
         setVoucher(savedVoucher);
@@ -156,12 +159,14 @@ export function App() {
           setTemplate(file);
           setVoucher(null);
           latest.current = { template: file, voucher: null };
+          setDesignerSrc(serializeSlipFile(file));
           setMode(false, messages.openedTemplate);
         } else {
           const fromVoucher = templateFromVoucher(file);
           setVoucher(file);
           setTemplate(fromVoucher);
           latest.current = { template: fromVoucher, voucher: file };
+          setDesignerSrc(serializeSlipFile(fromVoucher));
           setFormSrc(serializeSlipFile(file));
           setFilling(true);
           localStorage.setItem(MODE_KEY, 'fill');
@@ -195,7 +200,7 @@ export function App() {
 
       <div className="pane" hidden={filling}>
         <SlipDesigner
-          src={serializeSlipFile(template)}
+          src={designerSrc}
           storage={store}
           onSlipChange={onDesignerChange}
         />

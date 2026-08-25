@@ -51,19 +51,15 @@ export function templateFromVoucher(voucher: SlipVoucherFile): SlipTemplateFile 
 }
 
 /**
- * 작성 중 전표를 지금 양식으로 이어 쓸 수 있는지 — 양식이 바뀌었으면 새로 시작한다.
- * 전표는 만들 때의 양식을 품기 때문이다 (ADR-008).
+ * 작성 중 전표를 이어 쓸 수 있는지 — 전표는 만들 때의 양식(templateSnapshot)을 품고
+ * 그 양식으로 이어 쓰므로 지금 양식과의 구조 비교는 필요하지 않다 (ADR-008).
+ * 발행된 전표는 값이 확정되어 이어 쓰지 않는다.
  *
  * @param voucher - 작성 중 전표 (없으면 null)
- * @param template - 지금 편집 중인 양식
- * @returns 이어 쓸 수 있으면 true
+ * @returns 발행되지 않은 전표가 있으면 true
  */
-export function canContinueVoucher(
-  voucher: SlipVoucherFile | null,
-  template: SlipTemplateFile,
-): boolean {
-  if (!voucher || voucher.issued) return false;
-  return JSON.stringify(voucher.templateSnapshot) === JSON.stringify(template.template);
+export function canResumeVoucher(voucher: SlipVoucherFile | null): boolean {
+  return voucher !== null && !voucher.issued;
 }
 
 /**

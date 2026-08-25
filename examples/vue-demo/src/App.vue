@@ -5,7 +5,7 @@
  * 호스트 앱이 `@omdc-slipkit/vue` 래퍼를 어떻게 붙이는지 보여준다.
  * 무엇을 저장하고 언제 이어 쓰는지는 바닐라·React 데모와 같은 `slipkit-demo-shared`를 쓴다.
  */
-import { computed, onMounted, ref, shallowRef } from 'vue';
+import { onMounted, ref, shallowRef } from 'vue';
 import { SlipDesigner, SlipForm } from '@omdc-slipkit/vue';
 import {
   serializeSlipFile,
@@ -18,7 +18,7 @@ import {
   MODE_KEY,
   TEMPLATE_KEY,
   VOUCHER_KEY,
-  canContinueVoucher,
+  canResumeVoucher,
   createStores,
   initialTemplate,
   messages,
@@ -38,7 +38,8 @@ const status = ref<string>(messages.welcome);
 const autosave = ref('');
 const formSrc = ref('');
 
-const designerSrc = computed(() => serializeSlipFile(template.value));
+// 디자이너에 넣는 시작 입력 — 편집 중에는 바꾸지 않고, 외부 양식을 명시적으로 열 때만 갱신한다
+const designerSrc = ref(serializeSlipFile(template.value));
 
 const dialog = ref<HTMLDialogElement | null>(null);
 const filename = ref<HTMLInputElement | null>(null);
@@ -71,7 +72,7 @@ function setMode(fill: boolean, message?: string): void {
     status.value = message ?? messages.design;
     return;
   }
-  const continuing = canContinueVoucher(voucher.value, template.value);
+  const continuing = canResumeVoucher(voucher.value);
   if (!continuing) voucher.value = null;
   formSrc.value = serializeSlipFile(continuing ? voucher.value! : template.value);
   status.value = message ?? (continuing ? messages.fillContinue : messages.fillNew);
@@ -137,10 +138,13 @@ function openFile(): void {
       if (file.kind === 'template') {
         template.value = file;
         voucher.value = null;
+        designerSrc.value = serializeSlipFile(file);
         setMode(false, messages.openedTemplate);
       } else {
+        const fromVoucher = templateFromVoucher(file);
         voucher.value = file;
-        template.value = templateFromVoucher(file);
+        template.value = fromVoucher;
+        designerSrc.value = serializeSlipFile(fromVoucher);
         formSrc.value = serializeSlipFile(file);
         filling.value = true;
         localStorage.setItem(MODE_KEY, 'fill');
@@ -158,7 +162,10 @@ onMounted(async () => {
   const savedTemplate = await restore(store, TEMPLATE_KEY);
   const savedVoucher = await restore(store, VOUCHER_KEY);
   const restored = savedTemplate?.kind === 'template';
-  if (savedTemplate?.kind === 'template') template.value = savedTemplate;
+  if (savedTemplate?.kind === 'template') {
+    template.value = savedTemplate;
+    designerSrc.value = serializeSlipFile(savedTemplate);
+  }
   if (savedVoucher?.kind === 'voucher') voucher.value = savedVoucher;
   setMode(localStorage.getItem(MODE_KEY) === 'fill', restored ? messages.restored : messages.welcome);
 });
