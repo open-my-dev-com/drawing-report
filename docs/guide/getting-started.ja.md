@@ -1,5 +1,7 @@
 # スタートガイド
 
+[한국어](getting-started.md) · [English](getting-started.en.md)
+
 このドキュメントは、SlipKit を初めて使う開発者がテンプレートデザイナーを実行し、ユーザーが編集したテンプレートデータをアプリケーションで受け取るまでの流れを説明します。
 
 このドキュメントを終えると、次のことができるようになります。
@@ -290,7 +292,7 @@ Web Component では `slip-change` が `CustomEvent` として渡され、変更
 `src/App.tsx`:
 
 ```tsx
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { SlipDesigner } from '@omdc-slipkit/react';
 import {
   serializeSlipFile,
@@ -301,22 +303,28 @@ import {
 import { createBlankTemplate } from './slip-template';
 
 export default function App() {
-  const [template, setTemplate] =
-    useState<SlipTemplateFile>(() => createBlankTemplate());
+  // デザイナーに渡す初期入力は、編集セッションの間は維持します。
+  const [designerSrc] = useState(() =>
+    serializeSlipFile(createBlankTemplate()),
+  );
+
+  // イベントで受け取った最新のテンプレートは、src とは別に保持します。
+  const latestTemplate =
+    useRef<SlipTemplateFile | null>(null);
 
   function handleSlipChange(file: SlipFile): void {
     if (file.kind !== 'template') {
       return;
     }
 
-    setTemplate(file);
+    latestTemplate.current = file;
     console.log('変更されたテンプレート:', file);
   }
 
   return (
     <main style={{ height: '100vh' }}>
       <SlipDesigner
-        src={serializeSlipFile(template)}
+        src={designerSrc}
         onSlipChange={handleSlipChange}
       />
     </main>
@@ -335,7 +343,7 @@ React ラッパーの `onSlipChange` には、`CustomEvent` ではなく変更�
 
 ```vue
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue';
+import { ref, shallowRef } from 'vue';
 import { SlipDesigner } from '@omdc-slipkit/vue';
 import {
   serializeSlipFile,
@@ -345,19 +353,23 @@ import {
 
 import { createBlankTemplate } from './slip-template';
 
-const template =
-  shallowRef<SlipTemplateFile>(createBlankTemplate());
+const initialTemplate = createBlankTemplate();
 
-const designerSrc = computed(() =>
-  serializeSlipFile(template.value),
+// デザイナーに渡す初期入力は、編集セッションの間は維持します。
+const designerSrc = ref(
+  serializeSlipFile(initialTemplate),
 );
+
+// イベントで受け取った最新のテンプレートは、src とは別に保持します。
+const latestTemplate =
+  shallowRef<SlipTemplateFile>(initialTemplate);
 
 function handleSlipChange(file: SlipFile): void {
   if (file.kind !== 'template') {
     return;
   }
 
-  template.value = file;
+  latestTemplate.value = file;
   console.log('変更されたテンプレート:', file);
 }
 </script>
@@ -389,6 +401,21 @@ Vue ラッパーの `slip-change` イベントには、変更された `SlipFile
 
 </details>
 
+> [!IMPORTANT]
+> `slip-change` で受け取ったファイルを、現在編集中のデザイナーの `src` にそのまま渡し直さないでください。
+>
+> `src` の変更は、新しい外部テンプレートを読み込む動作です。`src` が変わると、デザイナーはファイルを再パースし、選択した要素、現在のページ、元に戻す・やり直しの履歴、編集中の画面状態がリセットされます。
+
+デザイナーの入力と編集結果は、次のように分けて管理します。
+
+| データ | 役割 | 変更のタイミング |
+|---|---|---|
+| `designerSrc` | デザイナーで編集を始める外部テンプレート | 最初に開くとき、または別のテンプレートを明示的に開くとき |
+| `latestTemplate` | ユーザーが現在まで編集した最新の結果 | `slip-change` を受け取るたび |
+| 保存データ | リロード後も復元するテンプレート | 自動保存、またはユーザーの保存要求のとき |
+
+別のテンプレートファイルを開いたり、保存したテンプレートを復元したりするときは、新しいファイルをシリアライズして `designerSrc` に渡します。この場合は新しい編集セッションを始めるので、デザイナーの状態がリセットされるのは正常です。
+
 ### 4. 実行結果の確認
 
 アプリケーションを実行したあと、次の内容を確認します。
@@ -397,6 +424,8 @@ Vue ラッパーの `slip-change` イベントには、変更された `SlipFile
 - [ ] デザイナーの <kbd>プリセット</kbd> メニューから既定のテンプレートを読み込めます。
 - [ ] 要素を追加または編集すると、コンソールに `変更されたテンプレート` が出力されます。
 - [ ] 出力されたオブジェクトの `kind` が `template` です。
+- [ ] 続けて編集しても、選択した要素や現在のページがリセットされません。
+- [ ] 元に戻す・やり直しの履歴が編集中に維持されます。
 - [ ] TypeScript エラーが発生しません。
 
 すべての項目を確認できたら、SlipKit テンプレートデザイナーの最小接続が完了です。
@@ -492,6 +521,46 @@ slip-designer {
 <summary><strong>リロードすると編集内容が消えます</strong></summary>
 
 SlipKit コンポーネントは編集内容を自動的に永続保存しません。`slip-change` で受け取ったファイルを IndexedDB、サーバー、またはアプリケーションの状態に保存する必要があります。
+
+</details>
+
+<details>
+<summary><strong>編集するたびに選択した要素やページがリセットされます</strong></summary>
+
+`slip-change` で受け取ったファイルを、現在編集中のデザイナーの `src` に渡し直していないか確認します。
+
+次のような双方向のつなぎ方は避けてください。
+
+```tsx
+const [template, setTemplate] = useState(createBlankTemplate);
+
+<SlipDesigner
+  src={serializeSlipFile(template)}
+  onSlipChange={setTemplate}
+/>
+```
+
+ユーザーが編集するたびに `template` が変わり、新しい `src` が渡されるため、デザイナーがファイルを再読み込みします。
+
+デザイナーの初期入力と、最新の編集結果を分けてください。
+
+```tsx
+const [designerSrc] = useState(() =>
+  serializeSlipFile(createBlankTemplate()),
+);
+
+const latestTemplate =
+  useRef<SlipTemplateFile | null>(null);
+
+<SlipDesigner
+  src={designerSrc}
+  onSlipChange={(file) => {
+    if (file.kind === 'template') {
+      latestTemplate.current = file;
+    }
+  }}
+/>
+```
 
 </details>
 

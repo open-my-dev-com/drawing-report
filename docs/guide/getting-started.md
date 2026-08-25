@@ -1,5 +1,7 @@
 # 시작하기
 
+[English](getting-started.en.md) · [日本語](getting-started.ja.md)
+
 이 문서는 SlipKit을 처음 사용하는 개발자가 양식 디자이너를 실행하고, 사용자가 편집한 양식 데이터를 애플리케이션에서 받는 과정까지 설명합니다.
 
 이 문서를 완료하면 다음 작업을 할 수 있습니다.
@@ -290,7 +292,7 @@ Web Component에서는 `slip-change`가 `CustomEvent`로 전달되며, 변경된
 `src/App.tsx`:
 
 ```tsx
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { SlipDesigner } from '@omdc-slipkit/react';
 import {
   serializeSlipFile,
@@ -301,22 +303,28 @@ import {
 import { createBlankTemplate } from './slip-template';
 
 export default function App() {
-  const [template, setTemplate] =
-    useState<SlipTemplateFile>(() => createBlankTemplate());
+  // 디자이너에 전달할 시작 입력은 편집 세션 동안 유지합니다.
+  const [designerSrc] = useState(() =>
+    serializeSlipFile(createBlankTemplate()),
+  );
+
+  // 이벤트로 받은 최신 양식은 src와 별도로 보관합니다.
+  const latestTemplate =
+    useRef<SlipTemplateFile | null>(null);
 
   function handleSlipChange(file: SlipFile): void {
     if (file.kind !== 'template') {
       return;
     }
 
-    setTemplate(file);
+    latestTemplate.current = file;
     console.log('변경된 양식:', file);
   }
 
   return (
     <main style={{ height: '100vh' }}>
       <SlipDesigner
-        src={serializeSlipFile(template)}
+        src={designerSrc}
         onSlipChange={handleSlipChange}
       />
     </main>
@@ -335,7 +343,7 @@ React 래퍼의 `onSlipChange`에는 `CustomEvent`가 아니라 변경된 `SlipF
 
 ```vue
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue';
+import { ref, shallowRef } from 'vue';
 import { SlipDesigner } from '@omdc-slipkit/vue';
 import {
   serializeSlipFile,
@@ -345,19 +353,23 @@ import {
 
 import { createBlankTemplate } from './slip-template';
 
-const template =
-  shallowRef<SlipTemplateFile>(createBlankTemplate());
+const initialTemplate = createBlankTemplate();
 
-const designerSrc = computed(() =>
-  serializeSlipFile(template.value),
+// 디자이너에 전달할 시작 입력은 편집 세션 동안 유지합니다.
+const designerSrc = ref(
+  serializeSlipFile(initialTemplate),
 );
+
+// 이벤트로 받은 최신 양식은 src와 별도로 보관합니다.
+const latestTemplate =
+  shallowRef<SlipTemplateFile>(initialTemplate);
 
 function handleSlipChange(file: SlipFile): void {
   if (file.kind !== 'template') {
     return;
   }
 
-  template.value = file;
+  latestTemplate.value = file;
   console.log('변경된 양식:', file);
 }
 </script>
@@ -389,6 +401,21 @@ Vue 래퍼의 `slip-change` 이벤트에는 변경된 `SlipFile` 객체가 직�
 
 </details>
 
+> [!IMPORTANT]
+> `slip-change`로 받은 파일을 현재 편집 중인 디자이너의 `src`에 곧바로 다시 전달하지 마세요.
+>
+> `src` 변경은 새로운 외부 양식을 불러오는 동작입니다. `src`가 바뀌면 디자이너가 파일을 다시 파싱하며 선택한 요소, 현재 페이지, 실행 취소·다시 실행 기록과 편집 중인 화면 상태가 초기화됩니다.
+
+디자이너 입력과 편집 결과는 다음과 같이 구분하여 관리합니다.
+
+| 데이터 | 역할 | 변경 시점 |
+|---|---|---|
+| `designerSrc` | 디자이너에서 편집을 시작할 외부 양식 | 처음 열거나 다른 양식을 명시적으로 열 때 |
+| `latestTemplate` | 사용자가 현재까지 편집한 최신 결과 | `slip-change`를 받을 때마다 |
+| 저장 데이터 | 새로고침 이후에도 복원할 양식 | 자동 저장 또는 사용자의 저장 요청 시 |
+
+다른 양식 파일을 열거나 저장된 양식을 복원할 때는 새 파일을 직렬화하여 `designerSrc`에 전달합니다. 이 경우에는 새로운 편집 세션을 시작하는 것이므로 디자이너 상태가 초기화되는 것이 정상입니다.
+
 ### 4. 실행 결과 확인
 
 애플리케이션을 실행한 뒤 다음 내용을 확인합니다.
@@ -397,6 +424,8 @@ Vue 래퍼의 `slip-change` 이벤트에는 변경된 `SlipFile` 객체가 직�
 - [ ] 디자이너의 <kbd>프리셋</kbd> 메뉴에서 기본 양식을 불러올 수 있습니다.
 - [ ] 요소를 추가하거나 수정하면 콘솔에 `변경된 양식`이 출력됩니다.
 - [ ] 출력된 객체의 `kind`가 `template`입니다.
+- [ ] 연속해서 편집해도 선택한 요소나 현재 페이지가 초기화되지 않습니다.
+- [ ] 실행 취소와 다시 실행 기록이 편집 중에 유지됩니다.
 - [ ] TypeScript 오류가 발생하지 않습니다.
 
 모든 항목을 확인했다면 SlipKit 양식 디자이너의 최소 연결이 완료된 것입니다.
@@ -492,6 +521,46 @@ slip-designer {
 <summary><strong>새로고침하면 편집 내용이 사라집니다</strong></summary>
 
 SlipKit 컴포넌트는 편집 내용을 자동으로 영구 저장하지 않습니다. `slip-change`로 받은 파일을 IndexedDB, 서버 또는 애플리케이션 상태에 저장해야 합니다.
+
+</details>
+
+<details>
+<summary><strong>편집할 때마다 선택한 요소나 페이지가 초기화됩니다</strong></summary>
+
+`slip-change`로 받은 파일을 현재 편집 중인 디자이너의 `src`에 다시 전달하고 있는지 확인합니다.
+
+다음과 같은 양방향 연결은 피해야 합니다.
+
+```tsx
+const [template, setTemplate] = useState(createBlankTemplate);
+
+<SlipDesigner
+  src={serializeSlipFile(template)}
+  onSlipChange={setTemplate}
+/>
+```
+
+사용자가 편집할 때마다 `template`이 변경되고 새 `src`가 전달되므로 디자이너가 파일을 다시 불러옵니다.
+
+디자이너의 시작 입력과 최신 편집 결과를 분리하세요.
+
+```tsx
+const [designerSrc] = useState(() =>
+  serializeSlipFile(createBlankTemplate()),
+);
+
+const latestTemplate =
+  useRef<SlipTemplateFile | null>(null);
+
+<SlipDesigner
+  src={designerSrc}
+  onSlipChange={(file) => {
+    if (file.kind === 'template') {
+      latestTemplate.current = file;
+    }
+  }}
+/>
+```
 
 </details>
 

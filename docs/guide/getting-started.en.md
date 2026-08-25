@@ -1,5 +1,7 @@
 # Getting started
 
+[한국어](getting-started.md) · [日本語](getting-started.ja.md)
+
 This document walks a developer new to SlipKit through running the form designer and receiving the form data a user has edited in the application.
 
 By the end of this document you will be able to:
@@ -290,7 +292,7 @@ In Web Components, `slip-change` is delivered as a `CustomEvent`, and the change
 `src/App.tsx`:
 
 ```tsx
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { SlipDesigner } from '@omdc-slipkit/react';
 import {
   serializeSlipFile,
@@ -301,22 +303,28 @@ import {
 import { createBlankTemplate } from './slip-template';
 
 export default function App() {
-  const [template, setTemplate] =
-    useState<SlipTemplateFile>(() => createBlankTemplate());
+  // Keep the initial input passed to the designer for the editing session.
+  const [designerSrc] = useState(() =>
+    serializeSlipFile(createBlankTemplate()),
+  );
+
+  // Keep the latest template received via events separate from src.
+  const latestTemplate =
+    useRef<SlipTemplateFile | null>(null);
 
   function handleSlipChange(file: SlipFile): void {
     if (file.kind !== 'template') {
       return;
     }
 
-    setTemplate(file);
+    latestTemplate.current = file;
     console.log('Changed template:', file);
   }
 
   return (
     <main style={{ height: '100vh' }}>
       <SlipDesigner
-        src={serializeSlipFile(template)}
+        src={designerSrc}
         onSlipChange={handleSlipChange}
       />
     </main>
@@ -335,7 +343,7 @@ The React wrapper's `onSlipChange` receives the changed `SlipFile` object direct
 
 ```vue
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue';
+import { ref, shallowRef } from 'vue';
 import { SlipDesigner } from '@omdc-slipkit/vue';
 import {
   serializeSlipFile,
@@ -345,19 +353,23 @@ import {
 
 import { createBlankTemplate } from './slip-template';
 
-const template =
-  shallowRef<SlipTemplateFile>(createBlankTemplate());
+const initialTemplate = createBlankTemplate();
 
-const designerSrc = computed(() =>
-  serializeSlipFile(template.value),
+// Keep the initial input passed to the designer for the editing session.
+const designerSrc = ref(
+  serializeSlipFile(initialTemplate),
 );
+
+// Keep the latest template received via events separate from src.
+const latestTemplate =
+  shallowRef<SlipTemplateFile>(initialTemplate);
 
 function handleSlipChange(file: SlipFile): void {
   if (file.kind !== 'template') {
     return;
   }
 
-  template.value = file;
+  latestTemplate.value = file;
   console.log('Changed template:', file);
 }
 </script>
@@ -389,6 +401,21 @@ The Vue wrapper's `slip-change` event receives the changed `SlipFile` object dir
 
 </details>
 
+> [!IMPORTANT]
+> Do not pass the file received via `slip-change` straight back to the `src` of the designer currently being edited.
+>
+> Changing `src` is the action of loading a new external template. When `src` changes, the designer re-parses the file, and the selected element, current page, undo/redo history, and the in-progress editing screen state are reset.
+
+Manage the designer input and the editing result separately, as follows.
+
+| Data | Role | When it changes |
+|---|---|---|
+| `designerSrc` | The external template to start editing from in the designer | When first opened, or when another template is explicitly opened |
+| `latestTemplate` | The latest result the user has edited so far | Every time `slip-change` is received |
+| Saved data | The template to restore even after a refresh | On auto-save or on the user's save request |
+
+When opening a different template file or restoring a saved template, serialize the new file and pass it to `designerSrc`. In that case you are starting a new editing session, so it is normal for the designer state to reset.
+
 ### 4. Check the result
 
 After running the application, confirm the following.
@@ -397,6 +424,8 @@ After running the application, confirm the following.
 - [ ] You can load a default template from the designer's <kbd>Presets</kbd> menu.
 - [ ] Adding or editing an element prints `Changed template` to the console.
 - [ ] The printed object's `kind` is `template`.
+- [ ] The selected element and current page are not reset even after continuous editing.
+- [ ] Undo and redo history is kept during editing.
 - [ ] No TypeScript errors occur.
 
 If you confirmed every item, the minimal connection of the SlipKit form designer is complete.
@@ -492,6 +521,46 @@ slip-designer {
 <summary><strong>Edits disappear after refreshing</strong></summary>
 
 SlipKit components do not automatically persist edits. You must save the file received via `slip-change` to IndexedDB, a server, or application state.
+
+</details>
+
+<details>
+<summary><strong>The selected element or page resets on every edit</strong></summary>
+
+Check whether you are passing the file received via `slip-change` back to the `src` of the designer currently being edited.
+
+Avoid a two-way binding like the following.
+
+```tsx
+const [template, setTemplate] = useState(createBlankTemplate);
+
+<SlipDesigner
+  src={serializeSlipFile(template)}
+  onSlipChange={setTemplate}
+/>
+```
+
+Every time the user edits, `template` changes and a new `src` is passed, so the designer reloads the file.
+
+Separate the designer's initial input from the latest editing result.
+
+```tsx
+const [designerSrc] = useState(() =>
+  serializeSlipFile(createBlankTemplate()),
+);
+
+const latestTemplate =
+  useRef<SlipTemplateFile | null>(null);
+
+<SlipDesigner
+  src={designerSrc}
+  onSlipChange={(file) => {
+    if (file.kind === 'template') {
+      latestTemplate.current = file;
+    }
+  }}
+/>
+```
 
 </details>
 
