@@ -2,137 +2,478 @@
 
 [한국어](designer.md) · [日本語](designer.ja.md)
 
-This guide walks through building a form (template) with `<slip-designer>`, with screenshots.
-For wiring the component into your app (install, props, events) see the **[Usage Guide](README.en.md)**;
-for the `.slip` file format see the **[SPEC](../SPEC.md)**.
+This document explains how to build document templates with the SlipKit form designer.
 
-The screens below show the bundled demo (`pnpm demo`) with the "Trade Statement" preset open.
+For how a developer connects `<slip-designer>` to an application, see [Getting started](getting-started.en.md); for how to save the edited template and connect it to the voucher-entry screen, see the [Application Integration Guide](integration.en.md).
 
-## Contents
+The screens in this document are based on loading <kbd>Transaction statement</kbd> from <kbd>Presets</kbd> in the bundled demo.
 
-1. [Layout](#1-layout)
-2. [Adding and editing elements](#2-adding-and-editing-elements)
-3. [Parameters — the values a voucher fills in](#3-parameters--the-values-a-voucher-fills-in)
-4. [Grid — tables and repeating lists](#4-grid--tables-and-repeating-lists)
-5. [Formulas](#5-formulas)
-6. [Preview](#6-preview)
-7. [Filling in a voucher](#7-filling-in-a-voucher)
-8. [Saving and loading](#8-saving-and-loading)
+## Order of building a template
 
----
+If you're building a template for the first time, we recommend working in this order.
 
-## 1. Layout
+- [ ] Choose a blank template or a preset
+- [ ] Set the title, paper, and margins
+- [ ] Define the parameters to fill in on a voucher
+- [ ] Place elements such as text, fields, and images
+- [ ] Set up a grid if there are repeating items
+- [ ] Write any calculation formulas you need
+- [ ] Enter sample data
+- [ ] Check the PDF preview
+- [ ] Save the finished template
 
-![Form designer full screen](images/en/overview.png)
+> [!TIP]
+> Rather than placing screen elements first, defining the parameters that go into a voucher first makes it easier to connect fields, repeating tables, and formulas.
 
-The designer has four areas.
+## 1. Choosing a starting template
 
-| Area | Where | What it does |
+You can start building a template in two ways.
+
+### Starting from a blank template
+
+A blank template lets you place elements freely, but you have to set up the title, paper, parameters, and tables all by yourself.
+
+For first-time use, it's easier to learn the features by modifying a preset than by starting from a blank template.
+
+### Starting from a preset
+
+You can choose a bundled default template from <kbd>Presets</kbd> in the toolbar.
+
+- Transaction statement
+- Invoice
+
+A preset comes with paper, text, input fields, an items table, and a total formula preconfigured.
+
+> [!WARNING]
+> Choosing a preset replaces the entire template you are currently editing with the selected preset.
+> If you have unfinished work, save it first. Right after applying a preset by mistake, you can return to the previous state with <kbd>Undo</kbd>.
+
+## 2. Understanding the layout
+
+![The full form designer screen](images/en/overview.png)
+
+The designer consists of four areas.
+
+| Area | Position | Role |
 |---|---|---|
-| **Toolbar** | Top | Add elements, copy/paste/undo, page navigation, preview, presets, save to my forms |
-| **Sidebar** | Left | Page list, element list, parameter list |
-| **Canvas** | Center | The editing surface where you place, move, and resize elements on the paper. mm rulers on top and left |
-| **Settings panel** | Right | Edits the details of the selected target (paper, element, or parameter) |
+| Toolbar | Top | Add elements, copy/paste, undo, add page, preview, presets |
+| Sidebar | Left | Lists of pages, elements, and parameters |
+| Canvas | Center | The editing space where you place and resize elements on the paper |
+| Settings panel | Right | Settings for the currently selected template, page, element, or parameter |
 
-With nothing selected, the panel shows **Form settings** (title, paper size, orientation, margins).
+The content of the right settings panel changes depending on what you select in the canvas and the sidebar.
 
-## 2. Adding and editing elements
-
-Add elements with the tools on the left of the toolbar. There are nine element types.
-
-![Element tools toolbar](images/en/toolbar.png)
-
-| Tool | Element |
+| What you selected | Settings panel |
 |---|---|
-| Text | Fixed text (titles, notes) |
-| Grid | Tables and repeating lists ([section 4](#4-grid--tables-and-repeating-lists)) |
-| Image | A fixed image, or a per-voucher image (signature, stamp) |
-| Line | A segment edited by length, angle, and width |
-| Shape | Rectangle, ellipse, regular polygon |
-| Field | A slot filled in at voucher time ([section 3](#3-parameters--the-values-a-voucher-fills-in)) |
-| Barcode | QR, Code128, and 10 more (12 types) |
+| Nothing selected | Template settings |
+| A page in the sidebar | Page settings |
+| An element in the canvas or sidebar | That element's settings |
+| A parameter in the sidebar | Parameter settings |
+| A cell in a grid | The selected cell's settings |
 
-Selecting an element on the canvas or in the sidebar **Elements** list switches the right panel to
-its editor. Below, the title (a text element) is selected — position (anchor, X, Y, width, height)
-and text style are edited in one place.
+> [!TIP]
+> If the item you want to configure isn't visible, first check what you currently have selected. Selecting an empty canvas area returns you to the template settings.
 
-![Settings panel for a selected text element](images/en/element-text.png)
+## 3. Configuring the template and pages
 
-- **Anchor**: which corner of the element the position (X, Y) is measured from.
-- **Type**: toggle a slot between text (fixed) and input field (filled at voucher time) right here.
-- Drag an element to move it, or use the corner handles to resize; snap to the mesh (toolbar `Grid`)
-  if you turn it on.
+### Template settings
 
-## 3. Parameters — the values a voucher fills in
+When no element or page is selected, the template settings appear on the right.
 
-A **parameter** is a value a person fills in when writing a voucher. Define parameters in the form, and
-fields, images, barcodes, and grid cells draw from them. The sidebar **Parameters** list is the single
-source of truth for values, so you can design the values first, before adding any element.
+Decide the following items first.
 
-![Parameter editing — a list type with sub-fields](images/en/parameter.png)
-
-A single parameter has these parts.
-
-| Part | Meaning |
+| Item | Description |
 |---|---|
-| **Physical name (key)** | The name used in files, formulas, and integrations (English recommended) |
-| **Display name (label)** | The name shown on screen |
-| **Parameter type** | The kind of value — text, number, date, boolean, image, or list. Decides the input in the form and which formulas apply |
-| **Sub-fields** | For a **list** type, the values one item holds (item name, spec, quantity, unit price, amount above). Created and edited in the definition, independent of any grid |
+| Title | The name used for the template and in the save list |
+| Paper size | A default paper such as A4, or a custom size you enter |
+| Orientation | Portrait or landscape |
+| Margins | Top, right, bottom, and left margins |
 
-At the bottom, **Used by** shows the elements that actually use the value, with their page.
+Paper size and the position and size of elements are managed in millimeters.
 
-## 4. Grid — tables and repeating lists
+> [!NOTE]
+> Margins indicate the working boundary of the document. When placing elements, check in the preview that they don't go outside the margins.
 
-A grid handles both a fixed table (like the supplier box, with set cells) and a list that grows with the
-data (the item table) as one element.
+### Managing pages
 
-![Settings panel for a selected grid](images/en/grid.png)
+Select a page from the <kbd>Pages</kbd> list in the sidebar. In the toolbar you can add or delete pages.
 
-- **Rows/Columns**: add or remove. Column widths and row heights are absolute mm, so changing one cell
-  doesn't shift the others.
-- **Repeat section**: when on, the chosen row range is cloned for each item of a **list parameter**.
-  Set the start/end rows, rows per page, a display cap, and whether to redraw the header across pages.
-- **Cell editing**: click the table once more to pick an individual cell and edit its value
-  (direct text, parameter, or formula) and style right away.
+When you select a page, you can configure the following.
 
-## 5. Formulas
+- Page name
+- Physical name used for external integration
+- Whether to show the page number
+- Page number position
+- Page order
 
-Fields, barcodes, and grid cells can compute their value with a **formula**. Switch the value source to
-`Formula` to get a formula box and an edit button (∑); the button opens the formula editor.
+If you set a page name, the sidebar shows that name instead of a plain page number.
 
-![Formula editor](images/en/formula.png)
+> [!CAUTION]
+> Deleting a page also removes the elements placed on it. Check the page and its elements before deleting.
 
-- Type the formula at the top and the **preview result** updates immediately.
-- Click a **parameter** chip to insert that value; its type (date, list, number) is shown too.
-- The **functions** list below documents all 32 built-in functions (SUM, AVG, IF, ROUND, …) with usage.
+## 4. Defining parameters
 
-For detailed formula usage see the **[Formula Function Reference](formula.en.md)**.
+Parameters represent values that differ from voucher to voucher.
 
-## 6. Preview
+For example, a transaction statement might need the following parameters.
 
-The toolbar **Preview** renders the current form to PDF. On-screen preview and the actual PDF share the
-same conversion, so what you see matches the output.
+| Physical name | Logical name | Type |
+|---|---|---|
+| `tradeDate` | Trade date | Date |
+| `customerName` | Customer name | Text |
+| `items` | Items | List |
+| `totalAmount` | Total amount | Number |
+| `stamp` | Seal | Image |
 
-![PDF preview](images/en/preview.png)
+### Registering a parameter
 
-Sample values are drawn if present, otherwise the value name (`{key}`). Press **Edit** to return.
+In the <kbd>Parameters</kbd> area of the sidebar, press <kbd>Add parameter</kbd>.
 
-## 7. Filling in a voucher
+Select the registered parameter, then enter the following in the right settings panel.
 
-Once the form is ready, switch to voucher entry to fill in values (`<slip-form>`). Enter values on the
-left and the preview on the right updates live; formula values (like the total) compute automatically.
+| Item | Purpose |
+|---|---|
+| Physical name | The name used for files, formulas, and external-system integration |
+| Logical name | The name shown in the entry form and the designer screen |
+| Parameter type | The input method and the value kind in formulas |
 
-![Voucher entry form](images/en/fill.png)
+The supported parameter types are as follows.
 
-Pressing **Issue** finalizes and locks the content — an issued voucher can no longer be edited.
+| Type | Example use |
+|---|---|
+| Text | Customer name, address, notes |
+| Number | Quantity, unit price, amount |
+| Date | Trade date, billing date |
+| Boolean | Selected or not, taxable or not |
+| Image | Signature, stamp, product image |
+| List | Items, work history, billing items |
 
-## 8. Saving and loading
+> [!TIP]
+> The physical name is not a phrase shown on screen but an identifier used for data integration.
+> Prefer a name without spaces that conveys its meaning, like `tradeDate`, over `trade date`.
 
-- **Files**: use download/open (in the toolbar, or the demo's top bar) to exchange `.slip` files.
-- **My forms**: attach a `storage` adapter and use `Save to my forms` / `My forms` to keep and reuse
-  forms in the browser or on a server. For adapter implementation see
-  **[Usage Guide §5](README.en.md#5-storage-adapters)**.
+Changing a physical name also updates the elements and sample values that reference that parameter. A name that duplicates an existing physical name, or an empty name, cannot be used.
 
-The component does not save edits by itself — the host app must handle the `slip-change` event and save
-([Usage Guide §4](README.en.md#4-events)).
+### List parameters and sub-fields
+
+For data that repeats over several rows, like items, set the type to <kbd>List</kbd>.
+
+For a list parameter, register the sub-fields that a single item holds.
+
+For example, `items` can have the following sub-fields.
+
+| Physical name | Logical name | Type |
+|---|---|---|
+| `itemName` | Item name | Text |
+| `spec` | Spec | Text |
+| `quantity` | Quantity | Number |
+| `unitPrice` | Unit price | Number |
+| `amount` | Amount | Number |
+
+![List parameter and sub-fields](images/en/parameter.png)
+
+Sub-fields are first created in the parameter definition, then connected to the grid's repeat cells.
+
+> [!IMPORTANT]
+> A list's sub-fields and a regular parameter have different roles.
+> `items` is the whole list of items, and `quantity` inside `items` is the quantity of a single item row.
+
+## 5. Placing elements
+
+Add an element from the toolbar, then place it on the canvas.
+
+![The element toolbar](images/en/toolbar.png)
+
+The designer supports the following elements.
+
+| Element | Purpose |
+|---|---|
+| Text | Text fixed on every voucher, like a title or guidance |
+| Field | A place that shows a parameter or a formula result |
+| Grid | A fixed table or a repeating list |
+| Image | A fixed image such as a logo, or an image that changes per voucher |
+| Barcode | A barcode such as QR or Code 128 |
+| Line | A divider line |
+| Rectangle | A border or a background area |
+| Ellipse | A circular or oval mark |
+| Polygon | A shape such as a triangle, pentagon, or hexagon |
+
+When you select an element, you can edit its position, size, content, and style in the right settings panel.
+
+![Text element settings](images/en/element-text.png)
+
+### Moving and resizing elements
+
+- Drag an element to move it.
+- Drag an element's resize handle to change its size.
+- Enter values in X, Y, width, and height in the settings panel for precise placement.
+- Use <kbd>Anchor</kbd> to set the reference position for calculating the X/Y coordinates.
+- Turn on <kbd>Grid</kbd> in the toolbar to align elements to a set interval.
+
+### Selecting and editing elements
+
+- You can select an element on the canvas.
+- You can also select it from the <kbd>Elements</kbd> list in the sidebar.
+- Turn on <kbd>Show element types</kbd> to make it easier to distinguish element types on the canvas.
+- Duplicate elements with <kbd>Copy</kbd> and <kbd>Paste</kbd>.
+- Restore edits with <kbd>Undo</kbd> and <kbd>Redo</kbd>.
+
+<details>
+<summary><strong>Moving multiple elements together</strong></summary>
+
+In the sidebar's element list, hold <kbd>Ctrl</kbd> (or <kbd>⌘</kbd> on macOS) and select multiple elements.
+
+The selected elements can be moved together or bundled into a group. Once grouped, selecting one element in the group selects the whole group.
+
+</details>
+
+### Distinguishing fixed and variable values
+
+Content that is always the same in the document is placed as a text element.
+
+Values that differ from voucher to voucher are connected to a field element via a parameter.
+
+For example, distinguish them like this.
+
+| Content | Element |
+|---|---|
+| The title text `Trade date` | Text |
+| The actual trade date value | A field connected to `tradeDate` |
+| The company logo | A fixed image |
+| A seal that differs per voucher | A variable image connected to `stamp` |
+
+> [!NOTE]
+> Image files are included in the template, so if there are many or large images, the `.slip` file size also grows.
+
+## 6. Building a grid
+
+A grid represents both a fixed table and a repeating list whose rows grow with the data.
+
+![Grid settings](images/en/grid.png)
+
+### Building a fixed table
+
+A table with a fixed number of rows and columns, like supplier information, does not use the repeat feature.
+
+1. Add a <kbd>Grid</kbd> from the toolbar.
+2. Decide the number of rows and columns.
+3. Adjust each row's height and each column's width.
+4. Merge the cells you need.
+5. Set direct input, a parameter, or a formula on a cell.
+6. Adjust the background color, text, and border styles.
+
+### Selecting cells
+
+Clicking a grid first selects the whole grid. Clicking the selected grid again lets you select an individual cell.
+
+When you select a cell, decide the cell type in the right settings panel.
+
+| Cell type | Purpose |
+|---|---|
+| Direct input | A column title or fixed text |
+| Parameter | A value entered on the voucher |
+| Formula | A result calculated from other values |
+
+Expanding a grid in the sidebar's element list lets you jump straight to a cell connected to a parameter or formula.
+
+### Building a repeating list
+
+A table whose rows repeat as many times as the data, like an items table, uses <kbd>Repeat range</kbd>.
+
+1. Define the list parameter and its sub-fields first.
+2. Create a header row and a row to use for repetition in the grid.
+3. Turn on <kbd>Enable repeat</kbd> in the grid settings.
+4. Specify the start row and end row.
+5. Choose the list parameter to use for repetition.
+6. Connect each cell in the repeat range to a sub-field of the list.
+7. Decide the number of rows to show per page.
+8. If needed, set the maximum number of rows to show and header repetition on page breaks.
+
+For example, connect the repeat rows of the `items` list like this.
+
+| Column | Sub-field to connect |
+|---|---|
+| Item name | `itemName` |
+| Spec | `spec` |
+| Quantity | `quantity` |
+| Unit price | `unitPrice` |
+| Amount | `amount` |
+
+> [!IMPORTANT]
+> In a repeat range's cells, connect a sub-field inside `items`, not the whole `items` list.
+
+> [!TIP]
+> If a repeat row is a multi-line card shape, you can set the start row and end row differently. The entire specified row range repeats for each list item.
+
+## 7. Writing formulas
+
+Fields, barcodes, and grid cells can show a formula result instead of a parameter.
+
+Select the element or cell that will use a formula, then change its value kind to <kbd>Formula</kbd>. Press the formula edit button to open the editor.
+
+![The formula editor](images/en/formula.png)
+
+In the formula editor you can use the following features.
+
+- Insert a value from the parameter list
+- Check the list of supported functions
+- Check formula syntax errors
+- Pre-compute the result using sample values
+
+For example, to sum every item's amount, you can use the following formula.
+
+`SUM(items.amount)`
+
+If you need to calculate a single row's amount from quantity and unit price, build a formula in the repeat cell using those sub-fields.
+
+> [!IMPORTANT]
+> Set the type of parameters and sub-fields used in numeric calculations to <kbd>Number</kbd>.
+> Text types are not automatically converted to numbers; use `TO_NUMBER` explicitly when needed.
+
+For supported functions and writing rules, see the [Formula Function Reference](formula.en.md).
+
+## 8. Entering sample data
+
+Sample data are values for checking how parameters and formulas display without actually issuing a voucher.
+
+Open <kbd>Sample data</kbd> in the <kbd>Parameters</kbd> area of the sidebar.
+
+![A preview with sample data applied](images/en/preview.png)
+
+With sample data you can check the following.
+
+- Whether values appear in fields
+- Whether number and date formats are correct
+- Whether the repeating list shows the expected number of rows
+- Whether formula results are correct
+- Whether images and barcodes render correctly
+- Whether results that split across multiple pages are correct
+
+A parameter with no sample value may show its value name or a blank value in the preview.
+
+> [!NOTE]
+> Sample data are values used for building the template and previewing. They are not automatically copied as actual input values when a voucher is created from the template.
+
+## 9. Checking the PDF preview
+
+Pressing <kbd>Preview</kbd> in the toolbar shows the result of rendering the current template to PDF.
+
+![The PDF preview](images/en/preview.png)
+
+Check the following.
+
+- Whether elements are placed within the paper and margins
+- Whether text is not clipped or overlapping
+- Whether table borders and cell merges are correct
+- Whether the repeating list continues correctly onto the next page
+- Whether the page number appears at the specified position
+- Whether formulas and barcodes render correctly
+- Whether images appear at the expected size and ratio
+
+> [!IMPORTANT]
+> Check the final output form against the PDF preview, not the editing canvas.
+> The editing canvas and the PDF may have slightly different line-break positions depending on the font-rendering environment.
+
+If you find a problem in the preview, return to <kbd>Edit</kbd> and fix it.
+
+## 10. Saving the template
+
+How you save a template depends on the host application's setup.
+
+### Save to My templates
+
+If the developer has connected the designer's `storage` property, the following buttons appear.
+
+- <kbd>Save to My templates</kbd>
+- <kbd>My templates</kbd>
+
+With this feature you can save a template under a name, and reload or delete it from the list.
+
+### Auto-save
+
+The designer emits the changed template via the `slip-change` event on every edit. The host application must receive this event to implement auto-save.
+
+> [!IMPORTANT]
+> The <kbd>Save to My templates</kbd> feature and auto-save are different features.
+> Even with a storage adapter connected, it does not automatically keep saving the current edits.
+
+### Opening and downloading files
+
+The following features at the top of the bundled demo are provided by the demo application, not by `<slip-designer>`.
+
+- <kbd>Download as file</kbd>
+- <kbd>Open file</kbd>
+- Restoring work after a refresh
+- Switching between the <kbd>Design</kbd> and <kbd>Fill</kbd> screens
+
+For how to implement these features in a real application, see the [Application Integration Guide](integration.en.md).
+
+## Common problems
+
+<details>
+<summary><strong>No input items appear on the voucher-entry screen</strong></summary>
+
+Check whether a parameter is connected to the field or grid cell.
+
+Fixed text and formula results are not values the user enters, so they don't become input items in the entry form.
+
+</details>
+
+<details>
+<summary><strong>Data doesn't appear in the repeating table</strong></summary>
+
+Check the following in order.
+
+- Whether the parameter type is List
+- Whether the list has sub-fields defined
+- Whether repeat is enabled in the grid
+- Whether the repeat range is correct
+- Whether the repeat range's cells are connected to sub-fields
+- Whether the sample data is an array of objects
+
+</details>
+
+<details>
+<summary><strong>A formula doesn't compute</strong></summary>
+
+Check whether the parameter's type matches the type the formula requires. Passing a text value to a numeric function can cause a calculation error.
+
+Check the formula editor's syntax errors and pre-computed result first.
+
+</details>
+
+<details>
+<summary><strong>Actual values don't appear in the preview</strong></summary>
+
+While building a template there are no actual voucher values, so you must enter sample data.
+
+Open <kbd>Sample data</kbd> in the <kbd>Parameters</kbd> area of the sidebar and enter values.
+
+</details>
+
+<details>
+<summary><strong>Edits disappear after a refresh</strong></summary>
+
+The designer does not automatically persist edits. The host application must receive the `slip-change` event and save to the browser or a server.
+
+In the bundled demo, the application implements IndexedDB auto-save separately.
+
+</details>
+
+## Completion check
+
+- [ ] I checked the template title and paper settings.
+- [ ] I defined the needed parameters and their types.
+- [ ] I defined the sub-fields of the list parameter.
+- [ ] I distinguished fixed and variable values with the correct elements.
+- [ ] I connected the repeat range and sub-fields of the repeating table.
+- [ ] I checked the calculation result in the formula editor.
+- [ ] I validated the template with sample data.
+- [ ] I checked the output result in the PDF preview.
+- [ ] I confirmed the template is saved to the host application.
+
+## Related documents
+
+- [Getting started](getting-started.en.md)
+- [Application Integration Guide](integration.en.md)
+- [Formula Function Reference](formula.en.md)
