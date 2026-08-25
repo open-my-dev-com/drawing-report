@@ -14,15 +14,18 @@ If this is your first time, start with [Getting started](getting-started.en.md) 
 
 | What you want to do | Document | Audience |
 |---|---|---|
-| Run SlipKit for the first time and connect the form designer | [Getting started](getting-started.en.md) | First-time developers |
+| Run SlipKit from the repository for the first time and connect the designer | [Getting started](getting-started.en.md) | First-time developers |
+| Connect the designer, entry form, and viewer, and save the results | [Application Integration Guide](integration.en.md) | Frontend and application developers |
 | Build a template on the designer screen | [Form Designer Guide](designer.en.md) | Template authors |
-| Handle `.slip` files and generate PDFs in Node.js | [Core API Guide](core.en.md) | Backend developers |
+| Handle `.slip` files, assemble vouchers, and generate PDFs | [Core Usage Guide](core.en.md) | Backend and Core developers |
+| Configure language, fonts, paper, presets, and storage | [Configuration Guide](configuration.en.md) | Application developers |
 | Write calculations in a template | [Formula Function Reference](formula.en.md) | Template authors and developers |
-| Check the `.slip` file structure and validation rules | [`.slip` file format specification](../SPEC.md) | Developers integrating external systems |
+| Check the public functions, types, components, and events | [API Reference](api-reference.en.md) | Integration developers |
 
 > [!TIP]
-> If you're not sure which document to read first, start with [Getting started](getting-started.en.md).
-> If the form designer displays correctly and you can receive the changed template data, the basic connection is complete.
+> If you are new, go through [Getting started](getting-started.en.md) first, then move on to the [Application Integration Guide](integration.en.md).
+>
+> If you only build templates, you can go straight to the [Form Designer Guide](designer.en.md); if you handle `.slip` files and PDFs without UI, go straight to the [Core Usage Guide](core.en.md).
 
 ## SlipKit's components
 
@@ -98,13 +101,6 @@ The repository includes three demos that implement the same features in differen
 
 Features that must be implemented outside SlipKit — such as auto-save, opening and downloading files, and screen transitions between the template and voucher views — are collected in [`examples/shared`](../../examples/shared).
 
-## Related project documents
+## Project information
 
-If you need a more detailed file specification or design structure than the guides provide, see the following documents.
-
-- [Project README](../../README.en.md)
-- [`.slip` file format specification](../SPEC.md)
-- [Architecture](../ARCHITECTURE.md)
-
-> [!NOTE]
-> Project-management documents such as requirements, the design decision log, and the roadmap are listed in the root README's technical documents section.
+For the package layout, how to run locally, development commands, technical documents, and the license, see the [Project README](../../README.en.md).

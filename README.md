@@ -37,9 +37,10 @@ SlipKit에서는 양식과 전표를 구분합니다.
 
 ## 현재 상태
 
+> [!IMPORTANT]
 > SlipKit은 현재 공개 전 검토 단계입니다.
-
-`@omdc-slipkit/*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 현재 버전은 저장소를 복제하여 데모와 소스 코드로 확인할 수 있습니다.
+>
+> `@omdc-slipkit/*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 현재 버전은 저장소를 복제하여 데모와 소스 코드로 확인할 수 있습니다.
 
 ## 패키지 구성
 
@@ -94,16 +95,19 @@ pnpm demo:vue
 
 ## 사용 가이드
 
-애플리케이션에 SlipKit을 연결하는 방법은 다음 문서에서 확인할 수 있습니다.
+처음 사용한다면 [시작하기](docs/guide/getting-started.md)에서 저장소의 데모를 실행하고 디자이너를 연결해 보세요. 저장·복원과 세 컴포넌트의 연결 방법은 [애플리케이션 통합 가이드](docs/guide/integration.md)에서 이어서 설명합니다.
+
+전체 문서는 [SlipKit 가이드](docs/guide/README.md)에서 목적별로 확인할 수 있습니다.
 
 | 문서 | 내용 |
 |---|---|
-| [사용 가이드](docs/guide/README.md) | 패키지 구성, 빠른 시작, 컴포넌트 API, 이벤트 및 저장소 연계 |
-| [양식 디자이너 가이드](docs/guide/designer.md) | 디자이너 화면과 양식 제작 기능 |
-| [Core API 가이드](docs/guide/core.md) | 파일 처리, 전표 조립, 수식 평가 및 PDF 생성 |
-| [수식 함수 참조](docs/guide/formula.md) | 지원하는 수식 함수와 사용 예제 |
+| [시작하기](docs/guide/getting-started.md) | 데모 실행과 양식 디자이너의 최소 연결 |
+| [애플리케이션 통합 가이드](docs/guide/integration.md) | 디자이너·작성폼·뷰어 연결, 저장·복원 및 서버 연계 |
+| [양식 디자이너 사용 가이드](docs/guide/designer.md) | 디자이너 화면에서 양식을 제작하는 방법 |
+| [Core 사용 가이드](docs/guide/core.md) | `.slip` 파일 처리, 전표 조립, 수식 평가, PDF 생성과 암호화 |
 | [환경 설정 가이드](docs/guide/configuration.md) | 언어·폰트·용지·바코드·프리셋·저장소 설정 |
-| [API 참조](docs/guide/api-reference.md) | 함수·타입·컴포넌트·이벤트·오류 참조 |
+| [수식 함수 참조](docs/guide/formula.md) | 수식 작성 규칙, 지원 함수와 사용 예제 |
+| [API 참조](docs/guide/api-reference.md) | 함수·타입·컴포넌트·이벤트·오류의 전체 참조 |
 
 ## 기술 문서
 

@@ -37,9 +37,10 @@ Both templates and vouchers use the `.slip` extension and are distinguished by t
 
 ## Current status
 
+> [!IMPORTANT]
 > SlipKit is currently in a pre-release review stage.
-
-The `@omdc-slipkit/*` packages are not yet published to the npm registry. For now you can explore the current version by cloning the repository and reviewing the demos and source code.
+>
+> The `@omdc-slipkit/*` packages are not yet published to the npm registry. For now you can explore the current version by cloning the repository and reviewing the demos and source code.
 
 ## Packages
 
@@ -94,16 +95,19 @@ Framework-independent logic such as the demos' auto-save and file handling is im
 
 ## Guides
 
-See the following documents for how to connect SlipKit to an application.
+If you are new, start by running a repository demo and connecting the designer in [Getting started](docs/guide/getting-started.en.md). Saving and restoring, and how to connect the three components, continue in the [Application Integration Guide](docs/guide/integration.en.md).
+
+The full documentation is organized by goal in the [SlipKit Guide](docs/guide/README.en.md).
 
 | Document | Contents |
 |---|---|
-| [User Guide](docs/guide/README.en.md) | Package layout, quick start, component API, events, and storage integration |
-| [Form Designer Guide](docs/guide/designer.en.md) | The designer screen and form-building features |
-| [Core API Guide](docs/guide/core.en.md) | File handling, voucher assembly, formula evaluation, and PDF generation |
-| [Formula Function Reference](docs/guide/formula.en.md) | Supported formula functions and usage examples |
+| [Getting started](docs/guide/getting-started.en.md) | Running the demos and the minimal connection of the form designer |
+| [Application Integration Guide](docs/guide/integration.en.md) | Connecting the designer, entry form, and viewer; saving, restoring, and server integration |
+| [Form Designer Guide](docs/guide/designer.en.md) | How to build a form on the designer screen |
+| [Core Usage Guide](docs/guide/core.en.md) | `.slip` file handling, voucher assembly, formula evaluation, PDF generation, and encryption |
 | [Configuration Guide](docs/guide/configuration.en.md) | Language, fonts, paper, barcodes, presets, and storage settings |
-| [API Reference](docs/guide/api-reference.en.md) | Functions, types, components, events, and errors |
+| [Formula Function Reference](docs/guide/formula.en.md) | Formula-writing rules, supported functions, and usage examples |
+| [API Reference](docs/guide/api-reference.en.md) | The full reference of functions, types, components, events, and errors |
 
 ## Technical documents
 

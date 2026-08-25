@@ -37,9 +37,10 @@ SlipKit ではテンプレートと伝票を区別します。
 
 ## 現在の状態
 
+> [!IMPORTANT]
 > SlipKit は現在、公開前のレビュー段階です。
-
-`@omdc-slipkit/*` パッケージはまだ npm レジストリに公開されていません。現在のバージョンはリポジトリをクローンして、デモとソースコードで確認できます。
+>
+> `@omdc-slipkit/*` パッケージはまだ npm レジストリに公開されていません。現在のバージョンはリポジトリをクローンして、デモとソースコードで確認できます。
 
 ## パッケージ構成
 
@@ -94,16 +95,19 @@ pnpm demo:vue
 
 ## 利用ガイド
 
-アプリケーションに SlipKit を組み込む方法は、次のドキュメントで確認できます。
+はじめて使うなら、[スタートガイド](docs/guide/getting-started.ja.md) でリポジトリのデモを実行し、デザイナーを接続してみてください。保存・復元と 3 つのコンポーネントの接続方法は、[アプリケーション統合ガイド](docs/guide/integration.ja.md) で続けて説明します。
+
+すべてのドキュメントは [SlipKit ガイド](docs/guide/README.ja.md) で目的別に確認できます。
 
 | ドキュメント | 内容 |
 |---|---|
-| [利用ガイド](docs/guide/README.ja.md) | パッケージ構成、クイックスタート、コンポーネント API、イベント、ストレージ連携 |
-| [テンプレートデザイナーガイド](docs/guide/designer.ja.md) | デザイナー画面とテンプレート作成機能 |
-| [Core API ガイド](docs/guide/core.ja.md) | ファイル処理、伝票の組み立て、数式評価、PDF 生成 |
-| [数式関数リファレンス](docs/guide/formula.ja.md) | 対応する数式関数と使用例 |
+| [スタートガイド](docs/guide/getting-started.ja.md) | デモの実行とテンプレートデザイナーの最小接続 |
+| [アプリケーション統合ガイド](docs/guide/integration.ja.md) | デザイナー・作成フォーム・ビューアの接続、保存・復元、サーバー連携 |
+| [テンプレートデザイナー利用ガイド](docs/guide/designer.ja.md) | デザイナー画面でテンプレートを作成する方法 |
+| [Core 利用ガイド](docs/guide/core.ja.md) | `.slip` ファイル処理、伝票の組み立て、数式評価、PDF 生成、暗号化 |
 | [環境設定ガイド](docs/guide/configuration.ja.md) | 言語・フォント・用紙・バーコード・プリセット・ストレージの設定 |
-| [API リファレンス](docs/guide/api-reference.ja.md) | 関数・型・コンポーネント・イベント・エラーの参照 |
+| [数式関数リファレンス](docs/guide/formula.ja.md) | 数式の記述ルール、対応する関数と使用例 |
+| [API リファレンス](docs/guide/api-reference.ja.md) | 関数・型・コンポーネント・イベント・エラーの全体リファレンス |
 
 ## 技術ドキュメント
 
