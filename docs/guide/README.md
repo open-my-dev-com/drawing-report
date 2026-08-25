@@ -1,289 +1,110 @@
-# SlipKit 사용 가이드
+# SlipKit 가이드
 
 [English](README.en.md) · [日本語](README.ja.md)
 
-호스트 앱에 SlipKit을 설치하고 양식 디자이너·전표 작성폼·뷰어를 붙이는 방법을 설명합니다.
+SlipKit을 실행하거나 기존 애플리케이션에 연결하는 데 필요한 문서를 안내합니다.
 
-![양식 디자이너 화면](images/ko/overview.png)
+처음 사용한다면 [시작하기](getting-started.md)에서 저장소의 데모를 실행하고 양식 디자이너를 연결하는 과정부터 확인하세요.
 
-> 디자이너 화면을 하나씩 짚어 보는 **[양식 디자이너 사용 가이드](designer.md)** 를 함께 보세요.
+> [!IMPORTANT]
+> SlipKit은 현재 공개 전 검토 단계이며 `@omdc-slipkit/*` 패키지는 npm 레지스트리에 아직 배포되지 않았습니다.
+> 현재는 저장소를 복제하여 동봉 데모와 소스 코드로 확인할 수 있습니다.
 
-## 목차
+## 목적에 맞는 문서 찾기
 
-1. [설치](#1-설치)
-2. [빠른 시작](#2-빠른-시작)
-3. [컴포넌트 API](#3-컴포넌트-api)
-4. [이벤트](#4-이벤트)
-5. [저장소 어댑터](#5-저장소-어댑터)
-6. [폰트 설정](#6-폰트-설정)
-7. [언어 설정](#7-언어-설정)
-
-### 관련 문서
-
-- **[양식 디자이너 사용 가이드](designer.md)** — 디자이너 화면 구성과 요소·파라미터·그리드·수식·미리보기 사용법 (화면 캡처 포함)
-- **[Core API 가이드](core.md)** — 파싱·수식·PDF 렌더링·서버 연계 (Node.js 단독 사용 포함)
-- **[수식 함수 참조](formula.md)** — 내장 함수 32종의 사용법·인자·예시
-- **[주요 타입 참조](types.md)** — `SlipFile`, 폰트, `SlipPreset`, `StorageAdapter` 등 타입별 필드와 기본값
-- **[동봉 폰트·프리셋](fonts-and-presets.md)** — 동봉 폰트(Pretendard·Noto Sans JP) 상세, 폰트 공급, 동봉 프리셋(거래명세서·청구서)의 구성과 언어 처리
-
----
-
-## 1. 설치
-
-```bash
-# 바닐라 (Web Component 직접 사용)
-npm install @omdc-slipkit/elements
-
-# React
-npm install @omdc-slipkit/react
-# peerDependency: react >= 19
-
-# Vue
-npm install @omdc-slipkit/vue
-# peerDependency: vue >= 3.4
-```
-
-`@omdc-slipkit/core`는 elements·react·vue가 의존하므로 따로 설치하지 않아도 됩니다.
-서버에서 core만 단독으로 쓸 때(Node에서 PDF 생성 등)만 직접 설치합니다.
-
-```bash
-npm install @omdc-slipkit/core
-```
-
-## 2. 빠른 시작
-
-### 바닐라 (Web Component)
-
-```html
-<script type="module">
-  import '@omdc-slipkit/elements';
-  import { serializeSlipFile } from '@omdc-slipkit/core';
-
-  const designer = document.querySelector('slip-designer');
-
-  // 변경 감지
-  designer.addEventListener('slip-change', (e) => {
-    const file = e.detail.file;  // SlipFile 객체
-    console.log('양식이 바뀜:', file);
-  });
-</script>
-
-<slip-designer src="{}"></slip-designer>
-```
-
-### React
-
-```tsx
-import { SlipDesigner, SlipForm, SlipViewer } from '@omdc-slipkit/react';
-import { serializeSlipFile, type SlipFile } from '@omdc-slipkit/core';
-
-function App() {
-  const [template, setTemplate] = useState(initialTemplate);
-
-  return (
-    <SlipDesigner
-      src={serializeSlipFile(template)}
-      onSlipChange={(file) => {
-        if (file.kind === 'template') setTemplate(file);
-      }}
-    />
-  );
-}
-```
-
-### Vue
-
-```vue
-<script setup lang="ts">
-import { SlipDesigner, SlipForm, SlipViewer } from '@omdc-slipkit/vue';
-import { serializeSlipFile, type SlipFile } from '@omdc-slipkit/core';
-import { shallowRef, computed } from 'vue';
-
-const template = shallowRef(initialTemplate());
-const src = computed(() => serializeSlipFile(template.value));
-
-function onDesignerChange(file: SlipFile) {
-  if (file.kind === 'template') template.value = file;
-}
-</script>
-
-<template>
-  <SlipDesigner :src="src" @slip-change="onDesignerChange" />
-</template>
-```
-
-> Vue에서 `slip-` 접두사를 커스텀 엘리먼트로 인식하도록 빌드 설정을 추가하면 래퍼 없이
-> `<slip-designer>`를 직접 써도 됩니다.
-
-## 3. 컴포넌트 API
-
-### `<slip-designer>` — 양식 디자이너
-
-양식(template)을 시각적으로 편집하는 GUI 에디터입니다.
-
-| 속성 | 타입 | 설명 |
+| 하고 싶은 일 | 문서 | 대상 |
 |---|---|---|
-| `src` | `string` | `.slip` JSON 문자열 (template 파일) |
-| `locale` | `'ko' \| 'en' \| 'ja'` | UI 언어 (기본: `'ko'`) |
-| `settings` | `SlipDesignerSettings` | 폰트 공급(`getFonts`)·용지 목록 공급/저장(`getPaperSizes`/`savePaperSize`)·바코드 종류 좁히기(`getBarcodeKinds`). 미지정 시 언어에 맞는 동봉 폰트를 쓰고 바코드는 12종을 모두 보입니다 (ADR-040/042/048) |
-| `presets` | `SlipPreset[]` | 프리셋 메뉴에 쓸 양식 목록 — 지정하면 동봉 프리셋 대신 표시 |
-| `storage` | `StorageAdapter` | "내 양식 저장·불러오기"에 쓸 저장소 어댑터 |
+| SlipKit을 처음 실행하고 양식 디자이너 연결하기 | [시작하기](getting-started.md) | 처음 사용하는 개발자 |
+| 디자이너 화면에서 양식 만들기 | [양식 디자이너 사용 가이드](designer.md) | 양식 제작자 |
+| Node.js에서 `.slip` 파일 처리와 PDF 생성하기 | [Core API 가이드](core.md) | 백엔드 개발자 |
+| 양식에서 계산식 작성하기 | [수식 함수 참조](formula.md) | 양식 제작자·개발자 |
+| `.slip` 파일 구조와 검증 규칙 확인하기 | [`.slip` 파일 형식 명세](../SPEC.md) | 외부 시스템 연계 개발자 |
 
-| 이벤트 | detail | 설명 |
-|---|---|---|
-| `slip-change` | `{ file: SlipFile }` | 편집으로 양식이 바뀔 때마다 발생 |
+> [!TIP]
+> 어떤 문서부터 읽어야 할지 모르겠다면 [시작하기](getting-started.md)를 먼저 진행하세요.
+> 양식 디자이너가 정상적으로 표시되고 변경된 양식 데이터를 받을 수 있다면 기본 연결이 완료된 것입니다.
 
-### `<slip-form>` — 전표 작성폼
+## SlipKit의 구성 요소
 
-양식에 값을 채우고 발행하는 입력 화면입니다. 오른쪽에 채운 상태의 PDF 미리보기를 보여줍니다.
+SlipKit은 목적이 다른 세 가지 UI 컴포넌트를 제공합니다.
 
-| 속성 | 타입 | 설명 |
-|---|---|---|
-| `src` | `string` | `.slip` JSON 문자열 (양식 또는 작성 중 전표) |
-| `locale` | `'ko' \| 'en' \| 'ja'` | UI 언어 (기본: `'ko'`) |
-| `settings` | `SlipFontProvider` | 폰트 공급(`getFonts`). 미지정 시 언어에 맞는 동봉 폰트 사용 (ADR-040/042) |
-
-| 이벤트 | detail | 설명 |
-|---|---|---|
-| `slip-change` | `{ file: SlipFile }` | 값을 채울 때마다 작성 중 전표를 내보냄 |
-| `slip-issue` | `{ file: SlipFile }` | 발행(확정)되면 잠긴 전표를 내보냄 |
-
-### `<slip-viewer>` — 뷰어
-
-발행된 전표나 양식을 PDF로 렌더링해 보여주는 읽기 전용 뷰어입니다.
-
-| 속성 | 타입 | 설명 |
-|---|---|---|
-| `src` | `string` | `.slip` JSON 문자열 |
-| `locale` | `'ko' \| 'en' \| 'ja'` | UI 언어 (기본: `'ko'`) |
-| `settings` | `SlipFontProvider` | 폰트 공급(`getFonts`). 미지정 시 언어에 맞는 동봉 폰트 사용 (ADR-040/042) |
-
-## 4. 이벤트
-
-컴포넌트가 보내는 이벤트는 `CustomEvent`이며 `detail.file`에 현재 `.slip` 파일 객체가 담깁니다.
-**호스트 앱은 이 이벤트로 컴포넌트 안의 데이터를 받습니다** — 컴포넌트가 직접 저장하지 않으므로,
-이벤트를 받아 저장하지 않으면 편집 내용이 사라집니다.
-
-```ts
-// 바닐라
-designer.addEventListener('slip-change', (e) => {
-  const file = e.detail.file;  // SlipFile
-});
-
-// React
-<SlipDesigner onSlipChange={(file) => { /* SlipFile */ }} />
-
-// Vue
-<SlipDesigner @slip-change="(file) => { /* SlipFile */ }" />
-```
-
-### 이벤트 종류와 용도
-
-| 이벤트 | 발생 시점 | 파일 종류 | 호스트 앱이 하는 일 |
+| 구성 요소 | 역할 | 입력 | 변경 결과 |
 |---|---|---|---|
-| `slip-change` (디자이너) | 양식을 편집할 때마다 | `template` | 양식 자동 저장, 상태 동기화 |
-| `slip-change` (작성폼) | 전표에 값을 채울 때마다 | `voucher` | 작성 중 전표 임시 저장 (새로고침 후 이어 쓰기) |
-| `slip-issue` (작성폼) | 발행 버튼을 누르면 | `voucher` (확정·잠금) | 발행된 전표를 서버에 저장 |
+| `<slip-designer>` | 문서 양식 설계 | 양식 | 편집된 양식 |
+| `<slip-form>` | 양식에 값 입력 및 전표 발행 | 양식 또는 작성 중 전표 | 작성 중 전표·발행된 전표 |
+| `<slip-viewer>` | 양식이나 전표 조회 | 양식 또는 전표 | 없음 |
 
-### 활용 예시
+각 컴포넌트는 `.slip` 파일을 JSON 문자열로 전달받습니다.
 
-```ts
-// 디자이너: 양식이 바뀌면 서버에 저장
-designer.addEventListener('slip-change', (e) => {
-  const template = e.detail.file;
-  fetch('/api/templates/' + templateId, {
-    method: 'PUT',
-    body: serializeSlipFile(template),
-  });
-});
+- 양식은 `kind: 'template'`입니다.
+- 전표는 `kind: 'voucher'`입니다.
+- 발행된 전표는 `issued: true`이며 작성폼에서 더 이상 수정할 수 없습니다.
 
-// 작성폼: 발행이 끝나면 전표를 서버에 올립니다
-form.addEventListener('slip-issue', (e) => {
-  const voucher = e.detail.file;
-  fetch('/api/vouchers', {
-    method: 'POST',
-    body: serializeSlipFile(voucher),
-  });
-});
-```
+> [!NOTE]
+> SlipKit은 독립 실행형 서비스가 아닙니다.
+> 사용자 인증, 권한 관리, 데이터 저장, 서버 API 및 컴포넌트 간 화면 전환은 SlipKit을 사용하는 애플리케이션에서 구현합니다.
 
-## 5. 저장소 어댑터
+## 사용 흐름
 
-`StorageAdapter` 인터페이스를 구현하면 "내 양식 저장·불러오기" 기능을 쓸 수 있습니다.
-elements 패키지에 브라우저용 구현 2종이 들어 있습니다.
+일반적인 애플리케이션에서는 다음 순서로 SlipKit을 사용합니다.
 
-### IndexedDB 저장소
+1. `<slip-designer>`에서 양식을 만듭니다.
+2. 변경된 양식을 애플리케이션에 저장합니다.
+3. 저장한 양식을 `<slip-form>`에 전달합니다.
+4. 사용자가 값을 입력하고 전표를 발행합니다.
+5. 작성 중이거나 발행된 전표를 애플리케이션에 저장합니다.
+6. `<slip-viewer>`에서 저장한 양식 또는 전표를 조회합니다.
 
-브라우저의 IndexedDB에 양식을 저장합니다. 제목·종류 필터와 커서 페이징을 지원합니다.
+편집 결과는 컴포넌트가 자동으로 영구 저장하지 않습니다. 디자이너와 작성폼이 전달하는 이벤트를 애플리케이션에서 받아 저장해야 합니다.
 
-```ts
-import { IndexedDbStorage } from '@omdc-slipkit/elements';
+## 패키지 선택
 
-const store = new IndexedDbStorage({ dbName: 'my-app-slips' });
-```
+사용하려는 환경에 따라 다음 패키지를 사용합니다.
 
-### 로컬 파일 저장소
+| 패키지 | 용도 |
+|---|---|
+| `@omdc-slipkit/core` | `.slip` 파일 검증, 전표 조립, 수식 평가, PDF 생성 및 파일 암호화 |
+| `@omdc-slipkit/elements` | Web Component 기반 디자이너·작성폼·뷰어 |
+| `@omdc-slipkit/react` | React용 래퍼 컴포넌트 |
+| `@omdc-slipkit/vue` | Vue용 래퍼 컴포넌트 |
 
-저장은 파일 다운로드, 열기는 파일 선택 대화 상자로 동작합니다.
+React와 Vue 패키지는 Web Component를 해당 프레임워크의 사용 방식에 맞게 연결하는 얇은 래퍼입니다. 제공하는 SlipKit 기능에는 차이가 없습니다.
 
-```ts
-import { LocalFileStorage } from '@omdc-slipkit/elements';
+<details>
+<summary><strong>가이드에서 사용하는 용어</strong></summary>
 
-const localFile = new LocalFileStorage();
-await localFile.save('거래명세서.slip', file);  // 다운로드
-const file = await localFile.load('');           // 파일 선택
-```
+| 용어 | 의미 |
+|---|---|
+| 호스트 애플리케이션 | SlipKit을 설치하고 사용하는 웹 애플리케이션 |
+| 양식 | 문서의 크기, 배치, 파라미터와 수식을 정의한 파일 |
+| 전표 | 양식에 실제 값을 입력한 파일 |
+| 발행 | 작성한 전표의 값을 확정하여 더 이상 작성폼에서 수정할 수 없게 만드는 작업 |
+| 파라미터 | 전표마다 달라지는 값을 양식에서 참조하기 위한 이름 |
+| 양식 스냅샷 | 전표를 만들 때 전표 안에 함께 저장되는 당시의 양식 |
+| 저장소 어댑터 | 양식과 전표를 브라우저 또는 서버에 저장하기 위한 인터페이스 |
 
-### 직접 구현
+</details>
 
-서버 API로 양식을 관리하려면 `StorageAdapter` 인터페이스를 직접 구현하면 됩니다.
+## 예제 프로젝트
 
-```ts
-import type { StorageAdapter } from '@omdc-slipkit/core';
+저장소에는 같은 기능을 서로 다른 환경에서 구현한 세 가지 데모가 포함되어 있습니다.
 
-const serverStorage: StorageAdapter = {
-  async save(key, file) { /* POST /api/slips */ },
-  async load(key) { /* GET /api/slips/:key */ },
-  async delete(key) { /* DELETE /api/slips/:key */ },
-  async list(options?) { /* GET /api/slips?title=...&cursor=... */ },
-};
-```
+| 환경 | 예제 |
+|---|---|
+| Web Component | [`examples/demo`](../../examples/demo) |
+| React | [`examples/react-demo`](../../examples/react-demo) |
+| Vue | [`examples/vue-demo`](../../examples/vue-demo) |
+| 프레임워크 공통 로직 | [`examples/shared`](../../examples/shared) |
 
-## 6. 폰트 설정
+자동 저장, 파일 열기와 내려받기, 양식·전표 화면 전환처럼 SlipKit 외부에서 구현해야 하는 기능은 [`examples/shared`](../../examples/shared)에 정리되어 있습니다.
 
-SlipKit은 언어별 기본 폰트를 동봉합니다 — 한국어·영어는 Pretendard, 일본어는 Noto Sans JP.
-`settings`를 지정하지 않으면 `locale`에 맞는 폰트가 자동으로 쓰여 글자가 깨지지 않습니다.
+## 관련 프로젝트 문서
 
-호스트가 폰트를 공급하려면 `settings.getFonts`를 구현해 전달합니다(동기 배열 또는 서버 fetch Promise).
+가이드보다 더 자세한 파일 규격이나 설계 구조가 필요하면 다음 문서를 확인하세요.
 
-```ts
-import { PRETENDARD_FONTS } from '@omdc-slipkit/elements/fonts/pretendard';
+- [프로젝트 README](../../README.md)
+- [`.slip` 파일 형식 명세](../SPEC.md)
+- [아키텍처](../ARCHITECTURE.md)
 
-designer.settings = {
-  getFonts: () => [
-    ...PRETENDARD_FONTS,
-    { name: 'NotoSans', data: notoSansArrayBuffer },
-  ],
-};
-```
-
-폰트 공급 인터페이스와 동봉 폰트의 상세는 **[동봉 폰트·프리셋](fonts-and-presets.md)** 을 참고해 주세요.
-
-## 7. 언어 설정
-
-UI 언어는 `locale` 속성으로 바꿉니다. 지원 언어는 한국어(`'ko'`, 기본)·영어(`'en'`)·일본어(`'ja'`)입니다.
-
-```html
-<slip-designer locale="ja"></slip-designer>
-```
-
-```tsx
-<SlipDesigner src={src} locale="ja" />
-```
-
-일본어(`'ja'`)는 기본 폰트(Noto Sans JP)를 동봉해 언어만 바꿔도 렌더됩니다 — 굵게나 더 넓은 글자
-범위가 필요하면 `settings.getFonts`로 폰트를 공급합니다.
-
-수식 함수의 결과 포맷(숫자 자릿수 구분 등)도 로케일에 따라 바뀝니다(`ja-JP` 포함).
-
-서버에서 `.slip` 파일을 직접 다루거나 PDF를 만들어야 하면 **[Core API 가이드](core.md)** 를 참고해 주세요.
+> [!NOTE]
+> 요구사항, 설계 결정 기록, 로드맵과 같은 프로젝트 관리 문서는 루트 README의 기술 문서 목록에서 확인할 수 있습니다.
