@@ -42,14 +42,15 @@ function currentBranch() {
 // 브랜치 형식 규칙 (.claude/rules/branching.md): <type>/<scope>-<topic>
 const BRANCH_FORMAT = /^(feat|fix|docs|proto|chore)\/(core|elements|react|vue|repo)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-// 규칙에 맞지 않아도 허용할 브랜치 패턴('*' 와일드카드) — 훅에서 제어하는 예외 목록 (ADR-058)
-function allowedBranchPatterns() {
+// 브랜치 제어 설정('*' 와일드카드) — 거부 목록은 허용 목록보다 우선한다 (ADR-058)
+function branchGuardConfig() {
   const projectDir = process.env.CLAUDE_PROJECT_DIR ?? cwd;
+  const patterns = (value) => (Array.isArray(value) ? value.filter((p) => typeof p === 'string') : []);
   try {
     const config = JSON.parse(readFileSync(join(projectDir, '.claude', 'hooks', 'branch-guard.json'), 'utf8'));
-    return Array.isArray(config.allowBranches) ? config.allowBranches.filter((p) => typeof p === 'string') : [];
+    return { deny: patterns(config.denyBranches), allow: patterns(config.allowBranches) };
   } catch {
-    return [];
+    return { deny: [], allow: [] };
   }
 }
 
@@ -58,12 +59,19 @@ function matchesPattern(branch, pattern) {
   return regex.test(branch);
 }
 
-/** 커밋·푸시 대상 브랜치가 규칙 형식이거나 허용 목록에 있는지 검사한다. 어긋나면 차단. */
+/** 커밋·푸시 대상 브랜치를 검사한다 — 거부 목록이면 무조건, 형식·허용 목록에 없어도 차단. */
 function requireBranchAllowed(branch) {
   // 브랜치를 알 수 없는 상태(비저장소·detached HEAD)는 여기서 판단하지 않는다
   if (branch === '' || branch === 'HEAD' || branch === 'main') return;
+  const { deny, allow } = branchGuardConfig();
+  if (deny.some((pattern) => matchesPattern(branch, pattern))) {
+    block(
+      `[bash-guard] 브랜치 이름 '${branch}'는 사용이 금지되어 있습니다 (.claude/hooks/branch-guard.json denyBranches, ADR-058).\n` +
+        `허용 목록으로도 열 수 없습니다. 규칙 형식(<type>/<scope>-<topic>)의 새 브랜치를 만들어 작업을 옮기세요.`,
+    );
+  }
   if (BRANCH_FORMAT.test(branch)) return;
-  if (allowedBranchPatterns().some((pattern) => matchesPattern(branch, pattern))) return;
+  if (allow.some((pattern) => matchesPattern(branch, pattern))) return;
   block(
     `[bash-guard] 브랜치 '${branch}'는 규칙 형식(<type>/<scope>-<topic>, .claude/rules/branching.md)이 아닙니다.\n` +
       `규칙 형식의 브랜치로 옮겨 작업하세요. 이 브랜치를 그대로 써야 한다면(환경이 이름을 강제하는 경우 등)\n` +
