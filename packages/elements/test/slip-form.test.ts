@@ -1,9 +1,8 @@
 // @vitest-environment happy-dom
 /**
- * `<slip-form>` 전표 작성폼 테스트 (D-14).
+ * `<slip-form>` 전표 작성 폼 테스트.
  *
- * PDF 렌더만 모의하고 파싱·수식은 실제 core 구현을 쓴다 —
- * 발행 규칙(값 확정·잠금)이 실제로 지켜지는지 확인하기 위함.
+ * PDF 렌더링만 모의하고 파싱과 수식에는 core의 실제 구현을 사용한다.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
@@ -100,8 +99,7 @@ function flush(): Promise<void> {
 }
 
 /**
- * 조건이 참이 될 때까지 기다린다 — 발행·미리보기(디바운스)는 비동기라
- * 고정 시간 대기로는 부하가 걸린 실행에서 흔들린다.
+ * 발행과 디바운스된 미리보기 상태가 반영될 때까지 조건을 반복해서 확인한다.
  */
 async function waitFor(predicate: () => boolean, timeoutMs = 5000): Promise<void> {
   const started = Date.now();
@@ -166,7 +164,7 @@ describe('<slip-form> 입력 칸 구성', () => {
     const el = await mount();
     expect(inputByLabel(el, '거래일자')).toBeTruthy();
     expect(inputByLabel(el, '비고')).toBeTruthy(); // 요소 없이 정의부에만 있는 파라미터
-    // 반복 구간이 쓰는 값은 그리드 헤더에 적힌 이름으로 열이 나온다
+    // 반복 입력의 열 이름은 같은 그리드 열의 헤더에서 가져온다.
     const titles = Array.from(el.shadowRoot!.querySelectorAll('.col-title')).map((s) => s.textContent);
     expect(titles).toEqual(['품명', '금액']);
     el.remove();
@@ -273,7 +271,6 @@ describe('<slip-form> 발행', () => {
     expect(file.issued).toBe(true);
     expect(file.values.tradeDate).toBe('2026-08-20');
 
-    // 폼은 잠기고 발행 표시가 나온다
     expect(el.shadowRoot?.textContent).toContain(strings.form.issued);
     expect(inputByLabel(el, '거래일자').disabled).toBe(true);
     expect(el.shadowRoot?.textContent).toContain(strings.form.issuedNotice);
@@ -322,7 +319,7 @@ describe('<slip-form> 미리보기', () => {
     setInput(inputByLabel(el, '거래일자'), '2026-08-20');
     await el.updateComplete;
 
-    // 디바운스 뒤 한 번만 렌더된다
+    // 연속 입력은 디바운스되어 한 번만 렌더링된다.
     await waitFor(() => renderSlipToPdfMock.mock.calls.length > 0);
     await waitFor(() => el.shadowRoot?.querySelector('iframe') !== null);
     await el.updateComplete;
@@ -349,7 +346,7 @@ describe('<slip-form> UI 언어', () => {
 const SAMPLE_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
-/** 변동 이미지 요소가 있는 양식 (G-47) */
+/** 이미지 파라미터를 사용하는 양식. */
 function makeImageTemplate(): SlipTemplateFile {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -372,11 +369,10 @@ function makeImageTemplate(): SlipTemplateFile {
 describe('<slip-form> 변동 이미지 (G-47)', () => {
   it('변동 이미지 파라미터에 이미지 업로드 입력을 낸다', async () => {
     const el = await mount(makeImageTemplate());
-    // 텍스트 입력이 아니라 업로드 버튼과 "선택된 이미지 없음" 안내가 나온다
+    // 이미지 파라미터에는 텍스트 입력 대신 파일 선택 UI를 표시한다.
     const pick = buttonByLabel(el, `도장 이미지 ${strings.form.imageUpload}`);
     expect(pick).not.toBeNull();
     expect(el.shadowRoot?.textContent).toContain(strings.form.imageNone);
-    // 이미지 파라미터에는 한 줄 텍스트 입력을 만들지 않는다
     const textInput = Array.from(el.shadowRoot!.querySelectorAll('input'))
       .find((i) => i.getAttribute('aria-label') === '도장 이미지');
     expect(textInput).toBeUndefined();
@@ -397,7 +393,6 @@ describe('<slip-form> 변동 이미지 (G-47)', () => {
     const clear = buttonByLabel(el, `도장 이미지 ${strings.form.imageClear}`);
     expect(clear).not.toBeNull();
 
-    // 지우면 값이 빠지고 안내로 돌아간다
     clear.click();
     await el.updateComplete;
     expect(el.shadowRoot?.querySelector('.image-current')).toBeNull();

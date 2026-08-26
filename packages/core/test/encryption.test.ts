@@ -29,7 +29,7 @@ describe('파일 암호화 (ADR-054)', () => {
     const file = template();
     const locked = await encryptSlipFile(file, 'my-secret-passphrase');
     expect(isEncryptedSlipFile(locked)).toBe(true);
-    // 잠근 파일은 표준 .slip이 아니다 — 그대로 파싱하면 거부된다
+    // 암호화 봉투는 복호화 전에는 표준 `.slip` 파일로 파싱할 수 없다.
     expect(() => parseSlipFile(locked)).toThrow();
     const unlocked = await decryptSlipFile(locked, 'my-secret-passphrase');
     expect(unlocked).toEqual(file);
@@ -56,8 +56,7 @@ describe('파일 암호화 (ADR-054)', () => {
   it('암호문이 변조되면 복호화에 실패한다 (AES-GCM 인증)', async () => {
     const locked = await encryptSlipFile(template(), 'pw');
     const env = JSON.parse(locked) as { data: string };
-    // 암호문 첫 바이트의 한 비트를 실제로 뒤집는다. base64url 끝글자만 바꾸면 남는 패딩
-    // 비트라 디코드 결과가 안 바뀔 수 있어 결정적이지 않다 — 바이트로 풀어 뒤집는다.
+    // base64url 끝 문자의 패딩 비트를 피하기 위해 디코딩한 첫 바이트를 직접 변경한다.
     const bytes = Buffer.from(env.data, 'base64url');
     bytes[0] = (bytes[0] ?? 0) ^ 0x01;
     env.data = bytes.toString('base64url');
@@ -108,7 +107,7 @@ describe('파일 암호화 (ADR-054)', () => {
   });
 
   it('봉투에 적힌 반복 횟수로 키를 파생한다 — 기본값과 달라도 연다', async () => {
-    // 반복 횟수가 다른 봉투를 직접 만든다 — 값을 무시하고 상수로 파생하면 여기서 실패한다
+    // 봉투에 기록된 반복 횟수로 키를 파생하는지 확인하기 위해 기본값과 다른 봉투를 만든다.
     const file = template();
     const iterations = 100_000;
     const salt = crypto.getRandomValues(new Uint8Array(16));

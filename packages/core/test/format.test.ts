@@ -246,7 +246,6 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     pages[0]!.elements[pages[0]!.elements.length - 1] = { ...image, src: 'data:image/png;base64,AA==', parameter: 'sign' };
     expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/함께 가질 수 없습니다/);
 
-    // 하나만 있으면 통과한다
     pages[0]!.elements[pages[0]!.elements.length - 1] = { ...image, parameter: 'sign' };
     expect(() => parseSlipFile(JSON.stringify(base))).not.toThrow();
   });
@@ -276,7 +275,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
     const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
-    // 반복 구간을 2행으로 넓히고 그 열이 줄마다 따로 칸을 갖게 만든다
+    // 자동 병합할 열의 반복 구간을 두 개의 독립된 셀로 구성한다.
     grid['rows'] = [{ height: 8 }, { height: 8 }, { height: 8 }];
     grid['height'] = 8 + 10 * (8 + 8);
     (grid['repeat'] as Record<string, unknown>)['toRow'] = 2;
@@ -309,7 +308,6 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
     const field = template.pages[0]!.elements.find((el) => el['id'] === 'total')!;
-    // 수식이 있는데 파라미터까지 두면 무엇이 쓰이는지 알 수 없다
     field['parameter'] = 'total';
     expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/parameter·formula 중 하나만/);
   });
@@ -358,7 +356,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
       pages: { elements: Record<string, unknown>[]; key?: string; label?: string; pageNumber?: unknown }[];
       parameters?: { key: string; label?: string; valueType?: string }[];
     };
-    // 반복 구간이 있는 그리드('items')여야 자동 병합을 켤 수 있다 — 한 줄 구간이라 저절로 성립한다
+    // 한 행짜리 반복 구간은 열 전체를 하나의 셀이 차지하므로 자동 병합 조건을 충족한다.
     const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
     (grid['columns'] as Record<string, unknown>[])[0]!['autoMerge'] = true;
     template.pages[0]!.key = 'first';
@@ -491,7 +489,7 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
   });
 
   it('height는 반복 구간이 perPage번 복제된 높이여야 한다', () => {
-    // 8(헤더) + 2x8(반복) + 8(꼬리) = 32
+    // 높이: 헤더 8 + 반복 2x8 + 꼬리 8 = 32mm.
     expect(() => parseSlipFile(serializeSlipFile(makeGridFile({ height: 24 })))).toThrow(/행 높이의 합/);
     expect(() =>
       parseSlipFile(
@@ -557,8 +555,7 @@ describe('스키마 방어 보강 (G-48)', () => {
   });
 
   it('값 중첩이 지나치게 깊으면 RangeError가 아니라 SlipParseError를 던진다', () => {
-    // 반복문으로 배열을 쌓아(재귀 아님) 깊은 값을 만든다 — JSON.stringify/parse의 자체
-    // 스택 한계를 피하고, Zod z.lazy 재귀가 넘치는 경로만 검증한다.
+    // JSON 직렬화의 재귀 한계에 먼저 도달하지 않도록 반복문으로 깊은 배열을 만든다.
     let nested: unknown = 0;
     for (let i = 0; i < 50000; i++) nested = [nested];
     const raw = {

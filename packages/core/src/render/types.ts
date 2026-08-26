@@ -1,37 +1,33 @@
 /**
- * PDF 렌더러 공개 인터페이스 (ADR-016).
+ * PDF 렌더러 공개 인터페이스.
  *
- * 이 파일에는 **pdfme 타입·API가 한 줄도 들어오면 안 된다.** 하부 엔진(pdfme)은
- * `pdfme-renderer.ts` 뒤에 숨기고, 호스트에는 이 인터페이스만 노출한다 —
- * 최악의 경우 자체 렌더러로 갈아끼울 수 있는 구조를 유지하기 위함이다.
+ * pdfme 타입과 API는 `pdfme-renderer.ts` 내부에서만 사용하며, 외부에는 이 인터페이스를 노출한다.
  */
 import type { SlipFile } from '../format/schema.js';
 
 /** 등록 폰트 하나 */
 export interface SlipFont {
-  /** 폰트 이름 — 요소의 `fontName`이 이 이름을 가리킨다 */
+  /** 요소의 `fontName`에서 참조하는 폰트 이름 */
   name: string;
   /** 폰트 파일 바이트 (ttf·otf) */
   data: Uint8Array;
-  /** 대체 폰트로 쓸지 — 하나만 지정할 수 있다 */
+  /** 대체 폰트 여부. 하나만 지정할 수 있다. */
   fallback?: boolean;
 }
 
 /** PDF 렌더링 옵션 */
 export interface RenderOptions {
   /**
-   * 렌더 폰트를 **당겨 오는 공급 함수** (선택, ADR-040/056) — 서버 폴더·네트워크 등에서 비동기로
-   * 받아도 된다. 렌더 시 호출해 그 결과를 폰트로 쓴다. 한글 등 CJK 문서는 폰트를 반드시 공급해야
-   * 한다(ADR-012). `fallback: true`인 폰트는 하나만 지정할 수 있고, 없으면 첫 폰트를 대체로 쓴다.
-   * 생략하면 하부 엔진의 기본 폰트를 쓴다. core는 이 함수를 호출(await)만 할 뿐 I/O는 안 한다(ADR-002).
+   * 렌더링에 사용할 폰트를 반환하는 함수. 서버나 네트워크에서 비동기로 불러올 수 있다.
+   * CJK 문서를 렌더링하려면 해당 글자를 포함한 폰트를 제공해야 한다.
+   * `fallback: true`인 폰트는 하나만 지정할 수 있으며, 지정하지 않으면 첫 번째 폰트를 사용한다.
    *
    * @remarks
-   * 폰트를 렌더 호출마다 넘기지 않고 설정에서 한 번 준다 — {@link createSlipKit} 또는
-   * {@link createPdfRenderer}를 만들 때 지정한다 (ADR-056).
+   * {@link createSlipKit} 또는 {@link createPdfRenderer}를 생성할 때 지정한다.
    */
   getFonts?: () => readonly SlipFont[] | Promise<readonly SlipFont[]>;
   /**
-   * FORMAT_NUMBER 등 수식 포맷 함수의 로케일 (BCP-47) — ADR-013.
+   * `FORMAT_NUMBER` 등 형식 함수에 사용할 BCP 47 로케일.
    * 예: 'de-DE'를 지정하면 1234.5가 "1.234,5"로 표기된다.
    *
    * @defaultValue `'ko-KR'`
@@ -39,14 +35,14 @@ export interface RenderOptions {
   locale?: string;
 }
 
-/** PDF 렌더러 — createPdfRenderer로 만든다 */
+/** {@link createPdfRenderer}가 반환하는 PDF 렌더러 */
 export interface SlipPdfRenderer {
   /**
    * `.slip` 파일을 PDF 바이트로 렌더한다.
-   * - `kind: 'template'` — 값이 비어 있는 빈 양식으로 렌더
-   * - `kind: 'voucher'` — `templateSnapshot` + `values`로 렌더 (ADR-008)
+   * - `kind: 'template'`: 값이 없는 양식으로 렌더링한다.
+   * - `kind: 'voucher'`: `templateSnapshot`과 `values`를 렌더링한다.
    *
-   * @param file - 렌더할 .slip 파일
+   * @param file - 렌더할 `.slip` 파일
    * @returns PDF 파일 바이트
    */
   renderToPdf(file: SlipFile): Promise<Uint8Array>;

@@ -7,8 +7,7 @@ vi.mock('@omdc-slipkit/core', () => ({
 }));
 
 vi.mock('../src/default-fonts.js', () => ({
-  // 실제 폰트 데이터(4MB) 대신 즉시 해소되는 모의 — 배선만 검증한다.
-  // 실데이터 검증은 default-fonts.test.ts 담당.
+  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의한다.
   loadDefaultFonts: () =>
     Promise.resolve([
       { name: 'Pretendard', data: new Uint8Array([1]), fallback: true },
@@ -123,7 +122,7 @@ describe('<slip-viewer> PDF 렌더링', () => {
     await el.updateComplete;
 
     expect(parseSlipFileMock).toHaveBeenCalled();
-    // 폰트 미지정 → 동봉 기본 폰트(Pretendard)로 렌더 (ADR-012). 폰트는 getFonts 공급 함수로 넘긴다 (ADR-056)
+    // 폰트 설정이 없으면 기본 폰트 공급 함수를 렌더러에 전달한다.
     const call = renderSlipToPdfMock.mock.calls.at(-1)!;
     expect(call[0]).toBe(DUMMY_FILE);
     const fonts = await call[1]?.getFonts?.();
@@ -146,7 +145,7 @@ describe('<slip-viewer> PDF 렌더링', () => {
     await flush();
     await el.updateComplete;
 
-    // 폰트는 getFonts 공급 함수로 넘어간다 (ADR-056) — 그 함수를 풀면 공급한 폰트가 나온다
+    // 호스트 폰트는 `getFonts` 공급 함수를 통해 렌더러에 전달한다.
     const call = renderSlipToPdfMock.mock.calls.at(-1)!;
     expect(call[0]).toBe(DUMMY_FILE);
     expect(await call[1]?.getFonts?.()).toEqual(fonts);
@@ -224,7 +223,7 @@ describe('<slip-viewer> Blob URL 관리', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 생명주기 정리 (blob URL 누수 방지)
+// 컴포넌트 생명주기와 Blob URL 정리
 // ---------------------------------------------------------------------------
 
 describe('<slip-viewer> 생명주기 정리', () => {
@@ -239,7 +238,7 @@ describe('<slip-viewer> 생명주기 정리', () => {
     await el.updateComplete;
     await flush();
 
-    // 렌더가 끝나기 전에 분리
+    // 렌더링이 완료되기 전에 컴포넌트를 분리한다.
     el.remove();
     resolveRender(DUMMY_PDF);
     await flush();

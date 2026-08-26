@@ -1,9 +1,7 @@
 /**
- * 디자이너 기본 프리셋 2종: 거래명세서 · 청구서 (ADR-020).
+ * 디자이너에서 제공하는 거래명세서와 청구서 프리셋.
  *
- * 프리셋은 core 스키마를 그대로 따르는 `.slip` 양식 데이터다 — 여기에 파싱·검증
- * 로직을 두지 않는다(ADR-003, UI는 core의 소비자). 유효성은 테스트에서
- * `parseSlipFile`로 확인한다.
+ * 프리셋은 core 스키마를 따르는 `.slip` 양식 데이터이며 파싱과 검증은 core에서 담당한다.
  */
 import { CURRENT_SCHEMA_VERSION, type SlipElement, type SlipTemplateFile } from '@omdc-slipkit/core';
 import { strings } from './strings.js';
@@ -12,7 +10,7 @@ import { strings } from './strings.js';
 export interface SlipPreset {
   id: string;
   name: string;
-  /** 호출할 때마다 새 객체를 반환한다 (프리셋 간 상태 공유 방지) */
+  /** 호출할 때마다 독립된 양식 객체를 반환한다. */
   create: () => SlipTemplateFile;
 }
 
@@ -25,13 +23,13 @@ const ROW_MM = 8;
 const ITEMS_PER_PAGE = 8;
 /** 품목 그리드의 윗변 y(mm) */
 const ITEMS_Y = 90;
-/** 품목 그리드가 차지하는 높이(mm) — 헤더 1행 + 항목 수만큼의 반복 구간 */
+/** 헤더와 반복 항목을 포함한 품목 그리드의 높이(mm). */
 const ITEMS_H = ROW_MM * (1 + ITEMS_PER_PAGE);
-/** 합계·맺음말은 품목 그리드 아래에 놓는다 — 항목 수를 바꿔도 겹치지 않는다 */
+/** 품목 그리드 아래에 합계와 맺음말을 배치할 y 좌표(mm). */
 const TOTAL_Y = ITEMS_Y + ITEMS_H + 10;
 const FOOTER_Y = TOTAL_Y + 20;
 
-/** 상호·성명·주소를 적는 3행 4열 정보 그리드 (라벨 셀은 회색 배경) */
+/** 상호, 성명, 주소를 입력하는 3행 4열 정보 그리드를 생성한다. */
 function infoGrid(id: string, name: string, y: number): SlipElement {
   return {
     type: 'grid',
@@ -62,7 +60,7 @@ function createTradeStatement(): SlipTemplateFile {
     template: {
       meta: { title: strings.designer.presetTradeStatement },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
-      // 파라미터 정의부 (ADR-032): 물리명은 camelCase, 화면에는 논리명 표시
+      // 파라미터 키는 camelCase를 사용하고 화면에는 label을 표시한다.
       parameters: [
         { key: 'tradeDate', label: '거래일자', valueType: 'date' },
         {

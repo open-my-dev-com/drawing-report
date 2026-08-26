@@ -1,6 +1,6 @@
 /**
- * 수식 함수 32종 구현 (ADR-017, 타입 변환 3종은 ADR-044).
- * IF·AND·OR는 지연 평가가 필요해 evaluator에서 특수 처리한다 — 여기 없음.
+ * 수식 내장 함수와 타입 변환 규칙을 구현한다.
+ * `IF`, `AND`, `OR`는 지연 평가가 필요하므로 evaluator에서 처리한다.
  */
 import { FormulaEvalError } from './errors.js';
 
@@ -9,16 +9,16 @@ export type FormulaValue = number | string | boolean | null | FormulaValue[];
 
 /** 수식 평가에 주입되는 실행 문맥 */
 export interface FormulaContext {
-  /** 전표 values — 참조(path)가 여기서 해소된다 */
+  /** 수식의 참조 경로를 조회할 전표 값 */
   values: Record<string, unknown>;
   /**
-   * TODAY() 기준 시각. 테스트·재현용 주입 지점.
+   * `TODAY`의 기준 시각. 테스트와 재현 가능한 평가에 사용한다.
    *
    * @defaultValue 호출 시점의 현재 시각
    */
   now?: Date;
   /**
-   * FORMAT_NUMBER 등 포맷 함수의 로케일 (BCP-47) — ADR-013.
+   * `FORMAT_NUMBER` 등 형식 함수에 사용할 BCP 47 로케일.
    *
    * @defaultValue `'ko-KR'`
    */
@@ -36,12 +36,11 @@ function describe(value: FormulaValue): string {
 }
 
 /**
- * 값을 숫자로 강제 변환한다 — 숫자와 빈 값(0)만 받는다 (ADR-044).
+ * 수식 값을 숫자로 변환한다. 숫자와 빈 값만 허용한다.
  *
  * @remarks
  * 숫자를 요구하는 자리(산술 연산, SUM·AVG 등)는 문자열을 자동 변환하지 않는다.
- * 글자를 숫자로 바꾸려면 수식에서 `TO_NUMBER`로 명시한다 — 실패할 수 있는 변환은
- * 조용히 넘기지 않고 드러낸다. 빈 값(null)은 0으로 본다 (미입력 = 0).
+ * 문자열을 숫자로 바꾸려면 수식에서 `TO_NUMBER`를 사용해야 한다. 빈 값(null)은 0으로 처리한다.
  *
  * @param value - 변환할 수식 값
  * @param what - 오류 메시지에 쓸 대상 이름 (예: '집계 대상')
@@ -57,12 +56,11 @@ export function toNumber(value: FormulaValue, what = '값'): number {
   throw new FormulaEvalError(`${what}은(는) 숫자여야 합니다 (글자는 TO_NUMBER로 변환하세요): ${describe(value)}`);
 }
 
-// 10진 실수 표기만 허용한다 — 16진(0x1F)·2진·"Infinity" 같은 JS `Number()` 특례가
-// TO_NUMBER 경로로 새어 들어오는 것을 막는다(숫자 경로의 유한성 검사와 규칙을 맞춘다).
+// `Number`가 허용하는 16진수, 2진수, Infinity를 제외하고 10진수 표기만 허용한다.
 const DECIMAL_NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 
 /**
- * 글자·논리 값을 숫자로 명시 변환한다 (TO_NUMBER, ADR-044).
+ * 문자열과 논리값을 숫자로 명시적으로 변환한다 (`TO_NUMBER`).
  *
  * @param value - 변환할 값
  * @returns 변환된 숫자 (빈 값·빈 문자열은 0, 논리는 1/0)
@@ -95,7 +93,7 @@ function toText(value: FormulaValue): string {
 }
 
 /**
- * 값을 조건(논리값)으로 강제 변환한다 — 숫자는 0이 아니면 참, 빈 값은 거짓.
+ * 값을 조건식에 사용할 논리값으로 변환한다. 0이 아닌 숫자는 참이고 빈 값은 거짓이다.
  *
  * @param value - 변환할 수식 값
  * @returns 변환된 논리값
@@ -114,7 +112,7 @@ function requireInt(value: FormulaValue, what: string): number {
   return n;
 }
 
-/** 범위·스칼라 인자들을 평탄화해 집계 대상 숫자 목록으로 만든다. 빈 값은 건너뛴다. */
+/** 범위와 단일 값을 집계할 숫자 목록으로 변환한다. 빈 값은 제외한다. */
 function collectNumbers(args: FormulaValue[]): number[] {
   const out: number[] = [];
   const visit = (value: FormulaValue): void => {
@@ -143,7 +141,7 @@ function flatten(args: FormulaValue[]): (number | string | boolean | null)[] {
 }
 
 // ---------------------------------------------------------------------------
-// SUMIF/COUNTIF 조건 ("&gt;=10", "&lt;&gt;완료", "지급" 등 엑셀 스타일)
+// SUMIF/COUNTIF에서 사용하는 비교 조건
 // ---------------------------------------------------------------------------
 
 /** 범위가 아닌 단일 수식 값 */
@@ -197,7 +195,7 @@ function parseDate(value: FormulaValue, what = '날짜'): Date {
       const day = Number(m[3]);
       const date = new Date(Date.UTC(year, month - 1, day));
       // Date.UTC는 범위 밖 월·일을 다음 달·해로 넘겨 버리므로(2026-13-45 → 2027-02-14),
-      // 구성요소가 그대로 보존됐는지 확인해 잘못된 날짜를 거부한다.
+      // Date 생성 전후의 구성요소가 다르면 유효하지 않은 날짜로 처리한다.
       if (
         date.getUTCFullYear() === year &&
         date.getUTCMonth() === month - 1 &&
@@ -402,7 +400,7 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
   },
 
   // --- 포맷 ---
-  /** FORMAT_NUMBER(수, 소수 자릿수?) — 자릿수 구분 표기. 로케일은 컨텍스트로 지정 (ADR-013) */
+  /** FORMAT_NUMBER(수, 소수 자릿수?) — 자릿수 구분 표기. 로케일은 컨텍스트로 지정  */
   FORMAT_NUMBER: (args, ctx) => {
     arity('FORMAT_NUMBER', args, 1, 2);
     const n = toNumber(args[0] ?? null);
@@ -473,7 +471,7 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
     return (amount * rate) / 100;
   },
 
-  // --- 타입 변환 (ADR-044) ---
+  // --- 타입 변환  ---
   /** TO_NUMBER(값) — 글자·논리를 숫자로. 빈 값·빈 문자열은 0, 숫자로 볼 수 없으면 오류 */
   TO_NUMBER: (args) => {
     arity('TO_NUMBER', args, 1);

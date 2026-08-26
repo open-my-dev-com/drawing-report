@@ -1,15 +1,14 @@
 // @vitest-environment happy-dom
 /**
- * 시스템 결합 테스트 (로드맵 10번) — 모킹 없이 실제 사용 흐름 그대로:
- * 디자이너로 양식 편집 → .slip 저장 → 전표 값·수식 평가 → PDF 렌더 →
+ * 패키지 간 결합을 실제 구현으로 검증한다.
+ * 디자이너 양식 편집 → `.slip` 저장 → 전표 값과 수식 평가 → PDF 렌더링 →
  * 저장소 어댑터 저장·조회까지 패키지 경계를 넘어 확인한다.
  */
 import 'fake-indexeddb/auto';
 import { Blob as NodeBlob } from 'node:buffer';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-// happy-dom의 Blob은 fake-indexeddb의 구조화 복제와 호환되지 않아 왕복 시 빈 객체가 된다
-// (실제 브라우저에선 Blob이 IndexedDB를 정상 왕복한다). 저장소 왕복을 확인하려고 Node Blob을 쓴다.
+// happy-dom의 Blob은 fake-indexeddb에서 구조화 복제되지 않으므로 Node Blob을 사용한다.
 globalThis.Blob = NodeBlob as unknown as typeof globalThis.Blob;
 import {
   parseSlipFile,
@@ -37,7 +36,7 @@ function toolbarButton(el: Element, label: string): HTMLButtonElement {
   return button as HTMLButtonElement;
 }
 
-// 시나리오 단계 간 공유 상태 — it 블록은 파일 안에서 순서대로 실행된다
+// 연속된 사용 흐름을 검증하기 위해 시나리오 단계가 상태를 공유한다.
 let designed: SlipTemplateFile;
 let issuedVoucher: SlipVoucherFile;
 
@@ -58,7 +57,7 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 저
     designer.addEventListener('slip-change', (e: Event) =>
       changes.push((e as CustomEvent).detail.file as SlipTemplateFile));
 
-    // 텍스트 도구 선택 → 캔버스 클릭으로 생성 (B-5 흐름)
+    // 텍스트 도구를 선택한 뒤 캔버스를 클릭해 요소를 만든다.
     toolbarButton(designer, strings.designer.addText).click();
     await designer.updateComplete;
     const paper = designer.shadowRoot!.querySelector('.paper') as HTMLElement;
@@ -75,7 +74,6 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 저
     designed = changes.at(-1)!;
     expect(designed.kind).toBe('template');
     expect(designed.template.pages.length).toBe(2);
-    // 프리셋 요소 6개 + 추가한 텍스트 1개
     expect(designed.template.pages[0]!.elements.length).toBe(7);
   });
 
@@ -96,17 +94,16 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 저
     designer.removeEventListener('slip-change', collect);
 
     const withGrid = changes.at(-1)!;
-    // 앞 단계에서 페이지를 더해 현재 페이지가 바뀌었을 수 있고 프리셋에도 그리드가 있다 —
-    // 방금 만든 것만 골라내려고 앞 단계에 없던 id를 찾는다
+    // 이전 단계에 없던 ID로 이번 단계에서 만든 그리드를 찾는다.
     const before = new Set(designed.template.pages.flatMap((page) => page.elements).map((el) => el.id));
     const grid = withGrid.template.pages
       .flatMap((page) => page.elements)
       .find((el) => el.type === 'grid' && !before.has(el.id));
     expect(grid).toBeDefined();
-    // 만든 그대로 core 스키마를 통과한다 — 트랙 합과 상자가 어긋나면 여기서 걸린다
+    // 디자이너가 만든 그리드를 별도 보정 없이 core 스키마로 검증한다.
     expect(() => parseSlipFile(serializeSlipFile(withGrid))).not.toThrow();
 
-    // 페이지당 항목 수를 넘는 데이터를 줘도 변환이 끝까지 간다 (페이지 수 검증은 core 테스트가 맡는다)
+    // 페이지당 항목 수보다 많은 데이터도 PDF 입력으로 변환할 수 있어야 한다.
     const repeat = grid!.type === 'grid' ? grid!.repeat! : undefined!;
     const voucher: SlipVoucherFile = {
       schemaVersion: withGrid.schemaVersion,
@@ -120,7 +117,7 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 저
     const pdf = await renderSlipToPdf(voucher);
     expect(Array.from(pdf.slice(0, 5))).toEqual([0x25, 0x50, 0x44, 0x46, 0x2d]);
 
-    // 그리드를 지워 뒤 단계(프리셋 기준 개수 검사)에 영향을 주지 않는다
+    // 다음 단계가 프리셋 기준 상태를 사용하도록 추가한 그리드를 제거한다.
     designer.src = serializeSlipFile(designed);
     await designer.updateComplete;
     await flush();
@@ -148,7 +145,7 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 저
     };
 
     const pdf = await renderSlipToPdf(voucher);
-    // %PDF- 매직 바이트
+    // PDF 파일 시그니처를 확인한다.
     expect(Array.from(pdf.slice(0, 5))).toEqual([0x25, 0x50, 0x44, 0x46, 0x2d]);
 
     issuedVoucher = { ...voucher, issued: true };

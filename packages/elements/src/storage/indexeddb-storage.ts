@@ -1,9 +1,6 @@
 /**
- * IndexedDB 저장소 어댑터 (ADR-021/025).
- *
- * `.slip` 파일을 브라우저 IndexedDB에 저장한다. 직렬화·파싱은 전부 core를
- * 호출한다(ADR-003) — 저장 시 `serializeSlipFile`, 읽을 때 `parseSlipFile`로
- * 검증을 거친다.
+ * `.slip` 파일을 브라우저 IndexedDB에 저장하는 어댑터.
+ * 직렬화와 파싱에는 core API를 사용한다.
  */
 import {
   SlipStorageError,
@@ -26,9 +23,8 @@ interface SlipRecord {
   title: string;
   updatedAt: string;
   /**
-   * serializeSlipFile 결과를 담은 Blob (본문). 목록은 이 필드를 읽지 않아 본문 바이트를
-   * 메모리에 올리지 않는다 — IndexedDB는 Blob을 느긋한 핸들로 돌려주기 때문이다 (ADR-045).
-   * 옛 버전(v1)은 문자열로 저장했고 마이그레이션에서 Blob으로 바꾼다.
+   * 직렬화된 파일 본문. 목록 조회에서 본문을 읽지 않도록 Blob으로 저장한다.
+   * 버전 1에서 저장한 문자열도 마이그레이션과 읽기 과정에서 지원한다.
    */
   data: Blob | string;
 }
@@ -42,26 +38,26 @@ export interface IndexedDbStorageOptions {
    */
   dbName?: string;
   /**
-   * list() 한 페이지 크기.
+   * list 한 페이지 크기.
    *
    * @defaultValue 50
    */
   pageSize?: number;
   /**
-   * 오류 메시지 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
+   * 오류 메시지 언어(`ko`, `en`, `ja`).
    *
    * @defaultValue 한국어
    */
   locale?: string;
   /**
-   * 저장 시 `.slip` 내용을 암호화할지 설정 (ADR-055). 생략하거나 `enabled: false`면
+   * 저장 시 `.slip` 내용을 암호화할지 설정. 생략하거나 `enabled: false`면
    * 평문으로 저장한다. 불러오기는 설정과 무관하게 암호화 봉투를 자동 감지해 푼다.
    */
   encryption?: StorageEncryption;
 }
 
 const STORE_NAME = 'slips';
-// v2: 본문을 문자열 → Blob으로 옮겨 목록 조회가 본문을 안 읽게 한다 (ADR-045)
+// 버전 2부터 파일 본문을 Blob으로 저장한다.
 const DB_VERSION = 2;
 
 function fileTitle(file: SlipFile): string {
@@ -76,8 +72,7 @@ function request<T>(req: IDBRequest<T>, ioError: string): Promise<T> {
 }
 
 /**
- * 브라우저 IndexedDB 저장소 어댑터 (ADR-021/025) —
- * save/load/delete/list 전부 지원, 제목·종류 필터와 커서 페이징 포함.
+ * 저장, 불러오기, 삭제, 필터링된 목록 조회를 지원하는 IndexedDB 저장소 어댑터.
  */
 export class IndexedDbStorage implements StorageAdapter {
   private readonly dbName: string;
@@ -104,8 +99,7 @@ export class IndexedDbStorage implements StorageAdapter {
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         }
-        // v1 → v2: 문자열로 저장된 본문을 Blob으로 옮긴다 (ADR-045). versionchange
-        // 트랜잭션 안에서 커서로 훑어 그 자리에서 바꾼다 — 새 DB(oldVersion 0)는 대상이 없다.
+        // 버전 1의 문자열 본문을 버전 2의 Blob 형식으로 변환한다.
         if (event.oldVersion >= 1 && event.oldVersion < 2) {
           const store = req.transaction!.objectStore(STORE_NAME);
           store.openCursor().onsuccess = (e) => {
@@ -121,7 +115,7 @@ export class IndexedDbStorage implements StorageAdapter {
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => {
-        // 실패한 열기를 캐시에 남기지 않는다 — 다음 호출이 다시 시도할 수 있게
+        // 데이터베이스 열기에 실패하면 다음 호출에서 다시 시도한다.
         this.dbPromise = null;
         reject(new SlipStorageError('io', req.error?.message ?? this.messages.ioError));
       };
@@ -138,13 +132,11 @@ export class IndexedDbStorage implements StorageAdapter {
    * 파일을 IndexedDB에 저장한다. 같은 id가 이미 있으면 덮어쓴다.
    *
    * @param id - 저장 키
-   * @param file - 저장할 .slip 파일
+   * @param file - 저장할 `.slip` 파일
    * @throws SlipStorageError 데이터베이스 쓰기 실패(io) 시
    */
   async save(id: string, file: SlipFile): Promise<void> {
-    // 암호화가 켜져 있으면 본문(data)만 잠근다 — id·kind·title은 목록 조회용 메타라
-    // 평문으로 남는다(제목은 그대로 보인다). 민감한 내용은 본문 안(파라미터·직접 입력·
-    // 이미지)이라 본문 암호화로 가려진다 (ADR-055).
+    // 목록 조회에 필요한 메타데이터는 평문으로 두고 파일 본문만 암호화한다.
     const record: SlipRecord = {
       id,
       kind: file.kind,
@@ -156,12 +148,12 @@ export class IndexedDbStorage implements StorageAdapter {
   }
 
   /**
-   * id의 파일을 불러와 파싱까지 마친 상태로 돌려준다.
+   * ID에 해당하는 파일을 불러와 파싱한다.
    *
    * @param id - 저장 키
-   * @returns 불러온 .slip 파일
+   * @returns 불러온 `.slip` 파일
    * @throws SlipStorageError 없음(not-found)·읽기 실패(io) 시
-   * @throws SlipEncryptionError 암호화 저장분인데 키가 맞지 않으면 (ADR-055)
+   * @throws SlipEncryptionError 암호화 저장분인데 키가 맞지 않으면
    */
   async load(id: string): Promise<SlipFile> {
     const record = (await request((await this.store('readonly')).get(id), this.messages.ioError)) as
@@ -170,13 +162,13 @@ export class IndexedDbStorage implements StorageAdapter {
     if (!record) {
       throw new SlipStorageError('not-found', `${this.messages.notFound}: ${id}`);
     }
-    // 본문은 Blob(신규)이거나 문자열(마이그레이션 전 옛 데이터)일 수 있다
+    // 마이그레이션되지 않은 버전 1 문자열도 읽을 수 있다.
     const data = typeof record.data === 'string' ? record.data : await record.data.text();
     return deserializeFromStorage(data, this.encryption);
   }
 
   /**
-   * id의 파일을 삭제한다. 없는 id는 조용히 지나간다 (IndexedDB delete 의미론).
+   * ID에 해당하는 파일을 삭제한다. 파일이 없어도 오류가 발생하지 않는다.
    *
    * @param id - 저장 키
    * @throws SlipStorageError 데이터베이스 쓰기 실패(io) 시
@@ -186,13 +178,11 @@ export class IndexedDbStorage implements StorageAdapter {
   }
 
   /**
-   * 저장된 파일 목록을 최근 수정순으로 페이징해 돌려준다.
+   * 저장된 파일 목록을 최근 수정순으로 나누어 반환한다.
    *
    * @remarks
-   * 메타(id·kind·title·updatedAt)만 읽어 목록을 만든다 — 본문(`data`)은 Blob이라 여기서
-   * 건드리지 않으면 바이트가 메모리에 올라오지 않는다 (ADR-045). 오프셋 커서라 페이지 사이에
-   * 저장·삭제가 일어나면 경계가 밀릴 수 있으므로, 화면은 목록을 한 번 받아 그 위에서
-   * 페이징하는 편이 안전하다.
+   * 목록에는 메타데이터만 포함하며 본문 `data`는 읽지 않는다.
+   * 오프셋 커서를 사용하므로 조회 중 데이터가 바뀌면 페이지 경계가 달라질 수 있다.
    *
    * @param filter - 종류·제목 검색어 필터 (생략하면 전체)
    * @param cursor - 이전 페이지가 돌려준 nextCursor (생략하면 첫 페이지)

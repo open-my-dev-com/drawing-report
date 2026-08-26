@@ -1,4 +1,4 @@
-/** PDF 렌더링(변환·생성) 단계 오류. 메시지는 사용자 대면 한국어. */
+/** `.slip` 변환 또는 PDF 생성에 실패했을 때 발생하는 오류. */
 export class SlipRenderError extends Error {
   constructor(message: string) {
     super(message);

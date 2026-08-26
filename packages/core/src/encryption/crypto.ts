@@ -1,22 +1,21 @@
 /**
- * 파일 암호화 (ADR-054) — `.slip` 내용을 대칭키로 잠근다.
+ * `.slip` 파일을 인증 암호화 형식으로 변환하고 복호화한다.
  *
- * 편집기로 열어도 내용이 보이지 않게 하는 **선택** 기능이다. AES-256-GCM(인증 암호)이라
- * 잘못된 키나 변조된 파일은 복호화 단계에서 걸러진다. 키 관리·전달은 호스트 책임이며,
- * 잠근 파일은 표준 `.slip`이 아니라 다른 시스템과 그대로 주고받을 수 없다 (SPEC §8).
+ * AES-256-GCM 인증 암호화를 사용하므로 키가 올바르지 않거나 파일이 변조되면 복호화에
+ * 실패한다. 키 관리와 전달은 호스트가 담당한다. 암호화 결과는 표준 `.slip` 형식과
+ * 호환되지 않는다(SPEC §8).
  *
- * 암호는 Web Crypto API로 구현한다 — core는 순수 TS라 Node 22.13+·모던 브라우저의 표준
- * `crypto.subtle`만 쓴다 (ADR-002).
+ * 암호 연산에는 Web Crypto API의 `crypto.subtle`을 사용한다.
  */
 import { parseSlipFile, serializeSlipFile, type SlipFile } from '../format/schema.js';
 import { base64urlEncode, base64urlDecode } from './base64url.js';
 import { SlipEncryptionError } from './errors.js';
 
-/** 암호화 봉투의 최상위 표식 — 이 값이 있으면 표준 `.slip`이 아니라 암호화 파일이다 */
+/** 암호화 봉투를 식별하는 최상위 속성 값. */
 const MARKER = 'encrypted';
-/** PBKDF2 반복 횟수 — 암호(passphrase)에서 키를 만들 때 (OWASP 2023 권장 하한 이상) */
+/** 새 암호화 봉투에 기록할 PBKDF2 반복 횟수. */
 const PBKDF2_ITERATIONS = 210_000;
-/** 복호화 시 받아들이는 PBKDF2 반복 횟수 상한 — 악의적으로 큰 값으로 멈추는 것을 막는다 */
+/** 복호화 시 허용하는 PBKDF2 반복 횟수의 상한. */
 const MAX_PBKDF2_ITERATIONS = 10_000_000;
 /** AES-GCM 초기화 벡터 길이(바이트) */
 const IV_BYTES = 12;
@@ -24,8 +23,7 @@ const IV_BYTES = 12;
 const SALT_BYTES = 16;
 
 /**
- * 쓰는 Web Crypto 메서드만 담은 좁은 인터페이스. DOM·Node의 SubtleCrypto 타입 차이(오버로드)를
- * 피하려고 이 형태로만 다룬다 — 런타임은 표준 `crypto.subtle` 그대로다.
+ * DOM과 Node의 `SubtleCrypto` 타입 차이를 분리하기 위해 사용하는 최소 인터페이스.
  */
 interface SubtleLike {
   importKey(
@@ -47,7 +45,7 @@ interface SubtleLike {
 }
 
 /**
- * 암호화 봉투 — `.slip` 내용을 담는 JSON. `kdf`는 암호(passphrase)로 잠갔을 때만 있다.
+ * 암호화한 `.slip` 내용을 저장하는 JSON 봉투. `kdf`는 암호를 사용한 경우에만 포함한다.
  */
 interface EncryptedEnvelope {
   slipkit: typeof MARKER;
@@ -55,7 +53,7 @@ interface EncryptedEnvelope {
   v: 1;
   /** 대칭 암호 알고리즘 */
   cipher: 'A256GCM';
-  /** 키 파생(암호 → 키) 정보 — 원시 키로 잠갔으면 없다 */
+  /** 암호에서 키를 파생하는 데 필요한 정보. 원시 키를 사용하면 생략한다. */
   kdf?: { algo: 'PBKDF2-SHA256'; salt: string; iterations: number };
   /** 초기화 벡터 (base64url) */
   iv: string;
@@ -80,12 +78,10 @@ function randomBytes(length: number): Uint8Array {
 }
 
 /**
- * 키를 AES-GCM 키로 만든다.
- * - `string`이면 암호(passphrase)로 보고 PBKDF2로 파생한다(솔트·반복 필요).
- * - `Uint8Array`면 32바이트 원시 키로 본다.
+ * 입력 키를 AES-GCM 키로 변환한다.
+ * `string`은 PBKDF2로 파생할 암호로, `Uint8Array`는 32바이트 원시 키로 처리한다.
  *
- * 반복 횟수는 호출자가 정한다 — 잠글 때는 현재 상수, 풀 때는 봉투에 적힌 값을 쓴다.
- * 이래야 나중에 상수를 올려도 이전에 잠근 파일을 계속 열 수 있다.
+ * 암호화에는 현재 기본 반복 횟수를 사용하고, 복호화에는 봉투에 기록된 반복 횟수를 사용한다.
  */
 async function toAesKey(
   key: string | Uint8Array,
@@ -132,17 +128,17 @@ export function isEncryptedSlipFile(json: string): boolean {
 }
 
 /**
- * `.slip` 파일을 암호로 잠가 암호화 봉투 JSON 문자열로 만든다 (ADR-054).
+ * `.slip` 파일을 암호화 봉투 형식의 JSON 문자열로 변환한다.
  *
- * @param file - 잠글 `.slip` 파일 (양식 또는 전표)
+ * @param file - 암호화할 `.slip` 파일
  * @param key - 암호(passphrase 문자열) 또는 32바이트 원시 키(Uint8Array)
  * @returns 암호화 봉투 JSON 문자열
- * @throws SlipEncryptionError 키가 비었거나 길이가 틀리거나 Web Crypto를 쓸 수 없으면
+ * @throws SlipEncryptionError 키가 비었거나 형식이 잘못되었거나 Web Crypto를 사용할 수 없을 때
  *
  * @example
  * ```ts
  * const locked = await encryptSlipFile(file, '내-비밀-암호');
- * // locked는 표준 .slip이 아니다 — 복호화해야 다시 읽을 수 있다
+ * // 암호화 결과는 decryptSlipFile로 복호화한다.
  * ```
  */
 export async function encryptSlipFile(file: SlipFile, key: string | Uint8Array): Promise<string> {
@@ -167,12 +163,11 @@ export async function encryptSlipFile(file: SlipFile, key: string | Uint8Array):
 }
 
 /**
- * 암호화 봉투 JSON 문자열을 풀어 `.slip` 파일로 되돌린다 (ADR-054).
- * 복호화 뒤 {@link parseSlipFile}로 검증하므로, 키가 맞아도 내용이 규칙에 어긋나면 거부한다.
+ * 암호화 봉투 JSON 문자열을 복호화하고 `.slip` 형식인지 검증한다.
  *
  * @param json - 암호화 봉투 JSON 문자열
- * @param key - 잠글 때 쓴 암호(passphrase) 또는 원시 키
- * @returns 검증까지 끝난 `.slip` 파일
+ * @param key - 암호화에 사용한 암호 또는 원시 키
+ * @returns 복호화하고 검증한 `.slip` 파일
  * @throws SlipEncryptionError 봉투 형식이 아니거나, 봉투 버전·키 파생 방식을 지원하지
  *   않거나, 키가 틀리거나(복호화 실패), 파일 변조 시
  * @throws SlipParseError 복호화된 내용이 유효한 `.slip`이 아니면
@@ -187,7 +182,7 @@ export async function decryptSlipFile(json: string, key: string | Uint8Array): P
   } catch {
     throw new SlipEncryptionError('암호화된 `.slip` 봉투 형식이 아닙니다');
   }
-  // 봉투 버전 확인 (SPEC §21.3) — 모르는 버전을 임의로 해석하지 않는다
+  // 지원하지 않는 봉투 버전은 해석하지 않는다 (SPEC §21.3).
   if (envelope.v !== 1) {
     throw new SlipEncryptionError(
       '지원하지 않는 암호화 봉투 버전입니다 — 더 새로운 SlipKit으로 잠근 파일일 수 있습니다',
@@ -199,7 +194,7 @@ export async function decryptSlipFile(json: string, key: string | Uint8Array): P
       envelope.kdf ? '이 파일은 암호(passphrase)로 잠겨 있습니다' : '이 파일은 원시 키로 잠겨 있습니다',
     );
   }
-  // 키 파생 정보 확인 — 알고리즘이 다르거나 반복 횟수가 정상 범위 밖이면 키를 만들 수 없다
+  // 지원하는 알고리즘과 반복 횟수 범위인지 확인한다.
   if (envelope.kdf) {
     const { algo, iterations } = envelope.kdf;
     const validIterations =
@@ -209,7 +204,7 @@ export async function decryptSlipFile(json: string, key: string | Uint8Array): P
     }
   }
   const salt = envelope.kdf ? base64urlDecode(envelope.kdf.salt) : new Uint8Array(0);
-  // 반복 횟수는 봉투에 적힌 값을 쓴다 — 이후 릴리스에서 기본값이 올라가도 이전 파일을 연다
+  // 복호화에는 봉투에 기록된 반복 횟수를 사용한다.
   const aesKey = await toAesKey(key, salt, envelope.kdf?.iterations ?? PBKDF2_ITERATIONS);
   let plainBuf: ArrayBuffer;
   try {
@@ -219,7 +214,7 @@ export async function decryptSlipFile(json: string, key: string | Uint8Array): P
       base64urlDecode(envelope.data),
     );
   } catch {
-    // GCM 인증 실패 — 키가 틀렸거나 파일이 변조됐다
+    // GCM 인증 실패는 잘못된 키나 파일 변조를 뜻한다.
     throw new SlipEncryptionError('복호화에 실패했습니다 — 키가 틀렸거나 파일이 변조되었습니다');
   }
   return parseSlipFile(new TextDecoder().decode(new Uint8Array(plainBuf)));

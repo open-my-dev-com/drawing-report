@@ -1,13 +1,13 @@
 /**
- * .slip schemaVersion 마이그레이션 계층 (ADR-007).
+ * `.slip` 문서를 현재 schemaVersion으로 변환한다.
  *
  * 모든 파일은 `schemaVersion`을 내장하며, 구버전 파일을 열 때 현재 버전까지
- * 단계별 마이그레이션을 적용한다. 각 단계는 `from` 버전의 문서를 받아
- * `to` 버전의 문서를 돌려주는 순수 함수다.
+ * 단계별 마이그레이션을 적용한다. 각 단계는 `from` 버전의 문서를 `to` 버전 문서로
+ * 변환하는 순수 함수다.
  */
 import { CURRENT_SCHEMA_VERSION } from './version.js';
 
-/** 마이그레이션 한 단계 — `from` 버전 문서를 받아 `to` 버전 문서를 돌려준다 */
+/** `from` 버전 문서를 `to` 버전 문서로 변환하는 마이그레이션 단계. */
 export interface SlipMigrationStep {
   /** 이 단계가 입력으로 받는 schemaVersion */
   from: string;
@@ -20,12 +20,11 @@ export interface SlipMigrationStep {
  * 내장 마이그레이션 목록. 스키마가 개정될 때마다 단계를 추가한다.
  *
  * @remarks
- * 0.1.0이 첫(기준) 버전이라 이전 버전이 없어 비어 있다 — 공개 전 개발 단계에서 거쳐온 버전은
- * 공개된 적이 없어 0.1.0 하나로 합쳤다. 1.0.0 이후 스키마를 바꿀 때 여기에 단계를 더한다.
+ * 이전 버전이 없으므로 현재 목록은 비어 있다.
  */
 export const BUILT_IN_MIGRATIONS: readonly SlipMigrationStep[] = [];
 
-/** 마이그레이션 불가 오류 (미래 버전·경로 없음·순환 등) */
+/** 지원하지 않는 버전이거나 마이그레이션 경로를 구성할 수 없을 때 발생하는 오류. */
 export class SlipMigrationError extends Error {
   constructor(message: string) {
     super(message);
@@ -47,14 +46,13 @@ function compareSemver(a: string, b: string): number {
 }
 
 /**
- * 문서를 현재 schemaVersion까지 끌어올린다.
- * - 이미 현재 버전이면 그대로 반환
- * - 현재보다 새로운 버전이면 거부 (구현이 모르는 미래 포맷)
- * - 이어지는 마이그레이션 단계가 없는 구버전이면 거부
+ * 문서를 현재 `schemaVersion`으로 마이그레이션한다.
+ * - 현재 버전이면 입력 문서를 반환한다.
+ * - 지원 버전보다 새롭거나 마이그레이션 경로가 없는 문서는 오류를 발생시킨다.
  *
- * @param document - schemaVersion을 가진 .slip 문서 (파싱된 JSON 객체)
+ * @param document - schemaVersion을 가진 `.slip` 문서 (파싱된 JSON 객체)
  * @param steps - 적용할 마이그레이션 단계 목록 (기본: 내장 목록)
- * @returns 현재 schemaVersion까지 끌어올린 문서
+ * @returns 현재 schemaVersion으로 마이그레이션한 문서
  * @throws SlipMigrationError 버전 형식 오류·미래 버전·경로 없음·순환 시
  */
 export function migrateSlipDocument(

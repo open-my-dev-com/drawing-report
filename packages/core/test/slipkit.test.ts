@@ -33,9 +33,9 @@ describe('createSlipKit (ADR-056)', () => {
   it('evaluate는 수식을 계산하고, 컨텍스트에 로케일이 없으면 설정 로케일을 쓴다', () => {
     const slip = createSlipKit({ locale: 'de-DE' });
     expect(slip.evaluate('SUM(items.amount)', { values: { items: { amount: [1000, 2000] } } })).toBe(3000);
-    // 설정 로케일(de-DE)이 FORMAT_NUMBER에 적용된다
+    // 컨텍스트에 로케일이 없으면 SlipKit 설정을 사용한다.
     expect(slip.evaluate('FORMAT_NUMBER(1234.5)', { values: {} })).toBe('1.234,5');
-    // 컨텍스트 로케일이 있으면 그게 우선한다
+    // 평가 컨텍스트의 로케일이 SlipKit 설정보다 우선한다.
     expect(slip.evaluate('FORMAT_NUMBER(1234.5)', { values: {}, locale: 'ko-KR' })).toBe('1,234.5');
   });
 
@@ -49,7 +49,7 @@ describe('createSlipKit (ADR-056)', () => {
   it('encrypt는 인자 키로 설정 키를 덮어쓴다', async () => {
     const slip = createSlipKit({ encryption: { key: 'cfg' } });
     const locked = await slip.encrypt(template(), 'override');
-    // 설정 키(cfg)로는 안 열리고, 덮어쓴 키로만 열린다
+    // 호출 시 전달한 키가 SlipKit 기본 키보다 우선한다.
     await expect(slip.decrypt(locked)).rejects.toBeInstanceOf(SlipEncryptionError);
     expect(await slip.decrypt(locked, 'override')).toEqual(template());
   });

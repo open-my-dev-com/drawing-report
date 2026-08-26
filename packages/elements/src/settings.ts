@@ -1,37 +1,33 @@
 /**
- * 호스트가 SlipKit 컴포넌트에 자원을 공급하는 인터페이스 (ADR-040).
+ * 호스트가 SlipKit 컴포넌트에 폰트와 용지 정보를 제공하는 인터페이스.
  *
  * @remarks
- * 렌더 폰트는 호스트가 어디에 두는지(번들·서버 폴더 등) 라이브러리가 정할 수 없어(ADR-002/003),
- * 호스트가 구현하는 공급 인터페이스로 받는다. 값을 돌려받는 pull이라 이벤트보다 메서드가 맞다.
- * 실제 저장 위치는 전적으로 호스트 몫이다.
+ * 폰트의 저장 위치와 로딩 방식은 호스트가 결정하므로 메서드를 통해 전달받는다.
  */
 import type { BarcodeKind, SlipFont } from '@omdc-slipkit/core';
 import { loadDefaultFonts } from './default-fonts.js';
 import { normalizeLocale } from './strings.js';
 
-/** 렌더에 쓸 폰트 하나 — core `SlipFont`를 재수출한다 */
+/** core의 렌더링 폰트 타입을 다시 내보낸다. */
 export type { SlipFont };
 
 /**
- * 렌더 폰트를 호스트가 공급하는 인터페이스 — 뷰어·작성폼·디자이너 공용 (ADR-040).
- * 기존 `fonts` 배열 속성을 대체하며, 동기 배열과 비동기(서버 fetch)를 함께 포괄한다.
+ * 뷰어, 작성 폼, 디자이너에 렌더링 폰트를 제공하는 인터페이스.
  */
 export interface SlipFontProvider {
   /**
-   * 렌더에 쓸 폰트 목록을 돌려준다(동기 배열 또는 Promise).
+   * 렌더링에 사용할 폰트 목록을 반환한다.
    *
-   * @returns 폰트 목록. 비었거나 주지 않으면 동봉 기본 폰트를 쓴다.
+   * @returns 폰트 목록 또는 폰트 목록을 반환하는 Promise
    */
   getFonts?(): SlipFont[] | Promise<SlipFont[]>;
 }
 
 /**
- * 디자이너 용지 고르개의 후보 한 개 (ADR-040) — 화면 프리셋이다.
- * `.slip`엔 늘 실제 너비·높이(`paper`)만 담기므로 파일 포맷과 무관하다.
+ * 디자이너의 용지 선택 목록에 표시할 크기 정보.
  */
 export interface PaperSize {
-  /** 고르개에 보일 이름 (예: A4, 라벨 100×150) */
+  /** 용지 선택기에 표시할 이름. 예: A4, 라벨 100×150. */
   name: string;
   /** 너비(mm) */
   width: number;
@@ -40,28 +36,26 @@ export interface PaperSize {
 }
 
 /**
- * 디자이너 설정 — 폰트 공급에 용지 목록 공급·저장을 더한다 (ADR-040).
- * 용지 목록 공급은 읽기, 사용자가 직접 입력한 용지 보관은 쓰기다. 셋 다 선택이다.
+ * 폰트와 용지 정보를 제공하는 디자이너 설정.
  */
 export interface SlipDesignerSettings extends SlipFontProvider {
   /**
-   * 디자이너 바코드 고르개에 보일 종류 목록 — 호스트가 쓰는 것만 남긴다 (ADR-048).
+   * 디자이너에 표시할 바코드 종류를 반환한다.
    *
    * @remarks
-   * 하부 엔진이 그릴 수 있는 12종을 전부 보이면 대부분의 호스트에 필요 없는 선택지가 늘어난다.
-   * 폰트·용지와 같은 방식으로 후보를 좁힌다. 주지 않으면 12종을 모두 보인다.
+   * 생략하거나 빈 배열을 반환하면 지원하는 바코드 종류를 모두 표시한다.
    *
-   * @returns 보일 바코드 종류 목록 (빈 배열이면 12종 전부)
+   * @returns 표시할 바코드 종류 목록. 빈 배열이면 지원하는 종류를 모두 표시한다
    */
   getBarcodeKinds?(): BarcodeKind[] | Promise<BarcodeKind[]>;
   /**
-   * 용지 고르개에 더할 목록을 돌려준다(동봉 4종 뒤에 붙는다).
+   * 기본 용지 뒤에 추가할 용지 목록을 반환한다.
    *
    * @returns 용지 후보 목록(동기 또는 Promise)
    */
   getPaperSizes?(): PaperSize[] | Promise<PaperSize[]>;
   /**
-   * 사용자가 디자이너에서 직접 입력한 용지를 호스트가 보관한다(다음에 `getPaperSizes`로 돌아온다).
+   * 디자이너에서 직접 입력한 용지 크기를 저장한다.
    *
    * @param size - 보관할 용지 크기
    */
@@ -69,12 +63,11 @@ export interface SlipDesignerSettings extends SlipFontProvider {
 }
 
 /**
- * 폰트 공급 인터페이스에서 렌더에 쓸 폰트를 해소한다 (ADR-040/042).
- * 호스트가 주면 그 목록을, 비었거나 없으면 언어에 맞는 동봉 기본 폰트를 쓴다.
+ * 호스트가 제공한 렌더링 폰트를 가져온다.
+ * 제공된 폰트가 없으면 로케일에 맞는 기본 폰트를 사용한다.
  *
- * @param provider - 폰트 공급 인터페이스 (없을 수 있음)
- * @param locale - UI 언어. 기본 폰트를 고를 때만 쓴다. 'ja-JP'처럼 지역이 붙어도
- *   언어만 보고 고른다(문구 사전과 같은 규칙, ADR-042).
+ * @param provider - 폰트 공급 인터페이스
+ * @param locale - 기본 폰트를 선택할 UI 언어. 지역 코드가 포함되면 언어 코드만 사용한다
  * @returns 렌더에 넘길 폰트 목록
  */
 export async function resolveFonts(

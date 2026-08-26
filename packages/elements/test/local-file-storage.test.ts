@@ -73,7 +73,7 @@ describe('LocalFileStorage', () => {
   });
 });
 
-/** save가 실제로 다운로드하는 Blob의 내용을 잡아 문자열로 돌려준다 */
+/** `save`가 다운로드한 Blob의 내용을 문자열로 반환한다. */
 async function captureSavedText(
   file: SlipFile,
   encryption?: StorageEncryption,
@@ -89,7 +89,7 @@ async function captureSavedText(
   return captured!.text();
 }
 
-/** 주어진 내용의 파일을 골라 load하고 결과를 돌려준다 */
+/** 파일 선택을 모의하고 `load` 결과를 반환한다. */
 async function loadPicked(content: string, encryption?: StorageEncryption): Promise<SlipFile> {
   vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
   const promise = new LocalFileStorage(encryption ? { encryption } : {}).load('무시');

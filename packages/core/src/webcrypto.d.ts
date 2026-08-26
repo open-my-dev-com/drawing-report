@@ -1,8 +1,5 @@
-// Web Crypto API · Encoding API 최소 타입 선언
-// DOM lib 전체를 포함하면 window·document 접근이 가능해져 순수 TS 규칙(ADR-002)에
-// 어긋날 수 있으므로, 암호화 모듈(encryption/crypto.ts)이 쓰는 Web 표준 전역만 선언한다.
-// 런타임: Node 22.13+, 모든 모던 브라우저에서 crypto / TextEncoder 사용 가능.
-// (crypto.subtle의 세부 시그니처는 crypto.ts의 SubtleLike로 좁혀 다룬다.)
+// DOM 타입 전체를 포함하지 않고 암호화 모듈이 사용하는 Web Crypto 및 Encoding API만 선언한다.
+// crypto.subtle의 세부 인터페이스는 encryption/crypto.ts의 SubtleLike에서 정의한다.
 
 interface SubtleCrypto {
   encrypt(algorithm: unknown, key: unknown, data: Uint8Array): Promise<ArrayBuffer>;

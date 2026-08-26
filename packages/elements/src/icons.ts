@@ -1,8 +1,8 @@
 /**
- * 툴바·패널 아이콘 — Lucide 아이콘 세트에서 필요한 것만 내장 (ADR-031).
+ * 툴바와 패널에서 사용하는 아이콘 모음.
  *
  * 아이콘 저작권: Lucide Contributors, ISC 라이선스 — https://lucide.dev
- * (lucide-static v1.33.0에서 추출. 색은 currentColor로 버튼 글자색을 따라간다)
+ * lucide-static v1.33.0에서 추출했으며 색상은 `currentColor`를 사용한다.
  */
 import { svg, type TemplateResult } from 'lit';
 
@@ -11,13 +11,12 @@ function icon(body: TemplateResult): TemplateResult {
     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 }
 
-/** 아이콘 목록 — 키 = 용도 */
+/** 용도별 아이콘 목록 */
 export const icons = {
   /** lucide: type */
   text: icon(svg`<path d="M12 4v16" /><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" /><path d="M9 20h6" />`),
   /**
-   * 그리드 요소 (ADR-037) — 표 모양에 반복 구간을 칠해 구분한다.
-   * 캔버스 모눈 아이콘(`grid`)과 다른 그림이어야 툴바에서 헷갈리지 않는다
+   * 반복 구간을 강조한 그리드 요소 아이콘.
    */
   gridElement: icon(svg`<rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path d="M3 15h18" /><path d="M12 3v18" /><rect x="3" y="9" width="18" height="6" fill="currentColor" opacity="0.25" stroke="none" />`),
   /** lucide: image */
@@ -46,7 +45,7 @@ export const icons = {
   preview: icon(svg`<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" />`),
   /** lucide: pencil */
   edit: icon(svg`<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" />`),
-  /** lucide: file — 사이드바 페이지 목록의 줄 표식 (G-35) */
+  /** lucide: file */
   page: icon(svg`<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" />`),
   /** lucide: chevron-left */
   pagePrev: icon(svg`<path d="m15 18-6-6 6-6" />`),
@@ -55,7 +54,7 @@ export const icons = {
   /** lucide: plus */
   /** 파라미터 타입: 글자 — 대문자 T와 밑줄 */
   typeText: icon(svg`<path d="M5 6V5h14v1" /><path d="M12 5v14" /><path d="M9 19h6" />`),
-  /** 파라미터 타입: 숫자 — 우물 정(#) */
+  /** 숫자 파라미터를 나타내는 # 기호. */
   typeNumber: icon(svg`<path d="M4 9h16" /><path d="M4 15h16" /><path d="M10 3 8 21" /><path d="M16 3l-2 18" />`),
   /** 파라미터 타입: 날짜 — 달력 */
   typeDate: icon(svg`<rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18" /><path d="M8 3v4" /><path d="M16 3v4" />`),
@@ -98,11 +97,11 @@ export const icons = {
   alignCenter: icon(svg`<path d="M21 5H3" /><path d="M17 12H7" /><path d="M19 19H5" />`),
   /** lucide: align-right */
   alignRight: icon(svg`<path d="M21 5H3" /><path d="M21 12H9" /><path d="M21 19H7" />`),
-  /** 캔버스 격자 (F-20) — 모눈 모양 */
+  /** 캔버스 격자 */
   grid: icon(svg`<rect width="18" height="18" x="3" y="3" rx="1" /><path d="M9 3v18" /><path d="M15 3v18" /><path d="M3 9h18" /><path d="M3 15h18" />`),
-  /** 모든 열을 같은 너비로 (F-19) — 폭이 같은 셀 세 개 */
+  /** 모든 열을 같은 너비로 맞추기 */
   evenWidths: icon(svg`<rect width="18" height="14" x="3" y="5" rx="1" /><path d="M9 5v14" /><path d="M15 5v14" />`),
-  /** 요소 종류 표시 켜기·끄기 (F-18) — 이름표 모양 */
+  /** 요소 종류 표시 전환 */
   badges: icon(svg`<path d="M3.5 5.5A2 2 0 0 1 5.5 3.5h4.7a2 2 0 0 1 1.42.59l7.79 7.8a2 2 0 0 1 0 2.82l-4.7 4.7a2 2 0 0 1-2.83 0l-7.79-7.8a2 2 0 0 1-.59-1.41z" /><circle cx="7.5" cy="7.5" r="1.2" />`),
   /** 세로 정렬 위 — 위 변에 붙은 막대 */
   alignTop: icon(svg`<rect x="7" y="9" width="10" height="11" rx="1" /><path d="M4 4h16" />`),
@@ -112,8 +111,8 @@ export const icons = {
   alignBottom: icon(svg`<rect x="7" y="4" width="10" height="11" rx="1" /><path d="M4 20h16" />`),
   /** 바코드 요소 — 굵기가 다른 막대 줄 */
   barcode: icon(svg`<path d="M4 5v14" /><path d="M8 5v14" /><path d="M12 5v14" /><path d="M17 5v14" /><path d="M21 5v14" />`),
-  /** 목록에서 접혀 있는 줄 (G-25) — 오른쪽 꺾쇠 */
+  /** 접힌 목록을 나타내는 오른쪽 꺾쇠. */
   treeClosed: icon(svg`<path d="m9 18 6-6-6-6" />`),
-  /** 목록에서 펼쳐진 줄 (G-25) — 아래쪽 꺾쇠 */
+  /** 펼친 목록을 나타내는 아래쪽 꺾쇠. */
   treeOpen: icon(svg`<path d="m6 9 6 6 6-6" />`),
 };

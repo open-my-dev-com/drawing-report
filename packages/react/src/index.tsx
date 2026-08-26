@@ -13,21 +13,21 @@ type SlipPresets = SlipDesignerElement['presets'];
 
 /** SlipViewer 컴포넌트 props */
 export interface SlipViewerProps {
-  /** .slip JSON 문자열 */
+  /** `.slip` JSON 문자열. */
   src: string;
   /**
-   * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
+   * UI 언어 (`ko`, `en`, `ja`).
    *
    * @defaultValue 한국어
    */
   locale?: string;
-  /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
+  /** 렌더링 설정과 폰트 공급자. */
   settings?: SlipFontProvider;
 }
 
 /**
- * React 19는 커스텀 엘리먼트를 완전 지원하므로(ADR-015 근거) 래퍼는 태그를 그대로 노출한다.
- * settings 같은 객체 값은 React 19가 엘리먼트의 JS 프로퍼티로 전달한다.
+ * `<slip-viewer>`를 React 컴포넌트로 노출한다.
+ * React 19는 객체 값을 커스텀 엘리먼트의 JavaScript 프로퍼티로 전달한다.
  */
 export function SlipViewer({ src, locale, settings }: SlipViewerProps) {
   return createElement('slip-viewer', { src, locale, settings });
@@ -35,29 +35,28 @@ export function SlipViewer({ src, locale, settings }: SlipViewerProps) {
 
 /** SlipDesigner 컴포넌트 props */
 export interface SlipDesignerProps {
-  /** .slip JSON 문자열 (template 파일만) */
+  /** 양식 파일을 담은 `.slip` JSON 문자열. */
   src: string;
   /**
-   * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
+   * UI 언어 (`ko`, `en`, `ja`).
    *
    * @defaultValue 한국어
    */
   locale?: string;
-  /** 호스트 설정 인터페이스 (ADR-040) — 폰트 공급 + 용지 목록 공급·저장 */
+  /** 폰트와 용지 목록을 제공하는 호스트 설정. */
   settings?: SlipDesignerSettings;
-  /** 툴바 프리셋 메뉴에 쓸 양식 목록 — 주면 동봉 프리셋 대신 쓴다 */
+  /** 툴바에 표시할 양식 프리셋. 지정하면 동봉 프리셋을 대체한다. */
   presets?: SlipPresets;
-  /** "내 양식" 저장·불러오기에 쓸 저장소 어댑터 (ADR-021) */
+  /** "내 양식" 저장과 불러오기에 사용할 저장소 어댑터. */
   storage?: StorageAdapter;
-  /** 넣을 수 있는 이미지 파일의 최대 크기(바이트) — 기본 2MB (G-36) */
+  /** 업로드할 수 있는 이미지 파일의 최대 크기(바이트). 기본값은 2MB이다. */
   maxImageBytes?: number;
-  /** 편집으로 양식이 바뀔 때마다 변경된 .slip 파일을 받는다 */
+  /** 양식이 변경될 때 변경된 `.slip` 파일을 받는다. */
   onSlipChange?: (file: SlipFile) => void;
 }
 
 /**
- * `<slip-designer>` 래퍼. 커스텀 이벤트(slip-change)는 React가 선언적으로
- * 연결해 주지 않으므로 ref로 리스너를 붙였다 떼는 것까지만 담당한다 (ADR-003).
+ * `<slip-designer>`를 노출하고 `slip-change` 이벤트를 `onSlipChange`에 연결한다.
  */
 export function SlipDesigner({
   src,
@@ -86,27 +85,26 @@ export function SlipDesigner({
 
 /** SlipForm 컴포넌트 props */
 export interface SlipFormProps {
-  /** .slip JSON 문자열 (양식 또는 작성 중 전표) */
+  /** 양식 또는 작성 중인 전표를 담은 `.slip` JSON 문자열. */
   src: string;
   /**
-   * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
+   * UI 언어 (`ko`, `en`, `ja`).
    *
    * @defaultValue 한국어
    */
   locale?: string;
-  /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
+  /** 렌더링 설정과 폰트 공급자. */
   settings?: SlipFontProvider;
-  /** 변동 이미지 입력의 최대 파일 크기(바이트) — 기본 2MB (G-47) */
+  /** 업로드할 수 있는 이미지 파일의 최대 크기(바이트). 기본값은 2MB이다. */
   maxImageBytes?: number;
-  /** 값을 채울 때마다 작성 중 전표 파일을 받는다 */
+  /** 값이 변경될 때 작성 중인 전표 파일을 받는다. */
   onSlipChange?: (file: SlipFile) => void;
-  /** 발행이 끝나면 확정·잠긴 전표 파일을 받는다 */
+  /** 전표가 발행되면 확정된 전표 파일을 받는다. */
   onSlipIssue?: (file: SlipFile) => void;
 }
 
 /**
- * `<slip-form>` 래퍼. 커스텀 이벤트(slip-change·slip-issue)를 ref로 연결했다
- * 떼는 것까지만 담당한다 (ADR-003 — 얇은 래퍼).
+ * `<slip-form>`을 노출하고 변경 및 발행 이벤트를 React 콜백에 연결한다.
  */
 export function SlipForm({
   src,

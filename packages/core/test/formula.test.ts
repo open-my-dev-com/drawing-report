@@ -284,7 +284,6 @@ describe('경계·잘못된 입력 방어 (G-48)', () => {
     expect(() => evaluateFormula('TO_NUMBER(a)', ctx({ a: '1e400' }))).toThrow(FormulaEvalError);
     expect(() => evaluateFormula('TO_NUMBER(a)', ctx({ a: 'Infinity' }))).toThrow(FormulaEvalError);
     expect(() => evaluateFormula('TO_NUMBER(a)', ctx({ a: '0x1F' }))).toThrow(FormulaEvalError);
-    // 정상 10진 문자열은 그대로 받는다
     expect(evaluateFormula('TO_NUMBER(a) + 1', ctx({ a: '2.5' }))).toBe(3.5);
   });
 
@@ -329,14 +328,12 @@ describe('타입 변환 함수 (ADR-044)', () => {
     expect(evaluateFormula('TO_STRING(1500)', ctx())).toBe('1500');
     expect(evaluateFormula('TO_STRING(TRUE)', ctx())).toBe('TRUE');
     expect(evaluateFormula('TO_STRING(a)', ctx({ a: null }))).toBe('');
-    // 비교가 엄격해도 TO_STRING/TO_NUMBER로 타입을 맞추면 같다고 본다
     expect(evaluateFormula('TO_STRING(3) = "3"', ctx())).toBe(true);
     expect(evaluateFormula('3 = a', ctx({ a: '3' }))).toBe(false);
   });
 
   it('TO_DATE: 날짜 문자열을 ISO(YYYY-MM-DD)로 정규화·검증', () => {
     expect(evaluateFormula('TO_DATE("2026-01-05")', ctx())).toBe('2026-01-05');
-    // 시각이 붙은 ISO 문자열은 날짜만 남긴다
     expect(evaluateFormula('TO_DATE("2026-01-05T09:30:00Z")', ctx())).toBe('2026-01-05');
     expect(() => evaluateFormula('TO_DATE("2026-13-45")', ctx())).toThrow(FormulaEvalError);
   });

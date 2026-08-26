@@ -9,7 +9,7 @@ const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * 설치된 것처럼 `node_modules`에 이 패키지를 연결한 임시 CommonJS 프로젝트를 만든다.
- * dist 파일을 경로로 직접 부르면 `exports` 해석을 건너뛰므로, 반드시 패키지 이름으로 부른다.
+ * `exports`의 CommonJS 조건을 검증하기 위해 dist 경로가 아닌 패키지 이름으로 불러온다.
  */
 function makeCjsProject(): { require: ReturnType<typeof createRequire>; cleanup: () => void } {
   const base = mkdtempSync(join(tmpdir(), 'slipkit-cjs-'));
@@ -30,8 +30,7 @@ describe('CommonJS 소비 (ADR-057)', () => {
     }
     const { require, cleanup } = makeCjsProject();
     try {
-      // exports의 require 조건이 ESM 산출물을 가리키고, 의존 그래프에 top-level await가
-      // 없어야 통과한다 — 의존성 갱신으로 어느 쪽이 깨져도 여기서 잡는다 (ADR-057)
+      // CommonJS 진입점은 ESM 전용 코드나 top-level await를 포함할 수 없다.
       const core = require('@omdc-slipkit/core') as typeof import('../src/index.js');
       expect(typeof core.parseSlipFile).toBe('function');
       expect(typeof core.createSlipKit).toBe('function');

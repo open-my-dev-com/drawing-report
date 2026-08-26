@@ -9,10 +9,7 @@ import { getStrings } from './strings.js';
 import { resolveFonts, type SlipFontProvider } from './settings.js';
 
 /**
- * <slip-viewer> — .slip 파일(양식/전표) PDF 미리보기 컴포넌트.
- *
- * 미리보기는 PDF 변환 결과를 그대로 표시한다 — 화면과 PDF가 어긋나는 것이
- * 구조적으로 불가능 (ADR-012/016).
+ * `.slip` 양식 또는 전표를 PDF로 렌더링해 표시하는 웹 컴포넌트.
  */
 export class SlipViewer extends LitElement {
   static styles = css`
@@ -22,7 +19,7 @@ export class SlipViewer extends LitElement {
       min-height: 200px;
     }
 
-    /* 호스트가 hidden으로 감출 수 있게 한다 — :host의 display가 기본 규칙을 덮기 때문 */
+    /* hidden 속성이 컴포넌트의 기본 display 규칙보다 우선하도록 지정한다. */
     :host([hidden]) {
       display: none;
     }
@@ -59,17 +56,17 @@ export class SlipViewer extends LitElement {
     _loading: { state: true },
   };
 
-  /** .slip JSON 문자열 */
+  /** 렌더링할 `.slip` JSON 문자열. */
   src = '';
 
   /**
-   * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
+   * UI 언어 (`ko`, `en`, `ja`).
    *
    * @defaultValue 한국어
    */
   locale?: string;
 
-  /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040, JS 프로퍼티 전용) — 없으면 동봉 기본 */
+  /** 렌더링 설정. 폰트 공급자가 없으면 동봉 기본 폰트를 사용한다. */
   settings?: SlipFontProvider;
 
   private _pdfUrl: string | null = null;
@@ -94,8 +91,7 @@ export class SlipViewer extends LitElement {
   }
 
   private _revokePdfUrl(): void {
-    // 진행 중인 렌더도 무효화한다 — 분리·소스 교체 후 완료되는 렌더가
-    // 회수할 수 없는 blob URL을 만드는 것을 막는다
+    // 분리되거나 소스가 바뀐 뒤 완료된 렌더 결과는 사용하지 않는다.
     this._renderGeneration++;
     if (this._pdfUrl) {
       URL.revokeObjectURL(this._pdfUrl);
@@ -126,8 +122,7 @@ export class SlipViewer extends LitElement {
     }
 
     try {
-      // 폰트 미공급 시 동봉 Pretendard 자동 사용 (ADR-012/040) — 한글 깨짐 방지.
-      // 폰트는 렌더 호출마다 넘기지 않고 getFonts 공급 함수로 준다 (ADR-056).
+      // 호스트가 폰트를 제공하지 않으면 UI 언어에 맞는 동봉 폰트를 사용한다.
       const opts: RenderOptions = {
         getFonts: () => resolveFonts(this.settings, this.locale),
       };

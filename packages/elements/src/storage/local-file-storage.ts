@@ -1,9 +1,6 @@
 /**
- * 로컬 파일 저장소 어댑터 (ADR-021/025).
- *
- * save는 `.slip` 파일 다운로드, load는 파일 선택 대화상자를 연다.
- * 로컬 파일 시스템 특성상 delete/list는 지원하지 않으며 `unsupported` 오류를
- * 던진다 (ADR-025). 직렬화·파싱은 전부 core를 호출한다(ADR-003).
+ * 브라우저의 다운로드와 파일 선택 대화상자를 사용하는 저장소 어댑터.
+ * 파일 목록 조회와 삭제는 지원하지 않는다.
  */
 import {
   SlipStorageError,
@@ -19,16 +16,14 @@ import {
 } from './encryption.js';
 
 /**
- * 로컬 파일 저장소 어댑터 — save는 다운로드, load는 파일 선택 대화상자.
- * delete/list는 매체 특성상 지원하지 않아 `unsupported` 오류를 던진다 (ADR-025).
+ * `.slip` 파일을 다운로드하거나 파일 선택 대화상자에서 불러온다.
  */
 export class LocalFileStorage implements StorageAdapter {
   private readonly messages: SlipStrings['storage'];
   private readonly encryption: StorageEncryption | undefined;
 
   /**
-   * @param options - `locale`: 오류 메시지 언어 ('ko' | 'en' | 'ja', 기본 한국어) — ADR-028/042.
-   *   `encryption`: 저장 시 암호화 설정 (ADR-055) — 생략·비활성이면 평문 저장
+   * @param options - 오류 메시지 언어와 저장 시 적용할 암호화 설정
    */
   constructor(options: { locale?: string; encryption?: StorageEncryption } = {}) {
     this.messages = getStrings(options.locale).storage;
@@ -39,7 +34,7 @@ export class LocalFileStorage implements StorageAdapter {
    * `.slip` 파일을 다운로드로 저장한다.
    *
    * @param id - 파일명으로 쓸 저장 키 (`.slip` 확장자는 없으면 붙인다)
-   * @param file - 저장할 .slip 파일
+   * @param file - 저장할 `.slip` 파일
    */
   async save(id: string, file: SlipFile): Promise<void> {
     const json = await serializeForStorage(file, this.encryption);
@@ -58,13 +53,13 @@ export class LocalFileStorage implements StorageAdapter {
   }
 
   /**
-   * 파일 선택 대화상자를 열어 사용자가 고른 `.slip` 파일을 읽는다.
+   * 파일 선택 대화상자에서 선택한 `.slip` 파일을 읽는다.
    *
-   * @param _id - 쓰지 않음 — 어떤 파일을 열지는 사용자가 대화상자에서 고른다
-   * @returns 선택한 파일을 파싱한 .slip 파일
+   * @param _id - 인터페이스 호환을 위한 미사용 저장 키
+   * @returns 선택한 파일을 파싱한 `.slip` 파일
    * @throws SlipStorageError 선택 취소·파일 없음(io) 시
-   * @throws SlipEncryptionError 암호화 파일인데 키가 맞지 않으면 (ADR-055)
-   * @throws SlipParseError 고른 파일이 유효한 .slip이 아니면
+   * @throws SlipEncryptionError 암호화된 파일의 키가 올바르지 않은 경우
+   * @throws SlipParseError 고른 파일이 유효한 `.slip`이 아니면
    */
   load(_id: string): Promise<SlipFile> {
     return new Promise((resolve, reject) => {
@@ -99,19 +94,19 @@ export class LocalFileStorage implements StorageAdapter {
   }
 
   /**
-   * 지원하지 않는다 — 로컬 파일 매체에는 삭제 개념이 없다 (ADR-025).
+   * 로컬 파일 저장소는 파일 삭제를 지원하지 않는다.
    *
    * @param _id - 쓰지 않음
-   * @throws SlipStorageError 항상 `unsupported` 코드로 거부
+   * @throws SlipStorageError 항상 `unsupported` 코드로 발생
    */
   delete(_id: string): Promise<void> {
     return Promise.reject(new SlipStorageError('unsupported', this.messages.deleteUnsupported));
   }
 
   /**
-   * 지원하지 않는다 — 로컬 파일 매체는 목록을 조회할 수 없다 (ADR-025).
+   * 로컬 파일 저장소는 파일 목록 조회를 지원하지 않는다.
    *
-   * @throws SlipStorageError 항상 `unsupported` 코드로 거부
+   * @throws SlipStorageError 항상 `unsupported` 코드로 발생
    */
   list(): Promise<SlipListPage> {
     return Promise.reject(new SlipStorageError('unsupported', this.messages.listUnsupported));

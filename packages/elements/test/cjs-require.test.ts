@@ -9,7 +9,7 @@ const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * 설치된 것처럼 `node_modules`에 이 패키지를 연결한 임시 CommonJS 프로젝트를 만든다.
- * dist 파일을 경로로 직접 부르면 `exports` 해석을 건너뛰므로, 반드시 패키지 이름으로 부른다.
+ * `exports`의 CommonJS 조건을 검증하기 위해 dist 경로가 아닌 패키지 이름으로 불러온다.
  */
 function makeCjsProject(): { require: ReturnType<typeof createRequire>; cleanup: () => void } {
   const base = mkdtempSync(join(tmpdir(), 'slipkit-cjs-'));
@@ -30,8 +30,7 @@ describe('동봉 폰트의 CommonJS 소비 (ADR-057)', () => {
     }
     const { require, cleanup } = makeCjsProject();
     try {
-      // 폰트 하위 경로는 DOM 없이 동작하는 순수 데이터 모듈이라 서버 지원 대상이다 (ADR-057).
-      // Web Component가 들어 있는 루트 진입점은 대상이 아니므로 검사하지 않는다.
+      // DOM에 의존하지 않는 폰트 데이터 진입점만 서버 CommonJS 호환 대상이다.
       const pretendard = require('@omdc-slipkit/elements/fonts/pretendard') as
         typeof import('../src/fonts/pretendard.js');
       expect(Array.isArray(pretendard.PRETENDARD_FONTS)).toBe(true);

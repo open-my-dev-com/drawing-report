@@ -1,9 +1,8 @@
 /**
- * 수식 평가기 (ADR-010: 임의 코드 실행 금지 — AST 해석만 수행).
+ * 파싱된 AST를 해석해 수식을 평가한다. 임의의 JavaScript 코드는 실행하지 않는다.
  *
- * - 참조(path)는 context.values에서 해소한다. 경로 도중 배열을 만나면
- *   나머지 경로를 각 원소에 사상해 범위(배열)를 만든다 (예: items.금액).
- * - IF / AND / OR는 지연(단락) 평가한다.
+ * 참조 경로는 `context.values`에서 조회한다. 경로 중간에 배열이 있으면 남은 경로를
+ * 각 원소에 적용해 배열로 반환한다. `IF`, `AND`, `OR`는 단락 평가한다.
  */
 import { BUILTIN_FUNCTIONS, toCondition, toNumber, type FormulaContext, type FormulaValue, type Scalar } from './builtins.js';
 import { FormulaEvalError } from './errors.js';
@@ -15,7 +14,7 @@ export type { FormulaContext, FormulaValue };
 // 참조 해소
 // ---------------------------------------------------------------------------
 
-/** 값 순회 최대 중첩 깊이 — 적대적 values의 스택 오버플로 방지 */
+/** 값 참조를 순회할 수 있는 최대 깊이. */
 const MAX_VALUE_DEPTH = 256;
 
 function guardDepth(depth: number): void {
@@ -78,7 +77,7 @@ function applyBinary(operator: BinaryOperator, left: FormulaValue, right: Formul
     case '=': return equals(a, b);
     case '<>': return !equals(a, b);
     default: {
-      // < > <= >= : 숫자끼리 또는 문자열끼리
+      // 순서 비교는 두 피연산자가 모두 숫자이거나 모두 문자열일 때만 허용한다.
       if (typeof a === 'number' && typeof b === 'number') {
         if (operator === '<') return a < b;
         if (operator === '>') return a > b;
@@ -116,7 +115,7 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
     case 'binary':
       return applyBinary(ast.operator, evaluateAst(ast.left, context), evaluateAst(ast.right, context));
     case 'call': {
-      // 지연(단락) 평가 함수
+      // 단락 평가가 필요한 함수는 인수를 개별적으로 평가한다.
       if (ast.name === 'IF') {
         if (ast.args.length < 2 || ast.args.length > 3) {
           throw new FormulaEvalError('IF 함수의 인자는 2~3개여야 합니다');
@@ -135,7 +134,7 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
         return !shortCircuit;
       }
       const fn = BUILTIN_FUNCTIONS[ast.name];
-      // 파서가 함수명을 검증하므로 여기 도달하면 구현 누락이다
+      // 파서에 등록됐지만 평가기에 구현되지 않은 함수를 확인한다.
       if (!fn) throw new FormulaEvalError(`구현되지 않은 함수입니다: ${ast.name}`);
       return fn(ast.args.map((arg) => evaluateAst(arg, context)), context);
     }

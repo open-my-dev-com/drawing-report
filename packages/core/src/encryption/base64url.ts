@@ -6,11 +6,11 @@
 const ENC =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
-// 유효하지 않은 위치는 0xFF로 둬 알파벳 밖 문자를 조용히 0으로 받지 않고 걸러낸다
+// 알파벳에 없는 문자를 0으로 해석하지 않도록 유효하지 않은 항목은 0xFF로 표시한다.
 const DEC = new Uint8Array(128).fill(0xff);
 for (let i = 0; i < ENC.length; i++) DEC[ENC.charCodeAt(i)] = i;
 
-/** 한 글자를 6비트 값으로 — base64url 알파벳이 아니면 던진다 */
+/** base64url 문자 하나를 6비트 값으로 변환한다. */
 function sextet(code: number): number {
   const v = code < 128 ? DEC[code]! : 0xff;
   if (v === 0xff) throw new Error('base64url 문자열에 허용되지 않는 문자가 있습니다');
@@ -50,7 +50,7 @@ export function base64urlEncode(bytes: Uint8Array): string {
 export function base64urlDecode(str: string): Uint8Array {
   const n = str.length;
   const rem = n % 4;
-  // 나머지 1은 base64에서 나올 수 없는 길이다
+  // base64 문자열의 길이를 4로 나눈 나머지는 1이 될 수 없다.
   if (rem === 1) throw new Error('base64url 길이가 올바르지 않습니다');
   const fullBlocks = (n - rem) >> 2;
   const outLen = fullBlocks * 3 + (rem === 2 ? 1 : rem === 3 ? 2 : 0);

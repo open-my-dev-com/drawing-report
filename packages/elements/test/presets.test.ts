@@ -3,7 +3,7 @@ import { parseSlipFile } from '@omdc-slipkit/core';
 import { presets } from '../src/presets.js';
 import { strings } from '../src/strings.js';
 
-// 프리셋은 실제 core 스키마(parseSlipFile)로 검증한다 — 모킹 없음
+// 프리셋은 core의 실제 parseSlipFile로 검증한다.
 
 describe('디자이너 프리셋', () => {
   it('거래명세서·청구서 2종이 제공된다', () => {

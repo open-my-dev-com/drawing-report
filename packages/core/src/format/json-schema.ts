@@ -1,17 +1,17 @@
 /**
- * .slip 파일의 JSON Schema 산출 (ADR-022).
+ * `.slip` 파일의 JSON Schema를 생성한다.
  *
- * Zod 스키마에서 draft 2020-12 JSON Schema를 뽑아 패키지에 동봉한다
- * (packages/core/schemas/ — scripts/generate-json-schema.mjs로 재생성).
- * refine/superRefine의 교차 필드 검증은 JSON Schema로 표현되지 않으므로,
- * 완전한 검증은 이 라이브러리(parseSlipFile)가 기준이다 — docs/SPEC.md §10.
+ * Zod 스키마에서 draft 2020-12 JSON Schema를 생성해 패키지에 포함한다.
+ * `scripts/generate-json-schema.mjs`로 `packages/core/schemas/`를 갱신한다.
+ * `refine`과 `superRefine`의 교차 필드 검증은 JSON Schema로 표현되지 않으므로
+ * 전체 검증에는 `parseSlipFile`을 사용한다 (`docs/SPEC.md` §10).
  */
 import { z } from 'zod';
 import { slipFileSchema } from './schema.js';
 import { CURRENT_SCHEMA_VERSION } from './version.js';
 
 /**
- * 현재 스키마 버전의 .slip JSON Schema를 산출한다.
+ * 현재 `.slip` 스키마 버전의 JSON Schema를 생성한다.
  *
  * @returns draft 2020-12 JSON Schema 객체 (`$id`: `urn:slipkit:schema:slip:<버전>`)
  */

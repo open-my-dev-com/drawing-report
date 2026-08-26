@@ -1,5 +1,5 @@
 /**
- * 수식 파서 (ADR-010: 자체 파서, 임의 코드 실행 절대 금지).
+ * 수식 문자열을 자체 문법의 AST로 변환한다. JavaScript 표현식은 실행하지 않는다.
  *
  * 문법 (엑셀 스타일):
  * ```
@@ -9,7 +9,7 @@
  * mul     := unary (('*' | '/') unary)*
  * unary   := ('-' | '+') unary | primary
  * primary := number | string | TRUE | FALSE | FUNC '(' args ')' | ref | '(' expr ')'
- * ref     := ident ('.' ident)*        — 전표 values 참조 (예: items.금액)
+ * ref     := ident ('.' ident)*        # 전표 values 참조 (예: items.금액)
  * ```
  *
  * 문자열 리터럴은 큰따옴표, 내부 큰따옴표는 "" 로 이스케이프한다.
@@ -29,7 +29,7 @@ export type ArithmeticOperator = '+' | '-' | '*' | '/';
 /** 이항 연산자 전체 */
 export type BinaryOperator = ComparisonOperator | ArithmeticOperator;
 
-/** 파싱 결과 구문 트리 — 노드 7종 판별 유니온 */
+/** 파싱 결과를 나타내는 구문 트리 노드의 판별 유니온. */
 export type FormulaAst =
   | { type: 'number'; value: number }
   | { type: 'string'; value: string }
@@ -67,7 +67,7 @@ function tokenize(source: string): Token[] {
       const match = /^\d*\.?\d+(?:[eE][+-]?\d+)?/.exec(source.slice(i));
       if (!match) throw new FormulaSyntaxError('숫자 형식이 잘못되었습니다', pos);
       const num = Number(match[0]);
-      // 지수가 지나치게 큰 리터럴(1e400)은 Infinity가 되어 렌더로 새어 나가므로 거부한다.
+      // 유한하지 않은 숫자 리터럴은 평가 결과로 사용할 수 없다.
       if (!Number.isFinite(num)) throw new FormulaSyntaxError('숫자가 너무 큽니다', pos);
       tokens.push({ type: 'number', value: num, pos });
       i += match[0].length;
@@ -164,7 +164,7 @@ class Parser {
     }
   }
 
-  /** 재귀 하강 깊이 제한 — 적대적 수식의 스택 오버플로 방지 (SPEC §5.6) */
+  /** 재귀 하강 파서가 허용하는 최대 중첩 깊이. */
   private depth = 0;
 
   private enter(): void {
@@ -238,7 +238,7 @@ class Parser {
       const upper = token.value.toUpperCase();
       if (upper === 'TRUE') return { type: 'boolean', value: true };
       if (upper === 'FALSE') return { type: 'boolean', value: false };
-      // 함수 호출: 알려진 함수명(대소문자 무관) + '('
+      // 등록된 함수 이름 뒤에 여는 괄호가 오면 함수 호출로 파싱한다.
       const isCall = this.peek().type === 'op' && (this.peek() as { value?: string }).value === '(';
       if (isCall) {
         if (!FUNCTION_NAMES.has(upper)) {
@@ -254,7 +254,7 @@ class Parser {
         }
         return { type: 'call', name: upper as FormulaFunctionName, args };
       }
-      // 참조 경로: ident ('.' ident)*
+      // 점으로 구분한 식별자를 값 참조 경로로 파싱한다.
       const path = [token.value];
       while (this.matchOp('.')) {
         const segment = this.next();
@@ -269,9 +269,9 @@ class Parser {
   }
 }
 
-/** 수식 문자열 최대 길이 — 적대적 수식의 토크나이저 부하 방지 (SPEC §5.6) */
+/** 파서가 허용하는 수식 문자열의 최대 길이. */
 export const MAX_FORMULA_LENGTH = 10_000;
-/** 수식 최대 중첩 깊이 (괄호·함수 인자·부호 포함) — 스택 오버플로 방지 (SPEC §5.6) */
+/** 괄호, 함수 인수, 단항 연산자를 포함한 수식의 최대 중첩 깊이. */
 export const MAX_FORMULA_DEPTH = 100;
 
 /**

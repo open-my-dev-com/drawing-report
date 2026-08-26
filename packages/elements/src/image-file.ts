@@ -1,14 +1,12 @@
 /**
- * 이미지 파일을 base64로 읽는 공용 도우미 — 디자이너(고정·변동 이미지·샘플 값)와
- * 작성폼(`<slip-form>`)이 함께 쓴다 (G-36 · G-47).
+ * 디자이너와 `<slip-form>`에서 이미지 파일을 base64로 읽는 공통 함수.
  *
  * @remarks
- * 주소(URL)는 받지 않는다 — PDF 변환이 `data:`·`asset://`만 풀 수 있어 주소로 두면
- * 미리보기부터 깨진다 (ADR-036). 주소로 받아야 하는 이미지는 호스트 서버가 중계해
- * base64로 바꿔 넘긴다.
+ * PDF 변환은 `data:`와 `asset://`만 지원하므로 URL은 받지 않는다.
+ * 외부 이미지는 호스트가 base64로 변환해 전달해야 한다.
  */
 
-/** 이미지 파일 선택 결과 — 성공(src) 또는 오류 종류 */
+/** 이미지 파일 선택 결과 */
 export type ImagePickResult =
   | { ok: true; src: string }
   | { ok: false; reason: 'notImage' | 'tooLarge'; size: number }
@@ -18,8 +16,7 @@ export type ImagePickResult =
  * 파일 선택 대화 상자를 열어 고른 이미지를 `data:` base64로 읽는다.
  *
  * @param maxBytes - 허용하는 최대 파일 크기(바이트)
- * @returns 고른 이미지의 base64 또는 오류 종류. 파일을 고르지 않고 대화 상자를 닫으면
- *   Promise는 resolve되지 않는다(취소로 본다)
+ * @returns 선택한 이미지의 base64 데이터 또는 오류 종류. 선택을 취소하면 Promise는 완료되지 않는다
  */
 export function pickImageFile(maxBytes: number): Promise<ImagePickResult> {
   return new Promise((resolve) => {
@@ -53,7 +50,7 @@ export function pickImageFile(maxBytes: number): Promise<ImagePickResult> {
   });
 }
 
-/** 바이트 수를 사람이 읽는 크기로 (오류 문구용) */
+/** 바이트 수를 오류 메시지에 표시할 단위로 변환한다. */
 export function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${Math.round((bytes / (1024 * 1024)) * 10) / 10}MB`;
   if (bytes >= 1024) return `${Math.round(bytes / 1024)}KB`;

@@ -5,7 +5,7 @@ import { IndexedDbStorage } from '../src/storage/indexeddb-storage.js';
 import { SAMPLE_ENCRYPTION_KEY } from '../src/storage/encryption.js';
 import { presets } from '../src/presets.js';
 
-// fake-indexeddb로 실제 IndexedDB 동작을 재현한다 — core 모킹 없음
+// fake-indexeddb로 저장소 동작을 재현하고 core 직렬화 API는 실제 구현을 사용한다.
 
 let dbCounter = 0;
 function freshStorage(pageSize?: number): IndexedDbStorage {
@@ -94,7 +94,7 @@ describe('IndexedDbStorage 열기 실패 복구', () => {
     });
     spy.mockRestore();
 
-    // 실패한 열기가 캐시로 남아 있지 않아야 한다
+    // 첫 열기 실패 후 같은 어댑터가 데이터베이스 열기를 다시 시도해야 한다.
     await storage.save('doc', presets[0]!.create());
     const loaded = await storage.load('doc');
     expect(loaded.kind).toBe('template');
@@ -103,7 +103,7 @@ describe('IndexedDbStorage 열기 실패 복구', () => {
   it('v1(문자열 본문)으로 저장된 것을 v2(Blob)로 마이그레이션해 로드한다 (ADR-045)', async () => {
     const dbName = `test-mig-${++dbCounter}`;
     const file = presets[0]!.create();
-    // 옛 v1 형식으로 직접 저장한다 — data가 문자열
+    // 버전 1 레코드는 본문을 문자열로 저장한다.
     await new Promise<void>((resolve, reject) => {
       const req = indexedDB.open(dbName, 1);
       req.onupgradeneeded = () => req.result.createObjectStore('slips', { keyPath: 'id' });
@@ -126,17 +126,16 @@ describe('IndexedDbStorage 열기 실패 복구', () => {
       req.onerror = () => reject(req.error);
     });
 
-    // v2로 열며 마이그레이션 → 문자열 본문도 그대로 로드된다
+    // 버전 2로 열 때 문자열 본문을 Blob으로 마이그레이션한다.
     const storage = new IndexedDbStorage({ dbName });
     const loaded = await storage.load('old-1');
     expect(loaded).toEqual(file);
-    // 목록에도 그대로 나온다
     const page = await storage.list();
     expect(page.items.map((i) => i.id)).toContain('old-1');
   });
 });
 
-/** 저장된 레코드의 본문(data)·메타(title)를 어댑터를 거치지 않고 직접 읽는다 */
+/** 저장된 레코드의 본문과 제목을 IndexedDB에서 직접 읽는다. */
 function readRawRecord(dbName: string, id: string): Promise<{ data: string; title: string }> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(dbName, 2);
@@ -173,7 +172,7 @@ describe('IndexedDbStorage 암호화 (ADR-055)', () => {
     const file = presets[0]!.create();
     await new IndexedDbStorage({ dbName, encryption: { enabled: true } }).save('doc', file);
 
-    // 설정 없는 어댑터(기본이 샘플키)로도, 샘플키를 명시한 어댑터로도 열린다
+    // 키를 생략한 어댑터와 샘플 키를 명시한 어댑터가 같은 기본 키를 사용한다.
     expect(await new IndexedDbStorage({ dbName }).load('doc')).toEqual(file);
     const sample = new IndexedDbStorage({ dbName, encryption: { enabled: true, key: SAMPLE_ENCRYPTION_KEY } });
     expect(await sample.load('doc')).toEqual(file);
@@ -195,7 +194,7 @@ describe('IndexedDbStorage 암호화 (ADR-055)', () => {
     const file = presets[0]!.create();
     await new IndexedDbStorage({ dbName, encryption: { enabled: false, key: '키' } }).save('doc', file);
 
-    // 평문이라 봉투가 아니므로 복호화를 타지 않는다 — 다른 키를 든 어댑터로도 읽힌다
+    // 평문 레코드는 암호화 키 설정과 관계없이 파싱한다.
     const other = new IndexedDbStorage({ dbName, encryption: { enabled: true, key: '다른-키' } });
     expect(await other.load('doc')).toEqual(file);
   });
@@ -213,17 +212,17 @@ describe('IndexedDbStorage 암호화 (ADR-055)', () => {
   it('키를 바꿔도 previousKeys로 옛 키 파일을 읽고, 다시 저장하면 새 키로 옮겨진다', async () => {
     const dbName = `test-enc-${++dbCounter}`;
     const file = presets[0]!.create();
-    // 옛 키로 저장
+    // 이전 키로 암호화된 레코드를 준비한다.
     await new IndexedDbStorage({ dbName, encryption: { enabled: true, key: '옛-키' } }).save('doc', file);
 
-    // 새 키 + 옛 키를 previousKeys로: 옛 파일이 그대로 열린다
+    // 현재 키가 실패하면 previousKeys의 이전 키로 복호화한다.
     const rotated = new IndexedDbStorage({
       dbName,
       encryption: { enabled: true, key: '새-키', previousKeys: ['옛-키'] },
     });
     expect(await rotated.load('doc')).toEqual(file);
 
-    // 다시 저장하면 새 키로 옮겨진다 — 옛 키 없이 새 키만으로 열린다
+    // 다시 저장한 본문은 현재 키로 암호화한다.
     await rotated.save('doc', file);
     const newOnly = new IndexedDbStorage({ dbName, encryption: { enabled: true, key: '새-키' } });
     expect(await newOnly.load('doc')).toEqual(file);
@@ -234,7 +233,7 @@ describe('IndexedDbStorage 암호화 (ADR-055)', () => {
     const file = presets[0]!.create();
     await new IndexedDbStorage({ dbName, encryption: { enabled: true, key: '키' } }).save('doc', file);
 
-    // enabled:false여도 봉투는 자동 감지 — 남겨 둔 키로 읽힌다. 새 저장은 평문이 된다
+    // 암호화를 비활성화해도 기존 봉투는 감지해 복호화하고 새 저장은 평문으로 기록한다.
     const off = new IndexedDbStorage({ dbName, encryption: { enabled: false, key: '키' } });
     expect(await off.load('doc')).toEqual(file);
   });

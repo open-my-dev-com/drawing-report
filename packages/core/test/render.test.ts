@@ -24,7 +24,7 @@ type PdfmeSchema = Record<string, unknown> & {
   height: number;
 };
 
-/** 여러 종류의 요소를 담은 양식 본문. 그리드는 (1,0)에 2행 병합 칸을 둔다 */
+/** 여러 요소를 담고 `(1, 0)`에 두 행을 병합한 그리드가 있는 양식 본문. */
 function makeBody(): SlipTemplateBody {
   return {
     meta: { title: '거래명세서' },
@@ -149,7 +149,7 @@ function pageSchemas(file: SlipTemplateFile | SlipVoucherFile, pageIndex = 0): P
   return (template.schemas[pageIndex] ?? []) as unknown as PdfmeSchema[];
 }
 
-/** 앞부분 바이트를 ASCII 문자열로 (DOM·Node 전역에 기대지 않는다) */
+/** 바이트 배열의 앞부분을 ASCII 문자열로 변환한다. */
 function ascii(bytes: Uint8Array, length: number): string {
   return Array.from(bytes.slice(0, length), (byte) => String.fromCharCode(byte)).join('');
 }
@@ -180,7 +180,6 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
 
   it('field는 수식을 평가한 결과를 값으로 넘긴다', () => {
     const { inputs } = convertSlipFile(makeVoucher(3));
-    // 1000 + 2000 + 3000
     expect(inputs[0]?.total).toBe('6,000');
   });
 
@@ -199,7 +198,7 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     const file = makeTemplateFile();
     file.template.parameters = [{ key: 'total', valueType: 'number' }];
     patchElement(file.template, 'total', { formula: undefined, parameter: 'total' } as never);
-    // 양식(값 없음)이라 number 파라미터 필드는 0이 아니라 공백이어야 한다 — 정규화는 전표에만 적용
+    // number 파라미터의 빈 값을 0으로 변환하는 규칙은 전표에만 적용한다.
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 
@@ -287,10 +286,10 @@ describe('그리드(grid) 분해', () => {
   });
 
   it('병합 셀 내부의 경계선은 그리지 않는다', () => {
-    // 행 높이 균등(10mm) → y=30이 병합 셀(1행0열, 2행 병합)의 내부 경계
+    // y=30은 `(1, 0)`에서 두 행을 병합한 셀의 내부 경계다.
     const inner = horizontals.filter((schema) => Math.abs(schema.position.y - (30 - 0.1)) < 1e-6);
     expect(inner).toHaveLength(1);
-    // 병합되지 않은 오른쪽 열(x 60~110)에만 선이 남는다
+    // 내부 경계선은 병합되지 않은 오른쪽 열에만 남는다.
     expect(inner[0]?.position.x).toBe(60);
     expect(inner[0]?.width).toBe(50);
   });
@@ -321,7 +320,7 @@ describe('그리드(grid) 분해', () => {
 });
 
 describe('그리드 셀별 테두리 (ADR-033)', () => {
-  // 2×2 그리드: 경계 x=10·60·110, y=10·20·30 (열 50/50, 행 균등 10mm)
+  // 2x2 그리드 경계: x=10, 60, 110mm / y=10, 20, 30mm.
   function makeGridFile(cells: GridElement['cells']): SlipTemplateFile {
     return {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -354,16 +353,16 @@ describe('그리드 셀별 테두리 (ADR-033)', () => {
 
   it('셀 테두리 굵기 0이면 그 셀 둘레 변을 그리지 않는다 (합계 박스)', () => {
     const lines = linesOf(makeGridFile([{ row: 1, column: 0, content: '', borderWidth: 0 }]));
-    // 아래 변: 왼쪽 칸(굵기 0)은 사라지고 오른쪽 칸만 남는다
+    // 아래쪽 경계는 굵기가 0인 왼쪽 셀을 제외한다.
     const bottom = lines.filter((line) => Math.abs(line.position.y - (30 - 0.1)) < 1e-6);
     expect(bottom).toHaveLength(1);
     expect(bottom[0]?.position.x).toBe(60);
     expect(bottom[0]?.width).toBe(50);
-    // 왼쪽 변: 위 행(기본 테두리)만 남는다
+    // 왼쪽 경계는 기본 테두리를 사용하는 위쪽 셀에만 남는다.
     const left = at(lines, 10 - 0.1, 10);
     expect(left).toHaveLength(1);
     expect(left[0]?.height).toBe(10);
-    // 가운데 변: 오른쪽 이웃 셀이 기본 테두리라 굵은 쪽이 이겨 전체 높이로 남는다
+    // 공유 경계는 인접한 두 셀 중 더 굵은 테두리를 사용한다.
     const middle = at(lines, 60 - 0.1, 10);
     expect(middle).toHaveLength(1);
     expect(middle[0]?.height).toBe(20);
@@ -373,17 +372,17 @@ describe('그리드 셀별 테두리 (ADR-033)', () => {
     const lines = linesOf(
       makeGridFile([{ row: 0, column: 0, content: '', borderWidth: 0.6, borderColor: '#CC0000' }]),
     );
-    // 위 변 왼쪽 칸: 0.6mm 빨강 (중심 정렬이라 y = 10 - 0.3)
+    // 0.6mm 테두리는 경계 중심에 놓이므로 위쪽 좌표는 `10 - 0.3`이다.
     const top = at(lines, 10, 10 - 0.3);
     expect(top).toHaveLength(1);
     expect(top[0]?.width).toBe(50);
     expect(top[0]?.height).toBe(0.6);
     expect(top[0]?.color).toBe('#CC0000');
-    // 행 경계(공유 변): 아래 셀은 기본 0.2지만 굵은 쪽(0.6 빨강)이 이긴다
+    // 행 공유 경계에는 더 굵은 0.6mm 테두리를 적용한다.
     const shared = at(lines, 10, 20 - 0.3);
     expect(shared).toHaveLength(1);
     expect(shared[0]?.color).toBe('#CC0000');
-    // 위 변 오른쪽 칸은 기본 테두리 그대로 — 스타일이 달라 별도 선분으로 나뉜다
+    // 스타일이 다른 오른쪽 셀의 위쪽 경계는 별도 선분으로 생성한다.
     const topRight = at(lines, 60, 10 - 0.1);
     expect(topRight).toHaveLength(1);
     expect(topRight[0]?.height).toBe(0.2);
@@ -422,7 +421,6 @@ describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
   it('양식(빈 값) 파일은 반복 칸이 비어 헤더만 남는다', () => {
     const texts = itemTexts(makeTemplateFile());
     expect(texts).toEqual(['품명', '수량', '금액']);
-    // 값이 비었으므로 수식 없는 필드도 빈 문자열이 된다
     const file = makeTemplateFile();
     patchElement(file.template, 'total', { formula: undefined, parameter: 'total' } as never);
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
@@ -460,7 +458,6 @@ describe('도형·글자 스타일 변환 (ADR-032)', () => {
     expect(line.type).toBe('line');
     expect(line.width).toBeCloseTo(Math.hypot(60, 30), 5);
     expect(line.rotate).toBeCloseTo((Math.atan2(30, 60) * 180) / Math.PI, 5);
-    // up 대각선은 반대 기울기
     const [up] = convertSlipFile(
       makeShapeFile([{ type: 'line', lineDirection: 'up', ...base }]),
     ).template.schemas as PdfmeSchema[][];
@@ -475,7 +472,7 @@ describe('도형·글자 스타일 변환 (ADR-032)', () => {
     ).template.schemas as PdfmeSchema[][];
     const segments = schemas!.filter((s) => s.type === 'line');
     expect(segments.length).toBeGreaterThan(5);
-    // 선분 길이 = 파선 패턴(2.4mm) 이하
+    // 각 선분은 2.4mm 파선 패턴보다 길지 않아야 한다.
     for (const seg of segments) expect(seg.width).toBeLessThanOrEqual(2.4);
   });
 
@@ -490,7 +487,6 @@ describe('도형·글자 스타일 변환 (ADR-032)', () => {
     expect(schemas!.find((s) => s.name === 'e1')!.type).toBe('ellipse');
     expect(schemas!.find((s) => s.name === 't1')!.type).toBe('svg');
     expect(inputs[0]?.t1).toContain('<polygon');
-    // 오각형 = 꼭짓점 5개
     const pointsAttr = /points="([^"]+)"/.exec(inputs[0]?.t1 ?? '')?.[1] ?? '';
     expect(pointsAttr.split(' ').length).toBe(5);
   });
@@ -516,7 +512,7 @@ describe('도형·글자 스타일 변환 (ADR-032)', () => {
     expect(text.underline).toBe(true);
     expect(text.strikethrough).toBe(true);
 
-    // 굵은 폰트가 없으면 굵게는 무시된다 (fontName 미지정 유지)
+    // Bold 변형이 없으면 기본 폰트 이름을 유지한다.
     const [noBold] = convertSlipFile(file, {
       fontNames: ['Pretendard'], fallbackFontName: 'Pretendard',
     }).template.schemas as PdfmeSchema[][];
@@ -570,7 +566,7 @@ describe('PDF 렌더링 (종단)', () => {
     });
     await renderer.renderToPdf(makeVoucher(3));
     await renderer.renderToPdf(makeVoucher(3));
-    // 수 MB짜리 폰트를 렌더마다 다시 받지 않는다
+    // 폰트 공급자는 렌더러 인스턴스마다 한 번만 호출한다.
     expect(called).toBe(1);
   });
 
@@ -584,7 +580,7 @@ describe('PDF 렌더링 (종단)', () => {
       },
     });
     await expect(renderer.renderToPdf(makeVoucher(3))).rejects.toThrow('일시 실패');
-    // 실패는 캐시하지 않는다 — 재시도에서 성공하면 정상 렌더한다
+    // 실패한 폰트 조회 결과는 캐시하지 않는다.
     const pdf = await renderer.renderToPdf(makeVoucher(3));
     expect(ascii(pdf, 4)).toBe('%PDF');
     expect(called).toBe(2);
@@ -615,7 +611,7 @@ describe('렌더 로케일 (ADR-013)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// grid — 고정 틀과 반복 목록을 하나로 다루는 그리드 (ADR-037)
+// grid — 고정 틀과 반복 목록을 하나로 다루는 그리드
 // ---------------------------------------------------------------------------
 
 /**
@@ -980,7 +976,7 @@ describe('바코드·변동 이미지·페이지 번호 변환', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 데이터 자동 병합 (ADR-038)
+// 데이터 자동 병합
 // ---------------------------------------------------------------------------
 
 describe('반복 항목 수 상한 (ADR-048)', () => {

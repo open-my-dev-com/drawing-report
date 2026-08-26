@@ -1,13 +1,11 @@
 /**
- * 기본 폰트 지연 로딩 (ADR-012/031/042).
+ * UI 언어에 맞는 기본 폰트를 지연 로딩한다.
  *
- * 컴포넌트가 `settings.getFonts` 없이 PDF를 만들 때만 동봉 폰트 모듈(각 약 3MB)을
- * 동적 import한다 — 번들러가 별도 청크로 분리해, 사용자 폰트를 쓰거나 해당 언어를
- * 쓰지 않는 호스트는 내려받지 않는다. 언어별로 한 번 불러오면 재사용한다.
+ * `settings.getFonts`가 없을 때만 동봉 폰트 모듈을 동적으로 가져오며, 언어별로
+ * 한 번 불러온 결과를 재사용한다.
  *
- * 언어에 따라 기본 폰트가 다르다 — 한국어·영어는 Pretendard(한글+라틴), 일본어는
- * Noto Sans JP(가나+한자)이다. 언어마다 기본 하나는 있게 하되(ADR-042) 더 넓은 범위·
- * 굵기는 호스트가 `settings.getFonts`로 공급한다(ADR-040).
+ * 한국어와 영어에는 Pretendard를, 일본어에는 Noto Sans JP를 사용한다. 다른 글자 범위나
+ * 굵기가 필요하면 호스트가 `settings.getFonts`로 폰트를 제공한다.
  */
 import type { SlipFont } from '@omdc-slipkit/core';
 import type { SlipLocale } from './strings.js';
@@ -37,7 +35,7 @@ function loadNotoSansJp(): Promise<FontList> {
 /**
  * 언어에 맞는 동봉 기본 폰트를 불러온다.
  *
- * @param locale - UI 언어. `'ja'`면 Noto Sans JP, 그 밖(한국어·영어)은 Pretendard.
+ * @param locale - UI 언어. `'ja'`이면 Noto Sans JP, 그 밖에는 Pretendard를 사용한다.
  * @returns PDF 렌더링에 넘길 폰트 등록 목록
  */
 export function loadDefaultFonts(locale?: SlipLocale): Promise<FontList> {

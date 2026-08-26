@@ -1,17 +1,14 @@
 /**
- * 글자 재기 — 셀 안에서 줄이 바뀌는 자리와 줄 높이를 구한다 (ADR-037).
+ * 그리드 셀의 줄바꿈 위치와 표시 가능한 줄 수를 계산한다.
  *
- * 그리드의 셀은 높이가 정해져 있어, 셀을 넘치는 글을 잘라내려면 **몇 줄이 들어가는지**를
- * 그리기 전에 알아야 한다. 하부 엔진의 계산 규칙과 어긋나면 화면과 PDF가 달라지므로
- * (ADR-012), 폭·높이 계산과 줄 나누기를 엔진과 같은 규칙으로 맞춘다:
+ * 셀 높이에 들어가는 줄 수를 렌더링 전에 계산한다. 폭, 높이, 줄바꿈에는 PDF 렌더러와
+ * 같은 계산 규칙을 적용한다.
  *
- * - 낱말 나누기는 `Intl.Segmenter`(granularity `word`) — 낱말 중간에서 끊지 않고,
- *   낱말 하나가 셀보다 길 때만 글자 단위로 쪼갠다.
- * - 글자 폭은 폰트의 advance width 합 + 자간.
- * - 첫 줄 높이는 폰트의 ascent 기준, 둘째 줄부터는 `줄간격 x 글자 크기`.
+ * - `Intl.Segmenter`로 단어를 구분하며, 셀보다 긴 단어만 글자 단위로 나눈다.
+ * - 글자 폭은 폰트의 advance width와 자간으로 계산한다.
+ * - 첫 줄 높이는 폰트의 ascent를 사용하고, 다음 줄부터는 `줄간격 x 글자 크기`를 사용한다.
  *
- * 미리 줄을 나눠 `\n`으로 이어 넘기면 엔진은 그 줄을 그대로 그린다(줄바꿈 문자를 먼저
- * 자르고 각 줄을 폭에 맞춰 나누므로, 이미 폭에 맞는 줄은 다시 나뉘지 않는다).
+ * 계산한 줄은 `\n`으로 연결해 렌더링 엔진에 전달한다.
  */
 import * as fontkit from 'fontkit';
 import type { SlipFont } from './types.js';
@@ -19,7 +16,7 @@ import type { SlipFont } from './types.js';
 /** pt → mm */
 const PT_TO_MM = 25.4 / 72;
 
-/** 재기에 쓰는 폰트 지표 — fontkit이 연 폰트에서 필요한 값만 뽑아 둔다 */
+/** 글자 크기 계산에 필요한 fontkit 폰트 정보 */
 interface FontMetrics {
   layout(text: string): { glyphs: { advanceWidth: number }[] };
   unitsPerEm: number;
@@ -28,7 +25,7 @@ interface FontMetrics {
   bbox: { maxY: number; minY: number };
 }
 
-/** 한 셀의 글자 모양 — 재기에 필요한 값만 */
+/** 셀의 글자 크기 계산에 필요한 스타일 */
 export interface MeasureStyle {
   /** 글꼴 이름 (미지정이면 대체 폰트) */
   fontName?: string | undefined;
@@ -48,10 +45,10 @@ function segmentWords(line: string): string[] {
 }
 
 /**
- * 글자 재기 도구 — 렌더 옵션의 폰트로 만든다.
+ * 렌더링 폰트로 글자 폭과 줄 수를 계산한다.
  *
- * 폰트를 못 얻으면(호스트가 폰트를 주지 않은 경우) 재기를 포기하고 `undefined`를 돌려주는
- * 메서드를 갖는다. 그때 호출 쪽은 자르지 않고 그대로 그린다 — 잘못 자르는 것보다 낫다.
+ * 사용할 수 있는 폰트가 없으면 계산 메서드는 `undefined`를 반환한다. 호출자는 이 경우
+ * 원문을 자르지 않고 렌더링한다.
  */
 export class TextMeasurer {
   private readonly fonts = new Map<string, FontMetrics | null>();
@@ -59,7 +56,7 @@ export class TextMeasurer {
   private readonly sources = new Map<string, Uint8Array>();
 
   /**
-   * @param fonts - 렌더 옵션에 등록된 폰트 목록. 비우면 재기를 하지 않는다
+   * @param fonts - 렌더 옵션에 등록된 폰트 목록. 비어 있으면 측정하지 않는다
    */
   constructor(fonts: readonly SlipFont[] = []) {
     for (const font of fonts) this.sources.set(font.name, font.data);
@@ -78,7 +75,7 @@ export class TextMeasurer {
     }
     let opened: FontMetrics | null = null;
     try {
-      // fontkit은 Buffer 계열을 받는다 — 폰트가 깨져 있으면 재기를 포기한다
+      // fontkit이 폰트를 읽지 못하면 해당 폰트의 크기 계산을 건너뛴다.
       opened = fontkit.create(data) as unknown as FontMetrics;
     } catch {
       opened = null;
@@ -95,7 +92,7 @@ export class TextMeasurer {
     return (advance * style.fontSize) / 1000 + spacing;
   }
 
-  /** 첫 줄 높이(mm) — 폰트 ascent 기준 (하부 엔진과 같은 규칙) */
+  /** 렌더링 엔진과 같은 ascent 기준으로 첫 줄 높이를 계산한다. */
   private firstLineHeightMm(metrics: FontMetrics, fontSize: number): number {
     const scale = 1000 / metrics.unitsPerEm;
     const ascent = (metrics.ascent || metrics.bbox.maxY) * scale;
@@ -141,7 +138,7 @@ export class TextMeasurer {
           current = segment;
           currentWidth = segmentWidth;
         } else {
-          // 낱말 하나가 셀보다 길다 — 이때만 글자 단위로 쪼갠다
+          // 셀보다 긴 단어만 글자 단위로 나눈다.
           for (const char of segment) {
             const charWidth = this.widthPt(char, metrics, style);
             if (currentWidth + charWidth > boxWidthPt && current !== '') push();

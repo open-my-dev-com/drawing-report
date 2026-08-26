@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STRINGS, getStrings, strings } from '../src/strings.js';
 
-// 언어 사전 무결성 — 키 일치는 SlipStrings 타입이 컴파일 단계에서 강제한다 (ADR-028/042)
+// 타입 검사 외에 각 언어 사전의 런타임 값도 확인한다.
 
 function leaves(value: unknown): string[] {
   if (typeof value === 'string') return [value];

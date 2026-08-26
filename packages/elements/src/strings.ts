@@ -1,12 +1,11 @@
 /**
- * UI 문구 리소스 (ADR-013/028).
+ * UI 문구 리소스.
  *
- * 문구는 전부 이 파일의 언어별 사전에 모으고, 컴포넌트는 `locale` 속성으로
- * 사전을 고른다 (기본 한국어). 새 문구는 반드시 두 사전에 함께 추가한다 —
- * `SlipStrings` 타입이 키 누락을 컴파일 단계에서 잡는다.
+ * 문구는 이 파일의 언어별 사전에 정의하고 컴포넌트는 `locale` 속성으로 사전을 선택한다.
+ * 새 문구는 모든 언어 사전에 추가하며 `SlipStrings` 타입으로 키 구성을 검사한다.
  */
 
-/** 지원하는 UI 언어 (ADR-028/042) */
+/** 지원하는 UI 언어. */
 export type SlipLocale = 'ko' | 'en' | 'ja';
 
 const ko = {
@@ -69,16 +68,16 @@ const ko = {
     sidebarElements: '요소',
     sidebarParameters: '파라미터',
     typeBarcode: '바코드',
-    /* 바코드 요소 편집 (G-33) */
+    /* 바코드 요소 편집  */
     barcodeKind: '바코드 종류',
     barcodeValue: '바코드 값',
     barcodeWarnDigits: '{name}은 숫자 {n}자리여야 합니다',
     barcodeWarnCode39: 'CODE39는 대문자·숫자·일부 기호(- . $ / + % 공백)만 됩니다',
     expandRow: '펼치기',
     collapseRow: '접기',
-    /* 요소 목록에서 그리드를 펼쳤을 때 값·수식 셀 줄 (G-44) */
+    /* 요소 목록에서 그리드를 펼쳤을 때 값·수식 셀 줄  */
     gridCellAt: '{r}행 {c}열',
-    /* 요소 그룹화 (G-27) */
+    /* 요소 그룹화  */
     groupSelection: '여러 요소',
     selectedCount: '고른 요소',
     groupElements: '그룹으로 묶기',
@@ -88,7 +87,7 @@ const ko = {
     formTitle: '제목',
     paperSize: '용지 크기',
     paperCustom: '직접 입력',
-    /* 용지 공급·저장 (G-31) */
+    /* 용지 공급·저장  */
     paperSaveThis: '이 크기 저장',
     paperSizeName: '용지 이름',
     orientation: '방향',
@@ -123,7 +122,7 @@ const ko = {
     columns: '열',
     cell: '선택 셀',
     cellHint: '선택된 표를 한 번 더 클릭하면 셀을 골라 바로 입력할 수 있습니다.',
-    /** 그리드 (ADR-037) */
+    /** 그리드  */
     rowHeight: '행 높이',
     columnWidth: '열 너비',
     overflow: '문자열이 현재 범위를 벗어나면',
@@ -189,8 +188,8 @@ const ko = {
     styleBackground: '배경',
     styleBorder: '테두리',
     borderShape: '형태',
-    /* 선은 테두리를 두르는 게 아니라 선 자체가 굵기·색·모양을 갖는다 (G-32) */
-    /* 이미지 업로드 (G-36) — 업로드한 파일을 base64로 담는다. URL 입력은 두지 않는다 */
+    /* 선은 테두리를 두르는 게 아니라 선 자체가 굵기·색·모양을 갖는다  */
+    /* 이미지 업로드: 파일을 base64로 저장하며 URL 입력은 제공하지 않는다. */
     imageModalTitle: '이미지 선택',
     imagePick: '이미지 업로드',
     imageReuse: '등록된 이미지',
@@ -201,7 +200,7 @@ const ko = {
     imageTooLarge: '이미지 용량 초과 — 최대 {max} (선택한 파일 {size})',
     imageNotImage: '이미지 파일이 아닙니다',
     imageReadFailed: '파일을 읽을 수 없습니다',
-    /* 변동 이미지 (G-47) — 이미지 요소를 고정(src) 또는 변동(parameter) 중 하나로 둔다 */
+    /* 이미지 요소의 고정 소스와 파라미터 소스 설정. */
     imageMode: '이미지 방식',
     imageFixed: '고정 이미지',
     imageVariable: '변동 이미지',
@@ -289,7 +288,7 @@ const ko = {
     previewLoading: 'PDF를 생성하고 있습니다…',
     previewError: 'PDF 생성에 실패했습니다.',
     pdfTitle: 'PDF 미리보기',
-    /* 변동 이미지 입력 (G-47) */
+    /* 변동 이미지 입력  */
     imageUpload: '이미지 선택',
     imageClear: '이미지 지우기',
     imageNone: '선택된 이미지 없음',
@@ -308,7 +307,7 @@ const ko = {
   },
 };
 
-/** 문구 사전의 형태 — 두 언어가 같은 키를 갖도록 컴파일 단계에서 강제한다 */
+/** 모든 언어 사전이 공유하는 문구 구조. */
 export type SlipStrings = typeof ko;
 
 const en: SlipStrings = {
@@ -371,16 +370,16 @@ const en: SlipStrings = {
     sidebarElements: 'Elements',
     sidebarParameters: 'Parameters',
     typeBarcode: 'Barcode',
-    /* Barcode element editing (G-33) */
+    /* Barcode element editing  */
     barcodeKind: 'Barcode type',
     barcodeValue: 'Barcode value',
     barcodeWarnDigits: '{name} must be {n} digits',
     barcodeWarnCode39: 'CODE39 allows only uppercase letters, digits, and - . $ / + % space',
     expandRow: 'Expand',
     collapseRow: 'Collapse',
-    /* Value/formula cell rows when a grid is expanded in the element list (G-44) */
+    /* Value/formula cell rows when a grid is expanded in the element list  */
     gridCellAt: 'Row {r}, Col {c}',
-    /* Element grouping (G-27) */
+    /* Element grouping  */
     groupSelection: 'Multiple elements',
     selectedCount: 'Selected',
     groupElements: 'Group',
@@ -390,7 +389,7 @@ const en: SlipStrings = {
     formTitle: 'Title',
     paperSize: 'Paper size',
     paperCustom: 'Custom',
-    /* Paper size supply/save (G-31) */
+    /* Paper size supply/save  */
     paperSaveThis: 'Save this size',
     paperSizeName: 'Size name',
     orientation: 'Orientation',
@@ -425,7 +424,7 @@ const en: SlipStrings = {
     columns: 'Columns',
     cell: 'Selected cell',
     cellHint: 'Click the selected grid again to pick a cell and type.',
-    /** Grid (ADR-037) */
+    /** Grid  */
     rowHeight: 'Row height',
     columnWidth: 'Column width',
     overflow: 'When text exceeds the cell',
@@ -501,7 +500,7 @@ const en: SlipStrings = {
     imageTooLarge: 'Image too large — max {max} (selected file is {size})',
     imageNotImage: 'Not an image file',
     imageReadFailed: 'Could not read the file',
-    /* Variable image (G-47) — an image element is either fixed (src) or bound (parameter) */
+    /* Fixed and parameter-bound image sources. */
     imageMode: 'Image mode',
     imageFixed: 'Fixed image',
     imageVariable: 'Variable image',
@@ -589,7 +588,7 @@ const en: SlipStrings = {
     previewLoading: 'Generating PDF…',
     previewError: 'Failed to generate the PDF.',
     pdfTitle: 'PDF preview',
-    /* Variable image input (G-47) */
+    /* Variable image input  */
     imageUpload: 'Select image',
     imageClear: 'Clear image',
     imageNone: 'No image selected',
@@ -668,16 +667,16 @@ const ja: SlipStrings = {
     sidebarElements: '要素',
     sidebarParameters: 'パラメータ',
     typeBarcode: 'バーコード',
-    /* 바코드 요소 편집 (G-33) */
+    /* 바코드 요소 편집  */
     barcodeKind: 'バーコードの種類',
     barcodeValue: 'バーコードの値',
     barcodeWarnDigits: '{name}は数字 {n} 桁である必要があります',
     barcodeWarnCode39: 'CODE39 は大文字・数字・一部の記号（- . $ / + % 空白）のみ使えます',
     expandRow: '展開',
     collapseRow: '折りたたむ',
-    /* 요소 목록에서 그리드를 펼쳤을 때 값·수식 셀 줄 (G-44) */
+    /* 요소 목록에서 그리드를 펼쳤을 때 값·수식 셀 줄  */
     gridCellAt: '{r}行{c}列',
-    /* 요소 그룹화 (G-27) */
+    /* 요소 그룹화  */
     groupSelection: '複数の要素',
     selectedCount: '選択した要素',
     groupElements: 'グループ化',
@@ -687,7 +686,7 @@ const ja: SlipStrings = {
     formTitle: 'タイトル',
     paperSize: '用紙サイズ',
     paperCustom: 'カスタム入力',
-    /* 용지 공급·저장 (G-31) */
+    /* 용지 공급·저장  */
     paperSaveThis: 'このサイズを保存',
     paperSizeName: '用紙名',
     orientation: '向き',
@@ -722,7 +721,7 @@ const ja: SlipStrings = {
     columns: '列',
     cell: '選択セル',
     cellHint: '選択した表をもう一度クリックすると、セルを選んで直接入力できます。',
-    /** 그리드 (ADR-037) */
+    /** 그리드  */
     rowHeight: '行の高さ',
     columnWidth: '列の幅',
     overflow: '文字列がセルの範囲を超えたら',
@@ -788,8 +787,8 @@ const ja: SlipStrings = {
     styleBackground: '背景',
     styleBorder: '枠線',
     borderShape: '形状',
-    /* 선은 테두리를 두르는 게 아니라 선 자체가 굵기·색·모양을 갖는다 (G-32) */
-    /* 이미지 업로드 (G-36) — 업로드한 파일을 base64로 담는다. URL 입력은 두지 않는다 */
+    /* 선은 테두리를 두르는 게 아니라 선 자체가 굵기·색·모양을 갖는다  */
+    /* 이미지 업로드: 파일을 base64로 저장하며 URL 입력은 제공하지 않는다. */
     imageModalTitle: '画像を選択',
     imagePick: '画像をアップロード',
     imageReuse: '登録済みの画像',
@@ -800,7 +799,7 @@ const ja: SlipStrings = {
     imageTooLarge: '画像の容量超過 — 最大 {max}（選択したファイル {size}）',
     imageNotImage: '画像ファイルではありません',
     imageReadFailed: 'ファイルを読み込めません',
-    /* 변동 이미지 (G-47) — 이미지 요소를 고정(src) 또는 변동(parameter) 중 하나로 둔다 */
+    /* 이미지 요소의 고정 소스와 파라미터 소스 설정. */
     imageMode: '画像の方式',
     imageFixed: '固定画像',
     imageVariable: '変動画像',
@@ -888,7 +887,7 @@ const ja: SlipStrings = {
     previewLoading: 'PDF を生成しています…',
     previewError: 'PDF の生成に失敗しました。',
     pdfTitle: 'PDF プレビュー',
-    /* 변동 이미지 입력 (G-47) */
+    /* 변동 이미지 입력  */
     imageUpload: '画像を選択',
     imageClear: '画像を消す',
     imageNone: '選択された画像がありません',
@@ -911,9 +910,8 @@ const ja: SlipStrings = {
 export const STRINGS: Record<SlipLocale, SlipStrings> = { ko, en, ja };
 
 /**
- * 로케일 문자열을 지원 언어({@link SlipLocale}) 하나로 정규화한다. 'en-US'·'ja-JP'처럼
- * 지역이 붙어도 언어만 보고 고르며, 모르는 로케일은 한국어(기본)로 돌아간다.
- * 문구 사전 선택과 동봉 기본 폰트 선택이 같은 규칙을 쓰도록 한곳에 둔다 (ADR-028/042).
+ * 로케일 문자열을 지원 언어({@link SlipLocale})로 정규화한다. 지역 코드가 포함되면
+ * 언어 코드만 사용하며 지원하지 않는 언어는 한국어로 처리한다.
  *
  * @param locale - UI 언어 (생략하면 한국어)
  * @returns 정규화된 지원 언어 코드
@@ -924,8 +922,8 @@ export function normalizeLocale(locale?: string): SlipLocale {
 }
 
 /**
- * 로케일에 맞는 문구 사전을 돌려준다. 'en-US'처럼 지역이 붙어도 언어만 보고
- * 고르며, 모르는 로케일은 한국어(기본)로 돌아간다.
+ * 로케일에 맞는 문구 사전을 반환한다. 지역 코드는 제거하고 지원하지 않는 언어는
+ * 한국어로 처리한다.
  *
  * @param locale - UI 언어 (생략하면 한국어)
  * @returns 해당 언어의 문구 사전
@@ -934,5 +932,5 @@ export function getStrings(locale?: string): SlipStrings {
   return STRINGS[normalizeLocale(locale)];
 }
 
-/** 한국어 사전 — 프리셋 등 한국어 고정 데이터와 기존 코드가 참조한다 */
+/** 한국어 문구 사전. */
 export const strings = ko;

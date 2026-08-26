@@ -1,9 +1,7 @@
 /**
- * .slip 파일 포맷 상세 스키마 (Zod-first — 여기서 정의한 스키마가 진실의 원천).
+ * `.slip` 파일 형식을 검증하는 Zod 스키마.
  *
- * 근거 ADR: 007(JSON 자체 스키마·마이그레이션) · 008(양식 스냅샷) · 011(용지 좌표계) ·
- * 020(요소 종류) · 022(JSON Schema 동봉) · 036(이미지 base64) · 047(파라미터 정의부).
- * 규범 명세는 docs/SPEC.md — 이 파일과 SPEC.md가 어긋나면 SPEC.md를 기준으로 고친다.
+ * 형식 규범은 `docs/SPEC.md`를 따르며, TypeScript 타입과 JSON Schema는 이 스키마에서 생성한다.
  */
 import { z } from 'zod';
 import { CURRENT_SCHEMA_VERSION } from './version.js';
@@ -15,7 +13,7 @@ export { CURRENT_SCHEMA_VERSION };
 // 공통 원자 타입
 // ---------------------------------------------------------------------------
 
-/** 길이 단위는 항상 mm (용지 좌표계, ADR-011) */
+/** 용지 좌표계에서 사용하는 mm 단위의 유한한 수. */
 const millimeter = z.number().finite();
 const nonNegativeMm = millimeter.nonnegative();
 const positiveMm = millimeter.positive();
@@ -30,8 +28,8 @@ const colorSchema = z
 const alignmentSchema = z.enum(['left', 'center', 'right']);
 
 /**
- * 구조 크기 상한 (SPEC §3.2) — 적대적 파일이 렌더러·검증기의 메모리를
- * 고갈시키지 못하도록 막는다. 상한을 넘는 파일은 파싱 단계에서 거부된다.
+ * 렌더러와 검증기의 메모리 사용량을 제한하는 구조 크기 상한 (SPEC §3.2).
+ * 상한을 초과하면 파일 검증에 실패한다.
  */
 export const SLIP_LIMITS = {
   /** 문서당 최대 페이지 수 */
@@ -62,7 +60,7 @@ const HTTP_SRC = /^https?:\/\/\S+$/;
 const DATA_SRC = /^data:[\w.+-]+\/[\w.+-]+;base64,[A-Za-z0-9+/]+=*$/;
 const ASSET_SRC = /^asset:\/\/\S+$/;
 
-/** 이미지 참조 3종 (ADR-007): 외부 URL / data: base64 내장 / asset:// 내부 리소스 */
+/** 이미지 참조 문자열에 허용하는 URL, `data:` base64, `asset://` 형식. */
 const srcSchema = z
   .string()
   .refine((s) => HTTP_SRC.test(s) || DATA_SRC.test(s) || ASSET_SRC.test(s), {
@@ -73,7 +71,7 @@ const semverSchema = z
   .string()
   .regex(/^\d+\.\d+\.\d+$/, 'schemaVersion은 semver 형식이어야 합니다');
 
-/** 합이 100이어야 하는 비율 배열 (열 너비 등) — 허용 오차 ±0.01 (SPEC §3, 경계 포함) */
+/** 합계가 100이어야 하는 비율 배열. ±0.01의 오차를 허용한다 (SPEC §3). */
 const percentagesSchema = z
   .array(z.number().positive())
   .min(1)
@@ -82,7 +80,7 @@ const percentagesSchema = z
   });
 
 // ---------------------------------------------------------------------------
-// 스타일 · 요소 공통부 (ADR-020: 전 요소 색 스타일)
+// 요소 공통 스타일
 // ---------------------------------------------------------------------------
 
 const colorStyleShape = {
@@ -99,11 +97,11 @@ const elementBaseShape = {
   position: z.object({ x: nonNegativeMm, y: nonNegativeMm }),
   width: nonNegativeMm,
   height: nonNegativeMm,
-  /** 그룹 식별자 — 같은 값을 가진 요소들을 한 묶음으로 다룬다 (ADR-032, 편집 UI는 v2 후반) */
+  /** 같은 값을 가진 요소를 함께 선택하기 위한 그룹 식별자. */
   group: z.string().min(1).optional(),
 };
 
-/** 수직 정렬 — 상자 안에서 글이 놓이는 세로 자리 */
+/** 요소 상자 안에서 텍스트를 배치할 수직 위치. */
 const verticalAlignmentSchema = z.enum(['top', 'middle', 'bottom']);
 
 const fontShape = {
@@ -113,13 +111,12 @@ const fontShape = {
   /** 수직 정렬 — 생략하면 상단 */
   verticalAlignment: verticalAlignmentSchema.optional(),
   /**
-   * 굵게 — 렌더 시 유효 폰트의 `<이름>-Bold` 폰트로 전환한다.
-   * 굵은 폰트가 없으면 PDF에서는 무시된다 (ADR-032, SPEC §5)
+   * 굵은 글꼴 사용 여부. 렌더링할 때 `<이름>-Bold` 폰트를 선택한다.
+   * 굵은 폰트가 없으면 PDF에서는 무시된다 (SPEC §5)
    */
   bold: z.boolean().optional(),
   /**
-   * 기울임 — 굵게와 같은 방식으로 `<이름>-Italic` 폰트로 전환한다.
-   * 자형 폰트가 없으면 PDF에서는 무시된다 — 기울이기 흉내는 내지 않는다 (ADR-032)
+   * 기울임 글꼴 사용 여부. `<이름>-Italic` 폰트가 없으면 적용하지 않는다.
    */
   italic: z.boolean().optional(),
   underline: z.boolean().optional(),
@@ -129,43 +126,43 @@ const fontShape = {
   /** 자간(pt) — 생략하면 0. 음수는 글자를 좁힌다 */
   characterSpacing: z.number().min(-SLIP_LIMITS.maxCharacterSpacing).max(SLIP_LIMITS.maxCharacterSpacing).optional(),
   /**
-   * 세로쓰기 — 글자를 한 자씩 세로로 쌓는다.
-   * 하부 엔진에 세로쓰기 기능이 없어 변환 계층이 직접 쌓는다 (직접 확인).
+   * 세로쓰기 여부. 글자를 한 자씩 세로로 배치한다.
+   * 렌더링 엔진이 세로쓰기를 지원하지 않아 변환 계층에서 글자를 한 줄씩 배치한다.
    */
   vertical: z.boolean().optional(),
 };
 
 // ---------------------------------------------------------------------------
-// 요소 6종 (ADR-020)
+// 요소 스키마
 // ---------------------------------------------------------------------------
 
 const textElementSchema = z.object({
   type: z.literal('text'),
   ...elementBaseShape,
   ...colorStyleShape,
-  /** 직접 입력한 글 (수식·플레이스홀더 포함 가능) */
+  /** 직접 입력한 텍스트. */
   content: z.string(),
   ...fontShape,
 });
 
 // ---------------------------------------------------------------------------
-// grid — 고정 틀과 반복 목록을 하나로 다루는 그리드 (ADR-037)
+// 고정 영역과 반복 영역을 함께 표현하는 그리드
 // ---------------------------------------------------------------------------
 
-/** 셀을 넘치는 글의 처리 — 잘라내거나 글자 크기를 줄여 넣는다 (ADR-037) */
+/** 셀을 넘치는 텍스트를 자르거나 글자 크기를 줄이는 방식. */
 const overflowSchema = z.enum(['clip', 'shrink']);
 
-/** 그리드 열 — 너비는 mm 절대값이라 열을 더해도 다른 열이 변하지 않는다 (ADR-037) */
+/** 그리드 열. 너비는 mm 단위의 절대값이다. */
 const gridColumnSchema = z.object({
   width: positiveMm,
   /**
-   * 데이터 자동 병합 (ADR-038) — 반복 구간에서 앞 벌과 값이 같은 셀을 세로로 합친다.
+   * 자동 병합 여부. 반복 영역에서 이전 항목과 값이 같은 셀을 세로로 병합한다.
    * 반복 구간 밖은 영향받지 않는다. 켜려면 그 열의 반복 구간 셀이 구간 전체 높이를 차지해야 한다.
    */
   autoMerge: z.boolean().optional(),
 });
 
-/** 그리드 행 — 높이는 mm 절대값 */
+/** 그리드 행. 높이는 mm 단위의 절대값이다. */
 const gridRowSchema = z.object({ height: positiveMm });
 
 const gridCellSchema = z.object({
@@ -180,21 +177,21 @@ const gridCellSchema = z.object({
   content: z.string().optional(),
   /** 값 키 — 반복 구간 안이면 그 항목의 필드, 밖이면 전표 values의 키 */
   parameter: idSchema.optional(),
-  /** 표시 전 가공 수식 (ADR-010/017) */
+  /** 표시 값을 계산하는 수식. */
   formula: z.string().optional(),
-  /** 셀을 넘치는 글의 처리 — 요소 값을 덮어쓴다 */
+  /** 그리드 기본 overflow 설정을 덮어쓸 셀별 처리 방식. */
   overflow: overflowSchema.optional(),
   ...fontShape,
 });
 
-/** 반복 구간 — 지정한 행 범위가 항목 배열만큼 복제된다 (ADR-037) */
+/** 항목 배열의 각 항목에 대해 지정한 행 범위를 반복하는 설정. */
 const gridRepeatSchema = z.object({
   /** 전표 values에서 항목 배열(객체 배열)을 담는 키 */
   parameter: idSchema,
   /** 반복할 행 범위 (0-기반, 양끝 포함) */
   fromRow: z.number().int().nonnegative(),
   toRow: z.number().int().nonnegative(),
-  /** 한 페이지에 담는 항목 수 (행 수가 아니다) */
+  /** 페이지당 항목 수 */
   perPage: z
     .number()
     .int()
@@ -203,8 +200,9 @@ const gridRepeatSchema = z.object({
   /** 이어지는 페이지에 반복 구간 위쪽 행을 다시 그릴지 */
   repeatHeader: z.boolean(),
   /**
-   * 그릴 항목 수 상한 (선택, ADR-048) — 넘는 항목은 그리지 않는다.
-   * 정하지 않으면 항목 수만큼 페이지가 늘어난다. `perPage` 이상이어야 한다.
+   * 렌더링할 최대 항목 수.
+   * 이 값을 초과한 항목은 렌더링하지 않는다. 생략하면 모든 항목을 렌더링하며,
+   * 지정할 때는 `perPage` 이상이어야 한다.
    */
   maxItems: z
     .number()
@@ -223,37 +221,37 @@ const gridRepeatSchema = z.object({
     }
   });
 
-/** 고정 틀과 반복 목록을 하나로 다루는 그리드 (ADR-037) */
+/** 고정 행과 반복 행으로 구성된 그리드. */
 const gridElementObject = z.object({
   type: z.literal('grid'),
   ...elementBaseShape,
   ...colorStyleShape,
   ...fontShape,
-  /** 열 정의 — 너비(mm) */
+  /** 열 너비(mm) */
   columns: z
     .array(gridColumnSchema)
     .min(1)
     .max(SLIP_LIMITS.maxGridColumnTracks, `열 수는 최대 ${SLIP_LIMITS.maxGridColumnTracks}개입니다`),
-  /** 행 정의 — 높이(mm) */
+  /** 행 높이(mm) */
   rows: z
     .array(gridRowSchema)
     .min(1)
     .max(SLIP_LIMITS.maxGridRowTracks, `행 수는 최대 ${SLIP_LIMITS.maxGridRowTracks}개입니다`),
   cells: z.array(gridCellSchema).max(SLIP_LIMITS.maxGridCells, `셀 수는 최대 ${SLIP_LIMITS.maxGridCells}개입니다`),
-  /** 반복 구간 — 없으면 고정 틀 */
+  /** 반복 행 설정. 생략하면 모든 행을 한 번씩 렌더링한다. */
   repeat: gridRepeatSchema.optional(),
   /** 셀을 넘치는 글의 처리 (기본 clip) */
   overflow: overflowSchema.optional(),
 });
 
-// 그리드 교차 필드 검증 — 관심사별 헬퍼로 나눠 각각 따로 읽힌다 (ADR-037).
+// 여러 필드를 함께 확인해야 하는 그리드 제약을 항목별로 검증한다.
 type GridInput = z.infer<typeof gridElementObject>;
 
-/** 요소 상자 = 행 높이·열 너비의 합인지 검사 (비율이 아니라 mm 절대값, SPEC §5.7) */
+/** 요소 크기가 행 높이와 열 너비의 합과 일치하는지 검사한다 (SPEC §5.7). */
 function checkGridTrackSums(grid: GridInput, ctx: z.RefinementCtx): void {
   const totalWidth = grid.columns.reduce((sum, col) => sum + col.width, 0);
   const templateHeight = grid.rows.reduce((sum, row) => sum + row.height, 0);
-  // 반복 구간은 페이지마다 perPage번 복제되므로 요소 높이도 그만큼이다
+  // 반복 구간은 페이지마다 perPage번 배치된다.
   const bandHeight = grid.repeat
     ? grid.rows.slice(grid.repeat.fromRow, grid.repeat.toRow + 1).reduce((sum, row) => sum + row.height, 0)
     : 0;
@@ -276,7 +274,7 @@ function checkGridTrackSums(grid: GridInput, ctx: z.RefinementCtx): void {
   }
 }
 
-/** 반복 구간 범위가 유효한지 검사 (fromRow ≤ toRow, 행 수 안) */
+/** 반복 구간이 올바른 순서이며 행 범위 안에 있는지 검사한다. */
 function checkGridRepeatRange(grid: GridInput, ctx: z.RefinementCtx): void {
   if (!grid.repeat) return;
   const { fromRow, toRow } = grid.repeat;
@@ -294,7 +292,7 @@ function checkGridRepeatRange(grid: GridInput, ctx: z.RefinementCtx): void {
 /**
  * 셀의 소스 배타·범위·병합 경계·겹침을 검사한다.
  *
- * @returns (행,열) → 그 셀을 차지하는 셀의 원점 좌표 맵 — 자동 병합 검사에서 소비한다
+ * @returns 각 좌표를 해당 좌표를 차지하는 셀의 시작 좌표에 연결한 맵
  */
 function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, string> {
   const rows = grid.rows.length;
@@ -320,9 +318,7 @@ function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, stri
       });
       return;
     }
-    // 병합이 반복 구간 경계를 넘으면 복제할 때 모양이 무너진다.
-    // 합법인 경우는 셋뿐이다: 구간보다 완전히 위 · 완전히 아래 · 구간 안에 완전히 포함.
-    // 경계를 걸치거나 구간을 통째로 감싸는 병합은 거부한다.
+    // 병합 셀은 반복 구간의 안이나 밖에 완전히 포함되어야 한다.
     if (grid.repeat && rowSpan > 1) {
       const { fromRow, toRow } = grid.repeat;
       const last = cell.row + rowSpan - 1;
@@ -358,10 +354,10 @@ function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, stri
 }
 
 /**
- * 데이터 자동 병합 열 검사 (ADR-038) — 켠 열은 그 열의 반복 구간 셀이 구간 전체를 한 셀로
- * 덮어야 한다. 한 줄 구간이면 저절로 성립하고, 여러 줄인데 셀이 줄마다 갈라지면 거부한다.
+ * 자동 병합 열의 반복 구간이 하나의 셀로 구성되었는지 검사한다.
+ * 반복 구간이 여러 셀로 나뉜 열에는 자동 병합을 적용할 수 없다.
  *
- * @param cellOriginAt - {@link checkGridCells}가 만든 (행,열)→원점 맵
+ * @param cellOriginAt - {@link checkGridCells}가 만든 좌표별 셀 시작점 맵
  */
 function checkGridAutoMerge(grid: GridInput, ctx: z.RefinementCtx, cellOriginAt: Map<string, string>): void {
   grid.columns.forEach((column, c) => {
@@ -377,8 +373,7 @@ function checkGridAutoMerge(grid: GridInput, ctx: z.RefinementCtx, cellOriginAt:
     const { fromRow, toRow } = grid.repeat;
     const topOrigin = cellOriginAt.get(`${fromRow},${c}`);
     const notCovered = `${c}열의 자동 병합은 그 열의 반복 구간 셀이 구간 전체 높이를 차지할 때만 켤 수 있습니다`;
-    // 그 열의 반복 구간에 셀이 아예 없으면(빈 열) 덮을 셀이 없으므로 켤 수 없다.
-    // (그냥 두면 모든 조회가 undefined === undefined로 통과해 버린다.)
+    // 빈 열은 모든 좌표가 undefined이므로 별도로 오류를 추가한다.
     if (topOrigin === undefined) {
       ctx.addIssue({ code: 'custom', path: ['columns', c, 'autoMerge'], message: notCovered });
       return;
@@ -403,17 +398,16 @@ const imageElementSchema = z
   .object({
     type: z.literal('image'),
     ...elementBaseShape,
-    /** 고정 이미지의 자리 (§3.1의 3형식). `parameter`를 쓰면 생략할 수 있다 */
+    /** 고정 이미지 소스. `parameter`를 사용하면 생략할 수 있다. */
     src: srcSchema.optional(),
     /**
-     * 전표 값에서 이미지를 읽어 오는 키 — 전표마다 다른 이미지를 넣는다.
-     * 값은 `data:` base64만 받는다 (ADR-036) — `values`는 JSON이라 바이너리를 담지 못하고,
-     * core는 네트워크를 쓰지 않아 URL을 받아올 수 없다 (ADR-002).
+     * 전표마다 다른 이미지를 지정할 때 사용하는 값의 키.
+     * 값은 `data:` base64 형식만 허용한다.
      */
     parameter: idSchema.optional(),
   })
   .superRefine((image, ctx) => {
-    // 둘 다 없으면 그릴 것이 없고, 둘 다 있으면 어느 쪽을 그릴지 정해지지 않는다
+    // 고정 소스와 파라미터 소스 중 하나만 지정할 수 있다.
     if (image.src === undefined && image.parameter === undefined) {
       ctx.addIssue({ code: 'custom', path: ['src'], message: '이미지는 src 또는 parameter 중 하나가 필요합니다' });
     }
@@ -422,17 +416,14 @@ const imageElementSchema = z
     }
   });
 
-/**
- * 바코드 종류 — 하부 엔진이 그릴 수 있는 12종을 그대로 연다.
- * 전표에 흔한 `qrcode`·`code128`·`ean13`을 앞에 둔다.
- */
+/** 렌더링 엔진이 지원하는 바코드 종류 */
 const barcodeKindSchema = z.enum([
   'qrcode', 'code128', 'ean13',
   'code39', 'ean8', 'upca', 'upce', 'itf14', 'nw7',
   'japanpost', 'gs1datamatrix', 'pdf417',
 ]);
 
-/** 바코드 요소 — 값은 직접 입력·전표 값·수식 중 하나 */
+/** 직접 입력, 전표 값 또는 수식 결과를 표시하는 바코드 요소 */
 const barcodeElementSchema = z
   .object({
     type: z.literal('barcode'),
@@ -443,7 +434,7 @@ const barcodeElementSchema = z
     content: z.string().optional(),
     /** 전표 values의 키 */
     parameter: idSchema.optional(),
-    /** 표시 전 가공 수식 (ADR-010/017) */
+    /** 표시 값을 계산하는 수식. */
     formula: z.string().optional(),
     /** 막대·점 색 (생략하면 검정) */
     fontColor: colorSchema.optional(),
@@ -461,10 +452,9 @@ const barcodeElementSchema = z
     }
   });
 
-// 도형은 종류마다 의미 있는 스타일이 달라 독립 요소 타입으로 나눈다 (ADR-032):
-// 선 = 색·굵기·형태·방향, 사각형 = 배경·테두리·반경, 타원·삼각형 = 배경·테두리(실선 고정)
+// 도형별로 지원하는 스타일이 달라 요소 타입을 구분한다.
 
-/** 선 요소 — 상자의 두 모서리(또는 중앙선)를 잇는 선분 (ADR-032) */
+/** 요소 영역의 두 모서리 또는 중앙을 잇는 선. */
 const lineElementSchema = z.object({
   type: z.literal('line'),
   ...elementBaseShape,
@@ -472,11 +462,11 @@ const lineElementSchema = z.object({
   borderColor: colorSchema.optional(),
   /** 선 굵기(mm, 기본 0.2) */
   borderWidth: nonNegativeMm.optional(),
-  /** 선 형태 — 파선·점선은 짧은 선분으로 분해해 그린다 (ADR-032) */
+  /** 선 형태. 파선과 점선은 여러 선분으로 나누어 렌더링한다. */
   borderStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
   /**
-   * 선 방향 (기본 horizontal). down = 좌상→우하, up = 좌하→우상 —
-   * 상자의 두 모서리를 잇는 대각선으로 임의 선분을 표현한다
+   * 선 방향 (기본 `horizontal`). `down`은 왼쪽 위에서 오른쪽 아래로,
+   * `up`은 왼쪽 아래에서 오른쪽 위로 잇는다.
    */
   lineDirection: z.enum(['horizontal', 'vertical', 'down', 'up']).optional(),
 });
@@ -490,7 +480,7 @@ const rectElementSchema = z
     borderColor: colorSchema.optional(),
     borderWidth: nonNegativeMm.optional(),
     borderStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
-    /** 모서리 반경(mm) — 파선·점선과 동시 지정 금지 (곡선 구간은 분해 렌더 불가, ADR-032) */
+    /** 모서리 반경(mm). 파선 또는 점선 테두리와 함께 사용할 수 없다. */
     radius: nonNegativeMm.optional(),
   })
   .superRefine((rect, ctx) => {
@@ -503,7 +493,7 @@ const rectElementSchema = z
     }
   });
 
-/** 타원 요소 — 상자에 내접. 곡선 테두리라 형태는 실선 고정 (ADR-032) */
+/** 요소 영역에 내접하는 타원. 테두리는 실선만 지원한다. */
 const ellipseElementSchema = z.object({
   type: z.literal('ellipse'),
   ...elementBaseShape,
@@ -513,8 +503,8 @@ const ellipseElementSchema = z.object({
 });
 
 /**
- * 정다각형 요소 — 변 수(3=삼각형, 5=오각형, 6=육각형…)로 모양을 정하고 상자에
- * 내접한다 (첫 꼭짓점 위쪽, ADR-032). 테두리는 실선 고정
+ * 요소 영역에 내접하는 정다각형.
+ * 첫 꼭짓점은 위쪽에 두며 테두리는 실선만 지원한다.
  */
 const polygonElementSchema = z.object({
   type: z.literal('polygon'),
@@ -530,18 +520,16 @@ const polygonElementSchema = z.object({
  * 전표 작성 시 값이 채워지는 입력 필드.
  *
  * @remarks
- * 값 소스는 **파라미터와 수식 중 하나**다 (ADR-049) — 그리드 셀·바코드와 같은 규칙이다.
- * 둘을 함께 두면 수식이 이기고 파라미터는 아무 일도 하지 않아, 화면에서 무엇이 쓰이는지
- * 알 수 없었다.
+ * 값 소스는 파라미터와 수식 중 하나만 지정한다.
  */
 const fieldElementSchema = z
   .object({
     type: z.literal('field'),
     ...elementBaseShape,
     ...colorStyleShape,
-    /** 전표 values의 키 — 수식을 쓰면 두지 않는다 */
+    /** 전표 `values`의 키. 수식을 사용할 때는 지정하지 않는다. */
     parameter: idSchema.optional(),
-    /** 표시 값을 계산하는 수식 (ADR-010/017), 예: FORMAT_NUMBER(...) */
+    /** 표시 값을 계산하는 수식. 예: `FORMAT_NUMBER(...)`. */
     formula: z.string().optional(),
     ...fontShape,
   })
@@ -556,7 +544,7 @@ const fieldElementSchema = z
     }
   });
 
-/** 요소 9종 판별 유니온 (type 필드 기준, ADR-020/032/037 + 바코드) */
+/** `type` 필드로 구분하는 아홉 가지 요소의 판별 유니온. */
 export const slipElementSchema = z.discriminatedUnion('type', [
   textElementSchema,
   gridElementSchema,
@@ -598,32 +586,32 @@ const assetEntrySchema = z.object({
   src: srcSchema,
 });
 
-/** 페이지 번호를 찍는 자리 — 아래·위 가장자리의 좌·중앙·우 */
+/** 페이지 번호를 표시할 위치 */
 const pageNumberPositionSchema = z.enum([
   'bottom-left', 'bottom-center', 'bottom-right',
   'top-left', 'top-center', 'top-right',
 ]);
 
-/** 페이지 번호 표시 — 실제 번호는 PDF 후처리로 넣는다 */
+/** PDF 후처리 단계에서 추가하는 페이지 번호 설정 */
 const pageNumberSchema = z.object({
   position: pageNumberPositionSchema,
-  /** `{n}`은 현재 쪽, `{total}`은 전체 쪽 수로 바뀐다 (생략하면 `{n} / {total}`) */
+  /** `{n}`은 현재 페이지, `{total}`은 전체 페이지 수로 치환된다. */
   format: z.string().min(1).optional(),
   fontSize: z.number().positive().optional(),
 });
 
 const slipPageSchema = z.object({
   elements: z.array(slipElementSchema).max(SLIP_LIMITS.maxElementsPerPage, `페이지당 요소는 최대 ${SLIP_LIMITS.maxElementsPerPage}개입니다`),
-  /** 페이지 물리명 — 문서 안에서 유일. 호스트가 페이지를 가리킬 때 쓴다 */
+  /** 호스트가 페이지를 식별할 때 사용하는 문서 내 고유 키 */
   key: idSchema.optional(),
-  /** 페이지 논리명 — 썸네일·목록에 번호 대신 보인다 */
+  /** 썸네일과 목록에 표시할 페이지 이름 */
   label: z.string().min(1).optional(),
-  /** 페이지 번호 표시 — 생략하면 찍지 않는다 */
+  /** 페이지 번호 표시 설정 */
   pageNumber: pageNumberSchema.optional(),
 });
 
 // ---------------------------------------------------------------------------
-// 전표 값 (JSON 값 — 양식 sampleValues와 전표 values가 함께 쓴다)
+// 전표 값
 // ---------------------------------------------------------------------------
 
 /** JSON으로 표현 가능한 값 (전표 values의 값 타입) */
@@ -645,12 +633,12 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 // 양식(템플릿) 본문
 // ---------------------------------------------------------------------------
 
-/** 파라미터 값의 종류 — 작성폼 입력 방식과 쓸 수 있는 함수를 가리는 데 쓴다 */
+/** 작성 폼의 입력 방식과 사용 가능한 함수를 결정하는 파라미터 값 종류 */
 const parameterValueTypeSchema = z.enum(['text', 'number', 'date', 'boolean', 'image', 'list']);
 
 /**
- * 목록 파라미터의 하위 필드 정의 — 항목 하나가 가진 값이다 (ADR-047).
- * 항목은 평평한 객체라 하위 필드는 다시 하위를 갖지 않는다 (ADR-038).
+ * 목록 항목에 포함되는 하위 필드 정의.
+ * 목록 항목은 한 단계의 객체이며 하위 필드를 중첩할 수 없다.
  */
 const parameterFieldSchema = z.object({
   key: idSchema,
@@ -659,16 +647,17 @@ const parameterFieldSchema = z.object({
 });
 
 /**
- * 파라미터 정의 — 물리명(key)은 파일·수식·연동에, 논리명(label)은 화면 표시에 (ADR-032).
- * `valueType: 'list'`면 항목이 가진 값을 `fields`로 선언한다 (ADR-047).
+ * 파라미터 정의.
+ * `key`는 파일, 수식, 외부 연동에서 사용하고 `label`은 화면에 표시한다.
+ * `valueType`이 `list`이면 목록 항목의 필드를 `fields`에 선언한다.
  */
 const parameterDefSchema = z
   .object({
     key: idSchema,
     label: z.string().min(1).optional(),
-    /** 값 종류 — 생략하면 글자로 다룬다 */
+    /** 값 종류. 생략하면 텍스트로 처리한다. */
     valueType: parameterValueTypeSchema.optional(),
-    /** 목록 항목의 하위 필드 — `valueType: 'list'`에서만 쓴다 (ADR-047) */
+    /** 목록 항목의 하위 필드. `valueType`이 `list`일 때만 사용한다. */
     fields: z.array(parameterFieldSchema).optional(),
   })
   .superRefine((def, ctx) => {
@@ -699,23 +688,23 @@ const templateMetaSchema = z.object({
   updatedAt: z.iso.datetime({ offset: true }).optional(),
 });
 
-/** 양식 본문 — 메타·용지·페이지·에셋. id 유일성과 asset:// 참조 해소를 함께 검증한다 */
+/** 양식 본문. 식별자 중복과 `asset://` 참조의 유효성도 검증한다. */
 export const slipTemplateBodySchema = z
   .object({
     meta: templateMetaSchema,
     paper: paperSchema,
     pages: z.array(slipPageSchema).min(1).max(SLIP_LIMITS.maxPages, `페이지는 최대 ${SLIP_LIMITS.maxPages}개입니다`),
     assets: z.array(assetEntrySchema).max(SLIP_LIMITS.maxAssets, `에셋은 최대 ${SLIP_LIMITS.maxAssets}개입니다`),
-    /** 파라미터 정의부 (선택, ADR-032) — 요소가 미등록 키를 쓰는 것도 허용한다 */
+    /** 파라미터 정의. 요소는 여기에 등록되지 않은 키도 사용할 수 있다. */
     parameters: z
       .array(parameterDefSchema)
       .max(SLIP_LIMITS.maxParameters, `파라미터 정의는 최대 ${SLIP_LIMITS.maxParameters}개입니다`)
       .optional(),
-    /** 미리보기용 샘플 값 (선택, ADR-032) — 발행과 무관, 전표 생성 시 미포함 */
+    /** 미리보기용 샘플 값. 생성된 전표에는 포함하지 않는다. */
     sampleValues: z.record(z.string(), jsonValueSchema).optional(),
   })
   .superRefine((body, ctx) => {
-    // 파라미터 정의부 key 유일성 (ADR-032)
+    // 파라미터 키는 정의 목록에서 고유해야 한다.
     const parameterKeys = new Set<string>();
     body.parameters?.forEach((parameter, index) => {
       if (parameterKeys.has(parameter.key)) {
@@ -727,7 +716,7 @@ export const slipTemplateBodySchema = z
       }
       parameterKeys.add(parameter.key);
     });
-    // 에셋 id 유일성
+    // 에셋 ID는 문서 안에서 고유해야 한다.
     const assetIds = new Set<string>();
     body.assets.forEach((asset, index) => {
       if (assetIds.has(asset.id)) {
@@ -739,12 +728,12 @@ export const slipTemplateBodySchema = z
       }
       assetIds.add(asset.id);
     });
-    // asset:// 참조 해소는 에셋 항목 자신의 src에도 적용된다 (SPEC §3.1)
+    // 에셋의 src에 포함된 asset:// 참조도 검증한다 (SPEC §3.1).
     body.assets.forEach((asset, index) => {
       if (asset.src.startsWith('asset://')) {
         const referencedId = asset.src.slice('asset://'.length);
         if (referencedId === asset.id) {
-          // 자기 자신을 가리키면 해소가 무한 루프가 된다
+          // 자기 참조는 에셋을 해석할 때 무한 순환을 만든다.
           ctx.addIssue({
             code: 'custom',
             path: ['assets', index, 'src'],
@@ -759,7 +748,7 @@ export const slipTemplateBodySchema = z
         }
       }
     });
-    // 페이지 물리명(key) 유일성 (SPEC §4) — 호스트가 페이지를 가리키는 이름이라 겹치면 안 된다
+    // 페이지 키는 호스트가 페이지를 식별하므로 문서 안에서 고유해야 한다 (SPEC §4).
     const pageKeys = new Set<string>();
     body.pages.forEach((page, pageIndex) => {
       if (page.key === undefined) return;
@@ -773,7 +762,7 @@ export const slipTemplateBodySchema = z
       pageKeys.add(page.key);
     });
 
-    // 요소 id 유일성(문서 전체) + asset:// 참조 해소 가능성
+    // 요소 ID의 고유성과 이미지의 asset:// 참조를 검증한다.
     const elementIds = new Set<string>();
     body.pages.forEach((page, pageIndex) => {
       page.elements.forEach((element, elementIndex) => {
@@ -803,7 +792,7 @@ export const slipTemplateBodySchema = z
 // 파일 (봉투 + kind별 본문)
 // ---------------------------------------------------------------------------
 
-/** 봉투 — 본문 검증 전에 schemaVersion·kind만 먼저 확인한다 (ADR-007) */
+/** 본문 검증 전에 `schemaVersion`과 `kind`를 확인하는 파일 봉투. */
 export const slipEnvelopeSchema = z.object({
   schemaVersion: semverSchema,
   kind: z.enum(['template', 'voucher']),
@@ -816,7 +805,7 @@ export const slipTemplateFileSchema = z.object({
   template: slipTemplateBodySchema,
 });
 
-/** 스냅샷 안에서 외부 URL 참조를 찾는다 (발행 파일 완결성 검사용, ADR-036) */
+/** 발행된 전표의 양식 스냅샷에서 외부 이미지 URL을 찾는다. */
 function findExternalUrlPath(body: z.infer<typeof slipTemplateBodySchema>): (string | number)[] | null {
   for (const [a, asset] of body.assets.entries()) {
     if (HTTP_SRC.test(asset.src)) return ['assets', a, 'src'];
@@ -831,21 +820,21 @@ function findExternalUrlPath(body: z.infer<typeof slipTemplateBodySchema>): (str
   return null;
 }
 
-/** 전표(voucher) 파일 전체 — 발행 시 단독 완결(외부 URL 없음)을 추가 검증한다 */
+/** 전표 파일. 발행된 전표에는 외부 이미지 URL을 허용하지 않는다. */
 export const slipVoucherFileSchema = z
   .object({
     schemaVersion: semverSchema,
     kind: z.literal('voucher'),
-    /** 생성 시점 양식 전체 스냅샷 (ADR-008) */
+    /** 전표를 생성할 때 복사한 양식 본문. */
     templateSnapshot: slipTemplateBodySchema,
-    /** 필드 파라미터 키 → 값 */
+    /** 필드 파라미터 키별 값 */
     values: z.record(z.string(), jsonValueSchema),
-    /** 발행(확정) 여부. 발행 시 이미지 내장(ADR-036) */
+    /** 발행 여부. 발행된 전표의 이미지는 base64로 포함한다. */
     issued: z.boolean(),
   })
   .superRefine((voucher, ctx) => {
     if (!voucher.issued) return;
-    // ADR-036: 발행 파일은 외부 URL 의존 없이 단독 완결이어야 한다
+    // 발행된 전표의 이미지는 외부 URL이 아닌 파일 내 데이터로 포함해야 한다.
     const externalPath = findExternalUrlPath(voucher.templateSnapshot);
     if (externalPath) {
       ctx.addIssue({
@@ -854,9 +843,8 @@ export const slipVoucherFileSchema = z
         message: '발행(issued)된 전표는 외부 URL 이미지를 포함할 수 없습니다 (base64 내장 필요)',
       });
     }
-    // 변동 이미지 값(values)도 훑는다 — 템플릿 src만 보던 검사의 사각지대(ADR-036).
-    // 이미지 요소가 참조하는 파라미터 값이 채워져 있으면 고정 src와 같은 data: base64 형식이어야
-    // 한다(외부 URL·깨진 data: 모두 거부). 비어 있으면 이미지 없음이라 허용한다.
+    // 이미지 파라미터 값은 data: base64 형식인지 검증한다.
+    // 빈 문자열은 이미지가 없는 값으로 허용한다.
     for (const page of voucher.templateSnapshot.pages) {
       for (const element of page.elements) {
         if (element.type !== 'image' || element.parameter === undefined) continue;
@@ -874,7 +862,7 @@ export const slipVoucherFileSchema = z
     }
   });
 
-/** .slip 파일 — kind('template' | 'voucher') 판별 유니온 */
+/** `kind`로 양식과 전표를 구분하는 `.slip` 파일 스키마 */
 export const slipFileSchema = z.discriminatedUnion('kind', [
   slipTemplateFileSchema,
   slipVoucherFileSchema,
@@ -884,7 +872,7 @@ export const slipFileSchema = z.discriminatedUnion('kind', [
 // 파싱 · 직렬화
 // ---------------------------------------------------------------------------
 
-/** .slip 파싱·검증 실패 오류 — message는 사용자 대면 한국어 */
+/** `.slip` 파일의 파싱 또는 검증 실패를 나타내는 오류 */
 export class SlipParseError extends Error {
   constructor(message: string) {
     super(message);
@@ -899,11 +887,11 @@ function formatIssues(error: z.ZodError): string {
 }
 
 /**
- * 이미 파싱된 JSON 값을 .slip 파일로 검증한다.
- * 구버전 문서는 현재 버전으로 마이그레이션한 뒤 검증한다 (ADR-007).
+ * 이미 파싱된 JSON 값을 `.slip` 파일로 검증한다.
+ * 구버전 문서는 현재 버전으로 마이그레이션한 뒤 검증한다.
  *
  * @param raw - 이미 파싱된 JSON 값 (예: `JSON.parse` 결과)
- * @returns 검증·마이그레이션이 끝난 .slip 파일
+ * @returns 검증·마이그레이션이 끝난 `.slip` 파일
  * @throws SlipParseError 봉투·본문 검증 또는 마이그레이션 실패 시
  */
 export function validateSlipFile(raw: unknown): SlipFile {
@@ -921,8 +909,8 @@ export function validateSlipFile(raw: unknown): SlipFile {
   try {
     result = slipFileSchema.safeParse(migrated);
   } catch (error) {
-    // z.lazy 값 스키마의 재귀가 지나치게 깊은 값에서 스택을 넘기면 RangeError가
-    // safeParse를 벗어난다 — @throws 계약대로 SlipParseError로 감싼다 (SPEC §3.2).
+    // 지나치게 깊은 값은 z.lazy 재귀 중 RangeError를 발생시킬 수 있다.
+    // 공개 오류 형식을 유지하기 위해 SlipParseError로 변환한다 (SPEC §3.2).
     if (error instanceof RangeError) {
       throw new SlipParseError('.slip 본문의 값 중첩이 너무 깊습니다');
     }
@@ -935,10 +923,10 @@ export function validateSlipFile(raw: unknown): SlipFile {
 }
 
 /**
- * JSON 문자열을 .slip 파일로 파싱한다.
+ * JSON 문자열을 `.slip` 파일로 파싱한다.
  *
- * @param json - .slip 파일 내용 (JSON 문자열)
- * @returns 검증·마이그레이션이 끝난 .slip 파일
+ * @param json - `.slip` 파일 내용 (JSON 문자열)
+ * @returns 검증·마이그레이션이 끝난 `.slip` 파일
  * @throws SlipParseError JSON이 아니거나 봉투·본문 검증 실패 시
  *
  * @example
@@ -958,9 +946,9 @@ export function parseSlipFile(json: string): SlipFile {
 }
 
 /**
- * .slip 파일을 저장용 JSON 문자열로 직렬화한다.
+ * `.slip` 파일을 저장용 JSON 문자열로 직렬화한다.
  *
- * @param file - 직렬화할 .slip 파일
+ * @param file - 직렬화할 `.slip` 파일
  * @returns 들여쓰기 2칸의 JSON 문자열
  */
 export function serializeSlipFile(file: SlipFile): string {
@@ -968,37 +956,37 @@ export function serializeSlipFile(file: SlipFile): string {
 }
 
 // ---------------------------------------------------------------------------
-// 추론 타입 (Zod 스키마에서 산출 — 타입과 검증이 어긋날 수 없다)
+// Zod 스키마에서 추론한 타입
 // ---------------------------------------------------------------------------
 
 /** 용지 크기·여백 */
 export type PaperSize = z.infer<typeof paperSchema>;
-/** 에셋 항목 (id · mimeType · src) */
+/** 에셋 항목 */
 export type AssetEntry = z.infer<typeof assetEntrySchema>;
 /** 텍스트 요소 */
 export type TextElement = z.infer<typeof textElementSchema>;
 
-/** 그리드 셀 (ADR-037) */
+/** 그리드 셀. */
 export type GridCell = z.infer<typeof gridCellSchema>;
 
-/** 그리드의 반복 구간 (ADR-037) */
+/** 그리드의 반복 구간. */
 export type GridRepeat = z.infer<typeof gridRepeatSchema>;
 
-/** 그리드 요소 — 고정 틀과 반복 목록을 하나로 다룬다 (ADR-037) */
+/** 고정 행과 반복 행으로 구성된 그리드 요소. */
 export type GridElement = z.infer<typeof gridElementSchema>;
-/** 파라미터 정의 (물리명 key + 논리명 label, ADR-032/047) */
+/** 파라미터 정의. */
 export type ParameterDef = z.infer<typeof parameterDefSchema>;
-/** 목록 파라미터의 하위 필드 정의 (ADR-047) */
+/** 목록 파라미터의 하위 필드 정의. */
 export type ParameterField = z.infer<typeof parameterFieldSchema>;
 /** 이미지 요소 */
 export type ImageElement = z.infer<typeof imageElementSchema>;
-/** 선 요소 (ADR-032) */
+/** 선 요소. */
 export type LineElement = z.infer<typeof lineElementSchema>;
-/** 사각형 요소 (ADR-032) */
+/** 사각형 요소. */
 export type RectElement = z.infer<typeof rectElementSchema>;
-/** 타원 요소 (ADR-032) */
+/** 타원 요소. */
 export type EllipseElement = z.infer<typeof ellipseElementSchema>;
-/** 정다각형 요소 (ADR-032) — sides 3=삼각형, 5=오각형 … */
+/** 정다각형 요소. */
 export type PolygonElement = z.infer<typeof polygonElementSchema>;
 /** 필드 요소 (전표 값 파라미터) */
 export type FieldElement = z.infer<typeof fieldElementSchema>;
@@ -1022,7 +1010,7 @@ export type SlipTemplateBody = z.infer<typeof slipTemplateBodySchema>;
 export type SlipTemplateFile = z.infer<typeof slipTemplateFileSchema>;
 /** 전표 파일 */
 export type SlipVoucherFile = z.infer<typeof slipVoucherFileSchema>;
-/** .slip 파일 (양식 또는 전표) */
+/** `.slip` 양식 또는 전표 파일. */
 export type SlipFile = z.infer<typeof slipFileSchema>;
 /** 파일 종류 판별자 */
 export type SlipFileKind = SlipFile['kind'];

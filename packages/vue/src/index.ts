@@ -10,22 +10,21 @@ import type { SlipFile, StorageAdapter } from '@omdc-slipkit/core';
 type SlipPresets = SlipDesignerElement['presets'];
 
 /**
- * Vue는 커스텀 엘리먼트를 네이티브로 지원한다.
- * (호스트 앱 빌드 설정에서 `slip-` 접두사를 custom element로 표시하면 이 래퍼 없이도 사용 가능)
- * settings 같은 객체 값은 `.` 접두사로 JS 프로퍼티에 전달한다.
+ * SlipKit 웹 컴포넌트를 Vue 컴포넌트로 노출한다.
+ * 객체 값은 `.` 접두사를 사용해 웹 컴포넌트의 JavaScript 프로퍼티로 전달한다.
  */
 export const SlipViewer = defineComponent({
   name: 'SlipViewer',
   props: {
-    /** .slip JSON 문자열 */
+    /** `.slip` JSON 문자열. */
     src: { type: String, required: true },
     /**
-     * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
+     * UI 언어 (`ko`, `en`, `ja`).
      *
      * @defaultValue 한국어
      */
     locale: { type: String, default: undefined },
-    /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
+    /** 렌더링 설정과 폰트 공급자. */
     settings: { type: Object as PropType<SlipFontProvider>, default: undefined },
   },
   setup(props) {
@@ -38,27 +37,26 @@ export const SlipViewer = defineComponent({
 });
 
 /**
- * `<slip-designer>` 래퍼. 편집으로 양식이 바뀌면 변경된 .slip 파일을
- * `slip-change` 이벤트로 그대로 다시 내보낸다 (ADR-003 — 얇은 래퍼).
+ * `<slip-designer>`를 노출하고 변경된 `.slip` 파일을 `slip-change` 이벤트로 전달한다.
  */
 export const SlipDesigner = defineComponent({
   name: 'SlipDesigner',
   props: {
-    /** .slip JSON 문자열 (template 파일만) */
+    /** 양식 파일을 담은 `.slip` JSON 문자열. */
     src: { type: String, required: true },
     /**
-     * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
+     * UI 언어 (`ko`, `en`, `ja`).
      *
      * @defaultValue 한국어
      */
     locale: { type: String, default: undefined },
-    /** 호스트 설정 인터페이스 (ADR-040) — 폰트 공급 + 용지 목록 공급·저장 */
+    /** 폰트와 용지 목록을 제공하는 호스트 설정. */
     settings: { type: Object as PropType<SlipDesignerSettings>, default: undefined },
-    /** 툴바 프리셋 메뉴에 쓸 양식 목록 — 주면 동봉 프리셋 대신 쓴다 */
+    /** 툴바에 표시할 양식 프리셋. 지정하면 동봉 프리셋을 대체한다. */
     presets: { type: Array as PropType<SlipPresets>, default: undefined },
-    /** "내 양식" 저장·불러오기에 쓸 저장소 어댑터 (ADR-021) */
+    /** "내 양식" 저장과 불러오기에 사용할 저장소 어댑터. */
     storage: { type: Object as PropType<StorageAdapter>, default: undefined },
-    /** 넣을 수 있는 이미지 파일의 최대 크기(바이트) — 기본 2MB (G-36) */
+    /** 업로드할 수 있는 이미지 파일의 최대 크기(바이트). 기본값은 2MB이다. */
     maxImageBytes: { type: Number, default: undefined },
   },
   emits: ['slip-change'],
@@ -78,23 +76,22 @@ export const SlipDesigner = defineComponent({
 });
 
 /**
- * `<slip-form>` 래퍼. 값 입력·발행 결과를 `slip-change`·`slip-issue` 이벤트로
- * 그대로 다시 내보낸다 (ADR-003 — 얇은 래퍼).
+ * `<slip-form>`을 노출하고 변경 및 발행 결과를 Vue 이벤트로 전달한다.
  */
 export const SlipForm = defineComponent({
   name: 'SlipForm',
   props: {
-    /** .slip JSON 문자열 (양식 또는 작성 중 전표) */
+    /** 양식 또는 작성 중인 전표를 담은 `.slip` JSON 문자열. */
     src: { type: String, required: true },
     /**
-     * UI 언어 ('ko' | 'en' | 'ja') — ADR-028/042.
+     * UI 언어 (`ko`, `en`, `ja`).
      *
      * @defaultValue 한국어
      */
     locale: { type: String, default: undefined },
-    /** 렌더 폰트를 공급하는 호스트 인터페이스 (ADR-040) */
+    /** 렌더링 설정과 폰트 공급자. */
     settings: { type: Object as PropType<SlipFontProvider>, default: undefined },
-    /** 변동 이미지 입력의 최대 파일 크기(바이트) — 기본 2MB (G-47) */
+    /** 업로드할 수 있는 이미지 파일의 최대 크기(바이트). 기본값은 2MB이다. */
     maxImageBytes: { type: Number, default: undefined },
   },
   emits: ['slip-change', 'slip-issue'],

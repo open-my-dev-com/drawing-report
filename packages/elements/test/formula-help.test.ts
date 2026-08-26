@@ -10,7 +10,6 @@ describe('수식 함수 도움말 (D-12)', () => {
         category.functions.map((fn) => fn.name),
       );
       expect([...names].sort()).toEqual([...FORMULA_FUNCTIONS].sort());
-      // 중복 없음
       expect(new Set(names).size).toBe(names.length);
     },
   );
