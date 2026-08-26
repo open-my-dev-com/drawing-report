@@ -18,6 +18,7 @@ If this is your first time, start with [Getting started](getting-started.en.md) 
 | Connect the designer, entry form, and viewer, and save the results | [Application Integration Guide](integration.en.md) | Frontend and application developers |
 | Build a template on the designer screen | [Form Designer Guide](designer.en.md) | Template authors |
 | Handle `.slip` files, assemble vouchers, and generate PDFs | [Core Usage Guide](core.en.md) | Backend and Core developers |
+| Issue vouchers and generate and store PDFs on a Node.js server | [Server Integration Guide](server-integration.en.md) | Backend developers |
 | Configure language, fonts, paper, presets, and storage | [Configuration Guide](configuration.en.md) | Application developers |
 | Write calculations in a template | [Formula Function Reference](formula.en.md) | Template authors and developers |
 | Check the public functions, types, components, and events | [API Reference](api-reference.en.md) | Integration developers |
