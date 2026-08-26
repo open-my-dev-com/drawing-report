@@ -3,6 +3,7 @@
  * `IF`, `AND`, `OR`는 지연 평가가 필요하므로 evaluator에서 처리한다.
  */
 import { FormulaEvalError } from './errors.js';
+import { fm, type FormulaSubject } from './messages.js';
 
 /** 수식 런타임 값. 배열은 범위(참조가 배열 데이터를 가리킬 때)로 취급된다. */
 export type FormulaValue = number | string | boolean | null | FormulaValue[];
@@ -18,9 +19,9 @@ export interface FormulaContext {
    */
   now?: Date;
   /**
-   * `FORMAT_NUMBER` 등 형식 함수에 사용할 BCP 47 로케일.
+   * `FORMAT_NUMBER` 등 형식 함수와 오류 메시지 언어에 사용할 BCP 47 로케일.
    *
-   * @defaultValue `'ko-KR'`
+   * @defaultValue `'en-US'`
    */
   locale?: string;
 }
@@ -30,8 +31,8 @@ export interface FormulaContext {
 // ---------------------------------------------------------------------------
 
 function describe(value: FormulaValue): string {
-  if (value === null) return '(빈 값)';
-  if (Array.isArray(value)) return '(범위)';
+  if (value === null) return fm().emptyValueLabel();
+  if (Array.isArray(value)) return fm().rangeLabel();
   return JSON.stringify(value);
 }
 
@@ -43,17 +44,17 @@ function describe(value: FormulaValue): string {
  * 문자열을 숫자로 바꾸려면 수식에서 `TO_NUMBER`를 사용해야 한다. 빈 값(null)은 0으로 처리한다.
  *
  * @param value - 변환할 수식 값
- * @param what - 오류 메시지에 쓸 대상 이름 (예: '집계 대상')
+ * @param what - 오류 메시지에서 대상을 가리키는 키 (예: `'aggregateTarget'`)
  * @returns 변환된 숫자
  * @throws FormulaEvalError 숫자가 아닌 값(글자·논리·범위)이면
  */
-export function toNumber(value: FormulaValue, what = '값'): number {
+export function toNumber(value: FormulaValue, what: FormulaSubject = 'value'): number {
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) throw new FormulaEvalError(`${what}이(가) 유한한 수가 아닙니다`);
+    if (!Number.isFinite(value)) throw new FormulaEvalError(fm().numberNotFinite(what));
     return value;
   }
   if (value === null) return 0;
-  throw new FormulaEvalError(`${what}은(는) 숫자여야 합니다 (글자는 TO_NUMBER로 변환하세요): ${describe(value)}`);
+  throw new FormulaEvalError(fm().mustBeNumber(what, describe(value)));
 }
 
 // `Number`가 허용하는 16진수, 2진수, Infinity를 제외하고 10진수 표기만 허용한다.
@@ -68,20 +69,20 @@ const DECIMAL_NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
  */
 function coerceToNumber(value: FormulaValue): number {
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) throw new FormulaEvalError('값이 유한한 수가 아닙니다');
+    if (!Number.isFinite(value)) throw new FormulaEvalError(fm().valueNotFinite());
     return value;
   }
   if (typeof value === 'boolean') return value ? 1 : 0;
   if (value === null) return 0;
-  if (Array.isArray(value)) throw new FormulaEvalError('TO_NUMBER: 범위는 숫자로 바꿀 수 없습니다');
+  if (Array.isArray(value)) throw new FormulaEvalError(fm().toNumberRange());
   const text = value.trim();
   if (text === '') return 0;
   if (DECIMAL_NUMBER.test(text)) {
     const n = Number(text);
-    if (!Number.isFinite(n)) throw new FormulaEvalError('TO_NUMBER: 값이 유한한 수가 아닙니다');
+    if (!Number.isFinite(n)) throw new FormulaEvalError(fm().toNumberNotFinite());
     return n;
   }
-  throw new FormulaEvalError(`TO_NUMBER: 숫자로 바꿀 수 없습니다: ${describe(value)}`);
+  throw new FormulaEvalError(fm().toNumberInvalid(describe(value)));
 }
 
 function toText(value: FormulaValue): string {
@@ -89,7 +90,7 @@ function toText(value: FormulaValue): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  throw new FormulaEvalError('범위는 문자열로 변환할 수 없습니다');
+  throw new FormulaEvalError(fm().rangeToText());
 }
 
 /**
@@ -103,12 +104,12 @@ export function toCondition(value: FormulaValue): boolean {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') return value !== 0;
   if (value === null) return false;
-  throw new FormulaEvalError(`조건은 논리값이어야 합니다: ${describe(value)}`);
+  throw new FormulaEvalError(fm().conditionRequired(describe(value)));
 }
 
-function requireInt(value: FormulaValue, what: string): number {
+function requireInt(value: FormulaValue, what: FormulaSubject): number {
   const n = toNumber(value, what);
-  if (!Number.isInteger(n)) throw new FormulaEvalError(`${what}은(는) 정수여야 합니다`);
+  if (!Number.isInteger(n)) throw new FormulaEvalError(fm().mustBeInteger(what));
   return n;
 }
 
@@ -121,7 +122,7 @@ function collectNumbers(args: FormulaValue[]): number[] {
       value.forEach(visit);
       return;
     }
-    out.push(toNumber(value, '집계 대상'));
+    out.push(toNumber(value, 'aggregateTarget'));
   };
   args.forEach(visit);
   return out;
@@ -148,7 +149,7 @@ function flatten(args: FormulaValue[]): (number | string | boolean | null)[] {
 export type Scalar = number | string | boolean | null;
 
 function makeCriteria(criterion: FormulaValue): (value: Scalar) => boolean {
-  if (Array.isArray(criterion)) throw new FormulaEvalError('조건에는 범위를 쓸 수 없습니다');
+  if (Array.isArray(criterion)) throw new FormulaEvalError(fm().criteriaRange());
   if (typeof criterion === 'string') {
     const match = /^(<>|<=|>=|=|<|>)(.*)$/.exec(criterion);
     if (match) {
@@ -186,7 +187,7 @@ function looseEquals(a: Scalar, b: Scalar): boolean {
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-function parseDate(value: FormulaValue, what = '날짜'): Date {
+function parseDate(value: FormulaValue, what: FormulaSubject = 'date'): Date {
   if (typeof value === 'string') {
     const m = DATE_ONLY.exec(value);
     if (m) {
@@ -203,12 +204,12 @@ function parseDate(value: FormulaValue, what = '날짜'): Date {
       ) {
         return date;
       }
-      throw new FormulaEvalError(`${what}이(가) 실제 존재하는 날짜가 아닙니다: ${describe(value)}`);
+      throw new FormulaEvalError(fm().dateNotReal(what, describe(value)));
     }
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) return parsed;
   }
-  throw new FormulaEvalError(`${what}은(는) ISO 형식(YYYY-MM-DD 등) 문자열이어야 합니다: ${describe(value)}`);
+  throw new FormulaEvalError(fm().dateInvalid(what, describe(value)));
 }
 
 function formatDate(date: Date, pattern: string): string {
@@ -238,7 +239,7 @@ type DateUnit = 'days' | 'months' | 'years';
 function toDateUnit(value: FormulaValue): DateUnit {
   const unit = value === null ? 'days' : toText(value);
   if (unit === 'days' || unit === 'months' || unit === 'years') return unit;
-  throw new FormulaEvalError(`날짜 단위는 days/months/years 중 하나여야 합니다: ${describe(value)}`);
+  throw new FormulaEvalError(fm().dateUnitInvalid(describe(value)));
 }
 
 // ---------------------------------------------------------------------------
@@ -251,12 +252,12 @@ const GROUP_UNITS = ['', '만', '억', '조', '경'];
 
 /** 금액 위변조 방지 관례에 따라 십/백/천 앞에도 '일'을 쓴다 (예: 110 → 일백일십) */
 function numberToKorean(n: number): string {
-  if (!Number.isInteger(n)) throw new FormulaEvalError('NUMBER_TO_KOREAN은 정수만 지원합니다');
+  if (!Number.isInteger(n)) throw new FormulaEvalError(fm().numberToKoreanInteger());
   if (n === 0) return '영';
   const sign = n < 0 ? '마이너스' : '';
   let abs = Math.abs(n);
   // 안전 정수 범위를 넘으면 % 10000·나눗셈이 부정확해져 잘못된 자릿값을 읽는다.
-  if (abs > Number.MAX_SAFE_INTEGER) throw new FormulaEvalError('NUMBER_TO_KOREAN 지원 범위를 넘었습니다');
+  if (abs > Number.MAX_SAFE_INTEGER) throw new FormulaEvalError(fm().numberToKoreanRange());
   const groups: string[] = [];
   let groupIndex = 0;
   while (abs > 0) {
@@ -281,8 +282,7 @@ function numberToKorean(n: number): string {
 
 function arity(name: string, args: FormulaValue[], min: number, max = min): void {
   if (args.length < min || args.length > max) {
-    const range = min === max ? `${min}개` : `${min}~${max}개`;
-    throw new FormulaEvalError(`${name} 함수의 인자는 ${range}여야 합니다`);
+    throw new FormulaEvalError(fm().arity(name, min, max));
   }
 }
 
@@ -301,7 +301,7 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
   SUM: (args) => collectNumbers(args).reduce((a, b) => a + b, 0),
   AVG: (args) => {
     const numbers = collectNumbers(args);
-    if (numbers.length === 0) throw new FormulaEvalError('AVG: 평균을 낼 값이 없습니다');
+    if (numbers.length === 0) throw new FormulaEvalError(fm().avgEmpty());
     return numbers.reduce((a, b) => a + b, 0) / numbers.length;
   },
   /** 빈 값(null·'')을 제외한 항목 수 */
@@ -323,14 +323,14 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
     const testValues = flatten([range ?? null]);
     const sumValues = sumRange === undefined ? testValues : flatten([sumRange]);
     if (sumRange !== undefined && sumValues.length !== testValues.length) {
-      throw new FormulaEvalError('SUMIF: 조건 범위와 합계 범위의 길이가 다릅니다');
+      throw new FormulaEvalError(fm().sumifLengthMismatch());
     }
     let total = 0;
     testValues.forEach((value, index) => {
       if (!test(value)) return;
       const target = sumValues[index] ?? null;
       if (target === null || target === '') return;
-      total += toNumber(target, 'SUMIF 합계 대상');
+      total += toNumber(target, 'sumifTarget');
     });
     return total;
   },
@@ -343,15 +343,15 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
   // --- 산술 ---
   ROUND: (args) => {
     arity('ROUND', args, 1, 2);
-    return roundTo(toNumber(args[0] ?? null), args.length > 1 ? requireInt(args[1] ?? null, '자릿수') : 0, 'round');
+    return roundTo(toNumber(args[0] ?? null), args.length > 1 ? requireInt(args[1] ?? null, 'digits') : 0, 'round');
   },
   FLOOR: (args) => {
     arity('FLOOR', args, 1, 2);
-    return roundTo(toNumber(args[0] ?? null), args.length > 1 ? requireInt(args[1] ?? null, '자릿수') : 0, 'floor');
+    return roundTo(toNumber(args[0] ?? null), args.length > 1 ? requireInt(args[1] ?? null, 'digits') : 0, 'floor');
   },
   CEIL: (args) => {
     arity('CEIL', args, 1, 2);
-    return roundTo(toNumber(args[0] ?? null), args.length > 1 ? requireInt(args[1] ?? null, '자릿수') : 0, 'ceil');
+    return roundTo(toNumber(args[0] ?? null), args.length > 1 ? requireInt(args[1] ?? null, 'digits') : 0, 'ceil');
   },
   ABS: (args) => {
     arity('ABS', args, 1);
@@ -362,21 +362,21 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
   CONCAT: (args) => args.map(toText).join(''),
   LEFT: (args) => {
     arity('LEFT', args, 1, 2);
-    const count = args.length > 1 ? requireInt(args[1] ?? null, '글자 수') : 1;
+    const count = args.length > 1 ? requireInt(args[1] ?? null, 'charCount') : 1;
     return [...toText(args[0] ?? null)].slice(0, Math.max(0, count)).join('');
   },
   RIGHT: (args) => {
     arity('RIGHT', args, 1, 2);
-    const count = args.length > 1 ? requireInt(args[1] ?? null, '글자 수') : 1;
+    const count = args.length > 1 ? requireInt(args[1] ?? null, 'charCount') : 1;
     const chars = [...toText(args[0] ?? null)];
     return count <= 0 ? '' : chars.slice(-count).join('');
   },
   /** MID(문자열, 시작(1-기반), 길이) */
   MID: (args) => {
     arity('MID', args, 3);
-    const start = requireInt(args[1] ?? null, '시작 위치');
-    const length = requireInt(args[2] ?? null, '길이');
-    if (start < 1) throw new FormulaEvalError('MID: 시작 위치는 1 이상이어야 합니다');
+    const start = requireInt(args[1] ?? null, 'startPosition');
+    const length = requireInt(args[2] ?? null, 'length');
+    if (start < 1) throw new FormulaEvalError(fm().midStartTooSmall());
     return [...toText(args[0] ?? null)].slice(start - 1, start - 1 + Math.max(0, length)).join('');
   },
   /** REPLACE(문자열, 찾을 문자열, 바꿀 문자열) — 모든 일치를 치환 */
@@ -404,10 +404,10 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
   FORMAT_NUMBER: (args, ctx) => {
     arity('FORMAT_NUMBER', args, 1, 2);
     const n = toNumber(args[0] ?? null);
-    const locale = ctx.locale ?? 'ko-KR';
+    const locale = ctx.locale ?? 'en-US';
     if (args.length > 1) {
-      const digits = requireInt(args[1] ?? null, '소수 자릿수');
-      if (digits < 0 || digits > 20) throw new FormulaEvalError('소수 자릿수는 0~20이어야 합니다');
+      const digits = requireInt(args[1] ?? null, 'fractionDigits');
+      if (digits < 0 || digits > 20) throw new FormulaEvalError(fm().fractionDigitsRange());
       return n.toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
     }
     return n.toLocaleString(locale, { maximumFractionDigits: 20 });
@@ -431,7 +431,7 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
   DATE_ADD: (args) => {
     arity('DATE_ADD', args, 2, 3);
     const date = parseDate(args[0] ?? null);
-    const amount = requireInt(args[1] ?? null, '증감량');
+    const amount = requireInt(args[1] ?? null, 'amountDelta');
     const unit = toDateUnit(args.length > 2 ? (args[2] ?? null) : null);
     if (unit === 'days') {
       date.setUTCDate(date.getUTCDate() + amount);
@@ -450,8 +450,8 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
   /** DATE_DIFF(시작, 끝, 단위? = "days") — 끝 - 시작 */
   DATE_DIFF: (args) => {
     arity('DATE_DIFF', args, 2, 3);
-    const start = parseDate(args[0] ?? null, '시작 날짜');
-    const end = parseDate(args[1] ?? null, '끝 날짜');
+    const start = parseDate(args[0] ?? null, 'startDate');
+    const end = parseDate(args[1] ?? null, 'endDate');
     const unit = toDateUnit(args.length > 2 ? (args[2] ?? null) : null);
     if (unit === 'days') return Math.trunc((end.getTime() - start.getTime()) / 86_400_000);
     const months =
@@ -465,9 +465,9 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
   /** VAT(공급가액, 세율? = 10) — 부가세액. 절사·반올림은 ROUND/FLOOR와 조합해 지정한다 */
   VAT: (args) => {
     arity('VAT', args, 1, 2);
-    const amount = toNumber(args[0] ?? null, '공급가액');
-    const rate = args.length > 1 ? toNumber(args[1] ?? null, '세율') : 10;
-    if (rate < 0) throw new FormulaEvalError('VAT: 세율은 0 이상이어야 합니다');
+    const amount = toNumber(args[0] ?? null, 'supplyAmount');
+    const rate = args.length > 1 ? toNumber(args[1] ?? null, 'taxRate') : 10;
+    if (rate < 0) throw new FormulaEvalError(fm().vatRateNegative());
     return (amount * rate) / 100;
   },
 

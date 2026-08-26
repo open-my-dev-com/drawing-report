@@ -82,28 +82,28 @@ describe('파일 암호화 (ADR-054)', () => {
     const locked = await encryptSlipFile(template(), 'pw');
     const env = JSON.parse(locked) as { v?: number };
     delete env.v;
-    await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('봉투 버전');
+    await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('envelope version');
   });
 
   it('지원하지 않는 봉투 버전은 거부한다 (SPEC §21.3)', async () => {
     const locked = await encryptSlipFile(template(), 'pw');
     const env = JSON.parse(locked) as { v: number };
     env.v = 2;
-    await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('봉투 버전');
+    await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('envelope version');
   });
 
   it('지원하지 않는 키 파생 알고리즘은 거부한다', async () => {
     const locked = await encryptSlipFile(template(), 'pw');
     const env = JSON.parse(locked) as { kdf: { algo: string } };
     env.kdf.algo = 'SCRYPT';
-    await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('키 파생');
+    await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('key derivation');
   });
 
   it('정상 범위를 벗어난 PBKDF2 반복 횟수는 거부한다', async () => {
     const locked = await encryptSlipFile(template(), 'pw');
     const env = JSON.parse(locked) as { kdf: { iterations: number } };
     env.kdf.iterations = 100_000_000; // 상한 초과 — 악의적으로 큰 값
-    await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('키 파생');
+    await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('key derivation');
   });
 
   it('봉투에 적힌 반복 횟수로 키를 파생한다 — 기본값과 달라도 연다', async () => {
@@ -129,5 +129,23 @@ describe('파일 암호화 (ADR-054)', () => {
       iv: b64u(iv), data: b64u(data),
     });
     await expect(decryptSlipFile(envelope, 'pw')).resolves.toEqual(file);
+  });
+});
+
+describe('메시지 언어 (로케일 설정)', () => {
+  it('기본은 영어 메시지다', async () => {
+    await expect(decryptSlipFile('{"x":1}', 'pw')).rejects.toThrow('Not an encrypted');
+  });
+
+  it("locale이 'ko-KR'이면 한국어 메시지를 낸다", async () => {
+    await expect(decryptSlipFile('{"x":1}', 'pw', { locale: 'ko-KR' })).rejects.toThrow(
+      '암호화된 `.slip` 봉투 형식이 아닙니다',
+    );
+  });
+
+  it("locale이 'ja'이면 일본어 메시지를 낸다", async () => {
+    await expect(decryptSlipFile('{"x":1}', 'pw', { locale: 'ja' })).rejects.toThrow(
+      'エンベロープの形式ではありません',
+    );
   });
 });

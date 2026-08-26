@@ -6,6 +6,7 @@
  */
 import { BUILTIN_FUNCTIONS, toCondition, toNumber, type FormulaContext, type FormulaValue, type Scalar } from './builtins.js';
 import { FormulaEvalError } from './errors.js';
+import { fm, withFormulaLocale, type FormulaPlace } from './messages.js';
 import { parseFormula, type BinaryOperator, type FormulaAst } from './parser.js';
 
 export type { FormulaContext, FormulaValue };
@@ -19,7 +20,7 @@ const MAX_VALUE_DEPTH = 256;
 
 function guardDepth(depth: number): void {
   if (depth > MAX_VALUE_DEPTH) {
-    throw new FormulaEvalError(`값의 중첩 깊이가 제한(${MAX_VALUE_DEPTH})을 초과했습니다`);
+    throw new FormulaEvalError(fm().valueDepthExceeded(MAX_VALUE_DEPTH));
   }
 }
 
@@ -33,7 +34,7 @@ function resolvePath(value: unknown, path: string[], index: number, depth = 0): 
   if (typeof value === 'object') {
     return resolvePath((value as Record<string, unknown>)[path[index]!], path, index + 1, depth + 1);
   }
-  throw new FormulaEvalError(`'${path.slice(0, index).join('.')}'은(는) 객체가 아니라서 '.${path[index]}'를 읽을 수 없습니다`);
+  throw new FormulaEvalError(fm().notAnObject(path.slice(0, index).join('.'), path[index] ?? ''));
 }
 
 function toFormulaValue(value: unknown, depth = 0): FormulaValue {
@@ -41,16 +42,16 @@ function toFormulaValue(value: unknown, depth = 0): FormulaValue {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') return value;
   if (Array.isArray(value)) return value.map((item) => toFormulaValue(item, depth + 1));
-  throw new FormulaEvalError('객체 값은 수식에서 직접 쓸 수 없습니다 (하위 필드를 참조하세요)');
+  throw new FormulaEvalError(fm().objectValueNotUsable());
 }
 
 // ---------------------------------------------------------------------------
 // 연산자
 // ---------------------------------------------------------------------------
 
-function requireScalar(value: FormulaValue, what: string): Scalar {
+function requireScalar(value: FormulaValue, place: FormulaPlace): Scalar {
   if (Array.isArray(value)) {
-    throw new FormulaEvalError(`${what}에 범위를 직접 쓸 수 없습니다 (SUM 등 집계 함수를 사용하세요)`);
+    throw new FormulaEvalError(fm().rangeNotAllowed(place));
   }
   return value;
 }
@@ -63,16 +64,17 @@ function equals(a: Scalar, b: Scalar): boolean {
 }
 
 function applyBinary(operator: BinaryOperator, left: FormulaValue, right: FormulaValue): FormulaValue {
-  const a = requireScalar(left, `'${operator}' 연산`);
-  const b = requireScalar(right, `'${operator}' 연산`);
+  const place: FormulaPlace = { kind: 'operator', operator };
+  const a = requireScalar(left, place);
+  const b = requireScalar(right, place);
   switch (operator) {
-    case '+': return toNumber(a, '더하기 대상') + toNumber(b, '더하기 대상');
-    case '-': return toNumber(a, '빼기 대상') - toNumber(b, '빼기 대상');
-    case '*': return toNumber(a, '곱하기 대상') * toNumber(b, '곱하기 대상');
+    case '+': return toNumber(a, 'addOperand') + toNumber(b, 'addOperand');
+    case '-': return toNumber(a, 'subtractOperand') - toNumber(b, 'subtractOperand');
+    case '*': return toNumber(a, 'multiplyOperand') * toNumber(b, 'multiplyOperand');
     case '/': {
-      const divisor = toNumber(b, '나누기 대상');
-      if (divisor === 0) throw new FormulaEvalError('0으로 나눌 수 없습니다');
-      return toNumber(a, '나누기 대상') / divisor;
+      const divisor = toNumber(b, 'divideOperand');
+      if (divisor === 0) throw new FormulaEvalError(fm().divideByZero());
+      return toNumber(a, 'divideOperand') / divisor;
     }
     case '=': return equals(a, b);
     case '<>': return !equals(a, b);
@@ -90,7 +92,7 @@ function applyBinary(operator: BinaryOperator, left: FormulaValue, right: Formul
         if (operator === '<=') return a <= b;
         return a >= b;
       }
-      throw new FormulaEvalError(`'${operator}' 비교는 숫자끼리 또는 문자열끼리만 가능합니다`);
+      throw new FormulaEvalError(fm().comparisonTypeMismatch(operator));
     }
   }
 }
@@ -108,8 +110,8 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
     case 'reference':
       return resolvePath(context.values, ast.path, 0);
     case 'unary': {
-      const operand = requireScalar(evaluateAst(ast.operand, context), '부호 연산');
-      const n = toNumber(operand, '부호 연산 대상');
+      const operand = requireScalar(evaluateAst(ast.operand, context), { kind: 'sign' });
+      const n = toNumber(operand, 'signOperand');
       return ast.operator === '-' ? -n : n;
     }
     case 'binary':
@@ -118,24 +120,24 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
       // 단락 평가가 필요한 함수는 인수를 개별적으로 평가한다.
       if (ast.name === 'IF') {
         if (ast.args.length < 2 || ast.args.length > 3) {
-          throw new FormulaEvalError('IF 함수의 인자는 2~3개여야 합니다');
+          throw new FormulaEvalError(fm().arity('IF', 2, 3));
         }
-        const condition = toCondition(requireScalar(evaluateAst(ast.args[0]!, context), 'IF 조건'));
+        const condition = toCondition(requireScalar(evaluateAst(ast.args[0]!, context), { kind: 'ifCondition' }));
         if (condition) return evaluateAst(ast.args[1]!, context);
         return ast.args[2] ? evaluateAst(ast.args[2], context) : null;
       }
       if (ast.name === 'AND' || ast.name === 'OR') {
-        if (ast.args.length === 0) throw new FormulaEvalError(`${ast.name} 함수의 인자는 1개 이상이어야 합니다`);
+        if (ast.args.length === 0) throw new FormulaEvalError(fm().arityAtLeastOne(ast.name));
         const shortCircuit = ast.name === 'OR';
         for (const arg of ast.args) {
-          const value = toCondition(requireScalar(evaluateAst(arg, context), `${ast.name} 인자`));
+          const value = toCondition(requireScalar(evaluateAst(arg, context), { kind: 'functionArg', name: ast.name }));
           if (value === shortCircuit) return shortCircuit;
         }
         return !shortCircuit;
       }
       const fn = BUILTIN_FUNCTIONS[ast.name];
       // 파서에 등록됐지만 평가기에 구현되지 않은 함수를 확인한다.
-      if (!fn) throw new FormulaEvalError(`구현되지 않은 함수입니다: ${ast.name}`);
+      if (!fn) throw new FormulaEvalError(fm().notImplementedFunction(ast.name));
       return fn(ast.args.map((arg) => evaluateAst(arg, context)), context);
     }
   }
@@ -158,6 +160,8 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
  * ```
  */
 export function evaluateFormula(source: string | FormulaAst, context: FormulaContext): FormulaValue {
-  const ast = typeof source === 'string' ? parseFormula(source) : source;
-  return evaluateAst(ast, context);
+  return withFormulaLocale(context.locale, () => {
+    const ast = typeof source === 'string' ? parseFormula(source) : source;
+    return evaluateAst(ast, context);
+  });
 }

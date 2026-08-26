@@ -13,7 +13,7 @@ for (let i = 0; i < ENC.length; i++) DEC[ENC.charCodeAt(i)] = i;
 /** base64url 문자 하나를 6비트 값으로 변환한다. */
 function sextet(code: number): number {
   const v = code < 128 ? DEC[code]! : 0xff;
-  if (v === 0xff) throw new Error('base64url 문자열에 허용되지 않는 문자가 있습니다');
+  if (v === 0xff) throw new Error('base64url string contains a disallowed character');
   return v;
 }
 
@@ -51,7 +51,7 @@ export function base64urlDecode(str: string): Uint8Array {
   const n = str.length;
   const rem = n % 4;
   // base64 문자열의 길이를 4로 나눈 나머지는 1이 될 수 없다.
-  if (rem === 1) throw new Error('base64url 길이가 올바르지 않습니다');
+  if (rem === 1) throw new Error('base64url length is invalid');
   const fullBlocks = (n - rem) >> 2;
   const outLen = fullBlocks * 3 + (rem === 2 ? 1 : rem === 3 ? 2 : 0);
   const out = new Uint8Array(outLen);

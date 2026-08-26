@@ -29,6 +29,7 @@ import type {
 } from '../format/schema.js';
 import { normalizeNumericParameters } from '../format/normalize.js';
 import { SlipRenderError } from './errors.js';
+import { rm } from './messages.js';
 import { TextMeasurer } from './measure.js';
 import { stackVertically } from './text-layout.js';
 import type { SlipFont } from './types.js';
@@ -94,20 +95,21 @@ export interface PdfmeRenderInput {
  *
  * @param value - 문자열화할 값 (문자열·수·논리·빈 값)
  * @param what - 오류 메시지에 쓸 대상 이름
+ * @param locale - 오류 메시지에 사용할 BCP 47 로케일 (생략하면 영어)
  * @returns 표시용 문자열 (빈 값은 빈 문자열)
  * @throws SlipRenderError 배열·객체이거나 유한하지 않은 수면
  */
-function toDisplayText(value: unknown, what: string): string {
+function toDisplayText(value: unknown, what: string, locale?: string): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) {
-      throw new SlipRenderError(`${what}의 값이 유한한 수가 아닙니다`);
+      throw new SlipRenderError(rm(locale).notFinite(what));
     }
     return String(value);
   }
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  throw new SlipRenderError(`${what}의 값은 배열·객체라서 텍스트로 표시할 수 없습니다`);
+  throw new SlipRenderError(rm(locale).notText(what));
 }
 
 // ---------------------------------------------------------------------------
@@ -441,7 +443,7 @@ class SlipToPdfmeConverter {
       );
     } catch (error) {
       throw new SlipRenderError(
-        `${what}의 수식을 계산하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`,
+        rm(this.locale).formulaFailed(what, error instanceof Error ? error.message : String(error)),
       );
     }
   }
@@ -453,13 +455,15 @@ class SlipToPdfmeConverter {
    * @returns 표시용 문자열
    */
   private fieldValue(element: FieldElement): string {
-    const what = `필드 '${element.name}'(${element.id})`;
+    const what = rm(this.locale).subjectField(element.name, element.id);
     if (element.formula !== undefined) {
       // 편집 중인 빈 수식은 빈 문자열로 표시한다.
       if (element.formula.trim() === '') return '';
-      return toDisplayText(this.evaluate(element.formula, this.values, what), what);
+      return toDisplayText(this.evaluate(element.formula, this.values, what), what, this.locale);
     }
-    return element.parameter === undefined ? '' : toDisplayText(this.values[element.parameter], what);
+    return element.parameter === undefined
+      ? ''
+      : toDisplayText(this.values[element.parameter], what, this.locale);
   }
 
   // -------------------------------------------------------------------------
@@ -649,14 +653,14 @@ class SlipToPdfmeConverter {
   /** 반복 구간에 사용할 항목 배열을 읽는다. */
   private repeatItems(element: GridElement, parameter: string): Record<string, unknown>[] {
     const raw = this.values[parameter];
-    const what = `그리드 '${element.name}'(${element.id})`;
+    const what = rm(this.locale).subjectGrid(element.name, element.id);
     if (raw === undefined || raw === null) return [];
     if (!Array.isArray(raw)) {
-      throw new SlipRenderError(`${what}의 반복 값 '${parameter}'은(는) 객체 배열이어야 합니다`);
+      throw new SlipRenderError(rm(this.locale).repeatNotArray(what, parameter));
     }
     return raw.map((row, index) => {
       if (typeof row !== 'object' || row === null || Array.isArray(row)) {
-        throw new SlipRenderError(`${what}의 ${index + 1}번째 항목은 객체여야 합니다`);
+        throw new SlipRenderError(rm(this.locale).repeatItemNotObject(what, index + 1));
       }
       return row as Record<string, unknown>;
     });
@@ -668,13 +672,13 @@ class SlipToPdfmeConverter {
     cell: GridCell,
     item: Record<string, unknown> | undefined,
   ): string {
-    const what = `그리드 '${element.name}'(${element.id})의 셀(${cell.row},${cell.column})`;
+    const what = rm(this.locale).subjectGridCell(element.name, element.id, cell.row, cell.column);
     // 반복 구간에서는 전표 값보다 현재 항목의 필드를 우선한다.
     const scope = item === undefined ? this.values : { ...this.values, ...item };
     if (cell.formula !== undefined) {
-      return toDisplayText(this.evaluate(cell.formula, scope, what), what);
+      return toDisplayText(this.evaluate(cell.formula, scope, what), what, this.locale);
     }
-    if (cell.parameter !== undefined) return toDisplayText(scope[cell.parameter], what);
+    if (cell.parameter !== undefined) return toDisplayText(scope[cell.parameter], what, this.locale);
     return cell.content ?? '';
   }
 
@@ -930,30 +934,26 @@ class SlipToPdfmeConverter {
    * 사용한다 (SPEC §3.1).
    */
   private resolveImageSrc(element: ImageElement): string {
-    const what = `이미지 '${element.name}'(${element.id})`;
+    const what = rm(this.locale).subjectImage(element.name, element.id);
     const src = element.parameter !== undefined
       ? this.boundImageSrc(element, element.parameter, what)
       : element.src;
     if (src === undefined) {
-      throw new SlipRenderError(`${what}에 그릴 이미지가 없습니다 (src 또는 parameter 필요)`);
+      throw new SlipRenderError(rm(this.locale).noImageSource(what));
     }
     if (src.startsWith('data:')) return src;
     if (src.startsWith('asset://')) {
       const assetId = src.slice('asset://'.length);
       const asset = this.body.assets.find((entry) => entry.id === assetId);
       if (!asset) {
-        throw new SlipRenderError(`${what}가 참조하는 에셋을 찾을 수 없습니다: ${assetId}`);
+        throw new SlipRenderError(rm(this.locale).missingAsset(what, assetId));
       }
       if (!asset.src.startsWith('data:')) {
-        throw new SlipRenderError(
-          `${what}가 참조하는 에셋 '${assetId}'이(가) 파일에 내장되어 있지 않습니다 (data: base64 필요)`,
-        );
+        throw new SlipRenderError(rm(this.locale).assetNotEmbedded(what, assetId));
       }
       return asset.src;
     }
-    throw new SlipRenderError(
-      `${what}는 외부 URL(${src})을 참조합니다. PDF로 출력하려면 이미지를 파일에 내장(data: base64 또는 asset://)해야 합니다`,
-    );
+    throw new SlipRenderError(rm(this.locale).externalUrl(what, src));
   }
 
   /**
@@ -976,12 +976,14 @@ class SlipToPdfmeConverter {
 
   /** 직접 입력, 전표 값 또는 수식으로 바코드 값을 만든다. */
   private barcodeValue(element: BarcodeElement): string {
-    const what = `바코드 '${element.name}'(${element.id})`;
+    const what = rm(this.locale).subjectBarcode(element.name, element.id);
     if (element.content !== undefined) return element.content;
     if (element.formula !== undefined) {
-      return toDisplayText(this.evaluate(element.formula, this.values, what), what);
+      return toDisplayText(this.evaluate(element.formula, this.values, what), what, this.locale);
     }
-    if (element.parameter !== undefined) return toDisplayText(this.values[element.parameter], what);
+    if (element.parameter !== undefined) {
+      return toDisplayText(this.values[element.parameter], what, this.locale);
+    }
     return '';
   }
 
@@ -1002,13 +1004,11 @@ class SlipToPdfmeConverter {
     const value = this.values[parameter];
     if (value === undefined || value === null || value === '') return undefined;
     if (typeof value !== 'string') {
-      throw new SlipRenderError(`${what}의 값 '${parameter}'은 이미지 문자열이어야 합니다`);
+      throw new SlipRenderError(rm(this.locale).imageValueNotString(what, parameter));
     }
     if (!value.startsWith('data:')) {
       // core는 외부 URL을 읽지 않으므로 호스트가 이미지를 base64로 변환해야 한다.
-      throw new SlipRenderError(
-        `${what}의 값 '${parameter}'은 data: base64여야 합니다 (주소는 호스트가 내장해 보내야 합니다)`,
-      );
+      throw new SlipRenderError(rm(this.locale).imageValueNotData(what, parameter));
     }
     return value;
   }

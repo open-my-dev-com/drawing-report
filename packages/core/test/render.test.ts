@@ -202,12 +202,12 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 
-  it('field 값이 배열·객체면 한국어 오류로 거부한다', () => {
+  it('field 값이 배열·객체면 오류로 거부한다', () => {
     const voucher = makeVoucher();
     patchElement(voucher.templateSnapshot, 'total', { formula: undefined, parameter: 'total' } as never);
     voucher.values.total = { a: 1 };
     expect(() => convertSlipFile(voucher)).toThrow(SlipRenderError);
-    expect(() => convertSlipFile(voucher)).toThrow(/텍스트로 표시할 수 없습니다/);
+    expect(() => convertSlipFile(voucher)).toThrow(/cannot be shown as text/);
   });
 
   it('shape line은 line 스키마로, 두께·색을 반영한다', () => {
@@ -246,13 +246,13 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(convertSlipFile(file).inputs[0]?.logo).toBe(PNG_1PX);
   });
 
-  it('image가 외부 URL이면 한국어 오류로 거부한다 (ADR-036)', () => {
+  it('image가 외부 URL이면 오류로 거부한다 (ADR-036)', () => {
     const file = makeTemplateFile();
     patchElement(file.template, 'logo', {
       src: 'https://cdn.example.com/logo.png',
     } as Partial<SlipElement>);
     expect(() => convertSlipFile(file)).toThrow(SlipRenderError);
-    expect(() => convertSlipFile(file)).toThrow(/파일에 내장/);
+    expect(() => convertSlipFile(file)).toThrow(/embed the image/);
   });
 });
 
@@ -429,9 +429,9 @@ describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
   it('반복 값이 객체 배열이 아니면 한국어 오류로 거부한다', () => {
     const voucher = makeVoucher();
     voucher.values.items = '표가 아님';
-    expect(() => convertSlipFile(voucher)).toThrow(/객체 배열이어야 합니다/);
+    expect(() => convertSlipFile(voucher)).toThrow(/array of objects/);
     voucher.values.items = [1, 2];
-    expect(() => convertSlipFile(voucher)).toThrow(/항목은 객체여야 합니다/);
+    expect(() => convertSlipFile(voucher)).toThrow(/must be an object/);
   });
 });
 
@@ -762,7 +762,7 @@ describe('그리드(grid) 변환 — 반복 구간 (ADR-037)', () => {
     const voucher = makeGridVoucher(2);
     voucher.values.items = { a: 1 };
     expect(() => convertSlipFile(voucher)).toThrow(SlipRenderError);
-    expect(() => convertSlipFile(voucher)).toThrow(/객체 배열이어야 합니다/);
+    expect(() => convertSlipFile(voucher)).toThrow(/array of objects/);
   });
 
   it('넘치는 글을 줄여 넣기로 두면 글자 크기를 줄이도록 표시한다', () => {
@@ -1088,5 +1088,30 @@ describe('데이터 자동 병합 (ADR-038)', () => {
     expect(bandTexts(file, 0)).toEqual(['품명', '주문자', '노트', 'A', 'B']);
     expect(bandTexts(file, 1)).toContain('노트');
     expect(bandTexts(file, 1)).toContain('C');
+  });
+});
+
+describe('메시지 언어 (로케일 설정)', () => {
+  function badVoucher(): ReturnType<typeof makeVoucher> {
+    const voucher = makeVoucher();
+    patchElement(voucher.templateSnapshot, 'total', { formula: undefined, parameter: 'total' } as never);
+    voucher.values.total = { a: 1 };
+    return voucher;
+  }
+
+  it('기본은 영어 메시지다', () => {
+    expect(() => convertSlipFile(badVoucher())).toThrow(/cannot be shown as text/);
+  });
+
+  it("locale이 'ko-KR'이면 한국어 메시지를 낸다", () => {
+    expect(() => convertSlipFile(badVoucher(), { locale: 'ko-KR' })).toThrow(
+      /텍스트로 표시할 수 없습니다/,
+    );
+  });
+
+  it("locale이 'ja'이면 일본어 메시지를 낸다", () => {
+    expect(() => convertSlipFile(badVoucher(), { locale: 'ja' })).toThrow(
+      /テキストとして表示できません/,
+    );
   });
 });

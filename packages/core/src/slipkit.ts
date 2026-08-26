@@ -10,6 +10,7 @@ import type { FormulaAst } from './formula/parser.js';
 import { evaluateFormula, type FormulaContext, type FormulaValue } from './formula/evaluator.js';
 import { encryptSlipFile, decryptSlipFile } from './encryption/index.js';
 import { SlipEncryptionError } from './encryption/errors.js';
+import { em } from './encryption/messages.js';
 
 /** 파일별 암호화에 사용하는 암호문 또는 32바이트 원시 키 */
 type EncryptionKey = string | Uint8Array;
@@ -23,9 +24,9 @@ export interface SlipKitConfig {
   getFonts?: () => readonly SlipFont[] | Promise<readonly SlipFont[]>;
   /**
    * `FORMAT_NUMBER` 등 형식 함수에 사용할 BCP 47 로케일.
-   * 렌더링과 `evaluate`에 함께 적용된다.
+   * 렌더링, `evaluate`와 오류 메시지 언어에 함께 적용된다.
    *
-   * @defaultValue `'ko-KR'`
+   * @defaultValue `'en-US'`
    */
   locale?: string;
   /**
@@ -105,7 +106,7 @@ export function createSlipKit(config: SlipKitConfig = {}): SlipKit {
   function keyForEncrypt(override: EncryptionKey | undefined): EncryptionKey {
     const key = override ?? config.encryption?.key;
     if (key === undefined) {
-      throw new SlipEncryptionError('암호화 키가 없습니다 — 설정의 encryption.key나 인자로 키를 주세요');
+      throw new SlipEncryptionError(em(config.locale).noEncryptKey());
     }
     return key;
   }
@@ -115,7 +116,7 @@ export function createSlipKit(config: SlipKitConfig = {}): SlipKit {
     if (override !== undefined) return [override];
     const base = config.encryption?.key;
     if (base === undefined) {
-      throw new SlipEncryptionError('복호화 키가 없습니다 — 설정의 encryption.key나 인자로 키를 주세요');
+      throw new SlipEncryptionError(em(config.locale).noDecryptKey());
     }
     return [base, ...(config.encryption?.previousKeys ?? [])];
   }
@@ -130,13 +131,16 @@ export function createSlipKit(config: SlipKitConfig = {}): SlipKit {
           ? { ...context, locale: config.locale }
           : context,
       ),
-    encrypt: async (file, key) => encryptSlipFile(file, keyForEncrypt(key)),
+    encrypt: async (file, key) =>
+      encryptSlipFile(file, keyForEncrypt(key), { ...(config.locale === undefined ? {} : { locale: config.locale }) }),
     decrypt: async (json, key) => {
       const keys = keysForDecrypt(key);
       let lastError: unknown;
       for (const k of keys) {
         try {
-          return await decryptSlipFile(json, k);
+          return await decryptSlipFile(json, k, {
+            ...(config.locale === undefined ? {} : { locale: config.locale }),
+          });
         } catch (error) {
           if (!(error instanceof SlipEncryptionError)) throw error;
           lastError = error;
@@ -144,7 +148,7 @@ export function createSlipKit(config: SlipKitConfig = {}): SlipKit {
       }
       throw lastError instanceof Error
         ? lastError
-        : new SlipEncryptionError('복호화에 실패했습니다 — 맞는 키가 없습니다');
+        : new SlipEncryptionError(em(config.locale).noMatchingKey());
     },
   };
 }

@@ -160,31 +160,31 @@ describe('.slip 템플릿 파싱', () => {
   it('열 너비의 합이 width와 다르면 거부한다', () => {
     const file = makeTemplate();
     getElement(file, 1, 'grid').columns = [{ width: 27 }, { width: 50 }];
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/열 너비의 합/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/column widths/);
   });
 
   it('그리드 범위를 벗어난 병합 셀은 거부한다', () => {
     const file = makeTemplate();
     getElement(file, 1, 'grid').cells.push({ row: 2, column: 0, rowSpan: 2, content: 'x' });
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/벗어납니다/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/is outside/);
   });
 
   it('겹치는 셀은 거부한다', () => {
     const file = makeTemplate();
     getElement(file, 1, 'grid').cells.push({ row: 0, column: 1, content: '중복' });
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/겹칩니다/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/overlaps/);
   });
 
   it('존재하지 않는 asset:// 참조는 거부한다', () => {
     const file = makeTemplate();
     getElement(file, 3, 'image').src = 'asset://missing';
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/참조하는 에셋이 없습니다/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/Referenced asset does not exist/);
   });
 
   it('에셋 항목 자신의 src가 해소되지 않는 asset:// 참조면 거부한다 (SPEC §3.1)', () => {
     const file = makeTemplate();
     file.template.assets.push({ id: 'alias', mimeType: 'image/png', src: 'asset://missing' });
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/참조하는 에셋이 없습니다/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/Referenced asset does not exist/);
   });
 
   it('에셋 항목의 asset:// 참조가 존재하는 에셋을 가리키면 허용한다', () => {
@@ -196,14 +196,14 @@ describe('.slip 템플릿 파싱', () => {
   it('요소 id가 중복되면 거부한다', () => {
     const file = makeTemplate();
     getElement(file, 1, 'grid').id = 'title';
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/요소 id가 중복/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/Duplicate element id/);
   });
 
   it('페이지 물리명(key)이 중복되면 거부한다 (SPEC §4)', () => {
     const file = makeTemplate();
     file.template.pages[0]!.key = 'cover';
     file.template.pages.push({ elements: [], key: 'cover' });
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/페이지 key가 중복/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/Duplicate page key/);
   });
 });
 
@@ -211,20 +211,20 @@ describe('구조 크기 상한 (SPEC §3.2)', () => {
   it('행 수가 상한을 넘는 그리드는 거부한다 (렌더 OOM 방지)', () => {
     const file = makeTemplate();
     getElement(file, 1, 'grid').rows = Array.from({ length: 1001 }, () => ({ height: 1 }));
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/최대/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/at most/);
   });
 
   it('페이지 수가 상한을 넘으면 거부한다', () => {
     const file = makeTemplate();
     file.template.pages = Array.from({ length: 501 }, () => ({ elements: [] }));
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/최대/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/at most/);
   });
 
   it('열 수가 상한을 넘는 그리드는 거부한다', () => {
     const file = makeTemplate();
     const grid = getElement(file, 2, 'grid');
     grid.columns = Array.from({ length: 101 }, () => ({ width: 1 }));
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/최대/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/at most/);
   });
 });
 
@@ -241,10 +241,10 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const image = { type: 'image', id: 'img-x', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10 };
 
     pages[0]!.elements.push({ ...image });
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/src 또는 parameter/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/src or parameter/);
 
     pages[0]!.elements[pages[0]!.elements.length - 1] = { ...image, src: 'data:image/png;base64,AA==', parameter: 'sign' };
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/함께 가질 수 없습니다/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/cannot have both/);
 
     pages[0]!.elements[pages[0]!.elements.length - 1] = { ...image, parameter: 'sign' };
     expect(() => parseSlipFile(JSON.stringify(base))).not.toThrow();
@@ -259,10 +259,10 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     };
 
     pages[0]!.elements.push({ ...barcode });
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/하나만 가져야/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/exactly one of/);
 
     pages[0]!.elements[pages[0]!.elements.length - 1] = { ...barcode, content: 'A', parameter: 'code' };
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/하나만 가져야/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/exactly one of/);
 
     pages[0]!.elements[pages[0]!.elements.length - 1] = { ...barcode, parameter: 'code' };
     const parsed = parseSlipFile(JSON.stringify(base));
@@ -285,7 +285,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
       { row: 2, column: 0, parameter: '규격' },
     ];
     (grid['columns'] as Record<string, unknown>[])[0]!['autoMerge'] = true;
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/구간 전체 높이/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/cover the whole range height/);
   });
 
   it('반복 구간이 없는 그리드의 열은 자동 병합을 켤 수 없다 (ADR-038)', () => {
@@ -293,7 +293,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
     const grid = template.pages[0]!.elements.find((el) => el['id'] === 'supplier')!;
     (grid['columns'] as Record<string, unknown>[])[0]!['autoMerge'] = true;
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/반복 구간이 있어야/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/requires a repeat range/);
   });
 
   it('maxItems가 perPage보다 작으면 거부한다 (ADR-048)', () => {
@@ -301,7 +301,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
     const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
     (grid['repeat'] as Record<string, unknown>)['maxItems'] = 3;
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/perPage보다 작을 수 없습니다/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/cannot be less than perPage/);
   });
 
   it('필드는 파라미터와 수식 중 하나만 가져야 한다 (ADR-049)', () => {
@@ -309,7 +309,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
     const field = template.pages[0]!.elements.find((el) => el['id'] === 'total')!;
     field['parameter'] = 'total';
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/parameter·formula 중 하나만/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/exactly one of parameter or formula/);
   });
 
   it('필드에 파라미터도 수식도 없으면 거부한다 (ADR-049)', () => {
@@ -317,7 +317,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
     const field = template.pages[0]!.elements.find((el) => el['id'] === 'total')!;
     delete field['formula'];
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/parameter·formula 중 하나만/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/exactly one of parameter or formula/);
   });
 
   it('목록 파라미터는 항목의 하위 필드를 정의부에 담을 수 있다 (ADR-047)', () => {
@@ -340,14 +340,14 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as { parameters?: unknown };
     template.parameters = [{ key: 'total', valueType: 'number', fields: [{ key: 'x' }] }];
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/valueType이 'list'인/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/valueType is 'list'/);
   });
 
   it('하위 필드 이름이 겹치면 거부한다 (ADR-047)', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as { parameters?: unknown };
     template.parameters = [{ key: 'items', valueType: 'list', fields: [{ key: 'a' }, { key: 'a' }] }];
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/하위 필드 이름이 중복됩니다/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/Duplicate sub-field name/);
   });
 
   it('그리드 열의 자동 병합과 페이지 이름·번호를 담을 수 있다', () => {
@@ -405,7 +405,7 @@ describe('.slip 전표(voucher) 파싱', () => {
   it('발행된 전표에 외부 URL 이미지가 있으면 거부한다 (ADR-036)', () => {
     const voucher = makeIssuedVoucher();
     voucher.templateSnapshot.assets[0]!.src = 'https://example.com/logo.png';
-    expect(() => parseSlipFile(serializeSlipFile(voucher))).toThrow(/외부 URL/);
+    expect(() => parseSlipFile(serializeSlipFile(voucher))).toThrow(/external URL/);
   });
 
   it('작성 중(미발행) 전표는 외부 URL 이미지를 허용한다', () => {
@@ -437,7 +437,7 @@ describe('schemaVersion 마이그레이션 (ADR-007)', () => {
   });
 
   it('경로가 없는 구버전은 거부한다', () => {
-    expect(() => migrateSlipDocument({ schemaVersion: '0.0.1' })).toThrow(/마이그레이션 경로가 없습니다/);
+    expect(() => migrateSlipDocument({ schemaVersion: '0.0.1' })).toThrow(/no migration path/);
   });
 
   it('parseSlipFile도 경로 없는 구버전을 SlipParseError로 거부한다', () => {
@@ -485,12 +485,12 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
 
   it('열 너비의 합이 width와 같아야 한다', () => {
     expect(() => parseSlipFile(serializeSlipFile(makeGridFile()))).not.toThrow();
-    expect(() => parseSlipFile(serializeSlipFile(makeGridFile({ width: 120 })))).toThrow(/열 너비의 합/);
+    expect(() => parseSlipFile(serializeSlipFile(makeGridFile({ width: 120 })))).toThrow(/column widths/);
   });
 
   it('height는 반복 구간이 perPage번 복제된 높이여야 한다', () => {
     // 높이: 헤더 8 + 반복 2x8 + 꼬리 8 = 32mm.
-    expect(() => parseSlipFile(serializeSlipFile(makeGridFile({ height: 24 })))).toThrow(/행 높이의 합/);
+    expect(() => parseSlipFile(serializeSlipFile(makeGridFile({ height: 24 })))).toThrow(/row heights/);
     expect(() =>
       parseSlipFile(
         serializeSlipFile(
@@ -516,13 +516,13 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
           makeGridFile({ repeat: { parameter: 'items', fromRow: 1, toRow: 5, perPage: 2, repeatHeader: true } }),
         ),
       ),
-    ).toThrow(/반복 구간/);
+    ).toThrow(/repeat range/);
   });
 
   it('셀은 content·parameter·formula 중 하나만 가질 수 있다', () => {
     expect(() =>
       parseSlipFile(serializeSlipFile(makeGridFile({ cells: [{ row: 0, column: 0, content: 'a', parameter: 'b' }] }))),
-    ).toThrow(/하나만/);
+    ).toThrow(/only one of/);
   });
 
   it('병합이 반복 구간 경계를 넘으면 거부한다', () => {
@@ -530,20 +530,20 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
       parseSlipFile(
         serializeSlipFile(makeGridFile({ cells: [{ row: 0, column: 0, rowSpan: 2, content: '헤더' }] })),
       ),
-    ).toThrow(/반복 구간.*경계/);
+    ).toThrow(/crosses the repeat range/);
   });
 
   it('셀이 그리드를 벗어나거나 겹치면 거부한다', () => {
     expect(() =>
       parseSlipFile(serializeSlipFile(makeGridFile({ cells: [{ row: 0, column: 3, content: 'a' }] }))),
-    ).toThrow(/벗어납니다/);
+    ).toThrow(/is outside/);
     expect(() =>
       parseSlipFile(
         serializeSlipFile(
           makeGridFile({ cells: [{ row: 0, column: 0, content: 'a' }, { row: 0, column: 0, content: 'b' }] }),
         ),
       ),
-    ).toThrow(/겹칩니다/);
+    ).toThrow(/overlaps/);
   });
 });
 
@@ -551,7 +551,7 @@ describe('스키마 방어 보강 (G-48)', () => {
   it('에셋이 자기 자신을 asset://로 참조하면 거부한다', () => {
     const file = makeTemplate();
     file.template.assets = [{ id: 'logo', mimeType: 'image/png', src: 'asset://logo' }];
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/자기 자신을 참조/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/references itself/);
   });
 
   it('값 중첩이 지나치게 깊으면 RangeError가 아니라 SlipParseError를 던진다', () => {
@@ -585,7 +585,7 @@ describe('스키마 방어 보강 (G-48)', () => {
         cells: [{ row: 0, column: 0, rowSpan: 3, content: '감싸기' }],
       },
     ];
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/경계를 넘습니다/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/boundary/);
   });
 
   it('반복 구간에 칸이 없는 열의 autoMerge는 거부한다', () => {
@@ -605,7 +605,7 @@ describe('스키마 방어 보강 (G-48)', () => {
         cells: [{ row: 1, column: 0, parameter: '품명' }],
       },
     ];
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/구간 전체 높이/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/cover the whole range height/);
   });
 });
 
@@ -626,7 +626,7 @@ describe('발행 전표 변동 이미지 값 검증 (G-48)', () => {
   }
   it('변동 이미지 값이 외부 URL이면 거부한다', () => {
     expect(() => parseSlipFile(JSON.stringify(voucherWithImageParameter('http://evil.com/x.png'))))
-      .toThrow(/외부 URL 이미지/);
+      .toThrow(/external URL images/);
   });
   it('변동 이미지 값이 깨진 data:면 거부한다', () => {
     expect(() => parseSlipFile(JSON.stringify(voucherWithImageParameter('data:nonsense'))))
@@ -719,5 +719,31 @@ describe('buildVoucher (ADR-052)', () => {
   it('조립 결과는 유효한 전표 파일이다', () => {
     const voucher = buildVoucher(template(), { tradeDate: '2026-08-24', total: 3000 });
     expect(() => parseSlipFile(serializeSlipFile(voucher))).not.toThrow();
+  });
+});
+
+describe('메시지 언어 (로케일 설정)', () => {
+  it('기본은 영어 메시지다', () => {
+    expect(() => parseSlipFile('broken')).toThrow('Not valid JSON');
+  });
+
+  it("locale이 'ko-KR'이면 한국어 메시지를 낸다", () => {
+    expect(() => parseSlipFile('broken', { locale: 'ko-KR' })).toThrow('유효한 JSON이 아닙니다');
+    const file = makeTemplate();
+    getElement(file, 1, 'grid').columns = [{ width: 27 }, { width: 50 }];
+    expect(() => parseSlipFile(serializeSlipFile(file), { locale: 'ko-KR' })).toThrow(/열 너비의 합/);
+  });
+
+  it("locale이 'ja'이면 일본어 메시지를 낸다", () => {
+    expect(() => parseSlipFile('broken', { locale: 'ja' })).toThrow('有効な JSON ではありません');
+  });
+
+  it('Zod 내장 메시지도 로케일을 따른다', () => {
+    expect(() => validateSlipFile({}, { locale: 'ko-KR' })).toThrow(/\.slip 봉투 검증 실패/);
+    expect(() => validateSlipFile({}, { locale: 'ja' })).toThrow(/\.slip エンベロープの検証に失敗しました/);
+  });
+
+  it('지원하지 않는 언어는 영어로 대체한다', () => {
+    expect(() => parseSlipFile('broken', { locale: 'fr-FR' })).toThrow('Not valid JSON');
   });
 });

@@ -17,6 +17,7 @@
  */
 import { FormulaSyntaxError } from './errors.js';
 import { FORMULA_FUNCTIONS, type FormulaFunctionName } from './functions.js';
+import { fm, withFormulaLocale } from './messages.js';
 
 // ---------------------------------------------------------------------------
 // AST
@@ -65,10 +66,10 @@ function tokenize(source: string): Token[] {
     const pos = i;
     if (/[0-9]/.test(ch) || (ch === '.' && /[0-9]/.test(source[i + 1] ?? ''))) {
       const match = /^\d*\.?\d+(?:[eE][+-]?\d+)?/.exec(source.slice(i));
-      if (!match) throw new FormulaSyntaxError('숫자 형식이 잘못되었습니다', pos);
+      if (!match) throw new FormulaSyntaxError(fm().invalidNumberFormat(), pos);
       const num = Number(match[0]);
       // 유한하지 않은 숫자 리터럴은 평가 결과로 사용할 수 없다.
-      if (!Number.isFinite(num)) throw new FormulaSyntaxError('숫자가 너무 큽니다', pos);
+      if (!Number.isFinite(num)) throw new FormulaSyntaxError(fm().numberTooLarge(), pos);
       tokens.push({ type: 'number', value: num, pos });
       i += match[0].length;
       continue;
@@ -77,7 +78,7 @@ function tokenize(source: string): Token[] {
       let value = '';
       i++;
       for (;;) {
-        if (i >= source.length) throw new FormulaSyntaxError('문자열이 닫히지 않았습니다', pos);
+        if (i >= source.length) throw new FormulaSyntaxError(fm().unterminatedString(), pos);
         if (source[i] === '"') {
           if (source[i + 1] === '"') {
             value += '"';
@@ -116,7 +117,7 @@ function tokenize(source: string): Token[] {
       i++;
       continue;
     }
-    throw new FormulaSyntaxError(`알 수 없는 문자입니다: '${ch}'`, pos);
+    throw new FormulaSyntaxError(fm().unknownCharacter(ch), pos);
   }
   tokens.push({ type: 'end', pos: source.length });
   return tokens;
@@ -136,7 +137,7 @@ class Parser {
     const expr = this.comparison();
     const token = this.peek();
     if (token.type !== 'end') {
-      throw new FormulaSyntaxError('수식 끝에 해석할 수 없는 내용이 있습니다', token.pos);
+      throw new FormulaSyntaxError(fm().trailingContent(), token.pos);
     }
     return expr;
   }
@@ -158,9 +159,9 @@ class Parser {
     return null;
   }
 
-  private expectOp(op: string, what: string): void {
-    if (!this.matchOp(op)) {
-      throw new FormulaSyntaxError(`${what}이(가) 필요합니다`, this.peek().pos);
+  private expectClosingParen(): void {
+    if (!this.matchOp(')')) {
+      throw new FormulaSyntaxError(fm().expectedClosingParen(), this.peek().pos);
     }
   }
 
@@ -169,10 +170,7 @@ class Parser {
 
   private enter(): void {
     if (++this.depth > MAX_FORMULA_DEPTH) {
-      throw new FormulaSyntaxError(
-        `수식 중첩이 너무 깊습니다 (최대 ${MAX_FORMULA_DEPTH}단계)`,
-        this.peek().pos,
-      );
+      throw new FormulaSyntaxError(fm().formulaTooDeep(MAX_FORMULA_DEPTH), this.peek().pos);
     }
   }
 
@@ -231,7 +229,7 @@ class Parser {
     if (token.type === 'string') return { type: 'string', value: token.value };
     if (token.type === 'op' && token.value === '(') {
       const expr = this.comparison();
-      this.expectOp(')', '닫는 괄호');
+      this.expectClosingParen();
       return expr;
     }
     if (token.type === 'ident') {
@@ -242,7 +240,7 @@ class Parser {
       const isCall = this.peek().type === 'op' && (this.peek() as { value?: string }).value === '(';
       if (isCall) {
         if (!FUNCTION_NAMES.has(upper)) {
-          throw new FormulaSyntaxError(`지원하지 않는 함수입니다: ${token.value}`, token.pos);
+          throw new FormulaSyntaxError(fm().unknownFunction(token.value), token.pos);
         }
         this.next(); // '('
         const args: FormulaAst[] = [];
@@ -250,7 +248,7 @@ class Parser {
           do {
             args.push(this.comparison());
           } while (this.matchOp(','));
-          this.expectOp(')', '닫는 괄호');
+          this.expectClosingParen();
         }
         return { type: 'call', name: upper as FormulaFunctionName, args };
       }
@@ -259,13 +257,13 @@ class Parser {
       while (this.matchOp('.')) {
         const segment = this.next();
         if (segment.type !== 'ident') {
-          throw new FormulaSyntaxError("'.' 뒤에는 필드 이름이 와야 합니다", segment.pos);
+          throw new FormulaSyntaxError(fm().expectedFieldAfterDot(), segment.pos);
         }
         path.push(segment.value);
       }
       return { type: 'reference', path };
     }
-    throw new FormulaSyntaxError('값·참조·함수가 필요합니다', token.pos);
+    throw new FormulaSyntaxError(fm().expectedValue(), token.pos);
   }
 }
 
@@ -278,13 +276,16 @@ export const MAX_FORMULA_DEPTH = 100;
  * 수식 문자열을 AST로 파싱한다.
  *
  * @param source - 수식 문자열 (예: `SUM(items.금액) * 1.1`)
+ * @param options - 오류 메시지 언어를 정하는 로케일 (생략하면 영어)
  * @returns 파싱된 구문 트리
  * @throws FormulaSyntaxError 문법 오류·미등록 함수·길이/깊이 제한 초과 시
  */
-export function parseFormula(source: string): FormulaAst {
-  if (!source.trim()) throw new FormulaSyntaxError('빈 수식입니다', 0);
-  if (source.length > MAX_FORMULA_LENGTH) {
-    throw new FormulaSyntaxError(`수식이 너무 깁니다 (최대 ${MAX_FORMULA_LENGTH}자)`, 0);
-  }
-  return new Parser(tokenize(source)).parse();
+export function parseFormula(source: string, options?: { locale?: string }): FormulaAst {
+  return withFormulaLocale(options?.locale, () => {
+    if (!source.trim()) throw new FormulaSyntaxError(fm().emptyFormula(), 0);
+    if (source.length > MAX_FORMULA_LENGTH) {
+      throw new FormulaSyntaxError(fm().formulaTooLong(MAX_FORMULA_LENGTH), 0);
+    }
+    return new Parser(tokenize(source)).parse();
+  });
 }

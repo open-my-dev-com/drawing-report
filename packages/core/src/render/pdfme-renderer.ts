@@ -9,14 +9,15 @@ import { barcodes, ellipse, image, line, rectangle, svg, table, text } from '@pd
 import type { SlipFile } from '../format/schema.js';
 import { convertSlipFile } from './convert.js';
 import { SlipRenderError } from './errors.js';
+import { rm } from './messages.js';
 import type { RenderOptions, SlipFont, SlipPdfRenderer } from './types.js';
 
 /** 사용자 폰트를 pdfme 형식으로 변환한다. */
-function toEngineFont(fonts: readonly SlipFont[] | undefined): Font | undefined {
+function toEngineFont(fonts: readonly SlipFont[] | undefined, locale?: string): Font | undefined {
   if (!fonts || fonts.length === 0) return undefined;
   const fallbackCount = fonts.filter((font) => font.fallback === true).length;
   if (fallbackCount > 1) {
-    throw new SlipRenderError('대체(fallback) 폰트는 하나만 지정할 수 있습니다');
+    throw new SlipRenderError(rm(locale).multipleFallbackFonts());
   }
   const entries = fonts.map((font, index) => {
     const isFallback = font.fallback === true || (fallbackCount === 0 && index === 0);
@@ -24,7 +25,7 @@ function toEngineFont(fonts: readonly SlipFont[] | undefined): Font | undefined 
   });
   const names = new Set(entries.map(([name]) => name));
   if (names.size !== entries.length) {
-    throw new SlipRenderError('폰트 이름이 중복되었습니다');
+    throw new SlipRenderError(rm(locale).duplicateFontName());
   }
   // pdfme의 폰트 타입에 맞추되 바이트 데이터는 복사하지 않는다.
   return Object.fromEntries(entries) as unknown as Font;
@@ -56,7 +57,7 @@ export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer 
     if (!resolvedFonts) {
       resolvedFonts = (async () => {
         const fonts = options.getFonts ? await options.getFonts() : undefined;
-        const font = toEngineFont(fonts);
+        const font = toEngineFont(fonts, options.locale);
         // 변환 계층에서 굵기와 기울임에 맞는 폰트 이름을 찾을 때 사용한다.
         const fontNames = fonts?.map((f) => f.name) ?? [];
         const fallbackFontName = fonts?.find((f) => f.fallback === true)?.name ?? fonts?.[0]?.name;

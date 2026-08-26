@@ -27,7 +27,7 @@ describe('supportsVersions (선택적 버전 이력 인터페이스, ADR-021)', 
 });
 
 describe('SlipStorageError', () => {
-  it('code와 한국어 메시지를 담는다', () => {
+  it('code와 메시지를 담는다', () => {
     const error = new SlipStorageError('unsupported', '지원하지 않습니다');
     expect(error.name).toBe('SlipStorageError');
     expect(error.code).toBe('unsupported');

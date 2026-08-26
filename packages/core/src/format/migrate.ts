@@ -6,6 +6,7 @@
  * 변환하는 순수 함수다.
  */
 import { CURRENT_SCHEMA_VERSION } from './version.js';
+import { fmt } from './messages.js';
 
 /** `from` 버전 문서를 `to` 버전 문서로 변환하는 마이그레이션 단계. */
 export interface SlipMigrationStep {
@@ -61,12 +62,10 @@ export function migrateSlipDocument(
 ): Record<string, unknown> {
   const version = document['schemaVersion'];
   if (typeof version !== 'string' || !SEMVER_PATTERN.test(version)) {
-    throw new SlipMigrationError('schemaVersion이 semver 형식이 아닙니다');
+    throw new SlipMigrationError(fmt().migrateSemver());
   }
   if (compareSemver(version, CURRENT_SCHEMA_VERSION) > 0) {
-    throw new SlipMigrationError(
-      `이 파일의 schemaVersion(${version})은 지원 버전(${CURRENT_SCHEMA_VERSION})보다 새롭습니다. 라이브러리를 업데이트하세요.`,
-    );
+    throw new SlipMigrationError(fmt().migrateNewer(version, CURRENT_SCHEMA_VERSION));
   }
 
   let current = document;
@@ -74,14 +73,12 @@ export function migrateSlipDocument(
   const visited = new Set<string>();
   while (currentVersion !== CURRENT_SCHEMA_VERSION) {
     if (visited.has(currentVersion)) {
-      throw new SlipMigrationError(`마이그레이션 경로에 순환이 있습니다: ${currentVersion}`);
+      throw new SlipMigrationError(fmt().migrateCycle(currentVersion));
     }
     visited.add(currentVersion);
     const step = steps.find((s) => s.from === currentVersion);
     if (!step) {
-      throw new SlipMigrationError(
-        `schemaVersion ${currentVersion}에서 ${CURRENT_SCHEMA_VERSION}(으)로 가는 마이그레이션 경로가 없습니다`,
-      );
+      throw new SlipMigrationError(fmt().migrateNoPath(currentVersion, CURRENT_SCHEMA_VERSION));
     }
     current = { ...step.migrate(current), schemaVersion: step.to };
     currentVersion = step.to;

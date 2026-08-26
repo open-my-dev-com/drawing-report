@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { CURRENT_SCHEMA_VERSION } from './version.js';
 import { migrateSlipDocument } from './migrate.js';
+import { fmt, withFormatLocale, zodParseParams } from './messages.js';
 
 export { CURRENT_SCHEMA_VERSION };
 
@@ -23,7 +24,7 @@ const idSchema = z.string().min(1);
 /** 색상은 #RRGGBB 또는 #RRGGBBAA */
 const colorSchema = z
   .string()
-  .regex(/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, '색상은 #RRGGBB 또는 #RRGGBBAA 형식이어야 합니다');
+  .regex(/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, { error: () => fmt().colorFormat() });
 
 const alignmentSchema = z.enum(['left', 'center', 'right']);
 
@@ -64,19 +65,19 @@ const ASSET_SRC = /^asset:\/\/\S+$/;
 const srcSchema = z
   .string()
   .refine((s) => HTTP_SRC.test(s) || DATA_SRC.test(s) || ASSET_SRC.test(s), {
-    message: 'src는 http(s) URL, data:<mime>;base64 또는 asset:// 형식이어야 합니다',
+    error: () => fmt().srcFormat(),
   });
 
 const semverSchema = z
   .string()
-  .regex(/^\d+\.\d+\.\d+$/, 'schemaVersion은 semver 형식이어야 합니다');
+  .regex(/^\d+\.\d+\.\d+$/, { error: () => fmt().semverFormat() });
 
 /** 합계가 100이어야 하는 비율 배열. ±0.01의 오차를 허용한다 (SPEC §3). */
 const percentagesSchema = z
   .array(z.number().positive())
   .min(1)
   .refine((arr) => Math.abs(arr.reduce((a, b) => a + b, 0) - 100) <= 0.01, {
-    message: '비율의 합은 100이어야 합니다',
+    error: () => fmt().percentagesSum(),
   });
 
 // ---------------------------------------------------------------------------
@@ -196,7 +197,7 @@ const gridRepeatSchema = z.object({
     .number()
     .int()
     .min(1)
-    .max(SLIP_LIMITS.maxRepeatPerPage, `perPage는 최대 ${SLIP_LIMITS.maxRepeatPerPage}입니다`),
+    .max(SLIP_LIMITS.maxRepeatPerPage, { error: () => fmt().perPageMax(SLIP_LIMITS.maxRepeatPerPage) }),
   /** 이어지는 페이지에 반복 구간 위쪽 행을 다시 그릴지 */
   repeatHeader: z.boolean(),
   /**
@@ -208,7 +209,7 @@ const gridRepeatSchema = z.object({
     .number()
     .int()
     .min(1)
-    .max(SLIP_LIMITS.maxRepeatItems, `maxItems는 최대 ${SLIP_LIMITS.maxRepeatItems}입니다`)
+    .max(SLIP_LIMITS.maxRepeatItems, { error: () => fmt().maxItemsMax(SLIP_LIMITS.maxRepeatItems) })
     .optional(),
 })
   .superRefine((repeat, ctx) => {
@@ -216,7 +217,7 @@ const gridRepeatSchema = z.object({
       ctx.addIssue({
         code: 'custom',
         path: ['maxItems'],
-        message: 'maxItems는 perPage보다 작을 수 없습니다',
+        message: fmt().maxItemsBelowPerPage(),
       });
     }
   });
@@ -231,13 +232,13 @@ const gridElementObject = z.object({
   columns: z
     .array(gridColumnSchema)
     .min(1)
-    .max(SLIP_LIMITS.maxGridColumnTracks, `열 수는 최대 ${SLIP_LIMITS.maxGridColumnTracks}개입니다`),
+    .max(SLIP_LIMITS.maxGridColumnTracks, { error: () => fmt().columnsMax(SLIP_LIMITS.maxGridColumnTracks) }),
   /** 행 높이(mm) */
   rows: z
     .array(gridRowSchema)
     .min(1)
-    .max(SLIP_LIMITS.maxGridRowTracks, `행 수는 최대 ${SLIP_LIMITS.maxGridRowTracks}개입니다`),
-  cells: z.array(gridCellSchema).max(SLIP_LIMITS.maxGridCells, `셀 수는 최대 ${SLIP_LIMITS.maxGridCells}개입니다`),
+    .max(SLIP_LIMITS.maxGridRowTracks, { error: () => fmt().rowsMax(SLIP_LIMITS.maxGridRowTracks) }),
+  cells: z.array(gridCellSchema).max(SLIP_LIMITS.maxGridCells, { error: () => fmt().cellsMax(SLIP_LIMITS.maxGridCells) }),
   /** 반복 행 설정. 생략하면 모든 행을 한 번씩 렌더링한다. */
   repeat: gridRepeatSchema.optional(),
   /** 셀을 넘치는 글의 처리 (기본 clip) */
@@ -260,16 +261,14 @@ function checkGridTrackSums(grid: GridInput, ctx: z.RefinementCtx): void {
     ctx.addIssue({
       code: 'custom',
       path: ['columns'],
-      message: `열 너비의 합(${totalWidth})은 width(${grid.width})와 같아야 합니다`,
+      message: fmt().columnWidthSum(totalWidth, grid.width),
     });
   }
   if (Math.abs(totalHeight - grid.height) > 0.01) {
     ctx.addIssue({
       code: 'custom',
       path: ['rows'],
-      message:
-        `행 높이의 합(${totalHeight})은 height(${grid.height})와 같아야 합니다`
-        + (grid.repeat ? ' — 반복 구간은 perPage번 복제된 높이로 셉니다' : ''),
+      message: fmt().rowHeightSum(totalHeight, grid.height, grid.repeat !== undefined),
     });
   }
 }
@@ -279,12 +278,12 @@ function checkGridRepeatRange(grid: GridInput, ctx: z.RefinementCtx): void {
   if (!grid.repeat) return;
   const { fromRow, toRow } = grid.repeat;
   if (fromRow > toRow) {
-    ctx.addIssue({ code: 'custom', path: ['repeat', 'fromRow'], message: 'fromRow는 toRow보다 클 수 없습니다' });
+    ctx.addIssue({ code: 'custom', path: ['repeat', 'fromRow'], message: fmt().fromRowAboveToRow() });
   } else if (toRow >= grid.rows.length) {
     ctx.addIssue({
       code: 'custom',
       path: ['repeat', 'toRow'],
-      message: `반복 구간(${fromRow}~${toRow})이 행 수(${grid.rows.length})를 벗어납니다`,
+      message: fmt().repeatOutOfRange(fromRow, toRow, grid.rows.length),
     });
   }
 }
@@ -307,14 +306,14 @@ function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, stri
       ctx.addIssue({
         code: 'custom',
         path: ['cells', index],
-        message: `셀(${cell.row},${cell.column})은 content·parameter·formula 중 하나만 가질 수 있습니다`,
+        message: fmt().cellSourceExclusive(cell.row, cell.column),
       });
     }
     if (cell.row + rowSpan > rows || cell.column + colSpan > columns) {
       ctx.addIssue({
         code: 'custom',
         path: ['cells', index],
-        message: `셀(${cell.row},${cell.column})의 병합 범위가 그리드(${rows}×${columns})를 벗어납니다`,
+        message: fmt().cellSpanOutOfRange(cell.row, cell.column, rows, columns),
       });
       return;
     }
@@ -329,7 +328,7 @@ function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, stri
         ctx.addIssue({
           code: 'custom',
           path: ['cells', index],
-          message: `셀(${cell.row},${cell.column})의 병합이 반복 구간(${fromRow}~${toRow}) 경계를 넘습니다`,
+          message: fmt().cellSpanCrossesRepeat(cell.row, cell.column, fromRow, toRow),
         });
         return;
       }
@@ -341,7 +340,7 @@ function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, stri
           ctx.addIssue({
             code: 'custom',
             path: ['cells', index],
-            message: `셀(${r},${c})이 다른 셀과 겹칩니다`,
+            message: fmt().cellOverlaps(r, c),
           });
           return;
         }
@@ -366,13 +365,13 @@ function checkGridAutoMerge(grid: GridInput, ctx: z.RefinementCtx, cellOriginAt:
       ctx.addIssue({
         code: 'custom',
         path: ['columns', c, 'autoMerge'],
-        message: `${c}열의 자동 병합은 반복 구간이 있어야 켤 수 있습니다`,
+        message: fmt().autoMergeNeedsRepeat(c),
       });
       return;
     }
     const { fromRow, toRow } = grid.repeat;
     const topOrigin = cellOriginAt.get(`${fromRow},${c}`);
-    const notCovered = `${c}열의 자동 병합은 그 열의 반복 구간 셀이 구간 전체 높이를 차지할 때만 켤 수 있습니다`;
+    const notCovered = fmt().autoMergeNotCovered(c);
     // 빈 열은 모든 좌표가 undefined이므로 별도로 오류를 추가한다.
     if (topOrigin === undefined) {
       ctx.addIssue({ code: 'custom', path: ['columns', c, 'autoMerge'], message: notCovered });
@@ -409,10 +408,10 @@ const imageElementSchema = z
   .superRefine((image, ctx) => {
     // 고정 소스와 파라미터 소스 중 하나만 지정할 수 있다.
     if (image.src === undefined && image.parameter === undefined) {
-      ctx.addIssue({ code: 'custom', path: ['src'], message: '이미지는 src 또는 parameter 중 하나가 필요합니다' });
+      ctx.addIssue({ code: 'custom', path: ['src'], message: fmt().imageSourceRequired() });
     }
     if (image.src !== undefined && image.parameter !== undefined) {
-      ctx.addIssue({ code: 'custom', path: ['parameter'], message: '이미지는 src와 parameter를 함께 가질 수 없습니다' });
+      ctx.addIssue({ code: 'custom', path: ['parameter'], message: fmt().imageSourceExclusive() });
     }
   });
 
@@ -447,7 +446,7 @@ const barcodeElementSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['content'],
-        message: '바코드는 content·parameter·formula 중 하나만 가져야 합니다',
+        message: fmt().barcodeSourceExclusive(),
       });
     }
   });
@@ -488,7 +487,7 @@ const rectElementSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['radius'],
-        message: 'radius와 파선·점선 테두리는 함께 지정할 수 없습니다',
+        message: fmt().radiusWithDashedBorder(),
       });
     }
   });
@@ -510,7 +509,11 @@ const polygonElementSchema = z.object({
   type: z.literal('polygon'),
   ...elementBaseShape,
   /** 변 수 (3~12) */
-  sides: z.number().int().min(3, '변 수는 3 이상이어야 합니다').max(12, '변 수는 최대 12입니다'),
+  sides: z
+    .number()
+    .int()
+    .min(3, { error: () => fmt().polygonSidesMin() })
+    .max(12, { error: () => fmt().polygonSidesMax() }),
   backgroundColor: colorSchema.optional(),
   borderColor: colorSchema.optional(),
   borderWidth: nonNegativeMm.optional(),
@@ -539,7 +542,7 @@ const fieldElementSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['parameter'],
-        message: `필드 '${field.name}'는 parameter·formula 중 하나만 가져야 합니다`,
+        message: fmt().fieldSourceExclusive(field.name),
       });
     }
   });
@@ -575,14 +578,14 @@ export const paperSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['padding'],
-        message: '여백의 합이 용지 크기보다 작아야 합니다',
+        message: fmt().paddingTooLarge(),
       });
     }
   });
 
 const assetEntrySchema = z.object({
   id: idSchema,
-  mimeType: z.string().regex(/^[\w.+-]+\/[\w.+-]+$/, 'mimeType 형식이 아닙니다'),
+  mimeType: z.string().regex(/^[\w.+-]+\/[\w.+-]+$/, { error: () => fmt().mimeTypeFormat() }),
   src: srcSchema,
 });
 
@@ -601,7 +604,9 @@ const pageNumberSchema = z.object({
 });
 
 const slipPageSchema = z.object({
-  elements: z.array(slipElementSchema).max(SLIP_LIMITS.maxElementsPerPage, `페이지당 요소는 최대 ${SLIP_LIMITS.maxElementsPerPage}개입니다`),
+  elements: z
+    .array(slipElementSchema)
+    .max(SLIP_LIMITS.maxElementsPerPage, { error: () => fmt().elementsMax(SLIP_LIMITS.maxElementsPerPage) }),
   /** 호스트가 페이지를 식별할 때 사용하는 문서 내 고유 키 */
   key: idSchema.optional(),
   /** 썸네일과 목록에 표시할 페이지 이름 */
@@ -666,7 +671,7 @@ const parameterDefSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['fields'],
-        message: "하위 필드는 valueType이 'list'인 파라미터에만 둘 수 있습니다",
+        message: fmt().subFieldsOnlyForList(),
       });
     }
     const seen = new Set<string>();
@@ -675,7 +680,7 @@ const parameterDefSchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['fields', index, 'key'],
-          message: `하위 필드 이름이 중복됩니다: ${field.key}`,
+          message: fmt().duplicateSubField(field.key),
         });
       }
       seen.add(field.key);
@@ -693,12 +698,17 @@ export const slipTemplateBodySchema = z
   .object({
     meta: templateMetaSchema,
     paper: paperSchema,
-    pages: z.array(slipPageSchema).min(1).max(SLIP_LIMITS.maxPages, `페이지는 최대 ${SLIP_LIMITS.maxPages}개입니다`),
-    assets: z.array(assetEntrySchema).max(SLIP_LIMITS.maxAssets, `에셋은 최대 ${SLIP_LIMITS.maxAssets}개입니다`),
+    pages: z
+      .array(slipPageSchema)
+      .min(1)
+      .max(SLIP_LIMITS.maxPages, { error: () => fmt().pagesMax(SLIP_LIMITS.maxPages) }),
+    assets: z
+      .array(assetEntrySchema)
+      .max(SLIP_LIMITS.maxAssets, { error: () => fmt().assetsMax(SLIP_LIMITS.maxAssets) }),
     /** 파라미터 정의. 요소는 여기에 등록되지 않은 키도 사용할 수 있다. */
     parameters: z
       .array(parameterDefSchema)
-      .max(SLIP_LIMITS.maxParameters, `파라미터 정의는 최대 ${SLIP_LIMITS.maxParameters}개입니다`)
+      .max(SLIP_LIMITS.maxParameters, { error: () => fmt().parametersMax(SLIP_LIMITS.maxParameters) })
       .optional(),
     /** 미리보기용 샘플 값. 생성된 전표에는 포함하지 않는다. */
     sampleValues: z.record(z.string(), jsonValueSchema).optional(),
@@ -711,7 +721,7 @@ export const slipTemplateBodySchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['parameters', index, 'key'],
-          message: `파라미터 key가 중복됩니다: ${parameter.key}`,
+          message: fmt().duplicateParameterKey(parameter.key),
         });
       }
       parameterKeys.add(parameter.key);
@@ -723,7 +733,7 @@ export const slipTemplateBodySchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['assets', index, 'id'],
-          message: `에셋 id가 중복됩니다: ${asset.id}`,
+          message: fmt().duplicateAssetId(asset.id),
         });
       }
       assetIds.add(asset.id);
@@ -737,13 +747,13 @@ export const slipTemplateBodySchema = z
           ctx.addIssue({
             code: 'custom',
             path: ['assets', index, 'src'],
-            message: `에셋이 자기 자신을 참조합니다: ${asset.id}`,
+            message: fmt().assetSelfReference(asset.id),
           });
         } else if (!assetIds.has(referencedId)) {
           ctx.addIssue({
             code: 'custom',
             path: ['assets', index, 'src'],
-            message: `참조하는 에셋이 없습니다: ${referencedId}`,
+            message: fmt().missingAsset(referencedId),
           });
         }
       }
@@ -756,7 +766,7 @@ export const slipTemplateBodySchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['pages', pageIndex, 'key'],
-          message: `페이지 key가 중복됩니다: ${page.key}`,
+          message: fmt().duplicatePageKey(page.key),
         });
       }
       pageKeys.add(page.key);
@@ -770,7 +780,7 @@ export const slipTemplateBodySchema = z
           ctx.addIssue({
             code: 'custom',
             path: ['pages', pageIndex, 'elements', elementIndex, 'id'],
-            message: `요소 id가 중복됩니다: ${element.id}`,
+            message: fmt().duplicateElementId(element.id),
           });
         }
         elementIds.add(element.id);
@@ -780,7 +790,7 @@ export const slipTemplateBodySchema = z
             ctx.addIssue({
               code: 'custom',
               path: ['pages', pageIndex, 'elements', elementIndex, 'src'],
-              message: `참조하는 에셋이 없습니다: ${assetId}`,
+              message: fmt().missingAsset(assetId),
             });
           }
         }
@@ -840,7 +850,7 @@ export const slipVoucherFileSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['templateSnapshot', ...externalPath],
-        message: '발행(issued)된 전표는 외부 URL 이미지를 포함할 수 없습니다 (base64 내장 필요)',
+        message: fmt().issuedExternalImage(),
       });
     }
     // 이미지 파라미터 값은 data: base64 형식인지 검증한다.
@@ -853,9 +863,7 @@ export const slipVoucherFileSchema = z
           ctx.addIssue({
             code: 'custom',
             path: ['values', element.parameter],
-            message: HTTP_SRC.test(value)
-              ? '발행(issued)된 전표는 외부 URL 이미지를 포함할 수 없습니다 (base64 내장 필요)'
-              : '변동 이미지 값은 data:<mime>;base64 형식이어야 합니다',
+            message: HTTP_SRC.test(value) ? fmt().issuedExternalImage() : fmt().imageValueFormat(),
           });
         }
       }
@@ -891,41 +899,45 @@ function formatIssues(error: z.ZodError): string {
  * 구버전 문서는 현재 버전으로 마이그레이션한 뒤 검증한다.
  *
  * @param raw - 이미 파싱된 JSON 값 (예: `JSON.parse` 결과)
+ * @param options - `locale`: 오류 메시지에 사용할 BCP 47 로케일 (생략하면 영어)
  * @returns 검증·마이그레이션이 끝난 `.slip` 파일
  * @throws SlipParseError 봉투·본문 검증 또는 마이그레이션 실패 시
  */
-export function validateSlipFile(raw: unknown): SlipFile {
-  const envelope = slipEnvelopeSchema.safeParse(raw);
-  if (!envelope.success) {
-    throw new SlipParseError(`.slip 봉투 검증 실패: ${formatIssues(envelope.error)}`);
-  }
-  let migrated: Record<string, unknown>;
-  try {
-    migrated = migrateSlipDocument(raw as Record<string, unknown>);
-  } catch (error) {
-    throw new SlipParseError(error instanceof Error ? error.message : String(error));
-  }
-  let result: ReturnType<typeof slipFileSchema.safeParse>;
-  try {
-    result = slipFileSchema.safeParse(migrated);
-  } catch (error) {
-    // 지나치게 깊은 값은 z.lazy 재귀 중 RangeError를 발생시킬 수 있다.
-    // 공개 오류 형식을 유지하기 위해 SlipParseError로 변환한다 (SPEC §3.2).
-    if (error instanceof RangeError) {
-      throw new SlipParseError('.slip 본문의 값 중첩이 너무 깊습니다');
+export function validateSlipFile(raw: unknown, options?: { locale?: string }): SlipFile {
+  return withFormatLocale(options?.locale, () => {
+    const envelope = slipEnvelopeSchema.safeParse(raw, zodParseParams());
+    if (!envelope.success) {
+      throw new SlipParseError(fmt().envelopeInvalid(formatIssues(envelope.error)));
     }
-    throw error;
-  }
-  if (!result.success) {
-    throw new SlipParseError(`.slip 본문 검증 실패: ${formatIssues(result.error)}`);
-  }
-  return result.data;
+    let migrated: Record<string, unknown>;
+    try {
+      migrated = migrateSlipDocument(raw as Record<string, unknown>);
+    } catch (error) {
+      throw new SlipParseError(error instanceof Error ? error.message : String(error));
+    }
+    let result: ReturnType<typeof slipFileSchema.safeParse>;
+    try {
+      result = slipFileSchema.safeParse(migrated, zodParseParams());
+    } catch (error) {
+      // 지나치게 깊은 값은 z.lazy 재귀 중 RangeError를 발생시킬 수 있다.
+      // 공개 오류 형식을 유지하기 위해 SlipParseError로 변환한다 (SPEC §3.2).
+      if (error instanceof RangeError) {
+        throw new SlipParseError(fmt().valueTooDeep());
+      }
+      throw error;
+    }
+    if (!result.success) {
+      throw new SlipParseError(fmt().bodyInvalid(formatIssues(result.error)));
+    }
+    return result.data;
+  });
 }
 
 /**
  * JSON 문자열을 `.slip` 파일로 파싱한다.
  *
  * @param json - `.slip` 파일 내용 (JSON 문자열)
+ * @param options - `locale`: 오류 메시지에 사용할 BCP 47 로케일 (생략하면 영어)
  * @returns 검증·마이그레이션이 끝난 `.slip` 파일
  * @throws SlipParseError JSON이 아니거나 봉투·본문 검증 실패 시
  *
@@ -935,14 +947,16 @@ export function validateSlipFile(raw: unknown): SlipFile {
  * if (file.kind === 'template') console.log(file.template.meta.title);
  * ```
  */
-export function parseSlipFile(json: string): SlipFile {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(json);
-  } catch {
-    throw new SlipParseError('유효한 JSON이 아닙니다');
-  }
-  return validateSlipFile(raw);
+export function parseSlipFile(json: string, options?: { locale?: string }): SlipFile {
+  return withFormatLocale(options?.locale, () => {
+    let raw: unknown;
+    try {
+      raw = JSON.parse(json);
+    } catch {
+      throw new SlipParseError(fmt().invalidJson());
+    }
+    return validateSlipFile(raw);
+  });
 }
 
 /**

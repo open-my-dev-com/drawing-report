@@ -27,10 +27,10 @@ export interface RenderOptions {
    */
   getFonts?: () => readonly SlipFont[] | Promise<readonly SlipFont[]>;
   /**
-   * `FORMAT_NUMBER` 등 형식 함수에 사용할 BCP 47 로케일.
+   * `FORMAT_NUMBER` 등 형식 함수와 오류 메시지 언어에 사용할 BCP 47 로케일.
    * 예: 'de-DE'를 지정하면 1234.5가 "1.234,5"로 표기된다.
    *
-   * @defaultValue `'ko-KR'`
+   * @defaultValue `'en-US'`
    */
   locale?: string;
 }
