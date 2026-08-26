@@ -1,15 +1,19 @@
 #!/usr/bin/env node
 /**
- * PreToolUse(Bash) 훅 — 개발 규칙 보호 (ADR-024).
+ * PreToolUse(Bash) 훅 — 개발 규칙 보호 (ADR-024/058).
  *
  * 1) main 보호: main으로의 push, main 위에서의 commit/push를 차단한다.
- * 2) 검증 게이트: git commit 전에 `pnpm lint && pnpm -r typecheck && pnpm -r build && pnpm -r test`를
+ * 2) 브랜치 형식: commit·push 시 현재 브랜치가 규칙 형식(<type>/<scope>-<topic>)이 아니면
+ *    차단한다. 규칙에 맞지 않는 브랜치를 써야 할 때(환경이 이름을 강제하는 경우 등)는
+ *    `.claude/hooks/branch-guard.json`의 allowBranches에 패턴을 추가해 허용한다 (ADR-058).
+ * 3) 검증 게이트: git commit 전에 `pnpm lint && pnpm -r typecheck && pnpm -r build && pnpm -r test`를
  *    실행해 실패하면 커밋을 차단한다.
  *
  * 종료 코드 2 = 차단 (stderr가 Claude에게 사유로 전달됨). 0 = 통과.
  */
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 let data = {};
 try {
@@ -35,8 +39,42 @@ function currentBranch() {
   }
 }
 
-// 명령을 &&·;·| 세그먼트로 나누고, 따옴표 문자열(커밋 메시지 등)은 검사에서 제외한다
-const segments = command.split(/&&|\|\||;|\|/).map((seg) => seg.replace(/"(?:\\.|[^"\\])*"|'[^']*'/g, ' '));
+// 브랜치 형식 규칙 (.claude/rules/branching.md): <type>/<scope>-<topic>
+const BRANCH_FORMAT = /^(feat|fix|docs|proto|chore)\/(core|elements|react|vue|repo)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+// 규칙에 맞지 않아도 허용할 브랜치 패턴('*' 와일드카드) — 훅에서 제어하는 예외 목록 (ADR-058)
+function allowedBranchPatterns() {
+  const projectDir = process.env.CLAUDE_PROJECT_DIR ?? cwd;
+  try {
+    const config = JSON.parse(readFileSync(join(projectDir, '.claude', 'hooks', 'branch-guard.json'), 'utf8'));
+    return Array.isArray(config.allowBranches) ? config.allowBranches.filter((p) => typeof p === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function matchesPattern(branch, pattern) {
+  const regex = new RegExp(`^${pattern.split('*').map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`);
+  return regex.test(branch);
+}
+
+/** 커밋·푸시 대상 브랜치가 규칙 형식이거나 허용 목록에 있는지 검사한다. 어긋나면 차단. */
+function requireBranchAllowed(branch) {
+  // 브랜치를 알 수 없는 상태(비저장소·detached HEAD)는 여기서 판단하지 않는다
+  if (branch === '' || branch === 'HEAD' || branch === 'main') return;
+  if (BRANCH_FORMAT.test(branch)) return;
+  if (allowedBranchPatterns().some((pattern) => matchesPattern(branch, pattern))) return;
+  block(
+    `[bash-guard] 브랜치 '${branch}'는 규칙 형식(<type>/<scope>-<topic>, .claude/rules/branching.md)이 아닙니다.\n` +
+      `규칙 형식의 브랜치로 옮겨 작업하세요. 이 브랜치를 그대로 써야 한다면(환경이 이름을 강제하는 경우 등)\n` +
+      `.claude/hooks/branch-guard.json의 allowBranches에 패턴을 추가해 허용할 수 있습니다 — 사용자 확인 없이 임의로 추가하지 마세요 (ADR-058).`,
+  );
+}
+
+// heredoc 본문(커밋 메시지 등)은 명령이 아니므로 검사에서 제외한다
+const withoutHeredocs = command.replace(/<<-?\s*'?([A-Za-z_][A-Za-z0-9_]*)'?[\s\S]*?\n\1\b/g, ' ');
+// 명령을 &&·;·|·줄바꿈 세그먼트로 나누고, 따옴표 문자열(커밋 메시지 등)은 검사에서 제외한다
+const segments = withoutHeredocs.split(/&&|\|\||;|\||\n/).map((seg) => seg.replace(/"(?:\\.|[^"\\])*"|'[^']*'/g, ' '));
 const pushSegments = segments.filter((seg) => /\bgit\b[\s\S]*\bpush\b/.test(seg));
 const hasGitCommit = segments.some((seg) => /\bgit\b[\s\S]*\bcommit\b/.test(seg));
 
@@ -47,15 +85,20 @@ if (pushSegments.length > 0) {
   if (targetsMain) {
     block('[bash-guard] main 직접 푸시는 금지입니다 (.claude/rules/branching.md·ADR-024). 변경은 작업 브랜치에서 PR로만 병합하세요.');
   }
-  if (currentBranch() === 'main') {
+  const branch = currentBranch();
+  if (branch === 'main') {
     block('[bash-guard] 현재 브랜치가 main입니다. main에서는 푸시할 수 없습니다. 규칙 형식(<type>/<scope>-<topic>)의 작업 브랜치를 만들어 진행하세요.');
   }
+  requireBranchAllowed(branch);
 }
 
 if (hasGitCommit) {
-  if (currentBranch() === 'main') {
+  const branch = currentBranch();
+  if (branch === 'main') {
     block('[bash-guard] main 직접 커밋은 금지입니다 (.claude/rules/branching.md·ADR-024). 작업 브랜치를 만들어 커밋하세요.');
   }
+  // 브랜치 형식 검사는 검증 게이트보다 먼저 — 형식이 어긋나면 게이트를 돌릴 필요가 없다
+  requireBranchAllowed(branch);
   // 검증 게이트 — 실패 시 커밋 차단
   try {
     execSync('pnpm lint && pnpm -r typecheck && pnpm -r build && pnpm -r test', {

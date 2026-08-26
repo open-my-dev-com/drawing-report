@@ -1,0 +1,7 @@
+{
+  "$comment": "규칙 형식(<type>/<scope>-<topic>)이 아니어도 커밋·푸시를 허용할 브랜치 패턴('*' 와일드카드). 사용자 확인을 받은 브랜치만 추가한다 (ADR-058).",
+  "allowBranches": [
+    "fix/user-acceptance-review",
+    "claude/*"
+  ]
+}
