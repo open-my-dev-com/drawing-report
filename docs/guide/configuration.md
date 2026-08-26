@@ -21,7 +21,7 @@
 
 | 설정 | 디자이너 | 작성폼 | 뷰어 | 기본 동작 |
 |---|:---:|:---:|:---:|---|
-| `locale` | ● | ● | ● | 한국어 UI |
+| `locale` | ● | ● | ● | 영어 UI |
 | `settings` | ● | ● | ● | 언어에 맞는 동봉 폰트와 기본 자원 사용 |
 | `presets` | ● | — | — | 동봉 프리셋 2종 사용 |
 | `storage` | ● | — | — | “내 양식” 저장·목록 기능 숨김 |
@@ -171,7 +171,7 @@ const settings: SlipDesignerSettings = {
 | `en` | 영어 | Pretendard Regular·Bold |
 | `ja` | 일본어 | Noto Sans JP Regular |
 
-`locale`을 생략하거나 지원하지 않는 값을 전달하면 한국어를 사용합니다.
+`locale`을 생략하거나 지원하지 않는 값을 전달하면 영어를 사용합니다.
 
 `en-US`, `ko-KR`, `ja-JP`처럼 지역 코드가 포함된 값도 사용할 수 있습니다. 이 경우 앞부분의 언어 코드로 UI 언어를 선택합니다.
 
@@ -193,12 +193,11 @@ const settings: SlipDesignerSettings = {
 - 파라미터의 논리명
 - 외부에서 받은 `.slip` 파일의 내용
 - 애플리케이션이 공급한 프리셋 이름과 내용
-- 동봉 프리셋의 문서 내용
 
 > [!IMPORTANT]
-> 현재 동봉된 거래명세서와 청구서 프리셋은 한국어 양식입니다.
-> `locale="en"` 또는 `locale="ja"`를 사용해도 프리셋 안의 제목과 표 항목은 자동으로 번역되지 않습니다.
-> 다른 언어의 양식이 필요하면 해당 언어로 작성한 프리셋을 별도로 공급하세요.
+> 동봉된 거래명세서와 청구서 프리셋은 **적용하는 시점의 `locale` 언어**로 제목, 표 항목과 문구가 만들어집니다.
+> 이미 만들어진 양식은 이후 `locale`을 바꿔도 자동으로 번역되지 않습니다.
+> 다른 구성의 양식이 필요하면 직접 작성한 프리셋을 별도로 공급하세요.
 
 ## 폰트 설정
 
@@ -690,7 +689,7 @@ designer.storage = templateStorage;
 |---|---|---|
 | `dbName` | `'slipkit'` | 사용할 IndexedDB 데이터베이스 이름 |
 | `pageSize` | `50` | `list`가 한 번에 반환할 항목 수 |
-| `locale` | `'ko'` | 저장소 오류 메시지 언어 |
+| `locale` | `'en'` | 저장소 오류 메시지 언어 |
 | `encryption` | 비활성 | 저장할 본문의 암호화 설정 |
 
 여러 애플리케이션이나 실행 환경에서 데이터가 섞이지 않도록 고유한 `dbName`을 지정하는 것을 권장합니다.
@@ -861,7 +860,7 @@ const slip = createSlipKit({
 | 설정 | 용도 |
 |---|---|
 | `getFonts` | PDF 렌더링에 사용할 폰트 공급 |
-| `locale` | `FORMAT_NUMBER` 등 수식 포맷 함수에 사용할 BCP-47 로케일 |
+| `locale` | `FORMAT_NUMBER` 등 수식 포맷 함수와 오류 메시지 언어에 사용할 BCP-47 로케일 (기본 `'en-US'`) |
 | `encryption.key` | `encrypt`와 `decrypt`가 기본으로 사용할 키 |
 | `encryption.previousKeys` | 이전 키로 암호화된 파일을 복호화할 때 사용할 키 목록 |
 
@@ -870,7 +869,7 @@ UI 컴포넌트의 `locale`과 Core의 `locale`은 역할이 다릅니다.
 | 설정 | 예 | 역할 |
 |---|---|---|
 | 컴포넌트 `locale` | `'ko'`, `'en'`, `'ja'` | 버튼, 안내 문구와 동봉 폰트 선택 |
-| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | 숫자와 날짜 수식 포맷 |
+| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | 숫자와 날짜 수식 포맷, 오류 메시지 언어 |
 
 Core 사용 흐름과 PDF 생성 방법은 [Core 사용 가이드](core.md)를 참고하세요.
 

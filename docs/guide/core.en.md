@@ -410,7 +410,7 @@ const secondPdf = await slip.render(secondVoucher);
 - Rendering a template produces a document with empty values.
 - Rendering a voucher reflects `templateSnapshot` and `values`.
 - The return value is a `Uint8Array` of the PDF file.
-- `locale` is used for the display of formula format functions such as `FORMAT_NUMBER`.
+- `locale` is used for the display of formula format functions such as `FORMAT_NUMBER` and for the error message language. When omitted, English (`en-US`) is used.
 
 For how to configure fonts, see the [Configuration Guide](configuration.en.md).
 

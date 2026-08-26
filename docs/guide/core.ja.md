@@ -410,7 +410,7 @@ const secondPdf = await slip.render(secondVoucher);
 - テンプレートをレンダリングすると、値が空のドキュメントが生成されます。
 - 伝票をレンダリングすると、`templateSnapshot` と `values` が反映されます。
 - 戻り値は PDF ファイルの `Uint8Array` です。
-- `locale` は `FORMAT_NUMBER` のような数式のフォーマット関数の表示方法に使われます。
+- `locale` は `FORMAT_NUMBER` のような数式のフォーマット関数の表示方法とエラーメッセージの言語に使われます。省略すると英語（`en-US`）です。
 
 フォントの構成方法は[設定ガイド](configuration.ja.md)を参照してください。
 

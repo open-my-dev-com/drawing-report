@@ -45,22 +45,24 @@ import {
 ```ts
 function parseSlipFile(
   json: string,
+  options?: { locale?: string },
 ): SlipFile;
 ```
 
 JSON 문자열을 파싱하고 `.slip` 파일 전체를 검증합니다. 지원되는 마이그레이션 경로가 있으면 현재 스키마 버전으로 변환합니다.
 
-유효하지 않은 JSON이나 파일 구조는 `SlipParseError`를 발생시킵니다.
+유효하지 않은 JSON이나 파일 구조는 `SlipParseError`를 발생시킵니다. `options.locale`은 오류 메시지 언어를 정합니다(기본 영어).
 
 #### `validateSlipFile`
 
 ```ts
 function validateSlipFile(
   raw: unknown,
+  options?: { locale?: string },
 ): SlipFile;
 ```
 
-이미 파싱된 값을 `.slip` 파일로 검증합니다.
+이미 파싱된 값을 `.slip` 파일로 검증합니다. `options.locale`은 오류 메시지 언어를 정합니다(기본 영어).
 
 HTTP 요청 본문, `JSON.parse` 결과 또는 애플리케이션에서 직접 조립한 객체를 검사할 때 사용합니다.
 
@@ -136,7 +138,7 @@ interface SlipKitConfig {
 | 필드 | 설명 |
 |---|---|
 | `getFonts` | PDF 렌더링에 사용할 폰트 공급 함수 |
-| `locale` | 수식 포맷에 사용할 BCP-47 로케일, 기본값 `'ko-KR'` |
+| `locale` | 수식 포맷과 오류 메시지 언어에 사용할 BCP-47 로케일, 기본값 `'en-US'` |
 | `encryption.key` | 암호화·복호화 기본 키 |
 | `encryption.previousKeys` | 이전 키로 암호화된 파일을 복호화할 때 추가로 시도할 키 |
 
@@ -249,7 +251,7 @@ interface RenderOptions {
 | 필드 | 기본값 | 설명 |
 |---|---|---|
 | `getFonts` | 하부 엔진 기본 폰트 | 렌더링에 사용할 폰트 공급 함수 |
-| `locale` | `'ko-KR'` | 숫자와 날짜 수식 포맷에 사용할 로케일 |
+| `locale` | `'en-US'` | 숫자와 날짜 수식 포맷, 오류 메시지 언어에 사용할 로케일 |
 
 #### `SlipPdfRenderer`
 
@@ -331,7 +333,7 @@ interface FormulaContext {
 |---|---|---|
 | `values` | 필수 | 수식에서 참조할 값 |
 | `now` | 호출 시각 | `TODAY` 등 날짜 함수의 기준 시각 |
-| `locale` | `'ko-KR'` | 숫자와 날짜 포맷 로케일 |
+| `locale` | `'en-US'` | 숫자와 날짜 포맷, 오류 메시지 언어 로케일 |
 
 #### `FormulaValue`
 
@@ -386,6 +388,7 @@ type FormulaFunctionName =
 function encryptSlipFile(
   file: SlipFile,
   key: string | Uint8Array,
+  options?: { locale?: string },
 ): Promise<string>;
 ```
 
@@ -399,10 +402,11 @@ function encryptSlipFile(
 function decryptSlipFile(
   json: string,
   key: string | Uint8Array,
+  options?: { locale?: string },
 ): Promise<SlipFile>;
 ```
 
-암호화 봉투를 복호화한 뒤 `parseSlipFile`로 검증합니다.
+암호화 봉투를 복호화한 뒤 `parseSlipFile`로 검증합니다. `options.locale`은 오류 메시지 언어를 정합니다(기본 영어).
 
 #### `isEncryptedSlipFile`
 
@@ -1205,7 +1209,7 @@ import type {
 | 이름 | 타입 | 전달 방식 | 기본값 |
 |---|---|---|---|
 | `src` | `string` | HTML 속성·프로퍼티 | `''` |
-| `locale` | `string` | HTML 속성·프로퍼티 | 한국어 |
+| `locale` | `string` | HTML 속성·프로퍼티 | 영어 |
 | `settings` | `SlipDesignerSettings` | JS 프로퍼티 | 동봉 기본 설정 |
 | `presets` | `SlipPreset[]` | JS 프로퍼티 | 동봉 프리셋 2종 |
 | `storage` | `StorageAdapter` | JS 프로퍼티 | 저장 기능 숨김 |
@@ -1232,7 +1236,7 @@ import type {
 | 이름 | 타입 | 전달 방식 | 기본값 |
 |---|---|---|---|
 | `src` | `string` | HTML 속성·프로퍼티 | `''` |
-| `locale` | `string` | HTML 속성·프로퍼티 | 한국어 |
+| `locale` | `string` | HTML 속성·프로퍼티 | 영어 |
 | `settings` | `SlipFontProvider` | JS 프로퍼티 | 동봉 기본 폰트 |
 | `maxImageBytes` | `number` | `max-image-bytes` 속성·프로퍼티 | 2MB |
 
@@ -1264,7 +1268,7 @@ import type {
 | 이름 | 타입 | 전달 방식 | 기본값 |
 |---|---|---|---|
 | `src` | `string` | HTML 속성·프로퍼티 | `''` |
-| `locale` | `string` | HTML 속성·프로퍼티 | 한국어 |
+| `locale` | `string` | HTML 속성·프로퍼티 | 영어 |
 | `settings` | `SlipFontProvider` | JS 프로퍼티 | 동봉 기본 폰트 |
 
 뷰어는 파일 변경 이벤트를 발생시키지 않습니다.
@@ -1332,14 +1336,15 @@ interface SlipPreset {
 
 ## Elements 내장 API
 
-### `presets`
+### `getPresets`
 
 ```ts
-const presets:
-  SlipPreset[];
+function getPresets(
+  locale?: string,
+): SlipPreset[];
 ```
 
-동봉된 거래명세서와 청구서 프리셋 배열입니다.
+동봉된 거래명세서와 청구서 프리셋 목록을 만듭니다. 제목, 라벨과 문구는 `locale` 언어(기본 영어)로 채워집니다.
 
 ### `IndexedDbStorage`
 
@@ -1372,7 +1377,7 @@ interface IndexedDbStorageOptions {
 |---|---|---|
 | `dbName` | `'slipkit'` | IndexedDB 데이터베이스 이름 |
 | `pageSize` | `50` | 목록 한 페이지의 항목 수 |
-| `locale` | 한국어 | 저장소 오류 메시지 언어 |
+| `locale` | 영어 | 저장소 오류 메시지 언어 |
 | `encryption` | 평문 | 본문 암호화 설정 |
 
 ### `LocalFileStorage`

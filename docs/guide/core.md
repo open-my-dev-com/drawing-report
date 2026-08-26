@@ -410,7 +410,7 @@ const secondPdf = await slip.render(secondVoucher);
 - 양식을 렌더링하면 값이 비어 있는 문서가 생성됩니다.
 - 전표를 렌더링하면 `templateSnapshot`과 `values`가 반영됩니다.
 - 반환값은 PDF 파일의 `Uint8Array`입니다.
-- `locale`은 `FORMAT_NUMBER` 같은 수식 포맷 함수의 표시 방식에 사용됩니다.
+- `locale`은 `FORMAT_NUMBER` 같은 수식 포맷 함수의 표시 방식과 오류 메시지 언어에 사용됩니다. 생략하면 영어(`en-US`) 기준입니다.
 
 폰트 구성 방법은 [설정 가이드](configuration.md)를 참고하세요.
 

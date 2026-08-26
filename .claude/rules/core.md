@@ -20,4 +20,6 @@ paths:
 - **pdfme 외부 비공개** (ADR-016): pdfme 타입·API를 공개 API(`src/index.ts` 수출)에 노출 금지.
   pdfme 의존은 렌더러 인터페이스 구현 내부에만 두고, 변환 계층에서 스타일 기본값 병합 필수
   (pdfme 테이블은 스타일 속성이 불완전하면 렌더가 깨질 수 있음 — Q08).
-- 사용자 대면 오류 메시지는 한국어 (`SlipParseError` 등 기존 스타일 참조).
+- 사용자 대면 오류 메시지는 영역별 메시지 사전(`formula/messages.ts`·`format/messages.ts`·
+  `render/messages.ts`·`encryption/messages.ts`)에 영어·한국어·일본어 세 벌로 추가한다.
+  기본 언어는 영어이고 로케일로 전환한다 (ADR-060). 메시지를 소스에 직접 쓰지 않는다.

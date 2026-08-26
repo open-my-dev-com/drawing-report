@@ -661,7 +661,7 @@ FORMAT_NUMBER(1234.5, 2)
 
 If you specify the number of decimals, it displays fixed to that number of decimal places. The range you can specify is `0` to `20`.
 
-The display result follows the `locale` setting of the formula evaluation context. If `locale` is not specified, `ko-KR` is used.
+The display result follows the `locale` setting of the formula evaluation context. If `locale` is not specified, `en-US` is used.
 
 For example, in `de-DE` it is displayed as follows.
 

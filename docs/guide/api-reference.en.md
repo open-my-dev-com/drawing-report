@@ -45,22 +45,24 @@ import {
 ```ts
 function parseSlipFile(
   json: string,
+  options?: { locale?: string },
 ): SlipFile;
 ```
 
 Parses a JSON string and validates the entire `.slip` file. If a supported migration path exists, it converts to the current schema version.
 
-Invalid JSON or file structure throws a `SlipParseError`.
+Invalid JSON or file structure throws a `SlipParseError`. `options.locale` selects the error message language (English by default).
 
 #### `validateSlipFile`
 
 ```ts
 function validateSlipFile(
   raw: unknown,
+  options?: { locale?: string },
 ): SlipFile;
 ```
 
-Validates an already-parsed value as a `.slip` file.
+Validates an already-parsed value as a `.slip` file. `options.locale` selects the error message language (English by default).
 
 Use it to check an HTTP request body, the result of `JSON.parse`, or an object assembled directly in your application.
 
@@ -136,7 +138,7 @@ interface SlipKitConfig {
 | Field | Description |
 |---|---|
 | `getFonts` | A function that supplies the fonts used for PDF rendering |
-| `locale` | The BCP-47 locale used for formula formatting, default `'ko-KR'` |
+| `locale` | The BCP-47 locale used for formula formatting and error messages, default `'en-US'` |
 | `encryption.key` | The default key for encryption and decryption |
 | `encryption.previousKeys` | Additional keys to try when decrypting files encrypted with a previous key |
 
@@ -249,7 +251,7 @@ interface RenderOptions {
 | Field | Default | Description |
 |---|---|---|
 | `getFonts` | Underlying engine's default font | A function that supplies the fonts used for rendering |
-| `locale` | `'ko-KR'` | The locale used for number and date formula formatting |
+| `locale` | `'en-US'` | The locale used for number and date formula formatting and the error message language |
 
 #### `SlipPdfRenderer`
 
@@ -331,7 +333,7 @@ interface FormulaContext {
 |---|---|---|
 | `values` | Required | The values referenced by the formula |
 | `now` | The call time | The reference time for date functions such as `TODAY` |
-| `locale` | `'ko-KR'` | The locale for number and date formatting |
+| `locale` | `'en-US'` | The locale for number and date formatting and the error message language |
 
 #### `FormulaValue`
 
@@ -386,6 +388,7 @@ A string union of the supported formula function names.
 function encryptSlipFile(
   file: SlipFile,
   key: string | Uint8Array,
+  options?: { locale?: string },
 ): Promise<string>;
 ```
 
@@ -399,10 +402,11 @@ A string key is treated as a passphrase, and a `Uint8Array` key must be a 32-byt
 function decryptSlipFile(
   json: string,
   key: string | Uint8Array,
+  options?: { locale?: string },
 ): Promise<SlipFile>;
 ```
 
-Decrypts an encryption envelope and then validates it with `parseSlipFile`.
+Decrypts an encryption envelope and then validates it with `parseSlipFile`. `options.locale` selects the error message language (English by default).
 
 #### `isEncryptedSlipFile`
 
@@ -1205,7 +1209,7 @@ Visually edits a template file.
 | Name | Type | How to pass | Default |
 |---|---|---|---|
 | `src` | `string` | HTML attribute · property | `''` |
-| `locale` | `string` | HTML attribute · property | Korean |
+| `locale` | `string` | HTML attribute · property | English |
 | `settings` | `SlipDesignerSettings` | JS property | Bundled default settings |
 | `presets` | `SlipPreset[]` | JS property | 2 bundled presets |
 | `storage` | `StorageAdapter` | JS property | Save feature hidden |
@@ -1232,7 +1236,7 @@ Fills a template with values and issues a voucher.
 | Name | Type | How to pass | Default |
 |---|---|---|---|
 | `src` | `string` | HTML attribute · property | `''` |
-| `locale` | `string` | HTML attribute · property | Korean |
+| `locale` | `string` | HTML attribute · property | English |
 | `settings` | `SlipFontProvider` | JS property | Bundled default fonts |
 | `maxImageBytes` | `number` | `max-image-bytes` attribute · property | 2MB |
 
@@ -1264,7 +1268,7 @@ Renders a template or voucher as a PDF and displays it read-only.
 | Name | Type | How to pass | Default |
 |---|---|---|---|
 | `src` | `string` | HTML attribute · property | `''` |
-| `locale` | `string` | HTML attribute · property | Korean |
+| `locale` | `string` | HTML attribute · property | English |
 | `settings` | `SlipFontProvider` | JS property | Bundled default fonts |
 
 The viewer does not fire any file-change event.
@@ -1332,14 +1336,15 @@ interface SlipPreset {
 
 ## Elements built-in API
 
-### `presets`
+### `getPresets`
 
 ```ts
-const presets:
-  SlipPreset[];
+function getPresets(
+  locale?: string,
+): SlipPreset[];
 ```
 
-The array of the bundled trade statement and invoice presets.
+Builds the list of the bundled trade statement and invoice presets. Titles, labels, and phrases are filled in the `locale` language (English by default).
 
 ### `IndexedDbStorage`
 
@@ -1372,7 +1377,7 @@ interface IndexedDbStorageOptions {
 |---|---|---|
 | `dbName` | `'slipkit'` | The IndexedDB database name |
 | `pageSize` | `50` | The number of items per list page |
-| `locale` | Korean | The language of storage error messages |
+| `locale` | English | The language of storage error messages |
 | `encryption` | Plaintext | The body encryption setting |
 
 ### `LocalFileStorage`

@@ -21,7 +21,7 @@ Configuration is used less to change the features of the components themselves a
 
 | Setting | Designer | Form | Viewer | Default behavior |
 |---|:---:|:---:|:---:|---|
-| `locale` | ● | ● | ● | Korean UI |
+| `locale` | ● | ● | ● | English UI |
 | `settings` | ● | ● | ● | Uses the bundled fonts and default resources for the language |
 | `presets` | ● | — | — | Uses the 2 bundled presets |
 | `storage` | ● | — | — | Hides the "My templates" save/list feature |
@@ -171,7 +171,7 @@ The three UI components support `locale`.
 | `en` | English | Pretendard Regular·Bold |
 | `ja` | Japanese | Noto Sans JP Regular |
 
-If you omit `locale` or pass an unsupported value, Korean is used.
+If you omit `locale` or pass an unsupported value, English is used.
 
 Values that include a region code, such as `en-US`, `ko-KR`, and `ja-JP`, can also be used. In that case, the leading language code selects the UI language.
 
@@ -193,12 +193,11 @@ The following are not translated automatically.
 - Parameter logical names
 - The contents of a `.slip` file received from an external source
 - The names and contents of presets supplied by the application
-- The document contents of the bundled presets
 
 > [!IMPORTANT]
-> The currently bundled trade statement and invoice presets are Korean templates.
-> Even if you use `locale="en"` or `locale="ja"`, the titles and table items inside the presets are not translated automatically.
-> If you need templates in another language, supply presets written in that language separately.
+> The bundled trade statement and invoice presets are created with titles, table items, and phrases in the **`locale` language at the moment you apply them**.
+> A template that has already been created is not translated automatically when you change `locale` later.
+> If you need templates with a different structure, supply your own presets separately.
 
 ## Font settings
 
@@ -690,7 +689,7 @@ designer.storage = templateStorage;
 |---|---|---|
 | `dbName` | `'slipkit'` | The name of the IndexedDB database to use |
 | `pageSize` | `50` | The number of items `list` returns at once |
-| `locale` | `'ko'` | The language of storage error messages |
+| `locale` | `'en'` | The language of storage error messages |
 | `encryption` | Disabled | The encryption setting for the body to be stored |
 
 We recommend specifying a unique `dbName` so that data does not get mixed across multiple applications or runtime environments.
@@ -861,7 +860,7 @@ const slip = createSlipKit({
 | Setting | Purpose |
 |---|---|
 | `getFonts` | Supplies the fonts used for PDF rendering |
-| `locale` | The BCP-47 locale used by formula format functions such as `FORMAT_NUMBER` |
+| `locale` | The BCP-47 locale used by formula format functions such as `FORMAT_NUMBER` and by error messages (default `'en-US'`) |
 | `encryption.key` | The key that `encrypt` and `decrypt` use by default |
 | `encryption.previousKeys` | The list of keys to use when decrypting files encrypted with a previous key |
 
@@ -870,7 +869,7 @@ The UI component's `locale` and Core's `locale` play different roles.
 | Setting | Example | Role |
 |---|---|---|
 | Component `locale` | `'ko'`, `'en'`, `'ja'` | Selects buttons, guidance text, and the bundled font |
-| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | Number and date formatting in formulas |
+| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | Number and date formatting in formulas, and the error message language |
 
 For the Core usage flow and how to generate PDFs, see the [Core Usage Guide](core.en.md).
 

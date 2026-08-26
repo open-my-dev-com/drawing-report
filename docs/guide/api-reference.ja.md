@@ -45,22 +45,24 @@ import {
 ```ts
 function parseSlipFile(
   json: string,
+  options?: { locale?: string },
 ): SlipFile;
 ```
 
 JSON 文字列をパースし、`.slip` ファイル全体を検証します。サポートされるマイグレーション経路があれば、現在のスキーマバージョンへ変換します。
 
-不正な JSON やファイル構造は `SlipParseError` を発生させます。
+不正な JSON やファイル構造は `SlipParseError` を発生させます。`options.locale` はエラーメッセージの言語を決めます（既定は英語）。
 
 #### `validateSlipFile`
 
 ```ts
 function validateSlipFile(
   raw: unknown,
+  options?: { locale?: string },
 ): SlipFile;
 ```
 
-すでにパース済みの値を `.slip` ファイルとして検証します。
+すでにパース済みの値を `.slip` ファイルとして検証します。`options.locale` はエラーメッセージの言語を決めます（既定は英語）。
 
 HTTP リクエストボディ、`JSON.parse` の結果、またはアプリケーションで直接組み立てたオブジェクトを検査するときに使います。
 
@@ -136,7 +138,7 @@ interface SlipKitConfig {
 | フィールド | 説明 |
 |---|---|
 | `getFonts` | PDF レンダリングに使うフォントを供給する関数 |
-| `locale` | 数式フォーマットに使う BCP-47 ロケール、既定値 `'ko-KR'` |
+| `locale` | 数式フォーマットとエラーメッセージの言語に使う BCP-47 ロケール、既定値 `'en-US'` |
 | `encryption.key` | 暗号化・復号の既定キー |
 | `encryption.previousKeys` | 以前のキーで暗号化されたファイルを復号するときに追加で試すキー |
 
@@ -249,7 +251,7 @@ interface RenderOptions {
 | フィールド | 既定値 | 説明 |
 |---|---|---|
 | `getFonts` | 下層エンジンの既定フォント | レンダリングに使うフォントを供給する関数 |
-| `locale` | `'ko-KR'` | 数値と日付の数式フォーマットに使うロケール |
+| `locale` | `'en-US'` | 数値と日付の数式フォーマット、エラーメッセージの言語に使うロケール |
 
 #### `SlipPdfRenderer`
 
@@ -331,7 +333,7 @@ interface FormulaContext {
 |---|---|---|
 | `values` | 必須 | 数式で参照する値 |
 | `now` | 呼び出し時刻 | `TODAY` などの日付関数の基準時刻 |
-| `locale` | `'ko-KR'` | 数値と日付のフォーマットロケール |
+| `locale` | `'en-US'` | 数値と日付のフォーマット、エラーメッセージの言語のロケール |
 
 #### `FormulaValue`
 
@@ -386,6 +388,7 @@ type FormulaFunctionName =
 function encryptSlipFile(
   file: SlipFile,
   key: string | Uint8Array,
+  options?: { locale?: string },
 ): Promise<string>;
 ```
 
@@ -399,10 +402,11 @@ function encryptSlipFile(
 function decryptSlipFile(
   json: string,
   key: string | Uint8Array,
+  options?: { locale?: string },
 ): Promise<SlipFile>;
 ```
 
-暗号化エンベロープを復号した後、`parseSlipFile` で検証します。
+暗号化エンベロープを復号した後、`parseSlipFile` で検証します。`options.locale` はエラーメッセージの言語を決めます（既定は英語）。
 
 #### `isEncryptedSlipFile`
 
@@ -1205,7 +1209,7 @@ import type {
 | 名前 | 型 | 渡し方 | 既定値 |
 |---|---|---|---|
 | `src` | `string` | HTML 属性・プロパティ | `''` |
-| `locale` | `string` | HTML 属性・プロパティ | 韓国語 |
+| `locale` | `string` | HTML 属性・プロパティ | 英語 |
 | `settings` | `SlipDesignerSettings` | JS プロパティ | 同梱の既定設定 |
 | `presets` | `SlipPreset[]` | JS プロパティ | 同梱プリセット 2 種 |
 | `storage` | `StorageAdapter` | JS プロパティ | 保存機能を非表示 |
@@ -1232,7 +1236,7 @@ import type {
 | 名前 | 型 | 渡し方 | 既定値 |
 |---|---|---|---|
 | `src` | `string` | HTML 属性・プロパティ | `''` |
-| `locale` | `string` | HTML 属性・プロパティ | 韓国語 |
+| `locale` | `string` | HTML 属性・プロパティ | 英語 |
 | `settings` | `SlipFontProvider` | JS プロパティ | 同梱の既定フォント |
 | `maxImageBytes` | `number` | `max-image-bytes` 属性・プロパティ | 2MB |
 
@@ -1264,7 +1268,7 @@ import type {
 | 名前 | 型 | 渡し方 | 既定値 |
 |---|---|---|---|
 | `src` | `string` | HTML 属性・プロパティ | `''` |
-| `locale` | `string` | HTML 属性・プロパティ | 韓国語 |
+| `locale` | `string` | HTML 属性・プロパティ | 英語 |
 | `settings` | `SlipFontProvider` | JS プロパティ | 同梱の既定フォント |
 
 ビューアーはファイル変更イベントを発生させません。
@@ -1332,14 +1336,15 @@ interface SlipPreset {
 
 ## Elements の内蔵 API
 
-### `presets`
+### `getPresets`
 
 ```ts
-const presets:
-  SlipPreset[];
+function getPresets(
+  locale?: string,
+): SlipPreset[];
 ```
 
-同梱の取引明細書と請求書のプリセット配列です。
+同梱の取引明細書と請求書のプリセット一覧を作ります。タイトル、ラベルと文言は `locale` の言語（既定は英語）で埋められます。
 
 ### `IndexedDbStorage`
 
@@ -1372,7 +1377,7 @@ interface IndexedDbStorageOptions {
 |---|---|---|
 | `dbName` | `'slipkit'` | IndexedDB データベース名 |
 | `pageSize` | `50` | 一覧 1 ページの項目数 |
-| `locale` | 韓国語 | ストレージのエラーメッセージの言語 |
+| `locale` | 英語 | ストレージのエラーメッセージの言語 |
 | `encryption` | 平文 | 本体の暗号化設定 |
 
 ### `LocalFileStorage`
