@@ -77,7 +77,6 @@ function createTradeStatement(): SlipTemplateFile {
             { key: 'amount', label: '금액', valueType: 'number' },
           ],
         },
-        { key: 'totalAmount', label: '합계금액', valueType: 'number' },
       ],
       pages: [
         {
@@ -188,7 +187,6 @@ function createInvoice(): SlipTemplateFile {
             { key: 'amount', label: '금액', valueType: 'number' },
           ],
         },
-        { key: 'totalAmount', label: '청구금액', valueType: 'number' },
       ],
       pages: [
         {

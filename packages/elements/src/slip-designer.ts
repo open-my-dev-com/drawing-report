@@ -1840,8 +1840,8 @@ export class SlipDesigner extends LitElement {
       color: inherit;
     }
     /*
-     * 체크박스는 글상자와 달리 늘려도 쓸모가 없다 — 늘어난 셀 안에서 혼자 가운데로 보여
-     * 다른 줄과 어긋났다. 크기를 고정하고 왼쪽에 세워 다른 입력셀과 시작 위치를 맞춘다.
+     * 체크박스는 글상자와 달리 늘려도 쓸모가 없다 — 늘어난 칸 안에서 혼자 가운데로 보여
+     * 다른 줄과 어긋났다. 크기를 고정하고 왼쪽에 세워 다른 입력칸과 시작 위치를 맞춘다.
      */
     .prop-row input[type='checkbox'] {
       flex: none;
@@ -3210,7 +3210,9 @@ export class SlipDesigner extends LitElement {
    * @remarks
    * 반복 구간이 있다는 것은 그 값이 **목록**이라는 뜻이고, 구간 안 셀이 읽는 이름은 그 항목의
    * **하위 필드**다. 정의부에 없으면 목록에 뜨는데 고칠 수 없는 어정쩡한 상태가 생기므로,
-   * 열 때 정의부를 실제 쓰임과 맞춘다. 이미 선언된 종류·논리명은 건드리지 않는다.
+   * 열 때 정의부를 실제 쓰임과 맞춘다. 이미 선언된 종류·논리명은 건드리지 않는다 —
+   * 목록이 아닌 종류로 선언돼 있으면 하위 필드도 붙이지 않는다(`fields`는 목록 전용이라
+   * 스키마가 거부한다). 선언과 쓰임의 어긋남은 사용자가 정의부에서 정리한다.
    */
   private _declareRepeatParameters(): void {
     const file = this._file;
@@ -3223,14 +3225,15 @@ export class SlipDesigner extends LitElement {
         const { fromRow, toRow, parameter: listKey } = el.repeat;
         let def = defs.find((b) => b.key === listKey);
         if (!def) {
-          def = { key: listKey };
+          def = { key: listKey, valueType: 'list' };
           defs.push(def);
           changed = true;
-        }
-        if (def.valueType !== 'list') {
+        } else if (def.valueType === undefined) {
+          // 종류가 비어 있을 때만 목록으로 채운다 — _ensureParameterDef와 같은 규칙 (ADR-047)
           def.valueType = 'list';
           changed = true;
         }
+        if (def.valueType !== 'list') continue;
         const fields = def.fields ?? [];
         for (const cell of el.cells) {
           if (cell.parameter === undefined || cell.row < fromRow || cell.row > toRow) continue;
@@ -4261,7 +4264,7 @@ export class SlipDesigner extends LitElement {
     const colOffsets = trackOffsets(columnWidths(el));
     const rowOffsets = trackOffsets(expandedRowHeights(el));
     const dims = gridDims(el);
-    // 경계 오른쪽/아래를 눌러도 마지막 셀으로 보정한다
+    // 경계 오른쪽/아래를 눌러도 마지막 셀로 보정한다
     const indexOf = (value: number, offsets: number[], count: number): number => {
       const found = offsets.findIndex((offset) => value < offset) - 1;
       return found < 0 ? count - 1 : Math.min(count - 1, found);
@@ -4499,7 +4502,7 @@ export class SlipDesigner extends LitElement {
     if (patch.maxItems === null) delete (next as { maxItems?: unknown }).maxItems;
     else if (patch.maxItems !== undefined) {
       const v = patch.maxItems;
-      if (!Number.isInteger(v) || v < next.perPage || v > GRID_MAX_ITEMS_UI) {
+      if (!Number.isInteger(v) || v > GRID_MAX_ITEMS_UI) {
         this._rejectInput();
         return;
       }
@@ -4509,6 +4512,12 @@ export class SlipDesigner extends LitElement {
       return;
     }
     if (!Number.isInteger(next.perPage) || next.perPage < 1 || next.perPage > GRID_MAX_PER_PAGE_UI) {
+      this._rejectInput();
+      return;
+    }
+    // 상한은 페이지당 항목 수보다 작을 수 없다 — perPage만 올릴 때도 함께 검사해야
+    // 스키마가 거부하는 조합이 저장되지 않는다 (SPEC §5.7)
+    if (next.maxItems !== undefined && next.maxItems !== null && next.maxItems < next.perPage) {
       this._rejectInput();
       return;
     }
@@ -5452,7 +5461,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 요소 목록의 셀 하위 줄을 골랐을 때 — 그 셀으로 곧장 간다 (G-44).
+   * 요소 목록의 셀 하위 줄을 골랐을 때 — 그 셀로 곧장 간다 (G-44).
    * 셀을 고르면 오른쪽 패널이 셀 편집으로 바뀌므로 선택은 한 갈래로 유지된다.
    *
    * @param pageIndex - 그리드가 있는 페이지 번호
@@ -5536,7 +5545,7 @@ export class SlipDesigner extends LitElement {
   private _renameParameterKey(key: string, next: string, input?: HTMLInputElement): void {
     const trimmed = next.trim();
     if (!trimmed || trimmed === key || this._parameterList().some((b) => b.key === trimmed)) {
-      // 되돌린 값이 화면에 남지 않게 입력셀을 지금 이름으로 되돌린다
+      // 되돌린 값이 화면에 남지 않게 입력칸을 지금 이름으로 되돌린다
       if (input) input.value = key;
       this._parameterKeyError = trimmed !== key && trimmed !== '';
       this.requestUpdate();
@@ -5636,7 +5645,7 @@ export class SlipDesigner extends LitElement {
    * @param listKey - 목록 파라미터 물리명
    * @param key - 지금 필드 물리명
    * @param next - 새 물리명
-   * @param input - 되돌릴 입력셀 (중복·빈 이름일 때)
+   * @param input - 되돌릴 입력칸 (중복·빈 이름일 때)
    */
   private _renameParameterField(listKey: string, key: string, next: string, input?: HTMLInputElement): void {
     const trimmed = next.trim();
@@ -6963,11 +6972,11 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 크기 셀 — 보통은 너비·높이 둘, **곧은 선은 길이 하나와 굵기**로 보여준다.
+   * 크기 칸 — 보통은 너비·높이 둘, **곧은 선은 길이 하나와 굵기**로 보여준다.
    *
    * @remarks
    * 가로선의 높이(세로선의 너비)는 길이도 굵기도 아니고 선을 반만큼 밀 뿐이라
-   * 내놓으면 굵기 셀으로 오해된다. 대신 진짜 굵기를 크기 옆에 둔다 (G-32).
+   * 내놓으면 굵기 칸으로 오해된다. 대신 진짜 굵기를 크기 옆에 둔다 (G-32).
    * 사선은 너비·높이가 둘 다 끝점을 정하므로 그대로 보여준다.
    */
   private _renderSizeRows(el: SlipElement) {
@@ -7086,7 +7095,7 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /** 하위 필드를 읽는 그리드 셀으로 간다 — 「쓰는 곳」에서만 쓴다 (자동 연결이 아니다) */
+  /** 하위 필드를 읽는 그리드 셀로 간다 — 「쓰는 곳」에서만 쓴다 (자동 연결이 아니다) */
   private _selectGridCellAt(at: { pageIndex: number; gridId: string; row: number; column: number }): void {
     this._goToPage(at.pageIndex);
     this._selectedId = at.gridId;
@@ -7230,7 +7239,7 @@ export class SlipDesigner extends LitElement {
     this._addParameterField(listKey);
     const created = (this._parameterList().find((b) => b.key === listKey)?.fields ?? [])
       .find((f) => !before.has(f.key));
-    // 셀에서 시작한 흐름이므로 선택을 셀으로 되돌리고 그 값을 붙인다
+    // 셀에서 시작한 흐름이므로 선택을 셀로 되돌리고 그 값을 붙인다
     this._sideSelection = null;
     this._selectedCell = cell;
     if (created) this._setGridCellSource('parameter', created.key);
@@ -7294,7 +7303,11 @@ export class SlipDesigner extends LitElement {
       f.template.parameters = defs;
       for (const page of f.template.pages) {
         for (const target of page.elements) {
-          if (target.id === id && target.type === 'field') target.parameter = key;
+          if (target.id === id && target.type === 'field') {
+            // 파라미터·수식은 배타다 (ADR-049) — 수식이 남아 있으면 함께 지운다
+            delete (target as Record<string, unknown>).formula;
+            target.parameter = key;
+          }
         }
       }
     });
@@ -7583,8 +7596,9 @@ export class SlipDesigner extends LitElement {
    * 텍스트 ↔ 필드로 갈아 끼운다 — 자리·크기·글자 스타일은 그대로 둔다.
    *
    * @remarks
-   * 텍스트의 글은 필드로 바꿀 때 버린다(필드는 파라미터·수식에서 값을 읽는다). 반대로
-   * 필드를 텍스트로 바꾸면 파라미터·수식을 버리고 빈 글로 시작한다 — 두 방향 모두
+   * 텍스트의 글은 필드로 바꿀 때 버리고, 새 파라미터를 만들어 붙인다 — 필드는 값 소스가
+   * 필수라(ADR-049) 빈 참조를 남기면 저장한 양식을 다시 열 수 없다. 반대로 필드를
+   * 텍스트로 바꾸면 파라미터·수식을 버리고 빈 글로 시작한다 — 두 방향 모두
    * 되돌리기로 복구된다.
    *
    * @param to - 바꿀 종류
@@ -7592,19 +7606,33 @@ export class SlipDesigner extends LitElement {
   private _convertTextField(to: 'text' | 'field'): void {
     const el = this._findSelectedElement();
     if (!el || (el.type !== 'text' && el.type !== 'field') || el.type === to) return;
+    if (to === 'field') {
+      // 새 값을 만들어 붙인다 — 바코드·이미지의 소스 전환과 같은 규칙 (ADR-034/049)
+      const { key, label } = this._nextParameter();
+      const id = el.id;
+      this._updateFile((f) => {
+        const defs = f.template.parameters ?? [];
+        defs.push({ key, label });
+        f.template.parameters = defs;
+        for (const page of f.template.pages) {
+          for (const target of page.elements) {
+            if (target.id !== id || target.type !== 'text') continue;
+            const r = target as Record<string, unknown>;
+            delete r.content;
+            delete r.formula;
+            r.type = 'field';
+            r.parameter = key;
+          }
+        }
+      });
+      return;
+    }
     this._updateElement((target) => {
       const r = target as Record<string, unknown>;
-      if (to === 'field') {
-        delete r.content;
-        delete r.formula;
-        r.type = 'field';
-        r.parameter = '';
-      } else {
-        delete r.parameter;
-        delete r.formula;
-        r.type = 'text';
-        r.content = '';
-      }
+      delete r.parameter;
+      delete r.formula;
+      r.type = 'text';
+      r.content = '';
     });
   }
 
@@ -7648,21 +7676,29 @@ export class SlipDesigner extends LitElement {
    *
    * @remarks
    * 그리드 셀의 값 소스 고르개와 같은 규칙이다. 소스를 바꾸면 반대쪽 값은 지운다 —
-   * 둘이 함께 남으면 스키마가 거부하고, 무엇이 쓰이는지도 알 수 없다.
+   * 둘이 함께 남으면 스키마가 거부하고, 무엇이 쓰이는지도 알 수 없다. 파라미터로
+   * 바꾸면 유효한 키가 필요하므로 새 값을 만들어 붙인다 — 빈 참조는 스키마가
+   * 거부한다 (바코드 소스 전환과 같은 규칙).
    *
    * @param kind - 바꿀 소스
    */
   private _setFieldSource(kind: 'parameter' | 'formula'): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'field') {
+      this._rejectInput();
+      return;
+    }
+    if (kind === 'parameter') {
+      if (el.parameter !== undefined) return;
+      this._assignNewParameter();
+      return;
+    }
+    if (el.formula !== undefined) return;
     this._updateElement((target) => {
       if (target.type !== 'field') return;
       const r = target as Record<string, unknown>;
-      if (kind === 'parameter') {
-        delete r.formula;
-        if (r.parameter === undefined) r.parameter = '';
-      } else {
-        delete r.parameter;
-        if (r.formula === undefined) r.formula = '';
-      }
+      delete r.parameter;
+      r.formula = '';
     });
   }
 
@@ -8561,7 +8597,7 @@ export class SlipDesigner extends LitElement {
     const hasTextDecor = el.type === 'text' || el.type === 'field';
     const hasBackground = el.type !== 'line';
     // 선은 테두리를 두르는 게 아니라 선 자체가 색·굵기·모양을 갖는다 (G-32).
-    // 굵기는 크기 셀 옆으로 옮겼으므로(_renderSizeRows) 여기서는 빼고 색·모양만 남긴다.
+    // 굵기는 크기 칸 옆으로 옮겼으므로(_renderSizeRows) 여기서는 빼고 색·모양만 남긴다.
     const isLine = el.type === 'line';
     // 테두리 형태(파선·점선)는 직선 분해 렌더가 가능한 종류만 (ADR-032)
     const hasBorderShape = el.type === 'line' || el.type === 'rect' || el.type === 'grid';
@@ -8807,7 +8843,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 수식 입력셀의 커서 위치 — 열 자동완성 판단에 쓴다 (F-21) */
+  /** 수식 입력칸의 커서 위치 — 열 자동완성 판단에 쓴다 (F-21) */
   private _formulaCaret = 0;
 
   /** 커서 위치를 기록한다 — 키 이동·클릭으로 옮겼을 때도 자동완성이 따라오게 (F-21) */

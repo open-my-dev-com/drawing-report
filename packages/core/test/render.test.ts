@@ -4,6 +4,7 @@ import { convertSlipFile } from '../src/render/convert.js';
 import { SlipRenderError } from '../src/render/errors.js';
 import {
   CURRENT_SCHEMA_VERSION,
+  createPdfRenderer,
   renderSlipToPdf,
   type GridElement,
   type SlipElement,
@@ -557,6 +558,36 @@ describe('PDF 렌더링 (종단)', () => {
     });
     expect(called).toBe(1);
     expect(ascii(pdf, 4)).toBe('%PDF');
+  });
+
+  it('같은 렌더러는 getFonts를 한 번만 해석해 재사용한다', async () => {
+    let called = 0;
+    const renderer = createPdfRenderer({
+      getFonts: async () => {
+        called += 1;
+        return [];
+      },
+    });
+    await renderer.renderToPdf(makeVoucher(3));
+    await renderer.renderToPdf(makeVoucher(3));
+    // 수 MB짜리 폰트를 렌더마다 다시 받지 않는다
+    expect(called).toBe(1);
+  });
+
+  it('getFonts가 실패하면 다음 렌더에서 다시 시도한다', async () => {
+    let called = 0;
+    const renderer = createPdfRenderer({
+      getFonts: async () => {
+        called += 1;
+        if (called === 1) throw new Error('일시 실패');
+        return [];
+      },
+    });
+    await expect(renderer.renderToPdf(makeVoucher(3))).rejects.toThrow('일시 실패');
+    // 실패는 캐시하지 않는다 — 재시도에서 성공하면 정상 렌더한다
+    const pdf = await renderer.renderToPdf(makeVoucher(3));
+    expect(ascii(pdf, 4)).toBe('%PDF');
+    expect(called).toBe(2);
   });
 
   it('행이 많으면 자동으로 여러 페이지로 나뉜다 (ADR-011, Q08)', async () => {

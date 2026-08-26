@@ -1051,6 +1051,83 @@ describe('<slip-designer> 속성 패널', () => {
     expect(typeName).toBe(strings.designer.typeText);
     el.remove();
   });
+
+  it('텍스트를 필드로 바꾸면 새 파라미터를 만들어 붙인다 — 빈 참조를 남기지 않는다', async () => {
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const elementDiv = el.shadowRoot?.querySelector('[data-id="txt-1"]') as HTMLElement;
+    elementDiv.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 10, clientY: 10, pointerId: 1,
+    }));
+    elementDiv.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+
+    let changed: SlipTemplateFile | null = null;
+    el.addEventListener('slip-change', (e) => {
+      changed = (e as CustomEvent<{ file: SlipTemplateFile }>).detail.file;
+    });
+
+    const fieldBtn = Array.from(el.shadowRoot!.querySelectorAll('.toggle-group.text button'))
+      .find((b) => b.textContent?.trim() === strings.designer.typeField) as HTMLButtonElement;
+    fieldBtn.click();
+    await el.updateComplete;
+
+    expect(changed).not.toBeNull();
+    const converted = changed!.template.pages[0]!.elements.find((item) => item.id === 'txt-1')!;
+    expect(converted.type).toBe('field');
+    // 빈 parameter는 스키마가 거부해 저장한 양식을 다시 열 수 없다 — 새 키가 정의부에 함께 등록된다
+    const key = (converted as { parameter?: string }).parameter;
+    expect(key).toBeTruthy();
+    expect(changed!.template.parameters?.some((p) => p.key === key)).toBe(true);
+    el.remove();
+  });
+
+  it('필드 소스를 수식에서 파라미터로 바꾸면 새 파라미터를 만들어 붙인다', async () => {
+    const file = makeTemplateFile();
+    file.template.pages[0]!.elements.push({
+      type: 'field', id: 'fld-1', name: 'test-field',
+      position: { x: 30, y: 60 }, width: 60, height: 10, formula: 'TODAY()',
+    });
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const elementDiv = el.shadowRoot?.querySelector('[data-id="fld-1"]') as HTMLElement;
+    elementDiv.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 10, clientY: 10, pointerId: 1,
+    }));
+    elementDiv.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+
+    let changed: SlipTemplateFile | null = null;
+    el.addEventListener('slip-change', (e) => {
+      changed = (e as CustomEvent<{ file: SlipTemplateFile }>).detail.file;
+    });
+
+    const sourceSelect = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((row) => row.querySelector('label')?.textContent?.trim() === strings.designer.cellSource)
+      ?.querySelector('select') as HTMLSelectElement;
+    sourceSelect.value = 'parameter';
+    sourceSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(changed).not.toBeNull();
+    const field = changed!.template.pages[0]!.elements.find((item) => item.id === 'fld-1')!;
+    const record = field as { parameter?: string; formula?: string };
+    // 파라미터·수식은 배타다 (ADR-049) — 수식은 지워지고 유효한 새 키가 붙는다
+    expect(record.formula).toBeUndefined();
+    expect(record.parameter).toBeTruthy();
+    expect(changed!.template.parameters?.some((p) => p.key === record.parameter)).toBe(true);
+    el.remove();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1382,6 +1459,33 @@ describe('<slip-designer> 사이드바', () => {
     expect(items.valueType).toBe('list');
     // 구간 칸이 읽는 이름이 하위 필드로 선언되고, 이름은 헤더의 직접 입력한 글을 쓴다
     expect(items.fields?.map((f) => [f.key, f.label])).toEqual([['itemName', '품명']]);
+    el.remove();
+  });
+
+  it('목록이 아닌 종류로 선언된 파라미터는 열 때 건드리지 않는다', async () => {
+    const file = makeTemplateFile();
+    // 반복 구간이 가리키지만 글자 종류로 선언된 상태 — 선언은 파일 작성자의 것이다
+    file.template.parameters = [{ key: 'items', label: '품목', valueType: 'text' }];
+    file.template.pages[0]!.elements = [{
+      type: 'grid' as const, id: 'g-1', name: 'g', position: { x: 10, y: 10 },
+      width: 60, height: 20,
+      rows: [{ height: 10 }, { height: 10 }],
+      columns: [{ width: 60 }],
+      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 1, repeatHeader: true },
+      cells: [
+        { row: 0, column: 0, content: '품명' },
+        { row: 1, column: 0, parameter: 'itemName' },
+      ],
+    } as never];
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.parameters!;
+    const items = defs.find((b) => b.key === 'items')!;
+    // 선언된 종류를 목록으로 덮어쓰지 않는다
+    expect(items.valueType).toBe('text');
+    // 하위 필드는 목록 전용이라 붙이지 않는다 — 붙이면 스키마가 거부한다
+    expect(items.fields).toBeUndefined();
     el.remove();
   });
 
@@ -4232,7 +4336,10 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     width: number; height: number;
     columns: { width: number }[];
     rows: { height: number }[];
-    repeat?: { parameter: string; fromRow: number; toRow: number; perPage: number; repeatHeader: boolean };
+    repeat?: {
+      parameter: string; fromRow: number; toRow: number;
+      perPage: number; maxItems?: number; repeatHeader: boolean;
+    };
     overflow?: string;
     cells: { row: number; column: number; content?: string; parameter?: string; formula?: string; rowSpan?: number }[];
   };
@@ -4372,6 +4479,20 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     expect(grid.repeat?.perPage).toBe(6);
     // 10(헤더) + 6x10(반복) + 10(꼬리)
     expect(grid.height).toBeCloseTo(80, 2);
+    el.remove();
+  });
+
+  it('페이지당 항목 수를 표시 행 수 제한값보다 크게 올리면 받아들이지 않는다', async () => {
+    const el = await mount();
+    setNumber(el, s.repeatMaxItems, '10');
+    await el.updateComplete;
+    expect(gridOf(el).repeat?.maxItems).toBe(10);
+
+    setNumber(el, s.repeatPerPage, '20');
+    await el.updateComplete;
+    // 상한(10) < 페이지당 항목 수(20) 조합은 스키마가 거부한다 — 저장되지 않게 입력을 물리친다
+    expect(gridOf(el).repeat?.perPage).toBe(4);
+    expect(gridOf(el).repeat?.maxItems).toBe(10);
     el.remove();
   });
 

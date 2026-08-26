@@ -31,23 +31,47 @@ function toEngineFont(fonts: readonly SlipFont[] | undefined): Font | undefined 
   return Object.fromEntries(entries) as unknown as Font;
 }
 
+/** 렌더러가 한 번 해석해 재사용하는 폰트 정보 묶음 */
+interface ResolvedFonts {
+  fonts: readonly SlipFont[] | undefined;
+  font: Font | undefined;
+  fontNames: string[];
+  fallbackFontName: string | undefined;
+}
+
 /**
  * PDF 렌더러를 만든다 — 같은 폰트·로케일로 여러 파일을 렌더할 때 재사용한다.
+ *
+ * @remarks
+ * `getFonts`는 첫 렌더에서 한 번 해석해 같은 렌더러가 재사용한다 — 수 MB짜리 폰트를
+ * 렌더마다 다시 받지 않는다. 다른 폰트를 반영하려면 렌더러를 새로 만든다.
  *
  * @param options - 폰트·로케일 등 렌더링 옵션
  * @returns .slip 파일을 PDF로 렌더하는 렌더러
  * @throws SlipRenderError 폰트 지정이 잘못된 경우(대체 폰트 2개 이상, 이름 중복)
  */
 export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer {
+  // 폰트는 공급 함수(getFonts)로만 받는다 (ADR-040/056) — 렌더 호출마다 넘기지 않는다.
+  // 비동기 공급이라 첫 렌더 시점에 해석한다 — core는 함수를 호출만 하고 I/O는 안 한다(ADR-002).
+  let resolvedFonts: Promise<ResolvedFonts> | undefined;
+  const resolveFonts = (): Promise<ResolvedFonts> => {
+    if (!resolvedFonts) {
+      resolvedFonts = (async () => {
+        const fonts = options.getFonts ? await options.getFonts() : undefined;
+        const font = toEngineFont(fonts);
+        // 굵게 폰트 탐색용 정보 — 변환 계층이 `<이름>-Bold` 폰트를 찾을 수 있게 한다 (ADR-032)
+        const fontNames = fonts?.map((f) => f.name) ?? [];
+        const fallbackFontName = fonts?.find((f) => f.fallback === true)?.name ?? fonts?.[0]?.name;
+        return { fonts, font, fontNames, fallbackFontName };
+      })();
+      // 실패는 캐시하지 않는다 — 일시적인 폰트 공급 실패를 다음 렌더에서 다시 시도한다
+      resolvedFonts.catch(() => { resolvedFonts = undefined; });
+    }
+    return resolvedFonts;
+  };
   return {
     async renderToPdf(file: SlipFile): Promise<Uint8Array> {
-      // 폰트는 공급 함수(getFonts)로만 받는다 (ADR-040/056) — 렌더 호출마다 넘기지 않는다.
-      // 비동기 공급이라 렌더 시점에 해석한다 — core는 함수를 호출만 하고 I/O는 안 한다(ADR-002).
-      const fonts = options.getFonts ? await options.getFonts() : undefined;
-      const font = toEngineFont(fonts);
-      // 굵게 폰트 탐색용 정보 — 변환 계층이 `<이름>-Bold` 폰트를 찾을 수 있게 한다 (ADR-032)
-      const fontNames = fonts?.map((f) => f.name) ?? [];
-      const fallbackFontName = fonts?.find((f) => f.fallback === true)?.name ?? fonts?.[0]?.name;
+      const { fonts, font, fontNames, fallbackFontName } = await resolveFonts();
       const { template, inputs } = convertSlipFile(file, {
         ...(options.locale === undefined ? {} : { locale: options.locale }),
         fontNames,

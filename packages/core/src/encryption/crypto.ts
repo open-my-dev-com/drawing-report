@@ -16,6 +16,8 @@ import { SlipEncryptionError } from './errors.js';
 const MARKER = 'encrypted';
 /** PBKDF2 반복 횟수 — 암호(passphrase)에서 키를 만들 때 (OWASP 2023 권장 하한 이상) */
 const PBKDF2_ITERATIONS = 210_000;
+/** 복호화 시 받아들이는 PBKDF2 반복 횟수 상한 — 악의적으로 큰 값으로 멈추는 것을 막는다 */
+const MAX_PBKDF2_ITERATIONS = 10_000_000;
 /** AES-GCM 초기화 벡터 길이(바이트) */
 const IV_BYTES = 12;
 /** PBKDF2 솔트 길이(바이트) */
@@ -81,8 +83,15 @@ function randomBytes(length: number): Uint8Array {
  * 키를 AES-GCM 키로 만든다.
  * - `string`이면 암호(passphrase)로 보고 PBKDF2로 파생한다(솔트·반복 필요).
  * - `Uint8Array`면 32바이트 원시 키로 본다.
+ *
+ * 반복 횟수는 호출자가 정한다 — 잠글 때는 현재 상수, 풀 때는 봉투에 적힌 값을 쓴다.
+ * 이래야 나중에 상수를 올려도 이전에 잠근 파일을 계속 열 수 있다.
  */
-async function toAesKey(key: string | Uint8Array, salt: Uint8Array): Promise<unknown> {
+async function toAesKey(
+  key: string | Uint8Array,
+  salt: Uint8Array,
+  iterations: number,
+): Promise<unknown> {
   const subtle = requireSubtle();
   if (typeof key === 'string') {
     if (key.length === 0) throw new SlipEncryptionError('암호가 비어 있습니다');
@@ -94,7 +103,7 @@ async function toAesKey(key: string | Uint8Array, salt: Uint8Array): Promise<unk
       ['deriveKey'],
     );
     return subtle.deriveKey(
-      { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+      { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
       baseKey,
       { name: 'AES-GCM', length: 256 },
       false,
@@ -140,7 +149,7 @@ export async function encryptSlipFile(file: SlipFile, key: string | Uint8Array):
   const subtle = requireSubtle();
   const usePassphrase = typeof key === 'string';
   const salt = usePassphrase ? randomBytes(SALT_BYTES) : new Uint8Array(0);
-  const aesKey = await toAesKey(key, salt);
+  const aesKey = await toAesKey(key, salt, PBKDF2_ITERATIONS);
   const iv = randomBytes(IV_BYTES);
   const plaintext = new TextEncoder().encode(serializeSlipFile(file));
   const cipherBuf = await subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, plaintext);
@@ -164,7 +173,8 @@ export async function encryptSlipFile(file: SlipFile, key: string | Uint8Array):
  * @param json - 암호화 봉투 JSON 문자열
  * @param key - 잠글 때 쓴 암호(passphrase) 또는 원시 키
  * @returns 검증까지 끝난 `.slip` 파일
- * @throws SlipEncryptionError 봉투 형식이 아니거나, 키가 틀리거나(복호화 실패), 파일 변조 시
+ * @throws SlipEncryptionError 봉투 형식이 아니거나, 봉투 버전·키 파생 방식을 지원하지
+ *   않거나, 키가 틀리거나(복호화 실패), 파일 변조 시
  * @throws SlipParseError 복호화된 내용이 유효한 `.slip`이 아니면
  */
 export async function decryptSlipFile(json: string, key: string | Uint8Array): Promise<SlipFile> {
@@ -177,14 +187,30 @@ export async function decryptSlipFile(json: string, key: string | Uint8Array): P
   } catch {
     throw new SlipEncryptionError('암호화된 `.slip` 봉투 형식이 아닙니다');
   }
+  // 봉투 버전 확인 (SPEC §21.3) — 모르는 버전을 임의로 해석하지 않는다
+  if (envelope.v !== 1) {
+    throw new SlipEncryptionError(
+      '지원하지 않는 암호화 봉투 버전입니다 — 더 새로운 SlipKit으로 잠근 파일일 수 있습니다',
+    );
+  }
   const usePassphrase = typeof key === 'string';
   if (usePassphrase !== (envelope.kdf !== undefined)) {
     throw new SlipEncryptionError(
       envelope.kdf ? '이 파일은 암호(passphrase)로 잠겨 있습니다' : '이 파일은 원시 키로 잠겨 있습니다',
     );
   }
+  // 키 파생 정보 확인 — 알고리즘이 다르거나 반복 횟수가 정상 범위 밖이면 키를 만들 수 없다
+  if (envelope.kdf) {
+    const { algo, iterations } = envelope.kdf;
+    const validIterations =
+      Number.isSafeInteger(iterations) && iterations >= 1 && iterations <= MAX_PBKDF2_ITERATIONS;
+    if (algo !== 'PBKDF2-SHA256' || !validIterations) {
+      throw new SlipEncryptionError('지원하지 않는 키 파생 방식입니다');
+    }
+  }
   const salt = envelope.kdf ? base64urlDecode(envelope.kdf.salt) : new Uint8Array(0);
-  const aesKey = await toAesKey(key, salt);
+  // 반복 횟수는 봉투에 적힌 값을 쓴다 — 이후 릴리스에서 기본값이 올라가도 이전 파일을 연다
+  const aesKey = await toAesKey(key, salt, envelope.kdf?.iterations ?? PBKDF2_ITERATIONS);
   let plainBuf: ArrayBuffer;
   try {
     plainBuf = await subtle.decrypt(

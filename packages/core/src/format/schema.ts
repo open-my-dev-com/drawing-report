@@ -358,7 +358,7 @@ function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, stri
 }
 
 /**
- * 데이터 자동 병합 열 검사 (ADR-038) — 켠 열은 그 열의 반복 구간 셀이 구간 전체를 한 셀으로
+ * 데이터 자동 병합 열 검사 (ADR-038) — 켠 열은 그 열의 반복 구간 셀이 구간 전체를 한 셀로
  * 덮어야 한다. 한 줄 구간이면 저절로 성립하고, 여러 줄인데 셀이 줄마다 갈라지면 거부한다.
  *
  * @param cellOriginAt - {@link checkGridCells}가 만든 (행,열)→원점 맵
@@ -961,7 +961,7 @@ export function parseSlipFile(json: string): SlipFile {
  * .slip 파일을 저장용 JSON 문자열로 직렬화한다.
  *
  * @param file - 직렬화할 .slip 파일
- * @returns 들여쓰기 2셀의 JSON 문자열
+ * @returns 들여쓰기 2칸의 JSON 문자열
  */
 export function serializeSlipFile(file: SlipFile): string {
   return JSON.stringify(file, null, 2);

@@ -78,4 +78,57 @@ describe('파일 암호화 (ADR-054)', () => {
     expect(isEncryptedSlipFile(plain)).toBe(false);
     await expect(decryptSlipFile(plain, 'pw')).rejects.toBeInstanceOf(SlipEncryptionError);
   });
+
+  it('봉투 버전이 없으면 거부한다 (SPEC §21.3)', async () => {
+    const locked = await encryptSlipFile(template(), 'pw');
+    const env = JSON.parse(locked) as { v?: number };
+    delete env.v;
+    await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('봉투 버전');
+  });
+
+  it('지원하지 않는 봉투 버전은 거부한다 (SPEC §21.3)', async () => {
+    const locked = await encryptSlipFile(template(), 'pw');
+    const env = JSON.parse(locked) as { v: number };
+    env.v = 2;
+    await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('봉투 버전');
+  });
+
+  it('지원하지 않는 키 파생 알고리즘은 거부한다', async () => {
+    const locked = await encryptSlipFile(template(), 'pw');
+    const env = JSON.parse(locked) as { kdf: { algo: string } };
+    env.kdf.algo = 'SCRYPT';
+    await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('키 파생');
+  });
+
+  it('정상 범위를 벗어난 PBKDF2 반복 횟수는 거부한다', async () => {
+    const locked = await encryptSlipFile(template(), 'pw');
+    const env = JSON.parse(locked) as { kdf: { iterations: number } };
+    env.kdf.iterations = 100_000_000; // 상한 초과 — 악의적으로 큰 값
+    await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('키 파생');
+  });
+
+  it('봉투에 적힌 반복 횟수로 키를 파생한다 — 기본값과 달라도 연다', async () => {
+    // 반복 횟수가 다른 봉투를 직접 만든다 — 값을 무시하고 상수로 파생하면 여기서 실패한다
+    const file = template();
+    const iterations = 100_000;
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const baseKey = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode('pw'), { name: 'PBKDF2' }, false, ['deriveKey'],
+    );
+    const aesKey = await crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+      baseKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt'],
+    );
+    const data = new Uint8Array(await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode(serializeSlipFile(file)),
+    ));
+    const b64u = (bytes: Uint8Array) => Buffer.from(bytes).toString('base64url');
+    const envelope = JSON.stringify({
+      slipkit: 'encrypted', v: 1, cipher: 'A256GCM',
+      kdf: { algo: 'PBKDF2-SHA256', salt: b64u(salt), iterations },
+      iv: b64u(iv), data: b64u(data),
+    });
+    await expect(decryptSlipFile(envelope, 'pw')).resolves.toEqual(file);
+  });
 });
