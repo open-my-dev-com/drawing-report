@@ -89,12 +89,16 @@ PDF를 만들 때 사용하는 폰트와 로케일은 요청마다 달라지지 
 
 ```text
 src/
+├── app.module.ts
 ├── slipkit/
 │   ├── slipkit.module.ts
 │   ├── slipkit.tokens.ts
 │   └── slip-issuance.service.ts
 └── vouchers/
+    ├── database-voucher.repository.ts
+    ├── issue-voucher.request.ts
     ├── voucher.controller.ts
+    ├── voucher.module.ts
     └── voucher.repository.ts
 
 fonts/
@@ -285,6 +289,8 @@ const file = body as SlipFile;
 
 다음 함수는 예제 요청의 최소 구조를 확인합니다.
 
+`src/vouchers/issue-voucher.request.ts`:
+
 ```ts
 import {
   BadRequestException,
@@ -348,9 +354,9 @@ export function readIssueVoucherRequest(
 
 ```ts
 import {
-  BadRequestException,
   Inject,
   Injectable,
+  InternalServerErrorException,
 } from '@nestjs/common';
 
 import {
@@ -384,7 +390,8 @@ export class SlipIssuanceService {
     const template = parseSlipFile(templateJson);
 
     if (template.kind !== 'template') {
-      throw new BadRequestException(
+      // 클라이언트 요청이 아니라 서버 저장 데이터의 문제다
+      throw new InternalServerErrorException(
         '저장된 파일이 양식이 아닙니다.',
       );
     }
@@ -543,6 +550,48 @@ export class VoucherController {
 `StreamableFile`을 사용하면 Express와 Fastify 어댑터에서 같은 방식으로 PDF를 응답할 수 있습니다.
 
 PDF를 바로 내려줄 필요가 없다면 Controller는 발행 ID만 반환하고, 별도의 조회 API나 작업 완료 알림을 통해 PDF를 제공해도 됩니다.
+
+## NestJS 모듈 조립하기
+
+Controller와 저장소 구현을 모듈에 등록해야 NestJS가 의존성을 찾을 수 있습니다. `VoucherModule`은 `SlipKitModule`을 가져오고, Controller와 저장소 구현을 연결합니다.
+
+`src/vouchers/voucher.module.ts`:
+
+```ts
+import { Module } from '@nestjs/common';
+
+import { SlipKitModule } from '../slipkit/slipkit.module';
+import { DatabaseVoucherRepository } from './database-voucher.repository';
+import { VoucherController } from './voucher.controller';
+import { VoucherRepository } from './voucher.repository';
+
+@Module({
+  imports: [SlipKitModule],
+  controllers: [VoucherController],
+  providers: [
+    {
+      provide: VoucherRepository,
+      useClass: DatabaseVoucherRepository,
+    },
+  ],
+})
+export class VoucherModule {}
+```
+
+애플리케이션 루트 모듈은 `VoucherModule`을 가져옵니다.
+
+`src/app.module.ts`:
+
+```ts
+import { Module } from '@nestjs/common';
+
+import { VoucherModule } from './vouchers/voucher.module';
+
+@Module({
+  imports: [VoucherModule],
+})
+export class AppModule {}
+```
 
 ## 전표와 PDF 보관하기
 

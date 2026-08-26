@@ -685,6 +685,7 @@ function parseUploadedSlip(
 
 - [はじめに](getting-started.ja.md)
 - [アプリケーション統合ガイド](integration.ja.md)
+- [サーバー統合ガイド](server-integration.ja.md)
 - [設定ガイド](configuration.ja.md)
 - [API リファレンス](api-reference.ja.md)
 - [数式関数リファレンス](formula.ja.md)

@@ -685,6 +685,7 @@ function parseUploadedSlip(
 
 - [시작하기](getting-started.md)
 - [애플리케이션 통합 가이드](integration.md)
+- [서버 통합 가이드](server-integration.md)
 - [설정 가이드](configuration.md)
 - [API 참조](api-reference.md)
 - [수식 함수 참조](formula.md)

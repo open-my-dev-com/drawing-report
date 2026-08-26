@@ -89,12 +89,16 @@ PDF の生成に使うフォントとロケールは、リクエストごとに�
 
 ```text
 src/
+├── app.module.ts
 ├── slipkit/
 │   ├── slipkit.module.ts
 │   ├── slipkit.tokens.ts
 │   └── slip-issuance.service.ts
 └── vouchers/
+    ├── database-voucher.repository.ts
+    ├── issue-voucher.request.ts
     ├── voucher.controller.ts
+    ├── voucher.module.ts
     └── voucher.repository.ts
 
 fonts/
@@ -285,6 +289,8 @@ const file = body as SlipFile;
 
 次の関数は、例で使うリクエストの最小構造を確認します。
 
+`src/vouchers/issue-voucher.request.ts`:
+
 ```ts
 import {
   BadRequestException,
@@ -348,9 +354,9 @@ export function readIssueVoucherRequest(
 
 ```ts
 import {
-  BadRequestException,
   Inject,
   Injectable,
+  InternalServerErrorException,
 } from '@nestjs/common';
 
 import {
@@ -384,7 +390,8 @@ export class SlipIssuanceService {
     const template = parseSlipFile(templateJson);
 
     if (template.kind !== 'template') {
-      throw new BadRequestException(
+      // クライアントのリクエストではなく、サーバーに保存されたデータの問題である
+      throw new InternalServerErrorException(
         '保存されたファイルはテンプレートではありません。',
       );
     }
@@ -543,6 +550,48 @@ export class VoucherController {
 `StreamableFile` を使うと、Express と Fastify のどちらのアダプターでも同じ方法で PDF を応答できます。
 
 PDF をすぐに返す必要がなければ、Controller は発行 ID だけを返し、別の取得 API や作業完了の通知を通じて PDF を提供しても構いません。
+
+## NestJS モジュールの組み立て
+
+Controller とストレージの実装をモジュールに登録して初めて、NestJS が依存関係を解決できます。`VoucherModule` は `SlipKitModule` を取り込み、Controller とストレージの実装をつなぎます。
+
+`src/vouchers/voucher.module.ts`:
+
+```ts
+import { Module } from '@nestjs/common';
+
+import { SlipKitModule } from '../slipkit/slipkit.module';
+import { DatabaseVoucherRepository } from './database-voucher.repository';
+import { VoucherController } from './voucher.controller';
+import { VoucherRepository } from './voucher.repository';
+
+@Module({
+  imports: [SlipKitModule],
+  controllers: [VoucherController],
+  providers: [
+    {
+      provide: VoucherRepository,
+      useClass: DatabaseVoucherRepository,
+    },
+  ],
+})
+export class VoucherModule {}
+```
+
+アプリケーションのルートモジュールは `VoucherModule` を取り込みます。
+
+`src/app.module.ts`:
+
+```ts
+import { Module } from '@nestjs/common';
+
+import { VoucherModule } from './vouchers/voucher.module';
+
+@Module({
+  imports: [VoucherModule],
+})
+export class AppModule {}
+```
 
 ## 伝票と PDF の保管
 

@@ -685,6 +685,7 @@ function parseUploadedSlip(
 
 - [Getting Started](getting-started.en.md)
 - [Application Integration Guide](integration.en.md)
+- [Server Integration Guide](server-integration.en.md)
 - [Configuration Guide](configuration.en.md)
 - [API Reference](api-reference.en.md)
 - [Formula Function Reference](formula.en.md)

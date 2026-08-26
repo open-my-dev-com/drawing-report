@@ -89,12 +89,16 @@ The examples use the following structure.
 
 ```text
 src/
+├── app.module.ts
 ├── slipkit/
 │   ├── slipkit.module.ts
 │   ├── slipkit.tokens.ts
 │   └── slip-issuance.service.ts
 └── vouchers/
+    ├── database-voucher.repository.ts
+    ├── issue-voucher.request.ts
     ├── voucher.controller.ts
+    ├── voucher.module.ts
     └── voucher.repository.ts
 
 fonts/
@@ -285,6 +289,8 @@ If a voucher issue API accepts the entire template from the client, the client c
 
 The following function checks the minimal structure of the example request.
 
+`src/vouchers/issue-voucher.request.ts`:
+
 ```ts
 import {
   BadRequestException,
@@ -348,9 +354,9 @@ This function only checks the outer structure of the API request. The actual vou
 
 ```ts
 import {
-  BadRequestException,
   Inject,
   Injectable,
+  InternalServerErrorException,
 } from '@nestjs/common';
 
 import {
@@ -384,7 +390,8 @@ export class SlipIssuanceService {
     const template = parseSlipFile(templateJson);
 
     if (template.kind !== 'template') {
-      throw new BadRequestException(
+      // This is a problem with server-stored data, not the client request
+      throw new InternalServerErrorException(
         'The stored file is not a template.',
       );
     }
@@ -543,6 +550,48 @@ export class VoucherController {
 With `StreamableFile`, you can respond with the PDF in the same way on both the Express and Fastify adapters.
 
 If you do not need to return the PDF immediately, the controller can return only the issue ID and provide the PDF through a separate retrieval API or a job-completion notification.
+
+## Assembling the NestJS modules
+
+The controller and the storage implementation must be registered in a module for NestJS to resolve their dependencies. `VoucherModule` imports `SlipKitModule` and wires up the controller and the storage implementation.
+
+`src/vouchers/voucher.module.ts`:
+
+```ts
+import { Module } from '@nestjs/common';
+
+import { SlipKitModule } from '../slipkit/slipkit.module';
+import { DatabaseVoucherRepository } from './database-voucher.repository';
+import { VoucherController } from './voucher.controller';
+import { VoucherRepository } from './voucher.repository';
+
+@Module({
+  imports: [SlipKitModule],
+  controllers: [VoucherController],
+  providers: [
+    {
+      provide: VoucherRepository,
+      useClass: DatabaseVoucherRepository,
+    },
+  ],
+})
+export class VoucherModule {}
+```
+
+The application root module imports `VoucherModule`.
+
+`src/app.module.ts`:
+
+```ts
+import { Module } from '@nestjs/common';
+
+import { VoucherModule } from './vouchers/voucher.module';
+
+@Module({
+  imports: [VoucherModule],
+})
+export class AppModule {}
+```
 
 ## Storing vouchers and PDFs
 
