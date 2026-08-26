@@ -61,46 +61,58 @@ SlipKit의 구현이나 문서화를 진행하기 전에 사용자 또는 프로
 
 서버에서 `@omdc-slipkit/core`를 쓰고 싶은 실제 사용 사례는 **전표 PDF의 서버 측 생성과 보관**입니다.
 
-- 서버에 저장하는 원본은 전표 `.slip`(JSON)입니다. 수 KB이고, 서버가 `parseSlipFile`로 검증할 수 있으며, 양식 스냅샷이 내장돼 있어 그 파일 하나로 어디서든 같은 PDF를 만들 수 있습니다.
-- PDF는 파생물입니다. 열람·인쇄용이면 필요할 때 렌더하고, 발행 시점 산출물을 고정 보관해야 하면 발행 시점에 서버가 한 번 렌더해 저장합니다.
-- 프론트가 만든 PDF를 업로드받아 저장하는 구조는 채택하지 않습니다. 원본 데이터(수 KB) 대신 파생물(수백 KB~수 MB)을 옮기는 방향이고, 서버가 "저장된 PDF가 검증된 전표 데이터의 렌더 결과"임을 보증할 수 없기 때문입니다.
+이번 검토는 **서버가 검증과 렌더링을 함께 수행하는 구조를 전제**로 합니다(사용자 확정). 프론트가 만든 PDF를 업로드받아 원본처럼 보관하는 방식은 이 전제에서 제외합니다 — 서버가 "저장된 PDF가 검증된 전표 데이터의 렌더 결과"임을 보증할 수 없기 때문입니다.
+
+- 서버에 저장하는 원본은 전표 `.slip`(JSON)입니다. 검증·재처리할 수 있는 원본 데이터이며, 서버가 `parseSlipFile`로 검증할 수 있습니다. 양식 스냅샷이 내장돼 있어 양식 저장소를 다시 조회하지 않고 전표 파일만으로 렌더링할 수 있고, 같은 렌더러 버전·폰트·설정을 쓰면 같은 배치 결과를 재현할 수 있습니다.
+- PDF는 열람·인쇄를 위한 파생 산출물입니다. 필요할 때 렌더하고, 발행 시점 산출물을 고정 보관해야 하면 발행 시점에 서버가 한 번 렌더해 저장합니다.
 
 이 구조에서는 서버가 렌더의 주체이므로, core가 서버(우선 대상: NestJS)에서 무리 없이 동작해야 합니다.
 
 **조사 결과 (2026-08-26, 저장소에서 직접 확인)**
 
-- **CJS에서 ESM 전용 core를 정적 `require()`로 불러올 수 있습니다.** Node 22 환경에서 CommonJS 파일이 빌드된 `dist/index.js`를 `require()`로 불러 `parseSlipFile`·`createSlipKit`·`renderSlipToPdf`·`encryptSlipFile`을 모두 로드했습니다. Node의 `require(esm)` 기능(20.19+/22.12+에서 기본 활성)이며, 성공했다는 것은 core 의존 그래프(pdfme·fontkit·Zod 포함)에 top-level `await`가 없다는 뜻입니다. 즉 CommonJS로 출력되는 일반적인 NestJS 프로젝트도 최신 Node에서는 현재 배포 형식 그대로 정적 import가 동작합니다. ESM과 CommonJS 병행 배포는 필수가 아닙니다.
-- **하위 진입점 분리는 구조적으로 깨끗합니다.** 내부 의존 방향을 조사한 결과 `format`·`formula`는 다른 하위 모듈을 참조하지 않고, `encryption`·`storage`는 `format`만, `render`는 `format`·`formula`만 참조합니다. pdfme·fontkit 의존은 `render` 안에만 있습니다. 순환이 없어 `core/format`·`core/formula`·`core/encryption`·`core/render`·`core/storage`로 나눌 수 있고, 검증만 쓰는 서버가 PDF 의존성을 로드하지 않게 됩니다.
-- **동봉 기본 폰트를 서버에서도 쓸 수 있습니다.** `@omdc-slipkit/elements/fonts/pretendard`(노토산스 JP 동일)는 DOM 없이 동작하는 순수 데이터 모듈이며, CommonJS `require()`로도 로드됨을 확인했습니다. 서버는 이 모듈을 쓰거나 TTF·OTF 파일을 직접 읽어 `getFonts`로 공급하면 됩니다.
-- **Node 지원 범위 결정이 따라붙습니다.** `require(esm)`은 Node 20.19+/22.12+ 기준입니다. Node 20은 2026-04-30에 유지보수가 종료되어 이미 지원이 끝난 버전이므로, `engines.node`를 어디에 둘지 함께 정해야 합니다. 현재 `packages/core/package.json`에는 `engines`가 없습니다.
+- **현재 배포 형식으로는 CommonJS에서 패키지 이름으로 불러올 수 없습니다.** 설치 상태를 재현해 `require('@omdc-slipkit/core')`를 실행하면 `ERR_PACKAGE_PATH_NOT_EXPORTED`로 실패합니다 — 현재 `exports`에 `types`·`import` 조건만 있고 `require` 조건이 없기 때문입니다. `@omdc-slipkit/elements/fonts/pretendard` 하위 경로도 같은 원인으로 실패합니다.
+- **exports 보정만으로 해결됩니다 — 이중 빌드는 필요 없습니다.** 같은 ESM 산출물(`./dist/index.js`)을 `require` 조건으로도 노출하면 패키지 이름 `require`가 성공함을 확인했습니다. Node의 `require(esm)` 기능 덕분이며, 빌드된 core의 의존 그래프(pdfme·fontkit·Zod 포함)에 top-level `await`가 없어 동기 로드가 가능하다는 것도 확인했습니다(`dist/index.js` 직접 `require` 성공). 따라서 CommonJS로 출력되는 일반적인 NestJS 프로젝트도 exports 보정 뒤에는 정적 import가 동작합니다.
+- **하위 진입점 분리는 구조적으로 가능하지만, 호환성의 필수 조건은 아닙니다.** 내부 의존 방향을 조사한 결과 `format`·`formula`는 다른 하위 모듈을 참조하지 않고, `encryption`·`storage`는 `format`만, `render`는 `format`·`formula`만 참조합니다. pdfme·fontkit 의존은 `render` 안에만 있습니다. 순환이 없어 `core/format` 등 5개로 나눌 수 있고, 검증만 쓰는 서버가 PDF 의존성을 로드하지 않게 됩니다. 다만 이는 로딩 범위와 공개 API 설계를 위한 **별도 결정**이며, NestJS 호환 자체는 루트 진입점 exports 보정만으로 성립합니다.
+- **동봉 기본 폰트를 서버에서도 쓸 수 있습니다.** 폰트 하위 경로 모듈은 DOM 없이 동작하는 순수 데이터 모듈이며, CommonJS `require()`로도 로드됨을 확인했습니다(위 exports 보정 필요). 서버는 이 모듈을 쓰거나 TTF·OTF 파일을 직접 읽어 `getFonts`로 공급하면 됩니다.
+- **Node 지원 범위 결정이 따라붙습니다.** `require(esm)`은 Node 22.12부터 기본 활성이지만 첫 사용 시 실험 경고가 났고, **22.13부터** `--trace-require-module` 플래그 없이는 경고가 나지 않습니다. Node 20은 2026-04-30에 유지보수가 종료됐고, 현재 Active LTS는 Node 24, Node 22는 Maintenance LTS입니다. 현재 `packages/core/package.json`에는 `engines`가 없습니다.
 
 **생길 수 있는 문제점과 대응**
 
 | 문제 | 대응 |
 |---|---|
-| 하위 진입점 공개는 공개 API 표면 확대다 — 진입점별 호환성 약속이 생긴다 | 위 5개로 한정하고 루트 진입점은 지금처럼 유지한다. `api-reference` 가이드에 진입점별 내용을 함께 기재한다 |
-| 다중 진입점 빌드에서 공유 코드가 진입점마다 복제되면 오류 클래스(`SlipParseError` 등)의 `instanceof` 판별이 깨질 수 있다 | 빌드에서 공유 청크(코드 분할)를 확인하고, 서로 다른 진입점에서 불러온 오류 클래스가 같은 정체성인지 확인하는 테스트를 추가한다 |
-| `require(esm)` 경로는 의존성(pdfme 등)이 top-level `await`를 도입하면 조용히 깨진다 | CommonJS에서 core를 `require()`하는 스모크 테스트를 core 테스트에 추가하고, 기술 변경 점검표(TECH-RESEARCH)에 항목을 더한다 |
+| `require` 조건이 없는 현재 exports로는 CommonJS 소비가 exports 해석 단계에서 실패한다 | core와 elements(폰트 하위 경로 포함)의 `exports`에 같은 ESM 산출물을 가리키는 `require` 조건을 추가하고, **패키지를 실제로 설치한 뒤 패키지 이름으로 `require`하는 스모크 테스트**를 둔다 |
+| `require(esm)` 경로는 의존성(pdfme 등)이 top-level `await`를 도입하면 깨지고, 하한 미만 구형 Node에서는 로드 오류가 난다 | 스모크 테스트로 회귀를 잡고, `engines.node`로 하한을 알리며, 기술 변경 점검표(TECH-RESEARCH)에 항목을 더한다 |
 | `engines.node` 명시는 문서의 "Node.js 20 이상" 서술과 어긋나게 된다 | 결정과 함께 SSOT로 일괄 갱신한다 — TECH-RESEARCH·가이드·README의 지원 환경 서술 |
-| 서버 렌더는 폰트·메모리·동시 실행 관리가 필요하다 | 폰트 반복 로드는 렌더러의 `getFonts` 1회 해석·재사용으로 이미 해소됐다. 동시 실행 제한(큐·워커)과 폰트 공급 예시는 서버 통합 가이드에 담는다 |
+| (하위 진입점을 분리하는 경우) 공개 API 표면이 커지고, 다중 진입점 빌드에서 공유 코드가 복제되면 오류 클래스(`SlipParseError` 등)의 `instanceof` 판별이 깨질 수 있다 | 진입점을 5개로 한정하고 루트는 유지한다. 빌드의 공유 청크(코드 분할)를 확인하고, 서로 다른 진입점에서 불러온 오류 클래스가 같은 정체성인지 확인하는 테스트를 추가한다 |
+| 서버 렌더는 폰트·메모리·동시 실행 관리가 필요하다 | 폰트 반복 로드는 **같은 렌더러(`createPdfRenderer`)나 `createSlipKit` 인스턴스를 재사용할 때** `getFonts` 1회 해석·재사용으로 해소된다 — `renderSlipToPdf`는 호출마다 새 렌더러를 만들므로 서버 가이드에서 인스턴스 재사용을 안내한다. 동시 실행 제한(큐·워커)과 폰트 공급 예시도 가이드에 담는다 |
 | 서버에는 동봉 저장소(IndexedDB·로컬 파일)가 없다 | 어댑터 구현 없이 자체 DB에 전표 JSON을 저장해도 된다는 것(어댑터는 선택 사항)을 가이드에 명시한다 |
-| 발행 무결성은 저장 구조만으로 보장되지 않는다 | 검증 → 발행(잠금) → 렌더 → 보관을 서버가 한 흐름으로 처리하는 예시를 가이드에 담는다 |
+| 발행 처리의 일관성과 PDF의 생성 경로는 저장 구조만으로 보장되지 않는다 (`issued`는 논리적 잠금이다, ADR-053) | 검증 → 발행(잠금) → 렌더 → 보관을 서버가 한 흐름으로 처리하는 예시를 가이드에 담는다 |
 
 **확인할 내용**
 
-서버 지원 방식과 Node 지원 하한을 확정합니다.
+서버 지원 방식, 하위 진입점 분리 여부, Node 지원 하한을 각각 확정합니다.
 
 **선택지**
 
-1. **(권장)** ESM 전용을 유지하고 core를 연다 — 하위 진입점 5개 분리, `engines.node` 명시, 서버(NestJS) 통합 가이드 추가, CommonJS `require()` 스모크 테스트 추가. 전용 패키지와 병행 배포는 하지 않는다.
-2. 1에 더해 CommonJS 병행 배포(이중 빌드)까지 한다 — `require(esm)`이 없는 구형 Node(20.18 이하)도 지원하지만, 같은 클래스가 두 벌 실리는 문제(dual package hazard)를 계속 관리해야 한다.
+결정 1 — 서버 지원 방식:
+
+1. **(권장)** ESM 전용을 유지하고 exports를 보정한다 — core·elements의 `exports`에 같은 ESM 산출물을 가리키는 `require` 조건 추가, `engines.node` 명시, 서버(NestJS) 통합 가이드 추가, 설치 기반 패키지 이름 `require` 스모크 테스트(폰트 하위 경로 포함) 추가. 전용 패키지와 병행 배포는 하지 않는다.
+2. CommonJS 병행 배포(이중 빌드)까지 한다 — `require(esm)`이 없는 구형 Node도 지원하지만, 같은 클래스가 두 벌 실리는 문제(dual package hazard)를 계속 관리해야 한다.
 3. `@omdc-slipkit/nestjs` 전용 패키지를 만든다 — 배포 형식 문제는 그대로 남고(전용 패키지도 core를 불러온다), 담을 내용이 프로바이더 등록 수준으로 얇으며, 문서 3벌·프레임워크 추적 유지비가 든다. 실제 서버 사용자가 생겨 반복 코드가 확인되면 다시 검토한다.
 
-권장은 1입니다. 1을 고르면 `engines.node` 하한도 함께 정합니다: (a) `>=20.19` (CommonJS 사용 조건을 그대로 하한으로) 또는 (b) `>=22.12` (Node 20 지원 종료를 반영해 현행 LTS 기준).
+결정 2 — core 하위 진입점 분리(별도 결정, 서버 호환성의 필수 조건 아님):
+
+- (a) 5개(`format`·`formula`·`encryption`·`render`·`storage`)로 분리한다 — 검증만 쓰는 소비자가 PDF 의존성을 로드하지 않는다. 공개 API 표면과 빌드 복잡도가 늘어난다.
+- (b) 루트 진입점만 유지한다 — 지금과 같다. 부분 로딩 요구가 실제로 확인되면 다시 검토한다.
+
+결정 3 — `engines.node` 하한(결정 1에서 1·2를 고르는 경우):
+
+- (a) `>=22.13` — 경고 없이 `require(esm)`을 쓸 수 있는 가장 낮은 지원 LTS 계열. 지원 폭이 넓다.
+- (b) `>=24` — 현재 Active LTS 기준. 지원 폭은 좁아진다.
 
 **관련 범위**
 
-`packages/core/package.json`(`exports`·`engines`), core 빌드 설정(tsup 다중 진입점), core 테스트(스모크·오류 클래스 정체성), `docs/guide/integration.md` 또는 신규 서버 통합 가이드(한국어·영어·일본어 3벌), `docs/guide/api-reference.md`, `docs/TECH-RESEARCH.md`(지원 환경·점검표), `docs/REQUIREMENTS.md`(지원 환경 서술). `.slip` 파일 형식(SPEC)에는 영향이 없습니다.
+`packages/core/package.json`과 `packages/elements/package.json`(`exports`·`engines`), core 테스트(설치 기반 스모크), 하위 진입점을 분리하는 경우 core 빌드 설정(tsup 다중 진입점)과 오류 클래스 정체성 테스트, `docs/guide/integration.md` 또는 신규 서버 통합 가이드(한국어·영어·일본어 3벌), `docs/guide/api-reference.md`, `docs/TECH-RESEARCH.md`(지원 환경·점검표), `docs/REQUIREMENTS.md`(지원 환경 서술). `.slip` 파일 형식(SPEC)에는 영향이 없습니다.
 
 **결과**
 
