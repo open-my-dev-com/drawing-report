@@ -57,7 +57,7 @@ SlipKit is a pnpm workspace-based monorepo.
 
 ### Requirements
 
-- Node.js 20 or later
+- Node.js 22.13 or later
 - pnpm 10.33.0
 
 ### Set up the repository

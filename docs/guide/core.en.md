@@ -60,7 +60,7 @@ npm install @omdc-slipkit/core
 
 The main supported runtime environments are as follows.
 
-- Node.js 20 or later
+- Node.js 22.13 or later
 - A browser build environment that supports ESM and TypeScript
 - An environment that supports the Web Crypto API, if you use encryption
 

@@ -30,7 +30,7 @@ This is the way you can run it right now.
 
 ### Requirements
 
-- Node.js 20 or later
+- Node.js 22.13 or later
 - pnpm 10.33.0
 
 You can check the installed versions with:

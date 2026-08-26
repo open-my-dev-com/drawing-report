@@ -21,12 +21,17 @@
     },
     "./fonts/pretendard": {
       "types": "./dist/fonts/pretendard.d.ts",
-      "import": "./dist/fonts/pretendard.js"
+      "import": "./dist/fonts/pretendard.js",
+      "require": "./dist/fonts/pretendard.js"
     },
     "./fonts/noto-sans-jp": {
       "types": "./dist/fonts/noto-sans-jp.d.ts",
-      "import": "./dist/fonts/noto-sans-jp.js"
+      "import": "./dist/fonts/noto-sans-jp.js",
+      "require": "./dist/fonts/noto-sans-jp.js"
     }
+  },
+  "engines": {
+    "node": ">=22.13"
   },
   "files": [
     "dist",

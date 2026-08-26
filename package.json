@@ -5,7 +5,7 @@
   "description": "SlipKit — 임베드형 전표(양식 문서) 패키지 툴 모노레포",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "packageManager": "pnpm@10.33.0",
   "scripts": {

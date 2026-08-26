@@ -43,7 +43,7 @@ GitHub 스타 수, 주간 다운로드 수와 같은 변동 지표는 선택 근
 
 | 영역 | 현재 구성 | 확인 위치 |
 |---|---|---|
-| 실행 환경 | Node.js 20 이상 | 루트 `package.json` |
+| 실행 환경 | Node.js 22.13 이상 | 루트·`packages/core`·`packages/elements`의 `package.json` |
 | 패키지 관리자 | pnpm 10.33.0 | 루트 `package.json` |
 | PDF 생성 | `@pdfme/*` 6.1.12 | `packages/core/package.json`, `pnpm-lock.yaml` |
 | 스키마 검증 | Zod 4.4.3 | `packages/core/package.json`, `pnpm-lock.yaml` |
@@ -515,6 +515,7 @@ SlipKit은 pnpm workspace로 다음 패키지와 예제를 관리합니다.
 - [ ] 번들에 새 런타임 의존성이 포함되는가
 - [ ] 공개 API나 `.slip` 형식에 내부 타입이 노출되는가
 - [ ] 보안 공지와 알려진 취약점을 확인했는가
+- [ ] CommonJS에서 패키지 이름 `require` 스모크 테스트가 통과하는가 (top-level `await` 유입 감지)
 - [ ] 기존 테스트와 데모가 통과하는가
 
 ### PDF 관련

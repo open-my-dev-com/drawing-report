@@ -5,7 +5,7 @@
  * 잘못된 키나 변조된 파일은 복호화 단계에서 걸러진다. 키 관리·전달은 호스트 책임이며,
  * 잠근 파일은 표준 `.slip`이 아니라 다른 시스템과 그대로 주고받을 수 없다 (SPEC §8).
  *
- * 암호는 Web Crypto API로 구현한다 — core는 순수 TS라 Node 20+·모던 브라우저의 표준
+ * 암호는 Web Crypto API로 구현한다 — core는 순수 TS라 Node 22.13+·모던 브라우저의 표준
  * `crypto.subtle`만 쓴다 (ADR-002).
  */
 import { parseSlipFile, serializeSlipFile, type SlipFile } from '../format/schema.js';
@@ -67,7 +67,7 @@ function requireSubtle(): SubtleLike {
   const subtle = typeof crypto !== 'undefined' ? crypto.subtle : undefined;
   if (!subtle) {
     throw new SlipEncryptionError(
-      'Web Crypto API(crypto.subtle)를 사용할 수 없습니다 — Node 20+ 또는 모던 브라우저가 필요합니다',
+      'Web Crypto API(crypto.subtle)를 사용할 수 없습니다 — Node 22.13+ 또는 모던 브라우저가 필요합니다',
     );
   }
   return subtle as unknown as SubtleLike;

@@ -60,7 +60,7 @@ npm install @omdc-slipkit/core
 
 主にサポートする実行環境は次のとおりです。
 
-- Node.js 20 以上
+- Node.js 22.13 以上
 - ESM と TypeScript をサポートするブラウザビルド環境
 - 暗号化機能を使う場合は Web Crypto API をサポートする環境
 
