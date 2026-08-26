@@ -495,9 +495,9 @@ export class SlipForm extends LitElement {
 
     let file: SlipFile;
     try {
-      file = parseSlipFile(this.src);
+      file = parseSlipFile(this.src, this.locale === undefined ? undefined : { locale: this.locale });
     } catch (error) {
-      console.error('[slip-form] .slip 파싱 실패:', error);
+      console.error('[slip-form] .slip parse failed:', error);
       this._body = null;
       this._error = this._t.parseError;
       return;
@@ -663,9 +663,9 @@ export class SlipForm extends LitElement {
     const voucher = this._buildVoucher(true);
     try {
       // 파서로 외부 URL 금지 등 발행 전표의 제약을 검증한다.
-      parseSlipFile(serializeSlipFile(voucher));
+      parseSlipFile(serializeSlipFile(voucher), this.locale === undefined ? undefined : { locale: this.locale });
     } catch (error) {
-      console.error('[slip-form] 발행 실패:', error);
+      console.error('[slip-form] issue failed:', error);
       this._issueError = `${this._t.issueError} ${error instanceof Error ? error.message : String(error)}`;
       this._issuing = false;
       this.requestUpdate();
@@ -711,13 +711,14 @@ export class SlipForm extends LitElement {
       // 설정된 폰트가 없으면 기본 폰트를 사용한다.
       const opts: RenderOptions = {
         getFonts: () => resolveFonts(this.settings, this.locale),
+        ...(this.locale === undefined ? {} : { locale: this.locale }),
       };
       const pdfBytes = await renderSlipToPdf(this._buildVoucher(this._issued), opts);
       if (gen !== this._previewGeneration) return;
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._previewUrl = URL.createObjectURL(blob);
     } catch (error) {
-      console.error('[slip-form] PDF 미리보기 생성 실패:', error);
+      console.error('[slip-form] PDF preview failed:', error);
       if (gen !== this._previewGeneration) return;
       this._previewError = this._t.previewError;
     }
@@ -781,7 +782,12 @@ export class SlipForm extends LitElement {
       try {
         // 빈 number 파라미터를 0으로 정규화한 뒤 계산한다.
         const values = normalizeNumericParameters(this._values, this._body?.parameters);
-        text = resultText(evaluateFormula(input.formula, { values }));
+        text = resultText(
+          evaluateFormula(input.formula, {
+            values,
+            ...(this.locale === undefined ? {} : { locale: this.locale }),
+          }),
+        );
       } catch (e) {
         error = e instanceof Error ? e.message : String(e);
       }

@@ -13,6 +13,7 @@ import {
   SlipEncryptionError,
   type SlipFile,
 } from '@omdc-slipkit/core';
+import { getStrings } from '../strings.js';
 
 /**
  * 키를 지정하지 않은 데모에서 사용하는 샘플 키.
@@ -62,14 +63,16 @@ function decryptionKeys(encryption?: StorageEncryption): (string | Uint8Array)[]
  *
  * @param file - 저장할 `.slip` 파일
  * @param encryption - 어댑터 암호화 설정 (생략·비활성이면 평문)
+ * @param locale - 오류 메시지에 사용할 BCP 47 로케일 (생략하면 영어)
  * @returns 저장할 JSON 문자열
  */
 export function serializeForStorage(
   file: SlipFile,
   encryption?: StorageEncryption,
+  locale?: string,
 ): Promise<string> {
   if (encryption?.enabled) {
-    return encryptSlipFile(file, resolveKey(encryption));
+    return encryptSlipFile(file, resolveKey(encryption), locale === undefined ? undefined : { locale });
   }
   return Promise.resolve(serializeSlipFile(file));
 }
@@ -80,6 +83,7 @@ export function serializeForStorage(
  *
  * @param text - 저장소에서 읽은 JSON 문자열
  * @param encryption - 어댑터 암호화 설정 (봉투를 풀 때만 쓴다)
+ * @param locale - 오류 메시지에 사용할 BCP 47 로케일 (생략하면 영어)
  * @returns 검증까지 끝난 `.slip` 파일
  * @throws SlipEncryptionError 현재 키와 이전 키로 복호화할 수 없거나 파일이 변조된 경우
  * @throws SlipParseError 내용이 유효한 `.slip`이 아니면
@@ -87,13 +91,15 @@ export function serializeForStorage(
 export async function deserializeFromStorage(
   text: string,
   encryption?: StorageEncryption,
+  locale?: string,
 ): Promise<SlipFile> {
-  if (!isEncryptedSlipFile(text)) return parseSlipFile(text);
+  const options = locale === undefined ? undefined : { locale };
+  if (!isEncryptedSlipFile(text)) return parseSlipFile(text, options);
   // 키가 맞지 않아 복호화에 실패한 경우에만 다음 키를 시도한다.
   let lastError: unknown;
   for (const key of decryptionKeys(encryption)) {
     try {
-      return await decryptSlipFile(text, key);
+      return await decryptSlipFile(text, key, options);
     } catch (error) {
       if (!(error instanceof SlipEncryptionError)) throw error;
       lastError = error;
@@ -101,5 +107,5 @@ export async function deserializeFromStorage(
   }
   throw lastError instanceof Error
     ? lastError
-    : new SlipEncryptionError('복호화에 실패했습니다 — 맞는 키가 없습니다');
+    : new SlipEncryptionError(getStrings(locale).storage.noMatchingKey);
 }

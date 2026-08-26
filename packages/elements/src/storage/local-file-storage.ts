@@ -21,6 +21,7 @@ import {
 export class LocalFileStorage implements StorageAdapter {
   private readonly messages: SlipStrings['storage'];
   private readonly encryption: StorageEncryption | undefined;
+  private readonly locale: string | undefined;
 
   /**
    * @param options - 오류 메시지 언어와 저장 시 적용할 암호화 설정
@@ -28,6 +29,7 @@ export class LocalFileStorage implements StorageAdapter {
   constructor(options: { locale?: string; encryption?: StorageEncryption } = {}) {
     this.messages = getStrings(options.locale).storage;
     this.encryption = options.encryption;
+    this.locale = options.locale;
   }
 
   /**
@@ -37,7 +39,7 @@ export class LocalFileStorage implements StorageAdapter {
    * @param file - 저장할 `.slip` 파일
    */
   async save(id: string, file: SlipFile): Promise<void> {
-    const json = await serializeForStorage(file, this.encryption);
+    const json = await serializeForStorage(file, this.encryption, this.locale);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     try {
@@ -79,7 +81,7 @@ export class LocalFileStorage implements StorageAdapter {
         }
         picked
           .text()
-          .then((text) => deserializeFromStorage(text, this.encryption))
+          .then((text) => deserializeFromStorage(text, this.encryption, this.locale))
           .then(resolve)
           .catch((error: unknown) => reject(error));
       });

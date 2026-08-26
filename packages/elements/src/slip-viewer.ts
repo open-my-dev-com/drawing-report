@@ -113,9 +113,9 @@ export class SlipViewer extends LitElement {
 
     let file: SlipFile;
     try {
-      file = parseSlipFile(this.src);
+      file = parseSlipFile(this.src, this.locale === undefined ? undefined : { locale: this.locale });
     } catch (error) {
-      console.error('[slip-viewer] .slip 파싱 실패:', error);
+      console.error('[slip-viewer] .slip parse failed:', error);
       this._loading = false;
       this._error = this._t.parseError;
       return;
@@ -125,13 +125,14 @@ export class SlipViewer extends LitElement {
       // 호스트가 폰트를 제공하지 않으면 UI 언어에 맞는 동봉 폰트를 사용한다.
       const opts: RenderOptions = {
         getFonts: () => resolveFonts(this.settings, this.locale),
+        ...(this.locale === undefined ? {} : { locale: this.locale }),
       };
       const pdfBytes = await renderSlipToPdf(file, opts);
       if (gen !== this._renderGeneration) return;
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._pdfUrl = URL.createObjectURL(blob);
     } catch (error) {
-      console.error('[slip-viewer] PDF 렌더링 실패:', error);
+      console.error('[slip-viewer] PDF rendering failed:', error);
       if (gen !== this._renderGeneration) return;
       this._error = this._t.renderError;
     } finally {

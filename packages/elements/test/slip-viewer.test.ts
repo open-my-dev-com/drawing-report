@@ -17,7 +17,10 @@ vi.mock('../src/default-fonts.js', () => ({
 
 import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
 import type { SlipFile } from '@omdc-slipkit/core';
-import { strings } from '../src/strings.js';
+import { getStrings } from '../src/strings.js';
+
+// 컴포넌트 기본 언어(영어)의 문구 사전으로 화면 문구를 확인한다.
+const strings = getStrings();
 
 const parseSlipFileMock = vi.mocked(parseSlipFile);
 const renderSlipToPdfMock = vi.mocked(renderSlipToPdf);

@@ -26,8 +26,9 @@ describe('수식 함수 도움말 (D-12)', () => {
     }
   });
 
-  it('모르는 로케일은 한국어로 돌아간다', () => {
-    expect(getFormulaHelp('fr')).toEqual(getFormulaHelp('ko'));
+  it('모르는 로케일은 영어로 돌아간다', () => {
+    expect(getFormulaHelp('fr')).toEqual(getFormulaHelp('en'));
+    expect(getFormulaHelp(undefined)).toEqual(getFormulaHelp('en'));
     expect(getFormulaHelp('en-US')).toEqual(getFormulaHelp('en'));
     expect(getFormulaHelp('ja-JP')).toEqual(getFormulaHelp('ja'));
   });

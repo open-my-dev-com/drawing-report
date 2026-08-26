@@ -23,7 +23,10 @@ vi.mock('../src/default-fonts.js', () => ({
 
 import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
 import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
-import { strings } from '../src/strings.js';
+import { getStrings } from '../src/strings.js';
+
+// 컴포넌트 기본 언어(영어)의 문구 사전으로 화면 문구를 확인한다.
+const strings = getStrings();
 
 const parseSlipFileMock = vi.mocked(parseSlipFile);
 const renderSlipToPdfMock = vi.mocked(renderSlipToPdf);
@@ -2957,12 +2960,12 @@ describe('<slip-designer> UI 언어', () => {
   });
 
   it('locale을 바꾸면 화면 문구가 그 언어로 갱신된다', async () => {
-    const el = await loadDesigner(); // 기본 한국어
+    const el = await loadDesigner(); // 기본 영어
     expect(toolbarButton(el, strings.designer.addText)).toBeTruthy();
 
-    el.locale = 'en';
+    el.locale = 'ko';
     await el.updateComplete;
-    expect(toolbarButton(el, 'Text')).toBeTruthy();
+    expect(toolbarButton(el, '텍스트')).toBeTruthy();
     el.remove();
   });
 });
@@ -4617,7 +4620,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     expect(cellRows.length).toBe(1);
     // 목록에는 칸 이름을 표시하고 행·열 위치는 툴팁으로 제공한다.
     expect(cellRows[0]!.textContent?.trim()).toBe('품명');
-    expect(cellRows[0]!.getAttribute('title')).toContain('2행'); // 2행 1열
+    expect(cellRows[0]!.getAttribute('title')).toContain('Row 2'); // 2행 1열
 
     // 하위 줄을 누르면 그 칸이 선택된다
     (cellRows[0] as HTMLElement).click();

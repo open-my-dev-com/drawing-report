@@ -4,7 +4,7 @@
  * 화면을 그리는 방법은 프레임워크마다 다르지만, 무엇을 저장하고 언제 이어 쓰며
  * 어떤 문구를 보여줄지는 같다. 그 공통 부분만 여기에 두고 각 데모는 화면만 만든다.
  */
-import { presets, IndexedDbStorage, LocalFileStorage } from '@omdc-slipkit/elements';
+import { getPresets, IndexedDbStorage, LocalFileStorage } from '@omdc-slipkit/elements';
 import {
   SlipStorageError,
   type SlipFile,
@@ -38,7 +38,7 @@ export function createStores(dbName: string): {
 
 /** 처음 열 때 보여줄 양식 — 동봉 프리셋의 첫 번째 */
 export function initialTemplate(): SlipTemplateFile {
-  return presets[0]!.create();
+  return getPresets()[0]!.create();
 }
 
 /** 전표에 담긴 양식 스냅샷을 편집용 양식으로 되돌린다 */

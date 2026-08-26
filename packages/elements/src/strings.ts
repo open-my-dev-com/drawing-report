@@ -304,6 +304,33 @@ const ko = {
     pickCancelled: '파일 선택이 취소되었습니다.',
     deleteUnsupported: '로컬 파일 저장소는 삭제를 지원하지 않습니다.',
     listUnsupported: '로컬 파일 저장소는 목록 조회를 지원하지 않습니다.',
+    noMatchingKey: '복호화에 실패했습니다 — 맞는 키가 없습니다',
+  },
+  preset: {
+    registrationNo: '등록번호',
+    company: '상호',
+    personName: '성명',
+    address: '주소',
+    titleElement: '제목',
+    tradeDate: '거래일자',
+    supplierInfo: '공급자 정보',
+    itemsTable: '품목 표',
+    items: '품목',
+    itemName: '품명',
+    spec: '규격',
+    quantity: '수량',
+    unitPrice: '단가',
+    amount: '금액',
+    totalAmount: '합계금액',
+    footer: '맺음말',
+    tradeFooterText: '위와 같이 거래합니다.',
+    invoiceDate: '청구일자',
+    invoiceItems: '청구 항목',
+    item: '항목',
+    billerInfo: '청구인 정보',
+    invoiceItemsTable: '청구 항목 표',
+    amountDue: '청구금액',
+    invoiceFooterText: '위 금액을 청구합니다.',
   },
 };
 
@@ -340,10 +367,10 @@ const en: SlipStrings = {
     addPage: 'Add page',
     deletePage: 'Delete page',
     showBadges: 'Show element types',
-    grid: 'Grid',
-    gridNone: 'No grid',
-    gridGap: 'Grid size',
-    gridColor: 'Grid color',
+    grid: 'Grid lines',
+    gridNone: 'No grid lines',
+    gridGap: 'Grid line spacing',
+    gridColor: 'Grid line color',
     colorGray: 'Gray',
     colorBlue: 'Blue',
     colorRed: 'Red',
@@ -604,6 +631,33 @@ const en: SlipStrings = {
     pickCancelled: 'File selection was cancelled.',
     deleteUnsupported: 'Local file storage does not support delete.',
     listUnsupported: 'Local file storage does not support listing.',
+    noMatchingKey: 'Decryption failed — no matching key',
+  },
+  preset: {
+    registrationNo: 'Registration no.',
+    company: 'Company',
+    personName: 'Name',
+    address: 'Address',
+    titleElement: 'Title',
+    tradeDate: 'Transaction date',
+    supplierInfo: 'Supplier info',
+    itemsTable: 'Items table',
+    items: 'Items',
+    itemName: 'Item name',
+    spec: 'Spec',
+    quantity: 'Qty',
+    unitPrice: 'Unit price',
+    amount: 'Amount',
+    totalAmount: 'Total amount',
+    footer: 'Closing note',
+    tradeFooterText: 'The above transaction is confirmed.',
+    invoiceDate: 'Invoice date',
+    invoiceItems: 'Invoice items',
+    item: 'Item',
+    billerInfo: 'Biller info',
+    invoiceItemsTable: 'Invoice items table',
+    amountDue: 'Amount due',
+    invoiceFooterText: 'Please pay the amount above.',
   },
 };
 
@@ -903,6 +957,33 @@ const ja: SlipStrings = {
     pickCancelled: 'ファイル選択がキャンセルされました。',
     deleteUnsupported: 'ローカルファイルストレージは削除に対応していません。',
     listUnsupported: 'ローカルファイルストレージは一覧取得に対応していません。',
+    noMatchingKey: '復号に失敗しました — 一致するキーがありません',
+  },
+  preset: {
+    registrationNo: '登録番号',
+    company: '商号',
+    personName: '氏名',
+    address: '住所',
+    titleElement: 'タイトル',
+    tradeDate: '取引日',
+    supplierInfo: '供給者情報',
+    itemsTable: '品目表',
+    items: '品目',
+    itemName: '品名',
+    spec: '規格',
+    quantity: '数量',
+    unitPrice: '単価',
+    amount: '金額',
+    totalAmount: '合計金額',
+    footer: '結びの文',
+    tradeFooterText: '上記のとおり取引します。',
+    invoiceDate: '請求日',
+    invoiceItems: '請求項目',
+    item: '項目',
+    billerInfo: '請求者情報',
+    invoiceItemsTable: '請求項目表',
+    amountDue: '請求金額',
+    invoiceFooterText: '上記の金額を請求します。',
   },
 };
 
@@ -911,26 +992,23 @@ export const STRINGS: Record<SlipLocale, SlipStrings> = { ko, en, ja };
 
 /**
  * 로케일 문자열을 지원 언어({@link SlipLocale})로 정규화한다. 지역 코드가 포함되면
- * 언어 코드만 사용하며 지원하지 않는 언어는 한국어로 처리한다.
+ * 언어 코드만 사용하며 지원하지 않는 언어는 영어로 처리한다.
  *
- * @param locale - UI 언어 (생략하면 한국어)
+ * @param locale - UI 언어 (생략하면 영어)
  * @returns 정규화된 지원 언어 코드
  */
 export function normalizeLocale(locale?: string): SlipLocale {
   const language = locale?.toLowerCase().split('-')[0];
-  return language && language in STRINGS ? (language as SlipLocale) : 'ko';
+  return language && language in STRINGS ? (language as SlipLocale) : 'en';
 }
 
 /**
  * 로케일에 맞는 문구 사전을 반환한다. 지역 코드는 제거하고 지원하지 않는 언어는
- * 한국어로 처리한다.
+ * 영어로 처리한다.
  *
- * @param locale - UI 언어 (생략하면 한국어)
+ * @param locale - UI 언어 (생략하면 영어)
  * @returns 해당 언어의 문구 사전
  */
 export function getStrings(locale?: string): SlipStrings {
   return STRINGS[normalizeLocale(locale)];
 }
-
-/** 한국어 문구 사전. */
-export const strings = ko;

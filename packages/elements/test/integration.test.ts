@@ -17,8 +17,11 @@ import {
   type SlipTemplateFile,
   type SlipVoucherFile,
 } from '@omdc-slipkit/core';
-import { SlipDesigner, presets, IndexedDbStorage } from '../src/index.js';
-import { strings } from '../src/strings.js';
+import { SlipDesigner, getPresets, IndexedDbStorage } from '../src/index.js';
+import { getStrings } from '../src/strings.js';
+
+// 컴포넌트 기본 언어(영어)의 문구 사전으로 화면 문구를 확인한다.
+const strings = getStrings();
 
 if (!customElements.get('slip-designer')) {
   customElements.define('slip-designer', SlipDesigner);
@@ -46,7 +49,7 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 저
   beforeAll(async () => {
     designer = document.createElement('slip-designer') as SlipDesigner;
     document.body.appendChild(designer);
-    designer.src = serializeSlipFile(presets[0]!.create()); // 거래명세서 프리셋
+    designer.src = serializeSlipFile(getPresets()[0]!.create()); // 거래명세서 프리셋
     await designer.updateComplete;
     await flush();
     await designer.updateComplete;

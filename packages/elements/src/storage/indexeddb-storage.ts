@@ -79,6 +79,7 @@ export class IndexedDbStorage implements StorageAdapter {
   private readonly pageSize: number;
   private readonly messages: SlipStrings['storage'];
   private readonly encryption: StorageEncryption | undefined;
+  private readonly locale: string | undefined;
   private dbPromise: Promise<IDBDatabase> | null = null;
 
   /**
@@ -89,6 +90,7 @@ export class IndexedDbStorage implements StorageAdapter {
     this.pageSize = options.pageSize ?? 50;
     this.messages = getStrings(options.locale).storage;
     this.encryption = options.encryption;
+    this.locale = options.locale;
   }
 
   private open(): Promise<IDBDatabase> {
@@ -142,7 +144,7 @@ export class IndexedDbStorage implements StorageAdapter {
       kind: file.kind,
       title: fileTitle(file),
       updatedAt: new Date().toISOString(),
-      data: new Blob([await serializeForStorage(file, this.encryption)]),
+      data: new Blob([await serializeForStorage(file, this.encryption, this.locale)]),
     };
     await request((await this.store('readwrite')).put(record), this.messages.ioError);
   }
@@ -164,7 +166,7 @@ export class IndexedDbStorage implements StorageAdapter {
     }
     // 마이그레이션되지 않은 버전 1 문자열도 읽을 수 있다.
     const data = typeof record.data === 'string' ? record.data : await record.data.text();
-    return deserializeFromStorage(data, this.encryption);
+    return deserializeFromStorage(data, this.encryption, this.locale);
   }
 
   /**

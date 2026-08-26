@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STRINGS, getStrings, strings } from '../src/strings.js';
+import { STRINGS, getStrings } from '../src/strings.js';
 
 // 타입 검사 외에 각 언어 사전의 런타임 값도 확인한다.
 
@@ -17,14 +17,13 @@ describe('UI 문구 사전 (ADR-013/028)', () => {
     }
   });
 
-  it('getStrings는 언어만 보고 사전을 고르고, 모르는 로케일은 한국어로 돌아간다', () => {
+  it('getStrings는 언어만 보고 사전을 고르고, 모르는 로케일은 영어로 돌아간다', () => {
     expect(getStrings('en')).toBe(STRINGS.en);
     expect(getStrings('en-US')).toBe(STRINGS.en);
     expect(getStrings('ja')).toBe(STRINGS.ja);
     expect(getStrings('ja-JP')).toBe(STRINGS.ja);
     expect(getStrings('ko-KR')).toBe(STRINGS.ko);
-    expect(getStrings('fr')).toBe(STRINGS.ko);
-    expect(getStrings(undefined)).toBe(STRINGS.ko);
-    expect(strings).toBe(STRINGS.ko);
+    expect(getStrings('fr')).toBe(STRINGS.en);
+    expect(getStrings(undefined)).toBe(STRINGS.en);
   });
 });

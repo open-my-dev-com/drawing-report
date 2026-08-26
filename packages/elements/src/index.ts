@@ -1,7 +1,7 @@
 export { SlipViewer } from './slip-viewer.js';
 export { SlipDesigner } from './slip-designer.js';
 export { SlipForm } from './slip-form.js';
-export { presets, type SlipPreset } from './presets.js';
+export { getPresets, type SlipPreset } from './presets.js';
 export {
   type SlipFont,
   type SlipFontProvider,

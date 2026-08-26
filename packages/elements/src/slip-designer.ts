@@ -29,7 +29,7 @@ import {
 import { getStrings } from './strings.js';
 import { getFormulaHelp } from './formula-help.js';
 import { resolveFonts, type SlipDesignerSettings, type PaperSize } from './settings.js';
-import { presets, type SlipPreset } from './presets.js';
+import { getPresets, type SlipPreset } from './presets.js';
 import { icons } from './icons.js';
 import { pickImageFile, formatBytes } from './image-file.js';
 
@@ -3131,9 +3131,9 @@ export class SlipDesigner extends LitElement {
 
     let file: SlipFile;
     try {
-      file = parseSlipFile(this.src);
+      file = parseSlipFile(this.src, this.locale === undefined ? undefined : { locale: this.locale });
     } catch (error) {
-      console.error('[slip-designer] .slip 파싱 실패:', error);
+      console.error('[slip-designer] .slip parse failed:', error);
       this._file = null;
       this._error = this._strings.designer.parseError;
       return;
@@ -4622,6 +4622,7 @@ export class SlipDesigner extends LitElement {
       // 호스트가 폰트를 제공하지 않으면 UI 언어에 맞는 동봉 폰트를 사용한다.
       const opts: RenderOptions = {
         getFonts: () => resolveFonts(this.settings, this.locale),
+        ...(this.locale === undefined ? {} : { locale: this.locale }),
       };
       // 샘플 값이 있으면 해당 값을 적용한 전표를 미리보기로 렌더링한다.
       // 파일 자체는 양식 그대로 두고 렌더 입력만 전표 형태로 만든다.
@@ -4641,7 +4642,7 @@ export class SlipDesigner extends LitElement {
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._previewUrl = URL.createObjectURL(blob);
     } catch (error) {
-      console.error('[slip-designer] PDF 미리보기 생성 실패:', error);
+      console.error('[slip-designer] PDF preview failed:', error);
       if (gen !== this._previewGeneration) return;
       // 미리보기 화면에 오류를 표시하고 편집 버튼은 유지한다.
       this._previewError = this._strings.designer.previewError;
@@ -4904,9 +4905,9 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 호스트가 지정한 프리셋 또는 기본 프리셋을 반환한다. */
+  /** 호스트가 지정한 프리셋 또는 현재 locale의 기본 프리셋을 반환한다. */
   private _presetList(): SlipPreset[] {
-    return this.presets?.length ? this.presets : presets;
+    return this.presets?.length ? this.presets : getPresets(this.locale);
   }
 
   /** 프리셋 메뉴를 버튼 아래의 화면 고정 위치에서 열거나 닫는다. */
@@ -6277,7 +6278,10 @@ export class SlipDesigner extends LitElement {
     }
     if (cell.formula !== undefined) {
       try {
-        const result = evaluateFormula(cell.formula, { values });
+        const result = evaluateFormula(cell.formula, {
+          values,
+          ...(this.locale === undefined ? {} : { locale: this.locale }),
+        });
         return result === null ? '' : String(result);
       } catch {
         return `= ${cell.formula}`;
@@ -6298,7 +6302,10 @@ export class SlipDesigner extends LitElement {
     }
     if (cell.formula !== undefined) {
       try {
-        const result = evaluateFormula(cell.formula, { values });
+        const result = evaluateFormula(cell.formula, {
+          values,
+          ...(this.locale === undefined ? {} : { locale: this.locale }),
+        });
         return result === null ? '' : String(result);
       } catch {
         return '';
@@ -8682,11 +8689,14 @@ export class SlipDesigner extends LitElement {
     let previewError: string | null = null;
     if (draft.trim() !== '') {
       try {
-        parseFormula(draft);
+        parseFormula(draft, this.locale === undefined ? undefined : { locale: this.locale });
         try {
           // 샘플 값이 없으면 파라미터 종류별 기본값으로 수식을 검사한다.
           preview = formulaPreviewText(
-            evaluateFormula(draft, { values: this._formulaProbeValues() }),
+            evaluateFormula(draft, {
+              values: this._formulaProbeValues(),
+              ...(this.locale === undefined ? {} : { locale: this.locale }),
+            }),
           );
         } catch (error) {
           // 계산 오류는 표시하되 문법이 유효한 수식은 적용할 수 있다.

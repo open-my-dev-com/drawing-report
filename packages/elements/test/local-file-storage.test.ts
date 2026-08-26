@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { serializeSlipFile, isEncryptedSlipFile, type SlipFile } from '@omdc-slipkit/core';
 import { LocalFileStorage } from '../src/storage/local-file-storage.js';
 import { type StorageEncryption } from '../src/storage/encryption.js';
-import { presets } from '../src/presets.js';
+import { getPresets } from '../src/presets.js';
+
+const presets = getPresets();
 
 afterEach(() => {
   vi.restoreAllMocks();

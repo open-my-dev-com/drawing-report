@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { serializeSlipFile, isEncryptedSlipFile } from '@omdc-slipkit/core';
 import { IndexedDbStorage } from '../src/storage/indexeddb-storage.js';
 import { SAMPLE_ENCRYPTION_KEY } from '../src/storage/encryption.js';
-import { presets } from '../src/presets.js';
+import { getPresets } from '../src/presets.js';
+
+const presets = getPresets();
 
 // fake-indexeddb로 저장소 동작을 재현하고 core 직렬화 API는 실제 구현을 사용한다.
 
@@ -49,9 +51,9 @@ describe('IndexedDbStorage', () => {
     expect(all.items.length).toBe(2);
     expect(all.nextCursor).toBeUndefined();
 
-    const byQuery = await storage.list({ query: '청구' });
+    const byQuery = await storage.list({ query: 'Invoi' });
     expect(byQuery.items.map((i) => i.id)).toEqual(['invoice']);
-    expect(byQuery.items[0]).toMatchObject({ kind: 'template', title: '청구서' });
+    expect(byQuery.items[0]).toMatchObject({ kind: 'template', title: 'Invoice' });
 
     const byKind = await storage.list({ kind: 'voucher' });
     expect(byKind.items.length).toBe(0);

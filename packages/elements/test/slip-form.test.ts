@@ -24,7 +24,10 @@ import {
   type SlipVoucherFile,
 } from '@omdc-slipkit/core';
 import { SlipForm } from '../src/slip-form.js';
-import { strings } from '../src/strings.js';
+import { getStrings } from '../src/strings.js';
+
+// 컴포넌트 기본 언어(영어)의 문구 사전으로 화면 문구를 확인한다.
+const strings = getStrings();
 
 const renderSlipToPdfMock = vi.mocked(renderSlipToPdf);
 const DUMMY_PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46]);

@@ -248,12 +248,12 @@ const HELP = { ko, en, ja } as const;
 
 /**
  * 로케일에 맞는 함수 도움말을 반환한다. 지역 코드가 포함되면 언어 코드만 사용하며
- * 지원하지 않는 언어는 한국어로 처리한다.
+ * 지원하지 않는 언어는 영어로 처리한다.
  *
- * @param locale - UI 언어 (생략하면 한국어)
+ * @param locale - UI 언어 (생략하면 영어)
  * @returns 분류별 함수 도움말 목록
  */
 export function getFormulaHelp(locale?: string): FormulaHelpCategory[] {
   const language = locale?.toLowerCase().split('-')[0];
-  return language && language in HELP ? HELP[language as keyof typeof HELP] : HELP.ko;
+  return language && language in HELP ? HELP[language as keyof typeof HELP] : HELP.en;
 }
