@@ -370,6 +370,18 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
   });
 
+  it('embed를 지정하면 PDF 바이트가 내장 리소스로 함께 반환된다', async () => {
+    const result = await client.callTool({
+      name: 'slip_render_pdf',
+      arguments: { path: 'doc', embed: true },
+    });
+    const content = result.content as { type: string; resource?: { mimeType?: string; blob?: string } }[];
+    const embedded = content.find((entry) => entry.type === 'resource');
+    expect(embedded?.resource?.mimeType).toBe('application/pdf');
+    const bytes = Buffer.from(embedded?.resource?.blob ?? '', 'base64');
+    expect(bytes.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
   it('slip_schema가 주제별 안내를 반환한다', async () => {
     const overview = await callText(client, 'slip_schema', { topic: 'overview' });
     expect(overview.text).toContain('schemaVersion');
