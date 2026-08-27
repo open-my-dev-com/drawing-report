@@ -1151,13 +1151,48 @@ export class SlipDesigner extends LitElement {
       border-color: var(--sk-accent);
       color: var(--sk-accent);
     }
-    /* 파라미터 패널의 "쓰는 곳" 한 줄  */
-    /* 셀 편집 중 그리드로 돌아가는 줄 — 지금 어느 그리드의 셀인지 보이게 한다  */
+    /* 셀 편집 중 그리드 전체 설정으로 돌아가는 탐색 버튼 */
     .grid-back {
-      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 36px;
+      margin: 8px 0 0;
+      padding: 6px 8px;
+      border: none;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      color: var(--sk-text);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      text-align: left;
     }
-    .grid-back svg:first-child {
-      transform: rotate(180deg);
+    .grid-back:hover {
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+    }
+    .grid-back:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -1px;
+    }
+    .grid-back svg {
+      flex: 0 0 14px;
+      width: 14px;
+      height: 14px;
+    }
+    .grid-back-label {
+      flex: none;
+      font-weight: 600;
+    }
+    .grid-back-name {
+      min-width: 0;
+      margin-left: auto;
+      overflow: hidden;
+      color: var(--sk-text-muted);
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     /* 패널에서 항목을 더하는 줄 — 사이드바 추가 버튼과 같은 결로  */
     /* 물리친 입력 안내 — 값이 조용히 사라진 것처럼 보이지 않게 무엇이 잘못됐는지 알린다 */
@@ -1714,78 +1749,95 @@ export class SlipDesigner extends LitElement {
       grid-row: 2;
       grid-column: 3;
       border-left: 1px solid var(--sk-border);
-      padding: 12px;
+      padding: 0 14px 20px;
       overflow-y: auto;
       overflow-x: hidden;
-      background: var(--sk-bg);
+      scrollbar-gutter: stable;
+      background: #fafbfc;
     }
     .prop-section {
-      margin-bottom: 14px;
-      padding-bottom: 10px;
+      margin: 0;
+      padding: 14px 0;
       border-bottom: 1px solid var(--sk-border);
     }
     .prop-section:last-child {
       border-bottom: none;
     }
     .prop-section-title {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--sk-text-muted);
-      margin-bottom: 6px;
-    }
-    .type-name {
+      margin: 0 0 10px;
       font-size: 12px;
       font-weight: 600;
+      line-height: 18px;
       color: var(--sk-text);
-      margin-bottom: 10px;
     }
-    /* 그룹 패널의 묶기·해제 버튼 줄  */
+    .type-name {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      margin: 0 -14px;
+      padding: 12px 14px 11px;
+      border-bottom: 1px solid var(--sk-border);
+      background: rgba(250, 251, 252, 0.96);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: var(--sk-text);
+      backdrop-filter: blur(4px);
+    }
     .group-actions {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin: 6px 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+      gap: 8px;
+      margin: 0;
+    }
+    .group-actions .btn {
+      min-height: 32px;
+      padding-inline: 10px;
     }
     .prop-row {
       display: flex;
       align-items: center;
-      margin: 3px 0;
-      gap: 6px;
+      min-height: 32px;
+      margin: 0 0 8px;
+      gap: 8px;
     }
-    /* 라벨 폭을 고정해 모든 입력 박스의 시작 위치를 맞춘다 (긴 라벨은 줄바꿈) */
+    .prop-row:last-child {
+      margin-bottom: 0;
+    }
     .prop-row label {
-      width: 68px;
+      width: 72px;
       flex: none;
       font-size: 12px;
-      line-height: 1.25;
-      overflow-wrap: break-word;
+      line-height: 16px;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
       color: var(--sk-text-muted);
     }
-    /* 긴 라벨은 68px 셀에서 여러 줄로 접혀 읽기 나쁘다 — 라벨을 위, 입력을 아래로 둔다 */
     .prop-row.stacked {
       flex-direction: column;
       align-items: stretch;
-      gap: 3px;
+      gap: 6px;
     }
     .prop-row.stacked label {
       width: auto;
     }
-    .prop-row.stacked input,
-    /* 체크박스는 고유 크기를 유지한다. */
-    .prop-row.stacked input.stacked-check {
-      width: auto;
-      align-self: flex-start;
+    .prop-row.stacked input:not([type='checkbox']),
+    .prop-row.stacked textarea,
+    .prop-row.stacked .list-select {
+      flex: none;
+      width: 100%;
     }
     /* 네이티브 select를 대신하는 리스트형 선택 상자 */
     .list-select {
       flex: 1;
       min-width: 0;
       width: 0;
+      min-height: 32px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 6px;
-      padding: 3px 6px;
+      padding: 5px 8px;
       border: 1px solid var(--sk-border-strong);
       border-radius: var(--sk-radius);
       background: var(--sk-surface);
@@ -1805,9 +1857,17 @@ export class SlipDesigner extends LitElement {
       white-space: nowrap;
     }
     .list-select .list-select-caret {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       flex: none;
-      font-size: 9px;
-      opacity: 0.7;
+      width: 14px;
+      height: 14px;
+      color: var(--sk-text-muted);
+    }
+    .list-select .list-select-caret svg {
+      width: 14px;
+      height: 14px;
     }
     .prop-row.stacked .list-select {
       width: 100%;
@@ -1825,7 +1885,8 @@ export class SlipDesigner extends LitElement {
       flex: 1;
       min-width: 0;
       width: 0;
-      padding: 3px 6px;
+      min-height: 32px;
+      padding: 5px 8px;
       border: 1px solid var(--sk-border-strong);
       border-radius: var(--sk-radius);
       background: var(--sk-surface);
@@ -1833,67 +1894,112 @@ export class SlipDesigner extends LitElement {
       font-family: inherit;
       color: inherit;
     }
-    /* 체크박스 크기를 고정하고 다른 속성 입력과 왼쪽 시작 위치를 맞춘다. */
     .prop-row input[type='checkbox'] {
+      appearance: none;
+      -webkit-appearance: none;
       flex: none;
-      width: 16px;
-      height: 16px;
-      margin: 0;
+      width: 32px;
+      min-height: 0;
+      height: 18px;
+      margin: 0 0 0 auto;
       padding: 0;
-      accent-color: var(--sk-accent);
+      border: 1px solid var(--sk-border-strong);
+      border-radius: 9px;
+      background:
+        radial-gradient(circle at 8px 50%, #fff 0 5px, transparent 5.5px),
+        #aeb4bc;
       cursor: pointer;
+      transition: background-color 120ms ease, border-color 120ms ease;
+    }
+    .prop-row input[type='checkbox']:checked {
+      border-color: var(--sk-accent);
+      background:
+        radial-gradient(circle at 23px 50%, #fff 0 5px, transparent 5.5px),
+        var(--sk-accent);
     }
     .prop-row input:focus-visible,
     .prop-row textarea:focus-visible {
       outline: 2px solid var(--sk-accent);
       outline-offset: -1px;
     }
-    .prop-pair .prop-row label {
-      width: 34px;
-    }
     .prop-row textarea {
+      min-height: 76px;
       resize: vertical;
     }
     .prop-pair {
-      display: flex;
-      /* 앞 셀의 마지막 버튼과 뒤 셀의 라벨이 맞닿아 보이지 않게 벌린다 */
-      gap: 14px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0 0 10px;
+    }
+    .prop-pair:last-child {
+      margin-bottom: 0;
     }
     .prop-pair .prop-row {
-      flex: 1;
+      flex-direction: column;
+      align-items: stretch;
       min-width: 0;
+      margin: 0;
+      gap: 5px;
+    }
+    .prop-pair .prop-row label {
+      width: auto;
+      min-height: 16px;
+    }
+    .prop-pair .prop-row input,
+    .prop-pair .prop-row .list-select {
+      flex: none;
+      width: 100%;
     }
 
     .toggle-group {
       display: inline-flex;
-      gap: 2px;
+      min-width: 0;
+      gap: 0;
     }
     .toggle-group button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 26px;
+      width: 32px;
+      height: 32px;
       padding: 0;
       border: 1px solid var(--sk-border-strong);
-      border-radius: var(--sk-radius);
+      border-radius: 0;
       background: var(--sk-surface);
       color: var(--sk-text);
       cursor: pointer;
+    }
+    .toggle-group button + button {
+      margin-left: -1px;
+    }
+    .toggle-group button:first-child {
+      border-radius: var(--sk-radius) 0 0 var(--sk-radius);
+    }
+    .toggle-group button:last-child {
+      border-radius: 0 var(--sk-radius) var(--sk-radius) 0;
+    }
+    .toggle-group button:only-child {
+      border-radius: var(--sk-radius);
     }
     .toggle-group button svg {
       width: 14px;
       height: 14px;
     }
-    /* 텍스트 토글은 내용에 맞춰 너비를 늘리고 아이콘 버튼과 같은 높이를 유지한다. */
     .toggle-group.text button {
       width: auto;
-      min-width: 0;
-      height: 26px;
-      padding: 0 10px;
+      min-width: 54px;
+      height: 32px;
+      padding: 0 12px;
       font-family: inherit;
       font-size: 12px;
       white-space: nowrap;
+    }
+    .prop-row > .toggle-group.text {
+      flex: 1;
+    }
+    .prop-row > .toggle-group.text button {
+      flex: 1;
     }
     .toggle-group button[aria-pressed='true'] {
       background: var(--sk-accent-soft);
@@ -1902,12 +2008,12 @@ export class SlipDesigner extends LitElement {
     }
     .anchor-grid {
       display: grid;
-      grid-template-columns: repeat(3, 14px);
-      gap: 3px;
+      grid-template-columns: repeat(3, 16px);
+      gap: 4px;
     }
     .anchor-dot {
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       padding: 0;
       border: 1px solid var(--sk-border-strong);
       border-radius: 3px;
@@ -1926,7 +2032,8 @@ export class SlipDesigner extends LitElement {
     /* 글자 라벨 토글 (방향 등) — 아이콘 토글의 고정 폭을 글자에 맞게 되돌린다 */
     .toggle-group .orient-btn {
       width: auto;
-      padding: 0 10px;
+      min-width: 58px;
+      padding: 0 12px;
       font-size: 12px;
       font-family: inherit;
     }
@@ -1941,7 +2048,8 @@ export class SlipDesigner extends LitElement {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 3px 6px;
+      min-height: 32px;
+      padding: 5px 8px;
       border: 1px solid var(--sk-border-strong);
       border-radius: var(--sk-radius);
       background: var(--sk-surface);
@@ -1979,32 +2087,35 @@ export class SlipDesigner extends LitElement {
     .color-pop {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      margin: 2px 0 8px 74px;
-      padding: 6px;
-      border: 1px solid var(--sk-border);
-      border-radius: var(--sk-radius);
-      background: var(--sk-surface);
-    }
-    .color-pop-row {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .color-pop-row input:not(.alpha-input) {
-      flex: 1;
-      min-width: 0;
-      width: 0;
-      padding: 3px 6px;
+      gap: 8px;
+      margin: -2px 0 12px;
+      padding: 10px;
       border: 1px solid var(--sk-border-strong);
       border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .color-pop-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 52px auto;
+      align-items: center;
+      gap: 6px;
+    }
+    .color-pop-row input:not(.alpha-input) {
+      min-width: 0;
+      width: 100%;
+      min-height: 32px;
+      padding: 5px 8px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
       font-size: 12px;
       font-family: inherit;
       color: inherit;
     }
     .sv-area {
       position: relative;
-      height: 90px;
+      height: 104px;
       border: 1px solid var(--sk-border);
       border-radius: var(--sk-radius);
       cursor: crosshair;
@@ -2024,44 +2135,48 @@ export class SlipDesigner extends LitElement {
       appearance: none;
       -webkit-appearance: none;
       width: 100%;
-      height: 12px;
+      height: 14px;
       margin: 0;
       border: 1px solid var(--sk-border);
-      border-radius: 6px;
+      border-radius: 7px;
       background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
       cursor: pointer;
     }
     .hue-slider::-webkit-slider-thumb {
       appearance: none;
       -webkit-appearance: none;
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       border: 1px solid var(--sk-border-strong);
       border-radius: 50%;
       background: #fff;
       box-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
     }
     .hue-slider::-moz-range-thumb {
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       border: 1px solid var(--sk-border-strong);
       border-radius: 50%;
       background: #fff;
       box-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
     }
     .color-extras {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 18px);
       align-items: center;
-      flex-wrap: wrap;
-      gap: 3px;
+      gap: 6px;
     }
     .swatch {
-      width: 14px;
-      height: 14px;
+      width: 18px;
+      height: 18px;
       padding: 0;
       border: 1px solid var(--sk-border-strong);
-      border-radius: 50%;
+      border-radius: 4px;
       cursor: pointer;
+    }
+    .swatch[aria-pressed='true'] {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
     }
     .swatch:focus-visible {
       outline: 2px solid var(--sk-accent);
@@ -2076,18 +2191,18 @@ export class SlipDesigner extends LitElement {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 14px;
-      height: 14px;
+      width: 18px;
+      height: 18px;
       padding: 0;
       border: 1px dashed var(--sk-border-strong);
-      border-radius: 50%;
+      border-radius: 4px;
       background: var(--sk-surface);
       color: var(--sk-text-muted);
       cursor: pointer;
     }
     .swatch-save svg {
-      width: 10px;
-      height: 10px;
+      width: 11px;
+      height: 11px;
     }
     .swatch-save:hover:not(:disabled) {
       border-color: var(--sk-accent);
@@ -2102,13 +2217,13 @@ export class SlipDesigner extends LitElement {
       outline-offset: 1px;
     }
     .alpha-input {
-      flex: 0 0 44px;
-      width: 44px;
-      padding: 2px 4px;
+      width: 52px;
+      min-height: 32px;
+      padding: 5px 6px;
       border: 1px solid var(--sk-border-strong);
       border-radius: var(--sk-radius);
       background: var(--sk-surface);
-      font-size: 11px;
+      font-size: 12px;
       font-family: inherit;
     }
     .alpha-suffix {
@@ -2123,7 +2238,8 @@ export class SlipDesigner extends LitElement {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 3px 6px;
+      min-height: 32px;
+      padding: 5px 8px;
       border: 1px solid var(--sk-border-strong);
       border-radius: var(--sk-radius);
       background: var(--sk-surface);
@@ -2168,8 +2284,8 @@ export class SlipDesigner extends LitElement {
       display: flex;
       flex-direction: column;
       gap: 2px;
-      margin: 2px 0 8px 74px;
-      padding: 4px;
+      margin: 0 0 10px;
+      padding: 6px;
       border: 1px solid var(--sk-border);
       border-radius: var(--sk-radius);
       background: var(--sk-surface);
@@ -2213,17 +2329,20 @@ export class SlipDesigner extends LitElement {
       outline: 2px solid var(--sk-accent);
       outline-offset: -2px;
     }
-    /* 행·열 수 조절 — 값을 가운데 두고 좌우로 빼고 더한다  */
     .step-inputs {
       flex: 1;
       min-width: 0;
-      display: flex;
+      display: grid;
+      grid-template-columns: 32px 40px 32px;
       align-items: center;
       justify-content: flex-start;
-      gap: 6px;
+      gap: 4px;
     }
     .step-inputs span {
-      min-width: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 32px;
       text-align: center;
       font-variant-numeric: tabular-nums;
     }
@@ -2335,6 +2454,14 @@ export class SlipDesigner extends LitElement {
       font-size: 11px;
       color: var(--sk-text-muted);
       cursor: pointer;
+    }
+    .prop-panel .col-modal-open {
+      justify-content: center;
+      width: 100%;
+      min-height: 32px;
+      margin-top: 0;
+      border-style: solid;
+      font-size: 12px;
     }
     .col-add:disabled {
       opacity: 0.35;
@@ -2556,9 +2683,9 @@ export class SlipDesigner extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 80px;
-      margin-bottom: 6px;
-      padding: 4px;
+      height: 104px;
+      margin-bottom: 8px;
+      padding: 6px;
       border: 1px solid var(--sk-border);
       border-radius: var(--sk-radius);
     }
@@ -2672,8 +2799,8 @@ export class SlipDesigner extends LitElement {
       align-items: center;
       justify-content: center;
       flex: none;
-      width: 26px;
-      height: 26px;
+      width: 32px;
+      height: 32px;
       padding: 0;
       border: 1px solid var(--sk-border-strong);
       border-radius: var(--sk-radius);
@@ -2684,6 +2811,10 @@ export class SlipDesigner extends LitElement {
     .row-btn:hover {
       border-color: var(--sk-accent);
       color: var(--sk-accent);
+    }
+    .row-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
     }
     .row-btn:focus-visible {
       outline: 2px solid var(--sk-accent);
@@ -4986,7 +5117,7 @@ export class SlipDesigner extends LitElement {
         data-value=${config.value}
         @click=${(e: Event) => this._toggleListSelect(config.id, e)}>
         <span class="list-select-value">${current?.label ?? config.value}</span>
-        <span class="list-select-caret" aria-hidden="true">▾</span>
+        <span class="list-select-caret" aria-hidden="true">${icons.down}</span>
       </button>
       ${open
         ? html`
@@ -6451,6 +6582,7 @@ export class SlipDesigner extends LitElement {
       <div class="type-name">${s.pageSettings}</div>
 
       <div class="prop-section">
+        <div class="prop-section-title">${s.panelBasic}</div>
         <div class="prop-row">
           <label>${s.pageName}</label>
           <input .value=${page.label ?? ''}
@@ -6464,7 +6596,6 @@ export class SlipDesigner extends LitElement {
               });
             }}>
         </div>
-        <div class="cell-hint">${s.pageNameHint}</div>
         <div class="prop-row">
           <label>${s.pageKey}</label>
           <input class=${this._pageKeyError ? 'error' : ''} .value=${page.key ?? ''}
@@ -6474,6 +6605,7 @@ export class SlipDesigner extends LitElement {
       </div>
 
       <div class="prop-section">
+        <div class="prop-section-title">${s.panelPageNumber}</div>
         <div class="prop-row">
           <label>${s.pageNumberShow}</label>
           <input type="checkbox" aria-label=${s.pageNumberShow} .checked=${pageNumber !== undefined}
@@ -6656,6 +6788,7 @@ export class SlipDesigner extends LitElement {
       <div class="type-name">${s.formSettings}</div>
 
       <div class="prop-section">
+        <div class="prop-section-title">${s.panelBasic}</div>
         <div class="prop-row">
           <label>${s.formTitle}</label>
           <input .value=${file.template.meta.title}
@@ -6672,6 +6805,7 @@ export class SlipDesigner extends LitElement {
       </div>
 
       <div class="prop-section">
+        <div class="prop-section-title">${s.panelPaper}</div>
         <div class="prop-row">
           <label>${s.paperSize}</label>
           ${this._listSelect({
@@ -6801,6 +6935,7 @@ export class SlipDesigner extends LitElement {
     return html`
       <div class="type-name">${s.groupSelection}</div>
       <div class="prop-section">
+        <div class="prop-section-title">${s.panelBasic}</div>
         <div class="prop-row">
           <label>${s.selectedCount}</label>
           <span>${els.length}</span>
@@ -6815,7 +6950,6 @@ export class SlipDesigner extends LitElement {
                 ${s.ungroupElements}</button>`
             : nothing}
         </div>
-        <p class="image-hint">${s.groupHint}</p>
       </div>
     `;
   }
@@ -6876,6 +7010,7 @@ export class SlipDesigner extends LitElement {
       <div class="type-name">${this._typeName(el.type)}</div>
 
       <div class="prop-section">
+        <div class="prop-section-title">${s.panelLayout}</div>
         <div class="prop-row">
           <label>${s.name}</label>
           <input .value=${el.name}
@@ -6985,6 +7120,7 @@ export class SlipDesigner extends LitElement {
     return html`
       <div class="type-name">${s.parameterField}</div>
       <div class="prop-section">
+        <div class="prop-section-title">${s.panelBasic}</div>
         <div class="prop-row">
           <label>${s.parameterParent}</label>
           <button class="usage-row parent-row" @click=${() => this._selectParameter(listKey)}>
@@ -7053,6 +7189,7 @@ export class SlipDesigner extends LitElement {
       <div class="type-name">${s.sidebarParameters}</div>
 
       <div class="prop-section">
+        <div class="prop-section-title">${s.panelBasic}</div>
         <div class="prop-row">
           <label>${s.parameterKey}</label>
           <input class="parameter-key-input" .value=${info.key}
@@ -7482,9 +7619,10 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     return html`
       <div class="prop-section">
+        <div class="prop-section-title">${s.panelValue}</div>
         ${this._renderTextFieldKindRow('text')}
-        <div class="prop-section-title">${s.content}</div>
-        <div class="prop-row">
+        <div class="prop-row stacked">
+          <label>${s.content}</label>
           <textarea rows="3" .value=${el.content}
             @change=${(e: Event) => this._updateElement((el) => {
               if (el.type === 'text') el.content = (e.target as HTMLTextAreaElement).value;
@@ -7560,6 +7698,7 @@ export class SlipDesigner extends LitElement {
     const source: 'parameter' | 'formula' = el.formula !== undefined ? 'formula' : 'parameter';
     return html`
       <div class="prop-section">
+        <div class="prop-section-title">${s.panelValue}</div>
         ${this._renderTextFieldKindRow('field')}
         <div class="prop-row">
           <label>${s.cellSource}</label>
@@ -7628,6 +7767,7 @@ export class SlipDesigner extends LitElement {
         const warning = source === 'content' ? this._barcodeContentWarning(el.kind, el.content ?? '') : null;
         return html`
           <div class="prop-section">
+            <div class="prop-section-title">${s.panelValue}</div>
             <div class="prop-row">
               <label>${s.barcodeKind}</label>
               ${this._listSelect({
@@ -7693,6 +7833,7 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     return html`
           <div class="prop-section">
+            <div class="prop-section-title">${s.shape}</div>
             <div class="prop-row">
               <label>${s.sides}</label>
               <input type="number" min="3" max="12" step="1" .value=${String(el.sides)}
@@ -7710,6 +7851,33 @@ export class SlipDesigner extends LitElement {
             </div>
           </div>
         `;
+  }
+
+  /** 그리드 또는 선택 셀의 텍스트 표시 방식을 편집하는 선택기를 렌더링한다. */
+  private _renderGridOverflowRow(config: {
+    id: string;
+    value: 'inherit' | 'clip' | 'shrink';
+    inherit?: boolean;
+    ariaLabel?: string;
+    onPick: (value: 'inherit' | 'clip' | 'shrink') => void;
+  }) {
+    const s = this._strings.designer;
+    return html`
+      <div class="prop-row">
+        <label>${s.overflow}</label>
+        ${this._listSelect({
+          id: config.id,
+          ariaLabel: config.ariaLabel ?? s.overflow,
+          value: config.value,
+          options: [
+            ...(config.inherit ? [{ value: 'inherit', label: s.overflowInherit }] : []),
+            { value: 'clip', label: s.overflowClip },
+            { value: 'shrink', label: s.overflowShrink },
+          ],
+          onPick: (value) => config.onPick(value as 'inherit' | 'clip' | 'shrink'),
+        })}
+      </div>
+    `;
   }
 
   /** 그리드의 행, 열, 반복 구간, 셀을 편집하는 패널을 렌더링한다. */
@@ -7731,6 +7899,7 @@ export class SlipDesigner extends LitElement {
         // 셀이 선택된 동안에는 그리드 전체 설정을 숨긴다.
         const gridOwnProps = html`
           <div class="prop-section">
+            <div class="prop-section-title">${s.panelStructure}</div>
             <div class="prop-row">
                 <label>${s.rows}</label>
                 <div class="step-inputs">
@@ -7747,22 +7916,6 @@ export class SlipDesigner extends LitElement {
                   <button class="row-btn" aria-label="${s.columns} +" @click=${() => this._changeGridColumns(1)}>+</button>
                 </div>
               </div>
-            <div class="prop-row stacked">
-              <label>${s.overflow}</label>
-              ${this._listSelect({
-                id: 'grid-overflow',
-                ariaLabel: s.overflow,
-                value: el.overflow ?? 'clip',
-                options: [
-                  { value: 'clip', label: s.overflowClip },
-                  { value: 'shrink', label: s.overflowShrink },
-                ],
-                onPick: (value) => this._updateGrid((grid) => {
-                  if (value === 'clip') delete (grid as { overflow?: unknown }).overflow;
-                  else grid.overflow = 'shrink';
-                }),
-              })}
-            </div>
           </div>
 
           <div class="prop-section">
@@ -7804,12 +7957,12 @@ export class SlipDesigner extends LitElement {
                       @change=${(e: Event) => this._updateGridRepeat({ toRow: numberOf(e) - 1 })}>
                   </div>
                 </div>
-                <div class="prop-row stacked">
+                <div class="prop-row">
                   <label>${s.repeatPerPage}</label>
                   <input type="number" min="1" max="1000" .value=${String(repeat.perPage)}
                     @change=${(e: Event) => this._updateGridRepeat({ perPage: numberOf(e) })}>
                 </div>
-                <div class="prop-row stacked">
+                <div class="prop-row">
                   <label>${s.repeatMaxItems}</label>
                   <input type="number" min=${String(repeat.perPage)} max="100000"
                     class=${repeat.maxItems === undefined ? 'dim' : ''}
@@ -7820,9 +7973,9 @@ export class SlipDesigner extends LitElement {
                       this._updateGridRepeat({ maxItems: raw === '' ? null : Number(raw) });
                     }}>
                 </div>
-                <div class="prop-row stacked">
+                <div class="prop-row">
                   <label>${s.repeatHeader}</label>
-                  <input type="checkbox" class="stacked-check" aria-label=${s.repeatHeader} .checked=${repeat.repeatHeader}
+                  <input type="checkbox" aria-label=${s.repeatHeader} .checked=${repeat.repeatHeader}
                     @change=${(e: Event) =>
                       this._updateGridRepeat({ repeatHeader: (e.target as HTMLInputElement).checked })}>
                 </div>`
@@ -7832,9 +7985,12 @@ export class SlipDesigner extends LitElement {
           ${cellTarget === null
             ? gridOwnProps
             : html`
-              <button class="usage-row grid-back" title=${el.name}
+              <button class="grid-back" title=${el.name}
+                aria-label="${s.gridBack}: ${el.name}"
                 @click=${() => this._clearCellSelection()}>
-                ${icons.treeClosed}${TYPE_BADGE.grid}<span>${el.name}</span>
+                ${icons.pagePrev}
+                <span class="grid-back-label">${s.gridBack}</span>
+                <span class="grid-back-name">${el.name}</span>
               </button>`}
           ${this._renderGridCellProps(el, cellTarget, cellDef, source, inBand)}
         `;
@@ -7941,6 +8097,14 @@ export class SlipDesigner extends LitElement {
                   (v) => this._updateCellStyle('fontSize', v),
                   { step: '0.5', min: '0.5', ariaLabel: `${s.cell} ${s.fontSize}` },
                 )}
+                ${this._renderGridOverflowRow({
+                  id: 'grid-cell-overflow',
+                  value: cellDef?.overflow ?? 'inherit',
+                  inherit: true,
+                  ariaLabel: `${s.cell} ${s.overflow}`,
+                  onPick: (value) =>
+                    this._updateCellStyle('overflow', value === 'inherit' ? null : value),
+                })}
                 <div class="prop-row">
                   <label>${s.alignment}</label>
                   <div class="toggle-group" role="group" aria-label="${s.cell} ${s.alignment}">
@@ -8015,7 +8179,7 @@ export class SlipDesigner extends LitElement {
                   (v) => this._updateCellStyle('borderStyle', v),
                 )}
               </div>`
-      : html`<div class="prop-section"><div class="cell-hint">${s.cellHint}</div></div>`;
+      : nothing;
   }
 
   /** 이미지 요소의 고정 이미지와 파라미터 이미지를 편집하는 패널을 렌더링한다. */
@@ -8027,6 +8191,7 @@ export class SlipDesigner extends LitElement {
         const chosen = el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
         return html`
           <div class="prop-section">
+            <div class="prop-section-title">${s.typeImage}</div>
             <div class="prop-row">
               <label>${s.imageMode}</label>
               <div class="toggle-group text" role="group" aria-label=${s.imageMode}>
@@ -8299,12 +8464,15 @@ export class SlipDesigner extends LitElement {
         <div class="color-pop">
           <div class="color-extras">
             <button class="swatch none" title=${s.colorNone} aria-label="${name}: ${s.colorNone}"
+              aria-pressed=${String(current === undefined)}
               @click=${() => commit(null)}></button>
             ${COLOR_PALETTE.map((c) => html`<button class="swatch" style="background:${c}"
               title=${c} aria-label="${name} ${c}"
+              aria-pressed=${String(current?.slice(0, 7).toLowerCase() === c)}
               @click=${() => commit(compose(c, alphaPct))}></button>`)}
             ${this._getCustomColors().map((c) => html`<button class="swatch custom" style="background:${c}"
               title=${c} aria-label="${name} ${c}"
+              aria-pressed=${String(current?.toLowerCase() === c.toLowerCase())}
               @click=${() => commit(c)}></button>`)}
             <button class="swatch-save" title=${s.saveColor} aria-label="${name}: ${s.saveColor}"
               ?disabled=${!current}
@@ -8538,6 +8706,17 @@ export class SlipDesigner extends LitElement {
           ${this._renderColorControl(
             s.fontColor, r.fontColor as string | undefined, 'fontColor', undefined, DEFAULT_FONT_COLOR,
           )}
+          ${el.type === 'grid'
+            ? this._renderGridOverflowRow({
+                id: 'grid-overflow',
+                value: el.overflow ?? 'clip',
+                onPick: (value) => this._updateElement((target) => {
+                  if (target.type !== 'grid') return;
+                  if (value === 'clip') delete target.overflow;
+                  else if (value === 'shrink') target.overflow = value;
+                }),
+              })
+            : nothing}
           ${hasTextDecor ? this._renderFontProps(el) : nothing}
           ${hasTextDecor
             ? this._renderTextStyleToggles(

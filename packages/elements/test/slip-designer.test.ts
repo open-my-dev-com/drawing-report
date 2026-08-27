@@ -653,10 +653,14 @@ describe('<slip-designer> UI 정리 (A-4)', () => {
     const file = (el as unknown as { _file: SlipTemplateFile })._file;
     const text = file.template.pages[0]!.elements[0]! as Record<string, unknown>;
     expect(text.backgroundColor).toBe('#d93025');
+    expect(byAriaLabel(el, `${strings.designer.backgroundColor} #d93025`).getAttribute('aria-pressed'))
+      .toBe('true');
 
     byAriaLabel(el, `${strings.designer.backgroundColor}: ${strings.designer.colorNone}`).click();
     await el.updateComplete;
     expect(text.backgroundColor ?? undefined).toBeUndefined();
+    expect(byAriaLabel(el, `${strings.designer.backgroundColor}: ${strings.designer.colorNone}`)
+      .getAttribute('aria-pressed')).toBe('true');
     el.remove();
   });
 
@@ -1224,6 +1228,15 @@ describe('<slip-designer> 사이드바', () => {
     expect(row?.textContent?.trim()).toBe('표지');
     const file = (el as unknown as { _file: SlipTemplateFile })._file;
     expect(file.template.pages[0]!.label).toBe('표지');
+  });
+
+  it('페이지 설정에 이름 입력을 설명하는 안내문을 표시하지 않는다', async () => {
+    const el = await loadDesigner();
+    (sideSection(el, strings.designer.sidebarPages).querySelector('.page-row') as HTMLElement).click();
+    await el.updateComplete;
+
+    expect(el.shadowRoot!.querySelector('.prop-panel .cell-hint:not(.error)')).toBeNull();
+    el.remove();
   });
 
   it('페이지 번호 표시를 켜면 위치를 고를 수 있고 캔버스에 X / X 자리표시가 나온다 (G-46)', async () => {
@@ -4335,7 +4348,15 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
       perPage: number; maxItems?: number; repeatHeader: boolean;
     };
     overflow?: string;
-    cells: { row: number; column: number; content?: string; parameter?: string; formula?: string; rowSpan?: number }[];
+    cells: {
+      row: number;
+      column: number;
+      content?: string;
+      parameter?: string;
+      formula?: string;
+      rowSpan?: number;
+      overflow?: string;
+    }[];
   };
 
   function gridOf(el: Element): TestGrid {
@@ -4534,10 +4555,29 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('넘칠 때 처리를 줄여 넣기로 바꿀 수 있다', async () => {
+  it('그리드의 내용 표시 기본값은 텍스트 섹션에서 바꿀 수 있다', async () => {
     const el = await mount();
-    await pickListValue(el, row(el, s.overflow).querySelector('.list-select') as HTMLButtonElement, 'shrink');
+    const overflowRow = row(el, s.overflow);
+    expect(overflowRow.closest('.prop-section')?.querySelector('.prop-section-title')?.textContent?.trim())
+      .toBe(s.styleText);
+    await pickListValue(el, overflowRow.querySelector('.list-select') as HTMLButtonElement, 'shrink');
     expect(gridOf(el).overflow).toBe('shrink');
+    el.remove();
+  });
+
+  it('선택 셀은 그리드의 내용 표시 설정을 따르거나 별도로 덮어쓸 수 있다', async () => {
+    const el = await mount();
+    await clickCell(el, 15, 25);
+    await el.updateComplete;
+
+    const overflowSelect = () => row(el, s.overflow).querySelector('.list-select') as HTMLButtonElement;
+    expect(overflowSelect().getAttribute('data-value')).toBe('inherit');
+
+    await pickListValue(el, overflowSelect(), 'shrink');
+    expect(gridOf(el).cells.find((cell) => cell.row === 1 && cell.column === 0)?.overflow).toBe('shrink');
+
+    await pickListValue(el, overflowSelect(), 'inherit');
+    expect(gridOf(el).cells.find((cell) => cell.row === 1 && cell.column === 0)?.overflow).toBeUndefined();
     el.remove();
   });
 
@@ -4610,6 +4650,8 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     // 그리드로 돌아갈 수 있다
     const back = el.shadowRoot!.querySelector('.grid-back') as HTMLButtonElement;
     expect(back).not.toBeNull();
+    expect(back.textContent).toContain(s.gridBack);
+    expect(back.getAttribute('aria-label')).toContain(s.gridBack);
     back.click();
     await el.updateComplete;
     expect(labels()).toContain(s.rows);
