@@ -80,7 +80,7 @@ function savedLine(id: string, file: SlipFile): string {
 /**
  * SlipKit MCP 서버를 만든다. 전송 연결은 호출자가 한다.
  *
- * @param options - 작업 디렉터리, 로케일과 암호화 설정
+ * @param options - 작업 디렉터리, 로케일, 암호화와 PDF 폰트 설정
  * @returns 구성이 끝난 MCP 서버와 내부 저장소
  */
 export function createSlipMcpServer(options: SlipMcpServerOptions): {

@@ -15,9 +15,12 @@
     "typecheck": "pnpm -r --filter './packages/*' run typecheck",
     "demo": "pnpm --filter slipkit-demo dev",
     "demo:react": "pnpm --filter slipkit-demo-react dev",
-    "demo:vue": "pnpm --filter slipkit-demo-vue dev"
+    "demo:vue": "pnpm --filter slipkit-demo-vue dev",
+    "demo:mcp": "node examples/mcp-demo/prepare.mjs && pnpm --filter @omdc-slipkit/mcp build && mcp-inspector --web node packages/mcp/dist/cli.js -- --config examples/mcp-demo/slipkit-mcp.json",
+    "demo:mcp:reset": "node examples/mcp-demo/prepare.mjs --reset"
   },
   "devDependencies": {
+    "@modelcontextprotocol/inspector": "^2.4.0",
     "@typescript-eslint/parser": "^8.67.0",
     "eslint": "^10.8.1",
     "eslint-plugin-tsdoc": "^0.5.2",

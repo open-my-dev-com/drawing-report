@@ -1585,7 +1585,14 @@ function createSlipMcpServer(
 
 도구 7종과 `slip://schema` 리소스를 등록한 MCP 서버를 만듭니다. 반환된 `server`는 아직 전송 계층에 연결되지 않은 상태입니다.
 
-`SlipMcpServerOptions`는 `FileSystemStorageOptions`와 같습니다.
+```ts
+interface SlipMcpServerOptions
+  extends FileSystemStorageOptions {
+  fonts?: readonly SlipFont[];
+}
+```
+
+`fonts`를 생략하면 서버가 로케일에 맞는 동봉 폰트를 사용합니다. 값을 전달하면 해당 목록이 동봉 폰트를 대체합니다.
 
 ### `FileSystemStorage`
 
@@ -1617,6 +1624,46 @@ interface FileSystemStorageOptions {
 
 type FileSystemStorageKey = string | Uint8Array;
 ```
+
+### `slipkit-mcp.json`
+
+```ts
+interface SlipMcpConfig {
+  rootDir?: string;
+  locale?: string;
+  fonts?: Array<{
+    name: string;
+    path: string;
+    fallback?: boolean;
+  }>;
+  encryption?: {
+    keyEnv?: string;
+    previousKeysEnv?: string;
+  };
+}
+
+interface ResolveInput {
+  configPath?: string;
+  cliRootDir?: string;
+  cliLocale?: string;
+  cwd: string;
+  env: Record<string, string | undefined>;
+}
+```
+
+`rootDir`과 `fonts[].path`의 상대 경로는 설정 파일 위치를 기준으로 해석합니다. 설정 파일의 알 수 없는 필드, 잘못된 JSON, 없는 작업 디렉터리와 폰트 파일은 `SlipMcpConfigError`를 발생시킵니다.
+
+### MCP 설정 API
+
+| API | 설명 |
+|---|---|
+| `readConfigFile(filePath)` | JSON 파일을 읽고 `SlipMcpConfig`로 검증합니다. |
+| `loadConfigFonts(entries, baseDir)` | 설정의 폰트 파일을 읽어 `SlipFont[]`로 변환합니다. |
+| `resolveServerOptions(input)` | 설정 파일, CLI 값과 환경변수를 해석해 `{ options, configPath }`를 반환합니다. |
+| `SlipMcpConfigError` | 설정 파일이나 설정에 지정한 파일을 읽고 적용하지 못했을 때 발생하는 오류입니다. |
+| `CONFIG_FILE_NAME` | 기본 설정 파일 이름인 `slipkit-mcp.json`입니다. |
+| `DEFAULT_KEY_ENV` | 기본 현재 키 환경변수 이름인 `SLIPKIT_MCP_KEY`입니다. |
+| `DEFAULT_PREVIOUS_KEYS_ENV` | 기본 이전 키 환경변수 이름인 `SLIPKIT_MCP_PREVIOUS_KEYS`입니다. |
 
 ### 기타 MCP 공개 API
 

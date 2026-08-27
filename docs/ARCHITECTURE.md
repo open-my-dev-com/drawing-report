@@ -78,6 +78,8 @@ flowchart TB
     MCP["@omdc-slipkit/mcp"]
     AI["MCP 클라이언트"]
     Files["작업 디렉터리<br/>.slip·이미지·PDF"]
+    MCPConfig["slipkit-mcp.json<br/>작업 경로·언어·폰트·키 변수명"]
+    CustomFonts["커스텀 폰트<br/>TTF·OTF"]
 
     Internal["내부 구현 의존성<br/>Zod · pdfme · fontkit"]
 
@@ -86,7 +88,9 @@ flowchart TB
     App --> Elements
     App --> Core
     AI -->|"stdio"| MCP
+    MCP --> MCPConfig
     MCP --> Files
+    MCP --> CustomFonts
 
     React --> Elements
     React --> Core
@@ -94,7 +98,7 @@ flowchart TB
     Vue --> Core
     Elements --> Core
     MCP --> Core
-    MCP -->|"동봉 폰트"| Elements
+    MCP -->|"설정에 폰트가 없을 때"| Elements
     Core --> Internal
 ```
 
@@ -104,7 +108,7 @@ flowchart TB
 | `@omdc-slipkit/elements` | 양식 편집기, 전표 입력 폼, 뷰어와 브라우저 저장소 구현 |
 | `@omdc-slipkit/react` | SlipKit Web Component를 React에서 사용하기 위한 래퍼 |
 | `@omdc-slipkit/vue` | SlipKit Web Component를 Vue에서 사용하기 위한 래퍼 |
-| `@omdc-slipkit/mcp` | AI가 작업 디렉터리의 `.slip` 파일을 읽고 만들고 고치도록 하는 로컬 stdio MCP 서버와 파일 시스템 저장소 |
+| `@omdc-slipkit/mcp` | AI가 작업 디렉터리의 `.slip` 파일을 다루도록 하는 로컬 stdio MCP 서버, 설정 로더와 파일 시스템 저장소 |
 
 ### 3.1 `core`
 
@@ -146,9 +150,11 @@ React와 Vue 패키지는 Web Component를 각 프레임워크의 속성 및 이
 
 ### 3.4 `mcp`
 
-`@omdc-slipkit/mcp`는 MCP 클라이언트와 stdio로 통신하는 로컬 Node.js 서버입니다. `core`의 검증·전표 조립·PDF 생성을 사용하고, `elements`에서 노출한 동봉 폰트를 PDF 렌더링에 사용합니다.
+`@omdc-slipkit/mcp`는 MCP 클라이언트와 stdio로 통신하는 로컬 Node.js 서버입니다. `core`의 검증·전표 조립·PDF 생성을 사용하고, 설정에 커스텀 폰트가 없으면 `elements`에서 노출한 동봉 폰트를 사용합니다.
 
-서버는 시작 시 지정한 작업 디렉터리 안의 경로만 다룹니다. 읽기 응답은 요약을 기본으로 하고 base64 이미지 데이터를 제외합니다. 기존 파일은 요소 id·파라미터 key·페이지 번호로 지목한 연산만 적용하고, 최종 결과가 전체 검증을 통과할 때만 저장합니다.
+서버는 `slipkit-mcp.json`에서 작업 디렉터리, 로케일, 커스텀 폰트와 암호화 키 환경변수 이름을 읽습니다. CLI 인자와 환경변수는 설정 파일의 값을 덮어쓸 수 있습니다. 암호화 키 값은 설정 파일에 저장하지 않고 서버 프로세스 환경에서 전달합니다.
+
+파일 접근은 해석된 작업 디렉터리 안으로 제한합니다. 읽기 응답은 요약을 기본으로 하고 base64 이미지 데이터를 제외합니다. 기존 파일은 요소 id·파라미터 key·페이지 번호로 지목한 연산만 적용하고, 최종 결과가 전체 검증을 통과할 때만 저장합니다.
 
 `FileSystemStorage`는 이 파일 접근 규칙을 `StorageAdapter`로 공개합니다. Node.js 호스트는 MCP 서버를 시작하지 않고도 같은 경로 제한과 암호화 설정을 재사용할 수 있습니다.
 

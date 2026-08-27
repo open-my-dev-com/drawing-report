@@ -92,6 +92,7 @@ AI가 MCP 도구로 양식을 만들고 고칠 수 있는 `@omdc-slipkit/mcp` �
 
 - 도구 7종: `slip_list` · `slip_read` · `slip_save` · `slip_edit` · `slip_build_voucher` · `slip_render_pdf` · `slip_schema`
 - 파일 접근은 작업 디렉터리 안으로 제한하고, 파일 시스템 저장소 어댑터(`FileSystemStorage`)로 공개합니다.
+- `slipkit-mcp.json`에서 작업 디렉터리, 로케일, 커스텀 폰트와 암호화 키 환경변수 이름을 관리합니다.
 - 읽기는 요약을 기본으로 하고, base64 데이터는 응답에서 제외합니다.
 - 기존 파일은 요소 id를 지목하는 부분 수정으로 고칩니다.
 - 발행 기능은 제공하지 않고, 암호화 키는 환경변수로 설정합니다.
@@ -99,6 +100,7 @@ AI가 MCP 도구로 양식을 만들고 고칠 수 있는 `@omdc-slipkit/mcp` �
 ### 완료 조건
 
 - 도구 7종이 stdio MCP 클라이언트에서 동작합니다.
+- 서버 설정 파일과 커스텀 폰트로 PDF를 렌더링할 수 있습니다.
 - 검증에 실패한 저장 요청이 파일을 바꾸지 않습니다.
 - 검증 게이트 4단계를 통과합니다.
 

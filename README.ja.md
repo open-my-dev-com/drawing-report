@@ -94,6 +94,14 @@ pnpm demo:vue
 
 デモの自動保存やファイル処理のようなフレームワークに依存しないロジックは、[`examples/shared`](examples/shared) に共通で実装されています。
 
+MCP ツールは [MCP Inspector デモ](examples/mcp-demo) から直接呼び出せます。このデモには Node.js 22.19 以上が必要です。
+
+```bash
+pnpm demo:mcp
+```
+
+このコマンドはサンプル作業ディレクトリを準備して MCP パッケージをビルドし、`http://localhost:6274` で Inspector を開きます。
+
 ## 利用ガイド
 
 はじめて使うなら、[スタートガイド](docs/guide/getting-started.ja.md) でリポジトリのデモを実行し、デザイナーを接続してみてください。保存・復元と 3 つのコンポーネントの接続方法は、[アプリケーション統合ガイド](docs/guide/integration.ja.md) で続けて説明します。

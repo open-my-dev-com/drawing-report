@@ -4,7 +4,7 @@
 
 `@omdc-slipkit/mcp` is a local stdio MCP server that lets an AI read, create, and edit `.slip` templates and vouchers in a designated directory. It can also build unissued vouchers from templates and render templates or vouchers to PDF.
 
-You do not need to keep the server running in a separate terminal. With stdio, the MCP client uses the configured `command` and `args` to start the server as a local child process and stops it when the connection closes. You only need to register the executable and working directory in the MCP configuration.
+You do not need to keep the server running in a separate terminal. With stdio, the MCP client starts the server as a local child process and stops it when the connection closes. The server reads its storage path, locale, fonts, and encryption environment-variable names from `slipkit-mcp.json`.
 
 > [!IMPORTANT]
 > SlipKit packages are not yet published to the npm registry. For now, build the package from this repository and connect the generated CLI to your MCP client.
@@ -25,9 +25,50 @@ mkdir slip-workspace
 
 `slip-workspace` is an example working directory for the `.slip` files and images that the AI may access. You may use any other directory.
 
+## Try it with MCP Inspector
+
+The repository includes an Inspector demo for calling the tools before configuring a separate MCP client. MCP Inspector requires Node.js 22.19 or later.
+
+```bash
+pnpm demo:mcp
+```
+
+The command builds the MCP package, prepares a sample template in `examples/mcp-demo/workspace`, and opens Inspector at `http://localhost:6274`. Select **Connect**, open **Tools**, and call tools such as `slip_list`, `slip_read`, `slip_edit`, and `slip_render_pdf`.
+
+Files edited or generated through Inspector stay in the demo workspace and are excluded from Git. To restore the initial sample, close Inspector and run:
+
+```bash
+pnpm demo:mcp:reset
+```
+
+See [`examples/mcp-demo`](../../examples/mcp-demo) for ready-to-use inputs.
+
+## Create the server configuration
+
+`slipkit-mcp.json` is the configuration file read by the MCP server. This example uses a `slip-workspace` directory next to the directory containing the configuration file.
+
+```json
+{
+  "rootDir": "../slip-workspace",
+  "locale": "en"
+}
+```
+
+The configuration file may be stored anywhere. Relative `rootDir` and font paths are resolved from the directory containing the configuration file. `~` is not expanded to the home directory, so use an absolute path or a valid relative path.
+
+| Field | Description | Default |
+|---|---|---|
+| `rootDir` | Working directory for `.slip` files, images, and PDFs | Server process working directory |
+| `locale` | Locale for errors and the bundled default fonts | English |
+| `fonts` | TTF or OTF files used for PDF rendering | Bundled fonts selected by locale |
+| `encryption.keyEnv` | Environment-variable name containing the current encryption key | `SLIPKIT_MCP_KEY` |
+| `encryption.previousKeysEnv` | Environment-variable name containing previous keys | `SLIPKIT_MCP_PREVIOUS_KEYS` |
+
+Unknown fields are rejected. Invalid JSON, a missing working directory, or a missing font file prevents the server from starting and reports the cause to stderr.
+
 ## Connect an MCP client
 
-Add the following entry to your client's stdio MCP server configuration. The configuration file location and its top-level key vary by client.
+Register the executable and the path to `slipkit-mcp.json` in the client's stdio MCP server configuration. The top-level key and storage location vary by client.
 
 ```json
 {
@@ -36,20 +77,26 @@ Add the following entry to your client's stdio MCP server configuration. The con
       "command": "node",
       "args": [
         "/absolute/path/to/drawing-report/packages/mcp/dist/cli.js",
-        "/absolute/path/to/slip-workspace",
-        "--locale",
-        "en"
+        "--config",
+        "/absolute/path/to/slipkit-mcp.json"
       ]
     }
   }
 }
 ```
 
-Replace both paths with real absolute paths. After saving the configuration, restart the MCP client or reload its MCP server list. The connection is ready when the seven tools, including `slip_list` and `slip_read`, appear.
+Replace the paths with real absolute paths. After saving the configuration, restart the MCP client or reload its MCP server list. The connection is ready when the seven tools, including `slip_list` and `slip_read`, appear.
 
-### Where the configuration is stored
+### The two configuration files
 
-The SlipKit MCP server does not create a configuration file of its own. The working directory and locale are command arguments, while encryption keys are environment variables. The MCP client decides where to store this launch configuration.
+The server configuration and the MCP client configuration have separate responsibilities.
+
+| Configuration | Contents |
+|---|---|
+| `slipkit-mcp.json` | Working directory, locale, custom fonts, and the names of encryption-key environment variables |
+| MCP client configuration | Server command, path to `slipkit-mcp.json`, and any encryption environment-variable values |
+
+MCP clients store their launch configuration in the following locations.
 
 | Client | Storage and registration |
 |---|---|
@@ -62,7 +109,7 @@ To register the current repository build with Codex CLI:
 ```bash
 codex mcp add slipkit -- \
   node /absolute/path/to/drawing-report/packages/mcp/dist/cli.js \
-  /absolute/path/to/slip-workspace --locale en
+  --config /absolute/path/to/slipkit-mcp.json
 ```
 
 Claude Code can register it as follows. Local scope avoids sharing machine-specific paths in `.mcp.json`.
@@ -70,29 +117,68 @@ Claude Code can register it as follows. Local scope avoids sharing machine-speci
 ```bash
 claude mcp add --scope local slipkit -- \
   node /absolute/path/to/drawing-report/packages/mcp/dist/cli.js \
-  /absolute/path/to/slip-workspace --locale en
+  --config /absolute/path/to/slipkit-mcp.json
 ```
 
 After the package is published to npm, clients can launch it without building this repository:
 
 ```bash
 codex mcp add slipkit -- \
-  npx -y @omdc-slipkit/mcp /absolute/path/to/slip-workspace --locale en
+  npx -y @omdc-slipkit/mcp --config /absolute/path/to/slipkit-mcp.json
 ```
 
-The working directory still contains user data, so each environment must specify that path once.
+The server configuration and working directory remain local in this setup.
+
+## Configuration discovery and precedence
+
+The server looks for a configuration file in this order:
+
+1. `--config <path>`
+2. The `SLIPKIT_MCP_CONFIG` environment variable
+3. `slipkit-mcp.json` in the first positional working-directory argument
+4. `slipkit-mcp.json` in the server process working directory when no positional argument is given
+
+An explicitly selected configuration file must exist and be readable. If no file exists at an automatic discovery location, the server starts with defaults.
+
+Configuration values use the following precedence.
+
+| Setting | Precedence |
+|---|---|
+| Working directory | First positional argument → `rootDir` → current directory |
+| Locale | `--locale` → `SLIPKIT_MCP_LOCALE` → `locale` → English |
+| Fonts | Configuration `fonts` → bundled fonts selected by locale |
+| Encryption keys | Environment variables named by `encryption`, or the default names when omitted |
+
+The positional working-directory argument and `--locale` remain available as temporary overrides.
 
 ### CLI options and environment variables
 
 | Setting | Description |
 |---|---|
 | First positional argument | Working directory. The server's current directory is used when omitted. |
+| `--config <path>` | Path to `slipkit-mcp.json`. A relative path is resolved from the server process current directory. |
 | `--locale <locale>` | Language for errors and the default PDF font. Supported values are `ko`, `en`, and `ja`. |
+| `SLIPKIT_MCP_CONFIG` | Configuration path used when `--config` is omitted. |
 | `SLIPKIT_MCP_LOCALE` | Locale used when `--locale` is omitted. |
 | `SLIPKIT_MCP_KEY` | Current key for encrypting and decrypting `.slip` files. Accepted only as an environment variable. |
 | `SLIPKIT_MCP_PREVIOUS_KEYS` | Comma-separated keys used before the current key. They are tried after the current key when decrypting. |
 
-An encrypted configuration can include the environment variables as follows.
+### Encryption configuration
+
+Do not store encryption keys in `slipkit-mcp.json`. Store only the environment-variable names used to read them.
+
+```json
+{
+  "rootDir": "../slip-workspace",
+  "locale": "en",
+  "encryption": {
+    "keyEnv": "MY_SLIP_KEY",
+    "previousKeysEnv": "MY_SLIP_PREVIOUS_KEYS"
+  }
+}
+```
+
+Pass the actual values through the environment that starts the server process.
 
 ```json
 {
@@ -101,33 +187,56 @@ An encrypted configuration can include the environment variables as follows.
       "command": "node",
       "args": [
         "/absolute/path/to/drawing-report/packages/mcp/dist/cli.js",
-        "/absolute/path/to/slip-workspace",
-        "--locale",
-        "en"
+        "--config",
+        "/absolute/path/to/slipkit-mcp.json"
       ],
       "env": {
-        "SLIPKIT_MCP_KEY": "current-passphrase",
-        "SLIPKIT_MCP_PREVIOUS_KEYS": "previous-passphrase"
+        "MY_SLIP_KEY": "current-passphrase",
+        "MY_SLIP_PREVIOUS_KEYS": "previous-passphrase"
       }
     }
   }
 }
 ```
 
-When `SLIPKIT_MCP_KEY` is set, newly saved files are encrypted. Plain `.slip` files remain readable, but encrypted files require a matching current or previous key.
+Do not commit an MCP client configuration containing real keys. Use user or local scope, or the client's secret-management facility.
+
+When the current-key environment variable is set, newly saved files are encrypted. Plain `.slip` files remain readable, but encrypted files require a matching current or previous key. If `encryption.keyEnv` is explicitly configured but that variable is absent, the server does not start.
 
 ### PDF fonts
 
-No font path or operating-system font installation is required. The MCP server reads fonts embedded as base64 in `@omdc-slipkit/elements`, passes them to the PDF renderer in memory, and does not download fonts from the network.
+When `fonts` is omitted, the MCP server uses fonts embedded as base64 in `@omdc-slipkit/elements`. It does not download fonts from the network or automatically load operating-system fonts.
 
 | Locale | Default fonts |
 |---|---|
 | Locale starting with `ja` | Noto Sans JP Regular Japanese subset |
 | All other locales | Pretendard Regular and Pretendard Bold |
 
-Omit `fontName` to use the locale's fallback font. When specifying it, use a registered name for the current locale: `Pretendard`, `Pretendard-Bold`, or `Noto Sans JP`. The bundled Japanese font has no Bold variant, so `bold: true` does not select a separate Bold font.
+Omit `fontName` to use the locale's fallback font. When specifying it, use a currently registered font name. The bundled Japanese font has no Bold variant, so `bold: true` does not select a separate Bold font.
 
-The current CLI does not expose a custom-font option. Supporting user fonts requires a separate server option for a font provider. When running from this repository, keep the pnpm-installed workspace dependencies instead of copying only `packages/mcp/dist`. After npm publication, the `elements` dependency and its embedded fonts will be installed with the MCP package.
+Register custom fonts in the server configuration.
+
+```json
+{
+  "rootDir": "../slip-workspace",
+  "locale": "en",
+  "fonts": [
+    {
+      "name": "AppFont",
+      "path": "./fonts/AppFont-Regular.ttf",
+      "fallback": true
+    },
+    {
+      "name": "AppFont-Bold",
+      "path": "./fonts/AppFont-Bold.ttf"
+    }
+  ]
+}
+```
+
+Font paths are resolved from the configuration file directory. At most one font may set `fallback: true`; when none does, the first font is used as the fallback. Configuring `fonts` replaces the bundled font list, so include every font referenced by the templates. Use names such as `AppFont-Bold`, `AppFont-Italic`, and `AppFont-BoldItalic` for style variants.
+
+When running from this repository, keep the pnpm-installed workspace dependencies instead of copying only `packages/mcp/dist`. After npm publication, the `elements` dependency and its embedded fonts will be installed with the MCP package.
 
 ## Tools
 
@@ -237,22 +346,22 @@ const template = await storage.load('invoice');
 await storage.save('archive/invoice', template);
 ```
 
-Use `createSlipMcpServer(options)` when embedding the MCP server itself. It returns an unconnected `McpServer` and a `FileSystemStorage`; the caller is responsible for connecting a transport.
+Use `createSlipMcpServer(options)` when embedding the MCP server itself. It returns an unconnected `McpServer` and a `FileSystemStorage`; the caller is responsible for connecting a transport. To apply the same configuration rules as the CLI, create `options` with `resolveServerOptions({ cwd, configPath, env })` first.
 
 ## Troubleshooting
 
 | Symptom | Check |
 |---|---|
-| MCP tools do not appear | Confirm that the package was built, both configured paths are absolute and valid, and the client was restarted. |
-| `working directory not found` | Create the working directory and correct its configured path. |
-| An encrypted file cannot be read | Confirm that the matching key is present in `SLIPKIT_MCP_KEY` or `SLIPKIT_MCP_PREVIOUS_KEYS`. |
+| MCP tools do not appear | Confirm that the package was built, the `cli.js` and `--config` paths are valid, and the client was restarted. Read the client's MCP log or stderr for startup errors. |
+| `Could not read the config file` | Check the `--config` or `SLIPKIT_MCP_CONFIG` path and file permissions. |
+| `Working directory not found` | Check `rootDir` and confirm the directory exists. Relative paths start at the configuration file directory. |
+| `Font file ... not found` | Check `fonts[].path` and file permissions. Relative paths start at the configuration file directory. |
+| An encrypted file cannot be read | Check the environment variables named by `keyEnv` and `previousKeysEnv` for a matching key. |
 | A file did not change after an edit | Read the validation error in the tool response. Failed validation leaves the original unchanged. |
 | PDF output fails | Confirm that the output parent directory exists and is writable. |
 
 ## Related documents
 
-- [`.slip` File Format Specification](../SPEC.md)
 - [Core Usage Guide](core.en.md)
 - [Server Integration Guide](server-integration.en.md)
 - [API Reference](api-reference.en.md)
-- [ADR-061: Provide AI integration as a local MCP server package](../DECISIONS.md#adr-061-ai-연동은-로컬-mcp-서버-패키지로-제공한다)

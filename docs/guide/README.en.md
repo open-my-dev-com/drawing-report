@@ -19,7 +19,7 @@ If this is your first time, start with [Getting started](getting-started.en.md) 
 | Build a template on the designer screen | [Form Designer Guide](designer.en.md) | Template authors |
 | Handle `.slip` files, assemble vouchers, and generate PDFs | [Core Usage Guide](core.en.md) | Backend and Core developers |
 | Issue vouchers and generate and store PDFs on a Node.js server | [Server Integration Guide](server-integration.en.md) | Backend developers |
-| Create and edit `.slip` templates with AI and review them as PDFs | [MCP Guide](mcp.en.md) | MCP users and AI integration developers |
+| Configure the MCP server, create and edit `.slip` templates with AI, and review them as PDFs | [MCP Guide](mcp.en.md) | MCP users and AI integration developers |
 | Configure language, fonts, paper, presets, and storage | [Configuration Guide](configuration.en.md) | Application developers |
 | Write calculations in a template | [Formula Function Reference](formula.en.md) | Template authors and developers |
 | Check the public functions, types, components, and events | [API Reference](api-reference.en.md) | Integration developers |
