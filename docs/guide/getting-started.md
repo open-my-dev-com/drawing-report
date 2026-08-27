@@ -71,6 +71,19 @@ pnpm demo:vue
 
 포트가 이미 사용 중이면 개발 서버가 다른 주소를 안내할 수 있습니다. 이 경우 터미널에 표시된 주소로 접속합니다.
 
+데모의 기본 언어는 영어입니다. 주소에 `?locale=`을 붙이면 그 언어로 실행됩니다.
+
+```text
+http://localhost:5173/?locale=ko   # 한국어
+http://localhost:5173/?locale=ja   # 일본어
+```
+
+환경 변수 `VITE_SLIPKIT_LOCALE`로 기본 언어를 지정할 수도 있습니다. 주소의 `?locale=` 값이 우선합니다.
+
+```bash
+VITE_SLIPKIT_LOCALE=ko pnpm demo
+```
+
 ### 3. 기능 확인
 
 데모를 실행하면 다음과 같은 양식 디자이너가 표시됩니다.

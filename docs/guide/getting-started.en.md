@@ -71,6 +71,19 @@ pnpm demo:vue
 
 If a port is already in use, the dev server may point you to a different address. In that case, open the address shown in the terminal.
 
+The demos run in English by default. Append `?locale=` to the address to run them in another language.
+
+```text
+http://localhost:5173/?locale=ko   # Korean
+http://localhost:5173/?locale=ja   # Japanese
+```
+
+You can also set the default language with the `VITE_SLIPKIT_LOCALE` environment variable. The `?locale=` value in the address takes precedence.
+
+```bash
+VITE_SLIPKIT_LOCALE=ko pnpm demo
+```
+
 ### 3. Try the features
 
 When you run a demo, a form designer like this appears.

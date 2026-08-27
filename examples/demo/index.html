@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SlipKit 데모</title>
+  <title>SlipKit Demo</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; }
@@ -79,29 +79,29 @@
 </head>
 <body>
   <header>
-    <span class="title">SlipKit 데모</span>
-    <button id="mode-design" aria-pressed="true">양식 만들기</button>
-    <button id="mode-fill" aria-pressed="false">전표 쓰기</button>
-    <button id="new-slip" hidden>새 전표</button>
+    <span class="title">SlipKit Demo</span>
+    <button id="mode-design" aria-pressed="true">Design template</button>
+    <button id="mode-fill" aria-pressed="false">Fill voucher</button>
+    <button id="new-slip" hidden>New voucher</button>
     <span class="sep"></span>
-    <button id="download">파일로 내려받기</button>
-    <button id="open">파일 열기</button>
+    <button id="download">Download file</button>
+    <button id="open">Open file</button>
     <span id="autosave"></span>
-    <span id="status">양식을 만들고, 전표 쓰기로 넘어가 값을 채워 보세요</span>
+    <span id="status"></span>
   </header>
   <slip-designer id="designer"></slip-designer>
   <slip-form id="form" hidden></slip-form>
 
   <dialog id="filename-dialog">
     <form method="dialog">
-      <h2>파일로 내려받기</h2>
+      <h2>Download file</h2>
       <div class="body">
-        <label for="filename">파일 이름</label>
+        <label for="filename">File name</label>
         <input id="filename" name="filename" autocomplete="off" />
       </div>
       <div class="foot">
-        <button value="cancel">취소</button>
-        <button value="ok">내려받기</button>
+        <button value="cancel">Cancel</button>
+        <button value="ok">Download</button>
       </div>
     </form>
   </dialog>

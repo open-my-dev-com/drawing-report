@@ -19,19 +19,26 @@ import {
   VOUCHER_KEY,
   canResumeVoucher,
   createStores,
+  getMessages,
   initialTemplate,
-  messages,
+  resolveDemoLocale,
   restore,
   savedLabel,
   suggestedName,
   templateFromVoucher,
 } from 'slipkit-demo-shared';
 
+// 데모 언어 — 주소의 ?locale= 값이 우선하고, 없으면 빌드 설정값을 쓴다
+const locale = resolveDemoLocale(location.search, import.meta.env.VITE_SLIPKIT_LOCALE as string | undefined);
+const messages = getMessages(locale);
+document.documentElement.lang = locale ?? 'en';
+document.title = messages.appTitle('React');
+
 export function App() {
   // 저장소는 화면이 다시 그려져도 그대로 써야 하므로 한 번만 만든다
-  const { store, localFile } = useMemo(() => createStores('slipkit-demo-react'), []);
+  const { store, localFile } = useMemo(() => createStores('slipkit-demo-react', locale), []);
 
-  const [template, setTemplate] = useState<SlipTemplateFile>(() => initialTemplate());
+  const [template, setTemplate] = useState<SlipTemplateFile>(() => initialTemplate(locale));
   // 디자이너에 넣는 시작 입력 — 편집 중에는 바꾸지 않고, 외부 양식을 명시적으로 열 때만 갱신한다
   const [designerSrc, setDesignerSrc] = useState<string>(() => serializeSlipFile(template));
   const [voucher, setVoucher] = useState<SlipVoucherFile | null>(null);
@@ -53,7 +60,7 @@ export function App() {
     try {
       await store.save(TEMPLATE_KEY, latest.current.template);
       if (latest.current.voucher) await store.save(VOUCHER_KEY, latest.current.voucher);
-      setAutosave(savedLabel(new Date()));
+      setAutosave(savedLabel(new Date(), locale));
     } catch (error) {
       setAutosave('');
       setStatus(messages.autosaveFailed(String(error)));
@@ -135,7 +142,7 @@ export function App() {
   const openDownloadDialog = (): void => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (filenameRef.current) filenameRef.current.value = suggestedName(activeFile());
+    if (filenameRef.current) filenameRef.current.value = suggestedName(activeFile(), locale);
     dialog.returnValue = 'cancel';
     dialog.showModal();
     filenameRef.current?.select();
@@ -144,7 +151,7 @@ export function App() {
   const onDialogClose = (): void => {
     if (dialogRef.current?.returnValue !== 'ok') return;
     const file = activeFile();
-    const name = filenameRef.current?.value.trim() || suggestedName(file);
+    const name = filenameRef.current?.value.trim() || suggestedName(file, locale);
     localFile
       .save(name, file)
       .then(() => setStatus(messages.downloaded(name)))
@@ -187,13 +194,13 @@ export function App() {
   return (
     <>
       <header>
-        <span className="title">SlipKit React 데모</span>
-        <button aria-pressed={!filling} onClick={() => setMode(false)}>양식 만들기</button>
-        <button aria-pressed={filling} onClick={() => setMode(true)}>전표 쓰기</button>
-        <button hidden={!filling} onClick={newSlip}>새 전표</button>
+        <span className="title">{messages.appTitle('React')}</span>
+        <button aria-pressed={!filling} onClick={() => setMode(false)}>{messages.buttonDesign}</button>
+        <button aria-pressed={filling} onClick={() => setMode(true)}>{messages.buttonFill}</button>
+        <button hidden={!filling} onClick={newSlip}>{messages.buttonNewSlip}</button>
         <span className="sep" />
-        <button onClick={openDownloadDialog}>파일로 내려받기</button>
-        <button onClick={openFile}>파일 열기</button>
+        <button onClick={openDownloadDialog}>{messages.buttonDownload}</button>
+        <button onClick={openFile}>{messages.buttonOpen}</button>
         <span className="autosave">{autosave}</span>
         <span className="status">{status}</span>
       </header>
@@ -201,26 +208,27 @@ export function App() {
       <div className="pane" hidden={filling}>
         <SlipDesigner
           src={designerSrc}
+          {...(locale === undefined ? {} : { locale })}
           storage={store}
           onSlipChange={onDesignerChange}
         />
       </div>
       <div className="pane" hidden={!filling}>
         {booted && formSrc !== '' ? (
-          <SlipForm src={formSrc} onSlipChange={onFormChange} onSlipIssue={onFormIssue} />
+          <SlipForm src={formSrc} {...(locale === undefined ? {} : { locale })} onSlipChange={onFormChange} onSlipIssue={onFormIssue} />
         ) : null}
       </div>
 
       <dialog ref={dialogRef} onClose={onDialogClose}>
         <form method="dialog">
-          <h2>파일로 내려받기</h2>
+          <h2>{messages.buttonDownload}</h2>
           <div className="body">
-            <label htmlFor="filename">파일 이름</label>
+            <label htmlFor="filename">{messages.filenameLabel}</label>
             <input id="filename" ref={filenameRef} name="filename" autoComplete="off" />
           </div>
           <div className="foot">
-            <button value="cancel">취소</button>
-            <button value="ok">내려받기</button>
+            <button value="cancel">{messages.cancel}</button>
+            <button value="ok">{messages.download}</button>
           </div>
         </form>
       </dialog>
