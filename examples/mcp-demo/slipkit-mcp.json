@@ -1,4 +1,7 @@
 {
   "rootDir": "./workspace",
-  "locale": "ko"
+  "locale": "ko",
+  "encryption": {
+    "keyEnv": "MY_SLIP_KEY"
+  }
 }
