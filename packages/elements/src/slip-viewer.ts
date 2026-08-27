@@ -1,4 +1,5 @@
-import { LitElement, css, html, nothing } from 'lit';
+import { LitElement, html, nothing } from 'lit';
+import { viewerStyles } from './styles/slip-viewer.styles.js';
 import {
   parseSlipFile,
   renderSlipToPdf,
@@ -12,40 +13,7 @@ import { resolveFonts, type SlipFontProvider } from './settings.js';
  * `.slip` 양식 또는 전표를 PDF로 렌더링해 표시하는 웹 컴포넌트.
  */
 export class SlipViewer extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      position: relative;
-      min-height: 200px;
-    }
-
-    /* hidden 속성이 컴포넌트의 기본 display 규칙보다 우선하도록 지정한다. */
-    :host([hidden]) {
-      display: none;
-    }
-
-    iframe {
-      display: block;
-      width: 100%;
-      height: 100%;
-      min-height: inherit;
-      border: none;
-    }
-
-    .status {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: inherit;
-      color: #666;
-      font-family: sans-serif;
-      font-size: 14px;
-    }
-
-    .status.error {
-      color: #c00;
-    }
-  `;
+  static styles = viewerStyles;
 
   static properties = {
     src: { type: String },
