@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@omdc-slipkit/core": "workspace:*",
+    "@omdc-slipkit/elements": "workspace:*",
     "@omdc-slipkit/vue": "workspace:*",
     "slipkit-demo-shared": "workspace:*",
     "vue": "^3.5.0"

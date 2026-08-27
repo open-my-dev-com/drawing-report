@@ -54,6 +54,9 @@ importers:
       '@omdc-slipkit/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@omdc-slipkit/elements':
+        specifier: workspace:*
+        version: link:../../packages/elements
       '@omdc-slipkit/react':
         specifier: workspace:*
         version: link:../../packages/react
@@ -98,6 +101,9 @@ importers:
       '@omdc-slipkit/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@omdc-slipkit/elements':
+        specifier: workspace:*
+        version: link:../../packages/elements
       '@omdc-slipkit/vue':
         specifier: workspace:*
         version: link:../../packages/vue

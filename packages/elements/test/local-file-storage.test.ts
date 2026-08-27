@@ -65,6 +65,20 @@ describe('LocalFileStorage', () => {
     await expect(promise).rejects.toMatchObject({ name: 'SlipParseError' });
   });
 
+  it('load에서 파일 선택을 취소하면 cancelled 오류로 거부된다', async () => {
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
+    const promise = new LocalFileStorage().load('무시');
+    await flush();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    input.dispatchEvent(new Event('cancel'));
+
+    await expect(promise).rejects.toMatchObject({
+      name: 'SlipStorageError',
+      code: 'cancelled',
+    });
+  });
+
   it('delete와 list는 unsupported 오류를 던진다', async () => {
     const storage = new LocalFileStorage();
     await expect(storage.delete('x')).rejects.toMatchObject({

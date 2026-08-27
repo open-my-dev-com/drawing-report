@@ -46,7 +46,7 @@ export interface IndexedDbStorageOptions {
   /**
    * 오류 메시지 언어(`ko`, `en`, `ja`).
    *
-   * @defaultValue 한국어
+   * @defaultValue 영어
    */
   locale?: string;
   /**

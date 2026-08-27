@@ -21,7 +21,7 @@ export const SlipViewer = defineComponent({
     /**
      * UI 언어 (`ko`, `en`, `ja`).
      *
-     * @defaultValue 한국어
+     * @defaultValue 영어
      */
     locale: { type: String, default: undefined },
     /** 렌더링 설정과 폰트 공급자. */
@@ -47,7 +47,7 @@ export const SlipDesigner = defineComponent({
     /**
      * UI 언어 (`ko`, `en`, `ja`).
      *
-     * @defaultValue 한국어
+     * @defaultValue 영어
      */
     locale: { type: String, default: undefined },
     /** 폰트와 용지 목록을 제공하는 호스트 설정. */
@@ -86,7 +86,7 @@ export const SlipForm = defineComponent({
     /**
      * UI 언어 (`ko`, `en`, `ja`).
      *
-     * @defaultValue 한국어
+     * @defaultValue 영어
      */
     locale: { type: String, default: undefined },
     /** 렌더링 설정과 폰트 공급자. */

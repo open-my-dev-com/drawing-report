@@ -18,7 +18,7 @@ export interface SlipViewerProps {
   /**
    * UI 언어 (`ko`, `en`, `ja`).
    *
-   * @defaultValue 한국어
+   * @defaultValue 영어
    */
   locale?: string;
   /** 렌더링 설정과 폰트 공급자. */
@@ -40,7 +40,7 @@ export interface SlipDesignerProps {
   /**
    * UI 언어 (`ko`, `en`, `ja`).
    *
-   * @defaultValue 한국어
+   * @defaultValue 영어
    */
   locale?: string;
   /** 폰트와 용지 목록을 제공하는 호스트 설정. */
@@ -90,7 +90,7 @@ export interface SlipFormProps {
   /**
    * UI 언어 (`ko`, `en`, `ja`).
    *
-   * @defaultValue 한국어
+   * @defaultValue 영어
    */
   locale?: string;
   /** 렌더링 설정과 폰트 공급자. */

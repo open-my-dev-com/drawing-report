@@ -87,7 +87,7 @@ export class LocalFileStorage implements StorageAdapter {
       });
       input.addEventListener('cancel', () => {
         cleanup();
-        reject(new SlipStorageError('io', this.messages.pickCancelled));
+        reject(new SlipStorageError('cancelled', this.messages.pickCancelled));
       });
 
       document.body.appendChild(input);
