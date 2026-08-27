@@ -106,6 +106,7 @@ pnpm demo:vue
 | [アプリケーション統合ガイド](docs/guide/integration.ja.md) | デザイナー・作成フォーム・ビューアの接続、保存・復元、サーバー連携 |
 | [テンプレートデザイナー利用ガイド](docs/guide/designer.ja.md) | デザイナー画面でテンプレートを作成する方法 |
 | [Core 利用ガイド](docs/guide/core.ja.md) | `.slip` ファイル処理、伝票の組み立て、数式評価、PDF 生成、暗号化 |
+| [MCP 利用ガイド](docs/guide/mcp.ja.md) | AI による `.slip` の作成・編集、伝票の組み立て、PDF 確認 |
 | [環境設定ガイド](docs/guide/configuration.ja.md) | 言語・フォント・用紙・バーコード・プリセット・ストレージの設定 |
 | [数式関数リファレンス](docs/guide/formula.ja.md) | 数式の記述ルール、対応する関数と使用例 |
 | [API リファレンス](docs/guide/api-reference.ja.md) | 関数・型・コンポーネント・イベント・エラーの全体リファレンス |

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * `slipkit-mcp` 실행 파일 — stdio 전송으로 SlipKit MCP 서버를 시작한다.
+ * `slipkit-mcp` 실행 파일. 표준 입출력(stdio)으로 통신하는 SlipKit MCP 서버를 시작한다.
  *
  * 사용법: `slipkit-mcp [작업-디렉터리] [--locale ko]`
  *
  * 환경변수:
  * - `SLIPKIT_MCP_LOCALE` — 오류 메시지 언어 (`--locale`이 우선)
- * - `SLIPKIT_MCP_KEY` — 파일 암호화 키 (명령 인자는 프로세스 목록에 노출되므로 환경변수만 받는다)
+ * - `SLIPKIT_MCP_KEY` — 파일 암호화 키 (프로세스 목록에 노출되지 않도록 환경변수로만 받는다)
  * - `SLIPKIT_MCP_PREVIOUS_KEYS` — 키를 바꾸기 전에 쓰던 키 목록 (쉼표로 구분)
  */
 import { stat } from 'node:fs/promises';
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
 
   const { server } = createSlipMcpServer(options);
   await server.connect(new StdioServerTransport());
-  // stdout은 MCP 전송에 쓰므로 안내는 stderr로 출력한다.
+  // stdout은 MCP 메시지 전용이므로 실행 정보는 stderr로 보낸다.
   console.error(`slipkit-mcp: serving ${rootDir}${key === undefined ? '' : ' (encryption on)'}`);
 }
 

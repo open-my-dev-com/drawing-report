@@ -106,6 +106,7 @@ The full documentation is organized by goal in the [SlipKit Guide](docs/guide/RE
 | [Application Integration Guide](docs/guide/integration.en.md) | Connecting the designer, entry form, and viewer; saving, restoring, and server integration |
 | [Form Designer Guide](docs/guide/designer.en.md) | How to build a form on the designer screen |
 | [Core Usage Guide](docs/guide/core.en.md) | `.slip` file handling, voucher assembly, formula evaluation, PDF generation, and encryption |
+| [MCP Guide](docs/guide/mcp.en.md) | AI-assisted `.slip` creation and editing, voucher assembly, and PDF review |
 | [Configuration Guide](docs/guide/configuration.en.md) | Language, fonts, paper, barcodes, presets, and storage settings |
 | [Formula Function Reference](docs/guide/formula.en.md) | Formula-writing rules, supported functions, and usage examples |
 | [API Reference](docs/guide/api-reference.en.md) | The full reference of functions, types, components, events, and errors |

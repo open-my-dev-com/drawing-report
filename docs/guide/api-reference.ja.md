@@ -9,6 +9,7 @@
 - [はじめに](getting-started.ja.md)
 - [アプリケーション統合ガイド](integration.ja.md)
 - [Core 利用ガイド](core.ja.md)
+- [MCP 利用ガイド](mcp.ja.md)
 - [環境設定ガイド](configuration.ja.md)
 
 > [!NOTE]
@@ -23,6 +24,7 @@
 | `@omdc-slipkit/elements` | Web Component、設定の型、既定プリセットとストレージ実装 |
 | `@omdc-slipkit/react` | React ラッパーコンポーネント |
 | `@omdc-slipkit/vue` | Vue ラッパーコンポーネント |
+| `@omdc-slipkit/mcp` | ローカル stdio MCP サーバー、ファイルシステムストレージ、MCP 構造ガイド |
 
 フォントは次のサブパスからも取得できます。
 
@@ -1566,6 +1568,68 @@ Vue 3.4 以上をサポートします。
 | `locale` | `string` | — |
 | `settings` | `SlipFontProvider` | — |
 
+## `@omdc-slipkit/mcp`
+
+`@omdc-slipkit/mcp` は、ローカル stdio MCP サーバーと、そのサーバーが使用するファイルシステムストレージを提供します。接続方法とツールの使い方は [MCP 利用ガイド](mcp.ja.md) を確認してください。
+
+### `createSlipMcpServer`
+
+```ts
+function createSlipMcpServer(
+  options: SlipMcpServerOptions,
+): {
+  server: McpServer;
+  storage: FileSystemStorage;
+};
+```
+
+7 つのツールと `slip://schema` リソースを登録した MCP サーバーを作成します。返される `server` はまだトランスポートに接続されていません。
+
+`SlipMcpServerOptions` は `FileSystemStorageOptions` と同じ型です。
+
+### `FileSystemStorage`
+
+```ts
+class FileSystemStorage
+  implements StorageAdapter {
+  readonly rootDir: string;
+
+  constructor(options: FileSystemStorageOptions);
+  resolvePath(id: string): string;
+  save(id: string, file: SlipFile): Promise<void>;
+  load(id: string): Promise<SlipFile>;
+  delete(id: string): Promise<void>;
+  list(filter?: SlipListFilter, cursor?: string): Promise<SlipListPage>;
+}
+```
+
+指定したルートディレクトリ内で `.slip` ファイルを読み書きする Node.js ストレージです。id に `.slip` 拡張子がない場合は自動的に付与し、ルート外のパスには `SlipStorageError` をスローします。
+
+```ts
+interface FileSystemStorageOptions {
+  rootDir: string;
+  locale?: string;
+  encryption?: {
+    key: FileSystemStorageKey;
+    previousKeys?: FileSystemStorageKey[];
+  };
+}
+
+type FileSystemStorageKey = string | Uint8Array;
+```
+
+### その他の MCP 公開 API
+
+| API | 説明 |
+|---|---|
+| `resolveInRoot(rootDir, relPath, locale?)` | 相対パスをルート内の絶対パスに変換し、ルート外に出る場合はエラーをスローします。 |
+| `editOpSchema` | `slip_edit` 操作を検証する Zod スキーマです。 |
+| `EditOp` | `editOpSchema` から推論される操作型です。 |
+| `MAX_IMAGE_BYTES` | `set_image` が受け付ける最大画像サイズ `2 * 1024 * 1024` です。 |
+| `SCHEMA_TOPICS` | `slip_schema` が対応するトピック一覧です。 |
+| `SchemaTopic` | `SCHEMA_TOPICS` の要素型です。 |
+| `schemaTopicText(topic)` | 指定したトピックの英文 `.slip` 構造ガイドを返します。 |
+
 ## エラーの型
 
 ### `SlipParseError`
@@ -1642,5 +1706,6 @@ class SlipStorageError
 - [フォームデザイナー利用ガイド](designer.ja.md)
 - [アプリケーション統合ガイド](integration.ja.md)
 - [Core 利用ガイド](core.ja.md)
+- [MCP 利用ガイド](mcp.ja.md)
 - [環境設定ガイド](configuration.ja.md)
 - [数式関数リファレンス](formula.ja.md)

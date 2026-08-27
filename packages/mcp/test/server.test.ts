@@ -27,7 +27,7 @@ afterEach(async () => {
 });
 
 describe('slip_save · slip_list · slip_read', () => {
-  it('전문 저장 후 목록과 요약 읽기가 동작한다', async () => {
+  it('전체 파일을 저장한 뒤 목록과 요약을 읽을 수 있다', async () => {
     const saved = await callText(client, 'slip_save', {
       path: 'invoice',
       file: makeTemplate(),
@@ -71,6 +71,56 @@ describe('slip_save · slip_list · slip_read', () => {
     expect(forced.isError).toBe(false);
   });
 
+  it('발행된 전표는 overwrite로 교체할 수 없다', async () => {
+    await callText(client, 'slip_save', { path: 'doc', file: makeTemplate() });
+    await callText(client, 'slip_build_voucher', {
+      templatePath: 'doc',
+      values: {},
+      outPath: 'issued',
+    });
+    const storage = new FileSystemStorage({ rootDir: dir });
+    const voucher = await storage.load('issued');
+    if (voucher.kind !== 'voucher') throw new Error('voucher expected');
+    await storage.save('issued', { ...voucher, issued: true });
+
+    const saved = await callText(client, 'slip_save', {
+      path: 'issued',
+      file: makeTemplate(),
+      overwrite: true,
+    });
+    const built = await callText(client, 'slip_build_voucher', {
+      templatePath: 'doc',
+      values: {},
+      outPath: 'issued',
+      overwrite: true,
+    });
+    expect(saved.isError).toBe(true);
+    expect(saved.text).toContain('issued');
+    expect(built.isError).toBe(true);
+    expect(built.text).toContain('issued');
+    expect(await storage.load('issued')).toMatchObject({ kind: 'voucher', issued: true });
+  });
+
+  it('slip_save로 발행 상태의 전표를 새로 만들 수 없다', async () => {
+    await callText(client, 'slip_save', { path: 'doc', file: makeTemplate() });
+    await callText(client, 'slip_build_voucher', {
+      templatePath: 'doc',
+      values: {},
+      outPath: 'draft',
+    });
+    const storage = new FileSystemStorage({ rootDir: dir });
+    const draft = await storage.load('draft');
+    if (draft.kind !== 'voucher') throw new Error('voucher expected');
+
+    const saved = await callText(client, 'slip_save', {
+      path: 'issued-new',
+      file: { ...draft, issued: true },
+    });
+    expect(saved.isError).toBe(true);
+    expect(saved.text).toContain('issued');
+    await expect(storage.load('issued-new')).rejects.toThrow();
+  });
+
   it('작업 디렉터리 밖 경로를 거부한다', async () => {
     const result = await callText(client, 'slip_save', {
       path: '../escape',
@@ -97,7 +147,7 @@ describe('slip_edit', () => {
     await callText(client, 'slip_save', { path: 'doc', file: makeTemplate() });
   });
 
-  it('id 지목 연산을 원자적으로 적용한다', async () => {
+  it('id로 지정한 연산을 원자적으로 적용한다', async () => {
     const result = await callText(client, 'slip_edit', {
       path: 'doc',
       ops: [
@@ -240,6 +290,17 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
   });
 
+  it('PDF 출력으로 .slip 파일을 덮어쓰지 않는다', async () => {
+    const rendered = await callText(client, 'slip_render_pdf', {
+      path: 'doc',
+      outPath: 'doc.slip',
+    });
+    expect(rendered.isError).toBe(true);
+
+    const storage = new FileSystemStorage({ rootDir: dir });
+    expect(await storage.load('doc')).toMatchObject({ kind: 'template' });
+  });
+
   it('slip_schema가 주제별 안내를 반환한다', async () => {
     const overview = await callText(client, 'slip_schema', { topic: 'overview' });
     expect(overview.text).toContain('schemaVersion');
@@ -260,5 +321,42 @@ describe('서버 안내', () => {
       'slip_save',
       'slip_schema',
     ]);
+  });
+
+  it('AI가 도구 인자와 파일 변경 가능성을 판단할 설명을 제공한다', async () => {
+    const tools = await client.listTools();
+    const byName = new Map(tools.tools.map((tool) => [tool.name, tool]));
+
+    const listProperties = byName.get('slip_list')?.inputSchema.properties as
+      | Record<string, { description?: string }>
+      | undefined;
+    const readProperties = byName.get('slip_read')?.inputSchema.properties as
+      | Record<string, { description?: string }>
+      | undefined;
+    const buildProperties = byName.get('slip_build_voucher')?.inputSchema.properties as
+      | Record<string, { description?: string }>
+      | undefined;
+
+    for (const tool of tools.tools) {
+      expect(tool.description, `${tool.name} description`).toBeTruthy();
+      const properties = tool.inputSchema.properties as
+        | Record<string, { description?: string }>
+        | undefined;
+      for (const [name, property] of Object.entries(properties ?? {})) {
+        expect(property.description, `${tool.name}.${name} description`).toBeTruthy();
+      }
+    }
+
+    expect(listProperties?.['kind']?.description).toBeTruthy();
+    expect(listProperties?.['query']?.description).toBeTruthy();
+    expect(readProperties?.['part']?.description).toContain('summary');
+    expect(readProperties?.['pageIndex']?.description).toContain('0-based');
+    expect(buildProperties?.['templatePath']?.description).toBeTruthy();
+    expect(buildProperties?.['overwrite']?.description).toContain('existing');
+    expect(JSON.stringify(byName.get('slip_edit')?.inputSchema)).toContain('0-based row index');
+    expect(JSON.stringify(byName.get('slip_edit')?.inputSchema)).toContain('never pass base64');
+    expect(byName.get('slip_save')?.annotations?.destructiveHint).toBe(true);
+    expect(byName.get('slip_build_voucher')?.annotations?.destructiveHint).toBe(true);
+    expect(byName.get('slip_render_pdf')?.annotations?.destructiveHint).toBe(true);
   });
 });

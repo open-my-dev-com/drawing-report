@@ -1,6 +1,6 @@
 /**
- * `slip_edit` 도구의 id 지목 부분 수정 연산.
- * 배열 인덱스 대신 요소 id·파라미터 key로 대상을 지목해, 순서와 무관하게 적용된다.
+ * `.slip` 파일의 일부를 식별자로 수정하는 `slip_edit` 연산.
+ * 요소는 id, 파라미터는 key로 찾아 배열 순서가 바뀌어도 같은 대상을 수정한다.
  * 연산을 모두 적용한 뒤 파일 전체를 core로 검증하고, 실패하면 아무것도 저장하지 않는다.
  */
 import { readFile } from 'node:fs/promises';
@@ -9,10 +9,10 @@ import { z } from 'zod';
 import type { SlipFile, SlipTemplateBody } from '@omdc-slipkit/core';
 import { allElementIds, bodyOf, findElement } from './summary.js';
 
-/** 도구 호출자가 고칠 수 있는 오류. 메시지가 그대로 도구 응답이 된다. */
+/** AI가 입력을 고쳐 다시 호출할 수 있는 도구 오류. */
 export class McpToolError extends Error {}
 
-/** 업로드할 수 있는 이미지 파일의 최대 크기(바이트). 디자이너 기본값과 같다. */
+/** `set_image`가 읽을 수 있는 이미지 파일의 최대 크기. */
 export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 /** 확장자별 이미지 MIME 타입 */
@@ -24,41 +24,113 @@ const IMAGE_MIME: Record<string, string> = {
   '.webp': 'image/webp',
 };
 
-const fieldsSchema = z.record(z.string(), z.unknown());
+const fieldsSchema = z
+  .record(z.string(), z.unknown())
+  .describe('Fields to merge; omit fields that should remain unchanged');
+const elementSchema = z
+  .record(z.string(), z.unknown())
+  .describe('Complete element object; use slip_schema for fields by element type');
+const parameterSchema = z
+  .record(z.string(), z.unknown())
+  .describe('Complete parameter definition; use slip_schema topic "parameters"');
+const valuesSchema = z
+  .record(z.string(), z.unknown())
+  .describe('Voucher values keyed by the template parameter keys');
 
 /** `slip_edit` 연산 입력 스키마 (`action`으로 구분) */
 export const editOpSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('set_meta'), fields: fieldsSchema }),
-  z.object({ action: z.literal('set_paper'), fields: fieldsSchema }),
-  z.object({ action: z.literal('set_element'), id: z.string(), fields: fieldsSchema }),
-  z.object({
-    action: z.literal('add_element'),
-    pageIndex: z.number().int().min(0),
-    element: fieldsSchema,
-    beforeId: z.string().optional(),
-  }),
-  z.object({ action: z.literal('remove_element'), id: z.string() }),
-  z.object({ action: z.literal('add_page'), index: z.number().int().min(0).optional() }),
-  z.object({ action: z.literal('remove_page'), index: z.number().int().min(0) }),
-  z.object({ action: z.literal('set_page'), index: z.number().int().min(0), fields: fieldsSchema }),
-  z.object({ action: z.literal('add_parameter'), parameter: fieldsSchema }),
-  z.object({ action: z.literal('set_parameter'), key: z.string(), fields: fieldsSchema }),
-  z.object({ action: z.literal('remove_parameter'), key: z.string() }),
-  z.object({
-    action: z.literal('set_cell'),
-    elementId: z.string(),
-    row: z.number().int().min(0),
-    column: z.number().int().min(0),
-    fields: fieldsSchema,
-  }),
-  z.object({ action: z.literal('set_image'), elementId: z.string(), imagePath: z.string() }),
-  z.object({ action: z.literal('set_values'), values: fieldsSchema }),
+  z
+    .object({ action: z.literal('set_meta'), fields: fieldsSchema })
+    .describe('Merge fields into the template metadata'),
+  z
+    .object({ action: z.literal('set_paper'), fields: fieldsSchema })
+    .describe('Merge fields into the paper settings'),
+  z
+    .object({
+      action: z.literal('set_element'),
+      id: z.string().describe('Element id from slip_read summary'),
+      fields: fieldsSchema,
+    })
+    .describe('Merge fields into an existing element'),
+  z
+    .object({
+      action: z.literal('add_element'),
+      pageIndex: z.number().int().min(0).describe('0-based destination page index'),
+      element: elementSchema,
+      beforeId: z
+        .string()
+        .optional()
+        .describe('Insert before this element id on the same page; omit to append'),
+    })
+    .describe('Add an element to a page'),
+  z
+    .object({
+      action: z.literal('remove_element'),
+      id: z.string().describe('Element id from slip_read summary'),
+    })
+    .describe('Remove an element'),
+  z
+    .object({
+      action: z.literal('add_page'),
+      index: z.number().int().min(0).optional().describe('0-based insertion index; omit to append'),
+    })
+    .describe('Add an empty page'),
+  z
+    .object({
+      action: z.literal('remove_page'),
+      index: z.number().int().min(0).describe('0-based page index'),
+    })
+    .describe('Remove a page'),
+  z
+    .object({
+      action: z.literal('set_page'),
+      index: z.number().int().min(0).describe('0-based page index'),
+      fields: fieldsSchema,
+    })
+    .describe('Merge fields into a page'),
+  z
+    .object({ action: z.literal('add_parameter'), parameter: parameterSchema })
+    .describe('Add a parameter definition'),
+  z
+    .object({
+      action: z.literal('set_parameter'),
+      key: z.string().describe('Parameter key from slip_read summary'),
+      fields: fieldsSchema,
+    })
+    .describe('Merge fields into a parameter definition'),
+  z
+    .object({
+      action: z.literal('remove_parameter'),
+      key: z.string().describe('Parameter key from slip_read summary'),
+    })
+    .describe('Remove a parameter definition'),
+  z
+    .object({
+      action: z.literal('set_cell'),
+      elementId: z.string().describe('Grid element id from slip_read summary'),
+      row: z.number().int().min(0).describe('0-based row index'),
+      column: z.number().int().min(0).describe('0-based column index'),
+      fields: fieldsSchema,
+    })
+    .describe('Merge fields into a grid cell, creating the cell when absent'),
+  z
+    .object({
+      action: z.literal('set_image'),
+      elementId: z.string().describe('Image element id; may refer to an element added earlier in this call'),
+      imagePath: z
+        .string()
+        .describe('Local image path relative to the working directory; never pass base64'),
+    })
+    .describe('Embed a local image as a fixed asset and connect it to an image element'),
+  z
+    .object({ action: z.literal('set_values'), values: valuesSchema })
+    .describe('Merge values into an unissued voucher'),
 ]);
 
 /** `slip_edit` 연산 하나 */
 export type EditOp = z.infer<typeof editOpSchema>;
 
-/** 연산 적용에 필요한 주변 정보 */
+/** 연산 적용에 필요한 파일 경로 처리 함수. */
 export interface EditContext {
   /** 이미지 경로를 작업 디렉터리 안의 절대 경로로 변환한다. 벗어나면 던진다. */
   resolveFilePath: (relPath: string) => string;
@@ -72,7 +144,7 @@ function mergeFields(target: Record<string, unknown>, fields: Record<string, unk
   }
 }
 
-/** 요소를 찾고, 없으면 사용할 수 있는 id를 안내하는 오류를 던진다. */
+/** 요소를 찾고, 없으면 현재 요소 id 목록을 담은 오류를 던진다. */
 function requireElement(file: SlipFile, id: string): ReturnType<typeof findElement> & object {
   const found = findElement(file, id);
   if (!found) {
@@ -96,7 +168,7 @@ function requirePage(body: SlipTemplateBody, index: number): (typeof body.pages)
  *
  * @param file - 수정할 파일 (호출 전에 깊은 사본을 만들어 넘긴다)
  * @param op - 적용할 연산
- * @param context - 이미지 경로 해석 등 주변 정보
+ * @param context - 이미지 경로 해석 함수
  * @returns 적용 내용 한 줄 설명
  * @throws McpToolError 대상이 없거나 연산을 적용할 수 없을 때
  */
@@ -222,7 +294,7 @@ export async function applyEditOp(
         );
       }
       const src = `data:${mime};base64,${bytes.toString('base64')}`;
-      // 요소가 이미 에셋을 참조하면 그 에셋을 교체하고, 아니면 새 에셋을 만든다.
+      // 기존 고정 이미지는 같은 에셋을 갱신해 불필요한 에셋이 남지 않게 한다.
       const currentId = element.src?.startsWith('asset://') ? element.src.slice(8) : undefined;
       const current = body.assets.find((asset) => asset.id === currentId);
       if (current) {

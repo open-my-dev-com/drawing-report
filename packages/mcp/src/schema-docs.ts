@@ -1,7 +1,7 @@
 /**
  * `slip_schema` 도구가 반환하는 `.slip` 구조 안내문.
- * AI가 읽는 자료라 영어로 고정하고, 전체 상세는 core가 생성한 JSON Schema로 보완한다.
- * 요소 종류 목록 같은 핵심 사실은 테스트에서 실제 스키마와 대조한다.
+ * AI에 제공하는 내용은 영어로 작성하고, 전체 필드 정의는 core가 생성한 JSON Schema로 제공한다.
+ * 요소 종류처럼 스키마와 함께 바뀌어야 하는 내용은 테스트에서 대조한다.
  */
 import { FORMULA_FUNCTIONS, slipFileJsonSchema } from '@omdc-slipkit/core';
 
@@ -29,7 +29,8 @@ A .slip file is a JSON document. Two kinds exist:
 BODY = {
   "meta": { "title": string },            // required, non-empty
   "paper": { "width": mm, "height": mm, "padding": [top, right, bottom, left] },
-  "pages": [ { "elements": [Element, ...], "key"?: string, "label"?: string } ],  // 1+ pages
+  "pages": [ { "elements": [Element, ...], "key"?: string, "label"?: string,
+                 "pageNumber"?: { "position": string, "format"?: string, "fontSize"?: number } } ],
   "assets": [ { "id": string, "mimeType": string, "src": "data:..." } ],          // required, may be []
   "parameters"?: [ ParameterDef, ... ],
   "sampleValues"?: { key: value }         // preview-only sample data
@@ -54,11 +55,14 @@ characterSpacing?, vertical?. Box styling: backgroundColor?, fontColor?, borderC
 - text: fixed label. { "type": "text", "content": string, ...styling }
 - field: value filled per voucher. Exactly ONE of: "parameter" (a values key) or "formula".
   { "type": "field", "parameter": "customerName" } or { "type": "field", "formula": "SUM(items.amount)" }
-- image: exactly ONE of: "src" (either "asset://<assetId>" pointing at assets[], a "data:" URL, or an
-  http(s) URL) or "parameter" (values key whose value is a data: URL). Prefer slip_edit's set_image
-  op to attach image files — it stores the bytes as an asset for you.
-- barcode: { "type": "barcode", "barcodeKind": "qrcode"|"code128"|"ean13"|..., plus exactly ONE of
-  content / parameter / formula, backgroundColor? }
+- image: exactly ONE of "src" or "parameter". For a fixed image, use slip_edit set_image with a local
+  file path. It stores the bytes as a base64 data URL in assets[] and sets src to "asset://<assetId>".
+  Do not author http(s) URLs. The file schema recognizes them for compatibility, but PDF rendering
+  does not fetch external images and issued vouchers reject them. set_image replaces parameter binding;
+  this server does not provide a path-based operation for voucher image parameter values.
+- barcode: { "type": "barcode", "kind": "qrcode"|"code128"|"ean13"|"code39"|"ean8"|"upca"|
+  "upce"|"itf14"|"nw7"|"japanpost"|"gs1datamatrix"|"pdf417", plus exactly ONE of content /
+  parameter / formula, fontColor?, backgroundColor? }
 - line: { "type": "line", "lineDirection"?: "horizontal"|"vertical"|"down"|"up", borderColor?, borderWidth?, borderStyle? }
 - rect: { "type": "rect", backgroundColor?, borderColor?, borderWidth?, borderStyle?, "radius"?: mm }
   (radius cannot combine with dashed/dotted border)
@@ -78,13 +82,15 @@ const GRID = `# Grid element (tables)
 }
 
 Constraints the validator enforces:
-- element width must equal the sum of column widths; height must equal the sum of row heights.
-- Cell = { "row": r, "column": c (0-based), "rowSpan"?, "colSpan"?, plus ONE value source:
+- Element width equals the sum of column widths. Without repeat, height equals the sum of row heights.
+  With repeat, height = sum(all row heights) + (perPage - 1) * sum(fromRow..toRow heights).
+- Cell = { "row": r, "column": c (0-based), "rowSpan"?, "colSpan"?, plus at most ONE value source:
   "content" (literal) / "parameter" / "formula", plus styling and "overflow"? }.
 - Merged spans must not overlap other cells and must not cross the repeat range boundary.
 - repeat: rows fromRow..toRow (inclusive) duplicate once per item of the list parameter.
   Inside the repeat range, "parameter" on a cell names a FIELD of the list item.
-  perPage splits items across pages; repeatHeader redraws the rows above the repeat range on each page.
+  perPage splits items across pages; maxItems, when present, must be at least perPage. repeatHeader
+  redraws the rows above the repeat range on each page.
 - columns[i].autoMerge merges vertically adjacent equal values inside the repeat range.`;
 
 const PARAMETERS = `# Parameters (values that fill a form)
@@ -109,7 +115,8 @@ Fields, barcodes and grid cells can compute their value with "formula" instead o
 Formulas run in a purpose-built parser (no JavaScript). Values are typed; convert explicitly.
 
 - Reference values by parameter key: customerName, items.amount (list field inside aggregates).
-- Operators: + - * / % ^, comparisons, & for text concatenation.
+- Arithmetic operators: + - * /. Comparisons: = <> < > <= >=.
+- Use CONCAT(...) for text concatenation; arithmetic operators require numeric values.
 - Functions: ${FORMULA_FUNCTIONS.join(', ')}.
 - Example: FORMAT_NUMBER(SUM(items.amount) * 1.1, "#,##0")`;
 
@@ -135,7 +142,7 @@ A voucher freezes a template and fills it with data:
  * 주제에 해당하는 안내문을 반환한다.
  *
  * @param topic - 주제 이름
- * @returns 안내문 (json-schema 주제는 core가 생성한 JSON Schema 전문)
+ * @returns 안내문 (json-schema 주제는 core가 생성한 JSON Schema 전체 내용)
  */
 export function schemaTopicText(topic: SchemaTopic): string {
   switch (topic) {

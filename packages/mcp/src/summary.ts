@@ -1,6 +1,6 @@
 /**
- * `.slip` 파일을 AI 컨텍스트에 맞게 줄여서 보여 주는 읽기 도우미.
- * base64 데이터는 어떤 응답에도 싣지 않고 크기 표시로 치환한다.
+ * AI에 전달할 `.slip` 파일의 구조 요약을 만든다.
+ * 긴 data URL은 응답에 싣지 않고 형식과 대략적인 크기만 남긴다.
  */
 import type { SlipElement, SlipFile, SlipTemplateBody } from '@omdc-slipkit/core';
 
@@ -9,11 +9,11 @@ export function bodyOf(file: SlipFile): SlipTemplateBody {
   return file.kind === 'template' ? file.template : file.templateSnapshot;
 }
 
-/** 치환 없이 그대로 두는 `data:` 문자열의 최대 길이 */
+/** 그대로 반환할 수 있는 data URL의 최대 문자열 길이. */
 const DATA_URL_KEEP_LENGTH = 64;
 
 /**
- * 값 안의 base64 `data:` 문자열을 `[data 12KB image/png]` 형태로 치환한 사본을 만든다.
+ * 값 안의 긴 data URL을 `[data 12KB image/png]` 형태로 치환한 사본을 만든다.
  *
  * @param value - 치환할 값 (객체·배열은 재귀적으로 처리)
  * @returns 치환된 깊은 사본
@@ -45,11 +45,11 @@ interface ElementBrief {
   y: number;
   width: number;
   height: number;
-  /** 값 소스나 구조를 한 줄로 표시 (예: `parameter: total`, `grid 3x2 repeat`) */
+  /** 값을 가져오는 곳이나 요소 구조(예: `parameter: total`, `grid 3x2 repeat`). */
   note?: string;
 }
 
-/** 요소의 값 소스·구조를 한 줄 설명으로 만든다. */
+/** 요소의 값 참조나 구조를 한 줄로 요약한다. */
 function briefNote(element: SlipElement): string | undefined {
   if (element.type === 'grid') {
     const size = `grid ${element.rows.length}x${element.columns.length}`;

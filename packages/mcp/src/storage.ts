@@ -1,6 +1,6 @@
 /**
  * 로컬 파일 시스템에 `.slip` 파일을 저장하는 저장소 어댑터.
- * MCP 서버가 내부에서 사용하고, Node 백엔드를 가진 호스트도 같은 규칙으로 재사용할 수 있다.
+ * MCP 서버와 Node.js 호스트 애플리케이션이 같은 파일 접근 규칙을 사용할 수 있다.
  */
 import { mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -18,7 +18,7 @@ import {
   type StorageAdapter,
 } from '@omdc-slipkit/core';
 
-/** 파일별 암호화에 사용하는 암호문 또는 32바이트 원시 키 */
+/** 파일 암호화에 사용할 문자열 또는 32바이트 원시 키. */
 export type FileSystemStorageKey = string | Uint8Array;
 
 /** {@link FileSystemStorage} 생성 옵션 */
@@ -96,7 +96,7 @@ export class FileSystemStorage implements StorageAdapter {
    *
    * @param id - 상대 경로 저장 키
    * @returns 파싱·검증한 `.slip` 파일
-   * @throws SlipStorageError 없음(not-found)·경로 이탈·읽기 실패(io) 시
+   * @throws SlipStorageError 파일 없음(not-found), 경로 이탈 또는 읽기 실패(io) 시
    * @throws SlipEncryptionError 암호화 파일인데 키가 없거나 맞는 키가 없을 때
    * @throws SlipParseError 파일이 유효한 `.slip`이 아니면
    */
@@ -118,7 +118,7 @@ export class FileSystemStorage implements StorageAdapter {
    * id의 파일을 삭제한다.
    *
    * @param id - 상대 경로 저장 키
-   * @throws SlipStorageError 없음(not-found)·경로 이탈·삭제 실패(io) 시
+   * @throws SlipStorageError 파일 없음(not-found), 경로 이탈 또는 삭제 실패(io) 시
    */
   async delete(id: string): Promise<void> {
     const abs = this.resolvePath(id);
@@ -209,7 +209,6 @@ export class FileSystemStorage implements StorageAdapter {
     throw lastError;
   }
 
-  /** core 함수에 전달할 로케일 옵션 (exactOptionalPropertyTypes 대응) */
   private localeOptions(): { locale?: string } {
     return this.locale === undefined ? {} : { locale: this.locale };
   }
@@ -249,12 +248,12 @@ function isNotFound(error: unknown): boolean {
   );
 }
 
-/** 오류를 사람이 읽을 문자열로 바꾼다. */
+/** 오류 값을 도구 응답에 넣을 문자열로 변환한다. */
 export function reasonOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** 어댑터가 직접 만드는 오류 문구 사전 (영어 기본, 한국어·일본어) */
+/** 파일 저장소 오류 문구. 영어를 기본으로 한국어와 일본어를 지원한다. */
 const MCP_TEXT = {
   en: {
     notFound: (id: string) => `No saved file: ${id}`,

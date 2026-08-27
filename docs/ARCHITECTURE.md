@@ -1,10 +1,10 @@
 # 아키텍처
 
-최종 갱신: 2026-08-25
+최종 갱신: 2026-08-27
 
 이 문서는 SlipKit의 전체 구조와 패키지 간 책임, 데이터 흐름, 실행 환경, 외부 시스템과의 경계를 설명합니다.
 
-SlipKit을 애플리케이션에 적용하는 방법은 [애플리케이션 통합 가이드](guide/integration.md)를, `.slip` 파일의 정확한 데이터 구조는 [.slip 파일 형식 명세](SPEC.md)를 참고하세요.
+SlipKit을 애플리케이션에 적용하는 방법은 [애플리케이션 통합 가이드](guide/integration.md)를, AI와 연결하는 방법은 [MCP 사용 가이드](guide/mcp.md)를, `.slip` 파일의 정확한 데이터 구조는 [.slip 파일 형식 명세](SPEC.md)를 참고하세요.
 
 ## 1. 설계 원칙
 
@@ -23,7 +23,7 @@ SlipKit은 다음 원칙에 따라 구성됩니다.
 
 ## 2. 전체 구조
 
-SlipKit은 독립적인 백엔드 서비스가 아니라 기존 애플리케이션에 포함하여 사용하는 라이브러리입니다.
+SlipKit은 독립적인 애플리케이션 백엔드 서비스가 아니라 기존 애플리케이션에 포함하여 사용하는 라이브러리입니다. `mcp` 패키지는 예외적으로 MCP 클라이언트의 로컬 하위 프로세스로 실행됩니다.
 
 호스트 애플리케이션은 필요한 UI 구성 요소와 `core` 기능을 선택하여 사용합니다.
 
@@ -75,6 +75,9 @@ flowchart TB
     Vue["@omdc-slipkit/vue"]
     Elements["@omdc-slipkit/elements"]
     Core["@omdc-slipkit/core"]
+    MCP["@omdc-slipkit/mcp"]
+    AI["MCP 클라이언트"]
+    Files["작업 디렉터리<br/>.slip·이미지·PDF"]
 
     Internal["내부 구현 의존성<br/>Zod · pdfme · fontkit"]
 
@@ -82,12 +85,16 @@ flowchart TB
     App --> Vue
     App --> Elements
     App --> Core
+    AI -->|"stdio"| MCP
+    MCP --> Files
 
     React --> Elements
     React --> Core
     Vue --> Elements
     Vue --> Core
     Elements --> Core
+    MCP --> Core
+    MCP -->|"동봉 폰트"| Elements
     Core --> Internal
 ```
 
@@ -97,6 +104,7 @@ flowchart TB
 | `@omdc-slipkit/elements` | 양식 편집기, 전표 입력 폼, 뷰어와 브라우저 저장소 구현 |
 | `@omdc-slipkit/react` | SlipKit Web Component를 React에서 사용하기 위한 래퍼 |
 | `@omdc-slipkit/vue` | SlipKit Web Component를 Vue에서 사용하기 위한 래퍼 |
+| `@omdc-slipkit/mcp` | AI가 작업 디렉터리의 `.slip` 파일을 읽고 만들고 고치도록 하는 로컬 stdio MCP 서버와 파일 시스템 저장소 |
 
 ### 3.1 `core`
 
@@ -136,7 +144,17 @@ React와 Vue 패키지는 Web Component를 각 프레임워크의 속성 및 이
 > [!NOTE]
 > React 또는 Vue 애플리케이션에서도 파일 검증이나 서버로 보낼 전표 생성처럼 UI와 무관한 작업은 `@omdc-slipkit/core`를 직접 사용할 수 있습니다.
 
-### 3.4 내부 구현 의존성
+### 3.4 `mcp`
+
+`@omdc-slipkit/mcp`는 MCP 클라이언트와 stdio로 통신하는 로컬 Node.js 서버입니다. `core`의 검증·전표 조립·PDF 생성을 사용하고, `elements`에서 노출한 동봉 폰트를 PDF 렌더링에 사용합니다.
+
+서버는 시작 시 지정한 작업 디렉터리 안의 경로만 다룹니다. 읽기 응답은 요약을 기본으로 하고 base64 이미지 데이터를 제외합니다. 기존 파일은 요소 id·파라미터 key·페이지 번호로 지목한 연산만 적용하고, 최종 결과가 전체 검증을 통과할 때만 저장합니다.
+
+`FileSystemStorage`는 이 파일 접근 규칙을 `StorageAdapter`로 공개합니다. Node.js 호스트는 MCP 서버를 시작하지 않고도 같은 경로 제한과 암호화 설정을 재사용할 수 있습니다.
+
+MCP 서버는 사용자 인증, 권한 검사, 임의 코드 실행, 네트워크 접속과 전표 발행을 담당하지 않습니다. 삭제나 덮어쓰기가 포함된 도구 호출의 사용자 승인은 MCP 클라이언트가 관리합니다.
+
+### 3.5 내부 구현 의존성
 
 SlipKit은 내부적으로 Zod, pdfme, fontkit 등의 라이브러리를 사용합니다.
 

@@ -8,14 +8,13 @@ import { z } from 'zod';
 import {
   buildVoucher,
   createSlipKit,
+  SlipStorageError,
   slipFileJsonSchema,
   validateSlipFile,
   type JsonValue,
   type SlipFile,
   type SlipKit,
 } from '@omdc-slipkit/core';
-import { PRETENDARD_FONTS } from '@omdc-slipkit/elements/fonts/pretendard';
-import { NOTO_SANS_JP_FONTS } from '@omdc-slipkit/elements/fonts/noto-sans-jp';
 import {
   FileSystemStorage,
   reasonOf,
@@ -32,7 +31,7 @@ export type SlipMcpServerOptions = FileSystemStorageOptions;
 /** 패키지 버전. 배포 버전을 올릴 때 함께 갱신한다. */
 const SERVER_VERSION = '0.0.1';
 
-/** 연결 시 클라이언트에 전달하는 서버 사용 안내 */
+/** 연결 시 MCP 클라이언트에 전달하는 작업 지침. */
 const INSTRUCTIONS = `SlipKit MCP server: create and edit .slip business-form files in the working directory.
 
 Workflow for a NEW form: call slip_schema (topic "overview", then the topics you need) to learn the
@@ -43,9 +42,11 @@ read only the parts you need (part "element" or "page"); then apply targeted cha
 addressing elements by id. Do not rewrite whole files to make small changes.
 
 Every save validates the file and reports precise errors without writing anything — fix and retry.
-Image bytes never pass through the conversation: attach images with slip_edit's set_image op using a
-file path inside the working directory. Build filled vouchers with slip_build_voucher. Issued
-(finalized) vouchers are immutable and this server cannot issue them.`;
+Image bytes never pass through the conversation: attach fixed images with slip_edit's set_image op
+using a file path inside the working directory. To add a new image element, put add_element before
+set_image in the same ops array; operations run in order and validation happens after all of them.
+set_image creates a fixed asset, not a voucher image-parameter value. Build filled vouchers with
+slip_build_voucher. Issued (finalized) vouchers are immutable and this server cannot issue them.`;
 
 /** 도구 응답 하나를 텍스트로 만든다. */
 function text(value: unknown): { content: { type: 'text'; text: string }[] } {
@@ -56,7 +57,7 @@ function text(value: unknown): { content: { type: 'text'; text: string }[] } {
   };
 }
 
-/** 오류를 도구 오류 응답으로 바꾼다. 메시지는 호출자가 고칠 수 있게 그대로 전달한다. */
+/** 오류 메시지를 AI가 확인할 수 있는 도구 오류 응답으로 변환한다. */
 function toolError(error: unknown): {
   content: { type: 'text'; text: string }[];
   isError: true;
@@ -84,8 +85,10 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
   const storage = new FileSystemStorage(options);
   const locale = options.locale;
   const slipKit: SlipKit = createSlipKit({
-    getFonts: () =>
-      locale?.toLowerCase().startsWith('ja') ? NOTO_SANS_JP_FONTS : PRETENDARD_FONTS,
+    getFonts: async () =>
+      locale?.toLowerCase().startsWith('ja')
+        ? (await import('@omdc-slipkit/elements/fonts/noto-sans-jp')).NOTO_SANS_JP_FONTS
+        : (await import('@omdc-slipkit/elements/fonts/pretendard')).PRETENDARD_FONTS,
     ...(locale === undefined ? {} : { locale }),
   });
 
@@ -94,20 +97,22 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
     { instructions: INSTRUCTIONS },
   );
 
-  /** 파일이 있는지 확인한다 (load 성공 여부로 판단). */
-  async function exists(id: string): Promise<boolean> {
+  /** 기존 파일을 읽는다. 파일이 없으면 null을 반환한다. */
+  async function loadExisting(id: string): Promise<SlipFile | null> {
     try {
-      await storage.load(id);
-      return true;
-    } catch {
-      return false;
+      return await storage.load(id);
+    } catch (error) {
+      if (error instanceof SlipStorageError && error.code === 'not-found') return null;
+      throw error;
     }
   }
 
-  /** 발행된 전표면 수정 거부 오류를 던진다. */
+  /** 발행된 전표의 생성·교체·수정을 거부한다. */
   function rejectIssued(file: SlipFile, id: string): void {
     if (file.kind === 'voucher' && file.issued) {
-      throw new McpToolError(`"${id}" is an issued voucher and cannot be modified.`);
+      throw new McpToolError(
+        `"${id}" is an issued voucher. This server cannot create, replace, or edit issued vouchers.`,
+      );
     }
   }
 
@@ -118,11 +123,21 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
       description:
         'List the .slip files in the working directory (path, kind, title, updatedAt). ' +
         'Filter with "kind" (template | voucher) or "query" (substring of title or path). ' +
-        'Returns up to 50 items per page; pass "cursor" from the previous result to continue.',
+        'Returns up to 50 items per page; pass "cursor" from the previous result to continue. ' +
+        'Files that cannot be parsed or decrypted are omitted.',
       inputSchema: {
-        kind: z.enum(['template', 'voucher']).optional(),
-        query: z.string().optional(),
-        cursor: z.string().optional(),
+        kind: z
+          .enum(['template', 'voucher'])
+          .optional()
+          .describe('Return only templates or only vouchers; omit for both'),
+        query: z
+          .string()
+          .optional()
+          .describe('Case-insensitive substring matched against file path and title'),
+        cursor: z
+          .string()
+          .optional()
+          .describe('Pagination cursor returned as nextCursor by the previous call'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
@@ -153,9 +168,20 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         'Embedded base64 image data is always replaced by a size placeholder and never returned.',
       inputSchema: {
         path: z.string().describe('File path relative to the working directory'),
-        part: z.enum(['summary', 'element', 'page', 'full']).optional(),
-        elementId: z.string().optional(),
-        pageIndex: z.number().int().min(0).optional(),
+        part: z
+          .enum(['summary', 'element', 'page', 'full'])
+          .optional()
+          .describe('Section to return; defaults to summary, which should be read first'),
+        elementId: z
+          .string()
+          .optional()
+          .describe('Element id required when part is element; obtain it from summary'),
+        pageIndex: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe('0-based page index required when part is page'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
@@ -203,21 +229,30 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         'Validate and save a complete .slip file (template or voucher) as JSON. Meant for CREATING ' +
         'new files — to change an existing file use slip_edit instead of rewriting it. Fails if the ' +
         'file already exists unless overwrite is true. On validation failure nothing is written and ' +
-        'the precise errors are returned; fix them and call again. See slip_schema for the structure.',
+        'the precise errors are returned; fix them and call again. Vouchers must have issued=false; ' +
+        'this server neither creates nor replaces issued vouchers. See slip_schema for the structure.',
       inputSchema: {
         path: z.string().describe('File path relative to the working directory (.slip appended if missing)'),
         file: z.record(z.string(), z.unknown()).describe('The complete .slip document as a JSON object'),
-        overwrite: z.boolean().optional(),
+        overwrite: z
+          .boolean()
+          .optional()
+          .describe('Replace an existing unissued file; defaults to false'),
       },
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
     },
     async ({ path: id, file: raw, overwrite }) => {
       try {
         const file = validateSlipFile(raw, locale === undefined ? {} : { locale });
-        if (overwrite !== true && (await exists(id))) {
-          throw new McpToolError(
-            `"${id}" already exists. Use slip_edit for changes, or pass overwrite: true to replace it.`,
-          );
+        rejectIssued(file, id);
+        const existing = await loadExisting(id);
+        if (existing !== null) {
+          rejectIssued(existing, id);
+          if (overwrite !== true) {
+            throw new McpToolError(
+              `"${id}" already exists. Use slip_edit for changes, or pass overwrite: true to replace it.`,
+            );
+          }
         }
         await storage.save(id, file);
         return text(savedLine(id, file));
@@ -233,9 +268,10 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
       title: 'Edit a .slip file',
       description:
         'Apply targeted changes to an existing .slip file. Address elements by their id (see ' +
-        'slip_read part "summary"), parameters by key, pages by index. All ops are applied ' +
-        'atomically: the result is validated as a whole and nothing is written if anything fails. ' +
-        'Ops: set_meta/set_paper/set_page {fields}; set_element {id, fields} (merge; a field set to ' +
+        'slip_read part "summary"), parameters by key, pages by 0-based index. Ops run in the given ' +
+        'order, then the result is validated as a whole; nothing is written if anything fails. ' +
+        'This allows add_element followed by set_image for a new fixed image in one call. ' +
+        'Ops: set_meta/set_paper {fields}; set_page {index, fields}; set_element {id, fields} (merge; a field set to ' +
         'null stays null — omit fields you do not change); add_element {pageIndex, element, ' +
         'beforeId?}; remove_element {id}; add_page {index?}; remove_page {index}; add_parameter ' +
         '{parameter}; set_parameter {key, fields}; remove_parameter {key}; set_cell {elementId, row, ' +
@@ -243,7 +279,10 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         'directory and stores it as an asset — never pass base64); set_values {values} (voucher only).',
       inputSchema: {
         path: z.string().describe('File path relative to the working directory'),
-        ops: z.array(editOpSchema).min(1).describe('Operations applied in order'),
+        ops: z
+          .array(editOpSchema)
+          .min(1)
+          .describe('Operations applied in order and committed only after whole-file validation'),
       },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
     },
@@ -276,14 +315,23 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
       description:
         'Assemble an unissued voucher file from a template file and parameter values, and save it. ' +
         'values keys are the template\'s parameter keys; a "list" parameter takes an array of flat ' +
-        'objects. Use slip_edit set_values to adjust values afterwards.',
+        'objects. Use slip_edit set_values to adjust values afterwards. An existing issued voucher ' +
+        'cannot be replaced.',
       inputSchema: {
-        templatePath: z.string(),
-        values: z.record(z.string(), z.unknown()).optional(),
+        templatePath: z
+          .string()
+          .describe('Template file path relative to the working directory'),
+        values: z
+          .record(z.string(), z.unknown())
+          .optional()
+          .describe('Values keyed by parameter key; list parameters take arrays of flat objects'),
         outPath: z.string().describe('Output path for the voucher (.slip appended if missing)'),
-        overwrite: z.boolean().optional(),
+        overwrite: z
+          .boolean()
+          .optional()
+          .describe('Replace an existing unissued file at outPath; defaults to false'),
       },
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
     },
     async ({ templatePath, values, outPath, overwrite }) => {
       try {
@@ -291,8 +339,12 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         if (template.kind !== 'template') {
           throw new McpToolError(`"${templatePath}" is a voucher, not a template.`);
         }
-        if (overwrite !== true && (await exists(outPath))) {
-          throw new McpToolError(`"${outPath}" already exists. Pass overwrite: true to replace it.`);
+        const existing = await loadExisting(outPath);
+        if (existing !== null) {
+          rejectIssued(existing, outPath);
+          if (overwrite !== true) {
+            throw new McpToolError(`"${outPath}" already exists. Pass overwrite: true to replace it.`);
+          }
         }
         const voucher = buildVoucher(template, (values ?? {}) as Record<string, JsonValue>);
         await storage.save(outPath, voucher);
@@ -310,21 +362,27 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
       description:
         'Render a template or voucher to a PDF file in the working directory, using the bundled ' +
         'fonts. Use this to check the visual result of your work (a client that can view files can ' +
-        'open the PDF). A template renders with empty values; render a built voucher to see real data.',
+        'open the PDF). A template renders with empty values; render a built voucher to see real data. ' +
+        'The output path cannot use the .slip extension. An existing non-.slip output file is replaced.',
       inputSchema: {
-        path: z.string(),
+        path: z.string().describe('Template or voucher path relative to the working directory'),
         outPath: z
           .string()
           .optional()
-          .describe('Output PDF path; defaults to the input path with a .pdf extension'),
+          .describe(
+            'Output path relative to the working directory; defaults to the input path with .pdf and replaces an existing file',
+          ),
       },
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
     async ({ path: id, outPath }) => {
       try {
         const file = await storage.load(id);
-        const pdf = await slipKit.render(file);
         const target = outPath ?? id.replace(/\.slip$/, '') + '.pdf';
+        if (target.toLowerCase().endsWith('.slip')) {
+          throw new McpToolError('PDF output path cannot use the .slip extension.');
+        }
+        const pdf = await slipKit.render(file);
         const abs = resolveInRoot(storage.rootDir, target, locale);
         await writeFile(abs, pdf);
         return text(`Rendered ${id} to ${target} (${Math.round(pdf.length / 1024)}KB)`);
@@ -341,7 +399,11 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
       description:
         'Return reference documentation for authoring .slip files. Topics: overview (start here), ' +
         'elements, grid, parameters, formula, voucher, json-schema (the full generated JSON Schema).',
-      inputSchema: { topic: z.enum(SCHEMA_TOPICS) },
+      inputSchema: {
+        topic: z
+          .enum(SCHEMA_TOPICS)
+          .describe('Documentation section; start with overview and request json-schema only for exact fields'),
+      },
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     ({ topic }) => text(schemaTopicText(topic)),
@@ -352,7 +414,8 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
     'slip://schema',
     {
       title: '.slip JSON Schema',
-      description: 'JSON Schema for the .slip file format',
+      description:
+        'Authoritative validation schema for the .slip file format; use slip_schema for authoring guidance',
       mimeType: 'application/schema+json',
     },
     (uri) => ({
