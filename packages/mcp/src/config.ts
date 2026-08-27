@@ -2,11 +2,11 @@
  * `slipkit-mcp.json` 설정 파일 로더.
  *
  * 서버가 자체 설정 파일을 읽어 저장소 경로, 로케일, 커스텀 폰트와 암호화 키
- * 환경변수 이름을 관리한다. AI 클라이언트 등록에는 실행 명령만 적으면 된다.
+ * 환경변수 이름을 관리한다. AI 클라이언트에는 실행 명령과 설정 파일 경로를 등록한다.
  *
  * 탐색 순서: `--config` 인자 → `SLIPKIT_MCP_CONFIG` 환경변수 → 작업 디렉터리의
  * `slipkit-mcp.json`. 설정 파일이 없으면 기본값으로 동작한다.
- * 값의 우선순위: CLI 인자 → 환경변수 → 설정 파일 → 기본값.
+ * 작업 디렉터리는 CLI 인자, 로케일은 CLI 인자와 환경변수가 설정 파일보다 우선한다.
  */
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';

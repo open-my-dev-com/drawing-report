@@ -4,7 +4,7 @@
 
 `@omdc-slipkit/mcp` は、AI が指定されたローカルディレクトリ内の `.slip` テンプレートと伝票を読み取り、作成・編集できる stdio MCP サーバーです。テンプレートから未発行伝票を作成したり、テンプレートや伝票を PDF にレンダリングしたりできます。
 
-別のターミナルでサーバーを起動し続ける必要はありません。stdio 方式では、MCP クライアントが設定された `command` と `args` を使ってサーバーをローカルの子プロセスとして起動し、接続終了時に停止します。実行ファイルと作業ディレクトリを MCP 設定に登録すれば利用できます。
+別のターミナルでサーバーを起動し続ける必要はありません。stdio 方式では、MCP クライアントがサーバーをローカルの子プロセスとして起動し、接続終了時に停止します。ストレージのパス、ロケール、フォント、暗号化キー用環境変数の名前は、サーバー設定ファイル `slipkit-mcp.json` で管理します。
 
 > [!IMPORTANT]
 > SlipKit パッケージはまだ npm レジストリに公開されていません。現在はこのリポジトリでパッケージをビルドし、生成された CLI を MCP クライアントに接続してください。
@@ -25,9 +25,32 @@ mkdir slip-workspace
 
 `slip-workspace` は、AI がアクセスする `.slip` ファイルと画像を配置する作業ディレクトリの例です。別のディレクトリも使用できます。
 
+## サーバー設定ファイルの作成
+
+`slipkit-mcp.json` は MCP サーバーが読み込む設定ファイルです。次の例では、設定ファイルを置いたディレクトリの隣にある `slip-workspace` を作業ディレクトリとして使用します。
+
+```json
+{
+  "rootDir": "../slip-workspace",
+  "locale": "ja"
+}
+```
+
+設定ファイルは任意の場所に配置できます。`rootDir` とフォントの相対パスは、設定ファイルを置いたディレクトリを基準に解決されます。`~` はホームディレクトリに展開されないため、絶対パスまたは正しい相対パスを使用してください。
+
+| フィールド | 説明 | 省略時 |
+|---|---|---|
+| `rootDir` | `.slip`、画像、PDF を読み書きする作業ディレクトリ | サーバープロセスの作業ディレクトリ |
+| `locale` | エラーメッセージと同梱フォントに使用するロケール | 英語 |
+| `fonts` | PDF レンダリングに使用する TTF・OTF ファイル | ロケールに対応する同梱フォント |
+| `encryption.keyEnv` | 現在の暗号化キーを格納する環境変数名 | `SLIPKIT_MCP_KEY` |
+| `encryption.previousKeysEnv` | 過去のキー一覧を格納する環境変数名 | `SLIPKIT_MCP_PREVIOUS_KEYS` |
+
+未定義のフィールドは使用できません。JSON の構文が正しくない場合や、作業ディレクトリまたはフォントファイルが見つからない場合は、サーバーを起動せず、原因を stderr に出力します。
+
 ## MCP クライアントへの接続
 
-クライアントの stdio MCP サーバー設定に次の内容を追加します。設定ファイルの場所と最上位キーはクライアントによって異なります。
+クライアントの stdio MCP サーバー設定には、実行ファイルと `slipkit-mcp.json` のパスを登録します。次の JSON の最上位キーと保存場所はクライアントによって異なります。
 
 ```json
 {
@@ -36,20 +59,26 @@ mkdir slip-workspace
       "command": "node",
       "args": [
         "/absolute/path/to/drawing-report/packages/mcp/dist/cli.js",
-        "/absolute/path/to/slip-workspace",
-        "--locale",
-        "ja"
+        "--config",
+        "/absolute/path/to/slipkit-mcp.json"
       ]
     }
   }
 }
 ```
 
-2 つのパスは実際の絶対パスに置き換えてください。設定保存後、MCP クライアントを再起動するか、MCP サーバー一覧を再読み込みします。`slip_list` や `slip_read` を含む 7 つのツールが表示されれば、接続は完了です。
+パスは実際の絶対パスに置き換えてください。設定保存後、MCP クライアントを再起動するか、MCP サーバー一覧を再読み込みします。`slip_list` や `slip_read` を含む 7 つのツールが表示されれば、接続は完了です。
 
-### 設定の保存場所
+### 2 種類の設定ファイル
 
-SlipKit MCP サーバー自体は設定ファイルを作成しません。作業ディレクトリとロケールはコマンド引数、暗号化キーは環境変数として受け取ります。この起動設定の保存場所は MCP クライアントが決定します。
+サーバー設定と MCP クライアント設定では、管理する内容が異なります。
+
+| 設定 | 管理する内容 |
+|---|---|
+| `slipkit-mcp.json` | 作業ディレクトリ、ロケール、カスタムフォント、暗号化キーを読み取る環境変数名 |
+| MCP クライアント設定 | サーバーの起動コマンド、`slipkit-mcp.json` のパス、暗号化に必要な環境変数の値 |
+
+MCP クライアントの起動設定は次の場所に保存されます。
 
 | クライアント | 保存場所と登録方法 |
 |---|---|
@@ -62,7 +91,7 @@ SlipKit MCP サーバー自体は設定ファイルを作成しません。作�
 ```bash
 codex mcp add slipkit -- \
   node /absolute/path/to/drawing-report/packages/mcp/dist/cli.js \
-  /absolute/path/to/slip-workspace --locale ja
+  --config /absolute/path/to/slipkit-mcp.json
 ```
 
 Claude Code では次のように登録できます。`local` スコープを使うと、端末固有のパスを `.mcp.json` で共有せずに済みます。
@@ -70,29 +99,68 @@ Claude Code では次のように登録できます。`local` スコープを使
 ```bash
 claude mcp add --scope local slipkit -- \
   node /absolute/path/to/drawing-report/packages/mcp/dist/cli.js \
-  /absolute/path/to/slip-workspace --locale ja
+  --config /absolute/path/to/slipkit-mcp.json
 ```
 
 パッケージを npm に公開した後は、このリポジトリをビルドせずに起動できます。
 
 ```bash
 codex mcp add slipkit -- \
-  npx -y @omdc-slipkit/mcp /absolute/path/to/slip-workspace --locale ja
+  npx -y @omdc-slipkit/mcp --config /absolute/path/to/slipkit-mcp.json
 ```
 
-作業ディレクトリはユーザーデータの保存場所であるため、各環境で一度パスを指定する必要があります。
+この場合も、サーバー設定ファイルと作業ディレクトリはローカルに保持されます。
+
+## 設定ファイルの探索順序と優先順位
+
+サーバーは次の順序で設定ファイルを探します。
+
+1. `--config <path>`
+2. 環境変数 `SLIPKIT_MCP_CONFIG`
+3. 1 番目の位置引数で作業ディレクトリを指定した場合、そのディレクトリの `slipkit-mcp.json`
+4. 位置引数を省略した場合、サーバープロセスの作業ディレクトリにある `slipkit-mcp.json`
+
+明示的に指定した設定ファイルを読み込めない場合、サーバーは起動しません。自動探索先にファイルがない場合は、既定値で起動します。
+
+各設定値の優先順位は次のとおりです。
+
+| 設定 | 優先順位 |
+|---|---|
+| 作業ディレクトリ | 1 番目の位置引数 → `rootDir` → カレントディレクトリ |
+| ロケール | `--locale` → `SLIPKIT_MCP_LOCALE` → `locale` → 英語 |
+| フォント | 設定ファイルの `fonts` → ロケールに対応する同梱フォント |
+| 暗号化キー | `encryption` で指定した名前の環境変数。省略時は既定の環境変数名 |
+
+従来の作業ディレクトリ引数と `--locale` は、一時的な上書き指定として引き続き使用できます。
 
 ### CLI オプションと環境変数
 
 | 設定 | 説明 |
 |---|---|
 | 1 番目の位置引数 | 作業ディレクトリ。省略時は MCP サーバーのカレントディレクトリを使用します。 |
+| `--config <path>` | 使用する `slipkit-mcp.json` のパスです。相対パスはサーバープロセスのカレントディレクトリを基準に解決されます。 |
 | `--locale <locale>` | エラーメッセージと PDF の既定フォントに使用する言語です。`ko`、`en`、`ja` を指定できます。 |
+| `SLIPKIT_MCP_CONFIG` | `--config` を省略した場合に使用する設定ファイルのパスです。 |
 | `SLIPKIT_MCP_LOCALE` | `--locale` を省略したときに使用する言語です。 |
 | `SLIPKIT_MCP_KEY` | `.slip` ファイルの暗号化と復号に使用する現在のキーです。環境変数でのみ受け取ります。 |
 | `SLIPKIT_MCP_PREVIOUS_KEYS` | 現在のキーより前に使用したキーをカンマ区切りで指定します。復号時に現在のキーの次に試行します。 |
 
-暗号化を使用する設定例は次のとおりです。
+### 暗号化設定
+
+暗号化キーそのものは `slipkit-mcp.json` に保存しません。設定ファイルには、キーを読み取る環境変数名だけを記述します。
+
+```json
+{
+  "rootDir": "../slip-workspace",
+  "locale": "ja",
+  "encryption": {
+    "keyEnv": "MY_SLIP_KEY",
+    "previousKeysEnv": "MY_SLIP_PREVIOUS_KEYS"
+  }
+}
+```
+
+実際のキーは、サーバープロセスを起動する環境から渡します。
 
 ```json
 {
@@ -101,33 +169,56 @@ codex mcp add slipkit -- \
       "command": "node",
       "args": [
         "/absolute/path/to/drawing-report/packages/mcp/dist/cli.js",
-        "/absolute/path/to/slip-workspace",
-        "--locale",
-        "ja"
+        "--config",
+        "/absolute/path/to/slipkit-mcp.json"
       ],
       "env": {
-        "SLIPKIT_MCP_KEY": "current-passphrase",
-        "SLIPKIT_MCP_PREVIOUS_KEYS": "previous-passphrase"
+        "MY_SLIP_KEY": "current-passphrase",
+        "MY_SLIP_PREVIOUS_KEYS": "previous-passphrase"
       }
     }
   }
 }
 ```
 
-`SLIPKIT_MCP_KEY` を設定すると、新しく保存するファイルは暗号化されます。平文の `.slip` ファイルはそのまま読み取れますが、暗号化済みファイルには一致する現在または過去のキーが必要です。
+実際のキーを含む MCP クライアント設定をリポジトリにコミットしないでください。ユーザーまたは `local` スコープ、もしくはクライアントのシークレット管理機能を使用してください。
+
+現在のキーを格納する環境変数を設定すると、新しく保存するファイルは暗号化されます。平文の `.slip` ファイルはそのまま読み取れますが、暗号化済みファイルには一致する現在または過去のキーが必要です。`encryption.keyEnv` を明示したにもかかわらず、その環境変数がない場合はサーバーを起動しません。
 
 ### PDF フォント
 
-フォントファイルのパスや OS フォントを設定する必要はありません。MCP サーバーは `@omdc-slipkit/elements` に base64 で同梱されたフォントをメモリ上で読み込み、PDF レンダラーへ渡します。ネットワークからフォントをダウンロードすることはありません。
+`fonts` を省略すると、MCP サーバーは `@omdc-slipkit/elements` に base64 で同梱されたフォントを使用します。ネットワークからフォントをダウンロードしたり、OS のフォントを自動で読み込んだりすることはありません。
 
 | ロケール | 既定フォント |
 |---|---|
 | `ja` で始まるロケール | Noto Sans JP Regular 日本語サブセット |
 | その他のロケール | Pretendard Regular、Pretendard Bold |
 
-`fontName` を省略すると、ロケールに対応する既定フォントを使用します。明示する場合は、現在のロケールに登録されている `Pretendard`、`Pretendard-Bold`、`Noto Sans JP` のいずれかを使用してください。同梱の日本語フォントには Bold がないため、`bold: true` を指定しても別の Bold フォントは適用されません。
+`fontName` を省略すると、ロケールに対応する既定フォントを使用します。明示する場合は、現在登録されているフォント名を使用してください。同梱の日本語フォントには Bold がないため、`bold: true` を指定しても別の Bold フォントは適用されません。
 
-現在の CLI にはユーザーフォントを追加するオプションがありません。ユーザーフォントを扱うには、フォント供給関数を受け取るサーバーオプションの拡張が必要です。開発リポジトリから実行する場合は `packages/mcp/dist` だけをコピーせず、pnpm でインストールした workspace 依存関係を維持してください。npm 公開後は `elements` 依存関係と同梱フォントも MCP パッケージと一緒にインストールされます。
+カスタムフォントはサーバー設定ファイルに登録します。
+
+```json
+{
+  "rootDir": "../slip-workspace",
+  "locale": "ja",
+  "fonts": [
+    {
+      "name": "AppFont",
+      "path": "./fonts/AppFont-Regular.ttf",
+      "fallback": true
+    },
+    {
+      "name": "AppFont-Bold",
+      "path": "./fonts/AppFont-Bold.ttf"
+    }
+  ]
+}
+```
+
+フォントのパスは設定ファイルを置いたディレクトリを基準に解決されます。`fallback: true` を指定できるフォントは 1 つだけです。指定しない場合は、一覧の先頭をフォールバックフォントとして使用します。`fonts` を設定すると同梱フォントの代わりにその一覧だけが登録されるため、テンプレートから参照するフォントをすべて含めてください。太字と斜体のバリエーションには `AppFont-Bold`、`AppFont-Italic`、`AppFont-BoldItalic` の形式を使用します。
+
+開発リポジトリから実行する場合は `packages/mcp/dist` だけをコピーせず、pnpm でインストールした workspace 依存関係を維持してください。npm 公開後は `elements` 依存関係と同梱フォントも MCP パッケージと一緒にインストールされます。
 
 ## 提供ツール
 
@@ -237,22 +328,22 @@ const template = await storage.load('invoice');
 await storage.save('archive/invoice', template);
 ```
 
-MCP サーバー自体を組み込む場合は `createSlipMcpServer(options)` を使用できます。この関数は未接続の `McpServer` と `FileSystemStorage` を返し、トランスポートの接続は呼び出し側が行います。
+MCP サーバー自体を組み込む場合は `createSlipMcpServer(options)` を使用できます。この関数は未接続の `McpServer` と `FileSystemStorage` を返し、トランスポートの接続は呼び出し側が行います。CLI と同じ規則で設定を解決する場合は、先に `resolveServerOptions({ cwd, configPath, env })` で `options` を作成します。
 
 ## トラブルシューティング
 
 | 現象 | 確認事項 |
 |---|---|
-| MCP ツールが表示されない | パッケージをビルドしたか、2 つの設定パスが有効な絶対パスか、クライアントを再起動したかを確認します。 |
-| `working directory not found` | 作業ディレクトリを作成し、設定パスを修正します。 |
-| 暗号化ファイルを読み取れない | 一致するキーが `SLIPKIT_MCP_KEY` または `SLIPKIT_MCP_PREVIOUS_KEYS` にあるか確認します。 |
+| MCP ツールが表示されない | パッケージをビルドしたか、`cli.js` と `--config` のパスが正しいか、クライアントを再起動したかを確認します。起動エラーはクライアントの MCP ログまたは stderr で確認します。 |
+| `Could not read the config file` | `--config` または `SLIPKIT_MCP_CONFIG` のパスとファイルの読み取り権限を確認します。 |
+| `Working directory not found` | `rootDir` とディレクトリの存在を確認します。相対パスは設定ファイルの場所を基準に解決されます。 |
+| `Font file ... not found` | `fonts[].path` とファイルの読み取り権限を確認します。相対パスは設定ファイルの場所を基準に解決されます。 |
+| 暗号化ファイルを読み取れない | `keyEnv` と `previousKeysEnv` が示す環境変数に、対象ファイルを復号できるキーがあるか確認します。 |
 | 編集後もファイルが変わらない | ツール応答の検証エラーを確認します。検証失敗時は元のファイルが保持されます。 |
 | PDF 出力に失敗する | 出力先の親ディレクトリが存在し、書き込み可能か確認します。 |
 
 ## 関連ドキュメント
 
-- [`.slip` ファイル形式仕様](../SPEC.md)
 - [Core 利用ガイド](core.ja.md)
 - [サーバー統合ガイド](server-integration.ja.md)
 - [API リファレンス](api-reference.ja.md)
-- [ADR-061: AI 連携をローカル MCP サーバーパッケージとして提供する](../DECISIONS.md#adr-061-ai-연동은-로컬-mcp-서버-패키지로-제공한다)

@@ -1585,7 +1585,14 @@ function createSlipMcpServer(
 
 Creates an MCP server with seven tools and the `slip://schema` resource. The returned `server` is not yet connected to a transport.
 
-`SlipMcpServerOptions` is the same type as `FileSystemStorageOptions`.
+```ts
+interface SlipMcpServerOptions
+  extends FileSystemStorageOptions {
+  fonts?: readonly SlipFont[];
+}
+```
+
+When `fonts` is omitted, the server uses the bundled fonts selected by locale. A supplied list replaces the bundled fonts.
 
 ### `FileSystemStorage`
 
@@ -1617,6 +1624,46 @@ interface FileSystemStorageOptions {
 
 type FileSystemStorageKey = string | Uint8Array;
 ```
+
+### `slipkit-mcp.json`
+
+```ts
+interface SlipMcpConfig {
+  rootDir?: string;
+  locale?: string;
+  fonts?: Array<{
+    name: string;
+    path: string;
+    fallback?: boolean;
+  }>;
+  encryption?: {
+    keyEnv?: string;
+    previousKeysEnv?: string;
+  };
+}
+
+interface ResolveInput {
+  configPath?: string;
+  cliRootDir?: string;
+  cliLocale?: string;
+  cwd: string;
+  env: Record<string, string | undefined>;
+}
+```
+
+Relative `rootDir` and `fonts[].path` values are resolved from the configuration file directory. Unknown fields, invalid JSON, missing working directories, and missing font files throw `SlipMcpConfigError`.
+
+### MCP configuration API
+
+| Export | Description |
+|---|---|
+| `readConfigFile(filePath)` | Reads and validates a JSON file as `SlipMcpConfig`. |
+| `loadConfigFonts(entries, baseDir)` | Reads configured font files and returns `SlipFont[]`. |
+| `resolveServerOptions(input)` | Resolves the configuration file, CLI values, and environment into `{ options, configPath }`. |
+| `SlipMcpConfigError` | Error thrown when configuration or a referenced resource cannot be read or applied. |
+| `CONFIG_FILE_NAME` | Default configuration filename: `slipkit-mcp.json`. |
+| `DEFAULT_KEY_ENV` | Default current-key environment-variable name: `SLIPKIT_MCP_KEY`. |
+| `DEFAULT_PREVIOUS_KEYS_ENV` | Default previous-keys environment-variable name: `SLIPKIT_MCP_PREVIOUS_KEYS`. |
 
 ### Other MCP exports
 

@@ -16,6 +16,8 @@
 
 > [!NOTE]
 > 컴포넌트 이벤트와 자동 저장 흐름은 [애플리케이션 통합 가이드](integration.md)를, 각 설정 타입의 전체 필드는 [API 참조](api-reference.md)를 확인하세요.
+>
+> 로컬 MCP 서버의 `slipkit-mcp.json` 설정은 [MCP 사용 가이드](mcp.md)에서 별도로 설명합니다.
 
 ## 컴포넌트 설정 한눈에 보기
 
