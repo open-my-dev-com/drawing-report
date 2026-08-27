@@ -51,7 +51,10 @@ Image bytes never pass through the conversation: attach fixed images with slip_e
 using a file path inside the working directory. To add a new image element, put add_element before
 set_image in the same ops array; operations run in order and validation happens after all of them.
 set_image creates a fixed asset, not a voucher image-parameter value. Build filled vouchers with
-slip_build_voucher. Issued (finalized) vouchers are immutable and this server cannot issue them.`;
+slip_build_voucher. Issued (finalized) vouchers are immutable and this server cannot issue them.
+When the user asks to RECEIVE the PDF in the chat, call slip_render_pdf with embed: true — the PDF
+bytes are attached to the tool result as an embedded resource (whether the client shows it as a
+file depends on the client). The PDF is always saved to the working directory either way.`;
 
 /** 도구 응답 하나를 텍스트로 만든다. */
 function text(value: unknown): { content: { type: 'text'; text: string }[] } {
@@ -382,10 +385,16 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
           .describe(
             'Output path relative to the working directory; defaults to the input path with .pdf and replaces an existing file',
           ),
+        embed: z
+          .boolean()
+          .optional()
+          .describe(
+            'Also return the PDF bytes as an embedded resource. Client support varies; use only when asked',
+          ),
       },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
-    async ({ path: id, outPath }) => {
+    async ({ path: id, outPath, embed }) => {
       try {
         const file = await storage.load(id);
         const target = outPath ?? id.replace(/\.slip$/, '') + '.pdf';
@@ -403,7 +412,7 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
               text:
                 `Rendered ${id} to ${target} (${Math.round(pdf.length / 1024)}KB).\n` +
                 `Saved at: ${abs}\n` +
-                'Tell the user this absolute path so they can open the PDF; it cannot be attached to the chat.',
+                'Tell the user this absolute path so they can open the PDF.',
             },
             {
               type: 'resource_link' as const,
@@ -412,6 +421,19 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
               mimeType: 'application/pdf',
               description: 'Rendered PDF file',
             },
+            // 클라이언트가 첨부로 표시할 수 있도록 PDF 바이트를 함께 싣는 실험 옵션
+            ...(embed === true
+              ? [
+                  {
+                    type: 'resource' as const,
+                    resource: {
+                      uri: pathToFileURL(abs).href,
+                      mimeType: 'application/pdf',
+                      blob: Buffer.from(pdf).toString('base64'),
+                    },
+                  },
+                ]
+              : []),
           ],
         };
       } catch (error) {
