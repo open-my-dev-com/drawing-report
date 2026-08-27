@@ -1194,8 +1194,7 @@ export class SlipDesigner extends LitElement {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    /* 패널에서 항목을 더하는 줄 — 사이드바 추가 버튼과 같은 결로  */
-    /* 물리친 입력 안내 — 값이 조용히 사라진 것처럼 보이지 않게 무엇이 잘못됐는지 알린다 */
+    /* 거부된 입력의 원인을 해당 필드 가까이에 표시한다. */
     .input-error {
       margin: 0 0 6px;
       padding: 5px 8px;
@@ -1204,6 +1203,31 @@ export class SlipDesigner extends LitElement {
       background: color-mix(in srgb, var(--sk-danger) 8%, transparent);
       font-size: 12px;
       color: var(--sk-danger);
+    }
+    .input-error.field-error {
+      margin: -2px 0 8px 80px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      font-size: 11px;
+      line-height: 16px;
+    }
+    .prop-pair + .input-error.field-error {
+      margin-left: 0;
+    }
+    .prop-pair > .input-error.field-error {
+      grid-column: 1 / -1;
+      margin: 0;
+    }
+    .color-pop .input-error.field-error {
+      margin: 4px 0 0;
+    }
+    .prop-row input[aria-invalid='true'],
+    .prop-row textarea[aria-invalid='true'],
+    .prop-row .list-select[aria-invalid='true'] {
+      border-color: var(--sk-danger);
+      outline: 1px solid color-mix(in srgb, var(--sk-danger) 22%, transparent);
+      outline-offset: -1px;
     }
     .prop-add-row {
       display: flex;
@@ -1259,8 +1283,9 @@ export class SlipDesigner extends LitElement {
       align-items: center;
       gap: 6px;
       width: 100%;
-      margin: 2px 0;
-      padding: 4px 6px;
+      height: 32px;
+      margin: 0;
+      padding: 5px 8px;
       border: 1px solid var(--sk-border);
       border-radius: var(--sk-radius);
       background: var(--sk-surface);
@@ -1269,6 +1294,14 @@ export class SlipDesigner extends LitElement {
       font-size: 12px;
       color: var(--sk-text);
       text-align: left;
+    }
+    .usage-row + .usage-row {
+      margin-top: 6px;
+    }
+    .prop-row > .usage-row {
+      flex: 1;
+      min-width: 0;
+      width: 0;
     }
     .usage-row:hover {
       border-color: var(--sk-accent);
@@ -1774,6 +1807,8 @@ export class SlipDesigner extends LitElement {
       position: sticky;
       top: 0;
       z-index: 2;
+      display: flex;
+      align-items: center;
       margin: 0 -14px;
       padding: 12px 14px 11px;
       border-bottom: 1px solid var(--sk-border);
@@ -2029,14 +2064,6 @@ export class SlipDesigner extends LitElement {
       outline-offset: 1px;
     }
 
-    /* 글자 라벨 토글 (방향 등) — 아이콘 토글의 고정 폭을 글자에 맞게 되돌린다 */
-    .toggle-group .orient-btn {
-      width: auto;
-      min-width: 58px;
-      padding: 0 12px;
-      font-size: 12px;
-      font-family: inherit;
-    }
     .toggle-group button:focus-visible {
       outline: 2px solid var(--sk-accent);
       outline-offset: 1px;
@@ -2231,14 +2258,14 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
     }
 
-    /* 테두리 굵기 선택 — 버튼과 펼침 목록에 굵기 미리보기 선을 함께 그린다  */
+    /* 테두리 굵기 선택 버튼과 미리보기 */
     .width-btn {
       flex: 1;
       min-width: 0;
       display: flex;
       align-items: center;
       gap: 6px;
-      min-height: 32px;
+      height: 32px;
       padding: 5px 8px;
       border: 1px solid var(--sk-border-strong);
       border-radius: var(--sk-radius);
@@ -2246,6 +2273,9 @@ export class SlipDesigner extends LitElement {
       cursor: pointer;
       font-family: inherit;
       color: inherit;
+    }
+    .width-btn:hover {
+      border-color: var(--sk-accent);
     }
     .width-btn[aria-expanded='true'] {
       border-color: var(--sk-accent);
@@ -2259,7 +2289,7 @@ export class SlipDesigner extends LitElement {
       min-width: 24px;
       border-top: 1px solid currentColor;
     }
-    /* 테두리 형태 미리보기 — 실선·파선·점선을 그대로 보여준다  */
+    /* 테두리 형태 미리보기 */
     .shape-line {
       flex: 1;
       min-width: 24px;
@@ -2280,21 +2310,19 @@ export class SlipDesigner extends LitElement {
       color: var(--sk-text-muted);
       white-space: nowrap;
     }
-    .width-pop {
+    .preset-menu.width-pop {
       display: flex;
       flex-direction: column;
       gap: 2px;
-      margin: 0 0 10px;
-      padding: 6px;
-      border: 1px solid var(--sk-border);
-      border-radius: var(--sk-radius);
-      background: var(--sk-surface);
+      min-width: 0;
+      overflow-y: auto;
     }
-    .width-pop button {
+    .preset-menu.width-pop button {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 4px 6px;
+      min-height: 30px;
+      padding: 5px 8px;
       border: none;
       border-radius: var(--sk-radius);
       background: transparent;
@@ -2302,14 +2330,14 @@ export class SlipDesigner extends LitElement {
       font-family: inherit;
       color: inherit;
     }
-    .width-pop button:hover {
+    .preset-menu.width-pop button:hover {
       background: var(--sk-accent-soft);
     }
-    .width-pop button[aria-pressed='true'] {
+    .preset-menu.width-pop button[aria-pressed='true'] {
       background: var(--sk-accent-soft);
       color: var(--sk-accent);
     }
-    .width-pop button:focus-visible {
+    .preset-menu.width-pop button:focus-visible {
       outline: 2px solid var(--sk-accent);
       outline-offset: -1px;
     }
@@ -2985,6 +3013,7 @@ export class SlipDesigner extends LitElement {
     _hostBarcodeKinds: { state: true },
     _fontNames: { state: true },
     _inputError: { state: true },
+    _inputErrorField: { state: true },
     _paperSaveName: { state: true },
     _previewMode: { state: true },
     _previewUrl: { state: true },
@@ -3154,6 +3183,8 @@ export class SlipDesigner extends LitElement {
   private _parameterKeyError = false;
   /** 마지막으로 거부한 입력의 오류 메시지 */
   private _inputError: string | null = null;
+  /** 오류가 발생한 속성 입력의 식별자. 없으면 패널 전체 오류다. */
+  private _inputErrorField: string | null = null;
   /** 페이지 키 중복 오류 여부 */
   private _pageKeyError = false;
   /** "내 양식으로 저장" 모달의 열림 상태 */
@@ -3228,15 +3259,15 @@ export class SlipDesigner extends LitElement {
     if (changed.has('src')) {
       this._parseSource();
     }
-  }
-
-  override updated(changed: Map<string, unknown>): void {
-    // 호스트 설정이 바뀌면 선택 목록을 다시 불러온다.
+    // 설정 기반 목록은 업데이트가 끝난 뒤 추가 렌더를 예약하지 않도록 미리 불러온다.
     if (changed.has('settings')) {
       void this._loadPaperSizes();
       void this._loadBarcodeKinds();
       void this._loadFontNames();
     }
+  }
+
+  override updated(): void {
     // 인라인 셀 편집을 열면 바로 입력할 수 있게 포커스를 준다
     if (this._cellEditing) {
       const editor = this.renderRoot.querySelector('.cell-editor') as HTMLInputElement | null;
@@ -3254,6 +3285,7 @@ export class SlipDesigner extends LitElement {
   private _parseSource(): void {
     this._revokePreviewUrl();
     this._error = null;
+    this._resetPanelErrors();
     this._clearSelection();
     this._undoStack = [];
     this._redoStack = [];
@@ -3374,17 +3406,39 @@ export class SlipDesigner extends LitElement {
    * 잘못된 입력을 모델에 반영하지 않고 오류 메시지를 표시한다.
    *
    * @param message - 보일 문구 (생략하면 기본 안내)
+   * @param field - 오류가 발생한 속성 입력 식별자
    */
-  private _rejectInput(message?: string): void {
+  private _rejectInput(message?: string, field?: string): void {
     this._inputError = message ?? this._strings.designer.invalidInput;
+    this._inputErrorField = field ?? null;
     this.requestUpdate();
+  }
+
+  /** 현재 속성 패널의 입력 오류 상태를 초기화한다. */
+  private _resetPanelErrors(): void {
+    this._inputError = null;
+    this._inputErrorField = null;
+    this._parameterKeyError = false;
+    this._pageKeyError = false;
   }
 
   /** 마지막 입력 오류 메시지를 지운다. */
   private _clearInputError(): void {
     if (this._inputError === null) return;
     this._inputError = null;
+    this._inputErrorField = null;
     this.requestUpdate();
+  }
+
+  /** 지정한 입력에 연결된 오류를 렌더링한다. */
+  private _renderInputError(field: string) {
+    if (this._inputError === null || this._inputErrorField !== field) return nothing;
+    return html`<div id="error-${field}" class="input-error field-error" role="alert">${this._inputError}</div>`;
+  }
+
+  /** 지정한 입력에 현재 오류가 있는지 확인한다. */
+  private _hasInputError(field: string): boolean {
+    return this._inputError !== null && this._inputErrorField === field;
   }
 
   private _undo(): void {
@@ -3518,6 +3572,7 @@ export class SlipDesigner extends LitElement {
 
   /** 주 선택 요소와 선택된 요소 목록을 초기화한다. */
   private _clearSelection(): void {
+    this._resetPanelErrors();
     this._selectedId = null;
     this._selectedIds = new Set();
   }
@@ -3528,6 +3583,7 @@ export class SlipDesigner extends LitElement {
    * @param id - 고를 요소 id
    */
   private _selectElement(id: string): void {
+    this._resetPanelErrors();
     this._selectedId = id;
     const group = this._findElement(id)?.group;
     this._selectedIds = group
@@ -3542,6 +3598,7 @@ export class SlipDesigner extends LitElement {
    * @param id - 토글할 요소 id
    */
   private _toggleInSelection(id: string): void {
+    this._resetPanelErrors();
     const next = new Set(this._selectedIds);
     if (next.has(id)) {
       next.delete(id);
@@ -3785,7 +3842,7 @@ export class SlipDesigner extends LitElement {
       this._rejectInput();
       return;
     }
-    this._inputError = null;
+    this._resetPanelErrors();
     this._pushUndo();
     fn(el);
     this._emitChange();
@@ -3870,14 +3927,15 @@ export class SlipDesigner extends LitElement {
     current: number | undefined,
     fallback: number,
     apply: (value: number | null) => void,
-    opts: { step?: string; min?: string; ariaLabel?: string } = {},
+    opts: { step?: string; min?: string; ariaLabel?: string; errorKey?: string } = {},
   ) {
+    const errorKey = opts.errorKey ?? 'number-input';
     const commit = (e: Event): void => {
       const input = e.target as HTMLInputElement;
       // 브라우저가 잘못된 숫자 입력을 빈 문자열로 반환하므로 이전 값으로 복원한다.
       if (input.validity.badInput) {
         input.value = String(current ?? fallback);
-        this._rejectInput();
+        this._rejectInput(this._strings.designer.numberInput, errorKey);
         return;
       }
       const raw = input.value.trim();
@@ -3888,7 +3946,10 @@ export class SlipDesigner extends LitElement {
       const v = Number(raw);
       if (!Number.isFinite(v) || (opts.min !== undefined && v < Number(opts.min))) {
         input.value = String(current ?? fallback);
-        this._rejectInput();
+        const message = !Number.isFinite(v)
+          ? this._strings.designer.numberInput
+          : this._strings.designer.minimumInput.replace('{min}', opts.min!);
+        this._rejectInput(message, errorKey);
         return;
       }
       apply(v === fallback ? null : v);
@@ -3898,10 +3959,13 @@ export class SlipDesigner extends LitElement {
         <label>${label}</label>
         <input type="number" step=${opts.step ?? '0.5'} min=${opts.min ?? nothing}
           aria-label=${opts.ariaLabel ?? label}
+          aria-invalid=${String(this._hasInputError(errorKey))}
+          aria-describedby=${this._hasInputError(errorKey) ? `error-${errorKey}` : nothing}
           class=${current === undefined ? 'dim' : ''}
           .value=${String(current ?? fallback)}
           @change=${commit}>
-      </div>`;
+      </div>
+      ${this._renderInputError(errorKey)}`;
   }
 
   /**
@@ -4319,7 +4383,10 @@ export class SlipDesigner extends LitElement {
           this._cellSourceKind = null;
         }
         this._selectedCell = cell;
-        this._cellEditing = true;
+        const definition = el.cells.find((item) => item.row === cell.row && item.column === cell.column);
+        // 파라미터와 수식 셀은 속성 패널에서 편집하며 캔버스 입력기는 열지 않는다.
+        this._cellEditing = definition === undefined
+          || (definition.parameter === undefined && definition.formula === undefined);
         this.requestUpdate();
       }
     }
@@ -4396,11 +4463,11 @@ export class SlipDesigner extends LitElement {
       return;
     }
     if (!existing && value === '') {
-      this._rejectInput();
+      this._clearInputError();
       return;
     }
     if (existing && existing.content === value) {
-      this._rejectInput();
+      this._clearInputError();
       return;
     }
     this._updateElement((element) => {
@@ -4414,8 +4481,9 @@ export class SlipDesigner extends LitElement {
     const target = this._selectedCell;
     const el = this._findSelectedElement();
     if (!target || !isGrid(el)) return;
+    const errorKey = kind === 'rowSpan' ? 'cell-row-span' : 'cell-column-span';
     if (!Number.isInteger(value) || value < 1) {
-      this._rejectInput();
+      this._rejectInput(this._strings.designer.minimumInput.replace('{min}', '1'), errorKey);
       return;
     }
     const dims = gridDims(el);
@@ -4424,7 +4492,7 @@ export class SlipDesigner extends LitElement {
     const colSpan = kind === 'colSpan' ? value : (current?.colSpan ?? 1);
     // 그리드 범위 검사
     if (target.row + rowSpan > dims.rows || target.column + colSpan > dims.columns) {
-      this._rejectInput();
+      this._rejectInput(this._strings.designer.mergeOutOfGrid, errorKey);
       return;
     }
     // 병합 범위는 반복 구간의 안이나 밖에 완전히 포함되어야 한다 (SPEC §5.7).
@@ -4434,7 +4502,7 @@ export class SlipDesigner extends LitElement {
       const startsInside = target.row >= fromRow && target.row <= toRow;
       const endsInside = last >= fromRow && last <= toRow;
       if (startsInside !== endsInside) {
-        this._rejectInput();
+        this._rejectInput(this._strings.designer.mergeCrossRepeat, errorKey);
         return;
       }
     }
@@ -4451,7 +4519,7 @@ export class SlipDesigner extends LitElement {
       );
     });
     if (overlaps) {
-      this._rejectInput();
+      this._rejectInput(this._strings.designer.mergeOverlap, errorKey);
       return;
     }
     this._updateElement((element) => {
@@ -4529,8 +4597,12 @@ export class SlipDesigner extends LitElement {
 
   /** 지정한 행의 높이 또는 열의 너비(mm)를 변경한다. */
   private _setGridTrack(kind: 'row' | 'column', index: number, mm: number): void {
+    const errorKey = kind === 'row' ? 'cell-row-height' : 'cell-column-width';
     if (!Number.isFinite(mm) || mm < MIN_SIZE_MM) {
-      this._rejectInput();
+      const message = !Number.isFinite(mm)
+        ? this._strings.designer.numberInput
+        : this._strings.designer.minimumInput.replace('{min}', String(MIN_SIZE_MM));
+      this._rejectInput(message, errorKey);
       return;
     }
     this._updateGrid((grid) => {
@@ -4575,26 +4647,41 @@ export class SlipDesigner extends LitElement {
     const el = this._findSelectedElement();
     if (el?.type !== 'grid' || !el.repeat) return;
     const next = { ...el.repeat, ...patch } as GridRepeat & { maxItems?: number | null };
+    const errorKey = patch.fromRow !== undefined ? 'repeat-from'
+      : patch.toRow !== undefined ? 'repeat-to'
+      : patch.perPage !== undefined ? 'repeat-per-page'
+      : patch.maxItems !== undefined ? 'repeat-max-items'
+      : 'repeat-range';
     // null은 항목 수 제한을 사용하지 않는 상태로 변환한다.
     if (patch.maxItems === null) delete (next as { maxItems?: unknown }).maxItems;
     else if (patch.maxItems !== undefined) {
       const v = patch.maxItems;
       if (!Number.isInteger(v) || v > GRID_MAX_ITEMS_UI) {
-        this._rejectInput();
+        this._rejectInput(
+          this._strings.designer.rangeInput
+            .replace('{min}', String(next.perPage))
+            .replace('{max}', String(GRID_MAX_ITEMS_UI)),
+          errorKey,
+        );
         return;
       }
     }
     if (next.fromRow > next.toRow || next.toRow >= el.rows.length || next.fromRow < 0) {
-      this._rejectInput();
+      this._rejectInput(this._strings.designer.repeatRangeError, errorKey);
       return;
     }
     if (!Number.isInteger(next.perPage) || next.perPage < 1 || next.perPage > GRID_MAX_PER_PAGE_UI) {
-      this._rejectInput();
+      this._rejectInput(
+        this._strings.designer.rangeInput
+          .replace('{min}', '1')
+          .replace('{max}', String(GRID_MAX_PER_PAGE_UI)),
+        errorKey,
+      );
       return;
     }
     // 최대 항목 수는 페이지당 항목 수 이상이어야 한다 (SPEC §5.7).
     if (next.maxItems !== undefined && next.maxItems !== null && next.maxItems < next.perPage) {
-      this._rejectInput();
+      this._rejectInput(this._strings.designer.repeatLimitError, errorKey);
       return;
     }
     // 변경된 반복 구간의 경계를 넘는 병합이 있는지 검사한다 (SPEC §5.7).
@@ -4605,7 +4692,7 @@ export class SlipDesigner extends LitElement {
       return startsInside !== endsInside;
     });
     if (crosses) {
-      this._rejectInput();
+      this._rejectInput(this._strings.designer.repeatMergeError, errorKey);
       return;
     }
     if (patch.parameter !== undefined) this._ensureParameterDef(patch.parameter, 'list');
@@ -4848,7 +4935,7 @@ export class SlipDesigner extends LitElement {
               ? html`<div class="coords">${this._cursorMm.x} · ${this._cursorMm.y} mm</div>`
               : nothing}
             <div class="prop-panel">
-              ${this._inputError
+              ${this._inputError && this._inputErrorField === null
                 ? html`<div class="input-error" role="alert">${this._inputError}</div>`
                 : nothing}
               ${this._renderPropertyPanel()}
@@ -5187,6 +5274,7 @@ export class SlipDesigner extends LitElement {
 
   /** 목록 파라미터의 하위 필드를 선택하고 사용 중인 첫 번째 그리드 셀로 이동한다. */
   private _selectParameterField(listKey: string, field: ParameterFieldInfo): void {
+    this._resetPanelErrors();
     if (field.at) {
       this._goToPage(field.at.pageIndex);
       this._expandedElements.add(field.at.gridId);
@@ -5582,6 +5670,7 @@ export class SlipDesigner extends LitElement {
    * @param column - 셀의 열
    */
   private _selectGridCell(pageIndex: number, gridId: string, row: number, column: number): void {
+    this._resetPanelErrors();
     this._goToPage(pageIndex);
     // 셀을 선택할 때는 그리드 그룹의 다른 요소를 선택하지 않는다.
     this._selectedId = gridId;
@@ -5656,10 +5745,21 @@ export class SlipDesigner extends LitElement {
    */
   private _renameParameterKey(key: string, next: string, input?: HTMLInputElement): void {
     const trimmed = next.trim();
-    if (!trimmed || trimmed === key || this._parameterList().some((b) => b.key === trimmed)) {
+    if (!trimmed) {
+      if (input) input.value = key;
+      this._parameterKeyError = false;
+      this._rejectInput(this._strings.designer.requiredInput, 'parameter-key');
+      return;
+    }
+    if (trimmed === key) {
+      this._parameterKeyError = false;
+      this._clearInputError();
+      return;
+    }
+    if (this._parameterList().some((b) => b.key === trimmed)) {
       // 잘못된 입력을 현재 키로 복원한다.
       if (input) input.value = key;
-      this._parameterKeyError = trimmed !== key && trimmed !== '';
+      this._parameterKeyError = true;
       this.requestUpdate();
       return;
     }
@@ -5761,9 +5861,20 @@ export class SlipDesigner extends LitElement {
   private _renameParameterField(listKey: string, key: string, next: string, input?: HTMLInputElement): void {
     const trimmed = next.trim();
     const siblings = this._parameterList().find((b) => b.key === listKey)?.fields ?? [];
-    if (!trimmed || trimmed === key || siblings.some((f) => f.key === trimmed)) {
+    if (!trimmed) {
       if (input) input.value = key;
-      this._parameterKeyError = trimmed !== key && trimmed !== '';
+      this._parameterKeyError = false;
+      this._rejectInput(this._strings.designer.requiredInput, 'parameter-key');
+      return;
+    }
+    if (trimmed === key) {
+      this._parameterKeyError = false;
+      this._clearInputError();
+      return;
+    }
+    if (siblings.some((f) => f.key === trimmed)) {
+      if (input) input.value = key;
+      this._parameterKeyError = true;
       this.requestUpdate();
       return;
     }
@@ -6546,7 +6657,7 @@ export class SlipDesigner extends LitElement {
   /** 양식 속성을 변경하고 되돌리기 이력을 남긴다. */
   private _updateFile(fn: (file: SlipTemplateFile) => void): void {
     // 유효한 편집이 적용되면 이전 입력 오류를 지운다.
-    this._inputError = null;
+    this._resetPanelErrors();
     if (!this._file) return;
     this._pushUndo();
     fn(this._file);
@@ -6599,9 +6710,13 @@ export class SlipDesigner extends LitElement {
         <div class="prop-row">
           <label>${s.pageKey}</label>
           <input class=${this._pageKeyError ? 'error' : ''} .value=${page.key ?? ''}
+            aria-invalid=${String(this._pageKeyError)}
+            aria-describedby=${this._pageKeyError ? 'error-page-key' : nothing}
             @change=${(e: Event) => this._commitPageKey(index, valOf(e))}>
         </div>
-        ${this._pageKeyError ? html`<div class="cell-hint error">${s.keyInUse}</div>` : nothing}
+        ${this._pageKeyError
+          ? html`<div id="error-page-key" class="input-error field-error" role="alert">${s.keyInUse}</div>`
+          : nothing}
       </div>
 
       <div class="prop-section">
@@ -6757,9 +6872,13 @@ export class SlipDesigner extends LitElement {
     const canSaveSize = presetIndex < 0 && this.settings?.savePaperSize !== undefined;
 
     // 본문 영역이 남지 않는 용지 크기는 적용하지 않는다.
-    const setSize = (width: number, height: number): void => {
+    const setSize = (width: number, height: number, errorKey = 'paper-size'): void => {
+      if (!Number.isFinite(width) || !Number.isFinite(height)) {
+        this._rejectInput(s.numberInput, errorKey);
+        return;
+      }
       if (width <= pl + pr || height <= pt + pb) {
-        this._rejectInput();
+        this._rejectInput(s.paperAreaError, errorKey);
         return;
       }
       this._updateFile((f) => {
@@ -6768,14 +6887,15 @@ export class SlipDesigner extends LitElement {
       });
     };
     const setPadding = (index: 0 | 1 | 2 | 3, value: number): void => {
+      const errorKey = `paper-margin-${index}`;
       if (Number.isNaN(value) || value < 0) {
-        this._rejectInput();
+        this._rejectInput(Number.isNaN(value) ? s.numberInput : s.nonNegativeInput, errorKey);
         return;
       }
       const next = [...paper.padding] as [number, number, number, number];
       next[index] = round1(value);
       if (next[3] + next[1] >= paper.width || next[0] + next[2] >= paper.height) {
-        this._rejectInput();
+        this._rejectInput(s.marginAreaError, errorKey);
         return;
       }
       this._updateFile((f) => {
@@ -6792,16 +6912,19 @@ export class SlipDesigner extends LitElement {
         <div class="prop-row">
           <label>${s.formTitle}</label>
           <input .value=${file.template.meta.title}
+                 aria-invalid=${String(this._hasInputError('form-title'))}
+                 aria-describedby=${this._hasInputError('form-title') ? 'error-form-title' : nothing}
                  @change=${(e: Event) => {
                    const v = (e.target as HTMLInputElement).value.trim();
                    // 빈 제목은 스키마에서 허용하지 않는다.
                    if (!v) {
-                     this._rejectInput();
+                     this._rejectInput(s.requiredInput, 'form-title');
                      return;
                    }
                    this._updateFile((f) => { f.template.meta.title = v; });
                  }}>
         </div>
+        ${this._renderInputError('form-title')}
       </div>
 
       <div class="prop-section">
@@ -6841,22 +6964,29 @@ export class SlipDesigner extends LitElement {
           <div class="prop-row">
             <label>${s.width}</label>
             <input type="number" step="0.5" min="1" .value=${String(paper.width)}
-                   @change=${(e: Event) => setSize(numOf(e), paper.height)}>
+                   aria-invalid=${String(this._hasInputError('paper-width'))}
+                   aria-describedby=${this._hasInputError('paper-width') ? 'error-paper-width' : nothing}
+                   @change=${(e: Event) => setSize(numOf(e), paper.height, 'paper-width')}>
           </div>
           <div class="prop-row">
             <label>${s.height}</label>
             <input type="number" step="0.5" min="1" .value=${String(paper.height)}
-                   @change=${(e: Event) => setSize(paper.width, numOf(e))}>
+                   aria-invalid=${String(this._hasInputError('paper-height'))}
+                   aria-describedby=${this._hasInputError('paper-height') ? 'error-paper-height' : nothing}
+                   @change=${(e: Event) => setSize(paper.width, numOf(e), 'paper-height')}>
           </div>
         </div>
+        ${this._renderInputError('paper-width')}
+        ${this._renderInputError('paper-height')}
+        ${this._renderInputError('paper-size')}
         <div class="prop-row">
           <label>${s.orientation}</label>
-          <div class="toggle-group" role="group" aria-label=${s.orientation}>
+          <div class="toggle-group text" role="group" aria-label=${s.orientation}>
             ${([
               [false, s.portrait],
               [true, s.landscape],
             ] as const).map(([toLandscape, label]) => html`
-              <button class="orient-btn" title=${label} aria-label="${s.orientation}: ${label}"
+              <button title=${label} aria-label="${s.orientation}: ${label}"
                 aria-pressed=${String(landscape === toLandscape)}
                 @click=${() => {
                   if (landscape === toLandscape) return;
@@ -6872,26 +7002,38 @@ export class SlipDesigner extends LitElement {
           <div class="prop-row">
             <label>${s.marginTop}</label>
             <input type="number" step="1" min="0" .value=${String(pt)}
+                   aria-invalid=${String(this._hasInputError('paper-margin-0'))}
+                   aria-describedby=${this._hasInputError('paper-margin-0') ? 'error-paper-margin-0' : nothing}
                    @change=${(e: Event) => setPadding(0, numOf(e))}>
           </div>
           <div class="prop-row">
             <label>${s.marginRight}</label>
             <input type="number" step="1" min="0" .value=${String(pr)}
+                   aria-invalid=${String(this._hasInputError('paper-margin-1'))}
+                   aria-describedby=${this._hasInputError('paper-margin-1') ? 'error-paper-margin-1' : nothing}
                    @change=${(e: Event) => setPadding(1, numOf(e))}>
           </div>
         </div>
+        ${this._renderInputError('paper-margin-0')}
+        ${this._renderInputError('paper-margin-1')}
         <div class="prop-pair">
           <div class="prop-row">
             <label>${s.marginBottom}</label>
             <input type="number" step="1" min="0" .value=${String(pb)}
+                   aria-invalid=${String(this._hasInputError('paper-margin-2'))}
+                   aria-describedby=${this._hasInputError('paper-margin-2') ? 'error-paper-margin-2' : nothing}
                    @change=${(e: Event) => setPadding(2, numOf(e))}>
           </div>
           <div class="prop-row">
             <label>${s.marginLeft}</label>
             <input type="number" step="1" min="0" .value=${String(pl)}
+                   aria-invalid=${String(this._hasInputError('paper-margin-3'))}
+                   aria-describedby=${this._hasInputError('paper-margin-3') ? 'error-paper-margin-3' : nothing}
                    @change=${(e: Event) => setPadding(3, numOf(e))}>
           </div>
         </div>
+        ${this._renderInputError('paper-margin-2')}
+        ${this._renderInputError('paper-margin-3')}
       </div>
     `;
   }
@@ -7005,9 +7147,17 @@ export class SlipDesigner extends LitElement {
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
     const anchor =
       ANCHORS[this._anchorByElement.get(el.id) ?? this._defaultAnchorIndex(el)] ?? ANCHORS[0];
+    const selectedCell = el.type === 'grid' ? this._selectedCell : null;
+    const cellInRepeat = selectedCell !== null && el.type === 'grid' && el.repeat !== undefined
+      && selectedCell.row >= el.repeat.fromRow && selectedCell.row <= el.repeat.toRow;
 
     return html`
-      <div class="type-name">${this._typeName(el.type)}</div>
+      <div class="type-name">
+        ${selectedCell === null
+          ? this._typeName(el.type)
+          : `${s.cell} (${selectedCell.row + 1}, ${selectedCell.column + 1})`}
+        ${cellInRepeat ? html`<span class="cell-band">${s.repeatCellHint}</span>` : nothing}
+      </div>
 
       <div class="prop-section">
         <div class="prop-section-title">${s.panelLayout}</div>
@@ -7021,34 +7171,44 @@ export class SlipDesigner extends LitElement {
           <div class="prop-row">
             <label>X</label>
             <input type="number" step="0.5" .value=${String(round1(el.position.x + anchor.ax * el.width))}
+                   aria-invalid=${String(this._hasInputError('element-x'))}
+                   aria-describedby=${this._hasInputError('element-x') ? 'error-element-x' : nothing}
                    @change=${(e: Event) => {
                      const v = numOf(e);
-                     if (!Number.isNaN(v)) {
-                       // 입력한 기준점 좌표를 파일의 왼쪽 위 좌표로 변환한다.
-                       this._updateElement((el) => {
-                         el.position.x = Math.max(0, round1(v - anchor.ax * el.width));
-                       });
+                     if (!Number.isFinite(v)) {
+                       this._rejectInput(s.numberInput, 'element-x');
+                       return;
                      }
+                     // 입력한 기준점 좌표를 파일의 왼쪽 위 좌표로 변환한다.
+                     this._updateElement((el) => {
+                       el.position.x = Math.max(0, round1(v - anchor.ax * el.width));
+                     });
                    }}>
           </div>
           <div class="prop-row">
             <label>Y</label>
             <input type="number" step="0.5" .value=${String(round1(el.position.y + anchor.ay * el.height))}
+                   aria-invalid=${String(this._hasInputError('element-y'))}
+                   aria-describedby=${this._hasInputError('element-y') ? 'error-element-y' : nothing}
                    @change=${(e: Event) => {
                      const v = numOf(e);
-                     if (!Number.isNaN(v)) {
-                       this._updateElement((el) => {
-                         el.position.y = Math.max(0, round1(v - anchor.ay * el.height));
-                       });
+                     if (!Number.isFinite(v)) {
+                       this._rejectInput(s.numberInput, 'element-y');
+                       return;
                      }
+                     this._updateElement((el) => {
+                       el.position.y = Math.max(0, round1(v - anchor.ay * el.height));
+                     });
                    }}>
           </div>
         </div>
+        ${this._renderInputError('element-x')}
+        ${this._renderInputError('element-y')}
         ${this._renderSizeRows(el)}
       </div>
 
       ${this._renderTypeProps(el)}
-      ${this._renderStyleGroups(el)}
+      ${el.type === 'grid' && this._selectedCell !== null ? nothing : this._renderStyleGroups(el)}
     `;
   }
 
@@ -7060,14 +7220,29 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     const setSize = (key: 'width' | 'height') => (e: Event) => {
       const v = Number((e.target as HTMLInputElement).value);
-      if (!Number.isNaN(v)) this._updateElement((target) => { target[key] = Math.max(0, v); });
+      const errorKey = `element-${key}`;
+      if (!Number.isFinite(v) || v < 1) {
+        const message = !Number.isFinite(v)
+          ? s.numberInput
+          : s.minimumInput.replace('{min}', '1');
+        this._rejectInput(message, errorKey);
+        return;
+      }
+      this._updateElement((target) => { target[key] = v; });
     };
-    const sizeRow = (label: string, key: 'width' | 'height') => html`
-      <div class="prop-row">
-        <label>${label}</label>
-        <input type="number" step="0.5" min="1" .value=${String(el[key])}
-               aria-label=${label} @change=${setSize(key)}>
-      </div>`;
+    const sizeRow = (label: string, key: 'width' | 'height') => {
+      const errorKey = `element-${key}`;
+      return html`
+        <div class="prop-row">
+          <label>${label}</label>
+          <input type="number" step="0.5" min="1" .value=${String(el[key])}
+                 aria-label=${label}
+                 aria-invalid=${String(this._hasInputError(errorKey))}
+                 aria-describedby=${this._hasInputError(errorKey) ? `error-${errorKey}` : nothing}
+                 @change=${setSize(key)}>
+        </div>
+        ${this._renderInputError(errorKey)}`;
+    };
 
     // 모든 선 방향에 같은 길이, 각도, 굵기 입력을 사용한다.
     if (el.type === 'line') {
@@ -7077,12 +7252,12 @@ export class SlipDesigner extends LitElement {
           ${this._renderDefaultedNumberRow(
             s.length, Number(length.toFixed(1)), length,
             (v) => this._applyLineLengthAngle(v ?? length, angle),
-            { step: '0.5', min: '0' },
+            { step: '0.5', min: '0', errorKey: 'line-length' },
           )}
           ${this._renderDefaultedNumberRow(
             s.lineAngle, Number(angle.toFixed(1)), angle,
             (v) => this._applyLineLengthAngle(length, v ?? angle),
-            { step: '1' },
+            { step: '1', errorKey: 'line-angle' },
           )}
         </div>
         ${this._renderBorderWidthSelect(
@@ -7130,12 +7305,15 @@ export class SlipDesigner extends LitElement {
         <div class="prop-row">
           <label>${s.parameterKey}</label>
           <input class="parameter-key-input" .value=${info.key}
+            aria-invalid=${String(this._parameterKeyError || this._hasInputError('parameter-key'))}
+            aria-describedby=${this._parameterKeyError || this._hasInputError('parameter-key')
+              ? 'error-parameter-key' : nothing}
             @change=${(e: Event) =>
               this._renameParameterField(listKey, info.key, valOf(e), e.target as HTMLInputElement)}>
         </div>
         ${this._parameterKeyError
-          ? html`<div class="cell-hint error">${s.keyInUse}</div>`
-          : nothing}
+          ? html`<div id="error-parameter-key" class="input-error field-error" role="alert">${s.keyInUse}</div>`
+          : this._renderInputError('parameter-key')}
         <div class="prop-row">
           <label>${s.parameterLabel}</label>
           <input .value=${info.rawLabel ?? ''} placeholder=${info.key}
@@ -7169,6 +7347,7 @@ export class SlipDesigner extends LitElement {
 
   /** 하위 필드를 사용하는 그리드 셀로 이동한다. */
   private _selectGridCellAt(at: { pageIndex: number; gridId: string; row: number; column: number }): void {
+    this._resetPanelErrors();
     this._goToPage(at.pageIndex);
     this._selectedId = at.gridId;
     this._selectedIds = new Set([at.gridId]);
@@ -7193,12 +7372,15 @@ export class SlipDesigner extends LitElement {
         <div class="prop-row">
           <label>${s.parameterKey}</label>
           <input class="parameter-key-input" .value=${info.key}
+            aria-invalid=${String(this._parameterKeyError || this._hasInputError('parameter-key'))}
+            aria-describedby=${this._parameterKeyError || this._hasInputError('parameter-key')
+              ? 'error-parameter-key' : nothing}
             @change=${(e: Event) =>
               this._renameParameterKey(info.key, valOf(e), e.target as HTMLInputElement)}>
         </div>
         ${this._parameterKeyError
-          ? html`<div class="cell-hint error">${s.keyInUse}</div>`
-          : nothing}
+          ? html`<div id="error-parameter-key" class="input-error field-error" role="alert">${s.keyInUse}</div>`
+          : this._renderInputError('parameter-key')}
         <div class="prop-row">
           <label>${s.parameterLabel}</label>
           <input class="parameter-label-input" .value=${info.rawLabel ?? ''} placeholder=${info.key}
@@ -7833,15 +8015,20 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     return html`
           <div class="prop-section">
-            <div class="prop-section-title">${s.shape}</div>
+            <div class="prop-section-title">${s.panelStructure}</div>
             <div class="prop-row">
               <label>${s.sides}</label>
               <input type="number" min="3" max="12" step="1" .value=${String(el.sides)}
+                aria-invalid=${String(this._hasInputError('polygon-sides'))}
+                aria-describedby=${this._hasInputError('polygon-sides') ? 'error-polygon-sides' : nothing}
                 @change=${(e: Event) => {
                   const v = Number((e.target as HTMLInputElement).value);
                   // 스키마가 허용하는 3~12 범위만 적용한다.
                   if (!Number.isInteger(v) || v < 3 || v > 12) {
-                    this._rejectInput();
+                    this._rejectInput(
+                      s.rangeInput.replace('{min}', '3').replace('{max}', '12'),
+                      'polygon-sides',
+                    );
                     return;
                   }
                   this._updateElement((el) => {
@@ -7849,6 +8036,7 @@ export class SlipDesigner extends LitElement {
                   });
                 }}>
             </div>
+            ${this._renderInputError('polygon-sides')}
           </div>
         `;
   }
@@ -7949,30 +8137,42 @@ export class SlipDesigner extends LitElement {
                   <div class="prop-row">
                     <label>${s.repeatFrom}</label>
                     <input type="number" min="1" max=${String(el.rows.length)} .value=${String(repeat.fromRow + 1)}
+                      aria-invalid=${String(this._hasInputError('repeat-from'))}
+                      aria-describedby=${this._hasInputError('repeat-from') ? 'error-repeat-from' : nothing}
                       @change=${(e: Event) => this._updateGridRepeat({ fromRow: numberOf(e) - 1 })}>
                   </div>
                   <div class="prop-row">
                     <label>${s.repeatTo}</label>
                     <input type="number" min="1" max=${String(el.rows.length)} .value=${String(repeat.toRow + 1)}
+                      aria-invalid=${String(this._hasInputError('repeat-to'))}
+                      aria-describedby=${this._hasInputError('repeat-to') ? 'error-repeat-to' : nothing}
                       @change=${(e: Event) => this._updateGridRepeat({ toRow: numberOf(e) - 1 })}>
                   </div>
                 </div>
+                ${this._renderInputError('repeat-from')}
+                ${this._renderInputError('repeat-to')}
                 <div class="prop-row">
                   <label>${s.repeatPerPage}</label>
                   <input type="number" min="1" max="1000" .value=${String(repeat.perPage)}
+                    aria-invalid=${String(this._hasInputError('repeat-per-page'))}
+                    aria-describedby=${this._hasInputError('repeat-per-page') ? 'error-repeat-per-page' : nothing}
                     @change=${(e: Event) => this._updateGridRepeat({ perPage: numberOf(e) })}>
                 </div>
+                ${this._renderInputError('repeat-per-page')}
                 <div class="prop-row">
                   <label>${s.repeatMaxItems}</label>
                   <input type="number" min=${String(repeat.perPage)} max="100000"
                     class=${repeat.maxItems === undefined ? 'dim' : ''}
                     placeholder=${s.repeatMaxItemsNone}
                     .value=${repeat.maxItems === undefined ? '' : String(repeat.maxItems)}
+                    aria-invalid=${String(this._hasInputError('repeat-max-items'))}
+                    aria-describedby=${this._hasInputError('repeat-max-items') ? 'error-repeat-max-items' : nothing}
                     @change=${(e: Event) => {
                       const raw = (e.target as HTMLInputElement).value.trim();
                       this._updateGridRepeat({ maxItems: raw === '' ? null : Number(raw) });
                     }}>
                 </div>
+                ${this._renderInputError('repeat-max-items')}
                 <div class="prop-row">
                   <label>${s.repeatHeader}</label>
                   <input type="checkbox" aria-label=${s.repeatHeader} .checked=${repeat.repeatHeader}
@@ -7998,6 +8198,7 @@ export class SlipDesigner extends LitElement {
 
   /** 셀 선택을 해제하고 그리드 전체 편집으로 돌아간다. */
   private _clearCellSelection(): void {
+    this._resetPanelErrors();
     this._selectedCell = null;
     this._cellEditing = false;
     this._cellSourceKind = null;
@@ -8016,169 +8217,194 @@ export class SlipDesigner extends LitElement {
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
     return cellTarget
       ? html`
-              <div class="prop-section">
-                <div class="prop-section-title">
-                  ${s.cell} (${cellTarget.row + 1}, ${cellTarget.column + 1})
-                  ${inBand ? html`<span class="cell-band">${s.repeatCellHint}</span>` : nothing}
-                </div>
+          <div class="prop-section">
+            <div class="prop-section-title">${s.panelValue}</div>
+            <div class="prop-row">
+              <label>${s.cellSource}</label>
+              ${this._listSelect({
+                id: 'grid-cell-source',
+                ariaLabel: s.cellSource,
+                value: source,
+                options: [
+                  { value: 'content', label: s.cellSourceText },
+                  { value: 'parameter', label: s.cellSourceParameter },
+                  { value: 'formula', label: s.cellSourceFormula },
+                ],
+                onPick: (value) =>
+                  this._chooseGridCellSource(value as 'content' | 'parameter' | 'formula'),
+              })}
+            </div>
+            ${source === 'content'
+              ? html`
                 <div class="prop-row">
-                  <label>${s.cellSource}</label>
-                  ${this._listSelect({
-                    id: 'grid-cell-source',
-                    ariaLabel: s.cellSource,
-                    value: source,
-                    options: [
-                      { value: 'content', label: s.cellSourceText },
-                      { value: 'parameter', label: s.cellSourceParameter },
-                      { value: 'formula', label: s.cellSourceFormula },
-                    ],
-                    onPick: (value) =>
-                      this._chooseGridCellSource(value as 'content' | 'parameter' | 'formula'),
-                  })}
-                </div>
-                ${source === 'content'
-                  ? html`
-                    <div class="prop-row">
-                      <label>${s.content}</label>
-                      <input .value=${cellDef?.content ?? ''}
-                        @change=${(e: Event) => {
-                          this._selectedCell = cellTarget;
-                          this._commitCellContent(valOf(e));
-                        }}>
-                    </div>`
-                  : source === 'parameter'
-                    ? html`
-                      <div class="prop-row">
-                        <label>${s.parameter}</label>
-                        ${this._gridCellParameterSelect(el, cellDef?.parameter ?? '', inBand)}
-                      </div>`
-                    : html`
-                      <div class="prop-row">
-                        <label>${s.formula}</label>
-                        <input .value=${cellDef?.formula ?? ''}
-                          @change=${(e: Event) => this._setGridCellSource('formula', valOf(e))}>
-                      </div>`}
-                <div class="prop-pair">
+                  <label>${s.content}</label>
+                  <input .value=${cellDef?.content ?? ''}
+                    @change=${(e: Event) => {
+                      this._selectedCell = cellTarget;
+                      this._commitCellContent(valOf(e));
+                    }}>
+                </div>`
+              : source === 'parameter'
+                ? html`
                   <div class="prop-row">
-                    <label>${s.rowHeight}</label>
-                    <input type="number" min="2" step="0.5"
-                      .value=${String(el.rows[cellTarget.row]?.height ?? '')}
-                      @change=${(e: Event) =>
-                        this._setGridTrack('row', cellTarget.row, Number((e.target as HTMLInputElement).value))}>
-                  </div>
+                    <label>${s.parameter}</label>
+                    ${this._gridCellParameterSelect(el, cellDef?.parameter ?? '', inBand)}
+                  </div>`
+                : html`
                   <div class="prop-row">
-                    <label>${s.columnWidth}</label>
-                    <input type="number" min="2" step="0.5"
-                      .value=${String(el.columns[cellTarget.column]?.width ?? '')}
-                      @change=${(e: Event) =>
-                        this._setGridTrack('column', cellTarget.column, Number((e.target as HTMLInputElement).value))}>
-                  </div>
-                </div>
-                <div class="prop-row">
-                  <label>${s.merge}</label>
-                  <div class="merge-inputs">
-                    <span>${s.rows}</span>
-                    <input type="number" min="1" .value=${String(cellDef?.rowSpan ?? 1)}
-                      aria-label="${s.merge} ${s.rows}"
-                      @change=${(e: Event) => this._setCellSpan('rowSpan', Number(valOf(e)))}>
-                    <span>${s.columns}</span>
-                    <input type="number" min="1" .value=${String(cellDef?.colSpan ?? 1)}
-                      aria-label="${s.merge} ${s.columns}"
-                      @change=${(e: Event) => this._setCellSpan('colSpan', Number(valOf(e)))}>
-                  </div>
-                </div>
-                ${this._renderFontNameRow(
-                  cellDef?.fontName,
-                  (v) => this._updateCellStyle('fontName', v),
-                  `${s.cell} ${s.fontName}`,
-                )}
-                ${this._renderDefaultedNumberRow(
-                  s.fontSize, cellDef?.fontSize, el.fontSize ?? DEFAULT_FONT_SIZE,
-                  (v) => this._updateCellStyle('fontSize', v),
-                  { step: '0.5', min: '0.5', ariaLabel: `${s.cell} ${s.fontSize}` },
-                )}
-                ${this._renderGridOverflowRow({
-                  id: 'grid-cell-overflow',
-                  value: cellDef?.overflow ?? 'inherit',
-                  inherit: true,
-                  ariaLabel: `${s.cell} ${s.overflow}`,
-                  onPick: (value) =>
-                    this._updateCellStyle('overflow', value === 'inherit' ? null : value),
-                })}
-                <div class="prop-row">
-                  <label>${s.alignment}</label>
-                  <div class="toggle-group" role="group" aria-label="${s.cell} ${s.alignment}">
-                    ${([
-                      ['left', s.alignLeft, icons.alignLeft],
-                      ['center', s.alignCenter, icons.alignCenter],
-                      ['right', s.alignRight, icons.alignRight],
-                    ] as const).map(([value, label, glyph]) => html`
-                      <button title=${label} aria-label="${s.cell} ${s.alignment}: ${label}"
-                        aria-pressed=${String((cellDef?.alignment ?? el.alignment ?? 'left') === value)}
-                        @click=${() => this._updateCellStyle('alignment', value === 'left' ? null : value)}>${glyph}</button>`)}
-                  </div>
-                </div>
-                <div class="prop-row">
-                  <label>${s.verticalAlignment}</label>
-                  <div class="toggle-group" role="group" aria-label="${s.cell} ${s.verticalAlignment}">
-                    ${([
-                      ['top', s.alignTop, icons.alignTop],
-                      ['middle', s.alignMiddle, icons.alignMiddle],
-                      ['bottom', s.alignBottom, icons.alignBottom],
-                    ] as const).map(([value, label, glyph]) => html`
-                      <button title=${label} aria-label="${s.cell} ${s.verticalAlignment}: ${label}"
-                        aria-pressed=${String((cellDef?.verticalAlignment ?? el.verticalAlignment ?? 'top') === value)}
-                        @click=${() => this._updateCellStyle('verticalAlignment', value === 'top' ? null : value)}
-                        >${glyph}</button>`)}
-                  </div>
-                </div>
-                ${this._renderDefaultedNumberRow(
-                  s.lineHeight, cellDef?.lineHeight, el.lineHeight ?? 1,
-                  (v) => this._updateCellStyle('lineHeight', v),
-                  { step: '0.1', min: '0.1', ariaLabel: `${s.cell} ${s.lineHeight}` },
-                )}
-                ${this._renderDefaultedNumberRow(
-                  s.characterSpacing, cellDef?.characterSpacing, el.characterSpacing ?? 0,
-                  (v) => this._updateCellStyle('characterSpacing', v),
-                  { step: '0.1', ariaLabel: `${s.cell} ${s.characterSpacing}` },
-                )}
-                ${this._renderTextStyleToggles(
-                  cellDef ?? {},
-                  (key, value) => this._updateCellStyle(key, value ? true : null),
-                  `${s.cell} `,
-                )}
-                ${this._renderColorControl(
-                  s.backgroundColor, cellDef?.backgroundColor, 'cellBackgroundColor',
-                  (v) => this._updateCellStyle('backgroundColor', v),
-                  undefined,
-                  `${s.cell} ${s.backgroundColor}`,
-                )}
-                ${this._renderColorControl(
-                  s.fontColor, cellDef?.fontColor, 'cellFontColor',
-                  (v) => this._updateCellStyle('fontColor', v),
-                  el.fontColor ?? DEFAULT_FONT_COLOR,
-                  `${s.cell} ${s.fontColor}`,
-                )}
-                ${this._renderColorControl(
-                  s.borderColor, cellDef?.borderColor, 'cellBorderColor',
-                  (v) => this._updateCellStyle('borderColor', v),
-                  el.borderColor ?? DEFAULT_BORDER_COLOR,
-                  `${s.cell} ${s.borderColor}`,
-                )}
-                ${this._renderBorderWidthSelect(
-                  cellDef?.borderWidth,
-                  el.borderWidth ?? DEFAULT_LINE_WIDTH,
-                  true,
-                  'cellBorderWidth',
-                  (v) => this._updateCellStyle('borderWidth', v),
-                )}
-                ${this._renderBorderShapeRow(
-                  cellDef?.borderStyle,
-                  `${s.cell} ${s.borderShape}`,
-                  'cellBorderStyle',
-                  (v) => this._updateCellStyle('borderStyle', v),
-                )}
-              </div>`
+                    <label>${s.formula}</label>
+                    <input .value=${cellDef?.formula ?? ''}
+                      @change=${(e: Event) => this._setGridCellSource('formula', valOf(e))}>
+                  </div>`}
+          </div>
+
+          <div class="prop-section">
+            <div class="prop-section-title">${s.panelStructure}</div>
+            <div class="prop-pair">
+              <div class="prop-row">
+                <label>${s.rowHeight}</label>
+                <input type="number" min="2" step="0.5"
+                  .value=${String(el.rows[cellTarget.row]?.height ?? '')}
+                  aria-invalid=${String(this._hasInputError('cell-row-height'))}
+                  aria-describedby=${this._hasInputError('cell-row-height') ? 'error-cell-row-height' : nothing}
+                  @change=${(e: Event) =>
+                    this._setGridTrack('row', cellTarget.row, Number((e.target as HTMLInputElement).value))}>
+              </div>
+              <div class="prop-row">
+                <label>${s.columnWidth}</label>
+                <input type="number" min="2" step="0.5"
+                  .value=${String(el.columns[cellTarget.column]?.width ?? '')}
+                  aria-invalid=${String(this._hasInputError('cell-column-width'))}
+                  aria-describedby=${this._hasInputError('cell-column-width') ? 'error-cell-column-width' : nothing}
+                  @change=${(e: Event) =>
+                    this._setGridTrack('column', cellTarget.column, Number((e.target as HTMLInputElement).value))}>
+              </div>
+            </div>
+            ${this._renderInputError('cell-row-height')}
+            ${this._renderInputError('cell-column-width')}
+            <div class="prop-row">
+              <label>${s.merge}</label>
+              <div class="merge-inputs">
+                <span>${s.rows}</span>
+                <input type="number" min="1" .value=${String(cellDef?.rowSpan ?? 1)}
+                  aria-label="${s.merge} ${s.rows}"
+                  aria-invalid=${String(this._hasInputError('cell-row-span'))}
+                  aria-describedby=${this._hasInputError('cell-row-span') ? 'error-cell-row-span' : nothing}
+                  @change=${(e: Event) => this._setCellSpan('rowSpan', Number(valOf(e)))}>
+                <span>${s.columns}</span>
+                <input type="number" min="1" .value=${String(cellDef?.colSpan ?? 1)}
+                  aria-label="${s.merge} ${s.columns}"
+                  aria-invalid=${String(this._hasInputError('cell-column-span'))}
+                  aria-describedby=${this._hasInputError('cell-column-span') ? 'error-cell-column-span' : nothing}
+                  @change=${(e: Event) => this._setCellSpan('colSpan', Number(valOf(e)))}>
+              </div>
+            </div>
+            ${this._renderInputError('cell-row-span')}
+            ${this._renderInputError('cell-column-span')}
+          </div>
+
+          <div class="prop-section">
+            <div class="prop-section-title">${s.styleText}</div>
+            ${this._renderFontNameRow(
+              cellDef?.fontName,
+              (v) => this._updateCellStyle('fontName', v),
+              `${s.cell} ${s.fontName}`,
+            )}
+            ${this._renderDefaultedNumberRow(
+              s.fontSize, cellDef?.fontSize, el.fontSize ?? DEFAULT_FONT_SIZE,
+              (v) => this._updateCellStyle('fontSize', v),
+              { step: '0.5', min: '0.5', ariaLabel: `${s.cell} ${s.fontSize}`, errorKey: 'cell-font-size' },
+            )}
+            ${this._renderGridOverflowRow({
+              id: 'grid-cell-overflow',
+              value: cellDef?.overflow ?? 'inherit',
+              inherit: true,
+              ariaLabel: `${s.cell} ${s.overflow}`,
+              onPick: (value) =>
+                this._updateCellStyle('overflow', value === 'inherit' ? null : value),
+            })}
+            <div class="prop-row">
+              <label>${s.alignment}</label>
+              <div class="toggle-group" role="group" aria-label="${s.cell} ${s.alignment}">
+                ${([
+                  ['left', s.alignLeft, icons.alignLeft],
+                  ['center', s.alignCenter, icons.alignCenter],
+                  ['right', s.alignRight, icons.alignRight],
+                ] as const).map(([value, label, glyph]) => html`
+                  <button title=${label} aria-label="${s.cell} ${s.alignment}: ${label}"
+                    aria-pressed=${String((cellDef?.alignment ?? el.alignment ?? 'left') === value)}
+                    @click=${() => this._updateCellStyle('alignment', value === 'left' ? null : value)}>${glyph}</button>`)}
+              </div>
+            </div>
+            <div class="prop-row">
+              <label>${s.verticalAlignment}</label>
+              <div class="toggle-group" role="group" aria-label="${s.cell} ${s.verticalAlignment}">
+                ${([
+                  ['top', s.alignTop, icons.alignTop],
+                  ['middle', s.alignMiddle, icons.alignMiddle],
+                  ['bottom', s.alignBottom, icons.alignBottom],
+                ] as const).map(([value, label, glyph]) => html`
+                  <button title=${label} aria-label="${s.cell} ${s.verticalAlignment}: ${label}"
+                    aria-pressed=${String((cellDef?.verticalAlignment ?? el.verticalAlignment ?? 'top') === value)}
+                    @click=${() => this._updateCellStyle('verticalAlignment', value === 'top' ? null : value)}
+                    >${glyph}</button>`)}
+              </div>
+            </div>
+            ${this._renderDefaultedNumberRow(
+              s.lineHeight, cellDef?.lineHeight, el.lineHeight ?? 1,
+              (v) => this._updateCellStyle('lineHeight', v),
+              { step: '0.1', min: '0.1', ariaLabel: `${s.cell} ${s.lineHeight}`, errorKey: 'cell-line-height' },
+            )}
+            ${this._renderDefaultedNumberRow(
+              s.characterSpacing, cellDef?.characterSpacing, el.characterSpacing ?? 0,
+              (v) => this._updateCellStyle('characterSpacing', v),
+              { step: '0.1', ariaLabel: `${s.cell} ${s.characterSpacing}`, errorKey: 'cell-character-spacing' },
+            )}
+            ${this._renderTextStyleToggles(
+              cellDef ?? {},
+              (key, value) => this._updateCellStyle(key, value ? true : null),
+              `${s.cell} `,
+            )}
+            ${this._renderColorControl(
+              s.fontColor, cellDef?.fontColor, 'cellFontColor',
+              (v) => this._updateCellStyle('fontColor', v),
+              el.fontColor ?? DEFAULT_FONT_COLOR,
+              `${s.cell} ${s.fontColor}`,
+            )}
+          </div>
+
+          <div class="prop-section">
+            <div class="prop-section-title">${s.styleBackground}</div>
+            ${this._renderColorControl(
+              s.backgroundColor, cellDef?.backgroundColor, 'cellBackgroundColor',
+              (v) => this._updateCellStyle('backgroundColor', v),
+              undefined,
+              `${s.cell} ${s.backgroundColor}`,
+            )}
+          </div>
+
+          <div class="prop-section">
+            <div class="prop-section-title">${s.styleBorder}</div>
+            ${this._renderColorControl(
+              s.borderColor, cellDef?.borderColor, 'cellBorderColor',
+              (v) => this._updateCellStyle('borderColor', v),
+              el.borderColor ?? DEFAULT_BORDER_COLOR,
+              `${s.cell} ${s.borderColor}`,
+            )}
+            ${this._renderBorderWidthSelect(
+              cellDef?.borderWidth,
+              el.borderWidth ?? DEFAULT_LINE_WIDTH,
+              true,
+              'cellBorderWidth',
+              (v) => this._updateCellStyle('borderWidth', v),
+            )}
+            ${this._renderBorderShapeRow(
+              cellDef?.borderStyle,
+              `${s.cell} ${s.borderShape}`,
+              'cellBorderStyle',
+              (v) => this._updateCellStyle('borderStyle', v),
+            )}
+          </div>`
       : nothing;
   }
 
@@ -8187,31 +8413,31 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     // 이미지 요소는 고정 소스와 파라미터 중 하나만 사용한다.
     const variable = el.parameter !== undefined;
-        // base64 문자열 대신 현재 이미지를 표시한다.
-        const chosen = el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
-        return html`
-          <div class="prop-section">
-            <div class="prop-section-title">${s.typeImage}</div>
-            <div class="prop-row">
-              <label>${s.imageMode}</label>
-              <div class="toggle-group text" role="group" aria-label=${s.imageMode}>
-                <button aria-pressed=${String(!variable)}
-                  @click=${() => this._setImageVariable(false)}>${s.imageFixed}</button>
-                <button aria-pressed=${String(variable)}
-                  @click=${() => this._setImageVariable(true)}>${s.imageVariable}</button>
-              </div>
-            </div>
-            ${variable
-              ? this._renderImageParameterSelect(el.parameter ?? '')
-              : html`
-                ${chosen
-                  ? html`<div class="image-current"><img src=${el.src} alt=""></div>`
-                  : html`<p class="image-hint">${s.imageNone}</p>`}
-                <button class="col-modal-open" @click=${() => this._openImageModal()}>
-                  ${icons.image}<span>${chosen ? s.imageChange : s.imagePick}</span>
-                </button>`}
+    // base64 문자열 대신 현재 이미지를 표시한다.
+    const chosen = el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
+    return html`
+      <div class="prop-section">
+        <div class="prop-section-title">${s.panelValue}</div>
+        <div class="prop-row">
+          <label>${s.imageMode}</label>
+          <div class="toggle-group text" role="group" aria-label=${s.imageMode}>
+            <button aria-pressed=${String(!variable)}
+              @click=${() => this._setImageVariable(false)}>${s.imageFixed}</button>
+            <button aria-pressed=${String(variable)}
+              @click=${() => this._setImageVariable(true)}>${s.imageVariable}</button>
           </div>
-        `;
+        </div>
+        ${variable
+          ? this._renderImageParameterSelect(el.parameter ?? '')
+          : html`
+            ${chosen
+              ? html`<div class="image-current"><img src=${el.src} alt=""></div>`
+              : html`<p class="image-hint">${s.imageNone}</p>`}
+            <button class="col-modal-open" @click=${() => this._openImageModal()}>
+              ${icons.image}<span>${chosen ? s.imageChange : s.imagePick}</span>
+            </button>`}
+      </div>
+    `;
   }
 
   /**
@@ -8263,7 +8489,7 @@ export class SlipDesigner extends LitElement {
       ${this._renderDefaultedNumberRow(
         s.fontSize, el.fontSize, DEFAULT_FONT_SIZE,
         (v) => this._updateElement((target) => setOptional(target, 'fontSize', v)),
-        { step: '0.5', min: '0.5' },
+        { step: '0.5', min: '0.5', errorKey: 'element-font-size' },
       )}
       <div class="prop-row">
         <label>${s.alignment}</label>
@@ -8296,12 +8522,12 @@ export class SlipDesigner extends LitElement {
       ${this._renderDefaultedNumberRow(
         s.lineHeight, el.lineHeight, 1,
         (v) => this._updateElement((target) => setOptional(target, 'lineHeight', v)),
-        { step: '0.1', min: '0.1' },
+        { step: '0.1', min: '0.1', errorKey: 'element-line-height' },
       )}
       ${this._renderDefaultedNumberRow(
         s.characterSpacing, el.characterSpacing, 0,
         (v) => this._updateElement((target) => setOptional(target, 'characterSpacing', v)),
-        { step: '0.1' },
+        { step: '0.1', errorKey: 'element-character-spacing' },
       )}
       <div class="prop-row">
         <label>${s.verticalWriting}</label>
@@ -8320,6 +8546,37 @@ export class SlipDesigner extends LitElement {
    * 속성 패널에서 펼친 팝오버의 키. 한 번에 하나의 팝오버만 열 수 있다.
    */
   private _openPopKey: string | null = null;
+
+  /** 테두리 굵기·형태 메뉴의 화면 고정 위치 */
+  private _propertyMenuPos = { left: 0, top: 0, width: 0, maxHeight: 220 };
+
+  /** 테두리 선택 메뉴를 버튼 아래에 열거나 닫는다. */
+  private _togglePropertyMenu(key: string, event: Event): void {
+    if (this._openPopKey === key) {
+      this._openPopKey = null;
+    } else {
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      const roomBelow = window.innerHeight - rect.bottom - 12;
+      const roomAbove = rect.top - 12;
+      const openAbove = roomBelow < 180 && roomAbove > roomBelow;
+      const room = openAbove ? roomAbove : roomBelow;
+      const maxHeight = Math.max(80, Math.min(220, room));
+      this._propertyMenuPos = {
+        left: rect.left,
+        top: openAbove ? rect.top - maxHeight - 4 : rect.bottom + 4,
+        width: rect.width,
+        maxHeight,
+      };
+      this._openPopKey = key;
+    }
+    this.requestUpdate();
+  }
+
+  /** 열린 테두리 선택 메뉴를 닫는다. */
+  private _closePropertyMenu(): void {
+    this._openPopKey = null;
+    this.requestUpdate();
+  }
 
   /**
    * 모든 요소의 종류 배지를 표시할지 여부.
@@ -8516,23 +8773,37 @@ export class SlipDesigner extends LitElement {
               commit(compose(hsvToHex(this._pickerH, this._pickerS, this._pickerV), alphaPct))}>
           <div class="color-pop-row">
             <input .value=${current ?? ''} placeholder="#RRGGBB"
+              aria-invalid=${String(this._hasInputError(`color-${key}`))}
+              aria-describedby=${this._hasInputError(`color-${key}`) ? `error-color-${key}` : nothing}
               @change=${(e: Event) => {
                 // 파일 스키마가 허용하는 HEX 색상만 적용한다.
                 const v = (e.target as HTMLInputElement).value;
                 if (v && !/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) {
-                  this._rejectInput();
+                  this._rejectInput(s.colorFormatError, `color-${key}`);
                   return;
                 }
                 commit(v || null);
               }}>
             <input type="number" class="alpha-input" min="0" max="100" .value=${String(alphaPct)}
               title=${s.opacity} aria-label="${label} ${s.opacity}"
+              aria-invalid=${String(this._hasInputError(`opacity-${key}`))}
+              aria-describedby=${this._hasInputError(`opacity-${key}`) ? `error-opacity-${key}` : nothing}
               @change=${(e: Event) => {
                 if (!current) return;
-                commit(compose(base, Number((e.target as HTMLInputElement).value)));
+                const value = Number((e.target as HTMLInputElement).value);
+                if (!Number.isFinite(value) || value < 0 || value > 100) {
+                  this._rejectInput(
+                    s.rangeInput.replace('{min}', '0').replace('{max}', '100'),
+                    `opacity-${key}`,
+                  );
+                  return;
+                }
+                commit(compose(base, value));
               }}>
             <span class="alpha-suffix">%</span>
           </div>
+          ${this._renderInputError(`color-${key}`)}
+          ${this._renderInputError(`opacity-${key}`)}
         </div>` : nothing}
     `;
   }
@@ -8596,20 +8867,21 @@ export class SlipDesigner extends LitElement {
     return html`
       <div class="prop-row">
         <label>${label}</label>
-        <button class="width-btn" aria-label=${label} aria-expanded=${String(open)}
-          @click=${() => {
-            this._openPopKey = open ? null : key;
-            this.requestUpdate();
-          }}>
+        <button class="width-btn" aria-label=${label} aria-haspopup="menu"
+          aria-expanded=${String(open)}
+          @click=${(event: Event) => this._togglePropertyMenu(key, event)}>
           ${effective > 0
             ? html`<span class="width-line" style="border-top-width:${previewPx(effective)}px"></span>
                 <span class="width-value ${current === undefined ? 'dim' : ''}">${effective}mm</span>`
             : html`<span class="width-value ${current === undefined ? 'dim' : ''}"
                 >${s.colorNone}</span>`}
+          <span class="list-select-caret" aria-hidden="true">${icons.down}</span>
         </button>
       </div>
       ${open ? html`
-        <div class="width-pop" role="menu" aria-label=${label}>
+        <div class="menu-backdrop" @click=${() => this._closePropertyMenu()}></div>
+        <div class="preset-menu width-pop" role="menu" aria-label=${label}
+          style="left:${this._propertyMenuPos.left}px;top:${this._propertyMenuPos.top}px;width:${this._propertyMenuPos.width}px;max-height:${this._propertyMenuPos.maxHeight}px">
           ${allowNone ? html`
             <button role="menuitem" aria-label="${label}: ${s.colorNone}"
               aria-pressed=${String(effective <= 0)}
@@ -8660,17 +8932,18 @@ export class SlipDesigner extends LitElement {
     return html`
       <div class="prop-row">
         <label>${s.borderShape}</label>
-        <button class="width-btn" aria-label=${ariaLabel} aria-expanded=${String(open)}
-          @click=${() => {
-            this._openPopKey = open ? null : key;
-            this.requestUpdate();
-          }}>
+        <button class="width-btn" aria-label=${ariaLabel} aria-haspopup="menu"
+          aria-expanded=${String(open)}
+          @click=${(event: Event) => this._togglePropertyMenu(key, event)}>
           <span class="shape-line shape-${effective}"></span>
           <span class="width-value ${current === undefined ? 'dim' : ''}">${labelOf(effective)}</span>
+          <span class="list-select-caret" aria-hidden="true">${icons.down}</span>
         </button>
       </div>
       ${open ? html`
-        <div class="width-pop" role="menu" aria-label=${ariaLabel}>
+        <div class="menu-backdrop" @click=${() => this._closePropertyMenu()}></div>
+        <div class="preset-menu width-pop" role="menu" aria-label=${ariaLabel}
+          style="left:${this._propertyMenuPos.left}px;top:${this._propertyMenuPos.top}px;width:${this._propertyMenuPos.width}px;max-height:${this._propertyMenuPos.maxHeight}px">
           ${shapes.map(([value, label]) => html`
             <button role="menuitem" aria-label="${ariaLabel}: ${label}"
               aria-pressed=${String(value === effective)}
@@ -8768,11 +9041,16 @@ export class SlipDesigner extends LitElement {
             <input type="number" step="0.5" min="0" class=${el.radius === undefined ? 'dim' : ''}
               .value=${String(el.radius ?? '')} placeholder="0"
               aria-label=${s.cornerRadius}
+              aria-invalid=${String(this._hasInputError('corner-radius'))}
+              aria-describedby=${this._hasInputError('corner-radius') ? 'error-corner-radius' : nothing}
               ?disabled=${el.borderStyle === 'dashed' || el.borderStyle === 'dotted'}
               @change=${(e: Event) => {
                 const v = Number((e.target as HTMLInputElement).value);
                 if (Number.isNaN(v) || v < 0) {
-                  this._rejectInput();
+                  this._rejectInput(
+                    Number.isNaN(v) ? s.numberInput : s.nonNegativeInput,
+                    'corner-radius',
+                  );
                   return;
                 }
                 this._updateElement((target) => {
@@ -8780,7 +9058,8 @@ export class SlipDesigner extends LitElement {
                   setOptional(target, 'radius', v > 0 ? v : null);
                 });
               }}>
-          </div>` : nothing}
+          </div>
+          ${this._renderInputError('corner-radius')}` : nothing}
       </div>
     `;
   }
