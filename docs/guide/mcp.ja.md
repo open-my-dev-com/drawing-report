@@ -25,6 +25,24 @@ mkdir slip-workspace
 
 `slip-workspace` は、AI がアクセスする `.slip` ファイルと画像を配置する作業ディレクトリの例です。別のディレクトリも使用できます。
 
+## MCP Inspector での動作確認
+
+このリポジトリには、別の MCP クライアントを設定する前にツールを直接呼び出せる Inspector デモがあります。MCP Inspector の要件により、このデモには Node.js 22.19 以上が必要です。
+
+```bash
+pnpm demo:mcp
+```
+
+このコマンドは MCP パッケージをビルドし、`examples/mcp-demo/workspace` にサンプルテンプレートを準備して、`http://localhost:6274` で Inspector を開きます。接続画面で **Connect** を選び、**Tools** から `slip_list`、`slip_read`、`slip_edit`、`slip_render_pdf` などを呼び出せます。
+
+Inspector で編集・生成したファイルはデモ用作業ディレクトリにだけ保存され、Git から除外されます。サンプルを初期状態に戻すには Inspector を終了し、次のコマンドを実行します。
+
+```bash
+pnpm demo:mcp:reset
+```
+
+そのまま使える入力例は [`examples/mcp-demo`](../../examples/mcp-demo) を参照してください。
+
 ## サーバー設定ファイルの作成
 
 `slipkit-mcp.json` は MCP サーバーが読み込む設定ファイルです。次の例では、設定ファイルを置いたディレクトリの隣にある `slip-workspace` を作業ディレクトリとして使用します。

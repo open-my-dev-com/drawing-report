@@ -94,6 +94,14 @@ The three demos provide the same features. You can try form design, voucher entr
 
 Framework-independent logic such as the demos' auto-save and file handling is implemented once in [`examples/shared`](examples/shared).
 
+You can call the MCP tools directly in the [MCP Inspector demo](examples/mcp-demo). This demo requires Node.js 22.19 or later.
+
+```bash
+pnpm demo:mcp
+```
+
+The command prepares a sample workspace, builds the MCP package, and opens Inspector at `http://localhost:6274`.
+
 ## Guides
 
 If you are new, start by running a repository demo and connecting the designer in [Getting started](docs/guide/getting-started.en.md). Saving and restoring, and how to connect the three components, continue in the [Application Integration Guide](docs/guide/integration.en.md).

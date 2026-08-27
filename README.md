@@ -94,6 +94,14 @@ pnpm demo:vue
 
 데모의 자동 저장과 파일 처리처럼 프레임워크에 의존하지 않는 로직은 [`examples/shared`](examples/shared)에 공통으로 구현되어 있습니다.
 
+MCP 도구는 [MCP Inspector 데모](examples/mcp-demo)에서 직접 호출할 수 있습니다. 이 데모는 Node.js 22.19 이상이 필요합니다.
+
+```bash
+pnpm demo:mcp
+```
+
+명령을 실행하면 샘플 작업공간과 MCP 패키지를 준비한 뒤 `http://localhost:6274`에서 Inspector를 엽니다.
+
 ## 사용 가이드
 
 처음 사용한다면 [시작하기](docs/guide/getting-started.md)에서 저장소의 데모를 실행하고 디자이너를 연결해 보세요. 저장·복원과 세 컴포넌트의 연결 방법은 [애플리케이션 통합 가이드](docs/guide/integration.md)에서 이어서 설명합니다.

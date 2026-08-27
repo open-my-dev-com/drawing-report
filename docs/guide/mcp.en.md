@@ -25,6 +25,24 @@ mkdir slip-workspace
 
 `slip-workspace` is an example working directory for the `.slip` files and images that the AI may access. You may use any other directory.
 
+## Try it with MCP Inspector
+
+The repository includes an Inspector demo for calling the tools before configuring a separate MCP client. MCP Inspector requires Node.js 22.19 or later.
+
+```bash
+pnpm demo:mcp
+```
+
+The command builds the MCP package, prepares a sample template in `examples/mcp-demo/workspace`, and opens Inspector at `http://localhost:6274`. Select **Connect**, open **Tools**, and call tools such as `slip_list`, `slip_read`, `slip_edit`, and `slip_render_pdf`.
+
+Files edited or generated through Inspector stay in the demo workspace and are excluded from Git. To restore the initial sample, close Inspector and run:
+
+```bash
+pnpm demo:mcp:reset
+```
+
+See [`examples/mcp-demo`](../../examples/mcp-demo) for ready-to-use inputs.
+
 ## Create the server configuration
 
 `slipkit-mcp.json` is the configuration file read by the MCP server. This example uses a `slip-workspace` directory next to the directory containing the configuration file.
