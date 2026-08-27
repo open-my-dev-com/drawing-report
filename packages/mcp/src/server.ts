@@ -91,11 +91,12 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
   const locale = options.locale;
   const customFonts = options.fonts;
   const slipKit: SlipKit = createSlipKit({
+    // 동봉 폰트는 두 벌을 모두 등록한다. 로케일은 fontName이 없는 요소에
+    // 적용되는 대체(fallback) 폰트만 결정한다.
     getFonts: async () => {
       if (customFonts !== undefined && customFonts.length > 0) return customFonts;
-      return locale?.toLowerCase().startsWith('ja')
-        ? (await import('@omdc-slipkit/elements/fonts/noto-sans-jp')).NOTO_SANS_JP_FONTS
-        : (await import('@omdc-slipkit/elements/fonts/pretendard')).PRETENDARD_FONTS;
+      const { loadDefaultFonts } = await import('@omdc-slipkit/elements/default-fonts');
+      return loadDefaultFonts(locale?.toLowerCase().startsWith('ja') ? 'ja' : 'ko');
     },
     ...(locale === undefined ? {} : { locale }),
   });

@@ -48,6 +48,10 @@ To modify an existing file: slip_read (summary) -> slip_read part=element -> sli
 const ELEMENTS = `# Element types
 
 Common fields (every element): type, id, name, position {x, y}, width, height, group?.
+Bundled fontName values (when the server has no custom fonts): "Pretendard", "Pretendard-Bold",
+"Noto Sans JP". All are always available; an element without fontName uses the locale's default
+(Pretendard, or Noto Sans JP when the server locale is Japanese). Japanese kanji needs
+"Noto Sans JP"; Korean text needs Pretendard.
 Text styling fields (text, field, grid, and grid cells): fontName?, fontSize?, alignment? (left|center|right),
 verticalAlignment? (top|middle|bottom), bold?, italic?, underline?, strikethrough?, lineHeight?,
 characterSpacing?, vertical?. Box styling: backgroundColor?, fontColor?, borderColor?, borderWidth?, borderStyle? (solid|dashed|dotted).

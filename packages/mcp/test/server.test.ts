@@ -351,6 +351,25 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
     expect(await storage.load('doc')).toMatchObject({ kind: 'template' });
   });
 
+  it('로케일이 ja가 아니어도 fontName으로 Noto Sans JP를 사용할 수 있다', async () => {
+    const template = makeTemplate();
+    template.template.pages[0]!.elements.push({
+      type: 'text',
+      id: 'jp-note',
+      name: '일본어 문구',
+      position: { x: 15, y: 250 },
+      width: 180,
+      height: 8,
+      content: '請求書 合計金額',
+      fontName: 'Noto Sans JP',
+    });
+    await callText(client, 'slip_save', { path: 'jp-doc', file: template });
+    const rendered = await callText(client, 'slip_render_pdf', { path: 'jp-doc' });
+    expect(rendered.isError).toBe(false);
+    const pdf = await readFile(path.join(dir, 'jp-doc.pdf'));
+    expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
   it('slip_schema가 주제별 안내를 반환한다', async () => {
     const overview = await callText(client, 'slip_schema', { topic: 'overview' });
     expect(overview.text).toContain('schemaVersion');
