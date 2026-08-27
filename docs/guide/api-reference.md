@@ -1624,7 +1624,8 @@ class SlipStorageError
   readonly code:
     | 'not-found'
     | 'unsupported'
-    | 'io';
+    | 'io'
+    | 'cancelled';
 }
 ```
 
@@ -1632,7 +1633,8 @@ class SlipStorageError
 |---|---|
 | `not-found` | 지정한 저장 키의 파일이 없음 |
 | `unsupported` | 저장소가 해당 기능을 지원하지 않음 |
-| `io` | 저장소 읽기·쓰기 또는 파일 선택 실패 |
+| `io` | 저장소 읽기·쓰기 실패 |
+| `cancelled` | 사용자가 파일 선택을 취소함 |
 
 ## 관련 문서
 

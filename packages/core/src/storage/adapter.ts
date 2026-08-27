@@ -4,11 +4,14 @@
  */
 import type { SlipFile, SlipFileKind } from '../format/types.js';
 
+/** 저장소 오류의 원인 구분 */
+export type SlipStorageErrorCode = 'not-found' | 'unsupported' | 'io' | 'cancelled';
+
 /** 저장소 작업 오류. `code`로 원인을 구분한다. */
 export class SlipStorageError extends Error {
-  readonly code: 'not-found' | 'unsupported' | 'io';
+  readonly code: SlipStorageErrorCode;
 
-  constructor(code: 'not-found' | 'unsupported' | 'io', message: string) {
+  constructor(code: SlipStorageErrorCode, message: string) {
     super(message);
     this.name = 'SlipStorageError';
     this.code = code;
@@ -52,7 +55,7 @@ export interface StorageAdapter {
    *
    * @param id - 저장 키
    * @returns 불러온 `.slip` 파일
-   * @throws SlipStorageError 없음(not-found)·읽기 실패(io) 시
+   * @throws SlipStorageError 없음(not-found)·읽기 실패(io)·사용자 취소(cancelled) 시
    */
   load(id: string): Promise<SlipFile>;
   /**

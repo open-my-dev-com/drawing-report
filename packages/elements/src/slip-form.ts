@@ -110,7 +110,7 @@ export class SlipForm extends LitElement {
   /**
    * UI 언어 (`ko`, `en`, `ja`).
    *
-   * @defaultValue 한국어
+   * @defaultValue 영어
    */
   locale?: string;
 

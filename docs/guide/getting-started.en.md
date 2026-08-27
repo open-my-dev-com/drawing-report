@@ -99,7 +99,9 @@ Try the following in order.
 - [ ] Check the PDF rendering result in <kbd>Preview</kbd>
 - [ ] Move to <kbd>Fill</kbd> and enter values
 - [ ] Issue the voucher you filled in
+- [ ] Check the issued voucher in <kbd>View issued voucher</kbd>
 - [ ] Download the `.slip` file
+- [ ] Download the PDF file
 - [ ] Reopen the downloaded `.slip` file
 - [ ] Refresh and confirm the previous work is restored
 

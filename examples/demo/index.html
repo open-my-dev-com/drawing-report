@@ -38,7 +38,7 @@
     header button[hidden] { display: none; }
     #autosave { margin-left: auto; font-size: 11px; color: #78909c; }
     #status { font-size: 12px; color: #b0bec5; }
-    slip-designer, slip-form { flex: 1; min-height: 0; }
+    slip-designer, slip-form, slip-viewer { flex: 1; min-height: 0; }
 
     dialog {
       border: none;
@@ -82,15 +82,18 @@
     <span class="title">SlipKit Demo</span>
     <button id="mode-design" aria-pressed="true">Design template</button>
     <button id="mode-fill" aria-pressed="false">Fill voucher</button>
+    <button id="mode-view" aria-pressed="false" hidden>View issued voucher</button>
     <button id="new-slip" hidden>New voucher</button>
     <span class="sep"></span>
     <button id="download">Download file</button>
+    <button id="download-pdf">Download PDF</button>
     <button id="open">Open file</button>
     <span id="autosave"></span>
     <span id="status"></span>
   </header>
   <slip-designer id="designer"></slip-designer>
   <slip-form id="form" hidden></slip-form>
+  <slip-viewer id="viewer" hidden></slip-viewer>
 
   <dialog id="filename-dialog">
     <form method="dialog">

@@ -13,12 +13,26 @@ import {
   type StorageAdapter,
 } from '@omdc-slipkit/core';
 
-/** 자동 저장 키 — 양식과 작성 중 전표를 따로 보관한다 */
+/** 자동 저장 키 — 양식, 작성 중 전표, 발행된 전표를 따로 보관한다 */
 export const TEMPLATE_KEY = 'autosave-template';
 export const VOUCHER_KEY = 'autosave-voucher';
+export const ISSUED_KEY = 'autosave-issued';
 
 /** 마지막으로 보던 화면 — 새로고침 후 같은 화면으로 돌아오기 위해 기억한다 */
 export const MODE_KEY = 'slipkit-demo-mode';
+
+/** 데모의 화면 구분 — 양식 편집, 전표 작성, 발행 전표 조회 */
+export type DemoMode = 'design' | 'fill' | 'view';
+
+/**
+ * 저장된 화면 값을 {@link DemoMode}로 검증한다.
+ *
+ * @param value - localStorage에서 읽은 값
+ * @returns 지원하는 화면 값. 그 외에는 'design'
+ */
+export function asDemoMode(value: string | null): DemoMode {
+  return value === 'fill' || value === 'view' ? value : 'design';
+}
 
 /** 자동 저장을 미루는 시간(ms) — 타자 중 매번 저장하지 않는다 */
 export const AUTOSAVE_DELAY_MS = 800;
@@ -56,8 +70,12 @@ export function createStores(dbName: string, locale?: string): {
   localFile: LocalFileStorage;
 } {
   const options = locale === undefined ? {} : { locale };
+  // 자동 저장 본문은 암호화한다. 키를 지정하지 않으면 동봉 샘플 키를 사용하는데,
+  // 샘플 키는 소스에 포함된 공개 값이라 실제 데이터 보호에는 쓸 수 없다.
+  console.warn('[demo] Autosave uses the bundled sample encryption key. Supply your own key for real data.');
   return {
-    store: new IndexedDbStorage({ dbName, ...options }),
+    store: new IndexedDbStorage({ dbName, encryption: { enabled: true }, ...options }),
+    // 내려받는 .slip 파일은 내용 확인이 목적이라 암호화하지 않는다.
     localFile: new LocalFileStorage(options),
   };
 }
@@ -108,6 +126,46 @@ export function suggestedName(file: SlipFile, locale?: string): string {
 }
 
 /**
+ * 사용자가 파일 선택을 취소한 오류인지 판별한다.
+ *
+ * @param error - 저장소 작업에서 잡은 오류
+ * @returns 취소면 true
+ */
+export function isCancelled(error: unknown): boolean {
+  return error instanceof SlipStorageError && error.code === 'cancelled';
+}
+
+/**
+ * 화면에 표시할 오류 문구를 만든다.
+ *
+ * @param error - 잡은 오류
+ * @returns 오류 메시지 본문
+ */
+export function reasonOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * 바이트 데이터를 브라우저 다운로드로 저장한다.
+ *
+ * @param bytes - 저장할 파일 내용
+ * @param name - 파일 이름
+ * @param type - MIME 타입
+ */
+export function saveBytes(bytes: Uint8Array, name: string, type: string): void {
+  const blob = new Blob([bytes.buffer as ArrayBuffer], { type });
+  const url = URL.createObjectURL(blob);
+  try {
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = name;
+    anchor.click();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
  * 저장해 둔 파일을 조용히 읽어 온다.
  *
  * @param store - 읽을 저장소
@@ -143,7 +201,9 @@ export interface DemoMessages {
   buttonFill: string;
   buttonNewSlip: string;
   buttonDownload: string;
+  buttonPdf: string;
   buttonOpen: string;
+  buttonView: string;
   filenameLabel: string;
   cancel: string;
   download: string;
@@ -155,10 +215,13 @@ export interface DemoMessages {
   openedTemplate: string;
   openedVoucher: string;
   openedIssued: string;
+  viewing: string;
   restored: string;
   welcome: string;
   downloaded(name: string): string;
   downloadFailed(reason: string): string;
+  pdfDownloaded(name: string): string;
+  pdfFailed(reason: string): string;
   openFailed(reason: string): string;
   autosaveFailed(reason: string): string;
   autosaved(time: string): string;
@@ -171,7 +234,9 @@ const KO: DemoMessages = {
   buttonFill: '전표 쓰기',
   buttonNewSlip: '새 전표',
   buttonDownload: '파일로 내려받기',
+  buttonPdf: 'PDF로 내려받기',
   buttonOpen: '파일 열기',
+  buttonView: '발행 전표 보기',
   filenameLabel: '파일 이름',
   cancel: '취소',
   download: '내려받기',
@@ -183,10 +248,13 @@ const KO: DemoMessages = {
   openedTemplate: '양식 파일을 열었습니다',
   openedVoucher: '쓰던 전표를 열었습니다',
   openedIssued: '발행된 전표를 열었습니다 (고칠 수 없습니다)',
+  viewing: '발행된 전표를 표시합니다',
   restored: '이전에 하던 작업을 이어서 엽니다',
   welcome: '양식을 만들고, 전표 쓰기로 넘어가 값을 채워 보세요',
   downloaded: (name) => `${name} 파일을 내려받았습니다`,
   downloadFailed: (reason) => `내려받지 못했습니다: ${reason}`,
+  pdfDownloaded: (name) => `${name} 파일을 내려받았습니다`,
+  pdfFailed: (reason) => `PDF를 만들지 못했습니다: ${reason}`,
   openFailed: (reason) => `열지 못했습니다: ${reason}`,
   autosaveFailed: (reason) => `자동 저장하지 못했습니다: ${reason}`,
   autosaved: (time) => `자동 저장됨 (${time})`,
@@ -199,7 +267,9 @@ const EN: DemoMessages = {
   buttonFill: 'Fill voucher',
   buttonNewSlip: 'New voucher',
   buttonDownload: 'Download file',
+  buttonPdf: 'Download PDF',
   buttonOpen: 'Open file',
+  buttonView: 'View issued voucher',
   filenameLabel: 'File name',
   cancel: 'Cancel',
   download: 'Download',
@@ -211,10 +281,13 @@ const EN: DemoMessages = {
   openedTemplate: 'Opened a template file',
   openedVoucher: 'Opened the voucher you were working on',
   openedIssued: 'Opened an issued voucher (read-only)',
+  viewing: 'Showing the issued voucher',
   restored: 'Continuing where you left off',
   welcome: 'Build a template, then switch to voucher filling and enter values',
   downloaded: (name) => `Downloaded ${name}`,
   downloadFailed: (reason) => `Download failed: ${reason}`,
+  pdfDownloaded: (name) => `Downloaded ${name}`,
+  pdfFailed: (reason) => `Could not create the PDF: ${reason}`,
   openFailed: (reason) => `Could not open the file: ${reason}`,
   autosaveFailed: (reason) => `Autosave failed: ${reason}`,
   autosaved: (time) => `Autosaved (${time})`,
@@ -227,7 +300,9 @@ const JA: DemoMessages = {
   buttonFill: '伝票入力',
   buttonNewSlip: '新しい伝票',
   buttonDownload: 'ファイルをダウンロード',
+  buttonPdf: 'PDF をダウンロード',
   buttonOpen: 'ファイルを開く',
+  buttonView: '発行済み伝票を見る',
   filenameLabel: 'ファイル名',
   cancel: 'キャンセル',
   download: 'ダウンロード',
@@ -239,10 +314,13 @@ const JA: DemoMessages = {
   openedTemplate: 'テンプレートファイルを開きました',
   openedVoucher: '作成中の伝票を開きました',
   openedIssued: '発行済みの伝票を開きました（編集できません）',
+  viewing: '発行済みの伝票を表示します',
   restored: '前回の作業を続けて開きます',
   welcome: 'テンプレートを作成し、伝票入力に切り替えて値を入力してみましょう',
   downloaded: (name) => `${name} をダウンロードしました`,
   downloadFailed: (reason) => `ダウンロードできませんでした: ${reason}`,
+  pdfDownloaded: (name) => `${name} をダウンロードしました`,
+  pdfFailed: (reason) => `PDF を作成できませんでした: ${reason}`,
   openFailed: (reason) => `開けませんでした: ${reason}`,
   autosaveFailed: (reason) => `自動保存できませんでした: ${reason}`,
   autosaved: (time) => `自動保存済み (${time})`,
