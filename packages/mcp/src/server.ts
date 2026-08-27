@@ -3,6 +3,7 @@
  * 파일 접근은 {@link FileSystemStorage}를 통해 작업 디렉터리 안으로 제한한다.
  */
 import { writeFile } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import {
@@ -278,12 +279,13 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         'slip_read part "summary"), parameters by key, pages by 0-based index. Ops run in the given ' +
         'order, then the result is validated as a whole; nothing is written if anything fails. ' +
         'This allows add_element followed by set_image for a new fixed image in one call. ' +
-        'Ops: set_meta/set_paper {fields}; set_page {index, fields}; set_element {id, fields} (merge; a field set to ' +
-        'null stays null — omit fields you do not change); add_element {pageIndex, element, ' +
+        'Ops: set_meta/set_paper {fields}; set_page {index, fields}; set_element {id, fields} (merge; set a ' +
+        'field to null to REMOVE it, e.g. {parameter: null, formula: "..."} switches the value ' +
+        'source; omit fields you do not change); add_element {pageIndex, element, ' +
         'beforeId?}; remove_element {id}; add_page {index?}; remove_page {index}; add_parameter ' +
         '{parameter}; set_parameter {key, fields}; remove_parameter {key}; set_cell {elementId, row, ' +
         'column, fields}; set_image {elementId, imagePath} (reads the image file from the working ' +
-        'directory and stores it as an asset — never pass base64); set_values {values} (voucher only).',
+        'directory and stores it as an asset — never pass base64); set_values {values} (voucher only; null is stored as the value, not a removal).',
       inputSchema: {
         path: z.string().describe('File path relative to the working directory'),
         ops: z
@@ -392,7 +394,25 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         const pdf = await slipKit.render(file);
         const abs = resolveInRoot(storage.rootDir, target, locale);
         await writeFile(abs, pdf);
-        return text(`Rendered ${id} to ${target} (${Math.round(pdf.length / 1024)}KB)`);
+        // 사용자가 파일을 바로 열 수 있도록 절대 경로와 파일 링크를 함께 돌려준다.
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text:
+                `Rendered ${id} to ${target} (${Math.round(pdf.length / 1024)}KB).\n` +
+                `Saved at: ${abs}\n` +
+                'Tell the user this absolute path so they can open the PDF; it cannot be attached to the chat.',
+            },
+            {
+              type: 'resource_link' as const,
+              uri: pathToFileURL(abs).href,
+              name: target,
+              mimeType: 'application/pdf',
+              description: 'Rendered PDF file',
+            },
+          ],
+        };
       } catch (error) {
         return toolError(error);
       }

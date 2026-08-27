@@ -211,6 +211,54 @@ describe('slip_edit', () => {
     expect(grid?.width).toBe(180);
   });
 
+  it('필드를 null로 지정하면 제거되어 값 소스를 바꿀 수 있다', async () => {
+    const result = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [
+        { action: 'set_element', id: 'customer', fields: { parameter: null, formula: 'CONCAT("고객")' } },
+        {
+          action: 'set_cell',
+          elementId: 'items-table',
+          row: 1,
+          column: 0,
+          fields: { parameter: null, formula: 'CONCAT(name, "!")' },
+        },
+      ],
+    });
+    expect(result.isError).toBe(false);
+
+    const storage = new FileSystemStorage({ rootDir: dir });
+    const file = await storage.load('doc');
+    if (file.kind !== 'template') throw new Error('template expected');
+    const customer = file.template.pages[0]!.elements.find((entry) => entry.id === 'customer');
+    if (customer?.type !== 'field') throw new Error('field expected');
+    expect(customer.parameter).toBeUndefined();
+    expect(customer.formula).toBe('CONCAT("고객")');
+    const grid = file.template.pages[0]!.elements.find((entry) => entry.id === 'items-table');
+    if (grid?.type !== 'grid') throw new Error('grid expected');
+    const cell = grid.cells.find((entry) => entry.row === 1 && entry.column === 0);
+    expect(cell?.parameter).toBeUndefined();
+    expect(cell?.formula).toBe('CONCAT(name, "!")');
+  });
+
+  it('set_values의 null은 삭제가 아니라 값으로 저장된다', async () => {
+    await callText(client, 'slip_build_voucher', {
+      templatePath: 'doc',
+      values: { customerName: '홍길동' },
+      outPath: 'v-null',
+    });
+    const result = await callText(client, 'slip_edit', {
+      path: 'v-null',
+      ops: [{ action: 'set_values', values: { customerName: null } }],
+    });
+    expect(result.isError).toBe(false);
+    const storage = new FileSystemStorage({ rootDir: dir });
+    const voucher = await storage.load('v-null');
+    if (voucher.kind !== 'voucher') throw new Error('voucher expected');
+    expect(voucher.values['customerName']).toBeNull();
+    expect('customerName' in voucher.values).toBe(true);
+  });
+
   it('set_image가 파일을 에셋으로 넣고 요소를 연결한다', async () => {
     await writeFile(path.join(dir, 'logo.png'), Buffer.from(TINY_PNG_B64, 'base64'));
     const result = await callText(client, 'slip_edit', {
@@ -286,6 +334,8 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
   it('PDF를 렌더링해 파일로 저장한다', async () => {
     const rendered = await callText(client, 'slip_render_pdf', { path: 'doc' });
     expect(rendered.isError).toBe(false);
+    // 사용자가 열 수 있도록 절대 경로를 알려 준다
+    expect(rendered.text).toContain(path.join(dir, 'doc.pdf'));
     const pdf = await readFile(path.join(dir, 'doc.pdf'));
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
   });

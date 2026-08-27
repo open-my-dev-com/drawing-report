@@ -37,6 +37,13 @@ describe('slip_schema 안내문', () => {
     expect(grid).toContain('(perPage - 1)');
   });
 
+  it('FORMAT_NUMBER의 둘째 인자를 자릿수 정수로 안내한다', () => {
+    const formula = schemaTopicText('formula');
+    expect(formula).toContain('fractionDigits');
+    expect(formula).toContain('FORMAT_NUMBER(SUM(items.amount) * 1.1, 0)');
+    expect(formula).not.toContain('FORMAT_NUMBER(SUM(items.amount) * 1.1, "#,##0")');
+  });
+
   it('수식에서 실제 파서가 지원하는 연산자만 안내한다', () => {
     const formula = schemaTopicText('formula');
     expect(formula).toContain('Arithmetic operators: + - * /');

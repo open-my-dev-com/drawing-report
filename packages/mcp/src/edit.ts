@@ -26,7 +26,10 @@ const IMAGE_MIME: Record<string, string> = {
 
 const fieldsSchema = z
   .record(z.string(), z.unknown())
-  .describe('Fields to merge; omit fields that should remain unchanged');
+  .describe(
+    'Fields to merge; omit fields that should remain unchanged. Set a field to null to REMOVE it — ' +
+      'e.g. {"parameter": null, "formula": "..."} switches the value source of a cell or field',
+  );
 const elementSchema = z
   .record(z.string(), z.unknown())
   .describe('Complete element object; use slip_schema for fields by element type');
@@ -136,11 +139,22 @@ export interface EditContext {
   resolveFilePath: (relPath: string) => string;
 }
 
-/** 대상 필드에 부분 병합할 값을 덮어쓴다. `undefined` 값은 필드 삭제로 처리한다. */
+/**
+ * 대상 필드에 부분 병합할 값을 덮어쓴다. `null`은 필드 삭제로 처리한다
+ * (JSON에는 `undefined`가 없어 MCP 호출로는 `null`만 전달할 수 있다).
+ * 값 소스를 바꿀 때 이 규칙을 사용한다: `{ "parameter": null, "formula": "..." }`.
+ */
 function mergeFields(target: Record<string, unknown>, fields: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(fields)) {
-    if (value === undefined) delete target[key];
+    if (value === undefined || value === null) delete target[key];
     else target[key] = value;
+  }
+}
+
+/** 전표 values에 부분 병합한다. `null`은 유효한 값이라 삭제가 아니라 그대로 저장한다. */
+function mergeValues(target: Record<string, unknown>, values: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined) target[key] = value;
   }
 }
 
@@ -312,7 +326,7 @@ export async function applyEditOp(
       if (file.kind !== 'voucher') {
         throw new McpToolError('set_values applies only to voucher files.');
       }
-      mergeFields(file.values as Record<string, unknown>, op.values);
+      mergeValues(file.values as Record<string, unknown>, op.values);
       return `set_values: ${Object.keys(op.values).join(', ')}`;
     }
   }

@@ -88,7 +88,8 @@ Constraints the validator enforces:
   "content" (literal) / "parameter" / "formula", plus styling and "overflow"? }.
 - Merged spans must not overlap other cells and must not cross the repeat range boundary.
 - repeat: rows fromRow..toRow (inclusive) duplicate once per item of the list parameter.
-  Inside the repeat range, "parameter" on a cell names a FIELD of the list item.
+  Inside the repeat range, "parameter" on a cell names a FIELD of the list item, and a cell
+  "formula" can reference the item's field keys as well.
   perPage splits items across pages; maxItems, when present, must be at least perPage. repeatHeader
   redraws the rows above the repeat range on each page.
 - columns[i].autoMerge merges vertically adjacent equal values inside the repeat range.`;
@@ -118,7 +119,10 @@ Formulas run in a purpose-built parser (no JavaScript). Values are typed; conver
 - Arithmetic operators: + - * /. Comparisons: = <> < > <= >=.
 - Use CONCAT(...) for text concatenation; arithmetic operators require numeric values.
 - Functions: ${FORMULA_FUNCTIONS.join(', ')}.
-- Example: FORMAT_NUMBER(SUM(items.amount) * 1.1, "#,##0")`;
+- FORMAT_NUMBER(value, fractionDigits?) adds locale digit grouping; the second argument is an
+  integer number of decimal places (0-20), NOT a pattern string like "#,##0".
+  FORMAT_DATE(date, pattern? = "YYYY-MM-DD") takes a token pattern (YYYY YY MM M DD D HH mm ss).
+- Example: FORMAT_NUMBER(SUM(items.amount) * 1.1, 0)`;
 
 const VOUCHER = `# Voucher files
 
