@@ -13,6 +13,7 @@ import {
   validateSlipFile,
   type JsonValue,
   type SlipFile,
+  type SlipFont,
   type SlipKit,
 } from '@omdc-slipkit/core';
 import {
@@ -25,8 +26,11 @@ import { applyEditOp, editOpSchema, McpToolError } from './edit.js';
 import { bodyOf, elideDataUrls, findElement, summarize } from './summary.js';
 import { SCHEMA_TOPICS, schemaTopicText } from './schema-docs.js';
 
-/** {@link createSlipMcpServer} 옵션. 저장소 옵션과 같다. */
-export type SlipMcpServerOptions = FileSystemStorageOptions;
+/** {@link createSlipMcpServer} 옵션 */
+export interface SlipMcpServerOptions extends FileSystemStorageOptions {
+  /** PDF 렌더링에 사용할 커스텀 폰트. 생략하면 로케일에 맞는 동봉 폰트를 사용한다 */
+  fonts?: readonly SlipFont[];
+}
 
 /** 패키지 버전. 배포 버전을 올릴 때 함께 갱신한다. */
 const SERVER_VERSION = '0.0.1';
@@ -84,11 +88,14 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
 } {
   const storage = new FileSystemStorage(options);
   const locale = options.locale;
+  const customFonts = options.fonts;
   const slipKit: SlipKit = createSlipKit({
-    getFonts: async () =>
-      locale?.toLowerCase().startsWith('ja')
+    getFonts: async () => {
+      if (customFonts !== undefined && customFonts.length > 0) return customFonts;
+      return locale?.toLowerCase().startsWith('ja')
         ? (await import('@omdc-slipkit/elements/fonts/noto-sans-jp')).NOTO_SANS_JP_FONTS
-        : (await import('@omdc-slipkit/elements/fonts/pretendard')).PRETENDARD_FONTS,
+        : (await import('@omdc-slipkit/elements/fonts/pretendard')).PRETENDARD_FONTS;
+    },
     ...(locale === undefined ? {} : { locale }),
   });
 
