@@ -52,6 +52,7 @@ SlipKit is a pnpm workspace-based monorepo.
 | [`@omdc-slipkit/elements`](packages/elements) | Provides the `<slip-designer>`, `<slip-form>`, and `<slip-viewer>` Web Components built with Lit. |
 | [`@omdc-slipkit/react`](packages/react) | Lets you use the SlipKit Web Components as React components. |
 | [`@omdc-slipkit/vue`](packages/vue) | Lets you use the SlipKit Web Components as Vue components. |
+| [`@omdc-slipkit/mcp`](packages/mcp) | Provides a local MCP server that lets AI create and edit templates through MCP tools. |
 
 ## Running locally
 

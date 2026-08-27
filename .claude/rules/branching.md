@@ -16,7 +16,7 @@
 | 요소 | 값 |
 |---|---|
 | `type` | `feat`(기능) / `fix`(버그 수정) / `docs`(문서) / `proto`(프로토타입·실험) / `chore`(설정·빌드·잡무) |
-| `scope` | 패키지명(`core`, `elements`, `react`, `vue`) 또는 `repo`(리포 전반) |
+| `scope` | 패키지명(`core`, `elements`, `react`, `vue`, `mcp`) 또는 `repo`(리포 전반) |
 | `topic` | 작업 내용을 나타내는 짧은 kebab-case |
 
 예: `feat/core-pdf-renderer`, `docs/repo-claude-guide`, `proto/core-formula-parser`

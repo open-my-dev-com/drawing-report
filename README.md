@@ -52,6 +52,7 @@ SlipKit은 pnpm 워크스페이스 기반 모노레포로 구성되어 있습니
 | [`@omdc-slipkit/elements`](packages/elements) | Lit으로 구현된 `<slip-designer>`, `<slip-form>`, `<slip-viewer>` Web Component를 제공합니다. |
 | [`@omdc-slipkit/react`](packages/react) | SlipKit Web Component를 React 컴포넌트로 사용할 수 있게 합니다. |
 | [`@omdc-slipkit/vue`](packages/vue) | SlipKit Web Component를 Vue 컴포넌트로 사용할 수 있게 합니다. |
+| [`@omdc-slipkit/mcp`](packages/mcp) | AI가 MCP 도구로 양식을 만들고 고칠 수 있게 하는 로컬 MCP 서버를 제공합니다. |
 
 ## 로컬에서 실행하기
 

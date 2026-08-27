@@ -1,0 +1,49 @@
+{
+  "name": "@omdc-slipkit/mcp",
+  "version": "0.0.1",
+  "description": "SlipKit MCP 서버 — AI가 .slip 양식을 만들고 고치고 전표 조립과 PDF 렌더링을 요청할 수 있는 로컬 stdio 서버",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/open-my-dev-com/drawing-report.git",
+    "directory": "packages/mcp"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "BUSL-1.1",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "slipkit-mcp": "./dist/cli.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/index.ts src/cli.ts --format esm --dts --clean",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@omdc-slipkit/core": "workspace:*",
+    "@omdc-slipkit/elements": "workspace:*",
+    "zod": "^4.0.0"
+  }
+}
