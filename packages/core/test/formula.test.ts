@@ -344,15 +344,15 @@ describe('메시지 언어 (로케일 설정)', () => {
     expect(() => evaluateFormula('1/0', ctx({}))).toThrow('Cannot divide by zero');
   });
 
-  it("locale이 'ko-KR'면 한국어 메시지다", () => {
+  it("locale이 'ko-KR'이면 한국어 메시지를 표시한다", () => {
     expect(() => evaluateFormula('1/0', { values: {}, locale: 'ko-KR' })).toThrow('0으로 나눌 수 없습니다');
   });
 
-  it("locale이 'ja'면 일본어 메시지다", () => {
+  it("locale이 'ja'이면 일본어 메시지를 표시한다", () => {
     expect(() => evaluateFormula('1/0', { values: {}, locale: 'ja' })).toThrow('0 で割ることはできません');
   });
 
-  it('parseFormula도 locale 옵션으로 메시지 언어를 고른다', () => {
+  it('parseFormula도 locale 옵션에 해당하는 언어를 사용한다', () => {
     expect(() => parseFormula('')).toThrow('The formula is empty');
     expect(() => parseFormula('', { locale: 'ko' })).toThrow('빈 수식입니다');
   });

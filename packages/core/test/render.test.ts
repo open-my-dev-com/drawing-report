@@ -202,7 +202,7 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 
-  it('field 값이 배열·객체면 오류로 거부한다', () => {
+  it('field 요소의 값이 배열 또는 객체이면 렌더링 오류가 발생한다', () => {
     const voucher = makeVoucher();
     patchElement(voucher.templateSnapshot, 'total', { formula: undefined, parameter: 'total' } as never);
     voucher.values.total = { a: 1 };
@@ -246,7 +246,7 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(convertSlipFile(file).inputs[0]?.logo).toBe(PNG_1PX);
   });
 
-  it('image가 외부 URL이면 오류로 거부한다 (ADR-036)', () => {
+  it('image 요소가 외부 URL을 사용하면 렌더링 오류가 발생한다 (ADR-036)', () => {
     const file = makeTemplateFile();
     patchElement(file.template, 'logo', {
       src: 'https://cdn.example.com/logo.png',
@@ -426,7 +426,7 @@ describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 
-  it('반복 값이 객체 배열이 아니면 한국어 오류로 거부한다', () => {
+  it('반복 값이 객체 배열이 아니면 렌더링 오류가 발생한다', () => {
     const voucher = makeVoucher();
     voucher.values.items = '표가 아님';
     expect(() => convertSlipFile(voucher)).toThrow(/array of objects/);
@@ -758,7 +758,7 @@ describe('그리드(grid) 변환 — 반복 구간 (ADR-037)', () => {
     expect(cells.map((c) => c.position.x)).toEqual([15, 75, 15, 75, 15, 75, 15, 75, 15, 75]);
   });
 
-  it('반복 값이 배열이 아니면 한국어 오류로 거부한다', () => {
+  it('반복 값이 배열이 아니면 렌더링 오류가 발생한다', () => {
     const voucher = makeGridVoucher(2);
     voucher.values.items = { a: 1 };
     expect(() => convertSlipFile(voucher)).toThrow(SlipRenderError);
@@ -954,7 +954,7 @@ describe('바코드·변동 이미지·페이지 번호 변환', () => {
     expect(inputs[0]!['sig']).toBe(PNG);
   });
 
-  it('변동 이미지 값이 base64가 아니면 거부한다 (주소는 호스트가 내장해야 한다)', () => {
+  it('변동 이미지 값이 base64가 아니면 렌더링 오류가 발생한다', () => {
     expect(() => convertSlipFile(makeVoucher(
       [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, parameter: 'sign' }],
       { sign: 'https://example.com/a.png' },
@@ -1103,13 +1103,13 @@ describe('메시지 언어 (로케일 설정)', () => {
     expect(() => convertSlipFile(badVoucher())).toThrow(/cannot be shown as text/);
   });
 
-  it("locale이 'ko-KR'이면 한국어 메시지를 낸다", () => {
+  it("locale이 'ko-KR'이면 한국어 메시지를 표시한다", () => {
     expect(() => convertSlipFile(badVoucher(), { locale: 'ko-KR' })).toThrow(
       /텍스트로 표시할 수 없습니다/,
     );
   });
 
-  it("locale이 'ja'이면 일본어 메시지를 낸다", () => {
+  it("locale이 'ja'이면 일본어 메시지를 표시한다", () => {
     expect(() => convertSlipFile(badVoucher(), { locale: 'ja' })).toThrow(
       /テキストとして表示できません/,
     );

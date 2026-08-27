@@ -276,7 +276,7 @@ export const MAX_FORMULA_DEPTH = 100;
  * 수식 문자열을 AST로 파싱한다.
  *
  * @param source - 수식 문자열 (예: `SUM(items.금액) * 1.1`)
- * @param options - 오류 메시지 언어를 정하는 로케일 (생략하면 영어)
+ * @param options - 오류 메시지에 사용할 로케일 설정 (생략하면 영어)
  * @returns 파싱된 구문 트리
  * @throws FormulaSyntaxError 문법 오류·미등록 함수·길이/깊이 제한 초과 시
  */

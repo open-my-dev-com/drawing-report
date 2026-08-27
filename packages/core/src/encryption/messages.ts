@@ -1,8 +1,8 @@
 /**
- * 암호화·복호화의 사용자 대면 메시지 사전 (영어 기본, 한국어·일본어).
+ * 사용자에게 표시하는 암호화·복호화 메시지를 언어별로 정의한다.
  *
- * 암호화 함수는 비동기라 모듈 상태로 언어를 유지하지 않고, 호출자가 로케일을
- * 인자로 전달해 {@link em}으로 사전을 얻는다.
+ * 암호화 함수는 비동기로 실행되므로 언어를 모듈 상태에 저장하지 않는다.
+ * 호출자가 전달한 로케일로 {@link em}에서 메시지 사전을 선택한다.
  */
 import { resolveMessageLocale, type MessageLocale } from '../i18n.js';
 
@@ -40,19 +40,19 @@ const EN: EncryptionMessages = {
 
 const KO: EncryptionMessages = {
   webCryptoUnavailable: () =>
-    'Web Crypto API(crypto.subtle)를 사용할 수 없습니다 — Node 22.13+ 또는 모던 브라우저가 필요합니다',
-  emptyPassphrase: () => '암호가 비어 있습니다',
+    'Web Crypto API(crypto.subtle)를 사용할 수 없습니다. Node.js 22.13 이상 또는 최신 브라우저가 필요합니다',
+  emptyPassphrase: () => '암호 문구가 비어 있습니다',
   rawKeyLength: () => '원시 키는 32바이트(AES-256)여야 합니다',
-  notAnEnvelope: () => '암호화된 `.slip` 봉투 형식이 아닙니다',
+  notAnEnvelope: () => '`.slip` 암호화 봉투 형식이 아닙니다',
   unsupportedEnvelopeVersion: () =>
-    '지원하지 않는 암호화 봉투 버전입니다 — 더 새로운 SlipKit으로 잠근 파일일 수 있습니다',
-  lockedWithPassphrase: () => '이 파일은 암호(passphrase)로 잠겨 있습니다',
-  lockedWithRawKey: () => '이 파일은 원시 키로 잠겨 있습니다',
+    '지원하지 않는 암호화 봉투 버전입니다. 더 최신 버전의 SlipKit으로 암호화한 파일일 수 있습니다',
+  lockedWithPassphrase: () => '이 파일은 암호 문구(passphrase)로 암호화되어 있습니다',
+  lockedWithRawKey: () => '이 파일은 원시 키로 암호화되어 있습니다',
   unsupportedKdf: () => '지원하지 않는 키 파생 방식입니다',
-  decryptFailed: () => '복호화에 실패했습니다 — 키가 틀렸거나 파일이 변조되었습니다',
-  noEncryptKey: () => '암호화 키가 없습니다 — 설정의 encryption.key나 인자로 키를 주세요',
-  noDecryptKey: () => '복호화 키가 없습니다 — 설정의 encryption.key나 인자로 키를 주세요',
-  noMatchingKey: () => '복호화에 실패했습니다 — 맞는 키가 없습니다',
+  decryptFailed: () => '복호화에 실패했습니다. 키가 일치하지 않거나 파일이 변조되었습니다',
+  noEncryptKey: () => '암호화 키가 없습니다. encryption.key 설정이나 함수 인자로 키를 전달하세요',
+  noDecryptKey: () => '복호화 키가 없습니다. encryption.key 설정이나 함수 인자로 키를 전달하세요',
+  noMatchingKey: () => '복호화에 실패했습니다. 일치하는 키가 없습니다',
 };
 
 const JA: EncryptionMessages = {
@@ -75,7 +75,7 @@ const JA: EncryptionMessages = {
 const CATALOG: Record<MessageLocale, EncryptionMessages> = { en: EN, ko: KO, ja: JA };
 
 /**
- * 로케일에 맞는 암호화 메시지 사전을 돌려준다.
+ * 로케일에 맞는 암호화 메시지 사전을 반환한다.
  *
  * @param locale - BCP 47 로케일 (생략하면 영어)
  * @returns 메시지 사전

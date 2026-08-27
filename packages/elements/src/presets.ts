@@ -2,7 +2,7 @@
  * 디자이너에서 제공하는 거래명세서와 청구서 프리셋.
  *
  * 프리셋은 core 스키마를 따르는 `.slip` 양식 데이터이며 파싱과 검증은 core에서 담당한다.
- * 제목, 라벨과 맺음말은 로케일의 문구 사전으로 채운다.
+ * 제목·라벨·맺음말은 로케일에 맞는 문구 사전으로 채운다.
  */
 import { CURRENT_SCHEMA_VERSION, type SlipElement, type SlipTemplateFile } from '@omdc-slipkit/core';
 import { getStrings, type SlipStrings } from './strings.js';
@@ -277,7 +277,7 @@ function createInvoice(s: SlipStrings): SlipTemplateFile {
 
 /**
  * 로케일에 맞는 동봉 프리셋 목록(거래명세서·청구서)을 만든다.
- * 제목, 라벨과 맺음말이 해당 언어로 채워진다.
+ * 제목·라벨·맺음말은 해당 언어로 채워진다.
  *
  * @param locale - UI 언어 (생략하거나 지원하지 않는 언어면 영어)
  * @returns 프리셋 목록

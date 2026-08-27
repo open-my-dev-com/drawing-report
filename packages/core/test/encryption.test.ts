@@ -137,13 +137,13 @@ describe('메시지 언어 (로케일 설정)', () => {
     await expect(decryptSlipFile('{"x":1}', 'pw')).rejects.toThrow('Not an encrypted');
   });
 
-  it("locale이 'ko-KR'이면 한국어 메시지를 낸다", async () => {
+  it("locale이 'ko-KR'이면 한국어 메시지를 표시한다", async () => {
     await expect(decryptSlipFile('{"x":1}', 'pw', { locale: 'ko-KR' })).rejects.toThrow(
-      '암호화된 `.slip` 봉투 형식이 아닙니다',
+      '`.slip` 암호화 봉투 형식이 아닙니다',
     );
   });
 
-  it("locale이 'ja'이면 일본어 메시지를 낸다", async () => {
+  it("locale이 'ja'이면 일본어 메시지를 표시한다", async () => {
     await expect(decryptSlipFile('{"x":1}', 'pw', { locale: 'ja' })).rejects.toThrow(
       'エンベロープの形式ではありません',
     );

@@ -1,13 +1,13 @@
 /**
- * 수식 파서·평가기의 사용자 대면 메시지 사전 (영어 기본, 한국어·일본어).
+ * 사용자에게 표시하는 수식 파싱·평가 메시지를 언어별로 정의한다.
  *
- * 파싱과 평가는 동기 실행이므로, 진입점이 {@link withFormulaLocale}로 현재 언어를
- * 정하고 내부 코드는 {@link fm}으로 현재 언어의 사전을 읽는다. 비동기 경계를 넘는
- * 코드에는 이 방식을 쓰면 안 된다.
+ * 파싱과 평가는 동기로 실행된다. 진입점은 {@link withFormulaLocale}에서 언어를
+ * 선택하고, 내부 코드는 {@link fm}에서 해당 메시지 사전을 읽는다.
+ * 이 방식은 비동기 코드에 사용하지 않는다.
  */
 import { resolveMessageLocale, type MessageLocale } from '../i18n.js';
 
-/** 오류 문장에서 대상(주어)을 가리키는 키 — 문장 조립 대신 언어별 사전에서 명사구를 고른다 */
+/** 오류가 발생한 값을 언어별 명사구로 표시하기 위한 키 */
 export type FormulaSubject =
   | 'value'
   | 'addOperand'
@@ -233,43 +233,47 @@ const KO: FormulaMessages = {
   unknownCharacter: (ch) => `알 수 없는 문자입니다: '${ch}'`,
   trailingContent: () => '수식 끝에 해석할 수 없는 내용이 있습니다',
   expectedClosingParen: () => '닫는 괄호가 필요합니다',
-  formulaTooDeep: (max) => `수식 중첩이 너무 깊습니다 (최대 ${max}단계)`,
+  formulaTooDeep: (max) => `수식 중첩이 허용 범위(${max}단계)를 초과했습니다`,
   unknownFunction: (name) => `지원하지 않는 함수입니다: ${name}`,
   expectedFieldAfterDot: () => "'.' 뒤에는 필드 이름이 와야 합니다",
-  expectedValue: () => '값·참조·함수가 필요합니다',
+  expectedValue: () => '값, 참조 또는 함수가 필요합니다',
   emptyFormula: () => '빈 수식입니다',
-  formulaTooLong: (max) => `수식이 너무 깁니다 (최대 ${max}자)`,
-  valueDepthExceeded: (max) => `값의 중첩 깊이가 제한(${max})을 초과했습니다`,
-  notAnObject: (prefix, segment) => `'${prefix}'은(는) 객체가 아니라서 '.${segment}'를 읽을 수 없습니다`,
-  objectValueNotUsable: () => '객체 값은 수식에서 직접 쓸 수 없습니다 (하위 필드를 참조하세요)',
-  rangeNotAllowed: (place) => `${koPlace(place)}에 범위를 직접 쓸 수 없습니다 (SUM 등 집계 함수를 사용하세요)`,
+  formulaTooLong: (max) => `수식 길이가 허용 범위(${max}자)를 초과했습니다`,
+  valueDepthExceeded: (max) => `값의 중첩이 허용 깊이(${max})를 초과했습니다`,
+  notAnObject: (prefix, segment) =>
+    `'${prefix}'에서 '.${segment}'를 읽을 수 없습니다. '${prefix}'의 값이 객체가 아닙니다`,
+  objectValueNotUsable: () => '객체 값은 수식에서 직접 사용할 수 없습니다. 하위 필드를 참조하세요',
+  rangeNotAllowed: (place) => `${koPlace(place)}에 범위를 직접 사용할 수 없습니다. SUM 등의 집계 함수를 사용하세요`,
   divideByZero: () => '0으로 나눌 수 없습니다',
-  comparisonTypeMismatch: (operator) => `'${operator}' 비교는 숫자끼리 또는 문자열끼리만 가능합니다`,
+  comparisonTypeMismatch: (operator) =>
+    `'${operator}' 비교 연산은 두 값이 모두 숫자이거나 모두 문자열일 때만 사용할 수 있습니다`,
   arity: (name, min, max) => `${name} 함수의 인자는 ${min === max ? `${min}개` : `${min}~${max}개`}여야 합니다`,
   arityAtLeastOne: (name) => `${name} 함수의 인자는 1개 이상이어야 합니다`,
   notImplementedFunction: (name) => `구현되지 않은 함수입니다: ${name}`,
   emptyValueLabel: () => '(빈 값)',
   rangeLabel: () => '(범위)',
-  numberNotFinite: (subject) => `${KO_SUBJECTS[subject]}이(가) 유한한 수가 아닙니다`,
-  mustBeNumber: (subject, shown) => `${KO_SUBJECTS[subject]}은(는) 숫자여야 합니다 (글자는 TO_NUMBER로 변환하세요): ${shown}`,
-  mustBeInteger: (subject) => `${KO_SUBJECTS[subject]}은(는) 정수여야 합니다`,
+  numberNotFinite: (subject) => `${KO_SUBJECTS[subject]}: 유한한 수가 아닙니다`,
+  mustBeNumber: (subject, shown) =>
+    `${KO_SUBJECTS[subject]}: 숫자가 필요합니다. 문자열은 TO_NUMBER로 변환하세요. 현재 값: ${shown}`,
+  mustBeInteger: (subject) => `${KO_SUBJECTS[subject]}: 정수여야 합니다`,
   valueNotFinite: () => '값이 유한한 수가 아닙니다',
   toNumberRange: () => 'TO_NUMBER: 범위는 숫자로 바꿀 수 없습니다',
   toNumberNotFinite: () => 'TO_NUMBER: 값이 유한한 수가 아닙니다',
   toNumberInvalid: (shown) => `TO_NUMBER: 숫자로 바꿀 수 없습니다: ${shown}`,
   rangeToText: () => '범위는 문자열로 변환할 수 없습니다',
-  conditionRequired: (shown) => `조건은 논리값이어야 합니다: ${shown}`,
+  conditionRequired: (shown) => `조건은 논리값이어야 합니다. 현재 값: ${shown}`,
   criteriaRange: () => '조건에는 범위를 쓸 수 없습니다',
-  dateNotReal: (subject, shown) => `${KO_SUBJECTS[subject]}이(가) 실제 존재하는 날짜가 아닙니다: ${shown}`,
-  dateInvalid: (subject, shown) => `${KO_SUBJECTS[subject]}은(는) ISO 형식(YYYY-MM-DD 등) 문자열이어야 합니다: ${shown}`,
-  dateUnitInvalid: (shown) => `날짜 단위는 days/months/years 중 하나여야 합니다: ${shown}`,
+  dateNotReal: (subject, shown) => `${KO_SUBJECTS[subject]}: 존재하지 않는 날짜입니다. 현재 값: ${shown}`,
+  dateInvalid: (subject, shown) =>
+    `${KO_SUBJECTS[subject]}: ISO 형식(예: YYYY-MM-DD)의 문자열이어야 합니다. 현재 값: ${shown}`,
+  dateUnitInvalid: (shown) => `날짜 단위는 days, months, years 중 하나여야 합니다. 현재 값: ${shown}`,
   avgEmpty: () => 'AVG: 평균을 낼 값이 없습니다',
   sumifLengthMismatch: () => 'SUMIF: 조건 범위와 합계 범위의 길이가 다릅니다',
   midStartTooSmall: () => 'MID: 시작 위치는 1 이상이어야 합니다',
   fractionDigitsRange: () => '소수 자릿수는 0~20이어야 합니다',
   vatRateNegative: () => 'VAT: 세율은 0 이상이어야 합니다',
   numberToKoreanInteger: () => 'NUMBER_TO_KOREAN은 정수만 지원합니다',
-  numberToKoreanRange: () => 'NUMBER_TO_KOREAN 지원 범위를 넘었습니다',
+  numberToKoreanRange: () => '값이 NUMBER_TO_KOREAN의 지원 범위를 벗어났습니다',
 };
 
 const JA: FormulaMessages = {
@@ -320,13 +324,13 @@ const JA: FormulaMessages = {
 
 const CATALOG: Record<MessageLocale, FormulaMessages> = { en: EN, ko: KO, ja: JA };
 
-// 파싱·평가가 동기 실행이라는 전제로 현재 언어를 모듈 상태로 유지한다
+// 동기 실행 중 사용할 메시지 사전을 모듈 상태로 유지한다.
 let current: FormulaMessages = EN;
 
 /**
- * 주어진 로케일의 메시지로 함수를 실행한다. 실행이 끝나면 이전 언어로 되돌린다.
+ * 지정한 로케일의 메시지 사전을 사용해 함수를 실행한다. 실행 후에는 이전 사전으로 복원한다.
  *
- * @param locale - BCP 47 로케일 (생략하면 현재 언어 유지)
+ * @param locale - BCP 47 로케일 (생략하면 현재 메시지 사전 유지)
  * @param fn - 실행할 동기 함수
  * @returns `fn`의 반환값
  */
@@ -341,7 +345,7 @@ export function withFormulaLocale<T>(locale: string | undefined, fn: () => T): T
   }
 }
 
-/** 현재 언어의 수식 메시지 사전 */
+/** 현재 선택된 수식 메시지 사전 */
 export function fm(): FormulaMessages {
   return current;
 }

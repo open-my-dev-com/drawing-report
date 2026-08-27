@@ -132,7 +132,7 @@ export function isEncryptedSlipFile(json: string): boolean {
  *
  * @param file - 암호화할 `.slip` 파일
  * @param key - 암호(passphrase 문자열) 또는 32바이트 원시 키(Uint8Array)
- * @param options - 오류 메시지 언어를 정하는 로케일 (생략하면 영어)
+ * @param options - 오류 메시지에 사용할 로케일 설정 (생략하면 영어)
  * @returns 암호화 봉투 JSON 문자열
  * @throws SlipEncryptionError 키가 비었거나 형식이 잘못되었거나 Web Crypto를 사용할 수 없을 때
  *
@@ -173,7 +173,7 @@ export async function encryptSlipFile(
  *
  * @param json - 암호화 봉투 JSON 문자열
  * @param key - 암호화에 사용한 암호 또는 원시 키
- * @param options - 오류 메시지 언어를 정하는 로케일 (생략하면 영어)
+ * @param options - 오류 메시지에 사용할 로케일 설정 (생략하면 영어)
  * @returns 복호화하고 검증한 `.slip` 파일
  * @throws SlipEncryptionError 봉투 형식이 아니거나, 봉투 버전·키 파생 방식을 지원하지
  *   않거나, 키가 틀리거나(복호화 실패), 파일 변조 시

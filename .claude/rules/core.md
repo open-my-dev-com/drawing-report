@@ -21,5 +21,5 @@ paths:
   pdfme 의존은 렌더러 인터페이스 구현 내부에만 두고, 변환 계층에서 스타일 기본값 병합 필수
   (pdfme 테이블은 스타일 속성이 불완전하면 렌더가 깨질 수 있음 — Q08).
 - 사용자 대면 오류 메시지는 영역별 메시지 사전(`formula/messages.ts`·`format/messages.ts`·
-  `render/messages.ts`·`encryption/messages.ts`)에 영어·한국어·일본어 세 벌로 추가한다.
+  `render/messages.ts`·`encryption/messages.ts`)에 영어·한국어·일본어로 각각 작성한다.
   기본 언어는 영어이고 로케일로 전환한다 (ADR-060). 메시지를 소스에 직접 쓰지 않는다.

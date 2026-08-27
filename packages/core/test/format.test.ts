@@ -727,14 +727,14 @@ describe('메시지 언어 (로케일 설정)', () => {
     expect(() => parseSlipFile('broken')).toThrow('Not valid JSON');
   });
 
-  it("locale이 'ko-KR'이면 한국어 메시지를 낸다", () => {
+  it("locale이 'ko-KR'이면 한국어 메시지를 표시한다", () => {
     expect(() => parseSlipFile('broken', { locale: 'ko-KR' })).toThrow('유효한 JSON이 아닙니다');
     const file = makeTemplate();
     getElement(file, 1, 'grid').columns = [{ width: 27 }, { width: 50 }];
     expect(() => parseSlipFile(serializeSlipFile(file), { locale: 'ko-KR' })).toThrow(/열 너비의 합/);
   });
 
-  it("locale이 'ja'이면 일본어 메시지를 낸다", () => {
+  it("locale이 'ja'이면 일본어 메시지를 표시한다", () => {
     expect(() => parseSlipFile('broken', { locale: 'ja' })).toThrow('有効な JSON ではありません');
   });
 

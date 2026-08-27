@@ -304,7 +304,7 @@ const ko = {
     pickCancelled: '파일 선택이 취소되었습니다.',
     deleteUnsupported: '로컬 파일 저장소는 삭제를 지원하지 않습니다.',
     listUnsupported: '로컬 파일 저장소는 목록 조회를 지원하지 않습니다.',
-    noMatchingKey: '복호화에 실패했습니다 — 맞는 키가 없습니다',
+    noMatchingKey: '복호화에 실패했습니다. 일치하는 키가 없습니다',
   },
   preset: {
     registrationNo: '등록번호',
@@ -314,7 +314,7 @@ const ko = {
     titleElement: '제목',
     tradeDate: '거래일자',
     supplierInfo: '공급자 정보',
-    itemsTable: '품목 표',
+    itemsTable: '품목표',
     items: '품목',
     itemName: '품명',
     spec: '규격',
@@ -328,7 +328,7 @@ const ko = {
     invoiceItems: '청구 항목',
     item: '항목',
     billerInfo: '청구인 정보',
-    invoiceItemsTable: '청구 항목 표',
+    invoiceItemsTable: '청구 항목표',
     amountDue: '청구금액',
     invoiceFooterText: '위 금액을 청구합니다.',
   },
@@ -991,8 +991,8 @@ const ja: SlipStrings = {
 export const STRINGS: Record<SlipLocale, SlipStrings> = { ko, en, ja };
 
 /**
- * 로케일 문자열을 지원 언어({@link SlipLocale})로 정규화한다. 지역 코드가 포함되면
- * 언어 코드만 사용하며 지원하지 않는 언어는 영어로 처리한다.
+ * 로케일 문자열을 지원 언어({@link SlipLocale})로 정규화한다. 지역 코드는 제외하고
+ * 언어 코드만 사용하며, 지원하지 않는 언어에는 영어를 적용한다.
  *
  * @param locale - UI 언어 (생략하면 영어)
  * @returns 정규화된 지원 언어 코드
@@ -1003,8 +1003,8 @@ export function normalizeLocale(locale?: string): SlipLocale {
 }
 
 /**
- * 로케일에 맞는 문구 사전을 반환한다. 지역 코드는 제거하고 지원하지 않는 언어는
- * 영어로 처리한다.
+ * 로케일에 맞는 문구 사전을 반환한다. 지역 코드는 제외하고 지원하지 않는 언어에는
+ * 영어 문구 사전을 반환한다.
  *
  * @param locale - UI 언어 (생략하면 영어)
  * @returns 해당 언어의 문구 사전

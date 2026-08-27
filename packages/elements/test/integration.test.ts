@@ -20,7 +20,7 @@ import {
 import { SlipDesigner, getPresets, IndexedDbStorage } from '../src/index.js';
 import { getStrings } from '../src/strings.js';
 
-// 컴포넌트 기본 언어(영어)의 문구 사전으로 화면 문구를 확인한다.
+// 기본 영어 문구를 기준으로 화면을 확인한다.
 const strings = getStrings();
 
 if (!customElements.get('slip-designer')) {

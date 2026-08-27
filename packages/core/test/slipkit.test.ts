@@ -66,7 +66,7 @@ describe('createSlipKit (ADR-056)', () => {
     await expect(slip.decrypt('{}')).rejects.toBeInstanceOf(SlipEncryptionError);
   });
 
-  it('오류 메시지는 기본 영어이고 설정 locale을 따른다', async () => {
+  it('오류 메시지는 기본적으로 영어를 사용하고 설정한 locale을 따른다', async () => {
     await expect(createSlipKit().encrypt(template())).rejects.toThrow('No encryption key');
     await expect(createSlipKit({ locale: 'ko-KR' }).encrypt(template())).rejects.toThrow(
       '암호화 키가 없습니다',

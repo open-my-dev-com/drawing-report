@@ -1,9 +1,9 @@
 /**
- * 렌더링의 사용자 대면 메시지 사전 (영어 기본, 한국어·일본어).
+ * 사용자에게 표시하는 렌더링 메시지를 언어별로 정의한다.
  *
- * 렌더링은 비동기 경계를 넘으므로 모듈 상태로 언어를 유지하지 않고, 호출자가
- * 로케일을 인자로 전달해 {@link rm}으로 사전을 얻는다. 오류 문장의 대상(요소)은
- * `subject*` 함수로 언어에 맞게 조립한다.
+ * 렌더링은 비동기로 실행되므로 언어를 모듈 상태에 저장하지 않는다.
+ * 호출자가 전달한 로케일로 {@link rm}에서 메시지 사전을 선택한다.
+ * `subject*` 함수는 오류가 발생한 요소를 언어에 맞는 명사구로 만든다.
  */
 import { resolveMessageLocale, type MessageLocale } from '../i18n.js';
 
@@ -54,26 +54,26 @@ const EN: RenderMessages = {
 };
 
 const KO: RenderMessages = {
-  subjectField: (name, id) => `필드 '${name}'(${id})`,
-  subjectGrid: (name, id) => `그리드 '${name}'(${id})`,
-  subjectGridCell: (name, id, row, column) => `그리드 '${name}'(${id})의 셀(${row},${column})`,
-  subjectImage: (name, id) => `이미지 '${name}'(${id})`,
-  subjectBarcode: (name, id) => `바코드 '${name}'(${id})`,
+  subjectField: (name, id) => `필드 '${name}' (${id})`,
+  subjectGrid: (name, id) => `그리드 '${name}' (${id})`,
+  subjectGridCell: (name, id, row, column) => `그리드 '${name}' (${id})의 셀 (${row},${column})`,
+  subjectImage: (name, id) => `이미지 '${name}' (${id})`,
+  subjectBarcode: (name, id) => `바코드 '${name}' (${id})`,
   notFinite: (what) => `${what}의 값이 유한한 수가 아닙니다`,
-  notText: (what) => `${what}의 값은 배열·객체라서 텍스트로 표시할 수 없습니다`,
+  notText: (what) => `${what}의 값은 배열 또는 객체이므로 텍스트로 표시할 수 없습니다`,
   formulaFailed: (what, reason) => `${what}의 수식을 계산하지 못했습니다: ${reason}`,
-  repeatNotArray: (what, parameter) => `${what}의 반복 값 '${parameter}'은(는) 객체 배열이어야 합니다`,
+  repeatNotArray: (what, parameter) => `${what}의 반복 값은 객체 배열이어야 합니다: ${parameter}`,
   repeatItemNotObject: (what, index) => `${what}의 ${index}번째 항목은 객체여야 합니다`,
-  noImageSource: (what) => `${what}에 그릴 이미지가 없습니다 (src 또는 parameter 필요)`,
-  missingAsset: (what, assetId) => `${what}가 참조하는 에셋을 찾을 수 없습니다: ${assetId}`,
+  noImageSource: (what) => `${what}에 사용할 이미지가 없습니다. src 또는 parameter를 지정하세요`,
+  missingAsset: (what, assetId) => `${what}에서 참조하는 에셋을 찾을 수 없습니다: ${assetId}`,
   assetNotEmbedded: (what, assetId) =>
-    `${what}가 참조하는 에셋 '${assetId}'이(가) 파일에 내장되어 있지 않습니다 (data: base64 필요)`,
+    `${what}에서 참조한 에셋 '${assetId}'가 파일에 포함되어 있지 않습니다. data: base64 형식의 데이터가 필요합니다`,
   externalUrl: (what, src) =>
-    `${what}는 외부 URL(${src})을 참조합니다. PDF로 출력하려면 이미지를 파일에 내장(data: base64 또는 asset://)해야 합니다`,
-  imageValueNotString: (what, parameter) => `${what}의 값 '${parameter}'은 이미지 문자열이어야 합니다`,
+    `${what}에서 외부 URL 이미지를 참조하고 있습니다: ${src}. PDF로 출력하려면 이미지를 data: base64 또는 asset:// 형식으로 전달해야 합니다`,
+  imageValueNotString: (_what, parameter) => `파라미터 '${parameter}'의 이미지 값은 문자열이어야 합니다`,
   imageValueNotData: (what, parameter) =>
-    `${what}의 값 '${parameter}'은 data: base64여야 합니다 (주소는 호스트가 내장해 보내야 합니다)`,
-  multipleFallbackFonts: () => '대체(fallback) 폰트는 하나만 지정할 수 있습니다',
+    `파라미터 '${parameter}'의 이미지 값은 data: base64 형식이어야 합니다. ${what}에 사용할 외부 URL은 호스트에서 base64로 변환해 전달해야 합니다`,
+  multipleFallbackFonts: () => '대체 폰트(fallback)는 하나만 지정할 수 있습니다',
   duplicateFontName: () => '폰트 이름이 중복되었습니다',
 };
 
@@ -104,7 +104,7 @@ const JA: RenderMessages = {
 const CATALOG: Record<MessageLocale, RenderMessages> = { en: EN, ko: KO, ja: JA };
 
 /**
- * 로케일에 맞는 렌더링 메시지 사전을 돌려준다.
+ * 로케일에 맞는 렌더링 메시지 사전을 반환한다.
  *
  * @param locale - BCP 47 로케일 (생략하면 영어)
  * @returns 메시지 사전

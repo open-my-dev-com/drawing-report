@@ -26,7 +26,7 @@ describe('수식 함수 도움말 (D-12)', () => {
     }
   });
 
-  it('모르는 로케일은 영어로 돌아간다', () => {
+  it('지원하지 않는 로케일에는 영어를 사용한다', () => {
     expect(getFormulaHelp('fr')).toEqual(getFormulaHelp('en'));
     expect(getFormulaHelp(undefined)).toEqual(getFormulaHelp('en'));
     expect(getFormulaHelp('en-US')).toEqual(getFormulaHelp('en'));

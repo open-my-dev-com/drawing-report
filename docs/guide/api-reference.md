@@ -138,7 +138,7 @@ interface SlipKitConfig {
 | 필드 | 설명 |
 |---|---|
 | `getFonts` | PDF 렌더링에 사용할 폰트 공급 함수 |
-| `locale` | 수식 포맷과 오류 메시지 언어에 사용할 BCP-47 로케일, 기본값 `'en-US'` |
+| `locale` | 숫자·날짜 표시 형식과 오류 메시지에 사용할 BCP-47 로케일. 기본값은 `'en-US'` |
 | `encryption.key` | 암호화·복호화 기본 키 |
 | `encryption.previousKeys` | 이전 키로 암호화된 파일을 복호화할 때 추가로 시도할 키 |
 
@@ -251,7 +251,7 @@ interface RenderOptions {
 | 필드 | 기본값 | 설명 |
 |---|---|---|
 | `getFonts` | 하부 엔진 기본 폰트 | 렌더링에 사용할 폰트 공급 함수 |
-| `locale` | `'en-US'` | 숫자와 날짜 수식 포맷, 오류 메시지 언어에 사용할 로케일 |
+| `locale` | `'en-US'` | 숫자·날짜 표시 형식과 오류 메시지에 사용할 로케일 |
 
 #### `SlipPdfRenderer`
 
@@ -333,7 +333,7 @@ interface FormulaContext {
 |---|---|---|
 | `values` | 필수 | 수식에서 참조할 값 |
 | `now` | 호출 시각 | `TODAY` 등 날짜 함수의 기준 시각 |
-| `locale` | `'en-US'` | 숫자와 날짜 포맷, 오류 메시지 언어 로케일 |
+| `locale` | `'en-US'` | 숫자·날짜 표시 형식과 오류 메시지에 사용할 로케일 |
 
 #### `FormulaValue`
 
@@ -1344,7 +1344,7 @@ function getPresets(
 ): SlipPreset[];
 ```
 
-동봉된 거래명세서와 청구서 프리셋 목록을 만듭니다. 제목, 라벨과 문구는 `locale` 언어(기본 영어)로 채워집니다.
+동봉된 거래명세서와 청구서 프리셋 목록을 만듭니다. 제목·라벨·문구는 `locale`에 해당하는 언어(기본 영어)로 채워집니다.
 
 ### `IndexedDbStorage`
 

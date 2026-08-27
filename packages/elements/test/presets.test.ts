@@ -39,7 +39,7 @@ describe('디자이너 프리셋', () => {
     expect(a).toEqual(b);
   });
 
-  it('locale에 맞는 언어로 제목과 라벨을 채운다', () => {
+  it('locale에 해당하는 언어로 제목과 라벨을 채운다', () => {
     const ko = getPresets('ko-KR')[0]!.create();
     expect(ko.template.meta.title).toBe('거래명세서');
     expect(ko.template.parameters?.[1]?.label).toBe('품목');
@@ -51,7 +51,7 @@ describe('디자이너 프리셋', () => {
     expect(getPresets('fr')[0]!.create().template.meta.title).toBe('Transaction statement');
   });
 
-  it('세 언어 프리셋 모두 core 스키마를 통과한다', () => {
+  it('세 언어로 생성한 프리셋이 모두 core 스키마를 통과한다', () => {
     for (const locale of ['ko', 'en', 'ja']) {
       for (const preset of getPresets(locale)) {
         expect(() => parseSlipFile(JSON.stringify(preset.create()))).not.toThrow();

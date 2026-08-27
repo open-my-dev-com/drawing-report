@@ -1,9 +1,9 @@
 /**
- * `.slip` 형식 검증·마이그레이션의 사용자 대면 메시지 사전 (영어 기본, 한국어·일본어).
+ * 사용자에게 표시하는 `.slip` 검증·마이그레이션 메시지를 언어별로 정의한다.
  *
- * 파싱·검증은 동기 실행이므로, 진입점이 {@link withFormatLocale}로 현재 언어를
- * 정하고 스키마·마이그레이션 코드는 {@link fmt}으로 현재 언어의 사전을 읽는다.
- * 비동기 경계를 넘는 코드에는 이 방식을 쓰면 안 된다.
+ * 파싱과 검증은 동기로 실행된다. 진입점은 {@link withFormatLocale}에서 언어를
+ * 선택하고, 스키마와 마이그레이션 코드는 {@link fmt}에서 해당 메시지 사전을 읽는다.
+ * 이 방식은 비동기 코드에 사용하지 않는다.
  */
 import { ko as zodKo, ja as zodJa } from 'zod/locales';
 import { resolveMessageLocale, type MessageLocale } from '../i18n.js';
@@ -140,7 +140,7 @@ const KO: FormatMessages = {
   columnWidthSum: (total, width) => `열 너비의 합(${total})은 width(${width})와 같아야 합니다`,
   rowHeightSum: (total, height, hasRepeat) =>
     `행 높이의 합(${total})은 height(${height})와 같아야 합니다`
-    + (hasRepeat ? ' — 반복 구간은 perPage번 복제된 높이로 셉니다' : ''),
+    + (hasRepeat ? '. 반복 구간의 높이는 perPage에 지정한 횟수만큼 반복하여 계산합니다' : ''),
   fromRowAboveToRow: () => 'fromRow는 toRow보다 클 수 없습니다',
   repeatOutOfRange: (fromRow, toRow, rows) => `반복 구간(${fromRow}~${toRow})이 행 수(${rows})를 벗어납니다`,
   cellSourceExclusive: (row, column) => `셀(${row},${column})은 content·parameter·formula 중 하나만 가질 수 있습니다`,
@@ -156,34 +156,36 @@ const KO: FormatMessages = {
   imageSourceExclusive: () => '이미지는 src와 parameter를 함께 가질 수 없습니다',
   barcodeSourceExclusive: () => '바코드는 content·parameter·formula 중 하나만 가져야 합니다',
   radiusWithDashedBorder: () => 'radius와 파선·점선 테두리는 함께 지정할 수 없습니다',
-  polygonSidesMin: () => '변 수는 3 이상이어야 합니다',
-  polygonSidesMax: () => '변 수는 최대 12입니다',
+  polygonSidesMin: () => '다각형의 변은 3개 이상이어야 합니다',
+  polygonSidesMax: () => '다각형의 변은 최대 12개입니다',
   fieldSourceExclusive: (name) => `필드 '${name}'는 parameter·formula 중 하나만 가져야 합니다`,
   paddingTooLarge: () => '여백의 합이 용지 크기보다 작아야 합니다',
-  mimeTypeFormat: () => 'mimeType 형식이 아닙니다',
+  mimeTypeFormat: () => 'mimeType 값의 형식이 올바르지 않습니다',
   elementsMax: (max) => `페이지당 요소는 최대 ${max}개입니다`,
   subFieldsOnlyForList: () => "하위 필드는 valueType이 'list'인 파라미터에만 둘 수 있습니다",
   duplicateSubField: (key) => `하위 필드 이름이 중복됩니다: ${key}`,
   pagesMax: (max) => `페이지는 최대 ${max}개입니다`,
   assetsMax: (max) => `에셋은 최대 ${max}개입니다`,
   parametersMax: (max) => `파라미터 정의는 최대 ${max}개입니다`,
-  duplicateParameterKey: (key) => `파라미터 key가 중복됩니다: ${key}`,
-  duplicateAssetId: (id) => `에셋 id가 중복됩니다: ${id}`,
+  duplicateParameterKey: (key) => `파라미터 키가 중복됩니다: ${key}`,
+  duplicateAssetId: (id) => `에셋 ID가 중복됩니다: ${id}`,
   assetSelfReference: (id) => `에셋이 자기 자신을 참조합니다: ${id}`,
   missingAsset: (id) => `참조하는 에셋이 없습니다: ${id}`,
-  duplicatePageKey: (key) => `페이지 key가 중복됩니다: ${key}`,
-  duplicateElementId: (id) => `요소 id가 중복됩니다: ${id}`,
-  issuedExternalImage: () => '발행(issued)된 전표는 외부 URL 이미지를 포함할 수 없습니다 (base64 내장 필요)',
+  duplicatePageKey: (key) => `페이지 키가 중복됩니다: ${key}`,
+  duplicateElementId: (id) => `요소 ID가 중복됩니다: ${id}`,
+  issuedExternalImage: () =>
+    '발행된 전표(issued: true)에는 외부 URL 이미지를 포함할 수 없습니다. 이미지를 base64로 포함해야 합니다',
   imageValueFormat: () => '변동 이미지 값은 data:<mime>;base64 형식이어야 합니다',
   envelopeInvalid: (issues) => `.slip 봉투 검증 실패: ${issues}`,
   bodyInvalid: (issues) => `.slip 본문 검증 실패: ${issues}`,
-  valueTooDeep: () => '.slip 본문의 값 중첩이 너무 깊습니다',
+  valueTooDeep: () => '.slip 본문에 포함된 값의 중첩이 너무 깊습니다',
   invalidJson: () => '유효한 JSON이 아닙니다',
   migrateSemver: () => 'schemaVersion이 semver 형식이 아닙니다',
   migrateNewer: (version, current) =>
     `이 파일의 schemaVersion(${version})은 지원 버전(${current})보다 새롭습니다. 라이브러리를 업데이트하세요.`,
   migrateCycle: (version) => `마이그레이션 경로에 순환이 있습니다: ${version}`,
-  migrateNoPath: (from, to) => `schemaVersion ${from}에서 ${to}(으)로 가는 마이그레이션 경로가 없습니다`,
+  migrateNoPath: (from, to) =>
+    `schemaVersion ${from}에서 ${to} 버전으로 변환하는 마이그레이션 경로가 없습니다`,
 };
 
 const JA: FormatMessages = {
@@ -249,14 +251,14 @@ const JA: FormatMessages = {
 
 const CATALOG: Record<MessageLocale, FormatMessages> = { en: EN, ko: KO, ja: JA };
 
-// 파싱·검증이 동기 실행이라는 전제로 현재 언어를 모듈 상태로 유지한다
+// 동기 실행 중 사용할 메시지 사전을 모듈 상태로 유지한다.
 let current: FormatMessages = EN;
 let currentLocale: MessageLocale = 'en';
 
 /**
- * 주어진 로케일의 메시지로 함수를 실행한다. 실행이 끝나면 이전 언어로 되돌린다.
+ * 지정한 로케일의 메시지 사전을 사용해 함수를 실행한다. 실행 후에는 이전 사전으로 복원한다.
  *
- * @param locale - BCP 47 로케일 (생략하면 현재 언어 유지)
+ * @param locale - BCP 47 로케일 (생략하면 현재 메시지 사전 유지)
  * @param fn - 실행할 동기 함수
  * @returns `fn`의 반환값
  */
@@ -274,7 +276,7 @@ export function withFormatLocale<T>(locale: string | undefined, fn: () => T): T 
   }
 }
 
-/** 현재 언어의 `.slip` 형식 메시지 사전 */
+/** 현재 선택된 `.slip` 형식 메시지 사전 */
 export function fmt(): FormatMessages {
   return current;
 }
@@ -282,7 +284,7 @@ export function fmt(): FormatMessages {
 /** Zod 로케일이 제공하는 내장 메시지 변환 함수 타입 */
 type ZodErrorMap = NonNullable<ReturnType<typeof zodKo>['localeError']>;
 
-// Zod 내장 메시지(필수 누락·타입 불일치 등)를 현재 언어로 바꾸는 파싱 옵션.
+// 필수 값 누락과 타입 불일치 등 Zod 내장 메시지에 적용할 언어별 파싱 옵션.
 // 스키마에 직접 지정한 메시지가 이 옵션보다 우선한다.
 const ZOD_PARSE_PARAMS: Record<MessageLocale, { error?: ZodErrorMap }> = {
   en: {},
@@ -290,7 +292,7 @@ const ZOD_PARSE_PARAMS: Record<MessageLocale, { error?: ZodErrorMap }> = {
   ja: { error: zodJa().localeError },
 };
 
-/** 현재 언어에 맞는 Zod `safeParse` 옵션 (영어면 빈 객체) */
+/** 현재 선택된 언어의 Zod `safeParse` 옵션 (영어이면 빈 객체) */
 export function zodParseParams(): { error?: ZodErrorMap } {
   return ZOD_PARSE_PARAMS[currentLocale];
 }

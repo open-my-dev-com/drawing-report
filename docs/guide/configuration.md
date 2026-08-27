@@ -195,7 +195,7 @@ const settings: SlipDesignerSettings = {
 - 애플리케이션이 공급한 프리셋 이름과 내용
 
 > [!IMPORTANT]
-> 동봉된 거래명세서와 청구서 프리셋은 **적용하는 시점의 `locale` 언어**로 제목, 표 항목과 문구가 만들어집니다.
+> 동봉된 거래명세서와 청구서 프리셋은 **적용 시점의 `locale`에 해당하는 언어**로 제목·표 항목·문구가 만들어집니다.
 > 이미 만들어진 양식은 이후 `locale`을 바꿔도 자동으로 번역되지 않습니다.
 > 다른 구성의 양식이 필요하면 직접 작성한 프리셋을 별도로 공급하세요.
 
@@ -860,7 +860,7 @@ const slip = createSlipKit({
 | 설정 | 용도 |
 |---|---|
 | `getFonts` | PDF 렌더링에 사용할 폰트 공급 |
-| `locale` | `FORMAT_NUMBER` 등 수식 포맷 함수와 오류 메시지 언어에 사용할 BCP-47 로케일 (기본 `'en-US'`) |
+| `locale` | `FORMAT_NUMBER` 등의 표시 형식과 오류 메시지에 사용할 BCP-47 로케일 (기본 `'en-US'`) |
 | `encryption.key` | `encrypt`와 `decrypt`가 기본으로 사용할 키 |
 | `encryption.previousKeys` | 이전 키로 암호화된 파일을 복호화할 때 사용할 키 목록 |
 

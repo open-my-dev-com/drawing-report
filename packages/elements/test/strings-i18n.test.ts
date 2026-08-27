@@ -17,7 +17,7 @@ describe('UI 문구 사전 (ADR-013/028)', () => {
     }
   });
 
-  it('getStrings는 언어만 보고 사전을 고르고, 모르는 로케일은 영어로 돌아간다', () => {
+  it('getStrings는 언어 코드로 사전을 선택하고 지원하지 않는 로케일에는 영어를 사용한다', () => {
     expect(getStrings('en')).toBe(STRINGS.en);
     expect(getStrings('en-US')).toBe(STRINGS.en);
     expect(getStrings('ja')).toBe(STRINGS.ja);
