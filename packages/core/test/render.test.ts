@@ -4,6 +4,7 @@ import { convertSlipFile } from '../src/render/convert.js';
 import { SlipRenderError } from '../src/render/errors.js';
 import {
   CURRENT_SCHEMA_VERSION,
+  createPdfRenderer,
   renderSlipToPdf,
   type GridElement,
   type SlipElement,
@@ -23,7 +24,7 @@ type PdfmeSchema = Record<string, unknown> & {
   height: number;
 };
 
-/** 여러 종류의 요소를 담은 양식 본문. 그리드는 (1,0)에 2행 병합 칸을 둔다 */
+/** 여러 요소를 담고 `(1, 0)`에 두 행을 병합한 그리드가 있는 양식 본문. */
 function makeBody(): SlipTemplateBody {
   return {
     meta: { title: '거래명세서' },
@@ -69,14 +70,14 @@ function makeBody(): SlipTemplateBody {
             height: 8 * 7,
             columns: [{ width: 90 }, { width: 36 }, { width: 54 }],
             rows: [{ height: 8 }, { height: 8 }],
-            repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 6, repeatHeader: true },
+            repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 6, repeatHeader: true },
             cells: [
               { row: 0, column: 0, content: '품명' },
               { row: 0, column: 1, content: '수량' },
               { row: 0, column: 2, content: '금액' },
-              { row: 1, column: 0, binding: '품명' },
-              { row: 1, column: 1, binding: '수량' },
-              { row: 1, column: 2, binding: '금액' },
+              { row: 1, column: 0, parameter: '품명' },
+              { row: 1, column: 1, parameter: '수량' },
+              { row: 1, column: 2, parameter: '금액' },
             ],
           },
           {
@@ -106,7 +107,6 @@ function makeBody(): SlipTemplateBody {
             position: { x: 140, y: 210 },
             width: 55,
             height: 8,
-            binding: 'total',
             formula: 'FORMAT_NUMBER(SUM(items.금액))',
             alignment: 'right',
           },
@@ -149,7 +149,7 @@ function pageSchemas(file: SlipTemplateFile | SlipVoucherFile, pageIndex = 0): P
   return (template.schemas[pageIndex] ?? []) as unknown as PdfmeSchema[];
 }
 
-/** 앞부분 바이트를 ASCII 문자열로 (DOM·Node 전역에 기대지 않는다) */
+/** 바이트 배열의 앞부분을 ASCII 문자열로 변환한다. */
 function ascii(bytes: Uint8Array, length: number): string {
   return Array.from(bytes.slice(0, length), (byte) => String.fromCharCode(byte)).join('');
 }
@@ -167,7 +167,7 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(template.schemas).toHaveLength(1);
   });
 
-  it('text는 text 스키마로, 고정 문구를 그대로 값으로 넘긴다', () => {
+  it('text는 text 스키마로, 직접 입력한 글를 그대로 값으로 넘긴다', () => {
     const { template, inputs } = convertSlipFile(makeTemplateFile());
     const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
     const title = findSchema(schemas, 'title');
@@ -180,13 +180,12 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
 
   it('field는 수식을 평가한 결과를 값으로 넘긴다', () => {
     const { inputs } = convertSlipFile(makeVoucher(3));
-    // 1000 + 2000 + 3000
     expect(inputs[0]?.total).toBe('6,000');
   });
 
-  it('field는 수식이 없으면 binding 값을 문자열화한다 (CONCAT과 같은 규칙)', () => {
+  it('field는 수식이 없으면 parameter 값을 문자열화한다 (CONCAT과 같은 규칙)', () => {
     const voucher = makeVoucher();
-    patchElement(voucher.templateSnapshot, 'total', { formula: undefined });
+    patchElement(voucher.templateSnapshot, 'total', { formula: undefined, parameter: 'total' } as never);
     voucher.values.total = true;
     expect(convertSlipFile(voucher).inputs[0]?.total).toBe('TRUE');
     voucher.values.total = null;
@@ -195,20 +194,20 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(convertSlipFile(voucher).inputs[0]?.total).toBe('1234');
   });
 
-  it('빈 양식은 number 바인딩 필드를 0으로 채우지 않는다 (ADR-045 회귀 방지)', () => {
+  it('빈 양식은 number 파라미터 필드를 0으로 채우지 않는다 (ADR-045 회귀 방지)', () => {
     const file = makeTemplateFile();
-    file.template.bindings = [{ key: 'total', valueType: 'number' }];
-    patchElement(file.template, 'total', { formula: undefined });
-    // 양식(값 없음)이라 number 바인딩 필드는 0이 아니라 공백이어야 한다 — 정규화는 전표에만 적용
+    file.template.parameters = [{ key: 'total', valueType: 'number' }];
+    patchElement(file.template, 'total', { formula: undefined, parameter: 'total' } as never);
+    // number 파라미터의 빈 값을 0으로 변환하는 규칙은 전표에만 적용한다.
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 
-  it('field 값이 배열·객체면 한국어 오류로 거부한다', () => {
+  it('field 요소의 값이 배열 또는 객체이면 렌더링 오류가 발생한다', () => {
     const voucher = makeVoucher();
-    patchElement(voucher.templateSnapshot, 'total', { formula: undefined });
+    patchElement(voucher.templateSnapshot, 'total', { formula: undefined, parameter: 'total' } as never);
     voucher.values.total = { a: 1 };
     expect(() => convertSlipFile(voucher)).toThrow(SlipRenderError);
-    expect(() => convertSlipFile(voucher)).toThrow(/텍스트로 표시할 수 없습니다/);
+    expect(() => convertSlipFile(voucher)).toThrow(/cannot be shown as text/);
   });
 
   it('shape line은 line 스키마로, 두께·색을 반영한다', () => {
@@ -247,13 +246,13 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(convertSlipFile(file).inputs[0]?.logo).toBe(PNG_1PX);
   });
 
-  it('image가 외부 URL이면 한국어 오류로 거부한다 (ADR-014)', () => {
+  it('image 요소가 외부 URL을 사용하면 렌더링 오류가 발생한다 (ADR-036)', () => {
     const file = makeTemplateFile();
     patchElement(file.template, 'logo', {
       src: 'https://cdn.example.com/logo.png',
     } as Partial<SlipElement>);
     expect(() => convertSlipFile(file)).toThrow(SlipRenderError);
-    expect(() => convertSlipFile(file)).toThrow(/파일에 내장/);
+    expect(() => convertSlipFile(file)).toThrow(/embed the image/);
   });
 });
 
@@ -287,10 +286,10 @@ describe('그리드(grid) 분해', () => {
   });
 
   it('병합 셀 내부의 경계선은 그리지 않는다', () => {
-    // 행 높이 균등(10mm) → y=30이 병합 셀(1행0열, 2행 병합)의 내부 경계
+    // y=30은 `(1, 0)`에서 두 행을 병합한 셀의 내부 경계다.
     const inner = horizontals.filter((schema) => Math.abs(schema.position.y - (30 - 0.1)) < 1e-6);
     expect(inner).toHaveLength(1);
-    // 병합되지 않은 오른쪽 열(x 60~110)에만 선이 남는다
+    // 내부 경계선은 병합되지 않은 오른쪽 열에만 남는다.
     expect(inner[0]?.position.x).toBe(60);
     expect(inner[0]?.width).toBe(50);
   });
@@ -321,7 +320,7 @@ describe('그리드(grid) 분해', () => {
 });
 
 describe('그리드 셀별 테두리 (ADR-033)', () => {
-  // 2×2 그리드: 경계 x=10·60·110, y=10·20·30 (열 50/50, 행 균등 10mm)
+  // 2x2 그리드 경계: x=10, 60, 110mm / y=10, 20, 30mm.
   function makeGridFile(cells: GridElement['cells']): SlipTemplateFile {
     return {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -354,16 +353,16 @@ describe('그리드 셀별 테두리 (ADR-033)', () => {
 
   it('셀 테두리 굵기 0이면 그 셀 둘레 변을 그리지 않는다 (합계 박스)', () => {
     const lines = linesOf(makeGridFile([{ row: 1, column: 0, content: '', borderWidth: 0 }]));
-    // 아래 변: 왼쪽 칸(굵기 0)은 사라지고 오른쪽 칸만 남는다
+    // 아래쪽 경계는 굵기가 0인 왼쪽 셀을 제외한다.
     const bottom = lines.filter((line) => Math.abs(line.position.y - (30 - 0.1)) < 1e-6);
     expect(bottom).toHaveLength(1);
     expect(bottom[0]?.position.x).toBe(60);
     expect(bottom[0]?.width).toBe(50);
-    // 왼쪽 변: 위 행(기본 테두리)만 남는다
+    // 왼쪽 경계는 기본 테두리를 사용하는 위쪽 셀에만 남는다.
     const left = at(lines, 10 - 0.1, 10);
     expect(left).toHaveLength(1);
     expect(left[0]?.height).toBe(10);
-    // 가운데 변: 오른쪽 이웃 셀이 기본 테두리라 굵은 쪽이 이겨 전체 높이로 남는다
+    // 공유 경계는 인접한 두 셀 중 더 굵은 테두리를 사용한다.
     const middle = at(lines, 60 - 0.1, 10);
     expect(middle).toHaveLength(1);
     expect(middle[0]?.height).toBe(20);
@@ -373,17 +372,17 @@ describe('그리드 셀별 테두리 (ADR-033)', () => {
     const lines = linesOf(
       makeGridFile([{ row: 0, column: 0, content: '', borderWidth: 0.6, borderColor: '#CC0000' }]),
     );
-    // 위 변 왼쪽 칸: 0.6mm 빨강 (중심 정렬이라 y = 10 - 0.3)
+    // 0.6mm 테두리는 경계 중심에 놓이므로 위쪽 좌표는 `10 - 0.3`이다.
     const top = at(lines, 10, 10 - 0.3);
     expect(top).toHaveLength(1);
     expect(top[0]?.width).toBe(50);
     expect(top[0]?.height).toBe(0.6);
     expect(top[0]?.color).toBe('#CC0000');
-    // 행 경계(공유 변): 아래 셀은 기본 0.2지만 굵은 쪽(0.6 빨강)이 이긴다
+    // 행 공유 경계에는 더 굵은 0.6mm 테두리를 적용한다.
     const shared = at(lines, 10, 20 - 0.3);
     expect(shared).toHaveLength(1);
     expect(shared[0]?.color).toBe('#CC0000');
-    // 위 변 오른쪽 칸은 기본 테두리 그대로 — 스타일이 달라 별도 선분으로 나뉜다
+    // 스타일이 다른 오른쪽 셀의 위쪽 경계는 별도 선분으로 생성한다.
     const topRight = at(lines, 60, 10 - 0.1);
     expect(topRight).toHaveLength(1);
     expect(topRight[0]?.height).toBe(0.2);
@@ -412,7 +411,7 @@ describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
       .map((schema) => inputs[0]?.[schema.name] ?? '');
   }
 
-  it('반복 구간이 전표 값으로 채워지고 헤더는 고정 문구를 쓴다', () => {
+  it('반복 구간이 전표 값으로 채워지고 헤더는 직접 입력한 글를 쓴다', () => {
     const texts = itemTexts(makeVoucher(2));
     expect(texts.slice(0, 3)).toEqual(['품명', '수량', '금액']);
     expect(texts).toContain('테스트 품목 1');
@@ -422,22 +421,21 @@ describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
   it('양식(빈 값) 파일은 반복 칸이 비어 헤더만 남는다', () => {
     const texts = itemTexts(makeTemplateFile());
     expect(texts).toEqual(['품명', '수량', '금액']);
-    // 값이 비었으므로 수식 없는 필드도 빈 문자열이 된다
     const file = makeTemplateFile();
-    patchElement(file.template, 'total', { formula: undefined });
+    patchElement(file.template, 'total', { formula: undefined, parameter: 'total' } as never);
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 
-  it('반복 값이 객체 배열이 아니면 한국어 오류로 거부한다', () => {
+  it('반복 값이 객체 배열이 아니면 렌더링 오류가 발생한다', () => {
     const voucher = makeVoucher();
     voucher.values.items = '표가 아님';
-    expect(() => convertSlipFile(voucher)).toThrow(/객체 배열이어야 합니다/);
+    expect(() => convertSlipFile(voucher)).toThrow(/array of objects/);
     voucher.values.items = [1, 2];
-    expect(() => convertSlipFile(voucher)).toThrow(/항목은 객체여야 합니다/);
+    expect(() => convertSlipFile(voucher)).toThrow(/must be an object/);
   });
 });
 
-describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
+describe('도형·글자 스타일 변환 (ADR-032)', () => {
   function makeShapeFile(elements: SlipElement[]): SlipTemplateFile {
     return {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -460,7 +458,6 @@ describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
     expect(line.type).toBe('line');
     expect(line.width).toBeCloseTo(Math.hypot(60, 30), 5);
     expect(line.rotate).toBeCloseTo((Math.atan2(30, 60) * 180) / Math.PI, 5);
-    // up 대각선은 반대 기울기
     const [up] = convertSlipFile(
       makeShapeFile([{ type: 'line', lineDirection: 'up', ...base }]),
     ).template.schemas as PdfmeSchema[][];
@@ -475,7 +472,7 @@ describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
     ).template.schemas as PdfmeSchema[][];
     const segments = schemas!.filter((s) => s.type === 'line');
     expect(segments.length).toBeGreaterThan(5);
-    // 선분 길이 = 파선 패턴(2.4mm) 이하
+    // 각 선분은 2.4mm 파선 패턴보다 길지 않아야 한다.
     for (const seg of segments) expect(seg.width).toBeLessThanOrEqual(2.4);
   });
 
@@ -490,7 +487,6 @@ describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
     expect(schemas!.find((s) => s.name === 'e1')!.type).toBe('ellipse');
     expect(schemas!.find((s) => s.name === 't1')!.type).toBe('svg');
     expect(inputs[0]?.t1).toContain('<polygon');
-    // 오각형 = 꼭짓점 5개
     const pointsAttr = /points="([^"]+)"/.exec(inputs[0]?.t1 ?? '')?.[1] ?? '';
     expect(pointsAttr.split(' ').length).toBe(5);
   });
@@ -516,7 +512,7 @@ describe('도형·글자 스타일 변환 (0.2.0, ADR-032)', () => {
     expect(text.underline).toBe(true);
     expect(text.strikethrough).toBe(true);
 
-    // 굵은 폰트가 없으면 굵게는 무시된다 (fontName 미지정 유지)
+    // Bold 변형이 없으면 기본 폰트 이름을 유지한다.
     const [noBold] = convertSlipFile(file, {
       fontNames: ['Pretendard'], fallbackFontName: 'Pretendard',
     }).template.schemas as PdfmeSchema[][];
@@ -548,6 +544,48 @@ describe('PDF 렌더링 (종단)', () => {
     expect(ascii(pdf, 4)).toBe('%PDF');
   });
 
+  it('getFonts 공급 함수로 폰트를 받아 렌더한다 (ADR-040)', async () => {
+    let called = 0;
+    const pdf = await renderSlipToPdf(makeVoucher(3), {
+      getFonts: async () => {
+        called += 1;
+        return [];
+      },
+    });
+    expect(called).toBe(1);
+    expect(ascii(pdf, 4)).toBe('%PDF');
+  });
+
+  it('같은 렌더러는 getFonts를 한 번만 해석해 재사용한다', async () => {
+    let called = 0;
+    const renderer = createPdfRenderer({
+      getFonts: async () => {
+        called += 1;
+        return [];
+      },
+    });
+    await renderer.renderToPdf(makeVoucher(3));
+    await renderer.renderToPdf(makeVoucher(3));
+    // 폰트 공급자는 렌더러 인스턴스마다 한 번만 호출한다.
+    expect(called).toBe(1);
+  });
+
+  it('getFonts가 실패하면 다음 렌더에서 다시 시도한다', async () => {
+    let called = 0;
+    const renderer = createPdfRenderer({
+      getFonts: async () => {
+        called += 1;
+        if (called === 1) throw new Error('일시 실패');
+        return [];
+      },
+    });
+    await expect(renderer.renderToPdf(makeVoucher(3))).rejects.toThrow('일시 실패');
+    // 실패한 폰트 조회 결과는 캐시하지 않는다.
+    const pdf = await renderer.renderToPdf(makeVoucher(3));
+    expect(ascii(pdf, 4)).toBe('%PDF');
+    expect(called).toBe(2);
+  });
+
   it('행이 많으면 자동으로 여러 페이지로 나뉜다 (ADR-011, Q08)', async () => {
     const onePage = await PDFDocument.load(await renderSlipToPdf(makeVoucher(3)));
     expect(onePage.getPageCount()).toBe(1);
@@ -573,7 +611,7 @@ describe('렌더 로케일 (ADR-013)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// grid — 고정 틀과 반복 목록을 하나로 다루는 그리드 (ADR-037)
+// grid — 고정 틀과 반복 목록을 하나로 다루는 그리드
 // ---------------------------------------------------------------------------
 
 /**
@@ -612,7 +650,7 @@ function makeGridBody(options?: {
             rows: [{ height: 8 }, { height: 8 }, { height: 8 }],
             ...(options?.overflow === undefined ? {} : { overflow: options.overflow }),
             repeat: {
-              binding: 'items',
+              parameter: 'items',
               fromRow: 1,
               toRow: 1,
               perPage,
@@ -621,8 +659,8 @@ function makeGridBody(options?: {
             cells: [
               { row: 0, column: 0, content: '품명', backgroundColor: '#EEEEEE' },
               { row: 0, column: 1, content: '금액' },
-              { row: 1, column: 0, binding: '품명' },
-              { row: 1, column: 1, binding: '금액' },
+              { row: 1, column: 0, parameter: '품명' },
+              { row: 1, column: 1, parameter: '금액' },
               { row: 2, column: 0, content: '합계' },
               { row: 2, column: 1, formula: 'FORMAT_NUMBER(SUM(items.금액))' },
             ],
@@ -720,11 +758,11 @@ describe('그리드(grid) 변환 — 반복 구간 (ADR-037)', () => {
     expect(cells.map((c) => c.position.x)).toEqual([15, 75, 15, 75, 15, 75, 15, 75, 15, 75]);
   });
 
-  it('반복 값이 배열이 아니면 한국어 오류로 거부한다', () => {
+  it('반복 값이 배열이 아니면 렌더링 오류가 발생한다', () => {
     const voucher = makeGridVoucher(2);
     voucher.values.items = { a: 1 };
     expect(() => convertSlipFile(voucher)).toThrow(SlipRenderError);
-    expect(() => convertSlipFile(voucher)).toThrow(/객체 배열이어야 합니다/);
+    expect(() => convertSlipFile(voucher)).toThrow(/array of objects/);
   });
 
   it('넘치는 글을 줄여 넣기로 두면 글자 크기를 줄이도록 표시한다', () => {
@@ -822,10 +860,10 @@ describe('그리드(grid) 칸을 넘치는 글 (ADR-037)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 0.5.0 — 글자 조판 · 바코드 · 변동 이미지 · 페이지 번호
+// 글자 조판 · 바코드 · 변동 이미지 · 페이지 번호
 // ---------------------------------------------------------------------------
 
-describe('글자 조판 변환 (0.5.0)', () => {
+describe('글자 조판 변환', () => {
   function makeFile(elements: SlipElement[]): SlipTemplateFile {
     return {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -880,12 +918,12 @@ describe('글자 조판 변환 (0.5.0)', () => {
   });
 });
 
-describe('바코드·변동 이미지·페이지 번호 변환 (0.5.0)', () => {
+describe('바코드·변동 이미지·페이지 번호 변환', () => {
   const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
   function makeVoucher(elements: SlipElement[], values: Record<string, unknown>, pageNumber?: unknown) {
     const template = {
-      meta: { title: '0.5.0' },
+      meta: { title: '바코드·이미지·페이지번호' },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] as [number, number, number, number] },
       pages: [{ elements, ...(pageNumber ? { pageNumber } : {}) }],
       assets: [],
@@ -899,7 +937,7 @@ describe('바코드·변동 이미지·페이지 번호 변환 (0.5.0)', () => {
   it('바코드는 종류를 스키마 타입으로 쓰고 값은 inputs로 간다', () => {
     const { template, inputs } = convertSlipFile(makeVoucher(
       [{ type: 'barcode', id: 'bc', name: 'QR', kind: 'qrcode',
-         position: { x: 10, y: 10 }, width: 20, height: 20, binding: 'code' }],
+         position: { x: 10, y: 10 }, width: 20, height: 20, parameter: 'code' }],
       { code: 'SLIP-1' },
     ));
     const [schemas] = template.schemas as PdfmeSchema[][];
@@ -910,15 +948,15 @@ describe('바코드·변동 이미지·페이지 번호 변환 (0.5.0)', () => {
 
   it('변동 이미지는 전표 값의 base64를 그린다', () => {
     const { inputs } = convertSlipFile(makeVoucher(
-      [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, binding: 'sign' }],
+      [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, parameter: 'sign' }],
       { sign: PNG },
     ));
     expect(inputs[0]!['sig']).toBe(PNG);
   });
 
-  it('변동 이미지 값이 base64가 아니면 거부한다 (주소는 호스트가 내장해야 한다)', () => {
+  it('변동 이미지 값이 base64가 아니면 렌더링 오류가 발생한다', () => {
     expect(() => convertSlipFile(makeVoucher(
-      [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, binding: 'sign' }],
+      [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, parameter: 'sign' }],
       { sign: 'https://example.com/a.png' },
     ))).toThrow(/data: base64/);
   });
@@ -938,10 +976,30 @@ describe('바코드·변동 이미지·페이지 번호 변환 (0.5.0)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 데이터 자동 병합 (0.5.0, ADR-038)
+// 데이터 자동 병합
 // ---------------------------------------------------------------------------
 
-describe('데이터 자동 병합 (0.5.0, ADR-038)', () => {
+describe('반복 항목 수 상한 (ADR-048)', () => {
+  it('maxItems를 넘는 항목은 그리지 않고 페이지도 늘리지 않는다', () => {
+    const voucher = makeVoucher(20);
+    const grid = voucher.templateSnapshot.pages[0]!.elements
+      .find((el) => el.id === 'items') as GridElement;
+    grid.repeat = { ...grid.repeat!, perPage: 6, maxItems: 8 };
+    const { template } = convertSlipFile(voucher);
+    // 8개까지만 그리므로 6+2 = 2페이지 (상한이 없었다면 20/6 = 4페이지)
+    expect(template.schemas).toHaveLength(2);
+  });
+
+  it('maxItems를 정하지 않으면 항목 수만큼 페이지가 늘어난다', () => {
+    const voucher = makeVoucher(20);
+    const grid = voucher.templateSnapshot.pages[0]!.elements
+      .find((el) => el.id === 'items') as GridElement;
+    grid.repeat = { ...grid.repeat!, perPage: 6 };
+    expect(convertSlipFile(voucher).template.schemas).toHaveLength(4);
+  });
+});
+
+describe('데이터 자동 병합 (ADR-038)', () => {
   function makeBody(autoMergeProduct: boolean, perPage = 4): SlipTemplateBody {
     return {
       meta: { title: '자동 병합' },
@@ -952,12 +1010,12 @@ describe('데이터 자동 병합 (0.5.0, ADR-038)', () => {
           position: { x: 15, y: 30 }, width: 100, height: 8 * (1 + perPage),
           columns: [{ width: 60, ...(autoMergeProduct ? { autoMerge: true } : {}) }, { width: 40 }],
           rows: [{ height: 8 }, { height: 8 }],
-          repeat: { binding: 'rows', fromRow: 1, toRow: 1, perPage, repeatHeader: true },
+          repeat: { parameter: 'rows', fromRow: 1, toRow: 1, perPage, repeatHeader: true },
           cells: [
             { row: 0, column: 0, content: '품명' },
             { row: 0, column: 1, content: '주문자' },
-            { row: 1, column: 0, binding: 'product' },
-            { row: 1, column: 1, binding: 'orderer' },
+            { row: 1, column: 0, parameter: 'product' },
+            { row: 1, column: 1, parameter: 'orderer' },
           ],
         }],
       }],
@@ -1030,5 +1088,30 @@ describe('데이터 자동 병합 (0.5.0, ADR-038)', () => {
     expect(bandTexts(file, 0)).toEqual(['품명', '주문자', '노트', 'A', 'B']);
     expect(bandTexts(file, 1)).toContain('노트');
     expect(bandTexts(file, 1)).toContain('C');
+  });
+});
+
+describe('메시지 언어 (로케일 설정)', () => {
+  function badVoucher(): ReturnType<typeof makeVoucher> {
+    const voucher = makeVoucher();
+    patchElement(voucher.templateSnapshot, 'total', { formula: undefined, parameter: 'total' } as never);
+    voucher.values.total = { a: 1 };
+    return voucher;
+  }
+
+  it('기본은 영어 메시지다', () => {
+    expect(() => convertSlipFile(badVoucher())).toThrow(/cannot be shown as text/);
+  });
+
+  it("locale이 'ko-KR'이면 한국어 메시지를 표시한다", () => {
+    expect(() => convertSlipFile(badVoucher(), { locale: 'ko-KR' })).toThrow(
+      /텍스트로 표시할 수 없습니다/,
+    );
+  });
+
+  it("locale이 'ja'이면 일본어 메시지를 표시한다", () => {
+    expect(() => convertSlipFile(badVoucher(), { locale: 'ja' })).toThrow(
+      /テキストとして表示できません/,
+    );
   });
 });

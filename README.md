@@ -2,80 +2,145 @@
 
 [English](README.en.md) · [日本語](README.ja.md)
 
-UI로 전표(양식 문서)를 쉽게 만들고, 보고, 출력할 수 있는 **임베드형 패키지 툴**.
+SlipKit은 웹 애플리케이션에 문서 양식 설계, 데이터 입력, 조회 및 PDF 출력 기능을 추가하는 라이브러리입니다.
 
-외부 프로젝트가 이 패키지를 설치(install)하면 자신의 앱 안에서 전표 양식을 디자인하고,
-데이터를 채워 전표를 발행·조회·인쇄·PDF 출력할 수 있다.
+일반 사용자는 시각적 디자이너로 거래명세서, 청구서, 견적서 등의 양식을 만들 수 있고, 개발자는 Web Component 또는 React·Vue 컴포넌트로 해당 기능을 기존 애플리케이션에 통합할 수 있습니다.
 
-- npm 스코프: `@omdc-slipkit/*` (`core` / `elements` / `react` / `vue`)
-- 파일 확장자: `.slip`
-- 커스텀 엘리먼트: `<slip-designer>`, `<slip-form>`, `<slip-viewer>` 등
+SlipKit은 독립 실행형 서비스가 아닙니다. 사용자 인증, 권한 관리, 데이터 저장 및 서버 연계는 SlipKit을 사용하는 애플리케이션에서 담당합니다.
 
-## 핵심 성격
+![SlipKit 양식 디자이너](docs/guide/images/ko/overview.png)
 
-- **범용 양식 엔진**: 거래명세서·청구서 같은 문서형 전표부터 회계 분개 전표까지, 양식(템플릿)으로 표현
-- **일반 사용자용 GUI 디자이너**: 비개발자가 드래그앤드롭으로 양식을 직접 설계 (셀 병합·색 스타일·undo 지원)
-- **어느 스택에서든 동작**: Web Component(Lit) 기반 배포 + React/Vue 얇은 래퍼
-- **인쇄·PDF 1급 지원**: 용지(A4 등) 기준 레이아웃, 화면 = 인쇄 = PDF 일치. PDF 엔진은 pdfme(직접 검증 완료, 외부 비공개)
-- **파일로 완결**: 전표는 JSON 기반 `.slip` 파일로 저장 — 양식 스냅샷 내장, SHA-256 해시 필수 + JWS 서명 옵션
+## 주요 기능
 
-## 로컬에서 바로 보기 (데모)
+- 드래그 앤 드롭 방식의 문서 양식 디자이너
+- 양식에 데이터를 입력하고 전표를 발행하는 작성 화면
+- 발행된 전표와 양식을 확인하는 읽기 전용 뷰어
+- 브라우저 및 Node.js에서 사용할 수 있는 PDF 생성 기능
+- JSON 기반 `.slip` 파일을 이용한 양식·전표 저장
+- 수식, 표, 이미지, 도형 및 바코드 지원
+- IndexedDB와 로컬 파일 기반 저장소 어댑터
+- 선택적 AES-256-GCM 파일 암호화
+- 한국어, 영어, 일본어 UI
+- Web Component와 React·Vue용 래퍼 제공
 
-별도 서버 없이 전부 브라우저 안에서 동작한다. 클론 후:
+## 동작 방식
+
+SlipKit에서는 양식과 전표를 구분합니다.
+
+| 단계 | 구성 요소 | 역할 |
+|---|---|---|
+| 양식 설계 | `<slip-designer>` | 문서의 레이아웃, 파라미터, 수식 등을 편집합니다. |
+| 전표 작성 | `<slip-form>` | 양식에 실제 값을 입력하고 전표를 발행합니다. |
+| 전표 조회 | `<slip-viewer>` | 양식 또는 발행된 전표를 읽기 전용으로 표시합니다. |
+
+양식과 전표는 모두 `.slip` 확장자를 사용하며, 파일 내부의 `kind` 값으로 구분됩니다. 발행된 전표에는 발행 당시의 양식이 함께 저장되므로 이후 원본 양식이 변경되어도 기존 전표의 구성이 유지됩니다.
+
+## 현재 상태
+
+> [!IMPORTANT]
+> SlipKit은 현재 공개 전 검토 단계입니다.
+>
+> `@omdc-slipkit/*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 현재 버전은 저장소를 복제하여 데모와 소스 코드로 확인할 수 있습니다.
+
+## 패키지 구성
+
+SlipKit은 pnpm 워크스페이스 기반 모노레포로 구성되어 있습니다.
+
+| 패키지 | 역할 |
+|---|---|
+| [`@omdc-slipkit/core`](packages/core) | `.slip` 파일 검증, 수식 평가, 전표 조립, PDF 생성 및 파일 암호화를 제공합니다. DOM에 의존하지 않아 브라우저와 Node.js에서 사용할 수 있습니다. |
+| [`@omdc-slipkit/elements`](packages/elements) | Lit으로 구현된 `<slip-designer>`, `<slip-form>`, `<slip-viewer>` Web Component를 제공합니다. |
+| [`@omdc-slipkit/react`](packages/react) | SlipKit Web Component를 React 컴포넌트로 사용할 수 있게 합니다. |
+| [`@omdc-slipkit/vue`](packages/vue) | SlipKit Web Component를 Vue 컴포넌트로 사용할 수 있게 합니다. |
+
+## 로컬에서 실행하기
+
+### 요구 환경
+
+- Node.js 22.13 이상
+- pnpm 10.33.0
+
+### 저장소 준비
 
 ```bash
+git clone https://github.com/open-my-dev-com/drawing-report.git
+cd drawing-report
 pnpm install
-pnpm demo         # 바닐라 → http://localhost:5173
-pnpm demo:react   # React  → http://localhost:5174
-pnpm demo:vue     # Vue    → http://localhost:5175
 ```
 
-양식 만들기(요소 추가·드래그·스냅·표·도형·수식·샘플 데이터·내 양식 저장)와
-전표 쓰기(값 입력·수식 즉시 계산·발행)를 한 화면에서 오가며 만져볼 수 있다.
-편집 내용은 브라우저에 자동 저장되어 새로고침해도 이어서 작업할 수 있고,
-파일로 내려받기·열기로 `.slip` 파일을 주고받을 수 있다.
-데모는 라이브러리 소스를 직접 참조하므로 코드를 고치면 새로고침 없이 바로 반영된다.
+### 데모 실행
 
-**데모 3종 - 사용하는 프레임워크에 맞는 예시를 참조하세요.(기능에서의 차이는 없습니다.)**
+사용하는 환경에 맞는 데모 하나를 실행합니다.
 
-| 예시 | 붙이는 방법 |
-|---|---|
-| [`examples/demo`](examples/demo) | 커스텀 엘리먼트를 그대로 (`<slip-designer>`·`<slip-form>`) |
-| [`examples/react-demo`](examples/react-demo) | `@omdc-slipkit/react` 래퍼 컴포넌트 + 훅 |
-| [`examples/vue-demo`](examples/vue-demo) | `@omdc-slipkit/vue` 래퍼 컴포넌트 + SFC |
+```bash
+# Web Component
+pnpm demo
 
-무엇을 저장하고 언제 이어 쓰는지 같은 **화면과 무관한 로직은
-[`examples/shared`](examples/shared)** 한곳에 두고 세 데모가 함께 쓴다.
+# React
+pnpm demo:react
+
+# Vue
+pnpm demo:vue
+```
+
+| 데모 | 기본 주소 | 설명 |
+|---|---|---|
+| [`examples/demo`](examples/demo) | `http://localhost:5173` | Web Component를 직접 사용하는 예제 |
+| [`examples/react-demo`](examples/react-demo) | `http://localhost:5174` | React 래퍼를 사용하는 예제 |
+| [`examples/vue-demo`](examples/vue-demo) | `http://localhost:5175` | Vue 래퍼를 사용하는 예제 |
+
+세 데모가 제공하는 기능은 같습니다. 양식 설계, 전표 작성, PDF 미리보기, `.slip` 파일 저장과 불러오기를 확인할 수 있습니다.
+
+데모의 자동 저장과 파일 처리처럼 프레임워크에 의존하지 않는 로직은 [`examples/shared`](examples/shared)에 공통으로 구현되어 있습니다.
 
 ## 사용 가이드
 
-호스트 앱에 SlipKit을 붙이는 방법은 **[사용 가이드](docs/guide/)** 를 보면 된다.
-설치부터 양식 디자이너·전표 작성폼·뷰어 연동, 저장소 어댑터, 서버 연계까지 단계별로 설명한다.
+처음 사용한다면 [시작하기](docs/guide/getting-started.md)에서 저장소의 데모를 실행하고 디자이너를 연결해 보세요. 저장·복원과 세 컴포넌트의 연결 방법은 [애플리케이션 통합 가이드](docs/guide/integration.md)에서 이어서 설명합니다.
 
-## 문서
+전체 문서는 [SlipKit 가이드](docs/guide/README.md)에서 목적별로 확인할 수 있습니다.
 
 | 문서 | 내용 |
 |---|---|
-| [docs/guide/](docs/guide/) | **사용 가이드** — 설치·연동·API ([English](docs/guide/README.en.md)) + [수식 함수](docs/guide/formula.md) · [타입 참조](docs/guide/types.md) · [폰트·프리셋](docs/guide/fonts-and-presets.md) |
-| [docs/SPEC.md](docs/SPEC.md) | `.slip` 파일 포맷 공개 규범 명세 |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 아키텍처 — 외부 시스템 연계 (다이어그램 포함) |
-| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 확정된 요구사항 정리 |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | 설계 결정 로그(ADR-001~035) — 각 결정의 근거와 배경 |
-| [docs/OPEN-QUESTIONS.md](docs/OPEN-QUESTIONS.md) | 미결 사항 목록 (현재 전부 해결됨) |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | 로드맵 · 세션 인수인계 — 현재 상태와 다음 작업 |
-| [CLAUDE.md](CLAUDE.md) | 개발 규칙 — 모든 Claude Code 세션에 자동 적용 (ADR-024) |
-| [.claude/rules/branching.md](.claude/rules/branching.md) | 브랜치·커밋·PR 규칙 (ADR-023/024) |
-| [docs/Q08-PDFME-EVAL.md](docs/Q08-PDFME-EVAL.md) | pdfme 평가 보고서 |
-| [docs/TECH-RESEARCH.md](docs/TECH-RESEARCH.md) | 기술 동향 리서치 (2026-08) |
+| [시작하기](docs/guide/getting-started.md) | 데모 실행과 양식 디자이너의 최소 연결 |
+| [애플리케이션 통합 가이드](docs/guide/integration.md) | 디자이너·작성폼·뷰어 연결, 저장·복원 및 서버 연계 |
+| [양식 디자이너 사용 가이드](docs/guide/designer.md) | 디자이너 화면에서 양식을 제작하는 방법 |
+| [Core 사용 가이드](docs/guide/core.md) | `.slip` 파일 처리, 전표 조립, 수식 평가, PDF 생성과 암호화 |
+| [환경 설정 가이드](docs/guide/configuration.md) | 언어·폰트·용지·바코드·프리셋·저장소 설정 |
+| [수식 함수 참조](docs/guide/formula.md) | 수식 작성 규칙, 지원 함수와 사용 예제 |
+| [API 참조](docs/guide/api-reference.md) | 함수·타입·컴포넌트·이벤트·오류의 전체 참조 |
 
-> **문서 운영 규칙**: 새로운 설계 결정은 반드시 DECISIONS.md에 추가하고,
-> 기존 결정과 모순되는 변경은 기존 결정을 "Superseded"로 표시한 뒤 새 결정으로 기록한다.
-> REQUIREMENTS.md는 항상 DECISIONS.md와 일치해야 한다.
+## 기술 문서
+
+| 문서 | 내용 |
+|---|---|
+| [`.slip` 파일 형식 명세](docs/SPEC.md) | `.slip` 파일의 구조와 검증 규칙 |
+| [아키텍처](docs/ARCHITECTURE.md) | 패키지 구조와 외부 시스템 연계 방식 |
+| [요구사항](docs/REQUIREMENTS.md) | 확정된 제품 요구사항 |
+| [설계 결정 기록](docs/DECISIONS.md) | 주요 설계 결정과 그 근거 |
+| [로드맵](docs/ROADMAP.md) | 개발 현황과 예정 작업 |
+
+## 개발 명령어
+
+```bash
+# 코드 스타일 검사
+pnpm lint
+
+# 타입 검사
+pnpm typecheck
+
+# 패키지 빌드
+pnpm build
+
+# 테스트 실행
+pnpm test
+```
 
 ## 라이선스
 
-Business Source License 1.1 (**BUSL-1.1**) — 소스 공개형이며 OSI 오픈소스는 아니다.
-자기 앱에 embed하는 프로덕션 사용은 허용하되, SlipKit과 경쟁하는 호스티드·임베드 상용
-제품·서비스로 제3자에게 제공하려면 상용 라이선스가 필요하다. **Change Date 2031-01-01**에
-Apache License 2.0으로 전환된다. 전문은 [LICENSE](LICENSE), 저작권자는 JangHyeonho.
-동봉 폰트 Pretendard·Noto Sans JP는 각각 SIL Open Font License 1.1이다(코드 라이선스와 별개).
+SlipKit은 [Business Source License 1.1](LICENSE)에 따라 제공됩니다. 소스 코드는 공개되어 있지만 현재 OSI 승인 오픈소스 라이선스는 아닙니다.
+
+자체 애플리케이션에 SlipKit을 포함하는 프로덕션 사용은 허용됩니다. 다만 SlipKit과 경쟁하는 호스팅 또는 임베드형 상용 제품·서비스로 제3자에게 제공하는 경우에는 별도의 상용 라이선스가 필요합니다.
+
+라이선스에 정해진 전환 시점이 되면 Apache License 2.0으로 전환됩니다. 정확한 사용 조건과 전환 시점은 [LICENSE](LICENSE)를 확인해 주세요.
+
+동봉된 Pretendard와 Noto Sans JP 폰트에는 각각 SIL Open Font License 1.1이 적용됩니다.

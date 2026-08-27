@@ -1,291 +1,107 @@
-# SlipKit Integration Guide
+# SlipKit Guide
 
 [한국어](README.md) · [日本語](README.ja.md)
 
-How to install SlipKit and embed the form designer, data-entry form, and viewer in your app.
+This page points you to the documents you need to run SlipKit or connect it to an existing application.
 
-## Table of Contents
+If this is your first time, start with [Getting started](getting-started.en.md) to run the repository demos and connect the form designer.
 
-1. [Installation](#1-installation)
-2. [Quick Start](#2-quick-start)
-3. [Component API](#3-component-api)
-4. [Events](#4-events)
-5. [Storage Adapters](#5-storage-adapters)
-6. [Font Configuration](#6-font-configuration)
-7. [Locale](#7-locale)
+> [!IMPORTANT]
+> SlipKit is currently in a pre-release review stage, and the `@omdc-slipkit/*` packages are not yet published to the npm registry.
+> For now you can explore it by cloning the repository and reviewing the bundled demos and source code.
 
-### Related Documents
+## Find the document for your goal
 
-- **[Core API Guide](core.en.md)** — parsing, formulas, PDF rendering, integrity, backend integration (including standalone Node.js usage)
-- **[Formula Function Reference](formula.en.md)** — usage, parameters, and examples for all 32 built-in functions
-- **[Type Reference](types.en.md)** — field definitions and defaults for `SlipFile`, fonts, `SlipPreset`, `StorageAdapter`, `IntegrityJwk`, and more
-- **[Bundled Fonts & Presets](fonts-and-presets.en.md)** — Bundled fonts (Pretendard, Noto Sans JP), font supply, built-in presets (trade statement, invoice), and locale behavior
-
----
-
-## 1. Installation
-
-```bash
-# Vanilla (use Web Components directly)
-npm install @omdc-slipkit/elements
-
-# React
-npm install @omdc-slipkit/react
-# peer dependency: react >= 19
-
-# Vue
-npm install @omdc-slipkit/vue
-# peer dependency: vue >= 3.4
-```
-
-`@omdc-slipkit/core` is a transitive dependency of elements / react / vue,
-so you don't need to install it separately.
-Install it directly only when using core standalone on the server (e.g. PDF generation in Node).
-
-```bash
-npm install @omdc-slipkit/core
-```
-
-## 2. Quick Start
-
-### Vanilla (Web Components)
-
-```html
-<script type="module">
-  import '@omdc-slipkit/elements';
-  import { serializeSlipFile } from '@omdc-slipkit/core';
-
-  const designer = document.querySelector('slip-designer');
-
-  // Listen for changes
-  designer.addEventListener('slip-change', (e) => {
-    const file = e.detail.file;  // SlipFile object
-    console.log('Template changed:', file);
-  });
-</script>
-
-<slip-designer src="{}"></slip-designer>
-```
-
-### React
-
-```tsx
-import { SlipDesigner, SlipForm, SlipViewer } from '@omdc-slipkit/react';
-import { serializeSlipFile, type SlipFile } from '@omdc-slipkit/core';
-
-function App() {
-  const [template, setTemplate] = useState(initialTemplate);
-
-  return (
-    <SlipDesigner
-      src={serializeSlipFile(template)}
-      onSlipChange={(file) => {
-        if (file.kind === 'template') setTemplate(file);
-      }}
-    />
-  );
-}
-```
-
-### Vue
-
-```vue
-<script setup lang="ts">
-import { SlipDesigner, SlipForm, SlipViewer } from '@omdc-slipkit/vue';
-import { serializeSlipFile, type SlipFile } from '@omdc-slipkit/core';
-import { shallowRef, computed } from 'vue';
-
-const template = shallowRef(initialTemplate());
-const src = computed(() => serializeSlipFile(template.value));
-
-function onDesignerChange(file: SlipFile) {
-  if (file.kind === 'template') template.value = file;
-}
-</script>
-
-<template>
-  <SlipDesigner :src="src" @slip-change="onDesignerChange" />
-</template>
-```
-
-> In Vue, if you configure the build to recognize the `slip-` prefix as custom elements,
-> you can use `<slip-designer>` directly without the wrapper.
-
-## 3. Component API
-
-### `<slip-designer>` — Form Designer
-
-A visual editor for designing templates.
-
-| Property | Type | Description |
+| What you want to do | Document | Audience |
 |---|---|---|
-| `src` | `string` | `.slip` JSON string (template file) |
-| `locale` | `'ko' \| 'en' \| 'ja'` | UI language (default: `'ko'`) |
-| `settings` | `SlipDesignerSettings` | Font supply (`getFonts`) plus paper-size supply/save (`getPaperSizes`/`savePaperSize`). Falls back to the bundled font for the locale (ADR-040/042) |
-| `presets` | `SlipPreset[]` | Template list for the preset menu — replaces built-in presets if given |
-| `storage` | `StorageAdapter` | Storage adapter for save/load of user templates |
+| Run SlipKit from the repository for the first time and connect the designer | [Getting started](getting-started.en.md) | First-time developers |
+| Connect the designer, entry form, and viewer, and save the results | [Application Integration Guide](integration.en.md) | Frontend and application developers |
+| Build a template on the designer screen | [Form Designer Guide](designer.en.md) | Template authors |
+| Handle `.slip` files, assemble vouchers, and generate PDFs | [Core Usage Guide](core.en.md) | Backend and Core developers |
+| Issue vouchers and generate and store PDFs on a Node.js server | [Server Integration Guide](server-integration.en.md) | Backend developers |
+| Configure language, fonts, paper, presets, and storage | [Configuration Guide](configuration.en.md) | Application developers |
+| Write calculations in a template | [Formula Function Reference](formula.en.md) | Template authors and developers |
+| Check the public functions, types, components, and events | [API Reference](api-reference.en.md) | Integration developers |
 
-| Event | detail | Description |
-|---|---|---|
-| `slip-change` | `{ file: SlipFile }` | Fires on every template edit |
+> [!TIP]
+> If you are new, go through [Getting started](getting-started.en.md) first, then move on to the [Application Integration Guide](integration.en.md).
+>
+> If you only build templates, you can go straight to the [Form Designer Guide](designer.en.md); if you handle `.slip` files and PDFs without UI, go straight to the [Core Usage Guide](core.en.md).
 
-### `<slip-form>` — Data-Entry Form
+## SlipKit's components
 
-Fill a template with values and issue the slip. Shows a live PDF preview on the right.
+SlipKit provides three UI components with different purposes.
 
-| Property | Type | Description |
-|---|---|---|
-| `src` | `string` | `.slip` JSON string (template or in-progress voucher) |
-| `locale` | `'ko' \| 'en' \| 'ja'` | UI language (default: `'ko'`) |
-| `settings` | `SlipFontProvider` | Font supply (`getFonts`). Falls back to the bundled font for the locale (ADR-040/042) |
-| `signingKey` | `IntegrityJwk` | ES256 private key (JWK) for signing on issue. Omit for hash-only |
-
-| Event | detail | Description |
-|---|---|---|
-| `slip-change` | `{ file: SlipFile }` | Fires on every value edit with the in-progress voucher |
-| `slip-issue` | `{ file: SlipFile }` | Fires when the voucher is issued with integrity record |
-
-### `<slip-viewer>` — Viewer
-
-Read-only viewer that renders a slip or template as PDF.
-
-| Property | Type | Description |
-|---|---|---|
-| `src` | `string` | `.slip` JSON string |
-| `locale` | `'ko' \| 'en' \| 'ja'` | UI language (default: `'ko'`) |
-| `settings` | `SlipFontProvider` | Font supply (`getFonts`). Falls back to the bundled font for the locale (ADR-040/042) |
-
-## 4. Events
-
-All component events are `CustomEvent`s with `detail.file` containing the current `.slip` file object.
-**Your host app receives component data through these events** — components don't save
-anything on their own, so if you don't handle the events, edits are lost.
-
-```ts
-// Vanilla
-designer.addEventListener('slip-change', (e) => {
-  const file = e.detail.file;  // SlipFile
-});
-
-// React
-<SlipDesigner onSlipChange={(file) => { /* SlipFile */ }} />
-
-// Vue
-<SlipDesigner @slip-change="(file) => { /* SlipFile */ }" />
-```
-
-### Event Types and Purpose
-
-| Event | When | File kind | What to do |
+| Component | Role | Input | Change output |
 |---|---|---|---|
-| `slip-change` (designer) | On every template edit | `template` | Auto-save the template, sync state |
-| `slip-change` (form) | On every value entry | `voucher` | Save draft voucher (resume after reload) |
-| `slip-issue` (form) | When the issue button is pressed | `voucher` (with integrity) | Send the finalized voucher to the server |
+| `<slip-designer>` | Design a document template | A template | The edited template |
+| `<slip-form>` | Fill a template with values and issue a voucher | A template or an in-progress voucher | An in-progress voucher / an issued voucher |
+| `<slip-viewer>` | View a template or a voucher | A template or a voucher | None |
 
-### Usage Examples
+Each component receives a `.slip` file as a JSON string.
 
-```ts
-// Designer: save the template when it changes
-designer.addEventListener('slip-change', (e) => {
-  const template = e.detail.file;
-  fetch('/api/templates/' + templateId, {
-    method: 'PUT',
-    body: serializeSlipFile(template),
-  });
-});
+- A template has `kind: 'template'`.
+- A voucher has `kind: 'voucher'`.
+- An issued voucher has `issued: true` and can no longer be edited in the entry form.
 
-// Form: send the issued voucher to the server
-form.addEventListener('slip-issue', (e) => {
-  const voucher = e.detail.file;
-  fetch('/api/vouchers', {
-    method: 'POST',
-    body: serializeSlipFile(voucher),
-  });
-});
-```
+> [!NOTE]
+> SlipKit is not a standalone service.
+> User authentication, permission management, data storage, server APIs, and screen transitions between components are implemented by the application that uses SlipKit.
 
-## 5. Storage Adapters
+## Usage flow
 
-Implement the `StorageAdapter` interface to enable "save/load my templates" in the designer.
-Two browser implementations ship with the elements package.
+A typical application uses SlipKit in the following order.
 
-### IndexedDB Storage
+1. Create a template in `<slip-designer>`.
+2. Save the changed template in the application.
+3. Pass the saved template to `<slip-form>`.
+4. The user enters values and issues a voucher.
+5. Save the in-progress or issued voucher in the application.
+6. View the saved template or voucher in `<slip-viewer>`.
 
-Stores templates in the browser's IndexedDB. Supports title/kind filtering and cursor-based pagination.
+The components do not automatically persist edits. The application must receive the events emitted by the designer and the entry form and save them.
 
-```ts
-import { IndexedDbStorage } from '@omdc-slipkit/elements';
+## Choosing a package
 
-const store = new IndexedDbStorage({ dbName: 'my-app-slips' });
-```
+Use the following packages depending on your environment.
 
-### Local File Storage
+| Package | Purpose |
+|---|---|
+| `@omdc-slipkit/core` | `.slip` validation, voucher assembly, formula evaluation, PDF generation, and file encryption |
+| `@omdc-slipkit/elements` | Web Component-based designer, entry form, and viewer |
+| `@omdc-slipkit/react` | Wrapper components for React |
+| `@omdc-slipkit/vue` | Wrapper components for Vue |
 
-Save triggers a file download; load opens a file picker dialog.
+The React and Vue packages are thin wrappers that connect the Web Components to each framework's usage style. There is no difference in the SlipKit features they provide.
 
-```ts
-import { LocalFileStorage } from '@omdc-slipkit/elements';
+<details>
+<summary><strong>Terms used in the guides</strong></summary>
 
-const localFile = new LocalFileStorage();
-await localFile.save('invoice.slip', file);   // downloads
-const file = await localFile.load('');         // opens picker
-```
+| Term | Meaning |
+|---|---|
+| Host application | The web application that installs and uses SlipKit |
+| Template | A file that defines a document's size, layout, parameters, and formulas |
+| Voucher | A file with actual values filled into a template |
+| Issue | Finalizing a filled-in voucher's values so it can no longer be edited in the entry form |
+| Parameter | A name used in a template to reference values that differ per voucher |
+| Template snapshot | The template at creation time, saved inside the voucher |
+| Storage adapter | An interface for saving templates and vouchers to the browser or a server |
 
-### Custom Implementation
+</details>
 
-To manage templates via a server API, implement the `StorageAdapter` interface:
+## Example projects
 
-```ts
-import type { StorageAdapter } from '@omdc-slipkit/core';
+The repository includes three demos that implement the same features in different environments.
 
-const serverStorage: StorageAdapter = {
-  async save(key, file) { /* POST /api/slips */ },
-  async load(key) { /* GET /api/slips/:key */ },
-  async delete(key) { /* DELETE /api/slips/:key */ },
-  async list(options?) { /* GET /api/slips?title=...&cursor=... */ },
-};
-```
+| Environment | Example |
+|---|---|
+| Web Component | [`examples/demo`](../../examples/demo) |
+| React | [`examples/react-demo`](../../examples/react-demo) |
+| Vue | [`examples/vue-demo`](../../examples/vue-demo) |
+| Framework-independent logic | [`examples/shared`](../../examples/shared) |
 
-## 6. Font Configuration
+Features that must be implemented outside SlipKit — such as auto-save, opening and downloading files, and screen transitions between the template and voucher views — are collected in [`examples/shared`](../../examples/shared).
 
-SlipKit bundles a default font per language — Pretendard for Korean/English, Noto Sans JP for
-Japanese. When `settings` is not specified, the font matching the `locale` is used automatically so
-text renders correctly.
+## Project information
 
-To supply fonts from the host, implement `settings.getFonts` (a synchronous array or a server-fetch
-Promise):
-
-```ts
-import pretendardFonts from '@omdc-slipkit/elements/fonts/pretendard';
-
-designer.settings = {
-  getFonts: () => [
-    ...pretendardFonts,
-    { name: 'NotoSans', data: notoSansArrayBuffer },
-  ],
-};
-```
-
-See **[Bundled Fonts & Presets](fonts-and-presets.en.md)** for the provider interface and the bundled
-fonts in detail.
-
-## 7. Locale
-
-Set the `locale` property to change the UI language. Supported: Korean (`'ko'`, default), English
-(`'en'`), Japanese (`'ja'`).
-
-```html
-<slip-designer locale="ja"></slip-designer>
-```
-
-```tsx
-<SlipDesigner src={src} locale="ja" />
-```
-
-Japanese (`'ja'`) bundles a default font (Noto Sans JP) so it renders by just switching the language —
-supply a font via `settings.getFonts` for bold or a wider glyph range.
-
-Formula result formatting (number grouping, etc.) also follows the locale (including `ja-JP`).
-
-For server-side usage (parsing `.slip` files, generating PDFs, verifying integrity),
-see the **[Core API Guide](core.en.md)**.
+For the package layout, how to run locally, development commands, technical documents, and the license, see the [Project README](../../README.en.md).

@@ -12,7 +12,6 @@ export {
   slipVoucherFileSchema,
   slipTemplateBodySchema,
   slipElementSchema,
-  integritySchema,
   paperSchema,
 } from './format/schema.js';
 export {
@@ -22,7 +21,15 @@ export {
   type SlipMigrationStep,
 } from './format/migrate.js';
 export { slipFileJsonSchema } from './format/json-schema.js';
-export { normalizeNumericBindings } from './format/normalize.js';
+export { normalizeNumericParameters } from './format/normalize.js';
+export { buildVoucher } from './format/voucher.js';
+export { createSlipKit, type SlipKit, type SlipKitConfig } from './slipkit.js';
+export {
+  encryptSlipFile,
+  decryptSlipFile,
+  isEncryptedSlipFile,
+  SlipEncryptionError,
+} from './encryption/index.js';
 export * from './storage/adapter.js';
 export { FORMULA_FUNCTIONS, type FormulaFunctionName } from './formula/functions.js';
 export { FormulaEvalError, FormulaSyntaxError } from './formula/errors.js';
@@ -37,13 +44,3 @@ export {
   type SlipFont,
   type SlipPdfRenderer,
 } from './render/index.js';
-export {
-  SlipIntegrityError,
-  canonicalize,
-  computeContentHash,
-  computeIntegrity,
-  verifyIntegrity,
-  generateSigningKeyPair,
-  type IntegrityJwk,
-  type IntegrityKeyPair,
-} from './integrity/index.js';

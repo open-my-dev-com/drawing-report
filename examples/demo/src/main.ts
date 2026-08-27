@@ -12,27 +12,32 @@ import {
   MODE_KEY,
   TEMPLATE_KEY,
   VOUCHER_KEY,
-  canContinueVoucher,
+  canResumeVoucher,
   createStores,
+  getMessages,
   initialTemplate,
-  messages,
+  resolveDemoLocale,
   restore,
   savedLabel,
   suggestedName,
   templateFromVoucher,
 } from 'slipkit-demo-shared';
 
-const designer = document.getElementById('designer') as HTMLElement & { src: string };
-const form = document.getElementById('form') as HTMLElement & { src: string };
+// 데모 언어 — 주소의 ?locale= 값이 우선하고, 없으면 빌드 설정값을 쓴다
+const locale = resolveDemoLocale(location.search, import.meta.env.VITE_SLIPKIT_LOCALE as string | undefined);
+const messages = getMessages(locale);
+
+const designer = document.getElementById('designer') as HTMLElement & { src: string; locale?: string };
+const form = document.getElementById('form') as HTMLElement & { src: string; locale?: string };
 const statusEl = document.getElementById('status')!;
 const autosaveEl = document.getElementById('autosave')!;
 const newSlipButton = document.getElementById('new-slip') as HTMLButtonElement;
 const filenameDialog = document.getElementById('filename-dialog') as HTMLDialogElement;
 const filenameInput = document.getElementById('filename') as HTMLInputElement;
 
-const { store, localFile } = createStores('slipkit-demo');
+const { store, localFile } = createStores('slipkit-demo', locale);
 
-let template: SlipTemplateFile = initialTemplate();
+let template: SlipTemplateFile = initialTemplate(locale);
 let voucher: SlipVoucherFile | null = null;
 let filling = false;
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -63,7 +68,7 @@ async function saveNow(): Promise<void> {
     await store.save(TEMPLATE_KEY, template);
     if (voucher) await store.save(VOUCHER_KEY, voucher);
     // 저장 표시는 안내 문구와 따로 둔다 — 조작 안내가 저장 알림에 덮이지 않도록
-    autosaveEl.textContent = savedLabel(new Date());
+    autosaveEl.textContent = savedLabel(new Date(), locale);
   } catch (error) {
     autosaveEl.textContent = '';
     status(messages.autosaveFailed(String(error)));
@@ -84,7 +89,7 @@ function setMode(fill: boolean, message?: string): void {
   localStorage.setItem(MODE_KEY, fill ? 'fill' : 'design');
 
   if (fill) {
-    const continuing = canContinueVoucher(voucher, template);
+    const continuing = canResumeVoucher(voucher);
     if (!continuing) voucher = null;
     form.src = serializeSlipFile(continuing ? voucher! : template);
     status(message ?? (continuing ? messages.fillContinue : messages.fillNew));
@@ -134,7 +139,7 @@ form.addEventListener('slip-issue', (event) => {
 // ---------------------------------------------------------------------------
 
 document.getElementById('download')!.addEventListener('click', () => {
-  filenameInput.value = suggestedName(activeFile());
+  filenameInput.value = suggestedName(activeFile(), locale);
   filenameDialog.returnValue = 'cancel';
   filenameDialog.showModal();
   filenameInput.select();
@@ -142,7 +147,7 @@ document.getElementById('download')!.addEventListener('click', () => {
 
 filenameDialog.addEventListener('close', () => {
   if (filenameDialog.returnValue !== 'ok') return;
-  const name = filenameInput.value.trim() || suggestedName(activeFile());
+  const name = filenameInput.value.trim() || suggestedName(activeFile(), locale);
   localFile
     .save(name, activeFile())
     .then(() => status(messages.downloaded(name)))
@@ -176,7 +181,28 @@ document.getElementById('open')!.addEventListener('click', () => {
 // 시작 — 이전 작업이 있으면 그대로 이어서
 // ---------------------------------------------------------------------------
 
+/** 데모 화면의 고정 문구를 현재 언어로 채운다 */
+function applyChromeText(): void {
+  document.documentElement.lang = locale ?? 'en';
+  document.title = messages.appTitle();
+  document.querySelector('header .title')!.textContent = messages.appTitle();
+  document.getElementById('mode-design')!.textContent = messages.buttonDesign;
+  document.getElementById('mode-fill')!.textContent = messages.buttonFill;
+  newSlipButton.textContent = messages.buttonNewSlip;
+  document.getElementById('download')!.textContent = messages.buttonDownload;
+  document.getElementById('open')!.textContent = messages.buttonOpen;
+  filenameDialog.querySelector('h2')!.textContent = messages.buttonDownload;
+  filenameDialog.querySelector('label')!.textContent = messages.filenameLabel;
+  filenameDialog.querySelector('button[value="cancel"]')!.textContent = messages.cancel;
+  filenameDialog.querySelector('button[value="ok"]')!.textContent = messages.download;
+}
+
 async function boot(): Promise<void> {
+  applyChromeText();
+  if (locale !== undefined) {
+    designer.locale = locale;
+    form.locale = locale;
+  }
   // 디자이너의 "내 양식" 저장·목록도 같은 저장소를 쓴다
   (designer as unknown as { storage: typeof store }).storage = store;
 

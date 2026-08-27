@@ -21,6 +21,14 @@
 
 예: `feat/core-pdf-renderer`, `docs/repo-claude-guide`, `proto/core-formula-parser`
 
+- **형식은 훅이 집행한다** (ADR-058): PreToolUse 훅(`bash-guard.mjs`)이 커밋·푸시 시 현재
+  브랜치가 위 형식인지 검사해 어긋나면 차단한다. 규칙에 맞지 않는 브랜치를 써야 할 때
+  (환경이 브랜치 이름을 강제하는 경우 등)는 **사용자 확인을 받아**
+  `.claude/hooks/branch-guard.json`의 `allowBranches`에 패턴(`*` 와일드카드)을 추가해 허용한다.
+  임의로 추가하지 않는다.
+- **금지 이름은 허용 목록으로도 열 수 없다** (ADR-058): 자동화 도구 이름을 딴 브랜치
+  (`claude*`·`codex*` 등, `branch-guard.json`의 `denyBranches`)는 어떤 경우에도 쓰지 않는다.
+  거부 목록이 허용 목록보다 우선한다 — 규칙 형식의 새 브랜치를 만들어 작업을 옮긴다.
 - **한 브랜치 = 한 주제.** 서로 다른 주제를 한 브랜치에 섞지 않는다.
 - 병합된 브랜치는 재사용하지 않는다(같은 주제의 후속 작업도 새 브랜치).
 - `proto/*` 브랜치는 병합하지 않고 결론(문서/ADR)만 남기고 폐기해도 된다.

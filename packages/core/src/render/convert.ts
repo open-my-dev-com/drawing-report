@@ -1,14 +1,13 @@
 /**
- * 우리 포맷(.slip) → pdfme 템플릿 변환 계층 (내부 전용, ADR-016).
+ * `.slip` 문서를 pdfme 템플릿과 입력값으로 변환한다.
  *
- * - 좌표·길이는 양쪽 다 mm라 단위 변환이 없다 (ADR-011).
- * - pdfme 스키마 속성은 **전부 채워서** 넘긴다 — 일부만 채우면 조용히 레이아웃이
- *   깨진다 (Q08 직접 확인, docs/Q08-PDFME-EVAL.md).
+ * - `.slip`과 pdfme 모두 좌표와 길이에 mm 단위를 사용한다.
+ * - pdfme 스키마의 레이아웃 속성은 기본값에 의존하지 않고 모두 지정한다.
  * - 렌더 값은 전부 `inputs`로 전달한다(`readOnly`를 쓰지 않는다). readOnly 스키마는
- *   pdfme가 `content`의 `{...}`를 자체 표현식으로 평가하는데, 수식은 우리 파서만
- *   쓴다는 ADR-010에 어긋나기 때문이다.
+ *   pdfme가 `content`의 `{...}`를 자체 표현식으로 평가하기 때문이다. 수식은
+ *   `.slip` 수식 파서에서만 평가한다.
  *
- * 이 모듈은 공개 API가 아니다 (index.ts에서 수출하지 않는다).
+ * 이 모듈은 패키지 내부에서만 사용한다.
  */
 import type { Schema, Template } from '@pdfme/common';
 import { evaluateFormula } from '../formula/evaluator.js';
@@ -28,36 +27,37 @@ import type {
   PolygonElement,
   TextElement,
 } from '../format/schema.js';
-import { normalizeNumericBindings } from '../format/normalize.js';
+import { normalizeNumericParameters } from '../format/normalize.js';
 import { SlipRenderError } from './errors.js';
+import { rm } from './messages.js';
 import { TextMeasurer } from './measure.js';
 import { stackVertically } from './text-layout.js';
 import type { SlipFont } from './types.js';
 
 // ---------------------------------------------------------------------------
-// 기본값 (SPEC에 없는 표현 세부는 여기서 한 곳에 모아 정한다)
+// 렌더링 기본값
 // ---------------------------------------------------------------------------
 
 const DEFAULT_FONT_SIZE = 10;
-/** 페이지 번호 기본 글자 크기(pt, 0.5.0) */
+/** 페이지 번호 기본 글자 크기(pt) */
 const PAGE_NUMBER_FONT_SIZE = 9;
 /** pt → mm */
 const PT_TO_MM = 25.4 / 72;
-/** 페이지 번호 상자 높이 = 글자 높이 × 이 배수 — 세로 중앙 정렬이 잘리지 않게 여유를 둔다 */
+/** 페이지 번호 상자 높이에 적용할 글자 높이 배수 */
 const PAGE_NUMBER_BOX_LINE_HEIGHT = 1.6;
 const DEFAULT_FONT_COLOR = '#000000';
 const DEFAULT_BORDER_COLOR = '#000000';
 /** 선·테두리 두께 기본값(mm) */
 const DEFAULT_BORDER_WIDTH = 0.2;
-/** pdfme에서 '색 없음'은 빈 문자열이다 */
+/** pdfme에서 색 없음을 나타내는 값 */
 const NO_COLOR = '';
-/** 그리드 칸 안쪽 여백(mm) */
+/** 그리드 셀 안쪽 여백(mm) */
 const GRID_CELL_PADDING = 1;
-/** 글자를 줄여 넣을 때의 최소 크기(pt) — 이보다 작으면 읽을 수 없다 (ADR-037) */
+/** 셀에 맞춰 글자 크기를 줄일 때 적용할 최솟값(pt). */
 const MIN_SHRINK_FONT_SIZE = 4;
 /**
- * 파선·점선의 선분·간격 길이(mm) — 하부 엔진이 파선을 직접 지원하지 않아
- * 짧은 선분 여러 개로 분해해 그린다 (직선만 가능, ADR-032)
+ * 파선과 점선을 구성하는 선분 및 간격 길이(mm).
+ * 렌더링 엔진이 파선을 지원하지 않아 여러 직선으로 나누어 그린다.
  */
 const DASH_PATTERNS = {
   dashed: { on: 2.4, off: 1.2 },
@@ -80,7 +80,7 @@ function box(value: number): BoxDimension {
   return { top: value, right: value, bottom: value, left: value };
 }
 
-/** 변환 결과 — pdfme generate()에 그대로 넘길 수 있는 형태 */
+/** pdfme `generate`에 전달할 변환 결과 */
 export interface PdfmeRenderInput {
   template: Template;
   inputs: Record<string, string>[];
@@ -91,27 +91,25 @@ export interface PdfmeRenderInput {
 // ---------------------------------------------------------------------------
 
 /**
- * 세로쓰기 — 글자를 한 자씩 줄바꿈으로 쌓는다 (0.5.0).
+ * 값을 수식 엔진의 `CONCAT`과 같은 규칙으로 표시용 문자열로 변환한다.
  *
- * 하부 엔진에 세로쓰기 기능이 없어 변환 계층이 직접 쌓는다(직접 확인). 상자 하나는 세로 한 줄이므로
- * 원문의 줄바꿈은 자리를 차지하지 않도록 없앤다 — 여러 줄을 세로로 쓰려면 상자를 나눈다.
- * 자소 하나가 여러 코드 단위인 글자(이모지 등)를 쪼개지 않도록 코드 포인트 단위로 나눈다.
- *
- * @param text - 원래 글
- * @param vertical - 세로쓰기 여부 (거짓이면 원문 그대로)
- * @returns 세로쓰기면 한 자씩 줄을 나눈 글, 아니면 원문
+ * @param value - 문자열화할 값 (문자열·수·논리·빈 값)
+ * @param what - 오류 메시지에 쓸 대상 이름
+ * @param locale - 오류 메시지에 사용할 BCP 47 로케일 (생략하면 영어)
+ * @returns 표시용 문자열 (빈 값은 빈 문자열)
+ * @throws SlipRenderError 배열·객체이거나 유한하지 않은 수면
  */
-function toDisplayText(value: unknown, what: string): string {
+function toDisplayText(value: unknown, what: string, locale?: string): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) {
-      throw new SlipRenderError(`${what}의 값이 유한한 수가 아닙니다`);
+      throw new SlipRenderError(rm(locale).notFinite(what));
     }
     return String(value);
   }
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  throw new SlipRenderError(`${what}의 값은 배열·객체라서 텍스트로 표시할 수 없습니다`);
+  throw new SlipRenderError(rm(locale).notText(what));
 }
 
 // ---------------------------------------------------------------------------
@@ -132,16 +130,16 @@ class SlipToPdfmeConverter {
   ) {}
 
   /**
-   * 굵게에 쓸 폰트 이름 — 유효 폰트(명시 fontName, 없으면 대체 폰트)의 `<이름>-Bold`가
-   * 렌더 옵션 폰트 목록에 있으면 그 이름을, 없으면 undefined(굵게 무시, ADR-032)
+   * 기본 폰트의 Bold 변형 이름을 찾는다.
+   * 등록된 변형이 없으면 `undefined`를 반환한다.
    */
   private resolveBoldFont(fontName: string | undefined): string | undefined {
     return this.resolveVariantFontName(fontName, 'Bold');
   }
 
   /**
-   * 굵게·기울임에 쓸 폰트 이름 — 유효 폰트의 `<이름>-<변형>`이 렌더 옵션에 있으면 그 이름을,
-   * 없으면 `undefined`(그 변형은 PDF에서 무시된다, ADR-032 · 0.5.0)
+   * 기본 폰트에서 요청한 굵기와 기울임 변형의 이름을 찾는다.
+   * 등록된 변형이 없으면 `undefined`를 반환한다.
    */
   private resolveVariantFontName(fontName: string | undefined, variant: string): string | undefined {
     const base = fontName ?? this.fallbackFontName;
@@ -151,8 +149,9 @@ class SlipToPdfmeConverter {
   }
 
   /**
-   * 굵게·기울임을 함께 고려한 폰트 이름 — 둘 다면 `<이름>-BoldItalic`을 먼저 찾는다.
-   * 맞는 변형이 없으면 원래 폰트를 그대로 쓴다 — 기울이기 흉내는 내지 않는다 (ADR-032).
+   * 굵기와 기울임을 반영할 폰트 이름을 결정한다.
+   * 두 스타일이 모두 필요하면 `<이름>-BoldItalic`을 먼저 찾고, 등록된 변형이 없으면
+   * 기본 폰트를 사용한다.
    */
   private resolveVariantFont(
     fontName: string | undefined,
@@ -171,11 +170,10 @@ class SlipToPdfmeConverter {
   }
 
   convert(): PdfmeRenderInput {
-    // 반복 그리드가 넘치면 그 슬립 페이지를 여러 출력 페이지로 낸다 (ADR-037).
-    // 나머지 요소는 페이지마다 그대로 다시 그린다 — 그리드 크기가 고정이라 자리가 흔들리지 않는다.
+    // 반복 그리드의 항목이 페이지를 넘으면 하나의 문서 페이지를 여러 출력 페이지로 나눈다.
+    // 반복 그리드 외의 요소는 각 출력 페이지에 같은 위치로 배치한다.
     const schemas: Schema[][] = [];
-    // 출력 페이지마다 그것을 만든 원본 슬립 페이지를 기록해 둔다 — 페이지 번호를 얹을 때
-    // 같은 페이지 워크를 다시 돌지 않도록(두 워크가 어긋날 위험 제거).
+    // 페이지 번호를 추가할 때 사용하도록 각 출력 페이지의 원본 페이지를 기록한다.
     const outputPages: SlipPage[] = [];
     for (const page of this.body.pages) {
       const pageCount = this.renderPageCount(page.elements);
@@ -188,7 +186,7 @@ class SlipToPdfmeConverter {
         outputPages.push(page);
       }
     }
-    // 페이지 번호는 전체 쪽 수가 정해진 뒤에야 찍을 수 있다 — 페이지를 다 만든 뒤 얹는다 (0.5.0)
+    // 페이지 번호는 전체 페이지 수가 정해진 뒤 추가한다.
     this.appendPageNumbers(schemas, outputPages);
     const template: Template = {
       basePdf: {
@@ -202,13 +200,12 @@ class SlipToPdfmeConverter {
   }
 
   /**
-   * 페이지 번호 찍기 (0.5.0) — 양식 페이지가 정한 자리에 `{n} / {total}`을 넣는다.
+   * 양식에 지정된 위치와 형식으로 페이지 번호를 추가한다.
    *
-   * 실제 번호는 출력 페이지가 다 만들어진 뒤에야 알 수 있다(반복 그리드가 넘치면 한 양식 페이지가
-   * 여러 출력 페이지가 된다). 그래서 페이지를 다 만든 뒤 마지막에 얹는다.
+   * 반복 그리드로 출력 페이지 수가 달라질 수 있으므로 모든 페이지를 변환한 뒤 호출한다.
    *
-   * @param schemas - 페이지별 스키마 목록 (여기에 번호 상자를 더한다)
-   * @param outputPages - 출력 페이지마다의 원본 슬립 페이지 (convert에서 만든 매핑)
+   * @param schemas - 페이지 번호 스키마를 추가할 페이지별 스키마 목록
+   * @param outputPages - 각 출력 페이지에 대응하는 원본 페이지
    */
   private appendPageNumbers(schemas: Schema[][], outputPages: readonly SlipPage[]): void {
     const total = schemas.length;
@@ -223,7 +220,7 @@ class SlipToPdfmeConverter {
     }
   }
 
-  /** 페이지 번호 상자 하나 — 자리는 용지 여백 안쪽 가장자리에 맞춘다 (0.5.0) */
+  /** 용지 여백 안쪽에 페이지 번호 상자를 추가한다. */
   private pageNumberSchema(
     setting: NonNullable<SlipPage['pageNumber']>,
     output: number,
@@ -250,18 +247,30 @@ class SlipToPdfmeConverter {
     return schema as unknown as Schema;
   }
 
-  /** 한 슬립 페이지가 차지하는 출력 페이지 수 — 반복 그리드 중 가장 많은 페이지를 따른다 (SPEC §5.7) */
+  /** 한 문서 페이지에서 생성되는 출력 페이지 수를 계산한다 (SPEC §5.7). */
   private renderPageCount(elements: readonly SlipElement[]): number {
     let count = 1;
     for (const element of elements) {
       if (element.type !== 'grid' || !element.repeat) continue;
-      const items = this.repeatItems(element, element.repeat.binding);
-      count = Math.max(count, Math.ceil(items.length / element.repeat.perPage) || 1);
+      const items = this.repeatItems(element, element.repeat.parameter);
+      const drawn = this.drawnItemCount(items.length, element.repeat);
+      count = Math.max(count, Math.ceil(drawn / element.repeat.perPage) || 1);
     }
     return count;
   }
 
-  /** pdfme는 이름으로 값을 찾으므로 문서 전체에서 이름이 유일해야 한다 */
+  /**
+   * 반복 그리드에서 실제로 렌더링할 항목 수를 계산한다.
+   *
+   * @param total - 전표가 준 항목 수
+   * @param repeat - 반복 구간 설정
+   * @returns `maxItems`를 적용한 항목 수
+   */
+  private drawnItemCount(total: number, repeat: { maxItems?: number | undefined }): number {
+    return repeat.maxItems === undefined ? total : Math.min(total, repeat.maxItems);
+  }
+
+  /** pdfme가 값을 이름으로 찾을 수 있도록 문서 전체에서 고유한 이름을 만든다. */
   private uniqueName(base: string): string {
     if (!this.usedNames.has(base)) {
       this.usedNames.add(base);
@@ -313,7 +322,7 @@ class SlipToPdfmeConverter {
   }
 
   // -------------------------------------------------------------------------
-  // text · field
+// 텍스트와 필드
   // -------------------------------------------------------------------------
 
   private textSchema(
@@ -339,7 +348,7 @@ class SlipToPdfmeConverter {
       characterSpacing?: number | undefined;
     },
   ): Record<string, unknown> {
-    // 굵게·기울임 = 변형 폰트로 전환 (없으면 무시, ADR-032 · 0.5.0)
+    // 등록된 폰트 변형으로 굵기와 기울임을 적용한다.
     const fontName = this.resolveVariantFont(style.fontName, style.bold, style.italic);
     const schema: Record<string, unknown> = {
       name,
@@ -356,24 +365,23 @@ class SlipToPdfmeConverter {
       fontColor: style.fontColor ?? DEFAULT_FONT_COLOR,
       backgroundColor: style.backgroundColor ?? NO_COLOR,
       borderColor: style.borderColor ?? DEFAULT_BORDER_COLOR,
-      // 테두리는 명시했을 때만 그린다 (기본 0)
+      // 테두리 두께를 지정한 요소에만 테두리를 그린다.
       borderWidth: box(style.borderWidth ?? 0),
       padding: box(style.padding),
       opacity: 1,
       strikethrough: style.strikethrough === true,
       underline: style.underline === true,
     };
-    // fontName을 undefined로 두면 pdfme가 대체(fallback) 폰트를 쓴다
+    // fontName이 undefined이면 pdfme가 대체 폰트를 사용한다.
     if (fontName !== undefined) schema.fontName = fontName;
     return schema;
   }
 
   /**
-   * 텍스트·필드 요소에서 textSchema에 넘길 글자 스타일 객체를 뽑는다 — 두 요소가
-   * 같은 글자 스타일 필드를 갖기 때문에 한곳에서 만든다(새 스타일 추가 시 한 군데만 고친다).
+   * 텍스트와 필드 요소의 공통 속성으로 pdfme 글자 스타일을 만든다.
    *
    * @param element - 텍스트 또는 필드 요소
-   * @returns textSchema의 style 인자 형태의 스타일 객체
+   * @returns pdfme text 스키마에 전달할 스타일 객체
    */
   private textStyleFromElement(element: TextElement | FieldElement) {
     return {
@@ -403,7 +411,7 @@ class SlipToPdfmeConverter {
       element.height,
       this.textStyleFromElement(element),
     );
-    // 고정 문구는 가공 없이 그대로 (pdfme 표현식 평가를 타지 않도록 inputs로 전달)
+    // 직접 입력한 텍스트도 pdfme 표현식 평가를 거치지 않도록 inputs로 전달한다.
     this.push(schemas, schema, stackVertically(element.content, element.vertical));
   }
 
@@ -419,8 +427,7 @@ class SlipToPdfmeConverter {
   }
 
   /**
-   * 요소 수식을 평가한다 — locale 컨텍스트 구성과 오류 재포장을 한곳에 모은다
-   * (필드·그리드 칸·바코드가 공유한다).
+   * 로케일을 적용해 요소 수식을 평가하고 오류를 렌더링 오류로 변환한다.
    *
    * @param formula - 평가할 수식 문자열
    * @param scope - 수식이 참조할 값 범위(전표 값, 반복 항목 등)
@@ -436,26 +443,36 @@ class SlipToPdfmeConverter {
       );
     } catch (error) {
       throw new SlipRenderError(
-        `${what}의 수식을 계산하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`,
+        rm(this.locale).formulaFailed(what, error instanceof Error ? error.message : String(error)),
       );
     }
   }
 
+  /**
+   * 필드의 파라미터 값 또는 수식 결과를 표시용 문자열로 변환한다.
+   *
+   * @param element - 필드 요소
+   * @returns 표시용 문자열
+   */
   private fieldValue(element: FieldElement): string {
-    const what = `필드 '${element.name}'(${element.id})`;
+    const what = rm(this.locale).subjectField(element.name, element.id);
     if (element.formula !== undefined) {
-      return toDisplayText(this.evaluate(element.formula, this.values, what), what);
+      // 편집 중인 빈 수식은 빈 문자열로 표시한다.
+      if (element.formula.trim() === '') return '';
+      return toDisplayText(this.evaluate(element.formula, this.values, what), what, this.locale);
     }
-    return toDisplayText(this.values[element.binding], what);
+    return element.parameter === undefined
+      ? ''
+      : toDisplayText(this.values[element.parameter], what, this.locale);
   }
 
   // -------------------------------------------------------------------------
-  // grid — 고정 틀과 반복 목록을 하나로 다루는 그리드 (ADR-037)
+  // grid
   // -------------------------------------------------------------------------
 
   /**
-   * 반복 구간을 펼쳐 그린다. `renderPage`는 이 슬립 페이지의 몇 번째 출력 페이지인지다 —
-   * 반복 항목을 페이지마다 나눠 담고, 이어지는 페이지에는 `repeatHeader`에 따라 위쪽 행을 비운다.
+   * 반복 항목 중 현재 출력 페이지에 해당하는 항목을 그리드에 배치한다.
+   * 이어지는 페이지에서는 `repeatHeader` 설정에 따라 반복 구간 위쪽 행을 비운다.
    */
   private appendGrid(schemas: Schema[], element: GridElement, renderPage: number): void {
     const layout = this.gridLayout(element, renderPage);
@@ -477,16 +494,16 @@ class SlipToPdfmeConverter {
     });
   }
 
-  /** 그리드 한 페이지의 실제 행 높이·셀 목록을 만든다 (반복 구간 펼치기, ADR-037) */
+  /** 출력 페이지 하나에 배치할 그리드의 행 높이와 셀 목록을 만든다. */
   /**
-   * 그리드 칸 하나를 그리기용 셀로 바꾼다 — 셀에 지정이 없으면 요소 기본값을 물려받는다.
+   * 원본 셀에 그리드 기본 스타일과 반복 항목 값을 적용해 렌더링용 셀을 만든다.
    *
    * @param element - 셀이 속한 그리드 (기본 스타일·값 계산에 쓴다)
-   * @param cell - 원본 칸
-   * @param rowShift - 반복 복제로 아래로 민 행 수
-   * @param item - 이 벌의 항목 값 (반복 구간 밖이면 undefined)
-   * @param hasItem - 값을 계산해 넣을지 (헤더·꼬리·빈 벌은 false)
-   * @returns 그리기용 셀
+   * @param cell - 원본 셀
+   * @param rowShift - 반복 배치로 이동한 행 수
+   * @param item - 현재 반복 항목의 값
+   * @param hasItem - 셀의 값을 계산할지 여부
+   * @returns 렌더링용 셀
    */
   private toDrawCell(
     element: GridElement,
@@ -522,11 +539,10 @@ class SlipToPdfmeConverter {
   }
 
   /**
-   * 반복 구간 행을 이 페이지 몫만큼 펼쳐 그리기용 셀로 만든다 (ADR-037/038).
+   * 현재 출력 페이지에 포함되는 반복 항목의 렌더링용 셀을 만든다.
    *
-   * 켠 열(autoMerge)은 앞 벌과 값이 같은 칸을 세로로 합친다 — 페이지 단위로만 보므로
-   * (chunk가 이 페이지 몫) 페이지가 바뀌면 저절로 끊기고 값이 다시 그려진다. 빈 값·항목 없음은
-   * 합치지 않고 그대로 그린다.
+   * `autoMerge` 열에서는 연속된 셀의 값이 같으면 세로로 병합한다. 병합 범위는 현재
+   * 출력 페이지로 제한하며 빈 값과 비어 있는 항목은 병합하지 않는다.
    *
    * @param element - 그리드 요소
    * @param repeat - 반복 구간 설정
@@ -540,8 +556,10 @@ class SlipToPdfmeConverter {
   ): DrawGridCell[] {
     const { fromRow, toRow, perPage } = repeat;
     const bandRows = toRow - fromRow + 1;
-    const items = this.repeatItems(element, repeat.binding);
-    const chunk = items.slice(renderPage * perPage, (renderPage + 1) * perPage);
+    const items = this.repeatItems(element, repeat.parameter);
+    // maxItems를 초과한 항목은 렌더링하지 않는다.
+    const drawn = this.drawnItemCount(items.length, repeat);
+    const chunk = items.slice(renderPage * perPage, Math.min((renderPage + 1) * perPage, drawn));
 
     const autoMergeColumns = new Set<number>();
     element.columns.forEach((column, c) => {
@@ -554,7 +572,7 @@ class SlipToPdfmeConverter {
       }
       return false;
     };
-    // 반복 구간 칸(틀 좌표)별 병합 기준 칸 — 앞 벌과 값이 같으면 이 칸의 높이를 늘린다
+    // 원본 셀 좌표별로 마지막 병합 대상 셀을 기록한다.
     const anchors = new Map<string, { cell: DrawGridCell; text: string }>();
     const cells: DrawGridCell[] = [];
 
@@ -569,7 +587,7 @@ class SlipToPdfmeConverter {
           continue;
         }
         const key = `${cell.row},${cell.column}`;
-        // 빈 값·항목 없음은 합치지 않는다 — 병합을 끊고 그대로 그린다 (ADR-038)
+        // 빈 값과 비어 있는 항목은 병합 범위를 종료한다.
         if (!hasItem || draw.text === '') {
           anchors.delete(key);
           cells.push(draw);
@@ -578,7 +596,7 @@ class SlipToPdfmeConverter {
         const anchor = anchors.get(key);
         if (anchor && anchor.text === draw.text) {
           anchor.cell.rowSpan += bandRows;
-          continue; // 앞 칸에 흡수 — 이 칸은 그리지 않는다
+          continue; // 앞 셀에 흡수 — 이 셀은 그리지 않는다
         }
         anchors.set(key, { cell: draw, text: draw.text });
         cells.push(draw);
@@ -604,9 +622,8 @@ class SlipToPdfmeConverter {
     const { fromRow, toRow, perPage, repeatHeader } = repeat;
     const bandRows = toRow - fromRow + 1;
 
-    // 행 높이: 반복 구간(band)을 perPage번 되풀이해 앞·뒤 고정 행 사이에 끼운다.
-    // 결과 높이가 gridElementSchema가 검증한 요소 높이(templateHeight + (perPage-1)*bandHeight)와
-    // 정확히 같아 자리가 어긋나지 않는다 (checkGridTrackSums 참조).
+    // 반복 구간을 perPage번 배치하고 앞뒤의 고정 행을 유지한다.
+    // 전체 높이는 checkGridTrackSums에서 검증한 요소 높이와 같다.
     const band = templateHeights.slice(fromRow, toRow + 1);
     const rowHeights: number[] = [
       ...templateHeights.slice(0, fromRow),
@@ -614,13 +631,12 @@ class SlipToPdfmeConverter {
       ...templateHeights.slice(toRow + 1),
     ];
 
-    // 이어지는 페이지에서 헤더를 반복하지 않으면 그 자리를 비운다 — 그리드 크기는 그대로라
-    // 아래 요소의 자리가 흔들리지 않는다 (SPEC §5.7)
+    // repeatHeader가 false인 후속 페이지에서는 헤더 행의 공간만 유지한다 (SPEC §5.7).
     const hideHeader = renderPage > 0 && !repeatHeader;
     const blankRows = new Set<number>();
     if (hideHeader) for (let r = 0; r < fromRow; r++) blankRows.add(r);
 
-    // 위에서 아래 순서로 담는다 — 헤더 → 반복 구간 → 꼬리
+    // 헤더, 반복 구간, 꼬리 순서로 셀을 배치한다.
     const cells: DrawGridCell[] = [];
     if (!hideHeader) {
       for (const cell of element.cells) {
@@ -634,40 +650,40 @@ class SlipToPdfmeConverter {
     return { rowHeights, cells, blankRows };
   }
 
-  /** 반복 구간이 읽는 항목 배열 */
-  private repeatItems(element: GridElement, binding: string): Record<string, unknown>[] {
-    const raw = this.values[binding];
-    const what = `그리드 '${element.name}'(${element.id})`;
+  /** 반복 구간에 사용할 항목 배열을 읽는다. */
+  private repeatItems(element: GridElement, parameter: string): Record<string, unknown>[] {
+    const raw = this.values[parameter];
+    const what = rm(this.locale).subjectGrid(element.name, element.id);
     if (raw === undefined || raw === null) return [];
     if (!Array.isArray(raw)) {
-      throw new SlipRenderError(`${what}의 반복 값 '${binding}'은(는) 객체 배열이어야 합니다`);
+      throw new SlipRenderError(rm(this.locale).repeatNotArray(what, parameter));
     }
     return raw.map((row, index) => {
       if (typeof row !== 'object' || row === null || Array.isArray(row)) {
-        throw new SlipRenderError(`${what}의 ${index + 1}번째 항목은 객체여야 합니다`);
+        throw new SlipRenderError(rm(this.locale).repeatItemNotObject(what, index + 1));
       }
       return row as Record<string, unknown>;
     });
   }
 
-  /** 셀에 표시할 글 — 고정 문구 · 값 · 수식 중 하나 (SPEC §5.7) */
+  /** 직접 입력, 파라미터 또는 수식으로 셀의 표시 값을 만든다 (SPEC §5.7). */
   private gridCellText(
     element: GridElement,
     cell: GridCell,
     item: Record<string, unknown> | undefined,
   ): string {
-    const what = `그리드 '${element.name}'(${element.id})의 셀(${cell.row},${cell.column})`;
-    // 반복 구간 안에서는 그 항목의 필드가 이름 그대로 보인다 (같은 이름이면 항목이 우선)
+    const what = rm(this.locale).subjectGridCell(element.name, element.id, cell.row, cell.column);
+    // 반복 구간에서는 전표 값보다 현재 항목의 필드를 우선한다.
     const scope = item === undefined ? this.values : { ...this.values, ...item };
     if (cell.formula !== undefined) {
-      return toDisplayText(this.evaluate(cell.formula, scope, what), what);
+      return toDisplayText(this.evaluate(cell.formula, scope, what), what, this.locale);
     }
-    if (cell.binding !== undefined) return toDisplayText(scope[cell.binding], what);
+    if (cell.parameter !== undefined) return toDisplayText(scope[cell.parameter], what, this.locale);
     return cell.content ?? '';
   }
 
   // -------------------------------------------------------------------------
-  // 그리드 공통 그리기 — 배경·괘선·글자로 분해 (ADR-020/033/037)
+  // 그리드 렌더링
   // -------------------------------------------------------------------------
 
   private drawGrid(schemas: Schema[], grid: DrawGridOptions): void {
@@ -681,7 +697,7 @@ class SlipToPdfmeConverter {
     const lineStyle: BorderStyle = grid.borderStyle ?? 'solid';
     const blankRows = grid.blankRows ?? new Set<number>();
 
-    // 셀 유효 테두리 — 셀에 지정한 값이 요소 값보다 우선한다 (ADR-033, SPEC §5.2)
+    // 셀에 지정한 테두리 속성이 그리드 기본값보다 우선한다 (SPEC §5.2).
     const cellBorderOf = (index: number): GridEdgeBorder => {
       const cell = index >= 0 ? cells[index] : undefined;
       return {
@@ -690,8 +706,8 @@ class SlipToPdfmeConverter {
         style: cell?.borderStyle ?? lineStyle,
       };
     };
-    // 두 셀이 공유하는 변은 굵은 쪽 설정을 따른다 — 같으면 아래·오른쪽 셀
-    // (CSS border-collapse의 충돌 규칙과 같은 방향, ADR-033)
+    // 두 셀이 공유하는 경계에는 더 굵은 테두리를 적용한다. 굵기가 같으면 아래쪽 또는
+    // 오른쪽 셀의 설정을 사용한다.
     const edgeBorderOf = (front: number | null, back: number | null): GridEdgeBorder => {
       if (front === null) return cellBorderOf(back ?? -1);
       if (back === null) return cellBorderOf(front);
@@ -700,7 +716,7 @@ class SlipToPdfmeConverter {
       return b.width >= a.width ? b : a;
     };
 
-    // 셀 소유 그리드 (병합 반영). 값은 cells 배열의 인덱스, 빈 칸은 -1
+    // 각 좌표를 차지하는 셀의 인덱스를 기록한다. 빈 셀은 -1이다.
     const owner: number[][] = Array.from({ length: rows }, () => new Array<number>(columns).fill(-1));
     cells.forEach((cell, index) => {
       for (let r = cell.row; r < cell.row + cell.rowSpan; r++) {
@@ -711,7 +727,7 @@ class SlipToPdfmeConverter {
       }
     });
 
-    // 1) 요소 배경 → 사각형
+    // 1. 그리드 배경
     if (grid.backgroundColor !== undefined) {
       this.pushRectangle(
         schemas,
@@ -723,7 +739,7 @@ class SlipToPdfmeConverter {
       );
     }
 
-    // 2) 셀 배경 → 사각형 (병합 범위 전체)
+    // 2. 셀 배경. 병합된 셀은 전체 병합 범위에 적용한다.
     cells.forEach((cell, index) => {
       if (cell.backgroundColor === undefined) return;
       const rect = drawCellRect(cell, columnOffsets, rowOffsets, originX, originY);
@@ -737,16 +753,13 @@ class SlipToPdfmeConverter {
       );
     });
 
-    // 3) 그리드선 → 선. 병합 범위의 내부 경계선은 그리지 않고, 변마다 이웃 셀의
-    //    테두리 설정(굵은 쪽 우선)을 적용해 같은 스타일 구간끼리 이어 그린다 (ADR-033).
-    //    가로선(행 경계)과 세로선(열 경계)은 축만 뒤바뀔 뿐 루프 구조가 같아 한 헬퍼로 그린다.
-    //    두 축의 차이는 `GridLineAxis` 콜백에 드러나 있다 — 특히 빈 행 처리가 다르다:
-    //    가로선은 빈 행에 둘러싸인 줄 전체를 지우고(skipLine), 세로선은 빈 행에서 구간을 끊는다(breakAt).
+    // 3. 그리드선. 병합 범위 안쪽의 경계는 생략하고 같은 스타일의 연속 구간을 한 선으로
+    //    그린다. 가로선과 세로선의 축별 동작은 GridLineAxis에서 정의한다.
     this.drawGridLines({
       lines: rows,
       cells: columns,
       idPrefix: `${grid.idPrefix}__h`,
-      // 비운 행에 둘러싸인 가로선은 그리지 않는다 (헤더 미반복, SPEC §5.7)
+      // 헤더를 생략한 빈 행 내부의 가로선은 그리지 않는다 (SPEC §5.7).
       skipLine: (r) =>
         (blankRows.has(r - 1) && blankRows.has(r)) ||
         (r === 0 && blankRows.has(0)) ||
@@ -773,7 +786,7 @@ class SlipToPdfmeConverter {
       lines: columns,
       cells: rows,
       idPrefix: `${grid.idPrefix}__v`,
-      // 비운 행에서 세로선 구간을 끊는다 (해당 칸에는 세로선을 긋지 않는다)
+      // 헤더를 생략한 빈 행에서는 세로선 구간을 나눈다.
       breakAt: (r) => blankRows.has(r),
       neighbors: (c, r) => [
         c > 0 ? (owner[r]?.[c - 1] ?? -1) : null,
@@ -794,7 +807,7 @@ class SlipToPdfmeConverter {
       },
     }, edgeBorderOf, schemas);
 
-    // 4) 셀 문구 → 텍스트
+    // 4. 셀 텍스트
     cells.forEach((cell, index) => {
       if (cell.text === '') return;
       const rect = drawCellRect(cell, columnOffsets, rowOffsets, originX, originY);
@@ -823,14 +836,13 @@ class SlipToPdfmeConverter {
       );
       let value = stackVertically(cell.text, cell.vertical);
       if (overflow === 'shrink') {
-        // 칸에 들어갈 때까지 글자 크기를 줄인다 — 하부 엔진이 세로 기준으로 맞춘다
+        // 셀 높이에 맞을 때까지 글자 크기를 줄인다.
         schema.dynamicFontSize = { min: MIN_SHRINK_FONT_SIZE, max: fontSize, fit: 'vertical' };
       } else if (overflow === 'clip') {
         value = this.clipToBox(value, rect.width - padding * 2, rect.height - padding * 2, {
           fontName: schema.fontName as string | undefined,
           fontSize,
-          // 실제 렌더에 쓰는 자간·줄간격으로 재야 잘라낼 줄 수가 맞는다 (그러지 않으면
-          // 넘칠 부분이 남거나 과하게 잘린다)
+          // 실제 렌더링과 같은 자간과 줄 간격으로 표시 가능한 줄 수를 계산한다.
           characterSpacing: cell.characterSpacing,
           lineHeight: cell.lineHeight,
         });
@@ -840,11 +852,11 @@ class SlipToPdfmeConverter {
   }
 
   /**
-   * 한 축(가로/세로)의 그리드선을 그린다 — 병합 내부 경계는 건너뛰고, 같은 스타일 구간을
-   * 한 선으로 이어 그린다 (ADR-033). 가로·세로 패스가 축만 다르고 구조가 같아 공통화했다.
+   * 한 축의 그리드선을 그린다. 병합 내부의 경계를 생략하고 같은 스타일의 연속 구간을
+   * 하나의 선으로 만든다.
    *
-   * @param axis - 축 서술 (경계선 수·셀 수·빈 행 처리·이웃·선분 그리기)
-   * @param edgeBorderOf - 맞닿는 두 칸의 유효 테두리 (굵은 쪽 우선)
+   * @param axis - 축별 경계 수, 빈 행 처리 및 선분 생성 함수
+   * @param edgeBorderOf - 맞닿은 두 셀 중 적용할 테두리를 선택하는 함수
    * @param schemas - 선 스키마를 담을 배열
    */
   private drawGridLines(
@@ -880,7 +892,7 @@ class SlipToPdfmeConverter {
     }
   }
 
-  /** 칸 높이를 넘는 줄을 잘라낸다. 잴 수 없으면 그대로 둔다 (ADR-037) */
+  /** 셀 높이를 초과하는 줄을 제거한다. 높이를 측정할 수 없으면 원문을 반환한다. */
   private clipToBox(
     text: string,
     widthMm: number,
@@ -900,7 +912,7 @@ class SlipToPdfmeConverter {
   }
 
   // -------------------------------------------------------------------------
-  // image · shape
+// 이미지와 도형
   // -------------------------------------------------------------------------
 
   private appendImage(schemas: Schema[], element: ImageElement): void {
@@ -917,39 +929,36 @@ class SlipToPdfmeConverter {
   }
 
   /**
-   * src 해소 (§3.1): data:는 그대로, asset://은 문서 assets에서, 외부 URL은 거부 (ADR-014).
-   * `binding`을 쓰는 변동 이미지는 전표 값에서 base64를 읽는다 (0.5.0, ADR-036).
+   * 이미지 소스를 해석한다. `data:` URL은 그대로 사용하고 `asset://` 참조는 문서의
+   * 에셋에서 찾는다. 외부 URL은 렌더링하지 않으며 변동 이미지는 전표 값의 base64 데이터를
+   * 사용한다 (SPEC §3.1).
    */
   private resolveImageSrc(element: ImageElement): string {
-    const what = `이미지 '${element.name}'(${element.id})`;
-    const src = element.binding !== undefined
-      ? this.boundImageSrc(element, element.binding, what)
+    const what = rm(this.locale).subjectImage(element.name, element.id);
+    const src = element.parameter !== undefined
+      ? this.boundImageSrc(element, element.parameter, what)
       : element.src;
     if (src === undefined) {
-      throw new SlipRenderError(`${what}에 그릴 이미지가 없습니다 (src 또는 binding 필요)`);
+      throw new SlipRenderError(rm(this.locale).noImageSource(what));
     }
     if (src.startsWith('data:')) return src;
     if (src.startsWith('asset://')) {
       const assetId = src.slice('asset://'.length);
       const asset = this.body.assets.find((entry) => entry.id === assetId);
       if (!asset) {
-        throw new SlipRenderError(`${what}가 참조하는 에셋을 찾을 수 없습니다: ${assetId}`);
+        throw new SlipRenderError(rm(this.locale).missingAsset(what, assetId));
       }
       if (!asset.src.startsWith('data:')) {
-        throw new SlipRenderError(
-          `${what}가 참조하는 에셋 '${assetId}'이(가) 파일에 내장되어 있지 않습니다 (data: base64 필요)`,
-        );
+        throw new SlipRenderError(rm(this.locale).assetNotEmbedded(what, assetId));
       }
       return asset.src;
     }
-    throw new SlipRenderError(
-      `${what}는 외부 URL(${src})을 참조합니다. PDF로 출력하려면 이미지를 파일에 내장(data: base64 또는 asset://)해야 합니다`,
-    );
+    throw new SlipRenderError(rm(this.locale).externalUrl(what, src));
   }
 
   /**
-   * 바코드 요소 (0.5.0) — 하부 엔진의 바코드 스키마로 넘긴다.
-   * 값 규칙(EAN-13은 숫자 13자리 등)은 엔진이 검사하며, 어긋나면 렌더가 실패한다.
+   * 바코드 요소를 pdfme 바코드 스키마로 변환한다.
+   * 바코드 종류별 값 형식은 pdfme가 검증한다.
    */
   private appendBarcode(schemas: Schema[], element: BarcodeElement): void {
     const schema: Schema = {
@@ -965,46 +974,46 @@ class SlipToPdfmeConverter {
     this.push(schemas, schema, this.barcodeValue(element));
   }
 
-  /** 바코드에 넣을 값 — 고정 문구·전표 값·수식 중 하나 (0.5.0) */
+  /** 직접 입력, 전표 값 또는 수식으로 바코드 값을 만든다. */
   private barcodeValue(element: BarcodeElement): string {
-    const what = `바코드 '${element.name}'(${element.id})`;
+    const what = rm(this.locale).subjectBarcode(element.name, element.id);
     if (element.content !== undefined) return element.content;
     if (element.formula !== undefined) {
-      return toDisplayText(this.evaluate(element.formula, this.values, what), what);
+      return toDisplayText(this.evaluate(element.formula, this.values, what), what, this.locale);
     }
-    if (element.binding !== undefined) return toDisplayText(this.values[element.binding], what);
+    if (element.parameter !== undefined) {
+      return toDisplayText(this.values[element.parameter], what, this.locale);
+    }
     return '';
   }
 
   /**
-   * 변동 이미지의 값 읽기 (0.5.0) — 전표 값에서 base64를 꺼낸다.
+   * 전표 값에서 변동 이미지의 base64 데이터를 읽는다.
    *
    * @param element - 이미지 요소
-   * @param binding - 값 키
+   * @param parameter - 값 키
    * @param what - 오류 문구에 쓸 요소 이름
-   * @returns `data:` base64 문자열. 값이 없으면 `undefined`(빈 자리로 둔다)
+   * @returns `data:` base64 문자열. 값이 없으면 `undefined`
    * @throws SlipRenderError 값이 문자열이 아니거나 base64가 아닐 때
    */
   private boundImageSrc(
     element: ImageElement,
-    binding: string,
+    parameter: string,
     what: string,
   ): string | undefined {
-    const value = this.values[binding];
+    const value = this.values[parameter];
     if (value === undefined || value === null || value === '') return undefined;
     if (typeof value !== 'string') {
-      throw new SlipRenderError(`${what}의 값 '${binding}'은 이미지 문자열이어야 합니다`);
+      throw new SlipRenderError(rm(this.locale).imageValueNotString(what, parameter));
     }
     if (!value.startsWith('data:')) {
-      // core는 네트워크를 쓰지 않는다 (ADR-002) — 주소는 호스트가 base64로 바꿔 보낸다 (ADR-036)
-      throw new SlipRenderError(
-        `${what}의 값 '${binding}'은 data: base64여야 합니다 (주소는 호스트가 내장해 보내야 합니다)`,
-      );
+      // core는 외부 URL을 읽지 않으므로 호스트가 이미지를 base64로 변환해야 한다.
+      throw new SlipRenderError(rm(this.locale).imageValueNotData(what, parameter));
     }
     return value;
   }
 
-  /** 사각형 요소 — 파선·점선이면 배경 사각형 + 네 변을 분해한 선으로 (ADR-032) */
+  /** 사각형 요소를 렌더링한다. 파선과 점선 테두리는 여러 선분으로 나눈다. */
   private appendRect(schemas: Schema[], element: RectElement): void {
     const borderWidth = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
     const borderColor = element.borderColor ?? DEFAULT_BORDER_COLOR;
@@ -1038,7 +1047,7 @@ class SlipToPdfmeConverter {
     );
   }
 
-  /** 타원 요소 — 곡선 테두리는 파선 분해가 불가능해 실선 고정 (ADR-032) */
+  /** 실선 테두리를 사용하는 타원 요소를 렌더링한다. */
   private appendEllipse(schemas: Schema[], element: EllipseElement): void {
     this.push(
       schemas,
@@ -1058,7 +1067,7 @@ class SlipToPdfmeConverter {
     );
   }
 
-  /** 선 요소 — lineDirection대로 수평·수직·대각선을 그린다 (ADR-032) */
+  /** `lineDirection`에 따라 수평선, 수직선 또는 대각선을 렌더링한다. */
   private appendLine(schemas: Schema[], element: LineElement): void {
     const thickness = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
     const color = element.borderColor ?? DEFAULT_BORDER_COLOR;
@@ -1088,7 +1097,7 @@ class SlipToPdfmeConverter {
       );
       return;
     }
-    // 대각선 — 상자의 두 모서리를 잇는다. down = 좌상→우하, up = 좌하→우상
+    // 대각선은 요소 영역의 두 모서리를 잇는다.
     const w = element.width;
     const h = element.height;
     const length = Math.hypot(w, h);
@@ -1108,7 +1117,7 @@ class SlipToPdfmeConverter {
       );
       return;
     }
-    // 파선·점선 — 대각선 방향 단위벡터를 따라 짧은 선분으로 분해
+    // 파선과 점선은 진행 방향을 따라 여러 선분으로 나눈다.
     const pattern = DASH_PATTERNS[style];
     const ux = w / length;
     const uy = (direction === 'down' ? h : -h) / length;
@@ -1133,7 +1142,7 @@ class SlipToPdfmeConverter {
     }
   }
 
-  /** 중심(cx,cy)·길이·기울기(도)로 회전된 선분 하나를 추가한다 (회전 기준 = 상자 중심) */
+  /** 중심점, 길이, 각도로 회전한 선분을 추가한다. */
   private pushRotatedSegment(
     schemas: Schema[],
     name: string,
@@ -1160,7 +1169,7 @@ class SlipToPdfmeConverter {
     );
   }
 
-  /** 정다각형 — svg 폴리곤으로 그린다 (첫 꼭짓점 위쪽, 상자에 내접, ADR-032) */
+  /** 요소 영역에 내접하고 첫 꼭짓점이 위를 향하는 SVG 정다각형을 만든다. */
   private appendPolygon(schemas: Schema[], element: PolygonElement): void {
     const borderWidth = element.borderWidth ?? DEFAULT_BORDER_WIDTH;
     const borderColor = element.borderColor ?? DEFAULT_BORDER_COLOR;
@@ -1170,7 +1179,7 @@ class SlipToPdfmeConverter {
     const points = polygonPoints(element.sides, w, h)
       .map(([x, y]) => `${round3(x)},${round3(y)}`)
       .join(' ');
-    // viewBox를 mm 크기 그대로 두어 stroke-width가 mm 단위로 일치한다
+    // viewBox 크기를 mm와 일치시켜 stroke-width에도 같은 단위를 적용한다.
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">` +
       `<polygon points="${points}" fill="${fill}" ` +
@@ -1192,7 +1201,7 @@ class SlipToPdfmeConverter {
   }
 
   // -------------------------------------------------------------------------
-  // 도형 스키마 생성 헬퍼
+  // 도형 스키마 생성 함수
   // -------------------------------------------------------------------------
 
   private pushLine(
@@ -1212,7 +1221,7 @@ class SlipToPdfmeConverter {
       );
       return;
     }
-    // 파선·점선 — 진행 방향(긴 쪽)을 따라 짧은 선분으로 분해한다 (ADR-032)
+    // 파선과 점선은 긴 변의 방향을 따라 여러 선분으로 나눈다.
     const pattern = DASH_PATTERNS[style];
     const horizontal = width >= height;
     const length = horizontal ? width : height;
@@ -1272,14 +1281,14 @@ class SlipToPdfmeConverter {
 }
 
 
-/** 좌표를 0.001 단위로 반올림 — svg 문자열이 불필요하게 길어지지 않게 */
+/** SVG 좌표를 소수점 셋째 자리로 반올림한다. */
 function round3(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
 
 /**
- * 정다각형 꼭짓점 좌표(첫 꼭짓점 위쪽) — 단위원 위의 점을 상자(width×height)에
- * 꽉 차게 정규화한다. 삼각형(sides 3)이면 (w/2,0)·(w,h)·(0,h)가 된다.
+ * 첫 꼭짓점이 위를 향하는 정다각형 좌표를 계산한다.
+ * 단위원의 점을 지정한 너비와 높이에 맞게 정규화한다.
  */
 function polygonPoints(sides: number, width: number, height: number): [number, number][] {
   const raw: [number, number][] = Array.from({ length: sides }, (_, index) => {
@@ -1298,10 +1307,10 @@ function polygonPoints(sides: number, width: number, height: number): [number, n
 }
 
 // ---------------------------------------------------------------------------
-// 그리드 계산 헬퍼
+// 그리드 계산 함수
 // ---------------------------------------------------------------------------
 
-/** 그리드 그리기에 넘기는 셀 하나 — 값·스타일이 이미 풀린 상태다 (ADR-037) */
+/** 값과 상속된 스타일을 적용한 렌더링용 그리드 셀. */
 interface DrawGridCell {
   row: number;
   column: number;
@@ -1315,11 +1324,11 @@ interface DrawGridCell {
   italic?: boolean | undefined;
   underline?: boolean | undefined;
   strikethrough?: boolean | undefined;
-  /** 수직 정렬 — 지정하지 않으면 칸 가운데 (0.5.0) */
+  /** 수직 정렬. 기본값은 가운데다. */
   verticalAlignment?: VerticalAlignment | undefined;
   lineHeight?: number | undefined;
   characterSpacing?: number | undefined;
-  /** 세로쓰기 (0.5.0) */
+  /** 세로쓰기 */
   vertical?: boolean | undefined;
   fontColor?: string | undefined;
   backgroundColor?: string | undefined;
@@ -1333,7 +1342,7 @@ interface DrawGridCell {
 interface DrawGridOptions {
   idPrefix: string;
   origin: { x: number; y: number };
-  /** 누적 오프셋(mm) — 길이는 트랙 수 + 1 */
+  /** 누적 오프셋(mm). 길이는 트랙 수보다 하나 많다. */
   columnOffsets: number[];
   rowOffsets: number[];
   rows: number;
@@ -1345,13 +1354,13 @@ interface DrawGridOptions {
   borderStyle?: BorderStyle | undefined;
   /** 셀 안쪽 여백(mm) */
   padding: number;
-  /** 그리지 않고 비우는 행 (헤더 미반복, SPEC §5.7) */
+  /** 내용을 렌더링하지 않을 행 (SPEC §5.7) */
   blankRows?: Set<number>;
-  /** 칸을 넘치는 글의 기본 처리 */
+  /** 셀을 넘치는 글의 기본 처리 */
   overflow?: 'clip' | 'shrink' | undefined;
 }
 
-/** 트랙 크기 배열 → 누적 오프셋 (길이 = 트랙 수 + 1) */
+/** 트랙 크기 배열을 누적 오프셋 배열로 변환한다. */
 function cumulative(sizes: readonly number[]): number[] {
   const offsets = [0];
   for (const size of sizes) offsets.push((offsets[offsets.length - 1] ?? 0) + size);
@@ -1372,7 +1381,7 @@ function drawCellRect(
   return { x: originX + left, y: originY + top, width: right - left, height: bottom - top };
 }
 
-/** 그리드 한 변에 적용되는 유효 테두리 (셀 값 ?? 요소 값, ADR-033) */
+/** 셀 설정과 그리드 기본값을 반영한 테두리 설정. */
 interface GridEdgeBorder {
   width: number;
   color: string;
@@ -1380,23 +1389,22 @@ interface GridEdgeBorder {
 }
 
 /**
- * 그리드선 한 축(가로 또는 세로)의 서술 — `drawGridLines`가 공통 루프에 끼워 쓴다.
- * 가로선은 `lines`=행 경계, `cells`=열이고 세로선은 그 반대다. 두 축의 차이는 이 콜백에 드러난다.
+ * `drawGridLines`에서 사용하는 가로축 또는 세로축의 동작 정의.
  */
 interface GridLineAxis {
-  /** 그릴 경계선 수 (0..lines) — 가로선이면 rows, 세로선이면 columns */
+  /** 그릴 경계선 수 */
   lines: number;
-  /** 한 경계선을 훑을 셀 수 — 가로선이면 columns, 세로선이면 rows */
+  /** 경계선 하나에 포함되는 셀 수 */
   cells: number;
-  /** 선 id 접두사 (`..._h` / `..._v`) */
+  /** 선 ID 접두사 */
   idPrefix: string;
-  /** 이 경계선(line) 전체를 건너뛸지 — 가로선의 빈 행 가장자리 처리 (없으면 안 건너뜀) */
+  /** 경계선 전체를 생략할지 결정하는 함수 */
   skipLine?: (line: number) => boolean;
-  /** 이 셀 위치(cell)에서 구간을 끊을지 — 세로선의 빈 행 처리 (없으면 안 끊음) */
+  /** 현재 셀 위치에서 선분을 나눌지 결정하는 함수 */
   breakAt?: (cell: number) => boolean;
-  /** 경계선(line)의 셀(cell) 위치에서 맞닿는 두 칸의 소유자 인덱스 `[앞, 뒤]` (범위 밖은 null) */
+  /** 경계에서 맞닿는 두 셀의 소유자 인덱스를 반환하는 함수 */
   neighbors: (line: number, cell: number) => [number | null, number | null];
-  /** 경계선(line)의 [start, endExclusive) 구간을 border로 한 선분으로 그린다 */
+  /** 지정한 범위를 하나의 선분으로 그리는 함수 */
   emit: (
     schemas: Schema[],
     id: string,
@@ -1407,24 +1415,22 @@ interface GridLineAxis {
   ) => void;
 }
 
-/** 두 변 테두리가 같은 스타일인지 — 같은 구간끼리 한 선으로 이어 그리기 위함 */
+/** 두 테두리 설정이 같은지 비교한다. */
 function sameGridBorder(a: GridEdgeBorder, b: GridEdgeBorder): boolean {
   return a.width === b.width && a.color === b.color && a.style === b.style;
 }
 
 // ---------------------------------------------------------------------------
-// 진입점
+// 공개 변환 함수
 // ---------------------------------------------------------------------------
 
 /**
- * `.slip` 파일을 pdfme 템플릿 + 입력값으로 변환한다.
- * 양식 파일은 값이 빈 상태로, 전표 파일은 스냅샷 + values로 변환된다 (ADR-008).
+ * `.slip` 파일을 pdfme 템플릿과 입력값으로 변환한다.
+ * 양식은 빈 입력값을 사용하고 전표는 양식 스냅샷과 `values`를 사용한다.
  *
- * @param file - 변환할 .slip 파일
- * @param options - `locale`: 수식 포맷 함수 로케일 · `fontNames`: 렌더 옵션의 폰트 이름
- *   목록(굵게 폰트 탐색용) · `fallbackFontName`: 대체 폰트 이름 · `fonts`: 폰트 데이터
- *   (칸을 넘치는 글을 잘라낼 때 글자를 재는 데 쓴다, ADR-037)
- * @returns pdfme `generate()`에 넘길 템플릿과 입력값
+ * @param file - 변환할 `.slip` 파일
+ * @param options - 로케일, 사용 가능한 폰트 이름, 대체 폰트 및 글자 측정용 폰트 데이터
+ * @returns pdfme `generate`에 넘길 템플릿과 입력값
  */
 export function convertSlipFile(
   file: SlipFile,
@@ -1436,10 +1442,9 @@ export function convertSlipFile(
   },
 ): PdfmeRenderInput {
   const body = file.kind === 'template' ? file.template : file.templateSnapshot;
-  // number 바인딩의 빈 값을 0으로 정규화한다 (ADR-044) — 값이 있는 전표에만 적용한다.
-  // 양식(값 없음)은 그대로 비워 둔다 — 빈 양식의 number 필드를 0으로 채우지 않는다.
+  // 전표의 빈 number 파라미터만 0으로 정규화한다. 값이 없는 양식에는 적용하지 않는다.
   const values: Record<string, unknown> =
-    file.kind === 'voucher' ? normalizeNumericBindings(file.values, body.bindings) : {};
+    file.kind === 'voucher' ? normalizeNumericParameters(file.values, body.parameters) : {};
   return new SlipToPdfmeConverter(
     body,
     values,

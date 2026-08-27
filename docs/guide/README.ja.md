@@ -1,285 +1,107 @@
-# SlipKit 利用ガイド
+# SlipKit ガイド
 
 [한국어](README.md) · [English](README.en.md)
 
-ホストアプリに SlipKit をインストールし、テンプレートデザイナー・伝票入力フォーム・ビューアーを組み込む方法を説明します。
+SlipKit を実行したり、既存のアプリケーションに接続したりするために必要なドキュメントを案内します。
 
-## 目次
+初めて使う場合は、[スタートガイド](getting-started.ja.md) でリポジトリのデモを実行し、テンプレートデザイナーを接続する流れから確認してください。
 
-1. [インストール](#1-インストール)
-2. [クイックスタート](#2-クイックスタート)
-3. [コンポーネント API](#3-コンポーネント-api)
-4. [イベント](#4-イベント)
-5. [ストレージアダプター](#5-ストレージアダプター)
-6. [フォント設定](#6-フォント設定)
-7. [言語設定](#7-言語設定)
+> [!IMPORTANT]
+> SlipKit は現在、公開前のレビュー段階であり、`@omdc-slipkit/*` パッケージはまだ npm レジストリに公開されていません。
+> 現在はリポジトリをクローンして、同梱デモとソースコードで確認できます。
 
-### 関連ドキュメント
+## 目的に合ったドキュメントを探す
 
-- **[Core API ガイド](core.md)** — パース・数式・PDF レンダリング・整合性・サーバー連携（Node.js 単独利用を含む）
-- **[数式関数リファレンス](formula.md)** — 組み込み関数 32 種の使い方・引数・例
-- **[主要型リファレンス](types.md)** — `SlipFile`、フォント、`SlipPreset`、`StorageAdapter`、`IntegrityJwk` など型ごとのフィールドと既定値
-- **[同梱フォント・プリセット](fonts-and-presets.md)** — 同梱フォント（Pretendard・Noto Sans JP）の詳細、フォント供給、同梱プリセット（取引明細書・請求書）の構成と言語処理
-
----
-
-## 1. インストール
-
-```bash
-# バニラ (Web Component を直接利用)
-npm install @omdc-slipkit/elements
-
-# React
-npm install @omdc-slipkit/react
-# peerDependency: react >= 19
-
-# Vue
-npm install @omdc-slipkit/vue
-# peerDependency: vue >= 3.4
-```
-
-`@omdc-slipkit/core` は elements・react・vue が依存しているため、別途インストールする必要はありません。
-サーバーで core のみ単独で使う場合（Node での PDF 生成など）だけ直接インストールします。
-
-```bash
-npm install @omdc-slipkit/core
-```
-
-## 2. クイックスタート
-
-### バニラ (Web Component)
-
-```html
-<script type="module">
-  import '@omdc-slipkit/elements';
-  import { serializeSlipFile } from '@omdc-slipkit/core';
-
-  const designer = document.querySelector('slip-designer');
-
-  // 変更検知
-  designer.addEventListener('slip-change', (e) => {
-    const file = e.detail.file;  // SlipFile オブジェクト
-    console.log('テンプレートが変更されました:', file);
-  });
-</script>
-
-<slip-designer src="{}"></slip-designer>
-```
-
-### React
-
-```tsx
-import { SlipDesigner, SlipForm, SlipViewer } from '@omdc-slipkit/react';
-import { serializeSlipFile, type SlipFile } from '@omdc-slipkit/core';
-
-function App() {
-  const [template, setTemplate] = useState(initialTemplate);
-
-  return (
-    <SlipDesigner
-      src={serializeSlipFile(template)}
-      onSlipChange={(file) => {
-        if (file.kind === 'template') setTemplate(file);
-      }}
-    />
-  );
-}
-```
-
-### Vue
-
-```vue
-<script setup lang="ts">
-import { SlipDesigner, SlipForm, SlipViewer } from '@omdc-slipkit/vue';
-import { serializeSlipFile, type SlipFile } from '@omdc-slipkit/core';
-import { shallowRef, computed } from 'vue';
-
-const template = shallowRef(initialTemplate());
-const src = computed(() => serializeSlipFile(template.value));
-
-function onDesignerChange(file: SlipFile) {
-  if (file.kind === 'template') template.value = file;
-}
-</script>
-
-<template>
-  <SlipDesigner :src="src" @slip-change="onDesignerChange" />
-</template>
-```
-
-> Vue で `slip-` 接頭辞をカスタム要素として認識するようビルド設定を追加すれば、ラッパーなしで
-> `<slip-designer>` を直接使えます。
-
-## 3. コンポーネント API
-
-### `<slip-designer>` — テンプレートデザイナー
-
-テンプレート（template）を視覚的に編集する GUI エディターです。
-
-| プロパティ | 型 | 説明 |
+| やりたいこと | ドキュメント | 対象 |
 |---|---|---|
-| `src` | `string` | `.slip` JSON 文字列 (template ファイル) |
-| `locale` | `'ko' \| 'en' \| 'ja'` | UI 言語 (既定: `'ko'`) |
-| `settings` | `SlipDesignerSettings` | フォント供給（`getFonts`）と用紙一覧の供給・保存（`getPaperSizes`/`savePaperSize`）。未指定の場合は言語に合わせた同梱フォントを使用 (ADR-040/042) |
-| `presets` | `SlipPreset[]` | プリセットメニューに使うテンプレート一覧 — 指定すると同梱プリセットの代わりに表示 |
-| `storage` | `StorageAdapter` | 「マイテンプレートの保存・読み込み」に使うストレージアダプター |
+| リポジトリから SlipKit を初めて実行してデザイナーを接続する | [スタートガイド](getting-started.ja.md) | 初めて使う開発者 |
+| デザイナー・作成フォーム・ビューアを接続して結果を保存する | [アプリケーション統合ガイド](integration.ja.md) | フロントエンド・アプリケーション開発者 |
+| デザイナー画面でテンプレートを作る | [テンプレートデザイナー利用ガイド](designer.ja.md) | テンプレート作成者 |
+| `.slip` ファイル処理、伝票の組み立てと PDF 生成を行う | [Core 利用ガイド](core.ja.md) | バックエンド・Core 開発者 |
+| Node.js サーバーで伝票を発行し PDF を生成・保管する | [サーバー統合ガイド](server-integration.ja.md) | バックエンド開発者 |
+| 言語、フォント、用紙、プリセットとストレージを設定する | [環境設定ガイド](configuration.ja.md) | アプリケーション開発者 |
+| テンプレートで計算式を書く | [数式関数リファレンス](formula.ja.md) | テンプレート作成者・開発者 |
+| 公開関数、型、コンポーネントとイベントを確認する | [API リファレンス](api-reference.ja.md) | 連携開発者 |
 
-| イベント | detail | 説明 |
-|---|---|---|
-| `slip-change` | `{ file: SlipFile }` | 編集でテンプレートが変更されるたびに発生 |
+> [!TIP]
+> はじめて使うなら、まず [スタートガイド](getting-started.ja.md) を進めてから、[アプリケーション統合ガイド](integration.ja.md) に進んでください。
+>
+> テンプレート作成だけを担当するなら [テンプレートデザイナー利用ガイド](designer.ja.md) を、UI なしで `.slip` ファイルと PDF を処理するなら [Core 利用ガイド](core.ja.md) をすぐに確認してもかまいません。
 
-### `<slip-form>` — 伝票入力フォーム
+## SlipKit の構成要素
 
-テンプレートに値を入力して発行する入力画面です。右側に入力済みの状態の PDF プレビューを表示します。
+SlipKit は、目的の異なる 3 つの UI コンポーネントを提供します。
 
-| プロパティ | 型 | 説明 |
-|---|---|---|
-| `src` | `string` | `.slip` JSON 文字列 (テンプレートまたは入力中の伝票) |
-| `locale` | `'ko' \| 'en' \| 'ja'` | UI 言語 (既定: `'ko'`) |
-| `settings` | `SlipFontProvider` | フォント供給（`getFonts`）。未指定の場合は言語に合わせた同梱フォントを使用 (ADR-040/042) |
-| `signingKey` | `IntegrityJwk` | 発行時の署名に使う ES256 秘密鍵 (JWK)。なければハッシュのみ記録 |
-
-| イベント | detail | 説明 |
-|---|---|---|
-| `slip-change` | `{ file: SlipFile }` | 値を入力するたびに入力中の伝票を送出 |
-| `slip-issue` | `{ file: SlipFile }` | 発行が完了すると整合性記録を含む伝票を送出 |
-
-### `<slip-viewer>` — ビューアー
-
-発行済みの伝票やテンプレートを PDF にレンダリングして表示する読み取り専用ビューアーです。
-
-| プロパティ | 型 | 説明 |
-|---|---|---|
-| `src` | `string` | `.slip` JSON 文字列 |
-| `locale` | `'ko' \| 'en' \| 'ja'` | UI 言語 (既定: `'ko'`) |
-| `settings` | `SlipFontProvider` | フォント供給（`getFonts`）。未指定の場合は言語に合わせた同梱フォントを使用 (ADR-040/042) |
-
-## 4. イベント
-
-コンポーネントが送るイベントは `CustomEvent` であり、`detail.file` に現在の `.slip` ファイルオブジェクトが入ります。
-**ホストアプリはこのイベントでコンポーネント内のデータを受け取ります** — コンポーネントが自ら保存しないため、
-イベントを受け取って保存しなければ編集内容は失われます。
-
-```ts
-// バニラ
-designer.addEventListener('slip-change', (e) => {
-  const file = e.detail.file;  // SlipFile
-});
-
-// React
-<SlipDesigner onSlipChange={(file) => { /* SlipFile */ }} />
-
-// Vue
-<SlipDesigner @slip-change="(file) => { /* SlipFile */ }" />
-```
-
-### イベントの種類と用途
-
-| イベント | 発生タイミング | ファイル種別 | ホストアプリが行うこと |
+| 構成要素 | 役割 | 入力 | 変更結果 |
 |---|---|---|---|
-| `slip-change` (デザイナー) | テンプレートを編集するたびに | `template` | テンプレートの自動保存、状態同期 |
-| `slip-change` (入力フォーム) | 伝票に値を入力するたびに | `voucher` | 入力中の伝票を一時保存 (リロード後に続きから入力) |
-| `slip-issue` (入力フォーム) | 発行ボタンを押すと | `voucher` (整合性記録を含む) | 発行済みの伝票をサーバーに保存 |
+| `<slip-designer>` | 文書テンプレートの設計 | テンプレート | 編集されたテンプレート |
+| `<slip-form>` | テンプレートへの値入力と伝票の発行 | テンプレートまたは作成中の伝票 | 作成中の伝票・発行された伝票 |
+| `<slip-viewer>` | テンプレートや伝票の閲覧 | テンプレートまたは伝票 | なし |
 
-### 活用例
+各コンポーネントは `.slip` ファイルを JSON 文字列として受け取ります。
 
-```ts
-// デザイナー: テンプレートが変わったらサーバーに保存
-designer.addEventListener('slip-change', (e) => {
-  const template = e.detail.file;
-  fetch('/api/templates/' + templateId, {
-    method: 'PUT',
-    body: serializeSlipFile(template),
-  });
-});
+- テンプレートは `kind: 'template'` です。
+- 伝票は `kind: 'voucher'` です。
+- 発行された伝票は `issued: true` であり、作成フォームでこれ以上編集できません。
 
-// 入力フォーム: 発行が終わったら伝票をサーバーにアップロードします
-form.addEventListener('slip-issue', (e) => {
-  const voucher = e.detail.file;
-  fetch('/api/vouchers', {
-    method: 'POST',
-    body: serializeSlipFile(voucher),
-  });
-});
-```
+> [!NOTE]
+> SlipKit は単独で動作するサービスではありません。
+> ユーザー認証、権限管理、データ保存、サーバー API、コンポーネント間の画面遷移は、SlipKit を利用するアプリケーションで実装します。
 
-## 5. ストレージアダプター
+## 利用の流れ
 
-`StorageAdapter` インターフェースを実装すると、「マイテンプレートの保存・読み込み」機能が使えます。
-elements パッケージにはブラウザ向けの実装が 2 種含まれています。
+一般的なアプリケーションでは、次の順序で SlipKit を使用します。
 
-### IndexedDB ストレージ
+1. `<slip-designer>` でテンプレートを作ります。
+2. 変更されたテンプレートをアプリケーションに保存します。
+3. 保存したテンプレートを `<slip-form>` に渡します。
+4. ユーザーが値を入力して伝票を発行します。
+5. 作成中または発行された伝票をアプリケーションに保存します。
+6. `<slip-viewer>` で保存したテンプレートまたは伝票を閲覧します。
 
-ブラウザの IndexedDB にテンプレートを保存します。タイトル・種別フィルターとカーソルページングをサポートします。
+編集結果はコンポーネントが自動的に永続保存しません。デザイナーと作成フォームが発するイベントをアプリケーションで受け取って保存する必要があります。
 
-```ts
-import { IndexedDbStorage } from '@omdc-slipkit/elements';
+## パッケージの選択
 
-const store = new IndexedDbStorage({ dbName: 'my-app-slips' });
-```
+利用する環境に応じて、次のパッケージを使用します。
 
-### ローカルファイルストレージ
+| パッケージ | 用途 |
+|---|---|
+| `@omdc-slipkit/core` | `.slip` ファイルの検証、伝票の組み立て、数式評価、PDF 生成、ファイル暗号化 |
+| `@omdc-slipkit/elements` | Web Component ベースのデザイナー・作成フォーム・ビューア |
+| `@omdc-slipkit/react` | React 向けラッパーコンポーネント |
+| `@omdc-slipkit/vue` | Vue 向けラッパーコンポーネント |
 
-保存はファイルのダウンロード、開くはファイル選択ダイアログで動作します。
+React と Vue のパッケージは、Web Component を各フレームワークの利用方法に合わせて接続する薄いラッパーです。提供する SlipKit 機能に違いはありません。
 
-```ts
-import { LocalFileStorage } from '@omdc-slipkit/elements';
+<details>
+<summary><strong>ガイドで使う用語</strong></summary>
 
-const localFile = new LocalFileStorage();
-await localFile.save('取引明細書.slip', file);  // ダウンロード
-const file = await localFile.load('');           // ファイル選択
-```
+| 用語 | 意味 |
+|---|---|
+| ホストアプリケーション | SlipKit をインストールして使う Web アプリケーション |
+| テンプレート | 文書のサイズ、配置、パラメータと数式を定義したファイル |
+| 伝票 | テンプレートに実際の値を入力したファイル |
+| 発行 | 作成した伝票の値を確定し、作成フォームでこれ以上編集できないようにする操作 |
+| パラメータ | 伝票ごとに異なる値をテンプレートから参照するための名前 |
+| テンプレートスナップショット | 伝票を作るときに伝票内に一緒に保存される、その時点のテンプレート |
+| ストレージアダプタ | テンプレートと伝票をブラウザまたはサーバーに保存するためのインターフェース |
 
-### 独自実装
+</details>
 
-サーバー API でテンプレートを管理したい場合は、`StorageAdapter` インターフェースを独自に実装します。
+## サンプルプロジェクト
 
-```ts
-import type { StorageAdapter } from '@omdc-slipkit/core';
+リポジトリには、同じ機能を異なる環境で実装した 3 つのデモが含まれています。
 
-const serverStorage: StorageAdapter = {
-  async save(key, file) { /* POST /api/slips */ },
-  async load(key) { /* GET /api/slips/:key */ },
-  async delete(key) { /* DELETE /api/slips/:key */ },
-  async list(options?) { /* GET /api/slips?title=...&cursor=... */ },
-};
-```
+| 環境 | 例 |
+|---|---|
+| Web Component | [`examples/demo`](../../examples/demo) |
+| React | [`examples/react-demo`](../../examples/react-demo) |
+| Vue | [`examples/vue-demo`](../../examples/vue-demo) |
+| フレームワーク共通ロジック | [`examples/shared`](../../examples/shared) |
 
-## 6. フォント設定
+自動保存、ファイルの読み込みとダウンロード、テンプレート・伝票の画面遷移のように SlipKit の外部で実装すべき機能は、[`examples/shared`](../../examples/shared) にまとめられています。
 
-SlipKit は言語ごとの既定フォントを同梱しています — 韓国語・英語は Pretendard、日本語は Noto Sans JP。
-`settings` を指定しなければ `locale` に合ったフォントが自動的に使われ、文字化けしません。
+## プロジェクト情報
 
-ホストがフォントを供給するには、`settings.getFonts` を実装して渡します（同期配列またはサーバー fetch の Promise）。
-
-```ts
-import pretendardFonts from '@omdc-slipkit/elements/fonts/pretendard';
-
-designer.settings = {
-  getFonts: () => [
-    ...pretendardFonts,
-    { name: 'NotoSans', data: notoSansArrayBuffer },
-  ],
-};
-```
-
-フォント供給インターフェースと同梱フォントの詳細は **[同梱フォント・プリセット](fonts-and-presets.md)** を参照してください。
-
-## 7. 言語設定
-
-UI 言語は `locale` プロパティで変更します。対応言語は韓国語（`'ko'`、既定）・英語（`'en'`）・日本語（`'ja'`）です。
-
-```html
-<slip-designer locale="ja"></slip-designer>
-```
-
-```tsx
-<SlipDesigner src={src} locale="ja" />
-```
-
-日本語（`'ja'`）は既定フォント（Noto Sans JP）を同梱しているため、言語を切り替えるだけでレンダリングされます — 太字やより広い文字
-範囲が必要な場合は `settings.getFonts` でフォントを供給します。
-
-数式関数の結果フォーマット（数値の桁区切りなど）もロケールに応じて変わります（`ja-JP` を含む）。
-
-サーバーで `.slip` ファイルを直接扱ったり PDF を生成したりする必要がある場合は、**[Core API ガイド](core.md)** を参照してください。
+パッケージ構成、ローカルでの実行方法、開発コマンド、技術ドキュメントとライセンスは、[プロジェクト README](../../README.ja.md) を確認してください。

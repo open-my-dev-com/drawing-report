@@ -21,12 +21,12 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
   격자(캔버스 모눈)처럼 헷갈리는 말의 구분, 용어를 바꿀 때 훑을 곳 목록
 - **패키지·문서별 상세 규칙**: `.claude/rules/core.md`(순수 TS·
   eval 금지·Zod 단일 원천·스키마 변경 체크리스트·pdfme 외부 비공개) · `ui-packages.md`(Lit·`slip-*`·
-  얇은 래퍼) · `docs.md`(ADR·SPEC 일관성) · `comments.md`(TSDoc 주석 표준, ADR-029)
+  얇은 래퍼) · `docs.md`(ADR·SPEC 일관성) · `comments.md`(TSDoc 주석 표준, ADR-029/059)
 
 ## 문서 규칙
 
-- 새 설계 결정 → `docs/DECISIONS.md`에 ADR 추가. 기존 결정 번복은 삭제하지 않고
-  `Superseded by ADR-xxx` 표시 후 새 ADR 추가.
+- 새 설계 결정 → `docs/DECISIONS.md`에 ADR 추가. 기존 결정 번복은 삭제하지 않고 후속 ADR로 갈음한다.
+  ADR 번호는 안정 식별자라 재사용하지 않는다(상세·릴리스 정리 예외는 `.claude/rules/docs.md`).
 - `docs/REQUIREMENTS.md`는 항상 DECISIONS.md와 일치하도록 함께 갱신한다.
 - 새 쟁점은 임의로 결정하지 말고 `docs/OPEN-QUESTIONS.md`에 다음 Q 번호로 추가하고 사용자에게 확인한다.
 - 작업 완료 시 `docs/ROADMAP.md`의 현재 상태·다음 작업을 갱신한다.
@@ -60,7 +60,8 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
 
 ## 언어
 
-- 문서·커밋 메시지·사용자 대면 오류 메시지는 한국어, 코드 식별자는 영어.
+- 문서·커밋 메시지는 한국어, 코드 식별자는 영어. 사용자 대면 메시지(오류·UI 문구)는
+  언어별 사전(영어 기본, 한국어·일본어)으로 관리하고 소스에 특정 언어의 문구를 직접 작성하지 않는다 (ADR-060).
 - 어색한 한자어·번역투를 쓰지 않는다 — 한국 개발자가 실제로 쓰는 단어를 택한다.
   - "정합(하다)"보다 "일치한다", "부합한다", "어긋나지 않는다" 등을 쓴다.
   - "은닉"보다 "외부 비공개", "외부에 공개하지 않는" 등을 쓴다.

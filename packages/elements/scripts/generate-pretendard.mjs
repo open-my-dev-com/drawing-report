@@ -1,7 +1,7 @@
 /**
- * 동봉 폰트 데이터(src/fonts/pretendard-data.ts) 재생성 스크립트.
+ * 동봉 폰트 데이터(`src/fonts/pretendard-data.ts`)를 재생성한다.
  *
- * npm의 pretendard 패키지에서 OTF 2종(Regular·Bold)을 받아 base64 모듈로 굽는다.
+ * npm의 pretendard 패키지에서 Regular와 Bold OTF를 받아 base64 모듈로 변환한다.
  * 폰트 버전을 올릴 때 VERSION만 바꿔 실행한다:
  *   node scripts/generate-pretendard.mjs
  */

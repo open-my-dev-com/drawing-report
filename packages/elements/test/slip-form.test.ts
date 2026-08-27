@@ -1,9 +1,8 @@
 // @vitest-environment happy-dom
 /**
- * `<slip-form>` 전표 작성폼 테스트 (D-14).
+ * `<slip-form>` 전표 작성 폼 테스트.
  *
- * PDF 렌더만 모의하고 파싱·수식·무결성은 실제 core 구현을 쓴다 —
- * 발행 규칙·해시 기록이 실제로 지켜지는지 확인하기 위함.
+ * PDF 렌더링만 모의하고 파싱과 수식에는 core의 실제 구현을 사용한다.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
@@ -21,12 +20,14 @@ import {
   CURRENT_SCHEMA_VERSION,
   renderSlipToPdf,
   serializeSlipFile,
-  verifyIntegrity,
   type SlipTemplateFile,
   type SlipVoucherFile,
 } from '@omdc-slipkit/core';
 import { SlipForm } from '../src/slip-form.js';
-import { strings } from '../src/strings.js';
+import { getStrings } from '../src/strings.js';
+
+// 기본 영어 문구를 기준으로 화면을 확인한다.
+const strings = getStrings();
 
 const renderSlipToPdfMock = vi.mocked(renderSlipToPdf);
 const DUMMY_PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
@@ -39,7 +40,7 @@ function makeTemplate(withExternalImage = false): SlipTemplateFile {
   const elements: SlipTemplateFile['template']['pages'][number]['elements'] = [
     {
       type: 'field', id: 'f-date', name: '날짜 필드',
-      position: { x: 15, y: 20 }, width: 60, height: 8, binding: 'tradeDate',
+      position: { x: 15, y: 20 }, width: 60, height: 8, parameter: 'tradeDate',
     },
     {
       type: 'grid', id: 't-items', name: '품목 표',
@@ -49,15 +50,15 @@ function makeTemplate(withExternalImage = false): SlipTemplateFile {
       cells: [
         { row: 0, column: 0, content: '품명' },
         { row: 0, column: 1, content: '금액' },
-        { row: 1, column: 0, binding: 'itemName' },
-        { row: 1, column: 1, binding: 'amount' },
+        { row: 1, column: 0, parameter: 'itemName' },
+        { row: 1, column: 1, parameter: 'amount' },
       ],
-      repeat: { binding: 'items', fromRow: 1, toRow: 1, perPage: 4, repeatHeader: true },
+      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 4, repeatHeader: true },
     },
     {
       type: 'field', id: 'f-total', name: '합계 필드',
       position: { x: 140, y: 100 }, width: 55, height: 8,
-      binding: 'totalAmount', formula: 'SUM(items.amount)',
+      formula: 'SUM(items.amount)',
     },
   ];
   if (withExternalImage) {
@@ -75,7 +76,7 @@ function makeTemplate(withExternalImage = false): SlipTemplateFile {
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
       pages: [{ elements }],
       assets: [],
-      bindings: [
+      parameters: [
         { key: 'tradeDate', label: '거래일자' },
         { key: 'items', label: '품목' },
         { key: 'totalAmount', label: '합계금액' },
@@ -101,8 +102,7 @@ function flush(): Promise<void> {
 }
 
 /**
- * 조건이 참이 될 때까지 기다린다 — 발행(해시 계산)·미리보기(디바운스)는 비동기라
- * 고정 시간 대기로는 부하가 걸린 실행에서 흔들린다.
+ * 발행과 디바운스된 미리보기 상태가 반영될 때까지 조건을 반복해서 확인한다.
  */
 async function waitFor(predicate: () => boolean, timeoutMs = 5000): Promise<void> {
   const started = Date.now();
@@ -163,11 +163,11 @@ describe('<slip-form> 기본 상태', () => {
 });
 
 describe('<slip-form> 입력 칸 구성', () => {
-  it('바인딩마다 입력 칸을 만들고 논리명으로 보여준다 (정의부에만 있는 값 포함)', async () => {
+  it('파라미터마다 입력 칸을 만들고 논리명으로 보여준다 (정의부에만 있는 값 포함)', async () => {
     const el = await mount();
     expect(inputByLabel(el, '거래일자')).toBeTruthy();
-    expect(inputByLabel(el, '비고')).toBeTruthy(); // 요소 없이 정의부에만 있는 바인딩
-    // 반복 구간이 쓰는 값은 그리드 헤더에 적힌 이름으로 열이 나온다
+    expect(inputByLabel(el, '비고')).toBeTruthy(); // 요소 없이 정의부에만 있는 파라미터
+    // 반복 입력의 열 이름은 같은 그리드 열의 헤더에서 가져온다.
     const titles = Array.from(el.shadowRoot!.querySelectorAll('.col-title')).map((s) => s.textContent);
     expect(titles).toEqual(['품명', '금액']);
     el.remove();
@@ -175,7 +175,7 @@ describe('<slip-form> 입력 칸 구성', () => {
 
   it('수식 필드는 입력받지 않고 계산 결과만 보여준다', async () => {
     const el = await mount();
-    const computed = inputByLabel(el, `합계금액 (${strings.form.computed})`);
+    const computed = inputByLabel(el, `합계 필드 (${strings.form.computed})`);
     expect(computed.disabled).toBe(true);
     el.remove();
   });
@@ -227,7 +227,7 @@ describe('<slip-form> 값 입력·행 편집', () => {
 
   it('행 값이 바뀌면 수식 칸이 즉시 다시 계산된다', async () => {
     const el = await mount();
-    const total = () => inputByLabel(el, `합계금액 (${strings.form.computed})`).value;
+    const total = () => inputByLabel(el, `합계 필드 (${strings.form.computed})`).value;
     expect(total()).toBe('0');
 
     buttonByLabel(el, `품목 ${strings.form.addRow}`).click();
@@ -256,7 +256,7 @@ describe('<slip-form> 값 입력·행 편집', () => {
 });
 
 describe('<slip-form> 발행', () => {
-  it('발행하면 해시를 기록한 전표를 slip-issue로 내보내고 폼이 잠긴다', async () => {
+  it('발행하면 확정·잠긴 전표를 slip-issue로 내보내고 폼이 잠긴다', async () => {
     const el = await mount();
     const issued: SlipVoucherFile[] = [];
     el.addEventListener('slip-issue', (e) => {
@@ -272,12 +272,8 @@ describe('<slip-form> 발행', () => {
     expect(issued.length).toBe(1);
     const file = issued[0]!;
     expect(file.issued).toBe(true);
-    expect(file.integrity?.contentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(file.values.tradeDate).toBe('2026-08-20');
-    // 기록된 해시는 실제로 검증을 통과한다 (SPEC §8)
-    await expect(verifyIntegrity(file)).resolves.toBeUndefined();
 
-    // 폼은 잠기고 발행 표시가 나온다
     expect(el.shadowRoot?.textContent).toContain(strings.form.issued);
     expect(inputByLabel(el, '거래일자').disabled).toBe(true);
     expect(el.shadowRoot?.textContent).toContain(strings.form.issuedNotice);
@@ -326,7 +322,7 @@ describe('<slip-form> 미리보기', () => {
     setInput(inputByLabel(el, '거래일자'), '2026-08-20');
     await el.updateComplete;
 
-    // 디바운스 뒤 한 번만 렌더된다
+    // 연속 입력은 디바운스되어 한 번만 렌더링된다.
     await waitFor(() => renderSlipToPdfMock.mock.calls.length > 0);
     await waitFor(() => el.shadowRoot?.querySelector('iframe') !== null);
     await el.updateComplete;
@@ -353,7 +349,7 @@ describe('<slip-form> UI 언어', () => {
 const SAMPLE_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
-/** 변동 이미지 요소가 있는 양식 (G-47) */
+/** 이미지 파라미터를 사용하는 양식. */
 function makeImageTemplate(): SlipTemplateFile {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -364,23 +360,22 @@ function makeImageTemplate(): SlipTemplateFile {
       pages: [{
         elements: [{
           type: 'image', id: 'img-stamp', name: '도장',
-          position: { x: 150, y: 15 }, width: 30, height: 30, binding: 'stamp',
+          position: { x: 150, y: 15 }, width: 30, height: 30, parameter: 'stamp',
         }],
       }],
       assets: [],
-      bindings: [{ key: 'stamp', label: '도장 이미지', valueType: 'image' }],
+      parameters: [{ key: 'stamp', label: '도장 이미지', valueType: 'image' }],
     },
   };
 }
 
 describe('<slip-form> 변동 이미지 (G-47)', () => {
-  it('변동 이미지 바인딩에 이미지 업로드 입력을 낸다', async () => {
+  it('변동 이미지 파라미터에 이미지 업로드 입력을 낸다', async () => {
     const el = await mount(makeImageTemplate());
-    // 텍스트 입력이 아니라 업로드 버튼과 "선택된 이미지 없음" 안내가 나온다
+    // 이미지 파라미터에는 텍스트 입력 대신 파일 선택 UI를 표시한다.
     const pick = buttonByLabel(el, `도장 이미지 ${strings.form.imageUpload}`);
     expect(pick).not.toBeNull();
     expect(el.shadowRoot?.textContent).toContain(strings.form.imageNone);
-    // 이미지 바인딩에는 한 줄 텍스트 입력을 만들지 않는다
     const textInput = Array.from(el.shadowRoot!.querySelectorAll('input'))
       .find((i) => i.getAttribute('aria-label') === '도장 이미지');
     expect(textInput).toBeUndefined();
@@ -401,7 +396,6 @@ describe('<slip-form> 변동 이미지 (G-47)', () => {
     const clear = buttonByLabel(el, `도장 이미지 ${strings.form.imageClear}`);
     expect(clear).not.toBeNull();
 
-    // 지우면 값이 빠지고 안내로 돌아간다
     clear.click();
     await el.updateComplete;
     expect(el.shadowRoot?.querySelector('.image-current')).toBeNull();

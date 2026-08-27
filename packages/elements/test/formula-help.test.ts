@@ -10,7 +10,6 @@ describe('수식 함수 도움말 (D-12)', () => {
         category.functions.map((fn) => fn.name),
       );
       expect([...names].sort()).toEqual([...FORMULA_FUNCTIONS].sort());
-      // 중복 없음
       expect(new Set(names).size).toBe(names.length);
     },
   );
@@ -27,8 +26,9 @@ describe('수식 함수 도움말 (D-12)', () => {
     }
   });
 
-  it('모르는 로케일은 한국어로 돌아간다', () => {
-    expect(getFormulaHelp('fr')).toEqual(getFormulaHelp('ko'));
+  it('지원하지 않는 로케일에는 영어를 사용한다', () => {
+    expect(getFormulaHelp('fr')).toEqual(getFormulaHelp('en'));
+    expect(getFormulaHelp(undefined)).toEqual(getFormulaHelp('en'));
     expect(getFormulaHelp('en-US')).toEqual(getFormulaHelp('en'));
     expect(getFormulaHelp('ja-JP')).toEqual(getFormulaHelp('ja'));
   });

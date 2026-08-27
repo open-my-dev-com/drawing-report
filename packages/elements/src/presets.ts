@@ -1,18 +1,17 @@
 /**
- * 디자이너 기본 프리셋 2종: 거래명세서 · 청구서 (ADR-020).
+ * 디자이너에서 제공하는 거래명세서와 청구서 프리셋.
  *
- * 프리셋은 core 스키마를 그대로 따르는 `.slip` 양식 데이터다 — 여기에 파싱·검증
- * 로직을 두지 않는다(ADR-003, UI는 core의 소비자). 유효성은 테스트에서
- * `parseSlipFile`로 확인한다.
+ * 프리셋은 core 스키마를 따르는 `.slip` 양식 데이터이며 파싱과 검증은 core에서 담당한다.
+ * 제목·라벨·맺음말은 로케일에 맞는 문구 사전으로 채운다.
  */
 import { CURRENT_SCHEMA_VERSION, type SlipElement, type SlipTemplateFile } from '@omdc-slipkit/core';
-import { strings } from './strings.js';
+import { getStrings, type SlipStrings } from './strings.js';
 
 /** 디자이너에 동봉되는 양식 프리셋 */
 export interface SlipPreset {
   id: string;
   name: string;
-  /** 호출할 때마다 새 객체를 반환한다 (프리셋 간 상태 공유 방지) */
+  /** 호출할 때마다 독립된 양식 객체를 반환한다. */
   create: () => SlipTemplateFile;
 }
 
@@ -25,14 +24,14 @@ const ROW_MM = 8;
 const ITEMS_PER_PAGE = 8;
 /** 품목 그리드의 윗변 y(mm) */
 const ITEMS_Y = 90;
-/** 품목 그리드가 차지하는 높이(mm) — 헤더 1행 + 항목 수만큼의 반복 구간 */
+/** 헤더와 반복 항목을 포함한 품목 그리드의 높이(mm). */
 const ITEMS_H = ROW_MM * (1 + ITEMS_PER_PAGE);
-/** 합계·맺음말은 품목 그리드 아래에 놓는다 — 항목 수를 바꿔도 겹치지 않는다 */
+/** 품목 그리드 아래에 합계와 맺음말을 배치할 y 좌표(mm). */
 const TOTAL_Y = ITEMS_Y + ITEMS_H + 10;
 const FOOTER_Y = TOTAL_Y + 20;
 
-/** 상호·성명·주소를 적는 3행 4열 정보 그리드 (라벨 칸은 회색 배경) */
-function infoGrid(id: string, name: string, y: number): SlipElement {
+/** 상호, 성명, 주소를 입력하는 3행 4열 정보 그리드를 생성한다. */
+function infoGrid(id: string, name: string, y: number, t: SlipStrings['preset']): SlipElement {
   return {
     type: 'grid',
     id,
@@ -43,30 +42,41 @@ function infoGrid(id: string, name: string, y: number): SlipElement {
     rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
     columns: [{ width: 27 }, { width: 63 }, { width: 27 }, { width: 63 }],
     cells: [
-      { row: 0, column: 0, content: '등록번호', backgroundColor: LABEL_BG, alignment: 'center' },
+      { row: 0, column: 0, content: t.registrationNo, backgroundColor: LABEL_BG, alignment: 'center' },
       { row: 0, column: 1, colSpan: 3, content: '' },
-      { row: 1, column: 0, content: '상호', backgroundColor: LABEL_BG, alignment: 'center' },
+      { row: 1, column: 0, content: t.company, backgroundColor: LABEL_BG, alignment: 'center' },
       { row: 1, column: 1, content: '' },
-      { row: 1, column: 2, content: '성명', backgroundColor: LABEL_BG, alignment: 'center' },
+      { row: 1, column: 2, content: t.personName, backgroundColor: LABEL_BG, alignment: 'center' },
       { row: 1, column: 3, content: '' },
-      { row: 2, column: 0, content: '주소', backgroundColor: LABEL_BG, alignment: 'center' },
+      { row: 2, column: 0, content: t.address, backgroundColor: LABEL_BG, alignment: 'center' },
       { row: 2, column: 1, colSpan: 3, content: '' },
     ],
   };
 }
 
-function createTradeStatement(): SlipTemplateFile {
+function createTradeStatement(s: SlipStrings): SlipTemplateFile {
+  const t = s.preset;
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     kind: 'template',
     template: {
-      meta: { title: strings.designer.presetTradeStatement },
+      meta: { title: s.designer.presetTradeStatement },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
-      // 바인딩 정의부 (ADR-032): 물리명은 camelCase, 화면에는 논리명 표시
-      bindings: [
-        { key: 'tradeDate', label: '거래일자' },
-        { key: 'items', label: '품목' },
-        { key: 'totalAmount', label: '합계금액' },
+      // 파라미터 키는 camelCase를 사용하고 화면에는 label을 표시한다.
+      parameters: [
+        { key: 'tradeDate', label: t.tradeDate, valueType: 'date' },
+        {
+          key: 'items',
+          label: t.items,
+          valueType: 'list',
+          fields: [
+            { key: 'itemName', label: t.itemName },
+            { key: 'spec', label: t.spec },
+            { key: 'quantity', label: t.quantity, valueType: 'number' },
+            { key: 'unitPrice', label: t.unitPrice, valueType: 'number' },
+            { key: 'amount', label: t.amount, valueType: 'number' },
+          ],
+        },
       ],
       pages: [
         {
@@ -74,29 +84,29 @@ function createTradeStatement(): SlipTemplateFile {
             {
               type: 'text',
               id: 'title',
-              name: '제목',
+              name: t.titleElement,
               position: { x: 55, y: 20 },
               width: 100,
               height: 12,
-              content: '거래명세서',
+              content: s.designer.presetTradeStatement,
               fontSize: 20,
               alignment: 'center',
             },
             {
               type: 'field',
               id: 'trade-date',
-              name: '거래일자',
+              name: t.tradeDate,
               position: { x: 135, y: 38 },
               width: 60,
               height: 8,
-              binding: 'tradeDate',
+              parameter: 'tradeDate',
               alignment: 'right',
             },
-            infoGrid('supplier', '공급자 정보', 50),
+            infoGrid('supplier', t.supplierInfo, 50, t),
             {
               type: 'grid',
               id: 'items',
-              name: '품목 표',
+              name: t.itemsTable,
               position: { x: 15, y: ITEMS_Y },
               width: 180,
               height: ITEMS_H,
@@ -109,33 +119,32 @@ function createTradeStatement(): SlipTemplateFile {
               ],
               rows: [{ height: ROW_MM }, { height: ROW_MM }],
               repeat: {
-                binding: 'items',
+                parameter: 'items',
                 fromRow: 1,
                 toRow: 1,
                 perPage: ITEMS_PER_PAGE,
                 repeatHeader: true,
               },
               cells: [
-                { row: 0, column: 0, content: '품명', backgroundColor: HEAD_BG, alignment: 'center' },
-                { row: 0, column: 1, content: '규격', backgroundColor: HEAD_BG, alignment: 'center' },
-                { row: 0, column: 2, content: '수량', backgroundColor: HEAD_BG, alignment: 'center' },
-                { row: 0, column: 3, content: '단가', backgroundColor: HEAD_BG, alignment: 'center' },
-                { row: 0, column: 4, content: '금액', backgroundColor: HEAD_BG, alignment: 'center' },
-                { row: 1, column: 0, binding: 'itemName' },
-                { row: 1, column: 1, binding: 'spec' },
-                { row: 1, column: 2, binding: 'quantity', alignment: 'right' },
-                { row: 1, column: 3, binding: 'unitPrice', alignment: 'right' },
-                { row: 1, column: 4, binding: 'amount', alignment: 'right' },
+                { row: 0, column: 0, content: t.itemName, backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 1, content: t.spec, backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 2, content: t.quantity, backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 3, content: t.unitPrice, backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 4, content: t.amount, backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 1, column: 0, parameter: 'itemName' },
+                { row: 1, column: 1, parameter: 'spec' },
+                { row: 1, column: 2, parameter: 'quantity', alignment: 'right' },
+                { row: 1, column: 3, parameter: 'unitPrice', alignment: 'right' },
+                { row: 1, column: 4, parameter: 'amount', alignment: 'right' },
               ],
             },
             {
               type: 'field',
               id: 'total',
-              name: '합계금액',
+              name: t.totalAmount,
               position: { x: 115, y: TOTAL_Y },
               width: 80,
               height: 10,
-              binding: 'totalAmount',
               formula: 'SUM(items.amount)',
               fontSize: 12,
               alignment: 'right',
@@ -143,11 +152,11 @@ function createTradeStatement(): SlipTemplateFile {
             {
               type: 'text',
               id: 'footer',
-              name: '맺음말',
+              name: t.footer,
               position: { x: 15, y: FOOTER_Y },
               width: 180,
               height: 8,
-              content: '위와 같이 거래합니다.',
+              content: t.tradeFooterText,
               alignment: 'center',
             },
           ],
@@ -158,17 +167,27 @@ function createTradeStatement(): SlipTemplateFile {
   };
 }
 
-function createInvoice(): SlipTemplateFile {
+function createInvoice(s: SlipStrings): SlipTemplateFile {
+  const t = s.preset;
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     kind: 'template',
     template: {
-      meta: { title: strings.designer.presetInvoice },
+      meta: { title: s.designer.presetInvoice },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
-      bindings: [
-        { key: 'invoiceDate', label: '청구일자' },
-        { key: 'items', label: '청구 항목' },
-        { key: 'totalAmount', label: '청구금액' },
+      parameters: [
+        { key: 'invoiceDate', label: t.invoiceDate, valueType: 'date' },
+        {
+          key: 'items',
+          label: t.invoiceItems,
+          valueType: 'list',
+          fields: [
+            { key: 'itemName', label: t.item },
+            { key: 'quantity', label: t.quantity, valueType: 'number' },
+            { key: 'unitPrice', label: t.unitPrice, valueType: 'number' },
+            { key: 'amount', label: t.amount, valueType: 'number' },
+          ],
+        },
       ],
       pages: [
         {
@@ -176,29 +195,29 @@ function createInvoice(): SlipTemplateFile {
             {
               type: 'text',
               id: 'title',
-              name: '제목',
+              name: t.titleElement,
               position: { x: 55, y: 20 },
               width: 100,
               height: 12,
-              content: '청구서',
+              content: s.designer.presetInvoice,
               fontSize: 20,
               alignment: 'center',
             },
             {
               type: 'field',
               id: 'invoice-date',
-              name: '청구일자',
+              name: t.invoiceDate,
               position: { x: 135, y: 38 },
               width: 60,
               height: 8,
-              binding: 'invoiceDate',
+              parameter: 'invoiceDate',
               alignment: 'right',
             },
-            infoGrid('biller', '청구인 정보', 50),
+            infoGrid('biller', t.billerInfo, 50, t),
             {
               type: 'grid',
               id: 'items',
-              name: '청구 항목 표',
+              name: t.invoiceItemsTable,
               position: { x: 15, y: ITEMS_Y },
               width: 180,
               height: ITEMS_H,
@@ -210,31 +229,30 @@ function createInvoice(): SlipTemplateFile {
               ],
               rows: [{ height: ROW_MM }, { height: ROW_MM }],
               repeat: {
-                binding: 'items',
+                parameter: 'items',
                 fromRow: 1,
                 toRow: 1,
                 perPage: ITEMS_PER_PAGE,
                 repeatHeader: true,
               },
               cells: [
-                { row: 0, column: 0, content: '항목', backgroundColor: HEAD_BG, alignment: 'center' },
-                { row: 0, column: 1, content: '수량', backgroundColor: HEAD_BG, alignment: 'center' },
-                { row: 0, column: 2, content: '단가', backgroundColor: HEAD_BG, alignment: 'center' },
-                { row: 0, column: 3, content: '금액', backgroundColor: HEAD_BG, alignment: 'center' },
-                { row: 1, column: 0, binding: 'itemName' },
-                { row: 1, column: 1, binding: 'quantity', alignment: 'right' },
-                { row: 1, column: 2, binding: 'unitPrice', alignment: 'right' },
-                { row: 1, column: 3, binding: 'amount', alignment: 'right' },
+                { row: 0, column: 0, content: t.item, backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 1, content: t.quantity, backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 2, content: t.unitPrice, backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 0, column: 3, content: t.amount, backgroundColor: HEAD_BG, alignment: 'center' },
+                { row: 1, column: 0, parameter: 'itemName' },
+                { row: 1, column: 1, parameter: 'quantity', alignment: 'right' },
+                { row: 1, column: 2, parameter: 'unitPrice', alignment: 'right' },
+                { row: 1, column: 3, parameter: 'amount', alignment: 'right' },
               ],
             },
             {
               type: 'field',
               id: 'total',
-              name: '청구금액',
+              name: t.amountDue,
               position: { x: 115, y: TOTAL_Y },
               width: 80,
               height: 10,
-              binding: 'totalAmount',
               formula: 'SUM(items.amount)',
               fontSize: 12,
               alignment: 'right',
@@ -242,11 +260,11 @@ function createInvoice(): SlipTemplateFile {
             {
               type: 'text',
               id: 'footer',
-              name: '맺음말',
+              name: t.footer,
               position: { x: 15, y: FOOTER_Y },
               width: 180,
               height: 8,
-              content: '위 금액을 청구합니다.',
+              content: t.invoiceFooterText,
               alignment: 'center',
             },
           ],
@@ -257,16 +275,25 @@ function createInvoice(): SlipTemplateFile {
   };
 }
 
-/** 동봉 프리셋 목록 — 거래명세서 · 청구서 */
-export const presets: SlipPreset[] = [
-  {
-    id: 'trade-statement',
-    name: strings.designer.presetTradeStatement,
-    create: createTradeStatement,
-  },
-  {
-    id: 'invoice',
-    name: strings.designer.presetInvoice,
-    create: createInvoice,
-  },
-];
+/**
+ * 로케일에 맞는 동봉 프리셋 목록(거래명세서·청구서)을 만든다.
+ * 제목·라벨·맺음말은 해당 언어로 채워진다.
+ *
+ * @param locale - UI 언어 (생략하거나 지원하지 않는 언어면 영어)
+ * @returns 프리셋 목록
+ */
+export function getPresets(locale?: string): SlipPreset[] {
+  const s = getStrings(locale);
+  return [
+    {
+      id: 'trade-statement',
+      name: s.designer.presetTradeStatement,
+      create: () => createTradeStatement(s),
+    },
+    {
+      id: 'invoice',
+      name: s.designer.presetInvoice,
+      create: () => createInvoice(s),
+    },
+  ];
+}

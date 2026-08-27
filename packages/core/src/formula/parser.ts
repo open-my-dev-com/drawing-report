@@ -1,5 +1,5 @@
 /**
- * 수식 파서 (ADR-010: 자체 파서, 임의 코드 실행 절대 금지).
+ * 수식 문자열을 자체 문법의 AST로 변환한다. JavaScript 표현식은 실행하지 않는다.
  *
  * 문법 (엑셀 스타일):
  * ```
@@ -9,7 +9,7 @@
  * mul     := unary (('*' | '/') unary)*
  * unary   := ('-' | '+') unary | primary
  * primary := number | string | TRUE | FALSE | FUNC '(' args ')' | ref | '(' expr ')'
- * ref     := ident ('.' ident)*        — 전표 values 참조 (예: items.금액)
+ * ref     := ident ('.' ident)*        # 전표 values 참조 (예: items.금액)
  * ```
  *
  * 문자열 리터럴은 큰따옴표, 내부 큰따옴표는 "" 로 이스케이프한다.
@@ -17,6 +17,7 @@
  */
 import { FormulaSyntaxError } from './errors.js';
 import { FORMULA_FUNCTIONS, type FormulaFunctionName } from './functions.js';
+import { fm, withFormulaLocale } from './messages.js';
 
 // ---------------------------------------------------------------------------
 // AST
@@ -29,7 +30,7 @@ export type ArithmeticOperator = '+' | '-' | '*' | '/';
 /** 이항 연산자 전체 */
 export type BinaryOperator = ComparisonOperator | ArithmeticOperator;
 
-/** 파싱 결과 구문 트리 — 노드 7종 판별 유니온 */
+/** 파싱 결과를 나타내는 구문 트리 노드의 판별 유니온. */
 export type FormulaAst =
   | { type: 'number'; value: number }
   | { type: 'string'; value: string }
@@ -65,10 +66,10 @@ function tokenize(source: string): Token[] {
     const pos = i;
     if (/[0-9]/.test(ch) || (ch === '.' && /[0-9]/.test(source[i + 1] ?? ''))) {
       const match = /^\d*\.?\d+(?:[eE][+-]?\d+)?/.exec(source.slice(i));
-      if (!match) throw new FormulaSyntaxError('숫자 형식이 잘못되었습니다', pos);
+      if (!match) throw new FormulaSyntaxError(fm().invalidNumberFormat(), pos);
       const num = Number(match[0]);
-      // 지수가 지나치게 큰 리터럴(1e400)은 Infinity가 되어 렌더로 새어 나가므로 거부한다.
-      if (!Number.isFinite(num)) throw new FormulaSyntaxError('숫자가 너무 큽니다', pos);
+      // 유한하지 않은 숫자 리터럴은 평가 결과로 사용할 수 없다.
+      if (!Number.isFinite(num)) throw new FormulaSyntaxError(fm().numberTooLarge(), pos);
       tokens.push({ type: 'number', value: num, pos });
       i += match[0].length;
       continue;
@@ -77,7 +78,7 @@ function tokenize(source: string): Token[] {
       let value = '';
       i++;
       for (;;) {
-        if (i >= source.length) throw new FormulaSyntaxError('문자열이 닫히지 않았습니다', pos);
+        if (i >= source.length) throw new FormulaSyntaxError(fm().unterminatedString(), pos);
         if (source[i] === '"') {
           if (source[i + 1] === '"') {
             value += '"';
@@ -116,7 +117,7 @@ function tokenize(source: string): Token[] {
       i++;
       continue;
     }
-    throw new FormulaSyntaxError(`알 수 없는 문자입니다: '${ch}'`, pos);
+    throw new FormulaSyntaxError(fm().unknownCharacter(ch), pos);
   }
   tokens.push({ type: 'end', pos: source.length });
   return tokens;
@@ -136,7 +137,7 @@ class Parser {
     const expr = this.comparison();
     const token = this.peek();
     if (token.type !== 'end') {
-      throw new FormulaSyntaxError('수식 끝에 해석할 수 없는 내용이 있습니다', token.pos);
+      throw new FormulaSyntaxError(fm().trailingContent(), token.pos);
     }
     return expr;
   }
@@ -158,21 +159,18 @@ class Parser {
     return null;
   }
 
-  private expectOp(op: string, what: string): void {
-    if (!this.matchOp(op)) {
-      throw new FormulaSyntaxError(`${what}이(가) 필요합니다`, this.peek().pos);
+  private expectClosingParen(): void {
+    if (!this.matchOp(')')) {
+      throw new FormulaSyntaxError(fm().expectedClosingParen(), this.peek().pos);
     }
   }
 
-  /** 재귀 하강 깊이 제한 — 적대적 수식의 스택 오버플로 방지 (SPEC §5.6) */
+  /** 재귀 하강 파서가 허용하는 최대 중첩 깊이. */
   private depth = 0;
 
   private enter(): void {
     if (++this.depth > MAX_FORMULA_DEPTH) {
-      throw new FormulaSyntaxError(
-        `수식 중첩이 너무 깊습니다 (최대 ${MAX_FORMULA_DEPTH}단계)`,
-        this.peek().pos,
-      );
+      throw new FormulaSyntaxError(fm().formulaTooDeep(MAX_FORMULA_DEPTH), this.peek().pos);
     }
   }
 
@@ -231,18 +229,18 @@ class Parser {
     if (token.type === 'string') return { type: 'string', value: token.value };
     if (token.type === 'op' && token.value === '(') {
       const expr = this.comparison();
-      this.expectOp(')', '닫는 괄호');
+      this.expectClosingParen();
       return expr;
     }
     if (token.type === 'ident') {
       const upper = token.value.toUpperCase();
       if (upper === 'TRUE') return { type: 'boolean', value: true };
       if (upper === 'FALSE') return { type: 'boolean', value: false };
-      // 함수 호출: 알려진 함수명(대소문자 무관) + '('
+      // 등록된 함수 이름 뒤에 여는 괄호가 오면 함수 호출로 파싱한다.
       const isCall = this.peek().type === 'op' && (this.peek() as { value?: string }).value === '(';
       if (isCall) {
         if (!FUNCTION_NAMES.has(upper)) {
-          throw new FormulaSyntaxError(`지원하지 않는 함수입니다: ${token.value}`, token.pos);
+          throw new FormulaSyntaxError(fm().unknownFunction(token.value), token.pos);
         }
         this.next(); // '('
         const args: FormulaAst[] = [];
@@ -250,41 +248,44 @@ class Parser {
           do {
             args.push(this.comparison());
           } while (this.matchOp(','));
-          this.expectOp(')', '닫는 괄호');
+          this.expectClosingParen();
         }
         return { type: 'call', name: upper as FormulaFunctionName, args };
       }
-      // 참조 경로: ident ('.' ident)*
+      // 점으로 구분한 식별자를 값 참조 경로로 파싱한다.
       const path = [token.value];
       while (this.matchOp('.')) {
         const segment = this.next();
         if (segment.type !== 'ident') {
-          throw new FormulaSyntaxError("'.' 뒤에는 필드 이름이 와야 합니다", segment.pos);
+          throw new FormulaSyntaxError(fm().expectedFieldAfterDot(), segment.pos);
         }
         path.push(segment.value);
       }
       return { type: 'reference', path };
     }
-    throw new FormulaSyntaxError('값·참조·함수가 필요합니다', token.pos);
+    throw new FormulaSyntaxError(fm().expectedValue(), token.pos);
   }
 }
 
-/** 수식 문자열 최대 길이 — 적대적 수식의 토크나이저 부하 방지 (SPEC §5.6) */
+/** 파서가 허용하는 수식 문자열의 최대 길이. */
 export const MAX_FORMULA_LENGTH = 10_000;
-/** 수식 최대 중첩 깊이 (괄호·함수 인자·부호 포함) — 스택 오버플로 방지 (SPEC §5.6) */
+/** 괄호, 함수 인수, 단항 연산자를 포함한 수식의 최대 중첩 깊이. */
 export const MAX_FORMULA_DEPTH = 100;
 
 /**
  * 수식 문자열을 AST로 파싱한다.
  *
  * @param source - 수식 문자열 (예: `SUM(items.금액) * 1.1`)
+ * @param options - 오류 메시지에 사용할 로케일 설정 (생략하면 영어)
  * @returns 파싱된 구문 트리
  * @throws FormulaSyntaxError 문법 오류·미등록 함수·길이/깊이 제한 초과 시
  */
-export function parseFormula(source: string): FormulaAst {
-  if (!source.trim()) throw new FormulaSyntaxError('빈 수식입니다', 0);
-  if (source.length > MAX_FORMULA_LENGTH) {
-    throw new FormulaSyntaxError(`수식이 너무 깁니다 (최대 ${MAX_FORMULA_LENGTH}자)`, 0);
-  }
-  return new Parser(tokenize(source)).parse();
+export function parseFormula(source: string, options?: { locale?: string }): FormulaAst {
+  return withFormulaLocale(options?.locale, () => {
+    if (!source.trim()) throw new FormulaSyntaxError(fm().emptyFormula(), 0);
+    if (source.length > MAX_FORMULA_LENGTH) {
+      throw new FormulaSyntaxError(fm().formulaTooLong(MAX_FORMULA_LENGTH), 0);
+    }
+    return new Parser(tokenize(source)).parse();
+  });
 }

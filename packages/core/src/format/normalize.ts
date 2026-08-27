@@ -1,36 +1,34 @@
 /**
- * 전표 값 정규화 (ADR-044).
+ * 전표 값을 파라미터 정의에 맞춰 정규화한다.
  *
- * 수식은 숫자를 요구하는 자리에서 글자를 자동 변환하지 않는다(엄격 타입). 그래서
- * `number` 종류로 정의한 바인딩이 빈 값으로 들어오면(작성폼에서 칸을 비웠을 때 등)
- * 받는 시점에 0으로 바꿔 둔다 — 빈칸을 0으로 다루는 회계 양식 관례에 맞추고,
- * 미리보기·PDF·뷰어가 같은 값을 보게 한다.
+ * 수식은 문자열을 숫자로 자동 변환하지 않으므로 `number` 파라미터의 빈 값은 입력 단계에서
+ * 0으로 변환한다. 작성 폼, 미리보기, PDF 렌더러는 이 규칙을 함께 사용한다.
  */
-import type { BindingDef } from './schema.js';
+import type { ParameterDef } from './schema.js';
 
 /**
- * `number` 종류 바인딩의 빈 값(미입력·null·빈 문자열)을 0으로 바꾼 값 묶음을 돌려준다.
+ * `number` 파라미터의 빈 값(미입력, null, 빈 문자열)을 0으로 변환한다.
  *
  * @remarks
- * 바뀔 값이 없으면 입력 객체를 그대로 돌려주고, 있을 때만 얕은 복사본을 만든다.
- * 최상위 바인딩만 다룬다 — 그리드 열에는 아직 종류 필드가 없다.
+ * 변경할 값이 없으면 입력 객체를 반환하고, 변경이 필요할 때만 얕은 복사본을 만든다.
+ * 값 종류가 정의된 최상위 파라미터만 처리한다.
  *
  * @param values - 전표 값 묶음
- * @param bindings - 바인딩 정의부 (없으면 원본을 그대로 돌려준다)
+ * @param parameters - 파라미터 정의. 생략하면 입력 값을 반환한다
  * @returns 정규화된 값 묶음 (바뀐 것이 없으면 원본과 동일한 참조)
  */
-export function normalizeNumericBindings(
+export function normalizeNumericParameters(
   values: Record<string, unknown>,
-  bindings?: readonly BindingDef[],
+  parameters?: readonly ParameterDef[],
 ): Record<string, unknown> {
-  if (!bindings?.length) return values;
+  if (!parameters?.length) return values;
   let out: Record<string, unknown> | undefined;
-  for (const binding of bindings) {
-    if (binding.valueType !== 'number') continue;
-    const value = values[binding.key];
+  for (const parameter of parameters) {
+    if (parameter.valueType !== 'number') continue;
+    const value = values[parameter.key];
     if (value === undefined || value === null || value === '') {
       if (!out) out = { ...values };
-      out[binding.key] = 0;
+      out[parameter.key] = 0;
     }
   }
   return out ?? values;

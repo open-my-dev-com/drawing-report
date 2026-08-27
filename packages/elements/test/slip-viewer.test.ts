@@ -4,12 +4,10 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('@omdc-slipkit/core', () => ({
   parseSlipFile: vi.fn(),
   renderSlipToPdf: vi.fn(),
-  verifyIntegrity: vi.fn(),
 }));
 
 vi.mock('../src/default-fonts.js', () => ({
-  // 실제 폰트 데이터(4MB) 대신 즉시 해소되는 모의 — 배선만 검증한다.
-  // 실데이터 검증은 default-fonts.test.ts 담당.
+  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의한다.
   loadDefaultFonts: () =>
     Promise.resolve([
       { name: 'Pretendard', data: new Uint8Array([1]), fallback: true },
@@ -17,13 +15,15 @@ vi.mock('../src/default-fonts.js', () => ({
     ]),
 }));
 
-import { parseSlipFile, renderSlipToPdf, verifyIntegrity } from '@omdc-slipkit/core';
+import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
 import type { SlipFile } from '@omdc-slipkit/core';
-import { strings } from '../src/strings.js';
+import { getStrings } from '../src/strings.js';
+
+// 기본 영어 문구를 기준으로 화면을 확인한다.
+const strings = getStrings();
 
 const parseSlipFileMock = vi.mocked(parseSlipFile);
 const renderSlipToPdfMock = vi.mocked(renderSlipToPdf);
-const verifyIntegrityMock = vi.mocked(verifyIntegrity);
 
 const DUMMY_FILE: SlipFile = {
   schemaVersion: '0.1.0',
@@ -56,7 +56,6 @@ beforeEach(() => {
 
   parseSlipFileMock.mockReturnValue(DUMMY_FILE);
   renderSlipToPdfMock.mockResolvedValue(DUMMY_PDF);
-  verifyIntegrityMock.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -126,12 +125,13 @@ describe('<slip-viewer> PDF 렌더링', () => {
     await el.updateComplete;
 
     expect(parseSlipFileMock).toHaveBeenCalled();
-    // 폰트 미지정 → 동봉 기본 폰트(Pretendard)로 렌더 (ADR-012)
+    // 폰트 설정이 없으면 기본 폰트 공급 함수를 렌더러에 전달한다.
     const call = renderSlipToPdfMock.mock.calls.at(-1)!;
     expect(call[0]).toBe(DUMMY_FILE);
-    expect(call[1]?.fonts?.length).toBe(2);
-    expect(call[1]?.fonts?.[0]?.name).toBe('Pretendard');
-    expect(call[1]?.fonts?.[0]?.fallback).toBe(true);
+    const fonts = await call[1]?.getFonts?.();
+    expect(fonts?.length).toBe(2);
+    expect(fonts?.[0]?.name).toBe('Pretendard');
+    expect(fonts?.[0]?.fallback).toBe(true);
 
     const iframe = el.shadowRoot?.querySelector('iframe');
     expect(iframe).not.toBeNull();
@@ -148,7 +148,10 @@ describe('<slip-viewer> PDF 렌더링', () => {
     await flush();
     await el.updateComplete;
 
-    expect(renderSlipToPdfMock).toHaveBeenCalledWith(DUMMY_FILE, { fonts });
+    // 호스트 폰트는 `getFonts` 공급 함수를 통해 렌더러에 전달한다.
+    const call = renderSlipToPdfMock.mock.calls.at(-1)!;
+    expect(call[0]).toBe(DUMMY_FILE);
+    expect(await call[1]?.getFonts?.()).toEqual(fonts);
     el.remove();
   });
 
@@ -161,7 +164,9 @@ describe('<slip-viewer> PDF 렌더링', () => {
     await flush();
     await el.updateComplete;
 
-    expect(renderSlipToPdfMock).toHaveBeenCalledWith(DUMMY_FILE, { fonts });
+    const call = renderSlipToPdfMock.mock.calls.at(-1)!;
+    expect(call[0]).toBe(DUMMY_FILE);
+    expect(await call[1]?.getFonts?.()).toEqual(fonts);
     el.remove();
   });
 });
@@ -221,7 +226,7 @@ describe('<slip-viewer> Blob URL 관리', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 생명주기 정리 (blob URL 누수 방지)
+// 컴포넌트 생명주기와 Blob URL 정리
 // ---------------------------------------------------------------------------
 
 describe('<slip-viewer> 생명주기 정리', () => {
@@ -236,7 +241,7 @@ describe('<slip-viewer> 생명주기 정리', () => {
     await el.updateComplete;
     await flush();
 
-    // 렌더가 끝나기 전에 분리
+    // 렌더링이 완료되기 전에 컴포넌트를 분리한다.
     el.remove();
     resolveRender(DUMMY_PDF);
     await flush();
@@ -245,48 +250,6 @@ describe('<slip-viewer> 생명주기 정리', () => {
   });
 });
 
-describe('<slip-viewer> 무결성 검증 (G-48, SPEC §8)', () => {
-  const ISSUED: SlipFile = {
-    schemaVersion: '0.5.0', kind: 'voucher',
-    templateSnapshot: (DUMMY_FILE as { template: unknown }).template,
-    values: {}, issued: true, integrity: { contentHash: 'a'.repeat(64) },
-  } as unknown as SlipFile;
-
-  it('발행 전표의 무결성 검증이 실패하면 PDF를 그리지 않고 오류를 표시한다', async () => {
-    parseSlipFileMock.mockReturnValue(ISSUED);
-    verifyIntegrityMock.mockRejectedValue(new Error('contentHash 불일치'));
-    const el = await createElement();
-    el.src = '{"issued":true}';
-    await el.updateComplete;
-    await flush();
-    await el.updateComplete;
-    expect(shadowText(el)).toBe(strings.viewer.integrityError);
-    expect(el.shadowRoot?.querySelector('iframe')).toBeNull();
-    expect(renderSlipToPdfMock).not.toHaveBeenCalled();
-    el.remove();
-  });
-
-  it('무결성 검증이 통과하면 PDF를 그린다', async () => {
-    parseSlipFileMock.mockReturnValue(ISSUED);
-    const el = await createElement();
-    el.src = '{"issued":true}';
-    await el.updateComplete;
-    await flush();
-    await el.updateComplete;
-    expect(el.shadowRoot?.querySelector('iframe')).not.toBeNull();
-    el.remove();
-  });
-
-  it('양식(template)은 무결성 검증을 하지 않는다', async () => {
-    const el = await createElement();
-    el.src = '{"kind":"template"}';
-    await el.updateComplete;
-    await flush();
-    await el.updateComplete;
-    expect(verifyIntegrityMock).not.toHaveBeenCalled();
-    el.remove();
-  });
-});
 
 describe('<slip-viewer> UI 언어 (ADR-028)', () => {
   it('locale="en"이면 안내 문구가 영어로 표시된다', async () => {

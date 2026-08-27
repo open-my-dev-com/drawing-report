@@ -1,5 +1,4 @@
-// fontkit 최소 타입 선언 — 패키지가 타입 정의를 동봉하지 않는다(v2).
-// 글자 재기(render/measure.ts)에 쓰는 지표·layout만 선언한다.
+// 타입 정의를 제공하지 않는 fontkit에서 글자 측정에 필요한 API만 선언한다.
 
 declare module 'fontkit' {
   interface FontkitGlyph {

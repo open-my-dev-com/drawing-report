@@ -45,7 +45,7 @@ describe('파서', () => {
   });
 
   it('알 수 없는 함수는 파싱 단계에서 거부한다 (ADR-010)', () => {
-    expect(() => parseFormula('EVAL("1+1")')).toThrow(/지원하지 않는 함수/);
+    expect(() => parseFormula('EVAL("1+1")')).toThrow(/Unsupported function/);
   });
 
   it('함수명은 대소문자 무관', () => {
@@ -116,11 +116,11 @@ describe('산술 함수·연산', () => {
   });
 
   it('0으로 나누면 오류', () => {
-    expect(() => evaluateFormula('1 / 0', ctx())).toThrow(/0으로 나눌 수 없습니다/);
+    expect(() => evaluateFormula('1 / 0', ctx())).toThrow(/Cannot divide by zero/);
   });
 
   it('숫자 자리에 글자를 넣으면 오류 — 자동 변환하지 않는다 (ADR-044)', () => {
-    expect(() => evaluateFormula('금액 * 2', ctx({ 금액: '1500' }))).toThrow(/숫자여야 합니다/);
+    expect(() => evaluateFormula('금액 * 2', ctx({ 금액: '1500' }))).toThrow(/must be a number/);
   });
 
   it('TO_NUMBER로 감싸면 글자를 수로 변환한다 (ADR-044)', () => {
@@ -190,7 +190,7 @@ describe('포맷 함수', () => {
     expect(evaluateFormula('NUMBER_TO_KOREAN(123456)', ctx())).toBe('일십이만삼천사백오십육');
     expect(evaluateFormula('NUMBER_TO_KOREAN(100000100)', ctx())).toBe('일억일백');
     expect(evaluateFormula('NUMBER_TO_KOREAN(-3000)', ctx())).toBe('마이너스삼천');
-    expect(() => evaluateFormula('NUMBER_TO_KOREAN(1.5)', ctx())).toThrow(/정수만/);
+    expect(() => evaluateFormula('NUMBER_TO_KOREAN(1.5)', ctx())).toThrow(/only supports integers/);
   });
 });
 
@@ -240,7 +240,7 @@ describe('적대적 수식 방어 (SPEC §3.2)', () => {
   it('중첩이 너무 깊은 수식은 스택 오버플로 대신 FormulaSyntaxError로 거부한다', () => {
     const deepParens = '('.repeat(500) + '1' + ')'.repeat(500);
     expect(() => parseFormula(deepParens)).toThrow(FormulaSyntaxError);
-    expect(() => parseFormula(deepParens)).toThrow(/중첩이 너무 깊습니다/);
+    expect(() => parseFormula(deepParens)).toThrow(/nesting is too deep/);
 
     const deepUnary = '-'.repeat(500) + '1';
     expect(() => parseFormula(deepUnary)).toThrow(FormulaSyntaxError);
@@ -253,14 +253,14 @@ describe('적대적 수식 방어 (SPEC §3.2)', () => {
 
   it('너무 긴 수식은 FormulaSyntaxError로 거부한다', () => {
     const long = '1+' .repeat(6000) + '1';
-    expect(() => parseFormula(long)).toThrow(/너무 깁니다/);
+    expect(() => parseFormula(long)).toThrow(/too long/);
   });
 
   it('너무 깊게 중첩된 값 참조는 FormulaEvalError로 거부한다', () => {
     let nested: unknown = 1;
     for (let i = 0; i < 5000; i++) nested = [nested];
     expect(() => evaluateFormula('SUM(v)', ctx({ v: nested as never }))).toThrow(FormulaEvalError);
-    expect(() => evaluateFormula('SUM(v)', ctx({ v: nested as never }))).toThrow(/중첩 깊이/);
+    expect(() => evaluateFormula('SUM(v)', ctx({ v: nested as never }))).toThrow(/nesting exceeds the limit/);
   });
 });
 
@@ -284,7 +284,6 @@ describe('경계·잘못된 입력 방어 (G-48)', () => {
     expect(() => evaluateFormula('TO_NUMBER(a)', ctx({ a: '1e400' }))).toThrow(FormulaEvalError);
     expect(() => evaluateFormula('TO_NUMBER(a)', ctx({ a: 'Infinity' }))).toThrow(FormulaEvalError);
     expect(() => evaluateFormula('TO_NUMBER(a)', ctx({ a: '0x1F' }))).toThrow(FormulaEvalError);
-    // 정상 10진 문자열은 그대로 받는다
     expect(evaluateFormula('TO_NUMBER(a) + 1', ctx({ a: '2.5' }))).toBe(3.5);
   });
 
@@ -329,15 +328,36 @@ describe('타입 변환 함수 (ADR-044)', () => {
     expect(evaluateFormula('TO_STRING(1500)', ctx())).toBe('1500');
     expect(evaluateFormula('TO_STRING(TRUE)', ctx())).toBe('TRUE');
     expect(evaluateFormula('TO_STRING(a)', ctx({ a: null }))).toBe('');
-    // 비교가 엄격해도 TO_STRING/TO_NUMBER로 타입을 맞추면 같다고 본다
     expect(evaluateFormula('TO_STRING(3) = "3"', ctx())).toBe(true);
     expect(evaluateFormula('3 = a', ctx({ a: '3' }))).toBe(false);
   });
 
   it('TO_DATE: 날짜 문자열을 ISO(YYYY-MM-DD)로 정규화·검증', () => {
     expect(evaluateFormula('TO_DATE("2026-01-05")', ctx())).toBe('2026-01-05');
-    // 시각이 붙은 ISO 문자열은 날짜만 남긴다
     expect(evaluateFormula('TO_DATE("2026-01-05T09:30:00Z")', ctx())).toBe('2026-01-05');
     expect(() => evaluateFormula('TO_DATE("2026-13-45")', ctx())).toThrow(FormulaEvalError);
+  });
+});
+
+describe('메시지 언어 (로케일 설정)', () => {
+  it('기본은 영어 메시지다', () => {
+    expect(() => evaluateFormula('1/0', ctx({}))).toThrow('Cannot divide by zero');
+  });
+
+  it("locale이 'ko-KR'이면 한국어 메시지를 표시한다", () => {
+    expect(() => evaluateFormula('1/0', { values: {}, locale: 'ko-KR' })).toThrow('0으로 나눌 수 없습니다');
+  });
+
+  it("locale이 'ja'이면 일본어 메시지를 표시한다", () => {
+    expect(() => evaluateFormula('1/0', { values: {}, locale: 'ja' })).toThrow('0 で割ることはできません');
+  });
+
+  it('parseFormula도 locale 옵션에 해당하는 언어를 사용한다', () => {
+    expect(() => parseFormula('')).toThrow('The formula is empty');
+    expect(() => parseFormula('', { locale: 'ko' })).toThrow('빈 수식입니다');
+  });
+
+  it('지원하지 않는 로케일은 영어로 표시한다', () => {
+    expect(() => evaluateFormula('1/0', { values: {}, locale: 'fr-FR' })).toThrow('Cannot divide by zero');
   });
 });
