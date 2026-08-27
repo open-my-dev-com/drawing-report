@@ -469,9 +469,15 @@ export class SlipForm extends LitElement {
     this._revokePreviewUrl();
   }
 
-  override updated(changed: Map<string, unknown>): void {
+  // 파싱 결과가 같은 렌더링에 반영되도록 렌더링 전에 처리한다.
+  protected override willUpdate(changed: Map<string, unknown>): void {
     if (changed.has('src')) {
       this._parseSource();
+    }
+  }
+
+  override updated(changed: Map<string, unknown>): void {
+    if (changed.has('src')) {
       this._schedulePreview();
     }
   }
@@ -513,7 +519,6 @@ export class SlipForm extends LitElement {
       this._issued = file.issued;
     }
     this._schemaVersion = file.schemaVersion;
-    this.requestUpdate();
   }
 
   // ---------------------------------------------------------------------------

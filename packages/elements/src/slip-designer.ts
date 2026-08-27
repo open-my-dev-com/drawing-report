@@ -1771,27 +1771,56 @@ export class SlipDesigner extends LitElement {
       width: auto;
     }
     .prop-row.stacked input,
-    .prop-row.stacked select {
-      width: 100%;
-    }
     /* 체크박스는 고유 크기를 유지한다. */
     .prop-row.stacked input.stacked-check {
       width: auto;
       align-self: flex-start;
     }
-    /* 브라우저와 관계없이 선택 상자에 같은 화살표를 표시한다. */
-    .prop-row select,
-    select.parameter-select {
-      appearance: none;
-      background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
-        linear-gradient(135deg, currentColor 50%, transparent 50%);
-      background-position: right 11px center, right 7px center;
-      background-size: 4px 4px, 4px 4px;
-      background-repeat: no-repeat;
-      padding-right: 20px;
+    /* 네이티브 select를 대신하는 리스트형 선택 상자 */
+    .list-select {
+      flex: 1;
+      min-width: 0;
+      width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 3px 6px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-size: 12px;
+      font-family: inherit;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .list-select:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -1px;
+    }
+    .list-select .list-select-value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .list-select .list-select-caret {
+      flex: none;
+      font-size: 9px;
+      opacity: 0.7;
+    }
+    .prop-row.stacked .list-select {
+      width: 100%;
+    }
+    .list-select-menu {
+      overflow-y: auto;
+    }
+    .list-select-menu button[aria-selected='true'] {
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+      font-weight: 600;
     }
     .prop-row input,
-    .prop-row select,
     .prop-row textarea {
       flex: 1;
       min-width: 0;
@@ -1815,7 +1844,6 @@ export class SlipDesigner extends LitElement {
       cursor: pointer;
     }
     .prop-row input:focus-visible,
-    .prop-row select:focus-visible,
     .prop-row textarea:focus-visible {
       outline: 2px solid var(--sk-accent);
       outline-offset: -1px;
@@ -3064,10 +3092,14 @@ export class SlipDesigner extends LitElement {
     this._revokePreviewUrl();
   }
 
-  override updated(changed: Map<string, unknown>): void {
+  // 파싱 결과가 같은 렌더링에 반영되도록 렌더링 전에 처리한다.
+  protected override willUpdate(changed: Map<string, unknown>): void {
     if (changed.has('src')) {
       this._parseSource();
     }
+  }
+
+  override updated(changed: Map<string, unknown>): void {
     // 호스트 설정이 바뀌면 선택 목록을 다시 불러온다.
     if (changed.has('settings')) {
       void this._loadPaperSizes();
@@ -4911,6 +4943,68 @@ export class SlipDesigner extends LitElement {
   }
 
   /** 프리셋 메뉴를 버튼 아래의 화면 고정 위치에서 열거나 닫는다. */
+  /** 열려 있는 리스트형 선택 상자의 식별자. null이면 모두 닫혀 있다 */
+  private _listSelectId: string | null = null;
+  /** 리스트형 선택 상자 목록의 화면 고정 위치와 최대 높이(px) */
+  private _listSelectPos = { left: 0, top: 0, width: 0, maxHeight: 280 };
+
+  private _toggleListSelect(id: string, e: Event): void {
+    if (this._listSelectId === id) {
+      this._listSelectId = null;
+    } else {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      // 목록이 화면 아래로 넘치지 않게 남은 높이 안에서만 편다.
+      const maxHeight = Math.max(120, Math.min(280, window.innerHeight - rect.bottom - 12));
+      this._listSelectPos = { left: rect.left, top: rect.bottom + 4, width: rect.width, maxHeight };
+      this._listSelectId = id;
+    }
+    this.requestUpdate();
+  }
+
+  private _closeListSelect(): void {
+    this._listSelectId = null;
+    this.requestUpdate();
+  }
+
+  /**
+   * 네이티브 select 대신 쓰는 리스트형 선택 상자를 렌더링한다.
+   * 트리거 버튼을 누르면 버튼 아래 화면 고정 위치에 항목 목록이 열린다.
+   */
+  private _listSelect(config: {
+    id: string;
+    ariaLabel: string;
+    value: string;
+    options: { value: string; label: string }[];
+    onPick: (value: string) => void;
+    className?: string;
+  }) {
+    const open = this._listSelectId === config.id;
+    const current = config.options.find((o) => o.value === config.value);
+    return html`
+      <button type="button" class="list-select ${config.className ?? ''}"
+        aria-haspopup="listbox" aria-expanded=${String(open)} aria-label=${config.ariaLabel}
+        data-value=${config.value}
+        @click=${(e: Event) => this._toggleListSelect(config.id, e)}>
+        <span class="list-select-value">${current?.label ?? config.value}</span>
+        <span class="list-select-caret" aria-hidden="true">▾</span>
+      </button>
+      ${open
+        ? html`
+          <div class="menu-backdrop" @click=${() => this._closeListSelect()}></div>
+          <div class="preset-menu list-select-menu" role="listbox" aria-label=${config.ariaLabel}
+            style="left:${this._listSelectPos.left}px;top:${this._listSelectPos.top}px;min-width:${this._listSelectPos.width}px;max-height:${this._listSelectPos.maxHeight}px">
+            ${config.options.map((o) => html`
+              <button type="button" role="option" data-value=${o.value}
+                aria-selected=${String(o.value === config.value)}
+                @click=${() => {
+                  this._closeListSelect();
+                  config.onPick(o.value);
+                }}>${o.label}</button>`)}
+          </div>`
+        : nothing}
+    `;
+  }
+
   private _togglePresetMenu(e: Event): void {
     if (this._presetMenuOpen) {
       this._presetMenuOpen = false;
@@ -6389,17 +6483,19 @@ export class SlipDesigner extends LitElement {
           ? html`
             <div class="prop-row">
               <label>${s.pageNumberPosition}</label>
-              <select aria-label=${s.pageNumberPosition}
-                @change=${(e: Event) =>
+              ${this._listSelect({
+                id: 'page-number-position',
+                ariaLabel: s.pageNumberPosition,
+                value: pageNumber.position,
+                options: positions,
+                onPick: (value) =>
                   this._updateFile((f) => {
                     f.template.pages[index]!.pageNumber = {
                       ...f.template.pages[index]!.pageNumber!,
-                      position: (e.target as HTMLSelectElement).value as PageNumberPosition,
+                      position: value as PageNumberPosition,
                     };
-                  })}>
-                ${positions.map((p) => html`
-                  <option value=${p.value} ?selected=${p.value === pageNumber.position}>${p.label}</option>`)}
-              </select>
+                  }),
+              })}
             </div>`
           : nothing}
       </div>
@@ -6578,20 +6674,21 @@ export class SlipDesigner extends LitElement {
       <div class="prop-section">
         <div class="prop-row">
           <label>${s.paperSize}</label>
-          <select .value=${live(presetIndex >= 0 ? String(presetIndex) : 'custom')}
-                  @change=${(e: Event) => {
-                    const v = (e.target as HTMLSelectElement).value;
-                    if (v === 'custom') return;
-                    const p = allSizes[Number(v)]!;
-                    // 세로 기준 프리셋을 현재 용지 방향에 맞춰 적용한다.
-                    setSize(landscape ? p.height : p.width, landscape ? p.width : p.height);
-                  }}>
-            ${allSizes.map((p, i) => html`
-              <option value=${String(i)} ?selected=${i === presetIndex}>
-                ${p.name} (${p.width}×${p.height})
-              </option>`)}
-            <option value="custom" ?selected=${presetIndex < 0}>${s.paperCustom}</option>
-          </select>
+          ${this._listSelect({
+            id: 'paper-size',
+            ariaLabel: s.paperSize,
+            value: presetIndex >= 0 ? String(presetIndex) : 'custom',
+            options: [
+              ...allSizes.map((p, i) => ({ value: String(i), label: `${p.name} (${p.width}×${p.height})` })),
+              { value: 'custom', label: s.paperCustom },
+            ],
+            onPick: (v) => {
+              if (v === 'custom') return;
+              const p = allSizes[Number(v)]!;
+              // 세로 기준 프리셋을 현재 용지 방향에 맞춰 적용한다.
+              setSize(landscape ? p.height : p.width, landscape ? p.width : p.height);
+            },
+          })}
         </div>
         ${canSaveSize
           ? html`
@@ -6910,13 +7007,13 @@ export class SlipDesigner extends LitElement {
         </div>
         <div class="prop-row">
           <label>${s.parameterValueType}</label>
-          <select aria-label=${s.parameterValueType} .value=${live(info.valueType ?? '')}
-            @change=${(e: Event) => this._updateParameterField(listKey, info.key, { valueType: valOf(e) })}>
-            ${BINDING_FIELD_VALUE_TYPES.map((t) => html`
-              <option value=${t.value} ?selected=${(info.valueType ?? '') === t.value}>
-                ${s[t.stringKey]}
-              </option>`)}
-          </select>
+          ${this._listSelect({
+            id: 'field-value-type',
+            ariaLabel: s.parameterValueType,
+            value: info.valueType ?? '',
+            options: BINDING_FIELD_VALUE_TYPES.map((t) => ({ value: t.value, label: s[t.stringKey] })),
+            onPick: (value) => this._updateParameterField(listKey, info.key, { valueType: value }),
+          })}
         </div>
       </div>
 
@@ -6972,13 +7069,13 @@ export class SlipDesigner extends LitElement {
         </div>
         <div class="prop-row">
           <label>${s.parameterValueType}</label>
-          <select aria-label=${s.parameterValueType} .value=${live(info.valueType ?? '')}
-            @change=${(e: Event) => this._setParameterValueType(info.key, valOf(e))}>
-            ${BINDING_VALUE_TYPES.map((t) => html`
-              <option value=${t.value} ?selected=${(info.valueType ?? '') === t.value}>
-                ${s[t.stringKey]}
-              </option>`)}
-          </select>
+          ${this._listSelect({
+            id: 'parameter-value-type',
+            ariaLabel: s.parameterValueType,
+            value: info.valueType ?? '',
+            options: BINDING_VALUE_TYPES.map((t) => ({ value: t.value, label: s[t.stringKey] })),
+            onPick: (value) => this._setParameterValueType(info.key, value),
+          })}
         </div>
       </div>
 
@@ -7034,24 +7131,26 @@ export class SlipDesigner extends LitElement {
       options.unshift({ key: current, label: current });
     }
     const canAdd = !inBand || listKey !== undefined;
-    return html`
-      <select aria-label=${s.parameter} .value=${live(current)}
-        @change=${(e: Event) => {
-          const v = (e.target as HTMLSelectElement).value;
-          if (v === NEW_BINDING_OPTION) {
-            if (inBand) { if (listKey) this._addParameterFieldForCell(listKey); }
-            else this._newParameterForCell();
-            return;
-          }
-          this._setGridCellSource('parameter', v);
-        }}>
-        <option value="" ?selected=${current === ''}>${s.parameterUnpicked}</option>
-        ${options.map((o) => html`
-          <option value=${o.key} ?selected=${o.key === current}>${o.label}</option>`)}
-        ${canAdd
-          ? html`<option value=${NEW_BINDING_OPTION}>${inBand ? s.addParameterField : s.parameterNew}</option>`
-          : nothing}
-      </select>`;
+    return this._listSelect({
+      id: 'grid-cell-parameter',
+      ariaLabel: s.parameter,
+      value: current,
+      options: [
+        { value: '', label: s.parameterUnpicked },
+        ...options.map((o) => ({ value: o.key, label: o.label })),
+        ...(canAdd
+          ? [{ value: NEW_BINDING_OPTION, label: inBand ? s.addParameterField : s.parameterNew }]
+          : []),
+      ],
+      onPick: (v) => {
+        if (v === NEW_BINDING_OPTION) {
+          if (inBand) { if (listKey) this._addParameterFieldForCell(listKey); }
+          else this._newParameterForCell();
+          return;
+        }
+        this._setGridCellSource('parameter', v);
+      },
+    });
   }
 
   /** 목록 하위 필드를 추가하고 현재 반복 셀에 연결한다. */
@@ -7087,16 +7186,20 @@ export class SlipDesigner extends LitElement {
     return html`
       <div class="prop-row">
         <label>${s.parameter}</label>
-        <select class="parameter-select" aria-label=${s.parameter} .value=${live(current)}
-          @change=${(e: Event) => {
-            const value = (e.target as HTMLSelectElement).value;
+        ${this._listSelect({
+          id: 'parameter-select',
+          ariaLabel: s.parameter,
+          value: current,
+          className: 'parameter-select',
+          options: [
+            ...list.map((b) => ({ value: b.key, label: b.label })),
+            { value: NEW_BINDING_OPTION, label: s.parameterNew },
+          ],
+          onPick: (value) => {
             if (value === NEW_BINDING_OPTION) onNew();
             else onPick(value);
-          }}>
-          ${list.map((b) => html`
-            <option value=${b.key} ?selected=${b.key === current}>${b.label}</option>`)}
-          <option value=${NEW_BINDING_OPTION}>${s.parameterNew}</option>
-        </select>
+          },
+        })}
       </div>
     `;
   }
@@ -7460,12 +7563,16 @@ export class SlipDesigner extends LitElement {
         ${this._renderTextFieldKindRow('field')}
         <div class="prop-row">
           <label>${s.cellSource}</label>
-          <select aria-label=${s.cellSource} .value=${live(source)}
-            @change=${(e: Event) =>
-              this._setFieldSource((e.target as HTMLSelectElement).value as 'parameter' | 'formula')}>
-            <option value="parameter" ?selected=${source === 'parameter'}>${s.cellSourceParameter}</option>
-            <option value="formula" ?selected=${source === 'formula'}>${s.cellSourceFormula}</option>
-          </select>
+          ${this._listSelect({
+            id: 'field-source',
+            ariaLabel: s.cellSource,
+            value: source,
+            options: [
+              { value: 'parameter', label: s.cellSourceParameter },
+              { value: 'formula', label: s.cellSourceFormula },
+            ],
+            onPick: (value) => this._setFieldSource(value as 'parameter' | 'formula'),
+          })}
         </div>
         ${source === 'parameter'
           ? this._renderParameterSelect(el.parameter ?? '')
@@ -7523,26 +7630,35 @@ export class SlipDesigner extends LitElement {
           <div class="prop-section">
             <div class="prop-row">
               <label>${s.barcodeKind}</label>
-              <select aria-label=${s.barcodeKind} .value=${live(el.kind)}
-                @change=${(e: Event) => this._updateElement((target) => {
-                  if (target.type === 'barcode') target.kind = (e.target as HTMLSelectElement).value as BarcodeKind;
-                })}>
-                ${this._barcodeKinds().some((k) => k.value === el.kind)
-                  ? nothing
-                  : html`<option value=${el.kind} selected>${el.kind}</option>`}
-                ${this._barcodeKinds().map((k) => html`
-                  <option value=${k.value} ?selected=${k.value === el.kind}>${k.label}</option>`)}
-              </select>
+              ${this._listSelect({
+                id: 'barcode-kind',
+                ariaLabel: s.barcodeKind,
+                value: el.kind,
+                options: [
+                  ...(this._barcodeKinds().some((k) => k.value === el.kind)
+                    ? []
+                    : [{ value: el.kind, label: el.kind }]),
+                  ...this._barcodeKinds().map((k) => ({ value: k.value, label: k.label })),
+                ],
+                onPick: (value) => this._updateElement((target) => {
+                  if (target.type === 'barcode') target.kind = value as BarcodeKind;
+                }),
+              })}
             </div>
             <div class="prop-row">
               <label>${s.barcodeValue}</label>
-              <select aria-label=${s.barcodeValue} .value=${live(source)}
-                @change=${(e: Event) =>
-                  this._chooseBarcodeSource((e.target as HTMLSelectElement).value as 'content' | 'parameter' | 'formula')}>
-                <option value="content" ?selected=${source === 'content'}>${s.cellSourceText}</option>
-                <option value="parameter" ?selected=${source === 'parameter'}>${s.cellSourceParameter}</option>
-                <option value="formula" ?selected=${source === 'formula'}>${s.cellSourceFormula}</option>
-              </select>
+              ${this._listSelect({
+                id: 'barcode-source',
+                ariaLabel: s.barcodeValue,
+                value: source,
+                options: [
+                  { value: 'content', label: s.cellSourceText },
+                  { value: 'parameter', label: s.cellSourceParameter },
+                  { value: 'formula', label: s.cellSourceFormula },
+                ],
+                onPick: (value) =>
+                  this._chooseBarcodeSource(value as 'content' | 'parameter' | 'formula'),
+              })}
             </div>
             ${source === 'content'
               ? html`
@@ -7633,15 +7749,19 @@ export class SlipDesigner extends LitElement {
               </div>
             <div class="prop-row stacked">
               <label>${s.overflow}</label>
-              <select aria-label=${s.overflow} .value=${live(el.overflow ?? 'clip')}
-                @change=${(e: Event) => this._updateGrid((grid) => {
-                  const value = (e.target as HTMLSelectElement).value;
+              ${this._listSelect({
+                id: 'grid-overflow',
+                ariaLabel: s.overflow,
+                value: el.overflow ?? 'clip',
+                options: [
+                  { value: 'clip', label: s.overflowClip },
+                  { value: 'shrink', label: s.overflowShrink },
+                ],
+                onPick: (value) => this._updateGrid((grid) => {
                   if (value === 'clip') delete (grid as { overflow?: unknown }).overflow;
                   else grid.overflow = 'shrink';
-                })}>
-                <option value="clip" ?selected=${(el.overflow ?? 'clip') === 'clip'}>${s.overflowClip}</option>
-                <option value="shrink" ?selected=${el.overflow === 'shrink'}>${s.overflowShrink}</option>
-              </select>
+                }),
+              })}
             </div>
           </div>
 
@@ -7656,15 +7776,21 @@ export class SlipDesigner extends LitElement {
               ? html`
                 <div class="prop-row">
                   <label>${s.parameter}</label>
-                  <select class="parameter-select" aria-label="${s.repeatSection} ${s.parameter}"
-                    .value=${live(repeat.parameter)}
-                    @change=${(e: Event) => this._updateGridRepeat({ parameter: (e.target as HTMLSelectElement).value })}>
-                    ${this._parameterList().filter((b) => b.valueType === 'list' || b.key === repeat.parameter).map((b) => html`
-                      <option value=${b.key} ?selected=${b.key === repeat.parameter}>${b.label}</option>`)}
-                    ${this._parameterList().some((b) => b.key === repeat.parameter)
-                      ? nothing
-                      : html`<option value=${repeat.parameter} selected>${repeat.parameter}</option>`}
-                  </select>
+                  ${this._listSelect({
+                    id: 'repeat-parameter',
+                    ariaLabel: `${s.repeatSection} ${s.parameter}`,
+                    value: repeat.parameter,
+                    className: 'parameter-select',
+                    options: [
+                      ...this._parameterList()
+                        .filter((b) => b.valueType === 'list' || b.key === repeat.parameter)
+                        .map((b) => ({ value: b.key, label: b.label })),
+                      ...(this._parameterList().some((b) => b.key === repeat.parameter)
+                        ? []
+                        : [{ value: repeat.parameter, label: repeat.parameter }]),
+                    ],
+                    onPick: (value) => this._updateGridRepeat({ parameter: value }),
+                  })}
                 </div>
                 <div class="prop-pair">
                   <div class="prop-row">
@@ -7741,13 +7867,18 @@ export class SlipDesigner extends LitElement {
                 </div>
                 <div class="prop-row">
                   <label>${s.cellSource}</label>
-                  <select aria-label=${s.cellSource} .value=${live(source)}
-                    @change=${(e: Event) =>
-                      this._chooseGridCellSource((e.target as HTMLSelectElement).value as 'content' | 'parameter' | 'formula')}>
-                    <option value="content" ?selected=${source === 'content'}>${s.cellSourceText}</option>
-                    <option value="parameter" ?selected=${source === 'parameter'}>${s.cellSourceParameter}</option>
-                    <option value="formula" ?selected=${source === 'formula'}>${s.cellSourceFormula}</option>
-                  </select>
+                  ${this._listSelect({
+                    id: 'grid-cell-source',
+                    ariaLabel: s.cellSource,
+                    value: source,
+                    options: [
+                      { value: 'content', label: s.cellSourceText },
+                      { value: 'parameter', label: s.cellSourceParameter },
+                      { value: 'formula', label: s.cellSourceFormula },
+                    ],
+                    onPick: (value) =>
+                      this._chooseGridCellSource(value as 'content' | 'parameter' | 'formula'),
+                  })}
                 </div>
                 ${source === 'content'
                   ? html`
@@ -7940,14 +8071,17 @@ export class SlipDesigner extends LitElement {
     return html`
       <div class="prop-row">
         <label>${s.fontName}</label>
-        <select aria-label=${ariaLabel ?? s.fontName}
-          class=${current === undefined ? 'dim' : ''}
-          .value=${live(current ?? '')}
-          @change=${(e: Event) => apply((e.target as HTMLSelectElement).value || null)}>
-          <option value="" ?selected=${current === undefined}>${s.fontDefault}</option>
-          ${options.map((name) => html`
-            <option value=${name} ?selected=${name === current}>${name}</option>`)}
-        </select>
+        ${this._listSelect({
+          id: 'font-name',
+          ariaLabel: ariaLabel ?? s.fontName,
+          value: current ?? '',
+          className: current === undefined ? 'dim' : '',
+          options: [
+            { value: '', label: s.fontDefault },
+            ...options.map((name) => ({ value: name, label: name })),
+          ],
+          onPick: (value) => apply(value || null),
+        })}
       </div>`;
   }
 

@@ -28,6 +28,31 @@ import { getStrings } from '../src/strings.js';
 // 기본 영어 문구를 기준으로 화면을 확인한다.
 const strings = getStrings();
 
+type LitHost = HTMLElement & { updateComplete: Promise<unknown> };
+
+/** 리스트형 선택 상자를 열고 data-value가 일치하는 항목을 고른다 */
+async function pickListValue(host: LitHost, trigger: HTMLElement, value: string): Promise<void> {
+  trigger.click();
+  await host.updateComplete;
+  const option = host.shadowRoot!.querySelector(
+    `.list-select-menu button[data-value="${value}"]`,
+  ) as HTMLButtonElement | null;
+  if (!option) throw new Error(`목록 항목을 찾지 못했습니다: ${value}`);
+  option.click();
+  await host.updateComplete;
+}
+
+/** 리스트형 선택 상자를 열어 항목 문구를 읽고 다시 닫는다 */
+async function listOptionLabels(host: LitHost, trigger: HTMLElement): Promise<string[]> {
+  trigger.click();
+  await host.updateComplete;
+  const labels = Array.from(host.shadowRoot!.querySelectorAll('.list-select-menu button'))
+    .map((b) => b.textContent?.trim() ?? '');
+  (host.shadowRoot!.querySelector('.menu-backdrop') as HTMLElement).click();
+  await host.updateComplete;
+  return labels;
+}
+
 const parseSlipFileMock = vi.mocked(parseSlipFile);
 const renderSlipToPdfMock = vi.mocked(renderSlipToPdf);
 
@@ -1103,12 +1128,10 @@ describe('<slip-designer> 속성 패널', () => {
       changed = (e as CustomEvent<{ file: SlipTemplateFile }>).detail.file;
     });
 
-    const sourceSelect = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+    const sourceTrigger = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
       .find((row) => row.querySelector('label')?.textContent?.trim() === strings.designer.cellSource)
-      ?.querySelector('select') as HTMLSelectElement;
-    sourceSelect.value = 'parameter';
-    sourceSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+      ?.querySelector('.list-select') as HTMLButtonElement;
+    await pickListValue(el, sourceTrigger, 'parameter');
 
     expect(changed).not.toBeNull();
     const field = changed!.template.pages[0]!.elements.find((item) => item.id === 'fld-1')!;
@@ -1220,11 +1243,9 @@ describe('<slip-designer> 사이드바', () => {
     const mark = el.shadowRoot!.querySelector('.page-number-mark');
     expect(mark?.textContent?.trim()).toBe('X / X');
 
-    const posSelect = Array.from(el.shadowRoot!.querySelectorAll('select'))
-      .find((sel) => sel.getAttribute('aria-label') === strings.designer.pageNumberPosition) as HTMLSelectElement;
-    posSelect.value = 'top-right';
-    posSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+    const posTrigger = Array.from(el.shadowRoot!.querySelectorAll('.list-select'))
+      .find((sel) => sel.getAttribute('aria-label') === strings.designer.pageNumberPosition) as HTMLButtonElement;
+    await pickListValue(el, posTrigger, 'top-right');
     expect(file.template.pages[0]!.pageNumber?.position).toBe('top-right');
   });
 
@@ -1503,10 +1524,7 @@ describe('<slip-designer> 사이드바', () => {
 
     const typeRow = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
       .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.parameterValueType);
-    const select = typeRow!.querySelector('select') as HTMLSelectElement;
-    select.value = 'list';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+    await pickListValue(el, typeRow!.querySelector('.list-select') as HTMLButtonElement, 'list');
 
     const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.parameters!;
     expect(defs[0]!.valueType).toBe('list');
@@ -1535,10 +1553,7 @@ describe('<slip-designer> 사이드바', () => {
 
     const typeRow = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
       .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.parameterValueType);
-    const select = typeRow!.querySelector('select') as HTMLSelectElement;
-    select.value = 'number';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+    await pickListValue(el, typeRow!.querySelector('.list-select') as HTMLButtonElement, 'number');
 
     const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.parameters!;
     expect(defs[0]!.valueType).toBe('number');
@@ -2027,19 +2042,19 @@ describe('<slip-designer> 좌표 기준점', () => {
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 양식 설정 패널', () => {
-  /** 라벨 문구로 속성 패널의 입력(input/select)을 찾는다 */
-  function panelField(el: Element, label: string): HTMLInputElement | HTMLSelectElement {
+  /** 라벨 문구로 속성 패널의 입력(input 또는 리스트형 선택 상자)을 찾는다 */
+  function panelField(el: Element, label: string): HTMLInputElement {
     const row = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
       .find((r) => r.querySelector('label')?.textContent?.trim() === label);
     if (!row) throw new Error(`패널 입력을 찾지 못했습니다: ${label}`);
-    return row.querySelector('input, select') as HTMLInputElement | HTMLSelectElement;
+    return row.querySelector('input, .list-select') as HTMLInputElement;
   }
 
   function currentFile(el: Element): SlipTemplateFile {
     return (el as unknown as { _file: SlipTemplateFile })._file;
   }
 
-  function setField(field: HTMLInputElement | HTMLSelectElement, value: string): void {
+  function setField(field: HTMLInputElement, value: string): void {
     field.value = value;
     field.dispatchEvent(new Event('change', { bubbles: true }));
   }
@@ -2064,7 +2079,7 @@ describe('<slip-designer> 양식 설정 패널', () => {
   it('용지 프리셋을 고르면 크기가 바뀌고 캔버스 용지도 함께 바뀐다', async () => {
     const el = await loadDesigner();
 
-    setField(panelField(el, strings.designer.paperSize), '1'); // A5 148×210
+    await pickListValue(el, panelField(el, strings.designer.paperSize), '1'); // A5 148×210
     await el.updateComplete;
 
     const { paper } = currentFile(el).template;
@@ -2117,8 +2132,7 @@ describe('<slip-designer> 양식 설정 패널', () => {
   it('용지 변경은 되돌리기로 복구된다', async () => {
     const el = await loadDesigner();
 
-    setField(panelField(el, strings.designer.paperSize), '1'); // A5
-    await el.updateComplete;
+    await pickListValue(el, panelField(el, strings.designer.paperSize), '1'); // A5
     expect(currentFile(el).template.paper.width).toBe(148);
 
     toolbarButton(el, strings.designer.undo).click();
@@ -3437,10 +3451,8 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     // 값 소스를 수식으로 바꾸면 수식 입력란이 표시된다.
     const source = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
       .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.cellSource)!
-      .querySelector('select') as HTMLSelectElement;
-    source.value = 'formula';
-    source.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+      .querySelector('.list-select') as HTMLButtonElement;
+    await pickListValue(el, source, 'formula');
 
     const open = Array.from(el.shadowRoot!.querySelectorAll('.row-btn'))
       .find((b) => b.getAttribute('aria-label') === strings.designer.formulaModalTitle) as HTMLButtonElement;
@@ -3732,20 +3744,20 @@ describe('<slip-designer> 파라미터 관리 (ADR-034)', () => {
     await addByCanvasClick(el, strings.designer.addField);
     const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { parameter: string };
 
-    const select = el.shadowRoot!.querySelector('.parameter-select') as HTMLSelectElement;
+    const trigger = el.shadowRoot!.querySelector('.parameter-select') as HTMLButtonElement;
     // 등록된 값 + "새 값 등록" 항목이 나온다
-    expect(Array.from(select.options).map((o) => o.textContent?.trim()))
+    expect(await listOptionLabels(el, trigger))
       .toEqual([`${strings.designer.newParameterName} 1`, field.parameter, strings.designer.parameterNew]);
 
-    select.value = 'value1';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+    await pickListValue(el, trigger, 'value1');
     expect(field.parameter).toBe('value1');
 
     // "새 값 등록"을 고르면 값을 만들어 그대로 이 요소에 붙인다
-    const select2 = el.shadowRoot!.querySelector('.parameter-select') as HTMLSelectElement;
-    select2.value = select2.options[select2.options.length - 1]!.value;
-    select2.dispatchEvent(new Event('change', { bubbles: true }));
+    const trigger2 = el.shadowRoot!.querySelector('.parameter-select') as HTMLButtonElement;
+    trigger2.click();
+    await el.updateComplete;
+    const optionButtons = el.shadowRoot!.querySelectorAll('.list-select-menu button');
+    (optionButtons[optionButtons.length - 1] as HTMLButtonElement).click();
     await el.updateComplete;
 
     expect(field.parameter).toBe('value2');
@@ -4483,10 +4495,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     await clickCell(el, 15, 25);
     await el.updateComplete;
 
-    const select = row(el, s.cellSource).querySelector('select') as HTMLSelectElement;
-    select.value = 'formula';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+    await pickListValue(el, row(el, s.cellSource).querySelector('.list-select') as HTMLButtonElement, 'formula');
 
     const input = row(el, s.formula).querySelector('input') as HTMLInputElement;
     input.value = 'SUM(items.금액)';
@@ -4527,10 +4536,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
 
   it('넘칠 때 처리를 줄여 넣기로 바꿀 수 있다', async () => {
     const el = await mount();
-    const select = row(el, s.overflow).querySelector('select') as HTMLSelectElement;
-    select.value = 'shrink';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+    await pickListValue(el, row(el, s.overflow).querySelector('.list-select') as HTMLButtonElement, 'shrink');
     expect(gridOf(el).overflow).toBe('shrink');
     el.remove();
   });
@@ -4578,16 +4584,13 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
 
     const sel = () => Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
       .find((r) => r.querySelector('label')?.textContent?.trim() === s.parameter)!
-      .querySelector('select') as HTMLSelectElement;
+      .querySelector('.list-select') as HTMLButtonElement;
     const cellParameter = () => gridOf(el).cells.find((c) => c.row === 1 && c.column === 0)?.parameter;
 
     for (const value of ['수량', '단가', '품명']) {
-      const box = sel();
-      box.value = value;
-      box.dispatchEvent(new Event('change', { bubbles: true }));
-      await el.updateComplete;
+      await pickListValue(el, sel(), value);
       expect(cellParameter()).toBe(value);
-      expect(sel().value).toBe(value);
+      expect(sel().getAttribute('data-value')).toBe(value);
     }
     el.remove();
   });
@@ -4741,19 +4744,15 @@ describe('<slip-designer> 바코드 요소 (G-33)', () => {
     await el.updateComplete;
 
     // 종류 변경
-    const kindSelect = Array.from(el.shadowRoot!.querySelectorAll('select'))
-      .find((s) => s.getAttribute('aria-label') === strings.designer.barcodeKind) as HTMLSelectElement;
-    kindSelect.value = 'ean13';
-    kindSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+    const kindTrigger = Array.from(el.shadowRoot!.querySelectorAll('.list-select'))
+      .find((s) => s.getAttribute('aria-label') === strings.designer.barcodeKind) as HTMLButtonElement;
+    await pickListValue(el, kindTrigger, 'ean13');
     expect(lastElement(el).kind).toBe('ean13');
 
     // 직접 입력으로 전환하면 content를 설정하고 parameter를 제거한다.
-    const sourceSelect = Array.from(el.shadowRoot!.querySelectorAll('select'))
-      .find((s) => s.getAttribute('aria-label') === strings.designer.barcodeValue) as HTMLSelectElement;
-    sourceSelect.value = 'content';
-    sourceSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+    const sourceTrigger = Array.from(el.shadowRoot!.querySelectorAll('.list-select'))
+      .find((s) => s.getAttribute('aria-label') === strings.designer.barcodeValue) as HTMLButtonElement;
+    await pickListValue(el, sourceTrigger, 'content');
     expect(lastElement(el).parameter).toBeUndefined();
     expect(lastElement(el).content).toBe('');
 
@@ -4885,10 +4884,10 @@ describe('<slip-designer> 요소 그룹화 (G-27)', () => {
 });
 
 describe('<slip-designer> 용지 공급·저장 (G-31)', () => {
-  const paperSelect = (el: Element): HTMLSelectElement =>
+  const paperSelect = (el: Element): HTMLButtonElement =>
     Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
       .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.paperSize)!
-      .querySelector('select') as HTMLSelectElement;
+      .querySelector('.list-select') as HTMLButtonElement;
   const rowInput = (el: Element, labelText: string): HTMLInputElement =>
     Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
       .find((r) => r.querySelector('label')?.textContent?.trim() === labelText)!
@@ -4903,14 +4902,11 @@ describe('<slip-designer> 용지 공급·저장 (G-31)', () => {
     await flush();
     await el.updateComplete;
 
-    const select = paperSelect(el);
-    const labels = Array.from(select.options).map((o) => o.textContent?.trim() ?? '');
+    const labels = await listOptionLabels(el, paperSelect(el));
     expect(labels.some((l) => l.includes('라벨 100x150'))).toBe(true);
 
     // 기본 용지 네 종류 다음에 호스트가 제공한 용지가 표시된다.
-    select.value = '4';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
+    await pickListValue(el, paperSelect(el), '4');
     expect(paper(el).width).toBe(100);
     expect(paper(el).height).toBe(150);
     el.remove();
