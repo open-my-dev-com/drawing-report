@@ -42,7 +42,7 @@ const configSchema = z.strictObject({
   locale: z.string().min(1).optional(),
   /** PDF 렌더링에 사용할 커스텀 폰트. 생략하면 동봉 폰트를 사용한다 */
   fonts: z.array(fontEntrySchema).min(1).optional(),
-  /** PDF 링크 서버를 켤 포트. 지정하면 렌더된 PDF를 localhost 링크로 제공한다 */
+  /** PDF 링크 서버 포트. 지정하면 렌더된 PDF를 127.0.0.1 URL로 제공한다 */
   httpPort: z.number().int().min(1).max(65535).optional(),
   /** 암호화 키를 읽을 환경변수 이름 (키 값은 설정 파일에 적지 않는다) */
   encryption: z
@@ -139,7 +139,7 @@ export interface ResolveInput {
  * 설정 파일과 실행 인자를 우선순위대로 합쳐 서버 옵션을 만든다.
  *
  * @param input - 실행 인자·환경변수·기준 디렉터리
- * @returns 서버 옵션과 사용한 설정 파일 경로 (없으면 null)
+ * @returns 서버 옵션, 사용한 설정 파일 경로와 PDF 링크 서버 포트
  * @throws SlipMcpConfigError 설정 파일·폰트·작업 디렉터리가 잘못됐을 때
  */
 export async function resolveServerOptions(

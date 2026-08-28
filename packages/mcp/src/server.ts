@@ -31,7 +31,7 @@ import { SCHEMA_TOPICS, schemaTopicText } from './schema-docs.js';
 export interface SlipMcpServerOptions extends FileSystemStorageOptions {
   /** PDF 렌더링에 사용할 커스텀 폰트. 생략하면 로케일에 맞는 동봉 폰트를 사용한다 */
   fonts?: readonly SlipFont[];
-  /** PDF 링크 서버의 기본 주소. 지정하면 렌더 응답에 클릭할 수 있는 링크를 포함한다 */
+  /** PDF 링크 서버의 기본 URL. 지정하면 렌더 응답에 PDF URL을 포함한다 */
   pdfBaseUrl?: string;
 }
 
@@ -49,16 +49,14 @@ read only the parts you need (part "element" or "page"); then apply targeted cha
 addressing elements by id. Do not rewrite whole files to make small changes.
 
 Every save validates the file and reports precise errors without writing anything — fix and retry.
-Image bytes never pass through the conversation: attach fixed images with slip_edit's set_image op
+Do not pass source image data as base64 tool input. Attach fixed images with slip_edit's set_image op
 using a file path inside the working directory. To add a new image element, put add_element before
 set_image in the same ops array; operations run in order and validation happens after all of them.
 set_image creates a fixed asset, not a voucher image-parameter value. Build filled vouchers with
 slip_build_voucher. Issued (finalized) vouchers are immutable and this server cannot issue them.
-When the user wants to SEE the result, call slip_render_pdf with preview: true — page images come
-back in the tool result so both you and the user can look at them (one page per call; use
-previewPage for other pages). The PDF file itself is always saved to the working directory; give
-the user its absolute path, or the http link when the response includes one. Files cannot be
-attached to the chat directly.`;
+For visual inspection, call slip_render_pdf with preview: true. It returns one page as a PNG image;
+use previewPage to select another page. The PDF is always saved to the working directory. The result
+includes its absolute path and a resource link, plus an HTTP URL when pdfBaseUrl is configured.`;
 
 /** 도구 응답 하나를 텍스트로 만든다. */
 function text(value: unknown): { content: { type: 'text'; text: string }[] } {
@@ -84,7 +82,7 @@ function savedLine(id: string, file: SlipFile): string {
   return `Saved ${id} (${file.kind} "${body.meta.title}", ${body.pages.length} page(s), ${elements} element(s))`;
 }
 
-/** 미리보기 렌더 배율. 72dpi 기준 2배(약 150dpi)로, A4가 표준 해상도 범위에 들어간다. */
+/** PDF의 72pt/in 좌표를 2배로 래스터화해 144ppi 미리보기를 만든다. */
 const PREVIEW_SCALE = 2;
 
 /**
@@ -116,7 +114,7 @@ async function renderPreview(
 /**
  * SlipKit MCP 서버를 만든다. 전송 연결은 호출자가 한다.
  *
- * @param options - 작업 디렉터리, 로케일, 암호화와 PDF 폰트 설정
+ * @param options - 작업 디렉터리, 로케일, 암호화, PDF 폰트와 링크 서버 설정
  * @returns 구성이 끝난 MCP 서버와 내부 저장소
  */
 export function createSlipMcpServer(options: SlipMcpServerOptions): {
@@ -127,8 +125,8 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
   const locale = options.locale;
   const customFonts = options.fonts;
   const slipKit: SlipKit = createSlipKit({
-    // 동봉 폰트는 두 벌을 모두 등록한다. 로케일은 fontName이 없는 요소에
-    // 적용되는 대체(fallback) 폰트만 결정한다.
+    // 동봉된 모든 폰트를 등록하고 로케일에 따라 fontName을 생략한 요소의
+    // 대체(fallback) 폰트를 선택한다.
     getFonts: async () => {
       if (customFonts !== undefined && customFonts.length > 0) return customFonts;
       const { loadDefaultFonts } = await import('@omdc-slipkit/elements/default-fonts');
@@ -421,9 +419,7 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         preview: z
           .boolean()
           .optional()
-          .describe(
-            'Also return one page as a PNG image so the result is visible in the chat and to you',
-          ),
+          .describe('Also return one rendered page as a PNG image for visual inspection'),
         previewPage: z
           .number()
           .int()
@@ -443,7 +439,7 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         const pdf = await slipKit.render(file);
         const abs = resolveInRoot(storage.rootDir, target, locale);
         await writeFile(abs, pdf);
-        // 링크 서버가 켜져 있으면 브라우저에서 바로 열 수 있는 주소를 함께 알려 준다.
+        // 링크 서버가 켜져 있으면 렌더 응답에 PDF URL을 포함한다.
         const link =
           options.pdfBaseUrl === undefined
             ? null
@@ -455,10 +451,8 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
               type: 'text' as const,
               text:
                 `Rendered ${id} to ${target} (${Math.round(pdf.length / 1024)}KB).\n` +
-                `Saved at: ${abs}\n` +
-                (link === null
-                  ? 'Tell the user this absolute path so they can open the PDF.'
-                  : `Link: ${link}\nGive the user this link; it opens the PDF in the browser.`),
+                `Saved at: ${abs}` +
+                (link === null ? '' : `\nLink: ${link}`),
             },
             {
               type: 'resource_link' as const,

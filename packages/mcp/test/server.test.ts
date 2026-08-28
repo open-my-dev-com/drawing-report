@@ -334,7 +334,7 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
   it('PDF를 렌더링해 파일로 저장한다', async () => {
     const rendered = await callText(client, 'slip_render_pdf', { path: 'doc' });
     expect(rendered.isError).toBe(false);
-    // 사용자가 열 수 있도록 절대 경로를 알려 준다
+    // 응답에 생성된 PDF의 절대 경로를 포함한다.
     expect(rendered.text).toContain(path.join(dir, 'doc.pdf'));
     const pdf = await readFile(path.join(dir, 'doc.pdf'));
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
@@ -351,7 +351,7 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
     expect(await storage.load('doc')).toMatchObject({ kind: 'template' });
   });
 
-  it('로케일이 ja가 아니어도 fontName으로 Noto Sans JP를 사용할 수 있다', async () => {
+  it('`ja`가 아닌 로케일에서도 fontName으로 Noto Sans JP를 사용할 수 있다', async () => {
     const template = makeTemplate();
     template.template.pages[0]!.elements.push({
       type: 'text',

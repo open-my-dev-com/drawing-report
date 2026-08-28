@@ -34,7 +34,7 @@ describe('PDF 링크 서버', () => {
     expect((await fetch(`${linkServer.baseUrl}/missing.pdf`)).status).toBe(404);
   });
 
-  it('같은 작업 디렉터리의 서버가 포트를 쓰고 있으면 그 서버에 합류한다', async () => {
+  it('같은 작업 디렉터리의 서버가 포트를 쓰고 있으면 기존 서버를 재사용한다', async () => {
     const joined = await startOrJoinPdfLinkServer({ rootDir: dir, port: linkServer.port });
     expect(joined.owned).toBe(false);
     expect(joined.baseUrl).toBe(linkServer.baseUrl);
@@ -42,7 +42,7 @@ describe('PDF 링크 서버', () => {
     await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
     expect((await fetch(`${joined.baseUrl}/doc.pdf`)).status).toBe(200);
 
-    // 합류한 쪽의 close는 원래 서버를 끄지 않는다
+    // 재사용한 서버의 close는 기존 서버를 종료하지 않는다.
     await joined.close();
     expect((await fetch(`${linkServer.baseUrl}/doc.pdf`)).status).toBe(200);
   });
@@ -65,7 +65,7 @@ describe('PDF 링크 서버', () => {
     }
   });
 
-  it('렌더 응답에 링크가 포함되고 그 링크로 PDF를 받을 수 있다', async () => {
+  it('렌더 응답에 포함된 링크로 PDF를 조회한다', async () => {
     const { client, close } = await connect({ rootDir: dir, pdfBaseUrl: linkServer.baseUrl });
     try {
       await callText(client, 'slip_save', { path: 'doc', file: makeTemplate() });

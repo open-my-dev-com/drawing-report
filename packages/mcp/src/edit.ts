@@ -140,9 +140,9 @@ export interface EditContext {
 }
 
 /**
- * 대상 필드에 부분 병합할 값을 덮어쓴다. `null`은 필드 삭제로 처리한다
- * (JSON에는 `undefined`가 없어 MCP 호출로는 `null`만 전달할 수 있다).
- * 값 소스를 바꿀 때 이 규칙을 사용한다: `{ "parameter": null, "formula": "..." }`.
+ * 전달된 필드만 대상에 반영한다. `null`은 해당 필드를 삭제한다.
+ * MCP의 JSON 입력에는 `undefined`를 사용할 수 없으므로 필드 삭제에 `null`을 사용한다.
+ * 예를 들어 `{ "parameter": null, "formula": "..." }`는 값 소스를 수식으로 바꾼다.
  */
 function mergeFields(target: Record<string, unknown>, fields: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(fields)) {
@@ -151,7 +151,7 @@ function mergeFields(target: Record<string, unknown>, fields: Record<string, unk
   }
 }
 
-/** 전표 values에 부분 병합한다. `null`은 유효한 값이라 삭제가 아니라 그대로 저장한다. */
+/** 전달된 값을 전표에 반영한다. `null`은 필드 삭제가 아닌 전표 값으로 저장한다. */
 function mergeValues(target: Record<string, unknown>, values: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(values)) {
     if (value !== undefined) target[key] = value;

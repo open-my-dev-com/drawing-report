@@ -37,7 +37,7 @@ describe('slip_schema 안내문', () => {
     expect(grid).toContain('(perPage - 1)');
   });
 
-  it('FORMAT_NUMBER의 둘째 인자를 자릿수 정수로 안내한다', () => {
+  it('FORMAT_NUMBER의 두 번째 인자를 소수 자릿수로 안내한다', () => {
     const formula = schemaTopicText('formula');
     expect(formula).toContain('fractionDigits');
     expect(formula).toContain('FORMAT_NUMBER(SUM(items.amount) * 1.1, 0)');

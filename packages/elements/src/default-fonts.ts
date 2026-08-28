@@ -1,12 +1,11 @@
 /**
- * 동봉 기본 폰트를 지연 로딩한다.
+ * 동봉된 Pretendard와 Noto Sans JP를 지연 로딩한다.
  *
- * `settings.getFonts`가 없을 때 사용하며, 언어별로 한 번 만든 목록을 재사용한다.
+ * `settings.getFonts`가 없을 때 사용하며, 로케일별로 만든 등록 목록을 재사용한다.
  *
- * Pretendard(한국어·영어)와 Noto Sans JP(일본어)를 항상 함께 등록해, 어떤 언어 설정에서도
- * `fontName`으로 다른 언어의 폰트를 지정할 수 있다. 언어는 폰트 사용 가능 여부가 아니라
- * `fontName`을 지정하지 않은 요소에 적용되는 대체(fallback) 폰트만 결정한다.
- * 다른 글자 범위나 굵기가 필요하면 호스트가 `settings.getFonts`로 폰트를 제공한다.
+ * Pretendard와 Noto Sans JP를 모두 등록하므로 로케일과 관계없이 `fontName`으로 선택할 수 있다.
+ * 로케일은 `fontName`을 지정하지 않은 요소에 적용할 대체(fallback) 폰트만 결정한다.
+ * 동봉 폰트에 없는 문자를 표시하거나 다른 굵기가 필요하면 호스트가 `settings.getFonts`로 폰트를 제공한다.
  */
 import type { SlipFont } from '@omdc-slipkit/core';
 import type { SlipLocale } from './strings.js';
@@ -15,7 +14,7 @@ type FontList = SlipFont[];
 
 const cache = new Map<'ko' | 'ja', Promise<FontList>>();
 
-/** 대체(fallback) 표시를 지정한 이름에만 남긴 사본 목록을 만든다. */
+/** 지정한 폰트에만 대체(fallback) 속성을 설정한 새 목록을 만든다. */
 function withFallbackOn(fonts: readonly SlipFont[], fallbackName: string): FontList {
   return fonts.map((font) => ({
     name: font.name,
@@ -27,7 +26,7 @@ function withFallbackOn(fonts: readonly SlipFont[], fallbackName: string): FontL
 /**
  * 동봉 기본 폰트 목록을 불러온다. Pretendard와 Noto Sans JP를 모두 포함한다.
  *
- * @param locale - UI 언어. `'ja'`이면 Noto Sans JP, 그 밖에는 Pretendard가 대체 폰트가 된다
+ * @param locale - 대체 폰트를 선택할 로케일. `'ja'`이면 Noto Sans JP, 그 밖에는 Pretendard를 사용한다.
  * @returns PDF 렌더링에 넘길 폰트 등록 목록
  */
 export function loadDefaultFonts(locale?: SlipLocale): Promise<FontList> {

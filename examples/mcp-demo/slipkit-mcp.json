@@ -1,6 +1,7 @@
 {
   "rootDir": "./workspace",
   "locale": "ko",
+  "httpPort": 8123,
   "encryption": {
     "keyEnv": "MY_SLIP_KEY"
   }

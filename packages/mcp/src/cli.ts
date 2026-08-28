@@ -5,8 +5,8 @@
  *
  * 사용법: `slipkit-mcp [작업-디렉터리] [--locale ko] [--config 경로]`
  *
- * 저장소 경로, 로케일, 커스텀 폰트와 암호화 키 환경변수 이름은 설정 파일
- * (`slipkit-mcp.json`)로 관리한다. 탐색 순서는 `--config` 인자,
+ * 저장소 경로, 로케일, 커스텀 폰트, PDF 링크 포트와 암호화 키 환경변수 이름은
+ * 설정 파일(`slipkit-mcp.json`)로 관리한다. 탐색 순서는 `--config` 인자,
  * `SLIPKIT_MCP_CONFIG` 환경변수, 작업 디렉터리의 `slipkit-mcp.json` 순서이고
  * 설정 파일이 없으면 기본값으로 동작한다.
  *
@@ -40,8 +40,8 @@ async function main(): Promise<void> {
     env: process.env,
   });
 
-  // 설정에 httpPort가 있으면 렌더된 PDF를 브라우저 링크로 제공한다.
-  // 다른 인스턴스가 같은 포트로 이미 켜 둔 서버가 있으면 그 서버에 합류한다.
+  // httpPort가 있으면 렌더된 PDF를 브라우저에서 열 수 있는 URL로 제공한다.
+  // 같은 작업 디렉터리의 링크 서버가 해당 포트를 사용 중이면 기존 서버를 재사용한다.
   let sharedLinkServer = false;
   if (httpPort !== null) {
     const linkServer = await startOrJoinPdfLinkServer({ rootDir: options.rootDir, port: httpPort });
