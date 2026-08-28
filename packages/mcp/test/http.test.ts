@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import path from 'node:path';
-import { startPdfLinkServer, type PdfLinkServer } from '../src/http.js';
+import { startOrJoinPdfLinkServer, startPdfLinkServer, type PdfLinkServer } from '../src/http.js';
 import { callText, connect, makeTemplate, makeWorkDir, removeWorkDir } from './helpers.js';
 
 let dir: string;
@@ -31,6 +32,37 @@ describe('PDF 링크 서버', () => {
     expect((await fetch(`${linkServer.baseUrl}/secret.slip`)).status).toBe(404);
     expect((await fetch(`${linkServer.baseUrl}/../outside.pdf`)).status).toBe(404);
     expect((await fetch(`${linkServer.baseUrl}/missing.pdf`)).status).toBe(404);
+  });
+
+  it('같은 작업 디렉터리의 서버가 포트를 쓰고 있으면 그 서버에 합류한다', async () => {
+    const joined = await startOrJoinPdfLinkServer({ rootDir: dir, port: linkServer.port });
+    expect(joined.owned).toBe(false);
+    expect(joined.baseUrl).toBe(linkServer.baseUrl);
+
+    await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
+    expect((await fetch(`${joined.baseUrl}/doc.pdf`)).status).toBe(200);
+
+    // 합류한 쪽의 close는 원래 서버를 끄지 않는다
+    await joined.close();
+    expect((await fetch(`${linkServer.baseUrl}/doc.pdf`)).status).toBe(200);
+  });
+
+  it('다른 작업 디렉터리의 서버나 다른 프로그램이 쓰는 포트는 거부한다', async () => {
+    await expect(
+      startOrJoinPdfLinkServer({ rootDir: path.join(dir, '..'), port: linkServer.port }),
+    ).rejects.toThrow(/different working directory/);
+
+    const foreign = createServer((_, response) => response.writeHead(200).end('hello'));
+    await new Promise<void>((resolve) => foreign.listen(0, '127.0.0.1', () => resolve()));
+    const address = foreign.address();
+    const foreignPort = typeof address === 'object' && address !== null ? address.port : 0;
+    try {
+      await expect(startOrJoinPdfLinkServer({ rootDir: dir, port: foreignPort })).rejects.toThrow(
+        /already in use by another program/,
+      );
+    } finally {
+      await new Promise((resolve) => foreign.close(resolve));
+    }
   });
 
   it('렌더 응답에 링크가 포함되고 그 링크로 PDF를 받을 수 있다', async () => {

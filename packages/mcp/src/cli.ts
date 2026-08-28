@@ -20,7 +20,7 @@
 import { parseArgs } from 'node:util';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { resolveServerOptions, SlipMcpConfigError } from './config.js';
-import { startPdfLinkServer } from './http.js';
+import { startOrJoinPdfLinkServer } from './http.js';
 import { createSlipMcpServer } from './server.js';
 
 async function main(): Promise<void> {
@@ -41,9 +41,12 @@ async function main(): Promise<void> {
   });
 
   // 설정에 httpPort가 있으면 렌더된 PDF를 브라우저 링크로 제공한다.
+  // 다른 인스턴스가 같은 포트로 이미 켜 둔 서버가 있으면 그 서버에 합류한다.
+  let sharedLinkServer = false;
   if (httpPort !== null) {
-    const linkServer = await startPdfLinkServer({ rootDir: options.rootDir, port: httpPort });
+    const linkServer = await startOrJoinPdfLinkServer({ rootDir: options.rootDir, port: httpPort });
     options.pdfBaseUrl = linkServer.baseUrl;
+    sharedLinkServer = !linkServer.owned;
   }
 
   const { server } = createSlipMcpServer(options);
@@ -51,7 +54,9 @@ async function main(): Promise<void> {
   // stdout은 MCP 메시지 전용이므로 실행 정보는 stderr로 보낸다.
   const notes = [
     configPath === null ? null : `config ${configPath}`,
-    options.pdfBaseUrl === undefined ? null : `pdf links at ${options.pdfBaseUrl}`,
+    options.pdfBaseUrl === undefined
+      ? null
+      : `pdf links at ${options.pdfBaseUrl}${sharedLinkServer ? ' (shared server)' : ''}`,
     options.fonts === undefined ? null : `${options.fonts.length} custom font(s)`,
     options.encryption === undefined ? null : 'encryption on',
   ].filter((note) => note !== null);
