@@ -19,6 +19,7 @@ SlipKit을 실행하거나 기존 애플리케이션에 연결하는 데 필요�
 | 디자이너 화면에서 양식 만들기 | [양식 디자이너 사용 가이드](designer.md) | 양식 제작자 |
 | `.slip` 파일 처리, 전표 조립과 PDF 생성하기 | [Core 사용 가이드](core.md) | 백엔드·Core 개발자 |
 | Node.js 서버에서 전표를 발행하고 PDF를 생성·보관하기 | [서버 통합 가이드](server-integration.md) | 백엔드 개발자 |
+| MCP 서버를 설정하고 AI로 `.slip` 양식을 만들고 고친 뒤 PDF로 확인하기 | [MCP 사용 가이드](mcp.md) | MCP 사용자·AI 연동 개발자 |
 | 언어, 폰트, 용지, 프리셋과 저장소 설정하기 | [환경 설정 가이드](configuration.md) | 애플리케이션 개발자 |
 | 양식에서 계산식 작성하기 | [수식 함수 참조](formula.md) | 양식 제작자·개발자 |
 | 공개 함수, 타입, 컴포넌트와 이벤트 확인하기 | [API 참조](api-reference.md) | 연동 개발자 |
@@ -71,6 +72,7 @@ SlipKit은 목적이 다른 세 가지 UI 컴포넌트를 제공합니다.
 | `@omdc-slipkit/elements` | Web Component 기반 디자이너·작성폼·뷰어 |
 | `@omdc-slipkit/react` | React용 래퍼 컴포넌트 |
 | `@omdc-slipkit/vue` | Vue용 래퍼 컴포넌트 |
+| `@omdc-slipkit/mcp` | AI가 로컬 `.slip` 파일을 다루게 하는 stdio MCP 서버 |
 
 React와 Vue 패키지는 Web Component를 해당 프레임워크의 사용 방식에 맞게 연결하는 얇은 래퍼입니다. 제공하는 SlipKit 기능에는 차이가 없습니다.
 

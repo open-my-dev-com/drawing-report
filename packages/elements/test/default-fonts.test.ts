@@ -18,13 +18,14 @@ describe('동봉 기본 폰트 (Pretendard, ADR-012)', () => {
     }
   });
 
-  it('loadDefaultFonts는 한국어·영어에 Pretendard를 재사용한다 (캐시)', async () => {
+  it('한국어·영어 로케일에는 동봉 폰트 3종과 Pretendard 대체 폰트를 반환한다', async () => {
     const a = await loadDefaultFonts();
     const b = await loadDefaultFonts('ko');
     const c = await loadDefaultFonts('en');
     expect(a).toBe(b);
     expect(a).toBe(c);
-    expect(a).toBe(PRETENDARD_FONTS);
+    expect(a.map((f) => f.name)).toEqual(['Pretendard', 'Pretendard-Bold', 'Noto Sans JP']);
+    expect(a.filter((f) => f.fallback === true).map((f) => f.name)).toEqual(['Pretendard']);
   });
 });
 
@@ -40,10 +41,14 @@ describe('동봉 기본 폰트 (Noto Sans JP, ADR-042)', () => {
     expect(font.data.length).toBeGreaterThan(1_000_000);
   });
 
-  it('loadDefaultFonts("ja")는 Noto Sans JP를 재사용한다 (캐시)', async () => {
+  it('일본어 로케일에는 동봉 폰트 3종과 Noto Sans JP 대체 폰트를 반환한다', async () => {
     const a = await loadDefaultFonts('ja');
     const b = await loadDefaultFonts('ja');
     expect(a).toBe(b);
-    expect(a).toBe(NOTO_SANS_JP_FONTS);
+    expect(a.map((f) => f.name)).toEqual(['Pretendard', 'Pretendard-Bold', 'Noto Sans JP']);
+    expect(a.filter((f) => f.fallback === true).map((f) => f.name)).toEqual(['Noto Sans JP']);
+    // 반환 목록을 구성해도 원본 폰트 정의는 변경하지 않는다.
+    expect(NOTO_SANS_JP_FONTS[0]!.fallback).toBe(true);
+    expect(PRETENDARD_FONTS[0]!.fallback).toBe(true);
   });
 });

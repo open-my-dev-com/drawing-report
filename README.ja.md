@@ -52,6 +52,7 @@ SlipKit は pnpm ワークスペースベースのモノレポで構成されて
 | [`@omdc-slipkit/elements`](packages/elements) | Lit で実装した `<slip-designer>`、`<slip-form>`、`<slip-viewer>` Web Component を提供します。 |
 | [`@omdc-slipkit/react`](packages/react) | SlipKit の Web Component を React コンポーネントとして使えるようにします。 |
 | [`@omdc-slipkit/vue`](packages/vue) | SlipKit の Web Component を Vue コンポーネントとして使えるようにします。 |
+| [`@omdc-slipkit/mcp`](packages/mcp) | AI が MCP ツールでテンプレートを作成・編集できるローカル MCP サーバーを提供します。 |
 
 ## ローカルでの実行
 
@@ -93,6 +94,14 @@ pnpm demo:vue
 
 デモの自動保存やファイル処理のようなフレームワークに依存しないロジックは、[`examples/shared`](examples/shared) に共通で実装されています。
 
+MCP ツールは [MCP Inspector デモ](examples/mcp-demo) から直接呼び出せます。このデモには Node.js 22.19 以上が必要です。
+
+```bash
+pnpm demo:mcp
+```
+
+このコマンドはサンプル作業ディレクトリを準備して MCP パッケージをビルドし、`http://localhost:6274` で Inspector を開きます。
+
 ## 利用ガイド
 
 はじめて使うなら、[スタートガイド](docs/guide/getting-started.ja.md) でリポジトリのデモを実行し、デザイナーを接続してみてください。保存・復元と 3 つのコンポーネントの接続方法は、[アプリケーション統合ガイド](docs/guide/integration.ja.md) で続けて説明します。
@@ -105,6 +114,7 @@ pnpm demo:vue
 | [アプリケーション統合ガイド](docs/guide/integration.ja.md) | デザイナー・作成フォーム・ビューアの接続、保存・復元、サーバー連携 |
 | [テンプレートデザイナー利用ガイド](docs/guide/designer.ja.md) | デザイナー画面でテンプレートを作成する方法 |
 | [Core 利用ガイド](docs/guide/core.ja.md) | `.slip` ファイル処理、伝票の組み立て、数式評価、PDF 生成、暗号化 |
+| [MCP 利用ガイド](docs/guide/mcp.ja.md) | AI による `.slip` の作成・編集、伝票の組み立て、PDF 確認 |
 | [環境設定ガイド](docs/guide/configuration.ja.md) | 言語・フォント・用紙・バーコード・プリセット・ストレージの設定 |
 | [数式関数リファレンス](docs/guide/formula.ja.md) | 数式の記述ルール、対応する関数と使用例 |
 | [API リファレンス](docs/guide/api-reference.ja.md) | 関数・型・コンポーネント・イベント・エラーの全体リファレンス |

@@ -52,6 +52,7 @@ SlipKit은 pnpm 워크스페이스 기반 모노레포로 구성되어 있습니
 | [`@omdc-slipkit/elements`](packages/elements) | Lit으로 구현된 `<slip-designer>`, `<slip-form>`, `<slip-viewer>` Web Component를 제공합니다. |
 | [`@omdc-slipkit/react`](packages/react) | SlipKit Web Component를 React 컴포넌트로 사용할 수 있게 합니다. |
 | [`@omdc-slipkit/vue`](packages/vue) | SlipKit Web Component를 Vue 컴포넌트로 사용할 수 있게 합니다. |
+| [`@omdc-slipkit/mcp`](packages/mcp) | AI가 MCP 도구로 양식을 만들고 고칠 수 있게 하는 로컬 MCP 서버를 제공합니다. |
 
 ## 로컬에서 실행하기
 
@@ -93,6 +94,14 @@ pnpm demo:vue
 
 데모의 자동 저장과 파일 처리처럼 프레임워크에 의존하지 않는 로직은 [`examples/shared`](examples/shared)에 공통으로 구현되어 있습니다.
 
+MCP 도구는 [MCP Inspector 데모](examples/mcp-demo)에서 직접 호출할 수 있습니다. 이 데모는 Node.js 22.19 이상이 필요합니다.
+
+```bash
+pnpm demo:mcp
+```
+
+명령을 실행하면 샘플 작업공간과 MCP 패키지를 준비한 뒤 `http://localhost:6274`에서 Inspector를 엽니다.
+
 ## 사용 가이드
 
 처음 사용한다면 [시작하기](docs/guide/getting-started.md)에서 저장소의 데모를 실행하고 디자이너를 연결해 보세요. 저장·복원과 세 컴포넌트의 연결 방법은 [애플리케이션 통합 가이드](docs/guide/integration.md)에서 이어서 설명합니다.
@@ -105,6 +114,7 @@ pnpm demo:vue
 | [애플리케이션 통합 가이드](docs/guide/integration.md) | 디자이너·작성폼·뷰어 연결, 저장·복원 및 서버 연계 |
 | [양식 디자이너 사용 가이드](docs/guide/designer.md) | 디자이너 화면에서 양식을 제작하는 방법 |
 | [Core 사용 가이드](docs/guide/core.md) | `.slip` 파일 처리, 전표 조립, 수식 평가, PDF 생성과 암호화 |
+| [MCP 사용 가이드](docs/guide/mcp.md) | AI를 통한 `.slip` 양식 생성·수정, 전표 조립과 PDF 확인 |
 | [환경 설정 가이드](docs/guide/configuration.md) | 언어·폰트·용지·바코드·프리셋·저장소 설정 |
 | [수식 함수 참조](docs/guide/formula.md) | 수식 작성 규칙, 지원 함수와 사용 예제 |
 | [API 참조](docs/guide/api-reference.md) | 함수·타입·컴포넌트·이벤트·오류의 전체 참조 |

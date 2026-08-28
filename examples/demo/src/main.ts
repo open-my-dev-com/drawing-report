@@ -14,9 +14,13 @@ import {
   type SlipTemplateFile,
   type SlipVoucherFile,
 } from '@omdc-slipkit/core';
-import type { SlipDesigner, SlipDesignerSettings, SlipForm, SlipViewer } from '@omdc-slipkit/elements';
-import { PRETENDARD_FONTS } from '@omdc-slipkit/elements/fonts/pretendard';
-import { NOTO_SANS_JP_FONTS } from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+import {
+  loadDefaultFonts,
+  type SlipDesigner,
+  type SlipDesignerSettings,
+  type SlipForm,
+  type SlipViewer,
+} from '@omdc-slipkit/elements';
 import {
   AUTOSAVE_DELAY_MS,
   ISSUED_KEY,
@@ -43,9 +47,10 @@ import {
 const locale = resolveDemoLocale(location.search, import.meta.env.VITE_SLIPKIT_LOCALE as string | undefined);
 const messages = getMessages(locale);
 
-// core 공통 설정 — PDF 내려받기에 사용한다. 동봉 폰트는 언어에 맞는 것을 고른다.
+// PDF 렌더링용 Core 설정. 동봉된 모든 폰트를 등록하고, 로케일에 따라
+// fontName을 생략한 요소의 대체(fallback) 폰트를 선택한다.
 const slipKit = createSlipKit({
-  getFonts: () => (locale?.toLowerCase().startsWith('ja') ? NOTO_SANS_JP_FONTS : PRETENDARD_FONTS),
+  getFonts: () => loadDefaultFonts(locale?.toLowerCase().startsWith('ja') ? 'ja' : 'ko'),
   ...(locale === undefined ? {} : { locale }),
 });
 

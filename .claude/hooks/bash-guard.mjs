@@ -40,7 +40,7 @@ function currentBranch() {
 }
 
 // 브랜치 형식 규칙 (.claude/rules/branching.md): <type>/<scope>-<topic>
-const BRANCH_FORMAT = /^(feat|fix|docs|proto|chore)\/(core|elements|react|vue|repo)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const BRANCH_FORMAT = /^(feat|fix|docs|proto|chore)\/(core|elements|react|vue|mcp|repo)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 // 브랜치 제어 설정('*' 와일드카드) — 거부 목록은 허용 목록보다 우선한다 (ADR-058)
 function branchGuardConfig() {

@@ -9,6 +9,7 @@
 - [시작하기](getting-started.md)
 - [애플리케이션 통합 가이드](integration.md)
 - [Core 사용 가이드](core.md)
+- [MCP 사용 가이드](mcp.md)
 - [환경 설정 가이드](configuration.md)
 
 > [!NOTE]
@@ -23,6 +24,7 @@
 | `@omdc-slipkit/elements` | Web Component, 설정 타입, 기본 프리셋과 저장소 구현 |
 | `@omdc-slipkit/react` | React 래퍼 컴포넌트 |
 | `@omdc-slipkit/vue` | Vue 래퍼 컴포넌트 |
+| `@omdc-slipkit/mcp` | 로컬 stdio MCP 서버, 파일 시스템 저장소와 MCP 구조 안내 |
 
 폰트는 다음 서브패스에서도 가져올 수 있습니다.
 
@@ -1566,6 +1568,115 @@ Vue 3.4 이상을 지원합니다.
 | `locale` | `string` | — |
 | `settings` | `SlipFontProvider` | — |
 
+## `@omdc-slipkit/mcp`
+
+`@omdc-slipkit/mcp`는 로컬 stdio MCP 서버와 서버가 사용하는 파일 시스템 저장소를 제공합니다. 연결 및 도구 사용법은 [MCP 사용 가이드](mcp.md)를 확인하세요.
+
+### `createSlipMcpServer`
+
+```ts
+function createSlipMcpServer(
+  options: SlipMcpServerOptions,
+): {
+  server: McpServer;
+  storage: FileSystemStorage;
+};
+```
+
+도구 7종과 `slip://schema` 리소스를 등록한 MCP 서버를 만듭니다. 반환된 `server`는 아직 전송 계층에 연결되지 않은 상태입니다.
+
+```ts
+interface SlipMcpServerOptions
+  extends FileSystemStorageOptions {
+  fonts?: readonly SlipFont[];
+}
+```
+
+`fonts`를 생략하면 서버가 로케일에 맞는 동봉 폰트를 사용합니다. 값을 전달하면 해당 목록이 동봉 폰트를 대체합니다.
+
+### `FileSystemStorage`
+
+```ts
+class FileSystemStorage
+  implements StorageAdapter {
+  readonly rootDir: string;
+
+  constructor(options: FileSystemStorageOptions);
+  resolvePath(id: string): string;
+  save(id: string, file: SlipFile): Promise<void>;
+  load(id: string): Promise<SlipFile>;
+  delete(id: string): Promise<void>;
+  list(filter?: SlipListFilter, cursor?: string): Promise<SlipListPage>;
+}
+```
+
+지정한 기준 디렉터리 안에서 `.slip` 파일을 읽고 쓰는 Node.js 저장소입니다. id에 `.slip` 확장자가 없으면 자동으로 붙이며, 기준 디렉터리를 벗어나는 경로는 `SlipStorageError`로 거부합니다.
+
+```ts
+interface FileSystemStorageOptions {
+  rootDir: string;
+  locale?: string;
+  encryption?: {
+    key: FileSystemStorageKey;
+    previousKeys?: FileSystemStorageKey[];
+  };
+}
+
+type FileSystemStorageKey = string | Uint8Array;
+```
+
+### `slipkit-mcp.json`
+
+```ts
+interface SlipMcpConfig {
+  rootDir?: string;
+  locale?: string;
+  fonts?: Array<{
+    name: string;
+    path: string;
+    fallback?: boolean;
+  }>;
+  encryption?: {
+    keyEnv?: string;
+    previousKeysEnv?: string;
+  };
+}
+
+interface ResolveInput {
+  configPath?: string;
+  cliRootDir?: string;
+  cliLocale?: string;
+  cwd: string;
+  env: Record<string, string | undefined>;
+}
+```
+
+`rootDir`과 `fonts[].path`의 상대 경로는 설정 파일 위치를 기준으로 해석합니다. 설정 파일의 알 수 없는 필드, 잘못된 JSON, 없는 작업 디렉터리와 폰트 파일은 `SlipMcpConfigError`를 발생시킵니다.
+
+### MCP 설정 API
+
+| API | 설명 |
+|---|---|
+| `readConfigFile(filePath)` | JSON 파일을 읽고 `SlipMcpConfig`로 검증합니다. |
+| `loadConfigFonts(entries, baseDir)` | 설정의 폰트 파일을 읽어 `SlipFont[]`로 변환합니다. |
+| `resolveServerOptions(input)` | 설정 파일, CLI 값과 환경변수를 해석해 `{ options, configPath }`를 반환합니다. |
+| `SlipMcpConfigError` | 설정 파일이나 설정에 지정한 파일을 읽고 적용하지 못했을 때 발생하는 오류입니다. |
+| `CONFIG_FILE_NAME` | 기본 설정 파일 이름인 `slipkit-mcp.json`입니다. |
+| `DEFAULT_KEY_ENV` | 기본 현재 키 환경변수 이름인 `SLIPKIT_MCP_KEY`입니다. |
+| `DEFAULT_PREVIOUS_KEYS_ENV` | 기본 이전 키 환경변수 이름인 `SLIPKIT_MCP_PREVIOUS_KEYS`입니다. |
+
+### 기타 MCP 공개 API
+
+| API | 설명 |
+|---|---|
+| `resolveInRoot(rootDir, relPath, locale?)` | 상대 경로를 기준 디렉터리 안의 절대 경로로 변환합니다. 경로가 밖으로 나가면 오류를 발생시킵니다. |
+| `editOpSchema` | `slip_edit` 연산을 검증하는 Zod 스키마입니다. |
+| `EditOp` | `editOpSchema`에서 추론한 연산 타입입니다. |
+| `MAX_IMAGE_BYTES` | `set_image`가 받을 수 있는 최대 이미지 크기인 `2 * 1024 * 1024`입니다. |
+| `SCHEMA_TOPICS` | `slip_schema`가 지원하는 주제 목록입니다. |
+| `SchemaTopic` | `SCHEMA_TOPICS`의 요소 타입입니다. |
+| `schemaTopicText(topic)` | 지정한 주제의 영문 `.slip` 구조 안내를 반환합니다. |
+
 ## 오류 타입
 
 ### `SlipParseError`
@@ -1642,5 +1753,6 @@ class SlipStorageError
 - [양식 디자이너 사용 가이드](designer.md)
 - [애플리케이션 통합 가이드](integration.md)
 - [Core 사용 가이드](core.md)
+- [MCP 사용 가이드](mcp.md)
 - [환경 설정 가이드](configuration.md)
 - [수식 함수 참조](formula.md)

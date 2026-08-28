@@ -9,6 +9,7 @@ For the workflow and full examples, check these documents first.
 - [Getting Started](getting-started.en.md)
 - [Application Integration Guide](integration.en.md)
 - [Core Usage Guide](core.en.md)
+- [MCP Guide](mcp.en.md)
 - [Configuration Guide](configuration.en.md)
 
 > [!NOTE]
@@ -23,6 +24,7 @@ For the workflow and full examples, check these documents first.
 | `@omdc-slipkit/elements` | Web Components, settings types, built-in presets and storage implementations |
 | `@omdc-slipkit/react` | React wrapper components |
 | `@omdc-slipkit/vue` | Vue wrapper components |
+| `@omdc-slipkit/mcp` | Local stdio MCP server, file-system storage, and MCP schema guidance |
 
 Fonts can also be imported from the following subpaths.
 
@@ -1566,6 +1568,115 @@ Emitted events:
 | `locale` | `string` | — |
 | `settings` | `SlipFontProvider` | — |
 
+## `@omdc-slipkit/mcp`
+
+`@omdc-slipkit/mcp` provides a local stdio MCP server and the file-system storage used by that server. See the [MCP Guide](mcp.en.md) for connection and tool usage.
+
+### `createSlipMcpServer`
+
+```ts
+function createSlipMcpServer(
+  options: SlipMcpServerOptions,
+): {
+  server: McpServer;
+  storage: FileSystemStorage;
+};
+```
+
+Creates an MCP server with seven tools and the `slip://schema` resource. The returned `server` is not yet connected to a transport.
+
+```ts
+interface SlipMcpServerOptions
+  extends FileSystemStorageOptions {
+  fonts?: readonly SlipFont[];
+}
+```
+
+When `fonts` is omitted, the server uses the bundled fonts selected by locale. A supplied list replaces the bundled fonts.
+
+### `FileSystemStorage`
+
+```ts
+class FileSystemStorage
+  implements StorageAdapter {
+  readonly rootDir: string;
+
+  constructor(options: FileSystemStorageOptions);
+  resolvePath(id: string): string;
+  save(id: string, file: SlipFile): Promise<void>;
+  load(id: string): Promise<SlipFile>;
+  delete(id: string): Promise<void>;
+  list(filter?: SlipListFilter, cursor?: string): Promise<SlipListPage>;
+}
+```
+
+A Node.js storage adapter that reads and writes `.slip` files inside a designated root directory. It appends the `.slip` extension when omitted and throws `SlipStorageError` for paths outside the root.
+
+```ts
+interface FileSystemStorageOptions {
+  rootDir: string;
+  locale?: string;
+  encryption?: {
+    key: FileSystemStorageKey;
+    previousKeys?: FileSystemStorageKey[];
+  };
+}
+
+type FileSystemStorageKey = string | Uint8Array;
+```
+
+### `slipkit-mcp.json`
+
+```ts
+interface SlipMcpConfig {
+  rootDir?: string;
+  locale?: string;
+  fonts?: Array<{
+    name: string;
+    path: string;
+    fallback?: boolean;
+  }>;
+  encryption?: {
+    keyEnv?: string;
+    previousKeysEnv?: string;
+  };
+}
+
+interface ResolveInput {
+  configPath?: string;
+  cliRootDir?: string;
+  cliLocale?: string;
+  cwd: string;
+  env: Record<string, string | undefined>;
+}
+```
+
+Relative `rootDir` and `fonts[].path` values are resolved from the configuration file directory. Unknown fields, invalid JSON, missing working directories, and missing font files throw `SlipMcpConfigError`.
+
+### MCP configuration API
+
+| Export | Description |
+|---|---|
+| `readConfigFile(filePath)` | Reads and validates a JSON file as `SlipMcpConfig`. |
+| `loadConfigFonts(entries, baseDir)` | Reads configured font files and returns `SlipFont[]`. |
+| `resolveServerOptions(input)` | Resolves the configuration file, CLI values, and environment into `{ options, configPath }`. |
+| `SlipMcpConfigError` | Error thrown when configuration or a referenced resource cannot be read or applied. |
+| `CONFIG_FILE_NAME` | Default configuration filename: `slipkit-mcp.json`. |
+| `DEFAULT_KEY_ENV` | Default current-key environment-variable name: `SLIPKIT_MCP_KEY`. |
+| `DEFAULT_PREVIOUS_KEYS_ENV` | Default previous-keys environment-variable name: `SLIPKIT_MCP_PREVIOUS_KEYS`. |
+
+### Other MCP exports
+
+| Export | Description |
+|---|---|
+| `resolveInRoot(rootDir, relPath, locale?)` | Resolves a relative path inside the root directory and throws when it escapes the root. |
+| `editOpSchema` | Zod schema for `slip_edit` operations. |
+| `EditOp` | Operation type inferred from `editOpSchema`. |
+| `MAX_IMAGE_BYTES` | Maximum image size accepted by `set_image`: `2 * 1024 * 1024`. |
+| `SCHEMA_TOPICS` | Topics supported by `slip_schema`. |
+| `SchemaTopic` | Element type of `SCHEMA_TOPICS`. |
+| `schemaTopicText(topic)` | Returns the English `.slip` structure guide for a topic. |
+
 ## Error types
 
 ### `SlipParseError`
@@ -1642,5 +1753,6 @@ class SlipStorageError
 - [Form Designer Usage Guide](designer.en.md)
 - [Application Integration Guide](integration.en.md)
 - [Core Usage Guide](core.en.md)
+- [MCP Guide](mcp.en.md)
 - [Configuration Guide](configuration.en.md)
 - [Formula Function Reference](formula.en.md)

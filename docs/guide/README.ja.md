@@ -19,6 +19,7 @@ SlipKit を実行したり、既存のアプリケーションに接続したり
 | デザイナー画面でテンプレートを作る | [テンプレートデザイナー利用ガイド](designer.ja.md) | テンプレート作成者 |
 | `.slip` ファイル処理、伝票の組み立てと PDF 生成を行う | [Core 利用ガイド](core.ja.md) | バックエンド・Core 開発者 |
 | Node.js サーバーで伝票を発行し PDF を生成・保管する | [サーバー統合ガイド](server-integration.ja.md) | バックエンド開発者 |
+| MCP サーバーを設定し、AI で `.slip` テンプレートを作成・編集して PDF で確認する | [MCP 利用ガイド](mcp.ja.md) | MCP ユーザー・AI 連携開発者 |
 | 言語、フォント、用紙、プリセットとストレージを設定する | [環境設定ガイド](configuration.ja.md) | アプリケーション開発者 |
 | テンプレートで計算式を書く | [数式関数リファレンス](formula.ja.md) | テンプレート作成者・開発者 |
 | 公開関数、型、コンポーネントとイベントを確認する | [API リファレンス](api-reference.ja.md) | 連携開発者 |
@@ -71,6 +72,7 @@ SlipKit は、目的の異なる 3 つの UI コンポーネントを提供し�
 | `@omdc-slipkit/elements` | Web Component ベースのデザイナー・作成フォーム・ビューア |
 | `@omdc-slipkit/react` | React 向けラッパーコンポーネント |
 | `@omdc-slipkit/vue` | Vue 向けラッパーコンポーネント |
+| `@omdc-slipkit/mcp` | AI がローカルの `.slip` ファイルを扱うための stdio MCP サーバー |
 
 React と Vue のパッケージは、Web Component を各フレームワークの利用方法に合わせて接続する薄いラッパーです。提供する SlipKit 機能に違いはありません。
 

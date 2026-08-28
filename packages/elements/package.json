@@ -28,6 +28,11 @@
       "types": "./dist/fonts/noto-sans-jp.d.ts",
       "import": "./dist/fonts/noto-sans-jp.js",
       "require": "./dist/fonts/noto-sans-jp.js"
+    },
+    "./default-fonts": {
+      "types": "./dist/default-fonts.d.ts",
+      "import": "./dist/default-fonts.js",
+      "require": "./dist/default-fonts.js"
     }
   },
   "engines": {

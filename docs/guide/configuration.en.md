@@ -16,6 +16,8 @@ Configuration is used less to change the features of the components themselves a
 
 > [!NOTE]
 > For component events and the auto-save flow, see the [Application Integration Guide](integration.en.md). For the full fields of each settings type, see the [API Reference](api-reference.en.md).
+>
+> See the [MCP Guide](mcp.en.md) for the local MCP server's separate `slipkit-mcp.json` configuration.
 
 ## Component settings at a glance
 
