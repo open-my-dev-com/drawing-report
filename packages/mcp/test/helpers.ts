@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import type { SlipTemplateFile } from '@omdc-slipkit/core';
+import { CURRENT_SCHEMA_VERSION, type SlipTemplateFile } from '@omdc-slipkit/core';
 import { createSlipMcpServer, type SlipMcpServerOptions } from '../src/server.js';
 
 /** 임시 작업 디렉터리를 만든다. */
@@ -24,7 +24,7 @@ export const TINY_PNG_B64 =
 /** 테스트용 최소 양식. 필드·그리드·이미지 요소와 목록 파라미터를 포함한다. */
 export function makeTemplate(): SlipTemplateFile {
   return {
-    schemaVersion: '0.1.0',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     kind: 'template',
     template: {
       meta: { title: '거래명세서' },

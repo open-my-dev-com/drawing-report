@@ -6,7 +6,11 @@ import {
   renderSlipToPdf,
   parseFormula,
   evaluateFormula,
+  resolveConditionalFormats,
   stackVertically,
+  SLIP_LIMITS,
+  type ConditionalFormatColors,
+  type ConditionalFormatRule,
   type SlipFile,
   type SlipTemplateFile,
   type SlipElement,
@@ -4069,8 +4073,14 @@ export class SlipDesigner extends LitElement {
     const drawnAsSvg = el.type === 'line' || el.type === 'ellipse' || el.type === 'polygon';
     if (el.type !== 'image' && !drawnAsSvg) {
       const r = el as Record<string, unknown>;
-      if (r.backgroundColor) style += `;background-color:${r.backgroundColor}`;
-      if (r.fontColor) style += `;color:${r.fontColor}`;
+      // 텍스트와 필드는 샘플 값으로 조건부 서식을 미리 적용한다.
+      const conditional = el.type === 'text' || el.type === 'field'
+        ? this._previewConditionalColors(el.conditionalFormats)
+        : {};
+      const backgroundColor = conditional.backgroundColor ?? (r.backgroundColor as string | undefined);
+      const fontColor = conditional.fontColor ?? (r.fontColor as string | undefined);
+      if (backgroundColor) style += `;background-color:${backgroundColor}`;
+      if (fontColor) style += `;color:${fontColor}`;
       /*
        * 캔버스에는 PDF 변환과 같은 테두리 기본값을 적용한다.
        * 테두리 굵기가 0이면 요소 영역을 확인할 수 있도록 편집 안내선만 표시한다.
@@ -4079,7 +4089,7 @@ export class SlipDesigner extends LitElement {
         ? r.borderWidth
         : (el.type === 'text' || el.type === 'field' ? 0 : DEFAULT_LINE_WIDTH);
       if (effectiveWidth > 0) {
-        const color = (r.borderColor as string | undefined) ?? DEFAULT_BORDER_COLOR;
+        const color = conditional.borderColor ?? (r.borderColor as string | undefined) ?? DEFAULT_BORDER_COLOR;
         style += `;border-color:${color}`;
         style += `;border-width:${(effectiveWidth * PX_PER_MM).toFixed(2)}px`;
       } else {
@@ -4247,11 +4257,11 @@ export class SlipDesigner extends LitElement {
     const rowTracks = heights.map((h) => `${h}fr`).join(' ');
     const lineColor = el.borderColor ?? '#000000';
     const lineWidth = el.borderWidth ?? DEFAULT_LINE_WIDTH;
-    const borderCssOf = (cell?: GridCell): string => {
+    const borderCssOf = (cell?: GridCell, overrideColor?: string): string => {
       const width = cell?.borderWidth ?? lineWidth;
       if (width <= 0) return 'none';
       const px = Math.max(1, Math.round(width * PX_PER_MM));
-      return `${px}px ${cell?.borderStyle ?? el.borderStyle ?? 'solid'} ${cell?.borderColor ?? lineColor}`;
+      return `${px}px ${cell?.borderStyle ?? el.borderStyle ?? 'solid'} ${overrideColor ?? cell?.borderColor ?? lineColor}`;
     };
 
     const repeat = el.repeat;
@@ -4309,18 +4319,25 @@ export class SlipDesigner extends LitElement {
     const boxes = placed.map(({ cell, row, rowSpan, item }) => {
       const isSelectedCell =
         selected && this._selectedCell?.row === cell.row && this._selectedCell?.column === cell.column;
+      // 반복 구간의 비어 있는 행에는 값이 없으므로 조건부 서식을 평가하지 않는다 (PDF 변환과 동일).
+      const inBand = repeat !== undefined && cell.row >= repeat.fromRow && cell.row <= repeat.toRow;
+      const conditional = inBand && item === undefined
+        ? {}
+        : this._previewConditionalColors(cell.conditionalFormats, item);
+      const backgroundColor = conditional.backgroundColor ?? cell.backgroundColor;
+      const fontColor = conditional.fontColor ?? cell.fontColor ?? el.fontColor;
       // 그리드 셀은 수직 정렬을 별도로 적용하므로 textStyleCss에서는 생략한다.
       const merged = { ...el, ...cell };
       const style = [
         `grid-area:${row + 1}/${cell.column + 1}/span ${rowSpan}/span ${cell.colSpan ?? 1}`,
-        `border:${borderCssOf(cell)}`,
+        `border:${borderCssOf(cell, conditional.borderColor)}`,
         `font-size:${fontPx(cell.fontSize ?? el.fontSize)}`,
         `justify-content:${justifyOf(cell.alignment ?? el.alignment)}`,
         `align-items:${verticalFlexAlign(merged.verticalAlignment)}`,
         // 세로쓰기에서 추가한 줄바꿈을 유지한다.
         cell.vertical === true ? 'white-space:pre-wrap' : '',
-        cell.backgroundColor ? `background-color:${cell.backgroundColor}` : '',
-        (cell.fontColor ?? el.fontColor) ? `color:${cell.fontColor ?? el.fontColor}` : '',
+        backgroundColor ? `background-color:${backgroundColor}` : '',
+        fontColor ? `color:${fontColor}` : '',
       ].filter(Boolean).join(';') + textStyleCss(merged, { omitVerticalAlign: true });
       return html`<div class=${isSelectedCell ? 'cell-selected' : ''} style=${style}
         >${stackVertically(this._gridCellPreviewText(cell, item), cell.vertical)}</div>`;
@@ -4347,6 +4364,34 @@ export class SlipDesigner extends LitElement {
 
     return html`<div class="grid-preview"
       style="grid-template-columns:${colTracks};grid-template-rows:${rowTracks}">${blanks}${boxes}</div>`;
+  }
+
+  /**
+   * 캔버스 미리보기에 적용할 조건부 서식 색을 샘플 값으로 계산한다.
+   * 규칙별로 평가해 아직 완성되지 않은 조건식은 건너뛴다.
+   *
+   * @param rules - 조건부 서식 규칙 목록
+   * @param item - 반복 구간의 현재 샘플 항목 (없으면 샘플 값만 사용)
+   * @returns 덮어쓸 색 목록
+   */
+  private _previewConditionalColors(
+    rules: readonly ConditionalFormatRule[] | undefined,
+    item?: Record<string, unknown>,
+  ): ConditionalFormatColors {
+    if (rules === undefined || rules.length === 0) return {};
+    const scope = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
+    const result: ConditionalFormatColors = {};
+    for (const rule of rules) {
+      try {
+        Object.assign(
+          result,
+          resolveConditionalFormats([rule], scope, this.locale === undefined ? {} : { locale: this.locale }),
+        );
+      } catch {
+        // 조건식이 계산되지 않으면 기본 서식으로 표시한다. 오류는 PDF 미리보기에서 안내한다.
+      }
+    }
+    return result;
   }
 
   /** 반복 구간에 사용할 샘플 항목 배열을 반환한다. */
@@ -4963,6 +5008,14 @@ export class SlipDesigner extends LitElement {
 
       ${this._renderTypeProps(el)}
       ${el.type === 'grid' && this._selectedCell !== null ? nothing : this._renderStyleGroups(el)}
+      ${el.type === 'text' || el.type === 'field'
+        ? this._renderConditionalFormatsSection(el.conditionalFormats, 'condFmt', (next) =>
+            this._updateElement((target) => {
+              const record = target as Record<string, unknown>;
+              if (next.length === 0) delete record.conditionalFormats;
+              else record.conditionalFormats = next;
+            }))
+        : nothing}
     `;
   }
 
@@ -6158,7 +6211,13 @@ export class SlipDesigner extends LitElement {
               'cellBorderStyle',
               (v) => this._updateCellStyle('borderStyle', v),
             )}
-          </div>`
+          </div>
+          ${this._renderConditionalFormatsSection(
+            cellDef?.conditionalFormats,
+            'cellCondFmt',
+            (next) => this._updateCellConditionalFormats(next),
+            `${s.cell} `,
+          )}`
       : nothing;
   }
 
@@ -6816,6 +6875,108 @@ export class SlipDesigner extends LitElement {
           ${this._renderInputError('corner-radius')}` : nothing}
       </div>
     `;
+  }
+
+  /**
+   * 조건부 서식 규칙 목록을 편집하는 섹션을 렌더링한다.
+   * 규칙은 선언된 순서대로 합성되므로 순서 이동 버튼을 함께 제공한다.
+   *
+   * @param rules - 현재 규칙 목록
+   * @param keyPrefix - 색상 팝업 상태를 구분할 키 접두사
+   * @param update - 바뀐 규칙 목록을 저장하는 콜백 (빈 목록이면 속성을 제거한다)
+   * @param ariaPrefix - 접근성 레이블 접두사 (셀이면 `셀 `)
+   */
+  private _renderConditionalFormatsSection(
+    rules: readonly ConditionalFormatRule[] | undefined,
+    keyPrefix: string,
+    update: (next: ConditionalFormatRule[]) => void,
+    ariaPrefix = '',
+  ) {
+    const s = this._strings.designer;
+    const list = rules ?? [];
+    const change = (mutate: (next: ConditionalFormatRule[]) => void): void => {
+      const next = list.map((rule) => ({ ...rule }));
+      mutate(next);
+      update(next);
+    };
+    const setColor = (index: number, key: 'fontColor' | 'backgroundColor' | 'borderColor', value: string | null) =>
+      change((next) => {
+        if (value === null) delete next[index]![key];
+        else next[index]![key] = value;
+      });
+    const swap = (index: number, other: number) =>
+      change((next) => {
+        const tmp = next[index]!;
+        next[index] = next[other]!;
+        next[other] = tmp;
+      });
+    return html`
+      <div class="prop-section">
+        <div class="prop-section-title">${s.conditionalFormat}</div>
+        ${list.length > 0 ? html`<p class="image-hint">${s.conditionHint}</p>` : nothing}
+        ${list.map((rule, index) => {
+          const name = `${ariaPrefix}${s.conditionalFormat} ${index + 1}`;
+          return html`
+            <div class="prop-row">
+              <label>${s.condition} ${index + 1}</label>
+              <input .value=${live(rule.condition)}
+                aria-label="${name}: ${s.condition}"
+                placeholder=${s.conditionPlaceholder}
+                @change=${(e: Event) => {
+                  // 빈 조건식은 파일 검증에서 거부되므로 저장하지 않는다.
+                  const value = (e.target as HTMLInputElement).value.trim();
+                  if (value === '') {
+                    this.requestUpdate();
+                    return;
+                  }
+                  change((next) => { next[index]!.condition = value; });
+                }}>
+            </div>
+            ${this._renderColorControl(
+              s.fontColor, rule.fontColor, `${keyPrefix}-font-${index}`,
+              (v) => setColor(index, 'fontColor', v), undefined, `${name}: ${s.fontColor}`,
+            )}
+            ${this._renderColorControl(
+              s.backgroundColor, rule.backgroundColor, `${keyPrefix}-bg-${index}`,
+              (v) => setColor(index, 'backgroundColor', v), undefined, `${name}: ${s.backgroundColor}`,
+            )}
+            ${this._renderColorControl(
+              s.borderColor, rule.borderColor, `${keyPrefix}-border-${index}`,
+              (v) => setColor(index, 'borderColor', v), undefined, `${name}: ${s.borderColor}`,
+            )}
+            <div class="prop-row">
+              <label></label>
+              <div class="toggle-group" role="group" aria-label=${name}>
+                <button title=${s.conditionRuleUp} aria-label="${name}: ${s.conditionRuleUp}"
+                  ?disabled=${index === 0}
+                  @click=${() => swap(index, index - 1)}>${icons.up}</button>
+                <button title=${s.conditionRuleDown} aria-label="${name}: ${s.conditionRuleDown}"
+                  ?disabled=${index === list.length - 1}
+                  @click=${() => swap(index, index + 1)}>${icons.down}</button>
+                <button title=${s.deleteConditionRule} aria-label="${name}: ${s.deleteConditionRule}"
+                  @click=${() => change((next) => { next.splice(index, 1); })}>${icons.remove}</button>
+              </div>
+            </div>`;
+        })}
+        <button class="col-modal-open" ?disabled=${list.length >= SLIP_LIMITS.maxConditionalFormats}
+          aria-label="${ariaPrefix}${s.addConditionRule}"
+          @click=${() => change((next) => { next.push({ condition: 'TRUE', fontColor: '#FF0000' }); })}>
+          ${icons.pageAdd}<span>${s.addConditionRule}</span>
+        </button>
+      </div>
+    `;
+  }
+
+  /** 선택 셀의 조건부 서식 규칙 목록을 저장한다. 빈 목록이면 속성을 제거한다. */
+  private _updateCellConditionalFormats(next: ConditionalFormatRule[]): void {
+    const target = this._selectedCell;
+    if (!target) return;
+    this._updateElement((element) => {
+      if (!isGrid(element)) return;
+      const record = ensureCell(element, target.row, target.column);
+      if (next.length === 0) delete record.conditionalFormats;
+      else record.conditionalFormats = next;
+    });
   }
 
   // ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@ import type { Schema, Template } from '@pdfme/common';
 import { evaluateFormula } from '../formula/evaluator.js';
 import type {
   BarcodeElement,
+  ConditionalFormatRule,
   EllipseElement,
   FieldElement,
   GridCell,
@@ -28,6 +29,7 @@ import type {
   TextElement,
 } from '../format/schema.js';
 import { normalizeNumericParameters } from '../format/normalize.js';
+import { resolveConditionalFormats, type ConditionalFormatColors } from './conditional.js';
 import { SlipRenderError } from './errors.js';
 import { rm } from './messages.js';
 import { TextMeasurer } from './measure.js';
@@ -404,26 +406,56 @@ class SlipToPdfmeConverter {
   }
 
   private appendText(schemas: Schema[], element: TextElement): void {
+    const conditional = this.conditionalColors(
+      element.conditionalFormats,
+      this.values,
+      rm(this.locale).subjectText(element.name, element.id),
+    );
     const schema = this.textSchema(
       element.id,
       element.position,
       element.width,
       element.height,
-      this.textStyleFromElement(element),
+      { ...this.textStyleFromElement(element), ...conditional },
     );
     // 직접 입력한 텍스트도 pdfme 표현식 평가를 거치지 않도록 inputs로 전달한다.
     this.push(schemas, schema, stackVertically(element.content, element.vertical));
   }
 
   private appendField(schemas: Schema[], element: FieldElement): void {
+    const conditional = this.conditionalColors(
+      element.conditionalFormats,
+      this.values,
+      rm(this.locale).subjectField(element.name, element.id),
+    );
     const schema = this.textSchema(
       element.id,
       element.position,
       element.width,
       element.height,
-      this.textStyleFromElement(element),
+      { ...this.textStyleFromElement(element), ...conditional },
     );
     this.push(schemas, schema, stackVertically(this.fieldValue(element), element.vertical));
+  }
+
+  /**
+   * 요소·셀의 조건부 서식을 평가한다.
+   *
+   * @param rules - 조건부 서식 규칙 목록
+   * @param scope - 조건식이 참조할 값 범위
+   * @param subject - 오류 메시지에 쓸 대상 이름
+   * @returns 덮어쓸 색 목록
+   */
+  private conditionalColors(
+    rules: readonly ConditionalFormatRule[] | undefined,
+    scope: Record<string, unknown>,
+    subject: string,
+  ): ConditionalFormatColors {
+    return resolveConditionalFormats(
+      rules,
+      scope,
+      this.locale === undefined ? { subject } : { locale: this.locale, subject },
+    );
   }
 
   /**
@@ -512,6 +544,14 @@ class SlipToPdfmeConverter {
     item: Record<string, unknown> | undefined,
     hasItem: boolean,
   ): DrawGridCell {
+    // 비어 있는 반복 행에는 값이 없으므로 조건부 서식도 평가하지 않는다.
+    const conditional = hasItem
+      ? this.conditionalColors(
+          cell.conditionalFormats,
+          item === undefined ? this.values : { ...this.values, ...item },
+          rm(this.locale).subjectGridCell(element.name, element.id, cell.row, cell.column),
+        )
+      : {};
     return {
       row: cell.row + rowShift,
       column: cell.column,
@@ -529,9 +569,9 @@ class SlipToPdfmeConverter {
       lineHeight: cell.lineHeight ?? element.lineHeight,
       characterSpacing: cell.characterSpacing ?? element.characterSpacing,
       vertical: cell.vertical ?? element.vertical,
-      fontColor: cell.fontColor ?? element.fontColor,
-      backgroundColor: cell.backgroundColor,
-      borderColor: cell.borderColor,
+      fontColor: conditional.fontColor ?? cell.fontColor ?? element.fontColor,
+      backgroundColor: conditional.backgroundColor ?? cell.backgroundColor,
+      borderColor: conditional.borderColor ?? cell.borderColor,
       borderWidth: cell.borderWidth,
       borderStyle: cell.borderStyle,
       overflow: cell.overflow,

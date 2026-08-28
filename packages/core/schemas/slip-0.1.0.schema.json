@@ -211,6 +211,35 @@
                             },
                             "vertical": {
                               "type": "boolean"
+                            },
+                            "conditionalFormats": {
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "condition": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "fontColor": {
+                                    "type": "string",
+                                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  },
+                                  "backgroundColor": {
+                                    "type": "string",
+                                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  },
+                                  "borderColor": {
+                                    "type": "string",
+                                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  }
+                                },
+                                "required": [
+                                  "condition"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [
@@ -495,6 +524,35 @@
                                   },
                                   "vertical": {
                                     "type": "boolean"
+                                  },
+                                  "conditionalFormats": {
+                                    "maxItems": 20,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "condition": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "fontColor": {
+                                          "type": "string",
+                                          "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                        },
+                                        "backgroundColor": {
+                                          "type": "string",
+                                          "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                        },
+                                        "borderColor": {
+                                          "type": "string",
+                                          "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                        }
+                                      },
+                                      "required": [
+                                        "condition"
+                                      ],
+                                      "additionalProperties": false
+                                    }
                                   }
                                 },
                                 "required": [
@@ -1140,6 +1198,35 @@
                             },
                             "vertical": {
                               "type": "boolean"
+                            },
+                            "conditionalFormats": {
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "condition": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "fontColor": {
+                                    "type": "string",
+                                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  },
+                                  "backgroundColor": {
+                                    "type": "string",
+                                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  },
+                                  "borderColor": {
+                                    "type": "string",
+                                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  }
+                                },
+                                "required": [
+                                  "condition"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [
@@ -1521,6 +1608,35 @@
                             },
                             "vertical": {
                               "type": "boolean"
+                            },
+                            "conditionalFormats": {
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "condition": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "fontColor": {
+                                    "type": "string",
+                                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  },
+                                  "backgroundColor": {
+                                    "type": "string",
+                                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  },
+                                  "borderColor": {
+                                    "type": "string",
+                                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  }
+                                },
+                                "required": [
+                                  "condition"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [
@@ -1805,6 +1921,35 @@
                                   },
                                   "vertical": {
                                     "type": "boolean"
+                                  },
+                                  "conditionalFormats": {
+                                    "maxItems": 20,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "condition": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "fontColor": {
+                                          "type": "string",
+                                          "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                        },
+                                        "backgroundColor": {
+                                          "type": "string",
+                                          "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                        },
+                                        "borderColor": {
+                                          "type": "string",
+                                          "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                        }
+                                      },
+                                      "required": [
+                                        "condition"
+                                      ],
+                                      "additionalProperties": false
+                                    }
                                   }
                                 },
                                 "required": [
@@ -2450,6 +2595,35 @@
                             },
                             "vertical": {
                               "type": "boolean"
+                            },
+                            "conditionalFormats": {
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "condition": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "fontColor": {
+                                    "type": "string",
+                                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  },
+                                  "backgroundColor": {
+                                    "type": "string",
+                                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  },
+                                  "borderColor": {
+                                    "type": "string",
+                                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  }
+                                },
+                                "required": [
+                                  "condition"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [

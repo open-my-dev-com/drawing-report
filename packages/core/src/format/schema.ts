@@ -51,6 +51,8 @@ export const SLIP_LIMITS = {
   maxRepeatPerPage: 1000,
   /** 그리드(grid) 반복 구간이 그릴 수 있는 항목 수 상한 (`repeat.maxItems`의 상한) */
   maxRepeatItems: 100_000,
+  /** 요소·셀당 최대 조건부 서식 규칙 수 */
+  maxConditionalFormats: 20,
   /** 줄간격 배수 상한 */
   maxLineHeight: 10,
   /** 자간 절대값 상한(pt) */
@@ -91,6 +93,34 @@ const colorStyleShape = {
   borderWidth: nonNegativeMm.optional(),
   borderStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
 };
+
+/**
+ * 값에 따라 색을 바꾸는 조건부 서식 규칙.
+ * 조건식이 참이면 지정한 색으로 기본 서식을 덮어쓴다 (SPEC §9.4).
+ */
+const conditionalFormatRuleSchema = z
+  .object({
+    /** 논리값을 반환하는 조건식. 반복 구간 안에서는 현재 항목의 필드를 참조할 수 있다. */
+    condition: z.string().min(1),
+    fontColor: colorSchema.optional(),
+    backgroundColor: colorSchema.optional(),
+    borderColor: colorSchema.optional(),
+  })
+  .superRefine((rule, ctx) => {
+    if (rule.fontColor === undefined && rule.backgroundColor === undefined && rule.borderColor === undefined) {
+      ctx.addIssue({ code: 'custom', path: ['condition'], message: fmt().conditionalFormatColorRequired() });
+    }
+  });
+
+/**
+ * 조건부 서식 규칙 목록. 조건이 참인 규칙을 선언된 순서대로 합성하며,
+ * 같은 속성은 뒤에 선언된 규칙의 값을 사용한다.
+ */
+const conditionalFormatsSchema = z
+  .array(conditionalFormatRuleSchema)
+  .max(SLIP_LIMITS.maxConditionalFormats, {
+    error: () => fmt().conditionalFormatsMax(SLIP_LIMITS.maxConditionalFormats),
+  });
 
 const elementBaseShape = {
   id: idSchema,
@@ -144,6 +174,8 @@ const textElementSchema = z.object({
   /** 직접 입력한 텍스트. */
   content: z.string(),
   ...fontShape,
+  /** 값에 따라 색을 바꾸는 조건부 서식 규칙. */
+  conditionalFormats: conditionalFormatsSchema.optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -183,6 +215,8 @@ const gridCellSchema = z.object({
   /** 그리드 기본 overflow 설정을 덮어쓸 셀별 처리 방식. */
   overflow: overflowSchema.optional(),
   ...fontShape,
+  /** 값에 따라 색을 바꾸는 조건부 서식 규칙. */
+  conditionalFormats: conditionalFormatsSchema.optional(),
 });
 
 /** 항목 배열의 각 항목에 대해 지정한 행 범위를 반복하는 설정. */
@@ -535,6 +569,8 @@ const fieldElementSchema = z
     /** 표시 값을 계산하는 수식. 예: `FORMAT_NUMBER(...)`. */
     formula: z.string().optional(),
     ...fontShape,
+    /** 값에 따라 색을 바꾸는 조건부 서식 규칙. */
+    conditionalFormats: conditionalFormatsSchema.optional(),
   })
   .superRefine((field, ctx) => {
     const sources = [field.parameter, field.formula].filter((v) => v !== undefined);
@@ -982,6 +1018,9 @@ export type TextElement = z.infer<typeof textElementSchema>;
 
 /** 그리드 셀. */
 export type GridCell = z.infer<typeof gridCellSchema>;
+
+/** 조건부 서식 규칙. */
+export type ConditionalFormatRule = z.infer<typeof conditionalFormatRuleSchema>;
 
 /** 그리드의 반복 구간. */
 export type GridRepeat = z.infer<typeof gridRepeatSchema>;

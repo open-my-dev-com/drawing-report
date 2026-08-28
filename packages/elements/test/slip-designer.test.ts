@@ -587,6 +587,115 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
   });
 });
 
+describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
+  async function mountFile(
+    elements: unknown[],
+    sampleValues?: Record<string, unknown>,
+  ): Promise<import('../src/slip-designer.js').SlipDesigner> {
+    const file = makeTemplateFile();
+    file.template.pages[0]!.elements = elements as never;
+    if (sampleValues) file.template.sampleValues = sampleValues as never;
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    return el;
+  }
+
+  it('텍스트 요소의 색을 샘플 값으로 미리 적용한다', async () => {
+    const el = await mountFile(
+      [{
+        type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+        width: 60, height: 10, content: '취소됨',
+        conditionalFormats: [
+          { condition: 'status = "취소"', fontColor: '#FF0000', backgroundColor: '#FFEEEE' },
+        ],
+      }],
+      { status: '취소' },
+    );
+    const box = el.shadowRoot?.querySelector('[data-id="t1"]') as HTMLElement;
+    expect(box.style.color).toBe('#FF0000');
+    expect(box.style.backgroundColor).toBe('#FFEEEE');
+    el.remove();
+  });
+
+  it('반복 그리드 셀은 행별로 조건을 평가한다', async () => {
+    const el = await mountFile(
+      [{
+        type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
+        width: 40, height: 16,
+        rows: [{ height: 8 }],
+        columns: [{ width: 40 }],
+        repeat: { parameter: 'items', fromRow: 0, toRow: 0, perPage: 2, repeatHeader: false },
+        cells: [{
+          row: 0, column: 0, parameter: 'amount',
+          conditionalFormats: [{ condition: 'amount >= 2000', fontColor: '#FF0000' }],
+        }],
+      }],
+      { items: [{ amount: 1000 }, { amount: 2000 }] },
+    );
+    const boxes = Array.from(el.shadowRoot!.querySelectorAll('.grid-preview > div')) as HTMLElement[];
+    const low = boxes.find((c) => c.textContent === '1000')!;
+    const high = boxes.find((c) => c.textContent === '2000')!;
+    expect(low.style.color).toBe('');
+    expect(high.style.color).toBe('#FF0000');
+    el.remove();
+  });
+
+  it('계산되지 않는 조건식은 캔버스에서 건너뛴다', async () => {
+    const el = await mountFile(
+      [{
+        type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+        width: 60, height: 10, content: '제목',
+        conditionalFormats: [
+          { condition: 'status <', fontColor: '#00FF00' },
+          { condition: 'TRUE', fontColor: '#FF0000' },
+        ],
+      }],
+      {},
+    );
+    // 문법 오류 규칙은 무시하고 계산되는 규칙만 적용한다.
+    const box = el.shadowRoot?.querySelector('[data-id="t1"]') as HTMLElement;
+    expect(box.style.color).toBe('#FF0000');
+    el.remove();
+  });
+
+  it('속성 패널에서 규칙을 추가하면 파일에 저장된다', async () => {
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const elementDiv = el.shadowRoot?.querySelector('[data-id="txt-1"]') as HTMLElement;
+    elementDiv.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 10, clientY: 10, pointerId: 1,
+    }));
+    elementDiv.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+
+    let changed: SlipTemplateFile | null = null;
+    el.addEventListener('slip-change', (e) => {
+      changed = (e as CustomEvent<{ file: SlipTemplateFile }>).detail.file;
+    });
+
+    const addBtn = Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.textContent?.includes(strings.designer.addConditionRule)) as HTMLButtonElement;
+    expect(addBtn).toBeTruthy();
+    addBtn.click();
+    await el.updateComplete;
+
+    expect(changed).not.toBeNull();
+    const text = changed!.template.pages[0]!.elements.find((item) => item.id === 'txt-1')!;
+    expect((text as { conditionalFormats?: unknown[] }).conditionalFormats).toEqual([
+      { condition: 'TRUE', fontColor: '#FF0000' },
+    ]);
+    el.remove();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 툴바, 정렬 토글, 색 선택기
 // ---------------------------------------------------------------------------

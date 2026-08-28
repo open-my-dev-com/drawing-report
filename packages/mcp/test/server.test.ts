@@ -180,6 +180,57 @@ describe('slip_edit', () => {
     expect(elements.some((entry) => entry.id === 'footer')).toBe(true);
   });
 
+  it('요소와 셀의 조건부 서식 규칙을 통째로 바꾸고 null로 제거한다 (ADR-062)', async () => {
+    const rules = [{ condition: 'total < 0', fontColor: '#FF0000' }];
+    const applied = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [
+        { action: 'set_element', id: 'customer', fields: { conditionalFormats: rules } },
+        {
+          action: 'set_cell', elementId: 'items-table', row: 1, column: 1,
+          fields: { conditionalFormats: [{ condition: 'amount >= 1000', fontColor: '#0000FF' }] },
+        },
+      ],
+    });
+    expect(applied.isError).toBe(false);
+
+    const storage = new FileSystemStorage({ rootDir: dir });
+    let file = await storage.load('doc');
+    if (file.kind !== 'template') throw new Error('template expected');
+    const customer = file.template.pages[0]!.elements.find((entry) => entry.id === 'customer');
+    expect((customer as { conditionalFormats?: unknown }).conditionalFormats).toEqual(rules);
+
+    const removed = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_element', id: 'customer', fields: { conditionalFormats: null } }],
+    });
+    expect(removed.isError).toBe(false);
+    file = await storage.load('doc');
+    if (file.kind !== 'template') throw new Error('template expected');
+    const after = file.template.pages[0]!.elements.find((entry) => entry.id === 'customer');
+    expect((after as { conditionalFormats?: unknown }).conditionalFormats).toBeUndefined();
+  });
+
+  it('색이 없는 조건부 서식 규칙은 검증에 걸려 저장되지 않는다 (ADR-062)', async () => {
+    const result = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [
+        {
+          action: 'set_element', id: 'customer',
+          fields: { conditionalFormats: [{ condition: 'total < 0' }] },
+        },
+      ],
+    });
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain('at least one of fontColor');
+
+    const storage = new FileSystemStorage({ rootDir: dir });
+    const file = await storage.load('doc');
+    if (file.kind !== 'template') throw new Error('template expected');
+    const customer = file.template.pages[0]!.elements.find((entry) => entry.id === 'customer');
+    expect((customer as { conditionalFormats?: unknown }).conditionalFormats).toBeUndefined();
+  });
+
   it('없는 id는 사용할 수 있는 id 목록을 안내하고 아무것도 저장하지 않는다', async () => {
     const result = await callText(client, 'slip_edit', {
       path: 'doc',

@@ -6,6 +6,7 @@ import {
   CURRENT_SCHEMA_VERSION,
   createPdfRenderer,
   renderSlipToPdf,
+  resolveConditionalFormats,
   type GridElement,
   type SlipElement,
   type SlipTemplateBody,
@@ -432,6 +433,90 @@ describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
     expect(() => convertSlipFile(voucher)).toThrow(/array of objects/);
     voucher.values.items = [1, 2];
     expect(() => convertSlipFile(voucher)).toThrow(/must be an object/);
+  });
+});
+
+describe('조건부 서식 (ADR-062)', () => {
+  it('참인 규칙을 선언 순서대로 합성하고 같은 속성은 뒤 규칙 값을 쓴다', () => {
+    const overrides = resolveConditionalFormats(
+      [
+        { condition: 'amount < 0', fontColor: '#FF0000', backgroundColor: '#FFEEEE' },
+        { condition: 'amount < -100', fontColor: '#AA0000' },
+        { condition: 'amount > 0', borderColor: '#00FF00' },
+      ],
+      { amount: -200 },
+    );
+    expect(overrides).toEqual({ fontColor: '#AA0000', backgroundColor: '#FFEEEE' });
+  });
+
+  it('조건식 결과가 논리값이 아니거나 계산에 실패하면 오류가 발생한다', () => {
+    const rule = { condition: 'amount + 1', fontColor: '#FF0000' };
+    expect(() => resolveConditionalFormats([rule], { amount: 1 })).toThrow(SlipRenderError);
+    expect(() => resolveConditionalFormats([rule], { amount: 1 })).toThrow(/TRUE or FALSE/);
+    expect(() =>
+      resolveConditionalFormats([{ condition: 'NO_SUCH_FN(1)', fontColor: '#FF0000' }], {}),
+    ).toThrow(SlipRenderError);
+  });
+
+  it('필드 요소의 색을 전표 값에 따라 바꾼다', () => {
+    function totalSchema(total: number): PdfmeSchema {
+      const voucher = makeVoucher();
+      voucher.values.total = total;
+      patchElement(voucher.templateSnapshot, 'total', {
+        formula: undefined,
+        parameter: 'total',
+        conditionalFormats: [{ condition: 'total < 0', fontColor: '#FF0000', backgroundColor: '#FFEEEE' }],
+      } as never);
+      return findSchema(pageSchemas(voucher), 'total');
+    }
+    const negative = totalSchema(-500);
+    expect(negative.fontColor).toBe('#FF0000');
+    expect(negative.backgroundColor).toBe('#FFEEEE');
+    // 조건이 거짓이면 기본 서식을 유지한다.
+    expect(totalSchema(500).fontColor).toBe('#000000');
+  });
+
+  it('반복 그리드 셀은 행별로 조건을 평가한다', () => {
+    const voucher = makeVoucher(2); // 금액: 1000, 2000
+    const grid = voucher.templateSnapshot.pages[0]!.elements.find((el) => el.id === 'items')!;
+    if (grid.type !== 'grid') throw new Error('grid여야 한다');
+    const amountCell = grid.cells.find((cell) => cell.row === 1 && cell.column === 2)!;
+    amountCell.conditionalFormats = [{ condition: '금액 >= 2000', fontColor: '#FF0000' }];
+
+    const { template, inputs } = convertSlipFile(voucher);
+    const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
+    const colorOf = (text: string) =>
+      schemas.find((s) => s.type === 'text' && inputs[0]?.[s.name] === text)?.fontColor;
+    expect(colorOf('1000')).toBe('#000000');
+    expect(colorOf('2000')).toBe('#FF0000');
+  });
+
+  it('규칙 수 상한과 많은 반복 데이터에서도 행별 평가가 올바르다', () => {
+    const voucher = makeVoucher(200); // 금액: 1000..200000
+    const grid = voucher.templateSnapshot.pages[0]!.elements.find((el) => el.id === 'items')!;
+    if (grid.type !== 'grid') throw new Error('grid여야 한다');
+    const amountCell = grid.cells.find((cell) => cell.row === 1 && cell.column === 2)!;
+    // 거짓 규칙 19개 뒤에 참이 될 수 있는 규칙 1개 — 상한(20개)까지 채워 평가한다.
+    amountCell.conditionalFormats = [
+      ...Array.from({ length: 19 }, (_, i) => ({
+        condition: `금액 < ${-(i + 1)}`,
+        fontColor: '#00FF00',
+      })),
+      { condition: '금액 >= 100000', fontColor: '#FF0000' },
+    ];
+    const { template } = convertSlipFile(voucher);
+    const schemas = template.schemas.flat() as unknown as PdfmeSchema[];
+    const reds = schemas.filter((s) => s.type === 'text' && s.fontColor === '#FF0000');
+    // 금액 >= 100000인 항목은 100번째부터 200번째까지 101개다.
+    expect(reds.length).toBe(101);
+  });
+
+  it('조건식 오류 메시지에 요소 이름이 들어간다', () => {
+    const voucher = makeVoucher();
+    patchElement(voucher.templateSnapshot, 'total', {
+      conditionalFormats: [{ condition: '"글" + 1', fontColor: '#FF0000' }],
+    } as never);
+    expect(() => convertSlipFile(voucher)).toThrow(/합계/);
   });
 });
 

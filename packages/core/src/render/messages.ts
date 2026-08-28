@@ -9,11 +9,15 @@ import { resolveMessageLocale, type MessageLocale } from '../i18n.js';
 
 /** 렌더링 오류 메시지 목록. `what`은 `subject*`로 만든 대상 이름이다. */
 interface RenderMessages {
+  subjectText(name: string, id: string): string;
   subjectField(name: string, id: string): string;
   subjectGrid(name: string, id: string): string;
   subjectGridCell(name: string, id: string, row: number, column: number): string;
   subjectImage(name: string, id: string): string;
   subjectBarcode(name: string, id: string): string;
+  subjectDefault(): string;
+  conditionFailed(what: string, index: number, reason: string): string;
+  conditionNotBoolean(what: string, index: number): string;
   notFinite(what: string): string;
   notText(what: string): string;
   formulaFailed(what: string, reason: string): string;
@@ -30,11 +34,17 @@ interface RenderMessages {
 }
 
 const EN: RenderMessages = {
+  subjectText: (name, id) => `text '${name}' (${id})`,
   subjectField: (name, id) => `field '${name}' (${id})`,
   subjectGrid: (name, id) => `grid '${name}' (${id})`,
   subjectGridCell: (name, id, row, column) => `cell (${row},${column}) of grid '${name}' (${id})`,
   subjectImage: (name, id) => `image '${name}' (${id})`,
   subjectBarcode: (name, id) => `barcode '${name}' (${id})`,
+  subjectDefault: () => 'the element',
+  conditionFailed: (what, index, reason) =>
+    `Failed to evaluate the condition of conditional format rule ${index} on ${what}: ${reason}`,
+  conditionNotBoolean: (what, index) =>
+    `The condition of conditional format rule ${index} on ${what} must return TRUE or FALSE`,
   notFinite: (what) => `The value of ${what} is not a finite number`,
   notText: (what) => `The value of ${what} is an array or object and cannot be shown as text`,
   formulaFailed: (what, reason) => `Failed to evaluate the formula of ${what}: ${reason}`,
@@ -54,11 +64,17 @@ const EN: RenderMessages = {
 };
 
 const KO: RenderMessages = {
+  subjectText: (name, id) => `텍스트 '${name}' (${id})`,
   subjectField: (name, id) => `필드 '${name}' (${id})`,
   subjectGrid: (name, id) => `그리드 '${name}' (${id})`,
   subjectGridCell: (name, id, row, column) => `그리드 '${name}' (${id})의 셀 (${row},${column})`,
   subjectImage: (name, id) => `이미지 '${name}' (${id})`,
   subjectBarcode: (name, id) => `바코드 '${name}' (${id})`,
+  subjectDefault: () => '요소',
+  conditionFailed: (what, index, reason) =>
+    `${what}의 조건부 서식 ${index}번째 규칙의 조건식을 계산하지 못했습니다: ${reason}`,
+  conditionNotBoolean: (what, index) =>
+    `${what}의 조건부 서식 ${index}번째 규칙의 조건식은 논리값(TRUE/FALSE)을 반환해야 합니다`,
   notFinite: (what) => `${what}의 값이 유한한 수가 아닙니다`,
   notText: (what) => `${what}의 값은 배열 또는 객체이므로 텍스트로 표시할 수 없습니다`,
   formulaFailed: (what, reason) => `${what}의 수식을 계산하지 못했습니다: ${reason}`,
@@ -78,11 +94,17 @@ const KO: RenderMessages = {
 };
 
 const JA: RenderMessages = {
+  subjectText: (name, id) => `テキスト '${name}'(${id})`,
   subjectField: (name, id) => `フィールド '${name}'(${id})`,
   subjectGrid: (name, id) => `グリッド '${name}'(${id})`,
   subjectGridCell: (name, id, row, column) => `グリッド '${name}'(${id})のセル(${row},${column})`,
   subjectImage: (name, id) => `画像 '${name}'(${id})`,
   subjectBarcode: (name, id) => `バーコード '${name}'(${id})`,
+  subjectDefault: () => '要素',
+  conditionFailed: (what, index, reason) =>
+    `${what}の条件付き書式のルール ${index} の条件式を計算できませんでした: ${reason}`,
+  conditionNotBoolean: (what, index) =>
+    `${what}の条件付き書式のルール ${index} の条件式は論理値(TRUE/FALSE)を返さなければなりません`,
   notFinite: (what) => `${what}の値が有限な数ではありません`,
   notText: (what) => `${what}の値は配列・オブジェクトのためテキストとして表示できません`,
   formulaFailed: (what, reason) => `${what}の数式を計算できませんでした: ${reason}`,
