@@ -689,7 +689,7 @@ describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
     el.remove();
   });
 
-  it('규칙의 마지막 강조도 지울 수 없다 (ADR-063)', async () => {
+  it('강조는 적용→해제→유지 순서로 바뀌고, 마지막 강조는 지울 수 없다 (ADR-063)', async () => {
     const el = await mountFile([{
       type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
       width: 60, height: 10, content: '제목',
@@ -697,19 +697,79 @@ describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
     }]);
     await selectElement(el, 't1');
 
+    let changed: SlipTemplateFile | null = null;
+    el.addEventListener('slip-change', (e) => {
+      changed = (e as CustomEvent<{ file: SlipTemplateFile }>).detail.file;
+    });
+    const name = `${strings.designer.conditionalFormat} 1`;
+    const boldBtn = () => el.shadowRoot!.querySelector(
+      `button[aria-label^="${name}: ${strings.designer.bold}"]`,
+    ) as HTMLButtonElement;
+    const ruleOf = (file: SlipTemplateFile) =>
+      (file.template.pages[0]!.elements[0] as { conditionalFormats?: { bold?: boolean }[] })
+        .conditionalFormats![0]!;
+
+    // 적용(true) → 해제(false)
+    boldBtn().click();
+    await el.updateComplete;
+    expect(ruleOf(changed!).bold).toBe(false);
+
+    // 해제 → 기본 유지는 규칙의 마지막 강조를 없애므로 막힌다.
+    changed = null;
+    boldBtn().click();
+    await el.updateComplete;
+    expect(changed).toBeNull();
+    const error = el.shadowRoot!.querySelector('.input-error');
+    expect(error?.textContent).toBe(strings.designer.conditionEffectRequired);
+    el.remove();
+  });
+
+  it('기울임을 규칙에서 설정할 수 있다 (ADR-063)', async () => {
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [{ condition: 'TRUE', fontColor: '#FF0000' }],
+    }]);
+    await selectElement(el, 't1');
+
+    let changed: SlipTemplateFile | null = null;
+    el.addEventListener('slip-change', (e) => {
+      changed = (e as CustomEvent<{ file: SlipTemplateFile }>).detail.file;
+    });
+    const name = `${strings.designer.conditionalFormat} 1`;
+    (el.shadowRoot!.querySelector(
+      `button[aria-label^="${name}: ${strings.designer.italic}"]`,
+    ) as HTMLButtonElement).click();
+    await el.updateComplete;
+
+    const rule = (changed!.template.pages[0]!.elements[0] as { conditionalFormats?: { italic?: boolean }[] })
+      .conditionalFormats![0]!;
+    expect(rule.italic).toBe(true);
+    el.remove();
+  });
+
+  it('결과가 논리값이 아닌 조건식은 저장하지 않는다', async () => {
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [{ condition: 'TRUE', fontColor: '#FF0000' }],
+    }]);
+    await selectElement(el, 't1');
+
     let changed = false;
     el.addEventListener('slip-change', () => { changed = true; });
 
     const name = `${strings.designer.conditionalFormat} 1`;
-    const boldBtn = el.shadowRoot!.querySelector(
-      `button[aria-label="${name}: ${strings.designer.bold}"]`,
-    ) as HTMLButtonElement;
-    boldBtn.click();
+    const input = el.shadowRoot!.querySelector(
+      `input[aria-label="${name}: ${strings.designer.condition}"]`,
+    ) as HTMLInputElement;
+    input.value = '1 + 1';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
 
     expect(changed).toBe(false);
     const error = el.shadowRoot!.querySelector('.input-error');
-    expect(error?.textContent).toBe(strings.designer.conditionEffectRequired);
+    expect(error?.textContent).toBe(strings.designer.conditionNotBoolean);
     el.remove();
   });
 

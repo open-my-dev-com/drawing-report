@@ -6223,6 +6223,7 @@ export class SlipDesigner extends LitElement {
             'cellCondFmt',
             (next) => this._updateCellConditionalFormats(next),
             `${s.cell} `,
+            inBand ? this._repeatProbeItem(el) : undefined,
           )}`
       : nothing;
   }
@@ -6897,6 +6898,7 @@ export class SlipDesigner extends LitElement {
     keyPrefix: string,
     update: (next: ConditionalFormatRule[]) => void,
     ariaPrefix = '',
+    probeItem?: Record<string, unknown>,
   ) {
     const s = this._strings.designer;
     const list = rules ?? [];
@@ -6922,14 +6924,18 @@ export class SlipDesigner extends LitElement {
         else next[index]![key] = value;
       });
     };
-    const setEmphasis = (index: number, key: 'bold' | 'underline' | 'strikethrough', value: boolean) => {
-      if (!value && list[index]![key] !== undefined && !hasOtherEffect(list[index]!, key)) {
+    const setEmphasis = (
+      index: number,
+      key: 'bold' | 'italic' | 'underline' | 'strikethrough',
+      value: boolean | undefined,
+    ) => {
+      if (value === undefined && list[index]![key] !== undefined && !hasOtherEffect(list[index]!, key)) {
         this._rejectInput(s.conditionEffectRequired, `${keyPrefix}-color-${index}`);
         return;
       }
       change((next) => {
-        if (value) next[index]![key] = true;
-        else delete next[index]![key];
+        if (value === undefined) delete next[index]![key];
+        else next[index]![key] = value;
       });
     };
     const swap = (index: number, other: number) => {
@@ -6968,6 +6974,19 @@ export class SlipDesigner extends LitElement {
                     this._rejectInput(s.syntaxError, `${keyPrefix}-cond-${index}`);
                     return;
                   }
+                  // 문법이 맞아도 견본 값으로 계산한 결과가 논리값이 아니면 저장하지 않는다.
+                  try {
+                    const probe = evaluateFormula(value, {
+                      values: { ...this._formulaProbeValues(), ...(probeItem ?? {}) },
+                      ...(this.locale === undefined ? {} : { locale: this.locale }),
+                    });
+                    if (typeof probe !== 'boolean') {
+                      this._rejectInput(s.conditionNotBoolean, `${keyPrefix}-cond-${index}`);
+                      return;
+                    }
+                  } catch {
+                    // 견본 값으로 계산할 수 없는 조건은 데이터에 따라 달라질 수 있으므로 막지 않는다.
+                  }
                   change((next) => { next[index]!.condition = value; });
                 }}>
             </div>
@@ -6984,7 +7003,7 @@ export class SlipDesigner extends LitElement {
               s.borderColor, rule.borderColor, `${keyPrefix}-border-${index}`,
               (v) => setColor(index, 'borderColor', v), undefined, `${name}: ${s.borderColor}`,
             )}
-            ${this._renderTextStyleToggles(
+            ${this._renderConditionalEmphasisRow(
               rule,
               (key, value) => setEmphasis(index, key, value),
               `${name}: `,
@@ -7014,6 +7033,55 @@ export class SlipDesigner extends LitElement {
         </button>
       </div>
     `;
+  }
+
+  /**
+   * 조건부 서식 규칙의 강조 4종을 3단계로 편집하는 토글 행을 렌더링한다.
+   * 각 버튼은 기본 유지(미지정) → 적용(true) → 해제(false) 순서로 바뀐다.
+   *
+   * @param rule - 편집 중인 규칙
+   * @param apply - 강조 값을 저장하는 콜백 (`undefined`는 기본 유지)
+   * @param ariaPrefix - 접근성 레이블 접두사 (규칙 이름)
+   */
+  private _renderConditionalEmphasisRow(
+    rule: ConditionalFormatRule,
+    apply: (key: 'bold' | 'italic' | 'underline' | 'strikethrough', value: boolean | undefined) => void,
+    ariaPrefix: string,
+  ) {
+    const s = this._strings.designer;
+    const stateLabel = (value: boolean | undefined): string =>
+      value === undefined ? s.emphasisKeep : value ? s.emphasisApply : s.emphasisClear;
+    const nextOf = (value: boolean | undefined): boolean | undefined =>
+      value === undefined ? true : value ? false : undefined;
+    return html`
+      <div class="prop-row">
+        <label>${s.style}</label>
+        <div class="toggle-group" role="group" aria-label="${ariaPrefix}${s.style}">
+          ${([
+            ['bold', s.bold, icons.bold],
+            ['italic', s.italic, icons.italic],
+            ['underline', s.underline, icons.underline],
+            ['strikethrough', s.strikethrough, icons.strikethrough],
+          ] as const).map(([key, label, glyph]) => {
+            const value = rule[key];
+            return html`<button title="${label}: ${stateLabel(value)}"
+              aria-label="${ariaPrefix}${label}: ${stateLabel(value)}"
+              aria-pressed=${value === undefined ? 'false' : value ? 'true' : 'mixed'}
+              @click=${() => apply(key, nextOf(value))}>${glyph}</button>`;
+          })}
+        </div>
+      </div>
+    `;
+  }
+
+  /** 반복 구간 셀의 조건식 검사에 쓸 현재 항목 필드의 견본 값을 만든다. */
+  private _repeatProbeItem(el: GridElement): Record<string, unknown> | undefined {
+    if (!el.repeat) return undefined;
+    const list = this._formulaProbeValues()[el.repeat.parameter];
+    const item = Array.isArray(list) ? list[0] : undefined;
+    return typeof item === 'object' && item !== null && !Array.isArray(item)
+      ? (item as Record<string, unknown>)
+      : undefined;
   }
 
   /** 선택 셀의 조건부 서식 규칙 목록을 저장한다. 빈 목록이면 속성을 제거한다. */
