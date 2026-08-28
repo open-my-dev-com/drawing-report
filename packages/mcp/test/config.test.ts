@@ -124,6 +124,22 @@ describe('resolveServerOptions', () => {
   });
 });
 
+describe('httpPort 설정', () => {
+  it('httpPort를 읽고, 범위를 벗어나면 거부한다', async () => {
+    await writeConfig({ httpPort: 8123 });
+    const { httpPort } = await resolveServerOptions({ cwd: dir, env: {} });
+    expect(httpPort).toBe(8123);
+
+    await writeConfig({ httpPort: 70000 });
+    await expect(resolveServerOptions({ cwd: dir, env: {} })).rejects.toThrow(SlipMcpConfigError);
+  });
+
+  it('설정이 없으면 링크 서버를 켜지 않는다', async () => {
+    const { httpPort } = await resolveServerOptions({ cwd: dir, env: {} });
+    expect(httpPort).toBeNull();
+  });
+});
+
 describe('커스텀 폰트 렌더링', () => {
   it('설정 파일의 폰트로 PDF를 만든다', async () => {
     // 동봉 폰트 바이트를 파일로 꺼내 커스텀 폰트처럼 지정한다

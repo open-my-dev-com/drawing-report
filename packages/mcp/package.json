@@ -42,6 +42,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@pdfme/converter": "^6.1.12",
     "@omdc-slipkit/core": "workspace:*",
     "@omdc-slipkit/elements": "workspace:*",
     "zod": "^4.0.0"

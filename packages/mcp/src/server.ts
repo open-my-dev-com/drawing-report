@@ -31,6 +31,8 @@ import { SCHEMA_TOPICS, schemaTopicText } from './schema-docs.js';
 export interface SlipMcpServerOptions extends FileSystemStorageOptions {
   /** PDF 렌더링에 사용할 커스텀 폰트. 생략하면 로케일에 맞는 동봉 폰트를 사용한다 */
   fonts?: readonly SlipFont[];
+  /** PDF 링크 서버의 기본 주소. 지정하면 렌더 응답에 클릭할 수 있는 링크를 포함한다 */
+  pdfBaseUrl?: string;
 }
 
 /** 패키지 버전. 배포 버전을 올릴 때 함께 갱신한다. */
@@ -52,9 +54,11 @@ using a file path inside the working directory. To add a new image element, put 
 set_image in the same ops array; operations run in order and validation happens after all of them.
 set_image creates a fixed asset, not a voucher image-parameter value. Build filled vouchers with
 slip_build_voucher. Issued (finalized) vouchers are immutable and this server cannot issue them.
-When the user asks to RECEIVE the PDF in the chat, call slip_render_pdf with embed: true — the PDF
-bytes are attached to the tool result as an embedded resource (whether the client shows it as a
-file depends on the client). The PDF is always saved to the working directory either way.`;
+When the user wants to SEE the result, call slip_render_pdf with preview: true — page images come
+back in the tool result so both you and the user can look at them (one page per call; use
+previewPage for other pages). The PDF file itself is always saved to the working directory; give
+the user its absolute path, or the http link when the response includes one. Files cannot be
+attached to the chat directly.`;
 
 /** 도구 응답 하나를 텍스트로 만든다. */
 function text(value: unknown): { content: { type: 'text'; text: string }[] } {
@@ -78,6 +82,35 @@ function savedLine(id: string, file: SlipFile): string {
   const body = bodyOf(file);
   const elements = body.pages.reduce((sum, page) => sum + page.elements.length, 0);
   return `Saved ${id} (${file.kind} "${body.meta.title}", ${body.pages.length} page(s), ${elements} element(s))`;
+}
+
+/** 미리보기 렌더 배율. 72dpi 기준 2배(약 150dpi)로, A4가 표준 해상도 범위에 들어간다. */
+const PREVIEW_SCALE = 2;
+
+/**
+ * PDF의 한 페이지를 PNG 이미지 콘텐츠로 변환한다.
+ *
+ * @param pdf - 렌더된 PDF 바이트
+ * @param page - 1부터 시작하는 페이지 번호
+ * @returns 이미지 콘텐츠 블록 1개
+ * @throws McpToolError 페이지 번호가 범위를 벗어났을 때
+ */
+async function renderPreview(
+  pdf: Uint8Array,
+  page: number,
+): Promise<{ type: 'image'; data: string; mimeType: 'image/png' }[]> {
+  const { pdf2img } = await import('@pdfme/converter');
+  const images = await pdf2img(pdf, {
+    scale: PREVIEW_SCALE,
+    range: { start: page - 1, end: page - 1 },
+  });
+  const image = images[0];
+  if (!image) {
+    throw new McpToolError(`No page ${page} in the rendered PDF. Use a smaller previewPage.`);
+  }
+  return [
+    { type: 'image', data: Buffer.from(image).toString('base64'), mimeType: 'image/png' },
+  ];
 }
 
 /**
@@ -385,16 +418,22 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
           .describe(
             'Output path relative to the working directory; defaults to the input path with .pdf and replaces an existing file',
           ),
-        embed: z
+        preview: z
           .boolean()
           .optional()
           .describe(
-            'Also return the PDF bytes as an embedded resource. Client support varies; use only when asked',
+            'Also return one page as a PNG image so the result is visible in the chat and to you',
           ),
+        previewPage: z
+          .number()
+          .int()
+          .min(1)
+          .optional()
+          .describe('1-based page number to preview; default 1'),
       },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
-    async ({ path: id, outPath, embed }) => {
+    async ({ path: id, outPath, preview, previewPage }) => {
       try {
         const file = await storage.load(id);
         const target = outPath ?? id.replace(/\.slip$/, '') + '.pdf';
@@ -404,7 +443,12 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         const pdf = await slipKit.render(file);
         const abs = resolveInRoot(storage.rootDir, target, locale);
         await writeFile(abs, pdf);
-        // 사용자가 파일을 바로 열 수 있도록 절대 경로와 파일 링크를 함께 돌려준다.
+        // 링크 서버가 켜져 있으면 브라우저에서 바로 열 수 있는 주소를 함께 알려 준다.
+        const link =
+          options.pdfBaseUrl === undefined
+            ? null
+            : `${options.pdfBaseUrl}/${target.split('/').map(encodeURIComponent).join('/')}`;
+        const previewImages = preview === true ? await renderPreview(pdf, previewPage ?? 1) : [];
         return {
           content: [
             {
@@ -412,7 +456,9 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
               text:
                 `Rendered ${id} to ${target} (${Math.round(pdf.length / 1024)}KB).\n` +
                 `Saved at: ${abs}\n` +
-                'Tell the user this absolute path so they can open the PDF.',
+                (link === null
+                  ? 'Tell the user this absolute path so they can open the PDF.'
+                  : `Link: ${link}\nGive the user this link; it opens the PDF in the browser.`),
             },
             {
               type: 'resource_link' as const,
@@ -421,19 +467,7 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
               mimeType: 'application/pdf',
               description: 'Rendered PDF file',
             },
-            // 클라이언트가 첨부로 표시할 수 있도록 PDF 바이트를 함께 싣는 실험 옵션
-            ...(embed === true
-              ? [
-                  {
-                    type: 'resource' as const,
-                    resource: {
-                      uri: pathToFileURL(abs).href,
-                      mimeType: 'application/pdf',
-                      blob: Buffer.from(pdf).toString('base64'),
-                    },
-                  },
-                ]
-              : []),
+            ...previewImages,
           ],
         };
       } catch (error) {

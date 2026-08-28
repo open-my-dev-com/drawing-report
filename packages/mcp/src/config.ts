@@ -42,6 +42,8 @@ const configSchema = z.strictObject({
   locale: z.string().min(1).optional(),
   /** PDF 렌더링에 사용할 커스텀 폰트. 생략하면 동봉 폰트를 사용한다 */
   fonts: z.array(fontEntrySchema).min(1).optional(),
+  /** PDF 링크 서버를 켤 포트. 지정하면 렌더된 PDF를 localhost 링크로 제공한다 */
+  httpPort: z.number().int().min(1).max(65535).optional(),
   /** 암호화 키를 읽을 환경변수 이름 (키 값은 설정 파일에 적지 않는다) */
   encryption: z
     .strictObject({
@@ -142,7 +144,7 @@ export interface ResolveInput {
  */
 export async function resolveServerOptions(
   input: ResolveInput,
-): Promise<{ options: SlipMcpServerOptions; configPath: string | null }> {
+): Promise<{ options: SlipMcpServerOptions; configPath: string | null; httpPort: number | null }> {
   // 1) 설정 파일 위치를 정한다. 명시한 파일이 없으면 오류, 기본 위치는 없어도 된다.
   let configPath: string | null = null;
   let config: SlipMcpConfig = {};
@@ -195,7 +197,7 @@ export async function resolveServerOptions(
       ? {}
       : { encryption: { key, ...(previousKeys?.length ? { previousKeys } : {}) } }),
   };
-  return { options, configPath };
+  return { options, configPath, httpPort: config.httpPort ?? null };
 }
 
 /** 파일이 있는지 확인한다. */

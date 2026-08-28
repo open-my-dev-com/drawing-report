@@ -370,16 +370,27 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
   });
 
-  it('embed를 지정하면 PDF 바이트가 내장 리소스로 함께 반환된다', async () => {
+  it('preview를 지정하면 페이지 PNG 이미지가 함께 반환된다', async () => {
     const result = await client.callTool({
       name: 'slip_render_pdf',
-      arguments: { path: 'doc', embed: true },
+      arguments: { path: 'doc', preview: true },
     });
-    const content = result.content as { type: string; resource?: { mimeType?: string; blob?: string } }[];
-    const embedded = content.find((entry) => entry.type === 'resource');
-    expect(embedded?.resource?.mimeType).toBe('application/pdf');
-    const bytes = Buffer.from(embedded?.resource?.blob ?? '', 'base64');
-    expect(bytes.subarray(0, 4).toString()).toBe('%PDF');
+    const content = result.content as { type: string; data?: string; mimeType?: string }[];
+    const image = content.find((entry) => entry.type === 'image');
+    expect(image?.mimeType).toBe('image/png');
+    const bytes = Buffer.from(image?.data ?? '', 'base64');
+    // PNG 매직 바이트
+    expect([...bytes.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  });
+
+  it('previewPage가 범위를 벗어나면 오류를 안내한다', async () => {
+    const result = await callText(client, 'slip_render_pdf', {
+      path: 'doc',
+      preview: true,
+      previewPage: 99,
+    });
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain('99');
   });
 
   it('slip_schema가 주제별 안내를 반환한다', async () => {
