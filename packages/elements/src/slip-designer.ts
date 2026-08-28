@@ -6899,17 +6899,32 @@ export class SlipDesigner extends LitElement {
       mutate(next);
       update(next);
     };
-    const setColor = (index: number, key: 'fontColor' | 'backgroundColor' | 'borderColor', value: string | null) =>
+    const setColor = (index: number, key: 'fontColor' | 'backgroundColor' | 'borderColor', value: string | null) => {
+      // 색이 하나도 없는 규칙은 파일 검증에서 거부되므로 마지막 색은 지울 수 없다.
+      if (value === null) {
+        const rule = list[index]!;
+        const others = (['fontColor', 'backgroundColor', 'borderColor'] as const)
+          .filter((color) => color !== key && rule[color] !== undefined);
+        if (rule[key] !== undefined && others.length === 0) {
+          this._openPopKey = null;
+          this._rejectInput(s.conditionColorRequired, `${keyPrefix}-color-${index}`);
+          return;
+        }
+      }
       change((next) => {
         if (value === null) delete next[index]![key];
         else next[index]![key] = value;
       });
-    const swap = (index: number, other: number) =>
+    };
+    const swap = (index: number, other: number) => {
+      // 색 팝업 상태는 규칙 순번으로 구분하므로, 순서가 바뀌면 닫아 다른 규칙에 붙지 않게 한다.
+      this._openPopKey = null;
       change((next) => {
         const tmp = next[index]!;
         next[index] = next[other]!;
         next[other] = tmp;
       });
+    };
     return html`
       <div class="prop-section">
         <div class="prop-section-title">${s.conditionalFormat}</div>
@@ -6921,6 +6936,7 @@ export class SlipDesigner extends LitElement {
               <label>${s.condition} ${index + 1}</label>
               <input .value=${live(rule.condition)}
                 aria-label="${name}: ${s.condition}"
+                aria-invalid=${String(this._hasInputError(`${keyPrefix}-cond-${index}`))}
                 placeholder=${s.conditionPlaceholder}
                 @change=${(e: Event) => {
                   // 빈 조건식은 파일 검증에서 거부되므로 저장하지 않는다.
@@ -6929,9 +6945,17 @@ export class SlipDesigner extends LitElement {
                     this.requestUpdate();
                     return;
                   }
+                  // 문법이 깨진 조건식은 저장하지 않고 입력 오류로 안내한다.
+                  try {
+                    parseFormula(value);
+                  } catch {
+                    this._rejectInput(s.syntaxError, `${keyPrefix}-cond-${index}`);
+                    return;
+                  }
                   change((next) => { next[index]!.condition = value; });
                 }}>
             </div>
+            ${this._renderInputError(`${keyPrefix}-cond-${index}`)}
             ${this._renderColorControl(
               s.fontColor, rule.fontColor, `${keyPrefix}-font-${index}`,
               (v) => setColor(index, 'fontColor', v), undefined, `${name}: ${s.fontColor}`,
@@ -6944,6 +6968,7 @@ export class SlipDesigner extends LitElement {
               s.borderColor, rule.borderColor, `${keyPrefix}-border-${index}`,
               (v) => setColor(index, 'borderColor', v), undefined, `${name}: ${s.borderColor}`,
             )}
+            ${this._renderInputError(`${keyPrefix}-color-${index}`)}
             <div class="prop-row">
               <label></label>
               <div class="toggle-group" role="group" aria-label=${name}>
@@ -6954,7 +6979,10 @@ export class SlipDesigner extends LitElement {
                   ?disabled=${index === list.length - 1}
                   @click=${() => swap(index, index + 1)}>${icons.down}</button>
                 <button title=${s.deleteConditionRule} aria-label="${name}: ${s.deleteConditionRule}"
-                  @click=${() => change((next) => { next.splice(index, 1); })}>${icons.remove}</button>
+                  @click=${() => {
+                    this._openPopKey = null;
+                    change((next) => { next.splice(index, 1); });
+                  }}>${icons.remove}</button>
               </div>
             </div>`;
         })}

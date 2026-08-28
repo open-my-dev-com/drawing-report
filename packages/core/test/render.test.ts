@@ -449,13 +449,76 @@ describe('조건부 서식 (ADR-062)', () => {
     expect(overrides).toEqual({ fontColor: '#AA0000', backgroundColor: '#FFEEEE' });
   });
 
-  it('조건식 결과가 논리값이 아니거나 계산에 실패하면 오류가 발생한다', () => {
+  it('결과가 논리값이 아니거나 문법이 깨진 조건식은 오류가 발생한다', () => {
     const rule = { condition: 'amount + 1', fontColor: '#FF0000' };
     expect(() => resolveConditionalFormats([rule], { amount: 1 })).toThrow(SlipRenderError);
     expect(() => resolveConditionalFormats([rule], { amount: 1 })).toThrow(/TRUE or FALSE/);
     expect(() =>
-      resolveConditionalFormats([{ condition: 'NO_SUCH_FN(1)', fontColor: '#FF0000' }], {}),
+      resolveConditionalFormats([{ condition: 'amount <', fontColor: '#FF0000' }], { amount: 1 }),
     ).toThrow(SlipRenderError);
+  });
+
+  it('값이 없어 계산할 수 없는 조건은 그 규칙만 건너뛴다', () => {
+    const overrides = resolveConditionalFormats(
+      [
+        { condition: 'amount < 0', fontColor: '#FF0000' },
+        { condition: 'TRUE', borderColor: '#00FF00' },
+      ],
+      {}, // amount가 없어 첫 규칙은 계산할 수 없다
+    );
+    expect(overrides).toEqual({ borderColor: '#00FF00' });
+  });
+
+  it('값이 비어 있는 양식은 조건부 서식이 있어도 기본 서식으로 렌더링된다', () => {
+    const file = makeTemplateFile();
+    patchElement(file.template, 'total', {
+      formula: undefined,
+      parameter: 'total',
+      conditionalFormats: [{ condition: 'total < 0', fontColor: '#FF0000' }],
+    } as never);
+    const schema = findSchema(pageSchemas(file), 'total');
+    expect(schema.fontColor).toBe('#000000');
+  });
+
+  it('반복 항목에 없는 필드를 참조하는 조건은 그 행에서만 적용되지 않는다', () => {
+    const voucher = makeVoucher(2);
+    voucher.values.items = [
+      { 품명: 'a', 수량: 1, 금액: -500 },
+      { 품명: 'b', 수량: 1 }, // 금액이 아직 입력되지 않은 행
+    ];
+    const grid = voucher.templateSnapshot.pages[0]!.elements.find((el) => el.id === 'items')!;
+    if (grid.type !== 'grid') throw new Error('grid여야 한다');
+    grid.cells.find((cell) => cell.row === 1 && cell.column === 2)!.conditionalFormats = [
+      { condition: '금액 < 0', fontColor: '#FF0000' },
+    ];
+    const { template, inputs } = convertSlipFile(voucher);
+    const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
+    const colorOf = (text: string) =>
+      schemas.find((s) => s.type === 'text' && inputs[0]?.[s.name] === text)?.fontColor;
+    expect(colorOf('-500')).toBe('#FF0000');
+    expect(colorOf('b')).toBe('#000000');
+  });
+
+  it('자동 병합으로 합쳐진 셀은 첫 항목의 조건부 서식을 쓴다 (SPEC §15.7)', () => {
+    const voucher = makeVoucher(2);
+    voucher.values.items = [{ g: 'A', amount: 500 }, { g: 'A', amount: 2000 }];
+    voucher.templateSnapshot.pages[0]!.elements = [{
+      type: 'grid', id: 'items', name: '표', position: { x: 10, y: 10 },
+      width: 40, height: 16,
+      rows: [{ height: 8 }],
+      columns: [{ width: 40, autoMerge: true }],
+      repeat: { parameter: 'items', fromRow: 0, toRow: 0, perPage: 2, repeatHeader: false },
+      cells: [{
+        row: 0, column: 0, parameter: 'g',
+        conditionalFormats: [{ condition: 'amount >= 1000', fontColor: '#FF0000' }],
+      }],
+    }] as never;
+    const { template, inputs } = convertSlipFile(voucher);
+    const schemas = template.schemas.flat() as unknown as PdfmeSchema[];
+    const merged = schemas.filter((s) => s.type === 'text' && inputs[0]?.[s.name] === 'A');
+    // 값이 같아 하나로 병합되고, 색은 첫 항목(amount 500)의 평가 결과를 따른다.
+    expect(merged.length).toBe(1);
+    expect(merged[0]!.fontColor).toBe('#000000');
   });
 
   it('필드 요소의 색을 전표 값에 따라 바꾼다', () => {
@@ -514,7 +577,7 @@ describe('조건부 서식 (ADR-062)', () => {
   it('조건식 오류 메시지에 요소 이름이 들어간다', () => {
     const voucher = makeVoucher();
     patchElement(voucher.templateSnapshot, 'total', {
-      conditionalFormats: [{ condition: '"글" + 1', fontColor: '#FF0000' }],
+      conditionalFormats: [{ condition: '"글" +', fontColor: '#FF0000' }],
     } as never);
     expect(() => convertSlipFile(voucher)).toThrow(/합계/);
   });

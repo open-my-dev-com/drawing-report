@@ -5,6 +5,7 @@
  * 수행한다. 기본 서식을 먼저 적용한 뒤 이 결과로 색을 덮어쓴다 (SPEC §9.4).
  */
 import type { ConditionalFormatRule } from '../format/schema.js';
+import { FormulaEvalError } from '../formula/errors.js';
 import { evaluateFormula } from '../formula/evaluator.js';
 import { SlipRenderError } from './errors.js';
 import { rm } from './messages.js';
@@ -22,11 +23,14 @@ export interface ConditionalFormatColors {
  * 조건이 참인 규칙을 선언된 순서대로 합성하며, 같은 색 속성은 뒤에 선언된
  * 규칙의 값을 사용한다.
  *
+ * 값이 없거나 타입이 맞지 않아 계산할 수 없는 조건은 참으로 보지 않고 규칙을
+ * 건너뛴다 — 빈 양식과 입력 중인 전표에는 값이 없는 것이 정상 상태이기 때문이다.
+ *
  * @param rules - 조건부 서식 규칙 목록. 생략하면 빈 결과를 반환한다
  * @param scope - 조건식이 참조할 값. 반복 구간 안에서는 전표 값에 현재 항목을 합쳐 전달한다
  * @param options - `locale`: 오류 메시지 언어, `subject`: 오류 메시지에 쓸 대상 이름
  * @returns 덮어쓸 색 목록
- * @throws SlipRenderError 조건식 계산에 실패하거나 결과가 논리값이 아니면
+ * @throws SlipRenderError 조건식에 문법 오류가 있거나 결과가 논리값이 아니면
  */
 export function resolveConditionalFormats(
   rules: readonly ConditionalFormatRule[] | undefined,
@@ -46,6 +50,9 @@ export function resolveConditionalFormats(
         locale === undefined ? { values: scope } : { values: scope, locale },
       );
     } catch (error) {
+      // 데이터에 따라 달라지는 계산 오류(값 없음·타입 불일치)는 규칙 미적용으로 처리하고,
+      // 데이터와 무관한 문법 오류는 조건식 작성 실수이므로 오류로 알린다.
+      if (error instanceof FormulaEvalError) return;
       throw new SlipRenderError(
         messages.conditionFailed(what, index + 1, error instanceof Error ? error.message : String(error)),
       );

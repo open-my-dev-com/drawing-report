@@ -662,6 +662,70 @@ describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
     el.remove();
   });
 
+  async function selectElement(
+    el: import('../src/slip-designer.js').SlipDesigner,
+    id: string,
+  ): Promise<void> {
+    const target = el.shadowRoot?.querySelector(`[data-id="${id}"]`) as HTMLElement;
+    target.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 10, clientY: 10, pointerId: 1,
+    }));
+    target.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+  }
+
+  it('규칙의 마지막 색은 지울 수 없다 — 색이 없는 규칙은 파일 검증에 걸린다', async () => {
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [{ condition: 'TRUE', fontColor: '#FF0000' }],
+    }]);
+    await selectElement(el, 't1');
+
+    let changed = false;
+    el.addEventListener('slip-change', () => { changed = true; });
+
+    const name = `${strings.designer.conditionalFormat} 1`;
+    const colorBtn = el.shadowRoot!.querySelector(
+      `button[aria-label="${name}: ${strings.designer.fontColor}"]`,
+    ) as HTMLButtonElement;
+    colorBtn.click();
+    await el.updateComplete;
+    (el.shadowRoot!.querySelector('.color-pop .swatch.none') as HTMLButtonElement).click();
+    await el.updateComplete;
+
+    // 색은 지워지지 않고 안내가 표시된다.
+    expect(changed).toBe(false);
+    const error = el.shadowRoot!.querySelector('.input-error');
+    expect(error?.textContent).toBe(strings.designer.conditionColorRequired);
+    el.remove();
+  });
+
+  it('문법이 깨진 조건식은 저장하지 않고 입력 오류를 표시한다', async () => {
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [{ condition: 'TRUE', fontColor: '#FF0000' }],
+    }]);
+    await selectElement(el, 't1');
+
+    let changed = false;
+    el.addEventListener('slip-change', () => { changed = true; });
+
+    const name = `${strings.designer.conditionalFormat} 1`;
+    const input = el.shadowRoot!.querySelector(
+      `input[aria-label="${name}: ${strings.designer.condition}"]`,
+    ) as HTMLInputElement;
+    input.value = 'amount <';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(changed).toBe(false);
+    const error = el.shadowRoot!.querySelector('.input-error');
+    expect(error?.textContent).toBe(strings.designer.syntaxError);
+    el.remove();
+  });
+
   it('속성 패널에서 규칙을 추가하면 파일에 저장된다', async () => {
     const el = await createElement();
     el.src = '{"valid": true}';

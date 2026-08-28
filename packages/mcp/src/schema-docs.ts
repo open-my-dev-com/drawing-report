@@ -3,7 +3,7 @@
  * AI에 제공하는 내용은 영어로 작성하고, 전체 필드 정의는 core가 생성한 JSON Schema로 제공한다.
  * 요소 종류처럼 스키마와 함께 바뀌어야 하는 내용은 테스트에서 대조한다.
  */
-import { CURRENT_SCHEMA_VERSION, FORMULA_FUNCTIONS, slipFileJsonSchema } from '@omdc-slipkit/core';
+import { CURRENT_SCHEMA_VERSION, FORMULA_FUNCTIONS, SLIP_LIMITS, slipFileJsonSchema } from '@omdc-slipkit/core';
 
 /** `slip_schema` 도구가 지원하는 주제 */
 export const SCHEMA_TOPICS = [
@@ -57,11 +57,13 @@ verticalAlignment? (top|middle|bottom), bold?, italic?, underline?, strikethroug
 characterSpacing?, vertical?. Box styling: backgroundColor?, fontColor?, borderColor?, borderWidth?, borderStyle? (solid|dashed|dotted).
 
 Conditional formats (text, field, and grid cells): "conditionalFormats"?: [
-  { "condition": formula, "fontColor"?, "backgroundColor"?, "borderColor"? }, ... ] (max 20).
+  { "condition": formula, "fontColor"?, "backgroundColor"?, "borderColor"? }, ... ]
+  (max ${SLIP_LIMITS.maxConditionalFormats}).
 The condition is a formula (see topic "formula") that must return a boolean, e.g. "amount < 0".
 Rules whose condition is true apply in declared order (later rules win per color); each rule needs
-at least one color. Replace the whole array via slip_edit set_element/set_cell fields, or pass
-{"conditionalFormats": null} to remove all rules.
+at least one color. A condition that cannot be computed for the current data (missing value, type
+mismatch) simply does not apply — blank templates render with base styles. Replace the whole array
+via slip_edit set_element/set_cell fields, or pass {"conditionalFormats": null} to remove all rules.
 
 - text: fixed label. { "type": "text", "content": string, ...styling }
 - field: value filled per voucher. Exactly ONE of: "parameter" (a values key) or "formula".
