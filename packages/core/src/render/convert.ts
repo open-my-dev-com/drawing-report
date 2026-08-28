@@ -29,7 +29,7 @@ import type {
   TextElement,
 } from '../format/schema.js';
 import { normalizeNumericParameters } from '../format/normalize.js';
-import { resolveConditionalFormats, type ConditionalFormatColors } from './conditional.js';
+import { resolveConditionalFormats, type ConditionalFormatOverrides } from './conditional.js';
 import { SlipRenderError } from './errors.js';
 import { rm } from './messages.js';
 import { TextMeasurer } from './measure.js';
@@ -444,13 +444,13 @@ class SlipToPdfmeConverter {
    * @param rules - 조건부 서식 규칙 목록
    * @param scope - 조건식이 참조할 값 범위
    * @param subject - 오류 메시지에 쓸 대상 이름
-   * @returns 덮어쓸 색 목록
+   * @returns 덮어쓸 색·강조 목록
    */
   private conditionalColors(
     rules: readonly ConditionalFormatRule[] | undefined,
     scope: Record<string, unknown>,
     subject: string,
-  ): ConditionalFormatColors {
+  ): ConditionalFormatOverrides {
     return resolveConditionalFormats(
       rules,
       scope,
@@ -561,10 +561,10 @@ class SlipToPdfmeConverter {
       fontName: cell.fontName ?? element.fontName,
       fontSize: cell.fontSize ?? element.fontSize,
       alignment: cell.alignment ?? element.alignment,
-      bold: cell.bold ?? element.bold,
-      italic: cell.italic ?? element.italic,
-      underline: cell.underline ?? element.underline,
-      strikethrough: cell.strikethrough ?? element.strikethrough,
+      bold: conditional.bold ?? cell.bold ?? element.bold,
+      italic: conditional.italic ?? cell.italic ?? element.italic,
+      underline: conditional.underline ?? cell.underline ?? element.underline,
+      strikethrough: conditional.strikethrough ?? cell.strikethrough ?? element.strikethrough,
       verticalAlignment: cell.verticalAlignment ?? element.verticalAlignment,
       lineHeight: cell.lineHeight ?? element.lineHeight,
       characterSpacing: cell.characterSpacing ?? element.characterSpacing,

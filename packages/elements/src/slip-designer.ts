@@ -9,7 +9,7 @@ import {
   resolveConditionalFormats,
   stackVertically,
   SLIP_LIMITS,
-  type ConditionalFormatColors,
+  type ConditionalFormatOverrides,
   type ConditionalFormatRule,
   type SlipFile,
   type SlipTemplateFile,
@@ -4119,10 +4119,13 @@ export class SlipDesigner extends LitElement {
 
   private _renderElementContent(el: SlipElement) {
     switch (el.type) {
-      case 'text':
+      case 'text': {
+        // 조건부 서식의 글자 강조(굵게·밑줄·취소선)를 샘플 값으로 미리 적용한다.
+        const styled = { ...el, ...this._previewConditionalColors(el.conditionalFormats) };
         return html`<span class="el-content"
-          style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(el)}"
+          style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(styled)}"
           >${stackVertically(el.content, el.vertical)}</span>`;
+      }
 
       case 'grid':
         return this._renderGridElementPreview(el);
@@ -4152,8 +4155,10 @@ export class SlipDesigner extends LitElement {
       case 'field': {
         // 필드에는 파라미터 키 또는 수식을 표시한다.
         const label = el.parameter !== undefined ? `{${el.parameter}}` : (el.formula ?? '');
+        // 조건부 서식의 글자 강조(굵게·밑줄·취소선)를 샘플 값으로 미리 적용한다.
+        const styled = { ...el, ...this._previewConditionalColors(el.conditionalFormats) };
         return html`<span class="el-content"
-          style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(el)}"
+          style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(styled)}"
           >${stackVertically(label, el.vertical)}</span>`;
       }
 
@@ -4327,7 +4332,8 @@ export class SlipDesigner extends LitElement {
       const backgroundColor = conditional.backgroundColor ?? cell.backgroundColor;
       const fontColor = conditional.fontColor ?? cell.fontColor ?? el.fontColor;
       // 그리드 셀은 수직 정렬을 별도로 적용하므로 textStyleCss에서는 생략한다.
-      const merged = { ...el, ...cell };
+      // 조건부 서식의 글자 강조는 셀 스타일 위에 덮어쓴다.
+      const merged = { ...el, ...cell, ...conditional };
       const style = [
         `grid-area:${row + 1}/${cell.column + 1}/span ${rowSpan}/span ${cell.colSpan ?? 1}`,
         `border:${borderCssOf(cell, conditional.borderColor)}`,
@@ -4367,20 +4373,20 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 캔버스 미리보기에 적용할 조건부 서식 색을 샘플 값으로 계산한다.
+   * 캔버스 미리보기에 적용할 조건부 서식 색·강조를 샘플 값으로 계산한다.
    * 규칙별로 평가해 아직 완성되지 않은 조건식은 건너뛴다.
    *
    * @param rules - 조건부 서식 규칙 목록
    * @param item - 반복 구간의 현재 샘플 항목 (없으면 샘플 값만 사용)
-   * @returns 덮어쓸 색 목록
+   * @returns 덮어쓸 색·강조 목록
    */
   private _previewConditionalColors(
     rules: readonly ConditionalFormatRule[] | undefined,
     item?: Record<string, unknown>,
-  ): ConditionalFormatColors {
+  ): ConditionalFormatOverrides {
     if (rules === undefined || rules.length === 0) return {};
     const scope = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
-    const result: ConditionalFormatColors = {};
+    const result: ConditionalFormatOverrides = {};
     for (const rule of rules) {
       try {
         Object.assign(
@@ -6899,21 +6905,31 @@ export class SlipDesigner extends LitElement {
       mutate(next);
       update(next);
     };
+    // 색과 강조가 모두 없는 규칙은 파일 검증에서 거부되므로 마지막 항목은 지울 수 없다.
+    const effectKeys = [
+      'fontColor', 'backgroundColor', 'borderColor', 'bold', 'italic', 'underline', 'strikethrough',
+    ] as const;
+    const hasOtherEffect = (rule: ConditionalFormatRule, except: (typeof effectKeys)[number]): boolean =>
+      effectKeys.some((key) => key !== except && rule[key] !== undefined);
     const setColor = (index: number, key: 'fontColor' | 'backgroundColor' | 'borderColor', value: string | null) => {
-      // 색이 하나도 없는 규칙은 파일 검증에서 거부되므로 마지막 색은 지울 수 없다.
-      if (value === null) {
-        const rule = list[index]!;
-        const others = (['fontColor', 'backgroundColor', 'borderColor'] as const)
-          .filter((color) => color !== key && rule[color] !== undefined);
-        if (rule[key] !== undefined && others.length === 0) {
-          this._openPopKey = null;
-          this._rejectInput(s.conditionColorRequired, `${keyPrefix}-color-${index}`);
-          return;
-        }
+      if (value === null && list[index]![key] !== undefined && !hasOtherEffect(list[index]!, key)) {
+        this._openPopKey = null;
+        this._rejectInput(s.conditionEffectRequired, `${keyPrefix}-color-${index}`);
+        return;
       }
       change((next) => {
         if (value === null) delete next[index]![key];
         else next[index]![key] = value;
+      });
+    };
+    const setEmphasis = (index: number, key: 'bold' | 'underline' | 'strikethrough', value: boolean) => {
+      if (!value && list[index]![key] !== undefined && !hasOtherEffect(list[index]!, key)) {
+        this._rejectInput(s.conditionEffectRequired, `${keyPrefix}-color-${index}`);
+        return;
+      }
+      change((next) => {
+        if (value) next[index]![key] = true;
+        else delete next[index]![key];
       });
     };
     const swap = (index: number, other: number) => {
@@ -6967,6 +6983,11 @@ export class SlipDesigner extends LitElement {
             ${this._renderColorControl(
               s.borderColor, rule.borderColor, `${keyPrefix}-border-${index}`,
               (v) => setColor(index, 'borderColor', v), undefined, `${name}: ${s.borderColor}`,
+            )}
+            ${this._renderTextStyleToggles(
+              rule,
+              (key, value) => setEmphasis(index, key, value),
+              `${name}: `,
             )}
             ${this._renderInputError(`${keyPrefix}-color-${index}`)}
             <div class="prop-row">

@@ -95,8 +95,8 @@ const colorStyleShape = {
 };
 
 /**
- * 값에 따라 색을 바꾸는 조건부 서식 규칙.
- * 조건식이 참이면 지정한 색으로 기본 서식을 덮어쓴다 (SPEC §9.4).
+ * 값에 따라 색과 글자 강조를 바꾸는 조건부 서식 규칙.
+ * 조건식이 참이면 지정한 색과 강조로 기본 서식을 덮어쓴다 (SPEC §9.4).
  */
 const conditionalFormatRuleSchema = z
   .object({
@@ -105,10 +105,22 @@ const conditionalFormatRuleSchema = z
     fontColor: colorSchema.optional(),
     backgroundColor: colorSchema.optional(),
     borderColor: colorSchema.optional(),
+    /** true면 굵게를 적용하고 false면 기본 서식의 굵게를 끈다. 생략하면 기본 서식을 유지한다. */
+    bold: z.boolean().optional(),
+    /** true면 기울임을 적용하고 false면 기본 서식의 기울임을 끈다. */
+    italic: z.boolean().optional(),
+    /** true면 밑줄을 적용하고 false면 기본 서식의 밑줄을 끈다. */
+    underline: z.boolean().optional(),
+    /** true면 취소선을 적용하고 false면 기본 서식의 취소선을 끈다. */
+    strikethrough: z.boolean().optional(),
   })
   .superRefine((rule, ctx) => {
-    if (rule.fontColor === undefined && rule.backgroundColor === undefined && rule.borderColor === undefined) {
-      ctx.addIssue({ code: 'custom', path: ['condition'], message: fmt().conditionalFormatColorRequired() });
+    const hasEffect =
+      rule.fontColor !== undefined || rule.backgroundColor !== undefined || rule.borderColor !== undefined ||
+      rule.bold !== undefined || rule.italic !== undefined ||
+      rule.underline !== undefined || rule.strikethrough !== undefined;
+    if (!hasEffect) {
+      ctx.addIssue({ code: 'custom', path: ['condition'], message: fmt().conditionalFormatEffectRequired() });
     }
   });
 

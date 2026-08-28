@@ -233,6 +233,18 @@
                                   "borderColor": {
                                     "type": "string",
                                     "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  },
+                                  "bold": {
+                                    "type": "boolean"
+                                  },
+                                  "italic": {
+                                    "type": "boolean"
+                                  },
+                                  "underline": {
+                                    "type": "boolean"
+                                  },
+                                  "strikethrough": {
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [
@@ -546,6 +558,18 @@
                                         "borderColor": {
                                           "type": "string",
                                           "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                        },
+                                        "bold": {
+                                          "type": "boolean"
+                                        },
+                                        "italic": {
+                                          "type": "boolean"
+                                        },
+                                        "underline": {
+                                          "type": "boolean"
+                                        },
+                                        "strikethrough": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
@@ -1220,6 +1244,18 @@
                                   "borderColor": {
                                     "type": "string",
                                     "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  },
+                                  "bold": {
+                                    "type": "boolean"
+                                  },
+                                  "italic": {
+                                    "type": "boolean"
+                                  },
+                                  "underline": {
+                                    "type": "boolean"
+                                  },
+                                  "strikethrough": {
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [
@@ -1630,6 +1666,18 @@
                                   "borderColor": {
                                     "type": "string",
                                     "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  },
+                                  "bold": {
+                                    "type": "boolean"
+                                  },
+                                  "italic": {
+                                    "type": "boolean"
+                                  },
+                                  "underline": {
+                                    "type": "boolean"
+                                  },
+                                  "strikethrough": {
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [
@@ -1943,6 +1991,18 @@
                                         "borderColor": {
                                           "type": "string",
                                           "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                        },
+                                        "bold": {
+                                          "type": "boolean"
+                                        },
+                                        "italic": {
+                                          "type": "boolean"
+                                        },
+                                        "underline": {
+                                          "type": "boolean"
+                                        },
+                                        "strikethrough": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
@@ -2617,6 +2677,18 @@
                                   "borderColor": {
                                     "type": "string",
                                     "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                  },
+                                  "bold": {
+                                    "type": "boolean"
+                                  },
+                                  "italic": {
+                                    "type": "boolean"
+                                  },
+                                  "underline": {
+                                    "type": "boolean"
+                                  },
+                                  "strikethrough": {
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [

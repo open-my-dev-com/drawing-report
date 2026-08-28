@@ -674,6 +674,45 @@ describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
     await el.updateComplete;
   }
 
+  it('강조(굵게·밑줄)를 캔버스에 미리 적용한다 (ADR-063)', async () => {
+    const el = await mountFile(
+      [{
+        type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+        width: 60, height: 10, content: '제목',
+        conditionalFormats: [{ condition: 'TRUE', bold: true, underline: true }],
+      }],
+      {},
+    );
+    const content = el.shadowRoot?.querySelector('.el-content') as HTMLElement;
+    expect(content.style.fontWeight).toBe('700');
+    expect(content.style.textDecoration).toContain('underline');
+    el.remove();
+  });
+
+  it('규칙의 마지막 강조도 지울 수 없다 (ADR-063)', async () => {
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [{ condition: 'TRUE', bold: true }],
+    }]);
+    await selectElement(el, 't1');
+
+    let changed = false;
+    el.addEventListener('slip-change', () => { changed = true; });
+
+    const name = `${strings.designer.conditionalFormat} 1`;
+    const boldBtn = el.shadowRoot!.querySelector(
+      `button[aria-label="${name}: ${strings.designer.bold}"]`,
+    ) as HTMLButtonElement;
+    boldBtn.click();
+    await el.updateComplete;
+
+    expect(changed).toBe(false);
+    const error = el.shadowRoot!.querySelector('.input-error');
+    expect(error?.textContent).toBe(strings.designer.conditionEffectRequired);
+    el.remove();
+  });
+
   it('규칙의 마지막 색은 지울 수 없다 — 색이 없는 규칙은 파일 검증에 걸린다', async () => {
     const el = await mountFile([{
       type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
@@ -697,7 +736,7 @@ describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
     // 색은 지워지지 않고 안내가 표시된다.
     expect(changed).toBe(false);
     const error = el.shadowRoot!.querySelector('.input-error');
-    expect(error?.textContent).toBe(strings.designer.conditionColorRequired);
+    expect(error?.textContent).toBe(strings.designer.conditionEffectRequired);
     el.remove();
   });
 

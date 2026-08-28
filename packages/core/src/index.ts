@@ -41,7 +41,7 @@ export {
   renderSlipToPdf,
   resolveConditionalFormats,
   stackVertically,
-  type ConditionalFormatColors,
+  type ConditionalFormatOverrides,
   type RenderOptions,
   type SlipFont,
   type SlipPdfRenderer,

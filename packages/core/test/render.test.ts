@@ -499,6 +499,52 @@ describe('조건부 서식 (ADR-062)', () => {
     expect(colorOf('b')).toBe('#000000');
   });
 
+  it('강조(굵게·밑줄)를 조건으로 덮어쓴다 (ADR-063)', () => {
+    // 합성 규칙: 같은 속성은 뒤 규칙이 이기고, 다른 속성은 합쳐진다.
+    expect(
+      resolveConditionalFormats(
+        [
+          { condition: 'TRUE', bold: true },
+          { condition: 'TRUE', bold: false, underline: true },
+        ],
+        {},
+      ),
+    ).toEqual({ bold: false, underline: true });
+
+    const voucher = makeVoucher();
+    voucher.values.total = -1;
+    patchElement(voucher.templateSnapshot, 'total', {
+      formula: undefined,
+      parameter: 'total',
+      conditionalFormats: [{ condition: 'total < 0', bold: true, underline: true }],
+    } as never);
+    const { template } = convertSlipFile(voucher, {
+      fontNames: ['Pretendard', 'Pretendard-Bold'],
+      fallbackFontName: 'Pretendard',
+    });
+    const schema = findSchema((template.schemas[0] ?? []) as unknown as PdfmeSchema[], 'total');
+    expect(schema.fontName).toBe('Pretendard-Bold');
+    expect(schema.underline).toBe(true);
+  });
+
+  it('bold: false 규칙은 기본 서식의 굵게를 끈다 (ADR-063)', () => {
+    const voucher = makeVoucher();
+    voucher.values.total = -1;
+    patchElement(voucher.templateSnapshot, 'total', {
+      formula: undefined,
+      parameter: 'total',
+      fontName: 'Pretendard',
+      bold: true,
+      conditionalFormats: [{ condition: 'total < 0', bold: false }],
+    } as never);
+    const { template } = convertSlipFile(voucher, {
+      fontNames: ['Pretendard', 'Pretendard-Bold'],
+      fallbackFontName: 'Pretendard',
+    });
+    const schema = findSchema((template.schemas[0] ?? []) as unknown as PdfmeSchema[], 'total');
+    expect(schema.fontName).toBe('Pretendard');
+  });
+
   it('자동 병합으로 합쳐진 셀은 첫 항목의 조건부 서식을 쓴다 (SPEC §15.7)', () => {
     const voucher = makeVoucher(2);
     voucher.values.items = [{ g: 'A', amount: 500 }, { g: 'A', amount: 2000 }];

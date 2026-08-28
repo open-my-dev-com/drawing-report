@@ -57,11 +57,13 @@ verticalAlignment? (top|middle|bottom), bold?, italic?, underline?, strikethroug
 characterSpacing?, vertical?. Box styling: backgroundColor?, fontColor?, borderColor?, borderWidth?, borderStyle? (solid|dashed|dotted).
 
 Conditional formats (text, field, and grid cells): "conditionalFormats"?: [
-  { "condition": formula, "fontColor"?, "backgroundColor"?, "borderColor"? }, ... ]
+  { "condition": formula, "fontColor"?, "backgroundColor"?, "borderColor"?,
+    "bold"?, "italic"?, "underline"?, "strikethrough"? }, ... ]
   (max ${SLIP_LIMITS.maxConditionalFormats}).
 The condition is a formula (see topic "formula") that must return a boolean, e.g. "amount < 0".
-Rules whose condition is true apply in declared order (later rules win per color); each rule needs
-at least one color. A condition that cannot be computed for the current data (missing value, type
+Rules whose condition is true apply in declared order (later rules win per property); each rule
+needs at least one color or emphasis. Emphasis booleans: true applies it, false clears the base
+style's emphasis. bold/italic need a matching font variant to show in the PDF (SPEC 9.3). A condition that cannot be computed for the current data (missing value, type
 mismatch) simply does not apply — blank templates render with base styles. Replace the whole array
 via slip_edit set_element/set_cell fields, or pass {"conditionalFormats": null} to remove all rules.
 

@@ -255,10 +255,14 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     expect(field.conditionalFormats?.[1]?.backgroundColor).toBe('#EEEEEE');
   });
 
-  it('색을 하나도 지정하지 않은 조건부 서식 규칙은 거부한다 (ADR-062)', () => {
+  it('색과 강조를 모두 지정하지 않은 조건부 서식 규칙은 거부한다 (ADR-062·063)', () => {
     const file = makeTemplate();
     getElement(file, 0, 'text').conditionalFormats = [{ condition: 'total < 0' }];
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/at least one of fontColor/);
+
+    // 강조만 지정한 규칙은 유효하다.
+    getElement(file, 0, 'text').conditionalFormats = [{ condition: 'total < 0', bold: true }];
+    expect(() => parseSlipFile(serializeSlipFile(file))).not.toThrow();
   });
 
   it('조건부 서식 규칙 수가 상한을 넘으면 거부한다', () => {
