@@ -37,7 +37,10 @@ BODY = {
 }
 
 All coordinates and sizes are millimeters on the paper. Colors are "#RRGGBB" or "#RRGGBBAA".
-Every element has: type, id (unique in the file), name, position {x, y}, width, height, group?.
+Every element has: type, id (unique in the file), name, position {x, y}, group?, pagePlacement?.
+All types except grid also have width and height; a grid's size is the sum of its column widths
+and row heights. A page may set "flowArea"?: { "top": mm, "bottom": mm } — the vertical range
+repeating grids flow in (defaults to the paper padding edges).
 Element types: text, field, image, barcode, line, rect, ellipse, polygon, grid.
 Use topic "elements" for per-type fields, "grid" for tables, "parameters" for value definitions,
 "formula" for computed values, "voucher" for filled documents, "json-schema" for the full JSON Schema.
@@ -47,7 +50,12 @@ To modify an existing file: slip_read (summary) -> slip_read part=element -> sli
 
 const ELEMENTS = `# Element types
 
-Common fields (every element): type, id, name, position {x, y}, width, height, group?.
+Common fields (every element): type, id, name, position {x, y}, group?, pagePlacement?.
+All types except grid also have width and height (a grid's size is the sum of its tracks).
+pagePlacement controls output pages when a repeating grid multiplies pages:
+  { "mode": "absolute", "pages"?: "all"|"first"|"continuation"|"non-final"|"last" }  // default all
+  { "mode": "after", "target": elementId, "gap"?: mm }  // flows after the target's last output
+  ("after" targets must be on the same page and must not form a cycle.)
 Bundled fontName values (when the server has no custom fonts): "Pretendard", "Pretendard-Bold",
 "Noto Sans JP". All are always available; an element without fontName uses the locale's default
 (Pretendard, or Noto Sans JP when the server locale is Japanese). Japanese kanji needs
@@ -88,28 +96,48 @@ via slip_edit set_element/set_cell fields, or pass {"conditionalFormats": null} 
 const GRID = `# Grid element (tables)
 
 {
-  "type": "grid", ...common/styling fields,
+  "type": "grid", ...common/styling fields (no width/height — the size is the sum of the tracks),
   "columns": [ { "width": mm, "autoMerge"?: boolean }, ... ],
   "rows":    [ { "height": mm }, ... ],
   "cells":   [ Cell, ... ],
-  "repeat"?: { "parameter": listKey, "fromRow": n, "toRow": n, "perPage": n, "repeatHeader": boolean, "maxItems"?: n },
+  "repeat"?: {
+    "parameter": listKey,
+    "bands": [ { "id": string, "fromRow": n, "toRow": n, "placement": Placement,
+                 "name"?: string, "pages"?: PageFilter, "repeatOnPageBreak"?: boolean }, ... ],
+    "pagination": { "mode": "auto", "minItems": n } | { "mode": "fixed", "itemsPerPage": n },
+    "groupBy"?: [ itemFieldKey, ... ],
+    "maxItems"?: n
+  },
   "overflow"?: "clip" | "shrink"
 }
 
+Placement (vertical order): "before-data" | "page-start" | "group-start" | "item" | "group-end" |
+"after-data" | "page-end". PageFilter: "all" (default) | "first" | "continuation" | "non-final" | "last".
+
 Constraints the validator enforces:
-- Element width equals the sum of column widths. Without repeat, height equals the sum of row heights.
-  With repeat, height = sum(all row heights) + (perPage - 1) * sum(fromRow..toRow heights).
-- Cell = { "row": r, "column": c (0-based), "rowSpan"?, "colSpan"?, plus at most ONE value source:
-  "content" (literal) / "parameter" / "formula", plus styling, "overflow"? and "conditionalFormats"?
-  (see topic "elements"; inside the repeat range conditions are evaluated per item and can
-  reference the item's field keys, e.g. "amount < 0") }.
-- Merged spans must not overlap other cells and must not cross the repeat range boundary.
-- repeat: rows fromRow..toRow (inclusive) duplicate once per item of the list parameter.
-  Inside the repeat range, "parameter" on a cell names a FIELD of the list item, and a cell
-  "formula" can reference the item's field keys as well.
-  perPage splits items across pages; maxItems, when present, must be at least perPage. repeatHeader
-  redraws the rows above the repeat range on each page.
-- columns[i].autoMerge merges vertically adjacent equal values inside the repeat range.`;
+- Without repeat the grid is static. With repeat, the bands must cover every template row exactly
+  once, in the placement order above, with exactly ONE "item" band (one or more rows). The item
+  band is atomic — one data item never splits across output pages.
+- Cell = { "row": r, "column": c (0-based), "name"?, "rowSpan"?, "colSpan"?,
+  plus at most ONE value source: "content" (literal) / "parameter" / "formula", plus styling,
+  "overflow"? and "conditionalFormats"? (see topic "elements") }. "name" is a display label for
+  editors only and is never derived automatically from headers or parameters.
+- Merged spans must not overlap other cells and must not cross a band boundary.
+- Inside the item band, "parameter" on a cell names a FIELD of the list item, and a cell "formula"
+  can reference the item's field keys as well.
+- pagination "auto" fills each page's flow area and continues on the next page; minItems pads
+  short data with empty item rows (0 shows only the fixed bands). "fixed" places exactly
+  itemsPerPage item rows on every page; short data is padded with empty rows and a set that does
+  not fit the flow area is a plan error. The two modes are exclusive — mixing their fields is
+  rejected.
+- "pages" applies only to page-start/page-end bands; a filtered-out band takes no space.
+- group-start/group-end need "groupBy": consecutive items with equal values of those fields form a
+  group. "repeatOnPageBreak" on a group-start band redraws it after a page break.
+- maxItems caps the real data before planning (it may be smaller than itemsPerPage).
+- columns[i].autoMerge merges vertically adjacent equal values inside the item band; merges break
+  at group and output-page boundaries.
+- Formulas and conditions in band cells can use reserved references (@item, @group, @page, @all,
+  @carried) — see topic "formula".`;
 
 const PARAMETERS = `# Parameters (values that fill a form)
 
@@ -140,6 +168,10 @@ Formulas run in a purpose-built parser (no JavaScript). Values are typed; conver
   integer number of decimal places (0-20), NOT a pattern string like "#,##0".
   FORMAT_DATE(date, pattern? = "YYYY-MM-DD") takes a token pattern (YYYY YY MM M DD D HH mm ss).
 - Example: FORMAT_NUMBER(SUM(items.amount) * 1.1, 0)
+- Reserved references (grid band cells only): @item (the current item), @group (items of the
+  current group), @page (real items on the current output page), @all (all items after maxItems),
+  @carried (real items placed on previous output pages). Example: SUM(@page.amount) for a page
+  subtotal, SUM(@carried.amount) for a carried-over total. Empty padding rows are excluded.
 - The "condition" of a conditionalFormats rule uses this same language and must return a boolean,
   e.g. amount < 0 or AND(amount > 0, status = "open").`;
 

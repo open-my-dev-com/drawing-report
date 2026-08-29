@@ -9,11 +9,12 @@
  * mul     := unary (('*' | '/') unary)*
  * unary   := ('-' | '+') unary | primary
  * primary := number | string | TRUE | FALSE | FUNC '(' args ')' | ref | '(' expr ')'
- * ref     := ident ('.' ident)*        # 전표 values 참조 (예: items.금액)
+ * ref     := ('@' ident | ident) ('.' ident)*   # 값 참조 (예: items.금액, @group.금액)
  * ```
  *
  * 문자열 리터럴은 큰따옴표, 내부 큰따옴표는 "" 로 이스케이프한다.
  * 식별자는 유니코드 문자(한글 포함)·숫자·언더스코어, 숫자로 시작 불가.
+ * `@`로 시작하는 참조는 그리드 행 구간에서 계획 계층이 공급하는 예약 참조만 허용한다.
  */
 import { FormulaSyntaxError } from './errors.js';
 import { FORMULA_FUNCTIONS, type FormulaFunctionName } from './functions.js';
@@ -53,6 +54,17 @@ type Token =
 
 const IDENT_START = /[\p{L}_]/u;
 const IDENT_PART = /[\p{L}\p{N}_]/u;
+
+/**
+ * 그리드 행 구간에서 사용할 수 있는 예약 참조 이름.
+ * 값은 페이지 계획 계층이 평가 컨텍스트의 `reserved`로 공급한다.
+ */
+export const RESERVED_REF_NAMES = ['@item', '@group', '@page', '@all', '@carried'] as const;
+
+/** 예약 참조 이름 */
+export type ReservedRefName = (typeof RESERVED_REF_NAMES)[number];
+
+const RESERVED_REFS = new Set<string>(RESERVED_REF_NAMES);
 
 function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
@@ -97,6 +109,14 @@ function tokenize(source: string): Token[] {
     }
     if (IDENT_START.test(ch)) {
       let j = i + 1;
+      while (j < source.length && IDENT_PART.test(source[j]!)) j++;
+      tokens.push({ type: 'ident', value: source.slice(i, j), pos });
+      i = j;
+      continue;
+    }
+    // '@' 뒤에 식별자가 이어지면 예약 참조 이름으로 읽는다.
+    if (ch === '@' && IDENT_START.test(source[i + 1] ?? '')) {
+      let j = i + 2;
       while (j < source.length && IDENT_PART.test(source[j]!)) j++;
       tokens.push({ type: 'ident', value: source.slice(i, j), pos });
       i = j;
@@ -233,6 +253,10 @@ class Parser {
       return expr;
     }
     if (token.type === 'ident') {
+      // 예약 참조는 정해진 이름만 허용한다. 값은 평가 컨텍스트가 공급한다.
+      if (token.value.startsWith('@') && !RESERVED_REFS.has(token.value)) {
+        throw new FormulaSyntaxError(fm().unknownReservedRef(token.value), token.pos);
+      }
       const upper = token.value.toUpperCase();
       if (upper === 'TRUE') return { type: 'boolean', value: true };
       if (upper === 'FALSE') return { type: 'boolean', value: false };

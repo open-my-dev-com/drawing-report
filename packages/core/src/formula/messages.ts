@@ -47,6 +47,8 @@ interface FormulaMessages {
   formulaTooDeep(max: number): string;
   unknownFunction(name: string): string;
   expectedFieldAfterDot(): string;
+  unknownReservedRef(name: string): string;
+  reservedRefUnavailable(name: string): string;
   expectedValue(): string;
   emptyFormula(): string;
   formulaTooLong(max: number): string;
@@ -190,6 +192,8 @@ const EN: FormulaMessages = {
   formulaTooDeep: (max) => `Formula nesting is too deep (max ${max} levels)`,
   unknownFunction: (name) => `Unsupported function: ${name}`,
   expectedFieldAfterDot: () => `A field name must follow '.'`,
+  unknownReservedRef: (name) => `Unknown reserved reference: ${name} (available: @item, @group, @page, @all, @carried)`,
+  reservedRefUnavailable: (name) => `${name} can only be used in grid row bands`,
   expectedValue: () => 'A value, reference, or function is required',
   emptyFormula: () => 'The formula is empty',
   formulaTooLong: (max) => `The formula is too long (max ${max} characters)`,
@@ -236,6 +240,8 @@ const KO: FormulaMessages = {
   formulaTooDeep: (max) => `수식 중첩이 허용 범위(${max}단계)를 초과했습니다`,
   unknownFunction: (name) => `지원하지 않는 함수입니다: ${name}`,
   expectedFieldAfterDot: () => "'.' 뒤에는 필드 이름이 와야 합니다",
+  unknownReservedRef: (name) => `알 수 없는 예약 참조입니다: ${name} (사용 가능: @item, @group, @page, @all, @carried)`,
+  reservedRefUnavailable: (name) => `${name}은(는) 그리드 행 구간에서만 사용할 수 있습니다`,
   expectedValue: () => '값, 참조 또는 함수가 필요합니다',
   emptyFormula: () => '빈 수식입니다',
   formulaTooLong: (max) => `수식 길이가 허용 범위(${max}자)를 초과했습니다`,
@@ -286,6 +292,8 @@ const JA: FormulaMessages = {
   formulaTooDeep: (max) => `数式のネストが深すぎます（最大 ${max} 段階）`,
   unknownFunction: (name) => `サポートされていない関数です: ${name}`,
   expectedFieldAfterDot: () => `'.' の後にはフィールド名が必要です`,
+  unknownReservedRef: (name) => `不明な予約参照です: ${name}（使用可能: @item, @group, @page, @all, @carried）`,
+  reservedRefUnavailable: (name) => `${name} はグリッドの行範囲でのみ使用できます`,
   expectedValue: () => '値・参照・関数が必要です',
   emptyFormula: () => '数式が空です',
   formulaTooLong: (max) => `数式が長すぎます（最大 ${max} 文字）`,

@@ -29,6 +29,16 @@ import type {
   TextElement,
 } from '../format/schema.js';
 import { normalizeNumericParameters } from '../format/normalize.js';
+import { elementBounds } from '../format/schema.js';
+import {
+  filterVisibleOnPage,
+  planSourcePage,
+  type GridFragment,
+  type GridItem,
+  type GridPlan,
+  type PlannedBand,
+  type SourcePagePlan,
+} from '../layout/index.js';
 import { resolveConditionalFormats, type ConditionalFormatOverrides } from './conditional.js';
 import { SlipRenderError } from './errors.js';
 import { rm } from './messages.js';
@@ -121,6 +131,8 @@ function toDisplayText(value: unknown, what: string, locale?: string): string {
 class SlipToPdfmeConverter {
   private readonly usedNames = new Set<string>();
   private readonly inputs: Record<string, string> = {};
+  /** 반복 그리드 id별 실제 항목 배열 (`maxItems` 적용 전) — 셀 값과 예약 참조에 쓴다. */
+  private readonly gridItems = new Map<string, readonly GridItem[]>();
 
   constructor(
     private readonly body: SlipTemplateBody,
@@ -173,16 +185,24 @@ class SlipToPdfmeConverter {
 
   convert(): PdfmeRenderInput {
     // 반복 그리드의 항목이 페이지를 넘으면 하나의 문서 페이지를 여러 출력 페이지로 나눈다.
-    // 반복 그리드 외의 요소는 각 출력 페이지에 같은 위치로 배치한다.
+    // 출력 페이지 수와 요소 배치는 페이지 계획 계층의 결과를 그대로 사용한다.
     const schemas: Schema[][] = [];
     // 페이지 번호를 추가할 때 사용하도록 각 출력 페이지의 원본 페이지를 기록한다.
     const outputPages: SlipPage[] = [];
     for (const page of this.body.pages) {
-      const pageCount = this.renderPageCount(page.elements);
-      for (let renderPage = 0; renderPage < pageCount; renderPage++) {
+      const itemsByGrid = new Map<string, readonly GridItem[]>();
+      for (const element of page.elements) {
+        if (element.type === 'grid' && element.repeat !== undefined) {
+          const items = this.repeatItems(element, element.repeat.parameter);
+          itemsByGrid.set(element.id, items);
+          this.gridItems.set(element.id, items);
+        }
+      }
+      const plan = planSourcePage(this.body.paper, page, itemsByGrid, this.locale);
+      for (let renderPage = 0; renderPage < plan.outputPageCount; renderPage++) {
         const pageSchemas: Schema[] = [];
         for (const element of page.elements) {
-          this.appendElement(pageSchemas, element, renderPage);
+          this.appendElement(pageSchemas, element, renderPage, plan);
         }
         schemas.push(pageSchemas);
         outputPages.push(page);
@@ -249,29 +269,6 @@ class SlipToPdfmeConverter {
     return schema as unknown as Schema;
   }
 
-  /** 한 문서 페이지에서 생성되는 출력 페이지 수를 계산한다 (SPEC §5.7). */
-  private renderPageCount(elements: readonly SlipElement[]): number {
-    let count = 1;
-    for (const element of elements) {
-      if (element.type !== 'grid' || !element.repeat) continue;
-      const items = this.repeatItems(element, element.repeat.parameter);
-      const drawn = this.drawnItemCount(items.length, element.repeat);
-      count = Math.max(count, Math.ceil(drawn / element.repeat.perPage) || 1);
-    }
-    return count;
-  }
-
-  /**
-   * 반복 그리드에서 실제로 렌더링할 항목 수를 계산한다.
-   *
-   * @param total - 전표가 준 항목 수
-   * @param repeat - 반복 구간 설정
-   * @returns `maxItems`를 적용한 항목 수
-   */
-  private drawnItemCount(total: number, repeat: { maxItems?: number | undefined }): number {
-    return repeat.maxItems === undefined ? total : Math.min(total, repeat.maxItems);
-  }
-
   /** pdfme가 값을 이름으로 찾을 수 있도록 문서 전체에서 고유한 이름을 만든다. */
   private uniqueName(base: string): string {
     if (!this.usedNames.has(base)) {
@@ -291,34 +288,58 @@ class SlipToPdfmeConverter {
     schemas.push({ ...schema, name } as Schema);
   }
 
-  private appendElement(schemas: Schema[], element: SlipElement, renderPage = 0): void {
-    switch (element.type) {
+  private appendElement(schemas: Schema[], element: SlipElement, renderPage: number, plan: SourcePagePlan): void {
+    // 반복 그리드는 계획된 조각이 있는 페이지에만 그린다.
+    if (element.type === 'grid' && element.repeat !== undefined) {
+      const fragment = plan.gridPlans
+        .get(element.id)
+        ?.fragments.find((candidate) => candidate.outputPage === renderPage);
+      if (fragment !== undefined) {
+        this.appendGrid(schemas, element, renderPage, plan.gridPlans.get(element.id)!, fragment);
+      }
+      return;
+    }
+
+    // 그 밖의 요소는 배치 설정에 따라 표시 페이지와 위치를 정한다.
+    const placement = element.pagePlacement;
+    let target = element;
+    if (placement?.mode === 'after') {
+      const planned = plan.afterPlacements.get(element.id);
+      if (planned === undefined || planned.outputPage !== renderPage) return;
+      if (planned.y !== element.position.y) {
+        target = { ...element, position: { x: element.position.x, y: planned.y } } as SlipElement;
+      }
+    } else if (!filterVisibleOnPage(placement?.pages, renderPage, plan.outputPageCount)) {
+      return;
+    }
+
+    switch (target.type) {
       case 'text':
-        this.appendText(schemas, element);
+        this.appendText(schemas, target);
         return;
       case 'field':
-        this.appendField(schemas, element);
+        this.appendField(schemas, target);
         return;
       case 'grid':
-        this.appendGrid(schemas, element, renderPage);
+        this.appendStaticGrid(schemas, target);
         return;
       case 'image':
-        this.appendImage(schemas, element);
+        this.appendImage(schemas, target);
         return;
       case 'barcode':
-        this.appendBarcode(schemas, element);
+        this.appendBarcode(schemas, target);
         return;
       case 'line':
-        this.appendLine(schemas, element);
+        this.appendLine(schemas, target);
         return;
       case 'rect':
-        this.appendRect(schemas, element);
+        this.appendRect(schemas, target);
         return;
       case 'ellipse':
-        this.appendEllipse(schemas, element);
+        this.appendEllipse(schemas, target);
         return;
       case 'polygon':
-        this.appendPolygon(schemas, element);
+        this.appendPolygon(schemas, target);
         return;
     }
   }
@@ -450,12 +471,13 @@ class SlipToPdfmeConverter {
     rules: readonly ConditionalFormatRule[] | undefined,
     scope: Record<string, unknown>,
     subject: string,
+    reserved?: Readonly<Record<string, unknown>>,
   ): ConditionalFormatOverrides {
-    return resolveConditionalFormats(
-      rules,
-      scope,
-      this.locale === undefined ? { subject } : { locale: this.locale, subject },
-    );
+    return resolveConditionalFormats(rules, scope, {
+      subject,
+      ...(this.locale === undefined ? {} : { locale: this.locale }),
+      ...(reserved === undefined ? {} : { reserved }),
+    });
   }
 
   /**
@@ -467,12 +489,18 @@ class SlipToPdfmeConverter {
    * @returns 평가 결과 값
    * @throws SlipRenderError 수식 계산에 실패하면
    */
-  private evaluate(formula: string, scope: Record<string, unknown>, what: string): unknown {
+  private evaluate(
+    formula: string,
+    scope: Record<string, unknown>,
+    what: string,
+    reserved?: Readonly<Record<string, unknown>>,
+  ): unknown {
     try {
-      return evaluateFormula(
-        formula,
-        this.locale === undefined ? { values: scope } : { values: scope, locale: this.locale },
-      );
+      return evaluateFormula(formula, {
+        values: scope,
+        ...(this.locale === undefined ? {} : { locale: this.locale }),
+        ...(reserved === undefined ? {} : { reserved }),
+      });
     } catch (error) {
       throw new SlipRenderError(
         rm(this.locale).formulaFailed(what, error instanceof Error ? error.message : String(error)),
@@ -501,55 +529,163 @@ class SlipToPdfmeConverter {
   // -------------------------------------------------------------------------
   // grid
   // -------------------------------------------------------------------------
+  /** 정적 그리드(반복 없음)를 표시 위치에 그린다. */
+  private appendStaticGrid(schemas: Schema[], element: GridElement): void {
+    const rowHeights = element.rows.map((row) => row.height);
+    const cells = element.cells.map((cell) =>
+      this.toDrawCell(element, cell, 0, { scope: this.values, hasValue: true }),
+    );
+    this.drawGridFragment(schemas, element, `${element.id}__p0`, element.position.y, rowHeights, cells);
+  }
 
-  /**
-   * 반복 항목 중 현재 출력 페이지에 해당하는 항목을 그리드에 배치한다.
-   * 이어지는 페이지에서는 `repeatHeader` 설정에 따라 반복 구간 위쪽 행을 비운다.
-   */
-  private appendGrid(schemas: Schema[], element: GridElement, renderPage: number): void {
-    const layout = this.gridLayout(element, renderPage);
+  /** 계획된 그리드 조각 하나를 출력 페이지에 그린다. */
+  private appendGrid(
+    schemas: Schema[],
+    element: GridElement,
+    renderPage: number,
+    plan: GridPlan,
+    fragment: GridFragment,
+  ): void {
+    const cells = this.fragmentCells(element, plan, fragment);
+    this.drawGridFragment(
+      schemas,
+      element,
+      `${element.id}__p${renderPage}`,
+      fragment.y,
+      fragment.rowHeights,
+      cells,
+    );
+  }
+
+  /** 조각 하나를 pdfme 스키마로 그린다. 그리드 크기는 행·열 정의의 합이다. */
+  private drawGridFragment(
+    schemas: Schema[],
+    element: GridElement,
+    idPrefix: string,
+    y: number,
+    rowHeights: readonly number[],
+    cells: DrawGridCell[],
+  ): void {
     this.drawGrid(schemas, {
-      idPrefix: `${element.id}__p${renderPage}`,
-      origin: { x: element.position.x, y: element.position.y },
+      idPrefix,
+      origin: { x: element.position.x, y },
       columnOffsets: cumulative(element.columns.map((column) => column.width)),
-      rowOffsets: cumulative(layout.rowHeights),
-      rows: layout.rowHeights.length,
+      rowOffsets: cumulative([...rowHeights]),
+      rows: rowHeights.length,
       columns: element.columns.length,
-      cells: layout.cells,
+      cells,
       backgroundColor: element.backgroundColor,
       borderColor: element.borderColor,
       borderWidth: element.borderWidth,
       borderStyle: element.borderStyle,
       padding: GRID_CELL_PADDING,
-      blankRows: layout.blankRows,
+      blankRows: new Set<number>(),
       overflow: element.overflow ?? 'clip',
     });
   }
 
-  /** 출력 페이지 하나에 배치할 그리드의 행 높이와 셀 목록을 만든다. */
   /**
-   * 원본 셀에 그리드 기본 스타일과 반복 항목 값을 적용해 렌더링용 셀을 만든다.
+   * 조각의 행 구간 인스턴스들을 그리기용 셀 목록으로 펼친다.
+   *
+   * `autoMerge` 열에서는 같은 조각 안에서 연속된 항목 인스턴스의 값이 같으면 세로로
+   * 병합한다. 병합은 그룹 경계와 페이지 경계에서 종료하며 빈 값과 빈 항목은 병합하지
+   * 않는다 (SPEC §15.7).
+   */
+  private fragmentCells(element: GridElement, plan: GridPlan, fragment: GridFragment): DrawGridCell[] {
+    const repeat = element.repeat!;
+    const real = (this.gridItems.get(element.id) ?? []).slice(0, plan.itemCount);
+    const toValues = (indexes: readonly number[]): GridItem[] => indexes.map((i) => real[i]!);
+    const baseReserved: Record<string, unknown> = {
+      '@all': real,
+      '@page': toValues(fragment.pageItems),
+      '@carried': toValues(fragment.carriedItems),
+    };
+
+    const autoMergeColumns = new Set<number>();
+    element.columns.forEach((column, c) => {
+      if (column.autoMerge === true) autoMergeColumns.add(c);
+    });
+    const cellMerges = (cell: GridCell): boolean => {
+      const colSpan = cell.colSpan ?? 1;
+      for (let c = cell.column; c < cell.column + colSpan; c++) {
+        if (autoMergeColumns.has(c)) return true;
+      }
+      return false;
+    };
+
+    const itemBand = repeat.bands.find((band) => band.placement === 'item')!;
+    const itemBandRows = itemBand.toRow - itemBand.fromRow + 1;
+
+    const cells: DrawGridCell[] = [];
+    let anchors = new Map<string, { cell: DrawGridCell; text: string }>();
+    let lastGroup: number | undefined;
+
+    for (const planned of fragment.bands) {
+      const band = planned.band;
+      const isItem = band.placement === 'item';
+      // 항목 인스턴스가 아닌 구간이 끼어들거나 그룹이 바뀌면 병합 범위를 종료한다.
+      if (!isItem || planned.groupIndex !== lastGroup) anchors = new Map();
+      lastGroup = isItem ? planned.groupIndex : undefined;
+
+      const item = planned.itemIndex === undefined ? undefined : real[planned.itemIndex];
+      const hasValue = planned.emptyItem !== true;
+      // 항목·그룹 구간에서는 전표 값보다 현재 항목의 필드를 우선한다.
+      const scope = item === undefined ? this.values : { ...this.values, ...item };
+      const reserved: Record<string, unknown> = { ...baseReserved };
+      if (item !== undefined) reserved['@item'] = item;
+      if (planned.groupIndex !== undefined) {
+        reserved['@group'] = toValues(plan.groups[planned.groupIndex] ?? []);
+      }
+
+      for (const cell of element.cells) {
+        if (cell.row < band.fromRow || cell.row > band.toRow) continue;
+        const rowShift = planned.rowStart - band.fromRow;
+        const draw = this.toDrawCell(element, cell, rowShift, { scope, hasValue, reserved });
+        if (!isItem || !cellMerges(cell)) {
+          cells.push(draw);
+          continue;
+        }
+        const key = `${cell.row},${cell.column}`;
+        // 빈 값과 빈 항목은 병합 범위를 종료한다.
+        if (!hasValue || draw.text === '') {
+          anchors.delete(key);
+          cells.push(draw);
+          continue;
+        }
+        const anchor = anchors.get(key);
+        if (anchor && anchor.text === draw.text) {
+          anchor.cell.rowSpan += itemBandRows;
+          continue; // 앞 셀에 흡수 — 이 셀은 그리지 않는다
+        }
+        anchors.set(key, { cell: draw, text: draw.text });
+        cells.push(draw);
+      }
+    }
+    return cells;
+  }
+
+  /**
+   * 원본 셀에 그리드 기본 스타일과 값 컨텍스트를 적용해 렌더링용 셀을 만든다.
    *
    * @param element - 셀이 속한 그리드 (기본 스타일·값 계산에 쓴다)
    * @param cell - 원본 셀
-   * @param rowShift - 반복 배치로 이동한 행 수
-   * @param item - 현재 반복 항목의 값
-   * @param hasItem - 셀의 값을 계산할지 여부
+   * @param rowShift - 행 구간 배치로 이동한 행 수
+   * @param context - 값 범위, 값 계산 여부와 예약 참조
    * @returns 렌더링용 셀
    */
   private toDrawCell(
     element: GridElement,
     cell: GridCell,
     rowShift: number,
-    item: Record<string, unknown> | undefined,
-    hasItem: boolean,
+    context: { scope: Record<string, unknown>; hasValue: boolean; reserved?: Record<string, unknown> },
   ): DrawGridCell {
-    // 비어 있는 반복 행에는 값이 없으므로 조건부 서식도 평가하지 않는다.
-    const conditional = hasItem
+    // 빈 항목 인스턴스에는 값이 없으므로 수식과 조건부 서식을 평가하지 않는다.
+    const conditional = context.hasValue
       ? this.conditionalColors(
           cell.conditionalFormats,
-          item === undefined ? this.values : { ...this.values, ...item },
+          context.scope,
           rm(this.locale).subjectGridCell(element.name, element.id, cell.row, cell.column),
+          context.reserved,
         )
       : {};
     return {
@@ -557,7 +693,7 @@ class SlipToPdfmeConverter {
       column: cell.column,
       rowSpan: cell.rowSpan ?? 1,
       colSpan: cell.colSpan ?? 1,
-      text: hasItem ? this.gridCellText(element, cell, item) : '',
+      text: context.hasValue ? this.gridCellText(element, cell, context) : '',
       fontName: cell.fontName ?? element.fontName,
       fontSize: cell.fontSize ?? element.fontSize,
       alignment: cell.alignment ?? element.alignment,
@@ -578,119 +714,7 @@ class SlipToPdfmeConverter {
     };
   }
 
-  /**
-   * 현재 출력 페이지에 포함되는 반복 항목의 렌더링용 셀을 만든다.
-   *
-   * `autoMerge` 열에서는 연속된 셀의 값이 같으면 세로로 병합한다. 병합 범위는 현재
-   * 출력 페이지로 제한하며 빈 값과 비어 있는 항목은 병합하지 않는다.
-   *
-   * @param element - 그리드 요소
-   * @param repeat - 반복 구간 설정
-   * @param renderPage - 몇 번째 출력 페이지인지 (0부터)
-   * @returns 반복 구간에서 나온 그리기용 셀 목록
-   */
-  private expandRepeatBand(
-    element: GridElement,
-    repeat: NonNullable<GridElement['repeat']>,
-    renderPage: number,
-  ): DrawGridCell[] {
-    const { fromRow, toRow, perPage } = repeat;
-    const bandRows = toRow - fromRow + 1;
-    const items = this.repeatItems(element, repeat.parameter);
-    // maxItems를 초과한 항목은 렌더링하지 않는다.
-    const drawn = this.drawnItemCount(items.length, repeat);
-    const chunk = items.slice(renderPage * perPage, Math.min((renderPage + 1) * perPage, drawn));
-
-    const autoMergeColumns = new Set<number>();
-    element.columns.forEach((column, c) => {
-      if (column.autoMerge === true) autoMergeColumns.add(c);
-    });
-    const cellMerges = (cell: GridCell): boolean => {
-      const colSpan = cell.colSpan ?? 1;
-      for (let c = cell.column; c < cell.column + colSpan; c++) {
-        if (autoMergeColumns.has(c)) return true;
-      }
-      return false;
-    };
-    // 원본 셀 좌표별로 마지막 병합 대상 셀을 기록한다.
-    const anchors = new Map<string, { cell: DrawGridCell; text: string }>();
-    const cells: DrawGridCell[] = [];
-
-    for (let i = 0; i < perPage; i++) {
-      const item = chunk[i];
-      const hasItem = item !== undefined;
-      for (const cell of element.cells) {
-        if (cell.row < fromRow || cell.row > toRow) continue;
-        const draw = this.toDrawCell(element, cell, i * bandRows, item, hasItem);
-        if (!cellMerges(cell)) {
-          cells.push(draw);
-          continue;
-        }
-        const key = `${cell.row},${cell.column}`;
-        // 빈 값과 비어 있는 항목은 병합 범위를 종료한다.
-        if (!hasItem || draw.text === '') {
-          anchors.delete(key);
-          cells.push(draw);
-          continue;
-        }
-        const anchor = anchors.get(key);
-        if (anchor && anchor.text === draw.text) {
-          anchor.cell.rowSpan += bandRows;
-          continue; // 앞 셀에 흡수 — 이 셀은 그리지 않는다
-        }
-        anchors.set(key, { cell: draw, text: draw.text });
-        cells.push(draw);
-      }
-    }
-    return cells;
-  }
-
-  private gridLayout(
-    element: GridElement,
-    renderPage: number,
-  ): { rowHeights: number[]; cells: DrawGridCell[]; blankRows: Set<number> } {
-    const templateHeights = element.rows.map((row) => row.height);
-    const repeat = element.repeat;
-    if (!repeat) {
-      return {
-        rowHeights: templateHeights,
-        cells: element.cells.map((cell) => this.toDrawCell(element, cell, 0, undefined, true)),
-        blankRows: new Set<number>(),
-      };
-    }
-
-    const { fromRow, toRow, perPage, repeatHeader } = repeat;
-    const bandRows = toRow - fromRow + 1;
-
-    // 반복 구간을 perPage번 배치하고 앞뒤의 고정 행을 유지한다.
-    // 전체 높이는 checkGridTrackSums에서 검증한 요소 높이와 같다.
-    const band = templateHeights.slice(fromRow, toRow + 1);
-    const rowHeights: number[] = [
-      ...templateHeights.slice(0, fromRow),
-      ...Array.from({ length: perPage }, () => band).flat(),
-      ...templateHeights.slice(toRow + 1),
-    ];
-
-    // repeatHeader가 false인 후속 페이지에서는 헤더 행의 공간만 유지한다 (SPEC §5.7).
-    const hideHeader = renderPage > 0 && !repeatHeader;
-    const blankRows = new Set<number>();
-    if (hideHeader) for (let r = 0; r < fromRow; r++) blankRows.add(r);
-
-    // 헤더, 반복 구간, 꼬리 순서로 셀을 배치한다.
-    const cells: DrawGridCell[] = [];
-    if (!hideHeader) {
-      for (const cell of element.cells) {
-        if (cell.row < fromRow) cells.push(this.toDrawCell(element, cell, 0, undefined, true));
-      }
-    }
-    cells.push(...this.expandRepeatBand(element, repeat, renderPage));
-    for (const cell of element.cells) {
-      if (cell.row > toRow) cells.push(this.toDrawCell(element, cell, (perPage - 1) * bandRows, undefined, true));
-    }
-    return { rowHeights, cells, blankRows };
-  }
-
-  /** 반복 구간에 사용할 항목 배열을 읽는다. */
+  /** 반복에 사용할 항목 배열을 읽는다. */
   private repeatItems(element: GridElement, parameter: string): Record<string, unknown>[] {
     const raw = this.values[parameter];
     const what = rm(this.locale).subjectGrid(element.name, element.id);
@@ -710,15 +734,17 @@ class SlipToPdfmeConverter {
   private gridCellText(
     element: GridElement,
     cell: GridCell,
-    item: Record<string, unknown> | undefined,
+    context: { scope: Record<string, unknown>; reserved?: Record<string, unknown> },
   ): string {
     const what = rm(this.locale).subjectGridCell(element.name, element.id, cell.row, cell.column);
-    // 반복 구간에서는 전표 값보다 현재 항목의 필드를 우선한다.
-    const scope = item === undefined ? this.values : { ...this.values, ...item };
     if (cell.formula !== undefined) {
-      return toDisplayText(this.evaluate(cell.formula, scope, what), what, this.locale);
+      return toDisplayText(
+        this.evaluate(cell.formula, context.scope, what, context.reserved),
+        what,
+        this.locale,
+      );
     }
-    if (cell.parameter !== undefined) return toDisplayText(scope[cell.parameter], what, this.locale);
+    if (cell.parameter !== undefined) return toDisplayText(context.scope[cell.parameter], what, this.locale);
     return cell.content ?? '';
   }
 

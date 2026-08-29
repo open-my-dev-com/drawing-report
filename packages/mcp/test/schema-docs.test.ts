@@ -44,7 +44,20 @@ describe('slip_schema 안내문', () => {
     expect(elements).toContain('"kind": "qrcode"');
     expect(elements).not.toContain('barcodeKind');
     expect(grid).toContain('at most ONE value source');
-    expect(grid).toContain('(perPage - 1)');
+    // 행 구간 모델과 페이지 방식을 안내하고 옛 반복 필드는 남기지 않는다.
+    expect(grid).toContain('"bands"');
+    expect(grid).toContain('"pagination"');
+    expect(grid).toContain('exactly ONE "item" band');
+    expect(grid).not.toContain('perPage');
+    expect(grid).not.toContain('repeatHeader');
+  });
+
+  it('행 구간 셀의 예약 참조를 안내한다', () => {
+    const formula = schemaTopicText('formula');
+    for (const name of ['@item', '@group', '@page', '@all', '@carried']) {
+      expect(formula).toContain(name);
+    }
+    expect(formula).toContain('SUM(@page.amount)');
   });
 
   it('FORMAT_NUMBER의 두 번째 인자를 소수 자릿수로 안내한다', () => {

@@ -250,16 +250,22 @@ export class SlipForm extends LitElement {
         } else if (element.type === 'image' && element.parameter !== undefined) {
           add(element.parameter, { image: true }, element.name);
         } else if (element.type === 'grid' && element.repeat) {
-          // 반복 구간 셀이 참조하는 항목 필드로 입력 표의 열을 구성한다.
-          const { fromRow, toRow } = element.repeat;
+          // 항목 구간 셀이 참조하는 항목 필드로 입력 표의 열을 구성한다.
+          const itemBand = element.repeat.bands.find((band) => band.placement === 'item');
+          if (itemBand === undefined) continue;
           const band = element.cells
-            .filter((cell) => cell.row >= fromRow && cell.row <= toRow && cell.parameter !== undefined)
+            .filter((cell) =>
+              cell.row >= itemBand.fromRow && cell.row <= itemBand.toRow && cell.parameter !== undefined)
             .sort((a, b) => a.column - b.column || a.row - b.row);
           const columns: { key: string; title: string }[] = [];
           for (const cell of band) {
             const key = cell.parameter as string;
             if (columns.some((c) => c.key === key)) continue;
-            columns.push({ key, title: gridHeaderTitle(element, cell.column, fromRow) ?? key });
+            // 열 제목은 셀 이름을 우선 사용하고, 없으면 항목 구간 위쪽의 헤더 텍스트를 쓴다.
+            columns.push({
+              key,
+              title: cell.name ?? gridHeaderTitle(element, cell.column, itemBand.fromRow) ?? key,
+            });
           }
           add(element.repeat.parameter, { columns }, element.name);
         }

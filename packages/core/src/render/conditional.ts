@@ -31,15 +31,16 @@ export interface ConditionalFormatOverrides {
  * 건너뛴다 — 빈 양식과 입력 중인 전표에는 값이 없는 것이 정상 상태이기 때문이다.
  *
  * @param rules - 조건부 서식 규칙 목록. 생략하면 빈 결과를 반환한다
- * @param scope - 조건식이 참조할 값. 반복 구간 안에서는 전표 값에 현재 항목을 합쳐 전달한다
- * @param options - `locale`: 오류 메시지 언어, `subject`: 오류 메시지에 쓸 대상 이름
+ * @param scope - 조건식이 참조할 값. 항목 구간 안에서는 전표 값에 현재 항목을 합쳐 전달한다
+ * @param options - `locale`: 오류 메시지 언어, `subject`: 오류 메시지에 쓸 대상 이름,
+ *   `reserved`: 행 구간에서 계획 계층이 공급하는 예약 참조 값
  * @returns 덮어쓸 색·강조 목록
  * @throws SlipRenderError 조건식에 문법 오류가 있거나 결과가 논리값이 아니면
  */
 export function resolveConditionalFormats(
   rules: readonly ConditionalFormatRule[] | undefined,
   scope: Record<string, unknown>,
-  options?: { locale?: string; subject?: string },
+  options?: { locale?: string; subject?: string; reserved?: Readonly<Record<string, unknown>> },
 ): ConditionalFormatOverrides {
   const result: ConditionalFormatOverrides = {};
   if (rules === undefined || rules.length === 0) return result;
@@ -49,10 +50,11 @@ export function resolveConditionalFormats(
   rules.forEach((rule, index) => {
     let value: unknown;
     try {
-      value = evaluateFormula(
-        rule.condition,
-        locale === undefined ? { values: scope } : { values: scope, locale },
-      );
+      value = evaluateFormula(rule.condition, {
+        values: scope,
+        ...(locale === undefined ? {} : { locale }),
+        ...(options?.reserved === undefined ? {} : { reserved: options.reserved }),
+      });
     } catch (error) {
       // 데이터에 따라 달라지는 계산 오류(값 없음·타입 불일치)는 규칙 미적용으로 처리하고,
       // 데이터와 무관한 문법 오류는 조건식 작성 실수이므로 오류로 알린다.

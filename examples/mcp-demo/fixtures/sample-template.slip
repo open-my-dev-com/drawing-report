@@ -8,7 +8,12 @@
     "paper": {
       "width": 210,
       "height": 297,
-      "padding": [15, 15, 15, 15]
+      "padding": [
+        15,
+        15,
+        15,
+        15
+      ]
     },
     "pages": [
       {
@@ -17,7 +22,10 @@
             "type": "text",
             "id": "title",
             "name": "문서 제목",
-            "position": { "x": 15, "y": 20 },
+            "position": {
+              "x": 15,
+              "y": 20
+            },
             "width": 180,
             "height": 10,
             "content": "거래명세서",
@@ -28,7 +36,10 @@
             "type": "field",
             "id": "customer",
             "name": "고객명",
-            "position": { "x": 15, "y": 38 },
+            "position": {
+              "x": 15,
+              "y": 38
+            },
             "width": 100,
             "height": 8,
             "parameter": "customerName"
@@ -37,32 +48,87 @@
             "type": "grid",
             "id": "items-table",
             "name": "품목표",
-            "position": { "x": 15, "y": 58 },
-            "width": 180,
-            "height": 50,
+            "position": {
+              "x": 15,
+              "y": 58
+            },
             "columns": [
-              { "width": 120 },
-              { "width": 60 }
+              {
+                "width": 120
+              },
+              {
+                "width": 60
+              }
             ],
             "rows": [
-              { "height": 10 },
-              { "height": 10 },
-              { "height": 10 }
+              {
+                "height": 10
+              },
+              {
+                "height": 10
+              },
+              {
+                "height": 10
+              }
             ],
             "cells": [
-              { "row": 0, "column": 0, "content": "품명" },
-              { "row": 0, "column": 1, "content": "금액" },
-              { "row": 1, "column": 0, "parameter": "name" },
-              { "row": 1, "column": 1, "parameter": "amount" },
-              { "row": 2, "column": 0, "content": "합계" },
-              { "row": 2, "column": 1, "formula": "SUM(items.amount)" }
+              {
+                "row": 0,
+                "column": 0,
+                "content": "품명"
+              },
+              {
+                "row": 0,
+                "column": 1,
+                "content": "금액"
+              },
+              {
+                "row": 1,
+                "column": 0,
+                "parameter": "name"
+              },
+              {
+                "row": 1,
+                "column": 1,
+                "parameter": "amount"
+              },
+              {
+                "row": 2,
+                "column": 0,
+                "content": "합계"
+              },
+              {
+                "row": 2,
+                "column": 1,
+                "formula": "SUM(items.amount)"
+              }
             ],
             "repeat": {
               "parameter": "items",
-              "fromRow": 1,
-              "toRow": 1,
-              "perPage": 3,
-              "repeatHeader": true
+              "bands": [
+                {
+                  "id": "items-header",
+                  "fromRow": 0,
+                  "toRow": 0,
+                  "placement": "page-start"
+                },
+                {
+                  "id": "items-item",
+                  "fromRow": 1,
+                  "toRow": 1,
+                  "placement": "item"
+                },
+                {
+                  "id": "items-total",
+                  "fromRow": 2,
+                  "toRow": 2,
+                  "placement": "after-data"
+                }
+              ],
+              "pagination": {
+                "mode": "fixed",
+                "itemsPerPage": 3
+              }
             }
           }
         ]
@@ -79,16 +145,29 @@
         "label": "품목",
         "valueType": "list",
         "fields": [
-          { "key": "name", "label": "품명" },
-          { "key": "amount", "label": "금액", "valueType": "number" }
+          {
+            "key": "name",
+            "label": "품명"
+          },
+          {
+            "key": "amount",
+            "label": "금액",
+            "valueType": "number"
+          }
         ]
       }
     ],
     "sampleValues": {
       "customerName": "슬립상사",
       "items": [
-        { "name": "디자인 작업", "amount": 120000 },
-        { "name": "PDF 출력", "amount": 30000 }
+        {
+          "name": "디자인 작업",
+          "amount": 120000
+        },
+        {
+          "name": "PDF 출력",
+          "amount": 30000
+        }
       ]
     }
   }

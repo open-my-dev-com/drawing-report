@@ -2,7 +2,7 @@
  * AI에 전달할 `.slip` 파일의 구조 요약을 만든다.
  * 긴 data URL은 응답에 싣지 않고 형식과 대략적인 크기만 남긴다.
  */
-import type { SlipElement, SlipFile, SlipTemplateBody } from '@omdc-slipkit/core';
+import { elementBounds, type SlipElement, type SlipFile, type SlipTemplateBody } from '@omdc-slipkit/core';
 
 /** 양식 본문을 얻는다. 전표면 내장된 양식 스냅샷을 반환한다. */
 export function bodyOf(file: SlipFile): SlipTemplateBody {
@@ -53,7 +53,7 @@ interface ElementBrief {
 function briefNote(element: SlipElement): string | undefined {
   if (element.type === 'grid') {
     const size = `grid ${element.rows.length}x${element.columns.length}`;
-    return 'repeat' in element && element.repeat ? `${size} repeat` : size;
+    return element.repeat ? `${size} repeat ${element.repeat.pagination.mode}` : size;
   }
   if ('parameter' in element && element.parameter !== undefined) {
     return `parameter: ${element.parameter}`;
@@ -88,8 +88,9 @@ export function summarize(file: SlipFile): Record<string, unknown> {
         name: element.name,
         x: element.position.x,
         y: element.position.y,
-        width: element.width,
-        height: element.height,
+        // 그리드는 크기를 저장하지 않으므로 행·열 합에서 계산한다.
+        width: elementBounds(element).width,
+        height: elementBounds(element).height,
         ...(note === undefined ? {} : { note }),
       };
     }),

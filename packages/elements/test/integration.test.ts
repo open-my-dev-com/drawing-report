@@ -15,6 +15,7 @@ import {
   parseSlipFile,
   renderSlipToPdf,
   serializeSlipFile,
+  type GridElement,
   type SlipTemplateFile,
   type SlipVoucherFile,
 } from '@omdc-slipkit/core';
@@ -104,17 +105,23 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 저
       .flatMap((page) => page.elements)
       .find((el) => el.type === 'grid' && !before.has(el.id));
     expect(grid).toBeDefined();
+    // 새 그리드는 반복 설정이 없는 정적 그리드로 생성된다 (§7.1).
+    expect((grid as GridElement).repeat).toBeUndefined();
     // 디자이너가 만든 그리드를 별도 보정 없이 core 스키마로 검증한다.
     expect(() => parseSlipFile(serializeSlipFile(withGrid))).not.toThrow();
 
-    // 페이지당 항목 수보다 많은 데이터도 PDF 입력으로 변환할 수 있어야 한다.
-    const repeat = grid!.type === 'grid' ? grid!.repeat! : undefined!;
+    // 프리셋의 반복 그리드로 페이지당 항목 수보다 많은 데이터를 PDF 입력으로 변환한다.
+    const repeatGrid = withGrid.template.pages
+      .flatMap((page) => page.elements)
+      .find((el): el is GridElement => el.type === 'grid' && el.repeat !== undefined);
+    const repeat = repeatGrid!.repeat!;
+    const itemsPerPage = repeat.pagination.mode === 'fixed' ? repeat.pagination.itemsPerPage : 1;
     const voucher: SlipVoucherFile = {
       schemaVersion: withGrid.schemaVersion,
       kind: 'voucher',
       templateSnapshot: withGrid.template,
       values: {
-        [repeat.parameter]: Array.from({ length: repeat.perPage * 2 + 1 }, (_, i) => ({ 품명: `품목 ${i + 1}` })),
+        [repeat.parameter]: Array.from({ length: itemsPerPage * 2 + 1 }, (_, i) => ({ itemName: `품목 ${i + 1}` })),
       },
       issued: false,
     };

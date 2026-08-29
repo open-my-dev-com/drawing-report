@@ -107,8 +107,17 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
     case 'string':
     case 'boolean':
       return ast.value;
-    case 'reference':
+    case 'reference': {
+      const head = ast.path[0]!;
+      // 예약 참조(@item 등)는 페이지 계획이 공급한 reserved에서만 조회한다.
+      if (head.startsWith('@')) {
+        if (context.reserved === undefined || !(head in context.reserved)) {
+          throw new FormulaEvalError(fm().reservedRefUnavailable(head));
+        }
+        return resolvePath(context.reserved[head], ast.path, 1);
+      }
       return resolvePath(context.values, ast.path, 0);
+    }
     case 'unary': {
       const operand = requireScalar(evaluateAst(ast.operand, context), { kind: 'sign' });
       const n = toNumber(operand, 'signOperand');

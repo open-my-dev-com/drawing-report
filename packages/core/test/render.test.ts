@@ -49,8 +49,6 @@ function makeBody(): SlipTemplateBody {
             id: 'grid',
             name: '공급자 정보',
             position: { x: 10, y: 10 },
-            width: 100,
-            height: 30,
             rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
             columns: [{ width: 50 }, { width: 50 }],
             borderWidth: 0.2,
@@ -67,11 +65,16 @@ function makeBody(): SlipTemplateBody {
             id: 'items',
             name: '품목',
             position: { x: 15, y: 60 },
-            width: 180,
-            height: 8 * 7,
             columns: [{ width: 90 }, { width: 36 }, { width: 54 }],
             rows: [{ height: 8 }, { height: 8 }],
-            repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 6, repeatHeader: true },
+            repeat: {
+              parameter: 'items',
+              bands: [
+                { id: 'items-header', fromRow: 0, toRow: 0, placement: 'page-start' },
+                { id: 'items-item', fromRow: 1, toRow: 1, placement: 'item' },
+              ],
+              pagination: { mode: 'fixed', itemsPerPage: 6 },
+            },
             cells: [
               { row: 0, column: 0, content: '품명' },
               { row: 0, column: 1, content: '수량' },
@@ -334,7 +337,7 @@ describe('그리드 셀별 테두리 (ADR-033)', () => {
             elements: [
               {
                 type: 'grid', id: 'grid', name: '그리드',
-                position: { x: 10, y: 10 }, width: 100, height: 20,
+                position: { x: 10, y: 10 },
                 rows: [{ height: 10 }, { height: 10 }],
                 columns: [{ width: 50 }, { width: 50 }], cells,
               },
@@ -550,10 +553,13 @@ describe('조건부 서식 (ADR-062)', () => {
     voucher.values.items = [{ g: 'A', amount: 500 }, { g: 'A', amount: 2000 }];
     voucher.templateSnapshot.pages[0]!.elements = [{
       type: 'grid', id: 'items', name: '표', position: { x: 10, y: 10 },
-      width: 40, height: 16,
       rows: [{ height: 8 }],
       columns: [{ width: 40, autoMerge: true }],
-      repeat: { parameter: 'items', fromRow: 0, toRow: 0, perPage: 2, repeatHeader: false },
+      repeat: {
+        parameter: 'items',
+        bands: [{ id: 'b-item', fromRow: 0, toRow: 0, placement: 'item' }],
+        pagination: { mode: 'fixed', itemsPerPage: 2 },
+      },
       cells: [{
         row: 0, column: 0, parameter: 'g',
         conditionalFormats: [{ condition: 'amount >= 1000', fontColor: '#FF0000' }],
@@ -809,15 +815,15 @@ describe('렌더 로케일 (ADR-013)', () => {
 // ---------------------------------------------------------------------------
 
 /**
- * 헤더 1행 + 반복 1행 + 꼬리 1행짜리 그리드.
- * 열 너비 60+40mm, 행 높이 8mm → 반복 3개면 높이 8 + 3x8 + 8 = 40mm.
+ * 헤더 1행(page-start) + 항목 1행 + 꼬리 1행(after-data)짜리 그리드.
+ * 열 너비 60+40mm, 행 높이 8mm.
  */
 function makeGridBody(options?: {
-  perPage?: number;
+  itemsPerPage?: number;
   repeatHeader?: boolean;
   overflow?: 'clip' | 'shrink';
 }): SlipTemplateBody {
-  const perPage = options?.perPage ?? 3;
+  const itemsPerPage = options?.itemsPerPage ?? 3;
   return {
     meta: { title: '그리드 시험' },
     paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
@@ -838,17 +844,23 @@ function makeGridBody(options?: {
             id: 'items',
             name: '품목',
             position: { x: 15, y: 30 },
-            width: 100,
-            height: 8 + perPage * 8 + 8,
             columns: [{ width: 60 }, { width: 40 }],
             rows: [{ height: 8 }, { height: 8 }, { height: 8 }],
             ...(options?.overflow === undefined ? {} : { overflow: options.overflow }),
             repeat: {
               parameter: 'items',
-              fromRow: 1,
-              toRow: 1,
-              perPage,
-              repeatHeader: options?.repeatHeader ?? true,
+              bands: [
+                {
+                  id: 'items-header',
+                  fromRow: 0,
+                  toRow: 0,
+                  placement: 'page-start',
+                  ...(options?.repeatHeader === false ? { pages: 'first' as const } : {}),
+                },
+                { id: 'items-item', fromRow: 1, toRow: 1, placement: 'item' },
+                { id: 'items-tail', fromRow: 2, toRow: 2, placement: 'after-data' },
+              ],
+              pagination: { mode: 'fixed', itemsPerPage },
             },
             cells: [
               { row: 0, column: 0, content: '품명', backgroundColor: '#EEEEEE' },
@@ -919,24 +931,23 @@ describe('그리드(grid) 변환 — 반복 구간 (ADR-037)', () => {
     expect(page2.some((s) => String(s.name).startsWith('title'))).toBe(true);
   });
 
-  it('헤더를 반복하지 않으면 이어지는 페이지에서 그 자리를 비운다', () => {
+  it("헤더 구간을 pages: 'first'로 두면 이어지는 페이지는 자리를 만들지 않고 흐름 영역 위부터 그린다", () => {
     const file = makeGridVoucher(5, { repeatHeader: false });
     expect(gridTexts(file, 0)).toContain('품명');
     expect(gridTexts(file, 1)).not.toContain('품명');
-    // 그리드 높이는 그대로라 꼬리 행은 같은 자리에 남는다
+    // 걸러진 구간은 자리도 차지하지 않는다 — 이어지는 페이지는 흐름 영역 위(여백 20mm)부터 시작한다.
     const { template } = convertSlipFile(file);
-    const first = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
     const second = (template.schemas[1] ?? []) as unknown as PdfmeSchema[];
-    const tailOf = (schemas: PdfmeSchema[]): number =>
-      schemas.filter((s) => s.type === 'text' && String(s.name).includes('__cell-')).slice(-1)[0]!.position.y;
-    expect(tailOf(second)).toBe(tailOf(first));
+    const cellYs = second
+      .filter((s) => s.type === 'text' && String(s.name).includes('__cell-'))
+      .map((s) => s.position.y);
+    expect(Math.min(...cellYs)).toBe(20);
   });
 
   it('반복 구간이 없으면 고정 틀로 그린다', () => {
     const body = makeGridBody();
     const grid = body.pages[0]!.elements[1] as Extract<SlipElement, { type: 'grid' }>;
     delete (grid as { repeat?: unknown }).repeat;
-    grid.height = 24;
     grid.cells = [{ row: 0, column: 0, content: '상호' }, { row: 0, column: 1, content: '테스트상사' }];
     const file: SlipTemplateFile = { schemaVersion: CURRENT_SCHEMA_VERSION, kind: 'template', template: body };
     expect(gridTexts(file)).toEqual(['상호', '테스트상사']);
@@ -998,8 +1009,6 @@ describe('그리드(grid) 칸을 넘치는 글 (ADR-037)', () => {
                 id: 'g',
                 name: '그리드',
                 position: { x: 15, y: 30 },
-                width: 40,
-                height: 10,
                 overflow,
                 columns: [{ width: 40 }],
                 rows: [{ height: 10 }],
@@ -1178,7 +1187,7 @@ describe('반복 항목 수 상한 (ADR-048)', () => {
     const voucher = makeVoucher(20);
     const grid = voucher.templateSnapshot.pages[0]!.elements
       .find((el) => el.id === 'items') as GridElement;
-    grid.repeat = { ...grid.repeat!, perPage: 6, maxItems: 8 };
+    grid.repeat = { ...grid.repeat!, maxItems: 8 };
     const { template } = convertSlipFile(voucher);
     // 8개까지만 그리므로 6+2 = 2페이지 (상한이 없었다면 20/6 = 4페이지)
     expect(template.schemas).toHaveLength(2);
@@ -1186,25 +1195,29 @@ describe('반복 항목 수 상한 (ADR-048)', () => {
 
   it('maxItems를 정하지 않으면 항목 수만큼 페이지가 늘어난다', () => {
     const voucher = makeVoucher(20);
-    const grid = voucher.templateSnapshot.pages[0]!.elements
-      .find((el) => el.id === 'items') as GridElement;
-    grid.repeat = { ...grid.repeat!, perPage: 6 };
     expect(convertSlipFile(voucher).template.schemas).toHaveLength(4);
   });
 });
 
 describe('데이터 자동 병합 (ADR-038)', () => {
-  function makeBody(autoMergeProduct: boolean, perPage = 4): SlipTemplateBody {
+  function makeBody(autoMergeProduct: boolean, itemsPerPage = 4): SlipTemplateBody {
     return {
       meta: { title: '자동 병합' },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
       pages: [{
         elements: [{
           type: 'grid', id: 'g', name: '주문',
-          position: { x: 15, y: 30 }, width: 100, height: 8 * (1 + perPage),
+          position: { x: 15, y: 30 },
           columns: [{ width: 60, ...(autoMergeProduct ? { autoMerge: true } : {}) }, { width: 40 }],
           rows: [{ height: 8 }, { height: 8 }],
-          repeat: { parameter: 'rows', fromRow: 1, toRow: 1, perPage, repeatHeader: true },
+          repeat: {
+            parameter: 'rows',
+            bands: [
+              { id: 'g-header', fromRow: 0, toRow: 0, placement: 'page-start' },
+              { id: 'g-item', fromRow: 1, toRow: 1, placement: 'item' },
+            ],
+            pagination: { mode: 'fixed', itemsPerPage },
+          },
           cells: [
             { row: 0, column: 0, content: '품명' },
             { row: 0, column: 1, content: '주문자' },
@@ -1282,6 +1295,51 @@ describe('데이터 자동 병합 (ADR-038)', () => {
     expect(bandTexts(file, 0)).toEqual(['품명', '주문자', '노트', 'A', 'B']);
     expect(bandTexts(file, 1)).toContain('노트');
     expect(bandTexts(file, 1)).toContain('C');
+  });
+});
+
+describe('행 구간의 예약 참조 렌더링 (@page·@carried·@all)', () => {
+  function makeSubtotalVoucher(): SlipVoucherFile {
+    return {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'voucher',
+      templateSnapshot: {
+        meta: { title: '소계' },
+        paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
+        pages: [{
+          elements: [{
+            type: 'grid', id: 'g', name: '표', position: { x: 15, y: 30 },
+            columns: [{ width: 30 }, { width: 30 }, { width: 30 }],
+            rows: [{ height: 8 }, { height: 8 }],
+            repeat: {
+              parameter: 'items',
+              bands: [
+                { id: 'g-item', fromRow: 0, toRow: 0, placement: 'item' },
+                { id: 'g-sub', fromRow: 1, toRow: 1, placement: 'page-end' },
+              ],
+              pagination: { mode: 'fixed', itemsPerPage: 2 },
+            },
+            cells: [
+              { row: 0, column: 0, parameter: '금액' },
+              { row: 1, column: 0, formula: 'SUM(@page.금액)' },
+              { row: 1, column: 1, formula: 'SUM(@carried.금액)' },
+              { row: 1, column: 2, formula: 'SUM(@all.금액)' },
+            ],
+          }],
+        }],
+        assets: [],
+      },
+      values: { items: [{ 금액: 1000 }, { 금액: 2000 }, { 금액: 3000 }] },
+      issued: false,
+    };
+  }
+
+  it('페이지 소계는 그 페이지 항목만, 누계는 이전 페이지까지, 전체 합계는 모든 항목을 집계한다', () => {
+    const file = makeSubtotalVoucher();
+    // 1페이지: 항목 1000·2000 → 소계 3000, 누계 0, 전체 6000
+    expect(gridTexts(file, 0)).toEqual(['1000', '2000', '3000', '0', '6000']);
+    // 2페이지: 항목 3000 + 빈 항목 → 소계는 빈 항목을 제외한 3000, 누계 3000
+    expect(gridTexts(file, 1)).toEqual(['3000', '3000', '3000', '6000']);
   });
 });
 

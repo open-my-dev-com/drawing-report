@@ -13,6 +13,7 @@ export {
   slipTemplateBodySchema,
   slipElementSchema,
   paperSchema,
+  elementBounds,
 } from './format/schema.js';
 export {
   BUILT_IN_MIGRATIONS,
@@ -21,6 +22,7 @@ export {
   type SlipMigrationStep,
 } from './format/migrate.js';
 export { slipFileJsonSchema } from './format/json-schema.js';
+export * from './layout/index.js';
 export { normalizeNumericParameters } from './format/normalize.js';
 export { buildVoucher } from './format/voucher.js';
 export { createSlipKit, type SlipKit, type SlipKitConfig } from './slipkit.js';
@@ -33,7 +35,7 @@ export {
 export * from './storage/adapter.js';
 export { FORMULA_FUNCTIONS, type FormulaFunctionName } from './formula/functions.js';
 export { FormulaEvalError, FormulaSyntaxError } from './formula/errors.js';
-export { parseFormula, type FormulaAst } from './formula/parser.js';
+export { parseFormula, RESERVED_REF_NAMES, type FormulaAst, type ReservedRefName } from './formula/parser.js';
 export { evaluateFormula, type FormulaContext, type FormulaValue } from './formula/evaluator.js';
 export {
   SlipRenderError,

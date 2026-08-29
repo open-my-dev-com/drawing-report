@@ -176,7 +176,9 @@ describe('slip_edit', () => {
     if (file.kind !== 'template') throw new Error('template expected');
     expect(file.template.meta.title).toBe('청구서');
     const elements = file.template.pages[0]!.elements;
-    expect(elements.find((entry) => entry.id === 'customer')?.width).toBe(120);
+    const customer = elements.find((entry) => entry.id === 'customer');
+    if (customer?.type !== 'field') throw new Error('field expected');
+    expect(customer.width).toBe(120);
     expect(elements.some((entry) => entry.id === 'footer')).toBe(true);
   });
 
@@ -249,17 +251,20 @@ describe('slip_edit', () => {
   });
 
   it('검증에 어긋나는 결과는 저장하지 않는다', async () => {
-    // 그리드 열 너비 합이 요소 너비와 어긋나게 만든다
+    // 셀 병합이 행 구간 경계를 넘게 만든다 (헤더 행 → 항목 구간)
     const result = await callText(client, 'slip_edit', {
       path: 'doc',
-      ops: [{ action: 'set_element', id: 'items-table', fields: { width: 100 } }],
+      ops: [
+        { action: 'set_cell', elementId: 'items-table', row: 0, column: 0, fields: { rowSpan: 2 } },
+      ],
     });
     expect(result.isError).toBe(true);
     const storage = new FileSystemStorage({ rootDir: dir });
     const file = await storage.load('doc');
     if (file.kind !== 'template') throw new Error('template expected');
     const grid = file.template.pages[0]!.elements.find((entry) => entry.id === 'items-table');
-    expect(grid?.width).toBe(180);
+    if (grid?.type !== 'grid') throw new Error('grid expected');
+    expect(grid.cells.find((cell) => cell.row === 0 && cell.column === 0)?.rowSpan).toBeUndefined();
   });
 
   it('필드를 null로 지정하면 제거되어 값 소스를 바꿀 수 있다', async () => {

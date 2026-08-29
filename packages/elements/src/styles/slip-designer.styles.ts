@@ -2268,4 +2268,174 @@ export const designerStyles = css`
       height: 100%;
       color: #666;
     }
+
+    /* 행 구간 표식 색 — 캔버스와 속성 패널에서 같은 색을 쓴다 (§7.2) */
+    .placement-before-data { --sk-band: #8d6e63; }
+    .placement-page-start { --sk-band: #1a73e8; }
+    .placement-group-start { --sk-band: #188038; }
+    .placement-item { --sk-band: #f9ab00; }
+    .placement-group-end { --sk-band: #009688; }
+    .placement-after-data { --sk-band: #9334e6; }
+    .placement-page-end { --sk-band: #d93025; }
+
+    /* 선택한 반복 그리드의 행 구간 배경 표식 */
+    .element .grid-preview .band-tint {
+      pointer-events: none;
+      padding: 0;
+      border: none;
+      background: color-mix(in srgb, var(--sk-band, transparent) 10%, transparent);
+    }
+
+    /* 그리드 왼쪽의 행 번호 선택 영역 */
+    .element .band-strip {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: 100%;
+      width: 18px;
+      display: grid;
+      z-index: 3;
+    }
+    .element .band-strip .band-row {
+      box-sizing: border-box;
+      border: 1px solid var(--sk-border, #ccc);
+      border-left-width: 4px;
+      border-left-color: var(--sk-band, #ccc);
+      background: var(--sk-panel-bg, #fff);
+      color: var(--sk-text-muted, #666);
+      font-size: 9px;
+      padding: 0;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .element .band-strip .band-row.selected {
+      background: var(--sk-accent);
+      color: #fff;
+    }
+
+    /* 행 구간 역할 명령 메뉴 */
+    .element .band-menu {
+      position: absolute;
+      top: 0;
+      right: calc(100% + 20px);
+      z-index: 4;
+      min-width: 168px;
+      display: flex;
+      flex-direction: column;
+      background: var(--sk-panel-bg, #fff);
+      border: 1px solid var(--sk-border, #ccc);
+      border-radius: 6px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+      padding: 4px;
+    }
+    .element .band-menu .band-menu-title {
+      font-size: 11px;
+      color: var(--sk-text-muted, #666);
+      padding: 4px 6px;
+    }
+    .element .band-menu .band-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: none;
+      background: none;
+      text-align: left;
+      font-size: 12px;
+      padding: 5px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .element .band-menu .band-menu-item::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: var(--sk-band, transparent);
+      flex: 0 0 auto;
+    }
+    .element .band-menu .band-menu-item:hover {
+      background: var(--sk-hover, #f2f2f2);
+    }
+
+    /* 속성 패널의 행 구간 목록 */
+    .band-list .band-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 4px 0;
+      font-size: 12px;
+    }
+    .band-list .band-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      background: var(--sk-band, #ccc);
+      flex: 0 0 auto;
+    }
+    .band-list .band-range {
+      color: var(--sk-text-muted, #666);
+    }
+    .band-list .band-repeat-toggle {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+    }
+    .band-list .band-hint {
+      font-size: 11px;
+      color: var(--sk-text-muted, #666);
+      margin-top: 4px;
+    }
+
+    /* 페이지 방식 세그먼트 선택 */
+    .segment {
+      display: inline-flex;
+      border: 1px solid var(--sk-border, #ccc);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .segment button {
+      border: none;
+      background: none;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .segment button.active {
+      background: var(--sk-accent);
+      color: #fff;
+    }
+
+    /* 출력 페이지 전환 막대 */
+    .output-page-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 12px;
+      color: var(--sk-text-muted, #666);
+    }
+
+    /* 자동 확장 흐름 영역 하단 안내선 */
+    .flow-guide {
+      position: absolute;
+      left: 0;
+      right: 0;
+      border-top: 1px dashed var(--sk-accent);
+      opacity: 0.6;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* 페이지 계획 오류 안내 */
+    .plan-error {
+      margin-top: 6px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: #fdecea;
+      color: #c5221f;
+      font-size: 12px;
+    }
   `;

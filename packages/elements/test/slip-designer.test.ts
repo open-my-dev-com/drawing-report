@@ -486,7 +486,6 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
   it('그리드의 셀 문구·병합·셀 배경이 캔버스에 그려진다', async () => {
     const el = await mountWith([{
       type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
-      width: 90, height: 30,
       rows: [{ height: 15 }, { height: 15 }],
       columns: [{ width: 45 }, { width: 22.5 }, { width: 22.5 }],
       cells: [
@@ -538,10 +537,15 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     file.template.sampleValues = { items: [{ g: 'A' }, { g: 'A' }, { g: 'B' }] } as never;
     file.template.pages[0]!.elements = [{
       type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
-      width: 40, height: 24,
       rows: [{ height: 8 }],
       columns: [{ width: 40, autoMerge: true }],
-      repeat: { parameter: 'items', fromRow: 0, toRow: 0, perPage: 3, repeatHeader: false },
+      repeat: {
+        parameter: 'items',
+        bands: [
+          { id: 'b-item', fromRow: 0, toRow: 0, placement: 'item' },
+        ],
+        pagination: { mode: 'fixed', itemsPerPage: 3 },
+      },
       cells: [{ row: 0, column: 0, parameter: 'g' }],
     }] as never;
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
@@ -566,10 +570,15 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     file.template.sampleValues = { items: [{ g: null }, { g: null }, { g: 'B' }] } as never;
     file.template.pages[0]!.elements = [{
       type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
-      width: 40, height: 24,
       rows: [{ height: 8 }],
       columns: [{ width: 40, autoMerge: true }],
-      repeat: { parameter: 'items', fromRow: 0, toRow: 0, perPage: 3, repeatHeader: false },
+      repeat: {
+        parameter: 'items',
+        bands: [
+          { id: 'b-item', fromRow: 0, toRow: 0, placement: 'item' },
+        ],
+        pagination: { mode: 'fixed', itemsPerPage: 3 },
+      },
       cells: [{ row: 0, column: 0, parameter: 'g' }],
     }] as never;
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
@@ -589,10 +598,16 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
   it('그리드 헤더 칸의 배경색이 캔버스에 그려진다', async () => {
     const el = await mountWith([{
       type: 'grid', id: 'd1', name: 'd', position: { x: 10, y: 50 },
-      width: 90, height: 8 * 4,
       rows: [{ height: 8 }, { height: 8 }],
       columns: [{ width: 54 }, { width: 36 }],
-      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 3, repeatHeader: true },
+      repeat: {
+        parameter: 'items',
+        bands: [
+          { id: 'b-head', fromRow: 0, toRow: 0, placement: 'page-start' },
+          { id: 'b-item', fromRow: 1, toRow: 1, placement: 'item' },
+        ],
+        pagination: { mode: 'fixed', itemsPerPage: 3 },
+      },
       cells: [
         { row: 0, column: 0, content: '품명', backgroundColor: '#ffee00' },
         { row: 1, column: 0, parameter: 'itemName' },
@@ -643,10 +658,15 @@ describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
     const el = await mountFile(
       [{
         type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
-        width: 40, height: 16,
         rows: [{ height: 8 }],
         columns: [{ width: 40 }],
-        repeat: { parameter: 'items', fromRow: 0, toRow: 0, perPage: 2, repeatHeader: false },
+        repeat: {
+          parameter: 'items',
+          bands: [
+            { id: 'b-item', fromRow: 0, toRow: 0, placement: 'item' },
+          ],
+          pagination: { mode: 'fixed', itemsPerPage: 2 },
+        },
         cells: [{
           row: 0, column: 0, parameter: 'amount',
           conditionalFormats: [{ condition: 'amount >= 2000', fontColor: '#FF0000' }],
@@ -1135,6 +1155,7 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
     expect(changes.length).toBe(1);
     expect(changes[0]!.detail.file.kind).toBe('template');
     const added = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)!;
+    if (added.type !== 'text') throw new Error('text여야 한다');
     expect(added.position.x).toBeCloseTo(50, 0);
     expect(added.position.y).toBeCloseTo(40, 0);
     expect(added.width).toBe(60); // 텍스트 기본 크기
@@ -1163,7 +1184,7 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
 
     expect(el.shadowRoot?.querySelector('.draw-ghost')).toBeNull();
     const added = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements.at(-1)!;
-    expect(added.type).toBe('rect');
+    if (added.type !== 'rect') throw new Error('rect여야 한다');
     expect(added.position.x).toBeCloseTo(10, 0);
     expect(added.position.y).toBeCloseTo(20, 0);
     expect(added.width).toBeCloseTo(30, 0);
@@ -1609,10 +1630,16 @@ describe('<slip-designer> 사이드바', () => {
         } as never,
         {
           type: 'grid' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
-          width: 180, height: 8 * 3,
           rows: [{ height: 8 }, { height: 8 }],
           columns: [{ width: 180 }],
-          repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+          repeat: {
+            parameter: 'items',
+            bands: [
+              { id: 'b-head', fromRow: 0, toRow: 0, placement: 'page-start' },
+              { id: 'b-item', fromRow: 1, toRow: 1, placement: 'item' },
+            ],
+            pagination: { mode: 'fixed', itemsPerPage: 2 },
+          },
           cells: [{ row: 1, column: 0, parameter: 'a' }],
         } as never,
       ],
@@ -1686,10 +1713,16 @@ describe('<slip-designer> 사이드바', () => {
         } as never,
         {
           type: 'grid' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
-          width: 180, height: 8 * 3,
           rows: [{ height: 8 }, { height: 8 }],
           columns: [{ width: 180 }],
-          repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+          repeat: {
+            parameter: 'items',
+            bands: [
+              { id: 'b-head', fromRow: 0, toRow: 0, placement: 'page-start' },
+              { id: 'b-item', fromRow: 1, toRow: 1, placement: 'item' },
+            ],
+            pagination: { mode: 'fixed', itemsPerPage: 2 },
+          },
           cells: [{ row: 1, column: 0, parameter: 'a' }],
         } as never,
       ],
@@ -1753,10 +1786,16 @@ describe('<slip-designer> 사이드바', () => {
     file.template.parameters = [{ key: 'items', label: '품목' }];
     file.template.pages[0]!.elements = [{
       type: 'grid' as const, id: 'g-1', name: 'g', position: { x: 10, y: 10 },
-      width: 60, height: 20,
       rows: [{ height: 10 }, { height: 10 }],
       columns: [{ width: 60 }],
-      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 1, repeatHeader: true },
+      repeat: {
+        parameter: 'items',
+        bands: [
+          { id: 'b-head', fromRow: 0, toRow: 0, placement: 'page-start' },
+          { id: 'b-item', fromRow: 1, toRow: 1, placement: 'item' },
+        ],
+        pagination: { mode: 'fixed', itemsPerPage: 1 },
+      },
       cells: [
         { row: 0, column: 0, content: '품명' },
         { row: 1, column: 0, parameter: 'itemName' },
@@ -1780,10 +1819,16 @@ describe('<slip-designer> 사이드바', () => {
     file.template.parameters = [{ key: 'items', label: '품목', valueType: 'text' }];
     file.template.pages[0]!.elements = [{
       type: 'grid' as const, id: 'g-1', name: 'g', position: { x: 10, y: 10 },
-      width: 60, height: 20,
       rows: [{ height: 10 }, { height: 10 }],
       columns: [{ width: 60 }],
-      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 1, repeatHeader: true },
+      repeat: {
+        parameter: 'items',
+        bands: [
+          { id: 'b-head', fromRow: 0, toRow: 0, placement: 'page-start' },
+          { id: 'b-item', fromRow: 1, toRow: 1, placement: 'item' },
+        ],
+        pagination: { mode: 'fixed', itemsPerPage: 1 },
+      },
       cells: [
         { row: 0, column: 0, content: '품명' },
         { row: 1, column: 0, parameter: 'itemName' },
@@ -1875,10 +1920,16 @@ describe('<slip-designer> 사이드바', () => {
       elements: [
         {
           type: 'grid' as const, id: 'tbl-1', name: 't1', position: { x: 10, y: 30 },
-          width: 180, height: 8 * 3,
           rows: [{ height: 8 }, { height: 8 }],
           columns: [{ width: 108 }, { width: 72 }],
-          repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+          repeat: {
+            parameter: 'items',
+            bands: [
+              { id: 'b-head', fromRow: 0, toRow: 0, placement: 'page-start' },
+              { id: 'b-item', fromRow: 1, toRow: 1, placement: 'item' },
+            ],
+            pagination: { mode: 'fixed', itemsPerPage: 2 },
+          },
           cells: [
             { row: 0, column: 0, content: '품명' },
             { row: 1, column: 0, parameter: 'name' },
@@ -2067,8 +2118,8 @@ describe('<slip-designer> 표 내부 편집', () => {
 
     const grid = gridOf(el);
     expect(grid.columns.length).toBe(4);
-    expect(grid.columns.slice(0, 3).map((c) => c.width)).toEqual([36, 27, 27]);
-    expect(grid.width).toBeCloseTo(grid.columns.reduce((a, c) => a + c.width, 0), 2);
+    // 새 열은 마지막 열 너비를 복사하고 기존 열은 그대로다.
+    expect(grid.columns.map((c) => c.width)).toEqual([36, 27, 27, 27]);
     el.remove();
   });
 
@@ -3641,7 +3692,6 @@ describe('<slip-designer> 패널 표시 정리 (F-18)', () => {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{
       type: 'grid' as const, id: 'grd-1', name: 'g', position: { x: 10, y: 10 },
-      width: 90, height: 30,
       rows: [{ height: 15 }, { height: 15 }], columns: [{ width: 45 }, { width: 45 }],
       fontColor: '#1a73e8',
       cells: [{ row: 0, column: 0, content: '가' }],
@@ -3896,7 +3946,14 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
       position: { x: 10, y: 10 }, width: 180, height: 8 * 3,
       rows: [{ height: 8 }, { height: 8 }],
       columns: [{ width: 90 }, { width: 54 }, { width: 36 }],
-      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+      repeat: {
+        parameter: 'items',
+        bands: [
+          { id: 'b-head', fromRow: 0, toRow: 0, placement: 'page-start' },
+          { id: 'b-item', fromRow: 1, toRow: 1, placement: 'item' },
+        ],
+        pagination: { mode: 'fixed', itemsPerPage: 2 },
+      },
       cells: [
         { row: 0, column: 0, content: '품명' },
         { row: 0, column: 1, content: '금액' },
@@ -4238,7 +4295,14 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
       position: { x: 10, y: 10 }, width: 90, height: 8 * 3,
       rows: [{ height: 8 }, { height: 8 }],
       columns: [{ width: 60 }, { width: 30 }],
-      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+      repeat: {
+        parameter: 'items',
+        bands: [
+          { id: 'b-head', fromRow: 0, toRow: 0, placement: 'page-start' },
+          { id: 'b-item', fromRow: 1, toRow: 1, placement: 'item' },
+        ],
+        pagination: { mode: 'fixed', itemsPerPage: 2 },
+      },
       cells: [
         { row: 0, column: 0, content: '품명' },
         { row: 1, column: 0, parameter: 'itemName' },
@@ -4718,7 +4782,15 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
             height: 60,
             columns: [{ width: 30 }, { width: 30 }],
             rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
-            repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 4, repeatHeader: true },
+            repeat: {
+              parameter: 'items',
+              bands: [
+                { id: 'b-head', fromRow: 0, toRow: 0, placement: 'page-start' },
+                { id: 'b-item', fromRow: 1, toRow: 1, placement: 'item' },
+                { id: 'b-tail', fromRow: 2, toRow: 2, placement: 'after-data' },
+              ],
+              pagination: { mode: 'fixed', itemsPerPage: 4 },
+            },
             cells: [
               { row: 0, column: 0, content: '품명' },
               { row: 1, column: 0, parameter: '품명' },
@@ -4741,17 +4813,20 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
   }
 
   type TestGrid = {
-    width: number; height: number;
     columns: { width: number }[];
     rows: { height: number }[];
     repeat?: {
-      parameter: string; fromRow: number; toRow: number;
-      perPage: number; maxItems?: number; repeatHeader: boolean;
+      parameter: string;
+      bands: { id: string; fromRow: number; toRow: number; placement: string }[];
+      pagination: { mode: 'auto'; minItems: number } | { mode: 'fixed'; itemsPerPage: number };
+      maxItems?: number;
+      groupBy?: string[];
     };
     overflow?: string;
     cells: {
       row: number;
       column: number;
+      name?: string;
       content?: string;
       parameter?: string;
       formula?: string;
@@ -4789,78 +4864,81 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     await (el as { updateComplete?: Promise<unknown> }).updateComplete;
   }
 
-  it('툴바에서 그리드를 만들면 반복 구간을 가진 채로 생긴다', async () => {
+  it('툴바에서 그리드를 만들면 반복 설정이 없는 정적 그리드로 생긴다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, s.addGrid);
 
     const elements = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements;
     const created = elements[elements.length - 1] as unknown as TestGrid & { type: string };
     expect(created.type).toBe('grid');
-    expect(created.repeat?.repeatHeader).toBe(true);
-    // 열 너비·행 높이의 합이 상자와 같아야 저장된다 (SPEC §5.7)
-    expect(created.width).toBeCloseTo(created.columns.reduce((a, c) => a + c.width, 0), 2);
-    const band = created.rows.slice(created.repeat!.fromRow, created.repeat!.toRow + 1)
-      .reduce((a, r) => a + r.height, 0);
-    const template = created.rows.reduce((a, r) => a + r.height, 0);
-    expect(created.height).toBeCloseTo(template + (created.repeat!.perPage - 1) * band, 2);
+    // 새 그리드는 정적 그리드다 — 반복은 사용자가 켠다 (§7.1)
+    expect(created.repeat).toBeUndefined();
+    expect(created.rows.length).toBe(3);
+    expect(created.columns.length).toBe(3);
     el.remove();
   });
 
-  it('캔버스에 반복 구간이 페이지당 항목 수만큼 펼쳐져 보인다', async () => {
-    const el = await mount();
-    // 헤더 1 + 반복 4 + 꼬리 1 = 6줄
+  it('선택하지 않은 반복 그리드는 출력 페이지 계획대로 항목 인스턴스가 펼쳐져 보인다', async () => {
+    parseSlipFileMock.mockReturnValue(makeGridElementFile() as unknown as SlipFile);
+    const el = await loadDesigner();
+    // 헤더 1 + 항목 4 + 꼬리 1 = 6줄
     const preview = el.shadowRoot!.querySelector('[data-id="g-1"] .grid-preview') as HTMLElement;
     expect(preview.style.gridTemplateRows.split(' ').length).toBe(6);
     el.remove();
   });
 
-  it('반복 칸은 샘플 값으로 채워 보이고, 값이 없으면 값 이름을 보여준다', async () => {
+  it('선택한 반복 그리드는 원본 행 구조와 행 번호 선택 영역을 보여준다', async () => {
     const el = await mount();
+    const preview = el.shadowRoot!.querySelector('[data-id="g-1"] .grid-preview') as HTMLElement;
+    expect(preview.style.gridTemplateRows.split(' ').length).toBe(3);
+    // 행 구간 선택 영역이 행 수만큼 나온다 (§7.2)
+    expect(el.shadowRoot!.querySelectorAll('[data-id="g-1"] .band-strip .band-row').length).toBe(3);
+    el.remove();
+  });
+
+  it('항목 인스턴스는 샘플 값으로 채워 보이고, 빈 항목은 값 이름을 표시하지 않는다', async () => {
+    parseSlipFileMock.mockReturnValue(makeGridElementFile() as unknown as SlipFile);
+    const el = await loadDesigner();
     const texts = Array.from(el.shadowRoot!.querySelectorAll('[data-id="g-1"] .grid-preview > div'))
       .map((d) => d.textContent?.trim() ?? '')
       .filter(Boolean);
     expect(texts).toContain('품명');
     expect(texts).toContain('사과');
     expect(texts).toContain('배');
-    // 샘플이 2건뿐이라 나머지 반복 줄은 값 이름으로 보인다
-    expect(texts).toContain('{품명}');
+    // 샘플이 2건뿐이라 남는 2벌은 빈 항목이다 — 값 이름을 출력값처럼 표시하지 않는다 (§7.5)
+    expect(texts).not.toContain('{품명}');
     el.remove();
   });
 
-  it('행을 더하면 다른 행 높이는 그대로고 상자만 커진다', async () => {
+  it('행을 더하면 다른 행 높이는 그대로고 마지막 행 구간이 늘어난다', async () => {
     const el = await mount();
-    const before = gridOf(el);
-    const beforeHeight = before.height;
     (row(el, s.rows).querySelectorAll('button')[1] as HTMLButtonElement).click();
     await el.updateComplete;
 
     const after = gridOf(el);
     expect(after.rows.length).toBe(4);
-    expect(after.rows.slice(0, 3).map((r) => r.height)).toEqual([10, 10, 10]);
-    expect(after.height).toBeCloseTo(beforeHeight + 10, 2);
+    expect(after.rows.map((r) => r.height)).toEqual([10, 10, 10, 10]);
+    // 새 행은 마지막 행 구간(after-data)에 들어간다
+    expect(after.repeat!.bands.find((b) => b.id === 'b-tail')!.toRow).toBe(3);
     el.remove();
   });
 
-  it('행 높이·열 너비를 mm로 고치면 그 트랙만 바뀌고 상자가 따라간다', async () => {
+  it('행 높이·열 너비를 mm로 고치면 그 트랙만 바뀐다', async () => {
     const el = await mount();
-    await clickCell(el, 15, 25); // 반복 구간 첫 벌 (요소 y=10, 행 10mm)
+    await clickCell(el, 15, 25); // 항목 구간 행 (요소 y=10, 행 10mm)
     await el.updateComplete;
 
     setNumber(el, s.rowHeight, '20');
     await el.updateComplete;
-    const grid = gridOf(el);
-    expect(grid.rows.map((r) => r.height)).toEqual([10, 20, 10]);
-    // 반복 구간이 4벌이므로 높이 = 10 + 4x20 + 10
-    expect(grid.height).toBeCloseTo(100, 2);
+    expect(gridOf(el).rows.map((r) => r.height)).toEqual([10, 20, 10]);
 
     setNumber(el, s.columnWidth, '50');
     await el.updateComplete;
     expect(gridOf(el).columns.map((c) => c.width)).toEqual([50, 30]);
-    expect(gridOf(el).width).toBeCloseTo(80, 2);
     el.remove();
   });
 
-  it('반복 구간을 끄면 사라지고, 다시 켜면 고른 행으로 잡힌다', async () => {
+  it('반복을 끄면 사라지고, 다시 켜면 고른 행이 항목 구간이 된다', async () => {
     const el = await mount();
     const toggle = row(el, s.repeatOn).querySelector('input') as HTMLInputElement;
     toggle.checked = false;
@@ -4868,47 +4946,72 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     await el.updateComplete;
 
     expect(gridOf(el).repeat).toBeUndefined();
-    // 반복이 없으면 상자 높이는 행 높이의 합 그대로다
-    expect(gridOf(el).height).toBeCloseTo(30, 2);
 
     const on = row(el, s.repeatOn).querySelector('input') as HTMLInputElement;
     on.checked = true;
     on.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
-    expect(gridOf(el).repeat).toBeDefined();
+    const repeat = gridOf(el).repeat!;
+    // 항목 구간 하나와 자동 확장 방식으로 시작한다 — perPage를 임의로 지정하지 않는다 (§7.1)
+    expect(repeat.bands.filter((b) => b.placement === 'item').length).toBe(1);
+    expect(repeat.pagination).toEqual({ mode: 'auto', minItems: 0 });
     el.remove();
   });
 
-  it('반복 구간 행 범위가 행 수를 벗어나면 받아들이지 않는다', async () => {
+  it('행 번호 선택 영역에서 역할 명령으로 행 구간을 바꾼다 (§7.2)', async () => {
     const el = await mount();
-    setNumber(el, s.repeatTo, '9');
+    // 첫 행을 눌러 역할 메뉴를 연다
+    const stripRow = el.shadowRoot!.querySelector('[data-id="g-1"] .band-strip .band-row') as HTMLButtonElement;
+    stripRow.click();
     await el.updateComplete;
-    expect(gridOf(el).repeat?.toRow).toBe(1);
+    const menu = el.shadowRoot!.querySelector('.band-menu');
+    expect(menu).not.toBeNull();
+
+    // 첫 행을 데이터 반복 영역으로 지정하면 기존 항목 행은 아래 역할로 흡수된다
+    const command = Array.from(menu!.querySelectorAll('.band-menu-item'))
+      .find((b) => b.textContent?.trim() === s.bandItem) as HTMLButtonElement;
+    command.click();
+    await el.updateComplete;
+
+    const bands = gridOf(el).repeat!.bands;
+    expect(bands[0]).toMatchObject({ fromRow: 0, toRow: 0, placement: 'item' });
+    expect(bands.filter((b) => b.placement === 'item').length).toBe(1);
     el.remove();
   });
 
-  it('페이지당 항목 수를 바꾸면 상자 높이가 그만큼 늘어난다', async () => {
+  it('페이지 방식 세그먼트로 자동 확장과 고정 페이지를 전환한다 (§7.3)', async () => {
     const el = await mount();
-    setNumber(el, s.repeatPerPage, '6');
+    // 고정 페이지 상태 — 페이지당 항목 수만 보인다
+    const labels = () => Array.from(el.shadowRoot!.querySelectorAll('.prop-row label'))
+      .map((l) => l.textContent?.trim());
+    expect(labels()).toContain(s.itemsPerPage);
+    expect(labels()).not.toContain(s.minItems);
+
+    setNumber(el, s.itemsPerPage, '6');
     await el.updateComplete;
-    const grid = gridOf(el);
-    expect(grid.repeat?.perPage).toBe(6);
-    // 10(헤더) + 6x10(반복) + 10(꼬리)
-    expect(grid.height).toBeCloseTo(80, 2);
+    expect(gridOf(el).repeat?.pagination).toEqual({ mode: 'fixed', itemsPerPage: 6 });
+
+    // 자동 확장으로 전환하면 최소 표시 항목 수만 보인다
+    const auto = Array.from(el.shadowRoot!.querySelectorAll('.segment button'))
+      .find((b) => b.textContent?.trim() === s.paginationAuto) as HTMLButtonElement;
+    auto.click();
+    await el.updateComplete;
+    expect(gridOf(el).repeat?.pagination).toEqual({ mode: 'auto', minItems: 0 });
+    expect(labels()).toContain(s.minItems);
+    expect(labels()).not.toContain(s.itemsPerPage);
+
+    setNumber(el, s.minItems, '3');
+    await el.updateComplete;
+    expect(gridOf(el).repeat?.pagination).toEqual({ mode: 'auto', minItems: 3 });
     el.remove();
   });
 
-  it('페이지당 항목 수를 표시 행 수 제한값보다 크게 올리면 받아들이지 않는다', async () => {
+  it('maxItems는 페이지당 항목 수보다 작아도 받아들인다', async () => {
     const el = await mount();
-    setNumber(el, s.repeatMaxItems, '10');
+    setNumber(el, s.repeatMaxItems, '2');
     await el.updateComplete;
-    expect(gridOf(el).repeat?.maxItems).toBe(10);
-
-    setNumber(el, s.repeatPerPage, '20');
-    await el.updateComplete;
-    // 최대 반복 수보다 큰 페이지당 항목 수는 적용하지 않는다.
-    expect(gridOf(el).repeat?.perPage).toBe(4);
-    expect(gridOf(el).repeat?.maxItems).toBe(10);
+    // 페이지당 항목 수(4)보다 작은 최대 항목 수를 허용한다 (§5.5)
+    expect(gridOf(el).repeat?.maxItems).toBe(2);
     el.remove();
   });
 
@@ -4931,18 +5034,18 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('반복 구간의 몇 번째 벌을 눌러도 같은 틀 칸이 골라진다', async () => {
+  it('선택한 그리드에서 행을 누르면 그 원본 행의 칸이 골라진다', async () => {
     const el = await mount();
-    await clickCell(el, 15, 25); // 첫 벌 (y 20~30)
-    const first = (el as unknown as { _selectedCell: { row: number; column: number } })._selectedCell;
-    await clickCell(el, 15, 45); // 셋째 벌 (y 40~50)
-    const third = (el as unknown as { _selectedCell: { row: number; column: number } })._selectedCell;
-    expect(first).toEqual({ row: 1, column: 0 });
-    expect(third).toEqual({ row: 1, column: 0 });
+    await clickCell(el, 15, 25); // 항목 구간 행 (y 20~30)
+    const item = (el as unknown as { _selectedCell: { row: number; column: number } })._selectedCell;
+    await clickCell(el, 15, 35); // 꼬리 행 (y 30~40)
+    const tail = (el as unknown as { _selectedCell: { row: number; column: number } })._selectedCell;
+    expect(item).toEqual({ row: 1, column: 0 });
+    expect(tail).toEqual({ row: 2, column: 0 });
     el.remove();
   });
 
-  it('반복 구간 경계를 넘는 병합은 받아들이지 않는다', async () => {
+  it('행 구간 경계를 넘는 병합은 받아들이지 않는다', async () => {
     const el = await mount();
     await clickCell(el, 15, 15); // 헤더 행 (y 10~20)
     await el.updateComplete;
@@ -5061,15 +5164,23 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
 
   it('요소 목록에서 그리드를 펼치면 값·수식 칸만 하위 줄로 나오고 누르면 그 칸이 선택된다 (G-44)', async () => {
     const el = await mount(); // 그리드를 고르면 요소 목록에서도 저절로 펼쳐진다
-    const cellRows = Array.from(el.shadowRoot!.querySelectorAll('.side-cell-row'));
+    const cellRows = () => Array.from(el.shadowRoot!.querySelectorAll('.side-cell-row'));
     // 파라미터가 지정된 칸만 표시하고 직접 입력한 칸은 제외한다.
-    expect(cellRows.length).toBe(1);
-    // 목록에는 칸 이름을 표시하고 행·열 위치는 툴팁으로 제공한다.
-    expect(cellRows[0]!.textContent?.trim()).toBe('품명');
-    expect(cellRows[0]!.getAttribute('title')).toContain('Row 2'); // 2행 1열
+    expect(cellRows().length).toBe(1);
+    // 이름이 없는 칸은 좌표를 표시한다 — 헤더나 파라미터에서 이름을 자동으로 만들지 않는다 (§7.4)
+    expect(cellRows()[0]!.textContent?.trim()).toBe('Row 2, Col 1');
+    expect(cellRows()[0]!.getAttribute('title')).toContain('Row 2'); // 2행 1열
+
+    // 셀 이름을 지정하면 목록에 그 이름을 우선 표시한다
+    (el as unknown as { _updateFile: (fn: (f: SlipTemplateFile) => void) => void })._updateFile((f) => {
+      const grid = f.template.pages[0]!.elements[0]! as unknown as TestGrid;
+      grid.cells.find((c) => c.row === 1 && c.column === 0)!.name = '품명 칸';
+    });
+    await el.updateComplete;
+    expect(cellRows()[0]!.textContent?.trim()).toBe('품명 칸');
 
     // 하위 줄을 누르면 그 칸이 선택된다
-    (cellRows[0] as HTMLElement).click();
+    (cellRows()[0] as HTMLElement).click();
     await el.updateComplete;
     const sel = (el as unknown as { _selectedCell: { row: number; column: number } | null })._selectedCell;
     expect(sel).toEqual({ row: 1, column: 0 });
