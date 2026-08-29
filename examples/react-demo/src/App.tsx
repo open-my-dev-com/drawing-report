@@ -60,8 +60,6 @@ const designerSettings: SlipDesignerSettings = {
   getPaperSizes: () => [{ name: 'Label 100x150', width: 100, height: 150 }],
 };
 
-const localeProp = locale === undefined ? {} : { locale };
-
 export function App() {
   // 저장소는 화면이 다시 그려져도 그대로 써야 하므로 한 번만 만든다
   const { store, files } = useMemo(() => createStores(slipKit, 'slipkit-demo-react'), []);
@@ -284,9 +282,9 @@ export function App() {
       </header>
 
       <div className="pane" hidden={mode !== 'design'}>
+        {/* UI 언어와 렌더 설정은 slipkit이 공급한다 — 컴포넌트 locale은 다르게 표시할 때만 쓴다 */}
         <SlipDesigner
           src={designerSrc}
-          {...localeProp}
           slipkit={slipKit}
           settings={designerSettings}
           storage={store}
@@ -297,7 +295,6 @@ export function App() {
         {booted && formSrc !== '' ? (
           <SlipForm
             src={formSrc}
-            {...localeProp}
             slipkit={slipKit}
             onSlipChange={onFormChange}
             onSlipIssue={onFormIssue}
@@ -305,7 +302,7 @@ export function App() {
         ) : null}
       </div>
       <div className="pane" hidden={mode !== 'view'}>
-        {viewerSrc !== '' ? <SlipViewer src={viewerSrc} {...localeProp} slipkit={slipKit} /> : null}
+        {viewerSrc !== '' ? <SlipViewer src={viewerSrc} slipkit={slipKit} /> : null}
       </div>
 
       <dialog ref={dialogRef} onClose={onDialogClose}>

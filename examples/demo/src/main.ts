@@ -272,16 +272,12 @@ function applyChromeText(): void {
 
 async function boot(): Promise<void> {
   applyChromeText();
-  // 세 컴포넌트가 같은 공통 설정 인스턴스로 미리보기와 수식을 처리한다.
+  // 세 컴포넌트가 같은 공통 설정 인스턴스로 UI 언어, 미리보기와 수식을 처리한다.
+  // 컴포넌트 locale은 UI 언어를 인스턴스와 다르게 표시할 때만 지정한다.
   designer.slipkit = slipKit;
   form.slipkit = slipKit;
   viewer.slipkit = slipKit;
   designer.settings = designerSettings;
-  if (locale !== undefined) {
-    designer.locale = locale;
-    form.locale = locale;
-    viewer.locale = locale;
-  }
   // 디자이너의 "내 양식" 저장·목록도 같은 저장소를 쓴다
   designer.storage = store;
 

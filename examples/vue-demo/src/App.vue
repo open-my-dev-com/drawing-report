@@ -43,8 +43,6 @@ import {
 // 데모 언어 — 주소의 ?locale= 값이 우선하고, 없으면 빌드 설정값을 쓴다
 const locale = resolveDemoLocale(location.search, import.meta.env.VITE_SLIPKIT_LOCALE as string | undefined);
 const messages = getMessages(locale);
-// locale을 지정하지 않았을 때 컴포넌트 기본 언어를 그대로 두기 위한 조건부 prop
-const localeProp = locale === undefined ? {} : { locale };
 document.documentElement.lang = locale ?? 'en';
 document.title = messages.appTitle('Vue');
 
@@ -256,9 +254,9 @@ onMounted(async () => {
   </header>
 
   <div class="pane" :hidden="mode !== 'design'">
+    <!-- UI 언어와 렌더 설정은 slipkit이 공급한다 — 컴포넌트 locale은 다르게 표시할 때만 쓴다 -->
     <SlipDesigner
       :src="designerSrc"
-      v-bind="localeProp"
       :slipkit="slipKit"
       :settings="designerSettings"
       :storage="store"
@@ -269,14 +267,13 @@ onMounted(async () => {
     <SlipForm
       v-if="formSrc !== ''"
       :src="formSrc"
-      v-bind="localeProp"
       :slipkit="slipKit"
       @slip-change="onFormChange"
       @slip-issue="onFormIssue"
     />
   </div>
   <div class="pane" :hidden="mode !== 'view'">
-    <SlipViewer v-if="viewerSrc !== ''" :src="viewerSrc" v-bind="localeProp" :slipkit="slipKit" />
+    <SlipViewer v-if="viewerSrc !== ''" :src="viewerSrc" :slipkit="slipKit" />
   </div>
 
   <dialog ref="dialog" @close="onDialogClose">

@@ -139,7 +139,7 @@ describe('<slip-viewer> PDF 렌더링', () => {
     el.remove();
   });
 
-  it('폰트가 설정된 slipkit을 주면 같은 인스턴스의 render로 미리보기를 만든다', async () => {
+  it('slipkit을 주면 같은 인스턴스의 render로 미리보기를 만든다', async () => {
     const el = await createElement();
     const fonts = [{ name: 'TestFont', data: new Uint8Array([1, 2, 3]) }];
     const render = vi.fn().mockResolvedValue(DUMMY_PDF);
@@ -155,21 +155,17 @@ describe('<slip-viewer> PDF 렌더링', () => {
     el.remove();
   });
 
-  it('폰트 없는 slipkit이면 동봉 기본 폰트로 렌더하고 slipkit의 로케일을 쓴다', async () => {
+  it('폰트를 설정하지 않은 slipkit도 별도 렌더 경로 없이 같은 인스턴스를 쓴다', async () => {
     const el = await createElement();
-    const render = vi.fn();
+    const render = vi.fn().mockResolvedValue(DUMMY_PDF);
     el.slipkit = { locale: 'ja', getFonts: undefined, render } as unknown as SlipKit;
     el.src = '{"valid": true}';
     await el.updateComplete;
     await flush();
     await el.updateComplete;
 
-    expect(render).not.toHaveBeenCalled();
-    const call = renderSlipToPdfMock.mock.calls.at(-1)!;
-    expect(call[0]).toBe(DUMMY_FILE);
-    expect(call[1]?.locale).toBe('ja');
-    const fonts = await call[1]?.getFonts?.();
-    expect(fonts?.length).toBe(2);
+    expect(render).toHaveBeenCalledWith(DUMMY_FILE);
+    expect(renderSlipToPdfMock).not.toHaveBeenCalled();
     el.remove();
   });
 });

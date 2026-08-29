@@ -62,19 +62,29 @@ function demoLanguage(locale?: string): DemoLocale {
 /**
  * 키를 지정하지 않은 데모에서 사용하는 샘플 키.
  * 소스에 포함된 공개 값이므로 실제 데이터 보호에는 쓸 수 없다.
+ *
+ * @remarks
+ * 공통 설정 도입 전 데모의 자동 저장이 쓰던 키와 같은 값이다. 값을 바꾸면
+ * 이전에 저장한 IndexedDB 데이터와 내려받은 암호화 파일을 열 수 없게 된다.
  */
-export const DEMO_SAMPLE_KEY = 'omdc-slipkit-demo-sample-key';
+export const DEMO_SAMPLE_KEY = 'omdc-slipkit-sample-key';
 
 /**
  * 데모의 암호화 키 설정을 만든다. `.env`의 키(`VITE_SLIPKIT_KEY`)를 한 번 읽어 검증하고,
  * 없으면 경고를 남기고 샘플 키를 명시적으로 사용한다.
  *
+ * @remarks
+ * 자체 키를 설정해도 샘플 키를 이전 키로 등록해, 키를 정하기 전에 저장한
+ * 데이터를 계속 열 수 있게 한다.
+ *
  * @param envKey - 빌드 환경변수에서 읽은 키 값 (생략 가능)
  * @returns `createSlipKit`의 encryption 설정
  */
-export function resolveDemoEncryption(envKey: string | undefined): { key: string } {
+export function resolveDemoEncryption(
+  envKey: string | undefined,
+): { key: string; previousKeys?: string[] } {
   const key = envKey?.trim();
-  if (key) return { key };
+  if (key) return { key, previousKeys: [DEMO_SAMPLE_KEY] };
   console.warn('[demo] VITE_SLIPKIT_KEY is not set — using the public demo sample key. Supply your own key for real data.');
   return { key: DEMO_SAMPLE_KEY };
 }

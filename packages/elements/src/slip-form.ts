@@ -156,8 +156,9 @@ export class SlipForm extends LitElement {
   }
 
   // 파싱 결과가 같은 렌더링에 반영되도록 렌더링 전에 처리한다.
+  // slipkit 변경으로는 다시 파싱하지 않는다 — 입력 중인 값을 지우지 않기 위해서다.
   protected override willUpdate(changed: Map<string, unknown>): void {
-    if (changed.has('src') || changed.has('slipkit')) {
+    if (changed.has('src')) {
       this._parseSource();
     }
   }
@@ -468,13 +469,15 @@ export class SlipForm extends LitElement {
       try {
         // 빈 number 파라미터를 0으로 정규화한 뒤 계산한다.
         const values = normalizeNumericParameters(this._values, this._body?.parameters);
-        const context = {
-          values,
-          ...(this._locale === undefined ? {} : { locale: this._locale }),
-        };
-        // slipkit이 있으면 수식도 같은 인스턴스로 평가한다.
+        // slipkit이 있으면 수식도 같은 인스턴스로 평가해 PDF와 같은 로케일을 쓴다.
+        // 컴포넌트 locale은 UI 언어 전용이라 수식 컨텍스트에 넣지 않는다.
         text = resultText(
-          this.slipkit ? this.slipkit.evaluate(input.formula, context) : evaluateFormula(input.formula, context),
+          this.slipkit
+            ? this.slipkit.evaluate(input.formula, { values })
+            : evaluateFormula(input.formula, {
+                values,
+                ...(this.locale === undefined ? {} : { locale: this.locale }),
+              }),
         );
       } catch (e) {
         error = e instanceof Error ? e.message : String(e);

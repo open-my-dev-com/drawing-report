@@ -998,9 +998,14 @@ export class SlipDesigner extends LitElement {
   /** 그리드 셀의 인라인 편집 여부 */
   private _cellEditing = false;
 
-  /** 컴포넌트 속성이 우선하고, 없으면 slipkit 설정을 따르는 유효 로케일 */
+  /** 컴포넌트 속성이 우선하고, 없으면 slipkit 설정을 따르는 UI 언어 로케일 */
   private get _locale(): string | undefined {
     return this.locale ?? this.slipkit?.locale;
+  }
+
+  /** 수식·조건식 평가에 사용할 로케일 — slipkit이 있으면 인스턴스 설정을 따른다 */
+  private get _evalLocale(): string | undefined {
+    return this.slipkit ? this.slipkit.locale : this.locale;
   }
 
   /** 현재 locale의 문구 사전 */
@@ -1009,10 +1014,13 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 수식을 평가한다. slipkit이 있으면 같은 인스턴스로 평가해 호스트와 결과를 맞춘다.
+   * 수식을 평가한다. slipkit이 있으면 같은 인스턴스로 평가해 호스트의 렌더 결과와 맞춘다.
+   * 수식 로케일은 인스턴스 설정을 따른다 — 컴포넌트 locale은 UI 언어 전용이다.
    */
   private _evaluate(source: string, context: FormulaContext): FormulaValue {
-    return this.slipkit ? this.slipkit.evaluate(source, context) : evaluateFormula(source, context);
+    if (this.slipkit) return this.slipkit.evaluate(source, context);
+    const locale = this._evalLocale;
+    return evaluateFormula(source, locale === undefined ? context : { ...context, locale });
   }
 
   // ---------------------------------------------------------------------------
@@ -1043,7 +1051,8 @@ export class SlipDesigner extends LitElement {
       void this._loadPaperSizes();
       void this._loadBarcodeKinds();
     }
-    if (changed.has('settings') || changed.has('slipkit')) {
+    // 폰트 목록은 slipkit의 공급 함수 또는 로케일별 동봉 기본 폰트에서 나온다.
+    if (changed.has('slipkit') || changed.has('locale')) {
       void this._loadFontNames();
     }
   }
@@ -4409,7 +4418,7 @@ export class SlipDesigner extends LitElement {
       try {
         Object.assign(
           result,
-          resolveConditionalFormats([rule], scope, this._locale === undefined ? {} : { locale: this._locale }),
+          resolveConditionalFormats([rule], scope, this._evalLocale === undefined ? {} : { locale: this._evalLocale }),
         );
       } catch {
         // 조건식이 계산되지 않으면 기본 서식으로 표시한다. 오류는 PDF 미리보기에서 안내한다.
@@ -4439,7 +4448,6 @@ export class SlipDesigner extends LitElement {
       try {
         const result = this._evaluate(cell.formula, {
           values,
-          ...(this._locale === undefined ? {} : { locale: this._locale }),
         });
         return result === null ? '' : String(result);
       } catch {
@@ -4463,7 +4471,6 @@ export class SlipDesigner extends LitElement {
       try {
         const result = this._evaluate(cell.formula, {
           values,
-          ...(this._locale === undefined ? {} : { locale: this._locale }),
         });
         return result === null ? '' : String(result);
       } catch {
@@ -6996,7 +7003,6 @@ export class SlipDesigner extends LitElement {
                   try {
                     const probe = this._evaluate(value, {
                       values: { ...this._formulaProbeValues(), ...(probeItem ?? {}) },
-                      ...(this._locale === undefined ? {} : { locale: this._locale }),
                     });
                     if (typeof probe !== 'boolean') {
                       this._rejectInput(s.conditionNotBoolean, `${keyPrefix}-cond-${index}`);
@@ -7337,7 +7343,6 @@ export class SlipDesigner extends LitElement {
           preview = formulaPreviewText(
             this._evaluate(draft, {
               values: this._formulaProbeValues(),
-              ...(this._locale === undefined ? {} : { locale: this._locale }),
             }),
           );
         } catch (error) {

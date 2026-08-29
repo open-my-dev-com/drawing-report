@@ -253,6 +253,21 @@ describe('IndexedDbStorage 암호화 — 공통 키 재사용', () => {
     expect(await off.load('doc')).toEqual(file);
   });
 
+  it('공통 설정 도입 전 샘플 키로 저장된 데이터도 previousKeys 등록으로 열린다', async () => {
+    // 공통 설정 도입 전 데모의 자동 저장이 쓰던 키 값 — 회귀 방지를 위해 값을 고정한다.
+    const legacyKey = 'omdc-slipkit-sample-key';
+    const dbName = `test-enc-${++dbCounter}`;
+    const file = presets[0]!.create();
+    const legacyKit = createSlipKit({ encryption: { key: legacyKey } });
+    await new IndexedDbStorage(legacyKit, { dbName, encryptOnSave: true }).save('doc', file);
+
+    const current = new IndexedDbStorage(
+      createSlipKit({ encryption: { key: '자체-키', previousKeys: [legacyKey] } }),
+      { dbName },
+    );
+    expect(await current.load('doc')).toEqual(file);
+  });
+
   it('자동 저장(IndexedDB)과 파일 교환이 같은 공통 키를 사용한다', async () => {
     const dbName = `test-enc-${++dbCounter}`;
     const file = presets[0]!.create();
