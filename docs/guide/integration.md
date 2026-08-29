@@ -566,6 +566,8 @@ designer.slipkit = slipkit;
 designer.storage = templateStorage;
 ```
 
+이 예제처럼 `getFonts`를 생략하면 디자이너 미리보기는 `SlipKit.locale`에 맞는 동봉 폰트를 사용합니다.
+
 > [!IMPORTANT]
 > `storage` 프로퍼티는 디자이너의 “내 양식” 기능에 사용하는 저장소입니다.
 > 편집할 때마다 자동으로 저장하거나 작성 중 전표를 저장해 주는 기능은 아닙니다.

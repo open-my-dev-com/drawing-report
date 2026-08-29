@@ -193,11 +193,12 @@ const settings: SlipDesignerSettings = {
 <slip-viewer locale="en-US"></slip-viewer>
 ```
 
-`locale` は次の項目に影響します。
+コンポーネントの `locale` は次の項目に影響します。
 
 - コンポーネントのボタンと案内文
 - エラーメッセージ
-- `slipkit` を指定しないときに使う同梱の既定フォント
+
+`getFonts` を設定していない場合、同梱の既定フォントは `SlipKit.locale` で選択します。`slipkit` も指定していない場合は、コンポーネントの `locale` を使います。
 
 次の項目は自動的には翻訳しません。
 
@@ -215,7 +216,7 @@ const settings: SlipDesignerSettings = {
 
 ### 同梱の既定フォント
 
-`slipkit` を指定しないと、UI コンポーネントは `locale` に合った既定フォントを読み込みます。
+`SlipKit` に `getFonts` を設定していない場合、UI コンポーネントは `SlipKit.locale` に合った既定フォントを読み込みます。`slipkit` も指定していない場合は、コンポーネントの `locale` を使います。
 
 | 言語 | 同梱フォント | 構成 |
 |---|---|---|
@@ -253,6 +254,8 @@ designer.slipkit = slipkit;
 ```
 
 `getFonts` はフォント配列、またはフォント配列を返す `Promise` を使えます。
+
+UI コンポーネントは `getFonts` がない場合に同梱フォントを補いますが、Core の `slipkit.render()` は Elements の同梱フォントを自動では読み込みません。Core での直接レンダリングとコンポーネントのプレビューで同じ独自フォントを使う場合は、`getFonts` を設定してください。
 
 ```ts
 import { createSlipKit, type SlipFont } from '@omdc-slipkit/core';
@@ -878,14 +881,14 @@ const slip = createSlipKit({
 | `encryption.key` | `encrypt` と `decrypt` が既定で使うキー |
 | `encryption.previousKeys` | 以前のキーで暗号化されたファイルを復号するときに使うキーのリスト |
 
-UI コンポーネントと保存手段に同じ `slipkit` を渡すと、フォント、数式、PDF レンダリング、ストレージのエラーメッセージが 1 つのインスタンスの設定を再利用します。コンポーネントの `locale` を省略すると、UI 言語も `SlipKit.locale` に従います。
+UI コンポーネントと保存手段に同じ `slipkit` を渡すと、独自フォント、数式、PDF レンダリング、ストレージのエラーメッセージが 1 つのインスタンスの設定を再利用します。コンポーネントの `locale` を省略すると、UI 言語も `SlipKit.locale` に従います。`getFonts` がない場合、コンポーネントのプレビューは同梱フォントを使います。
 
 コンポーネントの `locale` は、UI 言語だけを別に指定する場合に使います。
 
 | 設定 | 例 | 役割 |
 |---|---|---|
 | コンポーネント `locale` | `'ko'`, `'en'`, `'ja'` | UI 文言。`slipkit` がない場合は同梱フォントも選択 |
-| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | 数値と日付の数式フォーマット、エラーメッセージの言語 |
+| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | 数値と日付の数式フォーマット、エラーメッセージの言語。`getFonts` がない場合は同梱フォントも選択 |
 
 Core の利用フローと PDF 生成方法は[Core 利用ガイド](core.ja.md)を参照してください。
 

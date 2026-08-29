@@ -94,9 +94,27 @@ const DUMMY_PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
 let revokedUrls: string[];
 let uuidCounter: number;
 
+function createMemoryStorage(): Storage {
+  const values = new Map<string, string>();
+  return {
+    get length() { return values.size; },
+    clear: () => values.clear(),
+    getItem: (key) => values.get(key) ?? null,
+    key: (index) => [...values.keys()][index] ?? null,
+    removeItem: (key) => { values.delete(key); },
+    setItem: (key, value) => { values.set(key, value); },
+  };
+}
+
 beforeEach(() => {
   revokedUrls = [];
   uuidCounter = 0;
+
+  // Node.js 25의 불완전한 전역 localStorage 대신 격리된 브라우저형 저장소를 사용한다.
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: createMemoryStorage(),
+  });
 
   let urlCounter = 0;
   vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:test-${++urlCounter}`);

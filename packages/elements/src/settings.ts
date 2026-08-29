@@ -2,7 +2,7 @@
  * 호스트가 SlipKit 컴포넌트에 디자이너 전용 정보를 제공하는 인터페이스.
  *
  * @remarks
- * 폰트와 로케일은 `createSlipKit` 인스턴스(`slipkit` 속성)가 공급하므로 여기서 받지 않는다.
+ * 사용자 폰트와 로케일은 `createSlipKit` 인스턴스(`slipkit` 속성)가 공급하므로 여기서 받지 않는다.
  */
 import {
   renderSlipToPdf,
@@ -59,10 +59,10 @@ export interface SlipDesignerSettings {
 
 /**
  * SlipKit 인스턴스에 설정된 렌더링 폰트를 가져온다.
- * 인스턴스가 없거나 폰트를 설정하지 않았으면 로케일에 맞는 동봉 기본 폰트를 사용한다.
+ * `getFonts`가 없거나 빈 목록을 반환하면 로케일에 맞는 동봉 기본 폰트를 사용한다.
  *
  * @param slipkit - 공통 설정 인스턴스 (생략 가능)
- * @param locale - 기본 폰트를 선택할 UI 언어. 지역 코드가 포함되면 언어 코드만 사용한다
+ * @param locale - 기본 폰트를 선택할 로케일. 지역 코드가 포함되면 언어 코드만 사용한다
  * @returns 렌더에 넘길 폰트 목록
  */
 export async function resolveFonts(
@@ -75,8 +75,8 @@ export async function resolveFonts(
 
 /**
  * `.slip` 파일을 컴포넌트 미리보기용 PDF로 렌더링한다.
- * SlipKit 인스턴스가 있으면 항상 그 인스턴스로 렌더해 호스트의 직접 렌더링과 같은
- * 결과를 만들고, 없으면 로케일에 맞는 동봉 기본 폰트를 사용한다.
+ * 사용자 폰트를 설정한 SlipKit 인스턴스는 해당 인스턴스로 렌더링한다.
+ * `getFonts`가 없으면 SlipKit 로케일에 맞는 동봉 기본 폰트를 사용한다.
  *
  * @param slipkit - 공통 설정 인스턴스 (생략 가능)
  * @param file - 렌더할 `.slip` 파일
@@ -88,10 +88,11 @@ export function renderSlip(
   file: SlipFile,
   locale?: string,
 ): Promise<Uint8Array> {
-  if (slipkit) return slipkit.render(file);
+  if (slipkit?.getFonts) return slipkit.render(file);
+  const renderLocale = slipkit?.locale ?? locale;
   const options: RenderOptions = {
-    getFonts: () => resolveFonts(undefined, locale),
-    ...(locale === undefined ? {} : { locale }),
+    getFonts: () => resolveFonts(undefined, renderLocale),
+    ...(renderLocale === undefined ? {} : { locale: renderLocale }),
   };
   return renderSlipToPdf(file, options);
 }

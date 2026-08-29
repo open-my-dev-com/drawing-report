@@ -566,6 +566,8 @@ designer.slipkit = slipkit;
 designer.storage = templateStorage;
 ```
 
+When `getFonts` is omitted as in this example, the designer preview uses the bundled fonts selected by `SlipKit.locale`.
+
 > [!IMPORTANT]
 > The `storage` property is the storage used for the designer's "My templates" feature.
 > It is not a feature that automatically saves on every edit or saves in-progress vouchers.

@@ -30,8 +30,8 @@ export class SlipViewer extends LitElement {
   locale?: string;
 
   /**
-   * 폰트·로케일 공통 설정 인스턴스. 지정하면 PDF 렌더링에 이 인스턴스를 그대로 사용한다.
-   * 없으면 동봉 기본 폰트로 렌더링한다.
+   * 폰트·로케일 공통 설정 인스턴스. PDF 렌더링은 이 인스턴스의 설정을 사용한다.
+   * `getFonts`가 없으면 동봉 기본 폰트로 렌더링한다.
    */
   slipkit?: SlipKit;
 

@@ -566,6 +566,8 @@ designer.slipkit = slipkit;
 designer.storage = templateStorage;
 ```
 
+この例のように `getFonts` を省略すると、デザイナーのプレビューは `SlipKit.locale` に合った同梱フォントを使います。
+
 > [!IMPORTANT]
 > `storage` プロパティは、デザイナーの「マイテンプレート」機能に使うストレージです。
 > 編集するたびに自動で保存したり、作成中の伝票を保存したりする機能ではありません。

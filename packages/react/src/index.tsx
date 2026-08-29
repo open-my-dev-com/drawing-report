@@ -20,7 +20,7 @@ export interface SlipViewerProps {
    * @defaultValue 영어
    */
   locale?: string;
-  /** 폰트·로케일 공통 설정 인스턴스. 생략하면 동봉 기본 폰트를 사용한다. */
+  /** 폰트·로케일 공통 설정 인스턴스. `getFonts`가 없으면 동봉 기본 폰트를 사용한다. */
   slipkit?: SlipKit;
 }
 
@@ -42,7 +42,7 @@ export interface SlipDesignerProps {
    * @defaultValue 영어
    */
   locale?: string;
-  /** 폰트·로케일·암호화 키 공통 설정 인스턴스. 생략하면 동봉 기본 폰트를 사용한다. */
+  /** 폰트·로케일·암호화 키 공통 설정 인스턴스. `getFonts`가 없으면 동봉 기본 폰트를 사용한다. */
   slipkit?: SlipKit;
   /** 바코드 종류와 용지 목록을 제공하는 호스트 설정. */
   settings?: SlipDesignerSettings;
@@ -95,7 +95,7 @@ export interface SlipFormProps {
    * @defaultValue 영어
    */
   locale?: string;
-  /** 폰트·로케일 공통 설정 인스턴스. 생략하면 동봉 기본 폰트를 사용한다. */
+  /** 폰트·로케일 공통 설정 인스턴스. `getFonts`가 없으면 동봉 기본 폰트를 사용한다. */
   slipkit?: SlipKit;
   /** 업로드할 수 있는 이미지 파일의 최대 크기(바이트). 기본값은 2MB이다. */
   maxImageBytes?: number;

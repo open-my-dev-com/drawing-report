@@ -155,17 +155,22 @@ describe('<slip-viewer> PDF 렌더링', () => {
     el.remove();
   });
 
-  it('폰트를 설정하지 않은 slipkit도 별도 렌더 경로 없이 같은 인스턴스를 쓴다', async () => {
+  it('slipkit에 폰트가 없으면 인스턴스 로케일의 동봉 폰트를 사용한다', async () => {
     const el = await createElement();
     const render = vi.fn().mockResolvedValue(DUMMY_PDF);
     el.slipkit = { locale: 'ja', getFonts: undefined, render } as unknown as SlipKit;
+    el.locale = 'ko';
     el.src = '{"valid": true}';
     await el.updateComplete;
     await flush();
     await el.updateComplete;
 
-    expect(render).toHaveBeenCalledWith(DUMMY_FILE);
-    expect(renderSlipToPdfMock).not.toHaveBeenCalled();
+    expect(render).not.toHaveBeenCalled();
+    const call = renderSlipToPdfMock.mock.calls.at(-1)!;
+    expect(call[0]).toBe(DUMMY_FILE);
+    expect(call[1]?.locale).toBe('ja');
+    const bundledFonts = await call[1]?.getFonts?.();
+    expect(bundledFonts?.[0]?.name).toBe('Pretendard');
     el.remove();
   });
 });

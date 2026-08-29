@@ -193,11 +193,12 @@ const settings: SlipDesignerSettings = {
 <slip-viewer locale="en-US"></slip-viewer>
 ```
 
-`locale`은 다음 항목에 영향을 줍니다.
+컴포넌트 `locale`은 다음 항목에 영향을 줍니다.
 
 - 컴포넌트 버튼과 안내 문구
 - 오류 메시지
-- `slipkit`을 지정하지 않았을 때 사용하는 동봉 기본 폰트
+
+`getFonts`가 없을 때 사용하는 동봉 기본 폰트는 `SlipKit.locale`로 선택합니다. `slipkit`도 없을 때는 컴포넌트 `locale`을 사용합니다.
 
 다음 항목은 자동으로 번역하지 않습니다.
 
@@ -215,7 +216,7 @@ const settings: SlipDesignerSettings = {
 
 ### 동봉 기본 폰트
 
-`slipkit`을 지정하지 않으면 UI 컴포넌트가 `locale`에 맞는 기본 폰트를 불러옵니다.
+`SlipKit`에 `getFonts`를 설정하지 않으면 UI 컴포넌트가 `SlipKit.locale`에 맞는 기본 폰트를 불러옵니다. `slipkit`도 없으면 컴포넌트 `locale`을 사용합니다.
 
 | 언어 | 동봉 폰트 | 구성 |
 |---|---|---|
@@ -253,6 +254,8 @@ designer.slipkit = slipkit;
 ```
 
 `getFonts`는 폰트 배열이나 폰트 배열을 반환하는 `Promise`를 사용할 수 있습니다.
+
+UI 컴포넌트는 `getFonts`가 없을 때 동봉 폰트를 보완하지만, Core의 `slipkit.render()`는 Elements의 동봉 폰트를 자동으로 불러오지 않습니다. 직접 Core 렌더링과 컴포넌트 미리보기에 같은 사용자 폰트가 필요하면 `getFonts`를 설정하세요.
 
 ```ts
 import { createSlipKit } from '@omdc-slipkit/core';
@@ -881,14 +884,14 @@ const slip = createSlipKit({
 | `encryption.key` | `encrypt`와 `decrypt`가 기본으로 사용할 키 |
 | `encryption.previousKeys` | 이전 키로 암호화된 파일을 복호화할 때 사용할 키 목록 |
 
-UI 컴포넌트와 저장 수단에 같은 `slipkit`을 전달하면 폰트·수식·PDF 렌더링·저장소 오류 메시지가 한 인스턴스의 설정을 재사용합니다. 컴포넌트 `locale`을 생략하면 UI 언어도 `SlipKit.locale`을 따릅니다.
+UI 컴포넌트와 저장 수단에 같은 `slipkit`을 전달하면 사용자 폰트·수식·PDF 렌더링·저장소 오류 메시지가 한 인스턴스의 설정을 재사용합니다. 컴포넌트 `locale`을 생략하면 UI 언어도 `SlipKit.locale`을 따릅니다. `getFonts`가 없으면 컴포넌트 미리보기는 동봉 폰트를 사용합니다.
 
 컴포넌트 `locale`은 UI 언어만 따로 지정해야 할 때 사용합니다.
 
 | 설정 | 예 | 역할 |
 |---|---|---|
 | 컴포넌트 `locale` | `'ko'`, `'en'`, `'ja'` | UI 문구. `slipkit`이 없을 때는 동봉 폰트도 선택 |
-| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | 숫자와 날짜 수식 포맷, 오류 메시지 언어 |
+| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | 숫자와 날짜 수식 포맷, 오류 메시지 언어. `getFonts`가 없을 때는 동봉 폰트도 선택 |
 
 Core 사용 흐름과 PDF 생성 방법은 [Core 사용 가이드](core.md)를 참고하세요.
 

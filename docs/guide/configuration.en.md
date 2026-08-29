@@ -193,11 +193,12 @@ Values that include a region code, such as `en-US`, `ko-KR`, and `ja-JP`, can al
 <slip-viewer locale="en-US"></slip-viewer>
 ```
 
-`locale` affects the following.
+The component `locale` affects the following.
 
 - Component buttons and guidance text
 - Error messages
-- The bundled default font used when `slipkit` is not provided
+
+When `getFonts` is not configured, `SlipKit.locale` selects the bundled default font. If `slipkit` is also absent, the component `locale` is used.
 
 The following are not translated automatically.
 
@@ -215,7 +216,7 @@ The following are not translated automatically.
 
 ### Bundled default fonts
 
-If you do not provide `slipkit`, the UI component loads the default font for the `locale`.
+If `getFonts` is not configured on `SlipKit`, the UI component loads the default font for `SlipKit.locale`. If `slipkit` is also absent, it uses the component `locale`.
 
 | Language | Bundled font | Composition |
 |---|---|---|
@@ -253,6 +254,8 @@ designer.slipkit = slipkit;
 ```
 
 `getFonts` can use a font array or a `Promise` that returns a font array.
+
+UI components supply bundled fonts when `getFonts` is absent, but Core's `slipkit.render()` does not load fonts bundled with Elements. Configure `getFonts` when direct Core rendering and component previews must use the same custom fonts.
 
 ```ts
 import { createSlipKit, type SlipFont } from '@omdc-slipkit/core';
@@ -878,14 +881,14 @@ const slip = createSlipKit({
 | `encryption.key` | The key that `encrypt` and `decrypt` use by default |
 | `encryption.previousKeys` | The list of keys to use when decrypting files encrypted with a previous key |
 
-When UI components and storage receive the same `slipkit`, fonts, formulas, PDF rendering, and storage error messages reuse one instance's settings. If the component `locale` is omitted, the UI language also follows `SlipKit.locale`.
+When UI components and storage receive the same `slipkit`, custom fonts, formulas, PDF rendering, and storage error messages reuse one instance's settings. If the component `locale` is omitted, the UI language also follows `SlipKit.locale`. If `getFonts` is absent, component previews use the bundled fonts.
 
 Use a component `locale` only when its UI language must differ.
 
 | Setting | Example | Role |
 |---|---|---|
 | Component `locale` | `'ko'`, `'en'`, `'ja'` | UI text; also selects the bundled font when `slipkit` is absent |
-| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | Number and date formatting in formulas, and the error message language |
+| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | Number and date formatting in formulas, error message language, and bundled font selection when `getFonts` is absent |
 
 For the Core usage flow and how to generate PDFs, see the [Core Usage Guide](core.en.md).
 

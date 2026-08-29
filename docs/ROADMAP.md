@@ -107,7 +107,8 @@ SlipKit은 핵심 기능 구현을 마치고 첫 공개 전 품질 검토를 진
 
 호스트가 로케일, 폰트와 암호화 키를 `createSlipKit` 한 곳에 설정하고 구성 요소와 저장 수단이 같은 인스턴스를 사용하도록 공개 API를 정리합니다.
 
-- `slip-designer`, `slip-form`, `slip-viewer`의 PDF 렌더링과 수식 평가에 전달된 `SlipKit`을 사용
+- `slip-designer`, `slip-form`, `slip-viewer`의 PDF 렌더링과 수식 평가에 전달된 `SlipKit`의 설정을 사용
+- `getFonts`를 설정하지 않은 기본 구성에서는 `SlipKit` 로케일에 맞는 동봉 폰트 사용
 - 구성 요소 `locale`은 UI 언어를 의도적으로 다르게 표시할 때만 사용하며, 생략하면 `SlipKit` 로케일을 따름
 - `SlipDesignerSettings`에서 폰트 설정을 제거하고 바코드 종류와 용지 설정만 유지
 - `IndexedDbStorage`와 `SlipFileExchange`가 같은 `SlipKit`의 현재 키와 이전 키를 사용
@@ -115,7 +116,7 @@ SlipKit은 핵심 기능 구현을 마치고 첫 공개 전 품질 검토를 진
 - 설정 변경 전에 저장한 IndexedDB 데이터와 암호화 파일을 `previousKeys`로 계속 열 수 있는지 회귀 검증
 - 키가 필요한 작업에서 키를 생략하면 공개 샘플 키로 대체하지 않고 오류 반환
 
-완료 기준은 구성 요소, 직접 Core 호출, IndexedDB와 파일 교환에서 로케일·폰트·암호화 키를 중복 설정하지 않는 것입니다.
+완료 기준은 사용자 폰트·로케일·암호화 키를 `SlipKit` 한 곳에 설정하고, 별도 폰트 설정이 없는 구성 요소는 동봉 폰트를 사용하는 것입니다.
 
 ## 후속 작업: 소스 코드 검토
 
