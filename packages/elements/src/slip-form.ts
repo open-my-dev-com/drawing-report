@@ -5,12 +5,11 @@ import {
   evaluateFormula,
   normalizeNumericParameters,
   parseSlipFile,
-  renderSlipToPdf,
   serializeSlipFile,
   type GridElement,
   type JsonValue,
-  type RenderOptions,
   type SlipFile,
+  type SlipKit,
   type SlipTemplateBody,
   type SlipTemplateFile,
   type SlipVoucherFile,
@@ -18,7 +17,7 @@ import {
 import { getStrings } from './strings.js';
 import { icons } from './icons.js';
 import { pickImageFile, formatBytes } from './image-file.js';
-import { resolveFonts, type SlipFontProvider } from './settings.js';
+import { renderSlip } from './settings.js';
 
 /** 입력이 끝난 뒤 PDF 미리보기를 갱신하기까지 기다리는 시간(ms) */
 const PREVIEW_DEBOUNCE_MS = 500;
@@ -92,7 +91,7 @@ export class SlipForm extends LitElement {
   static properties = {
     src: { type: String },
     locale: { type: String },
-    settings: { attribute: false },
+    slipkit: { attribute: false },
     maxImageBytes: { type: Number, attribute: 'max-image-bytes' },
     _values: { state: true },
     _issued: { state: true },
@@ -108,14 +107,17 @@ export class SlipForm extends LitElement {
   src = '';
 
   /**
-   * UI 언어 (`ko`, `en`, `ja`).
+   * UI 언어 (`ko`, `en`, `ja`). 생략하면 `slipkit`에 설정된 로케일을 따른다.
    *
    * @defaultValue 영어
    */
   locale?: string;
 
-  /** 렌더링 폰트를 제공하는 호스트 인터페이스. 생략하면 기본 폰트를 사용한다. */
-  settings?: SlipFontProvider;
+  /**
+   * 폰트·로케일 공통 설정 인스턴스. 지정하면 PDF 미리보기와 수식 평가에 이 인스턴스를
+   * 그대로 사용한다. 없으면 동봉 기본 폰트로 렌더링한다.
+   */
+  slipkit?: SlipKit;
 
   /**
    * 업로드할 수 있는 이미지 파일의 최대 크기(바이트).
@@ -137,9 +139,14 @@ export class SlipForm extends LitElement {
   private _previewGeneration = 0;
   private _previewTimer: ReturnType<typeof setTimeout> | null = null;
 
+  /** 컴포넌트 속성이 우선하고, 없으면 slipkit 설정을 따르는 유효 로케일 */
+  private get _locale(): string | undefined {
+    return this.locale ?? this.slipkit?.locale;
+  }
+
   /** 현재 로케일의 작성 폼 문구 */
   private get _t() {
-    return getStrings(this.locale).form;
+    return getStrings(this._locale).form;
   }
 
   override disconnectedCallback(): void {
@@ -150,13 +157,13 @@ export class SlipForm extends LitElement {
 
   // 파싱 결과가 같은 렌더링에 반영되도록 렌더링 전에 처리한다.
   protected override willUpdate(changed: Map<string, unknown>): void {
-    if (changed.has('src')) {
+    if (changed.has('src') || changed.has('slipkit')) {
       this._parseSource();
     }
   }
 
   override updated(changed: Map<string, unknown>): void {
-    if (changed.has('src')) {
+    if (changed.has('src') || changed.has('slipkit')) {
       this._schedulePreview();
     }
   }
@@ -180,7 +187,7 @@ export class SlipForm extends LitElement {
 
     let file: SlipFile;
     try {
-      file = parseSlipFile(this.src, this.locale === undefined ? undefined : { locale: this.locale });
+      file = parseSlipFile(this.src, this._locale === undefined ? undefined : { locale: this._locale });
     } catch (error) {
       console.error('[slip-form] .slip parse failed:', error);
       this._body = null;
@@ -347,7 +354,7 @@ export class SlipForm extends LitElement {
     const voucher = this._buildVoucher(true);
     try {
       // 파서로 외부 URL 금지 등 발행 전표의 제약을 검증한다.
-      parseSlipFile(serializeSlipFile(voucher), this.locale === undefined ? undefined : { locale: this.locale });
+      parseSlipFile(serializeSlipFile(voucher), this._locale === undefined ? undefined : { locale: this._locale });
     } catch (error) {
       console.error('[slip-form] issue failed:', error);
       this._issueError = `${this._t.issueError} ${error instanceof Error ? error.message : String(error)}`;
@@ -392,12 +399,7 @@ export class SlipForm extends LitElement {
     this._previewError = null;
     const gen = ++this._previewGeneration;
     try {
-      // 설정된 폰트가 없으면 기본 폰트를 사용한다.
-      const opts: RenderOptions = {
-        getFonts: () => resolveFonts(this.settings, this.locale),
-        ...(this.locale === undefined ? {} : { locale: this.locale }),
-      };
-      const pdfBytes = await renderSlipToPdf(this._buildVoucher(this._issued), opts);
+      const pdfBytes = await renderSlip(this.slipkit, this._buildVoucher(this._issued), this._locale);
       if (gen !== this._previewGeneration) return;
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._previewUrl = URL.createObjectURL(blob);
@@ -466,11 +468,13 @@ export class SlipForm extends LitElement {
       try {
         // 빈 number 파라미터를 0으로 정규화한 뒤 계산한다.
         const values = normalizeNumericParameters(this._values, this._body?.parameters);
+        const context = {
+          values,
+          ...(this._locale === undefined ? {} : { locale: this._locale }),
+        };
+        // slipkit이 있으면 수식도 같은 인스턴스로 평가한다.
         text = resultText(
-          evaluateFormula(input.formula, {
-            values,
-            ...(this.locale === undefined ? {} : { locale: this.locale }),
-          }),
+          this.slipkit ? this.slipkit.evaluate(input.formula, context) : evaluateFormula(input.formula, context),
         );
       } catch (e) {
         error = e instanceof Error ? e.message : String(e);

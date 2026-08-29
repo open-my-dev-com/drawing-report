@@ -30,6 +30,7 @@ import {
   initialTemplate,
   isCancelled,
   reasonOf,
+  resolveDemoEncryption,
   resolveDemoLocale,
   restore,
   saveBytes,
@@ -47,11 +48,13 @@ const localeProp = locale === undefined ? {} : { locale };
 document.documentElement.lang = locale ?? 'en';
 document.title = messages.appTitle('Vue');
 
-// PDF 렌더링용 Core 설정. 동봉된 모든 폰트를 등록하고, 로케일에 따라
-// fontName을 생략한 요소의 대체(fallback) 폰트를 선택한다.
+// 공통 설정은 여기 한 번만 적는다 — 컴포넌트, 자동 저장, 파일 주고받기, PDF 렌더링이
+// 전부 이 인스턴스의 폰트·로케일·암호화 키를 사용한다.
+// 암호화 키는 .env(VITE_SLIPKIT_KEY)에서 한 번 읽고, 없으면 데모 샘플 키를 명시적으로 쓴다.
 const slipKit = createSlipKit({
   getFonts: () => loadDefaultFonts(locale?.toLowerCase().startsWith('ja') ? 'ja' : 'ko'),
   ...(locale === undefined ? {} : { locale }),
+  encryption: resolveDemoEncryption(import.meta.env.VITE_SLIPKIT_KEY as string | undefined),
 });
 
 // 호스트가 용지 후보를 공급하는 예시 — 기본 용지 뒤에 추가로 표시된다.
@@ -60,7 +63,7 @@ const designerSettings: SlipDesignerSettings = {
   getPaperSizes: () => [{ name: 'Label 100x150', width: 100, height: 150 }],
 };
 
-const { store, localFile } = createStores('slipkit-demo-vue', locale);
+const { store, files } = createStores(slipKit, 'slipkit-demo-vue');
 
 // 파일 객체는 통째로 갈아 끼우므로 깊은 반응성이 필요 없다
 const template = shallowRef<SlipTemplateFile>(initialTemplate(locale));
@@ -166,8 +169,8 @@ function onDialogClose(): void {
   if (dialog.value?.returnValue !== 'ok') return;
   const file = activeFile();
   const name = filename.value?.value.trim() || suggestedName(file, locale);
-  localFile
-    .save(name, file)
+  files
+    .download(name, file)
     .then(() => {
       status.value = messages.downloaded(name);
     })
@@ -191,8 +194,8 @@ function downloadPdf(): void {
 }
 
 function openFile(): void {
-  localFile
-    .load('')
+  files
+    .open()
     .then((file) => {
       if (file.kind === 'template') {
         template.value = file;
@@ -256,6 +259,7 @@ onMounted(async () => {
     <SlipDesigner
       :src="designerSrc"
       v-bind="localeProp"
+      :slipkit="slipKit"
       :settings="designerSettings"
       :storage="store"
       @slip-change="onDesignerChange"
@@ -266,12 +270,13 @@ onMounted(async () => {
       v-if="formSrc !== ''"
       :src="formSrc"
       v-bind="localeProp"
+      :slipkit="slipKit"
       @slip-change="onFormChange"
       @slip-issue="onFormIssue"
     />
   </div>
   <div class="pane" :hidden="mode !== 'view'">
-    <SlipViewer v-if="viewerSrc !== ''" :src="viewerSrc" v-bind="localeProp" />
+    <SlipViewer v-if="viewerSrc !== ''" :src="viewerSrc" v-bind="localeProp" :slipkit="slipKit" />
   </div>
 
   <dialog ref="dialog" @close="onDialogClose">

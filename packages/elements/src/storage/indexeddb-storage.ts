@@ -5,17 +5,14 @@
 import {
   SlipStorageError,
   type SlipFile,
+  type SlipKit,
   type SlipListFilter,
   type SlipListItem,
   type SlipListPage,
   type StorageAdapter,
 } from '@omdc-slipkit/core';
 import { getStrings, type SlipStrings } from '../strings.js';
-import {
-  serializeForStorage,
-  deserializeFromStorage,
-  type StorageEncryption,
-} from './encryption.js';
+import { serializeForStorage, deserializeFromStorage } from './encryption.js';
 
 interface SlipRecord {
   id: string;
@@ -29,7 +26,7 @@ interface SlipRecord {
   data: Blob | string;
 }
 
-/** IndexedDbStorage 생성 옵션 */
+/** IndexedDbStorage 생성 옵션 — 이 저장소에만 속하는 설정만 받는다. */
 export interface IndexedDbStorageOptions {
   /**
    * 데이터베이스 이름.
@@ -44,16 +41,12 @@ export interface IndexedDbStorageOptions {
    */
   pageSize?: number;
   /**
-   * 오류 메시지 언어(`ko`, `en`, `ja`).
+   * 저장 시 `.slip` 내용을 암호화할지 여부. 키와 로케일은 SlipKit 인스턴스의 설정을 쓴다.
+   * 불러오기는 이 값과 무관하게 암호화 봉투를 자동 감지해 설정된 키로 푼다.
    *
-   * @defaultValue 영어
+   * @defaultValue false
    */
-  locale?: string;
-  /**
-   * 저장 시 `.slip` 내용을 암호화할지 설정. 생략하거나 `enabled: false`면
-   * 평문으로 저장한다. 불러오기는 설정과 무관하게 암호화 봉투를 자동 감지해 푼다.
-   */
-  encryption?: StorageEncryption;
+  encryptOnSave?: boolean;
 }
 
 const STORE_NAME = 'slips';
@@ -75,22 +68,23 @@ function request<T>(req: IDBRequest<T>, ioError: string): Promise<T> {
  * 저장, 불러오기, 삭제, 필터링된 목록 조회를 지원하는 IndexedDB 저장소 어댑터.
  */
 export class IndexedDbStorage implements StorageAdapter {
+  private readonly slipkit: SlipKit;
   private readonly dbName: string;
   private readonly pageSize: number;
   private readonly messages: SlipStrings['storage'];
-  private readonly encryption: StorageEncryption | undefined;
-  private readonly locale: string | undefined;
+  private readonly encryptOnSave: boolean;
   private dbPromise: Promise<IDBDatabase> | null = null;
 
   /**
-   * @param options - 데이터베이스 이름·페이지 크기·오류 메시지 언어·암호화 설정
+   * @param slipkit - 로케일과 암호화 키를 공급하는 공통 설정 인스턴스
+   * @param options - 데이터베이스 이름·페이지 크기·저장 시 암호화 여부
    */
-  constructor(options: IndexedDbStorageOptions = {}) {
+  constructor(slipkit: SlipKit, options: IndexedDbStorageOptions = {}) {
+    this.slipkit = slipkit;
     this.dbName = options.dbName ?? 'slipkit';
     this.pageSize = options.pageSize ?? 50;
-    this.messages = getStrings(options.locale).storage;
-    this.encryption = options.encryption;
-    this.locale = options.locale;
+    this.messages = getStrings(slipkit.locale).storage;
+    this.encryptOnSave = options.encryptOnSave ?? false;
   }
 
   private open(): Promise<IDBDatabase> {
@@ -136,6 +130,7 @@ export class IndexedDbStorage implements StorageAdapter {
    * @param id - 저장 키
    * @param file - 저장할 `.slip` 파일
    * @throws SlipStorageError 데이터베이스 쓰기 실패(io) 시
+   * @throws SlipEncryptionError 암호화 저장인데 SlipKit 설정에 키가 없을 때
    */
   async save(id: string, file: SlipFile): Promise<void> {
     // 목록 조회에 필요한 메타데이터는 평문으로 두고 파일 본문만 암호화한다.
@@ -144,7 +139,7 @@ export class IndexedDbStorage implements StorageAdapter {
       kind: file.kind,
       title: fileTitle(file),
       updatedAt: new Date().toISOString(),
-      data: new Blob([await serializeForStorage(file, this.encryption, this.locale)]),
+      data: new Blob([await serializeForStorage(this.slipkit, file, this.encryptOnSave)]),
     };
     await request((await this.store('readwrite')).put(record), this.messages.ioError);
   }
@@ -166,7 +161,7 @@ export class IndexedDbStorage implements StorageAdapter {
     }
     // 마이그레이션되지 않은 버전 1 문자열도 읽을 수 있다.
     const data = typeof record.data === 'string' ? record.data : await record.data.text();
-    return deserializeFromStorage(data, this.encryption, this.locale);
+    return deserializeFromStorage(this.slipkit, data);
   }
 
   /**

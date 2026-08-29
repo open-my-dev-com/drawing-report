@@ -21,8 +21,8 @@ vi.mock('../src/default-fonts.js', () => ({
     ]),
 }));
 
-import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
-import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
+import { parseSlipFile, renderSlipToPdf, evaluateFormula } from '@omdc-slipkit/core';
+import type { SlipFile, SlipKit, SlipTemplateFile } from '@omdc-slipkit/core';
 import { getStrings } from '../src/strings.js';
 
 // 기본 영어 문구를 기준으로 화면을 확인한다.
@@ -3321,6 +3321,31 @@ describe('<slip-designer> 미리보기 오류 표시', () => {
     expect(status?.textContent?.trim()).toBe(strings.designer.previewError);
     // 편집 버튼으로 복귀 가능해야 한다
     expect(toolbarButton(el, strings.designer.edit)).toBeTruthy();
+    el.remove();
+  });
+});
+
+describe('<slip-designer> slipkit 공통 설정', () => {
+  it('폰트가 설정된 slipkit이 있으면 미리보기가 같은 인스턴스의 render를 쓴다', async () => {
+    const el = await loadDesigner();
+    const render = vi.fn().mockResolvedValue(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+    el.slipkit = {
+      locale: undefined,
+      getFonts: () => [{ name: 'HostFont', data: new Uint8Array([1]) }],
+      render,
+      evaluate: (source: string, context: Parameters<typeof evaluateFormula>[1]) =>
+        evaluateFormula(source, context),
+    } as unknown as SlipKit;
+    await el.updateComplete;
+
+    toolbarButton(el, strings.designer.preview).click();
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    // 미리보기가 호스트의 직접 렌더링과 같은 인스턴스를 사용한다.
+    expect(render).toHaveBeenCalledTimes(1);
+    expect(renderSlipToPdfMock).not.toHaveBeenCalled();
     el.remove();
   });
 });

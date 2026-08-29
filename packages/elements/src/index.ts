@@ -5,10 +5,8 @@ export { getPresets, type SlipPreset } from './presets.js';
 export { loadDefaultFonts } from './default-fonts.js';
 export {
   type SlipFont,
-  type SlipFontProvider,
   type SlipDesignerSettings,
   type PaperSize,
 } from './settings.js';
 export { IndexedDbStorage, type IndexedDbStorageOptions } from './storage/indexeddb-storage.js';
-export { LocalFileStorage } from './storage/local-file-storage.js';
-export { SAMPLE_ENCRYPTION_KEY, type StorageEncryption } from './storage/encryption.js';
+export { SlipFileExchange, type SlipFileExchangeOptions } from './storage/file-exchange.js';

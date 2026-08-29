@@ -1,6 +1,6 @@
 # 아키텍처
 
-최종 갱신: 2026-08-27
+최종 갱신: 2026-08-29
 
 이 문서는 SlipKit의 전체 구조와 패키지 간 책임, 데이터 흐름, 실행 환경, 외부 시스템과의 경계를 설명합니다.
 
@@ -125,7 +125,7 @@ flowchart TB
 - 선택적인 AES-GCM 암호화와 복호화
 - 저장소 어댑터 인터페이스 제공
 
-애플리케이션 단위 설정이 필요할 때는 `createSlipKit()`으로 인스턴스를 생성할 수 있습니다. 글꼴 공급자, 로케일, 암호화 키와 이전 키 등을 인스턴스 설정으로 전달합니다.
+애플리케이션 단위 설정이 필요할 때는 `createSlipKit()`으로 인스턴스를 생성할 수 있습니다. 글꼴 공급자, 로케일, 암호화 키와 이전 키 등을 인스턴스 설정으로 전달합니다. 컴포넌트와 저장 수단은 이 인스턴스를 받아 같은 설정을 재사용합니다 (ADR-064).
 
 ### 3.2 `elements`
 
@@ -137,7 +137,7 @@ flowchart TB
 | `<slip-form>` | 양식 또는 기존 전표를 바탕으로 전표를 작성합니다. |
 | `<slip-viewer>` | 양식이나 전표를 읽기 전용으로 표시합니다. |
 
-이 패키지는 브라우저에서 사용할 수 있는 `IndexedDbStorage`와 `LocalFileStorage`도 제공합니다.
+이 패키지는 브라우저에서 사용할 수 있는 `IndexedDbStorage`와 파일 교환 기능 `SlipFileExchange`도 제공합니다.
 
 ### 3.3 React와 Vue 래퍼
 
@@ -446,10 +446,7 @@ flowchart LR
     HostAPI --> Database
 ```
 
-`@omdc-slipkit/elements`는 브라우저용 구현으로 다음 저장소를 제공합니다.
-
-- `IndexedDbStorage`
-- `LocalFileStorage`
+`@omdc-slipkit/elements`는 브라우저용 구현으로 `IndexedDbStorage` 저장소와, 저장소가 아닌 파일 교환 기능 `SlipFileExchange`(내려받기·열기)를 제공합니다.
 
 서버, S3 호환 스토리지, 사내 문서 시스템 또는 데이터베이스에 저장하려면 호스트가 `StorageAdapter`를 구현합니다.
 
@@ -615,3 +612,4 @@ SlipKit은 다음 기능을 제공하는 것을 목표로 하지 않습니다.
 - ADR-054: 선택적 AES-GCM 암호화
 - ADR-055: 저장소 암호화 설정
 - ADR-056: `createSlipKit()` 인스턴스 API
+- ADR-064: 공통 설정의 UI·저장 수단 재사용

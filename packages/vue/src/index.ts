@@ -2,10 +2,9 @@ import '@omdc-slipkit/elements';
 import { defineComponent, h, type PropType } from 'vue';
 import type {
   SlipDesigner as SlipDesignerElement,
-  SlipFontProvider,
   SlipDesignerSettings,
 } from '@omdc-slipkit/elements';
-import type { SlipFile, StorageAdapter } from '@omdc-slipkit/core';
+import type { SlipFile, SlipKit, StorageAdapter } from '@omdc-slipkit/core';
 
 type SlipPresets = SlipDesignerElement['presets'];
 
@@ -19,19 +18,19 @@ export const SlipViewer = defineComponent({
     /** `.slip` JSON 문자열. */
     src: { type: String, required: true },
     /**
-     * UI 언어 (`ko`, `en`, `ja`).
+     * UI 언어 (`ko`, `en`, `ja`). 생략하면 `slipkit`에 설정된 로케일을 따른다.
      *
      * @defaultValue 영어
      */
     locale: { type: String, default: undefined },
-    /** 렌더링 설정과 폰트 공급자. */
-    settings: { type: Object as PropType<SlipFontProvider>, default: undefined },
+    /** 폰트·로케일 공통 설정 인스턴스. 생략하면 동봉 기본 폰트를 사용한다. */
+    slipkit: { type: Object as PropType<SlipKit>, default: undefined },
   },
   setup(props) {
     return () => h('slip-viewer', {
       src: props.src,
       locale: props.locale,
-      '.settings': props.settings,
+      '.slipkit': props.slipkit,
     });
   },
 });
@@ -45,12 +44,14 @@ export const SlipDesigner = defineComponent({
     /** 양식 파일을 담은 `.slip` JSON 문자열. */
     src: { type: String, required: true },
     /**
-     * UI 언어 (`ko`, `en`, `ja`).
+     * UI 언어 (`ko`, `en`, `ja`). 생략하면 `slipkit`에 설정된 로케일을 따른다.
      *
      * @defaultValue 영어
      */
     locale: { type: String, default: undefined },
-    /** 폰트와 용지 목록을 제공하는 호스트 설정. */
+    /** 폰트·로케일·암호화 키 공통 설정 인스턴스. 생략하면 동봉 기본 폰트를 사용한다. */
+    slipkit: { type: Object as PropType<SlipKit>, default: undefined },
+    /** 바코드 종류와 용지 목록을 제공하는 호스트 설정. */
     settings: { type: Object as PropType<SlipDesignerSettings>, default: undefined },
     /** 툴바에 표시할 양식 프리셋. 지정하면 동봉 프리셋을 대체한다. */
     presets: { type: Array as PropType<SlipPresets>, default: undefined },
@@ -65,6 +66,7 @@ export const SlipDesigner = defineComponent({
       h('slip-designer', {
         src: props.src,
         locale: props.locale,
+        '.slipkit': props.slipkit,
         '.settings': props.settings,
         '.presets': props.presets,
         '.storage': props.storage,
@@ -84,13 +86,13 @@ export const SlipForm = defineComponent({
     /** 양식 또는 작성 중인 전표를 담은 `.slip` JSON 문자열. */
     src: { type: String, required: true },
     /**
-     * UI 언어 (`ko`, `en`, `ja`).
+     * UI 언어 (`ko`, `en`, `ja`). 생략하면 `slipkit`에 설정된 로케일을 따른다.
      *
      * @defaultValue 영어
      */
     locale: { type: String, default: undefined },
-    /** 렌더링 설정과 폰트 공급자. */
-    settings: { type: Object as PropType<SlipFontProvider>, default: undefined },
+    /** 폰트·로케일 공통 설정 인스턴스. 생략하면 동봉 기본 폰트를 사용한다. */
+    slipkit: { type: Object as PropType<SlipKit>, default: undefined },
     /** 업로드할 수 있는 이미지 파일의 최대 크기(바이트). 기본값은 2MB이다. */
     maxImageBytes: { type: Number, default: undefined },
   },
@@ -100,7 +102,7 @@ export const SlipForm = defineComponent({
       h('slip-form', {
         src: props.src,
         locale: props.locale,
-        '.settings': props.settings,
+        '.slipkit': props.slipkit,
         '.maxImageBytes': props.maxImageBytes,
         'onSlip-change': (event: CustomEvent<{ file: SlipFile }>) =>
           emit('slip-change', event.detail.file),

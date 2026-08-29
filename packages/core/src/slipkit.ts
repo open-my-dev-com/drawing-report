@@ -39,6 +39,10 @@ export interface SlipKitConfig {
 
 /** {@link createSlipKit}가 반환하는 core API */
 export interface SlipKit {
+  /** 설정된 로케일. UI 컴포넌트와 저장소가 같은 언어 설정을 재사용할 때 읽는다. */
+  readonly locale: string | undefined;
+  /** 설정된 폰트 공급 함수. 폰트를 설정하지 않았으면 undefined다. */
+  readonly getFonts: (() => readonly SlipFont[] | Promise<readonly SlipFont[]>) | undefined;
   /**
    * `.slip` 파일을 설정된 폰트와 로케일로 렌더링한다.
    *
@@ -122,6 +126,8 @@ export function createSlipKit(config: SlipKitConfig = {}): SlipKit {
   }
 
   return {
+    locale: config.locale,
+    getFonts: config.getFonts,
     render: (file) => renderer.renderToPdf(file),
     buildVoucher: (template, values) => buildVoucher(template, values),
     evaluate: (source, context) =>

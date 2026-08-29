@@ -11,6 +11,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 // happy-dom의 Blob은 fake-indexeddb에서 구조화 복제되지 않으므로 Node Blob을 사용한다.
 globalThis.Blob = NodeBlob as unknown as typeof globalThis.Blob;
 import {
+  createSlipKit,
   parseSlipFile,
   renderSlipToPdf,
   serializeSlipFile,
@@ -156,7 +157,7 @@ describe('결합 시나리오: 디자이너 → .slip → 전표 → PDF → 저
 
 
   it('5) 저장소 어댑터로 양식·전표를 저장·조회한다 (ADR-021)', async () => {
-    const storage = new IndexedDbStorage({ dbName: 'integration-test' });
+    const storage = new IndexedDbStorage(createSlipKit(), { dbName: 'integration-test' });
     await storage.save('template-1', designed);
     await storage.save('voucher-1', issuedVoucher);
 

@@ -1,13 +1,8 @@
 import { LitElement, html, nothing } from 'lit';
 import { viewerStyles } from './styles/slip-viewer.styles.js';
-import {
-  parseSlipFile,
-  renderSlipToPdf,
-  type RenderOptions,
-  type SlipFile,
-} from '@omdc-slipkit/core';
+import { parseSlipFile, type SlipFile, type SlipKit } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
-import { resolveFonts, type SlipFontProvider } from './settings.js';
+import { renderSlip } from './settings.js';
 
 /**
  * `.slip` 양식 또는 전표를 PDF로 렌더링해 표시하는 웹 컴포넌트.
@@ -18,7 +13,7 @@ export class SlipViewer extends LitElement {
   static properties = {
     src: { type: String },
     locale: { type: String },
-    settings: { attribute: false },
+    slipkit: { attribute: false },
     _pdfUrl: { state: true },
     _error: { state: true },
     _loading: { state: true },
@@ -28,23 +23,31 @@ export class SlipViewer extends LitElement {
   src = '';
 
   /**
-   * UI 언어 (`ko`, `en`, `ja`).
+   * UI 언어 (`ko`, `en`, `ja`). 생략하면 `slipkit`에 설정된 로케일을 따른다.
    *
    * @defaultValue 영어
    */
   locale?: string;
 
-  /** 렌더링 설정. 폰트 공급자가 없으면 동봉 기본 폰트를 사용한다. */
-  settings?: SlipFontProvider;
+  /**
+   * 폰트·로케일 공통 설정 인스턴스. 지정하면 PDF 렌더링에 이 인스턴스를 그대로 사용한다.
+   * 없으면 동봉 기본 폰트로 렌더링한다.
+   */
+  slipkit?: SlipKit;
 
   private _pdfUrl: string | null = null;
   private _error: string | null = null;
   private _loading = false;
   private _renderGeneration = 0;
 
+  /** 컴포넌트 속성이 우선하고, 없으면 slipkit 설정을 따르는 유효 로케일 */
+  private get _locale(): string | undefined {
+    return this.locale ?? this.slipkit?.locale;
+  }
+
   /** 현재 locale의 뷰어 문구 */
   private get _t() {
-    return getStrings(this.locale).viewer;
+    return getStrings(this._locale).viewer;
   }
 
   override disconnectedCallback(): void {
@@ -53,7 +56,7 @@ export class SlipViewer extends LitElement {
   }
 
   override updated(changed: Map<string, unknown>): void {
-    if (changed.has('src') || changed.has('settings')) {
+    if (changed.has('src') || changed.has('slipkit')) {
       void this._renderPdf();
     }
   }
@@ -79,9 +82,10 @@ export class SlipViewer extends LitElement {
     this._loading = true;
     const gen = ++this._renderGeneration;
 
+    const locale = this._locale;
     let file: SlipFile;
     try {
-      file = parseSlipFile(this.src, this.locale === undefined ? undefined : { locale: this.locale });
+      file = parseSlipFile(this.src, locale === undefined ? undefined : { locale });
     } catch (error) {
       console.error('[slip-viewer] .slip parse failed:', error);
       this._loading = false;
@@ -90,12 +94,7 @@ export class SlipViewer extends LitElement {
     }
 
     try {
-      // 호스트가 폰트를 제공하지 않으면 UI 언어에 맞는 동봉 폰트를 사용한다.
-      const opts: RenderOptions = {
-        getFonts: () => resolveFonts(this.settings, this.locale),
-        ...(this.locale === undefined ? {} : { locale: this.locale }),
-      };
-      const pdfBytes = await renderSlipToPdf(file, opts);
+      const pdfBytes = await renderSlip(this.slipkit, file, locale);
       if (gen !== this._renderGeneration) return;
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._pdfUrl = URL.createObjectURL(blob);

@@ -16,7 +16,7 @@ vi.mock('../src/default-fonts.js', () => ({
 }));
 
 import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
-import type { SlipFile } from '@omdc-slipkit/core';
+import type { SlipFile, SlipKit } from '@omdc-slipkit/core';
 import { getStrings } from '../src/strings.js';
 
 // 기본 영어 문구를 기준으로 화면을 확인한다.
@@ -139,34 +139,37 @@ describe('<slip-viewer> PDF 렌더링', () => {
     el.remove();
   });
 
-  it('settings.getFonts로 공급한 폰트를 renderSlipToPdf에 전달한다 (ADR-040)', async () => {
+  it('폰트가 설정된 slipkit을 주면 같은 인스턴스의 render로 미리보기를 만든다', async () => {
     const el = await createElement();
     const fonts = [{ name: 'TestFont', data: new Uint8Array([1, 2, 3]) }];
-    el.settings = { getFonts: () => fonts };
+    const render = vi.fn().mockResolvedValue(DUMMY_PDF);
+    el.slipkit = { locale: undefined, getFonts: () => fonts, render } as unknown as SlipKit;
     el.src = '{"valid": true}';
     await el.updateComplete;
     await flush();
     await el.updateComplete;
 
-    // 호스트 폰트는 `getFonts` 공급 함수를 통해 렌더러에 전달한다.
-    const call = renderSlipToPdfMock.mock.calls.at(-1)!;
-    expect(call[0]).toBe(DUMMY_FILE);
-    expect(await call[1]?.getFonts?.()).toEqual(fonts);
+    // 미리보기가 호스트의 직접 렌더링과 같은 인스턴스를 사용한다.
+    expect(render).toHaveBeenCalledWith(DUMMY_FILE);
+    expect(renderSlipToPdfMock).not.toHaveBeenCalled();
     el.remove();
   });
 
-  it('settings.getFonts가 비동기(Promise)여도 그 폰트로 렌더한다 (ADR-040 — 서버 fetch 대응)', async () => {
+  it('폰트 없는 slipkit이면 동봉 기본 폰트로 렌더하고 slipkit의 로케일을 쓴다', async () => {
     const el = await createElement();
-    const fonts = [{ name: 'AsyncFont', data: new Uint8Array([9]) }];
-    el.settings = { getFonts: () => Promise.resolve(fonts) };
+    const render = vi.fn();
+    el.slipkit = { locale: 'ja', getFonts: undefined, render } as unknown as SlipKit;
     el.src = '{"valid": true}';
     await el.updateComplete;
     await flush();
     await el.updateComplete;
 
+    expect(render).not.toHaveBeenCalled();
     const call = renderSlipToPdfMock.mock.calls.at(-1)!;
     expect(call[0]).toBe(DUMMY_FILE);
-    expect(await call[1]?.getFonts?.()).toEqual(fonts);
+    expect(call[1]?.locale).toBe('ja');
+    const fonts = await call[1]?.getFonts?.();
+    expect(fonts?.length).toBe(2);
     el.remove();
   });
 });
