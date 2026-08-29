@@ -17,7 +17,7 @@ SlipKit is not a standalone service. User authentication, permission management,
 - A read-only viewer for reviewing issued vouchers and templates
 - PDF generation usable in the browser and Node.js
 - Template and voucher storage via JSON-based `.slip` files
-- Formulas, tables, images, shapes, and barcodes
+- Formulas, conditional formats, tables, images, shapes, and barcodes
 - IndexedDB and local-file storage adapters
 - Optional AES-256-GCM file encryption
 - Korean, English, and Japanese UI

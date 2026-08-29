@@ -332,7 +332,33 @@ If you need to calculate a single row's amount from quantity and unit price, bui
 
 For supported functions and writing rules, see the [Formula Function Reference](formula.en.md).
 
-## 8. Entering sample data
+## 8. Setting conditional formats
+
+Text elements, fields, and grid cells can change their text color, background color, border color, or text emphasis based on values.
+
+1. Select the element or cell that will use the conditional format.
+2. In <kbd>Conditional format</kbd> on the right settings panel, select <kbd>Add rule</kbd>.
+3. Enter a condition that returns `TRUE` or `FALSE`, such as `amount < 0`.
+4. Choose at least one color or emphasis to apply when the condition is true.
+5. When there are multiple rules, use the up and down buttons to set their order. If matching rules change the same property, the lower rule wins.
+
+Each emphasis button cycles through three states.
+
+| State | Behavior |
+|---|---|
+| Keep base | Keep the element or cell's base emphasis |
+| Apply | Apply bold, italic, underline, or strikethrough when the condition is true |
+| Clear | Turn off the base emphasis when the condition is true |
+
+In a repeat range, a cell condition can directly reference fields of the current item. For example, `amount < 0` on an amount cell is evaluated with each row's `amount` value.
+
+> [!NOTE]
+> If a condition cannot be evaluated because a required value is missing or invalid, that rule does not apply. Enter sample data and check both normal and boundary values on the canvas and in the PDF preview.
+
+> [!IMPORTANT]
+> An automatically merged cell uses the conditional format evaluated from the first item in the merged group. Italic appears in the PDF only when the host provides an Italic variant of the selected font.
+
+## 9. Entering sample data
 
 Sample data are values for checking how parameters and formulas display without actually issuing a voucher.
 
@@ -346,6 +372,7 @@ With sample data you can check the following.
 - Whether number and date formats are correct
 - Whether the repeating list shows the expected number of rows
 - Whether formula results are correct
+- Whether conditional formats apply to the expected values
 - Whether images and barcodes render correctly
 - Whether results that split across multiple pages are correct
 
@@ -354,7 +381,7 @@ A parameter with no sample value may show its value name or a blank value in the
 > [!NOTE]
 > Sample data are values used for building the template and previewing. They are not automatically copied as actual input values when a voucher is created from the template.
 
-## 9. Checking the PDF preview
+## 10. Checking the PDF preview
 
 Pressing <kbd>Preview</kbd> in the toolbar shows the result of rendering the current template to PDF.
 
@@ -368,6 +395,7 @@ Check the following.
 - Whether the repeating list continues correctly onto the next page
 - Whether the page number appears at the specified position
 - Whether formulas and barcodes render correctly
+- Whether conditional-format colors and emphasis are applied as expected
 - Whether images appear at the expected size and ratio
 
 > [!IMPORTANT]
@@ -376,7 +404,7 @@ Check the following.
 
 If you find a problem in the preview, return to <kbd>Edit</kbd> and fix it.
 
-## 10. Saving the template
+## 11. Saving the template
 
 How you save a template depends on the host application's setup.
 
@@ -443,6 +471,15 @@ Check the formula editor's syntax errors and pre-computed result first.
 </details>
 
 <details>
+<summary><strong>A conditional format does not apply</strong></summary>
+
+Check that the condition returns `TRUE` or `FALSE` and that sample values exist for the referenced parameters or repeat-item fields. In a repeat cell, use the current item's field name rather than the list parameter name.
+
+When there are multiple rules, also check whether a lower rule overwrites the same color or emphasis.
+
+</details>
+
+<details>
 <summary><strong>Actual values don't appear in the preview</strong></summary>
 
 While building a template there are no actual voucher values, so you must enter sample data.
@@ -468,6 +505,7 @@ In the bundled demo, the application implements IndexedDB auto-save separately.
 - [ ] I distinguished fixed and variable values with the correct elements.
 - [ ] I connected the repeat range and sub-fields of the repeating table.
 - [ ] I checked the calculation result in the formula editor.
+- [ ] I checked conditional formats with sample values and the PDF preview.
 - [ ] I validated the template with sample data.
 - [ ] I checked the output result in the PDF preview.
 - [ ] I confirmed the template is saved to the host application.

@@ -337,6 +337,23 @@ interface FormulaContext {
 | `now` | The call time | The reference time for date functions such as `TODAY` |
 | `locale` | `'en-US'` | The locale for number and date formatting and the error message language |
 
+#### `resolveConditionalFormats`
+
+```ts
+function resolveConditionalFormats(
+  rules: readonly ConditionalFormatRule[] | undefined,
+  scope: Record<string, unknown>,
+  options?: {
+    locale?: string;
+    subject?: string;
+  },
+): ConditionalFormatOverrides;
+```
+
+Evaluates conditional-format rules in declaration order and combines the styles from rules whose conditions are true. If multiple rules set the same property, the later rule wins.
+
+Invalid syntax or a non-boolean result throws a `SlipRenderError`. If a condition cannot be evaluated because of a missing value, type mismatch, or similar computation error, that rule is skipped.
+
 #### `FormulaValue`
 
 ```ts
@@ -742,12 +759,50 @@ The following fields are used on elements that support the corresponding style.
 | `borderWidth` | `number` |
 | `borderStyle` | `'solid' \| 'dashed' \| 'dotted'` |
 
+### `ConditionalFormatRule`
+
+```ts
+interface ConditionalFormatRule {
+  condition: string;
+  fontColor?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+}
+```
+
+`condition` is a formula that returns a boolean. Each rule must set at least one color or text-emphasis property. An element or cell can have up to 20 rules.
+
+For text-emphasis properties, `true` enables the emphasis and `false` disables the base style's emphasis. Omitting a property preserves the base style or the result from an earlier rule.
+
+`conditionalFormats?: ConditionalFormatRule[]` is available only on `TextElement`, `FieldElement`, and `GridCell`.
+
+### `ConditionalFormatOverrides`
+
+```ts
+interface ConditionalFormatOverrides {
+  fontColor?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+}
+```
+
+The style returned by `resolveConditionalFormats`. Every property is absent when no rule has a true condition.
+
 ### `TextElement`
 
 ```ts
 interface TextElement {
   type: 'text';
   content: string;
+  conditionalFormats?: ConditionalFormatRule[];
 
   // common position & size,
   // text/color/border style
@@ -764,6 +819,7 @@ interface FieldElement {
 
   parameter?: string;
   formula?: string;
+  conditionalFormats?: ConditionalFormatRule[];
 
   // common position & size,
   // text/color/border style
@@ -805,6 +861,7 @@ interface BarcodeElement {
   content?: string;
   parameter?: string;
   formula?: string;
+  conditionalFormats?: ConditionalFormatRule[];
 
   fontColor?: string;
   backgroundColor?: string;

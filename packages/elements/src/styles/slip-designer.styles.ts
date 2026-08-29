@@ -1294,6 +1294,22 @@ export const designerStyles = css`
       color: var(--sk-accent);
       border-color: var(--sk-accent);
     }
+    /* 조건부 서식 강조의 '해제' 상태 — 기본 서식의 강조를 끄는 규칙을 사선으로 표시한다 */
+    .toggle-group button[aria-pressed='mixed'] {
+      position: relative;
+      background: var(--sk-accent-soft);
+      color: var(--sk-text);
+      border-color: var(--sk-accent);
+    }
+    .toggle-group button[aria-pressed='mixed']::after {
+      content: '';
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      top: 50%;
+      border-top: 1.5px solid var(--sk-accent);
+      transform: rotate(-18deg);
+    }
     .anchor-grid {
       display: grid;
       grid-template-columns: repeat(3, 16px);

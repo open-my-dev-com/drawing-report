@@ -37,6 +37,8 @@ interface FormatMessages {
   polygonSidesMin(): string;
   polygonSidesMax(): string;
   fieldSourceExclusive(name: string): string;
+  conditionalFormatEffectRequired(): string;
+  conditionalFormatsMax(max: number): string;
   paddingTooLarge(): string;
   mimeTypeFormat(): string;
   elementsMax(max: number): string;
@@ -98,6 +100,9 @@ const EN: FormatMessages = {
   polygonSidesMin: () => 'The number of sides must be at least 3',
   polygonSidesMax: () => 'The number of sides can be at most 12',
   fieldSourceExclusive: (name) => `Field '${name}' must have exactly one of parameter or formula`,
+  conditionalFormatEffectRequired: () =>
+    'A conditional format rule must set at least one of fontColor, backgroundColor, borderColor, bold, italic, underline or strikethrough',
+  conditionalFormatsMax: (max) => `At most ${max} conditional format rules are allowed`,
   paddingTooLarge: () => 'The paddings must add up to less than the paper size',
   mimeTypeFormat: () => 'Not a valid mimeType',
   elementsMax: (max) => `A page can have at most ${max} elements`,
@@ -159,6 +164,9 @@ const KO: FormatMessages = {
   polygonSidesMin: () => '다각형의 변은 3개 이상이어야 합니다',
   polygonSidesMax: () => '다각형의 변은 최대 12개입니다',
   fieldSourceExclusive: (name) => `필드 '${name}'는 parameter·formula 중 하나만 가져야 합니다`,
+  conditionalFormatEffectRequired: () =>
+    '조건부 서식 규칙은 색(fontColor·backgroundColor·borderColor)이나 강조(bold·italic·underline·strikethrough)를 하나 이상 지정해야 합니다',
+  conditionalFormatsMax: (max) => `조건부 서식 규칙은 최대 ${max}개입니다`,
   paddingTooLarge: () => '여백의 합이 용지 크기보다 작아야 합니다',
   mimeTypeFormat: () => 'mimeType 값의 형식이 올바르지 않습니다',
   elementsMax: (max) => `페이지당 요소는 최대 ${max}개입니다`,
@@ -222,6 +230,9 @@ const JA: FormatMessages = {
   polygonSidesMin: () => '辺の数は 3 以上でなければなりません',
   polygonSidesMax: () => '辺の数は最大 12 です',
   fieldSourceExclusive: (name) => `フィールド '${name}' は parameter・formula のいずれか 1 つだけ持てます`,
+  conditionalFormatEffectRequired: () =>
+    '条件付き書式のルールは色(fontColor・backgroundColor・borderColor)または強調(bold・italic・underline・strikethrough)を 1 つ以上指定しなければなりません',
+  conditionalFormatsMax: (max) => `条件付き書式のルールは最大 ${max} 個です`,
   paddingTooLarge: () => '余白の合計は用紙サイズより小さくなければなりません',
   mimeTypeFormat: () => 'mimeType の形式ではありません',
   elementsMax: (max) => `1 ページの要素は最大 ${max} 個です`,

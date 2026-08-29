@@ -6,6 +6,7 @@ import {
   CURRENT_SCHEMA_VERSION,
   createPdfRenderer,
   renderSlipToPdf,
+  resolveConditionalFormats,
   type GridElement,
   type SlipElement,
   type SlipTemplateBody,
@@ -432,6 +433,199 @@ describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
     expect(() => convertSlipFile(voucher)).toThrow(/array of objects/);
     voucher.values.items = [1, 2];
     expect(() => convertSlipFile(voucher)).toThrow(/must be an object/);
+  });
+});
+
+describe('조건부 서식 (ADR-062)', () => {
+  it('참인 규칙을 선언 순서대로 합성하고 같은 속성은 뒤 규칙 값을 쓴다', () => {
+    const overrides = resolveConditionalFormats(
+      [
+        { condition: 'amount < 0', fontColor: '#FF0000', backgroundColor: '#FFEEEE' },
+        { condition: 'amount < -100', fontColor: '#AA0000' },
+        { condition: 'amount > 0', borderColor: '#00FF00' },
+      ],
+      { amount: -200 },
+    );
+    expect(overrides).toEqual({ fontColor: '#AA0000', backgroundColor: '#FFEEEE' });
+  });
+
+  it('결과가 논리값이 아니거나 문법이 깨진 조건식은 오류가 발생한다', () => {
+    const rule = { condition: 'amount + 1', fontColor: '#FF0000' };
+    expect(() => resolveConditionalFormats([rule], { amount: 1 })).toThrow(SlipRenderError);
+    expect(() => resolveConditionalFormats([rule], { amount: 1 })).toThrow(/TRUE or FALSE/);
+    expect(() =>
+      resolveConditionalFormats([{ condition: 'amount <', fontColor: '#FF0000' }], { amount: 1 }),
+    ).toThrow(SlipRenderError);
+  });
+
+  it('값이 없어 계산할 수 없는 조건은 그 규칙만 건너뛴다', () => {
+    const overrides = resolveConditionalFormats(
+      [
+        { condition: 'amount < 0', fontColor: '#FF0000' },
+        { condition: 'TRUE', borderColor: '#00FF00' },
+      ],
+      {}, // amount가 없어 첫 규칙은 계산할 수 없다
+    );
+    expect(overrides).toEqual({ borderColor: '#00FF00' });
+  });
+
+  it('값이 비어 있는 양식은 조건부 서식이 있어도 기본 서식으로 렌더링된다', () => {
+    const file = makeTemplateFile();
+    patchElement(file.template, 'total', {
+      formula: undefined,
+      parameter: 'total',
+      conditionalFormats: [{ condition: 'total < 0', fontColor: '#FF0000' }],
+    } as never);
+    const schema = findSchema(pageSchemas(file), 'total');
+    expect(schema.fontColor).toBe('#000000');
+  });
+
+  it('반복 항목에 없는 필드를 참조하는 조건은 그 행에서만 적용되지 않는다', () => {
+    const voucher = makeVoucher(2);
+    voucher.values.items = [
+      { 품명: 'a', 수량: 1, 금액: -500 },
+      { 품명: 'b', 수량: 1 }, // 금액이 아직 입력되지 않은 행
+    ];
+    const grid = voucher.templateSnapshot.pages[0]!.elements.find((el) => el.id === 'items')!;
+    if (grid.type !== 'grid') throw new Error('grid여야 한다');
+    grid.cells.find((cell) => cell.row === 1 && cell.column === 2)!.conditionalFormats = [
+      { condition: '금액 < 0', fontColor: '#FF0000' },
+    ];
+    const { template, inputs } = convertSlipFile(voucher);
+    const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
+    const colorOf = (text: string) =>
+      schemas.find((s) => s.type === 'text' && inputs[0]?.[s.name] === text)?.fontColor;
+    expect(colorOf('-500')).toBe('#FF0000');
+    expect(colorOf('b')).toBe('#000000');
+  });
+
+  it('강조(굵게·밑줄)를 조건으로 덮어쓴다 (ADR-063)', () => {
+    // 합성 규칙: 같은 속성은 뒤 규칙이 이기고, 다른 속성은 합쳐진다.
+    expect(
+      resolveConditionalFormats(
+        [
+          { condition: 'TRUE', bold: true },
+          { condition: 'TRUE', bold: false, underline: true },
+        ],
+        {},
+      ),
+    ).toEqual({ bold: false, underline: true });
+
+    const voucher = makeVoucher();
+    voucher.values.total = -1;
+    patchElement(voucher.templateSnapshot, 'total', {
+      formula: undefined,
+      parameter: 'total',
+      conditionalFormats: [{ condition: 'total < 0', bold: true, underline: true }],
+    } as never);
+    const { template } = convertSlipFile(voucher, {
+      fontNames: ['Pretendard', 'Pretendard-Bold'],
+      fallbackFontName: 'Pretendard',
+    });
+    const schema = findSchema((template.schemas[0] ?? []) as unknown as PdfmeSchema[], 'total');
+    expect(schema.fontName).toBe('Pretendard-Bold');
+    expect(schema.underline).toBe(true);
+  });
+
+  it('bold: false 규칙은 기본 서식의 굵게를 끈다 (ADR-063)', () => {
+    const voucher = makeVoucher();
+    voucher.values.total = -1;
+    patchElement(voucher.templateSnapshot, 'total', {
+      formula: undefined,
+      parameter: 'total',
+      fontName: 'Pretendard',
+      bold: true,
+      conditionalFormats: [{ condition: 'total < 0', bold: false }],
+    } as never);
+    const { template } = convertSlipFile(voucher, {
+      fontNames: ['Pretendard', 'Pretendard-Bold'],
+      fallbackFontName: 'Pretendard',
+    });
+    const schema = findSchema((template.schemas[0] ?? []) as unknown as PdfmeSchema[], 'total');
+    expect(schema.fontName).toBe('Pretendard');
+  });
+
+  it('자동 병합으로 합쳐진 셀은 첫 항목의 조건부 서식을 쓴다 (SPEC §15.7)', () => {
+    const voucher = makeVoucher(2);
+    voucher.values.items = [{ g: 'A', amount: 500 }, { g: 'A', amount: 2000 }];
+    voucher.templateSnapshot.pages[0]!.elements = [{
+      type: 'grid', id: 'items', name: '표', position: { x: 10, y: 10 },
+      width: 40, height: 16,
+      rows: [{ height: 8 }],
+      columns: [{ width: 40, autoMerge: true }],
+      repeat: { parameter: 'items', fromRow: 0, toRow: 0, perPage: 2, repeatHeader: false },
+      cells: [{
+        row: 0, column: 0, parameter: 'g',
+        conditionalFormats: [{ condition: 'amount >= 1000', fontColor: '#FF0000' }],
+      }],
+    }] as never;
+    const { template, inputs } = convertSlipFile(voucher);
+    const schemas = template.schemas.flat() as unknown as PdfmeSchema[];
+    const merged = schemas.filter((s) => s.type === 'text' && inputs[0]?.[s.name] === 'A');
+    // 값이 같아 하나로 병합되고, 색은 첫 항목(amount 500)의 평가 결과를 따른다.
+    expect(merged.length).toBe(1);
+    expect(merged[0]!.fontColor).toBe('#000000');
+  });
+
+  it('필드 요소의 색을 전표 값에 따라 바꾼다', () => {
+    function totalSchema(total: number): PdfmeSchema {
+      const voucher = makeVoucher();
+      voucher.values.total = total;
+      patchElement(voucher.templateSnapshot, 'total', {
+        formula: undefined,
+        parameter: 'total',
+        conditionalFormats: [{ condition: 'total < 0', fontColor: '#FF0000', backgroundColor: '#FFEEEE' }],
+      } as never);
+      return findSchema(pageSchemas(voucher), 'total');
+    }
+    const negative = totalSchema(-500);
+    expect(negative.fontColor).toBe('#FF0000');
+    expect(negative.backgroundColor).toBe('#FFEEEE');
+    // 조건이 거짓이면 기본 서식을 유지한다.
+    expect(totalSchema(500).fontColor).toBe('#000000');
+  });
+
+  it('반복 그리드 셀은 행별로 조건을 평가한다', () => {
+    const voucher = makeVoucher(2); // 금액: 1000, 2000
+    const grid = voucher.templateSnapshot.pages[0]!.elements.find((el) => el.id === 'items')!;
+    if (grid.type !== 'grid') throw new Error('grid여야 한다');
+    const amountCell = grid.cells.find((cell) => cell.row === 1 && cell.column === 2)!;
+    amountCell.conditionalFormats = [{ condition: '금액 >= 2000', fontColor: '#FF0000' }];
+
+    const { template, inputs } = convertSlipFile(voucher);
+    const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
+    const colorOf = (text: string) =>
+      schemas.find((s) => s.type === 'text' && inputs[0]?.[s.name] === text)?.fontColor;
+    expect(colorOf('1000')).toBe('#000000');
+    expect(colorOf('2000')).toBe('#FF0000');
+  });
+
+  it('규칙 수 상한과 많은 반복 데이터에서도 행별 평가가 올바르다', () => {
+    const voucher = makeVoucher(200); // 금액: 1000..200000
+    const grid = voucher.templateSnapshot.pages[0]!.elements.find((el) => el.id === 'items')!;
+    if (grid.type !== 'grid') throw new Error('grid여야 한다');
+    const amountCell = grid.cells.find((cell) => cell.row === 1 && cell.column === 2)!;
+    // 거짓 규칙 19개 뒤에 참이 될 수 있는 규칙 1개 — 상한(20개)까지 채워 평가한다.
+    amountCell.conditionalFormats = [
+      ...Array.from({ length: 19 }, (_, i) => ({
+        condition: `금액 < ${-(i + 1)}`,
+        fontColor: '#00FF00',
+      })),
+      { condition: '금액 >= 100000', fontColor: '#FF0000' },
+    ];
+    const { template } = convertSlipFile(voucher);
+    const schemas = template.schemas.flat() as unknown as PdfmeSchema[];
+    const reds = schemas.filter((s) => s.type === 'text' && s.fontColor === '#FF0000');
+    // 금액 >= 100000인 항목은 100번째부터 200번째까지 101개다.
+    expect(reds.length).toBe(101);
+  });
+
+  it('조건식 오류 메시지에 요소 이름이 들어간다', () => {
+    const voucher = makeVoucher();
+    patchElement(voucher.templateSnapshot, 'total', {
+      conditionalFormats: [{ condition: '"글" +', fontColor: '#FF0000' }],
+    } as never);
+    expect(() => convertSlipFile(voucher)).toThrow(/합계/);
   });
 });
 

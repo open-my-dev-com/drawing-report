@@ -587,6 +587,278 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
   });
 });
 
+describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
+  async function mountFile(
+    elements: unknown[],
+    sampleValues?: Record<string, unknown>,
+  ): Promise<import('../src/slip-designer.js').SlipDesigner> {
+    const file = makeTemplateFile();
+    file.template.pages[0]!.elements = elements as never;
+    if (sampleValues) file.template.sampleValues = sampleValues as never;
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    return el;
+  }
+
+  it('텍스트 요소의 색을 샘플 값으로 미리 적용한다', async () => {
+    const el = await mountFile(
+      [{
+        type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+        width: 60, height: 10, content: '취소됨',
+        conditionalFormats: [
+          { condition: 'status = "취소"', fontColor: '#FF0000', backgroundColor: '#FFEEEE' },
+        ],
+      }],
+      { status: '취소' },
+    );
+    const box = el.shadowRoot?.querySelector('[data-id="t1"]') as HTMLElement;
+    expect(box.style.color).toBe('#FF0000');
+    expect(box.style.backgroundColor).toBe('#FFEEEE');
+    el.remove();
+  });
+
+  it('반복 그리드 셀은 행별로 조건을 평가한다', async () => {
+    const el = await mountFile(
+      [{
+        type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
+        width: 40, height: 16,
+        rows: [{ height: 8 }],
+        columns: [{ width: 40 }],
+        repeat: { parameter: 'items', fromRow: 0, toRow: 0, perPage: 2, repeatHeader: false },
+        cells: [{
+          row: 0, column: 0, parameter: 'amount',
+          conditionalFormats: [{ condition: 'amount >= 2000', fontColor: '#FF0000' }],
+        }],
+      }],
+      { items: [{ amount: 1000 }, { amount: 2000 }] },
+    );
+    const boxes = Array.from(el.shadowRoot!.querySelectorAll('.grid-preview > div')) as HTMLElement[];
+    const low = boxes.find((c) => c.textContent === '1000')!;
+    const high = boxes.find((c) => c.textContent === '2000')!;
+    expect(low.style.color).toBe('');
+    expect(high.style.color).toBe('#FF0000');
+    el.remove();
+  });
+
+  it('계산되지 않는 조건식은 캔버스에서 건너뛴다', async () => {
+    const el = await mountFile(
+      [{
+        type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+        width: 60, height: 10, content: '제목',
+        conditionalFormats: [
+          { condition: 'status <', fontColor: '#00FF00' },
+          { condition: 'TRUE', fontColor: '#FF0000' },
+        ],
+      }],
+      {},
+    );
+    // 문법 오류 규칙은 무시하고 계산되는 규칙만 적용한다.
+    const box = el.shadowRoot?.querySelector('[data-id="t1"]') as HTMLElement;
+    expect(box.style.color).toBe('#FF0000');
+    el.remove();
+  });
+
+  async function selectElement(
+    el: import('../src/slip-designer.js').SlipDesigner,
+    id: string,
+  ): Promise<void> {
+    const target = el.shadowRoot?.querySelector(`[data-id="${id}"]`) as HTMLElement;
+    target.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 10, clientY: 10, pointerId: 1,
+    }));
+    target.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+  }
+
+  it('강조(굵게·밑줄)를 캔버스에 미리 적용한다 (ADR-063)', async () => {
+    const el = await mountFile(
+      [{
+        type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+        width: 60, height: 10, content: '제목',
+        conditionalFormats: [{ condition: 'TRUE', bold: true, underline: true }],
+      }],
+      {},
+    );
+    const content = el.shadowRoot?.querySelector('.el-content') as HTMLElement;
+    expect(content.style.fontWeight).toBe('700');
+    expect(content.style.textDecoration).toContain('underline');
+    el.remove();
+  });
+
+  it('강조는 적용→해제→유지 순서로 바뀌고, 마지막 강조는 지울 수 없다 (ADR-063)', async () => {
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [{ condition: 'TRUE', bold: true }],
+    }]);
+    await selectElement(el, 't1');
+
+    let changed: SlipTemplateFile | null = null;
+    el.addEventListener('slip-change', (e) => {
+      changed = (e as CustomEvent<{ file: SlipTemplateFile }>).detail.file;
+    });
+    const name = `${strings.designer.conditionalFormat} 1`;
+    const boldBtn = () => el.shadowRoot!.querySelector(
+      `button[aria-label^="${name}: ${strings.designer.bold}"]`,
+    ) as HTMLButtonElement;
+    const ruleOf = (file: SlipTemplateFile) =>
+      (file.template.pages[0]!.elements[0] as { conditionalFormats?: { bold?: boolean }[] })
+        .conditionalFormats![0]!;
+
+    // 적용(true) → 해제(false)
+    boldBtn().click();
+    await el.updateComplete;
+    expect(ruleOf(changed!).bold).toBe(false);
+
+    // 해제 → 기본 유지는 규칙의 마지막 강조를 없애므로 막힌다.
+    changed = null;
+    boldBtn().click();
+    await el.updateComplete;
+    expect(changed).toBeNull();
+    const error = el.shadowRoot!.querySelector('.input-error');
+    expect(error?.textContent).toBe(strings.designer.conditionEffectRequired);
+    el.remove();
+  });
+
+  it('기울임을 규칙에서 설정할 수 있다 (ADR-063)', async () => {
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [{ condition: 'TRUE', fontColor: '#FF0000' }],
+    }]);
+    await selectElement(el, 't1');
+
+    let changed: SlipTemplateFile | null = null;
+    el.addEventListener('slip-change', (e) => {
+      changed = (e as CustomEvent<{ file: SlipTemplateFile }>).detail.file;
+    });
+    const name = `${strings.designer.conditionalFormat} 1`;
+    (el.shadowRoot!.querySelector(
+      `button[aria-label^="${name}: ${strings.designer.italic}"]`,
+    ) as HTMLButtonElement).click();
+    await el.updateComplete;
+
+    const rule = (changed!.template.pages[0]!.elements[0] as { conditionalFormats?: { italic?: boolean }[] })
+      .conditionalFormats![0]!;
+    expect(rule.italic).toBe(true);
+    el.remove();
+  });
+
+  it('결과가 논리값이 아닌 조건식은 저장하지 않는다', async () => {
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [{ condition: 'TRUE', fontColor: '#FF0000' }],
+    }]);
+    await selectElement(el, 't1');
+
+    let changed = false;
+    el.addEventListener('slip-change', () => { changed = true; });
+
+    const name = `${strings.designer.conditionalFormat} 1`;
+    const input = el.shadowRoot!.querySelector(
+      `input[aria-label="${name}: ${strings.designer.condition}"]`,
+    ) as HTMLInputElement;
+    input.value = '1 + 1';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(changed).toBe(false);
+    const error = el.shadowRoot!.querySelector('.input-error');
+    expect(error?.textContent).toBe(strings.designer.conditionNotBoolean);
+    el.remove();
+  });
+
+  it('규칙의 마지막 색은 지울 수 없다 — 색이 없는 규칙은 파일 검증에 걸린다', async () => {
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [{ condition: 'TRUE', fontColor: '#FF0000' }],
+    }]);
+    await selectElement(el, 't1');
+
+    let changed = false;
+    el.addEventListener('slip-change', () => { changed = true; });
+
+    const name = `${strings.designer.conditionalFormat} 1`;
+    const colorBtn = el.shadowRoot!.querySelector(
+      `button[aria-label="${name}: ${strings.designer.fontColor}"]`,
+    ) as HTMLButtonElement;
+    colorBtn.click();
+    await el.updateComplete;
+    (el.shadowRoot!.querySelector('.color-pop .swatch.none') as HTMLButtonElement).click();
+    await el.updateComplete;
+
+    // 색은 지워지지 않고 안내가 표시된다.
+    expect(changed).toBe(false);
+    const error = el.shadowRoot!.querySelector('.input-error');
+    expect(error?.textContent).toBe(strings.designer.conditionEffectRequired);
+    el.remove();
+  });
+
+  it('문법이 깨진 조건식은 저장하지 않고 입력 오류를 표시한다', async () => {
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [{ condition: 'TRUE', fontColor: '#FF0000' }],
+    }]);
+    await selectElement(el, 't1');
+
+    let changed = false;
+    el.addEventListener('slip-change', () => { changed = true; });
+
+    const name = `${strings.designer.conditionalFormat} 1`;
+    const input = el.shadowRoot!.querySelector(
+      `input[aria-label="${name}: ${strings.designer.condition}"]`,
+    ) as HTMLInputElement;
+    input.value = 'amount <';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(changed).toBe(false);
+    const error = el.shadowRoot!.querySelector('.input-error');
+    expect(error?.textContent).toBe(strings.designer.syntaxError);
+    el.remove();
+  });
+
+  it('속성 패널에서 규칙을 추가하면 파일에 저장된다', async () => {
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const elementDiv = el.shadowRoot?.querySelector('[data-id="txt-1"]') as HTMLElement;
+    elementDiv.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, composed: true, clientX: 10, clientY: 10, pointerId: 1,
+    }));
+    elementDiv.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+    await el.updateComplete;
+
+    let changed: SlipTemplateFile | null = null;
+    el.addEventListener('slip-change', (e) => {
+      changed = (e as CustomEvent<{ file: SlipTemplateFile }>).detail.file;
+    });
+
+    const addBtn = Array.from(el.shadowRoot!.querySelectorAll('button'))
+      .find((b) => b.textContent?.includes(strings.designer.addConditionRule)) as HTMLButtonElement;
+    expect(addBtn).toBeTruthy();
+    addBtn.click();
+    await el.updateComplete;
+
+    expect(changed).not.toBeNull();
+    const text = changed!.template.pages[0]!.elements.find((item) => item.id === 'txt-1')!;
+    expect((text as { conditionalFormats?: unknown[] }).conditionalFormats).toEqual([
+      { condition: 'TRUE', fontColor: '#FF0000' },
+    ]);
+    el.remove();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 툴바, 정렬 토글, 색 선택기
 // ---------------------------------------------------------------------------

@@ -7,6 +7,7 @@ export type {
   AssetEntry,
   BarcodeElement,
   BarcodeKind,
+  ConditionalFormatRule,
   ParameterDef,
   ParameterField,
   ParameterValueType,

@@ -229,10 +229,49 @@ describe('구조 크기 상한 (SPEC §3.2)', () => {
 });
 
 describe('현재 스키마(0.1.0) 필드 검증', () => {
-  it('현재 버전은 0.1.0이고 그 파일은 그대로 파싱된다 (첫 버전 = 기준선)', () => {
+  it('현재 버전은 0.1.0이고 그 파일은 그대로 파싱된다 (공개 전 변경은 0.1.0에 포함)', () => {
     expect(CURRENT_SCHEMA_VERSION).toBe('0.1.0');
     const parsed = parseSlipFile(serializeSlipFile(makeTemplate()));
     expect(parsed.schemaVersion).toBe('0.1.0');
+  });
+
+  it('텍스트·필드 요소와 그리드 셀은 조건부 서식 규칙을 담을 수 있다 (ADR-062)', () => {
+    const file = makeTemplate();
+    getElement(file, 0, 'text').conditionalFormats = [
+      { condition: 'total < 0', fontColor: '#FF0000' },
+    ];
+    getElement(file, 5, 'field').conditionalFormats = [
+      { condition: 'total < 0', fontColor: '#FF0000' },
+      { condition: 'total = 0', backgroundColor: '#EEEEEE', borderColor: '#333333' },
+    ];
+    getElement(file, 2, 'grid').cells[1]!.conditionalFormats = [
+      { condition: '금액 < 0', fontColor: '#FF0000' },
+    ];
+    const parsed = parseSlipFile(serializeSlipFile(file));
+    if (parsed.kind !== 'template') throw new Error('template이어야 한다');
+    const field = parsed.template.pages[0]!.elements.find((el) => el.id === 'total')!;
+    if (field.type !== 'field') throw new Error('field여야 한다');
+    expect(field.conditionalFormats).toHaveLength(2);
+    expect(field.conditionalFormats?.[1]?.backgroundColor).toBe('#EEEEEE');
+  });
+
+  it('색과 강조를 모두 지정하지 않은 조건부 서식 규칙은 거부한다 (ADR-062·063)', () => {
+    const file = makeTemplate();
+    getElement(file, 0, 'text').conditionalFormats = [{ condition: 'total < 0' }];
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/at least one of fontColor/);
+
+    // 강조만 지정한 규칙은 유효하다.
+    getElement(file, 0, 'text').conditionalFormats = [{ condition: 'total < 0', bold: true }];
+    expect(() => parseSlipFile(serializeSlipFile(file))).not.toThrow();
+  });
+
+  it('조건부 서식 규칙 수가 상한을 넘으면 거부한다', () => {
+    const file = makeTemplate();
+    getElement(file, 0, 'text').conditionalFormats = Array.from({ length: 21 }, () => ({
+      condition: 'total < 0',
+      fontColor: '#FF0000',
+    }));
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/At most 20 conditional format rules/);
   });
 
   it('이미지는 src와 parameter 중 하나만 가진다', () => {

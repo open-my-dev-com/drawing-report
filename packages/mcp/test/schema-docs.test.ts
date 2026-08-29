@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { slipElementSchema } from '@omdc-slipkit/core';
+import { CURRENT_SCHEMA_VERSION, SLIP_LIMITS, slipElementSchema } from '@omdc-slipkit/core';
 import { SCHEMA_TOPICS, schemaTopicText } from '../src/schema-docs.js';
 
 describe('slip_schema 안내문', () => {
@@ -18,6 +18,16 @@ describe('slip_schema 안내문', () => {
     for (const topic of SCHEMA_TOPICS) {
       expect(schemaTopicText(topic).length).toBeGreaterThan(100);
     }
+  });
+
+  it('조건부 서식 구조와 현재 스키마 버전을 안내한다 (ADR-062)', () => {
+    const elements = schemaTopicText('elements');
+    expect(elements).toContain('conditionalFormats');
+    expect(elements).toContain('must return a boolean');
+    expect(schemaTopicText('grid')).toContain('conditionalFormats');
+    // 안내문의 버전·상한 표기는 core의 값을 따른다.
+    expect(schemaTopicText('overview')).toContain(`"schemaVersion": "${CURRENT_SCHEMA_VERSION}"`);
+    expect(elements).toContain(`max ${SLIP_LIMITS.maxConditionalFormats}`);
   });
 
   it('MCP로 작성할 이미지는 외부 URL 대신 로컬 파일을 내장하도록 안내한다', () => {

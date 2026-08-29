@@ -3,7 +3,7 @@
  * AI에 제공하는 내용은 영어로 작성하고, 전체 필드 정의는 core가 생성한 JSON Schema로 제공한다.
  * 요소 종류처럼 스키마와 함께 바뀌어야 하는 내용은 테스트에서 대조한다.
  */
-import { FORMULA_FUNCTIONS, slipFileJsonSchema } from '@omdc-slipkit/core';
+import { CURRENT_SCHEMA_VERSION, FORMULA_FUNCTIONS, SLIP_LIMITS, slipFileJsonSchema } from '@omdc-slipkit/core';
 
 /** `slip_schema` 도구가 지원하는 주제 */
 export const SCHEMA_TOPICS = [
@@ -23,8 +23,8 @@ const OVERVIEW = `# .slip file structure (overview)
 
 A .slip file is a JSON document. Two kinds exist:
 
-- Template (blank form): { "schemaVersion": "0.1.0", "kind": "template", "template": BODY }
-- Voucher (filled document): { "schemaVersion": "0.1.0", "kind": "voucher", "templateSnapshot": BODY, "values": { key: value }, "issued": false }
+- Template (blank form): { "schemaVersion": "${CURRENT_SCHEMA_VERSION}", "kind": "template", "template": BODY }
+- Voucher (filled document): { "schemaVersion": "${CURRENT_SCHEMA_VERSION}", "kind": "voucher", "templateSnapshot": BODY, "values": { key: value }, "issued": false }
 
 BODY = {
   "meta": { "title": string },            // required, non-empty
@@ -55,6 +55,17 @@ Bundled fontName values (when the server has no custom fonts): "Pretendard", "Pr
 Text styling fields (text, field, grid, and grid cells): fontName?, fontSize?, alignment? (left|center|right),
 verticalAlignment? (top|middle|bottom), bold?, italic?, underline?, strikethrough?, lineHeight?,
 characterSpacing?, vertical?. Box styling: backgroundColor?, fontColor?, borderColor?, borderWidth?, borderStyle? (solid|dashed|dotted).
+
+Conditional formats (text, field, and grid cells): "conditionalFormats"?: [
+  { "condition": formula, "fontColor"?, "backgroundColor"?, "borderColor"?,
+    "bold"?, "italic"?, "underline"?, "strikethrough"? }, ... ]
+  (max ${SLIP_LIMITS.maxConditionalFormats}).
+The condition is a formula (see topic "formula") that must return a boolean, e.g. "amount < 0".
+Rules whose condition is true apply in declared order (later rules win per property); each rule
+needs at least one color or emphasis. Emphasis booleans: true applies it, false clears the base
+style's emphasis. bold/italic need a matching font variant to show in the PDF (SPEC 9.3). A condition that cannot be computed for the current data (missing value, type
+mismatch) simply does not apply — blank templates render with base styles. Replace the whole array
+via slip_edit set_element/set_cell fields, or pass {"conditionalFormats": null} to remove all rules.
 
 - text: fixed label. { "type": "text", "content": string, ...styling }
 - field: value filled per voucher. Exactly ONE of: "parameter" (a values key) or "formula".
@@ -89,7 +100,9 @@ Constraints the validator enforces:
 - Element width equals the sum of column widths. Without repeat, height equals the sum of row heights.
   With repeat, height = sum(all row heights) + (perPage - 1) * sum(fromRow..toRow heights).
 - Cell = { "row": r, "column": c (0-based), "rowSpan"?, "colSpan"?, plus at most ONE value source:
-  "content" (literal) / "parameter" / "formula", plus styling and "overflow"? }.
+  "content" (literal) / "parameter" / "formula", plus styling, "overflow"? and "conditionalFormats"?
+  (see topic "elements"; inside the repeat range conditions are evaluated per item and can
+  reference the item's field keys, e.g. "amount < 0") }.
 - Merged spans must not overlap other cells and must not cross the repeat range boundary.
 - repeat: rows fromRow..toRow (inclusive) duplicate once per item of the list parameter.
   Inside the repeat range, "parameter" on a cell names a FIELD of the list item, and a cell
@@ -126,14 +139,16 @@ Formulas run in a purpose-built parser (no JavaScript). Values are typed; conver
 - FORMAT_NUMBER(value, fractionDigits?) adds locale digit grouping; the second argument is an
   integer number of decimal places (0-20), NOT a pattern string like "#,##0".
   FORMAT_DATE(date, pattern? = "YYYY-MM-DD") takes a token pattern (YYYY YY MM M DD D HH mm ss).
-- Example: FORMAT_NUMBER(SUM(items.amount) * 1.1, 0)`;
+- Example: FORMAT_NUMBER(SUM(items.amount) * 1.1, 0)
+- The "condition" of a conditionalFormats rule uses this same language and must return a boolean,
+  e.g. amount < 0 or AND(amount > 0, status = "open").`;
 
 const VOUCHER = `# Voucher files
 
 A voucher freezes a template and fills it with data:
 
 {
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "${CURRENT_SCHEMA_VERSION}",
   "kind": "voucher",
   "templateSnapshot": BODY,       // copied from the template at build time
   "values": { key: value },       // data for the declared parameters

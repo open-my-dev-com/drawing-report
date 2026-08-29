@@ -278,7 +278,34 @@ codex mcp add slipkit -- \
 
 연산은 입력 순서대로 사본에 적용한 뒤 파일 전체를 검증합니다. 연산 하나라도 실패하거나 최종 파일이 유효하지 않으면 아무것도 저장하지 않습니다.
 
-`set_element`와 같은 `fields` 기반 연산은 전달한 필드만 덮어씁니다. 바꾸지 않을 필드는 입력에서 생략하세요. `null`은 삭제 표시가 아니라 실제 값으로 저장됩니다.
+`set_element`와 같은 `fields` 기반 연산은 전달한 필드만 덮어씁니다. 바꾸지 않을 필드는 입력에서 생략하고, 삭제할 필드는 `null`로 지정하세요. 단, `set_values`의 `null`은 삭제 표시가 아니라 실제 전표 값으로 저장됩니다.
+
+#### 조건부 서식 수정 예
+
+다음 연산은 `total` 필드의 값이 음수일 때 글자를 빨간색 굵은 글씨로 표시합니다.
+
+```json
+{
+  "path": "invoice",
+  "ops": [
+    {
+      "action": "set_element",
+      "id": "total",
+      "fields": {
+        "conditionalFormats": [
+          {
+            "condition": "total < 0",
+            "fontColor": "#FF0000",
+            "bold": true
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+그리드 셀은 `set_cell`을 사용합니다. `conditionalFormats`를 전달하면 기존 규칙 목록 전체를 교체하며, `null`로 지정하면 모든 규칙을 삭제합니다. 지원 필드와 조건식 문법은 각각 `slip_schema`의 `elements` 또는 `grid`, `formula` 주제에서 확인할 수 있습니다.
 
 ## 권장 작업 흐름
 

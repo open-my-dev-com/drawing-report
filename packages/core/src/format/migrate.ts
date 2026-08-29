@@ -21,7 +21,8 @@ export interface SlipMigrationStep {
  * 내장 마이그레이션 목록. 스키마가 개정될 때마다 단계를 추가한다.
  *
  * @remarks
- * 이전 버전이 없으므로 현재 목록은 비어 있다.
+ * 공개 전 개발 단계의 변경은 `0.1.0`에 포함하므로 (가상 마이그레이션 이력을 만들지 않는다)
+ * 현재 목록은 비어 있다.
  */
 export const BUILT_IN_MIGRATIONS: readonly SlipMigrationStep[] = [];
 

@@ -278,7 +278,34 @@ Base64 image data in read responses is replaced with a size marker. Images insid
 
 Operations are applied to a copy in the given order, followed by full-file validation. If any operation or validation fails, the server writes nothing.
 
-Operations that accept `fields`, such as `set_element`, merge only the fields that you pass. Omit fields that must remain unchanged. `null` is stored as a value; it is not a deletion marker.
+Operations that accept `fields`, such as `set_element`, merge only the fields that you pass. Omit fields that must remain unchanged, and set a field to `null` to remove it. In contrast, `null` passed through `set_values` is stored as an actual voucher value.
+
+#### Conditional-format edit example
+
+The following operation renders the `total` field in bold red text when its value is negative.
+
+```json
+{
+  "path": "invoice",
+  "ops": [
+    {
+      "action": "set_element",
+      "id": "total",
+      "fields": {
+        "conditionalFormats": [
+          {
+            "condition": "total < 0",
+            "fontColor": "#FF0000",
+            "bold": true
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+Use `set_cell` for a grid cell. Passing `conditionalFormats` replaces the complete rule list; set it to `null` to remove all rules. Use the `elements` or `grid` and `formula` topics of `slip_schema` to check the supported fields and condition syntax.
 
 ## Recommended workflows
 

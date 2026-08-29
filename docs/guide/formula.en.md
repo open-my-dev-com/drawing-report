@@ -2,9 +2,9 @@
 
 [한국어](formula.md) · [日本語](formula.ja.md)
 
-SlipKit formulas are used to compute values entered into a template or to convert them into a display format.
+SlipKit formulas compute values entered into a template, convert them into display formats, and determine whether conditional formats apply.
 
-You can use formulas in fields, grid cells, and barcodes, handling tasks such as the following.
+You can use formulas for the displayed values of fields, grid cells, and barcodes, and for conditional formats on text, fields, and grid cells. They handle tasks such as the following.
 
 - Summing amounts per line item
 - Computing an amount from quantity and unit price
@@ -27,8 +27,12 @@ This document explains the formula-writing rules and the 32 built-in functions S
 | Barcode | All values of the voucher | Composing an order number, generating a barcode value |
 | Grid cell outside the repeat region | All values of the voucher | Total at the bottom of the table |
 | Grid cell inside the repeat region | All values of the voucher and the current repeat item | Per-row amount computation |
+| Conditional format on text, a field, or a cell outside the repeat region | All values of the voucher | Highlighting a negative amount or a specific status |
+| Conditional format on a cell inside the repeat region | All values of the voucher and the current repeat item | Highlighting matching rows |
 
 Select a field, barcode, or grid cell and change the value type to <kbd>Formula</kbd> to enter a formula.
+
+Conditional-format conditions use the same syntax and functions, but must return a boolean. Select text, a field, or a grid cell and enter the condition under <kbd>Conditional format</kbd>.
 
 ![Formula editor](images/en/formula.png)
 
@@ -39,7 +43,7 @@ The formula editor provides the following features.
 - Checking syntax errors
 - Checking the computed result using sample values
 
-For detailed screen operations, see the [Form Designer Usage Guide](designer.en.md#7-writing-formulas).
+For display formulas, see [Writing formulas](designer.en.md#7-writing-formulas) in the Form Designer Usage Guide. For conditions, see [Setting conditional formats](designer.en.md#8-setting-conditional-formats).
 
 ## Quick start
 
@@ -951,9 +955,11 @@ Formula errors are broadly divided into two kinds.
 | Syntax error | Unclosed parenthesis, invalid character, unsupported function |
 | Computation error | Type mismatch, division by zero, invalid date |
 
-In the designer, the formula editor shows syntax errors and the computed result using sample values.
+In the designer, the formula editor shows syntax errors and the computed result using sample values. When a condition can be evaluated with the sample values, the designer also checks that its result is a boolean.
 
-If a formula computation fails when generating a PDF, a rendering error occurs that includes which field, grid cell, or barcode failed.
+If a display-value formula fails while generating a PDF, SlipKit reports a rendering error that identifies the field, grid cell, or barcode.
+
+An invalid conditional-format expression, or one that returns a non-boolean value, also causes a rendering error. If a condition cannot be evaluated because a required value is missing, a type does not match, or a similar computation error occurs, SlipKit skips that rule and continues rendering.
 
 ### Common problems
 
