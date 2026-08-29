@@ -34,6 +34,7 @@ import {
   initialTemplate,
   isCancelled,
   reasonOf,
+  resolveDemoEncryption,
   resolveDemoLocale,
   restore,
   saveBytes,
@@ -47,11 +48,13 @@ import {
 const locale = resolveDemoLocale(location.search, import.meta.env.VITE_SLIPKIT_LOCALE as string | undefined);
 const messages = getMessages(locale);
 
-// PDF 렌더링용 Core 설정. 동봉된 모든 폰트를 등록하고, 로케일에 따라
-// fontName을 생략한 요소의 대체(fallback) 폰트를 선택한다.
+// 공통 설정은 여기 한 번만 적는다 — 컴포넌트, 자동 저장, 파일 주고받기, PDF 렌더링이
+// 전부 이 인스턴스의 폰트·로케일·암호화 키를 사용한다.
+// 암호화 키는 .env(VITE_SLIPKIT_KEY)에서 한 번 읽고, 없으면 데모 샘플 키를 명시적으로 쓴다.
 const slipKit = createSlipKit({
   getFonts: () => loadDefaultFonts(locale?.toLowerCase().startsWith('ja') ? 'ja' : 'ko'),
   ...(locale === undefined ? {} : { locale }),
+  encryption: resolveDemoEncryption(import.meta.env.VITE_SLIPKIT_KEY as string | undefined),
 });
 
 // 호스트가 용지 후보를 공급하는 예시 — 기본 용지 뒤에 추가로 표시된다.
@@ -70,7 +73,7 @@ const viewButton = document.getElementById('mode-view') as HTMLButtonElement;
 const filenameDialog = document.getElementById('filename-dialog') as HTMLDialogElement;
 const filenameInput = document.getElementById('filename') as HTMLInputElement;
 
-const { store, localFile } = createStores('slipkit-demo', locale);
+const { store, files } = createStores(slipKit, 'slipkit-demo');
 
 let template: SlipTemplateFile = initialTemplate(locale);
 let voucher: SlipVoucherFile | null = null;
@@ -198,8 +201,8 @@ document.getElementById('download')!.addEventListener('click', () => {
 filenameDialog.addEventListener('close', () => {
   if (filenameDialog.returnValue !== 'ok') return;
   const name = filenameInput.value.trim() || suggestedName(activeFile(), locale);
-  localFile
-    .save(name, activeFile())
+  files
+    .download(name, activeFile())
     .then(() => status(messages.downloaded(name)))
     .catch((error: unknown) => status(messages.downloadFailed(reasonOf(error))));
 });
@@ -217,8 +220,8 @@ document.getElementById('download-pdf')!.addEventListener('click', () => {
 });
 
 document.getElementById('open')!.addEventListener('click', () => {
-  localFile
-    .load('')
+  files
+    .open()
     .then((file) => {
       if (file.kind === 'template') {
         template = file;
@@ -269,12 +272,12 @@ function applyChromeText(): void {
 
 async function boot(): Promise<void> {
   applyChromeText();
+  // 세 컴포넌트가 같은 공통 설정 인스턴스로 UI 언어, 미리보기와 수식을 처리한다.
+  // 컴포넌트 locale은 UI 언어를 인스턴스와 다르게 표시할 때만 지정한다.
+  designer.slipkit = slipKit;
+  form.slipkit = slipKit;
+  viewer.slipkit = slipKit;
   designer.settings = designerSettings;
-  if (locale !== undefined) {
-    designer.locale = locale;
-    form.locale = locale;
-    viewer.locale = locale;
-  }
   // 디자이너의 "내 양식" 저장·목록도 같은 저장소를 쓴다
   designer.storage = store;
 

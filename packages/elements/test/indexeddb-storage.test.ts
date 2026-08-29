@@ -1,19 +1,20 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it, vi } from 'vitest';
-import { serializeSlipFile, isEncryptedSlipFile } from '@omdc-slipkit/core';
+import { createSlipKit, serializeSlipFile, isEncryptedSlipFile } from '@omdc-slipkit/core';
 import { IndexedDbStorage } from '../src/storage/indexeddb-storage.js';
-import { SAMPLE_ENCRYPTION_KEY } from '../src/storage/encryption.js';
 import { getPresets } from '../src/presets.js';
 
 const presets = getPresets();
 
 // fake-indexeddb로 저장소 동작을 재현하고 core 직렬화 API는 실제 구현을 사용한다.
 
+const plainKit = createSlipKit();
+
 let dbCounter = 0;
 function freshStorage(pageSize?: number): IndexedDbStorage {
   const options: { dbName: string; pageSize?: number } = { dbName: `test-db-${++dbCounter}` };
   if (pageSize !== undefined) options.pageSize = pageSize;
-  return new IndexedDbStorage(options);
+  return new IndexedDbStorage(plainKit, options);
 }
 
 describe('IndexedDbStorage', () => {
@@ -129,7 +130,7 @@ describe('IndexedDbStorage 열기 실패 복구', () => {
     });
 
     // 버전 2로 열 때 문자열 본문을 Blob으로 마이그레이션한다.
-    const storage = new IndexedDbStorage({ dbName });
+    const storage = new IndexedDbStorage(plainKit, { dbName });
     const loaded = await storage.load('old-1');
     expect(loaded).toEqual(file);
     const page = await storage.list();
@@ -159,84 +160,122 @@ function readRawRecord(dbName: string, id: string): Promise<{ data: string; titl
   });
 }
 
-describe('IndexedDbStorage 암호화 (ADR-055)', () => {
-  it('키를 주면 저장 시 잠그고 같은 키로 풀어 원본을 돌려준다', async () => {
+describe('IndexedDbStorage 암호화 — 공통 키 재사용', () => {
+  it('createSlipKit에 키를 한 번 설정하면 encryptOnSave: true 저장을 그 키로 잠그고 푼다', async () => {
     const dbName = `test-enc-${++dbCounter}`;
     const file = presets[0]!.create();
-    const storage = new IndexedDbStorage({ dbName, encryption: { enabled: true, key: '내-키' } });
+    const slipkit = createSlipKit({ encryption: { key: '내-키' } });
+    const storage = new IndexedDbStorage(slipkit, { dbName, encryptOnSave: true });
 
     await storage.save('doc', file);
     expect(await storage.load('doc')).toEqual(file);
-  });
-
-  it('키 없이 켜면 샘플 기본키로 잠근다 — 설정 없는 어댑터도 읽을 수 있다', async () => {
-    const dbName = `test-enc-${++dbCounter}`;
-    const file = presets[0]!.create();
-    await new IndexedDbStorage({ dbName, encryption: { enabled: true } }).save('doc', file);
-
-    // 키를 생략한 어댑터와 샘플 키를 명시한 어댑터가 같은 기본 키를 사용한다.
-    expect(await new IndexedDbStorage({ dbName }).load('doc')).toEqual(file);
-    const sample = new IndexedDbStorage({ dbName, encryption: { enabled: true, key: SAMPLE_ENCRYPTION_KEY } });
-    expect(await sample.load('doc')).toEqual(file);
-  });
-
-  it('틀린 키로 열면 복호화 오류를 던진다', async () => {
-    const dbName = `test-enc-${++dbCounter}`;
-    await new IndexedDbStorage({ dbName, encryption: { enabled: true, key: '맞는-키' } }).save(
-      'doc',
-      presets[0]!.create(),
-    );
-
-    const wrong = new IndexedDbStorage({ dbName, encryption: { enabled: true, key: '틀린-키' } });
-    await expect(wrong.load('doc')).rejects.toMatchObject({ name: 'SlipEncryptionError' });
-  });
-
-  it('비활성이면 평문으로 저장돼 아무 키 없이 그대로 읽힌다', async () => {
-    const dbName = `test-enc-${++dbCounter}`;
-    const file = presets[0]!.create();
-    await new IndexedDbStorage({ dbName, encryption: { enabled: false, key: '키' } }).save('doc', file);
-
-    // 평문 레코드는 암호화 키 설정과 관계없이 파싱한다.
-    const other = new IndexedDbStorage({ dbName, encryption: { enabled: true, key: '다른-키' } });
-    expect(await other.load('doc')).toEqual(file);
-  });
-
-  it('본문은 암호화 봉투로, 제목 메타는 평문으로 저장된다 (목록 조회용)', async () => {
-    const dbName = `test-enc-${++dbCounter}`;
-    const file = presets[0]!.create();
-    await new IndexedDbStorage({ dbName, encryption: { enabled: true, key: '키' } }).save('doc', file);
 
     const raw = await readRawRecord(dbName, 'doc');
     expect(isEncryptedSlipFile(raw.data)).toBe(true); // 본문은 잠겨 있다
     expect(raw.title).toBe(file.template.meta.title); // 제목은 평문 — 목록에 그대로 보인다
   });
 
+  it('encryptOnSave를 켰는데 키가 없으면 샘플 키로 대체하지 않고 저장을 거부한다', async () => {
+    const dbName = `test-enc-${++dbCounter}`;
+    const storage = new IndexedDbStorage(plainKit, { dbName, encryptOnSave: true });
+    await expect(storage.save('doc', presets[0]!.create())).rejects.toMatchObject({
+      name: 'SlipEncryptionError',
+    });
+  });
+
+  it('키 없는 설정으로 암호화 저장분을 읽으면 샘플 키로 대체하지 않고 오류를 던진다', async () => {
+    const dbName = `test-enc-${++dbCounter}`;
+    const slipkit = createSlipKit({ encryption: { key: '내-키' } });
+    await new IndexedDbStorage(slipkit, { dbName, encryptOnSave: true }).save('doc', presets[0]!.create());
+
+    const keyless = new IndexedDbStorage(plainKit, { dbName });
+    await expect(keyless.load('doc')).rejects.toMatchObject({ name: 'SlipEncryptionError' });
+  });
+
+  it('틀린 키로 열면 복호화 오류를 던진다', async () => {
+    const dbName = `test-enc-${++dbCounter}`;
+    const right = createSlipKit({ encryption: { key: '맞는-키' } });
+    await new IndexedDbStorage(right, { dbName, encryptOnSave: true }).save('doc', presets[0]!.create());
+
+    const wrong = new IndexedDbStorage(createSlipKit({ encryption: { key: '틀린-키' } }), {
+      dbName,
+      encryptOnSave: true,
+    });
+    await expect(wrong.load('doc')).rejects.toMatchObject({ name: 'SlipEncryptionError' });
+  });
+
+  it('encryptOnSave: false면 평문으로 저장되고, 키 설정과 무관하게 읽힌다', async () => {
+    const dbName = `test-enc-${++dbCounter}`;
+    const file = presets[0]!.create();
+    const keyed = createSlipKit({ encryption: { key: '키' } });
+    await new IndexedDbStorage(keyed, { dbName, encryptOnSave: false }).save('doc', file);
+
+    const raw = await readRawRecord(dbName, 'doc');
+    expect(isEncryptedSlipFile(raw.data)).toBe(false);
+
+    // 평문 레코드는 암호화 키 설정과 관계없이 파싱한다.
+    const other = new IndexedDbStorage(createSlipKit({ encryption: { key: '다른-키' } }), {
+      dbName,
+      encryptOnSave: true,
+    });
+    expect(await other.load('doc')).toEqual(file);
+  });
+
   it('키를 바꿔도 previousKeys로 옛 키 파일을 읽고, 다시 저장하면 새 키로 옮겨진다', async () => {
     const dbName = `test-enc-${++dbCounter}`;
     const file = presets[0]!.create();
     // 이전 키로 암호화된 레코드를 준비한다.
-    await new IndexedDbStorage({ dbName, encryption: { enabled: true, key: '옛-키' } }).save('doc', file);
+    const oldKit = createSlipKit({ encryption: { key: '옛-키' } });
+    await new IndexedDbStorage(oldKit, { dbName, encryptOnSave: true }).save('doc', file);
 
     // 현재 키가 실패하면 previousKeys의 이전 키로 복호화한다.
-    const rotated = new IndexedDbStorage({
-      dbName,
-      encryption: { enabled: true, key: '새-키', previousKeys: ['옛-키'] },
-    });
+    const rotatedKit = createSlipKit({ encryption: { key: '새-키', previousKeys: ['옛-키'] } });
+    const rotated = new IndexedDbStorage(rotatedKit, { dbName, encryptOnSave: true });
     expect(await rotated.load('doc')).toEqual(file);
 
     // 다시 저장한 본문은 현재 키로 암호화한다.
     await rotated.save('doc', file);
-    const newOnly = new IndexedDbStorage({ dbName, encryption: { enabled: true, key: '새-키' } });
+    const newOnly = new IndexedDbStorage(createSlipKit({ encryption: { key: '새-키' } }), {
+      dbName,
+      encryptOnSave: true,
+    });
     expect(await newOnly.load('doc')).toEqual(file);
   });
 
-  it('암호화를 꺼도 키를 남겨 두면 예전에 잠근 파일을 계속 읽는다', async () => {
+  it('encryptOnSave를 꺼도 키를 남겨 두면 예전에 잠근 파일을 계속 읽는다', async () => {
     const dbName = `test-enc-${++dbCounter}`;
     const file = presets[0]!.create();
-    await new IndexedDbStorage({ dbName, encryption: { enabled: true, key: '키' } }).save('doc', file);
+    const keyed = createSlipKit({ encryption: { key: '키' } });
+    await new IndexedDbStorage(keyed, { dbName, encryptOnSave: true }).save('doc', file);
 
-    // 암호화를 비활성화해도 기존 봉투는 감지해 복호화하고 새 저장은 평문으로 기록한다.
-    const off = new IndexedDbStorage({ dbName, encryption: { enabled: false, key: '키' } });
+    // 저장 정책을 평문으로 바꿔도 기존 봉투는 감지해 공통 키로 복호화한다.
+    const off = new IndexedDbStorage(keyed, { dbName, encryptOnSave: false });
     expect(await off.load('doc')).toEqual(file);
+  });
+
+  it('공통 설정 도입 전 샘플 키로 저장된 데이터도 previousKeys 등록으로 열린다', async () => {
+    // 공통 설정 도입 전 데모의 자동 저장이 쓰던 키 값 — 회귀 방지를 위해 값을 고정한다.
+    const legacyKey = 'omdc-slipkit-sample-key';
+    const dbName = `test-enc-${++dbCounter}`;
+    const file = presets[0]!.create();
+    const legacyKit = createSlipKit({ encryption: { key: legacyKey } });
+    await new IndexedDbStorage(legacyKit, { dbName, encryptOnSave: true }).save('doc', file);
+
+    const current = new IndexedDbStorage(
+      createSlipKit({ encryption: { key: '자체-키', previousKeys: [legacyKey] } }),
+      { dbName },
+    );
+    expect(await current.load('doc')).toEqual(file);
+  });
+
+  it('자동 저장(IndexedDB)과 파일 교환이 같은 공통 키를 사용한다', async () => {
+    const dbName = `test-enc-${++dbCounter}`;
+    const file = presets[0]!.create();
+    const slipkit = createSlipKit({ encryption: { key: '공용-키' } });
+    await new IndexedDbStorage(slipkit, { dbName, encryptOnSave: true }).save('doc', file);
+
+    // 저장소가 만든 암호화 봉투를 같은 인스턴스의 decrypt(파일 교환의 열기 경로)로 풀 수 있다.
+    const raw = await readRawRecord(dbName, 'doc');
+    expect(await slipkit.decrypt(raw.data)).toEqual(file);
   });
 });

@@ -1,11 +1,12 @@
 /**
  * 동봉된 Pretendard와 Noto Sans JP를 지연 로딩한다.
  *
- * `settings.getFonts`가 없을 때 사용하며, 로케일별로 만든 등록 목록을 재사용한다.
+ * `slipkit.getFonts`가 없을 때 사용하며, 로케일별로 만든 등록 목록을 재사용한다.
  *
  * Pretendard와 Noto Sans JP를 모두 등록하므로 로케일과 관계없이 `fontName`으로 선택할 수 있다.
  * 로케일은 `fontName`을 지정하지 않은 요소에 적용할 대체(fallback) 폰트만 결정한다.
- * 동봉 폰트에 없는 문자를 표시하거나 다른 굵기가 필요하면 호스트가 `settings.getFonts`로 폰트를 제공한다.
+ * 동봉 폰트에 없는 문자를 표시하거나 다른 굵기가 필요하면 호스트가 `createSlipKit`의
+ * `getFonts`로 폰트를 제공한다.
  */
 import type { SlipFont } from '@omdc-slipkit/core';
 import type { SlipLocale } from './strings.js';

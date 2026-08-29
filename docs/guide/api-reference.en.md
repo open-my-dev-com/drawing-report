@@ -148,6 +148,14 @@ interface SlipKitConfig {
 
 ```ts
 interface SlipKit {
+  readonly locale: string | undefined;
+
+  readonly getFonts:
+    | (() =>
+        | readonly SlipFont[]
+        | Promise<readonly SlipFont[]>)
+    | undefined;
+
   render(
     file: SlipFile,
   ): Promise<Uint8Array>;
@@ -174,8 +182,10 @@ interface SlipKit {
 }
 ```
 
-| Method | Return value | Description |
+| Property or method | Return value | Description |
 |---|---|---|
+| `locale` | `string \| undefined` | The locale configured for this instance |
+| `getFonts` | Function or `undefined` | The font provider configured for this instance |
 | `render` | `Promise<Uint8Array>` | Converts a template or voucher into PDF bytes |
 | `buildVoucher` | `SlipVoucherFile` | Creates a draft voucher from a template and values |
 | `evaluate` | `FormulaValue` | Evaluates a formula string or AST |
@@ -1134,7 +1144,7 @@ interface VersionedStorageAdapter
 
 An extension interface that a custom storage supporting version history can optionally implement.
 
-The currently bundled `IndexedDbStorage` and `LocalFileStorage` do not implement this interface.
+The bundled `IndexedDbStorage` does not implement this interface. `SlipFileExchange` is not storage and does not implement `StorageAdapter`.
 
 ### `supportsVersions`
 
@@ -1268,7 +1278,8 @@ Visually edits a template file.
 | Name | Type | How to pass | Default |
 |---|---|---|---|
 | `src` | `string` | HTML attribute · property | `''` |
-| `locale` | `string` | HTML attribute · property | English |
+| `locale` | `string` | HTML attribute · property | The `SlipKit` locale or English |
+| `slipkit` | `SlipKit` | JS property | Omitted |
 | `settings` | `SlipDesignerSettings` | JS property | Bundled default settings |
 | `presets` | `SlipPreset[]` | JS property | 2 bundled presets |
 | `storage` | `StorageAdapter` | JS property | Save feature hidden |
@@ -1295,8 +1306,8 @@ Fills a template with values and issues a voucher.
 | Name | Type | How to pass | Default |
 |---|---|---|---|
 | `src` | `string` | HTML attribute · property | `''` |
-| `locale` | `string` | HTML attribute · property | English |
-| `settings` | `SlipFontProvider` | JS property | Bundled default fonts |
+| `locale` | `string` | HTML attribute · property | The `SlipKit` locale or English |
+| `slipkit` | `SlipKit` | JS property | Omitted |
 | `maxImageBytes` | `number` | `max-image-bytes` attribute · property | 2MB |
 
 For `src`, you can pass the following files.
@@ -1327,30 +1338,17 @@ Renders a template or voucher as a PDF and displays it read-only.
 | Name | Type | How to pass | Default |
 |---|---|---|---|
 | `src` | `string` | HTML attribute · property | `''` |
-| `locale` | `string` | HTML attribute · property | English |
-| `settings` | `SlipFontProvider` | JS property | Bundled default fonts |
+| `locale` | `string` | HTML attribute · property | The `SlipKit` locale or English |
+| `slipkit` | `SlipKit` | JS property | Omitted |
 
 The viewer does not fire any file-change event.
 
 ## Elements settings types
 
-### `SlipFontProvider`
-
-```ts
-interface SlipFontProvider {
-  getFonts?():
-    | SlipFont[]
-    | Promise<SlipFont[]>;
-}
-```
-
-If you omit `getFonts` or return an empty array, the bundled default font for the `locale` is used.
-
 ### `SlipDesignerSettings`
 
 ```ts
-interface SlipDesignerSettings
-  extends SlipFontProvider {
+interface SlipDesignerSettings {
   getBarcodeKinds?():
     | BarcodeKind[]
     | Promise<BarcodeKind[]>;
@@ -1411,6 +1409,7 @@ Builds the list of the bundled trade statement and invoice presets. Titles, labe
 class IndexedDbStorage
   implements StorageAdapter {
   constructor(
+    slipkit: SlipKit,
     options?:
       IndexedDbStorageOptions,
   );
@@ -1427,8 +1426,7 @@ Supports all of `save`, `load`, `delete`, and `list`.
 interface IndexedDbStorageOptions {
   dbName?: string;
   pageSize?: number;
-  locale?: string;
-  encryption?: StorageEncryption;
+  encryptOnSave?: boolean;
 }
 ```
 
@@ -1436,58 +1434,37 @@ interface IndexedDbStorageOptions {
 |---|---|---|
 | `dbName` | `'slipkit'` | The IndexedDB database name |
 | `pageSize` | `50` | The number of items per list page |
-| `locale` | English | The language of storage error messages |
-| `encryption` | Plaintext | The body encryption setting |
+| `encryptOnSave` | `false` | Whether to encrypt file bodies when saving |
 
-### `LocalFileStorage`
+### `SlipFileExchange`
 
 ```ts
-class LocalFileStorage
-  implements StorageAdapter {
+class SlipFileExchange {
   constructor(
-    options?: {
-      locale?: string;
-      encryption?:
-        StorageEncryption;
-    },
+    slipkit: SlipKit,
+    options?: SlipFileExchangeOptions,
   );
+
+  download(
+    name: string,
+    file: SlipFile,
+  ): Promise<void>;
+
+  open(): Promise<SlipFile>;
 }
 ```
 
-| Method | Behavior |
-|---|---|
-| `save` | Browser file download |
-| `load` | Reads a `.slip` file from the file selection dialog |
-| `delete` | `unsupported` error |
-| `list` | `unsupported` error |
+`SlipFileExchange` provides browser downloads and the file picker. It does not implement `StorageAdapter`; it only provides `download` and `open`.
 
-### `StorageEncryption`
+#### `SlipFileExchangeOptions`
 
 ```ts
-interface StorageEncryption {
-  enabled: boolean;
-
-  key?:
-    | string
-    | Uint8Array;
-
-  previousKeys?: (
-    | string
-    | Uint8Array
-  )[];
+interface SlipFileExchangeOptions {
+  encryptOnSave?: boolean;
 }
 ```
 
-### `SAMPLE_ENCRYPTION_KEY`
-
-```ts
-const SAMPLE_ENCRYPTION_KEY:
-  string;
-```
-
-A public sample key used in demos that omit `StorageEncryption.key`.
-
-It must not be used as a production security key.
+`encryptOnSave` defaults to `false`. Opening detects encrypted envelopes regardless of this option and decrypts them with the keys configured in `SlipKit`.
 
 ### Bundled fonts
 
@@ -1519,6 +1496,7 @@ Supports React 19 or later.
 interface SlipDesignerProps {
   src: string;
   locale?: string;
+  slipkit?: SlipKit;
 
   settings?:
     SlipDesignerSettings;
@@ -1542,9 +1520,7 @@ It removes the `CustomEvent` from the Web Component's `slip-change` event and pa
 interface SlipFormProps {
   src: string;
   locale?: string;
-
-  settings?:
-    SlipFontProvider;
+  slipkit?: SlipKit;
 
   maxImageBytes?: number;
 
@@ -1564,9 +1540,7 @@ interface SlipFormProps {
 interface SlipViewerProps {
   src: string;
   locale?: string;
-
-  settings?:
-    SlipFontProvider;
+  slipkit?: SlipKit;
 }
 ```
 
@@ -1590,6 +1564,7 @@ Supports Vue 3.4 or later.
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
+| `slipkit` | `SlipKit` | — |
 | `settings` | `SlipDesignerSettings` | — |
 | `presets` | `SlipPreset[]` | — |
 | `storage` | `StorageAdapter` | — |
@@ -1607,7 +1582,7 @@ Emitted events:
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
-| `settings` | `SlipFontProvider` | — |
+| `slipkit` | `SlipKit` | — |
 | `maxImageBytes` | `number` | — |
 
 Emitted events:
@@ -1623,7 +1598,7 @@ Emitted events:
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
-| `settings` | `SlipFontProvider` | — |
+| `slipkit` | `SlipKit` | — |
 
 ## `@omdc-slipkit/mcp`
 

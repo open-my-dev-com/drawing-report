@@ -23,15 +23,16 @@ Configuration is used less to change the features of the components themselves a
 
 | Setting | Designer | Form | Viewer | Default behavior |
 |---|:---:|:---:|:---:|---|
-| `locale` | ● | ● | ● | English UI |
-| `settings` | ● | ● | ● | Uses the bundled fonts and default resources for the language |
+| `locale` | ● | ● | ● | The `SlipKit` locale or English UI |
+| `slipkit` | ● | ● | ● | Uses bundled fonts and the default Core settings |
+| `settings` | ● | — | — | Uses the bundled barcode kinds and paper sizes |
 | `presets` | ● | — | — | Uses the 2 bundled presets |
 | `storage` | ● | — | — | Hides the "My templates" save/list feature |
 | `maxImageBytes` | ● | ● | — | Image source file up to 2MB |
 
 `locale` and `max-image-bytes` can be passed as HTML attributes.
 
-`settings`, `presets`, and `storage` contain objects or functions, so they must be passed as JavaScript properties or as your framework's object props.
+`slipkit`, `settings`, `presets`, and `storage` contain objects or functions, so they must be passed as JavaScript properties or as your framework's object props.
 
 ## How to pass settings
 
@@ -42,7 +43,7 @@ Strings and numbers can be passed as HTML attributes.
 ```html
 <slip-designer
   id="designer"
-  locale="ko"
+  locale="en"
   max-image-bytes="2097152"
 ></slip-designer>
 ```
@@ -51,6 +52,7 @@ Object settings are passed as JavaScript properties.
 
 ```ts
 import '@omdc-slipkit/elements';
+import { createSlipKit } from '@omdc-slipkit/core';
 
 import type {
   SlipDesigner,
@@ -68,10 +70,16 @@ if (!designer) {
   );
 }
 
-const settings: SlipDesignerSettings = {
+const slipkit = createSlipKit({
   getFonts: () => appFonts,
+  locale: 'en-US',
+});
+
+const settings: SlipDesignerSettings = {
+  getPaperSizes: () => appPaperSizes,
 };
 
+designer.slipkit = slipkit;
 designer.settings = settings;
 designer.presets = appPresets;
 designer.storage = templateStorage;
@@ -108,7 +116,7 @@ export function DesignerScreen() {
   const settings =
     useMemo<SlipDesignerSettings>(
       () => ({
-        getFonts: () => appFonts,
+        getPaperSizes: () => appPaperSizes,
       }),
       [],
     );
@@ -116,7 +124,8 @@ export function DesignerScreen() {
   return (
     <SlipDesigner
       src={designerSrc}
-      locale="ko"
+      locale="en"
+      slipkit={slipkit}
       settings={settings}
       presets={appPresets}
       storage={templateStorage}
@@ -128,7 +137,7 @@ export function DesignerScreen() {
 ```
 
 > [!TIP]
-> Do not create new `settings`, `presets`, or `storage` objects on every render.
+> Do not create new `slipkit`, `settings`, `presets`, or `storage` objects on every render.
 > In React, it is better to declare them at module scope or use `useMemo` to keep the same object.
 
 ### Vue
@@ -146,14 +155,15 @@ import type {
 } from '@omdc-slipkit/elements';
 
 const settings: SlipDesignerSettings = {
-  getFonts: () => appFonts,
+  getPaperSizes: () => appPaperSizes,
 };
 </script>
 
 <template>
   <SlipDesigner
     :src="designerSrc"
-    locale="ko"
+    locale="en"
+    :slipkit="slipkit"
     :settings="settings"
     :presets="appPresets"
     :storage="templateStorage"
@@ -173,7 +183,7 @@ The three UI components support `locale`.
 | `en` | English | Pretendard Regular·Bold |
 | `ja` | Japanese | Noto Sans JP Regular |
 
-If you omit `locale` or pass an unsupported value, English is used.
+If you omit `locale`, the UI uses the language from `SlipKit.locale`. If `slipkit` is also absent, or if you explicitly pass an unsupported `locale`, the UI uses English.
 
 Values that include a region code, such as `en-US`, `ko-KR`, and `ja-JP`, can also be used. In that case, the leading language code selects the UI language.
 
@@ -183,11 +193,12 @@ Values that include a region code, such as `en-US`, `ko-KR`, and `ja-JP`, can al
 <slip-viewer locale="en-US"></slip-viewer>
 ```
 
-`locale` affects the following.
+The component `locale` affects the following.
 
 - Component buttons and guidance text
 - Error messages
-- The default font used when no font is supplied separately
+
+When `getFonts` is not configured, `SlipKit.locale` selects the bundled default font. If `slipkit` is also absent, the component `locale` is used.
 
 The following are not translated automatically.
 
@@ -205,7 +216,7 @@ The following are not translated automatically.
 
 ### Bundled default fonts
 
-If you do not specify `settings.getFonts`, the UI component loads the default font for the `locale`.
+If `getFonts` is not configured on `SlipKit`, the UI component loads the default font for `SlipKit.locale`. If `slipkit` is also absent, it uses the component `locale`.
 
 | Language | Bundled font | Composition |
 |---|---|---|
@@ -218,14 +229,12 @@ The Japanese default font is a subset that includes common kana, kanji, and Lati
 
 ### Supplying your own fonts
 
-The three components receive fonts through `settings.getFonts`.
+Configure custom fonts once with the `getFonts` option of `createSlipKit`, then pass the same instance to each component.
 
 ```ts
-import type {
-  SlipFontProvider,
-} from '@omdc-slipkit/elements';
+import { createSlipKit } from '@omdc-slipkit/core';
 
-const settings: SlipFontProvider = {
+const slipkit = createSlipKit({
   getFonts: () => [
     {
       name: 'AppFont',
@@ -237,19 +246,19 @@ const settings: SlipFontProvider = {
       data: appFontBold,
     },
   ],
-};
+});
 
-viewer.settings = settings;
-form.settings = settings;
+viewer.slipkit = slipkit;
+form.slipkit = slipkit;
+designer.slipkit = slipkit;
 ```
 
 `getFonts` can use a font array or a `Promise` that returns a font array.
 
+UI components supply bundled fonts when `getFonts` is absent, but Core's `slipkit.render()` does not load fonts bundled with Elements. Configure `getFonts` when direct Core rendering and component previews must use the same custom fonts.
+
 ```ts
-import type {
-  SlipFont,
-  SlipFontProvider,
-} from '@omdc-slipkit/elements';
+import { createSlipKit, type SlipFont } from '@omdc-slipkit/core';
 
 async function loadFont(
   url: string,
@@ -289,12 +298,12 @@ async function loadAppFonts(): Promise<SlipFont[]> {
 let fontPromise:
   Promise<SlipFont[]> | undefined;
 
-const settings: SlipFontProvider = {
+const slipkit = createSlipKit({
   getFonts: () => {
     fontPromise ??= loadAppFonts();
     return fontPromise;
   },
-};
+});
 ```
 
 > [!TIP]
@@ -353,6 +362,7 @@ If `getFonts` returns a non-empty array, the bundled default fonts are not added
 To use the bundled fonts together with your own fonts, import them directly from the font subpaths.
 
 ```ts
+import { createSlipKit } from '@omdc-slipkit/core';
 import {
   PRETENDARD_FONTS,
 } from '@omdc-slipkit/elements/fonts/pretendard';
@@ -361,7 +371,7 @@ import {
   NOTO_SANS_JP_FONTS,
 } from '@omdc-slipkit/elements/fonts/noto-sans-jp';
 
-const settings: SlipFontProvider = {
+const slipkit = createSlipKit({
   getFonts: () => [
     ...PRETENDARD_FONTS,
     ...NOTO_SANS_JP_FONTS,
@@ -370,7 +380,7 @@ const settings: SlipFontProvider = {
       data: appFont,
     },
   ],
-};
+});
 ```
 
 > [!CAUTION]
@@ -381,7 +391,7 @@ The bundled Pretendard and Noto Sans JP are each covered by the SIL Open Font Li
 
 ## Designer settings
 
-Besides fonts, `<slip-designer>` receives paper and barcode choices via `SlipDesignerSettings`.
+`<slip-designer>` receives paper and barcode choices through `SlipDesignerSettings`. Pass fonts and locale through the `slipkit` property.
 
 ```ts
 import type {
@@ -390,7 +400,6 @@ import type {
 
 const designerSettings:
   SlipDesignerSettings = {
-    getFonts: () => appFonts,
     getPaperSizes: () => appPaperSizes,
     savePaperSize: saveAppPaperSize,
     getBarcodeKinds: () => [
@@ -676,12 +685,16 @@ To store templates in the browser, you can use `IndexedDbStorage`.
 import {
   IndexedDbStorage,
 } from '@omdc-slipkit/elements';
+import { createSlipKit } from '@omdc-slipkit/core';
+
+const slipkit = createSlipKit({
+  locale: 'en-US',
+});
 
 const templateStorage =
-  new IndexedDbStorage({
+  new IndexedDbStorage(slipkit, {
     dbName: 'my-app-templates',
     pageSize: 50,
-    locale: 'ko',
   });
 
 designer.storage = templateStorage;
@@ -691,8 +704,7 @@ designer.storage = templateStorage;
 |---|---|---|
 | `dbName` | `'slipkit'` | The name of the IndexedDB database to use |
 | `pageSize` | `50` | The number of items `list` returns at once |
-| `locale` | `'en'` | The language of storage error messages |
-| `encryption` | Disabled | The encryption setting for the body to be stored |
+| `encryptOnSave` | `false` | Whether to encrypt content when saving |
 
 We recommend specifying a unique `dbName` so that data does not get mixed across multiple applications or runtime environments.
 
@@ -705,42 +717,46 @@ For auto-save and connecting to server storage, see the [Application Integration
 
 ### Encrypting the stored content
 
-`IndexedDbStorage` and `LocalFileStorage` support the `encryption` option.
+Configure the current and previous encryption keys once in `createSlipKit`. Each storage mechanism only chooses whether to encrypt new writes with `encryptOnSave`.
 
 ```ts
 const encryptionKey =
   getEncryptionKeyFromHost();
 
+const slipkit = createSlipKit({
+  locale: 'en-US',
+  encryption: {
+    key: encryptionKey,
+  },
+});
+
 const templateStorage =
-  new IndexedDbStorage({
+  new IndexedDbStorage(slipkit, {
     dbName: 'my-app-templates',
-    encryption: {
-      enabled: true,
-      key: encryptionKey,
-    },
+    encryptOnSave: true,
   });
 ```
 
 If you also need to read files stored with a previous key, specify `previousKeys`.
 
 ```ts
+const slipkit = createSlipKit({
+  encryption: {
+    key: currentKey,
+    previousKeys: [previousKey],
+  },
+});
+
 const templateStorage =
-  new IndexedDbStorage({
+  new IndexedDbStorage(slipkit, {
     dbName: 'my-app-templates',
-    encryption: {
-      enabled: true,
-      key: currentKey,
-      previousKeys: [
-        previousKey,
-      ],
-    },
+    encryptOnSave: true,
   });
 ```
 
 > [!WARNING]
-> If `enabled: true` but `key` is omitted, the bundled demo sample key is used.
-> This key is published in the source code, so it is not a real security feature.
-> In production, be sure to pass a key managed by the host.
+> Saving fails when `encryptOnSave: true` is used without an encryption key in `SlipKit`.
+> The library does not substitute a sample key. Manage production keys in the host application.
 
 IndexedDB encryption protects the `.slip` body, but the following metadata needed for listing is stored in plaintext.
 
@@ -751,26 +767,25 @@ IndexedDB encryption protects the `.slip` body, but the following metadata neede
 
 If the title is also sensitive information, you must use a separate storage implementation or a server-side protection policy.
 
-### Local file storage
+### Opening and downloading files
 
-`LocalFileStorage` provides file download and a file selection dialog.
+`SlipFileExchange` provides file download and a file selection dialog. It has no list or delete operations and does not implement `StorageAdapter`.
 
 ```ts
 import {
-  LocalFileStorage,
+  SlipFileExchange,
 } from '@omdc-slipkit/elements';
 
-const localFiles =
-  new LocalFileStorage({
-    locale: 'ko',
-    encryption: {
-      enabled: true,
-      key: encryptionKey,
-    },
+const files =
+  new SlipFileExchange(slipkit, {
+    encryptOnSave: true,
   });
+
+await files.download('document.slip', file);
+const opened = await files.open();
 ```
 
-`LocalFileStorage` does not support listing or deletion. Therefore, rather than passing it as the designer's `storage`, it is better suited to being used directly in your application's file open/download features.
+Even when `encryptOnSave` is `false`, opening an encrypted file tries the current and previous keys configured in `SlipKit`.
 
 ## Image size limit
 
@@ -866,12 +881,14 @@ const slip = createSlipKit({
 | `encryption.key` | The key that `encrypt` and `decrypt` use by default |
 | `encryption.previousKeys` | The list of keys to use when decrypting files encrypted with a previous key |
 
-The UI component's `locale` and Core's `locale` play different roles.
+When UI components and storage receive the same `slipkit`, custom fonts, formulas, PDF rendering, and storage error messages reuse one instance's settings. If the component `locale` is omitted, the UI language also follows `SlipKit.locale`. If `getFonts` is absent, component previews use the bundled fonts.
+
+Use a component `locale` only when its UI language must differ.
 
 | Setting | Example | Role |
 |---|---|---|
-| Component `locale` | `'ko'`, `'en'`, `'ja'` | Selects buttons, guidance text, and the bundled font |
-| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | Number and date formatting in formulas, and the error message language |
+| Component `locale` | `'ko'`, `'en'`, `'ja'` | UI text; also selects the bundled font when `slipkit` is absent |
+| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | Number and date formatting in formulas, error message language, and bundled font selection when `getFonts` is absent |
 
 For the Core usage flow and how to generate PDFs, see the [Core Usage Guide](core.en.md).
 
@@ -882,26 +899,28 @@ If you use the same settings across your entire application, we recommend creati
 `src/slipkit-config.ts`:
 
 ```ts
+import { createSlipKit } from '@omdc-slipkit/core';
 import {
   IndexedDbStorage,
-  presets as builtInPresets,
+  getPresets,
   type SlipDesignerSettings,
-  type SlipFontProvider,
   type SlipPreset,
 } from '@omdc-slipkit/elements';
 
 const fontPromise =
   loadAppFonts();
 
-export const fontSettings:
-  SlipFontProvider = {
-    getFonts: () => fontPromise,
-  };
+export const slipkit = createSlipKit({
+  locale: 'en-US',
+  getFonts: () => fontPromise,
+  encryption: {
+    key: currentKey,
+    previousKeys: [previousKey],
+  },
+});
 
 export const designerSettings:
   SlipDesignerSettings = {
-    getFonts: () => fontPromise,
-
     getPaperSizes: () => [
       {
         name: 'Shipping label 100×150',
@@ -918,14 +937,14 @@ export const designerSettings:
 
 export const designerPresets:
   SlipPreset[] = [
-    ...builtInPresets,
+    ...getPresets('en'),
     shippingLabelPreset,
   ];
 
 export const templateStorage =
-  new IndexedDbStorage({
+  new IndexedDbStorage(slipkit, {
     dbName: 'my-app-templates',
-    locale: 'ko',
+    encryptOnSave: true,
   });
 ```
 
@@ -934,7 +953,7 @@ In the components, pass only the settings you need.
 ```tsx
 <SlipDesigner
   src={designerSrc}
-  locale="ko"
+  slipkit={slipkit}
   settings={designerSettings}
   presets={designerPresets}
   storage={templateStorage}
@@ -942,23 +961,21 @@ In the components, pass only the settings you need.
 
 <SlipForm
   src={formSrc}
-  locale="ko"
-  settings={fontSettings}
+  slipkit={slipkit}
 />
 
 <SlipViewer
   src={viewerSrc}
-  locale="ko"
-  settings={fontSettings}
+  slipkit={slipkit}
 />
 ```
 
-With this structure, you do not repeatedly create different settings objects for each component, and you can reuse the font and storage instances.
+This keeps fonts, locale, and encryption keys in one `SlipKit` instance shared by components and storage mechanisms.
 
 ## Configurations to avoid
 
 - Passing an object setting as an HTML attribute string
-- Creating new `settings` and storage instances on every React render
+- Creating new `slipkit`, `settings`, and storage instances on every React render
 - Re-downloading the same font from the network every time `getFonts` is called
 - Assuming the required default fonts are added automatically while you supply your own fonts
 - Marking more than one font `fallback: true`
@@ -966,13 +983,14 @@ With this structure, you do not repeatedly create different settings objects for
 - Assuming `locale` also translates the text inside the template
 - Assuming an empty `presets` array hides the preset menu
 - Interpreting `storage` as an auto-save setting
-- Using `LocalFileStorage` as a designer storage that needs listing
-- Using the bundled sample encryption key in production
+- Passing `SlipFileExchange` as the designer's `storage`
+- Hard-coding production encryption keys
 - Setting the image limit without accounting for the size increase after Base64 conversion
 
 ## Completion check
 
-- [ ] Specify the UI language of the components.
+- [ ] Configure fonts, locale, and encryption keys once in `SlipKit`.
+- [ ] Override `locale` only on components that need a different UI language.
 - [ ] Supply the fonts required for the characters and styles you will output.
 - [ ] Structure things so the font-supply result is reused.
 - [ ] Configure the custom paper sizes and barcode types your application needs.

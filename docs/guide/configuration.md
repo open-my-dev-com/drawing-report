@@ -21,17 +21,18 @@
 
 ## 컴포넌트 설정 한눈에 보기
 
-| 설정 | 디자이너 | 작성폼 | 뷰어 | 기본 동작 |
+| 설정 | 디자이너 | 작성 폼 | 뷰어 | 기본 동작 |
 |---|:---:|:---:|:---:|---|
-| `locale` | ● | ● | ● | 영어 UI |
-| `settings` | ● | ● | ● | 언어에 맞는 동봉 폰트와 기본 자원 사용 |
+| `locale` | ● | ● | ● | `SlipKit` 로케일 또는 영어 UI |
+| `slipkit` | ● | ● | ● | 동봉 폰트와 Core 기본 설정 사용 |
+| `settings` | ● | — | — | 동봉 바코드 종류와 용지 사용 |
 | `presets` | ● | — | — | 동봉 프리셋 2종 사용 |
 | `storage` | ● | — | — | “내 양식” 저장·목록 기능 숨김 |
 | `maxImageBytes` | ● | ● | — | 이미지 원본 파일 최대 2MB |
 
 `locale`과 `max-image-bytes`는 HTML 속성으로 전달할 수 있습니다.
 
-`settings`, `presets`, `storage`는 객체나 함수를 포함하므로 JavaScript 프로퍼티 또는 프레임워크의 객체 prop으로 전달해야 합니다.
+`slipkit`, `settings`, `presets`, `storage`는 객체나 함수를 포함하므로 JavaScript 프로퍼티 또는 프레임워크의 객체 prop으로 전달해야 합니다.
 
 ## 설정 전달 방법
 
@@ -51,6 +52,7 @@
 
 ```ts
 import '@omdc-slipkit/elements';
+import { createSlipKit } from '@omdc-slipkit/core';
 
 import type {
   SlipDesigner,
@@ -68,10 +70,16 @@ if (!designer) {
   );
 }
 
-const settings: SlipDesignerSettings = {
+const slipkit = createSlipKit({
   getFonts: () => appFonts,
+  locale: 'ko-KR',
+});
+
+const settings: SlipDesignerSettings = {
+  getPaperSizes: () => appPaperSizes,
 };
 
+designer.slipkit = slipkit;
 designer.settings = settings;
 designer.presets = appPresets;
 designer.storage = templateStorage;
@@ -108,7 +116,7 @@ export function DesignerScreen() {
   const settings =
     useMemo<SlipDesignerSettings>(
       () => ({
-        getFonts: () => appFonts,
+        getPaperSizes: () => appPaperSizes,
       }),
       [],
     );
@@ -117,6 +125,7 @@ export function DesignerScreen() {
     <SlipDesigner
       src={designerSrc}
       locale="ko"
+      slipkit={slipkit}
       settings={settings}
       presets={appPresets}
       storage={templateStorage}
@@ -128,7 +137,7 @@ export function DesignerScreen() {
 ```
 
 > [!TIP]
-> 렌더링할 때마다 `settings`, `presets`, `storage` 객체를 새로 만들지 마세요.
+> 렌더링할 때마다 `slipkit`, `settings`, `presets`, `storage` 객체를 새로 만들지 마세요.
 > React에서는 모듈 범위에 선언하거나 `useMemo`를 사용하여 같은 객체를 유지하는 편이 좋습니다.
 
 ### Vue
@@ -146,7 +155,7 @@ import type {
 } from '@omdc-slipkit/elements';
 
 const settings: SlipDesignerSettings = {
-  getFonts: () => appFonts,
+  getPaperSizes: () => appPaperSizes,
 };
 </script>
 
@@ -154,6 +163,7 @@ const settings: SlipDesignerSettings = {
   <SlipDesigner
     :src="designerSrc"
     locale="ko"
+    :slipkit="slipkit"
     :settings="settings"
     :presets="appPresets"
     :storage="templateStorage"
@@ -173,7 +183,7 @@ const settings: SlipDesignerSettings = {
 | `en` | 영어 | Pretendard Regular·Bold |
 | `ja` | 일본어 | Noto Sans JP Regular |
 
-`locale`을 생략하거나 지원하지 않는 값을 전달하면 영어를 사용합니다.
+`locale`을 생략하면 `SlipKit.locale`의 언어를 사용합니다. `slipkit`도 없거나 지원하지 않는 `locale`을 명시하면 영어를 사용합니다.
 
 `en-US`, `ko-KR`, `ja-JP`처럼 지역 코드가 포함된 값도 사용할 수 있습니다. 이 경우 앞부분의 언어 코드로 UI 언어를 선택합니다.
 
@@ -183,11 +193,12 @@ const settings: SlipDesignerSettings = {
 <slip-viewer locale="en-US"></slip-viewer>
 ```
 
-`locale`은 다음 항목에 영향을 줍니다.
+컴포넌트 `locale`은 다음 항목에 영향을 줍니다.
 
 - 컴포넌트 버튼과 안내 문구
 - 오류 메시지
-- 폰트를 별도로 공급하지 않았을 때 사용하는 기본 폰트
+
+`getFonts`가 없을 때 사용하는 동봉 기본 폰트는 `SlipKit.locale`로 선택합니다. `slipkit`도 없을 때는 컴포넌트 `locale`을 사용합니다.
 
 다음 항목은 자동으로 번역하지 않습니다.
 
@@ -205,7 +216,7 @@ const settings: SlipDesignerSettings = {
 
 ### 동봉 기본 폰트
 
-`settings.getFonts`를 지정하지 않으면 UI 컴포넌트가 `locale`에 맞는 기본 폰트를 불러옵니다.
+`SlipKit`에 `getFonts`를 설정하지 않으면 UI 컴포넌트가 `SlipKit.locale`에 맞는 기본 폰트를 불러옵니다. `slipkit`도 없으면 컴포넌트 `locale`을 사용합니다.
 
 | 언어 | 동봉 폰트 | 구성 |
 |---|---|---|
@@ -218,14 +229,12 @@ const settings: SlipDesignerSettings = {
 
 ### 사용자 폰트 공급
 
-세 컴포넌트는 `settings.getFonts`를 통해 폰트를 받습니다.
+사용자 폰트는 `createSlipKit`의 `getFonts`에 한 번 설정하고, 같은 인스턴스를 컴포넌트에 전달합니다.
 
 ```ts
-import type {
-  SlipFontProvider,
-} from '@omdc-slipkit/elements';
+import { createSlipKit } from '@omdc-slipkit/core';
 
-const settings: SlipFontProvider = {
+const slipkit = createSlipKit({
   getFonts: () => [
     {
       name: 'AppFont',
@@ -237,19 +246,22 @@ const settings: SlipFontProvider = {
       data: appFontBold,
     },
   ],
-};
+});
 
-viewer.settings = settings;
-form.settings = settings;
+viewer.slipkit = slipkit;
+form.slipkit = slipkit;
+designer.slipkit = slipkit;
 ```
 
 `getFonts`는 폰트 배열이나 폰트 배열을 반환하는 `Promise`를 사용할 수 있습니다.
 
+UI 컴포넌트는 `getFonts`가 없을 때 동봉 폰트를 보완하지만, Core의 `slipkit.render()`는 Elements의 동봉 폰트를 자동으로 불러오지 않습니다. 직접 Core 렌더링과 컴포넌트 미리보기에 같은 사용자 폰트가 필요하면 `getFonts`를 설정하세요.
+
 ```ts
+import { createSlipKit } from '@omdc-slipkit/core';
 import type {
   SlipFont,
-  SlipFontProvider,
-} from '@omdc-slipkit/elements';
+} from '@omdc-slipkit/core';
 
 async function loadFont(
   url: string,
@@ -289,12 +301,12 @@ async function loadAppFonts(): Promise<SlipFont[]> {
 let fontPromise:
   Promise<SlipFont[]> | undefined;
 
-const settings: SlipFontProvider = {
+const slipkit = createSlipKit({
   getFonts: () => {
     fontPromise ??= loadAppFonts();
     return fontPromise;
   },
-};
+});
 ```
 
 > [!TIP]
@@ -353,6 +365,7 @@ const fonts = [
 동봉 폰트를 사용자 폰트와 함께 사용하려면 폰트 서브패스에서 직접 불러옵니다.
 
 ```ts
+import { createSlipKit } from '@omdc-slipkit/core';
 import {
   PRETENDARD_FONTS,
 } from '@omdc-slipkit/elements/fonts/pretendard';
@@ -361,7 +374,7 @@ import {
   NOTO_SANS_JP_FONTS,
 } from '@omdc-slipkit/elements/fonts/noto-sans-jp';
 
-const settings: SlipFontProvider = {
+const slipkit = createSlipKit({
   getFonts: () => [
     ...PRETENDARD_FONTS,
     ...NOTO_SANS_JP_FONTS,
@@ -370,7 +383,7 @@ const settings: SlipFontProvider = {
       data: appFont,
     },
   ],
-};
+});
 ```
 
 > [!CAUTION]
@@ -381,7 +394,7 @@ const settings: SlipFontProvider = {
 
 ## 디자이너 설정
 
-`<slip-designer>`는 폰트 외에 용지와 바코드 선택지를 `SlipDesignerSettings`로 받습니다.
+`<slip-designer>`는 용지와 바코드 선택지를 `SlipDesignerSettings`로 받습니다. 폰트와 로케일은 `slipkit` 프로퍼티로 전달합니다.
 
 ```ts
 import type {
@@ -390,7 +403,6 @@ import type {
 
 const designerSettings:
   SlipDesignerSettings = {
-    getFonts: () => appFonts,
     getPaperSizes: () => appPaperSizes,
     savePaperSize: saveAppPaperSize,
     getBarcodeKinds: () => [
@@ -676,12 +688,16 @@ designer.presets = appPresets;
 import {
   IndexedDbStorage,
 } from '@omdc-slipkit/elements';
+import { createSlipKit } from '@omdc-slipkit/core';
+
+const slipkit = createSlipKit({
+  locale: 'ko-KR',
+});
 
 const templateStorage =
-  new IndexedDbStorage({
+  new IndexedDbStorage(slipkit, {
     dbName: 'my-app-templates',
     pageSize: 50,
-    locale: 'ko',
   });
 
 designer.storage = templateStorage;
@@ -691,8 +707,7 @@ designer.storage = templateStorage;
 |---|---|---|
 | `dbName` | `'slipkit'` | 사용할 IndexedDB 데이터베이스 이름 |
 | `pageSize` | `50` | `list`가 한 번에 반환할 항목 수 |
-| `locale` | `'en'` | 저장소 오류 메시지 언어 |
-| `encryption` | 비활성 | 저장할 본문의 암호화 설정 |
+| `encryptOnSave` | `false` | 저장할 본문의 암호화 여부 |
 
 여러 애플리케이션이나 실행 환경에서 데이터가 섞이지 않도록 고유한 `dbName`을 지정하는 것을 권장합니다.
 
@@ -705,42 +720,46 @@ designer.storage = templateStorage;
 
 ### 저장 내용 암호화
 
-`IndexedDbStorage`와 `LocalFileStorage`는 `encryption` 옵션을 지원합니다.
+암호화 키와 이전 키는 `createSlipKit`에 한 번만 설정합니다. 저장 수단에서는 `encryptOnSave`로 저장 시 암호화 여부만 정합니다.
 
 ```ts
 const encryptionKey =
   getEncryptionKeyFromHost();
 
+const slipkit = createSlipKit({
+  locale: 'ko-KR',
+  encryption: {
+    key: encryptionKey,
+  },
+});
+
 const templateStorage =
-  new IndexedDbStorage({
+  new IndexedDbStorage(slipkit, {
     dbName: 'my-app-templates',
-    encryption: {
-      enabled: true,
-      key: encryptionKey,
-    },
+    encryptOnSave: true,
   });
 ```
 
 이전 키로 저장한 파일도 읽어야 한다면 `previousKeys`를 지정합니다.
 
 ```ts
+const slipkit = createSlipKit({
+  encryption: {
+    key: currentKey,
+    previousKeys: [previousKey],
+  },
+});
+
 const templateStorage =
-  new IndexedDbStorage({
+  new IndexedDbStorage(slipkit, {
     dbName: 'my-app-templates',
-    encryption: {
-      enabled: true,
-      key: currentKey,
-      previousKeys: [
-        previousKey,
-      ],
-    },
+    encryptOnSave: true,
   });
 ```
 
 > [!WARNING]
-> `enabled: true`이면서 `key`를 생략하면 동봉된 데모용 샘플 키를 사용합니다.
-> 이 키는 소스 코드에 공개되어 있으므로 실제 보안 기능이 아닙니다.
-> 운영 환경에서는 호스트가 관리하는 키를 반드시 전달하세요.
+> `encryptOnSave: true`인데 `SlipKit`에 암호화 키가 없으면 저장이 실패합니다.
+> 라이브러리는 샘플 키를 대신 사용하지 않습니다. 운영 키는 호스트에서 관리하세요.
 
 IndexedDB 암호화는 `.slip` 본문을 보호하지만 목록에 필요한 다음 메타데이터는 평문으로 저장합니다.
 
@@ -751,26 +770,25 @@ IndexedDB 암호화는 `.slip` 본문을 보호하지만 목록에 필요한 다
 
 제목까지 민감한 정보라면 별도의 저장소 구현이나 서버 측 보호 정책을 사용해야 합니다.
 
-### 로컬 파일 저장소
+### 파일 열기와 내려받기
 
-`LocalFileStorage`는 파일 내려받기와 파일 선택 창을 제공합니다.
+`SlipFileExchange`는 파일 내려받기와 파일 선택 창을 제공합니다. 목록·삭제 기능이 없으며 `StorageAdapter`를 구현하지 않습니다.
 
 ```ts
 import {
-  LocalFileStorage,
+  SlipFileExchange,
 } from '@omdc-slipkit/elements';
 
-const localFiles =
-  new LocalFileStorage({
-    locale: 'ko',
-    encryption: {
-      enabled: true,
-      key: encryptionKey,
-    },
+const files =
+  new SlipFileExchange(slipkit, {
+    encryptOnSave: true,
   });
+
+await files.download('document.slip', file);
+const opened = await files.open();
 ```
 
-`LocalFileStorage`는 목록 조회와 삭제를 지원하지 않습니다. 따라서 디자이너의 `storage`로 전달하기보다 애플리케이션의 파일 열기·내려받기 기능에서 직접 사용하는 것이 적합합니다.
+`encryptOnSave: false`여도 암호화된 파일을 열 때는 `SlipKit`의 현재 키와 이전 키를 순서대로 시도합니다.
 
 ## 이미지 크기 제한
 
@@ -866,12 +884,14 @@ const slip = createSlipKit({
 | `encryption.key` | `encrypt`와 `decrypt`가 기본으로 사용할 키 |
 | `encryption.previousKeys` | 이전 키로 암호화된 파일을 복호화할 때 사용할 키 목록 |
 
-UI 컴포넌트의 `locale`과 Core의 `locale`은 역할이 다릅니다.
+UI 컴포넌트와 저장 수단에 같은 `slipkit`을 전달하면 사용자 폰트·수식·PDF 렌더링·저장소 오류 메시지가 한 인스턴스의 설정을 재사용합니다. 컴포넌트 `locale`을 생략하면 UI 언어도 `SlipKit.locale`을 따릅니다. `getFonts`가 없으면 컴포넌트 미리보기는 동봉 폰트를 사용합니다.
+
+컴포넌트 `locale`은 UI 언어만 따로 지정해야 할 때 사용합니다.
 
 | 설정 | 예 | 역할 |
 |---|---|---|
-| 컴포넌트 `locale` | `'ko'`, `'en'`, `'ja'` | 버튼, 안내 문구와 동봉 폰트 선택 |
-| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | 숫자와 날짜 수식 포맷, 오류 메시지 언어 |
+| 컴포넌트 `locale` | `'ko'`, `'en'`, `'ja'` | UI 문구. `slipkit`이 없을 때는 동봉 폰트도 선택 |
+| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | 숫자와 날짜 수식 포맷, 오류 메시지 언어. `getFonts`가 없을 때는 동봉 폰트도 선택 |
 
 Core 사용 흐름과 PDF 생성 방법은 [Core 사용 가이드](core.md)를 참고하세요.
 
@@ -882,26 +902,28 @@ Core 사용 흐름과 PDF 생성 방법은 [Core 사용 가이드](core.md)를 �
 `src/slipkit-config.ts`:
 
 ```ts
+import { createSlipKit } from '@omdc-slipkit/core';
 import {
   IndexedDbStorage,
-  presets as builtInPresets,
+  getPresets,
   type SlipDesignerSettings,
-  type SlipFontProvider,
   type SlipPreset,
 } from '@omdc-slipkit/elements';
 
 const fontPromise =
   loadAppFonts();
 
-export const fontSettings:
-  SlipFontProvider = {
-    getFonts: () => fontPromise,
-  };
+export const slipkit = createSlipKit({
+  locale: 'ko-KR',
+  getFonts: () => fontPromise,
+  encryption: {
+    key: currentKey,
+    previousKeys: [previousKey],
+  },
+});
 
 export const designerSettings:
   SlipDesignerSettings = {
-    getFonts: () => fontPromise,
-
     getPaperSizes: () => [
       {
         name: '배송 라벨 100×150',
@@ -918,14 +940,14 @@ export const designerSettings:
 
 export const designerPresets:
   SlipPreset[] = [
-    ...builtInPresets,
+    ...getPresets('ko'),
     shippingLabelPreset,
   ];
 
 export const templateStorage =
-  new IndexedDbStorage({
+  new IndexedDbStorage(slipkit, {
     dbName: 'my-app-templates',
-    locale: 'ko',
+    encryptOnSave: true,
   });
 ```
 
@@ -934,7 +956,7 @@ export const templateStorage =
 ```tsx
 <SlipDesigner
   src={designerSrc}
-  locale="ko"
+  slipkit={slipkit}
   settings={designerSettings}
   presets={designerPresets}
   storage={templateStorage}
@@ -942,23 +964,21 @@ export const templateStorage =
 
 <SlipForm
   src={formSrc}
-  locale="ko"
-  settings={fontSettings}
+  slipkit={slipkit}
 />
 
 <SlipViewer
   src={viewerSrc}
-  locale="ko"
-  settings={fontSettings}
+  slipkit={slipkit}
 />
 ```
 
-이렇게 구성하면 컴포넌트마다 다른 설정 객체를 반복해서 만들지 않고, 폰트와 저장소 인스턴스도 재사용할 수 있습니다.
+이렇게 구성하면 폰트·로케일·암호화 키를 `SlipKit`에서 한 번만 관리하고 컴포넌트와 저장 수단이 같은 설정을 사용하게 됩니다.
 
 ## 피해야 할 설정
 
 - 객체 설정을 HTML 속성 문자열로 전달
-- React 렌더링마다 새로운 `settings`와 저장소 인스턴스 생성
+- React 렌더링마다 새로운 `slipkit`, `settings`, 저장소 인스턴스 생성
 - `getFonts`가 호출될 때마다 같은 폰트를 네트워크에서 다시 다운로드
 - 사용자 폰트를 공급하면서 필요한 기본 폰트가 자동으로 추가된다고 가정
 - 둘 이상의 폰트에 `fallback: true` 지정
@@ -966,13 +986,14 @@ export const templateStorage =
 - `locale`이 양식 안의 문구까지 번역한다고 가정
 - 빈 `presets` 배열로 프리셋 메뉴가 숨겨진다고 가정
 - `storage`를 자동 저장 설정으로 해석
-- `LocalFileStorage`를 목록 기능이 필요한 디자이너 저장소로 사용
-- 운영 환경에서 동봉 샘플 암호화 키 사용
+- `SlipFileExchange`를 디자이너의 `storage`로 사용
+- 운영 암호화 키를 코드에 하드코딩
 - Base64 변환 이후의 파일 크기 증가를 고려하지 않고 이미지 제한 설정
 
 ## 완료 확인
 
-- [ ] 컴포넌트의 UI 언어를 지정했습니다.
+- [ ] `SlipKit`에 폰트·로케일·암호화 키를 한 번만 설정했습니다.
+- [ ] UI 언어를 다르게 쓰는 컴포넌트에만 `locale`을 재정의했습니다.
 - [ ] 출력할 문자와 스타일에 필요한 폰트를 공급했습니다.
 - [ ] 폰트 공급 결과를 재사용하도록 구성했습니다.
 - [ ] 애플리케이션에 필요한 사용자 용지와 바코드 종류를 설정했습니다.

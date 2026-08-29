@@ -2,8 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { SlipFile } from '@omdc-slipkit/core';
-import { SlipDesigner, SlipViewer, type SlipViewerProps } from '../src/index.js';
+import type { SlipFile, SlipKit } from '@omdc-slipkit/core';
+import { SlipDesigner, SlipViewer } from '../src/index.js';
 
 (globalThis as Record<string, unknown>)['IS_REACT_ACT_ENVIRONMENT'] = true;
 
@@ -17,20 +17,20 @@ function render(node: Parameters<ReturnType<typeof createRoot>['render']>[0]): H
   return container;
 }
 
-const DUMMY_SETTINGS: SlipViewerProps['settings'] = {
+const DUMMY_SLIPKIT = {
   getFonts: () => [{ name: 'demo', data: new Uint8Array([1]) }],
-};
+} as unknown as SlipKit;
 
 describe('@omdc-slipkit/react 래퍼', () => {
-  it('SlipViewer는 slip-viewer 엘리먼트에 src·settings를 전달한다', () => {
-    const container = render(createElement(SlipViewer, { src: '', settings: DUMMY_SETTINGS }));
+  it('SlipViewer는 slip-viewer 엘리먼트에 src·slipkit을 전달한다', () => {
+    const container = render(createElement(SlipViewer, { src: '', slipkit: DUMMY_SLIPKIT }));
     const el = container.querySelector('slip-viewer') as HTMLElement & {
       src: string;
-      settings?: unknown;
+      slipkit?: unknown;
     };
     expect(el).not.toBeNull();
     expect(el.src).toBe('');
-    expect(el.settings).toBe(DUMMY_SETTINGS);
+    expect(el.slipkit).toBe(DUMMY_SLIPKIT);
   });
 
   it('SlipDesigner는 slip-change 이벤트를 onSlipChange 콜백으로 전달한다', () => {

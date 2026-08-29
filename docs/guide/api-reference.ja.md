@@ -148,6 +148,14 @@ interface SlipKitConfig {
 
 ```ts
 interface SlipKit {
+  readonly locale: string | undefined;
+
+  readonly getFonts:
+    | (() =>
+        | readonly SlipFont[]
+        | Promise<readonly SlipFont[]>)
+    | undefined;
+
   render(
     file: SlipFile,
   ): Promise<Uint8Array>;
@@ -174,8 +182,10 @@ interface SlipKit {
 }
 ```
 
-| メソッド | 戻り値 | 説明 |
+| プロパティ・メソッド | 戻り値 | 説明 |
 |---|---|---|
+| `locale` | `string \| undefined` | インスタンスに設定されたロケール |
+| `getFonts` | 関数または `undefined` | インスタンスに設定されたフォント供給関数 |
 | `render` | `Promise<Uint8Array>` | テンプレートまたは伝票を PDF バイトに変換 |
 | `buildVoucher` | `SlipVoucherFile` | テンプレートと値で作成中の伝票を生成 |
 | `evaluate` | `FormulaValue` | 数式文字列または AST を評価 |
@@ -1134,7 +1144,7 @@ interface VersionedStorageAdapter
 
 バージョン履歴をサポートする独自ストレージが、任意で実装できる拡張インターフェースです。
 
-現在同梱の `IndexedDbStorage` と `LocalFileStorage` は、このインターフェースを実装しません。
+同梱の `IndexedDbStorage` は、このインターフェースを実装しません。`SlipFileExchange` はストレージではないため、`StorageAdapter` を実装しません。
 
 ### `supportsVersions`
 
@@ -1268,7 +1278,8 @@ import type {
 | 名前 | 型 | 渡し方 | 既定値 |
 |---|---|---|---|
 | `src` | `string` | HTML 属性・プロパティ | `''` |
-| `locale` | `string` | HTML 属性・プロパティ | 英語 |
+| `locale` | `string` | HTML 属性・プロパティ | `SlipKit` のロケールまたは英語 |
+| `slipkit` | `SlipKit` | JS プロパティ | 省略 |
 | `settings` | `SlipDesignerSettings` | JS プロパティ | 同梱の既定設定 |
 | `presets` | `SlipPreset[]` | JS プロパティ | 同梱プリセット 2 種 |
 | `storage` | `StorageAdapter` | JS プロパティ | 保存機能を非表示 |
@@ -1295,8 +1306,8 @@ import type {
 | 名前 | 型 | 渡し方 | 既定値 |
 |---|---|---|---|
 | `src` | `string` | HTML 属性・プロパティ | `''` |
-| `locale` | `string` | HTML 属性・プロパティ | 英語 |
-| `settings` | `SlipFontProvider` | JS プロパティ | 同梱の既定フォント |
+| `locale` | `string` | HTML 属性・プロパティ | `SlipKit` のロケールまたは英語 |
+| `slipkit` | `SlipKit` | JS プロパティ | 省略 |
 | `maxImageBytes` | `number` | `max-image-bytes` 属性・プロパティ | 2MB |
 
 `src` には、次のファイルを渡せます。
@@ -1327,30 +1338,17 @@ import type {
 | 名前 | 型 | 渡し方 | 既定値 |
 |---|---|---|---|
 | `src` | `string` | HTML 属性・プロパティ | `''` |
-| `locale` | `string` | HTML 属性・プロパティ | 英語 |
-| `settings` | `SlipFontProvider` | JS プロパティ | 同梱の既定フォント |
+| `locale` | `string` | HTML 属性・プロパティ | `SlipKit` のロケールまたは英語 |
+| `slipkit` | `SlipKit` | JS プロパティ | 省略 |
 
 ビューアーはファイル変更イベントを発生させません。
 
 ## Elements の設定の型
 
-### `SlipFontProvider`
-
-```ts
-interface SlipFontProvider {
-  getFonts?():
-    | SlipFont[]
-    | Promise<SlipFont[]>;
-}
-```
-
-`getFonts` を省略するか空の配列を返すと、`locale` に合った同梱の既定フォントを使います。
-
 ### `SlipDesignerSettings`
 
 ```ts
-interface SlipDesignerSettings
-  extends SlipFontProvider {
+interface SlipDesignerSettings {
   getBarcodeKinds?():
     | BarcodeKind[]
     | Promise<BarcodeKind[]>;
@@ -1411,6 +1409,7 @@ function getPresets(
 class IndexedDbStorage
   implements StorageAdapter {
   constructor(
+    slipkit: SlipKit,
     options?:
       IndexedDbStorageOptions,
   );
@@ -1427,8 +1426,7 @@ class IndexedDbStorage
 interface IndexedDbStorageOptions {
   dbName?: string;
   pageSize?: number;
-  locale?: string;
-  encryption?: StorageEncryption;
+  encryptOnSave?: boolean;
 }
 ```
 
@@ -1436,58 +1434,37 @@ interface IndexedDbStorageOptions {
 |---|---|---|
 | `dbName` | `'slipkit'` | IndexedDB データベース名 |
 | `pageSize` | `50` | 一覧 1 ページの項目数 |
-| `locale` | 英語 | ストレージのエラーメッセージの言語 |
-| `encryption` | 平文 | 本体の暗号化設定 |
+| `encryptOnSave` | `false` | 保存時にファイル本体を暗号化するか |
 
-### `LocalFileStorage`
+### `SlipFileExchange`
 
 ```ts
-class LocalFileStorage
-  implements StorageAdapter {
+class SlipFileExchange {
   constructor(
-    options?: {
-      locale?: string;
-      encryption?:
-        StorageEncryption;
-    },
+    slipkit: SlipKit,
+    options?: SlipFileExchangeOptions,
   );
+
+  download(
+    name: string,
+    file: SlipFile,
+  ): Promise<void>;
+
+  open(): Promise<SlipFile>;
 }
 ```
 
-| メソッド | 動作 |
-|---|---|
-| `save` | ブラウザのファイルダウンロード |
-| `load` | ファイル選択ダイアログから `.slip` ファイルを読み込む |
-| `delete` | `unsupported` エラー |
-| `list` | `unsupported` エラー |
+`SlipFileExchange` はブラウザのダウンロードとファイル選択ダイアログを提供します。`StorageAdapter` は実装せず、`download` と `open` だけを提供します。
 
-### `StorageEncryption`
+#### `SlipFileExchangeOptions`
 
 ```ts
-interface StorageEncryption {
-  enabled: boolean;
-
-  key?:
-    | string
-    | Uint8Array;
-
-  previousKeys?: (
-    | string
-    | Uint8Array
-  )[];
+interface SlipFileExchangeOptions {
+  encryptOnSave?: boolean;
 }
 ```
 
-### `SAMPLE_ENCRYPTION_KEY`
-
-```ts
-const SAMPLE_ENCRYPTION_KEY:
-  string;
-```
-
-`StorageEncryption.key` を省略したデモで使う公開サンプルキーです。
-
-運用環境のセキュリティキーとして使ってはいけません。
+`encryptOnSave` の既定値は `false` です。開くときはこの設定に関係なく暗号化エンベロープを検出し、`SlipKit` に設定したキーで復号します。
 
 ### 同梱フォント
 
@@ -1519,6 +1496,7 @@ React 19 以上をサポートします。
 interface SlipDesignerProps {
   src: string;
   locale?: string;
+  slipkit?: SlipKit;
 
   settings?:
     SlipDesignerSettings;
@@ -1542,9 +1520,7 @@ Web Component の `slip-change` イベントから `CustomEvent` を取り除き
 interface SlipFormProps {
   src: string;
   locale?: string;
-
-  settings?:
-    SlipFontProvider;
+  slipkit?: SlipKit;
 
   maxImageBytes?: number;
 
@@ -1564,9 +1540,7 @@ interface SlipFormProps {
 interface SlipViewerProps {
   src: string;
   locale?: string;
-
-  settings?:
-    SlipFontProvider;
+  slipkit?: SlipKit;
 }
 ```
 
@@ -1590,6 +1564,7 @@ Vue 3.4 以上をサポートします。
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
+| `slipkit` | `SlipKit` | — |
 | `settings` | `SlipDesignerSettings` | — |
 | `presets` | `SlipPreset[]` | — |
 | `storage` | `StorageAdapter` | — |
@@ -1607,7 +1582,7 @@ Vue 3.4 以上をサポートします。
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
-| `settings` | `SlipFontProvider` | — |
+| `slipkit` | `SlipKit` | — |
 | `maxImageBytes` | `number` | — |
 
 発生するイベント:
@@ -1623,7 +1598,7 @@ Vue 3.4 以上をサポートします。
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
-| `settings` | `SlipFontProvider` | — |
+| `slipkit` | `SlipKit` | — |
 
 ## `@omdc-slipkit/mcp`
 

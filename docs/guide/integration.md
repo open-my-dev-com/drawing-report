@@ -547,14 +547,26 @@ form.addEventListener('slip-issue', (event) => {
 브라우저 IndexedDB를 사용하려면 다음과 같이 연결합니다.
 
 ```ts
+import { createSlipKit } from '@omdc-slipkit/core';
 import { IndexedDbStorage } from '@omdc-slipkit/elements';
 
-const templateStorage = new IndexedDbStorage({
-  dbName: 'my-app-templates',
+const slipkit = createSlipKit({
+  locale: 'ko-KR',
+  encryption: {
+    key: import.meta.env.VITE_SLIPKIT_KEY,
+  },
 });
 
+const templateStorage = new IndexedDbStorage(slipkit, {
+  dbName: 'my-app-templates',
+  encryptOnSave: true,
+});
+
+designer.slipkit = slipkit;
 designer.storage = templateStorage;
 ```
+
+이 예제처럼 `getFonts`를 생략하면 디자이너 미리보기는 `SlipKit.locale`에 맞는 동봉 폰트를 사용합니다.
 
 > [!IMPORTANT]
 > `storage` 프로퍼티는 디자이너의 “내 양식” 기능에 사용하는 저장소입니다.
@@ -685,16 +697,18 @@ export const serverStorage: StorageAdapter = {
 
 ## 로컬 파일 열기와 내려받기
 
-`LocalFileStorage`는 브라우저의 파일 선택 창과 다운로드 기능을 제공합니다.
+`SlipFileExchange`는 브라우저의 파일 선택 창과 다운로드 기능을 제공합니다. 컴포넌트와 IndexedDB 저장소에 전달한 `SlipKit` 인스턴스를 그대로 사용합니다.
 
 ```ts
-import { LocalFileStorage } from '@omdc-slipkit/elements';
+import { SlipFileExchange } from '@omdc-slipkit/elements';
 
-const localFiles = new LocalFileStorage();
+const files = new SlipFileExchange(slipkit, {
+  encryptOnSave: true,
+});
 
-await localFiles.save('거래명세서.slip', template);
+await files.download('거래명세서.slip', template);
 
-const opened = await localFiles.load('');
+const opened = await files.open();
 
 if (opened.kind === 'template') {
   template = opened;
@@ -702,11 +716,9 @@ if (opened.kind === 'template') {
 }
 ```
 
-> [!NOTE]
-> `LocalFileStorage`는 파일 목록 조회와 삭제를 지원하지 않습니다.
-> 따라서 디자이너의 `storage`로 전달하기보다 애플리케이션의 <kbd>파일 열기</kbd>와 <kbd>내려받기</kbd> 기능에서 직접 사용하는 것이 적합합니다.
+`SlipFileExchange`는 `StorageAdapter`를 구현하지 않으므로 디자이너의 `storage`에 전달할 수 없습니다. 애플리케이션의 <kbd>파일 열기</kbd>와 <kbd>내려받기</kbd> 동작에서 직접 사용합니다.
 
-외부에서 받은 `.slip` 파일은 사용하기 전에 항상 파싱과 검증을 거쳐야 합니다. `LocalFileStorage.load`는 내부에서 이 검증을 수행합니다.
+외부에서 받은 `.slip` 파일은 사용하기 전에 파싱과 검증을 거쳐야 합니다. `SlipFileExchange.open`은 이 검증을 수행하고 암호화 봉투는 `SlipKit`에 설정한 키로 복호화합니다.
 
 ## 발행된 전표 조회하기
 

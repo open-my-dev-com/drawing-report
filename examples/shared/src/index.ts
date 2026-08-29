@@ -4,10 +4,11 @@
  * 화면을 그리는 방법은 프레임워크마다 다르지만, 무엇을 저장하고 언제 이어 쓰며
  * 어떤 문구를 보여줄지는 같다. 그 공통 부분만 여기에 두고 각 데모는 화면만 만든다.
  */
-import { getPresets, IndexedDbStorage, LocalFileStorage } from '@omdc-slipkit/elements';
+import { getPresets, IndexedDbStorage, SlipFileExchange } from '@omdc-slipkit/elements';
 import {
   SlipStorageError,
   type SlipFile,
+  type SlipKit,
   type SlipTemplateFile,
   type SlipVoucherFile,
   type StorageAdapter,
@@ -59,24 +60,52 @@ function demoLanguage(locale?: string): DemoLocale {
 }
 
 /**
- * 데모가 쓰는 저장소 두 벌을 만든다 (ADR-021/025).
+ * 키를 지정하지 않은 데모에서 사용하는 샘플 키.
+ * 소스에 포함된 공개 값이므로 실제 데이터 보호에는 쓸 수 없다.
  *
- * @param dbName - IndexedDB 이름 — 데모끼리 저장 내용이 섞이지 않게 따로 준다
- * @param locale - 저장소 오류 메시지에 사용할 로케일 (생략하면 영어)
- * @returns 브라우저 저장소와 파일 주고받기 어댑터
+ * @remarks
+ * 공통 설정 도입 전 데모의 자동 저장이 쓰던 키와 같은 값이다. 값을 바꾸면
+ * 이전에 저장한 IndexedDB 데이터와 내려받은 암호화 파일을 열 수 없게 된다.
  */
-export function createStores(dbName: string, locale?: string): {
+export const DEMO_SAMPLE_KEY = 'omdc-slipkit-sample-key';
+
+/**
+ * 데모의 암호화 키 설정을 만든다. `.env`의 키(`VITE_SLIPKIT_KEY`)를 한 번 읽어 검증하고,
+ * 없으면 경고를 남기고 샘플 키를 명시적으로 사용한다.
+ *
+ * @remarks
+ * 자체 키를 설정해도 샘플 키를 이전 키로 등록해, 키를 정하기 전에 저장한
+ * 데이터를 계속 열 수 있게 한다.
+ *
+ * @param envKey - 빌드 환경변수에서 읽은 키 값 (생략 가능)
+ * @returns `createSlipKit`의 encryption 설정
+ */
+export function resolveDemoEncryption(
+  envKey: string | undefined,
+): { key: string; previousKeys?: string[] } {
+  const key = envKey?.trim();
+  if (key) return { key, previousKeys: [DEMO_SAMPLE_KEY] };
+  console.warn('[demo] VITE_SLIPKIT_KEY is not set — using the public demo sample key. Supply your own key for real data.');
+  return { key: DEMO_SAMPLE_KEY };
+}
+
+/**
+ * 데모가 쓰는 저장 수단 두 벌을 만든다 (ADR-021/025).
+ * 키와 로케일은 SlipKit 인스턴스의 공통 설정을 그대로 쓴다.
+ *
+ * @param slipkit - 공통 설정 인스턴스
+ * @param dbName - IndexedDB 이름 — 데모끼리 저장 내용이 섞이지 않게 따로 준다
+ * @returns 브라우저 저장소와 파일 주고받기 기능
+ */
+export function createStores(slipkit: SlipKit, dbName: string): {
   store: StorageAdapter;
-  localFile: LocalFileStorage;
+  files: SlipFileExchange;
 } {
-  const options = locale === undefined ? {} : { locale };
-  // 자동 저장 본문은 암호화한다. 키를 지정하지 않으면 동봉 샘플 키를 사용하는데,
-  // 샘플 키는 소스에 포함된 공개 값이라 실제 데이터 보호에는 쓸 수 없다.
-  console.warn('[demo] Autosave uses the bundled sample encryption key. Supply your own key for real data.');
   return {
-    store: new IndexedDbStorage({ dbName, encryption: { enabled: true }, ...options }),
-    // 내려받는 .slip 파일은 내용 확인이 목적이라 암호화하지 않는다.
-    localFile: new LocalFileStorage(options),
+    // 자동 저장 본문은 공통 키로 암호화한다.
+    store: new IndexedDbStorage(slipkit, { dbName, encryptOnSave: true }),
+    // 내려받는 .slip 파일은 내용 확인이 목적이라 암호화하지 않는다. 암호화 파일 열기는 가능하다.
+    files: new SlipFileExchange(slipkit, { encryptOnSave: false }),
   };
 }
 

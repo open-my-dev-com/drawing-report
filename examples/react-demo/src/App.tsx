@@ -29,6 +29,7 @@ import {
   initialTemplate,
   isCancelled,
   reasonOf,
+  resolveDemoEncryption,
   resolveDemoLocale,
   restore,
   saveBytes,
@@ -44,11 +45,13 @@ const messages = getMessages(locale);
 document.documentElement.lang = locale ?? 'en';
 document.title = messages.appTitle('React');
 
-// PDF 렌더링용 Core 설정. 동봉된 모든 폰트를 등록하고, 로케일에 따라
-// fontName을 생략한 요소의 대체(fallback) 폰트를 선택한다.
+// 공통 설정은 여기 한 번만 적는다 — 컴포넌트, 자동 저장, 파일 주고받기, PDF 렌더링이
+// 전부 이 인스턴스의 폰트·로케일·암호화 키를 사용한다.
+// 암호화 키는 .env(VITE_SLIPKIT_KEY)에서 한 번 읽고, 없으면 데모 샘플 키를 명시적으로 쓴다.
 const slipKit = createSlipKit({
   getFonts: () => loadDefaultFonts(locale?.toLowerCase().startsWith('ja') ? 'ja' : 'ko'),
   ...(locale === undefined ? {} : { locale }),
+  encryption: resolveDemoEncryption(import.meta.env.VITE_SLIPKIT_KEY as string | undefined),
 });
 
 // 호스트가 용지 후보를 공급하는 예시 — 기본 용지 뒤에 추가로 표시된다.
@@ -57,11 +60,9 @@ const designerSettings: SlipDesignerSettings = {
   getPaperSizes: () => [{ name: 'Label 100x150', width: 100, height: 150 }],
 };
 
-const localeProp = locale === undefined ? {} : { locale };
-
 export function App() {
   // 저장소는 화면이 다시 그려져도 그대로 써야 하므로 한 번만 만든다
-  const { store, localFile } = useMemo(() => createStores('slipkit-demo-react', locale), []);
+  const { store, files } = useMemo(() => createStores(slipKit, 'slipkit-demo-react'), []);
 
   const [template, setTemplate] = useState<SlipTemplateFile>(() => initialTemplate(locale));
   // 디자이너에 넣는 시작 입력 — 편집 중에는 바꾸지 않고, 외부 양식을 명시적으로 열 때만 갱신한다
@@ -203,8 +204,8 @@ export function App() {
     if (dialogRef.current?.returnValue !== 'ok') return;
     const file = activeFile();
     const name = filenameRef.current?.value.trim() || suggestedName(file, locale);
-    localFile
-      .save(name, file)
+    files
+      .download(name, file)
       .then(() => setStatus(messages.downloaded(name)))
       .catch((error: unknown) => setStatus(messages.downloadFailed(reasonOf(error))));
   };
@@ -222,8 +223,8 @@ export function App() {
   };
 
   const openFile = (): void => {
-    localFile
-      .load('')
+    files
+      .open()
       .then((file) => {
         if (file.kind === 'template') {
           setTemplate(file);
@@ -281,9 +282,10 @@ export function App() {
       </header>
 
       <div className="pane" hidden={mode !== 'design'}>
+        {/* UI 언어와 렌더 설정은 slipkit이 공급한다 — 컴포넌트 locale은 다르게 표시할 때만 쓴다 */}
         <SlipDesigner
           src={designerSrc}
-          {...localeProp}
+          slipkit={slipKit}
           settings={designerSettings}
           storage={store}
           onSlipChange={onDesignerChange}
@@ -291,11 +293,16 @@ export function App() {
       </div>
       <div className="pane" hidden={mode !== 'fill'}>
         {booted && formSrc !== '' ? (
-          <SlipForm src={formSrc} {...localeProp} onSlipChange={onFormChange} onSlipIssue={onFormIssue} />
+          <SlipForm
+            src={formSrc}
+            slipkit={slipKit}
+            onSlipChange={onFormChange}
+            onSlipIssue={onFormIssue}
+          />
         ) : null}
       </div>
       <div className="pane" hidden={mode !== 'view'}>
-        {viewerSrc !== '' ? <SlipViewer src={viewerSrc} {...localeProp} /> : null}
+        {viewerSrc !== '' ? <SlipViewer src={viewerSrc} slipkit={slipKit} /> : null}
       </div>
 
       <dialog ref={dialogRef} onClose={onDialogClose}>

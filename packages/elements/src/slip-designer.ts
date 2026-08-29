@@ -3,7 +3,6 @@ import { designerStyles, RULER_PX } from './styles/slip-designer.styles.js';
 import { live } from 'lit/directives/live.js';
 import {
   parseSlipFile,
-  renderSlipToPdf,
   parseFormula,
   evaluateFormula,
   resolveConditionalFormats,
@@ -11,6 +10,8 @@ import {
   SLIP_LIMITS,
   type ConditionalFormatOverrides,
   type ConditionalFormatRule,
+  type FormulaContext,
+  type FormulaValue,
   type SlipFile,
   type SlipTemplateFile,
   type SlipElement,
@@ -27,13 +28,13 @@ import {
   type BarcodeKind,
   type ParameterValueType,
   type SlipPage,
-  type RenderOptions,
+  type SlipKit,
   type SlipListItem,
   type StorageAdapter,
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
 import { getFormulaHelp } from './formula-help.js';
-import { resolveFonts, type SlipDesignerSettings, type PaperSize } from './settings.js';
+import { renderSlip, resolveFonts, type SlipDesignerSettings, type PaperSize } from './settings.js';
 import { getPresets, type SlipPreset } from './presets.js';
 import { icons } from './icons.js';
 import { pickImageFile, formatBytes } from './image-file.js';
@@ -762,6 +763,7 @@ export class SlipDesigner extends LitElement {
   static properties = {
     src: { type: String },
     locale: { type: String },
+    slipkit: { attribute: false },
     settings: { attribute: false },
     _file: { state: true },
     _pageIndex: { state: true },
@@ -815,15 +817,22 @@ export class SlipDesigner extends LitElement {
   src = '';
 
   /**
-   * UI 언어 (`ko`, `en`, `ja`).
+   * UI 언어 (`ko`, `en`, `ja`). 생략하면 `slipkit`에 설정된 로케일을 따른다.
    *
    * @defaultValue 영어
    */
   locale?: string;
 
   /**
-   * 폰트와 용지 정보를 제공하는 호스트 설정.
-   * 생략하면 기본 폰트와 용지를 사용한다.
+   * 폰트·로케일·암호화 키 공통 설정 인스턴스.
+   * PDF 미리보기와 수식 평가는 이 인스턴스의 설정을 사용한다.
+   * `getFonts`가 없으면 동봉 기본 폰트로 렌더링한다.
+   */
+  slipkit?: SlipKit;
+
+  /**
+   * 바코드 종류와 용지 정보를 제공하는 호스트 설정.
+   * 생략하면 기본 용지만 표시한다.
    */
   settings?: SlipDesignerSettings;
 
@@ -989,9 +998,29 @@ export class SlipDesigner extends LitElement {
   /** 그리드 셀의 인라인 편집 여부 */
   private _cellEditing = false;
 
+  /** 컴포넌트 속성이 우선하고, 없으면 slipkit 설정을 따르는 UI 언어 로케일 */
+  private get _locale(): string | undefined {
+    return this.locale ?? this.slipkit?.locale;
+  }
+
+  /** 수식·조건식 평가에 사용할 로케일 — slipkit이 있으면 인스턴스 설정을 따른다 */
+  private get _evalLocale(): string | undefined {
+    return this.slipkit ? this.slipkit.locale : this.locale;
+  }
+
   /** 현재 locale의 문구 사전 */
   private get _strings() {
-    return getStrings(this.locale);
+    return getStrings(this._locale);
+  }
+
+  /**
+   * 수식을 평가한다. slipkit이 있으면 같은 인스턴스로 평가해 호스트의 렌더 결과와 맞춘다.
+   * 수식 로케일은 인스턴스 설정을 따른다 — 컴포넌트 locale은 UI 언어 전용이다.
+   */
+  private _evaluate(source: string, context: FormulaContext): FormulaValue {
+    if (this.slipkit) return this.slipkit.evaluate(source, context);
+    const locale = this._evalLocale;
+    return evaluateFormula(source, locale === undefined ? context : { ...context, locale });
   }
 
   // ---------------------------------------------------------------------------
@@ -1021,6 +1050,9 @@ export class SlipDesigner extends LitElement {
     if (changed.has('settings')) {
       void this._loadPaperSizes();
       void this._loadBarcodeKinds();
+    }
+    // 폰트 목록은 slipkit의 공급 함수 또는 로케일별 동봉 기본 폰트에서 나온다.
+    if (changed.has('slipkit') || changed.has('locale')) {
       void this._loadFontNames();
     }
   }
@@ -1084,7 +1116,7 @@ export class SlipDesigner extends LitElement {
 
     let file: SlipFile;
     try {
-      file = parseSlipFile(this.src, this.locale === undefined ? undefined : { locale: this.locale });
+      file = parseSlipFile(this.src, this._locale === undefined ? undefined : { locale: this._locale });
     } catch (error) {
       console.error('[slip-designer] .slip parse failed:', error);
       this._file = null;
@@ -2627,11 +2659,6 @@ export class SlipDesigner extends LitElement {
 
     const gen = ++this._previewGeneration;
     try {
-      // 호스트가 폰트를 제공하지 않으면 UI 언어에 맞는 동봉 폰트를 사용한다.
-      const opts: RenderOptions = {
-        getFonts: () => resolveFonts(this.settings, this.locale),
-        ...(this.locale === undefined ? {} : { locale: this.locale }),
-      };
       // 샘플 값이 있으면 해당 값을 적용한 전표를 미리보기로 렌더링한다.
       // 파일 자체는 양식 그대로 두고 렌더 입력만 전표 형태로 만든다.
       const sample = this._file.template.sampleValues;
@@ -2645,7 +2672,7 @@ export class SlipDesigner extends LitElement {
               issued: false,
             }
           : this._file;
-      const pdfBytes = await renderSlipToPdf(target, opts);
+      const pdfBytes = await renderSlip(this.slipkit, target, this._locale);
       if (gen !== this._previewGeneration) return;
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._previewUrl = URL.createObjectURL(blob);
@@ -2915,7 +2942,7 @@ export class SlipDesigner extends LitElement {
 
   /** 호스트가 지정한 프리셋 또는 현재 locale의 기본 프리셋을 반환한다. */
   private _presetList(): SlipPreset[] {
-    return this.presets?.length ? this.presets : getPresets(this.locale);
+    return this.presets?.length ? this.presets : getPresets(this._locale);
   }
 
   /** 프리셋 메뉴를 버튼 아래의 화면 고정 위치에서 열거나 닫는다. */
@@ -4391,7 +4418,7 @@ export class SlipDesigner extends LitElement {
       try {
         Object.assign(
           result,
-          resolveConditionalFormats([rule], scope, this.locale === undefined ? {} : { locale: this.locale }),
+          resolveConditionalFormats([rule], scope, this._evalLocale === undefined ? {} : { locale: this._evalLocale }),
         );
       } catch {
         // 조건식이 계산되지 않으면 기본 서식으로 표시한다. 오류는 PDF 미리보기에서 안내한다.
@@ -4419,9 +4446,8 @@ export class SlipDesigner extends LitElement {
     }
     if (cell.formula !== undefined) {
       try {
-        const result = evaluateFormula(cell.formula, {
+        const result = this._evaluate(cell.formula, {
           values,
-          ...(this.locale === undefined ? {} : { locale: this.locale }),
         });
         return result === null ? '' : String(result);
       } catch {
@@ -4443,9 +4469,8 @@ export class SlipDesigner extends LitElement {
     }
     if (cell.formula !== undefined) {
       try {
-        const result = evaluateFormula(cell.formula, {
+        const result = this._evaluate(cell.formula, {
           values,
-          ...(this.locale === undefined ? {} : { locale: this.locale }),
         });
         return result === null ? '' : String(result);
       } catch {
@@ -4609,7 +4634,7 @@ export class SlipDesigner extends LitElement {
    * Bold, Italic, BoldItalic 변형은 선택 목록에서 제외한다.
    */
   private async _loadFontNames(): Promise<void> {
-    const fonts = await resolveFonts(this.settings, this.locale);
+    const fonts = await resolveFonts(this.slipkit, this._locale);
     const names = fonts
       .map((f) => f.name)
       .filter((n) => !/-(Bold|Italic|BoldItalic)$/.test(n));
@@ -6976,9 +7001,8 @@ export class SlipDesigner extends LitElement {
                   }
                   // 문법이 맞아도 견본 값으로 계산한 결과가 논리값이 아니면 저장하지 않는다.
                   try {
-                    const probe = evaluateFormula(value, {
+                    const probe = this._evaluate(value, {
                       values: { ...this._formulaProbeValues(), ...(probeItem ?? {}) },
-                      ...(this.locale === undefined ? {} : { locale: this.locale }),
                     });
                     if (typeof probe !== 'boolean') {
                       this._rejectInput(s.conditionNotBoolean, `${keyPrefix}-cond-${index}`);
@@ -7313,13 +7337,12 @@ export class SlipDesigner extends LitElement {
     let previewError: string | null = null;
     if (draft.trim() !== '') {
       try {
-        parseFormula(draft, this.locale === undefined ? undefined : { locale: this.locale });
+        parseFormula(draft, this._locale === undefined ? undefined : { locale: this._locale });
         try {
           // 샘플 값이 없으면 파라미터 종류별 기본값으로 수식을 검사한다.
           preview = formulaPreviewText(
-            evaluateFormula(draft, {
+            this._evaluate(draft, {
               values: this._formulaProbeValues(),
-              ...(this.locale === undefined ? {} : { locale: this.locale }),
             }),
           );
         } catch (error) {
@@ -7385,7 +7408,7 @@ export class SlipDesigner extends LitElement {
                 </div>`
             : nothing}
           <div class="modal-section-title">${s.formulaFunctions}</div>
-          ${getFormulaHelp(this.locale).map((category) => html`
+          ${getFormulaHelp(this._locale).map((category) => html`
             <div class="fn-category">${category.title}</div>
             ${category.functions.map((fn) => html`
               <button class="fn-row" aria-label=${fn.name}

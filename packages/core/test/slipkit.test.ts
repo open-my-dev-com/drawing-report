@@ -81,4 +81,15 @@ describe('createSlipKit (ADR-056)', () => {
     expect(pdf).toBeInstanceOf(Uint8Array);
     expect(new TextDecoder().decode(pdf.slice(0, 4))).toBe('%PDF');
   });
+
+  it('인스턴스는 설정된 locale과 getFonts를 노출한다 — UI와 저장소가 재사용한다', () => {
+    const getFonts = () => [];
+    const slip = createSlipKit({ locale: 'ko', getFonts });
+    expect(slip.locale).toBe('ko');
+    expect(slip.getFonts).toBe(getFonts);
+
+    const bare = createSlipKit();
+    expect(bare.locale).toBeUndefined();
+    expect(bare.getFonts).toBeUndefined();
+  });
 });

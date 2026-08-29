@@ -1,10 +1,10 @@
 /**
  * 동봉된 Noto Sans JP Regular 일본어 서브셋.
  *
- * `locale="ja"`이고 `settings.getFonts`가 없을 때 기본 폰트로 사용한다. 호스트는
+ * 렌더링 로케일이 `ja`이고 `slipkit.getFonts`가 없을 때 기본 폰트로 사용한다. 호스트는
  * `@omdc-slipkit/elements/fonts/noto-sans-jp`에서 직접 가져올 수도 있다.
  *
- * Regular만 포함하므로 다른 굵기나 글자 범위는 `settings.getFonts`로 제공해야 한다.
+ * Regular만 포함하므로 다른 굵기나 글자 범위는 `createSlipKit`의 `getFonts`로 제공해야 한다.
  *
  * 폰트 저작권: Copyright 2014-2021 Adobe — with Reserved Font Name 'Source'. SIL Open Font License 1.1.
  * 라이선스 전문은 패키지 루트의 `OFL-NotoSansJP.txt`.
