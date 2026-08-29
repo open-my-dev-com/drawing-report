@@ -337,6 +337,23 @@ interface FormulaContext {
 | `now` | 호출 시각 | `TODAY` 등 날짜 함수의 기준 시각 |
 | `locale` | `'en-US'` | 숫자·날짜 표시 형식과 오류 메시지에 사용할 로케일 |
 
+#### `resolveConditionalFormats`
+
+```ts
+function resolveConditionalFormats(
+  rules: readonly ConditionalFormatRule[] | undefined,
+  scope: Record<string, unknown>,
+  options?: {
+    locale?: string;
+    subject?: string;
+  },
+): ConditionalFormatOverrides;
+```
+
+조건부 서식 규칙을 선언된 순서대로 평가하고, 조건이 참인 규칙의 스타일을 합성합니다. 같은 속성을 여러 규칙이 지정하면 뒤에 선언된 규칙의 값을 사용합니다.
+
+조건식의 문법이 잘못되었거나 결과가 불리언이 아니면 `SlipRenderError`가 발생합니다. 값 누락이나 타입 불일치 등으로 조건식을 계산할 수 없으면 해당 규칙을 적용하지 않습니다.
+
 #### `FormulaValue`
 
 ```ts
@@ -742,12 +759,50 @@ type SlipElement =
 | `borderWidth` | `number` |
 | `borderStyle` | `'solid' \| 'dashed' \| 'dotted'` |
 
+### `ConditionalFormatRule`
+
+```ts
+interface ConditionalFormatRule {
+  condition: string;
+  fontColor?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+}
+```
+
+`condition`은 불리언 값을 반환하는 수식입니다. 규칙마다 색이나 글자 강조를 하나 이상 지정해야 하며, 요소 또는 셀마다 최대 20개까지 선언할 수 있습니다.
+
+글자 강조 값은 `true`면 적용하고 `false`면 기본 스타일의 강조를 해제합니다. 필드를 생략하면 기본 스타일이나 앞선 규칙의 결과를 유지합니다.
+
+`conditionalFormats?: ConditionalFormatRule[]`는 `TextElement`, `FieldElement`, `GridCell`에서만 사용할 수 있습니다.
+
+### `ConditionalFormatOverrides`
+
+```ts
+interface ConditionalFormatOverrides {
+  fontColor?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+}
+```
+
+`resolveConditionalFormats`가 반환하는 스타일입니다. 조건이 참인 규칙이 없으면 모든 필드가 비어 있습니다.
+
 ### `TextElement`
 
 ```ts
 interface TextElement {
   type: 'text';
   content: string;
+  conditionalFormats?: ConditionalFormatRule[];
 
   // 공통 위치·크기,
   // 글자·색·테두리 스타일
@@ -764,6 +819,7 @@ interface FieldElement {
 
   parameter?: string;
   formula?: string;
+  conditionalFormats?: ConditionalFormatRule[];
 
   // 공통 위치·크기,
   // 글자·색·테두리 스타일
@@ -805,6 +861,7 @@ interface BarcodeElement {
   content?: string;
   parameter?: string;
   formula?: string;
+  conditionalFormats?: ConditionalFormatRule[];
 
   fontColor?: string;
   backgroundColor?: string;

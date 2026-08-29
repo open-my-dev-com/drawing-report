@@ -186,7 +186,7 @@ const textElementSchema = z.object({
   /** 직접 입력한 텍스트. */
   content: z.string(),
   ...fontShape,
-  /** 값에 따라 색을 바꾸는 조건부 서식 규칙. */
+  /** 값에 따라 색과 글자 강조를 바꾸는 조건부 서식 규칙. */
   conditionalFormats: conditionalFormatsSchema.optional(),
 });
 
@@ -227,7 +227,7 @@ const gridCellSchema = z.object({
   /** 그리드 기본 overflow 설정을 덮어쓸 셀별 처리 방식. */
   overflow: overflowSchema.optional(),
   ...fontShape,
-  /** 값에 따라 색을 바꾸는 조건부 서식 규칙. */
+  /** 값에 따라 색과 글자 강조를 바꾸는 조건부 서식 규칙. */
   conditionalFormats: conditionalFormatsSchema.optional(),
 });
 
@@ -581,7 +581,7 @@ const fieldElementSchema = z
     /** 표시 값을 계산하는 수식. 예: `FORMAT_NUMBER(...)`. */
     formula: z.string().optional(),
     ...fontShape,
-    /** 값에 따라 색을 바꾸는 조건부 서식 규칙. */
+    /** 값에 따라 색과 글자 강조를 바꾸는 조건부 서식 규칙. */
     conditionalFormats: conditionalFormatsSchema.optional(),
   })
   .superRefine((field, ctx) => {

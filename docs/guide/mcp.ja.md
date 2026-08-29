@@ -278,7 +278,34 @@ codex mcp add slipkit -- \
 
 操作は指定順にコピーへ適用し、その後ファイル全体を検証します。1 つでも操作または検証に失敗すると、ファイルは書き込まれません。
 
-`set_element` など `fields` を受け取る操作は、渡したフィールドだけをマージします。変更しないフィールドは省略してください。`null` は削除の印ではなく、実際の値として保存されます。
+`set_element` など `fields` を受け取る操作は、渡したフィールドだけをマージします。変更しないフィールドは省略し、削除するフィールドには `null` を指定してください。一方、`set_values` に渡した `null` は削除の指定ではなく、実際の伝票値として保存されます。
+
+#### 条件付き書式の編集例
+
+次の操作は、`total` フィールドの値が負の場合に、文字を赤い太字で表示します。
+
+```json
+{
+  "path": "invoice",
+  "ops": [
+    {
+      "action": "set_element",
+      "id": "total",
+      "fields": {
+        "conditionalFormats": [
+          {
+            "condition": "total < 0",
+            "fontColor": "#FF0000",
+            "bold": true
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+グリッドセルには `set_cell` を使います。`conditionalFormats` を渡すと既存のルール一覧全体を置き換え、`null` を指定するとすべてのルールを削除します。使用できるフィールドと条件式の構文は、`slip_schema` の `elements` または `grid`、`formula` トピックで確認できます。
 
 ## 推奨ワークフロー
 

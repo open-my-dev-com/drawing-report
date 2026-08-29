@@ -4120,7 +4120,7 @@ export class SlipDesigner extends LitElement {
   private _renderElementContent(el: SlipElement) {
     switch (el.type) {
       case 'text': {
-        // 조건부 서식의 글자 강조(굵게·밑줄·취소선)를 샘플 값으로 미리 적용한다.
+        // 조건부 서식의 글자 강조를 샘플 값으로 미리 적용한다.
         const styled = { ...el, ...this._previewConditionalColors(el.conditionalFormats) };
         return html`<span class="el-content"
           style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(styled)}"
@@ -4155,7 +4155,7 @@ export class SlipDesigner extends LitElement {
       case 'field': {
         // 필드에는 파라미터 키 또는 수식을 표시한다.
         const label = el.parameter !== undefined ? `{${el.parameter}}` : (el.formula ?? '');
-        // 조건부 서식의 글자 강조(굵게·밑줄·취소선)를 샘플 값으로 미리 적용한다.
+        // 조건부 서식의 글자 강조를 샘플 값으로 미리 적용한다.
         const styled = { ...el, ...this._previewConditionalColors(el.conditionalFormats) };
         return html`<span class="el-content"
           style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(styled)}"

@@ -211,7 +211,7 @@ describe('slip_edit', () => {
     expect((after as { conditionalFormats?: unknown }).conditionalFormats).toBeUndefined();
   });
 
-  it('색이 없는 조건부 서식 규칙은 검증에 걸려 저장되지 않는다 (ADR-062)', async () => {
+  it('색과 글자 강조가 모두 없는 조건부 서식 규칙은 저장하지 않는다 (ADR-062)', async () => {
     const result = await callText(client, 'slip_edit', {
       path: 'doc',
       ops: [

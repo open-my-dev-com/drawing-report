@@ -337,6 +337,23 @@ interface FormulaContext {
 | `now` | 呼び出し時刻 | `TODAY` などの日付関数の基準時刻 |
 | `locale` | `'en-US'` | 数値と日付のフォーマット、エラーメッセージの言語のロケール |
 
+#### `resolveConditionalFormats`
+
+```ts
+function resolveConditionalFormats(
+  rules: readonly ConditionalFormatRule[] | undefined,
+  scope: Record<string, unknown>,
+  options?: {
+    locale?: string;
+    subject?: string;
+  },
+): ConditionalFormatOverrides;
+```
+
+条件付き書式のルールを宣言順に評価し、条件が真になったルールのスタイルを合成します。複数のルールが同じプロパティを指定した場合は、後に宣言したルールの値を使います。
+
+条件式の構文が正しくない場合や、結果が真偽値でない場合は `SlipRenderError` が発生します。値がない、型が一致しないなどの理由で条件式を計算できない場合は、そのルールを適用しません。
+
 #### `FormulaValue`
 
 ```ts
@@ -742,12 +759,50 @@ type SlipElement =
 | `borderWidth` | `number` |
 | `borderStyle` | `'solid' \| 'dashed' \| 'dotted'` |
 
+### `ConditionalFormatRule`
+
+```ts
+interface ConditionalFormatRule {
+  condition: string;
+  fontColor?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+}
+```
+
+`condition` は真偽値を返す数式です。各ルールには、色または文字の強調を 1 つ以上指定する必要があります。要素またはセルごとに最大 20 個まで宣言できます。
+
+文字の強調は、`true` で有効になり、`false` で基本スタイルの強調が解除されます。プロパティを省略すると、基本スタイルまたは前のルールの結果を維持します。
+
+`conditionalFormats?: ConditionalFormatRule[]` は、`TextElement`、`FieldElement`、`GridCell` でのみ使用できます。
+
+### `ConditionalFormatOverrides`
+
+```ts
+interface ConditionalFormatOverrides {
+  fontColor?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+}
+```
+
+`resolveConditionalFormats` が返すスタイルです。条件が真になるルールがない場合、すべてのフィールドが省略されます。
+
 ### `TextElement`
 
 ```ts
 interface TextElement {
   type: 'text';
   content: string;
+  conditionalFormats?: ConditionalFormatRule[];
 
   // 共通の位置・サイズ、
   // 文字・色・枠線スタイル
@@ -764,6 +819,7 @@ interface FieldElement {
 
   parameter?: string;
   formula?: string;
+  conditionalFormats?: ConditionalFormatRule[];
 
   // 共通の位置・サイズ、
   // 文字・色・枠線スタイル
@@ -805,6 +861,7 @@ interface BarcodeElement {
   content?: string;
   parameter?: string;
   formula?: string;
+  conditionalFormats?: ConditionalFormatRule[];
 
   fontColor?: string;
   backgroundColor?: string;
