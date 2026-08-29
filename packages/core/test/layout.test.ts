@@ -229,6 +229,63 @@ describe('그리드 페이지 계획 (planGrid)', () => {
     expect(head).toMatchObject({ itemIndex: 0, groupIndex: 0 });
   });
 
+  it('고정 페이지에서도 페이지를 넘긴 그룹의 시작 구간을 다시 표시한다', () => {
+    const grid = makeGrid({
+      rows: [10, 10],
+      bands: [band('gs', 0, 0, 'group-start', { repeatOnPageBreak: true }), band('i', 1, 1, 'item')],
+      pagination: { mode: 'fixed', itemsPerPage: 2 },
+      groupBy: ['g'],
+    });
+    const plan = planGrid(grid, items(3), FLOW);
+    expect(plan.fragments).toHaveLength(2);
+    const head = plan.fragments[1]!.bands[0]!;
+    expect(head.band.id).toBe('gs');
+    expect(head).toMatchObject({ itemIndex: 0, groupIndex: 0 });
+  });
+
+  it("pages: 'last'인 구간은 항목과 함께 들어가지 않으면 새 마지막 페이지에 배치된다", () => {
+    const grid = makeGrid({
+      rows: [10, 70],
+      bands: [band('i', 0, 0, 'item'), band('pe', 1, 1, 'page-end', { pages: 'last' })],
+      pagination: { mode: 'auto', minItems: 0 },
+    });
+    const plan = planGrid(grid, items(1), FLOW);
+    expect(plan.fragments).toHaveLength(2);
+    expect(placements(plan, 0)).toEqual(['item']);
+    expect(placements(plan, 1)).toEqual(['page-end']);
+  });
+
+  it("pages: 'last'인 구간은 항목과 함께 들어가면 같은 페이지에 붙는다", () => {
+    const grid = makeGrid({
+      rows: [10, 10],
+      bands: [band('i', 0, 0, 'item'), band('pe', 1, 1, 'page-end', { pages: 'last' })],
+      pagination: { mode: 'auto', minItems: 0 },
+    });
+    const plan = planGrid(grid, items(2), FLOW);
+    expect(plan.fragments).toHaveLength(1);
+    expect(placements(plan, 0)).toEqual(['item', 'item', 'page-end']);
+  });
+
+  it('페이지 머리 구간이 흐름 영역에 들어가지 않으면 오류를 반환한다', () => {
+    const grid = makeGrid({
+      rows: [80, 10],
+      bands: [band('bd', 0, 0, 'before-data'), band('i', 1, 1, 'item')],
+      pagination: { mode: 'auto', minItems: 0 },
+    });
+    expect(() => planGrid(grid, items(1), FLOW)).toThrow(SlipLayoutError);
+    expect(() => planGrid(grid, items(1), FLOW)).toThrow(/do not fit/);
+  });
+
+  it('새 마지막 페이지의 최종 구간이 흐름 영역보다 크면 오류를 반환한다', () => {
+    const grid = makeGrid({
+      rows: [10, 90],
+      bands: [band('i', 0, 0, 'item'), band('t', 1, 1, 'after-data')],
+      pagination: { mode: 'auto', minItems: 0 },
+    });
+    expect(() => planGrid(grid, items(7), FLOW)).toThrow(SlipLayoutError);
+    expect(() => planGrid(grid, items(7), FLOW)).toThrow(/do not fit/);
+  });
+
   it('pageItems·carriedItems가 @page·@carried 범위대로 쌓인다', () => {
     const plan = planGrid(headerItemTail({ mode: 'fixed', itemsPerPage: 4 }), items(10), FLOW);
     expect(plan.fragments.map((f) => f.carriedItems)).toEqual([
@@ -345,6 +402,59 @@ describe('양식 페이지 계획 (planSourcePage)', () => {
     const plan = planSourcePage(paper, page, new Map([['a', items(3)]]));
     expect(plan.afterPlacements.get('note')).toEqual({ outputPage: 2, y: 10 });
     expect(plan.outputPageCount).toBe(3);
+  });
+
+  it("pages: 'last' 요소를 대상으로 한 after 배치는 대상이 표시되는 마지막 페이지에 놓인다", () => {
+    const target: SlipElement = {
+      type: 'text', id: 'target', name: '대상', position: { x: 100, y: 20 },
+      width: 60, height: 10, content: 'T',
+      pagePlacement: { mode: 'absolute', pages: 'last' },
+    };
+    const note: SlipElement = {
+      type: 'text', id: 'note', name: '비고', position: { x: 100, y: 0 },
+      width: 60, height: 10, content: 'N',
+      pagePlacement: { mode: 'after', target: 'target', gap: 5 },
+    };
+    const page: SlipPage = { elements: [repeatGrid('a', 10, 2), target, note] };
+    const plan = planSourcePage(paper, page, new Map([['a', items(5)]]));
+    expect(plan.outputPageCount).toBe(3);
+    expect(plan.afterPlacements.get('note')).toEqual({ outputPage: 2, y: 35 });
+  });
+
+  it('마지막 페이지 전용 요소 뒤의 배치가 페이지를 늘리기만 하면 오류를 반환한다', () => {
+    const target: SlipElement = {
+      type: 'text', id: 'target', name: '대상', position: { x: 100, y: 80 },
+      width: 60, height: 10, content: 'T',
+      pagePlacement: { mode: 'absolute', pages: 'last' },
+    };
+    const note: SlipElement = {
+      type: 'text', id: 'note', name: '비고', position: { x: 100, y: 0 },
+      width: 60, height: 10, content: 'N',
+      pagePlacement: { mode: 'after', target: 'target' },
+    };
+    const page: SlipPage = { elements: [repeatGrid('a', 10, 2), target, note] };
+    expect(() => planSourcePage(paper, page, new Map([['a', items(5)]]))).toThrow(SlipLayoutError);
+    expect(() => planSourcePage(paper, page, new Map([['a', items(5)]]))).toThrow(/does not settle/);
+  });
+
+  it('after 배치 요소가 다른 독립 흐름과 겹치면 오류를 반환한다', () => {
+    const gridB = makeGrid({
+      id: 'b', position: { x: 110, y: 20 }, rows: [30],
+      bands: [band('b-i', 0, 0, 'item')],
+      pagination: { mode: 'fixed', itemsPerPage: 2 },
+    });
+    const note: SlipElement = {
+      type: 'text', id: 'note', name: '비고', position: { x: 110, y: 0 },
+      width: 60, height: 40, content: 'N',
+      pagePlacement: { mode: 'after', target: 'a' },
+    };
+    const page: SlipPage = { elements: [repeatGrid('a', 10, 2), gridB, note] };
+    expect(() =>
+      planSourcePage(paper, page, new Map([
+        ['a', items(2)],
+        ['b', items(2)],
+      ])),
+    ).toThrow(/overlap/);
   });
 
   it('흐름 영역은 기본으로 여백을 따르고, flowArea 설정이 있으면 그것을 쓴다', () => {

@@ -315,6 +315,19 @@ export function planGrid(
     return height <= available + 0.001;
   };
 
+  /** 페이지를 넘긴 그룹의 시작 구간을 다음 페이지 머리에 다시 표시하도록 예약한다. */
+  const queueGroupRepeat = (): void => {
+    if (repeat.groupBy === undefined || index >= real.length) return;
+    const group = groupOf[index]!;
+    // 다음 항목이 그룹의 첫 항목이면 이월이 아니다.
+    if (groups[group]![0]! >= index) return;
+    for (const band of groupStartBands) {
+      if (band.repeatOnPageBreak === true) {
+        pendingGroupRepeat.push({ band, rowStart: 0, itemIndex: groups[group]![0]!, groupIndex: group });
+      }
+    }
+  };
+
   for (;;) {
     if (fragmentNo >= SLIP_LIMITS.maxOutputPages) {
       throw new SlipLayoutError(lm(locale).outputPagesExceeded(SLIP_LIMITS.maxOutputPages), {
@@ -359,7 +372,13 @@ export function planGrid(
       commitFragment(outputPage, y, bands);
       fragmentNo++;
       if (index >= instanceCount) break;
+      queueGroupRepeat();
       continue;
+    }
+
+    // 페이지 머리 구간만으로 흐름 영역이 넘치면 항목을 배치할 자리가 없다.
+    if (used + tailReserve > available + 0.001) {
+      throw new SlipLayoutError(lm(locale).bandsTooTall(what), { elementId: grid.id });
     }
 
     // 자동 확장: 남은 공간까지 블록을 채우고, 다음 블록이 들어가지 않으면 페이지를 넘긴다.
@@ -389,24 +408,33 @@ export function planGrid(
 
     const finishedItems = index >= instanceCount;
     if (finishedItems && !pageBroken) {
-      const tail = tailBands(isFirst, isFinal, true);
-      if (used + heightOf(tail) <= available + 0.001) {
-        bands.push(...tail);
-        commitFragment(outputPage, y, bands);
-        fragmentNo++;
-        break;
+      // 마지막 페이지로 판정된 경우에만 최종 구간을 이 페이지에 붙일 수 있다.
+      if (isFinal) {
+        const tail = tailBands(isFirst, true, true);
+        if (used + heightOf(tail) <= available + 0.001) {
+          bands.push(...tail);
+          commitFragment(outputPage, y, bands);
+          fragmentNo++;
+          break;
+        }
       }
-      // 마지막 합계가 들어가지 않으면 새 출력 페이지를 만들어 배치한다 (§6.2).
+      // 최종 전용 구간이나 합계가 이 페이지에 들어가지 않는다 —
+      // 비최종 구간으로 마감하고 새 출력 페이지에 최종 구간을 배치한다 (§6.2).
       bands.push(...tailBands(isFirst, false, false));
       commitFragment(outputPage, y, bands);
       fragmentNo++;
+      const lastBands: PlannedBand[] = headBands(false, true);
+      lastBands.push(...tailBands(false, true, true));
+      // 최종 페이지 전용 구간이 없으면 추가 페이지를 만들지 않는다.
+      if (lastBands.length === 0) break;
       if (fragmentNo >= SLIP_LIMITS.maxOutputPages) {
         throw new SlipLayoutError(lm(locale).outputPagesExceeded(SLIP_LIMITS.maxOutputPages), {
           elementId: grid.id,
         });
       }
-      const lastBands: PlannedBand[] = headBands(false, true);
-      lastBands.push(...tailBands(false, true, true));
+      if (heightOf(lastBands) > flow.bottom - flow.top + 0.001) {
+        throw new SlipLayoutError(lm(locale).bandsTooTall(what), { elementId: grid.id });
+      }
       commitFragment(flow.firstPage + fragmentNo, flow.top, lastBands);
       fragmentNo++;
       break;
@@ -418,17 +446,7 @@ export function planGrid(
     fragmentNo++;
 
     // 페이지를 넘긴 그룹의 시작 구간을 다음 페이지에 다시 표시한다.
-    if (repeat.groupBy !== undefined && index < real.length) {
-      const group = groupOf[index]!;
-      const continuing = groups[group]![0]! < index;
-      if (continuing) {
-        for (const band of groupStartBands) {
-          if (band.repeatOnPageBreak === true) {
-            pendingGroupRepeat.push({ band, rowStart: 0, itemIndex: groups[group]![0]!, groupIndex: group });
-          }
-        }
-      }
-    }
+    queueGroupRepeat();
   }
 
   return { gridId: grid.id, fragments, itemCount: real.length, groupOf, groups };
