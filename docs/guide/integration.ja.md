@@ -547,12 +547,22 @@ form.addEventListener('slip-issue', (event) => {
 ブラウザの IndexedDB を使うには、次のように接続します。
 
 ```ts
+import { createSlipKit } from '@omdc-slipkit/core';
 import { IndexedDbStorage } from '@omdc-slipkit/elements';
 
-const templateStorage = new IndexedDbStorage({
-  dbName: 'my-app-templates',
+const slipkit = createSlipKit({
+  locale: 'ja-JP',
+  encryption: {
+    key: import.meta.env.VITE_SLIPKIT_KEY,
+  },
 });
 
+const templateStorage = new IndexedDbStorage(slipkit, {
+  dbName: 'my-app-templates',
+  encryptOnSave: true,
+});
+
+designer.slipkit = slipkit;
 designer.storage = templateStorage;
 ```
 
@@ -685,16 +695,18 @@ export const serverStorage: StorageAdapter = {
 
 ## ローカルファイルを開く・ダウンロードする
 
-`LocalFileStorage` は、ブラウザのファイル選択ダイアログとダウンロード機能を提供します。
+`SlipFileExchange` は、ブラウザのファイル選択ダイアログとダウンロード機能を提供します。コンポーネントや IndexedDB ストレージと同じ `SlipKit` インスタンスを使います。
 
 ```ts
-import { LocalFileStorage } from '@omdc-slipkit/elements';
+import { SlipFileExchange } from '@omdc-slipkit/elements';
 
-const localFiles = new LocalFileStorage();
+const fileExchange = new SlipFileExchange(slipkit, {
+  encryptOnSave: true,
+});
 
-await localFiles.save('取引明細書.slip', template);
+await fileExchange.download('取引明細書.slip', template);
 
-const opened = await localFiles.load('');
+const opened = await fileExchange.open();
 
 if (opened.kind === 'template') {
   template = opened;
@@ -702,11 +714,9 @@ if (opened.kind === 'template') {
 }
 ```
 
-> [!NOTE]
-> `LocalFileStorage` は、ファイル一覧の取得と削除をサポートしていません。
-> したがって、デザイナーの `storage` に渡すより、アプリケーションの <kbd>ファイルを開く</kbd> と <kbd>ダウンロード</kbd> 機能で直接使うのが適しています。
+`SlipFileExchange` は `StorageAdapter` ではないため、デザイナーの `storage` プロパティには渡せません。アプリケーションの <kbd>ファイルを開く</kbd> と <kbd>ダウンロード</kbd> の処理で直接使います。
 
-外部から受け取った `.slip` ファイルは、使う前に必ずパースと検証を行う必要があります。`LocalFileStorage.load` は内部でこの検証を行います。
+外部から受け取った `.slip` ファイルは、使う前にパースと検証が必要です。`SlipFileExchange.open` はこの検証を行い、暗号化されたエンベロープは `SlipKit` に設定したキーで復号します。
 
 ## 発行された伝票を閲覧する
 

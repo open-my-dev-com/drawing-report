@@ -148,6 +148,14 @@ interface SlipKitConfig {
 
 ```ts
 interface SlipKit {
+  readonly locale: string | undefined;
+
+  readonly getFonts:
+    | (() =>
+        | readonly SlipFont[]
+        | Promise<readonly SlipFont[]>)
+    | undefined;
+
   render(
     file: SlipFile,
   ): Promise<Uint8Array>;
@@ -174,8 +182,10 @@ interface SlipKit {
 }
 ```
 
-| 메서드 | 반환값 | 설명 |
+| 프로퍼티·메서드 | 반환값 | 설명 |
 |---|---|---|
+| `locale` | `string \| undefined` | 인스턴스에 설정된 로케일 |
+| `getFonts` | 함수 또는 `undefined` | 인스턴스에 설정된 폰트 공급 함수 |
 | `render` | `Promise<Uint8Array>` | 양식 또는 전표를 PDF 바이트로 변환 |
 | `buildVoucher` | `SlipVoucherFile` | 양식과 값으로 작성 중 전표 생성 |
 | `evaluate` | `FormulaValue` | 수식 문자열 또는 AST 평가 |
@@ -1134,7 +1144,7 @@ interface VersionedStorageAdapter
 
 버전 이력을 지원하는 사용자 저장소가 선택적으로 구현할 수 있는 확장 인터페이스입니다.
 
-현재 동봉된 `IndexedDbStorage`와 `LocalFileStorage`는 이 인터페이스를 구현하지 않습니다.
+현재 동봉된 `IndexedDbStorage`는 이 인터페이스를 구현하지 않습니다. `SlipFileExchange`는 저장소가 아니므로 `StorageAdapter`를 구현하지 않습니다.
 
 ### `supportsVersions`
 
@@ -1268,7 +1278,8 @@ import type {
 | 이름 | 타입 | 전달 방식 | 기본값 |
 |---|---|---|---|
 | `src` | `string` | HTML 속성·프로퍼티 | `''` |
-| `locale` | `string` | HTML 속성·프로퍼티 | 영어 |
+| `locale` | `string` | HTML 속성·프로퍼티 | `SlipKit` 로케일 또는 영어 |
+| `slipkit` | `SlipKit` | JS 프로퍼티 | 생략 |
 | `settings` | `SlipDesignerSettings` | JS 프로퍼티 | 동봉 기본 설정 |
 | `presets` | `SlipPreset[]` | JS 프로퍼티 | 동봉 프리셋 2종 |
 | `storage` | `StorageAdapter` | JS 프로퍼티 | 저장 기능 숨김 |
@@ -1295,8 +1306,8 @@ import type {
 | 이름 | 타입 | 전달 방식 | 기본값 |
 |---|---|---|---|
 | `src` | `string` | HTML 속성·프로퍼티 | `''` |
-| `locale` | `string` | HTML 속성·프로퍼티 | 영어 |
-| `settings` | `SlipFontProvider` | JS 프로퍼티 | 동봉 기본 폰트 |
+| `locale` | `string` | HTML 속성·프로퍼티 | `SlipKit` 로케일 또는 영어 |
+| `slipkit` | `SlipKit` | JS 프로퍼티 | 생략 |
 | `maxImageBytes` | `number` | `max-image-bytes` 속성·프로퍼티 | 2MB |
 
 `src`에는 다음 파일을 전달할 수 있습니다.
@@ -1327,30 +1338,17 @@ import type {
 | 이름 | 타입 | 전달 방식 | 기본값 |
 |---|---|---|---|
 | `src` | `string` | HTML 속성·프로퍼티 | `''` |
-| `locale` | `string` | HTML 속성·프로퍼티 | 영어 |
-| `settings` | `SlipFontProvider` | JS 프로퍼티 | 동봉 기본 폰트 |
+| `locale` | `string` | HTML 속성·프로퍼티 | `SlipKit` 로케일 또는 영어 |
+| `slipkit` | `SlipKit` | JS 프로퍼티 | 생략 |
 
 뷰어는 파일 변경 이벤트를 발생시키지 않습니다.
 
 ## Elements 설정 타입
 
-### `SlipFontProvider`
-
-```ts
-interface SlipFontProvider {
-  getFonts?():
-    | SlipFont[]
-    | Promise<SlipFont[]>;
-}
-```
-
-`getFonts`를 생략하거나 빈 배열을 반환하면 `locale`에 맞는 동봉 기본 폰트를 사용합니다.
-
 ### `SlipDesignerSettings`
 
 ```ts
-interface SlipDesignerSettings
-  extends SlipFontProvider {
+interface SlipDesignerSettings {
   getBarcodeKinds?():
     | BarcodeKind[]
     | Promise<BarcodeKind[]>;
@@ -1411,6 +1409,7 @@ function getPresets(
 class IndexedDbStorage
   implements StorageAdapter {
   constructor(
+    slipkit: SlipKit,
     options?:
       IndexedDbStorageOptions,
   );
@@ -1427,8 +1426,7 @@ class IndexedDbStorage
 interface IndexedDbStorageOptions {
   dbName?: string;
   pageSize?: number;
-  locale?: string;
-  encryption?: StorageEncryption;
+  encryptOnSave?: boolean;
 }
 ```
 
@@ -1436,58 +1434,37 @@ interface IndexedDbStorageOptions {
 |---|---|---|
 | `dbName` | `'slipkit'` | IndexedDB 데이터베이스 이름 |
 | `pageSize` | `50` | 목록 한 페이지의 항목 수 |
-| `locale` | 영어 | 저장소 오류 메시지 언어 |
-| `encryption` | 평문 | 본문 암호화 설정 |
+| `encryptOnSave` | `false` | 저장할 본문의 암호화 여부 |
 
-### `LocalFileStorage`
+### `SlipFileExchange`
 
 ```ts
-class LocalFileStorage
-  implements StorageAdapter {
+class SlipFileExchange {
   constructor(
-    options?: {
-      locale?: string;
-      encryption?:
-        StorageEncryption;
-    },
+    slipkit: SlipKit,
+    options?: SlipFileExchangeOptions,
   );
+
+  download(
+    name: string,
+    file: SlipFile,
+  ): Promise<void>;
+
+  open(): Promise<SlipFile>;
 }
 ```
 
-| 메서드 | 동작 |
-|---|---|
-| `save` | 브라우저 파일 내려받기 |
-| `load` | 파일 선택 창에서 `.slip` 파일 읽기 |
-| `delete` | `unsupported` 오류 |
-| `list` | `unsupported` 오류 |
+`SlipFileExchange`는 브라우저 다운로드와 파일 선택 창을 제공합니다. `StorageAdapter`를 구현하지 않으며 `download`와 `open`만 제공합니다.
 
-### `StorageEncryption`
+#### `SlipFileExchangeOptions`
 
 ```ts
-interface StorageEncryption {
-  enabled: boolean;
-
-  key?:
-    | string
-    | Uint8Array;
-
-  previousKeys?: (
-    | string
-    | Uint8Array
-  )[];
+interface SlipFileExchangeOptions {
+  encryptOnSave?: boolean;
 }
 ```
 
-### `SAMPLE_ENCRYPTION_KEY`
-
-```ts
-const SAMPLE_ENCRYPTION_KEY:
-  string;
-```
-
-`StorageEncryption.key`를 생략한 데모에서 사용하는 공개 샘플 키입니다.
-
-운영 환경의 보안 키로 사용하면 안 됩니다.
+`encryptOnSave`의 기본값은 `false`입니다. 열기는 이 값과 관계없이 암호화 봉투를 감지하고 `SlipKit`의 키로 복호화합니다.
 
 ### 동봉 폰트
 
@@ -1519,6 +1496,7 @@ React 19 이상을 지원합니다.
 interface SlipDesignerProps {
   src: string;
   locale?: string;
+  slipkit?: SlipKit;
 
   settings?:
     SlipDesignerSettings;
@@ -1542,9 +1520,7 @@ Web Component의 `slip-change` 이벤트에서 `CustomEvent`를 제거하고 `Sl
 interface SlipFormProps {
   src: string;
   locale?: string;
-
-  settings?:
-    SlipFontProvider;
+  slipkit?: SlipKit;
 
   maxImageBytes?: number;
 
@@ -1564,9 +1540,7 @@ interface SlipFormProps {
 interface SlipViewerProps {
   src: string;
   locale?: string;
-
-  settings?:
-    SlipFontProvider;
+  slipkit?: SlipKit;
 }
 ```
 
@@ -1590,6 +1564,7 @@ Vue 3.4 이상을 지원합니다.
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
+| `slipkit` | `SlipKit` | — |
 | `settings` | `SlipDesignerSettings` | — |
 | `presets` | `SlipPreset[]` | — |
 | `storage` | `StorageAdapter` | — |
@@ -1607,7 +1582,7 @@ Vue 3.4 이상을 지원합니다.
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
-| `settings` | `SlipFontProvider` | — |
+| `slipkit` | `SlipKit` | — |
 | `maxImageBytes` | `number` | — |
 
 발생 이벤트:
@@ -1623,7 +1598,7 @@ Vue 3.4 이상을 지원합니다.
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
-| `settings` | `SlipFontProvider` | — |
+| `slipkit` | `SlipKit` | — |
 
 ## `@omdc-slipkit/mcp`
 

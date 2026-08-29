@@ -547,12 +547,22 @@ When you pass a `StorageAdapter` to `<slip-designer>`'s `storage` property, the 
 To use the browser's IndexedDB, connect it like this.
 
 ```ts
+import { createSlipKit } from '@omdc-slipkit/core';
 import { IndexedDbStorage } from '@omdc-slipkit/elements';
 
-const templateStorage = new IndexedDbStorage({
-  dbName: 'my-app-templates',
+const slipkit = createSlipKit({
+  locale: 'en-US',
+  encryption: {
+    key: import.meta.env.VITE_SLIPKIT_KEY,
+  },
 });
 
+const templateStorage = new IndexedDbStorage(slipkit, {
+  dbName: 'my-app-templates',
+  encryptOnSave: true,
+});
+
+designer.slipkit = slipkit;
 designer.storage = templateStorage;
 ```
 
@@ -685,16 +695,18 @@ The server must not trust the JSON received in a save request; it should validat
 
 ## Opening and downloading local files
 
-`LocalFileStorage` provides the browser's file picker and download features.
+`SlipFileExchange` provides the browser's file picker and download features. It uses the same `SlipKit` instance as the components and IndexedDB storage.
 
 ```ts
-import { LocalFileStorage } from '@omdc-slipkit/elements';
+import { SlipFileExchange } from '@omdc-slipkit/elements';
 
-const localFiles = new LocalFileStorage();
+const fileExchange = new SlipFileExchange(slipkit, {
+  encryptOnSave: true,
+});
 
-await localFiles.save('transaction-statement.slip', template);
+await fileExchange.download('transaction-statement.slip', template);
 
-const opened = await localFiles.load('');
+const opened = await fileExchange.open();
 
 if (opened.kind === 'template') {
   template = opened;
@@ -702,11 +714,9 @@ if (opened.kind === 'template') {
 }
 ```
 
-> [!NOTE]
-> `LocalFileStorage` does not support listing or deleting files.
-> So rather than passing it to the designer's `storage`, it's more suitable to use it directly in your application's <kbd>Open file</kbd> and <kbd>Download</kbd> features.
+`SlipFileExchange` is not a `StorageAdapter`, so it cannot be passed to the designer's `storage` property. Use it directly in the application's <kbd>Open file</kbd> and <kbd>Download</kbd> commands.
 
-A `.slip` file received from outside must always be parsed and validated before use. `LocalFileStorage.load` performs this validation internally.
+A `.slip` file received from outside must be parsed and validated before use. `SlipFileExchange.open` performs this validation and decrypts encrypted envelopes with the keys configured in `SlipKit`.
 
 ## Viewing an issued voucher
 

@@ -23,15 +23,16 @@
 
 | 設定 | デザイナー | 入力フォーム | ビューアー | 既定の動作 |
 |---|:---:|:---:|:---:|---|
-| `locale` | ● | ● | ● | 英語 UI |
-| `settings` | ● | ● | ● | 言語に合った同梱フォントと既定リソースを使用 |
+| `locale` | ● | ● | ● | `SlipKit` のロケールまたは英語 UI |
+| `slipkit` | ● | ● | ● | 同梱フォントと Core の既定設定を使用 |
+| `settings` | ● | — | — | 同梱のバーコード種類と用紙を使用 |
 | `presets` | ● | — | — | 同梱プリセット 2 種を使用 |
 | `storage` | ● | — | — | 「マイテンプレート」保存・一覧機能を非表示 |
 | `maxImageBytes` | ● | ● | — | 画像の元ファイル最大 2MB |
 
 `locale` と `max-image-bytes` は HTML 属性で渡せます。
 
-`settings`、`presets`、`storage` はオブジェクトや関数を含むため、JavaScript プロパティ、またはフレームワークのオブジェクト prop として渡す必要があります。
+`slipkit`、`settings`、`presets`、`storage` はオブジェクトや関数を含むため、JavaScript プロパティ、またはフレームワークのオブジェクト prop として渡す必要があります。
 
 ## 設定の渡し方
 
@@ -42,7 +43,7 @@
 ```html
 <slip-designer
   id="designer"
-  locale="ko"
+  locale="ja"
   max-image-bytes="2097152"
 ></slip-designer>
 ```
@@ -51,6 +52,7 @@
 
 ```ts
 import '@omdc-slipkit/elements';
+import { createSlipKit } from '@omdc-slipkit/core';
 
 import type {
   SlipDesigner,
@@ -68,10 +70,16 @@ if (!designer) {
   );
 }
 
-const settings: SlipDesignerSettings = {
+const slipkit = createSlipKit({
   getFonts: () => appFonts,
+  locale: 'ja-JP',
+});
+
+const settings: SlipDesignerSettings = {
+  getPaperSizes: () => appPaperSizes,
 };
 
+designer.slipkit = slipkit;
 designer.settings = settings;
 designer.presets = appPresets;
 designer.storage = templateStorage;
@@ -108,7 +116,7 @@ export function DesignerScreen() {
   const settings =
     useMemo<SlipDesignerSettings>(
       () => ({
-        getFonts: () => appFonts,
+        getPaperSizes: () => appPaperSizes,
       }),
       [],
     );
@@ -116,7 +124,8 @@ export function DesignerScreen() {
   return (
     <SlipDesigner
       src={designerSrc}
-      locale="ko"
+      locale="ja"
+      slipkit={slipkit}
       settings={settings}
       presets={appPresets}
       storage={templateStorage}
@@ -128,7 +137,7 @@ export function DesignerScreen() {
 ```
 
 > [!TIP]
-> レンダリングのたびに `settings`、`presets`、`storage` オブジェクトを新しく作らないでください。
+> レンダリングのたびに `slipkit`、`settings`、`presets`、`storage` オブジェクトを新しく作らないでください。
 > React ではモジュールスコープで宣言するか、`useMemo` を使って同じオブジェクトを保つのがよいです。
 
 ### Vue
@@ -146,14 +155,15 @@ import type {
 } from '@omdc-slipkit/elements';
 
 const settings: SlipDesignerSettings = {
-  getFonts: () => appFonts,
+  getPaperSizes: () => appPaperSizes,
 };
 </script>
 
 <template>
   <SlipDesigner
     :src="designerSrc"
-    locale="ko"
+    locale="ja"
+    :slipkit="slipkit"
     :settings="settings"
     :presets="appPresets"
     :storage="templateStorage"
@@ -173,7 +183,7 @@ const settings: SlipDesignerSettings = {
 | `en` | 英語 | Pretendard Regular・Bold |
 | `ja` | 日本語 | Noto Sans JP Regular |
 
-`locale` を省略するか、サポートしない値を渡すと、英語を使います。
+`locale` を省略すると、UI は `SlipKit.locale` の言語を使います。`slipkit` も指定していない場合、またはサポートしない `locale` を明示した場合は英語を使います。
 
 `en-US`、`ko-KR`、`ja-JP` のように地域コードを含む値も使えます。この場合、先頭の言語コードで UI 言語を選択します。
 
@@ -187,7 +197,7 @@ const settings: SlipDesignerSettings = {
 
 - コンポーネントのボタンと案内文
 - エラーメッセージ
-- フォントを別途供給しなかったときに使う既定フォント
+- `slipkit` を指定しないときに使う同梱の既定フォント
 
 次の項目は自動的には翻訳しません。
 
@@ -205,7 +215,7 @@ const settings: SlipDesignerSettings = {
 
 ### 同梱の既定フォント
 
-`settings.getFonts` を指定しないと、UI コンポーネントは `locale` に合った既定フォントを読み込みます。
+`slipkit` を指定しないと、UI コンポーネントは `locale` に合った既定フォントを読み込みます。
 
 | 言語 | 同梱フォント | 構成 |
 |---|---|---|
@@ -218,14 +228,12 @@ const settings: SlipDesignerSettings = {
 
 ### 独自フォントの供給
 
-3 つのコンポーネントは `settings.getFonts` を通じてフォントを受け取ります。
+独自フォントは `createSlipKit` の `getFonts` オプションに一度設定し、同じインスタンスを各コンポーネントに渡します。
 
 ```ts
-import type {
-  SlipFontProvider,
-} from '@omdc-slipkit/elements';
+import { createSlipKit } from '@omdc-slipkit/core';
 
-const settings: SlipFontProvider = {
+const slipkit = createSlipKit({
   getFonts: () => [
     {
       name: 'AppFont',
@@ -237,19 +245,17 @@ const settings: SlipFontProvider = {
       data: appFontBold,
     },
   ],
-};
+});
 
-viewer.settings = settings;
-form.settings = settings;
+viewer.slipkit = slipkit;
+form.slipkit = slipkit;
+designer.slipkit = slipkit;
 ```
 
 `getFonts` はフォント配列、またはフォント配列を返す `Promise` を使えます。
 
 ```ts
-import type {
-  SlipFont,
-  SlipFontProvider,
-} from '@omdc-slipkit/elements';
+import { createSlipKit, type SlipFont } from '@omdc-slipkit/core';
 
 async function loadFont(
   url: string,
@@ -289,12 +295,12 @@ async function loadAppFonts(): Promise<SlipFont[]> {
 let fontPromise:
   Promise<SlipFont[]> | undefined;
 
-const settings: SlipFontProvider = {
+const slipkit = createSlipKit({
   getFonts: () => {
     fontPromise ??= loadAppFonts();
     return fontPromise;
   },
-};
+});
 ```
 
 > [!TIP]
@@ -353,6 +359,7 @@ const fonts = [
 同梱フォントを独自フォントと併用するには、フォントのサブパスから直接読み込みます。
 
 ```ts
+import { createSlipKit } from '@omdc-slipkit/core';
 import {
   PRETENDARD_FONTS,
 } from '@omdc-slipkit/elements/fonts/pretendard';
@@ -361,7 +368,7 @@ import {
   NOTO_SANS_JP_FONTS,
 } from '@omdc-slipkit/elements/fonts/noto-sans-jp';
 
-const settings: SlipFontProvider = {
+const slipkit = createSlipKit({
   getFonts: () => [
     ...PRETENDARD_FONTS,
     ...NOTO_SANS_JP_FONTS,
@@ -370,7 +377,7 @@ const settings: SlipFontProvider = {
       data: appFont,
     },
   ],
-};
+});
 ```
 
 > [!CAUTION]
@@ -381,7 +388,7 @@ const settings: SlipFontProvider = {
 
 ## デザイナーの設定
 
-`<slip-designer>` は、フォントのほかに用紙とバーコードの選択肢を `SlipDesignerSettings` で受け取ります。
+`<slip-designer>` は用紙とバーコードの選択肢を `SlipDesignerSettings` で受け取ります。フォントとロケールは `slipkit` プロパティで渡します。
 
 ```ts
 import type {
@@ -390,7 +397,6 @@ import type {
 
 const designerSettings:
   SlipDesignerSettings = {
-    getFonts: () => appFonts,
     getPaperSizes: () => appPaperSizes,
     savePaperSize: saveAppPaperSize,
     getBarcodeKinds: () => [
@@ -676,12 +682,16 @@ designer.presets = appPresets;
 import {
   IndexedDbStorage,
 } from '@omdc-slipkit/elements';
+import { createSlipKit } from '@omdc-slipkit/core';
+
+const slipkit = createSlipKit({
+  locale: 'ja-JP',
+});
 
 const templateStorage =
-  new IndexedDbStorage({
+  new IndexedDbStorage(slipkit, {
     dbName: 'my-app-templates',
     pageSize: 50,
-    locale: 'ko',
   });
 
 designer.storage = templateStorage;
@@ -691,8 +701,7 @@ designer.storage = templateStorage;
 |---|---|---|
 | `dbName` | `'slipkit'` | 使用する IndexedDB データベース名 |
 | `pageSize` | `50` | `list` が一度に返す項目数 |
-| `locale` | `'en'` | ストレージのエラーメッセージの言語 |
-| `encryption` | 無効 | 保存する本体の暗号化設定 |
+| `encryptOnSave` | `false` | 保存時に本体を暗号化するか |
 
 複数のアプリケーションや実行環境でデータが混ざらないよう、固有の `dbName` を指定することを推奨します。
 
@@ -705,42 +714,46 @@ designer.storage = templateStorage;
 
 ### 保存内容の暗号化
 
-`IndexedDbStorage` と `LocalFileStorage` は `encryption` オプションをサポートします。
+現在の暗号化キーと過去のキーは `createSlipKit` に一度だけ設定します。各保存手段では `encryptOnSave` によって新規保存時の暗号化の有無だけを決めます。
 
 ```ts
 const encryptionKey =
   getEncryptionKeyFromHost();
 
+const slipkit = createSlipKit({
+  locale: 'ja-JP',
+  encryption: {
+    key: encryptionKey,
+  },
+});
+
 const templateStorage =
-  new IndexedDbStorage({
+  new IndexedDbStorage(slipkit, {
     dbName: 'my-app-templates',
-    encryption: {
-      enabled: true,
-      key: encryptionKey,
-    },
+    encryptOnSave: true,
   });
 ```
 
 以前のキーで保存したファイルも読む必要があるなら、`previousKeys` を指定します。
 
 ```ts
+const slipkit = createSlipKit({
+  encryption: {
+    key: currentKey,
+    previousKeys: [previousKey],
+  },
+});
+
 const templateStorage =
-  new IndexedDbStorage({
+  new IndexedDbStorage(slipkit, {
     dbName: 'my-app-templates',
-    encryption: {
-      enabled: true,
-      key: currentKey,
-      previousKeys: [
-        previousKey,
-      ],
-    },
+    encryptOnSave: true,
   });
 ```
 
 > [!WARNING]
-> `enabled: true` でありながら `key` を省略すると、同梱のデモ用サンプルキーを使います。
-> このキーはソースコードに公開されているため、実際のセキュリティ機能ではありません。
-> 運用環境では、ホストが管理するキーを必ず渡してください。
+> `SlipKit` に暗号化キーがない状態で `encryptOnSave: true` を使うと保存に失敗します。
+> ライブラリはサンプルキーを代わりに使いません。運用キーはホストアプリケーションで管理してください。
 
 IndexedDB の暗号化は `.slip` の本体を保護しますが、一覧に必要な次のメタデータは平文で保存します。
 
@@ -751,26 +764,25 @@ IndexedDB の暗号化は `.slip` の本体を保護しますが、一覧に必�
 
 タイトルまで機密情報なら、別のストレージ実装やサーバー側の保護ポリシーを使う必要があります。
 
-### ローカルファイルストレージ
+### ファイルを開く・ダウンロードする
 
-`LocalFileStorage` はファイルのダウンロードとファイル選択ダイアログを提供します。
+`SlipFileExchange` はファイルのダウンロードとファイル選択ダイアログを提供します。一覧・削除機能はなく、`StorageAdapter` を実装しません。
 
 ```ts
 import {
-  LocalFileStorage,
+  SlipFileExchange,
 } from '@omdc-slipkit/elements';
 
-const localFiles =
-  new LocalFileStorage({
-    locale: 'ko',
-    encryption: {
-      enabled: true,
-      key: encryptionKey,
-    },
+const files =
+  new SlipFileExchange(slipkit, {
+    encryptOnSave: true,
   });
+
+await files.download('document.slip', file);
+const opened = await files.open();
 ```
 
-`LocalFileStorage` は一覧表示と削除をサポートしません。そのため、デザイナーの `storage` として渡すより、アプリケーションのファイルを開く・ダウンロードする機能で直接使うのが適しています。
+`encryptOnSave` が `false` でも、暗号化ファイルを開くときは `SlipKit` に設定した現在のキーと過去のキーを順に試します。
 
 ## 画像サイズの制限
 
@@ -866,11 +878,13 @@ const slip = createSlipKit({
 | `encryption.key` | `encrypt` と `decrypt` が既定で使うキー |
 | `encryption.previousKeys` | 以前のキーで暗号化されたファイルを復号するときに使うキーのリスト |
 
-UI コンポーネントの `locale` と Core の `locale` は役割が異なります。
+UI コンポーネントと保存手段に同じ `slipkit` を渡すと、フォント、数式、PDF レンダリング、ストレージのエラーメッセージが 1 つのインスタンスの設定を再利用します。コンポーネントの `locale` を省略すると、UI 言語も `SlipKit.locale` に従います。
+
+コンポーネントの `locale` は、UI 言語だけを別に指定する場合に使います。
 
 | 設定 | 例 | 役割 |
 |---|---|---|
-| コンポーネント `locale` | `'ko'`, `'en'`, `'ja'` | ボタン、案内文、同梱フォントの選択 |
+| コンポーネント `locale` | `'ko'`, `'en'`, `'ja'` | UI 文言。`slipkit` がない場合は同梱フォントも選択 |
 | Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | 数値と日付の数式フォーマット、エラーメッセージの言語 |
 
 Core の利用フローと PDF 生成方法は[Core 利用ガイド](core.ja.md)を参照してください。
@@ -882,26 +896,28 @@ Core の利用フローと PDF 生成方法は[Core 利用ガイド](core.ja.md)
 `src/slipkit-config.ts`:
 
 ```ts
+import { createSlipKit } from '@omdc-slipkit/core';
 import {
   IndexedDbStorage,
-  presets as builtInPresets,
+  getPresets,
   type SlipDesignerSettings,
-  type SlipFontProvider,
   type SlipPreset,
 } from '@omdc-slipkit/elements';
 
 const fontPromise =
   loadAppFonts();
 
-export const fontSettings:
-  SlipFontProvider = {
-    getFonts: () => fontPromise,
-  };
+export const slipkit = createSlipKit({
+  locale: 'ja-JP',
+  getFonts: () => fontPromise,
+  encryption: {
+    key: currentKey,
+    previousKeys: [previousKey],
+  },
+});
 
 export const designerSettings:
   SlipDesignerSettings = {
-    getFonts: () => fontPromise,
-
     getPaperSizes: () => [
       {
         name: '配送ラベル 100×150',
@@ -918,14 +934,14 @@ export const designerSettings:
 
 export const designerPresets:
   SlipPreset[] = [
-    ...builtInPresets,
+    ...getPresets('ja'),
     shippingLabelPreset,
   ];
 
 export const templateStorage =
-  new IndexedDbStorage({
+  new IndexedDbStorage(slipkit, {
     dbName: 'my-app-templates',
-    locale: 'ko',
+    encryptOnSave: true,
   });
 ```
 
@@ -934,7 +950,7 @@ export const templateStorage =
 ```tsx
 <SlipDesigner
   src={designerSrc}
-  locale="ko"
+  slipkit={slipkit}
   settings={designerSettings}
   presets={designerPresets}
   storage={templateStorage}
@@ -942,23 +958,21 @@ export const templateStorage =
 
 <SlipForm
   src={formSrc}
-  locale="ko"
-  settings={fontSettings}
+  slipkit={slipkit}
 />
 
 <SlipViewer
   src={viewerSrc}
-  locale="ko"
-  settings={fontSettings}
+  slipkit={slipkit}
 />
 ```
 
-このように構成すると、コンポーネントごとに別々の設定オブジェクトを繰り返し作らずに済み、フォントとストレージのインスタンスも再利用できます。
+この構成により、フォント、ロケール、暗号化キーを 1 つの `SlipKit` インスタンスに集約し、コンポーネントと保存手段で共有できます。
 
 ## 避けるべき設定
 
 - オブジェクト設定を HTML 属性の文字列で渡す
-- React のレンダリングのたびに新しい `settings` とストレージのインスタンスを生成する
+- React のレンダリングのたびに新しい `slipkit`、`settings`、ストレージのインスタンスを生成する
 - `getFonts` が呼ばれるたびに同じフォントをネットワークから再ダウンロードする
 - 独自フォントを供給しながら、必要な既定フォントが自動的に追加されると仮定する
 - 2 つ以上のフォントに `fallback: true` を指定する
@@ -966,13 +980,14 @@ export const templateStorage =
 - `locale` がテンプレート内の文言まで翻訳すると仮定する
 - 空の `presets` 配列でプリセットメニューが非表示になると仮定する
 - `storage` を自動保存の設定と解釈する
-- `LocalFileStorage` を、一覧機能が必要なデザイナーストレージとして使う
-- 運用環境で同梱のサンプル暗号化キーを使う
+- `SlipFileExchange` をデザイナーの `storage` に渡す
+- 運用用の暗号化キーをコードにハードコードする
 - Base64 変換後のファイルサイズ増加を考慮せずに画像制限を設定する
 
 ## 完了確認
 
-- [ ] コンポーネントの UI 言語を指定した。
+- [ ] `SlipKit` にフォント、ロケール、暗号化キーを一度だけ設定した。
+- [ ] UI 言語を変える必要があるコンポーネントだけ `locale` を上書きした。
 - [ ] 出力する文字とスタイルに必要なフォントを供給した。
 - [ ] フォント供給の結果を再利用するように構成した。
 - [ ] アプリケーションに必要な独自用紙とバーコード種類を設定した。
