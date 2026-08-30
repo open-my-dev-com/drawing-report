@@ -7,11 +7,18 @@ import {
   evaluateFormula,
   resolveConditionalFormats,
   stackVertically,
+  elementBounds,
+  planSourcePage,
+  filterVisibleOnPage,
+  SlipLayoutError,
   SLIP_LIMITS,
   type ConditionalFormatOverrides,
   type ConditionalFormatRule,
   type FormulaContext,
   type FormulaValue,
+  type GridFragment,
+  type GridItem,
+  type SourcePagePlan,
   type SlipFile,
   type SlipTemplateFile,
   type SlipElement,
@@ -23,7 +30,9 @@ import {
   type ImageElement,
   type GridElement,
   type GridCell,
-  type GridRepeat,
+  type GridBand,
+  type GridBandPlacement,
+  type OutputPageFilter,
   type PageNumberPosition,
   type BarcodeKind,
   type ParameterValueType,
@@ -454,11 +463,9 @@ function resizePercentages(list: number[], count: number): number[] {
 const GRID_DEFAULT_ROW_MM = 8;
 /** 새 그리드의 기본 열 너비(mm) */
 const GRID_DEFAULT_COL_MM = 30;
-/** 새 그리드가 한 페이지에 담는 기본 항목 수 */
-const GRID_DEFAULT_PER_PAGE = 5;
 /** 디자이너에서 편집할 수 있는 그리드의 최대 행 및 열 수 */
 const GRID_MAX_TRACKS_UI = 100;
-/** 반복 구간의 최대 항목 수와 페이지당 최대 항목 수 */
+/** 최대 항목 수·최소 표시 항목 수와 페이지당 최대 항목 수의 입력 상한 */
 const GRID_MAX_ITEMS_UI = 100_000;
 const GRID_MAX_PER_PAGE_UI = 1000;
 /** 새 요소의 기본 위치를 순차 이동할 간격과 반복 주기(mm) */
@@ -467,40 +474,36 @@ const NEW_ELEMENT_CASCADE_WRAP_MM = 50;
 /** "내 양식" 목록의 페이지당 항목 수 */
 const MY_FORMS_PAGE_SIZE = 10;
 
-/**
- * 열 너비와 행 높이의 합으로 그리드 요소의 크기를 다시 계산한다 (SPEC §5.7).
- * 높이에는 `perPage`만큼 배치되는 반복 구간을 반영한다.
- */
-function recomputeGridBox(el: GridElement): void {
-  el.width = round1(el.columns.reduce((sum, column) => sum + column.width, 0));
-  const templateHeight = el.rows.reduce((sum, row) => sum + row.height, 0);
-  const bandHeight = el.repeat
-    ? el.rows.slice(el.repeat.fromRow, el.repeat.toRow + 1).reduce((sum, row) => sum + row.height, 0)
-    : 0;
-  el.height = round1(templateHeight + (el.repeat ? (el.repeat.perPage - 1) * bandHeight : 0));
+/** 요소의 표시 크기(mm). 그리드는 열 너비와 행 높이의 합에서 계산한다. */
+function boxOf(el: SlipElement): { width: number; height: number } {
+  return elementBounds(el);
 }
 
 /**
- * 그리드 크기가 바뀌었을 때 기존 비율을 유지하며 행과 열의 크기를 조정한다.
+ * 요소 크기를 설정한다. 그리드는 크기를 따로 저장하지 않으므로
+ * 기존 비율을 유지하며 열 너비와 행 높이를 목표 크기에 맞춘다.
+ *
+ * @param el - 대상 요소
+ * @param width - 목표 너비(mm). 생략하면 그대로 둔다
+ * @param height - 목표 높이(mm). 생략하면 그대로 둔다
  */
-function syncGridTracks(el: GridElement): void {
-  const scaled = (sizes: number[], target: number): number[] => {
-    const total = sizes.reduce((sum, size) => sum + size, 0);
-    if (total <= 0) return sizes.map(() => Math.max(MIN_SIZE_MM, round1(target / sizes.length)));
-    return sizes.map((size) => Math.max(MIN_SIZE_MM, round1((size / total) * target)));
-  };
-  el.columns = scaled(el.columns.map((column) => column.width), el.width).map((width) => ({ width }));
-
-  // 화면에 펼친 반복 행을 포함한 전체 높이를 기준으로 행 높이를 조정한다.
-  const perPage = el.repeat ? el.repeat.perPage : 1;
-  const heights = el.rows.map((row) => row.height);
-  const bandHeight = el.repeat
-    ? heights.slice(el.repeat.fromRow, el.repeat.toRow + 1).reduce((sum, h) => sum + h, 0)
-    : 0;
-  const expanded = heights.reduce((sum, h) => sum + h, 0) + (perPage - 1) * bandHeight;
-  const ratio = expanded > 0 ? el.height / expanded : 1;
-  el.rows = heights.map((height) => ({ height: Math.max(MIN_SIZE_MM, round1(height * ratio)) }));
-  recomputeGridBox(el);
+function setElementBox(el: SlipElement, width?: number, height?: number): void {
+  if (el.type === 'grid') {
+    const scaled = (sizes: number[], target: number): number[] => {
+      const total = sizes.reduce((sum, size) => sum + size, 0);
+      if (total <= 0) return sizes.map(() => Math.max(MIN_SIZE_MM, round1(target / sizes.length)));
+      return sizes.map((size) => Math.max(MIN_SIZE_MM, round1((size / total) * target)));
+    };
+    if (width !== undefined) {
+      el.columns = scaled(el.columns.map((column) => column.width), width).map((w) => ({ width: w }));
+    }
+    if (height !== undefined) {
+      el.rows = scaled(el.rows.map((row) => row.height), height).map((h) => ({ height: h }));
+    }
+    return;
+  }
+  if (width !== undefined) el.width = width;
+  if (height !== undefined) el.height = height;
 }
 
 /** 행·열이 줄어든 뒤 격자를 벗어나는 병합 범위를 줄인다 */
@@ -551,9 +554,188 @@ function gridHeaderTitle(grid: GridElement, column: number, fromRow: number): st
   return undefined;
 }
 
-/** 원본 행이 반복 구간에 포함되는지 확인한다. */
-function inRepeatBand(el: GridElement, row: number): boolean {
-  return el.repeat !== undefined && row >= el.repeat.fromRow && row <= el.repeat.toRow;
+/** 행 구간 placement의 세로 순서 (파일 검증과 같은 순서) */
+const BAND_PLACEMENT_ORDER: Record<GridBandPlacement, number> = {
+  'before-data': 0,
+  'page-start': 1,
+  'group-start': 2,
+  item: 3,
+  'group-end': 4,
+  'after-data': 5,
+  'page-end': 6,
+};
+
+/** 행 표시 방식을 출력 흐름에 맞게 나열한다. */
+const BAND_PLACEMENTS: readonly GridBandPlacement[] = [
+  'before-data', 'page-start', 'group-start', 'item', 'group-end', 'after-data', 'page-end',
+];
+
+type GridRowCommand = 'header' | 'group-subtotal' | 'page-subtotal' | 'final-total';
+
+/** 반복 그리드의 항목 구간을 반환한다. */
+function itemBandOf(el: GridElement): GridBand | undefined {
+  return el.repeat?.bands.find((band) => band.placement === 'item');
+}
+
+/** 원본 행이 항목 구간에 포함되는지 확인한다. */
+function inItemBand(el: GridElement, row: number): boolean {
+  const band = itemBandOf(el);
+  return band !== undefined && row >= band.fromRow && row <= band.toRow;
+}
+
+/** 원본 행이 속한 행 구간을 반환한다. */
+function bandAt(el: GridElement, row: number): GridBand | undefined {
+  return el.repeat?.bands.find((band) => row >= band.fromRow && row <= band.toRow);
+}
+
+/**
+ * 선택한 행 범위에 행 구간 역할을 지정한 새 구간 목록을 만든다.
+ * 연속된 같은 역할 행은 하나의 구간으로 합치고, 범위가 같은 기존 구간의 id·설정을 유지한다.
+ *
+ * @param el - 반복 설정이 있는 그리드
+ * @param fromRow - 역할을 바꿀 시작 행
+ * @param toRow - 역할을 바꿀 끝 행
+ * @param placement - 지정할 역할
+ * @returns 새 구간 목록 또는 규칙 위반 코드
+ */
+function assignBandRole(
+  el: GridElement,
+  fromRow: number,
+  toRow: number,
+  placement: GridBandPlacement,
+): GridBand[] | 'noItem' | 'outOfOrder' {
+  const roles: GridBandPlacement[] = el.rows.map((_, r) => bandAt(el, r)?.placement ?? 'before-data');
+  for (let r = fromRow; r <= toRow; r++) roles[r] = placement;
+  // 항목 구간을 다른 곳에 지정하면 기존 항목 행은 역할을 잃으므로 위·아래 역할로 흡수한다.
+  if (placement === 'item') {
+    roles.forEach((role, r) => {
+      if (role !== 'item' || (r >= fromRow && r <= toRow)) return;
+      roles[r] = r < fromRow ? 'before-data' : 'after-data';
+    });
+  }
+  // 연속된 같은 역할을 하나의 구간으로 합친다.
+  const bands: GridBand[] = [];
+  let start = 0;
+  for (let r = 1; r <= roles.length; r++) {
+    if (r < roles.length && roles[r] === roles[start]) continue;
+    const existing = el.repeat?.bands.find(
+      (band) => band.fromRow === start && band.toRow === r - 1 && band.placement === roles[start],
+    );
+    bands.push(
+      existing ?? { id: `band_${crypto.randomUUID().slice(0, 8)}`, fromRow: start, toRow: r - 1, placement: roles[start]! },
+    );
+    start = r;
+  }
+  const itemBands = bands.filter((band) => band.placement === 'item');
+  if (itemBands.length !== 1) return 'noItem';
+  for (let i = 1; i < bands.length; i++) {
+    if (BAND_PLACEMENT_ORDER[bands[i]!.placement] < BAND_PLACEMENT_ORDER[bands[i - 1]!.placement]) {
+      return 'outOfOrder';
+    }
+  }
+  return bands;
+}
+
+/**
+ * 한 행 구간의 시작·종료 행을 바꾸고 맞닿은 구간의 경계를 함께 조정한다.
+ * 선택한 구간과 인접 구간의 식별자·옵션은 유지한다.
+ */
+function resizeBandRange(
+  el: GridElement,
+  bandId: string,
+  fromRow: number,
+  toRow: number,
+): GridBand[] | 'noItem' | 'outOfOrder' {
+  if (!el.repeat) return 'outOfOrder';
+  const bands = el.repeat.bands.map((band) => ({ ...band }));
+  let targetIndex = bands.findIndex((band) => band.id === bandId);
+  if (targetIndex < 0) return 'outOfOrder';
+  let target = bands[targetIndex]!;
+  const previousFrom = target.fromRow;
+  const previousTo = target.toRow;
+
+  if (fromRow < previousFrom) {
+    for (let index = targetIndex - 1; index >= 0; index -= 1) {
+      const band = bands[index]!;
+      if (band.toRow < fromRow) break;
+      if (band.fromRow < fromRow) {
+        band.toRow = fromRow - 1;
+        break;
+      }
+      bands.splice(index, 1);
+      targetIndex -= 1;
+    }
+  } else if (fromRow > previousFrom) {
+    const previous = bands[targetIndex - 1];
+    if (previous !== undefined) {
+      previous.toRow = fromRow - 1;
+    } else {
+      if (BAND_PLACEMENT_ORDER[target.placement] <= BAND_PLACEMENT_ORDER['before-data']) {
+        return 'outOfOrder';
+      }
+      bands.unshift({
+        id: `band_${crypto.randomUUID().slice(0, 8)}`,
+        fromRow: previousFrom,
+        toRow: fromRow - 1,
+        placement: 'before-data',
+      });
+      targetIndex += 1;
+    }
+  }
+
+  target = bands[targetIndex]!;
+  target.fromRow = fromRow;
+
+  if (toRow > previousTo) {
+    for (let index = targetIndex + 1; index < bands.length;) {
+      const band = bands[index]!;
+      if (band.fromRow > toRow) break;
+      if (band.toRow > toRow) {
+        band.fromRow = toRow + 1;
+        break;
+      }
+      bands.splice(index, 1);
+    }
+  } else if (toRow < previousTo) {
+    const next = bands[targetIndex + 1];
+    if (next !== undefined) {
+      next.fromRow = toRow + 1;
+    } else {
+      const targetRank = BAND_PLACEMENT_ORDER[target.placement];
+      const placement: GridBandPlacement | null = targetRank < BAND_PLACEMENT_ORDER['after-data']
+        ? 'after-data'
+        : targetRank < BAND_PLACEMENT_ORDER['page-end'] ? 'page-end' : null;
+      if (placement === null) return 'outOfOrder';
+      bands.push({
+        id: `band_${crypto.randomUUID().slice(0, 8)}`,
+        fromRow: toRow + 1,
+        toRow: previousTo,
+        placement,
+      });
+    }
+  }
+  target.toRow = toRow;
+
+  if (bands.filter((band) => band.placement === 'item').length !== 1) return 'noItem';
+  let nextRow = 0;
+  for (let index = 0; index < bands.length; index += 1) {
+    const band = bands[index]!;
+    if (band.fromRow !== nextRow) return 'outOfOrder';
+    if (index > 0
+      && BAND_PLACEMENT_ORDER[band.placement] < BAND_PLACEMENT_ORDER[bands[index - 1]!.placement]) {
+      return 'outOfOrder';
+    }
+    nextRow = band.toRow + 1;
+  }
+  return nextRow === el.rows.length ? bands : 'outOfOrder';
+}
+
+/** 셀 병합이 행 구간 경계를 넘는지 검사한다. */
+function spanCrossesBand(el: GridElement, bands: readonly GridBand[], cell: GridCell): boolean {
+  const last = cell.row + (cell.rowSpan ?? 1) - 1;
+  const startBand = bands.find((band) => cell.row >= band.fromRow && cell.row <= band.toRow);
+  const endBand = bands.find((band) => last >= band.fromRow && last <= band.toRow);
+  return startBand !== endBand;
 }
 
 /** 행·열 수 */
@@ -561,46 +743,9 @@ function gridDims(el: GridElement): { rows: number; columns: number } {
   return { rows: el.rows.length, columns: el.columns.length };
 }
 
-/**
- * 캔버스에 표시할 행 높이 목록을 만든다.
- * 반복 구간은 `perPage`만큼 복제한다 (SPEC §5.7).
- */
-function expandedRowHeights(el: GridElement): number[] {
-  const heights = el.rows.map((row) => row.height);
-  if (!el.repeat) return heights;
-  const { fromRow, toRow, perPage } = el.repeat;
-  const band = heights.slice(fromRow, toRow + 1);
-  return [
-    ...heights.slice(0, fromRow),
-    ...Array.from({ length: perPage }, () => band).flat(),
-    ...heights.slice(toRow + 1),
-  ];
-}
-
 /** 캔버스에 그릴 열 너비(mm) 목록 */
 function columnWidths(el: GridElement): number[] {
   return el.columns.map((column) => column.width);
-}
-
-/**
- * 화면에 펼친 행 번호를 파일에 저장된 원본 행 번호로 변환한다.
- */
-function templateRowOf(el: GridElement, expandedRow: number): number {
-  if (!el.repeat) return expandedRow;
-  const { fromRow, toRow, perPage } = el.repeat;
-  const bandRows = toRow - fromRow + 1;
-  if (expandedRow < fromRow) return expandedRow;
-  const afterBand = fromRow + perPage * bandRows;
-  if (expandedRow >= afterBand) return expandedRow - (perPage - 1) * bandRows;
-  return fromRow + ((expandedRow - fromRow) % bandRows);
-}
-
-/** 원본 행이 화면에서 처음 나타나는 행 번호를 반환한다. */
-function firstExpandedRowOf(el: GridElement, templateRow: number): number {
-  if (!el.repeat) return templateRow;
-  const { fromRow, toRow, perPage } = el.repeat;
-  const bandRows = toRow - fromRow + 1;
-  return templateRow > toRow ? templateRow + (perPage - 1) * bandRows : templateRow;
 }
 
 /** 지정한 셀을 반환하고 없으면 빈 셀을 생성한다. */
@@ -812,6 +957,12 @@ export class SlipDesigner extends LitElement {
     _myFormsQuery: { state: true },
     _myFormsError: { state: true },
     _savedNotice: { state: true },
+    _outputPage: { state: true },
+    _gridPlanPreview: { state: true },
+    _bandSelect: { state: true },
+    _bandMenuOpen: { state: true },
+    _gridRowCommand: { state: true },
+    _gridRowCommandField: { state: true },
   };
 
   src = '';
@@ -860,6 +1011,22 @@ export class SlipDesigner extends LitElement {
 
   private _file: SlipTemplateFile | null = null;
   private _pageIndex = 0;
+  /** 현재 양식 페이지에서 보고 있는 출력 페이지 (0부터) */
+  private _outputPage = 0;
+  /** 선택한 반복 그리드를 원본 행 구조 대신 현재 출력 결과로 표시할지 여부 */
+  private _gridPlanPreview = false;
+  /** 행 번호 선택 영역에서 고른 행 범위 (역할 명령 메뉴 표시 중) */
+  private _bandSelect: { from: number; to: number } | null = null;
+  /** 캔버스의 행 역할 명령 메뉴 표시 여부 */
+  private _bandMenuOpen = false;
+  /** 행 역할 메뉴가 열린 뒤 첫 명령으로 포커스를 옮길지 여부 */
+  private _focusBandMenu = false;
+  /** 적용 전 결과를 확인 중인 행 추가 명령 */
+  private _gridRowCommand: GridRowCommand | null = null;
+  /** 소계·합계 명령에서 집계할 목록 필드 */
+  private _gridRowCommandField = '';
+  /** 현재 양식 페이지의 계획 캐시 — 페이지·샘플 값이 바뀌면 다시 계산한다 */
+  private _planCache: { key: string; plan: SourcePagePlan | null; error: SlipLayoutError | null } | null = null;
   /** 속성 패널과 크기 조절 핸들이 대상으로 삼는 주 선택 요소 */
   private _selectedId: string | null = null;
   /**
@@ -1066,6 +1233,10 @@ export class SlipDesigner extends LitElement {
         editor.select?.();
       }
     }
+    if (this._focusBandMenu) {
+      this._focusBandMenu = false;
+      (this.renderRoot.querySelector('.band-menu-item') as HTMLButtonElement | null)?.focus();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1082,6 +1253,8 @@ export class SlipDesigner extends LitElement {
     this._previewMode = false;
     this._previewError = null;
     this._pageIndex = 0;
+    this._outputPage = 0;
+    this._gridPlanPreview = false;
     this._drag = null;
     this._resize = null;
     this._guideX = null;
@@ -1150,7 +1323,10 @@ export class SlipDesigner extends LitElement {
     for (const page of file.template.pages) {
       for (const el of page.elements) {
         if (el.type !== 'grid' || !el.repeat) continue;
-        const { fromRow, toRow, parameter: listKey } = el.repeat;
+        const itemBand = itemBandOf(el);
+        if (!itemBand) continue;
+        const { fromRow, toRow } = itemBand;
+        const listKey = el.repeat.parameter;
         let def = defs.find((b) => b.key === listKey);
         if (!def) {
           def = { key: listKey, valueType: 'list' };
@@ -1309,6 +1485,8 @@ export class SlipDesigner extends LitElement {
     const clamped = Math.max(0, Math.min(index, this._pageCount() - 1));
     if (clamped === this._pageIndex) return;
     this._pageIndex = clamped;
+    this._outputPage = 0;
+    this._gridPlanPreview = false;
     this._clearSelection();
     this._sideSelection = null;
     this._selectedCell = null;
@@ -1365,6 +1543,11 @@ export class SlipDesigner extends LitElement {
     this._resetPanelErrors();
     this._selectedId = null;
     this._selectedIds = new Set();
+    this._gridPlanPreview = false;
+    this._bandSelect = null;
+    this._bandMenuOpen = false;
+    this._gridRowCommand = null;
+    this._gridRowCommandField = '';
   }
 
   /**
@@ -1375,6 +1558,9 @@ export class SlipDesigner extends LitElement {
   private _selectElement(id: string): void {
     this._resetPanelErrors();
     this._selectedId = id;
+    this._gridPlanPreview = false;
+    this._gridRowCommand = null;
+    this._gridRowCommandField = '';
     const group = this._findElement(id)?.group;
     this._selectedIds = group
       ? new Set(this._pageGroupMembers(group).map((el) => el.id))
@@ -1462,23 +1648,15 @@ export class SlipDesigner extends LitElement {
         element = { type: 'text', id, name, position, width: 60, height: 10, content: '' };
         break;
       case 'grid':
-        // 새 그리드는 헤더, 반복 구간, 꼬리 행으로 시작한다.
+        // 새 그리드는 반복 설정이 없는 정적 그리드로 시작한다 (§7.1).
         element = {
           type: 'grid', id, name, position,
-          width: 90, height: GRID_DEFAULT_ROW_MM * (2 + GRID_DEFAULT_PER_PAGE),
           columns: [{ width: GRID_DEFAULT_COL_MM }, { width: GRID_DEFAULT_COL_MM }, { width: GRID_DEFAULT_COL_MM }],
           rows: [
             { height: GRID_DEFAULT_ROW_MM },
             { height: GRID_DEFAULT_ROW_MM },
             { height: GRID_DEFAULT_ROW_MM },
           ],
-          repeat: {
-            parameter: `items_${id.slice(0, 4)}`,
-            fromRow: 1,
-            toRow: 1,
-            perPage: GRID_DEFAULT_PER_PAGE,
-            repeatHeader: true,
-          },
           cells: [],
         };
         break;
@@ -1520,14 +1698,17 @@ export class SlipDesigner extends LitElement {
         break;
     }
 
-    if (place?.width !== undefined) element.width = Math.max(MIN_SIZE_MM, round1(place.width));
-    if (place?.height !== undefined) element.height = Math.max(MIN_SIZE_MM, round1(place.height));
-    // 그리드의 행과 열 크기를 드래그로 지정한 요소 크기에 맞춘다 (SPEC §5.7).
-    if (element.type === 'grid') syncGridTracks(element);
+    // 드래그로 지정한 크기를 적용한다. 그리드는 행과 열 크기를 이 크기에 맞춘다 (SPEC §5.7).
+    setElementBox(
+      element,
+      place?.width === undefined ? undefined : Math.max(MIN_SIZE_MM, round1(place.width)),
+      place?.height === undefined ? undefined : Math.max(MIN_SIZE_MM, round1(place.height)),
+    );
     // 새 요소의 위치를 용지 범위로 제한한다.
+    const box = boxOf(element);
     element.position = {
-      x: round1(Math.max(0, Math.min(element.position.x, paper.width - element.width))),
-      y: round1(Math.max(0, Math.min(element.position.y, paper.height - element.height))),
+      x: round1(Math.max(0, Math.min(element.position.x, paper.width - box.width))),
+      y: round1(Math.max(0, Math.min(element.position.y, paper.height - box.height))),
     };
 
     elements.push(element);
@@ -1802,6 +1983,12 @@ export class SlipDesigner extends LitElement {
     // preventDefault로 기본 포커스 이동이 막히므로 호스트에 포커스를 설정해 단축키를 유지한다.
     this._focusHost();
 
+    // 출력 결과 보기는 계획 결과를 확인하는 읽기 전용 상태다.
+    if (this._gridPlanPreview) {
+      e.preventDefault();
+      return;
+    }
+
     // 생성 도구가 선택돼 있으면 클릭·드래그는 요소 생성이다 (선택·이동보다 우선)
     if (this._pendingTool) {
       const p = this._paperPoint(e);
@@ -1837,6 +2024,7 @@ export class SlipDesigner extends LitElement {
       const el = this._findSelectedElement();
       const handle = handleEl.dataset.handle as ResizeHandle | undefined;
       if (!el || !handle) return;
+      const elBox = boxOf(el);
       this._resize = {
         id: el.id,
         handle,
@@ -1844,8 +2032,8 @@ export class SlipDesigner extends LitElement {
         startPxY: e.clientY,
         origX: el.position.x,
         origY: el.position.y,
-        origW: el.width,
-        origH: el.height,
+        origW: elBox.width,
+        origH: elBox.height,
         snapshot: null,
       };
       handleEl.setPointerCapture(e.pointerId);
@@ -1955,8 +2143,9 @@ export class SlipDesigner extends LitElement {
     if (!e.altKey) {
       // 함께 움직이는 선택 요소는 스냅 후보에서 뺀다
       const { xs, ys } = this._snapCandidates(new Set(this._drag.members.map((m) => m.id)));
-      const sx = this._bestSnap([nx, nx + el.width / 2, nx + el.width], xs);
-      const sy = this._bestSnap([ny, ny + el.height / 2, ny + el.height], ys);
+      const dragBox = boxOf(el);
+      const sx = this._bestSnap([nx, nx + dragBox.width / 2, nx + dragBox.width], xs);
+      const sy = this._bestSnap([ny, ny + dragBox.height / 2, ny + dragBox.height], ys);
       if (sx) {
         nx += sx.delta;
         guideX = sx.line;
@@ -2043,9 +2232,7 @@ export class SlipDesigner extends LitElement {
 
     el.position.x = round1(left);
     el.position.y = round1(top);
-    el.width = round1(right - left);
-    el.height = round1(bottom - top);
-    if (el.type === 'grid') syncGridTracks(el);
+    setElementBox(el, round1(right - left), round1(bottom - top));
     this._guideX = guideX;
     this._guideY = guideY;
     this.requestUpdate();
@@ -2149,9 +2336,10 @@ export class SlipDesigner extends LitElement {
     if (this._resize) {
       const r = this._resize;
       const el = this._findElement(r.id);
-      const changed = !!el &&
+      const resizedBox = el === undefined ? undefined : boxOf(el);
+      const changed = !!el && resizedBox !== undefined &&
         (el.position.x !== r.origX || el.position.y !== r.origY ||
-          el.width !== r.origW || el.height !== r.origH);
+          resizedBox.width !== r.origW || resizedBox.height !== r.origH);
       this._commitIfMoved(r.snapshot, changed);
       this._resize = null;
       this.requestUpdate();
@@ -2173,6 +2361,8 @@ export class SlipDesigner extends LitElement {
           this._cellSourceKind = null;
         }
         this._selectedCell = cell;
+        this._bandSelect = null;
+        this._bandMenuOpen = false;
         const definition = el.cells.find((item) => item.row === cell.row && item.column === cell.column);
         // 파라미터와 수식 셀은 속성 패널에서 편집하며 캔버스 입력기는 열지 않는다.
         this._cellEditing = definition === undefined
@@ -2194,10 +2384,11 @@ export class SlipDesigner extends LitElement {
     const point = this._paperPoint(e);
     const relX = point.x - el.position.x;
     const relY = point.y - el.position.y;
-    if (relX < 0 || relY < 0 || relX > el.width || relY > el.height) return null;
+    const gridBox = boxOf(el);
+    if (relX < 0 || relY < 0 || relX > gridBox.width || relY > gridBox.height) return null;
 
     const colOffsets = trackOffsets(columnWidths(el));
-    const rowOffsets = trackOffsets(expandedRowHeights(el));
+    const rowOffsets = trackOffsets(el.rows.map((r) => r.height));
     const dims = gridDims(el);
     // 오른쪽과 아래쪽 경계는 마지막 셀에 포함한다.
     const indexOf = (value: number, offsets: number[], count: number): number => {
@@ -2205,8 +2396,7 @@ export class SlipDesigner extends LitElement {
       return found < 0 ? count - 1 : Math.min(count - 1, found);
     };
     const column = indexOf(relX, colOffsets, dims.columns);
-    // 펼쳐진 반복 행을 파일에 저장된 원본 행으로 변환한다.
-    const row = templateRowOf(el, indexOf(relY, rowOffsets, rowOffsets.length - 1));
+    const row = indexOf(relY, rowOffsets, dims.rows);
 
     // 병합된 셀 안의 좌표는 병합 시작 셀로 변환한다.
     for (const cell of el.cells) {
@@ -2226,10 +2416,8 @@ export class SlipDesigner extends LitElement {
     column: number,
   ): { left: number; top: number; width: number; height: number } {
     const colOffsets = trackOffsets(columnWidths(el));
-    const rowOffsets = trackOffsets(expandedRowHeights(el));
-    // 반복 셀의 편집기는 첫 번째로 펼쳐진 행에 표시한다.
-    row = firstExpandedRowOf(el, row);
-    const cell = el.cells.find((c) => c.row === templateRowOf(el, row) && c.column === column);
+    const rowOffsets = trackOffsets(el.rows.map((r) => r.height));
+    const cell = el.cells.find((c) => c.row === row && c.column === column);
     const rowSpan = cell?.rowSpan ?? 1;
     const colSpan = cell?.colSpan ?? 1;
     const left = (el.position.x + (colOffsets[column] ?? 0)) * PX_PER_MM;
@@ -2285,13 +2473,10 @@ export class SlipDesigner extends LitElement {
       this._rejectInput(this._strings.designer.mergeOutOfGrid, errorKey);
       return;
     }
-    // 병합 범위는 반복 구간의 안이나 밖에 완전히 포함되어야 한다 (SPEC §5.7).
-    if (el.type === 'grid' && el.repeat && rowSpan > 1) {
-      const { fromRow, toRow } = el.repeat;
-      const last = target.row + rowSpan - 1;
-      const startsInside = target.row >= fromRow && target.row <= toRow;
-      const endsInside = last >= fromRow && last <= toRow;
-      if (startsInside !== endsInside) {
+    // 병합 범위는 하나의 행 구간 안에 완전히 포함되어야 한다 (SPEC §5.7).
+    if (el.repeat && rowSpan > 1) {
+      const probe: GridCell = { row: target.row, column: target.column, rowSpan };
+      if (spanCrossesBand(el, el.repeat.bands, probe)) {
         this._rejectInput(this._strings.designer.mergeCrossRepeat, errorKey);
         return;
       }
@@ -2335,37 +2520,115 @@ export class SlipDesigner extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // 그리드 편집 2단계
+  // 그리드 편집
   // ---------------------------------------------------------------------------
 
-  /** 그리드를 수정하고 요소 크기를 행과 열의 합에 맞춘다. */
+  /** 그리드를 수정한다. 크기는 행과 열의 합에서 계산하므로 따로 저장하지 않는다. */
   private _updateGrid(fn: (el: GridElement) => void): void {
     this._updateElement((el) => {
       if (el.type !== 'grid') return;
       fn(el);
-      recomputeGridBox(el);
     });
   }
 
-  /**
-   * 그리드의 마지막 행을 추가하거나 제거한다.
-   */
+  /** 그리드의 마지막 행을 추가하거나 제거한다. 반복 그리드의 추가는 역할 지정 명령을 사용한다. */
   private _changeGridRows(delta: number): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'grid') return;
+    if (delta > 0 && el.repeat) return;
     const next = el.rows.length + delta;
     if (next < 1 || next > GRID_MAX_TRACKS_UI) return;
-    // 반복 구간에 포함된 행은 제거하지 않는다.
-    if (delta < 0 && el.repeat && next <= el.repeat.toRow) return;
+    if (delta < 0 && el.repeat) {
+      const removed = el.rows.length - 1;
+      const band = bandAt(el, removed);
+      // 항목 구간이 한 행뿐이면 그 행은 제거할 수 없다.
+      if (band?.placement === 'item' && band.fromRow === band.toRow) return;
+    }
     this._updateGrid((grid) => {
       if (delta > 0) {
         grid.rows.push({ height: grid.rows[grid.rows.length - 1]?.height ?? GRID_DEFAULT_ROW_MM });
       } else {
+        const removed = grid.rows.length - 1;
         grid.rows.pop();
         grid.cells = grid.cells.filter((cell) => cell.row < grid.rows.length);
         clampGridSpans(grid);
+        if (grid.repeat) {
+          const band = grid.repeat.bands.find((b) => removed >= b.fromRow && removed <= b.toRow);
+          if (band !== undefined && band.fromRow === band.toRow) {
+            grid.repeat.bands = grid.repeat.bands.filter((b) => b !== band);
+          } else if (band !== undefined) {
+            band.toRow -= 1;
+          }
+        }
       }
     });
+  }
+
+  /** 선택한 역할의 행을 알맞은 구간 위치에 추가한다. */
+  private _addGridRowWithRole(
+    placement: GridBandPlacement,
+    options: {
+      separateBand?: boolean;
+      name?: string;
+      pages?: OutputPageFilter;
+      initialize?: (grid: GridElement, row: number) => void;
+    } = {},
+  ): number | null {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid' || !el.repeat || el.rows.length >= GRID_MAX_TRACKS_UI) return null;
+    if ((placement === 'group-start' || placement === 'group-end')
+      && (el.repeat.groupBy === undefined || el.repeat.groupBy.length === 0)) {
+      this._rejectInput(this._strings.designer.bandNeedsGroupBy, 'band-role');
+      return null;
+    }
+
+    const sameRole = el.repeat.bands.filter((band) => band.placement === placement).at(-1);
+    const nextRole = el.repeat.bands.find(
+      (band) => BAND_PLACEMENT_ORDER[band.placement] > BAND_PLACEMENT_ORDER[placement],
+    );
+    const insertAt = sameRole?.toRow !== undefined ? sameRole.toRow + 1 : (nextRole?.fromRow ?? el.rows.length);
+    const sourceRow = el.rows[Math.max(0, Math.min(insertAt - 1, el.rows.length - 1))];
+    const targetBandId = options.separateBand ? undefined : sameRole?.id;
+
+    this._resetPanelErrors();
+    this._updateGrid((grid) => {
+      grid.rows.splice(insertAt, 0, { height: sourceRow?.height ?? GRID_DEFAULT_ROW_MM });
+      for (const cell of grid.cells) {
+        if (cell.row >= insertAt) {
+          cell.row += 1;
+        } else if (cell.row + (cell.rowSpan ?? 1) > insertAt) {
+          cell.rowSpan = (cell.rowSpan ?? 1) + 1;
+        }
+      }
+
+      for (const band of grid.repeat!.bands) {
+        if (band.id === targetBandId) {
+          band.toRow += 1;
+        } else if (band.fromRow >= insertAt) {
+          band.fromRow += 1;
+          band.toRow += 1;
+        } else if (band.toRow >= insertAt) {
+          band.toRow += 1;
+        }
+      }
+      if (targetBandId === undefined) {
+        const band: GridBand = {
+          id: `band_${crypto.randomUUID().slice(0, 8)}`,
+          fromRow: insertAt,
+          toRow: insertAt,
+          placement,
+        };
+        if (options.name !== undefined) band.name = options.name;
+        if (options.pages !== undefined) band.pages = options.pages;
+        grid.repeat!.bands.push(band);
+        grid.repeat!.bands.sort((a, b) => a.fromRow - b.fromRow);
+      }
+      options.initialize?.(grid, insertAt);
+    });
+    this._bandSelect = { from: insertAt, to: insertAt };
+    this._bandMenuOpen = false;
+    this.requestUpdate();
+    return insertAt;
   }
 
   /** 그리드의 마지막 열을 추가하거나 제거한다. */
@@ -2406,7 +2669,11 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 반복 구간을 설정하거나 제거한다. */
+  /**
+   * 반복 설정을 켜거나 끈다.
+   * 켜면 선택한 행(없으면 마지막 행)을 항목 구간으로 하고, 위쪽 행은 데이터 앞,
+   * 아래쪽 행은 데이터 뒤 구간으로 지정한다. 페이지 방식은 자동 확장으로 시작한다 (§7.1).
+   */
   private _toggleGridRepeat(on: boolean): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'grid') return;
@@ -2416,79 +2683,349 @@ export class SlipDesigner extends LitElement {
       });
       return;
     }
-    const row = Math.min(this._selectedCell?.row ?? Math.min(1, el.rows.length - 1), el.rows.length - 1);
+    const row = Math.min(this._selectedCell?.row ?? el.rows.length - 1, el.rows.length - 1);
+    // 항목 구간 경계를 넘는 병합이 있으면 반복을 켤 수 없다.
+    const bands: GridBand[] = [
+      ...(row > 0 ? [{ id: `band_${crypto.randomUUID().slice(0, 8)}`, fromRow: 0, toRow: row - 1, placement: 'before-data' as const }] : []),
+      { id: `band_${crypto.randomUUID().slice(0, 8)}`, fromRow: row, toRow: row, placement: 'item' as const },
+      ...(row < el.rows.length - 1
+        ? [{ id: `band_${crypto.randomUUID().slice(0, 8)}`, fromRow: row + 1, toRow: el.rows.length - 1, placement: 'after-data' as const }]
+        : []),
+    ];
+    if (el.cells.some((cell) => spanCrossesBand(el, bands, cell))) {
+      this._rejectInput(this._strings.designer.repeatMergeError, 'repeat-on');
+      return;
+    }
     const key = `items_${el.id.slice(0, 4)}`;
     this._ensureParameterDef(key, 'list');
     this._updateGrid((grid) => {
       grid.repeat = {
         parameter: key,
-        fromRow: row,
-        toRow: row,
-        perPage: GRID_DEFAULT_PER_PAGE,
-        repeatHeader: true,
+        bands,
+        pagination: { mode: 'auto', minItems: 0 },
       };
     });
   }
 
-  /** 반복 구간 설정을 변경한다. 유효하지 않은 설정은 거부한다. */
-  private _updateGridRepeat(
-    patch: Omit<Partial<GridRepeat>, 'maxItems'> & { maxItems?: number | null },
-  ): void {
+  /** 반복 설정의 목록 파라미터를 변경한다. */
+  private _setRepeatParameter(key: string): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'grid' || !el.repeat) return;
-    const next = { ...el.repeat, ...patch } as GridRepeat & { maxItems?: number | null };
-    const errorKey = patch.fromRow !== undefined ? 'repeat-from'
-      : patch.toRow !== undefined ? 'repeat-to'
-      : patch.perPage !== undefined ? 'repeat-per-page'
-      : patch.maxItems !== undefined ? 'repeat-max-items'
-      : 'repeat-range';
-    // null은 항목 수 제한을 사용하지 않는 상태로 변환한다.
-    if (patch.maxItems === null) delete (next as { maxItems?: unknown }).maxItems;
-    else if (patch.maxItems !== undefined) {
-      const v = patch.maxItems;
-      if (!Number.isInteger(v) || v > GRID_MAX_ITEMS_UI) {
-        this._rejectInput(
-          this._strings.designer.rangeInput
-            .replace('{min}', String(next.perPage))
-            .replace('{max}', String(GRID_MAX_ITEMS_UI)),
-          errorKey,
-        );
-        return;
-      }
-    }
-    if (next.fromRow > next.toRow || next.toRow >= el.rows.length || next.fromRow < 0) {
-      this._rejectInput(this._strings.designer.repeatRangeError, errorKey);
-      return;
-    }
-    if (!Number.isInteger(next.perPage) || next.perPage < 1 || next.perPage > GRID_MAX_PER_PAGE_UI) {
+    this._ensureParameterDef(key, 'list');
+    this._updateGrid((grid) => {
+      grid.repeat!.parameter = key;
+    });
+  }
+
+  /** 최대 항목 수를 변경한다. null은 제한 없음이다. */
+  private _setRepeatMaxItems(value: number | null): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid' || !el.repeat) return;
+    if (value !== null && (!Number.isInteger(value) || value < 1 || value > GRID_MAX_ITEMS_UI)) {
       this._rejectInput(
-        this._strings.designer.rangeInput
-          .replace('{min}', '1')
-          .replace('{max}', String(GRID_MAX_PER_PAGE_UI)),
-        errorKey,
+        this._strings.designer.rangeInput.replace('{min}', '1').replace('{max}', String(GRID_MAX_ITEMS_UI)),
+        'repeat-max-items',
       );
       return;
     }
-    // 최대 항목 수는 페이지당 항목 수 이상이어야 한다 (SPEC §5.7).
-    if (next.maxItems !== undefined && next.maxItems !== null && next.maxItems < next.perPage) {
-      this._rejectInput(this._strings.designer.repeatLimitError, errorKey);
-      return;
-    }
-    // 변경된 반복 구간의 경계를 넘는 병합이 있는지 검사한다 (SPEC §5.7).
-    const crosses = el.cells.some((cell) => {
-      const last = cell.row + (cell.rowSpan ?? 1) - 1;
-      const startsInside = cell.row >= next.fromRow && cell.row <= next.toRow;
-      const endsInside = last >= next.fromRow && last <= next.toRow;
-      return startsInside !== endsInside;
-    });
-    if (crosses) {
-      this._rejectInput(this._strings.designer.repeatMergeError, errorKey);
-      return;
-    }
-    if (patch.parameter !== undefined) this._ensureParameterDef(patch.parameter, 'list');
     this._updateGrid((grid) => {
-      grid.repeat = next;
+      if (value === null) delete (grid.repeat as { maxItems?: unknown }).maxItems;
+      else grid.repeat!.maxItems = value;
     });
+  }
+
+  /**
+   * 페이지 방식을 변경한다.
+   *
+   * @param patch - `mode`: 방식 전환, `minItems`: 자동 확장의 최소 표시 항목 수,
+   *   `itemsPerPage`: 고정 페이지의 페이지당 항목 수
+   */
+  private _setGridPagination(patch: { mode?: 'auto' | 'fixed'; minItems?: number; itemsPerPage?: number }): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid' || !el.repeat) return;
+    const current = el.repeat.pagination;
+    if (patch.minItems !== undefined
+      && (!Number.isInteger(patch.minItems) || patch.minItems < 0 || patch.minItems > GRID_MAX_ITEMS_UI)) {
+      this._rejectInput(
+        this._strings.designer.rangeInput.replace('{min}', '0').replace('{max}', String(GRID_MAX_ITEMS_UI)),
+        'repeat-min-items',
+      );
+      return;
+    }
+    if (patch.itemsPerPage !== undefined
+      && (!Number.isInteger(patch.itemsPerPage) || patch.itemsPerPage < 1 || patch.itemsPerPage > GRID_MAX_PER_PAGE_UI)) {
+      this._rejectInput(
+        this._strings.designer.rangeInput.replace('{min}', '1').replace('{max}', String(GRID_MAX_PER_PAGE_UI)),
+        'repeat-per-page',
+      );
+      return;
+    }
+    this._updateGrid((grid) => {
+      const mode = patch.mode ?? current.mode;
+      if (mode === 'auto') {
+        const minItems = patch.minItems ?? (current.mode === 'auto' ? current.minItems : 0);
+        grid.repeat!.pagination = { mode: 'auto', minItems };
+      } else {
+        const itemsPerPage = patch.itemsPerPage ?? (current.mode === 'fixed' ? current.itemsPerPage : 1);
+        grid.repeat!.pagination = { mode: 'fixed', itemsPerPage };
+      }
+    });
+  }
+
+  /**
+   * 선택한 행 범위에 행 구간 역할을 지정한다.
+   * 구간 규칙(항목 구간 하나·세로 순서·병합 경계)을 어기는 지정은 거부한다.
+   */
+  private _setRowBandRole(fromRow: number, toRow: number, placement: GridBandPlacement): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid' || !el.repeat) return;
+    const s = this._strings.designer;
+    // 그룹 구간은 그룹 기준이 있어야 한다.
+    if ((placement === 'group-start' || placement === 'group-end')
+      && (el.repeat.groupBy === undefined || el.repeat.groupBy.length === 0)) {
+      this._rejectInput(s.bandNeedsGroupBy, 'band-role');
+      return;
+    }
+    const result = assignBandRole(el, fromRow, toRow, placement);
+    if (result === 'noItem') {
+      this._rejectInput(s.bandNeedsItem, 'band-role');
+      return;
+    }
+    if (result === 'outOfOrder') {
+      this._rejectInput(s.bandOrderError, 'band-role');
+      return;
+    }
+    if (el.cells.some((cell) => spanCrossesBand(el, result, cell))) {
+      this._rejectInput(s.repeatMergeError, 'band-role');
+      return;
+    }
+    this._resetPanelErrors();
+    this._updateGrid((grid) => {
+      grid.repeat!.bands = result;
+    });
+  }
+
+  /** 속성 패널에서 선택한 행 구간의 시작 또는 종료 행을 변경한다. */
+  private _setBandSelectionBoundary(boundary: 'from' | 'to', rowNumber: number, bandId?: string): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid' || !el.repeat || this._bandSelect === null) return;
+    if (!Number.isInteger(rowNumber) || rowNumber < 1 || rowNumber > el.rows.length) {
+      this._rejectInput(
+        this._strings.designer.rangeInput.replace('{min}', '1').replace('{max}', String(el.rows.length)),
+        'band-range',
+      );
+      return;
+    }
+    const index = rowNumber - 1;
+    const from = Math.min(this._bandSelect.from, this._bandSelect.to);
+    const to = Math.max(this._bandSelect.from, this._bandSelect.to);
+    const nextFrom = boundary === 'from' ? index : from;
+    const nextTo = boundary === 'to' ? index : to;
+    if (nextFrom > nextTo) {
+      this._rejectInput(this._strings.designer.bandRangeOrder, 'band-range');
+      return;
+    }
+
+    if (bandId !== undefined) {
+      const result = resizeBandRange(el, bandId, nextFrom, nextTo);
+      if (result === 'noItem') {
+        this._rejectInput(this._strings.designer.bandNeedsItem, 'band-range');
+        return;
+      }
+      if (result === 'outOfOrder') {
+        this._rejectInput(this._strings.designer.bandOrderError, 'band-range');
+        return;
+      }
+      if (el.cells.some((cell) => spanCrossesBand(el, result, cell))) {
+        this._rejectInput(this._strings.designer.repeatMergeError, 'band-range');
+        return;
+      }
+      this._resetPanelErrors();
+      this._updateGrid((grid) => {
+        grid.repeat!.bands = result;
+      });
+      this._bandSelect = { from: nextFrom, to: nextTo };
+      this._bandMenuOpen = false;
+      this.requestUpdate();
+      return;
+    }
+
+    this._resetPanelErrors();
+    this._bandSelect = { from: nextFrom, to: nextTo };
+    this._bandMenuOpen = false;
+    this.requestUpdate();
+  }
+
+  /** page-start·page-end 구간의 표시 페이지 필터를 변경한다. */
+  private _setBandPages(bandId: string, pages: OutputPageFilter | ''): void {
+    this._updateGrid((grid) => {
+      const band = grid.repeat?.bands.find((b) => b.id === bandId);
+      if (!band) return;
+      if (pages === '' || pages === 'all') delete (band as { pages?: unknown }).pages;
+      else band.pages = pages;
+    });
+  }
+
+  /** group-start 구간의 페이지 이월 시 반복 표시를 켜거나 끈다. */
+  private _setBandRepeatOnPageBreak(bandId: string, on: boolean): void {
+    this._updateGrid((grid) => {
+      const band = grid.repeat?.bands.find((b) => b.id === bandId);
+      if (!band) return;
+      if (on) band.repeatOnPageBreak = true;
+      else delete (band as { repeatOnPageBreak?: unknown }).repeatOnPageBreak;
+    });
+  }
+
+  /** 그룹 기준 필드의 선택 상태를 변경한다. */
+  private _toggleGridGroupField(key: string, on: boolean): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid' || !el.repeat) return;
+    const fields = this._parameterList().find((parameter) => parameter.key === el.repeat!.parameter)?.fields ?? [];
+    if (!fields.some((field) => field.key === key)) return;
+    const selected = new Set(el.repeat.groupBy ?? []);
+    if (on) selected.add(key);
+    else selected.delete(key);
+    const keys = fields.map((field) => field.key).filter((field) => selected.has(field));
+    const hasGroupBands = el.repeat.bands.some(
+      (band) => band.placement === 'group-start' || band.placement === 'group-end',
+    );
+    if (keys.length === 0 && hasGroupBands) {
+      this._rejectInput(this._strings.designer.bandNeedsGroupBy, 'repeat-group-by');
+      return;
+    }
+    this._resetPanelErrors();
+    this._updateGrid((grid) => {
+      if (keys.length === 0) delete (grid.repeat as { groupBy?: unknown }).groupBy;
+      else grid.repeat!.groupBy = keys;
+    });
+  }
+
+  /** 행 추가 명령을 고르고 집계 필드의 기본값을 설정한다. */
+  private _openGridRowCommand(command: GridRowCommand): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid' || !el.repeat) return;
+    const numericFields = this._parameterList()
+      .find((parameter) => parameter.key === el.repeat!.parameter)
+      ?.fields.filter((field) => field.valueType === 'number') ?? [];
+    if (!numericFields.some((field) => field.key === this._gridRowCommandField)) {
+      const itemBand = itemBandOf(el);
+      const columnOf = (key: string): number => itemBand === undefined
+        ? -1
+        : Math.max(
+            -1,
+            ...el.cells
+              .filter((cell) => cell.parameter === key
+                && cell.row >= itemBand.fromRow && cell.row <= itemBand.toRow)
+              .map((cell) => cell.column),
+          );
+      this._gridRowCommandField = [...numericFields]
+        .sort((a, b) => columnOf(b.key) - columnOf(a.key))[0]?.key
+        ?? numericFields.at(-1)?.key
+        ?? '';
+    }
+    this._gridRowCommand = command;
+    this._resetPanelErrors();
+  }
+
+  /** 항목 행의 스타일을 바탕으로 행·소계·합계 명령을 한 번에 적용한다. */
+  private _applyGridRowCommand(): void {
+    const el = this._findSelectedElement();
+    const command = this._gridRowCommand;
+    if (el?.type !== 'grid' || !el.repeat || command === null) return;
+    const s = this._strings.designer;
+    const itemBand = itemBandOf(el);
+    if (itemBand === undefined) {
+      this._rejectInput(s.bandNeedsItem, 'grid-row-command');
+      return;
+    }
+    if (command === 'group-subtotal'
+      && (el.repeat.groupBy === undefined || el.repeat.groupBy.length === 0)) {
+      this._rejectInput(s.gridCommandGroupRequired, 'grid-row-command');
+      return;
+    }
+
+    const fields = this._parameterList()
+      .find((parameter) => parameter.key === el.repeat!.parameter)?.fields ?? [];
+    const numericField = fields.find(
+      (field) => field.key === this._gridRowCommandField && field.valueType === 'number',
+    );
+    if (command !== 'header' && numericField === undefined) {
+      this._rejectInput(s.gridCommandNumberRequired, 'grid-row-command');
+      return;
+    }
+
+    const itemCells = el.cells.filter(
+      (cell) => cell.row >= itemBand.fromRow && cell.row <= itemBand.toRow,
+    );
+    const firstItemRowCells = itemCells.filter((cell) => cell.row === itemBand.fromRow);
+    const fieldTitles = new Map(fields.map((field) => [field.key, field.title]));
+    const placement: GridBandPlacement = command === 'header'
+      ? 'page-start'
+      : command === 'group-subtotal'
+        ? 'group-end'
+        : command === 'page-subtotal'
+          ? 'page-end'
+          : 'after-data';
+    const bandName = command === 'header'
+      ? s.gridCommandHeaderName
+      : command === 'group-subtotal'
+        ? s.gridCommandGroupSubtotalName
+        : command === 'page-subtotal'
+          ? s.gridCommandPageSubtotalName
+          : s.gridCommandFinalTotalName;
+
+    const cloneCellStyle = (source: GridCell | undefined, row: number, column: number): GridCell => {
+      const cell: GridCell = source === undefined
+        ? { row, column, content: '' }
+        : { ...structuredClone(source), row, column };
+      delete (cell as { name?: unknown }).name;
+      delete (cell as { rowSpan?: unknown }).rowSpan;
+      delete (cell as { content?: unknown }).content;
+      delete (cell as { parameter?: unknown }).parameter;
+      delete (cell as { formula?: unknown }).formula;
+      delete (cell as { conditionalFormats?: unknown }).conditionalFormats;
+      return cell;
+    };
+
+    const added = this._addGridRowWithRole(placement, {
+      separateBand: true,
+      name: bandName,
+      ...(command === 'page-subtotal' ? { pages: 'non-final' as const } : {}),
+      initialize: (grid, row) => {
+        if (command === 'header') {
+          for (const source of firstItemRowCells) {
+            const cell = cloneCellStyle(source, row, source.column);
+            cell.content = source.parameter === undefined
+              ? (source.content ?? '')
+              : (fieldTitles.get(source.parameter) ?? source.parameter);
+            grid.cells.push(cell);
+          }
+          return;
+        }
+
+        const fieldSource = itemCells.find((cell) => cell.parameter === numericField!.key);
+        const targetColumn = fieldSource?.column
+          ?? Math.max(0, ...firstItemRowCells.map((cell) => cell.column), grid.columns.length - 1);
+        if (targetColumn > 0) {
+          const labelSource = itemCells.find(
+            (cell) => cell.column === 0 && cell.row === itemBand.fromRow,
+          );
+          const labelCell = cloneCellStyle(labelSource, row, 0);
+          labelCell.content = bandName;
+          if (targetColumn > 1) labelCell.colSpan = targetColumn;
+          else delete (labelCell as { colSpan?: unknown }).colSpan;
+          grid.cells.push(labelCell);
+        }
+        const valueCell = cloneCellStyle(fieldSource, row, targetColumn);
+        const scope = command === 'group-subtotal' ? '@group'
+          : command === 'page-subtotal' ? '@page' : '@all';
+        valueCell.formula = `SUM(${scope}.${numericField!.key})`;
+        grid.cells.push(valueCell);
+      },
+    });
+    if (added === null) return;
+    this._gridRowCommand = null;
+    this._gridRowCommandField = '';
   }
 
   /**
@@ -2540,8 +3077,9 @@ export class SlipDesigner extends LitElement {
     const ys = [0, pt, paper.height - pb, paper.height];
     for (const el of this._currentElements() ?? []) {
       if (excluded.has(el.id)) continue;
-      xs.push(el.position.x, el.position.x + el.width / 2, el.position.x + el.width);
-      ys.push(el.position.y, el.position.y + el.height / 2, el.position.y + el.height);
+      const box = boxOf(el);
+      xs.push(el.position.x, el.position.x + box.width / 2, el.position.x + box.width);
+      ys.push(el.position.y, el.position.y + box.height / 2, el.position.y + box.height);
     }
     return { xs, ys };
   }
@@ -2604,6 +3142,14 @@ export class SlipDesigner extends LitElement {
     }
     // PDF 미리보기 상태에서는 문서를 변경하는 단축키를 처리하지 않는다.
     if (this._previewMode) return;
+    // 출력 결과는 읽기 전용이다. Esc만 행 구조 편집으로 돌아가는 데 사용한다.
+    if (this._gridPlanPreview) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this._setGridPlanPreview(false);
+      }
+      return;
+    }
     if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedId) {
       e.preventDefault();
       this._deleteSelected();
@@ -2977,9 +3523,10 @@ export class SlipDesigner extends LitElement {
     id: string;
     ariaLabel: string;
     value: string;
-    options: { value: string; label: string }[];
+    options: { value: string; label: string; description?: string }[];
     onPick: (value: string) => void;
     className?: string;
+    placeholder?: string;
   }) {
     const open = this._listSelectId === config.id;
     const current = config.options.find((o) => o.value === config.value);
@@ -2988,7 +3535,7 @@ export class SlipDesigner extends LitElement {
         aria-haspopup="listbox" aria-expanded=${String(open)} aria-label=${config.ariaLabel}
         data-value=${config.value}
         @click=${(e: Event) => this._toggleListSelect(config.id, e)}>
-        <span class="list-select-value">${current?.label ?? config.value}</span>
+        <span class="list-select-value">${current?.label ?? config.placeholder ?? config.value}</span>
         <span class="list-select-caret" aria-hidden="true">${icons.down}</span>
       </button>
       ${open
@@ -2998,11 +3545,17 @@ export class SlipDesigner extends LitElement {
             style="left:${this._listSelectPos.left}px;top:${this._listSelectPos.top}px;min-width:${this._listSelectPos.width}px;max-height:${this._listSelectPos.maxHeight}px">
             ${config.options.map((o) => html`
               <button type="button" role="option" data-value=${o.value}
+                class=${o.description === undefined ? '' : 'described'}
                 aria-selected=${String(o.value === config.value)}
                 @click=${() => {
                   this._closeListSelect();
                   config.onPick(o.value);
-                }}>${o.label}</button>`)}
+                }}>
+                <span class="list-select-option-label">${o.label}</span>
+                ${o.description === undefined
+                  ? nothing
+                  : html`<span class="list-select-option-description">${o.description}</span>`}
+              </button>`)}
           </div>`
         : nothing}
     `;
@@ -3143,11 +3696,12 @@ export class SlipDesigner extends LitElement {
       for (const el of page.elements) {
         // 그리드의 반복 파라미터와 고정 행의 셀 파라미터를 수집한다.
         if (el.type === 'grid') {
-          if (el.repeat) {
-            const { fromRow, toRow, parameter: listKey } = el.repeat;
+          const itemBand = el.repeat === undefined ? undefined : itemBandOf(el);
+          if (el.repeat && itemBand) {
+            const listKey = el.repeat.parameter;
             const at = fieldAt.get(listKey) ?? new Map();
             const band = el.cells
-              .filter((c) => c.row >= fromRow && c.row <= toRow && c.parameter !== undefined)
+              .filter((c) => c.row >= itemBand.fromRow && c.row <= itemBand.toRow && c.parameter !== undefined)
               .sort((a, b) => a.column - b.column || a.row - b.row);
             for (const cell of band) {
               const key = cell.parameter as string;
@@ -3159,9 +3713,9 @@ export class SlipDesigner extends LitElement {
           }
           const keys = new Set<string>();
           if (el.repeat) keys.add(el.repeat.parameter);
-          // 반복 구간의 셀 파라미터는 목록 항목의 하위 필드이므로 최상위 값에서 제외한다.
+          // 항목 구간의 셀 파라미터는 목록 항목의 하위 필드이므로 최상위 값에서 제외한다.
           for (const cell of el.cells) {
-            if (cell.parameter !== undefined && !inRepeatBand(el, cell.row)) keys.add(cell.parameter);
+            if (cell.parameter !== undefined && !inItemBand(el, cell.row)) keys.add(cell.parameter);
           }
           for (const key of keys) {
             const list = uses.get(key) ?? [];
@@ -3254,8 +3808,8 @@ export class SlipDesigner extends LitElement {
                     ${page.elements.map((el) => html`<span class="thumb-el" style="
                       left:${(el.position.x * scale).toFixed(1)}px;
                       top:${(el.position.y * scale).toFixed(1)}px;
-                      width:${Math.max(2, el.width * scale).toFixed(1)}px;
-                      height:${Math.max(2, el.height * scale).toFixed(1)}px;
+                      width:${Math.max(2, boxOf(el).width * scale).toFixed(1)}px;
+                      height:${Math.max(2, boxOf(el).height * scale).toFixed(1)}px;
                     "></span>`)}
                   </span>
                 </div>`
@@ -3418,24 +3972,23 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 파라미터 또는 수식이 지정된 그리드 셀을 행과 열 순서로 반환한다.
+   * 이름, 파라미터 또는 수식이 지정된 그리드 셀을 행과 열 순서로 반환한다.
    *
    * @param grid - 그리드 요소
-   * @returns 셀의 위치와 표시 이름(값은 논리명, 수식은 식)
+   * @returns 셀의 위치와 표시 이름(셀 이름이 없으면 행과 열 좌표)
    */
   private _gridValueCells(grid: GridElement): { row: number; column: number; label: string; at: string }[] {
     const s = this._strings.designer;
     return grid.cells
-      .filter((c) => c.parameter !== undefined || c.formula !== undefined)
+      .filter((c) => c.name?.trim() || c.parameter !== undefined || c.formula !== undefined)
       .slice()
       .sort((a, b) => a.row - b.row || a.column - b.column)
       .map((c) => {
-        // 셀 이름은 같은 열의 헤더를 사용하고 헤더가 없으면 행과 열 좌표를 사용한다.
-        const header = gridHeaderTitle(grid, c.column, grid.repeat?.fromRow ?? grid.rows.length);
+        // 사용자가 지정한 셀 이름을 우선 사용하고, 이름이 없으면 좌표를 표시한다 (§7.4).
         const at = s.gridCellAt
           .replace('{r}', String(c.row + 1))
           .replace('{c}', String(c.column + 1));
-        return { row: c.row, column: c.column, label: header ?? at, at };
+        return { row: c.row, column: c.column, label: c.name === undefined || c.name === '' ? at : c.name, at };
       });
   }
 
@@ -3461,6 +4014,8 @@ export class SlipDesigner extends LitElement {
     this._selectedId = gridId;
     this._selectedIds = new Set([gridId]);
     this._selectedCell = { row, column };
+    this._bandSelect = null;
+    this._bandMenuOpen = false;
     this._cellEditing = false;
     this._sideSelection = null;
     this._expandedElements.add(gridId);
@@ -3561,10 +4116,8 @@ export class SlipDesigner extends LitElement {
           if (el.type === 'grid') {
             if (el.repeat?.parameter === key) el.repeat.parameter = trimmed;
             for (const cell of el.cells) {
-              // 반복 구간 안의 셀 파라미터는 목록 하위 필드이므로 최상위 키 변경에서 제외한다.
-              const inBand =
-                el.repeat !== undefined && cell.row >= el.repeat.fromRow && cell.row <= el.repeat.toRow;
-              if (!inBand && cell.parameter === key) cell.parameter = trimmed;
+              // 항목 구간 안의 셀 파라미터는 목록 하위 필드이므로 최상위 키 변경에서 제외한다.
+              if (!inItemBand(el, cell.row) && cell.parameter === key) cell.parameter = trimmed;
             }
           }
         }
@@ -3669,13 +4222,12 @@ export class SlipDesigner extends LitElement {
       const def = defs.find((b) => b.key === listKey);
       const field = def?.fields?.find((x) => x.key === key);
       if (field) field.key = trimmed;
-      // 해당 목록 파라미터의 반복 구간에서 참조하는 셀만 변경한다.
+      // 해당 목록 파라미터의 항목 구간에서 참조하는 셀만 변경한다.
       for (const page of f.template.pages) {
         for (const el of page.elements) {
           if (el.type !== 'grid' || el.repeat?.parameter !== listKey) continue;
-          const { fromRow, toRow } = el.repeat;
           for (const cell of el.cells) {
-            if (cell.row >= fromRow && cell.row <= toRow && cell.parameter === key) cell.parameter = trimmed;
+            if (inItemBand(el, cell.row) && cell.parameter === key) cell.parameter = trimmed;
           }
         }
       }
@@ -3723,9 +4275,8 @@ export class SlipDesigner extends LitElement {
       for (const page of f.template.pages) {
         for (const el of page.elements) {
           if (el.type !== 'grid' || el.repeat?.parameter !== listKey) continue;
-          const { fromRow, toRow } = el.repeat;
           for (const cell of el.cells) {
-            if (cell.row >= fromRow && cell.row <= toRow && cell.parameter === key) {
+            if (inItemBand(el, cell.row) && cell.parameter === key) {
               delete (cell as { parameter?: string }).parameter;
             }
           }
@@ -3789,18 +4340,143 @@ export class SlipDesigner extends LitElement {
     ">X / X</div>`;
   }
 
+  /**
+   * 현재 양식 페이지의 출력 페이지 계획을 만든다.
+   * 같은 입력이면 캐시를 재사용하고, 계획 오류는 오류 상태로 반환한다.
+   */
+  private _pagePlan(): { plan: SourcePagePlan | null; error: SlipLayoutError | null } {
+    const file = this._file;
+    const page = file?.template.pages[this._pageIndex];
+    if (!file || !page) return { plan: null, error: null };
+    const itemsByGrid = new Map<string, readonly GridItem[]>();
+    for (const el of page.elements) {
+      if (el.type === 'grid' && el.repeat !== undefined) {
+        itemsByGrid.set(el.id, this._repeatSampleItems(el) as GridItem[]);
+      }
+    }
+    const key = JSON.stringify([this._pageIndex, file.template.paper, page, [...itemsByGrid.entries()]]);
+    if (this._planCache?.key === key) return this._planCache;
+    let plan: SourcePagePlan | null = null;
+    let error: SlipLayoutError | null = null;
+    try {
+      plan = planSourcePage(file.template.paper, page, itemsByGrid, this._evalLocale);
+    } catch (cause) {
+      if (!(cause instanceof SlipLayoutError)) throw cause;
+      error = cause;
+    }
+    this._planCache = { key, plan, error };
+    return this._planCache;
+  }
+
+  /** 현재 양식 페이지의 계획 오류 메시지 (없으면 null) */
+  private _planError(): SlipLayoutError | null {
+    return this._pagePlan().error;
+  }
+
+  /** 계획 오류가 가리키는 요소와 행 구간을 선택하고 편집 위치로 이동한다. */
+  private _focusPlanError(error: SlipLayoutError): void {
+    if (error.elementId === undefined) return;
+    const element = this._findElement(error.elementId);
+    if (element === undefined) return;
+    this._selectElement(element.id);
+    this._selectedCell = null;
+    this._cellEditing = false;
+    if (element.type === 'grid' && error.bandId !== undefined) {
+      const band = element.repeat?.bands.find((candidate) => candidate.id === error.bandId);
+      if (band !== undefined) this._bandSelect = { from: band.fromRow, to: band.toRow };
+    }
+    this.requestUpdate();
+    void this.updateComplete.then(() => {
+      const target = error.bandId === undefined
+        ? this.renderRoot.querySelector(`[data-id="${element.id}"]`)
+        : this.renderRoot.querySelector(`[data-band-id="${error.bandId}"] .band-item-main`);
+      if (!(target instanceof HTMLElement)) return;
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  /** 선택한 반복 그리드의 원본 행 구조와 출력 결과 표시를 전환한다. */
+  private _setGridPlanPreview(enabled: boolean): void {
+    this._gridPlanPreview = enabled;
+    this._selectedCell = null;
+    this._cellEditing = false;
+    this._bandSelect = null;
+    this._bandMenuOpen = false;
+    this._pendingTool = null;
+    this.requestUpdate();
+  }
+
+  /** 출력 페이지 이동과 선택한 반복 그리드의 출력 결과 전환을 렌더링한다. */
+  private _renderOutputPageBar(outputPage: number, outputPageCount: number, plan: SourcePagePlan | null) {
+    const s = this._strings.designer;
+    const selected = this._findSelectedElement();
+    const canPreviewGrid = selected?.type === 'grid'
+      && selected.repeat !== undefined
+      && plan?.gridPlans.has(selected.id) === true;
+    if (outputPageCount <= 1 && !canPreviewGrid) return nothing;
+    return html`
+      <div class="output-page-bar" role="group" aria-label=${s.outputPage}
+        @pointerdown=${(event: PointerEvent) => event.stopPropagation()}>
+        ${canPreviewGrid
+          ? html`<button type="button" class="output-preview-toggle"
+              aria-pressed=${String(this._gridPlanPreview)}
+              @click=${() => this._setGridPlanPreview(!this._gridPlanPreview)}>
+              ${this._gridPlanPreview ? icons.edit : icons.preview}
+              <span>${this._gridPlanPreview ? s.gridStructureEdit : s.outputResult}</span>
+            </button>`
+          : nothing}
+        ${outputPageCount <= 1
+          ? nothing
+          : html`<div class="output-page-nav">
+              <button type="button" class="row-btn output-page-prev" aria-label=${s.prevPage}
+                ?disabled=${outputPage === 0}
+                @click=${() => {
+                  this._outputPage = Math.max(0, outputPage - 1);
+                  this.requestUpdate();
+                }}>${icons.pagePrev}</button>
+              <span class="output-page-status" aria-live="polite">
+                ${s.outputPage} ${outputPage + 1} / ${outputPageCount}
+              </span>
+              <button type="button" class="row-btn output-page-next" aria-label=${s.nextPage}
+                ?disabled=${outputPage >= outputPageCount - 1}
+                @click=${() => {
+                  this._outputPage = Math.min(outputPageCount - 1, outputPage + 1);
+                  this.requestUpdate();
+                }}>${icons.pageNext}</button>
+            </div>`}
+      </div>`;
+  }
+
   private _renderCanvas() {
     if (!this._file) return nothing;
     const { paper } = this._file.template;
     const page = this._file.template.pages[this._pageIndex];
     if (!page) return nothing;
 
+    const { plan, error } = this._pagePlan();
+    const outputPageCount = plan?.outputPageCount ?? 1;
+    const outputPage = Math.min(this._outputPage, outputPageCount - 1);
+
     const pw = paper.width * PX_PER_MM;
     const ph = paper.height * PX_PER_MM;
     const [pt, pr, pb, pl] = paper.padding;
 
     return html`
-      <div class="paper-wrap" style="--paper-w:${pw}px;--paper-h:${ph}px"
+      <div class="canvas-stack" style="--paper-w:${pw}px;--paper-h:${ph}px">
+      ${this._renderOutputPageBar(outputPage, outputPageCount, plan)}
+      ${error === null
+        ? nothing
+        : html`<div id="page-plan-error" class="plan-error" role="alert"
+            @pointerdown=${(event: PointerEvent) => event.stopPropagation()}>
+            <span>${this._strings.designer.planError}: ${error.message}</span>
+            ${error.elementId === undefined
+              ? nothing
+              : html`<button type="button" @click=${() => this._focusPlanError(error)}>
+                  ${this._strings.designer.planErrorLocate}
+                </button>`}
+          </div>`}
+      <div class="paper-wrap"
         @pointermove=${(e: PointerEvent) => this._trackCursor(e)}
         @pointerleave=${() => {
           if (this._cursorMm === null) return;
@@ -3825,8 +4501,14 @@ export class SlipDesigner extends LitElement {
           width:${(paper.width - pl - pr) * PX_PER_MM}px;
           height:${(paper.height - pt - pb) * PX_PER_MM}px;
         "></div>
+        ${plan !== null && page.elements.some((el) => el.type === 'grid' && el.repeat?.pagination.mode === 'auto')
+          ? html`<div class="flow-guide" aria-label=${this._strings.designer.flowAreaGuide}
+              style="top:${plan.flowArea.bottom * PX_PER_MM}px">
+              <span>${this._strings.designer.flowAreaGuide}</span>
+            </div>`
+          : nothing}
         ${this._renderPageNumberPlaceholder(page, paper, [pt, pr, pb, pl])}
-        ${page.elements.map((el) => this._renderElement(el))}
+        ${page.elements.map((el) => this._renderElement(el, plan, outputPage, outputPageCount))}
         ${this._renderSelectionOverlay()}
         ${this._guideX !== null
           ? html`<div class="snap-guide vertical" style="left:${this._guideX * PX_PER_MM}px"></div>`
@@ -3844,6 +4526,7 @@ export class SlipDesigner extends LitElement {
           : nothing}
         ${this._renderLineGhost(pw, ph)}
         ${this._renderCellEditor()}
+      </div>
       </div>
       </div>
     `;
@@ -4046,14 +4729,16 @@ export class SlipDesigner extends LitElement {
   }
 
   private _renderSelectionOverlay() {
+    if (this._gridPlanPreview) return nothing;
     // 크기 조절 핸들은 요소 하나만 선택한 경우에 표시한다.
     if (this._selectedIds.size > 1) return nothing;
     const el = this._findSelectedElement();
     if (!el) return nothing;
+    const box = boxOf(el);
     const x = el.position.x * PX_PER_MM;
     const y = el.position.y * PX_PER_MM;
-    const w = el.width * PX_PER_MM;
-    const h = el.height * PX_PER_MM;
+    const w = box.width * PX_PER_MM;
+    const h = box.height * PX_PER_MM;
     // 선 요소에는 영역 핸들 대신 두 끝점 핸들을 표시한다.
     if (el.type === 'line') {
       const [p0, p1] = lineEndpoints(el);
@@ -4086,13 +4771,51 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  private _renderElement(el: SlipElement) {
-    const x = el.position.x * PX_PER_MM;
-    const y = el.position.y * PX_PER_MM;
-    const w = el.width * PX_PER_MM;
-    const h = el.height * PX_PER_MM;
+  /**
+   * 요소 하나를 현재 출력 페이지 계획에 맞춰 렌더링한다.
+   *
+   * @param el - 렌더링할 요소
+   * @param plan - 현재 양식 페이지의 계획 (계획 오류 시 null)
+   * @param outputPage - 보고 있는 출력 페이지 (0부터)
+   * @param outputPageCount - 전체 출력 페이지 수
+   */
+  private _renderElement(el: SlipElement, plan: SourcePagePlan | null, outputPage: number, outputPageCount: number) {
     // 다중 선택된 요소의 영역을 모두 강조한다.
     const selected = this._selectedIds.has(el.id);
+    const layoutError = this._planError();
+    const hasLayoutError = layoutError?.elementId === el.id;
+    let originY = el.position.y;
+    let fragment: GridFragment | null = null;
+
+    if (el.type === 'grid' && el.repeat !== undefined) {
+      // 선택한 반복 그리드는 행 구간을 편집할 수 있게 원본 행 구조로 표시한다.
+      if ((!selected || this._gridPlanPreview) && plan !== null) {
+        const gridPlan = plan.gridPlans.get(el.id);
+        fragment = gridPlan?.fragments.find((f) => f.outputPage === outputPage) ?? null;
+        if (fragment === null) return nothing;
+        originY = fragment.y;
+      }
+    } else if (el.pagePlacement?.mode === 'after') {
+      // after 배치 요소는 계획된 위치에 표시한다. 선택 중에는 항상 표시한다.
+      const placed = plan?.afterPlacements.get(el.id);
+      if (placed !== undefined) {
+        if (placed.outputPage !== outputPage && !selected) return nothing;
+        originY = placed.y;
+      } else if (plan !== null && !selected) {
+        // 대상이 표시되는 페이지가 없어 배치되지 않은 요소는 캔버스에도 표시하지 않는다.
+        return nothing;
+      }
+    } else if (!selected) {
+      // 절대 배치 요소는 표시 페이지 필터를 따른다. 선택한 요소는 편집을 위해 항상 표시한다.
+      const filter = el.pagePlacement?.mode === 'absolute' ? el.pagePlacement.pages : undefined;
+      if (!filterVisibleOnPage(filter, outputPage, outputPageCount)) return nothing;
+    }
+
+    const box = boxOf(el);
+    const x = el.position.x * PX_PER_MM;
+    const y = originY * PX_PER_MM;
+    const w = box.width * PX_PER_MM;
+    const h = (fragment === null ? box.height : fragment.height) * PX_PER_MM;
 
     let style = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
 
@@ -4135,16 +4858,19 @@ export class SlipDesigner extends LitElement {
     }
 
     return html`
-      <div class="element ${selected ? 'selected' : ''} type-${el.type}"
+      <div class="element ${selected ? 'selected' : ''} ${hasLayoutError ? 'layout-error' : ''} type-${el.type}"
            data-id=${el.id}
+           tabindex=${hasLayoutError ? '-1' : nothing}
+           aria-invalid=${hasLayoutError ? 'true' : nothing}
+           aria-describedby=${hasLayoutError ? 'page-plan-error' : nothing}
            style=${style}>
         <span class="badge">${TYPE_BADGE[el.type]}</span>
-        ${this._renderElementContent(el)}
+        ${this._renderElementContent(el, fragment)}
       </div>
     `;
   }
 
-  private _renderElementContent(el: SlipElement) {
+  private _renderElementContent(el: SlipElement, fragment: GridFragment | null = null) {
     switch (el.type) {
       case 'text': {
         // 조건부 서식의 글자 강조를 샘플 값으로 미리 적용한다.
@@ -4155,7 +4881,7 @@ export class SlipDesigner extends LitElement {
       }
 
       case 'grid':
-        return this._renderGridElementPreview(el);
+        return this._renderGridElementPreview(el, fragment);
 
       case 'image': {
         // 변동 이미지는 샘플 이미지가 있으면 표시하고 없으면 파라미터 키를 표시한다.
@@ -4278,15 +5004,57 @@ export class SlipDesigner extends LitElement {
     </svg>`;
   }
 
+  /** 셀 하나의 캔버스 표시 스타일과 내용을 만든다. */
+  private _gridCellBox(
+    el: GridElement,
+    cell: GridCell,
+    at: { row: number; rowSpan: number },
+    context: {
+      item?: Record<string, unknown> | undefined;
+      empty?: boolean;
+      reserved?: Readonly<Record<string, unknown>> | undefined;
+      selected?: boolean;
+      borderCssOf: (cell?: GridCell, overrideColor?: string) => string;
+    },
+  ) {
+    // 빈 항목 인스턴스에는 값이 없으므로 조건부 서식을 평가하지 않는다 (PDF 변환과 동일).
+    const conditional = context.empty === true
+      ? {}
+      : this._previewConditionalColors(cell.conditionalFormats, context.item, context.reserved);
+    const backgroundColor = conditional.backgroundColor ?? cell.backgroundColor;
+    const fontColor = conditional.fontColor ?? cell.fontColor ?? el.fontColor;
+    // 그리드 셀은 수직 정렬을 별도로 적용하므로 textStyleCss에서는 생략한다.
+    // 조건부 서식의 글자 강조는 셀 스타일 위에 덮어쓴다.
+    const merged = { ...el, ...cell, ...conditional };
+    const style = [
+      `grid-area:${at.row + 1}/${cell.column + 1}/span ${at.rowSpan}/span ${cell.colSpan ?? 1}`,
+      `border:${context.borderCssOf(cell, conditional.borderColor)}`,
+      `font-size:${fontPx(cell.fontSize ?? el.fontSize)}`,
+      `justify-content:${justifyOf(cell.alignment ?? el.alignment)}`,
+      `align-items:${verticalFlexAlign(merged.verticalAlignment)}`,
+      // 세로쓰기에서 추가한 줄바꿈을 유지한다.
+      cell.vertical === true ? 'white-space:pre-wrap' : '',
+      backgroundColor ? `background-color:${backgroundColor}` : '',
+      fontColor ? `color:${fontColor}` : '',
+    ].filter(Boolean).join(';') + textStyleCss(merged, { omitVerticalAlign: true });
+    // 빈 항목은 파라미터 이름을 출력값처럼 표시하지 않는다 (§7.5).
+    const text = context.empty === true
+      ? ''
+      : this._gridCellPreviewText(cell, context.item, context.reserved);
+    return html`<div class=${context.selected === true ? 'cell-selected' : ''} style=${style}
+      >${stackVertically(text, cell.vertical)}</div>`;
+  }
+
   /**
-   * 반복 구간과 샘플 값을 반영해 그리드의 캔버스 표시를 만든다.
+   * 그리드의 캔버스 표시를 만든다.
+   *
+   * 선택하지 않은 반복 그리드는 현재 출력 페이지의 계획 조각(`fragment`)을 표시하고,
+   * 선택한 그리드와 정적 그리드는 원본 행 구조를 표시한다 (§7.5).
    */
-  private _renderGridElementPreview(el: GridElement) {
+  private _renderGridElementPreview(el: GridElement, fragment: GridFragment | null = null) {
     const selected = el.id === this._selectedId;
     const widths = columnWidths(el);
-    const heights = expandedRowHeights(el);
     const colTracks = widths.map((w) => `${w}fr`).join(' ');
-    const rowTracks = heights.map((h) => `${h}fr`).join(' ');
     const lineColor = el.borderColor ?? '#000000';
     const lineWidth = el.borderWidth ?? DEFAULT_LINE_WIDTH;
     const borderCssOf = (cell?: GridCell, overrideColor?: string): string => {
@@ -4296,11 +5064,100 @@ export class SlipDesigner extends LitElement {
       return `${px}px ${cell?.borderStyle ?? el.borderStyle ?? 'solid'} ${overrideColor ?? cell?.borderColor ?? lineColor}`;
     };
 
-    const repeat = el.repeat;
-    const bandRows = repeat ? repeat.toRow - repeat.fromRow + 1 : 0;
-    const items = this._repeatSampleItems(el);
+    if (fragment !== null && el.repeat !== undefined) {
+      return this._renderGridFragment(el, fragment, { colTracks, borderCssOf });
+    }
 
-    // 자동 병합 열에서는 연속된 반복 항목의 값이 같은 셀을 세로로 병합한다.
+    // 원본 행 구조 표시 — 항목 구간 셀에는 첫 샘플 항목을 적용한다.
+    const heights = el.rows.map((row) => row.height);
+    const rowTracks = heights.map((h) => `${h}fr`).join(' ');
+    const items = this._repeatSampleItems(el);
+    const realItems = el.repeat?.maxItems === undefined ? items : items.slice(0, el.repeat.maxItems);
+    const gridPlan = el.repeat === undefined ? undefined : this._pagePlan().plan?.gridPlans.get(el.id);
+    const plannedFragment = gridPlan?.fragments.find((candidate) => candidate.outputPage === this._outputPage);
+    const itemsOf = (indexes: readonly number[] | undefined): Record<string, unknown>[] => indexes === undefined
+      ? realItems
+      : indexes.map((index) => realItems[index]).filter(
+          (item): item is Record<string, unknown> => item !== undefined,
+        );
+
+    const boxes = el.cells.map((cell) => {
+      const isSelectedCell =
+        selected && this._selectedCell?.row === cell.row && this._selectedCell?.column === cell.column;
+      const inBand = inItemBand(el, cell.row);
+      const band = bandAt(el, cell.row);
+      const planned = plannedFragment?.bands.find((candidate) => candidate.band.id === band?.id);
+      const reserved: Record<string, unknown> | undefined = el.repeat === undefined
+        ? undefined
+        : {
+            '@all': realItems,
+            '@page': itemsOf(plannedFragment?.pageItems),
+            '@carried': itemsOf(plannedFragment?.carriedItems ?? []),
+            '@group': planned?.groupIndex === undefined
+              ? realItems
+              : itemsOf(gridPlan?.groups[planned.groupIndex]),
+          };
+      const previewItem = planned?.itemIndex === undefined ? items[0] : realItems[planned.itemIndex];
+      if (reserved !== undefined && previewItem !== undefined) reserved['@item'] = previewItem;
+      return this._gridCellBox(el, cell, { row: cell.row, rowSpan: cell.rowSpan ?? 1 }, {
+        item: inBand ? previewItem : undefined,
+        ...(reserved === undefined ? {} : { reserved }),
+        selected: isSelectedCell,
+        borderCssOf,
+      });
+    });
+
+    // 값이 없는 좌표에도 그리드선을 표시한다 (SPEC §5.7).
+    const taken = new Set<string>();
+    for (const cell of el.cells) {
+      for (let r = cell.row; r < cell.row + (cell.rowSpan ?? 1); r++) {
+        for (let c = cell.column; c < cell.column + (cell.colSpan ?? 1); c++) taken.add(`${r},${c}`);
+      }
+    }
+    const blanks = [];
+    for (let r = 0; r < heights.length; r++) {
+      for (let c = 0; c < widths.length; c++) {
+        if (taken.has(`${r},${c}`)) continue;
+        const blankSelected =
+          selected && this._selectedCell?.row === r && this._selectedCell?.column === c;
+        blanks.push(html`<div class=${blankSelected ? 'cell-selected' : ''}
+          style="grid-area:${r + 1}/${c + 1};border:${borderCssOf()}"></div>`);
+      }
+    }
+
+    // 선택한 반복 그리드에는 행 구간 표식과 행 번호 선택 영역을 함께 표시한다 (§7.2).
+    const bandOverlays = el.repeat === undefined
+      ? []
+      : el.repeat.bands.map((band) => html`<div
+          class="band-tint placement-${band.placement}"
+          style="grid-area:${band.fromRow + 1}/1/span ${band.toRow - band.fromRow + 1}/span ${widths.length}"></div>`);
+
+    const preview = html`<div class="grid-preview"
+      style="grid-template-columns:${colTracks};grid-template-rows:${rowTracks}">${bandOverlays}${blanks}${boxes}</div>`;
+    // 셀 편집 중에는 행 역할 조작을 감춰 두 편집 모드가 겹치지 않게 한다.
+    if (!selected || el.repeat === undefined || this._selectedCell !== null) return preview;
+    return html`${preview}${this._renderBandStrip(el, rowTracks)}`;
+  }
+
+  /** 출력 페이지 계획 조각을 캔버스에 표시한다. */
+  private _renderGridFragment(
+    el: GridElement,
+    fragment: GridFragment,
+    context: { colTracks: string; borderCssOf: (cell?: GridCell, overrideColor?: string) => string },
+  ) {
+    const repeat = el.repeat!;
+    const gridPlan = this._pagePlan().plan?.gridPlans.get(el.id);
+    const sample = this._repeatSampleItems(el);
+    const real = repeat.maxItems === undefined ? sample : sample.slice(0, repeat.maxItems);
+    const itemsOf = (indexes: readonly number[]): Record<string, unknown>[] =>
+      indexes.map((i) => real[i]).filter((item): item is Record<string, unknown> => item !== undefined);
+    const baseReserved: Record<string, unknown> = {
+      '@all': real,
+      '@page': itemsOf(fragment.pageItems),
+      '@carried': itemsOf(fragment.carriedItems),
+    };
+
+    const rowTracks = fragment.rowHeights.map((h) => `${h}fr`).join(' ');
     const autoMergeColumns = new Set<number>();
     el.columns.forEach((column, c) => {
       if (column.autoMerge === true) autoMergeColumns.add(c);
@@ -4312,71 +5169,69 @@ export class SlipDesigner extends LitElement {
       return false;
     };
 
-    // 원본 셀을 펼친 행 좌표로 옮기고 PDF 변환과 같은 규칙으로 자동 병합한다.
-    type Placed = { cell: GridCell; row: number; rowSpan: number; item: Record<string, unknown> | undefined };
+    type Placed = {
+      cell: GridCell;
+      row: number;
+      rowSpan: number;
+      item: Record<string, unknown> | undefined;
+      empty: boolean;
+      reserved: Readonly<Record<string, unknown>>;
+    };
     const placed: Placed[] = [];
-    for (const cell of el.cells) {
-      const baseSpan = cell.rowSpan ?? 1;
-      if (!repeat || cell.row < repeat.fromRow) {
-        placed.push({ cell, row: cell.row, rowSpan: baseSpan, item: undefined });
-      } else if (cell.row > repeat.toRow) {
-        placed.push({ cell, row: cell.row + (repeat.perPage - 1) * bandRows, rowSpan: baseSpan, item: undefined });
-      } else if (!cellMerges(cell)) {
-        for (let i = 0; i < repeat.perPage; i++) {
-          placed.push({ cell, row: cell.row + i * bandRows, rowSpan: baseSpan, item: items[i] });
-        }
-      } else {
-        let anchor: { entry: Placed; text: string } | null = null;
-        for (let i = 0; i < repeat.perPage; i++) {
-          const item = items[i];
-          // 자동 병합은 표시용 파라미터 이름이 아닌 실제 샘플 값을 기준으로 판단한다.
-          const text = this._gridCellMergeText(cell, item);
-          // 빈 값과 비어 있는 항목은 병합 범위를 종료한다.
-          if (item === undefined || text === '') {
-            placed.push({ cell, row: cell.row + i * bandRows, rowSpan: baseSpan, item });
-            anchor = null;
-            continue;
-          }
-          if (anchor && anchor.text === text) {
-            anchor.entry.rowSpan += bandRows; // 앞 셀에 흡수 — 이 셀은 그리지 않는다
-            continue;
-          }
-          const entry: Placed = { cell, row: cell.row + i * bandRows, rowSpan: baseSpan, item };
+    // 자동 병합은 그룹과 페이지 경계에서 끊는다 (PDF 변환과 같은 규칙).
+    const anchors = new Map<string, { entry: Placed; text: string }>();
+    let lastGroup: number | undefined;
+    const itemBandRows = fragment.bands
+      .filter((planned) => planned.band.placement === 'item')
+      .map((planned) => planned.band.toRow - planned.band.fromRow + 1)[0] ?? 1;
+
+    for (const planned of fragment.bands) {
+      const band = planned.band;
+      const isItem = band.placement === 'item';
+      if (!isItem || (lastGroup !== undefined && planned.groupIndex !== lastGroup)) anchors.clear();
+      lastGroup = isItem ? planned.groupIndex : undefined;
+      const item = planned.itemIndex === undefined ? undefined : real[planned.itemIndex];
+      const empty = planned.emptyItem === true;
+      const reserved: Record<string, unknown> = { ...baseReserved };
+      if (item !== undefined) reserved['@item'] = item;
+      if (planned.groupIndex !== undefined && gridPlan !== undefined) {
+        reserved['@group'] = itemsOf(gridPlan.groups[planned.groupIndex] ?? []);
+      }
+      for (const cell of el.cells) {
+        if (cell.row < band.fromRow || cell.row > band.toRow) continue;
+        const row = planned.rowStart + (cell.row - band.fromRow);
+        const entry: Placed = { cell, row, rowSpan: cell.rowSpan ?? 1, item, empty, reserved };
+        if (!isItem || !cellMerges(cell)) {
           placed.push(entry);
-          anchor = { entry, text };
+          continue;
         }
+        const key = `${cell.row},${cell.column}`;
+        const text = empty ? '' : this._gridCellMergeText(cell, item, reserved);
+        // 빈 값과 빈 항목은 병합 범위를 종료한다.
+        if (text === '') {
+          anchors.delete(key);
+          placed.push(entry);
+          continue;
+        }
+        const anchor = anchors.get(key);
+        if (anchor !== undefined && anchor.text === text) {
+          anchor.entry.rowSpan += itemBandRows;
+          continue;
+        }
+        placed.push(entry);
+        anchors.set(key, { entry, text });
       }
     }
 
-    const boxes = placed.map(({ cell, row, rowSpan, item }) => {
-      const isSelectedCell =
-        selected && this._selectedCell?.row === cell.row && this._selectedCell?.column === cell.column;
-      // 반복 구간의 비어 있는 행에는 값이 없으므로 조건부 서식을 평가하지 않는다 (PDF 변환과 동일).
-      const inBand = repeat !== undefined && cell.row >= repeat.fromRow && cell.row <= repeat.toRow;
-      const conditional = inBand && item === undefined
-        ? {}
-        : this._previewConditionalColors(cell.conditionalFormats, item);
-      const backgroundColor = conditional.backgroundColor ?? cell.backgroundColor;
-      const fontColor = conditional.fontColor ?? cell.fontColor ?? el.fontColor;
-      // 그리드 셀은 수직 정렬을 별도로 적용하므로 textStyleCss에서는 생략한다.
-      // 조건부 서식의 글자 강조는 셀 스타일 위에 덮어쓴다.
-      const merged = { ...el, ...cell, ...conditional };
-      const style = [
-        `grid-area:${row + 1}/${cell.column + 1}/span ${rowSpan}/span ${cell.colSpan ?? 1}`,
-        `border:${borderCssOf(cell, conditional.borderColor)}`,
-        `font-size:${fontPx(cell.fontSize ?? el.fontSize)}`,
-        `justify-content:${justifyOf(cell.alignment ?? el.alignment)}`,
-        `align-items:${verticalFlexAlign(merged.verticalAlignment)}`,
-        // 세로쓰기에서 추가한 줄바꿈을 유지한다.
-        cell.vertical === true ? 'white-space:pre-wrap' : '',
-        backgroundColor ? `background-color:${backgroundColor}` : '',
-        fontColor ? `color:${fontColor}` : '',
-      ].filter(Boolean).join(';') + textStyleCss(merged, { omitVerticalAlign: true });
-      return html`<div class=${isSelectedCell ? 'cell-selected' : ''} style=${style}
-        >${stackVertically(this._gridCellPreviewText(cell, item), cell.vertical)}</div>`;
-    });
+    const boxes = placed.map((entry) =>
+      this._gridCellBox(el, entry.cell, { row: entry.row, rowSpan: entry.rowSpan }, {
+        item: entry.item,
+        empty: entry.empty,
+        reserved: entry.reserved,
+        borderCssOf: context.borderCssOf,
+      }));
 
-    // 값이 없는 좌표에도 그리드선을 표시한다 (SPEC §5.7).
+    // 값이 없는 좌표에도 그리드선을 표시한다.
     const taken = new Set<string>();
     for (const { cell, row, rowSpan } of placed) {
       for (let r = row; r < row + rowSpan; r++) {
@@ -4384,19 +5239,154 @@ export class SlipDesigner extends LitElement {
       }
     }
     const blanks = [];
-    for (let r = 0; r < heights.length; r++) {
-      for (let c = 0; c < widths.length; c++) {
+    for (let r = 0; r < fragment.rowHeights.length; r++) {
+      for (let c = 0; c < el.columns.length; c++) {
         if (taken.has(`${r},${c}`)) continue;
-        const templateRow = templateRowOf(el, r);
-        const blankSelected =
-          selected && this._selectedCell?.row === templateRow && this._selectedCell?.column === c;
-        blanks.push(html`<div class=${blankSelected ? 'cell-selected' : ''}
-          style="grid-area:${r + 1}/${c + 1};border:${borderCssOf()}"></div>`);
+        blanks.push(html`<div style="grid-area:${r + 1}/${c + 1};border:${context.borderCssOf()}"></div>`);
       }
     }
 
     return html`<div class="grid-preview"
-      style="grid-template-columns:${colTracks};grid-template-rows:${rowTracks}">${blanks}${boxes}</div>`;
+      style="grid-template-columns:${context.colTracks};grid-template-rows:${rowTracks}">${blanks}${boxes}</div>`;
+  }
+
+  /**
+   * 그리드 왼쪽의 행 번호 선택 영역을 렌더링한다 (§7.2).
+   * 행을 눌러 선택하고 Shift로 연속 범위를 넓힌 뒤 역할 명령을 고른다.
+   */
+  private _renderBandStrip(el: GridElement, rowTracks: string) {
+    const s = this._strings.designer;
+    const select = this._bandSelect;
+    const rows = el.rows.map((_, r) => {
+      const band = bandAt(el, r);
+      const inSelect = select !== null && r >= Math.min(select.from, select.to) && r <= Math.max(select.from, select.to);
+      return html`<button type="button"
+        data-band-row=${String(r)}
+        class="band-row placement-${band?.placement ?? 'none'} ${inSelect ? 'selected' : ''}"
+        title=${band === undefined ? '' : this._bandPlacementLabel(band.placement)}
+        aria-label="${s.bandRow} ${r + 1}"
+        aria-haspopup="menu"
+        aria-expanded=${String(inSelect && this._bandMenuOpen)}
+        @pointerdown=${(e: PointerEvent) => e.stopPropagation()}
+        @click=${(e: MouseEvent) => this._onBandRowClick(r, e.shiftKey)}>${r + 1}</button>`;
+    });
+    return html`<div class="band-strip" style="grid-template-rows:${rowTracks}"
+      @pointerdown=${(e: PointerEvent) => e.stopPropagation()}>${rows}</div>
+      ${select === null || !this._bandMenuOpen ? nothing : this._renderBandMenu(el)}`;
+  }
+
+  /** 행 구간 역할 명령 메뉴를 렌더링한다. */
+  private _renderBandMenu(el: GridElement) {
+    const s = this._strings.designer;
+    const select = this._bandSelect!;
+    const from = Math.min(select.from, select.to);
+    const to = Math.max(select.from, select.to);
+    const top = el.rows.slice(0, from).reduce((sum, row) => sum + row.height * PX_PER_MM, 0);
+    const menuLabel = s.bandMenuTitle
+      .replace('{from}', String(from + 1))
+      .replace('{to}', String(to + 1));
+    return html`<div class="band-menu" role="menu" aria-label=${menuLabel} style="top:${top}px"
+      @keydown=${this._onBandMenuKeyDown}
+      @pointerdown=${(e: PointerEvent) => e.stopPropagation()}>
+      <div class="band-menu-title">${menuLabel}</div>
+      ${BAND_PLACEMENTS.map((placement) => html`<button type="button" role="menuitem"
+        class="band-menu-item placement-${placement}"
+        @click=${() => {
+          this._setRowBandRole(from, to, placement);
+          this._closeBandMenu(true);
+        }}><span class="band-menu-icon">${this._bandPlacementIcon(placement)}</span>
+          <span class="band-menu-copy">
+            <span class="band-menu-label">${this._bandPlacementLabel(placement)}</span>
+            <span class="band-menu-description">${this._bandPlacementDescription(placement)}</span>
+          </span>
+        </button>`)}
+      <button type="button" role="menuitem" class="band-menu-item"
+        @click=${() => this._closeBandMenu(true)}>${s.cancel}</button>
+    </div>`;
+  }
+
+  /** 행 번호 선택 영역의 클릭을 처리한다. Shift 클릭은 연속 범위를 넓힌다. */
+  private _onBandRowClick(row: number, extend: boolean): void {
+    if (extend && this._bandSelect !== null) this._bandSelect = { from: this._bandSelect.from, to: row };
+    else this._bandSelect = { from: row, to: row };
+    this._bandMenuOpen = true;
+    this._focusBandMenu = true;
+    this.requestUpdate();
+  }
+
+  /** 행 역할 메뉴를 닫고 조작을 시작한 행으로 포커스를 돌린다. */
+  private _closeBandMenu(clearSelection: boolean): void {
+    const row = this._bandSelect === null ? null : Math.min(this._bandSelect.from, this._bandSelect.to);
+    if (clearSelection) this._bandSelect = null;
+    this._bandMenuOpen = false;
+    this.requestUpdate();
+    if (row === null) return;
+    void this.updateComplete.then(() => {
+      (this.renderRoot.querySelector(`[data-band-row="${row}"]`) as HTMLButtonElement | null)?.focus();
+    });
+  }
+
+  /** 행 역할 메뉴에서 방향키·Home·End·Escape 포커스 이동을 처리한다. */
+  private _onBandMenuKeyDown = (event: KeyboardEvent): void => {
+    const menu = event.currentTarget as HTMLElement;
+    const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('.band-menu-item'));
+    const current = items.indexOf(this.shadowRoot?.activeElement as HTMLButtonElement);
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      this._closeBandMenu(false);
+      return;
+    }
+    let next = -1;
+    if (event.key === 'ArrowDown') next = current < 0 ? 0 : (current + 1) % items.length;
+    else if (event.key === 'ArrowUp') next = current <= 0 ? items.length - 1 : current - 1;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = items.length - 1;
+    if (next < 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    items[next]?.focus();
+  };
+
+  /** 행 구간 역할의 표시 이름을 반환한다. */
+  private _bandPlacementLabel(placement: GridBandPlacement): string {
+    const s = this._strings.designer;
+    switch (placement) {
+      case 'before-data': return s.bandBeforeData;
+      case 'page-start': return s.bandPageStart;
+      case 'group-start': return s.bandGroupStart;
+      case 'item': return s.bandItem;
+      case 'group-end': return s.bandGroupEnd;
+      case 'after-data': return s.bandAfterData;
+      case 'page-end': return s.bandPageEnd;
+    }
+  }
+
+  /** 행 구간이 출력되는 시점과 대표 용도를 설명한다. */
+  private _bandPlacementDescription(placement: GridBandPlacement): string {
+    const s = this._strings.designer;
+    switch (placement) {
+      case 'before-data': return s.bandBeforeDataHelp;
+      case 'page-start': return s.bandPageStartHelp;
+      case 'group-start': return s.bandGroupStartHelp;
+      case 'item': return s.bandItemHelp;
+      case 'group-end': return s.bandGroupEndHelp;
+      case 'after-data': return s.bandAfterDataHelp;
+      case 'page-end': return s.bandPageEndHelp;
+    }
+  }
+
+  /** 행 구간 역할을 나타내는 아이콘을 반환한다. */
+  private _bandPlacementIcon(placement: GridBandPlacement) {
+    switch (placement) {
+      case 'before-data': return icons.pagePrev;
+      case 'page-start': return icons.up;
+      case 'group-start': return icons.treeOpen;
+      case 'item': return icons.gridElement;
+      case 'group-end': return icons.treeClosed;
+      case 'after-data': return icons.pageNext;
+      case 'page-end': return icons.down;
+    }
   }
 
   /**
@@ -4404,12 +5394,14 @@ export class SlipDesigner extends LitElement {
    * 규칙별로 평가해 아직 완성되지 않은 조건식은 건너뛴다.
    *
    * @param rules - 조건부 서식 규칙 목록
-   * @param item - 반복 구간의 현재 샘플 항목 (없으면 샘플 값만 사용)
+   * @param item - 항목 구간의 현재 샘플 항목 (없으면 샘플 값만 사용)
+   * @param reserved - 행 구간의 예약 참조 값 (`@page` 등)
    * @returns 덮어쓸 색·강조 목록
    */
   private _previewConditionalColors(
     rules: readonly ConditionalFormatRule[] | undefined,
     item?: Record<string, unknown>,
+    reserved?: Readonly<Record<string, unknown>>,
   ): ConditionalFormatOverrides {
     if (rules === undefined || rules.length === 0) return {};
     const scope = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
@@ -4418,7 +5410,10 @@ export class SlipDesigner extends LitElement {
       try {
         Object.assign(
           result,
-          resolveConditionalFormats([rule], scope, this._evalLocale === undefined ? {} : { locale: this._evalLocale }),
+          resolveConditionalFormats([rule], scope, {
+            ...(this._evalLocale === undefined ? {} : { locale: this._evalLocale }),
+            ...(reserved === undefined ? {} : { reserved }),
+          }),
         );
       } catch {
         // 조건식이 계산되지 않으면 기본 서식으로 표시한다. 오류는 PDF 미리보기에서 안내한다.
@@ -4427,7 +5422,7 @@ export class SlipDesigner extends LitElement {
     return result;
   }
 
-  /** 반복 구간에 사용할 샘플 항목 배열을 반환한다. */
+  /** 항목 구간에 사용할 샘플 항목 배열을 반환한다. */
   private _repeatSampleItems(el: GridElement): Record<string, unknown>[] {
     if (!el.repeat) return [];
     const sample = this._file?.template.sampleValues?.[el.repeat.parameter];
@@ -4438,7 +5433,11 @@ export class SlipDesigner extends LitElement {
   }
 
   /** 직접 입력, 파라미터 또는 수식으로 셀의 표시 텍스트를 만든다. */
-  private _gridCellPreviewText(cell: GridCell, item: Record<string, unknown> | undefined): string {
+  private _gridCellPreviewText(
+    cell: GridCell,
+    item: Record<string, unknown> | undefined,
+    reserved?: Readonly<Record<string, unknown>>,
+  ): string {
     const values = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
     if (cell.parameter !== undefined) {
       const value = values[cell.parameter];
@@ -4448,6 +5447,7 @@ export class SlipDesigner extends LitElement {
       try {
         const result = this._evaluate(cell.formula, {
           values,
+          ...(reserved === undefined ? {} : { reserved }),
         });
         return result === null ? '' : String(result);
       } catch {
@@ -4461,7 +5461,11 @@ export class SlipDesigner extends LitElement {
    * 자동 병합 비교에 사용할 실제 셀 값을 반환한다.
    * 빈 값은 빈 문자열로 변환해 병합하지 않는다.
    */
-  private _gridCellMergeText(cell: GridCell, item: Record<string, unknown> | undefined): string {
+  private _gridCellMergeText(
+    cell: GridCell,
+    item: Record<string, unknown> | undefined,
+    reserved?: Readonly<Record<string, unknown>>,
+  ): string {
     const values = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
     if (cell.parameter !== undefined) {
       const value = values[cell.parameter];
@@ -4471,6 +5475,7 @@ export class SlipDesigner extends LitElement {
       try {
         const result = this._evaluate(cell.formula, {
           values,
+          ...(reserved === undefined ? {} : { reserved }),
         });
         return result === null ? '' : String(result);
       } catch {
@@ -4978,16 +5983,22 @@ export class SlipDesigner extends LitElement {
     const anchor =
       ANCHORS[this._anchorByElement.get(el.id) ?? this._defaultAnchorIndex(el)] ?? ANCHORS[0];
     const selectedCell = el.type === 'grid' ? this._selectedCell : null;
-    const cellInRepeat = selectedCell !== null && el.type === 'grid' && el.repeat !== undefined
-      && selectedCell.row >= el.repeat.fromRow && selectedCell.row <= el.repeat.toRow;
+    const cellInBand = selectedCell !== null && el.type === 'grid' && inItemBand(el, selectedCell.row);
 
+    // 셀 선택 상태에서는 그리드 이름·위치·크기 설정을 표시하지 않는다 (§7.4).
+    if (el.type === 'grid' && selectedCell !== null) {
+      return html`
+        <div class="type-name">
+          ${`${s.cell} (${selectedCell.row + 1}, ${selectedCell.column + 1})`}
+          ${cellInBand ? html`<span class="cell-band">${s.repeatCellHint}</span>` : nothing}
+        </div>
+        ${this._renderTypeProps(el)}
+      `;
+    }
+
+    const elBox = boxOf(el);
     return html`
-      <div class="type-name">
-        ${selectedCell === null
-          ? this._typeName(el.type)
-          : `${s.cell} (${selectedCell.row + 1}, ${selectedCell.column + 1})`}
-        ${cellInRepeat ? html`<span class="cell-band">${s.repeatCellHint}</span>` : nothing}
-      </div>
+      <div class="type-name">${this._typeName(el.type)}</div>
 
       <div class="prop-section">
         <div class="prop-section-title">${s.panelLayout}</div>
@@ -5000,7 +6011,7 @@ export class SlipDesigner extends LitElement {
         <div class="prop-pair">
           <div class="prop-row">
             <label>X</label>
-            <input type="number" step="0.5" .value=${String(round1(el.position.x + anchor.ax * el.width))}
+            <input type="number" step="0.5" .value=${String(round1(el.position.x + anchor.ax * elBox.width))}
                    aria-invalid=${String(this._hasInputError('element-x'))}
                    aria-describedby=${this._hasInputError('element-x') ? 'error-element-x' : nothing}
                    @change=${(e: Event) => {
@@ -5011,13 +6022,13 @@ export class SlipDesigner extends LitElement {
                      }
                      // 입력한 기준점 좌표를 파일의 왼쪽 위 좌표로 변환한다.
                      this._updateElement((el) => {
-                       el.position.x = Math.max(0, round1(v - anchor.ax * el.width));
+                       el.position.x = Math.max(0, round1(v - anchor.ax * boxOf(el).width));
                      });
                    }}>
           </div>
           <div class="prop-row">
             <label>Y</label>
-            <input type="number" step="0.5" .value=${String(round1(el.position.y + anchor.ay * el.height))}
+            <input type="number" step="0.5" .value=${String(round1(el.position.y + anchor.ay * elBox.height))}
                    aria-invalid=${String(this._hasInputError('element-y'))}
                    aria-describedby=${this._hasInputError('element-y') ? 'error-element-y' : nothing}
                    @change=${(e: Event) => {
@@ -5027,7 +6038,7 @@ export class SlipDesigner extends LitElement {
                        return;
                      }
                      this._updateElement((el) => {
-                       el.position.y = Math.max(0, round1(v - anchor.ay * el.height));
+                       el.position.y = Math.max(0, round1(v - anchor.ay * boxOf(el).height));
                      });
                    }}>
           </div>
@@ -5037,6 +6048,7 @@ export class SlipDesigner extends LitElement {
         ${this._renderSizeRows(el)}
       </div>
 
+      ${this._renderPagePlacementSection(el)}
       ${this._renderTypeProps(el)}
       ${el.type === 'grid' && this._selectedCell !== null ? nothing : this._renderStyleGroups(el)}
       ${el.type === 'text' || el.type === 'field'
@@ -5056,6 +6068,7 @@ export class SlipDesigner extends LitElement {
    */
   private _renderSizeRows(el: SlipElement) {
     const s = this._strings.designer;
+    const box = boxOf(el);
     const setSize = (key: 'width' | 'height') => (e: Event) => {
       const v = Number((e.target as HTMLInputElement).value);
       const errorKey = `element-${key}`;
@@ -5066,14 +6079,16 @@ export class SlipDesigner extends LitElement {
         this._rejectInput(message, errorKey);
         return;
       }
-      this._updateElement((target) => { target[key] = v; });
+      this._updateElement((target) => {
+        setElementBox(target, key === 'width' ? v : undefined, key === 'height' ? v : undefined);
+      });
     };
     const sizeRow = (label: string, key: 'width' | 'height') => {
       const errorKey = `element-${key}`;
       return html`
         <div class="prop-row">
           <label>${label}</label>
-          <input type="number" step="0.5" min="1" .value=${String(el[key])}
+          <input type="number" step="0.5" min="1" .value=${String(box[key])}
                  aria-label=${label}
                  aria-invalid=${String(this._hasInputError(errorKey))}
                  aria-describedby=${this._hasInputError(errorKey) ? `error-${errorKey}` : nothing}
@@ -5113,6 +6128,127 @@ export class SlipDesigner extends LitElement {
       <div class="prop-pair">
         ${sizeRow(s.width, 'width')}
         ${sizeRow(s.height, 'height')}
+      </div>`;
+  }
+
+  /**
+   * 요소의 표시 페이지와 이어서 배치를 편집하는 섹션을 렌더링한다 (§5.2).
+   * 절대 배치에서는 표시 페이지 필터를, 이어서 배치에서는 대상 요소와 간격을 편집한다.
+   */
+  private _renderPagePlacementSection(el: SlipElement) {
+    const s = this._strings.designer;
+    const placement = el.pagePlacement;
+    const mode = placement?.mode ?? 'absolute';
+    const pages = placement?.mode === 'absolute' ? (placement.pages ?? 'all') : 'all';
+    const elements = this._currentElements() ?? [];
+    // 자신과, 자신을 뒤따르는 요소는 이어서 배치의 대상으로 고를 수 없다 (순환 방지).
+    const followers = new Set<string>();
+    const collect = (id: string): void => {
+      followers.add(id);
+      for (const other of elements) {
+        if (other.pagePlacement?.mode === 'after' && other.pagePlacement.target === id && !followers.has(other.id)) {
+          collect(other.id);
+        }
+      }
+    };
+    collect(el.id);
+    const targets = elements.filter((other) => !followers.has(other.id));
+    const currentTarget = placement?.mode === 'after' ? placement.target : (targets[0]?.id ?? '');
+
+    return html`
+      <div class="prop-section">
+        <div class="prop-section-title">${s.pagePlacementSection}</div>
+        <div class="prop-row">
+          <label>${s.pagePlacementMode}</label>
+          ${this._listSelect({
+            id: 'page-placement-mode',
+            ariaLabel: s.pagePlacementMode,
+            value: mode,
+            options: [
+              { value: 'absolute', label: s.pagePlacementAbsolute },
+              { value: 'after', label: s.pagePlacementAfter },
+            ],
+            onPick: (value) => {
+              if (value === 'absolute') {
+                this._updateElement((target) => {
+                  delete (target as { pagePlacement?: unknown }).pagePlacement;
+                });
+                return;
+              }
+              if (targets.length === 0) {
+                this._rejectInput(s.afterNoTarget, 'page-placement-mode');
+                return;
+              }
+              this._updateElement((target) => {
+                target.pagePlacement = { mode: 'after', target: targets[0]!.id };
+              });
+            },
+          })}
+        </div>
+        ${mode === 'absolute'
+          ? html`
+            <div class="prop-row">
+              <label>${s.pagePlacementPages}</label>
+              ${this._listSelect({
+                id: 'page-placement-pages',
+                ariaLabel: s.pagePlacementPages,
+                value: pages,
+                options: [
+                  { value: 'all', label: s.pagesAll },
+                  { value: 'first', label: s.pagesFirst },
+                  { value: 'continuation', label: s.pagesContinuation },
+                  { value: 'non-final', label: s.pagesNonFinal },
+                  { value: 'last', label: s.pagesLast },
+                ],
+                onPick: (value) => {
+                  this._updateElement((target) => {
+                    if (value === 'all') delete (target as { pagePlacement?: unknown }).pagePlacement;
+                    else target.pagePlacement = { mode: 'absolute', pages: value as OutputPageFilter };
+                  });
+                },
+              })}
+            </div>`
+          : html`
+            <div class="prop-row">
+              <label>${s.afterTarget}</label>
+              ${this._listSelect({
+                id: 'page-placement-target',
+                ariaLabel: s.afterTarget,
+                value: currentTarget,
+                options: targets.map((other) => ({ value: other.id, label: other.name })),
+                onPick: (value) => {
+                  this._updateElement((target) => {
+                    const gap = target.pagePlacement?.mode === 'after' ? target.pagePlacement.gap : undefined;
+                    target.pagePlacement = { mode: 'after', target: value, ...(gap === undefined ? {} : { gap }) };
+                  });
+                },
+              })}
+            </div>
+            <div class="prop-row">
+              <label>${s.afterGap}</label>
+              <input type="number" step="0.5" min="0"
+                .value=${String(placement?.mode === 'after' ? (placement.gap ?? 0) : 0)}
+                aria-label=${s.afterGap}
+                aria-invalid=${String(this._hasInputError('after-gap'))}
+                aria-describedby=${this._hasInputError('after-gap') ? 'error-after-gap' : nothing}
+                @change=${(e: Event) => {
+                  const v = Number((e.target as HTMLInputElement).value);
+                  if (!Number.isFinite(v) || v < 0) {
+                    this._rejectInput(s.numberInput, 'after-gap');
+                    return;
+                  }
+                  this._updateElement((target) => {
+                    if (target.pagePlacement?.mode !== 'after') return;
+                    target.pagePlacement = {
+                      mode: 'after',
+                      target: target.pagePlacement.target,
+                      ...(v === 0 ? {} : { gap: round1(v) }),
+                    };
+                  });
+                }}>
+            </div>
+            ${this._renderInputError('after-gap')}`}
+        ${this._renderInputError('page-placement-mode')}
       </div>`;
   }
 
@@ -5906,24 +7042,26 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /** 그리드의 행, 열, 반복 구간, 셀을 편집하는 패널을 렌더링한다. */
+  /** 그리드의 행, 열, 반복 설정, 행 구간과 셀을 편집하는 패널을 렌더링한다. */
   private _renderGridProps(el: GridElement) {
     const s = this._strings.designer;
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
     const cellTarget = this._selectedCell;
-        const cellDef = cellTarget
-          ? el.cells.find((c) => c.row === cellTarget.row && c.column === cellTarget.column)
-          : undefined;
-        const repeat = el.repeat;
-        const source: 'content' | 'parameter' | 'formula' =
-          this._cellSourceKind
-          ?? (cellDef?.parameter !== undefined ? 'parameter' : cellDef?.formula !== undefined ? 'formula' : 'content');
-        const inBand =
-          cellTarget !== null && repeat !== undefined
-          && cellTarget.row >= repeat.fromRow && cellTarget.row <= repeat.toRow;
-        const numberOf = (e: Event): number => Number((e.target as HTMLInputElement).value);
-        // 셀이 선택된 동안에는 그리드 전체 설정을 숨긴다.
-        const gridOwnProps = html`
+    const cellDef = cellTarget
+      ? el.cells.find((c) => c.row === cellTarget.row && c.column === cellTarget.column)
+      : undefined;
+    const repeat = el.repeat;
+    const source: 'content' | 'parameter' | 'formula' =
+      this._cellSourceKind
+      ?? (cellDef?.parameter !== undefined ? 'parameter' : cellDef?.formula !== undefined ? 'formula' : 'content');
+    const inBand = cellTarget !== null && inItemBand(el, cellTarget.row);
+    const numberOf = (e: Event): number => Number((e.target as HTMLInputElement).value);
+    const planError = this._planError();
+    const gridPlanError = planError !== null && planError.elementId === el.id ? planError : null;
+    const repeatFields = repeat === undefined
+      ? []
+      : (this._parameterList().find((parameter) => parameter.key === repeat.parameter)?.fields ?? []);
+    // 셀이 선택된 동안에는 그리드 전체 설정을 숨긴다 (§7.4).
+    const gridOwnProps = html`
           <div class="prop-section">
             <div class="prop-section-title">${s.panelStructure}</div>
             <div class="prop-row">
@@ -5931,7 +7069,11 @@ export class SlipDesigner extends LitElement {
                 <div class="step-inputs">
                   <button class="row-btn" aria-label="${s.rows} -" @click=${() => this._changeGridRows(-1)}>-</button>
                   <span>${el.rows.length}</span>
-                  <button class="row-btn" aria-label="${s.rows} +" @click=${() => this._changeGridRows(1)}>+</button>
+                  ${repeat === undefined
+                    ? html`<button class="row-btn" aria-label="${s.rows} +"
+                        @click=${() => this._changeGridRows(1)}>+</button>`
+                    : html`<button class="row-btn" aria-label=${s.addRow}
+                        @click=${(event: Event) => this._toggleListSelect('band-add-row', event)}>+</button>`}
                 </div>
               </div>
               <div class="prop-row">
@@ -5951,6 +7093,7 @@ export class SlipDesigner extends LitElement {
               <input type="checkbox" aria-label=${s.repeatOn} .checked=${repeat !== undefined}
                 @change=${(e: Event) => this._toggleGridRepeat((e.target as HTMLInputElement).checked)}>
             </div>
+            ${this._renderInputError('repeat-on')}
             ${repeat
               ? html`
                 <div class="prop-row">
@@ -5968,58 +7111,87 @@ export class SlipDesigner extends LitElement {
                         ? []
                         : [{ value: repeat.parameter, label: repeat.parameter }]),
                     ],
-                    onPick: (value) => this._updateGridRepeat({ parameter: value }),
+                    onPick: (value) => this._setRepeatParameter(value),
                   })}
                 </div>
-                <div class="prop-pair">
-                  <div class="prop-row">
-                    <label>${s.repeatFrom}</label>
-                    <input type="number" min="1" max=${String(el.rows.length)} .value=${String(repeat.fromRow + 1)}
-                      aria-invalid=${String(this._hasInputError('repeat-from'))}
-                      aria-describedby=${this._hasInputError('repeat-from') ? 'error-repeat-from' : nothing}
-                      @change=${(e: Event) => this._updateGridRepeat({ fromRow: numberOf(e) - 1 })}>
-                  </div>
-                  <div class="prop-row">
-                    <label>${s.repeatTo}</label>
-                    <input type="number" min="1" max=${String(el.rows.length)} .value=${String(repeat.toRow + 1)}
-                      aria-invalid=${String(this._hasInputError('repeat-to'))}
-                      aria-describedby=${this._hasInputError('repeat-to') ? 'error-repeat-to' : nothing}
-                      @change=${(e: Event) => this._updateGridRepeat({ toRow: numberOf(e) - 1 })}>
+                <div class="prop-row">
+                  <label>${s.paginationMode}</label>
+                  <div class="segment" role="radiogroup" aria-label=${s.paginationMode}>
+                    <button type="button" role="radio" class=${repeat.pagination.mode === 'auto' ? 'active' : ''}
+                      aria-checked=${String(repeat.pagination.mode === 'auto')}
+                      @click=${() => this._setGridPagination({ mode: 'auto' })}>${s.paginationAuto}</button>
+                    <button type="button" role="radio" class=${repeat.pagination.mode === 'fixed' ? 'active' : ''}
+                      aria-checked=${String(repeat.pagination.mode === 'fixed')}
+                      @click=${() => this._setGridPagination({ mode: 'fixed' })}>${s.paginationFixed}</button>
                   </div>
                 </div>
-                ${this._renderInputError('repeat-from')}
-                ${this._renderInputError('repeat-to')}
-                <div class="prop-row">
-                  <label>${s.repeatPerPage}</label>
-                  <input type="number" min="1" max="1000" .value=${String(repeat.perPage)}
-                    aria-invalid=${String(this._hasInputError('repeat-per-page'))}
-                    aria-describedby=${this._hasInputError('repeat-per-page') ? 'error-repeat-per-page' : nothing}
-                    @change=${(e: Event) => this._updateGridRepeat({ perPage: numberOf(e) })}>
-                </div>
-                ${this._renderInputError('repeat-per-page')}
-                <div class="prop-row">
-                  <label>${s.repeatMaxItems}</label>
-                  <input type="number" min=${String(repeat.perPage)} max="100000"
-                    class=${repeat.maxItems === undefined ? 'dim' : ''}
-                    placeholder=${s.repeatMaxItemsNone}
-                    .value=${repeat.maxItems === undefined ? '' : String(repeat.maxItems)}
-                    aria-invalid=${String(this._hasInputError('repeat-max-items'))}
-                    aria-describedby=${this._hasInputError('repeat-max-items') ? 'error-repeat-max-items' : nothing}
-                    @change=${(e: Event) => {
-                      const raw = (e.target as HTMLInputElement).value.trim();
-                      this._updateGridRepeat({ maxItems: raw === '' ? null : Number(raw) });
-                    }}>
-                </div>
-                ${this._renderInputError('repeat-max-items')}
-                <div class="prop-row">
-                  <label>${s.repeatHeader}</label>
-                  <input type="checkbox" aria-label=${s.repeatHeader} .checked=${repeat.repeatHeader}
-                    @change=${(e: Event) =>
-                      this._updateGridRepeat({ repeatHeader: (e.target as HTMLInputElement).checked })}>
-                </div>`
+                ${repeat.pagination.mode === 'auto'
+                  ? html`
+                    <div class="prop-row">
+                      <label>${s.minItems}</label>
+                      <input type="number" min="0" max=${String(GRID_MAX_ITEMS_UI)}
+                        .value=${String(repeat.pagination.minItems)}
+                        aria-invalid=${String(this._hasInputError('repeat-min-items'))}
+                        aria-describedby=${this._hasInputError('repeat-min-items') ? 'error-repeat-min-items' : nothing}
+                        @change=${(e: Event) => this._setGridPagination({ minItems: numberOf(e) })}>
+                    </div>
+                    ${this._renderInputError('repeat-min-items')}`
+                  : html`
+                    <div class="prop-row">
+                      <label>${s.itemsPerPage}</label>
+                      <input type="number" min="1" max=${String(GRID_MAX_PER_PAGE_UI)}
+                        .value=${String(repeat.pagination.itemsPerPage)}
+                        aria-invalid=${String(this._hasInputError('repeat-per-page') || gridPlanError !== null)}
+                        aria-describedby=${this._hasInputError('repeat-per-page')
+                          ? 'error-repeat-per-page'
+                          : gridPlanError?.bandId !== undefined ? `grid-plan-error-${gridPlanError.bandId}` : nothing}
+                        @change=${(e: Event) => this._setGridPagination({ itemsPerPage: numberOf(e) })}>
+                    </div>
+                    ${this._renderInputError('repeat-per-page')}`}
+                <details class="advanced-settings">
+                  <summary><span>${s.advancedSettings}</span>${icons.down}</summary>
+                  <div class="advanced-settings-body">
+                    <div class="prop-row">
+                      <label>${s.repeatMaxItems}</label>
+                      <input type="number" min="1" max=${String(GRID_MAX_ITEMS_UI)}
+                        class=${repeat.maxItems === undefined ? 'dim' : ''}
+                        placeholder=${s.repeatMaxItemsNone}
+                        .value=${repeat.maxItems === undefined ? '' : String(repeat.maxItems)}
+                        aria-invalid=${String(this._hasInputError('repeat-max-items'))}
+                        aria-describedby=${this._hasInputError('repeat-max-items') ? 'error-repeat-max-items' : nothing}
+                        @change=${(e: Event) => {
+                          const raw = (e.target as HTMLInputElement).value.trim();
+                          this._setRepeatMaxItems(raw === '' ? null : Number(raw));
+                        }}>
+                    </div>
+                    ${this._renderInputError('repeat-max-items')}
+                    <div class="prop-row stacked group-fields-row">
+                      <label>${s.groupBy}</label>
+                      <div class="field-check-list" role="group" aria-label=${s.groupBy}>
+                        ${repeatFields.length === 0
+                          ? html`<span class="field-check-empty">—</span>`
+                          : repeatFields.map((field) => html`
+                            <label class="field-check" title=${field.key}>
+                              <input type="checkbox" data-field=${field.key}
+                                .checked=${repeat.groupBy?.includes(field.key) === true}
+                                @change=${(e: Event) => this._toggleGridGroupField(
+                                  field.key,
+                                  (e.target as HTMLInputElement).checked,
+                                )}>
+                              <span>${field.title}</span>
+                            </label>`)}
+                      </div>
+                    </div>
+                    ${this._renderInputError('repeat-group-by')}
+                  </div>
+                </details>
+                ${gridPlanError === null || gridPlanError.bandId !== undefined
+                  ? nothing
+                  : html`<div class="input-error" role="alert" id="grid-plan-error">${gridPlanError.message}</div>`}`
               : nothing}
-          </div>`;
-        return html`
+          </div>
+          ${repeat === undefined ? nothing : this._renderBandList(el)}`;
+    return html`
           ${cellTarget === null
             ? gridOwnProps
             : html`
@@ -6032,6 +7204,251 @@ export class SlipDesigner extends LitElement {
               </button>`}
           ${this._renderGridCellProps(el, cellTarget, cellDef, source, inBand)}
         `;
+  }
+
+  /** 내부 구간 조합 대신 작업 목적으로 행을 추가하는 명령을 렌더링한다. */
+  private _renderGridRowCommands(el: GridElement) {
+    const s = this._strings.designer;
+    const command = this._gridRowCommand;
+    const fields = this._parameterList()
+      .find((parameter) => parameter.key === el.repeat?.parameter)?.fields ?? [];
+    const numericFields = fields.filter((field) => field.valueType === 'number');
+    const selectedField = numericFields.find((field) => field.key === this._gridRowCommandField);
+    const definitions: { command: GridRowCommand; label: string; icon: unknown }[] = [
+      { command: 'header', label: s.gridCommandHeaderName, icon: icons.up },
+      { command: 'group-subtotal', label: s.gridCommandGroupSubtotalName, icon: icons.treeClosed },
+      { command: 'page-subtotal', label: s.gridCommandPageSubtotalName, icon: icons.down },
+      { command: 'final-total', label: s.gridCommandFinalTotalName, icon: icons.formula },
+    ];
+    const needsField = command !== null && command !== 'header';
+    const groupReady = command !== 'group-subtotal'
+      || (el.repeat?.groupBy !== undefined && el.repeat.groupBy.length > 0);
+    const fieldReady = !needsField || selectedField !== undefined;
+    const location = command === 'header' ? this._bandPlacementLabel('page-start')
+      : command === 'group-subtotal' ? this._bandPlacementLabel('group-end')
+      : command === 'page-subtotal' ? this._bandPlacementLabel('page-end')
+      : this._bandPlacementLabel('after-data');
+    const display = command === 'group-subtotal' ? s.gridCommandEachGroup
+      : command === 'page-subtotal' ? s.pagesNonFinal
+      : command === 'final-total' ? s.gridCommandOnce
+      : s.pagesAll;
+    const calculation = command === 'header' ? s.gridCommandNone
+      : command === 'group-subtotal'
+        ? s.gridCommandGroupCalculation.replace('{field}', selectedField?.title ?? s.gridCommandFieldMissing)
+        : command === 'page-subtotal'
+          ? s.gridCommandPageCalculation.replace('{field}', selectedField?.title ?? s.gridCommandFieldMissing)
+          : s.gridCommandFinalCalculation.replace('{field}', selectedField?.title ?? s.gridCommandFieldMissing);
+
+    return html`
+      <div class="prop-subsection-title">${s.gridCommandSection}</div>
+      <div class="grid-command-list">
+        ${definitions.map((definition) => html`
+          <button type="button" data-grid-command=${definition.command}
+            aria-pressed=${String(command === definition.command)}
+            class=${command === definition.command ? 'selected' : ''}
+            @click=${() => {
+              if (command === definition.command) {
+                this._gridRowCommand = null;
+                this._gridRowCommandField = '';
+              } else {
+                this._openGridRowCommand(definition.command);
+              }
+            }}>
+            <span>${definition.icon}</span>
+            <span>${definition.label}</span>
+          </button>`)}
+      </div>
+      ${command === null
+        ? nothing
+        : html`<div class="grid-command-editor">
+            ${needsField
+              ? html`<div class="prop-row">
+                  <label>${s.gridCommandField}</label>
+                  ${this._listSelect({
+                    id: 'grid-row-command-field',
+                    ariaLabel: s.gridCommandField,
+                    value: selectedField?.key ?? '',
+                    placeholder: s.gridCommandFieldMissing,
+                    options: numericFields.map((field) => ({ value: field.key, label: field.title })),
+                    onPick: (value) => { this._gridRowCommandField = value; },
+                  })}
+                </div>`
+              : nothing}
+            ${!groupReady
+              ? html`<div class="grid-command-requirement">${s.gridCommandGroupRequired}</div>`
+              : !fieldReady
+                ? html`<div class="grid-command-requirement">${s.gridCommandNumberRequired}</div>`
+                : nothing}
+            <div class="grid-command-preview-title">${s.gridCommandPreview}</div>
+            <div class="grid-command-preview" aria-label=${s.gridCommandPreview}>
+              <div><span>${s.gridCommandLocation}</span><strong>${location}</strong></div>
+              <div><span>${s.gridCommandDisplay}</span><strong>${display}</strong></div>
+              <div><span>${s.gridCommandCalculation}</span><strong>${calculation}</strong></div>
+            </div>
+            ${this._renderInputError('grid-row-command')}
+            <div class="grid-command-actions">
+              <button type="button" @click=${() => {
+                this._gridRowCommand = null;
+                this._gridRowCommandField = '';
+              }}>${s.cancel}</button>
+              <button type="button" class="primary" ?disabled=${!groupReady || !fieldReady}
+                @click=${() => this._applyGridRowCommand()}>${s.gridCommandApply}</button>
+            </div>
+          </div>`}
+      <div class="prop-subsection-title band-manual-title">${s.gridCommandManual}</div>
+    `;
+  }
+
+  /**
+   * 행 구간 목록을 렌더링한다.
+   * 캔버스의 행 번호 선택 영역과 같은 색상 표식·이름으로 구간을 식별한다 (§7.2).
+   */
+  private _renderBandList(el: GridElement) {
+    const s = this._strings.designer;
+    const bands = el.repeat?.bands ?? [];
+    const planError = this._planError();
+    const errorBandId = planError?.elementId === el.id ? planError.bandId : undefined;
+    const selected = this._bandSelect === null
+      ? null
+      : {
+          from: Math.min(this._bandSelect.from, this._bandSelect.to),
+          to: Math.max(this._bandSelect.from, this._bandSelect.to),
+        };
+    const selectedRoles = selected === null
+      ? []
+      : [...new Set(Array.from(
+          { length: selected.to - selected.from + 1 },
+          (_, offset) => bandAt(el, selected.from + offset)?.placement,
+        ).filter((role): role is GridBandPlacement => role !== undefined))];
+    const selectedRole = selectedRoles.length === 1 ? selectedRoles[0]! : '';
+    const selectedBand = selected === null
+      ? undefined
+      : bands.find((band) => band.fromRow === selected.from && band.toRow === selected.to);
+    const roleOptions = BAND_PLACEMENTS.map((placement) => ({
+      value: placement,
+      label: this._bandPlacementLabel(placement),
+      description: this._bandPlacementDescription(placement),
+    }));
+    return html`
+      <div class="prop-section band-list">
+        <div class="prop-section-title">${s.bandSection}</div>
+        ${this._renderGridRowCommands(el)}
+        <div class="prop-row">
+          <label>${s.addRow}</label>
+          ${this._listSelect({
+            id: 'band-add-row',
+            ariaLabel: s.addRow,
+            value: '',
+            placeholder: s.selectRole,
+            options: roleOptions,
+            onPick: (value) => this._addGridRowWithRole(value as GridBandPlacement),
+          })}
+        </div>
+        ${this._renderInputError('band-role')}
+        ${bands.map((band) => html`
+          <div data-band-id=${band.id}
+            class="band-item ${selected?.from === band.fromRow && selected.to === band.toRow ? 'selected' : ''} ${errorBandId === band.id ? 'layout-error' : ''}">
+            <button type="button" class="band-item-main"
+              title=${band.name === undefined
+                ? this._bandPlacementLabel(band.placement)
+                : `${band.name} · ${this._bandPlacementLabel(band.placement)}`}
+              aria-pressed=${String(selected?.from === band.fromRow && selected.to === band.toRow)}
+              aria-invalid=${errorBandId === band.id ? 'true' : nothing}
+              aria-describedby=${errorBandId === band.id ? `grid-plan-error-${band.id}` : nothing}
+              @click=${() => {
+                this._bandSelect = { from: band.fromRow, to: band.toRow };
+                this._bandMenuOpen = false;
+                this.requestUpdate();
+              }}>
+              <span class="band-swatch placement-${band.placement}"></span>
+              <span class="band-icon">${this._bandPlacementIcon(band.placement)}</span>
+              <span class="band-label">${band.name ?? this._bandPlacementLabel(band.placement)}</span>
+              <span class="band-range">${band.fromRow === band.toRow
+                ? s.bandRowOne.replace('{row}', String(band.fromRow + 1))
+                : s.bandRowRange.replace('{from}', String(band.fromRow + 1)).replace('{to}', String(band.toRow + 1))}</span>
+            </button>
+            ${errorBandId === band.id
+              ? html`<div class="band-plan-error" id="grid-plan-error-${band.id}" role="alert">
+                  ${planError?.message}
+                </div>`
+              : nothing}
+            ${band.placement === 'page-start' || band.placement === 'page-end'
+              ? html`<div class="band-option-row">
+                  <span>${s.pagePlacementPages}</span>
+                  ${this._listSelect({
+                    id: `band-pages-${band.id}`,
+                    ariaLabel: `${this._bandPlacementLabel(band.placement)} ${s.pagePlacementPages}`,
+                    value: band.pages ?? 'all',
+                    options: [
+                      { value: 'all', label: s.pagesAll },
+                      { value: 'first', label: s.pagesFirst },
+                      { value: 'continuation', label: s.pagesContinuation },
+                      { value: 'non-final', label: s.pagesNonFinal },
+                      { value: 'last', label: s.pagesLast },
+                    ],
+                    onPick: (value) => this._setBandPages(band.id, value as OutputPageFilter),
+                  })}
+                </div>`
+              : nothing}
+            ${band.placement === 'group-start'
+              ? html`<label class="band-repeat-toggle band-option-row">
+                  <input type="checkbox" .checked=${band.repeatOnPageBreak === true}
+                    aria-label=${s.bandRepeatOnBreak}
+                    @change=${(e: Event) =>
+                      this._setBandRepeatOnPageBreak(band.id, (e.target as HTMLInputElement).checked)}>
+                  <span>${s.bandRepeatOnBreak}</span>
+                </label>`
+              : nothing}
+          </div>`)}
+        ${selected === null
+          ? nothing
+          : html`<div class="band-editor">
+              <div class="prop-pair">
+                <div class="prop-row">
+                  <label>${s.bandFromRow}</label>
+                  <input type="number" min="1" max=${String(el.rows.length)}
+                    aria-label=${s.bandFromRow}
+                    aria-invalid=${String(this._hasInputError('band-range'))}
+                    aria-describedby=${this._hasInputError('band-range') ? 'error-band-range' : nothing}
+                    .value=${String(selected.from + 1)}
+                    @change=${(e: Event) => this._setBandSelectionBoundary(
+                      'from',
+                      Number((e.target as HTMLInputElement).value),
+                      selectedBand?.id,
+                    )}>
+                </div>
+                <div class="prop-row">
+                  <label>${s.bandToRow}</label>
+                  <input type="number" min="1" max=${String(el.rows.length)}
+                    aria-label=${s.bandToRow}
+                    aria-invalid=${String(this._hasInputError('band-range'))}
+                    aria-describedby=${this._hasInputError('band-range') ? 'error-band-range' : nothing}
+                    .value=${String(selected.to + 1)}
+                    @change=${(e: Event) => this._setBandSelectionBoundary(
+                      'to',
+                      Number((e.target as HTMLInputElement).value),
+                      selectedBand?.id,
+                    )}>
+                </div>
+              </div>
+              ${this._renderInputError('band-range')}
+              <div class="prop-row">
+                <label>${s.bandRole}</label>
+                ${this._listSelect({
+                  id: 'band-role-editor',
+                  ariaLabel: s.bandRole,
+                  value: selectedRole,
+                  placeholder: s.selectRole,
+                  options: roleOptions,
+                  onPick: (value) => this._setRowBandRole(
+                    selected.from,
+                    selected.to,
+                    value as GridBandPlacement,
+                  ),
+                })}
+              </div>
+            </div>`}
+      </div>`;
   }
 
   /** 셀 선택을 해제하고 그리드 전체 편집으로 돌아간다. */
@@ -6057,6 +7474,21 @@ export class SlipDesigner extends LitElement {
       ? html`
           <div class="prop-section">
             <div class="prop-section-title">${s.panelValue}</div>
+            <div class="prop-row">
+              <label>${s.cellName}</label>
+              <input .value=${cellDef?.name ?? ''}
+                placeholder=${s.cellNameNone}
+                aria-label=${s.cellName}
+                @change=${(e: Event) => {
+                  const name = valOf(e).trim();
+                  this._updateElement((element) => {
+                    if (element.type !== 'grid') return;
+                    const record = ensureCell(element, cellTarget.row, cellTarget.column);
+                    if (name === '') delete record.name;
+                    else record.name = name;
+                  });
+                }}>
+            </div>
             <div class="prop-row">
               <label>${s.cellSource}</label>
               ${this._listSelect({
@@ -7516,10 +8948,9 @@ export class SlipDesigner extends LitElement {
     for (const page of template.pages) {
       for (const el of page.elements) {
         if (el.type !== 'grid' || !el.repeat || tableOf.has(el.repeat.parameter)) continue;
-        const { fromRow, toRow } = el.repeat;
         const fields: { key: string; title: string }[] = [];
         for (const cell of el.cells) {
-          if (cell.row >= fromRow && cell.row <= toRow && cell.parameter !== undefined
+          if (inItemBand(el, cell.row) && cell.parameter !== undefined
             && !fields.some((f) => f.key === cell.parameter)) {
             fields.push({ key: cell.parameter, title: cell.parameter });
           }

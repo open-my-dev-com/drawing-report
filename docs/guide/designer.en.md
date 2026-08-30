@@ -274,20 +274,27 @@ When you select a cell, decide the cell type in the right settings panel.
 | Parameter | A value entered on the voucher |
 | Formula | A result calculated from other values |
 
-Expanding a grid in the sidebar's element list lets you jump straight to a cell connected to a parameter or formula.
+Give a cell a name to make it selectable from the sidebar's element list regardless of its value type. An unnamed cell is shown by its row and column coordinates.
 
 ### Building a repeating list
 
-A table whose rows repeat as many times as the data, like an items table, uses <kbd>Repeat range</kbd>.
+A table that grows with its data, such as an items table, uses the grid's <kbd>Repeat</kbd> setting. One item may occupy one row or a range of several rows.
 
 1. Define the list parameter and its sub-fields first.
-2. Create a header row and a row to use for repetition in the grid.
-3. Turn on <kbd>Enable repeat</kbd> in the grid settings.
-4. Specify the start row and end row.
-5. Choose the list parameter to use for repetition.
-6. Connect each cell in the repeat range to a sub-field of the list.
-7. Decide the number of rows to show per page.
-8. If needed, set the maximum number of rows to show and header repetition on page breaks.
+2. Create the rows that display one data item.
+3. Under <kbd>Repeat</kbd> in the grid settings, turn on <kbd>Enabled</kbd>.
+4. Choose the list parameter to repeat.
+5. In <kbd>Row bands</kbd>, assign the item rows to <kbd>Data repeat area</kbd>.
+6. Connect each cell in the data repeat area to a sub-field of the list.
+7. Choose a page mode.
+8. Select <kbd>View output</kbd> to inspect the repeated result.
+
+The page modes work as follows.
+
+| Mode | Behavior |
+|---|---|
+| Auto grow | Reserves blank items up to <kbd>Minimum items shown</kbd>, then grows within the flow area when more data exists. It creates continuation output pages when the area is full. |
+| Fixed pages | Reserves exactly <kbd>Items per page</kbd> slots on each output page. Unused slots are shown as blank items. |
 
 For example, connect the repeat rows of the `items` list like this.
 
@@ -300,10 +307,36 @@ For example, connect the repeat rows of the `items` list like this.
 | Amount | `amount` |
 
 > [!IMPORTANT]
-> In a repeat range's cells, connect a sub-field inside `items`, not the whole `items` list.
+> In cells in the data repeat area, connect a sub-field inside `items`, not the whole `items` list.
 
-> [!TIP]
-> If a repeat row is a multi-line card shape, you can set the start row and end row differently. The entire specified row range repeats for each list item.
+### Adding headers and totals
+
+Use the quick setup commands in <kbd>Row bands</kbd> to add the following rows.
+
+| Command | Default result |
+|---|---|
+| Header | Repeats column names at the top of every output page |
+| Group subtotal | Shows the selected numeric field's total at the end of each group |
+| Page subtotal | Shows the page total at the bottom of every output page except the last |
+| Final total | Shows the overall total once after all data |
+
+The <kbd>Display behavior</kbd> of a row band defines when and at what scope the rows are output. It does not define what kind of content the rows contain.
+
+| Display behavior | When it is output | Typical content |
+|---|---|---|
+| Before all data | Once on the first output page | Title or introductory note |
+| Before data on each page | On every selected output page | Repeating column headings |
+| Before each group | Before the first item in each group | Group heading |
+| Data repeat area | Once per data item | Item content |
+| After each group | After the last item in each group | Group subtotal |
+| After all data | Once after the final item | Final total |
+| After data on each page | On every selected output page | Page subtotal or footer |
+
+To add a group subtotal, first choose group-by fields under <kbd>Advanced settings</kbd>. Rows added by quick setup remain editable in the row-band list, including their range, display behavior, and displayed pages.
+
+Select a row number shown to the left of the grid on the canvas to change that row's display behavior. Hold <kbd>Shift</kbd> while selecting another row number to make a multi-row band. The same operations are available in the row-band list on the right.
+
+When page planning fails, the canvas shows the error and a <kbd>Show problem</kbd> button. The button selects the affected grid and row band.
 
 ## 7. Writing formulas
 
@@ -350,7 +383,7 @@ Each emphasis button cycles through three states.
 | Apply | Apply bold, italic, underline, or strikethrough when the condition is true |
 | Clear | Turn off the base emphasis when the condition is true |
 
-In a repeat range, a cell condition can directly reference fields of the current item. For example, `amount < 0` on an amount cell is evaluated with each row's `amount` value.
+In the data repeat area, a cell condition can directly reference fields of the current item. For example, `amount < 0` on an amount cell is evaluated with each row's `amount` value.
 
 > [!NOTE]
 > If a condition cannot be evaluated because a required value is missing or invalid, that rule does not apply. Enter sample data and check both normal and boundary values on the canvas and in the PDF preview.
@@ -455,8 +488,8 @@ Check the following in order.
 - Whether the parameter type is List
 - Whether the list has sub-fields defined
 - Whether repeat is enabled in the grid
-- Whether the repeat range is correct
-- Whether the repeat range's cells are connected to sub-fields
+- Whether the data repeat area is correct
+- Whether cells in the data repeat area are connected to sub-fields
 - Whether the sample data is an array of objects
 
 </details>
@@ -503,7 +536,7 @@ In the bundled demo, the application implements IndexedDB auto-save separately.
 - [ ] I defined the needed parameters and their types.
 - [ ] I defined the sub-fields of the list parameter.
 - [ ] I distinguished fixed and variable values with the correct elements.
-- [ ] I connected the repeat range and sub-fields of the repeating table.
+- [ ] I connected the data repeat area and sub-fields of the repeating table.
 - [ ] I checked the calculation result in the formula editor.
 - [ ] I checked conditional formats with sample values and the PDF preview.
 - [ ] I validated the template with sample data.

@@ -24,6 +24,12 @@ export interface FormulaContext {
    * @defaultValue `'en-US'`
    */
   locale?: string;
+  /**
+   * 그리드 페이지 계획이 공급하는 예약 참조(`@item`·`@group`·`@page`·`@all`·`@carried`) 값.
+   * 예약 참조를 지원하지 않는 곳에서는 생략하며, 생략된 상태에서 예약 참조를 평가하면
+   * 오류가 발생한다.
+   */
+  reserved?: Readonly<Record<string, unknown>>;
 }
 
 // ---------------------------------------------------------------------------

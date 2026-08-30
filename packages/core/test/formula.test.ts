@@ -361,3 +361,46 @@ describe('메시지 언어 (로케일 설정)', () => {
     expect(() => evaluateFormula('1/0', { values: {}, locale: 'fr-FR' })).toThrow('Cannot divide by zero');
   });
 });
+
+describe('예약 참조 (@item·@group·@page·@all·@carried)', () => {
+  const reserved = {
+    '@item': items[0],
+    '@group': items.slice(0, 2),
+    '@page': items,
+    '@all': items,
+    '@carried': [] as unknown[],
+  };
+
+  it('@item.필드는 현재 항목의 값을 읽는다', () => {
+    expect(evaluateFormula('@item.금액', { values: {}, reserved })).toBe(3000);
+  });
+
+  it('@group.필드는 그룹 항목의 값 배열을 만들고 집계할 수 있다', () => {
+    expect(evaluateFormula('SUM(@group.금액)', { values: {}, reserved })).toBe(8000);
+  });
+
+  it('@page와 @all은 페이지·전체 항목 배열을 참조한다', () => {
+    expect(evaluateFormula('SUM(@page.금액)', { values: {}, reserved })).toBe(10000);
+    expect(evaluateFormula('COUNT(@all.수량)', { values: {}, reserved })).toBe(3);
+  });
+
+  it('@carried가 빈 배열이면 누계 합이 0이다', () => {
+    expect(evaluateFormula('SUM(@carried.금액)', { values: {}, reserved })).toBe(0);
+  });
+
+  it('정의되지 않은 예약 이름은 문법 오류로 거부한다', () => {
+    expect(() => parseFormula('@foo + 1')).toThrow(FormulaSyntaxError);
+    expect(() => parseFormula('@foo + 1', { locale: 'ko' })).toThrow('알 수 없는 예약 참조');
+  });
+
+  it('reserved 없이 예약 참조를 평가하면 평가 오류가 발생한다', () => {
+    expect(() => evaluateFormula('SUM(@page.금액)', ctx({}))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('SUM(@page.금액)', { values: {}, locale: 'ko' })).toThrow(
+      '행 구간에서만 사용할 수 있습니다',
+    );
+  });
+
+  it('@ 없는 같은 이름은 전표 값 참조로 남는다', () => {
+    expect(evaluateFormula('item + 1', ctx({ item: 2 }))).toBe(3);
+  });
+});

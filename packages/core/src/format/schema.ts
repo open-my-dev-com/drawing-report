@@ -47,10 +47,14 @@ export const SLIP_LIMITS = {
   maxGridRowTracks: 1000,
   /** 그리드(grid) 최대 열 수 */
   maxGridColumnTracks: 100,
-  /** 그리드(grid) 반복 구간의 페이지당 최대 항목 수 */
+  /** 고정 페이지 방식의 페이지당 최대 항목 수 (`itemsPerPage`의 상한) */
   maxRepeatPerPage: 1000,
-  /** 그리드(grid) 반복 구간이 그릴 수 있는 항목 수 상한 (`repeat.maxItems`의 상한) */
+  /** 반복 그리드가 그릴 수 있는 항목 수 상한 (`maxItems`·`minItems`의 상한) */
   maxRepeatItems: 100_000,
+  /** 그리드당 최대 행 구간 수 */
+  maxGridBands: 20,
+  /** 한 양식 페이지에서 만들 수 있는 출력 페이지 수 상한 (페이지 계획에서 검사) */
+  maxOutputPages: 2000,
   /** 요소·셀당 최대 조건부 서식 규칙 수 */
   maxConditionalFormats: 20,
   /** 줄간격 배수 상한 */
@@ -134,6 +138,29 @@ const conditionalFormatsSchema = z
     error: () => fmt().conditionalFormatsMax(SLIP_LIMITS.maxConditionalFormats),
   });
 
+/** 요소·행 구간의 표시 페이지 선택 값. */
+const outputPageFilterSchema = z.enum(['all', 'first', 'continuation', 'non-final', 'last']);
+
+/**
+ * 출력 페이지에서 요소를 어떻게 배치할지에 대한 설정.
+ * `absolute`는 원본 위치 그대로 표시할 페이지만 고르고, `after`는 대상 요소의
+ * 마지막 출력 조각 뒤에 이어서 배치한다.
+ */
+const pagePlacementSchema = z.discriminatedUnion('mode', [
+  z.strictObject({
+    mode: z.literal('absolute'),
+    /** 표시할 출력 페이지 (기본 all) */
+    pages: outputPageFilterSchema.optional(),
+  }),
+  z.strictObject({
+    mode: z.literal('after'),
+    /** 같은 양식 페이지에 있는 대상 요소의 id */
+    target: idSchema,
+    /** 대상 요소와의 세로 간격(mm, 기본 0) */
+    gap: nonNegativeMm.optional(),
+  }),
+]);
+
 const elementBaseShape = {
   id: idSchema,
   name: z.string(),
@@ -142,6 +169,20 @@ const elementBaseShape = {
   height: nonNegativeMm,
   /** 같은 값을 가진 요소를 함께 선택하기 위한 그룹 식별자. */
   group: z.string().min(1).optional(),
+  /** 출력 페이지 배치 설정. 생략하면 모든 출력 페이지에 같은 위치로 표시한다. */
+  pagePlacement: pagePlacementSchema.optional(),
+};
+
+/**
+ * 그리드 전용 기본 필드. 그리드의 크기는 행·열 정의의 합으로 계산하므로
+ * `width`·`height`를 저장하지 않는다.
+ */
+const gridBaseShape = {
+  id: elementBaseShape.id,
+  name: elementBaseShape.name,
+  position: elementBaseShape.position,
+  group: elementBaseShape.group,
+  pagePlacement: elementBaseShape.pagePlacement,
 };
 
 /** 요소 상자 안에서 텍스트를 배치할 수직 위치. */
@@ -215,6 +256,11 @@ const gridCellSchema = z.object({
   /** 0-기반 행/열 좌표 */
   row: z.number().int().nonnegative(),
   column: z.number().int().nonnegative(),
+  /**
+   * 편집기에서 셀을 식별하는 이름. PDF에 출력하지 않으며 값 소스와도 무관하다.
+   * 식별 키가 아니므로 중복을 허용한다. 없으면 편집기는 좌표를 표시한다.
+   */
+  name: z.string().optional(),
   /** 병합 범위 (기본 1) */
   rowSpan: z.number().int().min(1).optional(),
   colSpan: z.number().int().min(1).optional(),
@@ -231,25 +277,85 @@ const gridCellSchema = z.object({
   conditionalFormats: conditionalFormatsSchema.optional(),
 });
 
-/** 항목 배열의 각 항목에 대해 지정한 행 범위를 반복하는 설정. */
+/** 행 구간의 출력 시점. 템플릿의 세로 순서도 이 순서를 따라야 한다. */
+const bandPlacementSchema = z.enum([
+  'before-data',
+  'page-start',
+  'group-start',
+  'item',
+  'group-end',
+  'after-data',
+  'page-end',
+]);
+
+/**
+ * 같은 출력 시점을 갖는 연속된 템플릿 행 범위.
+ * 반복 그리드의 모든 템플릿 행은 정확히 하나의 행 구간에 속한다.
+ */
+const gridBandSchema = z.object({
+  id: idSchema,
+  /** 편집기에서 표시할 구간 이름. */
+  name: z.string().optional(),
+  /** 구간이 차지하는 템플릿 행 범위 (0-기반, 양끝 포함) */
+  fromRow: z.number().int().nonnegative(),
+  toRow: z.number().int().nonnegative(),
+  placement: bandPlacementSchema,
+  /**
+   * `page-start`·`page-end` 구간의 표시 페이지 선택 (기본 all).
+   * 표시 대상이 아닌 페이지에는 구간의 공간도 만들지 않는다.
+   */
+  pages: outputPageFilterSchema.optional(),
+  /** 그룹이 다음 페이지로 이어질 때 `group-start` 구간을 다시 표시할지 (기본 false) */
+  repeatOnPageBreak: z.boolean().optional(),
+});
+
+/**
+ * 페이지 분할 방식. `auto`(자동 확장)와 `fixed`(고정 페이지)는 배타적이며,
+ * 각 방식에 속하지 않는 설정이 섞인 파일은 검증에서 거부한다.
+ */
+const gridPaginationSchema = z.discriminatedUnion('mode', [
+  z.strictObject({
+    mode: z.literal('auto'),
+    /**
+     * 최소 표시 항목 수. 실제 항목이 부족하면 빈 항목으로 채운다.
+     * 문서 전체의 최소 항목 수이며 페이지마다 다시 적용하지 않는다.
+     */
+    minItems: z
+      .number()
+      .int()
+      .min(0)
+      .max(SLIP_LIMITS.maxRepeatItems, { error: () => fmt().minItemsMax(SLIP_LIMITS.maxRepeatItems) }),
+  }),
+  z.strictObject({
+    mode: z.literal('fixed'),
+    /** 페이지당 항목 수. 각 출력 페이지가 정확히 이 수의 항목 영역을 가진다. */
+    itemsPerPage: z
+      .number()
+      .int()
+      .min(1)
+      .max(SLIP_LIMITS.maxRepeatPerPage, { error: () => fmt().itemsPerPageMax(SLIP_LIMITS.maxRepeatPerPage) }),
+  }),
+]);
+
+/** 항목 배열을 행 구간 구성에 따라 반복 출력하는 설정. */
 const gridRepeatSchema = z.object({
   /** 전표 values에서 항목 배열(객체 배열)을 담는 키 */
   parameter: idSchema,
-  /** 반복할 행 범위 (0-기반, 양끝 포함) */
-  fromRow: z.number().int().nonnegative(),
-  toRow: z.number().int().nonnegative(),
-  /** 페이지당 항목 수 */
-  perPage: z
-    .number()
-    .int()
+  /** 행 구간 목록. 모든 템플릿 행을 겹침·빈틈 없이 포함해야 한다. */
+  bands: z
+    .array(gridBandSchema)
     .min(1)
-    .max(SLIP_LIMITS.maxRepeatPerPage, { error: () => fmt().perPageMax(SLIP_LIMITS.maxRepeatPerPage) }),
-  /** 이어지는 페이지에 반복 구간 위쪽 행을 다시 그릴지 */
-  repeatHeader: z.boolean(),
+    .max(SLIP_LIMITS.maxGridBands, { error: () => fmt().bandsMax(SLIP_LIMITS.maxGridBands) }),
+  /** 페이지 분할 방식 */
+  pagination: gridPaginationSchema,
   /**
-   * 렌더링할 최대 항목 수.
-   * 이 값을 초과한 항목은 렌더링하지 않는다. 생략하면 모든 항목을 렌더링하며,
-   * 지정할 때는 `perPage` 이상이어야 한다.
+   * 그룹 기준이 되는 항목 하위 필드 이름 목록.
+   * 지정한 모든 필드 값이 연속해서 같은 항목을 하나의 그룹으로 본다. 입력 순서는 바꾸지 않는다.
+   */
+  groupBy: z.array(idSchema).min(1).optional(),
+  /**
+   * 렌더링할 최대 항목 수. 실제 데이터에 먼저 적용하며, 제한을 적용한 항목만
+   * 페이지 계획과 집계에 사용한다. 생략하면 모든 항목을 렌더링한다.
    */
   maxItems: z
     .number()
@@ -257,21 +363,12 @@ const gridRepeatSchema = z.object({
     .min(1)
     .max(SLIP_LIMITS.maxRepeatItems, { error: () => fmt().maxItemsMax(SLIP_LIMITS.maxRepeatItems) })
     .optional(),
-})
-  .superRefine((repeat, ctx) => {
-    if (repeat.maxItems !== undefined && repeat.maxItems < repeat.perPage) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['maxItems'],
-        message: fmt().maxItemsBelowPerPage(),
-      });
-    }
-  });
+});
 
-/** 고정 행과 반복 행으로 구성된 그리드. */
+/** 고정 행과 반복 행 구간으로 구성된 그리드. 크기는 행·열 정의의 합으로 계산한다. */
 const gridElementObject = z.object({
   type: z.literal('grid'),
-  ...elementBaseShape,
+  ...gridBaseShape,
   ...colorStyleShape,
   ...fontShape,
   /** 열 너비(mm) */
@@ -285,7 +382,7 @@ const gridElementObject = z.object({
     .min(1)
     .max(SLIP_LIMITS.maxGridRowTracks, { error: () => fmt().rowsMax(SLIP_LIMITS.maxGridRowTracks) }),
   cells: z.array(gridCellSchema).max(SLIP_LIMITS.maxGridCells, { error: () => fmt().cellsMax(SLIP_LIMITS.maxGridCells) }),
-  /** 반복 행 설정. 생략하면 모든 행을 한 번씩 렌더링한다. */
+  /** 반복 설정. 생략하면 모든 행을 한 번씩 렌더링하는 정적 그리드다. */
   repeat: gridRepeatSchema.optional(),
   /** 셀을 넘치는 글의 처리 (기본 clip) */
   overflow: overflowSchema.optional(),
@@ -294,44 +391,85 @@ const gridElementObject = z.object({
 // 여러 필드를 함께 확인해야 하는 그리드 제약을 항목별로 검증한다.
 type GridInput = z.infer<typeof gridElementObject>;
 
-/** 요소 크기가 행 높이와 열 너비의 합과 일치하는지 검사한다 (SPEC §5.7). */
-function checkGridTrackSums(grid: GridInput, ctx: z.RefinementCtx): void {
-  const totalWidth = grid.columns.reduce((sum, col) => sum + col.width, 0);
-  const templateHeight = grid.rows.reduce((sum, row) => sum + row.height, 0);
-  // 반복 구간은 페이지마다 perPage번 배치된다.
-  const bandHeight = grid.repeat
-    ? grid.rows.slice(grid.repeat.fromRow, grid.repeat.toRow + 1).reduce((sum, row) => sum + row.height, 0)
-    : 0;
-  const totalHeight = templateHeight + (grid.repeat ? (grid.repeat.perPage - 1) * bandHeight : 0);
-  if (Math.abs(totalWidth - grid.width) > 0.01) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['columns'],
-      message: fmt().columnWidthSum(totalWidth, grid.width),
-    });
-  }
-  if (Math.abs(totalHeight - grid.height) > 0.01) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['rows'],
-      message: fmt().rowHeightSum(totalHeight, grid.height, grid.repeat !== undefined),
-    });
-  }
-}
+/** placement별 템플릿 세로 순서 (설계상 이 순서로만 배치할 수 있다). */
+const BAND_PLACEMENT_ORDER: Record<GridBandInput['placement'], number> = {
+  'before-data': 0,
+  'page-start': 1,
+  'group-start': 2,
+  item: 3,
+  'group-end': 4,
+  'after-data': 5,
+  'page-end': 6,
+};
 
-/** 반복 구간이 올바른 순서이며 행 범위 안에 있는지 검사한다. */
-function checkGridRepeatRange(grid: GridInput, ctx: z.RefinementCtx): void {
-  if (!grid.repeat) return;
-  const { fromRow, toRow } = grid.repeat;
-  if (fromRow > toRow) {
-    ctx.addIssue({ code: 'custom', path: ['repeat', 'fromRow'], message: fmt().fromRowAboveToRow() });
-  } else if (toRow >= grid.rows.length) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['repeat', 'toRow'],
-      message: fmt().repeatOutOfRange(fromRow, toRow, grid.rows.length),
-    });
+type GridBandInput = z.infer<typeof gridBandSchema>;
+
+/**
+ * 행 구간의 범위·순서·구성 규칙을 검사한다 (SPEC §5.7).
+ * - 모든 템플릿 행을 겹침·빈틈 없이 포함
+ * - `item` 구간 정확히 하나
+ * - placement의 세로 순서 준수
+ * - `pages`·`repeatOnPageBreak`·그룹 구간의 사용 조건
+ */
+function checkGridBands(grid: GridInput, ctx: z.RefinementCtx): void {
+  const repeat = grid.repeat;
+  if (!repeat) return;
+  const rows = grid.rows.length;
+  const bandIds = new Set<string>();
+  let itemCount = 0;
+  let lastRank = -1;
+  let nextRow = 0;
+  let coverBroken = false;
+
+  repeat.bands.forEach((band, index) => {
+    const path = ['repeat', 'bands', index];
+    if (bandIds.has(band.id)) {
+      ctx.addIssue({ code: 'custom', path, message: fmt().duplicateBandId(band.id) });
+    }
+    bandIds.add(band.id);
+    if (band.fromRow > band.toRow) {
+      ctx.addIssue({ code: 'custom', path, message: fmt().bandFromAboveTo(band.id) });
+      coverBroken = true;
+      return;
+    }
+    if (band.toRow >= rows) {
+      ctx.addIssue({ code: 'custom', path, message: fmt().bandOutOfRange(band.id, rows) });
+      coverBroken = true;
+      return;
+    }
+    // 구간은 fromRow 순서로 이어지며 모든 행을 정확히 한 번씩 덮어야 한다.
+    if (band.fromRow !== nextRow) coverBroken = true;
+    nextRow = band.toRow + 1;
+
+    const rank = BAND_PLACEMENT_ORDER[band.placement];
+    if (rank < lastRank) {
+      ctx.addIssue({ code: 'custom', path, message: fmt().bandOrderInvalid(band.id) });
+    }
+    lastRank = Math.max(lastRank, rank);
+    if (band.placement === 'item') itemCount++;
+
+    if (band.pages !== undefined && band.placement !== 'page-start' && band.placement !== 'page-end') {
+      ctx.addIssue({ code: 'custom', path, message: fmt().bandPagesOnlyPageBands(band.id) });
+    }
+    if (band.repeatOnPageBreak !== undefined && band.placement !== 'group-start') {
+      ctx.addIssue({ code: 'custom', path, message: fmt().bandRepeatOnlyGroupStart(band.id) });
+    }
+    if ((band.placement === 'group-start' || band.placement === 'group-end') && repeat.groupBy === undefined) {
+      ctx.addIssue({ code: 'custom', path, message: fmt().bandNeedsGroupBy(band.id) });
+    }
+  });
+
+  if (coverBroken || nextRow !== rows) {
+    ctx.addIssue({ code: 'custom', path: ['repeat', 'bands'], message: fmt().bandsMustCoverRows() });
   }
+  if (itemCount !== 1) {
+    ctx.addIssue({ code: 'custom', path: ['repeat', 'bands'], message: fmt().bandItemExactlyOne() });
+  }
+  repeat.groupBy?.forEach((field, index) => {
+    if (repeat.groupBy!.indexOf(field) !== index) {
+      ctx.addIssue({ code: 'custom', path: ['repeat', 'groupBy', index], message: fmt().groupByDuplicate(field) });
+    }
+  });
 }
 
 /**
@@ -363,18 +501,15 @@ function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, stri
       });
       return;
     }
-    // 병합 셀은 반복 구간의 안이나 밖에 완전히 포함되어야 한다.
+    // 병합 셀은 하나의 행 구간 안에 완전히 포함되어야 한다.
     if (grid.repeat && rowSpan > 1) {
-      const { fromRow, toRow } = grid.repeat;
       const last = cell.row + rowSpan - 1;
-      const entirelyAbove = last < fromRow;
-      const entirelyBelow = cell.row > toRow;
-      const entirelyInside = cell.row >= fromRow && last <= toRow;
-      if (!(entirelyAbove || entirelyBelow || entirelyInside)) {
+      const band = grid.repeat.bands.find((b) => cell.row >= b.fromRow && cell.row <= b.toRow);
+      if (band !== undefined && last > band.toRow) {
         ctx.addIssue({
           code: 'custom',
           path: ['cells', index],
-          message: fmt().cellSpanCrossesRepeat(cell.row, cell.column, fromRow, toRow),
+          message: fmt().cellSpanCrossesBand(cell.row, cell.column),
         });
         return;
       }
@@ -399,15 +534,16 @@ function checkGridCells(grid: GridInput, ctx: z.RefinementCtx): Map<string, stri
 }
 
 /**
- * 자동 병합 열의 반복 구간이 하나의 셀로 구성되었는지 검사한다.
- * 반복 구간이 여러 셀로 나뉜 열에는 자동 병합을 적용할 수 없다.
+ * 자동 병합 열의 항목 구간이 하나의 셀로 구성되었는지 검사한다.
+ * 항목 구간이 여러 셀로 나뉜 열에는 자동 병합을 적용할 수 없다.
  *
  * @param cellOriginAt - {@link checkGridCells}가 만든 좌표별 셀 시작점 맵
  */
 function checkGridAutoMerge(grid: GridInput, ctx: z.RefinementCtx, cellOriginAt: Map<string, string>): void {
+  const itemBand = grid.repeat?.bands.find((band) => band.placement === 'item');
   grid.columns.forEach((column, c) => {
     if (column.autoMerge !== true) return;
-    if (!grid.repeat) {
+    if (!grid.repeat || itemBand === undefined) {
       ctx.addIssue({
         code: 'custom',
         path: ['columns', c, 'autoMerge'],
@@ -415,7 +551,7 @@ function checkGridAutoMerge(grid: GridInput, ctx: z.RefinementCtx, cellOriginAt:
       });
       return;
     }
-    const { fromRow, toRow } = grid.repeat;
+    const { fromRow, toRow } = itemBand;
     const topOrigin = cellOriginAt.get(`${fromRow},${c}`);
     const notCovered = fmt().autoMergeNotCovered(c);
     // 빈 열은 모든 좌표가 undefined이므로 별도로 오류를 추가한다.
@@ -433,8 +569,7 @@ function checkGridAutoMerge(grid: GridInput, ctx: z.RefinementCtx, cellOriginAt:
 }
 
 const gridElementSchema = gridElementObject.superRefine((grid, ctx) => {
-  checkGridTrackSums(grid, ctx);
-  checkGridRepeatRange(grid, ctx);
+  checkGridBands(grid, ctx);
   const cellOriginAt = checkGridCells(grid, ctx);
   checkGridAutoMerge(grid, ctx, cellOriginAt);
 });
@@ -651,6 +786,18 @@ const pageNumberSchema = z.object({
   fontSize: z.number().positive().optional(),
 });
 
+/**
+ * 자동 배치 요소가 사용할 수 있는 페이지의 세로 범위 (용지 위쪽 기준 절대 mm).
+ * 생략하면 용지의 위·아래 여백 경계를 사용한다.
+ */
+const flowAreaSchema = z
+  .object({ top: nonNegativeMm, bottom: positiveMm })
+  .superRefine((area, ctx) => {
+    if (area.top >= area.bottom) {
+      ctx.addIssue({ code: 'custom', path: ['top'], message: fmt().flowAreaInvalid() });
+    }
+  });
+
 const slipPageSchema = z.object({
   elements: z
     .array(slipElementSchema)
@@ -661,6 +808,8 @@ const slipPageSchema = z.object({
   label: z.string().min(1).optional(),
   /** 페이지 번호 표시 설정 */
   pageNumber: pageNumberSchema.optional(),
+  /** 자동 확장 요소가 흐를 수 있는 세로 범위 */
+  flowArea: flowAreaSchema.optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -843,6 +992,54 @@ export const slipTemplateBodySchema = z
           }
         }
       });
+    });
+
+    // 흐름 영역은 용지 높이 안에 있어야 한다.
+    body.pages.forEach((page, pageIndex) => {
+      if (page.flowArea !== undefined && page.flowArea.bottom > body.paper.height) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['pages', pageIndex, 'flowArea', 'bottom'],
+          message: fmt().flowAreaOutOfPaper(page.flowArea.bottom, body.paper.height),
+        });
+      }
+    });
+
+    // after 배치의 대상은 같은 페이지의 요소여야 하며 참조가 순환할 수 없다.
+    body.pages.forEach((page, pageIndex) => {
+      const pageElementIds = new Set(page.elements.map((element) => element.id));
+      const afterTarget = new Map<string, string>();
+      page.elements.forEach((element, elementIndex) => {
+        const placement = element.pagePlacement;
+        if (placement === undefined || placement.mode !== 'after') return;
+        if (placement.target === element.id || !pageElementIds.has(placement.target)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['pages', pageIndex, 'elements', elementIndex, 'pagePlacement', 'target'],
+            message: fmt().afterTargetMissing(placement.target),
+          });
+          return;
+        }
+        afterTarget.set(element.id, placement.target);
+      });
+      // target 사슬을 따라가며 순환을 검사한다.
+      for (const [startId] of afterTarget) {
+        const visited = new Set<string>([startId]);
+        let current = afterTarget.get(startId);
+        while (current !== undefined) {
+          if (visited.has(current)) {
+            const elementIndex = page.elements.findIndex((element) => element.id === startId);
+            ctx.addIssue({
+              code: 'custom',
+              path: ['pages', pageIndex, 'elements', elementIndex, 'pagePlacement', 'target'],
+              message: fmt().afterTargetCycle(),
+            });
+            break;
+          }
+          visited.add(current);
+          current = afterTarget.get(current);
+        }
+      }
     });
   });
 
@@ -1037,6 +1234,18 @@ export type ConditionalFormatRule = z.infer<typeof conditionalFormatRuleSchema>;
 /** 그리드의 반복 구간. */
 export type GridRepeat = z.infer<typeof gridRepeatSchema>;
 
+export type GridBand = z.infer<typeof gridBandSchema>;
+
+export type GridBandPlacement = z.infer<typeof bandPlacementSchema>;
+
+export type GridPagination = z.infer<typeof gridPaginationSchema>;
+
+export type OutputPageFilter = z.infer<typeof outputPageFilterSchema>;
+
+export type PagePlacement = z.infer<typeof pagePlacementSchema>;
+
+export type PageFlowArea = z.infer<typeof flowAreaSchema>;
+
 /** 고정 행과 반복 행으로 구성된 그리드 요소. */
 export type GridElement = z.infer<typeof gridElementSchema>;
 /** 파라미터 정의. */
@@ -1079,3 +1288,20 @@ export type SlipVoucherFile = z.infer<typeof slipVoucherFileSchema>;
 export type SlipFile = z.infer<typeof slipFileSchema>;
 /** 파일 종류 판별자 */
 export type SlipFileKind = SlipFile['kind'];
+
+/**
+ * 요소가 캔버스에서 차지하는 크기를 반환한다.
+ * 그리드는 크기를 저장하지 않으므로 행·열 정의의 합으로 계산한다 (항목 구간은 한 번만 센다).
+ *
+ * @param element - 크기를 계산할 요소
+ * @returns 너비·높이(mm)
+ */
+export function elementBounds(element: SlipElement): { width: number; height: number } {
+  if (element.type === 'grid') {
+    return {
+      width: element.columns.reduce((sum, column) => sum + column.width, 0),
+      height: element.rows.reduce((sum, row) => sum + row.height, 0),
+    };
+  }
+  return { width: element.width, height: element.height };
+}

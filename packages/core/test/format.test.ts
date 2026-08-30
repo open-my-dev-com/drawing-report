@@ -55,8 +55,6 @@ function makeTemplate(): SlipTemplateFile {
               id: 'supplier',
               name: '공급자 정보',
               position: { x: 15, y: 35 },
-              width: 90,
-              height: 30,
               rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
               columns: [{ width: 27 }, { width: 63 }],
               cells: [
@@ -72,11 +70,16 @@ function makeTemplate(): SlipTemplateFile {
               id: 'items',
               name: '품목',
               position: { x: 15, y: 80 },
-              width: 180,
-              height: 8 * 11,
               columns: [{ width: 72 }, { width: 27 }, { width: 36 }, { width: 45 }],
               rows: [{ height: 8 }, { height: 8 }],
-              repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 10, repeatHeader: true },
+              repeat: {
+                parameter: 'items',
+                bands: [
+                  { id: 'items-header', fromRow: 0, toRow: 0, placement: 'page-start' },
+                  { id: 'items-item', fromRow: 1, toRow: 1, placement: 'item' },
+                ],
+                pagination: { mode: 'fixed', itemsPerPage: 10 },
+              },
               cells: [
                 { row: 0, column: 0, content: '품명' },
                 { row: 1, column: 0, parameter: '품명' },
@@ -155,12 +158,6 @@ describe('.slip 템플릿 파싱', () => {
     const file = makeTemplate();
     (getElement(file, 0, 'text') as { type: string }).type = 'video';
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(SlipParseError);
-  });
-
-  it('열 너비의 합이 width와 다르면 거부한다', () => {
-    const file = makeTemplate();
-    getElement(file, 1, 'grid').columns = [{ width: 27 }, { width: 50 }];
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/column widths/);
   });
 
   it('그리드 범위를 벗어난 병합 셀은 거부한다', () => {
@@ -310,37 +307,39 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     expect(saved.type).toBe('barcode');
   });
 
-  it('반복 구간 칸이 구간 전체를 덮지 않는 열은 자동 병합을 켤 수 없다 (ADR-038)', () => {
+  it('항목 구간 셀이 구간 전체를 덮지 않는 열은 자동 병합을 켤 수 없다 (ADR-038)', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
     const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
-    // 자동 병합할 열의 반복 구간을 두 개의 독립된 셀로 구성한다.
+    // 자동 병합할 열의 항목 구간(2행)을 두 개의 독립된 셀로 구성한다.
     grid['rows'] = [{ height: 8 }, { height: 8 }, { height: 8 }];
-    grid['height'] = 8 + 10 * (8 + 8);
-    (grid['repeat'] as Record<string, unknown>)['toRow'] = 2;
+    (grid['repeat'] as Record<string, unknown>)['bands'] = [
+      { id: 'items-header', fromRow: 0, toRow: 0, placement: 'page-start' },
+      { id: 'items-item', fromRow: 1, toRow: 2, placement: 'item' },
+    ];
     grid['cells'] = [
       { row: 0, column: 0, content: '품명' },
       { row: 1, column: 0, parameter: '품명' },
       { row: 2, column: 0, parameter: '규격' },
     ];
     (grid['columns'] as Record<string, unknown>[])[0]!['autoMerge'] = true;
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/cover the whole range height/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/cover the whole band height/);
   });
 
-  it('반복 구간이 없는 그리드의 열은 자동 병합을 켤 수 없다 (ADR-038)', () => {
+  it('반복 설정이 없는 그리드의 열은 자동 병합을 켤 수 없다 (ADR-038)', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
     const grid = template.pages[0]!.elements.find((el) => el['id'] === 'supplier')!;
     (grid['columns'] as Record<string, unknown>[])[0]!['autoMerge'] = true;
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/requires a repeat range/);
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/requires repeat settings/);
   });
 
-  it('maxItems가 perPage보다 작으면 거부한다 (ADR-048)', () => {
+  it('maxItems는 itemsPerPage보다 작아도 허용한다', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
     const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
     (grid['repeat'] as Record<string, unknown>)['maxItems'] = 3;
-    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/cannot be less than perPage/);
+    expect(() => parseSlipFile(JSON.stringify(base))).not.toThrow();
   });
 
   it('필드는 파라미터와 수식 중 하나만 가져야 한다 (ADR-049)', () => {
@@ -493,7 +492,7 @@ describe('JSON Schema 산출 (ADR-022)', () => {
   });
 });
 
-describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
+describe('그리드(grid) 스키마 검증 — 행 구간 모델', () => {
   type Grid = Extract<SlipElement, { type: 'grid' }>;
 
   function makeGridFile(patch: Partial<Grid> = {}): SlipTemplateFile {
@@ -502,11 +501,17 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
       id: 'items',
       name: '품목',
       position: { x: 15, y: 30 },
-      width: 100,
-      height: 32,
       columns: [{ width: 60 }, { width: 40 }],
       rows: [{ height: 8 }, { height: 8 }, { height: 8 }],
-      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: true },
+      repeat: {
+        parameter: 'items',
+        bands: [
+          { id: 'head', fromRow: 0, toRow: 0, placement: 'page-start' },
+          { id: 'detail', fromRow: 1, toRow: 1, placement: 'item' },
+          { id: 'total', fromRow: 2, toRow: 2, placement: 'after-data' },
+        ],
+        pagination: { mode: 'fixed', itemsPerPage: 2 },
+      },
       cells: [{ row: 0, column: 0, content: '품명' }],
       ...patch,
     };
@@ -522,40 +527,143 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
     };
   }
 
-  it('열 너비의 합이 width와 같아야 한다', () => {
-    expect(() => parseSlipFile(serializeSlipFile(makeGridFile()))).not.toThrow();
-    expect(() => parseSlipFile(serializeSlipFile(makeGridFile({ width: 120 })))).toThrow(/column widths/);
+  const repeatOf = (patch: Partial<NonNullable<Grid['repeat']>>): Grid['repeat'] => ({
+    parameter: 'items',
+    bands: [
+      { id: 'head', fromRow: 0, toRow: 0, placement: 'page-start' },
+      { id: 'detail', fromRow: 1, toRow: 1, placement: 'item' },
+      { id: 'total', fromRow: 2, toRow: 2, placement: 'after-data' },
+    ],
+    pagination: { mode: 'fixed', itemsPerPage: 2 },
+    ...patch,
   });
 
-  it('height는 반복 구간이 perPage번 복제된 높이여야 한다', () => {
-    // 높이: 헤더 8 + 반복 2x8 + 꼬리 8 = 32mm.
-    expect(() => parseSlipFile(serializeSlipFile(makeGridFile({ height: 24 })))).toThrow(/row heights/);
-    expect(() =>
-      parseSlipFile(
-        serializeSlipFile(
-          makeGridFile({
-            height: 40,
-            repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 3, repeatHeader: true },
-          }),
-        ),
-      ),
-    ).not.toThrow();
+  it('행 구간 모델의 반복 그리드가 직렬화 왕복을 통과한다', () => {
+    const file = makeGridFile();
+    expect(parseSlipFile(serializeSlipFile(file))).toEqual(file);
   });
 
-  it('반복 구간이 없으면 행 높이의 합이 곧 height다', () => {
-    const file = makeGridFile({ height: 24 });
+  it('정적 그리드는 행 구간 없이 유효하다', () => {
+    const file = makeGridFile();
     delete (file.template.pages[0]!.elements[0] as { repeat?: unknown }).repeat;
     expect(() => parseSlipFile(serializeSlipFile(file))).not.toThrow();
   });
 
-  it('반복 구간이 행 범위를 벗어나면 거부한다', () => {
-    expect(() =>
-      parseSlipFile(
-        serializeSlipFile(
-          makeGridFile({ repeat: { parameter: 'items', fromRow: 1, toRow: 5, perPage: 2, repeatHeader: true } }),
-        ),
-      ),
-    ).toThrow(/repeat range/);
+  it('여러 행으로 구성된 item 구간을 허용한다', () => {
+    const file = makeGridFile({
+      repeat: repeatOf({
+        bands: [
+          { id: 'head', fromRow: 0, toRow: 0, placement: 'page-start' },
+          { id: 'detail', fromRow: 1, toRow: 2, placement: 'item' },
+        ],
+      }),
+    });
+    expect(() => parseSlipFile(serializeSlipFile(file))).not.toThrow();
+  });
+
+  it('반복 그리드에는 item 구간이 정확히 하나 필요하다', () => {
+    const noItem = makeGridFile({
+      repeat: repeatOf({
+        bands: [
+          { id: 'head', fromRow: 0, toRow: 2, placement: 'page-start' },
+        ],
+      }),
+    });
+    expect(() => parseSlipFile(serializeSlipFile(noItem))).toThrow(/exactly one item band/);
+    const twoItems = makeGridFile({
+      repeat: repeatOf({
+        bands: [
+          { id: 'a', fromRow: 0, toRow: 0, placement: 'item' },
+          { id: 'b', fromRow: 1, toRow: 2, placement: 'item' },
+        ],
+      }),
+    });
+    expect(() => parseSlipFile(serializeSlipFile(twoItems))).toThrow(/exactly one item band/);
+  });
+
+  it('행 구간의 누락·겹침·범위 초과를 거부한다', () => {
+    const gap = makeGridFile({
+      repeat: repeatOf({
+        bands: [
+          { id: 'head', fromRow: 0, toRow: 0, placement: 'page-start' },
+          { id: 'detail', fromRow: 2, toRow: 2, placement: 'item' },
+        ],
+      }),
+    });
+    expect(() => parseSlipFile(serializeSlipFile(gap))).toThrow(/without gaps or overlaps/);
+    const overlap = makeGridFile({
+      repeat: repeatOf({
+        bands: [
+          { id: 'head', fromRow: 0, toRow: 1, placement: 'page-start' },
+          { id: 'detail', fromRow: 1, toRow: 2, placement: 'item' },
+        ],
+      }),
+    });
+    expect(() => parseSlipFile(serializeSlipFile(overlap))).toThrow(/without gaps or overlaps/);
+    const outside = makeGridFile({
+      repeat: repeatOf({
+        bands: [
+          { id: 'head', fromRow: 0, toRow: 0, placement: 'page-start' },
+          { id: 'detail', fromRow: 1, toRow: 5, placement: 'item' },
+        ],
+      }),
+    });
+    expect(() => parseSlipFile(serializeSlipFile(outside))).toThrow(/outside the rows/);
+  });
+
+  it('행 구간은 출력 시점의 세로 순서를 따라야 한다', () => {
+    const outOfOrder = makeGridFile({
+      repeat: repeatOf({
+        bands: [
+          { id: 'detail', fromRow: 0, toRow: 0, placement: 'item' },
+          { id: 'head', fromRow: 1, toRow: 1, placement: 'page-start' },
+          { id: 'total', fromRow: 2, toRow: 2, placement: 'after-data' },
+        ],
+      }),
+    });
+    expect(() => parseSlipFile(serializeSlipFile(outOfOrder))).toThrow(/out of order/);
+  });
+
+  it('자동 확장과 고정 페이지 설정의 혼용을 거부한다', () => {
+    const raw = JSON.parse(serializeSlipFile(makeGridFile())) as Record<string, unknown>;
+    const grid = (raw as { template: { pages: { elements: { repeat: { pagination: Record<string, unknown> } }[] }[] } })
+      .template.pages[0]!.elements[0]!;
+    grid.repeat.pagination = { mode: 'auto', minItems: 3, itemsPerPage: 5 };
+    expect(() => parseSlipFile(JSON.stringify(raw))).toThrow(SlipParseError);
+    grid.repeat.pagination = { mode: 'fixed', itemsPerPage: 5, minItems: 3 };
+    expect(() => parseSlipFile(JSON.stringify(raw))).toThrow(SlipParseError);
+  });
+
+  it('그룹 설정 없는 그룹 행 구간을 거부한다', () => {
+    const file = makeGridFile({
+      repeat: repeatOf({
+        bands: [
+          { id: 'gs', fromRow: 0, toRow: 0, placement: 'group-start' },
+          { id: 'detail', fromRow: 1, toRow: 2, placement: 'item' },
+        ],
+      }),
+    });
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/groupBy/);
+  });
+
+  it('pages는 page-start·page-end 구간에만 지정할 수 있다', () => {
+    const file = makeGridFile({
+      repeat: repeatOf({
+        bands: [
+          { id: 'head', fromRow: 0, toRow: 0, placement: 'page-start', pages: 'continuation' },
+          { id: 'detail', fromRow: 1, toRow: 1, placement: 'item', pages: 'first' },
+          { id: 'total', fromRow: 2, toRow: 2, placement: 'after-data' },
+        ],
+      }),
+    });
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/pages can only be set/);
+  });
+
+  it('셀 이름을 저장하고 직렬화한다', () => {
+    const file = makeGridFile({ cells: [{ row: 0, column: 0, name: '품명 헤더', content: '품명' }] });
+    const parsed = parseSlipFile(serializeSlipFile(file));
+    const grid = parsed.kind === 'template' ? parsed.template.pages[0]!.elements[0] : undefined;
+    expect(grid?.type === 'grid' ? grid.cells[0]?.name : undefined).toBe('품명 헤더');
   });
 
   it('셀은 content·parameter·formula 중 하나만 가질 수 있다', () => {
@@ -564,12 +672,12 @@ describe('그리드(grid) 스키마 검증 (ADR-037)', () => {
     ).toThrow(/only one of/);
   });
 
-  it('병합이 반복 구간 경계를 넘으면 거부한다', () => {
+  it('병합이 행 구간 경계를 넘으면 거부한다', () => {
     expect(() =>
       parseSlipFile(
         serializeSlipFile(makeGridFile({ cells: [{ row: 0, column: 0, rowSpan: 2, content: '헤더' }] })),
       ),
-    ).toThrow(/crosses the repeat range/);
+    ).toThrow(/crosses a row band boundary/);
   });
 
   it('셀이 그리드를 벗어나거나 겹치면 거부한다', () => {
@@ -607,7 +715,7 @@ describe('스키마 방어 보강 (G-48)', () => {
     expect(() => validateSlipFile(raw)).toThrow(SlipParseError);
   });
 
-  it('병합 칸이 반복 구간을 통째로 감싸면 거부한다', () => {
+  it('병합 칸이 행 구간을 통째로 감싸면 거부한다', () => {
     const file = makeTemplate();
     const page = file.template.pages[0]!;
     page.elements = [
@@ -616,18 +724,24 @@ describe('스키마 방어 보강 (G-48)', () => {
         id: 'g',
         name: '표',
         position: { x: 10, y: 10 },
-        width: 50,
-        height: 32, // 3행(24) + (perPage 2 - 1) * 반복행(8)
         columns: [{ width: 50 }],
         rows: [{ height: 8 }, { height: 8 }, { height: 8 }],
-        repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: false },
+        repeat: {
+          parameter: 'items',
+          bands: [
+            { id: 'head', fromRow: 0, toRow: 0, placement: 'before-data' },
+            { id: 'detail', fromRow: 1, toRow: 1, placement: 'item' },
+            { id: 'tail', fromRow: 2, toRow: 2, placement: 'page-end' },
+          ],
+          pagination: { mode: 'fixed', itemsPerPage: 2 },
+        },
         cells: [{ row: 0, column: 0, rowSpan: 3, content: '감싸기' }],
       },
     ];
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/boundary/);
   });
 
-  it('반복 구간에 칸이 없는 열의 autoMerge는 거부한다', () => {
+  it('항목 구간에 칸이 없는 열의 autoMerge는 거부한다', () => {
     const file = makeTemplate();
     const page = file.template.pages[0]!;
     page.elements = [
@@ -636,15 +750,20 @@ describe('스키마 방어 보강 (G-48)', () => {
         id: 'g',
         name: '표',
         position: { x: 10, y: 10 },
-        width: 50,
-        height: 24, // 2행(16) + (perPage 2 - 1) * 반복행(8)
         columns: [{ width: 25 }, { width: 25, autoMerge: true }],
         rows: [{ height: 8 }, { height: 8 }],
-        repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 2, repeatHeader: false },
+        repeat: {
+          parameter: 'items',
+          bands: [
+            { id: 'head', fromRow: 0, toRow: 0, placement: 'before-data' },
+            { id: 'detail', fromRow: 1, toRow: 1, placement: 'item' },
+          ],
+          pagination: { mode: 'fixed', itemsPerPage: 2 },
+        },
         cells: [{ row: 1, column: 0, parameter: '품명' }],
       },
     ];
-    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/cover the whole range height/);
+    expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/cover the whole band height/);
   });
 });
 
@@ -769,8 +888,10 @@ describe('메시지 언어 (로케일 설정)', () => {
   it("locale이 'ko-KR'이면 한국어 메시지를 표시한다", () => {
     expect(() => parseSlipFile('broken', { locale: 'ko-KR' })).toThrow('유효한 JSON이 아닙니다');
     const file = makeTemplate();
-    getElement(file, 1, 'grid').columns = [{ width: 27 }, { width: 50 }];
-    expect(() => parseSlipFile(serializeSlipFile(file), { locale: 'ko-KR' })).toThrow(/열 너비의 합/);
+    getElement(file, 2, 'grid').repeat!.bands = [
+      { id: 'items-header', fromRow: 0, toRow: 0, placement: 'page-start' },
+    ];
+    expect(() => parseSlipFile(serializeSlipFile(file), { locale: 'ko-KR' })).toThrow(/행 구간/);
   });
 
   it("locale이 'ja'이면 일본어 메시지를 표시한다", () => {

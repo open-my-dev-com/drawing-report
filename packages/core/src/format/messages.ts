@@ -14,22 +14,33 @@ interface FormatMessages {
   srcFormat(): string;
   semverFormat(): string;
   percentagesSum(): string;
-  perPageMax(max: number): string;
+  itemsPerPageMax(max: number): string;
+  minItemsMax(max: number): string;
   maxItemsMax(max: number): string;
-  maxItemsBelowPerPage(): string;
   columnsMax(max: number): string;
   rowsMax(max: number): string;
   cellsMax(max: number): string;
-  columnWidthSum(total: number, width: number): string;
-  rowHeightSum(total: number, height: number, hasRepeat: boolean): string;
-  fromRowAboveToRow(): string;
-  repeatOutOfRange(fromRow: number, toRow: number, rows: number): string;
+  bandsMax(max: number): string;
+  bandFromAboveTo(bandId: string): string;
+  bandOutOfRange(bandId: string, rows: number): string;
+  bandsMustCoverRows(): string;
+  bandOrderInvalid(bandId: string): string;
+  bandItemExactlyOne(): string;
+  bandPagesOnlyPageBands(bandId: string): string;
+  bandRepeatOnlyGroupStart(bandId: string): string;
+  bandNeedsGroupBy(bandId: string): string;
+  duplicateBandId(bandId: string): string;
+  groupByDuplicate(field: string): string;
   cellSourceExclusive(row: number, column: number): string;
   cellSpanOutOfRange(row: number, column: number, rows: number, columns: number): string;
-  cellSpanCrossesRepeat(row: number, column: number, fromRow: number, toRow: number): string;
+  cellSpanCrossesBand(row: number, column: number): string;
   cellOverlaps(row: number, column: number): string;
   autoMergeNeedsRepeat(column: number): string;
   autoMergeNotCovered(column: number): string;
+  flowAreaInvalid(): string;
+  flowAreaOutOfPaper(bottom: number, height: number): string;
+  afterTargetMissing(target: string): string;
+  afterTargetCycle(): string;
   imageSourceRequired(): string;
   imageSourceExclusive(): string;
   barcodeSourceExclusive(): string;
@@ -70,29 +81,42 @@ const EN: FormatMessages = {
   srcFormat: () => 'src must be an http(s) URL, data:<mime>;base64 or asset:// reference',
   semverFormat: () => 'schemaVersion must be in semver format',
   percentagesSum: () => 'Percentages must add up to 100',
-  perPageMax: (max) => `perPage can be at most ${max}`,
+  itemsPerPageMax: (max) => `itemsPerPage can be at most ${max}`,
+  minItemsMax: (max) => `minItems can be at most ${max}`,
   maxItemsMax: (max) => `maxItems can be at most ${max}`,
-  maxItemsBelowPerPage: () => 'maxItems cannot be less than perPage',
   columnsMax: (max) => `A grid can have at most ${max} columns`,
   rowsMax: (max) => `A grid can have at most ${max} rows`,
   cellsMax: (max) => `A grid can have at most ${max} cells`,
-  columnWidthSum: (total, width) => `The column widths (${total}) must add up to width (${width})`,
-  rowHeightSum: (total, height, hasRepeat) =>
-    `The row heights (${total}) must add up to height (${height})`
-    + (hasRepeat ? ' — the repeat range counts as perPage copies' : ''),
-  fromRowAboveToRow: () => 'fromRow cannot be greater than toRow',
-  repeatOutOfRange: (fromRow, toRow, rows) =>
-    `The repeat range (${fromRow}~${toRow}) is outside the rows (${rows})`,
+  bandsMax: (max) => `A grid can have at most ${max} row bands`,
+  bandFromAboveTo: (bandId) => `Row band '${bandId}': fromRow cannot be greater than toRow`,
+  bandOutOfRange: (bandId, rows) => `Row band '${bandId}' is outside the rows (${rows})`,
+  bandsMustCoverRows: () => 'Row bands must cover every row exactly once, without gaps or overlaps',
+  bandOrderInvalid: (bandId) =>
+    `Row band '${bandId}' is out of order — bands must follow before-data, page-start, group-start, item, group-end, after-data, page-end`,
+  bandItemExactlyOne: () => 'A repeating grid needs exactly one item band',
+  bandPagesOnlyPageBands: (bandId) =>
+    `Row band '${bandId}': pages can only be set on page-start and page-end bands`,
+  bandRepeatOnlyGroupStart: (bandId) =>
+    `Row band '${bandId}': repeatOnPageBreak can only be set on group-start bands`,
+  bandNeedsGroupBy: (bandId) => `Row band '${bandId}' requires groupBy on the repeat settings`,
+  duplicateBandId: (bandId) => `Row band id '${bandId}' is used more than once`,
+  groupByDuplicate: (field) => `groupBy field '${field}' is duplicated`,
   cellSourceExclusive: (row, column) =>
     `Cell (${row},${column}) can have only one of content, parameter or formula`,
   cellSpanOutOfRange: (row, column, rows, columns) =>
     `The merge span of cell (${row},${column}) is outside the grid (${rows}×${columns})`,
-  cellSpanCrossesRepeat: (row, column, fromRow, toRow) =>
-    `The merge of cell (${row},${column}) crosses the repeat range (${fromRow}~${toRow}) boundary`,
+  cellSpanCrossesBand: (row, column) =>
+    `The merge of cell (${row},${column}) crosses a row band boundary`,
   cellOverlaps: (row, column) => `Cell (${row},${column}) overlaps another cell`,
-  autoMergeNeedsRepeat: (column) => `Auto merge on column ${column} requires a repeat range`,
+  autoMergeNeedsRepeat: (column) => `Auto merge on column ${column} requires repeat settings`,
   autoMergeNotCovered: (column) =>
-    `Auto merge on column ${column} requires the column's repeat-range cell to cover the whole range height`,
+    `Auto merge on column ${column} requires the column's item-band cell to cover the whole band height`,
+  flowAreaInvalid: () => 'flowArea.top must be smaller than flowArea.bottom',
+  flowAreaOutOfPaper: (bottom, height) =>
+    `flowArea.bottom (${bottom}) cannot exceed the paper height (${height})`,
+  afterTargetMissing: (target) =>
+    `pagePlacement.target '${target}' must reference an element on the same page`,
+  afterTargetCycle: () => 'pagePlacement.after references form a cycle',
   imageSourceRequired: () => 'An image requires either src or parameter',
   imageSourceExclusive: () => 'An image cannot have both src and parameter',
   barcodeSourceExclusive: () => 'A barcode must have exactly one of content, parameter or formula',
@@ -136,27 +160,38 @@ const KO: FormatMessages = {
   srcFormat: () => 'src는 http(s) URL, data:<mime>;base64 또는 asset:// 형식이어야 합니다',
   semverFormat: () => 'schemaVersion은 semver 형식이어야 합니다',
   percentagesSum: () => '비율의 합은 100이어야 합니다',
-  perPageMax: (max) => `perPage는 최대 ${max}입니다`,
+  itemsPerPageMax: (max) => `itemsPerPage는 최대 ${max}입니다`,
+  minItemsMax: (max) => `minItems는 최대 ${max}입니다`,
   maxItemsMax: (max) => `maxItems는 최대 ${max}입니다`,
-  maxItemsBelowPerPage: () => 'maxItems는 perPage보다 작을 수 없습니다',
   columnsMax: (max) => `열 수는 최대 ${max}개입니다`,
   rowsMax: (max) => `행 수는 최대 ${max}개입니다`,
   cellsMax: (max) => `셀 수는 최대 ${max}개입니다`,
-  columnWidthSum: (total, width) => `열 너비의 합(${total})은 width(${width})와 같아야 합니다`,
-  rowHeightSum: (total, height, hasRepeat) =>
-    `행 높이의 합(${total})은 height(${height})와 같아야 합니다`
-    + (hasRepeat ? '. 반복 구간의 높이는 perPage에 지정한 횟수만큼 반복하여 계산합니다' : ''),
-  fromRowAboveToRow: () => 'fromRow는 toRow보다 클 수 없습니다',
-  repeatOutOfRange: (fromRow, toRow, rows) => `반복 구간(${fromRow}~${toRow})이 행 수(${rows})를 벗어납니다`,
+  bandsMax: (max) => `행 구간은 최대 ${max}개입니다`,
+  bandFromAboveTo: (bandId) => `행 구간 '${bandId}': fromRow는 toRow보다 클 수 없습니다`,
+  bandOutOfRange: (bandId, rows) => `행 구간 '${bandId}'이(가) 행 수(${rows})를 벗어납니다`,
+  bandsMustCoverRows: () => '행 구간은 모든 행을 겹침과 빈틈 없이 정확히 한 번씩 포함해야 합니다',
+  bandOrderInvalid: (bandId) =>
+    `행 구간 '${bandId}'의 순서가 잘못되었습니다 — before-data, page-start, group-start, item, group-end, after-data, page-end 순서를 따라야 합니다`,
+  bandItemExactlyOne: () => '반복 그리드에는 item 구간이 정확히 하나 필요합니다',
+  bandPagesOnlyPageBands: (bandId) =>
+    `행 구간 '${bandId}': pages는 page-start와 page-end 구간에만 지정할 수 있습니다`,
+  bandRepeatOnlyGroupStart: (bandId) =>
+    `행 구간 '${bandId}': repeatOnPageBreak는 group-start 구간에만 지정할 수 있습니다`,
+  bandNeedsGroupBy: (bandId) => `행 구간 '${bandId}'은(는) 반복 설정에 groupBy가 있어야 사용할 수 있습니다`,
+  duplicateBandId: (bandId) => `행 구간 id '${bandId}'이(가) 중복되었습니다`,
+  groupByDuplicate: (field) => `groupBy 필드 '${field}'이(가) 중복되었습니다`,
   cellSourceExclusive: (row, column) => `셀(${row},${column})은 content·parameter·formula 중 하나만 가질 수 있습니다`,
   cellSpanOutOfRange: (row, column, rows, columns) =>
     `셀(${row},${column})의 병합 범위가 그리드(${rows}×${columns})를 벗어납니다`,
-  cellSpanCrossesRepeat: (row, column, fromRow, toRow) =>
-    `셀(${row},${column})의 병합이 반복 구간(${fromRow}~${toRow}) 경계를 넘습니다`,
+  cellSpanCrossesBand: (row, column) => `셀(${row},${column})의 병합이 행 구간 경계를 넘습니다`,
   cellOverlaps: (row, column) => `셀(${row},${column})이 다른 셀과 겹칩니다`,
-  autoMergeNeedsRepeat: (column) => `${column}열의 자동 병합은 반복 구간이 있어야 켤 수 있습니다`,
+  autoMergeNeedsRepeat: (column) => `${column}열의 자동 병합은 반복 설정이 있어야 켤 수 있습니다`,
   autoMergeNotCovered: (column) =>
-    `${column}열의 자동 병합은 그 열의 반복 구간 셀이 구간 전체 높이를 차지할 때만 켤 수 있습니다`,
+    `${column}열의 자동 병합은 그 열의 항목 구간 셀이 구간 전체 높이를 차지할 때만 켤 수 있습니다`,
+  flowAreaInvalid: () => 'flowArea.top은 flowArea.bottom보다 작아야 합니다',
+  flowAreaOutOfPaper: (bottom, height) => `flowArea.bottom(${bottom})은 용지 높이(${height})를 넘을 수 없습니다`,
+  afterTargetMissing: (target) => `pagePlacement.target '${target}'은(는) 같은 페이지의 요소를 가리켜야 합니다`,
+  afterTargetCycle: () => 'pagePlacement의 after 참조가 순환합니다',
   imageSourceRequired: () => '이미지는 src 또는 parameter 중 하나가 필요합니다',
   imageSourceExclusive: () => '이미지는 src와 parameter를 함께 가질 수 없습니다',
   barcodeSourceExclusive: () => '바코드는 content·parameter·formula 중 하나만 가져야 합니다',
@@ -201,28 +236,39 @@ const JA: FormatMessages = {
   srcFormat: () => 'src は http(s) URL、data:<mime>;base64 または asset:// 形式でなければなりません',
   semverFormat: () => 'schemaVersion は semver 形式でなければなりません',
   percentagesSum: () => '比率の合計は 100 でなければなりません',
-  perPageMax: (max) => `perPage は最大 ${max} です`,
+  itemsPerPageMax: (max) => `itemsPerPage は最大 ${max} です`,
+  minItemsMax: (max) => `minItems は最大 ${max} です`,
   maxItemsMax: (max) => `maxItems は最大 ${max} です`,
-  maxItemsBelowPerPage: () => 'maxItems は perPage より小さくできません',
   columnsMax: (max) => `列数は最大 ${max} 個です`,
   rowsMax: (max) => `行数は最大 ${max} 個です`,
   cellsMax: (max) => `セル数は最大 ${max} 個です`,
-  columnWidthSum: (total, width) => `列幅の合計(${total})は width(${width})と一致しなければなりません`,
-  rowHeightSum: (total, height, hasRepeat) =>
-    `行の高さの合計(${total})は height(${height})と一致しなければなりません`
-    + (hasRepeat ? ' — 繰り返し範囲は perPage 回複製した高さで数えます' : ''),
-  fromRowAboveToRow: () => 'fromRow は toRow より大きくできません',
-  repeatOutOfRange: (fromRow, toRow, rows) => `繰り返し範囲(${fromRow}~${toRow})が行数(${rows})を超えています`,
+  bandsMax: (max) => `行範囲は最大 ${max} 個です`,
+  bandFromAboveTo: (bandId) => `行範囲 '${bandId}': fromRow は toRow より大きくできません`,
+  bandOutOfRange: (bandId, rows) => `行範囲 '${bandId}' が行数(${rows})を超えています`,
+  bandsMustCoverRows: () => '行範囲は重なりや抜けなく、すべての行をちょうど 1 回ずつ含める必要があります',
+  bandOrderInvalid: (bandId) =>
+    `行範囲 '${bandId}' の順序が正しくありません — before-data, page-start, group-start, item, group-end, after-data, page-end の順序に従う必要があります`,
+  bandItemExactlyOne: () => '繰り返しグリッドには item 範囲がちょうど 1 つ必要です',
+  bandPagesOnlyPageBands: (bandId) =>
+    `行範囲 '${bandId}': pages は page-start と page-end の範囲にのみ指定できます`,
+  bandRepeatOnlyGroupStart: (bandId) =>
+    `行範囲 '${bandId}': repeatOnPageBreak は group-start の範囲にのみ指定できます`,
+  bandNeedsGroupBy: (bandId) => `行範囲 '${bandId}' は繰り返し設定に groupBy がある場合のみ使用できます`,
+  duplicateBandId: (bandId) => `行範囲 id '${bandId}' が重複しています`,
+  groupByDuplicate: (field) => `groupBy フィールド '${field}' が重複しています`,
   cellSourceExclusive: (row, column) =>
     `セル(${row},${column})は content・parameter・formula のいずれか 1 つだけ持てます`,
   cellSpanOutOfRange: (row, column, rows, columns) =>
     `セル(${row},${column})の結合範囲がグリッド(${rows}×${columns})を超えています`,
-  cellSpanCrossesRepeat: (row, column, fromRow, toRow) =>
-    `セル(${row},${column})の結合が繰り返し範囲(${fromRow}~${toRow})の境界を越えています`,
+  cellSpanCrossesBand: (row, column) => `セル(${row},${column})の結合が行範囲の境界を越えています`,
   cellOverlaps: (row, column) => `セル(${row},${column})が他のセルと重なっています`,
-  autoMergeNeedsRepeat: (column) => `${column}列の自動結合は繰り返し範囲がある場合のみ有効にできます`,
+  autoMergeNeedsRepeat: (column) => `${column}列の自動結合は繰り返し設定がある場合のみ有効にできます`,
   autoMergeNotCovered: (column) =>
-    `${column}列の自動結合はその列の繰り返し範囲セルが範囲全体の高さを占める場合のみ有効にできます`,
+    `${column}列の自動結合はその列の項目範囲セルが範囲全体の高さを占める場合のみ有効にできます`,
+  flowAreaInvalid: () => 'flowArea.top は flowArea.bottom より小さくなければなりません',
+  flowAreaOutOfPaper: (bottom, height) => `flowArea.bottom(${bottom})は用紙の高さ(${height})を超えられません`,
+  afterTargetMissing: (target) => `pagePlacement.target '${target}' は同じページの要素を参照する必要があります`,
+  afterTargetCycle: () => 'pagePlacement の after 参照が循環しています',
   imageSourceRequired: () => '画像には src または parameter のどちらか一方が必要です',
   imageSourceExclusive: () => '画像は src と parameter を同時に持てません',
   barcodeSourceExclusive: () => 'バーコードは content・parameter・formula のいずれか 1 つだけ持てます',

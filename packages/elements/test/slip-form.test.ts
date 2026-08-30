@@ -44,7 +44,7 @@ function makeTemplate(withExternalImage = false): SlipTemplateFile {
     },
     {
       type: 'grid', id: 't-items', name: '품목 표',
-      position: { x: 15, y: 40 }, width: 180, height: 40,
+      position: { x: 15, y: 40 },
       columns: [{ width: 108 }, { width: 72 }],
       rows: [{ height: 8 }, { height: 8 }],
       cells: [
@@ -53,7 +53,14 @@ function makeTemplate(withExternalImage = false): SlipTemplateFile {
         { row: 1, column: 0, parameter: 'itemName' },
         { row: 1, column: 1, parameter: 'amount' },
       ],
-      repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 4, repeatHeader: true },
+      repeat: {
+        parameter: 'items',
+        bands: [
+          { id: 'items-header', fromRow: 0, toRow: 0, placement: 'page-start' },
+          { id: 'items-item', fromRow: 1, toRow: 1, placement: 'item' },
+        ],
+        pagination: { mode: 'fixed', itemsPerPage: 4 },
+      },
     },
     {
       type: 'field', id: 'f-total', name: '합계 필드',

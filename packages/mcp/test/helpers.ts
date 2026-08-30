@@ -66,9 +66,6 @@ export function makeTemplate(): SlipTemplateFile {
               id: 'items-table',
               name: '품목표',
               position: { x: 15, y: 60 },
-              width: 180,
-              // 반복 구간은 perPage 벌만큼 높이에 계산된다: 10 + 3*10 + 10
-              height: 50,
               columns: [{ width: 120 }, { width: 60 }],
               rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
               cells: [
@@ -79,7 +76,15 @@ export function makeTemplate(): SlipTemplateFile {
                 { row: 2, column: 0, content: '합계' },
                 { row: 2, column: 1, formula: 'SUM(items.amount)' },
               ],
-              repeat: { parameter: 'items', fromRow: 1, toRow: 1, perPage: 3, repeatHeader: true },
+              repeat: {
+                parameter: 'items',
+                bands: [
+                  { id: 'items-header', fromRow: 0, toRow: 0, placement: 'page-start' },
+                  { id: 'items-item', fromRow: 1, toRow: 1, placement: 'item' },
+                  { id: 'items-total', fromRow: 2, toRow: 2, placement: 'after-data' },
+                ],
+                pagination: { mode: 'fixed', itemsPerPage: 3 },
+              },
             },
           ],
         },
