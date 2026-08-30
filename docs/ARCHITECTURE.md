@@ -1,10 +1,10 @@
 # 아키텍처
 
-최종 갱신: 2026-08-29
+최종 갱신: 2026-08-31
 
 이 문서는 SlipKit의 전체 구조와 패키지 간 책임, 데이터 흐름, 실행 환경, 외부 시스템과의 경계를 설명합니다.
 
-SlipKit을 애플리케이션에 적용하는 방법은 [애플리케이션 통합 가이드](guide/integration.md)를, AI와 연결하는 방법은 [MCP 사용 가이드](guide/mcp.md)를, `.slip` 파일의 정확한 데이터 구조는 [.slip 파일 형식 명세](SPEC.md)를 참고하세요.
+SlipKit을 애플리케이션에 적용하는 방법은 [애플리케이션 통합 가이드](guide/integration.ko.md)를, AI와 연결하는 방법은 [MCP 사용 가이드](guide/mcp.ko.md)를, `.slip` 파일의 정확한 데이터 구조는 [.slip 파일 형식 명세](SPEC.md)를 참고하세요.
 
 ## 1. 설계 원칙
 
@@ -282,7 +282,7 @@ flowchart TB
 `src`는 편집 세션을 시작하거나 다른 파일을 불러오기 위한 입력입니다. 변경 이벤트를 받을 때마다 결과를 같은 구성 요소의 `src`로 즉시 다시 전달하면 편집 세션이 반복해서 초기화될 수 있습니다.
 
 > [!TIP]
-> 구성 요소에 전달하는 입력 상태와 구성 요소가 발생시킨 최신 결과 상태를 분리하세요. 구체적인 구현 방법은 [애플리케이션 통합 가이드](guide/integration.md)를 참고하세요.
+> 구성 요소에 전달하는 입력 상태와 구성 요소가 발생시킨 최신 결과 상태를 분리하세요. 구체적인 구현 방법은 [애플리케이션 통합 가이드](guide/integration.ko.md)를 참고하세요.
 
 SlipKit은 다음 항목을 자동으로 결정하지 않습니다.
 
@@ -415,7 +415,7 @@ SlipKit 수식은 전용 파서와 평가기로 처리합니다.
 
 이 구조는 수식을 애플리케이션 코드와 분리하고 브라우저와 Node.js에서 같은 계산 규칙을 적용하기 위한 것입니다.
 
-수식 작성 방법과 지원 함수는 [수식 가이드](guide/formula.md)를 참고하세요.
+수식 작성 방법과 지원 함수는 [수식 가이드](guide/formula.ko.md)를 참고하세요.
 
 ## 10. 저장소 아키텍처
 
@@ -470,7 +470,7 @@ SlipKit은 호스트 환경에 종속적인 기능을 명시적으로 주입할 
 
 확장 설정은 SlipKit의 책임 경계를 바꾸지 않습니다. 예를 들어 저장소를 연결해도 로그인 기능이 생기지 않으며, 암호화를 설정해도 사용자 권한이 자동으로 관리되지 않습니다.
 
-자세한 설정 항목은 [환경 설정 가이드](guide/configuration.md)를 참고하세요.
+자세한 설정 항목은 [환경 설정 가이드](guide/configuration.ko.md)를 참고하세요.
 
 ## 12. 보안과 신뢰 경계
 
@@ -586,14 +586,14 @@ SlipKit은 다음 기능을 제공하는 것을 목표로 하지 않습니다.
 
 ## 16. 관련 문서
 
-- [프로젝트 README](../README.md)
+- [프로젝트 README](../README.ko.md)
 - [요구사항](REQUIREMENTS.md)
 - [.slip 파일 형식 명세](SPEC.md)
 - [설계 결정 기록](DECISIONS.md)
-- [애플리케이션 통합 가이드](guide/integration.md)
-- [Core 사용 가이드](guide/core.md)
-- [환경 설정 가이드](guide/configuration.md)
-- [수식 가이드](guide/formula.md)
+- [애플리케이션 통합 가이드](guide/integration.ko.md)
+- [Core 사용 가이드](guide/core.ko.md)
+- [환경 설정 가이드](guide/configuration.ko.md)
+- [수식 가이드](guide/formula.ko.md)
 
 설계의 배경과 변경 이력은 다음 결정 기록에서 확인할 수 있습니다.
 

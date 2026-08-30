@@ -1,6 +1,6 @@
 # API リファレンス
 
-[한국어](api-reference.md) · [English](api-reference.en.md)
+[한국어](api-reference.ko.md) · [English](api-reference.md)
 
 このドキュメントは、SlipKit パッケージが公開する関数、型、コンポーネントのプロパティ、イベント、エラーを素早く確認するためのリファレンスです。
 

@@ -1,6 +1,6 @@
 # SlipKit ガイド
 
-[한국어](README.md) · [English](README.en.md)
+[한국어](README.ko.md) · [English](README.md)
 
 SlipKit を実行したり、既存のアプリケーションに接続したりするために必要なドキュメントを案内します。
 

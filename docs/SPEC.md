@@ -4,7 +4,7 @@
 
 - 문서 상태: **Draft**
 - 현재 `schemaVersion`: **`0.1.0`**
-- 최종 갱신: 2026-08-29
+- 최종 갱신: 2026-08-31
 - 레퍼런스 구현: `@omdc-slipkit/core`
 - JSON Schema: `@omdc-slipkit/core/schemas/slip.schema.json`
 
@@ -1154,7 +1154,7 @@ TO_NUMBER(amount) * 2
 - 위 다섯 가지 외의 `@` 참조는 수식 파싱에서 거부합니다.
 - 행 구간 밖(필드 요소 등)에서 예약 참조를 평가하면 오류입니다.
 
-수식 문법과 함수별 동작은 [수식 작성 및 함수 참조](guide/formula.md)를 참고합니다.
+수식 문법과 함수별 동작은 [수식 작성 및 함수 참조](guide/formula.ko.md)를 참고합니다.
 
 > [!NOTE]
 > `.slip` 파일의 구조 검증은 수식 문자열의 문법을 검사하지 않습니다. 수식 문법과 값 타입 오류는 수식 파싱 또는 PDF 렌더링 과정에서 발견될 수 있습니다.
@@ -1501,6 +1501,6 @@ TypeScript에서는 `slipFileJsonSchema()`로 같은 JSON Schema 객체를 얻�
 - [요구사항](REQUIREMENTS.md)
 - [아키텍처](ARCHITECTURE.md)
 - [설계 결정 기록](DECISIONS.md)
-- [수식 작성 및 함수 참조](guide/formula.md)
-- [Core 사용 가이드](guide/core.md)
-- [API 참조](guide/api-reference.md)
+- [수식 작성 및 함수 참조](guide/formula.ko.md)
+- [Core 사용 가이드](guide/core.ko.md)
+- [API 참조](guide/api-reference.ko.md)

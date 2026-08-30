@@ -1,6 +1,6 @@
 # アプリケーション統合ガイド
 
-[한국어](integration.md) · [English](integration.en.md)
+[한국어](integration.ko.md) · [English](integration.md)
 
 このドキュメントは、SlipKit のデザイナー・作成フォーム・ビューアを接続し、各コンポーネントから受け取ったテンプレートと伝票をアプリケーションで管理する方法を説明します。
 

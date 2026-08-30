@@ -1,6 +1,6 @@
 # SlipKit
 
-[한국어](README.md) · [English](README.en.md)
+[한국어](README.ko.md) · [English](README.md)
 
 SlipKit は、Web アプリケーションに文書テンプレートの設計、データ入力、閲覧、PDF 出力機能を追加するライブラリです。
 

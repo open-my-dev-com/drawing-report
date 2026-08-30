@@ -1,6 +1,6 @@
 # テンプレートデザイナー利用ガイド
 
-[한국어](designer.md) · [English](designer.en.md)
+[한국어](designer.ko.md) · [English](designer.md)
 
 このドキュメントは、SlipKit テンプレートデザイナーを使って文書テンプレートを作る方法を説明します。
 

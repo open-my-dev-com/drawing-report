@@ -50,7 +50,7 @@
 
 CLAUDE.md의 SSOT 규칙대로 **한 번에 전부** 바꾼다 — 일부만 바꾸지 않는다:
 
-1. 문서 — `docs/SPEC.md` · `DECISIONS.md` · `REQUIREMENTS.md` · `ROADMAP.md` · `docs/guide/*`(한국어·영어·일본어 모두)
+1. 문서 — `docs/SPEC.md` · `DECISIONS.md` · `REQUIREMENTS.md` · `ROADMAP.md` · `docs/guide/*`(영어·한국어·일본어 모두)
 2. 코드 주석 (TSDoc·`//` 둘 다)
 3. **사용자 대면 오류 메시지** — `SlipRenderError`·`SlipParseError` 등에 담기는 문구
 4. UI 문구 — `packages/elements/src/strings.ts`의 한국어·영어·일본어 사전
@@ -60,11 +60,15 @@ CLAUDE.md의 SSOT 규칙대로 **한 번에 전부** 바꾼다 — 일부만 바
 바꾼 뒤 `grep -rn "<옛 용어>"`로 잔존 0건을 확인한다. 남겨야 할 것이 있으면
 (위 표의 `격자`처럼 다른 뜻으로 쓰이는 경우) 이 파일에 그 이유를 적는다.
 
-## 문서 3벌 유지 (ADR-042)
+## 문서 3벌 유지 (ADR-042·066)
 
-가이드(`docs/guide/*`)와 리포 `README`는 **한국어·영어·일본어 3벌**이다(`*.md`·`*.en.md`·`*.ja.md`).
-한 벌을 고치면 나머지 두 벌도 같은 자리에서 함께 고친다 — 한 벌만 바뀌면 어긋난다.
-새 가이드를 추가할 때도 세 언어의 문서를 함께 작성한다.
+가이드(`docs/guide/*`)와 리포 `README`는 **영어·한국어·일본어 3벌**이다 —
+접미사가 없는 `*.md`가 **영어판(기준)**, `*.ko.md`가 한국어판, `*.ja.md`가 일본어판이다.
+문안은 영어판에서 확정하고 나머지 두 벌을 맞춘다. 한 벌을 고치면 나머지 두 벌도 같은 자리에서
+함께 고친다 — 한 벌만 바뀌면 어긋난다. 새 가이드를 추가할 때도 세 언어의 문서를 함께 작성한다.
+
+설계 문서(`docs/SPEC.md`·`DECISIONS.md`·`REQUIREMENTS.md`·`ROADMAP.md`·`ARCHITECTURE.md`·
+`OPEN-QUESTIONS.md`·`TECH-RESEARCH.md`)와 이 규칙 문서들은 한국어 한 벌만 둔다.
 
 ## 일본어 용어 대응 (ADR-042)
 

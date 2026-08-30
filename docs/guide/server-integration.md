@@ -1,63 +1,63 @@
-# 서버 통합 가이드
+# Server Integration Guide
 
-[English](server-integration.en.md) · [日本語](server-integration.ja.md)
+[한국어](server-integration.ko.md) · [日本語](server-integration.ja.md)
 
-SlipKit Core를 Node.js 서버에서 사용하여 `.slip` 파일을 검증하고, 전표를 발행하며, PDF를 생성·보관하는 방법을 설명합니다.
+This guide explains how to use SlipKit Core on a Node.js server to validate `.slip` files, issue vouchers, and generate and store PDFs.
 
-이 문서에서는 NestJS를 대표 예제로 사용하지만, 검증·렌더링·보관 원칙은 Express, Fastify, 배치 작업자와 다른 Node.js 서버에서도 같습니다.
+It uses NestJS as the representative example, but the validation, rendering, and storage principles are the same for Express, Fastify, batch workers, and other Node.js servers.
 
 > [!NOTE]
-> Core API 자체의 사용법은 [Core 사용 가이드](core.md)를 참고하세요.
-> 이 문서는 Core를 서버 애플리케이션의 수명 주기, 저장소와 HTTP 요청에 연결하는 방법을 다룹니다.
+> For the Core API itself, see the [Core Usage Guide](core.md).
+> This document covers how to connect Core to a server application's lifecycle, storage, and HTTP requests.
 
 > [!IMPORTANT]
-> SlipKit은 현재 공개 전 검토 단계이며 `@omdc-slipkit/*` 패키지는 npm 레지스트리에 아직 배포되지 않았습니다.
-> 현재는 저장소에 포함된 소스 코드와 데모를 기준으로 확인할 수 있습니다.
+> SlipKit is currently in pre-release review, and the `@omdc-slipkit/*` packages have not yet been published to the npm registry.
+> For now, you can verify everything against the source code and demos included in the repository.
 
-## 서버가 담당하는 범위
+## What the server is responsible for
 
-이 가이드에서는 서버가 다음 작업을 담당한다고 가정합니다.
+This guide assumes the server handles the following tasks.
 
-1. 사용할 양식을 신뢰할 수 있는 저장소에서 불러옵니다.
-2. 요청 데이터와 `.slip` 파일을 검증합니다.
-3. 양식과 입력값으로 전표를 만듭니다.
-4. 전표를 발행 상태로 잠그고 다시 검증합니다.
-5. 서버에서 PDF를 생성합니다.
-6. 전표 `.slip`과 필요한 PDF를 보관합니다.
+1. Load the template to use from a trusted store.
+2. Validate request data and `.slip` files.
+3. Build a voucher from the template and input values.
+4. Lock the voucher into the issued state and validate it again.
+5. Generate the PDF on the server.
+6. Store the voucher `.slip` and any required PDFs.
 
 ```mermaid
 flowchart TD
-    Request["발행 요청"] --> Template["저장된 양식 조회"]
-    Template --> Validate["양식·입력값 검증"]
-    Validate --> Voucher["전표 조립·발행"]
-    Voucher --> Render["서버 PDF 생성"]
-    Render --> Store["전표·PDF 보관"]
-    Store --> Response["PDF 또는 발행 결과 응답"]
+    Request["Issue request"] --> Template["Load stored template"]
+    Template --> Validate["Validate template and inputs"]
+    Validate --> Voucher["Build and issue voucher"]
+    Voucher --> Render["Server PDF generation"]
+    Render --> Store["Store voucher and PDF"]
+    Store --> Response["Respond with PDF or issue result"]
 ```
 
-클라이언트가 생성한 PDF를 서버에 올려 원본처럼 보관하는 흐름은 사용하지 않습니다. 서버가 직접 검증과 렌더링을 수행해야 보관된 PDF가 해당 전표에서 생성된 산출물임을 애플리케이션 흐름 안에서 확인할 수 있습니다.
+Do not use a flow where a client-generated PDF is uploaded to the server and kept as if it were the original. Only when the server performs validation and rendering itself can the application flow confirm that the stored PDF was produced from that voucher.
 
 > [!WARNING]
-> 전표의 `issued: true`는 입력을 잠그는 업무 상태입니다.
-> 전자서명이나 암호학적 진위 보장이 아니므로 사용자 권한, 변경 이력과 감사 기록은 서버에서 별도로 관리해야 합니다.
+> A voucher's `issued: true` is a business state that locks its inputs.
+> It is not a digital signature or cryptographic proof of authenticity, so user permissions, change history, and audit records must be managed separately on the server.
 
-## 설치와 실행 환경
+## Installation and runtime environment
 
-서버에서는 `@omdc-slipkit/core`를 사용합니다.
+On the server, use `@omdc-slipkit/core`.
 
 ```bash
 npm install @omdc-slipkit/core
 ```
 
-동봉 폰트를 사용하려면 `@omdc-slipkit/elements`도 설치합니다.
+To use the bundled fonts, also install `@omdc-slipkit/elements`.
 
 ```bash
 npm install @omdc-slipkit/core @omdc-slipkit/elements
 ```
 
-지원하는 Node.js 버전은 22.13 이상입니다.
+The supported Node.js version is 22.13 or later.
 
-`@omdc-slipkit/core`는 ESM으로 배포되지만 ESM과 CommonJS 프로젝트에서 모두 사용할 수 있습니다. TypeScript에서는 프로젝트의 출력 형식과 관계없이 일반적인 정적 import를 사용합니다.
+`@omdc-slipkit/core` is distributed as ESM but can be used in both ESM and CommonJS projects. In TypeScript, use ordinary static imports regardless of your project's output format.
 
 ```ts
 import {
@@ -67,7 +67,7 @@ import {
 } from '@omdc-slipkit/core';
 ```
 
-CommonJS 파일에서 직접 사용할 때도 패키지 이름으로 불러올 수 있습니다.
+You can also load it by package name when using it directly from a CommonJS file.
 
 ```js
 const {
@@ -78,14 +78,14 @@ const {
 ```
 
 > [!IMPORTANT]
-> `dist/index.js` 같은 패키지 내부 파일을 직접 불러오지 마세요.
-> 공개된 패키지 이름과 exports 경로만 사용해야 이후 배포 구조가 변경되어도 영향을 받지 않습니다.
+> Do not load internal package files such as `dist/index.js` directly.
+> Use only the published package name and exports paths so that future changes to the distribution layout do not affect you.
 
-## NestJS에 Core 등록하기
+## Registering Core in NestJS
 
-PDF를 만들 때 사용하는 폰트와 로케일은 요청마다 달라지지 않는 경우가 많습니다. NestJS Provider에서 `createSlipKit`을 한 번 호출하고 같은 인스턴스를 재사용합니다.
+The fonts and locale used to create PDFs usually do not change per request. Call `createSlipKit` once in a NestJS provider and reuse the same instance.
 
-예제는 다음 구조를 사용합니다.
+The examples use the following structure.
 
 ```text
 src/
@@ -106,7 +106,7 @@ fonts/
 └── Pretendard-Bold.otf
 ```
 
-### Provider 토큰 만들기
+### Creating a provider token
 
 `src/slipkit/slipkit.tokens.ts`:
 
@@ -114,7 +114,7 @@ fonts/
 export const SLIP_KIT = Symbol('SLIP_KIT');
 ```
 
-### SlipKit 인스턴스 등록하기
+### Registering the SlipKit instance
 
 `src/slipkit/slipkit.module.ts`:
 
@@ -188,17 +188,17 @@ const slipKitProvider: Provider<SlipKit> = {
 export class SlipKitModule {}
 ```
 
-상대 경로로 지정한 `SLIPKIT_FONT_DIR`는 서버 프로세스의 현재 작업 디렉터리를 기준으로 해석됩니다. 컨테이너나 서버리스 환경에서는 배포된 폰트의 절대 경로를 환경 변수로 전달하는 편이 안전합니다.
+A relative `SLIPKIT_FONT_DIR` is resolved against the server process's current working directory. In containers and serverless environments, it is safer to pass the absolute path of the deployed fonts through the environment variable.
 
-같은 `SlipKit` 인스턴스를 재사용하면 `getFonts`는 첫 렌더링에서 한 번 해석되고 이후 렌더링에서 같은 결과가 재사용됩니다. 폰트 파일을 요청마다 다시 읽지 않습니다.
+When you reuse the same `SlipKit` instance, `getFonts` is resolved once on the first render and the same result is reused for subsequent renders. Font files are not re-read on every request.
 
 > [!CAUTION]
-> `renderSlipToPdf` 편의 함수는 호출할 때마다 새 렌더러를 만듭니다.
-> 여러 요청을 처리하는 서버에서는 Provider로 등록한 `SlipKit` 인스턴스의 `render`를 사용하세요.
+> The `renderSlipToPdf` convenience function creates a new renderer on every call.
+> On a server handling multiple requests, use `render` on the `SlipKit` instance registered as a provider.
 
-## 동봉 폰트 사용하기
+## Using the bundled fonts
 
-서버에 별도 폰트 파일을 배포하기 어렵다면 `@omdc-slipkit/elements`의 동봉 폰트를 사용할 수 있습니다.
+If deploying separate font files to the server is difficult, you can use the bundled fonts from `@omdc-slipkit/elements`.
 
 ```ts
 import { Module } from '@nestjs/common';
@@ -229,7 +229,7 @@ import { SLIP_KIT } from './slipkit.tokens';
 export class SlipKitModule {}
 ```
 
-일본어 기본 폰트는 다음 경로에서 불러옵니다.
+The default Japanese font is loaded from the following path.
 
 ```ts
 import {
@@ -237,13 +237,13 @@ import {
 } from '@omdc-slipkit/elements/fonts/noto-sans-jp';
 ```
 
-동봉 폰트 모듈은 서버에서 사용할 수 있지만 폰트 데이터가 JavaScript 번들에 포함됩니다. 배포 크기와 시작 시간이 중요하다면 TTF·OTF 파일을 서버 자원으로 배포하고 `getFonts`에서 읽는 방식을 사용하세요.
+The bundled font modules can be used on a server, but the font data is included in the JavaScript bundle. If deployment size and startup time matter, deploy TTF/OTF files as server assets and read them in `getFonts` instead.
 
-폰트 이름과 굵기 연결 방법은 [환경 설정 가이드](configuration.md)를 참고하세요.
+For how font names map to weights, see the [Configuration Guide](configuration.md).
 
-## 요청 데이터 검증하기
+## Validating request data
 
-NestJS는 JSON 요청 본문을 JavaScript 객체로 변환합니다. 이미 파싱된 객체는 `parseSlipFile`이 아니라 `validateSlipFile`로 검증합니다.
+NestJS converts JSON request bodies into JavaScript objects. Validate already-parsed objects with `validateSlipFile`, not `parseSlipFile`.
 
 ```ts
 import {
@@ -258,7 +258,7 @@ export function validateRequestFile(
 }
 ```
 
-반대로 데이터베이스나 파일에서 JSON 문자열을 읽었다면 `parseSlipFile`을 사용합니다.
+Conversely, use `parseSlipFile` when you have read a JSON string from a database or a file.
 
 ```ts
 import {
@@ -273,21 +273,21 @@ export function parseStoredFile(
 }
 ```
 
-TypeScript 타입만 지정해서는 HTTP 요청 데이터가 검증되지 않습니다.
+Specifying TypeScript types alone does not validate HTTP request data.
 
 ```ts
-// 잘못된 예 — 타입 단언은 실행 중 검증을 하지 않습니다.
+// Bad example — a type assertion performs no runtime validation.
 const file = body as SlipFile;
 ```
 
 > [!IMPORTANT]
-> HTTP 요청, 파일 업로드, 메시지 큐와 데이터베이스처럼 애플리케이션 외부에서 들어온 값은 신뢰하지 말고 `parseSlipFile` 또는 `validateSlipFile`로 확인하세요.
+> Do not trust values that come from outside the application — HTTP requests, file uploads, message queues, and databases — and check them with `parseSlipFile` or `validateSlipFile`.
 
-### 발행 요청의 입력값 확인하기
+### Checking the inputs of an issue request
 
-전표 발행 API가 양식 전체를 클라이언트에서 받으면 클라이언트가 양식 스냅샷을 임의로 바꿀 수 있습니다. 발행 요청에서는 양식 식별자와 전표 값만 받고, 양식은 서버 저장소에서 다시 조회하는 방식을 권장합니다.
+If a voucher issue API accepts the entire template from the client, the client can tamper with the template snapshot at will. For issue requests, we recommend accepting only the template identifier and the voucher values, and loading the template again from the server's store.
 
-다음 함수는 예제 요청의 최소 구조를 확인합니다.
+The following function checks the minimal structure of the example request.
 
 `src/vouchers/issue-voucher.request.ts`:
 
@@ -320,7 +320,7 @@ export function readIssueVoucherRequest(
 ): IssueVoucherRequest {
   if (!isRecord(body)) {
     throw new BadRequestException(
-      '요청 본문은 객체여야 합니다.',
+      'The request body must be an object.',
     );
   }
 
@@ -329,13 +329,13 @@ export function readIssueVoucherRequest(
     body.templateId.length === 0
   ) {
     throw new BadRequestException(
-      'templateId가 필요합니다.',
+      'templateId is required.',
     );
   }
 
   if (!isRecord(body.values)) {
     throw new BadRequestException(
-      'values는 객체여야 합니다.',
+      'values must be an object.',
     );
   }
 
@@ -346,9 +346,9 @@ export function readIssueVoucherRequest(
 }
 ```
 
-이 함수는 API 요청의 바깥 구조만 확인합니다. 실제 전표 규칙은 양식에서 전표를 만든 뒤 `validateSlipFile`로 검사합니다.
+This function only checks the outer structure of the API request. The actual voucher rules are checked with `validateSlipFile` after the voucher is built from the template.
 
-## 전표 발행과 PDF 생성 연결하기
+## Connecting voucher issuance and PDF generation
 
 `src/slipkit/slip-issuance.service.ts`:
 
@@ -390,9 +390,9 @@ export class SlipIssuanceService {
     const template = parseSlipFile(templateJson);
 
     if (template.kind !== 'template') {
-      // 클라이언트 요청이 아니라 서버 저장 데이터의 문제다
+      // This is a problem with server-stored data, not the client request
       throw new InternalServerErrorException(
-        '저장된 파일이 양식이 아닙니다.',
+        'The stored file is not a template.',
       );
     }
 
@@ -408,7 +408,7 @@ export class SlipIssuanceService {
 
     if (validated.kind !== 'voucher') {
       throw new Error(
-        '전표 발행 결과의 종류가 올바르지 않습니다.',
+        'The result of issuing the voucher has an unexpected kind.',
       );
     }
 
@@ -423,22 +423,22 @@ export class SlipIssuanceService {
 }
 ```
 
-`buildVoucher`는 발행 전 상태인 `issued: false` 전표를 만듭니다. 예제에서는 값을 확정한 뒤 `issued: true`로 바꾸고 전체 전표를 다시 검증합니다.
+`buildVoucher` creates a pre-issue voucher with `issued: false`. The example finalizes the values, switches to `issued: true`, and validates the entire voucher again.
 
-발행 검증에서는 다음 항목도 확인됩니다.
+Issue-time validation also checks the following.
 
-- 양식 스냅샷과 전표 값의 구조
-- 문서, 페이지와 요소의 구조 상한
-- 발행 전표가 참조하는 이미지의 형식
-- 외부 URL 이미지가 발행 전표에 남아 있지 않은지
+- The structure of the template snapshot and voucher values
+- Structural limits on the document, pages, and elements
+- The format of images referenced by the issued voucher
+- That no external URL images remain in the issued voucher
 
-외부 URL 이미지를 사용했다면 발행 전에 서버가 해당 이미지를 가져와 `data:` Base64 값으로 바꿔야 합니다. SlipKit Core가 외부 URL을 대신 요청하지는 않습니다.
+If you used external URL images, the server must fetch those images and convert them to `data:` Base64 values before issuing. SlipKit Core does not request external URLs on your behalf.
 
-## 애플리케이션 저장소 연결하기
+## Connecting your application's storage
 
-SlipKit은 특정 데이터베이스나 ORM을 요구하지 않습니다. 서버에서는 애플리케이션이 사용하는 데이터베이스, 오브젝트 스토리지 또는 파일 저장소에 직접 저장할 수 있습니다.
+SlipKit does not require a specific database or ORM. On the server, you can store data directly in the database, object storage, or file store your application already uses.
 
-다음 인터페이스는 이 가이드에서 사용하는 애플리케이션 측 저장소 예제입니다. SlipKit이 제공하는 클래스가 아닙니다.
+The following interface is the application-side storage example used in this guide. It is not a class provided by SlipKit.
 
 `src/vouchers/voucher.repository.ts`:
 
@@ -460,7 +460,7 @@ export abstract class VoucherRepository {
 }
 ```
 
-호스트 애플리케이션에서 이 인터페이스를 데이터베이스나 파일 저장 방식에 맞게 구현하고 NestJS Provider로 등록합니다.
+Implement this interface in the host application to match your database or file storage, and register it as a NestJS provider.
 
 ```ts
 {
@@ -469,11 +469,11 @@ export abstract class VoucherRepository {
 }
 ```
 
-서버 저장에 SlipKit의 `StorageAdapter`를 반드시 구현할 필요는 없습니다. 디자이너와 서버가 같은 저장소 추상화를 공유해야 할 때만 선택적으로 구현하세요.
+You do not have to implement SlipKit's `StorageAdapter` for server storage. Implement it optionally, only when the designer and the server need to share the same storage abstraction.
 
-## PDF 응답 만들기
+## Building the PDF response
 
-다음 Controller는 서버에 저장된 양식을 조회하고 전표와 PDF를 만든 뒤, 저장을 마치고 PDF를 응답합니다.
+The following controller loads the template stored on the server, builds the voucher and PDF, finishes saving, and responds with the PDF.
 
 `src/vouchers/voucher.controller.ts`:
 
@@ -518,7 +518,7 @@ export class VoucherController {
 
     if (templateJson === null) {
       throw new NotFoundException(
-        '양식을 찾을 수 없습니다.',
+        'Template not found.',
       );
     }
 
@@ -547,13 +547,13 @@ export class VoucherController {
 }
 ```
 
-`StreamableFile`을 사용하면 Express와 Fastify 어댑터에서 같은 방식으로 PDF를 응답할 수 있습니다.
+With `StreamableFile`, you can respond with the PDF in the same way on both the Express and Fastify adapters.
 
-PDF를 바로 내려줄 필요가 없다면 Controller는 발행 ID만 반환하고, 별도의 조회 API나 작업 완료 알림을 통해 PDF를 제공해도 됩니다.
+If you do not need to return the PDF immediately, the controller can return only the issue ID and provide the PDF through a separate retrieval API or a job-completion notification.
 
-## NestJS 모듈 조립하기
+## Assembling the NestJS modules
 
-Controller와 저장소 구현을 모듈에 등록해야 NestJS가 의존성을 찾을 수 있습니다. `VoucherModule`은 `SlipKitModule`을 가져오고, Controller와 저장소 구현을 연결합니다.
+The controller and the storage implementation must be registered in a module for NestJS to resolve their dependencies. `VoucherModule` imports `SlipKitModule` and wires up the controller and the storage implementation.
 
 `src/vouchers/voucher.module.ts`:
 
@@ -578,7 +578,7 @@ import { VoucherRepository } from './voucher.repository';
 export class VoucherModule {}
 ```
 
-애플리케이션 루트 모듈은 `VoucherModule`을 가져옵니다.
+The application root module imports `VoucherModule`.
 
 `src/app.module.ts`:
 
@@ -593,131 +593,131 @@ import { VoucherModule } from './vouchers/voucher.module';
 export class AppModule {}
 ```
 
-## 전표와 PDF 보관하기
+## Storing vouchers and PDFs
 
-전표를 보관할 때는 `values`만 저장하지 말고 직렬화된 `SlipVoucherFile` 전체를 저장하세요.
+When storing a voucher, save the entire serialized `SlipVoucherFile`, not just its `values`.
 
-전표에는 다음 정보가 함께 들어 있습니다.
+A voucher carries the following together.
 
-- 작성 당시의 양식 스냅샷
-- 전표에 입력한 값
-- 파일 형식 버전
-- 발행 상태
+- The template snapshot at the time of writing
+- The values entered into the voucher
+- The file format version
+- The issued state
 
-PDF는 열람·인쇄용 파생 산출물입니다. 다음 기준으로 보관 여부를 결정합니다.
+The PDF is a derived artifact for viewing and printing. Decide whether to keep it using the following criteria.
 
-| 용도 | 권장 방식 |
+| Use case | Recommended approach |
 |---|---|
-| 필요할 때마다 최신 지원 환경에서 출력 | 전표 `.slip`을 보관하고 요청 시 PDF 생성 |
-| 발행 시점의 PDF 파일 자체를 보존 | 발행 시 `.slip`과 PDF를 함께 보관 |
-| 대량 발행이나 생성 시간이 긴 문서 | 작업 큐에서 PDF 생성 후 결과 보관 |
+| Print on demand in the latest supported environment | Keep the voucher `.slip` and generate the PDF on request |
+| Preserve the PDF file itself as issued | Keep both the `.slip` and the PDF at issue time |
+| Bulk issuance or documents that take long to generate | Generate PDFs in a job queue and keep the results |
 
 > [!CAUTION]
-> 같은 전표에서 같은 배치 결과를 재현하려면 렌더러 버전, 폰트와 로케일 설정도 같아야 합니다.
-> 장기 보관이 필요하다면 발행 당시의 PDF와 사용한 SlipKit 버전·설정 정보를 함께 기록하세요.
+> To reproduce the same layout from the same voucher, the renderer version, fonts, and locale settings must also be the same.
+> If long-term retention is required, record the PDF from the time of issue together with the SlipKit version and settings used.
 
-### 저장 실패 처리
+### Handling storage failures
 
-데이터베이스와 오브젝트 스토리지를 함께 사용하면 두 저장소를 하나의 트랜잭션으로 묶을 수 없는 경우가 있습니다.
+When a database and object storage are used together, the two stores sometimes cannot be wrapped in a single transaction.
 
-이 경우 다음 중 하나를 사용합니다.
+In that case, use one of the following.
 
-- PDF를 임시 위치에 저장한 뒤 데이터베이스 반영이 끝나면 확정 위치로 이동
-- 발행 상태를 `처리 중`과 `완료`로 나누고 실패한 작업을 재시도
-- 작업 큐나 outbox를 이용해 저장 작업을 순서대로 완료
-- 같은 발행 요청이 반복되어도 결과가 중복 생성되지 않도록 멱등 키 사용
+- Save the PDF to a temporary location and move it to its final location once the database write completes
+- Split the issue state into `processing` and `completed` and retry failed jobs
+- Use a job queue or an outbox to complete storage steps in order
+- Use idempotency keys so that repeating the same issue request does not create duplicate results
 
-전표만 저장되고 PDF가 누락되거나, PDF만 저장되고 전표가 누락되는 상태를 정상 발행으로 처리하지 마세요.
+Do not treat a state where only the voucher was saved without its PDF, or only the PDF without its voucher, as a successful issuance.
 
-## 동시 실행과 메모리 관리
+## Concurrency and memory management
 
-PDF 생성은 폰트와 이미지 데이터를 메모리에 올리고 문서 배치를 계산합니다. 동시에 많은 문서를 렌더링하면 메모리 사용량과 응답 시간이 급격히 늘어날 수 있습니다.
+PDF generation loads font and image data into memory and computes the document layout. Rendering many documents at once can sharply increase memory usage and response times.
 
-다음 원칙을 권장합니다.
+We recommend the following principles.
 
-- 하나의 `SlipKit` 인스턴스를 재사용합니다.
-- 무제한 `Promise.all`로 PDF를 동시에 생성하지 않습니다.
-- 동시 렌더 수를 제한하거나 작업 큐를 사용합니다.
-- 큰 문서와 이미지가 많은 문서는 요청 처리 프로세스와 분리된 작업자에서 생성합니다.
-- 요청 본문과 이미지 크기 제한을 HTTP 서버에서 별도로 설정합니다.
-- 처리 시간, PDF 크기, 실패율과 메모리 사용량을 기록합니다.
+- Reuse a single `SlipKit` instance.
+- Do not generate PDFs concurrently with an unbounded `Promise.all`.
+- Limit concurrent renders or use a job queue.
+- Generate large documents and image-heavy documents in a worker separate from the request-handling process.
+- Configure request body and image size limits separately on the HTTP server.
+- Record processing time, PDF size, failure rate, and memory usage.
 
 > [!NOTE]
-> SlipKit 스키마에는 페이지와 요소 개수 상한이 있지만 HTTP 요청 전체의 바이트 크기를 대신 제한하지는 않습니다.
-> Base64 이미지가 포함된 요청은 커질 수 있으므로 NestJS의 HTTP 어댑터와 프록시에서도 본문 크기 제한을 설정하세요.
+> The SlipKit schema has limits on page and element counts, but it does not limit the byte size of the whole HTTP request for you.
+> Requests containing Base64 images can be large, so configure body size limits in the NestJS HTTP adapter and at your proxy as well.
 
-## 오류 처리
+## Error handling
 
-서버에서는 오류의 발생 위치에 따라 응답과 기록 방식을 구분합니다.
+On the server, distinguish responses and logging by where the error originated.
 
-| 오류 | 일반적인 원인 | 권장 처리 |
+| Error | Typical cause | Recommended handling |
 |---|---|---|
-| `SlipParseError` | 잘못된 JSON, 지원하지 않는 구조, 발행 규칙 위반 | 외부 요청이면 400 응답, 저장된 양식이면 서버 데이터 오류로 기록 |
-| `SlipRenderError` | 잘못된 렌더 데이터, 폰트 설정 또는 PDF 생성 실패 | 요청 문제와 서버 설정 문제를 구분하여 4xx 또는 5xx 처리 |
-| `SlipEncryptionError` | 키 누락, 잘못된 키, 손상된 암호화 봉투 | 일반화된 오류를 응답하고 상세 원인은 서버 로그에만 기록 |
-| 저장소 오류 | DB, 파일 또는 오브젝트 스토리지 실패 | 발행 완료로 처리하지 않고 재시도 또는 복구 상태로 전환 |
+| `SlipParseError` | Invalid JSON, unsupported structure, issue-rule violation | Respond 400 for external requests; log as a server data error for stored templates |
+| `SlipRenderError` | Invalid render data, font configuration, or PDF generation failure | Distinguish request problems from server configuration problems and handle as 4xx or 5xx |
+| `SlipEncryptionError` | Missing key, wrong key, corrupted encryption envelope | Respond with a generalized error and record the detailed cause only in server logs |
+| Storage errors | DB, file, or object storage failure | Do not treat as issued; retry or transition to a recovery state |
 
-클라이언트 입력 때문에 발생한 오류와 서버에 저장된 양식·폰트·키 설정 때문에 발생한 오류를 같은 400 응답으로 처리하지 마세요.
+Do not handle errors caused by client input and errors caused by templates, fonts, or key configuration stored on the server with the same 400 response.
 
-암호화 키, 데이터베이스 연결 정보, 원본 전표 전체와 내부 파일 경로는 오류 응답에 포함하지 않습니다.
+Do not include encryption keys, database connection details, full original vouchers, or internal file paths in error responses.
 
-## 보안과 운영 시 확인할 사항
+## Security and operational considerations
 
-SlipKit은 다음 기능을 직접 제공하지 않습니다.
+SlipKit does not itself provide the following.
 
-- 사용자 인증
-- 양식과 전표 접근 권한
-- 발행 권한
-- 요청 횟수 제한
-- 감사 로그
-- 데이터베이스 트랜잭션
-- 파일 보존 기간과 삭제 정책
-- PDF의 전자서명이나 법적 진위 보장
+- User authentication
+- Access permissions for templates and vouchers
+- Issuance permissions
+- Rate limiting
+- Audit logs
+- Database transactions
+- File retention periods and deletion policies
+- Digital signatures or legal proof of authenticity for PDFs
 
-서버 애플리케이션에서 다음 항목을 별도로 구현해야 합니다.
+Implement the following separately in your server application.
 
-- 요청 사용자가 해당 양식을 사용할 수 있는지 확인
-- 발행 전표를 조회하거나 내려받을 권한 확인
-- 양식 ID를 이용한 다른 사용자 데이터 접근 차단
-- 발행 요청 중복 방지
-- 저장 데이터 암호화와 키 관리
-- 전표와 PDF의 생성자·생성 시각·사용 버전 기록
-- 보관 기간이 끝난 데이터의 안전한 삭제
+- Check that the requesting user may use the template
+- Check permission to view or download issued vouchers
+- Block access to other users' data via template IDs
+- Prevent duplicate issue requests
+- Encrypt stored data and manage keys
+- Record the creator, creation time, and versions used for vouchers and PDFs
+- Safely delete data whose retention period has ended
 
-## 피해야 할 구현
+## Implementations to avoid
 
-- 클라이언트가 보낸 객체를 타입 단언만 하고 렌더링하기
-- 클라이언트가 보낸 양식 스냅샷을 확인 없이 발행 기준으로 사용하기
-- 클라이언트가 만든 PDF를 검증된 원본으로 간주하기
-- `createSlipKit`을 요청마다 새로 만들기
-- 폰트 파일을 렌더 요청마다 직접 다시 읽기
-- 발행 전표의 `values`만 저장하기
-- `issued: true`를 전자서명이나 위변조 방지 표시로 사용하기
-- PDF 생성 작업을 제한 없이 동시에 실행하기
-- 데이터베이스와 PDF 저장 중 하나만 성공한 상태를 발행 완료로 처리하기
-- `@omdc-slipkit/elements` 루트 패키지를 Node.js 서버 UI처럼 사용하기
+- Rendering objects sent by the client after only a type assertion
+- Using a client-supplied template snapshot as the basis for issuance without verification
+- Treating a client-generated PDF as a validated original
+- Creating `createSlipKit` anew for every request
+- Re-reading font files directly on every render request
+- Storing only the `values` of an issued voucher
+- Using `issued: true` as a digital signature or tamper-proof marker
+- Running PDF generation jobs concurrently without limits
+- Treating a state where only one of the database write and PDF save succeeded as a completed issuance
+- Using the `@omdc-slipkit/elements` root package as if it were a Node.js server UI
 
-## 서버 통합 확인 목록
+## Server integration checklist
 
-- [ ] Node.js 22.13 이상을 사용한다.
-- [ ] `@omdc-slipkit/core`의 공개 패키지 경로로 import한다.
-- [ ] `createSlipKit`을 싱글턴 Provider로 등록했다.
-- [ ] 한글·일본어 출력에 필요한 폰트를 공급한다.
-- [ ] 외부 요청과 저장소에서 읽은 `.slip` 파일을 검증한다.
-- [ ] 발행 기준 양식을 서버의 신뢰할 수 있는 저장소에서 읽는다.
-- [ ] 발행 전에 외부 URL 이미지를 내장 데이터로 변환한다.
-- [ ] 발행 상태로 변경한 전표를 다시 검증한다.
-- [ ] 전표 전체와 필요한 PDF를 함께 보관한다.
-- [ ] 발행 실패와 부분 저장 상태를 복구할 수 있다.
-- [ ] 동시 PDF 생성 수와 요청 본문 크기를 제한한다.
-- [ ] 인증, 권한, 감사 기록과 보존 정책을 서버에서 관리한다.
-- [ ] 발행 당시의 SlipKit 버전과 렌더 설정을 기록한다.
+- [ ] Use Node.js 22.13 or later.
+- [ ] Import `@omdc-slipkit/core` through its public package paths.
+- [ ] Register `createSlipKit` as a singleton provider.
+- [ ] Supply the fonts needed for Korean and Japanese output.
+- [ ] Validate `.slip` files from external requests and from storage.
+- [ ] Read the template used for issuance from a trusted server store.
+- [ ] Convert external URL images to embedded data before issuing.
+- [ ] Validate the voucher again after switching it to the issued state.
+- [ ] Store the entire voucher together with any required PDFs.
+- [ ] Be able to recover from issuance failures and partial saves.
+- [ ] Limit concurrent PDF generation and request body size.
+- [ ] Manage authentication, permissions, audit records, and retention policies on the server.
+- [ ] Record the SlipKit version and render settings at the time of issue.
 
-## 관련 문서
+## Related documents
 
-- [Core 사용 가이드](core.md)
-- [애플리케이션 통합 가이드](integration.md)
-- [환경 설정 가이드](configuration.md)
-- [API 참조](api-reference.md)
-- [아키텍처](../ARCHITECTURE.md)
-- [파일 형식 명세](../SPEC.md)
+- [Core Usage Guide](core.md)
+- [Application Integration Guide](integration.md)
+- [Configuration Guide](configuration.md)
+- [API Reference](api-reference.md)
+- [Architecture](../ARCHITECTURE.md)
+- [File Format Specification](../SPEC.md)

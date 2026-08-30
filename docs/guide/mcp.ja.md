@@ -1,6 +1,6 @@
 # SlipKit MCP 利用ガイド
 
-[한국어](mcp.md) · [English](mcp.en.md)
+[한국어](mcp.ko.md) · [English](mcp.md)
 
 `@omdc-slipkit/mcp` は、AI が指定されたローカルディレクトリ内の `.slip` テンプレートと伝票を読み取り、作成・編集できる stdio MCP サーバーです。テンプレートから未発行伝票を作成したり、テンプレートや伝票を PDF にレンダリングしたりできます。
 

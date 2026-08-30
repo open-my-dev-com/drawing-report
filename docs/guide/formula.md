@@ -1,67 +1,67 @@
-# 수식 작성 및 함수 참조
+# Writing Formulas and Function Reference
 
-[English](formula.en.md) · [日本語](formula.ja.md)
+[한국어](formula.ko.md) · [日本語](formula.ja.md)
 
-SlipKit 수식은 양식에 입력된 값을 계산하거나 표시 형식으로 변환하고, 조건부 서식의 적용 여부를 판단할 때 사용합니다.
+SlipKit formulas compute values entered into a template, convert them into display formats, and determine whether conditional formats apply.
 
-필드, 그리드 셀, 바코드의 표시 값과 텍스트·필드·그리드 셀의 조건부 서식에 수식을 사용할 수 있습니다. 수식으로 다음과 같은 작업을 처리할 수 있습니다.
+You can use formulas for the displayed values of fields, grid cells, and barcodes, and for conditional formats on text, fields, and grid cells. They handle tasks such as the following.
 
-- 품목별 금액 합산
-- 수량과 단가를 이용한 금액 계산
-- 조건에 따른 문구 표시
-- 숫자와 날짜의 표시 형식 변경
-- 부가세 계산
-- 날짜 더하기와 기간 계산
+- Summing amounts per line item
+- Computing an amount from quantity and unit price
+- Showing text depending on a condition
+- Changing the display format of numbers and dates
+- Computing VAT
+- Adding dates and computing periods
 
-이 문서에서는 수식 작성 규칙과 SlipKit이 제공하는 내장 함수 32종을 설명합니다.
+This document explains the formula-writing rules and the 32 built-in functions SlipKit provides.
 
 > [!NOTE]
-> SlipKit 수식은 JavaScript 코드를 실행하지 않습니다.
-> 등록된 연산자와 함수만 자체 수식 엔진에서 해석합니다.
+> SlipKit formulas do not execute JavaScript code.
+> Only the registered operators and functions are interpreted by its own formula engine.
 
-## 수식을 작성할 수 있는 위치
+## Where formulas can be written
 
-| 위치 | 수식에서 참조할 수 있는 값 | 사용 예 |
+| Location | Values the formula can reference | Usage example |
 |---|---|---|
-| 필드 | 전표의 전체 값 | 합계, 세액, 표시용 문구 |
-| 바코드 | 전표의 전체 값 | 주문 번호 조합, 바코드 값 생성 |
-| 데이터 반복 영역 밖의 그리드 셀 | 전표의 전체 값 | 표 하단 합계 |
-| 데이터 반복 영역 안의 그리드 셀 | 전표의 전체 값과 현재 반복 항목 | 행별 금액 계산 |
-| 텍스트·필드·데이터 반복 영역 밖 셀의 조건부 서식 | 전표의 전체 값 | 음수 금액이나 특정 상태 강조 |
-| 데이터 반복 영역 안 셀의 조건부 서식 | 전표의 전체 값과 현재 반복 항목 | 조건에 맞는 행 강조 |
+| Field | All values of the voucher | Totals, tax, display text |
+| Barcode | All values of the voucher | Composing an order number, generating a barcode value |
+| Grid cell outside the data repeat area | All values of the voucher | Total at the bottom of the table |
+| Grid cell inside the data repeat area | All values of the voucher and the current repeat item | Per-row amount computation |
+| Conditional format on text, a field, or a cell outside the data repeat area | All values of the voucher | Highlighting a negative amount or a specific status |
+| Conditional format on a cell inside the data repeat area | All values of the voucher and the current repeat item | Highlighting matching rows |
 
-필드, 바코드 또는 그리드 셀을 선택한 뒤 값의 종류를 <kbd>수식</kbd>으로 변경하면 수식을 입력할 수 있습니다.
+Select a field, barcode, or grid cell and change the value type to <kbd>Formula</kbd> to enter a formula.
 
-조건부 서식의 조건식도 같은 문법과 함수를 사용하지만, 결과는 반드시 불리언 값이어야 합니다. 텍스트·필드·그리드 셀을 선택한 뒤 <kbd>조건부 서식</kbd>에서 조건식을 입력합니다.
+Conditional-format conditions use the same syntax and functions, but must return a boolean. Select text, a field, or a grid cell and enter the condition under <kbd>Conditional format</kbd>.
 
-![수식 편집 창](images/ko/formula.png)
+![Formula editor](images/en/formula.png)
 
-수식 편집 창에서는 다음 기능을 제공합니다.
+The formula editor provides the following features.
 
-- 파라미터와 목록 필드 삽입
-- 지원 함수 확인
-- 문법 오류 확인
-- 샘플 값을 이용한 계산 결과 확인
+- Inserting parameters and list fields
+- Checking the supported functions
+- Checking syntax errors
+- Checking the computed result using sample values
 
-표시 수식은 [양식 디자이너 사용 가이드의 수식 작성](designer.md#7-수식-작성하기), 조건식은 [조건부 서식 설정](designer.md#8-조건부-서식-설정하기)을 확인하세요.
+For display formulas, see [Writing formulas](designer.md#7-writing-formulas) in the Form Designer Usage Guide. For conditions, see [Setting conditional formats](designer.md#8-setting-conditional-formats).
 
-## 빠르게 시작하기
+## Quick start
 
-다음과 같은 전표 값이 있다고 가정합니다.
+Assume you have the following voucher values.
 
 ```json
 {
-  "customerName": "한빛상사",
+  "customerName": "Hanbit Trading",
   "shippingFee": 3000,
   "items": [
     {
-      "name": "복사용지",
+      "name": "Copy paper",
       "quantity": 2,
       "unitPrice": 5000,
       "amount": 10000
     },
     {
-      "name": "볼펜",
+      "name": "Ballpoint pen",
       "quantity": 3,
       "unitPrice": 1000,
       "amount": 3000
@@ -70,120 +70,120 @@ SlipKit 수식은 양식에 입력된 값을 계산하거나 표시 형식으로
 }
 ```
 
-전체 품목 금액을 합산합니다.
+Sum all line-item amounts.
 
 ```text
 SUM(items.amount)
 → 13000
 ```
 
-배송비를 포함한 총액을 계산합니다.
+Compute the total including the shipping fee.
 
 ```text
 SUM(items.amount) + shippingFee
 → 16000
 ```
 
-표시할 문구를 만듭니다.
+Build display text.
 
 ```text
-CONCAT(customerName, " 귀중")
-→ "한빛상사 귀중"
+CONCAT(customerName, " Co.")
+→ "Hanbit Trading Co."
 ```
 
-총액에 자릿수 구분 기호를 적용합니다.
+Apply a thousands separator to the total.
 
 ```text
-CONCAT(FORMAT_NUMBER(SUM(items.amount) + shippingFee), "원")
-→ "16,000원"
+CONCAT(FORMAT_NUMBER(SUM(items.amount) + shippingFee), " KRW")
+→ "16,000 KRW"
 ```
 
-반복 그리드 안에서는 현재 항목의 필드를 이름으로 직접 참조할 수 있습니다.
+Inside a repeat grid, you can reference the current item's fields directly by name.
 
 ```text
 quantity * unitPrice
 ```
 
 > [!IMPORTANT]
-> 데이터 반복 영역 안에서는 현재 항목의 필드가 같은 이름의 전표 최상위 값보다 우선합니다.
-> 전체 목록은 기존과 같이 `items.amount` 형태로 참조할 수 있습니다.
+> Inside the data repeat area, the current item's fields take precedence over top-level voucher values of the same name.
+> The whole list can still be referenced as `items.amount` as before.
 
-### 반복 그리드의 계산 범위
+### Calculation scopes in repeating grids
 
-행 구간의 수식에서는 `@`로 시작하는 예약 참조로 계산 범위를 지정할 수 있습니다.
+Formulas in row bands can select a calculation scope with an `@` reserved reference.
 
-| 참조 | 범위 | 예 |
+| Reference | Scope | Example |
 |---|---|---|
-| `@item` | 현재 항목 | `@item.amount` |
-| `@group` | 현재 그룹의 항목 | `SUM(@group.amount)` |
-| `@page` | 현재 출력 페이지의 항목 | `SUM(@page.amount)` |
-| `@carried` | 현재 출력 페이지보다 앞에 배치된 항목 | `SUM(@carried.amount)` |
-| `@all` | 출력 대상 전체 항목 | `SUM(@all.amount)` |
+| `@item` | Current item | `@item.amount` |
+| `@group` | Items in the current group | `SUM(@group.amount)` |
+| `@page` | Items on the current output page | `SUM(@page.amount)` |
+| `@carried` | Items placed before the current output page | `SUM(@carried.amount)` |
+| `@all` | All items included in the output | `SUM(@all.amount)` |
 
-빈 항목은 이 계산 범위에 포함되지 않습니다. <kbd>최대 항목 수</kbd>를 설정했다면 제한을 적용한 항목만 `@all`에 포함됩니다.
+Blank items are excluded from these scopes. When <kbd>Maximum items</kbd> is set, `@all` contains only the items left after that limit is applied.
 
-디자이너의 <kbd>그룹 소계</kbd>, <kbd>페이지 소계</kbd>, <kbd>최종 합계</kbd> 빠른 구성은 각각 `@group`, `@page`, `@all` 수식을 만듭니다. 예약 참조는 반복 그리드의 출력 계획이 계산 범위를 제공하는 행에서 사용합니다.
+The designer's <kbd>Group subtotal</kbd>, <kbd>Page subtotal</kbd>, and <kbd>Final total</kbd> quick setup commands create `@group`, `@page`, and `@all` formulas respectively. Reserved references are available in repeating-grid rows for which the output plan supplies that scope.
 
-## 수식 작성 규칙
+## Formula-writing rules
 
-### 값과 참조
+### Values and references
 
-| 종류 | 작성 방법 | 예 |
+| Kind | How to write | Example |
 |---|---|---|
-| 숫자 | 숫자를 그대로 작성 | `1500`, `-3.5`, `1e3` |
-| 문자열 | 큰따옴표로 감싸서 작성 | `"완료"` |
-| 논리값 | `TRUE` 또는 `FALSE` | `TRUE` |
-| 파라미터 | 파라미터 키를 작성 | `totalAmount` |
-| 하위 필드 | 마침표로 경로를 연결 | `customer.name` |
-| 목록 범위 | 목록과 하위 필드를 연결 | `items.amount` |
+| Number | Write the number as-is | `1500`, `-3.5`, `1e3` |
+| String | Wrap in double quotes | `"Done"` |
+| Boolean | `TRUE` or `FALSE` | `TRUE` |
+| Parameter | Write the parameter key | `totalAmount` |
+| Sub-field | Join the path with a dot | `customer.name` |
+| List range | Join the list and a sub-field | `items.amount` |
 
-문자열 안에 큰따옴표를 넣으려면 큰따옴표를 두 번 작성합니다.
+To include a double quote inside a string, write the double quote twice.
 
 ```text
-"한빛 ""문구"""
-→ 한빛 "문구"
+"Han ""bit"""
+→ Han "bit"
 ```
 
-파라미터와 필드 이름은 다음 규칙을 따라야 수식에서 참조할 수 있습니다.
+Parameter and field names must follow these rules to be referenceable in a formula.
 
-- 문자 또는 밑줄(`_`)로 시작
-- 이후에는 문자, 숫자, 밑줄 사용 가능
-- 한글을 포함한 유니코드 문자 사용 가능
-- 공백, 하이픈(`-`), 특수문자 사용 불가
+- Start with a letter or an underscore (`_`)
+- After that, letters, digits, and underscores can be used
+- Unicode characters, including Korean, can be used
+- Spaces, hyphens (`-`), and special characters cannot be used
 
 ```text
-totalAmount     올바름
-총금액           올바름
-_item1          올바름
-item-price      수식 참조 이름으로 사용할 수 없음
-1stItem         숫자로 시작하므로 사용할 수 없음
+totalAmount     valid
+총금액           valid
+_item1          valid
+item-price      cannot be used as a formula reference name
+1stItem         cannot be used because it starts with a digit
 ```
 
 > [!TIP]
-> 양식 파라미터를 만들 때부터 영문·한글 문자, 숫자와 밑줄만 사용하면 수식 참조 문제를 예방할 수 있습니다.
+> If you use only Latin and Korean letters, digits, and underscores from the moment you create a template parameter, you can prevent formula-reference problems.
 
-### 연산자
+### Operators
 
-| 분류 | 연산자 | 설명 |
+| Category | Operator | Description |
 |---|---|---|
-| 산술 | `+` | 더하기 |
-| 산술 | `-` | 빼기 또는 음수 부호 |
-| 산술 | `*` | 곱하기 |
-| 산술 | `/` | 나누기 |
-| 비교 | `=` | 같음 |
-| 비교 | `<>` | 같지 않음 |
-| 비교 | `<` | 작음 |
-| 비교 | `>` | 큼 |
-| 비교 | `<=` | 작거나 같음 |
-| 비교 | `>=` | 크거나 같음 |
+| Arithmetic | `+` | Addition |
+| Arithmetic | `-` | Subtraction or negative sign |
+| Arithmetic | `*` | Multiplication |
+| Arithmetic | `/` | Division |
+| Comparison | `=` | Equal |
+| Comparison | `<>` | Not equal |
+| Comparison | `<` | Less than |
+| Comparison | `>` | Greater than |
+| Comparison | `<=` | Less than or equal |
+| Comparison | `>=` | Greater than or equal |
 
-연산 우선순위는 다음과 같습니다.
+The operation precedence is as follows.
 
-1. 괄호
-2. 단항 부호 `+`, `-`
-3. 곱하기와 나누기
-4. 더하기와 빼기
-5. 비교
+1. Parentheses
+2. Unary sign `+`, `-`
+3. Multiplication and division
+4. Addition and subtraction
+5. Comparison
 
 ```text
 1 + 2 * 3
@@ -194,33 +194,33 @@ item-price      수식 참조 이름으로 사용할 수 없음
 ```
 
 > [!IMPORTANT]
-> `+`는 숫자 덧셈에만 사용합니다.
-> 문자열을 연결하려면 `CONCAT`을 사용하세요.
+> `+` is only for numeric addition.
+> To join strings, use `CONCAT`.
 
-### 값의 타입
+### Value types
 
-SlipKit 수식 값은 다음 다섯 가지 타입으로 구분됩니다.
+SlipKit formula values are distinguished into the following five types.
 
-- 숫자
-- 문자열
-- 논리값
-- 빈 값
-- 범위
+- Number
+- String
+- Boolean
+- Empty value
+- Range
 
-숫자를 요구하는 연산이나 함수는 문자열을 자동으로 숫자로 변환하지 않습니다.
+Operations or functions that require a number do not automatically convert a string to a number.
 
 ```text
 amount * 2
 ```
 
-`amount`가 문자열 `"1500"`이면 위 수식은 오류가 발생합니다. 명시적으로 변환해야 합니다.
+If `amount` is the string `"1500"`, the formula above throws an error. You must convert it explicitly.
 
 ```text
 TO_NUMBER(amount) * 2
 → 3000
 ```
 
-일반 비교 연산은 같은 타입끼리 비교합니다.
+Ordinary comparison operations compare values of the same type.
 
 ```text
 3 = 3
@@ -233,103 +233,103 @@ TO_STRING(3) = "3"
 → TRUE
 ```
 
-`<`, `>`, `<=`, `>=` 비교는 숫자끼리 또는 문자열끼리만 사용할 수 있습니다.
+The `<`, `>`, `<=`, `>=` comparisons can only be used between numbers or between strings.
 
 > [!NOTE]
-> `SUMIF`와 `COUNTIF`의 조건 문자열은 일반 비교 연산과 별도의 조건 비교 규칙을 사용합니다.
-> 숫자로 해석할 수 있는 조건 문자열은 숫자 값과 비교할 수 있습니다.
+> The condition strings of `SUMIF` and `COUNTIF` use condition-comparison rules separate from ordinary comparison operations.
+> A condition string that can be interpreted as a number can be compared with a numeric value.
 
-### 빈 값
+### Empty values
 
-존재하지 않는 파라미터나 값이 지정되지 않은 참조는 빈 값으로 처리됩니다.
+A non-existent parameter or a reference with no assigned value is treated as an empty value.
 
-빈 값은 사용하는 위치에 따라 다르게 처리됩니다.
+An empty value is handled differently depending on where it is used.
 
-| 사용 위치 | 처리 |
+| Where used | Handling |
 |---|---|
-| 산술 연산 | `0` |
-| `SUM`, `AVG`, `MIN`, `MAX` | 집계 대상에서 제외 |
-| `COUNT` | 개수에서 제외 |
-| `CONCAT`, `TO_STRING` | 빈 문자열 |
-| 조건 | 거짓 |
-| 일반 비교 | 다른 타입의 값과 같지 않음 |
+| Arithmetic operation | `0` |
+| `SUM`, `AVG`, `MIN`, `MAX` | Excluded from aggregation |
+| `COUNT` | Excluded from the count |
+| `CONCAT`, `TO_STRING` | Empty string |
+| Condition | False |
+| Ordinary comparison | Not equal to a value of a different type |
 
-빈 문자열 `""`은 집계 함수에서 제외되지만 직접 산술 연산에 사용하면 오류가 발생합니다.
+The empty string `""` is excluded from aggregation functions, but using it directly in an arithmetic operation throws an error.
 
 > [!CAUTION]
-> 존재하지 않는 파라미터도 빈 값이 되므로 이름을 잘못 입력해도 항상 문법 오류가 발생하는 것은 아닙니다.
-> 디자이너의 샘플 데이터로 결과를 확인하세요.
+> A non-existent parameter also becomes an empty value, so a misspelled name does not always cause a syntax error.
+> Check the result with the designer's sample data.
 
-### 범위
+### Range
 
-목록 파라미터의 하위 필드를 참조하면 범위가 만들어집니다.
+Referencing a sub-field of a list parameter creates a range.
 
 ```text
 items.amount
 ```
 
-범위는 `SUM`, `AVG`, `COUNT`, `MIN`, `MAX`, `SUMIF`, `COUNTIF`와 같은 집계 함수에 전달할 수 있습니다.
+A range can be passed to aggregation functions such as `SUM`, `AVG`, `COUNT`, `MIN`, `MAX`, `SUMIF`, and `COUNTIF`.
 
 ```text
 SUM(items.amount)
 ```
 
-범위를 산술 연산에 직접 사용할 수는 없습니다.
+A range cannot be used directly in an arithmetic operation.
 
 ```text
 items.amount + 1000
-→ 오류
+→ error
 ```
 
-집계 함수를 사용해야 합니다.
+You must use an aggregation function.
 
 ```text
 SUM(items.amount) + 1000
 ```
 
-목록 항목에 해당 필드가 없으면 그 항목의 값은 빈 값으로 처리됩니다.
+If a list item does not have the given field, that item's value is treated as an empty value.
 
-## 함수 한눈에 보기
+## Functions at a glance
 
-| 분류 | 함수 |
+| Category | Functions |
 |---|---|
-| 집계 | `SUM`, `AVG`, `COUNT`, `MIN`, `MAX` |
-| 조건부 집계 | `SUMIF`, `COUNTIF` |
-| 산술 | `ROUND`, `FLOOR`, `CEIL`, `ABS` |
-| 문자열 | `CONCAT`, `LEFT`, `RIGHT`, `MID`, `REPLACE`, `TRIM`, `UPPER`, `LOWER` |
-| 조건 | `IF`, `AND`, `OR` |
-| 표시 형식 | `FORMAT_NUMBER`, `FORMAT_DATE`, `NUMBER_TO_KOREAN` |
-| 날짜 | `TODAY`, `DATE_ADD`, `DATE_DIFF` |
-| 세무 | `VAT` |
-| 타입 변환 | `TO_NUMBER`, `TO_STRING`, `TO_DATE` |
+| Aggregation | `SUM`, `AVG`, `COUNT`, `MIN`, `MAX` |
+| Conditional aggregation | `SUMIF`, `COUNTIF` |
+| Arithmetic | `ROUND`, `FLOOR`, `CEIL`, `ABS` |
+| String | `CONCAT`, `LEFT`, `RIGHT`, `MID`, `REPLACE`, `TRIM`, `UPPER`, `LOWER` |
+| Condition | `IF`, `AND`, `OR` |
+| Display format | `FORMAT_NUMBER`, `FORMAT_DATE`, `NUMBER_TO_KOREAN` |
+| Date | `TODAY`, `DATE_ADD`, `DATE_DIFF` |
+| Tax | `VAT` |
+| Type conversion | `TO_NUMBER`, `TO_STRING`, `TO_DATE` |
 
-함수 이름은 대소문자를 구분하지 않습니다.
+Function names are case-insensitive.
 
 ```text
 SUM(items.amount)
 sum(items.amount)
 ```
 
-두 수식은 같은 함수로 처리됩니다.
+Both formulas are treated as the same function.
 
-등록되지 않은 함수는 문법 분석 단계에서 거부됩니다.
+An unregistered function is rejected at the syntax-analysis stage.
 
-## 집계 함수
+## Aggregation functions
 
 ### `SUM`
 
-`SUM(값, ...)`
+`SUM(value, ...)`
 
-숫자와 범위의 합계를 계산합니다. 여러 값과 범위를 함께 전달할 수 있습니다.
+Computes the sum of numbers and ranges. You can pass multiple values and ranges together.
 
-빈 값과 빈 문자열은 제외합니다. 집계 대상에 숫자가 아닌 값이 있으면 오류가 발생합니다.
+Empty values and empty strings are excluded. If the aggregation target contains a non-number value, an error occurs.
 
 ```text
 SUM(items.amount)
-→ 품목 금액 합계
+→ the sum of item amounts
 
 SUM(items.amount, shippingFee)
-→ 품목 금액 합계 + 배송비
+→ the sum of item amounts + the shipping fee
 
 SUM()
 → 0
@@ -337,11 +337,11 @@ SUM()
 
 ### `AVG`
 
-`AVG(값, ...)`
+`AVG(value, ...)`
 
-숫자와 범위의 평균을 계산합니다.
+Computes the average of numbers and ranges.
 
-빈 값과 빈 문자열은 제외하며, 평균을 계산할 숫자가 하나도 없으면 오류가 발생합니다.
+Empty values and empty strings are excluded, and if there is not a single number to average, an error occurs.
 
 ```text
 AVG(items.unitPrice)
@@ -349,22 +349,22 @@ AVG(items.unitPrice)
 
 ### `COUNT`
 
-`COUNT(값, ...)`
+`COUNT(value, ...)`
 
-빈 값과 빈 문자열을 제외한 항목 수를 반환합니다.
+Returns the number of items excluding empty values and empty strings.
 
-숫자뿐 아니라 문자열과 논리값도 값이 있으면 개수에 포함됩니다.
+Not only numbers but also strings and booleans are included in the count if they have a value.
 
 ```text
 COUNT(items.name)
-→ 품명이 입력된 항목 수
+→ the number of items with a product name entered
 ```
 
 ### `MIN`
 
-`MIN(값, ...)`
+`MIN(value, ...)`
 
-가장 작은 숫자를 반환합니다. 계산할 숫자가 없으면 `0`을 반환합니다.
+Returns the smallest number. If there is no number to compute, it returns `0`.
 
 ```text
 MIN(items.unitPrice)
@@ -372,88 +372,88 @@ MIN(items.unitPrice)
 
 ### `MAX`
 
-`MAX(값, ...)`
+`MAX(value, ...)`
 
-가장 큰 숫자를 반환합니다. 계산할 숫자가 없으면 `0`을 반환합니다.
+Returns the largest number. If there is no number to compute, it returns `0`.
 
 ```text
 MAX(items.amount)
 ```
 
-## 조건부 집계 함수
+## Conditional aggregation functions
 
 ### `SUMIF`
 
-`SUMIF(조건범위, 조건, 합계범위?)`
+`SUMIF(conditionRange, condition, sumRange?)`
 
-조건에 맞는 항목만 합산합니다.
+Sums only the items that match the condition.
 
-합계 범위를 생략하면 조건 범위의 값을 합산합니다.
+If the sum range is omitted, it sums the values of the condition range.
 
 ```text
-SUMIF(items.category, "식품", items.amount)
-→ category가 "식품"인 항목의 amount 합계
+SUMIF(items.category, "Food", items.amount)
+→ the sum of amount for items whose category is "Food"
 
 SUMIF(items.amount, ">=10000")
-→ 10000 이상인 amount의 합계
+→ the sum of amount that is 10000 or more
 ```
 
-조건 범위와 합계 범위를 함께 사용할 때 두 범위의 길이가 다르면 오류가 발생합니다.
+When the condition range and sum range are used together, an error occurs if the two ranges have different lengths.
 
-합계 대상의 빈 값과 빈 문자열은 제외합니다. 조건에 맞는 합계 대상이 숫자가 아니면 오류가 발생합니다.
+Empty values and empty strings in the sum target are excluded. If a matching sum target is not a number, an error occurs.
 
 ### `COUNTIF`
 
-`COUNTIF(범위, 조건)`
+`COUNTIF(range, condition)`
 
-조건에 맞는 항목 수를 반환합니다.
+Returns the number of items that match the condition.
 
 ```text
-COUNTIF(items.status, "완료")
-→ status가 "완료"인 항목 수
+COUNTIF(items.status, "Done")
+→ the number of items whose status is "Done"
 
 COUNTIF(items.quantity, ">4")
-→ quantity가 4보다 큰 항목 수
+→ the number of items whose quantity is greater than 4
 ```
 
-### 조건 문자열
+### Condition strings
 
-`SUMIF`와 `COUNTIF`는 다음 조건 문자열을 지원합니다.
+`SUMIF` and `COUNTIF` support the following condition strings.
 
-| 조건 | 의미 |
+| Condition | Meaning |
 |---|---|
-| `"식품"` | `"식품"`과 같음 |
-| `"=식품"` | `"식품"`과 같음 |
-| `"<>완료"` | `"완료"`와 같지 않음 |
-| `">=10"` | 10 이상 |
-| `">10"` | 10 초과 |
-| `"<=10"` | 10 이하 |
-| `"<10"` | 10 미만 |
+| `"Food"` | Equal to `"Food"` |
+| `"=Food"` | Equal to `"Food"` |
+| `"<>Done"` | Not equal to `"Done"` |
+| `">=10"` | 10 or more |
+| `">10"` | Greater than 10 |
+| `"<=10"` | 10 or less |
+| `"<10"` | Less than 10 |
 
-비교 연산자가 없는 조건은 같음 비교로 처리합니다.
+A condition without a comparison operator is treated as an equality comparison.
 
-숫자 비교 조건은 조건 문자열의 비교 대상이 숫자로 해석될 때만 동작합니다.
+A numeric comparison condition works only when the comparison operand of the condition string can be interpreted as a number.
 
 ```text
 COUNTIF(items.quantity, "3")
 COUNTIF(items.quantity, "=3")
 ```
 
-두 수식 모두 숫자 `3`인 항목을 셀 수 있습니다.
+Both formulas can count items with the number `3`.
 
 > [!CAUTION]
-> `"<>"` 조건은 빈 값도 지정한 값과 다르다고 판단합니다.
-> 예를 들어 `COUNTIF(items.status, "<>완료")`에는 상태가 비어 있는 항목도 포함됩니다.
+> A `"<>"` condition judges an empty value to also be different from the specified value.
+> For example, `COUNTIF(items.status, "<>Done")` includes items whose status is empty.
 
-## 산술 함수
+## Arithmetic functions
 
 ### `ROUND`
 
-`ROUND(수, 자릿수?)`
+`ROUND(number, digits?)`
 
-지정한 자릿수로 반올림합니다. 자릿수를 생략하면 정수로 반올림합니다.
+Rounds to the specified number of digits. If digits is omitted, it rounds to an integer.
 
-자릿수는 정수여야 하며 음수를 지정하면 십·백·천 단위로 반올림할 수 있습니다.
+Digits must be an integer, and specifying a negative number rounds to tens, hundreds, or thousands.
 
 ```text
 ROUND(1234.567, 2)
@@ -468,9 +468,9 @@ ROUND(1234.567, -2)
 
 ### `FLOOR`
 
-`FLOOR(수, 자릿수?)`
+`FLOOR(number, digits?)`
 
-지정한 자릿수에서 작은 방향으로 내립니다.
+Rounds down toward the smaller value at the specified digits.
 
 ```text
 FLOOR(1234.567, 1)
@@ -482,9 +482,9 @@ FLOOR(-15, -1)
 
 ### `CEIL`
 
-`CEIL(수, 자릿수?)`
+`CEIL(number, digits?)`
 
-지정한 자릿수에서 큰 방향으로 올립니다.
+Rounds up toward the larger value at the specified digits.
 
 ```text
 CEIL(1234.001, 2)
@@ -493,101 +493,101 @@ CEIL(1234.001, 2)
 
 ### `ABS`
 
-`ABS(수)`
+`ABS(number)`
 
-숫자의 절댓값을 반환합니다.
+Returns the absolute value of a number.
 
 ```text
 ABS(-500)
 → 500
 ```
 
-## 문자열 함수
+## String functions
 
 ### `CONCAT`
 
-`CONCAT(값, ...)`
+`CONCAT(value, ...)`
 
-여러 값을 문자열로 변환하여 이어 붙입니다.
+Converts multiple values to strings and joins them.
 
-숫자와 논리값은 문자열로 변환되며 빈 값은 빈 문자열로 처리됩니다. 범위는 직접 연결할 수 없습니다.
+Numbers and booleans are converted to strings, and empty values are treated as empty strings. Ranges cannot be joined directly.
 
 ```text
-CONCAT("합계: ", 1000, "원")
-→ "합계: 1000원"
+CONCAT("Total: ", 1000, " KRW")
+→ "Total: 1000 KRW"
 
-CONCAT(customerName, " 귀중")
-→ "한빛상사 귀중"
+CONCAT(customerName, " Co.")
+→ "Hanbit Trading Co."
 ```
 
 ### `LEFT`
 
-`LEFT(문자열, 글자수?)`
+`LEFT(string, count?)`
 
-문자열의 왼쪽부터 지정한 수만큼 반환합니다. 글자 수를 생략하면 한 글자를 반환합니다.
+Returns the given number of characters from the left of the string. If the count is omitted, it returns one character.
 
-글자 수가 `0` 이하이면 빈 문자열을 반환합니다.
+If the count is `0` or less, it returns an empty string.
 
 ```text
-LEFT("거래명세서", 2)
-→ "거래"
+LEFT("Statement", 4)
+→ "Stat"
 ```
 
 ### `RIGHT`
 
-`RIGHT(문자열, 글자수?)`
+`RIGHT(string, count?)`
 
-문자열의 오른쪽부터 지정한 수만큼 반환합니다. 글자 수를 생략하면 한 글자를 반환합니다.
+Returns the given number of characters from the right of the string. If the count is omitted, it returns one character.
 
-글자 수가 `0` 이하이면 빈 문자열을 반환합니다.
+If the count is `0` or less, it returns an empty string.
 
 ```text
-RIGHT("거래명세서", 3)
-→ "명세서"
+RIGHT("Statement", 3)
+→ "ent"
 ```
 
 ### `MID`
 
-`MID(문자열, 시작위치, 길이)`
+`MID(string, start, length)`
 
-지정한 시작 위치부터 문자열 일부를 반환합니다. 시작 위치는 `1`부터 셉니다.
+Returns a part of the string from the given start position. The start position is counted from `1`.
 
-시작 위치는 1 이상의 정수여야 합니다. 길이가 `0` 이하이면 빈 문자열을 반환합니다.
+The start position must be an integer of 1 or more. If the length is `0` or less, it returns an empty string.
 
 ```text
-MID("거래명세서", 3, 2)
-→ "명세"
+MID("Statement", 6, 4)
+→ "ment"
 ```
 
 ### `REPLACE`
 
-`REPLACE(문자열, 찾을문자열, 바꿀문자열)`
+`REPLACE(string, find, replacement)`
 
-일치하는 모든 문자열을 바꿉니다.
+Replaces all matching strings.
 
 ```text
 REPLACE("2026-08-25", "-", "/")
 → "2026/08/25"
 ```
 
-찾을 문자열이 비어 있으면 원래 문자열을 그대로 반환합니다.
+If the find string is empty, it returns the original string as-is.
 
 ### `TRIM`
 
-`TRIM(문자열)`
+`TRIM(string)`
 
-문자열 앞뒤의 공백을 제거합니다. 문자열 중간의 공백은 유지합니다.
+Removes whitespace at the front and back of the string. Whitespace in the middle is kept.
 
 ```text
-TRIM("  한빛상사  ")
-→ "한빛상사"
+TRIM("  Hanbit Trading  ")
+→ "Hanbit Trading"
 ```
 
 ### `UPPER`
 
-`UPPER(문자열)`
+`UPPER(string)`
 
-영문자를 대문자로 변환합니다.
+Converts Latin letters to uppercase.
 
 ```text
 UPPER("slip-001")
@@ -596,46 +596,46 @@ UPPER("slip-001")
 
 ### `LOWER`
 
-`LOWER(문자열)`
+`LOWER(string)`
 
-영문자를 소문자로 변환합니다.
+Converts Latin letters to lowercase.
 
 ```text
 LOWER("SLIP-001")
 → "slip-001"
 ```
 
-## 조건 함수
+## Condition functions
 
 ### `IF`
 
-`IF(조건, 참일때, 거짓일때?)`
+`IF(condition, whenTrue, whenFalse?)`
 
-조건이 참이면 두 번째 인자를, 거짓이면 세 번째 인자를 반환합니다.
+Returns the second argument if the condition is true, and the third argument if it is false.
 
-거짓일 때의 값을 생략하면 조건이 거짓일 때 빈 값을 반환합니다.
+If the false value is omitted, it returns an empty value when the condition is false.
 
 ```text
-IF(totalAmount >= 100000, "대량", "일반")
+IF(totalAmount >= 100000, "Bulk", "Regular")
 
-IF(isPaid, "결제 완료")
+IF(isPaid, "Payment complete")
 ```
 
-`IF`는 선택된 결과만 계산합니다. 사용되지 않는 쪽의 수식은 평가하지 않습니다.
+`IF` computes only the selected result. It does not evaluate the formula on the unused side.
 
 ```text
 IF(quantity = 0, 0, amount / quantity)
 ```
 
-수량이 `0`이면 나눗셈을 실행하지 않으므로 0으로 나누기 오류가 발생하지 않습니다.
+If the quantity is `0`, the division is not performed, so a division-by-zero error does not occur.
 
 ### `AND`
 
-`AND(조건, ...)`
+`AND(condition, ...)`
 
-모든 조건이 참이면 `TRUE`를 반환합니다. 하나라도 거짓이면 나머지 조건을 평가하지 않고 `FALSE`를 반환합니다.
+Returns `TRUE` if all conditions are true. If even one is false, it returns `FALSE` without evaluating the remaining conditions.
 
-한 개 이상의 조건이 필요합니다.
+At least one condition is required.
 
 ```text
 AND(quantity > 0, unitPrice > 0)
@@ -643,33 +643,33 @@ AND(quantity > 0, unitPrice > 0)
 
 ### `OR`
 
-`OR(조건, ...)`
+`OR(condition, ...)`
 
-하나 이상의 조건이 참이면 `TRUE`를 반환합니다. 참인 조건을 만나면 나머지 조건을 평가하지 않습니다.
+Returns `TRUE` if at least one condition is true. When it meets a true condition, it does not evaluate the remaining conditions.
 
-한 개 이상의 조건이 필요합니다.
+At least one condition is required.
 
 ```text
-OR(status = "완료", status = "발행")
+OR(status = "Done", status = "Issued")
 ```
 
-조건에는 논리값 또는 숫자를 사용할 수 있습니다.
+A condition can use a boolean or a number.
 
-- `TRUE`는 참
-- `FALSE`는 거짓
-- `0`은 거짓
-- `0`이 아닌 숫자는 참
-- 빈 값은 거짓
+- `TRUE` is true
+- `FALSE` is false
+- `0` is false
+- A nonzero number is true
+- An empty value is false
 
-문자열과 범위는 조건으로 직접 사용할 수 없습니다.
+Strings and ranges cannot be used directly as conditions.
 
-## 표시 형식 함수
+## Display format functions
 
 ### `FORMAT_NUMBER`
 
-`FORMAT_NUMBER(수, 소수자릿수?)`
+`FORMAT_NUMBER(number, decimals?)`
 
-숫자에 로케일별 자릿수 구분 형식을 적용하고 문자열로 반환합니다.
+Applies a locale-specific thousands-separator format to a number and returns a string.
 
 ```text
 FORMAT_NUMBER(1234567)
@@ -679,63 +679,63 @@ FORMAT_NUMBER(1234.5, 2)
 → "1,234.50"
 ```
 
-소수 자릿수를 지정하면 해당 자릿수까지 고정하여 표시합니다. 지정할 수 있는 범위는 `0`부터 `20`까지입니다.
+If you specify the number of decimals, it displays fixed to that number of decimal places. The range you can specify is `0` to `20`.
 
-표시 결과는 수식 평가 컨텍스트의 `locale` 설정을 따릅니다. `locale`을 지정하지 않으면 `en-US`를 사용합니다.
+The display result follows the `locale` setting of the formula evaluation context. If `locale` is not specified, `en-US` is used.
 
-예를 들어 `de-DE`에서는 다음과 같이 표시됩니다.
+For example, in `de-DE` it is displayed as follows.
 
 ```text
 FORMAT_NUMBER(1234.5)
 → "1.234,5"
 ```
 
-로케일 설정 방법은 [환경 설정 가이드](configuration.md#ui-언어-설정)를 확인하세요.
+For how to set the locale, see the [Configuration Guide](configuration.md#ui-language-setting).
 
 ### `FORMAT_DATE`
 
-`FORMAT_DATE(날짜, 패턴?)`
+`FORMAT_DATE(date, pattern?)`
 
-날짜를 지정한 패턴으로 변환하여 문자열로 반환합니다. 패턴을 생략하면 `YYYY-MM-DD` 형식을 사용합니다.
+Converts a date into the specified pattern and returns a string. If the pattern is omitted, the `YYYY-MM-DD` format is used.
 
 ```text
 FORMAT_DATE("2026-08-25")
 → "2026-08-25"
 
-FORMAT_DATE("2026-08-25", "YYYY년 M월 D일")
-→ "2026년 8월 25일"
+FORMAT_DATE("2026-08-25", "M/D/YYYY")
+→ "8/25/2026"
 ```
 
-지원하는 패턴 토큰은 다음과 같습니다.
+The supported pattern tokens are as follows.
 
-| 토큰 | 의미 | 예 |
+| Token | Meaning | Example |
 |---|---|---|
-| `YYYY` | 네 자리 연도 | `2026` |
-| `YY` | 두 자리 연도 | `26` |
-| `MM` | 두 자리 월 | `08` |
-| `M` | 월 | `8` |
-| `DD` | 두 자리 일 | `05` |
-| `D` | 일 | `5` |
-| `HH` | 두 자리 시 | `09` |
-| `mm` | 두 자리 분 | `30` |
-| `ss` | 두 자리 초 | `00` |
+| `YYYY` | Four-digit year | `2026` |
+| `YY` | Two-digit year | `26` |
+| `MM` | Two-digit month | `08` |
+| `M` | Month | `8` |
+| `DD` | Two-digit day | `05` |
+| `D` | Day | `5` |
+| `HH` | Two-digit hour | `09` |
+| `mm` | Two-digit minute | `30` |
+| `ss` | Two-digit second | `00` |
 
-날짜와 시각은 UTC 기준으로 처리됩니다.
+Dates and times are handled in UTC.
 
-실제로 존재하지 않는 날짜는 자동 보정하지 않고 오류로 처리합니다.
+A date that does not actually exist is not auto-corrected but treated as an error.
 
 ```text
 FORMAT_DATE("2026-02-30")
-→ 오류
+→ error
 ```
 
 ### `NUMBER_TO_KOREAN`
 
-`NUMBER_TO_KOREAN(정수)`
+`NUMBER_TO_KOREAN(integer)`
 
-정수를 한글 금액 표기에 사용할 수 있는 문자열로 변환합니다.
+Converts an integer into a string usable for Korean amount notation.
 
-십·백·천 앞의 `일`을 생략하지 않습니다.
+It does not omit the `일` before 십, 백, or 천.
 
 ```text
 NUMBER_TO_KOREAN(0)
@@ -751,53 +751,53 @@ NUMBER_TO_KOREAN(-3000)
 → "마이너스삼천"
 ```
 
-정수만 지원하며 JavaScript의 안전한 정수 범위를 넘는 값은 오류로 처리합니다.
+Only integers are supported, and a value beyond JavaScript's safe integer range is treated as an error.
 
-금액 문구를 만들 때는 다음과 같이 조합할 수 있습니다.
+When building an amount phrase, you can combine it as follows.
 
 ```text
 CONCAT("금 ", NUMBER_TO_KOREAN(totalAmount), " 원")
 ```
 
-## 날짜 함수
+## Date functions
 
-날짜 함수에는 ISO 형식의 날짜 문자열을 사용합니다.
+Date functions use ISO-format date strings.
 
 ```text
 "2026-08-25"
 "2026-08-25T09:30:00Z"
 ```
 
-날짜 계산은 UTC 기준으로 수행됩니다. 업무상 특정 지역의 날짜가 중요하다면 애플리케이션에서 `YYYY-MM-DD` 값을 만들어 파라미터로 전달하는 방식을 권장합니다.
+Date computation is performed in UTC. If a specific region's date matters for your business, we recommend building a `YYYY-MM-DD` value in your application and passing it as a parameter.
 
 ### `TODAY`
 
 `TODAY()`
 
-현재 시각의 UTC 기준 날짜를 `YYYY-MM-DD` 형식으로 반환합니다.
+Returns the current UTC date in `YYYY-MM-DD` format.
 
 ```text
 TODAY()
 → "YYYY-MM-DD"
 ```
 
-직접 수식을 평가할 때는 평가 컨텍스트에 `now`를 전달하여 결과를 재현할 수 있습니다.
+When evaluating a formula directly, you can pass `now` in the evaluation context to reproduce the result.
 
-자세한 사용 방법은 [Core 사용 가이드](core.md#수식-평가하기)를 확인하세요.
+For detailed usage, see the [Core Usage Guide](core.md#evaluating-formulas).
 
 ### `DATE_ADD`
 
-`DATE_ADD(날짜, 증감량, 단위?)`
+`DATE_ADD(date, amount, unit?)`
 
-날짜에 지정한 기간을 더하거나 뺍니다.
+Adds or subtracts the given period from a date.
 
-| 단위 | 의미 |
+| Unit | Meaning |
 |---|---|
-| `"days"` | 일 |
-| `"months"` | 월 |
-| `"years"` | 년 |
+| `"days"` | Days |
+| `"months"` | Months |
+| `"years"` | Years |
 
-단위를 생략하면 `"days"`를 사용합니다. 증감량은 정수여야 하며 음수를 사용하면 날짜를 뺄 수 있습니다.
+If the unit is omitted, `"days"` is used. The amount must be an integer, and using a negative number subtracts from the date.
 
 ```text
 DATE_ADD("2026-08-18", 14)
@@ -810,7 +810,7 @@ DATE_ADD("2026-08-18", 2, "years")
 → "2028-08-18"
 ```
 
-월이나 년을 더한 결과에 같은 날짜가 존재하지 않으면 대상 월의 마지막 날을 사용합니다.
+If the same date does not exist in the result of adding months or years, the last day of the target month is used.
 
 ```text
 DATE_ADD("2026-01-31", 1, "months")
@@ -822,17 +822,17 @@ DATE_ADD("2024-01-31", 1, "months")
 
 ### `DATE_DIFF`
 
-`DATE_DIFF(시작날짜, 종료날짜, 단위?)`
+`DATE_DIFF(startDate, endDate, unit?)`
 
-종료 날짜에서 시작 날짜를 뺀 차이를 반환합니다.
+Returns the difference of the end date minus the start date.
 
-| 단위 | 계산 결과 |
+| Unit | Result |
 |---|---|
-| `"days"` | 두 날짜 사이의 일수 |
-| `"months"` | 완료된 개월 수 |
-| `"years"` | 완료된 연수 |
+| `"days"` | The number of days between the two dates |
+| `"months"` | The number of completed months |
+| `"years"` | The number of completed years |
 
-단위를 생략하면 `"days"`를 사용합니다.
+If the unit is omitted, `"days"` is used.
 
 ```text
 DATE_DIFF("2026-08-01", "2026-08-18")
@@ -845,17 +845,17 @@ DATE_DIFF("2024-08-18", "2026-08-17", "years")
 → 1
 ```
 
-종료 날짜가 시작 날짜보다 이르면 음수를 반환합니다.
+If the end date is earlier than the start date, it returns a negative number.
 
-## 세무 함수
+## Tax functions
 
 ### `VAT`
 
-`VAT(공급가액, 세율?)`
+`VAT(supplyAmount, rate?)`
 
-공급가액에 대한 부가세액을 계산합니다. 세율을 생략하면 `10`을 사용합니다.
+Computes the VAT amount for a supply amount. If the rate is omitted, `10` is used.
 
-세율은 백분율 숫자로 지정합니다.
+The rate is specified as a percentage number.
 
 ```text
 VAT(10000)
@@ -865,7 +865,7 @@ VAT(10000, 8)
 → 800
 ```
 
-`VAT`은 계산 결과를 자동으로 반올림하거나 절사하지 않습니다. 필요한 처리 방식을 명시적으로 조합하세요.
+`VAT` does not automatically round or truncate the result. Combine the processing method you need explicitly.
 
 ```text
 FLOOR(VAT(12345))
@@ -875,28 +875,28 @@ ROUND(VAT(12345))
 → 1235
 ```
 
-세율에는 `0` 이상의 숫자만 사용할 수 있습니다.
+Only a number of `0` or more can be used for the rate.
 
 > [!IMPORTANT]
-> `VAT`은 공급가액과 세율을 이용한 단순 계산 함수입니다.
-> 실제 세무 처리에 필요한 과세 구분, 면세, 복수 세율, 계산 단위와 반올림 정책은 사용하는 애플리케이션에서 결정해야 합니다.
+> `VAT` is a simple computation function using the supply amount and the rate.
+> The tax classification, exemptions, multiple rates, computation unit, and rounding policy needed for actual tax processing must be decided by your application.
 
-## 타입 변환 함수
+## Type conversion functions
 
 ### `TO_NUMBER`
 
-`TO_NUMBER(값)`
+`TO_NUMBER(value)`
 
-값을 숫자로 변환합니다.
+Converts a value to a number.
 
-| 입력 | 결과 |
+| Input | Result |
 |---|---|
-| 숫자 | 같은 숫자 |
-| 숫자 형식 문자열 | 변환된 숫자 |
+| Number | The same number |
+| Numeric-format string | The converted number |
 | `TRUE` | `1` |
 | `FALSE` | `0` |
-| 빈 값 | `0` |
-| 빈 문자열 | `0` |
+| Empty value | `0` |
+| Empty string | `0` |
 
 ```text
 TO_NUMBER("1500")
@@ -909,37 +909,37 @@ TO_NUMBER(TRUE)
 → 1
 ```
 
-앞뒤 공백은 제거한 뒤 변환합니다. 10진수와 지수 표기는 지원하지만 다음 문자열은 숫자로 변환하지 않습니다.
+Leading and trailing whitespace is removed before conversion. Decimal and exponent notation are supported, but the following strings are not converted to numbers.
 
-- 자릿수 구분 기호가 포함된 값: `"1,500"`
-- 16진수: `"0x1F"`
-- 무한대: `"Infinity"`
-- 숫자가 아닌 문자열: `"금액"`
+- A value containing a thousands separator: `"1,500"`
+- Hexadecimal: `"0x1F"`
+- Infinity: `"Infinity"`
+- A non-numeric string: `"amount"`
 
-자릿수 구분 기호가 포함된 값을 변환해야 한다면 먼저 구분 기호를 제거합니다.
+If you need to convert a value containing a thousands separator, remove the separator first.
 
 ```text
 TO_NUMBER(REPLACE("1,500", ",", ""))
 → 1500
 ```
 
-범위는 숫자로 변환할 수 없습니다.
+A range cannot be converted to a number.
 
 ### `TO_STRING`
 
-`TO_STRING(값)`
+`TO_STRING(value)`
 
-숫자, 논리값과 빈 값을 문자열로 변환합니다.
+Converts numbers, booleans, and empty values to strings.
 
-| 입력 | 결과 |
+| Input | Result |
 |---|---|
 | `1500` | `"1500"` |
 | `TRUE` | `"TRUE"` |
 | `FALSE` | `"FALSE"` |
-| 빈 값 | `""` |
-| 문자열 | 원래 문자열 |
+| Empty value | `""` |
+| String | The original string |
 
-범위는 문자열로 변환할 수 없습니다.
+A range cannot be converted to a string.
 
 ```text
 TO_STRING(3) = "3"
@@ -948,9 +948,9 @@ TO_STRING(3) = "3"
 
 ### `TO_DATE`
 
-`TO_DATE(값)`
+`TO_DATE(value)`
 
-날짜 문자열을 검증하고 UTC 기준 `YYYY-MM-DD` 형식으로 변환합니다.
+Validates a date string and converts it to `YYYY-MM-DD` format in UTC.
 
 ```text
 TO_DATE("2026-01-05")
@@ -960,79 +960,79 @@ TO_DATE("2026-01-05T09:30:00Z")
 → "2026-01-05"
 ```
 
-실제로 존재하지 않는 날짜나 날짜로 해석할 수 없는 값은 오류로 처리합니다.
+A date that does not actually exist, or a value that cannot be interpreted as a date, is treated as an error.
 
-## 오류 확인하기
+## Checking errors
 
-수식 오류는 크게 두 종류로 구분됩니다.
+Formula errors are broadly divided into two kinds.
 
-| 종류 | 발생 예 |
+| Kind | Example |
 |---|---|
-| 문법 오류 | 닫히지 않은 괄호, 잘못된 문자, 지원하지 않는 함수 |
-| 계산 오류 | 타입 불일치, 0으로 나누기, 잘못된 날짜 |
+| Syntax error | Unclosed parenthesis, invalid character, unsupported function |
+| Computation error | Type mismatch, division by zero, invalid date |
 
-디자이너에서는 수식 편집 창에 문법 오류와 샘플 값을 이용한 계산 결과가 표시됩니다. 조건식은 샘플 값으로 계산할 수 있을 때 결과가 불리언인지도 확인합니다.
+In the designer, the formula editor shows syntax errors and the computed result using sample values. When a condition can be evaluated with the sample values, the designer also checks that its result is a boolean.
 
-PDF를 생성할 때 표시 값 수식의 계산이 실패하면 어떤 필드·그리드 셀·바코드에서 실패했는지 포함한 렌더링 오류가 발생합니다.
+If a display-value formula fails while generating a PDF, SlipKit reports a rendering error that identifies the field, grid cell, or barcode.
 
-조건식의 문법이 잘못되었거나 결과가 불리언이 아니면 렌더링 오류가 발생합니다. 필요한 값이 없거나 타입이 맞지 않는 등 조건식을 계산할 수 없는 경우에는 해당 규칙만 적용하지 않고 나머지 렌더링을 계속합니다.
+An invalid conditional-format expression, or one that returns a non-boolean value, also causes a rendering error. If a condition cannot be evaluated because a required value is missing, a type does not match, or a similar computation error occurs, SlipKit skips that rule and continues rendering.
 
-### 자주 발생하는 문제
+### Common problems
 
-| 문제 | 확인할 내용 |
+| Problem | What to check |
 |---|---|
-| 숫자 계산에서 타입 오류가 발생함 | 파라미터 타입이 숫자인지 확인하고, 문자열이면 `TO_NUMBER` 사용 |
-| 범위를 직접 사용할 수 없다는 오류가 발생함 | `SUM`, `AVG` 등의 집계 함수 사용 |
-| 수식 결과가 비어 있음 | 파라미터 이름과 샘플 데이터 확인 |
-| 존재하지 않는 함수라는 오류가 발생함 | 이 문서의 지원 함수 목록 확인 |
-| 날짜 계산이 예상과 다름 | 입력값이 ISO 형식인지, UTC 기준인지 확인 |
-| 바코드 렌더링이 실패함 | 수식 결과가 선택한 바코드 종류의 형식과 일치하는지 확인 |
-| `COUNTIF` 결과가 예상보다 큼 | `<>` 조건에 빈 값이 포함되었는지 확인 |
-| `3 = "3"`이 거짓으로 나옴 | 같은 타입으로 변환한 뒤 비교 |
+| A type error occurs in a numeric computation | Check whether the parameter type is a number, and use `TO_NUMBER` if it is a string |
+| An error says a range cannot be used directly | Use an aggregation function such as `SUM` or `AVG` |
+| The formula result is empty | Check the parameter name and the sample data |
+| An error says the function does not exist | Check the supported-function list in this document |
+| A date computation differs from expectation | Check whether the input is in ISO format and in UTC |
+| Barcode rendering fails | Check whether the formula result matches the format of the selected barcode type |
+| A `COUNTIF` result is larger than expected | Check whether the `<>` condition includes empty values |
+| `3 = "3"` comes out false | Convert to the same type before comparing |
 
 > [!TIP]
-> 수식을 작성한 뒤에는 가능한 한 실제와 가까운 샘플 데이터를 입력하여 정상 값, 빈 값, 목록이 없는 경우를 함께 확인하세요.
+> After writing a formula, enter sample data as close to reality as possible and check normal values, empty values, and the case with no list together.
 
-## 수식 제한
+## Formula limits
 
-안전한 실행을 위해 다음 제한이 적용됩니다.
+For safe execution, the following limits apply.
 
-| 항목 | 제한 |
+| Item | Limit |
 |---|---:|
-| 수식 문자열 길이 | 최대 10,000자 |
-| 수식 중첩 깊이 | 최대 100단계 |
-| 값 데이터의 중첩 깊이 | 최대 256단계 |
+| Formula string length | Up to 10,000 characters |
+| Formula nesting depth | Up to 100 levels |
+| Value data nesting depth | Up to 256 levels |
 
-제한을 초과한 수식이나 값은 오류로 처리됩니다.
+A formula or value that exceeds a limit is treated as an error.
 
-수식에서는 다음 기능을 사용할 수 없습니다.
+Formulas cannot use the following.
 
-- 임의 JavaScript 실행
-- 사용자 정의 함수 호출
-- 객체 값 직접 반환
-- 범위에 대한 직접 산술 연산
-- `==`, `!=`, `&&`, `||` 연산자
-- 외부 API 또는 네트워크 호출
+- Arbitrary JavaScript execution
+- Calling user-defined functions
+- Returning object values directly
+- Direct arithmetic operations on a range
+- The `==`, `!=`, `&&`, `||` operators
+- External API or network calls
 
-## 완료 확인
+## Completion check
 
-수식을 적용하기 전에 다음 항목을 확인하세요.
+Before applying a formula, check the following.
 
-- [ ] 파라미터와 목록 필드 이름을 정확히 참조했다.
-- [ ] 숫자 계산에 숫자 타입 값을 사용했다.
-- [ ] 문자열 숫자가 있다면 `TO_NUMBER`로 변환했다.
-- [ ] 목록 범위를 집계 함수와 함께 사용했다.
-- [ ] 빈 값과 빈 목록일 때의 결과를 확인했다.
-- [ ] 세액의 반올림 또는 절사 방식을 명시했다.
-- [ ] 날짜가 ISO 형식이며 UTC 기준임을 확인했다.
-- [ ] 디자이너에서 샘플 데이터로 결과를 확인했다.
-- [ ] 바코드 수식 결과가 바코드 형식 규칙과 일치한다.
-- [ ] PDF 미리보기에서 최종 표시 결과를 확인했다.
+- [ ] Reference the parameter and list-field names exactly.
+- [ ] Use number-type values in numeric computations.
+- [ ] Convert with `TO_NUMBER` if there are string numbers.
+- [ ] Use list ranges together with aggregation functions.
+- [ ] Check the result when values and lists are empty.
+- [ ] Specify the rounding or truncation method for tax.
+- [ ] Confirm that dates are in ISO format and in UTC.
+- [ ] Check the result with sample data in the designer.
+- [ ] Confirm that barcode formula results match the barcode format rules.
+- [ ] Check the final display result in the PDF preview.
 
-## 관련 문서
+## Related documents
 
-- [양식 디자이너 사용 가이드](designer.md)
-- [Core 사용 가이드](core.md)
-- [환경 설정 가이드](configuration.md)
-- [API 참조](api-reference.md)
-- [가이드 목록](README.md)
+- [Form Designer Usage Guide](designer.md)
+- [Core Usage Guide](core.md)
+- [Configuration Guide](configuration.md)
+- [API Reference](api-reference.md)
+- [Guide list](README.md)

@@ -1,550 +1,550 @@
-# 양식 디자이너 사용 가이드
+# Form Designer Guide
 
-[English](designer.en.md) · [日本語](designer.ja.md)
+[한국어](designer.ko.md) · [日本語](designer.ja.md)
 
-이 문서는 SlipKit 양식 디자이너를 사용하여 문서 양식을 만드는 방법을 설명합니다.
+This document explains how to build document templates with the SlipKit form designer.
 
-개발자가 `<slip-designer>`를 애플리케이션에 연결하는 방법은 [시작하기](getting-started.md)를, 편집된 양식을 저장하고 전표 작성 화면과 연결하는 방법은 [애플리케이션 통합 가이드](integration.md)를 참고하세요.
+For how a developer connects `<slip-designer>` to an application, see [Getting started](getting-started.md); for how to save the edited template and connect it to the voucher-entry screen, see the [Application Integration Guide](integration.md).
 
-이 문서의 화면은 동봉 데모에서 <kbd>프리셋</kbd>의 <kbd>거래명세서</kbd>를 불러온 상태를 기준으로 합니다.
+The screens in this document are based on loading <kbd>Transaction statement</kbd> from <kbd>Presets</kbd> in the bundled demo.
 
-## 양식 제작 순서
+## Order of building a template
 
-처음 양식을 만든다면 다음 순서로 작업하는 것을 권장합니다.
+If you're building a template for the first time, we recommend working in this order.
 
-- [ ] 빈 양식이나 프리셋 선택
-- [ ] 제목·용지·여백 설정
-- [ ] 전표에 입력할 파라미터 정의
-- [ ] 텍스트·필드·이미지 등 요소 배치
-- [ ] 반복되는 항목이 있다면 그리드 설정
-- [ ] 필요한 계산 수식 작성
-- [ ] 샘플 데이터 입력
-- [ ] PDF 미리보기 확인
-- [ ] 완성된 양식 저장
+- [ ] Choose a blank template or a preset
+- [ ] Set the title, paper, and margins
+- [ ] Define the parameters to fill in on a voucher
+- [ ] Place elements such as text, fields, and images
+- [ ] Set up a grid if there are repeating items
+- [ ] Write any calculation formulas you need
+- [ ] Enter sample data
+- [ ] Check the PDF preview
+- [ ] Save the finished template
 
 > [!TIP]
-> 화면 요소부터 배치하기보다 전표에 들어갈 파라미터를 먼저 정의하면 필드, 반복 표와 수식을 연결하기 쉽습니다.
+> Rather than placing screen elements first, defining the parameters that go into a voucher first makes it easier to connect fields, repeating tables, and formulas.
 
-## 1. 시작할 양식 선택하기
+## 1. Choosing a starting template
 
-양식 제작은 다음 두 가지 방법으로 시작할 수 있습니다.
+You can start building a template in two ways.
 
-### 빈 양식에서 시작
+### Starting from a blank template
 
-빈 양식은 자유롭게 요소를 배치할 수 있지만 제목, 용지, 파라미터와 표를 모두 직접 구성해야 합니다.
+A blank template lets you place elements freely, but you have to set up the title, paper, parameters, and tables all by yourself.
 
-처음 사용하는 경우에는 빈 양식보다 프리셋을 수정하면서 기능을 익히는 편이 쉽습니다.
+For first-time use, it's easier to learn the features by modifying a preset than by starting from a blank template.
 
-### 프리셋에서 시작
+### Starting from a preset
 
-툴바의 <kbd>프리셋</kbd>에서 동봉된 기본 양식을 선택할 수 있습니다.
+You can choose a bundled default template from <kbd>Presets</kbd> in the toolbar.
 
-- 거래명세서
-- 청구서
+- Transaction statement
+- Invoice
 
-프리셋에는 용지, 텍스트, 입력 필드, 품목 표와 합계 수식이 미리 설정되어 있습니다.
+A preset comes with paper, text, input fields, an items table, and a total formula preconfigured.
 
 > [!WARNING]
-> 프리셋을 선택하면 현재 편집 중인 양식 전체가 선택한 프리셋으로 교체됩니다.
-> 필요한 작업이 남아 있다면 먼저 저장하세요. 프리셋을 잘못 적용한 직후에는 <kbd>되돌리기</kbd>로 이전 상태로 돌아갈 수 있습니다.
+> Choosing a preset replaces the entire template you are currently editing with the selected preset.
+> If you have unfinished work, save it first. Right after applying a preset by mistake, you can return to the previous state with <kbd>Undo</kbd>.
 
-## 2. 화면 구성 이해하기
+## 2. Understanding the layout
 
-![양식 디자이너 전체 화면](images/ko/overview.png)
+![The full form designer screen](images/en/overview.png)
 
-디자이너는 네 영역으로 구성됩니다.
+The designer consists of four areas.
 
-| 영역 | 위치 | 역할 |
+| Area | Position | Role |
 |---|---|---|
-| 툴바 | 위 | 요소 추가, 복사·붙여넣기, 되돌리기, 페이지 추가, 미리보기, 프리셋 |
-| 사이드바 | 왼쪽 | 페이지·요소·파라미터 목록 |
-| 캔버스 | 가운데 | 용지 위에서 요소를 배치하고 크기를 조절하는 편집 공간 |
-| 설정 패널 | 오른쪽 | 현재 선택한 양식·페이지·요소·파라미터의 설정 |
+| Toolbar | Top | Add elements, copy/paste, undo, add page, preview, presets |
+| Sidebar | Left | Lists of pages, elements, and parameters |
+| Canvas | Center | The editing space where you place and resize elements on the paper |
+| Settings panel | Right | Settings for the currently selected template, page, element, or parameter |
 
-캔버스와 사이드바에서 선택한 대상에 따라 오른쪽 설정 패널의 내용이 바뀝니다.
+The content of the right settings panel changes depending on what you select in the canvas and the sidebar.
 
-| 선택한 대상 | 설정 패널 |
+| What you selected | Settings panel |
 |---|---|
-| 아무것도 선택하지 않음 | 양식 설정 |
-| 사이드바의 페이지 | 페이지 설정 |
-| 캔버스 또는 사이드바의 요소 | 해당 요소 설정 |
-| 사이드바의 파라미터 | 파라미터 설정 |
-| 그리드의 셀 | 선택한 셀 설정 |
+| Nothing selected | Template settings |
+| A page in the sidebar | Page settings |
+| An element in the canvas or sidebar | That element's settings |
+| A parameter in the sidebar | Parameter settings |
+| A cell in a grid | The selected cell's settings |
 
 > [!TIP]
-> 설정하려는 항목이 보이지 않는다면 먼저 현재 무엇을 선택했는지 확인하세요. 빈 캔버스 영역을 선택하면 양식 설정으로 돌아갑니다.
+> If the item you want to configure isn't visible, first check what you currently have selected. Selecting an empty canvas area returns you to the template settings.
 
-## 3. 양식과 페이지 설정하기
+## 3. Configuring the template and pages
 
-### 양식 설정
+### Template settings
 
-아무 요소나 페이지도 선택하지 않은 상태에서는 오른쪽에 양식 설정이 표시됩니다.
+When no element or page is selected, the template settings appear on the right.
 
-다음 항목을 먼저 정합니다.
+Decide the following items first.
 
-| 항목 | 설명 |
+| Item | Description |
 |---|---|
-| 제목 | 양식과 저장 목록에서 사용할 이름 |
-| 용지 크기 | A4 등의 기본 용지 또는 직접 입력한 크기 |
-| 방향 | 세로 또는 가로 |
-| 여백 | 위·오른쪽·아래·왼쪽 여백 |
+| Title | The name used for the template and in the save list |
+| Paper size | A default paper such as A4, or a custom size you enter |
+| Orientation | Portrait or landscape |
+| Margins | Top, right, bottom, and left margins |
 
-용지 크기와 요소의 위치·크기는 밀리미터 단위로 관리됩니다.
+Paper size and the position and size of elements are managed in millimeters.
 
 > [!NOTE]
-> 여백은 문서의 작업 기준을 표시합니다. 요소를 배치할 때 여백 밖으로 나가지 않는지 미리보기에서 확인하세요.
+> Margins indicate the working boundary of the document. When placing elements, check in the preview that they don't go outside the margins.
 
-### 페이지 관리
+### Managing pages
 
-사이드바의 <kbd>페이지</kbd> 목록에서 페이지를 선택합니다. 툴바에서는 페이지를 추가하거나 삭제할 수 있습니다.
+Select a page from the <kbd>Pages</kbd> list in the sidebar. In the toolbar you can add or delete pages.
 
-페이지를 선택하면 다음 항목을 설정할 수 있습니다.
+When you select a page, you can configure the following.
 
-- 페이지 이름
-- 외부 연계에 사용할 물리명
-- 페이지 번호 표시 여부
-- 페이지 번호 위치
-- 페이지 순서
+- Page name
+- Physical name used for external integration
+- Whether to show the page number
+- Page number position
+- Page order
 
-페이지 이름을 지정하면 사이드바에서 단순한 페이지 번호 대신 해당 이름이 표시됩니다.
+If you set a page name, the sidebar shows that name instead of a plain page number.
 
 > [!CAUTION]
-> 페이지를 삭제하면 그 페이지에 배치한 요소도 함께 사라집니다. 삭제 전에 페이지와 요소를 확인하세요.
+> Deleting a page also removes the elements placed on it. Check the page and its elements before deleting.
 
-## 4. 파라미터 정의하기
+## 4. Defining parameters
 
-파라미터는 전표마다 달라지는 값을 나타냅니다.
+Parameters represent values that differ from voucher to voucher.
 
-예를 들어 거래명세서에는 다음과 같은 파라미터가 필요할 수 있습니다.
+For example, a transaction statement might need the following parameters.
 
-| 물리명 | 논리명 | 타입 |
+| Physical name | Logical name | Type |
 |---|---|---|
-| `tradeDate` | 거래일자 | 날짜 |
-| `customerName` | 거래처명 | 글자 |
-| `items` | 품목 | 목록 |
-| `totalAmount` | 합계금액 | 숫자 |
-| `stamp` | 직인 | 이미지 |
+| `tradeDate` | Trade date | Date |
+| `customerName` | Customer name | Text |
+| `items` | Items | List |
+| `totalAmount` | Total amount | Number |
+| `stamp` | Seal | Image |
 
-### 파라미터 등록
+### Registering a parameter
 
-사이드바의 <kbd>파라미터</kbd> 영역에서 <kbd>파라미터 등록</kbd>을 누릅니다.
+In the <kbd>Parameters</kbd> area of the sidebar, press <kbd>Add parameter</kbd>.
 
-등록된 파라미터를 선택한 뒤 오른쪽 설정 패널에서 다음 항목을 입력합니다.
+Select the registered parameter, then enter the following in the right settings panel.
 
-| 항목 | 용도 |
+| Item | Purpose |
 |---|---|
-| 물리명 | 파일, 수식과 외부 시스템 연계에 사용하는 이름 |
-| 논리명 | 작성폼과 디자이너 화면에 표시하는 이름 |
-| 파라미터 타입 | 입력 방식과 수식에서의 값 종류 |
+| Physical name | The name used for files, formulas, and external-system integration |
+| Logical name | The name shown in the entry form and the designer screen |
+| Parameter type | The input method and the value kind in formulas |
 
-지원하는 파라미터 타입은 다음과 같습니다.
+The supported parameter types are as follows.
 
-| 타입 | 사용 예 |
+| Type | Example use |
 |---|---|
-| 글자 | 거래처명, 주소, 비고 |
-| 숫자 | 수량, 단가, 금액 |
-| 날짜 | 거래일자, 청구일 |
-| 참/거짓 | 선택 여부, 과세 여부 |
-| 이미지 | 서명, 도장, 상품 이미지 |
-| 목록 | 품목, 작업 내역, 청구 항목 |
+| Text | Customer name, address, notes |
+| Number | Quantity, unit price, amount |
+| Date | Trade date, billing date |
+| Boolean | Selected or not, taxable or not |
+| Image | Signature, stamp, product image |
+| List | Items, work history, billing items |
 
 > [!TIP]
-> 물리명은 화면에 표시하는 문장이 아니라 데이터 연계에 사용하는 식별자입니다.
-> `거래 일자`보다 `tradeDate`처럼 공백 없이 의미를 알 수 있는 이름을 권장합니다.
+> The physical name is not a phrase shown on screen but an identifier used for data integration.
+> Prefer a name without spaces that conveys its meaning, like `tradeDate`, over `trade date`.
 
-물리명을 변경하면 해당 파라미터를 참조하는 요소와 샘플 값도 함께 변경됩니다. 이미 사용 중인 물리명과 중복되거나 빈 이름은 사용할 수 없습니다.
+Changing a physical name also updates the elements and sample values that reference that parameter. A name that duplicates an existing physical name, or an empty name, cannot be used.
 
-### 목록 파라미터와 하위 필드
+### List parameters and sub-fields
 
-품목처럼 여러 행이 반복되는 데이터는 타입을 <kbd>목록</kbd>으로 설정합니다.
+For data that repeats over several rows, like items, set the type to <kbd>List</kbd>.
 
-목록 파라미터에는 항목 하나가 가질 하위 필드를 등록합니다.
+For a list parameter, register the sub-fields that a single item holds.
 
-예를 들어 `items`에는 다음 하위 필드를 둘 수 있습니다.
+For example, `items` can have the following sub-fields.
 
-| 물리명 | 논리명 | 타입 |
+| Physical name | Logical name | Type |
 |---|---|---|
-| `itemName` | 품명 | 글자 |
-| `spec` | 규격 | 글자 |
-| `quantity` | 수량 | 숫자 |
-| `unitPrice` | 단가 | 숫자 |
-| `amount` | 금액 | 숫자 |
+| `itemName` | Item name | Text |
+| `spec` | Spec | Text |
+| `quantity` | Quantity | Number |
+| `unitPrice` | Unit price | Number |
+| `amount` | Amount | Number |
 
-![목록 파라미터와 하위 필드](images/ko/parameter.png)
+![List parameter and sub-fields](images/en/parameter.png)
 
-하위 필드는 먼저 파라미터 정의부에서 만들고, 이후 그리드의 반복 셀에 연결합니다.
+Sub-fields are first created in the parameter definition, then connected to the grid's repeat cells.
 
 > [!IMPORTANT]
-> 목록의 하위 필드와 일반 파라미터는 역할이 다릅니다.
-> `items`는 품목 전체 목록이고 `items` 안의 `quantity`는 품목 한 행의 수량입니다.
+> A list's sub-fields and a regular parameter have different roles.
+> `items` is the whole list of items, and `quantity` inside `items` is the quantity of a single item row.
 
-## 5. 요소 배치하기
+## 5. Placing elements
 
-툴바에서 요소를 추가한 뒤 캔버스에 배치합니다.
+Add an element from the toolbar, then place it on the canvas.
 
-![요소 추가 툴바](images/ko/toolbar.png)
+![The element toolbar](images/en/toolbar.png)
 
-디자이너가 지원하는 요소는 다음과 같습니다.
+The designer supports the following elements.
 
-| 요소 | 용도 |
+| Element | Purpose |
 |---|---|
-| 텍스트 | 제목, 안내 문구처럼 모든 전표에 고정되는 글 |
-| 필드 | 파라미터나 수식 결과를 표시하는 자리 |
-| 그리드 | 고정된 표 또는 반복되는 목록 |
-| 이미지 | 로고 등의 고정 이미지 또는 전표마다 바뀌는 이미지 |
-| 바코드 | QR, Code 128 등의 바코드 |
-| 선 | 구분선 |
-| 사각형 | 테두리와 배경 영역 |
-| 타원 | 원형·타원형 표시 |
-| 다각형 | 삼각형·오각형·육각형 등의 도형 |
+| Text | Text fixed on every voucher, like a title or guidance |
+| Field | A place that shows a parameter or a formula result |
+| Grid | A fixed table or a repeating list |
+| Image | A fixed image such as a logo, or an image that changes per voucher |
+| Barcode | A barcode such as QR or Code 128 |
+| Line | A divider line |
+| Rectangle | A border or a background area |
+| Ellipse | A circular or oval mark |
+| Polygon | A shape such as a triangle, pentagon, or hexagon |
 
-요소를 선택하면 오른쪽 설정 패널에서 위치, 크기, 내용과 스타일을 수정할 수 있습니다.
+When you select an element, you can edit its position, size, content, and style in the right settings panel.
 
-![텍스트 요소 설정](images/ko/element-text.png)
+![Text element settings](images/en/element-text.png)
 
-### 요소 이동과 크기 조절
+### Moving and resizing elements
 
-- 요소를 드래그하여 이동합니다.
-- 요소의 크기 조절 손잡이를 드래그하여 크기를 변경합니다.
-- 설정 패널의 X·Y·너비·높이에 값을 입력하여 정확하게 배치합니다.
-- <kbd>기준점</kbd>으로 X·Y 좌표를 계산할 기준 위치를 정합니다.
-- 툴바의 <kbd>격자</kbd>를 켜면 지정한 간격에 맞춰 배치할 수 있습니다.
+- Drag an element to move it.
+- Drag an element's resize handle to change its size.
+- Enter values in X, Y, width, and height in the settings panel for precise placement.
+- Use <kbd>Anchor</kbd> to set the reference position for calculating the X/Y coordinates.
+- Turn on <kbd>Grid</kbd> in the toolbar to align elements to a set interval.
 
-### 요소 선택과 편집
+### Selecting and editing elements
 
-- 캔버스에서 요소를 선택할 수 있습니다.
-- 사이드바의 <kbd>요소</kbd> 목록에서도 선택할 수 있습니다.
-- <kbd>요소 확인</kbd>을 켜면 캔버스에서 요소 종류를 구분하기 쉽습니다.
-- <kbd>복사</kbd>와 <kbd>붙여넣기</kbd>로 요소를 복제할 수 있습니다.
-- <kbd>되돌리기</kbd>와 <kbd>다시 실행</kbd>으로 편집을 복원할 수 있습니다.
+- You can select an element on the canvas.
+- You can also select it from the <kbd>Elements</kbd> list in the sidebar.
+- Turn on <kbd>Show element types</kbd> to make it easier to distinguish element types on the canvas.
+- Duplicate elements with <kbd>Copy</kbd> and <kbd>Paste</kbd>.
+- Restore edits with <kbd>Undo</kbd> and <kbd>Redo</kbd>.
 
 <details>
-<summary><strong>여러 요소를 함께 이동하기</strong></summary>
+<summary><strong>Moving multiple elements together</strong></summary>
 
-사이드바의 요소 목록에서 <kbd>Ctrl</kbd> 또는 macOS의 <kbd>⌘</kbd>를 누른 채 여러 요소를 선택합니다.
+In the sidebar's element list, hold <kbd>Ctrl</kbd> (or <kbd>⌘</kbd> on macOS) and select multiple elements.
 
-선택한 요소는 함께 이동하거나 그룹으로 묶을 수 있습니다. 그룹으로 묶으면 그룹 안의 요소 하나를 선택해도 전체가 함께 선택됩니다.
+The selected elements can be moved together or bundled into a group. Once grouped, selecting one element in the group selects the whole group.
 
 </details>
 
-### 고정 값과 변동 값 구분
+### Distinguishing fixed and variable values
 
-문서에서 항상 같은 내용은 텍스트 요소로 배치합니다.
+Content that is always the same in the document is placed as a text element.
 
-전표마다 달라지는 값은 필드 요소에 파라미터를 연결합니다.
+Values that differ from voucher to voucher are connected to a field element via a parameter.
 
-예를 들어 다음과 같이 구분합니다.
+For example, distinguish them like this.
 
-| 내용 | 요소 |
+| Content | Element |
 |---|---|
-| `거래일자`라는 제목 | 텍스트 |
-| 실제 거래일자 값 | `tradeDate`를 연결한 필드 |
-| 회사 로고 | 고정 이미지 |
-| 전표마다 다른 직인 | `stamp`를 연결한 변동 이미지 |
+| The title text `Trade date` | Text |
+| The actual trade date value | A field connected to `tradeDate` |
+| The company logo | A fixed image |
+| A seal that differs per voucher | A variable image connected to `stamp` |
 
 > [!NOTE]
-> 이미지 파일은 양식에 포함되므로 이미지가 많거나 크면 `.slip` 파일의 크기도 커집니다.
+> Image files are included in the template, so if there are many or large images, the `.slip` file size also grows.
 
-## 6. 그리드 만들기
+## 6. Building a grid
 
-그리드는 고정된 표와 데이터에 따라 행이 늘어나는 반복 목록을 모두 표현합니다.
+A grid represents both a fixed table and a repeating list whose rows grow with the data.
 
-![그리드 설정](images/ko/grid.png)
+![Grid settings](images/en/grid.png)
 
-### 고정된 표 만들기
+### Building a fixed table
 
-공급자 정보처럼 행과 열의 개수가 정해진 표는 반복 기능을 사용하지 않습니다.
+A table with a fixed number of rows and columns, like supplier information, does not use the repeat feature.
 
-1. 툴바에서 <kbd>그리드</kbd>를 추가합니다.
-2. 행과 열의 개수를 정합니다.
-3. 각 행의 높이와 열의 너비를 조절합니다.
-4. 필요한 셀을 병합합니다.
-5. 셀에 직접 입력, 파라미터 또는 수식을 설정합니다.
-6. 배경색·글자·테두리 스타일을 조절합니다.
+1. Add a <kbd>Grid</kbd> from the toolbar.
+2. Decide the number of rows and columns.
+3. Adjust each row's height and each column's width.
+4. Merge the cells you need.
+5. Set direct input, a parameter, or a formula on a cell.
+6. Adjust the background color, text, and border styles.
 
-### 셀 선택하기
+### Selecting cells
 
-그리드를 처음 클릭하면 그리드 전체가 선택됩니다. 선택된 그리드를 다시 클릭하면 개별 셀을 선택할 수 있습니다.
+Clicking a grid first selects the whole grid. Clicking the selected grid again lets you select an individual cell.
 
-셀을 선택하면 오른쪽 설정 패널에서 셀 타입을 정합니다.
+When you select a cell, decide the cell type in the right settings panel.
 
-| 셀 타입 | 용도 |
+| Cell type | Purpose |
 |---|---|
-| 직접 입력 | 열 제목이나 고정 문구 |
-| 파라미터 | 전표에서 입력받은 값 |
-| 수식 | 다른 값으로 계산한 결과 |
+| Direct input | A column title or fixed text |
+| Parameter | A value entered on the voucher |
+| Formula | A result calculated from other values |
 
-셀 이름을 입력하면 값의 종류와 관계없이 사이드바의 요소 목록에서 해당 셀을 다시 선택할 수 있습니다. 이름이 없으면 행과 열 좌표로 표시됩니다.
+Give a cell a name to make it selectable from the sidebar's element list regardless of its value type. An unnamed cell is shown by its row and column coordinates.
 
-### 반복 목록 만들기
+### Building a repeating list
 
-품목 표처럼 데이터 개수에 따라 내용이 늘어나는 표는 그리드의 <kbd>반복</kbd>을 사용합니다. 한 항목은 한 행뿐 아니라 여러 행으로 구성할 수도 있습니다.
+A table that grows with its data, such as an items table, uses the grid's <kbd>Repeat</kbd> setting. One item may occupy one row or a range of several rows.
 
-1. 목록 파라미터와 하위 필드를 먼저 정의합니다.
-2. 그리드에 데이터 한 항목을 표시할 행을 만듭니다.
-3. 그리드 설정의 <kbd>반복</kbd>에서 <kbd>사용</kbd>을 켭니다.
-4. 반복에 사용할 목록 파라미터를 선택합니다.
-5. <kbd>행 구간</kbd>에서 항목마다 반복할 행을 <kbd>데이터 반복 영역</kbd>으로 지정합니다.
-6. 데이터 반복 영역의 각 셀에 목록의 하위 필드를 연결합니다.
-7. 페이지 방식을 선택합니다.
-8. <kbd>출력 결과 보기</kbd>로 실제 반복 결과를 확인합니다.
+1. Define the list parameter and its sub-fields first.
+2. Create the rows that display one data item.
+3. Under <kbd>Repeat</kbd> in the grid settings, turn on <kbd>Enabled</kbd>.
+4. Choose the list parameter to repeat.
+5. In <kbd>Row bands</kbd>, assign the item rows to <kbd>Data repeat area</kbd>.
+6. Connect each cell in the data repeat area to a sub-field of the list.
+7. Choose a page mode.
+8. Select <kbd>View output</kbd> to inspect the repeated result.
 
-페이지 방식은 다음과 같이 동작합니다.
+The page modes work as follows.
 
-| 방식 | 동작 |
+| Mode | Behavior |
 |---|---|
-| 자동 확장 | <kbd>최소 표시 항목 수</kbd>만큼 빈 항목을 먼저 확보하고, 실제 데이터가 더 많으면 흐름 영역 안에서 늘어납니다. 공간이 부족하면 이어지는 출력 페이지를 만듭니다. |
-| 고정 페이지 | 출력 페이지마다 <kbd>페이지당 항목 수</kbd>만큼 자리를 만듭니다. 데이터가 부족한 자리는 빈 항목으로 표시합니다. |
+| Auto grow | Reserves blank items up to <kbd>Minimum items shown</kbd>, then grows within the flow area when more data exists. It creates continuation output pages when the area is full. |
+| Fixed pages | Reserves exactly <kbd>Items per page</kbd> slots on each output page. Unused slots are shown as blank items. |
 
-예를 들어 `items` 목록의 반복 행에는 다음과 같이 연결합니다.
+For example, connect the repeat rows of the `items` list like this.
 
-| 열 | 연결할 하위 필드 |
+| Column | Sub-field to connect |
 |---|---|
-| 품명 | `itemName` |
-| 규격 | `spec` |
-| 수량 | `quantity` |
-| 단가 | `unitPrice` |
-| 금액 | `amount` |
+| Item name | `itemName` |
+| Spec | `spec` |
+| Quantity | `quantity` |
+| Unit price | `unitPrice` |
+| Amount | `amount` |
 
 > [!IMPORTANT]
-> 데이터 반복 영역의 셀에는 목록 전체인 `items`가 아니라 `items` 안의 하위 필드를 연결합니다.
+> In cells in the data repeat area, connect a sub-field inside `items`, not the whole `items` list.
 
-### 헤더와 합계 행 구성하기
+### Adding headers and totals
 
-<kbd>행 구간</kbd>의 빠른 구성에서 다음 행을 추가할 수 있습니다.
+Use the quick setup commands in <kbd>Row bands</kbd> to add the following rows.
 
-| 명령 | 기본 결과 |
+| Command | Default result |
 |---|---|
-| 헤더 | 모든 출력 페이지 위쪽에 열 이름을 반복 표시 |
-| 그룹 소계 | 같은 그룹의 마지막에 선택한 숫자 필드의 합계를 표시 |
-| 페이지 소계 | 마지막 페이지를 제외한 각 출력 페이지 아래쪽에 페이지 합계를 표시 |
-| 최종 합계 | 모든 데이터 뒤에 전체 합계를 한 번 표시 |
+| Header | Repeats column names at the top of every output page |
+| Group subtotal | Shows the selected numeric field's total at the end of each group |
+| Page subtotal | Shows the page total at the bottom of every output page except the last |
+| Final total | Shows the overall total once after all data |
 
-행 구간의 <kbd>표시 방식</kbd>은 행 내용의 종류가 아니라, 그 행을 어느 범위에서 언제 출력할지 정합니다.
+The <kbd>Display behavior</kbd> of a row band defines when and at what scope the rows are output. It does not define what kind of content the rows contain.
 
-| 표시 방식 | 출력 시점 | 주로 쓰는 내용 |
+| Display behavior | When it is output | Typical content |
 |---|---|---|
-| 전체 데이터 앞 | 첫 출력 페이지에 한 번 | 제목, 첫 페이지 안내 |
-| 페이지별 데이터 앞 | 표시할 페이지마다 | 반복 열 제목 |
-| 그룹별 데이터 앞 | 각 그룹의 첫 항목 앞 | 그룹명 |
-| 데이터 반복 영역 | 데이터 항목마다 | 항목 내용 |
-| 그룹별 데이터 뒤 | 각 그룹의 마지막 항목 뒤 | 그룹 소계 |
-| 전체 데이터 뒤 | 마지막 항목 뒤에 한 번 | 최종 합계 |
-| 페이지별 데이터 뒤 | 표시할 페이지마다 | 페이지 소계, 바닥글 |
+| Before all data | Once on the first output page | Title or introductory note |
+| Before data on each page | On every selected output page | Repeating column headings |
+| Before each group | Before the first item in each group | Group heading |
+| Data repeat area | Once per data item | Item content |
+| After each group | After the last item in each group | Group subtotal |
+| After all data | Once after the final item | Final total |
+| After data on each page | On every selected output page | Page subtotal or footer |
 
-그룹 소계를 사용하려면 <kbd>고급 설정</kbd>에서 그룹 기준 필드를 먼저 선택합니다. 빠른 구성으로 추가한 행도 행 구간 목록에서 범위, 표시 방식과 표시 페이지를 다시 바꿀 수 있습니다.
+To add a group subtotal, first choose group-by fields under <kbd>Advanced settings</kbd>. Rows added by quick setup remain editable in the row-band list, including their range, display behavior, and displayed pages.
 
-캔버스에서 그리드 왼쪽에 보이는 행 번호를 선택하면 해당 행의 표시 방식을 바꿀 수 있습니다. 여러 행을 한 구간으로 묶으려면 <kbd>Shift</kbd>를 누른 채 다른 행 번호를 선택합니다. 같은 작업은 오른쪽 패널의 행 구간 목록에서도 할 수 있습니다.
+Select a row number shown to the left of the grid on the canvas to change that row's display behavior. Hold <kbd>Shift</kbd> while selecting another row number to make a multi-row band. The same operations are available in the row-band list on the right.
 
-페이지 계획에 문제가 있으면 캔버스 위에 오류와 <kbd>문제 위치 보기</kbd>가 표시됩니다. 버튼을 누르면 문제가 있는 그리드와 행 구간으로 이동합니다.
+When page planning fails, the canvas shows the error and a <kbd>Show problem</kbd> button. The button selects the affected grid and row band.
 
-## 7. 수식 작성하기
+## 7. Writing formulas
 
-필드, 바코드와 그리드 셀은 파라미터 대신 수식 결과를 표시할 수 있습니다.
+Fields, barcodes, and grid cells can show a formula result instead of a parameter.
 
-수식을 사용할 요소나 셀을 선택한 뒤 값의 종류를 <kbd>수식</kbd>으로 변경합니다. 수식 편집 버튼을 누르면 편집 창이 열립니다.
+Select the element or cell that will use a formula, then change its value kind to <kbd>Formula</kbd>. Press the formula edit button to open the editor.
 
-![수식 편집 창](images/ko/formula.png)
+![The formula editor](images/en/formula.png)
 
-수식 편집 창에서는 다음 기능을 사용할 수 있습니다.
+In the formula editor you can use the following features.
 
-- 파라미터 목록에서 값 삽입
-- 지원 함수 목록 확인
-- 수식 문법 오류 확인
-- 샘플 값을 이용한 결과 미리 계산
+- Insert a value from the parameter list
+- Check the list of supported functions
+- Check formula syntax errors
+- Pre-compute the result using sample values
 
-예를 들어 품목별 금액을 모두 합산하려면 다음 수식을 사용할 수 있습니다.
+For example, to sum every item's amount, you can use the following formula.
 
 `SUM(items.amount)`
 
-수량과 단가로 한 행의 금액을 계산해야 한다면 반복 셀에서 해당 하위 필드를 이용한 수식을 구성합니다.
+If you need to calculate a single row's amount from quantity and unit price, build a formula in the repeat cell using those sub-fields.
 
 > [!IMPORTANT]
-> 숫자 계산에 사용하는 파라미터와 하위 필드는 타입을 <kbd>숫자</kbd>로 설정하세요.
-> 글자 타입은 숫자로 자동 변환되지 않으며 필요한 경우 `TO_NUMBER`를 명시적으로 사용해야 합니다.
+> Set the type of parameters and sub-fields used in numeric calculations to <kbd>Number</kbd>.
+> Text types are not automatically converted to numbers; use `TO_NUMBER` explicitly when needed.
 
-지원 함수와 작성 규칙은 [수식 함수 참조](formula.md)를 확인하세요.
+For supported functions and writing rules, see the [Formula Function Reference](formula.md).
 
-## 8. 조건부 서식 설정하기
+## 8. Setting conditional formats
 
-텍스트, 필드와 그리드 셀은 값에 따라 글자색·배경색·테두리색 또는 글자 강조를 바꿀 수 있습니다.
+Text elements, fields, and grid cells can change their text color, background color, border color, or text emphasis based on values.
 
-1. 조건부 서식을 적용할 요소나 셀을 선택합니다.
-2. 오른쪽 설정 패널의 <kbd>조건부 서식</kbd>에서 <kbd>규칙 추가</kbd>를 누릅니다.
-3. `amount < 0`처럼 `TRUE` 또는 `FALSE`를 반환하는 조건식을 입력합니다.
-4. 조건이 참일 때 적용할 색이나 강조를 하나 이상 지정합니다.
-5. 규칙이 여러 개라면 위·아래 버튼으로 적용 순서를 조절합니다. 같은 속성을 바꾸는 규칙이 겹치면 아래쪽 규칙이 우선합니다.
+1. Select the element or cell that will use the conditional format.
+2. In <kbd>Conditional format</kbd> on the right settings panel, select <kbd>Add rule</kbd>.
+3. Enter a condition that returns `TRUE` or `FALSE`, such as `amount < 0`.
+4. Choose at least one color or emphasis to apply when the condition is true.
+5. When there are multiple rules, use the up and down buttons to set their order. If matching rules change the same property, the lower rule wins.
 
-강조 버튼은 다음 세 상태를 순서대로 전환합니다.
+Each emphasis button cycles through three states.
 
-| 상태 | 동작 |
+| State | Behavior |
 |---|---|
-| 기본 유지 | 요소나 셀의 기본 강조를 그대로 사용 |
-| 적용 | 조건이 참이면 굵게·기울임·밑줄 또는 취소선을 적용 |
-| 해제 | 조건이 참이면 기본 강조를 끔 |
+| Keep base | Keep the element or cell's base emphasis |
+| Apply | Apply bold, italic, underline, or strikethrough when the condition is true |
+| Clear | Turn off the base emphasis when the condition is true |
 
-데이터 반복 영역의 셀은 현재 반복 항목의 하위 필드를 조건식에서 직접 참조할 수 있습니다. 예를 들어 금액 셀의 조건식에 `amount < 0`을 입력하면 각 행의 `amount` 값으로 규칙을 평가합니다.
-
-> [!NOTE]
-> 조건식 계산에 필요한 값이 없거나 계산할 수 없으면 해당 규칙을 적용하지 않습니다. 샘플 데이터를 입력한 뒤 캔버스와 PDF 미리보기에서 정상 값과 경계 값을 함께 확인하세요.
-
-> [!IMPORTANT]
-> 자동 병합된 셀은 병합 묶음의 첫 항목으로 평가한 조건부 서식을 사용합니다. 기울임은 호스트가 해당 글꼴의 Italic 변형을 제공한 경우 PDF에 적용됩니다.
-
-## 9. 샘플 데이터 입력하기
-
-샘플 데이터는 실제 전표를 발행하지 않고도 파라미터와 수식의 표시 결과를 확인하기 위한 값입니다.
-
-사이드바의 <kbd>파라미터</kbd> 영역에서 <kbd>샘플 데이터</kbd>를 엽니다.
-
-![샘플 데이터가 적용된 미리보기](images/ko/preview.png)
-
-샘플 데이터에서는 다음 내용을 확인할 수 있습니다.
-
-- 필드에 값이 표시되는지
-- 숫자와 날짜 형식이 올바른지
-- 반복 목록이 예상한 행 수만큼 표시되는지
-- 수식 결과가 올바른지
-- 조건부 서식이 예상한 값에서 적용되는지
-- 이미지와 바코드가 정상적으로 렌더링되는지
-- 여러 페이지로 나뉘는 결과가 올바른지
-
-샘플 값을 넣지 않은 파라미터는 미리보기에서 값 이름이나 빈 값으로 표시될 수 있습니다.
+In the data repeat area, a cell condition can directly reference fields of the current item. For example, `amount < 0` on an amount cell is evaluated with each row's `amount` value.
 
 > [!NOTE]
-> 샘플 데이터는 양식 제작과 미리보기에 사용하는 값입니다. 양식으로 전표를 만들 때 실제 입력값으로 자동 복사되지 않습니다.
-
-## 10. PDF 미리보기 확인하기
-
-툴바의 <kbd>미리보기</kbd>를 누르면 현재 양식을 PDF로 렌더링한 결과가 표시됩니다.
-
-![PDF 미리보기](images/ko/preview.png)
-
-다음 항목을 확인합니다.
-
-- 요소가 용지와 여백 안에 배치되어 있는지
-- 글자가 잘리거나 겹치지 않는지
-- 표의 테두리와 셀 병합이 올바른지
-- 반복 목록이 다음 페이지로 올바르게 이어지는지
-- 페이지 번호가 지정한 위치에 표시되는지
-- 수식과 바코드가 정상적으로 렌더링되는지
-- 조건부 서식의 색과 강조가 예상대로 적용되는지
-- 이미지가 예상한 크기와 비율로 표시되는지
+> If a condition cannot be evaluated because a required value is missing or invalid, that rule does not apply. Enter sample data and check both normal and boundary values on the canvas and in the PDF preview.
 
 > [!IMPORTANT]
-> 최종 출력 형태는 편집 캔버스가 아니라 PDF 미리보기를 기준으로 확인하세요.
-> 편집 캔버스와 PDF는 글꼴을 렌더링하는 환경에 따라 줄바꿈 위치가 조금 다를 수 있습니다.
+> An automatically merged cell uses the conditional format evaluated from the first item in the merged group. Italic appears in the PDF only when the host provides an Italic variant of the selected font.
 
-미리보기에서 문제가 발견되면 <kbd>편집</kbd>으로 돌아가 수정합니다.
+## 9. Entering sample data
 
-## 11. 양식 저장하기
+Sample data are values for checking how parameters and formulas display without actually issuing a voucher.
 
-양식을 저장하는 방법은 호스트 애플리케이션 구성에 따라 다릅니다.
+Open <kbd>Sample data</kbd> in the <kbd>Parameters</kbd> area of the sidebar.
 
-### 내 양식으로 저장
+![A preview with sample data applied](images/en/preview.png)
 
-개발자가 디자이너의 `storage` 프로퍼티를 연결한 경우 다음 버튼이 표시됩니다.
+With sample data you can check the following.
 
-- <kbd>내 양식으로 저장</kbd>
-- <kbd>내 양식 목록</kbd>
+- Whether values appear in fields
+- Whether number and date formats are correct
+- Whether the repeating list shows the expected number of rows
+- Whether formula results are correct
+- Whether conditional formats apply to the expected values
+- Whether images and barcodes render correctly
+- Whether results that split across multiple pages are correct
 
-이 기능으로 양식에 이름을 붙여 저장하고, 목록에서 다시 불러오거나 삭제할 수 있습니다.
+A parameter with no sample value may show its value name or a blank value in the preview.
 
-### 자동 저장
+> [!NOTE]
+> Sample data are values used for building the template and previewing. They are not automatically copied as actual input values when a voucher is created from the template.
 
-디자이너는 편집할 때마다 `slip-change` 이벤트로 변경된 양식을 전달합니다. 호스트 애플리케이션이 이 이벤트를 받아야 자동 저장을 구현할 수 있습니다.
+## 10. Checking the PDF preview
+
+Pressing <kbd>Preview</kbd> in the toolbar shows the result of rendering the current template to PDF.
+
+![The PDF preview](images/en/preview.png)
+
+Check the following.
+
+- Whether elements are placed within the paper and margins
+- Whether text is not clipped or overlapping
+- Whether table borders and cell merges are correct
+- Whether the repeating list continues correctly onto the next page
+- Whether the page number appears at the specified position
+- Whether formulas and barcodes render correctly
+- Whether conditional-format colors and emphasis are applied as expected
+- Whether images appear at the expected size and ratio
 
 > [!IMPORTANT]
-> <kbd>내 양식으로 저장</kbd> 기능과 자동 저장은 서로 다른 기능입니다.
-> 저장소 어댑터가 연결되어 있어도 현재 편집 내용을 자동으로 계속 저장하지는 않습니다.
+> Check the final output form against the PDF preview, not the editing canvas.
+> The editing canvas and the PDF may have slightly different line-break positions depending on the font-rendering environment.
 
-### 파일 열기와 내려받기
+If you find a problem in the preview, return to <kbd>Edit</kbd> and fix it.
 
-동봉 데모 상단의 다음 기능은 `<slip-designer>`가 아니라 데모 애플리케이션에서 제공합니다.
+## 11. Saving the template
 
-- <kbd>파일로 내려받기</kbd>
-- <kbd>파일 열기</kbd>
-- 새로고침 후 작업 복원
-- <kbd>양식 만들기</kbd>와 <kbd>전표 쓰기</kbd> 화면 전환
+How you save a template depends on the host application's setup.
 
-실제 애플리케이션에서 이러한 기능을 구현하는 방법은 [애플리케이션 통합 가이드](integration.md)를 참고하세요.
+### Save to My templates
 
-## 자주 발생하는 문제
+If the developer has connected the designer's `storage` property, the following buttons appear.
+
+- <kbd>Save to My templates</kbd>
+- <kbd>My templates</kbd>
+
+With this feature you can save a template under a name, and reload or delete it from the list.
+
+### Auto-save
+
+The designer emits the changed template via the `slip-change` event on every edit. The host application must receive this event to implement auto-save.
+
+> [!IMPORTANT]
+> The <kbd>Save to My templates</kbd> feature and auto-save are different features.
+> Even with a storage adapter connected, it does not automatically keep saving the current edits.
+
+### Opening and downloading files
+
+The following features at the top of the bundled demo are provided by the demo application, not by `<slip-designer>`.
+
+- <kbd>Download as file</kbd>
+- <kbd>Open file</kbd>
+- Restoring work after a refresh
+- Switching between the <kbd>Design</kbd> and <kbd>Fill</kbd> screens
+
+For how to implement these features in a real application, see the [Application Integration Guide](integration.md).
+
+## Common problems
 
 <details>
-<summary><strong>전표 작성 화면에 입력 항목이 나타나지 않습니다</strong></summary>
+<summary><strong>No input items appear on the voucher-entry screen</strong></summary>
 
-필드나 그리드 셀에 파라미터가 연결되어 있는지 확인하세요.
+Check whether a parameter is connected to the field or grid cell.
 
-고정 텍스트와 수식 결과는 사용자가 입력하는 값이 아니므로 작성폼의 입력 항목이 되지 않습니다.
+Fixed text and formula results are not values the user enters, so they don't become input items in the entry form.
 
 </details>
 
 <details>
-<summary><strong>반복 표에 데이터가 표시되지 않습니다</strong></summary>
+<summary><strong>Data doesn't appear in the repeating table</strong></summary>
 
-다음 항목을 순서대로 확인하세요.
+Check the following in order.
 
-- 파라미터 타입이 목록인지
-- 목록에 하위 필드가 정의되어 있는지
-- 그리드 설정의 반복에서 사용이 켜져 있는지
-- 데이터 반복 영역이 올바른지
-- 데이터 반복 영역의 셀에 하위 필드가 연결되어 있는지
-- 샘플 데이터가 객체 배열 형태인지
-
-</details>
-
-<details>
-<summary><strong>수식이 계산되지 않습니다</strong></summary>
-
-파라미터의 타입과 수식에서 요구하는 타입이 같은지 확인하세요. 숫자 함수에 글자 값을 전달하면 계산 오류가 발생할 수 있습니다.
-
-수식 편집 창의 문법 오류와 미리 계산 결과를 먼저 확인하세요.
+- Whether the parameter type is List
+- Whether the list has sub-fields defined
+- Whether repeat is enabled in the grid
+- Whether the data repeat area is correct
+- Whether cells in the data repeat area are connected to sub-fields
+- Whether the sample data is an array of objects
 
 </details>
 
 <details>
-<summary><strong>조건부 서식이 적용되지 않습니다</strong></summary>
+<summary><strong>A formula doesn't compute</strong></summary>
 
-조건식이 `TRUE` 또는 `FALSE`를 반환하는지, 참조한 파라미터와 반복 항목 필드에 샘플 값이 있는지 확인하세요. 반복 셀에서는 목록 파라미터 이름이 아니라 현재 항목의 하위 필드 이름을 사용합니다.
+Check whether the parameter's type matches the type the formula requires. Passing a text value to a numeric function can cause a calculation error.
 
-규칙이 여러 개라면 아래쪽 규칙이 같은 색이나 강조를 다시 덮어쓰는지도 확인하세요.
-
-</details>
-
-<details>
-<summary><strong>미리보기에 실제 값이 표시되지 않습니다</strong></summary>
-
-양식 제작 중에는 실제 전표 값이 없으므로 샘플 데이터를 입력해야 합니다.
-
-사이드바의 <kbd>파라미터</kbd> 영역에서 <kbd>샘플 데이터</kbd>를 열어 값을 입력하세요.
+Check the formula editor's syntax errors and pre-computed result first.
 
 </details>
 
 <details>
-<summary><strong>편집한 내용이 새로고침 후 사라집니다</strong></summary>
+<summary><strong>A conditional format does not apply</strong></summary>
 
-디자이너는 편집 내용을 자동으로 영구 저장하지 않습니다. 호스트 애플리케이션이 `slip-change` 이벤트를 받아 브라우저나 서버에 저장해야 합니다.
+Check that the condition returns `TRUE` or `FALSE` and that sample values exist for the referenced parameters or repeat-item fields. In a repeat cell, use the current item's field name rather than the list parameter name.
 
-동봉 데모에서는 애플리케이션이 IndexedDB 자동 저장을 별도로 구현하고 있습니다.
+When there are multiple rules, also check whether a lower rule overwrites the same color or emphasis.
 
 </details>
 
-## 완료 확인
+<details>
+<summary><strong>Actual values don't appear in the preview</strong></summary>
 
-- [ ] 양식 제목과 용지 설정을 확인했습니다.
-- [ ] 필요한 파라미터와 타입을 정의했습니다.
-- [ ] 목록 파라미터의 하위 필드를 정의했습니다.
-- [ ] 고정 값과 변동 값을 올바른 요소로 구분했습니다.
-- [ ] 반복 표의 데이터 반복 영역과 하위 필드를 연결했습니다.
-- [ ] 수식 편집 창에서 계산 결과를 확인했습니다.
-- [ ] 조건부 서식을 샘플 값과 PDF 미리보기로 확인했습니다.
-- [ ] 샘플 데이터로 양식을 검증했습니다.
-- [ ] PDF 미리보기에서 출력 결과를 확인했습니다.
-- [ ] 양식이 호스트 애플리케이션에 저장되는지 확인했습니다.
+While building a template there are no actual voucher values, so you must enter sample data.
 
-## 관련 문서
+Open <kbd>Sample data</kbd> in the <kbd>Parameters</kbd> area of the sidebar and enter values.
 
-- [시작하기](getting-started.md)
-- [애플리케이션 통합 가이드](integration.md)
-- [수식 함수 참조](formula.md)
+</details>
+
+<details>
+<summary><strong>Edits disappear after a refresh</strong></summary>
+
+The designer does not automatically persist edits. The host application must receive the `slip-change` event and save to the browser or a server.
+
+In the bundled demo, the application implements IndexedDB auto-save separately.
+
+</details>
+
+## Completion check
+
+- [ ] I checked the template title and paper settings.
+- [ ] I defined the needed parameters and their types.
+- [ ] I defined the sub-fields of the list parameter.
+- [ ] I distinguished fixed and variable values with the correct elements.
+- [ ] I connected the data repeat area and sub-fields of the repeating table.
+- [ ] I checked the calculation result in the formula editor.
+- [ ] I checked conditional formats with sample values and the PDF preview.
+- [ ] I validated the template with sample data.
+- [ ] I checked the output result in the PDF preview.
+- [ ] I confirmed the template is saved to the host application.
+
+## Related documents
+
+- [Getting started](getting-started.md)
+- [Application Integration Guide](integration.md)
+- [Formula Function Reference](formula.md)
