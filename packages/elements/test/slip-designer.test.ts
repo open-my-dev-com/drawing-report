@@ -5002,6 +5002,48 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
+  it('행 표시 방식은 적용 범위와 대표 용도를 선택 전에 설명한다', async () => {
+    const el = await mount();
+    const rowButton = el.shadowRoot!.querySelector('[data-id="g-1"] .band-row') as HTMLButtonElement;
+    rowButton.click();
+    await el.updateComplete;
+
+    const once = el.shadowRoot!.querySelector('.band-menu-item.placement-before-data') as HTMLButtonElement;
+    expect(once.querySelector('.band-menu-label')?.textContent?.trim()).toBe(s.bandBeforeData);
+    expect(once.querySelector('.band-menu-description')?.textContent?.trim()).toBe(s.bandBeforeDataHelp);
+
+    const perPage = el.shadowRoot!.querySelector('.band-menu-item.placement-page-start') as HTMLButtonElement;
+    expect(perPage.querySelector('.band-menu-label')?.textContent?.trim()).toBe(s.bandPageStart);
+    expect(perPage.querySelector('.band-menu-description')?.textContent?.trim()).toBe(s.bandPageStartHelp);
+    expect(Array.from(el.shadowRoot!.querySelectorAll('.band-menu-label'))
+      .map((label) => label.textContent?.trim())).toEqual([
+      s.bandBeforeData,
+      s.bandPageStart,
+      s.bandGroupStart,
+      s.bandItem,
+      s.bandGroupEnd,
+      s.bandAfterData,
+      s.bandPageEnd,
+    ]);
+
+    rowButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+    const cancel = Array.from(el.shadowRoot!.querySelectorAll('.band-menu-item'))
+      .find((button) => button.textContent?.trim() === s.cancel) as HTMLButtonElement;
+    cancel.click();
+    await el.updateComplete;
+
+    const addRow = row(el, s.addRow).querySelector('.list-select') as HTMLButtonElement;
+    addRow.click();
+    await el.updateComplete;
+    const option = el.shadowRoot!.querySelector(
+      '.list-select-menu button[data-value="after-data"]',
+    ) as HTMLButtonElement;
+    expect(option.querySelector('.list-select-option-label')?.textContent?.trim()).toBe(s.bandAfterData);
+    expect(option.querySelector('.list-select-option-description')?.textContent?.trim())
+      .toBe(s.bandAfterDataHelp);
+    el.remove();
+  });
+
   it('셀을 편집하는 동안에는 행 역할 선택 영역을 감춘다', async () => {
     const el = await mount();
     await clickCell(el, 15, 25);
@@ -5201,8 +5243,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     expect(menu).not.toBeNull();
 
     // 첫 행을 데이터 반복 영역으로 지정하면 기존 항목 행은 아래 역할로 흡수된다
-    const command = Array.from(menu!.querySelectorAll('.band-menu-item'))
-      .find((b) => b.textContent?.trim() === s.bandItem) as HTMLButtonElement;
+    const command = menu!.querySelector('.band-menu-item.placement-item') as HTMLButtonElement;
     command.click();
     await el.updateComplete;
 
@@ -5212,23 +5253,73 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('속성 패널에서 행 범위를 고르고 역할을 바꾼다', async () => {
+  it('속성 패널에서 고른 행 구간의 역할을 바꾼다', async () => {
     const el = await mount();
-    const firstBand = el.shadowRoot!.querySelector('.band-item-main') as HTMLButtonElement;
-    firstBand.click();
+    const lastBand = el.shadowRoot!.querySelector('[data-band-id="b-tail"] .band-item-main') as HTMLButtonElement;
+    lastBand.click();
     await el.updateComplete;
 
     const editor = el.shadowRoot!.querySelector('.band-editor') as HTMLElement;
-    const from = editor.querySelector('[aria-label="Start row"]') as HTMLInputElement;
-    const to = editor.querySelector('[aria-label="End row"]') as HTMLInputElement;
-    to.value = '3';
-    to.dispatchEvent(new Event('change', { bubbles: true }));
-    from.value = '3';
-    from.dispatchEvent(new Event('change', { bubbles: true }));
-    await el.updateComplete;
-
     await pickListValue(el, editor.querySelector('.list-select') as HTMLButtonElement, 'page-end');
     expect(gridOf(el).repeat!.bands.at(-1)).toMatchObject({ fromRow: 2, toRow: 2, placement: 'page-end' });
+    el.remove();
+  });
+
+  it('행 구간의 종료 행을 바꾸면 실제 구간 경계에 즉시 반영한다', async () => {
+    const el = await mount();
+    const itemBand = el.shadowRoot!.querySelector('[data-band-id="b-item"] .band-item-main') as HTMLButtonElement;
+    itemBand.click();
+    await el.updateComplete;
+
+    let editor = el.shadowRoot!.querySelector('.band-editor') as HTMLElement;
+    let to = editor.querySelector(`[aria-label="${s.bandToRow}"]`) as HTMLInputElement;
+    to.value = '3';
+    to.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(gridOf(el).repeat!.bands.find((band) => band.id === 'b-item'))
+      .toMatchObject({ fromRow: 1, toRow: 2, placement: 'item' });
+    expect((el as unknown as { _bandSelect: { from: number; to: number } })._bandSelect)
+      .toEqual({ from: 1, to: 2 });
+
+    editor = el.shadowRoot!.querySelector('.band-editor') as HTMLElement;
+    to = editor.querySelector(`[aria-label="${s.bandToRow}"]`) as HTMLInputElement;
+    to.value = '2';
+    to.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(gridOf(el).repeat!.bands.find((band) => band.id === 'b-item'))
+      .toMatchObject({ fromRow: 1, toRow: 1, placement: 'item' });
+    expect(gridOf(el).repeat!.bands.at(-1))
+      .toMatchObject({ fromRow: 2, toRow: 2, placement: 'after-data' });
+    el.remove();
+  });
+
+  it('종료 행 변경으로 병합 셀이 구간 경계를 넘으면 적용하지 않는다', async () => {
+    const file = makeGridElementFile();
+    const grid = file.template.pages[0]!.elements[0] as unknown as TestGrid;
+    grid.repeat!.bands = [
+      { id: 'b-head', fromRow: 0, toRow: 0, placement: 'page-start' },
+      { id: 'b-item', fromRow: 1, toRow: 2, placement: 'item' },
+    ];
+    grid.cells.push({ row: 1, column: 1, rowSpan: 2, content: '병합' });
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+    selectElement(el, 'g-1');
+    await el.updateComplete;
+
+    const itemBand = el.shadowRoot!.querySelector('[data-band-id="b-item"] .band-item-main') as HTMLButtonElement;
+    itemBand.click();
+    await el.updateComplete;
+    const to = el.shadowRoot!.querySelector(`[aria-label="${s.bandToRow}"]`) as HTMLInputElement;
+    to.value = '2';
+    to.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(gridOf(el).repeat!.bands.find((band) => band.id === 'b-item'))
+      .toMatchObject({ fromRow: 1, toRow: 2, placement: 'item' });
+    expect(el.shadowRoot!.querySelector('#error-band-range')?.textContent?.trim()).toBe(s.repeatMergeError);
+    expect(to.getAttribute('aria-invalid')).toBe('true');
     el.remove();
   });
 

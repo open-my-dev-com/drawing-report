@@ -320,9 +320,21 @@ Use the quick setup commands in <kbd>Row bands</kbd> to add the following rows.
 | Page subtotal | Shows the page total at the bottom of every output page except the last |
 | Final total | Shows the overall total once after all data |
 
-To add a group subtotal, first choose group-by fields under <kbd>Advanced settings</kbd>. Rows added by quick setup remain editable in the row-band list, including their range, role, and displayed pages.
+The <kbd>Display behavior</kbd> of a row band defines when and at what scope the rows are output. It does not define what kind of content the rows contain.
 
-Select a row number on the canvas to change that row's role. Hold <kbd>Shift</kbd> while selecting another row number to make a multi-row band. The same operations are available in the row-band list on the right.
+| Display behavior | When it is output | Typical content |
+|---|---|---|
+| Before all data | Once on the first output page | Title or introductory note |
+| Before data on each page | On every selected output page | Repeating column headings |
+| Before each group | Before the first item in each group | Group heading |
+| Data repeat area | Once per data item | Item content |
+| After each group | After the last item in each group | Group subtotal |
+| After all data | Once after the final item | Final total |
+| After data on each page | On every selected output page | Page subtotal or footer |
+
+To add a group subtotal, first choose group-by fields under <kbd>Advanced settings</kbd>. Rows added by quick setup remain editable in the row-band list, including their range, display behavior, and displayed pages.
+
+Select a row number shown to the left of the grid on the canvas to change that row's display behavior. Hold <kbd>Shift</kbd> while selecting another row number to make a multi-row band. The same operations are available in the row-band list on the right.
 
 When page planning fails, the canvas shows the error and a <kbd>Show problem</kbd> button. The button selects the affected grid and row band.
 

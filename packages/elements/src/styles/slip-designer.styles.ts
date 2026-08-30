@@ -1183,6 +1183,23 @@ export const designerStyles = css`
       color: var(--sk-accent);
       font-weight: 600;
     }
+    .list-select-menu button.described {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 2px;
+      white-space: normal;
+    }
+    .list-select-option-label {
+      display: block;
+    }
+    .list-select-option-description {
+      display: block;
+      color: var(--sk-text-muted);
+      font-size: 11px;
+      font-weight: 400;
+      line-height: 15px;
+    }
     .prop-row input,
     .prop-row textarea {
       flex: 1;
@@ -2335,7 +2352,7 @@ export const designerStyles = css`
       position: absolute;
       left: 22px;
       z-index: 4;
-      min-width: 168px;
+      width: min(240px, calc(100vw - 24px));
       display: flex;
       flex-direction: column;
       background: var(--sk-panel-bg, #fff);
@@ -2352,7 +2369,7 @@ export const designerStyles = css`
     }
     .element .band-menu .band-menu-item {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 6px;
       border: none;
       background: none;
@@ -2370,6 +2387,7 @@ export const designerStyles = css`
       border-radius: 2px;
       background: var(--sk-band, transparent);
       flex: 0 0 auto;
+      margin-top: 4px;
     }
     .element .band-menu .band-menu-item:hover {
       background: var(--sk-hover, #f2f2f2);
@@ -2384,10 +2402,25 @@ export const designerStyles = css`
       flex: 0 0 auto;
       width: 14px;
       height: 14px;
+      margin-top: 1px;
     }
     .element .band-menu .band-menu-icon svg {
       width: 14px;
       height: 14px;
+    }
+    .element .band-menu .band-menu-copy {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .element .band-menu .band-menu-label {
+      line-height: 16px;
+    }
+    .element .band-menu .band-menu-description {
+      color: var(--sk-text-muted);
+      font-size: 11px;
+      line-height: 15px;
     }
 
     .prop-subsection-title {

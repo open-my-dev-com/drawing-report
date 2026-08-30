@@ -565,9 +565,9 @@ const BAND_PLACEMENT_ORDER: Record<GridBandPlacement, number> = {
   'page-end': 6,
 };
 
-/** 행 구간 역할을 지정하는 명령 순서 (§7.2의 명령 목록 순서) */
+/** 행 표시 방식을 출력 흐름에 맞게 나열한다. */
 const BAND_PLACEMENTS: readonly GridBandPlacement[] = [
-  'item', 'before-data', 'page-start', 'group-start', 'group-end', 'after-data', 'page-end',
+  'before-data', 'page-start', 'group-start', 'item', 'group-end', 'after-data', 'page-end',
 ];
 
 type GridRowCommand = 'header' | 'group-subtotal' | 'page-subtotal' | 'final-total';
@@ -634,6 +634,100 @@ function assignBandRole(
     }
   }
   return bands;
+}
+
+/**
+ * 한 행 구간의 시작·종료 행을 바꾸고 맞닿은 구간의 경계를 함께 조정한다.
+ * 선택한 구간과 인접 구간의 식별자·옵션은 유지한다.
+ */
+function resizeBandRange(
+  el: GridElement,
+  bandId: string,
+  fromRow: number,
+  toRow: number,
+): GridBand[] | 'noItem' | 'outOfOrder' {
+  if (!el.repeat) return 'outOfOrder';
+  const bands = el.repeat.bands.map((band) => ({ ...band }));
+  let targetIndex = bands.findIndex((band) => band.id === bandId);
+  if (targetIndex < 0) return 'outOfOrder';
+  let target = bands[targetIndex]!;
+  const previousFrom = target.fromRow;
+  const previousTo = target.toRow;
+
+  if (fromRow < previousFrom) {
+    for (let index = targetIndex - 1; index >= 0; index -= 1) {
+      const band = bands[index]!;
+      if (band.toRow < fromRow) break;
+      if (band.fromRow < fromRow) {
+        band.toRow = fromRow - 1;
+        break;
+      }
+      bands.splice(index, 1);
+      targetIndex -= 1;
+    }
+  } else if (fromRow > previousFrom) {
+    const previous = bands[targetIndex - 1];
+    if (previous !== undefined) {
+      previous.toRow = fromRow - 1;
+    } else {
+      if (BAND_PLACEMENT_ORDER[target.placement] <= BAND_PLACEMENT_ORDER['before-data']) {
+        return 'outOfOrder';
+      }
+      bands.unshift({
+        id: `band_${crypto.randomUUID().slice(0, 8)}`,
+        fromRow: previousFrom,
+        toRow: fromRow - 1,
+        placement: 'before-data',
+      });
+      targetIndex += 1;
+    }
+  }
+
+  target = bands[targetIndex]!;
+  target.fromRow = fromRow;
+
+  if (toRow > previousTo) {
+    for (let index = targetIndex + 1; index < bands.length;) {
+      const band = bands[index]!;
+      if (band.fromRow > toRow) break;
+      if (band.toRow > toRow) {
+        band.fromRow = toRow + 1;
+        break;
+      }
+      bands.splice(index, 1);
+    }
+  } else if (toRow < previousTo) {
+    const next = bands[targetIndex + 1];
+    if (next !== undefined) {
+      next.fromRow = toRow + 1;
+    } else {
+      const targetRank = BAND_PLACEMENT_ORDER[target.placement];
+      const placement: GridBandPlacement | null = targetRank < BAND_PLACEMENT_ORDER['after-data']
+        ? 'after-data'
+        : targetRank < BAND_PLACEMENT_ORDER['page-end'] ? 'page-end' : null;
+      if (placement === null) return 'outOfOrder';
+      bands.push({
+        id: `band_${crypto.randomUUID().slice(0, 8)}`,
+        fromRow: toRow + 1,
+        toRow: previousTo,
+        placement,
+      });
+    }
+  }
+  target.toRow = toRow;
+
+  if (bands.filter((band) => band.placement === 'item').length !== 1) return 'noItem';
+  let nextRow = 0;
+  for (let index = 0; index < bands.length; index += 1) {
+    const band = bands[index]!;
+    if (band.fromRow !== nextRow) return 'outOfOrder';
+    if (index > 0
+      && BAND_PLACEMENT_ORDER[band.placement] < BAND_PLACEMENT_ORDER[bands[index - 1]!.placement]) {
+      return 'outOfOrder';
+    }
+    nextRow = band.toRow + 1;
+  }
+  return nextRow === el.rows.length ? bands : 'outOfOrder';
 }
 
 /** 셀 병합이 행 구간 경계를 넘는지 검사한다. */
@@ -2711,8 +2805,8 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 속성 패널에서 편집할 행 범위의 시작 또는 끝을 변경한다. */
-  private _setBandSelectionBoundary(boundary: 'from' | 'to', rowNumber: number): void {
+  /** 속성 패널에서 선택한 행 구간의 시작 또는 종료 행을 변경한다. */
+  private _setBandSelectionBoundary(boundary: 'from' | 'to', rowNumber: number, bandId?: string): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'grid' || !el.repeat || this._bandSelect === null) return;
     if (!Number.isInteger(rowNumber) || rowNumber < 1 || rowNumber > el.rows.length) {
@@ -2725,10 +2819,39 @@ export class SlipDesigner extends LitElement {
     const index = rowNumber - 1;
     const from = Math.min(this._bandSelect.from, this._bandSelect.to);
     const to = Math.max(this._bandSelect.from, this._bandSelect.to);
+    const nextFrom = boundary === 'from' ? index : from;
+    const nextTo = boundary === 'to' ? index : to;
+    if (nextFrom > nextTo) {
+      this._rejectInput(this._strings.designer.bandRangeOrder, 'band-range');
+      return;
+    }
+
+    if (bandId !== undefined) {
+      const result = resizeBandRange(el, bandId, nextFrom, nextTo);
+      if (result === 'noItem') {
+        this._rejectInput(this._strings.designer.bandNeedsItem, 'band-range');
+        return;
+      }
+      if (result === 'outOfOrder') {
+        this._rejectInput(this._strings.designer.bandOrderError, 'band-range');
+        return;
+      }
+      if (el.cells.some((cell) => spanCrossesBand(el, result, cell))) {
+        this._rejectInput(this._strings.designer.repeatMergeError, 'band-range');
+        return;
+      }
+      this._resetPanelErrors();
+      this._updateGrid((grid) => {
+        grid.repeat!.bands = result;
+      });
+      this._bandSelect = { from: nextFrom, to: nextTo };
+      this._bandMenuOpen = false;
+      this.requestUpdate();
+      return;
+    }
+
     this._resetPanelErrors();
-    this._bandSelect = boundary === 'from'
-      ? { from: Math.min(index, to), to }
-      : { from, to: Math.max(index, from) };
+    this._bandSelect = { from: nextFrom, to: nextTo };
     this._bandMenuOpen = false;
     this.requestUpdate();
   }
@@ -3400,7 +3523,7 @@ export class SlipDesigner extends LitElement {
     id: string;
     ariaLabel: string;
     value: string;
-    options: { value: string; label: string }[];
+    options: { value: string; label: string; description?: string }[];
     onPick: (value: string) => void;
     className?: string;
     placeholder?: string;
@@ -3422,11 +3545,17 @@ export class SlipDesigner extends LitElement {
             style="left:${this._listSelectPos.left}px;top:${this._listSelectPos.top}px;min-width:${this._listSelectPos.width}px;max-height:${this._listSelectPos.maxHeight}px">
             ${config.options.map((o) => html`
               <button type="button" role="option" data-value=${o.value}
+                class=${o.description === undefined ? '' : 'described'}
                 aria-selected=${String(o.value === config.value)}
                 @click=${() => {
                   this._closeListSelect();
                   config.onPick(o.value);
-                }}>${o.label}</button>`)}
+                }}>
+                <span class="list-select-option-label">${o.label}</span>
+                ${o.description === undefined
+                  ? nothing
+                  : html`<span class="list-select-option-description">${o.description}</span>`}
+              </button>`)}
           </div>`
         : nothing}
     `;
@@ -5166,7 +5295,11 @@ export class SlipDesigner extends LitElement {
           this._setRowBandRole(from, to, placement);
           this._closeBandMenu(true);
         }}><span class="band-menu-icon">${this._bandPlacementIcon(placement)}</span>
-          ${this._bandPlacementLabel(placement)}</button>`)}
+          <span class="band-menu-copy">
+            <span class="band-menu-label">${this._bandPlacementLabel(placement)}</span>
+            <span class="band-menu-description">${this._bandPlacementDescription(placement)}</span>
+          </span>
+        </button>`)}
       <button type="button" role="menuitem" class="band-menu-item"
         @click=${() => this._closeBandMenu(true)}>${s.cancel}</button>
     </div>`;
@@ -5226,6 +5359,20 @@ export class SlipDesigner extends LitElement {
       case 'group-end': return s.bandGroupEnd;
       case 'after-data': return s.bandAfterData;
       case 'page-end': return s.bandPageEnd;
+    }
+  }
+
+  /** 행 구간이 출력되는 시점과 대표 용도를 설명한다. */
+  private _bandPlacementDescription(placement: GridBandPlacement): string {
+    const s = this._strings.designer;
+    switch (placement) {
+      case 'before-data': return s.bandBeforeDataHelp;
+      case 'page-start': return s.bandPageStartHelp;
+      case 'group-start': return s.bandGroupStartHelp;
+      case 'item': return s.bandItemHelp;
+      case 'group-end': return s.bandGroupEndHelp;
+      case 'after-data': return s.bandAfterDataHelp;
+      case 'page-end': return s.bandPageEndHelp;
     }
   }
 
@@ -7174,9 +7321,13 @@ export class SlipDesigner extends LitElement {
           (_, offset) => bandAt(el, selected.from + offset)?.placement,
         ).filter((role): role is GridBandPlacement => role !== undefined))];
     const selectedRole = selectedRoles.length === 1 ? selectedRoles[0]! : '';
+    const selectedBand = selected === null
+      ? undefined
+      : bands.find((band) => band.fromRow === selected.from && band.toRow === selected.to);
     const roleOptions = BAND_PLACEMENTS.map((placement) => ({
       value: placement,
       label: this._bandPlacementLabel(placement),
+      description: this._bandPlacementDescription(placement),
     }));
     return html`
       <div class="prop-section band-list">
@@ -7257,20 +7408,26 @@ export class SlipDesigner extends LitElement {
                   <label>${s.bandFromRow}</label>
                   <input type="number" min="1" max=${String(el.rows.length)}
                     aria-label=${s.bandFromRow}
+                    aria-invalid=${String(this._hasInputError('band-range'))}
+                    aria-describedby=${this._hasInputError('band-range') ? 'error-band-range' : nothing}
                     .value=${String(selected.from + 1)}
                     @change=${(e: Event) => this._setBandSelectionBoundary(
                       'from',
                       Number((e.target as HTMLInputElement).value),
+                      selectedBand?.id,
                     )}>
                 </div>
                 <div class="prop-row">
                   <label>${s.bandToRow}</label>
                   <input type="number" min="1" max=${String(el.rows.length)}
                     aria-label=${s.bandToRow}
+                    aria-invalid=${String(this._hasInputError('band-range'))}
+                    aria-describedby=${this._hasInputError('band-range') ? 'error-band-range' : nothing}
                     .value=${String(selected.to + 1)}
                     @change=${(e: Event) => this._setBandSelectionBoundary(
                       'to',
                       Number((e.target as HTMLInputElement).value),
+                      selectedBand?.id,
                     )}>
                 </div>
               </div>
