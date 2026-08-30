@@ -119,15 +119,15 @@ The full documentation is organized by goal in the [SlipKit Guide](docs/guide/RE
 | [Formula Function Reference](docs/guide/formula.md) | Formula-writing rules, supported functions, and usage examples |
 | [API Reference](docs/guide/api-reference.md) | The full reference of functions, types, components, events, and errors |
 
-## Technical documents
+## Technical documents (Korean)
 
 | Document | Contents |
 |---|---|
-| [`.slip` file format specification](docs/SPEC.md) (Korean) | The structure and validation rules of `.slip` files |
-| [Architecture](docs/ARCHITECTURE.md) (Korean) | Package structure and external-system integration |
-| [Requirements](docs/REQUIREMENTS.md) (Korean) | Confirmed product requirements |
-| [Design decision log](docs/DECISIONS.md) (Korean) | Key design decisions and their rationale |
-| [Roadmap](docs/ROADMAP.md) (Korean) | Development status and planned work |
+| [`.slip` file format specification](docs/SPEC.md) | The structure and validation rules of `.slip` files |
+| [Architecture](docs/ARCHITECTURE.md) | Package structure and external-system integration |
+| [Requirements](docs/REQUIREMENTS.md) | Confirmed product requirements |
+| [Design decision log](docs/DECISIONS.md) | Key design decisions and their rationale |
+| [Roadmap](docs/ROADMAP.md) | Development status and planned work |
 
 ## Development commands
 

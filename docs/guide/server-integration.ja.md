@@ -719,5 +719,5 @@ SlipKit は次の機能を直接提供しません。
 - [アプリケーション統合ガイド](integration.ja.md)
 - [設定ガイド](configuration.ja.md)
 - [API リファレンス](api-reference.ja.md)
-- [アーキテクチャ](../ARCHITECTURE.md) (韓国語)
-- [ファイル形式仕様](../SPEC.md) (韓国語)
+- [アーキテクチャ](../ARCHITECTURE.md)
+- [ファイル形式仕様](../SPEC.md)

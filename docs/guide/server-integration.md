@@ -719,5 +719,5 @@ Implement the following separately in your server application.
 - [Application Integration Guide](integration.md)
 - [Configuration Guide](configuration.md)
 - [API Reference](api-reference.md)
-- [Architecture](../ARCHITECTURE.md) (Korean)
-- [File Format Specification](../SPEC.md) (Korean)
+- [Architecture](../ARCHITECTURE.md)
+- [File Format Specification](../SPEC.md)
