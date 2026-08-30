@@ -1,109 +1,109 @@
-# SlipKit 가이드
+# SlipKit Guide
 
-[English](README.en.md) · [日本語](README.ja.md)
+[한국어](README.ko.md) · [日本語](README.ja.md)
 
-SlipKit을 실행하거나 기존 애플리케이션에 연결하는 데 필요한 문서를 안내합니다.
+This page points you to the documents you need to run SlipKit or connect it to an existing application.
 
-처음 사용한다면 [시작하기](getting-started.md)에서 저장소의 데모를 실행하고 양식 디자이너를 연결하는 과정부터 확인하세요.
+If this is your first time, start with [Getting started](getting-started.md) to run the repository demos and connect the form designer.
 
 > [!IMPORTANT]
-> SlipKit은 현재 공개 전 검토 단계이며 `@omdc-slipkit/*` 패키지는 npm 레지스트리에 아직 배포되지 않았습니다.
-> 현재는 저장소를 복제하여 동봉 데모와 소스 코드로 확인할 수 있습니다.
+> SlipKit is currently in a pre-release review stage, and the `@omdc-slipkit/*` packages are not yet published to the npm registry.
+> For now you can explore it by cloning the repository and reviewing the bundled demos and source code.
 
-## 목적에 맞는 문서 찾기
+## Find the document for your goal
 
-| 하고 싶은 일 | 문서 | 대상 |
+| What you want to do | Document | Audience |
 |---|---|---|
-| 저장소에서 SlipKit을 처음 실행하고 디자이너 연결하기 | [시작하기](getting-started.md) | 처음 사용하는 개발자 |
-| 디자이너·작성폼·뷰어를 연결하고 결과 저장하기 | [애플리케이션 통합 가이드](integration.md) | 프런트엔드·애플리케이션 개발자 |
-| 디자이너 화면에서 양식 만들기 | [양식 디자이너 사용 가이드](designer.md) | 양식 제작자 |
-| `.slip` 파일 처리, 전표 조립과 PDF 생성하기 | [Core 사용 가이드](core.md) | 백엔드·Core 개발자 |
-| Node.js 서버에서 전표를 발행하고 PDF를 생성·보관하기 | [서버 통합 가이드](server-integration.md) | 백엔드 개발자 |
-| MCP 서버를 설정하고 AI로 `.slip` 양식을 만들고 고친 뒤 PDF로 확인하기 | [MCP 사용 가이드](mcp.md) | MCP 사용자·AI 연동 개발자 |
-| 언어, 폰트, 용지, 프리셋과 저장소 설정하기 | [환경 설정 가이드](configuration.md) | 애플리케이션 개발자 |
-| 양식에서 계산식 작성하기 | [수식 함수 참조](formula.md) | 양식 제작자·개발자 |
-| 공개 함수, 타입, 컴포넌트와 이벤트 확인하기 | [API 참조](api-reference.md) | 연동 개발자 |
+| Run SlipKit from the repository for the first time and connect the designer | [Getting started](getting-started.md) | First-time developers |
+| Connect the designer, entry form, and viewer, and save the results | [Application Integration Guide](integration.md) | Frontend and application developers |
+| Build a template on the designer screen | [Form Designer Guide](designer.md) | Template authors |
+| Handle `.slip` files, assemble vouchers, and generate PDFs | [Core Usage Guide](core.md) | Backend and Core developers |
+| Issue vouchers and generate and store PDFs on a Node.js server | [Server Integration Guide](server-integration.md) | Backend developers |
+| Configure the MCP server, create and edit `.slip` templates with AI, and review them as PDFs | [MCP Guide](mcp.md) | MCP users and AI integration developers |
+| Configure language, fonts, paper, presets, and storage | [Configuration Guide](configuration.md) | Application developers |
+| Write calculations in a template | [Formula Function Reference](formula.md) | Template authors and developers |
+| Check the public functions, types, components, and events | [API Reference](api-reference.md) | Integration developers |
 
 > [!TIP]
-> 처음 사용한다면 [시작하기](getting-started.md)를 먼저 진행한 뒤 [애플리케이션 통합 가이드](integration.md)로 넘어가세요.
+> If you are new, go through [Getting started](getting-started.md) first, then move on to the [Application Integration Guide](integration.md).
 >
-> 양식 제작만 담당한다면 [양식 디자이너 사용 가이드](designer.md)를, UI 없이 `.slip` 파일과 PDF를 처리한다면 [Core 사용 가이드](core.md)를 바로 확인해도 됩니다.
+> If you only build templates, you can go straight to the [Form Designer Guide](designer.md); if you handle `.slip` files and PDFs without UI, go straight to the [Core Usage Guide](core.md).
 
-## SlipKit의 구성 요소
+## SlipKit's components
 
-SlipKit은 목적이 다른 세 가지 UI 컴포넌트를 제공합니다.
+SlipKit provides three UI components with different purposes.
 
-| 구성 요소 | 역할 | 입력 | 변경 결과 |
+| Component | Role | Input | Change output |
 |---|---|---|---|
-| `<slip-designer>` | 문서 양식 설계 | 양식 | 편집된 양식 |
-| `<slip-form>` | 양식에 값 입력 및 전표 발행 | 양식 또는 작성 중 전표 | 작성 중 전표·발행된 전표 |
-| `<slip-viewer>` | 양식이나 전표 조회 | 양식 또는 전표 | 없음 |
+| `<slip-designer>` | Design a document template | A template | The edited template |
+| `<slip-form>` | Fill a template with values and issue a voucher | A template or an in-progress voucher | An in-progress voucher / an issued voucher |
+| `<slip-viewer>` | View a template or a voucher | A template or a voucher | None |
 
-각 컴포넌트는 `.slip` 파일을 JSON 문자열로 전달받습니다.
+Each component receives a `.slip` file as a JSON string.
 
-- 양식은 `kind: 'template'`입니다.
-- 전표는 `kind: 'voucher'`입니다.
-- 발행된 전표는 `issued: true`이며 작성폼에서 더 이상 수정할 수 없습니다.
+- A template has `kind: 'template'`.
+- A voucher has `kind: 'voucher'`.
+- An issued voucher has `issued: true` and can no longer be edited in the entry form.
 
 > [!NOTE]
-> SlipKit은 독립 실행형 서비스가 아닙니다.
-> 사용자 인증, 권한 관리, 데이터 저장, 서버 API 및 컴포넌트 간 화면 전환은 SlipKit을 사용하는 애플리케이션에서 구현합니다.
+> SlipKit is not a standalone service.
+> User authentication, permission management, data storage, server APIs, and screen transitions between components are implemented by the application that uses SlipKit.
 
-## 사용 흐름
+## Usage flow
 
-일반적인 애플리케이션에서는 다음 순서로 SlipKit을 사용합니다.
+A typical application uses SlipKit in the following order.
 
-1. `<slip-designer>`에서 양식을 만듭니다.
-2. 변경된 양식을 애플리케이션에 저장합니다.
-3. 저장한 양식을 `<slip-form>`에 전달합니다.
-4. 사용자가 값을 입력하고 전표를 발행합니다.
-5. 작성 중이거나 발행된 전표를 애플리케이션에 저장합니다.
-6. `<slip-viewer>`에서 저장한 양식 또는 전표를 조회합니다.
+1. Create a template in `<slip-designer>`.
+2. Save the changed template in the application.
+3. Pass the saved template to `<slip-form>`.
+4. The user enters values and issues a voucher.
+5. Save the in-progress or issued voucher in the application.
+6. View the saved template or voucher in `<slip-viewer>`.
 
-편집 결과는 컴포넌트가 자동으로 영구 저장하지 않습니다. 디자이너와 작성폼이 전달하는 이벤트를 애플리케이션에서 받아 저장해야 합니다.
+The components do not automatically persist edits. The application must receive the events emitted by the designer and the entry form and save them.
 
-## 패키지 선택
+## Choosing a package
 
-사용하려는 환경에 따라 다음 패키지를 사용합니다.
+Use the following packages depending on your environment.
 
-| 패키지 | 용도 |
+| Package | Purpose |
 |---|---|
-| `@omdc-slipkit/core` | `.slip` 파일 검증, 전표 조립, 수식 평가, PDF 생성 및 파일 암호화 |
-| `@omdc-slipkit/elements` | Web Component 기반 디자이너·작성폼·뷰어 |
-| `@omdc-slipkit/react` | React용 래퍼 컴포넌트 |
-| `@omdc-slipkit/vue` | Vue용 래퍼 컴포넌트 |
-| `@omdc-slipkit/mcp` | AI가 로컬 `.slip` 파일을 다루게 하는 stdio MCP 서버 |
+| `@omdc-slipkit/core` | `.slip` validation, voucher assembly, formula evaluation, PDF generation, and file encryption |
+| `@omdc-slipkit/elements` | Web Component-based designer, entry form, and viewer |
+| `@omdc-slipkit/react` | Wrapper components for React |
+| `@omdc-slipkit/vue` | Wrapper components for Vue |
+| `@omdc-slipkit/mcp` | Local stdio MCP server for AI access to `.slip` files |
 
-React와 Vue 패키지는 Web Component를 해당 프레임워크의 사용 방식에 맞게 연결하는 얇은 래퍼입니다. 제공하는 SlipKit 기능에는 차이가 없습니다.
+The React and Vue packages are thin wrappers that connect the Web Components to each framework's usage style. There is no difference in the SlipKit features they provide.
 
 <details>
-<summary><strong>가이드에서 사용하는 용어</strong></summary>
+<summary><strong>Terms used in the guides</strong></summary>
 
-| 용어 | 의미 |
+| Term | Meaning |
 |---|---|
-| 호스트 애플리케이션 | SlipKit을 설치하고 사용하는 웹 애플리케이션 |
-| 양식 | 문서의 크기, 배치, 파라미터와 수식을 정의한 파일 |
-| 전표 | 양식에 실제 값을 입력한 파일 |
-| 발행 | 작성한 전표의 값을 확정하여 더 이상 작성폼에서 수정할 수 없게 만드는 작업 |
-| 파라미터 | 전표마다 달라지는 값을 양식에서 참조하기 위한 이름 |
-| 양식 스냅샷 | 전표를 만들 때 전표 안에 함께 저장되는 당시의 양식 |
-| 저장소 어댑터 | 양식과 전표를 브라우저 또는 서버에 저장하기 위한 인터페이스 |
+| Host application | The web application that installs and uses SlipKit |
+| Template | A file that defines a document's size, layout, parameters, and formulas |
+| Voucher | A file with actual values filled into a template |
+| Issue | Finalizing a filled-in voucher's values so it can no longer be edited in the entry form |
+| Parameter | A name used in a template to reference values that differ per voucher |
+| Template snapshot | The template at creation time, saved inside the voucher |
+| Storage adapter | An interface for saving templates and vouchers to the browser or a server |
 
 </details>
 
-## 예제 프로젝트
+## Example projects
 
-저장소에는 같은 기능을 서로 다른 환경에서 구현한 세 가지 데모가 포함되어 있습니다.
+The repository includes three demos that implement the same features in different environments.
 
-| 환경 | 예제 |
+| Environment | Example |
 |---|---|
 | Web Component | [`examples/demo`](../../examples/demo) |
 | React | [`examples/react-demo`](../../examples/react-demo) |
 | Vue | [`examples/vue-demo`](../../examples/vue-demo) |
-| 프레임워크 공통 로직 | [`examples/shared`](../../examples/shared) |
+| Framework-independent logic | [`examples/shared`](../../examples/shared) |
 
-자동 저장, 파일 열기와 내려받기, 양식·전표 화면 전환처럼 SlipKit 외부에서 구현해야 하는 기능은 [`examples/shared`](../../examples/shared)에 정리되어 있습니다.
+Features that must be implemented outside SlipKit — such as auto-save, opening and downloading files, and screen transitions between the template and voucher views — are collected in [`examples/shared`](../../examples/shared).
 
-## 프로젝트 정보
+## Project information
 
-패키지 구성, 로컬 실행 방법, 개발 명령어, 기술 문서와 라이선스는 [프로젝트 README](../../README.md)를 확인하세요.
+For the package layout, how to run locally, development commands, technical documents, and the license, see the [Project README](../../README.md).

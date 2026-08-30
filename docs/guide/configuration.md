@@ -1,54 +1,54 @@
-# 환경 설정 가이드
+# Configuration Guide
 
-[English](configuration.en.md) · [日本語](configuration.ja.md)
+[한국어](configuration.ko.md) · [日本語](configuration.ja.md)
 
-이 문서는 SlipKit의 언어, 폰트, 용지, 바코드, 프리셋, 저장소 및 이미지 제한을 호스트 애플리케이션에 맞게 설정하는 방법을 설명합니다.
+This document explains how to configure SlipKit's language, fonts, paper, barcodes, presets, storage, and image limits to match your host application.
 
-설정은 컴포넌트의 기능 자체를 변경하기보다 다음과 같은 애플리케이션별 자원과 정책을 전달하는 데 사용합니다.
+Configuration is used less to change the features of the components themselves and more to pass application-specific resources and policies such as the following.
 
-- 화면에 표시할 언어
-- PDF 렌더링에 사용할 폰트
-- 디자이너에서 선택할 용지와 바코드
-- 애플리케이션 전용 양식 프리셋
-- 디자이너의 “내 양식” 저장소
-- 업로드할 수 있는 이미지 크기
-- Core의 수식 로케일과 암호화 키
+- The language displayed on screen
+- The fonts used for PDF rendering
+- The paper and barcodes selectable in the designer
+- Application-specific template presets
+- The designer's "My templates" storage
+- The size of images that can be uploaded
+- Core's formula locale and encryption key
 
 > [!NOTE]
-> 컴포넌트 이벤트와 자동 저장 흐름은 [애플리케이션 통합 가이드](integration.md)를, 각 설정 타입의 전체 필드는 [API 참조](api-reference.md)를 확인하세요.
+> For component events and the auto-save flow, see the [Application Integration Guide](integration.md). For the full fields of each settings type, see the [API Reference](api-reference.md).
 >
-> 로컬 MCP 서버의 `slipkit-mcp.json` 설정은 [MCP 사용 가이드](mcp.md)에서 별도로 설명합니다.
+> See the [MCP Guide](mcp.md) for the local MCP server's separate `slipkit-mcp.json` configuration.
 
-## 컴포넌트 설정 한눈에 보기
+## Component settings at a glance
 
-| 설정 | 디자이너 | 작성 폼 | 뷰어 | 기본 동작 |
+| Setting | Designer | Form | Viewer | Default behavior |
 |---|:---:|:---:|:---:|---|
-| `locale` | ● | ● | ● | `SlipKit` 로케일 또는 영어 UI |
-| `slipkit` | ● | ● | ● | 동봉 폰트와 Core 기본 설정 사용 |
-| `settings` | ● | — | — | 동봉 바코드 종류와 용지 사용 |
-| `presets` | ● | — | — | 동봉 프리셋 2종 사용 |
-| `storage` | ● | — | — | “내 양식” 저장·목록 기능 숨김 |
-| `maxImageBytes` | ● | ● | — | 이미지 원본 파일 최대 2MB |
+| `locale` | ● | ● | ● | The `SlipKit` locale or English UI |
+| `slipkit` | ● | ● | ● | Uses bundled fonts and the default Core settings |
+| `settings` | ● | — | — | Uses the bundled barcode kinds and paper sizes |
+| `presets` | ● | — | — | Uses the 2 bundled presets |
+| `storage` | ● | — | — | Hides the "My templates" save/list feature |
+| `maxImageBytes` | ● | ● | — | Image source file up to 2MB |
 
-`locale`과 `max-image-bytes`는 HTML 속성으로 전달할 수 있습니다.
+`locale` and `max-image-bytes` can be passed as HTML attributes.
 
-`slipkit`, `settings`, `presets`, `storage`는 객체나 함수를 포함하므로 JavaScript 프로퍼티 또는 프레임워크의 객체 prop으로 전달해야 합니다.
+`slipkit`, `settings`, `presets`, and `storage` contain objects or functions, so they must be passed as JavaScript properties or as your framework's object props.
 
-## 설정 전달 방법
+## How to pass settings
 
 ### Web Component
 
-문자열과 숫자는 HTML 속성으로 전달할 수 있습니다.
+Strings and numbers can be passed as HTML attributes.
 
 ```html
 <slip-designer
   id="designer"
-  locale="ko"
+  locale="en"
   max-image-bytes="2097152"
 ></slip-designer>
 ```
 
-객체 설정은 JavaScript 프로퍼티로 전달합니다.
+Object settings are passed as JavaScript properties.
 
 ```ts
 import '@omdc-slipkit/elements';
@@ -66,13 +66,13 @@ const designer =
 
 if (!designer) {
   throw new Error(
-    'slip-designer 요소를 찾을 수 없습니다.',
+    'The slip-designer element could not be found.',
   );
 }
 
 const slipkit = createSlipKit({
   getFonts: () => appFonts,
-  locale: 'ko-KR',
+  locale: 'en-US',
 });
 
 const settings: SlipDesignerSettings = {
@@ -86,10 +86,10 @@ designer.storage = templateStorage;
 designer.maxImageBytes = 2 * 1024 * 1024;
 ```
 
-다음과 같이 객체 이름을 HTML 속성 문자열로 작성해도 실제 객체가 전달되지는 않습니다.
+Writing the object name as an HTML attribute string as below does not actually pass the object.
 
 ```html
-<!-- 잘못된 사용 -->
+<!-- Incorrect usage -->
 <slip-designer
   settings="settings"
   presets="appPresets"
@@ -99,7 +99,7 @@ designer.maxImageBytes = 2 * 1024 * 1024;
 
 ### React
 
-React 래퍼에서는 일반 컴포넌트 prop으로 전달합니다.
+In the React wrapper, pass them as ordinary component props.
 
 ```tsx
 import { useMemo } from 'react';
@@ -124,7 +124,7 @@ export function DesignerScreen() {
   return (
     <SlipDesigner
       src={designerSrc}
-      locale="ko"
+      locale="en"
       slipkit={slipkit}
       settings={settings}
       presets={appPresets}
@@ -137,12 +137,12 @@ export function DesignerScreen() {
 ```
 
 > [!TIP]
-> 렌더링할 때마다 `slipkit`, `settings`, `presets`, `storage` 객체를 새로 만들지 마세요.
-> React에서는 모듈 범위에 선언하거나 `useMemo`를 사용하여 같은 객체를 유지하는 편이 좋습니다.
+> Do not create new `slipkit`, `settings`, `presets`, or `storage` objects on every render.
+> In React, it is better to declare them at module scope or use `useMemo` to keep the same object.
 
 ### Vue
 
-Vue 래퍼에서도 객체 prop으로 전달합니다.
+In the Vue wrapper, also pass them as object props.
 
 ```vue
 <script setup lang="ts">
@@ -162,7 +162,7 @@ const settings: SlipDesignerSettings = {
 <template>
   <SlipDesigner
     :src="designerSrc"
-    locale="ko"
+    locale="en"
     :slipkit="slipkit"
     :settings="settings"
     :presets="appPresets"
@@ -173,19 +173,19 @@ const settings: SlipDesignerSettings = {
 </template>
 ```
 
-## UI 언어 설정
+## UI language setting
 
-세 UI 컴포넌트는 `locale`을 지원합니다.
+The three UI components support `locale`.
 
-| 값 | 언어 | 기본 폰트 |
+| Value | Language | Default font |
 |---|---|---|
-| `ko` | 한국어 | Pretendard Regular·Bold |
-| `en` | 영어 | Pretendard Regular·Bold |
-| `ja` | 일본어 | Noto Sans JP Regular |
+| `ko` | Korean | Pretendard Regular·Bold |
+| `en` | English | Pretendard Regular·Bold |
+| `ja` | Japanese | Noto Sans JP Regular |
 
-`locale`을 생략하면 `SlipKit.locale`의 언어를 사용합니다. `slipkit`도 없거나 지원하지 않는 `locale`을 명시하면 영어를 사용합니다.
+If you omit `locale`, the UI uses the language from `SlipKit.locale`. If `slipkit` is also absent, or if you explicitly pass an unsupported `locale`, the UI uses English.
 
-`en-US`, `ko-KR`, `ja-JP`처럼 지역 코드가 포함된 값도 사용할 수 있습니다. 이 경우 앞부분의 언어 코드로 UI 언어를 선택합니다.
+Values that include a region code, such as `en-US`, `ko-KR`, and `ja-JP`, can also be used. In that case, the leading language code selects the UI language.
 
 ```html
 <slip-designer locale="ja"></slip-designer>
@@ -193,43 +193,43 @@ const settings: SlipDesignerSettings = {
 <slip-viewer locale="en-US"></slip-viewer>
 ```
 
-컴포넌트 `locale`은 다음 항목에 영향을 줍니다.
+The component `locale` affects the following.
 
-- 컴포넌트 버튼과 안내 문구
-- 오류 메시지
+- Component buttons and guidance text
+- Error messages
 
-`getFonts`가 없을 때 사용하는 동봉 기본 폰트는 `SlipKit.locale`로 선택합니다. `slipkit`도 없을 때는 컴포넌트 `locale`을 사용합니다.
+When `getFonts` is not configured, `SlipKit.locale` selects the bundled default font. If `slipkit` is also absent, the component `locale` is used.
 
-다음 항목은 자동으로 번역하지 않습니다.
+The following are not translated automatically.
 
-- 양식 안에 직접 입력한 텍스트
-- 파라미터의 논리명
-- 외부에서 받은 `.slip` 파일의 내용
-- 애플리케이션이 공급한 프리셋 이름과 내용
+- Text entered directly into the template
+- Parameter logical names
+- The contents of a `.slip` file received from an external source
+- The names and contents of presets supplied by the application
 
 > [!IMPORTANT]
-> 동봉된 거래명세서와 청구서 프리셋은 **적용 시점의 `locale`에 해당하는 언어**로 제목·표 항목·문구가 만들어집니다.
-> 이미 만들어진 양식은 이후 `locale`을 바꿔도 자동으로 번역되지 않습니다.
-> 다른 구성의 양식이 필요하면 직접 작성한 프리셋을 별도로 공급하세요.
+> The bundled trade statement and invoice presets are created with titles, table items, and phrases in the **`locale` language at the moment you apply them**.
+> A template that has already been created is not translated automatically when you change `locale` later.
+> If you need templates with a different structure, supply your own presets separately.
 
-## 폰트 설정
+## Font settings
 
-### 동봉 기본 폰트
+### Bundled default fonts
 
-`SlipKit`에 `getFonts`를 설정하지 않으면 UI 컴포넌트가 `SlipKit.locale`에 맞는 기본 폰트를 불러옵니다. `slipkit`도 없으면 컴포넌트 `locale`을 사용합니다.
+If `getFonts` is not configured on `SlipKit`, the UI component loads the default font for `SlipKit.locale`. If `slipkit` is also absent, it uses the component `locale`.
 
-| 언어 | 동봉 폰트 | 구성 |
+| Language | Bundled font | Composition |
 |---|---|---|
-| 한국어·영어 | Pretendard | Regular·Bold |
-| 일본어 | Noto Sans JP | Regular 서브셋 |
+| Korean·English | Pretendard | Regular·Bold |
+| Japanese | Noto Sans JP | Regular subset |
 
-동봉 폰트는 PDF 렌더링이 필요할 때 지연 로딩되며, 한 번 불러온 뒤에는 같은 언어에서 재사용됩니다.
+The bundled fonts are lazily loaded when PDF rendering is needed, and once loaded they are reused for the same language.
 
-일본어 기본 폰트는 일반적인 가나, 한자와 라틴 문자를 포함하는 서브셋입니다. 동봉 범위에 없는 글자나 굵은 일본어 폰트가 필요하면 사용자 폰트를 공급해야 합니다.
+The Japanese default font is a subset that includes common kana, kanji, and Latin characters. If you need characters outside the bundled range or a bold Japanese font, you must supply your own font.
 
-### 사용자 폰트 공급
+### Supplying your own fonts
 
-사용자 폰트는 `createSlipKit`의 `getFonts`에 한 번 설정하고, 같은 인스턴스를 컴포넌트에 전달합니다.
+Configure custom fonts once with the `getFonts` option of `createSlipKit`, then pass the same instance to each component.
 
 ```ts
 import { createSlipKit } from '@omdc-slipkit/core';
@@ -253,15 +253,12 @@ form.slipkit = slipkit;
 designer.slipkit = slipkit;
 ```
 
-`getFonts`는 폰트 배열이나 폰트 배열을 반환하는 `Promise`를 사용할 수 있습니다.
+`getFonts` can use a font array or a `Promise` that returns a font array.
 
-UI 컴포넌트는 `getFonts`가 없을 때 동봉 폰트를 보완하지만, Core의 `slipkit.render()`는 Elements의 동봉 폰트를 자동으로 불러오지 않습니다. 직접 Core 렌더링과 컴포넌트 미리보기에 같은 사용자 폰트가 필요하면 `getFonts`를 설정하세요.
+UI components supply bundled fonts when `getFonts` is absent, but Core's `slipkit.render()` does not load fonts bundled with Elements. Configure `getFonts` when direct Core rendering and component previews must use the same custom fonts.
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
-import type {
-  SlipFont,
-} from '@omdc-slipkit/core';
+import { createSlipKit, type SlipFont } from '@omdc-slipkit/core';
 
 async function loadFont(
   url: string,
@@ -270,7 +267,7 @@ async function loadFont(
 
   if (!response.ok) {
     throw new Error(
-      `폰트를 불러오지 못했습니다: ${response.status}`,
+      `Failed to load the font: ${response.status}`,
     );
   }
 
@@ -310,29 +307,29 @@ const slipkit = createSlipKit({
 ```
 
 > [!TIP]
-> `getFonts`는 PDF를 렌더링할 때 다시 호출될 수 있습니다.
-> 네트워크나 파일 시스템에서 폰트를 읽는다면 위 예제처럼 결과 `Promise`를 보관하여 같은 폰트를 반복해서 불러오지 않도록 구성하세요.
+> `getFonts` may be called again when a PDF is rendered.
+> If you read fonts from the network or file system, keep the resulting `Promise` as in the example above so that the same font is not fetched repeatedly.
 
-### 사용자 폰트 적용 규칙
+### Rules for applying your own fonts
 
-폰트 객체는 다음 값을 사용합니다.
+A font object uses the following values.
 
-| 필드 | 설명 |
+| Field | Description |
 |---|---|
-| `name` | 양식 요소가 참조할 폰트 이름 |
-| `data` | TTF 또는 OTF 파일의 `Uint8Array` |
-| `fallback` | 다른 폰트를 찾지 못했을 때 사용할 대체 폰트 여부 |
+| `name` | The font name that template elements reference |
+| `data` | The `Uint8Array` of a TTF or OTF file |
+| `fallback` | Whether this font is used as the fallback when no other font is found |
 
-다음 규칙을 확인하세요.
+Check the following rules.
 
-- `fallback: true`인 폰트는 하나만 지정할 수 있습니다.
-- 대체 폰트를 지정하지 않으면 목록의 첫 번째 폰트를 대체 폰트로 사용합니다.
-- 같은 `name`을 가진 폰트를 여러 개 등록할 수 없습니다.
-- 굵은 폰트는 기본 이름 뒤에 `-Bold`를 붙입니다.
-- 기울임 폰트는 기본 이름 뒤에 `-Italic`을 붙입니다.
-- 굵은 기울임 폰트는 기본 이름 뒤에 `-BoldItalic`을 붙입니다.
+- Only one font can be marked `fallback: true`.
+- If no fallback font is specified, the first font in the list is used as the fallback.
+- You cannot register multiple fonts with the same `name`.
+- The bold font is named with `-Bold` appended to the base name.
+- The italic font is named with `-Italic` appended to the base name.
+- The bold italic font is named with `-BoldItalic` appended to the base name.
 
-예를 들어 기본 폰트 이름이 `AppFont`라면 다음과 같이 구성합니다.
+For example, if the base font name is `AppFont`, configure it as follows.
 
 ```ts
 const fonts = [
@@ -356,13 +353,13 @@ const fonts = [
 ];
 ```
 
-필요한 변형 폰트가 등록되어 있지 않으면 해당 굵기나 기울임 효과를 적용하지 못할 수 있습니다.
+If the required variant font is not registered, the corresponding weight or italic effect may not be applied.
 
-### 동봉 폰트와 사용자 폰트 함께 사용
+### Using bundled fonts together with your own fonts
 
-`getFonts`가 비어 있지 않은 배열을 반환하면 동봉 기본 폰트는 자동으로 추가되지 않습니다.
+If `getFonts` returns a non-empty array, the bundled default fonts are not added automatically.
 
-동봉 폰트를 사용자 폰트와 함께 사용하려면 폰트 서브패스에서 직접 불러옵니다.
+To use the bundled fonts together with your own fonts, import them directly from the font subpaths.
 
 ```ts
 import { createSlipKit } from '@omdc-slipkit/core';
@@ -387,14 +384,14 @@ const slipkit = createSlipKit({
 ```
 
 > [!CAUTION]
-> 전체 폰트 파일은 번들 크기와 초기 로딩 시간에 큰 영향을 줄 수 있습니다.
-> 애플리케이션에서 실제로 사용하는 문자와 굵기를 포함하는 폰트만 공급하세요.
+> Full font files can significantly affect bundle size and initial load time.
+> Supply only fonts that contain the characters and weights your application actually uses.
 
-동봉된 Pretendard와 Noto Sans JP에는 각각 SIL Open Font License 1.1이 적용됩니다. 사용자 폰트를 포함할 때는 해당 폰트의 배포 및 임베딩 조건도 확인해야 합니다.
+The bundled Pretendard and Noto Sans JP are each covered by the SIL Open Font License 1.1. When including your own fonts, you must also check the distribution and embedding terms of those fonts.
 
-## 디자이너 설정
+## Designer settings
 
-`<slip-designer>`는 용지와 바코드 선택지를 `SlipDesignerSettings`로 받습니다. 폰트와 로케일은 `slipkit` 프로퍼티로 전달합니다.
+`<slip-designer>` receives paper and barcode choices through `SlipDesignerSettings`. Pass fonts and locale through the `slipkit` property.
 
 ```ts
 import type {
@@ -413,18 +410,18 @@ const designerSettings:
   };
 ```
 
-### 사용자 용지 추가
+### Adding your own paper sizes
 
-디자이너에는 다음 용지가 기본으로 제공됩니다.
+The designer provides the following paper sizes by default.
 
-| 이름 | 너비 | 높이 |
+| Name | Width | Height |
 |---|---:|---:|
 | A4 | 210mm | 297mm |
 | A5 | 148mm | 210mm |
 | B5 | 176mm | 250mm |
 | Letter | 215.9mm | 279.4mm |
 
-애플리케이션 전용 용지는 `getPaperSizes`로 추가합니다.
+Add application-specific paper sizes with `getPaperSizes`.
 
 ```ts
 import type {
@@ -434,12 +431,12 @@ import type {
 
 const paperSizes: PaperSize[] = [
   {
-    name: '배송 라벨 100×150',
+    name: 'Shipping label 100×150',
     width: 100,
     height: 150,
   },
   {
-    name: '영수증 80mm',
+    name: 'Receipt 80mm',
     width: 80,
     height: 200,
   },
@@ -450,9 +447,9 @@ const settings: SlipDesignerSettings = {
 };
 ```
 
-사용자 용지는 기본 용지 뒤에 추가됩니다. `.slip` 파일에는 용지 이름이 아니라 실제 너비와 높이만 저장됩니다.
+Your own paper sizes are added after the default paper sizes. A `.slip` file stores only the actual width and height, not the paper name.
 
-디자이너에서 사용자가 직접 입력한 용지를 애플리케이션에 저장하려면 `savePaperSize`를 함께 구현합니다.
+To store a paper size the user entered directly in the designer into your application, also implement `savePaperSize`.
 
 ```ts
 const PAPER_STORAGE_KEY =
@@ -496,17 +493,17 @@ const settings: SlipDesignerSettings = {
 };
 ```
 
-사용자가 디자이너에서 용지를 저장하면 `savePaperSize`가 호출됩니다. 저장이 끝난 뒤 디자이너는 `getPaperSizes`를 다시 호출하여 선택 목록을 갱신합니다.
+When the user saves a paper size in the designer, `savePaperSize` is called. After saving, the designer calls `getPaperSizes` again to refresh the selection list.
 
 > [!NOTE]
-> `savePaperSize`는 용지를 어디에 저장해야 하는지 정하지 않습니다.
-> `localStorage`, IndexedDB 또는 서버 API 중 애플리케이션에 맞는 저장 방식을 호스트가 구현해야 합니다.
+> `savePaperSize` does not decide where the paper size should be stored.
+> The host must implement a storage method suited to the application, among `localStorage`, IndexedDB, or a server API.
 
-### 바코드 종류 제한
+### Restricting barcode types
 
-디자이너는 기본적으로 다음 12종의 바코드를 표시합니다.
+By default, the designer shows the following 12 barcode types.
 
-| 값 | 표시 이름 |
+| Value | Display name |
 |---|---|
 | `qrcode` | QR Code |
 | `code128` | CODE128 |
@@ -521,7 +518,7 @@ const settings: SlipDesignerSettings = {
 | `gs1datamatrix` | GS1 DataMatrix |
 | `pdf417` | PDF417 |
 
-애플리케이션에서 사용하는 종류만 표시하려면 `getBarcodeKinds`를 구현합니다.
+To show only the types your application uses, implement `getBarcodeKinds`.
 
 ```ts
 import type {
@@ -543,17 +540,17 @@ const settings: SlipDesignerSettings = {
 };
 ```
 
-`getBarcodeKinds`를 생략하거나 빈 배열을 반환하면 12종 전체가 표시됩니다.
+If you omit `getBarcodeKinds` or return an empty array, all 12 types are shown.
 
 > [!NOTE]
-> 이 설정은 디자이너의 선택 목록을 줄이는 기능입니다.
-> 기존 `.slip` 파일에 들어 있는 다른 바코드 종류를 파일 형식에서 금지하는 정책은 아닙니다.
+> This setting narrows the designer's selection list.
+> It is not a policy that forbids other barcode types already present in an existing `.slip` file at the file-format level.
 
-## 양식 프리셋 설정
+## Template preset settings
 
-디자이너에는 거래명세서와 청구서 프리셋이 기본으로 포함되어 있습니다.
+The designer includes a trade statement and an invoice preset by default.
 
-애플리케이션 전용 프리셋을 제공하려면 `SlipPreset` 배열을 `presets`에 전달합니다.
+To provide application-specific presets, pass an array of `SlipPreset` to `presets`.
 
 ```ts
 import {
@@ -567,7 +564,7 @@ import type {
 const shippingLabelPreset:
   SlipPreset = {
     id: 'shipping-label',
-    name: '배송 라벨',
+    name: 'Shipping label',
 
     create: () => ({
       schemaVersion:
@@ -575,7 +572,7 @@ const shippingLabelPreset:
       kind: 'template',
       template: {
         meta: {
-          title: '배송 라벨',
+          title: 'Shipping label',
         },
         paper: {
           width: 100,
@@ -590,11 +587,11 @@ const shippingLabelPreset:
         parameters: [
           {
             key: 'recipientName',
-            label: '수령인',
+            label: 'Recipient',
           },
           {
             key: 'address',
-            label: '주소',
+            label: 'Address',
           },
         ],
         pages: [
@@ -603,7 +600,7 @@ const shippingLabelPreset:
               {
                 type: 'field',
                 id: 'recipient-name',
-                name: '수령인',
+                name: 'Recipient',
                 position: {
                   x: 10,
                   y: 15,
@@ -616,7 +613,7 @@ const shippingLabelPreset:
               {
                 type: 'field',
                 id: 'address',
-                name: '주소',
+                name: 'Address',
                 position: {
                   x: 10,
                   y: 30,
@@ -640,13 +637,13 @@ const appPresets: SlipPreset[] = [
 designer.presets = appPresets;
 ```
 
-`create`는 프리셋을 선택할 때마다 새로운 `SlipTemplateFile` 객체를 반환해야 합니다. 같은 객체를 계속 반환하면 이전 편집 내용이 다음 프리셋 선택에 남을 수 있습니다.
+`create` must return a new `SlipTemplateFile` object each time the preset is selected. If it keeps returning the same object, previous edits may carry over into the next preset selection.
 
-### 동봉 프리셋과 함께 표시
+### Showing bundled presets together
 
-사용자 프리셋을 지정하면 동봉 프리셋 대신 사용자 프리셋이 표시됩니다.
+If you specify your own presets, they are shown instead of the bundled presets.
 
-두 종류를 함께 표시하려면 동봉 `presets`를 펼쳐서 전달합니다.
+To show both together, spread the bundled `presets` and pass them.
 
 ```ts
 import {
@@ -662,27 +659,27 @@ designer.presets = appPresets;
 ```
 
 > [!NOTE]
-> 빈 배열을 전달하면 프리셋 메뉴가 비는 것이 아니라 동봉 프리셋으로 돌아갑니다.
-> 현재 설정만으로 프리셋 메뉴 전체를 숨기지는 않습니다.
+> Passing an empty array does not leave the preset menu empty; it falls back to the bundled presets.
+> This setting alone does not hide the entire preset menu.
 
 > [!WARNING]
-> 프리셋을 선택하면 디자이너에서 편집 중인 양식 전체가 프리셋이 반환한 양식으로 교체됩니다.
-> 사용자에게 프리셋을 적용하기 전에 현재 작업을 저장할 기회를 제공하세요.
+> Selecting a preset replaces the entire template being edited in the designer with the template returned by the preset.
+> Give users a chance to save their current work before applying a preset.
 
-## 저장소 설정
+## Storage settings
 
-디자이너의 `storage` 프로퍼티는 다음 기능에 사용합니다.
+The designer's `storage` property is used for the following features.
 
-- 내 양식으로 저장
-- 저장된 양식 목록 조회
-- 저장된 양식 불러오기
-- 저장된 양식 삭제
+- Save as a template of mine
+- List saved templates
+- Load a saved template
+- Delete a saved template
 
-`storage`를 지정하지 않으면 해당 버튼이 표시되지 않습니다.
+If you do not specify `storage`, those buttons are not shown.
 
-### IndexedDB 저장소
+### IndexedDB storage
 
-브라우저에 양식을 저장하려면 `IndexedDbStorage`를 사용할 수 있습니다.
+To store templates in the browser, you can use `IndexedDbStorage`.
 
 ```ts
 import {
@@ -691,7 +688,7 @@ import {
 import { createSlipKit } from '@omdc-slipkit/core';
 
 const slipkit = createSlipKit({
-  locale: 'ko-KR',
+  locale: 'en-US',
 });
 
 const templateStorage =
@@ -703,31 +700,31 @@ const templateStorage =
 designer.storage = templateStorage;
 ```
 
-| 옵션 | 기본값 | 설명 |
+| Option | Default | Description |
 |---|---|---|
-| `dbName` | `'slipkit'` | 사용할 IndexedDB 데이터베이스 이름 |
-| `pageSize` | `50` | `list`가 한 번에 반환할 항목 수 |
-| `encryptOnSave` | `false` | 저장할 본문의 암호화 여부 |
+| `dbName` | `'slipkit'` | The name of the IndexedDB database to use |
+| `pageSize` | `50` | The number of items `list` returns at once |
+| `encryptOnSave` | `false` | Whether to encrypt content when saving |
 
-여러 애플리케이션이나 실행 환경에서 데이터가 섞이지 않도록 고유한 `dbName`을 지정하는 것을 권장합니다.
+We recommend specifying a unique `dbName` so that data does not get mixed across multiple applications or runtime environments.
 
 > [!IMPORTANT]
-> `storage`는 디자이너의 “내 양식” 기능에 사용됩니다.
-> 편집할 때마다 발생하는 `slip-change`를 자동으로 저장하는 설정은 아닙니다.
-> 자동 저장은 이벤트를 받아 별도로 구현해야 합니다.
+> `storage` is used for the designer's "My templates" feature.
+> It is not a setting that automatically saves the `slip-change` that fires on every edit.
+> Auto-save must be implemented separately by receiving the event.
 
-자동 저장과 서버 저장소 연결은 [애플리케이션 통합 가이드](integration.md)를 참고하세요.
+For auto-save and connecting to server storage, see the [Application Integration Guide](integration.md).
 
-### 저장 내용 암호화
+### Encrypting the stored content
 
-암호화 키와 이전 키는 `createSlipKit`에 한 번만 설정합니다. 저장 수단에서는 `encryptOnSave`로 저장 시 암호화 여부만 정합니다.
+Configure the current and previous encryption keys once in `createSlipKit`. Each storage mechanism only chooses whether to encrypt new writes with `encryptOnSave`.
 
 ```ts
 const encryptionKey =
   getEncryptionKeyFromHost();
 
 const slipkit = createSlipKit({
-  locale: 'ko-KR',
+  locale: 'en-US',
   encryption: {
     key: encryptionKey,
   },
@@ -740,7 +737,7 @@ const templateStorage =
   });
 ```
 
-이전 키로 저장한 파일도 읽어야 한다면 `previousKeys`를 지정합니다.
+If you also need to read files stored with a previous key, specify `previousKeys`.
 
 ```ts
 const slipkit = createSlipKit({
@@ -758,21 +755,21 @@ const templateStorage =
 ```
 
 > [!WARNING]
-> `encryptOnSave: true`인데 `SlipKit`에 암호화 키가 없으면 저장이 실패합니다.
-> 라이브러리는 샘플 키를 대신 사용하지 않습니다. 운영 키는 호스트에서 관리하세요.
+> Saving fails when `encryptOnSave: true` is used without an encryption key in `SlipKit`.
+> The library does not substitute a sample key. Manage production keys in the host application.
 
-IndexedDB 암호화는 `.slip` 본문을 보호하지만 목록에 필요한 다음 메타데이터는 평문으로 저장합니다.
+IndexedDB encryption protects the `.slip` body, but the following metadata needed for listing is stored in plaintext.
 
-- 저장 키
-- 파일 종류
-- 양식 제목
-- 마지막 수정 시각
+- Storage key
+- File kind
+- Template title
+- Last modified time
 
-제목까지 민감한 정보라면 별도의 저장소 구현이나 서버 측 보호 정책을 사용해야 합니다.
+If the title is also sensitive information, you must use a separate storage implementation or a server-side protection policy.
 
-### 파일 열기와 내려받기
+### Opening and downloading files
 
-`SlipFileExchange`는 파일 내려받기와 파일 선택 창을 제공합니다. 목록·삭제 기능이 없으며 `StorageAdapter`를 구현하지 않습니다.
+`SlipFileExchange` provides file download and a file selection dialog. It has no list or delete operations and does not implement `StorageAdapter`.
 
 ```ts
 import {
@@ -788,13 +785,13 @@ await files.download('document.slip', file);
 const opened = await files.open();
 ```
 
-`encryptOnSave: false`여도 암호화된 파일을 열 때는 `SlipKit`의 현재 키와 이전 키를 순서대로 시도합니다.
+Even when `encryptOnSave` is `false`, opening an encrypted file tries the current and previous keys configured in `SlipKit`.
 
-## 이미지 크기 제한
+## Image size limit
 
-`<slip-designer>`와 `<slip-form>`은 사용자가 업로드하는 이미지의 최대 원본 파일 크기를 제한할 수 있습니다.
+`<slip-designer>` and `<slip-form>` can limit the maximum source file size of images that users upload.
 
-기본값은 2MB입니다.
+The default is 2MB.
 
 ### Web Component
 
@@ -836,29 +833,29 @@ const opened = await files.open();
 />
 ```
 
-이 제한은 다음 이미지 선택에 적용됩니다.
+This limit applies to the following image selections.
 
-- 디자이너에서 추가하는 고정 이미지
-- 디자이너에서 입력하는 이미지 샘플 값
-- 작성폼에서 입력하는 변동 이미지
+- Fixed images added in the designer
+- Image sample values entered in the designer
+- Variable images entered in the form
 
-이미지는 `data:` Base64 문자열로 `.slip` 파일에 포함되므로 변환 후 크기가 원본보다 약 33% 커질 수 있습니다.
+Images are included in the `.slip` file as `data:` Base64 strings, so their size after conversion can be about 33% larger than the original.
 
 > [!NOTE]
-> `maxImageBytes`는 사용자가 새로 선택하는 원본 이미지 파일을 검사합니다.
-> 외부에서 불러온 기존 `.slip` 파일 전체 크기를 제한하거나 이미 포함된 이미지를 자동으로 축소하지는 않습니다.
+> `maxImageBytes` checks the original image file the user newly selects.
+> It does not limit the total size of an existing `.slip` file loaded from an external source, nor does it automatically shrink images already included.
 
-애플리케이션에서 허용할 이미지 크기를 정할 때는 다음 항목을 함께 고려하세요.
+When deciding on the image size to allow in your application, also consider the following.
 
-- 브라우저 메모리 사용량
-- IndexedDB 또는 서버 저장 용량
-- API 요청 본문 크기 제한
-- PDF 렌더링 시간
-- 전표 한 건에 포함될 수 있는 이미지 개수
+- Browser memory usage
+- IndexedDB or server storage capacity
+- API request body size limits
+- PDF rendering time
+- The number of images that a single voucher can contain
 
-## Core 설정
+## Core settings
 
-`@omdc-slipkit/core`에서는 `createSlipKit`에 공통 설정을 전달합니다.
+In `@omdc-slipkit/core`, pass common settings to `createSlipKit`.
 
 ```ts
 import {
@@ -877,27 +874,27 @@ const slip = createSlipKit({
 });
 ```
 
-| 설정 | 용도 |
+| Setting | Purpose |
 |---|---|
-| `getFonts` | PDF 렌더링에 사용할 폰트 공급 |
-| `locale` | `FORMAT_NUMBER` 등의 표시 형식과 오류 메시지에 사용할 BCP-47 로케일 (기본 `'en-US'`) |
-| `encryption.key` | `encrypt`와 `decrypt`가 기본으로 사용할 키 |
-| `encryption.previousKeys` | 이전 키로 암호화된 파일을 복호화할 때 사용할 키 목록 |
+| `getFonts` | Supplies the fonts used for PDF rendering |
+| `locale` | The BCP-47 locale used by formula format functions such as `FORMAT_NUMBER` and by error messages (default `'en-US'`) |
+| `encryption.key` | The key that `encrypt` and `decrypt` use by default |
+| `encryption.previousKeys` | The list of keys to use when decrypting files encrypted with a previous key |
 
-UI 컴포넌트와 저장 수단에 같은 `slipkit`을 전달하면 사용자 폰트·수식·PDF 렌더링·저장소 오류 메시지가 한 인스턴스의 설정을 재사용합니다. 컴포넌트 `locale`을 생략하면 UI 언어도 `SlipKit.locale`을 따릅니다. `getFonts`가 없으면 컴포넌트 미리보기는 동봉 폰트를 사용합니다.
+When UI components and storage receive the same `slipkit`, custom fonts, formulas, PDF rendering, and storage error messages reuse one instance's settings. If the component `locale` is omitted, the UI language also follows `SlipKit.locale`. If `getFonts` is absent, component previews use the bundled fonts.
 
-컴포넌트 `locale`은 UI 언어만 따로 지정해야 할 때 사용합니다.
+Use a component `locale` only when its UI language must differ.
 
-| 설정 | 예 | 역할 |
+| Setting | Example | Role |
 |---|---|---|
-| 컴포넌트 `locale` | `'ko'`, `'en'`, `'ja'` | UI 문구. `slipkit`이 없을 때는 동봉 폰트도 선택 |
-| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | 숫자와 날짜 수식 포맷, 오류 메시지 언어. `getFonts`가 없을 때는 동봉 폰트도 선택 |
+| Component `locale` | `'ko'`, `'en'`, `'ja'` | UI text; also selects the bundled font when `slipkit` is absent |
+| Core `locale` | `'ko-KR'`, `'en-US'`, `'ja-JP'` | Number and date formatting in formulas, error message language, and bundled font selection when `getFonts` is absent |
 
-Core 사용 흐름과 PDF 생성 방법은 [Core 사용 가이드](core.md)를 참고하세요.
+For the Core usage flow and how to generate PDFs, see the [Core Usage Guide](core.md).
 
-## 권장 설정 구성
+## Recommended settings structure
 
-애플리케이션 전역에서 동일한 설정을 사용한다면 한 파일에서 생성하여 공유하는 방법을 권장합니다.
+If you use the same settings across your entire application, we recommend creating them in one file and sharing them.
 
 `src/slipkit-config.ts`:
 
@@ -914,7 +911,7 @@ const fontPromise =
   loadAppFonts();
 
 export const slipkit = createSlipKit({
-  locale: 'ko-KR',
+  locale: 'en-US',
   getFonts: () => fontPromise,
   encryption: {
     key: currentKey,
@@ -926,7 +923,7 @@ export const designerSettings:
   SlipDesignerSettings = {
     getPaperSizes: () => [
       {
-        name: '배송 라벨 100×150',
+        name: 'Shipping label 100×150',
         width: 100,
         height: 150,
       },
@@ -940,7 +937,7 @@ export const designerSettings:
 
 export const designerPresets:
   SlipPreset[] = [
-    ...getPresets('ko'),
+    ...getPresets('en'),
     shippingLabelPreset,
   ];
 
@@ -951,7 +948,7 @@ export const templateStorage =
   });
 ```
 
-컴포넌트에서는 필요한 설정만 전달합니다.
+In the components, pass only the settings you need.
 
 ```tsx
 <SlipDesigner
@@ -973,40 +970,40 @@ export const templateStorage =
 />
 ```
 
-이렇게 구성하면 폰트·로케일·암호화 키를 `SlipKit`에서 한 번만 관리하고 컴포넌트와 저장 수단이 같은 설정을 사용하게 됩니다.
+This keeps fonts, locale, and encryption keys in one `SlipKit` instance shared by components and storage mechanisms.
 
-## 피해야 할 설정
+## Configurations to avoid
 
-- 객체 설정을 HTML 속성 문자열로 전달
-- React 렌더링마다 새로운 `slipkit`, `settings`, 저장소 인스턴스 생성
-- `getFonts`가 호출될 때마다 같은 폰트를 네트워크에서 다시 다운로드
-- 사용자 폰트를 공급하면서 필요한 기본 폰트가 자동으로 추가된다고 가정
-- 둘 이상의 폰트에 `fallback: true` 지정
-- 굵은 폰트를 기본 폰트와 같은 이름으로 등록
-- `locale`이 양식 안의 문구까지 번역한다고 가정
-- 빈 `presets` 배열로 프리셋 메뉴가 숨겨진다고 가정
-- `storage`를 자동 저장 설정으로 해석
-- `SlipFileExchange`를 디자이너의 `storage`로 사용
-- 운영 암호화 키를 코드에 하드코딩
-- Base64 변환 이후의 파일 크기 증가를 고려하지 않고 이미지 제한 설정
+- Passing an object setting as an HTML attribute string
+- Creating new `slipkit`, `settings`, and storage instances on every React render
+- Re-downloading the same font from the network every time `getFonts` is called
+- Assuming the required default fonts are added automatically while you supply your own fonts
+- Marking more than one font `fallback: true`
+- Registering a bold font with the same name as the base font
+- Assuming `locale` also translates the text inside the template
+- Assuming an empty `presets` array hides the preset menu
+- Interpreting `storage` as an auto-save setting
+- Passing `SlipFileExchange` as the designer's `storage`
+- Hard-coding production encryption keys
+- Setting the image limit without accounting for the size increase after Base64 conversion
 
-## 완료 확인
+## Completion check
 
-- [ ] `SlipKit`에 폰트·로케일·암호화 키를 한 번만 설정했습니다.
-- [ ] UI 언어를 다르게 쓰는 컴포넌트에만 `locale`을 재정의했습니다.
-- [ ] 출력할 문자와 스타일에 필요한 폰트를 공급했습니다.
-- [ ] 폰트 공급 결과를 재사용하도록 구성했습니다.
-- [ ] 애플리케이션에 필요한 사용자 용지와 바코드 종류를 설정했습니다.
-- [ ] 사용자 프리셋의 `create`가 매번 새 양식을 반환합니다.
-- [ ] 디자이너 저장소와 자동 저장의 역할을 구분했습니다.
-- [ ] 운영 환경의 암호화 키를 호스트에서 관리합니다.
-- [ ] 저장 및 전송 환경에 맞는 이미지 크기 제한을 설정했습니다.
-- [ ] React·Vue에서 설정 객체와 저장소 인스턴스를 재사용합니다.
+- [ ] Configure fonts, locale, and encryption keys once in `SlipKit`.
+- [ ] Override `locale` only on components that need a different UI language.
+- [ ] Supply the fonts required for the characters and styles you will output.
+- [ ] Structure things so the font-supply result is reused.
+- [ ] Configure the custom paper sizes and barcode types your application needs.
+- [ ] Ensure your presets' `create` returns a new template each time.
+- [ ] Distinguish the roles of designer storage and auto-save.
+- [ ] Manage the production encryption key on the host.
+- [ ] Set an image size limit suited to your storage and transmission environment.
+- [ ] Reuse settings objects and storage instances in React and Vue.
 
-## 관련 문서
+## Related documents
 
-- [시작하기](getting-started.md)
-- [양식 디자이너 사용 가이드](designer.md)
-- [애플리케이션 통합 가이드](integration.md)
-- [Core 사용 가이드](core.md)
-- [API 참조](api-reference.md)
+- [Getting Started](getting-started.md)
+- [Form Designer Usage Guide](designer.md)
+- [Application Integration Guide](integration.md)
+- [Core Usage Guide](core.md)
+- [API Reference](api-reference.md)

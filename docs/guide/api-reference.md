@@ -1,32 +1,32 @@
-# API 참조
+# API Reference
 
-[English](api-reference.en.md) · [日本語](api-reference.ja.md)
+[한국어](api-reference.ko.md) · [日本語](api-reference.ja.md)
 
-이 문서는 SlipKit 패키지가 공개하는 함수, 타입, 컴포넌트 속성, 이벤트와 오류를 빠르게 확인하기 위한 참조 문서입니다.
+This document is a reference for quickly checking the functions, types, component properties, events, and errors that the SlipKit packages expose.
 
-작업 순서와 전체 예제는 다음 문서를 먼저 확인하세요.
+For the workflow and full examples, check these documents first.
 
-- [시작하기](getting-started.md)
-- [애플리케이션 통합 가이드](integration.md)
-- [Core 사용 가이드](core.md)
-- [MCP 사용 가이드](mcp.md)
-- [환경 설정 가이드](configuration.md)
+- [Getting Started](getting-started.md)
+- [Application Integration Guide](integration.md)
+- [Core Usage Guide](core.md)
+- [MCP Guide](mcp.md)
+- [Configuration Guide](configuration.md)
 
 > [!NOTE]
-> 이 문서의 타입 형태는 이해하기 쉽도록 TypeScript 표기로 정리했습니다.
-> 실제 `.slip` 실행 검증은 `parseSlipFile`, `validateSlipFile`과 공개 스키마를 기준으로 합니다.
+> The type shapes in this document are written in TypeScript notation for readability.
+> The actual `.slip` runtime validation is based on `parseSlipFile`, `validateSlipFile`, and the public schema.
 
-## 패키지 구성
+## Package structure
 
-| 패키지 | 주요 공개 API |
+| Package | Main public API |
 |---|---|
-| `@omdc-slipkit/core` | 파일 검증, 전표 조립, 수식, PDF, 암호화, 저장소 인터페이스 |
-| `@omdc-slipkit/elements` | Web Component, 설정 타입, 기본 프리셋과 저장소 구현 |
-| `@omdc-slipkit/react` | React 래퍼 컴포넌트 |
-| `@omdc-slipkit/vue` | Vue 래퍼 컴포넌트 |
-| `@omdc-slipkit/mcp` | 로컬 stdio MCP 서버, 파일 시스템 저장소와 MCP 구조 안내 |
+| `@omdc-slipkit/core` | File validation, voucher assembly, formulas, PDF, encryption, storage interface |
+| `@omdc-slipkit/elements` | Web Components, settings types, built-in presets and storage implementations |
+| `@omdc-slipkit/react` | React wrapper components |
+| `@omdc-slipkit/vue` | Vue wrapper components |
+| `@omdc-slipkit/mcp` | Local stdio MCP server, file-system storage, and MCP schema guidance |
 
-폰트는 다음 서브패스에서도 가져올 수 있습니다.
+Fonts can also be imported from the following subpaths.
 
 ```ts
 import {
@@ -40,7 +40,7 @@ import {
 
 ## `@omdc-slipkit/core`
 
-### 파일 파싱과 직렬화
+### File parsing and serialization
 
 #### `parseSlipFile`
 
@@ -51,9 +51,9 @@ function parseSlipFile(
 ): SlipFile;
 ```
 
-JSON 문자열을 파싱하고 `.slip` 파일 전체를 검증합니다. 지원되는 마이그레이션 경로가 있으면 현재 스키마 버전으로 변환합니다.
+Parses a JSON string and validates the entire `.slip` file. If a supported migration path exists, it converts to the current schema version.
 
-유효하지 않은 JSON이나 파일 구조는 `SlipParseError`를 발생시킵니다. `options.locale`은 오류 메시지 언어를 정합니다(기본 영어).
+Invalid JSON or file structure throws a `SlipParseError`. `options.locale` selects the error message language (English by default).
 
 #### `validateSlipFile`
 
@@ -64,9 +64,9 @@ function validateSlipFile(
 ): SlipFile;
 ```
 
-이미 파싱된 값을 `.slip` 파일로 검증합니다. `options.locale`은 오류 메시지 언어를 정합니다(기본 영어).
+Validates an already-parsed value as a `.slip` file. `options.locale` selects the error message language (English by default).
 
-HTTP 요청 본문, `JSON.parse` 결과 또는 애플리케이션에서 직접 조립한 객체를 검사할 때 사용합니다.
+Use it to check an HTTP request body, the result of `JSON.parse`, or an object assembled directly in your application.
 
 #### `serializeSlipFile`
 
@@ -76,9 +76,9 @@ function serializeSlipFile(
 ): string;
 ```
 
-`SlipFile` 객체를 들여쓰기된 JSON 문자열로 변환합니다.
+Converts a `SlipFile` object into an indented JSON string.
 
-이 함수는 입력 객체를 다시 검증하지 않습니다.
+This function does not re-validate the input object.
 
 #### `CURRENT_SCHEMA_VERSION`
 
@@ -86,9 +86,9 @@ function serializeSlipFile(
 const CURRENT_SCHEMA_VERSION: string;
 ```
 
-현재 라이브러리가 사용하는 `.slip` 스키마 버전입니다.
+The `.slip` schema version the library currently uses.
 
-새 양식을 코드로 직접 만들 때 버전 문자열을 하드코딩하지 않고 이 상수를 사용하는 것을 권장합니다.
+When creating a new template directly in code, we recommend using this constant rather than hardcoding the version string.
 
 ```ts
 const file: SlipTemplateFile = {
@@ -101,7 +101,7 @@ const file: SlipTemplateFile = {
 };
 ```
 
-### 설정 인스턴스
+### Settings instance
 
 #### `createSlipKit`
 
@@ -111,7 +111,7 @@ function createSlipKit(
 ): SlipKit;
 ```
 
-폰트, 수식 로케일과 암호화 키를 한 번 설정한 Core 인스턴스를 만듭니다.
+Creates a Core instance with fonts, the formula locale, and the encryption key configured once.
 
 #### `SlipKitConfig`
 
@@ -137,12 +137,12 @@ interface SlipKitConfig {
 }
 ```
 
-| 필드 | 설명 |
+| Field | Description |
 |---|---|
-| `getFonts` | PDF 렌더링에 사용할 폰트 공급 함수 |
-| `locale` | 숫자·날짜 표시 형식과 오류 메시지에 사용할 BCP-47 로케일. 기본값은 `'en-US'` |
-| `encryption.key` | 암호화·복호화 기본 키 |
-| `encryption.previousKeys` | 이전 키로 암호화된 파일을 복호화할 때 추가로 시도할 키 |
+| `getFonts` | A function that supplies the fonts used for PDF rendering |
+| `locale` | The BCP-47 locale used for formula formatting and error messages, default `'en-US'` |
+| `encryption.key` | The default key for encryption and decryption |
+| `encryption.previousKeys` | Additional keys to try when decrypting files encrypted with a previous key |
 
 #### `SlipKit`
 
@@ -182,17 +182,17 @@ interface SlipKit {
 }
 ```
 
-| 프로퍼티·메서드 | 반환값 | 설명 |
+| Property or method | Return value | Description |
 |---|---|---|
-| `locale` | `string \| undefined` | 인스턴스에 설정된 로케일 |
-| `getFonts` | 함수 또는 `undefined` | 인스턴스에 설정된 폰트 공급 함수 |
-| `render` | `Promise<Uint8Array>` | 양식 또는 전표를 PDF 바이트로 변환 |
-| `buildVoucher` | `SlipVoucherFile` | 양식과 값으로 작성 중 전표 생성 |
-| `evaluate` | `FormulaValue` | 수식 문자열 또는 AST 평가 |
-| `encrypt` | `Promise<string>` | `.slip` 파일을 암호화 봉투 JSON으로 변환 |
-| `decrypt` | `Promise<SlipFile>` | 암호화 봉투를 복호화하고 검증 |
+| `locale` | `string \| undefined` | The locale configured for this instance |
+| `getFonts` | Function or `undefined` | The font provider configured for this instance |
+| `render` | `Promise<Uint8Array>` | Converts a template or voucher into PDF bytes |
+| `buildVoucher` | `SlipVoucherFile` | Creates a draft voucher from a template and values |
+| `evaluate` | `FormulaValue` | Evaluates a formula string or AST |
+| `encrypt` | `Promise<string>` | Converts a `.slip` file into an encryption envelope JSON |
+| `decrypt` | `Promise<SlipFile>` | Decrypts an encryption envelope and validates it |
 
-### 전표 조립
+### Voucher assembly
 
 #### `buildVoucher`
 
@@ -203,12 +203,12 @@ function buildVoucher(
 ): SlipVoucherFile;
 ```
 
-양식과 입력값을 결합하여 `issued: false`인 전표를 만듭니다.
+Combines a template and input values to create a voucher with `issued: false`.
 
-- 양식은 `templateSnapshot`으로 깊은 복사됩니다.
-- 입력값도 원본 객체와 참조를 공유하지 않습니다.
-- 최상위 숫자 파라미터의 빈 값은 `0`으로 정규화됩니다.
-- 수식 결과는 `values`에 미리 넣지 않아도 됩니다.
+- The template is deep-copied into `templateSnapshot`.
+- The input values also do not share references with the original objects.
+- Empty values of top-level number parameters are normalized to `0`.
+- Formula results do not need to be put into `values` in advance.
 
 #### `normalizeNumericParameters`
 
@@ -220,11 +220,11 @@ function normalizeNumericParameters(
 ): Record<string, unknown>;
 ```
 
-`valueType: 'number'`인 최상위 파라미터의 `undefined`, `null`, 빈 문자열을 `0`으로 바꿉니다.
+Replaces `undefined`, `null`, and empty strings of top-level parameters with `valueType: 'number'` with `0`.
 
-변경할 값이 없으면 입력 객체를 그대로 반환합니다.
+If there is nothing to change, it returns the input object as-is.
 
-### PDF 렌더링
+### PDF rendering
 
 #### `renderSlipToPdf`
 
@@ -235,7 +235,7 @@ function renderSlipToPdf(
 ): Promise<Uint8Array>;
 ```
 
-양식 또는 전표 하나를 PDF 바이트로 변환하는 편의 함수입니다.
+A convenience function that converts a single template or voucher into PDF bytes.
 
 #### `createPdfRenderer`
 
@@ -245,7 +245,7 @@ function createPdfRenderer(
 ): SlipPdfRenderer;
 ```
 
-같은 렌더링 설정을 여러 파일에 재사용할 수 있는 PDF 렌더러를 만듭니다.
+Creates a PDF renderer that can reuse the same rendering settings across multiple files.
 
 #### `RenderOptions`
 
@@ -260,10 +260,10 @@ interface RenderOptions {
 }
 ```
 
-| 필드 | 기본값 | 설명 |
+| Field | Default | Description |
 |---|---|---|
-| `getFonts` | 하부 엔진 기본 폰트 | 렌더링에 사용할 폰트 공급 함수 |
-| `locale` | `'en-US'` | 숫자·날짜 표시 형식과 오류 메시지에 사용할 로케일 |
+| `getFonts` | Underlying engine's default font | A function that supplies the fonts used for rendering |
+| `locale` | `'en-US'` | The locale used for number and date formula formatting and the error message language |
 
 #### `SlipPdfRenderer`
 
@@ -285,13 +285,13 @@ interface SlipFont {
 }
 ```
 
-| 필드 | 설명 |
+| Field | Description |
 |---|---|
-| `name` | 양식의 `fontName`과 연결할 폰트 이름 |
-| `data` | TTF 또는 OTF 폰트 바이트 |
-| `fallback` | 다른 폰트를 찾지 못했을 때 사용할 대체 폰트 여부 |
+| `name` | The font name to link with the template's `fontName` |
+| `data` | The TTF or OTF font bytes |
+| `fallback` | Whether this font is used as the fallback when no other font is found |
 
-`fallback: true`인 폰트는 하나만 지정할 수 있습니다. 지정하지 않으면 배열의 첫 번째 폰트를 대체 폰트로 사용합니다.
+Only one font can be marked `fallback: true`. If none is specified, the first font in the array is used as the fallback.
 
 #### `stackVertically`
 
@@ -302,11 +302,11 @@ function stackVertically(
 ): string;
 ```
 
-`vertical`이 `true`이면 문자열의 각 글자 사이에 줄바꿈을 넣어 세로쓰기용 문자열을 만듭니다.
+If `vertical` is `true`, it inserts a line break between each character of the string to create a string for vertical writing.
 
-일반적인 애플리케이션에서 직접 사용할 필요는 많지 않은 저수준 렌더링 보조 함수입니다.
+This is a low-level rendering helper function that most applications rarely need to use directly.
 
-### 수식
+### Formulas
 
 #### `parseFormula`
 
@@ -316,9 +316,9 @@ function parseFormula(
 ): FormulaAst;
 ```
 
-수식 문자열을 파싱하여 AST를 반환합니다.
+Parses a formula string and returns an AST.
 
-문법이 잘못되었거나 등록되지 않은 함수를 사용하면 `FormulaSyntaxError`가 발생합니다.
+Invalid syntax or an unregistered function throws a `FormulaSyntaxError`.
 
 #### `evaluateFormula`
 
@@ -329,7 +329,7 @@ function evaluateFormula(
 ): FormulaValue;
 ```
 
-수식 문자열 또는 파싱된 AST를 평가합니다.
+Evaluates a formula string or a parsed AST.
 
 #### `FormulaContext`
 
@@ -341,11 +341,11 @@ interface FormulaContext {
 }
 ```
 
-| 필드 | 기본값 | 설명 |
+| Field | Default | Description |
 |---|---|---|
-| `values` | 필수 | 수식에서 참조할 값 |
-| `now` | 호출 시각 | `TODAY` 등 날짜 함수의 기준 시각 |
-| `locale` | `'en-US'` | 숫자·날짜 표시 형식과 오류 메시지에 사용할 로케일 |
+| `values` | Required | The values referenced by the formula |
+| `now` | The call time | The reference time for date functions such as `TODAY` |
+| `locale` | `'en-US'` | The locale for number and date formatting and the error message language |
 
 #### `resolveConditionalFormats`
 
@@ -360,9 +360,9 @@ function resolveConditionalFormats(
 ): ConditionalFormatOverrides;
 ```
 
-조건부 서식 규칙을 선언된 순서대로 평가하고, 조건이 참인 규칙의 스타일을 합성합니다. 같은 속성을 여러 규칙이 지정하면 뒤에 선언된 규칙의 값을 사용합니다.
+Evaluates conditional-format rules in declaration order and combines the styles from rules whose conditions are true. If multiple rules set the same property, the later rule wins.
 
-조건식의 문법이 잘못되었거나 결과가 불리언이 아니면 `SlipRenderError`가 발생합니다. 값 누락이나 타입 불일치 등으로 조건식을 계산할 수 없으면 해당 규칙을 적용하지 않습니다.
+Invalid syntax or a non-boolean result throws a `SlipRenderError`. If a condition cannot be evaluated because of a missing value, type mismatch, or similar computation error, that rule is skipped.
 
 #### `FormulaValue`
 
@@ -377,17 +377,17 @@ type FormulaValue =
 
 #### `FormulaAst`
 
-`FormulaAst`는 다음 노드로 구성된 판별 유니온입니다.
+`FormulaAst` is a discriminated union composed of the following nodes.
 
-| `type` | 의미 |
+| `type` | Meaning |
 |---|---|
-| `number` | 숫자 리터럴 |
-| `string` | 문자열 리터럴 |
-| `boolean` | 논리값 |
-| `reference` | 파라미터 또는 하위 필드 참조 |
-| `call` | 함수 호출 |
-| `unary` | 단항 `+`, `-` |
-| `binary` | 산술 또는 비교 연산 |
+| `number` | Number literal |
+| `string` | String literal |
+| `boolean` | Boolean value |
+| `reference` | Reference to a parameter or sub-field |
+| `call` | Function call |
+| `unary` | Unary `+`, `-` |
+| `binary` | Arithmetic or comparison operation |
 
 #### `FORMULA_FUNCTIONS`
 
@@ -396,9 +396,9 @@ const FORMULA_FUNCTIONS:
   readonly FormulaFunctionName[];
 ```
 
-현재 등록된 수식 함수 이름 목록입니다. 이 목록에 없는 함수는 파싱 단계에서 거부됩니다.
+The list of currently registered formula function names. Functions not in this list are rejected at the parsing stage.
 
-함수별 인자와 사용 방법은 [수식 함수 참조](formula.md)를 확인하세요.
+For each function's arguments and usage, see the [Formula Function Reference](formula.md).
 
 #### `FormulaFunctionName`
 
@@ -407,9 +407,9 @@ type FormulaFunctionName =
   (typeof FORMULA_FUNCTIONS)[number];
 ```
 
-지원되는 수식 함수 이름의 문자열 유니온입니다.
+A string union of the supported formula function names.
 
-### 암호화
+### Encryption
 
 #### `encryptSlipFile`
 
@@ -421,9 +421,9 @@ function encryptSlipFile(
 ): Promise<string>;
 ```
 
-`.slip` 파일을 AES-256-GCM 암호화 봉투 JSON으로 변환합니다.
+Converts a `.slip` file into an AES-256-GCM encryption envelope JSON.
 
-문자열 키는 암호 문구로 처리하고, `Uint8Array` 키는 32바이트 원시 AES 키여야 합니다.
+A string key is treated as a passphrase, and a `Uint8Array` key must be a 32-byte raw AES key.
 
 #### `decryptSlipFile`
 
@@ -435,7 +435,7 @@ function decryptSlipFile(
 ): Promise<SlipFile>;
 ```
 
-암호화 봉투를 복호화한 뒤 `parseSlipFile`로 검증합니다. `options.locale`은 오류 메시지 언어를 정합니다(기본 영어).
+Decrypts an encryption envelope and then validates it with `parseSlipFile`. `options.locale` selects the error message language (English by default).
 
 #### `isEncryptedSlipFile`
 
@@ -445,11 +445,11 @@ function isEncryptedSlipFile(
 ): boolean;
 ```
 
-JSON에 SlipKit 암호화 봉투 표식이 있는지 확인합니다.
+Checks whether the JSON has the SlipKit encryption envelope marker.
 
-복호화 가능 여부나 데이터 무결성을 검증하는 함수는 아닙니다.
+It is not a function that verifies whether decryption is possible or that the data has integrity.
 
-## `.slip` 파일 타입
+## `.slip` file types
 
 ### `JsonValue`
 
@@ -465,7 +465,7 @@ type JsonValue =
     };
 ```
 
-전표의 `values`와 양식의 `sampleValues`에 사용할 수 있는 JSON 값입니다.
+A JSON value that can be used in a voucher's `values` and a template's `sampleValues`.
 
 ### `SlipFile`
 
@@ -475,7 +475,7 @@ type SlipFile =
   | SlipVoucherFile;
 ```
 
-`kind`를 기준으로 양식과 전표를 구분하는 판별 유니온입니다.
+A discriminated union that distinguishes templates and vouchers by `kind`.
 
 ### `SlipFileKind`
 
@@ -484,7 +484,7 @@ type SlipFileKind =
   SlipFile['kind'];
 ```
 
-현재 값은 다음 두 종류입니다.
+The current values are the following two.
 
 ```ts
 type SlipFileKind =
@@ -518,13 +518,13 @@ interface SlipVoucherFile {
 }
 ```
 
-| 필드 | 설명 |
+| Field | Description |
 |---|---|
-| `templateSnapshot` | 전표를 만들 당시의 양식 전체 |
-| `values` | 파라미터 물리명과 실제 값 |
-| `issued` | 발행 여부 |
+| `templateSnapshot` | The entire template as it was when the voucher was created |
+| `values` | The parameter physical names and their actual values |
+| `issued` | Whether it has been issued |
 
-발행된 전표는 외부 URL 이미지에 의존할 수 없습니다. 고정 이미지와 변동 이미지 값은 파일 안에서 사용할 수 있는 형태로 포함해야 합니다.
+An issued voucher cannot depend on external URL images. Fixed image and variable image values must be included in a form usable within the file.
 
 ### `SlipTemplateBody`
 
@@ -548,20 +548,20 @@ interface SlipTemplateBody {
 }
 ```
 
-| 필드 | 필수 | 설명 |
+| Field | Required | Description |
 |---|:---:|---|
-| `meta` | ● | 양식 제목과 선택적 생성·수정 시각 |
-| `paper` | ● | 용지 크기와 여백 |
-| `pages` | ● | 최소 한 개 이상의 페이지 |
-| `assets` | ● | 파일에 포함된 이미지 등의 에셋 |
-| `parameters` | — | 파라미터 정의 목록 |
-| `sampleValues` | — | 디자이너 미리보기용 값 |
+| `meta` | ● | The template title and optional created/updated times |
+| `paper` | ● | Paper size and padding |
+| `pages` | ● | At least one page |
+| `assets` | ● | Assets such as images included in the file |
+| `parameters` | — | The list of parameter definitions |
+| `sampleValues` | — | Values for the designer preview |
 
-`createdAt`과 `updatedAt`은 시간대 오프셋이 포함된 ISO 날짜·시각 문자열을 사용합니다.
+`createdAt` and `updatedAt` use ISO date-time strings that include a time-zone offset.
 
-### Core의 `PaperSize`
+### Core's `PaperSize`
 
-`@omdc-slipkit/core`가 공개하는 `PaperSize`는 `.slip` 파일 안의 실제 용지 크기입니다.
+The `PaperSize` that `@omdc-slipkit/core` exposes is the actual paper size inside the `.slip` file.
 
 ```ts
 interface CorePaperSize {
@@ -577,13 +577,13 @@ interface CorePaperSize {
 }
 ```
 
-크기와 여백의 단위는 밀리미터입니다.
+The unit of the size and padding is millimeters.
 
 > [!CAUTION]
-> `@omdc-slipkit/elements`도 `PaperSize`라는 이름을 공개하지만 용도가 다릅니다.
-> Elements의 `PaperSize`는 디자이너 선택 목록에 표시할 `{ name, width, height }` 형태의 용지 프리셋입니다.
+> `@omdc-slipkit/elements` also exposes a name `PaperSize`, but its purpose is different.
+> The Elements `PaperSize` is a paper preset in the shape `{ name, width, height }` shown in the designer's selection list.
 
-두 타입을 함께 사용한다면 별칭을 지정하는 것이 안전합니다.
+If you use both types together, it is safer to specify aliases.
 
 ```ts
 import type {
@@ -607,15 +607,15 @@ interface SlipPage {
 }
 ```
 
-| 필드 | 설명 |
+| Field | Description |
 |---|---|
-| `elements` | 페이지에 배치된 요소 |
-| `key` | 외부 연계에 사용할 페이지 물리명 |
-| `label` | 디자이너 목록에 표시할 페이지 논리명 |
-| `pageNumber` | PDF에 표시할 페이지 번호 설정 |
-| `flowArea` | 자동 확장 요소가 배치될 세로 범위 |
+| `elements` | The elements placed on the page |
+| `key` | The page physical name used for external integration |
+| `label` | The page logical name shown in the designer list |
+| `pageNumber` | The page-number setting shown in the PDF |
+| `flowArea` | The vertical area used by auto-growing elements |
 
-문서 안에서 `key`는 중복될 수 없습니다.
+Within a document, `key` cannot be duplicated.
 
 ### `PageFlowArea`
 
@@ -626,7 +626,7 @@ interface PageFlowArea {
 }
 ```
 
-`top`과 `bottom`은 용지 위쪽을 기준으로 한 mm 좌표입니다. 생략하면 용지의 위·아래 여백 사이를 흐름 영역으로 사용합니다.
+`top` and `bottom` are millimeter coordinates measured from the top of the paper. When omitted, the area between the top and bottom paper margins is used.
 
 ### `PageNumber`
 
@@ -638,9 +638,9 @@ interface PageNumber {
 }
 ```
 
-`format`에서 `{n}`은 현재 페이지 번호, `{total}`은 전체 페이지 수로 변환됩니다.
+In `format`, `{n}` is converted to the current page number and `{total}` to the total number of pages.
 
-기본 형식은 `{n} / {total}`입니다.
+The default format is `{n} / {total}`.
 
 ### `PageNumberPosition`
 
@@ -664,15 +664,15 @@ interface AssetEntry {
 }
 ```
 
-`src`는 다음 형태를 사용할 수 있습니다.
+`src` can use the following forms.
 
-| 형태 | 예 |
+| Form | Example |
 |---|---|
-| 외부 URL | `https://example.com/logo.png` |
-| Base64 데이터 | `data:image/png;base64,...` |
-| 내장 에셋 참조 | `asset://company-logo` |
+| External URL | `https://example.com/logo.png` |
+| Base64 data | `data:image/png;base64,...` |
+| Embedded asset reference | `asset://company-logo` |
 
-발행된 전표는 외부 URL 이미지를 포함할 수 없습니다.
+An issued voucher cannot include external URL images.
 
 ### `ParameterDef`
 
@@ -687,12 +687,12 @@ interface ParameterDef {
 }
 ```
 
-| 필드 | 설명 |
+| Field | Description |
 |---|---|
-| `key` | 파일, 수식과 외부 연계에 사용하는 물리명 |
-| `label` | 작성폼과 디자이너에 표시할 논리명 |
-| `valueType` | 값 종류. 생략하면 글자로 취급 |
-| `fields` | 목록 파라미터의 하위 필드 |
+| `key` | The physical name used in the file, formulas, and external integration |
+| `label` | The logical name shown in the form and the designer |
+| `valueType` | The value type. Treated as text if omitted |
+| `fields` | The sub-fields of a list parameter |
 
 ### `ParameterField`
 
@@ -705,7 +705,7 @@ interface ParameterField {
 }
 ```
 
-하위 필드는 다시 `fields`를 가질 수 없습니다.
+A sub-field cannot have `fields` again.
 
 ### `ParameterValueType`
 
@@ -719,9 +719,9 @@ type ParameterValueType =
   | 'list';
 ```
 
-`fields`는 `valueType: 'list'`인 파라미터에서만 사용할 수 있습니다.
+`fields` can only be used on a parameter with `valueType: 'list'`.
 
-## 요소 타입
+## Element types
 
 ### `SlipElement`
 
@@ -738,20 +738,20 @@ type SlipElement =
   | PolygonElement;
 ```
 
-`type`을 기준으로 아홉 종류의 요소를 구분합니다.
+Nine kinds of element are distinguished by `type`.
 
-### 모든 요소의 공통 필드
+### Common fields of all elements
 
-| 필드 | 타입 | 설명 |
+| Field | Type | Description |
 |---|---|---|
-| `type` | 문자열 유니온 | 요소 종류 |
-| `id` | `string` | 문서 전체에서 유일한 요소 식별자 |
-| `name` | `string` | 디자이너에 표시할 요소 이름 |
-| `position` | `{ x, y }` | 페이지 왼쪽 위를 기준으로 한 위치(mm) |
-| `width` | `number` | 요소 너비(mm). 그리드는 열 너비의 합으로 계산하므로 사용하지 않음 |
-| `height` | `number` | 요소 높이(mm). 그리드는 행 높이의 합으로 계산하므로 사용하지 않음 |
-| `group` | `string?` | 여러 요소를 묶는 그룹 식별자 |
-| `pagePlacement` | `PagePlacement?` | 생성된 출력 페이지에서 요소를 표시할 위치와 범위 |
+| `type` | String union | The element kind |
+| `id` | `string` | An element identifier unique across the whole document |
+| `name` | `string` | The element name shown in the designer |
+| `position` | `{ x, y }` | The position relative to the top-left of the page (mm) |
+| `width` | `number` | Element width (mm). Grids omit it because their width is the sum of column widths |
+| `height` | `number` | Element height (mm). Grids omit it because their height is the sum of row heights |
+| `group` | `string?` | A group identifier that binds multiple elements together |
+| `pagePlacement` | `PagePlacement?` | Placement and visibility on generated output pages |
 
 ### `PagePlacement`
 
@@ -768,35 +768,35 @@ type PagePlacement =
   | { mode: 'after'; target: string; gap?: number };
 ```
 
-`absolute`는 원래 좌표에 요소를 표시하며 `pages`로 표시할 출력 페이지를 고릅니다. `after`는 같은 양식 페이지에 있는 대상 요소의 마지막 출력 조각 뒤에 요소를 이어서 배치합니다.
+`absolute` keeps the original coordinates and uses `pages` to choose the output pages on which the element appears. `after` places the element after the target element's last output fragment on the same source page.
 
-### 글자 스타일 필드
+### Text style fields
 
-텍스트, 필드, 그리드와 그리드 셀에서 다음 필드를 사용할 수 있습니다.
+The following fields can be used on text, field, grid, and grid cells.
 
-| 필드 | 타입 | 기본 동작 |
+| Field | Type | Default behavior |
 |---|---|---|
-| `fontName` | `string?` | 대체 폰트 사용 |
-| `fontSize` | `number?` | 요소별 기본 크기 |
-| `alignment` | `'left' \| 'center' \| 'right'` | 왼쪽 정렬 |
-| `verticalAlignment` | `'top' \| 'middle' \| 'bottom'` | 위쪽 정렬 |
-| `bold` | `boolean?` | 굵은 폰트 변형 사용 |
-| `italic` | `boolean?` | 기울임 폰트 변형 사용 |
-| `underline` | `boolean?` | 밑줄 |
-| `strikethrough` | `boolean?` | 취소선 |
-| `lineHeight` | `number?` | 줄 간격 배수 |
-| `characterSpacing` | `number?` | 자간(pt) |
-| `vertical` | `boolean?` | 세로쓰기 |
+| `fontName` | `string?` | Use the fallback font |
+| `fontSize` | `number?` | The element's default size |
+| `alignment` | `'left' \| 'center' \| 'right'` | Left aligned |
+| `verticalAlignment` | `'top' \| 'middle' \| 'bottom'` | Top aligned |
+| `bold` | `boolean?` | Use the bold font variant |
+| `italic` | `boolean?` | Use the italic font variant |
+| `underline` | `boolean?` | Underline |
+| `strikethrough` | `boolean?` | Strikethrough |
+| `lineHeight` | `number?` | The line spacing multiple |
+| `characterSpacing` | `number?` | The character spacing (pt) |
+| `vertical` | `boolean?` | Vertical writing |
 
-### 색과 테두리 필드
+### Color and border fields
 
-해당 스타일을 지원하는 요소에서 다음 필드를 사용합니다.
+The following fields are used on elements that support the corresponding style.
 
-| 필드 | 타입 |
+| Field | Type |
 |---|---|
-| `backgroundColor` | `#RRGGBB` 또는 `#RRGGBBAA` |
-| `fontColor` | `#RRGGBB` 또는 `#RRGGBBAA` |
-| `borderColor` | `#RRGGBB` 또는 `#RRGGBBAA` |
+| `backgroundColor` | `#RRGGBB` or `#RRGGBBAA` |
+| `fontColor` | `#RRGGBB` or `#RRGGBBAA` |
+| `borderColor` | `#RRGGBB` or `#RRGGBBAA` |
 | `borderWidth` | `number` |
 | `borderStyle` | `'solid' \| 'dashed' \| 'dotted'` |
 
@@ -815,11 +815,11 @@ interface ConditionalFormatRule {
 }
 ```
 
-`condition`은 불리언 값을 반환하는 수식입니다. 규칙마다 색이나 글자 강조를 하나 이상 지정해야 하며, 요소 또는 셀마다 최대 20개까지 선언할 수 있습니다.
+`condition` is a formula that returns a boolean. Each rule must set at least one color or text-emphasis property. An element or cell can have up to 20 rules.
 
-글자 강조 값은 `true`면 적용하고 `false`면 기본 스타일의 강조를 해제합니다. 필드를 생략하면 기본 스타일이나 앞선 규칙의 결과를 유지합니다.
+For text-emphasis properties, `true` enables the emphasis and `false` disables the base style's emphasis. Omitting a property preserves the base style or the result from an earlier rule.
 
-`conditionalFormats?: ConditionalFormatRule[]`는 `TextElement`, `FieldElement`, `GridCell`에서만 사용할 수 있습니다.
+`conditionalFormats?: ConditionalFormatRule[]` is available only on `TextElement`, `FieldElement`, and `GridCell`.
 
 ### `ConditionalFormatOverrides`
 
@@ -835,7 +835,7 @@ interface ConditionalFormatOverrides {
 }
 ```
 
-`resolveConditionalFormats`가 반환하는 스타일입니다. 조건이 참인 규칙이 없으면 모든 필드가 비어 있습니다.
+The style returned by `resolveConditionalFormats`. Every property is absent when no rule has a true condition.
 
 ### `TextElement`
 
@@ -845,12 +845,12 @@ interface TextElement {
   content: string;
   conditionalFormats?: ConditionalFormatRule[];
 
-  // 공통 위치·크기,
-  // 글자·색·테두리 스타일
+  // common position & size,
+  // text/color/border style
 }
 ```
 
-모든 전표에서 동일하게 표시할 고정 문자열입니다.
+A fixed string shown identically on all vouchers.
 
 ### `FieldElement`
 
@@ -862,12 +862,12 @@ interface FieldElement {
   formula?: string;
   conditionalFormats?: ConditionalFormatRule[];
 
-  // 공통 위치·크기,
-  // 글자·색·테두리 스타일
+  // common position & size,
+  // text/color/border style
 }
 ```
 
-`parameter`와 `formula` 중 하나만 가져야 합니다.
+It must have exactly one of `parameter` and `formula`.
 
 ### `ImageElement`
 
@@ -878,18 +878,18 @@ interface ImageElement {
   src?: string;
   parameter?: string;
 
-  // 공통 위치·크기
+  // common position & size
 }
 ```
 
-| 필드 | 역할 |
+| Field | Role |
 |---|---|
-| `src` | 모든 전표에서 같은 고정 이미지 |
-| `parameter` | 전표마다 달라지는 이미지 값의 키 |
+| `src` | A fixed image that is the same on all vouchers |
+| `parameter` | The key of an image value that differs per voucher |
 
-`src`와 `parameter` 중 하나만 가져야 합니다.
+It must have exactly one of `src` and `parameter`.
 
-변동 이미지의 전표 값은 `data:` Base64 문자열을 사용합니다.
+The voucher value of a variable image uses a `data:` Base64 string.
 
 ### `BarcodeElement`
 
@@ -909,7 +909,7 @@ interface BarcodeElement {
 }
 ```
 
-`content`, `parameter`, `formula` 중 하나만 가져야 합니다.
+It must have exactly one of `content`, `parameter`, and `formula`.
 
 ### `BarcodeKind`
 
@@ -951,7 +951,7 @@ interface LineElement {
 }
 ```
 
-`lineDirection`을 생략하면 `horizontal`을 사용합니다.
+If `lineDirection` is omitted, `horizontal` is used.
 
 ### `RectElement`
 
@@ -972,7 +972,7 @@ interface RectElement {
 }
 ```
 
-`radius`가 `0`보다 크면 파선 또는 점선 테두리를 함께 사용할 수 없습니다.
+If `radius` is greater than `0`, a dashed or dotted border cannot be used together.
 
 ### `EllipseElement`
 
@@ -1000,7 +1000,7 @@ interface PolygonElement {
 }
 ```
 
-`sides`는 3 이상 12 이하의 정수입니다.
+`sides` is an integer from 3 to 12.
 
 ### `GridElement`
 
@@ -1030,15 +1030,15 @@ interface GridElement {
     | 'clip'
     | 'shrink';
 
-  // 글자·색·테두리 스타일
+  // text/color/border style
 }
 ```
 
-열 너비와 행 높이는 비율이 아니라 밀리미터 단위의 절대값입니다.
+Column widths and row heights are absolute values in millimeters, not ratios.
 
-- 그리드 너비는 열 너비의 합으로 계산합니다.
-- 그리드의 양식 높이는 행 높이의 합으로 계산합니다.
-- 반복 출력 높이와 출력 페이지 수는 `repeat`의 행 구간과 페이지 방식으로 계산합니다.
+- Grid width is calculated from the sum of column widths.
+- The template height of a grid is calculated from the sum of row heights.
+- Repeated output height and output-page count are calculated from the row bands and page mode in `repeat`.
 
 ### `GridCell`
 
@@ -1060,17 +1060,17 @@ interface GridCell {
     | 'clip'
     | 'shrink';
 
-  // 글자·색·테두리 스타일
+  // text/color/border style
 }
 ```
 
-`row`와 `column`은 0부터 시작합니다.
+`row` and `column` start at 0.
 
-`content`, `parameter`, `formula`는 동시에 둘 이상 사용할 수 없습니다.
+`content`, `parameter`, and `formula` cannot be used two or more at the same time.
 
-`name`은 디자이너가 셀을 목록에 표시할 때 사용하는 이름이며 PDF에는 출력하지 않습니다. 생략하면 디자이너가 좌표를 표시합니다.
+`name` identifies the cell in the designer and is not printed in the PDF. When omitted, the designer shows the cell coordinates.
 
-`item` 행 구간 안의 `parameter`는 목록 항목의 하위 필드를 가리키고, 그 밖에서는 전표 `values`의 최상위 키를 가리킵니다.
+A `parameter` in an `item` row band refers to a sub-field of a list item. Outside that band, it refers to a top-level key of the voucher `values`.
 
 ### `GridRepeat`
 
@@ -1084,13 +1084,13 @@ interface GridRepeat {
 }
 ```
 
-| 필드 | 설명 |
+| Field | Description |
 |---|---|
-| `parameter` | 객체 배열을 가진 목록 파라미터 |
-| `bands` | 각 양식 행의 출력 시점과 범위를 정의한 행 구간 목록 |
-| `pagination` | 자동 확장 또는 고정 페이지 방식 |
-| `groupBy` | 연속된 항목을 그룹으로 묶을 하위 필드 목록 |
-| `maxItems` | 전체 출력 항목 수 상한 |
+| `parameter` | A list parameter holding an array of objects |
+| `bands` | Row ranges and the output stage at which each range is rendered |
+| `pagination` | Auto-grow or fixed-page mode |
+| `groupBy` | Item sub-fields that group consecutive items |
+| `maxItems` | The upper limit on the total number of output items |
 
 ### `GridBand`
 
@@ -1115,9 +1115,9 @@ interface GridBand {
 }
 ```
 
-`fromRow`와 `toRow`는 0부터 시작하며 양끝을 포함합니다. 모든 양식 행은 빈틈이나 겹침 없이 하나의 행 구간에 속해야 하고 `item` 구간은 정확히 하나 있어야 합니다.
+`fromRow` and `toRow` are zero-based and inclusive. Every template row must belong to exactly one band without gaps or overlaps, and exactly one `item` band is required.
 
-행 구간은 `before-data`, `page-start`, `group-start`, `item`, `group-end`, `after-data`, `page-end` 순서로 배치합니다. `pages`는 `page-start`와 `page-end`의 표시 페이지를 제한하고, `repeatOnPageBreak`는 다음 페이지로 이어지는 그룹의 `group-start`를 다시 표시합니다.
+Bands follow this order: `before-data`, `page-start`, `group-start`, `item`, `group-end`, `after-data`, `page-end`. `pages` limits where a `page-start` or `page-end` band appears. `repeatOnPageBreak` repeats a `group-start` band when its group continues on another page.
 
 ### `GridPagination`
 
@@ -1127,9 +1127,9 @@ type GridPagination =
   | { mode: 'fixed'; itemsPerPage: number };
 ```
 
-`auto`는 문서 전체에 최소 `minItems`개의 항목 자리를 만들고 실제 데이터와 흐름 영역에 따라 출력 페이지를 계획합니다. `fixed`는 각 출력 페이지에 `itemsPerPage`개의 항목 자리를 만듭니다. 두 방식 모두 데이터가 부족한 자리는 빈 항목으로 표시하며, 빈 항목은 집계 범위에서 제외합니다.
+`auto` reserves at least `minItems` item slots for the document and plans output pages from the actual data and flow area. `fixed` reserves `itemsPerPage` slots on every output page. Both modes fill unused slots with blank items, which are excluded from calculation scopes.
 
-## 저장소 API
+## Storage API
 
 ### `StorageAdapter`
 
@@ -1155,12 +1155,12 @@ interface StorageAdapter {
 }
 ```
 
-| 메서드 | 설명 |
+| Method | Description |
 |---|---|
-| `save` | 같은 ID가 있으면 덮어쓰기 |
-| `load` | ID에 해당하는 파일 불러오기 |
-| `delete` | ID에 해당하는 파일 삭제 |
-| `list` | 종류와 검색어로 목록 조회 |
+| `save` | Overwrites if the same ID exists |
+| `load` | Loads the file for the given ID |
+| `delete` | Deletes the file for the given ID |
+| `list` | Lists by kind and search term |
 
 ### `SlipListFilter`
 
@@ -1180,7 +1180,7 @@ interface SlipListPage {
 }
 ```
 
-`nextCursor`가 없으면 마지막 페이지입니다.
+If there is no `nextCursor`, it is the last page.
 
 ### `SlipListItem`
 
@@ -1193,7 +1193,7 @@ interface SlipListItem {
 }
 ```
 
-파일 본문을 포함하지 않는 목록용 메타데이터입니다.
+List metadata that does not include the file body.
 
 ### `VersionedStorageAdapter`
 
@@ -1214,9 +1214,9 @@ interface VersionedStorageAdapter
 }
 ```
 
-버전 이력을 지원하는 사용자 저장소가 선택적으로 구현할 수 있는 확장 인터페이스입니다.
+An extension interface that a custom storage supporting version history can optionally implement.
 
-현재 동봉된 `IndexedDbStorage`는 이 인터페이스를 구현하지 않습니다. `SlipFileExchange`는 저장소가 아니므로 `StorageAdapter`를 구현하지 않습니다.
+The bundled `IndexedDbStorage` does not implement this interface. `SlipFileExchange` is not storage and does not implement `StorageAdapter`.
 
 ### `supportsVersions`
 
@@ -1226,25 +1226,25 @@ function supportsVersions(
 ): adapter is VersionedStorageAdapter;
 ```
 
-저장소가 `listVersions`와 `loadVersion`을 모두 구현했는지 확인하는 타입 가드입니다.
+A type guard that checks whether the storage implements both `listVersions` and `loadVersion`.
 
-## 스키마와 마이그레이션 API
+## Schema and migration API
 
-### 공개 Zod 스키마
+### Public Zod schemas
 
-다음 스키마를 `@omdc-slipkit/core`에서 가져올 수 있습니다.
+The following schemas can be imported from `@omdc-slipkit/core`.
 
-| 스키마 | 검증 범위 |
+| Schema | Validation scope |
 |---|---|
-| `slipEnvelopeSchema` | `schemaVersion`과 `kind` |
-| `slipFileSchema` | 양식 또는 전표 전체 |
-| `slipTemplateFileSchema` | 양식 파일 전체 |
-| `slipVoucherFileSchema` | 전표 파일 전체 |
-| `slipTemplateBodySchema` | 양식 본문 |
-| `slipElementSchema` | 요소 한 개 |
-| `paperSchema` | 용지 크기와 여백 |
+| `slipEnvelopeSchema` | `schemaVersion` and `kind` |
+| `slipFileSchema` | An entire template or voucher |
+| `slipTemplateFileSchema` | An entire template file |
+| `slipVoucherFileSchema` | An entire voucher file |
+| `slipTemplateBodySchema` | The template body |
+| `slipElementSchema` | A single element |
+| `paperSchema` | Paper size and padding |
 
-일반적인 외부 입력 검증에는 스키마를 직접 호출하기보다 마이그레이션과 오류 변환을 함께 수행하는 `parseSlipFile` 또는 `validateSlipFile`을 권장합니다.
+For typical external-input validation, we recommend `parseSlipFile` or `validateSlipFile`, which perform migration and error conversion together, rather than calling the schemas directly.
 
 ### `slipFileJsonSchema`
 
@@ -1253,16 +1253,16 @@ function slipFileJsonSchema():
   Record<string, unknown>;
 ```
 
-현재 `.slip` 형식의 draft 2020-12 JSON Schema 객체를 만듭니다.
+Creates a draft 2020-12 JSON Schema object of the current `.slip` format.
 
-패키지에는 다음 JSON Schema 파일도 포함됩니다.
+The package also includes the following JSON Schema files.
 
 - `@omdc-slipkit/core/schemas/slip.schema.json`
-- 버전별 `slip-<schemaVersion>.schema.json`
+- Per-version `slip-<schemaVersion>.schema.json`
 
 > [!IMPORTANT]
-> JSON Schema로 표현할 수 없는 일부 교차 필드 검증이 있습니다.
-> 완전한 검증은 `parseSlipFile` 또는 `validateSlipFile`을 기준으로 해야 합니다.
+> There are some cross-field validations that cannot be expressed in JSON Schema.
+> Complete validation must be based on `parseSlipFile` or `validateSlipFile`.
 
 ### `migrateSlipDocument`
 
@@ -1276,9 +1276,9 @@ function migrateSlipDocument(
 ): Record<string, unknown>;
 ```
 
-문서의 `schemaVersion`을 현재 버전까지 단계별로 변환합니다.
+Converts a document's `schemaVersion` step by step up to the current version.
 
-일반적으로 `parseSlipFile`과 `validateSlipFile`이 내부에서 호출하므로 직접 사용할 필요는 많지 않습니다.
+Since `parseSlipFile` and `validateSlipFile` usually call it internally, you rarely need to use it directly.
 
 ### `SlipMigrationStep`
 
@@ -1301,37 +1301,37 @@ const BUILT_IN_MIGRATIONS:
   readonly SlipMigrationStep[];
 ```
 
-라이브러리에 포함된 마이그레이션 단계 목록입니다.
+The list of migration steps included in the library.
 
-현재 기준 스키마가 최초 공개 형식이므로 목록이 비어 있습니다.
+Since the current base schema is the first public format, the list is empty.
 
 ### `SLIP_LIMITS`
 
-파일 검증에 사용하는 구조 크기 상한입니다.
+The structural size limits used in file validation.
 
-| 필드 | 현재 값 | 의미 |
+| Field | Current value | Meaning |
 |---|---:|---|
-| `maxPages` | 500 | 문서당 최대 페이지 수 |
-| `maxElementsPerPage` | 2,000 | 페이지당 최대 요소 수 |
-| `maxAssets` | 1,000 | 문서당 최대 에셋 수 |
-| `maxGridCells` | 100,000 | 그리드 최대 셀 수 |
-| `maxParameters` | 500 | 최대 파라미터 정의 수 |
-| `maxGridRowTracks` | 1,000 | 그리드 최대 행 수 |
-| `maxGridColumnTracks` | 100 | 그리드 최대 열 수 |
-| `maxRepeatPerPage` | 1,000 | 페이지당 최대 반복 항목 수 |
-| `maxRepeatItems` | 100,000 | 반복 목록 전체 항목 수 상한 |
-| `maxLineHeight` | 10 | 줄 간격 배수 상한 |
-| `maxCharacterSpacing` | 100 | 자간 절댓값 상한(pt) |
+| `maxPages` | 500 | Maximum number of pages per document |
+| `maxElementsPerPage` | 2,000 | Maximum number of elements per page |
+| `maxAssets` | 1,000 | Maximum number of assets per document |
+| `maxGridCells` | 100,000 | Maximum number of grid cells |
+| `maxParameters` | 500 | Maximum number of parameter definitions |
+| `maxGridRowTracks` | 1,000 | Maximum number of grid rows |
+| `maxGridColumnTracks` | 100 | Maximum number of grid columns |
+| `maxRepeatPerPage` | 1,000 | Maximum number of repeat items per page |
+| `maxRepeatItems` | 100,000 | Upper limit on the total number of repeat-list items |
+| `maxLineHeight` | 10 | Upper limit on the line spacing multiple |
+| `maxCharacterSpacing` | 100 | Upper limit on the absolute character spacing (pt) |
 
 ## `@omdc-slipkit/elements`
 
-패키지 루트를 import하면 세 Web Component가 등록됩니다.
+Importing the package root registers the three Web Components.
 
 ```ts
 import '@omdc-slipkit/elements';
 ```
 
-클래스 타입도 직접 가져올 수 있습니다.
+The class types can also be imported directly.
 
 ```ts
 import type {
@@ -1343,79 +1343,79 @@ import type {
 
 ### `<slip-designer>`
 
-양식 파일을 시각적으로 편집합니다.
+Visually edits a template file.
 
-#### 속성과 프로퍼티
+#### Attributes and properties
 
-| 이름 | 타입 | 전달 방식 | 기본값 |
+| Name | Type | How to pass | Default |
 |---|---|---|---|
-| `src` | `string` | HTML 속성·프로퍼티 | `''` |
-| `locale` | `string` | HTML 속성·프로퍼티 | `SlipKit` 로케일 또는 영어 |
-| `slipkit` | `SlipKit` | JS 프로퍼티 | 생략 |
-| `settings` | `SlipDesignerSettings` | JS 프로퍼티 | 동봉 기본 설정 |
-| `presets` | `SlipPreset[]` | JS 프로퍼티 | 동봉 프리셋 2종 |
-| `storage` | `StorageAdapter` | JS 프로퍼티 | 저장 기능 숨김 |
-| `maxImageBytes` | `number` | `max-image-bytes` 속성·프로퍼티 | 2MB |
+| `src` | `string` | HTML attribute · property | `''` |
+| `locale` | `string` | HTML attribute · property | The `SlipKit` locale or English |
+| `slipkit` | `SlipKit` | JS property | Omitted |
+| `settings` | `SlipDesignerSettings` | JS property | Bundled default settings |
+| `presets` | `SlipPreset[]` | JS property | 2 bundled presets |
+| `storage` | `StorageAdapter` | JS property | Save feature hidden |
+| `maxImageBytes` | `number` | `max-image-bytes` attribute · property | 2MB |
 
-`src`에는 `kind: 'template'`인 파일을 `serializeSlipFile`로 변환한 JSON 문자열을 전달합니다.
+For `src`, pass the JSON string of a `kind: 'template'` file converted with `serializeSlipFile`.
 
-#### 이벤트
+#### Events
 
-| 이벤트 | `detail` | 발생 시점 |
+| Event | `detail` | When it fires |
 |---|---|---|
-| `slip-change` | `{ file: SlipFile }` | 양식이 편집될 때 |
+| `slip-change` | `{ file: SlipFile }` | When the template is edited |
 
-실제 `file.kind`는 `'template'`입니다.
+The actual `file.kind` is `'template'`.
 
-이 이벤트는 `bubbles: true`, `composed: true`로 전달됩니다.
+This event is delivered with `bubbles: true`, `composed: true`.
 
 ### `<slip-form>`
 
-양식에 값을 입력하고 전표를 발행합니다.
+Fills a template with values and issues a voucher.
 
-#### 속성과 프로퍼티
+#### Attributes and properties
 
-| 이름 | 타입 | 전달 방식 | 기본값 |
+| Name | Type | How to pass | Default |
 |---|---|---|---|
-| `src` | `string` | HTML 속성·프로퍼티 | `''` |
-| `locale` | `string` | HTML 속성·프로퍼티 | `SlipKit` 로케일 또는 영어 |
-| `slipkit` | `SlipKit` | JS 프로퍼티 | 생략 |
-| `maxImageBytes` | `number` | `max-image-bytes` 속성·프로퍼티 | 2MB |
+| `src` | `string` | HTML attribute · property | `''` |
+| `locale` | `string` | HTML attribute · property | The `SlipKit` locale or English |
+| `slipkit` | `SlipKit` | JS property | Omitted |
+| `maxImageBytes` | `number` | `max-image-bytes` attribute · property | 2MB |
 
-`src`에는 다음 파일을 전달할 수 있습니다.
+For `src`, you can pass the following files.
 
-- `kind: 'template'`인 양식
-- `kind: 'voucher'`, `issued: false`인 작성 중 전표
-- `kind: 'voucher'`, `issued: true`인 발행된 전표
+- A `kind: 'template'` template
+- A `kind: 'voucher'`, `issued: false` draft voucher
+- A `kind: 'voucher'`, `issued: true` issued voucher
 
-발행된 전표를 전달하면 입력이 잠깁니다.
+If you pass an issued voucher, input is locked.
 
-#### 이벤트
+#### Events
 
-| 이벤트 | `detail` | 발생 시점 |
+| Event | `detail` | When it fires |
 |---|---|---|
-| `slip-change` | `{ file: SlipFile }` | 입력값이 변경될 때 |
-| `slip-issue` | `{ file: SlipFile }` | 전표 발행이 완료될 때 |
+| `slip-change` | `{ file: SlipFile }` | When the input values change |
+| `slip-issue` | `{ file: SlipFile }` | When voucher issuing completes |
 
-두 이벤트에서 실제 `file.kind`는 `'voucher'`입니다.
+In both events, the actual `file.kind` is `'voucher'`.
 
-이벤트는 `bubbles: true`, `composed: true`로 전달됩니다.
+The events are delivered with `bubbles: true`, `composed: true`.
 
 ### `<slip-viewer>`
 
-양식이나 전표를 PDF로 렌더링하여 읽기 전용으로 표시합니다.
+Renders a template or voucher as a PDF and displays it read-only.
 
-#### 속성과 프로퍼티
+#### Attributes and properties
 
-| 이름 | 타입 | 전달 방식 | 기본값 |
+| Name | Type | How to pass | Default |
 |---|---|---|---|
-| `src` | `string` | HTML 속성·프로퍼티 | `''` |
-| `locale` | `string` | HTML 속성·프로퍼티 | `SlipKit` 로케일 또는 영어 |
-| `slipkit` | `SlipKit` | JS 프로퍼티 | 생략 |
+| `src` | `string` | HTML attribute · property | `''` |
+| `locale` | `string` | HTML attribute · property | The `SlipKit` locale or English |
+| `slipkit` | `SlipKit` | JS property | Omitted |
 
-뷰어는 파일 변경 이벤트를 발생시키지 않습니다.
+The viewer does not fire any file-change event.
 
-## Elements 설정 타입
+## Elements settings types
 
 ### `SlipDesignerSettings`
 
@@ -1437,7 +1437,7 @@ interface SlipDesignerSettings {
 }
 ```
 
-### Elements의 `PaperSize`
+### Elements' `PaperSize`
 
 ```ts
 interface ElementPaperSize {
@@ -1447,7 +1447,7 @@ interface ElementPaperSize {
 }
 ```
 
-디자이너의 용지 선택 목록에 표시할 프리셋입니다. 실제 `.slip` 용지 타입과 달리 `name`을 가지며 `padding`은 없습니다.
+A preset shown in the designer's paper selection list. Unlike the actual `.slip` paper type, it has a `name` and no `padding`.
 
 ### `SlipPreset`
 
@@ -1461,9 +1461,9 @@ interface SlipPreset {
 }
 ```
 
-`create`는 호출할 때마다 독립된 새 양식 객체를 반환해야 합니다.
+`create` must return an independent new template object each time it is called.
 
-## Elements 내장 API
+## Elements built-in API
 
 ### `getPresets`
 
@@ -1473,7 +1473,7 @@ function getPresets(
 ): SlipPreset[];
 ```
 
-동봉된 거래명세서와 청구서 프리셋 목록을 만듭니다. 제목·라벨·문구는 `locale`에 해당하는 언어(기본 영어)로 채워집니다.
+Builds the list of the bundled trade statement and invoice presets. Titles, labels, and phrases are filled in the `locale` language (English by default).
 
 ### `IndexedDbStorage`
 
@@ -1488,9 +1488,9 @@ class IndexedDbStorage
 }
 ```
 
-브라우저 IndexedDB에 `.slip` 파일을 저장합니다.
+Stores `.slip` files in the browser's IndexedDB.
 
-`save`, `load`, `delete`, `list`를 모두 지원합니다.
+Supports all of `save`, `load`, `delete`, and `list`.
 
 #### `IndexedDbStorageOptions`
 
@@ -1502,11 +1502,11 @@ interface IndexedDbStorageOptions {
 }
 ```
 
-| 필드 | 기본값 | 설명 |
+| Field | Default | Description |
 |---|---|---|
-| `dbName` | `'slipkit'` | IndexedDB 데이터베이스 이름 |
-| `pageSize` | `50` | 목록 한 페이지의 항목 수 |
-| `encryptOnSave` | `false` | 저장할 본문의 암호화 여부 |
+| `dbName` | `'slipkit'` | The IndexedDB database name |
+| `pageSize` | `50` | The number of items per list page |
+| `encryptOnSave` | `false` | Whether to encrypt file bodies when saving |
 
 ### `SlipFileExchange`
 
@@ -1526,7 +1526,7 @@ class SlipFileExchange {
 }
 ```
 
-`SlipFileExchange`는 브라우저 다운로드와 파일 선택 창을 제공합니다. `StorageAdapter`를 구현하지 않으며 `download`와 `open`만 제공합니다.
+`SlipFileExchange` provides browser downloads and the file picker. It does not implement `StorageAdapter`; it only provides `download` and `open`.
 
 #### `SlipFileExchangeOptions`
 
@@ -1536,9 +1536,9 @@ interface SlipFileExchangeOptions {
 }
 ```
 
-`encryptOnSave`의 기본값은 `false`입니다. 열기는 이 값과 관계없이 암호화 봉투를 감지하고 `SlipKit`의 키로 복호화합니다.
+`encryptOnSave` defaults to `false`. Opening detects encrypted envelopes regardless of this option and decrypts them with the keys configured in `SlipKit`.
 
-### 동봉 폰트
+### Bundled fonts
 
 #### `PRETENDARD_FONTS`
 
@@ -1547,7 +1547,7 @@ const PRETENDARD_FONTS:
   SlipFont[];
 ```
 
-Pretendard Regular와 Bold를 포함합니다. Regular가 대체 폰트로 지정되어 있습니다.
+Includes Pretendard Regular and Bold. Regular is specified as the fallback font.
 
 #### `NOTO_SANS_JP_FONTS`
 
@@ -1556,11 +1556,11 @@ const NOTO_SANS_JP_FONTS:
   SlipFont[];
 ```
 
-Noto Sans JP Regular 서브셋을 포함합니다. 해당 폰트가 대체 폰트로 지정되어 있습니다.
+Includes the Noto Sans JP Regular subset. That font is specified as the fallback font.
 
 ## `@omdc-slipkit/react`
 
-React 19 이상을 지원합니다.
+Supports React 19 or later.
 
 ### `SlipDesigner`
 
@@ -1584,7 +1584,7 @@ interface SlipDesignerProps {
 }
 ```
 
-Web Component의 `slip-change` 이벤트에서 `CustomEvent`를 제거하고 `SlipFile` 객체를 콜백에 직접 전달합니다.
+It removes the `CustomEvent` from the Web Component's `slip-change` event and passes the `SlipFile` object directly to the callback.
 
 ### `SlipForm`
 
@@ -1616,7 +1616,7 @@ interface SlipViewerProps {
 }
 ```
 
-React 패키지에서는 다음 props 타입도 직접 가져올 수 있습니다.
+The React package also lets you import these props types directly.
 
 ```ts
 import type {
@@ -1628,11 +1628,11 @@ import type {
 
 ## `@omdc-slipkit/vue`
 
-Vue 3.4 이상을 지원합니다.
+Supports Vue 3.4 or later.
 
 ### `SlipDesigner`
 
-| prop | 타입 | 필수 |
+| prop | Type | Required |
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
@@ -1642,31 +1642,31 @@ Vue 3.4 이상을 지원합니다.
 | `storage` | `StorageAdapter` | — |
 | `maxImageBytes` | `number` | — |
 
-발생 이벤트:
+Emitted events:
 
-| 이벤트 | 전달값 |
+| Event | Payload |
 |---|---|
 | `slip-change` | `SlipFile` |
 
 ### `SlipForm`
 
-| prop | 타입 | 필수 |
+| prop | Type | Required |
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
 | `slipkit` | `SlipKit` | — |
 | `maxImageBytes` | `number` | — |
 
-발생 이벤트:
+Emitted events:
 
-| 이벤트 | 전달값 |
+| Event | Payload |
 |---|---|
 | `slip-change` | `SlipFile` |
 | `slip-issue` | `SlipFile` |
 
 ### `SlipViewer`
 
-| prop | 타입 | 필수 |
+| prop | Type | Required |
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
@@ -1674,7 +1674,7 @@ Vue 3.4 이상을 지원합니다.
 
 ## `@omdc-slipkit/mcp`
 
-`@omdc-slipkit/mcp`는 로컬 stdio MCP 서버와 서버가 사용하는 파일 시스템 저장소를 제공합니다. 연결 및 도구 사용법은 [MCP 사용 가이드](mcp.md)를 확인하세요.
+`@omdc-slipkit/mcp` provides a local stdio MCP server and the file-system storage used by that server. See the [MCP Guide](mcp.md) for connection and tool usage.
 
 ### `createSlipMcpServer`
 
@@ -1687,7 +1687,7 @@ function createSlipMcpServer(
 };
 ```
 
-도구 7종과 `slip://schema` 리소스를 등록한 MCP 서버를 만듭니다. 반환된 `server`는 아직 전송 계층에 연결되지 않은 상태입니다.
+Creates an MCP server with seven tools and the `slip://schema` resource. The returned `server` is not yet connected to a transport.
 
 ```ts
 interface SlipMcpServerOptions
@@ -1696,7 +1696,7 @@ interface SlipMcpServerOptions
 }
 ```
 
-`fonts`를 생략하면 서버가 로케일에 맞는 동봉 폰트를 사용합니다. 값을 전달하면 해당 목록이 동봉 폰트를 대체합니다.
+When `fonts` is omitted, the server uses the bundled fonts selected by locale. A supplied list replaces the bundled fonts.
 
 ### `FileSystemStorage`
 
@@ -1714,7 +1714,7 @@ class FileSystemStorage
 }
 ```
 
-지정한 기준 디렉터리 안에서 `.slip` 파일을 읽고 쓰는 Node.js 저장소입니다. id에 `.slip` 확장자가 없으면 자동으로 붙이며, 기준 디렉터리를 벗어나는 경로는 `SlipStorageError`로 거부합니다.
+A Node.js storage adapter that reads and writes `.slip` files inside a designated root directory. It appends the `.slip` extension when omitted and throws `SlipStorageError` for paths outside the root.
 
 ```ts
 interface FileSystemStorageOptions {
@@ -1755,56 +1755,56 @@ interface ResolveInput {
 }
 ```
 
-`rootDir`과 `fonts[].path`의 상대 경로는 설정 파일 위치를 기준으로 해석합니다. 설정 파일의 알 수 없는 필드, 잘못된 JSON, 없는 작업 디렉터리와 폰트 파일은 `SlipMcpConfigError`를 발생시킵니다.
+Relative `rootDir` and `fonts[].path` values are resolved from the configuration file directory. Unknown fields, invalid JSON, missing working directories, and missing font files throw `SlipMcpConfigError`.
 
-### MCP 설정 API
+### MCP configuration API
 
-| API | 설명 |
+| Export | Description |
 |---|---|
-| `readConfigFile(filePath)` | JSON 파일을 읽고 `SlipMcpConfig`로 검증합니다. |
-| `loadConfigFonts(entries, baseDir)` | 설정의 폰트 파일을 읽어 `SlipFont[]`로 변환합니다. |
-| `resolveServerOptions(input)` | 설정 파일, CLI 값과 환경변수를 해석해 `{ options, configPath }`를 반환합니다. |
-| `SlipMcpConfigError` | 설정 파일이나 설정에 지정한 파일을 읽고 적용하지 못했을 때 발생하는 오류입니다. |
-| `CONFIG_FILE_NAME` | 기본 설정 파일 이름인 `slipkit-mcp.json`입니다. |
-| `DEFAULT_KEY_ENV` | 기본 현재 키 환경변수 이름인 `SLIPKIT_MCP_KEY`입니다. |
-| `DEFAULT_PREVIOUS_KEYS_ENV` | 기본 이전 키 환경변수 이름인 `SLIPKIT_MCP_PREVIOUS_KEYS`입니다. |
+| `readConfigFile(filePath)` | Reads and validates a JSON file as `SlipMcpConfig`. |
+| `loadConfigFonts(entries, baseDir)` | Reads configured font files and returns `SlipFont[]`. |
+| `resolveServerOptions(input)` | Resolves the configuration file, CLI values, and environment into `{ options, configPath }`. |
+| `SlipMcpConfigError` | Error thrown when configuration or a referenced resource cannot be read or applied. |
+| `CONFIG_FILE_NAME` | Default configuration filename: `slipkit-mcp.json`. |
+| `DEFAULT_KEY_ENV` | Default current-key environment-variable name: `SLIPKIT_MCP_KEY`. |
+| `DEFAULT_PREVIOUS_KEYS_ENV` | Default previous-keys environment-variable name: `SLIPKIT_MCP_PREVIOUS_KEYS`. |
 
-### 기타 MCP 공개 API
+### Other MCP exports
 
-| API | 설명 |
+| Export | Description |
 |---|---|
-| `resolveInRoot(rootDir, relPath, locale?)` | 상대 경로를 기준 디렉터리 안의 절대 경로로 변환합니다. 경로가 밖으로 나가면 오류를 발생시킵니다. |
-| `editOpSchema` | `slip_edit` 연산을 검증하는 Zod 스키마입니다. |
-| `EditOp` | `editOpSchema`에서 추론한 연산 타입입니다. |
-| `MAX_IMAGE_BYTES` | `set_image`가 받을 수 있는 최대 이미지 크기인 `2 * 1024 * 1024`입니다. |
-| `SCHEMA_TOPICS` | `slip_schema`가 지원하는 주제 목록입니다. |
-| `SchemaTopic` | `SCHEMA_TOPICS`의 요소 타입입니다. |
-| `schemaTopicText(topic)` | 지정한 주제의 영문 `.slip` 구조 안내를 반환합니다. |
+| `resolveInRoot(rootDir, relPath, locale?)` | Resolves a relative path inside the root directory and throws when it escapes the root. |
+| `editOpSchema` | Zod schema for `slip_edit` operations. |
+| `EditOp` | Operation type inferred from `editOpSchema`. |
+| `MAX_IMAGE_BYTES` | Maximum image size accepted by `set_image`: `2 * 1024 * 1024`. |
+| `SCHEMA_TOPICS` | Topics supported by `slip_schema`. |
+| `SchemaTopic` | Element type of `SCHEMA_TOPICS`. |
+| `schemaTopicText(topic)` | Returns the English `.slip` structure guide for a topic. |
 
-## 오류 타입
+## Error types
 
 ### `SlipParseError`
 
-`.slip` JSON 파싱, 스키마 검증 또는 마이그레이션에 실패했을 때 발생합니다.
+Thrown when `.slip` JSON parsing, schema validation, or migration fails.
 
 ### `SlipMigrationError`
 
-직접 `migrateSlipDocument`를 호출했을 때 다음과 같은 마이그레이션 실패를 나타냅니다.
+When you call `migrateSlipDocument` directly, it indicates a migration failure such as the following.
 
-- 올바르지 않은 버전 형식
-- 현재 라이브러리보다 새로운 버전
-- 마이그레이션 경로 없음
-- 마이그레이션 경로 순환
+- Invalid version format
+- A version newer than the current library
+- No migration path
+- A cycle in the migration path
 
-`parseSlipFile`과 `validateSlipFile`을 통해 발생한 마이그레이션 오류는 `SlipParseError`로 변환됩니다.
+Migration errors that occur through `parseSlipFile` and `validateSlipFile` are converted to `SlipParseError`.
 
 ### `SlipRenderError`
 
-PDF 변환, 폰트 설정 또는 양식 수식 계산에 실패했을 때 발생합니다.
+Thrown when PDF conversion, font configuration, or template formula computation fails.
 
 ### `FormulaSyntaxError`
 
-수식 문법 분석에 실패했을 때 발생합니다.
+Thrown when formula syntax analysis fails.
 
 ```ts
 class FormulaSyntaxError
@@ -1813,23 +1813,23 @@ class FormulaSyntaxError
 }
 ```
 
-`position`은 수식 문자열에서 오류가 발생한 0부터 시작하는 위치입니다.
+`position` is the 0-based position in the formula string where the error occurred.
 
 ### `FormulaEvalError`
 
-수식 평가 중 타입 불일치, 잘못된 인자 또는 0으로 나누기 등이 발생했을 때 사용합니다.
+Used when a type mismatch, an invalid argument, or division by zero occurs during formula evaluation.
 
 ### `SlipEncryptionError`
 
-다음과 같은 암호화·복호화 실패에 사용합니다.
+Used for encryption/decryption failures such as the following.
 
-- 암호화 키 없음
-- 빈 암호 문구
-- 원시 키 길이 오류
-- 지원하지 않는 암호화 봉투
-- 잘못된 키
-- 암호문 변조
-- Web Crypto API 사용 불가
+- Missing encryption key
+- An empty passphrase
+- A raw key length error
+- An unsupported encryption envelope
+- A wrong key
+- Ciphertext tampering
+- The Web Crypto API being unavailable
 
 ### `SlipStorageError`
 
@@ -1844,19 +1844,19 @@ class SlipStorageError
 }
 ```
 
-| `code` | 의미 |
+| `code` | Meaning |
 |---|---|
-| `not-found` | 지정한 저장 키의 파일이 없음 |
-| `unsupported` | 저장소가 해당 기능을 지원하지 않음 |
-| `io` | 저장소 읽기·쓰기 실패 |
-| `cancelled` | 사용자가 파일 선택을 취소함 |
+| `not-found` | No file for the given storage key |
+| `unsupported` | The storage does not support the feature |
+| `io` | A storage read/write failure |
+| `cancelled` | The user cancelled the file selection |
 
-## 관련 문서
+## Related documents
 
-- [시작하기](getting-started.md)
-- [양식 디자이너 사용 가이드](designer.md)
-- [애플리케이션 통합 가이드](integration.md)
-- [Core 사용 가이드](core.md)
-- [MCP 사용 가이드](mcp.md)
-- [환경 설정 가이드](configuration.md)
-- [수식 함수 참조](formula.md)
+- [Getting Started](getting-started.md)
+- [Form Designer Usage Guide](designer.md)
+- [Application Integration Guide](integration.md)
+- [Core Usage Guide](core.md)
+- [MCP Guide](mcp.md)
+- [Configuration Guide](configuration.md)
+- [Formula Function Reference](formula.md)

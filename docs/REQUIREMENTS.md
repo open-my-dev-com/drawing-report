@@ -8,7 +8,7 @@
 - 예정된 작업과 보류 항목은 [로드맵](ROADMAP.md)을 참고합니다.
 - 결정되지 않은 사항은 [미결 사항](OPEN-QUESTIONS.md)에서 관리합니다.
 
-최종 갱신: 2026-08-29
+최종 갱신: 2026-08-31
 
 > [!NOTE]
 > 이 문서는 구현 진행 상황이나 개발 작업 이력을 기록하지 않습니다.
@@ -414,8 +414,8 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 | --- | --- | --- | --- |
 | `DOC-01` | 프로젝트 README는 제품의 목적, 설치, 주요 기능과 문서 진입점을 안내해야 한다. | 개발 규칙만 나열하지 않고 처음 방문한 사용자가 프로젝트 성격과 시작 방법을 파악할 수 있다. | ADR-002 |
 | `DOC-02` | `.slip` 파일의 공개 명세를 유지해야 한다. | SPEC과 현재 스키마가 일치한다. | ADR-022 |
-| `DOC-03` | 사용자 가이드를 한국어, 영어와 일본어로 제공해야 한다. | 세 언어의 가이드 문서가 같은 주제와 문서 구조를 다룬다. | ADR-028, ADR-042 |
-| `DOC-04` | 한 언어의 공개 문서를 변경하면 나머지 언어도 동기화해야 한다. | 언어별 문서에서 기능 설명과 API 이름이 서로 어긋나지 않는다. | ADR-028, ADR-042 |
+| `DOC-03` | README와 사용자 가이드를 영어, 한국어와 일본어로 제공해야 한다. | 접미사가 없는 `*.md`가 영어판이고, `*.ko.md`와 `*.ja.md`가 같은 주제와 문서 구조를 다룬다. | ADR-028, ADR-042, ADR-066 |
+| `DOC-04` | 공개 문서의 문안은 영어판에서 확정하고 나머지 언어를 동기화해야 한다. | 언어별 문서에서 기능 설명과 API 이름이 서로 어긋나지 않는다. | ADR-028, ADR-042, ADR-066 |
 | `DOC-05` | 공개 API 문서는 실제 패키지의 export와 일치해야 한다. | 존재하지 않는 함수, 속성, 이벤트 또는 제거된 기능을 안내하지 않는다. | ADR-003, ADR-022 |
 | `DOC-06` | 요구사항, SPEC, 아키텍처와 ADR의 역할을 구분해야 한다. | 같은 구현 상세나 변경 이력을 여러 문서에 중복하여 관리하지 않는다. | ADR-022 |
 
@@ -441,15 +441,15 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 
 ## 18. 관련 문서
 
-- [프로젝트 README](../README.md)
+- [프로젝트 README](../README.ko.md)
 - [아키텍처](ARCHITECTURE.md)
 - [.slip 파일 형식 명세](SPEC.md)
 - [설계 결정 기록](DECISIONS.md)
 - [로드맵](ROADMAP.md)
 - [미결 사항](OPEN-QUESTIONS.md)
-- [가이드 문서](guide/README.md)
-- [애플리케이션 통합 가이드](guide/integration.md)
-- [디자이너 사용 가이드](guide/designer.md)
-- [Core 사용 가이드](guide/core.md)
-- [환경 설정 가이드](guide/configuration.md)
-- [API 참조](guide/api-reference.md)
+- [가이드 문서](guide/README.ko.md)
+- [애플리케이션 통합 가이드](guide/integration.ko.md)
+- [디자이너 사용 가이드](guide/designer.ko.md)
+- [Core 사용 가이드](guide/core.ko.md)
+- [환경 설정 가이드](guide/configuration.ko.md)
+- [API 참조](guide/api-reference.ko.md)

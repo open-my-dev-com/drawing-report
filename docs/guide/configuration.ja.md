@@ -1,6 +1,6 @@
 # 環境設定ガイド
 
-[한국어](configuration.md) · [English](configuration.en.md)
+[한국어](configuration.ko.md) · [English](configuration.md)
 
 このドキュメントは、SlipKit の言語、フォント、用紙、バーコード、プリセット、ストレージ、画像制限をホストアプリケーションに合わせて設定する方法を説明します。
 

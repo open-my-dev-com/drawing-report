@@ -1,6 +1,6 @@
 # SlipKit
 
-[한국어](README.md) · [English](README.en.md)
+[한국어](README.ko.md) · [English](README.md)
 
 SlipKit は、Web アプリケーションに文書テンプレートの設計、データ入力、閲覧、PDF 出力機能を追加するライブラリです。
 
@@ -119,7 +119,7 @@ pnpm demo:mcp
 | [数式関数リファレンス](docs/guide/formula.ja.md) | 数式の記述ルール、対応する関数と使用例 |
 | [API リファレンス](docs/guide/api-reference.ja.md) | 関数・型・コンポーネント・イベント・エラーの全体リファレンス |
 
-## 技術ドキュメント
+## 技術ドキュメント (Korean)
 
 | ドキュメント | 内容 |
 |---|---|

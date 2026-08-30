@@ -1,6 +1,6 @@
 # サーバー統合ガイド
 
-[한국어](server-integration.md) · [English](server-integration.en.md)
+[한국어](server-integration.ko.md) · [English](server-integration.md)
 
 SlipKit Core を Node.js サーバーで使い、`.slip` ファイルの検証、伝票の発行、PDF の生成と保管を行う方法を説明します。
 

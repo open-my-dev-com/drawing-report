@@ -1,6 +1,6 @@
 # 数式の記述と関数リファレンス
 
-[한국어](formula.md) · [English](formula.en.md)
+[한국어](formula.ko.md) · [English](formula.md)
 
 SlipKit の数式は、テンプレートに入力された値の計算、表示形式への変換、条件付き書式を適用するかどうかの判定に使います。
 

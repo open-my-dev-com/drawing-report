@@ -1,6 +1,6 @@
 # スタートガイド
 
-[한국어](getting-started.md) · [English](getting-started.en.md)
+[한국어](getting-started.ko.md) · [English](getting-started.md)
 
 このドキュメントは、SlipKit を初めて使う開発者がテンプレートデザイナーを実行し、ユーザーが編集したテンプレートデータをアプリケーションで受け取るまでの流れを説明します。
 

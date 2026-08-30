@@ -1,21 +1,21 @@
-# SlipKit MCP 사용 가이드
+# SlipKit MCP Guide
 
-[English](mcp.en.md) · [日本語](mcp.ja.md)
+[한국어](mcp.ko.md) · [日本語](mcp.ja.md)
 
-`@omdc-slipkit/mcp`는 AI가 로컬 디렉터리의 `.slip` 양식과 전표를 읽고 만들고 고칠 수 있게 하는 stdio MCP 서버입니다. 양식에 값을 넣은 미발행 전표를 만들거나 PDF로 렌더링하는 작업도 지원합니다.
+`@omdc-slipkit/mcp` is a local stdio MCP server that lets an AI read, create, and edit `.slip` templates and vouchers in a designated directory. It can also build unissued vouchers from templates and render templates or vouchers to PDF.
 
-별도 터미널에서 서버를 계속 실행할 필요는 없습니다. stdio 방식에서는 MCP 클라이언트가 서버를 로컬 하위 프로세스로 시작하고 연결을 종료할 때 함께 종료합니다. 저장소 경로, 로케일, 폰트와 암호화 환경변수 이름은 서버 설정 파일인 `slipkit-mcp.json`에서 관리합니다.
+You do not need to keep the server running in a separate terminal. With stdio, the MCP client starts the server as a local child process and stops it when the connection closes. The server reads its storage path, locale, fonts, and encryption environment-variable names from `slipkit-mcp.json`.
 
 > [!IMPORTANT]
-> SlipKit 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 현재는 저장소에서 패키지를 빌드한 뒤 MCP 클라이언트에 연결해야 합니다.
+> SlipKit packages are not yet published to the npm registry. For now, build the package from this repository and connect the generated CLI to your MCP client.
 
-## 준비
+## Prerequisites
 
-- Node.js 22.13 이상
+- Node.js 22.13 or later
 - pnpm 10.33.0
-- 로컬 stdio MCP 서버를 연결할 수 있는 MCP 클라이언트
+- An MCP client that can connect to a local stdio server
 
-저장소 루트에서 의존성을 설치하고 MCP 패키지를 빌드합니다.
+Install dependencies and build the MCP package from the repository root.
 
 ```bash
 pnpm install
@@ -23,52 +23,52 @@ pnpm --filter @omdc-slipkit/mcp build
 mkdir slip-workspace
 ```
 
-`slip-workspace`는 AI가 접근할 `.slip` 파일과 이미지를 두는 작업 디렉터리의 예시입니다. 다른 디렉터리를 사용해도 됩니다.
+`slip-workspace` is an example working directory for the `.slip` files and images that the AI may access. You may use any other directory.
 
-## MCP Inspector에서 시험하기
+## Try it with MCP Inspector
 
-저장소에는 MCP 클라이언트를 따로 설정하기 전에 도구를 직접 호출해 볼 수 있는 Inspector 데모가 있습니다. MCP Inspector의 요구사항에 따라 이 데모는 Node.js 22.19 이상에서 실행해야 합니다.
+The repository includes an Inspector demo for calling the tools before configuring a separate MCP client. MCP Inspector requires Node.js 22.19 or later.
 
 ```bash
 pnpm demo:mcp
 ```
 
-이 명령은 MCP 패키지를 빌드하고 `examples/mcp-demo/workspace`에 샘플 양식을 준비한 뒤 `http://localhost:6274`에서 Inspector를 엽니다. 연결 화면에서 **Connect**를 누르고 **Tools** 탭으로 이동하면 `slip_list`, `slip_read`, `slip_edit`, `slip_render_pdf` 등을 호출할 수 있습니다.
+The command builds the MCP package, prepares a sample template in `examples/mcp-demo/workspace`, and opens Inspector at `http://localhost:6274`. Select **Connect**, open **Tools**, and call tools such as `slip_list`, `slip_read`, `slip_edit`, and `slip_render_pdf`.
 
-Inspector에서 수정하거나 생성한 파일은 데모 작업 디렉터리에만 저장되며 Git에서 제외됩니다. 샘플을 초기화하려면 Inspector를 종료한 뒤 다음 명령을 실행합니다.
+Files edited or generated through Inspector stay in the demo workspace and are excluded from Git. To restore the initial sample, close Inspector and run:
 
 ```bash
 pnpm demo:mcp:reset
 ```
 
-구체적인 입력 예시는 [`examples/mcp-demo`](../../examples/mcp-demo)에서 확인할 수 있습니다.
+See [`examples/mcp-demo`](../../examples/mcp-demo) for ready-to-use inputs.
 
-## 서버 설정 파일 만들기
+## Create the server configuration
 
-`slipkit-mcp.json`은 MCP 서버가 읽는 설정 파일입니다. 다음 예시는 설정 파일의 상위 디렉터리에 있는 `slip-workspace`를 작업 디렉터리로 사용합니다.
+`slipkit-mcp.json` is the configuration file read by the MCP server. This example uses a `slip-workspace` directory next to the directory containing the configuration file.
 
 ```json
 {
   "rootDir": "../slip-workspace",
-  "locale": "ko"
+  "locale": "en"
 }
 ```
 
-설정 파일은 원하는 위치에 둘 수 있습니다. `rootDir`과 폰트 파일 경로는 설정 파일이 있는 디렉터리를 기준으로 해석합니다. `~`는 홈 디렉터리로 확장되지 않으므로 절대 경로나 올바른 상대 경로를 사용하세요.
+The configuration file may be stored anywhere. Relative `rootDir` and font paths are resolved from the directory containing the configuration file. `~` is not expanded to the home directory, so use an absolute path or a valid relative path.
 
-| 필드 | 설명 | 생략했을 때 |
+| Field | Description | Default |
 |---|---|---|
-| `rootDir` | `.slip`, 이미지와 PDF를 읽고 쓸 작업 디렉터리 | 서버 프로세스의 현재 작업 디렉터리 |
-| `locale` | 오류 메시지와 동봉 기본 폰트에 적용할 로케일 | 영어 |
-| `fonts` | PDF 렌더링에 사용할 TTF·OTF 파일 목록 | 로케일에 맞는 동봉 폰트 |
-| `encryption.keyEnv` | 현재 암호화 키를 읽을 환경변수 이름 | `SLIPKIT_MCP_KEY` |
-| `encryption.previousKeysEnv` | 이전 키 목록을 읽을 환경변수 이름 | `SLIPKIT_MCP_PREVIOUS_KEYS` |
+| `rootDir` | Working directory for `.slip` files, images, and PDFs | Server process working directory |
+| `locale` | Locale for errors and the bundled default fonts | English |
+| `fonts` | TTF or OTF files used for PDF rendering | Bundled fonts selected by locale |
+| `encryption.keyEnv` | Environment-variable name containing the current encryption key | `SLIPKIT_MCP_KEY` |
+| `encryption.previousKeysEnv` | Environment-variable name containing previous keys | `SLIPKIT_MCP_PREVIOUS_KEYS` |
 
-설정 파일에 정의되지 않은 필드를 넣으면 오류로 처리합니다. JSON 문법이 잘못됐거나 작업 디렉터리·폰트 파일을 찾을 수 없으면 서버가 시작되지 않고 원인을 stderr에 표시합니다.
+Unknown fields are rejected. Invalid JSON, a missing working directory, or a missing font file prevents the server from starting and reports the cause to stderr.
 
-## MCP 클라이언트에 연결
+## Connect an MCP client
 
-클라이언트의 stdio MCP 서버 설정에는 실행 파일과 `slipkit-mcp.json` 경로를 등록합니다. 다음 JSON의 최상위 키와 저장 위치는 클라이언트마다 다를 수 있습니다.
+Register the executable and the path to `slipkit-mcp.json` in the client's stdio MCP server configuration. The top-level key and storage location vary by client.
 
 ```json
 {
@@ -85,26 +85,26 @@ pnpm demo:mcp:reset
 }
 ```
 
-경로는 실제 절대 경로로 바꿔야 합니다. 설정을 저장한 뒤 MCP 클라이언트를 다시 시작하거나 MCP 서버 목록을 새로 고칩니다. `slip_list`, `slip_read` 등의 도구 7개가 보이면 연결된 상태입니다.
+Replace the paths with real absolute paths. After saving the configuration, restart the MCP client or reload its MCP server list. The connection is ready when the seven tools, including `slip_list` and `slip_read`, appear.
 
-### 두 설정 파일의 역할
+### The two configuration files
 
-SlipKit 서버 설정과 MCP 클라이언트 설정은 역할이 다릅니다.
+The server configuration and the MCP client configuration have separate responsibilities.
 
-| 설정 | 저장하는 내용 |
+| Configuration | Contents |
 |---|---|
-| `slipkit-mcp.json` | 작업 디렉터리, 로케일, 커스텀 폰트, 암호화 키를 읽을 환경변수 이름 |
-| MCP 클라이언트 설정 | 서버 실행 명령, `slipkit-mcp.json` 경로, 필요한 암호화 환경변수 값 |
+| `slipkit-mcp.json` | Working directory, locale, custom fonts, and the names of encryption-key environment variables |
+| MCP client configuration | Server command, path to `slipkit-mcp.json`, and any encryption environment-variable values |
 
-MCP 클라이언트 설정의 위치는 다음과 같습니다.
+MCP clients store their launch configuration in the following locations.
 
-| 클라이언트 | 저장 위치와 등록 방법 |
+| Client | Storage and registration |
 |---|---|
-| Codex CLI | 사용자 설정 `~/.codex/config.toml`. `codex mcp add`로 등록하면 직접 TOML을 편집할 필요가 없습니다. |
-| Claude Code | `local`, `user`, `project` 범위를 선택할 수 있습니다. `project` 범위는 저장소의 `.mcp.json`을 사용하며, 현재처럼 절대 경로가 필요한 개발 단계에서는 기본값인 `local` 범위가 적합합니다. |
-| 그 밖의 클라이언트 | 해당 클라이언트가 지정한 사용자 또는 프로젝트 MCP 설정에 앞의 JSON과 같은 `command`, `args`, `env`를 등록합니다. |
+| Codex CLI | User configuration at `~/.codex/config.toml`. Use `codex mcp add` instead of editing TOML directly. |
+| Claude Code | Supports `local`, `user`, and `project` scopes. Project scope uses `.mcp.json` in the repository. Local scope is more suitable during development because the command currently contains machine-specific absolute paths. |
+| Other clients | Register the same `command`, `args`, and `env` in the user or project MCP configuration defined by that client. |
 
-현재 저장소에서 Codex CLI에 등록하는 예시는 다음과 같습니다.
+To register the current repository build with Codex CLI:
 
 ```bash
 codex mcp add slipkit -- \
@@ -112,7 +112,7 @@ codex mcp add slipkit -- \
   --config /absolute/path/to/slipkit-mcp.json
 ```
 
-Claude Code에서는 다음과 같이 등록할 수 있습니다. `local` 범위를 사용하면 기기별 절대 경로를 `.mcp.json`에 공유하지 않습니다.
+Claude Code can register it as follows. Local scope avoids sharing machine-specific paths in `.mcp.json`.
 
 ```bash
 claude mcp add --scope local slipkit -- \
@@ -120,57 +120,57 @@ claude mcp add --scope local slipkit -- \
   --config /absolute/path/to/slipkit-mcp.json
 ```
 
-패키지가 npm에 배포되면 저장소를 직접 빌드하지 않고 다음처럼 실행할 수 있습니다.
+After the package is published to npm, clients can launch it without building this repository:
 
 ```bash
 codex mcp add slipkit -- \
   npx -y @omdc-slipkit/mcp --config /absolute/path/to/slipkit-mcp.json
 ```
 
-이 경우에도 서버 설정 파일과 작업 디렉터리는 로컬에 유지됩니다.
+The server configuration and working directory remain local in this setup.
 
-## 설정 탐색과 우선순위
+## Configuration discovery and precedence
 
-서버는 다음 순서로 설정 파일을 찾습니다.
+The server looks for a configuration file in this order:
 
 1. `--config <path>`
-2. `SLIPKIT_MCP_CONFIG` 환경변수
-3. 첫 번째 위치 인자로 작업 디렉터리를 지정했다면 그 디렉터리의 `slipkit-mcp.json`
-4. 위치 인자가 없다면 서버 프로세스의 현재 작업 디렉터리에 있는 `slipkit-mcp.json`
+2. The `SLIPKIT_MCP_CONFIG` environment variable
+3. `slipkit-mcp.json` in the first positional working-directory argument
+4. `slipkit-mcp.json` in the server process working directory when no positional argument is given
 
-명시적으로 지정한 설정 파일을 읽을 수 없으면 서버가 시작되지 않습니다. 자동 탐색 위치에 파일이 없으면 기본값으로 실행합니다.
+An explicitly selected configuration file must exist and be readable. If no file exists at an automatic discovery location, the server starts with defaults.
 
-설정값의 우선순위는 다음과 같습니다.
+Configuration values use the following precedence.
 
-| 설정 | 우선순위 |
+| Setting | Precedence |
 |---|---|
-| 작업 디렉터리 | 첫 번째 위치 인자 → `rootDir` → 현재 디렉터리 |
-| 로케일 | `--locale` → `SLIPKIT_MCP_LOCALE` → `locale` → 영어 |
-| 폰트 | 설정 파일의 `fonts` → 로케일에 맞는 동봉 폰트 |
-| 암호화 키 | `encryption`에서 지정한 이름의 환경변수. 이름을 생략하면 기본 환경변수 이름 사용 |
+| Working directory | First positional argument → `rootDir` → current directory |
+| Locale | `--locale` → `SLIPKIT_MCP_LOCALE` → `locale` → English |
+| Fonts | Configuration `fonts` → bundled fonts selected by locale |
+| Encryption keys | Environment variables named by `encryption`, or the default names when omitted |
 
-기존의 위치 인자와 `--locale`은 설정 파일 값을 일시적으로 덮어쓸 때 계속 사용할 수 있습니다.
+The positional working-directory argument and `--locale` remain available as temporary overrides.
 
-### 실행 옵션과 환경변수
+### CLI options and environment variables
 
-| 항목 | 설명 |
+| Setting | Description |
 |---|---|
-| 첫 번째 위치 인자 | 작업 디렉터리. 생략하면 MCP 서버의 현재 작업 디렉터리를 사용합니다. |
-| `--config <path>` | 사용할 `slipkit-mcp.json` 경로입니다. 상대 경로는 서버 프로세스의 현재 디렉터리를 기준으로 합니다. |
-| `--locale <locale>` | 오류 메시지와 PDF 기본 폰트에 적용할 언어입니다. `ko`, `en`, `ja`를 사용할 수 있습니다. |
-| `SLIPKIT_MCP_CONFIG` | `--config`가 없을 때 사용할 설정 파일 경로입니다. |
-| `SLIPKIT_MCP_LOCALE` | `--locale`을 쓰지 않았을 때 적용할 언어입니다. |
-| `SLIPKIT_MCP_KEY` | `.slip` 파일을 암호화하고 복호화할 현재 키입니다. 명령 인자가 아닌 환경변수로만 받습니다. |
-| `SLIPKIT_MCP_PREVIOUS_KEYS` | 키 교체 전에 사용한 키를 쉼표로 구분해 지정합니다. 현재 키로 복호화하지 못하면 이전 키를 순서대로 시도합니다. |
+| First positional argument | Working directory. The server's current directory is used when omitted. |
+| `--config <path>` | Path to `slipkit-mcp.json`. A relative path is resolved from the server process current directory. |
+| `--locale <locale>` | Language for errors and the default PDF font. Supported values are `ko`, `en`, and `ja`. |
+| `SLIPKIT_MCP_CONFIG` | Configuration path used when `--config` is omitted. |
+| `SLIPKIT_MCP_LOCALE` | Locale used when `--locale` is omitted. |
+| `SLIPKIT_MCP_KEY` | Current key for encrypting and decrypting `.slip` files. Accepted only as an environment variable. |
+| `SLIPKIT_MCP_PREVIOUS_KEYS` | Comma-separated keys used before the current key. They are tried after the current key when decrypting. |
 
-### 암호화 설정
+### Encryption configuration
 
-암호화 키 자체는 `slipkit-mcp.json`에 저장하지 않습니다. 설정 파일에는 키를 읽을 환경변수 이름만 적습니다.
+Do not store encryption keys in `slipkit-mcp.json`. Store only the environment-variable names used to read them.
 
 ```json
 {
   "rootDir": "../slip-workspace",
-  "locale": "ko",
+  "locale": "en",
   "encryption": {
     "keyEnv": "MY_SLIP_KEY",
     "previousKeysEnv": "MY_SLIP_PREVIOUS_KEYS"
@@ -178,7 +178,7 @@ codex mcp add slipkit -- \
 }
 ```
 
-실제 키 값은 서버 프로세스를 시작하는 환경에서 전달합니다.
+Pass the actual values through the environment that starts the server process.
 
 ```json
 {
@@ -199,27 +199,27 @@ codex mcp add slipkit -- \
 }
 ```
 
-실제 키가 들어간 MCP 클라이언트 설정을 저장소에 커밋하지 마세요. 사용자·`local` 범위나 클라이언트가 제공하는 비밀 관리 기능을 사용하세요.
+Do not commit an MCP client configuration containing real keys. Use user or local scope, or the client's secret-management facility.
 
-현재 키 환경변수가 설정되면 새로 저장하는 파일은 암호화됩니다. 평문 `.slip` 파일은 그대로 읽을 수 있지만, 암호화된 파일은 일치하는 현재 키나 이전 키가 없으면 읽을 수 없습니다. `encryption.keyEnv`를 명시했는데 해당 환경변수가 없으면 서버는 시작되지 않습니다.
+When the current-key environment variable is set, newly saved files are encrypted. Plain `.slip` files remain readable, but encrypted files require a matching current or previous key. If `encryption.keyEnv` is explicitly configured but that variable is absent, the server does not start.
 
-### PDF 폰트
+### PDF fonts
 
-`fonts`를 생략하면 MCP 서버는 `@omdc-slipkit/elements`에 base64로 동봉된 폰트를 사용합니다. 폰트를 네트워크에서 내려받거나 운영체제 폰트를 자동으로 읽지 않습니다.
+When `fonts` is omitted, the MCP server uses fonts embedded as base64 in `@omdc-slipkit/elements`. It does not download fonts from the network or automatically load operating-system fonts.
 
-| 로케일 | 기본 폰트 |
+| Locale | Default fonts |
 |---|---|
-| `ja`로 시작하는 로케일 | Noto Sans JP Regular 일본어 서브셋 |
-| 그 밖의 로케일 | Pretendard Regular, Pretendard Bold |
+| Locale starting with `ja` | Noto Sans JP Regular Japanese subset |
+| All other locales | Pretendard Regular and Pretendard Bold |
 
-요소의 `fontName`을 생략하면 해당 로케일의 기본 폰트를 사용합니다. 직접 지정할 때는 현재 등록된 폰트 이름을 사용해야 합니다. 일본어 동봉 폰트에는 Bold가 없으므로 `bold: true`를 지정해도 별도 Bold 폰트가 적용되지 않습니다.
+Omit `fontName` to use the locale's fallback font. When specifying it, use a currently registered font name. The bundled Japanese font has no Bold variant, so `bold: true` does not select a separate Bold font.
 
-커스텀 폰트는 설정 파일에서 등록합니다.
+Register custom fonts in the server configuration.
 
 ```json
 {
   "rootDir": "../slip-workspace",
-  "locale": "ko",
+  "locale": "en",
   "fonts": [
     {
       "name": "AppFont",
@@ -234,55 +234,55 @@ codex mcp add slipkit -- \
 }
 ```
 
-폰트 경로는 설정 파일 위치를 기준으로 해석합니다. `fallback: true`는 하나의 폰트에만 지정할 수 있으며, 지정하지 않으면 목록의 첫 번째 폰트를 대체 폰트로 사용합니다. `fonts`를 설정하면 동봉 폰트 대신 해당 목록만 등록되므로 양식에서 참조하는 모든 폰트를 포함해야 합니다. 굵기와 기울임 변형의 이름은 `AppFont-Bold`, `AppFont-Italic`, `AppFont-BoldItalic` 형식을 사용합니다.
+Font paths are resolved from the configuration file directory. At most one font may set `fallback: true`; when none does, the first font is used as the fallback. Configuring `fonts` replaces the bundled font list, so include every font referenced by the templates. Use names such as `AppFont-Bold`, `AppFont-Italic`, and `AppFont-BoldItalic` for style variants.
 
-개발 저장소에서 실행할 때는 `packages/mcp/dist`만 복사하지 말고 pnpm으로 설치된 workspace 의존성을 유지해야 합니다. npm 배포 후에는 `elements` 의존성과 동봉 폰트가 MCP 패키지와 함께 설치됩니다.
+When running from this repository, keep the pnpm-installed workspace dependencies instead of copying only `packages/mcp/dist`. After npm publication, the `elements` dependency and its embedded fonts will be installed with the MCP package.
 
-## 제공 도구
+## Tools
 
-| 도구 | 용도 | 주요 입력 |
+| Tool | Purpose | Main inputs |
 |---|---|---|
-| `slip_list` | 작업 디렉터리의 `.slip` 파일을 최대 50개씩 조회합니다. | `kind`, `query`, `cursor` |
-| `slip_read` | 파일 요약, 특정 페이지, 특정 요소 또는 전체 내용을 읽습니다. | `path`, `part`, `elementId`, `pageIndex` |
-| `slip_save` | 완성된 JSON을 검증하고 새 `.slip` 파일로 저장합니다. | `path`, `file`, `overwrite` |
-| `slip_edit` | 기존 파일에 대상을 지정한 수정 연산을 원자적으로 적용합니다. | `path`, `ops` |
-| `slip_build_voucher` | 양식과 파라미터 값으로 미발행 전표를 만듭니다. | `templatePath`, `values`, `outPath`, `overwrite` |
-| `slip_render_pdf` | 양식이나 전표를 PDF 파일로 렌더링합니다. | `path`, `outPath` |
-| `slip_schema` | `.slip` 구조를 주제별로 안내합니다. | `topic` |
+| `slip_list` | List up to 50 `.slip` files per page in the working directory. | `kind`, `query`, `cursor` |
+| `slip_read` | Read a summary, one page, one element, or the full file. | `path`, `part`, `elementId`, `pageIndex` |
+| `slip_save` | Validate complete JSON and save it as a new `.slip` file. | `path`, `file`, `overwrite` |
+| `slip_edit` | Atomically apply targeted edit operations to an existing file. | `path`, `ops` |
+| `slip_build_voucher` | Build an unissued voucher from a template and parameter values. | `templatePath`, `values`, `outPath`, `overwrite` |
+| `slip_render_pdf` | Render a template or voucher to a PDF file. | `path`, `outPath` |
+| `slip_schema` | Explain the `.slip` structure by topic. | `topic` |
 
-`slip://schema` 리소스는 현재 `.slip` JSON Schema 전체를 제공합니다. `slip_schema`의 `topic`은 `overview`, `elements`, `grid`, `parameters`, `formula`, `voucher`, `json-schema`입니다.
+The `slip://schema` resource provides the full current `.slip` JSON Schema. Supported `slip_schema` topics are `overview`, `elements`, `grid`, `parameters`, `formula`, `voucher`, and `json-schema`.
 
-### `slip_read`의 읽기 범위
+### `slip_read` parts
 
-| `part` | 반환 내용 |
+| `part` | Returned content |
 |---|---|
-| `summary` | 페이지, 요소 id·종류·위치, 파라미터와 에셋 요약. 기본값입니다. |
-| `element` | `elementId`로 지정한 요소 하나의 전체 내용 |
-| `page` | `pageIndex`로 지정한 페이지 하나의 전체 내용 |
-| `full` | 파일 전체 내용 |
+| `summary` | Pages, element ids/types/positions, parameters, and asset summaries. This is the default. |
+| `element` | The complete element selected by `elementId` |
+| `page` | The complete page selected by `pageIndex` |
+| `full` | The complete file |
 
-읽기 응답의 base64 이미지 데이터는 크기 표시로 대체됩니다. `.slip` 파일의 이미지 형식은 base64 데이터 URL을 사용하며, MCP에서 이미지를 넣을 때는 `slip_edit`의 `set_image`에 작업 디렉터리 안의 파일 경로를 전달합니다. 서버가 파일을 읽어 base64 에셋으로 변환합니다.
+Base64 image data in read responses is replaced with a size marker. Images inside `.slip` files still use base64 data URLs. To add an image through MCP, pass a file path inside the working directory to the `set_image` operation. The server reads the file and creates the base64 asset.
 
-### `slip_edit` 연산
+### `slip_edit` operations
 
-| `action` | 수정 대상 |
+| `action` | Target |
 |---|---|
-| `set_meta` | 양식 메타데이터 |
-| `set_paper` | 용지 설정 |
-| `set_page`, `add_page`, `remove_page` | 페이지 |
-| `set_element`, `add_element`, `remove_element` | id로 지정한 요소 |
-| `add_parameter`, `set_parameter`, `remove_parameter` | key로 지정한 파라미터 |
-| `set_cell` | 그리드 id와 0부터 시작하는 행·열로 지정한 셀 |
-| `set_image` | id로 지정한 이미지 요소 |
-| `set_values` | 미발행 전표의 값 |
+| `set_meta` | Template metadata |
+| `set_paper` | Paper settings |
+| `set_page`, `add_page`, `remove_page` | Pages |
+| `set_element`, `add_element`, `remove_element` | Elements selected by id |
+| `add_parameter`, `set_parameter`, `remove_parameter` | Parameters selected by key |
+| `set_cell` | A grid cell selected by grid id and zero-based row and column |
+| `set_image` | An image element selected by id |
+| `set_values` | Values in an unissued voucher |
 
-연산은 입력 순서대로 사본에 적용한 뒤 파일 전체를 검증합니다. 연산 하나라도 실패하거나 최종 파일이 유효하지 않으면 아무것도 저장하지 않습니다.
+Operations are applied to a copy in the given order, followed by full-file validation. If any operation or validation fails, the server writes nothing.
 
-`set_element`와 같은 `fields` 기반 연산은 전달한 필드만 덮어씁니다. 바꾸지 않을 필드는 입력에서 생략하고, 삭제할 필드는 `null`로 지정하세요. 단, `set_values`의 `null`은 삭제 표시가 아니라 실제 전표 값으로 저장됩니다.
+Operations that accept `fields`, such as `set_element`, merge only the fields that you pass. Omit fields that must remain unchanged, and set a field to `null` to remove it. In contrast, `null` passed through `set_values` is stored as an actual voucher value.
 
-#### 조건부 서식 수정 예
+#### Conditional-format edit example
 
-다음 연산은 `total` 필드의 값이 음수일 때 글자를 빨간색 굵은 글씨로 표시합니다.
+The following operation renders the `total` field in bold red text when its value is negative.
 
 ```json
 {
@@ -305,55 +305,55 @@ codex mcp add slipkit -- \
 }
 ```
 
-그리드 셀은 `set_cell`을 사용합니다. `conditionalFormats`를 전달하면 기존 규칙 목록 전체를 교체하며, `null`로 지정하면 모든 규칙을 삭제합니다. 지원 필드와 조건식 문법은 각각 `slip_schema`의 `elements` 또는 `grid`, `formula` 주제에서 확인할 수 있습니다.
+Use `set_cell` for a grid cell. Passing `conditionalFormats` replaces the complete rule list; set it to `null` to remove all rules. Use the `elements` or `grid` and `formula` topics of `slip_schema` to check the supported fields and condition syntax.
 
-## 권장 작업 흐름
+## Recommended workflows
 
-### 새 양식 만들기
+### Create a template
 
-1. `slip_schema`의 `overview`를 읽습니다.
-2. 필요한 요소에 맞게 `elements`, `grid`, `parameters`, `formula` 주제를 추가로 읽습니다.
-3. 완성된 양식 JSON을 `slip_save`로 저장합니다.
-4. `slip_render_pdf`로 PDF를 만들어 배치와 스타일을 확인합니다.
+1. Read the `overview` topic with `slip_schema`.
+2. Read the relevant `elements`, `grid`, `parameters`, or `formula` topics.
+3. Save the complete template JSON with `slip_save`.
+4. Render it with `slip_render_pdf` and inspect its layout and styles.
 
-### 기존 양식 고치기
+### Edit an existing template
 
-1. `slip_read` 기본 요약으로 페이지와 요소 id를 확인합니다.
-2. 필요한 경우에만 `element`나 `page`를 읽습니다.
-3. `slip_edit`로 변경할 대상만 수정합니다.
-4. `slip_render_pdf`로 변경 결과를 확인합니다.
+1. Use the default `slip_read` summary to find pages and element ids.
+2. Read a full `element` or `page` only when needed.
+3. Change only the intended targets with `slip_edit`.
+4. Render the result with `slip_render_pdf`.
 
-기존 파일의 작은 변경에 `slip_save` 또는 `slip_read`의 `full`을 사용하지 마세요. 요약으로 대상을 찾고 `slip_edit`로 지목해 수정하면 관련 없는 요소가 빠지거나 바뀌는 실수를 줄일 수 있습니다.
+Do not use `slip_save` or a `full` read for a small change to an existing file. Summary-first, targeted editing reduces the risk of dropping or changing unrelated elements.
 
-### 전표와 PDF 만들기
+### Build a voucher and PDF
 
-1. `slip_build_voucher`에 양식 경로, 파라미터 값과 출력 경로를 전달합니다.
-2. 값을 고쳐야 하면 `slip_edit` 안의 `set_values`를 사용합니다.
-3. `slip_render_pdf`로 실제 값이 반영된 PDF를 만듭니다.
+1. Pass the template path, parameter values, and output path to `slip_build_voucher`.
+2. Adjust values with the `set_values` operation when needed.
+3. Use `slip_render_pdf` to render a PDF with the actual values.
 
-MCP 서버가 만드는 전표는 `issued: false`인 미발행 전표입니다. 전표 발행은 사용자 확인과 권한 검사를 할 수 있는 호스트 애플리케이션에서 처리해야 합니다. 발행된 전표는 MCP로 수정할 수 없습니다.
+Vouchers created by the MCP server are unissued (`issued: false`). Issuing must remain in the host application, where user confirmation and authorization can be enforced. Issued vouchers cannot be modified through this MCP server.
 
-## 파일 접근과 안전 범위
+## File access and safety boundaries
 
-- 모든 입력·출력 경로는 MCP 서버를 시작할 때 지정한 작업 디렉터리 안으로 제한됩니다.
-- 저장 경로에 `.slip` 확장자가 없으면 자동으로 붙습니다.
-- `slip_edit` 연산 묶음은 전체가 유효할 때만 저장됩니다.
-- `slip_save`와 `slip_build_voucher`는 기존 파일을 기본적으로 덮어쓰지 않습니다. 명시적으로 `overwrite: true`를 전달해도 발행된 전표는 교체할 수 없습니다.
-- PDF 출력 경로에는 `.slip` 확장자를 사용할 수 없습니다.
-- `set_image`는 PNG, JPEG, GIF, WebP 파일을 지원하며 파일당 최대 크기는 2MB입니다.
-- 서버는 임의 코드 실행, 네트워크 접속, 사용자 인증 또는 전표 발행 기능을 제공하지 않습니다.
+- Every input and output path is restricted to the working directory selected at startup.
+- The `.slip` extension is appended to storage paths when omitted.
+- A group of `slip_edit` operations is stored only when the complete result is valid.
+- `slip_save` and `slip_build_voucher` do not replace an existing file by default. Even with `overwrite: true`, they cannot replace an issued voucher.
+- A PDF output path cannot use the `.slip` extension.
+- `set_image` supports PNG, JPEG, GIF, and WebP files up to 2 MB each.
+- The server does not provide arbitrary code execution, network access, user authentication, or voucher issuing.
 
-`slip_edit`에는 요소·페이지·파라미터 삭제 연산이 있습니다. 사용자 확인 정책은 MCP 클라이언트의 도구 승인 설정에서 구성하세요.
+`slip_edit` includes operations that remove elements, pages, and parameters. Configure user confirmation for such tool calls in the MCP client's approval settings.
 
-## Node.js에서 저장소 재사용
+## Reuse the storage in Node.js
 
-`FileSystemStorage`는 MCP 서버와 같은 경로 제한과 암호화 규칙을 사용하는 `StorageAdapter` 구현입니다.
+`FileSystemStorage` is a `StorageAdapter` implementation with the same path restriction and encryption rules as the MCP server.
 
 ```ts
 import { FileSystemStorage } from '@omdc-slipkit/mcp';
 
 const key = process.env.SLIPKIT_MCP_KEY;
-if (!key) throw new Error('SLIPKIT_MCP_KEY가 필요합니다.');
+if (!key) throw new Error('SLIPKIT_MCP_KEY is required.');
 
 const previousKeys = process.env.SLIPKIT_MCP_PREVIOUS_KEYS
   ?.split(',')
@@ -362,7 +362,7 @@ const previousKeys = process.env.SLIPKIT_MCP_PREVIOUS_KEYS
 
 const storage = new FileSystemStorage({
   rootDir: '/absolute/path/to/slip-workspace',
-  locale: 'ko',
+  locale: 'en',
   encryption: {
     key,
     ...(previousKeys?.length ? { previousKeys } : {}),
@@ -373,22 +373,22 @@ const template = await storage.load('invoice');
 await storage.save('archive/invoice', template);
 ```
 
-서버를 직접 구성할 때는 `createSlipMcpServer(options)`를 사용할 수 있습니다. 이 함수는 연결되지 않은 `McpServer`와 `FileSystemStorage`를 반환하며, 전송 연결은 호출자가 담당합니다. CLI와 같은 설정 해석이 필요하면 `resolveServerOptions({ cwd, configPath, env })`로 `options`를 만든 뒤 전달합니다.
+Use `createSlipMcpServer(options)` when embedding the MCP server itself. It returns an unconnected `McpServer` and a `FileSystemStorage`; the caller is responsible for connecting a transport. To apply the same configuration rules as the CLI, create `options` with `resolveServerOptions({ cwd, configPath, env })` first.
 
-## 문제 해결
+## Troubleshooting
 
-| 현상 | 확인할 내용 |
+| Symptom | Check |
 |---|---|
-| MCP 도구가 보이지 않음 | MCP 패키지를 빌드했는지, `cli.js`와 `--config` 경로가 맞는지, 클라이언트를 재시작했는지 확인합니다. 서버 시작 오류는 클라이언트의 MCP 로그나 stderr에서 확인합니다. |
-| `Could not read the config file` | `--config` 또는 `SLIPKIT_MCP_CONFIG` 경로와 파일 읽기 권한을 확인합니다. |
-| `Working directory not found` | `rootDir` 경로와 디렉터리 존재 여부를 확인합니다. 상대 경로는 설정 파일 위치가 기준입니다. |
-| `Font file ... not found` | `fonts[].path`와 파일 읽기 권한을 확인합니다. 상대 경로는 설정 파일 위치가 기준입니다. |
-| 암호화 파일을 읽지 못함 | 설정의 `keyEnv`·`previousKeysEnv`가 가리키는 환경변수에 현재 파일을 복호화할 키가 있는지 확인합니다. |
-| 수정 후 파일이 바뀌지 않음 | 도구 응답의 검증 오류를 확인합니다. 검증에 실패하면 기존 파일은 변경되지 않습니다. |
-| PDF 출력 실패 | 출력 경로의 상위 디렉터리가 있는지와 쓰기 권한을 확인합니다. |
+| MCP tools do not appear | Confirm that the package was built, the `cli.js` and `--config` paths are valid, and the client was restarted. Read the client's MCP log or stderr for startup errors. |
+| `Could not read the config file` | Check the `--config` or `SLIPKIT_MCP_CONFIG` path and file permissions. |
+| `Working directory not found` | Check `rootDir` and confirm the directory exists. Relative paths start at the configuration file directory. |
+| `Font file ... not found` | Check `fonts[].path` and file permissions. Relative paths start at the configuration file directory. |
+| An encrypted file cannot be read | Check the environment variables named by `keyEnv` and `previousKeysEnv` for a matching key. |
+| A file did not change after an edit | Read the validation error in the tool response. Failed validation leaves the original unchanged. |
+| PDF output fails | Confirm that the output parent directory exists and is writable. |
 
-## 관련 문서
+## Related documents
 
-- [Core 사용 가이드](core.md)
-- [서버 통합 가이드](server-integration.md)
-- [API 참조](api-reference.md)
+- [Core Usage Guide](core.md)
+- [Server Integration Guide](server-integration.md)
+- [API Reference](api-reference.md)

@@ -1,6 +1,6 @@
 # Core 利用ガイド
 
-[한국어](core.md) · [English](core.en.md)
+[한국어](core.ko.md) · [English](core.md)
 
 `@omdc-slipkit/core` は、`.slip` ファイルの検証、伝票の組み立て、数式の評価、PDF 生成、ファイル暗号化を提供する TypeScript ライブラリです。
 

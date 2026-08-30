@@ -1,67 +1,67 @@
 # SlipKit
 
-[English](README.en.md) · [日本語](README.ja.md)
+[한국어](README.ko.md) · [日本語](README.ja.md)
 
-SlipKit은 웹 애플리케이션에 문서 양식 설계, 데이터 입력, 조회 및 PDF 출력 기능을 추가하는 라이브러리입니다.
+SlipKit is a library that adds document form design, data entry, viewing, and PDF output to web applications.
 
-일반 사용자는 시각적 디자이너로 거래명세서, 청구서, 견적서 등의 양식을 만들 수 있고, 개발자는 Web Component 또는 React·Vue 컴포넌트로 해당 기능을 기존 애플리케이션에 통합할 수 있습니다.
+End users can build forms such as transaction statements, invoices, and quotations with a visual designer, and developers can integrate those features into an existing application as Web Components or React/Vue components.
 
-SlipKit은 독립 실행형 서비스가 아닙니다. 사용자 인증, 권한 관리, 데이터 저장 및 서버 연계는 SlipKit을 사용하는 애플리케이션에서 담당합니다.
+SlipKit is not a standalone service. User authentication, permission management, data storage, and server integration are the responsibility of the application that uses SlipKit.
 
-![SlipKit 양식 디자이너](docs/guide/images/ko/overview.png)
+![SlipKit form designer](docs/guide/images/en/overview.png)
 
-## 주요 기능
+## Features
 
-- 드래그 앤 드롭 방식의 문서 양식 디자이너
-- 양식에 데이터를 입력하고 전표를 발행하는 작성 화면
-- 발행된 전표와 양식을 확인하는 읽기 전용 뷰어
-- 브라우저 및 Node.js에서 사용할 수 있는 PDF 생성 기능
-- JSON 기반 `.slip` 파일을 이용한 양식·전표 저장
-- 수식, 조건부 서식, 표, 이미지, 도형 및 바코드 지원
-- IndexedDB와 로컬 파일 기반 저장소 어댑터
-- 선택적 AES-256-GCM 파일 암호화
-- 한국어, 영어, 일본어 UI
-- Web Component와 React·Vue용 래퍼 제공
+- A drag-and-drop document form designer
+- An entry screen for filling a form with data and issuing a voucher
+- A read-only viewer for reviewing issued vouchers and templates
+- PDF generation usable in the browser and Node.js
+- Template and voucher storage via JSON-based `.slip` files
+- Formulas, conditional formats, tables, images, shapes, and barcodes
+- IndexedDB and local-file storage adapters
+- Optional AES-256-GCM file encryption
+- Korean, English, and Japanese UI
+- Web Components with React and Vue wrappers
 
-## 동작 방식
+## How it works
 
-SlipKit에서는 양식과 전표를 구분합니다.
+SlipKit distinguishes between templates and vouchers.
 
-| 단계 | 구성 요소 | 역할 |
+| Stage | Component | Role |
 |---|---|---|
-| 양식 설계 | `<slip-designer>` | 문서의 레이아웃, 파라미터, 수식 등을 편집합니다. |
-| 전표 작성 | `<slip-form>` | 양식에 실제 값을 입력하고 전표를 발행합니다. |
-| 전표 조회 | `<slip-viewer>` | 양식 또는 발행된 전표를 읽기 전용으로 표시합니다. |
+| Form design | `<slip-designer>` | Edit the document's layout, parameters, formulas, and more. |
+| Voucher entry | `<slip-form>` | Fill a template with actual values and issue a voucher. |
+| Voucher viewing | `<slip-viewer>` | Display a template or an issued voucher read-only. |
 
-양식과 전표는 모두 `.slip` 확장자를 사용하며, 파일 내부의 `kind` 값으로 구분됩니다. 발행된 전표에는 발행 당시의 양식이 함께 저장되므로 이후 원본 양식이 변경되어도 기존 전표의 구성이 유지됩니다.
+Both templates and vouchers use the `.slip` extension and are distinguished by the `kind` value inside the file. An issued voucher stores the template as it was at issue time, so the voucher keeps its composition even if the original template changes later.
 
-## 현재 상태
+## Current status
 
 > [!IMPORTANT]
-> SlipKit은 현재 공개 전 검토 단계입니다.
+> SlipKit is currently in a pre-release review stage.
 >
-> `@omdc-slipkit/*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 현재 버전은 저장소를 복제하여 데모와 소스 코드로 확인할 수 있습니다.
+> The `@omdc-slipkit/*` packages are not yet published to the npm registry. For now you can explore the current version by cloning the repository and reviewing the demos and source code.
 
-## 패키지 구성
+## Packages
 
-SlipKit은 pnpm 워크스페이스 기반 모노레포로 구성되어 있습니다.
+SlipKit is a pnpm workspace-based monorepo.
 
-| 패키지 | 역할 |
+| Package | Role |
 |---|---|
-| [`@omdc-slipkit/core`](packages/core) | `.slip` 파일 검증, 수식 평가, 전표 조립, PDF 생성 및 파일 암호화를 제공합니다. DOM에 의존하지 않아 브라우저와 Node.js에서 사용할 수 있습니다. |
-| [`@omdc-slipkit/elements`](packages/elements) | Lit으로 구현된 `<slip-designer>`, `<slip-form>`, `<slip-viewer>` Web Component를 제공합니다. |
-| [`@omdc-slipkit/react`](packages/react) | SlipKit Web Component를 React 컴포넌트로 사용할 수 있게 합니다. |
-| [`@omdc-slipkit/vue`](packages/vue) | SlipKit Web Component를 Vue 컴포넌트로 사용할 수 있게 합니다. |
-| [`@omdc-slipkit/mcp`](packages/mcp) | AI가 MCP 도구로 양식을 만들고 고칠 수 있게 하는 로컬 MCP 서버를 제공합니다. |
+| [`@omdc-slipkit/core`](packages/core) | Provides `.slip` file validation, formula evaluation, voucher assembly, PDF generation, and file encryption. It has no DOM dependency, so it runs in the browser and Node.js. |
+| [`@omdc-slipkit/elements`](packages/elements) | Provides the `<slip-designer>`, `<slip-form>`, and `<slip-viewer>` Web Components built with Lit. |
+| [`@omdc-slipkit/react`](packages/react) | Lets you use the SlipKit Web Components as React components. |
+| [`@omdc-slipkit/vue`](packages/vue) | Lets you use the SlipKit Web Components as Vue components. |
+| [`@omdc-slipkit/mcp`](packages/mcp) | Provides a local MCP server that lets AI create and edit templates through MCP tools. |
 
-## 로컬에서 실행하기
+## Running locally
 
-### 요구 환경
+### Requirements
 
-- Node.js 22.13 이상
+- Node.js 22.13 or later
 - pnpm 10.33.0
 
-### 저장소 준비
+### Set up the repository
 
 ```bash
 git clone https://github.com/open-my-dev-com/drawing-report.git
@@ -69,9 +69,9 @@ cd drawing-report
 pnpm install
 ```
 
-### 데모 실행
+### Run a demo
 
-사용하는 환경에 맞는 데모 하나를 실행합니다.
+Run the one demo that matches your environment.
 
 ```bash
 # Web Component
@@ -84,73 +84,73 @@ pnpm demo:react
 pnpm demo:vue
 ```
 
-| 데모 | 기본 주소 | 설명 |
+| Demo | Default address | Description |
 |---|---|---|
-| [`examples/demo`](examples/demo) | `http://localhost:5173` | Web Component를 직접 사용하는 예제 |
-| [`examples/react-demo`](examples/react-demo) | `http://localhost:5174` | React 래퍼를 사용하는 예제 |
-| [`examples/vue-demo`](examples/vue-demo) | `http://localhost:5175` | Vue 래퍼를 사용하는 예제 |
+| [`examples/demo`](examples/demo) | `http://localhost:5173` | An example that uses the Web Components directly |
+| [`examples/react-demo`](examples/react-demo) | `http://localhost:5174` | An example that uses the React wrappers |
+| [`examples/vue-demo`](examples/vue-demo) | `http://localhost:5175` | An example that uses the Vue wrappers |
 
-세 데모가 제공하는 기능은 같습니다. 양식 설계, 전표 작성, PDF 미리보기, `.slip` 파일 저장과 불러오기를 확인할 수 있습니다.
+The three demos provide the same features. You can try form design, voucher entry, PDF preview, and saving and loading `.slip` files.
 
-데모의 자동 저장과 파일 처리처럼 프레임워크에 의존하지 않는 로직은 [`examples/shared`](examples/shared)에 공통으로 구현되어 있습니다.
+Framework-independent logic such as the demos' auto-save and file handling is implemented once in [`examples/shared`](examples/shared).
 
-MCP 도구는 [MCP Inspector 데모](examples/mcp-demo)에서 직접 호출할 수 있습니다. 이 데모는 Node.js 22.19 이상이 필요합니다.
+You can call the MCP tools directly in the [MCP Inspector demo](examples/mcp-demo). This demo requires Node.js 22.19 or later.
 
 ```bash
 pnpm demo:mcp
 ```
 
-명령을 실행하면 샘플 작업공간과 MCP 패키지를 준비한 뒤 `http://localhost:6274`에서 Inspector를 엽니다.
+The command prepares a sample workspace, builds the MCP package, and opens Inspector at `http://localhost:6274`.
 
-## 사용 가이드
+## Guides
 
-처음 사용한다면 [시작하기](docs/guide/getting-started.md)에서 저장소의 데모를 실행하고 디자이너를 연결해 보세요. 저장·복원과 세 컴포넌트의 연결 방법은 [애플리케이션 통합 가이드](docs/guide/integration.md)에서 이어서 설명합니다.
+If you are new, start by running a repository demo and connecting the designer in [Getting started](docs/guide/getting-started.md). Saving and restoring, and how to connect the three components, continue in the [Application Integration Guide](docs/guide/integration.md).
 
-전체 문서는 [SlipKit 가이드](docs/guide/README.md)에서 목적별로 확인할 수 있습니다.
+The full documentation is organized by goal in the [SlipKit Guide](docs/guide/README.md).
 
-| 문서 | 내용 |
+| Document | Contents |
 |---|---|
-| [시작하기](docs/guide/getting-started.md) | 데모 실행과 양식 디자이너의 최소 연결 |
-| [애플리케이션 통합 가이드](docs/guide/integration.md) | 디자이너·작성폼·뷰어 연결, 저장·복원 및 서버 연계 |
-| [양식 디자이너 사용 가이드](docs/guide/designer.md) | 디자이너 화면에서 양식을 제작하는 방법 |
-| [Core 사용 가이드](docs/guide/core.md) | `.slip` 파일 처리, 전표 조립, 수식 평가, PDF 생성과 암호화 |
-| [MCP 사용 가이드](docs/guide/mcp.md) | AI를 통한 `.slip` 양식 생성·수정, 전표 조립과 PDF 확인 |
-| [환경 설정 가이드](docs/guide/configuration.md) | 언어·폰트·용지·바코드·프리셋·저장소 설정 |
-| [수식 함수 참조](docs/guide/formula.md) | 수식 작성 규칙, 지원 함수와 사용 예제 |
-| [API 참조](docs/guide/api-reference.md) | 함수·타입·컴포넌트·이벤트·오류의 전체 참조 |
+| [Getting started](docs/guide/getting-started.md) | Running the demos and the minimal connection of the form designer |
+| [Application Integration Guide](docs/guide/integration.md) | Connecting the designer, entry form, and viewer; saving, restoring, and server integration |
+| [Form Designer Guide](docs/guide/designer.md) | How to build a form on the designer screen |
+| [Core Usage Guide](docs/guide/core.md) | `.slip` file handling, voucher assembly, formula evaluation, PDF generation, and encryption |
+| [MCP Guide](docs/guide/mcp.md) | AI-assisted `.slip` creation and editing, voucher assembly, and PDF review |
+| [Configuration Guide](docs/guide/configuration.md) | Language, fonts, paper, barcodes, presets, and storage settings |
+| [Formula Function Reference](docs/guide/formula.md) | Formula-writing rules, supported functions, and usage examples |
+| [API Reference](docs/guide/api-reference.md) | The full reference of functions, types, components, events, and errors |
 
-## 기술 문서
+## Technical documents (Korean)
 
-| 문서 | 내용 |
+| Document | Contents |
 |---|---|
-| [`.slip` 파일 형식 명세](docs/SPEC.md) | `.slip` 파일의 구조와 검증 규칙 |
-| [아키텍처](docs/ARCHITECTURE.md) | 패키지 구조와 외부 시스템 연계 방식 |
-| [요구사항](docs/REQUIREMENTS.md) | 확정된 제품 요구사항 |
-| [설계 결정 기록](docs/DECISIONS.md) | 주요 설계 결정과 그 근거 |
-| [로드맵](docs/ROADMAP.md) | 개발 현황과 예정 작업 |
+| [`.slip` file format specification](docs/SPEC.md) | The structure and validation rules of `.slip` files |
+| [Architecture](docs/ARCHITECTURE.md) | Package structure and external-system integration |
+| [Requirements](docs/REQUIREMENTS.md) | Confirmed product requirements |
+| [Design decision log](docs/DECISIONS.md) | Key design decisions and their rationale |
+| [Roadmap](docs/ROADMAP.md) | Development status and planned work |
 
-## 개발 명령어
+## Development commands
 
 ```bash
-# 코드 스타일 검사
+# Code-style check
 pnpm lint
 
-# 타입 검사
+# Type check
 pnpm typecheck
 
-# 패키지 빌드
+# Build packages
 pnpm build
 
-# 테스트 실행
+# Run tests
 pnpm test
 ```
 
-## 라이선스
+## License
 
-SlipKit은 [Business Source License 1.1](LICENSE)에 따라 제공됩니다. 소스 코드는 공개되어 있지만 현재 OSI 승인 오픈소스 라이선스는 아닙니다.
+SlipKit is provided under the [Business Source License 1.1](LICENSE). The source is publicly available but is not currently an OSI-approved open-source license.
 
-자체 애플리케이션에 SlipKit을 포함하는 프로덕션 사용은 허용됩니다. 다만 SlipKit과 경쟁하는 호스팅 또는 임베드형 상용 제품·서비스로 제3자에게 제공하는 경우에는 별도의 상용 라이선스가 필요합니다.
+Production use that embeds SlipKit in your own application is permitted. However, providing it to third parties as a hosted or embeddable commercial product or service that competes with SlipKit requires a separate commercial license.
 
-라이선스에 정해진 전환 시점이 되면 Apache License 2.0으로 전환됩니다. 정확한 사용 조건과 전환 시점은 [LICENSE](LICENSE)를 확인해 주세요.
+At the change date defined in the license, it converts to the Apache License 2.0. Please see [LICENSE](LICENSE) for the exact terms and change date.
 
-동봉된 Pretendard와 Noto Sans JP 폰트에는 각각 SIL Open Font License 1.1이 적용됩니다.
+The bundled Pretendard and Noto Sans JP fonts are each licensed under the SIL Open Font License 1.1.

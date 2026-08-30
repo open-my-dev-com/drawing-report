@@ -1,77 +1,77 @@
-# Core 사용 가이드
+# Core Usage Guide
 
-[English](core.en.md) · [日本語](core.ja.md)
+[한국어](core.ko.md) · [日本語](core.ja.md)
 
-`@omdc-slipkit/core`는 `.slip` 파일 검증, 전표 조립, 수식 평가, PDF 생성 및 파일 암호화를 제공하는 TypeScript 라이브러리입니다.
+`@omdc-slipkit/core` is a TypeScript library that provides `.slip` file validation, voucher assembly, formula evaluation, PDF generation, and file encryption.
 
-DOM에 의존하지 않으므로 Node.js 서버와 브라우저 애플리케이션에서 모두 사용할 수 있습니다. 양식 디자이너나 전표 작성 화면 같은 UI는 제공하지 않습니다.
+It does not depend on the DOM, so it can be used in both Node.js servers and browser applications. It does not provide any UI such as a form designer or voucher entry screen.
 
-이 문서에서는 Core를 사용하여 다음 작업을 수행하는 방법을 설명합니다.
+This document explains how to use Core to do the following.
 
-- 외부에서 받은 `.slip` 파일 파싱 및 검증
-- 양식과 입력값으로 전표 만들기
-- 양식 또는 전표를 PDF로 변환
-- 수식을 애플리케이션에서 직접 평가
-- `.slip` 파일 암호화 및 복호화
+- Parse and validate `.slip` files received from external sources
+- Build a voucher from a template and input values
+- Convert a template or voucher into a PDF
+- Evaluate formulas directly in your application
+- Encrypt and decrypt `.slip` files
 
 > [!NOTE]
-> UI 컴포넌트를 애플리케이션에 연결하려면 [시작하기](getting-started.md)를, 디자이너·작성폼·뷰어의 상태와 저장 흐름을 연결하려면 [애플리케이션 통합 가이드](integration.md)를 참고하세요.
+> To connect UI components to your application, see [Getting Started](getting-started.md). To wire up the state and saving flow of the designer, form, and viewer, see the [Application Integration Guide](integration.md).
 
-## Core 사용 흐름
+## Core usage flow
 
-서버에서 양식을 읽어 전표와 PDF를 만드는 일반적인 흐름은 다음과 같습니다.
+The typical flow of reading a template on the server and producing a voucher and PDF is as follows.
 
 ```mermaid
 flowchart LR
     A[".slip JSON"] --> B["parseSlipFile"]
-    B --> C["양식"]
+    B --> C["Template"]
     C --> D["buildVoucher"]
-    E["입력값"] --> D
-    D --> F["작성 중 전표"]
-    F --> G["발행 및 검증"]
-    G --> H["발행 전표"]
+    E["Input values"] --> D
+    D --> F["Draft voucher"]
+    F --> G["Issue & validate"]
+    G --> H["Issued voucher"]
     H --> I["render"]
-    I --> J["PDF 바이트"]
+    I --> J["PDF bytes"]
 ```
 
-파일을 읽고 검증하는 작업에는 독립 함수를 사용하고, 폰트·로케일·암호화 키처럼 여러 작업에서 공유하는 설정은 `createSlipKit`에 한 번 전달하는 방식을 권장합니다.
+For reading and validating files, use the standalone functions; for settings shared across multiple operations such as fonts, locale, and the encryption key, we recommend passing them once to `createSlipKit`.
 
-| 작업 | 권장 API |
+| Task | Recommended API |
 |---|---|
-| JSON 문자열 파싱 및 검증 | `parseSlipFile` |
-| 이미 파싱된 값 검증 | `validateSlipFile` |
-| 저장할 JSON 문자열 생성 | `serializeSlipFile` |
-| 양식과 값으로 전표 조립 | `buildVoucher` 또는 `slip.buildVoucher` |
-| PDF 생성 | `slip.render` |
-| 수식 평가 | `slip.evaluate` |
-| 파일 암호화·복호화 | `slip.encrypt`, `slip.decrypt` |
+| Parse and validate a JSON string | `parseSlipFile` |
+| Validate an already-parsed value | `validateSlipFile` |
+| Produce a JSON string for storage | `serializeSlipFile` |
+| Assemble a voucher from a template and values | `buildVoucher` or `slip.buildVoucher` |
+| Generate a PDF | `slip.render` |
+| Evaluate a formula | `slip.evaluate` |
+| Encrypt and decrypt a file | `slip.encrypt`, `slip.decrypt` |
 
-## 설치와 실행 환경
+## Installation and runtime environment
 
 > [!IMPORTANT]
-> SlipKit은 현재 공개 전 검토 단계이며 `@omdc-slipkit/*` 패키지는 npm 레지스트리에 아직 배포되지 않았습니다.
-> 현재는 저장소를 복제하여 동봉된 소스와 데모에서 확인할 수 있습니다.
+> SlipKit is currently in a pre-release review stage, and the `@omdc-slipkit/*` packages are not yet published to the npm registry.
+> For now, you can clone the repository and try them out with the bundled source and demos.
 
-패키지가 공개된 이후에는 다음과 같이 설치합니다.
+After the packages are published, install them as follows.
 
 ```bash
 npm install @omdc-slipkit/core
 ```
 
-지원하는 주요 실행 환경은 다음과 같습니다.
+The main supported runtime environments are as follows.
 
-- Node.js 22.13 이상
-- ESM과 TypeScript를 지원하는 브라우저 빌드 환경
-- 암호화 기능을 사용할 경우 Web Crypto API를 지원하는 환경
+- Node.js 22.13 or later
+- A browser build environment that supports ESM and TypeScript
+- An environment that supports the Web Crypto API, if you use encryption
 
 > [!TIP]
-> `@omdc-slipkit/elements`, `@omdc-slipkit/react`, `@omdc-slipkit/vue`를 사용하더라도 애플리케이션 코드에서 Core를 직접 import한다면 `@omdc-slipkit/core`를 직접 의존성으로 설치하세요.
+> Even when using `@omdc-slipkit/elements`, `@omdc-slipkit/react`, or `@omdc-slipkit/vue`, if your application code imports Core directly, install `@omdc-slipkit/core` as a direct dependency.
 
-## 빠른 예제: 양식에서 PDF 만들기
+## Quick example: creating a PDF from a template
 
-다음 예제는 Node.js에서 양식 파일을 읽고, 값을 채운 전표를 발행한 뒤 PDF 파일로 저장합니다.
+The following example reads a template file in Node.js, issues a voucher with values filled in, and saves it as a PDF file.
 
-프로젝트에 다음 파일이 있다고 가정합니다.
+Assume the project has the following files.
 
 ```text
 templates/
@@ -137,21 +137,21 @@ const templateJson = await readFile(
 const file = parseSlipFile(templateJson);
 
 if (file.kind !== 'template') {
-  throw new Error('양식 파일이 아닙니다.');
+  throw new Error('This is not a template file.');
 }
 
 const draftVoucher = slip.buildVoucher(file, {
   tradeDate: '2026-08-25',
-  customerName: '주식회사 예시',
+  customerName: 'Example Co., Ltd.',
   items: [
     {
-      itemName: '연필',
+      itemName: 'Pencil',
       quantity: 12,
       unitPrice: 300,
       amount: 3600,
     },
     {
-      itemName: '공책',
+      itemName: 'Notebook',
       quantity: 5,
       unitPrice: 1200,
       amount: 6000,
@@ -169,24 +169,24 @@ const pdfBytes = await slip.render(issuedVoucher);
 await writeFile('trade-statement.pdf', pdfBytes);
 ```
 
-이 예제에서는 다음 순서로 처리합니다.
+This example proceeds in the following order.
 
-1. PDF에 사용할 폰트를 준비합니다.
-2. `parseSlipFile`로 양식 파일을 검증합니다.
-3. `buildVoucher`로 입력값을 채운 전표를 만듭니다.
-4. 전표를 발행 상태로 변경한 뒤 다시 검증합니다.
-5. `render`로 PDF 바이트를 생성합니다.
-6. 생성된 바이트를 PDF 파일로 저장합니다.
+1. Prepare the fonts to use in the PDF.
+2. Validate the template file with `parseSlipFile`.
+3. Build a voucher filled with input values using `buildVoucher`.
+4. Change the voucher to the issued state and validate it again.
+5. Generate the PDF bytes with `render`.
+6. Save the generated bytes as a PDF file.
 
 > [!IMPORTANT]
-> 한글·일본어처럼 기본 PDF 폰트에 없는 문자를 출력하려면 해당 문자를 포함하는 폰트를 반드시 공급해야 합니다.
-> Core에는 UI 패키지의 동봉 폰트가 자동으로 적용되지 않습니다.
+> To render characters that are not in the default PDF font, such as Korean or Japanese, you must supply a font that contains those characters.
+> The bundled fonts of the UI packages are not automatically applied to Core.
 
-## `.slip` 파일 파싱과 검증
+## Parsing and validating `.slip` files
 
-### JSON 문자열 파싱
+### Parsing a JSON string
 
-파일, 데이터베이스 또는 HTTP 응답에서 받은 JSON 문자열은 `parseSlipFile`로 읽습니다.
+For a JSON string received from a file, database, or HTTP response, read it with `parseSlipFile`.
 
 ```ts
 import {
@@ -199,18 +199,18 @@ function readSlip(json: string): SlipFile {
 }
 ```
 
-`parseSlipFile`은 다음 작업을 함께 수행합니다.
+`parseSlipFile` performs the following together.
 
-1. JSON 문자열 파싱
-2. `schemaVersion`과 `kind` 확인
-3. 양식 또는 전표 본문 검증
-4. 지원되는 마이그레이션 경로가 있다면 현재 형식으로 변환
+1. Parses the JSON string
+2. Checks `schemaVersion` and `kind`
+3. Validates the template or voucher body
+4. Converts to the current format if a supported migration path exists
 
-잘못된 JSON이거나 `.slip` 규칙에 맞지 않으면 `SlipParseError`가 발생합니다.
+If the JSON is invalid or does not match the `.slip` rules, a `SlipParseError` is thrown.
 
-### 이미 파싱된 값 검증
+### Validating an already-parsed value
 
-HTTP 프레임워크가 요청 본문을 이미 객체로 변환했거나 `JSON.parse`를 직접 사용했다면 `validateSlipFile`을 사용합니다.
+If your HTTP framework has already converted the request body into an object, or you used `JSON.parse` directly, use `validateSlipFile`.
 
 ```ts
 import {
@@ -224,12 +224,12 @@ function validateRequestBody(body: unknown): SlipFile {
 ```
 
 > [!IMPORTANT]
-> TypeScript 타입 선언은 실행 중에 들어오는 값을 검증하지 않습니다.
-> 파일 업로드, HTTP 요청, 데이터베이스와 같은 외부 경계에서 받은 값은 반드시 `parseSlipFile` 또는 `validateSlipFile`로 검증하세요.
+> TypeScript type declarations do not validate values coming in at runtime.
+> Always validate values received at external boundaries such as file uploads, HTTP requests, and databases with `parseSlipFile` or `validateSlipFile`.
 
-### 양식과 전표 구분
+### Distinguishing template from voucher
 
-검증된 파일은 `kind`로 구분합니다.
+A validated file is distinguished by `kind`.
 
 ```ts
 const file = parseSlipFile(json);
@@ -243,16 +243,16 @@ if (file.kind === 'template') {
 }
 ```
 
-| `kind` | 의미 | 주요 본문 |
+| `kind` | Meaning | Main body |
 |---|---|---|
-| `'template'` | 전표의 구조와 표시 방식을 정의하는 양식 | `template` |
-| `'voucher'` | 양식에 실제 값을 채운 전표 | `templateSnapshot`, `values`, `issued` |
+| `'template'` | A template that defines the structure and appearance of a voucher | `template` |
+| `'voucher'` | A voucher with actual values filled into a template | `templateSnapshot`, `values`, `issued` |
 
-전표에는 생성 당시의 양식 전체가 `templateSnapshot`으로 들어 있습니다. 원본 양식이 나중에 변경되어도 기존 전표는 자신의 스냅샷을 사용합니다.
+A voucher contains the entire template as it was at creation time in `templateSnapshot`. Even if the original template is later changed, an existing voucher uses its own snapshot.
 
-### JSON 문자열로 저장
+### Saving as a JSON string
 
-검증된 파일 객체를 저장하거나 전송할 때는 `serializeSlipFile`을 사용합니다.
+To store or transmit a validated file object, use `serializeSlipFile`.
 
 ```ts
 import {
@@ -266,12 +266,12 @@ function toJson(file: SlipFile): string {
 ```
 
 > [!CAUTION]
-> `serializeSlipFile`은 객체를 JSON 문자열로 변환하지만, 객체 자체를 다시 검증하지는 않습니다.
-> 애플리케이션에서 직접 조립하거나 수정한 객체라면 저장 전에 `validateSlipFile`로 검증하세요.
+> `serializeSlipFile` converts an object into a JSON string, but it does not re-validate the object itself.
+> If the object was assembled or modified directly in your application, validate it with `validateSlipFile` before saving.
 
-## 양식과 값으로 전표 만들기
+## Building a voucher from a template and values
 
-`buildVoucher`는 양식과 입력값을 결합하여 작성 중 전표를 만듭니다.
+`buildVoucher` combines a template and input values to create a draft voucher.
 
 ```ts
 import {
@@ -289,51 +289,51 @@ function createVoucher(
 }
 ```
 
-`createSlipKit`을 사용하고 있다면 동일한 기능을 인스턴스에서 호출할 수 있습니다.
+If you are using `createSlipKit`, you can call the same feature on the instance.
 
 ```ts
 const voucher = slip.buildVoucher(template, values);
 ```
 
-`buildVoucher`가 반환하는 전표는 다음 상태입니다.
+The voucher returned by `buildVoucher` is in the following state.
 
 ```ts
 {
   kind: 'voucher',
   issued: false,
-  templateSnapshot: /* 생성 당시 양식 */,
-  values: /* 전달한 입력값 */,
+  templateSnapshot: /* the template at creation time */,
+  values: /* the input values you passed */,
 }
 ```
 
-입력한 양식과 값은 깊은 복사되므로 반환된 전표와 원본 객체가 참조를 공유하지 않습니다.
+The template and values you pass in are deep-copied, so the returned voucher does not share references with the original objects.
 
-### 파라미터별 값 형태
+### Value shape by parameter
 
-`values`의 키는 양식에 정의한 파라미터의 물리명입니다.
+The keys of `values` are the physical names of the parameters defined in the template.
 
-| 파라미터 타입 | 값 형태 | 예 |
+| Parameter type | Value shape | Example |
 |---|---|---|
-| 글자 | `string` | `'주식회사 예시'` |
-| 숫자 | `number` | `12000` |
-| 날짜 | ISO 날짜 문자열 | `'2026-08-25'` |
-| 참/거짓 | `boolean` | `true` |
-| 이미지 | `data:` Base64 문자열 | `'data:image/png;base64,...'` |
-| 목록 | 객체 배열 | `[{ itemName: '연필' }]` |
+| Text | `string` | `'Example Co., Ltd.'` |
+| Number | `number` | `12000` |
+| Date | ISO date string | `'2026-08-25'` |
+| Boolean | `boolean` | `true` |
+| Image | `data:` Base64 string | `'data:image/png;base64,...'` |
+| List | Array of objects | `[{ itemName: 'Pencil' }]` |
 
-목록 파라미터는 항목마다 하위 필드의 물리명을 키로 갖는 객체 배열을 사용합니다.
+A list parameter uses an array of objects, where each item has the physical names of its sub-fields as keys.
 
 ```ts
 const values = {
-  customerName: '주식회사 예시',
+  customerName: 'Example Co., Ltd.',
   items: [
     {
-      itemName: '연필',
+      itemName: 'Pencil',
       quantity: 12,
       unitPrice: 300,
     },
     {
-      itemName: '공책',
+      itemName: 'Notebook',
       quantity: 5,
       unitPrice: 1200,
     },
@@ -341,15 +341,15 @@ const values = {
 };
 ```
 
-`valueType: 'number'`로 정의한 최상위 파라미터가 미입력, `null` 또는 빈 문자열이면 `buildVoucher`가 `0`으로 정규화합니다.
+If a top-level parameter defined as `valueType: 'number'` is missing, `null`, or an empty string, `buildVoucher` normalizes it to `0`.
 
-수식으로 계산되는 값은 `values`에 미리 넣지 않아도 됩니다. PDF 렌더링 과정에서 전표 값과 양식의 수식을 이용해 계산됩니다.
+Values computed by formulas do not need to be put into `values` in advance. They are computed during PDF rendering using the voucher values and the template's formulas.
 
-## 전표 발행하기
+## Issuing a voucher
 
-`buildVoucher`가 만드는 전표는 `issued: false`인 작성 중 전표입니다.
+The voucher created by `buildVoucher` is a draft voucher with `issued: false`.
 
-값을 확정하려면 `issued`를 `true`로 변경한 뒤 전체 파일을 검증합니다.
+To finalize the values, change `issued` to `true` and then validate the entire file.
 
 ```ts
 import {
@@ -366,28 +366,28 @@ function issueVoucher(
   });
 
   if (validated.kind !== 'voucher') {
-    throw new Error('전표 파일이 아닙니다.');
+    throw new Error('This is not a voucher file.');
   }
 
   return validated;
 }
 ```
 
-발행 검증에서는 외부 URL 이미지처럼 발행 전표가 단독으로 보관될 수 없게 만드는 값도 확인합니다. 발행된 전표에 필요한 이미지는 `data:` Base64 형태로 포함해야 합니다.
+Issue validation also checks for values that would make the issued voucher unable to stand on its own when stored, such as external URL images. Images needed in an issued voucher must be included in `data:` Base64 form.
 
 > [!WARNING]
-> `issued: true`는 전표의 업무 상태를 나타냅니다.
-> 전자서명이나 암호학적 위변조 방지 기능이 아니므로 서버에서 발행 전표의 수정 권한과 저장 이력을 별도로 관리해야 합니다.
+> `issued: true` indicates the business state of the voucher.
+> It is not a digital signature or cryptographic tamper-proofing feature, so the server must separately manage edit permissions and the storage history of issued vouchers.
 
 > [!IMPORTANT]
-> 전표를 저장할 때 `values`만 따로 저장하지 말고 `SlipVoucherFile` 전체를 저장하세요.
-> `templateSnapshot`과 `issued` 상태가 함께 있어야 나중에 같은 양식으로 전표를 렌더링할 수 있습니다.
+> When saving a voucher, do not save only `values` — save the entire `SlipVoucherFile`.
+> The `templateSnapshot` and `issued` state must be present together so that the voucher can later be rendered with the same template.
 
-## PDF 생성하기
+## Generating a PDF
 
-### 설정을 재사용하는 방법
+### Reusing settings
 
-같은 폰트와 로케일로 여러 파일을 렌더링한다면 `createSlipKit`으로 설정을 한 번 구성합니다.
+If you render multiple files with the same fonts and locale, configure the settings once with `createSlipKit`.
 
 ```ts
 import { createSlipKit } from '@omdc-slipkit/core';
@@ -407,16 +407,16 @@ const firstPdf = await slip.render(firstVoucher);
 const secondPdf = await slip.render(secondVoucher);
 ```
 
-- 양식을 렌더링하면 값이 비어 있는 문서가 생성됩니다.
-- 전표를 렌더링하면 `templateSnapshot`과 `values`가 반영됩니다.
-- 반환값은 PDF 파일의 `Uint8Array`입니다.
-- `locale`은 `FORMAT_NUMBER` 같은 수식 포맷 함수의 표시 방식과 오류 메시지 언어에 사용됩니다. 생략하면 `en-US`를 사용합니다.
+- Rendering a template produces a document with empty values.
+- Rendering a voucher reflects `templateSnapshot` and `values`.
+- The return value is a `Uint8Array` of the PDF file.
+- `locale` is used for the display of formula format functions such as `FORMAT_NUMBER` and for the error message language. When omitted, English (`en-US`) is used.
 
-폰트 구성 방법은 [설정 가이드](configuration.md)를 참고하세요.
+For how to configure fonts, see the [Configuration Guide](configuration.md).
 
-### 파일 하나를 바로 렌더링하는 방법
+### Rendering a single file directly
 
-설정을 재사용할 필요가 없다면 `renderSlipToPdf`를 직접 사용할 수 있습니다.
+If you do not need to reuse settings, you can use `renderSlipToPdf` directly.
 
 ```ts
 import {
@@ -440,9 +440,9 @@ async function renderOne(
 }
 ```
 
-### 브라우저에서 PDF 내려받기
+### Downloading a PDF in the browser
 
-브라우저에서는 PDF 바이트를 `Blob`으로 변환해 내려받을 수 있습니다.
+In the browser, you can convert the PDF bytes into a `Blob` and download it.
 
 ```ts
 function downloadPdf(
@@ -470,9 +470,9 @@ function downloadPdf(
 }
 ```
 
-## 수식 평가하기
+## Evaluating formulas
 
-양식 렌더링 외부에서 수식을 직접 계산하려면 `evaluate`를 사용합니다.
+To compute a formula directly outside of template rendering, use `evaluate`.
 
 ```ts
 const result = slip.evaluate(
@@ -491,7 +491,7 @@ console.log(result);
 // 9600
 ```
 
-`TODAY()`처럼 현재 시각에 따라 결과가 달라지는 수식은 기준 시각을 전달하여 재현할 수 있습니다.
+A formula whose result depends on the current time, such as `TODAY()`, can be reproduced by passing a reference time.
 
 ```ts
 const result = slip.evaluate(
@@ -503,7 +503,7 @@ const result = slip.evaluate(
 );
 ```
 
-`createSlipKit`에 지정한 `locale`은 평가 컨텍스트에 별도 `locale`이 없을 때 사용됩니다.
+The `locale` specified in `createSlipKit` is used when the evaluation context has no `locale` of its own.
 
 ```ts
 const slip = createSlipKit({
@@ -521,7 +521,7 @@ console.log(formatted);
 // 1.234,5
 ```
 
-설정이 필요 없다면 `evaluateFormula` 독립 함수를 직접 사용할 수 있습니다.
+If you do not need settings, you can use the standalone `evaluateFormula` function directly.
 
 ```ts
 import {
@@ -539,13 +539,13 @@ const result = evaluateFormula(
 );
 ```
 
-지원 함수와 수식 문법은 [수식 함수 참조](formula.md)를 확인하세요.
+For the supported functions and formula syntax, see the [Formula Function Reference](formula.md).
 
-## `.slip` 파일 암호화하기
+## Encrypting `.slip` files
 
-`.slip` 파일은 JSON이므로 암호화하지 않으면 일반 편집기에서도 내용을 확인할 수 있습니다.
+A `.slip` file is JSON, so unless it is encrypted, its contents can be read even in an ordinary text editor.
 
-민감한 양식이나 전표를 파일 형태로 보관해야 한다면 선택적으로 AES-256-GCM 암호화를 사용할 수 있습니다.
+If you need to store sensitive templates or vouchers as files, you can optionally use AES-256-GCM encryption.
 
 ```ts
 import {
@@ -558,7 +558,7 @@ const encryptionKey =
 
 if (!encryptionKey) {
   throw new Error(
-    'SLIPKIT_ENCRYPTION_KEY가 설정되지 않았습니다.',
+    'SLIPKIT_ENCRYPTION_KEY is not set.',
   );
 }
 
@@ -580,20 +580,20 @@ const restored =
   await slip.decrypt(encryptedJson);
 ```
 
-암호화 키에는 다음 두 형태를 사용할 수 있습니다.
+Two forms of encryption key can be used.
 
-| 키 | 동작 |
+| Key | Behavior |
 |---|---|
-| `string` | 암호 문구로 사용하고 PBKDF2-SHA256으로 AES 키를 생성 |
-| 32바이트 `Uint8Array` | AES-256 원시 키로 직접 사용 |
+| `string` | Used as a passphrase; an AES key is derived with PBKDF2-SHA256 |
+| 32-byte `Uint8Array` | Used directly as a raw AES-256 key |
 
 > [!CAUTION]
-> 암호화 키를 소스 코드나 저장 파일에 함께 넣지 마세요.
-> 키 생성, 보관, 전달 및 폐기는 호스트 애플리케이션의 보안 정책에 따라 관리해야 합니다.
+> Do not embed the encryption key in your source code or stored files.
+> Key generation, storage, delivery, and disposal must be managed according to the security policy of the host application.
 
-### 키 변경에 대비하기
+### Preparing for key changes
 
-암호화 키를 변경했다면 `previousKeys`에 이전 키를 전달하여 과거 파일도 복호화할 수 있습니다.
+If you have changed the encryption key, pass the previous key in `previousKeys` so that past files can also be decrypted.
 
 ```ts
 const slip = createSlipKit({
@@ -609,27 +609,27 @@ const restored =
   await slip.decrypt(encryptedJson);
 ```
 
-`decrypt`는 현재 키를 먼저 사용하고 실패하면 `previousKeys`를 순서대로 시도합니다. 이전 파일을 불러온 뒤 다시 암호화하여 저장하면 새 키로 전환할 수 있습니다.
+`decrypt` uses the current key first and, if it fails, tries `previousKeys` in order. After loading an old file, you can re-encrypt and save it to switch to the new key.
 
 > [!IMPORTANT]
-> 암호화된 결과는 표준 `.slip` 파일 구조가 아니라 별도의 암호화 봉투 JSON입니다.
-> `parseSlipFile`, PDF 렌더러 또는 UI 컴포넌트에 직접 전달할 수 없으며 먼저 `decrypt`로 복호화해야 합니다.
+> The encrypted result is not a standard `.slip` file structure but a separate encryption envelope JSON.
+> It cannot be passed directly to `parseSlipFile`, the PDF renderer, or UI components; you must first decrypt it with `decrypt`.
 
-`isEncryptedSlipFile`은 암호화 봉투의 표식을 확인하는 용도입니다. 파일이 정상적으로 복호화되거나 변조되지 않았음을 보증하지는 않습니다.
+`isEncryptedSlipFile` is for checking the marker of an encryption envelope. It does not guarantee that the file decrypts successfully or has not been tampered with.
 
-## 오류 처리
+## Error handling
 
-Core는 작업 단계에 따라 서로 다른 오류 타입을 제공합니다.
+Core provides different error types depending on the stage of the operation.
 
-| 오류 | 발생하는 작업 |
+| Error | Operation where it occurs |
 |---|---|
-| `SlipParseError` | JSON 파싱, 스키마 검증 및 마이그레이션 |
-| `SlipRenderError` | PDF 변환 또는 폰트 구성 |
-| `FormulaSyntaxError` | 수식 문법 분석 |
-| `FormulaEvalError` | 수식 실행과 타입 계산 |
-| `SlipEncryptionError` | 암호화, 복호화 및 키 검증 |
+| `SlipParseError` | JSON parsing, schema validation, and migration |
+| `SlipRenderError` | PDF conversion or font configuration |
+| `FormulaSyntaxError` | Formula syntax analysis |
+| `FormulaEvalError` | Formula execution and type computation |
+| `SlipEncryptionError` | Encryption, decryption, and key validation |
 
-외부 파일을 처리할 때는 오류를 사용자용 응답이나 애플리케이션 로그로 변환합니다.
+When processing external files, convert errors into a user-facing response or an application log.
 
 ```ts
 import {
@@ -645,7 +645,7 @@ function parseUploadedSlip(
   } catch (error) {
     if (error instanceof SlipParseError) {
       throw new Error(
-        `올바른 .slip 파일이 아닙니다: ${error.message}`,
+        `This is not a valid .slip file: ${error.message}`,
       );
     }
 
@@ -655,37 +655,37 @@ function parseUploadedSlip(
 ```
 
 > [!CAUTION]
-> 서버 로그에 전표 전체, 이미지 Base64 데이터, 암호화 키 또는 사용자의 민감한 입력값을 그대로 기록하지 마세요.
-> 오류 종류와 필요한 식별 정보만 남기는 것이 안전합니다.
+> Do not log entire vouchers, image Base64 data, encryption keys, or users' sensitive input values directly to your server logs.
+> It is safer to keep only the error type and the identifying information you need.
 
-## 피해야 할 구현
+## Implementations to avoid
 
-- 외부에서 받은 JSON을 타입 단언만 하고 사용
-- `serializeSlipFile`이 객체를 검증한다고 가정
-- 전표의 `values`만 저장하고 양식 스냅샷을 버림
-- 발행 전표에서 외부 URL 이미지를 그대로 사용
-- `issued: true`를 전자서명이나 위변조 방지로 해석
-- 한글·일본어 PDF를 만들면서 해당 문자를 포함한 폰트를 공급하지 않음
-- 파일을 렌더링할 때마다 같은 폰트를 다시 읽음
-- 암호화 키를 소스 코드나 파일과 함께 저장
-- 암호화된 봉투 JSON을 복호화하지 않고 `.slip` 파서에 전달
+- Using JSON received from an external source after only a type assertion
+- Assuming that `serializeSlipFile` validates the object
+- Saving only a voucher's `values` and discarding the template snapshot
+- Using external URL images as-is in an issued voucher
+- Interpreting `issued: true` as a digital signature or tamper-proofing
+- Producing a Korean or Japanese PDF without supplying a font that contains those characters
+- Re-reading the same fonts every time you render a file
+- Storing the encryption key together with the source code or file
+- Passing an encryption envelope JSON to the `.slip` parser without decrypting it
 
-## 완료 확인
+## Completion check
 
-- [ ] 외부에서 받은 `.slip` 파일을 파싱하고 검증합니다.
-- [ ] 양식과 전표를 `kind`로 구분합니다.
-- [ ] 전표 전체를 `templateSnapshot`, `values`, `issued`와 함께 저장합니다.
-- [ ] 발행 상태로 변경한 전표를 다시 검증합니다.
-- [ ] 출력 언어에 필요한 폰트를 공급합니다.
-- [ ] PDF 바이트를 파일 또는 HTTP 응답으로 올바르게 전달합니다.
-- [ ] 수식 오류와 PDF 렌더링 오류를 구분해 처리합니다.
-- [ ] 암호화 키를 파일 데이터와 분리하여 관리합니다.
+- [ ] Parse and validate `.slip` files received from external sources.
+- [ ] Distinguish templates from vouchers by `kind`.
+- [ ] Save the entire voucher together with `templateSnapshot`, `values`, and `issued`.
+- [ ] Re-validate a voucher after changing it to the issued state.
+- [ ] Supply the fonts required for the output language.
+- [ ] Correctly deliver the PDF bytes as a file or HTTP response.
+- [ ] Handle formula errors and PDF rendering errors separately.
+- [ ] Manage the encryption key separately from the file data.
 
-## 관련 문서
+## Related documents
 
-- [시작하기](getting-started.md)
-- [애플리케이션 통합 가이드](integration.md)
-- [서버 통합 가이드](server-integration.md)
-- [설정 가이드](configuration.md)
-- [API 참조](api-reference.md)
-- [수식 함수 참조](formula.md)
+- [Getting Started](getting-started.md)
+- [Application Integration Guide](integration.md)
+- [Server Integration Guide](server-integration.md)
+- [Configuration Guide](configuration.md)
+- [API Reference](api-reference.md)
+- [Formula Function Reference](formula.md)
