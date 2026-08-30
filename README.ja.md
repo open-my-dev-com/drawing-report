@@ -123,11 +123,11 @@ pnpm demo:mcp
 
 | ドキュメント | 内容 |
 |---|---|
-| [`.slip` ファイル形式仕様](docs/SPEC.md) | `.slip` ファイルの構造と検証ルール |
-| [アーキテクチャ](docs/ARCHITECTURE.md) | パッケージ構造と外部システム連携の方式 |
-| [要件](docs/REQUIREMENTS.md) | 確定した製品要件 |
-| [設計判断の記録](docs/DECISIONS.md) | 主要な設計判断とその根拠 |
-| [ロードマップ](docs/ROADMAP.md) | 開発状況と予定作業 |
+| [`.slip` ファイル形式仕様](docs/SPEC.md) (韓国語) | `.slip` ファイルの構造と検証ルール |
+| [アーキテクチャ](docs/ARCHITECTURE.md) (韓国語) | パッケージ構造と外部システム連携の方式 |
+| [要件](docs/REQUIREMENTS.md) (韓国語) | 確定した製品要件 |
+| [設計判断の記録](docs/DECISIONS.md) (韓国語) | 主要な設計判断とその根拠 |
+| [ロードマップ](docs/ROADMAP.md) (韓国語) | 開発状況と予定作業 |
 
 ## 開発コマンド
 

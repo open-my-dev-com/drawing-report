@@ -1852,6 +1852,7 @@ ADR-037의 반복 구간(`fromRow`·`toRow`·`perPage`·`repeatHeader`)은 헤�
 - 문안은 영어판에서 확정하고 한국어판과 일본어판을 맞춥니다.
 - 각 문서 첫머리에 나머지 두 언어로 가는 전환 링크를 둡니다.
 - 설계 문서(`SPEC`, `DECISIONS`, `REQUIREMENTS`, `ROADMAP`, `ARCHITECTURE`, `OPEN-QUESTIONS`, `TECH-RESEARCH`)와 리포 규칙 문서는 한국어 한 벌을 유지합니다.
+- 영어판·일본어판 문서에서 이 설계 문서로 보내는 링크는 제목 뒤에 문서 언어를 괄호로 표시합니다.
 
 ### 근거
 

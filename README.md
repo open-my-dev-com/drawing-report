@@ -123,11 +123,11 @@ The full documentation is organized by goal in the [SlipKit Guide](docs/guide/RE
 
 | Document | Contents |
 |---|---|
-| [`.slip` file format specification](docs/SPEC.md) | The structure and validation rules of `.slip` files |
-| [Architecture](docs/ARCHITECTURE.md) | Package structure and external-system integration |
-| [Requirements](docs/REQUIREMENTS.md) | Confirmed product requirements |
-| [Design decision log](docs/DECISIONS.md) | Key design decisions and their rationale |
-| [Roadmap](docs/ROADMAP.md) | Development status and planned work |
+| [`.slip` file format specification](docs/SPEC.md) (Korean) | The structure and validation rules of `.slip` files |
+| [Architecture](docs/ARCHITECTURE.md) (Korean) | Package structure and external-system integration |
+| [Requirements](docs/REQUIREMENTS.md) (Korean) | Confirmed product requirements |
+| [Design decision log](docs/DECISIONS.md) (Korean) | Key design decisions and their rationale |
+| [Roadmap](docs/ROADMAP.md) (Korean) | Development status and planned work |
 
 ## Development commands
 
