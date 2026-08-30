@@ -4340,6 +4340,9 @@ export class SlipDesigner extends LitElement {
       if (placed !== undefined) {
         if (placed.outputPage !== outputPage && !selected) return nothing;
         originY = placed.y;
+      } else if (plan !== null && !selected) {
+        // 대상이 표시되는 페이지가 없어 배치되지 않은 요소는 캔버스에도 표시하지 않는다.
+        return nothing;
       }
     } else if (!selected) {
       // 절대 배치 요소는 표시 페이지 필터를 따른다. 선택한 요소는 편집을 위해 항상 표시한다.

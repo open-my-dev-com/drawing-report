@@ -286,6 +286,53 @@ describe('그리드 페이지 계획 (planGrid)', () => {
     expect(() => planGrid(grid, items(7), FLOW)).toThrow(/do not fit/);
   });
 
+  it('이월된 그룹 머리 때문에 빈 페이지에서도 항목이 들어가지 않으면 즉시 오류를 반환한다', () => {
+    // 첫 페이지(90mm)에는 page-start 20 + 그룹 시작 20 + 항목 50이 정확히 들어가고,
+    // 이어지는 페이지(80mm)에는 page-start 20 + 이월 그룹 머리 20 + 항목 50이 들어가지 않는다.
+    const grid = makeGrid({
+      rows: [20, 20, 50],
+      bands: [
+        band('ps', 0, 0, 'page-start'),
+        band('gs', 1, 1, 'group-start', { repeatOnPageBreak: true }),
+        band('i', 2, 2, 'item'),
+      ],
+      pagination: { mode: 'auto', minItems: 0 },
+      groupBy: ['g'],
+    });
+    const flow: GridFlow = { firstPage: 0, firstTop: 0, top: 10, bottom: 90 };
+    expect(() => planGrid(grid, items(2), flow)).toThrow(SlipLayoutError);
+    // 출력 페이지 상한까지 빈 페이지를 만들지 않고 그룹 오류로 바로 알린다.
+    expect(() => planGrid(grid, items(2), flow)).toThrow(/group/);
+  });
+
+  it('after 배치로 줄어든 첫 페이지에 고정 묶음이 들어가지 않으면 다음 페이지에서 시작한다', () => {
+    const grid = makeGrid({
+      rows: [10],
+      bands: [band('i', 0, 0, 'item')],
+      pagination: { mode: 'fixed', itemsPerPage: 2 },
+    });
+    // 남은 공간 10mm < 묶음 20mm — 빈 조각 없이 다음 페이지 상단에서 시작한다.
+    const plan = planGrid(grid, items(2), {
+      firstPage: 0, firstTop: 80, top: 10, bottom: 90, allowStartShift: true,
+    });
+    expect(plan.fragments).toHaveLength(1);
+    expect(plan.fragments[0]).toMatchObject({ outputPage: 1, y: 10, height: 20 });
+  });
+
+  it('after 배치로 줄어든 첫 페이지에 머리 구간이 들어가지 않으면 다음 페이지에서 시작한다', () => {
+    const grid = makeGrid({
+      rows: [20, 10],
+      bands: [band('h', 0, 0, 'page-start'), band('i', 1, 1, 'item')],
+      pagination: { mode: 'auto', minItems: 0 },
+    });
+    const plan = planGrid(grid, items(1), {
+      firstPage: 0, firstTop: 85, top: 10, bottom: 90, allowStartShift: true,
+    });
+    expect(plan.fragments).toHaveLength(1);
+    expect(plan.fragments[0]).toMatchObject({ outputPage: 1, y: 10 });
+    expect(placements(plan, 0)).toEqual(['page-start', 'item']);
+  });
+
   it('pageItems·carriedItems가 @page·@carried 범위대로 쌓인다', () => {
     const plan = planGrid(headerItemTail({ mode: 'fixed', itemsPerPage: 4 }), items(10), FLOW);
     expect(plan.fragments.map((f) => f.carriedItems)).toEqual([
@@ -402,6 +449,45 @@ describe('양식 페이지 계획 (planSourcePage)', () => {
     const plan = planSourcePage(paper, page, new Map([['a', items(3)]]));
     expect(plan.afterPlacements.get('note')).toEqual({ outputPage: 2, y: 10 });
     expect(plan.outputPageCount).toBe(3);
+  });
+
+  it('after 배치는 대상이 마지막으로 표시되는 출력 페이지를 따른다', () => {
+    const follow = (pages: 'all' | 'continuation' | 'non-final'): number => {
+      const target: SlipElement = {
+        type: 'text', id: 'target', name: '대상', position: { x: 100, y: 20 },
+        width: 60, height: 10, content: 'T',
+        pagePlacement: { mode: 'absolute', pages },
+      };
+      const note: SlipElement = {
+        type: 'text', id: 'note', name: '비고', position: { x: 100, y: 0 },
+        width: 60, height: 10, content: 'N',
+        pagePlacement: { mode: 'after', target: 'target' },
+      };
+      const page: SlipPage = { elements: [repeatGrid('a', 10, 2), target, note] };
+      // 그리드가 3페이지를 만드는 문서
+      const plan = planSourcePage(paper, page, new Map([['a', items(5)]]));
+      return plan.afterPlacements.get('note')!.outputPage;
+    };
+    expect(follow('all')).toBe(2);
+    expect(follow('continuation')).toBe(2);
+    expect(follow('non-final')).toBe(1);
+  });
+
+  it('표시되는 페이지가 없는 대상을 따르는 요소는 출력되지 않는다', () => {
+    const target: SlipElement = {
+      type: 'text', id: 'target', name: '대상', position: { x: 100, y: 20 },
+      width: 60, height: 10, content: 'T',
+      pagePlacement: { mode: 'absolute', pages: 'continuation' },
+    };
+    const note: SlipElement = {
+      type: 'text', id: 'note', name: '비고', position: { x: 100, y: 0 },
+      width: 60, height: 10, content: 'N',
+      pagePlacement: { mode: 'after', target: 'target' },
+    };
+    // 출력 페이지가 하나뿐이라 continuation 대상은 표시되지 않는다.
+    const plan = planSourcePage(paper, { elements: [target, note] }, new Map());
+    expect(plan.outputPageCount).toBe(1);
+    expect(plan.afterPlacements.has('note')).toBe(false);
   });
 
   it("pages: 'last' 요소를 대상으로 한 after 배치는 대상이 표시되는 마지막 페이지에 놓인다", () => {

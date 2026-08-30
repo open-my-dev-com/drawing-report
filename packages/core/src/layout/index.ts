@@ -10,6 +10,7 @@ export {
 } from './grid-plan.js';
 export {
   filterVisibleOnPage,
+  visiblePageRange,
   planSourcePage,
   type ElementPlacement,
   type PlanPaper,

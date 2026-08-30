@@ -41,6 +41,33 @@ export interface SourcePagePlan {
 const MAX_PLAN_PASSES = 8;
 
 /**
+ * 절대 배치 요소가 표시되는 출력 페이지 범위를 계산한다.
+ * 렌더러의 표시 판정({@link filterVisibleOnPage})과 계획기의 `after` 기준 페이지가
+ * 같은 규칙을 쓰도록 이 함수 하나로 정의한다.
+ *
+ * @param filter - 표시 페이지 선택 (생략하면 all)
+ * @param outputPageCount - 전체 출력 페이지 수
+ * @returns 표시 범위. 표시되는 페이지가 없으면(한 페이지 문서의 continuation 등) undefined
+ */
+export function visiblePageRange(
+  filter: OutputPageFilter | undefined,
+  outputPageCount: number,
+): { first: number; last: number } | undefined {
+  switch (filter ?? 'all') {
+    case 'all':
+      return { first: 0, last: outputPageCount - 1 };
+    case 'first':
+      return { first: 0, last: 0 };
+    case 'continuation':
+      return outputPageCount > 1 ? { first: 1, last: outputPageCount - 1 } : undefined;
+    case 'non-final':
+      return outputPageCount > 1 ? { first: 0, last: outputPageCount - 2 } : undefined;
+    case 'last':
+      return { first: outputPageCount - 1, last: outputPageCount - 1 };
+  }
+}
+
+/**
  * 절대 배치 요소가 해당 출력 페이지에 표시되는지 판정한다.
  *
  * @param filter - 표시 페이지 선택 (생략하면 all)
@@ -53,32 +80,8 @@ export function filterVisibleOnPage(
   outputPage: number,
   outputPageCount: number,
 ): boolean {
-  switch (filter ?? 'all') {
-    case 'all':
-      return true;
-    case 'first':
-      return outputPage === 0;
-    case 'continuation':
-      return outputPage > 0;
-    case 'non-final':
-      return outputPage < outputPageCount - 1;
-    case 'last':
-      return outputPage === outputPageCount - 1;
-  }
-}
-
-/** 절대 배치 요소가 처음 표시되는 출력 페이지 — after 배치가 시작할 기준 페이지. */
-function firstVisiblePage(filter: OutputPageFilter | undefined, outputPageCount: number): number {
-  switch (filter ?? 'all') {
-    case 'all':
-    case 'first':
-    case 'non-final':
-      return 0;
-    case 'continuation':
-      return Math.min(1, outputPageCount - 1);
-    case 'last':
-      return outputPageCount - 1;
-  }
+  const range = visiblePageRange(filter, outputPageCount);
+  return range !== undefined && outputPage >= range.first && outputPage <= range.last;
 }
 
 /** after 사슬을 위상 순서로 정렬한다 (대상이 먼저 오도록). */
@@ -151,12 +154,8 @@ export function planSourcePage(
       let startY = element.position.y;
       if (placement?.mode === 'after') {
         const end = flowEnd.get(placement.target);
-        if (end === undefined) {
-          throw new SlipLayoutError(
-            lm(locale).afterTargetNotPlanned(lm(locale).subjectElement(element.name, element.id), placement.target),
-            { elementId: element.id },
-          );
-        }
+        // 대상이 표시되는 페이지가 없으면 대상의 출력이 없으므로 이 요소도 출력하지 않는다.
+        if (end === undefined) continue;
         startPage = end.outputPage;
         startY = end.y + (placement.gap ?? 0);
         flowRoot.set(element.id, flowRoot.get(placement.target) ?? placement.target);
@@ -171,6 +170,8 @@ export function planSourcePage(
           firstTop: startY,
           top: flowArea.top,
           bottom: flowArea.bottom,
+          // after 배치로 시작이 줄어든 그리드는 첫 페이지에 들어가지 않으면 다음 페이지에서 시작한다.
+          allowStartShift: placement?.mode === 'after',
         }, locale);
         gridPlans.set(element.id, plan);
         const last = plan.fragments[plan.fragments.length - 1]!;
@@ -195,12 +196,12 @@ export function planSourcePage(
         continue;
       }
 
-      // 절대 배치 요소의 출력 끝은 처음 표시되는 페이지의 원본 위치 기준이다.
+      // 절대 배치 요소의 출력 끝은 마지막으로 표시되는 페이지의 원본 위치 기준이다.
       const filter = placement?.mode === 'absolute' ? placement.pages : undefined;
-      flowEnd.set(element.id, {
-        outputPage: firstVisiblePage(filter, assumedCount),
-        y: element.position.y + bounds.height,
-      });
+      const range = visiblePageRange(filter, assumedCount);
+      if (range !== undefined) {
+        flowEnd.set(element.id, { outputPage: range.last, y: element.position.y + bounds.height });
+      }
     }
 
     // 전체 출력 페이지 수는 가장 긴 독립 흐름을 따른다.

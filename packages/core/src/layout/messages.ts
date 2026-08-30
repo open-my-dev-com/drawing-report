@@ -16,7 +16,6 @@ interface LayoutMessages {
   bandsTooTall(what: string): string;
   flowOverlap(a: string, b: string): string;
   outputPagesExceeded(max: number): string;
-  afterTargetNotPlanned(what: string, target: string): string;
   elementTooTall(what: string): string;
   planNotConverged(): string;
 }
@@ -31,7 +30,6 @@ const EN: LayoutMessages = {
   bandsTooTall: (what) => `The fixed row bands of ${what} do not fit in the page flow area`,
   flowOverlap: (a, b) => `The output areas of ${a} and ${b} overlap`,
   outputPagesExceeded: (max) => `The page plan exceeds the output page limit (${max})`,
-  afterTargetNotPlanned: (what, target) => `${what} cannot follow '${target}' — the target has no output`,
   elementTooTall: (what) => `${what} does not fit in the page flow area`,
   planNotConverged: () => 'The output page count does not settle while planning "after" placements',
 };
@@ -46,7 +44,6 @@ const KO: LayoutMessages = {
   bandsTooTall: (what) => `${what}의 고정 행 구간이 페이지 흐름 영역에 들어가지 않습니다`,
   flowOverlap: (a, b) => `${a}와(과) ${b}의 출력 영역이 겹칩니다`,
   outputPagesExceeded: (max) => `페이지 계획이 출력 페이지 상한(${max})을 초과합니다`,
-  afterTargetNotPlanned: (what, target) => `${what}을(를) '${target}' 뒤에 배치할 수 없습니다 — 대상의 출력이 없습니다`,
   elementTooTall: (what) => `${what}이(가) 페이지 흐름 영역에 들어가지 않습니다`,
   planNotConverged: () => '이어서 배치를 계획하는 동안 출력 페이지 수가 확정되지 않습니다',
 };
@@ -61,7 +58,6 @@ const JA: LayoutMessages = {
   bandsTooTall: (what) => `${what} の固定行範囲がページのフロー領域に収まりません`,
   flowOverlap: (a, b) => `${a} と ${b} の出力領域が重なっています`,
   outputPagesExceeded: (max) => `ページ計画が出力ページの上限(${max})を超えています`,
-  afterTargetNotPlanned: (what, target) => `${what} を '${target}' の後に配置できません — 対象の出力がありません`,
   elementTooTall: (what) => `${what} がページのフロー領域に収まりません`,
   planNotConverged: () => '続けて配置の計画中に出力ページ数が確定しません',
 };
