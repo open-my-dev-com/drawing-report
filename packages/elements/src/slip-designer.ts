@@ -570,6 +570,8 @@ const BAND_PLACEMENTS: readonly GridBandPlacement[] = [
   'item', 'before-data', 'page-start', 'group-start', 'group-end', 'after-data', 'page-end',
 ];
 
+type GridRowCommand = 'header' | 'group-subtotal' | 'page-subtotal' | 'final-total';
+
 /** 반복 그리드의 항목 구간을 반환한다. */
 function itemBandOf(el: GridElement): GridBand | undefined {
   return el.repeat?.bands.find((band) => band.placement === 'item');
@@ -862,7 +864,11 @@ export class SlipDesigner extends LitElement {
     _myFormsError: { state: true },
     _savedNotice: { state: true },
     _outputPage: { state: true },
+    _gridPlanPreview: { state: true },
     _bandSelect: { state: true },
+    _bandMenuOpen: { state: true },
+    _gridRowCommand: { state: true },
+    _gridRowCommandField: { state: true },
   };
 
   src = '';
@@ -913,8 +919,18 @@ export class SlipDesigner extends LitElement {
   private _pageIndex = 0;
   /** 현재 양식 페이지에서 보고 있는 출력 페이지 (0부터) */
   private _outputPage = 0;
+  /** 선택한 반복 그리드를 원본 행 구조 대신 현재 출력 결과로 표시할지 여부 */
+  private _gridPlanPreview = false;
   /** 행 번호 선택 영역에서 고른 행 범위 (역할 명령 메뉴 표시 중) */
   private _bandSelect: { from: number; to: number } | null = null;
+  /** 캔버스의 행 역할 명령 메뉴 표시 여부 */
+  private _bandMenuOpen = false;
+  /** 행 역할 메뉴가 열린 뒤 첫 명령으로 포커스를 옮길지 여부 */
+  private _focusBandMenu = false;
+  /** 적용 전 결과를 확인 중인 행 추가 명령 */
+  private _gridRowCommand: GridRowCommand | null = null;
+  /** 소계·합계 명령에서 집계할 목록 필드 */
+  private _gridRowCommandField = '';
   /** 현재 양식 페이지의 계획 캐시 — 페이지·샘플 값이 바뀌면 다시 계산한다 */
   private _planCache: { key: string; plan: SourcePagePlan | null; error: SlipLayoutError | null } | null = null;
   /** 속성 패널과 크기 조절 핸들이 대상으로 삼는 주 선택 요소 */
@@ -1123,6 +1139,10 @@ export class SlipDesigner extends LitElement {
         editor.select?.();
       }
     }
+    if (this._focusBandMenu) {
+      this._focusBandMenu = false;
+      (this.renderRoot.querySelector('.band-menu-item') as HTMLButtonElement | null)?.focus();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1139,6 +1159,8 @@ export class SlipDesigner extends LitElement {
     this._previewMode = false;
     this._previewError = null;
     this._pageIndex = 0;
+    this._outputPage = 0;
+    this._gridPlanPreview = false;
     this._drag = null;
     this._resize = null;
     this._guideX = null;
@@ -1370,6 +1392,7 @@ export class SlipDesigner extends LitElement {
     if (clamped === this._pageIndex) return;
     this._pageIndex = clamped;
     this._outputPage = 0;
+    this._gridPlanPreview = false;
     this._clearSelection();
     this._sideSelection = null;
     this._selectedCell = null;
@@ -1426,7 +1449,11 @@ export class SlipDesigner extends LitElement {
     this._resetPanelErrors();
     this._selectedId = null;
     this._selectedIds = new Set();
+    this._gridPlanPreview = false;
     this._bandSelect = null;
+    this._bandMenuOpen = false;
+    this._gridRowCommand = null;
+    this._gridRowCommandField = '';
   }
 
   /**
@@ -1437,6 +1464,9 @@ export class SlipDesigner extends LitElement {
   private _selectElement(id: string): void {
     this._resetPanelErrors();
     this._selectedId = id;
+    this._gridPlanPreview = false;
+    this._gridRowCommand = null;
+    this._gridRowCommandField = '';
     const group = this._findElement(id)?.group;
     this._selectedIds = group
       ? new Set(this._pageGroupMembers(group).map((el) => el.id))
@@ -1859,6 +1889,12 @@ export class SlipDesigner extends LitElement {
     // preventDefault로 기본 포커스 이동이 막히므로 호스트에 포커스를 설정해 단축키를 유지한다.
     this._focusHost();
 
+    // 출력 결과 보기는 계획 결과를 확인하는 읽기 전용 상태다.
+    if (this._gridPlanPreview) {
+      e.preventDefault();
+      return;
+    }
+
     // 생성 도구가 선택돼 있으면 클릭·드래그는 요소 생성이다 (선택·이동보다 우선)
     if (this._pendingTool) {
       const p = this._paperPoint(e);
@@ -2231,6 +2267,8 @@ export class SlipDesigner extends LitElement {
           this._cellSourceKind = null;
         }
         this._selectedCell = cell;
+        this._bandSelect = null;
+        this._bandMenuOpen = false;
         const definition = el.cells.find((item) => item.row === cell.row && item.column === cell.column);
         // 파라미터와 수식 셀은 속성 패널에서 편집하며 캔버스 입력기는 열지 않는다.
         this._cellEditing = definition === undefined
@@ -2388,7 +2426,7 @@ export class SlipDesigner extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // 그리드 편집 2단계
+  // 그리드 편집
   // ---------------------------------------------------------------------------
 
   /** 그리드를 수정한다. 크기는 행과 열의 합에서 계산하므로 따로 저장하지 않는다. */
@@ -2399,13 +2437,11 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /**
-   * 그리드의 마지막 행을 추가하거나 제거한다.
-   * 반복 그리드에서는 마지막 행 구간의 범위를 함께 조정한다.
-   */
+  /** 그리드의 마지막 행을 추가하거나 제거한다. 반복 그리드의 추가는 역할 지정 명령을 사용한다. */
   private _changeGridRows(delta: number): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'grid') return;
+    if (delta > 0 && el.repeat) return;
     const next = el.rows.length + delta;
     if (next < 1 || next > GRID_MAX_TRACKS_UI) return;
     if (delta < 0 && el.repeat) {
@@ -2417,9 +2453,6 @@ export class SlipDesigner extends LitElement {
     this._updateGrid((grid) => {
       if (delta > 0) {
         grid.rows.push({ height: grid.rows[grid.rows.length - 1]?.height ?? GRID_DEFAULT_ROW_MM });
-        // 새 행은 마지막 행 구간에 넣는다.
-        const last = grid.repeat?.bands[grid.repeat.bands.length - 1];
-        if (last) last.toRow += 1;
       } else {
         const removed = grid.rows.length - 1;
         grid.rows.pop();
@@ -2435,6 +2468,73 @@ export class SlipDesigner extends LitElement {
         }
       }
     });
+  }
+
+  /** 선택한 역할의 행을 알맞은 구간 위치에 추가한다. */
+  private _addGridRowWithRole(
+    placement: GridBandPlacement,
+    options: {
+      separateBand?: boolean;
+      name?: string;
+      pages?: OutputPageFilter;
+      initialize?: (grid: GridElement, row: number) => void;
+    } = {},
+  ): number | null {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid' || !el.repeat || el.rows.length >= GRID_MAX_TRACKS_UI) return null;
+    if ((placement === 'group-start' || placement === 'group-end')
+      && (el.repeat.groupBy === undefined || el.repeat.groupBy.length === 0)) {
+      this._rejectInput(this._strings.designer.bandNeedsGroupBy, 'band-role');
+      return null;
+    }
+
+    const sameRole = el.repeat.bands.filter((band) => band.placement === placement).at(-1);
+    const nextRole = el.repeat.bands.find(
+      (band) => BAND_PLACEMENT_ORDER[band.placement] > BAND_PLACEMENT_ORDER[placement],
+    );
+    const insertAt = sameRole?.toRow !== undefined ? sameRole.toRow + 1 : (nextRole?.fromRow ?? el.rows.length);
+    const sourceRow = el.rows[Math.max(0, Math.min(insertAt - 1, el.rows.length - 1))];
+    const targetBandId = options.separateBand ? undefined : sameRole?.id;
+
+    this._resetPanelErrors();
+    this._updateGrid((grid) => {
+      grid.rows.splice(insertAt, 0, { height: sourceRow?.height ?? GRID_DEFAULT_ROW_MM });
+      for (const cell of grid.cells) {
+        if (cell.row >= insertAt) {
+          cell.row += 1;
+        } else if (cell.row + (cell.rowSpan ?? 1) > insertAt) {
+          cell.rowSpan = (cell.rowSpan ?? 1) + 1;
+        }
+      }
+
+      for (const band of grid.repeat!.bands) {
+        if (band.id === targetBandId) {
+          band.toRow += 1;
+        } else if (band.fromRow >= insertAt) {
+          band.fromRow += 1;
+          band.toRow += 1;
+        } else if (band.toRow >= insertAt) {
+          band.toRow += 1;
+        }
+      }
+      if (targetBandId === undefined) {
+        const band: GridBand = {
+          id: `band_${crypto.randomUUID().slice(0, 8)}`,
+          fromRow: insertAt,
+          toRow: insertAt,
+          placement,
+        };
+        if (options.name !== undefined) band.name = options.name;
+        if (options.pages !== undefined) band.pages = options.pages;
+        grid.repeat!.bands.push(band);
+        grid.repeat!.bands.sort((a, b) => a.fromRow - b.fromRow);
+      }
+      options.initialize?.(grid, insertAt);
+    });
+    this._bandSelect = { from: insertAt, to: insertAt };
+    this._bandMenuOpen = false;
+    this.requestUpdate();
+    return insertAt;
   }
 
   /** 그리드의 마지막 열을 추가하거나 제거한다. */
@@ -2611,6 +2711,28 @@ export class SlipDesigner extends LitElement {
     });
   }
 
+  /** 속성 패널에서 편집할 행 범위의 시작 또는 끝을 변경한다. */
+  private _setBandSelectionBoundary(boundary: 'from' | 'to', rowNumber: number): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid' || !el.repeat || this._bandSelect === null) return;
+    if (!Number.isInteger(rowNumber) || rowNumber < 1 || rowNumber > el.rows.length) {
+      this._rejectInput(
+        this._strings.designer.rangeInput.replace('{min}', '1').replace('{max}', String(el.rows.length)),
+        'band-range',
+      );
+      return;
+    }
+    const index = rowNumber - 1;
+    const from = Math.min(this._bandSelect.from, this._bandSelect.to);
+    const to = Math.max(this._bandSelect.from, this._bandSelect.to);
+    this._resetPanelErrors();
+    this._bandSelect = boundary === 'from'
+      ? { from: Math.min(index, to), to }
+      : { from, to: Math.max(index, from) };
+    this._bandMenuOpen = false;
+    this.requestUpdate();
+  }
+
   /** page-start·page-end 구간의 표시 페이지 필터를 변경한다. */
   private _setBandPages(bandId: string, pages: OutputPageFilter | ''): void {
     this._updateGrid((grid) => {
@@ -2631,14 +2753,16 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /**
-   * 그룹 기준 필드 목록을 변경한다.
-   * 그룹 구간이 있는 그리드에서 기준을 비우는 것은 거부한다.
-   */
-  private _setGridGroupBy(raw: string): void {
+  /** 그룹 기준 필드의 선택 상태를 변경한다. */
+  private _toggleGridGroupField(key: string, on: boolean): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'grid' || !el.repeat) return;
-    const keys = raw.split(',').map((k) => k.trim()).filter((k) => k.length > 0);
+    const fields = this._parameterList().find((parameter) => parameter.key === el.repeat!.parameter)?.fields ?? [];
+    if (!fields.some((field) => field.key === key)) return;
+    const selected = new Set(el.repeat.groupBy ?? []);
+    if (on) selected.add(key);
+    else selected.delete(key);
+    const keys = fields.map((field) => field.key).filter((field) => selected.has(field));
     const hasGroupBands = el.repeat.bands.some(
       (band) => band.placement === 'group-start' || band.placement === 'group-end',
     );
@@ -2646,10 +2770,139 @@ export class SlipDesigner extends LitElement {
       this._rejectInput(this._strings.designer.bandNeedsGroupBy, 'repeat-group-by');
       return;
     }
+    this._resetPanelErrors();
     this._updateGrid((grid) => {
       if (keys.length === 0) delete (grid.repeat as { groupBy?: unknown }).groupBy;
       else grid.repeat!.groupBy = keys;
     });
+  }
+
+  /** 행 추가 명령을 고르고 집계 필드의 기본값을 설정한다. */
+  private _openGridRowCommand(command: GridRowCommand): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== 'grid' || !el.repeat) return;
+    const numericFields = this._parameterList()
+      .find((parameter) => parameter.key === el.repeat!.parameter)
+      ?.fields.filter((field) => field.valueType === 'number') ?? [];
+    if (!numericFields.some((field) => field.key === this._gridRowCommandField)) {
+      const itemBand = itemBandOf(el);
+      const columnOf = (key: string): number => itemBand === undefined
+        ? -1
+        : Math.max(
+            -1,
+            ...el.cells
+              .filter((cell) => cell.parameter === key
+                && cell.row >= itemBand.fromRow && cell.row <= itemBand.toRow)
+              .map((cell) => cell.column),
+          );
+      this._gridRowCommandField = [...numericFields]
+        .sort((a, b) => columnOf(b.key) - columnOf(a.key))[0]?.key
+        ?? numericFields.at(-1)?.key
+        ?? '';
+    }
+    this._gridRowCommand = command;
+    this._resetPanelErrors();
+  }
+
+  /** 항목 행의 스타일을 바탕으로 행·소계·합계 명령을 한 번에 적용한다. */
+  private _applyGridRowCommand(): void {
+    const el = this._findSelectedElement();
+    const command = this._gridRowCommand;
+    if (el?.type !== 'grid' || !el.repeat || command === null) return;
+    const s = this._strings.designer;
+    const itemBand = itemBandOf(el);
+    if (itemBand === undefined) {
+      this._rejectInput(s.bandNeedsItem, 'grid-row-command');
+      return;
+    }
+    if (command === 'group-subtotal'
+      && (el.repeat.groupBy === undefined || el.repeat.groupBy.length === 0)) {
+      this._rejectInput(s.gridCommandGroupRequired, 'grid-row-command');
+      return;
+    }
+
+    const fields = this._parameterList()
+      .find((parameter) => parameter.key === el.repeat!.parameter)?.fields ?? [];
+    const numericField = fields.find(
+      (field) => field.key === this._gridRowCommandField && field.valueType === 'number',
+    );
+    if (command !== 'header' && numericField === undefined) {
+      this._rejectInput(s.gridCommandNumberRequired, 'grid-row-command');
+      return;
+    }
+
+    const itemCells = el.cells.filter(
+      (cell) => cell.row >= itemBand.fromRow && cell.row <= itemBand.toRow,
+    );
+    const firstItemRowCells = itemCells.filter((cell) => cell.row === itemBand.fromRow);
+    const fieldTitles = new Map(fields.map((field) => [field.key, field.title]));
+    const placement: GridBandPlacement = command === 'header'
+      ? 'page-start'
+      : command === 'group-subtotal'
+        ? 'group-end'
+        : command === 'page-subtotal'
+          ? 'page-end'
+          : 'after-data';
+    const bandName = command === 'header'
+      ? s.gridCommandHeaderName
+      : command === 'group-subtotal'
+        ? s.gridCommandGroupSubtotalName
+        : command === 'page-subtotal'
+          ? s.gridCommandPageSubtotalName
+          : s.gridCommandFinalTotalName;
+
+    const cloneCellStyle = (source: GridCell | undefined, row: number, column: number): GridCell => {
+      const cell: GridCell = source === undefined
+        ? { row, column, content: '' }
+        : { ...structuredClone(source), row, column };
+      delete (cell as { name?: unknown }).name;
+      delete (cell as { rowSpan?: unknown }).rowSpan;
+      delete (cell as { content?: unknown }).content;
+      delete (cell as { parameter?: unknown }).parameter;
+      delete (cell as { formula?: unknown }).formula;
+      delete (cell as { conditionalFormats?: unknown }).conditionalFormats;
+      return cell;
+    };
+
+    const added = this._addGridRowWithRole(placement, {
+      separateBand: true,
+      name: bandName,
+      ...(command === 'page-subtotal' ? { pages: 'non-final' as const } : {}),
+      initialize: (grid, row) => {
+        if (command === 'header') {
+          for (const source of firstItemRowCells) {
+            const cell = cloneCellStyle(source, row, source.column);
+            cell.content = source.parameter === undefined
+              ? (source.content ?? '')
+              : (fieldTitles.get(source.parameter) ?? source.parameter);
+            grid.cells.push(cell);
+          }
+          return;
+        }
+
+        const fieldSource = itemCells.find((cell) => cell.parameter === numericField!.key);
+        const targetColumn = fieldSource?.column
+          ?? Math.max(0, ...firstItemRowCells.map((cell) => cell.column), grid.columns.length - 1);
+        if (targetColumn > 0) {
+          const labelSource = itemCells.find(
+            (cell) => cell.column === 0 && cell.row === itemBand.fromRow,
+          );
+          const labelCell = cloneCellStyle(labelSource, row, 0);
+          labelCell.content = bandName;
+          if (targetColumn > 1) labelCell.colSpan = targetColumn;
+          else delete (labelCell as { colSpan?: unknown }).colSpan;
+          grid.cells.push(labelCell);
+        }
+        const valueCell = cloneCellStyle(fieldSource, row, targetColumn);
+        const scope = command === 'group-subtotal' ? '@group'
+          : command === 'page-subtotal' ? '@page' : '@all';
+        valueCell.formula = `SUM(${scope}.${numericField!.key})`;
+        grid.cells.push(valueCell);
+      },
+    });
+    if (added === null) return;
+    this._gridRowCommand = null;
+    this._gridRowCommandField = '';
   }
 
   /**
@@ -2766,6 +3019,14 @@ export class SlipDesigner extends LitElement {
     }
     // PDF 미리보기 상태에서는 문서를 변경하는 단축키를 처리하지 않는다.
     if (this._previewMode) return;
+    // 출력 결과는 읽기 전용이다. Esc만 행 구조 편집으로 돌아가는 데 사용한다.
+    if (this._gridPlanPreview) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this._setGridPlanPreview(false);
+      }
+      return;
+    }
     if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedId) {
       e.preventDefault();
       this._deleteSelected();
@@ -3142,6 +3403,7 @@ export class SlipDesigner extends LitElement {
     options: { value: string; label: string }[];
     onPick: (value: string) => void;
     className?: string;
+    placeholder?: string;
   }) {
     const open = this._listSelectId === config.id;
     const current = config.options.find((o) => o.value === config.value);
@@ -3150,7 +3412,7 @@ export class SlipDesigner extends LitElement {
         aria-haspopup="listbox" aria-expanded=${String(open)} aria-label=${config.ariaLabel}
         data-value=${config.value}
         @click=${(e: Event) => this._toggleListSelect(config.id, e)}>
-        <span class="list-select-value">${current?.label ?? config.value}</span>
+        <span class="list-select-value">${current?.label ?? config.placeholder ?? config.value}</span>
         <span class="list-select-caret" aria-hidden="true">${icons.down}</span>
       </button>
       ${open
@@ -3581,7 +3843,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 파라미터 또는 수식이 지정된 그리드 셀을 행과 열 순서로 반환한다.
+   * 이름, 파라미터 또는 수식이 지정된 그리드 셀을 행과 열 순서로 반환한다.
    *
    * @param grid - 그리드 요소
    * @returns 셀의 위치와 표시 이름(셀 이름이 없으면 행과 열 좌표)
@@ -3589,7 +3851,7 @@ export class SlipDesigner extends LitElement {
   private _gridValueCells(grid: GridElement): { row: number; column: number; label: string; at: string }[] {
     const s = this._strings.designer;
     return grid.cells
-      .filter((c) => c.parameter !== undefined || c.formula !== undefined)
+      .filter((c) => c.name?.trim() || c.parameter !== undefined || c.formula !== undefined)
       .slice()
       .sort((a, b) => a.row - b.row || a.column - b.column)
       .map((c) => {
@@ -3623,6 +3885,8 @@ export class SlipDesigner extends LitElement {
     this._selectedId = gridId;
     this._selectedIds = new Set([gridId]);
     this._selectedCell = { row, column };
+    this._bandSelect = null;
+    this._bandMenuOpen = false;
     this._cellEditing = false;
     this._sideSelection = null;
     this._expandedElements.add(gridId);
@@ -3980,25 +4244,78 @@ export class SlipDesigner extends LitElement {
     return this._pagePlan().error;
   }
 
-  /** 출력 페이지 전환 막대를 렌더링한다. 출력 페이지가 하나뿐이면 표시하지 않는다 (§7.5). */
-  private _renderOutputPageBar(outputPage: number, outputPageCount: number) {
-    if (outputPageCount <= 1) return nothing;
+  /** 계획 오류가 가리키는 요소와 행 구간을 선택하고 편집 위치로 이동한다. */
+  private _focusPlanError(error: SlipLayoutError): void {
+    if (error.elementId === undefined) return;
+    const element = this._findElement(error.elementId);
+    if (element === undefined) return;
+    this._selectElement(element.id);
+    this._selectedCell = null;
+    this._cellEditing = false;
+    if (element.type === 'grid' && error.bandId !== undefined) {
+      const band = element.repeat?.bands.find((candidate) => candidate.id === error.bandId);
+      if (band !== undefined) this._bandSelect = { from: band.fromRow, to: band.toRow };
+    }
+    this.requestUpdate();
+    void this.updateComplete.then(() => {
+      const target = error.bandId === undefined
+        ? this.renderRoot.querySelector(`[data-id="${element.id}"]`)
+        : this.renderRoot.querySelector(`[data-band-id="${error.bandId}"] .band-item-main`);
+      if (!(target instanceof HTMLElement)) return;
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  /** 선택한 반복 그리드의 원본 행 구조와 출력 결과 표시를 전환한다. */
+  private _setGridPlanPreview(enabled: boolean): void {
+    this._gridPlanPreview = enabled;
+    this._selectedCell = null;
+    this._cellEditing = false;
+    this._bandSelect = null;
+    this._bandMenuOpen = false;
+    this._pendingTool = null;
+    this.requestUpdate();
+  }
+
+  /** 출력 페이지 이동과 선택한 반복 그리드의 출력 결과 전환을 렌더링한다. */
+  private _renderOutputPageBar(outputPage: number, outputPageCount: number, plan: SourcePagePlan | null) {
     const s = this._strings.designer;
+    const selected = this._findSelectedElement();
+    const canPreviewGrid = selected?.type === 'grid'
+      && selected.repeat !== undefined
+      && plan?.gridPlans.has(selected.id) === true;
+    if (outputPageCount <= 1 && !canPreviewGrid) return nothing;
     return html`
-      <div class="output-page-bar">
-        <button class="row-btn" aria-label="${s.outputPage} -"
-          ?disabled=${outputPage === 0}
-          @click=${() => {
-            this._outputPage = Math.max(0, outputPage - 1);
-            this.requestUpdate();
-          }}>${icons.pagePrev}</button>
-        <span>${s.outputPage} ${outputPage + 1} / ${outputPageCount}</span>
-        <button class="row-btn" aria-label="${s.outputPage} +"
-          ?disabled=${outputPage >= outputPageCount - 1}
-          @click=${() => {
-            this._outputPage = Math.min(outputPageCount - 1, outputPage + 1);
-            this.requestUpdate();
-          }}>${icons.pageNext}</button>
+      <div class="output-page-bar" role="group" aria-label=${s.outputPage}
+        @pointerdown=${(event: PointerEvent) => event.stopPropagation()}>
+        ${canPreviewGrid
+          ? html`<button type="button" class="output-preview-toggle"
+              aria-pressed=${String(this._gridPlanPreview)}
+              @click=${() => this._setGridPlanPreview(!this._gridPlanPreview)}>
+              ${this._gridPlanPreview ? icons.edit : icons.preview}
+              <span>${this._gridPlanPreview ? s.gridStructureEdit : s.outputResult}</span>
+            </button>`
+          : nothing}
+        ${outputPageCount <= 1
+          ? nothing
+          : html`<div class="output-page-nav">
+              <button type="button" class="row-btn output-page-prev" aria-label=${s.prevPage}
+                ?disabled=${outputPage === 0}
+                @click=${() => {
+                  this._outputPage = Math.max(0, outputPage - 1);
+                  this.requestUpdate();
+                }}>${icons.pagePrev}</button>
+              <span class="output-page-status" aria-live="polite">
+                ${s.outputPage} ${outputPage + 1} / ${outputPageCount}
+              </span>
+              <button type="button" class="row-btn output-page-next" aria-label=${s.nextPage}
+                ?disabled=${outputPage >= outputPageCount - 1}
+                @click=${() => {
+                  this._outputPage = Math.min(outputPageCount - 1, outputPage + 1);
+                  this.requestUpdate();
+                }}>${icons.pageNext}</button>
+            </div>`}
       </div>`;
   }
 
@@ -4017,7 +4334,20 @@ export class SlipDesigner extends LitElement {
     const [pt, pr, pb, pl] = paper.padding;
 
     return html`
-      <div class="paper-wrap" style="--paper-w:${pw}px;--paper-h:${ph}px"
+      <div class="canvas-stack" style="--paper-w:${pw}px;--paper-h:${ph}px">
+      ${this._renderOutputPageBar(outputPage, outputPageCount, plan)}
+      ${error === null
+        ? nothing
+        : html`<div id="page-plan-error" class="plan-error" role="alert"
+            @pointerdown=${(event: PointerEvent) => event.stopPropagation()}>
+            <span>${this._strings.designer.planError}: ${error.message}</span>
+            ${error.elementId === undefined
+              ? nothing
+              : html`<button type="button" @click=${() => this._focusPlanError(error)}>
+                  ${this._strings.designer.planErrorLocate}
+                </button>`}
+          </div>`}
+      <div class="paper-wrap"
         @pointermove=${(e: PointerEvent) => this._trackCursor(e)}
         @pointerleave=${() => {
           if (this._cursorMm === null) return;
@@ -4043,8 +4373,10 @@ export class SlipDesigner extends LitElement {
           height:${(paper.height - pt - pb) * PX_PER_MM}px;
         "></div>
         ${plan !== null && page.elements.some((el) => el.type === 'grid' && el.repeat?.pagination.mode === 'auto')
-          ? html`<div class="flow-guide" title=${this._strings.designer.flowAreaGuide}
-              style="top:${plan.flowArea.bottom * PX_PER_MM}px"></div>`
+          ? html`<div class="flow-guide" aria-label=${this._strings.designer.flowAreaGuide}
+              style="top:${plan.flowArea.bottom * PX_PER_MM}px">
+              <span>${this._strings.designer.flowAreaGuide}</span>
+            </div>`
           : nothing}
         ${this._renderPageNumberPlaceholder(page, paper, [pt, pr, pb, pl])}
         ${page.elements.map((el) => this._renderElement(el, plan, outputPage, outputPageCount))}
@@ -4066,10 +4398,7 @@ export class SlipDesigner extends LitElement {
         ${this._renderLineGhost(pw, ph)}
         ${this._renderCellEditor()}
       </div>
-      ${error === null
-        ? nothing
-        : html`<div class="plan-error" role="alert">${this._strings.designer.planError}: ${error.message}</div>`}
-      ${this._renderOutputPageBar(outputPage, outputPageCount)}
+      </div>
       </div>
     `;
   }
@@ -4271,6 +4600,7 @@ export class SlipDesigner extends LitElement {
   }
 
   private _renderSelectionOverlay() {
+    if (this._gridPlanPreview) return nothing;
     // 크기 조절 핸들은 요소 하나만 선택한 경우에 표시한다.
     if (this._selectedIds.size > 1) return nothing;
     const el = this._findSelectedElement();
@@ -4323,12 +4653,14 @@ export class SlipDesigner extends LitElement {
   private _renderElement(el: SlipElement, plan: SourcePagePlan | null, outputPage: number, outputPageCount: number) {
     // 다중 선택된 요소의 영역을 모두 강조한다.
     const selected = this._selectedIds.has(el.id);
+    const layoutError = this._planError();
+    const hasLayoutError = layoutError?.elementId === el.id;
     let originY = el.position.y;
     let fragment: GridFragment | null = null;
 
     if (el.type === 'grid' && el.repeat !== undefined) {
       // 선택한 반복 그리드는 행 구간을 편집할 수 있게 원본 행 구조로 표시한다.
-      if (!selected && plan !== null) {
+      if ((!selected || this._gridPlanPreview) && plan !== null) {
         const gridPlan = plan.gridPlans.get(el.id);
         fragment = gridPlan?.fragments.find((f) => f.outputPage === outputPage) ?? null;
         if (fragment === null) return nothing;
@@ -4397,8 +4729,11 @@ export class SlipDesigner extends LitElement {
     }
 
     return html`
-      <div class="element ${selected ? 'selected' : ''} type-${el.type}"
+      <div class="element ${selected ? 'selected' : ''} ${hasLayoutError ? 'layout-error' : ''} type-${el.type}"
            data-id=${el.id}
+           tabindex=${hasLayoutError ? '-1' : nothing}
+           aria-invalid=${hasLayoutError ? 'true' : nothing}
+           aria-describedby=${hasLayoutError ? 'page-plan-error' : nothing}
            style=${style}>
         <span class="badge">${TYPE_BADGE[el.type]}</span>
         ${this._renderElementContent(el, fragment)}
@@ -4608,13 +4943,36 @@ export class SlipDesigner extends LitElement {
     const heights = el.rows.map((row) => row.height);
     const rowTracks = heights.map((h) => `${h}fr`).join(' ');
     const items = this._repeatSampleItems(el);
+    const realItems = el.repeat?.maxItems === undefined ? items : items.slice(0, el.repeat.maxItems);
+    const gridPlan = el.repeat === undefined ? undefined : this._pagePlan().plan?.gridPlans.get(el.id);
+    const plannedFragment = gridPlan?.fragments.find((candidate) => candidate.outputPage === this._outputPage);
+    const itemsOf = (indexes: readonly number[] | undefined): Record<string, unknown>[] => indexes === undefined
+      ? realItems
+      : indexes.map((index) => realItems[index]).filter(
+          (item): item is Record<string, unknown> => item !== undefined,
+        );
 
     const boxes = el.cells.map((cell) => {
       const isSelectedCell =
         selected && this._selectedCell?.row === cell.row && this._selectedCell?.column === cell.column;
       const inBand = inItemBand(el, cell.row);
+      const band = bandAt(el, cell.row);
+      const planned = plannedFragment?.bands.find((candidate) => candidate.band.id === band?.id);
+      const reserved: Record<string, unknown> | undefined = el.repeat === undefined
+        ? undefined
+        : {
+            '@all': realItems,
+            '@page': itemsOf(plannedFragment?.pageItems),
+            '@carried': itemsOf(plannedFragment?.carriedItems ?? []),
+            '@group': planned?.groupIndex === undefined
+              ? realItems
+              : itemsOf(gridPlan?.groups[planned.groupIndex]),
+          };
+      const previewItem = planned?.itemIndex === undefined ? items[0] : realItems[planned.itemIndex];
+      if (reserved !== undefined && previewItem !== undefined) reserved['@item'] = previewItem;
       return this._gridCellBox(el, cell, { row: cell.row, rowSpan: cell.rowSpan ?? 1 }, {
-        item: inBand ? items[0] : undefined,
+        item: inBand ? previewItem : undefined,
+        ...(reserved === undefined ? {} : { reserved }),
         selected: isSelectedCell,
         borderCssOf,
       });
@@ -4647,7 +5005,8 @@ export class SlipDesigner extends LitElement {
 
     const preview = html`<div class="grid-preview"
       style="grid-template-columns:${colTracks};grid-template-rows:${rowTracks}">${bandOverlays}${blanks}${boxes}</div>`;
-    if (!selected || el.repeat === undefined) return preview;
+    // 셀 편집 중에는 행 역할 조작을 감춰 두 편집 모드가 겹치지 않게 한다.
+    if (!selected || el.repeat === undefined || this._selectedCell !== null) return preview;
     return html`${preview}${this._renderBandStrip(el, rowTracks)}`;
   }
 
@@ -4773,15 +5132,18 @@ export class SlipDesigner extends LitElement {
       const band = bandAt(el, r);
       const inSelect = select !== null && r >= Math.min(select.from, select.to) && r <= Math.max(select.from, select.to);
       return html`<button type="button"
+        data-band-row=${String(r)}
         class="band-row placement-${band?.placement ?? 'none'} ${inSelect ? 'selected' : ''}"
         title=${band === undefined ? '' : this._bandPlacementLabel(band.placement)}
         aria-label="${s.bandRow} ${r + 1}"
+        aria-haspopup="menu"
+        aria-expanded=${String(inSelect && this._bandMenuOpen)}
         @pointerdown=${(e: PointerEvent) => e.stopPropagation()}
         @click=${(e: MouseEvent) => this._onBandRowClick(r, e.shiftKey)}>${r + 1}</button>`;
     });
     return html`<div class="band-strip" style="grid-template-rows:${rowTracks}"
       @pointerdown=${(e: PointerEvent) => e.stopPropagation()}>${rows}</div>
-      ${select === null ? nothing : this._renderBandMenu(el)}`;
+      ${select === null || !this._bandMenuOpen ? nothing : this._renderBandMenu(el)}`;
   }
 
   /** 행 구간 역할 명령 메뉴를 렌더링한다. */
@@ -4790,23 +5152,23 @@ export class SlipDesigner extends LitElement {
     const select = this._bandSelect!;
     const from = Math.min(select.from, select.to);
     const to = Math.max(select.from, select.to);
-    return html`<div class="band-menu" role="menu"
+    const top = el.rows.slice(0, from).reduce((sum, row) => sum + row.height * PX_PER_MM, 0);
+    const menuLabel = s.bandMenuTitle
+      .replace('{from}', String(from + 1))
+      .replace('{to}', String(to + 1));
+    return html`<div class="band-menu" role="menu" aria-label=${menuLabel} style="top:${top}px"
+      @keydown=${this._onBandMenuKeyDown}
       @pointerdown=${(e: PointerEvent) => e.stopPropagation()}>
-      <div class="band-menu-title">${s.bandMenuTitle
-        .replace('{from}', String(from + 1))
-        .replace('{to}', String(to + 1))}</div>
+      <div class="band-menu-title">${menuLabel}</div>
       ${BAND_PLACEMENTS.map((placement) => html`<button type="button" role="menuitem"
         class="band-menu-item placement-${placement}"
         @click=${() => {
           this._setRowBandRole(from, to, placement);
-          this._bandSelect = null;
-          this.requestUpdate();
-        }}>${this._bandPlacementLabel(placement)}</button>`)}
+          this._closeBandMenu(true);
+        }}><span class="band-menu-icon">${this._bandPlacementIcon(placement)}</span>
+          ${this._bandPlacementLabel(placement)}</button>`)}
       <button type="button" role="menuitem" class="band-menu-item"
-        @click=${() => {
-          this._bandSelect = null;
-          this.requestUpdate();
-        }}>${s.cancel}</button>
+        @click=${() => this._closeBandMenu(true)}>${s.cancel}</button>
     </div>`;
   }
 
@@ -4814,8 +5176,44 @@ export class SlipDesigner extends LitElement {
   private _onBandRowClick(row: number, extend: boolean): void {
     if (extend && this._bandSelect !== null) this._bandSelect = { from: this._bandSelect.from, to: row };
     else this._bandSelect = { from: row, to: row };
+    this._bandMenuOpen = true;
+    this._focusBandMenu = true;
     this.requestUpdate();
   }
+
+  /** 행 역할 메뉴를 닫고 조작을 시작한 행으로 포커스를 돌린다. */
+  private _closeBandMenu(clearSelection: boolean): void {
+    const row = this._bandSelect === null ? null : Math.min(this._bandSelect.from, this._bandSelect.to);
+    if (clearSelection) this._bandSelect = null;
+    this._bandMenuOpen = false;
+    this.requestUpdate();
+    if (row === null) return;
+    void this.updateComplete.then(() => {
+      (this.renderRoot.querySelector(`[data-band-row="${row}"]`) as HTMLButtonElement | null)?.focus();
+    });
+  }
+
+  /** 행 역할 메뉴에서 방향키·Home·End·Escape 포커스 이동을 처리한다. */
+  private _onBandMenuKeyDown = (event: KeyboardEvent): void => {
+    const menu = event.currentTarget as HTMLElement;
+    const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('.band-menu-item'));
+    const current = items.indexOf(this.shadowRoot?.activeElement as HTMLButtonElement);
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      this._closeBandMenu(false);
+      return;
+    }
+    let next = -1;
+    if (event.key === 'ArrowDown') next = current < 0 ? 0 : (current + 1) % items.length;
+    else if (event.key === 'ArrowUp') next = current <= 0 ? items.length - 1 : current - 1;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = items.length - 1;
+    if (next < 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    items[next]?.focus();
+  };
 
   /** 행 구간 역할의 표시 이름을 반환한다. */
   private _bandPlacementLabel(placement: GridBandPlacement): string {
@@ -4828,6 +5226,19 @@ export class SlipDesigner extends LitElement {
       case 'group-end': return s.bandGroupEnd;
       case 'after-data': return s.bandAfterData;
       case 'page-end': return s.bandPageEnd;
+    }
+  }
+
+  /** 행 구간 역할을 나타내는 아이콘을 반환한다. */
+  private _bandPlacementIcon(placement: GridBandPlacement) {
+    switch (placement) {
+      case 'before-data': return icons.pagePrev;
+      case 'page-start': return icons.up;
+      case 'group-start': return icons.treeOpen;
+      case 'item': return icons.gridElement;
+      case 'group-end': return icons.treeClosed;
+      case 'after-data': return icons.pageNext;
+      case 'page-end': return icons.down;
     }
   }
 
@@ -6499,6 +6910,9 @@ export class SlipDesigner extends LitElement {
     const numberOf = (e: Event): number => Number((e.target as HTMLInputElement).value);
     const planError = this._planError();
     const gridPlanError = planError !== null && planError.elementId === el.id ? planError : null;
+    const repeatFields = repeat === undefined
+      ? []
+      : (this._parameterList().find((parameter) => parameter.key === repeat.parameter)?.fields ?? []);
     // 셀이 선택된 동안에는 그리드 전체 설정을 숨긴다 (§7.4).
     const gridOwnProps = html`
           <div class="prop-section">
@@ -6508,7 +6922,11 @@ export class SlipDesigner extends LitElement {
                 <div class="step-inputs">
                   <button class="row-btn" aria-label="${s.rows} -" @click=${() => this._changeGridRows(-1)}>-</button>
                   <span>${el.rows.length}</span>
-                  <button class="row-btn" aria-label="${s.rows} +" @click=${() => this._changeGridRows(1)}>+</button>
+                  ${repeat === undefined
+                    ? html`<button class="row-btn" aria-label="${s.rows} +"
+                        @click=${() => this._changeGridRows(1)}>+</button>`
+                    : html`<button class="row-btn" aria-label=${s.addRow}
+                        @click=${(event: Event) => this._toggleListSelect('band-add-row', event)}>+</button>`}
                 </div>
               </div>
               <div class="prop-row">
@@ -6577,40 +6995,55 @@ export class SlipDesigner extends LitElement {
                       <input type="number" min="1" max=${String(GRID_MAX_PER_PAGE_UI)}
                         .value=${String(repeat.pagination.itemsPerPage)}
                         aria-invalid=${String(this._hasInputError('repeat-per-page') || gridPlanError !== null)}
-                        aria-describedby=${this._hasInputError('repeat-per-page') ? 'error-repeat-per-page' : nothing}
+                        aria-describedby=${this._hasInputError('repeat-per-page')
+                          ? 'error-repeat-per-page'
+                          : gridPlanError?.bandId !== undefined ? `grid-plan-error-${gridPlanError.bandId}` : nothing}
                         @change=${(e: Event) => this._setGridPagination({ itemsPerPage: numberOf(e) })}>
                     </div>
                     ${this._renderInputError('repeat-per-page')}`}
-                <div class="prop-row">
-                  <label>${s.repeatMaxItems}</label>
-                  <input type="number" min="1" max=${String(GRID_MAX_ITEMS_UI)}
-                    class=${repeat.maxItems === undefined ? 'dim' : ''}
-                    placeholder=${s.repeatMaxItemsNone}
-                    .value=${repeat.maxItems === undefined ? '' : String(repeat.maxItems)}
-                    aria-invalid=${String(this._hasInputError('repeat-max-items'))}
-                    aria-describedby=${this._hasInputError('repeat-max-items') ? 'error-repeat-max-items' : nothing}
-                    @change=${(e: Event) => {
-                      const raw = (e.target as HTMLInputElement).value.trim();
-                      this._setRepeatMaxItems(raw === '' ? null : Number(raw));
-                    }}>
-                </div>
-                ${this._renderInputError('repeat-max-items')}
-                <div class="prop-row">
-                  <label>${s.groupBy}</label>
-                  <input .value=${(repeat.groupBy ?? []).join(', ')}
-                    placeholder=${s.groupByNone}
-                    aria-label=${s.groupBy}
-                    aria-invalid=${String(this._hasInputError('repeat-group-by'))}
-                    aria-describedby=${this._hasInputError('repeat-group-by') ? 'error-repeat-group-by' : nothing}
-                    @change=${(e: Event) => this._setGridGroupBy((e.target as HTMLInputElement).value)}>
-                </div>
-                ${this._renderInputError('repeat-group-by')}
-                ${gridPlanError === null
+                <details class="advanced-settings">
+                  <summary><span>${s.advancedSettings}</span>${icons.down}</summary>
+                  <div class="advanced-settings-body">
+                    <div class="prop-row">
+                      <label>${s.repeatMaxItems}</label>
+                      <input type="number" min="1" max=${String(GRID_MAX_ITEMS_UI)}
+                        class=${repeat.maxItems === undefined ? 'dim' : ''}
+                        placeholder=${s.repeatMaxItemsNone}
+                        .value=${repeat.maxItems === undefined ? '' : String(repeat.maxItems)}
+                        aria-invalid=${String(this._hasInputError('repeat-max-items'))}
+                        aria-describedby=${this._hasInputError('repeat-max-items') ? 'error-repeat-max-items' : nothing}
+                        @change=${(e: Event) => {
+                          const raw = (e.target as HTMLInputElement).value.trim();
+                          this._setRepeatMaxItems(raw === '' ? null : Number(raw));
+                        }}>
+                    </div>
+                    ${this._renderInputError('repeat-max-items')}
+                    <div class="prop-row stacked group-fields-row">
+                      <label>${s.groupBy}</label>
+                      <div class="field-check-list" role="group" aria-label=${s.groupBy}>
+                        ${repeatFields.length === 0
+                          ? html`<span class="field-check-empty">—</span>`
+                          : repeatFields.map((field) => html`
+                            <label class="field-check" title=${field.key}>
+                              <input type="checkbox" data-field=${field.key}
+                                .checked=${repeat.groupBy?.includes(field.key) === true}
+                                @change=${(e: Event) => this._toggleGridGroupField(
+                                  field.key,
+                                  (e.target as HTMLInputElement).checked,
+                                )}>
+                              <span>${field.title}</span>
+                            </label>`)}
+                      </div>
+                    </div>
+                    ${this._renderInputError('repeat-group-by')}
+                  </div>
+                </details>
+                ${gridPlanError === null || gridPlanError.bandId !== undefined
                   ? nothing
-                  : html`<div class="input-error" role="alert">${gridPlanError.message}</div>`}
-                ${this._renderBandList(el)}`
+                  : html`<div class="input-error" role="alert" id="grid-plan-error">${gridPlanError.message}</div>`}`
               : nothing}
-          </div>`;
+          </div>
+          ${repeat === undefined ? nothing : this._renderBandList(el)}`;
     return html`
           ${cellTarget === null
             ? gridOwnProps
@@ -6626,6 +7059,99 @@ export class SlipDesigner extends LitElement {
         `;
   }
 
+  /** 내부 구간 조합 대신 작업 목적으로 행을 추가하는 명령을 렌더링한다. */
+  private _renderGridRowCommands(el: GridElement) {
+    const s = this._strings.designer;
+    const command = this._gridRowCommand;
+    const fields = this._parameterList()
+      .find((parameter) => parameter.key === el.repeat?.parameter)?.fields ?? [];
+    const numericFields = fields.filter((field) => field.valueType === 'number');
+    const selectedField = numericFields.find((field) => field.key === this._gridRowCommandField);
+    const definitions: { command: GridRowCommand; label: string; icon: unknown }[] = [
+      { command: 'header', label: s.gridCommandHeaderName, icon: icons.up },
+      { command: 'group-subtotal', label: s.gridCommandGroupSubtotalName, icon: icons.treeClosed },
+      { command: 'page-subtotal', label: s.gridCommandPageSubtotalName, icon: icons.down },
+      { command: 'final-total', label: s.gridCommandFinalTotalName, icon: icons.formula },
+    ];
+    const needsField = command !== null && command !== 'header';
+    const groupReady = command !== 'group-subtotal'
+      || (el.repeat?.groupBy !== undefined && el.repeat.groupBy.length > 0);
+    const fieldReady = !needsField || selectedField !== undefined;
+    const location = command === 'header' ? this._bandPlacementLabel('page-start')
+      : command === 'group-subtotal' ? this._bandPlacementLabel('group-end')
+      : command === 'page-subtotal' ? this._bandPlacementLabel('page-end')
+      : this._bandPlacementLabel('after-data');
+    const display = command === 'group-subtotal' ? s.gridCommandEachGroup
+      : command === 'page-subtotal' ? s.pagesNonFinal
+      : command === 'final-total' ? s.gridCommandOnce
+      : s.pagesAll;
+    const calculation = command === 'header' ? s.gridCommandNone
+      : command === 'group-subtotal'
+        ? s.gridCommandGroupCalculation.replace('{field}', selectedField?.title ?? s.gridCommandFieldMissing)
+        : command === 'page-subtotal'
+          ? s.gridCommandPageCalculation.replace('{field}', selectedField?.title ?? s.gridCommandFieldMissing)
+          : s.gridCommandFinalCalculation.replace('{field}', selectedField?.title ?? s.gridCommandFieldMissing);
+
+    return html`
+      <div class="prop-subsection-title">${s.gridCommandSection}</div>
+      <div class="grid-command-list">
+        ${definitions.map((definition) => html`
+          <button type="button" data-grid-command=${definition.command}
+            aria-pressed=${String(command === definition.command)}
+            class=${command === definition.command ? 'selected' : ''}
+            @click=${() => {
+              if (command === definition.command) {
+                this._gridRowCommand = null;
+                this._gridRowCommandField = '';
+              } else {
+                this._openGridRowCommand(definition.command);
+              }
+            }}>
+            <span>${definition.icon}</span>
+            <span>${definition.label}</span>
+          </button>`)}
+      </div>
+      ${command === null
+        ? nothing
+        : html`<div class="grid-command-editor">
+            ${needsField
+              ? html`<div class="prop-row">
+                  <label>${s.gridCommandField}</label>
+                  ${this._listSelect({
+                    id: 'grid-row-command-field',
+                    ariaLabel: s.gridCommandField,
+                    value: selectedField?.key ?? '',
+                    placeholder: s.gridCommandFieldMissing,
+                    options: numericFields.map((field) => ({ value: field.key, label: field.title })),
+                    onPick: (value) => { this._gridRowCommandField = value; },
+                  })}
+                </div>`
+              : nothing}
+            ${!groupReady
+              ? html`<div class="grid-command-requirement">${s.gridCommandGroupRequired}</div>`
+              : !fieldReady
+                ? html`<div class="grid-command-requirement">${s.gridCommandNumberRequired}</div>`
+                : nothing}
+            <div class="grid-command-preview-title">${s.gridCommandPreview}</div>
+            <div class="grid-command-preview" aria-label=${s.gridCommandPreview}>
+              <div><span>${s.gridCommandLocation}</span><strong>${location}</strong></div>
+              <div><span>${s.gridCommandDisplay}</span><strong>${display}</strong></div>
+              <div><span>${s.gridCommandCalculation}</span><strong>${calculation}</strong></div>
+            </div>
+            ${this._renderInputError('grid-row-command')}
+            <div class="grid-command-actions">
+              <button type="button" @click=${() => {
+                this._gridRowCommand = null;
+                this._gridRowCommandField = '';
+              }}>${s.cancel}</button>
+              <button type="button" class="primary" ?disabled=${!groupReady || !fieldReady}
+                @click=${() => this._applyGridRowCommand()}>${s.gridCommandApply}</button>
+            </div>
+          </div>`}
+      <div class="prop-subsection-title band-manual-title">${s.gridCommandManual}</div>
+    `;
+  }
+
   /**
    * 행 구간 목록을 렌더링한다.
    * 캔버스의 행 번호 선택 영역과 같은 색상 표식·이름으로 구간을 식별한다 (§7.2).
@@ -6633,43 +7159,138 @@ export class SlipDesigner extends LitElement {
   private _renderBandList(el: GridElement) {
     const s = this._strings.designer;
     const bands = el.repeat?.bands ?? [];
+    const planError = this._planError();
+    const errorBandId = planError?.elementId === el.id ? planError.bandId : undefined;
+    const selected = this._bandSelect === null
+      ? null
+      : {
+          from: Math.min(this._bandSelect.from, this._bandSelect.to),
+          to: Math.max(this._bandSelect.from, this._bandSelect.to),
+        };
+    const selectedRoles = selected === null
+      ? []
+      : [...new Set(Array.from(
+          { length: selected.to - selected.from + 1 },
+          (_, offset) => bandAt(el, selected.from + offset)?.placement,
+        ).filter((role): role is GridBandPlacement => role !== undefined))];
+    const selectedRole = selectedRoles.length === 1 ? selectedRoles[0]! : '';
+    const roleOptions = BAND_PLACEMENTS.map((placement) => ({
+      value: placement,
+      label: this._bandPlacementLabel(placement),
+    }));
     return html`
-      <div class="band-list">
+      <div class="prop-section band-list">
         <div class="prop-section-title">${s.bandSection}</div>
+        ${this._renderGridRowCommands(el)}
+        <div class="prop-row">
+          <label>${s.addRow}</label>
+          ${this._listSelect({
+            id: 'band-add-row',
+            ariaLabel: s.addRow,
+            value: '',
+            placeholder: s.selectRole,
+            options: roleOptions,
+            onPick: (value) => this._addGridRowWithRole(value as GridBandPlacement),
+          })}
+        </div>
         ${this._renderInputError('band-role')}
         ${bands.map((band) => html`
-          <div class="band-item">
-            <span class="band-swatch placement-${band.placement}"></span>
-            <span class="band-label">${this._bandPlacementLabel(band.placement)}</span>
-            <span class="band-range">${band.fromRow === band.toRow
-              ? s.bandRowOne.replace('{row}', String(band.fromRow + 1))
-              : s.bandRowRange.replace('{from}', String(band.fromRow + 1)).replace('{to}', String(band.toRow + 1))}</span>
+          <div data-band-id=${band.id}
+            class="band-item ${selected?.from === band.fromRow && selected.to === band.toRow ? 'selected' : ''} ${errorBandId === band.id ? 'layout-error' : ''}">
+            <button type="button" class="band-item-main"
+              title=${band.name === undefined
+                ? this._bandPlacementLabel(band.placement)
+                : `${band.name} · ${this._bandPlacementLabel(band.placement)}`}
+              aria-pressed=${String(selected?.from === band.fromRow && selected.to === band.toRow)}
+              aria-invalid=${errorBandId === band.id ? 'true' : nothing}
+              aria-describedby=${errorBandId === band.id ? `grid-plan-error-${band.id}` : nothing}
+              @click=${() => {
+                this._bandSelect = { from: band.fromRow, to: band.toRow };
+                this._bandMenuOpen = false;
+                this.requestUpdate();
+              }}>
+              <span class="band-swatch placement-${band.placement}"></span>
+              <span class="band-icon">${this._bandPlacementIcon(band.placement)}</span>
+              <span class="band-label">${band.name ?? this._bandPlacementLabel(band.placement)}</span>
+              <span class="band-range">${band.fromRow === band.toRow
+                ? s.bandRowOne.replace('{row}', String(band.fromRow + 1))
+                : s.bandRowRange.replace('{from}', String(band.fromRow + 1)).replace('{to}', String(band.toRow + 1))}</span>
+            </button>
+            ${errorBandId === band.id
+              ? html`<div class="band-plan-error" id="grid-plan-error-${band.id}" role="alert">
+                  ${planError?.message}
+                </div>`
+              : nothing}
             ${band.placement === 'page-start' || band.placement === 'page-end'
-              ? this._listSelect({
-                  id: `band-pages-${band.id}`,
-                  ariaLabel: `${this._bandPlacementLabel(band.placement)} ${s.pagePlacementPages}`,
-                  value: band.pages ?? 'all',
-                  options: [
-                    { value: 'all', label: s.pagesAll },
-                    { value: 'first', label: s.pagesFirst },
-                    { value: 'continuation', label: s.pagesContinuation },
-                    { value: 'non-final', label: s.pagesNonFinal },
-                    { value: 'last', label: s.pagesLast },
-                  ],
-                  onPick: (value) => this._setBandPages(band.id, value as OutputPageFilter),
-                })
+              ? html`<div class="band-option-row">
+                  <span>${s.pagePlacementPages}</span>
+                  ${this._listSelect({
+                    id: `band-pages-${band.id}`,
+                    ariaLabel: `${this._bandPlacementLabel(band.placement)} ${s.pagePlacementPages}`,
+                    value: band.pages ?? 'all',
+                    options: [
+                      { value: 'all', label: s.pagesAll },
+                      { value: 'first', label: s.pagesFirst },
+                      { value: 'continuation', label: s.pagesContinuation },
+                      { value: 'non-final', label: s.pagesNonFinal },
+                      { value: 'last', label: s.pagesLast },
+                    ],
+                    onPick: (value) => this._setBandPages(band.id, value as OutputPageFilter),
+                  })}
+                </div>`
               : nothing}
             ${band.placement === 'group-start'
-              ? html`<label class="band-repeat-toggle">
+              ? html`<label class="band-repeat-toggle band-option-row">
                   <input type="checkbox" .checked=${band.repeatOnPageBreak === true}
                     aria-label=${s.bandRepeatOnBreak}
                     @change=${(e: Event) =>
                       this._setBandRepeatOnPageBreak(band.id, (e.target as HTMLInputElement).checked)}>
-                  ${s.bandRepeatOnBreak}
+                  <span>${s.bandRepeatOnBreak}</span>
                 </label>`
               : nothing}
           </div>`)}
-        <div class="band-hint">${s.bandStripHint}</div>
+        ${selected === null
+          ? nothing
+          : html`<div class="band-editor">
+              <div class="prop-pair">
+                <div class="prop-row">
+                  <label>${s.bandFromRow}</label>
+                  <input type="number" min="1" max=${String(el.rows.length)}
+                    aria-label=${s.bandFromRow}
+                    .value=${String(selected.from + 1)}
+                    @change=${(e: Event) => this._setBandSelectionBoundary(
+                      'from',
+                      Number((e.target as HTMLInputElement).value),
+                    )}>
+                </div>
+                <div class="prop-row">
+                  <label>${s.bandToRow}</label>
+                  <input type="number" min="1" max=${String(el.rows.length)}
+                    aria-label=${s.bandToRow}
+                    .value=${String(selected.to + 1)}
+                    @change=${(e: Event) => this._setBandSelectionBoundary(
+                      'to',
+                      Number((e.target as HTMLInputElement).value),
+                    )}>
+                </div>
+              </div>
+              ${this._renderInputError('band-range')}
+              <div class="prop-row">
+                <label>${s.bandRole}</label>
+                ${this._listSelect({
+                  id: 'band-role-editor',
+                  ariaLabel: s.bandRole,
+                  value: selectedRole,
+                  placeholder: s.selectRole,
+                  options: roleOptions,
+                  onPick: (value) => this._setRowBandRole(
+                    selected.from,
+                    selected.to,
+                    value as GridBandPlacement,
+                  ),
+                })}
+              </div>
+            </div>`}
       </div>`;
   }
 

@@ -603,6 +603,7 @@ interface SlipPage {
   key?: string;
   label?: string;
   pageNumber?: PageNumber;
+  flowArea?: PageFlowArea;
 }
 ```
 
@@ -612,8 +613,20 @@ interface SlipPage {
 | `key` | The page physical name used for external integration |
 | `label` | The page logical name shown in the designer list |
 | `pageNumber` | The page-number setting shown in the PDF |
+| `flowArea` | The vertical area used by auto-growing elements |
 
 Within a document, `key` cannot be duplicated.
+
+### `PageFlowArea`
+
+```ts
+interface PageFlowArea {
+  top: number;
+  bottom: number;
+}
+```
+
+`top` and `bottom` are millimeter coordinates measured from the top of the paper. When omitted, the area between the top and bottom paper margins is used.
 
 ### `PageNumber`
 
@@ -735,9 +748,27 @@ Nine kinds of element are distinguished by `type`.
 | `id` | `string` | An element identifier unique across the whole document |
 | `name` | `string` | The element name shown in the designer |
 | `position` | `{ x, y }` | The position relative to the top-left of the page (mm) |
-| `width` | `number` | The element width (mm) |
-| `height` | `number` | The element height (mm) |
+| `width` | `number` | Element width (mm). Grids omit it because their width is the sum of column widths |
+| `height` | `number` | Element height (mm). Grids omit it because their height is the sum of row heights |
 | `group` | `string?` | A group identifier that binds multiple elements together |
+| `pagePlacement` | `PagePlacement?` | Placement and visibility on generated output pages |
+
+### `PagePlacement`
+
+```ts
+type OutputPageFilter =
+  | 'all'
+  | 'first'
+  | 'continuation'
+  | 'non-final'
+  | 'last';
+
+type PagePlacement =
+  | { mode: 'absolute'; pages?: OutputPageFilter }
+  | { mode: 'after'; target: string; gap?: number };
+```
+
+`absolute` keeps the original coordinates and uses `pages` to choose the output pages on which the element appears. `after` places the element after the target element's last output fragment on the same source page.
 
 ### Text style fields
 
@@ -977,6 +1008,12 @@ interface PolygonElement {
 interface GridElement {
   type: 'grid';
 
+  id: string;
+  name: string;
+  position: { x: number; y: number };
+  group?: string;
+  pagePlacement?: PagePlacement;
+
   columns: {
     width: number;
     autoMerge?: boolean;
@@ -993,16 +1030,15 @@ interface GridElement {
     | 'clip'
     | 'shrink';
 
-  // common position & size,
   // text/color/border style
 }
 ```
 
 Column widths and row heights are absolute values in millimeters, not ratios.
 
-- The sum of column widths must equal the grid `width`.
-- If there is no repeat, the sum of row heights must equal `height`.
-- If there is a repeat, the height must include the repeat region expanded by `perPage`.
+- Grid width is calculated from the sum of column widths.
+- The template height of a grid is calculated from the sum of row heights.
+- Repeated output height and output-page count are calculated from the row bands and page mode in `repeat`.
 
 ### `GridCell`
 
@@ -1010,6 +1046,8 @@ Column widths and row heights are absolute values in millimeters, not ratios.
 interface GridCell {
   row: number;
   column: number;
+
+  name?: string;
 
   rowSpan?: number;
   colSpan?: number;
@@ -1030,20 +1068,18 @@ interface GridCell {
 
 `content`, `parameter`, and `formula` cannot be used two or more at the same time.
 
-A `parameter` inside the repeat region refers to a sub-field of a list item, and outside the repeat region it refers to a top-level key of the voucher `values`.
+`name` identifies the cell in the designer and is not printed in the PDF. When omitted, the designer shows the cell coordinates.
+
+A `parameter` in an `item` row band refers to a sub-field of a list item. Outside that band, it refers to a top-level key of the voucher `values`.
 
 ### `GridRepeat`
 
 ```ts
 interface GridRepeat {
   parameter: string;
-
-  fromRow: number;
-  toRow: number;
-
-  perPage: number;
-  repeatHeader: boolean;
-
+  bands: GridBand[];
+  pagination: GridPagination;
+  groupBy?: string[];
   maxItems?: number;
 }
 ```
@@ -1051,11 +1087,47 @@ interface GridRepeat {
 | Field | Description |
 |---|---|
 | `parameter` | A list parameter holding an array of objects |
-| `fromRow` | The repeat region's start row, starting at 0 |
-| `toRow` | The repeat region's end row, inclusive |
-| `perPage` | The number of list items shown on one output page |
-| `repeatHeader` | Whether the rows above the repeat region are shown again on the next page |
+| `bands` | Row ranges and the output stage at which each range is rendered |
+| `pagination` | Auto-grow or fixed-page mode |
+| `groupBy` | Item sub-fields that group consecutive items |
 | `maxItems` | The upper limit on the total number of output items |
+
+### `GridBand`
+
+```ts
+type GridBandPlacement =
+  | 'before-data'
+  | 'page-start'
+  | 'group-start'
+  | 'item'
+  | 'group-end'
+  | 'after-data'
+  | 'page-end';
+
+interface GridBand {
+  id: string;
+  name?: string;
+  fromRow: number;
+  toRow: number;
+  placement: GridBandPlacement;
+  pages?: OutputPageFilter;
+  repeatOnPageBreak?: boolean;
+}
+```
+
+`fromRow` and `toRow` are zero-based and inclusive. Every template row must belong to exactly one band without gaps or overlaps, and exactly one `item` band is required.
+
+Bands follow this order: `before-data`, `page-start`, `group-start`, `item`, `group-end`, `after-data`, `page-end`. `pages` limits where a `page-start` or `page-end` band appears. `repeatOnPageBreak` repeats a `group-start` band when its group continues on another page.
+
+### `GridPagination`
+
+```ts
+type GridPagination =
+  | { mode: 'auto'; minItems: number }
+  | { mode: 'fixed'; itemsPerPage: number };
+```
+
+`auto` reserves at least `minItems` item slots for the document and plans output pages from the actual data and flow area. `fixed` reserves `itemsPerPage` slots on every output page. Both modes fill unused slots with blank items, which are excluded from calculation scopes.
 
 ## Storage API
 

@@ -603,6 +603,7 @@ interface SlipPage {
   key?: string;
   label?: string;
   pageNumber?: PageNumber;
+  flowArea?: PageFlowArea;
 }
 ```
 
@@ -612,8 +613,20 @@ interface SlipPage {
 | `key` | 外部連携に使うページの物理名 |
 | `label` | デザイナーのリストに表示するページの論理名 |
 | `pageNumber` | PDF に表示するページ番号の設定 |
+| `flowArea` | 自動拡張する要素を配置する縦方向の範囲 |
 
 ドキュメント内で `key` は重複できません。
+
+### `PageFlowArea`
+
+```ts
+interface PageFlowArea {
+  top: number;
+  bottom: number;
+}
+```
+
+`top` と `bottom` は用紙上端を基準にした mm 座標です。省略した場合は、用紙の上下余白の間をフロー領域として使います。
 
 ### `PageNumber`
 
@@ -735,9 +748,27 @@ type SlipElement =
 | `id` | `string` | ドキュメント全体で一意な要素識別子 |
 | `name` | `string` | デザイナーに表示する要素名 |
 | `position` | `{ x, y }` | ページの左上を基準とした位置(mm) |
-| `width` | `number` | 要素の幅(mm) |
-| `height` | `number` | 要素の高さ(mm) |
+| `width` | `number` | 要素の幅(mm)。グリッドは列幅の合計から求めるため使用しない |
+| `height` | `number` | 要素の高さ(mm)。グリッドは行の高さの合計から求めるため使用しない |
 | `group` | `string?` | 複数の要素をまとめるグループ識別子 |
+| `pagePlacement` | `PagePlacement?` | 生成された出力ページでの配置と表示範囲 |
+
+### `PagePlacement`
+
+```ts
+type OutputPageFilter =
+  | 'all'
+  | 'first'
+  | 'continuation'
+  | 'non-final'
+  | 'last';
+
+type PagePlacement =
+  | { mode: 'absolute'; pages?: OutputPageFilter }
+  | { mode: 'after'; target: string; gap?: number };
+```
+
+`absolute` は元の座標に要素を表示し、`pages` で表示対象の出力ページを選びます。`after` は、同じテンプレートページにある対象要素の最後の出力断片に続けて要素を配置します。
 
 ### 文字スタイルのフィールド
 
@@ -977,6 +1008,12 @@ interface PolygonElement {
 interface GridElement {
   type: 'grid';
 
+  id: string;
+  name: string;
+  position: { x: number; y: number };
+  group?: string;
+  pagePlacement?: PagePlacement;
+
   columns: {
     width: number;
     autoMerge?: boolean;
@@ -993,16 +1030,15 @@ interface GridElement {
     | 'clip'
     | 'shrink';
 
-  // 共通の位置・サイズ、
   // 文字・色・枠線スタイル
 }
 ```
 
 列の幅と行の高さは、比率ではなくミリメートル単位の絶対値です。
 
-- 列の幅の合計は、グリッドの `width` と等しくなければなりません。
-- 繰り返しがなければ、行の高さの合計は `height` と等しくなければなりません。
-- 繰り返しがあれば、繰り返し範囲が `perPage` 分だけ展開された高さを含める必要があります。
+- グリッドの幅は列幅の合計から求めます。
+- グリッドのテンプレート上の高さは行の高さの合計から求めます。
+- 繰り返し出力の高さと出力ページ数は、`repeat` の行範囲とページ方式から求めます。
 
 ### `GridCell`
 
@@ -1010,6 +1046,8 @@ interface GridElement {
 interface GridCell {
   row: number;
   column: number;
+
+  name?: string;
 
   rowSpan?: number;
   colSpan?: number;
@@ -1030,20 +1068,18 @@ interface GridCell {
 
 `content`、`parameter`、`formula` は、同時に 2 つ以上使えません。
 
-繰り返し範囲内の `parameter` はリスト項目の下位フィールドを指し、繰り返し範囲の外では伝票 `values` の最上位キーを指します。
+`name` はデザイナーでセルを識別する名前で、PDF には出力されません。省略した場合、デザイナーは行と列の座標を表示します。
+
+`item` 行範囲内の `parameter` はリスト項目の下位フィールドを指し、それ以外では伝票 `values` の最上位キーを指します。
 
 ### `GridRepeat`
 
 ```ts
 interface GridRepeat {
   parameter: string;
-
-  fromRow: number;
-  toRow: number;
-
-  perPage: number;
-  repeatHeader: boolean;
-
+  bands: GridBand[];
+  pagination: GridPagination;
+  groupBy?: string[];
   maxItems?: number;
 }
 ```
@@ -1051,11 +1087,47 @@ interface GridRepeat {
 | フィールド | 説明 |
 |---|---|
 | `parameter` | オブジェクトの配列を持つリストパラメータ |
-| `fromRow` | 繰り返し範囲の開始行、0 から始まる |
-| `toRow` | 繰り返し範囲の終了行、両端を含む |
-| `perPage` | 出力ページ 1 枚に表示するリスト項目数 |
-| `repeatHeader` | 次のページでも繰り返し範囲の上の行を表示するかどうか |
+| `bands` | 各テンプレート行の範囲と出力タイミングを定義する行範囲一覧 |
+| `pagination` | 自動拡張または固定ページ方式 |
+| `groupBy` | 連続する項目をグループ化する項目フィールド一覧 |
 | `maxItems` | 出力項目の総数の上限 |
+
+### `GridBand`
+
+```ts
+type GridBandPlacement =
+  | 'before-data'
+  | 'page-start'
+  | 'group-start'
+  | 'item'
+  | 'group-end'
+  | 'after-data'
+  | 'page-end';
+
+interface GridBand {
+  id: string;
+  name?: string;
+  fromRow: number;
+  toRow: number;
+  placement: GridBandPlacement;
+  pages?: OutputPageFilter;
+  repeatOnPageBreak?: boolean;
+}
+```
+
+`fromRow` と `toRow` は 0 から始まり、両端を含みます。すべてのテンプレート行は、重複や空白なく 1 つの行範囲に属する必要があり、`item` 行範囲は 1 つだけ必要です。
+
+行範囲は `before-data`、`page-start`、`group-start`、`item`、`group-end`、`after-data`、`page-end` の順に配置します。`pages` は `page-start` と `page-end` の表示ページを制限します。`repeatOnPageBreak` は、グループが次のページに続く場合に `group-start` を再表示します。
+
+### `GridPagination`
+
+```ts
+type GridPagination =
+  | { mode: 'auto'; minItems: number }
+  | { mode: 'fixed'; itemsPerPage: number };
+```
+
+`auto` はドキュメント全体に最低 `minItems` 件分の領域を確保し、実データとフロー領域から出力ページを計画します。`fixed` は各出力ページに `itemsPerPage` 件分の領域を確保します。どちらも不足分を空の項目で埋めますが、空の項目は計算範囲に含まれません。
 
 ## ストレージ API
 

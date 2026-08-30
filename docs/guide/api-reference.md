@@ -603,6 +603,7 @@ interface SlipPage {
   key?: string;
   label?: string;
   pageNumber?: PageNumber;
+  flowArea?: PageFlowArea;
 }
 ```
 
@@ -612,8 +613,20 @@ interface SlipPage {
 | `key` | 외부 연계에 사용할 페이지 물리명 |
 | `label` | 디자이너 목록에 표시할 페이지 논리명 |
 | `pageNumber` | PDF에 표시할 페이지 번호 설정 |
+| `flowArea` | 자동 확장 요소가 배치될 세로 범위 |
 
 문서 안에서 `key`는 중복될 수 없습니다.
+
+### `PageFlowArea`
+
+```ts
+interface PageFlowArea {
+  top: number;
+  bottom: number;
+}
+```
+
+`top`과 `bottom`은 용지 위쪽을 기준으로 한 mm 좌표입니다. 생략하면 용지의 위·아래 여백 사이를 흐름 영역으로 사용합니다.
 
 ### `PageNumber`
 
@@ -735,9 +748,27 @@ type SlipElement =
 | `id` | `string` | 문서 전체에서 유일한 요소 식별자 |
 | `name` | `string` | 디자이너에 표시할 요소 이름 |
 | `position` | `{ x, y }` | 페이지 왼쪽 위를 기준으로 한 위치(mm) |
-| `width` | `number` | 요소 너비(mm) |
-| `height` | `number` | 요소 높이(mm) |
+| `width` | `number` | 요소 너비(mm). 그리드는 열 너비의 합으로 계산하므로 사용하지 않음 |
+| `height` | `number` | 요소 높이(mm). 그리드는 행 높이의 합으로 계산하므로 사용하지 않음 |
 | `group` | `string?` | 여러 요소를 묶는 그룹 식별자 |
+| `pagePlacement` | `PagePlacement?` | 생성된 출력 페이지에서 요소를 표시할 위치와 범위 |
+
+### `PagePlacement`
+
+```ts
+type OutputPageFilter =
+  | 'all'
+  | 'first'
+  | 'continuation'
+  | 'non-final'
+  | 'last';
+
+type PagePlacement =
+  | { mode: 'absolute'; pages?: OutputPageFilter }
+  | { mode: 'after'; target: string; gap?: number };
+```
+
+`absolute`는 원래 좌표에 요소를 표시하며 `pages`로 표시할 출력 페이지를 고릅니다. `after`는 같은 양식 페이지에 있는 대상 요소의 마지막 출력 조각 뒤에 요소를 이어서 배치합니다.
 
 ### 글자 스타일 필드
 
@@ -977,6 +1008,12 @@ interface PolygonElement {
 interface GridElement {
   type: 'grid';
 
+  id: string;
+  name: string;
+  position: { x: number; y: number };
+  group?: string;
+  pagePlacement?: PagePlacement;
+
   columns: {
     width: number;
     autoMerge?: boolean;
@@ -993,16 +1030,15 @@ interface GridElement {
     | 'clip'
     | 'shrink';
 
-  // 공통 위치·크기,
   // 글자·색·테두리 스타일
 }
 ```
 
 열 너비와 행 높이는 비율이 아니라 밀리미터 단위의 절대값입니다.
 
-- 열 너비의 합은 그리드 `width`와 같아야 합니다.
-- 반복이 없으면 행 높이의 합은 `height`와 같아야 합니다.
-- 반복이 있으면 반복 구간이 `perPage`만큼 펼쳐진 높이를 포함해야 합니다.
+- 그리드 너비는 열 너비의 합으로 계산합니다.
+- 그리드의 양식 높이는 행 높이의 합으로 계산합니다.
+- 반복 출력 높이와 출력 페이지 수는 `repeat`의 행 구간과 페이지 방식으로 계산합니다.
 
 ### `GridCell`
 
@@ -1010,6 +1046,8 @@ interface GridElement {
 interface GridCell {
   row: number;
   column: number;
+
+  name?: string;
 
   rowSpan?: number;
   colSpan?: number;
@@ -1030,20 +1068,18 @@ interface GridCell {
 
 `content`, `parameter`, `formula`는 동시에 둘 이상 사용할 수 없습니다.
 
-반복 구간 안의 `parameter`는 목록 항목의 하위 필드를 가리키고, 반복 구간 밖에서는 전표 `values`의 최상위 키를 가리킵니다.
+`name`은 디자이너가 셀을 목록에 표시할 때 사용하는 이름이며 PDF에는 출력하지 않습니다. 생략하면 디자이너가 좌표를 표시합니다.
+
+`item` 행 구간 안의 `parameter`는 목록 항목의 하위 필드를 가리키고, 그 밖에서는 전표 `values`의 최상위 키를 가리킵니다.
 
 ### `GridRepeat`
 
 ```ts
 interface GridRepeat {
   parameter: string;
-
-  fromRow: number;
-  toRow: number;
-
-  perPage: number;
-  repeatHeader: boolean;
-
+  bands: GridBand[];
+  pagination: GridPagination;
+  groupBy?: string[];
   maxItems?: number;
 }
 ```
@@ -1051,11 +1087,47 @@ interface GridRepeat {
 | 필드 | 설명 |
 |---|---|
 | `parameter` | 객체 배열을 가진 목록 파라미터 |
-| `fromRow` | 반복 구간 시작 행, 0부터 시작 |
-| `toRow` | 반복 구간 종료 행, 양끝 포함 |
-| `perPage` | 출력 페이지 한 장에 표시할 목록 항목 수 |
-| `repeatHeader` | 다음 페이지에서도 반복 구간 위쪽 행을 표시할지 여부 |
+| `bands` | 각 양식 행의 출력 시점과 범위를 정의한 행 구간 목록 |
+| `pagination` | 자동 확장 또는 고정 페이지 방식 |
+| `groupBy` | 연속된 항목을 그룹으로 묶을 하위 필드 목록 |
 | `maxItems` | 전체 출력 항목 수 상한 |
+
+### `GridBand`
+
+```ts
+type GridBandPlacement =
+  | 'before-data'
+  | 'page-start'
+  | 'group-start'
+  | 'item'
+  | 'group-end'
+  | 'after-data'
+  | 'page-end';
+
+interface GridBand {
+  id: string;
+  name?: string;
+  fromRow: number;
+  toRow: number;
+  placement: GridBandPlacement;
+  pages?: OutputPageFilter;
+  repeatOnPageBreak?: boolean;
+}
+```
+
+`fromRow`와 `toRow`는 0부터 시작하며 양끝을 포함합니다. 모든 양식 행은 빈틈이나 겹침 없이 하나의 행 구간에 속해야 하고 `item` 구간은 정확히 하나 있어야 합니다.
+
+행 구간은 `before-data`, `page-start`, `group-start`, `item`, `group-end`, `after-data`, `page-end` 순서로 배치합니다. `pages`는 `page-start`와 `page-end`의 표시 페이지를 제한하고, `repeatOnPageBreak`는 다음 페이지로 이어지는 그룹의 `group-start`를 다시 표시합니다.
+
+### `GridPagination`
+
+```ts
+type GridPagination =
+  | { mode: 'auto'; minItems: number }
+  | { mode: 'fixed'; itemsPerPage: number };
+```
+
+`auto`는 문서 전체에 최소 `minItems`개의 항목 자리를 만들고 실제 데이터와 흐름 영역에 따라 출력 페이지를 계획합니다. `fixed`는 각 출력 페이지에 `itemsPerPage`개의 항목 자리를 만듭니다. 두 방식 모두 데이터가 부족한 자리는 빈 항목으로 표시하며, 빈 항목은 집계 범위에서 제외합니다.
 
 ## 저장소 API
 

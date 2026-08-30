@@ -25,10 +25,10 @@ This document explains the formula-writing rules and the 32 built-in functions S
 |---|---|---|
 | Field | All values of the voucher | Totals, tax, display text |
 | Barcode | All values of the voucher | Composing an order number, generating a barcode value |
-| Grid cell outside the repeat region | All values of the voucher | Total at the bottom of the table |
-| Grid cell inside the repeat region | All values of the voucher and the current repeat item | Per-row amount computation |
-| Conditional format on text, a field, or a cell outside the repeat region | All values of the voucher | Highlighting a negative amount or a specific status |
-| Conditional format on a cell inside the repeat region | All values of the voucher and the current repeat item | Highlighting matching rows |
+| Grid cell outside the data repeat area | All values of the voucher | Total at the bottom of the table |
+| Grid cell inside the data repeat area | All values of the voucher and the current repeat item | Per-row amount computation |
+| Conditional format on text, a field, or a cell outside the data repeat area | All values of the voucher | Highlighting a negative amount or a specific status |
+| Conditional format on a cell inside the data repeat area | All values of the voucher and the current repeat item | Highlighting matching rows |
 
 Select a field, barcode, or grid cell and change the value type to <kbd>Formula</kbd> to enter a formula.
 
@@ -105,8 +105,24 @@ quantity * unitPrice
 ```
 
 > [!IMPORTANT]
-> Inside the repeat region, the current item's fields take precedence over top-level voucher values of the same name.
+> Inside the data repeat area, the current item's fields take precedence over top-level voucher values of the same name.
 > The whole list can still be referenced as `items.amount` as before.
+
+### Calculation scopes in repeating grids
+
+Formulas in row bands can select a calculation scope with an `@` reserved reference.
+
+| Reference | Scope | Example |
+|---|---|---|
+| `@item` | Current item | `@item.amount` |
+| `@group` | Items in the current group | `SUM(@group.amount)` |
+| `@page` | Items on the current output page | `SUM(@page.amount)` |
+| `@carried` | Items placed before the current output page | `SUM(@carried.amount)` |
+| `@all` | All items included in the output | `SUM(@all.amount)` |
+
+Blank items are excluded from these scopes. When <kbd>Maximum items</kbd> is set, `@all` contains only the items left after that limit is applied.
+
+The designer's <kbd>Group subtotal</kbd>, <kbd>Page subtotal</kbd>, and <kbd>Final total</kbd> quick setup commands create `@group`, `@page`, and `@all` formulas respectively. Reserved references are available in repeating-grid rows for which the output plan supplies that scope.
 
 ## Formula-writing rules
 
