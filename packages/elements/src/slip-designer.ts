@@ -61,7 +61,6 @@ const NEW_BINDING_OPTION = '\u0000new';
 /** 저장할 수 있는 사용자 지정 색상의 최대 개수 */
 const MAX_CUSTOM_COLORS = 30;
 
-/** 저장된 사용자 지정 색상을 읽는다. 읽을 수 없으면 빈 목록을 반환한다. */
 /** 컨테이너 안에서 Tab으로 갈 수 있는 요소를 화면 순서대로 모은다. */
 function focusableIn(container: HTMLElement): HTMLElement[] {
   const selector =
@@ -72,6 +71,7 @@ function focusableIn(container: HTMLElement): HTMLElement[] {
   );
 }
 
+/** 저장된 사용자 지정 색상을 읽는다. 읽을 수 없으면 빈 목록을 반환한다. */
 function loadCustomColors(): string[] {
   try {
     const raw = localStorage.getItem(CUSTOM_COLORS_KEY);
