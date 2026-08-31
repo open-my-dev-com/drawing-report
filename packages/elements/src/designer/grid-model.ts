@@ -306,7 +306,7 @@ export function resizeBandRange(
 /**
  * 셀 병합이 행 구간 경계를 넘는지 검사한다.
  *
- * @param bands - 검사에 쓸 행 구간 목록
+ * @param bands - 검사에 사용할 행 구간 목록
  * @param cell - 검사할 셀
  * @returns 병합 범위가 두 행 구간에 걸치면 true
  */
@@ -333,7 +333,7 @@ export function canRemoveLastRow(el: GridElement): boolean {
  * 마지막 행을 하나 더하거나 뺀다.
  * 지울 때는 범위를 벗어난 셀과 병합을 정리하고 행 구간의 끝을 함께 줄인다.
  *
- * @param grid - 고칠 그리드
+ * @param grid - 수정할 그리드
  * @param delta - 1이면 추가, -1이면 제거
  */
 export function changeRowCount(grid: GridElement, delta: number): void {
@@ -358,7 +358,7 @@ export function changeRowCount(grid: GridElement, delta: number): void {
 /**
  * 마지막 열을 하나 더하거나 뺀다.
  *
- * @param grid - 고칠 그리드
+ * @param grid - 수정할 그리드
  * @param delta - 1이면 추가, -1이면 제거
  */
 export function changeColumnCount(grid: GridElement, delta: number): void {
@@ -404,7 +404,7 @@ export function insertPositionFor(
 /**
  * 행을 하나 넣고 셀 좌표·병합과 행 구간 경계를 함께 밀어 준다.
  *
- * @param grid - 고칠 그리드 (반복 설정이 있어야 한다)
+ * @param grid - 수정할 그리드 (반복 설정이 있어야 한다)
  * @param insertAt - 넣을 행 번호
  * @param placement - 넣을 행의 역할
  * @param targetBandId - 붙일 구간의 식별자. 없으면 새 구간을 만든다

@@ -17,7 +17,7 @@ describe('fontPx', () => {
     expect(fontPx(9)).toBe('12.00px');
   });
 
-  it('크기를 지정하지 않으면 기본 크기를 쓴다', () => {
+  it('크기를 지정하지 않으면 기본 크기를 사용한다', () => {
     expect(fontPx(undefined)).toBe(fontPx(DEFAULT_FONT_SIZE));
   });
 });

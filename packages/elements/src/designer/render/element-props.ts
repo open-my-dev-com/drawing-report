@@ -34,7 +34,7 @@ import type { PanelKit } from './panel-kit.js';
 
 /** 요소 속성 줄이 컴포넌트에 요청하는 조작 */
 export interface ElementActions {
-  /** 선택한 요소를 고친다 */
+  /** 선택한 요소를 수정한다 */
   update(fn: (el: SlipElement) => void): void;
   /** 글자 요소와 필드 요소를 서로 바꾼다 */
   convertTextField(to: 'text' | 'field'): void;
@@ -64,7 +64,7 @@ export interface ElementActions {
   barcodeKinds(): readonly { value: BarcodeKind; label: string }[];
   /** 바코드 내용이 규격에 맞는지 알리는 문구 */
   barcodeContentWarning(kind: BarcodeKind, content: string): string | null;
-  /** 바코드의 값 소스 종류를 고른다 */
+  /** 바코드의 값 소스 종류를 선택한다 */
   chooseBarcodeSource(kind: 'content' | 'parameter' | 'formula'): void;
   /** 바코드의 값 소스를 저장한다 */
   setBarcodeSource(kind: 'content' | 'formula', value: string): void;

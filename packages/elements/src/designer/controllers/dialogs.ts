@@ -3,7 +3,7 @@
  *
  * @remarks
  * 모달마다 따로 열림 여부를 두면 "모두 닫기"가 여러 곳에 흩어져 한 곳을 빠뜨리기 쉽다.
- * 여기서 한꺼번에 다룬다. 모달별 초안 값은 각 모달의 컨트롤러가 따로 갖는다.
+ * 여기서 한꺼번에 다룬다. 모달별 초안 값은 각 모달의 컨트롤러가 따로 관리한다.
  */
 
 import type { ReactiveController } from 'lit';
@@ -21,10 +21,7 @@ export class DialogsController implements ReactiveController {
 
   constructor(private readonly host: DialogsHost) {}
 
-  /**
-   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
-   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
-   */
+  /** 연결 시 현재 컨트롤러 상태가 화면에 반영되도록 갱신을 요청한다. */
   hostConnected(): void {
     this.host.requestUpdate();
   }

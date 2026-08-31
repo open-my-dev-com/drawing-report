@@ -27,7 +27,7 @@ import type { DesignerStrings } from '../../strings.js';
 export interface DialogContext {
   /** 로케일에 맞는 문구 */
   readonly s: DesignerStrings;
-  /** 수식 파싱·평가에 쓸 로케일 */
+  /** 수식 파싱·평가에 사용할 로케일 */
   readonly locale: string | undefined;
   /** 열려 있는 모달 */
   readonly dialogs: DialogsController;
@@ -47,9 +47,9 @@ export interface DialogContext {
   readonly maxImageBytes: number;
   /** 정의와 사용처를 합친 파라미터 목록 */
   parameters(): ParameterInfo[];
-  /** 샘플 편집에 보일 파라미터 키와 이름 */
+  /** 샘플 편집에 표시할 파라미터 키와 이름 */
   parameterKeys(): { key: string; label: string }[];
-  /** 샘플 값이 없을 때 쓸 파라미터 종류별 기본값 */
+  /** 샘플 값이 없을 때 사용할 파라미터 종류별 기본값 */
   probeValues(): Record<string, unknown>;
   /** 선언된 파라미터와 현재 샘플 값을 합친 JSON 초안 */
   sampleSkeleton(): Record<string, unknown>;

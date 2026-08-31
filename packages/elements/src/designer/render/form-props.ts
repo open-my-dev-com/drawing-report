@@ -43,7 +43,7 @@ export interface FormActions {
   setPaperSaveName(value: string): void;
   /** 호스트가 용지 크기 저장을 지원하는지 */
   readonly canSavePaperSize: boolean;
-  /** 양식을 고친다 */
+  /** 양식을 수정한다 */
   updateFile(fn: (file: SlipTemplateFile) => void): void;
   /** 양식의 페이지 수 */
   pageCount(): number;

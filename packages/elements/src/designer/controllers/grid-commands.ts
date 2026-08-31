@@ -2,11 +2,10 @@
  * 그리드를 고치는 조작 — 행·열, 반복 설정, 행 구간과 셀 값·스타일.
  *
  * @remarks
- * 무엇을 고를지는 `GridEditController`가 갖고, 여기서는 고른 것을 파일에 반영한다.
+ * `GridEditController`가 편집 대상을 관리하고, 이 컨트롤러는 선택된 대상의 변경을 파일에 반영한다.
  * 입력 검증에 실패하면 호스트에 오류 표시를 맡기고 파일은 고치지 않는다.
  */
 
-import { } from '@omdc-slipkit/core';
 import type {
   ConditionalFormatRule,
   GridBand,
@@ -17,7 +16,7 @@ import type {
   SlipElement,
 } from '@omdc-slipkit/core';
 import { MIN_SIZE_MM, round1 } from '../geometry.js';
-import { clearValueSources, } from '../patch.js';
+import { clearValueSources } from '../patch.js';
 import {
   GRID_DEFAULT_ROW_MM,
   GRID_MAX_ITEMS_UI,
@@ -49,7 +48,7 @@ export interface GridCommandsHost {
   readonly edit: GridEditController;
   /** 속성 패널이 대상으로 삼는 요소 */
   selectedElement(): SlipElement | undefined;
-  /** 선택한 요소를 고친다 */
+  /** 선택한 요소를 수정한다 */
   updateElement(fn: (el: SlipElement) => void): void;
   /** 입력값을 되돌리고 오류를 표시한다 */
   reject(message?: string, field?: string): void;
@@ -61,7 +60,7 @@ export interface GridCommandsHost {
   ensureParameterDef(key: string, valueType?: string): void;
   /** 정의와 사용처를 합친 파라미터 목록 */
   parameters(): ParameterInfo[];
-  /** 샘플 값이 없을 때 쓸 파라미터 종류별 기본값 */
+  /** 샘플 값이 없을 때 사용할 파라미터 종류별 기본값 */
   probeValues(): Record<string, unknown>;
   /** 화면을 다시 그린다 */
   refresh(): void;
@@ -683,7 +682,7 @@ export class GridCommandsController {
   }
 
   /**
-   * 조건부 서식 미리보기에 쓸 항목 하나를 반복 파라미터의 샘플에서 고른다.
+   * 조건부 서식 미리보기에 사용할 항목 하나를 반복 파라미터의 샘플에서 선택한다.
    *
    * @param el - 대상 그리드
    * @returns 첫 번째 샘플 항목. 반복 설정이나 샘플이 없으면 undefined

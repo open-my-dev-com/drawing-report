@@ -56,7 +56,7 @@ describe('isGrid · gridDims · columnWidths', () => {
 });
 
 describe('ensureCell', () => {
-  it('있는 셀은 그대로 돌려준다', () => {
+  it('있는 셀은 그대로 반환한다', () => {
     const el = makeGrid(2, 2, [{ row: 1, column: 1, content: '기존' }]);
     expect(ensureCell(el, 1, 1)).toBe(el.cells[0]);
     expect(el.cells.length).toBe(1);
@@ -108,7 +108,7 @@ describe('gridHeaderTitle', () => {
     expect(gridHeaderTitle(el, 0, 2)).toBe('품명');
   });
 
-  it('위쪽에 글이 없으면 없음을 돌려준다', () => {
+  it('위쪽에 글이 없으면 없음을 반환한다', () => {
     expect(gridHeaderTitle(makeGrid(2, 1), 0, 1)).toBeUndefined();
   });
 });

@@ -13,7 +13,7 @@ import { formatBytes, type ImagePickResult } from '../image-file.js';
 export const PLACEHOLDER_IMG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
-/** 이미지 선택 실패를 알릴 때 쓸 문구 */
+/** 이미지 선택 실패를 알릴 때 사용할 문구 */
 export interface ImagePickTexts {
   notImage: string;
   readFailed: string;
@@ -25,7 +25,7 @@ export interface ImagePickTexts {
 export type ImagePickFailure = Extract<ImagePickResult, { ok: false }>;
 
 /**
- * 이미지 선택 실패 사유를 사용자에게 보일 문구로 바꾼다.
+ * 이미지 선택 실패 사유를 사용자에게 표시할 문구로 바꾼다.
  *
  * @param result - 실패한 선택 결과
  * @param texts - 로케일에 맞는 문구

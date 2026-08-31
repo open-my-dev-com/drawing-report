@@ -5,11 +5,11 @@
  * 모두 `PanelKit`만 받아 그린다. 화면 상태는 컨트롤러가 갖고 여기서는 읽기만 한다.
  */
 
-import { html, nothing, } from 'lit';
+import { html, nothing } from 'lit';
 import { icons } from '../../icons.js';
 import { PX_PER_MM } from '../geometry.js';
 import { BORDER_WIDTH_STEPS } from '../style-css.js';
-import { COLOR_PALETTE, } from '../color.js';
+import { COLOR_PALETTE } from '../color.js';
 import { propertyMenuStyle, listSelectStyle } from '../controllers/popover.js';
 import type { PopoverController } from '../controllers/popover.js';
 import type { ConditionalFormatRule } from '@omdc-slipkit/core';
@@ -81,7 +81,7 @@ export function numberRow(
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param hasChildren - 하위 줄이 있는지
  * @param expanded - 현재 펼침 상태
- * @param name - 무엇을 펼치고 접는지 (읽어 주는 이름에 쓴다)
+ * @param name - 무엇을 펼치고 접는지 (읽어 주는 이름에 사용한다)
  * @param toggle - 눌렀을 때 펼침을 뒤집는 처리
  * @returns 펼침 표시 또는 빈 자리
  */
@@ -146,7 +146,7 @@ export function textStyleToggles(
  * @param fallback - 미지정일 때의 유효 굵기 (요소 기본값 또는 셀이 상속하는 요소 값)
  * @param allowNone - 0 굵기 선택지를 표시할지 여부
  * @param key - 펼침 상태를 구분할 키
- * @param apply - 고른 굵기를 저장하는 콜백
+ * @param apply - 선택한 굵기를 저장하는 콜백
  * @param labelText - 화면에 표시할 레이블
  * @returns 굵기 선택기
  */
@@ -214,7 +214,7 @@ export function borderWidthSelect(
  * @param current - 명시된 형태 (미지정이면 실선)
  * @param ariaLabel - 보조기기용 이름 (요소·셀 구분)
  * @param key - 펼침 상태를 구분할 키
- * @param apply - 고른 값을 저장하는 콜백
+ * @param apply - 선택한 값을 저장하는 콜백
  * @returns 선 형태 선택기
  */
 export function borderShapeRow(

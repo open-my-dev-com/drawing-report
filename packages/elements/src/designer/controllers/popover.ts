@@ -3,12 +3,12 @@
  *
  * @remarks
  * 팝오버는 패널 안이 아니라 화면 고정 위치에 뜨므로, 여는 순간의 버튼 위치에서
- * 좌표를 계산해 둔다. 화면 밖으로 넘치지 않도록 남은 높이 안에서만 편다.
+ * 좌표를 계산해 둔다. 표시 높이를 화면의 사용 가능한 영역에 맞춘다.
  */
 
 import type { ReactiveController } from 'lit';
 
-/** 화면 고정 위치에 뜨는 팝오버의 자리 */
+/** 화면 고정 위치에 뜨는 팝오버의 배치 정보 */
 export interface Placement {
   left: number;
   top: number;
@@ -25,7 +25,7 @@ const GAP = 4;
 const MARGIN = 12;
 
 /**
- * 버튼 바로 아래에 펼 자리를 계산한다.
+ * 버튼 바로 아래에 표시할 위치를 계산한다.
  *
  * @param anchor - 기준이 될 버튼
  * @param min - 최소 높이(px)
@@ -39,12 +39,12 @@ export function placeBelow(anchor: HTMLElement, min: number, max: number): Place
 }
 
 /**
- * 아래에 자리가 모자라고 위가 더 넓으면 버튼 위에 펼 자리를 계산한다.
+ * 아래 공간이 모자라고 위가 더 넓으면 버튼 위에 표시할 위치를 계산한다.
  *
  * @param anchor - 기준이 될 버튼
  * @param min - 최소 높이(px)
  * @param max - 최대 높이(px)
- * @param threshold - 이보다 아래 자리가 좁으면 위를 살펴본다(px)
+ * @param threshold - 아래 공간이 이보다 좁으면 위쪽을 검토한다(px)
  * @returns 화면 고정 좌표와 최대 높이
  */
 export function placeBelowOrAbove(
@@ -80,10 +80,7 @@ export class PopoverController implements ReactiveController {
 
   constructor(private readonly host: PopoverHost) {}
 
-  /**
-   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
-   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
-   */
+  /** 연결 시 현재 컨트롤러 상태가 화면에 반영되도록 갱신을 요청한다. */
   hostConnected(): void {
     this.host.requestUpdate();
   }
@@ -110,7 +107,7 @@ export class PopoverController implements ReactiveController {
   }
 
   /**
-   * 열려 있는 팝오버의 자리를 확인한다.
+   * 열려 있는 팝오버의 표시 위치를 확인한다.
    *
    * @param slot - 팝오버 종류
    * @returns 화면 고정 좌표. 닫혀 있으면 0
@@ -120,11 +117,11 @@ export class PopoverController implements ReactiveController {
   }
 
   /**
-   * 같은 키면 닫고, 다른 키면 그 자리에서 연다.
+   * 같은 키면 닫고, 다른 키면 그 위치에서 연다.
    *
    * @param slot - 팝오버 종류
    * @param key - 열거나 닫을 팝오버의 키
-   * @param place - 열 때 계산할 자리. 스타일로 자리를 잡는 팝오버는 생략한다
+   * @param place - 열 때 계산할 표시 위치. 스타일로 위치를 잡는 팝오버는 생략한다
    */
   toggle(slot: PopoverSlot, key: string, place?: () => Placement): void {
     if (this.keys.get(slot) === key) {
@@ -150,7 +147,7 @@ export class PopoverController implements ReactiveController {
 /**
  * 리스트형 선택 상자 목록의 인라인 스타일을 만든다.
  *
- * @param place - 열려 있는 자리
+ * @param place - 열려 있는 표시 위치
  * @returns `style` 속성에 넣을 CSS
  */
 export function listSelectStyle(place: Placement): string {
@@ -160,7 +157,7 @@ export function listSelectStyle(place: Placement): string {
 /**
  * 테두리·색 선택 메뉴의 인라인 스타일을 만든다.
  *
- * @param place - 열려 있는 자리
+ * @param place - 열려 있는 표시 위치
  * @returns `style` 속성에 넣을 CSS
  */
 export function propertyMenuStyle(place: Placement): string {

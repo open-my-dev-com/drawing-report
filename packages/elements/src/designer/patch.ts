@@ -12,8 +12,8 @@
  * @remarks
  * 판별 유니온에 동적으로 속성을 적용하는 타입 변환을 이 함수 안으로 제한한다.
  *
- * @param target - 필드를 고칠 요소·셀 객체
- * @param key - 고칠 선택 필드 이름
+ * @param target - 필드를 수정할 요소·셀 객체
+ * @param key - 수정할 선택 필드 이름
  * @param value - 넣을 값 (null·undefined면 필드를 지운다)
  */
 export function setOptional(target: object, key: string, value: unknown): void {

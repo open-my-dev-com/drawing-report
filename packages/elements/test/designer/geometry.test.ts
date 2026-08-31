@@ -203,7 +203,7 @@ describe('snapCandidates · bestSnap', () => {
     expect(xs).toEqual([0, 15, 195, 210]);
   });
 
-  it('스냅 범위 안에서 가장 가까운 이동량을 고른다', () => {
+  it('스냅 범위 안에서 가장 가까운 이동량을 선택한다', () => {
     const near = bestSnap([49.4], [50, 55])!;
     expect(near.line).toBe(50);
     expect(near.delta).toBeCloseTo(0.6, 6);

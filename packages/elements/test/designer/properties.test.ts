@@ -980,7 +980,7 @@ describe('<slip-designer> 사이드바', () => {
     const items = defs.find((b) => b.key === 'items')!;
     // 항목 구간이 있다는 것은 그 값이 목록이라는 뜻이다
     expect(items.valueType).toBe('list');
-    // 구간 칸이 읽는 이름이 하위 필드로 선언되고, 이름은 헤더의 직접 입력한 글을 쓴다
+    // 항목 구간의 셀이 참조하는 이름을 하위 필드로 선언하고, 하위 필드 이름에는 헤더 셀의 고정 텍스트를 사용한다
     expect(items.fields?.map((f) => [f.key, f.label])).toEqual([['itemName', '품명']]);
     el.remove();
   });
@@ -1282,7 +1282,7 @@ describe('<slip-designer> 좌표 기준점', () => {
     expect(anchorDot(el, strings.designer.anchorTL).getAttribute('aria-pressed')).toBe('true');
     expect(xyInputs(el).map((i) => i.value)).toEqual(['100', '80']);
 
-    // txt-1로 돌아오면 아까 고른 중앙 기준이 그대로 남아 있다
+    // txt-1을 다시 선택하면 이전에 선택한 중앙 기준이 유지된다
     selectElement(el, 'txt-1');
     await el.updateComplete;
     expect(anchorDot(el, strings.designer.anchorC).getAttribute('aria-pressed')).toBe('true');
@@ -1735,7 +1735,7 @@ describe('<slip-designer> 패널 표시 정리 (F-18)', () => {
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await loadDesigner();
 
-    // 표를 고른 뒤 그 자리를 한 번 더 누르면 셀 선택 모드가 되어 (0,0) 셀이 골라진다
+    // 표를 선택한 뒤 그 자리를 한 번 더 누르면 셀 선택 모드가 되어 (0,0) 셀이 골라진다
     const PX = 96 / 25.4;
     const grid = el.shadowRoot!.querySelector('[data-id="grd-1"]') as HTMLElement;
     for (let i = 0; i < 2; i += 1) {
@@ -1762,12 +1762,12 @@ describe('<slip-designer> 패널 표시 정리 (F-18)', () => {
     el.remove();
   });
 
-  it('요소 종류 배지는 평소 숨었다가 고른 요소에만 보이고, 요소 확인로 전부 켠다', async () => {
+  it('요소 종류 배지는 기본적으로 숨기고 선택한 요소에만 표시하며, ‘요소 확인’을 켜면 모두 표시한다', async () => {
     const el = await loadDesigner();
     const badges = () => Array.from(el.shadowRoot!.querySelectorAll('.element .badge'));
     const canvas = () => el.shadowRoot!.querySelector('.canvas-area')!;
 
-    // 배지는 요소마다 있지만 평소에는 숨어 있고, 고른 요소에만 보인다
+    // 배지는 요소마다 있지만 평소에는 숨어 있고, 선택한 요소에만 보인다
     expect(badges().length).toBe(2);
     expect(badges().filter((n) => getComputedStyle(n).display !== 'none').length).toBe(0);
     selectElement(el, 'txt-1');
@@ -1957,7 +1957,7 @@ describe('<slip-designer> 파라미터 관리 (ADR-034)', () => {
     return (fileOf(el).template as { parameters?: { key: string; label?: string }[] }).parameters;
   }
 
-  /** 사이드바 + 버튼 — 기본 이름으로 값을 만들고 바로 고른다 */
+  /** 사이드바 + 버튼 — 기본 이름으로 값을 만들고 바로 선택한다 */
   async function addParameter(el: Designer) {
     byAria(el, strings.designer.addParameter).click();
     await el.updateComplete;
@@ -1987,7 +1987,7 @@ describe('<slip-designer> 파라미터 관리 (ADR-034)', () => {
     const created = field.parameter;
     fileOf(el).template.sampleValues = { [created]: '1,000' } as never;
 
-    // 사이드바에서 그 값을 골라 패널에서 물리명을 고친다
+    // 사이드바에서 그 값을 골라 패널에서 물리명을 수정한다
     const row = Array.from(el.shadowRoot!.querySelectorAll('.side-row'))
       .find((r) => r.getAttribute('title') === created) as HTMLElement;
     row.click();

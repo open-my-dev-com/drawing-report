@@ -1,6 +1,5 @@
-import { LitElement, html, nothing, } from 'lit';
-import { designerStyles, } from './styles/slip-designer.styles.js';
-import { } from 'lit/directives/live.js';
+import { LitElement, html, nothing } from 'lit';
+import { designerStyles } from './styles/slip-designer.styles.js';
 import {
   parseSlipFile,
   evaluateFormula,
@@ -20,11 +19,9 @@ import {
   type StorageAdapter,
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
-import { } from './formula-help.js';
 import { renderSlip, resolveFonts, type SlipDesignerSettings, type PaperSize } from './settings.js';
 import { getPresets, type SlipPreset } from './presets.js';
-import { } from './icons.js';
-import { pickImageFile, } from './image-file.js';
+import { pickImageFile } from './image-file.js';
 import {
   MIN_SIZE_MM,
   round1,
@@ -50,7 +47,6 @@ import {
   listSelect,
 } from './designer/render/inputs.js';
 import type { ElementActions } from './designer/render/element-props.js';
-import { } from './designer/paper.js';
 import { MY_FORMS_PAGE_SIZE } from './designer/pagination.js';
 import { BARCODE_KINDS, BARCODE_DIGIT_RULES } from './designer/barcode.js';
 import { GRID_COLORS } from './designer/grid-view.js';
@@ -77,8 +73,6 @@ import { propertyPanel } from './designer/render/property-panel.js';
 import type { PanelContext } from './designer/render/property-panel.js';
 import { sidebar } from './designer/render/sidebar.js';
 import type { SidebarActions, SideSelection } from './designer/render/sidebar.js';
-import { } from './designer/render/conditional-formats.js';
-import { } from './designer/render/grid-props.js';
 import type { GridActions } from './designer/render/grid-props.js';
 import type { ConditionalFormatDeps } from './designer/render/conditional-formats.js';
 import type { PanelKit } from './designer/render/panel-kit.js';
@@ -92,7 +86,6 @@ import {
   itemBandOf,
   inItemBand,
 } from './designer/grid-model.js';
-import type { } from './designer/grid-model.js';
 
 /** 파라미터 키와 충돌하지 않는 "새 값 등록" 항목의 내부 값 */
 const NEW_BINDING_OPTION = '\u0000new';
@@ -871,7 +864,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 잘못된 입력을 모델에 반영하지 않고 오류 메시지를 표시한다.
    *
-   * @param message - 보일 문구 (생략하면 기본 안내)
+   * @param message - 표시할 문구 (생략하면 기본 안내)
    * @param field - 오류가 발생한 속성 입력 식별자
    */
   private _rejectInput(message?: string, field?: string): void {
@@ -943,7 +936,7 @@ export class SlipDesigner extends LitElement {
    *
    * @param page - 페이지
    * @param index - 페이지 번호(0-기반)
-   * @returns 화면에 보일 이름
+   * @returns 화면에 표시할 이름
    */
   private _pageDisplayName(page: { label?: string | undefined }, index: number): string {
     const label = page.label?.trim();
@@ -1561,7 +1554,7 @@ export class SlipDesigner extends LitElement {
   }
 
   private _toggleListSelect(id: string, e: Event): void {
-    // 목록이 화면 아래로 넘치지 않게 남은 높이 안에서만 편다.
+    // 목록 높이를 화면의 사용 가능한 영역에 맞춘다.
     this._popovers.toggle('list', id, () => placeBelow(e.currentTarget as HTMLElement, 120, 280));
   }
 
@@ -1631,7 +1624,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 선택한 그리드의 목록 파라미터와 값이 있는 셀 항목을 사이드바에서 펼친다.
    *
-   * @param id - 고른 요소 id
+   * @param id - 선택한 요소 id
    */
   private _expandParameterOfElement(id: string): void {
     const el = this._findElement(id);
@@ -1659,7 +1652,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 선택한 페이지로 이동하고 페이지 설정 패널을 표시한다.
    *
-   * @param index - 고른 페이지 번호(0-기반)
+   * @param index - 선택한 페이지 번호(0-기반)
    */
   private _selectPage(index: number): void {
     this._goToPage(index);
@@ -2092,7 +2085,7 @@ export class SlipDesigner extends LitElement {
       if (defs.length > 0) f.template.parameters = defs;
       else delete (f.template as { parameters?: unknown }).parameters;
     });
-    // 목록에서 사라진 파라미터를 고른 채로 두지 않는다
+    // 목록에서 사라진 파라미터를 선택한 채로 두지 않는다
     const sel = this._sideSelection;
     if (sel?.kind === 'parameter' && sel.key === key && !this._parameterList().some((b) => b.key === key)) {
       this._sideSelection = null;
@@ -2354,7 +2347,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 현재 용지 크기를 호스트 설정에 저장하고 선택 목록을 갱신한다.
    *
-   * @param name - 고르개에 보일 용지 이름
+   * @param name - 선택 목록에 표시할 용지 이름
    */
   private async _savePaperSize(name: string): Promise<void> {
     const trimmed = name.trim();

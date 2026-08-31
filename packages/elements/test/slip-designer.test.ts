@@ -228,7 +228,7 @@ describe('<slip-designer> 페이지', () => {
 });
 
 describe('<slip-designer> slipkit 공통 설정', () => {
-  it('폰트가 설정된 slipkit이 있으면 미리보기가 같은 인스턴스의 render를 쓴다', async () => {
+  it('폰트가 설정된 slipkit이 있으면 미리보기가 같은 인스턴스의 render를 사용한다', async () => {
     const el = await loadDesigner();
     const render = vi.fn().mockResolvedValue(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
     el.slipkit = {

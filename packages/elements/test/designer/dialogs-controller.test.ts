@@ -155,7 +155,7 @@ describe('parseSampleValues', () => {
     expect(parseSampleValues('   ')).toEqual({});
   });
 
-  it('객체를 그대로 돌려준다', () => {
+  it('객체를 그대로 반환한다', () => {
     expect(parseSampleValues('{ "a": 1 }')).toEqual({ a: 1 });
   });
 
@@ -220,7 +220,7 @@ describe('FormsController', () => {
     expect(id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it('저장한 적이 있으면 같은 식별자를 다시 쓴다', () => {
+  it('저장한 적이 있으면 같은 식별자를 다시 사용한다', () => {
     const c = new FormsController(host());
     c.markSaved('abc');
     expect(c.nextId()).toBe('abc');
@@ -298,7 +298,7 @@ describe('이미지 선택 도우미', () => {
     expect(imagePickErrorText({ ok: false, reason: 'readFailed' }, texts, 1024)).toBe(texts.readFailed);
   });
 
-  it('용량 초과는 허용 크기와 고른 크기를 함께 적는다', () => {
+  it('용량 초과는 허용 크기와 선택한 크기를 함께 적는다', () => {
     const message = imagePickErrorText(
       { ok: false, reason: 'tooLarge', size: 3 * 1024 * 1024 },
       texts,

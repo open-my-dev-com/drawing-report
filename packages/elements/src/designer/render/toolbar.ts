@@ -16,7 +16,7 @@ import type { DesignerStrings } from '../../strings.js';
 /** 툴바가 컴포넌트에 요청하는 조작과 상태 */
 export interface ToolbarActions {
   readonly s: DesignerStrings;
-  /** 고른 생성 도구 */
+  /** 선택한 생성 도구 */
   readonly pendingTool: CreatableType | null;
   /** 미리보기 모드인지 */
   readonly previewMode: boolean;

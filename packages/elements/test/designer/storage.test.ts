@@ -309,7 +309,7 @@ describe('<slip-designer> 용지 공급·저장 (G-31)', () => {
   const paper = (el: Element) =>
     (el as unknown as { _file: SlipTemplateFile })._file.template.paper;
 
-  it('settings.getPaperSizes로 준 용지가 고르개에 나오고 고르면 적용된다', async () => {
+  it('settings.getPaperSizes가 반환한 용지를 선택 목록에 표시하고, 선택하면 용지 크기를 적용한다', async () => {
     const el = await loadDesigner();
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     el.settings = { getPaperSizes: () => [{ name: '라벨 100x150', width: 100, height: 150 }] };

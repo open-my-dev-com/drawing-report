@@ -439,7 +439,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  /** 그리드 안 mm 좌표를 눌러 셀을 고른다 (선택된 요소 재클릭) */
+  /** 그리드 안 mm 좌표를 눌러 셀을 선택한다 (선택된 요소 재클릭) */
   async function clickCell(el: Element, mmX: number, mmY: number) {
     const div = el.shadowRoot!.querySelector('[data-id="g-1"]') as HTMLElement;
     for (const type of ['pointerdown', 'pointerup']) {
@@ -646,7 +646,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('반복 그리드에 행을 더할 때 편입할 역할을 먼저 고른다', async () => {
+  it('반복 그리드에 행을 더할 때 편입할 역할을 먼저 선택한다', async () => {
     const el = await mount();
     expect(row(el, s.rows).querySelectorAll('button')).toHaveLength(2);
     const addRow = row(el, 'Add row').querySelector('.list-select') as HTMLButtonElement;
@@ -697,7 +697,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('소계의 기본 필드는 항목 영역의 가장 오른쪽 숫자 필드로 고른다', async () => {
+  it('소계의 기본 필드는 항목 영역의 가장 오른쪽 숫자 필드로 선택한다', async () => {
     const file = makeGridElementFile();
     file.template.parameters = [{
       key: 'items', valueType: 'list',
@@ -791,7 +791,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('반복을 끄면 사라지고, 다시 켜면 고른 행이 항목 구간이 된다', async () => {
+  it('반복을 끄면 사라지고, 다시 켜면 선택한 행이 항목 구간이 된다', async () => {
     const el = await mount();
     const toggle = row(el, s.repeatOn).querySelector('input') as HTMLInputElement;
     toggle.checked = false;
@@ -831,7 +831,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('속성 패널에서 고른 행 구간의 역할을 바꾼다', async () => {
+  it('속성 패널에서 선택한 행 구간의 역할을 바꾼다', async () => {
     const el = await mount();
     const lastBand = el.shadowRoot!.querySelector('[data-band-id="b-tail"] .band-item-main') as HTMLButtonElement;
     lastBand.click();
@@ -927,7 +927,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('최대 항목 수와 그룹 기준은 고급 설정에 두고 그룹 기준은 필드 목록에서 고른다', async () => {
+  it('최대 항목 수와 그룹 기준은 고급 설정에 두고 그룹 기준은 필드 목록에서 선택한다', async () => {
     const file = makeGridElementFile();
     file.template.parameters = [{
       key: 'items', label: 'Items', valueType: 'list',
@@ -1044,7 +1044,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('인라인 칸 편집 상자는 칸의 배경색을 그대로 쓴다 (편집 중 색이 사라지지 않게)', async () => {
+  it('인라인 칸 편집 상자는 칸의 배경색을 그대로 사용한다 (편집 중 색이 사라지지 않게)', async () => {
     const el = await mount();
     // 칸에 배경색을 준 뒤 그 칸을 두 번 눌러 인라인 편집을 연다
     gridEdit(el).selectCell({ row: 0, column: 0 });

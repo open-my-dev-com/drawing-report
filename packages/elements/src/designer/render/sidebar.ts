@@ -26,7 +26,7 @@ export interface SidebarActions {
   readonly file: SlipTemplateFile | null;
   /** 보고 있는 양식 페이지 (0부터) */
   readonly pageIndex: number;
-  /** 사이드바에서 고른 대상 */
+  /** 사이드바에서 선택한 대상 */
   readonly selection: SideSelection;
   /** 속성 패널이 대상으로 삼는 주 선택 요소 */
   readonly selectedId: string | null;
@@ -44,7 +44,7 @@ export interface SidebarActions {
   readonly gridEdit: GridEditController;
   /** 정의와 사용처를 합친 파라미터 목록 */
   parameters(): ParameterInfo[];
-  /** 페이지 목록에 보일 이름 */
+  /** 페이지 목록에 표시할 이름 */
   pageDisplayName(page: { label?: string | undefined }, index: number): string;
   goToPage(index: number): void;
   selectPage(index: number): void;

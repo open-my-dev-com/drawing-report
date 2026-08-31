@@ -2,7 +2,7 @@
  * 캔버스 포인터 조작 — 요소 만들기, 옮기기, 크기 조절과 선 끝점 드래그.
  *
  * @remarks
- * 조작 중에만 쓰는 임시 상태(드래그, 크기 조절, 그리는 중인 영역, 안내선)를 여기서 갖는다.
+ * 조작 중에만 사용하는 임시 상태(드래그, 크기 조절, 그리는 중인 영역, 안내선)를 여기서 관리한다.
  * 문서를 고치는 일은 호스트에 맡긴다.
  */
 
@@ -75,7 +75,7 @@ export interface PointerHost {
   readonly selectedId: string | null;
   /** 함께 선택된 요소 id 모음 */
   readonly selectedIds: ReadonlySet<string>;
-  /** 사이드바에서 고른 대상 */
+  /** 사이드바에서 선택한 대상 */
   readonly sideSelection: SideSelection;
   /** 사이드바 선택을 푼다 */
   clearSideSelection(): void;
@@ -85,7 +85,7 @@ export interface PointerHost {
   readonly gridPlanPreview: boolean;
   /** 도형 메뉴가 열려 있는지 */
   readonly shapeMenuOpen: boolean;
-  /** 캔버스 DOM을 찾을 뿌리 */
+  /** 캔버스 DOM을 조회할 루트 */
   readonly renderRoot: DocumentFragment | HTMLElement;
   /** 현재 페이지의 요소 목록 */
   pageElements(): SlipElement[] | undefined;
@@ -104,11 +104,11 @@ export interface PointerHost {
       lineDirection?: 'horizontal' | 'vertical' | 'down' | 'up';
     },
   ): void;
-  /** 요소를 고른다 */
+  /** 요소를 선택한다 */
   selectElement(id: string): void;
   /** 선택을 모두 푼다 */
   clearSelection(): void;
-  /** 선택한 요소를 고친다 */
+  /** 선택한 요소를 수정한다 */
   updateElement(fn: (el: SlipElement) => void): void;
   /** 조작 직전 상태를 되돌리기 기록에 넣는다 */
   pushUndoSnapshot(snapshot: string): void;
@@ -152,17 +152,14 @@ export class CanvasPointerController implements ReactiveController {
   private _guideY: number | null = null;
   /** 용지 위 커서 위치(mm) */
   private _cursorMm: { x: number; y: number } | null = null;
-  /** 고른 생성 도구 */
+  /** 선택한 생성 도구 */
   private _pendingTool: CreatableType | null = null;
   /** 다각형 도구로 만들 변의 수 */
   private _pendingSides = 3;
 
   constructor(private readonly host: PointerHost) {}
 
-  /**
-   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
-   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
-   */
+  /** 연결 시 현재 컨트롤러 상태가 화면에 반영되도록 갱신을 요청한다. */
   hostConnected(): void {
     this.host.refresh();
   }
@@ -212,7 +209,7 @@ export class CanvasPointerController implements ReactiveController {
     return this._cursorMm;
   }
 
-  /** 고른 생성 도구 */
+  /** 선택한 생성 도구 */
   get pendingTool(): CreatableType | null {
     return this._pendingTool;
   }
@@ -238,7 +235,7 @@ export class CanvasPointerController implements ReactiveController {
     this._lineEnd = null;
   }
 
-  /** 고른 생성 도구를 취소한다. 화면 갱신은 호출부가 처리한다. */
+  /** 선택한 생성 도구를 취소한다. 화면 갱신은 호출부가 처리한다. */
   cancelTool(): void {
     this._pendingTool = null;
   }

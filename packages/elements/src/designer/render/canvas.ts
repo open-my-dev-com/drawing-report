@@ -63,7 +63,7 @@ import type { DesignerStrings } from '../../strings.js';
 export interface CanvasContext {
   /** 로케일에 맞는 문구 */
   readonly s: DesignerStrings;
-  /** 수식 평가에 쓸 로케일 */
+  /** 수식 평가에 사용할 로케일 */
   readonly evalLocale: string | undefined;
   /** 편집 중인 양식 */
   readonly file: SlipTemplateFile | null;
@@ -130,7 +130,7 @@ export interface CanvasContext {
   closeBandMenu(clearSelection: boolean): void;
   /** 행 역할 메뉴의 키 조작 */
   onBandMenuKeyDown(event: KeyboardEvent): void;
-  /** 고른 행 범위에 역할을 지정한다 */
+  /** 선택한 행 범위에 역할을 지정한다 */
   setRowBandRole(fromRow: number, toRow: number, placement: GridBandPlacement): void;
   /** 화면을 다시 그린다 */
   refresh(): void;
@@ -906,7 +906,7 @@ export function gridFragment(
 
 /**
  * 그리드 왼쪽의 행 번호 선택 영역을 렌더링한다 (§7.2).
- * 행을 눌러 선택하고 Shift로 연속 범위를 넓힌 뒤 역할 명령을 고른다.
+ * 행을 눌러 선택하고 Shift로 연속 범위를 넓힌 뒤 역할 명령을 선택한다.
  *
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @param el - 그리드 요소
@@ -1119,7 +1119,7 @@ export function gridCellPreviewText(
  * @param cell - 비교할 셀
  * @param item - 항목 구간의 현재 샘플 항목
  * @param reserved - 행 구간의 예약 참조 값 (`@page` 등)
- * @returns 비교에 쓸 값. 빈 값이면 빈 문자열
+ * @returns 비교에 사용할 값. 빈 값이면 빈 문자열
  */
 export function gridCellMergeText(
   ctx: CanvasContext,

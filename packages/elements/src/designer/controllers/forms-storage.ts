@@ -26,10 +26,7 @@ export class FormsController implements ReactiveController {
 
   constructor(private readonly host: FormsHost) {}
 
-  /**
-   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
-   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
-   */
+  /** 연결 시 현재 컨트롤러 상태가 화면에 반영되도록 갱신을 요청한다. */
   hostConnected(): void {
     this.host.requestUpdate();
   }
@@ -135,7 +132,7 @@ export class FormsController implements ReactiveController {
     this._savedNotice = false;
   }
 
-  /** 저장 식별자와 안내를 모두 지운다 — 새 양식을 열 때 쓴다. */
+  /** 저장 식별자와 안내를 모두 지운다 — 새 양식을 열 때 사용한다. */
   reset(): void {
     this._savedId = null;
     this._savedNotice = false;
@@ -224,7 +221,7 @@ export class FormsController implements ReactiveController {
   }
 
   /**
-   * 제목에 검색어가 들어 있는 양식만 고른다.
+   * 제목에 검색어가 들어 있는 양식만 선택한다.
    *
    * @returns 검색어에 맞는 양식 목록. 검색어가 없으면 전체
    */

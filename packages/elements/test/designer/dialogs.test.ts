@@ -19,7 +19,7 @@ const imagePick = vi.hoisted(() => ({
 }));
 
 vi.mock('../../src/image-file.js', async () => {
-  // 파일 선택 대화 상자만 모의하고 바이트 표기는 실제 구현을 쓴다.
+  // 파일 선택 대화 상자만 모의하고 바이트 표기는 실제 구현을 사용한다.
   const actual = await vi.importActual<typeof import('../../src/image-file.js')>('../../src/image-file.js');
   return {
     ...actual,
@@ -60,7 +60,7 @@ installDesignerTestEnv();
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 프리셋', () => {
-  /** 프리셋 버튼을 눌러 메뉴를 펼치고 항목 버튼들을 돌려준다 */
+  /** 프리셋 버튼을 눌러 메뉴를 펼치고 항목 버튼들을 반환한다 */
   async function openPresetMenu(
     el: Designer,
   ): Promise<HTMLButtonElement[]> {
@@ -136,7 +136,7 @@ describe('<slip-designer> 프리셋', () => {
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
-  /** 수식 편집 모달을 열고, 모달을 연 버튼을 돌려준다 (초점 복귀 확인용) */
+  /** 수식 편집 모달을 열고, 모달을 연 버튼을 반환한다 (초점 복귀 확인용) */
   async function openFormulaModal(
     el: Designer,
   ): Promise<HTMLButtonElement> {
@@ -699,7 +699,7 @@ describe('<slip-designer> 이미지 업로드', () => {
     el.remove();
   });
 
-  it('이미지를 고른 요소는 패널과 캔버스에 그 이미지를 보여준다', async () => {
+  it('이미지를 선택한 요소는 패널과 캔버스에 그 이미지를 보여준다', async () => {
     const el = await mountImages([PNG_A]);
     selectElement(el, 'img-1');
     await el.updateComplete;
@@ -710,7 +710,7 @@ describe('<slip-designer> 이미지 업로드', () => {
     el.remove();
   });
 
-  it('이미 등록된 이미지를 골라 다른 요소에 다시 쓴다', async () => {
+  it('이미 등록된 이미지를 골라 다른 요소에 다시 사용한다', async () => {
     const el = await mountImages([PNG_A, PLACEHOLDER]);
     selectElement(el, 'img-2');
     await el.updateComplete;
@@ -859,7 +859,7 @@ describe('<slip-designer> 이미지 선택 실패 처리', () => {
     el.remove();
   });
 
-  it('상한을 넘는 파일은 허용 크기와 고른 크기를 함께 알린다', async () => {
+  it('상한을 넘는 파일은 허용 크기와 선택한 크기를 함께 알린다', async () => {
     imagePick.result = { ok: false, reason: 'tooLarge', size: 3 * 1024 * 1024 };
     const el = await openPicker();
     await pick(el);

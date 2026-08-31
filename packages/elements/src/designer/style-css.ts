@@ -23,7 +23,7 @@ export const DEFAULT_LINE_WIDTH = 0.2;
 /**
  * 글자 크기를 pt에서 CSS px로 변환한다.
  *
- * @param size - 글자 크기(pt). 생략하면 기본 크기를 쓴다
+ * @param size - 글자 크기(pt). 생략하면 기본 크기를 사용한다
  * @returns `px` 단위 CSS 값
  */
 export function fontPx(size: number | undefined): string {

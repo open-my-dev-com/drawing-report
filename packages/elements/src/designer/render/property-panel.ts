@@ -1,8 +1,8 @@
 /**
- * 속성 패널의 뿌리 — 고른 대상에 따라 어떤 설정을 보일지 정한다.
+ * 속성 패널의 진입점. 선택 대상에 따라 표시할 설정을 결정한다.
  *
  * @remarks
- * 대상별 화면은 각 렌더 모듈이 그리고, 여기서는 무엇을 그릴지만 고른다.
+ * 대상별 화면은 각 렌더 모듈이 그리고, 여기서는 무엇을 그릴지만 선택한다.
  */
 
 import { html, nothing } from 'lit';
@@ -44,7 +44,7 @@ export interface PanelContext {
   readonly grid: GridActions;
   /** 조건부 서식 평가 */
   readonly conditional: ConditionalFormatDeps;
-  /** 사이드바에서 고른 대상 */
+  /** 사이드바에서 선택한 대상 */
   readonly selection: SideSelection;
   /** 함께 선택된 요소 id 모음 */
   readonly selectedIds: ReadonlySet<string>;

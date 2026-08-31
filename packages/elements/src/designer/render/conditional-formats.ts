@@ -24,11 +24,11 @@ export interface ConditionalFormatDeps {
    * 조건식을 평가한다.
    *
    * @param source - 조건식
-   * @param context - 평가에 쓸 값
+   * @param context - 평가에 사용할 값
    * @returns 평가 결과
    */
   evaluate(source: string, context: FormulaContext): FormulaValue;
-  /** 샘플 값이 없을 때 쓸 파라미터 종류별 기본값 */
+  /** 샘플 값이 없을 때 사용할 파라미터 종류별 기본값 */
   probeValues(): Record<string, unknown>;
   /** 화면을 다시 그린다 */
   refresh(): void;

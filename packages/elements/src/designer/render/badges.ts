@@ -2,7 +2,7 @@
  * 요소 종류와 파라미터 종류를 나타내는 작은 배지.
  *
  * @remarks
- * 사이드바와 속성 패널이 같은 배지를 쓴다.
+ * 사이드바와 속성 패널이 같은 배지를 사용한다.
  */
 
 import type { TemplateResult } from 'lit';

@@ -40,10 +40,7 @@ export class SampleDraftController implements ReactiveController {
 
   constructor(private readonly host: SampleDraftHost) {}
 
-  /**
-   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
-   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
-   */
+  /** 연결 시 현재 컨트롤러 상태가 화면에 반영되도록 갱신을 요청한다. */
   hostConnected(): void {
     this.host.requestUpdate();
   }

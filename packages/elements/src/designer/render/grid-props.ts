@@ -7,10 +7,8 @@
  */
 
 import { html, nothing } from 'lit';
-import { } from 'lit/directives/live.js';
 import type { TemplateResult } from 'lit';
 import { bandDescription, bandIcon, bandLabel } from './band-visuals.js';
-import { } from '@omdc-slipkit/core';
 import type {
   ConditionalFormatRule,
   GridBandPlacement,
@@ -20,14 +18,12 @@ import type {
   SlipLayoutError,
 } from '@omdc-slipkit/core';
 import { icons } from '../../icons.js';
-import { } from '../geometry.js';
 import {
   DEFAULT_BORDER_COLOR,
   DEFAULT_FONT_COLOR,
   DEFAULT_FONT_SIZE,
   DEFAULT_LINE_WIDTH,
 } from '../style-css.js';
-import { } from '../patch.js';
 import {
   BAND_PLACEMENTS,
   GRID_MAX_ITEMS_UI,

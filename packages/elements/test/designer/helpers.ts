@@ -153,7 +153,7 @@ export function toolbarButton(el: Element, label: string): HTMLButtonElement {
     .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === label) as HTMLButtonElement;
 }
 
-/** 리스트형 선택 상자를 열고 data-value가 일치하는 항목을 고른다. */
+/** 리스트형 선택 상자를 열고 data-value가 일치하는 항목을 선택한다. */
 export async function pickListValue(host: LitHost, trigger: HTMLElement, value: string): Promise<void> {
   trigger.click();
   await host.updateComplete;

@@ -2,7 +2,7 @@
  * 바코드 종류 목록과 규격 제약.
  *
  * @remarks
- * 호스트가 종류를 제한하지 않으면 이 목록을 그대로 쓴다.
+ * 호스트가 종류를 제한하지 않으면 이 목록을 그대로 사용한다.
  */
 
 import type { BarcodeKind } from '@omdc-slipkit/core';

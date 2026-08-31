@@ -13,7 +13,7 @@ export type ImagePickResult =
   | { ok: false; reason: 'readFailed' };
 
 /**
- * 파일 선택 대화 상자를 열어 고른 이미지를 `data:` base64로 읽는다.
+ * 파일 선택 대화 상자를 열어 선택한 이미지를 `data:` base64로 읽는다.
  *
  * @param maxBytes - 허용하는 최대 파일 크기(바이트)
  * @returns 선택한 이미지의 base64 데이터 또는 오류 종류. 선택을 취소하면 Promise는 완료되지 않는다

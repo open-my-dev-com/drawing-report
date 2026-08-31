@@ -32,8 +32,8 @@ paths:
   `DialogContext`·`ToolbarActions`·`PointerHost`·`GridCommandsHost`).
 - 의존 방향은 **상태 비의존 연산 → 컨트롤러 → 렌더 모듈 → 컴포넌트** 한 방향이다. 아래가 위를 참조하지 않는다.
 - 컨트롤러는 `TemplateResult`를 만들지 않는다. 아이콘 같은 화면 조각은 렌더 모듈에 둔다.
-- 컨트롤러는 연결이 끊겼다고 상태를 지우지 않는다. `hostConnected`에서 화면을 다시 그려 재연결
+- 연결 해제 시 컨트롤러 상태를 초기화하지 않는다. `hostConnected`에서 화면을 다시 그려 재연결
   뒤에도 화면과 상태가 어긋나지 않게 한다.
 - shadow root는 하나다. 자식 커스텀 엘리먼트를 만들지 않는다.
-- `packages/elements`는 `noUnusedLocals`·`noUnusedParameters`를 켠다. 옮기고 남은 import와
-  쓰지 않는 매개변수를 `pnpm -r typecheck`가 잡는다.
+- `packages/elements`는 `noUnusedLocals`·`noUnusedParameters`를 켠다. 모듈 분리 후 남은 미사용 import와
+  사용하지 않는 매개변수를 `pnpm -r typecheck`가 잡는다.

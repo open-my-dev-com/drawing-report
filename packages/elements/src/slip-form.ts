@@ -261,7 +261,7 @@ export class SlipForm extends LitElement {
           for (const cell of band) {
             const key = cell.parameter as string;
             if (columns.some((c) => c.key === key)) continue;
-            // 열 제목은 셀 이름을 우선 사용하고, 없으면 항목 구간 위쪽의 헤더 텍스트를 쓴다.
+            // 열 제목은 셀 이름을 우선 사용하고, 없으면 항목 구간 위쪽의 헤더 텍스트를 사용한다.
             columns.push({
               key,
               title: cell.name ?? gridHeaderTitle(element, cell.column, itemBand.fromRow) ?? key,
@@ -475,7 +475,7 @@ export class SlipForm extends LitElement {
       try {
         // 빈 number 파라미터를 0으로 정규화한 뒤 계산한다.
         const values = normalizeNumericParameters(this._values, this._body?.parameters);
-        // slipkit이 있으면 수식도 같은 인스턴스로 평가해 PDF와 같은 로케일을 쓴다.
+        // slipkit이 있으면 수식도 같은 인스턴스로 평가해 PDF와 같은 로케일을 사용한다.
         // 컴포넌트 locale은 UI 언어 전용이라 수식 컨텍스트에 넣지 않는다.
         text = resultText(
           this.slipkit

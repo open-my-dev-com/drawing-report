@@ -13,7 +13,7 @@ export interface FormulaDraftHost {
   readonly updateComplete: Promise<boolean>;
 }
 
-/** 하위 필드 자동완성에 쓸 목록 파라미터 */
+/** 하위 필드 자동완성에 사용할 목록 파라미터 */
 export interface SuggestParameter {
   key: string;
   fields: readonly { key: string; title: string }[];
@@ -61,17 +61,14 @@ export class FormulaDraftController implements ReactiveController {
 
   /**
    * @param host - 화면 갱신을 요청할 호스트
-   * @param getInput - 수식 입력란을 돌려주는 함수. 삽입 뒤 커서를 되돌릴 때 쓴다
+   * @param getInput - 수식 입력 요소를 반환하는 함수. 텍스트 삽입 후 커서 위치를 복원할 때 사용한다
    */
   constructor(
     private readonly host: FormulaDraftHost,
     private readonly getInput: () => HTMLTextAreaElement | null,
   ) {}
 
-  /**
-   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
-   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
-   */
+  /** 연결 시 현재 컨트롤러 상태가 화면에 반영되도록 갱신을 요청한다. */
   hostConnected(): void {
     this.host.requestUpdate();
   }

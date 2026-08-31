@@ -2,7 +2,7 @@
  * 그리드 편집의 선택 상태 — 셀 선택, 인라인 편집, 행 구간 선택과 행 추가 명령.
  *
  * @remarks
- * 값을 바꾸는 것은 호출부가 하고 여기서는 "무엇을 편집 중인지"만 갖는다.
+ * 값 변경은 호출부가 담당하고, 이 컨트롤러는 편집 대상을 관리한다.
  * 그리드가 아닌 요소를 고르거나 양식을 다시 불러오면 `reset`으로 한꺼번에 지운다.
  */
 
@@ -20,7 +20,7 @@ export interface CellPosition {
   column: number;
 }
 
-/** 행 번호 선택 영역에서 고른 행 범위 (0부터) */
+/** 행 번호 선택 영역에서 선택한 행 범위 (0부터) */
 export interface BandRange {
   from: number;
   to: number;
@@ -41,15 +41,12 @@ export class GridEditController implements ReactiveController {
 
   constructor(private readonly host: GridEditHost) {}
 
-  /**
-   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
-   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
-   */
+  /** 연결 시 현재 컨트롤러 상태가 화면에 반영되도록 갱신을 요청한다. */
   hostConnected(): void {
     this.host.requestUpdate();
   }
 
-  /** 병합과 인라인 편집의 대상인 셀. 고른 셀이 없으면 null */
+  /** 병합과 인라인 편집의 대상인 셀. 선택한 셀이 없으면 null */
   get cell(): CellPosition | null {
     return this._cell;
   }
@@ -85,7 +82,7 @@ export class GridEditController implements ReactiveController {
   }
 
   /**
-   * 셀을 고른다.
+   * 셀을 선택한다.
    *
    * @param cell - 고를 셀의 좌표
    */
@@ -128,7 +125,7 @@ export class GridEditController implements ReactiveController {
   }
 
   /**
-   * 행 범위를 고른다.
+   * 행 범위를 선택한다.
    *
    * @param range - 고를 행 범위. null이면 해제
    */
@@ -151,7 +148,7 @@ export class GridEditController implements ReactiveController {
   /**
    * 행 역할 명령 메뉴를 닫는다.
    *
-   * @param clearRange - 고른 행 범위도 함께 해제하면 true
+   * @param clearRange - 선택한 행 범위도 함께 해제하면 true
    */
   closeBandMenu(clearRange: boolean): void {
     this._bandMenuOpen = false;
@@ -188,7 +185,7 @@ export class GridEditController implements ReactiveController {
   /**
    * 행 추가 명령에서 집계할 필드를 바꾼다.
    *
-   * @param field - 고른 목록 필드
+   * @param field - 선택한 목록 필드
    */
   setRowCommandField(field: string): void {
     this._rowCommandField = field;

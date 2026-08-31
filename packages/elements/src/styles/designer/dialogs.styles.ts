@@ -502,7 +502,7 @@ export const dialogsStyles = css`
       color: #666;
     }
 
-    /* 행 구간 표식 색 — 캔버스와 속성 패널에서 같은 색을 쓴다 (§7.2) */
+    /* 행 구간 표식 색 — 캔버스와 속성 패널에서 같은 색을 사용한다 (§7.2) */
     .placement-before-data { --sk-band: #8d6e63; }
     .placement-page-start { --sk-band: #1a73e8; }
     .placement-group-start { --sk-band: #188038; }

@@ -102,7 +102,7 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
     expect(Number(up?.getAttribute('y2'))).toBe(0);
   });
 
-  it('사선에도 선 굵기 칸이 나온다 (방향을 바꿔도 굵기를 고칠 수 있게)', async () => {
+  it('사선에도 선 굵기 칸이 나온다 (방향을 바꿔도 굵기를 수정할 수 있게)', async () => {
     parseSlipFileMock.mockReturnValue(makeLineFile('down'));
     const el = await createElement();
     el.src = '{"valid": true}';
@@ -678,7 +678,7 @@ describe('<slip-designer> 크기 조절 핸들', () => {
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 눈금자·격자 (F-20)', () => {
-  /** 격자 간격 메뉴에서 항목을 고른다 (없음·1mm·5mm·10mm) */
+  /** 격자 간격 메뉴에서 항목을 선택한다 (없음·1mm·5mm·10mm) */
   async function pickGrid(
     el: Designer,
     label: string,
@@ -719,7 +719,7 @@ describe('<slip-designer> 눈금자·격자 (F-20)', () => {
     el.remove();
   });
 
-  it('격자를 켜야 색 견본이 나오고, 고른 색으로 격자선이 그려진다', async () => {
+  it('격자를 켜야 색 견본이 나오고, 선택한 색으로 격자선이 그려진다', async () => {
     const el = await loadDesigner();
 
     // 격자가 꺼져 있으면 색을 고를 일이 없으므로 견본을 두지 않는다
@@ -922,7 +922,7 @@ describe('<slip-designer> 복사·붙여넣기', () => {
     el.remove();
   });
 
-  it('복사한 요소를 붙여넣으면 새 id로 5mm 어긋난 위치에 추가되고 slip-change를 발행한다', async () => {
+  it('복사한 요소를 붙여넣으면 새 ID로 원본에서 5mm 이동한 위치에 추가되고 slip-change를 발행한다', async () => {
     const el = await loadDesigner();
     selectElement(el, 'txt-1');
     await el.updateComplete;
@@ -948,7 +948,7 @@ describe('<slip-designer> 복사·붙여넣기', () => {
     el.remove();
   });
 
-  it('연속 붙여넣기는 계단식으로 5mm씩 더 어긋난다', async () => {
+  it('연속으로 붙여넣으면 이전 위치에서 5mm씩 추가로 이동한다', async () => {
     const el = await loadDesigner();
     selectElement(el, 'txt-1');
     await el.updateComplete;
