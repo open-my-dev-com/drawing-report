@@ -67,6 +67,7 @@ import {
   boxOf,
   setElementBox,
   trackOffsets,
+  THUMB_WIDTH_PX,
   snapCandidates,
   bestSnap,
 } from './designer/geometry.js';
@@ -124,6 +125,25 @@ import {
   groupPanel,
 } from './designer/render/element-props.js';
 import type { ElementActions } from './designer/render/element-props.js';
+import { PAPER_PRESETS } from './designer/paper.js';
+import { BINDING_VALUE_TYPES, BINDING_FIELD_VALUE_TYPES } from './designer/parameters.js';
+import type { ParameterUse, ParameterInfo, ParameterFieldInfo } from './designer/parameters.js';
+import { valueTypeBadge, TYPE_BADGE } from './designer/render/badges.js';
+import {
+  pageSettings,
+  formSettings,
+  parameterPanel,
+  parameterFieldPanel,
+} from './designer/render/form-props.js';
+import type { FormActions } from './designer/render/form-props.js';
+import { propertyPanel } from './designer/render/property-panel.js';
+import type { PanelContext } from './designer/render/property-panel.js';
+import { sidebar } from './designer/render/sidebar.js';
+import type { SidebarActions, SideSelection } from './designer/render/sidebar.js';
+import { conditionalFormatsSection } from './designer/render/conditional-formats.js';
+import { gridProps } from './designer/render/grid-props.js';
+import type { GridActions } from './designer/render/grid-props.js';
+import type { ConditionalFormatDeps } from './designer/render/conditional-formats.js';
 import type { PanelKit } from './designer/render/panel-kit.js';
 import { imagePickErrorText, usedImages, imageParameterKeys, PLACEHOLDER_IMG } from './designer/image-pick.js';
 import type { ImagePickFailure } from './designer/image-pick.js';
@@ -162,13 +182,6 @@ const NEW_BINDING_OPTION = '\u0000new';
 
 
 
-/** 세로 방향을 기준으로 정의한 기본 용지 크기(mm) */
-const PAPER_PRESETS = [
-  { name: 'A4', width: 210, height: 297 },
-  { name: 'A5', width: 148, height: 210 },
-  { name: 'B5', width: 176, height: 250 },
-  { name: 'Letter', width: 215.9, height: 279.4 },
-] as const;
 
 
 const MAX_UNDO = 50;
@@ -176,41 +189,9 @@ const MAX_UNDO = 50;
  * 파라미터 값 종류 선택지.
  * 종류를 지정하지 않은 값은 텍스트로 처리한다.
  */
-const BINDING_VALUE_TYPES: readonly { value: string; stringKey: 'valueTypeUnset' | 'valueTypeText' | 'valueTypeNumber' | 'valueTypeDate' | 'valueTypeBoolean' | 'valueTypeImage' | 'valueTypeList' }[] = [
-  { value: '', stringKey: 'valueTypeUnset' },
-  { value: 'text', stringKey: 'valueTypeText' },
-  { value: 'number', stringKey: 'valueTypeNumber' },
-  { value: 'date', stringKey: 'valueTypeDate' },
-  { value: 'boolean', stringKey: 'valueTypeBoolean' },
-  { value: 'image', stringKey: 'valueTypeImage' },
-  { value: 'list', stringKey: 'valueTypeList' },
-];
 
-/**
- * 파라미터 값 종류별 아이콘.
- * 종류를 지정하지 않은 파라미터에는 텍스트 아이콘을 사용한다 (SPEC §4).
- */
-const VALUE_TYPE_BADGE: Record<string, TemplateResult> = {
-  text: icons.typeText,
-  number: icons.typeNumber,
-  date: icons.typeDate,
-  boolean: icons.typeBoolean,
-  image: icons.typeImage,
-  list: icons.typeList,
-};
 
-/**
- * 파라미터·하위 필드 줄에 붙일 아이콘.
- *
- * @param valueType - 값 종류 (없으면 글자)
- * @returns 그 종류의 아이콘
- */
-function valueTypeBadge(valueType: string | undefined): TemplateResult {
-  return VALUE_TYPE_BADGE[valueType ?? 'text'] ?? icons.typeText;
-}
 
-/** 목록 중첩을 제외한 하위 필드의 값 종류 선택지  */
-const BINDING_FIELD_VALUE_TYPES = BINDING_VALUE_TYPES.filter((t) => t.value !== 'list');
 
 /** 샘플 데이터 모달의 페이지당 파라미터 수 */
 const SAMPLE_PAGE_SIZE = 10;
@@ -270,8 +251,6 @@ type GridColorId = (typeof GRID_COLORS)[number]['id'];
  * base64로 담기면 약 33% 커지므로 2MB 원본이 파일에는 ~2.7MB로 들어간다.
  */
 const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
-/** 사이드바 페이지 미리보기의 너비(px) */
-const THUMB_WIDTH_PX = 132;
 
 
 
@@ -320,18 +299,6 @@ const MY_FORMS_PAGE_SIZE = 10;
 type CreatableType = SlipElement['type'];
 
 
-/** 캔버스 요소 종류별 배지 아이콘 */
-const TYPE_BADGE: Record<SlipElement['type'], TemplateResult> = {
-  text: icons.text,
-  grid: icons.gridElement,
-  image: icons.image,
-  line: icons.line,
-  rect: icons.shape,
-  ellipse: icons.ellipse,
-  polygon: icons.polygon,
-  field: icons.field,
-  barcode: icons.barcode,
-};
 
 interface DragState {
   id: string;
@@ -360,54 +327,10 @@ interface ResizeState {
   snapshot: string | null;
 }
 
-/** 파라미터를 사용하는 요소의 위치 */
-interface ParameterUse {
-  pageIndex: number;
-  id: string;
-  name: string;
-  type: 'field' | 'grid' | 'image';
-}
 
-/** 파라미터 정의와 사용 위치를 합친 사이드바 항목 */
-interface ParameterInfo {
-  /** 전표 값에서 사용하는 키 */
-  key: string;
-  /** 화면에 표시할 이름 */
-  label: string;
-  /** 파라미터 정의에 지정된 레이블 */
-  rawLabel: string | undefined;
-  /** 파라미터 정의에 지정된 값 종류 */
-  valueType: ParameterValueType | undefined;
-  /** 파라미터 정의에 등록되어 있는지 여부 */
-  defined: boolean;
-  /** 이 값을 쓰는 요소들 */
-  uses: ParameterUse[];
-  /** 파라미터 정의에 등록된 목록 하위 필드  */
-  fields: ParameterFieldInfo[];
-}
 
-/**
- * 목록 파라미터의 하위 필드와 해당 필드를 사용하는 그리드 셀 위치.
- */
-interface ParameterFieldInfo {
-  /** 항목 필드 물리명 — 수식에서 `목록파라미터.필드`로 쓴다 */
-  key: string;
-  /** 화면에 보일 이름 — 논리명이 없으면 물리명 */
-  title: string;
-  /** 정의부에 적힌 논리명 (없으면 undefined) */
-  rawLabel: string | undefined;
-  /** 값 종류 */
-  valueType: ParameterValueType | undefined;
-  /** 이 필드를 읽는 그리드 셀의 자리 (없으면 undefined) */
-  at: { pageIndex: number; gridId: string; row: number; column: number } | undefined;
-}
 
 /** 사이드바에서 선택한 페이지와 파라미터를 나타낸다. */
-type SideSelection =
-  | { kind: 'parameter'; key: string }
-  | { kind: 'parameterField'; key: string; field: string }
-  | { kind: 'page' }
-  | null;
 
 /**
  * `.slip` 양식을 편집하는 `<slip-designer>` 컴포넌트.
@@ -719,6 +642,145 @@ export class SlipDesigner extends LitElement {
       groupSelected: () => this._groupSelected(),
       ungroupSelected: () => this._ungroupSelected(),
       selectedIds: this._selectedIds,
+    };
+  }
+
+  /** 조건부 서식 편집이 쓰는 평가와 갱신 */
+  private get _conditionalDeps(): ConditionalFormatDeps {
+    return {
+      evaluate: (source, context) => this._evaluate(source, context),
+      probeValues: () => this._formulaProbeValues(),
+      refresh: () => this.requestUpdate(),
+    };
+  }
+
+
+
+
+
+  /** 속성 패널이 쓰는 조작 묶음 */
+  private get _panelContext(): PanelContext {
+    return {
+      kit: this._kit,
+      element: this._actions,
+      form: this._formActions,
+      grid: this._gridActions,
+      conditional: this._conditionalDeps,
+      selection: this._sideSelection,
+      selectedIds: this._selectedIds,
+      selectedElement: () => this._findSelectedElement(),
+      typeName: (type) => this._typeName(type),
+    };
+  }
+
+  /** 사이드바가 요청하는 조작 */
+  private get _sidebarActions(): SidebarActions {
+    return {
+      file: this._file,
+      pageIndex: this._pageIndex,
+      selection: this._sideSelection,
+      selectedId: this._selectedId,
+      selectedIds: this._selectedIds,
+      expandedElements: this._expandedElements,
+      expandedParameters: this._expandedParameters,
+      thumbPage: this._thumbPage,
+      thumbPos: this._thumbPos,
+      gridEdit: this._gridEdit,
+      parameters: () => this._parameterList(),
+      pageDisplayName: (page, index) => this._pageDisplayName(page, index),
+      goToPage: (index) => this._goToPage(index),
+      selectPage: (index) => this._selectPage(index),
+      showPageThumb: (index, event) => this._showPageThumb(index, event),
+      hidePageThumb: (index) => this._hidePageThumb(index),
+      addParameter: () => this._addParameter(),
+      addParameterField: (listKey) => this._addParameterField(listKey),
+      removeParameterDef: (key) => this._removeParameterDef(key),
+      removeParameterField: (listKey, key) => this._removeParameterField(listKey, key),
+      selectParameter: (key) => this._selectParameter(key),
+      selectParameterField: (listKey, field) => this._selectParameterField(listKey, field),
+      toggleParameterRow: (key) => this._toggleParameterRow(key),
+      toggleElementRow: (id) => this._toggleElementRow(id),
+      deleteElementById: (pageIndex, id) => this._deleteElementById(pageIndex, id),
+      selectFromSidebar: (pageIndex, id, additive) => this._selectFromSidebar(pageIndex, id, additive),
+      selectGridCell: (pageIndex, gridId, row, column) =>
+        this._selectGridCell(pageIndex, gridId, row, column),
+      gridValueCells: (grid) => this._gridValueCells(grid as GridElement),
+      openSampleModal: () => {
+        this._sample.reset();
+        this._dialogs.open('sample');
+      },
+    };
+  }
+
+  /** 양식·파라미터 패널이 요청하는 조작 */
+  private get _formActions(): FormActions {
+    return {
+      file: this._file,
+      pageIndex: this._pageIndex,
+      pageKeyError: this._pageKeyError,
+      parameterKeyError: this._parameterKeyError,
+      hostPaperSizes: this._hostPaperSizes,
+      paperSaveName: this._paperSaveName,
+      setPaperSaveName: (value) => { this._paperSaveName = value; },
+      canSavePaperSize: this.settings?.savePaperSize !== undefined,
+      updateFile: (fn) => this._updateFile(fn),
+      pageCount: () => this._pageCount(),
+      movePage: (delta) => this._movePage(delta),
+      commitPageKey: (index, raw) => this._commitPageKey(index, raw),
+      togglePageNumber: (index, on) => this._togglePageNumber(index, on),
+      savePaperSize: (name) => void this._savePaperSize(name),
+      parameters: () => this._parameterList(),
+      addParameterField: (listKey) => this._addParameterField(listKey),
+      commitParameterLabel: (key, label) => this._commitParameterLabel(key, label),
+      renameParameterKey: (key, next, input) => this._renameParameterKey(key, next, input),
+      setParameterValueType: (key, valueType) => this._setParameterValueType(key, valueType),
+      renameParameterField: (listKey, key, next, input) =>
+        this._renameParameterField(listKey, key, next, input),
+      updateParameterField: (listKey, key, patch) => this._updateParameterField(listKey, key, patch),
+      selectFromSidebar: (pageIndex, id, additive) => this._selectFromSidebar(pageIndex, id, additive),
+      selectParameter: (key) => this._selectParameter(key),
+      selectParameterField: (listKey, field) => this._selectParameterField(listKey, field),
+      selectGridCellAt: (at) => this._selectGridCellAt(at),
+    };
+  }
+
+  /** 그리드 속성 패널이 요청하는 조작 */
+  private get _gridActions(): GridActions {
+    return {
+      edit: this._gridEdit,
+      conditional: this._conditionalDeps,
+      refresh: () => this.requestUpdate(),
+      toggleListSelect: (id, event) => this._toggleListSelect(id, event),
+      parameters: () => this._parameterList(),
+      planError: () => this._planError(),
+      changeRows: (delta) => this._changeGridRows(delta),
+      changeColumns: (delta) => this._changeGridColumns(delta),
+      setTrack: (kind, index, mm) => this._setGridTrack(kind, index, mm),
+      toggleRepeat: (on) => this._toggleGridRepeat(on),
+      setRepeatParameter: (key) => this._setRepeatParameter(key),
+      setRepeatMaxItems: (value) => this._setRepeatMaxItems(value),
+      setPagination: (patch) => this._setGridPagination(patch),
+      toggleGroupField: (key, on) => this._toggleGridGroupField(key, on),
+      clearCellSelection: () => this._clearCellSelection(),
+      setRowBandRole: (fromRow, toRow, placement) => this._setRowBandRole(fromRow, toRow, placement),
+      setBandSelectionBoundary: (boundary, rowNumber, bandId) =>
+        this._setBandSelectionBoundary(boundary, rowNumber, bandId),
+      setBandPages: (bandId, pages) => this._setBandPages(bandId, pages),
+      setBandRepeatOnPageBreak: (bandId, on) => this._setBandRepeatOnPageBreak(bandId, on),
+      addRowWithRole: (placement, options) => this._addGridRowWithRole(placement, options),
+      openRowCommand: (command) => this._openGridRowCommand(command),
+      applyRowCommand: () => this._applyGridRowCommand(),
+      bandLabel: (placement) => this._bandPlacementLabel(placement),
+      bandDescription: (placement) => this._bandPlacementDescription(placement),
+      bandIcon: (placement) => this._bandPlacementIcon(placement),
+      chooseCellSource: (kind) => this._chooseGridCellSource(kind),
+      setCellSource: (kind, value) => this._setGridCellSource(kind, value),
+      commitCellContent: (value) => this._commitCellContent(value),
+      setCellSpan: (kind, value) => this._setCellSpan(kind, value),
+      updateCellStyle: (key, value) => this._updateCellStyle(key, value),
+      updateCellConditionalFormats: (next) => this._updateCellConditionalFormats(next),
+      cellParameterSelect: (el, current, inBand) => this._gridCellParameterSelect(el, current, inBand),
+      repeatProbeItem: (el) => this._repeatProbeItem(el),
     };
   }
 
@@ -2606,7 +2668,7 @@ export class SlipDesigner extends LitElement {
                 : html`<div class="status">${this._strings.designer.previewLoading}</div>`}
           </div>`
         : html`
-            <aside class="sidebar">${this._renderSidebar()}</aside>
+            <aside class="sidebar">${sidebar(this._kit, this._sidebarActions)}</aside>
             <div class="canvas-area ${this._pendingTool ? 'drawing' : ''} ${
               this._showBadges ? 'show-badges' : ''
             }"
@@ -2623,7 +2685,7 @@ export class SlipDesigner extends LitElement {
               ${this._inputError && this._inputErrorField === null
                 ? html`<div class="input-error" role="alert">${this._inputError}</div>`
                 : nothing}
-              ${this._renderPropertyPanel()}
+              ${propertyPanel(this._panelContext)}
             </div>
             ${this._renderFormulaModal()}
             ${this._renderImageModal()}
@@ -3099,185 +3161,13 @@ export class SlipDesigner extends LitElement {
     return list;
   }
 
-  /**
-   * 페이지, 요소, 파라미터를 탐색하고 선택하는 왼쪽 사이드바를 렌더링한다.
-   */
-  private _renderSidebar() {
-    const file = this._file!;
-    const s = this._strings.designer;
-    const { paper } = file.template;
-    // 용지 비율을 유지하며 페이지 미리보기 크기를 계산한다.
-    const thumbW = THUMB_WIDTH_PX;
-    const scale = thumbW / paper.width;
-    const pages = file.template.pages;
-    const parameters = this._parameterList();
 
-    return html`
-      <div class="side-section">
-        <div class="side-title">${s.sidebarPages}</div>
-        ${pages.map((page, i) => html`
-          <div class="page-row-wrap">
-            <span class="side-twisty-gap"></span>
-            <button class="side-row page-row ${
-              this._sideSelection?.kind === 'page' && i === this._pageIndex
-                ? 'selected'
-                : i === this._pageIndex ? 'current' : ''
-            }"
-              aria-label="${s.sidebarPages} ${i + 1}"
-              aria-pressed=${String(i === this._pageIndex)}
-              @click=${() => this._selectPage(i)}
-              @pointerenter=${(e: Event) => this._showPageThumb(i, e)}
-              @pointerleave=${() => this._hidePageThumb(i)}
-              @focus=${(e: Event) => this._showPageThumb(i, e)}
-              @blur=${() => this._hidePageThumb(i)}>
-              ${icons.page}<span>${this._pageDisplayName(page, i)}</span>
-            </button>
-            ${this._thumbPage === i && this._thumbPos
-              ? html`<div class="page-thumb-pop" role="presentation"
-                  style="top:${this._thumbPos.top}px;left:${this._thumbPos.left}px">
-                  <span class="thumb-paper"
-                    style="width:${thumbW}px;height:${(paper.height * scale).toFixed(1)}px">
-                    ${page.elements.map((el) => html`<span class="thumb-el" style="
-                      left:${(el.position.x * scale).toFixed(1)}px;
-                      top:${(el.position.y * scale).toFixed(1)}px;
-                      width:${Math.max(2, boxOf(el).width * scale).toFixed(1)}px;
-                      height:${Math.max(2, boxOf(el).height * scale).toFixed(1)}px;
-                    "></span>`)}
-                  </span>
-                </div>`
-              : nothing}
-          </div>`)}
-      </div>
-
-      <div class="side-section">
-        <div class="side-title">${s.sidebarElements}</div>
-        ${pages.map((page, i) => html`
-          ${pages.length > 1
-            ? html`<button class="side-page-head ${i === this._pageIndex ? 'current' : ''}"
-                aria-label="${s.sidebarElements} ${s.sidebarPages} ${i + 1}"
-                aria-expanded=${String(i === this._pageIndex)}
-                @click=${() => this._goToPage(i)}>
-                <span>${this._pageDisplayName(page, i)}</span><span>${page.elements.length}</span>
-              </button>`
-            : nothing}
-          ${i !== this._pageIndex
-            ? nothing
-            : page.elements.length === 0
-              ? html`<div class="side-empty">—</div>`
-              : page.elements.map((el) => this._renderElementRow(i, el))}`)}
-      </div>
-
-      <div class="side-section">
-        <div class="side-title-row">
-          <span class="side-title">${s.sidebarParameters}</span>
-          <button class="side-mini" title=${s.sampleData} aria-label=${s.sampleData}
-            @click=${() => {
-              this._sample.reset();
-              this._dialogs.open('sample');
-            }}>${icons.database}</button>
-          <button class="side-mini" title=${s.addParameter} aria-label=${s.addParameter}
-            @click=${() => this._addParameter()}>${icons.pageAdd}</button>
-        </div>
-        ${parameters.length === 0
-          ? html`<div class="side-empty">—</div>`
-          : parameters.map((b) => this._renderParameterRow(b))}
-      </div>
-    `;
-  }
-
-  private _renderParameterRow(b: ParameterInfo) {
-    const s = this._strings.designer;
-    const sel = this._sideSelection;
-    const selected = sel?.kind === 'parameter' && sel.key === b.key;
-    const hasFields = b.fields.length > 0;
-    const expanded = hasFields && this._expandedParameters.has(b.key);
-    return html`
-      <div class="side-row-wrap">
-        ${twisty(this._kit, hasFields, expanded, b.label, () => this._toggleParameterRow(b.key))}
-        <button class="side-row ${selected ? 'selected' : ''}" title=${b.key}
-          @click=${() => this._selectParameter(b.key)}>
-          ${valueTypeBadge(b.valueType)}<span>${b.label}</span>
-        </button>
-        <button class="side-mini" title=${s.delete} aria-label="${b.key} ${s.delete}"
-          ?disabled=${!b.defined}
-          @click=${() => this._removeParameterDef(b.key)}>${icons.remove}</button>
-      </div>
-      ${expanded
-        ? b.fields.map((f) => {
-            const fieldSelected = sel?.kind === 'parameterField' && sel.key === b.key && sel.field === f.key;
-            return html`
-              <div class="side-row-wrap">
-                <span class="side-twisty-gap"></span>
-                <button class="side-col-row ${fieldSelected ? 'selected' : ''}" title="${b.key}.${f.key}"
-                  @click=${() => this._selectParameterField(b.key, f)}
-                  >${valueTypeBadge(f.valueType)}<span>${f.title}</span></button>
-                <button class="side-mini" title=${s.delete} aria-label="${f.key} ${s.delete}"
-                  @click=${() => this._removeParameterField(b.key, f.key)}>${icons.remove}</button>
-              </div>`;
-          })
-        : nothing}
-      ${b.valueType === 'list'
-        ? html`
-          <div class="side-row-wrap">
-            <span class="side-twisty-gap"></span>
-            <button class="side-add-field" @click=${() => this._addParameterField(b.key)}>
-              ${icons.add}<span>${s.addParameterField}</span>
-            </button>
-          </div>`
-        : nothing}
-    `;
-  }
-
-  /** 파라미터의 하위 필드 목록을 열거나 닫는다. */
   private _toggleParameterRow(key: string): void {
     if (this._expandedParameters.has(key)) this._expandedParameters.delete(key);
     else this._expandedParameters.add(key);
     this.requestUpdate();
   }
 
-  /**
-   * 요소와 값이 있는 그리드 셀을 사이드바 행으로 표시한다.
-   *
-   * @param pageIndex - 이 요소가 있는 페이지 번호
-   * @param el - 그릴 요소
-   * @returns 요소 줄과 (그리드면) 펼쳐진 셀 하위 줄
-   */
-  private _renderElementRow(pageIndex: number, el: SlipElement) {
-    const s = this._strings.designer;
-    const cells = isGrid(el) ? this._gridValueCells(el) : [];
-    const hasCells = cells.length > 0;
-    const expanded = hasCells && this._expandedElements.has(el.id);
-    // 그리드 셀이 선택된 경우에는 요소 행 대신 해당 셀 행을 강조한다.
-    const rowSelected = this._selectedIds.has(el.id) && !this._sideSelection && this._gridEdit.cell === null;
-    return html`
-      <div class="side-row-wrap">
-        ${twisty(this._kit, hasCells, expanded, el.name, () => this._toggleElementRow(el.id))}
-        <button class="side-row ${rowSelected ? 'selected' : ''}" title=${el.name}
-          @click=${(e: MouseEvent) => this._selectFromSidebar(pageIndex, el.id, e.ctrlKey || e.metaKey)}>
-          ${TYPE_BADGE[el.type]}<span>${el.name}</span>
-        </button>
-        <button class="side-mini" title=${s.delete} aria-label="${el.name} ${s.delete}"
-          @click=${() => this._deleteElementById(pageIndex, el.id)}>${icons.remove}</button>
-      </div>
-      ${expanded
-        ? cells.map((c) => {
-            const cellSelected = this._selectedId === el.id
-              && this._gridEdit.cell?.row === c.row && this._gridEdit.cell?.column === c.column;
-            return html`
-              <button class="side-cell-row ${cellSelected ? 'selected' : ''}" title=${c.at}
-                @click=${() => this._selectGridCell(pageIndex, el.id, c.row, c.column)}>
-                <span>${c.label}</span></button>`;
-          })
-        : nothing}
-    `;
-  }
-
-  /**
-   * 이름, 파라미터 또는 수식이 지정된 그리드 셀을 행과 열 순서로 반환한다.
-   *
-   * @param grid - 그리드 요소
-   * @returns 셀의 위치와 표시 이름(셀 이름이 없으면 행과 열 좌표)
-   */
   private _gridValueCells(grid: GridElement): { row: number; column: number; label: string; at: string }[] {
     const s = this._strings.designer;
     return grid.cells
@@ -4795,109 +4685,6 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /**
-   * 현재 페이지의 이름, 페이지 번호, 순서를 편집하는 패널을 렌더링한다.
-   *
-   * @returns 페이지 설정 패널 조각
-   */
-  private _renderPageSettings() {
-    const file = this._file!;
-    const s = this._strings.designer;
-    const index = this._pageIndex;
-    const page = file.template.pages[index];
-    if (!page) return this._renderFormSettings();
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-
-    // 페이지 번호는 위쪽 또는 아래쪽의 왼쪽, 가운데, 오른쪽에 배치할 수 있다 (SPEC §4).
-    const positions: { value: PageNumberPosition; label: string }[] = [
-      { value: 'bottom-left', label: s.pagePosBottomLeft },
-      { value: 'bottom-center', label: s.pagePosBottomCenter },
-      { value: 'bottom-right', label: s.pagePosBottomRight },
-      { value: 'top-left', label: s.pagePosTopLeft },
-      { value: 'top-center', label: s.pagePosTopCenter },
-      { value: 'top-right', label: s.pagePosTopRight },
-    ];
-    const pageNumber = page.pageNumber;
-
-    return html`
-      <div class="type-name">${s.pageSettings}</div>
-
-      <div class="prop-section">
-        <div class="prop-section-title">${s.panelBasic}</div>
-        <div class="prop-row">
-          <label>${s.pageName}</label>
-          <input .value=${page.label ?? ''}
-            placeholder=${s.pageLabel.replace('{n}', String(index + 1))}
-            @change=${(e: Event) => {
-              const v = valOf(e).trim();
-              this._updateFile((f) => {
-                const target = f.template.pages[index]!;
-                if (v === '') delete target.label;
-                else target.label = v;
-              });
-            }}>
-        </div>
-        <div class="prop-row">
-          <label>${s.pageKey}</label>
-          <input class=${this._pageKeyError ? 'error' : ''} .value=${page.key ?? ''}
-            aria-invalid=${String(this._pageKeyError)}
-            aria-describedby=${this._pageKeyError ? 'error-page-key' : nothing}
-            @change=${(e: Event) => this._commitPageKey(index, valOf(e))}>
-        </div>
-        ${this._pageKeyError
-          ? html`<div id="error-page-key" class="input-error field-error" role="alert">${s.keyInUse}</div>`
-          : nothing}
-      </div>
-
-      <div class="prop-section">
-        <div class="prop-section-title">${s.panelPageNumber}</div>
-        <div class="prop-row">
-          <label>${s.pageNumberShow}</label>
-          <input type="checkbox" aria-label=${s.pageNumberShow} .checked=${pageNumber !== undefined}
-            @change=${(e: Event) => this._togglePageNumber(index, (e.target as HTMLInputElement).checked)}>
-        </div>
-        ${pageNumber
-          ? html`
-            <div class="prop-row">
-              <label>${s.pageNumberPosition}</label>
-              ${this._listSelect({
-                id: 'page-number-position',
-                ariaLabel: s.pageNumberPosition,
-                value: pageNumber.position,
-                options: positions,
-                onPick: (value) =>
-                  this._updateFile((f) => {
-                    f.template.pages[index]!.pageNumber = {
-                      ...f.template.pages[index]!.pageNumber!,
-                      position: value as PageNumberPosition,
-                    };
-                  }),
-              })}
-            </div>`
-          : nothing}
-      </div>
-
-      <div class="prop-section">
-        <div class="prop-section-title">${s.pageOrder}</div>
-        <div class="prop-row">
-          <div class="step-inputs">
-            <button class="row-btn" aria-label=${s.pageMoveForward}
-              ?disabled=${index === 0} @click=${() => this._movePage(-1)}>${icons.up}</button>
-            <span>${index + 1} / ${this._pageCount()}</span>
-            <button class="row-btn" aria-label=${s.pageMoveBackward}
-              ?disabled=${index >= this._pageCount() - 1} @click=${() => this._movePage(1)}>${icons.down}</button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * 페이지 키를 변경한다. 빈 값은 키를 제거하고 중복 값은 적용하지 않는다(SPEC §4).
-   *
-   * @param index - 페이지 번호(0-기반)
-   * @param raw - 입력한 물리명
-   */
   private _commitPageKey(index: number, raw: string): void {
     const key = raw.trim();
     const pages = this._file?.template.pages;
@@ -4978,195 +4765,6 @@ export class SlipDesigner extends LitElement {
     await this._loadPaperSizes();
   }
 
-  /**
-   * 양식 제목, 용지 크기, 방향, 여백을 편집하는 패널을 렌더링한다.
-   * 방향과 프리셋은 파일에 별도로 저장하지 않고 용지 너비와 높이에 반영한다.
-   *
-   * @returns 양식 설정 패널 조각
-   */
-  private _renderFormSettings() {
-    const file = this._file!;
-    const s = this._strings.designer;
-    const { paper } = file.template;
-    const [pt, pr, pb, pl] = paper.padding;
-    const landscape = paper.width > paper.height;
-    // 기본 용지 뒤에 호스트가 제공한 용지를 추가한다.
-    const allSizes: PaperSize[] = [...PAPER_PRESETS, ...this._hostPaperSizes];
-    // 현재 크기와 방향을 제외하고 일치하는 용지를 찾는다.
-    const presetIndex = allSizes.findIndex(
-      (p) =>
-        (p.width === paper.width && p.height === paper.height) ||
-        (p.width === paper.height && p.height === paper.width),
-    );
-    // 목록에 없는 크기이며 저장 함수가 있으면 사용자 지정 용지 저장 기능을 표시한다.
-    const canSaveSize = presetIndex < 0 && this.settings?.savePaperSize !== undefined;
-
-    // 본문 영역이 남지 않는 용지 크기는 적용하지 않는다.
-    const setSize = (width: number, height: number, errorKey = 'paper-size'): void => {
-      if (!Number.isFinite(width) || !Number.isFinite(height)) {
-        this._rejectInput(s.numberInput, errorKey);
-        return;
-      }
-      if (width <= pl + pr || height <= pt + pb) {
-        this._rejectInput(s.paperAreaError, errorKey);
-        return;
-      }
-      this._updateFile((f) => {
-        f.template.paper.width = round1(width);
-        f.template.paper.height = round1(height);
-      });
-    };
-    const setPadding = (index: 0 | 1 | 2 | 3, value: number): void => {
-      const errorKey = `paper-margin-${index}`;
-      if (Number.isNaN(value) || value < 0) {
-        this._rejectInput(Number.isNaN(value) ? s.numberInput : s.nonNegativeInput, errorKey);
-        return;
-      }
-      const next = [...paper.padding] as [number, number, number, number];
-      next[index] = round1(value);
-      if (next[3] + next[1] >= paper.width || next[0] + next[2] >= paper.height) {
-        this._rejectInput(s.marginAreaError, errorKey);
-        return;
-      }
-      this._updateFile((f) => {
-        f.template.paper.padding = next;
-      });
-    };
-    const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
-
-    return html`
-      <div class="type-name">${s.formSettings}</div>
-
-      <div class="prop-section">
-        <div class="prop-section-title">${s.panelBasic}</div>
-        <div class="prop-row">
-          <label>${s.formTitle}</label>
-          <input .value=${file.template.meta.title}
-                 aria-invalid=${String(this._hasInputError('form-title'))}
-                 aria-describedby=${this._hasInputError('form-title') ? 'error-form-title' : nothing}
-                 @change=${(e: Event) => {
-                   const v = (e.target as HTMLInputElement).value.trim();
-                   // 빈 제목은 스키마에서 허용하지 않는다.
-                   if (!v) {
-                     this._rejectInput(s.requiredInput, 'form-title');
-                     return;
-                   }
-                   this._updateFile((f) => { f.template.meta.title = v; });
-                 }}>
-        </div>
-        ${this._renderInputError('form-title')}
-      </div>
-
-      <div class="prop-section">
-        <div class="prop-section-title">${s.panelPaper}</div>
-        <div class="prop-row">
-          <label>${s.paperSize}</label>
-          ${this._listSelect({
-            id: 'paper-size',
-            ariaLabel: s.paperSize,
-            value: presetIndex >= 0 ? String(presetIndex) : 'custom',
-            options: [
-              ...allSizes.map((p, i) => ({ value: String(i), label: `${p.name} (${p.width}×${p.height})` })),
-              { value: 'custom', label: s.paperCustom },
-            ],
-            onPick: (v) => {
-              if (v === 'custom') return;
-              const p = allSizes[Number(v)]!;
-              // 세로 기준 프리셋을 현재 용지 방향에 맞춰 적용한다.
-              setSize(landscape ? p.height : p.width, landscape ? p.width : p.height);
-            },
-          })}
-        </div>
-        ${canSaveSize
-          ? html`
-            <div class="prop-row">
-              <label>${s.paperSaveThis}</label>
-              <input class="paper-save-name" .value=${this._paperSaveName}
-                     placeholder=${s.paperSizeName}
-                     aria-label=${s.paperSizeName}
-                     @input=${(e: Event) => { this._paperSaveName = (e.target as HTMLInputElement).value; }}>
-              <button class="row-btn" title=${s.paperSaveThis} aria-label=${s.paperSaveThis}
-                ?disabled=${this._paperSaveName.trim() === ''}
-                @click=${() => void this._savePaperSize(this._paperSaveName)}>${icons.save}</button>
-            </div>`
-          : nothing}
-        <div class="prop-pair">
-          <div class="prop-row">
-            <label>${s.width}</label>
-            <input type="number" step="0.5" min="1" .value=${String(paper.width)}
-                   aria-invalid=${String(this._hasInputError('paper-width'))}
-                   aria-describedby=${this._hasInputError('paper-width') ? 'error-paper-width' : nothing}
-                   @change=${(e: Event) => setSize(numOf(e), paper.height, 'paper-width')}>
-          </div>
-          <div class="prop-row">
-            <label>${s.height}</label>
-            <input type="number" step="0.5" min="1" .value=${String(paper.height)}
-                   aria-invalid=${String(this._hasInputError('paper-height'))}
-                   aria-describedby=${this._hasInputError('paper-height') ? 'error-paper-height' : nothing}
-                   @change=${(e: Event) => setSize(paper.width, numOf(e), 'paper-height')}>
-          </div>
-        </div>
-        ${this._renderInputError('paper-width')}
-        ${this._renderInputError('paper-height')}
-        ${this._renderInputError('paper-size')}
-        <div class="prop-row">
-          <label>${s.orientation}</label>
-          <div class="toggle-group text" role="group" aria-label=${s.orientation}>
-            ${([
-              [false, s.portrait],
-              [true, s.landscape],
-            ] as const).map(([toLandscape, label]) => html`
-              <button title=${label} aria-label="${s.orientation}: ${label}"
-                aria-pressed=${String(landscape === toLandscape)}
-                @click=${() => {
-                  if (landscape === toLandscape) return;
-                  setSize(paper.height, paper.width);
-                }}>${label}</button>`)}
-          </div>
-        </div>
-      </div>
-
-      <div class="prop-section">
-        <div class="prop-section-title">${s.margin}</div>
-        <div class="prop-pair">
-          <div class="prop-row">
-            <label>${s.marginTop}</label>
-            <input type="number" step="1" min="0" .value=${String(pt)}
-                   aria-invalid=${String(this._hasInputError('paper-margin-0'))}
-                   aria-describedby=${this._hasInputError('paper-margin-0') ? 'error-paper-margin-0' : nothing}
-                   @change=${(e: Event) => setPadding(0, numOf(e))}>
-          </div>
-          <div class="prop-row">
-            <label>${s.marginRight}</label>
-            <input type="number" step="1" min="0" .value=${String(pr)}
-                   aria-invalid=${String(this._hasInputError('paper-margin-1'))}
-                   aria-describedby=${this._hasInputError('paper-margin-1') ? 'error-paper-margin-1' : nothing}
-                   @change=${(e: Event) => setPadding(1, numOf(e))}>
-          </div>
-        </div>
-        ${this._renderInputError('paper-margin-0')}
-        ${this._renderInputError('paper-margin-1')}
-        <div class="prop-pair">
-          <div class="prop-row">
-            <label>${s.marginBottom}</label>
-            <input type="number" step="1" min="0" .value=${String(pb)}
-                   aria-invalid=${String(this._hasInputError('paper-margin-2'))}
-                   aria-describedby=${this._hasInputError('paper-margin-2') ? 'error-paper-margin-2' : nothing}
-                   @change=${(e: Event) => setPadding(2, numOf(e))}>
-          </div>
-          <div class="prop-row">
-            <label>${s.marginLeft}</label>
-            <input type="number" step="1" min="0" .value=${String(pl)}
-                   aria-invalid=${String(this._hasInputError('paper-margin-3'))}
-                   aria-describedby=${this._hasInputError('paper-margin-3') ? 'error-paper-margin-3' : nothing}
-                   @change=${(e: Event) => setPadding(3, numOf(e))}>
-          </div>
-        </div>
-        ${this._renderInputError('paper-margin-2')}
-        ${this._renderInputError('paper-margin-3')}
-      </div>
-    `;
-  }
 
 
   private _groupSelected(): void {
@@ -5199,166 +4797,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  private _renderPropertyPanel() {
-    // 선택 대상에 따라 페이지, 파라미터, 그룹 또는 요소 패널을 표시한다.
-    const sel = this._sideSelection;
-    if (sel?.kind === 'parameter') return this._renderParameterPanel(sel.key);
-    if (sel?.kind === 'parameterField') return this._renderParameterFieldPanel(sel.key, sel.field);
-    if (sel?.kind === 'page') return this._renderPageSettings();
 
-    // 여러 요소가 선택되면 그룹 패널을 표시한다.
-    if (this._selectedIds.size > 1) return groupPanel(this._kit, this._actions, );
-
-    const el = this._findSelectedElement();
-    if (!el) {
-      return this._renderFormSettings();
-    }
-
-    const s = this._strings.designer;
-    const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-    const anchor = ANCHORS[this._actions.anchorIndex(el)] ?? ANCHORS[0];
-    const selectedCell = el.type === 'grid' ? this._gridEdit.cell : null;
-    const cellInBand = selectedCell !== null && el.type === 'grid' && inItemBand(el, selectedCell.row);
-
-    // 셀 선택 상태에서는 그리드 이름·위치·크기 설정을 표시하지 않는다 (§7.4).
-    if (el.type === 'grid' && selectedCell !== null) {
-      return html`
-        <div class="type-name">
-          ${`${s.cell} (${selectedCell.row + 1}, ${selectedCell.column + 1})`}
-          ${cellInBand ? html`<span class="cell-band">${s.repeatCellHint}</span>` : nothing}
-        </div>
-        ${this._renderTypeProps(el)}
-      `;
-    }
-
-    const elBox = boxOf(el);
-    return html`
-      <div class="type-name">${this._typeName(el.type)}</div>
-
-      <div class="prop-section">
-        <div class="prop-section-title">${s.panelLayout}</div>
-        <div class="prop-row">
-          <label>${s.name}</label>
-          <input .value=${el.name}
-                 @change=${(e: Event) => this._updateElement((el) => { el.name = valOf(e); })}>
-        </div>
-        ${anchorRow(this._kit, this._actions, el)}
-        <div class="prop-pair">
-          <div class="prop-row">
-            <label>X</label>
-            <input type="number" step="0.5" .value=${String(round1(el.position.x + anchor.ax * elBox.width))}
-                   aria-invalid=${String(this._hasInputError('element-x'))}
-                   aria-describedby=${this._hasInputError('element-x') ? 'error-element-x' : nothing}
-                   @change=${(e: Event) => {
-                     const v = numOf(e);
-                     if (!Number.isFinite(v)) {
-                       this._rejectInput(s.numberInput, 'element-x');
-                       return;
-                     }
-                     // 입력한 기준점 좌표를 파일의 왼쪽 위 좌표로 변환한다.
-                     this._updateElement((el) => {
-                       el.position.x = Math.max(0, round1(v - anchor.ax * boxOf(el).width));
-                     });
-                   }}>
-          </div>
-          <div class="prop-row">
-            <label>Y</label>
-            <input type="number" step="0.5" .value=${String(round1(el.position.y + anchor.ay * elBox.height))}
-                   aria-invalid=${String(this._hasInputError('element-y'))}
-                   aria-describedby=${this._hasInputError('element-y') ? 'error-element-y' : nothing}
-                   @change=${(e: Event) => {
-                     const v = numOf(e);
-                     if (!Number.isFinite(v)) {
-                       this._rejectInput(s.numberInput, 'element-y');
-                       return;
-                     }
-                     this._updateElement((el) => {
-                       el.position.y = Math.max(0, round1(v - anchor.ay * boxOf(el).height));
-                     });
-                   }}>
-          </div>
-        </div>
-        ${this._renderInputError('element-x')}
-        ${this._renderInputError('element-y')}
-        ${sizeRows(this._kit, this._actions, el)}
-      </div>
-
-      ${pagePlacementSection(this._kit, this._actions, el)}
-      ${this._renderTypeProps(el)}
-      ${el.type === 'grid' && this._gridEdit.cell !== null ? nothing : styleGroups(this._kit, this._actions, el)}
-      ${el.type === 'text' || el.type === 'field'
-        ? this._renderConditionalFormatsSection(el.conditionalFormats, 'condFmt', (next) =>
-            this._updateElement((target) => {
-              const record = target as Record<string, unknown>;
-              if (next.length === 0) delete record.conditionalFormats;
-              else record.conditionalFormats = next;
-            }))
-        : nothing}
-    `;
-  }
-
-  private _renderParameterFieldPanel(listKey: string, fieldKey: string) {
-    const s = this._strings.designer;
-    const parent = this._parameterList().find((b) => b.key === listKey);
-    const info = parent?.fields.find((f) => f.key === fieldKey);
-    if (!parent || !info) return this._renderFormSettings();
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-
-    return html`
-      <div class="type-name">${s.parameterField}</div>
-      <div class="prop-section">
-        <div class="prop-section-title">${s.panelBasic}</div>
-        <div class="prop-row">
-          <label>${s.parameterParent}</label>
-          <button class="usage-row parent-row" @click=${() => this._selectParameter(listKey)}>
-            ${valueTypeBadge(parent.valueType)}<span>${parent.label}</span>
-          </button>
-        </div>
-        <div class="prop-row">
-          <label>${s.parameterKey}</label>
-          <input class="parameter-key-input" .value=${info.key}
-            aria-invalid=${String(this._parameterKeyError || this._hasInputError('parameter-key'))}
-            aria-describedby=${this._parameterKeyError || this._hasInputError('parameter-key')
-              ? 'error-parameter-key' : nothing}
-            @change=${(e: Event) =>
-              this._renameParameterField(listKey, info.key, valOf(e), e.target as HTMLInputElement)}>
-        </div>
-        ${this._parameterKeyError
-          ? html`<div id="error-parameter-key" class="input-error field-error" role="alert">${s.keyInUse}</div>`
-          : this._renderInputError('parameter-key')}
-        <div class="prop-row">
-          <label>${s.parameterLabel}</label>
-          <input .value=${info.rawLabel ?? ''} placeholder=${info.key}
-            @change=${(e: Event) => this._updateParameterField(listKey, info.key, { label: valOf(e) })}>
-        </div>
-        <div class="prop-row">
-          <label>${s.parameterValueType}</label>
-          ${this._listSelect({
-            id: 'field-value-type',
-            ariaLabel: s.parameterValueType,
-            value: info.valueType ?? '',
-            options: BINDING_FIELD_VALUE_TYPES.map((t) => ({ value: t.value, label: s[t.stringKey] })),
-            onPick: (value) => this._updateParameterField(listKey, info.key, { valueType: value }),
-          })}
-        </div>
-      </div>
-
-      <div class="prop-section">
-        <div class="prop-section-title">${s.parameterUsage}</div>
-        ${info.at === undefined
-          ? html`<div class="side-empty">${s.parameterUnused}</div>`
-          : html`
-            <button class="usage-row"
-              @click=${() => this._selectGridCellAt(info.at!)}>
-              ${TYPE_BADGE.grid}<span>${s.cell} (${info.at.row + 1}, ${info.at.column + 1})</span>
-              <span class="usage-page">${s.sidebarPages} ${info.at.pageIndex + 1}</span>
-            </button>`}
-      </div>
-    `;
-  }
-
-  /** 하위 필드를 사용하는 그리드 셀로 이동한다. */
   private _selectGridCellAt(at: { pageIndex: number; gridId: string; row: number; column: number }): void {
     this._resetPanelErrors();
     this._goToPage(at.pageIndex);
@@ -5371,86 +4810,6 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  private _renderParameterPanel(key: string) {
-    const s = this._strings.designer;
-    const info = this._parameterList().find((b) => b.key === key);
-    if (!info) return this._renderFormSettings();
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-
-    return html`
-      <div class="type-name">${s.sidebarParameters}</div>
-
-      <div class="prop-section">
-        <div class="prop-section-title">${s.panelBasic}</div>
-        <div class="prop-row">
-          <label>${s.parameterKey}</label>
-          <input class="parameter-key-input" .value=${info.key}
-            aria-invalid=${String(this._parameterKeyError || this._hasInputError('parameter-key'))}
-            aria-describedby=${this._parameterKeyError || this._hasInputError('parameter-key')
-              ? 'error-parameter-key' : nothing}
-            @change=${(e: Event) =>
-              this._renameParameterKey(info.key, valOf(e), e.target as HTMLInputElement)}>
-        </div>
-        ${this._parameterKeyError
-          ? html`<div id="error-parameter-key" class="input-error field-error" role="alert">${s.keyInUse}</div>`
-          : this._renderInputError('parameter-key')}
-        <div class="prop-row">
-          <label>${s.parameterLabel}</label>
-          <input class="parameter-label-input" .value=${info.rawLabel ?? ''} placeholder=${info.key}
-            @change=${(e: Event) => this._commitParameterLabel(info.key, valOf(e))}>
-        </div>
-        <div class="prop-row">
-          <label>${s.parameterValueType}</label>
-          ${this._listSelect({
-            id: 'parameter-value-type',
-            ariaLabel: s.parameterValueType,
-            value: info.valueType ?? '',
-            options: BINDING_VALUE_TYPES.map((t) => ({ value: t.value, label: s[t.stringKey] })),
-            onPick: (value) => this._setParameterValueType(info.key, value),
-          })}
-        </div>
-      </div>
-
-      ${info.valueType === 'list'
-        ? html`
-          <div class="prop-section">
-            <div class="prop-section-title">${s.parameterFields}</div>
-            ${info.fields.length === 0
-              ? html`<div class="side-empty">${s.parameterFieldsEmpty}</div>`
-              : info.fields.map((f) => html`
-                  <button class="usage-row field-row" title="${info.key}.${f.key}"
-                    @click=${() => this._selectParameterField(info.key, f)}>
-                    ${valueTypeBadge(f.valueType)}<span>${f.title}</span>
-                  </button>`)}
-            <button class="prop-add-row" @click=${() => this._addParameterField(info.key)}>
-              ${icons.add}<span>${s.addParameterField}</span>
-            </button>
-          </div>`
-        : nothing}
-
-      <div class="prop-section">
-        <div class="prop-section-title">${s.parameterUsage}</div>
-        ${info.uses.length === 0
-          ? html`<div class="side-empty">${s.parameterUnused}</div>`
-          : info.uses.map((u) => html`
-              <button class="usage-row" title=${u.name}
-                @click=${() => this._selectFromSidebar(u.pageIndex, u.id)}>
-                ${TYPE_BADGE[u.type]}<span>${u.name}</span>
-                <span class="usage-page">${s.sidebarPages} ${u.pageIndex + 1}</span>
-              </button>`)}
-      </div>
-    `;
-  }
-
-  /**
-   * 그리드 셀의 파라미터 선택기를 렌더링한다.
-   * 반복 구간 안에서는 목록 하위 필드를, 밖에서는 목록이 아닌 최상위 파라미터를 표시한다.
-   *
-   * @param el - 대상 그리드
-   * @param current - 현재 셀에 설정된 값 키
-   * @param inBand - 이 셀이 반복 구간 안인지
-   * @returns 값 선택 조각
-   */
   private _gridCellParameterSelect(el: GridElement, current: string, inBand: boolean) {
     const s = this._strings.designer;
     const all = this._parameterList();
@@ -5788,26 +5147,6 @@ export class SlipDesigner extends LitElement {
   // Render: type-specific props
   // ---------------------------------------------------------------------------
 
-  private _renderTypeProps(el: SlipElement) {
-    switch (el.type) {
-      case 'text':
-        return textProps(this._kit, this._actions, el);
-      case 'field':
-        return fieldProps(this._kit, this._actions, el);
-      case 'barcode':
-        return barcodeProps(this._kit, this._actions, el);
-      case 'line':
-        return lineProps(this._kit, el);
-      case 'polygon':
-        return polygonProps(this._kit, this._actions, el);
-      case 'grid':
-        return this._renderGridProps(el);
-      case 'image':
-        return imageProps(this._kit, this._actions, el);
-      default:
-        return nothing;
-    }
-  }
 
   private _convertTextField(to: 'text' | 'field'): void {
     const el = this._findSelectedElement();
@@ -5863,642 +5202,12 @@ export class SlipDesigner extends LitElement {
   }
 
 
-  private _renderGridProps(el: GridElement) {
-    const s = this._strings.designer;
-    const cellTarget = this._gridEdit.cell;
-    const cellDef = cellTarget
-      ? el.cells.find((c) => c.row === cellTarget.row && c.column === cellTarget.column)
-      : undefined;
-    const repeat = el.repeat;
-    const source: 'content' | 'parameter' | 'formula' =
-      this._gridEdit.sourceKind
-      ?? (cellDef?.parameter !== undefined ? 'parameter' : cellDef?.formula !== undefined ? 'formula' : 'content');
-    const inBand = cellTarget !== null && inItemBand(el, cellTarget.row);
-    const numberOf = (e: Event): number => Number((e.target as HTMLInputElement).value);
-    const planError = this._planError();
-    const gridPlanError = planError !== null && planError.elementId === el.id ? planError : null;
-    const repeatFields = repeat === undefined
-      ? []
-      : (this._parameterList().find((parameter) => parameter.key === repeat.parameter)?.fields ?? []);
-    // 셀이 선택된 동안에는 그리드 전체 설정을 숨긴다 (§7.4).
-    const gridOwnProps = html`
-          <div class="prop-section">
-            <div class="prop-section-title">${s.panelStructure}</div>
-            <div class="prop-row">
-                <label>${s.rows}</label>
-                <div class="step-inputs">
-                  <button class="row-btn" aria-label="${s.rows} -" @click=${() => this._changeGridRows(-1)}>-</button>
-                  <span>${el.rows.length}</span>
-                  ${repeat === undefined
-                    ? html`<button class="row-btn" aria-label="${s.rows} +"
-                        @click=${() => this._changeGridRows(1)}>+</button>`
-                    : html`<button class="row-btn" aria-label=${s.addRow}
-                        @click=${(event: Event) => this._toggleListSelect('band-add-row', event)}>+</button>`}
-                </div>
-              </div>
-              <div class="prop-row">
-                <label>${s.columns}</label>
-                <div class="step-inputs">
-                  <button class="row-btn" aria-label="${s.columns} -" @click=${() => this._changeGridColumns(-1)}>-</button>
-                  <span>${el.columns.length}</span>
-                  <button class="row-btn" aria-label="${s.columns} +" @click=${() => this._changeGridColumns(1)}>+</button>
-                </div>
-              </div>
-          </div>
-
-          <div class="prop-section">
-            <div class="prop-section-title">${s.repeatSection}</div>
-            <div class="prop-row">
-              <label>${s.repeatOn}</label>
-              <input type="checkbox" aria-label=${s.repeatOn} .checked=${repeat !== undefined}
-                @change=${(e: Event) => this._toggleGridRepeat((e.target as HTMLInputElement).checked)}>
-            </div>
-            ${this._renderInputError('repeat-on')}
-            ${repeat
-              ? html`
-                <div class="prop-row">
-                  <label>${s.parameter}</label>
-                  ${this._listSelect({
-                    id: 'repeat-parameter',
-                    ariaLabel: `${s.repeatSection} ${s.parameter}`,
-                    value: repeat.parameter,
-                    className: 'parameter-select',
-                    options: [
-                      ...this._parameterList()
-                        .filter((b) => b.valueType === 'list' || b.key === repeat.parameter)
-                        .map((b) => ({ value: b.key, label: b.label })),
-                      ...(this._parameterList().some((b) => b.key === repeat.parameter)
-                        ? []
-                        : [{ value: repeat.parameter, label: repeat.parameter }]),
-                    ],
-                    onPick: (value) => this._setRepeatParameter(value),
-                  })}
-                </div>
-                <div class="prop-row">
-                  <label>${s.paginationMode}</label>
-                  <div class="segment" role="radiogroup" aria-label=${s.paginationMode}>
-                    <button type="button" role="radio" class=${repeat.pagination.mode === 'auto' ? 'active' : ''}
-                      aria-checked=${String(repeat.pagination.mode === 'auto')}
-                      @click=${() => this._setGridPagination({ mode: 'auto' })}>${s.paginationAuto}</button>
-                    <button type="button" role="radio" class=${repeat.pagination.mode === 'fixed' ? 'active' : ''}
-                      aria-checked=${String(repeat.pagination.mode === 'fixed')}
-                      @click=${() => this._setGridPagination({ mode: 'fixed' })}>${s.paginationFixed}</button>
-                  </div>
-                </div>
-                ${repeat.pagination.mode === 'auto'
-                  ? html`
-                    <div class="prop-row">
-                      <label>${s.minItems}</label>
-                      <input type="number" min="0" max=${String(GRID_MAX_ITEMS_UI)}
-                        .value=${String(repeat.pagination.minItems)}
-                        aria-invalid=${String(this._hasInputError('repeat-min-items'))}
-                        aria-describedby=${this._hasInputError('repeat-min-items') ? 'error-repeat-min-items' : nothing}
-                        @change=${(e: Event) => this._setGridPagination({ minItems: numberOf(e) })}>
-                    </div>
-                    ${this._renderInputError('repeat-min-items')}`
-                  : html`
-                    <div class="prop-row">
-                      <label>${s.itemsPerPage}</label>
-                      <input type="number" min="1" max=${String(GRID_MAX_PER_PAGE_UI)}
-                        .value=${String(repeat.pagination.itemsPerPage)}
-                        aria-invalid=${String(this._hasInputError('repeat-per-page') || gridPlanError !== null)}
-                        aria-describedby=${this._hasInputError('repeat-per-page')
-                          ? 'error-repeat-per-page'
-                          : gridPlanError?.bandId !== undefined ? `grid-plan-error-${gridPlanError.bandId}` : nothing}
-                        @change=${(e: Event) => this._setGridPagination({ itemsPerPage: numberOf(e) })}>
-                    </div>
-                    ${this._renderInputError('repeat-per-page')}`}
-                <details class="advanced-settings">
-                  <summary><span>${s.advancedSettings}</span>${icons.down}</summary>
-                  <div class="advanced-settings-body">
-                    <div class="prop-row">
-                      <label>${s.repeatMaxItems}</label>
-                      <input type="number" min="1" max=${String(GRID_MAX_ITEMS_UI)}
-                        class=${repeat.maxItems === undefined ? 'dim' : ''}
-                        placeholder=${s.repeatMaxItemsNone}
-                        .value=${repeat.maxItems === undefined ? '' : String(repeat.maxItems)}
-                        aria-invalid=${String(this._hasInputError('repeat-max-items'))}
-                        aria-describedby=${this._hasInputError('repeat-max-items') ? 'error-repeat-max-items' : nothing}
-                        @change=${(e: Event) => {
-                          const raw = (e.target as HTMLInputElement).value.trim();
-                          this._setRepeatMaxItems(raw === '' ? null : Number(raw));
-                        }}>
-                    </div>
-                    ${this._renderInputError('repeat-max-items')}
-                    <div class="prop-row stacked group-fields-row">
-                      <label>${s.groupBy}</label>
-                      <div class="field-check-list" role="group" aria-label=${s.groupBy}>
-                        ${repeatFields.length === 0
-                          ? html`<span class="field-check-empty">—</span>`
-                          : repeatFields.map((field) => html`
-                            <label class="field-check" title=${field.key}>
-                              <input type="checkbox" data-field=${field.key}
-                                .checked=${repeat.groupBy?.includes(field.key) === true}
-                                @change=${(e: Event) => this._toggleGridGroupField(
-                                  field.key,
-                                  (e.target as HTMLInputElement).checked,
-                                )}>
-                              <span>${field.title}</span>
-                            </label>`)}
-                      </div>
-                    </div>
-                    ${this._renderInputError('repeat-group-by')}
-                  </div>
-                </details>
-                ${gridPlanError === null || gridPlanError.bandId !== undefined
-                  ? nothing
-                  : html`<div class="input-error" role="alert" id="grid-plan-error">${gridPlanError.message}</div>`}`
-              : nothing}
-          </div>
-          ${repeat === undefined ? nothing : this._renderBandList(el)}`;
-    return html`
-          ${cellTarget === null
-            ? gridOwnProps
-            : html`
-              <button class="grid-back" title=${el.name}
-                aria-label="${s.gridBack}: ${el.name}"
-                @click=${() => this._clearCellSelection()}>
-                ${icons.pagePrev}
-                <span class="grid-back-label">${s.gridBack}</span>
-                <span class="grid-back-name">${el.name}</span>
-              </button>`}
-          ${this._renderGridCellProps(el, cellTarget, cellDef, source, inBand)}
-        `;
-  }
-
-  /** 내부 구간 조합 대신 작업 목적으로 행을 추가하는 명령을 렌더링한다. */
-  private _renderGridRowCommands(el: GridElement) {
-    const s = this._strings.designer;
-    const command = this._gridEdit.rowCommand;
-    const fields = this._parameterList()
-      .find((parameter) => parameter.key === el.repeat?.parameter)?.fields ?? [];
-    const numericFields = fields.filter((field) => field.valueType === 'number');
-    const selectedField = numericFields.find((field) => field.key === this._gridEdit.rowCommandField);
-    const definitions: { command: GridRowCommand; label: string; icon: unknown }[] = [
-      { command: 'header', label: s.gridCommandHeaderName, icon: icons.up },
-      { command: 'group-subtotal', label: s.gridCommandGroupSubtotalName, icon: icons.treeClosed },
-      { command: 'page-subtotal', label: s.gridCommandPageSubtotalName, icon: icons.down },
-      { command: 'final-total', label: s.gridCommandFinalTotalName, icon: icons.formula },
-    ];
-    const needsField = command !== null && command !== 'header';
-    const groupReady = command !== 'group-subtotal'
-      || (el.repeat?.groupBy !== undefined && el.repeat.groupBy.length > 0);
-    const fieldReady = !needsField || selectedField !== undefined;
-    const location = command === 'header' ? this._bandPlacementLabel('page-start')
-      : command === 'group-subtotal' ? this._bandPlacementLabel('group-end')
-      : command === 'page-subtotal' ? this._bandPlacementLabel('page-end')
-      : this._bandPlacementLabel('after-data');
-    const display = command === 'group-subtotal' ? s.gridCommandEachGroup
-      : command === 'page-subtotal' ? s.pagesNonFinal
-      : command === 'final-total' ? s.gridCommandOnce
-      : s.pagesAll;
-    const calculation = command === 'header' ? s.gridCommandNone
-      : command === 'group-subtotal'
-        ? s.gridCommandGroupCalculation.replace('{field}', selectedField?.title ?? s.gridCommandFieldMissing)
-        : command === 'page-subtotal'
-          ? s.gridCommandPageCalculation.replace('{field}', selectedField?.title ?? s.gridCommandFieldMissing)
-          : s.gridCommandFinalCalculation.replace('{field}', selectedField?.title ?? s.gridCommandFieldMissing);
-
-    return html`
-      <div class="prop-subsection-title">${s.gridCommandSection}</div>
-      <div class="grid-command-list">
-        ${definitions.map((definition) => html`
-          <button type="button" data-grid-command=${definition.command}
-            aria-pressed=${String(command === definition.command)}
-            class=${command === definition.command ? 'selected' : ''}
-            @click=${() => {
-              if (command === definition.command) {
-                this._gridEdit.clearRowCommand();
-              } else {
-                this._openGridRowCommand(definition.command);
-              }
-            }}>
-            <span>${definition.icon}</span>
-            <span>${definition.label}</span>
-          </button>`)}
-      </div>
-      ${command === null
-        ? nothing
-        : html`<div class="grid-command-editor">
-            ${needsField
-              ? html`<div class="prop-row">
-                  <label>${s.gridCommandField}</label>
-                  ${this._listSelect({
-                    id: 'grid-row-command-field',
-                    ariaLabel: s.gridCommandField,
-                    value: selectedField?.key ?? '',
-                    placeholder: s.gridCommandFieldMissing,
-                    options: numericFields.map((field) => ({ value: field.key, label: field.title })),
-                    onPick: (value) => { this._gridEdit.setRowCommandField(value); },
-                  })}
-                </div>`
-              : nothing}
-            ${!groupReady
-              ? html`<div class="grid-command-requirement">${s.gridCommandGroupRequired}</div>`
-              : !fieldReady
-                ? html`<div class="grid-command-requirement">${s.gridCommandNumberRequired}</div>`
-                : nothing}
-            <div class="grid-command-preview-title">${s.gridCommandPreview}</div>
-            <div class="grid-command-preview" aria-label=${s.gridCommandPreview}>
-              <div><span>${s.gridCommandLocation}</span><strong>${location}</strong></div>
-              <div><span>${s.gridCommandDisplay}</span><strong>${display}</strong></div>
-              <div><span>${s.gridCommandCalculation}</span><strong>${calculation}</strong></div>
-            </div>
-            ${this._renderInputError('grid-row-command')}
-            <div class="grid-command-actions">
-              <button type="button"
-                @click=${() => this._gridEdit.clearRowCommand()}>${s.cancel}</button>
-              <button type="button" class="primary" ?disabled=${!groupReady || !fieldReady}
-                @click=${() => this._applyGridRowCommand()}>${s.gridCommandApply}</button>
-            </div>
-          </div>`}
-      <div class="prop-subsection-title band-manual-title">${s.gridCommandManual}</div>
-    `;
-  }
-
-  /**
-   * 행 구간 목록을 렌더링한다.
-   * 캔버스의 행 번호 선택 영역과 같은 색상 표식·이름으로 구간을 식별한다 (§7.2).
-   */
-  private _renderBandList(el: GridElement) {
-    const s = this._strings.designer;
-    const bands = el.repeat?.bands ?? [];
-    const planError = this._planError();
-    const errorBandId = planError?.elementId === el.id ? planError.bandId : undefined;
-    const selected = this._gridEdit.bandRange === null
-      ? null
-      : {
-          from: Math.min(this._gridEdit.bandRange.from, this._gridEdit.bandRange.to),
-          to: Math.max(this._gridEdit.bandRange.from, this._gridEdit.bandRange.to),
-        };
-    const selectedRoles = selected === null
-      ? []
-      : [...new Set(Array.from(
-          { length: selected.to - selected.from + 1 },
-          (_, offset) => bandAt(el, selected.from + offset)?.placement,
-        ).filter((role): role is GridBandPlacement => role !== undefined))];
-    const selectedRole = selectedRoles.length === 1 ? selectedRoles[0]! : '';
-    const selectedBand = selected === null
-      ? undefined
-      : bands.find((band) => band.fromRow === selected.from && band.toRow === selected.to);
-    const roleOptions = BAND_PLACEMENTS.map((placement) => ({
-      value: placement,
-      label: this._bandPlacementLabel(placement),
-      description: this._bandPlacementDescription(placement),
-    }));
-    return html`
-      <div class="prop-section band-list">
-        <div class="prop-section-title">${s.bandSection}</div>
-        ${this._renderGridRowCommands(el)}
-        <div class="prop-row">
-          <label>${s.addRow}</label>
-          ${this._listSelect({
-            id: 'band-add-row',
-            ariaLabel: s.addRow,
-            value: '',
-            placeholder: s.selectRole,
-            options: roleOptions,
-            onPick: (value) => this._addGridRowWithRole(value as GridBandPlacement),
-          })}
-        </div>
-        ${this._renderInputError('band-role')}
-        ${bands.map((band) => html`
-          <div data-band-id=${band.id}
-            class="band-item ${selected?.from === band.fromRow && selected.to === band.toRow ? 'selected' : ''} ${errorBandId === band.id ? 'layout-error' : ''}">
-            <button type="button" class="band-item-main"
-              title=${band.name === undefined
-                ? this._bandPlacementLabel(band.placement)
-                : `${band.name} · ${this._bandPlacementLabel(band.placement)}`}
-              aria-pressed=${String(selected?.from === band.fromRow && selected.to === band.toRow)}
-              aria-invalid=${errorBandId === band.id ? 'true' : nothing}
-              aria-describedby=${errorBandId === band.id ? `grid-plan-error-${band.id}` : nothing}
-              @click=${() => {
-                this._gridEdit.selectBand({ from: band.fromRow, to: band.toRow });
-                this._gridEdit.closeBandMenu(false);
-                this.requestUpdate();
-              }}>
-              <span class="band-swatch placement-${band.placement}"></span>
-              <span class="band-icon">${this._bandPlacementIcon(band.placement)}</span>
-              <span class="band-label">${band.name ?? this._bandPlacementLabel(band.placement)}</span>
-              <span class="band-range">${band.fromRow === band.toRow
-                ? s.bandRowOne.replace('{row}', String(band.fromRow + 1))
-                : s.bandRowRange.replace('{from}', String(band.fromRow + 1)).replace('{to}', String(band.toRow + 1))}</span>
-            </button>
-            ${errorBandId === band.id
-              ? html`<div class="band-plan-error" id="grid-plan-error-${band.id}" role="alert">
-                  ${planError?.message}
-                </div>`
-              : nothing}
-            ${band.placement === 'page-start' || band.placement === 'page-end'
-              ? html`<div class="band-option-row">
-                  <span>${s.pagePlacementPages}</span>
-                  ${this._listSelect({
-                    id: `band-pages-${band.id}`,
-                    ariaLabel: `${this._bandPlacementLabel(band.placement)} ${s.pagePlacementPages}`,
-                    value: band.pages ?? 'all',
-                    options: [
-                      { value: 'all', label: s.pagesAll },
-                      { value: 'first', label: s.pagesFirst },
-                      { value: 'continuation', label: s.pagesContinuation },
-                      { value: 'non-final', label: s.pagesNonFinal },
-                      { value: 'last', label: s.pagesLast },
-                    ],
-                    onPick: (value) => this._setBandPages(band.id, value as OutputPageFilter),
-                  })}
-                </div>`
-              : nothing}
-            ${band.placement === 'group-start'
-              ? html`<label class="band-repeat-toggle band-option-row">
-                  <input type="checkbox" .checked=${band.repeatOnPageBreak === true}
-                    aria-label=${s.bandRepeatOnBreak}
-                    @change=${(e: Event) =>
-                      this._setBandRepeatOnPageBreak(band.id, (e.target as HTMLInputElement).checked)}>
-                  <span>${s.bandRepeatOnBreak}</span>
-                </label>`
-              : nothing}
-          </div>`)}
-        ${selected === null
-          ? nothing
-          : html`<div class="band-editor">
-              <div class="prop-pair">
-                <div class="prop-row">
-                  <label>${s.bandFromRow}</label>
-                  <input type="number" min="1" max=${String(el.rows.length)}
-                    aria-label=${s.bandFromRow}
-                    aria-invalid=${String(this._hasInputError('band-range'))}
-                    aria-describedby=${this._hasInputError('band-range') ? 'error-band-range' : nothing}
-                    .value=${String(selected.from + 1)}
-                    @change=${(e: Event) => this._setBandSelectionBoundary(
-                      'from',
-                      Number((e.target as HTMLInputElement).value),
-                      selectedBand?.id,
-                    )}>
-                </div>
-                <div class="prop-row">
-                  <label>${s.bandToRow}</label>
-                  <input type="number" min="1" max=${String(el.rows.length)}
-                    aria-label=${s.bandToRow}
-                    aria-invalid=${String(this._hasInputError('band-range'))}
-                    aria-describedby=${this._hasInputError('band-range') ? 'error-band-range' : nothing}
-                    .value=${String(selected.to + 1)}
-                    @change=${(e: Event) => this._setBandSelectionBoundary(
-                      'to',
-                      Number((e.target as HTMLInputElement).value),
-                      selectedBand?.id,
-                    )}>
-                </div>
-              </div>
-              ${this._renderInputError('band-range')}
-              <div class="prop-row">
-                <label>${s.bandRole}</label>
-                ${this._listSelect({
-                  id: 'band-role-editor',
-                  ariaLabel: s.bandRole,
-                  value: selectedRole,
-                  placeholder: s.selectRole,
-                  options: roleOptions,
-                  onPick: (value) => this._setRowBandRole(
-                    selected.from,
-                    selected.to,
-                    value as GridBandPlacement,
-                  ),
-                })}
-              </div>
-            </div>`}
-      </div>`;
-  }
-
-  /** 셀 선택을 해제하고 그리드 전체 편집으로 돌아간다. */
   private _clearCellSelection(): void {
     this._resetPanelErrors();
     this._gridEdit.clearCellAndSource();
     this.requestUpdate();
   }
 
-  /** 선택한 그리드 셀의 값, 병합, 글자, 색상, 테두리를 편집하는 패널을 렌더링한다. */
-  private _renderGridCellProps(
-    el: GridElement,
-    cellTarget: { row: number; column: number } | null,
-    cellDef: GridCell | undefined,
-    source: 'content' | 'parameter' | 'formula',
-    inBand: boolean,
-  ) {
-    const s = this._strings.designer;
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-    return cellTarget
-      ? html`
-          <div class="prop-section">
-            <div class="prop-section-title">${s.panelValue}</div>
-            <div class="prop-row">
-              <label>${s.cellName}</label>
-              <input .value=${cellDef?.name ?? ''}
-                placeholder=${s.cellNameNone}
-                aria-label=${s.cellName}
-                @change=${(e: Event) => {
-                  const name = valOf(e).trim();
-                  this._updateElement((element) => {
-                    if (element.type !== 'grid') return;
-                    const record = ensureCell(element, cellTarget.row, cellTarget.column);
-                    if (name === '') delete record.name;
-                    else record.name = name;
-                  });
-                }}>
-            </div>
-            <div class="prop-row">
-              <label>${s.cellSource}</label>
-              ${this._listSelect({
-                id: 'grid-cell-source',
-                ariaLabel: s.cellSource,
-                value: source,
-                options: [
-                  { value: 'content', label: s.cellSourceText },
-                  { value: 'parameter', label: s.cellSourceParameter },
-                  { value: 'formula', label: s.cellSourceFormula },
-                ],
-                onPick: (value) =>
-                  this._chooseGridCellSource(value as 'content' | 'parameter' | 'formula'),
-              })}
-            </div>
-            ${source === 'content'
-              ? html`
-                <div class="prop-row">
-                  <label>${s.content}</label>
-                  <input .value=${cellDef?.content ?? ''}
-                    @change=${(e: Event) => {
-                      this._gridEdit.selectCell(cellTarget);
-                      this._commitCellContent(valOf(e));
-                    }}>
-                </div>`
-              : source === 'parameter'
-                ? html`
-                  <div class="prop-row">
-                    <label>${s.parameter}</label>
-                    ${this._gridCellParameterSelect(el, cellDef?.parameter ?? '', inBand)}
-                  </div>`
-                : html`
-                  <div class="prop-row">
-                    <label>${s.formula}</label>
-                    <input .value=${cellDef?.formula ?? ''}
-                      @change=${(e: Event) => this._setGridCellSource('formula', valOf(e))}>
-                  </div>`}
-          </div>
-
-          <div class="prop-section">
-            <div class="prop-section-title">${s.panelStructure}</div>
-            <div class="prop-pair">
-              <div class="prop-row">
-                <label>${s.rowHeight}</label>
-                <input type="number" min="2" step="0.5"
-                  .value=${String(el.rows[cellTarget.row]?.height ?? '')}
-                  aria-invalid=${String(this._hasInputError('cell-row-height'))}
-                  aria-describedby=${this._hasInputError('cell-row-height') ? 'error-cell-row-height' : nothing}
-                  @change=${(e: Event) =>
-                    this._setGridTrack('row', cellTarget.row, Number((e.target as HTMLInputElement).value))}>
-              </div>
-              <div class="prop-row">
-                <label>${s.columnWidth}</label>
-                <input type="number" min="2" step="0.5"
-                  .value=${String(el.columns[cellTarget.column]?.width ?? '')}
-                  aria-invalid=${String(this._hasInputError('cell-column-width'))}
-                  aria-describedby=${this._hasInputError('cell-column-width') ? 'error-cell-column-width' : nothing}
-                  @change=${(e: Event) =>
-                    this._setGridTrack('column', cellTarget.column, Number((e.target as HTMLInputElement).value))}>
-              </div>
-            </div>
-            ${this._renderInputError('cell-row-height')}
-            ${this._renderInputError('cell-column-width')}
-            <div class="prop-row">
-              <label>${s.merge}</label>
-              <div class="merge-inputs">
-                <span>${s.rows}</span>
-                <input type="number" min="1" .value=${String(cellDef?.rowSpan ?? 1)}
-                  aria-label="${s.merge} ${s.rows}"
-                  aria-invalid=${String(this._hasInputError('cell-row-span'))}
-                  aria-describedby=${this._hasInputError('cell-row-span') ? 'error-cell-row-span' : nothing}
-                  @change=${(e: Event) => this._setCellSpan('rowSpan', Number(valOf(e)))}>
-                <span>${s.columns}</span>
-                <input type="number" min="1" .value=${String(cellDef?.colSpan ?? 1)}
-                  aria-label="${s.merge} ${s.columns}"
-                  aria-invalid=${String(this._hasInputError('cell-column-span'))}
-                  aria-describedby=${this._hasInputError('cell-column-span') ? 'error-cell-column-span' : nothing}
-                  @change=${(e: Event) => this._setCellSpan('colSpan', Number(valOf(e)))}>
-              </div>
-            </div>
-            ${this._renderInputError('cell-row-span')}
-            ${this._renderInputError('cell-column-span')}
-          </div>
-
-          <div class="prop-section">
-            <div class="prop-section-title">${s.styleText}</div>
-            ${fontNameRow(this._kit, this._actions, 
-              cellDef?.fontName,
-              (v) => this._updateCellStyle('fontName', v),
-              `${s.cell} ${s.fontName}`,
-            )}
-            ${numberRow(this._kit, 
-              s.fontSize, cellDef?.fontSize, el.fontSize ?? DEFAULT_FONT_SIZE,
-              (v) => this._updateCellStyle('fontSize', v),
-              { step: '0.5', min: '0.5', ariaLabel: `${s.cell} ${s.fontSize}`, errorKey: 'cell-font-size' },
-            )}
-            ${gridOverflowRow(this._kit, {
-              id: 'grid-cell-overflow',
-              value: cellDef?.overflow ?? 'inherit',
-              inherit: true,
-              ariaLabel: `${s.cell} ${s.overflow}`,
-              onPick: (value) =>
-                this._updateCellStyle('overflow', value === 'inherit' ? null : value),
-            })}
-            <div class="prop-row">
-              <label>${s.alignment}</label>
-              <div class="toggle-group" role="group" aria-label="${s.cell} ${s.alignment}">
-                ${([
-                  ['left', s.alignLeft, icons.alignLeft],
-                  ['center', s.alignCenter, icons.alignCenter],
-                  ['right', s.alignRight, icons.alignRight],
-                ] as const).map(([value, label, glyph]) => html`
-                  <button title=${label} aria-label="${s.cell} ${s.alignment}: ${label}"
-                    aria-pressed=${String((cellDef?.alignment ?? el.alignment ?? 'left') === value)}
-                    @click=${() => this._updateCellStyle('alignment', value === 'left' ? null : value)}>${glyph}</button>`)}
-              </div>
-            </div>
-            <div class="prop-row">
-              <label>${s.verticalAlignment}</label>
-              <div class="toggle-group" role="group" aria-label="${s.cell} ${s.verticalAlignment}">
-                ${([
-                  ['top', s.alignTop, icons.alignTop],
-                  ['middle', s.alignMiddle, icons.alignMiddle],
-                  ['bottom', s.alignBottom, icons.alignBottom],
-                ] as const).map(([value, label, glyph]) => html`
-                  <button title=${label} aria-label="${s.cell} ${s.verticalAlignment}: ${label}"
-                    aria-pressed=${String((cellDef?.verticalAlignment ?? el.verticalAlignment ?? 'top') === value)}
-                    @click=${() => this._updateCellStyle('verticalAlignment', value === 'top' ? null : value)}
-                    >${glyph}</button>`)}
-              </div>
-            </div>
-            ${numberRow(this._kit, 
-              s.lineHeight, cellDef?.lineHeight, el.lineHeight ?? 1,
-              (v) => this._updateCellStyle('lineHeight', v),
-              { step: '0.1', min: '0.1', ariaLabel: `${s.cell} ${s.lineHeight}`, errorKey: 'cell-line-height' },
-            )}
-            ${numberRow(this._kit, 
-              s.characterSpacing, cellDef?.characterSpacing, el.characterSpacing ?? 0,
-              (v) => this._updateCellStyle('characterSpacing', v),
-              { step: '0.1', ariaLabel: `${s.cell} ${s.characterSpacing}`, errorKey: 'cell-character-spacing' },
-            )}
-            ${textStyleToggles(this._kit, 
-              cellDef ?? {},
-              (key, value) => this._updateCellStyle(key, value ? true : null),
-              `${s.cell} `,
-            )}
-            ${colorControl(this._kit, 
-              s.fontColor, cellDef?.fontColor, 'cellFontColor',
-              (v) => this._updateCellStyle('fontColor', v),
-              el.fontColor ?? DEFAULT_FONT_COLOR,
-              `${s.cell} ${s.fontColor}`,
-            )}
-          </div>
-
-          <div class="prop-section">
-            <div class="prop-section-title">${s.styleBackground}</div>
-            ${colorControl(this._kit, 
-              s.backgroundColor, cellDef?.backgroundColor, 'cellBackgroundColor',
-              (v) => this._updateCellStyle('backgroundColor', v),
-              undefined,
-              `${s.cell} ${s.backgroundColor}`,
-            )}
-          </div>
-
-          <div class="prop-section">
-            <div class="prop-section-title">${s.styleBorder}</div>
-            ${colorControl(this._kit, 
-              s.borderColor, cellDef?.borderColor, 'cellBorderColor',
-              (v) => this._updateCellStyle('borderColor', v),
-              el.borderColor ?? DEFAULT_BORDER_COLOR,
-              `${s.cell} ${s.borderColor}`,
-            )}
-            ${borderWidthSelect(this._kit, 
-              cellDef?.borderWidth,
-              el.borderWidth ?? DEFAULT_LINE_WIDTH,
-              true,
-              'cellBorderWidth',
-              (v) => this._updateCellStyle('borderWidth', v),
-            )}
-            ${borderShapeRow(this._kit, 
-              cellDef?.borderStyle,
-              `${s.cell} ${s.borderShape}`,
-              'cellBorderStyle',
-              (v) => this._updateCellStyle('borderStyle', v),
-            )}
-          </div>
-          ${this._renderConditionalFormatsSection(
-            cellDef?.conditionalFormats,
-            'cellCondFmt',
-            (next) => this._updateCellConditionalFormats(next),
-            `${s.cell} `,
-            inBand ? this._repeatProbeItem(el) : undefined,
-          )}`
-      : nothing;
-  }
 
 
   private _togglePropertyMenu(key: string, event: Event): void {
@@ -6539,146 +5248,6 @@ export class SlipDesigner extends LitElement {
     this._updateElement((el) => setOptional(el, key, value || null));
   }
 
-  private _renderConditionalFormatsSection(
-    rules: readonly ConditionalFormatRule[] | undefined,
-    keyPrefix: string,
-    update: (next: ConditionalFormatRule[]) => void,
-    ariaPrefix = '',
-    probeItem?: Record<string, unknown>,
-  ) {
-    const s = this._strings.designer;
-    const list = rules ?? [];
-    const change = (mutate: (next: ConditionalFormatRule[]) => void): void => {
-      const next = list.map((rule) => ({ ...rule }));
-      mutate(next);
-      update(next);
-    };
-    // 색과 강조가 모두 없는 규칙은 파일 검증에서 거부되므로 마지막 항목은 지울 수 없다.
-    const effectKeys = [
-      'fontColor', 'backgroundColor', 'borderColor', 'bold', 'italic', 'underline', 'strikethrough',
-    ] as const;
-    const hasOtherEffect = (rule: ConditionalFormatRule, except: (typeof effectKeys)[number]): boolean =>
-      effectKeys.some((key) => key !== except && rule[key] !== undefined);
-    const setColor = (index: number, key: 'fontColor' | 'backgroundColor' | 'borderColor', value: string | null) => {
-      if (value === null && list[index]![key] !== undefined && !hasOtherEffect(list[index]!, key)) {
-        this._popovers.close('property');
-        this._rejectInput(s.conditionEffectRequired, `${keyPrefix}-color-${index}`);
-        return;
-      }
-      change((next) => {
-        if (value === null) delete next[index]![key];
-        else next[index]![key] = value;
-      });
-    };
-    const setEmphasis = (
-      index: number,
-      key: 'bold' | 'italic' | 'underline' | 'strikethrough',
-      value: boolean | undefined,
-    ) => {
-      if (value === undefined && list[index]![key] !== undefined && !hasOtherEffect(list[index]!, key)) {
-        this._rejectInput(s.conditionEffectRequired, `${keyPrefix}-color-${index}`);
-        return;
-      }
-      change((next) => {
-        if (value === undefined) delete next[index]![key];
-        else next[index]![key] = value;
-      });
-    };
-    const swap = (index: number, other: number) => {
-      // 색 팝업 상태는 규칙 순번으로 구분하므로, 순서가 바뀌면 닫아 다른 규칙에 붙지 않게 한다.
-      this._popovers.close('property');
-      change((next) => {
-        const tmp = next[index]!;
-        next[index] = next[other]!;
-        next[other] = tmp;
-      });
-    };
-    return html`
-      <div class="prop-section">
-        <div class="prop-section-title">${s.conditionalFormat}</div>
-        ${list.length > 0 ? html`<p class="image-hint">${s.conditionHint}</p>` : nothing}
-        ${list.map((rule, index) => {
-          const name = `${ariaPrefix}${s.conditionalFormat} ${index + 1}`;
-          return html`
-            <div class="prop-row">
-              <label>${s.condition} ${index + 1}</label>
-              <input .value=${live(rule.condition)}
-                aria-label="${name}: ${s.condition}"
-                aria-invalid=${String(this._hasInputError(`${keyPrefix}-cond-${index}`))}
-                placeholder=${s.conditionPlaceholder}
-                @change=${(e: Event) => {
-                  // 빈 조건식은 파일 검증에서 거부되므로 저장하지 않는다.
-                  const value = (e.target as HTMLInputElement).value.trim();
-                  if (value === '') {
-                    this.requestUpdate();
-                    return;
-                  }
-                  // 문법이 깨진 조건식은 저장하지 않고 입력 오류로 안내한다.
-                  try {
-                    parseFormula(value);
-                  } catch {
-                    this._rejectInput(s.syntaxError, `${keyPrefix}-cond-${index}`);
-                    return;
-                  }
-                  // 문법이 맞아도 견본 값으로 계산한 결과가 논리값이 아니면 저장하지 않는다.
-                  try {
-                    const probe = this._evaluate(value, {
-                      values: { ...this._formulaProbeValues(), ...(probeItem ?? {}) },
-                    });
-                    if (typeof probe !== 'boolean') {
-                      this._rejectInput(s.conditionNotBoolean, `${keyPrefix}-cond-${index}`);
-                      return;
-                    }
-                  } catch {
-                    // 견본 값으로 계산할 수 없는 조건은 데이터에 따라 달라질 수 있으므로 막지 않는다.
-                  }
-                  change((next) => { next[index]!.condition = value; });
-                }}>
-            </div>
-            ${this._renderInputError(`${keyPrefix}-cond-${index}`)}
-            ${colorControl(this._kit, 
-              s.fontColor, rule.fontColor, `${keyPrefix}-font-${index}`,
-              (v) => setColor(index, 'fontColor', v), undefined, `${name}: ${s.fontColor}`,
-            )}
-            ${colorControl(this._kit, 
-              s.backgroundColor, rule.backgroundColor, `${keyPrefix}-bg-${index}`,
-              (v) => setColor(index, 'backgroundColor', v), undefined, `${name}: ${s.backgroundColor}`,
-            )}
-            ${colorControl(this._kit, 
-              s.borderColor, rule.borderColor, `${keyPrefix}-border-${index}`,
-              (v) => setColor(index, 'borderColor', v), undefined, `${name}: ${s.borderColor}`,
-            )}
-            ${conditionalEmphasisRow(this._kit, 
-              rule,
-              (key, value) => setEmphasis(index, key, value),
-              `${name}: `,
-            )}
-            ${this._renderInputError(`${keyPrefix}-color-${index}`)}
-            <div class="prop-row">
-              <label></label>
-              <div class="toggle-group" role="group" aria-label=${name}>
-                <button title=${s.conditionRuleUp} aria-label="${name}: ${s.conditionRuleUp}"
-                  ?disabled=${index === 0}
-                  @click=${() => swap(index, index - 1)}>${icons.up}</button>
-                <button title=${s.conditionRuleDown} aria-label="${name}: ${s.conditionRuleDown}"
-                  ?disabled=${index === list.length - 1}
-                  @click=${() => swap(index, index + 1)}>${icons.down}</button>
-                <button title=${s.deleteConditionRule} aria-label="${name}: ${s.deleteConditionRule}"
-                  @click=${() => {
-                    this._popovers.close('property');
-                    change((next) => { next.splice(index, 1); });
-                  }}>${icons.remove}</button>
-              </div>
-            </div>`;
-        })}
-        <button class="col-modal-open" ?disabled=${list.length >= SLIP_LIMITS.maxConditionalFormats}
-          aria-label="${ariaPrefix}${s.addConditionRule}"
-          @click=${() => change((next) => { next.push({ condition: 'TRUE', fontColor: '#FF0000' }); })}>
-          ${icons.pageAdd}<span>${s.addConditionRule}</span>
-        </button>
-      </div>
-    `;
-  }
 
   private _repeatProbeItem(el: GridElement): Record<string, unknown> | undefined {
     if (!el.repeat) return undefined;

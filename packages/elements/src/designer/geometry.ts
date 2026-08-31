@@ -31,6 +31,9 @@ export const ANCHORS = [
   { key: 'anchorBR', ax: 1, ay: 1 },
 ] as const;
 
+/** 사이드바 페이지 미리보기의 너비(px) */
+export const THUMB_WIDTH_PX = 132;
+
 export const RESIZE_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
 
 export type ResizeHandle = (typeof RESIZE_HANDLES)[number];
