@@ -55,6 +55,35 @@ describe('PDF 링크 서버', () => {
     expect(await statusWithHost(`127.0.0.1:${linkServer.port}`)).toBe(200);
   });
 
+  it('로컬 주소의 여러 표기를 허용하고 비슷한 이름은 거부한다', async () => {
+    await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
+    const statusWithHost = (host: string | null): Promise<number> =>
+      new Promise((resolve, reject) => {
+        const req = request({
+          host: '127.0.0.1',
+          port: linkServer.port,
+          path: '/doc.pdf',
+          // Host를 아예 빼려면 헤더 자동 추가를 끈다.
+          ...(host === null ? { setHost: false } : { headers: { host } }),
+        }, (res) => {
+          res.resume();
+          resolve(res.statusCode ?? 0);
+        });
+        req.on('error', reject);
+        req.end();
+      });
+    // 호스트 이름은 대소문자를 구분하지 않는다.
+    expect(await statusWithHost(`LOCALHOST:${linkServer.port}`)).toBe(200);
+    expect(await statusWithHost(`[::1]:${linkServer.port}`)).toBe(200);
+    // Host가 없으면 거부한다 — HTTP/1.1 필수 헤더라 Node가 먼저 400으로 걸러낸다.
+    expect(await statusWithHost(null)).not.toBe(200);
+    // 로컬 주소로 시작할 뿐인 공격자 도메인
+    expect(await statusWithHost('localhost.attacker.example')).toBe(403);
+    expect(await statusWithHost('127.0.0.1.attacker.example')).toBe(403);
+    // 닫는 괄호가 없는 잘못된 IPv6 표기 — Node의 헤더 해석에서 먼저 400으로 걸린다
+    expect(await statusWithHost('[::1')).not.toBe(200);
+  });
+
   it('PDF 응답에 콘텐츠 형식 추측 차단 헤더를 붙인다', async () => {
     await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
     const response = await fetch(`${linkServer.baseUrl}/doc.pdf`);

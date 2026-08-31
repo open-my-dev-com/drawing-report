@@ -16,10 +16,17 @@ const STATUS_PATH = '/slipkit-mcp/status';
 /** 로컬호스트로 들어온 요청인지 확인한다 (DNS 리바인딩 차단). */
 function isLocalHostHeader(header: string | undefined): boolean {
   if (header === undefined) return false;
-  // 포트를 뗀 호스트 이름만 비교한다. IPv6는 대괄호를 벗긴다.
-  const name = header.startsWith('[')
-    ? header.slice(1, header.indexOf(']'))
-    : (header.split(':')[0] ?? '');
+  // 호스트 이름은 대소문자를 구분하지 않는다.
+  const value = header.toLowerCase();
+  let name: string;
+  if (value.startsWith('[')) {
+    // IPv6는 대괄호를 벗긴다. 닫는 괄호가 없으면 형식이 잘못된 것이다.
+    const end = value.indexOf(']');
+    if (end < 0) return false;
+    name = value.slice(1, end);
+  } else {
+    name = value.split(':')[0] ?? '';
+  }
   return name === '127.0.0.1' || name === 'localhost' || name === '::1';
 }
 
