@@ -89,7 +89,43 @@ import { FormulaDraftController } from './designer/controllers/formula-draft.js'
 import { SampleDraftController } from './designer/controllers/sample-draft.js';
 import { FormsController } from './designer/controllers/forms-storage.js';
 import { GridEditController } from './designer/controllers/grid-edit.js';
-import { imagePickErrorText, usedImages, imageParameterKeys } from './designer/image-pick.js';
+import {
+  PopoverController,
+  placeBelow,
+  placeBelowOrAbove,
+  listSelectStyle,
+  propertyMenuStyle,
+} from './designer/controllers/popover.js';
+import { ColorPickerController } from './designer/controllers/color-picker.js';
+import {
+  numberRow,
+  twisty,
+  textStyleToggles,
+  borderWidthSelect,
+  borderShapeRow,
+  colorControl,
+  conditionalEmphasisRow,
+} from './designer/render/inputs.js';
+import {
+  textProps,
+  textFieldKindRow,
+  fontNameRow,
+  fontProps,
+  imageProps,
+  lineProps,
+  polygonProps,
+  gridOverflowRow,
+  anchorRow,
+  sizeRows,
+  fieldProps,
+  barcodeProps,
+  pagePlacementSection,
+  styleGroups,
+  groupPanel,
+} from './designer/render/element-props.js';
+import type { ElementActions } from './designer/render/element-props.js';
+import type { PanelKit } from './designer/render/panel-kit.js';
+import { imagePickErrorText, usedImages, imageParameterKeys, PLACEHOLDER_IMG } from './designer/image-pick.js';
 import type { ImagePickFailure } from './designer/image-pick.js';
 import {
   GRID_DEFAULT_ROW_MM,
@@ -176,8 +212,6 @@ function valueTypeBadge(valueType: string | undefined): TemplateResult {
 /** 목록 중첩을 제외한 하위 필드의 값 종류 선택지  */
 const BINDING_FIELD_VALUE_TYPES = BINDING_VALUE_TYPES.filter((t) => t.value !== 'list');
 
-/** 테두리 굵기 선택지(mm) */
-const BORDER_WIDTH_STEPS = [0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.5, 2] as const;
 /** 샘플 데이터 모달의 페이지당 파라미터 수 */
 const SAMPLE_PAGE_SIZE = 10;
 
@@ -285,8 +319,6 @@ const MY_FORMS_PAGE_SIZE = 10;
 /** 디자이너가 만들 수 있는 요소 종류 */
 type CreatableType = SlipElement['type'];
 
-const PLACEHOLDER_IMG =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
 /** 캔버스 요소 종류별 배지 아이콘 */
 const TYPE_BADGE: Record<SlipElement['type'], TemplateResult> = {
@@ -641,6 +673,60 @@ export class SlipDesigner extends LitElement {
 
   /** 열려 있는 모달 */
   private readonly _dialogs = new DialogsController(this);
+
+
+  /** 속성 패널 렌더 모듈에 넘길 공통 입력 도구 */
+  private get _kit(): PanelKit {
+    return {
+      s: this._strings.designer,
+      reject: (message, field) => this._rejectInput(message, field),
+      error: (field) => this._renderInputError(field),
+      hasError: (field) => this._hasInputError(field),
+      listSelect: (config) => this._listSelect(config),
+      popovers: this._popovers,
+      picker: this._picker,
+      togglePropertyMenu: (key, event) => this._togglePropertyMenu(key, event),
+      applyElementColor: (key, value) => this._applyColor(key, value),
+    };
+  }
+
+
+  /** 요소 속성 줄이 요청하는 조작 */
+  private get _actions(): ElementActions {
+    return {
+      update: (fn) => this._updateElement(fn),
+      convertTextField: (to) => this._convertTextField(to),
+      openImageModal: () => this._openImageModal(),
+      setImageVariable: (variable) => this._setImageVariable(variable),
+      imageParameterSelect: (current) => this._renderImageParameterSelect(current),
+      applyLineLengthAngle: (length, angle) => this._applyLineLengthAngle(length, angle),
+      anchorIndex: (el) => this._anchorByElement.get(el.id) ?? (el.type === 'line' ? 3 : 0),
+      setAnchorIndex: (elementId, index) => {
+        this._anchorByElement.set(elementId, index);
+        this.requestUpdate();
+      },
+      fontNames: this._fontNames,
+      openFormulaModal: () => this._openFormulaModal(),
+      setFieldSource: (kind) => this._setFieldSource(kind),
+      parameterSelect: (current) => this._renderParameterSelect(current),
+      barcodeParameterSelect: (current) => this._renderBarcodeParameterSelect(current),
+      barcodeKinds: () => this._barcodeKinds(),
+      barcodeContentWarning: (kind, content) => this._barcodeContentWarning(kind, content),
+      chooseBarcodeSource: (kind) => this._chooseBarcodeSource(kind),
+      setBarcodeSource: (kind, value) => this._setBarcodeSource(kind, value),
+      pageElements: () => this._currentElements(),
+      findElement: (id) => this._findElement(id),
+      groupSelected: () => this._groupSelected(),
+      ungroupSelected: () => this._ungroupSelected(),
+      selectedIds: this._selectedIds,
+    };
+  }
+
+  /** 속성 패널의 팝오버 */
+  private readonly _popovers = new PopoverController(this);
+
+  /** 색 선택기 */
+  private readonly _picker = new ColorPickerController(this);
 
   /** 그리드 셀·행 구간 선택 */
   private readonly _gridEdit = new GridEditController(this);
@@ -1306,69 +1392,6 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /**
-   * 명시된 값이 없으면 기본값을 표시하는 숫자 입력 행을 만든다.
-   * 기본값과 같은 값은 파일에 저장하지 않으며 잘못된 입력은 이전 값으로 되돌린다.
-   *
-   * @param label - 항목 이름
-   * @param current - 현재 저장된 값
-   * @param fallback - 지정하지 않았을 때 실제로 적용되는 값
-   * @param apply - 저장 콜백. 기본값과 같으면 `null`이 와서 필드를 지운다
-   * @param opts - `step`·`min` 등 입력 상자 설정
-   * @returns 수 입력 한 줄
-   */
-  private _renderDefaultedNumberRow(
-    label: string,
-    current: number | undefined,
-    fallback: number,
-    apply: (value: number | null) => void,
-    opts: { step?: string; min?: string; ariaLabel?: string; errorKey?: string } = {},
-  ) {
-    const errorKey = opts.errorKey ?? 'number-input';
-    const commit = (e: Event): void => {
-      const input = e.target as HTMLInputElement;
-      // 브라우저가 잘못된 숫자 입력을 빈 문자열로 반환하므로 이전 값으로 복원한다.
-      if (input.validity.badInput) {
-        input.value = String(current ?? fallback);
-        this._rejectInput(this._strings.designer.numberInput, errorKey);
-        return;
-      }
-      const raw = input.value.trim();
-      if (raw === '') {
-        apply(null);
-        return;
-      }
-      const v = Number(raw);
-      if (!Number.isFinite(v) || (opts.min !== undefined && v < Number(opts.min))) {
-        input.value = String(current ?? fallback);
-        const message = !Number.isFinite(v)
-          ? this._strings.designer.numberInput
-          : this._strings.designer.minimumInput.replace('{min}', opts.min!);
-        this._rejectInput(message, errorKey);
-        return;
-      }
-      apply(v === fallback ? null : v);
-    };
-    return html`
-      <div class="prop-row">
-        <label>${label}</label>
-        <input type="number" step=${opts.step ?? '0.5'} min=${opts.min ?? nothing}
-          aria-label=${opts.ariaLabel ?? label}
-          aria-invalid=${String(this._hasInputError(errorKey))}
-          aria-describedby=${this._hasInputError(errorKey) ? `error-${errorKey}` : nothing}
-          class=${current === undefined ? 'dim' : ''}
-          .value=${String(current ?? fallback)}
-          @change=${commit}>
-      </div>
-      ${this._renderInputError(errorKey)}`;
-  }
-
-  /**
-   * 선의 길이와 각도를 요소 영역 및 방향 값으로 변환해 저장한다.
-   *
-   * @param length - 길이(mm)
-   * @param angle - 각도(도)
-   */
   private _applyLineLengthAngle(length: number, angle: number): void {
     if (!Number.isFinite(length) || !Number.isFinite(angle) || length < 0) {
       this._rejectInput();
@@ -2822,27 +2845,9 @@ export class SlipDesigner extends LitElement {
     return this.presets?.length ? this.presets : getPresets(this._locale);
   }
 
-  /** 열려 있는 리스트형 선택 상자의 식별자. null이면 모두 닫혀 있다 */
-  private _listSelectId: string | null = null;
-  /** 리스트형 선택 상자 목록의 화면 고정 위치와 최대 높이(px) */
-  private _listSelectPos = { left: 0, top: 0, width: 0, maxHeight: 280 };
-
   private _toggleListSelect(id: string, e: Event): void {
-    if (this._listSelectId === id) {
-      this._listSelectId = null;
-    } else {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      // 목록이 화면 아래로 넘치지 않게 남은 높이 안에서만 편다.
-      const maxHeight = Math.max(120, Math.min(280, window.innerHeight - rect.bottom - 12));
-      this._listSelectPos = { left: rect.left, top: rect.bottom + 4, width: rect.width, maxHeight };
-      this._listSelectId = id;
-    }
-    this.requestUpdate();
-  }
-
-  private _closeListSelect(): void {
-    this._listSelectId = null;
-    this.requestUpdate();
+    // 목록이 화면 아래로 넘치지 않게 남은 높이 안에서만 편다.
+    this._popovers.toggle('list', id, () => placeBelow(e.currentTarget as HTMLElement, 120, 280));
   }
 
   /**
@@ -2858,7 +2863,7 @@ export class SlipDesigner extends LitElement {
     className?: string;
     placeholder?: string;
   }) {
-    const open = this._listSelectId === config.id;
+    const open = this._popovers.isOpen('list', config.id);
     const current = config.options.find((o) => o.value === config.value);
     return html`
       <button type="button" class="list-select ${config.className ?? ''}"
@@ -2870,15 +2875,15 @@ export class SlipDesigner extends LitElement {
       </button>
       ${open
         ? html`
-          <div class="menu-backdrop" @click=${() => this._closeListSelect()}></div>
+          <div class="menu-backdrop" @click=${() => this._popovers.close('list')}></div>
           <div class="preset-menu list-select-menu" role="listbox" aria-label=${config.ariaLabel}
-            style="left:${this._listSelectPos.left}px;top:${this._listSelectPos.top}px;min-width:${this._listSelectPos.width}px;max-height:${this._listSelectPos.maxHeight}px">
+            style=${listSelectStyle(this._popovers.placement('list'))}>
             ${config.options.map((o) => html`
               <button type="button" role="option" data-value=${o.value}
                 class=${o.description === undefined ? '' : 'described'}
                 aria-selected=${String(o.value === config.value)}
                 @click=${() => {
-                  this._closeListSelect();
+                  this._popovers.close('list');
                   config.onPick(o.value);
                 }}>
                 <span class="list-select-option-label">${o.label}</span>
@@ -3180,34 +3185,6 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /**
-   * 하위 항목이 있는 사이드바 행에 펼침 버튼을 표시한다.
-   * 하위 항목이 없으면 같은 너비의 빈 공간을 표시한다.
-   *
-   * @param hasChildren - 하위 줄이 있는지
-   * @param expanded - 현재 펼침 상태
-   * @param name - 무엇을 펼치고 접는지 (읽어 주는 이름에 쓴다)
-   * @param toggle - 눌렀을 때 펼침을 뒤집는 처리
-   * @returns 펼침 표시 또는 빈 자리
-   */
-  private _renderTwisty(
-    hasChildren: boolean,
-    expanded: boolean,
-    name: string,
-    toggle: () => void,
-  ) {
-    if (!hasChildren) return html`<span class="side-twisty-gap"></span>`;
-    const s = this._strings.designer;
-    const label = expanded ? s.collapseRow : s.expandRow;
-    return html`
-      <button class="side-twisty" aria-label="${name} ${label}" title=${label}
-        aria-expanded=${String(expanded)}
-        @click=${toggle}>${expanded ? icons.treeOpen : icons.treeClosed}</button>`;
-  }
-
-  /**
-   * 파라미터와 목록 하위 필드를 사이드바 행으로 표시한다.
-   */
   private _renderParameterRow(b: ParameterInfo) {
     const s = this._strings.designer;
     const sel = this._sideSelection;
@@ -3216,7 +3193,7 @@ export class SlipDesigner extends LitElement {
     const expanded = hasFields && this._expandedParameters.has(b.key);
     return html`
       <div class="side-row-wrap">
-        ${this._renderTwisty(hasFields, expanded, b.label, () => this._toggleParameterRow(b.key))}
+        ${twisty(this._kit, hasFields, expanded, b.label, () => this._toggleParameterRow(b.key))}
         <button class="side-row ${selected ? 'selected' : ''}" title=${b.key}
           @click=${() => this._selectParameter(b.key)}>
           ${valueTypeBadge(b.valueType)}<span>${b.label}</span>
@@ -3274,7 +3251,7 @@ export class SlipDesigner extends LitElement {
     const rowSelected = this._selectedIds.has(el.id) && !this._sideSelection && this._gridEdit.cell === null;
     return html`
       <div class="side-row-wrap">
-        ${this._renderTwisty(hasCells, expanded, el.name, () => this._toggleElementRow(el.id))}
+        ${twisty(this._kit, hasCells, expanded, el.name, () => this._toggleElementRow(el.id))}
         <button class="side-row ${rowSelected ? 'selected' : ''}" title=${el.name}
           @click=${(e: MouseEvent) => this._selectFromSidebar(pageIndex, el.id, e.ctrlKey || e.metaKey)}>
           ${TYPE_BADGE[el.type]}<span>${el.name}</span>
@@ -5191,65 +5168,7 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /** 요소의 기본 좌표 기준점을 반환한다. 선은 왼쪽 가운데를 사용한다. */
-  private _defaultAnchorIndex(el: SlipElement): number {
-    return el.type === 'line' ? 3 : 0;
-  }
 
-  private _renderAnchorRow(el: SlipElement) {
-    const s = this._strings.designer;
-    const current = this._anchorByElement.get(el.id) ?? this._defaultAnchorIndex(el);
-    const elementId = el.id;
-    return html`
-      <div class="prop-row">
-        <label>${s.anchor}</label>
-        <div class="anchor-grid" role="group" aria-label=${s.anchor}>
-          ${ANCHORS.map((a, i) => html`
-            <button class="anchor-dot" title=${s[a.key]} aria-label="${s.anchor}: ${s[a.key]}"
-              aria-pressed=${String(i === current)}
-              @click=${() => {
-                this._anchorByElement.set(elementId, i);
-                this.requestUpdate();
-              }}></button>`)}
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * 다중 선택한 요소를 그룹화하거나 그룹에서 해제하는 패널을 렌더링한다.
-   */
-  private _renderGroupPanel() {
-    const s = this._strings.designer;
-    const els = [...this._selectedIds]
-      .map((id) => this._findElement(id))
-      .filter((el): el is SlipElement => el !== undefined);
-    const groups = new Set(els.map((el) => el.group));
-    const allSameGroup = els.length > 0 && groups.size === 1 && !groups.has(undefined);
-    const anyGrouped = els.some((el) => el.group !== undefined);
-    return html`
-      <div class="type-name">${s.groupSelection}</div>
-      <div class="prop-section">
-        <div class="prop-section-title">${s.panelBasic}</div>
-        <div class="prop-row">
-          <label>${s.selectedCount}</label>
-          <span>${els.length}</span>
-        </div>
-        <div class="group-actions">
-          ${allSameGroup
-            ? nothing
-            : html`<button class="btn primary" @click=${() => this._groupSelected()}>
-                ${s.groupElements}</button>`}
-          ${anyGrouped
-            ? html`<button class="btn" @click=${() => this._ungroupSelected()}>
-                ${s.ungroupElements}</button>`
-            : nothing}
-        </div>
-      </div>
-    `;
-  }
-
-  /** 선택한 요소에 같은 그룹 ID를 지정한다. */
   private _groupSelected(): void {
     if (this._selectedIds.size < 2) return;
     const ids = new Set(this._selectedIds);
@@ -5288,7 +5207,7 @@ export class SlipDesigner extends LitElement {
     if (sel?.kind === 'page') return this._renderPageSettings();
 
     // 여러 요소가 선택되면 그룹 패널을 표시한다.
-    if (this._selectedIds.size > 1) return this._renderGroupPanel();
+    if (this._selectedIds.size > 1) return groupPanel(this._kit, this._actions, );
 
     const el = this._findSelectedElement();
     if (!el) {
@@ -5298,8 +5217,7 @@ export class SlipDesigner extends LitElement {
     const s = this._strings.designer;
     const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-    const anchor =
-      ANCHORS[this._anchorByElement.get(el.id) ?? this._defaultAnchorIndex(el)] ?? ANCHORS[0];
+    const anchor = ANCHORS[this._actions.anchorIndex(el)] ?? ANCHORS[0];
     const selectedCell = el.type === 'grid' ? this._gridEdit.cell : null;
     const cellInBand = selectedCell !== null && el.type === 'grid' && inItemBand(el, selectedCell.row);
 
@@ -5325,7 +5243,7 @@ export class SlipDesigner extends LitElement {
           <input .value=${el.name}
                  @change=${(e: Event) => this._updateElement((el) => { el.name = valOf(e); })}>
         </div>
-        ${this._renderAnchorRow(el)}
+        ${anchorRow(this._kit, this._actions, el)}
         <div class="prop-pair">
           <div class="prop-row">
             <label>X</label>
@@ -5363,12 +5281,12 @@ export class SlipDesigner extends LitElement {
         </div>
         ${this._renderInputError('element-x')}
         ${this._renderInputError('element-y')}
-        ${this._renderSizeRows(el)}
+        ${sizeRows(this._kit, this._actions, el)}
       </div>
 
-      ${this._renderPagePlacementSection(el)}
+      ${pagePlacementSection(this._kit, this._actions, el)}
       ${this._renderTypeProps(el)}
-      ${el.type === 'grid' && this._gridEdit.cell !== null ? nothing : this._renderStyleGroups(el)}
+      ${el.type === 'grid' && this._gridEdit.cell !== null ? nothing : styleGroups(this._kit, this._actions, el)}
       ${el.type === 'text' || el.type === 'field'
         ? this._renderConditionalFormatsSection(el.conditionalFormats, 'condFmt', (next) =>
             this._updateElement((target) => {
@@ -5380,203 +5298,6 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /**
-   * 요소 크기 입력을 렌더링한다.
-   * 선은 너비와 높이 대신 길이, 각도, 선 굵기로 편집한다.
-   */
-  private _renderSizeRows(el: SlipElement) {
-    const s = this._strings.designer;
-    const box = boxOf(el);
-    const setSize = (key: 'width' | 'height') => (e: Event) => {
-      const v = Number((e.target as HTMLInputElement).value);
-      const errorKey = `element-${key}`;
-      if (!Number.isFinite(v) || v < 1) {
-        const message = !Number.isFinite(v)
-          ? s.numberInput
-          : s.minimumInput.replace('{min}', '1');
-        this._rejectInput(message, errorKey);
-        return;
-      }
-      this._updateElement((target) => {
-        setElementBox(target, key === 'width' ? v : undefined, key === 'height' ? v : undefined);
-      });
-    };
-    const sizeRow = (label: string, key: 'width' | 'height') => {
-      const errorKey = `element-${key}`;
-      return html`
-        <div class="prop-row">
-          <label>${label}</label>
-          <input type="number" step="0.5" min="1" .value=${String(box[key])}
-                 aria-label=${label}
-                 aria-invalid=${String(this._hasInputError(errorKey))}
-                 aria-describedby=${this._hasInputError(errorKey) ? `error-${errorKey}` : nothing}
-                 @change=${setSize(key)}>
-        </div>
-        ${this._renderInputError(errorKey)}`;
-    };
-
-    // 모든 선 방향에 같은 길이, 각도, 굵기 입력을 사용한다.
-    if (el.type === 'line') {
-      const { length, angle } = lineLengthAngle(el);
-      return html`
-        <div class="prop-pair">
-          ${this._renderDefaultedNumberRow(
-            s.length, Number(length.toFixed(1)), length,
-            (v) => this._applyLineLengthAngle(v ?? length, angle),
-            { step: '0.5', min: '0', errorKey: 'line-length' },
-          )}
-          ${this._renderDefaultedNumberRow(
-            s.lineAngle, Number(angle.toFixed(1)), angle,
-            (v) => this._applyLineLengthAngle(length, v ?? angle),
-            { step: '1', errorKey: 'line-angle' },
-          )}
-        </div>
-        ${this._renderBorderWidthSelect(
-          el.borderWidth,
-          DEFAULT_LINE_WIDTH,
-          false,
-          'borderWidth',
-          (v) => this._updateElement((target) => {
-            (target as Record<string, unknown>).borderWidth = v;
-          }),
-          s.lineWidth,
-        )}`;
-    }
-    return html`
-      <div class="prop-pair">
-        ${sizeRow(s.width, 'width')}
-        ${sizeRow(s.height, 'height')}
-      </div>`;
-  }
-
-  /**
-   * 요소의 표시 페이지와 이어서 배치를 편집하는 섹션을 렌더링한다 (§5.2).
-   * 절대 배치에서는 표시 페이지 필터를, 이어서 배치에서는 대상 요소와 간격을 편집한다.
-   */
-  private _renderPagePlacementSection(el: SlipElement) {
-    const s = this._strings.designer;
-    const placement = el.pagePlacement;
-    const mode = placement?.mode ?? 'absolute';
-    const pages = placement?.mode === 'absolute' ? (placement.pages ?? 'all') : 'all';
-    const elements = this._currentElements() ?? [];
-    // 자신과, 자신을 뒤따르는 요소는 이어서 배치의 대상으로 고를 수 없다 (순환 방지).
-    const followers = new Set<string>();
-    const collect = (id: string): void => {
-      followers.add(id);
-      for (const other of elements) {
-        if (other.pagePlacement?.mode === 'after' && other.pagePlacement.target === id && !followers.has(other.id)) {
-          collect(other.id);
-        }
-      }
-    };
-    collect(el.id);
-    const targets = elements.filter((other) => !followers.has(other.id));
-    const currentTarget = placement?.mode === 'after' ? placement.target : (targets[0]?.id ?? '');
-
-    return html`
-      <div class="prop-section">
-        <div class="prop-section-title">${s.pagePlacementSection}</div>
-        <div class="prop-row">
-          <label>${s.pagePlacementMode}</label>
-          ${this._listSelect({
-            id: 'page-placement-mode',
-            ariaLabel: s.pagePlacementMode,
-            value: mode,
-            options: [
-              { value: 'absolute', label: s.pagePlacementAbsolute },
-              { value: 'after', label: s.pagePlacementAfter },
-            ],
-            onPick: (value) => {
-              if (value === 'absolute') {
-                this._updateElement((target) => {
-                  delete (target as { pagePlacement?: unknown }).pagePlacement;
-                });
-                return;
-              }
-              if (targets.length === 0) {
-                this._rejectInput(s.afterNoTarget, 'page-placement-mode');
-                return;
-              }
-              this._updateElement((target) => {
-                target.pagePlacement = { mode: 'after', target: targets[0]!.id };
-              });
-            },
-          })}
-        </div>
-        ${mode === 'absolute'
-          ? html`
-            <div class="prop-row">
-              <label>${s.pagePlacementPages}</label>
-              ${this._listSelect({
-                id: 'page-placement-pages',
-                ariaLabel: s.pagePlacementPages,
-                value: pages,
-                options: [
-                  { value: 'all', label: s.pagesAll },
-                  { value: 'first', label: s.pagesFirst },
-                  { value: 'continuation', label: s.pagesContinuation },
-                  { value: 'non-final', label: s.pagesNonFinal },
-                  { value: 'last', label: s.pagesLast },
-                ],
-                onPick: (value) => {
-                  this._updateElement((target) => {
-                    if (value === 'all') delete (target as { pagePlacement?: unknown }).pagePlacement;
-                    else target.pagePlacement = { mode: 'absolute', pages: value as OutputPageFilter };
-                  });
-                },
-              })}
-            </div>`
-          : html`
-            <div class="prop-row">
-              <label>${s.afterTarget}</label>
-              ${this._listSelect({
-                id: 'page-placement-target',
-                ariaLabel: s.afterTarget,
-                value: currentTarget,
-                options: targets.map((other) => ({ value: other.id, label: other.name })),
-                onPick: (value) => {
-                  this._updateElement((target) => {
-                    const gap = target.pagePlacement?.mode === 'after' ? target.pagePlacement.gap : undefined;
-                    target.pagePlacement = { mode: 'after', target: value, ...(gap === undefined ? {} : { gap }) };
-                  });
-                },
-              })}
-            </div>
-            <div class="prop-row">
-              <label>${s.afterGap}</label>
-              <input type="number" step="0.5" min="0"
-                .value=${String(placement?.mode === 'after' ? (placement.gap ?? 0) : 0)}
-                aria-label=${s.afterGap}
-                aria-invalid=${String(this._hasInputError('after-gap'))}
-                aria-describedby=${this._hasInputError('after-gap') ? 'error-after-gap' : nothing}
-                @change=${(e: Event) => {
-                  const v = Number((e.target as HTMLInputElement).value);
-                  if (!Number.isFinite(v) || v < 0) {
-                    this._rejectInput(s.numberInput, 'after-gap');
-                    return;
-                  }
-                  this._updateElement((target) => {
-                    if (target.pagePlacement?.mode !== 'after') return;
-                    target.pagePlacement = {
-                      mode: 'after',
-                      target: target.pagePlacement.target,
-                      ...(v === 0 ? {} : { gap: round1(v) }),
-                    };
-                  });
-                }}>
-            </div>
-            ${this._renderInputError('after-gap')}`}
-        ${this._renderInputError('page-placement-mode')}
-      </div>`;
-  }
-
-  /**
-   * 목록 하위 필드의 키, 레이블, 값 종류와 사용 위치를 표시하는 패널을 렌더링한다.
-   *
-   * @param listKey - 목록 파라미터 물리명
-   * @param fieldKey - 하위 필드 물리명
-   * @returns 하위 필드 편집 조각
-   */
   private _renderParameterFieldPanel(listKey: string, fieldKey: string) {
     const s = this._strings.designer;
     const parent = this._parameterList().find((b) => b.key === listKey);
@@ -6070,67 +5791,24 @@ export class SlipDesigner extends LitElement {
   private _renderTypeProps(el: SlipElement) {
     switch (el.type) {
       case 'text':
-        return this._renderTextProps(el);
+        return textProps(this._kit, this._actions, el);
       case 'field':
-        return this._renderFieldProps(el);
+        return fieldProps(this._kit, this._actions, el);
       case 'barcode':
-        return this._renderBarcodeProps(el);
+        return barcodeProps(this._kit, this._actions, el);
       case 'line':
-        return this._renderLineProps(el);
+        return lineProps(this._kit, el);
       case 'polygon':
-        return this._renderPolygonProps(el);
+        return polygonProps(this._kit, this._actions, el);
       case 'grid':
         return this._renderGridProps(el);
       case 'image':
-        return this._renderImageProps(el);
+        return imageProps(this._kit, this._actions, el);
       default:
         return nothing;
     }
   }
 
-  /** 텍스트 요소의 내용을 편집하는 패널을 렌더링한다. */
-  private _renderTextProps(el: TextElement) {
-    const s = this._strings.designer;
-    return html`
-      <div class="prop-section">
-        <div class="prop-section-title">${s.panelValue}</div>
-        ${this._renderTextFieldKindRow('text')}
-        <div class="prop-row stacked">
-          <label>${s.content}</label>
-          <textarea rows="3" .value=${el.content}
-            @change=${(e: Event) => this._updateElement((el) => {
-              if (el.type === 'text') el.content = (e.target as HTMLTextAreaElement).value;
-            })}></textarea>
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * 텍스트와 필드 요소 사이를 전환하는 입력을 렌더링한다.
-   *
-   * @param current - 현재 요소 종류
-   * @returns 종류 전환 조각
-   */
-  private _renderTextFieldKindRow(current: 'text' | 'field') {
-    const s = this._strings.designer;
-    return html`
-      <div class="prop-row">
-        <label>${s.elementKind}</label>
-        <div class="toggle-group text" role="group" aria-label=${s.elementKind}>
-          ${([['text', s.typeText], ['field', s.typeField]] as const).map(([kind, label]) => html`
-            <button aria-pressed=${String(current === kind)}
-              @click=${() => this._convertTextField(kind)}>${label}</button>`)}
-        </div>
-      </div>`;
-  }
-
-  /**
-   * 위치, 크기, 글자 스타일을 유지하며 텍스트와 필드 요소를 전환한다.
-   * 필드로 전환할 때는 새 파라미터를 연결하고 텍스트로 전환할 때는 빈 내용을 사용한다.
-   *
-   * @param to - 바꿀 종류
-   */
   private _convertTextField(to: 'text' | 'field'): void {
     const el = this._findSelectedElement();
     if (!el || (el.type !== 'text' && el.type !== 'field') || el.type === to) return;
@@ -6164,52 +5842,6 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 필드 요소의 값 소스를 편집하는 패널을 렌더링한다. */
-  private _renderFieldProps(el: FieldElement) {
-    const s = this._strings.designer;
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-    // 필드는 파라미터와 수식 중 하나만 값 소스로 사용한다.
-    const source: 'parameter' | 'formula' = el.formula !== undefined ? 'formula' : 'parameter';
-    return html`
-      <div class="prop-section">
-        <div class="prop-section-title">${s.panelValue}</div>
-        ${this._renderTextFieldKindRow('field')}
-        <div class="prop-row">
-          <label>${s.cellSource}</label>
-          ${this._listSelect({
-            id: 'field-source',
-            ariaLabel: s.cellSource,
-            value: source,
-            options: [
-              { value: 'parameter', label: s.cellSourceParameter },
-              { value: 'formula', label: s.cellSourceFormula },
-            ],
-            onPick: (value) => this._setFieldSource(value as 'parameter' | 'formula'),
-          })}
-        </div>
-        ${source === 'parameter'
-          ? this._renderParameterSelect(el.parameter ?? '')
-          : html`
-            <div class="prop-row">
-              <label>${s.formula}</label>
-              <input .value=${live(el.formula ?? '')}
-                @change=${(e: Event) => this._updateElement((target) => {
-                  if (target.type !== 'field') return;
-                  setOptional(target, 'formula', valOf(e) || null);
-                })}>
-              <button class="row-btn" title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
-                @click=${() => this._openFormulaModal()}>${icons.formula}</button>
-            </div>`}
-      </div>
-    `;
-  }
-
-  /**
-   * 필드의 값 소스를 파라미터 또는 수식으로 전환한다.
-   * 파라미터로 전환할 때는 새 파라미터를 만들어 연결한다.
-   *
-   * @param kind - 바꿀 소스
-   */
   private _setFieldSource(kind: 'parameter' | 'formula'): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'field') {
@@ -6230,137 +5862,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 바코드 종류와 값 소스를 편집하는 패널을 렌더링한다. */
-  private _renderBarcodeProps(el: BarcodeElement) {
-    const s = this._strings.designer;
-    const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-    // 설정된 속성으로 현재 값 소스 종류를 결정한다 (SPEC §5.6).
-        const source: 'content' | 'parameter' | 'formula' =
-          el.parameter !== undefined ? 'parameter' : el.formula !== undefined ? 'formula' : 'content';
-        // 직접 입력한 값만 편집 중에 바코드 형식을 검사한다.
-        const warning = source === 'content' ? this._barcodeContentWarning(el.kind, el.content ?? '') : null;
-        return html`
-          <div class="prop-section">
-            <div class="prop-section-title">${s.panelValue}</div>
-            <div class="prop-row">
-              <label>${s.barcodeKind}</label>
-              ${this._listSelect({
-                id: 'barcode-kind',
-                ariaLabel: s.barcodeKind,
-                value: el.kind,
-                options: [
-                  ...(this._barcodeKinds().some((k) => k.value === el.kind)
-                    ? []
-                    : [{ value: el.kind, label: el.kind }]),
-                  ...this._barcodeKinds().map((k) => ({ value: k.value, label: k.label })),
-                ],
-                onPick: (value) => this._updateElement((target) => {
-                  if (target.type === 'barcode') target.kind = value as BarcodeKind;
-                }),
-              })}
-            </div>
-            <div class="prop-row">
-              <label>${s.barcodeValue}</label>
-              ${this._listSelect({
-                id: 'barcode-source',
-                ariaLabel: s.barcodeValue,
-                value: source,
-                options: [
-                  { value: 'content', label: s.cellSourceText },
-                  { value: 'parameter', label: s.cellSourceParameter },
-                  { value: 'formula', label: s.cellSourceFormula },
-                ],
-                onPick: (value) =>
-                  this._chooseBarcodeSource(value as 'content' | 'parameter' | 'formula'),
-              })}
-            </div>
-            ${source === 'content'
-              ? html`
-                <div class="prop-row">
-                  <label>${s.content}</label>
-                  <input .value=${el.content ?? ''}
-                    @change=${(e: Event) => this._setBarcodeSource('content', valOf(e))}>
-                </div>
-                ${warning ? html`<p class="image-error" role="alert">${warning}</p>` : nothing}`
-              : source === 'parameter'
-                ? this._renderBarcodeParameterSelect(el.parameter ?? '')
-                : html`
-                  <div class="prop-row">
-                    <label>${s.formula}</label>
-                    <input .value=${el.formula ?? ''}
-                      @change=${(e: Event) => this._setBarcodeSource('formula', valOf(e))}>
-                  </div>`}
-          </div>
-        `;
-  }
 
-  /**
-   * 선 요소에는 별도의 종류별 속성 패널을 표시하지 않는다.
-   * 방향은 캔버스의 끝점 핸들로 변경한다.
-   */
-  private _renderLineProps(_el: LineElement) {
-    return nothing;
-  }
-
-  /** 정다각형의 변 수를 편집하는 패널을 렌더링한다. */
-  private _renderPolygonProps(el: PolygonElement) {
-    const s = this._strings.designer;
-    return html`
-          <div class="prop-section">
-            <div class="prop-section-title">${s.panelStructure}</div>
-            <div class="prop-row">
-              <label>${s.sides}</label>
-              <input type="number" min="3" max="12" step="1" .value=${String(el.sides)}
-                aria-invalid=${String(this._hasInputError('polygon-sides'))}
-                aria-describedby=${this._hasInputError('polygon-sides') ? 'error-polygon-sides' : nothing}
-                @change=${(e: Event) => {
-                  const v = Number((e.target as HTMLInputElement).value);
-                  // 스키마가 허용하는 3~12 범위만 적용한다.
-                  if (!Number.isInteger(v) || v < 3 || v > 12) {
-                    this._rejectInput(
-                      s.rangeInput.replace('{min}', '3').replace('{max}', '12'),
-                      'polygon-sides',
-                    );
-                    return;
-                  }
-                  this._updateElement((el) => {
-                    if (el.type === 'polygon') el.sides = v;
-                  });
-                }}>
-            </div>
-            ${this._renderInputError('polygon-sides')}
-          </div>
-        `;
-  }
-
-  /** 그리드 또는 선택 셀의 텍스트 표시 방식을 편집하는 선택기를 렌더링한다. */
-  private _renderGridOverflowRow(config: {
-    id: string;
-    value: 'inherit' | 'clip' | 'shrink';
-    inherit?: boolean;
-    ariaLabel?: string;
-    onPick: (value: 'inherit' | 'clip' | 'shrink') => void;
-  }) {
-    const s = this._strings.designer;
-    return html`
-      <div class="prop-row">
-        <label>${s.overflow}</label>
-        ${this._listSelect({
-          id: config.id,
-          ariaLabel: config.ariaLabel ?? s.overflow,
-          value: config.value,
-          options: [
-            ...(config.inherit ? [{ value: 'inherit', label: s.overflowInherit }] : []),
-            { value: 'clip', label: s.overflowClip },
-            { value: 'shrink', label: s.overflowShrink },
-          ],
-          onPick: (value) => config.onPick(value as 'inherit' | 'clip' | 'shrink'),
-        })}
-      </div>
-    `;
-  }
-
-  /** 그리드의 행, 열, 반복 설정, 행 구간과 셀을 편집하는 패널을 렌더링한다. */
   private _renderGridProps(el: GridElement) {
     const s = this._strings.designer;
     const cellTarget = this._gridEdit.cell;
@@ -6888,17 +6390,17 @@ export class SlipDesigner extends LitElement {
 
           <div class="prop-section">
             <div class="prop-section-title">${s.styleText}</div>
-            ${this._renderFontNameRow(
+            ${fontNameRow(this._kit, this._actions, 
               cellDef?.fontName,
               (v) => this._updateCellStyle('fontName', v),
               `${s.cell} ${s.fontName}`,
             )}
-            ${this._renderDefaultedNumberRow(
+            ${numberRow(this._kit, 
               s.fontSize, cellDef?.fontSize, el.fontSize ?? DEFAULT_FONT_SIZE,
               (v) => this._updateCellStyle('fontSize', v),
               { step: '0.5', min: '0.5', ariaLabel: `${s.cell} ${s.fontSize}`, errorKey: 'cell-font-size' },
             )}
-            ${this._renderGridOverflowRow({
+            ${gridOverflowRow(this._kit, {
               id: 'grid-cell-overflow',
               value: cellDef?.overflow ?? 'inherit',
               inherit: true,
@@ -6933,22 +6435,22 @@ export class SlipDesigner extends LitElement {
                     >${glyph}</button>`)}
               </div>
             </div>
-            ${this._renderDefaultedNumberRow(
+            ${numberRow(this._kit, 
               s.lineHeight, cellDef?.lineHeight, el.lineHeight ?? 1,
               (v) => this._updateCellStyle('lineHeight', v),
               { step: '0.1', min: '0.1', ariaLabel: `${s.cell} ${s.lineHeight}`, errorKey: 'cell-line-height' },
             )}
-            ${this._renderDefaultedNumberRow(
+            ${numberRow(this._kit, 
               s.characterSpacing, cellDef?.characterSpacing, el.characterSpacing ?? 0,
               (v) => this._updateCellStyle('characterSpacing', v),
               { step: '0.1', ariaLabel: `${s.cell} ${s.characterSpacing}`, errorKey: 'cell-character-spacing' },
             )}
-            ${this._renderTextStyleToggles(
+            ${textStyleToggles(this._kit, 
               cellDef ?? {},
               (key, value) => this._updateCellStyle(key, value ? true : null),
               `${s.cell} `,
             )}
-            ${this._renderColorControl(
+            ${colorControl(this._kit, 
               s.fontColor, cellDef?.fontColor, 'cellFontColor',
               (v) => this._updateCellStyle('fontColor', v),
               el.fontColor ?? DEFAULT_FONT_COLOR,
@@ -6958,7 +6460,7 @@ export class SlipDesigner extends LitElement {
 
           <div class="prop-section">
             <div class="prop-section-title">${s.styleBackground}</div>
-            ${this._renderColorControl(
+            ${colorControl(this._kit, 
               s.backgroundColor, cellDef?.backgroundColor, 'cellBackgroundColor',
               (v) => this._updateCellStyle('backgroundColor', v),
               undefined,
@@ -6968,20 +6470,20 @@ export class SlipDesigner extends LitElement {
 
           <div class="prop-section">
             <div class="prop-section-title">${s.styleBorder}</div>
-            ${this._renderColorControl(
+            ${colorControl(this._kit, 
               s.borderColor, cellDef?.borderColor, 'cellBorderColor',
               (v) => this._updateCellStyle('borderColor', v),
               el.borderColor ?? DEFAULT_BORDER_COLOR,
               `${s.cell} ${s.borderColor}`,
             )}
-            ${this._renderBorderWidthSelect(
+            ${borderWidthSelect(this._kit, 
               cellDef?.borderWidth,
               el.borderWidth ?? DEFAULT_LINE_WIDTH,
               true,
               'cellBorderWidth',
               (v) => this._updateCellStyle('borderWidth', v),
             )}
-            ${this._renderBorderShapeRow(
+            ${borderShapeRow(this._kit, 
               cellDef?.borderStyle,
               `${s.cell} ${s.borderShape}`,
               'cellBorderStyle',
@@ -6998,174 +6500,13 @@ export class SlipDesigner extends LitElement {
       : nothing;
   }
 
-  /** 이미지 요소의 고정 이미지와 파라미터 이미지를 편집하는 패널을 렌더링한다. */
-  private _renderImageProps(el: ImageElement) {
-    const s = this._strings.designer;
-    // 이미지 요소는 고정 소스와 파라미터 중 하나만 사용한다.
-    const variable = el.parameter !== undefined;
-    // base64 문자열 대신 현재 이미지를 표시한다.
-    const chosen = el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
-    return html`
-      <div class="prop-section">
-        <div class="prop-section-title">${s.panelValue}</div>
-        <div class="prop-row">
-          <label>${s.imageMode}</label>
-          <div class="toggle-group text" role="group" aria-label=${s.imageMode}>
-            <button aria-pressed=${String(!variable)}
-              @click=${() => this._setImageVariable(false)}>${s.imageFixed}</button>
-            <button aria-pressed=${String(variable)}
-              @click=${() => this._setImageVariable(true)}>${s.imageVariable}</button>
-          </div>
-        </div>
-        ${variable
-          ? this._renderImageParameterSelect(el.parameter ?? '')
-          : html`
-            ${chosen
-              ? html`<div class="image-current"><img src=${el.src} alt=""></div>`
-              : html`<p class="image-hint">${s.imageNone}</p>`}
-            <button class="col-modal-open" @click=${() => this._openImageModal()}>
-              ${icons.image}<span>${chosen ? s.imageChange : s.imagePick}</span>
-            </button>`}
-      </div>
-    `;
-  }
 
-  /**
-   * 호스트가 제공한 폰트를 선택하는 입력을 렌더링한다.
-   *
-   * @param current - 현재 지정된 폰트 이름
-   * @param apply - 저장 콜백 (빈 값이면 지정 해제)
-   * @param ariaLabel - 보조기기용 이름
-   * @returns 폰트 선택 UI. 선택할 폰트가 없으면 빈 템플릿
-   */
-  private _renderFontNameRow(
-    current: string | undefined,
-    apply: (value: string | null) => void,
-    ariaLabel?: string,
-  ) {
-    const s = this._strings.designer;
-    // 선택할 폰트가 없으면 입력을 표시하지 않는다.
-    if (this._fontNames.length <= 1 && current === undefined) return nothing;
-    const options = current !== undefined && !this._fontNames.includes(current)
-      ? [current, ...this._fontNames]
-      : this._fontNames;
-    return html`
-      <div class="prop-row">
-        <label>${s.fontName}</label>
-        ${this._listSelect({
-          id: 'font-name',
-          ariaLabel: ariaLabel ?? s.fontName,
-          value: current ?? '',
-          className: current === undefined ? 'dim' : '',
-          options: [
-            { value: '', label: s.fontDefault },
-            ...options.map((name) => ({ value: name, label: name })),
-          ],
-          onPick: (value) => apply(value || null),
-        })}
-      </div>`;
-  }
-
-  private _renderFontProps(el: SlipElement) {
-    if (el.type !== 'text' && el.type !== 'field') return nothing;
-    const s = this._strings.designer;
-    const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
-
-    return html`
-      ${this._renderFontNameRow(
-        (el as { fontName?: string }).fontName,
-        (v) => this._updateElement((target) => setOptional(target, 'fontName', v)),
-      )}
-      ${this._renderDefaultedNumberRow(
-        s.fontSize, el.fontSize, DEFAULT_FONT_SIZE,
-        (v) => this._updateElement((target) => setOptional(target, 'fontSize', v)),
-        { step: '0.5', min: '0.5', errorKey: 'element-font-size' },
-      )}
-      <div class="prop-row">
-        <label>${s.alignment}</label>
-        <div class="toggle-group" role="group" aria-label=${s.alignment}>
-          ${([
-            ['left', s.alignLeft, icons.alignLeft],
-            ['center', s.alignCenter, icons.alignCenter],
-            ['right', s.alignRight, icons.alignRight],
-          ] as const).map(([value, label, glyph]) => html`
-            <button title=${label} aria-label="${s.alignment}: ${label}"
-              aria-pressed=${String((el.alignment ?? 'left') === value)}
-              @click=${() => this._updateElement((target) =>
-                setOptional(target, 'alignment', value !== 'left' ? value : null))}>${glyph}</button>`)}
-        </div>
-      </div>
-      <div class="prop-row">
-        <label>${s.verticalAlignment}</label>
-        <div class="toggle-group" role="group" aria-label=${s.verticalAlignment}>
-          ${([
-            ['top', s.alignTop, icons.alignTop],
-            ['middle', s.alignMiddle, icons.alignMiddle],
-            ['bottom', s.alignBottom, icons.alignBottom],
-          ] as const).map(([value, label, glyph]) => html`
-            <button title=${label} aria-label="${s.verticalAlignment}: ${label}"
-              aria-pressed=${String((el.verticalAlignment ?? 'top') === value)}
-              @click=${() => this._updateElement((target) =>
-                setOptional(target, 'verticalAlignment', value !== 'top' ? value : null))}>${glyph}</button>`)}
-        </div>
-      </div>
-      ${this._renderDefaultedNumberRow(
-        s.lineHeight, el.lineHeight, 1,
-        (v) => this._updateElement((target) => setOptional(target, 'lineHeight', v)),
-        { step: '0.1', min: '0.1', errorKey: 'element-line-height' },
-      )}
-      ${this._renderDefaultedNumberRow(
-        s.characterSpacing, el.characterSpacing, 0,
-        (v) => this._updateElement((target) => setOptional(target, 'characterSpacing', v)),
-        { step: '0.1', errorKey: 'element-character-spacing' },
-      )}
-      <div class="prop-row">
-        <label>${s.verticalWriting}</label>
-        <input type="checkbox" aria-label=${s.verticalWriting} .checked=${el.vertical === true}
-          @change=${(e: Event) => this._updateElement((target) =>
-            setOptional(target, 'vertical', (e.target as HTMLInputElement).checked ? true : null))}>
-      </div>
-    `;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Render: color props
-  // ---------------------------------------------------------------------------
-
-  /**
-   * 속성 패널에서 펼친 팝오버의 키. 한 번에 하나의 팝오버만 열 수 있다.
-   */
-  private _openPopKey: string | null = null;
-
-  /** 테두리 굵기·형태 메뉴의 화면 고정 위치 */
-  private _propertyMenuPos = { left: 0, top: 0, width: 0, maxHeight: 220 };
-
-  /** 테두리 선택 메뉴를 버튼 아래에 열거나 닫는다. */
   private _togglePropertyMenu(key: string, event: Event): void {
-    if (this._openPopKey === key) {
-      this._openPopKey = null;
-    } else {
-      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-      const roomBelow = window.innerHeight - rect.bottom - 12;
-      const roomAbove = rect.top - 12;
-      const openAbove = roomBelow < 180 && roomAbove > roomBelow;
-      const room = openAbove ? roomAbove : roomBelow;
-      const maxHeight = Math.max(80, Math.min(220, room));
-      this._propertyMenuPos = {
-        left: rect.left,
-        top: openAbove ? rect.top - maxHeight - 4 : rect.bottom + 4,
-        width: rect.width,
-        maxHeight,
-      };
-      this._openPopKey = key;
-    }
-    this.requestUpdate();
-  }
-
-  /** 열린 테두리 선택 메뉴를 닫는다. */
-  private _closePropertyMenu(): void {
-    this._openPopKey = null;
-    this.requestUpdate();
+    this._popovers.toggle(
+      'property',
+      key,
+      () => placeBelowOrAbove(event.currentTarget as HTMLElement, 80, 220, 180),
+    );
   }
 
   /**
@@ -7191,478 +6532,13 @@ export class SlipDesigner extends LitElement {
   /** 용지 위에 있는 커서의 위치(mm) */
   private _cursorMm: { x: number; y: number } | null = null;
 
-  /** localStorage에서 읽은 사용자 지정 색상 캐시 */
-  private _customColorsCache: string[] | null = null;
-
-  private _getCustomColors(): string[] {
-    this._customColorsCache ??= loadCustomColors();
-    return this._customColorsCache;
-  }
-
-  /** 색 선택기의 현재 HSV 값 */
-  private _pickerH = 0;
-  private _pickerS = 1;
-  private _pickerV = 1;
-  /** 채도와 명도 영역을 드래그 중인 색상 속성 키 */
-  private _svDragKey: string | null = null;
 
   /** 요소의 색상 속성을 설정하거나 제거하고 색 선택기 상태를 갱신한다. */
   private _applyColor(key: string, value: string | null): void {
-    if (value) {
-      const { h, s, v } = hexToHsv(value);
-      // 무채색에는 색조가 없으므로 기존 색조를 유지한다.
-      if (s > 0) this._pickerH = h;
-      this._pickerS = s;
-      this._pickerV = v;
-    }
+    if (value) this._picker.seed(value);
     this._updateElement((el) => setOptional(el, key, value || null));
   }
 
-  /** 포인터 위치를 색 선택기의 채도와 명도로 변환한다. */
-  private _svPointTo(e: PointerEvent): void {
-    const area = e.currentTarget as HTMLElement;
-    const rect = area.getBoundingClientRect();
-    const w = rect.width || 1;
-    const h = rect.height || 1;
-    this._pickerS = Math.max(0, Math.min((e.clientX - rect.left) / w, 1));
-    this._pickerV = 1 - Math.max(0, Math.min((e.clientY - rect.top) / h, 1));
-    this.requestUpdate();
-  }
-
-  /** HEX 색상에 맞춰 색 선택기의 HSV 값을 설정한다. */
-  private _seedPicker(hex: string): void {
-    const hsv = hexToHsv(hex);
-    if (hsv.s > 0) this._pickerH = hsv.h;
-    this._pickerS = hsv.s;
-    this._pickerV = hsv.v;
-  }
-
-  /**
-   * 색상 견본, HSV 선택기, 직접 입력, 투명도를 포함한 색상 입력을 렌더링한다.
-   * 색상은 파일 스키마와 같은 `#RRGGBB` 또는 `#RRGGBBAA` 형식으로 저장한다.
-   *
-   * @param label - 화면에 보이는 항목 이름
-   * @param current - 지정된 색 (없으면 undefined)
-   * @param key - 펼침 상태를 구분할 키
-   * @param apply - 색을 저장하는 콜백 (없으면 선택 요소의 스타일 필드에 저장)
-   * @param fallback - 명시된 값이 없을 때 적용할 색
-   * @param ariaLabel - 접근성 레이블
-   */
-  private _renderColorControl(
-    label: string,
-    current: string | undefined,
-    key: string,
-    apply?: (value: string | null) => void,
-    fallback?: string | undefined,
-    ariaLabel?: string,
-  ) {
-    // apply가 없으면 선택된 요소의 색상 속성을 변경한다.
-    const commit = (value: string | null): void => {
-      if (apply) {
-        if (value) this._seedPicker(value);
-        apply(value);
-      } else {
-        this._applyColor(key, value);
-      }
-    };
-    const s = this._strings.designer;
-    const base = current?.slice(0, 7) ?? '#000000';
-    const alphaPct = current && current.length === 9
-      ? Math.round((parseInt(current.slice(7, 9), 16) / 255) * 100)
-      : 100;
-    const compose = (hex: string, pct: number): string => {
-      const clamped = Math.max(0, Math.min(100, pct));
-      if (clamped >= 100) return hex;
-      return hex + Math.round((clamped / 100) * 255).toString(16).padStart(2, '0');
-    };
-    const open = this._openPopKey === key;
-    // 명시된 값이 없으면 상속값 또는 기본값을 표시한다.
-    const shown = current ?? fallback;
-    // 요소와 셀의 같은 속성을 구분할 접근성 레이블을 사용한다.
-    const name = ariaLabel ?? label;
-
-    return html`
-      <div class="prop-row">
-        <label>${label}</label>
-        <button class="color-btn" aria-label=${name} aria-expanded=${String(open)}
-          @click=${() => {
-            if (open) {
-              this._openPopKey = null;
-            } else {
-              this._openPopKey = key;
-              // 현재 색 또는 기본 빨강으로 색 선택기를 초기화한다.
-              if (current) {
-                this._seedPicker(current);
-              } else {
-                this._pickerH = 0;
-                this._pickerS = 1;
-                this._pickerV = 1;
-              }
-            }
-            this.requestUpdate();
-          }}>
-          <span class="color-chip ${shown ? '' : 'none'}"
-            style=${shown ? `background:${shown.slice(0, 7)}` : nothing}></span>
-          <span class="color-value ${current === undefined ? 'dim' : ''}"
-            >${shown ?? s.colorNone}</span>
-        </button>
-      </div>
-      ${open ? html`
-        <div class="color-pop">
-          <div class="color-extras">
-            <button class="swatch none" title=${s.colorNone} aria-label="${name}: ${s.colorNone}"
-              aria-pressed=${String(current === undefined)}
-              @click=${() => commit(null)}></button>
-            ${COLOR_PALETTE.map((c) => html`<button class="swatch" style="background:${c}"
-              title=${c} aria-label="${name} ${c}"
-              aria-pressed=${String(current?.slice(0, 7).toLowerCase() === c)}
-              @click=${() => commit(compose(c, alphaPct))}></button>`)}
-            ${this._getCustomColors().map((c) => html`<button class="swatch custom" style="background:${c}"
-              title=${c} aria-label="${name} ${c}"
-              aria-pressed=${String(current?.toLowerCase() === c.toLowerCase())}
-              @click=${() => commit(c)}></button>`)}
-            <button class="swatch-save" title=${s.saveColor} aria-label="${name}: ${s.saveColor}"
-              ?disabled=${!current}
-              @click=${() => {
-                // 기본 팔레트에 있는 색상은 사용자 지정 목록에 저장하지 않는다.
-                if (!current || (COLOR_PALETTE as readonly string[]).includes(current)) return;
-                this._customColorsCache = saveCustomColor(current);
-                this.requestUpdate();
-              }}>${icons.pageAdd}</button>
-          </div>
-          <div class="sv-area" aria-label="${name} ${s.style}"
-            style="background:linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${this._pickerH}, 100%, 50%))"
-            @pointerdown=${(e: PointerEvent) => {
-              this._svDragKey = key;
-              (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-              e.preventDefault();
-              e.stopPropagation();
-              this._svPointTo(e);
-            }}
-            @pointermove=${(e: PointerEvent) => {
-              if (this._svDragKey === key) this._svPointTo(e);
-            }}
-            @pointerup=${(e: PointerEvent) => {
-              if (this._svDragKey !== key) return;
-              this._svDragKey = null;
-              this._svPointTo(e);
-              commit(compose(hsvToHex(this._pickerH, this._pickerS, this._pickerV), alphaPct));
-            }}
-            @pointercancel=${() => { this._svDragKey = null; }}>
-            <span class="sv-thumb"
-              style="left:${(this._pickerS * 100).toFixed(1)}%;top:${((1 - this._pickerV) * 100).toFixed(1)}%"></span>
-          </div>
-          <input type="range" class="hue-slider" min="0" max="360" step="1"
-            .value=${String(Math.round(this._pickerH))}
-            title="${name} ${s.hue}" aria-label="${name} ${s.hue}"
-            @input=${(e: Event) => {
-              this._pickerH = Number((e.target as HTMLInputElement).value);
-              this.requestUpdate();
-            }}
-            @change=${() =>
-              commit(compose(hsvToHex(this._pickerH, this._pickerS, this._pickerV), alphaPct))}>
-          <div class="color-pop-row">
-            <input .value=${current ?? ''} placeholder="#RRGGBB"
-              aria-invalid=${String(this._hasInputError(`color-${key}`))}
-              aria-describedby=${this._hasInputError(`color-${key}`) ? `error-color-${key}` : nothing}
-              @change=${(e: Event) => {
-                // 파일 스키마가 허용하는 HEX 색상만 적용한다.
-                const v = (e.target as HTMLInputElement).value;
-                if (v && !/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) {
-                  this._rejectInput(s.colorFormatError, `color-${key}`);
-                  return;
-                }
-                commit(v || null);
-              }}>
-            <input type="number" class="alpha-input" min="0" max="100" .value=${String(alphaPct)}
-              title=${s.opacity} aria-label="${label} ${s.opacity}"
-              aria-invalid=${String(this._hasInputError(`opacity-${key}`))}
-              aria-describedby=${this._hasInputError(`opacity-${key}`) ? `error-opacity-${key}` : nothing}
-              @change=${(e: Event) => {
-                if (!current) return;
-                const value = Number((e.target as HTMLInputElement).value);
-                if (!Number.isFinite(value) || value < 0 || value > 100) {
-                  this._rejectInput(
-                    s.rangeInput.replace('{min}', '0').replace('{max}', '100'),
-                    `opacity-${key}`,
-                  );
-                  return;
-                }
-                commit(compose(base, value));
-              }}>
-            <span class="alpha-suffix">%</span>
-          </div>
-          ${this._renderInputError(`color-${key}`)}
-          ${this._renderInputError(`opacity-${key}`)}
-        </div>` : nothing}
-    `;
-  }
-
-  /** 굵게, 밑줄, 취소선 토글을 렌더링한다. */
-  private _renderTextStyleToggles(
-    current: {
-      bold?: boolean | undefined;
-      underline?: boolean | undefined;
-      strikethrough?: boolean | undefined;
-    },
-    apply: (key: 'bold' | 'underline' | 'strikethrough', value: boolean) => void,
-    ariaPrefix = '',
-  ) {
-    const s = this._strings.designer;
-    return html`
-      <div class="prop-row">
-        <label>${s.style}</label>
-        <div class="toggle-group" role="group" aria-label="${ariaPrefix}${s.style}">
-          ${([
-            ['bold', s.bold, icons.bold],
-            ['underline', s.underline, icons.underline],
-            ['strikethrough', s.strikethrough, icons.strikethrough],
-          ] as const).map(([key, label, glyph]) => html`
-            <button title=${label} aria-label="${ariaPrefix}${label}"
-              aria-pressed=${String(current[key] === true)}
-              @click=${() => apply(key, current[key] !== true)}>${glyph}</button>`)}
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * 테두리 굵기 선택기를 선 미리보기와 함께 렌더링한다.
-   *
-   * @param current - 명시된 굵기 (미지정이면 fallback이 유효값)
-   * @param fallback - 미지정일 때의 유효 굵기 (요소 기본값 또는 셀이 상속하는 요소 값)
-   * @param allowNone - 0 굵기 선택지를 표시할지 여부
-   */
-  private _renderBorderWidthSelect(
-    current: number | undefined,
-    fallback: number,
-    allowNone: boolean,
-    key: string,
-    apply: (value: number) => void,
-    /** 화면에 표시할 레이블 */
-    labelText?: string,
-  ) {
-    const s = this._strings.designer;
-    const label = labelText ?? s.borderWidth;
-    const effective = current ?? fallback;
-    const open = this._openPopKey === key;
-    // 기본 선택지에 없는 현재 값도 목록에 포함한다.
-    const steps = [...new Set<number>([...BORDER_WIDTH_STEPS, ...(effective > 0 ? [effective] : [])])]
-      .sort((a, b) => a - b);
-    const previewPx = (w: number): number => Math.min(6, Math.max(1, Math.round(w * PX_PER_MM)));
-    const pick = (value: number): void => {
-      this._openPopKey = null;
-      apply(value);
-    };
-    return html`
-      <div class="prop-row">
-        <label>${label}</label>
-        <button class="width-btn" aria-label=${label} aria-haspopup="menu"
-          aria-expanded=${String(open)}
-          @click=${(event: Event) => this._togglePropertyMenu(key, event)}>
-          ${effective > 0
-            ? html`<span class="width-line" style="border-top-width:${previewPx(effective)}px"></span>
-                <span class="width-value ${current === undefined ? 'dim' : ''}">${effective}mm</span>`
-            : html`<span class="width-value ${current === undefined ? 'dim' : ''}"
-                >${s.colorNone}</span>`}
-          <span class="list-select-caret" aria-hidden="true">${icons.down}</span>
-        </button>
-      </div>
-      ${open ? html`
-        <div class="menu-backdrop" @click=${() => this._closePropertyMenu()}></div>
-        <div class="preset-menu width-pop" role="menu" aria-label=${label}
-          style="left:${this._propertyMenuPos.left}px;top:${this._propertyMenuPos.top}px;width:${this._propertyMenuPos.width}px;max-height:${this._propertyMenuPos.maxHeight}px">
-          ${allowNone ? html`
-            <button role="menuitem" aria-label="${label}: ${s.colorNone}"
-              aria-pressed=${String(effective <= 0)}
-              @click=${() => pick(0)}>
-              <span class="width-value">${s.colorNone}</span>
-            </button>` : nothing}
-          ${steps.map((w) => html`
-            <button role="menuitem" aria-label="${label}: ${w}mm"
-              aria-pressed=${String(w === effective)}
-              @click=${() => pick(w)}>
-              <span class="width-line" style="border-top-width:${previewPx(w)}px"></span>
-              <span class="width-value">${w}mm</span>
-            </button>`)}
-        </div>` : nothing}
-    `;
-  }
-
-  /**
-   * 실선, 파선, 점선 선택기를 선 미리보기와 함께 렌더링한다.
-   * 실선은 기본값이므로 `null`로 적용한다.
-   *
-   * @param current - 명시된 형태 (미지정이면 실선)
-   * @param ariaLabel - 보조기기용 이름 (요소·셀 구분)
-   * @param key - 펼침 상태를 구분할 키
-   * @param apply - 고른 값을 저장하는 콜백
-   */
-  private _renderBorderShapeRow(
-    current: 'solid' | 'dashed' | 'dotted' | undefined,
-    ariaLabel: string,
-    key: string,
-    apply: (value: 'dashed' | 'dotted' | null) => void,
-  ) {
-    const s = this._strings.designer;
-    const effective = current ?? 'solid';
-    const open = this._openPopKey === key;
-    const shapes = [
-      ['solid', s.borderSolid],
-      ['dashed', s.borderDashed],
-      ['dotted', s.borderDotted],
-    ] as const;
-    const labelOf = (shape: 'solid' | 'dashed' | 'dotted'): string =>
-      shapes.find(([value]) => value === shape)![1];
-    const pick = (shape: 'solid' | 'dashed' | 'dotted'): void => {
-      this._openPopKey = null;
-      apply(shape === 'solid' ? null : shape);
-    };
-
-    return html`
-      <div class="prop-row">
-        <label>${s.borderShape}</label>
-        <button class="width-btn" aria-label=${ariaLabel} aria-haspopup="menu"
-          aria-expanded=${String(open)}
-          @click=${(event: Event) => this._togglePropertyMenu(key, event)}>
-          <span class="shape-line shape-${effective}"></span>
-          <span class="width-value ${current === undefined ? 'dim' : ''}">${labelOf(effective)}</span>
-          <span class="list-select-caret" aria-hidden="true">${icons.down}</span>
-        </button>
-      </div>
-      ${open ? html`
-        <div class="menu-backdrop" @click=${() => this._closePropertyMenu()}></div>
-        <div class="preset-menu width-pop" role="menu" aria-label=${ariaLabel}
-          style="left:${this._propertyMenuPos.left}px;top:${this._propertyMenuPos.top}px;width:${this._propertyMenuPos.width}px;max-height:${this._propertyMenuPos.maxHeight}px">
-          ${shapes.map(([value, label]) => html`
-            <button role="menuitem" aria-label="${ariaLabel}: ${label}"
-              aria-pressed=${String(value === effective)}
-              @click=${() => pick(value)}>
-              <span class="shape-line shape-${value}"></span>
-              <span class="width-value">${label}</span>
-            </button>`)}
-        </div>` : nothing}
-    `;
-  }
-
-  /**
-   * 요소 종류에 따라 사용할 수 있는 텍스트, 배경, 테두리 스타일을 렌더링한다.
-   */
-  private _renderStyleGroups(el: SlipElement) {
-    if (el.type === 'image') return nothing;
-    const s = this._strings.designer;
-    const r = el as Record<string, unknown>;
-    const hasFontColor = el.type === 'text' || el.type === 'field' || el.type === 'grid';
-    const hasTextDecor = el.type === 'text' || el.type === 'field';
-    const hasBackground = el.type !== 'line';
-    // 선 요소에는 선 색상과 형태를 표시하고 굵기는 크기 입력에서 편집한다.
-    const isLine = el.type === 'line';
-    // 파선과 점선은 직선 테두리를 사용하는 요소에만 지원한다.
-    const hasBorderShape = el.type === 'line' || el.type === 'rect' || el.type === 'grid';
-    // 텍스트와 필드는 기본 테두리가 없고 나머지 요소는 기본 굵기를 사용한다.
-    const defaultWidth = el.type === 'text' || el.type === 'field' ? 0 : DEFAULT_LINE_WIDTH;
-
-    return html`
-      ${hasFontColor ? html`
-        <div class="prop-section">
-          <div class="prop-section-title">${s.styleText}</div>
-          ${this._renderColorControl(
-            s.fontColor, r.fontColor as string | undefined, 'fontColor', undefined, DEFAULT_FONT_COLOR,
-          )}
-          ${el.type === 'grid'
-            ? this._renderGridOverflowRow({
-                id: 'grid-overflow',
-                value: el.overflow ?? 'clip',
-                onPick: (value) => this._updateElement((target) => {
-                  if (target.type !== 'grid') return;
-                  if (value === 'clip') delete target.overflow;
-                  else if (value === 'shrink') target.overflow = value;
-                }),
-              })
-            : nothing}
-          ${hasTextDecor ? this._renderFontProps(el) : nothing}
-          ${hasTextDecor
-            ? this._renderTextStyleToggles(
-                el as { bold?: boolean; underline?: boolean; strikethrough?: boolean },
-                (key, value) => this._updateElement((target) =>
-                  setOptional(target, key, value ? true : null)),
-              )
-            : nothing}
-        </div>` : nothing}
-      ${hasBackground ? html`
-        <div class="prop-section">
-          <div class="prop-section-title">${s.styleBackground}</div>
-          ${this._renderColorControl(s.backgroundColor, r.backgroundColor as string | undefined, 'backgroundColor')}
-        </div>` : nothing}
-      <div class="prop-section">
-        <div class="prop-section-title">${isLine ? s.styleLine : s.styleBorder}</div>
-        ${this._renderColorControl(
-          isLine ? s.lineColor : s.borderColor,
-          r.borderColor as string | undefined, 'borderColor', undefined, DEFAULT_BORDER_COLOR,
-        )}
-        ${isLine ? nothing : this._renderBorderWidthSelect(
-          r.borderWidth as number | undefined,
-          defaultWidth,
-          true,
-          'borderWidth',
-          // 텍스트와 필드의 0 굵기는 기본값이므로 파일에 저장하지 않는다.
-          (v) => this._updateElement((target) =>
-            setOptional(target, 'borderWidth', v === 0 && defaultWidth === 0 ? null : v)),
-        )}
-        ${hasBorderShape
-          ? this._renderBorderShapeRow(
-              r.borderStyle as 'solid' | 'dashed' | 'dotted' | undefined,
-              isLine ? s.lineShape : `${s.styleBorder} ${s.borderShape}`,
-              'borderStyle',
-              (v) => this._updateElement((target) => {
-                const t = target as Record<string, unknown>;
-                if (v === null) delete t.borderStyle;
-                else {
-                  t.borderStyle = v;
-                  // 모서리 반경은 파선 또는 점선과 함께 사용할 수 없다.
-                  if (target.type === 'rect') delete t.radius;
-                }
-              }),
-            )
-          : nothing}
-        ${el.type === 'rect' ? html`
-          <div class="prop-row">
-            <label>${s.cornerRadius}</label>
-            <input type="number" step="0.5" min="0" class=${el.radius === undefined ? 'dim' : ''}
-              .value=${String(el.radius ?? '')} placeholder="0"
-              aria-label=${s.cornerRadius}
-              aria-invalid=${String(this._hasInputError('corner-radius'))}
-              aria-describedby=${this._hasInputError('corner-radius') ? 'error-corner-radius' : nothing}
-              ?disabled=${el.borderStyle === 'dashed' || el.borderStyle === 'dotted'}
-              @change=${(e: Event) => {
-                const v = Number((e.target as HTMLInputElement).value);
-                if (Number.isNaN(v) || v < 0) {
-                  this._rejectInput(
-                    Number.isNaN(v) ? s.numberInput : s.nonNegativeInput,
-                    'corner-radius',
-                  );
-                  return;
-                }
-                this._updateElement((target) => {
-                  if (target.type !== 'rect') return;
-                  setOptional(target, 'radius', v > 0 ? v : null);
-                });
-              }}>
-          </div>
-          ${this._renderInputError('corner-radius')}` : nothing}
-      </div>
-    `;
-  }
-
-  /**
-   * 조건부 서식 규칙 목록을 편집하는 섹션을 렌더링한다.
-   * 규칙은 선언된 순서대로 합성되므로 순서 이동 버튼을 함께 제공한다.
-   *
-   * @param rules - 현재 규칙 목록
-   * @param keyPrefix - 색상 팝업 상태를 구분할 키 접두사
-   * @param update - 바뀐 규칙 목록을 저장하는 콜백 (빈 목록이면 속성을 제거한다)
-   * @param ariaPrefix - 접근성 레이블 접두사 (셀이면 `셀 `)
-   */
   private _renderConditionalFormatsSection(
     rules: readonly ConditionalFormatRule[] | undefined,
     keyPrefix: string,
@@ -7685,7 +6561,7 @@ export class SlipDesigner extends LitElement {
       effectKeys.some((key) => key !== except && rule[key] !== undefined);
     const setColor = (index: number, key: 'fontColor' | 'backgroundColor' | 'borderColor', value: string | null) => {
       if (value === null && list[index]![key] !== undefined && !hasOtherEffect(list[index]!, key)) {
-        this._openPopKey = null;
+        this._popovers.close('property');
         this._rejectInput(s.conditionEffectRequired, `${keyPrefix}-color-${index}`);
         return;
       }
@@ -7710,7 +6586,7 @@ export class SlipDesigner extends LitElement {
     };
     const swap = (index: number, other: number) => {
       // 색 팝업 상태는 규칙 순번으로 구분하므로, 순서가 바뀌면 닫아 다른 규칙에 붙지 않게 한다.
-      this._openPopKey = null;
+      this._popovers.close('property');
       change((next) => {
         const tmp = next[index]!;
         next[index] = next[other]!;
@@ -7760,19 +6636,19 @@ export class SlipDesigner extends LitElement {
                 }}>
             </div>
             ${this._renderInputError(`${keyPrefix}-cond-${index}`)}
-            ${this._renderColorControl(
+            ${colorControl(this._kit, 
               s.fontColor, rule.fontColor, `${keyPrefix}-font-${index}`,
               (v) => setColor(index, 'fontColor', v), undefined, `${name}: ${s.fontColor}`,
             )}
-            ${this._renderColorControl(
+            ${colorControl(this._kit, 
               s.backgroundColor, rule.backgroundColor, `${keyPrefix}-bg-${index}`,
               (v) => setColor(index, 'backgroundColor', v), undefined, `${name}: ${s.backgroundColor}`,
             )}
-            ${this._renderColorControl(
+            ${colorControl(this._kit, 
               s.borderColor, rule.borderColor, `${keyPrefix}-border-${index}`,
               (v) => setColor(index, 'borderColor', v), undefined, `${name}: ${s.borderColor}`,
             )}
-            ${this._renderConditionalEmphasisRow(
+            ${conditionalEmphasisRow(this._kit, 
               rule,
               (key, value) => setEmphasis(index, key, value),
               `${name}: `,
@@ -7789,7 +6665,7 @@ export class SlipDesigner extends LitElement {
                   @click=${() => swap(index, index + 1)}>${icons.down}</button>
                 <button title=${s.deleteConditionRule} aria-label="${name}: ${s.deleteConditionRule}"
                   @click=${() => {
-                    this._openPopKey = null;
+                    this._popovers.close('property');
                     change((next) => { next.splice(index, 1); });
                   }}>${icons.remove}</button>
               </div>
@@ -7804,46 +6680,6 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
-  /**
-   * 조건부 서식 규칙의 강조 4종을 3단계로 편집하는 토글 행을 렌더링한다.
-   * 각 버튼은 기본 유지(미지정) → 적용(true) → 해제(false) 순서로 바뀐다.
-   *
-   * @param rule - 편집 중인 규칙
-   * @param apply - 강조 값을 저장하는 콜백 (`undefined`는 기본 유지)
-   * @param ariaPrefix - 접근성 레이블 접두사 (규칙 이름)
-   */
-  private _renderConditionalEmphasisRow(
-    rule: ConditionalFormatRule,
-    apply: (key: 'bold' | 'italic' | 'underline' | 'strikethrough', value: boolean | undefined) => void,
-    ariaPrefix: string,
-  ) {
-    const s = this._strings.designer;
-    const stateLabel = (value: boolean | undefined): string =>
-      value === undefined ? s.emphasisKeep : value ? s.emphasisApply : s.emphasisClear;
-    const nextOf = (value: boolean | undefined): boolean | undefined =>
-      value === undefined ? true : value ? false : undefined;
-    return html`
-      <div class="prop-row">
-        <label>${s.style}</label>
-        <div class="toggle-group" role="group" aria-label="${ariaPrefix}${s.style}">
-          ${([
-            ['bold', s.bold, icons.bold],
-            ['italic', s.italic, icons.italic],
-            ['underline', s.underline, icons.underline],
-            ['strikethrough', s.strikethrough, icons.strikethrough],
-          ] as const).map(([key, label, glyph]) => {
-            const value = rule[key];
-            return html`<button title="${label}: ${stateLabel(value)}"
-              aria-label="${ariaPrefix}${label}: ${stateLabel(value)}"
-              aria-pressed=${value === undefined ? 'false' : value ? 'true' : 'mixed'}
-              @click=${() => apply(key, nextOf(value))}>${glyph}</button>`;
-          })}
-        </div>
-      </div>
-    `;
-  }
-
-  /** 반복 구간 셀의 조건식 검사에 쓸 현재 항목 필드의 견본 값을 만든다. */
   private _repeatProbeItem(el: GridElement): Record<string, unknown> | undefined {
     if (!el.repeat) return undefined;
     const list = this._formulaProbeValues()[el.repeat.parameter];

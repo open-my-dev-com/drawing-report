@@ -81,3 +81,6 @@ export function textStyleCss(
     // 세로쓰기는 PDF와 같은 stackVertically 결과를 사용한다.
   );
 }
+
+/** 테두리 굵기 선택지(mm) */
+export const BORDER_WIDTH_STEPS = [0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.5, 2] as const;

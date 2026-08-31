@@ -9,6 +9,10 @@
 import type { SlipTemplateFile } from '@omdc-slipkit/core';
 import { formatBytes, type ImagePickResult } from '../image-file.js';
 
+/** 이미지를 고르지 않은 요소에 넣어 두는 투명한 1×1 PNG */
+export const PLACEHOLDER_IMG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
 /** 이미지 선택 실패를 알릴 때 쓸 문구 */
 export interface ImagePickTexts {
   notImage: string;
