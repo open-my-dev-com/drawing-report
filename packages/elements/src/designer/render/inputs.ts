@@ -5,11 +5,11 @@
  * 모두 `PanelKit`만 받아 그린다. 화면 상태는 컨트롤러가 갖고 여기서는 읽기만 한다.
  */
 
-import { html, nothing, svg } from 'lit';
+import { html, nothing, } from 'lit';
 import { icons } from '../../icons.js';
 import { PX_PER_MM } from '../geometry.js';
-import { dashArrayOf, BORDER_WIDTH_STEPS } from '../style-css.js';
-import { COLOR_PALETTE, MAX_CUSTOM_COLORS } from '../color.js';
+import { BORDER_WIDTH_STEPS } from '../style-css.js';
+import { COLOR_PALETTE, } from '../color.js';
 import { propertyMenuStyle, listSelectStyle } from '../controllers/popover.js';
 import type { PopoverController } from '../controllers/popover.js';
 import type { ConditionalFormatRule } from '@omdc-slipkit/core';
@@ -513,4 +513,3 @@ export function listSelect(
       : nothing}
   `;
 }
-

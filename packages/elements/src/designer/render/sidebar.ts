@@ -196,13 +196,6 @@ export function elementRow(kit: PanelKit, side: SidebarActions, pageIndex: numbe
 }
 
 /**
- * 이름, 파라미터 또는 수식이 지정된 그리드 셀을 행과 열 순서로 반환한다.
- *
- * @param grid - 그리드 요소
- * @returns 셀의 위치와 표시 이름(셀 이름이 없으면 행과 열 좌표)
- */
-
-/**
  * 파라미터와 목록 하위 필드를 사이드바 행으로 표시한다.
  *
  * @param kit - 사이드바 렌더링에 필요한 문구와 상태

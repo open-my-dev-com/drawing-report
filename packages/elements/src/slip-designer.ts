@@ -1,86 +1,38 @@
-import { LitElement, html, nothing, svg, type TemplateResult } from 'lit';
-import { designerStyles, RULER_PX } from './styles/slip-designer.styles.js';
-import { live } from 'lit/directives/live.js';
+import { LitElement, html, nothing, } from 'lit';
+import { designerStyles, } from './styles/slip-designer.styles.js';
+import { } from 'lit/directives/live.js';
 import {
   parseSlipFile,
-  parseFormula,
   evaluateFormula,
-  resolveConditionalFormats,
-  stackVertically,
-  elementBounds,
   planSourcePage,
-  filterVisibleOnPage,
   SlipLayoutError,
-  SLIP_LIMITS,
-  type ConditionalFormatOverrides,
-  type ConditionalFormatRule,
   type FormulaContext,
   type FormulaValue,
-  type GridFragment,
   type GridItem,
   type SourcePagePlan,
   type SlipFile,
   type SlipTemplateFile,
   type SlipElement,
-  type TextElement,
-  type FieldElement,
-  type BarcodeElement,
-  type LineElement,
-  type PolygonElement,
-  type ImageElement,
   type GridElement,
-  type GridCell,
-  type GridBand,
-  type GridBandPlacement,
-  type OutputPageFilter,
-  type PageNumberPosition,
   type BarcodeKind,
   type ParameterValueType,
-  type SlipPage,
   type SlipKit,
-  type SlipListItem,
   type StorageAdapter,
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
-import { getFormulaHelp } from './formula-help.js';
+import { } from './formula-help.js';
 import { renderSlip, resolveFonts, type SlipDesignerSettings, type PaperSize } from './settings.js';
 import { getPresets, type SlipPreset } from './presets.js';
-import { icons } from './icons.js';
-import { pickImageFile, formatBytes } from './image-file.js';
+import { } from './icons.js';
+import { pickImageFile, } from './image-file.js';
 import {
-  COLOR_PALETTE,
-  hexToHsv,
-  hsvToHex,
-} from './designer/color.js';
-import {
-  PX_PER_MM,
   MIN_SIZE_MM,
-  ANCHORS,
-  RESIZE_HANDLES,
   round1,
-  lineLengthAngle,
   lineBoxFromLengthAngle,
-  polygonPointsPx,
-  lineEndpoints,
   boxOf,
   setElementBox,
-  trackOffsets,
   THUMB_WIDTH_PX,
-  snapCandidates,
-  bestSnap,
 } from './designer/geometry.js';
-import type { ResizeHandle, SnapCandidates } from './designer/geometry.js';
-import {
-  DEFAULT_FONT_SIZE,
-  DEFAULT_FONT_COLOR,
-  DEFAULT_BORDER_COLOR,
-  DEFAULT_LINE_WIDTH,
-  fontPx,
-  justifyOf,
-  verticalFlexAlign,
-  dashArrayOf,
-  textStyleCss,
-} from './designer/style-css.js';
 import { setOptional, clearValueSources } from './designer/patch.js';
 import { ModalFocusController } from './designer/controllers/modal-focus.js';
 import { DialogsController } from './designer/controllers/dialogs.js';
@@ -92,52 +44,18 @@ import {
   PopoverController,
   placeBelow,
   placeBelowOrAbove,
-  listSelectStyle,
-  propertyMenuStyle,
 } from './designer/controllers/popover.js';
 import { ColorPickerController } from './designer/controllers/color-picker.js';
 import {
-  numberRow,
-  twisty,
-  textStyleToggles,
-  borderWidthSelect,
-  borderShapeRow,
-  colorControl,
-  conditionalEmphasisRow,
   listSelect,
 } from './designer/render/inputs.js';
-import {
-  textProps,
-  textFieldKindRow,
-  fontNameRow,
-  fontProps,
-  imageProps,
-  lineProps,
-  polygonProps,
-  gridOverflowRow,
-  anchorRow,
-  sizeRows,
-  fieldProps,
-  barcodeProps,
-  pagePlacementSection,
-  styleGroups,
-  groupPanel,
-} from './designer/render/element-props.js';
 import type { ElementActions } from './designer/render/element-props.js';
-import { PAPER_PRESETS } from './designer/paper.js';
-import { SAMPLE_PAGE_SIZE, MY_FORMS_PAGE_SIZE } from './designer/pagination.js';
-import { BARCODE_KINDS, BARCODE_2D, BARCODE_DIGIT_RULES } from './designer/barcode.js';
-import { GRID_GAPS, GRID_COLORS } from './designer/grid-view.js';
+import { } from './designer/paper.js';
+import { MY_FORMS_PAGE_SIZE } from './designer/pagination.js';
+import { BARCODE_KINDS, BARCODE_DIGIT_RULES } from './designer/barcode.js';
+import { GRID_COLORS } from './designer/grid-view.js';
 import type { GridColorId, CreatableType } from './designer/grid-view.js';
-import { BINDING_VALUE_TYPES, BINDING_FIELD_VALUE_TYPES } from './designer/parameters.js';
 import type { ParameterUse, ParameterInfo, ParameterFieldInfo } from './designer/parameters.js';
-import { valueTypeBadge, TYPE_BADGE } from './designer/render/badges.js';
-import {
-  pageSettings,
-  formSettings,
-  parameterPanel,
-  parameterFieldPanel,
-} from './designer/render/form-props.js';
 import type { FormActions } from './designer/render/form-props.js';
 import { canvas, repeatSampleItems } from './designer/render/canvas.js';
 import { GridCommandsController } from './designer/controllers/grid-commands.js';
@@ -159,40 +77,22 @@ import { propertyPanel } from './designer/render/property-panel.js';
 import type { PanelContext } from './designer/render/property-panel.js';
 import { sidebar } from './designer/render/sidebar.js';
 import type { SidebarActions, SideSelection } from './designer/render/sidebar.js';
-import { conditionalFormatsSection } from './designer/render/conditional-formats.js';
-import { gridProps } from './designer/render/grid-props.js';
+import { } from './designer/render/conditional-formats.js';
+import { } from './designer/render/grid-props.js';
 import type { GridActions } from './designer/render/grid-props.js';
 import type { ConditionalFormatDeps } from './designer/render/conditional-formats.js';
 import type { PanelKit } from './designer/render/panel-kit.js';
-import { imagePickErrorText, usedImages, imageParameterKeys, PLACEHOLDER_IMG } from './designer/image-pick.js';
+import { imagePickErrorText, PLACEHOLDER_IMG } from './designer/image-pick.js';
 import type { ImagePickFailure } from './designer/image-pick.js';
 import {
   GRID_DEFAULT_ROW_MM,
   GRID_DEFAULT_COL_MM,
-  GRID_MAX_TRACKS_UI,
-  GRID_MAX_ITEMS_UI,
-  GRID_MAX_PER_PAGE_UI,
   isGrid,
-  gridDims,
-  columnWidths,
-  ensureCell,
-  clampGridSpans,
   gridHeaderTitle,
-  BAND_PLACEMENT_ORDER,
-  BAND_PLACEMENTS,
   itemBandOf,
   inItemBand,
-  bandAt,
-  assignBandRole,
-  resizeBandRange,
-  spanCrossesBand,
-  canRemoveLastRow,
-  changeRowCount,
-  changeColumnCount,
-  insertPositionFor,
-  insertGridRow,
 } from './designer/grid-model.js';
-import type { GridRowCommand } from './designer/grid-model.js';
+import type { } from './designer/grid-model.js';
 
 /** 파라미터 키와 충돌하지 않는 "새 값 등록" 항목의 내부 값 */
 const NEW_BINDING_OPTION = '\u0000new';
@@ -398,8 +298,8 @@ export class SlipDesigner extends LitElement {
 
   constructor() {
     super();
-    // 상태를 가진 컨트롤러만 호스트의 생명주기에 등록한다.
-    // `_gridCommands`는 자체 상태가 없어 등록하지 않는다.
+    // 상태를 갖고 호스트에 갱신을 요청하는 컨트롤러만 등록한다.
+    // `_gridCommands`는 자체 상태가 없고 `_modalFocus`는 갱신을 요청하지 않는다.
     for (const controller of [
       this._dialogs,
       this._pointer,
@@ -409,7 +309,6 @@ export class SlipDesigner extends LitElement {
       this._forms,
       this._sample,
       this._formula,
-      this._modalFocus,
     ]) {
       this.addController(controller);
     }

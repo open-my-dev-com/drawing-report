@@ -12,10 +12,8 @@ import {
   MIN_SIZE_MM,
   lineEndpoints,
   PX_PER_MM,
-  SNAP_MM,
   bestSnap,
   boxOf,
-  lineBoxFromLengthAngle,
   round1,
   setElementBox,
   snapCandidates,
@@ -161,18 +159,12 @@ export class CanvasPointerController implements ReactiveController {
 
   constructor(private readonly host: PointerHost) {}
 
-  /** 요소가 화면에서 빠지면 진행 중이던 포인터 조작과 안내선을 버린다. */
-  hostDisconnected(): void {
-    this._drag = null;
-    this._resize = null;
-    this._lineEnd = null;
-    this._draw = null;
-    this._drawRect = null;
-    this._lineDraft = null;
-    this._lineGhost = null;
-    this._guideX = null;
-    this._guideY = null;
-    this._cursorMm = null;
+  /**
+   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
+   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
+   */
+  hostConnected(): void {
+    this.host.refresh();
   }
 
   /** 요소를 드래그로 옮기는 중의 상태 */

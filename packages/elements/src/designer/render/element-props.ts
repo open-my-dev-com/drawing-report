@@ -12,7 +12,6 @@ import type {
   BarcodeElement,
   BarcodeKind,
   FieldElement,
-  GridElement,
   ImageElement,
   LineElement,
   PolygonElement,
@@ -21,7 +20,7 @@ import type {
   TextElement,
 } from '@omdc-slipkit/core';
 import { icons } from '../../icons.js';
-import { ANCHORS, MIN_SIZE_MM, round1, boxOf, setElementBox, lineLengthAngle } from '../geometry.js';
+import { ANCHORS, round1, boxOf, setElementBox, lineLengthAngle } from '../geometry.js';
 import {
   DEFAULT_BORDER_COLOR,
   DEFAULT_FONT_COLOR,
@@ -178,7 +177,6 @@ export function fontNameRow(
 export function fontProps(kit: PanelKit, act: ElementActions, el: SlipElement) {
   if (el.type !== 'text' && el.type !== 'field') return nothing;
   const s = kit.s;
-  const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
 
   return html`
     ${fontNameRow(kit, act,
@@ -284,11 +282,11 @@ export function imageProps(kit: PanelKit, act: ElementActions, el: ImageElement)
  * 선 요소에는 별도의 종류별 속성 패널을 표시하지 않는다.
  * 방향은 캔버스의 끝점 핸들로 변경한다.
  *
- * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param _kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param _el - 선택한 선 요소
  * @returns 빈 조각
  */
-export function lineProps(kit: PanelKit, _el: LineElement) {
+export function lineProps(_kit: PanelKit, _el: LineElement) {
   return nothing;
 }
 
@@ -362,8 +360,6 @@ export function gridOverflowRow(kit: PanelKit, config: {
     </div>
   `;
 }
-
-/** 그리드의 행, 열, 반복 설정, 행 구간과 셀을 편집하는 패널을 렌더링한다. */
 
 /**
  * 요소 좌표의 기준점을 고르는 입력을 렌더링한다. 기준점은 파일에 저장하지 않는다.
@@ -708,14 +704,6 @@ export function pagePlacementSection(kit: PanelKit, act: ElementActions, el: Sli
 }
 
 /**
- * 목록 하위 필드의 키, 레이블, 값 종류와 사용 위치를 표시하는 패널을 렌더링한다.
- *
- * @param listKey - 목록 파라미터 물리명
- * @param fieldKey - 하위 필드 물리명
- * @returns 하위 필드 편집 조각
- */
-
-/**
  * 글자, 테두리, 배경 스타일 구역을 요소 종류에 맞게 묶어 렌더링한다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
@@ -828,16 +816,6 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
     </div>
   `;
 }
-
-/**
- * 조건부 서식 규칙 목록을 편집하는 섹션을 렌더링한다.
- * 규칙은 선언된 순서대로 합성되므로 순서 이동 버튼을 함께 제공한다.
- *
- * @param rules - 현재 규칙 목록
- * @param keyPrefix - 색상 팝업 상태를 구분할 키 접두사
- * @param update - 바뀐 규칙 목록을 저장하는 콜백 (빈 목록이면 속성을 제거한다)
- * @param ariaPrefix - 접근성 레이블 접두사 (셀이면 `셀 `)
- */
 
 /**
  * 여러 요소를 함께 선택했을 때 정렬과 그룹화 명령을 렌더링한다.

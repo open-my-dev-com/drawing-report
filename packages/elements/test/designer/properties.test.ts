@@ -1623,10 +1623,6 @@ describe('<slip-designer> 선 전용 편집 (C-11)', () => {
 });
 
 describe('<slip-designer> 패널 표시 정리 (F-18)', () => {
-  function fileOf(el: Element): SlipTemplateFile {
-    return (el as unknown as { _file: SlipTemplateFile })._file;
-  }
-
   it('펼쳐지는 항목은 한 번에 하나만 열린다 — 다른 것을 열면 먼저 것이 닫힌다', async () => {
     const el = await loadDesigner();
     selectElement(el, 'shp-1'); // 사각형 — 배경색·테두리색·굵기·형태가 모두 있다
@@ -2521,7 +2517,7 @@ describe('<slip-designer> 색 선택기 드래그', () => {
   const s = strings.designer;
 
   /**
-   * 채도·명도 영역에 포인터 사건을 보낸다.
+   * 채도·명도 영역에 포인터 이벤트를 보낸다.
    * happy-dom의 `getBoundingClientRect`는 0을 돌려주므로 너비·높이가 1로 취급되어
    * clientX·clientY가 그대로 0~1 비율이 된다.
    */

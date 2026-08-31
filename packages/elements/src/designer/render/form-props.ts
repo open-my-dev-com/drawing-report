@@ -440,16 +440,6 @@ export function parameterPanel(kit: PanelKit, form: FormActions, key: string) {
 }
 
 /**
- * 그리드 셀의 파라미터 선택기를 렌더링한다.
- * 항목 구간 안에서는 목록 하위 필드를, 밖에서는 목록이 아닌 최상위 파라미터를 표시한다.
- *
- * @param el - 대상 그리드
- * @param current - 현재 셀에 설정된 값 키
- * @param inBand - 이 셀이 항목 구간 안인지
- * @returns 값 선택 조각
- */
-
-/**
  * 목록 파라미터의 하위 필드 하나를 편집하는 패널을 렌더링한다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태

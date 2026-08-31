@@ -40,9 +40,12 @@ export class SampleDraftController implements ReactiveController {
 
   constructor(private readonly host: SampleDraftHost) {}
 
-  /** 요소가 화면에서 빠지면 모달을 처음 열 때의 상태로 되돌린다. */
-  hostDisconnected(): void {
-    this.reset();
+  /**
+   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
+   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
+   */
+  hostConnected(): void {
+    this.host.requestUpdate();
   }
 
   /** 항목별 편집에서 보고 있는 페이지 */

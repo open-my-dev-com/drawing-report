@@ -62,9 +62,12 @@ export class ColorPickerController implements ReactiveController {
 
   constructor(private readonly host: ColorPickerHost) {}
 
-  /** 요소가 화면에서 빠지면 드래그를 끝낸다. */
-  hostDisconnected(): void {
-    this._dragKey = null;
+  /**
+   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
+   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
+   */
+  hostConnected(): void {
+    this.host.requestUpdate();
   }
 
   /** 색조(0~360) */

@@ -306,12 +306,11 @@ export function resizeBandRange(
 /**
  * 셀 병합이 행 구간 경계를 넘는지 검사한다.
  *
- * @param el - 대상 그리드
  * @param bands - 검사에 쓸 행 구간 목록
  * @param cell - 검사할 셀
  * @returns 병합 범위가 두 행 구간에 걸치면 true
  */
-export function spanCrossesBand(el: GridElement, bands: readonly GridBand[], cell: GridCell): boolean {
+export function spanCrossesBand(bands: readonly GridBand[], cell: GridCell): boolean {
   const last = cell.row + (cell.rowSpan ?? 1) - 1;
   const startBand = bands.find((band) => cell.row >= band.fromRow && cell.row <= band.toRow);
   const endBand = bands.find((band) => last >= band.fromRow && last <= band.toRow);

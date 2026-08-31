@@ -1886,9 +1886,9 @@ ADR-037의 반복 구간(`fromRow`·`toRow`·`perPage`·`repeatHeader`)은 헤�
    쓰는 곳이 있어 "순수 함수"라고 부르지 않습니다. 브라우저 저장소를 읽고 쓰는 코드는 두지 않습니다.
 2. **컨트롤러** (`designer/controllers/*.ts`) — 상태를 가진 부분. 모달 열림, 수식·샘플 초안,
    저장과 내 양식 목록, 그리드 선택, 캔버스 포인터, 팝오버, 색 선택기(사용자 지정 색 저장 포함),
-   모달 초점. 상태를 가진 컨트롤러는 lit `ReactiveController`로 만들고 `addController`로 등록해
-   호스트의 생명주기를 따릅니다. 자체 상태 없이 파일만 고치는 `GridCommandsController`는
-   예외로 일반 클래스로 둡니다.
+   모달 초점. 상태를 갖고 호스트에 갱신을 요청하는 컨트롤러는 lit `ReactiveController`로 만들고
+   `addController`로 등록합니다. 자체 상태가 없는 `GridCommandsController`와 갱신을 요청하지
+   않는 `ModalFocusController`는 일반 클래스로 둡니다.
 3. **렌더 모듈** (`designer/render/*.ts`) — 화면 조각. 툴바, 사이드바, 캔버스, 속성 패널, 모달과
    행 구간 아이콘·표시 이름 같은 표시용 메타데이터.
 4. **조정 컴포넌트** (`slip-designer.ts`) — 외부 프로퍼티, 최상위 상태 조정과 전체 배치.
@@ -1901,8 +1901,9 @@ ADR-037의 반복 구간(`fromRow`·`toRow`·`perPage`·`repeatHeader`)은 헤�
   `CanvasContext`, `DialogContext`, `ToolbarActions`, `PointerHost`, `GridCommandsHost`).
 - 의존 방향은 상태 비의존 연산 → 컨트롤러 → 렌더 모듈 → 컴포넌트 한 방향입니다.
   아래 계층이 위 계층을 참조하지 않습니다.
-- 상태를 가진 컨트롤러는 `ReactiveController`를 구현하고 `hostDisconnected`에서 화면이 사라질 때
-  뜻을 잃는 임시 상태(진행 중인 포인터 조작, 열린 팝오버·모달, 되돌릴 초점 대상)를 놓습니다.
+- 컨트롤러는 연결이 끊겼다고 상태를 지우지 않습니다. 저장 식별자처럼 문서 작업이 이어지는 값이
+  섞여 있어 무엇이 임시 상태인지 한 줄로 가를 수 없기 때문입니다. 대신 `hostConnected`에서 화면을
+  한 번 다시 그려, 다시 붙였을 때 화면이 컨트롤러 상태와 어긋나지 않게 합니다.
 - 컨트롤러는 `TemplateResult`를 만들지 않습니다. 아이콘 같은 화면 조각은 렌더 모듈에 둡니다.
 - 스타일도 영역별 파일로 나누되 선언 순서는 그대로 둡니다 — 순서를 바꾸면 cascade가 달라집니다.
 

@@ -5,7 +5,6 @@
  * 사이드바와 속성 패널이 같은 배지를 쓴다.
  */
 
-import { html, svg } from 'lit';
 import type { TemplateResult } from 'lit';
 import type { SlipElement } from '@omdc-slipkit/core';
 import { icons } from '../../icons.js';

@@ -68,6 +68,14 @@ export class FormulaDraftController implements ReactiveController {
     private readonly getInput: () => HTMLTextAreaElement | null,
   ) {}
 
+  /**
+   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
+   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
+   */
+  hostConnected(): void {
+    this.host.requestUpdate();
+  }
+
   /** 입력 중인 수식 */
   get draft(): string {
     return this._draft;
@@ -86,17 +94,6 @@ export class FormulaDraftController implements ReactiveController {
   start(initial: string | undefined): void {
     this._draft = initial ?? '';
     this._caret = this._draft.length;
-  }
-
-  /** 편집 중이던 수식을 버린다. 화면 갱신은 호출부가 처리한다. */
-  reset(): void {
-    this._draft = '';
-    this._caret = 0;
-  }
-
-  /** 요소가 화면에서 빠지면 편집 중이던 수식을 버린다. */
-  hostDisconnected(): void {
-    this.reset();
   }
 
   /**

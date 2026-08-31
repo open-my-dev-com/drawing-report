@@ -41,9 +41,12 @@ export class GridEditController implements ReactiveController {
 
   constructor(private readonly host: GridEditHost) {}
 
-  /** 요소가 화면에서 빠지면 셀·행 구간 선택과 인라인 편집을 지운다. */
-  hostDisconnected(): void {
-    this.reset();
+  /**
+   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
+   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
+   */
+  hostConnected(): void {
+    this.host.requestUpdate();
   }
 
   /** 병합과 인라인 편집의 대상인 셀. 고른 셀이 없으면 null */

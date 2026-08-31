@@ -7,10 +7,10 @@
  */
 
 import { html, nothing } from 'lit';
-import { live } from 'lit/directives/live.js';
+import { } from 'lit/directives/live.js';
 import type { TemplateResult } from 'lit';
 import { bandDescription, bandIcon, bandLabel } from './band-visuals.js';
-import { SLIP_LIMITS } from '@omdc-slipkit/core';
+import { } from '@omdc-slipkit/core';
 import type {
   ConditionalFormatRule,
   GridBandPlacement,
@@ -20,23 +20,21 @@ import type {
   SlipLayoutError,
 } from '@omdc-slipkit/core';
 import { icons } from '../../icons.js';
-import { MIN_SIZE_MM } from '../geometry.js';
+import { } from '../geometry.js';
 import {
   DEFAULT_BORDER_COLOR,
   DEFAULT_FONT_COLOR,
   DEFAULT_FONT_SIZE,
   DEFAULT_LINE_WIDTH,
 } from '../style-css.js';
-import { setOptional } from '../patch.js';
+import { } from '../patch.js';
 import {
   BAND_PLACEMENTS,
   GRID_MAX_ITEMS_UI,
   GRID_MAX_PER_PAGE_UI,
-  GRID_MAX_TRACKS_UI,
   bandAt,
   ensureCell,
   inItemBand,
-  itemBandOf,
   type GridRowCommand,
 } from '../grid-model.js';
 import type { GridEditController } from '../controllers/grid-edit.js';
@@ -249,7 +247,7 @@ export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions,
                 : html`<div class="input-error" role="alert" id="grid-plan-error">${gridPlanError.message}</div>`}`
             : nothing}
         </div>
-        ${repeat === undefined ? nothing : bandList(kit, act, grid, el)}`;
+        ${repeat === undefined ? nothing : bandList(kit, grid, el)}`;
   return html`
         ${cellTarget === null
           ? gridOwnProps
@@ -367,12 +365,11 @@ export function gridRowCommands(kit: PanelKit, grid: GridActions, el: GridElemen
  * 캔버스의 행 번호 선택 영역과 같은 색상 표식·이름으로 구간을 식별한다 (§7.2).
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
- * @param act - 요소 편집 동작
  * @param grid - 그리드 편집 동작
  * @param el - 선택한 그리드 요소
  * @returns 행 구간 목록 조각. 반복 설정이 없으면 행 명령만 표시한다
  */
-export function bandList(kit: PanelKit, act: ElementActions, grid: GridActions, el: GridElement) {
+export function bandList(kit: PanelKit, grid: GridActions, el: GridElement) {
   const s = kit.s;
   const bands = el.repeat?.bands ?? [];
   const planError = grid.planError();

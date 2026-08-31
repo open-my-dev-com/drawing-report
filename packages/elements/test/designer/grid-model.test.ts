@@ -224,18 +224,17 @@ describe('resizeBandRange', () => {
 
 describe('spanCrossesBand', () => {
   const bands = [band('b-head', 0, 0, 'page-start'), band('b-item', 1, 2, 'item')];
-  const el = makeGrid(3, 2, [], bands);
 
   it('구간 안에 머무는 병합은 넘지 않는다', () => {
-    expect(spanCrossesBand(el, bands, { row: 1, column: 0, rowSpan: 2 } as GridCell)).toBe(false);
+    expect(spanCrossesBand(bands, { row: 1, column: 0, rowSpan: 2 } as GridCell)).toBe(false);
   });
 
   it('구간 경계를 넘는 병합을 찾아낸다', () => {
-    expect(spanCrossesBand(el, bands, { row: 0, column: 0, rowSpan: 2 } as GridCell)).toBe(true);
+    expect(spanCrossesBand(bands, { row: 0, column: 0, rowSpan: 2 } as GridCell)).toBe(true);
   });
 
   it('병합하지 않은 셀은 넘지 않는다', () => {
-    expect(spanCrossesBand(el, bands, { row: 2, column: 0 } as GridCell)).toBe(false);
+    expect(spanCrossesBand(bands, { row: 2, column: 0 } as GridCell)).toBe(false);
   });
 });
 

@@ -6,7 +6,7 @@
  * 입력 검증에 실패하면 호스트에 오류 표시를 맡기고 파일은 고치지 않는다.
  */
 
-import { SLIP_LIMITS } from '@omdc-slipkit/core';
+import { } from '@omdc-slipkit/core';
 import type {
   ConditionalFormatRule,
   GridBand,
@@ -17,24 +17,18 @@ import type {
   SlipElement,
 } from '@omdc-slipkit/core';
 import { MIN_SIZE_MM, round1 } from '../geometry.js';
-import { clearValueSources, setOptional } from '../patch.js';
+import { clearValueSources, } from '../patch.js';
 import {
-  BAND_PLACEMENT_ORDER,
-  GRID_DEFAULT_COL_MM,
   GRID_DEFAULT_ROW_MM,
   GRID_MAX_ITEMS_UI,
   GRID_MAX_PER_PAGE_UI,
   GRID_MAX_TRACKS_UI,
   assignBandRole,
-  bandAt,
   canRemoveLastRow,
   changeColumnCount,
   changeRowCount,
-  clampGridSpans,
   ensureCell,
   gridDims,
-  gridHeaderTitle,
-  inItemBand,
   insertGridRow,
   insertPositionFor,
   isGrid,
@@ -189,7 +183,7 @@ export class GridCommandsController {
         ? [{ id: `band_${crypto.randomUUID().slice(0, 8)}`, fromRow: row + 1, toRow: el.rows.length - 1, placement: 'after-data' as const }]
         : []),
     ];
-    if (el.cells.some((cell) => spanCrossesBand(el, bands, cell))) {
+    if (el.cells.some((cell) => spanCrossesBand(bands, cell))) {
       this.host.reject(this.host.s.repeatMergeError, 'repeat-on');
       return;
     }
@@ -292,7 +286,7 @@ export class GridCommandsController {
       this.host.reject(s.bandOrderError, 'band-role');
       return;
     }
-    if (el.cells.some((cell) => spanCrossesBand(el, result, cell))) {
+    if (el.cells.some((cell) => spanCrossesBand(result, cell))) {
       this.host.reject(s.repeatMergeError, 'band-role');
       return;
     }
@@ -333,7 +327,7 @@ export class GridCommandsController {
         this.host.reject(this.host.s.bandOrderError, 'band-range');
         return;
       }
-      if (el.cells.some((cell) => spanCrossesBand(el, result, cell))) {
+      if (el.cells.some((cell) => spanCrossesBand(result, cell))) {
         this.host.reject(this.host.s.repeatMergeError, 'band-range');
         return;
       }
@@ -579,7 +573,7 @@ export class GridCommandsController {
     // 병합 범위는 하나의 행 구간 안에 완전히 포함되어야 한다 (SPEC §5.7).
     if (el.repeat && rowSpan > 1) {
       const probe: GridCell = { row: target.row, column: target.column, rowSpan };
-      if (spanCrossesBand(el, el.repeat.bands, probe)) {
+      if (spanCrossesBand(el.repeat.bands, probe)) {
         this.host.reject(this.host.s.mergeCrossRepeat, errorKey);
         return;
       }

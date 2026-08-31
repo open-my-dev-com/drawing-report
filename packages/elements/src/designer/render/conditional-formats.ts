@@ -15,7 +15,6 @@ import {
   type FormulaValue,
 } from '@omdc-slipkit/core';
 import { icons } from '../../icons.js';
-import { DEFAULT_BORDER_COLOR, DEFAULT_FONT_COLOR } from '../style-css.js';
 import { colorControl, conditionalEmphasisRow } from './inputs.js';
 import type { PanelKit } from './panel-kit.js';
 

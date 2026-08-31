@@ -80,9 +80,12 @@ export class PopoverController implements ReactiveController {
 
   constructor(private readonly host: PopoverHost) {}
 
-  /** 요소가 화면에서 빠지면 열려 있던 팝오버를 모두 닫는다. 자리 값이 화면과 어긋난다. */
-  hostDisconnected(): void {
-    this.closeAll();
+  /**
+   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
+   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
+   */
+  hostConnected(): void {
+    this.host.requestUpdate();
   }
 
   /**
@@ -141,12 +144,6 @@ export class PopoverController implements ReactiveController {
   close(slot: PopoverSlot): void {
     this.keys.delete(slot);
     this.host.requestUpdate();
-  }
-
-  /** 열려 있는 팝오버를 모두 닫는다. 화면 갱신은 호출부가 처리한다. */
-  closeAll(): void {
-    this.keys.clear();
-    this.places.clear();
   }
 }
 

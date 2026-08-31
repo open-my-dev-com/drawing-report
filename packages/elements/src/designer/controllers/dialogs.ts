@@ -21,9 +21,12 @@ export class DialogsController implements ReactiveController {
 
   constructor(private readonly host: DialogsHost) {}
 
-  /** 요소가 화면에서 빠지면 열려 있던 모달을 모두 닫는다. */
-  hostDisconnected(): void {
-    this.closeAllQuietly();
+  /**
+   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
+   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
+   */
+  hostConnected(): void {
+    this.host.requestUpdate();
   }
 
   /**

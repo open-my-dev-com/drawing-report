@@ -20,7 +20,6 @@ import {
   type GridElement,
   type GridCell,
   type GridFragment,
-  type GridItem,
   type SlipElement,
   type SlipPage,
   type SlipLayoutError,
@@ -35,12 +34,10 @@ import {
   boxOf,
   lineEndpoints,
   polygonPointsPx,
-  round1,
   trackOffsets,
 } from '../geometry.js';
 import {
   DEFAULT_BORDER_COLOR,
-  DEFAULT_FONT_COLOR,
   DEFAULT_LINE_WIDTH,
   dashArrayOf,
   fontPx,
@@ -52,10 +49,8 @@ import {
   BAND_PLACEMENTS,
   bandAt,
   columnWidths,
-  gridDims,
   inItemBand,
   isGrid,
-  itemBandOf,
 } from '../grid-model.js';
 import { PLACEHOLDER_IMG } from '../image-pick.js';
 import { BARCODE_KINDS, BARCODE_2D } from '../barcode.js';

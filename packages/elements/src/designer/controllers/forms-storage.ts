@@ -26,9 +26,12 @@ export class FormsController implements ReactiveController {
 
   constructor(private readonly host: FormsHost) {}
 
-  /** 요소가 화면에서 빠지면 저장 식별자와 안내를 지운다. */
-  hostDisconnected(): void {
-    this.reset();
+  /**
+   * 다시 연결되면 화면을 현재 상태에 맞춰 한 번 그린다.
+   * 상태는 그대로 두므로 화면에서 뗐다 붙여도 편집 중이던 내용이 남는다.
+   */
+  hostConnected(): void {
+    this.host.requestUpdate();
   }
 
   /** 저장 모달에 입력한 제목 */

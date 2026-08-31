@@ -3,11 +3,10 @@
  *
  * @remarks
  * 초점이 모달 밖으로 새면 배경 화면을 조작하게 되므로 Tab 이동을 모달 안에 가둔다.
+ * 호스트 갱신을 요청하지 않으므로 `ReactiveController`로 등록하지 않는다.
  * 호출 시점은 컴포넌트가 정한다 — 인라인 편집 등 다른 초점 처리와 순서를 맞춰야 하므로
  * `hostUpdated`가 아니라 컴포넌트의 `updated`에서 `sync`를 부른다.
  */
-
-import type { ReactiveController } from 'lit';
 
 /** 모달 초점 관리가 필요로 하는 호스트의 최소 범위 */
 export interface ModalFocusHost {
@@ -30,7 +29,7 @@ export function focusableIn(container: HTMLElement): HTMLElement[] {
   );
 }
 
-export class ModalFocusController implements ReactiveController {
+export class ModalFocusController {
   /**
    * 모달을 열기 직전에 초점이 있던 요소.
    * `undefined`는 모달이 열려 있지 않다는 뜻이고, `null`은 되돌릴 곳이 없다는 뜻이다.
@@ -38,11 +37,6 @@ export class ModalFocusController implements ReactiveController {
   private returnFocus: HTMLElement | null | undefined = undefined;
 
   constructor(private readonly host: ModalFocusHost) {}
-
-  /** 요소가 화면에서 빠지면 되돌릴 초점 대상을 놓는다. 이미 사라진 요소다. */
-  hostDisconnected(): void {
-    this.returnFocus = undefined;
-  }
 
   /**
    * 모달 안에서 Tab 이동을 가두고 Escape로 닫는다.

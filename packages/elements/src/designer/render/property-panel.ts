@@ -21,7 +21,6 @@ import {
   lineProps,
   polygonProps,
   imageProps,
-  fontProps,
 } from './element-props.js';
 import type { ElementActions } from './element-props.js';
 import { gridProps } from './grid-props.js';
