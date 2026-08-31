@@ -172,7 +172,7 @@ export const dialogsStyles = css`
       font-weight: 600;
       color: var(--sk-text-muted);
     }
-    /* 이미지 선택  — 경로는 base64라 못 읽으니 이미지 자체를 보여준다 */
+    /* 이미지 선택 — 경로가 base64라 읽을 수 없으므로 이미지 자체를 표시한다 */
     .image-hint {
       margin: 6px 0;
       font-size: 11px;
@@ -237,7 +237,7 @@ export const dialogsStyles = css`
       flex-wrap: wrap;
       gap: 4px;
     }
-    /* 파라미터 칩의 값 종류 — 무엇을 넣는지 고르기 전에 보이게 한다  */
+    /* 파라미터 칩의 값 종류 — 값을 선택하기 전에 표시한다  */
     .chip-type {
       margin-left: 4px;
       opacity: 0.6;
@@ -269,7 +269,7 @@ export const dialogsStyles = css`
       color: var(--sk-text-muted);
       line-height: 1.5;
     }
-    /* 표 파라미터 뒤에 점을 찍었을 때 뜨는 열 제안 줄  */
+    /* 목록 파라미터 뒤에 점을 입력했을 때 표시하는 하위 필드 제안 목록 */
     .formula-suggest {
       display: flex;
       flex-wrap: wrap;

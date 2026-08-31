@@ -126,7 +126,7 @@ describe('FormulaDraftController', () => {
     expect(c.draft).toBe('SUM(items');
   });
 
-  it('선택 범위가 있으면 그 자리를 바꿔 넣는다', () => {
+  it('선택 범위가 있으면 해당 범위를 삽입할 텍스트로 대체한다', () => {
     const input = { selectionStart: 4, selectionEnd: 7, focus() {}, setSelectionRange() {} };
     const c = new FormulaDraftController(host(), () => input as unknown as HTMLTextAreaElement);
     c.start('SUM(old)');
@@ -141,7 +141,7 @@ describe('FormulaDraftController', () => {
     expect(c.draft).toBe('ROUND()');
   });
 
-  it('앞뒤 공백을 지운 값을 적용하고, 비었으면 지운다는 뜻의 null을 준다', () => {
+  it('앞뒤 공백을 제거한 값을 반환하고, 빈 문자열이면 삭제를 나타내는 null을 반환한다', () => {
     const c = new FormulaDraftController(host(), () => null);
     c.start('  SUM(a)  ');
     expect(c.commit()).toBe('SUM(a)');
@@ -151,7 +151,7 @@ describe('FormulaDraftController', () => {
 });
 
 describe('parseSampleValues', () => {
-  it('빈 글은 빈 객체로 본다 — 샘플 값을 지운다는 뜻이다', () => {
+  it('빈 문자열은 샘플 값 제거를 나타내는 빈 객체로 변환한다', () => {
     expect(parseSampleValues('   ')).toEqual({});
   });
 
@@ -180,7 +180,7 @@ describe('SampleDraftController', () => {
     expect(skeleton).toHaveBeenCalledTimes(1);
   });
 
-  it('같은 방식을 다시 고르면 아무것도 하지 않는다', () => {
+  it('같은 방식을 다시 선택하면 아무것도 하지 않는다', () => {
     const h = host();
     const c = new SampleDraftController(h);
     c.setJsonMode(false, () => '');
@@ -315,7 +315,7 @@ describe('이미지 선택 도우미', () => {
     } as unknown as SlipTemplateFile;
   }
 
-  it('등록된 이미지를 중복 없이 모으고 자리표시는 뺀다', () => {
+  it('등록된 이미지를 중복 없이 모으고 자리표시자는 제외한다', () => {
     const file = fileWith([
       { type: 'image', id: 'a', src: 'data:image/png;base64,AAA' },
       { type: 'image', id: 'b', src: 'data:image/png;base64,AAA' },
@@ -331,7 +331,7 @@ describe('이미지 선택 도우미', () => {
     expect(imageParameterKeys(null).size).toBe(0);
   });
 
-  it('이미지 종류 파라미터와 이미지 요소가 쓰는 키를 함께 모은다', () => {
+  it('이미지 종류 파라미터와 이미지 요소가 사용하는 키를 함께 모은다', () => {
     const file = fileWith(
       [{ type: 'image', id: 'a', parameter: 'stamp' }, { type: 'image', id: 'b' }],
       [{ key: 'logo', label: '로고', valueType: 'image' }, { key: 'title', label: '제목' }],

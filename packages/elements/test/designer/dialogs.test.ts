@@ -85,7 +85,7 @@ describe('<slip-designer> 프리셋', () => {
     el.remove();
   });
 
-  it('메뉴에서 프리셋을 고르면 양식이 교체되고 slip-change를 발행하며 메뉴가 닫힌다', async () => {
+  it('메뉴에서 프리셋을 선택하면 양식이 교체되고 slip-change를 발행하며 메뉴가 닫힌다', async () => {
     const el = await loadDesigner();
 
     const changes: CustomEvent[] = [];
@@ -302,11 +302,11 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 
-  it('표 파라미터 뒤에 점을 찍으면 열을 제안하고, 고르면 이어 붙는다 (F-21)', async () => {
+  it('목록 파라미터 뒤에 점을 입력하면 하위 필드를 제안하고, 선택한 필드를 수식에 삽입한다 (F-21)', async () => {
     const el = await loadWithTable();
     await openFormulaModal(el);
 
-    // 제안은 표 파라미터 뒤에 점을 찍었을 때만 나온다
+    // 제안은 목록 파라미터 뒤에 점을 입력했을 때만 표시한다
     expect(el.shadowRoot!.querySelector('.formula-suggest')).toBeNull();
 
     setDraft(el, 'SUM(items.');
@@ -320,7 +320,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     await el.updateComplete;
     expect(suggested().map((c) => c.textContent?.trim())).toEqual(['금액 · amount']);
 
-    // 고르면 이미 친 글자 뒤에 나머지가 이어 붙는다
+    // 제안 항목을 선택하면 현재 입력 뒤에 남은 텍스트를 삽입한다
     (suggested()[0] as HTMLElement).click();
     await el.updateComplete;
     expect(formulaInput(el).value).toBe('SUM(items.amount');
@@ -492,7 +492,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     const el = await loadDesigner();
     await openSampleModal(el);
 
-    // 반복 파라미터(items)은 행 편집 그리드로 나온다
+    // 목록 파라미터(items)는 행 편집 그리드로 표시한다
     expect(el.shadowRoot!.querySelector('.sample-grid')).not.toBeNull();
     byAria(el, `items ${strings.designer.addRow}`).click();
     await el.updateComplete;
@@ -513,7 +513,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     el.remove();
   });
 
-  it('샘플 값이 있으면 미리보기는 그 값으로 채운 전표를 렌더한다', async () => {
+  it('샘플 값이 있으면 미리보기는 샘플 값으로 채운 전표를 렌더링한다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addField);
     const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { parameter: string };
@@ -687,7 +687,7 @@ describe('<slip-designer> 이미지 업로드', () => {
         || b.textContent?.includes(strings.designer.imageChange)) as HTMLButtonElement;
   }
 
-  it('이미지를 선택하지 않은 요소는 안 골랐음을 알리고 캔버스에도 글자로 보인다', async () => {
+  it('이미지를 선택하지 않은 요소는 미선택 상태를 안내하고 캔버스에도 안내 문구를 표시한다', async () => {
     const el = await mountImages([PLACEHOLDER]);
     selectElement(el, 'img-1');
     await el.updateComplete;
@@ -699,7 +699,7 @@ describe('<slip-designer> 이미지 업로드', () => {
     el.remove();
   });
 
-  it('이미지를 선택한 요소는 패널과 캔버스에 그 이미지를 보여준다', async () => {
+  it('이미지를 선택한 요소는 패널과 캔버스에 선택한 이미지를 표시한다', async () => {
     const el = await mountImages([PNG_A]);
     selectElement(el, 'img-1');
     await el.updateComplete;
@@ -710,7 +710,7 @@ describe('<slip-designer> 이미지 업로드', () => {
     el.remove();
   });
 
-  it('이미 등록된 이미지를 골라 다른 요소에 다시 사용한다', async () => {
+  it('이미 등록된 이미지를 선택해 다른 요소에 다시 사용한다', async () => {
     const el = await mountImages([PNG_A, PLACEHOLDER]);
     selectElement(el, 'img-2');
     await el.updateComplete;
@@ -726,7 +726,7 @@ describe('<slip-designer> 이미지 업로드', () => {
 
     const file = (el as unknown as { _file: SlipTemplateFile })._file;
     expect((file.template.pages[0]!.elements[1] as { src: string }).src).toBe(PNG_A);
-    // 고르면 모달이 닫힌다
+    // 선택하면 모달이 닫힌다
     expect(el.shadowRoot!.querySelector('.image-choice')).toBeNull();
     el.remove();
   });
@@ -850,7 +850,7 @@ describe('<slip-designer> 이미지 선택 실패 처리', () => {
     return el.shadowRoot!.querySelector('.modal .image-error')?.textContent?.trim() ?? '';
   }
 
-  it('이미지가 아닌 파일을 고르면 이미지가 아니라고 알린다', async () => {
+  it('이미지 형식이 아닌 파일을 선택하면 형식 오류를 표시한다', async () => {
     imagePick.result = { ok: false, reason: 'notImage', size: 10 };
     const el = await openPicker();
     await pick(el);
@@ -879,7 +879,7 @@ describe('<slip-designer> 이미지 선택 실패 처리', () => {
     el.remove();
   });
 
-  it('제대로 고르면 오류를 지우고 요소에 이미지를 넣는다', async () => {
+  it('유효한 이미지를 선택하면 오류를 지우고 요소에 이미지를 적용한다', async () => {
     imagePick.result = { ok: false, reason: 'readFailed' };
     const el = await openPicker();
     await pick(el);

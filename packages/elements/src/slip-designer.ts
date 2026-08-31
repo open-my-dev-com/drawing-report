@@ -331,7 +331,7 @@ export class SlipDesigner extends LitElement {
       void this._loadPaperSizes();
       void this._loadBarcodeKinds();
     }
-    // 폰트 목록은 slipkit의 공급 함수 또는 로케일별 동봉 기본 폰트에서 나온다.
+    // 폰트 목록은 slipkit의 공급 함수 또는 로케일별 동봉 기본 폰트에서 가져온다.
     if (changed.has('slipkit') || changed.has('locale')) {
       void this._loadFontNames();
     }
@@ -386,7 +386,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 조건부 서식 편집이 쓰는 평가와 갱신 */
+  /** 조건부 서식 편집에 사용하는 평가와 갱신 */
   private get _conditionalDeps(): ConditionalFormatDeps {
     return {
       evaluate: (source, context) => this._evaluate(source, context),
@@ -395,7 +395,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 그리드를 고치는 조작 */
+  /** 그리드 편집 작업 */
   private readonly _gridCommands = new GridCommandsController(this._gridCommandsHost());
 
   /** 그리드 조작이 컴포넌트에 요청하는 것 */
@@ -451,7 +451,7 @@ export class SlipDesigner extends LitElement {
   };
   }
 
-  /** 모달 화면이 쓰는 상태와 조작 */
+  /** 모달 화면의 상태와 조작 */
   private get _dialogContext(): DialogContext {
     return {
       s: this._strings.designer,
@@ -485,7 +485,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 툴바가 쓰는 상태와 조작 */
+  /** 툴바의 상태와 조작 */
   private get _toolbarActions(): ToolbarActions {
     return {
       s: this._strings.designer,
@@ -541,7 +541,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 캔버스가 쓰는 상태와 조작 */
+  /** 캔버스의 상태와 조작 */
   private get _canvasContext(): CanvasContext {
     return {
       s: this._strings.designer,
@@ -583,7 +583,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 속성 패널이 쓰는 조작 묶음 */
+  /** 속성 패널의 조작 모음 */
   private get _panelContext(): PanelContext {
     return {
       kit: this._kit,
@@ -1042,7 +1042,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 요소를 선택한다. 그룹에 속한 요소이면 같은 그룹을 함께 선택한다.
    *
-   * @param id - 고를 요소 id
+   * @param id - 선택할 요소 id
    */
   private _selectElement(id: string): void {
     this._resetPanelErrors();
@@ -1291,7 +1291,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 선택된 요소를 수정한다. 선택이 유효하지 않으면 입력 오류를 표시한다.
    *
-   * @param fn - 요소를 고치는 함수
+   * @param fn - 요소 수정 함수
    */
   private _updateElement(fn: (el: SlipElement) => void): void {
     const el = this._findSelectedElement();
@@ -1725,7 +1725,7 @@ export class SlipDesigner extends LitElement {
           uses.set(el.parameter, list);
           continue;
         }
-        // 수식만 쓰는 필드는 파라미터를 갖지 않는다
+        // 수식만 사용하는 필드에는 파라미터를 지정하지 않는다
         if (el.type !== 'field' || el.parameter === undefined) continue;
         const list = uses.get(el.parameter) ?? [];
         list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
@@ -2078,7 +2078,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 정의부에서 파라미터를 제거한다 — 요소가 쓰는 키면 목록에는 사용처 기준으로 남는다 */
+  /** 정의부에서 파라미터를 제거한다 — 요소가 사용하는 키면 목록에는 사용처 기준으로 남는다 */
   private _removeParameterDef(key: string): void {
     this._updateFile((f) => {
       const defs = (f.template.parameters ?? []).filter((b) => b.key !== key);
@@ -2622,7 +2622,7 @@ export class SlipDesigner extends LitElement {
    * 바코드의 값 소스를 선택하고 다른 값 소스를 제거한다 (SPEC §5.6).
    * 파라미터 소스를 선택하면 새 파라미터를 만들어 연결한다.
    *
-   * @param kind - 고를 값 종류
+   * @param kind - 선택할 값 종류
    */
   private _chooseBarcodeSource(kind: 'content' | 'parameter' | 'formula'): void {
     if (kind === 'parameter') {

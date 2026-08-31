@@ -46,7 +46,7 @@ import type { PanelKit } from './panel-kit.js';
 export interface GridActions {
   /** 그리드 셀·행 구간 선택 상태 */
   readonly edit: GridEditController;
-  /** 조건부 서식 편집이 쓰는 평가와 갱신 */
+  /** 조건부 서식 편집이 사용하는 평가와 갱신 */
   readonly conditional: ConditionalFormatDeps;
   /** 화면을 다시 그린다 */
   refresh(): void;
@@ -522,7 +522,7 @@ export function bandList(kit: PanelKit, grid: GridActions, el: GridElement) {
  * @param el - 셀이 속한 그리드 요소
  * @param cellTarget - 선택한 셀의 행·열. 선택이 없으면 null
  * @param cellDef - 선택한 셀의 정의. 아직 만들지 않았으면 undefined
- * @param source - 셀이 쓰는 값 소스
+ * @param source - 셀이 사용하는 값 소스
  * @param inBand - 선택한 셀이 항목 구간 안인지
  * @returns 셀 편집 패널 조각. 선택한 셀이 없으면 빈 것
  */

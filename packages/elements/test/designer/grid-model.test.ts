@@ -84,7 +84,7 @@ describe('clampGridSpans', () => {
     expect('colSpan' in el.cells[0]!).toBe(false);
   });
 
-  it('격자 안에 있는 병합은 건드리지 않는다', () => {
+  it('그리드 범위 안에 있는 병합은 그대로 유지한다', () => {
     const el = makeGrid(3, 3, [{ row: 0, column: 0, rowSpan: 2, colSpan: 2 }]);
     clampGridSpans(el);
     expect(el.cells[0]).toMatchObject({ rowSpan: 2, colSpan: 2 });
@@ -239,7 +239,7 @@ describe('spanCrossesBand', () => {
 });
 
 describe('changeRowCount · changeColumnCount', () => {
-  it('행을 더하면 마지막 행 높이를 따라간다', () => {
+  it('행을 추가하면 마지막 행과 같은 높이를 사용한다', () => {
     const el = makeGrid(2, 2);
     el.rows[1]!.height = 25;
     changeRowCount(el, 1);

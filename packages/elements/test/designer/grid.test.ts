@@ -109,7 +109,7 @@ describe('<slip-designer> 표 내부 편집', () => {
     await (el as { updateComplete?: Promise<unknown> }).updateComplete;
   }
 
-  it('열을 더하면 다른 열 너비는 그대로고 상자만 넓어진다 (mm 트랙, ADR-037)', async () => {
+  it('열을 추가하면 기존 열 너비를 유지하고 그리드 너비만 증가한다 (mm 트랙, ADR-037)', async () => {
     const el = await mountGrid();
     stepButton(el, strings.designer.columns, '+').click();
     await el.updateComplete;
@@ -302,7 +302,7 @@ describe('<slip-designer> 표 내부 편집', () => {
     const cell = gridOf(el).cells.find((c) => c.row === 0 && c.column === 0)! as never as Record<string, unknown>;
     expect(cell.borderWidth).toBe(0);
 
-    // 굵기 단계를 고르면 그 값이 저장된다
+    // 굵기 단계를 선택하면 선택한 굵기가 저장된다
     (el.shadowRoot!.querySelector('.width-btn') as HTMLElement).click();
     await el.updateComplete;
     const step = Array.from(el.shadowRoot!.querySelectorAll('.width-pop button'))
@@ -464,7 +464,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('선택하지 않은 반복 그리드는 출력 페이지 계획대로 항목 인스턴스가 펼쳐져 보인다', async () => {
+  it('선택하지 않은 반복 그리드는 출력 페이지 계획대로 항목 인스턴스를 펼쳐 표시한다', async () => {
     parseSlipFileMock.mockReturnValue(makeGridElementFile() as unknown as SlipFile);
     const el = await loadDesigner();
     // 헤더 1 + 항목 4 + 꼬리 1 = 6줄
@@ -473,11 +473,11 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('선택한 반복 그리드는 원본 행 구조와 행 번호 선택 영역을 보여준다', async () => {
+  it('선택한 반복 그리드는 원본 행 구조와 행 번호 선택 영역을 표시한다', async () => {
     const el = await mount();
     const preview = el.shadowRoot!.querySelector('[data-id="g-1"] .grid-preview') as HTMLElement;
     expect(preview.style.gridTemplateRows.split(' ').length).toBe(3);
-    // 행 구간 선택 영역이 행 수만큼 나온다 (§7.2)
+    // 행 구간 선택 영역을 각 행에 표시한다 (§7.2)
     const grid = el.shadowRoot!.querySelector('[data-id="g-1"]') as HTMLElement;
     const strip = grid.querySelector('.band-strip') as HTMLElement;
     expect(strip.querySelectorAll('.band-row').length).toBe(3);
@@ -685,7 +685,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('그룹 소계는 그룹 기준이 없으면 적용하지 않고 필요한 설정을 알린다', async () => {
+  it('그룹 기준이 없으면 그룹 소계를 적용하지 않고 설정 오류를 표시한다', async () => {
     const el = await mount();
     (el.shadowRoot!.querySelector('[data-grid-command="group-subtotal"]') as HTMLButtonElement).click();
     await el.updateComplete;
@@ -725,7 +725,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     ['page-subtotal', 'page-end', 'non-final', '@page', 'gridCommandPageSubtotalName'],
     ['final-total', 'after-data', undefined, '@all', 'gridCommandFinalTotalName'],
   ] as const)(
-    '%s 명령은 고른 숫자 필드와 적절한 집계 범위로 행을 만든다',
+    '%s 명령은 선택한 숫자 필드와 적절한 집계 범위로 행을 만든다',
     async (command, placement, pages, scope, nameKey) => {
       const file = makeGridElementFile();
       file.template.parameters = [{
@@ -776,7 +776,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     },
   );
 
-  it('행 높이·열 너비를 mm로 고치면 그 트랙만 바뀐다', async () => {
+  it('행 높이·열 너비를 mm로 수정하면 그 트랙만 바뀐다', async () => {
     const el = await mount();
     await clickCell(el, 15, 25); // 항목 구간 행 (요소 y=10, 행 10mm)
     await el.updateComplete;
@@ -902,7 +902,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
 
   it('페이지 방식 세그먼트로 자동 확장과 고정 페이지를 전환한다 (§7.3)', async () => {
     const el = await mount();
-    // 고정 페이지 상태 — 페이지당 항목 수만 보인다
+    // 고정 페이지 상태 — 페이지당 항목 수 입력만 표시한다
     const labels = () => Array.from(el.shadowRoot!.querySelectorAll('.prop-row label'))
       .map((l) => l.textContent?.trim());
     expect(labels()).toContain(s.itemsPerPage);
@@ -912,7 +912,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     await el.updateComplete;
     expect(gridOf(el).repeat?.pagination).toEqual({ mode: 'fixed', itemsPerPage: 6 });
 
-    // 자동 확장으로 전환하면 최소 표시 항목 수만 보인다
+    // 자동 확장으로 전환하면 최소 표시 항목 수 입력만 표시한다
     const auto = Array.from(el.shadowRoot!.querySelectorAll('.segment button'))
       .find((b) => b.textContent?.trim() === s.paginationAuto) as HTMLButtonElement;
     auto.click();
@@ -963,7 +963,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('칸에 담을 것을 고르면 나머지 둘은 지워진다', async () => {
+  it('셀의 값 소스를 선택하면 다른 값 소스는 제거된다', async () => {
     const el = await mount();
     await clickCell(el, 15, 25);
     await el.updateComplete;
@@ -982,7 +982,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('선택한 그리드에서 행을 누르면 그 원본 행의 칸이 골라진다', async () => {
+  it('선택한 그리드에서 행을 누르면 해당 원본 행의 셀이 선택된다', async () => {
     const el = await mount();
     await clickCell(el, 15, 25); // 항목 구간 행 (y 20~30)
     const item = gridEdit(el).cell;
@@ -1033,7 +1033,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('그리드가 쓰는 값은 사이드바에, 항목 구간 칸의 항목 필드는 그 하위 줄에 나온다', async () => {
+  it('그리드가 사용하는 파라미터는 사이드바에 표시하고, 항목 구간의 필드는 해당 그리드의 하위 항목으로 표시한다', async () => {
     const el = await mount();
     const labels = Array.from(el.shadowRoot!.querySelectorAll('.side-row'))
       .map((r) => r.textContent?.trim() ?? '');
@@ -1046,7 +1046,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
 
   it('인라인 칸 편집 상자는 칸의 배경색을 그대로 사용한다 (편집 중 색이 사라지지 않게)', async () => {
     const el = await mount();
-    // 칸에 배경색을 준 뒤 그 칸을 두 번 눌러 인라인 편집을 연다
+    // 셀에 배경색을 지정한 뒤 같은 셀을 두 번 눌러 인라인 편집을 연다
     gridEdit(el).selectCell({ row: 0, column: 0 });
     (el as unknown as { _gridCommands: { updateCellStyle(key: string, value: unknown): void } })
       ._gridCommands.updateCellStyle('backgroundColor', '#ffeeaa');
@@ -1085,16 +1085,16 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('그리드 칸을 고르면 그리드 자체 옵션은 감추고 그리드로 돌아가는 줄을 보인다 (ADR-034)', async () => {
+  it('그리드 셀을 선택하면 그리드 공통 설정을 숨기고 상위 그리드로 이동하는 항목을 표시한다 (ADR-034)', async () => {
     const el = await mount();
-    // 칸을 고르기 전에는 그리드 옵션(행 수)이 보인다
+    // 셀을 선택하기 전에는 그리드 설정(행 수)을 표시한다
     const labels = () => Array.from(el.shadowRoot!.querySelectorAll('.prop-row label'))
       .map((l) => l.textContent?.trim());
     expect(labels()).toContain(s.rows);
 
     await clickCell(el, 15, 25);
     await el.updateComplete;
-    // 칸을 고르면 그리드 옵션은 사라지고 칸 편집만 남는다
+    // 칸을 선택하면 그리드 옵션은 사라지고 칸 편집만 남는다
     expect(labels()).not.toContain(s.rows);
     expect(labels()).toContain(s.merge);
     // 그리드로 돌아갈 수 있다
@@ -1108,8 +1108,8 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('요소 목록에서 그리드를 펼치면 이름·값·수식 칸이 나오고 누르면 그 칸이 선택된다 (G-44)', async () => {
-    const el = await mount(); // 그리드를 고르면 요소 목록에서도 저절로 펼쳐진다
+  it('요소 목록에서 그리드를 펼치면 이름·값·수식 셀을 표시하고, 항목을 누르면 해당 셀이 선택된다 (G-44)', async () => {
+    const el = await mount(); // 그리드를 선택하면 요소 목록의 해당 항목을 자동으로 펼친다
     const cellRows = () => Array.from(el.shadowRoot!.querySelectorAll('.side-cell-row'));
     // 이름이 없는 직접 입력 칸은 제외하고 파라미터가 지정된 칸을 표시한다.
     expect(cellRows().length).toBe(1);
@@ -1133,7 +1133,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     await el.updateComplete;
     expect(cellRows().map((item) => item.textContent?.trim())).toEqual(['품명 머리글', '품명 칸']);
 
-    // 하위 줄을 누르면 그 칸이 선택된다
+    // 그리드의 하위 항목을 선택하면 해당 셀이 선택된다
     (cellRows()[1] as HTMLElement).click();
     await el.updateComplete;
     const sel = gridEdit(el).cell;
@@ -1141,7 +1141,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('요소 목록의 그리드 하위 줄은 펼침 표시로 접을 수 있다 (G-44)', async () => {
+  it('요소 목록에서 펼침 버튼으로 그리드의 하위 항목을 접을 수 있다 (G-44)', async () => {
     const el = await mount();
     expect(el.shadowRoot!.querySelectorAll('.side-cell-row').length).toBe(1);
     // 요소 목록 그리드 줄의 펼침 표시를 눌러 접는다
@@ -1241,7 +1241,7 @@ describe('<slip-designer> 행 구간 옵션·반복 파라미터', () => {
     return found;
   }
 
-  it('page-start 구간의 표시 페이지를 고르면 pages에 저장되고, 모든 페이지로 되돌리면 키가 사라진다', async () => {
+  it('page-start 구간의 표시 페이지를 선택하면 pages에 저장되고, 모든 페이지로 되돌리면 키가 사라진다', async () => {
     const el = await mount();
     expect(bandOf(el, 'b-head').pages).toBeUndefined();
 

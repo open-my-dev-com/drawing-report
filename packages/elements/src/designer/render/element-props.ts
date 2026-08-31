@@ -1,5 +1,5 @@
 /**
- * 요소 종류별 속성 줄 — 글자, 폰트, 이미지, 선, 다각형과 공통 크기·기준점.
+ * 요소 종류별 속성 입력 항목 — 글자, 폰트, 이미지, 선, 다각형과 공통 크기·기준점.
  *
  * @remarks
  * 컴포넌트 전체가 아니라 `PanelKit`(공통 입력)과 `ElementActions`(요소 조작)만 받는다.
@@ -74,7 +74,7 @@ export interface ElementActions {
   findElement(id: string): SlipElement | undefined;
   /** 선택한 요소들을 묶는다 */
   groupSelected(): void;
-  /** 묶음을 푼다 */
+  /** 그룹을 해제한다 */
   ungroupSelected(): void;
   /** 지금 선택된 요소 id 모음 */
   readonly selectedIds: ReadonlySet<string>;
@@ -362,7 +362,7 @@ export function gridOverflowRow(kit: PanelKit, config: {
 }
 
 /**
- * 요소 좌표의 기준점을 고르는 입력을 렌더링한다. 기준점은 파일에 저장하지 않는다.
+ * 요소 좌표의 기준점을 선택하는 입력을 렌더링한다. 기준점은 파일에 저장하지 않는다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -579,7 +579,7 @@ export function barcodeProps(kit: PanelKit, act: ElementActions, el: BarcodeElem
 }
 
 /**
- * 요소를 어느 출력 페이지에 낼지 고르는 구역을 렌더링한다.
+ * 요소를 어느 출력 페이지에 낼지 선택하는 구역을 렌더링한다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -592,7 +592,7 @@ export function pagePlacementSection(kit: PanelKit, act: ElementActions, el: Sli
   const mode = placement?.mode ?? 'absolute';
   const pages = placement?.mode === 'absolute' ? (placement.pages ?? 'all') : 'all';
   const elements = act.pageElements() ?? [];
-  // 자신과, 자신을 뒤따르는 요소는 이어서 배치의 대상으로 고를 수 없다 (순환 방지).
+  // 자신과, 자신을 뒤따르는 요소는 이어서 배치의 대상으로 선택할 수 없다 (순환 방지).
   const followers = new Set<string>();
   const collect = (id: string): void => {
     followers.add(id);

@@ -13,9 +13,9 @@ export interface SampleDraftHost {
 }
 
 /**
- * JSON 초안을 sampleValues에 넣을 객체로 바꾼다.
+ * JSON 초안을 sampleValues에 저장할 객체로 변환한다.
  *
- * @param draft - 입력한 JSON 글
+ * @param draft - 입력한 JSON 문자열
  * @returns 넣을 객체. 빈 글이면 빈 객체, 형식이 잘못됐으면 null
  */
 export function parseSampleValues(draft: string): Record<string, unknown> | null {

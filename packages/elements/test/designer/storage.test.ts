@@ -185,7 +185,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     await el.updateComplete;
     expect(storage.save.mock.calls[1]![0]).toBe(id);
 
-    // "새 양식으로 저장"을 고르면 새 키로 저장된다
+    // "새 양식으로 저장"을 선택하면 새 키로 저장된다
     toolbarButton(el, strings.designer.saveAsMyForm).click();
     await el.updateComplete;
     const asNew = Array.from(el.shadowRoot!.querySelectorAll('input'))
@@ -201,7 +201,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     el.remove();
   });
 
-  it('목록에서 고르면 그 양식을 불러오고, 검색은 화면에서 거르며, 삭제·불러오기는 어댑터로 이어진다', async () => {
+  it('목록에서 양식을 선택하면 해당 양식을 불러오고, 검색은 클라이언트에서 처리하며 삭제와 불러오기는 저장소 어댑터에 위임한다', async () => {
     const storage = makeStorage();
     const loaded = makeTemplateFile();
     loaded.template.meta.title = '불러온 양식';
@@ -223,7 +223,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     expect(storage.list).not.toHaveBeenCalled();
     expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(1);
 
-    // 검색어를 지우면 다시 둘 다 보인다
+    // 검색어를 지우면 두 항목을 다시 표시한다
     search.value = '';
     search.dispatchEvent(new Event('input', { bubbles: true }));
     await el.updateComplete;
@@ -250,7 +250,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     el.remove();
   });
 
-  it('목록을 커서로 전부 받아 번호 페이지로 나눠 보인다 (ADR-045)', async () => {
+  it('커서 기반 목록을 모두 불러와 번호 기반 페이지로 나누어 표시한다 (ADR-045)', async () => {
     const storage = makeStorage();
     // 커서로 나뉜 12개 항목을 모두 조회해 목록에 보관한다.
     const many = Array.from({ length: 12 }, (_, i) =>
@@ -283,7 +283,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     el.remove();
   });
 
-  it('저장소 오류는 모달에 그대로 보여준다', async () => {
+  it('저장소 오류는 모달에 그대로 표시한다', async () => {
     const storage = makeStorage();
     storage.list.mockRejectedValue(new Error('로컬 파일 저장소는 목록 조회를 지원하지 않습니다'));
     const el = await mountWithStorage(storage);

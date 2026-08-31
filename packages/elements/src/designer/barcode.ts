@@ -26,7 +26,7 @@ export const BARCODE_KINDS: readonly { value: BarcodeKind; label: string }[] = [
   { value: 'pdf417', label: 'PDF417' },
 ];
 
-/** 캔버스에서 정사각형 격자로 표시할 2차원 바코드 종류 */
+/** 캔버스에서 정사각형 모듈 배열로 표시할 2차원 바코드 종류 */
 export const BARCODE_2D: ReadonlySet<BarcodeKind> = new Set(['qrcode', 'gs1datamatrix']);
 
 /**

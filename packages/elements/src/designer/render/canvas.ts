@@ -3,7 +3,7 @@
  *
  * @remarks
  * 컴포넌트 전체가 아니라 `CanvasContext`만 받는다.
- * 화면과 PDF가 같은 페이지 계획을 쓰므로 계획은 호스트가 계산해 넘긴다.
+ * 캔버스와 PDF가 동일한 페이지 계획을 사용하도록 호스트가 계산한 결과를 전달받는다.
  */
 
 import { html, nothing, svg } from 'lit';
@@ -609,7 +609,7 @@ export function barcodePreview(el: SlipElement & { type: 'barcode' }) {
   // 바코드 종류와 현재 값 소스를 함께 표시한다.
   const caption = html`<span class="barcode-caption">${kindLabel}${label ? ` · ${label}` : ''}</span>`;
   if (BARCODE_2D.has(el.kind)) {
-    // 2차원 바코드는 위치 탐지 무늬가 있는 격자 형태로 표시한다.
+    // 2차원 바코드는 위치 탐지 무늬가 있는 정사각형 모듈 배열로 표시한다.
     const n = 11;
     const cells = Array.from({ length: n }, (_, r) =>
       Array.from({ length: n }, (_, c) => {

@@ -2,7 +2,7 @@
  * 요소 스타일을 캔버스에 적용할 CSS로 바꾼다.
  *
  * @remarks
- * PDF 출력과 같은 값을 쓰되 표현만 CSS로 옮긴다. 화면 상태에 의존하지 않는다.
+ * PDF 출력과 동일한 스타일 값을 CSS 표현으로 변환한다. 화면 상태에 의존하지 않는다.
  */
 
 import { PX_PER_MM } from './geometry.js';

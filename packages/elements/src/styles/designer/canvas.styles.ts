@@ -19,7 +19,7 @@ export const canvasStyles = css`
       justify-content: center;
       padding: 24px;
     }
-    /* 생성 도구 선택 중 — 캔버스 어디를 눌러도 그리기이므로 십자 커서로 알린다 */
+    /* 생성 도구를 선택한 동안 캔버스 클릭으로 요소를 배치하므로 십자 커서를 사용한다 */
     .canvas-area.drawing,
     .canvas-area.drawing .element {
       cursor: crosshair;
@@ -40,7 +40,7 @@ export const canvasStyles = css`
       pointer-events: none;
       z-index: 25;
     }
-    /* 눈금자 + 용지 묶음 — 자와 용지가 함께 스크롤돼 눈금이 어긋나지 않는다  */
+    /* 눈금자와 용지를 함께 스크롤해 눈금 위치를 일치시킨다  */
     .paper-wrap {
       display: grid;
       grid-template-columns: ${RULER_PX}px auto;
@@ -79,13 +79,13 @@ export const canvasStyles = css`
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
       flex-shrink: 0;
     }
-    /* 격자 — 요소보다 뒤에 깔린다. 선 색·간격은 인라인 스타일로  */
+    /* 격자 — 요소보다 뒤에 표시한다. 선 색과 간격은 인라인 스타일로 지정한다 */
     .grid-overlay {
       position: absolute;
       inset: 0;
       pointer-events: none;
     }
-    /* 격자 색 견본 줄 — 격자가 켜져 있을 때만 메뉴에 보인다  */
+    /* 격자 색 견본 — 격자가 켜져 있을 때만 메뉴에 표시한다  */
     .grid-colors {
       display: flex;
       gap: 6px;
@@ -163,7 +163,7 @@ export const canvasStyles = css`
     /*
      * 요소 종류 배지는 마우스를 올리거나 요소를 선택했을 때 표시한다.
      * 캔버스와 PDF의 글 위치를 맞추기 위해 요소 상자에 안쪽 여백을 두지 않는다.
-     * 툴바의 "요소 확인"을 켜면 전부 보인다.
+     * 툴바에서 "요소 확인"을 켜면 모든 배지를 표시한다.
      */
     .element .badge {
       position: absolute;
@@ -215,7 +215,7 @@ export const canvasStyles = css`
       position: absolute;
       inset: 0;
     }
-    /* 바코드 견본  — 격자·막대 그림 위에 종류·값을 겹쳐 보여준다 */
+    /* 바코드 견본 — 모듈 배열·막대 그림 위에 종류와 값을 겹쳐 표시한다 */
     .element .barcode-preview {
       position: absolute;
       inset: 0;
@@ -276,7 +276,7 @@ export const canvasStyles = css`
       width: 100%;
       height: 100%;
     }
-    /* 선·타원·삼각형은 도형 자체만 보이게 — 편집용 상자 테두리를 지운다 (선택 시 강조는 유지) */
+    /* 선·타원·삼각형에는 편집 영역의 테두리를 표시하지 않는다 (선택 시 강조는 유지) */
     .element.type-line,
     .element.type-ellipse,
     .element.type-polygon {

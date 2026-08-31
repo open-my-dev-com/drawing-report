@@ -2,7 +2,7 @@
  * 색 선택기의 상태 — 색조·채도·명도와 사용자 지정 색 목록.
  *
  * @remarks
- * 색은 파일 스키마와 같은 `#RRGGBB`로 다루고, HSV는 화면에서 고르기 위한 표현이다.
+ * 색은 파일 스키마와 같은 `#RRGGBB`로 다루고, HSV는 화면에서 선택하기 위한 표현이다.
  * 무채색에는 색조가 없으므로 색조는 마지막 값을 유지한다.
  */
 
@@ -98,7 +98,7 @@ export class ColorPickerController implements ReactiveController {
   }
 
   /**
-   * 지정한 색에 맞춰 선택기를 맞춘다.
+   * 지정한 색에 맞춰 선택기의 HSV 값을 설정한다.
    *
    * @param hex - 맞출 색 (`#RRGGBB`)
    */
@@ -135,7 +135,7 @@ export class ColorPickerController implements ReactiveController {
   }
 
   /**
-   * 포인터 위치를 채도와 명도로 바꾼다.
+   * 포인터 위치를 채도와 명도 값으로 변환한다.
    *
    * @param event - 채도·명도 영역에서 받은 포인터 이벤트
    */

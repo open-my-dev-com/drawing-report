@@ -1,5 +1,5 @@
 /**
- * 그리드의 구조를 읽고 바꾸는 처리 — 트랙, 셀, 행 구간.
+ * 그리드의 트랙, 셀과 행 구간을 조회하고 변경하는 로직.
  *
  * @remarks
  * 화면 상태에 의존하지 않고 그리드 요소만 다룬다.
@@ -32,7 +32,7 @@ export function isGrid(el: SlipElement | undefined): el is GridElement {
 }
 
 /**
- * 행·열 수
+ * 그리드의 행 수와 열 수를 반환한다.
  *
  * @param el - 대상 그리드
  * @returns 행 수와 열 수
@@ -68,7 +68,7 @@ export function ensureCell(el: GridElement, row: number, column: number): Record
 }
 
 /**
- * 행·열이 줄어든 뒤 격자를 벗어나는 병합 범위를 줄인다
+ * 행·열이 줄어든 뒤 그리드 범위를 벗어나는 병합 범위를 줄인다
  *
  * @param el - 대상 그리드
  */
@@ -115,7 +115,7 @@ export const BAND_PLACEMENT_ORDER: Record<GridBandPlacement, number> = {
   'page-end': 6,
 };
 
-/** 행 표시 방식을 출력 흐름에 맞게 나열한다. */
+/** 행 구간 역할을 출력 순서대로 나열한 목록 */
 export const BAND_PLACEMENTS: readonly GridBandPlacement[] = [
   'before-data', 'page-start', 'group-start', 'item', 'group-end', 'after-data', 'page-end',
 ];

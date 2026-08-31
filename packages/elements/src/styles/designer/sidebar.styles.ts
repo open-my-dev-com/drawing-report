@@ -64,7 +64,7 @@ export const sidebarStyles = css`
       box-shadow: 0 0 0 1px var(--sk-accent);
     }
     .thumb-paper {
-      /* span이 인라인으로 남으면 width·height가 무시돼 축소 상자가 밖으로 흘러나온다 */
+      /* 인라인 span에는 width와 height가 적용되지 않으므로 블록 요소로 표시한다 */
       display: block;
       position: relative;
       margin: 4px auto 0;
@@ -386,7 +386,7 @@ export const sidebarStyles = css`
       width: 12px;
       height: 12px;
     }
-    /* 하위 필드를 더하는 줄 — 하위 줄과 같은 자리에 놓되 목록 항목은 아니다 */
+    /* 하위 필드 추가 버튼은 하위 항목과 같은 위치에 배치하되 목록 항목으로 취급하지 않는다 */
     .side-add-field {
       display: flex;
       align-items: center;

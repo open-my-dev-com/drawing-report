@@ -3,7 +3,7 @@
  *
  * @remarks
  * 조작 중에만 사용하는 임시 상태(드래그, 크기 조절, 그리는 중인 영역, 안내선)를 여기서 관리한다.
- * 문서를 고치는 일은 호스트에 맡긴다.
+ * 문서 변경은 호스트에 맡긴다.
  */
 
 import type { ReactiveController } from 'lit';
@@ -77,7 +77,7 @@ export interface PointerHost {
   readonly selectedIds: ReadonlySet<string>;
   /** 사이드바에서 선택한 대상 */
   readonly sideSelection: SideSelection;
-  /** 사이드바 선택을 푼다 */
+  /** 사이드바 선택을 해제한다 */
   clearSideSelection(): void;
   /** 그리드 셀·행 구간 선택 상태 */
   readonly gridEdit: GridEditController;
@@ -106,7 +106,7 @@ export interface PointerHost {
   ): void;
   /** 요소를 선택한다 */
   selectElement(id: string): void;
-  /** 선택을 모두 푼다 */
+  /** 선택을 모두 해제한다 */
   clearSelection(): void;
   /** 선택한 요소를 수정한다 */
   updateElement(fn: (el: SlipElement) => void): void;
@@ -114,11 +114,11 @@ export interface PointerHost {
   pushUndoSnapshot(snapshot: string): void;
   /** 바뀐 양식을 호스트에 알린다 */
   emitChange(): void;
-  /** 요소가 쓰는 파라미터를 사이드바에서 펼친다 */
+  /** 요소가 사용하는 파라미터를 사이드바에서 펼친다 */
   expandParameterOfElement(id: string): void;
   /** 격자에 맞춘 이동량 */
   gridDelta(value: number): number | null;
-  /** 캔버스에 초점을 준다 */
+  /** 캔버스로 초점을 옮긴다 */
   focusHost(): void;
   /** 화면을 다시 그린다 */
   refresh(): void;
@@ -389,7 +389,7 @@ export class CanvasPointerController implements ReactiveController {
       // 1mm 넘게 움직였을 때만 드래그로 본다 (클릭 손떨림은 기본 크기 생성)
       if (w > 1 || h > 1) this._draw.moved = true;
       if (this._draw.type === 'line') {
-        // 선은 상자 대신 시작점→커서 미리보기 선으로 보여준다
+        // 선은 상자 대신 시작점에서 커서까지의 미리보기 선으로 표시한다
         this.host.refresh();
         return;
       }
@@ -574,7 +574,7 @@ export class CanvasPointerController implements ReactiveController {
   };
 
   /**
-   * 드래그·크기 조절·끝점 이동이 실제로 값을 바꿨으면 스냅샷을 되돌리기에 쌓고 변경을 알린다.
+   * 드래그·크기 조절·끝점 이동이 실제로 값을 바꿨으면 스냅샷을 되돌리기 기록에 쌓고 변경을 알린다.
    *
    * @param snapshot - 조작 시작 시 찍어 둔 되돌리기 스냅샷 (없으면 커밋하지 않음)
    * @param changed - 위치·크기가 실제로 바뀌었는지

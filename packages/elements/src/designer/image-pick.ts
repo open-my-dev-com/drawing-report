@@ -1,5 +1,5 @@
 /**
- * 이미지 선택 결과 처리와 양식 안 이미지 수집.
+ * 이미지 선택 결과 처리와 양식에 포함된 이미지 수집.
  *
  * @remarks
  * 이미지 값은 base64(`data:`)만 다룬다 — 외부 URL은 호스트가 변환해 전달한다.
@@ -9,7 +9,7 @@
 import type { SlipTemplateFile } from '@omdc-slipkit/core';
 import { formatBytes, type ImagePickResult } from '../image-file.js';
 
-/** 이미지를 고르지 않은 요소에 넣어 두는 투명한 1×1 PNG */
+/** 이미지를 선택하지 않은 요소에 사용하는 투명한 1×1 PNG */
 export const PLACEHOLDER_IMG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 

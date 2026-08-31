@@ -3,7 +3,7 @@
  *
  * @remarks
  * 값 변경은 호출부가 담당하고, 이 컨트롤러는 편집 대상을 관리한다.
- * 그리드가 아닌 요소를 고르거나 양식을 다시 불러오면 `reset`으로 한꺼번에 지운다.
+ * 그리드가 아닌 요소를 선택하거나 양식을 다시 불러오면 `reset`으로 한꺼번에 지운다.
  */
 
 import type { ReactiveController } from 'lit';
@@ -56,7 +56,7 @@ export class GridEditController implements ReactiveController {
     return this._sourceKind;
   }
 
-  /** 셀을 캔버스에서 직접 고쳐 쓰는 중인지 */
+  /** 셀을 캔버스에서 직접 편집 중인지 */
   get editing(): boolean {
     return this._editing;
   }
@@ -84,7 +84,7 @@ export class GridEditController implements ReactiveController {
   /**
    * 셀을 선택한다.
    *
-   * @param cell - 고를 셀의 좌표
+   * @param cell - 선택할 셀의 좌표
    */
   selectCell(cell: CellPosition): void {
     this._cell = cell;
@@ -127,7 +127,7 @@ export class GridEditController implements ReactiveController {
   /**
    * 행 범위를 선택한다.
    *
-   * @param range - 고를 행 범위. null이면 해제
+   * @param range - 선택할 행 범위. null이면 해제
    */
   selectBand(range: BandRange | null): void {
     this._bandRange = range;

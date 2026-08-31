@@ -29,7 +29,7 @@ beforeEach(() => {
 });
 
 describe('hexToHsv · hsvToHex', () => {
-  it('기본 색을 왕복해도 같은 값이 나온다', () => {
+  it('기본 색을 왕복 변환해도 같은 값을 반환한다', () => {
     for (const hex of COLOR_PALETTE) {
       const { h, s, v } = hexToHsv(hex);
       expect(hsvToHex(h, s, v)).toBe(hex.toLowerCase());

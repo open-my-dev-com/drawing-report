@@ -1,9 +1,9 @@
 /**
- * 그리드를 고치는 조작 — 행·열, 반복 설정, 행 구간과 셀 값·스타일.
+ * 그리드 편집 작업 — 행·열, 반복 설정, 행 구간과 셀 값·스타일.
  *
  * @remarks
  * `GridEditController`가 편집 대상을 관리하고, 이 컨트롤러는 선택된 대상의 변경을 파일에 반영한다.
- * 입력 검증에 실패하면 호스트에 오류 표시를 맡기고 파일은 고치지 않는다.
+ * 입력 검증에 실패하면 호스트에 오류 표시를 맡기고 파일은 수정하지 않는다.
  */
 
 import type {
@@ -390,7 +390,7 @@ export class GridCommandsController {
     });
   }
 
-  /** 행 추가 명령을 고르고 집계 필드의 기본값을 설정한다. */
+  /** 행 추가 명령을 선택하고 집계 필드의 기본값을 설정한다. */
   openRowCommand(command: GridRowCommand): void {
     const el = this.host.selectedElement();
     if (el?.type !== 'grid' || !el.repeat) return;
@@ -520,7 +520,7 @@ export class GridCommandsController {
 
   /**
    * 인라인 편집으로 입력한 셀의 직접 입력 값을 저장한다.
-   * 파라미터나 수식을 쓰는 셀은 값 소스가 하나뿐이라 저장하지 않고 거부한다 (SPEC §5.7).
+   * 파라미터나 수식을 사용하는 셀은 값 소스가 하나뿐이라 저장하지 않고 거부한다 (SPEC §5.7).
    *
    * @param value - 입력한 글
    */

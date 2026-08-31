@@ -179,7 +179,7 @@ describe('<slip-designer> 페이지', () => {
     el.remove();
   });
 
-  it('사이드바 페이지 줄로 페이지를 전환하면 해당 페이지 요소가 보인다 (G-34)', async () => {
+  it('사이드바에서 페이지를 선택하면 해당 페이지의 요소를 표시한다 (G-34)', async () => {
     const el = await loadDesigner();
     toolbarButton(el, strings.designer.addPage).click();
     await el.updateComplete;

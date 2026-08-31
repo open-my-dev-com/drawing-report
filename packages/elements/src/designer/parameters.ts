@@ -27,7 +27,7 @@ export interface ParameterInfo {
   valueType: ParameterValueType | undefined;
   /** 파라미터 정의에 등록되어 있는지 여부 */
   defined: boolean;
-  /** 이 값을 쓰는 요소들 */
+  /** 이 값을 사용하는 요소들 */
   uses: ParameterUse[];
   /** 파라미터 정의에 등록된 목록 하위 필드  */
   fields: ParameterFieldInfo[];

@@ -102,7 +102,7 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
     expect(Number(up?.getAttribute('y2'))).toBe(0);
   });
 
-  it('사선에도 선 굵기 칸이 나온다 (방향을 바꿔도 굵기를 수정할 수 있게)', async () => {
+  it('사선에도 선 굵기 입력을 표시한다 (방향을 바꿔도 굵기를 수정할 수 있게)', async () => {
     parseSlipFileMock.mockReturnValue(makeLineFile('down'));
     const el = await createElement();
     el.src = '{"valid": true}';
@@ -156,7 +156,7 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
     el.remove();
   });
 
-  it('길이·각도를 고치면 상자와 방향으로 되돌아 저장된다 (ADR-050)', async () => {
+  it('길이·각도를 수정하면 상자와 방향으로 되돌아 저장된다 (ADR-050)', async () => {
     parseSlipFileMock.mockReturnValue(makeLineFile('horizontal'));
     const el = await createElement();
     el.src = '{"valid": true}';
@@ -267,7 +267,7 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     el.remove();
   });
 
-  it('필드 미리보기는 파라미터면 {키}, 수식이면 수식을 보인다 (수식 필드에 {undefined} 금지, ADR-049)', async () => {
+  it('필드 미리보기는 파라미터면 {키}, 수식이면 수식을 표시한다 (수식 필드에 {undefined} 금지, ADR-049)', async () => {
     const paramField = await mountWith([{
       type: 'field', id: 'f1', name: 'f', position: { x: 10, y: 10 },
       width: 40, height: 10, parameter: 'tradeDate',
@@ -691,7 +691,7 @@ describe('<slip-designer> 눈금자·격자 (F-20)', () => {
     await el.updateComplete;
   }
 
-  it('용지 위·왼쪽에 mm 눈금자가 붙고 10mm마다 숫자가 나온다', async () => {
+  it('용지 위·왼쪽에 mm 눈금자를 표시하고 10mm마다 숫자를 표시한다', async () => {
     const el = await loadDesigner();
 
     expect(el.shadowRoot!.querySelectorAll('.ruler').length).toBe(2);
@@ -703,7 +703,7 @@ describe('<slip-designer> 눈금자·격자 (F-20)', () => {
     el.remove();
   });
 
-  it('격자 간격을 고르면 그 간격으로 격자가 깔리고, 없음으로 끈다', async () => {
+  it('격자 간격을 선택하면 선택한 간격으로 격자를 표시하고, 없음을 선택하면 끈다', async () => {
     const el = await loadDesigner();
     expect(el.shadowRoot!.querySelector('.grid-overlay')).toBeNull();
 
@@ -722,7 +722,7 @@ describe('<slip-designer> 눈금자·격자 (F-20)', () => {
   it('격자를 켜야 색 견본이 나오고, 선택한 색으로 격자선이 그려진다', async () => {
     const el = await loadDesigner();
 
-    // 격자가 꺼져 있으면 색을 고를 일이 없으므로 견본을 두지 않는다
+    // 격자가 꺼져 있으면 색을 선택할 일이 없으므로 견본을 두지 않는다
     toolbarButton(el, strings.designer.grid).click();
     await el.updateComplete;
     expect(el.shadowRoot!.querySelectorAll('.grid-colors button').length).toBe(0);
@@ -732,7 +732,7 @@ describe('<slip-designer> 눈금자·격자 (F-20)', () => {
     gap.click();
     await el.updateComplete;
 
-    // 기본은 회색이 골라져 있다
+    // 기본값으로 회색이 선택되어 있다
     toolbarButton(el, strings.designer.grid).click();
     await el.updateComplete;
     const swatch = (name: string) => Array.from(el.shadowRoot!.querySelectorAll('.grid-colors button'))
@@ -740,7 +740,7 @@ describe('<slip-designer> 눈금자·격자 (F-20)', () => {
         === `${strings.designer.gridColor}: ${name}`) as HTMLButtonElement;
     expect(swatch(strings.designer.colorGray).getAttribute('aria-pressed')).toBe('true');
 
-    // 파랑을 고르면 격자선 색이 바뀌고 메뉴는 닫힌다
+    // 파랑을 선택하면 격자선 색이 바뀌고 메뉴는 닫힌다
     swatch(strings.designer.colorBlue).click();
     await el.updateComplete;
     expect(el.shadowRoot!.querySelector('.preset-menu')).toBeNull();
@@ -1085,7 +1085,7 @@ describe('<slip-designer> 도형 선택 메뉴', () => {
     el.remove();
   });
 
-  it('오각형을 고르고 캔버스를 클릭하면 변 5개 다각형이 생긴다', async () => {
+  it('오각형을 선택하고 캔버스를 클릭하면 변 5개 다각형이 생긴다', async () => {
     const el = await loadDesigner();
     await pickShapeTool(el, strings.designer.shapePentagon);
     expect(toolbarButton(el, strings.designer.shape).getAttribute('aria-pressed')).toBe('true');

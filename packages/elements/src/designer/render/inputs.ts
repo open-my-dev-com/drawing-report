@@ -1,8 +1,8 @@
 /**
- * 속성 패널의 공통 입력 — 숫자 줄, 펼침 표시, 글자 강조 토글, 테두리와 색 선택.
+ * 속성 패널의 공통 입력 — 숫자 입력, 펼침 버튼, 글자 강조 토글, 테두리와 색 선택.
  *
  * @remarks
- * 모두 `PanelKit`만 받아 그린다. 화면 상태는 컨트롤러가 갖고 여기서는 읽기만 한다.
+ * 각 함수는 `PanelKit`으로 전달된 상태를 읽어 공통 입력 UI를 렌더링한다.
  */
 
 import { html, nothing } from 'lit';
@@ -82,7 +82,7 @@ export function numberRow(
  * @param hasChildren - 하위 줄이 있는지
  * @param expanded - 현재 펼침 상태
  * @param name - 무엇을 펼치고 접는지 (읽어 주는 이름에 사용한다)
- * @param toggle - 눌렀을 때 펼침을 뒤집는 처리
+ * @param toggle - 눌렀을 때 펼침 상태를 전환하는 콜백
  * @returns 펼침 표시 또는 빈 자리
  */
 export function twisty(
@@ -460,7 +460,7 @@ export function conditionalEmphasisRow(
 }
 
 /**
- * 네이티브 select 대신 쓰는 리스트형 선택 상자를 렌더링한다.
+ * 네이티브 select를 대체하는 리스트형 선택 상자를 렌더링한다.
  * 트리거 버튼을 누르면 버튼 아래 화면 고정 위치에 항목 목록이 열린다.
  *
  * @param pop - 팝오버 열림 상태
