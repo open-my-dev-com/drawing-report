@@ -463,6 +463,11 @@ export class CanvasPointerController {
     this.host.refresh();
   };
 
+  /**
+   * 크기 조절 손잡이를 끄는 동안 요소의 위치와 크기를 갱신한다.
+   *
+   * @param e - 포인터 이동 이벤트
+   */
   onResizeMove(e: PointerEvent): void {
     const r = this._resize!;
     const el = this.host.findElement(r.id);
@@ -525,8 +530,6 @@ export class CanvasPointerController {
   }
 
   /** 선 끝점 드래그 — 고정 끝점→커서 벡터로 상자와 선 방향을 다시 계산한다  */
-
-  /** 선 끝점 드래그 — 고정 끝점→커서 벡터로 상자와 선 방향을 다시 계산한다  */
   onLineEndMove(e: PointerEvent): void {
     const state = this._lineEnd!;
     const el = this.host.findElement(state.id);
@@ -565,14 +568,6 @@ export class CanvasPointerController {
     this._guideY = null;
     this.host.refresh();
   };
-
-  /**
-   * 드래그·크기 조절·끝점 이동이 실제로 값을 바꿨으면 스냅샷을 되돌리기에 쌓고 변경을 알린다.
-   *
-   * @param snapshot - 조작 시작 시 찍어 둔 되돌리기 스냅샷 (없으면 커밋하지 않음)
-   * @param changed - 위치·크기가 실제로 바뀌었는지
-   * @returns 커밋했으면 true
-   */
 
   /**
    * 드래그·크기 조절·끝점 이동이 실제로 값을 바꿨으면 스냅샷을 되돌리기에 쌓고 변경을 알린다.
@@ -676,8 +671,6 @@ export class CanvasPointerController {
   // ---------------------------------------------------------------------------
 
   /** 포인터가 가리키는 셀의 시작 좌표를 반환한다. */
-
-  /** 포인터가 가리키는 셀의 시작 좌표를 반환한다. */
   cellAtPoint(
     el: GridElement,
     e: PointerEvent,
@@ -710,6 +703,11 @@ export class CanvasPointerController {
     return { row, column };
   }
 
+  /**
+   * 눈금자에 표시할 커서의 용지 좌표를 기록하고 용지 밖에서는 지운다.
+   *
+   * @param e - 포인터 이동 이벤트
+   */
   trackCursor(e: PointerEvent): void {
     const paper = this.host.renderRoot.querySelector('.paper');
     if (!paper) return;
@@ -754,8 +752,6 @@ export class CanvasPointerController {
   }
 
   /** 두 점을 잇는 선 요소를 만든다. */
-
-  /** 두 점을 잇는 선 요소를 만든다. */
   createLineBetween(
     from: { x: number; y: number },
     to: { x: number; y: number },
@@ -773,8 +769,6 @@ export class CanvasPointerController {
     });
   }
 
-  /** 도형 종류와 다각형의 변 수를 선택한다. */
-
   /** 생성 도구를 선택하거나 같은 도구를 다시 선택해 해제한다. */
   selectTool(type: CreatableType): void {
     this._pendingTool = this._pendingTool === type ? null : type;
@@ -784,11 +778,6 @@ export class CanvasPointerController {
     this._lineGhost = null;
     this.host.refresh();
   }
-
-  /**
-   * 드래그 또는 두 번의 클릭으로 선을 생성한다.
-   * 첫 클릭은 시작점을 저장하고 두 번째 클릭은 끝점을 지정한다.
-   */
 
   /** 도형 종류와 다각형의 변 수를 선택한다. */
   selectShapeTool(type: 'rect' | 'ellipse' | 'polygon', sides = 3): void {

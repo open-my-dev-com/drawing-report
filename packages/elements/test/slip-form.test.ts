@@ -210,7 +210,7 @@ describe('<slip-form> 값 입력·행 편집', () => {
     el.remove();
   });
 
-  it('반복 구간이 쓰는 값은 행을 추가·편집·삭제할 수 있다', async () => {
+  it('항목 구간이 쓰는 값은 행을 추가·편집·삭제할 수 있다', async () => {
     const el = await mount();
     const changes: SlipVoucherFile[] = [];
     el.addEventListener('slip-change', (e) => {

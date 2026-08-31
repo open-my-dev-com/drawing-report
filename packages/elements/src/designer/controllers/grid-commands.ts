@@ -88,8 +88,6 @@ export class GridCommandsController {
   }
 
   /** 그리드의 마지막 행을 추가하거나 제거한다. 반복 그리드의 추가는 역할 지정 명령을 사용한다. */
-
-  /** 그리드의 마지막 행을 추가하거나 제거한다. 반복 그리드의 추가는 역할 지정 명령을 사용한다. */
   changeRows(delta: number): void {
     const el = this.host.selectedElement();
     if (el?.type !== 'grid') return;
@@ -100,8 +98,6 @@ export class GridCommandsController {
     if (delta < 0 && !canRemoveLastRow(el)) return;
     this.updateGrid((grid) => changeRowCount(grid, delta));
   }
-
-  /** 선택한 역할의 행을 알맞은 구간 위치에 추가한다. */
 
   /** 선택한 역할의 행을 알맞은 구간 위치에 추가한다. */
   addRowWithRole(
@@ -144,8 +140,6 @@ export class GridCommandsController {
   }
 
   /** 그리드의 마지막 열을 추가하거나 제거한다. */
-
-  /** 그리드의 마지막 열을 추가하거나 제거한다. */
   changeColumns(delta: number): void {
     const el = this.host.selectedElement();
     if (el?.type !== 'grid') return;
@@ -153,8 +147,6 @@ export class GridCommandsController {
     if (next < 1 || next > GRID_MAX_TRACKS_UI) return;
     this.updateGrid((grid) => changeColumnCount(grid, delta));
   }
-
-  /** 지정한 행의 높이 또는 열의 너비(mm)를 변경한다. */
 
   /** 지정한 행의 높이 또는 열의 너비(mm)를 변경한다. */
   setTrack(kind: 'row' | 'column', index: number, mm: number): void {
@@ -176,12 +168,6 @@ export class GridCommandsController {
       }
     });
   }
-
-  /**
-   * 반복 설정을 켜거나 끈다.
-   * 켜면 선택한 행(없으면 마지막 행)을 항목 구간으로 하고, 위쪽 행은 데이터 앞,
-   * 아래쪽 행은 데이터 뒤 구간으로 지정한다. 페이지 방식은 자동 확장으로 시작한다 (§7.1).
-   */
 
   /**
    * 반복 설정을 켜거나 끈다.
@@ -222,8 +208,6 @@ export class GridCommandsController {
   }
 
   /** 반복 설정의 목록 파라미터를 변경한다. */
-
-  /** 반복 설정의 목록 파라미터를 변경한다. */
   setRepeatParameter(key: string): void {
     const el = this.host.selectedElement();
     if (el?.type !== 'grid' || !el.repeat) return;
@@ -232,8 +216,6 @@ export class GridCommandsController {
       grid.repeat!.parameter = key;
     });
   }
-
-  /** 최대 항목 수를 변경한다. null은 제한 없음이다. */
 
   /** 최대 항목 수를 변경한다. null은 제한 없음이다. */
   setRepeatMaxItems(value: number | null): void {
@@ -251,13 +233,6 @@ export class GridCommandsController {
       else grid.repeat!.maxItems = value;
     });
   }
-
-  /**
-   * 페이지 방식을 변경한다.
-   *
-   * @param patch - `mode`: 방식 전환, `minItems`: 자동 확장의 최소 표시 항목 수,
-   *   `itemsPerPage`: 고정 페이지의 페이지당 항목 수
-   */
 
   /**
    * 페이지 방식을 변경한다.
@@ -301,11 +276,6 @@ export class GridCommandsController {
    * 선택한 행 범위에 행 구간 역할을 지정한다.
    * 구간 규칙(항목 구간 하나·세로 순서·병합 경계)을 어기는 지정은 거부한다.
    */
-
-  /**
-   * 선택한 행 범위에 행 구간 역할을 지정한다.
-   * 구간 규칙(항목 구간 하나·세로 순서·병합 경계)을 어기는 지정은 거부한다.
-   */
   setRowBandRole(fromRow: number, toRow: number, placement: GridBandPlacement): void {
     const el = this.host.selectedElement();
     if (el?.type !== 'grid' || !el.repeat) return;
@@ -334,8 +304,6 @@ export class GridCommandsController {
       grid.repeat!.bands = result;
     });
   }
-
-  /** 속성 패널에서 선택한 행 구간의 시작 또는 종료 행을 변경한다. */
 
   /** 속성 패널에서 선택한 행 구간의 시작 또는 종료 행을 변경한다. */
   setBandSelectionBoundary(boundary: 'from' | 'to', rowNumber: number, bandId?: string): void {
@@ -389,8 +357,6 @@ export class GridCommandsController {
   }
 
   /** page-start·page-end 구간의 표시 페이지 필터를 변경한다. */
-
-  /** page-start·page-end 구간의 표시 페이지 필터를 변경한다. */
   setBandPages(bandId: string, pages: OutputPageFilter | ''): void {
     this.updateGrid((grid) => {
       const band = grid.repeat?.bands.find((b) => b.id === bandId);
@@ -401,8 +367,6 @@ export class GridCommandsController {
   }
 
   /** group-start 구간의 페이지 이월 시 반복 표시를 켜거나 끈다. */
-
-  /** group-start 구간의 페이지 이월 시 반복 표시를 켜거나 끈다. */
   setBandRepeatOnPageBreak(bandId: string, on: boolean): void {
     this.updateGrid((grid) => {
       const band = grid.repeat?.bands.find((b) => b.id === bandId);
@@ -411,8 +375,6 @@ export class GridCommandsController {
       else delete (band as { repeatOnPageBreak?: unknown }).repeatOnPageBreak;
     });
   }
-
-  /** 그룹 기준 필드의 선택 상태를 변경한다. */
 
   /** 그룹 기준 필드의 선택 상태를 변경한다. */
   toggleGroupField(key: string, on: boolean): void {
@@ -437,8 +399,6 @@ export class GridCommandsController {
       else grid.repeat!.groupBy = keys;
     });
   }
-
-  /** 행 추가 명령을 고르고 집계 필드의 기본값을 설정한다. */
 
   /** 행 추가 명령을 고르고 집계 필드의 기본값을 설정한다. */
   openRowCommand(command: GridRowCommand): void {
@@ -467,8 +427,6 @@ export class GridCommandsController {
     this.host.edit.startRowCommand(command, this.host.edit.rowCommandField);
     this.host.resetPanelErrors();
   }
-
-  /** 항목 행의 스타일을 바탕으로 행·소계·합계 명령을 한 번에 적용한다. */
 
   /** 항목 행의 스타일을 바탕으로 행·소계·합계 명령을 한 번에 적용한다. */
   applyRowCommand(): void {
@@ -571,10 +529,11 @@ export class GridCommandsController {
   }
 
   /**
-   * 셀의 값 소스 종류를 선택한다.
-   * 파라미터와 수식은 빈 값으로 저장할 수 없어 입력 전에는 화면 상태로만 유지한다.
+   * 인라인 편집으로 입력한 셀의 직접 입력 값을 저장한다.
+   * 파라미터나 수식을 쓰는 셀은 값 소스가 하나뿐이라 저장하지 않고 거부한다 (SPEC §5.7).
+   *
+   * @param value - 입력한 글
    */
-
   commitCellContent(value: string): void {
     const target = this.host.edit.cell;
     if (!target) return;
@@ -600,8 +559,6 @@ export class GridCommandsController {
       ensureCell(element, target.row, target.column).content = value;
     });
   }
-
-  /** 선택 셀의 병합 범위를 변경한다. 유효하지 않은 범위는 거부한다. */
 
   /** 선택 셀의 병합 범위를 변경한다. 유효하지 않은 범위는 거부한다. */
   setCellSpan(kind: 'rowSpan' | 'colSpan', value: number): void {
@@ -657,8 +614,6 @@ export class GridCommandsController {
   }
 
   /** 선택 셀의 스타일 속성을 설정하거나 제거한다. */
-
-  /** 선택 셀의 스타일 속성을 설정하거나 제거한다. */
   updateCellStyle(key: string, value: unknown): void {
     const target = this.host.edit.cell;
     if (!target) return;
@@ -673,8 +628,6 @@ export class GridCommandsController {
   // ---------------------------------------------------------------------------
   // 그리드 편집
   // ---------------------------------------------------------------------------
-
-  /** 그리드를 수정한다. 크기는 행과 열의 합에서 계산하므로 따로 저장하지 않는다. */
 
   /**
    * 셀의 값 소스 종류를 선택한다.
@@ -691,10 +644,6 @@ export class GridCommandsController {
       if (kind === 'content') cell.content = '';
     });
   }
-
-  /**
-   * 셀의 값 소스를 설정하고 다른 종류의 값 소스를 제거한다 (SPEC §5.7).
-   */
 
   /**
    * 셀의 값 소스를 설정하고 다른 종류의 값 소스를 제거한다 (SPEC §5.7).
@@ -735,14 +684,19 @@ export class GridCommandsController {
   // 모달 렌더링
   // ---------------------------------------------------------------------------
 
-  /** 파라미터의 키와 표시 이름을 반환한다. */
-
+  /** 셀 선택과 값 소스 편집 상태를 해제한다. */
   clearCellSelection(): void {
     this.host.resetPanelErrors();
     this.host.edit.clearCellAndSource();
     this.host.refresh();
   }
 
+  /**
+   * 조건부 서식 미리보기에 쓸 항목 하나를 반복 파라미터의 샘플에서 고른다.
+   *
+   * @param el - 대상 그리드
+   * @returns 첫 번째 샘플 항목. 반복 설정이나 샘플이 없으면 undefined
+   */
   repeatProbeItem(el: GridElement): Record<string, unknown> | undefined {
     if (!el.repeat) return undefined;
     const list = this.host.probeValues()[el.repeat.parameter];
@@ -751,8 +705,6 @@ export class GridCommandsController {
       ? (item as Record<string, unknown>)
       : undefined;
   }
-
-  /** 선택 셀의 조건부 서식 규칙 목록을 저장한다. 빈 목록이면 속성을 제거한다. */
 
   /** 행 구간 역할의 표시 이름을 반환한다. */
   bandLabel(placement: GridBandPlacement): string {
@@ -769,8 +721,6 @@ export class GridCommandsController {
   }
 
   /** 행 구간이 출력되는 시점과 대표 용도를 설명한다. */
-
-  /** 행 구간이 출력되는 시점과 대표 용도를 설명한다. */
   bandDescription(placement: GridBandPlacement): string {
     const s = this.host.s;
     switch (placement) {
@@ -783,8 +733,6 @@ export class GridCommandsController {
       case 'page-end': return s.bandPageEndHelp;
     }
   }
-
-  /** 행 구간 역할을 나타내는 아이콘을 반환한다. */
 
   /** 행 구간 역할을 나타내는 아이콘을 반환한다. */
   bandIcon(placement: GridBandPlacement) {

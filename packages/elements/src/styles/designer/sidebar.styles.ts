@@ -243,8 +243,8 @@ export const sidebarStyles = css`
     .side-twisty-gap {
       flex: 0 0 14px;
     }
-    /* 그리드 값의 반복 구간 필드 — 펼침 표시 아래로 한 단 들여 쓴다  */
-    /* 값 목록의 반복 구간 필드 하위 줄(.side-col-row)과 요소 목록의 그리드 셀 하위 줄
+    /* 그리드 값의 항목 구간 필드 — 펼침 표시 아래로 한 단 들여 쓴다  */
+    /* 값 목록의 항목 구간 필드 하위 줄(.side-col-row)과 요소 목록의 그리드 셀 하위 줄
        (.side-cell-row, G-44)은 생김새가 같다 */
     .side-col-row,
     .side-cell-row {

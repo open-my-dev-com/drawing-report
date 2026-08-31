@@ -72,6 +72,8 @@ export interface FormActions {
 /**
  * 현재 페이지의 이름, 페이지 번호, 순서를 편집하는 패널을 렌더링한다.
  *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param form - 양식·페이지·파라미터 편집 동작
  * @returns 페이지 설정 패널 조각
  */
 export function pageSettings(kit: PanelKit, form: FormActions) {
@@ -167,16 +169,11 @@ export function pageSettings(kit: PanelKit, form: FormActions) {
 }
 
 /**
- * 페이지 키를 변경한다. 빈 값은 키를 제거하고 중복 값은 적용하지 않는다(SPEC §4).
- *
- * @param index - 페이지 번호(0-기반)
- * @param raw - 입력한 물리명
- */
-
-/**
  * 양식 제목, 용지 크기, 방향, 여백을 편집하는 패널을 렌더링한다.
  * 방향과 프리셋은 파일에 별도로 저장하지 않고 용지 너비와 높이에 반영한다.
  *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param form - 양식·페이지·파라미터 편집 동작
  * @returns 양식 설정 패널 조각
  */
 export function formSettings(kit: PanelKit, form: FormActions) {
@@ -363,6 +360,14 @@ export function formSettings(kit: PanelKit, form: FormActions) {
   `;
 }
 
+/**
+ * 파라미터의 물리명, 논리명, 값 종류와 목록 하위 필드를 편집하는 패널을 렌더링한다.
+ *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param form - 양식·페이지·파라미터 편집 동작
+ * @param key - 편집할 파라미터의 물리명
+ * @returns 파라미터 설정 패널. 없는 키면 양식 설정 패널
+ */
 export function parameterPanel(kit: PanelKit, form: FormActions, key: string) {
   const s = kit.s;
   const info = form.parameters().find((b) => b.key === key);
@@ -436,14 +441,23 @@ export function parameterPanel(kit: PanelKit, form: FormActions, key: string) {
 
 /**
  * 그리드 셀의 파라미터 선택기를 렌더링한다.
- * 반복 구간 안에서는 목록 하위 필드를, 밖에서는 목록이 아닌 최상위 파라미터를 표시한다.
+ * 항목 구간 안에서는 목록 하위 필드를, 밖에서는 목록이 아닌 최상위 파라미터를 표시한다.
  *
  * @param el - 대상 그리드
  * @param current - 현재 셀에 설정된 값 키
- * @param inBand - 이 셀이 반복 구간 안인지
+ * @param inBand - 이 셀이 항목 구간 안인지
  * @returns 값 선택 조각
  */
 
+/**
+ * 목록 파라미터의 하위 필드 하나를 편집하는 패널을 렌더링한다.
+ *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param form - 양식·페이지·파라미터 편집 동작
+ * @param listKey - 하위 필드를 가진 목록 파라미터의 물리명
+ * @param fieldKey - 편집할 하위 필드의 물리명
+ * @returns 하위 필드 설정 패널. 없는 키면 양식 설정 패널
+ */
 export function parameterFieldPanel(kit: PanelKit, form: FormActions, listKey: string, fieldKey: string) {
   const s = kit.s;
   const parent = form.parameters().find((b) => b.key === listKey);

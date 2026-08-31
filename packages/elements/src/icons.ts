@@ -16,7 +16,7 @@ export const icons = {
   /** lucide: type */
   text: icon(svg`<path d="M12 4v16" /><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" /><path d="M9 20h6" />`),
   /**
-   * 반복 구간을 강조한 그리드 요소 아이콘.
+   * 항목 구간을 강조한 그리드 요소 아이콘.
    */
   gridElement: icon(svg`<rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path d="M3 15h18" /><path d="M12 3v18" /><rect x="3" y="9" width="18" height="6" fill="currentColor" opacity="0.25" stroke="none" />`),
   /** lucide: image */

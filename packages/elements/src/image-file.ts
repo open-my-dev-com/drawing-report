@@ -50,7 +50,12 @@ export function pickImageFile(maxBytes: number): Promise<ImagePickResult> {
   });
 }
 
-/** 바이트 수를 오류 메시지에 표시할 단위로 변환한다. */
+/**
+ * 바이트 수를 오류 메시지에 표시할 단위로 변환한다.
+ *
+ * @param bytes - 바이트 수
+ * @returns MB·KB·B 단위로 줄인 문자열
+ */
 export function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${Math.round((bytes / (1024 * 1024)) * 10) / 10}MB`;
   if (bytes >= 1024) return `${Math.round(bytes / 1024)}KB`;

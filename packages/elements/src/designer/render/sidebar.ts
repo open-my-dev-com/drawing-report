@@ -69,6 +69,10 @@ export interface SidebarActions {
 
 /**
  * 페이지, 요소, 파라미터를 탐색하고 선택하는 왼쪽 사이드바를 렌더링한다.
+ *
+ * @param kit - 사이드바 렌더링에 필요한 문구와 상태
+ * @param side - 사이드바 선택과 편집 동작
+ * @returns 사이드바 조각
  */
 export function sidebar(kit: PanelKit, side: SidebarActions) {
   const file = side.file!;
@@ -155,6 +159,8 @@ export function sidebar(kit: PanelKit, side: SidebarActions) {
 /**
  * 요소와 값이 있는 그리드 셀을 사이드바 행으로 표시한다.
  *
+ * @param kit - 사이드바 렌더링에 필요한 문구와 상태
+ * @param side - 사이드바 선택과 편집 동작
  * @param pageIndex - 이 요소가 있는 페이지 번호
  * @param el - 그릴 요소
  * @returns 요소 줄과 (그리드면) 펼쳐진 셀 하위 줄
@@ -196,6 +202,14 @@ export function elementRow(kit: PanelKit, side: SidebarActions, pageIndex: numbe
  * @returns 셀의 위치와 표시 이름(셀 이름이 없으면 행과 열 좌표)
  */
 
+/**
+ * 파라미터와 목록 하위 필드를 사이드바 행으로 표시한다.
+ *
+ * @param kit - 사이드바 렌더링에 필요한 문구와 상태
+ * @param side - 사이드바 선택과 편집 동작
+ * @param b - 표시할 파라미터 정보
+ * @returns 파라미터 줄과 (목록이면) 하위 필드 줄
+ */
 export function parameterRow(kit: PanelKit, side: SidebarActions, b: ParameterInfo) {
   const s = kit.s;
   const sel = side.selection;

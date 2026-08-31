@@ -791,7 +791,7 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  /** 값 하나(합계금액)와 반복 구간을 가진 그리드 하나(items · 하위 필드 a)를 둔 양식 */
+  /** 값 하나(합계금액)와 항목 구간을 가진 그리드 하나(items · 하위 필드 a)를 둔 양식 */
   function makeFileWithRepeatGrid(): ReturnType<typeof makeTemplateFile> {
     const file = makeTemplateFile();
     file.template.pages.push({
@@ -875,7 +875,7 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  it('파라미터 목록은 양식 전체의 field·그리드 파라미터를 모으고, 반복 구간 필드는 하위 줄로 보여준다', async () => {
+  it('파라미터 목록은 양식 전체의 field·그리드 파라미터를 모으고, 항목 구간 필드는 하위 줄로 보여준다', async () => {
     const file = makeTemplateFile();
     file.template.pages.push({
       elements: [
@@ -906,7 +906,7 @@ describe('<slip-designer> 사이드바', () => {
     const rows = section.querySelectorAll('.side-row');
     // 반복 파라미터는 목록 파라미터로 등록한다.
     expect(Array.from(rows).map((r) => r.textContent?.trim())).toEqual(['items', '합계금액']);
-    // 반복 구간의 셀 파라미터는 목록 하위 필드로 표시한다.
+    // 항목 구간의 셀 파라미터는 목록 하위 필드로 표시한다.
     twisty(el, 'items')!.click();
     await el.updateComplete;
     expect(Array.from(sideSection(el, strings.designer.sidebarParameters)
@@ -952,7 +952,7 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  it('반복 구간이 쓰는 파라미터는 열 때 목록으로 선언되고 하위 필드가 채워진다 (ADR-047)', async () => {
+  it('항목 구간이 쓰는 파라미터는 열 때 목록으로 선언되고 하위 필드가 채워진다 (ADR-047)', async () => {
     const file = makeTemplateFile();
     // 값 종류가 선언되지 않은 기존 파일을 사용한다.
     file.template.parameters = [{ key: 'items', label: '품목' }];
@@ -978,7 +978,7 @@ describe('<slip-designer> 사이드바', () => {
 
     const defs = (el as unknown as { _file: SlipTemplateFile })._file.template.parameters!;
     const items = defs.find((b) => b.key === 'items')!;
-    // 반복 구간이 있다는 것은 그 값이 목록이라는 뜻이다
+    // 항목 구간이 있다는 것은 그 값이 목록이라는 뜻이다
     expect(items.valueType).toBe('list');
     // 구간 칸이 읽는 이름이 하위 필드로 선언되고, 이름은 헤더의 직접 입력한 글을 쓴다
     expect(items.fields?.map((f) => [f.key, f.label])).toEqual([['itemName', '품명']]);
@@ -987,7 +987,7 @@ describe('<slip-designer> 사이드바', () => {
 
   it('목록이 아닌 종류로 선언된 파라미터는 열 때 건드리지 않는다', async () => {
     const file = makeTemplateFile();
-    // 반복 구간에서 참조하지만 값 종류는 text로 선언되어 있다.
+    // 항목 구간에서 참조하지만 값 종류는 text로 선언되어 있다.
     file.template.parameters = [{ key: 'items', label: '품목', valueType: 'text' }];
     file.template.pages[0]!.elements = [{
       type: 'grid' as const, id: 'g-1', name: 'g', position: { x: 10, y: 10 },
@@ -1113,7 +1113,7 @@ describe('<slip-designer> 사이드바', () => {
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await loadDesigner();
 
-    // 하위 줄 이름은 반복 구간 위쪽 같은 열의 직접 입력한 글, 없으면 물리명이다 (펼쳐야 보인다)
+    // 하위 줄 이름은 항목 구간 위쪽 같은 열의 직접 입력한 글, 없으면 물리명이다 (펼쳐야 보인다)
     twisty(el, 'items')!.click();
     await el.updateComplete;
     const cols = sideSection(el, strings.designer.sidebarParameters).querySelectorAll('.side-col-row');

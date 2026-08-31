@@ -38,7 +38,12 @@ export const RESIZE_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as co
 
 export type ResizeHandle = (typeof RESIZE_HANDLES)[number];
 
-/** mm 좌표를 0.1mm 단위로 반올림 */
+/**
+ * mm 좌표를 0.1mm 단위로 반올림
+ *
+ * @param v - 반올림할 값(mm)
+ * @returns 0.1mm 단위로 반올림한 값
+ */
 export function round1(v: number): number {
   return Math.round(v * 10) / 10;
 }
@@ -92,7 +97,14 @@ export function lineBoxFromLengthAngle(
   return { width, height, lineDirection: a < 90 ? 'down' : 'up' };
 }
 
-/** PDF 변환과 같은 규칙으로 정다각형 꼭짓점 좌표를 계산한다. */
+/**
+ * PDF 변환과 같은 규칙으로 정다각형 꼭짓점 좌표를 계산한다.
+ *
+ * @param sides - 변의 개수
+ * @param width - 요소 너비(px)
+ * @param height - 요소 높이(px)
+ * @returns 꼭짓점의 px 좌표 목록
+ */
 export function polygonPointsPx(sides: number, width: number, height: number): [number, number][] {
   const raw: [number, number][] = Array.from({ length: sides }, (_, index) => {
     const angle = -Math.PI / 2 + (index * 2 * Math.PI) / sides;
@@ -109,7 +121,12 @@ export function polygonPointsPx(sides: number, width: number, height: number): [
   return raw.map(([x, y]) => [((x - minX) / spanX) * width, ((y - minY) / spanY) * height]);
 }
 
-/** 선 요소의 방향에 따른 두 끝점 좌표(mm)를 계산한다. */
+/**
+ * 선 요소의 방향에 따른 두 끝점 좌표(mm)를 계산한다.
+ *
+ * @param el - 선 요소의 위치, 크기와 방향
+ * @returns 시작점과 끝점의 mm 좌표
+ */
 export function lineEndpoints(el: {
   position: { x: number; y: number };
   width: number;
@@ -131,7 +148,12 @@ export function lineEndpoints(el: {
   }
 }
 
-/** 요소의 표시 크기(mm). 그리드는 열 너비와 행 높이의 합에서 계산한다. */
+/**
+ * 요소의 표시 크기(mm). 그리드는 열 너비와 행 높이의 합에서 계산한다.
+ *
+ * @param el - 대상 요소
+ * @returns 표시 너비와 높이(mm)
+ */
 export function boxOf(el: SlipElement): { width: number; height: number } {
   return elementBounds(el);
 }
@@ -163,7 +185,12 @@ export function setElementBox(el: SlipElement, width?: number, height?: number):
   if (height !== undefined) el.height = height;
 }
 
-/** 트랙 크기 배열을 누적 오프셋 배열로 변환한다. */
+/**
+ * 트랙 크기 배열을 누적 오프셋 배열로 변환한다.
+ *
+ * @param sizes - 트랙 크기 목록
+ * @returns 트랙 개수보다 하나 많은 누적 오프셋 목록
+ */
 export function trackOffsets(sizes: readonly number[]): number[] {
   const offsets = [0];
   for (const size of sizes) offsets.push((offsets[offsets.length - 1] ?? 0) + size);

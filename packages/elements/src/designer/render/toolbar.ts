@@ -74,6 +74,12 @@ export interface ToolbarActions {
   refresh(): void;
 }
 
+/**
+ * 요소 추가, 편집 명령, 화면 배율과 저장·미리보기를 제공하는 위쪽 툴바를 렌더링한다.
+ *
+ * @param bar - 툴바 동작과 표시 상태
+ * @returns 툴바 조각
+ */
 export function toolbar(bar: ToolbarActions) {
   const s = bar.s;
   return html`
@@ -201,9 +207,15 @@ export function toolbar(bar: ToolbarActions) {
   `;
 }
 
-/** 현재 선택된 캔버스 격자선 색을 반환한다. */
-
-/** 아이콘, 표시 이름, 접근성 레이블로 툴바 버튼을 만든다. */
+/**
+ * 아이콘, 표시 이름, 접근성 레이블로 툴바 버튼을 만든다.
+ *
+ * @param label - 표시 이름이자 접근성 레이블
+ * @param glyph - 버튼에 넣을 아이콘
+ * @param onClick - 누를 때 실행할 함수
+ * @param opts - 비활성 여부와 눌림 상태
+ * @returns 툴바 버튼
+ */
 export function iconButton(
   label: string,
   glyph: TemplateResult,

@@ -1033,12 +1033,12 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     el.remove();
   });
 
-  it('그리드가 쓰는 값은 사이드바에, 반복 구간 칸의 항목 필드는 그 하위 줄에 나온다', async () => {
+  it('그리드가 쓰는 값은 사이드바에, 항목 구간 칸의 항목 필드는 그 하위 줄에 나온다', async () => {
     const el = await mount();
     const labels = Array.from(el.shadowRoot!.querySelectorAll('.side-row'))
       .map((r) => r.textContent?.trim() ?? '');
     expect(labels.some((l) => l.includes('items'))).toBe(true);
-    // 반복 구간의 칸은 목록 항목의 필드로 표시한다.
+    // 항목 구간의 칸은 목록 항목의 필드로 표시한다.
     expect(Array.from(el.shadowRoot!.querySelectorAll('.side-col-row'))
       .map((r) => r.textContent?.trim())).toEqual(['품명']);
     el.remove();

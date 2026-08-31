@@ -49,7 +49,7 @@ function parseInputValue(text: string): string | number {
 }
 
 /**
- * 반복 구간 위쪽에서 같은 열의 헤더 텍스트를 찾는다.
+ * 항목 구간 위쪽에서 같은 열의 헤더 텍스트를 찾는다.
  */
 function gridHeaderTitle(grid: GridElement, column: number, fromRow: number): string | undefined {
   for (let row = fromRow - 1; row >= 0; row -= 1) {

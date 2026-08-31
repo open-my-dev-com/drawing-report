@@ -95,6 +95,15 @@ export interface GridActions {
   repeatProbeItem(el: GridElement): Record<string, unknown> | undefined;
 }
 
+/**
+ * 그리드의 행·열, 행 구간, 페이지 방식과 선택한 셀을 편집하는 패널을 렌더링한다.
+ *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param grid - 그리드 편집 동작
+ * @param el - 선택한 그리드 요소
+ * @returns 그리드 속성 패널 조각
+ */
 export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions, el: GridElement) {
   const s = kit.s;
   const cellTarget = grid.edit.cell;
@@ -258,9 +267,14 @@ export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions,
       `;
 }
 
-/** 내부 구간 조합 대신 작업 목적으로 행을 추가하는 명령을 렌더링한다. */
-
-/** 내부 구간 조합 대신 작업 목적으로 행을 추가하는 명령을 렌더링한다. */
+/**
+ * 내부 구간 조합 대신 작업 목적으로 행을 추가하는 명령을 렌더링한다.
+ *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param grid - 그리드 편집 동작
+ * @param el - 선택한 그리드 요소
+ * @returns 행 추가 명령 조각
+ */
 export function gridRowCommands(kit: PanelKit, grid: GridActions, el: GridElement) {
   const s = kit.s;
   const command = grid.edit.rowCommand;
@@ -353,11 +367,12 @@ export function gridRowCommands(kit: PanelKit, grid: GridActions, el: GridElemen
 /**
  * 행 구간 목록을 렌더링한다.
  * 캔버스의 행 번호 선택 영역과 같은 색상 표식·이름으로 구간을 식별한다 (§7.2).
- */
-
-/**
- * 행 구간 목록을 렌더링한다.
- * 캔버스의 행 번호 선택 영역과 같은 색상 표식·이름으로 구간을 식별한다 (§7.2).
+ *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param grid - 그리드 편집 동작
+ * @param el - 선택한 그리드 요소
+ * @returns 행 구간 목록 조각. 반복 설정이 없으면 행 명령만 표시한다
  */
 export function bandList(kit: PanelKit, act: ElementActions, grid: GridActions, el: GridElement) {
   const s = kit.s;
@@ -507,13 +522,23 @@ export function bandList(kit: PanelKit, act: ElementActions, grid: GridActions, 
     </div>`;
 }
 
-/** 셀 선택을 해제하고 그리드 전체 편집으로 돌아간다. */
-
-/** 선택한 그리드 셀의 값, 병합, 글자, 색상, 테두리를 편집하는 패널을 렌더링한다. */
+/**
+ * 선택한 그리드 셀의 값, 병합, 글자, 색상, 테두리를 편집하는 패널을 렌더링한다.
+ *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param grid - 그리드 편집 동작
+ * @param el - 셀이 속한 그리드 요소
+ * @param cellTarget - 선택한 셀의 행·열. 선택이 없으면 null
+ * @param cellDef - 선택한 셀의 정의. 아직 만들지 않았으면 undefined
+ * @param source - 셀이 쓰는 값 소스
+ * @param inBand - 선택한 셀이 항목 구간 안인지
+ * @returns 셀 편집 패널 조각. 선택한 셀이 없으면 빈 것
+ */
 export function gridCellProps(
-kit: PanelKit,
-act: ElementActions,
-grid: GridActions,
+  kit: PanelKit,
+  act: ElementActions,
+  grid: GridActions,
   el: GridElement,
   cellTarget: { row: number; column: number } | null,
   cellDef: GridCell | undefined,

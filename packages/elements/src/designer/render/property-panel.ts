@@ -55,6 +55,12 @@ export interface PanelContext {
   typeName(type: SlipElement['type']): string;
 }
 
+/**
+ * 선택 대상에 맞는 속성 패널을 오른쪽에 렌더링한다.
+ *
+ * @param ctx - 속성 패널 렌더링에 필요한 상태와 동작
+ * @returns 속성 패널 조각
+ */
 export function propertyPanel(ctx: PanelContext) {
   // 선택 대상에 따라 페이지, 파라미터, 그룹 또는 요소 패널을 표시한다.
   const sel = ctx.selection;
@@ -154,6 +160,13 @@ export function propertyPanel(ctx: PanelContext) {
   `;
 }
 
+/**
+ * 요소 종류별 속성 구역을 렌더링한다.
+ *
+ * @param ctx - 속성 패널 렌더링에 필요한 상태와 동작
+ * @param el - 선택한 요소
+ * @returns 종류별 속성 조각
+ */
 export function typeProps(ctx: PanelContext, el: SlipElement) {
   switch (el.type) {
     case 'text':

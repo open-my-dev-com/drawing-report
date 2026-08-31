@@ -196,90 +196,19 @@ import {
 } from './designer/grid-model.js';
 import type { GridRowCommand } from './designer/grid-model.js';
 
-
 /** 파라미터 키와 충돌하지 않는 "새 값 등록" 항목의 내부 값 */
 const NEW_BINDING_OPTION = '\u0000new';
 
-
-
-
-
-
 const MAX_UNDO = 50;
-/**
- * 파라미터 값 종류 선택지.
- * 종류를 지정하지 않은 값은 텍스트로 처리한다.
- */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * 업로드할 수 있는 이미지 파일의 기본 최대 크기(바이트).
  * base64로 담기면 약 33% 커지므로 2MB 원본이 파일에는 ~2.7MB로 들어간다.
  */
 const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /** 새 요소의 기본 위치를 순차 이동할 간격과 반복 주기(mm) */
 const NEW_ELEMENT_CASCADE_STEP_MM = 5;
 const NEW_ELEMENT_CASCADE_WRAP_MM = 50;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/** 사이드바에서 선택한 페이지와 파라미터를 나타낸다. */
 
 /**
  * `.slip` 양식을 편집하는 `<slip-designer>` 컴포넌트.
@@ -406,7 +335,6 @@ export class SlipDesigner extends LitElement {
   /** 도형 선택 메뉴의 열림 상태 */
   private _shapeMenuOpen = false;
   private _shapeMenuPos = { left: 0, top: 0 };
-  /** 수식 모달의 편집 중 값 */
   /**
    * 사이드바에서 미리보기를 표시 중인 페이지 번호.
    */
@@ -437,18 +365,10 @@ export class SlipDesigner extends LitElement {
   /** 페이지 키 중복 오류 여부 */
   private _pageKeyError = false;
   /**
-   * 모달을 열 때 조회한 양식 메타데이터 목록.
-   * 검색과 페이지 이동은 이 목록을 기준으로 처리한다.
-   */
-    /**
    * 요소 ID별 좌표 기준점의 ANCHORS 인덱스.
    * 파일에는 저장하지 않으며 기본값은 왼쪽 위다.
    */
   private _anchorByElement = new Map<string, number>();
-  /**
-   * 그리드 셀에서 편집 중인 값 소스 종류.
-   */
-
   /** 컴포넌트 속성이 우선하고, 없으면 slipkit 설정을 따르는 UI 언어 로케일 */
   private get _locale(): string | undefined {
     return this.locale ?? this.slipkit?.locale;
@@ -511,7 +431,6 @@ export class SlipDesigner extends LitElement {
   /** 열려 있는 모달 */
   private readonly _dialogs = new DialogsController(this);
 
-
   /** 속성 패널 렌더 모듈에 넘길 공통 입력 도구 */
   private get _kit(): PanelKit {
     return {
@@ -526,7 +445,6 @@ export class SlipDesigner extends LitElement {
       applyElementColor: (key, value) => this._applyColor(key, value),
     };
   }
-
 
   /** 요소 속성 줄이 요청하는 조작 */
   private get _actions(): ElementActions {
@@ -568,14 +486,6 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-
-
-
-
-
-
-
-
   /** 그리드를 고치는 조작 */
   private readonly _gridCommands = new GridCommandsController(this._gridCommandsHost());
 
@@ -600,7 +510,6 @@ export class SlipDesigner extends LitElement {
 
   /** 캔버스 포인터 조작 */
   private readonly _pointer = new CanvasPointerController(this._pointerHost());
-
 
   /** 포인터 조작이 문서에 요청하는 것 */
   private _pointerHost(): PointerHost {
@@ -632,7 +541,6 @@ export class SlipDesigner extends LitElement {
     refresh: () => owner.requestUpdate(),
   };
   }
-
 
   /** 모달 화면이 쓰는 상태와 조작 */
   private get _dialogContext(): DialogContext {
@@ -993,7 +901,7 @@ export class SlipDesigner extends LitElement {
    * 반복 그리드에서 사용하는 목록 파라미터와 하위 필드를 정의에 추가한다.
    *
    * @remarks
-   * 정의되지 않은 반복 파라미터는 목록으로 추가하고 반복 구간의 셀 파라미터는 하위 필드로
+   * 정의되지 않은 반복 파라미터는 목록으로 추가하고 항목 구간의 셀 파라미터는 하위 필드로
    * 추가한다. 이미 지정된 값 종류와 레이블은 변경하지 않는다. 목록이 아닌 파라미터에는
    * 하위 필드를 추가하지 않는다.
    */
@@ -1499,7 +1407,6 @@ export class SlipDesigner extends LitElement {
   // Pointer events (canvas drag)
   // ---------------------------------------------------------------------------
 
-
   private _applyLineLengthAngle(length: number, angle: number): void {
     if (!Number.isFinite(length) || !Number.isFinite(angle) || length < 0) {
       this._rejectInput();
@@ -1521,14 +1428,6 @@ export class SlipDesigner extends LitElement {
     }
     this.focus({ preventScroll: true });
   }
-
-
-
-
-
-
-
-
 
   private _onKeyDown = (e: KeyboardEvent): void => {
     // 입력 필드 안에서는 편집기 단축키를 가로채지 않는다.
@@ -1697,7 +1596,6 @@ export class SlipDesigner extends LitElement {
   // Render: toolbar
   // ---------------------------------------------------------------------------
 
-
   private _gridLine(): string {
     return GRID_COLORS.find((color) => color.id === this._gridColor)!.line;
   }
@@ -1756,7 +1654,6 @@ export class SlipDesigner extends LitElement {
     // 목록이 화면 아래로 넘치지 않게 남은 높이 안에서만 편다.
     this._popovers.toggle('list', id, () => placeBelow(e.currentTarget as HTMLElement, 120, 280));
   }
-
 
   /** 프리셋 메뉴를 버튼 아래의 화면 고정 위치에서 열거나 닫는다. */
   private _togglePresetMenu(e: Event): void {
@@ -1960,7 +1857,6 @@ export class SlipDesigner extends LitElement {
     }
     return list;
   }
-
 
   private _toggleParameterRow(key: string): void {
     if (this._expandedParameters.has(key)) this._expandedParameters.delete(key);
@@ -2178,7 +2074,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 하위 필드 키와 해당 필드를 참조하는 반복 구간 셀을 함께 변경한다.
+   * 하위 필드 키와 해당 필드를 참조하는 항목 구간 셀을 함께 변경한다.
    *
    * @param listKey - 목록 파라미터 물리명
    * @param key - 현재 필드 키
@@ -2358,8 +2254,6 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-
-
   private _formulaProbeValues(): Record<string, unknown> {
     const samples = this._file?.template.sampleValues ?? {};
     const probeFor = (type: ParameterValueType | undefined): unknown => {
@@ -2431,8 +2325,6 @@ export class SlipDesigner extends LitElement {
     return out;
   }
 
-
-
   private _onBandRowClick(row: number, extend: boolean): void {
     const previous = this._gridEdit.bandRange;
     this._gridEdit.selectBand(
@@ -2473,7 +2365,6 @@ export class SlipDesigner extends LitElement {
     event.stopPropagation();
     items[next]?.focus();
   };
-
 
   private _updateFile(fn: (file: SlipTemplateFile) => void): void {
     // 유효한 편집이 적용되면 이전 입력 오류를 지운다.
@@ -2565,8 +2456,6 @@ export class SlipDesigner extends LitElement {
     await this._loadPaperSizes();
   }
 
-
-
   private _groupSelected(): void {
     if (this._selectedIds.size < 2) return;
     const ids = new Set(this._selectedIds);
@@ -2596,7 +2485,6 @@ export class SlipDesigner extends LitElement {
       }
     });
   }
-
 
   private _selectGridCellAt(at: { pageIndex: number; gridId: string; row: number; column: number }): void {
     this._resetPanelErrors();
@@ -2947,7 +2835,6 @@ export class SlipDesigner extends LitElement {
   // Render: type-specific props
   // ---------------------------------------------------------------------------
 
-
   private _convertTextField(to: 'text' | 'field'): void {
     const el = this._findSelectedElement();
     if (!el || (el.type !== 'text' && el.type !== 'field') || el.type === to) return;
@@ -3001,10 +2888,6 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-
-
-
-
   private _togglePropertyMenu(key: string, event: Event): void {
     this._popovers.toggle(
       'property',
@@ -3033,20 +2916,16 @@ export class SlipDesigner extends LitElement {
   /** 격자 설정 메뉴의 화면 좌표 */
   private _gridMenuPos = { left: 0, top: 0 };
 
-
-
   /** 요소의 색상 속성을 설정하거나 제거하고 색 선택기 상태를 갱신한다. */
   private _applyColor(key: string, value: string | null): void {
     if (value) this._picker.seed(value);
     this._updateElement((el) => setOptional(el, key, value || null));
   }
 
-
   private _collectParameters(): { key: string; label: string }[] {
     return this._parameterList().map((b) => ({ key: b.key, label: b.label }));
   }
 
-  
   /** 이미지 선택 모달을 연다. */
   private _openImageModal(): void {
     this._imageError = null;
@@ -3247,9 +3126,6 @@ export class SlipDesigner extends LitElement {
   }
 
 }
-
-
-
 
 customElements.define('slip-designer', SlipDesigner);
 

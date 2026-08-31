@@ -72,7 +72,12 @@ export interface DialogContext {
   refresh(): void;
 }
 
-/** 문법 검사, 샘플 계산, 파라미터 및 함수 삽입을 제공하는 수식 모달을 렌더링한다. */
+/**
+ * 문법 검사, 샘플 계산, 파라미터 및 함수 삽입을 제공하는 수식 모달을 렌더링한다.
+ *
+ * @param d - 모달 렌더링에 필요한 상태와 동작
+ * @returns 수식 모달. 열려 있지 않으면 빈 것
+ */
 export function formulaModal(d: DialogContext) {
   if (!d.dialogs.isOpen('formula')) return nothing;
   const el = d.selectedElement();
@@ -168,11 +173,11 @@ export function formulaModal(d: DialogContext) {
 }
 
 /**
- * 파일을 업로드하거나 양식에서 사용 중인 이미지를 선택하는 모달을 렌더링한다.
- * 이미지 값은 base64만 지원하므로 URL 입력은 제공하지 않는다.
+ * 목록 파라미터의 하위 필드 자동완성 항목을 렌더링한다.
+ *
+ * @param d - 모달 렌더링에 필요한 상태와 동작
+ * @returns 자동완성 목록. 후보가 없으면 빈 것
  */
-
-/** 목록 파라미터의 하위 필드 자동완성 항목을 렌더링한다. */
 export function columnSuggestions(d: DialogContext) {
   const suggestion = d.formula.suggestion(d.parameters());
   if (!suggestion) return nothing;
@@ -189,11 +194,12 @@ export function columnSuggestions(d: DialogContext) {
   `;
 }
 
-/** 문법 검사, 샘플 계산, 파라미터 및 함수 삽입을 제공하는 수식 모달을 렌더링한다. */
-
 /**
  * 파일을 업로드하거나 양식에서 사용 중인 이미지를 선택하는 모달을 렌더링한다.
  * 이미지 값은 base64만 지원하므로 URL 입력은 제공하지 않는다.
+ *
+ * @param d - 모달 렌더링에 필요한 상태와 동작
+ * @returns 이미지 모달. 열려 있지 않으면 빈 것
  */
 export function imageModal(d: DialogContext) {
   if (!d.dialogs.isOpen('image')) return nothing;
@@ -240,11 +246,12 @@ export function imageModal(d: DialogContext) {
   `;
 }
 
-/** 샘플 값을 설정하고, 남은 값이 없으면 sampleValues를 제거한다. */
-
 /**
  * 파라미터별 샘플 데이터를 편집하는 모달을 렌더링한다.
  * 반복 파라미터는 그리드 열에 맞춰 행 단위로 편집한다.
+ *
+ * @param d - 모달 렌더링에 필요한 상태와 동작
+ * @returns 샘플 데이터 모달. 열려 있지 않으면 빈 것
  */
 export function sampleModal(d: DialogContext) {
   if (!d.dialogs.isOpen('sample') || !d.file) return nothing;
@@ -389,11 +396,17 @@ export function sampleModal(d: DialogContext) {
   `;
 }
 
-/** JSON 초안을 sampleValues에 반영하고, 빈 객체이면 sampleValues를 제거한다. */
-
-/** 반복 파라미터의 샘플 행을 열 구조에 맞춰 편집한다. */
+/**
+ * 반복 파라미터의 샘플 행을 열 구조에 맞춰 편집한다.
+ *
+ * @param d - 모달 렌더링에 필요한 상태와 동작
+ * @param b - 편집할 목록 파라미터의 키와 논리명
+ * @param columns - 그리드 셀에서 모은 열 키와 제목
+ * @param raw - 현재 샘플 값
+ * @returns 샘플 행 편집 표
+ */
 export function sampleTable(
-d: DialogContext,
+  d: DialogContext,
   b: { key: string; label: string },
   columns: { key: string; title: string }[],
   raw: unknown,
@@ -443,9 +456,14 @@ d: DialogContext,
 // 내 양식 저장 및 불러오기
 // ---------------------------------------------------------------------------
 
-/** 현재 양식 제목으로 저장 모달을 연다. */
-
-/** 이미지 파라미터의 샘플 파일을 선택하고 미리보기를 표시한다. */
+/**
+ * 이미지 파라미터의 샘플 파일을 선택하고 미리보기를 표시한다.
+ *
+ * @param d - 모달 렌더링에 필요한 상태와 동작
+ * @param b - 편집할 이미지 파라미터의 키와 논리명
+ * @param raw - 현재 샘플 값
+ * @returns 파일 선택과 미리보기 조각
+ */
 export function sampleImage(d: DialogContext, b: { key: string; label: string }, raw: unknown) {
   const s = d.s;
   const chosen = typeof raw === 'string' && raw.startsWith('data:');
@@ -472,9 +490,12 @@ export function sampleImage(d: DialogContext, b: { key: string; label: string },
   `;
 }
 
-/** 반복 파라미터의 샘플 행을 열 구조에 맞춰 편집한다. */
-
-/** 양식 제목과 새 저장 여부를 입력하는 저장 모달을 렌더링한다. */
+/**
+ * 양식 제목과 새 저장 여부를 입력하는 저장 모달을 렌더링한다.
+ *
+ * @param d - 모달 렌더링에 필요한 상태와 동작
+ * @returns 저장 모달. 열려 있지 않으면 빈 것
+ */
 export function saveModal(d: DialogContext) {
   if (!d.dialogs.isOpen('save') || !d.file) return nothing;
   const s = d.s;
@@ -522,9 +543,12 @@ export function saveModal(d: DialogContext) {
   `;
 }
 
-/** 저장된 양식을 검색하고 불러오거나 삭제하는 모달을 렌더링한다. */
-
-/** 저장된 양식을 검색하고 불러오거나 삭제하는 모달을 렌더링한다. */
+/**
+ * 저장된 양식을 검색하고 불러오거나 삭제하는 모달을 렌더링한다.
+ *
+ * @param d - 모달 렌더링에 필요한 상태와 동작
+ * @returns 양식 목록 모달. 열려 있지 않으면 빈 것
+ */
 export function myFormsModal(d: DialogContext) {
   if (!d.dialogs.isOpen('myForms')) return nothing;
   const s = d.s;
@@ -560,9 +584,12 @@ export function myFormsModal(d: DialogContext) {
   `;
 }
 
-/** 검색 결과를 페이지 단위로 나눠 목록 모달에 렌더링한다. */
-
-/** 검색 결과를 페이지 단위로 나눠 목록 모달에 렌더링한다. */
+/**
+ * 검색 결과를 페이지 단위로 나눠 목록 모달에 렌더링한다.
+ *
+ * @param d - 모달 렌더링에 필요한 상태와 동작
+ * @returns 현재 페이지의 양식 목록
+ */
 export function myFormsPage(d: DialogContext) {
   const s = d.s;
   const filtered = d.forms.filtered();

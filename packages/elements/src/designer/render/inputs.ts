@@ -19,6 +19,7 @@ import type { PanelKit } from './panel-kit.js';
  * 명시된 값이 없으면 기본값을 표시하는 숫자 입력 행을 만든다.
  * 기본값과 같은 값은 파일에 저장하지 않으며 잘못된 입력은 이전 값으로 되돌린다.
  *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param label - 항목 이름
  * @param current - 현재 저장된 값
  * @param fallback - 지정하지 않았을 때 실제로 적용되는 값
@@ -74,16 +75,10 @@ export function numberRow(
 }
 
 /**
- * 선의 길이와 각도를 요소 영역 및 방향 값으로 변환해 저장한다.
- *
- * @param length - 길이(mm)
- * @param angle - 각도(도)
- */
-
-/**
  * 하위 항목이 있는 사이드바 행에 펼침 버튼을 표시한다.
  * 하위 항목이 없으면 같은 너비의 빈 공간을 표시한다.
  *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param hasChildren - 하위 줄이 있는지
  * @param expanded - 현재 펼침 상태
  * @param name - 무엇을 펼치고 접는지 (읽어 주는 이름에 쓴다)
@@ -107,10 +102,14 @@ export function twisty(
 }
 
 /**
- * 파라미터와 목록 하위 필드를 사이드바 행으로 표시한다.
+ * 굵게, 밑줄, 취소선 토글을 렌더링한다.
+ *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param current - 현재 글자 강조 상태
+ * @param apply - 바뀐 강조를 저장하는 콜백
+ * @param ariaPrefix - 접근성 레이블 앞에 붙일 대상 이름
+ * @returns 강조 토글 세 개
  */
-
-/** 굵게, 밑줄, 취소선 토글을 렌더링한다. */
 export function textStyleToggles(
   kit: PanelKit,
   current: {
@@ -142,17 +141,14 @@ export function textStyleToggles(
 /**
  * 테두리 굵기 선택기를 선 미리보기와 함께 렌더링한다.
  *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param current - 명시된 굵기 (미지정이면 fallback이 유효값)
  * @param fallback - 미지정일 때의 유효 굵기 (요소 기본값 또는 셀이 상속하는 요소 값)
  * @param allowNone - 0 굵기 선택지를 표시할지 여부
- */
-
-/**
- * 테두리 굵기 선택기를 선 미리보기와 함께 렌더링한다.
- *
- * @param current - 명시된 굵기 (미지정이면 fallback이 유효값)
- * @param fallback - 미지정일 때의 유효 굵기 (요소 기본값 또는 셀이 상속하는 요소 값)
- * @param allowNone - 0 굵기 선택지를 표시할지 여부
+ * @param key - 펼침 상태를 구분할 키
+ * @param apply - 고른 굵기를 저장하는 콜백
+ * @param labelText - 화면에 표시할 레이블
+ * @returns 굵기 선택기
  */
 export function borderWidthSelect(
   kit: PanelKit,
@@ -161,7 +157,6 @@ export function borderWidthSelect(
   allowNone: boolean,
   key: string,
   apply: (value: number) => void,
-  /** 화면에 표시할 레이블 */
   labelText?: string,
 ) {
   const s = kit.s;
@@ -215,20 +210,12 @@ export function borderWidthSelect(
  * 실선, 파선, 점선 선택기를 선 미리보기와 함께 렌더링한다.
  * 실선은 기본값이므로 `null`로 적용한다.
  *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param current - 명시된 형태 (미지정이면 실선)
  * @param ariaLabel - 보조기기용 이름 (요소·셀 구분)
  * @param key - 펼침 상태를 구분할 키
  * @param apply - 고른 값을 저장하는 콜백
- */
-
-/**
- * 실선, 파선, 점선 선택기를 선 미리보기와 함께 렌더링한다.
- * 실선은 기본값이므로 `null`로 적용한다.
- *
- * @param current - 명시된 형태 (미지정이면 실선)
- * @param ariaLabel - 보조기기용 이름 (요소·셀 구분)
- * @param key - 펼침 상태를 구분할 키
- * @param apply - 고른 값을 저장하는 콜백
+ * @returns 선 형태 선택기
  */
 export function borderShapeRow(
   kit: PanelKit,
@@ -279,19 +266,17 @@ export function borderShapeRow(
 }
 
 /**
- * 요소 종류에 따라 사용할 수 있는 텍스트, 배경, 테두리 스타일을 렌더링한다.
- */
-
-/**
  * 색상 견본, HSV 선택기, 직접 입력, 투명도를 포함한 색상 입력을 렌더링한다.
  * 색상은 파일 스키마와 같은 `#RRGGBB` 또는 `#RRGGBBAA` 형식으로 저장한다.
  *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param label - 화면에 보이는 항목 이름
  * @param current - 지정된 색 (없으면 undefined)
  * @param key - 펼침 상태를 구분할 키
  * @param apply - 색을 저장하는 콜백 (없으면 선택 요소의 스타일 필드에 저장)
  * @param fallback - 명시된 값이 없을 때 적용할 색
  * @param ariaLabel - 접근성 레이블
+ * @returns 색상 입력 조각
  */
 export function colorControl(
   kit: PanelKit,
@@ -432,15 +417,15 @@ export function colorControl(
   `;
 }
 
-/** 굵게, 밑줄, 취소선 토글을 렌더링한다. */
-
 /**
  * 조건부 서식 규칙의 강조 4종을 3단계로 편집하는 토글 행을 렌더링한다.
  * 각 버튼은 기본 유지(미지정) → 적용(true) → 해제(false) 순서로 바뀐다.
  *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param rule - 편집 중인 규칙
  * @param apply - 강조 값을 저장하는 콜백 (`undefined`는 기본 유지)
  * @param ariaPrefix - 접근성 레이블 접두사 (규칙 이름)
+ * @returns 강조 토글 네 개
  */
 export function conditionalEmphasisRow(
   kit: PanelKit,
@@ -474,24 +459,27 @@ export function conditionalEmphasisRow(
   `;
 }
 
-/** 반복 구간 셀의 조건식 검사에 쓸 현재 항목 필드의 견본 값을 만든다. */
-
 /**
  * 네이티브 select 대신 쓰는 리스트형 선택 상자를 렌더링한다.
  * 트리거 버튼을 누르면 버튼 아래 화면 고정 위치에 항목 목록이 열린다.
+ *
+ * @param pop - 팝오버 열림 상태
+ * @param toggle - 트리거를 눌렀을 때 목록을 열고 닫는 처리
+ * @param config - 입력 id, 접근성 레이블, 현재 값, 선택지, 선택 콜백과 표시 설정
+ * @returns 선택 상자 조각
  */
 export function listSelect(
-pop: PopoverController,
-toggle: (id: string, event: Event) => void,
-config: {
-  id: string;
-  ariaLabel: string;
-  value: string;
-  options: { value: string; label: string; description?: string }[];
-  onPick: (value: string) => void;
-  className?: string;
-  placeholder?: string;
-},
+  pop: PopoverController,
+  toggle: (id: string, event: Event) => void,
+  config: {
+    id: string;
+    ariaLabel: string;
+    value: string;
+    options: { value: string; label: string; description?: string }[];
+    onPick: (value: string) => void;
+    className?: string;
+    placeholder?: string;
+  },
 ) {
   const open = pop.isOpen('list', config.id);
   const current = config.options.find((o) => o.value === config.value);

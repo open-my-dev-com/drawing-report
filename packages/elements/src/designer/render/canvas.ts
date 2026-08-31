@@ -146,6 +146,12 @@ export interface CanvasContext {
   refresh(): void;
 }
 
+/**
+ * 용지, 눈금자, 요소와 선택 표시를 포함한 캔버스 전체를 렌더링한다.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @returns 캔버스 조각. 편집 중인 파일이 없으면 빈 것
+ */
 export function canvas(ctx: CanvasContext) {
   if (!ctx.file) return nothing;
   const { paper } = ctx.file.template;
@@ -230,13 +236,10 @@ export function canvas(ctx: CanvasContext) {
 }
 
 /**
- * 용지 위의 커서 위치를 mm 좌표로 기록하고 용지 밖에서는 지운다.
- */
-
-/**
  * 5mm 간격의 눈금과 10mm 간격의 숫자를 표시하는 눈금자를 렌더링한다.
  * 커서가 용지 위에 있으면 현재 위치도 표시한다.
  *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @param axis - 'h'는 위쪽 가로 자, 'v'는 왼쪽 세로 자
  * @param lengthMm - 용지 길이(mm)
  * @param lengthPx - 용지 길이(px)
@@ -284,13 +287,14 @@ export function ruler(ctx: CanvasContext, axis: 'h' | 'v', lengthMm: number, len
 }
 
 /**
- * 수식 미리보기에 사용할 값을 만든다.
- * 샘플 값이 없는 파라미터에는 선언된 종류의 기본값을 사용한다.
+ * 출력 페이지 이동과 선택한 반복 그리드의 출력 결과 전환을 렌더링한다.
  *
- * @returns 파라미터 물리명 → 값
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @param outputPage - 보고 있는 출력 페이지(0-기반)
+ * @param outputPageCount - 전체 출력 페이지 수
+ * @param plan - 현재 양식 페이지의 계획. 계획 오류면 null
+ * @returns 출력 페이지 이동 막대
  */
-
-/** 출력 페이지 이동과 선택한 반복 그리드의 출력 결과 전환을 렌더링한다. */
 export function outputPageBar(ctx: CanvasContext, outputPage: number, outputPageCount: number, plan: SourcePagePlan | null) {
   const s = ctx.s;
   const selected = ctx.selectedElement();
@@ -329,6 +333,12 @@ export function outputPageBar(ctx: CanvasContext, outputPage: number, outputPage
     </div>`;
 }
 
+/**
+ * 선택한 요소의 테두리, 크기 조절 손잡이와 스냅 안내선을 렌더링한다.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @returns 선택 표시 조각
+ */
 export function selectionOverlay(ctx: CanvasContext) {
   if (ctx.gridPlanPreview) return nothing;
   // 크기 조절 핸들은 요소 하나만 선택한 경우에 표시한다.
@@ -373,15 +383,13 @@ export function selectionOverlay(ctx: CanvasContext) {
 }
 
 /**
- * 요소 하나를 현재 출력 페이지 계획에 맞춰 렌더링한다.
+ * 선을 생성하는 동안 반투명 미리보기 선을 표시한다.
  *
- * @param el - 렌더링할 요소
- * @param plan - 현재 양식 페이지의 계획 (계획 오류 시 null)
- * @param outputPage - 보고 있는 출력 페이지 (0부터)
- * @param outputPageCount - 전체 출력 페이지 수
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @param paperW - 용지 너비(mm)
+ * @param paperH - 용지 높이(mm)
+ * @returns 미리보기 선 조각. 생성 중이 아니면 빈 것
  */
-
-/** 선을 생성하는 동안 반투명 미리보기 선을 표시한다. */
 export function lineGhost(ctx: CanvasContext, paperW: number, paperH: number) {
   const from = ctx.draw?.type === 'line' && ctx.draw.moved
     ? { x: ctx.draw.startX, y: ctx.draw.startY }
@@ -398,7 +406,12 @@ export function lineGhost(ctx: CanvasContext, paperW: number, paperH: number) {
   </svg>`;
 }
 
-/** 선택된 셀 위에 인라인 편집 입력을 표시한다. */
+/**
+ * 선택된 셀 위에 인라인 편집 입력을 표시한다.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @returns 인라인 편집 입력. 편집 중인 셀이 없으면 빈 것
+ */
 export function cellEditor(ctx: CanvasContext) {
   if (!ctx.gridEdit.editing || !ctx.gridEdit.cell) return nothing;
   const el = ctx.selectedElement();
@@ -433,15 +446,15 @@ export function cellEditor(ctx: CanvasContext) {
     }}>`;
 }
 
-/** 선을 생성하는 동안 반투명 미리보기 선을 표시한다. */
-
 /**
  * 요소 하나를 현재 출력 페이지 계획에 맞춰 렌더링한다.
  *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @param el - 렌더링할 요소
  * @param plan - 현재 양식 페이지의 계획 (계획 오류 시 null)
  * @param outputPage - 보고 있는 출력 페이지 (0부터)
  * @param outputPageCount - 전체 출력 페이지 수
+ * @returns 요소 조각. 이 출력 페이지에 나오지 않으면 빈 것
  */
 export function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourcePagePlan | null, outputPage: number, outputPageCount: number) {
   // 다중 선택된 요소의 영역을 모두 강조한다.
@@ -534,6 +547,14 @@ export function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourceP
   `;
 }
 
+/**
+ * 요소 종류에 맞는 캔버스 표시 내용을 만든다.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @param el - 렌더링할 요소
+ * @param fragment - 그리드일 때 표시할 출력 페이지 계획 조각
+ * @returns 요소 내용 조각
+ */
 export function elementContent(ctx: CanvasContext, el: SlipElement, fragment: GridFragment | null = null) {
   switch (el.type) {
     case 'text': {
@@ -587,11 +608,9 @@ export function elementContent(ctx: CanvasContext, el: SlipElement, fragment: Gr
 /**
  * 편집용 바코드 견본을 캔버스에 표시한다.
  * 실제 바코드는 PDF 미리보기에서 렌더링한다.
- */
-
-/**
- * 편집용 바코드 견본을 캔버스에 표시한다.
- * 실제 바코드는 PDF 미리보기에서 렌더링한다.
+ *
+ * @param el - 바코드 요소
+ * @returns 바코드 견본 조각
  */
 export function barcodePreview(el: SlipElement & { type: 'barcode' }) {
   const label = el.content ?? (el.parameter !== undefined ? `{${el.parameter}}` : el.formula ?? '');
@@ -634,11 +653,9 @@ export function barcodePreview(el: SlipElement & { type: 'barcode' }) {
 /**
  * PDF 변환과 같은 규칙으로 도형의 SVG를 만든다.
  * SVG 내부 요소는 Lit의 `svg` 템플릿으로 생성한다.
- */
-
-/**
- * PDF 변환과 같은 규칙으로 도형의 SVG를 만든다.
- * SVG 내부 요소는 Lit의 `svg` 템플릿으로 생성한다.
+ *
+ * @param el - 선, 타원 또는 다각형 요소
+ * @returns 도형 SVG 조각
  */
 export function shapePreview(el: SlipElement & { type: 'line' | 'ellipse' | 'polygon' }) {
   const w = Math.max(1, el.width * PX_PER_MM);
@@ -678,13 +695,16 @@ export function shapePreview(el: SlipElement & { type: 'line' | 'ellipse' | 'pol
   </svg>`;
 }
 
-/** 셀 하나의 캔버스 표시 스타일과 내용을 만든다. */
-
 /**
  * 그리드의 캔버스 표시를 만든다.
  *
  * 선택하지 않은 반복 그리드는 현재 출력 페이지의 계획 조각(`fragment`)을 표시하고,
  * 선택한 그리드와 정적 그리드는 원본 행 구조를 표시한다 (§7.5).
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @param el - 그리드 요소
+ * @param fragment - 표시할 출력 페이지 계획 조각. 없으면 원본 행 구조를 표시한다
+ * @returns 그리드 조각
  */
 export function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment: GridFragment | null = null) {
   const selected = el.id === ctx.selectedId;
@@ -774,11 +794,17 @@ export function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment
   return html`${preview}${bandStrip(ctx, el, rowTracks)}`;
 }
 
-/** 출력 페이지 계획 조각을 캔버스에 표시한다. */
-
-/** 출력 페이지 계획 조각을 캔버스에 표시한다. */
+/**
+ * 출력 페이지 계획 조각을 캔버스에 표시한다.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @param el - 그리드 요소
+ * @param fragment - 표시할 출력 페이지 계획 조각
+ * @param context - 열 트랙 CSS와 테두리 CSS 계산 함수
+ * @returns 계획 조각을 펼친 그리드 표시
+ */
 export function gridFragment(
-ctx: CanvasContext,
+  ctx: CanvasContext,
   el: GridElement,
   fragment: GridFragment,
   context: { colTracks: string; borderCssOf: (cell?: GridCell, overrideColor?: string) => string },
@@ -891,11 +917,11 @@ ctx: CanvasContext,
 /**
  * 그리드 왼쪽의 행 번호 선택 영역을 렌더링한다 (§7.2).
  * 행을 눌러 선택하고 Shift로 연속 범위를 넓힌 뒤 역할 명령을 고른다.
- */
-
-/**
- * 그리드 왼쪽의 행 번호 선택 영역을 렌더링한다 (§7.2).
- * 행을 눌러 선택하고 Shift로 연속 범위를 넓힌 뒤 역할 명령을 고른다.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @param el - 그리드 요소
+ * @param rowTracks - 행 트랙 CSS
+ * @returns 행 번호 선택 영역
  */
 export function bandStrip(ctx: CanvasContext, el: GridElement, rowTracks: string) {
   const s = ctx.s;
@@ -918,9 +944,13 @@ export function bandStrip(ctx: CanvasContext, el: GridElement, rowTracks: string
     ${select === null || !ctx.gridEdit.bandMenuOpen ? nothing : bandMenu(ctx, el)}`;
 }
 
-/** 행 구간 역할 명령 메뉴를 렌더링한다. */
-
-/** 행 구간 역할 명령 메뉴를 렌더링한다. */
+/**
+ * 행 구간 역할 명령 메뉴를 렌더링한다.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @param el - 그리드 요소
+ * @returns 역할 명령 메뉴
+ */
 export function bandMenu(ctx: CanvasContext, el: GridElement) {
   const s = ctx.s;
   const select = ctx.gridEdit.bandRange!;
@@ -949,8 +979,6 @@ export function bandMenu(ctx: CanvasContext, el: GridElement) {
       @click=${() => ctx.closeBandMenu(true)}>${s.cancel}</button>
   </div>`;
 }
-
-/** 행 번호 선택 영역의 클릭을 처리한다. Shift 클릭은 연속 범위를 넓힌다. */
 
 /**
  * 캔버스에 페이지 번호 자리표시를 렌더링한다.
@@ -984,13 +1012,17 @@ export function pageNumberPlaceholder(
 }
 
 /**
- * 현재 양식 페이지의 출력 페이지 계획을 만든다.
- * 같은 입력이면 캐시를 재사용하고, 계획 오류는 오류 상태로 반환한다.
+ * 셀 하나의 캔버스 표시 스타일과 내용을 만든다.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @param el - 그리드 요소
+ * @param cell - 표시할 셀
+ * @param at - 출력 위치의 행 번호와 병합 행 수
+ * @param context - 샘플 항목, 빈 항목 여부, 예약 참조 값, 선택 여부와 테두리 CSS 계산 함수
+ * @returns 셀 조각
  */
-
-/** 셀 하나의 캔버스 표시 스타일과 내용을 만든다. */
 export function gridCellBox(
-ctx: CanvasContext,
+  ctx: CanvasContext,
   el: GridElement,
   cell: GridCell,
   at: { row: number; rowSpan: number },
@@ -1031,13 +1063,13 @@ ctx: CanvasContext,
 }
 
 /**
- * 그리드의 캔버스 표시를 만든다.
+ * 인라인 편집에 사용할 셀의 캔버스 영역(px)을 계산한다.
  *
- * 선택하지 않은 반복 그리드는 현재 출력 페이지의 계획 조각(`fragment`)을 표시하고,
- * 선택한 그리드와 정적 그리드는 원본 행 구조를 표시한다 (§7.5).
+ * @param el - 그리드 요소
+ * @param row - 행 번호(0-기반)
+ * @param column - 열 번호(0-기반)
+ * @returns 그리드 왼쪽 위를 기준으로 한 셀 영역(px)
  */
-
-/** 인라인 편집에 사용할 셀의 캔버스 영역(px)을 계산한다. */
 export function cellRectPx(
   el: GridElement,
   row: number,
@@ -1055,11 +1087,17 @@ export function cellRectPx(
   return { left, top, width, height };
 }
 
-/** 인라인 편집 값을 기존 셀에 적용하거나 새 셀을 만든다. */
-
-/** 직접 입력, 파라미터 또는 수식으로 셀의 표시 텍스트를 만든다. */
+/**
+ * 직접 입력, 파라미터 또는 수식으로 셀의 표시 텍스트를 만든다.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @param cell - 표시할 셀
+ * @param item - 항목 구간의 현재 샘플 항목
+ * @param reserved - 행 구간의 예약 참조 값 (`@page` 등)
+ * @returns 셀에 표시할 글
+ */
 export function gridCellPreviewText(
-ctx: CanvasContext,
+  ctx: CanvasContext,
   cell: GridCell,
   item: Record<string, unknown> | undefined,
   reserved?: Readonly<Record<string, unknown>>,
@@ -1086,14 +1124,15 @@ ctx: CanvasContext,
 /**
  * 자동 병합 비교에 사용할 실제 셀 값을 반환한다.
  * 빈 값은 빈 문자열로 변환해 병합하지 않는다.
- */
-
-/**
- * 자동 병합 비교에 사용할 실제 셀 값을 반환한다.
- * 빈 값은 빈 문자열로 변환해 병합하지 않는다.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @param cell - 비교할 셀
+ * @param item - 항목 구간의 현재 샘플 항목
+ * @param reserved - 행 구간의 예약 참조 값 (`@page` 등)
+ * @returns 비교에 쓸 값. 빈 값이면 빈 문자열
  */
 export function gridCellMergeText(
-ctx: CanvasContext,
+  ctx: CanvasContext,
   cell: GridCell,
   item: Record<string, unknown> | undefined,
   reserved?: Readonly<Record<string, unknown>>,
@@ -1121,19 +1160,18 @@ ctx: CanvasContext,
 // Render: property panel
 // ---------------------------------------------------------------------------
 
-/** 양식 속성을 변경하고 되돌리기 이력을 남긴다. */
-
 /**
  * 캔버스 미리보기에 적용할 조건부 서식 색·강조를 샘플 값으로 계산한다.
  * 규칙별로 평가해 아직 완성되지 않은 조건식은 건너뛴다.
  *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @param rules - 조건부 서식 규칙 목록
  * @param item - 항목 구간의 현재 샘플 항목 (없으면 샘플 값만 사용)
  * @param reserved - 행 구간의 예약 참조 값 (`@page` 등)
  * @returns 덮어쓸 색·강조 목록
  */
 export function previewConditionalColors(
-ctx: CanvasContext,
+  ctx: CanvasContext,
   rules: readonly ConditionalFormatRule[] | undefined,
   item?: Record<string, unknown>,
   reserved?: Readonly<Record<string, unknown>>,
@@ -1157,9 +1195,13 @@ ctx: CanvasContext,
   return result;
 }
 
-/** 항목 구간에 사용할 샘플 항목 배열을 반환한다. */
-
-/** 항목 구간에 사용할 샘플 항목 배열을 반환한다. */
+/**
+ * 항목 구간에 사용할 샘플 항목 배열을 반환한다.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @param el - 반복 설정이 있는 그리드
+ * @returns 샘플 항목 목록. 샘플이 없으면 빈 목록
+ */
 export function repeatSampleItems(ctx: CanvasContext, el: GridElement): Record<string, unknown>[] {
   if (!el.repeat) return [];
   const sample = ctx.file?.template.sampleValues?.[el.repeat.parameter];

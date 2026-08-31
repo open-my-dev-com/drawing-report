@@ -81,7 +81,14 @@ export interface ElementActions {
   readonly selectedIds: ReadonlySet<string>;
 }
 
-/** 텍스트 요소의 내용을 편집하는 패널을 렌더링한다. */
+/**
+ * 텍스트 요소의 내용을 편집하는 패널을 렌더링한다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param el - 선택한 텍스트 요소
+ * @returns 텍스트 내용 편집 조각
+ */
 export function textProps(kit: PanelKit, act: ElementActions, el: TextElement) {
   const s = kit.s;
   return html`
@@ -102,13 +109,8 @@ export function textProps(kit: PanelKit, act: ElementActions, el: TextElement) {
 /**
  * 텍스트와 필드 요소 사이를 전환하는 입력을 렌더링한다.
  *
- * @param current - 현재 요소 종류
- * @returns 종류 전환 조각
- */
-
-/**
- * 텍스트와 필드 요소 사이를 전환하는 입력을 렌더링한다.
- *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
  * @param current - 현재 요소 종류
  * @returns 종류 전환 조각
  */
@@ -126,23 +128,18 @@ export function textFieldKindRow(kit: PanelKit, act: ElementActions, current: 't
 }
 
 /**
- * 위치, 크기, 글자 스타일을 유지하며 텍스트와 필드 요소를 전환한다.
- * 필드로 전환할 때는 새 파라미터를 연결하고 텍스트로 전환할 때는 빈 내용을 사용한다.
- *
- * @param to - 바꿀 종류
- */
-
-/**
  * 호스트가 제공한 폰트를 선택하는 입력을 렌더링한다.
  *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
  * @param current - 현재 지정된 폰트 이름
  * @param apply - 저장 콜백 (빈 값이면 지정 해제)
  * @param ariaLabel - 보조기기용 이름
  * @returns 폰트 선택 UI. 선택할 폰트가 없으면 빈 템플릿
  */
 export function fontNameRow(
-kit: PanelKit,
-act: ElementActions,
+  kit: PanelKit,
+  act: ElementActions,
   current: string | undefined,
   apply: (value: string | null) => void,
   ariaLabel?: string,
@@ -170,6 +167,14 @@ act: ElementActions,
     </div>`;
 }
 
+/**
+ * 글자 크기, 색, 정렬과 줄 간격 등 글자 스타일을 편집하는 패널을 렌더링한다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param el - 선택한 요소
+ * @returns 글자 스타일 편집 조각
+ */
 export function fontProps(kit: PanelKit, act: ElementActions, el: SlipElement) {
   if (el.type !== 'text' && el.type !== 'field') return nothing;
   const s = kit.s;
@@ -237,11 +242,13 @@ export function fontProps(kit: PanelKit, act: ElementActions, el: SlipElement) {
 // ---------------------------------------------------------------------------
 
 /**
- * 속성 패널에서 펼친 팝오버의 키. 한 번에 하나의 팝오버만 열 수 있다.
+ * 이미지 요소의 고정 이미지와 파라미터 이미지를 편집하는 패널을 렌더링한다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param el - 선택한 이미지 요소
+ * @returns 이미지 편집 조각
  */
-/** 테두리·색 선택 메뉴를 버튼 아래(또는 자리가 좁으면 위)에 열거나 닫는다. */
-
-/** 이미지 요소의 고정 이미지와 파라미터 이미지를 편집하는 패널을 렌더링한다. */
 export function imageProps(kit: PanelKit, act: ElementActions, el: ImageElement) {
   const s = kit.s;
   // 이미지 요소는 고정 소스와 파라미터 중 하나만 사용한다.
@@ -274,25 +281,25 @@ export function imageProps(kit: PanelKit, act: ElementActions, el: ImageElement)
 }
 
 /**
- * 호스트가 제공한 폰트를 선택하는 입력을 렌더링한다.
- *
- * @param current - 현재 지정된 폰트 이름
- * @param apply - 저장 콜백 (빈 값이면 지정 해제)
- * @param ariaLabel - 보조기기용 이름
- * @returns 폰트 선택 UI. 선택할 폰트가 없으면 빈 템플릿
- */
-
-/**
  * 선 요소에는 별도의 종류별 속성 패널을 표시하지 않는다.
  * 방향은 캔버스의 끝점 핸들로 변경한다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param _el - 선택한 선 요소
+ * @returns 빈 조각
  */
 export function lineProps(kit: PanelKit, _el: LineElement) {
   return nothing;
 }
 
-/** 정다각형의 변 수를 편집하는 패널을 렌더링한다. */
-
-/** 정다각형의 변 수를 편집하는 패널을 렌더링한다. */
+/**
+ * 정다각형의 변 수를 편집하는 패널을 렌더링한다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param el - 선택한 다각형 요소
+ * @returns 변 수 편집 조각
+ */
 export function polygonProps(kit: PanelKit, act: ElementActions, el: PolygonElement) {
   const s = kit.s;
   return html`
@@ -323,9 +330,13 @@ export function polygonProps(kit: PanelKit, act: ElementActions, el: PolygonElem
       `;
 }
 
-/** 그리드 또는 선택 셀의 텍스트 표시 방식을 편집하는 선택기를 렌더링한다. */
-
-/** 그리드 또는 선택 셀의 텍스트 표시 방식을 편집하는 선택기를 렌더링한다. */
+/**
+ * 그리드 또는 선택 셀의 텍스트 표시 방식을 편집하는 선택기를 렌더링한다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param config - 입력 id, 현재 값, 상속 선택지 표시 여부, 접근성 레이블과 저장 콜백
+ * @returns 표시 방식 선택기
+ */
 export function gridOverflowRow(kit: PanelKit, config: {
   id: string;
   value: 'inherit' | 'clip' | 'shrink';
@@ -354,6 +365,14 @@ export function gridOverflowRow(kit: PanelKit, config: {
 
 /** 그리드의 행, 열, 반복 설정, 행 구간과 셀을 편집하는 패널을 렌더링한다. */
 
+/**
+ * 요소 좌표의 기준점을 고르는 입력을 렌더링한다. 기준점은 파일에 저장하지 않는다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param el - 선택한 요소
+ * @returns 기준점 선택 조각
+ */
 export function anchorRow(kit: PanelKit, act: ElementActions, el: SlipElement) {
   const s = kit.s;
   const current = act.anchorIndex(el);
@@ -372,12 +391,13 @@ export function anchorRow(kit: PanelKit, act: ElementActions, el: SlipElement) {
 }
 
 /**
- * 다중 선택한 요소를 그룹화하거나 그룹에서 해제하는 패널을 렌더링한다.
- */
-
-/**
  * 요소 크기 입력을 렌더링한다.
  * 선은 너비와 높이 대신 길이, 각도, 선 굵기로 편집한다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param el - 선택한 요소
+ * @returns 크기 입력 조각
  */
 export function sizeRows(kit: PanelKit, act: ElementActions, el: SlipElement) {
   const s = kit.s;
@@ -445,11 +465,13 @@ export function sizeRows(kit: PanelKit, act: ElementActions, el: SlipElement) {
 }
 
 /**
- * 요소의 표시 페이지와 이어서 배치를 편집하는 섹션을 렌더링한다 (§5.2).
- * 절대 배치에서는 표시 페이지 필터를, 이어서 배치에서는 대상 요소와 간격을 편집한다.
+ * 필드 요소의 값 소스를 편집하는 패널을 렌더링한다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param el - 선택한 필드 요소
+ * @returns 값 소스 편집 조각
  */
-
-/** 필드 요소의 값 소스를 편집하는 패널을 렌더링한다. */
 export function fieldProps(kit: PanelKit, act: ElementActions, el: FieldElement) {
   const s = kit.s;
   const valOf = (e: Event) => (e.target as HTMLInputElement).value;
@@ -490,13 +512,13 @@ export function fieldProps(kit: PanelKit, act: ElementActions, el: FieldElement)
 }
 
 /**
- * 필드의 값 소스를 파라미터 또는 수식으로 전환한다.
- * 파라미터로 전환할 때는 새 파라미터를 만들어 연결한다.
+ * 바코드 종류와 값 소스를 편집하는 패널을 렌더링한다.
  *
- * @param kind - 바꿀 소스
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param el - 선택한 바코드 요소
+ * @returns 바코드 편집 조각
  */
-
-/** 바코드 종류와 값 소스를 편집하는 패널을 렌더링한다. */
 export function barcodeProps(kit: PanelKit, act: ElementActions, el: BarcodeElement) {
   const s = kit.s;
   const valOf = (e: Event) => (e.target as HTMLInputElement).value;
@@ -560,6 +582,14 @@ export function barcodeProps(kit: PanelKit, act: ElementActions, el: BarcodeElem
       `;
 }
 
+/**
+ * 요소를 어느 출력 페이지에 낼지 고르는 구역을 렌더링한다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param el - 선택한 요소
+ * @returns 출력 페이지 배치 조각
+ */
 export function pagePlacementSection(kit: PanelKit, act: ElementActions, el: SlipElement) {
   const s = kit.s;
   const placement = el.pagePlacement;
@@ -685,6 +715,14 @@ export function pagePlacementSection(kit: PanelKit, act: ElementActions, el: Sli
  * @returns 하위 필드 편집 조각
  */
 
+/**
+ * 글자, 테두리, 배경 스타일 구역을 요소 종류에 맞게 묶어 렌더링한다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param el - 선택한 요소
+ * @returns 스타일 구역 조각
+ */
 export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement) {
   if (el.type === 'image') return nothing;
   const s = kit.s;
@@ -801,7 +839,14 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
  * @param ariaPrefix - 접근성 레이블 접두사 (셀이면 `셀 `)
  */
 
-export function groupPanel(kit: PanelKit, act: ElementActions, ) {
+/**
+ * 여러 요소를 함께 선택했을 때 정렬과 그룹화 명령을 렌더링한다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @returns 다중 선택 명령 조각
+ */
+export function groupPanel(kit: PanelKit, act: ElementActions) {
   const s = kit.s;
   const els = [...act.selectedIds]
     .map((id) => act.findElement(id))

@@ -20,22 +20,42 @@ export const DEFAULT_BORDER_COLOR = '#000000';
 /** 선 굵기 기본값(mm). core의 `DEFAULT_BORDER_WIDTH`와 같아야 한다. */
 export const DEFAULT_LINE_WIDTH = 0.2;
 
-/** 글자 크기를 pt에서 CSS px로 변환한다. */
+/**
+ * 글자 크기를 pt에서 CSS px로 변환한다.
+ *
+ * @param size - 글자 크기(pt). 생략하면 기본 크기를 쓴다
+ * @returns `px` 단위 CSS 값
+ */
 export function fontPx(size: number | undefined): string {
   return `${(((size ?? DEFAULT_FONT_SIZE) * 4) / 3).toFixed(2)}px`;
 }
 
-/** 가로 정렬 값을 flexbox 정렬 값으로 변환한다. */
+/**
+ * 가로 정렬 값을 flexbox 정렬 값으로 변환한다.
+ *
+ * @param alignment - 가로 정렬
+ * @returns `justify-content` 값
+ */
 export function justifyOf(alignment: 'left' | 'center' | 'right' | undefined): string {
   return alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
 }
 
-/** 수직 정렬 값을 flexbox 정렬 값으로 변환한다. */
+/**
+ * 수직 정렬 값을 flexbox 정렬 값으로 변환한다.
+ *
+ * @param v - 수직 정렬
+ * @returns `align-items` 값
+ */
 export function verticalFlexAlign(v: 'top' | 'middle' | 'bottom' | undefined): string {
   return v === 'middle' ? 'center' : v === 'bottom' ? 'flex-end' : 'flex-start';
 }
 
-/** PDF 렌더링 비율과 맞춘 캔버스용 `stroke-dasharray` 값(px) */
+/**
+ * PDF 렌더링 비율과 맞춘 캔버스용 `stroke-dasharray` 값(px)
+ *
+ * @param style - 선 종류
+ * @returns `stroke-dasharray` 값. 실선이면 undefined
+ */
 export function dashArrayOf(style: 'solid' | 'dashed' | 'dotted' | undefined): string | undefined {
   if (style === 'dashed') return `${2.4 * PX_PER_MM} ${1.2 * PX_PER_MM}`;
   if (style === 'dotted') return `${0.4 * PX_PER_MM} ${0.8 * PX_PER_MM}`;
@@ -47,6 +67,7 @@ export function dashArrayOf(style: 'solid' | 'dashed' | 'dotted' | undefined): s
  *
  * @param style - 요소·셀의 글자 스타일
  * @param opts - `omitVerticalAlign`이 true이면 `justify-content`를 생략한다.
+ * @returns 세미콜론으로 시작하는 인라인 CSS 문자열
  */
 export function textStyleCss(
   style: {

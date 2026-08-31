@@ -170,7 +170,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
       .find((b) => b.textContent?.trim() === strings.designer.apply) as HTMLButtonElement;
   }
 
-  /** 반복 구간이 값 3개를 읽는 그리드를 담은 양식으로 디자이너를 띄운다 */
+  /** 항목 구간이 값 3개를 읽는 그리드를 담은 양식으로 디자이너를 띄운다 */
   async function loadWithTable(): Promise<Designer> {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{
@@ -452,7 +452,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     el.remove();
   });
 
-  it('반복 구간 파라미터는 항목 필드대로 행을 추가·편집한다 (ADR-037)', async () => {
+  it('항목 구간 파라미터는 항목 필드대로 행을 추가·편집한다 (ADR-037)', async () => {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{
       type: 'grid' as const, id: 'g-items', name: '품목 그리드',

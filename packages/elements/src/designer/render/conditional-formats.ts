@@ -35,9 +35,21 @@ export interface ConditionalFormatDeps {
   refresh(): void;
 }
 
+/**
+ * 값에 따라 색과 글자 강조를 바꾸는 조건부 서식 규칙 목록을 편집하는 구역을 렌더링한다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param deps - 조건식 편집과 미리보기에 필요한 동작
+ * @param rules - 현재 규칙 목록
+ * @param keyPrefix - 입력 요소 id에 붙일 접두사 — 같은 화면의 다른 구역과 겹치지 않게 한다
+ * @param update - 바뀐 규칙 목록을 저장하는 함수
+ * @param probeItem - 조건식 미리보기에 사용할 샘플 항목
+ * @param ariaPrefix - 접근성 레이블 앞에 붙일 대상 이름
+ * @returns 조건부 서식 편집 구역
+ */
 export function conditionalFormatsSection(
-kit: PanelKit,
-deps: ConditionalFormatDeps,
+  kit: PanelKit,
+  deps: ConditionalFormatDeps,
   rules: readonly ConditionalFormatRule[] | undefined,
   keyPrefix: string,
   update: (next: ConditionalFormatRule[]) => void,

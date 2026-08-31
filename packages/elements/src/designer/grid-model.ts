@@ -21,21 +21,44 @@ export const GRID_MAX_ITEMS_UI = 100_000;
 
 export const GRID_MAX_PER_PAGE_UI = 1000;
 
+/**
+ * 요소가 그리드인지 확인한다.
+ *
+ * @param el - 검사할 요소
+ * @returns 그리드이면 true
+ */
 export function isGrid(el: SlipElement | undefined): el is GridElement {
   return el?.type === 'grid';
 }
 
-/** 행·열 수 */
+/**
+ * 행·열 수
+ *
+ * @param el - 대상 그리드
+ * @returns 행 수와 열 수
+ */
 export function gridDims(el: GridElement): { rows: number; columns: number } {
   return { rows: el.rows.length, columns: el.columns.length };
 }
 
-/** 캔버스에 그릴 열 너비(mm) 목록 */
+/**
+ * 캔버스에 그릴 열 너비(mm) 목록
+ *
+ * @param el - 대상 그리드
+ * @returns 열 너비(mm) 목록
+ */
 export function columnWidths(el: GridElement): number[] {
   return el.columns.map((column) => column.width);
 }
 
-/** 지정한 셀을 반환하고 없으면 빈 셀을 생성한다. */
+/**
+ * 지정한 셀을 반환하고 없으면 빈 셀을 생성한다.
+ *
+ * @param el - 대상 그리드
+ * @param row - 행 번호(0-기반)
+ * @param column - 열 번호(0-기반)
+ * @returns 찾았거나 새로 만든 셀
+ */
 export function ensureCell(el: GridElement, row: number, column: number): Record<string, unknown> {
   const found = el.cells.find((c) => c.row === row && c.column === column);
   if (found) return found as unknown as Record<string, unknown>;
@@ -44,7 +67,11 @@ export function ensureCell(el: GridElement, row: number, column: number): Record
   return created as unknown as Record<string, unknown>;
 }
 
-/** 행·열이 줄어든 뒤 격자를 벗어나는 병합 범위를 줄인다 */
+/**
+ * 행·열이 줄어든 뒤 격자를 벗어나는 병합 범위를 줄인다
+ *
+ * @param el - 대상 그리드
+ */
 export function clampGridSpans(el: GridElement): void {
   for (const cell of el.cells) {
     const record = cell as Record<string, unknown>;
@@ -62,7 +89,12 @@ export function clampGridSpans(el: GridElement): void {
 }
 
 /**
- * 반복 구간 위쪽에서 같은 열의 헤더 텍스트를 찾는다.
+ * 항목 구간 위쪽에서 같은 열의 헤더 텍스트를 찾는다.
+ *
+ * @param grid - 대상 그리드
+ * @param column - 찾을 열 번호(0-기반)
+ * @param fromRow - 이 행의 바로 위부터 위로 찾는다
+ * @returns 가장 가까운 비어 있지 않은 셀의 글. 없으면 undefined
  */
 export function gridHeaderTitle(grid: GridElement, column: number, fromRow: number): string | undefined {
   for (let row = fromRow - 1; row >= 0; row -= 1) {
@@ -90,18 +122,35 @@ export const BAND_PLACEMENTS: readonly GridBandPlacement[] = [
 
 export type GridRowCommand = 'header' | 'group-subtotal' | 'page-subtotal' | 'final-total';
 
-/** 반복 그리드의 항목 구간을 반환한다. */
+/**
+ * 반복 그리드의 항목 구간을 반환한다.
+ *
+ * @param el - 대상 그리드
+ * @returns 항목 구간. 반복 설정이 없으면 undefined
+ */
 export function itemBandOf(el: GridElement): GridBand | undefined {
   return el.repeat?.bands.find((band) => band.placement === 'item');
 }
 
-/** 원본 행이 항목 구간에 포함되는지 확인한다. */
+/**
+ * 원본 행이 항목 구간에 포함되는지 확인한다.
+ *
+ * @param el - 대상 그리드
+ * @param row - 원본 행 번호(0-기반)
+ * @returns 항목 구간 안이면 true
+ */
 export function inItemBand(el: GridElement, row: number): boolean {
   const band = itemBandOf(el);
   return band !== undefined && row >= band.fromRow && row <= band.toRow;
 }
 
-/** 원본 행이 속한 행 구간을 반환한다. */
+/**
+ * 원본 행이 속한 행 구간을 반환한다.
+ *
+ * @param el - 대상 그리드
+ * @param row - 원본 행 번호(0-기반)
+ * @returns 행이 속한 행 구간. 없으면 undefined
+ */
 export function bandAt(el: GridElement, row: number): GridBand | undefined {
   return el.repeat?.bands.find((band) => row >= band.fromRow && row <= band.toRow);
 }
@@ -157,6 +206,12 @@ export function assignBandRole(
 /**
  * 한 행 구간의 시작·종료 행을 바꾸고 맞닿은 구간의 경계를 함께 조정한다.
  * 선택한 구간과 인접 구간의 식별자·옵션은 유지한다.
+ *
+ * @param el - 반복 설정이 있는 그리드
+ * @param bandId - 크기를 바꿀 행 구간의 id
+ * @param fromRow - 새 시작 행
+ * @param toRow - 새 끝 행
+ * @returns 새 행 구간 목록. 항목 구간이 사라지면 `noItem`, 세로 순서가 어긋나면 `outOfOrder`
  */
 export function resizeBandRange(
   el: GridElement,
@@ -248,7 +303,14 @@ export function resizeBandRange(
   return nextRow === el.rows.length ? bands : 'outOfOrder';
 }
 
-/** 셀 병합이 행 구간 경계를 넘는지 검사한다. */
+/**
+ * 셀 병합이 행 구간 경계를 넘는지 검사한다.
+ *
+ * @param el - 대상 그리드
+ * @param bands - 검사에 쓸 행 구간 목록
+ * @param cell - 검사할 셀
+ * @returns 병합 범위가 두 행 구간에 걸치면 true
+ */
 export function spanCrossesBand(el: GridElement, bands: readonly GridBand[], cell: GridCell): boolean {
   const last = cell.row + (cell.rowSpan ?? 1) - 1;
   const startBand = bands.find((band) => cell.row >= band.fromRow && cell.row <= band.toRow);
@@ -256,7 +318,12 @@ export function spanCrossesBand(el: GridElement, bands: readonly GridBand[], cel
   return startBand !== endBand;
 }
 
-/** 마지막 행을 지울 수 있는지 — 항목 구간이 한 행뿐이면 지울 수 없다. */
+/**
+ * 마지막 행을 지울 수 있는지 — 항목 구간이 한 행뿐이면 지울 수 없다.
+ *
+ * @param el - 대상 그리드
+ * @returns 마지막 행을 지울 수 있으면 true
+ */
 export function canRemoveLastRow(el: GridElement): boolean {
   if (!el.repeat) return true;
   const band = bandAt(el, el.rows.length - 1);

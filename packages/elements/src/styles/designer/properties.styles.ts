@@ -637,7 +637,7 @@ export const propertiesStyles = css`
       text-align: center;
       font-variant-numeric: tabular-nums;
     }
-    /* 반복 구간 안의 셀임을 알리는 표시 */
+    /* 항목 구간 안의 셀임을 알리는 표시 */
     .cell-band {
       margin-left: 6px;
       padding: 0 5px;
