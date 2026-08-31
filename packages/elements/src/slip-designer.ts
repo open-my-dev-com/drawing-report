@@ -83,6 +83,13 @@ import {
   textStyleCss,
 } from './designer/style-css.js';
 import { setOptional, clearValueSources } from './designer/patch.js';
+import { ModalFocusController } from './designer/controllers/modal-focus.js';
+import { DialogsController } from './designer/controllers/dialogs.js';
+import { FormulaDraftController } from './designer/controllers/formula-draft.js';
+import { SampleDraftController } from './designer/controllers/sample-draft.js';
+import { FormsController } from './designer/controllers/forms-storage.js';
+import { imagePickErrorText, usedImages, imageParameterKeys } from './designer/image-pick.js';
+import type { ImagePickFailure } from './designer/image-pick.js';
 import {
   GRID_DEFAULT_ROW_MM,
   GRID_DEFAULT_COL_MM,
@@ -110,16 +117,6 @@ import type { GridRowCommand } from './designer/grid-model.js';
 /** 파라미터 키와 충돌하지 않는 "새 값 등록" 항목의 내부 값 */
 const NEW_BINDING_OPTION = '\u0000new';
 
-
-/** 컨테이너 안에서 Tab으로 갈 수 있는 요소를 화면 순서대로 모은다. */
-function focusableIn(container: HTMLElement): HTMLElement[] {
-  const selector =
-    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
-    'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-  return Array.from(container.querySelectorAll<HTMLElement>(selector)).filter(
-    (el) => el.offsetParent !== null || el.getClientRects().length > 0,
-  );
-}
 
 
 
@@ -414,13 +411,9 @@ export class SlipDesigner extends LitElement {
     _cellEditing: { state: true },
     _lineDraft: { state: true },
     _lineGhost: { state: true },
-    _formulaModalOpen: { state: true },
-    _sampleModalOpen: { state: true },
-    _imageModalOpen: { state: true },
     _thumbPage: { state: true },
     _thumbPos: { state: true },
     _imageError: { state: true },
-    _sampleImageError: { state: true },
     maxImageBytes: { type: Number, attribute: 'max-image-bytes' },
     _sideSelection: { state: true },
     _expandedParameters: { state: true },
@@ -429,13 +422,6 @@ export class SlipDesigner extends LitElement {
     _pageKeyError: { state: true },
     presets: { attribute: false },
     storage: { attribute: false },
-    _saveModalOpen: { state: true },
-    _myFormsOpen: { state: true },
-    _myFormItems: { state: true },
-    _myFormsPage: { state: true },
-    _myFormsQuery: { state: true },
-    _myFormsError: { state: true },
-    _savedNotice: { state: true },
     _outputPage: { state: true },
     _gridPlanPreview: { state: true },
     _bandSelect: { state: true },
@@ -500,8 +486,6 @@ export class SlipDesigner extends LitElement {
   private _bandMenuOpen = false;
   /** 행 역할 메뉴가 열린 뒤 첫 명령으로 포커스를 옮길지 여부 */
   private _focusBandMenu = false;
-  /** 모달을 열기 전 초점이 있던 요소. 모달이 닫히면 여기로 초점을 되돌린다. */
-  private _modalReturnFocus: HTMLElement | null | undefined = undefined;
   /** 적용 전 결과를 확인 중인 행 추가 명령 */
   private _gridRowCommand: GridRowCommand | null = null;
   /** 소계·합계 명령에서 집계할 목록 필드 */
@@ -557,14 +541,7 @@ export class SlipDesigner extends LitElement {
   private _lineDraft: { x: number; y: number } | null = null;
   /** 두 번 클릭해 선을 생성하는 동안의 현재 끝점(mm) */
   private _lineGhost: { x: number; y: number } | null = null;
-  /** 수식 편집 모달의 열림 상태 */
-  private _formulaModalOpen = false;
   /** 수식 모달의 편집 중 값 */
-  private _formulaDraft = '';
-  /** 샘플 데이터 편집 모달의 열림 상태 */
-  private _sampleModalOpen = false;
-  /** 이미지 선택 모달의 열림 상태 */
-  private _imageModalOpen = false;
   /**
    * 사이드바에서 미리보기를 표시 중인 페이지 번호.
    */
@@ -573,14 +550,6 @@ export class SlipDesigner extends LitElement {
   private _thumbPos: { top: number; left: number } | null = null;
   /** 이미지 선택 실패 사유 */
   private _imageError: string | null = null;
-  /** 샘플 데이터 이미지 업로드의 실패 사유 */
-  private _sampleImageError: string | null = null;
-  /** 샘플 데이터 모달의 현재 페이지 */
-  private _samplePage = 0;
-  /** 샘플 데이터를 JSON으로 직접 편집하는 모드 여부 */
-  private _sampleJsonMode = false;
-  /** JSON 모드의 편집 중 값 */
-  private _sampleJsonDraft = '';
   /**
    * 사이드바에서 선택한 페이지 또는 파라미터.
    * 요소를 선택하면 `null`이 된다.
@@ -602,29 +571,10 @@ export class SlipDesigner extends LitElement {
   private _inputErrorField: string | null = null;
   /** 페이지 키 중복 오류 여부 */
   private _pageKeyError = false;
-  /** "내 양식으로 저장" 모달의 열림 상태 */
-  private _saveModalOpen = false;
-  /** 저장 모달의 편집 중 제목 */
-  private _saveTitle = '';
-  /** "내 양식 목록" 모달의 열림 상태 */
-  private _myFormsOpen = false;
   /**
    * 모달을 열 때 조회한 양식 메타데이터 목록.
    * 검색과 페이지 이동은 이 목록을 기준으로 처리한다.
    */
-  private _myFormItems: SlipListItem[] = [];
-  /** 목록 모달의 현재 페이지(0부터 시작) */
-  private _myFormsPage = 0;
-  /** 목록 검색어 */
-  private _myFormsQuery = '';
-  /** 저장소 작업 오류 메시지 */
-  private _myFormsError: string | null = null;
-  /** 저장 완료 메시지 표시 여부 */
-  private _savedNotice = false;
-  /** 현재 양식이 저장된 저장소 키 */
-  private _savedId: string | null = null;
-  /** 새 저장소 항목으로 저장할지 여부 */
-  private _saveAsNew = false;
   /** 선 끝점 핸들 드래그 상태 */
   private _lineEnd: {
     id: string;
@@ -705,30 +655,23 @@ export class SlipDesigner extends LitElement {
     }
   }
 
-  /**
-   * 모달 안에서 Tab 이동을 가두고 Escape로 닫는다.
-   * 모달 밖 요소로 초점이 새면 배경 화면을 조작하게 되므로 앞뒤를 이어 붙인다.
-   */
-  private _modalKeydown(event: KeyboardEvent, close: () => void): void {
-    if (event.key === 'Escape') {
-      event.stopPropagation();
-      close();
-      return;
-    }
-    if (event.key !== 'Tab') return;
-    const items = focusableIn(event.currentTarget as HTMLElement);
-    if (items.length === 0) return;
-    const first = items[0]!;
-    const last = items[items.length - 1]!;
-    const active = this.shadowRoot?.activeElement;
-    if (event.shiftKey && active === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && active === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
+  /** 열려 있는 모달 */
+  private readonly _dialogs = new DialogsController(this);
+
+  /** 저장 모달과 내 양식 목록 */
+  private readonly _forms = new FormsController(this);
+
+  /** 샘플 데이터 모달의 초안 */
+  private readonly _sample = new SampleDraftController(this);
+
+  /** 수식 편집 모달의 초안 */
+  private readonly _formula = new FormulaDraftController(
+    this,
+    () => this.renderRoot.querySelector('.formula-input') as HTMLTextAreaElement | null,
+  );
+
+  /** 모달의 초점 가두기와 되돌리기 */
+  private readonly _modalFocus = new ModalFocusController(this);
 
   override updated(): void {
     // 인라인 셀 편집을 열면 바로 입력할 수 있게 포커스를 준다
@@ -743,23 +686,7 @@ export class SlipDesigner extends LitElement {
       this._focusBandMenu = false;
       (this.renderRoot.querySelector('.band-menu-item') as HTMLButtonElement | null)?.focus();
     }
-    this._syncModalFocus();
-  }
-
-  /** 모달이 열리면 안으로 초점을 옮기고, 닫히면 열기 전 요소로 되돌린다. */
-  private _syncModalFocus(): void {
-    const modal = this.renderRoot.querySelector('.modal') as HTMLElement | null;
-    if (modal !== null && this._modalReturnFocus === undefined) {
-      const active = this.shadowRoot?.activeElement;
-      this._modalReturnFocus = active instanceof HTMLElement ? active : null;
-      (focusableIn(modal)[0] ?? modal).focus();
-      return;
-    }
-    if (modal === null && this._modalReturnFocus !== undefined) {
-      const previous = this._modalReturnFocus;
-      this._modalReturnFocus = undefined;
-      previous?.focus();
-    }
+    this._modalFocus.sync();
   }
 
   // ---------------------------------------------------------------------------
@@ -793,17 +720,13 @@ export class SlipDesigner extends LitElement {
     this._lineDraft = null;
     this._lineGhost = null;
     this._lineEnd = null;
-    this._formulaModalOpen = false;
-    this._sampleModalOpen = false;
-    this._imageModalOpen = false;
+    this._dialogs.closeAllQuietly();
     this._imageError = null;
     this._sideSelection = null;
     this._parameterKeyError = false;
-    this._saveModalOpen = false;
-    this._myFormsOpen = false;
-    this._myFormsError = null;
-    this._savedNotice = false;
-    this._savedId = null;
+    this._forms.clearError();
+    this._forms.clearNotice();
+    this._forms.reset();
 
     if (!this.src) {
       this._file = null;
@@ -1318,7 +1241,7 @@ export class SlipDesigner extends LitElement {
   private _emitChange(): void {
     if (!this._file) return;
     // 문서가 변경되면 저장 완료 상태를 해제한다.
-    this._savedNotice = false;
+    this._forms.clearNotice();
     const file = structuredClone(this._file) as SlipFile;
     this.dispatchEvent(
       new CustomEvent('slip-change', { detail: { file }, bubbles: true, composed: true }),
@@ -2613,17 +2536,9 @@ export class SlipDesigner extends LitElement {
     if (inFormField) return;
 
     // 모달이 열려 있으면 Esc는 모달 닫기 (모달 안 입력란의 Esc는 모달 자체가 처리)
-    if (
-      e.key === 'Escape' &&
-      (this._formulaModalOpen || this._sampleModalOpen ||
-        this._imageModalOpen || this._saveModalOpen || this._myFormsOpen)
-    ) {
-      this._formulaModalOpen = false;
-      this._sampleModalOpen = false;
-      this._imageModalOpen = false;
+    if (e.key === 'Escape' && this._dialogs.anyOpen) {
+      this._dialogs.closeAllQuietly();
       this._imageError = null;
-      this._saveModalOpen = false;
-      this._myFormsOpen = false;
       this.requestUpdate();
       return;
     }
@@ -2864,7 +2779,7 @@ export class SlipDesigner extends LitElement {
               ${this._iconButton(s.saveAsMyForm, icons.save, () => this._openSaveModal())}
               ${this._iconButton(s.myFormsList, icons.folderOpen, () => void this._openMyForms())}
             </div>
-            ${this._savedNotice
+            ${this._forms.savedNotice
               ? html`<span class="saved-notice">${s.savedNotice}</span>`
               : nothing}`
         : nothing}
@@ -3336,11 +3251,8 @@ export class SlipDesigner extends LitElement {
           <span class="side-title">${s.sidebarParameters}</span>
           <button class="side-mini" title=${s.sampleData} aria-label=${s.sampleData}
             @click=${() => {
-              this._sampleModalOpen = true;
-              this._samplePage = 0;
-              this._sampleJsonMode = false;
-              this._sampleImageError = null;
-              this.requestUpdate();
+              this._sample.reset();
+              this._dialogs.open('sample');
             }}>${icons.database}</button>
           <button class="side-mini" title=${s.addParameter} aria-label=${s.addParameter}
             @click=${() => this._addParameter()}>${icons.pageAdd}</button>
@@ -8064,32 +7976,14 @@ export class SlipDesigner extends LitElement {
     return `${bytes}B`;
   }
 
-  /**
-   * 모든 페이지에서 사용 중인 고정 이미지를 중복 없이 반환한다.
-   * 기본 투명 이미지는 제외한다.
-   */
-  private _usedImages(): string[] {
-    const file = this._file;
-    if (!file) return [];
-    const seen = new Set<string>();
-    for (const page of file.template.pages) {
-      for (const el of page.elements) {
-        if (el.type !== 'image') continue;
-        if (el.src === undefined || el.src === PLACEHOLDER_IMG || !el.src.startsWith('data:')) continue;
-        seen.add(el.src);
-      }
-    }
-    return [...seen];
-  }
-
   /** 이미지 선택 모달을 연다. */
   private _openImageModal(): void {
     this._imageError = null;
-    this._imageModalOpen = true;
+    this._dialogs.open('image');
   }
 
   private _closeImageModal(): void {
-    this._imageModalOpen = false;
+    this._dialogs.close('image');
     this._imageError = null;
   }
 
@@ -8112,132 +8006,57 @@ export class SlipDesigner extends LitElement {
       this._applyImageSrc(result.src);
       return;
     }
-    this._imageError = this._imagePickErrorText(result);
+    this._imageError = this._pickErrorText(result);
     this.requestUpdate();
   }
 
-  /** 이미지 선택 실패 사유를 디자이너 오류 메시지로 변환한다. */
-  private _imagePickErrorText(
-    result: { ok: false; reason: 'notImage' | 'tooLarge'; size: number } | { ok: false; reason: 'readFailed' },
-  ): string {
+  /** 이미지 선택 실패 사유를 로케일에 맞는 문구로 바꾼다. */
+  private _pickErrorText(result: ImagePickFailure): string {
     const s = this._strings.designer;
-    if (result.reason === 'notImage') return s.imageNotImage;
-    if (result.reason === 'readFailed') return s.imageReadFailed;
-    return s.imageTooLarge
-      .replace('{max}', formatBytes(this.maxImageBytes))
-      .replace('{size}', formatBytes(result.size));
-  }
-
-  /**
-   * 이미지 요소가 참조하거나 이미지 종류로 정의된 파라미터 키를 반환한다.
-   */
-  private _imageParameterKeys(): Set<string> {
-    const file = this._file;
-    const keys = new Set<string>();
-    if (!file) return keys;
-    for (const def of file.template.parameters ?? []) {
-      if (def.valueType === 'image') keys.add(def.key);
-    }
-    for (const page of file.template.pages) {
-      for (const el of page.elements) {
-        if (el.type === 'image' && el.parameter !== undefined) keys.add(el.parameter);
-      }
-    }
-    return keys;
+    return imagePickErrorText(
+      result,
+      { notImage: s.imageNotImage, readFailed: s.imageReadFailed, tooLarge: s.imageTooLarge },
+      this.maxImageBytes,
+    );
   }
 
   /** 샘플 데이터의 이미지 값을 파일에서 선택해 저장한다. */
   private async _pickSampleImage(key: string): Promise<void> {
     const result = await pickImageFile(this.maxImageBytes);
     if (result.ok) {
-      this._sampleImageError = null;
+      this._sample.setImageError(null);
       this._setSampleValue(key, result.src);
       return;
     }
-    this._sampleImageError = this._imagePickErrorText(result);
-    this.requestUpdate();
+    this._sample.setImageError(this._pickErrorText(result));
   }
 
   /** 선택한 필드의 수식으로 수식 편집 모달을 연다. */
   private _openFormulaModal(): void {
     const el = this._findSelectedElement();
     if (!el || el.type !== 'field') return;
-    this._formulaDraft = el.formula ?? '';
-    this._formulaModalOpen = true;
-    this.requestUpdate();
+    this._formula.start(el.formula);
+    this._dialogs.open('formula');
   }
 
   private _closeFormulaModal(): void {
-    this._formulaModalOpen = false;
+    this._dialogs.close('formula');
     this.requestUpdate();
   }
 
   /** 수식 편집 값을 선택한 필드에 적용한다. 빈 값이면 수식을 제거한다. */
   private _applyFormulaModal(): void {
-    const draft = this._formulaDraft.trim();
-    this._formulaModalOpen = false;
+    const formula = this._formula.commit();
+    this._dialogs.close('formula');
     this._updateElement((el) => {
       if (el.type !== 'field') return;
-      setOptional(el, 'formula', draft || null);
+      setOptional(el, 'formula', formula);
     });
-  }
-
-  /** 수식 입력의 커서 위치에 앞뒤 텍스트를 삽입한다. */
-  private _insertFormulaText(text: string, after = ''): void {
-    const input = this.renderRoot.querySelector('.formula-input') as HTMLTextAreaElement | null;
-    const draft = this._formulaDraft;
-    const start = input?.selectionStart ?? draft.length;
-    const end = input?.selectionEnd ?? draft.length;
-    this._formulaDraft = draft.slice(0, start) + text + after + draft.slice(end);
-    this.requestUpdate();
-    void this.updateComplete.then(() => {
-      const next = this.renderRoot.querySelector('.formula-input') as HTMLTextAreaElement | null;
-      if (next) {
-        next.focus();
-        const caret = start + text.length;
-        next.setSelectionRange(caret, caret);
-        this._formulaCaret = caret;
-      }
-    });
-  }
-
-  /** 수식 입력의 현재 커서 위치 */
-  private _formulaCaret = 0;
-
-  /** 수식 입력의 커서 위치를 갱신한다. */
-  private _syncFormulaCaret(e: Event): void {
-    const caret = (e.target as HTMLTextAreaElement).selectionStart;
-    if (caret === this._formulaCaret) return;
-    this._formulaCaret = caret;
-    this.requestUpdate();
-  }
-
-  /**
-   * 커서 앞의 `목록파라미터.필드` 입력에 맞는 하위 필드를 제안한다.
-   *
-   * @returns 제안할 필드 목록과 이미 입력한 글자 수
-   */
-  private _columnSuggestion(): {
-    columns: { key: string; title: string }[];
-    typedLength: number;
-  } | null {
-    const caret = Math.min(this._formulaCaret, this._formulaDraft.length);
-    const before = this._formulaDraft.slice(0, caret);
-    const match = /([A-Za-z0-9_가-힣]+)\.([A-Za-z0-9_가-힣]*)$/.exec(before);
-    if (!match) return null;
-
-    const target = this._parameterList().find((b) => b.key === match[1] && b.fields.length > 0);
-    if (!target) return null;
-    const typed = match[2] ?? '';
-    const columns = target.fields
-      .filter((field) => field.key.toLowerCase().startsWith(typed.toLowerCase()))
-      .map((field) => ({ key: field.key, title: field.title }));
-    return columns.length > 0 ? { columns, typedLength: typed.length } : null;
   }
 
   /** 목록 파라미터의 하위 필드 자동완성 항목을 렌더링한다. */
   private _renderColumnSuggestions() {
-    const suggestion = this._columnSuggestion();
+    const suggestion = this._formula.suggestion(this._parameterList());
     if (!suggestion) return nothing;
     const s = this._strings.designer;
 
@@ -8246,7 +8065,7 @@ export class SlipDesigner extends LitElement {
         <span class="formula-suggest-label">${s.formulaColumnSuggest}</span>
         ${suggestion.columns.map((col) => html`
           <button class="parameter-chip column" title=${col.key}
-            @click=${() => this._insertFormulaText(col.key.slice(suggestion.typedLength))}
+            @click=${() => this._formula.insert(col.key.slice(suggestion.typedLength))}
             >${col.title ? `${col.title} · ${col.key}` : col.key}</button>`)}
       </div>
     `;
@@ -8254,11 +8073,11 @@ export class SlipDesigner extends LitElement {
 
   /** 문법 검사, 샘플 계산, 파라미터 및 함수 삽입을 제공하는 수식 모달을 렌더링한다. */
   private _renderFormulaModal() {
-    if (!this._formulaModalOpen) return nothing;
+    if (!this._dialogs.isOpen('formula')) return nothing;
     const el = this._findSelectedElement();
     if (!el || el.type !== 'field') return nothing;
     const s = this._strings.designer;
-    const draft = this._formulaDraft;
+    const draft = this._formula.draft;
 
     let syntaxError: string | null = null;
     let preview: string | null = null;
@@ -8287,7 +8106,7 @@ export class SlipDesigner extends LitElement {
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${() => this._closeFormulaModal()}></div>
       <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.formulaModalTitle}
-        @keydown=${(e: KeyboardEvent) => this._modalKeydown(e, () => this._closeFormulaModal())}>
+        @keydown=${(e: KeyboardEvent) => this._modalFocus.handleKeydown(e, () => this._closeFormulaModal())}>
         <div class="modal-head">
           <span>${s.formulaModalTitle}</span>
           <button class="modal-close" title=${s.close} aria-label=${s.close}
@@ -8298,12 +8117,10 @@ export class SlipDesigner extends LitElement {
             aria-label=${s.formula} .value=${draft}
             @input=${(e: Event) => {
               const input = e.target as HTMLTextAreaElement;
-              this._formulaDraft = input.value;
-              this._formulaCaret = input.selectionStart;
-              this.requestUpdate();
+              this._formula.setDraft(input.value, input.selectionStart);
             }}
-            @keyup=${(e: Event) => this._syncFormulaCaret(e)}
-            @click=${(e: Event) => this._syncFormulaCaret(e)}></textarea>
+            @keyup=${(e: Event) => this._formula.syncCaret((e.target as HTMLTextAreaElement).selectionStart)}
+            @click=${(e: Event) => this._formula.syncCaret((e.target as HTMLTextAreaElement).selectionStart)}></textarea>
           <div class="formula-status ${syntaxError ? 'error' : ''}">
             ${syntaxError
               ? `${s.syntaxError}: ${syntaxError}`
@@ -8321,12 +8138,12 @@ export class SlipDesigner extends LitElement {
                 <div class="parameter-chips">
                   ${parameters.map((b) => html`
                     <button class="parameter-chip" title="${b.key}${b.valueType ? ` (${b.valueType})` : ''}"
-                      @click=${() => this._insertFormulaText(b.key)}>${b.label}${
+                      @click=${() => this._formula.insert(b.key)}>${b.label}${
                         b.valueType ? html`<span class="chip-type">${b.valueType}</span>` : nothing
                       }</button>
                     ${b.fields.map((field) => html`
                       <button class="parameter-chip column" title="${b.key}.${field.key}"
-                        @click=${() => this._insertFormulaText(`${b.key}.${field.key}`)}
+                        @click=${() => this._formula.insert(`${b.key}.${field.key}`)}
                         >${field.title}</button>`)}`)}
                 </div>`
             : nothing}
@@ -8335,7 +8152,7 @@ export class SlipDesigner extends LitElement {
             <div class="fn-category">${category.title}</div>
             ${category.functions.map((fn) => html`
               <button class="fn-row" aria-label=${fn.name}
-                @click=${() => this._insertFormulaText(`${fn.name}(`, ')')}>
+                @click=${() => this._formula.insert(`${fn.name}(`, ')')}>
                 <span class="fn-signature">${fn.signature}</span>
                 <span class="fn-desc">${fn.description}</span>
               </button>`)}`)}
@@ -8354,17 +8171,17 @@ export class SlipDesigner extends LitElement {
    * 이미지 값은 base64만 지원하므로 URL 입력은 제공하지 않는다.
    */
   private _renderImageModal() {
-    if (!this._imageModalOpen) return nothing;
+    if (!this._dialogs.isOpen('image')) return nothing;
     const el = this._findSelectedElement();
     if (!el || el.type !== 'image') return nothing;
     const s = this._strings.designer;
     const close = (): void => this._closeImageModal();
-    const used = this._usedImages();
+    const used = usedImages(this._file, PLACEHOLDER_IMG);
 
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${close}></div>
       <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.imageModalTitle}
-        @keydown=${(e: KeyboardEvent) => this._modalKeydown(e, close)}>
+        @keydown=${(e: KeyboardEvent) => this._modalFocus.handleKeydown(e, close)}>
         <div class="modal-head">
           <span>${s.imageModalTitle}</span>
           <button class="modal-close" title=${s.close} aria-label=${s.close}
@@ -8420,12 +8237,12 @@ export class SlipDesigner extends LitElement {
    * 반복 파라미터는 그리드 열에 맞춰 행 단위로 편집한다.
    */
   private _renderSampleModal() {
-    if (!this._sampleModalOpen || !this._file) return nothing;
+    if (!this._dialogs.isOpen('sample') || !this._file) return nothing;
     const s = this._strings.designer;
     const template = this._file.template;
     const samples: Record<string, unknown> = template.sampleValues ?? {};
     const close = (): void => {
-      this._sampleModalOpen = false;
+      this._dialogs.close('sample');
       this.requestUpdate();
     };
 
@@ -8446,10 +8263,10 @@ export class SlipDesigner extends LitElement {
     }
     const parameters = this._collectParameters();
     // 이미지 파라미터는 텍스트 입력 대신 파일 선택기를 사용한다.
-    const imageKeys = this._imageParameterKeys();
+    const imageKeys = imageParameterKeys(this._file);
     // 파라미터 입력을 일정한 개수로 나눠 표시한다.
     const pageCount = Math.max(1, Math.ceil(parameters.length / SAMPLE_PAGE_SIZE));
-    const pageIndex = Math.min(this._samplePage, pageCount - 1);
+    const pageIndex = Math.min(this._sample.page, pageCount - 1);
     const visible = parameters.slice(
       pageIndex * SAMPLE_PAGE_SIZE,
       (pageIndex + 1) * SAMPLE_PAGE_SIZE,
@@ -8457,9 +8274,9 @@ export class SlipDesigner extends LitElement {
 
     // JSON 초안이 객체가 아니거나 구문이 잘못되면 적용 버튼을 비활성화한다.
     let jsonError: string | null = null;
-    if (this._sampleJsonMode && this._sampleJsonDraft.trim() !== '') {
+    if (this._sample.jsonMode && this._sample.jsonDraft.trim() !== '') {
       try {
-        const parsed: unknown = JSON.parse(this._sampleJsonDraft);
+        const parsed: unknown = JSON.parse(this._sample.jsonDraft);
         if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
           jsonError = s.jsonNotObject;
         }
@@ -8471,7 +8288,7 @@ export class SlipDesigner extends LitElement {
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${close}></div>
       <div class="modal modal-wide" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.sampleModalTitle}
-        @keydown=${(e: KeyboardEvent) => this._modalKeydown(e, close)}>
+        @keydown=${(e: KeyboardEvent) => this._modalFocus.handleKeydown(e, close)}>
         <div class="modal-head">
           <span>${s.sampleModalTitle}</span>
           <button class="modal-close" title=${s.close} aria-label=${s.close}
@@ -8483,28 +8300,22 @@ export class SlipDesigner extends LitElement {
               [false, s.formMode],
               [true, 'JSON'],
             ] as const).map(([jsonMode, label]) => html`
-              <button role="tab" aria-selected=${String(this._sampleJsonMode === jsonMode)}
+              <button role="tab" aria-selected=${String(this._sample.jsonMode === jsonMode)}
                 aria-label="${s.sampleData}: ${label}"
-                @click=${() => {
-                  if (this._sampleJsonMode === jsonMode) return;
-                  this._sampleJsonMode = jsonMode;
-                  if (jsonMode) {
-                    // 선언된 파라미터와 현재 샘플 값을 합쳐 JSON 초안을 만든다.
-                    this._sampleJsonDraft = JSON.stringify(this._sampleSkeleton(), null, 2);
-                  }
-                  this.requestUpdate();
-                }}>${label}</button>`)}
+                @click=${() => this._sample.setJsonMode(
+                  jsonMode,
+                  // 선언된 파라미터와 현재 샘플 값을 합쳐 JSON 초안을 만든다.
+                  () => JSON.stringify(this._sampleSkeleton(), null, 2),
+                )}>${label}</button>`)}
           </div>
-          ${this._sampleJsonMode
+          ${this._sample.jsonMode
             ? html`
                 <div class="cell-hint">${s.jsonHint}</div>
                 <textarea class="sample-json" rows="14" spellcheck="false"
                   aria-label="${s.sampleData} JSON"
-                  .value=${this._sampleJsonDraft}
-                  @input=${(e: Event) => {
-                    this._sampleJsonDraft = (e.target as HTMLTextAreaElement).value;
-                    this.requestUpdate();
-                  }}></textarea>
+                  .value=${this._sample.jsonDraft}
+                  @input=${(e: Event) =>
+                    this._sample.setJsonDraft((e.target as HTMLTextAreaElement).value)}></textarea>
                 <div class="formula-status ${jsonError ? 'error' : ''}">
                   ${jsonError ? `${s.syntaxError}: ${jsonError}` : ''}
                 </div>`
@@ -8518,7 +8329,7 @@ export class SlipDesigner extends LitElement {
                           aria-label="${s.sampleData} ${s.prevPage}"
                           ?disabled=${pageIndex === 0}
                           @click=${() => {
-                            this._samplePage = pageIndex - 1;
+                            this._sample.setPage(pageIndex - 1);
                             this.requestUpdate();
                           }}>${icons.pagePrev}</button>
                         ${Array.from({ length: pageCount }, (_, i) => html`
@@ -8526,20 +8337,20 @@ export class SlipDesigner extends LitElement {
                             aria-label="${s.sampleData} ${s.sidebarPages} ${i + 1}"
                             aria-pressed=${String(i === pageIndex)}
                             @click=${() => {
-                              this._samplePage = i;
+                              this._sample.setPage(i);
                               this.requestUpdate();
                             }}>${i + 1}</button>`)}
                         <button class="side-mini" title=${s.nextPage}
                           aria-label="${s.sampleData} ${s.nextPage}"
                           ?disabled=${pageIndex >= pageCount - 1}
                           @click=${() => {
-                            this._samplePage = pageIndex + 1;
+                            this._sample.setPage(pageIndex + 1);
                             this.requestUpdate();
                           }}>${icons.pageNext}</button>
                       </div>`
                   : nothing}
-                ${this._sampleImageError
-                  ? html`<p class="image-error" role="alert">${this._sampleImageError}</p>`
+                ${this._sample.imageError
+                  ? html`<p class="image-error" role="alert">${this._sample.imageError}</p>`
                   : nothing}
                 ${visible.map((b) => {
                   const columns = tableOf.get(b.key);
@@ -8556,11 +8367,11 @@ export class SlipDesigner extends LitElement {
                 })}`}
         </div>
         <div class="modal-foot">
-          ${this._sampleJsonMode
+          ${this._sample.jsonMode
             ? html`<button class="btn primary" ?disabled=${jsonError !== null}
                 @click=${() => this._applySampleJson()}>${s.apply}</button>`
             : nothing}
-          <button class="btn ${this._sampleJsonMode ? '' : 'primary'}" @click=${close}>
+          <button class="btn ${this._sample.jsonMode ? '' : 'primary'}" @click=${close}>
             ${s.close}
           </button>
         </div>
@@ -8570,17 +8381,8 @@ export class SlipDesigner extends LitElement {
 
   /** JSON 초안을 sampleValues에 반영하고, 빈 객체이면 sampleValues를 제거한다. */
   private _applySampleJson(): void {
-    let parsed: unknown = {};
-    const draft = this._sampleJsonDraft.trim();
-    if (draft !== '') {
-      try {
-        parsed = JSON.parse(draft);
-      } catch {
-        return;
-      }
-    }
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return;
-    const record = parsed as Record<string, unknown>;
+    const record = this._sample.parsedValues();
+    if (record === null) return;
     this._updateFile((f) => {
       if (Object.keys(record).length === 0) {
         delete (f.template as { sampleValues?: unknown }).sampleValues;
@@ -8671,11 +8473,8 @@ export class SlipDesigner extends LitElement {
   /** 현재 양식 제목으로 저장 모달을 연다. */
   private _openSaveModal(): void {
     if (!this._file) return;
-    this._saveTitle = this._file.template.meta.title;
-    this._saveAsNew = false;
-    this._myFormsError = null;
-    this._saveModalOpen = true;
-    this.requestUpdate();
+    this._forms.startSave(this._file.template.meta.title);
+    this._dialogs.open('save');
   }
 
   /**
@@ -8685,7 +8484,7 @@ export class SlipDesigner extends LitElement {
   private async _confirmSave(): Promise<void> {
     const adapter = this.storage;
     if (!adapter || !this._file) return;
-    const title = this._saveTitle.trim();
+    const title = this._forms.title.trim();
     // 빈 제목은 스키마 제약을 충족하지 않으므로 저장하지 않는다.
     if (!title) {
       this._rejectInput();
@@ -8696,26 +8495,21 @@ export class SlipDesigner extends LitElement {
         f.template.meta.title = title;
       });
     }
-    const id = this._saveAsNew || !this._savedId ? crypto.randomUUID() : this._savedId;
+    const id = this._forms.nextId();
     try {
       await adapter.save(id, structuredClone(this._file) as SlipFile);
     } catch (error) {
-      this._myFormsError = error instanceof Error ? error.message : String(error);
-      this.requestUpdate();
+      this._forms.fail(error);
       return;
     }
-    this._savedId = id;
-    this._saveModalOpen = false;
-    this._savedNotice = true;
-    this.requestUpdate();
+    this._dialogs.close('save');
+    this._forms.markSaved(id);
   }
 
   /** 저장된 양식의 메타데이터를 불러와 목록 모달을 연다. */
   private async _openMyForms(): Promise<void> {
-    this._myFormsOpen = true;
-    this._myFormsQuery = '';
-    this._myFormsPage = 0;
-    this.requestUpdate();
+    this._forms.startList();
+    this._dialogs.open('myForms');
     await this._loadMyForms();
   }
 
@@ -8726,29 +8520,7 @@ export class SlipDesigner extends LitElement {
   private async _loadMyForms(): Promise<void> {
     const adapter = this.storage;
     if (!adapter) return;
-    this._myFormsError = null;
-    try {
-      const items: SlipListItem[] = [];
-      let cursor: string | undefined;
-      do {
-        const page = await adapter.list({ kind: 'template' }, cursor);
-        items.push(...page.items);
-        cursor = page.nextCursor;
-      } while (cursor);
-      this._myFormItems = items;
-    } catch (error) {
-      this._myFormItems = [];
-      this._myFormsError = error instanceof Error ? error.message : String(error);
-    }
-    this._myFormsPage = 0;
-    this.requestUpdate();
-  }
-
-  /** 제목에 검색어가 포함된 양식 목록을 반환한다. */
-  private _filteredMyForms(): SlipListItem[] {
-    const query = this._myFormsQuery.trim().toLowerCase();
-    if (!query) return this._myFormItems;
-    return this._myFormItems.filter((item) => item.title.toLowerCase().includes(query));
+    await this._forms.loadList(adapter);
   }
 
   /** 선택한 양식을 편집기에 불러오고 이전 상태를 실행 취소 기록에 추가한다. */
@@ -8759,26 +8531,23 @@ export class SlipDesigner extends LitElement {
     try {
       file = await adapter.load(id);
     } catch (error) {
-      this._myFormsError = error instanceof Error ? error.message : String(error);
-      this.requestUpdate();
+      this._forms.fail(error);
       return;
     }
     if (file.kind !== 'template') {
-      this._myFormsError = this._strings.designer.onlyTemplate;
-      this.requestUpdate();
+      this._forms.fail(this._strings.designer.onlyTemplate);
       return;
     }
     this._pushUndo();
     this._file = file;
-    this._savedId = id;
+    this._forms.markLoaded(id);
     this._clearSelection();
     this._sideSelection = null;
     this._selectedCell = null;
     this._cellEditing = false;
     this._pageIndex = 0;
     this._previewMode = false;
-    this._myFormsOpen = false;
-    this._savedNotice = false;
+    this._dialogs.close('myForms');
     this._emitChange();
     this.requestUpdate();
   }
@@ -8790,30 +8559,24 @@ export class SlipDesigner extends LitElement {
     try {
       await adapter.delete(id);
     } catch (error) {
-      this._myFormsError = error instanceof Error ? error.message : String(error);
-      this.requestUpdate();
+      this._forms.fail(error);
       return;
     }
-    if (this._savedId === id) this._savedId = null;
-    this._myFormItems = this._myFormItems.filter((item) => item.id !== id);
-    // 현재 페이지가 목록 범위를 벗어나면 마지막 유효 페이지로 이동한다.
-    const lastPage = Math.max(0, Math.ceil(this._filteredMyForms().length / MY_FORMS_PAGE_SIZE) - 1);
-    if (this._myFormsPage > lastPage) this._myFormsPage = lastPage;
-    this.requestUpdate();
+    this._forms.forget(id, MY_FORMS_PAGE_SIZE);
   }
 
   /** 양식 제목과 새 저장 여부를 입력하는 저장 모달을 렌더링한다. */
   private _renderSaveModal() {
-    if (!this._saveModalOpen || !this._file) return nothing;
+    if (!this._dialogs.isOpen('save') || !this._file) return nothing;
     const s = this._strings.designer;
     const close = (): void => {
-      this._saveModalOpen = false;
+      this._dialogs.close('save');
       this.requestUpdate();
     };
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${close}></div>
       <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.saveAsMyForm}
-        @keydown=${(e: KeyboardEvent) => this._modalKeydown(e, close)}>
+        @keydown=${(e: KeyboardEvent) => this._modalFocus.handleKeydown(e, close)}>
         <div class="modal-head">
           <span>${s.saveAsMyForm}</span>
           <button class="modal-close" title=${s.close} aria-label=${s.close}
@@ -8822,27 +8585,24 @@ export class SlipDesigner extends LitElement {
         <div class="modal-body">
           <div class="prop-row">
             <label>${s.formTitle}</label>
-            <input class="save-title" .value=${this._saveTitle} aria-label=${s.formTitle}
-              @input=${(e: Event) => {
-                this._saveTitle = (e.target as HTMLInputElement).value;
-              }}
+            <input class="save-title" .value=${this._forms.title} aria-label=${s.formTitle}
+              @input=${(e: Event) =>
+                this._forms.setTitle((e.target as HTMLInputElement).value)}
               @keydown=${(e: KeyboardEvent) => {
                 if (e.key === 'Enter') void this._confirmSave();
               }}>
           </div>
-          ${this._savedId
+          ${this._forms.savedId
             ? html`
                 <label class="save-as-new">
-                  <input type="checkbox" .checked=${this._saveAsNew} aria-label=${s.saveAsNew}
-                    @change=${(e: Event) => {
-                      this._saveAsNew = (e.target as HTMLInputElement).checked;
-                      this.requestUpdate();
-                    }}>
+                  <input type="checkbox" .checked=${this._forms.asNew} aria-label=${s.saveAsNew}
+                    @change=${(e: Event) =>
+                      this._forms.setAsNew((e.target as HTMLInputElement).checked)}>
                   <span>${s.saveAsNew}</span>
                 </label>`
             : nothing}
-          ${this._myFormsError
-            ? html`<div class="formula-status error">${this._myFormsError}</div>`
+          ${this._forms.error
+            ? html`<div class="formula-status error">${this._forms.error}</div>`
             : nothing}
         </div>
         <div class="modal-foot">
@@ -8855,16 +8615,16 @@ export class SlipDesigner extends LitElement {
 
   /** 저장된 양식을 검색하고 불러오거나 삭제하는 모달을 렌더링한다. */
   private _renderMyFormsModal() {
-    if (!this._myFormsOpen) return nothing;
+    if (!this._dialogs.isOpen('myForms')) return nothing;
     const s = this._strings.designer;
     const close = (): void => {
-      this._myFormsOpen = false;
+      this._dialogs.close('myForms');
       this.requestUpdate();
     };
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${close}></div>
       <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.myFormsList}
-        @keydown=${(e: KeyboardEvent) => this._modalKeydown(e, close)}>
+        @keydown=${(e: KeyboardEvent) => this._modalFocus.handleKeydown(e, close)}>
         <div class="modal-head">
           <span>${s.myFormsList}</span>
           <button class="modal-close" title=${s.close} aria-label=${s.close}
@@ -8873,15 +8633,12 @@ export class SlipDesigner extends LitElement {
         <div class="modal-body">
           <div class="prop-row">
             <label>${s.search}</label>
-            <input class="forms-search" .value=${this._myFormsQuery} aria-label=${s.search}
-              @input=${(e: Event) => {
-                this._myFormsQuery = (e.target as HTMLInputElement).value;
-                this._myFormsPage = 0;
-                this.requestUpdate();
-              }}>
+            <input class="forms-search" .value=${this._forms.query} aria-label=${s.search}
+              @input=${(e: Event) =>
+                this._forms.setQuery((e.target as HTMLInputElement).value)}>
           </div>
-          ${this._myFormsError
-            ? html`<div class="formula-status error">${this._myFormsError}</div>`
+          ${this._forms.error
+            ? html`<div class="formula-status error">${this._forms.error}</div>`
             : nothing}
           ${this._renderMyFormsPage()}
         </div>
@@ -8895,12 +8652,12 @@ export class SlipDesigner extends LitElement {
   /** 검색 결과를 페이지 단위로 나눠 목록 모달에 렌더링한다. */
   private _renderMyFormsPage() {
     const s = this._strings.designer;
-    const filtered = this._filteredMyForms();
+    const filtered = this._forms.filtered();
     if (filtered.length === 0) {
-      return this._myFormsError ? nothing : html`<div class="side-empty">${s.noSavedForms}</div>`;
+      return this._forms.error ? nothing : html`<div class="side-empty">${s.noSavedForms}</div>`;
     }
     const pageCount = Math.ceil(filtered.length / MY_FORMS_PAGE_SIZE);
-    const page = Math.min(this._myFormsPage, pageCount - 1);
+    const page = Math.min(this._forms.page, pageCount - 1);
     const items = filtered.slice(page * MY_FORMS_PAGE_SIZE, (page + 1) * MY_FORMS_PAGE_SIZE);
     return html`
       ${items.map((item) => html`
@@ -8920,14 +8677,14 @@ export class SlipDesigner extends LitElement {
           <div class="sample-pager">
             <button class="side-mini" title=${s.prevPage} aria-label="${s.myFormsList} ${s.prevPage}"
               ?disabled=${page === 0}
-              @click=${() => { this._myFormsPage = page - 1; this.requestUpdate(); }}>${icons.pagePrev}</button>
+              @click=${() => this._forms.setPage(page - 1)}>${icons.pagePrev}</button>
             ${Array.from({ length: pageCount }, (_, i) => html`
               <button class="page-btn" aria-label="${s.myFormsList} ${s.sidebarPages} ${i + 1}"
                 aria-pressed=${String(i === page)}
-                @click=${() => { this._myFormsPage = i; this.requestUpdate(); }}>${i + 1}</button>`)}
+                @click=${() => this._forms.setPage(i)}>${i + 1}</button>`)}
             <button class="side-mini" title=${s.nextPage} aria-label="${s.myFormsList} ${s.nextPage}"
               ?disabled=${page >= pageCount - 1}
-              @click=${() => { this._myFormsPage = page + 1; this.requestUpdate(); }}>${icons.pageNext}</button>
+              @click=${() => this._forms.setPage(page + 1)}>${icons.pageNext}</button>
           </div>`
         : nothing}
     `;
