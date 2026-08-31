@@ -71,7 +71,7 @@ Out of scope:
 
 **Templates from untrusted sources.** A `.slip` template may reference images by `https://` URL. Opening such a template makes the viewer's browser fetch that URL, which tells the third party that the file was opened, and from which IP. If you accept templates from people you do not trust, serve your application with a Content Security Policy that restricts `img-src`, or strip URL images before rendering. (Issued vouchers cannot contain URL images — those must be embedded — but templates can.)
 
-**Content Security Policy.** SlipKit needs no inline scripts and no `eval`, so it works under a strict CSP. Setting one is recommended.
+**Content Security Policy.** SlipKit does not require inline scripts or `eval`. The host application's CSP must still allow any font and image sources its configuration and templates use.
 
 **Access control and audit.** There is no concept of a user, a permission, or a log in SlipKit. Deciding who may open, edit, or issue a document is entirely the host's job.
 
@@ -98,7 +98,7 @@ These are known and currently accepted:
 
 ## Verification
 
-The security properties above are checked as part of the project's test plan. See [TEST-PLAN.md](docs/TEST-PLAN.md) — section 7 lists the threat model, what was checked, and the security test cases that run in the suite.
+Relevant security checks, automated tests, and manual review items are documented in the project's test plan. See [TEST-PLAN.md](docs/TEST-PLAN.md) — section 7 lists the threat model, the checks performed, and the security test cases that run in the suite. Some items in this document are host responsibilities or known limitations rather than properties the suite verifies.
 
 ```bash
 pnpm audit        # known vulnerabilities in dependencies
