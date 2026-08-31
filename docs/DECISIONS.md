@@ -8,6 +8,7 @@ SlipKit을 설계하면서 내린 주요 결정과 그 이유를 기록합니다
 - [아키텍처](./ARCHITECTURE.md)
 - [파일 형식 명세](./SPEC.md)
 - [로드맵](./ROADMAP.md)
+- [테스트 계획](./TEST-PLAN.md)
 - [미결 사항](./OPEN-QUESTIONS.md)
 - [기술 조사](./TECH-RESEARCH.md)
 

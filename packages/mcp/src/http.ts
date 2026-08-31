@@ -13,6 +13,16 @@ import { resolveInRoot } from './storage.js';
 /** 같은 작업 디렉터리를 제공하는 링크 서버인지 확인하는 상태 경로 */
 const STATUS_PATH = '/slipkit-mcp/status';
 
+/** 로컬호스트로 들어온 요청인지 확인한다 (DNS 리바인딩 차단). */
+function isLocalHostHeader(header: string | undefined): boolean {
+  if (header === undefined) return false;
+  // 포트를 뗀 호스트 이름만 비교한다. IPv6는 대괄호를 벗긴다.
+  const name = header.startsWith('[')
+    ? header.slice(1, header.indexOf(']'))
+    : (header.split(':')[0] ?? '');
+  return name === '127.0.0.1' || name === 'localhost' || name === '::1';
+}
+
 /** 작업 디렉터리를 비교할 해시값을 만든다. */
 function rootToken(rootDir: string): string {
   return createHash('sha256').update(path.resolve(rootDir)).digest('hex');
@@ -47,6 +57,12 @@ export function startPdfLinkServer(options: {
           response.writeHead(405).end();
           return;
         }
+        // 브라우저가 DNS 리바인딩으로 이 서버에 붙는 것을 막는다.
+        // 로컬 주소로 들어온 요청만 처리하고 다른 이름의 요청은 거부한다.
+        if (!isLocalHostHeader(request.headers.host)) {
+          response.writeHead(403).end('Forbidden');
+          return;
+        }
         const url = new URL(request.url ?? '/', `http://${host}`);
         // 다른 프로세스가 같은 작업 디렉터리의 링크 서버인지 확인할 수 있게 식별 정보를 반환한다.
         if (url.pathname === STATUS_PATH) {
@@ -67,6 +83,7 @@ export function startPdfLinkServer(options: {
             'content-type': 'application/pdf',
             'content-length': data.length,
             'cache-control': 'no-store',
+            'x-content-type-options': 'nosniff',
           })
           .end(data);
       } catch {

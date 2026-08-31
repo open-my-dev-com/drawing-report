@@ -3967,6 +3967,31 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     return loadDesigner();
   }
 
+  it('모달을 열면 모달임을 알리고 안으로 초점을 옮긴다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+    const modal = el.shadowRoot!.querySelector('.modal') as HTMLElement;
+    expect(modal.getAttribute('aria-modal')).toBe('true');
+    // 초점이 모달 안에 있어야 배경 화면을 잘못 조작하지 않는다.
+    expect(modal.contains(el.shadowRoot!.activeElement as Node)).toBe(true);
+    el.remove();
+  });
+
+  it('모달 안에서 Tab이 밖으로 새지 않는다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+    const modal = el.shadowRoot!.querySelector('.modal') as HTMLElement;
+    const focusable = Array.from(
+      modal.querySelectorAll<HTMLElement>('button:not([disabled]), textarea, input, [tabindex]:not([tabindex="-1"])'),
+    );
+    const last = focusable[focusable.length - 1]!;
+    last.focus();
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    last.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    el.remove();
+  });
+
   it('문자열 따옴표 규칙을 모달에서 안내한다 (F-21)', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);

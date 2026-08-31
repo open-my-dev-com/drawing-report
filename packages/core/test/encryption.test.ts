@@ -99,6 +99,13 @@ describe('파일 암호화 (ADR-054)', () => {
     await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toThrow('key derivation');
   });
 
+  it('새 봉투는 OWASP 권고 반복 횟수로 키를 파생한다', async () => {
+    const locked = await encryptSlipFile(template(), 'pw');
+    const env = JSON.parse(locked) as { kdf: { algo: string; iterations: number } };
+    expect(env.kdf.algo).toBe('PBKDF2-SHA256');
+    expect(env.kdf.iterations).toBe(600_000);
+  });
+
   it('정상 범위를 벗어난 PBKDF2 반복 횟수는 거부한다', async () => {
     const locked = await encryptSlipFile(template(), 'pw');
     const env = JSON.parse(locked) as { kdf: { iterations: number } };

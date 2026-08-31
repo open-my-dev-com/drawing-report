@@ -554,6 +554,33 @@ describe('양식 페이지 계획 (planSourcePage)', () => {
   });
 });
 
+describe('많은 항목의 계획', () => {
+  it('항목이 늘어도 마지막 페이지 판정과 항목 배분이 달라지지 않는다', () => {
+    // remainderFits의 조기 종료가 isFinal 판정을 바꾸지 않는지 확인한다.
+    const grid = makeGrid({
+      rows: [10, 10, 10],
+      bands: [
+        band('h', 0, 0, 'page-start'),
+        band('i', 1, 1, 'item'),
+        band('t', 2, 2, 'after-data'),
+      ],
+      pagination: { mode: 'auto', minItems: 0 },
+    });
+    for (const count of [1, 5, 6, 7, 50, 2000]) {
+      const plan = planGrid(grid, items(count), FLOW);
+      const placed = plan.fragments.flatMap((f) => f.pageItems);
+      // 모든 항목이 정확히 한 번씩 배치된다
+      expect(placed).toEqual(Array.from({ length: count }, (_, i) => i));
+      // 데이터 뒤 구간은 마지막 조각에만 한 번 나온다
+      const tails = plan.fragments.filter((f) =>
+        f.bands.some((b) => b.band.placement === 'after-data'),
+      );
+      expect(tails).toHaveLength(1);
+      expect(tails[0]).toBe(plan.fragments[plan.fragments.length - 1]);
+    }
+  });
+});
+
 describe('일반 요소의 표시 페이지 (filterVisibleOnPage)', () => {
   it('first·continuation·non-final·last·all을 출력 페이지 번호로 판정한다', () => {
     expect(filterVisibleOnPage('all', 1, 3)).toBe(true);
