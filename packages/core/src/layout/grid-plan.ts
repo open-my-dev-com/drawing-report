@@ -315,7 +315,12 @@ export function planGrid(
    */
   const remainderFits = (available: number, isFirst: boolean): boolean => {
     let height = heightOf(headBands(isFirst, true));
-    for (let i = index; i < instanceCount; i++) height += blockOf(i).height;
+    // 구간 높이는 모두 양수라 한 번 넘치면 남은 항목을 더 세지 않아도 결과가 같다.
+    // 항목이 많은 문서에서 페이지마다 남은 항목 전체를 훑지 않도록 여기서 멈춘다.
+    for (let i = index; i < instanceCount; i++) {
+      if (height > available + 0.001) return false;
+      height += blockOf(i).height;
+    }
     height += heightOf(tailBands(isFirst, true, true));
     return height <= available + 0.001;
   };

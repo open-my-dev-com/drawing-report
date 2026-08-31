@@ -61,6 +61,16 @@ const NEW_BINDING_OPTION = '\u0000new';
 /** 저장할 수 있는 사용자 지정 색상의 최대 개수 */
 const MAX_CUSTOM_COLORS = 30;
 
+/** 컨테이너 안에서 Tab으로 갈 수 있는 요소를 화면 순서대로 모은다. */
+function focusableIn(container: HTMLElement): HTMLElement[] {
+  const selector =
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+    'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  return Array.from(container.querySelectorAll<HTMLElement>(selector)).filter(
+    (el) => el.offsetParent !== null || el.getClientRects().length > 0,
+  );
+}
+
 /** 저장된 사용자 지정 색상을 읽는다. 읽을 수 없으면 빈 목록을 반환한다. */
 function loadCustomColors(): string[] {
   try {
@@ -458,7 +468,6 @@ function resizePercentages(list: number[], count: number): number[] {
   return next;
 }
 
-/** 비율(생략 시 균등)로 나눈 누적 경계 위치(mm) — 길이 = count + 1 */
 /** 새 그리드의 기본 행 높이(mm) */
 const GRID_DEFAULT_ROW_MM = 8;
 /** 새 그리드의 기본 열 너비(mm) */
@@ -530,6 +539,7 @@ function trackOffsets(sizes: readonly number[]): number[] {
   return offsets;
 }
 
+/** 비율(생략 시 균등)로 나눈 누적 경계 위치(mm) — 길이 = count + 1 */
 function cumulativeOffsets(total: number, count: number, percentages?: number[]): number[] {
   const offsets = [0];
   for (let i = 0; i < count; i++) {
@@ -844,9 +854,6 @@ interface ResizeState {
   snapshot: string | null;
 }
 
-/**
- * 사이드바에서 선택한 페이지와 파라미터를 나타낸다.
- */
 /** 파라미터를 사용하는 요소의 위치 */
 interface ParameterUse {
   pageIndex: number;
@@ -889,6 +896,7 @@ interface ParameterFieldInfo {
   at: { pageIndex: number; gridId: string; row: number; column: number } | undefined;
 }
 
+/** 사이드바에서 선택한 페이지와 파라미터를 나타낸다. */
 type SideSelection =
   | { kind: 'parameter'; key: string }
   | { kind: 'parameterField'; key: string; field: string }
@@ -1021,6 +1029,8 @@ export class SlipDesigner extends LitElement {
   private _bandMenuOpen = false;
   /** 행 역할 메뉴가 열린 뒤 첫 명령으로 포커스를 옮길지 여부 */
   private _focusBandMenu = false;
+  /** 모달을 열기 전 초점이 있던 요소. 모달이 닫히면 여기로 초점을 되돌린다. */
+  private _modalReturnFocus: HTMLElement | null | undefined = undefined;
   /** 적용 전 결과를 확인 중인 행 추가 명령 */
   private _gridRowCommand: GridRowCommand | null = null;
   /** 소계·합계 명령에서 집계할 목록 필드 */
@@ -1224,6 +1234,31 @@ export class SlipDesigner extends LitElement {
     }
   }
 
+  /**
+   * 모달 안에서 Tab 이동을 가두고 Escape로 닫는다.
+   * 모달 밖 요소로 초점이 새면 배경 화면을 조작하게 되므로 앞뒤를 이어 붙인다.
+   */
+  private _modalKeydown(event: KeyboardEvent, close: () => void): void {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      close();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const items = focusableIn(event.currentTarget as HTMLElement);
+    if (items.length === 0) return;
+    const first = items[0]!;
+    const last = items[items.length - 1]!;
+    const active = this.shadowRoot?.activeElement;
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   override updated(): void {
     // 인라인 셀 편집을 열면 바로 입력할 수 있게 포커스를 준다
     if (this._cellEditing) {
@@ -1236,6 +1271,23 @@ export class SlipDesigner extends LitElement {
     if (this._focusBandMenu) {
       this._focusBandMenu = false;
       (this.renderRoot.querySelector('.band-menu-item') as HTMLButtonElement | null)?.focus();
+    }
+    this._syncModalFocus();
+  }
+
+  /** 모달이 열리면 안으로 초점을 옮기고, 닫히면 열기 전 요소로 되돌린다. */
+  private _syncModalFocus(): void {
+    const modal = this.renderRoot.querySelector('.modal') as HTMLElement | null;
+    if (modal !== null && this._modalReturnFocus === undefined) {
+      const active = this.shadowRoot?.activeElement;
+      this._modalReturnFocus = active instanceof HTMLElement ? active : null;
+      (focusableIn(modal)[0] ?? modal).focus();
+      return;
+    }
+    if (modal === null && this._modalReturnFocus !== undefined) {
+      const previous = this._modalReturnFocus;
+      this._modalReturnFocus = undefined;
+      previous?.focus();
     }
   }
 
@@ -3491,7 +3543,6 @@ export class SlipDesigner extends LitElement {
     return this.presets?.length ? this.presets : getPresets(this._locale);
   }
 
-  /** 프리셋 메뉴를 버튼 아래의 화면 고정 위치에서 열거나 닫는다. */
   /** 열려 있는 리스트형 선택 상자의 식별자. null이면 모두 닫혀 있다 */
   private _listSelectId: string | null = null;
   /** 리스트형 선택 상자 목록의 화면 고정 위치와 최대 높이(px) */
@@ -3561,6 +3612,7 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
+  /** 프리셋 메뉴를 버튼 아래의 화면 고정 위치에서 열거나 닫는다. */
   private _togglePresetMenu(e: Event): void {
     if (this._presetMenuOpen) {
       this._presetMenuOpen = false;
@@ -8790,13 +8842,8 @@ export class SlipDesigner extends LitElement {
 
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${() => this._closeFormulaModal()}></div>
-      <div class="modal" role="dialog" aria-label=${s.formulaModalTitle}
-        @keydown=${(e: KeyboardEvent) => {
-          if (e.key === 'Escape') {
-            e.stopPropagation();
-            this._closeFormulaModal();
-          }
-        }}>
+      <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.formulaModalTitle}
+        @keydown=${(e: KeyboardEvent) => this._modalKeydown(e, () => this._closeFormulaModal())}>
         <div class="modal-head">
           <span>${s.formulaModalTitle}</span>
           <button class="modal-close" title=${s.close} aria-label=${s.close}
@@ -8872,13 +8919,8 @@ export class SlipDesigner extends LitElement {
 
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${close}></div>
-      <div class="modal" role="dialog" aria-label=${s.imageModalTitle}
-        @keydown=${(e: KeyboardEvent) => {
-          if (e.key === 'Escape') {
-            e.stopPropagation();
-            close();
-          }
-        }}>
+      <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.imageModalTitle}
+        @keydown=${(e: KeyboardEvent) => this._modalKeydown(e, close)}>
         <div class="modal-head">
           <span>${s.imageModalTitle}</span>
           <button class="modal-close" title=${s.close} aria-label=${s.close}
@@ -8984,13 +9026,8 @@ export class SlipDesigner extends LitElement {
 
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${close}></div>
-      <div class="modal modal-wide" role="dialog" aria-label=${s.sampleModalTitle}
-        @keydown=${(e: KeyboardEvent) => {
-          if (e.key === 'Escape') {
-            e.stopPropagation();
-            close();
-          }
-        }}>
+      <div class="modal modal-wide" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.sampleModalTitle}
+        @keydown=${(e: KeyboardEvent) => this._modalKeydown(e, close)}>
         <div class="modal-head">
           <span>${s.sampleModalTitle}</span>
           <button class="modal-close" title=${s.close} aria-label=${s.close}
@@ -9331,13 +9368,8 @@ export class SlipDesigner extends LitElement {
     };
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${close}></div>
-      <div class="modal" role="dialog" aria-label=${s.saveAsMyForm}
-        @keydown=${(e: KeyboardEvent) => {
-          if (e.key === 'Escape') {
-            e.stopPropagation();
-            close();
-          }
-        }}>
+      <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.saveAsMyForm}
+        @keydown=${(e: KeyboardEvent) => this._modalKeydown(e, close)}>
         <div class="modal-head">
           <span>${s.saveAsMyForm}</span>
           <button class="modal-close" title=${s.close} aria-label=${s.close}
@@ -9387,13 +9419,8 @@ export class SlipDesigner extends LitElement {
     };
     return html`
       <div class="menu-backdrop modal-backdrop" @click=${close}></div>
-      <div class="modal" role="dialog" aria-label=${s.myFormsList}
-        @keydown=${(e: KeyboardEvent) => {
-          if (e.key === 'Escape') {
-            e.stopPropagation();
-            close();
-          }
-        }}>
+      <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.myFormsList}
+        @keydown=${(e: KeyboardEvent) => this._modalKeydown(e, close)}>
         <div class="modal-head">
           <span>${s.myFormsList}</span>
           <button class="modal-close" title=${s.close} aria-label=${s.close}

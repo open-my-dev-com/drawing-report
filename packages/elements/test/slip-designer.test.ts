@@ -3909,7 +3909,10 @@ describe('<slip-designer> 글자 스타일·테두리 편집 (C-11)', () => {
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
-  async function openFormulaModal(el: import('../src/slip-designer.js').SlipDesigner): Promise<void> {
+  /** 수식 편집 모달을 열고, 모달을 연 버튼을 돌려준다 (초점 복귀 확인용) */
+  async function openFormulaModal(
+    el: import('../src/slip-designer.js').SlipDesigner,
+  ): Promise<HTMLButtonElement> {
     await addByCanvasClick(el, strings.designer.addField);
     // 값 소스를 수식으로 바꾸면 수식 입력란이 표시된다.
     const source = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
@@ -3919,8 +3922,10 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
 
     const open = Array.from(el.shadowRoot!.querySelectorAll('.row-btn'))
       .find((b) => b.getAttribute('aria-label') === strings.designer.formulaModalTitle) as HTMLButtonElement;
+    open.focus();
     open.click();
     await el.updateComplete;
+    return open;
   }
 
   function formulaInput(el: Element): HTMLTextAreaElement {
@@ -3966,6 +3971,87 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     return loadDesigner();
   }
+
+  /** 모달 안에서 Tab으로 갈 수 있는 요소를 화면 순서대로 모은다 */
+  function modalFocusables(el: Element): HTMLElement[] {
+    const modal = el.shadowRoot!.querySelector('.modal') as HTMLElement;
+    return Array.from(
+      modal.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+        'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+  }
+
+  /** 요소에 초점을 두고 Tab 키를 눌러 기본 이동이 막혔는지 확인한다 */
+  function pressTab(target: HTMLElement, shiftKey = false): boolean {
+    target.focus();
+    const event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey, bubbles: true, cancelable: true });
+    target.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+
+  it('모달을 열면 모달임을 알리고 안으로 초점을 옮긴다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+    const modal = el.shadowRoot!.querySelector('.modal') as HTMLElement;
+    expect(modal.getAttribute('aria-modal')).toBe('true');
+    // 초점이 모달 안에 있어야 배경 화면을 잘못 조작하지 않는다.
+    expect(modal.contains(el.shadowRoot!.activeElement as Node)).toBe(true);
+    el.remove();
+  });
+
+  it('마지막 요소에서 Tab을 누르면 첫 요소로 초점이 돌아온다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+    const items = modalFocusables(el);
+    expect(pressTab(items[items.length - 1]!)).toBe(true);
+    // 기본 이동을 막는 데 그치지 않고 실제로 첫 요소에 초점이 있어야 한다.
+    expect(el.shadowRoot!.activeElement).toBe(items[0]);
+    el.remove();
+  });
+
+  it('첫 요소에서 Shift+Tab을 누르면 마지막 요소로 이동한다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+    const items = modalFocusables(el);
+    expect(pressTab(items[0]!, true)).toBe(true);
+    expect(el.shadowRoot!.activeElement).toBe(items[items.length - 1]);
+    el.remove();
+  });
+
+  it('모달 가운데에서 Tab을 누르면 브라우저 기본 이동을 막지 않는다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+    const items = modalFocusables(el);
+    expect(items.length).toBeGreaterThan(2);
+    expect(pressTab(items[1]!)).toBe(false);
+    el.remove();
+  });
+
+  it('모달을 닫으면 열기 전 요소로 초점이 돌아온다', async () => {
+    const el = await loadDesigner();
+    const opener = await openFormulaModal(el);
+    expect(el.shadowRoot!.activeElement).not.toBe(opener);
+
+    const close = Array.from(el.shadowRoot!.querySelectorAll('.modal-close'))[0] as HTMLButtonElement;
+    close.click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.modal')).toBeNull();
+    expect(el.shadowRoot!.activeElement).toBe(opener);
+    el.remove();
+  });
+
+  it('Escape로 닫아도 초점이 열기 전 요소로 돌아온다', async () => {
+    const el = await loadDesigner();
+    const opener = await openFormulaModal(el);
+    const modal = el.shadowRoot!.querySelector('.modal') as HTMLElement;
+    modal.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.modal')).toBeNull();
+    expect(el.shadowRoot!.activeElement).toBe(opener);
+    el.remove();
+  });
 
   it('문자열 따옴표 규칙을 모달에서 안내한다 (F-21)', async () => {
     const el = await loadDesigner();

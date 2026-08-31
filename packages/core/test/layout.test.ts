@@ -554,6 +554,135 @@ describe('양식 페이지 계획 (planSourcePage)', () => {
   });
 });
 
+describe('remainderFits 조기 종료 회귀', () => {
+  // 흐름은 첫 페이지 70mm(20~90), 이어지는 페이지 80mm(10~90)를 쓴다.
+  // 아래 기대값은 구간 높이와 흐름 높이에서 직접 계산한 것으로,
+  // 남은 항목을 끝까지 세든 넘치는 순간 멈추든 같아야 한다.
+  const headItemTail = makeGrid({
+    rows: [10, 10, 10],
+    bands: [
+      band('h', 0, 0, 'page-start'),
+      band('i', 1, 1, 'item'),
+      band('t', 2, 2, 'after-data'),
+    ],
+    pagination: { mode: 'auto', minItems: 0 },
+  });
+
+  /** 조각별 [출력 페이지, 항목 색인 목록] */
+  function layout(plan: ReturnType<typeof planGrid>): [number, number[]][] {
+    return plan.fragments.map((f) => [f.outputPage, f.pageItems]);
+  }
+
+  it('머리 10 + 항목 10 + 꼬리 10이 첫 페이지에 꼭 맞으면 한 조각이다', () => {
+    // 10 + 5×10 + 10 = 70 — 첫 페이지 높이와 같다.
+    const plan = planGrid(headItemTail, items(5), FLOW);
+    expect(layout(plan)).toEqual([[0, [0, 1, 2, 3, 4]]]);
+    expect(placements(plan, 0)).toEqual([
+      'page-start', 'item', 'item', 'item', 'item', 'item', 'after-data',
+    ]);
+  });
+
+  it('항목 하나가 더 늘면 꼬리만 다음 페이지로 넘어간다', () => {
+    // 항목 6개는 머리와 함께 70mm를 채우지만 꼬리 10mm가 들어갈 자리가 없다.
+    const plan = planGrid(headItemTail, items(6), FLOW);
+    expect(layout(plan)).toEqual([[0, [0, 1, 2, 3, 4, 5]], [1, []]]);
+    expect(placements(plan, 1)).toEqual(['page-start', 'after-data']);
+  });
+
+  it('두 번째 페이지는 80mm를 쓰므로 항목이 하나 더 들어간다', () => {
+    // 첫 페이지 6개, 두 번째 페이지 머리 10 + 항목 7×10 = 80.
+    const plan = planGrid(headItemTail, items(15), FLOW);
+    expect(layout(plan)).toEqual([
+      [0, [0, 1, 2, 3, 4, 5]],
+      [1, [6, 7, 8, 9, 10, 11, 12]],
+      [2, [13, 14]],
+    ]);
+    expect(placements(plan, 2)).toEqual(['page-start', 'item', 'item', 'after-data']);
+  });
+
+  it('데이터 앞뒤와 페이지 위아래 구간이 모두 있어도 경계가 같다', () => {
+    const full = makeGrid({
+      rows: [8, 8, 8, 8, 8],
+      bands: [
+        band('bd', 0, 0, 'before-data'),
+        band('ps', 1, 1, 'page-start'),
+        band('i', 2, 2, 'item'),
+        band('pe', 3, 3, 'page-end'),
+        band('ad', 4, 4, 'after-data'),
+      ],
+      pagination: { mode: 'auto', minItems: 0 },
+    });
+    // 8×2(앞·머리) + 4×8(항목) + 8(꼬리) + 8(페이지 아래) = 64 ≤ 70
+    expect(layout(planGrid(full, items(4), FLOW))).toEqual([[0, [0, 1, 2, 3]]]);
+    // 항목이 5개면 꼬리까지 72mm라 넘친다 — 꼬리만 다음 페이지로 간다.
+    const plan = planGrid(full, items(5), FLOW);
+    expect(layout(plan)).toEqual([[0, [0, 1, 2, 3, 4]], [1, []]]);
+    expect(placements(plan, 0)).toEqual([
+      'before-data', 'page-start', 'item', 'item', 'item', 'item', 'item', 'page-end',
+    ]);
+    expect(placements(plan, 1)).toEqual(['page-start', 'after-data', 'page-end']);
+  });
+
+  it('고정 페이지는 항목 수와 무관하게 페이지당 자리 수를 유지한다', () => {
+    const fixed = makeGrid({
+      rows: [10, 10, 10],
+      bands: [
+        band('h', 0, 0, 'page-start'),
+        band('i', 1, 1, 'item'),
+        band('t', 2, 2, 'after-data'),
+      ],
+      pagination: { mode: 'fixed', itemsPerPage: 4 },
+    });
+    expect(layout(planGrid(fixed, items(9), FLOW))).toEqual([
+      [0, [0, 1, 2, 3]],
+      [1, [4, 5, 6, 7]],
+      [2, [8]],
+    ]);
+    // 마지막 페이지도 빈 자리를 포함해 네 자리를 그린다.
+    expect(placements(planGrid(fixed, items(9), FLOW), 2)).toEqual([
+      'page-start', 'item', 'item', 'item', 'item', 'after-data',
+    ]);
+  });
+
+  it('그룹이 페이지를 넘기면 다음 페이지에 그룹 시작을 다시 그린다', () => {
+    const grouped = makeGrid({
+      rows: [10, 10, 10, 10],
+      bands: [
+        band('gs', 0, 0, 'group-start', { repeatOnPageBreak: true }),
+        band('i', 1, 1, 'item'),
+        band('ge', 2, 2, 'group-end'),
+        band('ad', 3, 3, 'after-data'),
+      ],
+      pagination: { mode: 'auto', minItems: 0 },
+      groupBy: ['g'],
+    });
+    // 세 개씩 묶인 두 그룹
+    const data = Array.from({ length: 6 }, (_, i) => ({ 금액: (i + 1) * 1000, g: `G${Math.floor(i / 3)}` }));
+    const plan = planGrid(grouped, data, FLOW);
+    expect(layout(plan)).toEqual([[0, [0, 1, 2, 3]], [1, [4, 5]]]);
+    expect(placements(plan, 0)).toEqual([
+      'group-start', 'item', 'item', 'item', 'group-end', 'group-start', 'item',
+    ]);
+    // 두 번째 페이지는 이어지는 그룹의 시작을 다시 표시한다
+    expect(placements(plan, 1)).toEqual([
+      'group-start', 'item', 'item', 'group-end', 'after-data',
+    ]);
+  });
+
+  it('항목이 많아도 모든 항목이 한 번씩 배치되고 꼬리는 한 번만 나온다', () => {
+    for (const count of [1, 5, 6, 7, 50, 2000]) {
+      const plan = planGrid(headItemTail, items(count), FLOW);
+      expect(plan.fragments.flatMap((f) => f.pageItems))
+        .toEqual(Array.from({ length: count }, (_, i) => i));
+      const tails = plan.fragments.filter((f) =>
+        f.bands.some((b) => b.band.placement === 'after-data'),
+      );
+      expect(tails).toHaveLength(1);
+      expect(tails[0]).toBe(plan.fragments[plan.fragments.length - 1]);
+    }
+  });
+});
+
 describe('일반 요소의 표시 페이지 (filterVisibleOnPage)', () => {
   it('first·continuation·non-final·last·all을 출력 페이지 번호로 판정한다', () => {
     expect(filterVisibleOnPage('all', 1, 3)).toBe(true);

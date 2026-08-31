@@ -14,8 +14,11 @@ import { em } from './messages.js';
 
 /** 암호화 봉투를 식별하는 최상위 속성 값. */
 const MARKER = 'encrypted';
-/** 새 암호화 봉투에 기록할 PBKDF2 반복 횟수. */
-const PBKDF2_ITERATIONS = 210_000;
+/**
+ * 새 암호화 봉투에 기록할 PBKDF2 반복 횟수.
+ * OWASP Password Storage Cheat Sheet의 PBKDF2-HMAC-SHA256 권고치를 따른다.
+ */
+const PBKDF2_ITERATIONS = 600_000;
 /** 복호화 시 허용하는 PBKDF2 반복 횟수의 상한. */
 const MAX_PBKDF2_ITERATIONS = 10_000_000;
 /** AES-GCM 초기화 벡터 길이(바이트) */
