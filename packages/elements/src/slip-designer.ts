@@ -126,6 +126,9 @@ import {
 } from './designer/render/element-props.js';
 import type { ElementActions } from './designer/render/element-props.js';
 import { PAPER_PRESETS } from './designer/paper.js';
+import { BARCODE_KINDS, BARCODE_2D, BARCODE_DIGIT_RULES } from './designer/barcode.js';
+import { GRID_GAPS, GRID_COLORS } from './designer/grid-view.js';
+import type { GridColorId, CreatableType } from './designer/grid-view.js';
 import { BINDING_VALUE_TYPES, BINDING_FIELD_VALUE_TYPES } from './designer/parameters.js';
 import type { ParameterUse, ParameterInfo, ParameterFieldInfo } from './designer/parameters.js';
 import { valueTypeBadge, TYPE_BADGE } from './designer/render/badges.js';
@@ -136,6 +139,12 @@ import {
   parameterFieldPanel,
 } from './designer/render/form-props.js';
 import type { FormActions } from './designer/render/form-props.js';
+import { canvas, repeatSampleItems } from './designer/render/canvas.js';
+import { CanvasPointerController } from './designer/controllers/canvas-pointer.js';
+import type { PointerHost } from './designer/controllers/canvas-pointer.js';
+import { toolbar } from './designer/render/toolbar.js';
+import type { ToolbarActions } from './designer/render/toolbar.js';
+import type { CanvasContext } from './designer/render/canvas.js';
 import { propertyPanel } from './designer/render/property-panel.js';
 import type { PanelContext } from './designer/render/property-panel.js';
 import { sidebar } from './designer/render/sidebar.js';
@@ -197,52 +206,11 @@ const MAX_UNDO = 50;
 const SAMPLE_PAGE_SIZE = 10;
 
 
-/** 캔버스 격자 간격 선택지(mm) */
-const GRID_GAPS = [1, 5, 10] as const;
 
-/**
- * 바코드 종류의 표시 순서와 이름.
- * 국제 표준 이름을 사용하므로 로케일별 문구로 관리하지 않는다.
- */
-const BARCODE_KINDS: readonly { value: BarcodeKind; label: string }[] = [
-  { value: 'qrcode', label: 'QR Code' },
-  { value: 'code128', label: 'CODE128' },
-  { value: 'ean13', label: 'EAN-13' },
-  { value: 'code39', label: 'CODE39' },
-  { value: 'ean8', label: 'EAN-8' },
-  { value: 'upca', label: 'UPC-A' },
-  { value: 'upce', label: 'UPC-E' },
-  { value: 'itf14', label: 'ITF-14' },
-  { value: 'nw7', label: 'NW-7 (CODABAR)' },
-  { value: 'japanpost', label: 'Japan Post' },
-  { value: 'gs1datamatrix', label: 'GS1 DataMatrix' },
-  { value: 'pdf417', label: 'PDF417' },
-];
 
-/** 캔버스에서 정사각형 격자로 표시할 2차원 바코드 종류 */
-const BARCODE_2D: ReadonlySet<BarcodeKind> = new Set(['qrcode', 'gs1datamatrix']);
 
-/**
- * 편집 중인 고정 바코드 값의 형식을 검사한다.
- * 길이가 정해진 종류와 CODE39만 검사하며 파라미터와 수식 값은 검사하지 않는다.
- */
-const BARCODE_DIGIT_RULES: Partial<Record<BarcodeKind, number>> = {
-  ean13: 13, ean8: 8, upca: 12, itf14: 14,
-};
 
-/**
- * 캔버스 격자 색상 선택지.
- * `swatch`는 메뉴에 표시할 색이고 `line`은 캔버스에 그릴 색이다.
- */
-const GRID_COLORS = [
-  { id: 'gray', nameKey: 'colorGray', swatch: '#80868b', line: 'rgba(0, 0, 0, 0.08)' },
-  { id: 'blue', nameKey: 'colorBlue', swatch: '#1a73e8', line: 'rgba(26, 115, 232, 0.2)' },
-  { id: 'red', nameKey: 'colorRed', swatch: '#d93025', line: 'rgba(217, 48, 37, 0.16)' },
-  { id: 'green', nameKey: 'colorGreen', swatch: '#188038', line: 'rgba(24, 128, 56, 0.16)' },
-] as const;
 
-/** 격자 색상 ID */
-type GridColorId = (typeof GRID_COLORS)[number]['id'];
 
 
 
@@ -295,37 +263,10 @@ const MY_FORMS_PAGE_SIZE = 10;
 
 
 
-/** 디자이너가 만들 수 있는 요소 종류 */
-type CreatableType = SlipElement['type'];
 
 
 
-interface DragState {
-  id: string;
-  startPxX: number;
-  startPxY: number;
-  origMmX: number;
-  origMmY: number;
-  /** 실제 이동이 시작될 때 생성하는 되돌리기용 스냅샷 */
-  snapshot: string | null;
-  /** pointerdown 전에 선택된 요소였는지 여부 */
-  wasSelected: boolean;
-  /** 함께 이동할 선택 요소의 원래 위치 */
-  members: { id: string; origX: number; origY: number }[];
-}
 
-interface ResizeState {
-  id: string;
-  handle: ResizeHandle;
-  startPxX: number;
-  startPxY: number;
-  origX: number;
-  origY: number;
-  origW: number;
-  origH: number;
-  /** 첫 크기 변경 시 생성하는 되돌리기용 스냅샷 */
-  snapshot: string | null;
-}
 
 
 
@@ -361,14 +302,8 @@ export class SlipDesigner extends LitElement {
     _previewUrl: { state: true },
     _previewError: { state: true },
     _error: { state: true },
-    _guideX: { state: true },
-    _guideY: { state: true },
-    _pendingTool: { state: true },
-    _drawRect: { state: true },
     _presetMenuOpen: { state: true },
     _shapeMenuOpen: { state: true },
-    _lineDraft: { state: true },
-    _lineGhost: { state: true },
     _thumbPage: { state: true },
     _thumbPos: { state: true },
     _imageError: { state: true },
@@ -456,35 +391,13 @@ export class SlipDesigner extends LitElement {
   private _previewUrl: string | null = null;
   private _previewError: string | null = null;
   private _error: string | null = null;
-  private _drag: DragState | null = null;
-  private _resize: ResizeState | null = null;
   private _clipboard: SlipElement[] | null = null;
-  private _guideX: number | null = null;
-  private _guideY: number | null = null;
   private _previewGeneration = 0;
-  /** 캔버스에서 다음에 생성할 요소 종류 */
-  private _pendingTool: CreatableType | null = null;
-  /** 드래그 생성 중 표시할 임시 영역(mm) */
-  private _drawRect: { x: number; y: number; w: number; h: number } | null = null;
-  private _draw: {
-    type: CreatableType;
-    startX: number;
-    startY: number;
-    endX: number;
-    endY: number;
-    moved: boolean;
-  } | null = null;
   private _presetMenuOpen = false;
   private _presetMenuPos = { left: 0, top: 0 };
   /** 도형 선택 메뉴의 열림 상태 */
   private _shapeMenuOpen = false;
   private _shapeMenuPos = { left: 0, top: 0 };
-  /** 다음에 생성할 다각형의 변 수 */
-  private _pendingSides = 3;
-  /** 두 번 클릭해 선을 생성할 때의 시작점(mm) */
-  private _lineDraft: { x: number; y: number } | null = null;
-  /** 두 번 클릭해 선을 생성하는 동안의 현재 끝점(mm) */
-  private _lineGhost: { x: number; y: number } | null = null;
   /** 수식 모달의 편집 중 값 */
   /**
    * 사이드바에서 미리보기를 표시 중인 페이지 번호.
@@ -519,14 +432,7 @@ export class SlipDesigner extends LitElement {
    * 모달을 열 때 조회한 양식 메타데이터 목록.
    * 검색과 페이지 이동은 이 목록을 기준으로 처리한다.
    */
-  /** 선 끝점 핸들 드래그 상태 */
-  private _lineEnd: {
-    id: string;
-    fixed: { x: number; y: number };
-    snapshot: string | null;
-    orig: { x: number; y: number; w: number; h: number; direction: string | undefined };
-  } | null = null;
-  /**
+    /**
    * 요소 ID별 좌표 기준점의 ANCHORS 인덱스.
    * 파일에는 저장하지 않으며 기본값은 왼쪽 위다.
    */
@@ -657,6 +563,145 @@ export class SlipDesigner extends LitElement {
 
 
 
+
+
+
+
+  /** 캔버스 포인터 조작 */
+  private readonly _pointer = new CanvasPointerController(this._pointerHost());
+
+
+  /** 포인터 조작이 문서에 요청하는 것 */
+  private _pointerHost(): PointerHost {
+    const owner = this;
+    return {
+    get file() { return owner._file; },
+    get selectedId() { return owner._selectedId; },
+    get selectedIds() { return owner._selectedIds; },
+    get sideSelection() { return owner._sideSelection; },
+    get gridEdit() { return owner._gridEdit; },
+    get gridPlanPreview() { return owner._gridPlanPreview; },
+    get shapeMenuOpen() { return owner._shapeMenuOpen; },
+    get renderRoot() { return owner.renderRoot; },
+    restoreSnapshot: (snapshot) => { owner._file = JSON.parse(snapshot) as SlipTemplateFile; },
+    closeShapeMenu: () => { owner._shapeMenuOpen = false; },
+    clearSideSelection: () => { owner._sideSelection = null; },
+    pageElements: () => owner._currentElements(),
+    findElement: (id) => owner._findElement(id),
+    selectedElement: () => owner._findSelectedElement(),
+    addElement: (type, place) => { owner._addElement(type, place); },
+    selectElement: (id) => owner._selectElement(id),
+    clearSelection: () => owner._clearSelection(),
+    updateElement: (fn) => owner._updateElement(fn),
+    pushUndoSnapshot: (snapshot) => owner._pushUndoSnapshot(snapshot),
+    emitChange: () => owner._emitChange(),
+    expandParameterOfElement: (id) => owner._expandParameterOfElement(id),
+    gridDelta: (value) => owner._gridDelta(value),
+    focusHost: () => owner._focusHost(),
+    refresh: () => owner.requestUpdate(),
+  };
+  }
+
+  /** 툴바가 쓰는 상태와 조작 */
+  private get _toolbarActions(): ToolbarActions {
+    return {
+      s: this._strings.designer,
+      pendingTool: this._pointer.pendingTool,
+      previewMode: this._previewMode,
+      selectedId: this._selectedId,
+      hasClipboard: this._clipboard !== null,
+      undoDepth: this._undoStack.length,
+      redoDepth: this._redoStack.length,
+      pageIndex: this._pageIndex,
+      showBadges: this._showBadges,
+      setShowBadges: (on) => { this._showBadges = on; this.requestUpdate(); },
+      setGridColor: (color) => {
+        this._gridColor = color;
+        this._gridMenuOpen = false;
+        this.requestUpdate();
+      },
+      closeMenus: () => {
+        this._presetMenuOpen = false;
+        this._shapeMenuOpen = false;
+        this._gridMenuOpen = false;
+        this.requestUpdate();
+      },
+      gridGap: this._gridGap,
+      gridColor: this._gridColor,
+      gridMenuOpen: this._gridMenuOpen,
+      gridMenuPos: this._gridMenuPos,
+      presetMenuOpen: this._presetMenuOpen,
+      presetMenuPos: this._presetMenuPos,
+      shapeMenuOpen: this._shapeMenuOpen,
+      shapeMenuPos: this._shapeMenuPos,
+      savedNotice: this._forms.savedNotice,
+      hasStorage: this.storage !== undefined,
+      pageCount: () => this._pageCount(),
+      presets: () => this._presetList(),
+      selectTool: (type) => this._pointer.selectTool(type),
+      selectShapeTool: (type, sides) => this._pointer.selectShapeTool(type, sides),
+      toggleShapeMenu: (event) => this._toggleShapeMenu(event),
+      togglePresetMenu: (event) => this._togglePresetMenu(event),
+      toggleGridMenu: (event) => this._toggleGridMenu(event),
+      setGridGap: (gap) => this._setGridGap(gap),
+      applyPreset: (index) => this._applyPreset(index),
+      copySelected: () => this._copySelected(),
+      paste: () => this._paste(),
+      undo: () => this._undo(),
+      redo: () => this._redo(),
+      addPage: () => this._addPage(),
+      deletePage: () => this._deletePage(),
+      togglePreview: () => void this._togglePreview(),
+      openSaveModal: () => this._openSaveModal(),
+      openMyForms: () => void this._openMyForms(),
+      refresh: () => this.requestUpdate(),
+    };
+  }
+
+  /** 캔버스가 쓰는 상태와 조작 */
+  private get _canvasContext(): CanvasContext {
+    return {
+      s: this._strings.designer,
+      evalLocale: this._evalLocale,
+      file: this._file,
+      pageIndex: this._pageIndex,
+      outputPage: this._outputPage,
+      gridPlanPreview: this._gridPlanPreview,
+      selectedId: this._selectedId,
+      selectedIds: this._selectedIds,
+      gridEdit: this._gridEdit,
+      gridGap: this._gridGap,
+      cursorMm: this._pointer.cursorMm,
+      guideX: this._pointer.guideX,
+      guideY: this._pointer.guideY,
+      drawRect: this._pointer.drawRect,
+      draw: this._pointer.draw,
+      lineDraft: this._pointer.lineDraft,
+      lineGhost: this._pointer.lineGhost,
+      gridLine: () => this._gridLine(),
+      pagePlan: () => this._pagePlan(),
+      planError: () => this._planError(),
+      focusPlanError: (error) => this._focusPlanError(error),
+      setGridPlanPreview: (enabled) => this._setGridPlanPreview(enabled),
+      trackCursor: (event) => this._pointer.trackCursor(event),
+      clearCursor: () => this._pointer.clearCursor(),
+      setOutputPage: (page) => {
+        this._outputPage = page;
+        this.requestUpdate();
+      },
+      selectedElement: () => this._findSelectedElement(),
+      commitCellContent: (value) => this._commitCellContent(value),
+      evaluate: (source, context) => this._evaluate(source, context),
+      bandLabel: (placement) => this._bandPlacementLabel(placement),
+      bandDescription: (placement) => this._bandPlacementDescription(placement),
+      bandIcon: (placement) => this._bandPlacementIcon(placement),
+      onBandRowClick: (row, extend) => this._onBandRowClick(row, extend),
+      closeBandMenu: (clearSelection) => this._closeBandMenu(clearSelection),
+      onBandMenuKeyDown: (event) => this._onBandMenuKeyDown(event),
+      setRowBandRole: (fromRow, toRow, placement) => this._setRowBandRole(fromRow, toRow, placement),
+      refresh: () => this.requestUpdate(),
+    };
+  }
 
   /** 속성 패널이 쓰는 조작 묶음 */
   private get _panelContext(): PanelContext {
@@ -839,20 +884,12 @@ export class SlipDesigner extends LitElement {
     this._pageIndex = 0;
     this._outputPage = 0;
     this._gridPlanPreview = false;
-    this._drag = null;
-    this._resize = null;
-    this._guideX = null;
-    this._guideY = null;
+    this._pointer.reset();
     this._clipboard = null;
-    this._pendingTool = null;
-    this._drawRect = null;
-    this._draw = null;
     this._presetMenuOpen = false;
     this._shapeMenuOpen = false;
     this._gridEdit.clearCell();
-    this._lineDraft = null;
-    this._lineGhost = null;
-    this._lineEnd = null;
+    this._pointer.cancelLine();
     this._dialogs.closeAllQuietly();
     this._imageError = null;
     this._sideSelection = null;
@@ -1252,7 +1289,7 @@ export class SlipDesigner extends LitElement {
       case 'polygon':
         // 다각형의 변 수는 도형 메뉴에서 선택한 값을 사용한다.
         element = {
-          type: 'polygon', id, name, position, width: 40, height: 30, sides: this._pendingSides,
+          type: 'polygon', id, name, position, width: 40, height: 30, sides: this._pointer.pendingSides,
         };
         break;
       case 'field':
@@ -1396,63 +1433,6 @@ export class SlipDesigner extends LitElement {
   // Pointer events (canvas drag)
   // ---------------------------------------------------------------------------
 
-  /** 생성 도구를 선택하거나 같은 도구를 다시 선택해 해제한다. */
-  private _selectTool(type: CreatableType): void {
-    this._pendingTool = this._pendingTool === type ? null : type;
-    this._draw = null;
-    this._drawRect = null;
-    this._lineDraft = null;
-    this._lineGhost = null;
-    this.requestUpdate();
-  }
-
-  /**
-   * 드래그 또는 두 번의 클릭으로 선을 생성한다.
-   * 첫 클릭은 시작점을 저장하고 두 번째 클릭은 끝점을 지정한다.
-   */
-  private _finishLineDraw(d: { startX: number; startY: number; endX: number; endY: number; moved: boolean }): void {
-    if (!d.moved && !this._lineDraft) {
-      this._lineDraft = { x: d.startX, y: d.startY };
-      this._lineGhost = { x: d.endX, y: d.endY };
-      this.requestUpdate();
-      return;
-    }
-    const from = this._lineDraft ?? { x: d.startX, y: d.startY };
-    this._lineDraft = null;
-    this._lineGhost = null;
-    this._pendingTool = null;
-    this._createLineBetween(from, { x: d.endX, y: d.endY });
-  }
-
-  /** 두 점을 잇는 선 요소를 만든다. */
-  private _createLineBetween(
-    from: { x: number; y: number },
-    to: { x: number; y: number },
-  ): void {
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    this._addElement('line', {
-      position: { x: round1(Math.min(from.x, to.x)), y: round1(Math.min(from.y, to.y)) },
-      width: Math.abs(dx),
-      height: Math.abs(dy),
-      lineDirection:
-        Math.abs(dy) <= 1 ? 'horizontal'
-        : Math.abs(dx) <= 1 ? 'vertical'
-        : dx * dy > 0 ? 'down' : 'up',
-    });
-  }
-
-  /** 도형 종류와 다각형의 변 수를 선택한다. */
-  private _selectShapeTool(type: 'rect' | 'ellipse' | 'polygon', sides = 3): void {
-    this._shapeMenuOpen = false;
-    this._pendingSides = sides;
-    this._pendingTool = type;
-    this._draw = null;
-    this._drawRect = null;
-    this._lineDraft = null;
-    this._lineGhost = null;
-    this.requestUpdate();
-  }
 
   private _applyLineLengthAngle(length: number, angle: number): void {
     if (!Number.isFinite(length) || !Number.isFinite(angle) || length < 0) {
@@ -1476,465 +1456,12 @@ export class SlipDesigner extends LitElement {
     this.focus({ preventScroll: true });
   }
 
-  /** 포인터 좌표를 용지 기준 mm 좌표로 (용지 밖은 가장자리로 보정) */
-  private _paperPoint(e: PointerEvent): { x: number; y: number } {
-    const rect = (this.renderRoot.querySelector('.paper') as HTMLElement | null)
-      ?.getBoundingClientRect();
-    const { paper } = this._file!.template;
-    return {
-      x: Math.max(0, Math.min((e.clientX - (rect?.left ?? 0)) / PX_PER_MM, paper.width)),
-      y: Math.max(0, Math.min((e.clientY - (rect?.top ?? 0)) / PX_PER_MM, paper.height)),
-    };
-  }
 
-  private _onPointerDown = (e: PointerEvent): void => {
-    if (!this._file) return;
-    // preventDefault로 기본 포커스 이동이 막히므로 호스트에 포커스를 설정해 단축키를 유지한다.
-    this._focusHost();
 
-    // 출력 결과 보기는 계획 결과를 확인하는 읽기 전용 상태다.
-    if (this._gridPlanPreview) {
-      e.preventDefault();
-      return;
-    }
 
-    // 생성 도구가 선택돼 있으면 클릭·드래그는 요소 생성이다 (선택·이동보다 우선)
-    if (this._pendingTool) {
-      const p = this._paperPoint(e);
-      this._draw = { type: this._pendingTool, startX: p.x, startY: p.y, endX: p.x, endY: p.y, moved: false };
-      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-      e.preventDefault();
-      return;
-    }
 
-    // 반대쪽 끝점을 고정하고 선택한 끝점만 이동한다.
-    const endpointEl = (e.target as HTMLElement).closest?.('.endpoint') as HTMLElement | null;
-    if (endpointEl && this._selectedId) {
-      const el = this._findSelectedElement();
-      if (!el || el.type !== 'line') return;
-      const which = endpointEl.dataset.endpoint === '1' ? 1 : 0;
-      const points = lineEndpoints(el);
-      this._lineEnd = {
-        id: el.id,
-        fixed: points[which === 0 ? 1 : 0]!,
-        snapshot: null,
-        orig: {
-          x: el.position.x, y: el.position.y, w: el.width, h: el.height,
-          direction: el.lineDirection,
-        },
-      };
-      endpointEl.setPointerCapture(e.pointerId);
-      e.preventDefault();
-      return;
-    }
 
-    const handleEl = (e.target as HTMLElement).closest?.('.handle') as HTMLElement | null;
-    if (handleEl && this._selectedId) {
-      const el = this._findSelectedElement();
-      const handle = handleEl.dataset.handle as ResizeHandle | undefined;
-      if (!el || !handle) return;
-      const elBox = boxOf(el);
-      this._resize = {
-        id: el.id,
-        handle,
-        startPxX: e.clientX,
-        startPxY: e.clientY,
-        origX: el.position.x,
-        origY: el.position.y,
-        origW: elBox.width,
-        origH: elBox.height,
-        snapshot: null,
-      };
-      handleEl.setPointerCapture(e.pointerId);
-      e.preventDefault();
-      return;
-    }
 
-    // 인라인 셀 입력 상자 안 클릭은 편집기에 맡긴다 (여기서 가로채면 입력이 불가능)
-    if ((e.target as HTMLElement).closest?.('.cell-editor')) return;
-
-    const target = (e.target as HTMLElement).closest?.('.element') as HTMLElement | null;
-
-    if (target) {
-      const id = target.dataset.id;
-      if (!id) return;
-      const wasSelected = this._selectedId === id;
-      // 그룹에 속하면 그룹 전체가 함께 선택된다
-      this._selectElement(id);
-      this._sideSelection = null;
-      this._expandParameterOfElement(id);
-      if (!wasSelected) {
-        this._gridEdit.clearCell();
-      }
-
-      const el = this._findElement(id);
-      if (!el) return;
-
-      // 선택된 요소(그룹·다중)를 함께 옮기려 각 원래 위치를 기억한다
-      const members = [...this._selectedIds]
-        .map((mid) => this._findElement(mid))
-        .filter((m): m is SlipElement => m !== undefined)
-        .map((m) => ({ id: m.id, origX: m.position.x, origY: m.position.y }));
-      this._drag = {
-        id,
-        startPxX: e.clientX,
-        startPxY: e.clientY,
-        origMmX: el.position.x,
-        origMmY: el.position.y,
-        snapshot: null,
-        wasSelected,
-        members,
-      };
-      target.setPointerCapture(e.pointerId);
-      e.preventDefault();
-    } else {
-      this._clearSelection();
-      this._sideSelection = null;
-      this._gridEdit.clearCellAndSource();
-    }
-    this.requestUpdate();
-  };
-
-  private _onPointerMove = (e: PointerEvent): void => {
-    if (this._draw) {
-      const p = this._paperPoint(e);
-      this._draw.endX = p.x;
-      this._draw.endY = p.y;
-      const w = Math.abs(p.x - this._draw.startX);
-      const h = Math.abs(p.y - this._draw.startY);
-      // 1mm 넘게 움직였을 때만 드래그로 본다 (클릭 손떨림은 기본 크기 생성)
-      if (w > 1 || h > 1) this._draw.moved = true;
-      if (this._draw.type === 'line') {
-        // 선은 상자 대신 시작점→커서 미리보기 선으로 보여준다
-        this.requestUpdate();
-        return;
-      }
-      this._drawRect = {
-        x: round1(Math.min(this._draw.startX, p.x)),
-        y: round1(Math.min(this._draw.startY, p.y)),
-        w: round1(w),
-        h: round1(h),
-      };
-      this.requestUpdate();
-      return;
-    }
-    // 두 번째 끝점을 선택할 때까지 커서 위치에 미리보기 선을 표시한다.
-    if (this._lineDraft && this._pendingTool === 'line') {
-      this._lineGhost = this._paperPoint(e);
-      this.requestUpdate();
-      return;
-    }
-    if (this._lineEnd) {
-      this._onLineEndMove(e);
-      return;
-    }
-    if (this._resize) {
-      this._onResizeMove(e);
-      return;
-    }
-    if (!this._drag) return;
-
-    const el = this._findElement(this._drag.id);
-    if (!el) return;
-    this._drag.snapshot ??= JSON.stringify(this._file);
-
-    const dx = (e.clientX - this._drag.startPxX) / PX_PER_MM;
-    const dy = (e.clientY - this._drag.startPxY) / PX_PER_MM;
-    let nx = this._drag.origMmX + dx;
-    let ny = this._drag.origMmY + dy;
-
-    // Alt를 누르면 스냅 없이 자유 이동
-    let guideX: number | null = null;
-    let guideY: number | null = null;
-    if (!e.altKey) {
-      // 함께 움직이는 선택 요소는 스냅 후보에서 뺀다
-      const { xs, ys } = this._snapCandidates(new Set(this._drag.members.map((m) => m.id)));
-      const dragBox = boxOf(el);
-      const sx = bestSnap([nx, nx + dragBox.width / 2, nx + dragBox.width], xs);
-      const sy = bestSnap([ny, ny + dragBox.height / 2, ny + dragBox.height], ys);
-      if (sx) {
-        nx += sx.delta;
-        guideX = sx.line;
-      } else {
-        // 붙을 요소·여백선이 없으면 격자에 맞춘다
-        const g = this._gridDelta(nx);
-        if (g !== null) nx += g;
-      }
-      if (sy) {
-        ny += sy.delta;
-        guideY = sy.line;
-      } else {
-        const g = this._gridDelta(ny);
-        if (g !== null) ny += g;
-      }
-    }
-
-    // 주 요소를 옮긴 만큼(스냅 반영) 선택된 요소를 모두 같은 양으로 옮긴다
-    const deltaX = nx - this._drag.origMmX;
-    const deltaY = ny - this._drag.origMmY;
-    for (const m of this._drag.members) {
-      const me = this._findElement(m.id);
-      if (!me) continue;
-      me.position.x = Math.max(0, round1(m.origX + deltaX));
-      me.position.y = Math.max(0, round1(m.origY + deltaY));
-    }
-    this._guideX = guideX;
-    this._guideY = guideY;
-    this.requestUpdate();
-  };
-
-  private _onResizeMove(e: PointerEvent): void {
-    const r = this._resize!;
-    const el = this._findElement(r.id);
-    if (!el) return;
-    r.snapshot ??= JSON.stringify(this._file);
-
-    const dx = (e.clientX - r.startPxX) / PX_PER_MM;
-    const dy = (e.clientY - r.startPxY) / PX_PER_MM;
-    const h = r.handle;
-
-    let left = r.origX;
-    let top = r.origY;
-    let right = r.origX + r.origW;
-    let bottom = r.origY + r.origH;
-    if (h.includes('w')) left += dx;
-    if (h.includes('e')) right += dx;
-    if (h.includes('n')) top += dy;
-    if (h.includes('s')) bottom += dy;
-
-    // 움직이는 변만 후보 선에 스냅한다 (Alt로 해제)
-    let guideX: number | null = null;
-    let guideY: number | null = null;
-    if (!e.altKey) {
-      const { xs, ys } = this._snapCandidates(r.id);
-      // 붙을 요소·여백선이 없는 변은 격자에 맞춘다
-      const toGrid = (value: number): number => value + (this._gridDelta(value) ?? 0);
-      if (h.includes('w')) {
-        const s = bestSnap([left], xs);
-        if (s) { left += s.delta; guideX = s.line; }
-        else left = toGrid(left);
-      }
-      if (h.includes('e')) {
-        const s = bestSnap([right], xs);
-        if (s) { right += s.delta; guideX = s.line; }
-        else right = toGrid(right);
-      }
-      if (h.includes('n')) {
-        const s = bestSnap([top], ys);
-        if (s) { top += s.delta; guideY = s.line; }
-        else top = toGrid(top);
-      }
-      if (h.includes('s')) {
-        const s = bestSnap([bottom], ys);
-        if (s) { bottom += s.delta; guideY = s.line; }
-        else bottom = toGrid(bottom);
-      }
-    }
-
-    if (h.includes('w')) left = Math.min(Math.max(0, left), right - MIN_SIZE_MM);
-    if (h.includes('e')) right = Math.max(right, left + MIN_SIZE_MM);
-    if (h.includes('n')) top = Math.min(Math.max(0, top), bottom - MIN_SIZE_MM);
-    if (h.includes('s')) bottom = Math.max(bottom, top + MIN_SIZE_MM);
-
-    el.position.x = round1(left);
-    el.position.y = round1(top);
-    setElementBox(el, round1(right - left), round1(bottom - top));
-    this._guideX = guideX;
-    this._guideY = guideY;
-    this.requestUpdate();
-  }
-
-  /** 선 끝점 드래그 — 고정 끝점→커서 벡터로 상자와 선 방향을 다시 계산한다  */
-  private _onLineEndMove(e: PointerEvent): void {
-    const state = this._lineEnd!;
-    const el = this._findElement(state.id);
-    if (!el || el.type !== 'line') return;
-    state.snapshot ??= JSON.stringify(this._file);
-
-    const p = this._paperPoint(e);
-    const dx = p.x - state.fixed.x;
-    const dy = p.y - state.fixed.y;
-    // 드래그 생성과 같은 규칙: 1mm 이내는 수평·수직, 그 밖은 기울기 부호로 사선 방향
-    el.lineDirection =
-      Math.abs(dy) <= 1 ? 'horizontal'
-      : Math.abs(dx) <= 1 ? 'vertical'
-      : dx * dy > 0 ? 'down' : 'up';
-    el.position.x = round1(Math.min(p.x, state.fixed.x));
-    el.position.y = round1(Math.min(p.y, state.fixed.y));
-    el.width = round1(Math.abs(dx));
-    el.height = round1(Math.abs(dy));
-    this.requestUpdate();
-  }
-
-  private _onPointerCancel = (): void => {
-    // 포인터 동작이 취소되면 편집 전 스냅샷을 복원하고 드래그 상태를 초기화한다.
-    const snapshot = this._drag?.snapshot ?? this._resize?.snapshot ?? this._lineEnd?.snapshot;
-    if (snapshot) {
-      this._file = JSON.parse(snapshot) as SlipTemplateFile;
-    }
-    this._drag = null;
-    this._resize = null;
-    this._lineEnd = null;
-    this._draw = null;
-    this._drawRect = null;
-    this._lineDraft = null;
-    this._lineGhost = null;
-    this._guideX = null;
-    this._guideY = null;
-    this.requestUpdate();
-  };
-
-  /**
-   * 드래그·크기 조절·끝점 이동이 실제로 값을 바꿨으면 스냅샷을 되돌리기에 쌓고 변경을 알린다.
-   *
-   * @param snapshot - 조작 시작 시 찍어 둔 되돌리기 스냅샷 (없으면 커밋하지 않음)
-   * @param changed - 위치·크기가 실제로 바뀌었는지
-   * @returns 커밋했으면 true
-   */
-  private _commitIfMoved(snapshot: string | null, changed: boolean): boolean {
-    if (snapshot !== null && changed) {
-      this._pushUndoSnapshot(snapshot);
-      this._emitChange();
-      return true;
-    }
-    return false;
-  }
-
-  private _onPointerUp = (e: PointerEvent): void => {
-    if (this._draw) {
-      const d = this._draw;
-      const rect = this._drawRect;
-      this._draw = null;
-      this._drawRect = null;
-      if (d.type === 'line') {
-        this._finishLineDraw(d);
-        return;
-      }
-      this._pendingTool = null;
-      if (d.moved && rect) {
-        // 드래그: 끌어낸 사각형의 위치·크기로 생성 (최소 크기는 _addElement가 보정)
-        this._addElement(d.type, {
-          position: { x: rect.x, y: rect.y }, width: rect.w, height: rect.h,
-        });
-      } else {
-        // 클릭: 그 위치에 종류별 기본 크기로 생성
-        this._addElement(d.type, { position: { x: round1(d.startX), y: round1(d.startY) } });
-      }
-      return;
-    }
-
-    this._guideX = null;
-    this._guideY = null;
-
-    if (this._lineEnd) {
-      const state = this._lineEnd;
-      this._lineEnd = null;
-      const el = this._findElement(state.id);
-      const changed = !!el && el.type === 'line' &&
-        (el.position.x !== state.orig.x || el.position.y !== state.orig.y ||
-          el.width !== state.orig.w || el.height !== state.orig.h ||
-          el.lineDirection !== state.orig.direction);
-      this._commitIfMoved(state.snapshot, changed);
-      this.requestUpdate();
-      return;
-    }
-
-    if (this._resize) {
-      const r = this._resize;
-      const el = this._findElement(r.id);
-      const resizedBox = el === undefined ? undefined : boxOf(el);
-      const changed = !!el && resizedBox !== undefined &&
-        (el.position.x !== r.origX || el.position.y !== r.origY ||
-          resizedBox.width !== r.origW || resizedBox.height !== r.origH);
-      this._commitIfMoved(r.snapshot, changed);
-      this._resize = null;
-      this.requestUpdate();
-      return;
-    }
-
-    if (!this._drag) return;
-    const drag = this._drag;
-    this._drag = null;
-    const el = this._findElement(drag.id);
-    const dragChanged = !!el &&
-      (el.position.x !== drag.origMmX || el.position.y !== drag.origMmY);
-    if (this._commitIfMoved(drag.snapshot, dragChanged)) return;
-    // 선택된 그리드를 다시 클릭하면 해당 셀의 인라인 편집을 시작한다.
-    if (isGrid(el) && drag.wasSelected && drag.snapshot === null) {
-      const cell = this._cellAtPoint(el, e);
-      if (cell) {
-        if (this._gridEdit.cell?.row !== cell.row || this._gridEdit.cell?.column !== cell.column) {
-          this._gridEdit.setSourceKind(null);
-        }
-        this._gridEdit.selectCell(cell);
-        this._gridEdit.closeBandMenu(true);
-        const definition = el.cells.find((item) => item.row === cell.row && item.column === cell.column);
-        // 파라미터와 수식 셀은 속성 패널에서 편집하며 캔버스 입력기는 열지 않는다.
-        this._gridEdit.setEditing(
-          definition === undefined
-            || (definition.parameter === undefined && definition.formula === undefined),
-        );
-        this.requestUpdate();
-      }
-    }
-  };
-
-  // ---------------------------------------------------------------------------
-  // 그리드 셀 편집
-  // ---------------------------------------------------------------------------
-
-  /** 포인터가 가리키는 셀의 시작 좌표를 반환한다. */
-  private _cellAtPoint(
-    el: GridElement,
-    e: PointerEvent,
-  ): { row: number; column: number } | null {
-    const point = this._paperPoint(e);
-    const relX = point.x - el.position.x;
-    const relY = point.y - el.position.y;
-    const gridBox = boxOf(el);
-    if (relX < 0 || relY < 0 || relX > gridBox.width || relY > gridBox.height) return null;
-
-    const colOffsets = trackOffsets(columnWidths(el));
-    const rowOffsets = trackOffsets(el.rows.map((r) => r.height));
-    const dims = gridDims(el);
-    // 오른쪽과 아래쪽 경계는 마지막 셀에 포함한다.
-    const indexOf = (value: number, offsets: number[], count: number): number => {
-      const found = offsets.findIndex((offset) => value < offset) - 1;
-      return found < 0 ? count - 1 : Math.min(count - 1, found);
-    };
-    const column = indexOf(relX, colOffsets, dims.columns);
-    const row = indexOf(relY, rowOffsets, dims.rows);
-
-    // 병합된 셀 안의 좌표는 병합 시작 셀로 변환한다.
-    for (const cell of el.cells) {
-      const rowSpan = cell.rowSpan ?? 1;
-      const colSpan = cell.colSpan ?? 1;
-      if (row >= cell.row && row < cell.row + rowSpan && column >= cell.column && column < cell.column + colSpan) {
-        return { row: cell.row, column: cell.column };
-      }
-    }
-    return { row, column };
-  }
-
-  /** 인라인 편집에 사용할 셀의 캔버스 영역(px)을 계산한다. */
-  private _cellRectPx(
-    el: GridElement,
-    row: number,
-    column: number,
-  ): { left: number; top: number; width: number; height: number } {
-    const colOffsets = trackOffsets(columnWidths(el));
-    const rowOffsets = trackOffsets(el.rows.map((r) => r.height));
-    const cell = el.cells.find((c) => c.row === row && c.column === column);
-    const rowSpan = cell?.rowSpan ?? 1;
-    const colSpan = cell?.colSpan ?? 1;
-    const left = (el.position.x + (colOffsets[column] ?? 0)) * PX_PER_MM;
-    const top = (el.position.y + (rowOffsets[row] ?? 0)) * PX_PER_MM;
-    const width = ((colOffsets[column + colSpan] ?? 0) - (colOffsets[column] ?? 0)) * PX_PER_MM;
-    const height = ((rowOffsets[row + rowSpan] ?? 0) - (rowOffsets[row] ?? 0)) * PX_PER_MM;
-    return { left, top, width, height };
-  }
-
-  /** 인라인 편집 값을 기존 셀에 적용하거나 새 셀을 만든다. */
   private _commitCellContent(value: string): void {
     const target = this._gridEdit.cell;
     if (!target) return;
@@ -2518,16 +2045,6 @@ export class SlipDesigner extends LitElement {
   // Snap helpers
   // ---------------------------------------------------------------------------
 
-  /** 스냅 후보 선: 용지 가장자리·여백선 + 다른 요소들의 가장자리·중앙선 (mm) */
-  private _snapCandidates(exclude: string | ReadonlySet<string>): SnapCandidates {
-    // 그룹·다중 이동 때는 함께 움직이는 요소들을 후보에서 모두 뺀다
-    const excluded = typeof exclude === 'string' ? new Set([exclude]) : exclude;
-    return snapCandidates(this._file!.template.paper, this._currentElements() ?? [], excluded);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Keyboard
-  // ---------------------------------------------------------------------------
 
   private _onKeyDown = (e: KeyboardEvent): void => {
     // 입력 필드 안에서는 편집기 단축키를 가로채지 않는다.
@@ -2548,12 +2065,8 @@ export class SlipDesigner extends LitElement {
       return;
     }
 
-    if (e.key === 'Escape' && (this._pendingTool || this._draw || this._lineDraft)) {
-      this._pendingTool = null;
-      this._draw = null;
-      this._drawRect = null;
-      this._lineDraft = null;
-      this._lineGhost = null;
+    if (e.key === 'Escape' && (this._pointer.pendingTool || this._pointer.draw || this._pointer.lineDraft)) {
+      this._pointer.cancelDrawing();
       this.requestUpdate();
     }
     // PDF 미리보기 상태에서는 문서를 변경하는 단축키를 처리하지 않는다.
@@ -2658,7 +2171,7 @@ export class SlipDesigner extends LitElement {
     }
 
     return html`
-      <div class="toolbar">${this._renderToolbar()}</div>
+      <div class="toolbar">${toolbar(this._toolbarActions)}</div>
       ${this._previewMode
         ? html`<div class="preview-area">
             ${this._previewUrl
@@ -2669,17 +2182,17 @@ export class SlipDesigner extends LitElement {
           </div>`
         : html`
             <aside class="sidebar">${sidebar(this._kit, this._sidebarActions)}</aside>
-            <div class="canvas-area ${this._pendingTool ? 'drawing' : ''} ${
+            <div class="canvas-area ${this._pointer.pendingTool ? 'drawing' : ''} ${
               this._showBadges ? 'show-badges' : ''
             }"
-                 @pointerdown=${this._onPointerDown}
-                 @pointermove=${this._onPointerMove}
-                 @pointerup=${this._onPointerUp}
-                 @pointercancel=${this._onPointerCancel}>
-              ${this._renderCanvas()}
+                 @pointerdown=${this._pointer.onPointerDown}
+                 @pointermove=${this._pointer.onPointerMove}
+                 @pointerup=${this._pointer.onPointerUp}
+                 @pointercancel=${this._pointer.onPointerCancel}>
+              ${canvas(this._canvasContext)}
             </div>
-            ${this._cursorMm
-              ? html`<div class="coords">${this._cursorMm.x} · ${this._cursorMm.y} mm</div>`
+            ${this._pointer.cursorMm
+              ? html`<div class="coords">${this._pointer.cursorMm.x} · ${this._pointer.cursorMm.y} mm</div>`
               : nothing}
             <div class="prop-panel">
               ${this._inputError && this._inputErrorField === null
@@ -2700,159 +2213,7 @@ export class SlipDesigner extends LitElement {
   // Render: toolbar
   // ---------------------------------------------------------------------------
 
-  /** 아이콘, 표시 이름, 접근성 레이블로 툴바 버튼을 만든다. */
-  private _iconButton(
-    label: string,
-    glyph: TemplateResult,
-    onClick: (e: Event) => void,
-    opts: { disabled?: boolean; pressed?: boolean } = {},
-  ) {
-    return html`<button title=${label} aria-label=${label}
-      aria-pressed=${opts.pressed === undefined ? nothing : String(opts.pressed)}
-      ?disabled=${opts.disabled === true}
-      @click=${onClick}>${glyph}<span class="btn-label">${label}</span></button>`;
-  }
 
-  private _renderToolbar() {
-    const s = this._strings.designer;
-    return html`
-      <div class="tool-group">
-        ${([
-          ['text', s.addText, icons.text],
-          ['grid', s.addGrid, icons.gridElement],
-          ['image', s.addImage, icons.image],
-          ['line', s.shapeLine, icons.line],
-        ] as const).map(([type, label, glyph]) =>
-          this._iconButton(label, glyph, () => this._selectTool(type), {
-            pressed: this._pendingTool === type,
-            disabled: this._previewMode,
-          }),
-        )}
-        ${this._iconButton(s.shape, icons.shape, (e) => this._toggleShapeMenu(e), {
-          pressed:
-            this._shapeMenuOpen ||
-            this._pendingTool === 'rect' ||
-            this._pendingTool === 'ellipse' ||
-            this._pendingTool === 'polygon',
-          disabled: this._previewMode,
-        })}
-        ${this._iconButton(s.addField, icons.field, () => this._selectTool('field'), {
-          pressed: this._pendingTool === 'field',
-          disabled: this._previewMode,
-        })}
-        ${this._iconButton(s.addBarcode, icons.barcode, () => this._selectTool('barcode'), {
-          pressed: this._pendingTool === 'barcode',
-          disabled: this._previewMode,
-        })}
-      </div>
-      <div class="tool-group">
-        ${this._iconButton(s.copy, icons.copy, () => this._copySelected(), { disabled: !this._selectedId || this._previewMode })}
-        ${this._iconButton(s.paste, icons.paste, () => this._paste(), { disabled: !this._clipboard || this._previewMode })}
-        ${this._iconButton(s.undo, icons.undo, () => this._undo(), { disabled: this._undoStack.length === 0 || this._previewMode })}
-        ${this._iconButton(s.redo, icons.redo, () => this._redo(), { disabled: this._redoStack.length === 0 || this._previewMode })}
-      </div>
-      <div class="tool-group">
-        <span class="page-indicator">${this._pageIndex + 1} / ${this._pageCount()}</span>
-        ${this._iconButton(s.addPage, icons.pageAdd, () => this._addPage(), { disabled: this._previewMode })}
-        ${this._iconButton(s.deletePage, icons.pageRemove, () => this._deletePage(), { disabled: this._pageCount() <= 1 || this._previewMode })}
-      </div>
-      <div class="tool-group">
-        ${this._iconButton(
-          this._previewMode ? s.edit : s.preview,
-          this._previewMode ? icons.edit : icons.preview,
-          () => this._togglePreview(),
-          { pressed: this._previewMode },
-        )}
-        ${this._iconButton(s.showBadges, icons.badges, () => {
-          this._showBadges = !this._showBadges;
-          this.requestUpdate();
-        }, { pressed: this._showBadges, disabled: this._previewMode })}
-        ${this._iconButton(s.grid, icons.grid, (e) => this._toggleGridMenu(e), {
-          pressed: this._gridMenuOpen || this._gridGap !== null,
-          disabled: this._previewMode,
-        })}
-      </div>
-      <div class="tool-group">
-        ${this._iconButton(s.preset, icons.preset, (e) => this._togglePresetMenu(e), {
-          pressed: this._presetMenuOpen,
-          disabled: this._previewMode,
-        })}
-      </div>
-      ${this.storage
-        ? html`
-            <div class="tool-group">
-              ${this._iconButton(s.saveAsMyForm, icons.save, () => this._openSaveModal())}
-              ${this._iconButton(s.myFormsList, icons.folderOpen, () => void this._openMyForms())}
-            </div>
-            ${this._forms.savedNotice
-              ? html`<span class="saved-notice">${s.savedNotice}</span>`
-              : nothing}`
-        : nothing}
-      ${this._presetMenuOpen
-        ? html`
-            <div class="menu-backdrop" @click=${() => {
-              this._presetMenuOpen = false;
-              this.requestUpdate();
-            }}></div>
-            <div class="preset-menu" role="menu" aria-label=${s.preset}
-                 style="left:${this._presetMenuPos.left}px;top:${this._presetMenuPos.top}px">
-              ${this._presetList().map((p, index) => html`
-                <button role="menuitem" @click=${() => this._applyPreset(index)}>${p.name}</button>`)}
-            </div>`
-        : nothing}
-      ${this._shapeMenuOpen
-        ? html`
-            <div class="menu-backdrop" @click=${() => {
-              this._shapeMenuOpen = false;
-              this.requestUpdate();
-            }}></div>
-            <div class="preset-menu" role="menu" aria-label=${s.shape}
-                 style="left:${this._shapeMenuPos.left}px;top:${this._shapeMenuPos.top}px">
-              ${([
-                [s.shapeRect, 'rect', 3],
-                [s.shapeEllipse, 'ellipse', 3],
-                [s.shapeTriangle, 'polygon', 3],
-                [s.shapePentagon, 'polygon', 5],
-                [s.shapeHexagon, 'polygon', 6],
-              ] as const).map(([label, type, sides]) => html`
-                <button role="menuitem" @click=${() => this._selectShapeTool(type, sides)}>
-                  ${label}
-                </button>`)}
-            </div>`
-        : nothing}
-      ${this._gridMenuOpen
-        ? html`
-            <div class="menu-backdrop" @click=${() => {
-              this._gridMenuOpen = false;
-              this.requestUpdate();
-            }}></div>
-            <div class="preset-menu" role="menu" aria-label=${s.gridGap}
-                 style="left:${this._gridMenuPos.left}px;top:${this._gridMenuPos.top}px">
-              <button role="menuitem" aria-pressed=${String(this._gridGap === null)}
-                @click=${() => this._setGridGap(null)}>${s.gridNone}</button>
-              ${GRID_GAPS.map((gap) => html`
-                <button role="menuitem" aria-pressed=${String(this._gridGap === gap)}
-                  @click=${() => this._setGridGap(gap)}>${gap}mm</button>`)}
-              ${this._gridGap !== null
-                ? html`<div class="grid-colors" role="group" aria-label=${s.gridColor}>
-                    ${GRID_COLORS.map((color) => html`
-                      <button style="background:${color.swatch}"
-                        title=${s[color.nameKey]}
-                        aria-label="${s.gridColor}: ${s[color.nameKey]}"
-                        aria-pressed=${String(this._gridColor === color.id)}
-                        @click=${() => {
-                          this._gridColor = color.id;
-                          this._gridMenuOpen = false;
-                          this.requestUpdate();
-                        }}></button>`)}
-                  </div>`
-                : nothing}
-            </div>`
-        : nothing}
-    `;
-  }
-
-  /** 현재 선택된 캔버스 격자선 색을 반환한다. */
   private _gridLine(): string {
     return GRID_COLORS.find((color) => color.id === this._gridColor)!.line;
   }
@@ -3498,41 +2859,6 @@ export class SlipDesigner extends LitElement {
   // Render: canvas
   // ---------------------------------------------------------------------------
 
-  /**
-   * 캔버스에 페이지 번호 자리표시를 렌더링한다.
-   * 실제 페이지 번호는 PDF 후처리에서 결정되므로 캔버스에는 `X / X`를 표시한다.
-   *
-   * @param page - 현재 페이지
-   * @param paper - 용지 크기
-   * @param padding - 여백 `[상, 우, 하, 좌]`(mm)
-   * @returns 번호 자리표시 조각. 번호 표시가 꺼져 있으면 빈 것
-   */
-  private _renderPageNumberPlaceholder(
-    page: SlipPage,
-    paper: { width: number; height: number },
-    padding: [number, number, number, number],
-  ) {
-    const setting = page.pageNumber;
-    if (!setting) return nothing;
-    const [pt, pr, pb, pl] = padding;
-    const isTop = setting.position.startsWith('top-');
-    const align = setting.position.endsWith('-left')
-      ? 'flex-start'
-      : setting.position.endsWith('-right') ? 'flex-end' : 'center';
-    const boxH = 6;
-    const left = pl * PX_PER_MM;
-    const width = (paper.width - pl - pr) * PX_PER_MM;
-    const top = (isTop ? Math.max(0, pt - boxH) : paper.height - pb) * PX_PER_MM;
-    return html`<div class="page-number-mark" style="
-      left:${left}px; top:${top}px; width:${width}px; height:${boxH * PX_PER_MM}px;
-      justify-content:${align};
-    ">X / X</div>`;
-  }
-
-  /**
-   * 현재 양식 페이지의 출력 페이지 계획을 만든다.
-   * 같은 입력이면 캐시를 재사용하고, 계획 오류는 오류 상태로 반환한다.
-   */
   private _pagePlan(): { plan: SourcePagePlan | null; error: SlipLayoutError | null } {
     const file = this._file;
     const page = file?.template.pages[this._pageIndex];
@@ -3540,7 +2866,7 @@ export class SlipDesigner extends LitElement {
     const itemsByGrid = new Map<string, readonly GridItem[]>();
     for (const el of page.elements) {
       if (el.type === 'grid' && el.repeat !== undefined) {
-        itemsByGrid.set(el.id, this._repeatSampleItems(el) as GridItem[]);
+        itemsByGrid.set(el.id, repeatSampleItems(this._canvasContext, el) as GridItem[]);
       }
     }
     const key = JSON.stringify([this._pageIndex, file.template.paper, page, [...itemsByGrid.entries()]]);
@@ -3589,208 +2915,12 @@ export class SlipDesigner extends LitElement {
     this._gridPlanPreview = enabled;
     this._gridEdit.clearCell();
     this._gridEdit.closeBandMenu(true);
-    this._pendingTool = null;
+    this._pointer.cancelTool();
     this.requestUpdate();
   }
 
-  /** 출력 페이지 이동과 선택한 반복 그리드의 출력 결과 전환을 렌더링한다. */
-  private _renderOutputPageBar(outputPage: number, outputPageCount: number, plan: SourcePagePlan | null) {
-    const s = this._strings.designer;
-    const selected = this._findSelectedElement();
-    const canPreviewGrid = selected?.type === 'grid'
-      && selected.repeat !== undefined
-      && plan?.gridPlans.has(selected.id) === true;
-    if (outputPageCount <= 1 && !canPreviewGrid) return nothing;
-    return html`
-      <div class="output-page-bar" role="group" aria-label=${s.outputPage}
-        @pointerdown=${(event: PointerEvent) => event.stopPropagation()}>
-        ${canPreviewGrid
-          ? html`<button type="button" class="output-preview-toggle"
-              aria-pressed=${String(this._gridPlanPreview)}
-              @click=${() => this._setGridPlanPreview(!this._gridPlanPreview)}>
-              ${this._gridPlanPreview ? icons.edit : icons.preview}
-              <span>${this._gridPlanPreview ? s.gridStructureEdit : s.outputResult}</span>
-            </button>`
-          : nothing}
-        ${outputPageCount <= 1
-          ? nothing
-          : html`<div class="output-page-nav">
-              <button type="button" class="row-btn output-page-prev" aria-label=${s.prevPage}
-                ?disabled=${outputPage === 0}
-                @click=${() => {
-                  this._outputPage = Math.max(0, outputPage - 1);
-                  this.requestUpdate();
-                }}>${icons.pagePrev}</button>
-              <span class="output-page-status" aria-live="polite">
-                ${s.outputPage} ${outputPage + 1} / ${outputPageCount}
-              </span>
-              <button type="button" class="row-btn output-page-next" aria-label=${s.nextPage}
-                ?disabled=${outputPage >= outputPageCount - 1}
-                @click=${() => {
-                  this._outputPage = Math.min(outputPageCount - 1, outputPage + 1);
-                  this.requestUpdate();
-                }}>${icons.pageNext}</button>
-            </div>`}
-      </div>`;
-  }
 
-  private _renderCanvas() {
-    if (!this._file) return nothing;
-    const { paper } = this._file.template;
-    const page = this._file.template.pages[this._pageIndex];
-    if (!page) return nothing;
 
-    const { plan, error } = this._pagePlan();
-    const outputPageCount = plan?.outputPageCount ?? 1;
-    const outputPage = Math.min(this._outputPage, outputPageCount - 1);
-
-    const pw = paper.width * PX_PER_MM;
-    const ph = paper.height * PX_PER_MM;
-    const [pt, pr, pb, pl] = paper.padding;
-
-    return html`
-      <div class="canvas-stack" style="--paper-w:${pw}px;--paper-h:${ph}px">
-      ${this._renderOutputPageBar(outputPage, outputPageCount, plan)}
-      ${error === null
-        ? nothing
-        : html`<div id="page-plan-error" class="plan-error" role="alert"
-            @pointerdown=${(event: PointerEvent) => event.stopPropagation()}>
-            <span>${this._strings.designer.planError}: ${error.message}</span>
-            ${error.elementId === undefined
-              ? nothing
-              : html`<button type="button" @click=${() => this._focusPlanError(error)}>
-                  ${this._strings.designer.planErrorLocate}
-                </button>`}
-          </div>`}
-      <div class="paper-wrap"
-        @pointermove=${(e: PointerEvent) => this._trackCursor(e)}
-        @pointerleave=${() => {
-          if (this._cursorMm === null) return;
-          this._cursorMm = null;
-          this.requestUpdate();
-        }}>
-        <div class="ruler-corner"></div>
-        ${this._renderRuler('h', paper.width, pw)}
-        ${this._renderRuler('v', paper.height, ph)}
-      <div class="paper" style="width:${pw}px;height:${ph}px">
-        ${this._gridGap !== null
-          ? html`<div class="grid-overlay" style="
-              background-size:${this._gridGap}mm ${this._gridGap}mm;
-              background-image:
-                linear-gradient(to right, ${this._gridLine()} 1px, transparent 1px),
-                linear-gradient(to bottom, ${this._gridLine()} 1px, transparent 1px);
-            "></div>`
-          : nothing}
-        <div class="padding-guide" style="
-          left:${pl * PX_PER_MM}px;
-          top:${pt * PX_PER_MM}px;
-          width:${(paper.width - pl - pr) * PX_PER_MM}px;
-          height:${(paper.height - pt - pb) * PX_PER_MM}px;
-        "></div>
-        ${plan !== null && page.elements.some((el) => el.type === 'grid' && el.repeat?.pagination.mode === 'auto')
-          ? html`<div class="flow-guide" aria-label=${this._strings.designer.flowAreaGuide}
-              style="top:${plan.flowArea.bottom * PX_PER_MM}px">
-              <span>${this._strings.designer.flowAreaGuide}</span>
-            </div>`
-          : nothing}
-        ${this._renderPageNumberPlaceholder(page, paper, [pt, pr, pb, pl])}
-        ${page.elements.map((el) => this._renderElement(el, plan, outputPage, outputPageCount))}
-        ${this._renderSelectionOverlay()}
-        ${this._guideX !== null
-          ? html`<div class="snap-guide vertical" style="left:${this._guideX * PX_PER_MM}px"></div>`
-          : nothing}
-        ${this._guideY !== null
-          ? html`<div class="snap-guide horizontal" style="top:${this._guideY * PX_PER_MM}px"></div>`
-          : nothing}
-        ${this._drawRect
-          ? html`<div class="draw-ghost" style="
-              left:${this._drawRect.x * PX_PER_MM}px;
-              top:${this._drawRect.y * PX_PER_MM}px;
-              width:${this._drawRect.w * PX_PER_MM}px;
-              height:${this._drawRect.h * PX_PER_MM}px;
-            "></div>`
-          : nothing}
-        ${this._renderLineGhost(pw, ph)}
-        ${this._renderCellEditor()}
-      </div>
-      </div>
-      </div>
-    `;
-  }
-
-  /**
-   * 용지 위의 커서 위치를 mm 좌표로 기록하고 용지 밖에서는 지운다.
-   */
-  private _trackCursor(e: PointerEvent): void {
-    const paper = this.renderRoot.querySelector('.paper');
-    if (!paper) return;
-    const rect = paper.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / PX_PER_MM;
-    const y = (e.clientY - rect.top) / PX_PER_MM;
-    const { paper: size } = this._file!.template;
-    const inside = x >= 0 && y >= 0 && x <= size.width && y <= size.height;
-    const next = inside ? { x: round1(x), y: round1(y) } : null;
-    if (next?.x === this._cursorMm?.x && next?.y === this._cursorMm?.y) return;
-    this._cursorMm = next;
-    this.requestUpdate();
-  }
-
-  /**
-   * 5mm 간격의 눈금과 10mm 간격의 숫자를 표시하는 눈금자를 렌더링한다.
-   * 커서가 용지 위에 있으면 현재 위치도 표시한다.
-   *
-   * @param axis - 'h'는 위쪽 가로 자, 'v'는 왼쪽 세로 자
-   * @param lengthMm - 용지 길이(mm)
-   * @param lengthPx - 용지 길이(px)
-   * @returns 눈금자 조각
-   */
-  private _renderRuler(axis: 'h' | 'v', lengthMm: number, lengthPx: number) {
-    const horizontal = axis === 'h';
-    const marks: TemplateResult[] = [];
-    for (let mm = 0; mm <= Math.floor(lengthMm); mm += 5) {
-      const long = mm % 10 === 0;
-      const pos = mm * PX_PER_MM;
-      marks.push(svg`<line
-        x1=${horizontal ? pos : RULER_PX - (long ? 7 : 4)}
-        y1=${horizontal ? RULER_PX - (long ? 7 : 4) : pos}
-        x2=${horizontal ? pos : RULER_PX}
-        y2=${horizontal ? RULER_PX : pos}
-        stroke="currentColor" stroke-width="1" />`);
-      if (long && mm > 0) {
-        marks.push(svg`<text
-          x=${horizontal ? pos + 2 : RULER_PX - 3}
-          y=${horizontal ? 8 : pos - 2}
-          font-size="8" fill="currentColor"
-          text-anchor=${horizontal ? 'start' : 'end'}>${mm}</text>`);
-      }
-    }
-    const cursor = this._cursorMm;
-    const cursorPos = cursor ? (horizontal ? cursor.x : cursor.y) * PX_PER_MM : null;
-
-    return html`
-      <div class="ruler ruler-${axis}"
-        style=${horizontal ? `width:${lengthPx}px` : `height:${lengthPx}px`}>
-        <svg width=${horizontal ? lengthPx : RULER_PX} height=${horizontal ? RULER_PX : lengthPx}>
-          ${marks}
-          ${cursorPos === null
-            ? nothing
-            : svg`<line
-                x1=${horizontal ? cursorPos : 0}
-                y1=${horizontal ? 0 : cursorPos}
-                x2=${horizontal ? cursorPos : RULER_PX}
-                y2=${horizontal ? RULER_PX : cursorPos}
-                stroke="var(--sk-accent)" stroke-width="1" />`}
-        </svg>
-      </div>
-    `;
-  }
-
-  /**
-   * 수식 미리보기에 사용할 값을 만든다.
-   * 샘플 값이 없는 파라미터에는 선언된 종류의 기본값을 사용한다.
-   *
-   * @returns 파라미터 물리명 → 값
-   */
   private _formulaProbeValues(): Record<string, unknown> {
     const samples = this._file?.template.sampleValues ?? {};
     const probeFor = (type: ParameterValueType | undefined): unknown => {
@@ -3862,636 +2992,8 @@ export class SlipDesigner extends LitElement {
     return out;
   }
 
-  /** 선택된 셀 위에 인라인 편집 입력을 표시한다. */
-  private _renderCellEditor() {
-    if (!this._gridEdit.editing || !this._gridEdit.cell) return nothing;
-    const el = this._findSelectedElement();
-    if (!isGrid(el)) return nothing;
-    const { row, column } = this._gridEdit.cell;
-    const rect = this._cellRectPx(el, row, column);
-    const cell = el.cells.find((c) => c.row === row && c.column === column);
-    // 편집 중에도 셀 모양을 유지하도록 셀의 표시 스타일을 입력에 적용한다.
-    const bg = cell?.backgroundColor ?? el.backgroundColor;
-    const fg = cell?.fontColor ?? el.fontColor;
-    const size = cell?.fontSize ?? el.fontSize;
-    const align = cell?.alignment ?? el.alignment;
-    const inherited = [
-      bg ? `background:${bg}` : 'background:transparent',
-      fg ? `color:${fg}` : '',
-      size ? `font-size:${fontPx(size)}` : '',
-      align ? `text-align:${align}` : '',
-    ].filter(Boolean).join(';');
-    return html`<input class="cell-editor"
-      style="left:${rect.left}px;top:${rect.top}px;width:${Math.max(24, rect.width)}px;height:${Math.max(16, rect.height)}px;${inherited}"
-      .value=${cell?.content ?? ''}
-      @keydown=${(e: KeyboardEvent) => {
-        if (e.key === 'Enter') {
-          this._commitCellContent((e.target as HTMLInputElement).value);
-        } else if (e.key === 'Escape') {
-          this._gridEdit.setEditing(false);
-          this.requestUpdate();
-        }
-      }}
-      @blur=${(e: Event) => {
-        if (this._gridEdit.editing) this._commitCellContent((e.target as HTMLInputElement).value);
-      }}>`;
-  }
 
-  /** 선을 생성하는 동안 반투명 미리보기 선을 표시한다. */
-  private _renderLineGhost(paperW: number, paperH: number) {
-    const from = this._draw?.type === 'line' && this._draw.moved
-      ? { x: this._draw.startX, y: this._draw.startY }
-      : this._lineDraft;
-    const to = this._draw?.type === 'line' && this._draw.moved
-      ? { x: this._draw.endX, y: this._draw.endY }
-      : this._lineGhost;
-    if (!from || !to) return nothing;
-    return html`<svg class="line-ghost" viewBox="0 0 ${paperW} ${paperH}"
-      preserveAspectRatio="none">
-      ${svg`<line x1=${from.x * PX_PER_MM} y1=${from.y * PX_PER_MM}
-        x2=${to.x * PX_PER_MM} y2=${to.y * PX_PER_MM}
-        stroke="var(--sk-accent)" stroke-width="2" stroke-linecap="round" />`}
-    </svg>`;
-  }
 
-  private _renderSelectionOverlay() {
-    if (this._gridPlanPreview) return nothing;
-    // 크기 조절 핸들은 요소 하나만 선택한 경우에 표시한다.
-    if (this._selectedIds.size > 1) return nothing;
-    const el = this._findSelectedElement();
-    if (!el) return nothing;
-    const box = boxOf(el);
-    const x = el.position.x * PX_PER_MM;
-    const y = el.position.y * PX_PER_MM;
-    const w = box.width * PX_PER_MM;
-    const h = box.height * PX_PER_MM;
-    // 선 요소에는 영역 핸들 대신 두 끝점 핸들을 표시한다.
-    if (el.type === 'line') {
-      const [p0, p1] = lineEndpoints(el);
-      const rel = (p: { x: number; y: number }) => ({
-        x: (p.x - el.position.x) * PX_PER_MM,
-        y: (p.y - el.position.y) * PX_PER_MM,
-      });
-      const r0 = rel(p0);
-      const r1 = rel(p1);
-      return html`
-        <div class="selection-overlay" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">
-          <svg class="line-highlight" viewBox="0 0 ${Math.max(1, w)} ${Math.max(1, h)}"
-            preserveAspectRatio="none">
-            ${svg`<line x1=${r0.x} y1=${r0.y} x2=${r1.x} y2=${r1.y}
-              stroke="var(--sk-accent)" stroke-width="6" stroke-linecap="round"
-              opacity="0.35" />`}
-          </svg>
-          ${([r0, r1] as const).map((p, index) => html`
-            <span class="handle endpoint" data-endpoint=${String(index)}
-              style="left:${p.x}px;top:${p.y}px"></span>`)}
-        </div>
-      `;
-    }
-    return html`
-      <div class="selection-overlay" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">
-        ${RESIZE_HANDLES.map(
-          (handle) => html`<span class="handle handle-${handle}" data-handle=${handle}></span>`,
-        )}
-      </div>
-    `;
-  }
-
-  /**
-   * 요소 하나를 현재 출력 페이지 계획에 맞춰 렌더링한다.
-   *
-   * @param el - 렌더링할 요소
-   * @param plan - 현재 양식 페이지의 계획 (계획 오류 시 null)
-   * @param outputPage - 보고 있는 출력 페이지 (0부터)
-   * @param outputPageCount - 전체 출력 페이지 수
-   */
-  private _renderElement(el: SlipElement, plan: SourcePagePlan | null, outputPage: number, outputPageCount: number) {
-    // 다중 선택된 요소의 영역을 모두 강조한다.
-    const selected = this._selectedIds.has(el.id);
-    const layoutError = this._planError();
-    const hasLayoutError = layoutError?.elementId === el.id;
-    let originY = el.position.y;
-    let fragment: GridFragment | null = null;
-
-    if (el.type === 'grid' && el.repeat !== undefined) {
-      // 선택한 반복 그리드는 행 구간을 편집할 수 있게 원본 행 구조로 표시한다.
-      if ((!selected || this._gridPlanPreview) && plan !== null) {
-        const gridPlan = plan.gridPlans.get(el.id);
-        fragment = gridPlan?.fragments.find((f) => f.outputPage === outputPage) ?? null;
-        if (fragment === null) return nothing;
-        originY = fragment.y;
-      }
-    } else if (el.pagePlacement?.mode === 'after') {
-      // after 배치 요소는 계획된 위치에 표시한다. 선택 중에는 항상 표시한다.
-      const placed = plan?.afterPlacements.get(el.id);
-      if (placed !== undefined) {
-        if (placed.outputPage !== outputPage && !selected) return nothing;
-        originY = placed.y;
-      } else if (plan !== null && !selected) {
-        // 대상이 표시되는 페이지가 없어 배치되지 않은 요소는 캔버스에도 표시하지 않는다.
-        return nothing;
-      }
-    } else if (!selected) {
-      // 절대 배치 요소는 표시 페이지 필터를 따른다. 선택한 요소는 편집을 위해 항상 표시한다.
-      const filter = el.pagePlacement?.mode === 'absolute' ? el.pagePlacement.pages : undefined;
-      if (!filterVisibleOnPage(filter, outputPage, outputPageCount)) return nothing;
-    }
-
-    const box = boxOf(el);
-    const x = el.position.x * PX_PER_MM;
-    const y = originY * PX_PER_MM;
-    const w = box.width * PX_PER_MM;
-    const h = (fragment === null ? box.height : fragment.height) * PX_PER_MM;
-
-    let style = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
-
-    // 선과 곡선 도형은 PDF 변환 방식에 맞춰 SVG로 그린다.
-    const drawnAsSvg = el.type === 'line' || el.type === 'ellipse' || el.type === 'polygon';
-    if (el.type !== 'image' && !drawnAsSvg) {
-      const r = el as Record<string, unknown>;
-      // 텍스트와 필드는 샘플 값으로 조건부 서식을 미리 적용한다.
-      const conditional = el.type === 'text' || el.type === 'field'
-        ? this._previewConditionalColors(el.conditionalFormats)
-        : {};
-      const backgroundColor = conditional.backgroundColor ?? (r.backgroundColor as string | undefined);
-      const fontColor = conditional.fontColor ?? (r.fontColor as string | undefined);
-      if (backgroundColor) style += `;background-color:${backgroundColor}`;
-      if (fontColor) style += `;color:${fontColor}`;
-      /*
-       * 캔버스에는 PDF 변환과 같은 테두리 기본값을 적용한다.
-       * 테두리 굵기가 0이면 요소 영역을 확인할 수 있도록 편집 안내선만 표시한다.
-       */
-      const effectiveWidth = typeof r.borderWidth === 'number'
-        ? r.borderWidth
-        : (el.type === 'text' || el.type === 'field' ? 0 : DEFAULT_LINE_WIDTH);
-      if (effectiveWidth > 0) {
-        const color = conditional.borderColor ?? (r.borderColor as string | undefined) ?? DEFAULT_BORDER_COLOR;
-        style += `;border-color:${color}`;
-        style += `;border-width:${(effectiveWidth * PX_PER_MM).toFixed(2)}px`;
-      } else {
-        // 테두리 굵기가 0이면 캔버스 안내선만 표시한다.
-        style += ';border-color:var(--sk-guide-faint)';
-      }
-      if (el.type === 'rect') {
-        // 모서리 반경과 테두리 형태는 사각형 요소에만 적용한다.
-        if (el.radius !== undefined && el.radius > 0) {
-          style += `;border-radius:${(el.radius * PX_PER_MM).toFixed(2)}px`;
-        }
-        if (el.borderStyle === 'dashed' || el.borderStyle === 'dotted') {
-          style += `;border-style:${el.borderStyle}`;
-        }
-      }
-    }
-
-    return html`
-      <div class="element ${selected ? 'selected' : ''} ${hasLayoutError ? 'layout-error' : ''} type-${el.type}"
-           data-id=${el.id}
-           tabindex=${hasLayoutError ? '-1' : nothing}
-           aria-invalid=${hasLayoutError ? 'true' : nothing}
-           aria-describedby=${hasLayoutError ? 'page-plan-error' : nothing}
-           style=${style}>
-        <span class="badge">${TYPE_BADGE[el.type]}</span>
-        ${this._renderElementContent(el, fragment)}
-      </div>
-    `;
-  }
-
-  private _renderElementContent(el: SlipElement, fragment: GridFragment | null = null) {
-    switch (el.type) {
-      case 'text': {
-        // 조건부 서식의 글자 강조를 샘플 값으로 미리 적용한다.
-        const styled = { ...el, ...this._previewConditionalColors(el.conditionalFormats) };
-        return html`<span class="el-content"
-          style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(styled)}"
-          >${stackVertically(el.content, el.vertical)}</span>`;
-      }
-
-      case 'grid':
-        return this._renderGridElementPreview(el, fragment);
-
-      case 'image': {
-        // 변동 이미지는 샘플 이미지가 있으면 표시하고 없으면 파라미터 키를 표시한다.
-        if (el.parameter !== undefined) {
-          const sample = this._file?.template.sampleValues?.[el.parameter];
-          return typeof sample === 'string' && sample.startsWith('data:')
-            ? html`<img src=${sample} alt="">`
-            : html`<span class="el-content">{${el.parameter}}</span>`;
-        }
-        // 기본 투명 이미지는 이미지가 선택되지 않았음을 나타내는 문구로 표시한다.
-        return el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:')
-          ? html`<img src=${el.src} alt="">`
-          : html`<span class="el-content">${this._strings.designer.typeImage}</span>`;
-      }
-
-      case 'line':
-      case 'ellipse':
-      case 'polygon':
-        return this._renderShapePreview(el);
-
-      case 'rect':
-        return nothing;
-
-      case 'field': {
-        // 필드에는 파라미터 키 또는 수식을 표시한다.
-        const label = el.parameter !== undefined ? `{${el.parameter}}` : (el.formula ?? '');
-        // 조건부 서식의 글자 강조를 샘플 값으로 미리 적용한다.
-        const styled = { ...el, ...this._previewConditionalColors(el.conditionalFormats) };
-        return html`<span class="el-content"
-          style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(styled)}"
-          >${stackVertically(label, el.vertical)}</span>`;
-      }
-
-      case 'barcode':
-        return this._renderBarcodePreview(el);
-    }
-  }
-
-  /**
-   * 편집용 바코드 견본을 캔버스에 표시한다.
-   * 실제 바코드는 PDF 미리보기에서 렌더링한다.
-   */
-  private _renderBarcodePreview(el: SlipElement & { type: 'barcode' }) {
-    const label = el.content ?? (el.parameter !== undefined ? `{${el.parameter}}` : el.formula ?? '');
-    const color = el.fontColor ?? '#000000';
-    const kindLabel = BARCODE_KINDS.find((k) => k.value === el.kind)?.label ?? el.kind;
-    // 바코드 종류와 현재 값 소스를 함께 표시한다.
-    const caption = html`<span class="barcode-caption">${kindLabel}${label ? ` · ${label}` : ''}</span>`;
-    if (BARCODE_2D.has(el.kind)) {
-      // 2차원 바코드는 위치 탐지 무늬가 있는 격자 형태로 표시한다.
-      const n = 11;
-      const cells = Array.from({ length: n }, (_, r) =>
-        Array.from({ length: n }, (_, c) => {
-          const finder = (r < 3 && c < 3) || (r < 3 && c >= n - 3) || (r >= n - 3 && c < 3);
-          const on = finder || (r + c) % 2 === 0;
-          return on ? svg`<rect x=${c} y=${r} width="1" height="1" fill=${color} />` : nothing;
-        }),
-      );
-      return html`
-        <div class="barcode-preview">
-          <svg viewBox="0 0 ${n} ${n}" preserveAspectRatio="none" class="barcode-svg">${cells}</svg>
-          ${caption}
-        </div>`;
-    }
-    // 1차원 바코드는 굵기가 다른 세로 막대로 표시한다.
-    const pattern = [2, 1, 1, 3, 1, 2, 1, 1, 2, 3, 1, 1, 2, 1, 3, 1, 1, 2, 1, 2];
-    const total = pattern.reduce((sum, w) => sum + w, 0);
-    let x = 0;
-    const bars = pattern.map((w, i) => {
-      const bar = i % 2 === 0 ? svg`<rect x=${x} y="0" width=${w} height="1" fill=${color} />` : nothing;
-      x += w;
-      return bar;
-    });
-    return html`
-      <div class="barcode-preview">
-        <svg viewBox="0 0 ${total} 1" preserveAspectRatio="none" class="barcode-svg">${bars}</svg>
-        ${caption}
-      </div>`;
-  }
-
-  /**
-   * PDF 변환과 같은 규칙으로 도형의 SVG를 만든다.
-   * SVG 내부 요소는 Lit의 `svg` 템플릿으로 생성한다.
-   */
-  private _renderShapePreview(el: SlipElement & { type: 'line' | 'ellipse' | 'polygon' }) {
-    const w = Math.max(1, el.width * PX_PER_MM);
-    const h = Math.max(1, el.height * PX_PER_MM);
-    const stroke = el.borderColor ?? '#000000';
-    const strokeWidth = Math.max(1, (el.borderWidth ?? DEFAULT_LINE_WIDTH) * PX_PER_MM);
-
-    if (el.type === 'line') {
-      const dash = dashArrayOf(el.borderStyle);
-      const direction = el.lineDirection ?? 'horizontal';
-      const [x1, y1, x2, y2] =
-        direction === 'horizontal' ? [0, h / 2, w, h / 2]
-        : direction === 'vertical' ? [w / 2, 0, w / 2, h]
-        : direction === 'down' ? [0, 0, w, h]
-        : [0, h, w, 0];
-      return html`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-        ${svg`<line x1=${x1} y1=${y1} x2=${x2} y2=${y2} stroke=${stroke}
-          stroke-width=${strokeWidth} stroke-dasharray=${dash ?? nothing} />`}
-      </svg>`;
-    }
-    const fill = el.backgroundColor ?? 'none';
-    if (el.type === 'ellipse') {
-      // 곡선 테두리는 실선만 지원한다.
-      return html`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-        ${svg`<ellipse cx=${w / 2} cy=${h / 2} rx=${Math.max(0, (w - strokeWidth) / 2)}
-          ry=${Math.max(0, (h - strokeWidth) / 2)} fill=${fill} stroke=${stroke}
-          stroke-width=${strokeWidth} />`}
-      </svg>`;
-    }
-    // 정다각형은 요소 영역에 내접하도록 좌표를 계산한다.
-    const points = polygonPointsPx(el.sides, w, h)
-      .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
-      .join(' ');
-    return html`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-      ${svg`<polygon points=${points} fill=${fill} stroke=${stroke}
-        stroke-width=${strokeWidth} />`}
-    </svg>`;
-  }
-
-  /** 셀 하나의 캔버스 표시 스타일과 내용을 만든다. */
-  private _gridCellBox(
-    el: GridElement,
-    cell: GridCell,
-    at: { row: number; rowSpan: number },
-    context: {
-      item?: Record<string, unknown> | undefined;
-      empty?: boolean;
-      reserved?: Readonly<Record<string, unknown>> | undefined;
-      selected?: boolean;
-      borderCssOf: (cell?: GridCell, overrideColor?: string) => string;
-    },
-  ) {
-    // 빈 항목 인스턴스에는 값이 없으므로 조건부 서식을 평가하지 않는다 (PDF 변환과 동일).
-    const conditional = context.empty === true
-      ? {}
-      : this._previewConditionalColors(cell.conditionalFormats, context.item, context.reserved);
-    const backgroundColor = conditional.backgroundColor ?? cell.backgroundColor;
-    const fontColor = conditional.fontColor ?? cell.fontColor ?? el.fontColor;
-    // 그리드 셀은 수직 정렬을 별도로 적용하므로 textStyleCss에서는 생략한다.
-    // 조건부 서식의 글자 강조는 셀 스타일 위에 덮어쓴다.
-    const merged = { ...el, ...cell, ...conditional };
-    const style = [
-      `grid-area:${at.row + 1}/${cell.column + 1}/span ${at.rowSpan}/span ${cell.colSpan ?? 1}`,
-      `border:${context.borderCssOf(cell, conditional.borderColor)}`,
-      `font-size:${fontPx(cell.fontSize ?? el.fontSize)}`,
-      `justify-content:${justifyOf(cell.alignment ?? el.alignment)}`,
-      `align-items:${verticalFlexAlign(merged.verticalAlignment)}`,
-      // 세로쓰기에서 추가한 줄바꿈을 유지한다.
-      cell.vertical === true ? 'white-space:pre-wrap' : '',
-      backgroundColor ? `background-color:${backgroundColor}` : '',
-      fontColor ? `color:${fontColor}` : '',
-    ].filter(Boolean).join(';') + textStyleCss(merged, { omitVerticalAlign: true });
-    // 빈 항목은 파라미터 이름을 출력값처럼 표시하지 않는다 (§7.5).
-    const text = context.empty === true
-      ? ''
-      : this._gridCellPreviewText(cell, context.item, context.reserved);
-    return html`<div class=${context.selected === true ? 'cell-selected' : ''} style=${style}
-      >${stackVertically(text, cell.vertical)}</div>`;
-  }
-
-  /**
-   * 그리드의 캔버스 표시를 만든다.
-   *
-   * 선택하지 않은 반복 그리드는 현재 출력 페이지의 계획 조각(`fragment`)을 표시하고,
-   * 선택한 그리드와 정적 그리드는 원본 행 구조를 표시한다 (§7.5).
-   */
-  private _renderGridElementPreview(el: GridElement, fragment: GridFragment | null = null) {
-    const selected = el.id === this._selectedId;
-    const widths = columnWidths(el);
-    const colTracks = widths.map((w) => `${w}fr`).join(' ');
-    const lineColor = el.borderColor ?? '#000000';
-    const lineWidth = el.borderWidth ?? DEFAULT_LINE_WIDTH;
-    const borderCssOf = (cell?: GridCell, overrideColor?: string): string => {
-      const width = cell?.borderWidth ?? lineWidth;
-      if (width <= 0) return 'none';
-      const px = Math.max(1, Math.round(width * PX_PER_MM));
-      return `${px}px ${cell?.borderStyle ?? el.borderStyle ?? 'solid'} ${overrideColor ?? cell?.borderColor ?? lineColor}`;
-    };
-
-    if (fragment !== null && el.repeat !== undefined) {
-      return this._renderGridFragment(el, fragment, { colTracks, borderCssOf });
-    }
-
-    // 원본 행 구조 표시 — 항목 구간 셀에는 첫 샘플 항목을 적용한다.
-    const heights = el.rows.map((row) => row.height);
-    const rowTracks = heights.map((h) => `${h}fr`).join(' ');
-    const items = this._repeatSampleItems(el);
-    const realItems = el.repeat?.maxItems === undefined ? items : items.slice(0, el.repeat.maxItems);
-    const gridPlan = el.repeat === undefined ? undefined : this._pagePlan().plan?.gridPlans.get(el.id);
-    const plannedFragment = gridPlan?.fragments.find((candidate) => candidate.outputPage === this._outputPage);
-    const itemsOf = (indexes: readonly number[] | undefined): Record<string, unknown>[] => indexes === undefined
-      ? realItems
-      : indexes.map((index) => realItems[index]).filter(
-          (item): item is Record<string, unknown> => item !== undefined,
-        );
-
-    const boxes = el.cells.map((cell) => {
-      const isSelectedCell =
-        selected && this._gridEdit.cell?.row === cell.row && this._gridEdit.cell?.column === cell.column;
-      const inBand = inItemBand(el, cell.row);
-      const band = bandAt(el, cell.row);
-      const planned = plannedFragment?.bands.find((candidate) => candidate.band.id === band?.id);
-      const reserved: Record<string, unknown> | undefined = el.repeat === undefined
-        ? undefined
-        : {
-            '@all': realItems,
-            '@page': itemsOf(plannedFragment?.pageItems),
-            '@carried': itemsOf(plannedFragment?.carriedItems ?? []),
-            '@group': planned?.groupIndex === undefined
-              ? realItems
-              : itemsOf(gridPlan?.groups[planned.groupIndex]),
-          };
-      const previewItem = planned?.itemIndex === undefined ? items[0] : realItems[planned.itemIndex];
-      if (reserved !== undefined && previewItem !== undefined) reserved['@item'] = previewItem;
-      return this._gridCellBox(el, cell, { row: cell.row, rowSpan: cell.rowSpan ?? 1 }, {
-        item: inBand ? previewItem : undefined,
-        ...(reserved === undefined ? {} : { reserved }),
-        selected: isSelectedCell,
-        borderCssOf,
-      });
-    });
-
-    // 값이 없는 좌표에도 그리드선을 표시한다 (SPEC §5.7).
-    const taken = new Set<string>();
-    for (const cell of el.cells) {
-      for (let r = cell.row; r < cell.row + (cell.rowSpan ?? 1); r++) {
-        for (let c = cell.column; c < cell.column + (cell.colSpan ?? 1); c++) taken.add(`${r},${c}`);
-      }
-    }
-    const blanks = [];
-    for (let r = 0; r < heights.length; r++) {
-      for (let c = 0; c < widths.length; c++) {
-        if (taken.has(`${r},${c}`)) continue;
-        const blankSelected =
-          selected && this._gridEdit.cell?.row === r && this._gridEdit.cell?.column === c;
-        blanks.push(html`<div class=${blankSelected ? 'cell-selected' : ''}
-          style="grid-area:${r + 1}/${c + 1};border:${borderCssOf()}"></div>`);
-      }
-    }
-
-    // 선택한 반복 그리드에는 행 구간 표식과 행 번호 선택 영역을 함께 표시한다 (§7.2).
-    const bandOverlays = el.repeat === undefined
-      ? []
-      : el.repeat.bands.map((band) => html`<div
-          class="band-tint placement-${band.placement}"
-          style="grid-area:${band.fromRow + 1}/1/span ${band.toRow - band.fromRow + 1}/span ${widths.length}"></div>`);
-
-    const preview = html`<div class="grid-preview"
-      style="grid-template-columns:${colTracks};grid-template-rows:${rowTracks}">${bandOverlays}${blanks}${boxes}</div>`;
-    // 셀 편집 중에는 행 역할 조작을 감춰 두 편집 모드가 겹치지 않게 한다.
-    if (!selected || el.repeat === undefined || this._gridEdit.cell !== null) return preview;
-    return html`${preview}${this._renderBandStrip(el, rowTracks)}`;
-  }
-
-  /** 출력 페이지 계획 조각을 캔버스에 표시한다. */
-  private _renderGridFragment(
-    el: GridElement,
-    fragment: GridFragment,
-    context: { colTracks: string; borderCssOf: (cell?: GridCell, overrideColor?: string) => string },
-  ) {
-    const repeat = el.repeat!;
-    const gridPlan = this._pagePlan().plan?.gridPlans.get(el.id);
-    const sample = this._repeatSampleItems(el);
-    const real = repeat.maxItems === undefined ? sample : sample.slice(0, repeat.maxItems);
-    const itemsOf = (indexes: readonly number[]): Record<string, unknown>[] =>
-      indexes.map((i) => real[i]).filter((item): item is Record<string, unknown> => item !== undefined);
-    const baseReserved: Record<string, unknown> = {
-      '@all': real,
-      '@page': itemsOf(fragment.pageItems),
-      '@carried': itemsOf(fragment.carriedItems),
-    };
-
-    const rowTracks = fragment.rowHeights.map((h) => `${h}fr`).join(' ');
-    const autoMergeColumns = new Set<number>();
-    el.columns.forEach((column, c) => {
-      if (column.autoMerge === true) autoMergeColumns.add(c);
-    });
-    const cellMerges = (cell: GridCell): boolean => {
-      for (let c = cell.column; c < cell.column + (cell.colSpan ?? 1); c++) {
-        if (autoMergeColumns.has(c)) return true;
-      }
-      return false;
-    };
-
-    type Placed = {
-      cell: GridCell;
-      row: number;
-      rowSpan: number;
-      item: Record<string, unknown> | undefined;
-      empty: boolean;
-      reserved: Readonly<Record<string, unknown>>;
-    };
-    const placed: Placed[] = [];
-    // 자동 병합은 그룹과 페이지 경계에서 끊는다 (PDF 변환과 같은 규칙).
-    const anchors = new Map<string, { entry: Placed; text: string }>();
-    let lastGroup: number | undefined;
-    const itemBandRows = fragment.bands
-      .filter((planned) => planned.band.placement === 'item')
-      .map((planned) => planned.band.toRow - planned.band.fromRow + 1)[0] ?? 1;
-
-    for (const planned of fragment.bands) {
-      const band = planned.band;
-      const isItem = band.placement === 'item';
-      if (!isItem || (lastGroup !== undefined && planned.groupIndex !== lastGroup)) anchors.clear();
-      lastGroup = isItem ? planned.groupIndex : undefined;
-      const item = planned.itemIndex === undefined ? undefined : real[planned.itemIndex];
-      const empty = planned.emptyItem === true;
-      const reserved: Record<string, unknown> = { ...baseReserved };
-      if (item !== undefined) reserved['@item'] = item;
-      if (planned.groupIndex !== undefined && gridPlan !== undefined) {
-        reserved['@group'] = itemsOf(gridPlan.groups[planned.groupIndex] ?? []);
-      }
-      for (const cell of el.cells) {
-        if (cell.row < band.fromRow || cell.row > band.toRow) continue;
-        const row = planned.rowStart + (cell.row - band.fromRow);
-        const entry: Placed = { cell, row, rowSpan: cell.rowSpan ?? 1, item, empty, reserved };
-        if (!isItem || !cellMerges(cell)) {
-          placed.push(entry);
-          continue;
-        }
-        const key = `${cell.row},${cell.column}`;
-        const text = empty ? '' : this._gridCellMergeText(cell, item, reserved);
-        // 빈 값과 빈 항목은 병합 범위를 종료한다.
-        if (text === '') {
-          anchors.delete(key);
-          placed.push(entry);
-          continue;
-        }
-        const anchor = anchors.get(key);
-        if (anchor !== undefined && anchor.text === text) {
-          anchor.entry.rowSpan += itemBandRows;
-          continue;
-        }
-        placed.push(entry);
-        anchors.set(key, { entry, text });
-      }
-    }
-
-    const boxes = placed.map((entry) =>
-      this._gridCellBox(el, entry.cell, { row: entry.row, rowSpan: entry.rowSpan }, {
-        item: entry.item,
-        empty: entry.empty,
-        reserved: entry.reserved,
-        borderCssOf: context.borderCssOf,
-      }));
-
-    // 값이 없는 좌표에도 그리드선을 표시한다.
-    const taken = new Set<string>();
-    for (const { cell, row, rowSpan } of placed) {
-      for (let r = row; r < row + rowSpan; r++) {
-        for (let c = cell.column; c < cell.column + (cell.colSpan ?? 1); c++) taken.add(`${r},${c}`);
-      }
-    }
-    const blanks = [];
-    for (let r = 0; r < fragment.rowHeights.length; r++) {
-      for (let c = 0; c < el.columns.length; c++) {
-        if (taken.has(`${r},${c}`)) continue;
-        blanks.push(html`<div style="grid-area:${r + 1}/${c + 1};border:${context.borderCssOf()}"></div>`);
-      }
-    }
-
-    return html`<div class="grid-preview"
-      style="grid-template-columns:${context.colTracks};grid-template-rows:${rowTracks}">${blanks}${boxes}</div>`;
-  }
-
-  /**
-   * 그리드 왼쪽의 행 번호 선택 영역을 렌더링한다 (§7.2).
-   * 행을 눌러 선택하고 Shift로 연속 범위를 넓힌 뒤 역할 명령을 고른다.
-   */
-  private _renderBandStrip(el: GridElement, rowTracks: string) {
-    const s = this._strings.designer;
-    const select = this._gridEdit.bandRange;
-    const rows = el.rows.map((_, r) => {
-      const band = bandAt(el, r);
-      const inSelect = select !== null && r >= Math.min(select.from, select.to) && r <= Math.max(select.from, select.to);
-      return html`<button type="button"
-        data-band-row=${String(r)}
-        class="band-row placement-${band?.placement ?? 'none'} ${inSelect ? 'selected' : ''}"
-        title=${band === undefined ? '' : this._bandPlacementLabel(band.placement)}
-        aria-label="${s.bandRow} ${r + 1}"
-        aria-haspopup="menu"
-        aria-expanded=${String(inSelect && this._gridEdit.bandMenuOpen)}
-        @pointerdown=${(e: PointerEvent) => e.stopPropagation()}
-        @click=${(e: MouseEvent) => this._onBandRowClick(r, e.shiftKey)}>${r + 1}</button>`;
-    });
-    return html`<div class="band-strip" style="grid-template-rows:${rowTracks}"
-      @pointerdown=${(e: PointerEvent) => e.stopPropagation()}>${rows}</div>
-      ${select === null || !this._gridEdit.bandMenuOpen ? nothing : this._renderBandMenu(el)}`;
-  }
-
-  /** 행 구간 역할 명령 메뉴를 렌더링한다. */
-  private _renderBandMenu(el: GridElement) {
-    const s = this._strings.designer;
-    const select = this._gridEdit.bandRange!;
-    const from = Math.min(select.from, select.to);
-    const to = Math.max(select.from, select.to);
-    const top = el.rows.slice(0, from).reduce((sum, row) => sum + row.height * PX_PER_MM, 0);
-    const menuLabel = s.bandMenuTitle
-      .replace('{from}', String(from + 1))
-      .replace('{to}', String(to + 1));
-    return html`<div class="band-menu" role="menu" aria-label=${menuLabel} style="top:${top}px"
-      @keydown=${this._onBandMenuKeyDown}
-      @pointerdown=${(e: PointerEvent) => e.stopPropagation()}>
-      <div class="band-menu-title">${menuLabel}</div>
-      ${BAND_PLACEMENTS.map((placement) => html`<button type="button" role="menuitem"
-        class="band-menu-item placement-${placement}"
-        @click=${() => {
-          this._setRowBandRole(from, to, placement);
-          this._closeBandMenu(true);
-        }}><span class="band-menu-icon">${this._bandPlacementIcon(placement)}</span>
-          <span class="band-menu-copy">
-            <span class="band-menu-label">${this._bandPlacementLabel(placement)}</span>
-            <span class="band-menu-description">${this._bandPlacementDescription(placement)}</span>
-          </span>
-        </button>`)}
-      <button type="button" role="menuitem" class="band-menu-item"
-        @click=${() => this._closeBandMenu(true)}>${s.cancel}</button>
-    </div>`;
-  }
-
-  /** 행 번호 선택 영역의 클릭을 처리한다. Shift 클릭은 연속 범위를 넓힌다. */
   private _onBandRowClick(row: number, extend: boolean): void {
     const previous = this._gridEdit.bandRange;
     this._gridEdit.selectBand(
@@ -4574,107 +3076,6 @@ export class SlipDesigner extends LitElement {
     }
   }
 
-  /**
-   * 캔버스 미리보기에 적용할 조건부 서식 색·강조를 샘플 값으로 계산한다.
-   * 규칙별로 평가해 아직 완성되지 않은 조건식은 건너뛴다.
-   *
-   * @param rules - 조건부 서식 규칙 목록
-   * @param item - 항목 구간의 현재 샘플 항목 (없으면 샘플 값만 사용)
-   * @param reserved - 행 구간의 예약 참조 값 (`@page` 등)
-   * @returns 덮어쓸 색·강조 목록
-   */
-  private _previewConditionalColors(
-    rules: readonly ConditionalFormatRule[] | undefined,
-    item?: Record<string, unknown>,
-    reserved?: Readonly<Record<string, unknown>>,
-  ): ConditionalFormatOverrides {
-    if (rules === undefined || rules.length === 0) return {};
-    const scope = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
-    const result: ConditionalFormatOverrides = {};
-    for (const rule of rules) {
-      try {
-        Object.assign(
-          result,
-          resolveConditionalFormats([rule], scope, {
-            ...(this._evalLocale === undefined ? {} : { locale: this._evalLocale }),
-            ...(reserved === undefined ? {} : { reserved }),
-          }),
-        );
-      } catch {
-        // 조건식이 계산되지 않으면 기본 서식으로 표시한다. 오류는 PDF 미리보기에서 안내한다.
-      }
-    }
-    return result;
-  }
-
-  /** 항목 구간에 사용할 샘플 항목 배열을 반환한다. */
-  private _repeatSampleItems(el: GridElement): Record<string, unknown>[] {
-    if (!el.repeat) return [];
-    const sample = this._file?.template.sampleValues?.[el.repeat.parameter];
-    if (!Array.isArray(sample)) return [];
-    return sample
-      .filter((row) => typeof row === 'object' && row !== null && !Array.isArray(row))
-      .map((row) => row as unknown as Record<string, unknown>);
-  }
-
-  /** 직접 입력, 파라미터 또는 수식으로 셀의 표시 텍스트를 만든다. */
-  private _gridCellPreviewText(
-    cell: GridCell,
-    item: Record<string, unknown> | undefined,
-    reserved?: Readonly<Record<string, unknown>>,
-  ): string {
-    const values = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
-    if (cell.parameter !== undefined) {
-      const value = values[cell.parameter];
-      return value === undefined || value === null ? `{${cell.parameter}}` : String(value);
-    }
-    if (cell.formula !== undefined) {
-      try {
-        const result = this._evaluate(cell.formula, {
-          values,
-          ...(reserved === undefined ? {} : { reserved }),
-        });
-        return result === null ? '' : String(result);
-      } catch {
-        return `= ${cell.formula}`;
-      }
-    }
-    return cell.content ?? '';
-  }
-
-  /**
-   * 자동 병합 비교에 사용할 실제 셀 값을 반환한다.
-   * 빈 값은 빈 문자열로 변환해 병합하지 않는다.
-   */
-  private _gridCellMergeText(
-    cell: GridCell,
-    item: Record<string, unknown> | undefined,
-    reserved?: Readonly<Record<string, unknown>>,
-  ): string {
-    const values = { ...(this._file?.template.sampleValues ?? {}), ...(item ?? {}) };
-    if (cell.parameter !== undefined) {
-      const value = values[cell.parameter];
-      return value === null || value === undefined ? '' : String(value);
-    }
-    if (cell.formula !== undefined) {
-      try {
-        const result = this._evaluate(cell.formula, {
-          values,
-          ...(reserved === undefined ? {} : { reserved }),
-        });
-        return result === null ? '' : String(result);
-      } catch {
-        return '';
-      }
-    }
-    return cell.content ?? '';
-  }
-
-  // ---------------------------------------------------------------------------
-  // Render: property panel
-  // ---------------------------------------------------------------------------
-
-  /** 양식 속성을 변경하고 되돌리기 이력을 남긴다. */
   private _updateFile(fn: (file: SlipTemplateFile) => void): void {
     // 유효한 편집이 적용되면 이전 입력 오류를 지운다.
     this._resetPanelErrors();
@@ -5238,8 +3639,6 @@ export class SlipDesigner extends LitElement {
   /** 격자 설정 메뉴의 화면 좌표 */
   private _gridMenuPos = { left: 0, top: 0 };
 
-  /** 용지 위에 있는 커서의 위치(mm) */
-  private _cursorMm: { x: number; y: number } | null = null;
 
 
   /** 요소의 색상 속성을 설정하거나 제거하고 색 선택기 상태를 갱신한다. */
