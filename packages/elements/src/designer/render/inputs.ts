@@ -10,7 +10,8 @@ import { icons } from '../../icons.js';
 import { PX_PER_MM } from '../geometry.js';
 import { dashArrayOf, BORDER_WIDTH_STEPS } from '../style-css.js';
 import { COLOR_PALETTE, MAX_CUSTOM_COLORS } from '../color.js';
-import { propertyMenuStyle } from '../controllers/popover.js';
+import { propertyMenuStyle, listSelectStyle } from '../controllers/popover.js';
+import type { PopoverController } from '../controllers/popover.js';
 import type { ConditionalFormatRule } from '@omdc-slipkit/core';
 import type { PanelKit } from './panel-kit.js';
 
@@ -474,3 +475,54 @@ export function conditionalEmphasisRow(
 }
 
 /** 반복 구간 셀의 조건식 검사에 쓸 현재 항목 필드의 견본 값을 만든다. */
+
+/**
+ * 네이티브 select 대신 쓰는 리스트형 선택 상자를 렌더링한다.
+ * 트리거 버튼을 누르면 버튼 아래 화면 고정 위치에 항목 목록이 열린다.
+ */
+export function listSelect(
+pop: PopoverController,
+toggle: (id: string, event: Event) => void,
+config: {
+  id: string;
+  ariaLabel: string;
+  value: string;
+  options: { value: string; label: string; description?: string }[];
+  onPick: (value: string) => void;
+  className?: string;
+  placeholder?: string;
+},
+) {
+  const open = pop.isOpen('list', config.id);
+  const current = config.options.find((o) => o.value === config.value);
+  return html`
+    <button type="button" class="list-select ${config.className ?? ''}"
+      aria-haspopup="listbox" aria-expanded=${String(open)} aria-label=${config.ariaLabel}
+      data-value=${config.value}
+      @click=${(e: Event) => toggle(config.id, e)}>
+      <span class="list-select-value">${current?.label ?? config.placeholder ?? config.value}</span>
+      <span class="list-select-caret" aria-hidden="true">${icons.down}</span>
+    </button>
+    ${open
+      ? html`
+        <div class="menu-backdrop" @click=${() => pop.close('list')}></div>
+        <div class="preset-menu list-select-menu" role="listbox" aria-label=${config.ariaLabel}
+          style=${listSelectStyle(pop.placement('list'))}>
+          ${config.options.map((o) => html`
+            <button type="button" role="option" data-value=${o.value}
+              class=${o.description === undefined ? '' : 'described'}
+              aria-selected=${String(o.value === config.value)}
+              @click=${() => {
+                pop.close('list');
+                config.onPick(o.value);
+              }}>
+              <span class="list-select-option-label">${o.label}</span>
+              ${o.description === undefined
+                ? nothing
+                : html`<span class="list-select-option-description">${o.description}</span>`}
+            </button>`)}
+        </div>`
+      : nothing}
+  `;
+}
+

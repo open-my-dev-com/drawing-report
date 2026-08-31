@@ -25,7 +25,7 @@ import {
 import { columnWidths, gridDims, isGrid } from '../grid-model.js';
 import type { CreatableType } from '../grid-view.js';
 import type { GridEditController } from './grid-edit.js';
-import type { SideSelection } from '../render/sidebar.js';
+import type { SideSelection } from '../selection.js';
 
 /** 요소를 끌어 옮기는 중의 상태 */
 export interface DragState {

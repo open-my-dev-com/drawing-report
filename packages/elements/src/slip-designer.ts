@@ -106,6 +106,7 @@ import {
   borderShapeRow,
   colorControl,
   conditionalEmphasisRow,
+  listSelect,
 } from './designer/render/inputs.js';
 import {
   textProps,
@@ -126,6 +127,7 @@ import {
 } from './designer/render/element-props.js';
 import type { ElementActions } from './designer/render/element-props.js';
 import { PAPER_PRESETS } from './designer/paper.js';
+import { SAMPLE_PAGE_SIZE, MY_FORMS_PAGE_SIZE } from './designer/pagination.js';
 import { BARCODE_KINDS, BARCODE_2D, BARCODE_DIGIT_RULES } from './designer/barcode.js';
 import { GRID_GAPS, GRID_COLORS } from './designer/grid-view.js';
 import type { GridColorId, CreatableType } from './designer/grid-view.js';
@@ -140,8 +142,18 @@ import {
 } from './designer/render/form-props.js';
 import type { FormActions } from './designer/render/form-props.js';
 import { canvas, repeatSampleItems } from './designer/render/canvas.js';
+import { GridCommandsController } from './designer/controllers/grid-commands.js';
+import type { GridCommandsHost } from './designer/controllers/grid-commands.js';
 import { CanvasPointerController } from './designer/controllers/canvas-pointer.js';
 import type { PointerHost } from './designer/controllers/canvas-pointer.js';
+import {
+  formulaModal,
+  imageModal,
+  sampleModal,
+  saveModal,
+  myFormsModal,
+} from './designer/render/dialogs.js';
+import type { DialogContext } from './designer/render/dialogs.js';
 import { toolbar } from './designer/render/toolbar.js';
 import type { ToolbarActions } from './designer/render/toolbar.js';
 import type { CanvasContext } from './designer/render/canvas.js';
@@ -202,8 +214,6 @@ const MAX_UNDO = 50;
 
 
 
-/** 샘플 데이터 모달의 페이지당 파라미터 수 */
-const SAMPLE_PAGE_SIZE = 10;
 
 
 
@@ -238,8 +248,6 @@ const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 /** 새 요소의 기본 위치를 순차 이동할 간격과 반복 주기(mm) */
 const NEW_ELEMENT_CASCADE_STEP_MM = 5;
 const NEW_ELEMENT_CASCADE_WRAP_MM = 50;
-/** "내 양식" 목록의 페이지당 항목 수 */
-const MY_FORMS_PAGE_SIZE = 10;
 
 
 
@@ -511,7 +519,7 @@ export class SlipDesigner extends LitElement {
       reject: (message, field) => this._rejectInput(message, field),
       error: (field) => this._renderInputError(field),
       hasError: (field) => this._hasInputError(field),
-      listSelect: (config) => this._listSelect(config),
+      listSelect: (config) => listSelect(this._popovers, (id, event) => this._toggleListSelect(id, event), config),
       popovers: this._popovers,
       picker: this._picker,
       togglePropertyMenu: (key, event) => this._togglePropertyMenu(key, event),
@@ -567,6 +575,29 @@ export class SlipDesigner extends LitElement {
 
 
 
+
+  /** 그리드를 고치는 조작 */
+  private readonly _gridCommands = new GridCommandsController(this._gridCommandsHost());
+
+  /** 그리드 조작이 컴포넌트에 요청하는 것 */
+  private _gridCommandsHost(): GridCommandsHost {
+    const owner = this;
+    return {
+      get s() { return owner._strings.designer; },
+      get edit() { return owner._gridEdit; },
+      selectedElement: () => this._findSelectedElement(),
+      updateElement: (fn) => this._updateElement(fn),
+      reject: (message, field) => this._rejectInput(message, field),
+      resetPanelErrors: () => this._resetPanelErrors(),
+      clearInputError: () => this._clearInputError(),
+      ensureParameterDef: (key, valueType) =>
+        this._ensureParameterDef(key, valueType as ParameterValueType | undefined),
+      parameters: () => this._parameterList(),
+      probeValues: () => this._formulaProbeValues(),
+      refresh: () => this.requestUpdate(),
+    };
+  }
+
   /** 캔버스 포인터 조작 */
   private readonly _pointer = new CanvasPointerController(this._pointerHost());
 
@@ -600,6 +631,41 @@ export class SlipDesigner extends LitElement {
     focusHost: () => owner._focusHost(),
     refresh: () => owner.requestUpdate(),
   };
+  }
+
+
+  /** 모달 화면이 쓰는 상태와 조작 */
+  private get _dialogContext(): DialogContext {
+    return {
+      s: this._strings.designer,
+      locale: this._locale,
+      dialogs: this._dialogs,
+      modalFocus: this._modalFocus,
+      formula: this._formula,
+      sample: this._sample,
+      forms: this._forms,
+      file: this._file,
+      imageError: this._imageError,
+      maxImageBytes: this.maxImageBytes,
+      parameters: () => this._parameterList(),
+      parameterKeys: () => this._collectParameters(),
+      probeValues: () => this._formulaProbeValues(),
+      sampleSkeleton: () => this._sampleSkeleton(),
+      evaluate: (source, context) => this._evaluate(source, context),
+      selectedElement: () => this._findSelectedElement(),
+      applyFormula: () => this._applyFormulaModal(),
+      closeFormula: () => this._closeFormulaModal(),
+      applyImageSrc: (src) => this._applyImageSrc(src),
+      closeImage: () => this._closeImageModal(),
+      pickImageFile: () => void this._pickImageFile(),
+      pickSampleImage: (key) => void this._pickSampleImage(key),
+      setSampleValue: (key, value) => this._setSampleValue(key, value),
+      applySampleJson: () => this._applySampleJson(),
+      confirmSave: () => void this._confirmSave(),
+      loadMyForm: (id) => void this._loadMyForm(id),
+      deleteMyForm: (id) => void this._deleteMyForm(id),
+      refresh: () => this.requestUpdate(),
+    };
   }
 
   /** 툴바가 쓰는 상태와 조작 */
@@ -690,15 +756,15 @@ export class SlipDesigner extends LitElement {
         this.requestUpdate();
       },
       selectedElement: () => this._findSelectedElement(),
-      commitCellContent: (value) => this._commitCellContent(value),
+      commitCellContent: (value) => this._gridCommands.commitCellContent(value),
       evaluate: (source, context) => this._evaluate(source, context),
-      bandLabel: (placement) => this._bandPlacementLabel(placement),
-      bandDescription: (placement) => this._bandPlacementDescription(placement),
-      bandIcon: (placement) => this._bandPlacementIcon(placement),
+      bandLabel: (placement) => this._gridCommands.bandLabel(placement),
+      bandDescription: (placement) => this._gridCommands.bandDescription(placement),
+      bandIcon: (placement) => this._gridCommands.bandIcon(placement),
       onBandRowClick: (row, extend) => this._onBandRowClick(row, extend),
       closeBandMenu: (clearSelection) => this._closeBandMenu(clearSelection),
       onBandMenuKeyDown: (event) => this._onBandMenuKeyDown(event),
-      setRowBandRole: (fromRow, toRow, placement) => this._setRowBandRole(fromRow, toRow, placement),
+      setRowBandRole: (fromRow, toRow, placement) => this._gridCommands.setRowBandRole(fromRow, toRow, placement),
       refresh: () => this.requestUpdate(),
     };
   }
@@ -798,34 +864,34 @@ export class SlipDesigner extends LitElement {
       toggleListSelect: (id, event) => this._toggleListSelect(id, event),
       parameters: () => this._parameterList(),
       planError: () => this._planError(),
-      changeRows: (delta) => this._changeGridRows(delta),
-      changeColumns: (delta) => this._changeGridColumns(delta),
-      setTrack: (kind, index, mm) => this._setGridTrack(kind, index, mm),
-      toggleRepeat: (on) => this._toggleGridRepeat(on),
-      setRepeatParameter: (key) => this._setRepeatParameter(key),
-      setRepeatMaxItems: (value) => this._setRepeatMaxItems(value),
-      setPagination: (patch) => this._setGridPagination(patch),
-      toggleGroupField: (key, on) => this._toggleGridGroupField(key, on),
-      clearCellSelection: () => this._clearCellSelection(),
-      setRowBandRole: (fromRow, toRow, placement) => this._setRowBandRole(fromRow, toRow, placement),
+      changeRows: (delta) => this._gridCommands.changeRows(delta),
+      changeColumns: (delta) => this._gridCommands.changeColumns(delta),
+      setTrack: (kind, index, mm) => this._gridCommands.setTrack(kind, index, mm),
+      toggleRepeat: (on) => this._gridCommands.toggleRepeat(on),
+      setRepeatParameter: (key) => this._gridCommands.setRepeatParameter(key),
+      setRepeatMaxItems: (value) => this._gridCommands.setRepeatMaxItems(value),
+      setPagination: (patch) => this._gridCommands.setPagination(patch),
+      toggleGroupField: (key, on) => this._gridCommands.toggleGroupField(key, on),
+      clearCellSelection: () => this._gridCommands.clearCellSelection(),
+      setRowBandRole: (fromRow, toRow, placement) => this._gridCommands.setRowBandRole(fromRow, toRow, placement),
       setBandSelectionBoundary: (boundary, rowNumber, bandId) =>
-        this._setBandSelectionBoundary(boundary, rowNumber, bandId),
-      setBandPages: (bandId, pages) => this._setBandPages(bandId, pages),
-      setBandRepeatOnPageBreak: (bandId, on) => this._setBandRepeatOnPageBreak(bandId, on),
-      addRowWithRole: (placement, options) => this._addGridRowWithRole(placement, options),
-      openRowCommand: (command) => this._openGridRowCommand(command),
-      applyRowCommand: () => this._applyGridRowCommand(),
-      bandLabel: (placement) => this._bandPlacementLabel(placement),
-      bandDescription: (placement) => this._bandPlacementDescription(placement),
-      bandIcon: (placement) => this._bandPlacementIcon(placement),
-      chooseCellSource: (kind) => this._chooseGridCellSource(kind),
-      setCellSource: (kind, value) => this._setGridCellSource(kind, value),
-      commitCellContent: (value) => this._commitCellContent(value),
-      setCellSpan: (kind, value) => this._setCellSpan(kind, value),
-      updateCellStyle: (key, value) => this._updateCellStyle(key, value),
-      updateCellConditionalFormats: (next) => this._updateCellConditionalFormats(next),
+        this._gridCommands.setBandSelectionBoundary(boundary, rowNumber, bandId),
+      setBandPages: (bandId, pages) => this._gridCommands.setBandPages(bandId, pages),
+      setBandRepeatOnPageBreak: (bandId, on) => this._gridCommands.setBandRepeatOnPageBreak(bandId, on),
+      addRowWithRole: (placement, options) => this._gridCommands.addRowWithRole(placement, options),
+      openRowCommand: (command) => this._gridCommands.openRowCommand(command),
+      applyRowCommand: () => this._gridCommands.applyRowCommand(),
+      bandLabel: (placement) => this._gridCommands.bandLabel(placement),
+      bandDescription: (placement) => this._gridCommands.bandDescription(placement),
+      bandIcon: (placement) => this._gridCommands.bandIcon(placement),
+      chooseCellSource: (kind) => this._gridCommands.chooseCellSource(kind),
+      setCellSource: (kind, value) => this._gridCommands.setCellSource(kind, value),
+      commitCellContent: (value) => this._gridCommands.commitCellContent(value),
+      setCellSpan: (kind, value) => this._gridCommands.setCellSpan(kind, value),
+      updateCellStyle: (key, value) => this._gridCommands.updateCellStyle(key, value),
+      updateCellConditionalFormats: (next) => this._gridCommands.updateCellConditionalFormats(next),
       cellParameterSelect: (el, current, inBand) => this._gridCellParameterSelect(el, current, inBand),
-      repeatProbeItem: (el) => this._repeatProbeItem(el),
+      repeatProbeItem: (el) => this._gridCommands.repeatProbeItem(el),
     };
   }
 
@@ -1462,588 +1528,6 @@ export class SlipDesigner extends LitElement {
 
 
 
-  private _commitCellContent(value: string): void {
-    const target = this._gridEdit.cell;
-    if (!target) return;
-    this._gridEdit.setEditing(false);
-    const el = this._findSelectedElement();
-    if (!isGrid(el)) return;
-    const existing = el.cells.find((c) => c.row === target.row && c.column === target.column);
-    // 셀은 직접 입력, 파라미터, 수식 중 하나만 사용할 수 있다 (SPEC §5.7).
-    if (existing && ('parameter' in existing || 'formula' in existing)) {
-      this._rejectInput();
-      return;
-    }
-    if (!existing && value === '') {
-      this._clearInputError();
-      return;
-    }
-    if (existing && existing.content === value) {
-      this._clearInputError();
-      return;
-    }
-    this._updateElement((element) => {
-      if (!isGrid(element)) return;
-      ensureCell(element, target.row, target.column).content = value;
-    });
-  }
-
-  /** 선택 셀의 병합 범위를 변경한다. 유효하지 않은 범위는 거부한다. */
-  private _setCellSpan(kind: 'rowSpan' | 'colSpan', value: number): void {
-    const target = this._gridEdit.cell;
-    const el = this._findSelectedElement();
-    if (!target || !isGrid(el)) return;
-    const errorKey = kind === 'rowSpan' ? 'cell-row-span' : 'cell-column-span';
-    if (!Number.isInteger(value) || value < 1) {
-      this._rejectInput(this._strings.designer.minimumInput.replace('{min}', '1'), errorKey);
-      return;
-    }
-    const dims = gridDims(el);
-    const current = el.cells.find((c) => c.row === target.row && c.column === target.column);
-    const rowSpan = kind === 'rowSpan' ? value : (current?.rowSpan ?? 1);
-    const colSpan = kind === 'colSpan' ? value : (current?.colSpan ?? 1);
-    // 그리드 범위 검사
-    if (target.row + rowSpan > dims.rows || target.column + colSpan > dims.columns) {
-      this._rejectInput(this._strings.designer.mergeOutOfGrid, errorKey);
-      return;
-    }
-    // 병합 범위는 하나의 행 구간 안에 완전히 포함되어야 한다 (SPEC §5.7).
-    if (el.repeat && rowSpan > 1) {
-      const probe: GridCell = { row: target.row, column: target.column, rowSpan };
-      if (spanCrossesBand(el, el.repeat.bands, probe)) {
-        this._rejectInput(this._strings.designer.mergeCrossRepeat, errorKey);
-        return;
-      }
-    }
-    // 다른 셀의 범위와 겹치는지 검사한다.
-    const overlaps = el.cells.some((cell) => {
-      if (cell === current) return false;
-      const cellRowSpan = cell.rowSpan ?? 1;
-      const cellColSpan = cell.colSpan ?? 1;
-      return (
-        target.row < cell.row + cellRowSpan &&
-        cell.row < target.row + rowSpan &&
-        target.column < cell.column + cellColSpan &&
-        cell.column < target.column + colSpan
-      );
-    });
-    if (overlaps) {
-      this._rejectInput(this._strings.designer.mergeOverlap, errorKey);
-      return;
-    }
-    this._updateElement((element) => {
-      if (!isGrid(element)) return;
-      const record = ensureCell(element, target.row, target.column);
-      if (rowSpan > 1) record.rowSpan = rowSpan;
-      else delete record.rowSpan;
-      if (colSpan > 1) record.colSpan = colSpan;
-      else delete record.colSpan;
-    });
-  }
-
-  /** 선택 셀의 스타일 속성을 설정하거나 제거한다. */
-  private _updateCellStyle(key: string, value: unknown): void {
-    const target = this._gridEdit.cell;
-    if (!target) return;
-    this._updateElement((element) => {
-      if (!isGrid(element)) return;
-      const record = ensureCell(element, target.row, target.column);
-      if (value === null || value === undefined || value === '') delete record[key];
-      else record[key] = value;
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // 그리드 편집
-  // ---------------------------------------------------------------------------
-
-  /** 그리드를 수정한다. 크기는 행과 열의 합에서 계산하므로 따로 저장하지 않는다. */
-  private _updateGrid(fn: (el: GridElement) => void): void {
-    this._updateElement((el) => {
-      if (el.type !== 'grid') return;
-      fn(el);
-    });
-  }
-
-  /** 그리드의 마지막 행을 추가하거나 제거한다. 반복 그리드의 추가는 역할 지정 명령을 사용한다. */
-  private _changeGridRows(delta: number): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'grid') return;
-    if (delta > 0 && el.repeat) return;
-    const next = el.rows.length + delta;
-    if (next < 1 || next > GRID_MAX_TRACKS_UI) return;
-    // 항목 구간이 한 행뿐이면 그 행은 제거할 수 없다.
-    if (delta < 0 && !canRemoveLastRow(el)) return;
-    this._updateGrid((grid) => changeRowCount(grid, delta));
-  }
-
-  /** 선택한 역할의 행을 알맞은 구간 위치에 추가한다. */
-  private _addGridRowWithRole(
-    placement: GridBandPlacement,
-    options: {
-      separateBand?: boolean;
-      name?: string;
-      pages?: OutputPageFilter;
-      initialize?: (grid: GridElement, row: number) => void;
-    } = {},
-  ): number | null {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'grid' || !el.repeat || el.rows.length >= GRID_MAX_TRACKS_UI) return null;
-    if ((placement === 'group-start' || placement === 'group-end')
-      && (el.repeat.groupBy === undefined || el.repeat.groupBy.length === 0)) {
-      this._rejectInput(this._strings.designer.bandNeedsGroupBy, 'band-role');
-      return null;
-    }
-
-    const { insertAt, sameBandId } = insertPositionFor(el, placement);
-    const sourceRow = el.rows[Math.max(0, Math.min(insertAt - 1, el.rows.length - 1))];
-    const targetBandId = options.separateBand ? undefined : sameBandId;
-
-    this._resetPanelErrors();
-    this._updateGrid((grid) => {
-      insertGridRow(
-        grid,
-        insertAt,
-        placement,
-        targetBandId,
-        options,
-        sourceRow?.height ?? GRID_DEFAULT_ROW_MM,
-      );
-      options.initialize?.(grid, insertAt);
-    });
-    this._gridEdit.selectBand({ from: insertAt, to: insertAt });
-    this._gridEdit.closeBandMenu(false);
-    this.requestUpdate();
-    return insertAt;
-  }
-
-  /** 그리드의 마지막 열을 추가하거나 제거한다. */
-  private _changeGridColumns(delta: number): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'grid') return;
-    const next = el.columns.length + delta;
-    if (next < 1 || next > GRID_MAX_TRACKS_UI) return;
-    this._updateGrid((grid) => changeColumnCount(grid, delta));
-  }
-
-  /** 지정한 행의 높이 또는 열의 너비(mm)를 변경한다. */
-  private _setGridTrack(kind: 'row' | 'column', index: number, mm: number): void {
-    const errorKey = kind === 'row' ? 'cell-row-height' : 'cell-column-width';
-    if (!Number.isFinite(mm) || mm < MIN_SIZE_MM) {
-      const message = !Number.isFinite(mm)
-        ? this._strings.designer.numberInput
-        : this._strings.designer.minimumInput.replace('{min}', String(MIN_SIZE_MM));
-      this._rejectInput(message, errorKey);
-      return;
-    }
-    this._updateGrid((grid) => {
-      if (kind === 'row') {
-        const row = grid.rows[index];
-        if (row) row.height = round1(mm);
-      } else {
-        const column = grid.columns[index];
-        if (column) column.width = round1(mm);
-      }
-    });
-  }
-
-  /**
-   * 반복 설정을 켜거나 끈다.
-   * 켜면 선택한 행(없으면 마지막 행)을 항목 구간으로 하고, 위쪽 행은 데이터 앞,
-   * 아래쪽 행은 데이터 뒤 구간으로 지정한다. 페이지 방식은 자동 확장으로 시작한다 (§7.1).
-   */
-  private _toggleGridRepeat(on: boolean): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'grid') return;
-    if (!on) {
-      this._updateGrid((grid) => {
-        delete (grid as { repeat?: unknown }).repeat;
-      });
-      return;
-    }
-    const row = Math.min(this._gridEdit.cell?.row ?? el.rows.length - 1, el.rows.length - 1);
-    // 항목 구간 경계를 넘는 병합이 있으면 반복을 켤 수 없다.
-    const bands: GridBand[] = [
-      ...(row > 0 ? [{ id: `band_${crypto.randomUUID().slice(0, 8)}`, fromRow: 0, toRow: row - 1, placement: 'before-data' as const }] : []),
-      { id: `band_${crypto.randomUUID().slice(0, 8)}`, fromRow: row, toRow: row, placement: 'item' as const },
-      ...(row < el.rows.length - 1
-        ? [{ id: `band_${crypto.randomUUID().slice(0, 8)}`, fromRow: row + 1, toRow: el.rows.length - 1, placement: 'after-data' as const }]
-        : []),
-    ];
-    if (el.cells.some((cell) => spanCrossesBand(el, bands, cell))) {
-      this._rejectInput(this._strings.designer.repeatMergeError, 'repeat-on');
-      return;
-    }
-    const key = `items_${el.id.slice(0, 4)}`;
-    this._ensureParameterDef(key, 'list');
-    this._updateGrid((grid) => {
-      grid.repeat = {
-        parameter: key,
-        bands,
-        pagination: { mode: 'auto', minItems: 0 },
-      };
-    });
-  }
-
-  /** 반복 설정의 목록 파라미터를 변경한다. */
-  private _setRepeatParameter(key: string): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'grid' || !el.repeat) return;
-    this._ensureParameterDef(key, 'list');
-    this._updateGrid((grid) => {
-      grid.repeat!.parameter = key;
-    });
-  }
-
-  /** 최대 항목 수를 변경한다. null은 제한 없음이다. */
-  private _setRepeatMaxItems(value: number | null): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'grid' || !el.repeat) return;
-    if (value !== null && (!Number.isInteger(value) || value < 1 || value > GRID_MAX_ITEMS_UI)) {
-      this._rejectInput(
-        this._strings.designer.rangeInput.replace('{min}', '1').replace('{max}', String(GRID_MAX_ITEMS_UI)),
-        'repeat-max-items',
-      );
-      return;
-    }
-    this._updateGrid((grid) => {
-      if (value === null) delete (grid.repeat as { maxItems?: unknown }).maxItems;
-      else grid.repeat!.maxItems = value;
-    });
-  }
-
-  /**
-   * 페이지 방식을 변경한다.
-   *
-   * @param patch - `mode`: 방식 전환, `minItems`: 자동 확장의 최소 표시 항목 수,
-   *   `itemsPerPage`: 고정 페이지의 페이지당 항목 수
-   */
-  private _setGridPagination(patch: { mode?: 'auto' | 'fixed'; minItems?: number; itemsPerPage?: number }): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'grid' || !el.repeat) return;
-    const current = el.repeat.pagination;
-    if (patch.minItems !== undefined
-      && (!Number.isInteger(patch.minItems) || patch.minItems < 0 || patch.minItems > GRID_MAX_ITEMS_UI)) {
-      this._rejectInput(
-        this._strings.designer.rangeInput.replace('{min}', '0').replace('{max}', String(GRID_MAX_ITEMS_UI)),
-        'repeat-min-items',
-      );
-      return;
-    }
-    if (patch.itemsPerPage !== undefined
-      && (!Number.isInteger(patch.itemsPerPage) || patch.itemsPerPage < 1 || patch.itemsPerPage > GRID_MAX_PER_PAGE_UI)) {
-      this._rejectInput(
-        this._strings.designer.rangeInput.replace('{min}', '1').replace('{max}', String(GRID_MAX_PER_PAGE_UI)),
-        'repeat-per-page',
-      );
-      return;
-    }
-    this._updateGrid((grid) => {
-      const mode = patch.mode ?? current.mode;
-      if (mode === 'auto') {
-        const minItems = patch.minItems ?? (current.mode === 'auto' ? current.minItems : 0);
-        grid.repeat!.pagination = { mode: 'auto', minItems };
-      } else {
-        const itemsPerPage = patch.itemsPerPage ?? (current.mode === 'fixed' ? current.itemsPerPage : 1);
-        grid.repeat!.pagination = { mode: 'fixed', itemsPerPage };
-      }
-    });
-  }
-
-  /**
-   * 선택한 행 범위에 행 구간 역할을 지정한다.
-   * 구간 규칙(항목 구간 하나·세로 순서·병합 경계)을 어기는 지정은 거부한다.
-   */
-  private _setRowBandRole(fromRow: number, toRow: number, placement: GridBandPlacement): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'grid' || !el.repeat) return;
-    const s = this._strings.designer;
-    // 그룹 구간은 그룹 기준이 있어야 한다.
-    if ((placement === 'group-start' || placement === 'group-end')
-      && (el.repeat.groupBy === undefined || el.repeat.groupBy.length === 0)) {
-      this._rejectInput(s.bandNeedsGroupBy, 'band-role');
-      return;
-    }
-    const result = assignBandRole(el, fromRow, toRow, placement);
-    if (result === 'noItem') {
-      this._rejectInput(s.bandNeedsItem, 'band-role');
-      return;
-    }
-    if (result === 'outOfOrder') {
-      this._rejectInput(s.bandOrderError, 'band-role');
-      return;
-    }
-    if (el.cells.some((cell) => spanCrossesBand(el, result, cell))) {
-      this._rejectInput(s.repeatMergeError, 'band-role');
-      return;
-    }
-    this._resetPanelErrors();
-    this._updateGrid((grid) => {
-      grid.repeat!.bands = result;
-    });
-  }
-
-  /** 속성 패널에서 선택한 행 구간의 시작 또는 종료 행을 변경한다. */
-  private _setBandSelectionBoundary(boundary: 'from' | 'to', rowNumber: number, bandId?: string): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'grid' || !el.repeat || this._gridEdit.bandRange === null) return;
-    if (!Number.isInteger(rowNumber) || rowNumber < 1 || rowNumber > el.rows.length) {
-      this._rejectInput(
-        this._strings.designer.rangeInput.replace('{min}', '1').replace('{max}', String(el.rows.length)),
-        'band-range',
-      );
-      return;
-    }
-    const index = rowNumber - 1;
-    const from = Math.min(this._gridEdit.bandRange.from, this._gridEdit.bandRange.to);
-    const to = Math.max(this._gridEdit.bandRange.from, this._gridEdit.bandRange.to);
-    const nextFrom = boundary === 'from' ? index : from;
-    const nextTo = boundary === 'to' ? index : to;
-    if (nextFrom > nextTo) {
-      this._rejectInput(this._strings.designer.bandRangeOrder, 'band-range');
-      return;
-    }
-
-    if (bandId !== undefined) {
-      const result = resizeBandRange(el, bandId, nextFrom, nextTo);
-      if (result === 'noItem') {
-        this._rejectInput(this._strings.designer.bandNeedsItem, 'band-range');
-        return;
-      }
-      if (result === 'outOfOrder') {
-        this._rejectInput(this._strings.designer.bandOrderError, 'band-range');
-        return;
-      }
-      if (el.cells.some((cell) => spanCrossesBand(el, result, cell))) {
-        this._rejectInput(this._strings.designer.repeatMergeError, 'band-range');
-        return;
-      }
-      this._resetPanelErrors();
-      this._updateGrid((grid) => {
-        grid.repeat!.bands = result;
-      });
-      this._gridEdit.selectBand({ from: nextFrom, to: nextTo });
-      this._gridEdit.closeBandMenu(false);
-      this.requestUpdate();
-      return;
-    }
-
-    this._resetPanelErrors();
-    this._gridEdit.selectBand({ from: nextFrom, to: nextTo });
-    this._gridEdit.closeBandMenu(false);
-    this.requestUpdate();
-  }
-
-  /** page-start·page-end 구간의 표시 페이지 필터를 변경한다. */
-  private _setBandPages(bandId: string, pages: OutputPageFilter | ''): void {
-    this._updateGrid((grid) => {
-      const band = grid.repeat?.bands.find((b) => b.id === bandId);
-      if (!band) return;
-      if (pages === '' || pages === 'all') delete (band as { pages?: unknown }).pages;
-      else band.pages = pages;
-    });
-  }
-
-  /** group-start 구간의 페이지 이월 시 반복 표시를 켜거나 끈다. */
-  private _setBandRepeatOnPageBreak(bandId: string, on: boolean): void {
-    this._updateGrid((grid) => {
-      const band = grid.repeat?.bands.find((b) => b.id === bandId);
-      if (!band) return;
-      if (on) band.repeatOnPageBreak = true;
-      else delete (band as { repeatOnPageBreak?: unknown }).repeatOnPageBreak;
-    });
-  }
-
-  /** 그룹 기준 필드의 선택 상태를 변경한다. */
-  private _toggleGridGroupField(key: string, on: boolean): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'grid' || !el.repeat) return;
-    const fields = this._parameterList().find((parameter) => parameter.key === el.repeat!.parameter)?.fields ?? [];
-    if (!fields.some((field) => field.key === key)) return;
-    const selected = new Set(el.repeat.groupBy ?? []);
-    if (on) selected.add(key);
-    else selected.delete(key);
-    const keys = fields.map((field) => field.key).filter((field) => selected.has(field));
-    const hasGroupBands = el.repeat.bands.some(
-      (band) => band.placement === 'group-start' || band.placement === 'group-end',
-    );
-    if (keys.length === 0 && hasGroupBands) {
-      this._rejectInput(this._strings.designer.bandNeedsGroupBy, 'repeat-group-by');
-      return;
-    }
-    this._resetPanelErrors();
-    this._updateGrid((grid) => {
-      if (keys.length === 0) delete (grid.repeat as { groupBy?: unknown }).groupBy;
-      else grid.repeat!.groupBy = keys;
-    });
-  }
-
-  /** 행 추가 명령을 고르고 집계 필드의 기본값을 설정한다. */
-  private _openGridRowCommand(command: GridRowCommand): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'grid' || !el.repeat) return;
-    const numericFields = this._parameterList()
-      .find((parameter) => parameter.key === el.repeat!.parameter)
-      ?.fields.filter((field) => field.valueType === 'number') ?? [];
-    if (!numericFields.some((field) => field.key === this._gridEdit.rowCommandField)) {
-      const itemBand = itemBandOf(el);
-      const columnOf = (key: string): number => itemBand === undefined
-        ? -1
-        : Math.max(
-            -1,
-            ...el.cells
-              .filter((cell) => cell.parameter === key
-                && cell.row >= itemBand.fromRow && cell.row <= itemBand.toRow)
-              .map((cell) => cell.column),
-          );
-      this._gridEdit.setRowCommandField(
-        [...numericFields].sort((a, b) => columnOf(b.key) - columnOf(a.key))[0]?.key
-          ?? numericFields.at(-1)?.key
-          ?? '',
-      );
-    }
-    this._gridEdit.startRowCommand(command, this._gridEdit.rowCommandField);
-    this._resetPanelErrors();
-  }
-
-  /** 항목 행의 스타일을 바탕으로 행·소계·합계 명령을 한 번에 적용한다. */
-  private _applyGridRowCommand(): void {
-    const el = this._findSelectedElement();
-    const command = this._gridEdit.rowCommand;
-    if (el?.type !== 'grid' || !el.repeat || command === null) return;
-    const s = this._strings.designer;
-    const itemBand = itemBandOf(el);
-    if (itemBand === undefined) {
-      this._rejectInput(s.bandNeedsItem, 'grid-row-command');
-      return;
-    }
-    if (command === 'group-subtotal'
-      && (el.repeat.groupBy === undefined || el.repeat.groupBy.length === 0)) {
-      this._rejectInput(s.gridCommandGroupRequired, 'grid-row-command');
-      return;
-    }
-
-    const fields = this._parameterList()
-      .find((parameter) => parameter.key === el.repeat!.parameter)?.fields ?? [];
-    const numericField = fields.find(
-      (field) => field.key === this._gridEdit.rowCommandField && field.valueType === 'number',
-    );
-    if (command !== 'header' && numericField === undefined) {
-      this._rejectInput(s.gridCommandNumberRequired, 'grid-row-command');
-      return;
-    }
-
-    const itemCells = el.cells.filter(
-      (cell) => cell.row >= itemBand.fromRow && cell.row <= itemBand.toRow,
-    );
-    const firstItemRowCells = itemCells.filter((cell) => cell.row === itemBand.fromRow);
-    const fieldTitles = new Map(fields.map((field) => [field.key, field.title]));
-    const placement: GridBandPlacement = command === 'header'
-      ? 'page-start'
-      : command === 'group-subtotal'
-        ? 'group-end'
-        : command === 'page-subtotal'
-          ? 'page-end'
-          : 'after-data';
-    const bandName = command === 'header'
-      ? s.gridCommandHeaderName
-      : command === 'group-subtotal'
-        ? s.gridCommandGroupSubtotalName
-        : command === 'page-subtotal'
-          ? s.gridCommandPageSubtotalName
-          : s.gridCommandFinalTotalName;
-
-    const cloneCellStyle = (source: GridCell | undefined, row: number, column: number): GridCell => {
-      const cell: GridCell = source === undefined
-        ? { row, column, content: '' }
-        : { ...structuredClone(source), row, column };
-      delete (cell as { name?: unknown }).name;
-      delete (cell as { rowSpan?: unknown }).rowSpan;
-      delete (cell as { content?: unknown }).content;
-      delete (cell as { parameter?: unknown }).parameter;
-      delete (cell as { formula?: unknown }).formula;
-      delete (cell as { conditionalFormats?: unknown }).conditionalFormats;
-      return cell;
-    };
-
-    const added = this._addGridRowWithRole(placement, {
-      separateBand: true,
-      name: bandName,
-      ...(command === 'page-subtotal' ? { pages: 'non-final' as const } : {}),
-      initialize: (grid, row) => {
-        if (command === 'header') {
-          for (const source of firstItemRowCells) {
-            const cell = cloneCellStyle(source, row, source.column);
-            cell.content = source.parameter === undefined
-              ? (source.content ?? '')
-              : (fieldTitles.get(source.parameter) ?? source.parameter);
-            grid.cells.push(cell);
-          }
-          return;
-        }
-
-        const fieldSource = itemCells.find((cell) => cell.parameter === numericField!.key);
-        const targetColumn = fieldSource?.column
-          ?? Math.max(0, ...firstItemRowCells.map((cell) => cell.column), grid.columns.length - 1);
-        if (targetColumn > 0) {
-          const labelSource = itemCells.find(
-            (cell) => cell.column === 0 && cell.row === itemBand.fromRow,
-          );
-          const labelCell = cloneCellStyle(labelSource, row, 0);
-          labelCell.content = bandName;
-          if (targetColumn > 1) labelCell.colSpan = targetColumn;
-          else delete (labelCell as { colSpan?: unknown }).colSpan;
-          grid.cells.push(labelCell);
-        }
-        const valueCell = cloneCellStyle(fieldSource, row, targetColumn);
-        const scope = command === 'group-subtotal' ? '@group'
-          : command === 'page-subtotal' ? '@page' : '@all';
-        valueCell.formula = `SUM(${scope}.${numericField!.key})`;
-        grid.cells.push(valueCell);
-      },
-    });
-    if (added === null) return;
-    this._gridEdit.clearRowCommand();
-  }
-
-  /**
-   * 셀의 값 소스 종류를 선택한다.
-   * 파라미터와 수식은 빈 값으로 저장할 수 없어 입력 전에는 화면 상태로만 유지한다.
-   */
-  private _chooseGridCellSource(kind: 'content' | 'parameter' | 'formula'): void {
-    this._gridEdit.setSourceKind(kind);
-    const target = this._gridEdit.cell;
-    if (!target) return;
-    this._updateElement((element) => {
-      if (element.type !== 'grid') return;
-      const cell = ensureCell(element, target.row, target.column);
-      clearValueSources(cell);
-      if (kind === 'content') cell.content = '';
-    });
-  }
-
-  /**
-   * 셀의 값 소스를 설정하고 다른 종류의 값 소스를 제거한다 (SPEC §5.7).
-   */
-  private _setGridCellSource(kind: 'content' | 'parameter' | 'formula', value: string): void {
-    const target = this._gridEdit.cell;
-    // 선택된 셀이 없으면 입력을 적용하지 않고 오류를 표시한다.
-    if (!target) {
-      this._rejectInput();
-      return;
-    }
-    this._updateElement((element) => {
-      if (element.type !== 'grid') return;
-      const cell = ensureCell(element, target.row, target.column);
-      clearValueSources(cell);
-      if (value !== '') cell[kind] = value;
-      else if (kind === 'content') cell.content = '';
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Snap helpers
-  // ---------------------------------------------------------------------------
 
 
   private _onKeyDown = (e: KeyboardEvent): void => {
@@ -2200,11 +1684,11 @@ export class SlipDesigner extends LitElement {
                 : nothing}
               ${propertyPanel(this._panelContext)}
             </div>
-            ${this._renderFormulaModal()}
-            ${this._renderImageModal()}
-            ${this._renderSampleModal()}
-            ${this._renderSaveModal()}
-            ${this._renderMyFormsModal()}
+            ${formulaModal(this._dialogContext)}
+            ${imageModal(this._dialogContext)}
+            ${sampleModal(this._dialogContext)}
+            ${saveModal(this._dialogContext)}
+            ${myFormsModal(this._dialogContext)}
           `}
     `;
   }
@@ -2273,51 +1757,6 @@ export class SlipDesigner extends LitElement {
     this._popovers.toggle('list', id, () => placeBelow(e.currentTarget as HTMLElement, 120, 280));
   }
 
-  /**
-   * 네이티브 select 대신 쓰는 리스트형 선택 상자를 렌더링한다.
-   * 트리거 버튼을 누르면 버튼 아래 화면 고정 위치에 항목 목록이 열린다.
-   */
-  private _listSelect(config: {
-    id: string;
-    ariaLabel: string;
-    value: string;
-    options: { value: string; label: string; description?: string }[];
-    onPick: (value: string) => void;
-    className?: string;
-    placeholder?: string;
-  }) {
-    const open = this._popovers.isOpen('list', config.id);
-    const current = config.options.find((o) => o.value === config.value);
-    return html`
-      <button type="button" class="list-select ${config.className ?? ''}"
-        aria-haspopup="listbox" aria-expanded=${String(open)} aria-label=${config.ariaLabel}
-        data-value=${config.value}
-        @click=${(e: Event) => this._toggleListSelect(config.id, e)}>
-        <span class="list-select-value">${current?.label ?? config.placeholder ?? config.value}</span>
-        <span class="list-select-caret" aria-hidden="true">${icons.down}</span>
-      </button>
-      ${open
-        ? html`
-          <div class="menu-backdrop" @click=${() => this._popovers.close('list')}></div>
-          <div class="preset-menu list-select-menu" role="listbox" aria-label=${config.ariaLabel}
-            style=${listSelectStyle(this._popovers.placement('list'))}>
-            ${config.options.map((o) => html`
-              <button type="button" role="option" data-value=${o.value}
-                class=${o.description === undefined ? '' : 'described'}
-                aria-selected=${String(o.value === config.value)}
-                @click=${() => {
-                  this._popovers.close('list');
-                  config.onPick(o.value);
-                }}>
-                <span class="list-select-option-label">${o.label}</span>
-                ${o.description === undefined
-                  ? nothing
-                  : html`<span class="list-select-option-description">${o.description}</span>`}
-              </button>`)}
-          </div>`
-        : nothing}
-    `;
-  }
 
   /** 프리셋 메뉴를 버튼 아래의 화면 고정 위치에서 열거나 닫는다. */
   private _togglePresetMenu(e: Event): void {
@@ -3035,46 +2474,6 @@ export class SlipDesigner extends LitElement {
     items[next]?.focus();
   };
 
-  /** 행 구간 역할의 표시 이름을 반환한다. */
-  private _bandPlacementLabel(placement: GridBandPlacement): string {
-    const s = this._strings.designer;
-    switch (placement) {
-      case 'before-data': return s.bandBeforeData;
-      case 'page-start': return s.bandPageStart;
-      case 'group-start': return s.bandGroupStart;
-      case 'item': return s.bandItem;
-      case 'group-end': return s.bandGroupEnd;
-      case 'after-data': return s.bandAfterData;
-      case 'page-end': return s.bandPageEnd;
-    }
-  }
-
-  /** 행 구간이 출력되는 시점과 대표 용도를 설명한다. */
-  private _bandPlacementDescription(placement: GridBandPlacement): string {
-    const s = this._strings.designer;
-    switch (placement) {
-      case 'before-data': return s.bandBeforeDataHelp;
-      case 'page-start': return s.bandPageStartHelp;
-      case 'group-start': return s.bandGroupStartHelp;
-      case 'item': return s.bandItemHelp;
-      case 'group-end': return s.bandGroupEndHelp;
-      case 'after-data': return s.bandAfterDataHelp;
-      case 'page-end': return s.bandPageEndHelp;
-    }
-  }
-
-  /** 행 구간 역할을 나타내는 아이콘을 반환한다. */
-  private _bandPlacementIcon(placement: GridBandPlacement) {
-    switch (placement) {
-      case 'before-data': return icons.pagePrev;
-      case 'page-start': return icons.up;
-      case 'group-start': return icons.treeOpen;
-      case 'item': return icons.gridElement;
-      case 'group-end': return icons.treeClosed;
-      case 'after-data': return icons.pageNext;
-      case 'page-end': return icons.down;
-    }
-  }
 
   private _updateFile(fn: (file: SlipTemplateFile) => void): void {
     // 유효한 편집이 적용되면 이전 입력 오류를 지운다.
@@ -3223,7 +2622,7 @@ export class SlipDesigner extends LitElement {
       options.unshift({ key: current, label: current });
     }
     const canAdd = !inBand || listKey !== undefined;
-    return this._listSelect({
+    return listSelect(this._popovers, (id, event) => this._toggleListSelect(id, event), {
       id: 'grid-cell-parameter',
       ariaLabel: s.parameter,
       value: current,
@@ -3240,7 +2639,7 @@ export class SlipDesigner extends LitElement {
           else this._newParameterForCell();
           return;
         }
-        this._setGridCellSource('parameter', v);
+        this._gridCommands.setCellSource('parameter', v);
       },
     });
   }
@@ -3255,7 +2654,7 @@ export class SlipDesigner extends LitElement {
     // 하위 필드 편집 후 원래 셀 선택을 복원한다.
     this._sideSelection = null;
     if (cell) this._gridEdit.selectCell(cell);
-    if (created) this._setGridCellSource('parameter', created.key);
+    if (created) this._gridCommands.setCellSource('parameter', created.key);
   }
 
   /** 새 최상위 파라미터를 만들고 현재 셀에 연결한다. */
@@ -3268,7 +2667,7 @@ export class SlipDesigner extends LitElement {
       f.template.parameters = defs;
     });
     if (cell) this._gridEdit.selectCell(cell);
-    this._setGridCellSource('parameter', key);
+    this._gridCommands.setCellSource('parameter', key);
   }
 
   /** 기존 파라미터 선택과 새 파라미터 추가를 제공하는 공통 선택기를 렌더링한다. */
@@ -3278,7 +2677,7 @@ export class SlipDesigner extends LitElement {
     return html`
       <div class="prop-row">
         <label>${s.parameter}</label>
-        ${this._listSelect({
+        ${listSelect(this._popovers, (id, event) => this._toggleListSelect(id, event), {
           id: 'parameter-select',
           ariaLabel: s.parameter,
           value: current,
@@ -3603,11 +3002,6 @@ export class SlipDesigner extends LitElement {
   }
 
 
-  private _clearCellSelection(): void {
-    this._resetPanelErrors();
-    this._gridEdit.clearCellAndSource();
-    this.requestUpdate();
-  }
 
 
 
@@ -3648,43 +3042,11 @@ export class SlipDesigner extends LitElement {
   }
 
 
-  private _repeatProbeItem(el: GridElement): Record<string, unknown> | undefined {
-    if (!el.repeat) return undefined;
-    const list = this._formulaProbeValues()[el.repeat.parameter];
-    const item = Array.isArray(list) ? list[0] : undefined;
-    return typeof item === 'object' && item !== null && !Array.isArray(item)
-      ? (item as Record<string, unknown>)
-      : undefined;
-  }
-
-  /** 선택 셀의 조건부 서식 규칙 목록을 저장한다. 빈 목록이면 속성을 제거한다. */
-  private _updateCellConditionalFormats(next: ConditionalFormatRule[]): void {
-    const target = this._gridEdit.cell;
-    if (!target) return;
-    this._updateElement((element) => {
-      if (!isGrid(element)) return;
-      const record = ensureCell(element, target.row, target.column);
-      if (next.length === 0) delete record.conditionalFormats;
-      else record.conditionalFormats = next;
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // 모달 렌더링
-  // ---------------------------------------------------------------------------
-
-  /** 파라미터의 키와 표시 이름을 반환한다. */
   private _collectParameters(): { key: string; label: string }[] {
     return this._parameterList().map((b) => ({ key: b.key, label: b.label }));
   }
 
-  /** 바이트 수를 오류 메시지에 표시할 단위로 변환한다. */
-  private static _formatBytes(bytes: number): string {
-    if (bytes >= 1024 * 1024) return `${Math.round((bytes / (1024 * 1024)) * 10) / 10}MB`;
-    if (bytes >= 1024) return `${Math.round(bytes / 1024)}KB`;
-    return `${bytes}B`;
-  }
-
+  
   /** 이미지 선택 모달을 연다. */
   private _openImageModal(): void {
     this._imageError = null;
@@ -3763,168 +3125,6 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 목록 파라미터의 하위 필드 자동완성 항목을 렌더링한다. */
-  private _renderColumnSuggestions() {
-    const suggestion = this._formula.suggestion(this._parameterList());
-    if (!suggestion) return nothing;
-    const s = this._strings.designer;
-
-    return html`
-      <div class="formula-suggest" role="group" aria-label=${s.formulaColumnSuggest}>
-        <span class="formula-suggest-label">${s.formulaColumnSuggest}</span>
-        ${suggestion.columns.map((col) => html`
-          <button class="parameter-chip column" title=${col.key}
-            @click=${() => this._formula.insert(col.key.slice(suggestion.typedLength))}
-            >${col.title ? `${col.title} · ${col.key}` : col.key}</button>`)}
-      </div>
-    `;
-  }
-
-  /** 문법 검사, 샘플 계산, 파라미터 및 함수 삽입을 제공하는 수식 모달을 렌더링한다. */
-  private _renderFormulaModal() {
-    if (!this._dialogs.isOpen('formula')) return nothing;
-    const el = this._findSelectedElement();
-    if (!el || el.type !== 'field') return nothing;
-    const s = this._strings.designer;
-    const draft = this._formula.draft;
-
-    let syntaxError: string | null = null;
-    let preview: string | null = null;
-    let previewError: string | null = null;
-    if (draft.trim() !== '') {
-      try {
-        parseFormula(draft, this._locale === undefined ? undefined : { locale: this._locale });
-        try {
-          // 샘플 값이 없으면 파라미터 종류별 기본값으로 수식을 검사한다.
-          preview = formulaPreviewText(
-            this._evaluate(draft, {
-              values: this._formulaProbeValues(),
-            }),
-          );
-        } catch (error) {
-          // 계산 오류는 표시하되 문법이 유효한 수식은 적용할 수 있다.
-          previewError = error instanceof Error ? error.message : String(error);
-        }
-      } catch (error) {
-        syntaxError = error instanceof Error ? error.message : String(error);
-      }
-    }
-    // 목록 파라미터의 하위 필드까지 표시하도록 사이드바와 같은 항목을 사용한다.
-    const parameters = this._parameterList();
-
-    return html`
-      <div class="menu-backdrop modal-backdrop" @click=${() => this._closeFormulaModal()}></div>
-      <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.formulaModalTitle}
-        @keydown=${(e: KeyboardEvent) => this._modalFocus.handleKeydown(e, () => this._closeFormulaModal())}>
-        <div class="modal-head">
-          <span>${s.formulaModalTitle}</span>
-          <button class="modal-close" title=${s.close} aria-label=${s.close}
-            @click=${() => this._closeFormulaModal()}>${icons.close}</button>
-        </div>
-        <div class="modal-body">
-          <textarea class="formula-input" rows="3" spellcheck="false"
-            aria-label=${s.formula} .value=${draft}
-            @input=${(e: Event) => {
-              const input = e.target as HTMLTextAreaElement;
-              this._formula.setDraft(input.value, input.selectionStart);
-            }}
-            @keyup=${(e: Event) => this._formula.syncCaret((e.target as HTMLTextAreaElement).selectionStart)}
-            @click=${(e: Event) => this._formula.syncCaret((e.target as HTMLTextAreaElement).selectionStart)}></textarea>
-          <div class="formula-status ${syntaxError ? 'error' : ''}">
-            ${syntaxError
-              ? `${s.syntaxError}: ${syntaxError}`
-              : draft.trim() === ''
-                ? ''
-                : previewError
-                  ? `${s.previewUnavailable}: ${previewError}`
-                  : `${s.previewResult}: ${preview}`}
-          </div>
-          ${this._renderColumnSuggestions()}
-          <div class="formula-hint">${s.formulaQuoteHint}</div>
-          ${parameters.length > 0
-            ? html`
-                <div class="modal-section-title">${s.formulaParameters}</div>
-                <div class="parameter-chips">
-                  ${parameters.map((b) => html`
-                    <button class="parameter-chip" title="${b.key}${b.valueType ? ` (${b.valueType})` : ''}"
-                      @click=${() => this._formula.insert(b.key)}>${b.label}${
-                        b.valueType ? html`<span class="chip-type">${b.valueType}</span>` : nothing
-                      }</button>
-                    ${b.fields.map((field) => html`
-                      <button class="parameter-chip column" title="${b.key}.${field.key}"
-                        @click=${() => this._formula.insert(`${b.key}.${field.key}`)}
-                        >${field.title}</button>`)}`)}
-                </div>`
-            : nothing}
-          <div class="modal-section-title">${s.formulaFunctions}</div>
-          ${getFormulaHelp(this._locale).map((category) => html`
-            <div class="fn-category">${category.title}</div>
-            ${category.functions.map((fn) => html`
-              <button class="fn-row" aria-label=${fn.name}
-                @click=${() => this._formula.insert(`${fn.name}(`, ')')}>
-                <span class="fn-signature">${fn.signature}</span>
-                <span class="fn-desc">${fn.description}</span>
-              </button>`)}`)}
-        </div>
-        <div class="modal-foot">
-          <button class="btn" @click=${() => this._closeFormulaModal()}>${s.cancel}</button>
-          <button class="btn primary" ?disabled=${syntaxError !== null}
-            @click=${() => this._applyFormulaModal()}>${s.apply}</button>
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * 파일을 업로드하거나 양식에서 사용 중인 이미지를 선택하는 모달을 렌더링한다.
-   * 이미지 값은 base64만 지원하므로 URL 입력은 제공하지 않는다.
-   */
-  private _renderImageModal() {
-    if (!this._dialogs.isOpen('image')) return nothing;
-    const el = this._findSelectedElement();
-    if (!el || el.type !== 'image') return nothing;
-    const s = this._strings.designer;
-    const close = (): void => this._closeImageModal();
-    const used = usedImages(this._file, PLACEHOLDER_IMG);
-
-    return html`
-      <div class="menu-backdrop modal-backdrop" @click=${close}></div>
-      <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.imageModalTitle}
-        @keydown=${(e: KeyboardEvent) => this._modalFocus.handleKeydown(e, close)}>
-        <div class="modal-head">
-          <span>${s.imageModalTitle}</span>
-          <button class="modal-close" title=${s.close} aria-label=${s.close}
-            @click=${close}>${icons.close}</button>
-        </div>
-        <div class="modal-body">
-          <button class="btn primary" @click=${() => this._pickImageFile()}>${s.imagePick}</button>
-          <p class="image-hint">${s.imageSizeHint
-            .replace('{max}', SlipDesigner._formatBytes(this.maxImageBytes))}</p>
-          ${this._imageError
-            ? html`<p class="image-error" role="alert">${this._imageError}</p>`
-            : nothing}
-
-          <div class="modal-section-title">${s.imageReuse}</div>
-          ${used.length === 0
-            ? html`<p class="image-hint">${s.imageEmptyReuse}</p>`
-            : html`<div class="image-grid">
-                ${used.map((src, i) => html`
-                  <button class="image-choice ${src === el.src ? 'selected' : ''}"
-                    aria-label="${s.imageReuse} ${i + 1}"
-                    aria-pressed=${String(src === el.src)}
-                    @click=${() => this._applyImageSrc(src)}>
-                    <img src=${src} alt="">
-                  </button>`)}
-              </div>`}
-        </div>
-        <div class="modal-foot">
-          <button class="btn" @click=${close}>${s.close}</button>
-        </div>
-      </div>
-    `;
-  }
-
-  /** 샘플 값을 설정하고, 남은 값이 없으면 sampleValues를 제거한다. */
   private _setSampleValue(key: string, value: unknown): void {
     this._updateFile((f) => {
       const template = f.template;
@@ -3941,154 +3141,6 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /**
-   * 파라미터별 샘플 데이터를 편집하는 모달을 렌더링한다.
-   * 반복 파라미터는 그리드 열에 맞춰 행 단위로 편집한다.
-   */
-  private _renderSampleModal() {
-    if (!this._dialogs.isOpen('sample') || !this._file) return nothing;
-    const s = this._strings.designer;
-    const template = this._file.template;
-    const samples: Record<string, unknown> = template.sampleValues ?? {};
-    const close = (): void => {
-      this._dialogs.close('sample');
-      this.requestUpdate();
-    };
-
-    // 반복 파라미터별 열 구조는 해당 파라미터를 처음 사용하는 그리드에서 가져온다.
-    const tableOf = new Map<string, { key: string; title: string }[]>();
-    for (const page of template.pages) {
-      for (const el of page.elements) {
-        if (el.type !== 'grid' || !el.repeat || tableOf.has(el.repeat.parameter)) continue;
-        const fields: { key: string; title: string }[] = [];
-        for (const cell of el.cells) {
-          if (inItemBand(el, cell.row) && cell.parameter !== undefined
-            && !fields.some((f) => f.key === cell.parameter)) {
-            fields.push({ key: cell.parameter, title: cell.parameter });
-          }
-        }
-        if (fields.length > 0) tableOf.set(el.repeat.parameter, fields);
-      }
-    }
-    const parameters = this._collectParameters();
-    // 이미지 파라미터는 텍스트 입력 대신 파일 선택기를 사용한다.
-    const imageKeys = imageParameterKeys(this._file);
-    // 파라미터 입력을 일정한 개수로 나눠 표시한다.
-    const pageCount = Math.max(1, Math.ceil(parameters.length / SAMPLE_PAGE_SIZE));
-    const pageIndex = Math.min(this._sample.page, pageCount - 1);
-    const visible = parameters.slice(
-      pageIndex * SAMPLE_PAGE_SIZE,
-      (pageIndex + 1) * SAMPLE_PAGE_SIZE,
-    );
-
-    // JSON 초안이 객체가 아니거나 구문이 잘못되면 적용 버튼을 비활성화한다.
-    let jsonError: string | null = null;
-    if (this._sample.jsonMode && this._sample.jsonDraft.trim() !== '') {
-      try {
-        const parsed: unknown = JSON.parse(this._sample.jsonDraft);
-        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-          jsonError = s.jsonNotObject;
-        }
-      } catch {
-        jsonError = s.jsonInvalid;
-      }
-    }
-
-    return html`
-      <div class="menu-backdrop modal-backdrop" @click=${close}></div>
-      <div class="modal modal-wide" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.sampleModalTitle}
-        @keydown=${(e: KeyboardEvent) => this._modalFocus.handleKeydown(e, close)}>
-        <div class="modal-head">
-          <span>${s.sampleModalTitle}</span>
-          <button class="modal-close" title=${s.close} aria-label=${s.close}
-            @click=${close}>${icons.close}</button>
-        </div>
-        <div class="modal-body">
-          <div class="sample-tabs" role="tablist" aria-label=${s.sampleModalTitle}>
-            ${([
-              [false, s.formMode],
-              [true, 'JSON'],
-            ] as const).map(([jsonMode, label]) => html`
-              <button role="tab" aria-selected=${String(this._sample.jsonMode === jsonMode)}
-                aria-label="${s.sampleData}: ${label}"
-                @click=${() => this._sample.setJsonMode(
-                  jsonMode,
-                  // 선언된 파라미터와 현재 샘플 값을 합쳐 JSON 초안을 만든다.
-                  () => JSON.stringify(this._sampleSkeleton(), null, 2),
-                )}>${label}</button>`)}
-          </div>
-          ${this._sample.jsonMode
-            ? html`
-                <div class="cell-hint">${s.jsonHint}</div>
-                <textarea class="sample-json" rows="14" spellcheck="false"
-                  aria-label="${s.sampleData} JSON"
-                  .value=${this._sample.jsonDraft}
-                  @input=${(e: Event) =>
-                    this._sample.setJsonDraft((e.target as HTMLTextAreaElement).value)}></textarea>
-                <div class="formula-status ${jsonError ? 'error' : ''}">
-                  ${jsonError ? `${s.syntaxError}: ${jsonError}` : ''}
-                </div>`
-            : html`
-                <div class="cell-hint">${s.sampleHint}</div>
-                ${parameters.length === 0 ? html`<div class="side-empty">—</div>` : nothing}
-                ${pageCount > 1
-                  ? html`
-                      <div class="sample-pager">
-                        <button class="side-mini" title=${s.prevPage}
-                          aria-label="${s.sampleData} ${s.prevPage}"
-                          ?disabled=${pageIndex === 0}
-                          @click=${() => {
-                            this._sample.setPage(pageIndex - 1);
-                            this.requestUpdate();
-                          }}>${icons.pagePrev}</button>
-                        ${Array.from({ length: pageCount }, (_, i) => html`
-                          <button class="page-btn"
-                            aria-label="${s.sampleData} ${s.sidebarPages} ${i + 1}"
-                            aria-pressed=${String(i === pageIndex)}
-                            @click=${() => {
-                              this._sample.setPage(i);
-                              this.requestUpdate();
-                            }}>${i + 1}</button>`)}
-                        <button class="side-mini" title=${s.nextPage}
-                          aria-label="${s.sampleData} ${s.nextPage}"
-                          ?disabled=${pageIndex >= pageCount - 1}
-                          @click=${() => {
-                            this._sample.setPage(pageIndex + 1);
-                            this.requestUpdate();
-                          }}>${icons.pageNext}</button>
-                      </div>`
-                  : nothing}
-                ${this._sample.imageError
-                  ? html`<p class="image-error" role="alert">${this._sample.imageError}</p>`
-                  : nothing}
-                ${visible.map((b) => {
-                  const columns = tableOf.get(b.key);
-                  if (columns) return this._renderSampleTable(b, columns, samples[b.key]);
-                  if (imageKeys.has(b.key)) return this._renderSampleImage(b, samples[b.key]);
-                  return html`
-                    <div class="prop-row">
-                      <label title=${b.key}>${b.label}</label>
-                      <input .value=${sampleScalarText(samples[b.key])}
-                        aria-label="${s.sampleData} ${b.key}"
-                        @change=${(e: Event) =>
-                          this._setSampleValue(b.key, parseSampleScalar((e.target as HTMLInputElement).value))}>
-                    </div>`;
-                })}`}
-        </div>
-        <div class="modal-foot">
-          ${this._sample.jsonMode
-            ? html`<button class="btn primary" ?disabled=${jsonError !== null}
-                @click=${() => this._applySampleJson()}>${s.apply}</button>`
-            : nothing}
-          <button class="btn ${this._sample.jsonMode ? '' : 'primary'}" @click=${close}>
-            ${s.close}
-          </button>
-        </div>
-      </div>
-    `;
-  }
-
-  /** JSON 초안을 sampleValues에 반영하고, 빈 객체이면 sampleValues를 제거한다. */
   private _applySampleJson(): void {
     const record = this._sample.parsedValues();
     if (record === null) return;
@@ -4101,85 +3153,6 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 이미지 파라미터의 샘플 파일을 선택하고 미리보기를 표시한다. */
-  private _renderSampleImage(b: { key: string; label: string }, raw: unknown) {
-    const s = this._strings.designer;
-    const chosen = typeof raw === 'string' && raw.startsWith('data:');
-    return html`
-      <div class="prop-row sample-image">
-        <label title=${b.key}>${b.label}</label>
-        <div class="sample-image-body">
-          ${chosen
-            ? html`<div class="image-current"><img src=${raw as string} alt=""></div>`
-            : html`<p class="image-hint">${s.imageNone}</p>`}
-          <div class="sample-image-btns">
-            <button class="col-modal-open" aria-label="${b.label} ${s.imagePick}"
-              @click=${() => this._pickSampleImage(b.key)}>
-              ${icons.image}<span>${chosen ? s.imageChange : s.imagePick}</span>
-            </button>
-            ${chosen
-              ? html`<button class="side-mini" title=${s.imageClear}
-                  aria-label="${b.label} ${s.imageClear}"
-                  @click=${() => this._setSampleValue(b.key, undefined)}>${icons.close}</button>`
-              : nothing}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  /** 반복 파라미터의 샘플 행을 열 구조에 맞춰 편집한다. */
-  private _renderSampleTable(
-    b: { key: string; label: string },
-    columns: { key: string; title: string }[],
-    raw: unknown,
-  ) {
-    const s = this._strings.designer;
-    const rows = Array.isArray(raw)
-      ? raw.filter(
-          (r): r is Record<string, unknown> =>
-            typeof r === 'object' && r !== null && !Array.isArray(r),
-        )
-      : [];
-    const commitRows = (next: Record<string, unknown>[]): void =>
-      this._setSampleValue(b.key, next.length > 0 ? next : undefined);
-    return html`
-      <div class="modal-section-title" title=${b.key}>${b.label}</div>
-      <div class="sample-scroll">
-        <div class="sample-grid"
-          style="grid-template-columns:repeat(${columns.length}, minmax(90px, 1fr)) 22px">
-          ${columns.map((col) => html`<span class="sample-col">${col.title || col.key}</span>`)}
-          <span></span>
-          ${rows.map((row, rowIndex) => html`
-            ${columns.map((col) => html`
-              <input .value=${sampleScalarText(row[col.key])}
-                aria-label="${b.key} ${rowIndex + 1} ${col.key}"
-                @change=${(e: Event) => {
-                  const next = rows.map((r) => ({ ...r }));
-                  const text = (e.target as HTMLInputElement).value;
-                  if (text === '') delete next[rowIndex]![col.key];
-                  else next[rowIndex]![col.key] = parseSampleScalar(text);
-                  commitRows(next);
-                }}>`)}
-            <button class="col-remove" title=${s.delete}
-              aria-label="${b.key} ${rowIndex + 1} ${s.delete}"
-              @click=${() => commitRows(rows.filter((_, i) => i !== rowIndex).map((r) => ({ ...r })))}>
-              ${icons.pageRemove}
-            </button>`)}
-        </div>
-      </div>
-      <button class="col-add" aria-label="${b.key} ${s.addRow}"
-        @click=${() => commitRows([...rows.map((r) => ({ ...r })), {}])}>
-        ${icons.pageAdd}<span>${s.addRow}</span>
-      </button>
-    `;
-  }
-
-  // ---------------------------------------------------------------------------
-  // 내 양식 저장 및 불러오기
-  // ---------------------------------------------------------------------------
-
-  /** 현재 양식 제목으로 저장 모달을 연다. */
   private _openSaveModal(): void {
     if (!this._file) return;
     this._forms.startSave(this._file.template.meta.title);
@@ -4273,153 +3246,10 @@ export class SlipDesigner extends LitElement {
     this._forms.forget(id, MY_FORMS_PAGE_SIZE);
   }
 
-  /** 양식 제목과 새 저장 여부를 입력하는 저장 모달을 렌더링한다. */
-  private _renderSaveModal() {
-    if (!this._dialogs.isOpen('save') || !this._file) return nothing;
-    const s = this._strings.designer;
-    const close = (): void => {
-      this._dialogs.close('save');
-      this.requestUpdate();
-    };
-    return html`
-      <div class="menu-backdrop modal-backdrop" @click=${close}></div>
-      <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.saveAsMyForm}
-        @keydown=${(e: KeyboardEvent) => this._modalFocus.handleKeydown(e, close)}>
-        <div class="modal-head">
-          <span>${s.saveAsMyForm}</span>
-          <button class="modal-close" title=${s.close} aria-label=${s.close}
-            @click=${close}>${icons.close}</button>
-        </div>
-        <div class="modal-body">
-          <div class="prop-row">
-            <label>${s.formTitle}</label>
-            <input class="save-title" .value=${this._forms.title} aria-label=${s.formTitle}
-              @input=${(e: Event) =>
-                this._forms.setTitle((e.target as HTMLInputElement).value)}
-              @keydown=${(e: KeyboardEvent) => {
-                if (e.key === 'Enter') void this._confirmSave();
-              }}>
-          </div>
-          ${this._forms.savedId
-            ? html`
-                <label class="save-as-new">
-                  <input type="checkbox" .checked=${this._forms.asNew} aria-label=${s.saveAsNew}
-                    @change=${(e: Event) =>
-                      this._forms.setAsNew((e.target as HTMLInputElement).checked)}>
-                  <span>${s.saveAsNew}</span>
-                </label>`
-            : nothing}
-          ${this._forms.error
-            ? html`<div class="formula-status error">${this._forms.error}</div>`
-            : nothing}
-        </div>
-        <div class="modal-foot">
-          <button class="btn" @click=${close}>${s.cancel}</button>
-          <button class="btn primary" @click=${() => void this._confirmSave()}>${s.save}</button>
-        </div>
-      </div>
-    `;
-  }
-
-  /** 저장된 양식을 검색하고 불러오거나 삭제하는 모달을 렌더링한다. */
-  private _renderMyFormsModal() {
-    if (!this._dialogs.isOpen('myForms')) return nothing;
-    const s = this._strings.designer;
-    const close = (): void => {
-      this._dialogs.close('myForms');
-      this.requestUpdate();
-    };
-    return html`
-      <div class="menu-backdrop modal-backdrop" @click=${close}></div>
-      <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.myFormsList}
-        @keydown=${(e: KeyboardEvent) => this._modalFocus.handleKeydown(e, close)}>
-        <div class="modal-head">
-          <span>${s.myFormsList}</span>
-          <button class="modal-close" title=${s.close} aria-label=${s.close}
-            @click=${close}>${icons.close}</button>
-        </div>
-        <div class="modal-body">
-          <div class="prop-row">
-            <label>${s.search}</label>
-            <input class="forms-search" .value=${this._forms.query} aria-label=${s.search}
-              @input=${(e: Event) =>
-                this._forms.setQuery((e.target as HTMLInputElement).value)}>
-          </div>
-          ${this._forms.error
-            ? html`<div class="formula-status error">${this._forms.error}</div>`
-            : nothing}
-          ${this._renderMyFormsPage()}
-        </div>
-        <div class="modal-foot">
-          <button class="btn primary" @click=${close}>${s.close}</button>
-        </div>
-      </div>
-    `;
-  }
-
-  /** 검색 결과를 페이지 단위로 나눠 목록 모달에 렌더링한다. */
-  private _renderMyFormsPage() {
-    const s = this._strings.designer;
-    const filtered = this._forms.filtered();
-    if (filtered.length === 0) {
-      return this._forms.error ? nothing : html`<div class="side-empty">${s.noSavedForms}</div>`;
-    }
-    const pageCount = Math.ceil(filtered.length / MY_FORMS_PAGE_SIZE);
-    const page = Math.min(this._forms.page, pageCount - 1);
-    const items = filtered.slice(page * MY_FORMS_PAGE_SIZE, (page + 1) * MY_FORMS_PAGE_SIZE);
-    return html`
-      ${items.map((item) => html`
-        <div class="form-row">
-          <button class="form-open" aria-label="${item.title} ${s.edit}"
-            @click=${() => void this._loadMyForm(item.id)}>
-            <span class="form-title">${item.title}</span>
-            ${item.updatedAt
-              ? html`<span class="form-date">${item.updatedAt.slice(0, 10)}</span>`
-              : nothing}
-          </button>
-          <button class="col-remove" title=${s.delete} aria-label="${item.title} ${s.delete}"
-            @click=${() => void this._deleteMyForm(item.id)}>${icons.remove}</button>
-        </div>`)}
-      ${pageCount > 1
-        ? html`
-          <div class="sample-pager">
-            <button class="side-mini" title=${s.prevPage} aria-label="${s.myFormsList} ${s.prevPage}"
-              ?disabled=${page === 0}
-              @click=${() => this._forms.setPage(page - 1)}>${icons.pagePrev}</button>
-            ${Array.from({ length: pageCount }, (_, i) => html`
-              <button class="page-btn" aria-label="${s.myFormsList} ${s.sidebarPages} ${i + 1}"
-                aria-pressed=${String(i === page)}
-                @click=${() => this._forms.setPage(i)}>${i + 1}</button>`)}
-            <button class="side-mini" title=${s.nextPage} aria-label="${s.myFormsList} ${s.nextPage}"
-              ?disabled=${page >= pageCount - 1}
-              @click=${() => this._forms.setPage(page + 1)}>${icons.pageNext}</button>
-          </div>`
-        : nothing}
-    `;
-  }
 }
 
-/** 숫자 형식의 샘플 입력은 숫자로, 나머지는 문자열로 반환한다. */
-function parseSampleScalar(text: string): string | number {
-  const trimmed = text.trim();
-  return trimmed !== '' && /^-?\d+(\.\d+)?$/.test(trimmed) ? Number(trimmed) : text;
-}
 
-/** 스칼라 샘플 값을 입력 요소에 표시할 문자열로 변환한다. */
-function sampleScalarText(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'object') return '';
-  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  return String(value);
-}
 
-/** 수식 계산 결과를 미리보기용 문자열로 변환한다. */
-function formulaPreviewText(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  if (Array.isArray(value)) return JSON.stringify(value);
-  return String(value);
-}
 
 customElements.define('slip-designer', SlipDesigner);
 

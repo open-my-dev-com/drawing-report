@@ -1048,8 +1048,8 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     const el = await mount();
     // 칸에 배경색을 준 뒤 그 칸을 두 번 눌러 인라인 편집을 연다
     gridEdit(el).selectCell({ row: 0, column: 0 });
-    (el as unknown as { _updateCellStyle: (k: string, v: unknown) => void })
-      ._updateCellStyle('backgroundColor', '#ffeeaa');
+    (el as unknown as { _gridCommands: { updateCellStyle(key: string, value: unknown): void } })
+      ._gridCommands.updateCellStyle('backgroundColor', '#ffeeaa');
     await el.updateComplete;
     gridEdit(el).setEditing(true);
     await el.updateComplete;

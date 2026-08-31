@@ -14,14 +14,11 @@ import { valueTypeBadge, TYPE_BADGE } from './badges.js';
 import { twisty } from './inputs.js';
 import type { GridEditController } from '../controllers/grid-edit.js';
 import type { ParameterFieldInfo, ParameterInfo } from '../parameters.js';
+import type { SideSelection } from '../selection.js';
 import type { PanelKit } from './panel-kit.js';
 
-/** 사이드바에서 고른 대상 */
-export type SideSelection =
-  | { kind: 'parameter'; key: string }
-  | { kind: 'parameterField'; key: string; field: string }
-  | { kind: 'page' }
-  | null;
+export type { SideSelection };
+
 
 /** 사이드바가 컴포넌트에 요청하는 조작 */
 export interface SidebarActions {

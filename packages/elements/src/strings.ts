@@ -1330,3 +1330,6 @@ export function normalizeLocale(locale?: string): SlipLocale {
 export function getStrings(locale?: string): SlipStrings {
   return STRINGS[normalizeLocale(locale)];
 }
+
+/** 로케일에 맞는 디자이너 문구 */
+export type DesignerStrings = ReturnType<typeof getStrings>['designer'];

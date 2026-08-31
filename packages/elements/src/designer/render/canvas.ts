@@ -61,7 +61,7 @@ import { BARCODE_KINDS, BARCODE_2D } from '../barcode.js';
 import { TYPE_BADGE } from './badges.js';
 import type { GridBandPlacement } from '@omdc-slipkit/core';
 import type { GridEditController } from '../controllers/grid-edit.js';
-import type { DesignerStrings } from './panel-kit.js';
+import type { DesignerStrings } from '../../strings.js';
 
 /** 캔버스가 컴포넌트에서 받는 것 */
 export interface CanvasContext {

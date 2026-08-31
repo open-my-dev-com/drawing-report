@@ -14,3 +14,21 @@ paths:
 - 미리보기는 PDF 변환 결과를 공유해 렌더링한다 — 화면과 PDF가 어긋나는 구조 금지 (ADR-012/016).
 - DOM 캡처(스크린샷) 방식으로 PDF를 만들지 않는다 — 벡터 텍스트 유지 (ADR-012).
 - UI 문구는 언어별 리소스 파일로 분리(영어 기본, 한국어·일본어 — ADR-060). 하드코딩 문구를 늘리지 않는다.
+
+## 디자이너 모듈 구성 (ADR-067)
+
+`packages/elements/src/slip-designer.ts`는 외부 프로퍼티, 최상위 상태 조정과 전체 배치만 담당한다.
+나머지는 `packages/elements/src/designer/` 아래에 둔다.
+
+| 위치 | 담당 |
+|---|---|
+| `designer/*.ts` | 화면 상태에 의존하지 않는 계산 (좌표·색·스타일·그리드 구조·파라미터 요약) |
+| `designer/controllers/*.ts` | 상태를 가진 부분 (모달·초안·그리드 선택·포인터·팝오버·색 선택기) |
+| `designer/render/*.ts` | 화면 조각 (툴바·사이드바·캔버스·속성 패널·모달) |
+| `styles/designer/*.styles.ts` | 영역별 스타일. **선언 순서를 바꾸지 않는다** (cascade가 달라진다) |
+
+- 컨트롤러와 렌더 모듈은 `SlipDesigner` 전체가 아니라 **목적별 인터페이스**만 받는다
+  (`PanelKit`·`ElementActions`·`GridActions`·`FormActions`·`SidebarActions`·`CanvasContext`·
+  `DialogContext`·`ToolbarActions`·`PointerHost`·`GridCommandsHost`).
+- 의존 방향은 **순수 함수 → 컨트롤러 → 렌더 모듈 → 컴포넌트** 한 방향이다. 아래가 위를 참조하지 않는다.
+- shadow root는 하나다. 자식 커스텀 엘리먼트를 만들지 않는다.

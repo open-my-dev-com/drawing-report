@@ -7,12 +7,12 @@
  */
 
 import type { TemplateResult } from 'lit';
-import type { getStrings } from '../../strings.js';
 import type { ColorPickerController } from '../controllers/color-picker.js';
 import type { PopoverController } from '../controllers/popover.js';
 
-/** 로케일에 맞는 디자이너 문구 */
-export type DesignerStrings = ReturnType<typeof getStrings>['designer'];
+import type { DesignerStrings } from '../../strings.js';
+
+export type { DesignerStrings };
 
 /** 리스트형 선택 상자에 넘길 설정 */
 export interface ListSelectConfig {

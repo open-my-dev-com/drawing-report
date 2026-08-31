@@ -11,7 +11,7 @@ import { icons } from '../../icons.js';
 import { GRID_GAPS, GRID_COLORS, type GridColorId } from '../grid-view.js';
 import type { CreatableType } from '../grid-view.js';
 import type { SlipPreset } from '../../presets.js';
-import type { DesignerStrings } from './panel-kit.js';
+import type { DesignerStrings } from '../../strings.js';
 
 /** 툴바가 컴포넌트에 요청하는 조작과 상태 */
 export interface ToolbarActions {
