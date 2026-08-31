@@ -468,7 +468,6 @@ function resizePercentages(list: number[], count: number): number[] {
   return next;
 }
 
-/** 비율(생략 시 균등)로 나눈 누적 경계 위치(mm) — 길이 = count + 1 */
 /** 새 그리드의 기본 행 높이(mm) */
 const GRID_DEFAULT_ROW_MM = 8;
 /** 새 그리드의 기본 열 너비(mm) */
@@ -540,6 +539,7 @@ function trackOffsets(sizes: readonly number[]): number[] {
   return offsets;
 }
 
+/** 비율(생략 시 균등)로 나눈 누적 경계 위치(mm) — 길이 = count + 1 */
 function cumulativeOffsets(total: number, count: number, percentages?: number[]): number[] {
   const offsets = [0];
   for (let i = 0; i < count; i++) {
@@ -854,9 +854,6 @@ interface ResizeState {
   snapshot: string | null;
 }
 
-/**
- * 사이드바에서 선택한 페이지와 파라미터를 나타낸다.
- */
 /** 파라미터를 사용하는 요소의 위치 */
 interface ParameterUse {
   pageIndex: number;
@@ -899,6 +896,7 @@ interface ParameterFieldInfo {
   at: { pageIndex: number; gridId: string; row: number; column: number } | undefined;
 }
 
+/** 사이드바에서 선택한 페이지와 파라미터를 나타낸다. */
 type SideSelection =
   | { kind: 'parameter'; key: string }
   | { kind: 'parameterField'; key: string; field: string }
@@ -3545,7 +3543,6 @@ export class SlipDesigner extends LitElement {
     return this.presets?.length ? this.presets : getPresets(this._locale);
   }
 
-  /** 프리셋 메뉴를 버튼 아래의 화면 고정 위치에서 열거나 닫는다. */
   /** 열려 있는 리스트형 선택 상자의 식별자. null이면 모두 닫혀 있다 */
   private _listSelectId: string | null = null;
   /** 리스트형 선택 상자 목록의 화면 고정 위치와 최대 높이(px) */
@@ -3615,6 +3612,7 @@ export class SlipDesigner extends LitElement {
     `;
   }
 
+  /** 프리셋 메뉴를 버튼 아래의 화면 고정 위치에서 열거나 닫는다. */
   private _togglePresetMenu(e: Event): void {
     if (this._presetMenuOpen) {
       this._presetMenuOpen = false;

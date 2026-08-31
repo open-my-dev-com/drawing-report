@@ -51,7 +51,6 @@ export const icons = {
   pagePrev: icon(svg`<path d="m15 18-6-6 6-6" />`),
   /** lucide: chevron-right */
   pageNext: icon(svg`<path d="m9 18 6-6-6-6" />`),
-  /** lucide: plus */
   /** 파라미터 타입: 글자 — 대문자 T와 밑줄 */
   typeText: icon(svg`<path d="M5 6V5h14v1" /><path d="M12 5v14" /><path d="M9 19h6" />`),
   /** 숫자 파라미터를 나타내는 # 기호. */
@@ -66,6 +65,7 @@ export const icons = {
   typeList: icon(svg`<path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" />`),
   /** 항목 더하기 — 목록·패널 공용 더하기 표시 */
   add: icon(svg`<path d="M5 12h14" /><path d="M12 5v14" />`),
+  /** lucide: plus */
   pageAdd: icon(svg`<path d="M5 12h14" /><path d="M12 5v14" />`),
   /** lucide: minus */
   pageRemove: icon(svg`<path d="M5 12h14" />`),
