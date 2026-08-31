@@ -5,6 +5,8 @@
  * 항목별 편집은 값을 바로 파일에 반영하고, JSON 편집만 초안을 따로 둔다.
  */
 
+import type { ReactiveController } from 'lit';
+
 /** 초안 상태가 필요로 하는 호스트의 최소 범위 */
 export interface SampleDraftHost {
   requestUpdate(): void;
@@ -30,13 +32,18 @@ export function parseSampleValues(draft: string): Record<string, unknown> | null
   return parsed as Record<string, unknown>;
 }
 
-export class SampleDraftController {
+export class SampleDraftController implements ReactiveController {
   private _page = 0;
   private _jsonMode = false;
   private _jsonDraft = '';
   private _imageError: string | null = null;
 
   constructor(private readonly host: SampleDraftHost) {}
+
+  /** 요소가 화면에서 빠지면 모달을 처음 열 때의 상태로 되돌린다. */
+  hostDisconnected(): void {
+    this.reset();
+  }
 
   /** 항목별 편집에서 보고 있는 페이지 */
   get page(): number {

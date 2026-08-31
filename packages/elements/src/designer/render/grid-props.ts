@@ -9,6 +9,7 @@
 import { html, nothing } from 'lit';
 import { live } from 'lit/directives/live.js';
 import type { TemplateResult } from 'lit';
+import { bandDescription, bandIcon, bandLabel } from './band-visuals.js';
 import { SLIP_LIMITS } from '@omdc-slipkit/core';
 import type {
   ConditionalFormatRule,
@@ -82,9 +83,6 @@ export interface GridActions {
   }): number | null;
   openRowCommand(command: GridRowCommand): void;
   applyRowCommand(): void;
-  bandLabel(placement: GridBandPlacement): string;
-  bandDescription(placement: GridBandPlacement): string;
-  bandIcon(placement: GridBandPlacement): TemplateResult;
   chooseCellSource(kind: 'content' | 'parameter' | 'formula'): void;
   setCellSource(kind: 'content' | 'parameter' | 'formula', value: string): void;
   commitCellContent(value: string): void;
@@ -292,10 +290,10 @@ export function gridRowCommands(kit: PanelKit, grid: GridActions, el: GridElemen
   const groupReady = command !== 'group-subtotal'
     || (el.repeat?.groupBy !== undefined && el.repeat.groupBy.length > 0);
   const fieldReady = !needsField || selectedField !== undefined;
-  const location = command === 'header' ? grid.bandLabel('page-start')
-    : command === 'group-subtotal' ? grid.bandLabel('group-end')
-    : command === 'page-subtotal' ? grid.bandLabel('page-end')
-    : grid.bandLabel('after-data');
+  const location = command === 'header' ? bandLabel(kit.s, 'page-start')
+    : command === 'group-subtotal' ? bandLabel(kit.s, 'group-end')
+    : command === 'page-subtotal' ? bandLabel(kit.s, 'page-end')
+    : bandLabel(kit.s, 'after-data');
   const display = command === 'group-subtotal' ? s.gridCommandEachGroup
     : command === 'page-subtotal' ? s.pagesNonFinal
     : command === 'final-total' ? s.gridCommandOnce
@@ -397,8 +395,8 @@ export function bandList(kit: PanelKit, act: ElementActions, grid: GridActions, 
     : bands.find((band) => band.fromRow === selected.from && band.toRow === selected.to);
   const roleOptions = BAND_PLACEMENTS.map((placement) => ({
     value: placement,
-    label: grid.bandLabel(placement),
-    description: grid.bandDescription(placement),
+    label: bandLabel(kit.s, placement),
+    description: bandDescription(kit.s, placement),
   }));
   return html`
     <div class="prop-section band-list">
@@ -421,8 +419,8 @@ export function bandList(kit: PanelKit, act: ElementActions, grid: GridActions, 
           class="band-item ${selected?.from === band.fromRow && selected.to === band.toRow ? 'selected' : ''} ${errorBandId === band.id ? 'layout-error' : ''}">
           <button type="button" class="band-item-main"
             title=${band.name === undefined
-              ? grid.bandLabel(band.placement)
-              : `${band.name} · ${grid.bandLabel(band.placement)}`}
+              ? bandLabel(kit.s, band.placement)
+              : `${band.name} · ${bandLabel(kit.s, band.placement)}`}
             aria-pressed=${String(selected?.from === band.fromRow && selected.to === band.toRow)}
             aria-invalid=${errorBandId === band.id ? 'true' : nothing}
             aria-describedby=${errorBandId === band.id ? `grid-plan-error-${band.id}` : nothing}
@@ -432,8 +430,8 @@ export function bandList(kit: PanelKit, act: ElementActions, grid: GridActions, 
               grid.refresh();
             }}>
             <span class="band-swatch placement-${band.placement}"></span>
-            <span class="band-icon">${grid.bandIcon(band.placement)}</span>
-            <span class="band-label">${band.name ?? grid.bandLabel(band.placement)}</span>
+            <span class="band-icon">${bandIcon(band.placement)}</span>
+            <span class="band-label">${band.name ?? bandLabel(kit.s, band.placement)}</span>
             <span class="band-range">${band.fromRow === band.toRow
               ? s.bandRowOne.replace('{row}', String(band.fromRow + 1))
               : s.bandRowRange.replace('{from}', String(band.fromRow + 1)).replace('{to}', String(band.toRow + 1))}</span>
@@ -448,7 +446,7 @@ export function bandList(kit: PanelKit, act: ElementActions, grid: GridActions, 
                 <span>${s.pagePlacementPages}</span>
                 ${kit.listSelect({
                   id: `band-pages-${band.id}`,
-                  ariaLabel: `${grid.bandLabel(band.placement)} ${s.pagePlacementPages}`,
+                  ariaLabel: `${bandLabel(kit.s, band.placement)} ${s.pagePlacementPages}`,
                   value: band.pages ?? 'all',
                   options: [
                     { value: 'all', label: s.pagesAll },
@@ -652,12 +650,12 @@ export function gridCellProps(
 
         <div class="prop-section">
           <div class="prop-section-title">${s.styleText}</div>
-          ${fontNameRow(kit, act, 
+          ${fontNameRow(kit, act,
             cellDef?.fontName,
             (v) => grid.updateCellStyle('fontName', v),
             `${s.cell} ${s.fontName}`,
           )}
-          ${numberRow(kit, 
+          ${numberRow(kit,
             s.fontSize, cellDef?.fontSize, el.fontSize ?? DEFAULT_FONT_SIZE,
             (v) => grid.updateCellStyle('fontSize', v),
             { step: '0.5', min: '0.5', ariaLabel: `${s.cell} ${s.fontSize}`, errorKey: 'cell-font-size' },
@@ -697,22 +695,22 @@ export function gridCellProps(
                   >${glyph}</button>`)}
             </div>
           </div>
-          ${numberRow(kit, 
+          ${numberRow(kit,
             s.lineHeight, cellDef?.lineHeight, el.lineHeight ?? 1,
             (v) => grid.updateCellStyle('lineHeight', v),
             { step: '0.1', min: '0.1', ariaLabel: `${s.cell} ${s.lineHeight}`, errorKey: 'cell-line-height' },
           )}
-          ${numberRow(kit, 
+          ${numberRow(kit,
             s.characterSpacing, cellDef?.characterSpacing, el.characterSpacing ?? 0,
             (v) => grid.updateCellStyle('characterSpacing', v),
             { step: '0.1', ariaLabel: `${s.cell} ${s.characterSpacing}`, errorKey: 'cell-character-spacing' },
           )}
-          ${textStyleToggles(kit, 
+          ${textStyleToggles(kit,
             cellDef ?? {},
             (key, value) => grid.updateCellStyle(key, value ? true : null),
             `${s.cell} `,
           )}
-          ${colorControl(kit, 
+          ${colorControl(kit,
             s.fontColor, cellDef?.fontColor, 'cellFontColor',
             (v) => grid.updateCellStyle('fontColor', v),
             el.fontColor ?? DEFAULT_FONT_COLOR,
@@ -722,7 +720,7 @@ export function gridCellProps(
 
         <div class="prop-section">
           <div class="prop-section-title">${s.styleBackground}</div>
-          ${colorControl(kit, 
+          ${colorControl(kit,
             s.backgroundColor, cellDef?.backgroundColor, 'cellBackgroundColor',
             (v) => grid.updateCellStyle('backgroundColor', v),
             undefined,
@@ -732,27 +730,27 @@ export function gridCellProps(
 
         <div class="prop-section">
           <div class="prop-section-title">${s.styleBorder}</div>
-          ${colorControl(kit, 
+          ${colorControl(kit,
             s.borderColor, cellDef?.borderColor, 'cellBorderColor',
             (v) => grid.updateCellStyle('borderColor', v),
             el.borderColor ?? DEFAULT_BORDER_COLOR,
             `${s.cell} ${s.borderColor}`,
           )}
-          ${borderWidthSelect(kit, 
+          ${borderWidthSelect(kit,
             cellDef?.borderWidth,
             el.borderWidth ?? DEFAULT_LINE_WIDTH,
             true,
             'cellBorderWidth',
             (v) => grid.updateCellStyle('borderWidth', v),
           )}
-          ${borderShapeRow(kit, 
+          ${borderShapeRow(kit,
             cellDef?.borderStyle,
             `${s.cell} ${s.borderShape}`,
             'cellBorderStyle',
             (v) => grid.updateCellStyle('borderStyle', v),
           )}
         </div>
-        ${conditionalFormatsSection(kit, grid.conditional, 
+        ${conditionalFormatsSection(kit, grid.conditional,
           cellDef?.conditionalFormats,
           'cellCondFmt',
           (next) => grid.updateCellConditionalFormats(next),

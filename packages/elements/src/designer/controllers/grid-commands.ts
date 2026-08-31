@@ -6,8 +6,6 @@
  * 입력 검증에 실패하면 호스트에 오류 표시를 맡기고 파일은 고치지 않는다.
  */
 
-import { html } from 'lit';
-import type { TemplateResult } from 'lit';
 import { SLIP_LIMITS } from '@omdc-slipkit/core';
 import type {
   ConditionalFormatRule,
@@ -18,7 +16,6 @@ import type {
   OutputPageFilter,
   SlipElement,
 } from '@omdc-slipkit/core';
-import { icons } from '../../icons.js';
 import { MIN_SIZE_MM, round1 } from '../geometry.js';
 import { clearValueSources, setOptional } from '../patch.js';
 import {
@@ -704,46 +701,5 @@ export class GridCommandsController {
     return typeof item === 'object' && item !== null && !Array.isArray(item)
       ? (item as Record<string, unknown>)
       : undefined;
-  }
-
-  /** 행 구간 역할의 표시 이름을 반환한다. */
-  bandLabel(placement: GridBandPlacement): string {
-    const s = this.host.s;
-    switch (placement) {
-      case 'before-data': return s.bandBeforeData;
-      case 'page-start': return s.bandPageStart;
-      case 'group-start': return s.bandGroupStart;
-      case 'item': return s.bandItem;
-      case 'group-end': return s.bandGroupEnd;
-      case 'after-data': return s.bandAfterData;
-      case 'page-end': return s.bandPageEnd;
-    }
-  }
-
-  /** 행 구간이 출력되는 시점과 대표 용도를 설명한다. */
-  bandDescription(placement: GridBandPlacement): string {
-    const s = this.host.s;
-    switch (placement) {
-      case 'before-data': return s.bandBeforeDataHelp;
-      case 'page-start': return s.bandPageStartHelp;
-      case 'group-start': return s.bandGroupStartHelp;
-      case 'item': return s.bandItemHelp;
-      case 'group-end': return s.bandGroupEndHelp;
-      case 'after-data': return s.bandAfterDataHelp;
-      case 'page-end': return s.bandPageEndHelp;
-    }
-  }
-
-  /** 행 구간 역할을 나타내는 아이콘을 반환한다. */
-  bandIcon(placement: GridBandPlacement) {
-    switch (placement) {
-      case 'before-data': return icons.pagePrev;
-      case 'page-start': return icons.up;
-      case 'group-start': return icons.treeOpen;
-      case 'item': return icons.gridElement;
-      case 'group-end': return icons.treeClosed;
-      case 'after-data': return icons.pageNext;
-      case 'page-end': return icons.down;
-    }
   }
 }

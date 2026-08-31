@@ -2,13 +2,15 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
   COLOR_PALETTE,
-  CUSTOM_COLORS_KEY,
   MAX_CUSTOM_COLORS,
-  loadCustomColors,
-  saveCustomColor,
   hexToHsv,
   hsvToHex,
 } from '../../src/designer/color.js';
+import {
+  CUSTOM_COLORS_KEY,
+  loadCustomColors,
+  saveCustomColor,
+} from '../../src/designer/controllers/color-picker.js';
 
 function memoryStorage(): Storage {
   const values = new Map<string, string>();

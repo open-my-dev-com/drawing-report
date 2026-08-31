@@ -6,6 +6,7 @@
  * 파일 자체를 고치는 일(제목 반영, 불러온 양식 반영)은 호출부가 한다.
  */
 
+import type { ReactiveController } from 'lit';
 import type { SlipListItem, StorageAdapter } from '@omdc-slipkit/core';
 
 /** 저장·목록 상태가 필요로 하는 호스트의 최소 범위 */
@@ -13,7 +14,7 @@ export interface FormsHost {
   requestUpdate(): void;
 }
 
-export class FormsController {
+export class FormsController implements ReactiveController {
   private _title = '';
   private _asNew = false;
   private _savedId: string | null = null;
@@ -24,6 +25,11 @@ export class FormsController {
   private _error: string | null = null;
 
   constructor(private readonly host: FormsHost) {}
+
+  /** 요소가 화면에서 빠지면 저장 식별자와 안내를 지운다. */
+  hostDisconnected(): void {
+    this.reset();
+  }
 
   /** 저장 모달에 입력한 제목 */
   get title(): string {

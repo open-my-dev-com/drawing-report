@@ -6,6 +6,8 @@
  * 여기서 한꺼번에 다룬다. 모달별 초안 값은 각 모달의 컨트롤러가 따로 갖는다.
  */
 
+import type { ReactiveController } from 'lit';
+
 /** 디자이너가 여는 모달의 종류 */
 export type DialogKind = 'formula' | 'image' | 'sample' | 'save' | 'myForms';
 
@@ -14,10 +16,15 @@ export interface DialogsHost {
   requestUpdate(): void;
 }
 
-export class DialogsController {
+export class DialogsController implements ReactiveController {
   private readonly opened = new Set<DialogKind>();
 
   constructor(private readonly host: DialogsHost) {}
+
+  /** 요소가 화면에서 빠지면 열려 있던 모달을 모두 닫는다. */
+  hostDisconnected(): void {
+    this.closeAllQuietly();
+  }
 
   /**
    * 지정한 모달이 열려 있는지 확인한다.

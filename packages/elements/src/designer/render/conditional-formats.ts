@@ -146,19 +146,19 @@ export function conditionalFormatsSection(
               }}>
           </div>
           ${kit.error(`${keyPrefix}-cond-${index}`)}
-          ${colorControl(kit, 
+          ${colorControl(kit,
             s.fontColor, rule.fontColor, `${keyPrefix}-font-${index}`,
             (v) => setColor(index, 'fontColor', v), undefined, `${name}: ${s.fontColor}`,
           )}
-          ${colorControl(kit, 
+          ${colorControl(kit,
             s.backgroundColor, rule.backgroundColor, `${keyPrefix}-bg-${index}`,
             (v) => setColor(index, 'backgroundColor', v), undefined, `${name}: ${s.backgroundColor}`,
           )}
-          ${colorControl(kit, 
+          ${colorControl(kit,
             s.borderColor, rule.borderColor, `${keyPrefix}-border-${index}`,
             (v) => setColor(index, 'borderColor', v), undefined, `${name}: ${s.borderColor}`,
           )}
-          ${conditionalEmphasisRow(kit, 
+          ${conditionalEmphasisRow(kit,
             rule,
             (key, value) => setEmphasis(index, key, value),
             `${name}: `,

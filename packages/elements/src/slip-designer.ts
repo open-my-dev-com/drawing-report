@@ -49,8 +49,6 @@ import { icons } from './icons.js';
 import { pickImageFile, formatBytes } from './image-file.js';
 import {
   COLOR_PALETTE,
-  loadCustomColors,
-  saveCustomColor,
   hexToHsv,
   hsvToHex,
 } from './designer/color.js';
@@ -398,6 +396,25 @@ export class SlipDesigner extends LitElement {
   // Lifecycle
   // ---------------------------------------------------------------------------
 
+  constructor() {
+    super();
+    // 상태를 가진 컨트롤러만 호스트의 생명주기에 등록한다.
+    // `_gridCommands`는 자체 상태가 없어 등록하지 않는다.
+    for (const controller of [
+      this._dialogs,
+      this._pointer,
+      this._popovers,
+      this._picker,
+      this._gridEdit,
+      this._forms,
+      this._sample,
+      this._formula,
+      this._modalFocus,
+    ]) {
+      this.addController(controller);
+    }
+  }
+
   override connectedCallback(): void {
     super.connectedCallback();
     this.addEventListener('keydown', this._onKeyDown);
@@ -666,9 +683,6 @@ export class SlipDesigner extends LitElement {
       selectedElement: () => this._findSelectedElement(),
       commitCellContent: (value) => this._gridCommands.commitCellContent(value),
       evaluate: (source, context) => this._evaluate(source, context),
-      bandLabel: (placement) => this._gridCommands.bandLabel(placement),
-      bandDescription: (placement) => this._gridCommands.bandDescription(placement),
-      bandIcon: (placement) => this._gridCommands.bandIcon(placement),
       onBandRowClick: (row, extend) => this._onBandRowClick(row, extend),
       closeBandMenu: (clearSelection) => this._closeBandMenu(clearSelection),
       onBandMenuKeyDown: (event) => this._onBandMenuKeyDown(event),
@@ -789,9 +803,6 @@ export class SlipDesigner extends LitElement {
       addRowWithRole: (placement, options) => this._gridCommands.addRowWithRole(placement, options),
       openRowCommand: (command) => this._gridCommands.openRowCommand(command),
       applyRowCommand: () => this._gridCommands.applyRowCommand(),
-      bandLabel: (placement) => this._gridCommands.bandLabel(placement),
-      bandDescription: (placement) => this._gridCommands.bandDescription(placement),
-      bandIcon: (placement) => this._gridCommands.bandIcon(placement),
       chooseCellSource: (kind) => this._gridCommands.chooseCellSource(kind),
       setCellSource: (kind, value) => this._gridCommands.setCellSource(kind, value),
       commitCellContent: (value) => this._gridCommands.commitCellContent(value),

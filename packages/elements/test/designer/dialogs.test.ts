@@ -365,6 +365,22 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 
+  // 컨트롤러가 addController로 등록돼 있어야 hostDisconnected가 실행된다.
+  it('요소가 문서에서 빠지면 열려 있던 모달이 닫힌다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+    expect(el.shadowRoot!.querySelector('.formula-input')).not.toBeNull();
+
+    el.remove();
+    document.body.appendChild(el);
+    // 화면에서 빠질 때는 갱신을 예약하지 않으므로 다시 붙인 뒤 한 번 그린다.
+    el.requestUpdate();
+    await el.updateComplete;
+
+    expect(el.shadowRoot!.querySelector('.formula-input')).toBeNull();
+    el.remove();
+  });
+
   it('올바른 수식은 결과를 미리 계산해 보여주고, 적용하면 요소에 저장된다', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);

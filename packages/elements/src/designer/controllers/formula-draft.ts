@@ -5,6 +5,8 @@
  * 초안은 적용을 누를 때까지 파일에 반영하지 않는다.
  */
 
+import type { ReactiveController } from 'lit';
+
 /** 초안 상태가 필요로 하는 호스트의 최소 범위 */
 export interface FormulaDraftHost {
   requestUpdate(): void;
@@ -53,7 +55,7 @@ export function columnSuggestion(
   return columns.length > 0 ? { columns, typedLength: typed.length } : null;
 }
 
-export class FormulaDraftController {
+export class FormulaDraftController implements ReactiveController {
   private _draft = '';
   private _caret = 0;
 
@@ -84,6 +86,17 @@ export class FormulaDraftController {
   start(initial: string | undefined): void {
     this._draft = initial ?? '';
     this._caret = this._draft.length;
+  }
+
+  /** 편집 중이던 수식을 버린다. 화면 갱신은 호출부가 처리한다. */
+  reset(): void {
+    this._draft = '';
+    this._caret = 0;
+  }
+
+  /** 요소가 화면에서 빠지면 편집 중이던 수식을 버린다. */
+  hostDisconnected(): void {
+    this.reset();
   }
 
   /**

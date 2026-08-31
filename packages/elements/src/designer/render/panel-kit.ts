@@ -65,7 +65,7 @@ export interface PanelKit {
    * 테두리·색 선택 메뉴를 버튼 아래에 열거나 닫는다.
    *
    * @param key - 메뉴를 구분할 키
-   * @param event - 기준이 될 버튼에서 받은 사건
+   * @param event - 기준이 될 버튼에서 받은 이벤트
    */
   togglePropertyMenu(key: string, event: Event): void;
   /**

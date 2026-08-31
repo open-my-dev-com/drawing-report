@@ -22,13 +22,14 @@ paths:
 
 | 위치 | 담당 |
 |---|---|
-| `designer/*.ts` | 화면 상태에 의존하지 않는 계산 (좌표·색·스타일·그리드 구조·파라미터 요약) |
-| `designer/controllers/*.ts` | 상태를 가진 부분 (모달·초안·그리드 선택·포인터·팝오버·색 선택기) |
-| `designer/render/*.ts` | 화면 조각 (툴바·사이드바·캔버스·속성 패널·모달) |
+| `designer/*.ts` | 상태 비의존 연산 — 화면 상태를 읽지 않는 계산 (좌표·색·스타일·그리드 구조·파라미터 요약). 브라우저 저장소를 쓰지 않는다 |
+| `designer/controllers/*.ts` | 상태를 가진 부분 (모달·초안·그리드 선택·포인터·팝오버·색 선택기). lit `ReactiveController`로 만들고 `addController`로 등록한다 |
+| `designer/render/*.ts` | 화면 조각과 표시용 메타데이터 (툴바·사이드바·캔버스·속성 패널·모달·행 구간 아이콘) |
 | `styles/designer/*.styles.ts` | 영역별 스타일. **선언 순서를 바꾸지 않는다** (cascade가 달라진다) |
 
 - 컨트롤러와 렌더 모듈은 `SlipDesigner` 전체가 아니라 **목적별 인터페이스**만 받는다
   (`PanelKit`·`ElementActions`·`GridActions`·`FormActions`·`SidebarActions`·`CanvasContext`·
   `DialogContext`·`ToolbarActions`·`PointerHost`·`GridCommandsHost`).
-- 의존 방향은 **순수 함수 → 컨트롤러 → 렌더 모듈 → 컴포넌트** 한 방향이다. 아래가 위를 참조하지 않는다.
+- 의존 방향은 **상태 비의존 연산 → 컨트롤러 → 렌더 모듈 → 컴포넌트** 한 방향이다. 아래가 위를 참조하지 않는다.
+- 컨트롤러는 `TemplateResult`를 만들지 않는다. 아이콘 같은 화면 조각은 렌더 모듈에 둔다.
 - shadow root는 하나다. 자식 커스텀 엘리먼트를 만들지 않는다.

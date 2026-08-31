@@ -181,11 +181,11 @@ export function fontProps(kit: PanelKit, act: ElementActions, el: SlipElement) {
   const numOf = (e: Event) => Number((e.target as HTMLInputElement).value);
 
   return html`
-    ${fontNameRow(kit, act, 
+    ${fontNameRow(kit, act,
       (el as { fontName?: string }).fontName,
       (v) => act.update((target) => setOptional(target, 'fontName', v)),
     )}
-    ${numberRow(kit, 
+    ${numberRow(kit,
       s.fontSize, el.fontSize, DEFAULT_FONT_SIZE,
       (v) => act.update((target) => setOptional(target, 'fontSize', v)),
       { step: '0.5', min: '0.5', errorKey: 'element-font-size' },
@@ -218,12 +218,12 @@ export function fontProps(kit: PanelKit, act: ElementActions, el: SlipElement) {
               setOptional(target, 'verticalAlignment', value !== 'top' ? value : null))}>${glyph}</button>`)}
       </div>
     </div>
-    ${numberRow(kit, 
+    ${numberRow(kit,
       s.lineHeight, el.lineHeight, 1,
       (v) => act.update((target) => setOptional(target, 'lineHeight', v)),
       { step: '0.1', min: '0.1', errorKey: 'element-line-height' },
     )}
-    ${numberRow(kit, 
+    ${numberRow(kit,
       s.characterSpacing, el.characterSpacing, 0,
       (v) => act.update((target) => setOptional(target, 'characterSpacing', v)),
       { step: '0.1', errorKey: 'element-character-spacing' },
@@ -435,18 +435,18 @@ export function sizeRows(kit: PanelKit, act: ElementActions, el: SlipElement) {
     const { length, angle } = lineLengthAngle(el);
     return html`
       <div class="prop-pair">
-        ${numberRow(kit, 
+        ${numberRow(kit,
           s.length, Number(length.toFixed(1)), length,
           (v) => act.applyLineLengthAngle(v ?? length, angle),
           { step: '0.5', min: '0', errorKey: 'line-length' },
         )}
-        ${numberRow(kit, 
+        ${numberRow(kit,
           s.lineAngle, Number(angle.toFixed(1)), angle,
           (v) => act.applyLineLengthAngle(length, v ?? angle),
           { step: '1', errorKey: 'line-angle' },
         )}
       </div>
-      ${borderWidthSelect(kit, 
+      ${borderWidthSelect(kit,
         el.borderWidth,
         DEFAULT_LINE_WIDTH,
         false,
@@ -741,7 +741,7 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
     ${hasFontColor ? html`
       <div class="prop-section">
         <div class="prop-section-title">${s.styleText}</div>
-        ${colorControl(kit, 
+        ${colorControl(kit,
           s.fontColor, r.fontColor as string | undefined, 'fontColor', undefined, DEFAULT_FONT_COLOR,
         )}
         ${el.type === 'grid'
@@ -757,7 +757,7 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
           : nothing}
         ${hasTextDecor ? fontProps(kit, act, el) : nothing}
         ${hasTextDecor
-          ? textStyleToggles(kit, 
+          ? textStyleToggles(kit,
               el as { bold?: boolean; underline?: boolean; strikethrough?: boolean },
               (key, value) => act.update((target) =>
                 setOptional(target, key, value ? true : null)),
@@ -771,11 +771,11 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
       </div>` : nothing}
     <div class="prop-section">
       <div class="prop-section-title">${isLine ? s.styleLine : s.styleBorder}</div>
-      ${colorControl(kit, 
+      ${colorControl(kit,
         isLine ? s.lineColor : s.borderColor,
         r.borderColor as string | undefined, 'borderColor', undefined, DEFAULT_BORDER_COLOR,
       )}
-      ${isLine ? nothing : borderWidthSelect(kit, 
+      ${isLine ? nothing : borderWidthSelect(kit,
         r.borderWidth as number | undefined,
         defaultWidth,
         true,
@@ -785,7 +785,7 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
           setOptional(target, 'borderWidth', v === 0 && defaultWidth === 0 ? null : v)),
       )}
       ${hasBorderShape
-        ? borderShapeRow(kit, 
+        ? borderShapeRow(kit,
             r.borderStyle as 'solid' | 'dashed' | 'dotted' | undefined,
             isLine ? s.lineShape : `${s.styleBorder} ${s.borderShape}`,
             'borderStyle',

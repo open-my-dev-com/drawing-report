@@ -454,7 +454,7 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
     el.remove();
   });
 
-  it('드래그하면 끌어낸 사각형의 위치·크기로 생성되고 점선 미리보기가 표시된다', async () => {
+  it('드래그하면 그린 사각형의 위치·크기로 생성되고 점선 미리보기가 표시된다', async () => {
     const el = await loadDesigner();
     await pickShapeTool(el, strings.designer.shapeRect);
 
@@ -654,7 +654,7 @@ describe('<slip-designer> 크기 조절 핸들', () => {
     selectElement(el, 'txt-1');
     await el.updateComplete;
 
-    // txt-1 너비 60mm → -100mm 끌어도 2mm에서 멈춘다
+    // txt-1 너비 60mm → -100mm 드래그해도 2mm에서 멈춘다
     const handle = el.shadowRoot?.querySelector('.handle-e') as HTMLElement;
     handle.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,

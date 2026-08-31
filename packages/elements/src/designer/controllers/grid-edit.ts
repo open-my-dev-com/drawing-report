@@ -6,6 +6,7 @@
  * 그리드가 아닌 요소를 고르거나 양식을 다시 불러오면 `reset`으로 한꺼번에 지운다.
  */
 
+import type { ReactiveController } from 'lit';
 import type { GridRowCommand } from '../grid-model.js';
 
 /** 선택 상태가 필요로 하는 호스트의 최소 범위 */
@@ -28,7 +29,7 @@ export interface BandRange {
 /** 그리드 셀에서 편집 중인 값 소스 종류 */
 export type CellSourceKind = 'content' | 'parameter' | 'formula';
 
-export class GridEditController {
+export class GridEditController implements ReactiveController {
   private _cell: CellPosition | null = null;
   private _sourceKind: CellSourceKind | null = null;
   private _editing = false;
@@ -39,6 +40,11 @@ export class GridEditController {
   private _rowCommandField = '';
 
   constructor(private readonly host: GridEditHost) {}
+
+  /** 요소가 화면에서 빠지면 셀·행 구간 선택과 인라인 편집을 지운다. */
+  hostDisconnected(): void {
+    this.reset();
+  }
 
   /** 병합과 인라인 편집의 대상인 셀. 고른 셀이 없으면 null */
   get cell(): CellPosition | null {

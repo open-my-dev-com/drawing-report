@@ -1597,7 +1597,7 @@ describe('<slip-designer> 선 전용 편집 (C-11)', () => {
     const changes: CustomEvent[] = [];
     el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
 
-    // 두 번째 끝점(오른쪽)을 아래로 끌어 사선(↘)으로 만든다
+    // 두 번째 끝점(오른쪽)을 아래로 드래그해 사선(↘)으로 만든다
     const handle = el.shadowRoot!.querySelectorAll('.endpoint')[1] as HTMLElement;
     handle.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true, composed: true, clientX: 60 * PX, clientY: 50 * PX, pointerId: 1,
@@ -2514,10 +2514,10 @@ describe('<slip-designer> 목록 하위 필드 편집', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 색 선택기의 채도·명도 끌기 — 모듈 분리에서 옮길 포인터 상태 경계
+// 색 선택기의 채도·명도 드래그 — 모듈 분리에서 옮길 포인터 상태 경계
 // ---------------------------------------------------------------------------
 
-describe('<slip-designer> 색 선택기 끌기', () => {
+describe('<slip-designer> 색 선택기 드래그', () => {
   const s = strings.designer;
 
   /**
@@ -2557,7 +2557,7 @@ describe('<slip-designer> 색 선택기 끌기', () => {
     return el;
   }
 
-  it('채도·명도 영역을 끌어 놓으면 그 위치의 색이 저장된다', async () => {
+  it('채도·명도 영역을 드래그해 놓으면 그 위치의 색이 저장된다', async () => {
     const el = await openPicker();
     expect(colorOf(el)).toBe('#00ff00');
 
@@ -2571,7 +2571,7 @@ describe('<slip-designer> 색 선택기 끌기', () => {
     el.remove();
   });
 
-  it('끌기 중에는 표시만 따라 움직이고, 손을 뗄 때 한 번만 저장한다', async () => {
+  it('드래그 중에는 표시만 따라 움직이고, 손을 뗄 때 한 번만 저장한다', async () => {
     const el = await openPicker();
 
     svPointer(el, 'pointerdown', 0, 1);
@@ -2586,7 +2586,7 @@ describe('<slip-designer> 색 선택기 끌기', () => {
     el.remove();
   });
 
-  it('끌기를 취소하면 이후 움직임은 무시한다', async () => {
+  it('드래그를 취소하면 이후 움직임은 무시한다', async () => {
     const el = await openPicker();
 
     svPointer(el, 'pointerdown', 0.5, 0.25);

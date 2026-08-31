@@ -171,7 +171,7 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(template.schemas).toHaveLength(1);
   });
 
-  it('text는 text 스키마로, 직접 입력한 글를 그대로 값으로 넘긴다', () => {
+  it('text는 text 스키마로, 직접 입력한 글을 그대로 값으로 넘긴다', () => {
     const { template, inputs } = convertSlipFile(makeTemplateFile());
     const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
     const title = findSchema(schemas, 'title');
@@ -415,7 +415,7 @@ describe('픽스처 그리드의 항목 구간 변환 (ADR-037)', () => {
       .map((schema) => inputs[0]?.[schema.name] ?? '');
   }
 
-  it('항목 구간이 전표 값으로 채워지고 헤더는 직접 입력한 글를 쓴다', () => {
+  it('항목 구간이 전표 값으로 채워지고 헤더는 직접 입력한 글을 쓴다', () => {
     const texts = itemTexts(makeVoucher(2));
     expect(texts.slice(0, 3)).toEqual(['품명', '수량', '금액']);
     expect(texts).toContain('테스트 품목 1');

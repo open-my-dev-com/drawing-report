@@ -6,14 +6,54 @@
  * 무채색에는 색조가 없으므로 색조는 마지막 값을 유지한다.
  */
 
-import { hexToHsv, hsvToHex, loadCustomColors, saveCustomColor } from '../color.js';
+import type { ReactiveController } from 'lit';
+import { MAX_CUSTOM_COLORS, hexToHsv, hsvToHex } from '../color.js';
+
+/** 사용자 지정 색상을 저장하는 localStorage 키 */
+export const CUSTOM_COLORS_KEY = 'slipkit-designer-custom-colors';
+
+/**
+ * 저장된 사용자 지정 색상을 읽는다. 읽을 수 없으면 빈 목록을 반환한다.
+ *
+ * @returns 저장된 색상 목록. 읽을 수 없으면 빈 목록
+ */
+export function loadCustomColors(): string[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_COLORS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((c): c is string => typeof c === 'string').slice(0, MAX_CUSTOM_COLORS);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 색상을 사용자 지정 목록에 저장하고 갱신된 목록을 반환한다.
+ * 기존 색상은 목록의 끝으로 이동하고 최대 개수를 넘으면 가장 오래된 색상을 제거한다.
+ *
+ * @param color - 저장할 HEX 색상
+ * @returns 저장 후의 사용자 지정 색상 목록
+ */
+export function saveCustomColor(color: string): string[] {
+  const list = loadCustomColors().filter((c) => c !== color);
+  list.push(color);
+  while (list.length > MAX_CUSTOM_COLORS) list.shift();
+  try {
+    localStorage.setItem(CUSTOM_COLORS_KEY, JSON.stringify(list));
+  } catch {
+    // localStorage를 사용할 수 없어도 문서 편집은 계속한다.
+  }
+  return list;
+}
 
 /** 색 선택기 상태가 필요로 하는 호스트의 최소 범위 */
 export interface ColorPickerHost {
   requestUpdate(): void;
 }
 
-export class ColorPickerController {
+export class ColorPickerController implements ReactiveController {
   private _hue = 0;
   private _saturation = 1;
   private _value = 1;
@@ -21,6 +61,11 @@ export class ColorPickerController {
   private _customColors: string[] | null = null;
 
   constructor(private readonly host: ColorPickerHost) {}
+
+  /** 요소가 화면에서 빠지면 드래그를 끝낸다. */
+  hostDisconnected(): void {
+    this._dragKey = null;
+  }
 
   /** 색조(0~360) */
   get hue(): number {
@@ -43,10 +88,10 @@ export class ColorPickerController {
   }
 
   /**
-   * 채도·명도 영역을 끄는 중인지 확인한다.
+   * 채도·명도 영역을 드래그하는 중인지 확인한다.
    *
    * @param key - 색상 속성 키
-   * @returns 그 속성의 영역을 끄는 중이면 true
+   * @returns 그 속성의 영역을 드래그하는 중이면 true
    */
   isDragging(key: string): boolean {
     return this._dragKey === key;
@@ -76,7 +121,7 @@ export class ColorPickerController {
   }
 
   /**
-   * 채도·명도 영역을 끌기 시작한다.
+   * 채도·명도 영역의 드래그를 시작한다.
    *
    * @param key - 색상 속성 키
    */
@@ -84,7 +129,7 @@ export class ColorPickerController {
     this._dragKey = key;
   }
 
-  /** 끌기를 끝낸다. */
+  /** 드래그를 끝낸다. */
   endDrag(): void {
     this._dragKey = null;
   }
@@ -92,7 +137,7 @@ export class ColorPickerController {
   /**
    * 포인터 위치를 채도와 명도로 바꾼다.
    *
-   * @param event - 채도·명도 영역에서 받은 포인터 사건
+   * @param event - 채도·명도 영역에서 받은 포인터 이벤트
    */
   pointTo(event: PointerEvent): void {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();

@@ -7,6 +7,8 @@
  * `hostUpdated`가 아니라 컴포넌트의 `updated`에서 `sync`를 부른다.
  */
 
+import type { ReactiveController } from 'lit';
+
 /** 모달 초점 관리가 필요로 하는 호스트의 최소 범위 */
 export interface ModalFocusHost {
   readonly renderRoot: DocumentFragment | HTMLElement;
@@ -28,7 +30,7 @@ export function focusableIn(container: HTMLElement): HTMLElement[] {
   );
 }
 
-export class ModalFocusController {
+export class ModalFocusController implements ReactiveController {
   /**
    * 모달을 열기 직전에 초점이 있던 요소.
    * `undefined`는 모달이 열려 있지 않다는 뜻이고, `null`은 되돌릴 곳이 없다는 뜻이다.
@@ -37,10 +39,15 @@ export class ModalFocusController {
 
   constructor(private readonly host: ModalFocusHost) {}
 
+  /** 요소가 화면에서 빠지면 되돌릴 초점 대상을 놓는다. 이미 사라진 요소다. */
+  hostDisconnected(): void {
+    this.returnFocus = undefined;
+  }
+
   /**
    * 모달 안에서 Tab 이동을 가두고 Escape로 닫는다.
    *
-   * @param event - 모달 요소에서 받은 키 사건
+   * @param event - 모달 요소에서 받은 키보드 이벤트
    * @param close - Escape를 눌렀을 때 실행할 닫기 처리
    */
   handleKeydown(event: KeyboardEvent, close: () => void): void {

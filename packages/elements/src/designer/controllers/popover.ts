@@ -6,6 +6,8 @@
  * 좌표를 계산해 둔다. 화면 밖으로 넘치지 않도록 남은 높이 안에서만 편다.
  */
 
+import type { ReactiveController } from 'lit';
+
 /** 화면 고정 위치에 뜨는 팝오버의 자리 */
 export interface Placement {
   left: number;
@@ -72,11 +74,16 @@ export interface PopoverHost {
 
 const CLOSED: Placement = { left: 0, top: 0, width: 0, maxHeight: 0 };
 
-export class PopoverController {
+export class PopoverController implements ReactiveController {
   private readonly keys = new Map<PopoverSlot, string>();
   private readonly places = new Map<PopoverSlot, Placement>();
 
   constructor(private readonly host: PopoverHost) {}
+
+  /** 요소가 화면에서 빠지면 열려 있던 팝오버를 모두 닫는다. 자리 값이 화면과 어긋난다. */
+  hostDisconnected(): void {
+    this.closeAll();
+  }
 
   /**
    * 지금 열려 있는 팝오버의 키를 확인한다.
@@ -134,6 +141,12 @@ export class PopoverController {
   close(slot: PopoverSlot): void {
     this.keys.delete(slot);
     this.host.requestUpdate();
+  }
+
+  /** 열려 있는 팝오버를 모두 닫는다. 화면 갱신은 호출부가 처리한다. */
+  closeAll(): void {
+    this.keys.clear();
+    this.places.clear();
   }
 }
 

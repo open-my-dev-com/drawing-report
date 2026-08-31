@@ -1,11 +1,12 @@
 /**
- * 캔버스 포인터 조작 — 요소 만들기, 옮기기, 크기 조절과 선 끝점 끌기.
+ * 캔버스 포인터 조작 — 요소 만들기, 옮기기, 크기 조절과 선 끝점 드래그.
  *
  * @remarks
- * 조작 중에만 쓰는 임시 상태(끌기, 크기 조절, 그리는 중인 영역, 안내선)를 여기서 갖는다.
+ * 조작 중에만 쓰는 임시 상태(드래그, 크기 조절, 그리는 중인 영역, 안내선)를 여기서 갖는다.
  * 문서를 고치는 일은 호스트에 맡긴다.
  */
 
+import type { ReactiveController } from 'lit';
 import type { GridElement, SlipElement, SlipTemplateFile } from '@omdc-slipkit/core';
 import {
   MIN_SIZE_MM,
@@ -27,7 +28,7 @@ import type { CreatableType } from '../grid-view.js';
 import type { GridEditController } from './grid-edit.js';
 import type { SideSelection } from '../selection.js';
 
-/** 요소를 끌어 옮기는 중의 상태 */
+/** 요소를 드래그로 옮기는 중의 상태 */
 export interface DragState {
   id: string;
   startPxX: number;
@@ -56,7 +57,7 @@ export interface ResizeState {
   snapshot: string | null;
 }
 
-/** 선 끝점을 끄는 중의 상태 */
+/** 선 끝점을 드래그하는 중의 상태 */
 export interface LineEndState {
   id: string;
   fixed: { x: number; y: number };
@@ -101,7 +102,7 @@ export interface PointerHost {
       position: { x: number; y: number };
       width?: number;
       height?: number;
-      /** 끄는 방향에서 계산한 선 방향 */
+      /** 드래그 방향에서 계산한 선 방향 */
       lineDirection?: 'horizontal' | 'vertical' | 'down' | 'up';
     },
   ): void;
@@ -125,14 +126,14 @@ export interface PointerHost {
   refresh(): void;
 }
 
-export class CanvasPointerController {
-  /** 요소를 끌어 옮기는 중의 상태 */
+export class CanvasPointerController implements ReactiveController {
+  /** 요소를 드래그로 옮기는 중의 상태 */
   private _drag: DragState | null = null;
   /** 크기를 조절하는 중의 상태 */
   private _resize: ResizeState | null = null;
-  /** 선 끝점을 끄는 중의 상태 */
+  /** 선 끝점을 드래그하는 중의 상태 */
   private _lineEnd: LineEndState | null = null;
-  /** 끌어서 만드는 중인 요소 */
+  /** 드래그로 만드는 중인 요소 */
   private _draw: {
     type: CreatableType;
     startX: number;
@@ -141,7 +142,7 @@ export class CanvasPointerController {
     endY: number;
     moved: boolean;
   } | null = null;
-  /** 끌어서 만드는 중인 사각 영역(mm) */
+  /** 드래그로 만드는 중인 사각 영역(mm) */
   private _drawRect: { x: number; y: number; w: number; h: number } | null = null;
   /** 선을 그리기 시작한 점(mm) */
   private _lineDraft: { x: number; y: number } | null = null;
@@ -160,7 +161,21 @@ export class CanvasPointerController {
 
   constructor(private readonly host: PointerHost) {}
 
-  /** 요소를 끌어 옮기는 중의 상태 */
+  /** 요소가 화면에서 빠지면 진행 중이던 포인터 조작과 안내선을 버린다. */
+  hostDisconnected(): void {
+    this._drag = null;
+    this._resize = null;
+    this._lineEnd = null;
+    this._draw = null;
+    this._drawRect = null;
+    this._lineDraft = null;
+    this._lineGhost = null;
+    this._guideX = null;
+    this._guideY = null;
+    this._cursorMm = null;
+  }
+
+  /** 요소를 드래그로 옮기는 중의 상태 */
   get drag(): DragState | null {
     return this._drag;
   }
@@ -170,12 +185,12 @@ export class CanvasPointerController {
     return this._resize;
   }
 
-  /** 끌어서 만드는 중인 요소 */
+  /** 드래그로 만드는 중인 요소 */
   get draw(): CanvasPointerController['_draw'] {
     return this._draw;
   }
 
-  /** 끌어서 만드는 중인 사각 영역(mm) */
+  /** 드래그로 만드는 중인 사각 영역(mm) */
   get drawRect(): { x: number; y: number; w: number; h: number } | null {
     return this._drawRect;
   }
@@ -464,7 +479,7 @@ export class CanvasPointerController {
   };
 
   /**
-   * 크기 조절 손잡이를 끄는 동안 요소의 위치와 크기를 갱신한다.
+   * 크기 조절 손잡이를 드래그하는 동안 요소의 위치와 크기를 갱신한다.
    *
    * @param e - 포인터 이동 이벤트
    */
@@ -597,7 +612,7 @@ export class CanvasPointerController {
       }
       this._pendingTool = null;
       if (d.moved && rect) {
-        // 드래그: 끌어낸 사각형의 위치·크기로 생성 (최소 크기는 _addElement가 보정)
+        // 드래그: 만들어진 사각형의 위치·크기로 생성 (최소 크기는 _addElement가 보정)
         this.host.addElement(d.type, {
           position: { x: rect.x, y: rect.y }, width: rect.w, height: rect.h,
         });

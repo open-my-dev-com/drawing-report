@@ -8,6 +8,7 @@
 
 import { html, nothing, svg } from 'lit';
 import type { TemplateResult } from 'lit';
+import { bandDescription, bandIcon, bandLabel } from './band-visuals.js';
 import {
   filterVisibleOnPage,
   resolveConditionalFormats,
@@ -91,9 +92,9 @@ export interface CanvasContext {
   readonly guideX: number | null;
   /** 가로 정렬 안내선 위치(mm) */
   readonly guideY: number | null;
-  /** 끌어서 만드는 중인 사각 영역(mm) */
+  /** 드래그로 만드는 중인 사각 영역(mm) */
   readonly drawRect: { x: number; y: number; w: number; h: number } | null;
-  /** 끌어서 만드는 중인 사각 영역의 시작·끝(mm) */
+  /** 드래그로 만드는 중인 사각 영역의 시작·끝(mm) */
   readonly draw: {
     type: SlipElement['type'];
     startX: number;
@@ -128,12 +129,6 @@ export interface CanvasContext {
   commitCellContent(value: string): void;
   /** 수식을 평가한다 */
   evaluate(source: string, context: FormulaContext): FormulaValue;
-  /** 행 구간 역할의 이름 */
-  bandLabel(placement: GridBandPlacement): string;
-  /** 행 구간 역할의 설명 */
-  bandDescription(placement: GridBandPlacement): string;
-  /** 행 구간 역할의 아이콘 */
-  bandIcon(placement: GridBandPlacement): TemplateResult;
   /** 행 번호를 눌렀을 때 */
   onBandRowClick(row: number, extend: boolean): void;
   /** 행 역할 메뉴를 닫는다 */
@@ -932,7 +927,7 @@ export function bandStrip(ctx: CanvasContext, el: GridElement, rowTracks: string
     return html`<button type="button"
       data-band-row=${String(r)}
       class="band-row placement-${band?.placement ?? 'none'} ${inSelect ? 'selected' : ''}"
-      title=${band === undefined ? '' : ctx.bandLabel(band.placement)}
+      title=${band === undefined ? '' : bandLabel(ctx.s, band.placement)}
       aria-label="${s.bandRow} ${r + 1}"
       aria-haspopup="menu"
       aria-expanded=${String(inSelect && ctx.gridEdit.bandMenuOpen)}
@@ -969,10 +964,10 @@ export function bandMenu(ctx: CanvasContext, el: GridElement) {
       @click=${() => {
         ctx.setRowBandRole(from, to, placement);
         ctx.closeBandMenu(true);
-      }}><span class="band-menu-icon">${ctx.bandIcon(placement)}</span>
+      }}><span class="band-menu-icon">${bandIcon(placement)}</span>
         <span class="band-menu-copy">
-          <span class="band-menu-label">${ctx.bandLabel(placement)}</span>
-          <span class="band-menu-description">${ctx.bandDescription(placement)}</span>
+          <span class="band-menu-label">${bandLabel(ctx.s, placement)}</span>
+          <span class="band-menu-description">${bandDescription(ctx.s, placement)}</span>
         </span>
       </button>`)}
     <button type="button" role="menuitem" class="band-menu-item"
