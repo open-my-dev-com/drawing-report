@@ -47,19 +47,69 @@ import { renderSlip, resolveFonts, type SlipDesignerSettings, type PaperSize } f
 import { getPresets, type SlipPreset } from './presets.js';
 import { icons } from './icons.js';
 import { pickImageFile, formatBytes } from './image-file.js';
+import {
+  COLOR_PALETTE,
+  loadCustomColors,
+  saveCustomColor,
+  hexToHsv,
+  hsvToHex,
+} from './designer/color.js';
+import {
+  PX_PER_MM,
+  MIN_SIZE_MM,
+  ANCHORS,
+  RESIZE_HANDLES,
+  round1,
+  lineLengthAngle,
+  lineBoxFromLengthAngle,
+  polygonPointsPx,
+  lineEndpoints,
+  boxOf,
+  setElementBox,
+  trackOffsets,
+  snapCandidates,
+  bestSnap,
+} from './designer/geometry.js';
+import type { ResizeHandle, SnapCandidates } from './designer/geometry.js';
+import {
+  DEFAULT_FONT_SIZE,
+  DEFAULT_FONT_COLOR,
+  DEFAULT_BORDER_COLOR,
+  DEFAULT_LINE_WIDTH,
+  fontPx,
+  justifyOf,
+  verticalFlexAlign,
+  dashArrayOf,
+  textStyleCss,
+} from './designer/style-css.js';
+import { setOptional, clearValueSources } from './designer/patch.js';
+import {
+  GRID_DEFAULT_ROW_MM,
+  GRID_DEFAULT_COL_MM,
+  GRID_MAX_TRACKS_UI,
+  GRID_MAX_ITEMS_UI,
+  GRID_MAX_PER_PAGE_UI,
+  isGrid,
+  gridDims,
+  columnWidths,
+  ensureCell,
+  clampGridSpans,
+  gridHeaderTitle,
+  BAND_PLACEMENT_ORDER,
+  BAND_PLACEMENTS,
+  itemBandOf,
+  inItemBand,
+  bandAt,
+  assignBandRole,
+  resizeBandRange,
+  spanCrossesBand,
+} from './designer/grid-model.js';
+import type { GridRowCommand } from './designer/grid-model.js';
 
-/** 색 선택기에 표시할 기본 색상 */
-const COLOR_PALETTE = [
-  '#000000', '#ffffff', '#f2f2f2', '#d93025', '#f9ab00', '#188038', '#1a73e8', '#9334e6',
-] as const;
 
-/** 사용자 지정 색상을 저장하는 localStorage 키 */
-const CUSTOM_COLORS_KEY = 'slipkit-designer-custom-colors';
 /** 파라미터 키와 충돌하지 않는 "새 값 등록" 항목의 내부 값 */
 const NEW_BINDING_OPTION = '\u0000new';
 
-/** 저장할 수 있는 사용자 지정 색상의 최대 개수 */
-const MAX_CUSTOM_COLORS = 30;
 
 /** 컨테이너 안에서 Tab으로 갈 수 있는 요소를 화면 순서대로 모은다. */
 function focusableIn(container: HTMLElement): HTMLElement[] {
@@ -71,34 +121,7 @@ function focusableIn(container: HTMLElement): HTMLElement[] {
   );
 }
 
-/** 저장된 사용자 지정 색상을 읽는다. 읽을 수 없으면 빈 목록을 반환한다. */
-function loadCustomColors(): string[] {
-  try {
-    const raw = localStorage.getItem(CUSTOM_COLORS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((c): c is string => typeof c === 'string').slice(0, MAX_CUSTOM_COLORS);
-  } catch {
-    return [];
-  }
-}
 
-/**
- * 색상을 사용자 지정 목록에 저장하고 갱신된 목록을 반환한다.
- * 기존 색상은 목록의 끝으로 이동하고 최대 개수를 넘으면 가장 오래된 색상을 제거한다.
- */
-function saveCustomColor(color: string): string[] {
-  const list = loadCustomColors().filter((c) => c !== color);
-  list.push(color);
-  while (list.length > MAX_CUSTOM_COLORS) list.shift();
-  try {
-    localStorage.setItem(CUSTOM_COLORS_KEY, JSON.stringify(list));
-  } catch {
-    // localStorage를 사용할 수 없어도 문서 편집은 계속한다.
-  }
-  return list;
-}
 
 /** 세로 방향을 기준으로 정의한 기본 용지 크기(mm) */
 const PAPER_PRESETS = [
@@ -108,23 +131,7 @@ const PAPER_PRESETS = [
   { name: 'Letter', width: 215.9, height: 279.4 },
 ] as const;
 
-/**
- * 속성 패널에서 X와 Y 좌표의 기준으로 사용할 9개 지점.
- * 파일에는 기준점과 관계없이 왼쪽 위 좌표를 저장한다.
- */
-const ANCHORS = [
-  { key: 'anchorTL', ax: 0, ay: 0 },
-  { key: 'anchorT', ax: 0.5, ay: 0 },
-  { key: 'anchorTR', ax: 1, ay: 0 },
-  { key: 'anchorL', ax: 0, ay: 0.5 },
-  { key: 'anchorC', ax: 0.5, ay: 0.5 },
-  { key: 'anchorR', ax: 1, ay: 0.5 },
-  { key: 'anchorBL', ax: 0, ay: 1 },
-  { key: 'anchorB', ax: 0.5, ay: 1 },
-  { key: 'anchorBR', ax: 1, ay: 1 },
-] as const;
 
-const PX_PER_MM = 96 / 25.4;
 const MAX_UNDO = 50;
 /**
  * 파라미터 값 종류 선택지.
@@ -170,8 +177,6 @@ const BINDING_FIELD_VALUE_TYPES = BINDING_VALUE_TYPES.filter((t) => t.value !== 
 const BORDER_WIDTH_STEPS = [0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.5, 2] as const;
 /** 샘플 데이터 모달의 페이지당 파라미터 수 */
 const SAMPLE_PAGE_SIZE = 10;
-/** 요소와 안내선에 맞춤이 적용되는 최대 거리(mm) */
-const SNAP_MM = 1.5;
 
 
 /** 캔버스 격자 간격 선택지(mm) */
@@ -220,26 +225,9 @@ const GRID_COLORS = [
 
 /** 격자 색상 ID */
 type GridColorId = (typeof GRID_COLORS)[number]['id'];
-/** 크기 조절 최소 폭·높이(mm) */
-const MIN_SIZE_MM = 2;
 
-const RESIZE_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
-type ResizeHandle = (typeof RESIZE_HANDLES)[number];
 
-/** mm 좌표를 0.1mm 단위로 반올림 */
-function round1(v: number): number {
-  return Math.round(v * 10) / 10;
-}
 
-/**
- * 속성 패널에서 지정하지 않은 스타일에 적용할 기본값.
- * core의 PDF 변환 기본값과 같아야 한다.
- */
-const DEFAULT_FONT_SIZE = 10;
-const DEFAULT_FONT_COLOR = '#000000';
-const DEFAULT_BORDER_COLOR = '#000000';
-/** 선 굵기 기본값(mm). core의 `DEFAULT_BORDER_WIDTH`와 같아야 한다. */
-const DEFAULT_LINE_WIDTH = 0.2;
 /**
  * 업로드할 수 있는 이미지 파일의 기본 최대 크기(바이트).
  * base64로 담기면 약 33% 커지므로 2MB 원본이 파일에는 ~2.7MB로 들어간다.
@@ -248,565 +236,48 @@ const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 /** 사이드바 페이지 미리보기의 너비(px) */
 const THUMB_WIDTH_PX = 132;
 
-/**
- * 선 요소의 영역과 방향을 길이와 각도로 변환한다.
- *
- * @remarks
- * 파일에는 선의 영역과 방향을 저장하고 속성 패널에서는 길이와 각도로 편집한다.
- * 각도는 화면 좌표계에서 시계 방향을 양수로 사용하며 0도는 오른쪽, 90도는 아래쪽이다.
- *
- * @param el - 선 요소
- * @returns 길이(mm)와 각도(도)
- */
-function lineLengthAngle(el: LineElement): { length: number; angle: number } {
-  const w = el.width;
-  const h = el.height;
-  switch (el.lineDirection ?? 'horizontal') {
-    case 'horizontal': return { length: w, angle: 0 };
-    case 'vertical': return { length: h, angle: 90 };
-    // 대각선은 요소 영역의 두 모서리를 잇는다.
-    case 'down': return { length: Math.hypot(w, h), angle: (Math.atan2(h, w) * 180) / Math.PI };
-    default: return { length: Math.hypot(w, h), angle: -(Math.atan2(h, w) * 180) / Math.PI };
-  }
-}
 
-/**
- * 길이와 각도를 파일에 저장할 요소 영역과 방향으로 변환한다.
- *
- * @remarks
- * 0, 90, 180, 270도와의 차이가 0.5도 이내이면 수평선 또는 수직선으로 맞춘다.
- *
- * @param length - 길이(mm)
- * @param angle - 각도(도, 시계 방향)
- * @returns 상자 크기와 방향
- */
-function lineBoxFromLengthAngle(
-  length: number,
-  angle: number,
-): { width: number; height: number; lineDirection: 'horizontal' | 'vertical' | 'down' | 'up' } {
-  const len = Math.max(0, length);
-  // 반대 방향은 같은 선이므로 각도를 0 이상 180도 미만으로 정규화한다.
-  let a = ((angle % 360) + 360) % 360;
-  if (a >= 180) a -= 180;
-  const SNAP = 0.5;
-  if (a <= SNAP || a >= 180 - SNAP) return { width: len, height: 0, lineDirection: 'horizontal' };
-  if (Math.abs(a - 90) <= SNAP) return { width: 0, height: len, lineDirection: 'vertical' };
-  const rad = (a * Math.PI) / 180;
-  const width = Math.abs(len * Math.cos(rad));
-  const height = Math.abs(len * Math.sin(rad));
-  return { width, height, lineDirection: a < 90 ? 'down' : 'up' };
-}
 
-/** 글자 크기를 pt에서 CSS px로 변환한다. */
-function fontPx(size: number | undefined): string {
-  return `${(((size ?? DEFAULT_FONT_SIZE) * 4) / 3).toFixed(2)}px`;
-}
 
-/** 가로 정렬 값을 flexbox 정렬 값으로 변환한다. */
-function justifyOf(alignment: 'left' | 'center' | 'right' | undefined): string {
-  return alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start';
-}
 
-/** 수직 정렬 값을 flexbox 정렬 값으로 변환한다. */
-function verticalFlexAlign(v: 'top' | 'middle' | 'bottom' | undefined): string {
-  return v === 'middle' ? 'center' : v === 'bottom' ? 'flex-end' : 'flex-start';
-}
 
-/**
- * 글자 스타일을 세미콜론으로 시작하는 인라인 CSS 문자열로 변환한다.
- *
- * @param style - 요소·셀의 글자 스타일
- * @param opts - `omitVerticalAlign`이 true이면 `justify-content`를 생략한다.
- */
-function textStyleCss(
-  style: {
-    bold?: boolean | undefined;
-    underline?: boolean | undefined;
-    strikethrough?: boolean | undefined;
-    verticalAlignment?: 'top' | 'middle' | 'bottom' | undefined;
-    lineHeight?: number | undefined;
-    characterSpacing?: number | undefined;
-    vertical?: boolean | undefined;
-  },
-  opts?: { omitVerticalAlign?: boolean },
-): string {
-  const decorations = [
-    style.underline === true ? 'underline' : '',
-    style.strikethrough === true ? 'line-through' : '',
-  ].filter(Boolean).join(' ');
-  // 그리드 셀은 호출부에서 수직 정렬을 적용하므로 여기서는 선택적으로 생략한다.
-  const verticalAlign = opts?.omitVerticalAlign
-    ? ''
-    : `;justify-content:${verticalFlexAlign(style.verticalAlignment)}`;
-  // 브라우저의 합성 italic과 PDF의 폰트 변형 처리 방식이 달라 캔버스에는 italic을 적용하지 않는다.
-  return (
-    (style.bold === true ? ';font-weight:700' : '') +
-    (decorations ? `;text-decoration:${decorations}` : '') +
-    verticalAlign +
-    // CSS의 half-leading만큼 위쪽 여백을 보정해 PDF와 첫 줄 위치를 맞춘다.
-    (style.lineHeight !== undefined && style.lineHeight !== 1
-      ? `;line-height:${style.lineHeight};margin-top:${(-(style.lineHeight - 1) / 2).toFixed(4)}em`
-      : '') +
-    (style.characterSpacing !== undefined ? `;letter-spacing:${(style.characterSpacing * 4) / 3}px` : '')
-    // 세로쓰기는 PDF와 같은 stackVertically 결과를 사용한다.
-  );
-}
 
-/**
- * 요소 또는 셀의 선택 속성을 설정하거나 제거한다.
- *
- * @remarks
- * 판별 유니온에 동적으로 속성을 적용하는 타입 변환을 이 함수 안으로 제한한다.
- *
- * @param target - 필드를 고칠 요소·셀 객체
- * @param key - 고칠 선택 필드 이름
- * @param value - 넣을 값 (null·undefined면 필드를 지운다)
- */
-function setOptional(target: object, key: string, value: unknown): void {
-  const record = target as Record<string, unknown>;
-  if (value === null || value === undefined) delete record[key];
-  else record[key] = value;
-}
 
-/** PDF 렌더링 비율과 맞춘 캔버스용 `stroke-dasharray` 값(px) */
-function dashArrayOf(style: 'solid' | 'dashed' | 'dotted' | undefined): string | undefined {
-  if (style === 'dashed') return `${2.4 * PX_PER_MM} ${1.2 * PX_PER_MM}`;
-  if (style === 'dotted') return `${0.4 * PX_PER_MM} ${0.8 * PX_PER_MM}`;
-  return undefined;
-}
 
-/** PDF 변환과 같은 규칙으로 정다각형 꼭짓점 좌표를 계산한다. */
-function polygonPointsPx(sides: number, width: number, height: number): [number, number][] {
-  const raw: [number, number][] = Array.from({ length: sides }, (_, index) => {
-    const angle = -Math.PI / 2 + (index * 2 * Math.PI) / sides;
-    return [Math.cos(angle), Math.sin(angle)];
-  });
-  const xs = raw.map(([x]) => x);
-  const ys = raw.map(([, y]) => y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const spanX = maxX - minX || 1;
-  const spanY = maxY - minY || 1;
-  return raw.map(([x, y]) => [((x - minX) / spanX) * width, ((y - minY) / spanY) * height]);
-}
 
-/** 선 요소의 방향에 따른 두 끝점 좌표(mm)를 계산한다. */
-function lineEndpoints(el: {
-  position: { x: number; y: number };
-  width: number;
-  height: number;
-  lineDirection?: 'horizontal' | 'vertical' | 'down' | 'up' | undefined;
-}): [{ x: number; y: number }, { x: number; y: number }] {
-  const { x, y } = el.position;
-  const w = el.width;
-  const h = el.height;
-  switch (el.lineDirection ?? 'horizontal') {
-    case 'vertical':
-      return [{ x: x + w / 2, y }, { x: x + w / 2, y: y + h }];
-    case 'down':
-      return [{ x, y }, { x: x + w, y: y + h }];
-    case 'up':
-      return [{ x, y: y + h }, { x: x + w, y }];
-    default:
-      return [{ x, y: y + h / 2 }, { x: x + w, y: y + h / 2 }];
-  }
-}
 
-/** 열과 행에 허용할 최소 크기 비율(%) */
-const MIN_COLUMN_PERCENTAGE = 1;
 
-/** 백분율을 소수점 둘째 자리로 반올림 */
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
-/**
- * 마지막 비율을 둘로 나누어 항목을 하나 추가한다.
- * 반올림 오차는 새 항목에 반영해 합계를 유지한다.
- *
- * @param list - 백분율 목록 (합 100)
- * @returns 항목이 하나 늘어난 새 목록
- */
-function splitLastPercentage(list: number[]): number[] {
-  const last = list[list.length - 1];
-  if (last === undefined) return [100];
-  const kept = round2(last / 2);
-  return [...list.slice(0, -1), kept, round2(last - kept)];
-}
 
-/**
- * 항목을 제거하고 해당 비율을 인접 항목에 더한다.
- * 앞 항목이 있으면 앞에 더하고 첫 항목을 제거할 때는 다음 항목에 더한다.
- *
- * @param list - 백분율 목록 (합 100)
- * @param index - 지울 항목 위치
- * @returns 항목이 하나 줄어든 새 목록 (한 항목만 남으면 100)
- */
-function removePercentageToNeighbor(list: number[], index: number): number[] {
-  if (list.length <= 1) return [100];
-  const removed = list[index] ?? 0;
-  const next = list.filter((_, i) => i !== index);
-  const neighbor = index > 0 ? index - 1 : 0;
-  next[neighbor] = round2((next[neighbor] ?? 0) + removed);
-  return next;
-}
 
-/**
- * 비율 목록의 항목 수를 변경한다.
- * 늘릴 때는 마지막 항목을 나누고 줄일 때는 뒤에서부터 제거한 비율을 앞 항목에 더한다.
- *
- * @param list - 백분율 목록 (합 100)
- * @param count - 바뀐 항목 수
- * @returns 길이가 count인 새 목록
- */
-function resizePercentages(list: number[], count: number): number[] {
-  let next = [...list];
-  while (next.length < count) next = splitLastPercentage(next);
-  while (next.length > count) next = removePercentageToNeighbor(next, next.length - 1);
-  return next;
-}
 
-/** 새 그리드의 기본 행 높이(mm) */
-const GRID_DEFAULT_ROW_MM = 8;
-/** 새 그리드의 기본 열 너비(mm) */
-const GRID_DEFAULT_COL_MM = 30;
-/** 디자이너에서 편집할 수 있는 그리드의 최대 행 및 열 수 */
-const GRID_MAX_TRACKS_UI = 100;
-/** 최대 항목 수·최소 표시 항목 수와 페이지당 최대 항목 수의 입력 상한 */
-const GRID_MAX_ITEMS_UI = 100_000;
-const GRID_MAX_PER_PAGE_UI = 1000;
 /** 새 요소의 기본 위치를 순차 이동할 간격과 반복 주기(mm) */
 const NEW_ELEMENT_CASCADE_STEP_MM = 5;
 const NEW_ELEMENT_CASCADE_WRAP_MM = 50;
 /** "내 양식" 목록의 페이지당 항목 수 */
 const MY_FORMS_PAGE_SIZE = 10;
 
-/** 요소의 표시 크기(mm). 그리드는 열 너비와 행 높이의 합에서 계산한다. */
-function boxOf(el: SlipElement): { width: number; height: number } {
-  return elementBounds(el);
-}
 
-/**
- * 요소 크기를 설정한다. 그리드는 크기를 따로 저장하지 않으므로
- * 기존 비율을 유지하며 열 너비와 행 높이를 목표 크기에 맞춘다.
- *
- * @param el - 대상 요소
- * @param width - 목표 너비(mm). 생략하면 그대로 둔다
- * @param height - 목표 높이(mm). 생략하면 그대로 둔다
- */
-function setElementBox(el: SlipElement, width?: number, height?: number): void {
-  if (el.type === 'grid') {
-    const scaled = (sizes: number[], target: number): number[] => {
-      const total = sizes.reduce((sum, size) => sum + size, 0);
-      if (total <= 0) return sizes.map(() => Math.max(MIN_SIZE_MM, round1(target / sizes.length)));
-      return sizes.map((size) => Math.max(MIN_SIZE_MM, round1((size / total) * target)));
-    };
-    if (width !== undefined) {
-      el.columns = scaled(el.columns.map((column) => column.width), width).map((w) => ({ width: w }));
-    }
-    if (height !== undefined) {
-      el.rows = scaled(el.rows.map((row) => row.height), height).map((h) => ({ height: h }));
-    }
-    return;
-  }
-  if (width !== undefined) el.width = width;
-  if (height !== undefined) el.height = height;
-}
 
-/** 행·열이 줄어든 뒤 격자를 벗어나는 병합 범위를 줄인다 */
-function clampGridSpans(el: GridElement): void {
-  for (const cell of el.cells) {
-    const record = cell as Record<string, unknown>;
-    if (cell.rowSpan !== undefined && cell.row + cell.rowSpan > el.rows.length) {
-      const clamped = el.rows.length - cell.row;
-      if (clamped <= 1) delete record.rowSpan;
-      else cell.rowSpan = clamped;
-    }
-    if (cell.colSpan !== undefined && cell.column + cell.colSpan > el.columns.length) {
-      const clamped = el.columns.length - cell.column;
-      if (clamped <= 1) delete record.colSpan;
-      else cell.colSpan = clamped;
-    }
-  }
-}
 
-/** 트랙 크기 배열을 누적 오프셋 배열로 변환한다. */
-function trackOffsets(sizes: readonly number[]): number[] {
-  const offsets = [0];
-  for (const size of sizes) offsets.push((offsets[offsets.length - 1] ?? 0) + size);
-  return offsets;
-}
 
-/** 비율(생략 시 균등)로 나눈 누적 경계 위치(mm) — 길이 = count + 1 */
-function cumulativeOffsets(total: number, count: number, percentages?: number[]): number[] {
-  const offsets = [0];
-  for (let i = 0; i < count; i++) {
-    const size = percentages ? (total * (percentages[i] ?? 0)) / 100 : total / count;
-    offsets.push((offsets[i] ?? 0) + size);
-  }
-  return offsets;
-}
 
-function isGrid(el: SlipElement | undefined): el is GridElement {
-  return el?.type === 'grid';
-}
 
-/**
- * 반복 구간 위쪽에서 같은 열의 헤더 텍스트를 찾는다.
- */
-function gridHeaderTitle(grid: GridElement, column: number, fromRow: number): string | undefined {
-  for (let row = fromRow - 1; row >= 0; row -= 1) {
-    const cell = grid.cells.find((c) => c.row === row && c.column === column);
-    if (cell?.content !== undefined && cell.content !== '') return cell.content;
-  }
-  return undefined;
-}
 
-/** 행 구간 placement의 세로 순서 (파일 검증과 같은 순서) */
-const BAND_PLACEMENT_ORDER: Record<GridBandPlacement, number> = {
-  'before-data': 0,
-  'page-start': 1,
-  'group-start': 2,
-  item: 3,
-  'group-end': 4,
-  'after-data': 5,
-  'page-end': 6,
-};
 
-/** 행 표시 방식을 출력 흐름에 맞게 나열한다. */
-const BAND_PLACEMENTS: readonly GridBandPlacement[] = [
-  'before-data', 'page-start', 'group-start', 'item', 'group-end', 'after-data', 'page-end',
-];
 
-type GridRowCommand = 'header' | 'group-subtotal' | 'page-subtotal' | 'final-total';
 
-/** 반복 그리드의 항목 구간을 반환한다. */
-function itemBandOf(el: GridElement): GridBand | undefined {
-  return el.repeat?.bands.find((band) => band.placement === 'item');
-}
 
-/** 원본 행이 항목 구간에 포함되는지 확인한다. */
-function inItemBand(el: GridElement, row: number): boolean {
-  const band = itemBandOf(el);
-  return band !== undefined && row >= band.fromRow && row <= band.toRow;
-}
 
-/** 원본 행이 속한 행 구간을 반환한다. */
-function bandAt(el: GridElement, row: number): GridBand | undefined {
-  return el.repeat?.bands.find((band) => row >= band.fromRow && row <= band.toRow);
-}
 
-/**
- * 선택한 행 범위에 행 구간 역할을 지정한 새 구간 목록을 만든다.
- * 연속된 같은 역할 행은 하나의 구간으로 합치고, 범위가 같은 기존 구간의 id·설정을 유지한다.
- *
- * @param el - 반복 설정이 있는 그리드
- * @param fromRow - 역할을 바꿀 시작 행
- * @param toRow - 역할을 바꿀 끝 행
- * @param placement - 지정할 역할
- * @returns 새 구간 목록 또는 규칙 위반 코드
- */
-function assignBandRole(
-  el: GridElement,
-  fromRow: number,
-  toRow: number,
-  placement: GridBandPlacement,
-): GridBand[] | 'noItem' | 'outOfOrder' {
-  const roles: GridBandPlacement[] = el.rows.map((_, r) => bandAt(el, r)?.placement ?? 'before-data');
-  for (let r = fromRow; r <= toRow; r++) roles[r] = placement;
-  // 항목 구간을 다른 곳에 지정하면 기존 항목 행은 역할을 잃으므로 위·아래 역할로 흡수한다.
-  if (placement === 'item') {
-    roles.forEach((role, r) => {
-      if (role !== 'item' || (r >= fromRow && r <= toRow)) return;
-      roles[r] = r < fromRow ? 'before-data' : 'after-data';
-    });
-  }
-  // 연속된 같은 역할을 하나의 구간으로 합친다.
-  const bands: GridBand[] = [];
-  let start = 0;
-  for (let r = 1; r <= roles.length; r++) {
-    if (r < roles.length && roles[r] === roles[start]) continue;
-    const existing = el.repeat?.bands.find(
-      (band) => band.fromRow === start && band.toRow === r - 1 && band.placement === roles[start],
-    );
-    bands.push(
-      existing ?? { id: `band_${crypto.randomUUID().slice(0, 8)}`, fromRow: start, toRow: r - 1, placement: roles[start]! },
-    );
-    start = r;
-  }
-  const itemBands = bands.filter((band) => band.placement === 'item');
-  if (itemBands.length !== 1) return 'noItem';
-  for (let i = 1; i < bands.length; i++) {
-    if (BAND_PLACEMENT_ORDER[bands[i]!.placement] < BAND_PLACEMENT_ORDER[bands[i - 1]!.placement]) {
-      return 'outOfOrder';
-    }
-  }
-  return bands;
-}
 
-/**
- * 한 행 구간의 시작·종료 행을 바꾸고 맞닿은 구간의 경계를 함께 조정한다.
- * 선택한 구간과 인접 구간의 식별자·옵션은 유지한다.
- */
-function resizeBandRange(
-  el: GridElement,
-  bandId: string,
-  fromRow: number,
-  toRow: number,
-): GridBand[] | 'noItem' | 'outOfOrder' {
-  if (!el.repeat) return 'outOfOrder';
-  const bands = el.repeat.bands.map((band) => ({ ...band }));
-  let targetIndex = bands.findIndex((band) => band.id === bandId);
-  if (targetIndex < 0) return 'outOfOrder';
-  let target = bands[targetIndex]!;
-  const previousFrom = target.fromRow;
-  const previousTo = target.toRow;
 
-  if (fromRow < previousFrom) {
-    for (let index = targetIndex - 1; index >= 0; index -= 1) {
-      const band = bands[index]!;
-      if (band.toRow < fromRow) break;
-      if (band.fromRow < fromRow) {
-        band.toRow = fromRow - 1;
-        break;
-      }
-      bands.splice(index, 1);
-      targetIndex -= 1;
-    }
-  } else if (fromRow > previousFrom) {
-    const previous = bands[targetIndex - 1];
-    if (previous !== undefined) {
-      previous.toRow = fromRow - 1;
-    } else {
-      if (BAND_PLACEMENT_ORDER[target.placement] <= BAND_PLACEMENT_ORDER['before-data']) {
-        return 'outOfOrder';
-      }
-      bands.unshift({
-        id: `band_${crypto.randomUUID().slice(0, 8)}`,
-        fromRow: previousFrom,
-        toRow: fromRow - 1,
-        placement: 'before-data',
-      });
-      targetIndex += 1;
-    }
-  }
 
-  target = bands[targetIndex]!;
-  target.fromRow = fromRow;
 
-  if (toRow > previousTo) {
-    for (let index = targetIndex + 1; index < bands.length;) {
-      const band = bands[index]!;
-      if (band.fromRow > toRow) break;
-      if (band.toRow > toRow) {
-        band.fromRow = toRow + 1;
-        break;
-      }
-      bands.splice(index, 1);
-    }
-  } else if (toRow < previousTo) {
-    const next = bands[targetIndex + 1];
-    if (next !== undefined) {
-      next.fromRow = toRow + 1;
-    } else {
-      const targetRank = BAND_PLACEMENT_ORDER[target.placement];
-      const placement: GridBandPlacement | null = targetRank < BAND_PLACEMENT_ORDER['after-data']
-        ? 'after-data'
-        : targetRank < BAND_PLACEMENT_ORDER['page-end'] ? 'page-end' : null;
-      if (placement === null) return 'outOfOrder';
-      bands.push({
-        id: `band_${crypto.randomUUID().slice(0, 8)}`,
-        fromRow: toRow + 1,
-        toRow: previousTo,
-        placement,
-      });
-    }
-  }
-  target.toRow = toRow;
 
-  if (bands.filter((band) => band.placement === 'item').length !== 1) return 'noItem';
-  let nextRow = 0;
-  for (let index = 0; index < bands.length; index += 1) {
-    const band = bands[index]!;
-    if (band.fromRow !== nextRow) return 'outOfOrder';
-    if (index > 0
-      && BAND_PLACEMENT_ORDER[band.placement] < BAND_PLACEMENT_ORDER[bands[index - 1]!.placement]) {
-      return 'outOfOrder';
-    }
-    nextRow = band.toRow + 1;
-  }
-  return nextRow === el.rows.length ? bands : 'outOfOrder';
-}
 
-/** 셀 병합이 행 구간 경계를 넘는지 검사한다. */
-function spanCrossesBand(el: GridElement, bands: readonly GridBand[], cell: GridCell): boolean {
-  const last = cell.row + (cell.rowSpan ?? 1) - 1;
-  const startBand = bands.find((band) => cell.row >= band.fromRow && cell.row <= band.toRow);
-  const endBand = bands.find((band) => last >= band.fromRow && last <= band.toRow);
-  return startBand !== endBand;
-}
 
-/** 행·열 수 */
-function gridDims(el: GridElement): { rows: number; columns: number } {
-  return { rows: el.rows.length, columns: el.columns.length };
-}
 
-/** 캔버스에 그릴 열 너비(mm) 목록 */
-function columnWidths(el: GridElement): number[] {
-  return el.columns.map((column) => column.width);
-}
-
-/** 지정한 셀을 반환하고 없으면 빈 셀을 생성한다. */
-function ensureCell(el: GridElement, row: number, column: number): Record<string, unknown> {
-  const found = el.cells.find((c) => c.row === row && c.column === column);
-  if (found) return found as unknown as Record<string, unknown>;
-  const created: GridCell = { row, column, content: '' };
-  el.cells.push(created);
-  return created as unknown as Record<string, unknown>;
-}
-
-/**
- * 셀 또는 바코드의 값 소스를 바꾸기 전에 `content`, `parameter`, `formula`를 제거한다.
- * 호출부는 제거 후 사용할 소스 하나만 설정한다 (SPEC §5.6/§5.7).
- *
- * @param record - content·parameter·formula를 가질 수 있는 셀 또는 요소
- */
-function clearValueSources(record: { content?: unknown; parameter?: unknown; formula?: unknown }): void {
-  delete record.content;
-  delete record.parameter;
-  delete record.formula;
-}
-
-/** HEX 색상을 색 선택기의 HSV 값으로 변환한다. */
-function hexToHsv(hex: string): { h: number; s: number; v: number } {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const d = max - min;
-  let h = 0;
-  if (d > 0) {
-    if (max === r) h = ((g - b) / d) % 6;
-    else if (max === g) h = (b - r) / d + 2;
-    else h = (r - g) / d + 4;
-    h *= 60;
-    if (h < 0) h += 360;
-  }
-  return { h, s: max === 0 ? 0 : d / max, v: max };
-}
-
-/** HSV 색상을 HEX 색상 문자열로 변환한다. */
-function hsvToHex(h: number, s: number, v: number): string {
-  const f = (n: number): number => {
-    const k = (n + h / 60) % 6;
-    return v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
-  };
-  const to = (x: number): string => Math.round(x * 255).toString(16).padStart(2, '0');
-  return `#${to(f(5))}${to(f(3))}${to(f(1))}`;
-}
 
 /** 디자이너가 만들 수 있는 요소 종류 */
 type CreatableType = SlipElement['type'];
@@ -2196,8 +1667,8 @@ export class SlipDesigner extends LitElement {
       // 함께 움직이는 선택 요소는 스냅 후보에서 뺀다
       const { xs, ys } = this._snapCandidates(new Set(this._drag.members.map((m) => m.id)));
       const dragBox = boxOf(el);
-      const sx = this._bestSnap([nx, nx + dragBox.width / 2, nx + dragBox.width], xs);
-      const sy = this._bestSnap([ny, ny + dragBox.height / 2, ny + dragBox.height], ys);
+      const sx = bestSnap([nx, nx + dragBox.width / 2, nx + dragBox.width], xs);
+      const sy = bestSnap([ny, ny + dragBox.height / 2, ny + dragBox.height], ys);
       if (sx) {
         nx += sx.delta;
         guideX = sx.line;
@@ -2256,22 +1727,22 @@ export class SlipDesigner extends LitElement {
       // 붙을 요소·여백선이 없는 변은 격자에 맞춘다
       const toGrid = (value: number): number => value + (this._gridDelta(value) ?? 0);
       if (h.includes('w')) {
-        const s = this._bestSnap([left], xs);
+        const s = bestSnap([left], xs);
         if (s) { left += s.delta; guideX = s.line; }
         else left = toGrid(left);
       }
       if (h.includes('e')) {
-        const s = this._bestSnap([right], xs);
+        const s = bestSnap([right], xs);
         if (s) { right += s.delta; guideX = s.line; }
         else right = toGrid(right);
       }
       if (h.includes('n')) {
-        const s = this._bestSnap([top], ys);
+        const s = bestSnap([top], ys);
         if (s) { top += s.delta; guideY = s.line; }
         else top = toGrid(top);
       }
       if (h.includes('s')) {
-        const s = this._bestSnap([bottom], ys);
+        const s = bestSnap([bottom], ys);
         if (s) { bottom += s.delta; guideY = s.line; }
         else bottom = toGrid(bottom);
       }
@@ -3120,37 +2591,10 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   /** 스냅 후보 선: 용지 가장자리·여백선 + 다른 요소들의 가장자리·중앙선 (mm) */
-  private _snapCandidates(exclude: string | ReadonlySet<string>): { xs: number[]; ys: number[] } {
+  private _snapCandidates(exclude: string | ReadonlySet<string>): SnapCandidates {
     // 그룹·다중 이동 때는 함께 움직이는 요소들을 후보에서 모두 뺀다
     const excluded = typeof exclude === 'string' ? new Set([exclude]) : exclude;
-    const { paper } = this._file!.template;
-    const [pt, pr, pb, pl] = paper.padding;
-    const xs = [0, pl, paper.width - pr, paper.width];
-    const ys = [0, pt, paper.height - pb, paper.height];
-    for (const el of this._currentElements() ?? []) {
-      if (excluded.has(el.id)) continue;
-      const box = boxOf(el);
-      xs.push(el.position.x, el.position.x + box.width / 2, el.position.x + box.width);
-      ys.push(el.position.y, el.position.y + box.height / 2, el.position.y + box.height);
-    }
-    return { xs, ys };
-  }
-
-  /** edges 중 후보 선까지의 거리가 SNAP_MM 이내인 가장 가까운 이동량을 찾는다 */
-  private _bestSnap(
-    edges: number[],
-    candidates: number[],
-  ): { delta: number; line: number } | null {
-    let best: { delta: number; line: number } | null = null;
-    for (const edge of edges) {
-      for (const line of candidates) {
-        const delta = line - edge;
-        if (Math.abs(delta) <= SNAP_MM && (!best || Math.abs(delta) < Math.abs(best.delta))) {
-          best = { delta, line };
-        }
-      }
-    }
-    return best;
+    return snapCandidates(this._file!.template.paper, this._currentElements() ?? [], excluded);
   }
 
   // ---------------------------------------------------------------------------

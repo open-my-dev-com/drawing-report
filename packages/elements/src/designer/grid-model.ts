@@ -1,0 +1,257 @@
+/**
+ * 그리드의 구조를 읽고 바꾸는 처리 — 트랙, 셀, 행 구간.
+ *
+ * @remarks
+ * 화면 상태에 의존하지 않고 그리드 요소만 다룬다.
+ */
+
+import type { GridBand, GridBandPlacement, GridCell, GridElement, SlipElement } from '@omdc-slipkit/core';
+
+/** 새 그리드의 기본 행 높이(mm) */
+export const GRID_DEFAULT_ROW_MM = 8;
+
+/** 새 그리드의 기본 열 너비(mm) */
+export const GRID_DEFAULT_COL_MM = 30;
+
+/** 디자이너에서 편집할 수 있는 그리드의 최대 행 및 열 수 */
+export const GRID_MAX_TRACKS_UI = 100;
+
+/** 최대 항목 수·최소 표시 항목 수와 페이지당 최대 항목 수의 입력 상한 */
+export const GRID_MAX_ITEMS_UI = 100_000;
+
+export const GRID_MAX_PER_PAGE_UI = 1000;
+
+export function isGrid(el: SlipElement | undefined): el is GridElement {
+  return el?.type === 'grid';
+}
+
+/** 행·열 수 */
+export function gridDims(el: GridElement): { rows: number; columns: number } {
+  return { rows: el.rows.length, columns: el.columns.length };
+}
+
+/** 캔버스에 그릴 열 너비(mm) 목록 */
+export function columnWidths(el: GridElement): number[] {
+  return el.columns.map((column) => column.width);
+}
+
+/** 지정한 셀을 반환하고 없으면 빈 셀을 생성한다. */
+export function ensureCell(el: GridElement, row: number, column: number): Record<string, unknown> {
+  const found = el.cells.find((c) => c.row === row && c.column === column);
+  if (found) return found as unknown as Record<string, unknown>;
+  const created: GridCell = { row, column, content: '' };
+  el.cells.push(created);
+  return created as unknown as Record<string, unknown>;
+}
+
+/** 행·열이 줄어든 뒤 격자를 벗어나는 병합 범위를 줄인다 */
+export function clampGridSpans(el: GridElement): void {
+  for (const cell of el.cells) {
+    const record = cell as Record<string, unknown>;
+    if (cell.rowSpan !== undefined && cell.row + cell.rowSpan > el.rows.length) {
+      const clamped = el.rows.length - cell.row;
+      if (clamped <= 1) delete record.rowSpan;
+      else cell.rowSpan = clamped;
+    }
+    if (cell.colSpan !== undefined && cell.column + cell.colSpan > el.columns.length) {
+      const clamped = el.columns.length - cell.column;
+      if (clamped <= 1) delete record.colSpan;
+      else cell.colSpan = clamped;
+    }
+  }
+}
+
+/**
+ * 반복 구간 위쪽에서 같은 열의 헤더 텍스트를 찾는다.
+ */
+export function gridHeaderTitle(grid: GridElement, column: number, fromRow: number): string | undefined {
+  for (let row = fromRow - 1; row >= 0; row -= 1) {
+    const cell = grid.cells.find((c) => c.row === row && c.column === column);
+    if (cell?.content !== undefined && cell.content !== '') return cell.content;
+  }
+  return undefined;
+}
+
+/** 행 구간 placement의 세로 순서 (파일 검증과 같은 순서) */
+export const BAND_PLACEMENT_ORDER: Record<GridBandPlacement, number> = {
+  'before-data': 0,
+  'page-start': 1,
+  'group-start': 2,
+  item: 3,
+  'group-end': 4,
+  'after-data': 5,
+  'page-end': 6,
+};
+
+/** 행 표시 방식을 출력 흐름에 맞게 나열한다. */
+export const BAND_PLACEMENTS: readonly GridBandPlacement[] = [
+  'before-data', 'page-start', 'group-start', 'item', 'group-end', 'after-data', 'page-end',
+];
+
+export type GridRowCommand = 'header' | 'group-subtotal' | 'page-subtotal' | 'final-total';
+
+/** 반복 그리드의 항목 구간을 반환한다. */
+export function itemBandOf(el: GridElement): GridBand | undefined {
+  return el.repeat?.bands.find((band) => band.placement === 'item');
+}
+
+/** 원본 행이 항목 구간에 포함되는지 확인한다. */
+export function inItemBand(el: GridElement, row: number): boolean {
+  const band = itemBandOf(el);
+  return band !== undefined && row >= band.fromRow && row <= band.toRow;
+}
+
+/** 원본 행이 속한 행 구간을 반환한다. */
+export function bandAt(el: GridElement, row: number): GridBand | undefined {
+  return el.repeat?.bands.find((band) => row >= band.fromRow && row <= band.toRow);
+}
+
+/**
+ * 선택한 행 범위에 행 구간 역할을 지정한 새 구간 목록을 만든다.
+ * 연속된 같은 역할 행은 하나의 구간으로 합치고, 범위가 같은 기존 구간의 id·설정을 유지한다.
+ *
+ * @param el - 반복 설정이 있는 그리드
+ * @param fromRow - 역할을 바꿀 시작 행
+ * @param toRow - 역할을 바꿀 끝 행
+ * @param placement - 지정할 역할
+ * @returns 새 구간 목록 또는 규칙 위반 코드
+ */
+export function assignBandRole(
+  el: GridElement,
+  fromRow: number,
+  toRow: number,
+  placement: GridBandPlacement,
+): GridBand[] | 'noItem' | 'outOfOrder' {
+  const roles: GridBandPlacement[] = el.rows.map((_, r) => bandAt(el, r)?.placement ?? 'before-data');
+  for (let r = fromRow; r <= toRow; r++) roles[r] = placement;
+  // 항목 구간을 다른 곳에 지정하면 기존 항목 행은 역할을 잃으므로 위·아래 역할로 흡수한다.
+  if (placement === 'item') {
+    roles.forEach((role, r) => {
+      if (role !== 'item' || (r >= fromRow && r <= toRow)) return;
+      roles[r] = r < fromRow ? 'before-data' : 'after-data';
+    });
+  }
+  // 연속된 같은 역할을 하나의 구간으로 합친다.
+  const bands: GridBand[] = [];
+  let start = 0;
+  for (let r = 1; r <= roles.length; r++) {
+    if (r < roles.length && roles[r] === roles[start]) continue;
+    const existing = el.repeat?.bands.find(
+      (band) => band.fromRow === start && band.toRow === r - 1 && band.placement === roles[start],
+    );
+    bands.push(
+      existing ?? { id: `band_${crypto.randomUUID().slice(0, 8)}`, fromRow: start, toRow: r - 1, placement: roles[start]! },
+    );
+    start = r;
+  }
+  const itemBands = bands.filter((band) => band.placement === 'item');
+  if (itemBands.length !== 1) return 'noItem';
+  for (let i = 1; i < bands.length; i++) {
+    if (BAND_PLACEMENT_ORDER[bands[i]!.placement] < BAND_PLACEMENT_ORDER[bands[i - 1]!.placement]) {
+      return 'outOfOrder';
+    }
+  }
+  return bands;
+}
+
+/**
+ * 한 행 구간의 시작·종료 행을 바꾸고 맞닿은 구간의 경계를 함께 조정한다.
+ * 선택한 구간과 인접 구간의 식별자·옵션은 유지한다.
+ */
+export function resizeBandRange(
+  el: GridElement,
+  bandId: string,
+  fromRow: number,
+  toRow: number,
+): GridBand[] | 'noItem' | 'outOfOrder' {
+  if (!el.repeat) return 'outOfOrder';
+  const bands = el.repeat.bands.map((band) => ({ ...band }));
+  let targetIndex = bands.findIndex((band) => band.id === bandId);
+  if (targetIndex < 0) return 'outOfOrder';
+  let target = bands[targetIndex]!;
+  const previousFrom = target.fromRow;
+  const previousTo = target.toRow;
+
+  if (fromRow < previousFrom) {
+    for (let index = targetIndex - 1; index >= 0; index -= 1) {
+      const band = bands[index]!;
+      if (band.toRow < fromRow) break;
+      if (band.fromRow < fromRow) {
+        band.toRow = fromRow - 1;
+        break;
+      }
+      bands.splice(index, 1);
+      targetIndex -= 1;
+    }
+  } else if (fromRow > previousFrom) {
+    const previous = bands[targetIndex - 1];
+    if (previous !== undefined) {
+      previous.toRow = fromRow - 1;
+    } else {
+      if (BAND_PLACEMENT_ORDER[target.placement] <= BAND_PLACEMENT_ORDER['before-data']) {
+        return 'outOfOrder';
+      }
+      bands.unshift({
+        id: `band_${crypto.randomUUID().slice(0, 8)}`,
+        fromRow: previousFrom,
+        toRow: fromRow - 1,
+        placement: 'before-data',
+      });
+      targetIndex += 1;
+    }
+  }
+
+  target = bands[targetIndex]!;
+  target.fromRow = fromRow;
+
+  if (toRow > previousTo) {
+    for (let index = targetIndex + 1; index < bands.length;) {
+      const band = bands[index]!;
+      if (band.fromRow > toRow) break;
+      if (band.toRow > toRow) {
+        band.fromRow = toRow + 1;
+        break;
+      }
+      bands.splice(index, 1);
+    }
+  } else if (toRow < previousTo) {
+    const next = bands[targetIndex + 1];
+    if (next !== undefined) {
+      next.fromRow = toRow + 1;
+    } else {
+      const targetRank = BAND_PLACEMENT_ORDER[target.placement];
+      const placement: GridBandPlacement | null = targetRank < BAND_PLACEMENT_ORDER['after-data']
+        ? 'after-data'
+        : targetRank < BAND_PLACEMENT_ORDER['page-end'] ? 'page-end' : null;
+      if (placement === null) return 'outOfOrder';
+      bands.push({
+        id: `band_${crypto.randomUUID().slice(0, 8)}`,
+        fromRow: toRow + 1,
+        toRow: previousTo,
+        placement,
+      });
+    }
+  }
+  target.toRow = toRow;
+
+  if (bands.filter((band) => band.placement === 'item').length !== 1) return 'noItem';
+  let nextRow = 0;
+  for (let index = 0; index < bands.length; index += 1) {
+    const band = bands[index]!;
+    if (band.fromRow !== nextRow) return 'outOfOrder';
+    if (index > 0
+      && BAND_PLACEMENT_ORDER[band.placement] < BAND_PLACEMENT_ORDER[bands[index - 1]!.placement]) {
+      return 'outOfOrder';
+    }
+    nextRow = band.toRow + 1;
+  }
+  return nextRow === el.rows.length ? bands : 'outOfOrder';
+}
+
+/** 셀 병합이 행 구간 경계를 넘는지 검사한다. */
+export function spanCrossesBand(el: GridElement, bands: readonly GridBand[], cell: GridCell): boolean {
+  const last = cell.row + (cell.rowSpan ?? 1) - 1;
+  const startBand = bands.find((band) => cell.row >= band.fromRow && cell.row <= band.toRow);
+  const endBand = bands.find((band) => last >= band.fromRow && last <= band.toRow);
+  return startBand !== endBand;
+}
