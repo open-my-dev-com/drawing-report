@@ -255,3 +255,135 @@ export function spanCrossesBand(el: GridElement, bands: readonly GridBand[], cel
   const endBand = bands.find((band) => last >= band.fromRow && last <= band.toRow);
   return startBand !== endBand;
 }
+
+/** 마지막 행을 지울 수 있는지 — 항목 구간이 한 행뿐이면 지울 수 없다. */
+export function canRemoveLastRow(el: GridElement): boolean {
+  if (!el.repeat) return true;
+  const band = bandAt(el, el.rows.length - 1);
+  return !(band?.placement === 'item' && band.fromRow === band.toRow);
+}
+
+/**
+ * 마지막 행을 하나 더하거나 뺀다.
+ * 지울 때는 범위를 벗어난 셀과 병합을 정리하고 행 구간의 끝을 함께 줄인다.
+ *
+ * @param grid - 고칠 그리드
+ * @param delta - 1이면 추가, -1이면 제거
+ */
+export function changeRowCount(grid: GridElement, delta: number): void {
+  if (delta > 0) {
+    grid.rows.push({ height: grid.rows[grid.rows.length - 1]?.height ?? GRID_DEFAULT_ROW_MM });
+    return;
+  }
+  const removed = grid.rows.length - 1;
+  grid.rows.pop();
+  grid.cells = grid.cells.filter((cell) => cell.row < grid.rows.length);
+  clampGridSpans(grid);
+  if (!grid.repeat) return;
+  const band = grid.repeat.bands.find((b) => removed >= b.fromRow && removed <= b.toRow);
+  // 행이 하나뿐인 구간은 통째로 사라진다.
+  if (band !== undefined && band.fromRow === band.toRow) {
+    grid.repeat.bands = grid.repeat.bands.filter((b) => b !== band);
+  } else if (band !== undefined) {
+    band.toRow -= 1;
+  }
+}
+
+/**
+ * 마지막 열을 하나 더하거나 뺀다.
+ *
+ * @param grid - 고칠 그리드
+ * @param delta - 1이면 추가, -1이면 제거
+ */
+export function changeColumnCount(grid: GridElement, delta: number): void {
+  if (delta > 0) {
+    grid.columns.push({ width: grid.columns[grid.columns.length - 1]?.width ?? GRID_DEFAULT_COL_MM });
+    return;
+  }
+  grid.columns.pop();
+  grid.cells = grid.cells.filter((cell) => cell.column < grid.columns.length);
+  clampGridSpans(grid);
+}
+
+/** 역할 행을 새로 넣을 때의 부가 설정 */
+export interface InsertRowOptions {
+  /** 같은 역할의 기존 구간에 붙이지 않고 새 구간으로 만들지 */
+  separateBand?: boolean | undefined;
+  /** 새 구간의 이름 */
+  name?: string | undefined;
+  /** 새 구간의 출력 페이지 */
+  pages?: GridBand['pages'] | undefined;
+}
+
+/**
+ * 지정한 역할의 행을 넣을 자리를 찾는다.
+ * 같은 역할의 구간이 있으면 그 뒤, 없으면 다음 역할의 구간 앞이다.
+ *
+ * @param el - 반복 설정이 있는 그리드
+ * @param placement - 넣을 행의 역할
+ * @returns 넣을 행 번호와 붙일 구간의 식별자
+ */
+export function insertPositionFor(
+  el: GridElement,
+  placement: GridBandPlacement,
+): { insertAt: number; sameBandId: string | undefined } {
+  const sameRole = el.repeat?.bands.filter((band) => band.placement === placement).at(-1);
+  const nextRole = el.repeat?.bands.find(
+    (band) => BAND_PLACEMENT_ORDER[band.placement] > BAND_PLACEMENT_ORDER[placement],
+  );
+  const insertAt = sameRole?.toRow !== undefined ? sameRole.toRow + 1 : (nextRole?.fromRow ?? el.rows.length);
+  return { insertAt, sameBandId: sameRole?.id };
+}
+
+/**
+ * 행을 하나 넣고 셀 좌표·병합과 행 구간 경계를 함께 밀어 준다.
+ *
+ * @param grid - 고칠 그리드 (반복 설정이 있어야 한다)
+ * @param insertAt - 넣을 행 번호
+ * @param placement - 넣을 행의 역할
+ * @param targetBandId - 붙일 구간의 식별자. 없으면 새 구간을 만든다
+ * @param options - 새 구간의 이름과 출력 페이지
+ * @param height - 새 행의 높이(mm)
+ */
+export function insertGridRow(
+  grid: GridElement,
+  insertAt: number,
+  placement: GridBandPlacement,
+  targetBandId: string | undefined,
+  options: InsertRowOptions,
+  height: number,
+): void {
+  grid.rows.splice(insertAt, 0, { height });
+  for (const cell of grid.cells) {
+    if (cell.row >= insertAt) {
+      cell.row += 1;
+    } else if (cell.row + (cell.rowSpan ?? 1) > insertAt) {
+      // 넣는 자리를 가로지르는 병합은 한 칸 더 걸치게 된다.
+      cell.rowSpan = (cell.rowSpan ?? 1) + 1;
+    }
+  }
+
+  const bands = grid.repeat?.bands ?? [];
+  for (const band of bands) {
+    if (band.id === targetBandId) {
+      band.toRow += 1;
+    } else if (band.fromRow >= insertAt) {
+      band.fromRow += 1;
+      band.toRow += 1;
+    } else if (band.toRow >= insertAt) {
+      band.toRow += 1;
+    }
+  }
+  if (targetBandId !== undefined) return;
+
+  const band: GridBand = {
+    id: `band_${crypto.randomUUID().slice(0, 8)}`,
+    fromRow: insertAt,
+    toRow: insertAt,
+    placement,
+  };
+  if (options.name !== undefined) band.name = options.name;
+  if (options.pages !== undefined) band.pages = options.pages;
+  bands.push(band);
+  bands.sort((a, b) => a.fromRow - b.fromRow);
+}

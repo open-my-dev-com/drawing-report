@@ -88,6 +88,7 @@ import { DialogsController } from './designer/controllers/dialogs.js';
 import { FormulaDraftController } from './designer/controllers/formula-draft.js';
 import { SampleDraftController } from './designer/controllers/sample-draft.js';
 import { FormsController } from './designer/controllers/forms-storage.js';
+import { GridEditController } from './designer/controllers/grid-edit.js';
 import { imagePickErrorText, usedImages, imageParameterKeys } from './designer/image-pick.js';
 import type { ImagePickFailure } from './designer/image-pick.js';
 import {
@@ -110,6 +111,11 @@ import {
   assignBandRole,
   resizeBandRange,
   spanCrossesBand,
+  canRemoveLastRow,
+  changeRowCount,
+  changeColumnCount,
+  insertPositionFor,
+  insertGridRow,
 } from './designer/grid-model.js';
 import type { GridRowCommand } from './designer/grid-model.js';
 
@@ -406,9 +412,6 @@ export class SlipDesigner extends LitElement {
     _drawRect: { state: true },
     _presetMenuOpen: { state: true },
     _shapeMenuOpen: { state: true },
-    _selectedCell: { state: true },
-    _cellSourceKind: { state: true },
-    _cellEditing: { state: true },
     _lineDraft: { state: true },
     _lineGhost: { state: true },
     _thumbPage: { state: true },
@@ -424,10 +427,6 @@ export class SlipDesigner extends LitElement {
     storage: { attribute: false },
     _outputPage: { state: true },
     _gridPlanPreview: { state: true },
-    _bandSelect: { state: true },
-    _bandMenuOpen: { state: true },
-    _gridRowCommand: { state: true },
-    _gridRowCommandField: { state: true },
   };
 
   src = '';
@@ -480,16 +479,6 @@ export class SlipDesigner extends LitElement {
   private _outputPage = 0;
   /** 선택한 반복 그리드를 원본 행 구조 대신 현재 출력 결과로 표시할지 여부 */
   private _gridPlanPreview = false;
-  /** 행 번호 선택 영역에서 고른 행 범위 (역할 명령 메뉴 표시 중) */
-  private _bandSelect: { from: number; to: number } | null = null;
-  /** 캔버스의 행 역할 명령 메뉴 표시 여부 */
-  private _bandMenuOpen = false;
-  /** 행 역할 메뉴가 열린 뒤 첫 명령으로 포커스를 옮길지 여부 */
-  private _focusBandMenu = false;
-  /** 적용 전 결과를 확인 중인 행 추가 명령 */
-  private _gridRowCommand: GridRowCommand | null = null;
-  /** 소계·합계 명령에서 집계할 목록 필드 */
-  private _gridRowCommandField = '';
   /** 현재 양식 페이지의 계획 캐시 — 페이지·샘플 값이 바뀌면 다시 계산한다 */
   private _planCache: { key: string; plan: SourcePagePlan | null; error: SlipLayoutError | null } | null = null;
   /** 속성 패널과 크기 조절 핸들이 대상으로 삼는 주 선택 요소 */
@@ -587,14 +576,9 @@ export class SlipDesigner extends LitElement {
    * 파일에는 저장하지 않으며 기본값은 왼쪽 위다.
    */
   private _anchorByElement = new Map<string, number>();
-  /** 병합 및 인라인 편집의 대상인 그리드 셀 좌표 */
-  private _selectedCell: { row: number; column: number } | null = null;
   /**
    * 그리드 셀에서 편집 중인 값 소스 종류.
    */
-  private _cellSourceKind: 'content' | 'parameter' | 'formula' | null = null;
-  /** 그리드 셀의 인라인 편집 여부 */
-  private _cellEditing = false;
 
   /** 컴포넌트 속성이 우선하고, 없으면 slipkit 설정을 따르는 UI 언어 로케일 */
   private get _locale(): string | undefined {
@@ -658,6 +642,9 @@ export class SlipDesigner extends LitElement {
   /** 열려 있는 모달 */
   private readonly _dialogs = new DialogsController(this);
 
+  /** 그리드 셀·행 구간 선택 */
+  private readonly _gridEdit = new GridEditController(this);
+
   /** 저장 모달과 내 양식 목록 */
   private readonly _forms = new FormsController(this);
 
@@ -675,15 +662,14 @@ export class SlipDesigner extends LitElement {
 
   override updated(): void {
     // 인라인 셀 편집을 열면 바로 입력할 수 있게 포커스를 준다
-    if (this._cellEditing) {
+    if (this._gridEdit.editing) {
       const editor = this.renderRoot.querySelector('.cell-editor') as HTMLInputElement | null;
       if (editor && this.shadowRoot?.activeElement !== editor) {
         editor.focus();
         editor.select?.();
       }
     }
-    if (this._focusBandMenu) {
-      this._focusBandMenu = false;
+    if (this._gridEdit.takeFocusBandMenu()) {
       (this.renderRoot.querySelector('.band-menu-item') as HTMLButtonElement | null)?.focus();
     }
     this._modalFocus.sync();
@@ -715,8 +701,7 @@ export class SlipDesigner extends LitElement {
     this._draw = null;
     this._presetMenuOpen = false;
     this._shapeMenuOpen = false;
-    this._selectedCell = null;
-    this._cellEditing = false;
+    this._gridEdit.clearCell();
     this._lineDraft = null;
     this._lineGhost = null;
     this._lineEnd = null;
@@ -935,8 +920,7 @@ export class SlipDesigner extends LitElement {
     this._gridPlanPreview = false;
     this._clearSelection();
     this._sideSelection = null;
-    this._selectedCell = null;
-    this._cellEditing = false;
+    this._gridEdit.clearCell();
   }
 
   /** 현재 페이지 뒤에 빈 페이지를 추가하고 그 페이지로 이동한다 */
@@ -990,10 +974,7 @@ export class SlipDesigner extends LitElement {
     this._selectedId = null;
     this._selectedIds = new Set();
     this._gridPlanPreview = false;
-    this._bandSelect = null;
-    this._bandMenuOpen = false;
-    this._gridRowCommand = null;
-    this._gridRowCommandField = '';
+    this._gridEdit.reset();
   }
 
   /**
@@ -1005,8 +986,7 @@ export class SlipDesigner extends LitElement {
     this._resetPanelErrors();
     this._selectedId = id;
     this._gridPlanPreview = false;
-    this._gridRowCommand = null;
-    this._gridRowCommandField = '';
+    this._gridEdit.clearRowCommand();
     const group = this._findElement(id)?.group;
     this._selectedIds = group
       ? new Set(this._pageGroupMembers(group).map((el) => el.id))
@@ -1030,8 +1010,7 @@ export class SlipDesigner extends LitElement {
       this._selectedId = id;
     }
     this._selectedIds = next;
-    this._selectedCell = null;
-    this._cellEditing = false;
+    this._gridEdit.clearCell();
     this._sideSelection = null;
     this.requestUpdate();
   }
@@ -1047,14 +1026,13 @@ export class SlipDesigner extends LitElement {
       if (this._selectedId === null) this._selectedId = alive.values().next().value ?? null;
     }
     // 선택된 셀이 현재 그리드 범위 안에 있는지 확인한다.
-    if (this._selectedCell) {
+    if (this._gridEdit.cell) {
       const el = this._findSelectedElement();
       if (
         !isGrid(el) ||
-        this._selectedCell.row >= el.rows.length || this._selectedCell.column >= el.columns.length
+        this._gridEdit.cell.row >= el.rows.length || this._gridEdit.cell.column >= el.columns.length
       ) {
-        this._selectedCell = null;
-        this._cellEditing = false;
+        this._gridEdit.clearCell();
       }
     }
   }
@@ -1501,8 +1479,7 @@ export class SlipDesigner extends LitElement {
       this._sideSelection = null;
       this._expandParameterOfElement(id);
       if (!wasSelected) {
-        this._selectedCell = null;
-        this._cellEditing = false;
+        this._gridEdit.clearCell();
       }
 
       const el = this._findElement(id);
@@ -1528,9 +1505,7 @@ export class SlipDesigner extends LitElement {
     } else {
       this._clearSelection();
       this._sideSelection = null;
-      this._selectedCell = null;
-      this._cellSourceKind = null;
-      this._cellEditing = false;
+      this._gridEdit.clearCellAndSource();
     }
     this.requestUpdate();
   };
@@ -1803,16 +1778,17 @@ export class SlipDesigner extends LitElement {
     if (isGrid(el) && drag.wasSelected && drag.snapshot === null) {
       const cell = this._cellAtPoint(el, e);
       if (cell) {
-        if (this._selectedCell?.row !== cell.row || this._selectedCell?.column !== cell.column) {
-          this._cellSourceKind = null;
+        if (this._gridEdit.cell?.row !== cell.row || this._gridEdit.cell?.column !== cell.column) {
+          this._gridEdit.setSourceKind(null);
         }
-        this._selectedCell = cell;
-        this._bandSelect = null;
-        this._bandMenuOpen = false;
+        this._gridEdit.selectCell(cell);
+        this._gridEdit.closeBandMenu(true);
         const definition = el.cells.find((item) => item.row === cell.row && item.column === cell.column);
         // 파라미터와 수식 셀은 속성 패널에서 편집하며 캔버스 입력기는 열지 않는다.
-        this._cellEditing = definition === undefined
-          || (definition.parameter === undefined && definition.formula === undefined);
+        this._gridEdit.setEditing(
+          definition === undefined
+            || (definition.parameter === undefined && definition.formula === undefined),
+        );
         this.requestUpdate();
       }
     }
@@ -1875,9 +1851,9 @@ export class SlipDesigner extends LitElement {
 
   /** 인라인 편집 값을 기존 셀에 적용하거나 새 셀을 만든다. */
   private _commitCellContent(value: string): void {
-    const target = this._selectedCell;
+    const target = this._gridEdit.cell;
     if (!target) return;
-    this._cellEditing = false;
+    this._gridEdit.setEditing(false);
     const el = this._findSelectedElement();
     if (!isGrid(el)) return;
     const existing = el.cells.find((c) => c.row === target.row && c.column === target.column);
@@ -1902,7 +1878,7 @@ export class SlipDesigner extends LitElement {
 
   /** 선택 셀의 병합 범위를 변경한다. 유효하지 않은 범위는 거부한다. */
   private _setCellSpan(kind: 'rowSpan' | 'colSpan', value: number): void {
-    const target = this._selectedCell;
+    const target = this._gridEdit.cell;
     const el = this._findSelectedElement();
     if (!target || !isGrid(el)) return;
     const errorKey = kind === 'rowSpan' ? 'cell-row-span' : 'cell-column-span';
@@ -1955,7 +1931,7 @@ export class SlipDesigner extends LitElement {
 
   /** 선택 셀의 스타일 속성을 설정하거나 제거한다. */
   private _updateCellStyle(key: string, value: unknown): void {
-    const target = this._selectedCell;
+    const target = this._gridEdit.cell;
     if (!target) return;
     this._updateElement((element) => {
       if (!isGrid(element)) return;
@@ -1984,30 +1960,9 @@ export class SlipDesigner extends LitElement {
     if (delta > 0 && el.repeat) return;
     const next = el.rows.length + delta;
     if (next < 1 || next > GRID_MAX_TRACKS_UI) return;
-    if (delta < 0 && el.repeat) {
-      const removed = el.rows.length - 1;
-      const band = bandAt(el, removed);
-      // 항목 구간이 한 행뿐이면 그 행은 제거할 수 없다.
-      if (band?.placement === 'item' && band.fromRow === band.toRow) return;
-    }
-    this._updateGrid((grid) => {
-      if (delta > 0) {
-        grid.rows.push({ height: grid.rows[grid.rows.length - 1]?.height ?? GRID_DEFAULT_ROW_MM });
-      } else {
-        const removed = grid.rows.length - 1;
-        grid.rows.pop();
-        grid.cells = grid.cells.filter((cell) => cell.row < grid.rows.length);
-        clampGridSpans(grid);
-        if (grid.repeat) {
-          const band = grid.repeat.bands.find((b) => removed >= b.fromRow && removed <= b.toRow);
-          if (band !== undefined && band.fromRow === band.toRow) {
-            grid.repeat.bands = grid.repeat.bands.filter((b) => b !== band);
-          } else if (band !== undefined) {
-            band.toRow -= 1;
-          }
-        }
-      }
-    });
+    // 항목 구간이 한 행뿐이면 그 행은 제거할 수 없다.
+    if (delta < 0 && !canRemoveLastRow(el)) return;
+    this._updateGrid((grid) => changeRowCount(grid, delta));
   }
 
   /** 선택한 역할의 행을 알맞은 구간 위치에 추가한다. */
@@ -2028,51 +1983,24 @@ export class SlipDesigner extends LitElement {
       return null;
     }
 
-    const sameRole = el.repeat.bands.filter((band) => band.placement === placement).at(-1);
-    const nextRole = el.repeat.bands.find(
-      (band) => BAND_PLACEMENT_ORDER[band.placement] > BAND_PLACEMENT_ORDER[placement],
-    );
-    const insertAt = sameRole?.toRow !== undefined ? sameRole.toRow + 1 : (nextRole?.fromRow ?? el.rows.length);
+    const { insertAt, sameBandId } = insertPositionFor(el, placement);
     const sourceRow = el.rows[Math.max(0, Math.min(insertAt - 1, el.rows.length - 1))];
-    const targetBandId = options.separateBand ? undefined : sameRole?.id;
+    const targetBandId = options.separateBand ? undefined : sameBandId;
 
     this._resetPanelErrors();
     this._updateGrid((grid) => {
-      grid.rows.splice(insertAt, 0, { height: sourceRow?.height ?? GRID_DEFAULT_ROW_MM });
-      for (const cell of grid.cells) {
-        if (cell.row >= insertAt) {
-          cell.row += 1;
-        } else if (cell.row + (cell.rowSpan ?? 1) > insertAt) {
-          cell.rowSpan = (cell.rowSpan ?? 1) + 1;
-        }
-      }
-
-      for (const band of grid.repeat!.bands) {
-        if (band.id === targetBandId) {
-          band.toRow += 1;
-        } else if (band.fromRow >= insertAt) {
-          band.fromRow += 1;
-          band.toRow += 1;
-        } else if (band.toRow >= insertAt) {
-          band.toRow += 1;
-        }
-      }
-      if (targetBandId === undefined) {
-        const band: GridBand = {
-          id: `band_${crypto.randomUUID().slice(0, 8)}`,
-          fromRow: insertAt,
-          toRow: insertAt,
-          placement,
-        };
-        if (options.name !== undefined) band.name = options.name;
-        if (options.pages !== undefined) band.pages = options.pages;
-        grid.repeat!.bands.push(band);
-        grid.repeat!.bands.sort((a, b) => a.fromRow - b.fromRow);
-      }
+      insertGridRow(
+        grid,
+        insertAt,
+        placement,
+        targetBandId,
+        options,
+        sourceRow?.height ?? GRID_DEFAULT_ROW_MM,
+      );
       options.initialize?.(grid, insertAt);
     });
-    this._bandSelect = { from: insertAt, to: insertAt };
-    this._bandMenuOpen = false;
+    this._gridEdit.selectBand({ from: insertAt, to: insertAt });
+    this._gridEdit.closeBandMenu(false);
     this.requestUpdate();
     return insertAt;
   }
@@ -2083,15 +2011,7 @@ export class SlipDesigner extends LitElement {
     if (el?.type !== 'grid') return;
     const next = el.columns.length + delta;
     if (next < 1 || next > GRID_MAX_TRACKS_UI) return;
-    this._updateGrid((grid) => {
-      if (delta > 0) {
-        grid.columns.push({ width: grid.columns[grid.columns.length - 1]?.width ?? GRID_DEFAULT_COL_MM });
-      } else {
-        grid.columns.pop();
-        grid.cells = grid.cells.filter((cell) => cell.column < grid.columns.length);
-        clampGridSpans(grid);
-      }
-    });
+    this._updateGrid((grid) => changeColumnCount(grid, delta));
   }
 
   /** 지정한 행의 높이 또는 열의 너비(mm)를 변경한다. */
@@ -2129,7 +2049,7 @@ export class SlipDesigner extends LitElement {
       });
       return;
     }
-    const row = Math.min(this._selectedCell?.row ?? el.rows.length - 1, el.rows.length - 1);
+    const row = Math.min(this._gridEdit.cell?.row ?? el.rows.length - 1, el.rows.length - 1);
     // 항목 구간 경계를 넘는 병합이 있으면 반복을 켤 수 없다.
     const bands: GridBand[] = [
       ...(row > 0 ? [{ id: `band_${crypto.randomUUID().slice(0, 8)}`, fromRow: 0, toRow: row - 1, placement: 'before-data' as const }] : []),
@@ -2254,7 +2174,7 @@ export class SlipDesigner extends LitElement {
   /** 속성 패널에서 선택한 행 구간의 시작 또는 종료 행을 변경한다. */
   private _setBandSelectionBoundary(boundary: 'from' | 'to', rowNumber: number, bandId?: string): void {
     const el = this._findSelectedElement();
-    if (el?.type !== 'grid' || !el.repeat || this._bandSelect === null) return;
+    if (el?.type !== 'grid' || !el.repeat || this._gridEdit.bandRange === null) return;
     if (!Number.isInteger(rowNumber) || rowNumber < 1 || rowNumber > el.rows.length) {
       this._rejectInput(
         this._strings.designer.rangeInput.replace('{min}', '1').replace('{max}', String(el.rows.length)),
@@ -2263,8 +2183,8 @@ export class SlipDesigner extends LitElement {
       return;
     }
     const index = rowNumber - 1;
-    const from = Math.min(this._bandSelect.from, this._bandSelect.to);
-    const to = Math.max(this._bandSelect.from, this._bandSelect.to);
+    const from = Math.min(this._gridEdit.bandRange.from, this._gridEdit.bandRange.to);
+    const to = Math.max(this._gridEdit.bandRange.from, this._gridEdit.bandRange.to);
     const nextFrom = boundary === 'from' ? index : from;
     const nextTo = boundary === 'to' ? index : to;
     if (nextFrom > nextTo) {
@@ -2290,15 +2210,15 @@ export class SlipDesigner extends LitElement {
       this._updateGrid((grid) => {
         grid.repeat!.bands = result;
       });
-      this._bandSelect = { from: nextFrom, to: nextTo };
-      this._bandMenuOpen = false;
+      this._gridEdit.selectBand({ from: nextFrom, to: nextTo });
+      this._gridEdit.closeBandMenu(false);
       this.requestUpdate();
       return;
     }
 
     this._resetPanelErrors();
-    this._bandSelect = { from: nextFrom, to: nextTo };
-    this._bandMenuOpen = false;
+    this._gridEdit.selectBand({ from: nextFrom, to: nextTo });
+    this._gridEdit.closeBandMenu(false);
     this.requestUpdate();
   }
 
@@ -2353,7 +2273,7 @@ export class SlipDesigner extends LitElement {
     const numericFields = this._parameterList()
       .find((parameter) => parameter.key === el.repeat!.parameter)
       ?.fields.filter((field) => field.valueType === 'number') ?? [];
-    if (!numericFields.some((field) => field.key === this._gridRowCommandField)) {
+    if (!numericFields.some((field) => field.key === this._gridEdit.rowCommandField)) {
       const itemBand = itemBandOf(el);
       const columnOf = (key: string): number => itemBand === undefined
         ? -1
@@ -2364,19 +2284,20 @@ export class SlipDesigner extends LitElement {
                 && cell.row >= itemBand.fromRow && cell.row <= itemBand.toRow)
               .map((cell) => cell.column),
           );
-      this._gridRowCommandField = [...numericFields]
-        .sort((a, b) => columnOf(b.key) - columnOf(a.key))[0]?.key
-        ?? numericFields.at(-1)?.key
-        ?? '';
+      this._gridEdit.setRowCommandField(
+        [...numericFields].sort((a, b) => columnOf(b.key) - columnOf(a.key))[0]?.key
+          ?? numericFields.at(-1)?.key
+          ?? '',
+      );
     }
-    this._gridRowCommand = command;
+    this._gridEdit.startRowCommand(command, this._gridEdit.rowCommandField);
     this._resetPanelErrors();
   }
 
   /** 항목 행의 스타일을 바탕으로 행·소계·합계 명령을 한 번에 적용한다. */
   private _applyGridRowCommand(): void {
     const el = this._findSelectedElement();
-    const command = this._gridRowCommand;
+    const command = this._gridEdit.rowCommand;
     if (el?.type !== 'grid' || !el.repeat || command === null) return;
     const s = this._strings.designer;
     const itemBand = itemBandOf(el);
@@ -2393,7 +2314,7 @@ export class SlipDesigner extends LitElement {
     const fields = this._parameterList()
       .find((parameter) => parameter.key === el.repeat!.parameter)?.fields ?? [];
     const numericField = fields.find(
-      (field) => field.key === this._gridRowCommandField && field.valueType === 'number',
+      (field) => field.key === this._gridEdit.rowCommandField && field.valueType === 'number',
     );
     if (command !== 'header' && numericField === undefined) {
       this._rejectInput(s.gridCommandNumberRequired, 'grid-row-command');
@@ -2470,8 +2391,7 @@ export class SlipDesigner extends LitElement {
       },
     });
     if (added === null) return;
-    this._gridRowCommand = null;
-    this._gridRowCommandField = '';
+    this._gridEdit.clearRowCommand();
   }
 
   /**
@@ -2479,8 +2399,8 @@ export class SlipDesigner extends LitElement {
    * 파라미터와 수식은 빈 값으로 저장할 수 없어 입력 전에는 화면 상태로만 유지한다.
    */
   private _chooseGridCellSource(kind: 'content' | 'parameter' | 'formula'): void {
-    this._cellSourceKind = kind;
-    const target = this._selectedCell;
+    this._gridEdit.setSourceKind(kind);
+    const target = this._gridEdit.cell;
     if (!target) return;
     this._updateElement((element) => {
       if (element.type !== 'grid') return;
@@ -2494,7 +2414,7 @@ export class SlipDesigner extends LitElement {
    * 셀의 값 소스를 설정하고 다른 종류의 값 소스를 제거한다 (SPEC §5.7).
    */
   private _setGridCellSource(kind: 'content' | 'parameter' | 'formula', value: string): void {
-    const target = this._selectedCell;
+    const target = this._gridEdit.cell;
     // 선택된 셀이 없으면 입력을 적용하지 않고 오류를 표시한다.
     if (!target) {
       this._rejectInput();
@@ -3014,8 +2934,7 @@ export class SlipDesigner extends LitElement {
       return;
     }
     this._selectElement(id);
-    this._selectedCell = null;
-    this._cellEditing = false;
+    this._gridEdit.clearCell();
     this._sideSelection = null;
     this._expandParameterOfElement(id);
     this.requestUpdate();
@@ -3031,8 +2950,7 @@ export class SlipDesigner extends LitElement {
     this._sideSelection = { kind: 'parameterField', key: listKey, field: field.key };
     this._selectedId = null;
     this._selectedIds = new Set();
-    this._selectedCell = null;
-    this._cellEditing = false;
+    this._gridEdit.clearCell();
     this.requestUpdate();
   }
 
@@ -3072,8 +2990,7 @@ export class SlipDesigner extends LitElement {
   private _selectPage(index: number): void {
     this._goToPage(index);
     this._clearSelection();
-    this._selectedCell = null;
-    this._cellEditing = false;
+    this._gridEdit.clearCell();
     this._sideSelection = { kind: 'page' };
     this.requestUpdate();
   }
@@ -3082,8 +2999,7 @@ export class SlipDesigner extends LitElement {
   private _selectParameter(key: string): void {
     this._parameterKeyError = false;
     this._clearSelection();
-    this._selectedCell = null;
-    this._cellEditing = false;
+    this._gridEdit.clearCell();
     this._sideSelection = { kind: 'parameter', key };
     // 선택한 목록 파라미터의 하위 필드를 펼친다.
     this._expandedParameters.add(key);
@@ -3355,7 +3271,7 @@ export class SlipDesigner extends LitElement {
     const hasCells = cells.length > 0;
     const expanded = hasCells && this._expandedElements.has(el.id);
     // 그리드 셀이 선택된 경우에는 요소 행 대신 해당 셀 행을 강조한다.
-    const rowSelected = this._selectedIds.has(el.id) && !this._sideSelection && this._selectedCell === null;
+    const rowSelected = this._selectedIds.has(el.id) && !this._sideSelection && this._gridEdit.cell === null;
     return html`
       <div class="side-row-wrap">
         ${this._renderTwisty(hasCells, expanded, el.name, () => this._toggleElementRow(el.id))}
@@ -3369,7 +3285,7 @@ export class SlipDesigner extends LitElement {
       ${expanded
         ? cells.map((c) => {
             const cellSelected = this._selectedId === el.id
-              && this._selectedCell?.row === c.row && this._selectedCell?.column === c.column;
+              && this._gridEdit.cell?.row === c.row && this._gridEdit.cell?.column === c.column;
             return html`
               <button class="side-cell-row ${cellSelected ? 'selected' : ''}" title=${c.at}
                 @click=${() => this._selectGridCell(pageIndex, el.id, c.row, c.column)}>
@@ -3421,10 +3337,9 @@ export class SlipDesigner extends LitElement {
     // 셀을 선택할 때는 그리드 그룹의 다른 요소를 선택하지 않는다.
     this._selectedId = gridId;
     this._selectedIds = new Set([gridId]);
-    this._selectedCell = { row, column };
-    this._bandSelect = null;
-    this._bandMenuOpen = false;
-    this._cellEditing = false;
+    this._gridEdit.selectCell({ row, column });
+    this._gridEdit.closeBandMenu(true);
+    this._gridEdit.setEditing(false);
     this._sideSelection = null;
     this._expandedElements.add(gridId);
     this.requestUpdate();
@@ -3448,8 +3363,7 @@ export class SlipDesigner extends LitElement {
       next.delete(id);
       this._selectedIds = next;
       if (this._selectedId === id) this._selectedId = next.values().next().value ?? null;
-      this._selectedCell = null;
-      this._cellEditing = false;
+      this._gridEdit.clearCell();
     }
     this._emitChange();
     this.requestUpdate();
@@ -3787,11 +3701,10 @@ export class SlipDesigner extends LitElement {
     const element = this._findElement(error.elementId);
     if (element === undefined) return;
     this._selectElement(element.id);
-    this._selectedCell = null;
-    this._cellEditing = false;
+    this._gridEdit.clearCell();
     if (element.type === 'grid' && error.bandId !== undefined) {
       const band = element.repeat?.bands.find((candidate) => candidate.id === error.bandId);
-      if (band !== undefined) this._bandSelect = { from: band.fromRow, to: band.toRow };
+      if (band !== undefined) this._gridEdit.selectBand({ from: band.fromRow, to: band.toRow });
     }
     this.requestUpdate();
     void this.updateComplete.then(() => {
@@ -3807,10 +3720,8 @@ export class SlipDesigner extends LitElement {
   /** 선택한 반복 그리드의 원본 행 구조와 출력 결과 표시를 전환한다. */
   private _setGridPlanPreview(enabled: boolean): void {
     this._gridPlanPreview = enabled;
-    this._selectedCell = null;
-    this._cellEditing = false;
-    this._bandSelect = null;
-    this._bandMenuOpen = false;
+    this._gridEdit.clearCell();
+    this._gridEdit.closeBandMenu(true);
     this._pendingTool = null;
     this.requestUpdate();
   }
@@ -4086,10 +3997,10 @@ export class SlipDesigner extends LitElement {
 
   /** 선택된 셀 위에 인라인 편집 입력을 표시한다. */
   private _renderCellEditor() {
-    if (!this._cellEditing || !this._selectedCell) return nothing;
+    if (!this._gridEdit.editing || !this._gridEdit.cell) return nothing;
     const el = this._findSelectedElement();
     if (!isGrid(el)) return nothing;
-    const { row, column } = this._selectedCell;
+    const { row, column } = this._gridEdit.cell;
     const rect = this._cellRectPx(el, row, column);
     const cell = el.cells.find((c) => c.row === row && c.column === column);
     // 편집 중에도 셀 모양을 유지하도록 셀의 표시 스타일을 입력에 적용한다.
@@ -4110,12 +4021,12 @@ export class SlipDesigner extends LitElement {
         if (e.key === 'Enter') {
           this._commitCellContent((e.target as HTMLInputElement).value);
         } else if (e.key === 'Escape') {
-          this._cellEditing = false;
+          this._gridEdit.setEditing(false);
           this.requestUpdate();
         }
       }}
       @blur=${(e: Event) => {
-        if (this._cellEditing) this._commitCellContent((e.target as HTMLInputElement).value);
+        if (this._gridEdit.editing) this._commitCellContent((e.target as HTMLInputElement).value);
       }}>`;
   }
 
@@ -4491,7 +4402,7 @@ export class SlipDesigner extends LitElement {
 
     const boxes = el.cells.map((cell) => {
       const isSelectedCell =
-        selected && this._selectedCell?.row === cell.row && this._selectedCell?.column === cell.column;
+        selected && this._gridEdit.cell?.row === cell.row && this._gridEdit.cell?.column === cell.column;
       const inBand = inItemBand(el, cell.row);
       const band = bandAt(el, cell.row);
       const planned = plannedFragment?.bands.find((candidate) => candidate.band.id === band?.id);
@@ -4527,7 +4438,7 @@ export class SlipDesigner extends LitElement {
       for (let c = 0; c < widths.length; c++) {
         if (taken.has(`${r},${c}`)) continue;
         const blankSelected =
-          selected && this._selectedCell?.row === r && this._selectedCell?.column === c;
+          selected && this._gridEdit.cell?.row === r && this._gridEdit.cell?.column === c;
         blanks.push(html`<div class=${blankSelected ? 'cell-selected' : ''}
           style="grid-area:${r + 1}/${c + 1};border:${borderCssOf()}"></div>`);
       }
@@ -4543,7 +4454,7 @@ export class SlipDesigner extends LitElement {
     const preview = html`<div class="grid-preview"
       style="grid-template-columns:${colTracks};grid-template-rows:${rowTracks}">${bandOverlays}${blanks}${boxes}</div>`;
     // 셀 편집 중에는 행 역할 조작을 감춰 두 편집 모드가 겹치지 않게 한다.
-    if (!selected || el.repeat === undefined || this._selectedCell !== null) return preview;
+    if (!selected || el.repeat === undefined || this._gridEdit.cell !== null) return preview;
     return html`${preview}${this._renderBandStrip(el, rowTracks)}`;
   }
 
@@ -4664,7 +4575,7 @@ export class SlipDesigner extends LitElement {
    */
   private _renderBandStrip(el: GridElement, rowTracks: string) {
     const s = this._strings.designer;
-    const select = this._bandSelect;
+    const select = this._gridEdit.bandRange;
     const rows = el.rows.map((_, r) => {
       const band = bandAt(el, r);
       const inSelect = select !== null && r >= Math.min(select.from, select.to) && r <= Math.max(select.from, select.to);
@@ -4674,19 +4585,19 @@ export class SlipDesigner extends LitElement {
         title=${band === undefined ? '' : this._bandPlacementLabel(band.placement)}
         aria-label="${s.bandRow} ${r + 1}"
         aria-haspopup="menu"
-        aria-expanded=${String(inSelect && this._bandMenuOpen)}
+        aria-expanded=${String(inSelect && this._gridEdit.bandMenuOpen)}
         @pointerdown=${(e: PointerEvent) => e.stopPropagation()}
         @click=${(e: MouseEvent) => this._onBandRowClick(r, e.shiftKey)}>${r + 1}</button>`;
     });
     return html`<div class="band-strip" style="grid-template-rows:${rowTracks}"
       @pointerdown=${(e: PointerEvent) => e.stopPropagation()}>${rows}</div>
-      ${select === null || !this._bandMenuOpen ? nothing : this._renderBandMenu(el)}`;
+      ${select === null || !this._gridEdit.bandMenuOpen ? nothing : this._renderBandMenu(el)}`;
   }
 
   /** 행 구간 역할 명령 메뉴를 렌더링한다. */
   private _renderBandMenu(el: GridElement) {
     const s = this._strings.designer;
-    const select = this._bandSelect!;
+    const select = this._gridEdit.bandRange!;
     const from = Math.min(select.from, select.to);
     const to = Math.max(select.from, select.to);
     const top = el.rows.slice(0, from).reduce((sum, row) => sum + row.height * PX_PER_MM, 0);
@@ -4715,19 +4626,18 @@ export class SlipDesigner extends LitElement {
 
   /** 행 번호 선택 영역의 클릭을 처리한다. Shift 클릭은 연속 범위를 넓힌다. */
   private _onBandRowClick(row: number, extend: boolean): void {
-    if (extend && this._bandSelect !== null) this._bandSelect = { from: this._bandSelect.from, to: row };
-    else this._bandSelect = { from: row, to: row };
-    this._bandMenuOpen = true;
-    this._focusBandMenu = true;
-    this.requestUpdate();
+    const previous = this._gridEdit.bandRange;
+    this._gridEdit.selectBand(
+      extend && previous !== null ? { from: previous.from, to: row } : { from: row, to: row },
+    );
+    this._gridEdit.openBandMenu(true);
   }
 
   /** 행 역할 메뉴를 닫고 조작을 시작한 행으로 포커스를 돌린다. */
   private _closeBandMenu(clearSelection: boolean): void {
-    const row = this._bandSelect === null ? null : Math.min(this._bandSelect.from, this._bandSelect.to);
-    if (clearSelection) this._bandSelect = null;
-    this._bandMenuOpen = false;
-    this.requestUpdate();
+    const range = this._gridEdit.bandRange;
+    const row = range === null ? null : Math.min(range.from, range.to);
+    this._gridEdit.closeBandMenu(clearSelection);
     if (row === null) return;
     void this.updateComplete.then(() => {
       (this.renderRoot.querySelector(`[data-band-row="${row}"]`) as HTMLButtonElement | null)?.focus();
@@ -5390,7 +5300,7 @@ export class SlipDesigner extends LitElement {
     const valOf = (e: Event) => (e.target as HTMLInputElement).value;
     const anchor =
       ANCHORS[this._anchorByElement.get(el.id) ?? this._defaultAnchorIndex(el)] ?? ANCHORS[0];
-    const selectedCell = el.type === 'grid' ? this._selectedCell : null;
+    const selectedCell = el.type === 'grid' ? this._gridEdit.cell : null;
     const cellInBand = selectedCell !== null && el.type === 'grid' && inItemBand(el, selectedCell.row);
 
     // 셀 선택 상태에서는 그리드 이름·위치·크기 설정을 표시하지 않는다 (§7.4).
@@ -5458,7 +5368,7 @@ export class SlipDesigner extends LitElement {
 
       ${this._renderPagePlacementSection(el)}
       ${this._renderTypeProps(el)}
-      ${el.type === 'grid' && this._selectedCell !== null ? nothing : this._renderStyleGroups(el)}
+      ${el.type === 'grid' && this._gridEdit.cell !== null ? nothing : this._renderStyleGroups(el)}
       ${el.type === 'text' || el.type === 'field'
         ? this._renderConditionalFormatsSection(el.conditionalFormats, 'condFmt', (next) =>
             this._updateElement((target) => {
@@ -5733,8 +5643,8 @@ export class SlipDesigner extends LitElement {
     this._goToPage(at.pageIndex);
     this._selectedId = at.gridId;
     this._selectedIds = new Set([at.gridId]);
-    this._selectedCell = { row: at.row, column: at.column };
-    this._cellEditing = false;
+    this._gridEdit.selectCell({ row: at.row, column: at.column });
+    this._gridEdit.setEditing(false);
     this._sideSelection = null;
     this._expandedElements.add(at.gridId);
     this.requestUpdate();
@@ -5857,26 +5767,26 @@ export class SlipDesigner extends LitElement {
   /** 목록 하위 필드를 추가하고 현재 반복 셀에 연결한다. */
   private _addParameterFieldForCell(listKey: string): void {
     const before = new Set((this._parameterList().find((b) => b.key === listKey)?.fields ?? []).map((f) => f.key));
-    const cell = this._selectedCell;
+    const cell = this._gridEdit.cell;
     this._addParameterField(listKey);
     const created = (this._parameterList().find((b) => b.key === listKey)?.fields ?? [])
       .find((f) => !before.has(f.key));
     // 하위 필드 편집 후 원래 셀 선택을 복원한다.
     this._sideSelection = null;
-    this._selectedCell = cell;
+    if (cell) this._gridEdit.selectCell(cell);
     if (created) this._setGridCellSource('parameter', created.key);
   }
 
   /** 새 최상위 파라미터를 만들고 현재 셀에 연결한다. */
   private _newParameterForCell(): void {
-    const cell = this._selectedCell;
+    const cell = this._gridEdit.cell;
     const { key, label } = this._nextParameter();
     this._updateFile((f) => {
       const defs = f.template.parameters ?? [];
       defs.push({ key, label });
       f.template.parameters = defs;
     });
-    this._selectedCell = cell;
+    if (cell) this._gridEdit.selectCell(cell);
     this._setGridCellSource('parameter', key);
   }
 
@@ -6453,13 +6363,13 @@ export class SlipDesigner extends LitElement {
   /** 그리드의 행, 열, 반복 설정, 행 구간과 셀을 편집하는 패널을 렌더링한다. */
   private _renderGridProps(el: GridElement) {
     const s = this._strings.designer;
-    const cellTarget = this._selectedCell;
+    const cellTarget = this._gridEdit.cell;
     const cellDef = cellTarget
       ? el.cells.find((c) => c.row === cellTarget.row && c.column === cellTarget.column)
       : undefined;
     const repeat = el.repeat;
     const source: 'content' | 'parameter' | 'formula' =
-      this._cellSourceKind
+      this._gridEdit.sourceKind
       ?? (cellDef?.parameter !== undefined ? 'parameter' : cellDef?.formula !== undefined ? 'formula' : 'content');
     const inBand = cellTarget !== null && inItemBand(el, cellTarget.row);
     const numberOf = (e: Event): number => Number((e.target as HTMLInputElement).value);
@@ -6617,11 +6527,11 @@ export class SlipDesigner extends LitElement {
   /** 내부 구간 조합 대신 작업 목적으로 행을 추가하는 명령을 렌더링한다. */
   private _renderGridRowCommands(el: GridElement) {
     const s = this._strings.designer;
-    const command = this._gridRowCommand;
+    const command = this._gridEdit.rowCommand;
     const fields = this._parameterList()
       .find((parameter) => parameter.key === el.repeat?.parameter)?.fields ?? [];
     const numericFields = fields.filter((field) => field.valueType === 'number');
-    const selectedField = numericFields.find((field) => field.key === this._gridRowCommandField);
+    const selectedField = numericFields.find((field) => field.key === this._gridEdit.rowCommandField);
     const definitions: { command: GridRowCommand; label: string; icon: unknown }[] = [
       { command: 'header', label: s.gridCommandHeaderName, icon: icons.up },
       { command: 'group-subtotal', label: s.gridCommandGroupSubtotalName, icon: icons.treeClosed },
@@ -6656,8 +6566,7 @@ export class SlipDesigner extends LitElement {
             class=${command === definition.command ? 'selected' : ''}
             @click=${() => {
               if (command === definition.command) {
-                this._gridRowCommand = null;
-                this._gridRowCommandField = '';
+                this._gridEdit.clearRowCommand();
               } else {
                 this._openGridRowCommand(definition.command);
               }
@@ -6678,7 +6587,7 @@ export class SlipDesigner extends LitElement {
                     value: selectedField?.key ?? '',
                     placeholder: s.gridCommandFieldMissing,
                     options: numericFields.map((field) => ({ value: field.key, label: field.title })),
-                    onPick: (value) => { this._gridRowCommandField = value; },
+                    onPick: (value) => { this._gridEdit.setRowCommandField(value); },
                   })}
                 </div>`
               : nothing}
@@ -6695,10 +6604,8 @@ export class SlipDesigner extends LitElement {
             </div>
             ${this._renderInputError('grid-row-command')}
             <div class="grid-command-actions">
-              <button type="button" @click=${() => {
-                this._gridRowCommand = null;
-                this._gridRowCommandField = '';
-              }}>${s.cancel}</button>
+              <button type="button"
+                @click=${() => this._gridEdit.clearRowCommand()}>${s.cancel}</button>
               <button type="button" class="primary" ?disabled=${!groupReady || !fieldReady}
                 @click=${() => this._applyGridRowCommand()}>${s.gridCommandApply}</button>
             </div>
@@ -6716,11 +6623,11 @@ export class SlipDesigner extends LitElement {
     const bands = el.repeat?.bands ?? [];
     const planError = this._planError();
     const errorBandId = planError?.elementId === el.id ? planError.bandId : undefined;
-    const selected = this._bandSelect === null
+    const selected = this._gridEdit.bandRange === null
       ? null
       : {
-          from: Math.min(this._bandSelect.from, this._bandSelect.to),
-          to: Math.max(this._bandSelect.from, this._bandSelect.to),
+          from: Math.min(this._gridEdit.bandRange.from, this._gridEdit.bandRange.to),
+          to: Math.max(this._gridEdit.bandRange.from, this._gridEdit.bandRange.to),
         };
     const selectedRoles = selected === null
       ? []
@@ -6764,8 +6671,8 @@ export class SlipDesigner extends LitElement {
               aria-invalid=${errorBandId === band.id ? 'true' : nothing}
               aria-describedby=${errorBandId === band.id ? `grid-plan-error-${band.id}` : nothing}
               @click=${() => {
-                this._bandSelect = { from: band.fromRow, to: band.toRow };
-                this._bandMenuOpen = false;
+                this._gridEdit.selectBand({ from: band.fromRow, to: band.toRow });
+                this._gridEdit.closeBandMenu(false);
                 this.requestUpdate();
               }}>
               <span class="band-swatch placement-${band.placement}"></span>
@@ -6862,9 +6769,7 @@ export class SlipDesigner extends LitElement {
   /** 셀 선택을 해제하고 그리드 전체 편집으로 돌아간다. */
   private _clearCellSelection(): void {
     this._resetPanelErrors();
-    this._selectedCell = null;
-    this._cellEditing = false;
-    this._cellSourceKind = null;
+    this._gridEdit.clearCellAndSource();
     this.requestUpdate();
   }
 
@@ -6918,7 +6823,7 @@ export class SlipDesigner extends LitElement {
                   <label>${s.content}</label>
                   <input .value=${cellDef?.content ?? ''}
                     @change=${(e: Event) => {
-                      this._selectedCell = cellTarget;
+                      this._gridEdit.selectCell(cellTarget);
                       this._commitCellContent(valOf(e));
                     }}>
                 </div>`
@@ -7950,7 +7855,7 @@ export class SlipDesigner extends LitElement {
 
   /** 선택 셀의 조건부 서식 규칙 목록을 저장한다. 빈 목록이면 속성을 제거한다. */
   private _updateCellConditionalFormats(next: ConditionalFormatRule[]): void {
-    const target = this._selectedCell;
+    const target = this._gridEdit.cell;
     if (!target) return;
     this._updateElement((element) => {
       if (!isGrid(element)) return;
@@ -8543,8 +8448,7 @@ export class SlipDesigner extends LitElement {
     this._forms.markLoaded(id);
     this._clearSelection();
     this._sideSelection = null;
-    this._selectedCell = null;
-    this._cellEditing = false;
+    this._gridEdit.clearCell();
     this._pageIndex = 0;
     this._previewMode = false;
     this._dialogs.close('myForms');

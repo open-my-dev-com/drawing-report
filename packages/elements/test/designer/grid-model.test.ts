@@ -16,6 +16,11 @@ import {
   assignBandRole,
   resizeBandRange,
   spanCrossesBand,
+  canRemoveLastRow,
+  changeRowCount,
+  changeColumnCount,
+  insertPositionFor,
+  insertGridRow,
 } from '../../src/designer/grid-model.js';
 
 function makeGrid(rows: number, columns: number, cells: Partial<GridCell>[] = [], bands?: GridBand[]): GridElement {
@@ -231,5 +236,118 @@ describe('spanCrossesBand', () => {
 
   it('병합하지 않은 셀은 넘지 않는다', () => {
     expect(spanCrossesBand(el, bands, { row: 2, column: 0 } as GridCell)).toBe(false);
+  });
+});
+
+describe('changeRowCount · changeColumnCount', () => {
+  it('행을 더하면 마지막 행 높이를 따라간다', () => {
+    const el = makeGrid(2, 2);
+    el.rows[1]!.height = 25;
+    changeRowCount(el, 1);
+    expect(el.rows.map((r) => r.height)).toEqual([10, 25, 25]);
+  });
+
+  it('행을 지우면 범위를 벗어난 셀과 병합을 정리한다', () => {
+    const el = makeGrid(3, 2, [
+      { row: 2, column: 0, content: '사라질 셀' },
+      { row: 1, column: 0, rowSpan: 2 },
+    ]);
+    changeRowCount(el, -1);
+    expect(el.rows.length).toBe(2);
+    expect(el.cells.map((c) => c.row)).toEqual([1]);
+    expect('rowSpan' in el.cells[0]!).toBe(false);
+  });
+
+  it('행이 하나뿐인 구간은 행을 지우면 함께 사라진다', () => {
+    const el = makeGrid(3, 1, [], [
+      band('b-item', 0, 1, 'item'),
+      band('b-tail', 2, 2, 'after-data'),
+    ]);
+    changeRowCount(el, -1);
+    expect(el.repeat!.bands.map((b) => b.id)).toEqual(['b-item']);
+  });
+
+  it('여러 행을 가진 구간은 끝만 줄어든다', () => {
+    const el = makeGrid(3, 1, [], [band('b-item', 0, 2, 'item')]);
+    changeRowCount(el, -1);
+    expect(el.repeat!.bands[0]).toMatchObject({ fromRow: 0, toRow: 1 });
+  });
+
+  it('열도 마지막 너비를 따라 더하고, 지우면 셀을 정리한다', () => {
+    const el = makeGrid(1, 2, [{ row: 0, column: 1, colSpan: 2 }]);
+    el.columns[1]!.width = 45;
+    changeColumnCount(el, 1);
+    expect(el.columns.map((c) => c.width)).toEqual([30, 45, 45]);
+
+    changeColumnCount(el, -1);
+    changeColumnCount(el, -1);
+    expect(el.columns.length).toBe(1);
+    expect(el.cells).toEqual([]);
+  });
+});
+
+describe('canRemoveLastRow', () => {
+  it('반복이 없으면 언제나 지울 수 있다', () => {
+    expect(canRemoveLastRow(makeGrid(1, 1))).toBe(true);
+  });
+
+  it('항목 구간이 한 행뿐이면 그 행은 지킬 수 없다', () => {
+    const el = makeGrid(2, 1, [], [band('b-head', 0, 0, 'page-start'), band('b-item', 1, 1, 'item')]);
+    expect(canRemoveLastRow(el)).toBe(false);
+  });
+
+  it('항목 구간이 여러 행이면 지울 수 있다', () => {
+    const el = makeGrid(2, 1, [], [band('b-item', 0, 1, 'item')]);
+    expect(canRemoveLastRow(el)).toBe(true);
+  });
+});
+
+describe('insertPositionFor · insertGridRow', () => {
+  const bands = () => [
+    band('b-head', 0, 0, 'page-start'),
+    band('b-item', 1, 1, 'item'),
+    band('b-tail', 2, 2, 'after-data'),
+  ];
+
+  it('같은 역할의 구간이 있으면 그 뒤에 넣는다', () => {
+    const el = makeGrid(3, 1, [], bands());
+    expect(insertPositionFor(el, 'page-start')).toEqual({ insertAt: 1, sameBandId: 'b-head' });
+  });
+
+  it('같은 역할이 없으면 다음 역할의 구간 앞에 넣는다', () => {
+    const el = makeGrid(3, 1, [], bands());
+    expect(insertPositionFor(el, 'before-data')).toEqual({ insertAt: 0, sameBandId: undefined });
+  });
+
+  it('넣은 자리 아래의 셀 좌표가 한 칸씩 밀린다', () => {
+    const el = makeGrid(3, 1, [{ row: 0, column: 0 }, { row: 2, column: 0 }], bands());
+    insertGridRow(el, 1, 'page-start', 'b-head', {}, 12);
+    expect(el.rows.length).toBe(4);
+    expect(el.rows[1]!.height).toBe(12);
+    expect(el.cells.map((c) => c.row)).toEqual([0, 3]);
+  });
+
+  it('넣는 자리를 가로지르는 병합은 한 칸 더 걸친다', () => {
+    const el = makeGrid(3, 1, [{ row: 0, column: 0, rowSpan: 3 }], bands());
+    insertGridRow(el, 1, 'page-start', 'b-head', {}, 10);
+    expect(el.cells[0]!.rowSpan).toBe(4);
+  });
+
+  it('붙일 구간은 끝이 늘고 아래 구간은 통째로 밀린다', () => {
+    const el = makeGrid(3, 1, [], bands());
+    insertGridRow(el, 1, 'page-start', 'b-head', {}, 10);
+    expect(el.repeat!.bands.map((b) => [b.id, b.fromRow, b.toRow])).toEqual([
+      ['b-head', 0, 1],
+      ['b-item', 2, 2],
+      ['b-tail', 3, 3],
+    ]);
+  });
+
+  it('붙일 구간을 지정하지 않으면 새 구간을 만들어 행 순서대로 끼운다', () => {
+    const el = makeGrid(3, 1, [], bands());
+    insertGridRow(el, 1, 'page-start', undefined, { name: '헤더', pages: 'first' }, 10);
+    const created = el.repeat!.bands[1]!;
+    expect(created).toMatchObject({ fromRow: 1, toRow: 1, placement: 'page-start', name: '헤더', pages: 'first' });
+    expect(el.repeat!.bands.map((b) => b.fromRow)).toEqual([0, 1, 2, 3]);
   });
 });

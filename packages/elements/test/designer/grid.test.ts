@@ -332,6 +332,18 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
   const s = strings.designer;
 
   /** 헤더 1행 + 반복 1행 + 꼬리 1행, 행 10mm·열 30mm짜리 그리드 하나만 둔 양식 */
+  /** 그리드 편집 컨트롤러 — 셀·행 구간 선택 상태를 확인하고 조작한다 */
+  function gridEdit(el: Element) {
+    return (el as unknown as {
+      _gridEdit: {
+        readonly cell: { row: number; column: number } | null;
+        readonly bandRange: { from: number; to: number } | null;
+        selectCell(cell: { row: number; column: number }): void;
+        setEditing(editing: boolean): void;
+      };
+    })._gridEdit;
+  }
+
   function makeGridElementFile(): SlipTemplateFile {
     return {
       schemaVersion: '0.1.0',
@@ -489,8 +501,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     await el.updateComplete;
 
     expect((el as unknown as { _selectedId: string | null })._selectedId).toBe('g-1');
-    expect((el as unknown as { _bandSelect: { from: number; to: number } | null })._bandSelect)
-      .toEqual({ from: 1, to: 1 });
+    expect(gridEdit(el).bandRange).toEqual({ from: 1, to: 1 });
     expect(el.shadowRoot!.querySelector('[data-id="g-1"]')?.classList.contains('layout-error')).toBe(true);
     const band = el.shadowRoot!.querySelector('[data-band-id="b-item"]') as HTMLElement;
     expect(band.classList.contains('layout-error')).toBe(true);
@@ -846,8 +857,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
 
     expect(gridOf(el).repeat!.bands.find((band) => band.id === 'b-item'))
       .toMatchObject({ fromRow: 1, toRow: 2, placement: 'item' });
-    expect((el as unknown as { _bandSelect: { from: number; to: number } })._bandSelect)
-      .toEqual({ from: 1, to: 2 });
+    expect(gridEdit(el).bandRange).toEqual({ from: 1, to: 2 });
 
     editor = el.shadowRoot!.querySelector('.band-editor') as HTMLElement;
     to = editor.querySelector(`[aria-label="${s.bandToRow}"]`) as HTMLInputElement;
@@ -975,9 +985,9 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
   it('선택한 그리드에서 행을 누르면 그 원본 행의 칸이 골라진다', async () => {
     const el = await mount();
     await clickCell(el, 15, 25); // 항목 구간 행 (y 20~30)
-    const item = (el as unknown as { _selectedCell: { row: number; column: number } })._selectedCell;
+    const item = gridEdit(el).cell;
     await clickCell(el, 15, 35); // 꼬리 행 (y 30~40)
-    const tail = (el as unknown as { _selectedCell: { row: number; column: number } })._selectedCell;
+    const tail = gridEdit(el).cell;
     expect(item).toEqual({ row: 1, column: 0 });
     expect(tail).toEqual({ row: 2, column: 0 });
     el.remove();
@@ -1037,13 +1047,11 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
   it('인라인 칸 편집 상자는 칸의 배경색을 그대로 쓴다 (편집 중 색이 사라지지 않게)', async () => {
     const el = await mount();
     // 칸에 배경색을 준 뒤 그 칸을 두 번 눌러 인라인 편집을 연다
-    (el as unknown as { _selectedCell: { row: number; column: number } | null })._selectedCell =
-      { row: 0, column: 0 };
+    gridEdit(el).selectCell({ row: 0, column: 0 });
     (el as unknown as { _updateCellStyle: (k: string, v: unknown) => void })
       ._updateCellStyle('backgroundColor', '#ffeeaa');
     await el.updateComplete;
-    (el as unknown as { _cellEditing: boolean })._cellEditing = true;
-    (el as unknown as { requestUpdate: () => void }).requestUpdate();
+    gridEdit(el).setEditing(true);
     await el.updateComplete;
 
     const editor = el.shadowRoot!.querySelector('.cell-editor') as HTMLInputElement;
@@ -1128,7 +1136,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     // 하위 줄을 누르면 그 칸이 선택된다
     (cellRows()[1] as HTMLElement).click();
     await el.updateComplete;
-    const sel = (el as unknown as { _selectedCell: { row: number; column: number } | null })._selectedCell;
+    const sel = gridEdit(el).cell;
     expect(sel).toEqual({ row: 1, column: 0 });
     el.remove();
   });
