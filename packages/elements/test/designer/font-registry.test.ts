@@ -224,6 +224,55 @@ describe('FontRegistryController', () => {
     expect(host.requestUpdate).not.toHaveBeenCalled();
   });
 
+  it('다시 연결한 화면도 완료 통지를 받는다', async () => {
+    const host = makeHost();
+    const key = {};
+    let resolveFonts: (fonts: SlipFont[]) => void = () => undefined;
+    const registry = new FontRegistryController(host, stubAdapter().adapter);
+    registry.use(key, () => new Promise((resolve) => {
+      resolveFonts = resolve;
+    }));
+    registry.hostDisconnected();
+    registry.hostConnected();
+    host.requestUpdate.mockClear();
+
+    resolveFonts(FONTS);
+    await settle();
+    expect(host.requestUpdate).toHaveBeenCalled();
+    expect(registry.fontNames).toEqual(['Pretendard', 'Pretendard-Bold']);
+  });
+
+  it('조회에 실패한 출처는 다시 쓸 때 새로 시도한다', async () => {
+    const host = makeHost();
+    const key = {};
+    const load = vi.fn()
+      .mockImplementationOnce(() => Promise.reject(new Error('조회 실패')))
+      .mockImplementationOnce(() => Promise.resolve(FONTS));
+    const registry = new FontRegistryController(host, stubAdapter().adapter);
+
+    registry.use(key, load as () => Promise<readonly SlipFont[]>);
+    await settle();
+    expect(registry.loadFailed).toBe(true);
+    expect(registry.fontNames).toEqual([]);
+
+    registry.use(key, load as () => Promise<readonly SlipFont[]>);
+    await settle();
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(registry.loadFailed).toBe(false);
+    expect(registry.fontNames).toEqual(['Pretendard', 'Pretendard-Bold']);
+  });
+
+  it('성공한 출처를 다시 써도 조회를 반복하지 않는다', async () => {
+    const load = vi.fn(() => Promise.resolve(FONTS));
+    const key = {};
+    const registry = new FontRegistryController(makeHost(), stubAdapter().adapter);
+    registry.use(key, load);
+    await settle();
+    registry.use(key, load);
+    await settle();
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
   it('폰트를 가져오기 전에는 빈 목록을 준다', () => {
     const registry = new FontRegistryController(makeHost(), stubAdapter().adapter);
     expect(registry.fontNames).toEqual([]);

@@ -103,7 +103,8 @@ function shareFonts(
   let pending: Promise<readonly SlipFont[]> | undefined;
   return () => {
     if (pending === undefined) {
-      pending = Promise.resolve(supply());
+      // 공급 함수가 그 자리에서 예외를 던져도 비동기 거부와 같게 다루도록 체인 안에서 부른다.
+      pending = Promise.resolve().then(() => supply());
       pending.catch(() => {
         pending = undefined;
       });

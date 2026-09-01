@@ -67,6 +67,22 @@ describe('createSlipKit (ADR-056)', () => {
     expect(supply).toHaveBeenCalledTimes(2);
   });
 
+  it('getFonts가 그 자리에서 예외를 던져도 거부로 다루고 다시 시도한다', async () => {
+    const fonts = [{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }];
+    let attempt = 0;
+    const supply = vi.fn(() => {
+      attempt += 1;
+      if (attempt === 1) throw new Error('설정 오류');
+      return fonts;
+    });
+    const slip = createSlipKit({ getFonts: supply });
+
+    // 호출이 그 자리에서 던지지 않고 거부된 Promise로 끝납니다.
+    await expect(slip.getFonts!()).rejects.toThrow('설정 오류');
+    await expect(slip.getFonts!()).resolves.toEqual(fonts);
+    expect(supply).toHaveBeenCalledTimes(2);
+  });
+
   it('encrypt/decrypt는 설정 키로 왕복한다', async () => {
     const slip = createSlipKit({ encryption: { key: 'cfg-key' } });
     const locked = await slip.encrypt(template());

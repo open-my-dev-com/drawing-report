@@ -165,6 +165,8 @@ export class FontRegistryController implements ReactiveController {
   ) {}
 
   hostConnected(): void {
+    // 다시 연결한 화면도 지금 출처의 완료 통지를 받아야 합니다.
+    if (this._key !== null) sources.get(this._key)?.hosts.add(this.host);
     this.host.requestUpdate();
   }
 
@@ -187,11 +189,13 @@ export class FontRegistryController implements ReactiveController {
     this._key = key;
     const source = sourceOf(key);
     source.hosts.add(this.host);
-    if (source.loading !== null) {
+    // 실패한 출처는 호출부가 다시 쓰려 할 때 새로 시도합니다.
+    if (source.loading !== null && !source.loadFailed) {
       // 이미 가져온 출처로 바꾸면 새 목록을 반영하도록 이 화면을 다시 그립니다.
       this.host.requestUpdate();
       return;
     }
+    source.loadFailed = false;
     source.loading = load().then((fonts) => {
       source.fonts = fonts;
       refreshHosts(source);
