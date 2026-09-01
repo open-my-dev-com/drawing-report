@@ -32,7 +32,13 @@ import {
 import type { GridEditController } from '../controllers/grid-edit.js';
 import { numberRow, colorControl, textStyleToggles, borderShapeRow, borderWidthSelect } from './inputs.js';
 import { conditionalFormatsSection } from './conditional-formats.js';
-import { gridOverflowRow, fontNameRow } from './element-props.js';
+import {
+  gridOverflowRow,
+  fontNameRow,
+  fontVariantNote,
+  cellInheritOption,
+} from './element-props.js';
+import { setOptional } from '../patch.js';
 import type { ElementActions } from './element-props.js';
 import type { ParameterInfo } from '../parameters.js';
 import type { PanelKit } from './panel-kit.js';
@@ -129,6 +135,15 @@ export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions,
                 <button class="row-btn" aria-label="${s.columns} +" @click=${() => grid.changeColumns(1)}>+</button>
               </div>
             </div>
+        </div>
+
+        <div class="prop-section">
+          <div class="prop-section-title">${s.styleText}</div>
+          ${fontNameRow(kit, act,
+            el.fontName,
+            (v) => act.update((target) => setOptional(target, 'fontName', v)),
+            { ariaLabel: `${s.typeGrid} ${s.fontName}` },
+          )}
         </div>
 
         <div class="prop-section">
@@ -649,7 +664,10 @@ export function gridCellProps(
           ${fontNameRow(kit, act,
             cellDef?.fontName,
             (v) => grid.updateCellStyle('fontName', v),
-            `${s.cell} ${s.fontName}`,
+            {
+              ariaLabel: `${s.cell} ${s.fontName}`,
+              inherit: cellInheritOption(kit, act.fonts, el.fontName),
+            },
           )}
           ${numberRow(kit,
             s.fontSize, cellDef?.fontSize, el.fontSize ?? DEFAULT_FONT_SIZE,
@@ -706,6 +724,7 @@ export function gridCellProps(
             (key, value) => grid.updateCellStyle(key, value ? true : null),
             `${s.cell} `,
           )}
+          ${fontVariantNote(kit, act.fonts, { ...el, ...cellDef })}
           ${colorControl(kit,
             s.fontColor, cellDef?.fontColor, 'cellFontColor',
             (v) => grid.updateCellStyle('fontColor', v),

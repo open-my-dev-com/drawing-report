@@ -137,7 +137,7 @@ describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
     await el.updateComplete;
   }
 
-  it('강조(굵게·밑줄)를 캔버스에 미리 적용한다 (ADR-063)', async () => {
+  it('강조(밑줄)를 캔버스에 미리 적용하고 굵게는 합성하지 않는다 (ADR-063)', async () => {
     const el = await mountFile(
       [{
         type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
@@ -147,7 +147,8 @@ describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
       {},
     );
     const content = el.shadowRoot?.querySelector('.el-content') as HTMLElement;
-    expect(content.style.fontWeight).toBe('700');
+    // 굵게는 등록된 변형 폰트로만 표현합니다 (폰트 적용은 fonts 시험에서 확인합니다).
+    expect(content.style.fontWeight).toBe('');
     expect(content.style.textDecoration).toContain('underline');
     el.remove();
   });

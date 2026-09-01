@@ -144,11 +144,15 @@ class SlipToPdfmeConverter {
   ) {}
 
   /**
-   * 기본 폰트의 Bold 변형 이름을 찾는다.
-   * 등록된 변형이 없으면 `undefined`를 반환한다.
+   * 등록된 폰트 이름만 남긴다.
+   *
+   * @remarks
+   * 등록되지 않은 이름을 그대로 넘기면 PDF 생성이 실패하므로 대체 폰트를 쓰도록 undefined로 바꾼다.
+   * 파일에 저장된 `fontName` 값은 바꾸지 않는다.
    */
-  private resolveBoldFont(fontName: string | undefined): string | undefined {
-    return this.resolveVariantFontName(fontName, 'Bold');
+  private registeredFontName(fontName: string | undefined): string | undefined {
+    if (fontName === undefined) return undefined;
+    return this.fontNames.includes(fontName) ? fontName : undefined;
   }
 
   /**
@@ -165,22 +169,24 @@ class SlipToPdfmeConverter {
   /**
    * 굵기와 기울임을 반영할 폰트 이름을 결정한다.
    * 두 스타일이 모두 필요하면 `<이름>-BoldItalic`을 먼저 찾고, 등록된 변형이 없으면
-   * 기본 폰트를 사용한다.
+   * 기본 폰트를 사용한다. 지정한 폰트가 등록되어 있지 않으면 대체 폰트를 기준으로 삼는다.
    */
   private resolveVariantFont(
     fontName: string | undefined,
     bold: boolean | undefined,
     italic: boolean | undefined,
   ): string | undefined {
+    // 등록되지 않은 이름은 대체 폰트를 기준으로 변형을 찾는다.
+    const name = this.registeredFontName(fontName);
     if (bold === true && italic === true) {
-      return this.resolveVariantFontName(fontName, 'BoldItalic')
-        ?? this.resolveVariantFontName(fontName, 'Bold')
-        ?? this.resolveVariantFontName(fontName, 'Italic')
-        ?? fontName;
+      return this.resolveVariantFontName(name, 'BoldItalic')
+        ?? this.resolveVariantFontName(name, 'Bold')
+        ?? this.resolveVariantFontName(name, 'Italic')
+        ?? name;
     }
-    if (bold === true) return this.resolveVariantFontName(fontName, 'Bold') ?? fontName;
-    if (italic === true) return this.resolveVariantFontName(fontName, 'Italic') ?? fontName;
-    return fontName;
+    if (bold === true) return this.resolveVariantFontName(name, 'Bold') ?? name;
+    if (italic === true) return this.resolveVariantFontName(name, 'Italic') ?? name;
+    return name;
   }
 
   convert(): PdfmeRenderInput {

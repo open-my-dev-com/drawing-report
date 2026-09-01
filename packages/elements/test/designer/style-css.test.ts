@@ -52,14 +52,20 @@ describe('textStyleCss', () => {
     expect(textStyleCss({})).toBe(';justify-content:flex-start');
   });
 
-  it('굵게와 밑줄·취소선을 함께 적는다', () => {
-    const css = textStyleCss({ bold: true, underline: true, strikethrough: true });
-    expect(css).toContain(';font-weight:700');
+  it('밑줄과 취소선을 함께 적는다', () => {
+    const css = textStyleCss({ underline: true, strikethrough: true });
     expect(css).toContain(';text-decoration:underline line-through');
   });
 
-  it('기울임은 캔버스에 적용하지 않는다', () => {
-    expect(textStyleCss({ italic: true } as never)).not.toContain('italic');
+  it('굵게와 기울임은 합성하지 않는다 — 변형 폰트로만 표현한다', () => {
+    const css = textStyleCss({ bold: true, italic: true } as never);
+    expect(css).not.toContain('font-weight');
+    expect(css).not.toContain('italic');
+  });
+
+  it('폰트를 주면 font-family를 적는다', () => {
+    expect(textStyleCss({}, { fontFamily: 'slipkit-f0-1' })).toContain(';font-family:slipkit-f0-1');
+    expect(textStyleCss({})).not.toContain('font-family');
   });
 
   it('줄간격이 1이면 아무것도 적지 않고, 다르면 위쪽 여백을 함께 보정한다', () => {
