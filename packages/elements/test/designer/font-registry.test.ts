@@ -4,7 +4,7 @@ import type { SlipFont } from '@omdc-slipkit/core';
 import {
   FontRegistryController,
   browserFontFaceAdapter,
-  fontSourceKey,
+  bundledFontSourceKey,
   type FontFaceAdapter,
 } from '../../src/designer/controllers/font-registry.js';
 
@@ -176,6 +176,38 @@ describe('FontRegistryController', () => {
     expect(later.familyOf('Pretendard')).toBeDefined();
   });
 
+  it('목록 조회가 실패해도 같은 출처의 화면을 모두 갱신한다', async () => {
+    const first = makeHost();
+    const second = makeHost();
+    const disconnected = makeHost();
+    const key = {};
+    let rejectFonts: (reason: Error) => void = () => undefined;
+    const load = (): Promise<readonly SlipFont[]> =>
+      new Promise((_, reject) => {
+        rejectFonts = reject;
+      });
+
+    const a = new FontRegistryController(first, stubAdapter().adapter);
+    const b = new FontRegistryController(second, stubAdapter().adapter);
+    const c = new FontRegistryController(disconnected, stubAdapter().adapter);
+    a.use(key, load);
+    b.use(key, load);
+    c.use(key, load);
+    c.hostDisconnected();
+    first.requestUpdate.mockClear();
+    second.requestUpdate.mockClear();
+    disconnected.requestUpdate.mockClear();
+
+    rejectFonts(new Error('조회 실패'));
+    await settle();
+    expect(first.requestUpdate).toHaveBeenCalled();
+    expect(second.requestUpdate).toHaveBeenCalled();
+    expect(disconnected.requestUpdate).not.toHaveBeenCalled();
+    expect(a.loadFailed).toBe(true);
+    expect(b.loadFailed).toBe(true);
+    expect(a.fontNames).toEqual([]);
+  });
+
   it('화면에서 떨어진 뒤에는 다시 그리지 않는다', async () => {
     const host = makeHost();
     const key = {};
@@ -200,22 +232,14 @@ describe('FontRegistryController', () => {
   });
 });
 
-describe('fontSourceKey', () => {
-  it('폰트를 직접 공급하는 인스턴스는 그 인스턴스를 키로 쓴다', () => {
-    const slipkit = { getFonts: () => FONTS };
-    expect(fontSourceKey(slipkit, 'ko')).toBe(slipkit);
-    expect(fontSourceKey(slipkit, 'ja')).toBe(slipkit);
+describe('bundledFontSourceKey', () => {
+  it('같은 로케일이면 같은 키를 준다', () => {
+    expect(bundledFontSourceKey('ko')).toBe(bundledFontSourceKey('ko'));
   });
 
-  it('동봉 폰트를 쓰면 인스턴스가 있어도 로케일로만 나눈다', () => {
-    const slipkit = {};
-    expect(fontSourceKey(slipkit, 'ko')).toBe(fontSourceKey(undefined, 'ko'));
-    expect(fontSourceKey(slipkit, 'ko')).not.toBe(fontSourceKey(slipkit, 'ja'));
-  });
-
-  it('인스턴스가 없으면 로케일별로 키를 나눈다', () => {
-    expect(fontSourceKey(undefined, 'ko')).toBe(fontSourceKey(undefined, 'ko'));
-    expect(fontSourceKey(undefined, 'ko')).not.toBe(fontSourceKey(undefined, 'ja'));
+  it('로케일이 다르면 키를 나눈다', () => {
+    expect(bundledFontSourceKey('ko')).not.toBe(bundledFontSourceKey('ja'));
+    expect(bundledFontSourceKey(undefined)).not.toBe(bundledFontSourceKey('ko'));
   });
 });
 

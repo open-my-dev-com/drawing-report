@@ -179,7 +179,8 @@ export function cellInheritOption(
  * @param act - 요소 편집 동작
  * @param current - 현재 지정된 폰트 이름
  * @param apply - 저장 콜백 (빈 값이면 지정 해제)
- * @param opts - `ariaLabel`은 보조기기용 이름, `inherit`은 기본값 항목의 문구
+ * @param opts - `ariaLabel`은 보조기기용 이름, `inherit`은 기본값 항목의 문구,
+ * `style`은 굵게·기울임까지 반영해 실제 적용 폰트를 찾을 스타일입니다
  * @returns 폰트 선택 UI
  */
 export function fontNameRow(
@@ -187,7 +188,7 @@ export function fontNameRow(
   act: ElementActions,
   current: string | undefined,
   apply: (value: string | null) => void,
-  opts?: { ariaLabel?: string; inherit?: FontDefaultOption },
+  opts?: { ariaLabel?: string; inherit?: FontDefaultOption; style?: FontStyleInput },
 ) {
   const s = kit.s;
   const fonts = act.fonts;
@@ -196,9 +197,11 @@ export function fontNameRow(
   const options = current !== undefined && !fonts.selectable.includes(current)
     ? [current, ...fonts.selectable]
     : fonts.selectable;
+  // 굵게·기울임 변형의 등록이 실패했을 때도 알려야 하므로 스타일 전체로 판정합니다.
+  const style = opts?.style ?? { fontName: current };
   const unregistered = fonts.isUnregistered(current);
-  const failed = fonts.hasFailed({ fontName: current });
-  const applied = fonts.appliedName({ fontName: current });
+  const failed = fonts.hasFailed(style);
+  const applied = fonts.appliedName(style);
   return html`
     <div class="prop-row">
       <label>${s.fontName}</label>
@@ -280,6 +283,7 @@ export function fontProps(kit: PanelKit, act: ElementActions, el: SlipElement) {
     ${fontNameRow(kit, act,
       (el as { fontName?: string }).fontName,
       (v) => act.update((target) => setOptional(target, 'fontName', v)),
+      { style: el as FontStyleInput },
     )}
     ${numberRow(kit,
       s.fontSize, el.fontSize, DEFAULT_FONT_SIZE,

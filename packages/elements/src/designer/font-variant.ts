@@ -67,6 +67,56 @@ export function resolveVariantFontName(
 }
 
 /**
+ * 굵게·기울임에 쓸 수 있는 폰트 이름을 우선순위대로 모읍니다.
+ *
+ * @remarks
+ * PDF 변환과 같은 `BoldItalic → Bold → Italic → 기본 형태` 순서이며 등록된 이름만 남깁니다.
+ * 앞쪽 후보를 쓸 수 없을 때 뒤로 내려가려면 목록 전체가 필요합니다.
+ *
+ * @param fontNames - 등록된 폰트 이름 목록
+ * @param baseName - 기준이 되는 등록된 폰트 이름
+ * @param bold - 굵게 여부
+ * @param italic - 기울임 여부
+ * @returns 우선순위대로 정렬한 등록된 폰트 이름
+ */
+export function variantCandidates(
+  fontNames: readonly string[],
+  baseName: string | undefined,
+  bold: boolean | undefined,
+  italic: boolean | undefined,
+): string[] {
+  if (baseName === undefined || !fontNames.includes(baseName)) return [];
+  const suffixes = bold === true && italic === true
+    ? ['BoldItalic', 'Bold', 'Italic']
+    : bold === true
+      ? ['Bold']
+      : italic === true
+        ? ['Italic']
+        : [];
+  const found = suffixes
+    .map((suffix) => `${baseName}-${suffix}`)
+    .filter((name) => fontNames.includes(name));
+  found.push(baseName);
+  return found;
+}
+
+/**
+ * 지정한 폰트가 등록되어 있으면 그대로, 아니면 대체 폰트를 기준 폰트로 정합니다.
+ *
+ * @param fontNames - 등록된 폰트 이름 목록
+ * @param fontName - 요소·셀에 지정한 폰트 이름. 지정이 없으면 undefined
+ * @param fallbackName - 대체 폰트 이름
+ * @returns 변형을 찾을 기준 폰트 이름. 등록된 폰트가 하나도 없으면 undefined
+ */
+export function baseFontName(
+  fontNames: readonly string[],
+  fontName: string | undefined,
+  fallbackName: string | undefined,
+): string | undefined {
+  return fontName !== undefined && fontNames.includes(fontName) ? fontName : fallbackName;
+}
+
+/**
  * 캔버스에 실제로 적용할 등록된 폰트 이름을 찾습니다.
  *
  * @param fontNames - 등록된 폰트 이름 목록
@@ -83,10 +133,8 @@ export function effectiveFontName(
   bold: boolean | undefined,
   italic: boolean | undefined,
 ): string | undefined {
-  const resolved = resolveVariantFontName(fontNames, fontName, fallbackName, bold, italic);
-  if (resolved !== undefined && fontNames.includes(resolved)) return resolved;
-  // 등록되지 않은 이름을 지정한 요소는 대체 폰트로 표시합니다.
-  return resolveVariantFontName(fontNames, undefined, fallbackName, bold, italic) ?? fallbackName;
+  const base = baseFontName(fontNames, fontName, fallbackName);
+  return variantCandidates(fontNames, base, bold, italic)[0];
 }
 
 /**

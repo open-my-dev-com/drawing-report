@@ -399,6 +399,49 @@ describe('<slip-designer> 폰트 등록이 끝나지 않았거나 실패한 경�
     el.remove();
   });
 
+  it('대체 폰트의 굵은 변형이 준비되지 않으면 준비된 기본 형태로 내려간다', async () => {
+    installFontFace(fakeFontFace({ 2: 'pending' }));
+    const el = await mountWithLocale('ko-KR', textEl({ bold: true }));
+
+    expect(registry(el).familyOf('Pretendard-Bold')).toBeUndefined();
+    const plain = registry(el).familyOf('Pretendard');
+    expect(plain).toBeDefined();
+    const content = el.shadowRoot!.querySelector('.el-content') as HTMLElement;
+    expect(content.getAttribute('style')).toContain(`font-family:${plain}`);
+    el.remove();
+  });
+
+  it('대체 폰트의 굵은 변형 등록이 실패하면 기본 형태로 그리고 그 이름을 알린다', async () => {
+    installFontFace(fakeFontFace({ 2: 'failed' }));
+    const ko = getStrings('ko').designer;
+    const el = await mountWithLocale('ko-Kore-KR', textEl({ bold: true }));
+
+    const plain = registry(el).familyOf('Pretendard');
+    const content = el.shadowRoot!.querySelector('.el-content') as HTMLElement;
+    expect(content.getAttribute('style')).toContain(`font-family:${plain}`);
+
+    const note = el.shadowRoot!.querySelector('.font-note') as HTMLElement;
+    expect(note.textContent).toContain(ko.fontLoadFailed);
+    expect(note.textContent).toContain(`${ko.fontApplied}: Pretendard`);
+    el.remove();
+  });
+
+  it('지정 폰트의 기울임 변형 등록이 실패하면 그 폰트의 기본 형태로 그린다', async () => {
+    installFontFace(fakeFontFace({ 5: 'failed' }));
+    const ko = getStrings('ko').designer;
+    const el = await mountWithLocale('ko-Hang-KR', textEl({ fontName: 'Serif', italic: true }));
+
+    const plain = registry(el).familyOf('Serif');
+    expect(plain).toBeDefined();
+    const content = el.shadowRoot!.querySelector('.el-content') as HTMLElement;
+    expect(content.getAttribute('style')).toContain(`font-family:${plain}`);
+
+    const note = el.shadowRoot!.querySelector('.font-note') as HTMLElement;
+    expect(note.textContent).toContain(ko.fontLoadFailed);
+    expect(note.textContent).toContain(`${ko.fontApplied}: Serif`);
+    el.remove();
+  });
+
   it('인라인 셀 편집도 준비된 대체 폰트로 그린다', async () => {
     installFontFace(fakeFontFace({ 3: 'pending' }));
     const el = await mountWithLocale('en', {

@@ -24,12 +24,17 @@ import {
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
 import { renderSlip, resolveFonts, type SlipDesignerSettings, type PaperSize } from './settings.js';
-import { FontRegistryController, fontSourceKey } from './designer/controllers/font-registry.js';
+import {
+  FontRegistryController,
+  bundledFontSourceKey,
+} from './designer/controllers/font-registry.js';
 import {
   NO_DESIGNER_FONTS,
+  baseFontName,
   collectUsedFontNames,
   effectiveFontName,
   selectableFontNames,
+  variantCandidates,
   variantFontNames,
   type DesignerFonts,
   type FontStyleInput,
@@ -604,6 +609,9 @@ export class SlipDesigner extends LitElement {
 
   /** 이번 렌더에서 속성 패널과 캔버스가 함께 쓰는 폰트 상태 */
   private _fonts: DesignerFonts = NO_DESIGNER_FONTS;
+
+  /** 폰트 출처를 마지막으로 정할 때의 설정. 같으면 다시 확인하지 않습니다 */
+  private _fontSourceFor: { slipkit: SlipKit | undefined; locale: string | undefined } | null = null;
 
   /** 캔버스의 상태와 조작 */
   private get _canvasContext(): CanvasContext {
@@ -2388,12 +2396,37 @@ export class SlipDesigner extends LitElement {
    * 동봉 폰트는 로케일에 따라 대체 폰트가 달라지므로 PDF 렌더링과 같은 기준
    * (`slipkit.locale`을 먼저 보는 렌더 로케일)을 씁니다. UI 로케일을 쓰면 캔버스와 PDF의
    * 대체 폰트가 어긋납니다.
+   *
+   * 호스트가 실제로 폰트를 준 경우에만 인스턴스로 출처를 나눕니다. `getFonts`가 빈 목록을
+   * 주면 캔버스도 PDF와 같이 동봉 폰트를 쓰므로 로케일별 출처를 씁니다.
    */
   private _useFontSource(): void {
+    const slipkit = this.slipkit;
     const locale = this._renderLocale;
-    this._fontRegistry.use(
-      fontSourceKey(this.slipkit, locale),
-      () => resolveFonts(this.slipkit, locale),
+    // 같은 설정에서는 다시 확인하지 않습니다.
+    const last = this._fontSourceFor;
+    if (last !== null && last.slipkit === slipkit && last.locale === locale) return;
+    this._fontSourceFor = { slipkit, locale };
+    const registry = this._fontRegistry;
+    const useBundled = (): void => {
+      registry.use(bundledFontSourceKey(locale), () => resolveFonts(undefined, locale));
+    };
+    if (slipkit?.getFonts === undefined) {
+      useBundled();
+      return;
+    }
+    // 인스턴스가 결과를 재사용하므로 이 확인이 공급 함수를 다시 부르지는 않습니다.
+    void Promise.resolve(slipkit.getFonts()).then(
+      (fonts) => {
+        if (this.slipkit !== slipkit || this._renderLocale !== locale) return;
+        if (fonts.length > 0) registry.use(slipkit, () => Promise.resolve(fonts));
+        else useBundled();
+      },
+      (error: unknown) => {
+        if (this.slipkit !== slipkit || this._renderLocale !== locale) return;
+        // 공급 실패도 출처의 상태로 남겨 같은 인스턴스를 쓰는 화면이 모두 같은 결과를 봅니다.
+        registry.use(slipkit, () => Promise.reject(error));
+      },
     );
   }
 
@@ -2417,12 +2450,13 @@ export class SlipDesigner extends LitElement {
     registry.ensure(required);
     const resolved = (style: FontStyleInput): string | undefined =>
       effectiveFontName(names, style.fontName, fallback, style.bold, style.italic);
-    // 지정한 폰트를 아직 쓸 수 없으면 대체 폰트로 그립니다. 등록이 끝나면 다시 그립니다.
-    const applied = (style: FontStyleInput): string | undefined => {
-      const wanted = resolved(style);
-      if (registry.isReady(wanted)) return wanted;
-      return resolved({ bold: style.bold, italic: style.italic });
-    };
+    // 등록이 끝난 폰트만 골라 PDF와 같은 순서로 내려갑니다. 지정 폰트 계열에 쓸 수 있는 것이
+    // 없으면 대체 폰트 계열에서 다시 찾고, 등록이 끝나면 다시 그립니다.
+    const readyIn = (base: string | undefined, style: FontStyleInput): string | undefined =>
+      variantCandidates(names, base, style.bold, style.italic).find((name) => registry.isReady(name));
+    const applied = (style: FontStyleInput): string | undefined =>
+      readyIn(baseFontName(names, style.fontName, fallback), style)
+      ?? readyIn(fallback, style);
     return {
       names,
       selectable: selectableFontNames(names),

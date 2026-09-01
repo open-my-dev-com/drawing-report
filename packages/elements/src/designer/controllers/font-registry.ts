@@ -92,6 +92,8 @@ interface FontSource {
   loading: Promise<readonly SlipFont[]> | null;
   /** 가져온 폰트 목록 */
   fonts: readonly SlipFont[];
+  /** 목록 조회에 실패했는지. 실패는 다시 시도하지 않고 이 상태로 남깁니다 */
+  loadFailed: boolean;
   /** 폰트 이름별 등록 상태 */
   readonly faces: Map<string, FaceEntry>;
   /** 이 출처를 쓰는 화면들. 목록 조회와 등록이 끝나면 모두 다시 그립니다 */
@@ -105,22 +107,17 @@ let nextSerial = 0;
 const defaultSourceKeys = new Map<string, object>();
 
 /**
- * 폰트를 제공한 출처를 구분하는 키를 만듭니다.
+ * 동봉 폰트를 쓸 때의 출처 키를 만듭니다.
  *
  * @remarks
- * 서로 다른 SlipKit 인스턴스가 같은 이름에 다른 데이터를 제공할 수 있으므로, 폰트를 직접
- * 공급하는 인스턴스는 그 인스턴스로 구분합니다. 동봉 폰트를 쓰는 경우에는 인스턴스가 달라도
- * 폰트가 같고 로케일에 따라 대체 폰트만 달라지므로 로케일로만 나눕니다.
+ * 동봉 폰트는 인스턴스가 달라도 폰트가 같고 로케일에 따라 대체 폰트만 달라지므로 로케일로만
+ * 나눕니다. 호스트가 실제로 폰트를 공급하는 경우에는 인스턴스 자체를 출처로 씁니다 — 같은
+ * 이름에 다른 데이터를 줄 수 있기 때문입니다.
  *
- * @param slipkit - 공통 설정 인스턴스. 없으면 undefined
  * @param locale - 동봉 폰트를 고를 렌더 로케일
  * @returns 출처를 구분하는 키
  */
-export function fontSourceKey(
-  slipkit: { getFonts?: unknown } | undefined,
-  locale: string | undefined,
-): object {
-  if (slipkit?.getFonts !== undefined) return slipkit;
+export function bundledFontSourceKey(locale: string | undefined): object {
   const key = locale ?? '';
   let sentinel = defaultSourceKeys.get(key);
   if (!sentinel) {
@@ -137,6 +134,7 @@ function sourceOf(key: object): FontSource {
       serial: nextSerial++,
       loading: null,
       fonts: [],
+      loadFailed: false,
       faces: new Map(),
       hosts: new Set(),
     };
@@ -189,20 +187,32 @@ export class FontRegistryController implements ReactiveController {
     this._key = key;
     const source = sourceOf(key);
     source.hosts.add(this.host);
-    if (source.loading !== null) return;
+    if (source.loading !== null) {
+      // 이미 가져온 출처로 바꾸면 새 목록을 반영하도록 이 화면을 다시 그립니다.
+      this.host.requestUpdate();
+      return;
+    }
     source.loading = load().then((fonts) => {
       source.fonts = fonts;
       refreshHosts(source);
       return fonts;
     });
     // 조회에 실패하면 폰트 목록은 빈 상태로 유지하고, Promise 거부가 전역 오류로
-    // 전달되지 않도록 처리합니다.
-    source.loading.catch(() => undefined);
+    // 전달되지 않도록 처리합니다. 실패도 상태로 남겨 같은 출처의 화면이 모두 같은 결과를 봅니다.
+    source.loading.catch(() => {
+      source.loadFailed = true;
+      refreshHosts(source);
+    });
   }
 
   /** 현재 출처에서 가져온 폰트 이름 목록 */
   get fontNames(): readonly string[] {
     return this._source?.fonts.map((font) => font.name) ?? [];
+  }
+
+  /** 현재 출처의 폰트 목록 조회가 실패했는지 */
+  get loadFailed(): boolean {
+    return this._source?.loadFailed ?? false;
   }
 
   /** 현재 출처의 대체 폰트 이름 */

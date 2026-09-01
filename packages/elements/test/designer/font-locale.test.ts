@@ -111,4 +111,31 @@ describe('<slip-designer> 동봉 폰트의 로케일 기준', () => {
     expect(defaultOptionLabel(el, ja.fontName)).toBe(`${ja.fontDefault} (Noto Sans JP)`);
     el.remove();
   });
+  it('getFonts가 빈 목록을 주면 동봉 폰트를 쓴다 — PDF와 같은 기준', async () => {
+    const ja = getStrings('ja').designer;
+    const el = await mount((d) => {
+      d.slipkit = { getFonts: () => [], locale: 'ja' } as unknown as SlipKit;
+      d.locale = 'ja';
+    });
+    expect(defaultOptionLabel(el, ja.fontName)).toBe(`${ja.fontDefault} (Noto Sans JP)`);
+    el.remove();
+  });
+
+  it('빈 목록을 주는 인스턴스도 로케일을 바꾸면 동봉 대체 폰트가 바뀐다', async () => {
+    const ko = getStrings('ko').designer;
+    const ja = getStrings('ja').designer;
+    const slipkit = { getFonts: () => [] } as unknown as SlipKit;
+    const el = await mount((d) => {
+      d.slipkit = slipkit;
+      d.locale = 'ko';
+    });
+    expect(defaultOptionLabel(el, ko.fontName)).toBe(`${ko.fontDefault} (Pretendard)`);
+
+    el.locale = 'ja';
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    expect(defaultOptionLabel(el, ja.fontName)).toBe(`${ja.fontDefault} (Noto Sans JP)`);
+    el.remove();
+  });
 });

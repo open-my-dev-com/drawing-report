@@ -75,20 +75,22 @@ export async function resolveFonts(
 
 /**
  * `.slip` 파일을 컴포넌트 미리보기용 PDF로 렌더링한다.
- * 사용자 폰트를 설정한 SlipKit 인스턴스는 해당 인스턴스로 렌더링한다.
- * `getFonts`가 없으면 SlipKit 로케일에 맞는 동봉 기본 폰트를 사용한다.
+ * 사용자 폰트를 실제로 제공한 SlipKit 인스턴스는 해당 인스턴스로 렌더링한다.
+ * `getFonts`가 없거나 빈 목록을 반환하면 렌더 로케일에 맞는 동봉 기본 폰트를 사용한다 —
+ * 디자이너 캔버스도 같은 기준을 쓰므로 화면과 출력의 폰트가 어긋나지 않는다.
  *
  * @param slipkit - 공통 설정 인스턴스 (생략 가능)
  * @param file - 렌더할 `.slip` 파일
  * @param locale - 인스턴스가 없을 때 동봉 기본 폰트와 렌더 메시지에 사용할 로케일
  * @returns PDF 파일 바이트
  */
-export function renderSlip(
+export async function renderSlip(
   slipkit: SlipKit | undefined,
   file: SlipFile,
   locale?: string,
 ): Promise<Uint8Array> {
-  if (slipkit?.getFonts) return slipkit.render(file);
+  const supplied = slipkit?.getFonts ? await slipkit.getFonts() : undefined;
+  if (supplied !== undefined && supplied.length > 0) return slipkit!.render(file);
   const renderLocale = slipkit?.locale ?? locale;
   const options: RenderOptions = {
     getFonts: () => resolveFonts(undefined, renderLocale),

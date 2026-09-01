@@ -142,7 +142,7 @@ export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions,
           ${fontNameRow(kit, act,
             el.fontName,
             (v) => act.update((target) => setOptional(target, 'fontName', v)),
-            { ariaLabel: `${s.typeGrid} ${s.fontName}` },
+            { ariaLabel: `${s.typeGrid} ${s.fontName}`, style: el },
           )}
         </div>
 
@@ -667,6 +667,7 @@ export function gridCellProps(
             {
               ariaLabel: `${s.cell} ${s.fontName}`,
               inherit: cellInheritOption(kit, act.fonts, el.fontName),
+              style: { ...el, ...cellDef },
             },
           )}
           ${numberRow(kit,
