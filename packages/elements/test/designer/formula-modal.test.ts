@@ -296,6 +296,26 @@ describe('checkFormula — 검사 결과 7종', () => {
     }
   });
 
+  it('실행되지 않은 분기의 참조는 적용 판정에 넣지 않는다', () => {
+    const context = { values: { amount: 10 } };
+    for (const source of [
+      'IF(TRUE, "not-a-number", amount) + 1',
+      'ROUND(IF(TRUE, "not-a-number", amount), 2)',
+      '1 / IF(TRUE, 0, amount)',
+      'IF(FALSE, amount, "not-a-number") + 1',
+    ]) {
+      const result = checkFormula({ ...base, context, source });
+      expect(result.status, source).toBe('formula-error');
+      expect(result.applicable, source).toBe(false);
+    }
+    // 실제로 고른 분기가 데이터면 그대로 적용을 허용합니다.
+    const chosen = checkFormula({
+      ...base, context: { values: { amount: 'not-a-number' } }, source: 'IF(TRUE, amount, 1) + 1',
+    });
+    expect(chosen.status).toBe('not-computable');
+    expect(chosen.applicable).toBe(true);
+  });
+
   it('샘플 값도 잘못되고 상수 인자도 잘못되면 적용을 막는다', () => {
     const result = checkFormula({
       ...base, context: { values: { amount: 'not-a-number' } }, source: 'FORMAT_NUMBER(amount, 21)',

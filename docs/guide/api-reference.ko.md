@@ -1876,7 +1876,7 @@ class FormulaEvalError
 
 `reason`은 평가에 실패한 까닭입니다. `data`는 값이 없거나 예약 범위를 쓸 수 없는 경우, `value`는 계산에 쓴 값이 잘못된 경우, `formula`는 식 자체가 잘못된 경우입니다.
 
-`dataDependent`는 값이 달라지면 풀릴 수 있는 오류인지를 알려 줍니다. `value`에서는 같은 자리의 다른 피연산자를 보지 않고 변환·검사에 실제로 실패한 그 값만 봅니다. `amount / 0`은 나누는 상수가 잘못이라 막히고, `amount / quantity`와 `amount`가 숫자가 아닌 `amount + 1`은 막히지 않습니다. 오류 문구를 비교하는 대신 이 값을 사용합니다.
+`dataDependent`는 값이 달라지면 풀릴 수 있는 오류인지를 알려 줍니다. `value`에서는 같은 자리의 다른 피연산자가 아니라, 변환·검사에서 오류를 일으킨 값이 데이터에서 왔는지를 확인합니다. `amount / 0`은 나누는 상수가 잘못이라 막히고, `amount / quantity`와 `amount`가 숫자가 아닌 `amount + 1`은 막히지 않습니다. 오류 문구를 비교하는 대신 이 값을 사용합니다.
 
 ### `SlipEncryptionError`
 

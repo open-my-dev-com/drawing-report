@@ -111,21 +111,29 @@ function applyBinary(
 // 평가
 // ---------------------------------------------------------------------------
 
-/** 이 식의 값이 참조를 통해 데이터에서 오는지 확인한다. */
-function fromData(ast: FormulaAst): boolean {
-  switch (ast.type) {
-    case 'reference': return true;
-    case 'call': return ast.args.some(fromData);
-    case 'unary': return fromData(ast.operand);
-    case 'binary': return fromData(ast.left) || fromData(ast.right);
-    default: return false;
-  }
+/**
+ * 평가한 값과 그 값이 어디서 왔는지.
+ *
+ * @remarks
+ * 출처는 실제로 평가한 자리에서만 정한다. 단락 평가로 건너뛴 `IF` 분기의 참조는 고른 값의
+ * 출처가 아니므로 반영하지 않는다. 평가기 안에서만 쓰고 공개 API로 내보내지 않는다.
+ */
+interface Evaluated {
+  /** 평가 결과 값 */
+  value: FormulaValue;
+  /** 이 값이 참조를 통해 데이터에서 왔는지 */
+  fromData: boolean;
+}
+
+/** 상수에서 온 값 */
+function constant(value: FormulaValue): Evaluated {
+  return { value, fromData: false };
 }
 
 // 진단 중에만 값이 없어 실패한 자리를 빈 값으로 잇고 계속 평가한다.
 let recovery: { error?: FormulaEvalError } | null = null;
 
-function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
+function evaluateAst(ast: FormulaAst, context: FormulaContext): Evaluated {
   try {
     return evaluateNode(ast, context);
   } catch (error) {
@@ -134,7 +142,8 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
     // 값이 채워지면 풀릴 오류는 여기서 멈추지 않는다. 바깥에 남아 있는
     // 식 자체의 잘못을 이 오류가 가리면 고칠 수 없는 수식을 저장하게 된다.
     recovery.error ??= error;
-    return null;
+    // 이어 붙인 빈 값도 데이터가 채워질 자리이므로 출처는 데이터로 둔다.
+    return { value: null, fromData: true };
   }
 }
 
@@ -167,12 +176,12 @@ function callBuiltin(
   }
 }
 
-function evaluateNode(ast: FormulaAst, context: FormulaContext): FormulaValue {
+function evaluateNode(ast: FormulaAst, context: FormulaContext): Evaluated {
   switch (ast.type) {
     case 'number':
     case 'string':
     case 'boolean':
-      return ast.value;
+      return constant(ast.value);
     case 'reference': {
       const head = ast.path[0]!;
       // 예약 참조(@item 등)는 페이지 계획이 공급한 reserved에서만 조회한다.
@@ -180,55 +189,61 @@ function evaluateNode(ast: FormulaAst, context: FormulaContext): FormulaValue {
         if (context.reserved === undefined || !(head in context.reserved)) {
           throw new FormulaEvalError(fm().reservedRefUnavailable(head), 'data');
         }
-        return resolvePath(context.reserved[head], ast.path, 1);
+        return { value: resolvePath(context.reserved[head], ast.path, 1), fromData: true };
       }
-      return resolvePath(context.values, ast.path, 0);
+      return { value: resolvePath(context.values, ast.path, 0), fromData: true };
     }
     case 'unary': {
-      const operandFromData = fromData(ast.operand);
-      const operand = requireScalar(
-        evaluateAst(ast.operand, context), { kind: 'sign' }, operandFromData,
-      );
-      const n = toNumber(operand, 'signOperand', operandFromData);
-      return ast.operator === '-' ? -n : n;
+      const operand = evaluateAst(ast.operand, context);
+      const scalar = requireScalar(operand.value, { kind: 'sign' }, operand.fromData);
+      const n = toNumber(scalar, 'signOperand', operand.fromData);
+      return { value: ast.operator === '-' ? -n : n, fromData: operand.fromData };
     }
-    case 'binary':
-      return applyBinary(
-        ast.operator,
-        evaluateAst(ast.left, context),
-        evaluateAst(ast.right, context),
-        fromData(ast.left),
-        fromData(ast.right),
-      );
+    case 'binary': {
+      const left = evaluateAst(ast.left, context);
+      const right = evaluateAst(ast.right, context);
+      return {
+        value: applyBinary(ast.operator, left.value, right.value, left.fromData, right.fromData),
+        fromData: left.fromData || right.fromData,
+      };
+    }
     case 'call': {
       // 단락 평가가 필요한 함수는 인수를 개별적으로 평가한다.
       if (ast.name === 'IF') {
         assertArity('IF', ast.args.length);
-        const test = ast.args[0]!;
+        const test = evaluateAst(ast.args[0]!, context);
         const condition = toCondition(
-          requireScalar(evaluateAst(test, context), { kind: 'ifCondition' }, fromData(test)),
-          fromData(test),
+          requireScalar(test.value, { kind: 'ifCondition' }, test.fromData), test.fromData,
         );
+        // 고른 분기만 평가하므로 건너뛴 분기의 출처는 결과에 섞이지 않는다.
         if (condition) return evaluateAst(ast.args[1]!, context);
-        return ast.args[2] ? evaluateAst(ast.args[2], context) : null;
+        return ast.args[2] ? evaluateAst(ast.args[2], context) : constant(null);
       }
       if (ast.name === 'AND' || ast.name === 'OR') {
         assertArity(ast.name, ast.args.length);
         const shortCircuit = ast.name === 'OR';
         const place: FormulaPlace = { kind: 'functionArg', name: ast.name };
+        // 단락 평가로 건너뛴 인수는 결과의 출처에 넣지 않는다.
+        let seenData = false;
         for (const arg of ast.args) {
-          const argFromData = fromData(arg);
+          const evaluated = evaluateAst(arg, context);
+          seenData ||= evaluated.fromData;
           const value = toCondition(
-            requireScalar(evaluateAst(arg, context), place, argFromData), argFromData,
+            requireScalar(evaluated.value, place, evaluated.fromData), evaluated.fromData,
           );
-          if (value === shortCircuit) return shortCircuit;
+          if (value === shortCircuit) return { value: shortCircuit, fromData: seenData };
         }
-        return !shortCircuit;
+        return { value: !shortCircuit, fromData: seenData };
       }
       const fn = BUILTIN_FUNCTIONS[ast.name];
       // 파서에 등록됐지만 평가기에 구현되지 않은 함수를 확인한다.
       if (!fn) throw new FormulaEvalError(fm().notImplementedFunction(ast.name), 'formula');
-      return callBuiltin(fn, ast.args.map((arg) => evaluateAst(arg, context)), ast.args.map(fromData), context);
+      const evaluated = ast.args.map((arg) => evaluateAst(arg, context));
+      const origins = evaluated.map((item) => item.fromData);
+      return {
+        value: callBuiltin(fn, evaluated.map((item) => item.value), origins, context),
+        fromData: origins.some(Boolean),
+      };
     }
   }
 }
@@ -256,7 +271,7 @@ export function evaluateFormula(source: string | FormulaAst, context: FormulaCon
     const previous = recovery;
     recovery = null;
     try {
-      return evaluateAst(ast, context);
+      return evaluateAst(ast, context).value;
     } finally {
       recovery = previous;
     }
@@ -308,7 +323,7 @@ export function diagnoseFormula(
     const found: { error?: FormulaEvalError } = {};
     recovery = found;
     try {
-      const value = evaluateAst(ast, context);
+      const { value } = evaluateAst(ast, context);
       return found.error === undefined ? { value } : { value, dataError: found.error };
     } catch (error) {
       if (!(error instanceof FormulaEvalError)) throw error;

@@ -320,8 +320,8 @@ function roundTo(n: number, digits: number, mode: 'round' | 'floor' | 'ceil'): n
  * 즉시 평가 함수 구현 테이블 — 지연 평가가 필요한 IF·AND·OR는 evaluator가 직접 처리한다.
  *
  * @remarks
- * `origins[i]`는 `args[i]`가 참조를 통해 데이터에서 왔는지다. 값이 잘못돼 던지는 오류마다
- * 그 값의 출처를 함께 넘겨야, 편집기가 「샘플 값만 잘못됨」과 「수식이 잘못됨」을 가를 수 있다.
+ * `origins[i]`는 `args[i]`가 참조를 통해 데이터에서 왔는지다. 오류를 일으킨 값의 출처를 함께
+ * 넘겨야, 편집기가 「샘플 값만 잘못됨」과 「수식이 잘못됨」을 가를 수 있다.
  */
 export const BUILTIN_FUNCTIONS: Record<
   string,

@@ -1876,7 +1876,7 @@ Used when a type mismatch, an invalid argument, or division by zero occurs durin
 
 `reason` says why the evaluation failed: `data` when a value is missing or a reserved range is unavailable, `value` when a value used in the calculation is wrong, and `formula` when the formula itself is wrong.
 
-`dataDependent` is true when different values could resolve the error. For a `value` reason it looks only at the value that actually failed to convert or pass a check, not at the other operands in the same place: `amount / 0` stays blocked because the constant divisor is at fault, while `amount / quantity` and `amount + 1` with a non-numeric `amount` do not. Use it instead of comparing error messages.
+`dataDependent` is true when different values could resolve the error. For a `value` reason it checks whether the value that caused the conversion or validation error came from data, rather than looking at the other operands in the same place: `amount / 0` stays blocked because the constant divisor is at fault, while `amount / quantity` and `amount + 1` with a non-numeric `amount` do not. Use it instead of comparing error messages.
 
 ### `SlipEncryptionError`
 

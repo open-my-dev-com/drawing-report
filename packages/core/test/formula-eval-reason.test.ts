@@ -157,3 +157,35 @@ describe('값 종류가 맞지 않는 샘플 값', () => {
     }
   });
 });
+
+describe('단락 평가로 건너뛴 분기', () => {
+  const VALUES: FormulaContext = { values: { amount: 10 }, locale: 'ko' };
+
+  it('실행되지 않은 분기의 참조는 고른 값의 출처가 아니다', () => {
+    for (const source of [
+      'IF(TRUE, "not-a-number", amount) + 1',
+      'ROUND(IF(TRUE, "not-a-number", amount), 2)',
+      '1 / IF(TRUE, 0, amount)',
+      'IF(FALSE, amount, "not-a-number") + 1',
+    ]) {
+      const found = diagnoseFormula(source, VALUES);
+      expect(found.formulaError, source).toBeInstanceOf(FormulaEvalError);
+      expect(found.dataError, source).toBeUndefined();
+    }
+  });
+
+  it('실제로 고른 분기가 데이터면 그대로 데이터 오류다', () => {
+    const found = diagnoseFormula('IF(TRUE, amount, 1) + 1', {
+      values: { amount: 'not-a-number' }, locale: 'ko',
+    });
+    expect(found.dataError).toBeInstanceOf(FormulaEvalError);
+    expect(found.formulaError).toBeUndefined();
+  });
+
+  it('AND·OR도 건너뛴 인수의 출처를 결과에 넣지 않는다', () => {
+    // 첫 인수에서 참이 확정되므로 `amount` 인수는 평가되지 않습니다.
+    const found = diagnoseFormula('IF(OR(TRUE, amount > 0), "not-a-number", 0) + 1', VALUES);
+    expect(found.formulaError).toBeInstanceOf(FormulaEvalError);
+    expect(found.dataError).toBeUndefined();
+  });
+});

@@ -259,6 +259,28 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     }
   });
 
+  it('실행되지 않은 분기의 참조가 있어도 고칠 수 없는 수식은 적용 버튼이 꺼진다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+    await openModal(el);
+
+    for (const source of [
+      'IF(TRUE, "not-a-number", amount) + 1',
+      'ROUND(IF(TRUE, "not-a-number", amount), 2)',
+      '1 / IF(TRUE, 0, amount)',
+      'IF(FALSE, amount, "not-a-number") + 1',
+    ]) {
+      setDraft(el, source);
+      await el.updateComplete;
+      expect(statusText(el), source).toContain(s.formulaError);
+      expect(footButton(el, s.apply).disabled, source).toBe(true);
+    }
+  });
+
   it('바코드 요소의 수식을 모달에서 고쳐 저장한다', async () => {
     const el = await mountFile([{
       type: 'barcode', id: 'b1', name: '코드', position: { x: 10, y: 10 },

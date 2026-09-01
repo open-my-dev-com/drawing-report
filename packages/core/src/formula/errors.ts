@@ -26,7 +26,7 @@ export type FormulaEvalReason =
   | 'formula';
 
 /**
- * 오류를 낸 값이 데이터에서 왔는지.
+ * 오류를 일으킨 값이 데이터에서 왔는지 기록합니다.
  *
  * @remarks
  * 오류 객체의 공개 표면에 두면 밖에서 판정을 바꿀 수 있으므로 모듈 안에만 둔다.
@@ -62,7 +62,7 @@ export class FormulaEvalError extends Error {
  * 값이 잘못돼 계산하지 못한 오류를 만든다.
  *
  * @param message - 사용자에게 보여 줄 오류 문구
- * @param fromData - 잘못된 그 값이 참조를 통해 데이터에서 왔는지
+ * @param fromData - 오류를 일으킨 값이 참조를 통해 데이터에서 왔는지
  * @returns 값 출처를 담은 평가 오류
  */
 export function valueError(message: string, fromData: boolean): FormulaEvalError {
