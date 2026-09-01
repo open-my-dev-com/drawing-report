@@ -139,10 +139,9 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): Evaluated {
   } catch (error) {
     if (!(error instanceof FormulaEvalError)) throw error;
     if (recovery === null || !error.dataDependent) throw error;
-    // 값이 채워지면 풀릴 오류는 여기서 멈추지 않는다. 바깥에 남아 있는
-    // 식 자체의 잘못을 이 오류가 가리면 고칠 수 없는 수식을 저장하게 된다.
+    // 진단 중에는 데이터에 의존한 평가 실패를 기록하고 빈 값으로 계산을 이어 간다.
+    // 이후 연산에서 발생하는 오류를 함께 수집하기 위한 처리다.
     recovery.error ??= error;
-    // 이어 붙인 빈 값도 데이터가 채워질 자리이므로 출처는 데이터로 둔다.
     return { value: null, fromData: true };
   }
 }
@@ -278,7 +277,7 @@ export function evaluateFormula(source: string | FormulaAst, context: FormulaCon
   });
 }
 
-/** 수식을 계산할 수 있는지 진단한 결과 */
+/** 현재 평가에서 발견한 오류를 분류한 결과 */
 export interface FormulaDiagnosis {
   /**
    * 계산 결과.
@@ -287,30 +286,30 @@ export interface FormulaDiagnosis {
    * `formulaError`나 `dataError`가 있으면 진단 과정에서 나온 값이므로 결과로 사용하지 않는다.
    */
   value: FormulaValue;
-  /** 값이 달라져도 계산되지 않는 오류. 수식을 고쳐야 한다 */
+  /** 현재 평가에서 수식 구성에 관한 오류로 분류된 평가 오류 */
   formulaError?: FormulaEvalError;
-  /** 지금 값으로만 계산하지 못한 오류. 값이 채워지면 계산될 수 있다 */
+  /** 현재 평가에서 데이터에 의존한다고 분류된 평가 오류 */
   dataError?: FormulaEvalError;
 }
 
 /**
- * 수식을 계산할 수 있는지 진단한다.
+ * 현재 값으로 수식을 평가해 발견한 오류를 분류한다.
  *
  * @remarks
- * 평가와 달리 첫 오류에서 멈추지 않는다. 값이 없거나 예약 범위를 쓸 수 없어 실패한 자리는
- * 빈 값으로 이어 끝까지 계산하므로, `SUM(@page.amount) / 0`처럼 값이 채워져도 풀리지 않는
- * 잘못이 값 부족 뒤에 가려지지 않는다. 편집기가 저장 여부를 정할 때 사용한다.
+ * 데이터 관련 실패 지점에는 빈 값을 대입해 나머지 식을 평가하고, 현재 평가에서 발견한
+ * 오류를 `dataError`와 `formulaError`로 나눠 반환한다. 이 분류는 저장 허용 여부를 뜻하지
+ * 않는다.
  *
  * @param source - 진단할 수식 문자열 또는 미리 파싱한 AST
  * @param context - 실행 문맥 (전표 values·기준 시각·로케일)
- * @returns 계산 결과와 발견한 오류
+ * @returns 계산 결과와 분류한 오류
  * @throws FormulaSyntaxError 문자열 파싱 중 문법 오류 시
  *
  * @example
  * ```ts
  * const found = diagnoseFormula('SUM(@page.amount)', { values: {} });
- * found.dataError !== undefined; // true — 예약 범위가 없어 지금은 계산할 수 없다
- * found.formulaError === undefined; // true — 값이 채워지면 계산된다
+ * found.dataError !== undefined; // true — 예약 범위가 없어 현재 평가가 실패했다
+ * found.formulaError === undefined; // true — 수식 구성 오류로 분류된 것은 없다
  * ```
  */
 export function diagnoseFormula(

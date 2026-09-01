@@ -584,11 +584,14 @@ export class SlipDesigner extends LitElement {
     };
   }
 
+  /** 이번 렌더에서 사이드바와 캔버스가 함께 쓰는 경고 집계 */
+  private _warnings: FormulaWarnings = NO_FORMULA_WARNINGS;
+
   /** 캔버스의 상태와 조작 */
   private get _canvasContext(): CanvasContext {
     return {
       s: this._strings.designer,
-      formulaWarnings: this._formulaWarnings(),
+      formulaWarnings: this._warnings,
       evalLocale: this._evalLocale,
       file: this._file,
       pageIndex: this._pageIndex,
@@ -645,7 +648,7 @@ export class SlipDesigner extends LitElement {
   private get _sidebarActions(): SidebarActions {
     return {
       file: this._file,
-      formulaWarnings: this._formulaWarnings(),
+      formulaWarnings: this._warnings,
       pageIndex: this._pageIndex,
       selection: this._sideSelection,
       selectedId: this._selectedId,
@@ -1501,6 +1504,8 @@ export class SlipDesigner extends LitElement {
         ${this._error ?? this._strings.designer.noTemplate}
       </div>`;
     }
+    // 사이드바와 캔버스가 같은 결과를 나눠 쓰도록 한 번 그릴 때 한 번만 모읍니다.
+    this._warnings = this._collectFormulaWarnings();
 
     return html`
       <div class="toolbar">${toolbar(this._toolbarActions)}</div>
@@ -2987,19 +2992,15 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 대상과 수식으로 검사 결과와 참조 목록을 만듭니다. 모달과 인라인 입력이 함께 씁니다.
-   *
-   * @param target - 검사할 편집 대상
-   * @param source - 검사할 수식·조건식
-   * @param itemIndex - 미리 계산에 쓸 샘플 항목. 반복 그리드가 아니면 null
-   * @returns 편집 대상, 검사 결과와 참조 목록
-   */
-  /**
    * 저장된 수식 가운데 지금 값으로 계산되지 않는 것을 모읍니다.
    *
-   * 현재 출력 페이지·샘플 값·페이지 계획이 바뀌면 다시 그릴 때 함께 다시 계산됩니다.
+   * @remarks
+   * 페이지의 모든 수식을 반복 그리드의 샘플 항목마다 검사하므로, 한 번 그릴 때 한 번만
+   * 계산해 사이드바와 캔버스가 같은 결과를 나눠 씁니다.
+   *
+   * @returns 경고가 있는 요소 id와 그리드별 셀 자리
    */
-  private _formulaWarnings(): FormulaWarnings {
+  private _collectFormulaWarnings(): FormulaWarnings {
     const page = this._currentPage();
     if (page === undefined) return NO_FORMULA_WARNINGS;
     return collectFormulaWarnings({
@@ -3042,6 +3043,14 @@ export class SlipDesigner extends LitElement {
     }));
   }
 
+  /**
+   * 대상과 수식으로 검사 결과와 참조 목록을 만듭니다. 모달과 인라인 입력이 함께 씁니다.
+   *
+   * @param target - 검사할 편집 대상
+   * @param source - 검사할 수식·조건식
+   * @param itemIndex - 미리 계산에 쓸 샘플 항목. 반복 그리드가 아니면 null
+   * @returns 편집 대상, 검사 결과와 참조 목록
+   */
   private _formulaState(
     target: FormulaTarget,
     source: string,

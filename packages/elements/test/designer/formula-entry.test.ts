@@ -9,6 +9,8 @@ vi.mock('@omdc-slipkit/core', async () => {
     ...actual,
     parseSlipFile: vi.fn(),
     renderSlipToPdf: vi.fn(),
+    // 몇 번 평가하는지 세기 위해 실제 구현을 감싸 둡니다.
+    diagnoseFormula: vi.fn(actual.diagnoseFormula),
     CURRENT_SCHEMA_VERSION: '0.1.0',
   };
 });
@@ -18,9 +20,11 @@ vi.mock('../../src/default-fonts.js', () => ({
   loadDefaultFonts: () => Promise.resolve([{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }]),
 }));
 
+import { diagnoseFormula } from '@omdc-slipkit/core';
 import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
 import {
   strings,
+  PX_PER_MM,
   parseSlipFileMock,
   makeTemplateFile,
   installDesignerTestEnv,
@@ -745,7 +749,30 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(el.shadowRoot!.querySelector('.side-warning')).toBeNull();
   });
 
-  it('경고가 있는 요소도 그대로 고르고 옮길 수 있다', async () => {
+  it('한 번 그릴 때 같은 수식을 한 번만 검사한다', async () => {
+    const el = await mountFile([
+      {
+        type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+        width: 40, height: 8, formula: '1 / 0',
+      },
+      makeGrid(),
+    ], { items: SAMPLE_ITEMS });
+    await el.updateComplete;
+
+    // 사이드바와 캔버스가 같은 집계를 나눠 쓰므로 렌더마다 한 벌만 검사합니다.
+    const diagnose = vi.mocked(diagnoseFormula);
+    diagnose.mockClear();
+    el.requestUpdate();
+    await el.updateComplete;
+
+    const field = diagnose.mock.calls.filter(([source]) => source === '1 / 0');
+    expect(field).toHaveLength(1);
+    // 반복 그리드 셀은 샘플 항목 수만큼만 검사합니다.
+    const cell = diagnose.mock.calls.filter(([source]) => source === 'SUM(@page.amount)');
+    expect(cell).toHaveLength(SAMPLE_ITEMS.length);
+  });
+
+  it('경고가 있는 요소도 그대로 고르고 옮기고 크기를 바꿀 수 있다', async () => {
     const el = await mountFile([{
       type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
       width: 40, height: 8, formula: '1 / 0',
@@ -754,8 +781,33 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     await el.updateComplete;
     expect(box.querySelector('.formula-warning-badge')).not.toBeNull();
     expect(box.classList.contains('selected')).toBe(true);
-    // 배지가 포인터를 가로채지 않아야 드래그와 크기 조절이 그대로 됩니다.
-    expect(el.shadowRoot!.querySelectorAll('.selection-overlay .handle').length).toBeGreaterThan(0);
+
+    const field = () => elementsOf(el)[0]! as unknown as {
+      position: { x: number; y: number }; width: number; height: number;
+    };
+    const drag = async (target: HTMLElement, dxMm: number, dyMm: number) => {
+      target.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,
+      }));
+      target.dispatchEvent(new PointerEvent('pointermove', {
+        bubbles: true, composed: true,
+        clientX: dxMm * PX_PER_MM, clientY: dyMm * PX_PER_MM, pointerId: 1,
+      }));
+      target.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+      await el.updateComplete;
+    };
+
+    // 배지가 포인터를 가로채지 않으므로 요소를 그대로 끌 수 있습니다.
+    await drag(el.shadowRoot!.querySelector('[data-id="f1"]') as HTMLElement, 12, 6);
+    expect(field().position).toEqual({ x: 22, y: 16 });
+
+    await drag(el.shadowRoot!.querySelector('.handle-se') as HTMLElement, 10, 4);
+    expect(field().width).toBe(50);
+    expect(field().height).toBe(12);
+
+    // 옮기고 크기를 바꿔도 경고는 그대로 남습니다.
+    expect(el.shadowRoot!.querySelector('[data-id="f1"] .formula-warning-badge')).not.toBeNull();
+    expect(el.shadowRoot!.querySelector('.side-warning')).not.toBeNull();
   });
 
   it('참조 영역을 함수와 값 두 탭으로 나누고 한 번에 한쪽만 보여 준다', async () => {
