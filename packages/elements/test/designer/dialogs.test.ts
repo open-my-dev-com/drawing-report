@@ -50,6 +50,7 @@ import {
   pickListValue,
   addByCanvasClick,
   selectElement,
+  openValuesTab,
 } from './helpers.js';
 import type { Designer } from './helpers.js';
 
@@ -292,11 +293,17 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
   it('파라미터 목록에 표의 하위 열까지 나오고, 누르면 표파라미터.열키로 삽입된다 (F-21)', async () => {
     const el = await loadWithTable();
     await openFormulaModal(el);
+    await openValuesTab(el);
 
-    const columnChips = Array.from(el.shadowRoot!.querySelectorAll('.parameter-chip.column'));
-    expect(columnChips.map((c) => c.textContent?.trim())).toEqual(['품명', '금액', '수량']);
+    // 목록 항목의 필드는 표시 이름과 삽입될 코드 이름을 함께 보여 줍니다.
+    const fieldRows = Array.from(el.shadowRoot!.querySelectorAll('.value-list'))[1]!
+      .querySelectorAll<HTMLButtonElement>('.value-row');
+    expect(Array.from(fieldRows).map((c) => c.querySelector('.value-name')?.textContent?.trim()))
+      .toEqual(['품명', '금액', '수량']);
+    expect(Array.from(fieldRows).map((c) => c.querySelector('.value-code')?.textContent?.trim()))
+      .toEqual(['items.itemName', 'items.amount', 'items.quantity']);
 
-    (columnChips[1] as HTMLElement).click();
+    fieldRows[1]!.click();
     await el.updateComplete;
     expect(formulaInput(el).value).toBe('items.amount');
     el.remove();
@@ -333,20 +340,29 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
 
     const rows = el.shadowRoot!.querySelectorAll('.fn-row');
     expect(rows.length).toBe(32);
-    expect(el.shadowRoot!.querySelectorAll('.fn-category').length).toBe(8);
+    // 분류는 검색 결과를 좁히는 칩으로 표시하고, "전체" 항목을 함께 제공합니다.
+    expect(el.shadowRoot!.querySelectorAll('.fn-chip').length).toBe(9);
     // 각 항목에 사용법·설명이 있습니다
     expect(rows[0]?.querySelector('.fn-signature')?.textContent).toContain('SUM');
     expect(rows[0]?.querySelector('.fn-desc')?.textContent?.length).toBeGreaterThan(0);
     el.remove();
   });
 
-  it('함수를 클릭하면 커서 위치에 삽입된다', async () => {
+  it('함수를 고르면 상세가 나오고, 삽입 버튼으로 커서 위치에 넣는다', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);
 
     const sumRow = Array.from(el.shadowRoot!.querySelectorAll('.fn-row'))
       .find((b) => b.getAttribute('aria-label') === 'SUM') as HTMLButtonElement;
     sumRow.click();
+    await el.updateComplete;
+    // 고르기만 해서는 수식이 바뀌지 않고 인자와 반환값 설명이 나옵니다.
+    expect(formulaInput(el).value).toBe('');
+    const detail = el.shadowRoot!.querySelector('.fn-detail')!;
+    expect(detail.querySelector('.fn-detail-name')?.textContent?.trim()).toBe('SUM');
+    expect(detail.querySelectorAll('.fn-args dt').length).toBe(1);
+
+    (detail.querySelector('.fn-insert') as HTMLButtonElement).click();
     await el.updateComplete;
     expect(formulaInput(el).value).toBe('SUM()');
     el.remove();
@@ -360,12 +376,15 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     await el.updateComplete;
     const status = el.shadowRoot!.querySelector('.formula-status');
     expect(status?.classList.contains('error')).toBe(true);
-    expect(status?.textContent).toContain(strings.designer.syntaxError);
+    expect(status?.querySelector('.formula-status-title')?.textContent?.trim())
+      .toBe(strings.designer.formulaStatusError);
+    expect(status?.querySelector('.formula-status-text')?.textContent)
+      .toContain(strings.designer.syntaxError);
     expect(applyButton(el).disabled).toBe(true);
     el.remove();
   });
 
-  // 화면에서 뗐습니다 붙여도 편집 중이던 내용이 사라지지 않아야 합니다.
+  // 화면에서 뗐다 붙여도 편집 중이던 내용이 사라지지 않아야 합니다.
   it('요소를 문서에서 뗐다 다시 붙여도 모달과 편집 중이던 수식이 남는다', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);
@@ -388,7 +407,9 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     await el.updateComplete;
     const status = el.shadowRoot!.querySelector('.formula-status');
     expect(status?.classList.contains('error')).toBe(false);
-    expect(status?.textContent).toContain(`${strings.designer.previewResult}: 3`);
+    expect(status?.querySelector('.formula-status-title')?.textContent?.trim())
+      .toBe(strings.designer.previewResult);
+    expect(status?.querySelector('.formula-status-text')?.textContent?.trim()).toBe('3');
 
     applyButton(el).click();
     await el.updateComplete;
@@ -402,13 +423,43 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
   it('파라미터 목록이 칩으로 나오고 클릭하면 삽입된다', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);
+    await openValuesTab(el);
 
-    const chips = el.shadowRoot!.querySelectorAll('.parameter-chip');
+    const rows = el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.value-row');
     // 방금 만든 필드의 기본 파라미터가 하나 있습니다
-    expect(chips.length).toBeGreaterThan(0);
-    (chips[0] as HTMLButtonElement).click();
+    expect(rows.length).toBeGreaterThan(0);
+    rows[0]!.click();
     await el.updateComplete;
     expect(formulaInput(el).value.length).toBeGreaterThan(0);
+    el.remove();
+  });
+
+  it('계산에 실패한 수식은 원인과 경고 안내를 보여 주고 그대로 저장된다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+
+    setDraft(el, '1 / 0');
+    await el.updateComplete;
+
+    const status = el.shadowRoot!.querySelector('.formula-status')!;
+    expect(status.classList.contains('warning')).toBe(true);
+    expect(status.querySelector('.formula-status-title')?.textContent?.trim())
+      .toBe(strings.designer.formulaStatusWarning);
+    // 원인은 core가 준 오류 문구를 그대로 보여 줍니다.
+    expect(status.querySelector('.formula-status-text')?.textContent?.trim()).not.toBe('');
+    expect(status.querySelector('.formula-status-hint')?.textContent?.trim())
+      .toBe(strings.designer.formulaWarningHint);
+
+    expect(applyButton(el).disabled).toBe(false);
+    applyButton(el).click();
+    await el.updateComplete;
+    const field = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements.at(-1)! as never as { formula?: string };
+    expect(field.formula).toBe('1 / 0');
+    expect(el.shadowRoot!.querySelector('.modal')).toBeNull();
+    // 저장한 뒤에는 사이드바와 캔버스에 경고가 남습니다.
+    expect(el.shadowRoot!.querySelector('.side-row .side-warning')).not.toBeNull();
+    expect(el.shadowRoot!.querySelector('.formula-warning-badge')).not.toBeNull();
     el.remove();
   });
 

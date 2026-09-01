@@ -1,11 +1,16 @@
 /**
- * 수식 편집 모달의 초안 상태 — 입력 중인 수식, 커서 위치와 하위 필드 제안.
+ * 수식 편집 모달의 상태 — 편집 대상, 입력 중인 수식, 커서 위치, 미리 계산에 쓸 샘플 항목과
+ * 함수 찾아보기.
  *
  * @remarks
  * 초안은 적용을 누를 때까지 파일에 반영하지 않습니다.
  */
 
 import type { ReactiveController } from 'lit';
+import type { FormulaOrigin, FormulaTarget } from '../formula-target.js';
+
+/** 참조 영역에서 보고 있는 탭 */
+export type ReferenceTab = 'functions' | 'values';
 
 export interface FormulaDraftHost {
   requestUpdate(): void;
@@ -57,6 +62,13 @@ export function columnSuggestion(
 export class FormulaDraftController implements ReactiveController {
   private _draft = '';
   private _caret = 0;
+  private _target: FormulaTarget | null = null;
+  private _origin: FormulaOrigin | null = null;
+  private _itemIndex: number | null = null;
+  private _query = '';
+  private _category: string | null = null;
+  private _picked: string | null = null;
+  private _tab: ReferenceTab = 'functions';
 
   /**
    * @param host - 화면 갱신을 요청할 호스트
@@ -81,14 +93,113 @@ export class FormulaDraftController implements ReactiveController {
     return this._caret;
   }
 
+  /** 편집 중인 대상. 모달을 연 적이 없으면 null */
+  get target(): FormulaTarget | null {
+    return this._target;
+  }
+
+  /** 모달을 열 때 기록한 대상 내용. 모달을 연 적이 없으면 null */
+  get origin(): FormulaOrigin | null {
+    return this._origin;
+  }
+
+  /** 계산에 사용할 샘플 항목. 반복 그리드가 아니거나 샘플이 없으면 null */
+  get itemIndex(): number | null {
+    return this._itemIndex;
+  }
+
   /**
    * 편집을 시작합니다.
    *
-   * @param initial - 편집을 시작할 수식 (없으면 빈 문자열)
+   * @param target - 편집할 대상
+   * @param origin - 열 때의 대상 내용. 모달이 열려 있는 동안 대상이 그대로인지 확인하는 데 씁니다
+   * @param itemIndex - 계산에 사용할 샘플 항목. 반복 그리드가 아니면 null
    */
-  start(initial: string | undefined): void {
-    this._draft = initial ?? '';
+  start(target: FormulaTarget, origin: FormulaOrigin, itemIndex: number | null = null): void {
+    this._target = target;
+    this._origin = { formula: origin.formula, ...(origin.rule === undefined ? {} : { rule: { ...origin.rule } }) };
+    this._draft = origin.formula ?? '';
     this._caret = this._draft.length;
+    this._itemIndex = itemIndex;
+    this._query = '';
+    this._category = null;
+    this._picked = null;
+    this._tab = 'functions';
+  }
+
+  /** 참조 영역에서 보고 있는 탭 */
+  get tab(): ReferenceTab {
+    return this._tab;
+  }
+
+  /**
+   * 참조 영역의 탭을 바꿉니다.
+   *
+   * @param tab - 보여 줄 탭
+   */
+  setTab(tab: ReferenceTab): void {
+    if (tab === this._tab) return;
+    this._tab = tab;
+    this.host.requestUpdate();
+  }
+
+  /** 함수 검색어 */
+  get query(): string {
+    return this._query;
+  }
+
+  /** 고른 함수 분류. 전체를 보고 있으면 null */
+  get category(): string | null {
+    return this._category;
+  }
+
+  /** 상세를 보고 있는 함수 이름. 고른 것이 없으면 null */
+  get picked(): string | null {
+    return this._picked;
+  }
+
+  /**
+   * 함수 검색어를 바꿉니다.
+   *
+   * @param value - 새 검색어
+   */
+  setQuery(value: string): void {
+    if (value === this._query) return;
+    this._query = value;
+    this.host.requestUpdate();
+  }
+
+  /**
+   * 함수 분류를 고릅니다.
+   *
+   * @param title - 고른 분류. 전체를 보려면 null
+   */
+  setCategory(title: string | null): void {
+    if (title === this._category) return;
+    this._category = title;
+    this.host.requestUpdate();
+  }
+
+  /**
+   * 상세를 볼 함수를 고릅니다.
+   *
+   * @param name - 고른 함수 이름. 상세를 닫으려면 null
+   */
+  pick(name: string | null): void {
+    if (name === this._picked) return;
+    this._picked = name;
+    this.host.requestUpdate();
+  }
+
+  /**
+   * 계산에 사용할 샘플 항목을 바꿉니다.
+   *
+   * @param index - 고른 샘플 항목. 선택을 지우려면 null
+   */
+  selectItem(index: number | null): void {
+    if (index === this._itemIndex) return;
+    this._itemIndex = index;
+    this.host.requestUpdate();
   }
 
   /**

@@ -12,6 +12,11 @@ import { twisty } from './inputs.js';
 import type { GridEditController } from '../controllers/grid-edit.js';
 import type { ParameterFieldInfo, ParameterInfo } from '../parameters.js';
 import type { SideSelection } from '../selection.js';
+import {
+  hasCellWarning,
+  hasElementWarning,
+  type FormulaWarnings,
+} from '../formula-warning.js';
 import type { PanelKit } from './panel-kit.js';
 
 export type { SideSelection };
@@ -21,6 +26,8 @@ export type { SideSelection };
 export interface SidebarActions {
   /** 편집 중인 양식 */
   readonly file: SlipTemplateFile | null;
+  /** 지금 값으로 계산되지 않는 수식이 있는 요소와 셀 */
+  readonly formulaWarnings: FormulaWarnings;
   /** 보고 있는 양식 페이지 (0부터) */
   readonly pageIndex: number;
   /** 사이드바에서 선택한 대상 */
@@ -169,12 +176,16 @@ export function elementRow(kit: PanelKit, side: SidebarActions, pageIndex: numbe
   const expanded = hasCells && side.expandedElements.has(el.id);
   // 그리드 셀이 선택된 경우에는 요소 행 대신 해당 셀 행을 강조합니다.
   const rowSelected = side.selectedIds.has(el.id) && !side.selection && side.gridEdit.cell === null;
+  const warnings = side.formulaWarnings;
+  const warned = hasElementWarning(warnings, el.id);
   return html`
     <div class="side-row-wrap">
       ${twisty(kit, hasCells, expanded, el.name, () => side.toggleElementRow(el.id))}
       <button class="side-row ${rowSelected ? 'selected' : ''}" title=${el.name}
+        aria-label=${warned ? `${el.name} ${s.formulaWarningItem}` : el.name}
         @click=${(e: MouseEvent) => side.selectFromSidebar(pageIndex, el.id, e.ctrlKey || e.metaKey)}>
-        ${TYPE_BADGE[el.type]}<span>${el.name}</span>
+        ${TYPE_BADGE[el.type]}<span class="side-row-name">${el.name}</span>
+        ${warned ? warningMark(s.formulaWarningItem) : nothing}
       </button>
       <button class="side-mini" title=${s.delete} aria-label="${el.name} ${s.delete}"
         @click=${() => side.deleteElementById(pageIndex, el.id)}>${icons.remove}</button>
@@ -183,13 +194,21 @@ export function elementRow(kit: PanelKit, side: SidebarActions, pageIndex: numbe
       ? cells.map((c) => {
           const cellSelected = side.selectedId === el.id
             && side.gridEdit.cell?.row === c.row && side.gridEdit.cell?.column === c.column;
+          const cellWarned = hasCellWarning(warnings, el.id, c.row, c.column);
           return html`
             <button class="side-cell-row ${cellSelected ? 'selected' : ''}" title=${c.at}
+              aria-label=${cellWarned ? `${c.label} ${s.formulaWarningItem}` : c.label}
               @click=${() => side.selectGridCell(pageIndex, el.id, c.row, c.column)}>
-              <span>${c.label}</span></button>`;
+              <span class="side-cell-name">${c.label}</span>
+              ${cellWarned ? warningMark(s.formulaWarningItem) : nothing}</button>`;
         })
       : nothing}
   `;
+}
+
+/** 계산할 수 없는 수식이 있음을 알리는 표시 — 누르는 자리가 아니라 행 안의 표시입니다 */
+function warningMark(label: string) {
+  return html`<span class="side-warning" title=${label}>${icons.warning}</span>`;
 }
 
 /**

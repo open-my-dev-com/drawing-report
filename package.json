@@ -10,6 +10,7 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "lint": "eslint .",
+    "verify": "pnpm lint && pnpm -r build && pnpm -r typecheck && pnpm -r test",
     "build": "pnpm -r --filter './packages/*' run build",
     "test": "pnpm -r --filter './packages/*' run test",
     "test:coverage": "pnpm -r --filter \"./packages/*\" exec vitest run --coverage.enabled --coverage.provider=v8 --coverage.reporter=text --coverage.include=\"src/**\" --coverage.exclude=\"src/fonts/**\"",

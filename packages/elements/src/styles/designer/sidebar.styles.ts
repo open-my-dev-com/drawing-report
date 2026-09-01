@@ -113,6 +113,30 @@ export const sidebarStyles = css`
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    /* 이름은 남는 폭을 쓰고 말줄임하되, 경고 표시는 줄어들거나 잘리지 않습니다 */
+    .side-row-name,
+    .side-cell-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .side-warning {
+      display: inline-flex;
+      width: 12px;
+      height: 12px;
+      flex: 0 0 12px;
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      color: var(--sk-danger);
+      pointer-events: none;
+    }
+    .side-warning svg {
+      width: 12px;
+      height: 12px;
+    }
     .side-row:hover {
       background: var(--sk-accent-soft);
     }
@@ -273,6 +297,9 @@ export const sidebarStyles = css`
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .side-cell-row {
+      gap: 6px;
     }
     .side-col-row:hover,
     .side-cell-row:hover {
@@ -460,34 +487,6 @@ export const sidebarStyles = css`
     /* 샘플 데이터 모달의 행 편집 그리드  — 열이 많으면 가로 스크롤 */
     .modal.modal-wide {
       width: min(760px, calc(100vw - 32px));
-    }
-    .sample-tabs {
-      display: inline-flex;
-      gap: 2px;
-      margin-bottom: 8px;
-      padding: 2px;
-      border: 1px solid var(--sk-border);
-      border-radius: var(--sk-radius);
-      background: var(--sk-bg);
-    }
-    .sample-tabs button {
-      padding: 4px 12px;
-      border: 1px solid transparent;
-      border-radius: var(--sk-radius);
-      background: transparent;
-      font-family: inherit;
-      font-size: 12px;
-      color: var(--sk-text-muted);
-      cursor: pointer;
-    }
-    .sample-tabs button[aria-selected='true'] {
-      background: var(--sk-surface);
-      border-color: var(--sk-border-strong);
-      color: var(--sk-text);
-    }
-    .sample-tabs button:focus-visible {
-      outline: 2px solid var(--sk-accent);
-      outline-offset: 1px;
     }
     .sample-json {
       width: 100%;

@@ -22,7 +22,7 @@ paths:
 
 | 위치 | 담당 |
 |---|---|
-| `designer/*.ts` | 상태 비의존 연산 — 화면 상태를 읽지 않는 계산 (좌표·색·스타일·그리드 구조·파라미터 요약). 브라우저 저장소를 쓰지 않는다 |
+| `designer/*.ts` | 상태 비의존 연산 — 화면 상태를 읽지 않는 계산 (좌표·색·스타일·그리드 구조·파라미터 요약·수식 계산 문맥과 검사). 브라우저 저장소를 쓰지 않는다 |
 | `designer/controllers/*.ts` | 상태를 가진 부분 (모달·초안·그리드 선택·포인터·팝오버·색 선택기). 호스트에 갱신을 요청하는 것은 lit `ReactiveController`로 만들어 `addController`로 등록한다 |
 | `designer/render/*.ts` | 화면 조각과 표시용 메타데이터 (툴바·사이드바·캔버스·속성 패널·모달·행 구간 아이콘) |
 | `styles/designer/*.styles.ts` | 영역별 스타일. **선언 순서를 바꾸지 않는다** (cascade가 달라진다) |
@@ -32,6 +32,9 @@ paths:
   `DialogContext`·`ToolbarActions`·`PointerHost`·`GridCommandsHost`).
 - 의존 방향은 **상태 비의존 연산 → 컨트롤러 → 렌더 모듈 → 컴포넌트** 한 방향이다. 아래가 위를 참조하지 않는다.
 - 컨트롤러는 `TemplateResult`를 만들지 않는다. 아이콘 같은 화면 조각은 렌더 모듈에 둔다.
+- 수식·조건식의 계산 문맥은 `designer/formula-context.ts`, 검사는 `designer/formula-check.ts`
+  하나만 쓴다 (ADR-068). 캔버스·인라인 입력·수식 모달이 각자 만들지 않는다 — 화면마다 결과가
+  달라진다.
 - 연결 해제 시 컨트롤러 상태를 초기화하지 않는다. `hostConnected`에서 화면을 다시 그려 재연결
   뒤에도 화면과 상태가 어긋나지 않게 한다.
 - shadow root는 하나다. 자식 커스텀 엘리먼트를 만들지 않는다.

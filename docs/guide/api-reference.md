@@ -329,7 +329,24 @@ function evaluateFormula(
 ): FormulaValue;
 ```
 
-Evaluates a formula string or a parsed AST.
+Evaluates a formula string or a parsed AST. It stops at the first error and throws.
+
+#### `diagnoseFormula`
+
+```ts
+interface FormulaDiagnosis {
+  value: FormulaValue;
+  formulaError?: FormulaEvalError;
+  dataError?: FormulaEvalError;
+}
+
+function diagnoseFormula(
+  source: string | FormulaAst,
+  context: FormulaContext,
+): FormulaDiagnosis;
+```
+
+Diagnoses a formula against the current values without stopping at the first error, and reports what it found as `formulaError` and `dataError`. A place that fails because a value is missing or a reserved range is unavailable is filled with an empty value so evaluation continues, and that failure is reported as `dataError`; an error raised by the expression itself is reported as `formulaError`. Both are failures of this one evaluation — neither proves that the formula can never be evaluated. When `formulaError` or `dataError` is set, `value` came out of the diagnosis, so do not show it as a result.
 
 #### `FormulaContext`
 
@@ -399,6 +416,31 @@ const FORMULA_FUNCTIONS:
 The list of currently registered formula function names. Functions not in this list are rejected at the parsing stage.
 
 For each function's arguments and usage, see the [Formula Function Reference](formula.md).
+
+#### `FORMULA_ARITY`
+
+```ts
+interface FormulaArity {
+  min: number;
+  max?: number;
+}
+
+const FORMULA_ARITY:
+  Record<FormulaFunctionName, FormulaArity>;
+```
+
+Defines the minimum and maximum number of arguments accepted by each supported function. When `max` is omitted, there is no upper limit.
+
+#### `assertFormulaArity`
+
+```ts
+function assertFormulaArity(
+  ast: FormulaAst,
+  options?: { locale?: string },
+): void;
+```
+
+Checks the number of arguments in every function call in a parsed AST. It throws `FormulaEvalError` when an argument count does not match `FORMULA_ARITY`. The formula is not evaluated, so no voucher values are required.
 
 #### `FormulaFunctionName`
 
@@ -1817,7 +1859,26 @@ class FormulaSyntaxError
 
 ### `FormulaEvalError`
 
+```ts
+type FormulaEvalReason =
+  | 'data'
+  | 'value'
+  | 'formula';
+
+class FormulaEvalError
+  extends Error {
+  readonly reason: FormulaEvalReason;
+  get dataDependent(): boolean;
+}
+```
+
 Used when a type mismatch, an invalid argument, or division by zero occurs during formula evaluation.
+
+`reason` says why the evaluation failed: `data` when a value is missing or a reserved range is unavailable, `value` when a value used in the calculation is wrong, and `formula` when the formula itself is wrong.
+
+`dataDependent` is diagnostic information used to choose the message shown to the user; it does not prove whether the formula can be evaluated for some other input. For a `value` reason it checks whether the value that caused the conversion or validation error came from data, rather than looking at the other operands in the same place. Use it instead of comparing error messages.
+
+The designer blocks only errors it can establish — a syntax error, an unregistered function, a wrong argument count, and a condition whose result is not a boolean. Every other evaluation failure is applied and marked with a warning in the editing view.
 
 ### `SlipEncryptionError`
 

@@ -329,7 +329,24 @@ function evaluateFormula(
 ): FormulaValue;
 ```
 
-数式文字列またはパース済みの AST を評価します。
+数式文字列またはパース済みの AST を評価します。最初のエラーで停止し、例外を投げます。
+
+#### `diagnoseFormula`
+
+```ts
+interface FormulaDiagnosis {
+  value: FormulaValue;
+  formulaError?: FormulaEvalError;
+  dataError?: FormulaEvalError;
+}
+
+function diagnoseFormula(
+  source: string | FormulaAst,
+  context: FormulaContext,
+): FormulaDiagnosis;
+```
+
+現在の値で数式を診断し、最初のエラーで停止せずに見つけたエラーを `formulaError` と `dataError` に分けて返します。値がない、または予約範囲を使えないために失敗した箇所は空の値で補って最後まで計算し、その失敗を `dataError`、式自体で起きたエラーを `formulaError` として返します。どちらも今回の計算一度の失敗であり、いずれもその数式がどの値でも計算できないことを証明しません。`formulaError` または `dataError` がある場合の `value` は診断の過程で出た値なので、結果として表示しないでください。
 
 #### `FormulaContext`
 
@@ -399,6 +416,31 @@ const FORMULA_FUNCTIONS:
 現在登録されている数式関数名の一覧です。この一覧にない関数は、パースの段階で拒否されます。
 
 関数ごとの引数と使い方は[数式関数リファレンス](formula.ja.md)を確認してください。
+
+#### `FORMULA_ARITY`
+
+```ts
+interface FormulaArity {
+  min: number;
+  max?: number;
+}
+
+const FORMULA_ARITY:
+  Record<FormulaFunctionName, FormulaArity>;
+```
+
+サポートする各関数の引数の最小数と最大数を定義します。`max`を省略した場合、引数の数に上限はありません。
+
+#### `assertFormulaArity`
+
+```ts
+function assertFormulaArity(
+  ast: FormulaAst,
+  options?: { locale?: string },
+): void;
+```
+
+解析済みのASTに含まれるすべての関数呼び出しについて、引数の数を検査します。引数の数が`FORMULA_ARITY`と一致しない場合は、`FormulaEvalError`が発生します。数式は評価しないため、伝票の値がなくても使用できます。
 
 #### `FormulaFunctionName`
 
@@ -1817,7 +1859,26 @@ class FormulaSyntaxError
 
 ### `FormulaEvalError`
 
+```ts
+type FormulaEvalReason =
+  | 'data'
+  | 'value'
+  | 'formula';
+
+class FormulaEvalError
+  extends Error {
+  readonly reason: FormulaEvalReason;
+  get dataDependent(): boolean;
+}
+```
+
 数式の評価中に、型の不一致、誤った引数、または 0 での除算などが発生したときに使います。
+
+`reason` は評価に失敗した理由です。`data` は値がない、または予約範囲を使えない場合、`value` は計算に使った値が正しくない場合、`formula` は数式そのものが正しくない場合です。
+
+`dataDependent` は表示するメッセージを選ぶための診断情報であり、どの入力でも計算できるかどうかを証明しません。`value` では、同じ箇所の他の被演算子ではなく、変換・検査でエラーを起こした値がデータから来たかどうかを確認します。エラーメッセージを比較する代わりにこの値を使います。
+
+デザイナーは、構文エラー、登録されていない関数、関数の引数の数の誤り、結果が論理値でない条件式のように確定できるエラーだけ適用を止めます。それ以外の評価失敗は適用を許可し、編集画面に警告を表示します。
 
 ### `SlipEncryptionError`
 

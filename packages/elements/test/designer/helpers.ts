@@ -262,3 +262,14 @@ export function retargetedKey(el: Element, key: string, init: KeyboardEventInit 
   Object.defineProperty(event, 'composedPath', { value: () => [input] });
   return event;
 }
+
+/** 수식 모달의 「값과 범위」 탭으로 전환합니다 — 파라미터와 반복 데이터 범위가 있는 자리입니다. */
+export async function openValuesTab(host: LitHost): Promise<void> {
+  const tabs = Array.from(
+    host.shadowRoot!.querySelectorAll<HTMLButtonElement>('.formula-tab'),
+  );
+  const tab = tabs.find((b) => b.textContent?.trim() === strings.designer.formulaValuesTab);
+  expect(tab).toBeDefined();
+  tab!.click();
+  await host.updateComplete;
+}

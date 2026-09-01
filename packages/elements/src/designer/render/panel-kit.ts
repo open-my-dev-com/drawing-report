@@ -9,6 +9,7 @@ import type { TemplateResult } from 'lit';
 import type { ColorPickerController } from '../controllers/color-picker.js';
 import type { PopoverController } from '../controllers/popover.js';
 
+import type { FormulaTarget } from '../formula-target.js';
 import type { DesignerStrings } from '../../strings.js';
 
 export type { DesignerStrings };
@@ -49,6 +50,22 @@ export interface PanelKit {
    * @returns 오류가 있으면 true
    */
   hasError(field: string): boolean;
+  /**
+   * 인라인으로 입력한 수식·조건식을 검사합니다.
+   * 적용할 수 없으면 입력 오류를 표시합니다. 모달과 같은 검사를 씁니다.
+   *
+   * @param target - 검사할 편집 대상
+   * @param value - 입력한 수식·조건식
+   * @param field - 오류를 붙일 항목 키
+   * @returns 저장해도 되면 true
+   */
+  acceptFormula(target: FormulaTarget, value: string, field: string): boolean;
+  /**
+   * 수식 편집 모달을 엽니다.
+   *
+   * @param target - 편집할 대상
+   */
+  openFormulaModal(target: FormulaTarget): void;
   /**
    * 리스트형 선택 상자를 그립니다.
    *

@@ -6,20 +6,19 @@
  */
 
 import { html, nothing } from 'lit';
-import { parseFormula } from '@omdc-slipkit/core';
-import type { FormulaContext, FormulaValue, SlipElement, SlipTemplateFile } from '@omdc-slipkit/core';
+import type { SlipElement, SlipTemplateFile } from '@omdc-slipkit/core';
 import { icons } from '../../icons.js';
 import { formatBytes } from '../../image-file.js';
-import { formulaPreviewText, parseSampleScalar, sampleScalarText } from './sample-values.js';
+import { parseSampleScalar, sampleScalarText } from './sample-values.js';
 import { PLACEHOLDER_IMG, imageParameterKeys, usedImages } from '../image-pick.js';
 import { inItemBand } from '../grid-model.js';
 import { MY_FORMS_PAGE_SIZE, SAMPLE_PAGE_SIZE } from '../pagination.js';
-import { getFormulaHelp } from '../../formula-help.js';
 import type { DialogsController } from '../controllers/dialogs.js';
 import type { FormsController } from '../controllers/forms-storage.js';
 import type { FormulaDraftController } from '../controllers/formula-draft.js';
 import type { ModalFocusController } from '../controllers/modal-focus.js';
 import type { SampleDraftController } from '../controllers/sample-draft.js';
+import type { FormulaModalView } from './formula-modal.js';
 import type { ParameterInfo } from '../parameters.js';
 import type { DesignerStrings } from '../../strings.js';
 
@@ -49,14 +48,14 @@ export interface DialogContext {
   parameters(): ParameterInfo[];
   /** 샘플 편집에 표시할 파라미터 키와 이름 */
   parameterKeys(): { key: string; label: string }[];
-  /** 샘플 값이 없을 때 사용할 파라미터 종류별 기본값 */
-  probeValues(): Record<string, unknown>;
   /** 선언된 파라미터와 현재 샘플 값을 합친 JSON 초안 */
   sampleSkeleton(): Record<string, unknown>;
-  /** 수식을 평가합니다 */
-  evaluate(source: string, context: FormulaContext): FormulaValue;
   /** 속성 패널이 대상으로 삼는 요소 */
   selectedElement(): SlipElement | undefined;
+  /** 요소 종류의 표시 이름 */
+  typeName(type: SlipElement['type']): string;
+  /** 수식 모달이 그릴 편집 대상, 검사 결과와 참조 목록 */
+  formulaView(): FormulaModalView;
   applyFormula(): void;
   closeFormula(): void;
   applyImageSrc(src: string): void;
@@ -70,128 +69,6 @@ export interface DialogContext {
   deleteMyForm(id: string): void;
   /** 화면을 다시 그립니다 */
   refresh(): void;
-}
-
-/**
- * 문법 검사, 샘플 계산, 파라미터 및 함수 삽입을 제공하는 수식 모달을 렌더링합니다.
- *
- * @param d - 모달 렌더링에 필요한 상태와 동작
- * @returns 수식 모달. 열려 있지 않으면 빈 것
- */
-export function formulaModal(d: DialogContext) {
-  if (!d.dialogs.isOpen('formula')) return nothing;
-  const el = d.selectedElement();
-  if (!el || el.type !== 'field') return nothing;
-  const s = d.s;
-  const draft = d.formula.draft;
-
-  let syntaxError: string | null = null;
-  let preview: string | null = null;
-  let previewError: string | null = null;
-  if (draft.trim() !== '') {
-    try {
-      parseFormula(draft, d.locale === undefined ? undefined : { locale: d.locale });
-      try {
-        // 샘플 값이 없으면 파라미터 종류별 기본값으로 수식을 검사합니다.
-        preview = formulaPreviewText(
-          d.evaluate(draft, {
-            values: d.probeValues(),
-          }),
-        );
-      } catch (error) {
-        // 계산 오류는 표시하되 문법이 유효한 수식은 적용할 수 있습니다.
-        previewError = error instanceof Error ? error.message : String(error);
-      }
-    } catch (error) {
-      syntaxError = error instanceof Error ? error.message : String(error);
-    }
-  }
-  // 목록 파라미터의 하위 필드까지 표시하도록 사이드바와 같은 항목을 사용합니다.
-  const parameters = d.parameters();
-
-  return html`
-    <div class="menu-backdrop modal-backdrop" @click=${() => d.closeFormula()}></div>
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label=${s.formulaModalTitle}
-      @keydown=${(e: KeyboardEvent) => d.modalFocus.handleKeydown(e, () => d.closeFormula())}>
-      <div class="modal-head">
-        <span>${s.formulaModalTitle}</span>
-        <button class="modal-close" title=${s.close} aria-label=${s.close}
-          @click=${() => d.closeFormula()}>${icons.close}</button>
-      </div>
-      <div class="modal-body">
-        <textarea class="formula-input" rows="3" spellcheck="false"
-          aria-label=${s.formula} .value=${draft}
-          @input=${(e: Event) => {
-            const input = e.target as HTMLTextAreaElement;
-            d.formula.setDraft(input.value, input.selectionStart);
-          }}
-          @keyup=${(e: Event) => d.formula.syncCaret((e.target as HTMLTextAreaElement).selectionStart)}
-          @click=${(e: Event) => d.formula.syncCaret((e.target as HTMLTextAreaElement).selectionStart)}></textarea>
-        <div class="formula-status ${syntaxError ? 'error' : ''}">
-          ${syntaxError
-            ? `${s.syntaxError}: ${syntaxError}`
-            : draft.trim() === ''
-              ? ''
-              : previewError
-                ? `${s.previewUnavailable}: ${previewError}`
-                : `${s.previewResult}: ${preview}`}
-        </div>
-        ${columnSuggestions(d)}
-        <div class="formula-hint">${s.formulaQuoteHint}</div>
-        ${parameters.length > 0
-          ? html`
-              <div class="modal-section-title">${s.formulaParameters}</div>
-              <div class="parameter-chips">
-                ${parameters.map((b) => html`
-                  <button class="parameter-chip" title="${b.key}${b.valueType ? ` (${b.valueType})` : ''}"
-                    @click=${() => d.formula.insert(b.key)}>${b.label}${
-                      b.valueType ? html`<span class="chip-type">${b.valueType}</span>` : nothing
-                    }</button>
-                  ${b.fields.map((field) => html`
-                    <button class="parameter-chip column" title="${b.key}.${field.key}"
-                      @click=${() => d.formula.insert(`${b.key}.${field.key}`)}
-                      >${field.title}</button>`)}`)}
-              </div>`
-          : nothing}
-        <div class="modal-section-title">${s.formulaFunctions}</div>
-        ${getFormulaHelp(d.locale).map((category) => html`
-          <div class="fn-category">${category.title}</div>
-          ${category.functions.map((fn) => html`
-            <button class="fn-row" aria-label=${fn.name}
-              @click=${() => d.formula.insert(`${fn.name}(`, ')')}>
-              <span class="fn-signature">${fn.signature}</span>
-              <span class="fn-desc">${fn.description}</span>
-            </button>`)}`)}
-      </div>
-      <div class="modal-foot">
-        <button class="btn" @click=${() => d.closeFormula()}>${s.cancel}</button>
-        <button class="btn primary" ?disabled=${syntaxError !== null}
-          @click=${() => d.applyFormula()}>${s.apply}</button>
-      </div>
-    </div>
-  `;
-}
-
-/**
- * 목록 파라미터의 하위 필드 자동완성 항목을 렌더링합니다.
- *
- * @param d - 모달 렌더링에 필요한 상태와 동작
- * @returns 자동완성 목록. 후보가 없으면 빈 것
- */
-export function columnSuggestions(d: DialogContext) {
-  const suggestion = d.formula.suggestion(d.parameters());
-  if (!suggestion) return nothing;
-  const s = d.s;
-
-  return html`
-    <div class="formula-suggest" role="group" aria-label=${s.formulaColumnSuggest}>
-      <span class="formula-suggest-label">${s.formulaColumnSuggest}</span>
-      ${suggestion.columns.map((col) => html`
-        <button class="parameter-chip column" title=${col.key}
-          @click=${() => d.formula.insert(col.key.slice(suggestion.typedLength))}
-          >${col.title ? `${col.title} · ${col.key}` : col.key}</button>`)}
-    </div>
-  `;
 }
 
 /**
@@ -312,7 +189,7 @@ export function sampleModal(d: DialogContext) {
           @click=${close}>${icons.close}</button>
       </div>
       <div class="modal-body">
-        <div class="sample-tabs" role="tablist" aria-label=${s.sampleModalTitle}>
+        <div class="modal-tabs" role="tablist" aria-label=${s.sampleModalTitle}>
           ${([
             [false, s.formMode],
             [true, 'JSON'],

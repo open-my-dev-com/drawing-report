@@ -143,6 +143,9 @@ pnpm build
 
 # 테스트 실행
 pnpm test
+
+# 전체 검증 게이트
+pnpm verify
 ```
 
 ## 라이선스

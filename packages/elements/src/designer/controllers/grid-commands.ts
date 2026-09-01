@@ -60,8 +60,6 @@ export interface GridCommandsHost {
   ensureParameterDef(key: string, valueType?: string): void;
   /** 정의와 사용처를 합친 파라미터 목록 */
   parameters(): ParameterInfo[];
-  /** 샘플 값이 없을 때 사용할 파라미터 종류별 기본값 */
-  probeValues(): Record<string, unknown>;
   /** 화면을 다시 그립니다 */
   refresh(): void;
 }
@@ -679,20 +677,5 @@ export class GridCommandsController {
     this.host.resetPanelErrors();
     this.host.edit.clearCellAndSource();
     this.host.refresh();
-  }
-
-  /**
-   * 조건부 서식 미리보기에 사용할 항목 하나를 반복 파라미터의 샘플에서 선택합니다.
-   *
-   * @param el - 대상 그리드
-   * @returns 첫 번째 샘플 항목. 반복 설정이나 샘플이 없으면 undefined
-   */
-  repeatProbeItem(el: GridElement): Record<string, unknown> | undefined {
-    if (!el.repeat) return undefined;
-    const list = this.host.probeValues()[el.repeat.parameter];
-    const item = Array.isArray(list) ? list[0] : undefined;
-    return typeof item === 'object' && item !== null && !Array.isArray(item)
-      ? (item as Record<string, unknown>)
-      : undefined;
   }
 }

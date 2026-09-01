@@ -289,18 +289,13 @@ export const dialogsStyles = css`
       border-style: solid;
       color: inherit;
     }
-    .fn-category {
-      margin: 8px 0 2px;
-      font-size: 11px;
-      font-weight: 600;
-    }
     .fn-row {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 1px;
+      gap: 2px;
       width: 100%;
-      padding: 4px 8px;
+      padding: 7px 8px;
       border: none;
       border-radius: var(--sk-radius);
       background: transparent;
@@ -321,7 +316,7 @@ export const dialogsStyles = css`
       font-size: 11.5px;
     }
     .fn-desc {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--sk-text-muted);
     }
     .row-btn {
@@ -630,5 +625,318 @@ export const dialogsStyles = css`
       font-size: 11px;
       font-weight: 600;
       line-height: 16px;
+    }
+
+    /* 수식 모달 — 편집과 참조를 나란히 두어 참조를 보면서 수식을 고칠 수 있게 합니다 */
+    .modal.formula-modal {
+      width: min(960px, calc(100vw - 48px));
+      /* 함수를 골라도 높이가 달라지지 않도록 본문 높이를 고정합니다 */
+      height: min(560px, calc(100vh - 48px));
+      max-height: calc(100vh - 48px);
+    }
+    .formula-layout {
+      display: grid;
+      /* 목록과 설명이 있는 참조 영역을 넓게 둡니다. */
+      grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);
+      gap: 0;
+      /* 본문이 늘어나도 헤더와 하단 버튼이 밀려나지 않도록 축소를 허용합니다 */
+      min-height: 0;
+      flex: 1;
+    }
+    .formula-editor,
+    .formula-reference {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: 20px;
+    }
+    .formula-editor {
+      gap: 8px;
+      overflow-y: auto;
+    }
+    .formula-reference {
+      border-left: 1px solid var(--sk-border);
+    }
+    .formula-tabpanel {
+      min-height: 0;
+      flex: 1;
+      /* 함수 탭은 안에서 스크롤하고, 값 탭은 길어지면 이 자리가 스크롤합니다 */
+      overflow-y: auto;
+    }
+    .formula-target {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+    .formula-target-label {
+      color: var(--sk-text-muted);
+    }
+    .formula-target-name {
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+    /* 수식 작성이 이 모달의 주 작업이므로 입력란을 가장 크게 둡니다 */
+    .formula-modal .formula-input {
+      /* 수식 입력란은 220px로 표시하며, 사용자가 세로로 줄이면 140px까지 허용합니다. */
+      height: 220px;
+      min-height: 140px;
+      max-height: 220px;
+      font-size: 13px;
+    }
+    /* 검사 결과 — 상태 제목이 뜻을 설명하고 그 아래에 결과나 까닭을 적습니다 */
+    .formula-status {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-height: 48px;
+      padding: 8px 10px;
+      border-left: 3px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      font-size: 12px;
+    }
+    .formula-status-title {
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+    .formula-status-text {
+      overflow-wrap: anywhere;
+    }
+    .formula-status.ok {
+      border-left-color: var(--sk-accent);
+      background: var(--sk-accent-soft);
+      color: inherit;
+    }
+    .formula-status.ok .formula-status-text {
+      font-size: 13px;
+    }
+    .formula-status-hint {
+      color: var(--sk-text-muted);
+    }
+    .formula-status.notice {
+      background: var(--sk-surface-alt, rgba(0, 0, 0, 0.04));
+      color: var(--sk-text-muted);
+    }
+    .formula-status.notice .formula-status-title {
+      color: inherit;
+    }
+    /* 계산에 실패했지만 적용할 수 있는 상태 — 저장 뒤 요소에 남는 경고와 같은 색을 씁니다 */
+    .formula-status.warning {
+      border-left-color: var(--sk-danger);
+      background: color-mix(in srgb, var(--sk-danger) 7%, var(--sk-surface));
+      color: var(--sk-text);
+    }
+    .formula-status.warning .formula-status-title {
+      color: var(--sk-danger);
+    }
+    .formula-status.error {
+      border-left-color: var(--sk-danger);
+      background: rgba(194, 65, 12, 0.08);
+      color: var(--sk-danger);
+    }
+    /* 모달 안 탭 — 샘플 데이터 모달과 수식 모달이 같은 모양을 씁니다 */
+    .modal-tabs {
+      display: inline-flex;
+      /* 세로 배치 안에서도 탭 묶음이 내용만큼만 넓어지게 합니다 */
+      align-self: flex-start;
+      gap: 2px;
+      margin-bottom: 8px;
+      padding: 2px;
+      border: 1px solid var(--sk-border);
+      border-radius: var(--sk-radius);
+      background: var(--sk-bg);
+    }
+    .modal-tabs button {
+      padding: 4px 12px;
+      border: 1px solid transparent;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--sk-text-muted);
+      cursor: pointer;
+    }
+    .modal-tabs button[aria-selected='true'] {
+      background: var(--sk-surface);
+      border-color: var(--sk-border-strong);
+      color: var(--sk-text);
+    }
+    .modal-tabs button:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    /* 값과 범위 — 코드 이름만으로는 뜻을 알 수 없어 표시 이름을 앞에 둡니다 */
+    .value-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 4px;
+    }
+    .value-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      width: 100%;
+      padding: 7px 8px;
+      border: none;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      font-family: inherit;
+      font-size: 12px;
+      text-align: left;
+      color: inherit;
+      cursor: pointer;
+    }
+    .value-row:hover:not(:disabled) {
+      background: var(--sk-accent-soft);
+    }
+    .value-row:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -1px;
+    }
+    .value-row:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+    .value-name {
+      font-size: 12.5px;
+    }
+    .value-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11.5px;
+      color: var(--sk-text-muted);
+    }
+    .value-reason {
+      margin-left: auto;
+      color: var(--sk-text-muted);
+    }
+    .formula-items {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px;
+      font-size: 11px;
+    }
+    .formula-item-no {
+      width: 4.5em;
+      padding: 3px 6px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 11px;
+      color: inherit;
+    }
+    .formula-item-total {
+      color: var(--sk-text-muted);
+    }
+    .formula-item-where {
+      margin-left: 4px;
+      color: var(--sk-text-muted);
+    }
+    .formula-search {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 13px;
+      color: inherit;
+    }
+    .formula-search:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -1px;
+    }
+    .fn-categories {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin: 6px 0;
+    }
+    .fn-chip {
+      padding: 2px 8px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: 999px;
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 11px;
+      color: inherit;
+      cursor: pointer;
+    }
+    .fn-chip:hover,
+    .fn-chip.selected {
+      border-color: var(--sk-accent);
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+    }
+    /* 함수 탭 — 목록만 스크롤하고 검색과 상세는 자리를 지킵니다 */
+    .fn-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);
+      gap: 14px;
+      min-height: 0;
+      height: 100%;
+    }
+    .fn-browse {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .fn-list {
+      min-height: 0;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .fn-row.selected {
+      /* hover와 같은 배경만으로는 상세에 연결된 항목이 어느 것인지 남지 않습니다 */
+      background: var(--sk-accent-soft);
+      box-shadow: inset 2px 0 var(--sk-accent);
+      color: var(--sk-accent);
+    }
+    .fn-detail {
+      min-height: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--sk-border);
+      border-radius: var(--sk-radius);
+      overflow-y: auto;
+    }
+    .fn-detail-name {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .fn-insert {
+      margin-top: 10px;
+    }
+    .fn-detail-title {
+      margin: 8px 0 2px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--sk-text-muted);
+    }
+    .fn-args {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: 2px 10px;
+      margin: 0;
+      font-size: 11px;
+    }
+    .fn-args dt {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .fn-args dd {
+      margin: 0;
+      color: var(--sk-text-muted);
+    }
+    .fn-optional {
+      margin-left: 4px;
+      font-family: inherit;
+      color: var(--sk-text-muted);
+    }
+    .parameter-chip:disabled {
+      opacity: 0.45;
+      cursor: default;
     }
 `;

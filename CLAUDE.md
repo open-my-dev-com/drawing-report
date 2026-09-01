@@ -52,8 +52,8 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
 
 ## 검증 게이트
 
-- `pnpm lint && pnpm -r typecheck && pnpm -r build && pnpm -r test` 전부 통과한 상태에서만
-  커밋한다. (lint = TSDoc 주석 형식 검사, ADR-030)
+- `pnpm verify`가 통과한 상태에서만 커밋합니다. 검증 단계와 실행 순서는 루트 `package.json`의
+  `verify` 스크립트에서 관리합니다 (lint = TSDoc 주석 형식 검사, ADR-030).
   (PreToolUse 훅이 `git commit` 시 이 게이트를 자동 실행해 실패하면 커밋을 차단한다.)
 - 실패하는 테스트를 스킵·삭제·완화로 통과시키지 않는다.
 - `/verify`로 수동 실행, `/next-task`로 로드맵 다음 작업을 규칙대로 시작할 수 있다.

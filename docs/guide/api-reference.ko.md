@@ -329,7 +329,24 @@ function evaluateFormula(
 ): FormulaValue;
 ```
 
-수식 문자열 또는 파싱된 AST를 평가합니다.
+수식 문자열 또는 파싱된 AST를 평가합니다. 첫 오류에서 멈추고 오류를 던집니다.
+
+#### `diagnoseFormula`
+
+```ts
+interface FormulaDiagnosis {
+  value: FormulaValue;
+  formulaError?: FormulaEvalError;
+  dataError?: FormulaEvalError;
+}
+
+function diagnoseFormula(
+  source: string | FormulaAst,
+  context: FormulaContext,
+): FormulaDiagnosis;
+```
+
+현재 값으로 수식을 진단해, 첫 오류에서 멈추지 않고 발견한 오류를 `formulaError`와 `dataError`로 나눠 돌려줍니다. 값이 없거나 예약 범위를 쓸 수 없어 실패한 자리는 빈 값으로 이어 끝까지 계산하고 그 실패를 `dataError`로, 식에서 난 오류를 `formulaError`로 알립니다. 둘 다 이번 계산 한 번의 실패이며, 어느 쪽도 그 수식이 어떤 값에서도 계산되지 않는다는 것을 증명하지 않습니다. `formulaError`나 `dataError`가 있으면 `value`는 진단 과정에서 나온 값이므로 결과로 보여 주지 않습니다.
 
 #### `FormulaContext`
 
@@ -399,6 +416,31 @@ const FORMULA_FUNCTIONS:
 현재 등록된 수식 함수 이름 목록입니다. 이 목록에 없는 함수는 파싱 단계에서 거부됩니다.
 
 함수별 인자와 사용 방법은 [수식 함수 참조](formula.ko.md)를 확인하세요.
+
+#### `FORMULA_ARITY`
+
+```ts
+interface FormulaArity {
+  min: number;
+  max?: number;
+}
+
+const FORMULA_ARITY:
+  Record<FormulaFunctionName, FormulaArity>;
+```
+
+지원하는 각 함수의 최소 인자 수와 최대 인자 수를 정의합니다. `max`가 없으면 인자 수에 상한이 없습니다.
+
+#### `assertFormulaArity`
+
+```ts
+function assertFormulaArity(
+  ast: FormulaAst,
+  options?: { locale?: string },
+): void;
+```
+
+파싱된 AST에 포함된 모든 함수 호출의 인자 수를 검사합니다. 인자 수가 `FORMULA_ARITY`와 맞지 않으면 `FormulaEvalError`가 발생합니다. 이 함수는 수식을 평가하지 않으므로 전표 값 없이 사용할 수 있습니다.
 
 #### `FormulaFunctionName`
 
@@ -1817,7 +1859,26 @@ class FormulaSyntaxError
 
 ### `FormulaEvalError`
 
+```ts
+type FormulaEvalReason =
+  | 'data'
+  | 'value'
+  | 'formula';
+
+class FormulaEvalError
+  extends Error {
+  readonly reason: FormulaEvalReason;
+  get dataDependent(): boolean;
+}
+```
+
 수식 평가 중 타입 불일치, 잘못된 인자 또는 0으로 나누기 등이 발생했을 때 사용합니다.
+
+`reason`은 평가에 실패한 까닭입니다. `data`는 값이 없거나 예약 범위를 쓸 수 없는 경우, `value`는 계산에 쓴 값이 잘못된 경우, `formula`는 식 자체가 잘못된 경우입니다.
+
+`dataDependent`는 안내 문구를 구분하기 위한 진단 정보이며, 어떤 입력에서도 계산 가능한지를 증명하지 않습니다. `value`에서는 같은 자리의 다른 피연산자가 아니라, 변환·검사에서 오류를 일으킨 값이 데이터에서 왔는지를 확인합니다. 오류 문구를 비교하는 대신 이 값을 사용합니다.
+
+디자이너는 문법 오류, 등록되지 않은 함수, 함수 인자 수 오류, 결과가 논리값이 아닌 조건식처럼 확정할 수 있는 오류만 적용을 막습니다. 그 밖의 평가 실패는 적용을 허용하고 편집 화면에 경고를 표시합니다.
 
 ### `SlipEncryptionError`
 
