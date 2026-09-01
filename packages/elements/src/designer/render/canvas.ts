@@ -63,6 +63,7 @@ import { TYPE_BADGE } from './badges.js';
 import type { GridBandPlacement } from '@omdc-slipkit/core';
 import type { GridEditController } from '../controllers/grid-edit.js';
 import type { DesignerFonts } from '../font-variant.js';
+import { borderCss, cellDefaultBorderOf, outlineOf } from '../grid-border.js';
 import type { DesignerStrings } from '../../strings.js';
 
 /** 캔버스가 컴포넌트에서 받는 것 */
@@ -501,7 +502,12 @@ export function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourceP
 
   // 선과 곡선 도형은 PDF 변환 방식에 맞춰 SVG로 그립니다.
   const drawnAsSvg = el.type === 'line' || el.type === 'ellipse' || el.type === 'polygon';
-  if (el.type !== 'image' && !drawnAsSvg) {
+  if (el.type === 'grid') {
+    // 그리드의 테두리는 셀 경계선과 외곽선 레이어가 그리므로 요소 상자에는 안내선만 둡니다.
+    if (el.backgroundColor !== undefined) style += `;background-color:${el.backgroundColor}`;
+    if (el.fontColor !== undefined) style += `;color:${el.fontColor}`;
+    style += ';border-color:var(--sk-guide-faint)';
+  } else if (el.type !== 'image' && !drawnAsSvg) {
     const r = el as Record<string, unknown>;
     // 텍스트와 필드는 샘플 값으로 조건부 서식을 미리 적용합니다.
     const conditional = el.type === 'text' || el.type === 'field'
@@ -731,17 +737,17 @@ export function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment
   const selected = el.id === ctx.selectedId;
   const widths = columnWidths(el);
   const colTracks = widths.map((w) => `${w}fr`).join(' ');
-  const lineColor = el.borderColor ?? '#000000';
-  const lineWidth = el.borderWidth ?? DEFAULT_LINE_WIDTH;
-  const borderCssOf = (cell?: GridCell, overrideColor?: string): string => {
-    const width = cell?.borderWidth ?? lineWidth;
-    if (width <= 0) return 'none';
-    const px = Math.max(1, Math.round(width * PX_PER_MM));
-    return `${px}px ${cell?.borderStyle ?? el.borderStyle ?? 'solid'} ${overrideColor ?? cell?.borderColor ?? lineColor}`;
-  };
+  const cellDefault = cellDefaultBorderOf(el);
+  const borderCssOf = (cell?: GridCell, overrideColor?: string): string =>
+    borderCss({
+      width: cell?.borderWidth ?? cellDefault.width,
+      style: cell?.borderStyle ?? cellDefault.style,
+      color: overrideColor ?? cell?.borderColor ?? cellDefault.color,
+    }, PX_PER_MM);
+  const outline = gridOutlineLayer(el);
 
   if (fragment !== null && el.repeat !== undefined) {
-    return gridFragment(ctx, el, fragment, { colTracks, borderCssOf });
+    return html`${gridFragment(ctx, el, fragment, { colTracks, borderCssOf })}${outline}`;
   }
 
   // 원본 행 구조 표시 — 항목 구간 셀에는 첫 샘플 항목을 적용합니다.
@@ -789,10 +795,29 @@ export function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment
         style="grid-area:${band.fromRow + 1}/1/span ${band.toRow - band.fromRow + 1}/span ${widths.length}"></div>`);
 
   const preview = html`<div class="grid-preview"
-    style="grid-template-columns:${colTracks};grid-template-rows:${rowTracks}">${bandOverlays}${blanks}${boxes}</div>`;
+    style="grid-template-columns:${colTracks};grid-template-rows:${rowTracks}">${bandOverlays}${blanks}${boxes}</div>${outline}`;
   // 셀 편집 중에는 행 역할 조작을 감춰 두 편집 모드가 겹치지 않게 합니다.
   if (!selected || el.repeat === undefined || ctx.gridEdit.cell !== null) return preview;
   return html`${preview}${bandStrip(ctx, el, rowTracks)}`;
+}
+
+/**
+ * 저장된 그리드 외곽선을 셀 경계선 위에 겹치는 레이어로 그립니다.
+ *
+ * @remarks
+ * PDF처럼 선 중심을 그리드 경계에 두므로 굵기의 반만큼 요소 상자 밖으로 나갑니다.
+ * 두께가 0이면 아무것도 그리지 않습니다.
+ *
+ * @param el - 그리드 요소
+ * @returns 외곽선 레이어. 외곽선이 없으면 빈 것
+ */
+export function gridOutlineLayer(el: GridElement) {
+  const outline = outlineOf(el);
+  if (outline.width <= 0) return nothing;
+  const px = Math.max(1, Math.round(outline.width * PX_PER_MM));
+  const offset = -(px / 2);
+  return html`<div class="grid-outline"
+    style="inset:${offset}px;border:${borderCss(outline, PX_PER_MM)}"></div>`;
 }
 
 /**

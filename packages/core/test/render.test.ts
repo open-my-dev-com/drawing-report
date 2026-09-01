@@ -405,6 +405,171 @@ describe('그리드 셀별 테두리 (ADR-033)', () => {
   });
 });
 
+describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
+  type Extra = Partial<Pick<GridElement,
+    'borderColor' | 'borderWidth' | 'borderStyle'
+    | 'cellBorderColor' | 'cellBorderWidth' | 'cellBorderStyle'
+    | 'outlineColor' | 'outlineWidth' | 'outlineStyle'>>;
+
+  /** 2×2 그리드(원점 10,10 · 열 50 · 행 10) 하나만 둔 양식 */
+  function makeFile(extra: Extra, cells: GridElement['cells'] = [
+    { row: 0, column: 0, content: '' },
+  ]): SlipTemplateFile {
+    return {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'template',
+      template: {
+        meta: { title: '테두리 분리 시험' },
+        paper: { width: 210, height: 297, padding: [10, 10, 10, 10] },
+        pages: [{
+          elements: [{
+            type: 'grid', id: 'grid', name: '그리드',
+            position: { x: 10, y: 10 },
+            rows: [{ height: 10 }, { height: 10 }],
+            columns: [{ width: 50 }, { width: 50 }],
+            cells,
+            ...extra,
+          } as GridElement],
+        }],
+        assets: [],
+      },
+    };
+  }
+  const linesOf = (file: SlipTemplateFile) =>
+    pageSchemas(file).filter((schema) => schema.type === 'line');
+  const outlinesOf = (file: SlipTemplateFile) =>
+    linesOf(file).filter((line) => String(line.name).includes('__outline'));
+  const cellLinesOf = (file: SlipTemplateFile) =>
+    linesOf(file).filter((line) => !String(line.name).includes('__outline'));
+
+  it('새 그리드는 셀 경계선만 검정 실선 0.2mm로 그리고 외곽선은 그리지 않는다', () => {
+    const file = makeFile({});
+    expect(outlinesOf(file)).toHaveLength(0);
+    const lines = cellLinesOf(file);
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      expect(line.color).toBe('#000000');
+      expect(Math.min(line.width, line.height)).toBe(0.2);
+    }
+  });
+
+  it('cellBorder*가 셀 경계선에 적용된다', () => {
+    const lines = cellLinesOf(makeFile({ cellBorderColor: '#336699', cellBorderWidth: 0.5 }));
+    for (const line of lines) {
+      expect(line.color).toBe('#336699');
+      expect(Math.min(line.width, line.height)).toBe(0.5);
+    }
+  });
+
+  it('이전 파일의 grid.border*는 셀 기본 테두리로만 읽고 외곽선을 만들지 않는다', () => {
+    const legacy = makeFile({ borderColor: '#CC0000', borderWidth: 0.4 });
+    const asNew = makeFile({ cellBorderColor: '#CC0000', cellBorderWidth: 0.4 });
+    expect(outlinesOf(legacy)).toHaveLength(0);
+    // 이전 표기와 새 표기가 같은 셀 경계선을 만든다.
+    expect(cellLinesOf(legacy)).toEqual(cellLinesOf(asNew));
+  });
+
+  it('cellBorder*가 있으면 이전 grid.border*보다 우선한다', () => {
+    const lines = cellLinesOf(makeFile({ borderColor: '#CC0000', cellBorderColor: '#00AA00' }));
+    for (const line of lines) expect(line.color).toBe('#00AA00');
+  });
+
+  it('외곽선은 셀 경계선 뒤에 그리드 경계 중심으로 네 변을 그린다', () => {
+    const file = makeFile({ outlineColor: '#123456', outlineWidth: 0.6 });
+    const schemas = pageSchemas(file);
+    const outlines = outlinesOf(file);
+    expect(outlines).toHaveLength(4);
+    // 위·아래·왼쪽·오른쪽 — 굵기의 반(0.3)만큼 경계 바깥으로 나간다.
+    const named = Object.fromEntries(outlines.map((line) => [String(line.name).slice(-1), line]));
+    expect(named['t']?.position).toEqual({ x: 10, y: 10 - 0.3 });
+    expect(named['t']?.width).toBe(100);
+    expect(named['t']?.height).toBe(0.6);
+    expect(named['b']?.position).toEqual({ x: 10, y: 30 - 0.3 });
+    expect(named['l']?.position).toEqual({ x: 10 - 0.3, y: 10 });
+    expect(named['l']?.height).toBe(20);
+    expect(named['r']?.position).toEqual({ x: 110 - 0.3, y: 10 });
+    for (const line of outlines) expect(line.color).toBe('#123456');
+    // 셀 경계선보다 뒤에 놓여 위에 겹친다.
+    const lastCellLine = Math.max(...schemas.map((sc, i) => (sc.type === 'line' && !String(sc.name).includes('__outline') ? i : -1)));
+    const firstOutline = schemas.findIndex((sc) => String(sc.name).includes('__outline'));
+    expect(firstOutline).toBeGreaterThan(lastCellLine);
+  });
+
+  it('파선 외곽선은 여러 선분으로 나뉘어도 모두 외곽선 색을 쓴다', () => {
+    const solid = outlinesOf(makeFile({ outlineWidth: 0.4 }));
+    const dashed = outlinesOf(makeFile({ outlineWidth: 0.4, outlineColor: '#123456', outlineStyle: 'dashed' }));
+    expect(dashed.length).toBeGreaterThan(solid.length);
+    for (const line of dashed) expect(line.color).toBe('#123456');
+  });
+
+  it('외곽선을 없음으로 두어도 셀 경계선은 유지되고, 셀 기본 테두리를 없음으로 두어도 외곽선은 유지된다', () => {
+    const noOutline = makeFile({ cellBorderWidth: 0.3 });
+    expect(outlinesOf(noOutline)).toHaveLength(0);
+    expect(cellLinesOf(noOutline).length).toBeGreaterThan(0);
+
+    const noCells = makeFile({ cellBorderWidth: 0, outlineWidth: 0.4 });
+    expect(cellLinesOf(noCells)).toHaveLength(0);
+    expect(outlinesOf(noCells)).toHaveLength(4);
+  });
+
+  it('셀 테두리 덮어쓰기는 셀 경계선에만 영향을 주고 외곽선은 그대로다', () => {
+    const file = makeFile(
+      { outlineWidth: 0.4, outlineColor: '#000000' },
+      [{ row: 0, column: 0, content: '', borderWidth: 0.8, borderColor: '#FF0000' }],
+    );
+    const outlines = outlinesOf(file);
+    expect(outlines).toHaveLength(4);
+    for (const line of outlines) {
+      expect(line.color).toBe('#000000');
+      expect(Math.min(line.width, line.height)).toBe(0.4);
+    }
+    const red = cellLinesOf(file).filter((line) => line.color === '#FF0000');
+    expect(red.length).toBeGreaterThan(0);
+  });
+
+  it('페이지를 넘는 반복 그리드는 출력 페이지 조각마다 네 변의 외곽선을 그린다', () => {
+    const file: SlipTemplateFile = {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'template',
+      template: {
+        meta: { title: '외곽선 분할 시험' },
+        paper: { width: 210, height: 297, padding: [10, 10, 10, 10] },
+        parameters: [{ key: 'items', valueType: 'list', fields: [{ key: 'n', valueType: 'text' }] }],
+        pages: [{
+          elements: [{
+            type: 'grid', id: 'grid', name: '그리드',
+            position: { x: 10, y: 10 },
+            rows: [{ height: 10 }],
+            columns: [{ width: 50 }],
+            cells: [{ row: 0, column: 0, parameter: 'n' }],
+            outlineWidth: 0.5,
+            repeat: {
+              parameter: 'items',
+              bands: [{ id: 'b', fromRow: 0, toRow: 0, placement: 'item' }],
+              pagination: { mode: 'fixed', itemsPerPage: 3 },
+            },
+          } as GridElement],
+        }],
+        assets: [],
+      },
+    };
+    const voucher: SlipVoucherFile = {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'voucher',
+      templateSnapshot: file.template,
+      values: { items: Array.from({ length: 7 }, (_, i) => ({ n: String(i) })) },
+      issued: false,
+    };
+    const { template } = convertSlipFile(voucher);
+    const pages = template.schemas as unknown as PdfmeSchema[][];
+    expect(pages.length).toBe(3);
+    for (const page of pages) {
+      const outlines = page.filter((sc) => String(sc.name).includes('__outline'));
+      expect(outlines).toHaveLength(4);
+    }
+  });
+});
+
 describe('픽스처 그리드의 항목 구간 변환 (ADR-037)', () => {
   /** 그리드가 낸 텍스트 값 목록 (그린 순서대로) */
   function itemTexts(file: SlipTemplateFile | SlipVoucherFile): string[] {

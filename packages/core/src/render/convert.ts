@@ -581,9 +581,8 @@ class SlipToPdfmeConverter {
       columns: element.columns.length,
       cells,
       backgroundColor: element.backgroundColor,
-      borderColor: element.borderColor,
-      borderWidth: element.borderWidth,
-      borderStyle: element.borderStyle,
+      cellBorder: gridCellBorderOf(element),
+      outline: gridOutlineOf(element),
       padding: GRID_CELL_PADDING,
       blankRows: new Set<number>(),
       overflow: element.overflow ?? 'clip',
@@ -764,18 +763,15 @@ class SlipToPdfmeConverter {
     const originY = grid.origin.y;
     const width = columnOffsets[columns] ?? 0;
     const height = rowOffsets[rows] ?? 0;
-    const lineWidth = grid.borderWidth ?? DEFAULT_BORDER_WIDTH;
-    const lineColor = grid.borderColor ?? DEFAULT_BORDER_COLOR;
-    const lineStyle: BorderStyle = grid.borderStyle ?? 'solid';
     const blankRows = grid.blankRows ?? new Set<number>();
 
-    // 셀에 지정한 테두리 속성이 그리드 기본값보다 우선한다 (SPEC §5.2).
+    // 셀에 지정한 테두리 속성이 그리드의 셀 기본 테두리보다 우선한다 (SPEC §5.2).
     const cellBorderOf = (index: number): GridEdgeBorder => {
       const cell = index >= 0 ? cells[index] : undefined;
       return {
-        width: cell?.borderWidth ?? lineWidth,
-        color: cell?.borderColor ?? lineColor,
-        style: cell?.borderStyle ?? lineStyle,
+        width: cell?.borderWidth ?? grid.cellBorder.width,
+        color: cell?.borderColor ?? grid.cellBorder.color,
+        style: cell?.borderStyle ?? grid.cellBorder.style,
       };
     };
     // 두 셀이 공유하는 경계에는 더 굵은 테두리를 적용한다. 굵기가 같으면 아래쪽 또는
@@ -879,7 +875,19 @@ class SlipToPdfmeConverter {
       },
     }, edgeBorderOf, schemas);
 
-    // 4. 셀 텍스트
+    // 4. 외곽선. 셀 경계선 위에 겹치도록 나중에 그리고, 선 중심을 그리드 경계에 둔다.
+    //    셀 테두리와 무관하므로 셀이 모두 테두리 없음이어도 그린다.
+    if (grid.outline.width > 0) {
+      const o = grid.outline;
+      const half = o.width / 2;
+      const prefix = `${grid.idPrefix}__outline`;
+      this.pushLine(schemas, `${prefix}-t`, { x: originX, y: Math.max(0, originY - half) }, width, o.width, o.color, o.style);
+      this.pushLine(schemas, `${prefix}-b`, { x: originX, y: Math.max(0, originY + height - half) }, width, o.width, o.color, o.style);
+      this.pushLine(schemas, `${prefix}-l`, { x: Math.max(0, originX - half), y: originY }, o.width, height, o.color, o.style);
+      this.pushLine(schemas, `${prefix}-r`, { x: Math.max(0, originX + width - half), y: originY }, o.width, height, o.color, o.style);
+    }
+
+    // 5. 셀 텍스트
     cells.forEach((cell, index) => {
       if (cell.text === '') return;
       const rect = drawCellRect(cell, columnOffsets, rowOffsets, originX, originY);
@@ -1421,9 +1429,10 @@ interface DrawGridOptions {
   columns: number;
   cells: DrawGridCell[];
   backgroundColor?: string | undefined;
-  borderColor?: string | undefined;
-  borderWidth?: number | undefined;
-  borderStyle?: BorderStyle | undefined;
+  /** 셀에 테두리 설정이 없을 때 적용할 기본 테두리 */
+  cellBorder: GridEdgeBorder;
+  /** 그리드를 감싸는 외곽선. 두께가 0이면 그리지 않는다 */
+  outline: GridEdgeBorder;
   /** 셀 안쪽 여백(mm) */
   padding: number;
   /** 내용을 렌더링하지 않을 행 (SPEC §5.7) */
@@ -1458,6 +1467,30 @@ interface GridEdgeBorder {
   width: number;
   color: string;
   style: BorderStyle;
+}
+
+/**
+ * 그리드의 셀 기본 테두리를 정한다.
+ *
+ * @remarks
+ * `cellBorder*`가 없으면 이전 파일 표기인 `border*`를 대체값으로 읽는다. 둘 다 없으면 검정
+ * 실선 0.2mm다. 이전 표기를 외곽선으로 해석하지 않으므로 이전 파일의 셀 경계선은 그대로다.
+ */
+function gridCellBorderOf(element: GridElement): GridEdgeBorder {
+  return {
+    width: element.cellBorderWidth ?? element.borderWidth ?? DEFAULT_BORDER_WIDTH,
+    color: element.cellBorderColor ?? element.borderColor ?? DEFAULT_BORDER_COLOR,
+    style: element.cellBorderStyle ?? element.borderStyle ?? 'solid',
+  };
+}
+
+/** 그리드 외곽선을 정한다. `outlineWidth`가 없으면 그리지 않는다. */
+function gridOutlineOf(element: GridElement): GridEdgeBorder {
+  return {
+    width: element.outlineWidth ?? 0,
+    color: element.outlineColor ?? DEFAULT_BORDER_COLOR,
+    style: element.outlineStyle ?? 'solid',
+  };
 }
 
 /**
