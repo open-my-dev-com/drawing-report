@@ -17,7 +17,7 @@ vi.mock('../../src/default-fonts.js', () => ({
     Promise.resolve([{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }]),
 }));
 
-import type { SlipFile, SlipKit } from '@omdc-slipkit/core';
+import { createSlipKit, type SlipFile, type SlipKit } from '@omdc-slipkit/core';
 import {
   strings,
   parseSlipFileMock,
@@ -149,5 +149,50 @@ describe('<slip-designer> 호스트 폰트 공급 실패와 재시도', () => {
     expect(fontNames(first)).toEqual(['Host Sans']);
     first.remove();
     second.remove();
+  });
+  it('밖에서 조회가 성공한 뒤 다시 연결하면 공급을 더 부르지 않고 복구된다', async () => {
+    let attempt = 0;
+    const supply = vi.fn(() => {
+      attempt += 1;
+      if (attempt === 1) throw new Error('설정 오류');
+      return HOST_FONTS;
+    });
+    const slipkit = createSlipKit({ getFonts: supply });
+
+    const el = await mount(slipkit);
+    expect(fontNames(el)).toEqual([]);
+    expect(supply).toHaveBeenCalledTimes(1);
+
+    // 디자이너 밖에서 같은 인스턴스의 조회가 성공합니다.
+    await slipkit.getFonts!();
+    expect(supply).toHaveBeenCalledTimes(2);
+
+    el.remove();
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    expect(fontNames(el)).toEqual(['Host Sans']);
+    // 재연결이 공급 함수를 다시 부르지는 않습니다.
+    expect(supply).toHaveBeenCalledTimes(2);
+    el.remove();
+  });
+
+  it('성공 상태에서는 다시 연결해도 조회하지 않는다', async () => {
+    const supply = vi.fn(() => HOST_FONTS);
+    const slipkit = createSlipKit({ getFonts: supply });
+
+    const el = await mount(slipkit);
+    expect(fontNames(el)).toEqual(['Host Sans']);
+    expect(supply).toHaveBeenCalledTimes(1);
+
+    el.remove();
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    expect(supply).toHaveBeenCalledTimes(1);
+    el.remove();
   });
 });

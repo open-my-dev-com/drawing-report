@@ -379,6 +379,8 @@ export class SlipDesigner extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    // 떨어져 있는 동안 다른 곳에서 폰트 조회가 풀렸을 수 있으므로 실패 상태일 때만 다시 봅니다.
+    this._retryFontSource();
     this.addEventListener('keydown', this._onKeyDown);
     if (!this.hasAttribute('tabindex')) {
       this.setAttribute('tabindex', '0');
