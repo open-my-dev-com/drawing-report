@@ -16,7 +16,7 @@ import type {
   SourcePagePlan,
 } from '@omdc-slipkit/core';
 
-/** 예약 참조가 값을 낼 수 없는 이유 */
+/** 예약 참조 값을 제공할 수 없는 이유 */
 export type ReservedBlockReason =
   /** 반복 설정이 없는 그리드 */
   | 'not-repeat'
@@ -30,9 +30,9 @@ export type ReservedBlockReason =
 /** 예약 참조 하나의 사용 가능 여부 */
 export interface ReservedAvailability {
   name: string;
-  /** 지금 이 자리에서 값을 낼 수 있는지 */
+  /** 현재 계산 문맥에서 값을 제공할 수 있는지 */
   usable: boolean;
-  /** 쓸 수 없을 때의 이유 */
+  /** 제공할 수 없을 때의 이유 */
   reason?: ReservedBlockReason;
 }
 
@@ -70,9 +70,11 @@ export interface GridFormulaContext {
   slotForBand(fragment: GridFragment | undefined, band: GridBand | undefined): FormulaSlot;
   /** 특정 샘플 항목을 골랐을 때의 계산 문맥을 만듭니다 */
   slotForItem(itemIndex: number, band: GridBand | undefined): FormulaSlot;
-  /** 고를 수 있는 샘플 항목과 각 항목이 놓이는 출력 페이지·그룹 */
-  itemChoices(): ItemChoice[];
-  /** 이 자리에서 각 예약 참조를 쓸 수 있는지 판단합니다 */
+  /** 고를 수 있는 샘플 항목 수 */
+  readonly itemCount: number;
+  /** 샘플 항목 하나가 놓이는 출력 페이지와 그룹을 찾습니다 */
+  choiceAt(itemIndex: number): ItemChoice | undefined;
+  /** 계산 문맥이 각 예약 참조 값을 제공하는지 판단합니다 */
   availability(slot: FormulaSlot): ReservedAvailability[];
 }
 
@@ -126,44 +128,42 @@ export function gridFormulaContext(
   const fragmentAt = (outputPage: number): GridFragment | undefined =>
     gridPlan?.fragments.find((candidate) => candidate.outputPage === outputPage);
 
-  const baseReserved = (fragment: GridFragment): Record<string, unknown> => ({
-    '@all': [...realItems],
-    '@page': itemsOf(fragment.pageItems),
-    '@carried': itemsOf(fragment.carriedItems),
-  });
-
-  const plannedReserved = (fragment: GridFragment, planned: PlannedBand): Record<string, unknown> => {
-    const reserved = baseReserved(fragment);
-    const item = planned.itemIndex === undefined ? undefined : realItems[planned.itemIndex];
+  /**
+   * 예약 참조를 만듭니다. 계획이 공급하지 않는 값은 넣지 않습니다 — 없는 값을 대신 채우면
+   * 화면에서는 쓸 수 없다고 안내하면서 계산은 되는 상태가 생깁니다.
+   */
+  const reservedOf = (
+    fragment: GridFragment | undefined,
+    planned: PlannedBand | undefined,
+    previewItem: GridItem | undefined,
+  ): Record<string, unknown> => {
+    const reserved: Record<string, unknown> = { '@all': [...realItems] };
+    if (fragment !== undefined) {
+      reserved['@page'] = itemsOf(fragment.pageItems);
+      reserved['@carried'] = itemsOf(fragment.carriedItems);
+    }
+    const item = planned?.itemIndex === undefined ? previewItem : realItems[planned.itemIndex];
     if (item !== undefined) reserved['@item'] = item;
-    if (planned.groupIndex !== undefined && gridPlan !== undefined) {
+    if (planned?.groupIndex !== undefined && gridPlan !== undefined) {
       reserved['@group'] = itemsOf(gridPlan.groups[planned.groupIndex] ?? []);
     }
     return reserved;
   };
 
-  // 계획 조각이 없는 자리에서는 전체 항목을 한 페이지·한 그룹으로 봅니다.
+  const plannedReserved = (fragment: GridFragment, planned: PlannedBand): Record<string, unknown> =>
+    reservedOf(fragment, planned, undefined);
+
   const slotOf = (
     fragment: GridFragment | undefined,
     planned: PlannedBand | undefined,
-    fallbackItem: GridItem | undefined,
+    previewItem: GridItem | undefined,
   ): FormulaSlot => {
     if (el.repeat === undefined) {
       return { item: undefined, reserved: undefined, outputPage: undefined, groupIndex: undefined };
     }
-    const reserved: Record<string, unknown> = {
-      '@all': [...realItems],
-      '@page': fragment === undefined ? [...realItems] : itemsOf(fragment.pageItems),
-      '@carried': fragment === undefined ? [] : itemsOf(fragment.carriedItems),
-      '@group':
-        planned?.groupIndex === undefined
-          ? [...realItems]
-          : itemsOf(gridPlan?.groups[planned.groupIndex]),
-    };
-    const item = planned?.itemIndex === undefined ? fallbackItem : realItems[planned.itemIndex];
-    if (item !== undefined) reserved['@item'] = item;
+    const reserved = reservedOf(fragment, planned, previewItem);
     return {
-      item,
+      item: reserved['@item'] as GridItem | undefined,
       reserved,
       outputPage: fragment?.outputPage,
       groupIndex: planned?.groupIndex,
@@ -173,6 +173,15 @@ export function gridFormulaContext(
   const plannedOf = (fragment: GridFragment | undefined, band: GridBand | undefined) =>
     fragment?.bands.find((candidate) => candidate.band.id === band?.id);
 
+  /** 계산 문맥이 예약 참조 값을 내지 못하는 까닭을 고릅니다. */
+  const missingReason = (name: string): ReservedBlockReason => {
+    if (name === '@item') return 'no-item';
+    if (name !== '@group') return 'no-plan';
+    if (gridPlan === undefined) return 'no-plan';
+    // 그룹 설정이 있는데도 값이 없으면 이 자리가 항목을 가리키지 않는다는 뜻입니다.
+    return gridPlan.groups.length === 0 ? 'no-group' : 'no-item';
+  };
+
   return {
     realItems,
     fragmentAt,
@@ -180,62 +189,45 @@ export function gridFormulaContext(
     slotForBand: (fragment, band) => slotOf(fragment, plannedOf(fragment, band), items[0]),
     slotForItem: (itemIndex, band) => {
       const found = locate(gridPlan, itemIndex, band);
-      // 계획이 있으면 `@item`은 계획이 정합니다 — 항목이 없는 행 구간에는 생기지 않습니다.
-      return slotOf(found?.fragment, found?.planned, found === undefined ? realItems[itemIndex] : undefined);
+      // 계획이 없으면 페이지·그룹 의미를 만들지 않고 고른 항목만 공급합니다.
+      if (found === undefined) return slotOf(undefined, undefined, realItems[itemIndex]);
+      return slotOf(found.fragment, found.planned, undefined);
     },
-    itemChoices: () => {
-      // 항목마다 계획을 훑지 않도록 항목 → 출력 페이지를 한 번에 모읍니다.
-      const pageOf = new Map<number, number>();
-      for (const fragment of gridPlan?.fragments ?? []) {
-        for (const planned of fragment.bands) {
-          if (planned.band.placement === 'item' && planned.itemIndex !== undefined) {
-            pageOf.set(planned.itemIndex, fragment.outputPage);
-          }
-        }
-      }
-      return realItems.map((_item, index) => ({
-        index,
-        outputPage: pageOf.get(index),
-        groupIndex: gridPlan?.groupOf[index],
-      }));
+    itemCount: realItems.length,
+    choiceAt: (itemIndex) => {
+      if (realItems[itemIndex] === undefined) return undefined;
+      return {
+        index: itemIndex,
+        outputPage: locate(gridPlan, itemIndex, undefined)?.fragment.outputPage,
+        groupIndex: gridPlan?.groupOf[itemIndex],
+      };
     },
     availability: (slot) => {
       if (el.repeat === undefined) {
         return RESERVED_NAMES.map((name) => ({ name, usable: false, reason: 'not-repeat' as const }));
       }
-      return RESERVED_NAMES.map((name) => {
-        if (name === '@item' && slot.item === undefined) {
-          return { name, usable: false, reason: 'no-item' as const };
-        }
-        if (name === '@group' && (gridPlan === undefined || gridPlan.groups.length === 0)) {
-          return {
-            name,
-            usable: false,
-            reason: (gridPlan === undefined ? 'no-plan' : 'no-group') as ReservedBlockReason,
-          };
-        }
-        if ((name === '@page' || name === '@carried') && gridPlan === undefined) {
-          return { name, usable: false, reason: 'no-plan' as const };
-        }
-        return { name, usable: true };
-      });
+      // 실제로 넘어가는 예약 참조에서 판단해, 안내와 계산 결과가 어긋나지 않게 합니다.
+      return RESERVED_NAMES.map((name) => (slot.reserved?.[name] === undefined
+        ? { name, usable: false, reason: missingReason(name) }
+        : { name, usable: true }));
     },
   };
 }
 
 /**
- * 항목이 놓인 계획 조각과 행 구간 인스턴스를 찾습니다.
+ * 항목이 놓인 계획 조각과, 그 자리에서 계산에 쓸 행 구간 인스턴스를 찾습니다.
  *
  * @param gridPlan - 그리드의 페이지 계획
  * @param itemIndex - 찾을 실제 항목 인덱스
- * @param band - 계산하는 자리의 행 구간. 항목 구간이 아니면 그 구간의 인스턴스를 우선합니다
- * @returns 항목이 놓인 조각과 인스턴스. 계획에 없으면 undefined
+ * @param band - 계산하는 자리의 행 구간. 생략하면 항목 구간 인스턴스를 돌려줍니다
+ * @returns 항목이 놓인 조각과 인스턴스. 그 조각에 해당 구간이 없으면 인스턴스는 undefined.
+ *   계획에 없는 항목이면 undefined
  */
 function locate(
   gridPlan: GridPlan | undefined,
   itemIndex: number,
   band: GridBand | undefined,
-): { fragment: GridFragment; planned: PlannedBand } | undefined {
+): { fragment: GridFragment; planned: PlannedBand | undefined } | undefined {
   if (gridPlan === undefined) return undefined;
   for (const fragment of gridPlan.fragments) {
     const item = fragment.bands.find(
@@ -243,13 +235,11 @@ function locate(
     );
     if (item === undefined) continue;
     if (band === undefined || band.id === item.band.id) return { fragment, planned: item };
-    const own = fragment.bands.find((planned) => planned.band.id === band.id);
-    if (own === undefined) return { fragment, planned: item };
-    // 항목 구간이 아닌 자리는 그 구간의 인스턴스를 그대로 쓰고 그룹만 고른 항목을 따릅니다.
-    // `@item`은 인스턴스가 실제로 항목을 가리킬 때만 생깁니다.
-    const planned: PlannedBand = { ...own };
-    if (item.groupIndex === undefined) delete planned.groupIndex;
-    else planned.groupIndex = item.groupIndex;
+    // 그룹 구간은 한 조각에 그룹마다 하나씩 오므로 고른 항목과 같은 그룹의 인스턴스를 찾습니다.
+    // 그룹과 무관한 구간(헤더 등)은 그룹 번호가 없는 인스턴스를 씁니다.
+    const planned =
+      fragment.bands.find((candidate) => candidate.band.id === band.id && candidate.groupIndex === item.groupIndex)
+      ?? fragment.bands.find((candidate) => candidate.band.id === band.id && candidate.groupIndex === undefined);
     return { fragment, planned };
   }
   return undefined;

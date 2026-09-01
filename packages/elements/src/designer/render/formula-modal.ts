@@ -20,7 +20,7 @@ import type { DialogContext } from './dialogs.js';
 
 /** 모달이 표시하는 편집 대상 */
 export interface FormulaTargetView {
-  /** 편집 대상 지목 */
+  /** 편집 대상 식별 정보 */
   target: FormulaTarget;
   /** 대상 요소 */
   element: SlipElement;
@@ -36,14 +36,17 @@ export interface FormulaTargetView {
 
 /** 수식 모달이 화면을 그리는 데 필요한 상태 */
 export interface FormulaModalView {
-  /** 편집 대상. 지워졌거나 바뀌었으면 null */
+  /**
+   * 편집 대상. 대상이 지워졌거나 모달을 연 뒤 내용이 바뀌었으면 null이며,
+   * 이때 `check`는 `target-changed`입니다.
+   */
   target: FormulaTargetView | null;
   /** 지금 초안의 검사 결과 */
   check: FormulaCheck;
-  /** 고를 수 있는 샘플 항목 */
-  itemChoices: ItemChoice[];
-  /** 지금 고른 샘플 항목 */
-  itemIndex: number | null;
+  /** 고를 수 있는 샘플 항목 수 */
+  itemCount: number;
+  /** 지금 고른 샘플 항목의 자리. 반복 그리드가 아니면 null */
+  currentItem: ItemChoice | null;
   /** 예약 참조별 사용 가능 여부 */
   reserved: ReservedAvailability[];
 }
@@ -85,7 +88,7 @@ function targetText(d: DialogContext, view: FormulaTargetView): string {
   return parts.join(' · ');
 }
 
-/** 샘플 항목 하나의 선택지 문구를 만듭니다. */
+/** 지금 고른 샘플 항목이 놓인 자리를 한 줄로 설명합니다. */
 function itemChoiceText(s: DesignerStrings, choice: ItemChoice): string {
   const parts = [fill(s.formulaItemAt, { index: choice.index + 1 })];
   if (choice.outputPage !== undefined) {
@@ -195,18 +198,36 @@ function editorColumn(d: DialogContext, view: FormulaModalView) {
   `;
 }
 
-/** 반복 그리드의 미리 계산에 쓸 샘플 항목을 고르는 목록을 렌더링합니다. */
+/**
+ * 반복 그리드의 미리 계산에 쓸 샘플 항목을 고르는 자리를 렌더링합니다.
+ *
+ * 항목 이름을 훑는 곳이 아니라 번호를 고르는 곳이라, 항목이 몇 개든 조작부 수가 같은
+ * 번호 입력과 이전·다음 버튼으로 만듭니다.
+ */
 function sampleItemPicker(d: DialogContext, view: FormulaModalView) {
   // 고를 것이 하나뿐이면 선택지를 두지 않습니다.
-  if (view.itemChoices.length < 2) return nothing;
+  const current = view.currentItem;
+  if (current === null || view.itemCount < 2) return nothing;
   const s = d.s;
+  const move = (to: number): void => d.formula.selectItem(Math.min(Math.max(to, 0), view.itemCount - 1));
+
   return html`
     <div class="modal-section-title">${s.formulaSampleItem}</div>
     <div class="formula-items" role="group" aria-label=${s.formulaSampleItem}>
-      ${view.itemChoices.map((choice) => html`
-        <button class="parameter-chip ${choice.index === view.itemIndex ? 'selected' : ''}"
-          aria-pressed=${String(choice.index === view.itemIndex)}
-          @click=${() => d.formula.selectItem(choice.index)}>${itemChoiceText(s, choice)}</button>`)}
+      <button class="row-btn" title=${s.prevPage} aria-label=${s.prevPage}
+        ?disabled=${current.index === 0}
+        @click=${() => move(current.index - 1)}>${icons.up}</button>
+      <input type="number" class="formula-item-no" min="1" max=${view.itemCount}
+        aria-label=${s.formulaSampleItem} .value=${live(String(current.index + 1))}
+        @change=${(e: Event) => {
+          const typed = Number((e.target as HTMLInputElement).value);
+          move(Number.isFinite(typed) ? typed - 1 : current.index);
+        }}>
+      <span class="formula-item-total">/ ${view.itemCount}</span>
+      <button class="row-btn" title=${s.nextPage} aria-label=${s.nextPage}
+        ?disabled=${current.index === view.itemCount - 1}
+        @click=${() => move(current.index + 1)}>${icons.down}</button>
+      <span class="formula-item-where">${itemChoiceText(s, current)}</span>
     </div>
   `;
 }

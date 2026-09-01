@@ -307,6 +307,74 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(formulaInput(el).value).toBe('2 + 2');
   });
 
+  it('모달 밖에서 원래 수식이 바뀌면 그 자리에서 적용을 막는다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+    await openModal(el);
+    setDraft(el, '2 + 2');
+    await el.updateComplete;
+    expect(footButton(el, s.apply).disabled).toBe(false);
+
+    // 되돌리기 등 모달 밖의 경로로 대상의 수식이 바뀐 상황입니다.
+    elementsOf(el)[0]!.formula = '9 + 9';
+    el.requestUpdate();
+    await el.updateComplete;
+
+    expect(status(el).textContent).toBe(s.formulaTargetChanged);
+    expect(footButton(el, s.apply).disabled).toBe(true);
+    footButton(el, s.apply).click();
+    await el.updateComplete;
+    expect(modal(el)).not.toBeNull();
+    expect(formulaInput(el).value).toBe('2 + 2');
+    expect(elementsOf(el)[0]!.formula).toBe('9 + 9');
+  });
+
+  it('조건부 서식 규칙의 색이 바뀌거나 순서가 밀리면 적용을 막는다', async () => {
+    const rules = () => elementsOf(el)[0]!.conditionalFormats as Record<string, unknown>[];
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: '제목', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [
+        { condition: 'TRUE', fontColor: '#FF0000' },
+        { condition: 'FALSE', fontColor: '#0000FF' },
+      ],
+    }]);
+    selectElement(el, 't1');
+    await el.updateComplete;
+
+    // 첫 규칙의 조건식을 편집하는 중에 그 규칙의 색만 바뀌면 다른 규칙으로 봅니다.
+    await openModal(el, 0);
+    setDraft(el, 'FALSE');
+    await el.updateComplete;
+    rules()[0]!.fontColor = '#00FF00';
+    el.requestUpdate();
+    await el.updateComplete;
+    expect(status(el).textContent).toBe(s.formulaTargetChanged);
+    expect(footButton(el, s.apply).disabled).toBe(true);
+    footButton(el, s.cancel).click();
+    await el.updateComplete;
+
+    // 순서가 밀려 같은 순번에 다른 규칙이 오면 덮어쓰지 않습니다.
+    rules()[0]!.fontColor = '#FF0000';
+    el.requestUpdate();
+    await el.updateComplete;
+    await openModal(el, 0);
+    setDraft(el, 'FALSE');
+    await el.updateComplete;
+    rules().reverse();
+    el.requestUpdate();
+    await el.updateComplete;
+    expect(status(el).textContent).toBe(s.formulaTargetChanged);
+    footButton(el, s.apply).click();
+    await el.updateComplete;
+    expect(modal(el)).not.toBeNull();
+    expect(rules().map((r) => r.condition)).toEqual(['FALSE', 'TRUE']);
+  });
+
   it('문법 오류, 계산 불가와 논리값 아님을 구분해 안내한다', async () => {
     const el = await mountFile([{
       type: 'text', id: 't1', name: '제목', position: { x: 10, y: 10 },
@@ -342,15 +410,46 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     await el.updateComplete;
     await openModal(el);
 
-    const chips = Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.formula-items button'));
-    expect(chips).toHaveLength(4);
-    expect(chips[0]!.textContent?.trim()).toContain(s.formulaOutputPageAt.replace('{page}', '1'));
-    expect(chips[2]!.textContent?.trim()).toContain(s.formulaOutputPageAt.replace('{page}', '2'));
+    const itemNo = (): HTMLInputElement =>
+      el.shadowRoot!.querySelector('.formula-item-no') as HTMLInputElement;
+    const where = (): string =>
+      el.shadowRoot!.querySelector('.formula-item-where')!.textContent!.trim();
+
+    expect(itemNo().value).toBe('1');
+    expect(el.shadowRoot!.querySelector('.formula-item-total')?.textContent).toContain('4');
+    expect(where()).toContain(s.formulaOutputPageAt.replace('{page}', '1'));
     expect(status(el).textContent).toContain(`${s.previewResult}: 300`);
 
-    chips[2]!.click();
+    // 번호를 직접 적어 다른 출력 페이지의 항목으로 옮깁니다.
+    itemNo().value = '3';
+    itemNo().dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
+    expect(where()).toContain(s.formulaOutputPageAt.replace('{page}', '2'));
     expect(status(el).textContent).toContain(`${s.previewResult}: 1200`);
+
+    // 다음 항목 버튼으로도 옮길 수 있고, 끝에서는 더 갈 수 없습니다.
+    const next = Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.formula-items .row-btn'))
+      .find((b) => b.getAttribute('aria-label') === s.nextPage)!;
+    next.click();
+    await el.updateComplete;
+    expect(itemNo().value).toBe('4');
+    expect(next.disabled).toBe(true);
+  });
+
+  it('샘플 항목이 많아도 선택 조작부 수는 늘지 않는다', async () => {
+    const many = Array.from({ length: 500 }, (_row, i) => ({
+      category: i < 250 ? '가' : '나', itemName: `품목 ${i}`, amount: i,
+    }));
+    const el = await mountFile([makeGrid()], { items: many });
+    selectElement(el, 'g1');
+    selectCell(el, { row: 1, column: 1 });
+    await el.updateComplete;
+    await openModal(el);
+
+    // 번호 입력과 이전·다음 버튼만 둡니다 — 항목마다 버튼을 만들지 않습니다.
+    expect(el.shadowRoot!.querySelectorAll('.formula-items .row-btn').length).toBe(2);
+    expect(el.shadowRoot!.querySelectorAll('.formula-item-no').length).toBe(1);
+    expect(el.shadowRoot!.querySelector('.formula-item-total')?.textContent).toContain('500');
   });
 
   it('쓸 수 없는 예약 참조는 이유와 함께 비활성으로 표시한다', async () => {

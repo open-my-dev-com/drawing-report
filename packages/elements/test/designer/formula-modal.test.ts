@@ -95,15 +95,17 @@ describe('gridFormulaContext — 계산 문맥 공통 helper', () => {
     expect(third.reserved!['@all']).toEqual(SAMPLE_ITEMS);
   });
 
-  it('고를 수 있는 샘플 항목마다 놓이는 출력 페이지와 그룹을 알려 준다', () => {
+  it('샘플 항목마다 놓이는 출력 페이지와 그룹을 알려 준다', () => {
     const grid = makeGrid();
     const context = gridFormulaContext(grid, { items: SAMPLE_ITEMS }, planOf(grid));
-    expect(context.itemChoices()).toEqual([
+    expect(context.itemCount).toBe(4);
+    expect([0, 1, 2, 3].map((i) => context.choiceAt(i))).toEqual([
       { index: 0, outputPage: 0, groupIndex: 0 },
       { index: 1, outputPage: 0, groupIndex: 0 },
       { index: 2, outputPage: 1, groupIndex: 1 },
       { index: 3, outputPage: 1, groupIndex: 1 },
     ]);
+    expect(context.choiceAt(4)).toBeUndefined();
   });
 
   it('항목을 바꾸면 같은 수식의 계산 결과가 달라진다', () => {
@@ -138,12 +140,14 @@ describe('gridFormulaContext — 계산 문맥 공통 helper', () => {
     const withPlan = gridFormulaContext(grouped, { items: SAMPLE_ITEMS }, planOf(grouped));
     const head = withPlan.slotForItem(0, grouped.repeat!.bands[0]!);
     const reasons = new Map(withPlan.availability(head).map((r) => [r.name, r]));
-    // 헤더 행 구간에는 항목이 없어 `@item`만 쓸 수 없습니다.
+    // 헤더 행 구간은 항목을 가리키지 않으므로 `@item`과 `@group`을 낼 수 없습니다.
     expect(reasons.get('@item')).toEqual({ name: '@item', usable: false, reason: 'no-item' });
-    expect(reasons.get('@page')?.usable).toBe(true);
-    // 항목이 없어도 그 항목이 놓인 페이지와 그룹은 계산 문맥에 그대로 남습니다.
+    expect(reasons.get('@group')).toEqual({ name: '@group', usable: false, reason: 'no-item' });
+    expect(head.reserved!['@item']).toBeUndefined();
+    expect(head.reserved!['@group']).toBeUndefined();
+    // 페이지 범위는 그대로 남습니다.
     expect(head.outputPage).toBe(0);
-    expect(head.reserved!['@group']).toEqual([SAMPLE_ITEMS[0], SAMPLE_ITEMS[1]]);
+    expect(reasons.get('@page')?.usable).toBe(true);
 
     const ungrouped = makeGrid();
     delete ungrouped.repeat!.groupBy;
@@ -152,12 +156,50 @@ describe('gridFormulaContext — 계산 문맥 공통 helper', () => {
     const noGroupReasons = new Map(noGroup.availability(item).map((r) => [r.name, r]));
     expect(noGroupReasons.get('@group')).toEqual({ name: '@group', usable: false, reason: 'no-group' });
 
+    // 계획이 없으면 페이지·그룹 값을 지어내지 않고, 안내도 그 상태에 맞춥니다.
     const unplanned = gridFormulaContext(makeGrid(), { items: SAMPLE_ITEMS }, null);
-    const withoutPlan = new Map(unplanned.availability({
-      item: SAMPLE_ITEMS[0], reserved: {}, outputPage: undefined, groupIndex: undefined,
-    }).map((r) => [r.name, r]));
+    const slot = unplanned.slotForItem(0, grouped.repeat!.bands[1]!);
+    expect(slot.reserved!['@page']).toBeUndefined();
+    expect(slot.reserved!['@carried']).toBeUndefined();
+    expect(slot.reserved!['@group']).toBeUndefined();
+    expect(slot.reserved!['@item']).toEqual(SAMPLE_ITEMS[0]);
+    const withoutPlan = new Map(unplanned.availability(slot).map((r) => [r.name, r]));
     expect(withoutPlan.get('@page')?.reason).toBe('no-plan');
     expect(withoutPlan.get('@carried')?.reason).toBe('no-plan');
+    expect(withoutPlan.get('@group')?.reason).toBe('no-plan');
+    expect(withoutPlan.get('@all')?.usable).toBe(true);
+    expect(withoutPlan.get('@item')?.usable).toBe(true);
+  });
+
+  it('한 페이지에 그룹이 여럿이면 고른 항목이 속한 그룹의 인스턴스를 쓴다', () => {
+    // 페이지당 4개라 그룹 두 개가 같은 출력 페이지에 들어갑니다.
+    const grid = makeGrid();
+    grid.repeat!.pagination = { mode: 'fixed', itemsPerPage: 4 };
+    grid.rows = [{ height: 8 }, { height: 8 }, { height: 8 }];
+    grid.repeat!.bands = [
+      { id: 'b-head', fromRow: 0, toRow: 0, placement: 'page-start' },
+      { id: 'b-gstart', fromRow: 1, toRow: 1, placement: 'group-start' },
+      { id: 'b-item', fromRow: 2, toRow: 2, placement: 'item' },
+    ];
+    grid.cells = [
+      { row: 0, column: 0, content: '품명' },
+      { row: 1, column: 0, formula: 'SUM(@group.amount)' },
+      { row: 2, column: 0, parameter: 'itemName' },
+    ] as never;
+    const context = gridFormulaContext(grid, { items: SAMPLE_ITEMS }, planOf(grid));
+    const groupStart = grid.repeat!.bands[1]!;
+
+    // 두 그룹이 같은 조각에 있으므로 첫 인스턴스를 집으면 항상 첫 그룹이 됩니다.
+    const first = context.slotForItem(0, groupStart);
+    expect(first.groupIndex).toBe(0);
+    expect(first.reserved!['@item']).toEqual(SAMPLE_ITEMS[0]);
+    expect(first.reserved!['@group']).toEqual([SAMPLE_ITEMS[0], SAMPLE_ITEMS[1]]);
+
+    const third = context.slotForItem(2, groupStart);
+    expect(third.groupIndex).toBe(1);
+    expect(third.reserved!['@item']).toEqual(SAMPLE_ITEMS[2]);
+    expect(third.reserved!['@group']).toEqual([SAMPLE_ITEMS[2], SAMPLE_ITEMS[3]]);
+    expect(third.outputPage).toBe(0);
   });
 
   it('캔버스가 쓰는 계획 조각 예약 참조는 PDF 변환과 같은 값을 만든다', () => {

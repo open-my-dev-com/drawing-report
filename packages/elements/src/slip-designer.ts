@@ -114,8 +114,8 @@ const EMPTY_SLOT = {
 const LOST_FORMULA_VIEW: FormulaModalView = {
   target: null,
   check: TARGET_CHANGED,
-  itemChoices: [],
-  itemIndex: null,
+  itemCount: 0,
+  currentItem: null,
   reserved: [],
 };
 
@@ -2949,10 +2949,15 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 수식 모달이 화면을 그리는 데 필요한 상태를 만듭니다. */
+  /**
+   * 수식 모달이 화면을 그리는 데 필요한 상태를 만듭니다.
+   * 열 때의 대상 내용과 비교해, 모달 밖에서 대상이 바뀌었으면 그 자리에서 적용을 막습니다.
+   */
   private _formulaView(): FormulaModalView {
     const target = this._formula.target;
-    if (target === null) return LOST_FORMULA_VIEW;
+    const origin = this._formula.origin;
+    if (target === null || origin === null) return LOST_FORMULA_VIEW;
+    if (verifyFormulaTarget(this._currentPage(), target, origin) === null) return LOST_FORMULA_VIEW;
     return this._formulaState(target, this._formula.draft, this._formula.itemIndex);
   }
 
@@ -3000,8 +3005,8 @@ export class SlipDesigner extends LitElement {
         },
         evaluate: (from, context) => this._evaluate(from, context),
       }),
-      itemChoices: formula?.itemChoices() ?? [],
-      itemIndex,
+      itemCount: formula?.itemCount ?? 0,
+      currentItem: (itemIndex === null ? undefined : formula?.choiceAt(itemIndex)) ?? null,
       reserved: formula === null ? [] : formula.availability(slot ?? EMPTY_SLOT),
     };
   }
@@ -3033,12 +3038,8 @@ export class SlipDesigner extends LitElement {
   /** 수식 편집 값을 대상에 적용합니다. 대상이 바뀌었으면 적용하지 않고 모달을 열어 둡니다. */
   private _applyFormulaModal(): void {
     const target = this._formula.target;
-    const origin = this._formula.origin;
-    if (target === null || origin === null) return;
-    if (
-      verifyFormulaTarget(this._currentPage(), target, origin) === null ||
-      !this._formulaView().check.applicable
-    ) {
+    if (target === null) return;
+    if (!this._formulaView().check.applicable) {
       // 적용을 막을 때는 모달과 초안을 그대로 두고 안내로 초점을 옮깁니다.
       this.requestUpdate();
       void this.updateComplete.then(() => {

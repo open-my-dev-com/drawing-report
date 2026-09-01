@@ -636,7 +636,7 @@ export const dialogsStyles = css`
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 0;
-      /* 본문이 늘어나도 머리·바닥이 밀려나지 않도록 축소를 허용합니다 */
+      /* 본문이 늘어나도 헤더와 하단 버튼이 밀려나지 않도록 축소를 허용합니다 */
       min-height: 0;
       flex: 1;
     }
@@ -668,8 +668,27 @@ export const dialogsStyles = css`
     }
     .formula-items {
       display: flex;
+      align-items: center;
       flex-wrap: wrap;
       gap: 4px;
+      font-size: 11px;
+    }
+    .formula-item-no {
+      width: 4.5em;
+      padding: 3px 6px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 11px;
+      color: inherit;
+    }
+    .formula-item-total {
+      color: var(--sk-text-muted);
+    }
+    .formula-item-where {
+      margin-left: 4px;
+      color: var(--sk-text-muted);
     }
     .formula-search {
       width: 100%;
