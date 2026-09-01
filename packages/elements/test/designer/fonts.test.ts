@@ -13,17 +13,19 @@ vi.mock('@omdc-slipkit/core', async () => {
 });
 
 vi.mock('../../src/default-fonts.js', () => ({
-  // 굵은 변형이 있는 폰트와 없는 폰트를 함께 두어 변형 대체를 확인합니다.
+  // 굵은 변형만 있는 폰트, 기울임 변형만 있는 폰트와 변형이 없는 폰트를 함께 둡니다.
   loadDefaultFonts: () =>
     Promise.resolve([
       { name: 'Pretendard', data: new Uint8Array([1]), fallback: true },
       { name: 'Pretendard-Bold', data: new Uint8Array([2]) },
       { name: 'Noto Sans JP', data: new Uint8Array([3]) },
+      { name: 'Serif', data: new Uint8Array([4]) },
+      { name: 'Serif-Italic', data: new Uint8Array([5]) },
     ]),
 }));
 
 import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
-import { getStrings } from '../../src/strings.js';
+import { getStrings, withFontName } from '../../src/strings.js';
 import {
   strings,
   parseSlipFileMock,
@@ -36,15 +38,30 @@ import {
   type Designer,
 } from './helpers.js';
 
-/** 폰트 등록을 흉내 내는 FontFace. 실제 폰트 데이터를 읽지 않습니다. */
-class FakeFontFace {
-  constructor(readonly family: string, readonly source: unknown) {}
-  load(): Promise<this> {
-    return Promise.resolve(this);
-  }
+/** 폰트 데이터의 첫 바이트로 폰트를 구분합니다. 대역이 폰트별로 결과를 정할 때 씁니다. */
+function markOf(source: unknown): number {
+  return new Uint8Array(source as ArrayBuffer)[0] ?? 0;
 }
 
-/** 등록에 성공하는 `document.fonts` 대역을 설치합니다. */
+/**
+ * 폰트 등록을 흉내 내는 FontFace 대역을 만듭니다.
+ *
+ * @param outcome - 폰트 표시(첫 바이트)마다 `ready`·`pending`·`failed`를 정합니다.
+ * 지정하지 않은 폰트는 등록에 성공합니다
+ */
+function fakeFontFace(outcome: Record<number, 'ready' | 'pending' | 'failed'> = {}) {
+  return class {
+    constructor(readonly family: string, readonly source: unknown) {}
+    load(): Promise<this> {
+      const how = outcome[markOf(this.source)] ?? 'ready';
+      if (how === 'failed') return Promise.reject(new Error('읽기 실패'));
+      if (how === 'pending') return new Promise<this>(() => undefined);
+      return Promise.resolve(this);
+    }
+  };
+}
+
+/** 등록 대역과 `document.fonts`를 설치합니다. */
 function installFontFace(face: unknown): void {
   (globalThis as { FontFace?: unknown }).FontFace = face;
   Object.defineProperty(document, 'fonts', {
@@ -61,7 +78,7 @@ function removeFontFace(): void {
 
 describe('<slip-designer> 폰트 선택과 캔버스 적용', () => {
   const s = strings.designer;
-  beforeEach(() => installFontFace(FakeFontFace));
+  beforeEach(() => installFontFace(fakeFontFace()));
   afterEach(removeFontFace);
 
   /**
@@ -118,7 +135,7 @@ describe('<slip-designer> 폰트 선택과 캔버스 적용', () => {
   it('선택 목록에 기본값과 기저 폰트만 넣고, 기본값에 대체 폰트 이름을 적는다', async () => {
     const el = await mountText();
     expect(await listOptionLabels(el, fontSelect(el)))
-      .toEqual([`${s.fontDefault} (Pretendard)`, 'Pretendard', 'Noto Sans JP']);
+      .toEqual([`${s.fontDefault} (Pretendard)`, 'Pretendard', 'Noto Sans JP', 'Serif']);
     el.remove();
   });
 
@@ -175,6 +192,40 @@ describe('<slip-designer> 폰트 선택과 캔버스 적용', () => {
     await flush();
     await el.updateComplete;
     expect(el.shadowRoot!.textContent).not.toContain(s.fontNoBold);
+    el.remove();
+  });
+
+  it('굵은 기울임 글꼴이 없고 굵은 글꼴만 있으면 굵은 글꼴로 표시한다고 알린다', async () => {
+    const el = await mountText({ fontName: 'Pretendard', bold: true, italic: true });
+    await flush();
+    await el.updateComplete;
+    expect(el.shadowRoot!.textContent).toContain(s.fontNoBoldItalicUsesBold);
+    el.remove();
+  });
+
+  it('굵은 기울임 글꼴이 없고 기울임 글꼴만 있으면 기울임 글꼴로 표시한다고 알린다', async () => {
+    const el = await mountText({ fontName: 'Serif', bold: true, italic: true });
+    await flush();
+    await el.updateComplete;
+    expect(el.shadowRoot!.textContent).toContain(s.fontNoBoldItalicUsesItalic);
+    el.remove();
+  });
+
+  it('굵은 기울임 변형이 하나도 없으면 기본 형태로 표시한다고 알린다', async () => {
+    const el = await mountText({ fontName: 'Noto Sans JP', bold: true, italic: true });
+    await flush();
+    await el.updateComplete;
+    expect(el.shadowRoot!.textContent).toContain(s.fontNoBoldItalic);
+    el.remove();
+  });
+
+  it('기울임 변형이 있으면 기울임만 켰을 때 안내하지 않는다', async () => {
+    const el = await mountText({ fontName: 'Serif', italic: true });
+    await flush();
+    await el.updateComplete;
+    const text = el.shadowRoot!.textContent ?? '';
+    expect(text).not.toContain(s.fontNoItalic);
+    expect(text).not.toContain(s.fontNoBoldItalic);
     el.remove();
   });
 
@@ -278,35 +329,26 @@ describe('<slip-designer> 폰트 선택과 캔버스 적용', () => {
     expect(await listOptionLabels(el, fontSelect(el)))
       .toContain(`${s.gridInherited} (NoSuchFont)`);
     const note = el.shadowRoot!.querySelector('.font-note') as HTMLElement;
-    expect(note.textContent).toContain(s.fontUnregisteredShownAs);
-    expect(note.textContent).toContain('Pretendard');
+    expect(note.textContent).toContain(withFontName(s.fontUnregisteredShownAs, 'Pretendard'));
     el.remove();
   });
 });
 
-describe('<slip-designer> 폰트 등록 실패', () => {
-  /** 항상 읽기에 실패하는 FontFace */
-  class FailingFontFace {
-    constructor(readonly family: string, readonly source: unknown) {}
-    load(): Promise<this> {
-      return Promise.reject(new Error('읽기 실패'));
-    }
-  }
-
-  beforeEach(() => installFontFace(FailingFontFace));
+describe('<slip-designer> 폰트 등록이 끝나지 않았거나 실패한 경우', () => {
   afterEach(removeFontFace);
 
-  it('폰트를 읽지 못하면 속성 패널에 대체 폰트 사용 상태를 표시한다', async () => {
-    // 폰트 등록은 출처별로 한 번만 하므로 앞선 시험과 다른 로케일로 새 출처를 만듭니다.
-    const ja = getStrings('ja').designer;
+  /**
+   * 로케일마다 폰트 출처가 다르므로, 시험마다 다른 로케일을 써서 새 출처에서 등록을 시작합니다.
+   */
+  async function mountWithLocale(
+    locale: string,
+    element: Record<string, unknown>,
+  ): Promise<Designer> {
     const file = makeTemplateFile();
-    file.template.pages[0]!.elements = [{
-      type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
-      width: 60, height: 10, content: '제목', fontName: 'Noto Sans JP',
-    }] as never;
+    file.template.pages[0]!.elements = [element] as never;
     parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
     const el = await createElement();
-    el.locale = 'ja';
+    el.locale = locale;
     el.src = '{"valid": true}';
     await el.updateComplete;
     await flush();
@@ -315,9 +357,70 @@ describe('<slip-designer> 폰트 등록 실패', () => {
     await el.updateComplete;
     await flush();
     await el.updateComplete;
+    return el;
+  }
+
+  function registry(el: Designer) {
+    return (el as unknown as {
+      _fontRegistry: { familyOf(n: string): string | undefined; failed(n: string): boolean };
+    })._fontRegistry;
+  }
+
+  const textEl = (extra: Record<string, unknown>): Record<string, unknown> => ({
+    type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
+    width: 60, height: 10, content: '제목', ...extra,
+  });
+
+  it('지정 폰트의 등록이 끝나기 전에는 준비된 대체 폰트로 그린다', async () => {
+    installFontFace(fakeFontFace({ 3: 'pending' }));
+    const el = await mountWithLocale('ko', textEl({ fontName: 'Noto Sans JP' }));
+
+    expect(registry(el).familyOf('Noto Sans JP')).toBeUndefined();
+    const fallback = registry(el).familyOf('Pretendard');
+    expect(fallback).toBeDefined();
+    const content = el.shadowRoot!.querySelector('.el-content') as HTMLElement;
+    expect(content.getAttribute('style')).toContain(`font-family:${fallback}`);
+    el.remove();
+  });
+
+  it('지정 폰트의 등록이 실패하면 대체 폰트로 그리고 그 이름을 알린다', async () => {
+    installFontFace(fakeFontFace({ 3: 'failed' }));
+    const ja = getStrings('ja').designer;
+    const el = await mountWithLocale('ja', textEl({ fontName: 'Noto Sans JP' }));
+
+    expect(registry(el).failed('Noto Sans JP')).toBe(true);
+    const fallback = registry(el).familyOf('Pretendard');
+    const content = el.shadowRoot!.querySelector('.el-content') as HTMLElement;
+    expect(content.getAttribute('style')).toContain(`font-family:${fallback}`);
 
     const note = el.shadowRoot!.querySelector('.font-note') as HTMLElement;
     expect(note.textContent).toContain(ja.fontLoadFailed);
+    expect(note.textContent).toContain(`${ja.fontApplied}: Pretendard`);
+    el.remove();
+  });
+
+  it('인라인 셀 편집도 준비된 대체 폰트로 그린다', async () => {
+    installFontFace(fakeFontFace({ 3: 'pending' }));
+    const el = await mountWithLocale('en', {
+      type: 'grid', id: 't1', name: 'g', position: { x: 10, y: 10 },
+      fontName: 'Noto Sans JP',
+      columns: [{ width: 30 }], rows: [{ height: 10 }],
+      cells: [{ row: 0, column: 0, content: '품명' }],
+    });
+    const edit = (el as unknown as {
+      _gridEdit: {
+        selectCell(c: { row: number; column: number }): void;
+        setEditing(v: boolean): void;
+      };
+    })._gridEdit;
+    edit.selectCell({ row: 0, column: 0 });
+    await el.updateComplete;
+    edit.setEditing(true);
+    await el.updateComplete;
+
+    const editor = el.shadowRoot!.querySelector('.cell-editor') as HTMLInputElement;
+    expect(editor.getAttribute('style'))
+      .toContain(`font-family:${registry(el).familyOf('Pretendard')}`);
     el.remove();
   });
 });

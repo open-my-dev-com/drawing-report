@@ -88,6 +88,31 @@ export interface SlipKit {
 }
 
 /**
+ * 폰트 공급 함수를 인스턴스 안에서 한 번만 호출하도록 감싼다.
+ *
+ * @remarks
+ * 디자이너와 렌더러가 같은 인스턴스를 쓰면 같은 결과를 나눠 쓴다.
+ * 조회에 실패하면 기억하지 않아 다음 호출에서 다시 시도한다.
+ *
+ * @param supply - 설정에서 받은 폰트 공급 함수
+ * @returns 결과를 재사용하는 폰트 공급 함수
+ */
+function shareFonts(
+  supply: () => readonly SlipFont[] | Promise<readonly SlipFont[]>,
+): () => Promise<readonly SlipFont[]> {
+  let pending: Promise<readonly SlipFont[]> | undefined;
+  return () => {
+    if (pending === undefined) {
+      pending = Promise.resolve(supply());
+      pending.catch(() => {
+        pending = undefined;
+      });
+    }
+    return pending;
+  };
+}
+
+/**
  * 공통 설정을 적용한 core API를 생성한다.
  *
  * @param config - 폰트, 로케일, 암호화 키 설정
@@ -101,8 +126,9 @@ export interface SlipKit {
  * ```
  */
 export function createSlipKit(config: SlipKitConfig = {}): SlipKit {
+  const getFonts = config.getFonts === undefined ? undefined : shareFonts(config.getFonts);
   const renderer = createPdfRenderer({
-    ...(config.getFonts ? { getFonts: config.getFonts } : {}),
+    ...(getFonts ? { getFonts } : {}),
     ...(config.locale === undefined ? {} : { locale: config.locale }),
   });
 
@@ -127,7 +153,7 @@ export function createSlipKit(config: SlipKitConfig = {}): SlipKit {
 
   return {
     locale: config.locale,
-    getFonts: config.getFonts,
+    getFonts,
     render: (file) => renderer.renderToPdf(file),
     buildVoucher: (template, values) => buildVoucher(template, values),
     evaluate: (source, context) =>

@@ -122,12 +122,14 @@ const ko = {
     fontDefault: '기본값',
     gridInherited: '그리드 공통값',
     fontUnregistered: '등록되지 않은 폰트',
-    fontUnregisteredShownAs: '등록되지 않아 대체 폰트로 표시합니다',
+    fontUnregisteredShownAs: '등록되지 않아 {font}로 표시됩니다.',
     fontLoadFailed: '폰트를 읽지 못했습니다',
-    fontApplied: '현재 표시',
-    fontNoBold: '현재 폰트에 굵은 글꼴이 없어 기본 형태로 표시됩니다',
-    fontNoItalic: '현재 폰트에 기울임 글꼴이 없어 기본 형태로 표시됩니다',
-    fontNoVariant: '현재 폰트에 해당 변형 글꼴이 없어 기본 형태로 표시됩니다',
+    fontApplied: '적용 중인 폰트',
+    fontNoBold: '현재 폰트에 굵은 글꼴이 없어 기본 형태로 표시됩니다.',
+    fontNoItalic: '현재 폰트에 기울임 글꼴이 없어 기본 형태로 표시됩니다.',
+    fontNoBoldItalic: '굵은 기울임 글꼴이 없어 기본 형태로 표시됩니다.',
+    fontNoBoldItalicUsesBold: '굵은 기울임 글꼴이 없어 굵은 글꼴로 표시됩니다.',
+    fontNoBoldItalicUsesItalic: '굵은 기울임 글꼴이 없어 기울임 글꼴로 표시됩니다.',
     fontSize: '글자 크기',
     alignment: '정렬',
     rows: '행',
@@ -603,12 +605,14 @@ const en: SlipStrings = {
     fontDefault: 'Default',
     gridInherited: 'Grid default',
     fontUnregistered: 'Font not registered',
-    fontUnregisteredShownAs: 'Not registered, so a fallback font is used',
+    fontUnregisteredShownAs: 'Not registered, so {font} is used instead.',
     fontLoadFailed: 'Could not load the font',
-    fontApplied: 'Currently shown',
-    fontNoBold: 'This font has no bold face, so the regular form is shown',
-    fontNoItalic: 'This font has no italic face, so the regular form is shown',
-    fontNoVariant: 'This font has no such face, so the regular form is shown',
+    fontApplied: 'Font in use',
+    fontNoBold: 'This font has no bold face, so the regular form is shown.',
+    fontNoItalic: 'This font has no italic face, so the regular form is shown.',
+    fontNoBoldItalic: 'This font has no bold italic face, so the regular form is shown.',
+    fontNoBoldItalicUsesBold: 'This font has no bold italic face, so the bold face is shown.',
+    fontNoBoldItalicUsesItalic: 'This font has no bold italic face, so the italic face is shown.',
     fontSize: 'Font size',
     alignment: 'Align',
     rows: 'Rows',
@@ -1079,12 +1083,14 @@ const ja: SlipStrings = {
     fontDefault: '既定値',
     gridInherited: 'グリッド共通値',
     fontUnregistered: '未登録のフォント',
-    fontUnregisteredShownAs: '未登録のため代替フォントで表示します',
+    fontUnregisteredShownAs: '未登録のため {font} で表示します。',
     fontLoadFailed: 'フォントを読み込めませんでした',
-    fontApplied: '現在の表示',
-    fontNoBold: '現在のフォントに太字がないため標準の字形で表示します',
-    fontNoItalic: '現在のフォントに斜体がないため標準の字形で表示します',
-    fontNoVariant: '現在のフォントに該当する字形がないため標準の字形で表示します',
+    fontApplied: '使用中のフォント',
+    fontNoBold: '現在のフォントに太字がないため標準の字形で表示します。',
+    fontNoItalic: '現在のフォントに斜体がないため標準の字形で表示します。',
+    fontNoBoldItalic: '太字斜体がないため標準の字形で表示します。',
+    fontNoBoldItalicUsesBold: '太字斜体がないため太字で表示します。',
+    fontNoBoldItalicUsesItalic: '太字斜体がないため斜体で表示します。',
     fontSize: '文字サイズ',
     alignment: '揃え',
     rows: '行',
@@ -1445,6 +1451,20 @@ const ja: SlipStrings = {
 
 /** 언어별 문구 사전 전체 */
 export const STRINGS: Record<SlipLocale, SlipStrings> = { ko, en, ja };
+
+/**
+ * 문구 안의 `{font}` 자리에 폰트 이름을 넣습니다.
+ *
+ * @remarks
+ * 언어마다 이름이 문장 어디에 들어갈지 다르므로 사전 문구에 자리를 두고 채웁니다.
+ *
+ * @param text - `{font}` 자리를 가진 문구
+ * @param font - 넣을 폰트 이름
+ * @returns 이름을 채운 문구
+ */
+export function withFontName(text: string, font: string): string {
+  return text.replace('{font}', font);
+}
 
 /**
  * 로케일 문자열을 지원 언어({@link SlipLocale})로 정규화합니다. 지역 코드는 제외하고

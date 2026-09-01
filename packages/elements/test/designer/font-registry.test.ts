@@ -129,6 +129,69 @@ describe('FontRegistryController', () => {
     expect(registry.fallbackName).toBe('Pretendard');
   });
 
+  it('같은 출처를 쓰는 화면은 목록 조회가 끝나면 모두 다시 그린다', async () => {
+    const first = makeHost();
+    const second = makeHost();
+    const key = {};
+    let resolveFonts: (fonts: SlipFont[]) => void = () => undefined;
+    const load = (): Promise<readonly SlipFont[]> =>
+      new Promise((resolve) => {
+        resolveFonts = resolve;
+      });
+
+    new FontRegistryController(first, stubAdapter().adapter).use(key, load);
+    new FontRegistryController(second, stubAdapter().adapter).use(key, load);
+    first.requestUpdate.mockClear();
+    second.requestUpdate.mockClear();
+
+    resolveFonts(FONTS);
+    await settle();
+    expect(first.requestUpdate).toHaveBeenCalled();
+    expect(second.requestUpdate).toHaveBeenCalled();
+  });
+
+  it('먼저 시작한 등록이 끝나도 같은 출처의 다른 화면을 다시 그린다', async () => {
+    const first = makeHost();
+    const second = makeHost();
+    const key = {};
+    let finish: () => void = () => undefined;
+    const adapter: FontFaceAdapter = {
+      register: () => new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    };
+
+    const starter = new FontRegistryController(first, adapter);
+    const later = new FontRegistryController(second, adapter);
+    starter.use(key, () => Promise.resolve(FONTS));
+    later.use(key, () => Promise.resolve(FONTS));
+    await settle();
+    starter.ensure(['Pretendard']);
+    first.requestUpdate.mockClear();
+    second.requestUpdate.mockClear();
+
+    finish();
+    await settle();
+    expect(second.requestUpdate).toHaveBeenCalled();
+    expect(later.familyOf('Pretendard')).toBeDefined();
+  });
+
+  it('화면에서 떨어진 뒤에는 다시 그리지 않는다', async () => {
+    const host = makeHost();
+    const key = {};
+    let resolveFonts: (fonts: SlipFont[]) => void = () => undefined;
+    const registry = new FontRegistryController(host, stubAdapter().adapter);
+    registry.use(key, () => new Promise((resolve) => {
+      resolveFonts = resolve;
+    }));
+    registry.hostDisconnected();
+    host.requestUpdate.mockClear();
+
+    resolveFonts(FONTS);
+    await settle();
+    expect(host.requestUpdate).not.toHaveBeenCalled();
+  });
+
   it('폰트를 가져오기 전에는 빈 목록을 준다', () => {
     const registry = new FontRegistryController(makeHost(), stubAdapter().adapter);
     expect(registry.fontNames).toEqual([]);
@@ -138,10 +201,16 @@ describe('FontRegistryController', () => {
 });
 
 describe('fontSourceKey', () => {
-  it('slipkit 인스턴스가 있으면 그 인스턴스를 키로 쓴다', () => {
-    const slipkit = {};
+  it('폰트를 직접 공급하는 인스턴스는 그 인스턴스를 키로 쓴다', () => {
+    const slipkit = { getFonts: () => FONTS };
     expect(fontSourceKey(slipkit, 'ko')).toBe(slipkit);
     expect(fontSourceKey(slipkit, 'ja')).toBe(slipkit);
+  });
+
+  it('동봉 폰트를 쓰면 인스턴스가 있어도 로케일로만 나눈다', () => {
+    const slipkit = {};
+    expect(fontSourceKey(slipkit, 'ko')).toBe(fontSourceKey(undefined, 'ko'));
+    expect(fontSourceKey(slipkit, 'ko')).not.toBe(fontSourceKey(slipkit, 'ja'));
   });
 
   it('인스턴스가 없으면 로케일별로 키를 나눈다', () => {

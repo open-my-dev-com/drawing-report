@@ -318,6 +318,11 @@ export class SlipDesigner extends LitElement {
     return this.locale ?? this.slipkit?.locale;
   }
 
+  /** 동봉 기본 폰트와 PDF 렌더링에 사용할 로케일 — `renderSlip`과 같은 기준입니다 */
+  private get _renderLocale(): string | undefined {
+    return this.slipkit?.locale ?? this.locale;
+  }
+
   /** 수식·조건식 평가에 사용할 로케일 — slipkit이 있으면 인스턴스 설정을 따릅니다 */
   private get _evalLocale(): string | undefined {
     return this.slipkit ? this.slipkit.locale : this.locale;
@@ -2376,9 +2381,16 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 현재 slipkit과 로케일에 맞는 폰트 출처를 폰트 등록기에 지정합니다. */
+  /**
+   * 폰트 출처를 폰트 등록기에 지정합니다.
+   *
+   * @remarks
+   * 동봉 폰트는 로케일에 따라 대체 폰트가 달라지므로 PDF 렌더링과 같은 기준
+   * (`slipkit.locale`을 먼저 보는 렌더 로케일)을 씁니다. UI 로케일을 쓰면 캔버스와 PDF의
+   * 대체 폰트가 어긋납니다.
+   */
   private _useFontSource(): void {
-    const locale = this._locale;
+    const locale = this._renderLocale;
     this._fontRegistry.use(
       fontSourceKey(this.slipkit, locale),
       () => resolveFonts(this.slipkit, locale),
@@ -2403,16 +2415,23 @@ export class SlipDesigner extends LitElement {
       for (const variant of variantFontNames(names, name)) required.add(variant);
     }
     registry.ensure(required);
-    const applied = (style: FontStyleInput): string | undefined =>
+    const resolved = (style: FontStyleInput): string | undefined =>
       effectiveFontName(names, style.fontName, fallback, style.bold, style.italic);
+    // 지정한 폰트를 아직 쓸 수 없으면 대체 폰트로 그립니다. 등록이 끝나면 다시 그립니다.
+    const applied = (style: FontStyleInput): string | undefined => {
+      const wanted = resolved(style);
+      if (registry.isReady(wanted)) return wanted;
+      return resolved({ bold: style.bold, italic: style.italic });
+    };
     return {
       names,
       selectable: selectableFontNames(names),
       fallback,
+      resolvedName: resolved,
       appliedName: applied,
       cssFamily: (style) => registry.familyOf(applied(style)),
       isUnregistered: (fontName) => fontName !== undefined && !names.includes(fontName),
-      hasFailed: (style) => registry.failed(applied(style)),
+      hasFailed: (style) => registry.failed(resolved(style)),
     };
   }
 

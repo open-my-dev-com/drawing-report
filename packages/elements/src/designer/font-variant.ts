@@ -161,10 +161,20 @@ export interface DesignerFonts {
   /** 대체 폰트 이름. 등록된 폰트가 없으면 undefined */
   readonly fallback: string | undefined;
   /**
-   * 지정한 글자 스타일에 실제로 적용되는 등록된 폰트 이름을 찾습니다.
+   * 변형 규칙만으로 정해지는 폰트 이름을 찾습니다. 브라우저 등록 상태는 보지 않습니다.
    *
    * @param style - 요소·셀의 폰트 이름과 굵게·기울임
-   * @returns 적용되는 폰트 이름. 등록된 폰트가 없으면 undefined
+   * @returns 규칙이 고른 폰트 이름. 등록 목록이 비어 있으면 undefined
+   */
+  resolvedName(style: FontStyleInput): string | undefined;
+  /**
+   * 지금 화면에 그리는 데 쓰는 폰트 이름을 찾습니다.
+   *
+   * @remarks
+   * 지정한 폰트의 브라우저 등록이 끝나지 않았거나 실패하면 대체 폰트를 씁니다.
+   *
+   * @param style - 요소·셀의 폰트 이름과 굵게·기울임
+   * @returns 적용되는 폰트 이름. 등록 목록이 비어 있으면 undefined
    */
   appliedName(style: FontStyleInput): string | undefined;
   /**
@@ -202,6 +212,7 @@ export const NO_DESIGNER_FONTS: DesignerFonts = {
   names: [],
   selectable: [],
   fallback: undefined,
+  resolvedName: () => undefined,
   appliedName: () => undefined,
   cssFamily: () => undefined,
   isUnregistered: () => false,

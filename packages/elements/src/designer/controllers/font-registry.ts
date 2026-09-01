@@ -38,7 +38,7 @@ interface DocumentFontSet {
  * @returns 폰트 집합. 지원하지 않는 환경이면 undefined
  */
 function documentFontSet(): DocumentFontSet | undefined {
-  // 이 리포의 lib 설정에는 DOM.Iterable이 없어 FontFaceSet에 add가 선언되어 있지 않습니다.
+  // 이 저장소의 TypeScript lib 설정에는 DOM.Iterable이 없어 FontFaceSet.add가 선언되어 있지 않습니다.
   const fonts: unknown = (document as Partial<Document>).fonts;
   if (fonts === undefined || fonts === null) return undefined;
   const candidate = fonts as DocumentFontSet;
@@ -94,6 +94,8 @@ interface FontSource {
   fonts: readonly SlipFont[];
   /** 폰트 이름별 등록 상태 */
   readonly faces: Map<string, FaceEntry>;
+  /** 이 출처를 쓰는 화면들. 목록 조회와 등록이 끝나면 모두 다시 그립니다 */
+  readonly hosts: Set<FontRegistryHost>;
 }
 
 const sources = new WeakMap<object, FontSource>();
@@ -106,15 +108,19 @@ const defaultSourceKeys = new Map<string, object>();
  * 폰트를 제공한 출처를 구분하는 키를 만듭니다.
  *
  * @remarks
- * 서로 다른 SlipKit 인스턴스가 같은 이름에 다른 데이터를 제공할 수 있으므로 인스턴스를 키로 씁니다.
- * 인스턴스가 없으면 로케일에 따라 동봉 대체 폰트가 달라지므로 로케일별로 키를 나눕니다.
+ * 서로 다른 SlipKit 인스턴스가 같은 이름에 다른 데이터를 제공할 수 있으므로, 폰트를 직접
+ * 공급하는 인스턴스는 그 인스턴스로 구분합니다. 동봉 폰트를 쓰는 경우에는 인스턴스가 달라도
+ * 폰트가 같고 로케일에 따라 대체 폰트만 달라지므로 로케일로만 나눕니다.
  *
  * @param slipkit - 공통 설정 인스턴스. 없으면 undefined
- * @param locale - 동봉 폰트를 고를 로케일
+ * @param locale - 동봉 폰트를 고를 렌더 로케일
  * @returns 출처를 구분하는 키
  */
-export function fontSourceKey(slipkit: object | undefined, locale: string | undefined): object {
-  if (slipkit !== undefined) return slipkit;
+export function fontSourceKey(
+  slipkit: { getFonts?: unknown } | undefined,
+  locale: string | undefined,
+): object {
+  if (slipkit?.getFonts !== undefined) return slipkit;
   const key = locale ?? '';
   let sentinel = defaultSourceKeys.get(key);
   if (!sentinel) {
@@ -127,10 +133,21 @@ export function fontSourceKey(slipkit: object | undefined, locale: string | unde
 function sourceOf(key: object): FontSource {
   let source = sources.get(key);
   if (!source) {
-    source = { serial: nextSerial++, loading: null, fonts: [], faces: new Map() };
+    source = {
+      serial: nextSerial++,
+      loading: null,
+      fonts: [],
+      faces: new Map(),
+      hosts: new Set(),
+    };
     sources.set(key, source);
   }
   return source;
+}
+
+/** 이 출처를 쓰는 화면을 모두 다시 그립니다. */
+function refreshHosts(source: FontSource): void {
+  for (const host of source.hosts) host.requestUpdate();
 }
 
 /** 폰트 등록 결과를 화면에 반영할 호스트 */
@@ -153,6 +170,11 @@ export class FontRegistryController implements ReactiveController {
     this.host.requestUpdate();
   }
 
+  hostDisconnected(): void {
+    // 화면에서 떨어진 디자이너는 더 이상 다시 그리지 않습니다.
+    if (this._key !== null) sources.get(this._key)?.hosts.delete(this.host);
+  }
+
   /**
    * 폰트를 가져올 출처를 지정합니다. 같은 출처를 다시 지정해도 폰트를 다시 가져오지 않습니다.
    * 조회에 실패한 출처도 다시 시도하지 않고 빈 목록으로 둡니다.
@@ -161,15 +183,20 @@ export class FontRegistryController implements ReactiveController {
    * @param load - 폰트 목록을 가져오는 함수. 출처마다 한 번만 호출합니다
    */
   use(key: object, load: () => Promise<readonly SlipFont[]>): void {
+    if (this._key !== null && this._key !== key) {
+      sources.get(this._key)?.hosts.delete(this.host);
+    }
     this._key = key;
     const source = sourceOf(key);
+    source.hosts.add(this.host);
     if (source.loading !== null) return;
     source.loading = load().then((fonts) => {
       source.fonts = fonts;
-      this.host.requestUpdate();
+      refreshHosts(source);
       return fonts;
     });
-    // 조회에 실패하면 폰트 목록이 빈 채로 남습니다. 처리하지 않은 거부만 막습니다.
+    // 조회에 실패하면 폰트 목록은 빈 상태로 유지하고, Promise 거부가 전역 오류로
+    // 전달되지 않도록 처리합니다.
     source.loading.catch(() => undefined);
   }
 
@@ -198,7 +225,7 @@ export class FontRegistryController implements ReactiveController {
       if (index < 0) continue;
       const entry: FaceEntry = { family: `slipkit-f${source.serial}-${index}`, status: 'pending' };
       source.faces.set(name, entry);
-      this._register(this.adapter, entry, source.fonts[index]!.data);
+      this._register(this.adapter, source, entry, source.fonts[index]!.data);
     }
   }
 
@@ -212,6 +239,17 @@ export class FontRegistryController implements ReactiveController {
     if (name === undefined) return undefined;
     const entry = this._source?.faces.get(name);
     return entry?.status === 'ready' ? entry.family : undefined;
+  }
+
+  /**
+   * 캔버스에 쓸 수 있게 등록이 끝난 폰트인지 확인합니다.
+   *
+   * @param name - 확인할 폰트 이름
+   * @returns 등록이 끝났으면 true
+   */
+  isReady(name: string | undefined): boolean {
+    if (name === undefined) return false;
+    return this._source?.faces.get(name)?.status === 'ready';
   }
 
   /**
@@ -229,15 +267,20 @@ export class FontRegistryController implements ReactiveController {
     return this._key === null ? undefined : sources.get(this._key);
   }
 
-  private _register(adapter: FontFaceAdapter, entry: FaceEntry, data: Uint8Array): void {
+  private _register(
+    adapter: FontFaceAdapter,
+    source: FontSource,
+    entry: FaceEntry,
+    data: Uint8Array,
+  ): void {
     void adapter.register(entry.family, data).then(
       () => {
         entry.status = 'ready';
-        this.host.requestUpdate();
+        refreshHosts(source);
       },
       () => {
         entry.status = 'failed';
-        this.host.requestUpdate();
+        refreshHosts(source);
       },
     );
   }

@@ -25,6 +25,7 @@ import {
   DEFAULT_LINE_WIDTH,
 } from '../style-css.js';
 import { setOptional } from '../patch.js';
+import { withFontName } from '../../strings.js';
 import type { DesignerFonts, FontStyleInput } from '../font-variant.js';
 import { PLACEHOLDER_IMG } from '../image-pick.js';
 import { numberRow, borderWidthSelect, borderShapeRow, colorControl, textStyleToggles } from './inputs.js';
@@ -162,12 +163,9 @@ export function cellInheritOption(
   const label = `${kit.s.gridInherited} (${gridFontName})`;
   if (!fonts.isUnregistered(gridFontName)) return { label };
   const applied = fonts.appliedName({ fontName: gridFontName });
-  return {
-    label,
-    note: applied === undefined
-      ? kit.s.fontUnregisteredShownAs
-      : `${kit.s.fontUnregisteredShownAs}: ${applied}`,
-  };
+  return applied === undefined
+    ? { label }
+    : { label, note: withFontName(kit.s.fontUnregisteredShownAs, applied) };
 }
 
 /**
@@ -240,16 +238,29 @@ export function fontNameRow(
  */
 export function fontVariantNote(kit: PanelKit, fonts: DesignerFonts, style: FontStyleInput) {
   if (fonts.names.length === 0) return nothing;
-  const plain = fonts.appliedName({ fontName: style.fontName });
-  // 변형 글꼴이 있으면 적용 폰트가 굵게·기울임을 뺀 결과와 달라집니다.
-  const missing = (key: 'bold' | 'italic'): boolean =>
-    style[key] === true
-    && fonts.appliedName({ fontName: style.fontName, [key]: true }) === plain;
-  const noBold = missing('bold');
-  const noItalic = missing('italic');
-  if (!noBold && !noItalic) return nothing;
+  const bold = style.bold === true;
+  const italic = style.italic === true;
+  if (!bold && !italic) return nothing;
   const s = kit.s;
-  const text = noBold && noItalic ? s.fontNoVariant : noBold ? s.fontNoBold : s.fontNoItalic;
+  const at = (b?: boolean, i?: boolean): string | undefined =>
+    fonts.resolvedName({ fontName: style.fontName, bold: b, italic: i });
+  const plain = at();
+  const chosen = at(bold, italic);
+  // 변형 글꼴이 있으면 고른 폰트가 굵게·기울임을 뺀 결과와 달라집니다.
+  if (chosen !== plain && !(bold && italic)) return nothing;
+  if (!bold) return html`<div class="font-note"><span>${s.fontNoItalic}</span></div>`;
+  if (!italic) {
+    return chosen === plain
+      ? html`<div class="font-note"><span>${s.fontNoBold}</span></div>`
+      : nothing;
+  }
+  // 굵게와 기울임을 함께 쓰면 BoldItalic·Bold·Italic·기본 형태 순으로 내려갑니다.
+  if (chosen !== plain && chosen !== at(true) && chosen !== at(undefined, true)) return nothing;
+  const text = chosen === plain
+    ? s.fontNoBoldItalic
+    : chosen === at(true)
+      ? s.fontNoBoldItalicUsesBold
+      : s.fontNoBoldItalicUsesItalic;
   return html`<div class="font-note"><span>${text}</span></div>`;
 }
 
