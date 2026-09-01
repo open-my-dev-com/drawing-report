@@ -405,7 +405,7 @@ describe('그리드 셀별 테두리 (ADR-033)', () => {
   });
 });
 
-describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
+describe('그리드 셀 기본 테두리와 그리드 테두리의 분리', () => {
   type Extra = Partial<Pick<GridElement,
     'borderColor' | 'borderWidth' | 'borderStyle'
     | 'cellBorderColor' | 'cellBorderWidth' | 'cellBorderStyle'
@@ -442,7 +442,7 @@ describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
   const cellLinesOf = (file: SlipTemplateFile) =>
     linesOf(file).filter((line) => !String(line.name).includes('__outline'));
 
-  it('새 그리드는 셀 경계선만 검정 실선 0.2mm로 그리고 외곽선은 그리지 않는다', () => {
+  it('새 그리드는 셀 경계선만 검정 실선 0.2mm로 그리고 그리드 테두리는 그리지 않는다', () => {
     const file = makeFile({});
     expect(outlinesOf(file)).toHaveLength(0);
     const lines = cellLinesOf(file);
@@ -461,7 +461,7 @@ describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
     }
   });
 
-  it('이전 파일의 grid.border*는 셀 기본 테두리로만 읽고 외곽선을 만들지 않는다', () => {
+  it('이전 파일의 grid.border*는 셀 기본 테두리로만 읽고 그리드 테두리를 만들지 않는다', () => {
     const legacy = makeFile({ borderColor: '#CC0000', borderWidth: 0.4 });
     const asNew = makeFile({ cellBorderColor: '#CC0000', cellBorderWidth: 0.4 });
     expect(outlinesOf(legacy)).toHaveLength(0);
@@ -474,7 +474,7 @@ describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
     for (const line of lines) expect(line.color).toBe('#00AA00');
   });
 
-  it('외곽선은 셀 경계선 뒤에 그리드 경계 중심으로 네 변을 그리고 모서리가 닫힌다', () => {
+  it('그리드 테두리는 셀 경계선 뒤에 경계 중심으로 네 변을 그리고 모서리가 닫힌다', () => {
     const file = makeFile({ outlineColor: '#123456', outlineWidth: 0.6 });
     const schemas = pageSchemas(file);
     const outlines = outlinesOf(file);
@@ -499,7 +499,7 @@ describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
     expect(firstOutline).toBeGreaterThan(lastCellLine);
   });
 
-  it('용지 경계에 닿은 외곽선은 선 중심을 옮기지 않고 용지 밖 부분만 잘라 낸다', () => {
+  it('용지 경계에 닿은 그리드 테두리는 선 중심을 옮기지 않고 용지 밖 부분만 잘라 낸다', () => {
     // 원점 (0,0) — 왼쪽·위쪽 변은 굵기의 반만 보인다.
     const file = makeFile({ outlineWidth: 2 });
     const page = file.template.pages[0]!;
@@ -531,7 +531,7 @@ describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
     expect(atCorner['t']?.height).toBeCloseTo(2);
   });
 
-  it('파선 외곽선의 선분들도 모서리까지 이어진 닫힌 범위를 덮는다', () => {
+  it('파선 그리드 테두리의 선분도 모서리까지 이어진 닫힌 범위를 덮는다', () => {
     const dashed = outlinesOf(makeFile({ outlineWidth: 0.6, outlineStyle: 'dashed' }));
     const side = (suffix: string) => dashed.filter((line) => String(line.name).includes(`__outline-${suffix}~`));
     const top = side('t');
@@ -543,7 +543,7 @@ describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
     expect(Math.max(...left.map((line) => line.position.y + line.height))).toBeCloseTo(30 + 0.3);
   });
 
-  it('점선 외곽선도 양 끝이 칠해진 선분으로 끝나 모서리까지 이어진다', () => {
+  it('점선 그리드 테두리도 양 끝이 칠해진 선분으로 끝나 모서리까지 이어진다', () => {
     const dotted = outlinesOf(makeFile({ outlineWidth: 0.6, outlineStyle: 'dotted' }));
     const side = (suffix: string) => dotted.filter((line) => String(line.name).includes(`__outline-${suffix}~`));
     const bottom = side('b');
@@ -568,14 +568,14 @@ describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
     expect(top[27]!.position.x + top[27]!.width).toBeCloseTo(109.6);
   });
 
-  it('파선 외곽선은 여러 선분으로 나뉘어도 모두 외곽선 색을 쓴다', () => {
+  it('파선 그리드 테두리는 여러 선분으로 나뉘어도 모두 지정한 색을 쓴다', () => {
     const solid = outlinesOf(makeFile({ outlineWidth: 0.4 }));
     const dashed = outlinesOf(makeFile({ outlineWidth: 0.4, outlineColor: '#123456', outlineStyle: 'dashed' }));
     expect(dashed.length).toBeGreaterThan(solid.length);
     for (const line of dashed) expect(line.color).toBe('#123456');
   });
 
-  it('외곽선을 없음으로 두어도 셀 경계선은 유지되고, 셀 기본 테두리를 없음으로 두어도 외곽선은 유지된다', () => {
+  it('그리드 테두리를 없애도 셀 경계선은 유지되고, 셀 기본 테두리를 없애도 그리드 테두리는 유지된다', () => {
     const noOutline = makeFile({ cellBorderWidth: 0.3 });
     expect(outlinesOf(noOutline)).toHaveLength(0);
     expect(cellLinesOf(noOutline).length).toBeGreaterThan(0);
@@ -585,7 +585,7 @@ describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
     expect(outlinesOf(noCells)).toHaveLength(4);
   });
 
-  it('셀 테두리 덮어쓰기는 셀 경계선에만 영향을 주고 외곽선은 그대로다', () => {
+  it('셀 테두리 덮어쓰기는 셀 경계선에만 영향을 주고 그리드 테두리는 그대로다', () => {
     const file = makeFile(
       { outlineWidth: 0.4, outlineColor: '#000000' },
       [{ row: 0, column: 0, content: '', borderWidth: 0.8, borderColor: '#FF0000' }],
@@ -600,12 +600,12 @@ describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
     expect(red.length).toBeGreaterThan(0);
   });
 
-  it('페이지를 넘는 반복 그리드는 출력 페이지 조각마다 네 변의 외곽선을 그린다', () => {
+  it('페이지를 넘는 반복 그리드는 출력 페이지 조각마다 네 변의 그리드 테두리를 그린다', () => {
     const file: SlipTemplateFile = {
       schemaVersion: CURRENT_SCHEMA_VERSION,
       kind: 'template',
       template: {
-        meta: { title: '외곽선 분할 시험' },
+        meta: { title: '그리드 테두리 분할 시험' },
         paper: { width: 210, height: 297, padding: [10, 10, 10, 10] },
         parameters: [{ key: 'items', valueType: 'list', fields: [{ key: 'n', valueType: 'text' }] }],
         pages: [{

@@ -983,7 +983,7 @@ export function groupPanel(kit: PanelKit, act: ElementActions) {
  *
  * @remarks
  * 셀 기본 테두리는 셀에 설정이 없을 때 쓰는 값이고, 그리드 테두리는 그리드를 감싸는 별도
- * 외곽선입니다. 이전 파일의 `border*` 값은 셀 기본 테두리의 현재 적용값으로 보여 주고,
+ * 그리드 테두리입니다. 이전 파일의 `border*` 값은 셀 기본 테두리의 현재 적용값으로 보여 주고,
  * 한 항목이라도 바꾸면 새 표기로 옮깁니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태

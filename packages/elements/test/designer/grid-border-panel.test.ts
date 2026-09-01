@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// 그리드 셀 기본 테두리·그리드 테두리의 속성 패널과 캔버스 표시
+// 셀 기본 테두리·그리드 테두리의 속성 패널과 캔버스 표시
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@omdc-slipkit/core', async () => {
@@ -133,7 +133,7 @@ describe('<slip-designer> 그리드 테두리 속성 패널', () => {
     const el = await mount({ borderColor: '#CC0000', borderWidth: 0.4, borderStyle: 'dashed' });
     const cellLabel = `${s.styleCellDefaultBorder} ${s.borderWidth}`;
     expect(widthButton(el, cellLabel).textContent).toContain('0.4mm');
-    // 그리드 테두리 구역에는 이전 값이 나타나지 않는다.
+    // 그리드 테두리 구역에는 이전 셀 기본값이 나타나지 않는다.
     expect(widthButton(el, `${s.styleOutline} ${s.borderWidth}`).textContent).toContain(s.colorNone);
 
     await pickWidth(el, cellLabel, '0.8mm');
@@ -173,7 +173,7 @@ describe('<slip-designer> 그리드 테두리 캔버스 표시', () => {
     return el.shadowRoot!.querySelector('.element.type-grid') as HTMLElement;
   }
 
-  it('요소 상자는 저장된 테두리를 그리지 않고, 외곽선이 없으면 레이어도 없다', async () => {
+  it('요소 상자는 저장된 테두리를 그리지 않고, 그리드 테두리가 없으면 레이어도 없다', async () => {
     const el = await mount({ borderWidth: 0.6, borderColor: '#CC0000' });
     const box = gridBox(el);
     expect(box.getAttribute('style')).not.toContain('#CC0000');
@@ -185,7 +185,7 @@ describe('<slip-designer> 그리드 테두리 캔버스 표시', () => {
     el.remove();
   });
 
-  it('외곽선이 있으면 경계 중심에 놓인 전용 레이어를 그린다', async () => {
+  it('그리드 테두리가 있으면 경계 중심에 놓인 전용 레이어를 그린다', async () => {
     const el = await mount({ outlineWidth: 0.6, outlineColor: '#123456', outlineStyle: 'dashed' });
     const layer = gridBox(el).querySelector('.grid-outline') as HTMLElement;
     expect(layer).not.toBeNull();
@@ -196,7 +196,7 @@ describe('<slip-designer> 그리드 테두리 캔버스 표시', () => {
     el.remove();
   });
 
-  it('셀 기본 테두리 없음과 외곽선은 서로 독립이다', async () => {
+  it('셀 기본 테두리 없음과 그리드 테두리는 서로 독립이다', async () => {
     const el = await mount({ cellBorderWidth: 0, outlineWidth: 0.4 });
     const box = gridBox(el);
     expect((box.querySelector('.grid-cell') as HTMLElement).getAttribute('style')).toContain('border:none');

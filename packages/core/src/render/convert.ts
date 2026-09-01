@@ -765,7 +765,7 @@ class SlipToPdfmeConverter {
     const height = rowOffsets[rows] ?? 0;
     const blankRows = grid.blankRows ?? new Set<number>();
 
-    // 셀에 지정한 테두리 속성이 그리드의 셀 기본 테두리보다 우선한다 (SPEC §5.2).
+    // 셀에 지정한 테두리 속성이 그리드의 셀 기본 테두리보다 우선한다 (SPEC §15.3).
     const cellBorderOf = (index: number): GridEdgeBorder => {
       const cell = index >= 0 ? cells[index] : undefined;
       return {
@@ -875,7 +875,7 @@ class SlipToPdfmeConverter {
       },
     }, edgeBorderOf, schemas);
 
-    // 4. 외곽선. 셀 경계선 위에 겹치도록 나중에 그리고, 선 중심을 그리드 경계에 둔다.
+    // 4. 그리드 테두리. 셀 경계선 위에 겹치도록 나중에 그리고, 선 중심을 그리드 경계에 둔다.
     //    셀 테두리와 무관하므로 셀이 모두 테두리 없음이어도 그린다.
     if (grid.outline.width > 0) {
       const o = grid.outline;
@@ -1357,7 +1357,7 @@ class SlipToPdfmeConverter {
       }
       return;
     }
-    // 양 끝이 모두 칠해진 선분으로 끝나도록 주기를 길이에 맞춰 늘린다 — 외곽선의 네 모서리가
+    // 양 끝이 모두 칠해진 선분으로 끝나도록 주기를 길이에 맞춰 늘린다. 그리드 테두리의 네 모서리가
     // 빈 자리에 걸리지 않게 하기 위한 것이다. 한 선분보다 짧으면 그 길이의 선분 하나만 그린다.
     if (length <= pattern.on) {
       pushSegment(0, 0, length);
@@ -1473,7 +1473,7 @@ interface DrawGridOptions {
   backgroundColor?: string | undefined;
   /** 셀에 테두리 설정이 없을 때 적용할 기본 테두리 */
   cellBorder: GridEdgeBorder;
-  /** 그리드를 감싸는 외곽선. 두께가 0이면 그리지 않는다 */
+  /** 그리드 전체를 감싸는 테두리. 두께가 0이면 그리지 않는다 */
   outline: GridEdgeBorder;
   /** 셀 안쪽 여백(mm) */
   padding: number;
@@ -1516,7 +1516,7 @@ interface GridEdgeBorder {
  *
  * @remarks
  * `cellBorder*`가 없으면 이전 파일 표기인 `border*`를 대체값으로 읽는다. 둘 다 없으면 검정
- * 실선 0.2mm다. 이전 표기를 외곽선으로 해석하지 않으므로 이전 파일의 셀 경계선은 그대로다.
+ * 실선 0.2mm다. 이전 표기를 그리드 테두리로 해석하지 않으므로 이전 파일의 셀 경계선은 그대로다.
  */
 function gridCellBorderOf(element: GridElement): GridEdgeBorder {
   return {
@@ -1526,7 +1526,7 @@ function gridCellBorderOf(element: GridElement): GridEdgeBorder {
   };
 }
 
-/** 그리드 외곽선을 정한다. `outlineWidth`가 없으면 그리지 않는다. */
+/** 그리드 테두리를 정한다. `outlineWidth`가 없으면 그리지 않는다. */
 function gridOutlineOf(element: GridElement): GridEdgeBorder {
   return {
     width: element.outlineWidth ?? 0,

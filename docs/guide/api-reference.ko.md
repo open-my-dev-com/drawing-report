@@ -1056,6 +1056,13 @@ interface GridElement {
   group?: string;
   pagePlacement?: PagePlacement;
 
+  cellBorderColor?: string;
+  cellBorderWidth?: number;
+  cellBorderStyle?: 'solid' | 'dashed' | 'dotted';
+  outlineColor?: string;
+  outlineWidth?: number;
+  outlineStyle?: 'solid' | 'dashed' | 'dotted';
+
   columns: {
     width: number;
     autoMerge?: boolean;
@@ -1081,6 +1088,14 @@ interface GridElement {
 - 그리드 너비는 열 너비의 합으로 계산합니다.
 - 그리드의 양식 높이는 행 높이의 합으로 계산합니다.
 - 반복 출력 높이와 출력 페이지 수는 `repeat`의 행 구간과 페이지 방식으로 계산합니다.
+
+`cellBorder*`는 대응하는 `border*`를 지정하지 않은 셀에 적용할 기본 테두리입니다. 기본값은 검정
+실선 0.2mm입니다. `outline*`는 그리드 전체를 감싸는 별도의 테두리이며 기본 두께는 0이므로
+표시되지 않습니다. 반복 출력 조각마다 네 변의 그리드 테두리를 따로 그립니다.
+
+호환성을 위해 그리드의 `borderColor`·`borderWidth`·`borderStyle`은 대응하는 `cellBorder*`가
+없을 때만 셀 기본 테두리로 읽습니다. 그리드 테두리로 해석하지 않으며 새 파일에는 사용하지
+않습니다.
 
 ### `GridCell`
 
@@ -1109,6 +1124,9 @@ interface GridCell {
 `row`와 `column`은 0부터 시작합니다.
 
 `content`, `parameter`, `formula`는 동시에 둘 이상 사용할 수 없습니다.
+
+셀의 `borderColor`·`borderWidth`·`borderStyle`은 대응하는 그리드의 `cellBorder*`보다
+우선합니다.
 
 `name`은 디자이너가 셀을 목록에 표시할 때 사용하는 이름이며 PDF에는 출력하지 않습니다. 생략하면 디자이너가 좌표를 표시합니다.
 

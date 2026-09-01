@@ -1,4 +1,4 @@
-// 그리드 셀 기본 테두리·외곽선 판정과 이전 표기 이전 — PDF 변환과 같은 우선순위를 쓰는지 확인합니다.
+// 셀 기본 테두리·그리드 테두리 판정과 이전 표기 이전이 PDF 변환과 같은 우선순위인지 확인합니다.
 import { describe, expect, it } from 'vitest';
 import type { GridElement } from '@omdc-slipkit/core';
 import {
@@ -34,7 +34,7 @@ describe('cellDefaultBorderOf', () => {
 describe('outlineOf', () => {
   it('outline*이 없으면 두께 0으로 그리지 않는다', () => {
     expect(outlineOf(grid()).width).toBe(0);
-    // 이전 border*는 외곽선에 영향을 주지 않는다.
+    // 이전 border*는 그리드 테두리에 영향을 주지 않는다.
     expect(outlineOf(grid({ borderWidth: 0.5 })).width).toBe(0);
   });
 
@@ -94,7 +94,7 @@ describe('applyOutline', () => {
     expect(el).not.toHaveProperty('outlineStyle');
   });
 
-  it('외곽선을 바꿔도 셀 기본 테두리와 이전 border*는 건드리지 않는다', () => {
+  it('그리드 테두리를 바꿔도 셀 기본 테두리와 이전 border*는 건드리지 않는다', () => {
     const el = grid({ borderWidth: 0.4 });
     applyOutline(el, { key: 'width', value: 0.5 });
     expect(el.borderWidth).toBe(0.4);

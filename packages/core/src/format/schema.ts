@@ -371,7 +371,7 @@ const gridElementObject = z.object({
   ...gridBaseShape,
   /**
    * `borderColor`·`borderWidth`·`borderStyle`는 이전 파일 표기다. 셀 기본 테두리의
-   * 대체값으로만 읽고, 새로 저장할 때는 `cellBorder*`를 쓴다. 외곽선으로 해석하지 않는다.
+   * 대체값으로만 읽고, 새로 저장할 때는 `cellBorder*`를 쓴다. 그리드 테두리로 해석하지 않는다.
    */
   ...colorStyleShape,
   ...fontShape,
@@ -381,11 +381,11 @@ const gridElementObject = z.object({
   cellBorderWidth: nonNegativeMm.optional(),
   /** 셀에 테두리 설정이 없을 때 적용할 기본 테두리 형태 */
   cellBorderStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
-  /** 그리드 전체를 감싸는 외곽선 색. 셀 테두리와 무관하다 */
+  /** 그리드 전체를 감싸는 테두리색. 셀 테두리와 무관하다 */
   outlineColor: colorSchema.optional(),
-  /** 외곽선 두께(mm). 생략하거나 0이면 외곽선을 그리지 않는다 */
+  /** 그리드 테두리 두께(mm). 생략하거나 0이면 그리지 않는다 */
   outlineWidth: nonNegativeMm.optional(),
-  /** 외곽선 형태 */
+  /** 그리드 테두리 형태 */
   outlineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
   /** 열 너비(mm) */
   columns: z

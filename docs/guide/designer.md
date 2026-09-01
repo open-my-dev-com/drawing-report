@@ -272,6 +272,15 @@ A table with a fixed number of rows and columns, like supplier information, does
 5. Set direct input, a parameter, or a formula on a cell.
 6. Adjust the background color, text, and border styles.
 
+### Setting grid borders
+
+Select the grid to set its <kbd>Default cell border</kbd> and <kbd>Grid border</kbd> independently.
+The default cell border applies to cells that do not have their own border setting. The grid border
+draws one frame around the whole grid and is off by default.
+
+Select a cell to change its <kbd>Cell border</kbd>. A cell setting overrides the corresponding default
+cell-border value. Removing the grid border does not remove the borders between cells.
+
 ### Selecting cells
 
 Clicking a grid first selects the whole grid. Clicking the selected grid again lets you select an individual cell.

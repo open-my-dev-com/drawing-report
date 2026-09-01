@@ -62,7 +62,9 @@ Bundled fontName values (when the server has no custom fonts): "Pretendard", "Pr
 "Noto Sans JP"; Korean text needs Pretendard.
 Text styling fields (text, field, grid, and grid cells): fontName?, fontSize?, alignment? (left|center|right),
 verticalAlignment? (top|middle|bottom), bold?, italic?, underline?, strikethrough?, lineHeight?,
-characterSpacing?, vertical?. Box styling: backgroundColor?, fontColor?, borderColor?, borderWidth?, borderStyle? (solid|dashed|dotted).
+characterSpacing?, vertical?. Box styling for text, field, and grid cells: backgroundColor?, fontColor?,
+borderColor?, borderWidth?, borderStyle? (solid|dashed|dotted). Grid borders use the fields described
+in topic "grid".
 
 Conditional formats (text, field, and grid cells): "conditionalFormats"?: [
   { "condition": formula, "fontColor"?, "backgroundColor"?, "borderColor"?,
@@ -96,7 +98,9 @@ via slip_edit set_element/set_cell fields, or pass {"conditionalFormats": null} 
 const GRID = `# Grid element (tables)
 
 {
-  "type": "grid", ...common/styling fields (no width/height — the size is the sum of the tracks),
+  "type": "grid", ...common fields and text/background styling (no width/height),
+  "cellBorderColor"?: color, "cellBorderWidth"?: mm, "cellBorderStyle"?: "solid"|"dashed"|"dotted",
+  "outlineColor"?: color, "outlineWidth"?: mm, "outlineStyle"?: "solid"|"dashed"|"dotted",
   "columns": [ { "width": mm, "autoMerge"?: boolean }, ... ],
   "rows":    [ { "height": mm }, ... ],
   "cells":   [ Cell, ... ],
@@ -115,6 +119,12 @@ Placement (vertical order): "before-data" | "page-start" | "group-start" | "item
 "after-data" | "page-end". PageFilter: "all" (default) | "first" | "continuation" | "non-final" | "last".
 
 Constraints the validator enforces:
+- cellBorder* is the default border for cells that omit the corresponding border* property. Its
+  default is a black 0.2 mm solid line. A cell's border* overrides only the matching default field.
+- outline* is a separate frame around the whole grid. Its default width is 0 (no frame), and every
+  repeated output fragment receives all four sides. Changing outline* never changes cell borders.
+- Legacy borderColor/borderWidth/borderStyle on a grid are accepted only as fallbacks for missing
+  cellBorder* fields. Do not write them in new files, and never use them as the grid outline.
 - Without repeat the grid is static. With repeat, the bands must cover every template row exactly
   once, in the placement order above, with exactly ONE "item" band (one or more rows). The item
   band is atomic — one data item never splits across output pages.

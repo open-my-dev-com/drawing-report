@@ -1,9 +1,9 @@
 /**
- * 그리드의 셀 기본 테두리와 외곽선을 정합니다.
+ * 그리드의 셀 기본 테두리와 그리드 테두리를 정합니다.
  *
  * @remarks
  * PDF 변환과 같은 우선순위를 씁니다. 셀 기본 테두리는 `cellBorder*`, 없으면 이전 파일 표기인
- * `border*`, 그것도 없으면 검정 실선 0.2mm입니다. 외곽선은 `outline*`만 보고 없으면 그리지
+ * `border*`, 그것도 없으면 검정 실선 0.2mm입니다. 그리드 테두리는 `outline*`만 보고 없으면 그리지
  * 않습니다. 캔버스와 속성 패널이 이 모듈을 함께 씁니다.
  */
 
@@ -35,7 +35,7 @@ export function cellDefaultBorderOf(el: GridElement): GridBorder {
 }
 
 /**
- * 그리드 외곽선을 찾습니다.
+ * 그리드 테두리를 찾습니다.
  *
  * @param el - 그리드 요소
  * @returns 색·두께·형태. 두께가 0이면 그리지 않습니다
@@ -102,14 +102,14 @@ export function applyCellDefaultBorder(el: GridElement, patch: CellDefaultBorder
   if (el.cellBorderStyle === 'solid') delete el.cellBorderStyle;
 }
 
-/** 외곽선 한 항목의 변경 */
+/** 그리드 테두리 한 항목의 변경 */
 export type OutlinePatch =
   | { key: 'color'; value: string | null }
   | { key: 'width'; value: number }
   | { key: 'style'; value: GridBorderStyle | null };
 
 /**
- * 외곽선 한 항목을 바꿉니다.
+ * 그리드 테두리 한 항목을 바꿉니다.
  *
  * @param el - 바꿀 그리드 요소 (제자리에서 수정합니다)
  * @param patch - 바꿀 항목과 값. 두께 0과 색·형태의 null은 기본값으로 되돌립니다

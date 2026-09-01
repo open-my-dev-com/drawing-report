@@ -503,7 +503,7 @@ export function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourceP
   // 선과 곡선 도형은 PDF 변환 방식에 맞춰 SVG로 그립니다.
   const drawnAsSvg = el.type === 'line' || el.type === 'ellipse' || el.type === 'polygon';
   if (el.type === 'grid') {
-    // 그리드의 테두리는 셀 경계선과 외곽선 레이어가 그리므로 요소 상자에는 안내선만 둡니다.
+    // 셀 경계선과 그리드 테두리는 별도 레이어가 그리므로 요소 상자에는 안내선만 둡니다.
     if (el.backgroundColor !== undefined) style += `;background-color:${el.backgroundColor}`;
     if (el.fontColor !== undefined) style += `;color:${el.fontColor}`;
     style += ';border-color:var(--sk-guide-faint)';
@@ -802,14 +802,14 @@ export function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment
 }
 
 /**
- * 저장된 그리드 외곽선을 셀 경계선 위에 겹치는 레이어로 그립니다.
+ * 저장된 그리드 테두리를 셀 경계선 위에 겹치는 레이어로 그립니다.
  *
  * @remarks
  * PDF처럼 선 중심을 그리드 경계에 두므로 굵기의 반만큼 요소 상자 밖으로 나갑니다.
  * 두께가 0이면 아무것도 그리지 않습니다.
  *
  * @param el - 그리드 요소
- * @returns 외곽선 레이어. 외곽선이 없으면 빈 것
+ * @returns 그리드 테두리 레이어. 테두리가 없으면 빈 것
  */
 export function gridOutlineLayer(el: GridElement) {
   const outline = outlineOf(el);
