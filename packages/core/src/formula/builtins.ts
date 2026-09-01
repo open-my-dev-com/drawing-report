@@ -3,7 +3,7 @@
  * `IF`, `AND`, `OR`는 지연 평가가 필요하므로 evaluator에서 처리한다.
  */
 import { assertArity } from './arity.js';
-import { FormulaEvalError } from './errors.js';
+import { FormulaEvalError, valueError } from './errors.js';
 import type { FormulaFunctionName } from './functions.js';
 import { fm, type FormulaSubject } from './messages.js';
 
@@ -53,16 +53,17 @@ function describe(value: FormulaValue): string {
  *
  * @param value - 변환할 수식 값
  * @param what - 오류 메시지에서 대상을 가리키는 키 (예: `'aggregateTarget'`)
+ * @param fromData - 이 값이 참조를 통해 데이터에서 왔는지
  * @returns 변환된 숫자
  * @throws FormulaEvalError 숫자가 아닌 값(글자·논리·범위)이면
  */
-export function toNumber(value: FormulaValue, what: FormulaSubject = 'value'): number {
+export function toNumber(value: FormulaValue, what: FormulaSubject = 'value', fromData = false): number {
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) throw new FormulaEvalError(fm().numberNotFinite(what));
+    if (!Number.isFinite(value)) throw valueError(fm().numberNotFinite(what), fromData);
     return value;
   }
   if (value === null) return 0;
-  throw new FormulaEvalError(fm().mustBeNumber(what, describe(value)));
+  throw valueError(fm().mustBeNumber(what, describe(value)), fromData);
 }
 
 // `Number`가 허용하는 16진수, 2진수, Infinity를 제외하고 10진수 표기만 허용한다.
@@ -72,67 +73,69 @@ const DECIMAL_NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
  * 문자열과 논리값을 숫자로 명시적으로 변환한다 (`TO_NUMBER`).
  *
  * @param value - 변환할 값
+ * @param fromData - 이 값이 참조를 통해 데이터에서 왔는지
  * @returns 변환된 숫자 (빈 값·빈 문자열은 0, 논리는 1/0)
  * @throws FormulaEvalError 숫자로 볼 수 없는 문자열·범위면
  */
-function coerceToNumber(value: FormulaValue): number {
+function coerceToNumber(value: FormulaValue, fromData: boolean): number {
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) throw new FormulaEvalError(fm().valueNotFinite());
+    if (!Number.isFinite(value)) throw valueError(fm().valueNotFinite(), fromData);
     return value;
   }
   if (typeof value === 'boolean') return value ? 1 : 0;
   if (value === null) return 0;
-  if (Array.isArray(value)) throw new FormulaEvalError(fm().toNumberRange());
+  if (Array.isArray(value)) throw valueError(fm().toNumberRange(), fromData);
   const text = value.trim();
   if (text === '') return 0;
   if (DECIMAL_NUMBER.test(text)) {
     const n = Number(text);
-    if (!Number.isFinite(n)) throw new FormulaEvalError(fm().toNumberNotFinite());
+    if (!Number.isFinite(n)) throw valueError(fm().toNumberNotFinite(), fromData);
     return n;
   }
-  throw new FormulaEvalError(fm().toNumberInvalid(describe(value)));
+  throw valueError(fm().toNumberInvalid(describe(value)), fromData);
 }
 
-function toText(value: FormulaValue): string {
+function toText(value: FormulaValue, fromData = false): string {
   if (value === null) return '';
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  throw new FormulaEvalError(fm().rangeToText());
+  throw valueError(fm().rangeToText(), fromData);
 }
 
 /**
  * 값을 조건식에 사용할 논리값으로 변환한다. 0이 아닌 숫자는 참이고 빈 값은 거짓이다.
  *
  * @param value - 변환할 수식 값
+ * @param fromData - 이 값이 참조를 통해 데이터에서 왔는지
  * @returns 변환된 논리값
  * @throws FormulaEvalError 문자열·범위 등 논리값으로 볼 수 없는 값이면
  */
-export function toCondition(value: FormulaValue): boolean {
+export function toCondition(value: FormulaValue, fromData = false): boolean {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') return value !== 0;
   if (value === null) return false;
-  throw new FormulaEvalError(fm().conditionRequired(describe(value)));
+  throw valueError(fm().conditionRequired(describe(value)), fromData);
 }
 
-function requireInt(value: FormulaValue, what: FormulaSubject): number {
-  const n = toNumber(value, what);
-  if (!Number.isInteger(n)) throw new FormulaEvalError(fm().mustBeInteger(what));
+function requireInt(value: FormulaValue, what: FormulaSubject, fromData: boolean): number {
+  const n = toNumber(value, what, fromData);
+  if (!Number.isInteger(n)) throw valueError(fm().mustBeInteger(what), fromData);
   return n;
 }
 
 /** 범위와 단일 값을 집계할 숫자 목록으로 변환한다. 빈 값은 제외한다. */
-function collectNumbers(args: FormulaValue[]): number[] {
+function collectNumbers(args: FormulaValue[], origins: readonly boolean[]): number[] {
   const out: number[] = [];
-  const visit = (value: FormulaValue): void => {
+  const visit = (value: FormulaValue, fromData: boolean): void => {
     if (value === null || value === '') return;
     if (Array.isArray(value)) {
-      value.forEach(visit);
+      value.forEach((item) => visit(item, fromData));
       return;
     }
-    out.push(toNumber(value, 'aggregateTarget'));
+    out.push(toNumber(value, 'aggregateTarget', fromData));
   };
-  args.forEach(visit);
+  args.forEach((value, index) => visit(value, origins[index] === true));
   return out;
 }
 
@@ -156,8 +159,8 @@ function flatten(args: FormulaValue[]): (number | string | boolean | null)[] {
 /** 범위가 아닌 단일 수식 값 */
 export type Scalar = number | string | boolean | null;
 
-function makeCriteria(criterion: FormulaValue): (value: Scalar) => boolean {
-  if (Array.isArray(criterion)) throw new FormulaEvalError(fm().criteriaRange());
+function makeCriteria(criterion: FormulaValue, fromData: boolean): (value: Scalar) => boolean {
+  if (Array.isArray(criterion)) throw valueError(fm().criteriaRange(), fromData);
   if (typeof criterion === 'string') {
     const match = /^(<>|<=|>=|=|<|>)(.*)$/.exec(criterion);
     if (match) {
@@ -195,7 +198,7 @@ function looseEquals(a: Scalar, b: Scalar): boolean {
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-function parseDate(value: FormulaValue, what: FormulaSubject = 'date'): Date {
+function parseDate(value: FormulaValue, what: FormulaSubject, fromData: boolean): Date {
   if (typeof value === 'string') {
     const m = DATE_ONLY.exec(value);
     if (m) {
@@ -212,12 +215,12 @@ function parseDate(value: FormulaValue, what: FormulaSubject = 'date'): Date {
       ) {
         return date;
       }
-      throw new FormulaEvalError(fm().dateNotReal(what, describe(value)));
+      throw valueError(fm().dateNotReal(what, describe(value)), fromData);
     }
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) return parsed;
   }
-  throw new FormulaEvalError(fm().dateInvalid(what, describe(value)));
+  throw valueError(fm().dateInvalid(what, describe(value)), fromData);
 }
 
 function formatDate(date: Date, pattern: string): string {
@@ -244,10 +247,10 @@ function toIsoDate(date: Date): string {
 
 type DateUnit = 'days' | 'months' | 'years';
 
-function toDateUnit(value: FormulaValue): DateUnit {
-  const unit = value === null ? 'days' : toText(value);
+function toDateUnit(value: FormulaValue, fromData: boolean): DateUnit {
+  const unit = value === null ? 'days' : toText(value, fromData);
   if (unit === 'days' || unit === 'months' || unit === 'years') return unit;
-  throw new FormulaEvalError(fm().dateUnitInvalid(describe(value)));
+  throw valueError(fm().dateUnitInvalid(describe(value)), fromData);
 }
 
 // ---------------------------------------------------------------------------
@@ -259,13 +262,13 @@ const SMALL_UNITS = ['', '십', '백', '천'];
 const GROUP_UNITS = ['', '만', '억', '조', '경'];
 
 /** 금액 위변조 방지 관례에 따라 십/백/천 앞에도 '일'을 쓴다 (예: 110 → 일백일십) */
-function numberToKorean(n: number): string {
-  if (!Number.isInteger(n)) throw new FormulaEvalError(fm().numberToKoreanInteger());
+function numberToKorean(n: number, fromData: boolean): string {
+  if (!Number.isInteger(n)) throw valueError(fm().numberToKoreanInteger(), fromData);
   if (n === 0) return '영';
   const sign = n < 0 ? '마이너스' : '';
   let abs = Math.abs(n);
   // 안전 정수 범위를 넘으면 % 10000·나눗셈이 부정확해져 잘못된 자릿값을 읽는다.
-  if (abs > Number.MAX_SAFE_INTEGER) throw new FormulaEvalError(fm().numberToKoreanRange());
+  if (abs > Number.MAX_SAFE_INTEGER) throw valueError(fm().numberToKoreanRange(), fromData);
   const groups: string[] = [];
   let groupIndex = 0;
   while (abs > 0) {
@@ -292,6 +295,18 @@ function arity(name: FormulaFunctionName, args: FormulaValue[]): void {
   assertArity(name, args.length);
 }
 
+/** ROUND·FLOOR·CEIL의 공통 구현 — 자릿수 인자만 다르다 */
+function roundArg(
+  args: FormulaValue[],
+  origins: readonly boolean[],
+  name: FormulaFunctionName,
+  mode: 'round' | 'floor' | 'ceil',
+): number {
+  arity(name, args);
+  const digits = args.length > 1 ? requireInt(args[1] ?? null, 'digits', origins[1] === true) : 0;
+  return roundTo(toNumber(args[0] ?? null, 'value', origins[0] === true), digits, mode);
+}
+
 function roundTo(n: number, digits: number, mode: 'round' | 'floor' | 'ceil'): number {
   const factor = 10 ** digits;
   const scaled = n * factor;
@@ -301,131 +316,138 @@ function roundTo(n: number, digits: number, mode: 'round' | 'floor' | 'ceil'): n
   return fn(corrected) / factor;
 }
 
-/** 즉시 평가 함수 구현 테이블 — 지연 평가가 필요한 IF·AND·OR는 evaluator가 직접 처리한다 */
-export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: FormulaContext) => FormulaValue> = {
+/**
+ * 즉시 평가 함수 구현 테이블 — 지연 평가가 필요한 IF·AND·OR는 evaluator가 직접 처리한다.
+ *
+ * @remarks
+ * `origins[i]`는 `args[i]`가 참조를 통해 데이터에서 왔는지다. 값이 잘못돼 던지는 오류마다
+ * 그 값의 출처를 함께 넘겨야, 편집기가 「샘플 값만 잘못됨」과 「수식이 잘못됨」을 가를 수 있다.
+ */
+export const BUILTIN_FUNCTIONS: Record<
+  string,
+  (args: FormulaValue[], ctx: FormulaContext, origins: readonly boolean[]) => FormulaValue
+> = {
   // --- 집계 ---
-  SUM: (args) => collectNumbers(args).reduce((a, b) => a + b, 0),
-  AVG: (args) => {
-    const numbers = collectNumbers(args);
+  SUM: (args, _ctx, origins) => collectNumbers(args, origins).reduce((a, b) => a + b, 0),
+  AVG: (args, _ctx, origins) => {
+    const numbers = collectNumbers(args, origins);
     if (numbers.length === 0) throw new FormulaEvalError(fm().avgEmpty(), 'data');
     return numbers.reduce((a, b) => a + b, 0) / numbers.length;
   },
   /** 빈 값(null·'')을 제외한 항목 수 */
   COUNT: (args) => flatten(args).filter((v) => v !== null && v !== '').length,
-  MIN: (args) => {
-    const numbers = collectNumbers(args);
+  MIN: (args, _ctx, origins) => {
+    const numbers = collectNumbers(args, origins);
     return numbers.length === 0 ? 0 : Math.min(...numbers);
   },
-  MAX: (args) => {
-    const numbers = collectNumbers(args);
+  MAX: (args, _ctx, origins) => {
+    const numbers = collectNumbers(args, origins);
     return numbers.length === 0 ? 0 : Math.max(...numbers);
   },
 
   // --- 조건부 집계 ---
-  SUMIF: (args) => {
+  SUMIF: (args, _ctx, origins) => {
     arity('SUMIF', args);
     const [range, criterion, sumRange] = args;
-    const test = makeCriteria(criterion ?? null);
+    const test = makeCriteria(criterion ?? null, origins[1] === true);
     const testValues = flatten([range ?? null]);
     const sumValues = sumRange === undefined ? testValues : flatten([sumRange]);
     if (sumRange !== undefined && sumValues.length !== testValues.length) {
       throw new FormulaEvalError(fm().sumifLengthMismatch(), 'data');
     }
+    // 더하는 값은 합계 범위가 있으면 그 인자에서, 없으면 검사 범위 인자에서 온다.
+    const sumFromData = (sumRange === undefined ? origins[0] : origins[2]) === true;
     let total = 0;
     testValues.forEach((value, index) => {
       if (!test(value)) return;
       const target = sumValues[index] ?? null;
       if (target === null || target === '') return;
-      total += toNumber(target, 'sumifTarget');
+      total += toNumber(target, 'sumifTarget', sumFromData);
     });
     return total;
   },
-  COUNTIF: (args) => {
+  COUNTIF: (args, _ctx, origins) => {
     arity('COUNTIF', args);
-    const test = makeCriteria(args[1] ?? null);
+    const test = makeCriteria(args[1] ?? null, origins[1] === true);
     return flatten([args[0] ?? null]).filter(test).length;
   },
 
   // --- 산술 ---
-  ROUND: (args) => {
-    arity('ROUND', args);
-    return roundTo(toNumber(args[0] ?? null), args.length > 1 ? requireInt(args[1] ?? null, 'digits') : 0, 'round');
-  },
-  FLOOR: (args) => {
-    arity('FLOOR', args);
-    return roundTo(toNumber(args[0] ?? null), args.length > 1 ? requireInt(args[1] ?? null, 'digits') : 0, 'floor');
-  },
-  CEIL: (args) => {
-    arity('CEIL', args);
-    return roundTo(toNumber(args[0] ?? null), args.length > 1 ? requireInt(args[1] ?? null, 'digits') : 0, 'ceil');
-  },
-  ABS: (args) => {
+  ROUND: (args, _ctx, origins) => roundArg(args, origins, 'ROUND', 'round'),
+  FLOOR: (args, _ctx, origins) => roundArg(args, origins, 'FLOOR', 'floor'),
+  CEIL: (args, _ctx, origins) => roundArg(args, origins, 'CEIL', 'ceil'),
+  ABS: (args, _ctx, origins) => {
     arity('ABS', args);
-    return Math.abs(toNumber(args[0] ?? null));
+    return Math.abs(toNumber(args[0] ?? null, 'value', origins[0] === true));
   },
 
   // --- 문자열 ---
-  CONCAT: (args) => args.map(toText).join(''),
-  LEFT: (args) => {
+  CONCAT: (args, _ctx, origins) => args.map((value, index) => toText(value, origins[index] === true)).join(''),
+  LEFT: (args, _ctx, origins) => {
     arity('LEFT', args);
-    const count = args.length > 1 ? requireInt(args[1] ?? null, 'charCount') : 1;
-    return [...toText(args[0] ?? null)].slice(0, Math.max(0, count)).join('');
+    const count = args.length > 1 ? requireInt(args[1] ?? null, 'charCount', origins[1] === true) : 1;
+    return [...toText(args[0] ?? null, origins[0] === true)].slice(0, Math.max(0, count)).join('');
   },
-  RIGHT: (args) => {
+  RIGHT: (args, _ctx, origins) => {
     arity('RIGHT', args);
-    const count = args.length > 1 ? requireInt(args[1] ?? null, 'charCount') : 1;
-    const chars = [...toText(args[0] ?? null)];
+    const count = args.length > 1 ? requireInt(args[1] ?? null, 'charCount', origins[1] === true) : 1;
+    const chars = [...toText(args[0] ?? null, origins[0] === true)];
     return count <= 0 ? '' : chars.slice(-count).join('');
   },
   /** MID(문자열, 시작(1-기반), 길이) */
-  MID: (args) => {
+  MID: (args, _ctx, origins) => {
     arity('MID', args);
-    const start = requireInt(args[1] ?? null, 'startPosition');
-    const length = requireInt(args[2] ?? null, 'length');
-    if (start < 1) throw new FormulaEvalError(fm().midStartTooSmall());
-    return [...toText(args[0] ?? null)].slice(start - 1, start - 1 + Math.max(0, length)).join('');
+    const start = requireInt(args[1] ?? null, 'startPosition', origins[1] === true);
+    const length = requireInt(args[2] ?? null, 'length', origins[2] === true);
+    if (start < 1) throw valueError(fm().midStartTooSmall(), origins[1] === true);
+    return [...toText(args[0] ?? null, origins[0] === true)]
+      .slice(start - 1, start - 1 + Math.max(0, length)).join('');
   },
   /** REPLACE(문자열, 찾을 문자열, 바꿀 문자열) — 모든 일치를 치환 */
-  REPLACE: (args) => {
+  REPLACE: (args, _ctx, origins) => {
     arity('REPLACE', args);
-    const search = toText(args[1] ?? null);
-    if (search === '') return toText(args[0] ?? null);
-    return toText(args[0] ?? null).split(search).join(toText(args[2] ?? null));
+    const text = toText(args[0] ?? null, origins[0] === true);
+    const search = toText(args[1] ?? null, origins[1] === true);
+    if (search === '') return text;
+    return text.split(search).join(toText(args[2] ?? null, origins[2] === true));
   },
-  TRIM: (args) => {
+  TRIM: (args, _ctx, origins) => {
     arity('TRIM', args);
-    return toText(args[0] ?? null).trim();
+    return toText(args[0] ?? null, origins[0] === true).trim();
   },
-  UPPER: (args) => {
+  UPPER: (args, _ctx, origins) => {
     arity('UPPER', args);
-    return toText(args[0] ?? null).toUpperCase();
+    return toText(args[0] ?? null, origins[0] === true).toUpperCase();
   },
-  LOWER: (args) => {
+  LOWER: (args, _ctx, origins) => {
     arity('LOWER', args);
-    return toText(args[0] ?? null).toLowerCase();
+    return toText(args[0] ?? null, origins[0] === true).toLowerCase();
   },
 
   // --- 포맷 ---
   /** FORMAT_NUMBER(수, 소수 자릿수?) — 자릿수 구분 표기. 로케일은 컨텍스트로 지정  */
-  FORMAT_NUMBER: (args, ctx) => {
+  FORMAT_NUMBER: (args, ctx, origins) => {
     arity('FORMAT_NUMBER', args);
-    const n = toNumber(args[0] ?? null);
+    const n = toNumber(args[0] ?? null, 'value', origins[0] === true);
     const locale = ctx.locale ?? 'en-US';
     if (args.length > 1) {
-      const digits = requireInt(args[1] ?? null, 'fractionDigits');
-      if (digits < 0 || digits > 20) throw new FormulaEvalError(fm().fractionDigitsRange());
+      const digits = requireInt(args[1] ?? null, 'fractionDigits', origins[1] === true);
+      if (digits < 0 || digits > 20) throw valueError(fm().fractionDigitsRange(), origins[1] === true);
       return n.toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
     }
     return n.toLocaleString(locale, { maximumFractionDigits: 20 });
   },
   /** FORMAT_DATE(날짜, 패턴? = "YYYY-MM-DD") — 토큰: YYYY YY MM M DD D HH mm ss */
-  FORMAT_DATE: (args) => {
+  FORMAT_DATE: (args, _ctx, origins) => {
     arity('FORMAT_DATE', args);
-    return formatDate(parseDate(args[0] ?? null), args.length > 1 ? toText(args[1] ?? null) : 'YYYY-MM-DD');
+    return formatDate(
+      parseDate(args[0] ?? null, 'date', origins[0] === true),
+      args.length > 1 ? toText(args[1] ?? null, origins[1] === true) : 'YYYY-MM-DD',
+    );
   },
-  NUMBER_TO_KOREAN: (args) => {
+  NUMBER_TO_KOREAN: (args, _ctx, origins) => {
     arity('NUMBER_TO_KOREAN', args);
-    return numberToKorean(toNumber(args[0] ?? null));
+    return numberToKorean(toNumber(args[0] ?? null, 'value', origins[0] === true), origins[0] === true);
   },
 
   // --- 날짜 ---
@@ -434,11 +456,11 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
     return toIsoDate(ctx.now ?? new Date());
   },
   /** DATE_ADD(날짜, 증감량, 단위? = "days") */
-  DATE_ADD: (args) => {
+  DATE_ADD: (args, _ctx, origins) => {
     arity('DATE_ADD', args);
-    const date = parseDate(args[0] ?? null);
-    const amount = requireInt(args[1] ?? null, 'amountDelta');
-    const unit = toDateUnit(args.length > 2 ? (args[2] ?? null) : null);
+    const date = parseDate(args[0] ?? null, 'date', origins[0] === true);
+    const amount = requireInt(args[1] ?? null, 'amountDelta', origins[1] === true);
+    const unit = toDateUnit(args.length > 2 ? (args[2] ?? null) : null, origins[2] === true);
     if (unit === 'days') {
       date.setUTCDate(date.getUTCDate() + amount);
     } else {
@@ -454,11 +476,11 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
     return toIsoDate(date);
   },
   /** DATE_DIFF(시작, 끝, 단위? = "days") — 끝 - 시작 */
-  DATE_DIFF: (args) => {
+  DATE_DIFF: (args, _ctx, origins) => {
     arity('DATE_DIFF', args);
-    const start = parseDate(args[0] ?? null, 'startDate');
-    const end = parseDate(args[1] ?? null, 'endDate');
-    const unit = toDateUnit(args.length > 2 ? (args[2] ?? null) : null);
+    const start = parseDate(args[0] ?? null, 'startDate', origins[0] === true);
+    const end = parseDate(args[1] ?? null, 'endDate', origins[1] === true);
+    const unit = toDateUnit(args.length > 2 ? (args[2] ?? null) : null, origins[2] === true);
     if (unit === 'days') return Math.trunc((end.getTime() - start.getTime()) / 86_400_000);
     const months =
       (end.getUTCFullYear() - start.getUTCFullYear()) * 12 + (end.getUTCMonth() - start.getUTCMonth());
@@ -469,28 +491,28 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
 
   // --- 세무 ---
   /** VAT(공급가액, 세율? = 10) — 부가세액. 절사·반올림은 ROUND/FLOOR와 조합해 지정한다 */
-  VAT: (args) => {
+  VAT: (args, _ctx, origins) => {
     arity('VAT', args);
-    const amount = toNumber(args[0] ?? null, 'supplyAmount');
-    const rate = args.length > 1 ? toNumber(args[1] ?? null, 'taxRate') : 10;
-    if (rate < 0) throw new FormulaEvalError(fm().vatRateNegative());
+    const amount = toNumber(args[0] ?? null, 'supplyAmount', origins[0] === true);
+    const rate = args.length > 1 ? toNumber(args[1] ?? null, 'taxRate', origins[1] === true) : 10;
+    if (rate < 0) throw valueError(fm().vatRateNegative(), origins[1] === true);
     return (amount * rate) / 100;
   },
 
   // --- 타입 변환  ---
   /** TO_NUMBER(값) — 글자·논리를 숫자로. 빈 값·빈 문자열은 0, 숫자로 볼 수 없으면 오류 */
-  TO_NUMBER: (args) => {
+  TO_NUMBER: (args, _ctx, origins) => {
     arity('TO_NUMBER', args);
-    return coerceToNumber(args[0] ?? null);
+    return coerceToNumber(args[0] ?? null, origins[0] === true);
   },
   /** TO_STRING(값) — 숫자·논리·빈 값을 글자로. 범위는 바꿀 수 없다 */
-  TO_STRING: (args) => {
+  TO_STRING: (args, _ctx, origins) => {
     arity('TO_STRING', args);
-    return toText(args[0] ?? null);
+    return toText(args[0] ?? null, origins[0] === true);
   },
   /** TO_DATE(값) — 날짜 문자열을 검증해 ISO(YYYY-MM-DD)로 정규화한다 */
-  TO_DATE: (args) => {
+  TO_DATE: (args, _ctx, origins) => {
     arity('TO_DATE', args);
-    return toIsoDate(parseDate(args[0] ?? null));
+    return toIsoDate(parseDate(args[0] ?? null, 'date', origins[0] === true));
   },
 };

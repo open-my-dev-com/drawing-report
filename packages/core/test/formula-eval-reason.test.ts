@@ -122,3 +122,38 @@ describe('diagnoseFormula — 값 부족 뒤에 가려진 잘못까지 찾기', 
     expect(() => evaluateFormula('SUM(@page.amount)', CONTEXT)).toThrow(FormulaEvalError);
   });
 });
+
+describe('값 종류가 맞지 않는 샘플 값', () => {
+  const WRONG: FormulaContext = {
+    values: { amount: 'not-a-number', date: 'not-a-date', flag: 'not-a-boolean', name: '연필' },
+    locale: 'ko',
+  };
+
+  it('정상 상수가 섞여 있어도 잘못된 것이 샘플 값이면 적용을 허용한다', () => {
+    for (const source of [
+      'amount + 1',
+      'ROUND(amount, 2)',
+      'FORMAT_NUMBER(amount, 2)',
+      'DATE_ADD(date, 1)',
+      'IF(flag, 1, 2)',
+    ]) {
+      const found = diagnoseFormula(source, WRONG);
+      expect(found.formulaError, source).toBeUndefined();
+      expect(found.dataError, source).toBeInstanceOf(FormulaEvalError);
+    }
+  });
+
+  it('샘플 값도 잘못되고 상수 인자도 잘못되면 상수 인자의 잘못까지 찾는다', () => {
+    // `amount`가 숫자가 아니어서 먼저 실패하지만, 소수 자릿수 21은 어떤 값에서도 쓸 수 없다.
+    const found = diagnoseFormula('FORMAT_NUMBER(amount, 21)', WRONG);
+    expect(found.dataError).toBeInstanceOf(FormulaEvalError);
+    expect(found.formulaError).toBeInstanceOf(FormulaEvalError);
+  });
+
+  it('잘못된 상수 인자는 샘플 값이 멀쩡해도 그대로 막는다', () => {
+    for (const source of ['amount / 0', 'FORMAT_NUMBER(amount, 21)', 'MID(name, 0, 1)']) {
+      const found = diagnoseFormula(source, CONTEXT);
+      expect(found.formulaError, source).toBeInstanceOf(FormulaEvalError);
+    }
+  });
+});

@@ -679,7 +679,7 @@ export const dialogsStyles = css`
     }
     /* 수식 작성이 이 모달의 주 작업이므로 입력란을 가장 크게 둡니다 */
     .formula-modal .formula-input {
-      /* 220px로 열고 140px까지 줄일 수 있습니다 — 남는 높이를 입력란이 가져갑니다 */
+      /* 수식 입력란은 220px로 표시하며, 사용자가 세로로 줄이면 140px까지 허용합니다. */
       height: 220px;
       min-height: 140px;
       max-height: 220px;
@@ -723,31 +723,36 @@ export const dialogsStyles = css`
       background: rgba(194, 65, 12, 0.08);
       color: var(--sk-danger);
     }
-    /* 참조 영역 — 조작이 다른 함수와 값을 탭으로 나눕니다 */
-    .formula-tabs {
-      display: flex;
-      gap: 4px;
+    /* 모달 안 탭 — 샘플 데이터 모달과 수식 모달이 같은 모양을 씁니다 */
+    .modal-tabs {
+      display: inline-flex;
+      /* 세로 배치 안에서도 탭 묶음이 내용만큼만 넓어지게 합니다 */
+      align-self: flex-start;
+      gap: 2px;
       margin-bottom: 8px;
-      border-bottom: 1px solid var(--sk-border);
+      padding: 2px;
+      border: 1px solid var(--sk-border);
+      border-radius: var(--sk-radius);
+      background: var(--sk-bg);
     }
-    .formula-tab {
-      padding: 6px 12px;
-      border: none;
-      border-bottom: 2px solid transparent;
+    .modal-tabs button {
+      padding: 4px 12px;
+      border: 1px solid transparent;
+      border-radius: var(--sk-radius);
       background: transparent;
       font-family: inherit;
       font-size: 13px;
       color: var(--sk-text-muted);
       cursor: pointer;
     }
-    .formula-tab.selected {
-      border-bottom-color: var(--sk-accent);
-      color: var(--sk-accent);
-      font-weight: 600;
+    .modal-tabs button[aria-selected='true'] {
+      background: var(--sk-surface);
+      border-color: var(--sk-border-strong);
+      color: var(--sk-text);
     }
-    .formula-tab:focus-visible {
+    .modal-tabs button:focus-visible {
       outline: 2px solid var(--sk-accent);
-      outline-offset: -2px;
+      outline-offset: 1px;
     }
     /* 값과 범위 — 코드 이름만으로는 뜻을 알 수 없어 표시 이름을 앞에 둡니다 */
     .value-list {
@@ -873,7 +878,10 @@ export const dialogsStyles = css`
       overflow-y: auto;
     }
     .fn-row.selected {
+      /* hover와 같은 배경만으로는 상세에 연결된 항목이 어느 것인지 남지 않습니다 */
       background: var(--sk-accent-soft);
+      box-shadow: inset 2px 0 var(--sk-accent);
+      color: var(--sk-accent);
     }
     .fn-detail {
       min-height: 0;

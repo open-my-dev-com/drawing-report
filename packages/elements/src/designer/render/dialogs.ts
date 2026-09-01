@@ -189,7 +189,7 @@ export function sampleModal(d: DialogContext) {
           @click=${close}>${icons.close}</button>
       </div>
       <div class="modal-body">
-        <div class="sample-tabs" role="tablist" aria-label=${s.sampleModalTitle}>
+        <div class="modal-tabs" role="tablist" aria-label=${s.sampleModalTitle}>
           ${([
             [false, s.formMode],
             [true, 'JSON'],

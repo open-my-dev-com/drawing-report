@@ -241,12 +241,11 @@ function referenceColumn(d: DialogContext, view: FormulaModalView) {
   const s = d.s;
   const tab = d.formula.tab;
   const tabButton = (value: 'functions' | 'values', label: string) => html`
-    <button class="formula-tab ${tab === value ? 'selected' : ''}" role="tab"
-      aria-selected=${String(tab === value)}
+    <button class="formula-tab" role="tab" aria-selected=${String(tab === value)}
       @click=${() => d.formula.setTab(value)}>${label}</button>`;
 
   return html`
-    <div class="formula-tabs" role="tablist" aria-label=${s.formulaFunctions}>
+    <div class="modal-tabs" role="tablist" aria-label=${s.formulaModalTitle}>
       ${tabButton('functions', s.formulaFunctionsTab)}
       ${tabButton('values', s.formulaValuesTab)}
     </div>
@@ -321,7 +320,6 @@ function functionSection(d: DialogContext) {
   return html`
     <div class="fn-panel">
       <div class="fn-browse">
-        <div class="modal-section-title">${s.formulaFunctions}</div>
         <input class="formula-search" type="search" placeholder=${s.formulaSearch}
           aria-label=${s.formulaSearch} .value=${live(d.formula.query)}
           @input=${(e: Event) => d.formula.setQuery((e.target as HTMLInputElement).value)}>
@@ -377,7 +375,7 @@ function functionDetail(d: DialogContext, fn: FormulaHelpEntry) {
         </dl>`}
     <div class="fn-detail-title">${s.formulaReturns}</div>
     <p class="fn-desc">${fn.returns}</p>
-    <button class="btn primary fn-insert" @click=${() => d.formula.insert(`${fn.name}(`, ')')}>
+    <button class="btn fn-insert" @click=${() => d.formula.insert(`${fn.name}(`, ')')}>
       ${s.formulaInsert}
     </button>
   `;

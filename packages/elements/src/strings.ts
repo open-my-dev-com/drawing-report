@@ -304,7 +304,7 @@ const ko = {
     formulaColumnSuggest: '열 고르기',
     syntaxError: '문법 오류',
     previewResult: '계산 결과',
-    previewUnavailable: '샘플 값으로 계산할 수 없습니다. 실제 전표 값으로 계산할 수 있으므로 적용할 수 있습니다',
+    previewUnavailable: '샘플 값으로 계산할 수 없습니다. 실제 전표 값으로는 계산될 가능성이 있으므로 적용할 수 있습니다',
     formulaError: '수식 오류',
     formulaStatusUnavailable: '미리 계산할 수 없습니다',
     formulaStatusError: '수식을 확인해 주세요',

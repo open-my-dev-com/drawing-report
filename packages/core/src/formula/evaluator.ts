@@ -6,7 +6,7 @@
  */
 import { BUILTIN_FUNCTIONS, toCondition, toNumber, type FormulaContext, type FormulaValue, type Scalar } from './builtins.js';
 import { assertArity } from './arity.js';
-import { FormulaEvalError } from './errors.js';
+import { FormulaEvalError, valueError } from './errors.js';
 import { fm, withFormulaLocale, type FormulaPlace } from './messages.js';
 import { parseFormula, type BinaryOperator, type FormulaAst } from './parser.js';
 
@@ -20,8 +20,9 @@ export type { FormulaContext, FormulaValue };
 const MAX_VALUE_DEPTH = 256;
 
 function guardDepth(depth: number): void {
+  // 참조를 푸는 중 나는 오류는 모두 데이터 자체의 모양 때문이다.
   if (depth > MAX_VALUE_DEPTH) {
-    throw new FormulaEvalError(fm().valueDepthExceeded(MAX_VALUE_DEPTH));
+    throw valueError(fm().valueDepthExceeded(MAX_VALUE_DEPTH), true);
   }
 }
 
@@ -35,7 +36,7 @@ function resolvePath(value: unknown, path: string[], index: number, depth = 0): 
   if (typeof value === 'object') {
     return resolvePath((value as Record<string, unknown>)[path[index]!], path, index + 1, depth + 1);
   }
-  throw new FormulaEvalError(fm().notAnObject(path.slice(0, index).join('.'), path[index] ?? ''));
+  throw valueError(fm().notAnObject(path.slice(0, index).join('.'), path[index] ?? ''), true);
 }
 
 function toFormulaValue(value: unknown, depth = 0): FormulaValue {
@@ -43,16 +44,16 @@ function toFormulaValue(value: unknown, depth = 0): FormulaValue {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') return value;
   if (Array.isArray(value)) return value.map((item) => toFormulaValue(item, depth + 1));
-  throw new FormulaEvalError(fm().objectValueNotUsable());
+  throw valueError(fm().objectValueNotUsable(), true);
 }
 
 // ---------------------------------------------------------------------------
 // 연산자
 // ---------------------------------------------------------------------------
 
-function requireScalar(value: FormulaValue, place: FormulaPlace): Scalar {
+function requireScalar(value: FormulaValue, place: FormulaPlace, fromData: boolean): Scalar {
   if (Array.isArray(value)) {
-    throw new FormulaEvalError(fm().rangeNotAllowed(place));
+    throw valueError(fm().rangeNotAllowed(place), fromData);
   }
   return value;
 }
@@ -64,18 +65,25 @@ function equals(a: Scalar, b: Scalar): boolean {
   return a === b;
 }
 
-function applyBinary(operator: BinaryOperator, left: FormulaValue, right: FormulaValue): FormulaValue {
+function applyBinary(
+  operator: BinaryOperator,
+  left: FormulaValue,
+  right: FormulaValue,
+  leftFromData: boolean,
+  rightFromData: boolean,
+): FormulaValue {
   const place: FormulaPlace = { kind: 'operator', operator };
-  const a = requireScalar(left, place);
-  const b = requireScalar(right, place);
+  const a = requireScalar(left, place, leftFromData);
+  const b = requireScalar(right, place, rightFromData);
   switch (operator) {
-    case '+': return toNumber(a, 'addOperand') + toNumber(b, 'addOperand');
-    case '-': return toNumber(a, 'subtractOperand') - toNumber(b, 'subtractOperand');
-    case '*': return toNumber(a, 'multiplyOperand') * toNumber(b, 'multiplyOperand');
+    case '+': return toNumber(a, 'addOperand', leftFromData) + toNumber(b, 'addOperand', rightFromData);
+    case '-': return toNumber(a, 'subtractOperand', leftFromData) - toNumber(b, 'subtractOperand', rightFromData);
+    case '*': return toNumber(a, 'multiplyOperand', leftFromData) * toNumber(b, 'multiplyOperand', rightFromData);
     case '/': {
-      const divisor = toNumber(b, 'divideOperand');
-      if (divisor === 0) throw new FormulaEvalError(fm().divideByZero());
-      return toNumber(a, 'divideOperand') / divisor;
+      // 0으로 나누는 잘못은 나누는 쪽 값의 문제다.
+      const divisor = toNumber(b, 'divideOperand', rightFromData);
+      if (divisor === 0) throw valueError(fm().divideByZero(), rightFromData);
+      return toNumber(a, 'divideOperand', leftFromData) / divisor;
     }
     case '=': return equals(a, b);
     case '<>': return !equals(a, b);
@@ -93,7 +101,8 @@ function applyBinary(operator: BinaryOperator, left: FormulaValue, right: Formul
         if (operator === '<=') return a <= b;
         return a >= b;
       }
-      throw new FormulaEvalError(fm().comparisonTypeMismatch(operator));
+      // 한쪽이라도 데이터에서 왔으면 값이 달라질 때 종류가 맞을 수 있다.
+      throw valueError(fm().comparisonTypeMismatch(operator), leftFromData || rightFromData);
     }
   }
 }
@@ -102,30 +111,13 @@ function applyBinary(operator: BinaryOperator, left: FormulaValue, right: Formul
 // 평가
 // ---------------------------------------------------------------------------
 
-/** 수식이 값이나 예약 참조를 하나라도 참조하는지 확인한다. */
-function hasReference(ast: FormulaAst): boolean {
+/** 이 식의 값이 참조를 통해 데이터에서 오는지 확인한다. */
+function fromData(ast: FormulaAst): boolean {
   switch (ast.type) {
     case 'reference': return true;
-    case 'call': return ast.args.some(hasReference);
-    case 'unary': return hasReference(ast.operand);
-    case 'binary': return hasReference(ast.left) || hasReference(ast.right);
-    default: return false;
-  }
-}
-
-/**
- * 이 자리의 계산에 쓴 값이 모두 데이터에서 왔는지 확인한다.
- *
- * @remarks
- * 상수가 하나라도 섞이면 그 상수가 오류의 원인일 수 있으므로 데이터에서 왔다고 보지 않는다.
- * 참조를 푸는 중 난 오류는 데이터 자체에서 온 것이다.
- */
-function operandsFromData(ast: FormulaAst): boolean {
-  switch (ast.type) {
-    case 'reference': return true;
-    case 'unary': return hasReference(ast.operand);
-    case 'binary': return hasReference(ast.left) && hasReference(ast.right);
-    case 'call': return ast.args.length > 0 && ast.args.every(hasReference);
+    case 'call': return ast.args.some(fromData);
+    case 'unary': return fromData(ast.operand);
+    case 'binary': return fromData(ast.left) || fromData(ast.right);
     default: return false;
   }
 }
@@ -137,14 +129,41 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
   try {
     return evaluateNode(ast, context);
   } catch (error) {
-    // 오류를 실제로 낸 가장 안쪽 자리에서만 값 출처가 정해진다.
     if (!(error instanceof FormulaEvalError)) throw error;
-    error.locate(operandsFromData(ast));
     if (recovery === null || !error.dataDependent) throw error;
     // 값이 채워지면 풀릴 오류는 여기서 멈추지 않는다. 바깥에 남아 있는
     // 식 자체의 잘못을 이 오류가 가리면 고칠 수 없는 수식을 저장하게 된다.
     recovery.error ??= error;
     return null;
+  }
+}
+
+/**
+ * 내장 함수를 부른다.
+ *
+ * @remarks
+ * 진단 중에 데이터 값 때문에 실패하면, 데이터에서 온 인자를 빈 값으로 바꿔 한 번 더 부른다.
+ * 그래야 `FORMAT_NUMBER(amount, 21)`처럼 잘못된 상수 인자가 값 오류 뒤에 가려지지 않는다.
+ */
+function callBuiltin(
+  fn: (args: FormulaValue[], ctx: FormulaContext, origins: readonly boolean[]) => FormulaValue,
+  args: FormulaValue[],
+  origins: boolean[],
+  context: FormulaContext,
+): FormulaValue {
+  try {
+    return fn(args, context, origins);
+  } catch (error) {
+    if (recovery === null || !(error instanceof FormulaEvalError) || !error.dataDependent) throw error;
+    recovery.error ??= error;
+    const constants = args.map((value, index) => (origins[index] === true ? null : value));
+    try {
+      return fn(constants, context, origins);
+    } catch (again) {
+      // 빈 값으로 바꾼 자리 때문에 난 오류는 새로 찾은 잘못이 아니다.
+      if (again instanceof FormulaEvalError && again.dataDependent) return null;
+      throw again;
+    }
   }
 }
 
@@ -166,25 +185,42 @@ function evaluateNode(ast: FormulaAst, context: FormulaContext): FormulaValue {
       return resolvePath(context.values, ast.path, 0);
     }
     case 'unary': {
-      const operand = requireScalar(evaluateAst(ast.operand, context), { kind: 'sign' });
-      const n = toNumber(operand, 'signOperand');
+      const operandFromData = fromData(ast.operand);
+      const operand = requireScalar(
+        evaluateAst(ast.operand, context), { kind: 'sign' }, operandFromData,
+      );
+      const n = toNumber(operand, 'signOperand', operandFromData);
       return ast.operator === '-' ? -n : n;
     }
     case 'binary':
-      return applyBinary(ast.operator, evaluateAst(ast.left, context), evaluateAst(ast.right, context));
+      return applyBinary(
+        ast.operator,
+        evaluateAst(ast.left, context),
+        evaluateAst(ast.right, context),
+        fromData(ast.left),
+        fromData(ast.right),
+      );
     case 'call': {
       // 단락 평가가 필요한 함수는 인수를 개별적으로 평가한다.
       if (ast.name === 'IF') {
         assertArity('IF', ast.args.length);
-        const condition = toCondition(requireScalar(evaluateAst(ast.args[0]!, context), { kind: 'ifCondition' }));
+        const test = ast.args[0]!;
+        const condition = toCondition(
+          requireScalar(evaluateAst(test, context), { kind: 'ifCondition' }, fromData(test)),
+          fromData(test),
+        );
         if (condition) return evaluateAst(ast.args[1]!, context);
         return ast.args[2] ? evaluateAst(ast.args[2], context) : null;
       }
       if (ast.name === 'AND' || ast.name === 'OR') {
         assertArity(ast.name, ast.args.length);
         const shortCircuit = ast.name === 'OR';
+        const place: FormulaPlace = { kind: 'functionArg', name: ast.name };
         for (const arg of ast.args) {
-          const value = toCondition(requireScalar(evaluateAst(arg, context), { kind: 'functionArg', name: ast.name }));
+          const argFromData = fromData(arg);
+          const value = toCondition(
+            requireScalar(evaluateAst(arg, context), place, argFromData), argFromData,
+          );
           if (value === shortCircuit) return shortCircuit;
         }
         return !shortCircuit;
@@ -192,7 +228,7 @@ function evaluateNode(ast: FormulaAst, context: FormulaContext): FormulaValue {
       const fn = BUILTIN_FUNCTIONS[ast.name];
       // 파서에 등록됐지만 평가기에 구현되지 않은 함수를 확인한다.
       if (!fn) throw new FormulaEvalError(fm().notImplementedFunction(ast.name), 'formula');
-      return fn(ast.args.map((arg) => evaluateAst(arg, context)), context);
+      return callBuiltin(fn, ast.args.map((arg) => evaluateAst(arg, context)), ast.args.map(fromData), context);
     }
   }
 }
@@ -233,7 +269,7 @@ export interface FormulaDiagnosis {
    * 계산 결과.
    *
    * @remarks
-   * `dataError`가 있으면 값이 없는 자리를 빈 값으로 이어 계산한 것이라 결과로 쓰지 않는다.
+   * `formulaError`나 `dataError`가 있으면 진단 과정에서 나온 값이므로 결과로 사용하지 않는다.
    */
   value: FormulaValue;
   /** 값이 달라져도 계산되지 않는 오류. 수식을 고쳐야 한다 */

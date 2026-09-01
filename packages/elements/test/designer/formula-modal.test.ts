@@ -279,6 +279,31 @@ describe('checkFormula — 검사 결과 7종', () => {
     expect(bySample.applicable).toBe(true);
   });
 
+  it('정상 상수가 섞여 있어도 잘못된 것이 샘플 값이면 적용을 허용한다', () => {
+    const context = {
+      values: { amount: 'not-a-number', date: 'not-a-date', flag: 'not-a-boolean' },
+    };
+    for (const source of [
+      'amount + 1',
+      'ROUND(amount, 2)',
+      'FORMAT_NUMBER(amount, 2)',
+      'DATE_ADD(date, 1)',
+      'IF(flag, 1, 2)',
+    ]) {
+      const result = checkFormula({ ...base, context, source });
+      expect(result.status, source).toBe('not-computable');
+      expect(result.applicable, source).toBe(true);
+    }
+  });
+
+  it('샘플 값도 잘못되고 상수 인자도 잘못되면 적용을 막는다', () => {
+    const result = checkFormula({
+      ...base, context: { values: { amount: 'not-a-number' } }, source: 'FORMAT_NUMBER(amount, 21)',
+    });
+    expect(result.status).toBe('formula-error');
+    expect(result.applicable).toBe(false);
+  });
+
   it('실행되지 않는 분기의 오류는 판정에 넣지 않는다', () => {
     const skipped = checkFormula({ ...base, source: 'IF(TRUE, 1, 1 / 0)' });
     expect(skipped.status).toBe('ok');

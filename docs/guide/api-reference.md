@@ -346,7 +346,7 @@ function diagnoseFormula(
 ): FormulaDiagnosis;
 ```
 
-Reports whether a formula can be evaluated, without stopping at the first error. A place that fails because a value is missing or a reserved range is unavailable is filled with an empty value so evaluation continues, and that failure is reported as `dataError`. A failure that no data can resolve is reported as `formulaError`. Use this when an editor has to decide whether a formula is worth saving: `SUM(@page.amount) / 0` reports both, so a division by zero hidden behind a missing range is not mistaken for a value that will arrive later. When `dataError` is set, `value` was computed with empty values filled in, so do not show it as a result.
+Reports whether a formula can be evaluated, without stopping at the first error. A place that fails because a value is missing or a reserved range is unavailable is filled with an empty value so evaluation continues, and that failure is reported as `dataError`. A failure that no data can resolve is reported as `formulaError`. Use this when an editor has to decide whether a formula is worth saving: `SUM(@page.amount) / 0` reports both, so a division by zero hidden behind a missing range is not mistaken for a value that will arrive later. When `formulaError` or `dataError` is set, `value` came out of the diagnosis, so do not show it as a result.
 
 #### `FormulaContext`
 
@@ -1876,7 +1876,7 @@ Used when a type mismatch, an invalid argument, or division by zero occurs durin
 
 `reason` says why the evaluation failed: `data` when a value is missing or a reserved range is unavailable, `value` when a value used in the calculation is wrong, and `formula` when the formula itself is wrong.
 
-`dataDependent` is true when different values could resolve the error. For a `value` reason that holds only when every operand at the failing place came from a reference, so `amount / 0` stays blocked while `amount / quantity` does not. Use it instead of comparing error messages.
+`dataDependent` is true when different values could resolve the error. For a `value` reason it looks only at the value that actually failed to convert or pass a check, not at the other operands in the same place: `amount / 0` stays blocked because the constant divisor is at fault, while `amount / quantity` and `amount + 1` with a non-numeric `amount` do not. Use it instead of comparing error messages.
 
 ### `SlipEncryptionError`
 

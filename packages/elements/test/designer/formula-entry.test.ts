@@ -687,6 +687,36 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(el.shadowRoot!.querySelectorAll('.fn-row').length).toBe(0);
   });
 
+  it('모달 안 탭과 주요 버튼을 디자이너의 다른 화면과 같게 쓴다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+    await openModal(el);
+
+    // 샘플 데이터 모달과 같은 공통 탭 모양을 씁니다.
+    expect(el.shadowRoot!.querySelector('.modal-tabs .formula-tab')).not.toBeNull();
+    expect(dialogsStyles.cssText).toContain('.modal-tabs button[aria-selected=\'true\']');
+
+    // 탭 이름이 이미 「함수」이므로 목록 위에 같은 제목을 다시 두지 않습니다.
+    expect(el.shadowRoot!.querySelector('.fn-browse .modal-section-title')).toBeNull();
+
+    // 최종 저장인 「적용」만 주요 동작으로 강조합니다.
+    const primary = Array.from(el.shadowRoot!.querySelectorAll('.formula-modal .btn.primary'));
+    expect(primary.map((b) => b.textContent?.trim())).toEqual([s.apply]);
+
+    // 고른 함수는 잠깐 지나가는 hover와 달리 표시선과 강조색으로 남습니다.
+    Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.fn-row'))
+      .find((b) => b.getAttribute('aria-label') === 'SUM')!.click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.fn-row.selected')?.getAttribute('aria-label')).toBe('SUM');
+    expect(el.shadowRoot!.querySelectorAll('.fn-insert')).toHaveLength(1);
+    const selected = dialogsStyles.cssText.slice(dialogsStyles.cssText.indexOf('.fn-row.selected'));
+    expect(selected).toContain('box-shadow: inset 2px 0 var(--sk-accent);');
+  });
+
   it('함수를 이름과 로케일 설명으로 찾고, 분류와 검색어를 함께 적용한다', async () => {
     const el = await mountFile([{
       type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
@@ -744,7 +774,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
       .find((b) => b.getAttribute('aria-label') === 'SUM')!;
     abs.click();
     await el.updateComplete;
-    (el.shadowRoot!.querySelector('.fn-detail .btn.primary') as HTMLButtonElement).click();
+    (el.shadowRoot!.querySelector('.fn-insert') as HTMLButtonElement).click();
     await el.updateComplete;
 
     expect(formulaInput(el).value).toBe('ABS(SUM())');

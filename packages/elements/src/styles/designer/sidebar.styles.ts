@@ -461,34 +461,6 @@ export const sidebarStyles = css`
     .modal.modal-wide {
       width: min(760px, calc(100vw - 32px));
     }
-    .sample-tabs {
-      display: inline-flex;
-      gap: 2px;
-      margin-bottom: 8px;
-      padding: 2px;
-      border: 1px solid var(--sk-border);
-      border-radius: var(--sk-radius);
-      background: var(--sk-bg);
-    }
-    .sample-tabs button {
-      padding: 4px 12px;
-      border: 1px solid transparent;
-      border-radius: var(--sk-radius);
-      background: transparent;
-      font-family: inherit;
-      font-size: 12px;
-      color: var(--sk-text-muted);
-      cursor: pointer;
-    }
-    .sample-tabs button[aria-selected='true'] {
-      background: var(--sk-surface);
-      border-color: var(--sk-border-strong);
-      color: var(--sk-text);
-    }
-    .sample-tabs button:focus-visible {
-      outline: 2px solid var(--sk-accent);
-      outline-offset: 1px;
-    }
     .sample-json {
       width: 100%;
       resize: vertical;
