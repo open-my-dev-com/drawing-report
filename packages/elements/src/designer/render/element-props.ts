@@ -25,6 +25,8 @@ import {
   DEFAULT_LINE_WIDTH,
 } from '../style-css.js';
 import { setOptional } from '../patch.js';
+import { withFontName } from '../../strings.js';
+import type { DesignerFonts, FontStyleInput } from '../font-variant.js';
 import { PLACEHOLDER_IMG } from '../image-pick.js';
 import { numberRow, borderWidthSelect, borderShapeRow, colorControl, textStyleToggles } from './inputs.js';
 import type { PanelKit } from './panel-kit.js';
@@ -47,8 +49,8 @@ export interface ElementActions {
   anchorIndex(el: SlipElement): number;
   /** 요소의 좌표 기준점 번호를 바꿉니다 */
   setAnchorIndex(elementId: string, index: number): void;
-  /** 등록된 폰트 이름 */
-  readonly fontNames: readonly string[];
+  /** 폰트 목록과 브라우저 등록 상태 */
+  readonly fonts: DesignerFonts;
   /** 필드 요소의 값 소스를 바꿉니다 */
   setFieldSource(kind: 'parameter' | 'formula'): void;
   /** 일반 파라미터 선택 상자를 그립니다 */
@@ -121,44 +123,148 @@ export function textFieldKindRow(kit: PanelKit, act: ElementActions, current: 't
     </div>`;
 }
 
+/** 폰트를 지정하지 않았을 때 보여 줄 항목 문구와 그 아래 안내 */
+export interface FontDefaultOption {
+  /** 선택 목록의 첫 항목 문구 */
+  label: string;
+  /** 항목 아래에 덧붙일 안내. 없으면 생략합니다 */
+  note?: string | undefined;
+}
+
+/**
+ * 폰트를 지정하지 않은 요소의 `기본값` 항목 문구를 만듭니다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param fallback - 지정이 없을 때 적용되는 대체 폰트 이름
+ * @returns 기본값 항목 문구
+ */
+function fontDefaultOption(kit: PanelKit, fallback: string | undefined): FontDefaultOption {
+  return { label: fallback === undefined ? kit.s.fontDefault : `${kit.s.fontDefault} (${fallback})` };
+}
+
+/**
+ * 그리드 셀의 `기본값` 항목 문구를 만듭니다.
+ *
+ * @remarks
+ * 셀은 대체 폰트가 아니라 그리드 공통 폰트를 상속하므로 상속되는 이름을 그대로 보여 줍니다.
+ * 그리드 공통 폰트가 등록되어 있지 않으면 저장된 이름을 유지한 채 대체 표시임을 덧붙입니다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param fonts - 폰트 목록과 브라우저 등록 상태
+ * @param gridFontName - 그리드에 지정된 공통 폰트 이름
+ * @returns 기본값 항목 문구
+ */
+export function cellInheritOption(
+  kit: PanelKit,
+  fonts: DesignerFonts,
+  gridFontName: string | undefined,
+): FontDefaultOption {
+  if (gridFontName === undefined) return fontDefaultOption(kit, fonts.fallback);
+  const label = `${kit.s.gridInherited} (${gridFontName})`;
+  if (!fonts.isUnregistered(gridFontName)) return { label };
+  const applied = fonts.appliedName({ fontName: gridFontName });
+  return applied === undefined
+    ? { label }
+    : { label, note: withFontName(kit.s.fontUnregisteredShownAs, applied) };
+}
+
 /**
  * 호스트가 제공한 폰트를 선택하는 입력을 렌더링합니다.
+ *
+ * @remarks
+ * 등록된 폰트가 하나뿐이어도 숨기지 않습니다. 지정 상태와 기본값으로 되돌린 상태를 구분해야 하고,
+ * 현재 표시되는 폰트 이름도 폰트 항목에서 확인할 수 있어야 하기 때문입니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
  * @param current - 현재 지정된 폰트 이름
  * @param apply - 저장 콜백 (빈 값이면 지정 해제)
- * @param ariaLabel - 보조기기용 이름
- * @returns 폰트 선택 UI. 선택할 폰트가 없으면 빈 템플릿
+ * @param opts - `ariaLabel`은 보조기기용 이름, `inherit`은 기본값 항목의 문구,
+ * `style`은 굵게·기울임까지 반영해 실제 적용 폰트를 찾을 스타일입니다
+ * @returns 폰트 선택 UI
  */
 export function fontNameRow(
   kit: PanelKit,
   act: ElementActions,
   current: string | undefined,
   apply: (value: string | null) => void,
-  ariaLabel?: string,
+  opts?: { ariaLabel?: string; inherit?: FontDefaultOption; style?: FontStyleInput },
 ) {
   const s = kit.s;
-  // 선택할 폰트가 없으면 입력을 표시하지 않습니다.
-  if (act.fontNames.length <= 1 && current === undefined) return nothing;
-  const options = current !== undefined && !act.fontNames.includes(current)
-    ? [current, ...act.fontNames]
-    : act.fontNames;
+  const fonts = act.fonts;
+  const inherit = opts?.inherit ?? fontDefaultOption(kit, fonts.fallback);
+  // 목록에 없는 이름을 지정한 요소도 그 값을 그대로 고를 수 있어야 합니다.
+  const options = current !== undefined && !fonts.selectable.includes(current)
+    ? [current, ...fonts.selectable]
+    : fonts.selectable;
+  // 굵게·기울임 변형의 등록이 실패했을 때도 알려야 하므로 스타일 전체로 판정합니다.
+  const style = opts?.style ?? { fontName: current };
+  const unregistered = fonts.isUnregistered(current);
+  const failed = fonts.hasFailed(style);
+  const applied = fonts.appliedName(style);
   return html`
     <div class="prop-row">
       <label>${s.fontName}</label>
       ${kit.listSelect({
         id: 'font-name',
-        ariaLabel: ariaLabel ?? s.fontName,
+        ariaLabel: opts?.ariaLabel ?? s.fontName,
         value: current ?? '',
         className: current === undefined ? 'dim' : '',
         options: [
-          { value: '', label: s.fontDefault },
+          { value: '', label: inherit.label },
           ...options.map((name) => ({ value: name, label: name })),
         ],
         onPick: (value) => apply(value || null),
       })}
-    </div>`;
+    </div>
+    ${unregistered || failed
+      ? html`<div class="font-note">
+          <span>${unregistered ? s.fontUnregistered : s.fontLoadFailed}</span>
+          ${applied === undefined ? nothing : html`<span>${s.fontApplied}: ${applied}</span>`}
+        </div>`
+      : current === undefined && inherit.note !== undefined
+        ? html`<div class="font-note"><span>${inherit.note}</span></div>`
+        : nothing}`;
+}
+
+/**
+ * 굵게·기울임에 쓸 변형 글꼴이 없다는 안내를 렌더링합니다.
+ *
+ * @remarks
+ * PDF는 등록된 변형 글꼴이 없으면 굵게·기울임을 적용하지 않습니다. 캔버스도 같은 규칙을
+ * 사용하므로 스타일이 적용되지 않는 이유를 폰트 항목에서 알립니다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param fonts - 폰트 목록과 브라우저 등록 상태
+ * @param style - 요소·셀에 적용되는 폰트 이름과 굵게·기울임
+ * @returns 안내 조각. 알릴 것이 없으면 빈 템플릿
+ */
+export function fontVariantNote(kit: PanelKit, fonts: DesignerFonts, style: FontStyleInput) {
+  if (fonts.names.length === 0) return nothing;
+  const bold = style.bold === true;
+  const italic = style.italic === true;
+  if (!bold && !italic) return nothing;
+  const s = kit.s;
+  const at = (b?: boolean, i?: boolean): string | undefined =>
+    fonts.resolvedName({ fontName: style.fontName, bold: b, italic: i });
+  const plain = at();
+  const chosen = at(bold, italic);
+  // 변형 글꼴이 있으면 고른 폰트가 굵게·기울임을 뺀 결과와 달라집니다.
+  if (chosen !== plain && !(bold && italic)) return nothing;
+  if (!bold) return html`<div class="font-note"><span>${s.fontNoItalic}</span></div>`;
+  if (!italic) {
+    return chosen === plain
+      ? html`<div class="font-note"><span>${s.fontNoBold}</span></div>`
+      : nothing;
+  }
+  // 굵게와 기울임을 함께 쓰면 BoldItalic, Bold, Italic, 기본 형태 순으로 선택합니다.
+  if (chosen !== plain && chosen !== at(true) && chosen !== at(undefined, true)) return nothing;
+  const text = chosen === plain
+    ? s.fontNoBoldItalic
+    : chosen === at(true)
+      ? s.fontNoBoldItalicUsesBold
+      : s.fontNoBoldItalicUsesItalic;
+  return html`<div class="font-note"><span>${text}</span></div>`;
 }
 
 /**
@@ -177,6 +283,7 @@ export function fontProps(kit: PanelKit, act: ElementActions, el: SlipElement) {
     ${fontNameRow(kit, act,
       (el as { fontName?: string }).fontName,
       (v) => act.update((target) => setOptional(target, 'fontName', v)),
+      { style: el as FontStyleInput },
     )}
     ${numberRow(kit,
       s.fontSize, el.fontSize, DEFAULT_FONT_SIZE,
@@ -764,6 +871,7 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
                 setOptional(target, key, value ? true : null)),
             )
           : nothing}
+        ${hasTextDecor ? fontVariantNote(kit, act.fonts, el as FontStyleInput) : nothing}
       </div>` : nothing}
     ${hasBackground ? html`
       <div class="prop-section">

@@ -298,20 +298,14 @@ async function loadAppFonts(): Promise<SlipFont[]> {
   ];
 }
 
-let fontPromise:
-  Promise<SlipFont[]> | undefined;
-
 const slipkit = createSlipKit({
-  getFonts: () => {
-    fontPromise ??= loadAppFonts();
-    return fontPromise;
-  },
+  getFonts: loadAppFonts,
 });
 ```
 
 > [!TIP]
-> `getFonts`는 PDF를 렌더링할 때 다시 호출될 수 있습니다.
-> 네트워크나 파일 시스템에서 폰트를 읽는다면 위 예제처럼 결과 `Promise`를 보관하여 같은 폰트를 반복해서 불러오지 않도록 구성하세요.
+> `SlipKit` 인스턴스는 디자이너와 PDF 렌더러에서 성공한 `getFonts` 조회 결과를 재사용합니다.
+> 조회에 실패하면 다음 호출에서 공급 함수를 다시 실행합니다.
 
 ### 사용자 폰트 적용 규칙
 

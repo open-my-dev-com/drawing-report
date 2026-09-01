@@ -66,12 +66,12 @@ export function dashArrayOf(style: 'solid' | 'dashed' | 'dotted' | undefined): s
  * 글자 스타일을 세미콜론으로 시작하는 인라인 CSS 문자열로 변환합니다.
  *
  * @param style - 요소·셀의 글자 스타일
- * @param opts - `omitVerticalAlign`이 true이면 `justify-content`를 생략합니다.
+ * @param opts - `omitVerticalAlign`이 true이면 `justify-content`를 생략하고,
+ * `fontFamily`를 주면 그 폰트를 적용합니다.
  * @returns 세미콜론으로 시작하는 인라인 CSS 문자열
  */
 export function textStyleCss(
   style: {
-    bold?: boolean | undefined;
     underline?: boolean | undefined;
     strikethrough?: boolean | undefined;
     verticalAlignment?: 'top' | 'middle' | 'bottom' | undefined;
@@ -79,7 +79,7 @@ export function textStyleCss(
     characterSpacing?: number | undefined;
     vertical?: boolean | undefined;
   },
-  opts?: { omitVerticalAlign?: boolean },
+  opts?: { omitVerticalAlign?: boolean; fontFamily?: string | undefined },
 ): string {
   const decorations = [
     style.underline === true ? 'underline' : '',
@@ -89,9 +89,10 @@ export function textStyleCss(
   const verticalAlign = opts?.omitVerticalAlign
     ? ''
     : `;justify-content:${verticalFlexAlign(style.verticalAlignment)}`;
-  // 브라우저의 합성 italic과 PDF의 폰트 변형 처리 방식이 달라 캔버스에는 italic을 적용하지 않습니다.
+  // 굵게와 기울임은 PDF와 같은 변형 폰트로 표현합니다. 브라우저의 합성 굵게·기울임은
+  // 변형 폰트가 없을 때도 모양을 바꾸므로 PDF 출력과 어긋납니다.
   return (
-    (style.bold === true ? ';font-weight:700' : '') +
+    (opts?.fontFamily === undefined ? '' : `;font-family:${opts.fontFamily}`) +
     (decorations ? `;text-decoration:${decorations}` : '') +
     verticalAlign +
     // CSS의 half-leading만큼 위쪽 여백을 보정해 PDF와 첫 줄 위치를 맞춥니다.

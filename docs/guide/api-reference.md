@@ -185,7 +185,7 @@ interface SlipKit {
 | Property or method | Return value | Description |
 |---|---|---|
 | `locale` | `string \| undefined` | The locale configured for this instance |
-| `getFonts` | Function or `undefined` | The font provider configured for this instance |
+| `getFonts` | Function or `undefined` | Returns the instance's shared font result. Successful results are reused; failed lookups are retried on the next call. |
 | `render` | `Promise<Uint8Array>` | Converts a template or voucher into PDF bytes |
 | `buildVoucher` | `SlipVoucherFile` | Creates a draft voucher from a template and values |
 | `evaluate` | `FormulaValue` | Evaluates a formula string or AST |

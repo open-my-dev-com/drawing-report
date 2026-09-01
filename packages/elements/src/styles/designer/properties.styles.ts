@@ -677,6 +677,19 @@ export const propertiesStyles = css`
       color: var(--sk-text-muted);
       line-height: 1.5;
     }
+    /* 폰트 선택 아래의 대체·변형 안내 */
+    .font-note {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      margin: -2px 0 4px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--sk-text-muted);
+    }
+    .font-note span:first-child {
+      color: var(--sk-danger);
+    }
     .cell-hint.error {
       color: var(--sk-danger);
     }

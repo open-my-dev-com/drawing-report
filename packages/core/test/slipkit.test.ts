@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   CURRENT_SCHEMA_VERSION,
   createSlipKit,
@@ -37,6 +37,50 @@ describe('createSlipKit (ADR-056)', () => {
     expect(slip.evaluate('FORMAT_NUMBER(1234.5)', { values: {} })).toBe('1.234,5');
     // 평가 컨텍스트의 로케일이 SlipKit 설정보다 우선한다.
     expect(slip.evaluate('FORMAT_NUMBER(1234.5)', { values: {}, locale: 'ko-KR' })).toBe('1,234.5');
+  });
+
+  it('getFonts는 인스턴스 안에서 한 번만 호출하고 결과를 공유한다', async () => {
+    const fonts = [{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }];
+    const supply = vi.fn(() => fonts);
+    const slip = createSlipKit({ getFonts: supply });
+
+    // 디자이너와 렌더링 경로가 같은 조회 결과를 공유합니다.
+    await slip.getFonts!();
+    await slip.getFonts!();
+    await slip.render(template());
+    await slip.render(template());
+    expect(supply).toHaveBeenCalledTimes(1);
+  });
+
+  it('getFonts 조회에 실패하면 다음 호출에서 다시 시도한다', async () => {
+    const fonts = [{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }];
+    let attempt = 0;
+    const supply = vi.fn(() => {
+      attempt += 1;
+      if (attempt === 1) return Promise.reject(new Error('네트워크 오류'));
+      return Promise.resolve(fonts);
+    });
+    const slip = createSlipKit({ getFonts: supply });
+
+    await expect(slip.getFonts!()).rejects.toThrow('네트워크 오류');
+    await expect(slip.getFonts!()).resolves.toEqual(fonts);
+    expect(supply).toHaveBeenCalledTimes(2);
+  });
+
+  it('getFonts에서 동기 예외가 발생해도 Promise 거부로 처리하고 다시 시도한다', async () => {
+    const fonts = [{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }];
+    let attempt = 0;
+    const supply = vi.fn(() => {
+      attempt += 1;
+      if (attempt === 1) throw new Error('설정 오류');
+      return fonts;
+    });
+    const slip = createSlipKit({ getFonts: supply });
+
+    // 호출은 동기 예외를 던지지 않고 거부된 Promise를 반환합니다.
+    await expect(slip.getFonts!()).rejects.toThrow('설정 오류');
+    await expect(slip.getFonts!()).resolves.toEqual(fonts);
+    expect(supply).toHaveBeenCalledTimes(2);
   });
 
   it('encrypt/decrypt는 설정 키로 왕복한다', async () => {
@@ -82,11 +126,12 @@ describe('createSlipKit (ADR-056)', () => {
     expect(new TextDecoder().decode(pdf.slice(0, 4))).toBe('%PDF');
   });
 
-  it('인스턴스는 설정된 locale과 getFonts를 노출한다 — UI와 저장소가 재사용한다', () => {
-    const getFonts = () => [];
-    const slip = createSlipKit({ locale: 'ko', getFonts });
+  it('인스턴스는 설정된 locale과 getFonts를 노출한다 — UI와 저장소가 재사용한다', async () => {
+    const fonts = [{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }];
+    const slip = createSlipKit({ locale: 'ko', getFonts: () => fonts });
     expect(slip.locale).toBe('ko');
-    expect(slip.getFonts).toBe(getFonts);
+    // 조회 결과를 공유하도록 감싸므로 함수 자체가 아니라 반환값으로 확인합니다.
+    await expect(slip.getFonts!()).resolves.toEqual(fonts);
 
     const bare = createSlipKit();
     expect(bare.locale).toBeUndefined();

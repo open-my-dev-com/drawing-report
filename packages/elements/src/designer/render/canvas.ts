@@ -62,6 +62,7 @@ import { BARCODE_KINDS, BARCODE_2D } from '../barcode.js';
 import { TYPE_BADGE } from './badges.js';
 import type { GridBandPlacement } from '@omdc-slipkit/core';
 import type { GridEditController } from '../controllers/grid-edit.js';
+import type { DesignerFonts } from '../font-variant.js';
 import type { DesignerStrings } from '../../strings.js';
 
 /** 캔버스가 컴포넌트에서 받는 것 */
@@ -70,6 +71,8 @@ export interface CanvasContext {
   readonly s: DesignerStrings;
   /** 지금 값으로 계산되지 않는 수식이 있는 요소와 셀 */
   readonly formulaWarnings: FormulaWarnings;
+  /** 폰트 목록과 브라우저 등록 상태 */
+  readonly fonts: DesignerFonts;
   /** 수식 평가에 사용할 로케일 */
   readonly evalLocale: string | undefined;
   /** 편집 중인 양식 */
@@ -421,11 +424,14 @@ export function cellEditor(ctx: CanvasContext) {
   const fg = cell?.fontColor ?? el.fontColor;
   const size = cell?.fontSize ?? el.fontSize;
   const align = cell?.alignment ?? el.alignment;
+  // 편집 중에도 캔버스·PDF와 같은 폰트로 보이도록 셀에 적용되는 폰트를 그대로 씁니다.
+  const family = ctx.fonts.cssFamily({ ...el, ...cell });
   const inherited = [
     bg ? `background:${bg}` : 'background:transparent',
     fg ? `color:${fg}` : '',
     size ? `font-size:${fontPx(size)}` : '',
     align ? `text-align:${align}` : '',
+    family ? `font-family:${family}` : '',
   ].filter(Boolean).join(';');
   return html`<input class="cell-editor"
     style="left:${rect.left}px;top:${rect.top}px;width:${Math.max(24, rect.width)}px;height:${Math.max(16, rect.height)}px;${inherited}"
@@ -574,7 +580,8 @@ export function elementContent(ctx: CanvasContext, el: SlipElement, fragment: Gr
       // 조건부 서식의 글자 강조를 샘플 값으로 미리 적용합니다.
       const styled = { ...el, ...previewConditionalColors(ctx, el.conditionalFormats) };
       return html`<span class="el-content"
-        style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(styled)}"
+        style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${
+          textStyleCss(styled, { fontFamily: ctx.fonts.cssFamily(styled) })}"
         >${stackVertically(el.content, el.vertical)}</span>`;
     }
 
@@ -609,7 +616,8 @@ export function elementContent(ctx: CanvasContext, el: SlipElement, fragment: Gr
       // 조건부 서식의 글자 강조를 샘플 값으로 미리 적용합니다.
       const styled = { ...el, ...previewConditionalColors(ctx, el.conditionalFormats) };
       return html`<span class="el-content"
-        style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${textStyleCss(styled)}"
+        style="font-size:${fontPx(el.fontSize)};text-align:${el.alignment ?? 'left'}${
+          textStyleCss(styled, { fontFamily: ctx.fonts.cssFamily(styled) })}"
         >${stackVertically(label, el.vertical)}</span>`;
     }
 
@@ -1033,7 +1041,8 @@ export function gridCellBox(
     cell.vertical === true ? 'white-space:pre-wrap' : '',
     backgroundColor ? `background-color:${backgroundColor}` : '',
     fontColor ? `color:${fontColor}` : '',
-  ].filter(Boolean).join(';') + textStyleCss(merged, { omitVerticalAlign: true });
+  ].filter(Boolean).join(';')
+    + textStyleCss(merged, { omitVerticalAlign: true, fontFamily: ctx.fonts.cssFamily(merged) });
   // 빈 항목은 파라미터 이름을 출력값처럼 표시하지 않습니다 (§7.5).
   const text = context.empty === true
     ? ''

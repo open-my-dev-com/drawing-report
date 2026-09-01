@@ -227,6 +227,16 @@ The selected elements can be moved together or bundled into a group. Once groupe
 
 </details>
 
+### Choosing fonts
+
+- Text and field elements have a <kbd>Font</kbd> setting.
+- A grid has a common font, and each cell can either inherit it or choose another font.
+- Choose <kbd>Default</kbd> to remove an explicit font assignment. A grid cell then inherits the grid's common font.
+- If a saved font is unavailable, the designer preserves its name and shows the fallback font currently in use.
+- Bold and italic use registered `-Bold`, `-Italic`, and `-BoldItalic` variants. If a required variant is unavailable, the settings panel explains which form is displayed.
+
+The canvas, inline cell editor, and PDF use the same font and variant selection rules. Line breaks may still differ because the browser and PDF renderer measure text differently.
+
 ### Distinguishing fixed and variable values
 
 Content that is always the same in the document is placed as a text element.

@@ -1110,7 +1110,8 @@ describe('글자 조판 변환', () => {
 
   it('기울임은 자형 폰트가 있을 때만 그 폰트로 바뀐다 (없으면 무시)', () => {
     const file = makeFile([{ type: 'text', ...base, content: '가', italic: true, fontName: 'Han' }]);
-    const withoutItalic = convertSlipFile(file).template.schemas as PdfmeSchema[][];
+    const withoutItalic = convertSlipFile(file, { fontNames: ['Han'] })
+      .template.schemas as PdfmeSchema[][];
     expect((withoutItalic[0]!.find((s) => s.name === 't1') as Record<string, unknown>)['fontName'])
       .toBe('Han');
 
@@ -1118,6 +1119,135 @@ describe('글자 조판 변환', () => {
       .template.schemas as PdfmeSchema[][];
     expect((withItalic[0]!.find((s) => s.name === 't1') as Record<string, unknown>)['fontName'])
       .toBe('Han-Italic');
+  });
+});
+
+describe('등록되지 않은 폰트 이름의 대체', () => {
+  const REGISTERED = ['Pretendard', 'Pretendard-Bold', 'Pretendard-Italic', 'Noto Sans JP'];
+  const OPTIONS = { fontNames: REGISTERED, fallbackFontName: 'Pretendard' };
+  const base = { id: 't1', name: '글', position: { x: 10, y: 10 }, width: 60, height: 20 };
+
+  function makeFile(elements: SlipElement[]): SlipTemplateFile {
+    return {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'template',
+      template: {
+        meta: { title: '폰트 대체 시험' },
+        paper: { width: 210, height: 297, padding: [10, 10, 10, 10] },
+        pages: [{ elements }],
+        assets: [],
+      },
+    };
+  }
+
+  /** 변환 결과에서 이름으로 schema를 찾아 fontName을 읽습니다. */
+  function fontNameOf(file: SlipTemplateFile, name: string): string | undefined {
+    const [schemas] = convertSlipFile(file, OPTIONS).template.schemas as PdfmeSchema[][];
+    const schema = schemas!.find((s) => s.name === name) as Record<string, unknown> | undefined;
+    return schema?.['fontName'] as string | undefined;
+  }
+
+  it('등록되지 않은 이름은 schema에 넣지 않아 대체 폰트로 그려진다', () => {
+    const file = makeFile([{ type: 'text', ...base, content: '가', fontName: 'NoSuchFont' }]);
+    expect(fontNameOf(file, 't1')).toBeUndefined();
+  });
+
+  it('등록되지 않은 이름에 굵게를 지정하면 대체 폰트의 굵은 변형을 쓴다', () => {
+    const file = makeFile([{
+      type: 'text', ...base, content: '가', fontName: 'NoSuchFont', bold: true,
+    }]);
+    expect(fontNameOf(file, 't1')).toBe('Pretendard-Bold');
+  });
+
+  it('굵게와 기울임을 함께 지정하면 대체 폰트에서 변형 순서를 따른다', () => {
+    const file = makeFile([{
+      type: 'text', ...base, content: '가', fontName: 'NoSuchFont', bold: true, italic: true,
+    }]);
+    // BoldItalic이 없으므로 Bold를 선택합니다.
+    expect(fontNameOf(file, 't1')).toBe('Pretendard-Bold');
+  });
+
+  it('등록된 이름과 등록된 변형 이름은 그대로 쓴다', () => {
+    const plain = makeFile([{ type: 'text', ...base, content: '가', fontName: 'Noto Sans JP' }]);
+    expect(fontNameOf(plain, 't1')).toBe('Noto Sans JP');
+
+    const variant = makeFile([{ type: 'text', ...base, content: '가', fontName: 'Pretendard-Bold' }]);
+    expect(fontNameOf(variant, 't1')).toBe('Pretendard-Bold');
+  });
+
+  it('그리드 공통 폰트와 셀 폰트가 미등록이어도 같은 규칙으로 대체한다', () => {
+    const file = makeFile([{
+      type: 'grid', id: 'g1', name: '표', position: { x: 10, y: 10 },
+      fontName: 'NoSuchFont',
+      columns: [{ width: 30 }, { width: 30 }],
+      rows: [{ height: 10 }],
+      cells: [
+        { row: 0, column: 0, content: '가' },
+        { row: 0, column: 1, content: '나', fontName: 'AlsoMissing', bold: true },
+      ],
+    } as unknown as SlipElement]);
+    const [schemas] = convertSlipFile(file, OPTIONS).template.schemas as PdfmeSchema[][];
+    const cells = schemas!.filter((s) => s.name.includes('__cell-')) as Record<string, unknown>[];
+    expect(cells).toHaveLength(2);
+    expect(cells[0]!['fontName']).toBeUndefined();
+    expect(cells[1]!['fontName']).toBe('Pretendard-Bold');
+  });
+
+  // 이 표는 `packages/elements/test/designer/font-variant.test.ts`의 같은 표와 짝입니다.
+  // 캔버스와 PDF가 같은 폰트를 고르는지 두 곳에서 같은 기대값으로 확인합니다.
+  const PARITY: { label: string; style: Record<string, unknown>; expected: string | undefined }[] = [
+    { label: '지정 없음', style: {}, expected: undefined },
+    { label: '지정 없음 + 굵게', style: { bold: true }, expected: 'Pretendard-Bold' },
+    { label: '등록된 폰트', style: { fontName: 'Noto Sans JP' }, expected: 'Noto Sans JP' },
+    {
+      label: '등록된 폰트 + 굵게 (변형 없음)',
+      style: { fontName: 'Noto Sans JP', bold: true },
+      expected: 'Noto Sans JP',
+    },
+    {
+      label: '등록된 폰트 + 굵게 (변형 있음)',
+      style: { fontName: 'Pretendard', bold: true },
+      expected: 'Pretendard-Bold',
+    },
+    {
+      label: '등록된 폰트 + 기울임',
+      style: { fontName: 'Pretendard', italic: true },
+      expected: 'Pretendard-Italic',
+    },
+    {
+      label: '등록된 폰트 + 굵게·기울임',
+      style: { fontName: 'Pretendard', bold: true, italic: true },
+      expected: 'Pretendard-Bold',
+    },
+    { label: '등록된 변형 이름', style: { fontName: 'Pretendard-Bold' }, expected: 'Pretendard-Bold' },
+    { label: '미등록 폰트', style: { fontName: 'NoSuchFont' }, expected: undefined },
+    {
+      label: '미등록 폰트 + 굵게',
+      style: { fontName: 'NoSuchFont', bold: true },
+      expected: 'Pretendard-Bold',
+    },
+    {
+      label: '미등록 폰트 + 굵게·기울임',
+      style: { fontName: 'NoSuchFont', bold: true, italic: true },
+      expected: 'Pretendard-Bold',
+    },
+  ];
+
+  for (const { label, style, expected } of PARITY) {
+    it(`${label}에서 정해진 폰트를 쓴다`, () => {
+      const file = makeFile([{ type: 'text', ...base, content: '가', ...style } as SlipElement]);
+      // undefined는 schema에 이름을 넣지 않아 대체 폰트를 쓴다는 뜻입니다.
+      expect(fontNameOf(file, 't1')).toBe(expected);
+    });
+  }
+
+  it('변환은 원본 파일의 fontName을 바꾸지 않는다', () => {
+    const file = makeFile([{ type: 'text', ...base, content: '가', fontName: 'NoSuchFont' }]);
+    const before = JSON.stringify(file);
+    convertSlipFile(file, OPTIONS);
+    expect(JSON.stringify(file)).toBe(before);
+    expect((file.template.pages[0]!.elements[0] as { fontName?: string }).fontName)
+      .toBe('NoSuchFont');
   });
 });
 

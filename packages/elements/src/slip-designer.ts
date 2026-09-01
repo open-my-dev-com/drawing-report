@@ -24,6 +24,21 @@ import {
 } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
 import { renderSlip, resolveFonts, type SlipDesignerSettings, type PaperSize } from './settings.js';
+import {
+  FontRegistryController,
+  bundledFontSourceKey,
+} from './designer/controllers/font-registry.js';
+import {
+  NO_DESIGNER_FONTS,
+  baseFontName,
+  collectUsedFontNames,
+  effectiveFontName,
+  selectableFontNames,
+  variantCandidates,
+  variantFontNames,
+  type DesignerFonts,
+  type FontStyleInput,
+} from './designer/font-variant.js';
 import { getPresets, type SlipPreset } from './presets.js';
 import { pickImageFile } from './image-file.js';
 import {
@@ -168,7 +183,6 @@ export class SlipDesigner extends LitElement {
     _selectedIds: { state: true },
     _hostPaperSizes: { state: true },
     _hostBarcodeKinds: { state: true },
-    _fontNames: { state: true },
     _inputError: { state: true },
     _inputErrorField: { state: true },
     _paperSaveName: { state: true },
@@ -255,8 +269,6 @@ export class SlipDesigner extends LitElement {
   private _hostPaperSizes: PaperSize[] = [];
   /** 호스트가 `settings.getBarcodeKinds`로 제한한 바코드 종류  */
   private _hostBarcodeKinds: BarcodeKind[] = [];
-  /** 호스트 제공 폰트와 기본 폰트에서 수집한 폰트 이름  */
-  private _fontNames: string[] = [];
   /** 사용자 지정 용지 이름의 편집 중 값 */
   private _paperSaveName = '';
   private _undoStack: string[] = [];
@@ -311,6 +323,11 @@ export class SlipDesigner extends LitElement {
     return this.locale ?? this.slipkit?.locale;
   }
 
+  /** 동봉 기본 폰트와 PDF 렌더링에 사용할 로케일 — `renderSlip`과 같은 기준입니다 */
+  private get _renderLocale(): string | undefined {
+    return this.slipkit?.locale ?? this.locale;
+  }
+
   /** 수식·조건식 평가에 사용할 로케일 — slipkit이 있으면 인스턴스 설정을 따릅니다 */
   private get _evalLocale(): string | undefined {
     return this.slipkit ? this.slipkit.locale : this.locale;
@@ -347,6 +364,7 @@ export class SlipDesigner extends LitElement {
     // `_gridCommands`는 자체 상태가 없고 `_modalFocus`는 갱신을 요청하지 않습니다.
     for (const controller of [
       this._dialogs,
+      this._fontRegistry,
       this._pointer,
       this._popovers,
       this._picker,
@@ -361,6 +379,8 @@ export class SlipDesigner extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    // 연결이 끊긴 동안 외부 폰트 조회가 성공했을 수 있으므로 실패 상태일 때만 다시 확인합니다.
+    this._retryFontSource();
     this.addEventListener('keydown', this._onKeyDown);
     if (!this.hasAttribute('tabindex')) {
       this.setAttribute('tabindex', '0');
@@ -384,13 +404,15 @@ export class SlipDesigner extends LitElement {
       void this._loadBarcodeKinds();
     }
     // 폰트 목록은 slipkit의 공급 함수 또는 로케일별 동봉 기본 폰트에서 가져옵니다.
-    if (changed.has('slipkit') || changed.has('locale')) {
-      void this._loadFontNames();
-    }
+    // 같은 출처는 다시 가져오지 않으므로 첫 갱신을 포함해 매번 확인합니다.
+    this._useFontSource();
   }
 
   /** 열려 있는 모달 */
   private readonly _dialogs = new DialogsController(this);
+
+  /** 폰트 목록과 브라우저 등록 상태 */
+  private readonly _fontRegistry = new FontRegistryController(this);
 
   /** 속성 패널 렌더 모듈에 넘길 공통 입력 도구 */
   private get _kit(): PanelKit {
@@ -423,7 +445,7 @@ export class SlipDesigner extends LitElement {
         this._anchorByElement.set(elementId, index);
         this.requestUpdate();
       },
-      fontNames: this._fontNames,
+      fonts: this._fonts,
       setFieldSource: (kind) => this._setFieldSource(kind),
       parameterSelect: (current) => this._renderParameterSelect(current),
       barcodeParameterSelect: (current) => this._renderBarcodeParameterSelect(current),
@@ -587,11 +609,18 @@ export class SlipDesigner extends LitElement {
   /** 이번 렌더에서 사이드바와 캔버스가 함께 쓰는 경고 집계 */
   private _warnings: FormulaWarnings = NO_FORMULA_WARNINGS;
 
+  /** 이번 렌더에서 속성 패널과 캔버스가 함께 쓰는 폰트 상태 */
+  private _fonts: DesignerFonts = NO_DESIGNER_FONTS;
+
+  /** 폰트 출처를 마지막으로 정할 때의 설정. 같으면 다시 확인하지 않습니다 */
+  private _fontSourceFor: { slipkit: SlipKit | undefined; locale: string | undefined } | null = null;
+
   /** 캔버스의 상태와 조작 */
   private get _canvasContext(): CanvasContext {
     return {
       s: this._strings.designer,
       formulaWarnings: this._warnings,
+      fonts: this._fonts,
       evalLocale: this._evalLocale,
       file: this._file,
       pageIndex: this._pageIndex,
@@ -1484,6 +1513,8 @@ export class SlipDesigner extends LitElement {
           : this._file;
       const pdfBytes = await renderSlip(this.slipkit, target, this._locale);
       if (gen !== this._previewGeneration) return;
+      // 렌더링이 성공했다면 후속 폰트 조회도 성공했을 수 있으므로 출처를 다시 확인합니다.
+      this._retryFontSource();
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._previewUrl = URL.createObjectURL(blob);
     } catch (error) {
@@ -1504,8 +1535,9 @@ export class SlipDesigner extends LitElement {
         ${this._error ?? this._strings.designer.noTemplate}
       </div>`;
     }
-    // 사이드바와 캔버스가 같은 결과를 나눠 쓰도록 한 번 그릴 때 한 번만 모읍니다.
+    // 사이드바와 캔버스가 동일한 경고 집계를 사용하도록 렌더링마다 한 번만 수집합니다.
     this._warnings = this._collectFormulaWarnings();
+    this._fonts = this._collectFonts();
 
     return html`
       <div class="toolbar">${toolbar(this._toolbarActions)}</div>
@@ -2362,16 +2394,97 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 폰트 선택기에 표시할 기본 폰트 이름을 수집합니다.
-   * Bold, Italic, BoldItalic 변형은 선택 목록에서 제외합니다.
+   * 폰트 출처를 폰트 등록기에 지정합니다.
+   *
+   * @remarks
+   * 동봉 폰트는 로케일에 따라 대체 폰트가 달라지므로 PDF 렌더링과 같은 기준
+   * (`slipkit.locale`을 먼저 보는 렌더 로케일)을 씁니다. UI 로케일을 쓰면 캔버스와 PDF의
+   * 대체 폰트가 어긋납니다.
+   *
+   * 호스트가 실제로 폰트를 준 경우에만 인스턴스로 출처를 나눕니다. `getFonts`가 빈 목록을
+   * 주면 캔버스도 PDF와 같이 동봉 폰트를 쓰므로 로케일별 출처를 씁니다.
    */
-  private async _loadFontNames(): Promise<void> {
-    const fonts = await resolveFonts(this.slipkit, this._locale);
-    const names = fonts
-      .map((f) => f.name)
-      .filter((n) => !/-(Bold|Italic|BoldItalic)$/.test(n));
-    this._fontNames = [...new Set(names)];
-    this.requestUpdate();
+  private _useFontSource(): void {
+    const slipkit = this.slipkit;
+    const locale = this._renderLocale;
+    // 같은 설정에서는 다시 확인하지 않습니다. 화면을 갱신할 때마다 호출하면 실패 시 재시도가 반복됩니다.
+    const last = this._fontSourceFor;
+    if (last !== null && last.slipkit === slipkit && last.locale === locale) return;
+    this._fontSourceFor = { slipkit, locale };
+    const registry = this._fontRegistry;
+    const useBundled = (): void => {
+      registry.use(bundledFontSourceKey(locale), () => resolveFonts(undefined, locale));
+    };
+    if (slipkit?.getFonts === undefined) {
+      useBundled();
+      return;
+    }
+    // 동기 예외도 Promise 거부로 처리하여 화면 갱신이 중단되지 않게 합니다.
+    // 인스턴스가 결과를 재사용하므로 이 확인이 공급 함수를 다시 부르지는 않습니다.
+    void Promise.resolve().then(() => slipkit.getFonts!()).then(
+      (fonts) => {
+        if (this.slipkit !== slipkit || this._renderLocale !== locale) return;
+        if (fonts.length > 0) registry.use(slipkit, () => Promise.resolve(fonts));
+        else useBundled();
+      },
+      (error: unknown) => {
+        if (this.slipkit !== slipkit || this._renderLocale !== locale) return;
+        // 공급 실패를 출처 상태로 기록하여 같은 인스턴스를 쓰는 화면에 함께 반영합니다.
+        registry.use(slipkit, () => Promise.reject(error));
+      },
+    );
+  }
+
+  /**
+   * 실패했던 폰트 조회를 다시 시도합니다.
+   *
+   * @remarks
+   * 조회 실패는 화면 갱신을 요청하므로 매번 재시도하면 실패와 갱신이 반복됩니다. 설정이 바뀌거나
+   * 미리보기 렌더링이 성공하는 등 성공 가능성이 생긴 시점에만 다시 확인합니다.
+   */
+  private _retryFontSource(): void {
+    if (!this._fontRegistry.loadFailed) return;
+    this._fontSourceFor = null;
+    this._useFontSource();
+  }
+
+  /**
+   * 이번 렌더에서 쓸 폰트 상태를 만들고 필요한 폰트를 브라우저에 등록합니다.
+   *
+   * @returns 속성 패널과 캔버스가 함께 쓰는 폰트 상태
+   */
+  private _collectFonts(): DesignerFonts {
+    const registry = this._fontRegistry;
+    const names = registry.fontNames;
+    if (names.length === 0) return NO_DESIGNER_FONTS;
+    const fallback = registry.fallbackName;
+    // 굵게·기울임 조합마다 다른 변형이 필요하므로 지정된 폰트의 변형을 함께 등록합니다.
+    const used = collectUsedFontNames(this._file?.template.pages ?? []);
+    if (fallback !== undefined) used.push(fallback);
+    const required = new Set<string>();
+    for (const name of used) {
+      for (const variant of variantFontNames(names, name)) required.add(variant);
+    }
+    registry.ensure(required);
+    const resolved = (style: FontStyleInput): string | undefined =>
+      effectiveFontName(names, style.fontName, fallback, style.bold, style.italic);
+    // 등록된 폰트를 PDF와 같은 우선순위로 선택합니다. 지정한 폰트 계열을 쓸 수 없으면
+    // 대체 폰트 계열에서 다시 찾고, 등록 상태가 바뀌면 화면을 다시 그립니다.
+    const readyIn = (base: string | undefined, style: FontStyleInput): string | undefined =>
+      variantCandidates(names, base, style.bold, style.italic).find((name) => registry.isReady(name));
+    const applied = (style: FontStyleInput): string | undefined =>
+      readyIn(baseFontName(names, style.fontName, fallback), style)
+      ?? readyIn(fallback, style);
+    return {
+      names,
+      selectable: selectableFontNames(names),
+      fallback,
+      resolvedName: resolved,
+      appliedName: applied,
+      cssFamily: (style) => registry.familyOf(applied(style)),
+      isUnregistered: (fontName) => fontName !== undefined && !names.includes(fontName),
+      hasFailed: (style) => registry.failed(resolved(style)),
+    };
   }
 
   /** 호스트가 지정한 바코드 종류를 불러옵니다. */
