@@ -104,7 +104,7 @@ const colorStyleShape = {
  */
 const conditionalFormatRuleSchema = z
   .object({
-    /** 논리값을 반환하는 조건식. 반복 구간 안에서는 현재 항목의 필드를 참조할 수 있다. */
+    /** 논리값을 반환하는 조건식. 항목 구간 안에서는 현재 항목의 필드를 참조할 수 있다. */
     condition: z.string().min(1),
     fontColor: colorSchema.optional(),
     backgroundColor: colorSchema.optional(),
@@ -242,8 +242,8 @@ const overflowSchema = z.enum(['clip', 'shrink']);
 const gridColumnSchema = z.object({
   width: positiveMm,
   /**
-   * 자동 병합 여부. 반복 영역에서 이전 항목과 값이 같은 셀을 세로로 병합한다.
-   * 반복 구간 밖은 영향받지 않는다. 켜려면 그 열의 반복 구간 셀이 구간 전체 높이를 차지해야 한다.
+   * 자동 병합 여부. 항목 구간에서 이전 항목과 값이 같은 셀을 세로로 병합한다.
+   * 항목 구간 밖은 영향받지 않는다. 켜려면 그 열의 항목 구간 셀이 구간 전체 높이를 차지해야 한다.
    */
   autoMerge: z.boolean().optional(),
 });
@@ -266,7 +266,7 @@ const gridCellSchema = z.object({
   colSpan: z.number().int().min(1).optional(),
   /** 직접 입력한 글 */
   content: z.string().optional(),
-  /** 값 키 — 반복 구간 안이면 그 항목의 필드, 밖이면 전표 values의 키 */
+  /** 값 키 — 항목 구간 안이면 그 항목의 필드, 밖이면 전표 values의 키 */
   parameter: idSchema.optional(),
   /** 표시 값을 계산하는 수식. */
   formula: z.string().optional(),
@@ -1231,7 +1231,7 @@ export type GridCell = z.infer<typeof gridCellSchema>;
 /** 조건부 서식 규칙. */
 export type ConditionalFormatRule = z.infer<typeof conditionalFormatRuleSchema>;
 
-/** 그리드의 반복 구간. */
+/** 그리드의 반복 설정. */
 export type GridRepeat = z.infer<typeof gridRepeatSchema>;
 
 export type GridBand = z.infer<typeof gridBandSchema>;

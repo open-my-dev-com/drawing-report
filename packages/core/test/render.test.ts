@@ -171,7 +171,7 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     expect(template.schemas).toHaveLength(1);
   });
 
-  it('text는 text 스키마로, 직접 입력한 글를 그대로 값으로 넘긴다', () => {
+  it('text는 text 스키마로, 직접 입력한 글을 그대로 값으로 넘긴다', () => {
     const { template, inputs } = convertSlipFile(makeTemplateFile());
     const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
     const title = findSchema(schemas, 'title');
@@ -405,7 +405,7 @@ describe('그리드 셀별 테두리 (ADR-033)', () => {
   });
 });
 
-describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
+describe('픽스처 그리드의 항목 구간 변환 (ADR-037)', () => {
   /** 그리드가 낸 텍스트 값 목록 (그린 순서대로) */
   function itemTexts(file: SlipTemplateFile | SlipVoucherFile): string[] {
     const { template, inputs } = convertSlipFile(file);
@@ -415,7 +415,7 @@ describe('픽스처 그리드의 반복 구간 변환 (ADR-037)', () => {
       .map((schema) => inputs[0]?.[schema.name] ?? '');
   }
 
-  it('반복 구간이 전표 값으로 채워지고 헤더는 직접 입력한 글를 쓴다', () => {
+  it('항목 구간이 전표 값으로 채워지고 헤더는 직접 입력한 글을 쓴다', () => {
     const texts = itemTexts(makeVoucher(2));
     expect(texts.slice(0, 3)).toEqual(['품명', '수량', '금액']);
     expect(texts).toContain('테스트 품목 1');
@@ -902,8 +902,8 @@ function gridTexts(file: SlipVoucherFile | SlipTemplateFile, pageIndex = 0): str
     .map((schema) => inputs[0]?.[schema.name] ?? '');
 }
 
-describe('그리드(grid) 변환 — 반복 구간 (ADR-037)', () => {
-  it('반복 구간이 항목 수만큼 복제되고 셀 값·수식이 채워진다', () => {
+describe('그리드(grid) 변환 — 항목 구간 (ADR-037)', () => {
+  it('항목 구간이 항목 수만큼 복제되고 셀 값·수식이 채워진다', () => {
     const texts = gridTexts(makeGridVoucher(3));
     // 값 칸은 그대로, 수식 칸(합계)만 포맷된다
     expect(texts).toEqual(['품명', '금액', '품목 1', '1000', '품목 2', '2000', '품목 3', '3000', '합계', '6,000']);
@@ -944,7 +944,7 @@ describe('그리드(grid) 변환 — 반복 구간 (ADR-037)', () => {
     expect(Math.min(...cellYs)).toBe(20);
   });
 
-  it('반복 구간이 없으면 고정 틀로 그린다', () => {
+  it('항목 구간이 없으면 고정 틀로 그린다', () => {
     const body = makeGridBody();
     const grid = body.pages[0]!.elements[1] as Extract<SlipElement, { type: 'grid' }>;
     delete (grid as { repeat?: unknown }).repeat;
@@ -1239,7 +1239,7 @@ describe('데이터 자동 병합 (ADR-038)', () => {
       templateSnapshot: makeBody(autoMerge, perPage), values: { rows }, issued: false,
     };
   }
-  /** 반복 구간 칸(값·수식)의 텍스트만, 페이지별 */
+  /** 항목 구간 칸(값·수식)의 텍스트만, 페이지별 */
   function bandTexts(file: SlipVoucherFile, pageIndex = 0): string[] {
     return gridTexts(file, pageIndex);
   }

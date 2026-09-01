@@ -2,7 +2,7 @@
  * 툴바와 패널에서 사용하는 아이콘 모음.
  *
  * 아이콘 저작권: Lucide Contributors, ISC 라이선스 — https://lucide.dev
- * lucide-static v1.33.0에서 추출했으며 색상은 `currentColor`를 사용한다.
+ * lucide-static v1.33.0에서 추출했으며 색상은 `currentColor`를 사용합니다.
  */
 import { svg, type TemplateResult } from 'lit';
 
@@ -16,7 +16,7 @@ export const icons = {
   /** lucide: type */
   text: icon(svg`<path d="M12 4v16" /><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" /><path d="M9 20h6" />`),
   /**
-   * 반복 구간을 강조한 그리드 요소 아이콘.
+   * 항목 구간을 강조한 그리드 요소 아이콘.
    */
   gridElement: icon(svg`<rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path d="M3 15h18" /><path d="M12 3v18" /><rect x="3" y="9" width="18" height="6" fill="currentColor" opacity="0.25" stroke="none" />`),
   /** lucide: image */

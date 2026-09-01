@@ -1,8 +1,8 @@
 /**
  * UI 문구 리소스.
  *
- * 문구는 이 파일의 언어별 사전에 정의하고 컴포넌트는 `locale` 속성으로 사전을 선택한다.
- * 새 문구는 모든 언어 사전에 추가하며 `SlipStrings` 타입으로 키 구성을 검사한다.
+ * 문구는 이 파일의 언어별 사전에 정의하고 컴포넌트는 `locale` 속성으로 사전을 선택합니다.
+ * 새 문구는 모든 언어 사전에 추가하며 `SlipStrings` 타입으로 키 구성을 검사합니다.
  */
 
 /** 지원하는 UI 언어. */
@@ -268,8 +268,8 @@ const ko = {
     styleBackground: '배경',
     styleBorder: '테두리',
     borderShape: '형태',
-    /* 선은 테두리를 두르는 게 아니라 선 자체가 굵기·색·모양을 갖는다  */
-    /* 이미지 업로드: 파일을 base64로 저장하며 URL 입력은 제공하지 않는다. */
+    /* 선은 테두리를 두르는 게 아니라 선 자체가 굵기·색·모양을 갖습니다  */
+    /* 이미지 업로드: 파일을 base64로 저장하며 URL 입력은 제공하지 않습니다. */
     imageModalTitle: '이미지 선택',
     imagePick: '이미지 업로드',
     imageReuse: '등록된 이미지',
@@ -1133,8 +1133,8 @@ const ja: SlipStrings = {
     styleBackground: '背景',
     styleBorder: '枠線',
     borderShape: '形状',
-    /* 선은 테두리를 두르는 게 아니라 선 자체가 굵기·색·모양을 갖는다  */
-    /* 이미지 업로드: 파일을 base64로 저장하며 URL 입력은 제공하지 않는다. */
+    /* 선은 테두리를 두르는 게 아니라 선 자체가 굵기·색·모양을 갖습니다  */
+    /* 이미지 업로드: 파일을 base64로 저장하며 URL 입력은 제공하지 않습니다. */
     imageModalTitle: '画像を選択',
     imagePick: '画像をアップロード',
     imageReuse: '登録済みの画像',
@@ -1309,8 +1309,8 @@ const ja: SlipStrings = {
 export const STRINGS: Record<SlipLocale, SlipStrings> = { ko, en, ja };
 
 /**
- * 로케일 문자열을 지원 언어({@link SlipLocale})로 정규화한다. 지역 코드는 제외하고
- * 언어 코드만 사용하며, 지원하지 않는 언어에는 영어를 적용한다.
+ * 로케일 문자열을 지원 언어({@link SlipLocale})로 정규화합니다. 지역 코드는 제외하고
+ * 언어 코드만 사용하며, 지원하지 않는 언어에는 영어를 적용합니다.
  *
  * @param locale - UI 언어 (생략하면 영어)
  * @returns 정규화된 지원 언어 코드
@@ -1321,8 +1321,8 @@ export function normalizeLocale(locale?: string): SlipLocale {
 }
 
 /**
- * 로케일에 맞는 문구 사전을 반환한다. 지역 코드는 제외하고 지원하지 않는 언어에는
- * 영어 문구 사전을 반환한다.
+ * 로케일에 맞는 문구 사전을 반환합니다. 지역 코드는 제외하고 지원하지 않는 언어에는
+ * 영어 문구 사전을 반환합니다.
  *
  * @param locale - UI 언어 (생략하면 영어)
  * @returns 해당 언어의 문구 사전
@@ -1330,3 +1330,6 @@ export function normalizeLocale(locale?: string): SlipLocale {
 export function getStrings(locale?: string): SlipStrings {
   return STRINGS[normalizeLocale(locale)];
 }
+
+/** 로케일에 맞는 디자이너 문구 */
+export type DesignerStrings = ReturnType<typeof getStrings>['designer'];

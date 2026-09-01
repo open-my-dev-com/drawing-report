@@ -394,7 +394,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
       pages: { elements: Record<string, unknown>[]; key?: string; label?: string; pageNumber?: unknown }[];
       parameters?: { key: string; label?: string; valueType?: string }[];
     };
-    // 한 행짜리 반복 구간은 열 전체를 하나의 셀이 차지하므로 자동 병합 조건을 충족한다.
+    // 한 행짜리 항목 구간은 열 전체를 하나의 셀이 차지하므로 자동 병합 조건을 충족한다.
     const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
     (grid['columns'] as Record<string, unknown>[])[0]!['autoMerge'] = true;
     template.pages[0]!.key = 'first';
