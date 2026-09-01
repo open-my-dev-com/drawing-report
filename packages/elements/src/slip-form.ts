@@ -40,8 +40,8 @@ interface FormInput {
 }
 
 /**
- * 입력값이 숫자 형식이면 숫자로 변환한다.
- * 디자이너의 샘플 데이터와 같은 변환 규칙을 사용한다.
+ * 입력값이 숫자 형식이면 숫자로 변환합니다.
+ * 디자이너의 샘플 데이터와 같은 변환 규칙을 사용합니다.
  */
 function parseInputValue(text: string): string | number {
   const trimmed = text.trim();
@@ -49,7 +49,7 @@ function parseInputValue(text: string): string | number {
 }
 
 /**
- * 항목 구간 위쪽에서 같은 열의 헤더 텍스트를 찾는다.
+ * 항목 구간 위쪽에서 같은 열의 헤더 텍스트를 찾습니다.
  */
 function gridHeaderTitle(grid: GridElement, column: number, fromRow: number): string | undefined {
   for (let row = fromRow - 1; row >= 0; row -= 1) {
@@ -59,7 +59,7 @@ function gridHeaderTitle(grid: GridElement, column: number, fromRow: number): st
   return undefined;
 }
 
-/** 스칼라 값을 입력 필드에 표시할 문자열로 변환한다. */
+/** 스칼라 값을 입력 필드에 표시할 문자열로 변환합니다. */
 function inputText(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'object') return '';
@@ -67,7 +67,7 @@ function inputText(value: unknown): string {
   return String(value);
 }
 
-/** 수식 계산 결과를 표시용 문자열로 변환한다. */
+/** 수식 계산 결과를 표시용 문자열로 변환합니다. */
 function resultText(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
@@ -78,12 +78,12 @@ function resultText(value: unknown): string {
 /**
  * 양식에 정의된 파라미터 값을 입력하고 전표를 발행하는 `<slip-form>` 컴포넌트.
  *
- * 양식이나 작성 중인 전표에서 입력 필드를 구성한다. 목록 파라미터는 행을 추가하거나
- * 삭제할 수 있으며 수식 필드는 입력값이 바뀔 때 계산 결과를 갱신한다. 미리보기는
- * PDF 렌더링 결과를 사용한다.
+ * 양식이나 작성 중인 전표에서 입력 필드를 구성합니다. 목록 파라미터는 행을 추가하거나
+ * 삭제할 수 있으며 수식 필드는 입력값이 바뀔 때 계산 결과를 갱신합니다. 미리보기는
+ * PDF 렌더링 결과를 사용합니다.
  *
- * 발행하면 확정된 전표를 `slip-issue` 이벤트로 전달하고 입력을 잠근다 (SPEC §7.1).
- * 작성 중인 값은 `slip-change` 이벤트로 전달한다.
+ * 발행하면 확정된 전표를 `slip-issue` 이벤트로 전달하고 입력을 잠급니다 (SPEC §7.1).
+ * 작성 중인 값은 `slip-change` 이벤트로 전달합니다.
  */
 export class SlipForm extends LitElement {
   static styles = formStyles;
@@ -107,7 +107,7 @@ export class SlipForm extends LitElement {
   src = '';
 
   /**
-   * UI 언어 (`ko`, `en`, `ja`). 생략하면 `slipkit`에 설정된 로케일을 따른다.
+   * UI 언어 (`ko`, `en`, `ja`). 생략하면 `slipkit`에 설정된 로케일을 따릅니다.
    *
    * @defaultValue 영어
    */
@@ -115,7 +115,7 @@ export class SlipForm extends LitElement {
 
   /**
    * 폰트·로케일 공통 설정 인스턴스. PDF 미리보기와 수식 평가는 이 인스턴스의 설정을
-   * 사용한다. `getFonts`가 없으면 동봉 기본 폰트로 렌더링한다.
+   * 사용합니다. `getFonts`가 없으면 동봉 기본 폰트로 렌더링합니다.
    */
   slipkit?: SlipKit;
 
@@ -155,8 +155,8 @@ export class SlipForm extends LitElement {
     this._revokePreviewUrl();
   }
 
-  // 파싱 결과가 같은 렌더링에 반영되도록 렌더링 전에 처리한다.
-  // slipkit 변경으로는 다시 파싱하지 않는다 — 입력 중인 값을 지우지 않기 위해서다.
+  // 파싱 결과가 같은 렌더링에 반영되도록 렌더링 전에 처리합니다.
+  // slipkit 변경으로는 다시 파싱하지 않습니다 — 입력 중인 값을 지우지 않기 위해서입니다.
   protected override willUpdate(changed: Map<string, unknown>): void {
     if (changed.has('src')) {
       this._parseSource();
@@ -213,7 +213,7 @@ export class SlipForm extends LitElement {
   // ---------------------------------------------------------------------------
 
   /**
-   * 문서 순서대로 입력 필드를 수집하고 요소가 직접 사용하지 않는 파라미터를 뒤에 추가한다.
+   * 문서 순서대로 입력 필드를 수집하고 요소가 직접 사용하지 않는 파라미터를 뒤에 추가합니다.
    */
   private _collectInputs(): FormInput[] {
     const body = this._body;
@@ -229,7 +229,7 @@ export class SlipForm extends LitElement {
       inputs.push({ key, label: labelOf.get(key) ?? name ?? key, ...input });
     };
 
-    // 이미지 파라미터와 이미지 요소가 참조하는 키에는 파일 입력을 사용한다.
+    // 이미지 파라미터와 이미지 요소가 참조하는 키에는 파일 입력을 사용합니다.
     const imageKeys = new Set<string>(
       (body.parameters ?? []).filter((b) => b.valueType === 'image').map((b) => b.key),
     );
@@ -242,7 +242,7 @@ export class SlipForm extends LitElement {
     for (const page of body.pages) {
       for (const element of page.elements) {
         if (element.type === 'field') {
-          // 수식 필드는 입력값이 아니므로 요소 ID를 행 식별자로 사용한다.
+          // 수식 필드는 입력값이 아니므로 요소 ID를 행 식별자로 사용합니다.
           if (element.parameter !== undefined) add(element.parameter, {}, element.name);
           else if (element.formula !== undefined) {
             add(element.id, { formula: element.formula }, element.name);
@@ -250,7 +250,7 @@ export class SlipForm extends LitElement {
         } else if (element.type === 'image' && element.parameter !== undefined) {
           add(element.parameter, { image: true }, element.name);
         } else if (element.type === 'grid' && element.repeat) {
-          // 항목 구간 셀이 참조하는 항목 필드로 입력 표의 열을 구성한다.
+          // 항목 구간 셀이 참조하는 항목 필드로 입력 표의 열을 구성합니다.
           const itemBand = element.repeat.bands.find((band) => band.placement === 'item');
           if (itemBand === undefined) continue;
           const band = element.cells
@@ -261,7 +261,7 @@ export class SlipForm extends LitElement {
           for (const cell of band) {
             const key = cell.parameter as string;
             if (columns.some((c) => c.key === key)) continue;
-            // 열 제목은 셀 이름을 우선 사용하고, 없으면 항목 구간 위쪽의 헤더 텍스트를 사용한다.
+            // 열 제목은 셀 이름을 우선 사용하고, 없으면 항목 구간 위쪽의 헤더 텍스트를 사용합니다.
             columns.push({
               key,
               title: cell.name ?? gridHeaderTitle(element, cell.column, itemBand.fromRow) ?? key,
@@ -277,7 +277,7 @@ export class SlipForm extends LitElement {
     return inputs;
   }
 
-  /** 목록형 입력에서 객체로 구성된 행만 반환한다. */
+  /** 목록형 입력에서 객체로 구성된 행만 반환합니다. */
   private _rowsOf(key: string): Record<string, unknown>[] {
     const raw = this._values[key];
     return Array.isArray(raw)
@@ -313,7 +313,7 @@ export class SlipForm extends LitElement {
     this.requestUpdate();
   }
 
-  /** 발행 전 입력값을 모두 지운다. */
+  /** 발행 전 입력값을 모두 지웁니다. */
   private _reset(): void {
     if (this._issued) return;
     this._values = {};
@@ -324,12 +324,12 @@ export class SlipForm extends LitElement {
   // 전표 만들기 · 발행
   // ---------------------------------------------------------------------------
 
-  /** 현재 입력값으로 전표 파일을 만든다. */
+  /** 현재 입력값으로 전표 파일을 만듭니다. */
   private _buildVoucher(issued: boolean): SlipVoucherFile {
     const template: SlipTemplateFile = {
       schemaVersion: this._schemaVersion,
       kind: 'template',
-      // 이 메서드는 body가 준비된 상태에서만 호출된다.
+      // 이 메서드는 body가 준비된 상태에서만 호출됩니다.
       template: this._body as SlipTemplateBody,
     };
     const voucher = buildVoucher(template, this._values as Record<string, JsonValue>);
@@ -349,8 +349,8 @@ export class SlipForm extends LitElement {
   }
 
   /**
-   * 현재 값을 확정하고 발행 규칙을 검증한 전표를 `slip-issue`로 전달한다.
-   * 검증에 실패하면 입력 상태를 유지한다 (SPEC §7.1).
+   * 현재 값을 확정하고 발행 규칙을 검증한 전표를 `slip-issue`로 전달합니다.
+   * 검증에 실패하면 입력 상태를 유지합니다 (SPEC §7.1).
    */
   private async _issue(): Promise<void> {
     if (!this._body || this._issued || this._issuing) return;
@@ -360,7 +360,7 @@ export class SlipForm extends LitElement {
 
     const voucher = this._buildVoucher(true);
     try {
-      // 파서로 외부 URL 금지 등 발행 전표의 제약을 검증한다.
+      // 파서로 외부 URL 금지 등 발행 전표의 제약을 검증합니다.
       parseSlipFile(serializeSlipFile(voucher), this._locale === undefined ? undefined : { locale: this._locale });
     } catch (error) {
       console.error('[slip-form] issue failed:', error);
@@ -383,7 +383,7 @@ export class SlipForm extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _revokePreviewUrl(): void {
-    // 진행 중인 렌더링 결과가 새 Blob URL을 적용하지 못하도록 세대를 갱신한다.
+    // 진행 중인 렌더링 결과가 새 Blob URL을 적용하지 못하도록 세대를 갱신합니다.
     this._previewGeneration++;
     if (this._previewUrl) {
       URL.revokeObjectURL(this._previewUrl);
@@ -391,7 +391,7 @@ export class SlipForm extends LitElement {
     }
   }
 
-  /** 입력이 멈춘 뒤 한 번만 실행하도록 미리보기 갱신을 예약한다. */
+  /** 입력이 멈춘 뒤 한 번만 실행하도록 미리보기 갱신을 예약합니다. */
   private _schedulePreview(): void {
     if (this._previewTimer !== null) clearTimeout(this._previewTimer);
     this._previewTimer = setTimeout(() => {
@@ -469,14 +469,14 @@ export class SlipForm extends LitElement {
     if (input.image) return this._renderImageInput(input);
 
     if (input.formula !== undefined) {
-      // 수식 필드는 입력 대신 현재 계산 결과를 표시한다.
+      // 수식 필드는 입력 대신 현재 계산 결과를 표시합니다.
       let text = '';
       let error: string | null = null;
       try {
-        // 빈 number 파라미터를 0으로 정규화한 뒤 계산한다.
+        // 빈 number 파라미터를 0으로 정규화한 뒤 계산합니다.
         const values = normalizeNumericParameters(this._values, this._body?.parameters);
-        // slipkit이 있으면 수식도 같은 인스턴스로 평가해 PDF와 같은 로케일을 사용한다.
-        // 컴포넌트 locale은 UI 언어 전용이라 수식 컨텍스트에 넣지 않는다.
+        // slipkit이 있으면 수식도 같은 인스턴스로 평가해 PDF와 같은 로케일을 사용합니다.
+        // 컴포넌트 locale은 UI 언어 전용이라 수식 컨텍스트에 넣지 않습니다.
         text = resultText(
           this.slipkit
             ? this.slipkit.evaluate(input.formula, { values })
@@ -511,7 +511,7 @@ export class SlipForm extends LitElement {
     `;
   }
 
-  /** base64 이미지 파일 선택과 현재 이미지 미리보기를 렌더링한다. */
+  /** base64 이미지 파일 선택과 현재 이미지 미리보기를 렌더링합니다. */
   private _renderImageInput(input: FormInput) {
     const t = this._t;
     const raw = this._values[input.key];
@@ -536,7 +536,7 @@ export class SlipForm extends LitElement {
     `;
   }
 
-  /** 선택한 이미지 파일을 base64로 변환해 전표 값에 저장한다. */
+  /** 선택한 이미지 파일을 base64로 변환해 전표 값에 저장합니다. */
   private async _pickImage(key: string): Promise<void> {
     if (this._issued) return;
     const t = this._t;

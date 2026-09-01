@@ -3,15 +3,15 @@
  *
  * @remarks
  * `vi.mock`은 파일 단위로 끌어올려지므로 각 테스트 파일이 자기 파일 맨 위에서
- * `@omdc-slipkit/core`와 `../../src/default-fonts.js`를 모의한 뒤 이 모듈을 가져온다.
- * 이 모듈은 모의한 모듈을 참조하기만 한다.
+ * `@omdc-slipkit/core`와 `../../src/default-fonts.js`를 모의한 뒤 이 모듈을 가져옵니다.
+ * 이 모듈은 모의한 모듈을 참조하기만 합니다.
  */
 import { expect, vi, beforeEach, afterEach } from 'vitest';
 import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
 import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
 import { getStrings } from '../../src/strings.js';
 
-/** 기본 영어 문구. 화면 확인의 기준이다. */
+/** 기본 영어 문구. 화면 확인의 기준입니다. */
 export const strings = getStrings();
 
 /** 렌더링 완료를 기다릴 수 있는 Lit 요소. */
@@ -83,15 +83,15 @@ export function makeTemplateFile(): SlipTemplateFile {
 }
 
 /**
- * 디자이너 테스트의 공통 환경을 설치한다.
- * 각 테스트 파일에서 최상위로 한 번 호출한다.
+ * 디자이너 테스트의 공통 환경을 설치합니다.
+ * 각 테스트 파일에서 최상위로 한 번 호출합니다.
  */
 export function installDesignerTestEnv(): void {
   beforeEach(() => {
     revoked = [];
     uuidCounter = 0;
 
-    // Node.js 25의 불완전한 전역 localStorage 대신 격리된 브라우저형 저장소를 사용한다.
+    // Node.js 25의 불완전한 전역 localStorage 대신 격리된 브라우저형 저장소를 사용합니다.
     Object.defineProperty(globalThis, 'localStorage', {
       configurable: true,
       value: createMemoryStorage(),
@@ -116,7 +116,7 @@ export function installDesignerTestEnv(): void {
   });
 }
 
-/** 디자이너 요소를 만들어 문서에 붙인다. */
+/** 디자이너 요소를 만들어 문서에 붙입니다. */
 export async function createElement(): Promise<Designer> {
   const { SlipDesigner } = await import('../../src/slip-designer.js');
   if (!customElements.get('slip-designer')) {
@@ -127,7 +127,7 @@ export async function createElement(): Promise<Designer> {
   return el;
 }
 
-/** 디자이너를 만들고 기본 양식을 불러온 상태로 만든다. */
+/** 디자이너를 만들고 기본 양식을 불러온 상태로 만듭니다. */
 export async function loadDesigner(): Promise<Designer> {
   const el = await createElement();
   el.src = '{"valid": true}';
@@ -137,7 +137,7 @@ export async function loadDesigner(): Promise<Designer> {
   return el;
 }
 
-/** 마이크로태스크 큐를 비운다. */
+/** 마이크로태스크 큐를 비웁니다. */
 export function flush(): Promise<void> {
   return new Promise((r) => setTimeout(r, 0));
 }
@@ -147,13 +147,13 @@ export function shadowText(el: Element): string {
   return el.shadowRoot?.textContent?.trim() ?? '';
 }
 
-/** 툴바에서 이름이 일치하는 버튼을 찾는다. */
+/** 툴바에서 이름이 일치하는 버튼을 찾습니다. */
 export function toolbarButton(el: Element, label: string): HTMLButtonElement {
   return Array.from(el.shadowRoot?.querySelectorAll('.toolbar button') ?? [])
     .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === label) as HTMLButtonElement;
 }
 
-/** 리스트형 선택 상자를 열고 data-value가 일치하는 항목을 선택한다. */
+/** 리스트형 선택 상자를 열고 data-value가 일치하는 항목을 선택합니다. */
 export async function pickListValue(host: LitHost, trigger: HTMLElement, value: string): Promise<void> {
   trigger.click();
   await host.updateComplete;
@@ -165,7 +165,7 @@ export async function pickListValue(host: LitHost, trigger: HTMLElement, value: 
   await host.updateComplete;
 }
 
-/** 리스트형 선택 상자를 열어 항목 문구를 읽고 다시 닫는다. */
+/** 리스트형 선택 상자를 열어 항목 문구를 읽고 다시 닫습니다. */
 export async function listOptionLabels(host: LitHost, trigger: HTMLElement): Promise<string[]> {
   trigger.click();
   await host.updateComplete;
@@ -177,8 +177,8 @@ export async function listOptionLabels(host: LitHost, trigger: HTMLElement): Pro
 }
 
 /**
- * 생성 도구를 선택하고 캔버스를 클릭해 요소를 만든다.
- * happy-dom의 `getBoundingClientRect`는 0을 반환하므로 좌표는 `clientX / PX_PER_MM`로 계산한다.
+ * 생성 도구를 선택하고 캔버스를 클릭해 요소를 만듭니다.
+ * happy-dom의 `getBoundingClientRect`는 0을 반환하므로 좌표는 `clientX / PX_PER_MM`로 계산합니다.
  */
 export async function addByCanvasClick(
   el: Designer,
@@ -191,7 +191,7 @@ export async function addByCanvasClick(
   await clickCanvasAt(el, clientX, clientY);
 }
 
-/** 캔버스의 지정한 좌표를 클릭한다. */
+/** 캔버스의 지정한 좌표를 클릭합니다. */
 export async function clickCanvasAt(
   el: Designer,
   clientX = 200,
@@ -207,7 +207,7 @@ export async function clickCanvasAt(
   await el.updateComplete;
 }
 
-/** 도형 메뉴를 열고 요소 종류를 선택한다. */
+/** 도형 메뉴를 열고 요소 종류를 선택합니다. */
 export async function pickShapeTool(el: Designer, label: string): Promise<void> {
   toolbarButton(el, strings.designer.shape).click();
   await el.updateComplete;
@@ -218,7 +218,7 @@ export async function pickShapeTool(el: Designer, label: string): Promise<void> 
 }
 
 /**
- * 선 모양 미리보기 메뉴에서 테두리 형태를 선택한다.
+ * 선 모양 미리보기 메뉴에서 테두리 형태를 선택합니다.
  * ariaLabel은 버튼·메뉴를 구분하는 이름(요소용·셀용), shapeLabel은 실선·파선·점선 이름.
  */
 export async function pickBorderShape(
@@ -236,7 +236,7 @@ export async function pickBorderShape(
   await el.updateComplete;
 }
 
-/** 캔버스에서 id로 요소를 눌러 선택한다. */
+/** 캔버스에서 id로 요소를 눌러 선택합니다. */
 export function selectElement(el: Element, id: string): HTMLElement {
   const div = el.shadowRoot?.querySelector(`[data-id="${id}"]`) as HTMLElement;
   div.dispatchEvent(new PointerEvent('pointerdown', {
@@ -252,8 +252,8 @@ export function pageIndicator(el: Element): string {
 }
 
 /**
- * 속성 패널 입력란을 원래 대상으로 삼는 키 이벤트를 만든다.
- * Shadow DOM 리타게팅 때문에 `composedPath`를 직접 지정한다.
+ * 속성 패널 입력란을 원래 대상으로 삼는 키 이벤트를 만듭니다.
+ * Shadow DOM 리타게팅 때문에 `composedPath`를 직접 지정합니다.
  */
 export function retargetedKey(el: Element, key: string, init: KeyboardEventInit = {}): KeyboardEvent {
   const input = el.shadowRoot?.querySelector('.prop-panel input') as HTMLInputElement;

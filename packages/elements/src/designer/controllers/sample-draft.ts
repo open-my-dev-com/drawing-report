@@ -2,7 +2,7 @@
  * 샘플 데이터 모달의 초안 상태 — 페이지, JSON 편집과 이미지 선택 오류.
  *
  * @remarks
- * 항목별 편집은 값을 바로 파일에 반영하고, JSON 편집만 초안을 따로 둔다.
+ * 항목별 편집은 값을 바로 파일에 반영하고, JSON 편집만 초안을 따로 둡니다.
  */
 
 import type { ReactiveController } from 'lit';
@@ -12,7 +12,7 @@ export interface SampleDraftHost {
 }
 
 /**
- * JSON 초안을 sampleValues에 저장할 객체로 변환한다.
+ * JSON 초안을 sampleValues에 저장할 객체로 변환합니다.
  *
  * @param draft - 입력한 JSON 문자열
  * @returns 넣을 객체. 빈 글이면 빈 객체, 형식이 잘못됐으면 null
@@ -26,7 +26,7 @@ export function parseSampleValues(draft: string): Record<string, unknown> | null
   } catch {
     return null;
   }
-  // 최상위가 객체가 아니면 파라미터 키를 만들 수 없다.
+  // 최상위가 객체가 아니면 파라미터 키를 만들 수 없습니다.
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
   return parsed as Record<string, unknown>;
 }
@@ -63,7 +63,7 @@ export class SampleDraftController implements ReactiveController {
     return this._imageError;
   }
 
-  /** 모달을 처음 열 때의 상태로 되돌린다. 화면 갱신은 호출부가 처리한다. */
+  /** 모달을 처음 열 때의 상태로 되돌립니다. 화면 갱신은 호출부가 처리합니다. */
   reset(): void {
     this._page = 0;
     this._jsonMode = false;
@@ -71,7 +71,7 @@ export class SampleDraftController implements ReactiveController {
   }
 
   /**
-   * 항목별 편집의 페이지를 옮긴다.
+   * 항목별 편집의 페이지를 옮깁니다.
    *
    * @param page - 옮길 페이지 번호 (0부터)
    */
@@ -81,7 +81,7 @@ export class SampleDraftController implements ReactiveController {
   }
 
   /**
-   * 편집 방식을 바꾼다.
+   * 편집 방식을 바꿉니다.
    *
    * @param jsonMode - JSON 편집으로 바꾸면 true
    * @param skeleton - JSON 편집으로 처음 들어갈 때 채울 초안
@@ -89,13 +89,13 @@ export class SampleDraftController implements ReactiveController {
   setJsonMode(jsonMode: boolean, skeleton: () => string): void {
     if (this._jsonMode === jsonMode) return;
     this._jsonMode = jsonMode;
-    // JSON 편집으로 들어갈 때만 현재 값에서 초안을 만든다.
+    // JSON 편집으로 들어갈 때만 현재 값에서 초안을 만듭니다.
     if (jsonMode) this._jsonDraft = skeleton();
     this.host.requestUpdate();
   }
 
   /**
-   * JSON 입력 내용을 반영한다.
+   * JSON 입력 내용을 반영합니다.
    *
    * @param value - 입력란의 현재 내용
    */
@@ -105,9 +105,9 @@ export class SampleDraftController implements ReactiveController {
   }
 
   /**
-   * 이미지 선택 실패 문구를 설정하거나 지운다.
+   * 이미지 선택 실패 문구를 설정하거나 지웁니다.
    *
-   * @param message - 표시할 문구. null이면 지운다
+   * @param message - 표시할 문구. null이면 지웁니다
    */
   setImageError(message: string | null): void {
     this._imageError = message;
@@ -115,7 +115,7 @@ export class SampleDraftController implements ReactiveController {
   }
 
   /**
-   * JSON 초안을 파일에 넣을 객체로 바꾼다.
+   * JSON 초안을 파일에 넣을 객체로 바꿉니다.
    *
    * @returns 넣을 객체. 형식이 잘못됐으면 null
    */

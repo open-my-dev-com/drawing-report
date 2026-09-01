@@ -3,7 +3,7 @@
  *
  * @remarks
  * 호스트 레이아웃, 디자인 토큰과 상단 툴바.
- * 규칙 순서는 원래 한 파일이던 때와 같다 — 순서를 바꾸면 cascade가 달라진다.
+ * 규칙 순서는 원래 한 파일이던 때와 같습니다 — 순서를 바꾸면 cascade가 달라집니다.
  */
 import { css } from 'lit';
 
@@ -35,7 +35,7 @@ export const layoutStyles = css`
       overflow: hidden;
     }
 
-    /* :host의 display보다 hidden 속성을 우선한다. */
+    /* :host의 display보다 hidden 속성을 우선합니다. */
     :host([hidden]) {
       display: none;
     }

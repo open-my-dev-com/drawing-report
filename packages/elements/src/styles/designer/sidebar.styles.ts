@@ -3,7 +3,7 @@
  *
  * @remarks
  * 페이지·요소·파라미터 목록과 샘플 데이터 편집.
- * 규칙 순서는 원래 한 파일이던 때와 같다 — 순서를 바꾸면 cascade가 달라진다.
+ * 규칙 순서는 원래 한 파일이던 때와 같습니다 — 순서를 바꾸면 cascade가 달라집니다.
  */
 import { css } from 'lit';
 
@@ -22,7 +22,7 @@ export const sidebarStyles = css`
       color: var(--sk-text-muted);
       margin-bottom: 6px;
     }
-    /* 페이지 목록은 한 줄로 표시하고 썸네일은 hover 또는 focus 상태에서만 표시한다. */
+    /* 페이지 목록은 한 줄로 표시하고 썸네일은 hover 또는 focus 상태에서만 표시합니다. */
     .page-row-wrap {
       position: relative;
       display: flex;
@@ -34,7 +34,7 @@ export const sidebarStyles = css`
       min-width: 0;
     }
     .page-thumb-pop {
-      /* 사이드바가 overflow를 자르므로 화면 기준(fixed)으로 띄운다 */
+      /* 사이드바가 overflow를 자르므로 화면 기준(fixed)으로 띄웁니다 */
       position: fixed;
       z-index: 30;
       padding: 4px;
@@ -64,7 +64,7 @@ export const sidebarStyles = css`
       box-shadow: 0 0 0 1px var(--sk-accent);
     }
     .thumb-paper {
-      /* 인라인 span에는 width와 height가 적용되지 않으므로 블록 요소로 표시한다 */
+      /* 인라인 span에는 width와 height가 적용되지 않으므로 블록 요소로 표시합니다 */
       display: block;
       position: relative;
       margin: 4px auto 0;
@@ -188,7 +188,7 @@ export const sidebarStyles = css`
       flex: 1;
       min-width: 0;
     }
-    /* 요소 목록의 페이지 묶음 머리 — 현재 페이지만 펼친다  */
+    /* 요소 목록의 페이지 묶음 머리 — 현재 페이지만 펼칩니다  */
     .side-page-head {
       display: flex;
       align-items: center;
@@ -212,11 +212,11 @@ export const sidebarStyles = css`
       color: var(--sk-accent);
       font-weight: 600;
     }
-    /* 현재 페이지가 선택 대상이 아니어도 이름은 강조한다. */
+    /* 현재 페이지가 선택 대상이 아니어도 이름은 강조합니다. */
     .page-row.current {
       font-weight: 600;
     }
-    /* 하위 항목이 없는 줄에도 같은 폭을 확보해 목록 이름의 시작 위치를 맞춘다. */
+    /* 하위 항목이 없는 줄에도 같은 폭을 확보해 목록 이름의 시작 위치를 맞춥니다. */
     .side-twisty {
       display: flex;
       align-items: center;
@@ -239,13 +239,13 @@ export const sidebarStyles = css`
       background: var(--sk-accent-soft);
       color: var(--sk-text);
     }
-    /* 펼침 표시가 없는 줄의 빈 자리 — 세 목록의 이름이 같은 자리에서 시작한다 */
+    /* 펼침 표시가 없는 줄의 빈 자리 — 세 목록의 이름이 같은 자리에서 시작합니다 */
     .side-twisty-gap {
       flex: 0 0 14px;
     }
-    /* 그리드 값의 항목 구간 필드 — 펼침 표시 아래로 한 단 들여 쓴다  */
+    /* 그리드 값의 항목 구간 필드 — 펼침 표시 아래로 한 단 들여 씁니다  */
     /* 값 목록의 항목 구간 필드 하위 줄(.side-col-row)과 요소 목록의 그리드 셀 하위 줄
-       (.side-cell-row, G-44)은 생김새가 같다 */
+       (.side-cell-row, G-44)은 생김새가 같습니다 */
     .side-col-row,
     .side-cell-row {
       display: flex;
@@ -327,7 +327,7 @@ export const sidebarStyles = css`
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    /* 거부된 입력의 원인을 해당 필드 가까이에 표시한다. */
+    /* 거부된 입력의 원인을 해당 필드 가까이에 표시합니다. */
     .input-error {
       margin: 0 0 6px;
       padding: 5px 8px;
@@ -386,7 +386,7 @@ export const sidebarStyles = css`
       width: 12px;
       height: 12px;
     }
-    /* 하위 필드 추가 버튼은 하위 항목과 같은 위치에 배치하되 목록 항목으로 취급하지 않는다 */
+    /* 하위 필드 추가 버튼은 하위 항목과 같은 위치에 배치하되 목록 항목으로 취급하지 않습니다 */
     .side-add-field {
       display: flex;
       align-items: center;
@@ -546,7 +546,7 @@ export const sidebarStyles = css`
       gap: 4px;
       align-items: center;
       margin-bottom: 4px;
-      /* 열이 많으면 그리드 상자를 내용 크기로 키워 스크롤 컨테이너가 끝까지 스크롤되게 한다 */
+      /* 열이 많으면 그리드 상자를 내용 크기로 키워 스크롤 컨테이너가 끝까지 스크롤되게 합니다 */
       width: max-content;
       min-width: 100%;
     }

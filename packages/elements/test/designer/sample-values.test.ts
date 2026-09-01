@@ -1,4 +1,4 @@
-// 샘플 값 입력 변환 — 화면 없이 직접 확인한다.
+// 샘플 값 입력 변환 — 화면 없이 직접 확인합니다.
 import { describe, expect, it } from 'vitest';
 import {
   parseSampleScalar,

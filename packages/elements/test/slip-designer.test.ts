@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@omdc-slipkit/core', async () => {
-  // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용한다.
+  // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용합니다.
   const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
   return {
     ...actual,
@@ -14,7 +14,7 @@ vi.mock('@omdc-slipkit/core', async () => {
 });
 
 vi.mock('../src/default-fonts.js', () => ({
-  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의한다.
+  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의합니다.
   loadDefaultFonts: () =>
     Promise.resolve([
       { name: 'Pretendard', data: new Uint8Array([1]), fallback: true },
@@ -157,7 +157,7 @@ describe('<slip-designer> 페이지', () => {
     const el = await loadDesigner();
     expect(pageIndicator(el)).toBe('1 / 1');
     expect(toolbarButton(el, strings.designer.deletePage).disabled).toBe(true);
-    // 페이지 이동 버튼은 사이드바의 페이지 영역에 표시한다.
+    // 페이지 이동 버튼은 사이드바의 페이지 영역에 표시합니다.
     expect(toolbarButton(el, strings.designer.prevPage)).toBeUndefined();
     expect(toolbarButton(el, strings.designer.nextPage)).toBeUndefined();
     el.remove();
@@ -245,7 +245,7 @@ describe('<slip-designer> slipkit 공통 설정', () => {
     await flush();
     await el.updateComplete;
 
-    // 미리보기가 호스트의 직접 렌더링과 같은 인스턴스를 사용한다.
+    // 미리보기가 호스트의 직접 렌더링과 같은 인스턴스를 사용합니다.
     expect(render).toHaveBeenCalledTimes(1);
     expect(renderSlipToPdfMock).not.toHaveBeenCalled();
     el.remove();

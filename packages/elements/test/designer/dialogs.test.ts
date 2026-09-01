@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@omdc-slipkit/core', async () => {
-  // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용한다.
+  // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용합니다.
   const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
   return {
     ...actual,
@@ -14,12 +14,12 @@ vi.mock('@omdc-slipkit/core', async () => {
 });
 
 const imagePick = vi.hoisted(() => ({
-  // 각 테스트가 pickImageFile의 결과를 지정한다.
+  // 각 테스트가 pickImageFile의 결과를 지정합니다.
   result: null as unknown,
 }));
 
 vi.mock('../../src/image-file.js', async () => {
-  // 파일 선택 대화 상자만 모의하고 바이트 표기는 실제 구현을 사용한다.
+  // 파일 선택 대화 상자만 모의하고 바이트 표기는 실제 구현을 사용합니다.
   const actual = await vi.importActual<typeof import('../../src/image-file.js')>('../../src/image-file.js');
   return {
     ...actual,
@@ -28,7 +28,7 @@ vi.mock('../../src/image-file.js', async () => {
 });
 
 vi.mock('../../src/default-fonts.js', () => ({
-  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의한다.
+  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의합니다.
   loadDefaultFonts: () =>
     Promise.resolve([
       { name: 'Pretendard', data: new Uint8Array([1]), fallback: true },
@@ -60,7 +60,7 @@ installDesignerTestEnv();
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 프리셋', () => {
-  /** 프리셋 버튼을 눌러 메뉴를 펼치고 항목 버튼들을 반환한다 */
+  /** 프리셋 버튼을 눌러 메뉴를 펼치고 항목 버튼들을 반환합니다 */
   async function openPresetMenu(
     el: Designer,
   ): Promise<HTMLButtonElement[]> {
@@ -98,7 +98,7 @@ describe('<slip-designer> 프리셋', () => {
     expect(changes.length).toBe(1);
     const file = changes[0]!.detail.file;
     expect(file.template.meta.title).toBe(strings.designer.presetTradeStatement);
-    // 캔버스가 프리셋 요소로 교체된다 (기존 2개 → 프리셋 6개)
+    // 캔버스가 프리셋 요소로 교체됩니다 (기존 2개 → 프리셋 6개)
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(6);
     expect(el.shadowRoot?.querySelector('.preset-menu')).toBeNull();
     el.remove();
@@ -136,12 +136,12 @@ describe('<slip-designer> 프리셋', () => {
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
-  /** 수식 편집 모달을 열고, 모달을 연 버튼을 반환한다 (초점 복귀 확인용) */
+  /** 수식 편집 모달을 열고, 모달을 연 버튼을 반환합니다 (초점 복귀 확인용) */
   async function openFormulaModal(
     el: Designer,
   ): Promise<HTMLButtonElement> {
     await addByCanvasClick(el, strings.designer.addField);
-    // 값 소스를 수식으로 바꾸면 수식 입력란이 표시된다.
+    // 값 소스를 수식으로 바꾸면 수식 입력란이 표시됩니다.
     const source = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
       .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.cellSource)!
       .querySelector('.list-select') as HTMLButtonElement;
@@ -170,7 +170,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
       .find((b) => b.textContent?.trim() === strings.designer.apply) as HTMLButtonElement;
   }
 
-  /** 항목 구간이 값 3개를 읽는 그리드를 담은 양식으로 디자이너를 띄운다 */
+  /** 항목 구간이 값 3개를 읽는 그리드를 담은 양식으로 디자이너를 띄웁니다 */
   async function loadWithTable(): Promise<Designer> {
     const file = makeTemplateFile();
     file.template.pages[0]!.elements = [{
@@ -199,7 +199,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     return loadDesigner();
   }
 
-  /** 모달 안에서 Tab으로 갈 수 있는 요소를 화면 순서대로 모은다 */
+  /** 모달 안에서 Tab으로 갈 수 있는 요소를 화면 순서대로 모읍니다 */
   function modalFocusables(el: Element): HTMLElement[] {
     const modal = el.shadowRoot!.querySelector('.modal') as HTMLElement;
     return Array.from(
@@ -210,7 +210,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     );
   }
 
-  /** 요소에 초점을 두고 Tab 키를 눌러 기본 이동이 막혔는지 확인한다 */
+  /** 요소에 초점을 두고 Tab 키를 눌러 기본 이동이 막혔는지 확인합니다 */
   function pressTab(target: HTMLElement, shiftKey = false): boolean {
     target.focus();
     const event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey, bubbles: true, cancelable: true });
@@ -223,7 +223,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     await openFormulaModal(el);
     const modal = el.shadowRoot!.querySelector('.modal') as HTMLElement;
     expect(modal.getAttribute('aria-modal')).toBe('true');
-    // 초점이 모달 안에 있어야 배경 화면을 잘못 조작하지 않는다.
+    // 초점이 모달 안에 있어야 배경 화면을 잘못 조작하지 않습니다.
     expect(modal.contains(el.shadowRoot!.activeElement as Node)).toBe(true);
     el.remove();
   });
@@ -233,7 +233,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     await openFormulaModal(el);
     const items = modalFocusables(el);
     expect(pressTab(items[items.length - 1]!)).toBe(true);
-    // 기본 이동을 막는 데 그치지 않고 실제로 첫 요소에 초점이 있어야 한다.
+    // 기본 이동을 막는 데 그치지 않고 실제로 첫 요소에 초점이 있어야 합니다.
     expect(el.shadowRoot!.activeElement).toBe(items[0]);
     el.remove();
   });
@@ -306,7 +306,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     const el = await loadWithTable();
     await openFormulaModal(el);
 
-    // 제안은 목록 파라미터 뒤에 점을 입력했을 때만 표시한다
+    // 제안은 목록 파라미터 뒤에 점을 입력했을 때만 표시합니다
     expect(el.shadowRoot!.querySelector('.formula-suggest')).toBeNull();
 
     setDraft(el, 'SUM(items.');
@@ -315,12 +315,12 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     expect(suggested().map((c) => c.textContent?.trim()))
       .toEqual(['품명 · itemName', '금액 · amount', '수량 · quantity']);
 
-    // 몇 글자 치면 그 글자로 시작하는 열만 남는다
+    // 몇 글자 치면 그 글자로 시작하는 열만 남습니다
     setDraft(el, 'SUM(items.a');
     await el.updateComplete;
     expect(suggested().map((c) => c.textContent?.trim())).toEqual(['금액 · amount']);
 
-    // 제안 항목을 선택하면 현재 입력 뒤에 남은 텍스트를 삽입한다
+    // 제안 항목을 선택하면 현재 입력 뒤에 남은 텍스트를 삽입합니다
     (suggested()[0] as HTMLElement).click();
     await el.updateComplete;
     expect(formulaInput(el).value).toBe('SUM(items.amount');
@@ -334,7 +334,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     const rows = el.shadowRoot!.querySelectorAll('.fn-row');
     expect(rows.length).toBe(32);
     expect(el.shadowRoot!.querySelectorAll('.fn-category').length).toBe(8);
-    // 각 항목에 사용법·설명이 있다
+    // 각 항목에 사용법·설명이 있습니다
     expect(rows[0]?.querySelector('.fn-signature')?.textContent).toContain('SUM');
     expect(rows[0]?.querySelector('.fn-desc')?.textContent?.length).toBeGreaterThan(0);
     el.remove();
@@ -365,7 +365,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 
-  // 화면에서 뗐다 붙여도 편집 중이던 내용이 사라지지 않아야 한다.
+  // 화면에서 뗐습니다 붙여도 편집 중이던 내용이 사라지지 않아야 합니다.
   it('요소를 문서에서 뗐다 다시 붙여도 모달과 편집 중이던 수식이 남는다', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);
@@ -404,7 +404,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     await openFormulaModal(el);
 
     const chips = el.shadowRoot!.querySelectorAll('.parameter-chip');
-    // 방금 만든 필드의 기본 파라미터가 하나 있다
+    // 방금 만든 필드의 기본 파라미터가 하나 있습니다
     expect(chips.length).toBeGreaterThan(0);
     (chips[0] as HTMLButtonElement).click();
     await el.updateComplete;
@@ -423,7 +423,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     expect(el.shadowRoot!.querySelector('.modal')).toBeNull();
     const field = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
       .elements.at(-1)! as never as { formula?: string };
-    // Escape로 초안을 취소해도 값 소스는 수식으로 유지된다.
+    // Escape로 초안을 취소해도 값 소스는 수식으로 유지됩니다.
     expect(field.formula).toBe('');
     el.remove();
   });
@@ -458,7 +458,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     const samples = (fileOf(el).template as { sampleValues?: Record<string, unknown> }).sampleValues;
     expect(samples?.[field.parameter]).toBe(12500);
 
-    // 빈 값으로 바꾸면 지워지고, 전부 비면 sampleValues 자체가 사라진다
+    // 빈 값으로 바꾸면 지워지고, 전부 비면 sampleValues 자체가 사라집니다
     input.value = '';
     input.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
@@ -504,7 +504,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     const samples = (fileOf(el).template as { sampleValues?: Record<string, unknown> }).sampleValues;
     expect(samples?.items).toEqual([{ itemName: '노트' }]);
 
-    // 행 삭제로 비우면 값도 사라진다
+    // 행 삭제로 비우면 값도 사라집니다
     byAria(el, `items 1 ${strings.designer.delete}`).click();
     await el.updateComplete;
     expect((fileOf(el).template as { sampleValues?: unknown }).sampleValues).toBeUndefined();
@@ -562,7 +562,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     expect(pageButtons().length).toBe(2);
     expect(pageButtons()[0]?.getAttribute('aria-pressed')).toBe('true');
 
-    // 다음 버튼으로도, 페이지 번호 버튼으로도 바로 이동할 수 있다
+    // 다음 버튼으로도, 페이지 번호 버튼으로도 바로 이동할 수 있습니다
     byAria(el, `${strings.designer.sampleData} ${strings.designer.nextPage}`).click();
     await el.updateComplete;
     expect(inputs().length).toBe(2);
@@ -571,7 +571,7 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     await el.updateComplete;
     expect(inputs().length).toBe(10);
 
-    // 10개 이하면 페이지 표시가 없다
+    // 10개 이하면 페이지 표시가 없습니다
     (fileOf(el).template as { parameters?: { key: string }[] }).parameters =
       Array.from({ length: 3 }, (_, i) => ({ key: `b${i + 1}` }));
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -592,20 +592,20 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     const applyBtn = () => Array.from(el.shadowRoot!.querySelectorAll('.modal-foot button'))
       .find((b) => b.textContent?.trim() === strings.designer.apply) as HTMLButtonElement;
 
-    // 잘못된 JSON은 오류를 표시하고 적용 버튼을 비활성화한다.
+    // 잘못된 JSON은 오류를 표시하고 적용 버튼을 비활성화합니다.
     textarea.value = '{ "a": ';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     await el.updateComplete;
     expect(applyBtn().disabled).toBe(true);
     expect(el.shadowRoot!.querySelector('.formula-status.error')).not.toBeNull();
 
-    // 최상위 값이 배열이면 적용할 수 없다.
+    // 최상위 값이 배열이면 적용할 수 없습니다.
     textarea.value = '[1, 2]';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     await el.updateComplete;
     expect(applyBtn().disabled).toBe(true);
 
-    // 유효한 객체를 적용하면 sampleValues 전체를 교체한다.
+    // 유효한 객체를 적용하면 sampleValues 전체를 교체합니다.
     textarea.value = '{ "tradeDate": "2026-08-20", "items": [{ "amount": 1000 }] }';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     await el.updateComplete;
@@ -648,7 +648,7 @@ describe('<slip-designer> 프리셋 주입 (D-15)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 이미지 업로드: 파일을 base64로 저장하고 등록된 이미지를 재사용한다.
+// 이미지 업로드: 파일을 base64로 저장하고 등록된 이미지를 재사용합니다.
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 이미지 업로드', () => {
@@ -691,7 +691,7 @@ describe('<slip-designer> 이미지 업로드', () => {
     await el.updateComplete;
 
     expect(el.shadowRoot!.textContent).toContain(strings.designer.imageNone);
-    // 1×1 투명 PNG 자리표시는 안내 문구로 표시한다.
+    // 1×1 투명 PNG 자리표시는 안내 문구로 표시합니다.
     const canvasImg = el.shadowRoot!.querySelector('.element[data-id="img-1"] img');
     expect(canvasImg).toBeNull();
     el.remove();
@@ -717,7 +717,7 @@ describe('<slip-designer> 이미지 업로드', () => {
     await el.updateComplete;
 
     const choices = Array.from(el.shadowRoot!.querySelectorAll('.image-choice'));
-    // 자리표시는 제외하고 업로드한 이미지만 목록에 표시한다.
+    // 자리표시는 제외하고 업로드한 이미지만 목록에 표시합니다.
     expect(choices.length).toBe(1);
     (choices[0] as HTMLButtonElement).click();
     await el.updateComplete;
@@ -789,14 +789,14 @@ describe('<slip-designer> 수식 입력 커서 위치', () => {
     await el.updateComplete;
     expect(el.shadowRoot!.querySelector('.formula-suggest')).not.toBeNull();
 
-    // 글자는 그대로 두고 커서만 맨 앞으로 옮기면 제안이 사라진다.
+    // 글자는 그대로 두고 커서만 맨 앞으로 옮기면 제안이 사라집니다.
     input.selectionStart = 0;
     input.selectionEnd = 0;
     input.dispatchEvent(new Event('click', { bubbles: true }));
     await el.updateComplete;
     expect(el.shadowRoot!.querySelector('.formula-suggest')).toBeNull();
 
-    // 다시 끝으로 옮기면 제안이 돌아온다.
+    // 다시 끝으로 옮기면 제안이 돌아옵니다.
     input.selectionStart = input.value.length;
     input.selectionEnd = input.value.length;
     input.dispatchEvent(new Event('keyup', { bubbles: true }));

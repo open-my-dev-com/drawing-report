@@ -2,7 +2,7 @@
 /**
  * `<slip-form>` 전표 작성 폼 테스트.
  *
- * PDF 렌더링만 모의하고 파싱과 수식에는 core의 실제 구현을 사용한다.
+ * PDF 렌더링만 모의하고 파싱과 수식에는 core의 실제 구현을 사용합니다.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
@@ -26,7 +26,7 @@ import {
 import { SlipForm } from '../src/slip-form.js';
 import { getStrings } from '../src/strings.js';
 
-// 기본 영어 문구를 기준으로 화면을 확인한다.
+// 기본 영어 문구를 기준으로 화면을 확인합니다.
 const strings = getStrings();
 
 const renderSlipToPdfMock = vi.mocked(renderSlipToPdf);
@@ -109,7 +109,7 @@ function flush(): Promise<void> {
 }
 
 /**
- * 발행과 디바운스된 미리보기 상태가 반영될 때까지 조건을 반복해서 확인한다.
+ * 발행과 디바운스된 미리보기 상태가 반영될 때까지 조건을 반복해서 확인합니다.
  */
 async function waitFor(predicate: () => boolean, timeoutMs = 5000): Promise<void> {
   const started = Date.now();
@@ -174,7 +174,7 @@ describe('<slip-form> 입력 칸 구성', () => {
     const el = await mount();
     expect(inputByLabel(el, '거래일자')).toBeTruthy();
     expect(inputByLabel(el, '비고')).toBeTruthy(); // 요소 없이 정의부에만 있는 파라미터
-    // 반복 입력의 열 이름은 같은 그리드 열의 헤더에서 가져온다.
+    // 반복 입력의 열 이름은 같은 그리드 열의 헤더에서 가져옵니다.
     const titles = Array.from(el.shadowRoot!.querySelectorAll('.col-title')).map((s) => s.textContent);
     expect(titles).toEqual(['품명', '금액']);
     el.remove();
@@ -329,7 +329,7 @@ describe('<slip-form> 미리보기', () => {
     setInput(inputByLabel(el, '거래일자'), '2026-08-20');
     await el.updateComplete;
 
-    // 연속 입력은 디바운스되어 한 번만 렌더링된다.
+    // 연속 입력은 디바운스되어 한 번만 렌더링됩니다.
     await waitFor(() => renderSlipToPdfMock.mock.calls.length > 0);
     await waitFor(() => el.shadowRoot?.querySelector('iframe') !== null);
     await el.updateComplete;
@@ -379,7 +379,7 @@ function makeImageTemplate(): SlipTemplateFile {
 describe('<slip-form> 변동 이미지 (G-47)', () => {
   it('변동 이미지 파라미터에 이미지 업로드 입력을 낸다', async () => {
     const el = await mount(makeImageTemplate());
-    // 이미지 파라미터에는 텍스트 입력 대신 파일 선택 UI를 표시한다.
+    // 이미지 파라미터에는 텍스트 입력 대신 파일 선택 UI를 표시합니다.
     const pick = buttonByLabel(el, `도장 이미지 ${strings.form.imageUpload}`);
     expect(pick).not.toBeNull();
     expect(el.shadowRoot?.textContent).toContain(strings.form.imageNone);

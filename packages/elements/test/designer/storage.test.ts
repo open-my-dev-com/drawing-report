@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@omdc-slipkit/core', async () => {
-  // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용한다.
+  // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용합니다.
   const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
   return {
     ...actual,
@@ -14,7 +14,7 @@ vi.mock('@omdc-slipkit/core', async () => {
 });
 
 vi.mock('../../src/default-fonts.js', () => ({
-  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의한다.
+  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의합니다.
   loadDefaultFonts: () =>
     Promise.resolve([
       { name: 'Pretendard', data: new Uint8Array([1]), fallback: true },
@@ -106,7 +106,7 @@ describe('<slip-designer> 미리보기 오류 표시', () => {
 
     const status = el.shadowRoot?.querySelector('.preview-area .status.error');
     expect(status?.textContent?.trim()).toBe(strings.designer.previewError);
-    // 편집 버튼으로 복귀 가능해야 한다
+    // 편집 버튼으로 복귀 가능해야 합니다
     expect(toolbarButton(el, strings.designer.edit)).toBeTruthy();
     el.remove();
   });
@@ -176,7 +176,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
       .toBe('내 거래명세서');
     expect(el.shadowRoot!.textContent).toContain(strings.designer.savedNotice);
 
-    // 두 번째 저장은 같은 키로 덮어쓴다
+    // 두 번째 저장은 같은 키로 덮어씁니다
     toolbarButton(el, strings.designer.saveAsMyForm).click();
     await el.updateComplete;
     (Array.from(el.shadowRoot!.querySelectorAll('.modal-foot button'))
@@ -185,7 +185,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     await el.updateComplete;
     expect(storage.save.mock.calls[1]![0]).toBe(id);
 
-    // "새 양식으로 저장"을 선택하면 새 키로 저장된다
+    // "새 양식으로 저장"을 선택하면 새 키로 저장됩니다
     toolbarButton(el, strings.designer.saveAsMyForm).click();
     await el.updateComplete;
     const asNew = Array.from(el.shadowRoot!.querySelectorAll('input'))
@@ -214,7 +214,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     expect(storage.list).toHaveBeenCalledWith({ kind: 'template' }, undefined);
     expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(2);
 
-    // 검색은 이미 조회한 목록에 적용하며 어댑터를 다시 호출하지 않는다.
+    // 검색은 이미 조회한 목록에 적용하며 어댑터를 다시 호출하지 않습니다.
     storage.list.mockClear();
     const search = el.shadowRoot!.querySelector('.forms-search') as HTMLInputElement;
     search.value = '청구';
@@ -223,7 +223,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     expect(storage.list).not.toHaveBeenCalled();
     expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(1);
 
-    // 검색어를 지우면 두 항목을 다시 표시한다
+    // 검색어를 지우면 두 항목을 다시 표시합니다
     search.value = '';
     search.dispatchEvent(new Event('input', { bubbles: true }));
     await el.updateComplete;
@@ -236,7 +236,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     expect(storage.delete).toHaveBeenCalledWith('b');
     expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(1);
 
-    // 불러오면 캔버스를 교체하고 모달을 닫은 뒤 slip-change를 발생시킨다.
+    // 불러오면 캔버스를 교체하고 모달을 닫은 뒤 slip-change를 발생시킵니다.
     const changes: CustomEvent[] = [];
     el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
     byAria(el, `거래명세서 ${strings.designer.edit}`).click();
@@ -252,7 +252,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
 
   it('커서 기반 목록을 모두 불러와 번호 기반 페이지로 나누어 표시한다 (ADR-045)', async () => {
     const storage = makeStorage();
-    // 커서로 나뉜 12개 항목을 모두 조회해 목록에 보관한다.
+    // 커서로 나뉜 12개 항목을 모두 조회해 목록에 보관합니다.
     const many = Array.from({ length: 12 }, (_, i) =>
       ({ id: `f${i}`, kind: 'template' as const, title: `양식 ${i}` }));
     storage.list
@@ -264,7 +264,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     await flush();
     await el.updateComplete;
 
-    // 커서로 두 번 조회해 전부 모은다
+    // 커서로 두 번 조회해 전부 모읍니다
     expect(storage.list).toHaveBeenCalledTimes(2);
     expect(storage.list).toHaveBeenNthCalledWith(1, { kind: 'template' }, undefined);
     expect(storage.list).toHaveBeenNthCalledWith(2, { kind: 'template' }, 'c1');
@@ -274,7 +274,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     const pageBtns = Array.from(el.shadowRoot!.querySelectorAll('.page-btn')) as HTMLButtonElement[];
     expect(pageBtns.length).toBe(2);
 
-    // 두 번째 화면 페이지에서도 어댑터를 다시 호출하지 않는다.
+    // 두 번째 화면 페이지에서도 어댑터를 다시 호출하지 않습니다.
     storage.list.mockClear();
     pageBtns[1]!.click();
     await el.updateComplete;
@@ -320,7 +320,7 @@ describe('<slip-designer> 용지 공급·저장 (G-31)', () => {
     const labels = await listOptionLabels(el, paperSelect(el));
     expect(labels.some((l) => l.includes('라벨 100x150'))).toBe(true);
 
-    // 기본 용지 네 종류 다음에 호스트가 제공한 용지가 표시된다.
+    // 기본 용지 네 종류 다음에 호스트가 제공한 용지가 표시됩니다.
     await pickListValue(el, paperSelect(el), '4');
     expect(paper(el).width).toBe(100);
     expect(paper(el).height).toBe(150);
@@ -337,7 +337,7 @@ describe('<slip-designer> 용지 공급·저장 (G-31)', () => {
     await flush();
     await el.updateComplete;
 
-    // 프리셋에 없는 크기로 바꾸면 "이 크기 저장"이 나타난다
+    // 프리셋에 없는 크기로 바꾸면 "이 크기 저장"이 나타납니다
     const widthInput = rowInput(el, strings.designer.width);
     widthInput.value = '123';
     widthInput.dispatchEvent(new Event('change', { bubbles: true }));

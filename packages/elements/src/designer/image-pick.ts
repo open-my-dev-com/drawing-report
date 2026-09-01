@@ -2,7 +2,7 @@
  * 이미지 선택 결과 처리와 양식에 포함된 이미지 수집.
  *
  * @remarks
- * 이미지 값은 base64(`data:`)만 다룬다 — 외부 URL은 호스트가 변환해 전달한다.
+ * 이미지 값은 base64(`data:`)만 다룹니다 — 외부 URL은 호스트가 변환해 전달합니다.
  */
 
 import type { SlipTemplateFile } from '@omdc-slipkit/core';
@@ -16,7 +16,7 @@ export const PLACEHOLDER_IMG =
 export interface ImagePickTexts {
   notImage: string;
   readFailed: string;
-  /** `{max}`와 `{size}` 자리에 크기를 넣는다 */
+  /** `{max}`와 `{size}` 자리에 크기를 넣습니다 */
   tooLarge: string;
 }
 
@@ -24,7 +24,7 @@ export interface ImagePickTexts {
 export type ImagePickFailure = Extract<ImagePickResult, { ok: false }>;
 
 /**
- * 이미지 선택 실패 사유를 사용자에게 표시할 문구로 바꾼다.
+ * 이미지 선택 실패 사유를 사용자에게 표시할 문구로 바꿉니다.
  *
  * @param result - 실패한 선택 결과
  * @param texts - 로케일에 맞는 문구
@@ -44,7 +44,7 @@ export function imagePickErrorText(
 }
 
 /**
- * 모든 페이지에서 쓰고 있는 이미지를 중복 없이 모은다.
+ * 모든 페이지에서 쓰고 있는 이미지를 중복 없이 모읍니다.
  *
  * @param file - 양식 파일
  * @param placeholder - 제외할 자리표시 이미지
@@ -64,7 +64,7 @@ export function usedImages(file: SlipTemplateFile | null, placeholder: string): 
 }
 
 /**
- * 이미지 요소가 참조하거나 이미지 종류로 정의된 파라미터 키를 모은다.
+ * 이미지 요소가 참조하거나 이미지 종류로 정의된 파라미터 키를 모읍니다.
  *
  * @param file - 양식 파일
  * @returns 이미지 값을 갖는 파라미터 키 모음

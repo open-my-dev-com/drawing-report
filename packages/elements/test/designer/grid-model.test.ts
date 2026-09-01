@@ -1,4 +1,4 @@
-// 그리드 구조 변경 — 화면 없이 직접 확인한다.
+// 그리드 구조 변경 — 화면 없이 직접 확인합니다.
 import { describe, expect, it } from 'vitest';
 import type { GridBand, GridBandPlacement, GridCell, GridElement } from '@omdc-slipkit/core';
 import {
@@ -172,7 +172,7 @@ describe('assignBandRole', () => {
       band('b-tail', 1, 2, 'after-data'),
     ]);
     const bands = assignBandRole(el, 1, 2, 'item') as GridBand[];
-    // 원래 항목 행(0)은 새 항목 구간보다 위라 데이터 앞으로 바뀐다.
+    // 원래 항목 행(0)은 새 항목 구간보다 위라 데이터 앞으로 바뀝니다.
     expect(bands.map((b) => [b.fromRow, b.toRow, b.placement])).toEqual([
       [0, 0, 'before-data'],
       [1, 2, 'item'],
@@ -189,7 +189,7 @@ describe('assignBandRole', () => {
   });
 
   it('세로 순서를 어기면 거부한다', () => {
-    // 데이터 뒤 구간 아래에 페이지 시작을 둘 수 없다.
+    // 데이터 뒤 구간 아래에 페이지 시작을 둘 수 없습니다.
     expect(assignBandRole(base(), 3, 3, 'page-start')).toBe('outOfOrder');
   });
 });

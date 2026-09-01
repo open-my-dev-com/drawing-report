@@ -1,4 +1,4 @@
-// 순수 좌표·크기 계산 — 화면 없이 직접 확인한다.
+// 순수 좌표·크기 계산 — 화면 없이 직접 확인합니다.
 import { describe, expect, it } from 'vitest';
 import type { GridElement, LineElement, SlipElement } from '@omdc-slipkit/core';
 import {
@@ -99,7 +99,7 @@ describe('lineBoxFromLengthAngle', () => {
 describe('lineEndpoints', () => {
   it('방향마다 상자의 어느 모서리를 잇는지 정한다', () => {
     const at = { position: { x: 10, y: 20 }, width: 30, height: 40 };
-    // 가로선·세로선은 상자의 가운데를 지난다.
+    // 가로선·세로선은 상자의 가운데를 지납니다.
     expect(lineEndpoints({ ...at, lineDirection: 'horizontal' }))
       .toEqual([{ x: 10, y: 40 }, { x: 40, y: 40 }]);
     expect(lineEndpoints({ ...at, lineDirection: 'vertical' }))

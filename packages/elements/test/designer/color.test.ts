@@ -1,4 +1,4 @@
-// 색 변환과 사용자 지정 색 저장 — 화면 없이 직접 확인한다.
+// 색 변환과 사용자 지정 색 저장 — 화면 없이 직접 확인합니다.
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
   COLOR_PALETTE,
@@ -48,7 +48,7 @@ describe('hexToHsv · hsvToHex', () => {
   });
 
   it('색조가 음수로 돌지 않게 360도 안으로 되돌린다', () => {
-    // 마젠타는 빨강보다 색조가 크다 (음수로 계산되면 다시 더한다)
+    // 마젠타는 빨강보다 색조가 큽니다 (음수로 계산되면 다시 더합니다)
     expect(hexToHsv('#ff00ff').h).toBeCloseTo(300, 6);
   });
 

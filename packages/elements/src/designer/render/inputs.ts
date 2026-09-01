@@ -2,7 +2,7 @@
  * 속성 패널의 공통 입력 — 숫자 입력, 펼침 버튼, 글자 강조 토글, 테두리와 색 선택.
  *
  * @remarks
- * 각 함수는 `PanelKit`으로 전달된 상태를 읽어 공통 입력 UI를 렌더링한다.
+ * 각 함수는 `PanelKit`으로 전달된 상태를 읽어 공통 입력 UI를 렌더링합니다.
  */
 
 import { html, nothing } from 'lit';
@@ -16,14 +16,14 @@ import type { ConditionalFormatRule } from '@omdc-slipkit/core';
 import type { PanelKit } from './panel-kit.js';
 
 /**
- * 명시된 값이 없으면 기본값을 표시하는 숫자 입력 행을 만든다.
- * 기본값과 같은 값은 파일에 저장하지 않으며 잘못된 입력은 이전 값으로 되돌린다.
+ * 명시된 값이 없으면 기본값을 표시하는 숫자 입력 행을 만듭니다.
+ * 기본값과 같은 값은 파일에 저장하지 않으며 잘못된 입력은 이전 값으로 되돌립니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param label - 항목 이름
  * @param current - 현재 저장된 값
  * @param fallback - 지정하지 않았을 때 실제로 적용되는 값
- * @param apply - 저장 콜백. 기본값과 같으면 `null`이 와서 필드를 지운다
+ * @param apply - 저장 콜백. 기본값과 같으면 `null`이 와서 필드를 지웁니다
  * @param opts - `step`·`min` 등 입력 상자 설정
  * @returns 수 입력 한 줄
  */
@@ -38,7 +38,7 @@ export function numberRow(
   const errorKey = opts.errorKey ?? 'number-input';
   const commit = (e: Event): void => {
     const input = e.target as HTMLInputElement;
-    // 브라우저가 잘못된 숫자 입력을 빈 문자열로 반환하므로 이전 값으로 복원한다.
+    // 브라우저가 잘못된 숫자 입력을 빈 문자열로 반환하므로 이전 값으로 복원합니다.
     if (input.validity.badInput) {
       input.value = String(current ?? fallback);
       kit.reject(kit.s.numberInput, errorKey);
@@ -75,13 +75,13 @@ export function numberRow(
 }
 
 /**
- * 하위 항목이 있는 사이드바 행에 펼침 버튼을 표시한다.
- * 하위 항목이 없으면 같은 너비의 빈 공간을 표시한다.
+ * 하위 항목이 있는 사이드바 행에 펼침 버튼을 표시합니다.
+ * 하위 항목이 없으면 같은 너비의 빈 공간을 표시합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param hasChildren - 하위 줄이 있는지
  * @param expanded - 현재 펼침 상태
- * @param name - 무엇을 펼치고 접는지 (읽어 주는 이름에 사용한다)
+ * @param name - 무엇을 펼치고 접는지 (읽어 주는 이름에 사용합니다)
  * @param toggle - 눌렀을 때 펼침 상태를 전환하는 콜백
  * @returns 펼침 표시 또는 빈 자리
  */
@@ -102,7 +102,7 @@ export function twisty(
 }
 
 /**
- * 굵게, 밑줄, 취소선 토글을 렌더링한다.
+ * 굵게, 밑줄, 취소선 토글을 렌더링합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param current - 현재 글자 강조 상태
@@ -139,7 +139,7 @@ export function textStyleToggles(
 }
 
 /**
- * 테두리 굵기 선택기를 선 미리보기와 함께 렌더링한다.
+ * 테두리 굵기 선택기를 선 미리보기와 함께 렌더링합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param current - 명시된 굵기 (미지정이면 fallback이 유효값)
@@ -163,7 +163,7 @@ export function borderWidthSelect(
   const label = labelText ?? s.borderWidth;
   const effective = current ?? fallback;
   const open = kit.popovers.isOpen('property', key);
-  // 기본 선택지에 없는 현재 값도 목록에 포함한다.
+  // 기본 선택지에 없는 현재 값도 목록에 포함합니다.
   const steps = [...new Set<number>([...BORDER_WIDTH_STEPS, ...(effective > 0 ? [effective] : [])])]
     .sort((a, b) => a - b);
   const previewPx = (w: number): number => Math.min(6, Math.max(1, Math.round(w * PX_PER_MM)));
@@ -207,8 +207,8 @@ export function borderWidthSelect(
 }
 
 /**
- * 실선, 파선, 점선 선택기를 선 미리보기와 함께 렌더링한다.
- * 실선은 기본값이므로 `null`로 적용한다.
+ * 실선, 파선, 점선 선택기를 선 미리보기와 함께 렌더링합니다.
+ * 실선은 기본값이므로 `null`로 적용합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param current - 명시된 형태 (미지정이면 실선)
@@ -266,8 +266,8 @@ export function borderShapeRow(
 }
 
 /**
- * 색상 견본, HSV 선택기, 직접 입력, 투명도를 포함한 색상 입력을 렌더링한다.
- * 색상은 파일 스키마와 같은 `#RRGGBB` 또는 `#RRGGBBAA` 형식으로 저장한다.
+ * 색상 견본, HSV 선택기, 직접 입력, 투명도를 포함한 색상 입력을 렌더링합니다.
+ * 색상은 파일 스키마와 같은 `#RRGGBB` 또는 `#RRGGBBAA` 형식으로 저장합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param label - 화면에 보이는 항목 이름
@@ -287,7 +287,7 @@ export function colorControl(
   fallback?: string | undefined,
   ariaLabel?: string,
 ) {
-  // apply가 없으면 선택된 요소의 색상 속성을 변경한다.
+  // apply가 없으면 선택된 요소의 색상 속성을 변경합니다.
   const commit = (value: string | null): void => {
     if (apply) {
       if (value) kit.picker.seed(value);
@@ -307,9 +307,9 @@ export function colorControl(
     return hex + Math.round((clamped / 100) * 255).toString(16).padStart(2, '0');
   };
   const open = kit.popovers.isOpen('property', key);
-  // 명시된 값이 없으면 상속값 또는 기본값을 표시한다.
+  // 명시된 값이 없으면 상속값 또는 기본값을 표시합니다.
   const shown = current ?? fallback;
-  // 요소와 셀의 같은 속성을 구분할 접근성 레이블을 사용한다.
+  // 요소와 셀의 같은 속성을 구분할 접근성 레이블을 사용합니다.
   const name = ariaLabel ?? label;
 
   return html`
@@ -317,9 +317,9 @@ export function colorControl(
       <label>${label}</label>
       <button class="color-btn" aria-label=${name} aria-expanded=${String(open)}
         @click=${() => {
-          // 색 팝오버는 스타일로 자리를 잡으므로 자리 계산 없이 연다.
+          // 색 팝오버는 스타일로 자리를 잡으므로 자리 계산 없이 엽니다.
           kit.popovers.toggle('property', key);
-          // 열 때 현재 색으로, 지정된 색이 없으면 기본 빨강으로 선택기를 맞춘다.
+          // 열 때 현재 색으로, 지정된 색이 없으면 기본 빨강으로 선택기를 맞춥니다.
           if (!open) kit.picker.seed(current ?? '#ff0000');
         }}>
         <span class="color-chip ${shown ? '' : 'none'}"
@@ -345,7 +345,7 @@ export function colorControl(
           <button class="swatch-save" title=${s.saveColor} aria-label="${name}: ${s.saveColor}"
             ?disabled=${!current}
             @click=${() => {
-              // 기본 팔레트에 있는 색상은 사용자 지정 목록에 저장하지 않는다.
+              // 기본 팔레트에 있는 색상은 사용자 지정 목록에 저장하지 않습니다.
               if (!current || (COLOR_PALETTE as readonly string[]).includes(current)) return;
               kit.picker.saveCustomColor(current);
             }}>${icons.pageAdd}</button>
@@ -385,7 +385,7 @@ export function colorControl(
             aria-invalid=${String(kit.hasError(`color-${key}`))}
             aria-describedby=${kit.hasError(`color-${key}`) ? `error-color-${key}` : nothing}
             @change=${(e: Event) => {
-              // 파일 스키마가 허용하는 HEX 색상만 적용한다.
+              // 파일 스키마가 허용하는 HEX 색상만 적용합니다.
               const v = (e.target as HTMLInputElement).value;
               if (v && !/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) {
                 kit.reject(s.colorFormatError, `color-${key}`);
@@ -418,8 +418,8 @@ export function colorControl(
 }
 
 /**
- * 조건부 서식 규칙의 강조 4종을 3단계로 편집하는 토글 행을 렌더링한다.
- * 각 버튼은 기본 유지(미지정) → 적용(true) → 해제(false) 순서로 바뀐다.
+ * 조건부 서식 규칙의 강조 4종을 3단계로 편집하는 토글 행을 렌더링합니다.
+ * 각 버튼은 기본 유지(미지정) → 적용(true) → 해제(false) 순서로 바뀝니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param rule - 편집 중인 규칙
@@ -460,8 +460,8 @@ export function conditionalEmphasisRow(
 }
 
 /**
- * 네이티브 select를 대체하는 리스트형 선택 상자를 렌더링한다.
- * 트리거 버튼을 누르면 버튼 아래 화면 고정 위치에 항목 목록이 열린다.
+ * 네이티브 select를 대체하는 리스트형 선택 상자를 렌더링합니다.
+ * 트리거 버튼을 누르면 버튼 아래 화면 고정 위치에 항목 목록이 열립니다.
  *
  * @param pop - 팝오버 열림 상태
  * @param toggle - 트리거를 눌렀을 때 목록을 열고 닫는 처리

@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@omdc-slipkit/core', async () => {
-  // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용한다.
+  // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용합니다.
   const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
   return {
     ...actual,
@@ -14,7 +14,7 @@ vi.mock('@omdc-slipkit/core', async () => {
 });
 
 vi.mock('../../src/default-fonts.js', () => ({
-  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의한다.
+  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의합니다.
   loadDefaultFonts: () =>
     Promise.resolve([
       { name: 'Pretendard', data: new Uint8Array([1]), fallback: true },
@@ -97,7 +97,7 @@ describe('<slip-designer> 표 내부 편집', () => {
     field.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  /** 선택된 그리드를 (mm 좌표로) 한 번 더 클릭한다 — 셀 선택·인라인 편집 진입 */
+  /** 선택된 그리드를 (mm 좌표로) 한 번 더 클릭합니다 — 셀 선택·인라인 편집 진입 */
   async function clickCell(el: Element, mmX: number, mmY: number) {
     const div = el.shadowRoot!.querySelector('[data-id="grid-1"]') as HTMLElement;
     div.dispatchEvent(new PointerEvent('pointerdown', {
@@ -116,14 +116,14 @@ describe('<slip-designer> 표 내부 편집', () => {
 
     const grid = gridOf(el);
     expect(grid.columns.length).toBe(4);
-    // 새 열은 마지막 열 너비를 복사하고 기존 열은 그대로다.
+    // 새 열은 마지막 열 너비를 복사하고 기존 열은 그대로입니다.
     expect(grid.columns.map((c) => c.width)).toEqual([36, 27, 27, 27]);
     el.remove();
   });
 
   it('행·열을 줄이면 범위 밖 셀이 제거된다', async () => {
     const el = await mountGrid();
-    // (2,2)에 셀 추가해 두고 2행 2열로 줄인다
+    // (2,2)에 셀 추가해 두고 2행 2열로 줄입니다
     gridOf(el).cells.push({ row: 2, column: 2, content: '밖' });
     stepButton(el, strings.designer.rows, '-').click();
     await el.updateComplete;
@@ -210,7 +210,7 @@ describe('<slip-designer> 표 내부 편집', () => {
     await el.updateComplete;
     expect(gridOf(el).cells.find((c) => c.row === 0 && c.column === 0)?.colSpan).toBe(2);
 
-    // 다른 셀과 겹치는 병합 값은 적용하지 않는다.
+    // 다른 셀과 겹치는 병합 값은 적용하지 않습니다.
     gridOf(el).cells.push({ row: 0, column: 2, content: '충돌' });
     setField(colSpanInput(), '3');
     await el.updateComplete;
@@ -231,7 +231,7 @@ describe('<slip-designer> 표 내부 편집', () => {
     // 셀 배경색 — 셀 전용 색 버튼을 펼쳐 견본 클릭
     const byAria = (label: string) => Array.from(el.shadowRoot!.querySelectorAll('button'))
       .find((b) => b.getAttribute('aria-label') === label) as HTMLButtonElement;
-    // 셀 전용 색 버튼 (요소 스타일 섹션과 이름으로 구분된다)
+    // 셀 전용 색 버튼 (요소 스타일 섹션과 이름으로 구분됩니다)
     const cellBg = `${strings.designer.cell} ${strings.designer.backgroundColor}`;
     byAria(cellBg).click();
     await el.updateComplete;
@@ -301,7 +301,7 @@ describe('<slip-designer> 표 내부 편집', () => {
     const cell = gridOf(el).cells.find((c) => c.row === 0 && c.column === 0)! as never as Record<string, unknown>;
     expect(cell.borderWidth).toBe(0);
 
-    // 굵기 단계를 선택하면 선택한 굵기가 저장된다
+    // 굵기 단계를 선택하면 선택한 굵기가 저장됩니다
     (el.shadowRoot!.querySelector('.width-btn') as HTMLElement).click();
     await el.updateComplete;
     const step = Array.from(el.shadowRoot!.querySelectorAll('.width-pop button'))
@@ -331,7 +331,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
   const s = strings.designer;
 
   /** 헤더 1행 + 반복 1행 + 꼬리 1행, 행 10mm·열 30mm짜리 그리드 하나만 둔 양식 */
-  /** 그리드 편집 컨트롤러 — 셀·행 구간 선택 상태를 확인하고 조작한다 */
+  /** 그리드 편집 컨트롤러 — 셀·행 구간 선택 상태를 확인하고 조작합니다 */
   function gridEdit(el: Element) {
     return (el as unknown as {
       _gridEdit: {
@@ -438,7 +438,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  /** 그리드 안 mm 좌표를 눌러 셀을 선택한다 (선택된 요소 재클릭) */
+  /** 그리드 안 mm 좌표를 눌러 셀을 선택합니다 (선택된 요소 재클릭) */
   async function clickCell(el: Element, mmX: number, mmY: number) {
     const div = el.shadowRoot!.querySelector('[data-id="g-1"]') as HTMLElement;
     for (const type of ['pointerdown', 'pointerup']) {
@@ -456,7 +456,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     const elements = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements;
     const created = elements[elements.length - 1] as unknown as TestGrid & { type: string };
     expect(created.type).toBe('grid');
-    // 새 그리드는 정적 그리드다 — 반복은 사용자가 켠다 (§7.1)
+    // 새 그리드는 정적 그리드입니다 — 반복은 사용자가 켭니다 (§7.1)
     expect(created.repeat).toBeUndefined();
     expect(created.rows.length).toBe(3);
     expect(created.columns.length).toBe(3);
@@ -476,11 +476,11 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     const el = await mount();
     const preview = el.shadowRoot!.querySelector('[data-id="g-1"] .grid-preview') as HTMLElement;
     expect(preview.style.gridTemplateRows.split(' ').length).toBe(3);
-    // 행 구간 선택 영역을 각 행에 표시한다 (§7.2)
+    // 행 구간 선택 영역을 각 행에 표시합니다 (§7.2)
     const grid = el.shadowRoot!.querySelector('[data-id="g-1"]') as HTMLElement;
     const strip = grid.querySelector('.band-strip') as HTMLElement;
     expect(strip.querySelectorAll('.band-row').length).toBe(3);
-    // 행 선택 영역은 요소 바깥에 있어도 잘리지 않고 포인터 입력을 받는다.
+    // 행 선택 영역은 요소 바깥에 있어도 잘리지 않고 포인터 입력을 받습니다.
     expect(getComputedStyle(grid).overflow).toBe('visible');
     expect(getComputedStyle(strip).pointerEvents).toBe('auto');
     el.remove();
@@ -640,7 +640,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     expect(texts).toContain('품명');
     expect(texts).toContain('사과');
     expect(texts).toContain('배');
-    // 샘플이 2건뿐이라 남는 2벌은 빈 항목이다 — 값 이름을 출력값처럼 표시하지 않는다 (§7.5)
+    // 샘플이 2건뿐이라 남는 2벌은 빈 항목입니다 — 값 이름을 출력값처럼 표시하지 않습니다 (§7.5)
     expect(texts).not.toContain('{품명}');
     el.remove();
   });
@@ -804,7 +804,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     on.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
     const repeat = gridOf(el).repeat!;
-    // 항목 구간 하나와 자동 확장 방식으로 시작한다 — perPage를 임의로 지정하지 않는다 (§7.1)
+    // 항목 구간 하나와 자동 확장 방식으로 시작합니다 — perPage를 임의로 지정하지 않습니다 (§7.1)
     expect(repeat.bands.filter((b) => b.placement === 'item').length).toBe(1);
     expect(repeat.pagination).toEqual({ mode: 'auto', minItems: 0 });
     el.remove();
@@ -812,14 +812,14 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
 
   it('행 번호 선택 영역에서 역할 명령으로 행 구간을 바꾼다 (§7.2)', async () => {
     const el = await mount();
-    // 첫 행을 눌러 역할 메뉴를 연다
+    // 첫 행을 눌러 역할 메뉴를 엽니다
     const stripRow = el.shadowRoot!.querySelector('[data-id="g-1"] .band-strip .band-row') as HTMLButtonElement;
     stripRow.click();
     await el.updateComplete;
     const menu = el.shadowRoot!.querySelector('.band-menu');
     expect(menu).not.toBeNull();
 
-    // 첫 행을 데이터 반복 영역으로 지정하면 기존 항목 행은 아래 역할로 흡수된다
+    // 첫 행을 데이터 반복 영역으로 지정하면 기존 항목 행은 아래 역할로 흡수됩니다
     const command = menu!.querySelector('.band-menu-item.placement-item') as HTMLButtonElement;
     command.click();
     await el.updateComplete;
@@ -901,7 +901,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
 
   it('페이지 방식 세그먼트로 자동 확장과 고정 페이지를 전환한다 (§7.3)', async () => {
     const el = await mount();
-    // 고정 페이지 상태 — 페이지당 항목 수 입력만 표시한다
+    // 고정 페이지 상태 — 페이지당 항목 수 입력만 표시합니다
     const labels = () => Array.from(el.shadowRoot!.querySelectorAll('.prop-row label'))
       .map((l) => l.textContent?.trim());
     expect(labels()).toContain(s.itemsPerPage);
@@ -911,7 +911,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     await el.updateComplete;
     expect(gridOf(el).repeat?.pagination).toEqual({ mode: 'fixed', itemsPerPage: 6 });
 
-    // 자동 확장으로 전환하면 최소 표시 항목 수 입력만 표시한다
+    // 자동 확장으로 전환하면 최소 표시 항목 수 입력만 표시합니다
     const auto = Array.from(el.shadowRoot!.querySelectorAll('.segment button'))
       .find((b) => b.textContent?.trim() === s.paginationAuto) as HTMLButtonElement;
     auto.click();
@@ -957,7 +957,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     const el = await mount();
     setNumber(el, s.repeatMaxItems, '2');
     await el.updateComplete;
-    // 페이지당 항목 수(4)보다 작은 최대 항목 수를 허용한다 (§5.5)
+    // 페이지당 항목 수(4)보다 작은 최대 항목 수를 허용합니다 (§5.5)
     expect(gridOf(el).repeat?.maxItems).toBe(2);
     el.remove();
   });
@@ -1037,7 +1037,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     const labels = Array.from(el.shadowRoot!.querySelectorAll('.side-row'))
       .map((r) => r.textContent?.trim() ?? '');
     expect(labels.some((l) => l.includes('items'))).toBe(true);
-    // 항목 구간의 칸은 목록 항목의 필드로 표시한다.
+    // 항목 구간의 칸은 목록 항목의 필드로 표시합니다.
     expect(Array.from(el.shadowRoot!.querySelectorAll('.side-col-row'))
       .map((r) => r.textContent?.trim())).toEqual(['품명']);
     el.remove();
@@ -1045,7 +1045,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
 
   it('인라인 칸 편집 상자는 칸의 배경색을 그대로 사용한다 (편집 중 색이 사라지지 않게)', async () => {
     const el = await mount();
-    // 셀에 배경색을 지정한 뒤 같은 셀을 두 번 눌러 인라인 편집을 연다
+    // 셀에 배경색을 지정한 뒤 같은 셀을 두 번 눌러 인라인 편집을 엽니다
     gridEdit(el).selectCell({ row: 0, column: 0 });
     (el as unknown as { _gridCommands: { updateCellStyle(key: string, value: unknown): void } })
       ._gridCommands.updateCellStyle('backgroundColor', '#ffeeaa');
@@ -1086,17 +1086,17 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
 
   it('그리드 셀을 선택하면 그리드 공통 설정을 숨기고 상위 그리드로 이동하는 항목을 표시한다 (ADR-034)', async () => {
     const el = await mount();
-    // 셀을 선택하기 전에는 그리드 설정(행 수)을 표시한다
+    // 셀을 선택하기 전에는 그리드 설정(행 수)을 표시합니다
     const labels = () => Array.from(el.shadowRoot!.querySelectorAll('.prop-row label'))
       .map((l) => l.textContent?.trim());
     expect(labels()).toContain(s.rows);
 
     await clickCell(el, 15, 25);
     await el.updateComplete;
-    // 칸을 선택하면 그리드 옵션은 사라지고 칸 편집만 남는다
+    // 칸을 선택하면 그리드 옵션은 사라지고 칸 편집만 남습니다
     expect(labels()).not.toContain(s.rows);
     expect(labels()).toContain(s.merge);
-    // 그리드로 돌아갈 수 있다
+    // 그리드로 돌아갈 수 있습니다
     const back = el.shadowRoot!.querySelector('.grid-back') as HTMLButtonElement;
     expect(back).not.toBeNull();
     expect(back.textContent).toContain(s.gridBack);
@@ -1110,13 +1110,13 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
   it('요소 목록에서 그리드를 펼치면 이름·값·수식 셀을 표시하고, 항목을 누르면 해당 셀이 선택된다 (G-44)', async () => {
     const el = await mount(); // 그리드를 선택하면 요소 목록의 해당 항목을 자동으로 펼친다
     const cellRows = () => Array.from(el.shadowRoot!.querySelectorAll('.side-cell-row'));
-    // 이름이 없는 직접 입력 칸은 제외하고 파라미터가 지정된 칸을 표시한다.
+    // 이름이 없는 직접 입력 칸은 제외하고 파라미터가 지정된 칸을 표시합니다.
     expect(cellRows().length).toBe(1);
-    // 이름이 없는 칸은 좌표를 표시한다 — 헤더나 파라미터에서 이름을 자동으로 만들지 않는다 (§7.4)
+    // 이름이 없는 칸은 좌표를 표시합니다 — 헤더나 파라미터에서 이름을 자동으로 만들지 않습니다 (§7.4)
     expect(cellRows()[0]!.textContent?.trim()).toBe('Row 2, Col 1');
     expect(cellRows()[0]!.getAttribute('title')).toContain('Row 2'); // 2행 1열
 
-    // 셀 이름을 지정하면 목록에 그 이름을 우선 표시한다
+    // 셀 이름을 지정하면 목록에 그 이름을 우선 표시합니다
     (el as unknown as { _updateFile: (fn: (f: SlipTemplateFile) => void) => void })._updateFile((f) => {
       const grid = f.template.pages[0]!.elements[0]! as unknown as TestGrid;
       grid.cells.find((c) => c.row === 1 && c.column === 0)!.name = '품명 칸';
@@ -1124,7 +1124,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     await el.updateComplete;
     expect(cellRows()[0]!.textContent?.trim()).toBe('품명 칸');
 
-    // 직접 입력 칸도 이름을 지정하면 요소 목록에서 다시 찾을 수 있다.
+    // 직접 입력 칸도 이름을 지정하면 요소 목록에서 다시 찾을 수 있습니다.
     (el as unknown as { _updateFile: (fn: (f: SlipTemplateFile) => void) => void })._updateFile((f) => {
       const grid = f.template.pages[0]!.elements[0]! as unknown as TestGrid;
       grid.cells.find((c) => c.row === 0 && c.column === 0)!.name = '품명 머리글';
@@ -1132,7 +1132,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     await el.updateComplete;
     expect(cellRows().map((item) => item.textContent?.trim())).toEqual(['품명 머리글', '품명 칸']);
 
-    // 그리드의 하위 항목을 선택하면 해당 셀이 선택된다
+    // 그리드의 하위 항목을 선택하면 해당 셀이 선택됩니다
     (cellRows()[1] as HTMLElement).click();
     await el.updateComplete;
     const sel = gridEdit(el).cell;
@@ -1143,7 +1143,7 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
   it('요소 목록에서 펼침 버튼으로 그리드의 하위 항목을 접을 수 있다 (G-44)', async () => {
     const el = await mount();
     expect(el.shadowRoot!.querySelectorAll('.side-cell-row').length).toBe(1);
-    // 요소 목록 그리드 줄의 펼침 표시를 눌러 접는다
+    // 요소 목록 그리드 줄의 펼침 표시를 눌러 접습니다
     const twisty = Array.from(el.shadowRoot!.querySelectorAll('.side-twisty'))
       .find((b) => b.getAttribute('aria-label')?.startsWith('test-grid')) as HTMLButtonElement;
     twisty.click();

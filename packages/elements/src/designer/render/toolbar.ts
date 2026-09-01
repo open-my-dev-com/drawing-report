@@ -29,11 +29,11 @@ export interface ToolbarActions {
   readonly pageIndex: number;
   /** 요소 종류 배지를 표시할지 */
   readonly showBadges: boolean;
-  /** 요소 종류 배지 표시를 바꾼다 */
+  /** 요소 종류 배지 표시를 바꿉니다 */
   setShowBadges(on: boolean): void;
-  /** 격자선 색을 바꾸고 메뉴를 닫는다 */
+  /** 격자선 색을 바꾸고 메뉴를 닫습니다 */
   setGridColor(color: GridColorId): void;
-  /** 열려 있는 툴바 메뉴를 모두 닫는다 */
+  /** 열려 있는 툴바 메뉴를 모두 닫습니다 */
   closeMenus(): void;
   /** 격자 간격(mm). null이면 격자 없음 */
   readonly gridGap: number | null;
@@ -67,12 +67,12 @@ export interface ToolbarActions {
   togglePreview(): void;
   openSaveModal(): void;
   openMyForms(): void;
-  /** 화면을 다시 그린다 */
+  /** 화면을 다시 그립니다 */
   refresh(): void;
 }
 
 /**
- * 요소 추가, 편집 명령, 화면 배율과 저장·미리보기를 제공하는 위쪽 툴바를 렌더링한다.
+ * 요소 추가, 편집 명령, 화면 배율과 저장·미리보기를 제공하는 위쪽 툴바를 렌더링합니다.
  *
  * @param bar - 툴바 동작과 표시 상태
  * @returns 툴바 조각
@@ -205,7 +205,7 @@ export function toolbar(bar: ToolbarActions) {
 }
 
 /**
- * 아이콘, 표시 이름, 접근성 레이블로 툴바 버튼을 만든다.
+ * 아이콘, 표시 이름, 접근성 레이블로 툴바 버튼을 만듭니다.
  *
  * @param label - 표시 이름이자 접근성 레이블
  * @param glyph - 버튼에 넣을 아이콘

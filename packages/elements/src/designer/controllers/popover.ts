@@ -3,7 +3,7 @@
  *
  * @remarks
  * 팝오버는 패널 안이 아니라 화면 고정 위치에 뜨므로, 여는 순간의 버튼 위치에서
- * 좌표를 계산해 둔다. 표시 높이를 화면의 사용 가능한 영역에 맞춘다.
+ * 좌표를 계산해 둡니다. 표시 높이를 화면의 사용 가능한 영역에 맞춥니다.
  */
 
 import type { ReactiveController } from 'lit';
@@ -16,7 +16,7 @@ export interface Placement {
   maxHeight: number;
 }
 
-/** 팝오버의 종류 — 종류마다 따로 열리고 닫힌다 */
+/** 팝오버의 종류 — 종류마다 따로 열리고 닫힙니다 */
 export type PopoverSlot = 'list' | 'property';
 
 /** 버튼 아래에 펼 때의 여백(px) */
@@ -25,7 +25,7 @@ const GAP = 4;
 const MARGIN = 12;
 
 /**
- * 버튼 바로 아래에 표시할 위치를 계산한다.
+ * 버튼 바로 아래에 표시할 위치를 계산합니다.
  *
  * @param anchor - 기준이 될 버튼
  * @param min - 최소 높이(px)
@@ -39,12 +39,12 @@ export function placeBelow(anchor: HTMLElement, min: number, max: number): Place
 }
 
 /**
- * 아래 공간이 모자라고 위가 더 넓으면 버튼 위에 표시할 위치를 계산한다.
+ * 아래 공간이 모자라고 위가 더 넓으면 버튼 위에 표시할 위치를 계산합니다.
  *
  * @param anchor - 기준이 될 버튼
  * @param min - 최소 높이(px)
  * @param max - 최대 높이(px)
- * @param threshold - 아래 공간이 이보다 좁으면 위쪽을 검토한다(px)
+ * @param threshold - 아래 공간이 이보다 좁으면 위쪽을 검토합니다(px)
  * @returns 화면 고정 좌표와 최대 높이
  */
 export function placeBelowOrAbove(
@@ -84,7 +84,7 @@ export class PopoverController implements ReactiveController {
   }
 
   /**
-   * 지금 열려 있는 팝오버의 키를 확인한다.
+   * 지금 열려 있는 팝오버의 키를 확인합니다.
    *
    * @param slot - 팝오버 종류
    * @returns 열려 있는 팝오버의 키. 닫혀 있으면 null
@@ -94,7 +94,7 @@ export class PopoverController implements ReactiveController {
   }
 
   /**
-   * 지정한 팝오버가 열려 있는지 확인한다.
+   * 지정한 팝오버가 열려 있는지 확인합니다.
    *
    * @param slot - 팝오버 종류
    * @param key - 확인할 키
@@ -105,7 +105,7 @@ export class PopoverController implements ReactiveController {
   }
 
   /**
-   * 열려 있는 팝오버의 표시 위치를 확인한다.
+   * 열려 있는 팝오버의 표시 위치를 확인합니다.
    *
    * @param slot - 팝오버 종류
    * @returns 화면 고정 좌표. 닫혀 있으면 0
@@ -115,11 +115,11 @@ export class PopoverController implements ReactiveController {
   }
 
   /**
-   * 같은 키면 닫고, 다른 키면 그 위치에서 연다.
+   * 같은 키면 닫고, 다른 키면 그 위치에서 엽니다.
    *
    * @param slot - 팝오버 종류
    * @param key - 열거나 닫을 팝오버의 키
-   * @param place - 열 때 계산할 표시 위치. 스타일로 위치를 잡는 팝오버는 생략한다
+   * @param place - 열 때 계산할 표시 위치. 스타일로 위치를 잡는 팝오버는 생략합니다
    */
   toggle(slot: PopoverSlot, key: string, place?: () => Placement): void {
     if (this.keys.get(slot) === key) {
@@ -132,7 +132,7 @@ export class PopoverController implements ReactiveController {
   }
 
   /**
-   * 팝오버를 닫는다.
+   * 팝오버를 닫습니다.
    *
    * @param slot - 닫을 팝오버 종류
    */
@@ -143,7 +143,7 @@ export class PopoverController implements ReactiveController {
 }
 
 /**
- * 리스트형 선택 상자 목록의 인라인 스타일을 만든다.
+ * 리스트형 선택 상자 목록의 인라인 스타일을 만듭니다.
  *
  * @param place - 열려 있는 표시 위치
  * @returns `style` 속성에 넣을 CSS
@@ -153,7 +153,7 @@ export function listSelectStyle(place: Placement): string {
 }
 
 /**
- * 테두리·색 선택 메뉴의 인라인 스타일을 만든다.
+ * 테두리·색 선택 메뉴의 인라인 스타일을 만듭니다.
  *
  * @param place - 열려 있는 표시 위치
  * @returns `style` 속성에 넣을 CSS

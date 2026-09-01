@@ -1,4 +1,4 @@
-// 요소 스타일 → 캔버스 CSS 변환 — 화면 없이 직접 확인한다.
+// 요소 스타일 → 캔버스 CSS 변환 — 화면 없이 직접 확인합니다.
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_FONT_SIZE,

@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@omdc-slipkit/core', async () => {
-  // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용한다.
+  // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용합니다.
   const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
   return {
     ...actual,
@@ -14,7 +14,7 @@ vi.mock('@omdc-slipkit/core', async () => {
 });
 
 vi.mock('../../src/default-fonts.js', () => ({
-  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의한다.
+  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의합니다.
   loadDefaultFonts: () =>
     Promise.resolve([
       { name: 'Pretendard', data: new Uint8Array([1]), fallback: true },
@@ -126,7 +126,7 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
   it('선 굵기는 상자 높이가 아니라 borderWidth에서 온다 (G-32)', async () => {
     const thin = await mountLine('horizontal', 0.5);
     const thick = await mountLine('horizontal', 4);
-    // 요소 영역은 유지하고 SVG 선 굵기만 8배로 적용한다.
+    // 요소 영역은 유지하고 SVG 선 굵기만 8배로 적용합니다.
     const thinWidth = Number(thin?.getAttribute('stroke-width'));
     const thickWidth = Number(thick?.getAttribute('stroke-width'));
     expect(thinWidth).toBeGreaterThan(0);
@@ -148,7 +148,7 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
     expect(labels).toContain(strings.designer.length);
     expect(labels).toContain(strings.designer.lineAngle);
     expect(labels).toContain(strings.designer.lineWidth);
-    // 가로선은 높이 대신 길이와 선 굵기를 편집한다.
+    // 가로선은 높이 대신 길이와 선 굵기를 편집합니다.
     expect(labels).not.toContain(strings.designer.height);
     expect(labels).toContain(strings.designer.lineColor);
     expect(labels).not.toContain(strings.designer.borderColor);
@@ -172,7 +172,7 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
       .template.pages[0]!.elements[0]! as unknown as
       { width: number; height: number; lineDirection?: string };
 
-    // 45도 선은 너비와 높이가 같다.
+    // 45도 선은 너비와 높이가 같습니다.
     const angle = rowInput(strings.designer.lineAngle);
     angle.value = '45';
     angle.dispatchEvent(new Event('change', { bubbles: true }));
@@ -180,7 +180,7 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
     expect(line().lineDirection).toBe('down');
     expect(line().width).toBeCloseTo(line().height, 1);
 
-    // 90도는 수직선 방향으로 저장한다.
+    // 90도는 수직선 방향으로 저장합니다.
     const angle2 = rowInput(strings.designer.lineAngle);
     angle2.value = '90';
     angle2.dispatchEvent(new Event('change', { bubbles: true }));
@@ -202,7 +202,7 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
 
     const labels = Array.from(el.shadowRoot!.querySelectorAll('.prop-row label'))
       .map((l) => l.textContent?.trim());
-    // 선 방향과 관계없이 길이, 각도, 굵기 입력 구성을 유지한다.
+    // 선 방향과 관계없이 길이, 각도, 굵기 입력 구성을 유지합니다.
     expect(labels).toContain(strings.designer.length);
     expect(labels).toContain(strings.designer.lineAngle);
     expect(labels).toContain(strings.designer.lineWidth);
@@ -212,8 +212,8 @@ describe('<slip-designer> 선 요소 캔버스 표시 (lineDirection, ADR-032)',
   });
 
   it('선 svg는 자르지 않는다 — 상자보다 굵은 선도 PDF처럼 그대로 보여야 한다 (G-32)', async () => {
-    // happy-dom은 CSS를 계산하지 않으므로 규칙 자체가 살아 있는지로 확인한다.
-    // PDF(convert.ts appendLine)는 상자 밖까지 그리므로 캔버스도 자르면 안 된다.
+    // happy-dom은 CSS를 계산하지 않으므로 규칙 자체가 살아 있는지로 확인합니다.
+    // PDF(convert.ts appendLine)는 상자 밖까지 그리므로 캔버스도 자르면 안 됩니다.
     const { SlipDesigner } = await import('../../src/slip-designer.js');
     const css = [SlipDesigner.styles].flat(Infinity).map(String).join('\n');
     expect(css).toMatch(/\.element\.type-line svg\s*\{[^}]*overflow:\s*visible/);
@@ -291,7 +291,7 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
       width: 10, height: 40, content: '가나\n다', vertical: true,
     }]);
     const content = el.shadowRoot?.querySelector('.el-content') as HTMLElement;
-    // 원래 줄바꿈은 없애고 글자마다 줄바꿈을 넣어 한 열로 쌓는다 (writing-mode 근사가 아님)
+    // 원래 줄바꿈은 없애고 글자마다 줄바꿈을 넣어 한 열로 쌓습니다 (writing-mode 근사가 아님)
     expect(content.textContent).toBe('가\n나\n다');
     expect(content.style.writingMode).toBe('');
     el.remove();
@@ -323,7 +323,7 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     const boxes = Array.from(el.shadowRoot!.querySelectorAll('.grid-preview > div')) as HTMLElement[];
     const aCell = boxes.find((c) => c.textContent === 'A');
     const bCell = boxes.find((c) => c.textContent === 'B');
-    // A·A는 하나로 합쳐 세로 2칸, B는 따로 1칸 — 값 칸은 둘뿐이다
+    // A·A는 하나로 합쳐 세로 2칸, B는 따로 1칸 — 값 칸은 둘뿐입니다
     expect(aCell?.style.gridArea.replaceAll(' ', '')).toContain('span2');
     expect(bCell).toBeTruthy();
     expect(boxes.filter((c) => c.textContent === 'A' || c.textContent === 'B').length).toBe(2);
@@ -353,7 +353,7 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     await flush();
     await el.updateComplete;
 
-    // 빈 값 칸({g} placeholder)은 병합되지 않아 span 2가 없다 (PDF는 빈 값에서 끊는다)
+    // 빈 값 칸({g} placeholder)은 병합되지 않아 span 2가 없습니다 (PDF는 빈 값에서 끊습니다)
     const boxes = Array.from(el.shadowRoot!.querySelectorAll('.grid-preview > div')) as HTMLElement[];
     const merged = boxes.filter((c) => c.style.gridArea.replaceAll(' ', '').includes('span2'));
     expect(merged.length).toBe(0);
@@ -429,12 +429,12 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
     addBtn.click();
     await el.updateComplete;
 
-    // 도구 선택만으로는 요소를 생성하지 않는다.
+    // 도구 선택만으로는 요소를 생성하지 않습니다.
     expect(toolbarButton(el, strings.designer.addText).getAttribute('aria-pressed')).toBe('true');
     expect(el.shadowRoot?.querySelectorAll('.element').length).toBe(2);
     expect(changes.length).toBe(0);
 
-    // 캔버스 클릭 위치에 기본 크기의 요소를 만들고 도구 선택을 해제한다.
+    // 캔버스 클릭 위치에 기본 크기의 요소를 만들고 도구 선택을 해제합니다.
     const paper = el.shadowRoot!.querySelector('.paper') as HTMLElement;
     paper.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true, composed: true, clientX: 50 * PX, clientY: 40 * PX, pointerId: 1,
@@ -467,7 +467,7 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
     }));
     await el.updateComplete;
 
-    // 드래그 중에는 생성 영역의 미리보기를 표시한다.
+    // 드래그 중에는 생성 영역의 미리보기를 표시합니다.
     expect(el.shadowRoot?.querySelector('.draw-ghost')).not.toBeNull();
 
     paper.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true, pointerId: 1 }));
@@ -526,7 +526,7 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
       await pickShapeTool(el, label);
       await clickCanvasAt(el);
     }
-    // 선은 시작점과 끝점을 차례로 클릭해 만든다.
+    // 선은 시작점과 끝점을 차례로 클릭해 만듭니다.
     toolbarButton(el, strings.designer.shapeLine).click();
     await el.updateComplete;
     await clickCanvasAt(el, 100, 100);
@@ -542,7 +542,7 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
     const PX = 96 / 25.4;
     const paper = el.shadowRoot!.querySelector('.paper') as HTMLElement;
 
-    // 왼쪽 위에서 오른쪽 아래로 그린 선은 `down` 방향이다.
+    // 왼쪽 위에서 오른쪽 아래로 그린 선은 `down` 방향입니다.
     toolbarButton(el, strings.designer.shapeLine).click();
     await el.updateComplete;
     paper.dispatchEvent(new PointerEvent('pointerdown', {
@@ -557,7 +557,7 @@ describe('<slip-designer> 요소 추가 (도구 선택 → 캔버스 클릭·드
     expect(added.type).toBe('line');
     expect(added.lineDirection).toBe('down');
 
-    // 왼쪽 아래에서 오른쪽 위로 그린 선은 `up` 방향이다.
+    // 왼쪽 아래에서 오른쪽 위로 그린 선은 `up` 방향입니다.
     toolbarButton(el, strings.designer.shapeLine).click();
     await el.updateComplete;
     paper.dispatchEvent(new PointerEvent('pointerdown', {
@@ -596,7 +596,7 @@ describe('<slip-designer> 요소 삭제', () => {
     const changes: CustomEvent[] = [];
     el.addEventListener('slip-change', (e: Event) => changes.push(e as CustomEvent));
 
-    // 선택한 요소는 Delete 키로 삭제한다.
+    // 선택한 요소는 Delete 키로 삭제합니다.
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
     await el.updateComplete;
 
@@ -654,7 +654,7 @@ describe('<slip-designer> 크기 조절 핸들', () => {
     selectElement(el, 'txt-1');
     await el.updateComplete;
 
-    // txt-1 너비 60mm → -100mm 드래그해도 2mm에서 멈춘다
+    // txt-1 너비 60mm → -100mm 드래그해도 2mm에서 멈춥니다
     const handle = el.shadowRoot?.querySelector('.handle-e') as HTMLElement;
     handle.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true, composed: true, clientX: 0, clientY: 0, pointerId: 1,
@@ -678,7 +678,7 @@ describe('<slip-designer> 크기 조절 핸들', () => {
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 눈금자·격자 (F-20)', () => {
-  /** 격자 간격 메뉴에서 항목을 선택한다 (없음·1mm·5mm·10mm) */
+  /** 격자 간격 메뉴에서 항목을 선택합니다 (없음·1mm·5mm·10mm) */
   async function pickGrid(
     el: Designer,
     label: string,
@@ -722,7 +722,7 @@ describe('<slip-designer> 눈금자·격자 (F-20)', () => {
   it('격자를 켜야 색 견본이 나오고, 선택한 색으로 격자선이 그려진다', async () => {
     const el = await loadDesigner();
 
-    // 격자가 꺼져 있으면 색을 선택할 일이 없으므로 견본을 두지 않는다
+    // 격자가 꺼져 있으면 색을 선택할 일이 없으므로 견본을 두지 않습니다
     toolbarButton(el, strings.designer.grid).click();
     await el.updateComplete;
     expect(el.shadowRoot!.querySelectorAll('.grid-colors button').length).toBe(0);
@@ -732,7 +732,7 @@ describe('<slip-designer> 눈금자·격자 (F-20)', () => {
     gap.click();
     await el.updateComplete;
 
-    // 기본값으로 회색이 선택되어 있다
+    // 기본값으로 회색이 선택되어 있습니다
     toolbarButton(el, strings.designer.grid).click();
     await el.updateComplete;
     const swatch = (name: string) => Array.from(el.shadowRoot!.querySelectorAll('.grid-colors button'))
@@ -740,7 +740,7 @@ describe('<slip-designer> 눈금자·격자 (F-20)', () => {
         === `${strings.designer.gridColor}: ${name}`) as HTMLButtonElement;
     expect(swatch(strings.designer.colorGray).getAttribute('aria-pressed')).toBe('true');
 
-    // 파랑을 선택하면 격자선 색이 바뀌고 메뉴는 닫힌다
+    // 파랑을 선택하면 격자선 색이 바뀌고 메뉴는 닫힙니다
     swatch(strings.designer.colorBlue).click();
     await el.updateComplete;
     expect(el.shadowRoot!.querySelector('.preset-menu')).toBeNull();
@@ -753,7 +753,7 @@ describe('<slip-designer> 눈금자·격자 (F-20)', () => {
     const el = await loadDesigner();
     await pickGrid(el, '10mm');
 
-    // txt-1(x=30, y=40)을 어중간한 위치로 끌면 10mm 격자로 맞춰진다
+    // txt-1(x=30, y=40)을 어중간한 위치로 끌면 10mm 격자로 맞춰집니다
     const div = el.shadowRoot!.querySelector('[data-id="txt-1"]') as HTMLElement;
     const drag = async (dxMm: number, dyMm: number, altKey = false) => {
       div.dispatchEvent(new PointerEvent('pointerdown', {
@@ -773,7 +773,7 @@ describe('<slip-designer> 눈금자·격자 (F-20)', () => {
     expect(text.position.x % 10).toBe(0);
     expect(text.position.y % 10).toBe(0);
 
-    // Alt를 누르면 격자를 무시하고 자유롭게 놓인다
+    // Alt를 누르면 격자를 무시하고 자유롭게 놓입니다
     const before = { ...text.position };
     await drag(3.3, 2.2, true);
     expect(text.position.x).not.toBe(before.x);
@@ -942,7 +942,7 @@ describe('<slip-designer> 복사·붙여넣기', () => {
     expect(pasted.id).not.toBe('txt-1');
     expect(pasted.content).toBe('테스트 텍스트');
     expect(pasted.position).toEqual({ x: 35, y: 45 });
-    // 붙여넣은 요소가 선택된다
+    // 붙여넣은 요소가 선택됩니다
     expect(el.shadowRoot?.querySelector('.element.selected')?.getAttribute('data-id'))
       .toBe(pasted.id);
     el.remove();
@@ -1016,7 +1016,7 @@ describe('<slip-designer> 미리보기 편집 잠금', () => {
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
     await el.updateComplete;
 
-    // 편집으로 되돌리면 요소 수가 그대로여야 한다 (미리보기 중 편집이 무시됨)
+    // 편집으로 되돌리면 요소 수가 그대로여야 합니다 (미리보기 중 편집이 무시됨)
     toolbarButton(el, strings.designer.edit).click();
     await el.updateComplete;
     expect(el.shadowRoot!.querySelectorAll('.element').length).toBe(before);
@@ -1052,7 +1052,7 @@ describe('<slip-designer> pointercancel', () => {
     expect(parseFloat(moved.style.left)).toBeCloseTo(30 * PX_PER_MM, 0);
     expect(changes.length).toBe(0);
 
-    // 취소 후 hover 이동만으로는 움직이지 않아야 한다
+    // 취소 후 hover 이동만으로는 움직이지 않아야 합니다
     div.dispatchEvent(new PointerEvent('pointermove', {
       bubbles: true, composed: true, clientX: 40 * PX_PER_MM, clientY: 0, pointerId: 1,
     }));
@@ -1100,7 +1100,7 @@ describe('<slip-designer> 도형 선택 메뉴', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 그리드 크기 조절 — 그리드는 크기를 저장하지 않고 트랙 합으로 표현한다
+// 그리드 크기 조절 — 그리드는 크기를 저장하지 않고 트랙 합으로 표현합니다
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 그리드 크기 조절', () => {
@@ -1186,7 +1186,7 @@ describe('<slip-designer> 그리드 크기 조절', () => {
   it('트랙 하나가 최소 크기(2mm) 밑으로 내려가지 않는다', async () => {
     const el = await mount();
 
-    // 60 → 2mm로 줄여도 열마다 최소 2mm를 지킨다
+    // 60 → 2mm로 줄여도 열마다 최소 2mm를 지킵니다
     dragHandle(el, 'se', -58, 0);
     await el.updateComplete;
 

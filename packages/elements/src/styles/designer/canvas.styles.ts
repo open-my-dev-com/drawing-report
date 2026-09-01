@@ -3,7 +3,7 @@
  *
  * @remarks
  * 눈금자, 용지, 격자, 요소 표시와 선택 표시.
- * 규칙 순서는 원래 한 파일이던 때와 같다 — 순서를 바꾸면 cascade가 달라진다.
+ * 규칙 순서는 원래 한 파일이던 때와 같습니다 — 순서를 바꾸면 cascade가 달라집니다.
  */
 import { css } from 'lit';
 import { RULER_PX } from './metrics.js';
@@ -19,7 +19,7 @@ export const canvasStyles = css`
       justify-content: center;
       padding: 24px;
     }
-    /* 생성 도구를 선택한 동안 캔버스 클릭으로 요소를 배치하므로 십자 커서를 사용한다 */
+    /* 생성 도구를 선택한 동안 캔버스 클릭으로 요소를 배치하므로 십자 커서를 사용합니다 */
     .canvas-area.drawing,
     .canvas-area.drawing .element {
       cursor: crosshair;
@@ -40,7 +40,7 @@ export const canvasStyles = css`
       pointer-events: none;
       z-index: 25;
     }
-    /* 눈금자와 용지를 함께 스크롤해 눈금 위치를 일치시킨다  */
+    /* 눈금자와 용지를 함께 스크롤해 눈금 위치를 일치시킵니다  */
     .paper-wrap {
       display: grid;
       grid-template-columns: ${RULER_PX}px auto;
@@ -79,13 +79,13 @@ export const canvasStyles = css`
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
       flex-shrink: 0;
     }
-    /* 격자 — 요소보다 뒤에 표시한다. 선 색과 간격은 인라인 스타일로 지정한다 */
+    /* 격자 — 요소보다 뒤에 표시합니다. 선 색과 간격은 인라인 스타일로 지정합니다 */
     .grid-overlay {
       position: absolute;
       inset: 0;
       pointer-events: none;
     }
-    /* 격자 색 견본 — 격자가 켜져 있을 때만 메뉴에 표시한다  */
+    /* 격자 색 견본 — 격자가 켜져 있을 때만 메뉴에 표시합니다  */
     .grid-colors {
       display: flex;
       gap: 6px;
@@ -105,7 +105,7 @@ export const canvasStyles = css`
       outline: 2px solid var(--sk-accent);
       outline-offset: 1px;
     }
-    /* 커서 좌표 — 캔버스 오른쪽 아래에 붙어 스크롤해도 자리를 지킨다  */
+    /* 커서 좌표 — 캔버스 오른쪽 아래에 붙어 스크롤해도 자리를 지킵니다  */
     .coords {
       grid-row: 2;
       grid-column: 2;
@@ -153,7 +153,7 @@ export const canvasStyles = css`
       box-shadow: 0 0 0 2px var(--sk-accent);
       z-index: 10;
     }
-    /* 반복 그리드의 행 편집 도구는 요소 바깥까지 표시한다. 미리보기 자체는 계속 자른다. */
+    /* 반복 그리드의 행 편집 도구는 요소 바깥까지 표시합니다. 미리보기 자체는 계속 자릅니다. */
     .element.type-grid.selected {
       overflow: visible;
     }
@@ -161,9 +161,9 @@ export const canvasStyles = css`
       overflow: hidden;
     }
     /*
-     * 요소 종류 배지는 마우스를 올리거나 요소를 선택했을 때 표시한다.
-     * 캔버스와 PDF의 글 위치를 맞추기 위해 요소 상자에 안쪽 여백을 두지 않는다.
-     * 툴바에서 "요소 확인"을 켜면 모든 배지를 표시한다.
+     * 요소 종류 배지는 마우스를 올리거나 요소를 선택했을 때 표시합니다.
+     * 캔버스와 PDF의 글 위치를 맞추기 위해 요소 상자에 안쪽 여백을 두지 않습니다.
+     * 툴바에서 "요소 확인"을 켜면 모든 배지를 표시합니다.
      */
     .element .badge {
       position: absolute;
@@ -192,7 +192,7 @@ export const canvasStyles = css`
     }
     /* 텍스트·필드 표시 — PDF(pdfme)와 같게: 위쪽 정렬, 줄바꿈 유지, 넘치면 자동 줄바꿈 */
     .element .el-content {
-      /* flex column으로 수직 정렬(justify-content)을 준다 — 기본은 상단 */
+      /* flex column으로 수직 정렬(justify-content)을 줍니다 — 기본은 상단 */
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
@@ -200,7 +200,7 @@ export const canvasStyles = css`
       height: 100%;
       overflow: hidden;
       white-space: pre-wrap;
-      /* 줄바꿈 위치도 PDF와 맞춘다 — 낱말 단위로 끊고, 한 낱말이 상자보다 길 때만 낱말 안에서 끊는다 */
+      /* 줄바꿈 위치도 PDF와 맞춥니다 — 낱말 단위로 끊고, 한 낱말이 상자보다 길 때만 낱말 안에서 끊습니다 */
       word-break: keep-all;
       overflow-wrap: break-word;
       line-height: 1;
@@ -215,7 +215,7 @@ export const canvasStyles = css`
       position: absolute;
       inset: 0;
     }
-    /* 바코드 견본 — 모듈 배열·막대 그림 위에 종류와 값을 겹쳐 표시한다 */
+    /* 바코드 견본 — 모듈 배열·막대 그림 위에 종류와 값을 겹쳐 표시합니다 */
     .element .barcode-preview {
       position: absolute;
       inset: 0;
@@ -250,8 +250,8 @@ export const canvasStyles = css`
       /* PDF 변환 계층의 셀 안쪽 여백과 같은 값 (GRID_CELL_PADDING = 1mm, 사방) */
       padding: 1mm;
       overflow: hidden;
-      /* PDF는 셀을 넘치는 글을 낱말 단위로 줄바꿈한다 — 캔버스도 같게 접어 화면·PDF를 맞춘다.
-         줄바꿈 문자는 pre-line으로 그대로 보인다 */
+      /* PDF는 셀을 넘치는 글을 낱말 단위로 줄바꿈합니다 — 캔버스도 같게 접어 화면·PDF를 맞춥니다.
+         줄바꿈 문자는 pre-line으로 그대로 보입니다 */
       white-space: pre-line;
       overflow-wrap: anywhere;
     }
@@ -276,24 +276,24 @@ export const canvasStyles = css`
       width: 100%;
       height: 100%;
     }
-    /* 선·타원·삼각형에는 편집 영역의 테두리를 표시하지 않는다 (선택 시 강조는 유지) */
+    /* 선·타원·삼각형에는 편집 영역의 테두리를 표시하지 않습니다 (선택 시 강조는 유지) */
     .element.type-line,
     .element.type-ellipse,
     .element.type-polygon {
       border-color: transparent;
     }
-    /* 선 요소는 배지가 선과 겹치므로 표시하지 않는다. */
+    /* 선 요소는 배지가 선과 겹치므로 표시하지 않습니다. */
     .element.type-line .badge {
       display: none;
     }
     .element.type-line {
       overflow: visible;
     }
-    /* PDF와 같이 요소 영역 밖으로 이어지는 선의 두께를 자르지 않는다. */
+    /* PDF와 같이 요소 영역 밖으로 이어지는 선의 두께를 자르지 않습니다. */
     .element.type-line svg {
       overflow: visible;
     }
-    /* 선택한 선은 선 강조와 끝점 핸들로 표시한다. */
+    /* 선택한 선은 선 강조와 끝점 핸들로 표시합니다. */
     .element.type-line.selected {
       box-shadow: none;
     }
@@ -323,7 +323,7 @@ export const canvasStyles = css`
     .handle-sw { left: -4px; bottom: -4px; cursor: nesw-resize; }
     .handle-w { left: -4px; top: calc(50% - 4px); cursor: ew-resize; }
 
-    /* 선 선택 하이라이트·그리기 미리보기 — 상자 대신 선 자체를 강조한다  */
+    /* 선 선택 하이라이트·그리기 미리보기 — 상자 대신 선 자체를 강조합니다  */
     .selection-overlay .line-highlight {
       position: absolute;
       inset: 0;

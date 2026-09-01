@@ -2,8 +2,8 @@
  * 그리드 편집의 선택 상태 — 셀 선택, 인라인 편집, 행 구간 선택과 행 추가 명령.
  *
  * @remarks
- * 값 변경은 호출부가 담당하고, 이 컨트롤러는 편집 대상을 관리한다.
- * 그리드가 아닌 요소를 선택하거나 양식을 다시 불러오면 `reset`으로 한꺼번에 지운다.
+ * 값 변경은 호출부가 담당하고, 이 컨트롤러는 편집 대상을 관리합니다.
+ * 그리드가 아닌 요소를 선택하거나 양식을 다시 불러오면 `reset`으로 한꺼번에 지웁니다.
  */
 
 import type { ReactiveController } from 'lit';
@@ -80,7 +80,7 @@ export class GridEditController implements ReactiveController {
   }
 
   /**
-   * 셀을 선택한다.
+   * 셀을 선택합니다.
    *
    * @param cell - 선택할 셀의 좌표
    */
@@ -89,21 +89,21 @@ export class GridEditController implements ReactiveController {
     this.host.requestUpdate();
   }
 
-  /** 셀 선택과 인라인 편집을 함께 해제한다. 값 소스 종류는 그대로 둔다. */
+  /** 셀 선택과 인라인 편집을 함께 해제합니다. 값 소스 종류는 그대로 둡니다. */
   clearCell(): void {
     this._cell = null;
     this._editing = false;
     this.host.requestUpdate();
   }
 
-  /** 셀 선택, 인라인 편집과 값 소스 종류를 모두 해제한다. */
+  /** 셀 선택, 인라인 편집과 값 소스 종류를 모두 해제합니다. */
   clearCellAndSource(): void {
     this._sourceKind = null;
     this.clearCell();
   }
 
   /**
-   * 인라인 편집을 켜거나 끈다.
+   * 인라인 편집을 켜거나 끕니다.
    *
    * @param editing - 편집 중이면 true
    */
@@ -113,7 +113,7 @@ export class GridEditController implements ReactiveController {
   }
 
   /**
-   * 편집 중인 값 소스 종류를 바꾼다.
+   * 편집 중인 값 소스 종류를 바꿉니다.
    *
    * @param kind - 값 소스 종류. null이면 정하지 않은 상태
    */
@@ -123,7 +123,7 @@ export class GridEditController implements ReactiveController {
   }
 
   /**
-   * 행 범위를 선택한다.
+   * 행 범위를 선택합니다.
    *
    * @param range - 선택할 행 범위. null이면 해제
    */
@@ -133,7 +133,7 @@ export class GridEditController implements ReactiveController {
   }
 
   /**
-   * 행 역할 명령 메뉴를 연다.
+   * 행 역할 명령 메뉴를 엽니다.
    *
    * @param focusFirst - 열자마자 첫 명령으로 초점을 옮기면 true
    */
@@ -144,7 +144,7 @@ export class GridEditController implements ReactiveController {
   }
 
   /**
-   * 행 역할 명령 메뉴를 닫는다.
+   * 행 역할 명령 메뉴를 닫습니다.
    *
    * @param clearRange - 선택한 행 범위도 함께 해제하면 true
    */
@@ -155,10 +155,10 @@ export class GridEditController implements ReactiveController {
   }
 
   /**
-   * 메뉴를 연 뒤 초점을 옮길 차례인지 확인하고 그 표시를 지운다.
+   * 메뉴를 연 뒤 초점을 옮길 차례인지 확인하고 그 표시를 지웁니다.
    *
    * @remarks
-   * 화면을 그린 직후에 부르므로 여기서 화면 갱신을 요청하지 않는다 — 다시 그리게 된다.
+   * 화면을 그린 직후에 부르므로 여기서 화면 갱신을 요청하지 않습니다 — 다시 그리게 됩니다.
    *
    * @returns 이번에 초점을 옮겨야 하면 true
    */
@@ -169,7 +169,7 @@ export class GridEditController implements ReactiveController {
   }
 
   /**
-   * 행 추가 명령을 시작한다.
+   * 행 추가 명령을 시작합니다.
    *
    * @param command - 확인할 명령
    * @param field - 집계할 목록 필드 (없으면 빈 문자열)
@@ -181,7 +181,7 @@ export class GridEditController implements ReactiveController {
   }
 
   /**
-   * 행 추가 명령에서 집계할 필드를 바꾼다.
+   * 행 추가 명령에서 집계할 필드를 바꿉니다.
    *
    * @param field - 선택한 목록 필드
    */
@@ -190,14 +190,14 @@ export class GridEditController implements ReactiveController {
     this.host.requestUpdate();
   }
 
-  /** 행 추가 명령을 취소한다. */
+  /** 행 추가 명령을 취소합니다. */
   clearRowCommand(): void {
     this._rowCommand = null;
     this._rowCommandField = '';
     this.host.requestUpdate();
   }
 
-  /** 그리드 편집 상태를 모두 지운다. 화면 갱신은 호출부가 처리한다. */
+  /** 그리드 편집 상태를 모두 지웁니다. 화면 갱신은 호출부가 처리합니다. */
   reset(): void {
     this._cell = null;
     this._sourceKind = null;

@@ -1,8 +1,8 @@
 /**
- * 속성 패널의 진입점. 선택 대상에 따라 표시할 설정을 결정한다.
+ * 속성 패널의 진입점. 선택 대상에 따라 표시할 설정을 결정합니다.
  *
  * @remarks
- * 대상별 UI는 각 렌더 모듈이 담당하며, 이 모듈은 선택 대상에 맞는 렌더 함수를 호출한다.
+ * 대상별 UI는 각 렌더 모듈이 담당하며, 이 모듈은 선택 대상에 맞는 렌더 함수를 호출합니다.
  */
 
 import { html, nothing } from 'lit';
@@ -55,19 +55,19 @@ export interface PanelContext {
 }
 
 /**
- * 선택 대상에 맞는 속성 패널을 오른쪽에 렌더링한다.
+ * 선택 대상에 맞는 속성 패널을 오른쪽에 렌더링합니다.
  *
  * @param ctx - 속성 패널 렌더링에 필요한 상태와 동작
  * @returns 속성 패널 조각
  */
 export function propertyPanel(ctx: PanelContext) {
-  // 선택 대상에 따라 페이지, 파라미터, 그룹 또는 요소 패널을 표시한다.
+  // 선택 대상에 따라 페이지, 파라미터, 그룹 또는 요소 패널을 표시합니다.
   const sel = ctx.selection;
   if (sel?.kind === 'parameter') return parameterPanel(ctx.kit, ctx.form, sel.key);
   if (sel?.kind === 'parameterField') return parameterFieldPanel(ctx.kit, ctx.form, sel.key, sel.field);
   if (sel?.kind === 'page') return pageSettings(ctx.kit, ctx.form);
 
-  // 여러 요소가 선택되면 그룹 패널을 표시한다.
+  // 여러 요소가 선택되면 그룹 패널을 표시합니다.
   if (ctx.selectedIds.size > 1) return groupPanel(ctx.kit, ctx.element);
 
   const el = ctx.selectedElement();
@@ -82,7 +82,7 @@ export function propertyPanel(ctx: PanelContext) {
   const selectedCell = el.type === 'grid' ? ctx.grid.edit.cell : null;
   const cellInBand = selectedCell !== null && el.type === 'grid' && inItemBand(el, selectedCell.row);
 
-  // 셀 선택 상태에서는 그리드 이름·위치·크기 설정을 표시하지 않는다 (§7.4).
+  // 셀 선택 상태에서는 그리드 이름·위치·크기 설정을 표시하지 않습니다 (§7.4).
   if (el.type === 'grid' && selectedCell !== null) {
     return html`
       <div class="type-name">
@@ -117,7 +117,7 @@ export function propertyPanel(ctx: PanelContext) {
                      ctx.kit.reject(s.numberInput, 'element-x');
                      return;
                    }
-                   // 입력한 기준점 좌표를 파일의 왼쪽 위 좌표로 변환한다.
+                   // 입력한 기준점 좌표를 파일의 왼쪽 위 좌표로 변환합니다.
                    ctx.element.update((el) => {
                      el.position.x = Math.max(0, round1(v - anchor.ax * boxOf(el).width));
                    });
@@ -160,7 +160,7 @@ export function propertyPanel(ctx: PanelContext) {
 }
 
 /**
- * 요소 종류별 속성 구역을 렌더링한다.
+ * 요소 종류별 속성 구역을 렌더링합니다.
  *
  * @param ctx - 속성 패널 렌더링에 필요한 상태와 동작
  * @param el - 선택한 요소

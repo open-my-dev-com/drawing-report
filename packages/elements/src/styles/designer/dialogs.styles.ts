@@ -3,7 +3,7 @@
  *
  * @remarks
  * 툴바 메뉴, 리스트형 선택 목록과 모달 화면.
- * 규칙 순서는 원래 한 파일이던 때와 같다 — 순서를 바꾸면 cascade가 달라진다.
+ * 규칙 순서는 원래 한 파일이던 때와 같습니다 — 순서를 바꾸면 cascade가 달라집니다.
  */
 import { css } from 'lit';
 
@@ -26,7 +26,7 @@ export const dialogsStyles = css`
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
     .preset-menu button {
-      /* 툴바 안에 렌더되므로.toolbar button의 아이콘 버튼 크기 규칙을 되돌린다 */
+      /* 툴바 안에 렌더되므로.toolbar button의 아이콘 버튼 크기 규칙을 되돌립니다 */
       display: block;
       min-width: 0;
       height: auto;
@@ -172,7 +172,7 @@ export const dialogsStyles = css`
       font-weight: 600;
       color: var(--sk-text-muted);
     }
-    /* 이미지 선택 — 경로가 base64라 읽을 수 없으므로 이미지 자체를 표시한다 */
+    /* 이미지 선택 — 경로가 base64라 읽을 수 없으므로 이미지 자체를 표시합니다 */
     .image-hint {
       margin: 6px 0;
       font-size: 11px;
@@ -237,7 +237,7 @@ export const dialogsStyles = css`
       flex-wrap: wrap;
       gap: 4px;
     }
-    /* 파라미터 칩의 값 종류 — 값을 선택하기 전에 표시한다  */
+    /* 파라미터 칩의 값 종류 — 값을 선택하기 전에 표시합니다  */
     .chip-type {
       margin-left: 4px;
       opacity: 0.6;
@@ -502,7 +502,7 @@ export const dialogsStyles = css`
       color: #666;
     }
 
-    /* 행 구간 표식 색 — 캔버스와 속성 패널에서 같은 색을 사용한다 (§7.2) */
+    /* 행 구간 표식 색 — 캔버스와 속성 패널에서 같은 색을 사용합니다 (§7.2) */
     .placement-before-data { --sk-band: #8d6e63; }
     .placement-page-start { --sk-band: #1a73e8; }
     .placement-group-start { --sk-band: #188038; }

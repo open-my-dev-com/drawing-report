@@ -2,7 +2,7 @@
  * 캔버스 격자(모눈)의 간격과 색 — 화면 전용 설정.
  *
  * @remarks
- * 격자는 파일에 저장하지 않는다. 그리드(요소)와 다른 것이다.
+ * 격자는 파일에 저장하지 않습니다. 그리드(요소)와 다른 것입니다.
  */
 
 import type { SlipElement } from '@omdc-slipkit/core';
@@ -12,7 +12,7 @@ export const GRID_GAPS = [1, 5, 10] as const;
 
 /**
  * 캔버스 격자 색상 선택지.
- * `swatch`는 메뉴에 표시할 색이고 `line`은 캔버스에 그릴 색이다.
+ * `swatch`는 메뉴에 표시할 색이고 `line`은 캔버스에 그릴 색입니다.
  */
 export const GRID_COLORS = [
   { id: 'gray', nameKey: 'colorGray', swatch: '#80868b', line: 'rgba(0, 0, 0, 0.08)' },

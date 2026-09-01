@@ -1,4 +1,4 @@
-// 선택 속성 쓰기·지우기 — 화면 없이 직접 확인한다.
+// 선택 속성 쓰기·지우기 — 화면 없이 직접 확인합니다.
 import { describe, expect, it } from 'vitest';
 import { setOptional, clearValueSources } from '../../src/designer/patch.js';
 

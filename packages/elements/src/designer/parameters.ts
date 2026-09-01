@@ -2,7 +2,7 @@
  * 파라미터 목록과 사용처를 나타내는 공통 타입과 값 종류 선택지.
  *
  * @remarks
- * 사이드바, 속성 패널과 수식 모달이 같은 요약을 사용한다.
+ * 사이드바, 속성 패널과 수식 모달이 같은 요약을 사용합니다.
  */
 
 import type { ParameterValueType } from '@omdc-slipkit/core';
@@ -37,7 +37,7 @@ export interface ParameterInfo {
  * 목록 파라미터의 하위 필드와 해당 필드를 사용하는 그리드 셀 위치.
  */
 export interface ParameterFieldInfo {
-  /** 항목 필드 물리명 — 수식에서 `목록파라미터.필드`로 사용한다 */
+  /** 항목 필드 물리명 — 수식에서 `목록파라미터.필드`로 사용합니다 */
   key: string;
   /** 화면에 표시할 이름 — 논리명이 없으면 물리명 */
   title: string;

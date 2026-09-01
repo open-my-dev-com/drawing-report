@@ -2,7 +2,7 @@
  * 수식 편집 모달의 초안 상태 — 입력 중인 수식, 커서 위치와 하위 필드 제안.
  *
  * @remarks
- * 초안은 적용을 누를 때까지 파일에 반영하지 않는다.
+ * 초안은 적용을 누를 때까지 파일에 반영하지 않습니다.
  */
 
 import type { ReactiveController } from 'lit';
@@ -21,7 +21,7 @@ export interface SuggestParameter {
 /** 커서 앞 입력에 맞는 하위 필드 제안 */
 export interface ColumnSuggestion {
   columns: { key: string; title: string }[];
-  /** 이미 입력한 글자 수 — 이어 붙일 때 이만큼 건너뛴다 */
+  /** 이미 입력한 글자 수 — 이어 붙일 때 이만큼 건너뜁니다 */
   typedLength: number;
 }
 
@@ -29,7 +29,7 @@ export interface ColumnSuggestion {
 const FIELD_REFERENCE = /([A-Za-z0-9_가-힣]+)\.([A-Za-z0-9_가-힣]*)$/;
 
 /**
- * 커서 앞의 `목록파라미터.필드` 입력에 맞는 하위 필드를 제안한다.
+ * 커서 앞의 `목록파라미터.필드` 입력에 맞는 하위 필드를 제안합니다.
  *
  * @param draft - 입력 중인 수식
  * @param caret - 커서 위치
@@ -60,7 +60,7 @@ export class FormulaDraftController implements ReactiveController {
 
   /**
    * @param host - 화면 갱신을 요청할 호스트
-   * @param getInput - 수식 입력 요소를 반환하는 함수. 텍스트 삽입 후 커서 위치를 복원할 때 사용한다
+   * @param getInput - 수식 입력 요소를 반환하는 함수. 텍스트 삽입 후 커서 위치를 복원할 때 사용합니다
    */
   constructor(
     private readonly host: FormulaDraftHost,
@@ -82,7 +82,7 @@ export class FormulaDraftController implements ReactiveController {
   }
 
   /**
-   * 편집을 시작한다.
+   * 편집을 시작합니다.
    *
    * @param initial - 편집을 시작할 수식 (없으면 빈 문자열)
    */
@@ -92,7 +92,7 @@ export class FormulaDraftController implements ReactiveController {
   }
 
   /**
-   * 입력란의 내용과 커서 위치를 반영한다.
+   * 입력란의 내용과 커서 위치를 반영합니다.
    *
    * @param value - 입력란의 현재 내용
    * @param caret - 커서 위치
@@ -104,7 +104,7 @@ export class FormulaDraftController implements ReactiveController {
   }
 
   /**
-   * 타자 없이 커서만 옮겼을 때 위치를 갱신한다.
+   * 타자 없이 커서만 옮겼을 때 위치를 갱신합니다.
    *
    * @param caret - 새 커서 위치
    */
@@ -115,7 +115,7 @@ export class FormulaDraftController implements ReactiveController {
   }
 
   /**
-   * 커서 위치에 글을 끼워 넣고 커서를 끼운 글 뒤로 옮긴다.
+   * 커서 위치에 글을 끼워 넣고 커서를 끼운 글 뒤로 옮깁니다.
    *
    * @param text - 커서 자리에 넣을 글
    * @param after - 커서 뒤에 함께 붙일 글 (함수 이름 뒤의 닫는 괄호 등)
@@ -137,7 +137,7 @@ export class FormulaDraftController implements ReactiveController {
   }
 
   /**
-   * 파일에 적용할 값을 만든다.
+   * 파일에 적용할 값을 만듭니다.
    *
    * @returns 앞뒤 공백을 지운 수식. 비어 있으면 null (수식을 지운다는 뜻)
    */
@@ -146,7 +146,7 @@ export class FormulaDraftController implements ReactiveController {
   }
 
   /**
-   * 지금 커서 위치에 맞는 하위 필드 제안을 만든다.
+   * 지금 커서 위치에 맞는 하위 필드 제안을 만듭니다.
    *
    * @param parameters - 하위 필드를 가진 파라미터 목록
    * @returns 제안할 필드 목록. 제안할 것이 없으면 null

@@ -1,8 +1,8 @@
 /**
- * 어느 모달이 열려 있는지 관리한다.
+ * 어느 모달이 열려 있는지 관리합니다.
  *
  * @remarks
- * 모달 열림 상태는 하나의 집합으로 관리하고, 각 모달의 입력 초안은 해당 컨트롤러가 관리한다.
+ * 모달 열림 상태는 하나의 집합으로 관리하고, 각 모달의 입력 초안은 해당 컨트롤러가 관리합니다.
  */
 
 import type { ReactiveController } from 'lit';
@@ -24,7 +24,7 @@ export class DialogsController implements ReactiveController {
   }
 
   /**
-   * 지정한 모달이 열려 있는지 확인한다.
+   * 지정한 모달이 열려 있는지 확인합니다.
    *
    * @param kind - 확인할 모달
    * @returns 열려 있으면 true
@@ -39,7 +39,7 @@ export class DialogsController implements ReactiveController {
   }
 
   /**
-   * 모달을 연다.
+   * 모달을 엽니다.
    *
    * @param kind - 열 모달
    */
@@ -49,7 +49,7 @@ export class DialogsController implements ReactiveController {
   }
 
   /**
-   * 모달을 닫는다.
+   * 모달을 닫습니다.
    *
    * @param kind - 닫을 모달
    */
@@ -58,12 +58,12 @@ export class DialogsController implements ReactiveController {
     this.host.requestUpdate();
   }
 
-  /** 열려 있는 모달을 모두 닫는다. 화면 갱신은 호출부가 처리한다. */
+  /** 열려 있는 모달을 모두 닫습니다. 화면 갱신은 호출부가 처리합니다. */
   closeAllQuietly(): void {
     this.opened.clear();
   }
 
-  /** 열려 있는 모달을 모두 닫는다. */
+  /** 열려 있는 모달을 모두 닫습니다. */
   closeAll(): void {
     this.closeAllQuietly();
     this.host.requestUpdate();

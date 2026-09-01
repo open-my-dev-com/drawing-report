@@ -2,7 +2,7 @@
  * 툴바와 패널에서 사용하는 아이콘 모음.
  *
  * 아이콘 저작권: Lucide Contributors, ISC 라이선스 — https://lucide.dev
- * lucide-static v1.33.0에서 추출했으며 색상은 `currentColor`를 사용한다.
+ * lucide-static v1.33.0에서 추출했으며 색상은 `currentColor`를 사용합니다.
  */
 import { svg, type TemplateResult } from 'lit';
 

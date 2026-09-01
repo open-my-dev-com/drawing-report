@@ -2,7 +2,7 @@
  * 양식·페이지 설정과 파라미터 설정 패널.
  *
  * @remarks
- * 요소를 선택하지 않았을 때 표시하는 패널이다.
+ * 요소를 선택하지 않았을 때 표시하는 패널입니다.
  */
 
 import { html, nothing } from 'lit';
@@ -38,21 +38,21 @@ export interface FormActions {
   readonly hostPaperSizes: readonly PaperSize[];
   /** 용지 크기 저장 입력의 내용 */
   readonly paperSaveName: string;
-  /** 용지 크기 저장 입력의 내용을 반영한다 */
+  /** 용지 크기 저장 입력의 내용을 반영합니다 */
   setPaperSaveName(value: string): void;
   /** 호스트가 용지 크기 저장을 지원하는지 */
   readonly canSavePaperSize: boolean;
-  /** 양식을 수정한다 */
+  /** 양식을 수정합니다 */
   updateFile(fn: (file: SlipTemplateFile) => void): void;
   /** 양식의 페이지 수 */
   pageCount(): number;
-  /** 현재 페이지를 앞뒤로 옮긴다 */
+  /** 현재 페이지를 앞뒤로 옮깁니다 */
   movePage(delta: number): void;
-  /** 페이지 키를 저장한다 */
+  /** 페이지 키를 저장합니다 */
   commitPageKey(index: number, raw: string): void;
-  /** 페이지 번호 표시를 켜거나 끈다 */
+  /** 페이지 번호 표시를 켜거나 끕니다 */
   togglePageNumber(index: number, on: boolean): void;
-  /** 현재 용지 크기를 이름 붙여 저장한다 */
+  /** 현재 용지 크기를 이름 붙여 저장합니다 */
   savePaperSize(name: string): void;
   /** 사이드바와 같은 파라미터 목록 */
   parameters(): ParameterInfo[];
@@ -69,7 +69,7 @@ export interface FormActions {
 }
 
 /**
- * 현재 페이지의 이름, 페이지 번호, 순서를 편집하는 패널을 렌더링한다.
+ * 현재 페이지의 이름, 페이지 번호, 순서를 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param form - 양식·페이지·파라미터 편집 동작
@@ -83,7 +83,7 @@ export function pageSettings(kit: PanelKit, form: FormActions) {
   if (!page) return formSettings(kit, form);
   const valOf = (e: Event) => (e.target as HTMLInputElement).value;
 
-  // 페이지 번호는 위쪽 또는 아래쪽의 왼쪽, 가운데, 오른쪽에 배치할 수 있다 (SPEC §4).
+  // 페이지 번호는 위쪽 또는 아래쪽의 왼쪽, 가운데, 오른쪽에 배치할 수 있습니다 (SPEC §4).
   const positions: { value: PageNumberPosition; label: string }[] = [
     { value: 'bottom-left', label: s.pagePosBottomLeft },
     { value: 'bottom-center', label: s.pagePosBottomCenter },
@@ -168,8 +168,8 @@ export function pageSettings(kit: PanelKit, form: FormActions) {
 }
 
 /**
- * 양식 제목, 용지 크기, 방향, 여백을 편집하는 패널을 렌더링한다.
- * 방향과 프리셋은 파일에 별도로 저장하지 않고 용지 너비와 높이에 반영한다.
+ * 양식 제목, 용지 크기, 방향, 여백을 편집하는 패널을 렌더링합니다.
+ * 방향과 프리셋은 파일에 별도로 저장하지 않고 용지 너비와 높이에 반영합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param form - 양식·페이지·파라미터 편집 동작
@@ -181,18 +181,18 @@ export function formSettings(kit: PanelKit, form: FormActions) {
   const { paper } = file.template;
   const [pt, pr, pb, pl] = paper.padding;
   const landscape = paper.width > paper.height;
-  // 기본 용지 뒤에 호스트가 제공한 용지를 추가한다.
+  // 기본 용지 뒤에 호스트가 제공한 용지를 추가합니다.
   const allSizes: PaperSize[] = [...PAPER_PRESETS, ...form.hostPaperSizes];
-  // 현재 크기와 방향을 제외하고 일치하는 용지를 찾는다.
+  // 현재 크기와 방향을 제외하고 일치하는 용지를 찾습니다.
   const presetIndex = allSizes.findIndex(
     (p) =>
       (p.width === paper.width && p.height === paper.height) ||
       (p.width === paper.height && p.height === paper.width),
   );
-  // 목록에 없는 크기이며 저장 함수가 있으면 사용자 지정 용지 저장 기능을 표시한다.
+  // 목록에 없는 크기이며 저장 함수가 있으면 사용자 지정 용지 저장 기능을 표시합니다.
   const canSaveSize = presetIndex < 0 && form.canSavePaperSize;
 
-  // 본문 영역이 남지 않는 용지 크기는 적용하지 않는다.
+  // 본문 영역이 남지 않는 용지 크기는 적용하지 않습니다.
   const setSize = (width: number, height: number, errorKey = 'paper-size'): void => {
     if (!Number.isFinite(width) || !Number.isFinite(height)) {
       kit.reject(s.numberInput, errorKey);
@@ -237,7 +237,7 @@ export function formSettings(kit: PanelKit, form: FormActions) {
                aria-describedby=${kit.hasError('form-title') ? 'error-form-title' : nothing}
                @change=${(e: Event) => {
                  const v = (e.target as HTMLInputElement).value.trim();
-                 // 빈 제목은 스키마에서 허용하지 않는다.
+                 // 빈 제목은 스키마에서 허용하지 않습니다.
                  if (!v) {
                    kit.reject(s.requiredInput, 'form-title');
                    return;
@@ -263,7 +263,7 @@ export function formSettings(kit: PanelKit, form: FormActions) {
           onPick: (v) => {
             if (v === 'custom') return;
             const p = allSizes[Number(v)]!;
-            // 세로 기준 프리셋을 현재 용지 방향에 맞춰 적용한다.
+            // 세로 기준 프리셋을 현재 용지 방향에 맞춰 적용합니다.
             setSize(landscape ? p.height : p.width, landscape ? p.width : p.height);
           },
         })}
@@ -360,7 +360,7 @@ export function formSettings(kit: PanelKit, form: FormActions) {
 }
 
 /**
- * 파라미터의 물리명, 논리명, 값 종류와 목록 하위 필드를 편집하는 패널을 렌더링한다.
+ * 파라미터의 물리명, 논리명, 값 종류와 목록 하위 필드를 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param form - 양식·페이지·파라미터 편집 동작
@@ -439,7 +439,7 @@ export function parameterPanel(kit: PanelKit, form: FormActions, key: string) {
 }
 
 /**
- * 목록 파라미터의 하위 필드 하나를 편집하는 패널을 렌더링한다.
+ * 목록 파라미터의 하위 필드 하나를 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param form - 양식·페이지·파라미터 편집 동작
@@ -507,4 +507,4 @@ export function parameterFieldPanel(kit: PanelKit, form: FormActions, listKey: s
   `;
 }
 
-/** 하위 필드를 사용하는 그리드 셀로 이동한다. */
+/** 하위 필드를 사용하는 그리드 셀로 이동합니다. */

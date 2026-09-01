@@ -2,8 +2,8 @@
  * 행 구간 역할의 표시 이름, 설명과 아이콘.
  *
  * @remarks
- * 표시 전용 메타데이터이므로 렌더 모듈에서 관리한다.
- * 캔버스의 역할 메뉴와 속성 패널의 행 구간 목록이 같은 표기를 사용한다.
+ * 표시 전용 메타데이터이므로 렌더 모듈에서 관리합니다.
+ * 캔버스의 역할 메뉴와 속성 패널의 행 구간 목록이 같은 표기를 사용합니다.
  */
 
 import type { TemplateResult } from 'lit';
@@ -12,7 +12,7 @@ import { icons } from '../../icons.js';
 import type { DesignerStrings } from '../../strings.js';
 
 /**
- * 행 구간 역할의 표시 이름을 반환한다.
+ * 행 구간 역할의 표시 이름을 반환합니다.
  *
  * @param s - UI 문구 사전
  * @param placement - 행 구간 역할
@@ -31,7 +31,7 @@ export function bandLabel(s: DesignerStrings, placement: GridBandPlacement): str
 }
 
 /**
- * 행 구간이 출력되는 시점과 대표 용도를 설명한다.
+ * 행 구간이 출력되는 시점과 대표 용도를 설명합니다.
  *
  * @param s - UI 문구 사전
  * @param placement - 행 구간 역할
@@ -50,7 +50,7 @@ export function bandDescription(s: DesignerStrings, placement: GridBandPlacement
 }
 
 /**
- * 행 구간 역할을 나타내는 아이콘을 반환한다.
+ * 행 구간 역할을 나타내는 아이콘을 반환합니다.
  *
  * @param placement - 행 구간 역할
  * @returns 아이콘 조각

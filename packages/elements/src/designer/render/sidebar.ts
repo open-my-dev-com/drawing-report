@@ -60,12 +60,12 @@ export interface SidebarActions {
   selectGridCell(pageIndex: number, gridId: string, row: number, column: number): void;
   /** 그리드에서 값이 있는 셀 목록 */
   gridValueCells(grid: SlipElement): { row: number; column: number; label: string; at: string }[];
-  /** 샘플 데이터 모달을 처음 상태로 연다 */
+  /** 샘플 데이터 모달을 처음 상태로 엽니다 */
   openSampleModal(): void;
 }
 
 /**
- * 페이지, 요소, 파라미터를 탐색하고 선택하는 왼쪽 사이드바를 렌더링한다.
+ * 페이지, 요소, 파라미터를 탐색하고 선택하는 왼쪽 사이드바를 렌더링합니다.
  *
  * @param kit - 사이드바 렌더링에 필요한 문구와 상태
  * @param side - 사이드바 선택과 편집 동작
@@ -75,7 +75,7 @@ export function sidebar(kit: PanelKit, side: SidebarActions) {
   const file = side.file!;
   const s = kit.s;
   const { paper } = file.template;
-  // 용지 비율을 유지하며 페이지 미리보기 크기를 계산한다.
+  // 용지 비율을 유지하며 페이지 미리보기 크기를 계산합니다.
   const thumbW = THUMB_WIDTH_PX;
   const scale = thumbW / paper.width;
   const pages = file.template.pages;
@@ -154,7 +154,7 @@ export function sidebar(kit: PanelKit, side: SidebarActions) {
 }
 
 /**
- * 요소와 값이 있는 그리드 셀을 사이드바 행으로 표시한다.
+ * 요소와 값이 있는 그리드 셀을 사이드바 행으로 표시합니다.
  *
  * @param kit - 사이드바 렌더링에 필요한 문구와 상태
  * @param side - 사이드바 선택과 편집 동작
@@ -167,7 +167,7 @@ export function elementRow(kit: PanelKit, side: SidebarActions, pageIndex: numbe
   const cells = isGrid(el) ? side.gridValueCells(el) : [];
   const hasCells = cells.length > 0;
   const expanded = hasCells && side.expandedElements.has(el.id);
-  // 그리드 셀이 선택된 경우에는 요소 행 대신 해당 셀 행을 강조한다.
+  // 그리드 셀이 선택된 경우에는 요소 행 대신 해당 셀 행을 강조합니다.
   const rowSelected = side.selectedIds.has(el.id) && !side.selection && side.gridEdit.cell === null;
   return html`
     <div class="side-row-wrap">
@@ -193,7 +193,7 @@ export function elementRow(kit: PanelKit, side: SidebarActions, pageIndex: numbe
 }
 
 /**
- * 파라미터와 목록 하위 필드를 사이드바 행으로 표시한다.
+ * 파라미터와 목록 하위 필드를 사이드바 행으로 표시합니다.
  *
  * @param kit - 사이드바 렌더링에 필요한 문구와 상태
  * @param side - 사이드바 선택과 편집 동작
@@ -243,4 +243,4 @@ export function parameterRow(kit: PanelKit, side: SidebarActions, b: ParameterIn
   `;
 }
 
-/** 파라미터의 하위 필드 목록을 열거나 닫는다. */
+/** 파라미터의 하위 필드 목록을 열거나 닫습니다. */

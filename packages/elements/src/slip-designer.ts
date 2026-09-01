@@ -93,7 +93,7 @@ const NEW_BINDING_OPTION = '\u0000new';
 const MAX_UNDO = 50;
 /**
  * 업로드할 수 있는 이미지 파일의 기본 최대 크기(바이트).
- * base64로 담기면 약 33% 커지므로 2MB 원본이 파일에는 ~2.7MB로 들어간다.
+ * base64로 담기면 약 33% 커지므로 2MB 원본이 파일에는 ~2.7MB로 들어갑니다.
  */
 const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
@@ -106,7 +106,7 @@ const NEW_ELEMENT_CASCADE_WRAP_MM = 50;
  *
  * 캔버스 편집, 속성 패널, 요소 추가와 삭제,
  * 복사·붙여넣기, 되돌리기·다시 실행, 다중 페이지, 프리셋 불러오기, PDF 미리보기를
- * 제공한다. 편집으로 양식이 바뀔 때마다 `slip-change` 이벤트로 파일을 내보낸다.
+ * 제공합니다. 편집으로 양식이 바뀔 때마다 `slip-change` 이벤트로 파일을 내보냅니다.
  */
 export class SlipDesigner extends LitElement {
   static styles = designerStyles;
@@ -150,7 +150,7 @@ export class SlipDesigner extends LitElement {
   src = '';
 
   /**
-   * UI 언어 (`ko`, `en`, `ja`). 생략하면 `slipkit`에 설정된 로케일을 따른다.
+   * UI 언어 (`ko`, `en`, `ja`). 생략하면 `slipkit`에 설정된 로케일을 따릅니다.
    *
    * @defaultValue 영어
    */
@@ -158,26 +158,26 @@ export class SlipDesigner extends LitElement {
 
   /**
    * 폰트·로케일·암호화 키 공통 설정 인스턴스.
-   * PDF 미리보기와 수식 평가는 이 인스턴스의 설정을 사용한다.
-   * `getFonts`가 없으면 동봉 기본 폰트로 렌더링한다.
+   * PDF 미리보기와 수식 평가는 이 인스턴스의 설정을 사용합니다.
+   * `getFonts`가 없으면 동봉 기본 폰트로 렌더링합니다.
    */
   slipkit?: SlipKit;
 
   /**
    * 바코드 종류와 용지 정보를 제공하는 호스트 설정.
-   * 생략하면 기본 용지만 표시한다.
+   * 생략하면 기본 용지만 표시합니다.
    */
   settings?: SlipDesignerSettings;
 
   /**
    * 툴바에 표시할 양식 프리셋 목록.
-   * 지정하면 기본 프리셋을 대체한다.
+   * 지정하면 기본 프리셋을 대체합니다.
    */
   presets?: SlipPreset[];
 
   /**
    * "내 양식" 저장과 불러오기에 사용할 저장소 어댑터.
-   * 지정한 경우에만 관련 도구를 표시한다.
+   * 지정한 경우에만 관련 도구를 표시합니다.
    */
   storage?: StorageAdapter;
 
@@ -186,8 +186,8 @@ export class SlipDesigner extends LitElement {
    *
    * @remarks
    * base64 인코딩 결과는 원본보다 약 33% 크므로 호스트의 저장 및 전송 제한에 맞게
-   * 크기를 지정할 수 있다.
-   * HTML 속성으로도 줄 수 있다: `<slip-designer max-image-bytes="1048576">`.
+   * 크기를 지정할 수 있습니다.
+   * HTML 속성으로도 줄 수 있습니다: `<slip-designer max-image-bytes="1048576">`.
    */
   maxImageBytes = DEFAULT_MAX_IMAGE_BYTES;
 
@@ -197,12 +197,12 @@ export class SlipDesigner extends LitElement {
   private _outputPage = 0;
   /** 선택한 반복 그리드를 원본 행 구조 대신 현재 출력 결과로 표시할지 여부 */
   private _gridPlanPreview = false;
-  /** 현재 양식 페이지의 계획 캐시 — 페이지·샘플 값이 바뀌면 다시 계산한다 */
+  /** 현재 양식 페이지의 계획 캐시 — 페이지·샘플 값이 바뀌면 다시 계산합니다 */
   private _planCache: { key: string; plan: SourcePagePlan | null; error: SlipLayoutError | null } | null = null;
   /** 속성 패널과 크기 조절 핸들이 대상으로 삼는 주 선택 요소 */
   private _selectedId: string | null = null;
   /**
-   * 선택된 요소 ID 모음. 주 선택 요소를 포함하며 이동, 삭제, 그룹화에 사용한다.
+   * 선택된 요소 ID 모음. 주 선택 요소를 포함하며 이동, 삭제, 그룹화에 사용합니다.
    */
   private _selectedIds = new Set<string>();
   /** 호스트가 `settings.getPaperSizes`로 제공한 추가 용지 목록 */
@@ -236,7 +236,7 @@ export class SlipDesigner extends LitElement {
   private _imageError: string | null = null;
   /**
    * 사이드바에서 선택한 페이지 또는 파라미터.
-   * 요소를 선택하면 `null`이 된다.
+   * 요소를 선택하면 `null`이 됩니다.
    */
   private _sideSelection: SideSelection = null;
   /**
@@ -251,13 +251,13 @@ export class SlipDesigner extends LitElement {
   private _parameterKeyError = false;
   /** 마지막으로 거부한 입력의 오류 메시지 */
   private _inputError: string | null = null;
-  /** 오류가 발생한 속성 입력의 식별자. 없으면 패널 전체 오류다. */
+  /** 오류가 발생한 속성 입력의 식별자. 없으면 패널 전체 오류입니다. */
   private _inputErrorField: string | null = null;
   /** 페이지 키 중복 오류 여부 */
   private _pageKeyError = false;
   /**
    * 요소 ID별 좌표 기준점의 ANCHORS 인덱스.
-   * 파일에는 저장하지 않으며 기본값은 왼쪽 위다.
+   * 파일에는 저장하지 않으며 기본값은 왼쪽 위입니다.
    */
   private _anchorByElement = new Map<string, number>();
   /** 컴포넌트 속성이 우선하고, 없으면 slipkit 설정을 따르는 UI 언어 로케일 */
@@ -265,7 +265,7 @@ export class SlipDesigner extends LitElement {
     return this.locale ?? this.slipkit?.locale;
   }
 
-  /** 수식·조건식 평가에 사용할 로케일 — slipkit이 있으면 인스턴스 설정을 따른다 */
+  /** 수식·조건식 평가에 사용할 로케일 — slipkit이 있으면 인스턴스 설정을 따릅니다 */
   private get _evalLocale(): string | undefined {
     return this.slipkit ? this.slipkit.locale : this.locale;
   }
@@ -276,8 +276,8 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 수식을 평가한다. slipkit이 있으면 같은 인스턴스로 평가해 호스트의 렌더 결과와 맞춘다.
-   * 수식 로케일은 인스턴스 설정을 따른다 — 컴포넌트 locale은 UI 언어 전용이다.
+   * 수식을 평가합니다. slipkit이 있으면 같은 인스턴스로 평가해 호스트의 렌더 결과와 맞춥니다.
+   * 수식 로케일은 인스턴스 설정을 따릅니다 — 컴포넌트 locale은 UI 언어 전용입니다.
    */
   private _evaluate(source: string, context: FormulaContext): FormulaValue {
     if (this.slipkit) return this.slipkit.evaluate(source, context);
@@ -291,8 +291,8 @@ export class SlipDesigner extends LitElement {
 
   constructor() {
     super();
-    // 상태를 갖고 호스트에 갱신을 요청하는 컨트롤러만 등록한다.
-    // `_gridCommands`는 자체 상태가 없고 `_modalFocus`는 갱신을 요청하지 않는다.
+    // 상태를 갖고 호스트에 갱신을 요청하는 컨트롤러만 등록합니다.
+    // `_gridCommands`는 자체 상태가 없고 `_modalFocus`는 갱신을 요청하지 않습니다.
     for (const controller of [
       this._dialogs,
       this._pointer,
@@ -321,17 +321,17 @@ export class SlipDesigner extends LitElement {
     this._revokePreviewUrl();
   }
 
-  // 파싱 결과가 같은 렌더링에 반영되도록 렌더링 전에 처리한다.
+  // 파싱 결과가 같은 렌더링에 반영되도록 렌더링 전에 처리합니다.
   protected override willUpdate(changed: Map<string, unknown>): void {
     if (changed.has('src')) {
       this._parseSource();
     }
-    // 설정 기반 목록은 업데이트가 끝난 뒤 추가 렌더를 예약하지 않도록 미리 불러온다.
+    // 설정 기반 목록은 업데이트가 끝난 뒤 추가 렌더를 예약하지 않도록 미리 불러옵니다.
     if (changed.has('settings')) {
       void this._loadPaperSizes();
       void this._loadBarcodeKinds();
     }
-    // 폰트 목록은 slipkit의 공급 함수 또는 로케일별 동봉 기본 폰트에서 가져온다.
+    // 폰트 목록은 slipkit의 공급 함수 또는 로케일별 동봉 기본 폰트에서 가져옵니다.
     if (changed.has('slipkit') || changed.has('locale')) {
       void this._loadFontNames();
     }
@@ -731,7 +731,7 @@ export class SlipDesigner extends LitElement {
   private readonly _modalFocus = new ModalFocusController(this);
 
   override updated(): void {
-    // 인라인 셀 편집을 열면 바로 입력할 수 있게 포커스를 준다
+    // 인라인 셀 편집을 열면 바로 입력할 수 있게 포커스를 줍니다
     if (this._gridEdit.editing) {
       const editor = this.renderRoot.querySelector('.cell-editor') as HTMLInputElement | null;
       if (editor && this.shadowRoot?.activeElement !== editor) {
@@ -801,12 +801,12 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 반복 그리드에서 사용하는 목록 파라미터와 하위 필드를 정의에 추가한다.
+   * 반복 그리드에서 사용하는 목록 파라미터와 하위 필드를 정의에 추가합니다.
    *
    * @remarks
    * 정의되지 않은 반복 파라미터는 목록으로 추가하고 항목 구간의 셀 파라미터는 하위 필드로
-   * 추가한다. 이미 지정된 값 종류와 레이블은 변경하지 않는다. 목록이 아닌 파라미터에는
-   * 하위 필드를 추가하지 않는다.
+   * 추가합니다. 이미 지정된 값 종류와 레이블은 변경하지 않습니다. 목록이 아닌 파라미터에는
+   * 하위 필드를 추가하지 않습니다.
    */
   private _declareRepeatParameters(): void {
     const file = this._file;
@@ -826,7 +826,7 @@ export class SlipDesigner extends LitElement {
           defs.push(def);
           changed = true;
         } else if (def.valueType === undefined) {
-          // 값 종류가 없는 파라미터만 목록으로 설정한다.
+          // 값 종류가 없는 파라미터만 목록으로 설정합니다.
           def.valueType = 'list';
           changed = true;
         }
@@ -835,7 +835,7 @@ export class SlipDesigner extends LitElement {
         for (const cell of el.cells) {
           if (cell.parameter === undefined || cell.row < fromRow || cell.row > toRow) continue;
           if (fields.some((f) => f.key === cell.parameter)) continue;
-          // 같은 열의 헤더 텍스트를 하위 필드의 레이블로 사용한다.
+          // 같은 열의 헤더 텍스트를 하위 필드의 레이블로 사용합니다.
           const title = gridHeaderTitle(el, cell.column, fromRow);
           fields.push(title === undefined ? { key: cell.parameter } : { key: cell.parameter, label: title });
           changed = true;
@@ -862,7 +862,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 잘못된 입력을 모델에 반영하지 않고 오류 메시지를 표시한다.
+   * 잘못된 입력을 모델에 반영하지 않고 오류 메시지를 표시합니다.
    *
    * @param message - 표시할 문구 (생략하면 기본 안내)
    * @param field - 오류가 발생한 속성 입력 식별자
@@ -873,7 +873,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 현재 속성 패널의 입력 오류 상태를 초기화한다. */
+  /** 현재 속성 패널의 입력 오류 상태를 초기화합니다. */
   private _resetPanelErrors(): void {
     this._inputError = null;
     this._inputErrorField = null;
@@ -881,7 +881,7 @@ export class SlipDesigner extends LitElement {
     this._pageKeyError = false;
   }
 
-  /** 마지막 입력 오류 메시지를 지운다. */
+  /** 마지막 입력 오류 메시지를 지웁니다. */
   private _clearInputError(): void {
     if (this._inputError === null) return;
     this._inputError = null;
@@ -889,13 +889,13 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 지정한 입력에 연결된 오류를 렌더링한다. */
+  /** 지정한 입력에 연결된 오류를 렌더링합니다. */
   private _renderInputError(field: string) {
     if (this._inputError === null || this._inputErrorField !== field) return nothing;
     return html`<div id="error-${field}" class="input-error field-error" role="alert">${this._inputError}</div>`;
   }
 
-  /** 지정한 입력에 현재 오류가 있는지 확인한다. */
+  /** 지정한 입력에 현재 오류가 있는지 확인합니다. */
   private _hasInputError(field: string): boolean {
     return this._inputError !== null && this._inputErrorField === field;
   }
@@ -918,7 +918,7 @@ export class SlipDesigner extends LitElement {
     this._emitChange();
   }
 
-  /** 현재 페이지 인덱스를 문서의 페이지 범위로 제한한다. */
+  /** 현재 페이지 인덱스를 문서의 페이지 범위로 제한합니다. */
   private _clampPageIndex(): void {
     this._pageIndex = Math.max(0, Math.min(this._pageIndex, this._pageCount() - 1));
   }
@@ -932,7 +932,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 페이지 레이블이 있으면 반환하고 없으면 페이지 번호로 이름을 만든다.
+   * 페이지 레이블이 있으면 반환하고 없으면 페이지 번호로 이름을 만듭니다.
    *
    * @param page - 페이지
    * @param index - 페이지 번호(0-기반)
@@ -946,7 +946,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 페이지 행 옆에 화면 경계를 벗어나지 않도록 미리보기를 표시한다.
+   * 페이지 행 옆에 화면 경계를 벗어나지 않도록 미리보기를 표시합니다.
    */
   private _showPageThumb(index: number, event: Event): void {
     const row = event.currentTarget as HTMLElement | null;
@@ -959,14 +959,14 @@ export class SlipDesigner extends LitElement {
     this._thumbPos = { top, left: rect.right + 6 };
   }
 
-  /** 현재 행의 페이지 미리보기를 숨긴다. */
+  /** 현재 행의 페이지 미리보기를 숨깁니다. */
   private _hidePageThumb(index: number): void {
     if (this._thumbPage !== index) return;
     this._thumbPage = null;
     this._thumbPos = null;
   }
 
-  /** 용지 비율에 맞춘 페이지 미리보기 높이(px)를 계산한다. */
+  /** 용지 비율에 맞춘 페이지 미리보기 높이(px)를 계산합니다. */
   private _thumbHeightPx(): number {
     const paper = this._file?.template.paper;
     if (!paper) return 0;
@@ -985,7 +985,7 @@ export class SlipDesigner extends LitElement {
     this._gridEdit.clearCell();
   }
 
-  /** 현재 페이지 뒤에 빈 페이지를 추가하고 그 페이지로 이동한다 */
+  /** 현재 페이지 뒤에 빈 페이지를 추가하고 그 페이지로 이동합니다 */
   private _addPage(): void {
     if (!this._file) return;
     this._pushUndo();
@@ -997,7 +997,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 현재 페이지를 삭제한다 (마지막 한 페이지는 삭제 불가) */
+  /** 현재 페이지를 삭제합니다 (마지막 한 페이지는 삭제 불가) */
   private _deletePage(): void {
     if (!this._file || this._pageCount() <= 1) return;
     this._pushUndo();
@@ -1025,12 +1025,12 @@ export class SlipDesigner extends LitElement {
     return this._selectedId ? this._findElement(this._selectedId) : undefined;
   }
 
-  /** 현재 페이지에서 같은 그룹 ID를 가진 요소를 반환한다. */
+  /** 현재 페이지에서 같은 그룹 ID를 가진 요소를 반환합니다. */
   private _pageGroupMembers(group: string): SlipElement[] {
     return (this._currentElements() ?? []).filter((el) => el.group === group);
   }
 
-  /** 주 선택 요소와 선택된 요소 목록을 초기화한다. */
+  /** 주 선택 요소와 선택된 요소 목록을 초기화합니다. */
   private _clearSelection(): void {
     this._resetPanelErrors();
     this._selectedId = null;
@@ -1040,7 +1040,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 요소를 선택한다. 그룹에 속한 요소이면 같은 그룹을 함께 선택한다.
+   * 요소를 선택합니다. 그룹에 속한 요소이면 같은 그룹을 함께 선택합니다.
    *
    * @param id - 선택할 요소 id
    */
@@ -1056,8 +1056,8 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 요소를 다중 선택 목록에 추가하거나 제거한다.
-   * 추가한 요소는 주 선택이 되며 주 선택을 제거하면 남은 요소 중 하나를 주 선택으로 지정한다.
+   * 요소를 다중 선택 목록에 추가하거나 제거합니다.
+   * 추가한 요소는 주 선택이 되며 주 선택을 제거하면 남은 요소 중 하나를 주 선택으로 지정합니다.
    *
    * @param id - 토글할 요소 id
    */
@@ -1081,13 +1081,13 @@ export class SlipDesigner extends LitElement {
     if (this._selectedId && !this._findElement(this._selectedId)) {
       this._selectedId = null;
     }
-    // 복원 또는 삭제로 사라진 요소를 선택 목록에서 제거한다.
+    // 복원 또는 삭제로 사라진 요소를 선택 목록에서 제거합니다.
     if (this._selectedIds.size > 0) {
       const alive = new Set([...this._selectedIds].filter((id) => this._findElement(id)));
       if (alive.size !== this._selectedIds.size) this._selectedIds = alive;
       if (this._selectedId === null) this._selectedId = alive.values().next().value ?? null;
     }
-    // 선택된 셀이 현재 그리드 범위 안에 있는지 확인한다.
+    // 선택된 셀이 현재 그리드 범위 안에 있는지 확인합니다.
     if (this._gridEdit.cell) {
       const el = this._findSelectedElement();
       if (
@@ -1104,7 +1104,7 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   /**
-   * 요소를 추가한다. 위치를 지정하지 않으면 용지 여백에서 순차적으로 이동한 위치를 사용한다.
+   * 요소를 추가합니다. 위치를 지정하지 않으면 용지 여백에서 순차적으로 이동한 위치를 사용합니다.
    */
   private _addElement(
     type: CreatableType,
@@ -1134,7 +1134,7 @@ export class SlipDesigner extends LitElement {
         element = { type: 'text', id, name, position, width: 60, height: 10, content: '' };
         break;
       case 'grid':
-        // 새 그리드는 반복 설정이 없는 정적 그리드로 시작한다 (§7.1).
+        // 새 그리드는 반복 설정이 없는 정적 그리드로 시작합니다 (§7.1).
         element = {
           type: 'grid', id, name, position,
           columns: [{ width: GRID_DEFAULT_COL_MM }, { width: GRID_DEFAULT_COL_MM }, { width: GRID_DEFAULT_COL_MM }],
@@ -1164,7 +1164,7 @@ export class SlipDesigner extends LitElement {
         element = { type: 'ellipse', id, name, position, width: 60, height: 30 };
         break;
       case 'polygon':
-        // 다각형의 변 수는 도형 메뉴에서 선택한 값을 사용한다.
+        // 다각형의 변 수는 도형 메뉴에서 선택한 값을 사용합니다.
         element = {
           type: 'polygon', id, name, position, width: 40, height: 30, sides: this._pointer.pendingSides,
         };
@@ -1176,7 +1176,7 @@ export class SlipDesigner extends LitElement {
         };
         break;
       case 'barcode':
-        // 새 바코드는 QR Code를 기본 종류로 사용한다.
+        // 새 바코드는 QR Code를 기본 종류로 사용합니다.
         element = {
           type: 'barcode', id, name, position, width: 25, height: 25,
           kind: 'qrcode', parameter: `barcode_${id.slice(0, 4)}`,
@@ -1184,13 +1184,13 @@ export class SlipDesigner extends LitElement {
         break;
     }
 
-    // 드래그로 지정한 크기를 적용한다. 그리드는 행과 열 크기를 이 크기에 맞춘다 (SPEC §5.7).
+    // 드래그로 지정한 크기를 적용합니다. 그리드는 행과 열 크기를 이 크기에 맞춥니다 (SPEC §5.7).
     setElementBox(
       element,
       place?.width === undefined ? undefined : Math.max(MIN_SIZE_MM, round1(place.width)),
       place?.height === undefined ? undefined : Math.max(MIN_SIZE_MM, round1(place.height)),
     );
-    // 새 요소의 위치를 용지 범위로 제한한다.
+    // 새 요소의 위치를 용지 범위로 제한합니다.
     const box = boxOf(element);
     element.position = {
       x: round1(Math.max(0, Math.min(element.position.x, paper.width - box.width))),
@@ -1200,7 +1200,7 @@ export class SlipDesigner extends LitElement {
     elements.push(element);
     this._selectElement(id);
     this._sideSelection = null;
-    // 새 요소가 사용하는 파라미터를 정의 목록에 등록한다.
+    // 새 요소가 사용하는 파라미터를 정의 목록에 등록합니다.
     if (element.type === 'field' && element.parameter !== undefined) {
       this._ensureParameterDef(element.parameter);
     }
@@ -1214,7 +1214,7 @@ export class SlipDesigner extends LitElement {
   private _copySelected(): void {
     const elements = this._currentElements();
     if (!elements || this._selectedIds.size === 0) return;
-    // 선택된 요소와 그룹을 함께 복사한다.
+    // 선택된 요소와 그룹을 함께 복사합니다.
     const selected = elements.filter((el) => this._selectedIds.has(el.id));
     if (selected.length === 0) return;
     this._clipboard = JSON.parse(JSON.stringify(selected)) as SlipElement[];
@@ -1227,7 +1227,7 @@ export class SlipDesigner extends LitElement {
 
     this._pushUndo();
 
-    // 복사한 그룹에는 원본과 다른 그룹 ID를 부여한다.
+    // 복사한 그룹에는 원본과 다른 그룹 ID를 부여합니다.
     const groupRemap = new Map<string, string>();
     const pasted: SlipElement[] = [];
     for (const src of this._clipboard) {
@@ -1244,12 +1244,12 @@ export class SlipDesigner extends LitElement {
       elements.push(copy);
       pasted.push(copy);
     }
-    // 다음 붙여넣기 위치가 이동하도록 클립보드 좌표를 갱신한다.
+    // 다음 붙여넣기 위치가 이동하도록 클립보드 좌표를 갱신합니다.
     for (const src of this._clipboard) {
       src.position = { x: round1(src.position.x + 5), y: round1(src.position.y + 5) };
     }
 
-    // 붙여넣은 요소를 모두 선택한다.
+    // 붙여넣은 요소를 모두 선택합니다.
     this._selectedId = pasted[0]!.id;
     this._selectedIds = new Set(pasted.map((el) => el.id));
     this._sideSelection = null;
@@ -1257,7 +1257,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 선택된 요소를 모두 삭제한다. */
+  /** 선택된 요소를 모두 삭제합니다. */
   private _deleteSelected(): void {
     const elements = this._currentElements();
     if (!elements || this._selectedIds.size === 0) return;
@@ -1280,7 +1280,7 @@ export class SlipDesigner extends LitElement {
 
   private _emitChange(): void {
     if (!this._file) return;
-    // 문서가 변경되면 저장 완료 상태를 해제한다.
+    // 문서가 변경되면 저장 완료 상태를 해제합니다.
     this._forms.clearNotice();
     const file = structuredClone(this._file) as SlipFile;
     this.dispatchEvent(
@@ -1289,7 +1289,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 선택된 요소를 수정한다. 선택이 유효하지 않으면 입력 오류를 표시한다.
+   * 선택된 요소를 수정합니다. 선택이 유효하지 않으면 입력 오류를 표시합니다.
    *
    * @param fn - 요소 수정 함수
    */
@@ -1324,7 +1324,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 키보드 단축키가 듣도록 호스트에 포커스를 준다 — 이미 안쪽에 있으면 건드리지 않는다 */
+  /** 키보드 단축키가 듣도록 호스트에 포커스를 줍니다 — 이미 안쪽에 있으면 건드리지 않습니다 */
   private _focusHost(): void {
     if (this.contains(document.activeElement) || this.renderRoot.contains(this.shadowRoot?.activeElement ?? null)) {
       return;
@@ -1333,9 +1333,9 @@ export class SlipDesigner extends LitElement {
   }
 
   private _onKeyDown = (e: KeyboardEvent): void => {
-    // 입력 필드 안에서는 편집기 단축키를 가로채지 않는다.
+    // 입력 필드 안에서는 편집기 단축키를 가로채지 않습니다.
     // Shadow DOM 안에서 올라온 이벤트는 호스트에서 target이 호스트 요소로
-    // 재지정(retargeting)되므로, 실제 입력 대상은 composedPath의 첫 항목으로 판정한다.
+    // 재지정(retargeting)되므로, 실제 입력 대상은 composedPath의 첫 항목으로 판정합니다.
     const target = e.composedPath()[0] ?? e.target;
     const inFormField =
       target instanceof HTMLInputElement ||
@@ -1355,9 +1355,9 @@ export class SlipDesigner extends LitElement {
       this._pointer.cancelDrawing();
       this.requestUpdate();
     }
-    // PDF 미리보기 상태에서는 문서를 변경하는 단축키를 처리하지 않는다.
+    // PDF 미리보기 상태에서는 문서를 변경하는 단축키를 처리하지 않습니다.
     if (this._previewMode) return;
-    // 출력 결과는 읽기 전용이다. Esc만 행 구조 편집으로 돌아가는 데 사용한다.
+    // 출력 결과는 읽기 전용입니다. Esc만 행 구조 편집으로 돌아가는 데 사용합니다.
     if (this._gridPlanPreview) {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -1397,7 +1397,7 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _revokePreviewUrl(): void {
-    // 모드나 소스가 바뀌기 전에 시작한 렌더 결과는 적용하지 않는다.
+    // 모드나 소스가 바뀌기 전에 시작한 렌더 결과는 적용하지 않습니다.
     this._previewGeneration++;
     if (this._previewUrl) {
       URL.revokeObjectURL(this._previewUrl);
@@ -1420,8 +1420,8 @@ export class SlipDesigner extends LitElement {
 
     const gen = ++this._previewGeneration;
     try {
-      // 샘플 값이 있으면 해당 값을 적용한 전표를 미리보기로 렌더링한다.
-      // 파일 자체는 양식 그대로 두고 렌더 입력만 전표 형태로 만든다.
+      // 샘플 값이 있으면 해당 값을 적용한 전표를 미리보기로 렌더링합니다.
+      // 파일 자체는 양식 그대로 두고 렌더 입력만 전표 형태로 만듭니다.
       const sample = this._file.template.sampleValues;
       const target: SlipFile =
         sample && Object.keys(sample).length > 0
@@ -1440,7 +1440,7 @@ export class SlipDesigner extends LitElement {
     } catch (error) {
       console.error('[slip-designer] PDF preview failed:', error);
       if (gen !== this._previewGeneration) return;
-      // 미리보기 화면에 오류를 표시하고 편집 버튼은 유지한다.
+      // 미리보기 화면에 오류를 표시하고 편집 버튼은 유지합니다.
       this._previewError = this._strings.designer.previewError;
     }
   }
@@ -1503,7 +1503,7 @@ export class SlipDesigner extends LitElement {
     return GRID_COLORS.find((color) => color.id === this._gridColor)!.line;
   }
 
-  /** 격자 설정 메뉴를 열거나 닫는다. */
+  /** 격자 설정 메뉴를 열거나 닫습니다. */
   private _toggleGridMenu(e: Event): void {
     if (this._gridMenuOpen) {
       this._gridMenuOpen = false;
@@ -1515,7 +1515,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 격자 간격을 설정한다. `null`이면 격자를 끈다. */
+  /** 격자 간격을 설정합니다. `null`이면 격자를 끕니다. */
   private _setGridGap(gap: number | null): void {
     this._gridGap = gap;
     this._gridMenuOpen = false;
@@ -1523,9 +1523,9 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 현재 좌표를 가장 가까운 격자선에 맞추는 이동량을 계산한다.
+   * 현재 좌표를 가장 가까운 격자선에 맞추는 이동량을 계산합니다.
    *
-   * 격자가 꺼져 있으면 `null`을 반환한다.
+   * 격자가 꺼져 있으면 `null`을 반환합니다.
    *
    * @param value - 현재 위치(mm)
    * @returns 더해야 할 이동량(mm) 또는 null
@@ -1536,7 +1536,7 @@ export class SlipDesigner extends LitElement {
     return Math.round(value / gap) * gap - value;
   }
 
-  /** 도형 메뉴를 버튼 아래에서 열거나 닫는다. */
+  /** 도형 메뉴를 버튼 아래에서 열거나 닫습니다. */
   private _toggleShapeMenu(e: Event): void {
     if (this._shapeMenuOpen) {
       this._shapeMenuOpen = false;
@@ -1548,17 +1548,17 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 호스트가 지정한 프리셋 또는 현재 locale의 기본 프리셋을 반환한다. */
+  /** 호스트가 지정한 프리셋 또는 현재 locale의 기본 프리셋을 반환합니다. */
   private _presetList(): SlipPreset[] {
     return this.presets?.length ? this.presets : getPresets(this._locale);
   }
 
   private _toggleListSelect(id: string, e: Event): void {
-    // 목록 높이를 화면의 사용 가능한 영역에 맞춘다.
+    // 목록 높이를 화면의 사용 가능한 영역에 맞춥니다.
     this._popovers.toggle('list', id, () => placeBelow(e.currentTarget as HTMLElement, 120, 280));
   }
 
-  /** 프리셋 메뉴를 버튼 아래의 화면 고정 위치에서 열거나 닫는다. */
+  /** 프리셋 메뉴를 버튼 아래의 화면 고정 위치에서 열거나 닫습니다. */
   private _togglePresetMenu(e: Event): void {
     if (this._presetMenuOpen) {
       this._presetMenuOpen = false;
@@ -1570,7 +1570,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 현재 양식을 선택한 프리셋으로 교체하고 되돌리기 이력을 남긴다. */
+  /** 현재 양식을 선택한 프리셋으로 교체하고 되돌리기 이력을 남깁니다. */
   private _applyPreset(index: number): void {
     this._presetMenuOpen = false;
     this.requestUpdate();
@@ -1592,10 +1592,10 @@ export class SlipDesigner extends LitElement {
   // 사이드바 렌더링
   // ---------------------------------------------------------------------------
 
-  /** 요소가 있는 페이지로 이동하고 해당 요소를 선택한다. */
+  /** 요소가 있는 페이지로 이동하고 해당 요소를 선택합니다. */
   private _selectFromSidebar(pageIndex: number, id: string, additive = false): void {
     this._goToPage(pageIndex);
-    // Ctrl/Cmd+클릭은 다중 선택 상태를 전환한다.
+    // Ctrl/Cmd+클릭은 다중 선택 상태를 전환합니다.
     if (additive) {
       this._toggleInSelection(id);
       return;
@@ -1607,7 +1607,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 목록 파라미터의 하위 필드를 선택하고 사용 중인 첫 번째 그리드 셀로 이동한다. */
+  /** 목록 파라미터의 하위 필드를 선택하고 사용 중인 첫 번째 그리드 셀로 이동합니다. */
   private _selectParameterField(listKey: string, field: ParameterFieldInfo): void {
     this._resetPanelErrors();
     if (field.at) {
@@ -1622,7 +1622,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 선택한 그리드의 목록 파라미터와 값이 있는 셀 항목을 사이드바에서 펼친다.
+   * 선택한 그리드의 목록 파라미터와 값이 있는 셀 항목을 사이드바에서 펼칩니다.
    *
    * @param id - 선택한 요소 id
    */
@@ -1630,11 +1630,11 @@ export class SlipDesigner extends LitElement {
     const el = this._findElement(id);
     if (!isGrid(el)) return;
     if (el.repeat) this._expandedParameters.add(el.repeat.parameter);
-    // 값이 지정된 셀이 있으면 그리드의 하위 항목을 펼친다.
+    // 값이 지정된 셀이 있으면 그리드의 하위 항목을 펼칩니다.
     if (this._gridValueCells(el).length > 0) this._expandedElements.add(id);
   }
 
-  /** 현재 페이지를 지정한 상대 위치로 이동한다. */
+  /** 현재 페이지를 지정한 상대 위치로 이동합니다. */
   private _movePage(delta: number): void {
     const pages = this._file?.template.pages;
     if (!pages) return;
@@ -1650,7 +1650,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 선택한 페이지로 이동하고 페이지 설정 패널을 표시한다.
+   * 선택한 페이지로 이동하고 페이지 설정 패널을 표시합니다.
    *
    * @param index - 선택한 페이지 번호(0-기반)
    */
@@ -1662,19 +1662,19 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 파라미터를 선택하고 오른쪽에 편집 패널을 표시한다. */
+  /** 파라미터를 선택하고 오른쪽에 편집 패널을 표시합니다. */
   private _selectParameter(key: string): void {
     this._parameterKeyError = false;
     this._clearSelection();
     this._gridEdit.clearCell();
     this._sideSelection = { kind: 'parameter', key };
-    // 선택한 목록 파라미터의 하위 필드를 펼친다.
+    // 선택한 목록 파라미터의 하위 필드를 펼칩니다.
     this._expandedParameters.add(key);
     this.requestUpdate();
   }
 
   /**
-   * 파라미터 정의와 요소별 사용 위치를 합쳐 사이드바 항목을 만든다.
+   * 파라미터 정의와 요소별 사용 위치를 합쳐 사이드바 항목을 만듭니다.
    */
   private _parameterList(): ParameterInfo[] {
     const file = this._file;
@@ -1683,12 +1683,12 @@ export class SlipDesigner extends LitElement {
     const defOf = new Map(defs.map((b) => [b.key, b] as const));
 
     const uses = new Map<string, ParameterUse[]>();
-    // 목록 하위 필드별로 해당 필드를 사용하는 그리드 셀 위치를 기록한다.
+    // 목록 하위 필드별로 해당 필드를 사용하는 그리드 셀 위치를 기록합니다.
     const fieldAt = new Map<string, Map<string, NonNullable<ParameterFieldInfo['at']>>>();
 
     file.template.pages.forEach((page, pageIndex) => {
       for (const el of page.elements) {
-        // 그리드의 반복 파라미터와 고정 행의 셀 파라미터를 수집한다.
+        // 그리드의 반복 파라미터와 고정 행의 셀 파라미터를 수집합니다.
         if (el.type === 'grid') {
           const itemBand = el.repeat === undefined ? undefined : itemBandOf(el);
           if (el.repeat && itemBand) {
@@ -1707,7 +1707,7 @@ export class SlipDesigner extends LitElement {
           }
           const keys = new Set<string>();
           if (el.repeat) keys.add(el.repeat.parameter);
-          // 항목 구간의 셀 파라미터는 목록 항목의 하위 필드이므로 최상위 값에서 제외한다.
+          // 항목 구간의 셀 파라미터는 목록 항목의 하위 필드이므로 최상위 값에서 제외합니다.
           for (const cell of el.cells) {
             if (cell.parameter !== undefined && !inItemBand(el, cell.row)) keys.add(cell.parameter);
           }
@@ -1718,14 +1718,14 @@ export class SlipDesigner extends LitElement {
           }
           continue;
         }
-        // 변동 이미지가 참조하는 파라미터를 사용 위치에 추가한다.
+        // 변동 이미지가 참조하는 파라미터를 사용 위치에 추가합니다.
         if (el.type === 'image' && el.parameter !== undefined) {
           const list = uses.get(el.parameter) ?? [];
           list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
           uses.set(el.parameter, list);
           continue;
         }
-        // 수식만 사용하는 필드에는 파라미터를 지정하지 않는다
+        // 수식만 사용하는 필드에는 파라미터를 지정하지 않습니다
         if (el.type !== 'field' || el.parameter === undefined) continue;
         const list = uses.get(el.parameter) ?? [];
         list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
@@ -1740,7 +1740,7 @@ export class SlipDesigner extends LitElement {
       seen.add(key);
       const def = defOf.get(key);
       const at = fieldAt.get(key);
-      // 목록 하위 필드는 파라미터 정의에 등록된 항목만 표시한다.
+      // 목록 하위 필드는 파라미터 정의에 등록된 항목만 표시합니다.
       const fields: ParameterFieldInfo[] = (def?.fields ?? []).map((f) => ({
         key: f.key,
         title: f.label ?? f.key,
@@ -1774,7 +1774,7 @@ export class SlipDesigner extends LitElement {
       .slice()
       .sort((a, b) => a.row - b.row || a.column - b.column)
       .map((c) => {
-        // 사용자가 지정한 셀 이름을 우선 사용하고, 이름이 없으면 좌표를 표시한다 (§7.4).
+        // 사용자가 지정한 셀 이름을 우선 사용하고, 이름이 없으면 좌표를 표시합니다 (§7.4).
         const at = s.gridCellAt
           .replace('{r}', String(c.row + 1))
           .replace('{c}', String(c.column + 1));
@@ -1782,7 +1782,7 @@ export class SlipDesigner extends LitElement {
       });
   }
 
-  /** 그리드의 셀 하위 목록을 열거나 닫는다. */
+  /** 그리드의 셀 하위 목록을 열거나 닫습니다. */
   private _toggleElementRow(id: string): void {
     if (this._expandedElements.has(id)) this._expandedElements.delete(id);
     else this._expandedElements.add(id);
@@ -1790,7 +1790,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 그리드 셀의 페이지로 이동해 해당 셀을 선택한다.
+   * 그리드 셀의 페이지로 이동해 해당 셀을 선택합니다.
    *
    * @param pageIndex - 그리드가 있는 페이지 번호
    * @param gridId - 그리드 요소 id
@@ -1800,7 +1800,7 @@ export class SlipDesigner extends LitElement {
   private _selectGridCell(pageIndex: number, gridId: string, row: number, column: number): void {
     this._resetPanelErrors();
     this._goToPage(pageIndex);
-    // 셀을 선택할 때는 그리드 그룹의 다른 요소를 선택하지 않는다.
+    // 셀을 선택할 때는 그리드 그룹의 다른 요소를 선택하지 않습니다.
     this._selectedId = gridId;
     this._selectedIds = new Set([gridId]);
     this._gridEdit.selectCell({ row, column });
@@ -1815,7 +1815,7 @@ export class SlipDesigner extends LitElement {
   // 요소와 파라미터 정의 편집
   // ---------------------------------------------------------------------------
 
-  /** 지정한 페이지에서 요소를 삭제한다. */
+  /** 지정한 페이지에서 요소를 삭제합니다. */
   private _deleteElementById(pageIndex: number, id: string): void {
     const elements = this._file?.template.pages[pageIndex]?.elements;
     if (!elements) return;
@@ -1835,7 +1835,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 기본 키로 파라미터를 만들고 선택한다. */
+  /** 기본 키로 파라미터를 만들고 선택합니다. */
   private _addParameter(): void {
     if (!this._file) return;
     const { key, label } = this._nextParameter();
@@ -1848,10 +1848,10 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 요소가 사용하는 파라미터를 정의 목록에 등록한다.
+   * 요소가 사용하는 파라미터를 정의 목록에 등록합니다.
    *
    * @param key - 파라미터 물리명
-   * @param valueType - 등록할 값 종류. 이미 있는 항목이면 종류가 비어 있을 때만 채운다
+   * @param valueType - 등록할 값 종류. 이미 있는 항목이면 종류가 비어 있을 때만 채웁니다
    */
   private _ensureParameterDef(key: string, valueType?: ParameterValueType): void {
     const file = this._file;
@@ -1859,7 +1859,7 @@ export class SlipDesigner extends LitElement {
     const defs = file.template.parameters ?? [];
     const found = defs.find((b) => b.key === key);
     if (found) {
-      // 기존 정의에 값 종류가 없을 때만 요청한 종류를 적용한다.
+      // 기존 정의에 값 종류가 없을 때만 요청한 종류를 적용합니다.
       if (valueType !== undefined && found.valueType === undefined) found.valueType = valueType;
       return;
     }
@@ -1868,8 +1868,8 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 파라미터 키와 해당 키를 참조하는 요소 및 샘플 값을 함께 변경한다.
-   * 빈 키와 중복 키는 적용하지 않는다.
+   * 파라미터 키와 해당 키를 참조하는 요소 및 샘플 값을 함께 변경합니다.
+   * 빈 키와 중복 키는 적용하지 않습니다.
    */
   private _renameParameterKey(key: string, next: string, input?: HTMLInputElement): void {
     const trimmed = next.trim();
@@ -1885,7 +1885,7 @@ export class SlipDesigner extends LitElement {
       return;
     }
     if (this._parameterList().some((b) => b.key === trimmed)) {
-      // 잘못된 입력을 현재 키로 복원한다.
+      // 잘못된 입력을 현재 키로 복원합니다.
       if (input) input.value = key;
       this._parameterKeyError = true;
       this.requestUpdate();
@@ -1904,7 +1904,7 @@ export class SlipDesigner extends LitElement {
           if (el.type === 'grid') {
             if (el.repeat?.parameter === key) el.repeat.parameter = trimmed;
             for (const cell of el.cells) {
-              // 항목 구간 안의 셀 파라미터는 목록 하위 필드이므로 최상위 키 변경에서 제외한다.
+              // 항목 구간 안의 셀 파라미터는 목록 하위 필드이므로 최상위 키 변경에서 제외합니다.
               if (!inItemBand(el, cell.row) && cell.parameter === key) cell.parameter = trimmed;
             }
           }
@@ -1920,7 +1920,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 파라미터 레이블을 변경한다. 빈 값이면 레이블을 제거한다. */
+  /** 파라미터 레이블을 변경합니다. 빈 값이면 레이블을 제거합니다. */
   private _commitParameterLabel(key: string, label: string): void {
     const trimmed = label.trim();
     this._updateFile((f) => {
@@ -1937,7 +1937,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 파라미터의 값 종류를 변경한다. 목록이 아니면 하위 필드를 제거한다.
+   * 파라미터의 값 종류를 변경합니다. 목록이 아니면 하위 필드를 제거합니다.
    *
    * @param key - 파라미터 물리명
    * @param valueType - 새 값 종류 (빈 문자열이면 지정 없음 = 글자)
@@ -1949,13 +1949,13 @@ export class SlipDesigner extends LitElement {
       if (!defs.includes(def)) defs.push(def);
       if (valueType) def.valueType = valueType as ParameterValueType;
       else delete (def as { valueType?: unknown }).valueType;
-      // 하위 필드는 목록 파라미터에만 허용된다.
+      // 하위 필드는 목록 파라미터에만 허용됩니다.
       if (valueType !== 'list') delete (def as { fields?: unknown }).fields;
       f.template.parameters = defs;
     });
   }
 
-  /** 목록 파라미터에 기본 키로 하위 필드를 추가하고 선택한다. */
+  /** 목록 파라미터에 기본 키로 하위 필드를 추가하고 선택합니다. */
   private _addParameterField(listKey: string): void {
     const existing = this._parameterList().find((b) => b.key === listKey)?.fields ?? [];
     const used = new Set(existing.map((f) => f.key));
@@ -1977,7 +1977,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 하위 필드 키와 해당 필드를 참조하는 항목 구간 셀을 함께 변경한다.
+   * 하위 필드 키와 해당 필드를 참조하는 항목 구간 셀을 함께 변경합니다.
    *
    * @param listKey - 목록 파라미터 물리명
    * @param key - 현재 필드 키
@@ -2010,7 +2010,7 @@ export class SlipDesigner extends LitElement {
       const def = defs.find((b) => b.key === listKey);
       const field = def?.fields?.find((x) => x.key === key);
       if (field) field.key = trimmed;
-      // 해당 목록 파라미터의 항목 구간에서 참조하는 셀만 변경한다.
+      // 해당 목록 파라미터의 항목 구간에서 참조하는 셀만 변경합니다.
       for (const page of f.template.pages) {
         for (const el of page.elements) {
           if (el.type !== 'grid' || el.repeat?.parameter !== listKey) continue;
@@ -2025,11 +2025,11 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 하위 필드의 레이블과 값 종류를 변경한다.
+   * 하위 필드의 레이블과 값 종류를 변경합니다.
    *
    * @param listKey - 목록 파라미터 물리명
    * @param key - 필드 물리명
-   * @param patch - 바꿀 값 (빈 문자열이면 그 항목을 지운다)
+   * @param patch - 바꿀 값 (빈 문자열이면 그 항목을 지웁니다)
    */
   private _updateParameterField(
     listKey: string,
@@ -2052,7 +2052,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 목록 하위 필드와 해당 필드를 참조하는 셀의 파라미터를 제거한다. */
+  /** 목록 하위 필드와 해당 필드를 참조하는 셀의 파라미터를 제거합니다. */
   private _removeParameterField(listKey: string, key: string): void {
     this._updateFile((f) => {
       const def = (f.template.parameters ?? []).find((b) => b.key === listKey);
@@ -2078,14 +2078,14 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 정의부에서 파라미터를 제거한다 — 요소가 사용하는 키면 목록에는 사용처 기준으로 남는다 */
+  /** 정의부에서 파라미터를 제거합니다 — 요소가 사용하는 키면 목록에는 사용처 기준으로 남습니다 */
   private _removeParameterDef(key: string): void {
     this._updateFile((f) => {
       const defs = (f.template.parameters ?? []).filter((b) => b.key !== key);
       if (defs.length > 0) f.template.parameters = defs;
       else delete (f.template as { parameters?: unknown }).parameters;
     });
-    // 목록에서 사라진 파라미터를 선택한 채로 두지 않는다
+    // 목록에서 사라진 파라미터를 선택한 채로 두지 않습니다
     const sel = this._sideSelection;
     if (sel?.kind === 'parameter' && sel.key === key && !this._parameterList().some((b) => b.key === key)) {
       this._sideSelection = null;
@@ -2126,7 +2126,7 @@ export class SlipDesigner extends LitElement {
     return this._pagePlan().error;
   }
 
-  /** 계획 오류가 가리키는 요소와 행 구간을 선택하고 편집 위치로 이동한다. */
+  /** 계획 오류가 가리키는 요소와 행 구간을 선택하고 편집 위치로 이동합니다. */
   private _focusPlanError(error: SlipLayoutError): void {
     if (error.elementId === undefined) return;
     const element = this._findElement(error.elementId);
@@ -2148,7 +2148,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 선택한 반복 그리드의 원본 행 구조와 출력 결과 표시를 전환한다. */
+  /** 선택한 반복 그리드의 원본 행 구조와 출력 결과 표시를 전환합니다. */
   private _setGridPlanPreview(enabled: boolean): void {
     this._gridPlanPreview = enabled;
     this._gridEdit.clearCell();
@@ -2183,7 +2183,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 선언된 모든 파라미터에 현재 샘플 값을 적용한 JSON 객체를 만든다.
+   * 선언된 모든 파라미터에 현재 샘플 값을 적용한 JSON 객체를 만듭니다.
    *
    * @returns 파라미터 물리명 → 값 (없으면 종류에 맞는 빈 값)
    */
@@ -2197,14 +2197,14 @@ export class SlipDesigner extends LitElement {
         default: return '';
       }
     };
-    /** 목록 항목에 선언된 모든 하위 필드의 키를 추가한다. */
+    /** 목록 항목에 선언된 모든 하위 필드의 키를 추가합니다. */
     const withFields = (
       row: Record<string, unknown>,
       fields: readonly ParameterFieldInfo[],
     ): Record<string, unknown> => {
       const item: Record<string, unknown> = {};
       for (const f of fields) item[f.key] = row[f.key] ?? emptyFor(f.valueType);
-      // 정의에 없는 기존 값도 유지한다.
+      // 정의에 없는 기존 값도 유지합니다.
       for (const [k, v] of Object.entries(row)) if (!(k in item)) item[k] = v;
       return item;
     };
@@ -2212,7 +2212,7 @@ export class SlipDesigner extends LitElement {
     const out: Record<string, unknown> = {};
     for (const b of this._parameterList()) {
       const current = samples[b.key];
-      // 각 목록 항목에 선언된 하위 필드를 모두 추가한다.
+      // 각 목록 항목에 선언된 하위 필드를 모두 추가합니다.
       if (b.valueType === 'list') {
         const rows = Array.isArray(current) ? current : [];
         out[b.key] = rows.length > 0
@@ -2236,7 +2236,7 @@ export class SlipDesigner extends LitElement {
     this._gridEdit.openBandMenu(true);
   }
 
-  /** 행 역할 메뉴를 닫고 조작을 시작한 행으로 포커스를 돌린다. */
+  /** 행 역할 메뉴를 닫고 조작을 시작한 행으로 포커스를 돌립니다. */
   private _closeBandMenu(clearSelection: boolean): void {
     const range = this._gridEdit.bandRange;
     const row = range === null ? null : Math.min(range.from, range.to);
@@ -2247,7 +2247,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 행 역할 메뉴에서 방향키·Home·End·Escape 포커스 이동을 처리한다. */
+  /** 행 역할 메뉴에서 방향키·Home·End·Escape 포커스 이동을 처리합니다. */
   private _onBandMenuKeyDown = (event: KeyboardEvent): void => {
     const menu = event.currentTarget as HTMLElement;
     const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('.band-menu-item'));
@@ -2270,7 +2270,7 @@ export class SlipDesigner extends LitElement {
   };
 
   private _updateFile(fn: (file: SlipTemplateFile) => void): void {
-    // 유효한 편집이 적용되면 이전 입력 오류를 지운다.
+    // 유효한 편집이 적용되면 이전 입력 오류를 지웁니다.
     this._resetPanelErrors();
     if (!this._file) return;
     this._pushUndo();
@@ -2297,7 +2297,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 페이지 번호 표시를 설정하거나 제거한다.
+   * 페이지 번호 표시를 설정하거나 제거합니다.
    *
    * @param index - 페이지 번호(0-기반)
    * @param on - 켤지 여부
@@ -2311,8 +2311,8 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 폰트 선택기에 표시할 기본 폰트 이름을 수집한다.
-   * Bold, Italic, BoldItalic 변형은 선택 목록에서 제외한다.
+   * 폰트 선택기에 표시할 기본 폰트 이름을 수집합니다.
+   * Bold, Italic, BoldItalic 변형은 선택 목록에서 제외합니다.
    */
   private async _loadFontNames(): Promise<void> {
     const fonts = await resolveFonts(this.slipkit, this._locale);
@@ -2323,21 +2323,21 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 호스트가 지정한 바코드 종류를 불러온다. */
+  /** 호스트가 지정한 바코드 종류를 불러옵니다. */
   private async _loadBarcodeKinds(): Promise<void> {
     const kinds = this.settings?.getBarcodeKinds ? await this.settings.getBarcodeKinds() : [];
     this._hostBarcodeKinds = kinds ?? [];
     this.requestUpdate();
   }
 
-  /** 바코드 선택기에 표시할 종류를 반환한다. */
+  /** 바코드 선택기에 표시할 종류를 반환합니다. */
   private _barcodeKinds(): readonly { value: BarcodeKind; label: string }[] {
     if (this._hostBarcodeKinds.length === 0) return BARCODE_KINDS;
     const allowed = new Set(this._hostBarcodeKinds);
     return BARCODE_KINDS.filter((k) => allowed.has(k.value));
   }
 
-  /** 호스트가 제공하는 용지 목록을 불러온다. */
+  /** 호스트가 제공하는 용지 목록을 불러옵니다. */
   private async _loadPaperSizes(): Promise<void> {
     const sizes = this.settings?.getPaperSizes ? await this.settings.getPaperSizes() : [];
     this._hostPaperSizes = sizes ?? [];
@@ -2345,7 +2345,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 현재 용지 크기를 호스트 설정에 저장하고 선택 목록을 갱신한다.
+   * 현재 용지 크기를 호스트 설정에 저장하고 선택 목록을 갱신합니다.
    *
    * @param name - 선택 목록에 표시할 용지 이름
    */
@@ -2355,7 +2355,7 @@ export class SlipDesigner extends LitElement {
     const { paper } = this._file.template;
     await this.settings.savePaperSize({ name: trimmed, width: paper.width, height: paper.height });
     this._paperSaveName = '';
-    // 저장된 용지가 선택 목록에 포함되도록 다시 불러온다.
+    // 저장된 용지가 선택 목록에 포함되도록 다시 불러옵니다.
     await this._loadPaperSizes();
   }
 
@@ -2372,7 +2372,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 선택한 요소가 속한 그룹을 해제한다. */
+  /** 선택한 요소가 속한 그룹을 해제합니다. */
   private _ungroupSelected(): void {
     const groups = new Set<string>();
     for (const id of this._selectedIds) {
@@ -2408,7 +2408,7 @@ export class SlipDesigner extends LitElement {
     const options = inBand
       ? (all.find((b) => b.key === listKey)?.fields ?? []).map((f) => ({ key: f.key, label: f.title }))
       : all.filter((b) => b.valueType !== 'list').map((b) => ({ key: b.key, label: b.label }));
-    // 정의에 없는 기존 키도 현재 선택값으로 표시한다.
+    // 정의에 없는 기존 키도 현재 선택값으로 표시합니다.
     if (current && !options.some((o) => o.key === current)) {
       options.unshift({ key: current, label: current });
     }
@@ -2435,20 +2435,20 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 목록 하위 필드를 추가하고 현재 반복 셀에 연결한다. */
+  /** 목록 하위 필드를 추가하고 현재 반복 셀에 연결합니다. */
   private _addParameterFieldForCell(listKey: string): void {
     const before = new Set((this._parameterList().find((b) => b.key === listKey)?.fields ?? []).map((f) => f.key));
     const cell = this._gridEdit.cell;
     this._addParameterField(listKey);
     const created = (this._parameterList().find((b) => b.key === listKey)?.fields ?? [])
       .find((f) => !before.has(f.key));
-    // 하위 필드 편집 후 원래 셀 선택을 복원한다.
+    // 하위 필드 편집 후 원래 셀 선택을 복원합니다.
     this._sideSelection = null;
     if (cell) this._gridEdit.selectCell(cell);
     if (created) this._gridCommands.setCellSource('parameter', created.key);
   }
 
-  /** 새 최상위 파라미터를 만들고 현재 셀에 연결한다. */
+  /** 새 최상위 파라미터를 만들고 현재 셀에 연결합니다. */
   private _newParameterForCell(): void {
     const cell = this._gridEdit.cell;
     const { key, label } = this._nextParameter();
@@ -2461,7 +2461,7 @@ export class SlipDesigner extends LitElement {
     this._gridCommands.setCellSource('parameter', key);
   }
 
-  /** 기존 파라미터 선택과 새 파라미터 추가를 제공하는 공통 선택기를 렌더링한다. */
+  /** 기존 파라미터 선택과 새 파라미터 추가를 제공하는 공통 선택기를 렌더링합니다. */
   private _parameterSelect(current: string, onNew: () => void, onPick: (value: string) => void) {
     const s = this._strings.designer;
     const list = this._parameterList();
@@ -2496,7 +2496,7 @@ export class SlipDesigner extends LitElement {
     );
   }
 
-  /** 새 파라미터를 만들고 선택한 필드 요소에 연결한다. */
+  /** 새 파라미터를 만들고 선택한 필드 요소에 연결합니다. */
   private _assignNewParameter(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'field') {
@@ -2512,7 +2512,7 @@ export class SlipDesigner extends LitElement {
       for (const page of f.template.pages) {
         for (const target of page.elements) {
           if (target.id === id && target.type === 'field') {
-            // 필드는 파라미터와 수식 중 하나만 사용한다.
+            // 필드는 파라미터와 수식 중 하나만 사용합니다.
             delete (target as Record<string, unknown>).formula;
             target.parameter = key;
           }
@@ -2521,7 +2521,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 사용하지 않은 기본 파라미터 키와 레이블을 만든다. */
+  /** 사용하지 않은 기본 파라미터 키와 레이블을 만듭니다. */
   private _nextParameter(): { key: string; label: string } {
     const used = new Set(this._parameterList().map((b) => b.key));
     let n = 1;
@@ -2530,8 +2530,8 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 이미지 요소를 고정 이미지와 파라미터 이미지 사이에서 전환한다.
-   * 전환할 때 반대쪽 소스를 제거하고 파라미터 이미지에는 새 이미지 파라미터를 연결한다.
+   * 이미지 요소를 고정 이미지와 파라미터 이미지 사이에서 전환합니다.
+   * 전환할 때 반대쪽 소스를 제거하고 파라미터 이미지에는 새 이미지 파라미터를 연결합니다.
    *
    * @param variable - true면 변동(parameter), false면 고정(src)
    */
@@ -2547,7 +2547,7 @@ export class SlipDesigner extends LitElement {
       const { key, label } = this._nextParameter();
       this._updateFile((f) => {
         const defs = f.template.parameters ?? [];
-        // 이미지 파라미터로 등록해 작성 폼과 샘플 편집기에 파일 입력을 표시한다.
+        // 이미지 파라미터로 등록해 작성 폼과 샘플 편집기에 파일 입력을 표시합니다.
         defs.push({ key, label, valueType: 'image' });
         f.template.parameters = defs;
         for (const page of f.template.pages) {
@@ -2573,7 +2573,7 @@ export class SlipDesigner extends LitElement {
     }
   }
 
-  /** 변동 이미지에 연결할 파라미터 선택기를 렌더링한다. */
+  /** 변동 이미지에 연결할 파라미터 선택기를 렌더링합니다. */
   private _renderImageParameterSelect(current: string) {
     return this._parameterSelect(
       current,
@@ -2594,7 +2594,7 @@ export class SlipDesigner extends LitElement {
     );
   }
 
-  /** 새 이미지 파라미터를 만들고 선택한 이미지 요소에 연결한다. */
+  /** 새 이미지 파라미터를 만들고 선택한 이미지 요소에 연결합니다. */
   private _assignNewImageParameter(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'image') {
@@ -2619,8 +2619,8 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 바코드의 값 소스를 선택하고 다른 값 소스를 제거한다 (SPEC §5.6).
-   * 파라미터 소스를 선택하면 새 파라미터를 만들어 연결한다.
+   * 바코드의 값 소스를 선택하고 다른 값 소스를 제거합니다 (SPEC §5.6).
+   * 파라미터 소스를 선택하면 새 파라미터를 만들어 연결합니다.
    *
    * @param kind - 선택할 값 종류
    */
@@ -2638,10 +2638,10 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 바코드의 직접 입력 또는 수식을 설정하고 다른 값 소스를 제거한다.
+   * 바코드의 직접 입력 또는 수식을 설정하고 다른 값 소스를 제거합니다.
    *
    * @param kind - `content` 또는 `formula`
-   * @param value - 넣을 문자열 (빈 값이어도 그 소스는 유지한다)
+   * @param value - 넣을 문자열 (빈 값이어도 그 소스는 유지합니다)
    */
   private _setBarcodeSource(kind: 'content' | 'formula', value: string): void {
     this._updateElement((element) => {
@@ -2652,7 +2652,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 바코드에 연결할 파라미터 선택기를 렌더링한다. */
+  /** 바코드에 연결할 파라미터 선택기를 렌더링합니다. */
   private _renderBarcodeParameterSelect(current: string) {
     return this._parameterSelect(
       current,
@@ -2670,7 +2670,7 @@ export class SlipDesigner extends LitElement {
     );
   }
 
-  /** 새 파라미터를 만들고 선택한 바코드 요소에 연결한다. */
+  /** 새 파라미터를 만들고 선택한 바코드 요소에 연결합니다. */
   private _assignNewBarcodeParameter(): void {
     const el = this._findSelectedElement();
     if (el?.type !== 'barcode') {
@@ -2697,8 +2697,8 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 고정 바코드 값이 종류별 형식에 맞는지 검사한다.
-   * 길이가 정해진 종류와 CODE39만 검사한다.
+   * 고정 바코드 값이 종류별 형식에 맞는지 검사합니다.
+   * 길이가 정해진 종류와 CODE39만 검사합니다.
    *
    * @param kind - 바코드 종류
    * @param content - 검사할 고정 값
@@ -2742,7 +2742,7 @@ export class SlipDesigner extends LitElement {
     const el = this._findSelectedElement();
     if (!el || (el.type !== 'text' && el.type !== 'field') || el.type === to) return;
     if (to === 'field') {
-      // 필드에 필요한 새 파라미터를 만들어 연결한다.
+      // 필드에 필요한 새 파라미터를 만들어 연결합니다.
       const { key, label } = this._nextParameter();
       const id = el.id;
       this._updateFile((f) => {
@@ -2801,12 +2801,12 @@ export class SlipDesigner extends LitElement {
 
   /**
    * 모든 요소의 종류 배지를 표시할지 여부.
-   * 파일에 저장하지 않는 화면 상태다.
+   * 파일에 저장하지 않는 화면 상태입니다.
    */
   private _showBadges = false;
 
   /**
-   * 캔버스 격자 간격(mm). `null`이면 격자를 표시하지 않는다.
+   * 캔버스 격자 간격(mm). `null`이면 격자를 표시하지 않습니다.
    */
   private _gridGap: number | null = null;
 
@@ -2819,7 +2819,7 @@ export class SlipDesigner extends LitElement {
   /** 격자 설정 메뉴의 화면 좌표 */
   private _gridMenuPos = { left: 0, top: 0 };
 
-  /** 요소의 색상 속성을 설정하거나 제거하고 색 선택기 상태를 갱신한다. */
+  /** 요소의 색상 속성을 설정하거나 제거하고 색 선택기 상태를 갱신합니다. */
   private _applyColor(key: string, value: string | null): void {
     if (value) this._picker.seed(value);
     this._updateElement((el) => setOptional(el, key, value || null));
@@ -2829,7 +2829,7 @@ export class SlipDesigner extends LitElement {
     return this._parameterList().map((b) => ({ key: b.key, label: b.label }));
   }
 
-  /** 이미지 선택 모달을 연다. */
+  /** 이미지 선택 모달을 엽니다. */
   private _openImageModal(): void {
     this._imageError = null;
     this._dialogs.open('image');
@@ -2840,7 +2840,7 @@ export class SlipDesigner extends LitElement {
     this._imageError = null;
   }
 
-  /** 선택한 이미지를 현재 이미지 요소에 적용하고 모달을 닫는다. */
+  /** 선택한 이미지를 현재 이미지 요소에 적용하고 모달을 닫습니다. */
   private _applyImageSrc(src: string): void {
     this._updateElement((target) => {
       if (target.type === 'image') target.src = src;
@@ -2849,8 +2849,8 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 파일 선택 대화 상자에서 이미지를 선택하고 base64로 변환해 적용한다.
-   * 외부 URL은 지원하지 않으며 호스트가 base64로 변환해 전달해야 한다.
+   * 파일 선택 대화 상자에서 이미지를 선택하고 base64로 변환해 적용합니다.
+   * 외부 URL은 지원하지 않으며 호스트가 base64로 변환해 전달해야 합니다.
    */
   private async _pickImageFile(): Promise<void> {
     const result = await pickImageFile(this.maxImageBytes);
@@ -2863,7 +2863,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 이미지 선택 실패 사유를 로케일에 맞는 문구로 바꾼다. */
+  /** 이미지 선택 실패 사유를 로케일에 맞는 문구로 바꿉니다. */
   private _pickErrorText(result: ImagePickFailure): string {
     const s = this._strings.designer;
     return imagePickErrorText(
@@ -2873,7 +2873,7 @@ export class SlipDesigner extends LitElement {
     );
   }
 
-  /** 샘플 데이터의 이미지 값을 파일에서 선택해 저장한다. */
+  /** 샘플 데이터의 이미지 값을 파일에서 선택해 저장합니다. */
   private async _pickSampleImage(key: string): Promise<void> {
     const result = await pickImageFile(this.maxImageBytes);
     if (result.ok) {
@@ -2884,7 +2884,7 @@ export class SlipDesigner extends LitElement {
     this._sample.setImageError(this._pickErrorText(result));
   }
 
-  /** 선택한 필드의 수식으로 수식 편집 모달을 연다. */
+  /** 선택한 필드의 수식으로 수식 편집 모달을 엽니다. */
   private _openFormulaModal(): void {
     const el = this._findSelectedElement();
     if (!el || el.type !== 'field') return;
@@ -2897,7 +2897,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 수식 편집 값을 선택한 필드에 적용한다. 빈 값이면 수식을 제거한다. */
+  /** 수식 편집 값을 선택한 필드에 적용합니다. 빈 값이면 수식을 제거합니다. */
   private _applyFormulaModal(): void {
     const formula = this._formula.commit();
     this._dialogs.close('formula');
@@ -2942,14 +2942,14 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 입력한 제목을 양식에 반영하고 저장소에 저장한다.
-   * 새 양식으로 저장하지 않는 한 기존 저장 ID를 재사용한다.
+   * 입력한 제목을 양식에 반영하고 저장소에 저장합니다.
+   * 새 양식으로 저장하지 않는 한 기존 저장 ID를 재사용합니다.
    */
   private async _confirmSave(): Promise<void> {
     const adapter = this.storage;
     if (!adapter || !this._file) return;
     const title = this._forms.title.trim();
-    // 빈 제목은 스키마 제약을 충족하지 않으므로 저장하지 않는다.
+    // 빈 제목은 스키마 제약을 충족하지 않으므로 저장하지 않습니다.
     if (!title) {
       this._rejectInput();
       return;
@@ -2970,7 +2970,7 @@ export class SlipDesigner extends LitElement {
     this._forms.markSaved(id);
   }
 
-  /** 저장된 양식의 메타데이터를 불러와 목록 모달을 연다. */
+  /** 저장된 양식의 메타데이터를 불러와 목록 모달을 엽니다. */
   private async _openMyForms(): Promise<void> {
     this._forms.startList();
     this._dialogs.open('myForms');
@@ -2978,8 +2978,8 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 저장된 양식의 메타데이터를 모두 불러온다.
-   * 검색과 페이지 이동은 이 목록을 사용하며 양식 본문은 불러오지 않는다.
+   * 저장된 양식의 메타데이터를 모두 불러옵니다.
+   * 검색과 페이지 이동은 이 목록을 사용하며 양식 본문은 불러오지 않습니다.
    */
   private async _loadMyForms(): Promise<void> {
     const adapter = this.storage;
@@ -2987,7 +2987,7 @@ export class SlipDesigner extends LitElement {
     await this._forms.loadList(adapter);
   }
 
-  /** 선택한 양식을 편집기에 불러오고 이전 상태를 실행 취소 기록에 추가한다. */
+  /** 선택한 양식을 편집기에 불러오고 이전 상태를 실행 취소 기록에 추가합니다. */
   private async _loadMyForm(id: string): Promise<void> {
     const adapter = this.storage;
     if (!adapter) return;
@@ -3015,7 +3015,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 선택한 양식을 삭제하고 현재 양식의 저장 ID를 갱신한다. */
+  /** 선택한 양식을 삭제하고 현재 양식의 저장 ID를 갱신합니다. */
   private async _deleteMyForm(id: string): Promise<void> {
     const adapter = this.storage;
     if (!adapter) return;

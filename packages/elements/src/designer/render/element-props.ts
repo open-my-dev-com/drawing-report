@@ -31,54 +31,54 @@ import type { PanelKit } from './panel-kit.js';
 
 /** 요소 속성 줄이 컴포넌트에 요청하는 조작 */
 export interface ElementActions {
-  /** 선택한 요소를 수정한다 */
+  /** 선택한 요소를 수정합니다 */
   update(fn: (el: SlipElement) => void): void;
-  /** 글자 요소와 필드 요소를 서로 바꾼다 */
+  /** 글자 요소와 필드 요소를 서로 바꿉니다 */
   convertTextField(to: 'text' | 'field'): void;
-  /** 이미지 선택 모달을 연다 */
+  /** 이미지 선택 모달을 엽니다 */
   openImageModal(): void;
-  /** 이미지 값을 파라미터로 받을지 바꾼다 */
+  /** 이미지 값을 파라미터로 받을지 바꿉니다 */
   setImageVariable(variable: boolean): void;
-  /** 이미지 파라미터 선택 상자를 그린다 */
+  /** 이미지 파라미터 선택 상자를 그립니다 */
   imageParameterSelect(current: string): TemplateResult;
-  /** 선의 길이와 각도를 적용한다 */
+  /** 선의 길이와 각도를 적용합니다 */
   applyLineLengthAngle(length: number, angle: number): void;
-  /** 요소의 좌표 기준점 번호를 읽는다 */
+  /** 요소의 좌표 기준점 번호를 읽습니다 */
   anchorIndex(el: SlipElement): number;
-  /** 요소의 좌표 기준점 번호를 바꾼다 */
+  /** 요소의 좌표 기준점 번호를 바꿉니다 */
   setAnchorIndex(elementId: string, index: number): void;
   /** 등록된 폰트 이름 */
   readonly fontNames: readonly string[];
-  /** 수식 편집 모달을 연다 */
+  /** 수식 편집 모달을 엽니다 */
   openFormulaModal(): void;
-  /** 필드 요소의 값 소스를 바꾼다 */
+  /** 필드 요소의 값 소스를 바꿉니다 */
   setFieldSource(kind: 'parameter' | 'formula'): void;
-  /** 일반 파라미터 선택 상자를 그린다 */
+  /** 일반 파라미터 선택 상자를 그립니다 */
   parameterSelect(current: string): TemplateResult;
-  /** 바코드 파라미터 선택 상자를 그린다 */
+  /** 바코드 파라미터 선택 상자를 그립니다 */
   barcodeParameterSelect(current: string): TemplateResult;
   /** 호스트가 허용한 바코드 종류 */
   barcodeKinds(): readonly { value: BarcodeKind; label: string }[];
   /** 바코드 내용이 규격에 맞는지 알리는 문구 */
   barcodeContentWarning(kind: BarcodeKind, content: string): string | null;
-  /** 바코드의 값 소스 종류를 선택한다 */
+  /** 바코드의 값 소스 종류를 선택합니다 */
   chooseBarcodeSource(kind: 'content' | 'parameter' | 'formula'): void;
-  /** 바코드의 값 소스를 저장한다 */
+  /** 바코드의 값 소스를 저장합니다 */
   setBarcodeSource(kind: 'content' | 'formula', value: string): void;
   /** 현재 페이지의 요소 목록 */
   pageElements(): SlipElement[] | undefined;
-  /** id로 요소를 찾는다 */
+  /** id로 요소를 찾습니다 */
   findElement(id: string): SlipElement | undefined;
-  /** 선택한 요소들을 묶는다 */
+  /** 선택한 요소들을 묶습니다 */
   groupSelected(): void;
-  /** 그룹을 해제한다 */
+  /** 그룹을 해제합니다 */
   ungroupSelected(): void;
   /** 지금 선택된 요소 id 모음 */
   readonly selectedIds: ReadonlySet<string>;
 }
 
 /**
- * 텍스트 요소의 내용을 편집하는 패널을 렌더링한다.
+ * 텍스트 요소의 내용을 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -103,7 +103,7 @@ export function textProps(kit: PanelKit, act: ElementActions, el: TextElement) {
 }
 
 /**
- * 텍스트와 필드 요소 사이를 전환하는 입력을 렌더링한다.
+ * 텍스트와 필드 요소 사이를 전환하는 입력을 렌더링합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -124,7 +124,7 @@ export function textFieldKindRow(kit: PanelKit, act: ElementActions, current: 't
 }
 
 /**
- * 호스트가 제공한 폰트를 선택하는 입력을 렌더링한다.
+ * 호스트가 제공한 폰트를 선택하는 입력을 렌더링합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -141,7 +141,7 @@ export function fontNameRow(
   ariaLabel?: string,
 ) {
   const s = kit.s;
-  // 선택할 폰트가 없으면 입력을 표시하지 않는다.
+  // 선택할 폰트가 없으면 입력을 표시하지 않습니다.
   if (act.fontNames.length <= 1 && current === undefined) return nothing;
   const options = current !== undefined && !act.fontNames.includes(current)
     ? [current, ...act.fontNames]
@@ -164,7 +164,7 @@ export function fontNameRow(
 }
 
 /**
- * 글자 크기, 색, 정렬과 줄 간격 등 글자 스타일을 편집하는 패널을 렌더링한다.
+ * 글자 크기, 색, 정렬과 줄 간격 등 글자 스타일을 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -237,7 +237,7 @@ export function fontProps(kit: PanelKit, act: ElementActions, el: SlipElement) {
 // ---------------------------------------------------------------------------
 
 /**
- * 이미지 요소의 고정 이미지와 파라미터 이미지를 편집하는 패널을 렌더링한다.
+ * 이미지 요소의 고정 이미지와 파라미터 이미지를 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -246,9 +246,9 @@ export function fontProps(kit: PanelKit, act: ElementActions, el: SlipElement) {
  */
 export function imageProps(kit: PanelKit, act: ElementActions, el: ImageElement) {
   const s = kit.s;
-  // 이미지 요소는 고정 소스와 파라미터 중 하나만 사용한다.
+  // 이미지 요소는 고정 소스와 파라미터 중 하나만 사용합니다.
   const variable = el.parameter !== undefined;
-  // base64 문자열 대신 현재 이미지를 표시한다.
+  // base64 문자열 대신 현재 이미지를 표시합니다.
   const chosen = el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
   return html`
     <div class="prop-section">
@@ -276,8 +276,8 @@ export function imageProps(kit: PanelKit, act: ElementActions, el: ImageElement)
 }
 
 /**
- * 선 요소에는 별도의 종류별 속성 패널을 표시하지 않는다.
- * 방향은 캔버스의 끝점 핸들로 변경한다.
+ * 선 요소에는 별도의 종류별 속성 패널을 표시하지 않습니다.
+ * 방향은 캔버스의 끝점 핸들로 변경합니다.
  *
  * @param _kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param _el - 선택한 선 요소
@@ -288,7 +288,7 @@ export function lineProps(_kit: PanelKit, _el: LineElement) {
 }
 
 /**
- * 정다각형의 변 수를 편집하는 패널을 렌더링한다.
+ * 정다각형의 변 수를 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -307,7 +307,7 @@ export function polygonProps(kit: PanelKit, act: ElementActions, el: PolygonElem
               aria-describedby=${kit.hasError('polygon-sides') ? 'error-polygon-sides' : nothing}
               @change=${(e: Event) => {
                 const v = Number((e.target as HTMLInputElement).value);
-                // 스키마가 허용하는 3~12 범위만 적용한다.
+                // 스키마가 허용하는 3~12 범위만 적용합니다.
                 if (!Number.isInteger(v) || v < 3 || v > 12) {
                   kit.reject(
                     s.rangeInput.replace('{min}', '3').replace('{max}', '12'),
@@ -326,7 +326,7 @@ export function polygonProps(kit: PanelKit, act: ElementActions, el: PolygonElem
 }
 
 /**
- * 그리드 또는 선택 셀의 텍스트 표시 방식을 편집하는 선택기를 렌더링한다.
+ * 그리드 또는 선택 셀의 텍스트 표시 방식을 편집하는 선택기를 렌더링합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param config - 입력 id, 현재 값, 상속 선택지 표시 여부, 접근성 레이블과 저장 콜백
@@ -359,7 +359,7 @@ export function gridOverflowRow(kit: PanelKit, config: {
 }
 
 /**
- * 요소 좌표의 기준점을 선택하는 입력을 렌더링한다. 기준점은 파일에 저장하지 않는다.
+ * 요소 좌표의 기준점을 선택하는 입력을 렌더링합니다. 기준점은 파일에 저장하지 않습니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -384,8 +384,8 @@ export function anchorRow(kit: PanelKit, act: ElementActions, el: SlipElement) {
 }
 
 /**
- * 요소 크기 입력을 렌더링한다.
- * 선은 너비와 높이 대신 길이, 각도, 선 굵기로 편집한다.
+ * 요소 크기 입력을 렌더링합니다.
+ * 선은 너비와 높이 대신 길이, 각도, 선 굵기로 편집합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -423,7 +423,7 @@ export function sizeRows(kit: PanelKit, act: ElementActions, el: SlipElement) {
       ${kit.error(errorKey)}`;
   };
 
-  // 모든 선 방향에 같은 길이, 각도, 굵기 입력을 사용한다.
+  // 모든 선 방향에 같은 길이, 각도, 굵기 입력을 사용합니다.
   if (el.type === 'line') {
     const { length, angle } = lineLengthAngle(el);
     return html`
@@ -458,7 +458,7 @@ export function sizeRows(kit: PanelKit, act: ElementActions, el: SlipElement) {
 }
 
 /**
- * 필드 요소의 값 소스를 편집하는 패널을 렌더링한다.
+ * 필드 요소의 값 소스를 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -468,7 +468,7 @@ export function sizeRows(kit: PanelKit, act: ElementActions, el: SlipElement) {
 export function fieldProps(kit: PanelKit, act: ElementActions, el: FieldElement) {
   const s = kit.s;
   const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-  // 필드는 파라미터와 수식 중 하나만 값 소스로 사용한다.
+  // 필드는 파라미터와 수식 중 하나만 값 소스로 사용합니다.
   const source: 'parameter' | 'formula' = el.formula !== undefined ? 'formula' : 'parameter';
   return html`
     <div class="prop-section">
@@ -505,7 +505,7 @@ export function fieldProps(kit: PanelKit, act: ElementActions, el: FieldElement)
 }
 
 /**
- * 바코드 종류와 값 소스를 편집하는 패널을 렌더링한다.
+ * 바코드 종류와 값 소스를 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -515,10 +515,10 @@ export function fieldProps(kit: PanelKit, act: ElementActions, el: FieldElement)
 export function barcodeProps(kit: PanelKit, act: ElementActions, el: BarcodeElement) {
   const s = kit.s;
   const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-  // 설정된 속성으로 현재 값 소스 종류를 결정한다 (SPEC §5.6).
+  // 설정된 속성으로 현재 값 소스 종류를 결정합니다 (SPEC §5.6).
       const source: 'content' | 'parameter' | 'formula' =
         el.parameter !== undefined ? 'parameter' : el.formula !== undefined ? 'formula' : 'content';
-      // 직접 입력한 값만 편집 중에 바코드 형식을 검사한다.
+      // 직접 입력한 값만 편집 중에 바코드 형식을 검사합니다.
       const warning = source === 'content' ? act.barcodeContentWarning(el.kind, el.content ?? '') : null;
       return html`
         <div class="prop-section">
@@ -576,7 +576,7 @@ export function barcodeProps(kit: PanelKit, act: ElementActions, el: BarcodeElem
 }
 
 /**
- * 요소를 어느 출력 페이지에 낼지 선택하는 구역을 렌더링한다.
+ * 요소를 어느 출력 페이지에 낼지 선택하는 구역을 렌더링합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -589,7 +589,7 @@ export function pagePlacementSection(kit: PanelKit, act: ElementActions, el: Sli
   const mode = placement?.mode ?? 'absolute';
   const pages = placement?.mode === 'absolute' ? (placement.pages ?? 'all') : 'all';
   const elements = act.pageElements() ?? [];
-  // 자신과, 자신을 뒤따르는 요소는 이어서 배치의 대상으로 선택할 수 없다 (순환 방지).
+  // 자신과, 자신을 뒤따르는 요소는 이어서 배치의 대상으로 선택할 수 없습니다 (순환 방지).
   const followers = new Set<string>();
   const collect = (id: string): void => {
     followers.add(id);
@@ -701,7 +701,7 @@ export function pagePlacementSection(kit: PanelKit, act: ElementActions, el: Sli
 }
 
 /**
- * 글자, 테두리, 배경 스타일 구역을 요소 종류에 맞게 묶어 렌더링한다.
+ * 글자, 테두리, 배경 스타일 구역을 요소 종류에 맞게 묶어 렌더링합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -715,11 +715,11 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
   const hasFontColor = el.type === 'text' || el.type === 'field' || el.type === 'grid';
   const hasTextDecor = el.type === 'text' || el.type === 'field';
   const hasBackground = el.type !== 'line';
-  // 선 요소에는 선 색상과 형태를 표시하고 굵기는 크기 입력에서 편집한다.
+  // 선 요소에는 선 색상과 형태를 표시하고 굵기는 크기 입력에서 편집합니다.
   const isLine = el.type === 'line';
-  // 파선과 점선은 직선 테두리를 사용하는 요소에만 지원한다.
+  // 파선과 점선은 직선 테두리를 사용하는 요소에만 지원합니다.
   const hasBorderShape = el.type === 'line' || el.type === 'rect' || el.type === 'grid';
-  // 텍스트와 필드는 기본 테두리가 없고 나머지 요소는 기본 굵기를 사용한다.
+  // 텍스트와 필드는 기본 테두리가 없고 나머지 요소는 기본 굵기를 사용합니다.
   const defaultWidth = el.type === 'text' || el.type === 'field' ? 0 : DEFAULT_LINE_WIDTH;
 
   return html`
@@ -765,7 +765,7 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
         defaultWidth,
         true,
         'borderWidth',
-        // 텍스트와 필드의 0 굵기는 기본값이므로 파일에 저장하지 않는다.
+        // 텍스트와 필드의 0 굵기는 기본값이므로 파일에 저장하지 않습니다.
         (v) => act.update((target) =>
           setOptional(target, 'borderWidth', v === 0 && defaultWidth === 0 ? null : v)),
       )}
@@ -779,7 +779,7 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
               if (v === null) delete t.borderStyle;
               else {
                 t.borderStyle = v;
-                // 모서리 반경은 파선 또는 점선과 함께 사용할 수 없다.
+                // 모서리 반경은 파선 또는 점선과 함께 사용할 수 없습니다.
                 if (target.type === 'rect') delete t.radius;
               }
             }),
@@ -815,7 +815,7 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
 }
 
 /**
- * 여러 요소를 함께 선택했을 때 정렬과 그룹화 명령을 렌더링한다.
+ * 여러 요소를 함께 선택했을 때 정렬과 그룹화 명령을 렌더링합니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -851,4 +851,4 @@ export function groupPanel(kit: PanelKit, act: ElementActions) {
   `;
 }
 
-/** 선택한 요소에 같은 그룹 ID를 지정한다. */
+/** 선택한 요소에 같은 그룹 ID를 지정합니다. */

@@ -2,7 +2,7 @@
  * 디자이너의 좌표와 크기 계산.
  *
  * @remarks
- * 용지 좌표는 mm, 화면 좌표는 px다.
+ * 용지 좌표는 mm, 화면 좌표는 px입니다.
  */
 
 import { elementBounds, type SlipElement, type LineElement } from '@omdc-slipkit/core';
@@ -17,7 +17,7 @@ export const SNAP_MM = 1.5;
 
 /**
  * 속성 패널에서 X와 Y 좌표의 기준으로 사용할 9개 지점.
- * 파일에는 기준점과 관계없이 왼쪽 위 좌표를 저장한다.
+ * 파일에는 기준점과 관계없이 왼쪽 위 좌표를 저장합니다.
  */
 export const ANCHORS = [
   { key: 'anchorTL', ax: 0, ay: 0 },
@@ -49,11 +49,11 @@ export function round1(v: number): number {
 }
 
 /**
- * 선 요소의 영역과 방향을 길이와 각도로 변환한다.
+ * 선 요소의 영역과 방향을 길이와 각도로 변환합니다.
  *
  * @remarks
- * 파일에는 선의 영역과 방향을 저장하고 속성 패널에서는 길이와 각도로 편집한다.
- * 각도는 화면 좌표계에서 시계 방향을 양수로 사용하며 0도는 오른쪽, 90도는 아래쪽이다.
+ * 파일에는 선의 영역과 방향을 저장하고 속성 패널에서는 길이와 각도로 편집합니다.
+ * 각도는 화면 좌표계에서 시계 방향을 양수로 사용하며 0도는 오른쪽, 90도는 아래쪽입니다.
  *
  * @param el - 선 요소
  * @returns 길이(mm)와 각도(도)
@@ -64,17 +64,17 @@ export function lineLengthAngle(el: LineElement): { length: number; angle: numbe
   switch (el.lineDirection ?? 'horizontal') {
     case 'horizontal': return { length: w, angle: 0 };
     case 'vertical': return { length: h, angle: 90 };
-    // 대각선은 요소 영역의 두 모서리를 잇는다.
+    // 대각선은 요소 영역의 두 모서리를 잇습니다.
     case 'down': return { length: Math.hypot(w, h), angle: (Math.atan2(h, w) * 180) / Math.PI };
     default: return { length: Math.hypot(w, h), angle: -(Math.atan2(h, w) * 180) / Math.PI };
   }
 }
 
 /**
- * 길이와 각도를 파일에 저장할 요소 영역과 방향으로 변환한다.
+ * 길이와 각도를 파일에 저장할 요소 영역과 방향으로 변환합니다.
  *
  * @remarks
- * 0, 90, 180, 270도와의 차이가 0.5도 이내이면 수평선 또는 수직선으로 맞춘다.
+ * 0, 90, 180, 270도와의 차이가 0.5도 이내이면 수평선 또는 수직선으로 맞춥니다.
  *
  * @param length - 길이(mm)
  * @param angle - 각도(도, 시계 방향)
@@ -85,7 +85,7 @@ export function lineBoxFromLengthAngle(
   angle: number,
 ): { width: number; height: number; lineDirection: 'horizontal' | 'vertical' | 'down' | 'up' } {
   const len = Math.max(0, length);
-  // 반대 방향은 같은 선이므로 각도를 0 이상 180도 미만으로 정규화한다.
+  // 반대 방향은 같은 선이므로 각도를 0 이상 180도 미만으로 정규화합니다.
   let a = ((angle % 360) + 360) % 360;
   if (a >= 180) a -= 180;
   const SNAP = 0.5;
@@ -98,7 +98,7 @@ export function lineBoxFromLengthAngle(
 }
 
 /**
- * PDF 변환과 같은 규칙으로 정다각형 꼭짓점 좌표를 계산한다.
+ * PDF 변환과 같은 규칙으로 정다각형 꼭짓점 좌표를 계산합니다.
  *
  * @param sides - 변의 개수
  * @param width - 요소 너비(px)
@@ -122,7 +122,7 @@ export function polygonPointsPx(sides: number, width: number, height: number): [
 }
 
 /**
- * 선 요소의 방향에 따른 두 끝점 좌표(mm)를 계산한다.
+ * 선 요소의 방향에 따른 두 끝점 좌표(mm)를 계산합니다.
  *
  * @param el - 선 요소의 위치, 크기와 방향
  * @returns 시작점과 끝점의 mm 좌표
@@ -149,7 +149,7 @@ export function lineEndpoints(el: {
 }
 
 /**
- * 요소의 표시 크기(mm). 그리드는 열 너비와 행 높이의 합에서 계산한다.
+ * 요소의 표시 크기(mm). 그리드는 열 너비와 행 높이의 합에서 계산합니다.
  *
  * @param el - 대상 요소
  * @returns 표시 너비와 높이(mm)
@@ -159,12 +159,12 @@ export function boxOf(el: SlipElement): { width: number; height: number } {
 }
 
 /**
- * 요소 크기를 설정한다. 그리드는 크기를 따로 저장하지 않으므로
- * 기존 비율을 유지하며 열 너비와 행 높이를 목표 크기에 맞춘다.
+ * 요소 크기를 설정합니다. 그리드는 크기를 따로 저장하지 않으므로
+ * 기존 비율을 유지하며 열 너비와 행 높이를 목표 크기에 맞춥니다.
  *
  * @param el - 대상 요소
- * @param width - 목표 너비(mm). 생략하면 그대로 둔다
- * @param height - 목표 높이(mm). 생략하면 그대로 둔다
+ * @param width - 목표 너비(mm). 생략하면 그대로 둡니다
+ * @param height - 목표 높이(mm). 생략하면 그대로 둡니다
  */
 export function setElementBox(el: SlipElement, width?: number, height?: number): void {
   if (el.type === 'grid') {
@@ -186,7 +186,7 @@ export function setElementBox(el: SlipElement, width?: number, height?: number):
 }
 
 /**
- * 트랙 크기 배열을 누적 오프셋 배열로 변환한다.
+ * 트랙 크기 배열을 누적 오프셋 배열로 변환합니다.
  *
  * @param sizes - 트랙 크기 목록
  * @returns 트랙 개수보다 하나 많은 누적 오프셋 목록
@@ -204,11 +204,11 @@ export interface SnapCandidates {
 }
 
 /**
- * 스냅이 맞아떨어질 후보 선을 모은다.
+ * 스냅이 맞아떨어질 후보 선을 모읍니다.
  *
  * @param paper - 용지 크기와 여백(mm)
  * @param elements - 같은 페이지의 요소들
- * @param exclude - 함께 움직이는 요소의 id — 후보에서 뺀다
+ * @param exclude - 함께 움직이는 요소의 id — 후보에서 뺍니다
  * @returns 세로선(xs)과 가로선(ys)의 mm 좌표
  */
 export function snapCandidates(
@@ -229,7 +229,7 @@ export function snapCandidates(
 }
 
 /**
- * 후보 선까지의 거리가 스냅 범위 안인 가장 가까운 이동량을 찾는다.
+ * 후보 선까지의 거리가 스냅 범위 안인 가장 가까운 이동량을 찾습니다.
  *
  * @param edges - 맞출 대상의 모서리·중앙 좌표(mm)
  * @param candidates - 후보 선의 좌표(mm)

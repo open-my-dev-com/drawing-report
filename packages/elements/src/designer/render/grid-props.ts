@@ -44,9 +44,9 @@ export interface GridActions {
   readonly edit: GridEditController;
   /** 조건부 서식 편집이 사용하는 평가와 갱신 */
   readonly conditional: ConditionalFormatDeps;
-  /** 화면을 다시 그린다 */
+  /** 화면을 다시 그립니다 */
   refresh(): void;
-  /** 리스트형 선택 상자를 열거나 닫는다 */
+  /** 리스트형 선택 상자를 열거나 닫습니다 */
   toggleListSelect(id: string, event: Event): void;
   /** 사이드바와 같은 파라미터 목록 */
   parameters(): ParameterInfo[];
@@ -84,7 +84,7 @@ export interface GridActions {
 }
 
 /**
- * 그리드의 행·열, 행 구간, 페이지 방식과 선택한 셀을 편집하는 패널을 렌더링한다.
+ * 그리드의 행·열, 행 구간, 페이지 방식과 선택한 셀을 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -109,7 +109,7 @@ export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions,
   const repeatFields = repeat === undefined
     ? []
     : (grid.parameters().find((parameter) => parameter.key === repeat.parameter)?.fields ?? []);
-  // 셀이 선택된 동안에는 그리드 전체 설정을 숨긴다 (§7.4).
+  // 셀이 선택된 동안에는 그리드 전체 설정을 숨깁니다 (§7.4).
   const gridOwnProps = html`
         <div class="prop-section">
           <div class="prop-section-title">${s.panelStructure}</div>
@@ -256,7 +256,7 @@ export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions,
 }
 
 /**
- * 내부 구간 조합 대신 작업 목적으로 행을 추가하는 명령을 렌더링한다.
+ * 내부 구간 조합 대신 작업 목적으로 행을 추가하는 명령을 렌더링합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param grid - 그리드 편집 동작
@@ -353,13 +353,13 @@ export function gridRowCommands(kit: PanelKit, grid: GridActions, el: GridElemen
 }
 
 /**
- * 행 구간 목록을 렌더링한다.
- * 캔버스의 행 번호 선택 영역과 같은 색상 표식·이름으로 구간을 식별한다 (§7.2).
+ * 행 구간 목록을 렌더링합니다.
+ * 캔버스의 행 번호 선택 영역과 같은 색상 표식·이름으로 구간을 식별합니다 (§7.2).
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param grid - 그리드 편집 동작
  * @param el - 선택한 그리드 요소
- * @returns 행 구간 목록 조각. 반복 설정이 없으면 행 명령만 표시한다
+ * @returns 행 구간 목록 조각. 반복 설정이 없으면 행 명령만 표시합니다
  */
 export function bandList(kit: PanelKit, grid: GridActions, el: GridElement) {
   const s = kit.s;
@@ -510,7 +510,7 @@ export function bandList(kit: PanelKit, grid: GridActions, el: GridElement) {
 }
 
 /**
- * 선택한 그리드 셀의 값, 병합, 글자, 색상, 테두리를 편집하는 패널을 렌더링한다.
+ * 선택한 그리드 셀의 값, 병합, 글자, 색상, 테두리를 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작

@@ -19,7 +19,7 @@ export const GRID_MAX_ITEMS_UI = 100_000;
 export const GRID_MAX_PER_PAGE_UI = 1000;
 
 /**
- * 요소가 그리드인지 확인한다.
+ * 요소가 그리드인지 확인합니다.
  *
  * @param el - 검사할 요소
  * @returns 그리드이면 true
@@ -29,7 +29,7 @@ export function isGrid(el: SlipElement | undefined): el is GridElement {
 }
 
 /**
- * 그리드의 행 수와 열 수를 반환한다.
+ * 그리드의 행 수와 열 수를 반환합니다.
  *
  * @param el - 대상 그리드
  * @returns 행 수와 열 수
@@ -49,7 +49,7 @@ export function columnWidths(el: GridElement): number[] {
 }
 
 /**
- * 지정한 셀을 반환하고 없으면 빈 셀을 생성한다.
+ * 지정한 셀을 반환하고 없으면 빈 셀을 생성합니다.
  *
  * @param el - 대상 그리드
  * @param row - 행 번호(0-기반)
@@ -65,7 +65,7 @@ export function ensureCell(el: GridElement, row: number, column: number): Record
 }
 
 /**
- * 행·열이 줄어든 뒤 그리드 범위를 벗어나는 병합 범위를 줄인다
+ * 행·열이 줄어든 뒤 그리드 범위를 벗어나는 병합 범위를 줄입니다
  *
  * @param el - 대상 그리드
  */
@@ -86,11 +86,11 @@ export function clampGridSpans(el: GridElement): void {
 }
 
 /**
- * 항목 구간 위쪽에서 같은 열의 헤더 텍스트를 찾는다.
+ * 항목 구간 위쪽에서 같은 열의 헤더 텍스트를 찾습니다.
  *
  * @param grid - 대상 그리드
  * @param column - 찾을 열 번호(0-기반)
- * @param fromRow - 이 행의 바로 위부터 위로 찾는다
+ * @param fromRow - 이 행의 바로 위부터 위로 찾습니다
  * @returns 가장 가까운 비어 있지 않은 셀의 글. 없으면 undefined
  */
 export function gridHeaderTitle(grid: GridElement, column: number, fromRow: number): string | undefined {
@@ -120,7 +120,7 @@ export const BAND_PLACEMENTS: readonly GridBandPlacement[] = [
 export type GridRowCommand = 'header' | 'group-subtotal' | 'page-subtotal' | 'final-total';
 
 /**
- * 반복 그리드의 항목 구간을 반환한다.
+ * 반복 그리드의 항목 구간을 반환합니다.
  *
  * @param el - 대상 그리드
  * @returns 항목 구간. 반복 설정이 없으면 undefined
@@ -130,7 +130,7 @@ export function itemBandOf(el: GridElement): GridBand | undefined {
 }
 
 /**
- * 원본 행이 항목 구간에 포함되는지 확인한다.
+ * 원본 행이 항목 구간에 포함되는지 확인합니다.
  *
  * @param el - 대상 그리드
  * @param row - 원본 행 번호(0-기반)
@@ -142,7 +142,7 @@ export function inItemBand(el: GridElement, row: number): boolean {
 }
 
 /**
- * 원본 행이 속한 행 구간을 반환한다.
+ * 원본 행이 속한 행 구간을 반환합니다.
  *
  * @param el - 대상 그리드
  * @param row - 원본 행 번호(0-기반)
@@ -153,8 +153,8 @@ export function bandAt(el: GridElement, row: number): GridBand | undefined {
 }
 
 /**
- * 선택한 행 범위에 행 구간 역할을 지정한 새 구간 목록을 만든다.
- * 연속된 같은 역할 행은 하나의 구간으로 합치고, 범위가 같은 기존 구간의 id·설정을 유지한다.
+ * 선택한 행 범위에 행 구간 역할을 지정한 새 구간 목록을 만듭니다.
+ * 연속된 같은 역할 행은 하나의 구간으로 합치고, 범위가 같은 기존 구간의 id·설정을 유지합니다.
  *
  * @param el - 반복 설정이 있는 그리드
  * @param fromRow - 역할을 바꿀 시작 행
@@ -170,14 +170,14 @@ export function assignBandRole(
 ): GridBand[] | 'noItem' | 'outOfOrder' {
   const roles: GridBandPlacement[] = el.rows.map((_, r) => bandAt(el, r)?.placement ?? 'before-data');
   for (let r = fromRow; r <= toRow; r++) roles[r] = placement;
-  // 항목 구간을 다른 곳에 지정하면 기존 항목 행은 역할을 잃으므로 위·아래 역할로 흡수한다.
+  // 항목 구간을 다른 곳에 지정하면 기존 항목 행은 역할을 잃으므로 위·아래 역할로 흡수합니다.
   if (placement === 'item') {
     roles.forEach((role, r) => {
       if (role !== 'item' || (r >= fromRow && r <= toRow)) return;
       roles[r] = r < fromRow ? 'before-data' : 'after-data';
     });
   }
-  // 연속된 같은 역할을 하나의 구간으로 합친다.
+  // 연속된 같은 역할을 하나의 구간으로 합칩니다.
   const bands: GridBand[] = [];
   let start = 0;
   for (let r = 1; r <= roles.length; r++) {
@@ -201,8 +201,8 @@ export function assignBandRole(
 }
 
 /**
- * 한 행 구간의 시작·종료 행을 바꾸고 맞닿은 구간의 경계를 함께 조정한다.
- * 선택한 구간과 인접 구간의 식별자·옵션은 유지한다.
+ * 한 행 구간의 시작·종료 행을 바꾸고 맞닿은 구간의 경계를 함께 조정합니다.
+ * 선택한 구간과 인접 구간의 식별자·옵션은 유지합니다.
  *
  * @param el - 반복 설정이 있는 그리드
  * @param bandId - 크기를 바꿀 행 구간의 id
@@ -301,7 +301,7 @@ export function resizeBandRange(
 }
 
 /**
- * 셀 병합이 행 구간 경계를 넘는지 검사한다.
+ * 셀 병합이 행 구간 경계를 넘는지 검사합니다.
  *
  * @param bands - 검사에 사용할 행 구간 목록
  * @param cell - 검사할 셀
@@ -315,7 +315,7 @@ export function spanCrossesBand(bands: readonly GridBand[], cell: GridCell): boo
 }
 
 /**
- * 마지막 행을 지울 수 있는지 — 항목 구간이 한 행뿐이면 지울 수 없다.
+ * 마지막 행을 지울 수 있는지 — 항목 구간이 한 행뿐이면 지울 수 없습니다.
  *
  * @param el - 대상 그리드
  * @returns 마지막 행을 지울 수 있으면 true
@@ -327,8 +327,8 @@ export function canRemoveLastRow(el: GridElement): boolean {
 }
 
 /**
- * 마지막 행을 하나 더하거나 뺀다.
- * 지울 때는 범위를 벗어난 셀과 병합을 정리하고 행 구간의 끝을 함께 줄인다.
+ * 마지막 행을 하나 더하거나 뺍니다.
+ * 지울 때는 범위를 벗어난 셀과 병합을 정리하고 행 구간의 끝을 함께 줄입니다.
  *
  * @param grid - 수정할 그리드
  * @param delta - 1이면 추가, -1이면 제거
@@ -344,7 +344,7 @@ export function changeRowCount(grid: GridElement, delta: number): void {
   clampGridSpans(grid);
   if (!grid.repeat) return;
   const band = grid.repeat.bands.find((b) => removed >= b.fromRow && removed <= b.toRow);
-  // 행이 하나뿐인 구간은 통째로 사라진다.
+  // 행이 하나뿐인 구간은 통째로 사라집니다.
   if (band !== undefined && band.fromRow === band.toRow) {
     grid.repeat.bands = grid.repeat.bands.filter((b) => b !== band);
   } else if (band !== undefined) {
@@ -353,7 +353,7 @@ export function changeRowCount(grid: GridElement, delta: number): void {
 }
 
 /**
- * 마지막 열을 하나 더하거나 뺀다.
+ * 마지막 열을 하나 더하거나 뺍니다.
  *
  * @param grid - 수정할 그리드
  * @param delta - 1이면 추가, -1이면 제거
@@ -379,8 +379,8 @@ export interface InsertRowOptions {
 }
 
 /**
- * 지정한 역할의 행을 넣을 자리를 찾는다.
- * 같은 역할의 구간이 있으면 그 뒤, 없으면 다음 역할의 구간 앞이다.
+ * 지정한 역할의 행을 넣을 자리를 찾습니다.
+ * 같은 역할의 구간이 있으면 그 뒤, 없으면 다음 역할의 구간 앞입니다.
  *
  * @param el - 반복 설정이 있는 그리드
  * @param placement - 넣을 행의 역할
@@ -399,12 +399,12 @@ export function insertPositionFor(
 }
 
 /**
- * 행을 하나 넣고 셀 좌표·병합과 행 구간 경계를 함께 밀어 준다.
+ * 행을 하나 넣고 셀 좌표·병합과 행 구간 경계를 함께 밀어 줍니다.
  *
- * @param grid - 수정할 그리드 (반복 설정이 있어야 한다)
+ * @param grid - 수정할 그리드 (반복 설정이 있어야 합니다)
  * @param insertAt - 넣을 행 번호
  * @param placement - 넣을 행의 역할
- * @param targetBandId - 붙일 구간의 식별자. 없으면 새 구간을 만든다
+ * @param targetBandId - 붙일 구간의 식별자. 없으면 새 구간을 만듭니다
  * @param options - 새 구간의 이름과 출력 페이지
  * @param height - 새 행의 높이(mm)
  */
@@ -421,7 +421,7 @@ export function insertGridRow(
     if (cell.row >= insertAt) {
       cell.row += 1;
     } else if (cell.row + (cell.rowSpan ?? 1) > insertAt) {
-      // 넣는 자리를 가로지르는 병합은 한 칸 더 걸치게 된다.
+      // 넣는 자리를 가로지르는 병합은 한 칸 더 걸치게 됩니다.
       cell.rowSpan = (cell.rowSpan ?? 1) + 1;
     }
   }

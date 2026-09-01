@@ -2,7 +2,7 @@
  * 모달 화면 — 수식 편집, 이미지 선택, 샘플 데이터, 저장과 내 양식 목록.
  *
  * @remarks
- * 각 컨트롤러가 초안 상태를 관리하고, 이 모듈은 현재 상태를 렌더링한 뒤 사용자 조작을 호스트에 전달한다.
+ * 각 컨트롤러가 초안 상태를 관리하고, 이 모듈은 현재 상태를 렌더링한 뒤 사용자 조작을 호스트에 전달합니다.
  */
 
 import { html, nothing } from 'lit';
@@ -53,7 +53,7 @@ export interface DialogContext {
   probeValues(): Record<string, unknown>;
   /** 선언된 파라미터와 현재 샘플 값을 합친 JSON 초안 */
   sampleSkeleton(): Record<string, unknown>;
-  /** 수식을 평가한다 */
+  /** 수식을 평가합니다 */
   evaluate(source: string, context: FormulaContext): FormulaValue;
   /** 속성 패널이 대상으로 삼는 요소 */
   selectedElement(): SlipElement | undefined;
@@ -68,12 +68,12 @@ export interface DialogContext {
   confirmSave(): void;
   loadMyForm(id: string): void;
   deleteMyForm(id: string): void;
-  /** 화면을 다시 그린다 */
+  /** 화면을 다시 그립니다 */
   refresh(): void;
 }
 
 /**
- * 문법 검사, 샘플 계산, 파라미터 및 함수 삽입을 제공하는 수식 모달을 렌더링한다.
+ * 문법 검사, 샘플 계산, 파라미터 및 함수 삽입을 제공하는 수식 모달을 렌더링합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
  * @returns 수식 모달. 열려 있지 않으면 빈 것
@@ -92,21 +92,21 @@ export function formulaModal(d: DialogContext) {
     try {
       parseFormula(draft, d.locale === undefined ? undefined : { locale: d.locale });
       try {
-        // 샘플 값이 없으면 파라미터 종류별 기본값으로 수식을 검사한다.
+        // 샘플 값이 없으면 파라미터 종류별 기본값으로 수식을 검사합니다.
         preview = formulaPreviewText(
           d.evaluate(draft, {
             values: d.probeValues(),
           }),
         );
       } catch (error) {
-        // 계산 오류는 표시하되 문법이 유효한 수식은 적용할 수 있다.
+        // 계산 오류는 표시하되 문법이 유효한 수식은 적용할 수 있습니다.
         previewError = error instanceof Error ? error.message : String(error);
       }
     } catch (error) {
       syntaxError = error instanceof Error ? error.message : String(error);
     }
   }
-  // 목록 파라미터의 하위 필드까지 표시하도록 사이드바와 같은 항목을 사용한다.
+  // 목록 파라미터의 하위 필드까지 표시하도록 사이드바와 같은 항목을 사용합니다.
   const parameters = d.parameters();
 
   return html`
@@ -173,7 +173,7 @@ export function formulaModal(d: DialogContext) {
 }
 
 /**
- * 목록 파라미터의 하위 필드 자동완성 항목을 렌더링한다.
+ * 목록 파라미터의 하위 필드 자동완성 항목을 렌더링합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
  * @returns 자동완성 목록. 후보가 없으면 빈 것
@@ -195,8 +195,8 @@ export function columnSuggestions(d: DialogContext) {
 }
 
 /**
- * 파일을 업로드하거나 양식에서 사용 중인 이미지를 선택하는 모달을 렌더링한다.
- * 이미지 값은 base64만 지원하므로 URL 입력은 제공하지 않는다.
+ * 파일을 업로드하거나 양식에서 사용 중인 이미지를 선택하는 모달을 렌더링합니다.
+ * 이미지 값은 base64만 지원하므로 URL 입력은 제공하지 않습니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
  * @returns 이미지 모달. 열려 있지 않으면 빈 것
@@ -247,8 +247,8 @@ export function imageModal(d: DialogContext) {
 }
 
 /**
- * 파라미터별 샘플 데이터를 편집하는 모달을 렌더링한다.
- * 반복 파라미터는 그리드 열에 맞춰 행 단위로 편집한다.
+ * 파라미터별 샘플 데이터를 편집하는 모달을 렌더링합니다.
+ * 반복 파라미터는 그리드 열에 맞춰 행 단위로 편집합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
  * @returns 샘플 데이터 모달. 열려 있지 않으면 빈 것
@@ -263,7 +263,7 @@ export function sampleModal(d: DialogContext) {
     d.refresh();
   };
 
-  // 반복 파라미터별 열 구조는 해당 파라미터를 처음 사용하는 그리드에서 가져온다.
+  // 반복 파라미터별 열 구조는 해당 파라미터를 처음 사용하는 그리드에서 가져옵니다.
   const tableOf = new Map<string, { key: string; title: string }[]>();
   for (const page of template.pages) {
     for (const el of page.elements) {
@@ -279,9 +279,9 @@ export function sampleModal(d: DialogContext) {
     }
   }
   const parameters = d.parameterKeys();
-  // 이미지 파라미터는 텍스트 입력 대신 파일 선택기를 사용한다.
+  // 이미지 파라미터는 텍스트 입력 대신 파일 선택기를 사용합니다.
   const imageKeys = imageParameterKeys(d.file);
-  // 파라미터 입력을 일정한 개수로 나눠 표시한다.
+  // 파라미터 입력을 일정한 개수로 나눠 표시합니다.
   const pageCount = Math.max(1, Math.ceil(parameters.length / SAMPLE_PAGE_SIZE));
   const pageIndex = Math.min(d.sample.page, pageCount - 1);
   const visible = parameters.slice(
@@ -289,7 +289,7 @@ export function sampleModal(d: DialogContext) {
     (pageIndex + 1) * SAMPLE_PAGE_SIZE,
   );
 
-  // JSON 초안이 객체가 아니거나 구문이 잘못되면 적용 버튼을 비활성화한다.
+  // JSON 초안이 객체가 아니거나 구문이 잘못되면 적용 버튼을 비활성화합니다.
   let jsonError: string | null = null;
   if (d.sample.jsonMode && d.sample.jsonDraft.trim() !== '') {
     try {
@@ -321,7 +321,7 @@ export function sampleModal(d: DialogContext) {
               aria-label="${s.sampleData}: ${label}"
               @click=${() => d.sample.setJsonMode(
                 jsonMode,
-                // 선언된 파라미터와 현재 샘플 값을 합쳐 JSON 초안을 만든다.
+                // 선언된 파라미터와 현재 샘플 값을 합쳐 JSON 초안을 만듭니다.
                 () => JSON.stringify(d.sampleSkeleton(), null, 2),
               )}>${label}</button>`)}
         </div>
@@ -397,7 +397,7 @@ export function sampleModal(d: DialogContext) {
 }
 
 /**
- * 반복 파라미터의 샘플 행을 열 구조에 맞춰 편집한다.
+ * 반복 파라미터의 샘플 행을 열 구조에 맞춰 편집합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
  * @param b - 편집할 목록 파라미터의 키와 논리명
@@ -457,7 +457,7 @@ export function sampleTable(
 // ---------------------------------------------------------------------------
 
 /**
- * 이미지 파라미터의 샘플 파일을 선택하고 미리보기를 표시한다.
+ * 이미지 파라미터의 샘플 파일을 선택하고 미리보기를 표시합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
  * @param b - 편집할 이미지 파라미터의 키와 논리명
@@ -491,7 +491,7 @@ export function sampleImage(d: DialogContext, b: { key: string; label: string },
 }
 
 /**
- * 양식 제목과 새 저장 여부를 입력하는 저장 모달을 렌더링한다.
+ * 양식 제목과 새 저장 여부를 입력하는 저장 모달을 렌더링합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
  * @returns 저장 모달. 열려 있지 않으면 빈 것
@@ -544,7 +544,7 @@ export function saveModal(d: DialogContext) {
 }
 
 /**
- * 저장된 양식을 검색하고 불러오거나 삭제하는 모달을 렌더링한다.
+ * 저장된 양식을 검색하고 불러오거나 삭제하는 모달을 렌더링합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
  * @returns 양식 목록 모달. 열려 있지 않으면 빈 것
@@ -585,7 +585,7 @@ export function myFormsModal(d: DialogContext) {
 }
 
 /**
- * 검색 결과를 페이지 단위로 나눠 목록 모달에 렌더링한다.
+ * 검색 결과를 페이지 단위로 나눠 목록 모달에 렌더링합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
  * @returns 현재 페이지의 양식 목록

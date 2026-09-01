@@ -3,7 +3,7 @@
  *
  * @remarks
  * 공통 입력, 색·테두리 선택과 셀 편집.
- * 규칙 순서는 원래 한 파일이던 때와 같다 — 순서를 바꾸면 cascade가 달라진다.
+ * 규칙 순서는 원래 한 파일이던 때와 같습니다 — 순서를 바꾸면 cascade가 달라집니다.
  */
 import { css } from 'lit';
 
@@ -288,7 +288,7 @@ export const propertiesStyles = css`
       color: var(--sk-accent);
       border-color: var(--sk-accent);
     }
-    /* 조건부 서식 강조의 '해제' 상태 — 기본 서식의 강조를 끄는 규칙을 사선으로 표시한다 */
+    /* 조건부 서식 강조의 '해제' 상태 — 기본 서식의 강조를 끄는 규칙을 사선으로 표시합니다 */
     .toggle-group button[aria-pressed='mixed'] {
       position: relative;
       background: var(--sk-accent-soft);
@@ -605,7 +605,7 @@ export const propertiesStyles = css`
       outline-offset: -1px;
     }
 
-    /* 인라인 편집기는 선택한 셀의 배경과 텍스트 스타일을 상속한다. */
+    /* 인라인 편집기는 선택한 셀의 배경과 텍스트 스타일을 상속합니다. */
     .cell-editor {
       position: absolute;
       z-index: 30;
