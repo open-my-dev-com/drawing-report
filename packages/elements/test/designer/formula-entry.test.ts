@@ -27,6 +27,7 @@ import {
   createElement,
   flush,
   selectElement,
+  openValuesTab,
 } from './helpers.js';
 import type { Designer } from './helpers.js';
 import { dialogsStyles } from '../../src/styles/designer/dialogs.styles.js';
@@ -134,6 +135,26 @@ async function openModal(el: Designer, index = 0): Promise<HTMLButtonElement> {
   return button;
 }
 
+/** 「값과 범위」 탭의 반복 데이터 범위 줄 */
+function reservedRows(el: Designer): HTMLButtonElement[] {
+  return Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.reserved-row'));
+}
+
+/** 반복 데이터 범위 줄을 코드 이름으로 찾을 수 있게 모읍니다 */
+function reservedByCode(el: Designer): Map<string, HTMLButtonElement> {
+  return new Map(reservedRows(el)
+    .map((b) => [b.querySelector('.reserved-code')!.textContent!.trim(), b]));
+}
+
+/** 모든 줄이 같은 이유로 막혔을 때 한 번만 적는 안내. 없으면 null */
+function reservedNotice(el: Designer): string | null {
+  const list = el.shadowRoot!.querySelector('.reserved-list');
+  const notice = list?.previousElementSibling;
+  return notice?.classList.contains('image-hint') === true
+    ? notice.textContent!.trim()
+    : null;
+}
+
 // 떼지 않은 디자이너가 남으면 다음 시험의 렌더링을 방해합니다.
 afterEach(() => {
   for (const el of Array.from(document.body.querySelectorAll('slip-designer'))) el.remove();
@@ -198,6 +219,32 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(changed).toBe(false);
     expect(elementsOf(el)[0]!.formula).toBe('1 + 1');
     expect(el.shadowRoot!.querySelector('.input-error')?.textContent).toContain(s.syntaxError);
+  });
+
+  it('참조가 없는데 계산되지 않는 수식은 인라인 입력에서도 저장되지 않는다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+
+    let changed = false;
+    el.addEventListener('slip-change', () => { changed = true; });
+    const input = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((row) => row.querySelector('label')?.textContent?.trim() === s.formula)!
+      .querySelector('input') as HTMLInputElement;
+
+    for (const source of ['1 / 0', 'FORMAT_NUMBER(1, 21)', 'MID("abc", 0, 1)', 'DATE_ADD("not-a-date", 1)']) {
+      input.value = source;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      await el.updateComplete;
+
+      expect(changed, source).toBe(false);
+      expect(elementsOf(el)[0]!.formula, source).toBe('1 + 1');
+      expect(el.shadowRoot!.querySelector('.input-error')?.textContent, source)
+        .toContain(s.formulaError);
+    }
   });
 
   it('바코드 요소의 수식을 모달에서 고쳐 저장한다', async () => {
@@ -400,7 +447,17 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     setDraft(el, 'SUM(@page.amount) > 0');
     await el.updateComplete;
     expect(status(el).textContent).toContain(s.previewUnavailable);
+    // 왜 계산되지 않았는지는 안내 뒤에 괄호로 덧붙입니다.
+    expect(status(el).textContent).toMatch(/\(.+\)/);
+    expect(status(el).classList.contains('notice')).toBe(true);
     expect(footButton(el, s.apply).disabled).toBe(false);
+
+    // 참조가 없으면 값이 달라져도 같은 오류라 적용을 막습니다.
+    setDraft(el, '1 / 0 > 0');
+    await el.updateComplete;
+    expect(status(el).textContent).toContain(s.formulaError);
+    expect(status(el).classList.contains('error')).toBe(true);
+    expect(footButton(el, s.apply).disabled).toBe(true);
   });
 
   it('샘플 항목을 바꾸면 출력 페이지와 계산 결과가 함께 바뀐다', async () => {
@@ -519,14 +576,21 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     selectElement(el, 'f1');
     await el.updateComplete;
     await openModal(el);
+    await openValuesTab(el);
     // 반복 그리드가 아니어도 목록에는 두고 왜 쓸 수 없는지 알려 줍니다.
-    const notRepeat = Array.from(
-      el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.parameter-chip.reserved'),
-    );
-    expect(notRepeat.map((b) => b.textContent?.trim()))
+    const notRepeat = reservedRows(el);
+    expect(notRepeat.map((b) => b.querySelector('.reserved-code')?.textContent?.trim()))
       .toEqual(['@item', '@group', '@page', '@all', '@carried']);
+    // 코드 이름만으로는 뜻을 알 수 없으므로 사용자 이름을 함께 적습니다.
+    expect(notRepeat.map((b) => b.querySelector('.reserved-label')?.textContent?.trim()))
+      .toEqual([
+        s.formulaReservedItem, s.formulaReservedGroup, s.formulaReservedPage,
+        s.formulaReservedAll, s.formulaReservedCarried,
+      ]);
     expect(notRepeat.every((b) => b.disabled)).toBe(true);
-    expect(notRepeat.every((b) => b.title === s.reservedNeedRepeat)).toBe(true);
+    // 모두 같은 이유로 막혔으므로 이유는 한 번만 적습니다.
+    expect(notRepeat.some((b) => b.querySelector('.reserved-reason') !== null)).toBe(false);
+    expect(reservedNotice(el)).toBe(s.reservedNeedRepeat);
     el.remove();
 
     const grid = await mountFile([makeGrid()], { items: SAMPLE_ITEMS });
@@ -534,17 +598,16 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     selectCell(grid, { row: 0, column: 1 });
     await grid.updateComplete;
     await openModal(grid);
+    await openValuesTab(grid);
 
-    const reserved = Array.from(
-      grid.shadowRoot!.querySelectorAll<HTMLButtonElement>('.parameter-chip.reserved'),
-    );
-    const item = reserved.find((b) => b.textContent?.trim() === '@item')!;
+    const reserved = reservedByCode(grid);
     // 헤더 행 구간에는 항목이 없습니다.
-    expect(item.disabled).toBe(true);
-    expect(item.title).toBe(s.reservedNoItem);
-    expect(reserved.find((b) => b.textContent?.trim() === '@page')!.disabled).toBe(false);
-    expect(grid.shadowRoot!.querySelector('.formula-reserved-reasons')?.textContent)
-      .toContain(s.reservedNoItem);
+    expect(reserved.get('@item')!.disabled).toBe(true);
+    expect(reserved.get('@item')!.querySelector('.reserved-reason')?.textContent?.trim())
+      .toBe(s.reservedNoItem);
+    expect(reserved.get('@page')!.disabled).toBe(false);
+    // 막힌 이유가 서로 다르면 한 번만 적을 수 없으므로 줄마다 적습니다.
+    expect(reservedNotice(grid)).toBeNull();
   });
 
   it('정적 그리드 셀에서도 예약 참조를 이유와 함께 비활성으로 보여 준다', async () => {
@@ -556,15 +619,12 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     selectCell(el, { row: 1, column: 1 });
     await el.updateComplete;
     await openModal(el);
+    await openValuesTab(el);
 
-    const reserved = Array.from(
-      el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.parameter-chip.reserved'),
-    );
+    const reserved = reservedRows(el);
     expect(reserved).toHaveLength(5);
     expect(reserved.every((b) => b.disabled)).toBe(true);
-    expect(el.shadowRoot!.querySelectorAll('.formula-reserved-reasons li')).toHaveLength(5);
-    expect(el.shadowRoot!.querySelector('.formula-reserved-reasons')?.textContent)
-      .toContain(s.reservedNeedRepeat);
+    expect(reservedNotice(el)).toBe(s.reservedNeedRepeat);
   });
 
   it('샘플 항목이 없어도 계획이 주는 예약 참조는 그대로 쓴다', async () => {
@@ -579,15 +639,39 @@ describe('<slip-designer> 수식 모달 진입점', () => {
 
     // 항목이 0개여도 `@all`은 빈 목록으로 계산됩니다.
     expect(status(el).textContent).toContain(`${s.previewResult}: 0`);
-    const reserved = new Map(
-      Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.parameter-chip.reserved'))
-        .map((b) => [b.textContent!.trim(), b]),
-    );
+    await openValuesTab(el);
+    const reserved = reservedByCode(el);
     expect(reserved.get('@all')!.disabled).toBe(false);
     expect(reserved.get('@item')!.disabled).toBe(true);
-    expect(reserved.get('@item')!.title).toBe(s.reservedNoItem);
+    expect(reserved.get('@item')!.querySelector('.reserved-reason')?.textContent?.trim())
+      .toBe(s.reservedNoItem);
     // 고를 항목이 없으므로 선택 자리는 두지 않습니다.
     expect(el.shadowRoot!.querySelector('.formula-item-no')).toBeNull();
+  });
+
+  it('참조 영역을 함수와 값 두 탭으로 나누고 한 번에 한쪽만 보여 준다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+    await openModal(el);
+
+    const tabs = (): HTMLButtonElement[] =>
+      Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.formula-tab'));
+    expect(tabs().map((b) => b.textContent?.trim()))
+      .toEqual([s.formulaFunctionsTab, s.formulaValuesTab]);
+
+    // 수식을 쓸 때 먼저 찾는 것이 함수라 함수 탭에서 시작합니다.
+    expect(tabs()[0]!.getAttribute('aria-selected')).toBe('true');
+    expect(el.shadowRoot!.querySelectorAll('.fn-row').length).toBeGreaterThan(0);
+    expect(el.shadowRoot!.querySelector('.reserved-list')).toBeNull();
+
+    await openValuesTab(el);
+    expect(tabs()[1]!.getAttribute('aria-selected')).toBe('true');
+    expect(el.shadowRoot!.querySelector('.reserved-list')).not.toBeNull();
+    expect(el.shadowRoot!.querySelectorAll('.fn-row').length).toBe(0);
   });
 
   it('함수를 이름과 로케일 설명으로 찾고, 분류와 검색어를 함께 적용한다', async () => {

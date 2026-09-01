@@ -215,7 +215,7 @@ describe('gridFormulaContext — 계산 문맥 공통 helper', () => {
   });
 });
 
-describe('checkFormula — 검사 결과 5종', () => {
+describe('checkFormula — 검사 결과 7종', () => {
   const base = { condition: false, emptyAllowed: false, locale: 'ko', context: { values: { a: 1 } }, evaluate };
 
   it('문법 오류와 샘플 값으로 계산할 수 없는 경우를 구분한다', () => {
@@ -241,6 +241,33 @@ describe('checkFormula — 검사 결과 5종', () => {
     // AVG는 평균 낼 값이 없으면 데이터가 달라져도 계산되지 않으므로 인자가 있어야 합니다.
     expect(checkFormula({ ...base, source: 'AVG()' }).applicable).toBe(false);
     expect(checkFormula({ ...base, source: 'AVG(@page.amount)' }).applicable).toBe(true);
+  });
+
+  it('참조가 없는데 계산에 실패하면 어떤 데이터에서도 같은 결과라 적용을 막는다', () => {
+    for (const source of [
+      '1 / 0',
+      'FORMAT_NUMBER(1, 21)',
+      'MID("abc", 0, 1)',
+      'DATE_ADD("not-a-date", 1)',
+    ]) {
+      const result = checkFormula({ ...base, source });
+      expect(result.status, source).toBe('formula-error');
+      expect(result.applicable, source).toBe(false);
+      expect(result.detail, source).toBeTruthy();
+    }
+  });
+
+  it('참조가 있으면 계산에 실패해도 값이 채워지면 계산될 수 있어 적용을 허용한다', () => {
+    const withReference = checkFormula({ ...base, source: 'SUM(@page.amount) / 0' });
+    expect(withReference.status).toBe('not-computable');
+    expect(withReference.applicable).toBe(true);
+  });
+
+  it('실행되지 않는 분기의 오류는 판정에 넣지 않는다', () => {
+    const skipped = checkFormula({ ...base, source: 'IF(TRUE, 1, 1 / 0)' });
+    expect(skipped.status).toBe('ok');
+    expect(skipped.value).toBe(1);
+    expect(skipped.applicable).toBe(true);
   });
 
   it('오류 문구는 넘긴 로케일을 따른다', () => {

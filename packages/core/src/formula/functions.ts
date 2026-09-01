@@ -40,7 +40,7 @@ export interface FormulaArity {
  */
 export const FORMULA_ARITY: Record<FormulaFunctionName, FormulaArity> = {
   // 집계 — 개수 제한 없이 값과 범위를 받는다.
-  // AVG는 평균 낼 값이 없으면 어떤 데이터에서도 계산되지 않으므로 하나 이상을 받는다.
+  // AVG는 평균을 계산할 값이 최소 하나 필요합니다.
   SUM: { min: 0 },
   AVG: { min: 1 },
   COUNT: { min: 0 },

@@ -50,6 +50,7 @@ import {
   pickListValue,
   addByCanvasClick,
   selectElement,
+  openValuesTab,
 } from './helpers.js';
 import type { Designer } from './helpers.js';
 
@@ -292,6 +293,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
   it('파라미터 목록에 표의 하위 열까지 나오고, 누르면 표파라미터.열키로 삽입된다 (F-21)', async () => {
     const el = await loadWithTable();
     await openFormulaModal(el);
+    await openValuesTab(el);
 
     const columnChips = Array.from(el.shadowRoot!.querySelectorAll('.parameter-chip.column'));
     expect(columnChips.map((c) => c.textContent?.trim())).toEqual(['품명', '금액', '수량']);
@@ -410,6 +412,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
   it('파라미터 목록이 칩으로 나오고 클릭하면 삽입된다', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);
+    await openValuesTab(el);
 
     const chips = el.shadowRoot!.querySelectorAll('.parameter-chip');
     // 방금 만든 필드의 기본 파라미터가 하나 있습니다

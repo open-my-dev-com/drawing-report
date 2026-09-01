@@ -144,7 +144,7 @@ pnpm build
 # 테스트 실행
 pnpm test
 
-# 검증 게이트 전체 (lint · 빌드 · 타입 검사 · 테스트)
+# 전체 검증 게이트
 pnpm verify
 ```
 

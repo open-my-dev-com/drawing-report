@@ -144,7 +144,7 @@ pnpm build
 # テストの実行
 pnpm test
 
-# 検証ゲート全体 (lint・ビルド・型チェック・テスト)
+# 検証ゲート全体
 pnpm verify
 ```
 

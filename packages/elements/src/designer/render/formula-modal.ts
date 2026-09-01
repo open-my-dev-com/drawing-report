@@ -51,13 +51,25 @@ export interface FormulaModalView {
   reserved: ReservedAvailability[];
 }
 
-/** 예약 참조를 쓸 수 없는 이유별 안내 문구 */
+/** 반복 데이터 범위를 쓸 수 없는 이유별 안내 문구 */
 function reasonText(s: DesignerStrings, reason: ReservedBlockReason): string {
   switch (reason) {
     case 'not-repeat': return s.reservedNeedRepeat;
     case 'no-item': return s.reservedNoItem;
     case 'no-group': return s.reservedNoGroup;
     case 'no-plan': return s.reservedNoPlan;
+  }
+}
+
+/** 반복 데이터 범위의 사용자 이름 — 코드 이름만으로는 뜻을 알 수 없습니다 */
+function reservedLabel(s: DesignerStrings, name: string): string {
+  switch (name) {
+    case '@item': return s.formulaReservedItem;
+    case '@group': return s.formulaReservedGroup;
+    case '@page': return s.formulaReservedPage;
+    case '@all': return s.formulaReservedAll;
+    case '@carried': return s.formulaReservedCarried;
+    default: return name;
   }
 }
 
@@ -100,36 +112,41 @@ function itemChoiceText(s: DesignerStrings, choice: ItemChoice): string {
   return parts.join(' · ');
 }
 
+/** 검사 결과를 어떤 상태로 보여 줄지 — 색만이 아니라 문구가 뜻을 설명합니다 */
+export type FormulaCheckTone = 'ok' | 'notice' | 'error';
+
 /**
- * 검사 결과를 표시할 문구와 심각도를 만듭니다.
+ * 검사 결과를 표시할 문구와 상태를 만듭니다.
  *
  * @param s - 로케일에 맞는 문구
  * @param check - 표시할 검사 결과
  * @param emptyAllowed - 비어 있어도 적용할 수 있는 대상인지
- * @returns 표시 문구와 오류로 볼지 여부
+ * @returns 표시 문구와 상태
  */
 export function formulaCheckText(s: DesignerStrings, check: FormulaCheck, emptyAllowed: boolean): {
   text: string;
-  error: boolean;
+  tone: FormulaCheckTone;
 } {
   switch (check.status) {
     case 'empty':
       return emptyAllowed
-        ? { text: s.formulaCellEmptyHint, error: false }
-        : { text: s.formulaRequired, error: true };
+        ? { text: s.formulaCellEmptyHint, tone: 'notice' }
+        : { text: s.formulaRequired, tone: 'error' };
     case 'syntax-error':
-      return { text: `${s.syntaxError}${check.detail ? `: ${check.detail}` : ''}`, error: true };
+      return { text: `${s.syntaxError}${check.detail ? `: ${check.detail}` : ''}`, tone: 'error' };
+    case 'formula-error':
+      return { text: `${s.formulaError}${check.detail ? `: ${check.detail}` : ''}`, tone: 'error' };
     case 'not-boolean':
-      return { text: s.conditionNotBoolean, error: true };
+      return { text: s.conditionNotBoolean, tone: 'error' };
     case 'not-computable':
       return {
-        text: `${s.previewUnavailable}${check.detail ? `: ${check.detail}` : ''}`,
-        error: false,
+        text: `${s.previewUnavailable}${check.detail ? ` (${check.detail})` : ''}`,
+        tone: 'notice',
       };
     case 'target-changed':
-      return { text: s.formulaTargetChanged, error: true };
+      return { text: s.formulaTargetChanged, tone: 'error' };
     case 'ok':
-      return { text: `${s.previewResult}: ${formulaPreviewText(check.value ?? null)}`, error: false };
+      return { text: `${s.previewResult}: ${formulaPreviewText(check.value ?? null)}`, tone: 'ok' };
   }
 }
 
@@ -157,7 +174,7 @@ export function formulaModal(d: DialogContext) {
       </div>
       <div class="formula-layout">
         <div class="formula-editor">${editorColumn(d, view)}</div>
-        <div class="formula-reference">${functionSection(d)}${valueSection(d, view)}</div>
+        <div class="formula-reference">${referenceColumn(d, view)}</div>
       </div>
       <div class="modal-foot">
         <button class="btn" @click=${close}>${s.cancel}</button>
@@ -190,11 +207,36 @@ function editorColumn(d: DialogContext, view: FormulaModalView) {
       }}
       @keyup=${(e: Event) => d.formula.syncCaret((e.target as HTMLTextAreaElement).selectionStart)}
       @click=${(e: Event) => d.formula.syncCaret((e.target as HTMLTextAreaElement).selectionStart)}></textarea>
-    <div id="formula-status" class="formula-status ${result.error ? 'error' : ''}"
+    <div id="formula-status" class="formula-status ${result.tone}"
       role="status" aria-live="polite" tabindex="-1">${result.text}</div>
     ${columnSuggestions(d)}
     <div class="formula-hint">${s.formulaQuoteHint}</div>
     ${sampleItemPicker(d, view)}
+  `;
+}
+
+/**
+ * 참조 영역을 렌더링합니다.
+ *
+ * 함수는 골라서 상세를 본 뒤 삽입하고 값은 누르면 바로 들어가므로, 조작이 다른 둘을
+ * 탭으로 나눠 무엇을 하는 자리인지 분명히 합니다.
+ */
+function referenceColumn(d: DialogContext, view: FormulaModalView) {
+  const s = d.s;
+  const tab = d.formula.tab;
+  const tabButton = (value: 'functions' | 'values', label: string) => html`
+    <button class="formula-tab ${tab === value ? 'selected' : ''}" role="tab"
+      aria-selected=${String(tab === value)}
+      @click=${() => d.formula.setTab(value)}>${label}</button>`;
+
+  return html`
+    <div class="formula-tabs" role="tablist" aria-label=${s.formulaFunctions}>
+      ${tabButton('functions', s.formulaFunctionsTab)}
+      ${tabButton('values', s.formulaValuesTab)}
+    </div>
+    <div class="formula-tabpanel" role="tabpanel">
+      ${tab === 'functions' ? functionSection(d) : valueSection(d, view)}
+    </div>
   `;
 }
 
@@ -315,7 +357,7 @@ function functionDetail(d: DialogContext, fn: FormulaHelpEntry) {
   `;
 }
 
-/** 파라미터, 하위 필드와 예약 참조 목록을 렌더링합니다. */
+/** 파라미터, 하위 필드와 반복 데이터 범위를 렌더링합니다. */
 function valueSection(d: DialogContext, view: FormulaModalView) {
   const s = d.s;
   const parameters = d.parameters();
@@ -323,11 +365,17 @@ function valueSection(d: DialogContext, view: FormulaModalView) {
     (ref): ref is ReservedAvailability & { reason: ReservedBlockReason } =>
       !ref.usable && ref.reason !== undefined,
   );
+  // 모두 같은 이유로 막혔으면 이유를 한 번만 적습니다.
+  const sharedReason = blocked.length === view.reserved.length && view.reserved.length > 0
+    && blocked.every((ref) => ref.reason === blocked[0]!.reason)
+    ? blocked[0]!.reason
+    : null;
+
   return html`
-    <div class="modal-section-title">${s.formulaValues}</div>
     ${parameters.length === 0
       ? nothing
       : html`
+        <div class="modal-section-title">${s.formulaParameters}</div>
         <div class="parameter-chips">
           ${parameters.map((b) => html`
             <button class="parameter-chip" title="${b.key}${b.valueType ? ` (${b.valueType})` : ''}"
@@ -343,18 +391,20 @@ function valueSection(d: DialogContext, view: FormulaModalView) {
       ? nothing
       : html`
         <div class="modal-section-title">${s.formulaReserved}</div>
-        <div class="parameter-chips">
-          ${view.reserved.map((ref) => html`
-            <button class="parameter-chip reserved" ?disabled=${!ref.usable}
-              title=${ref.usable || ref.reason === undefined ? ref.name : reasonText(s, ref.reason)}
-              @click=${() => d.formula.insert(ref.name)}>${ref.name}</button>`)}
-        </div>
-        ${blocked.length === 0
+        ${sharedReason === null
           ? nothing
-          : html`<ul class="formula-reserved-reasons">
-              ${blocked.map((ref) => html`
-                <li><code>${ref.name}</code> ${reasonText(s, ref.reason)}</li>`)}
-            </ul>`}`}
+          : html`<p class="image-hint">${reasonText(s, sharedReason)}</p>`}
+        <div class="reserved-list">
+          ${view.reserved.map((ref) => html`
+            <button class="reserved-row" ?disabled=${!ref.usable}
+              @click=${() => d.formula.insert(ref.name)}>
+              <span class="reserved-label">${reservedLabel(s, ref.name)}</span>
+              <span class="reserved-code">${ref.name}</span>
+              ${ref.usable || sharedReason !== null || ref.reason === undefined
+                ? nothing
+                : html`<span class="reserved-reason">${reasonText(s, ref.reason)}</span>`}
+            </button>`)}
+        </div>`}
   `;
 }
 

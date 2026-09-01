@@ -293,9 +293,9 @@ export const dialogsStyles = css`
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 1px;
+      gap: 2px;
       width: 100%;
-      padding: 4px 8px;
+      padding: 7px 8px;
       border: none;
       border-radius: var(--sk-radius);
       background: transparent;
@@ -316,7 +316,7 @@ export const dialogsStyles = css`
       font-size: 11.5px;
     }
     .fn-desc {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--sk-text-muted);
     }
     .row-btn {
@@ -634,7 +634,8 @@ export const dialogsStyles = css`
     }
     .formula-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      /* 목록과 설명이 있는 참조 쪽을 넓게 둡니다 */
+      grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);
       gap: 0;
       /* 본문이 늘어나도 헤더와 하단 버튼이 밀려나지 않도록 축소를 허용합니다 */
       min-height: 0;
@@ -663,8 +664,98 @@ export const dialogsStyles = css`
       font-weight: 600;
       overflow-wrap: anywhere;
     }
+    /* 수식 작성이 이 모달의 주 작업이므로 입력란을 가장 크게 둡니다 */
     .formula-modal .formula-input {
-      max-height: 180px;
+      min-height: 140px;
+      max-height: 220px;
+      font-size: 13px;
+    }
+    .formula-status {
+      padding: 6px 8px;
+      border-radius: var(--sk-radius);
+      font-size: 12px;
+    }
+    .formula-status.ok {
+      background: var(--sk-accent-soft);
+      color: inherit;
+    }
+    .formula-status.notice {
+      background: var(--sk-surface-alt, rgba(0, 0, 0, 0.04));
+      color: var(--sk-text-muted);
+    }
+    .formula-status.error {
+      background: rgba(194, 65, 12, 0.08);
+      color: var(--sk-danger);
+    }
+    /* 참조 영역 — 조작이 다른 함수와 값을 탭으로 나눕니다 */
+    .formula-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--sk-border);
+    }
+    .formula-tab {
+      padding: 6px 12px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--sk-text-muted);
+      cursor: pointer;
+    }
+    .formula-tab.selected {
+      border-bottom-color: var(--sk-accent);
+      color: var(--sk-accent);
+      font-weight: 600;
+    }
+    .formula-tab:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -2px;
+    }
+    /* 값과 범위 — 코드 이름만으로는 뜻을 알 수 없어 사용자 이름을 앞에 둡니다 */
+    .reserved-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .reserved-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      width: 100%;
+      padding: 6px 8px;
+      border: none;
+      border-radius: var(--sk-radius);
+      background: transparent;
+      font-family: inherit;
+      font-size: 12px;
+      text-align: left;
+      color: inherit;
+      cursor: pointer;
+    }
+    .reserved-row:hover:not(:disabled) {
+      background: var(--sk-accent-soft);
+    }
+    .reserved-row:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -1px;
+    }
+    .reserved-row:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+    .reserved-label {
+      font-size: 12.5px;
+    }
+    .reserved-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11.5px;
+      color: var(--sk-text-muted);
+    }
+    .reserved-reason {
+      margin-left: auto;
+      color: var(--sk-text-muted);
     }
     .formula-items {
       display: flex;
@@ -692,12 +783,12 @@ export const dialogsStyles = css`
     }
     .formula-search {
       width: 100%;
-      padding: 5px 8px;
+      padding: 7px 10px;
       border: 1px solid var(--sk-border-strong);
       border-radius: var(--sk-radius);
       background: var(--sk-surface);
       font-family: inherit;
-      font-size: 12px;
+      font-size: 13px;
       color: inherit;
     }
     .formula-search:focus-visible {
@@ -727,7 +818,7 @@ export const dialogsStyles = css`
       color: var(--sk-accent);
     }
     .fn-list {
-      max-height: 220px;
+      max-height: 240px;
       overflow-y: auto;
     }
     .fn-row.selected {
@@ -770,18 +861,9 @@ export const dialogsStyles = css`
       font-family: inherit;
       color: var(--sk-text-muted);
     }
-    .parameter-chip.reserved {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    }
     .parameter-chip:disabled {
       opacity: 0.45;
       cursor: default;
-    }
-    .formula-reserved-reasons {
-      margin: 4px 0 0;
-      padding-left: 16px;
-      font-size: 11px;
-      color: var(--sk-text-muted);
     }
     /* 좁은 화면 — 한 열로 접고 본문만 스크롤해 입력란과 하단 버튼이 잘리지 않게 합니다 */
     @media (max-width: 720px) {

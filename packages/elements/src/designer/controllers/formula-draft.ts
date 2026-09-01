@@ -9,6 +9,9 @@
 import type { ReactiveController } from 'lit';
 import type { FormulaOrigin, FormulaTarget } from '../formula-target.js';
 
+/** 참조 영역에서 보고 있는 탭 */
+export type ReferenceTab = 'functions' | 'values';
+
 export interface FormulaDraftHost {
   requestUpdate(): void;
   readonly updateComplete: Promise<boolean>;
@@ -65,6 +68,7 @@ export class FormulaDraftController implements ReactiveController {
   private _query = '';
   private _category: string | null = null;
   private _picked: string | null = null;
+  private _tab: ReferenceTab = 'functions';
 
   /**
    * @param host - 화면 갱신을 요청할 호스트
@@ -120,6 +124,23 @@ export class FormulaDraftController implements ReactiveController {
     this._query = '';
     this._category = null;
     this._picked = null;
+    this._tab = 'functions';
+  }
+
+  /** 참조 영역에서 보고 있는 탭 */
+  get tab(): ReferenceTab {
+    return this._tab;
+  }
+
+  /**
+   * 참조 영역의 탭을 바꿉니다.
+   *
+   * @param tab - 보여 줄 탭
+   */
+  setTab(tab: ReferenceTab): void {
+    if (tab === this._tab) return;
+    this._tab = tab;
+    this.host.requestUpdate();
   }
 
   /** 함수 검색어 */
