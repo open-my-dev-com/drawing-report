@@ -346,7 +346,7 @@ function diagnoseFormula(
 ): FormulaDiagnosis;
 ```
 
-Reports whether a formula can be evaluated, without stopping at the first error. A place that fails because a value is missing or a reserved range is unavailable is filled with an empty value so evaluation continues, and that failure is reported as `dataError`. A failure that no data can resolve is reported as `formulaError`. Use this when an editor has to decide whether a formula is worth saving: `SUM(@page.amount) / 0` reports both, so a division by zero hidden behind a missing range is not mistaken for a value that will arrive later. When `formulaError` or `dataError` is set, `value` came out of the diagnosis, so do not show it as a result.
+Diagnoses a formula against the current values without stopping at the first error, and reports what it found as `formulaError` and `dataError`. A place that fails because a value is missing or a reserved range is unavailable is filled with an empty value so evaluation continues, and that failure is reported as `dataError`; an error raised by the expression itself is reported as `formulaError`. Both are failures of this one evaluation — neither proves that the formula can never be evaluated. When `formulaError` or `dataError` is set, `value` came out of the diagnosis, so do not show it as a result.
 
 #### `FormulaContext`
 
@@ -1876,7 +1876,9 @@ Used when a type mismatch, an invalid argument, or division by zero occurs durin
 
 `reason` says why the evaluation failed: `data` when a value is missing or a reserved range is unavailable, `value` when a value used in the calculation is wrong, and `formula` when the formula itself is wrong.
 
-`dataDependent` is true when different values could resolve the error. For a `value` reason it checks whether the value that caused the conversion or validation error came from data, rather than looking at the other operands in the same place: `amount / 0` stays blocked because the constant divisor is at fault, while `amount / quantity` and `amount + 1` with a non-numeric `amount` do not. Use it instead of comparing error messages.
+`dataDependent` is diagnostic information used to choose the message shown to the user; it does not prove whether the formula can be evaluated for some other input. For a `value` reason it checks whether the value that caused the conversion or validation error came from data, rather than looking at the other operands in the same place. Use it instead of comparing error messages.
+
+The designer blocks only errors it can establish — a syntax error, an unregistered function, a wrong argument count, and a condition whose result is not a boolean. Every other evaluation failure is applied and marked with a warning in the editing view.
 
 ### `SlipEncryptionError`
 

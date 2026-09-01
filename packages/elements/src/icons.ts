@@ -112,6 +112,8 @@ export const icons = {
   alignBottom: icon(svg`<rect x="7" y="4" width="10" height="11" rx="1" /><path d="M4 20h16" />`),
   /** 바코드 요소 — 굵기가 다른 막대 줄 */
   barcode: icon(svg`<path d="M4 5v14" /><path d="M8 5v14" /><path d="M12 5v14" /><path d="M17 5v14" /><path d="M21 5v14" />`),
+  /** 계산할 수 없는 수식이 있는 자리를 알리는 경고 삼각형. */
+  warning: icon(svg`<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" />`),
   /** 접힌 목록을 나타내는 오른쪽 꺾쇠. */
   treeClosed: icon(svg`<path d="m9 18 6-6-6-6" />`),
   /** 펼친 목록을 나타내는 아래쪽 꺾쇠. */

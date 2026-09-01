@@ -52,6 +52,11 @@ import {
   isGrid,
 } from '../grid-model.js';
 import { gridFormulaContext } from '../formula-context.js';
+import {
+  hasCellWarning,
+  hasElementWarning,
+  type FormulaWarnings,
+} from '../formula-warning.js';
 import { PLACEHOLDER_IMG } from '../image-pick.js';
 import { BARCODE_KINDS, BARCODE_2D } from '../barcode.js';
 import { TYPE_BADGE } from './badges.js';
@@ -63,6 +68,8 @@ import type { DesignerStrings } from '../../strings.js';
 export interface CanvasContext {
   /** 로케일에 맞는 문구 */
   readonly s: DesignerStrings;
+  /** 지금 값으로 계산되지 않는 수식이 있는 요소와 셀 */
+  readonly formulaWarnings: FormulaWarnings;
   /** 수식 평가에 사용할 로케일 */
   readonly evalLocale: string | undefined;
   /** 편집 중인 양식 */
@@ -533,8 +540,24 @@ export function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourceP
          style=${style}>
       <span class="badge">${TYPE_BADGE[el.type]}</span>
       ${elementContent(ctx, el, fragment)}
+      ${hasElementWarning(ctx.formulaWarnings, el.id)
+        && !ctx.formulaWarnings.cells.has(el.id)
+        ? formulaWarningBadge(ctx)
+        : nothing}
     </div>
   `;
+}
+
+/**
+ * 계산할 수 없는 수식이 있는 자리에 붙이는 경고 배지.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @returns 경고 배지 조각
+ */
+export function formulaWarningBadge(ctx: CanvasContext) {
+  const label = ctx.s.formulaWarningItem;
+  return html`<span class="formula-warning-badge" title=${label} aria-label=${label}
+    >${icons.warning}</span>`;
 }
 
 /**
@@ -1015,8 +1038,9 @@ export function gridCellBox(
   const text = context.empty === true
     ? ''
     : gridCellPreviewText(ctx, cell, context.item, context.reserved);
-  return html`<div class=${context.selected === true ? 'cell-selected' : ''} style=${style}
-    >${stackVertically(text, cell.vertical)}</div>`;
+  const warned = hasCellWarning(ctx.formulaWarnings, el.id, cell.row, cell.column);
+  return html`<div class="grid-cell ${context.selected === true ? 'cell-selected' : ''}" style=${style}
+    >${stackVertically(text, cell.vertical)}${warned ? formulaWarningBadge(ctx) : nothing}</div>`;
 }
 
 /**

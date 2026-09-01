@@ -216,7 +216,7 @@ describe('gridFormulaContext — 계산 문맥 공통 helper', () => {
   });
 });
 
-describe('checkFormula — 검사 결과 7종', () => {
+describe('checkFormula — 저장 판정', () => {
   const base = { condition: false, emptyAllowed: false, locale: 'ko', context: { values: { a: 1 } }, diagnose };
 
   it('문법 오류와 샘플 값으로 계산할 수 없는 경우를 구분한다', () => {
@@ -244,25 +244,27 @@ describe('checkFormula — 검사 결과 7종', () => {
     expect(checkFormula({ ...base, source: 'AVG(@page.amount)' }).applicable).toBe(true);
   });
 
-  it('값이 달라져도 풀리지 않는 계산 오류는 적용을 막는다', () => {
+  it('계산에 실패해도 원인을 알리고 적용은 허용한다', () => {
+    const context = { values: { amount: 10, name: '연필' } };
     for (const source of [
       '1 / 0',
-      'a / 0',
-      // 값이 없어 평가가 먼저 멈추더라도 바깥에 남은 잘못을 놓치지 않습니다.
-      'SUM(@page.amount) / 0',
-      'FORMAT_NUMBER(1, 21)',
-      'FORMAT_NUMBER(a, 21)',
-      'MID("abc", 0, 1)',
-      'DATE_ADD("not-a-date", 1)',
+      'amount / 0',
+      'FORMAT_NUMBER(amount, 21)',
+      'MID(name, 0, 1)',
+      '1 / (0 * amount)',
+      '1 / (amount - amount)',
+      'TO_NUMBER(CONCAT("a", amount))',
+      'FORMAT_NUMBER(1, ROUND(21 * amount / amount))',
     ]) {
-      const result = checkFormula({ ...base, source });
-      expect(result.status, source).toBe('formula-error');
-      expect(result.applicable, source).toBe(false);
+      const result = checkFormula({ ...base, context, source });
+      // 계산에 실패한 두 상태는 적용 허용과 경고 표시가 같습니다.
+      expect(['formula-error', 'not-computable'], source).toContain(result.status);
+      expect(result.applicable, source).toBe(true);
       expect(result.detail, source).toBeTruthy();
     }
   });
 
-  it('값이 없어서만 계산하지 못한 수식은 적용을 허용한다', () => {
+  it('값이 없어서만 계산하지 못한 수식도 원인을 알리고 적용을 허용한다', () => {
     for (const source of ['SUM(@page.amount)', 'SUM(@page.amount) + a', 'AVG(@group.amount)']) {
       const result = checkFormula({ ...base, source });
       expect(result.status, source).toBe('not-computable');
@@ -270,33 +272,7 @@ describe('checkFormula — 검사 결과 7종', () => {
     }
   });
 
-  it('모든 피연산자가 값에서 온 오류는 값이 달라지면 풀릴 수 있어 적용을 허용한다', () => {
-    // 지금 샘플에서만 나누는 값이 0입니다.
-    const bySample = checkFormula({
-      ...base, context: { values: { a: 1, b: 0 } }, source: 'a / b',
-    });
-    expect(bySample.status).toBe('not-computable');
-    expect(bySample.applicable).toBe(true);
-  });
-
-  it('정상 상수가 섞여 있어도 잘못된 것이 샘플 값이면 적용을 허용한다', () => {
-    const context = {
-      values: { amount: 'not-a-number', date: 'not-a-date', flag: 'not-a-boolean' },
-    };
-    for (const source of [
-      'amount + 1',
-      'ROUND(amount, 2)',
-      'FORMAT_NUMBER(amount, 2)',
-      'DATE_ADD(date, 1)',
-      'IF(flag, 1, 2)',
-    ]) {
-      const result = checkFormula({ ...base, context, source });
-      expect(result.status, source).toBe('not-computable');
-      expect(result.applicable, source).toBe(true);
-    }
-  });
-
-  it('실행되지 않은 분기의 참조는 적용 판정에 넣지 않는다', () => {
+  it('실행되지 않은 분기의 참조가 있어도 계산 실패는 그대로 알린다', () => {
     const context = { values: { amount: 10 } };
     for (const source of [
       'IF(TRUE, "not-a-number", amount) + 1',
@@ -306,29 +282,16 @@ describe('checkFormula — 검사 결과 7종', () => {
     ]) {
       const result = checkFormula({ ...base, context, source });
       expect(result.status, source).toBe('formula-error');
+      expect(result.applicable, source).toBe(true);
+    }
+  });
+
+  it('문법·등록되지 않은 함수·인자 수 오류만 적용을 막는다', () => {
+    for (const source of ['SUM(1,', 'NOPE(1)', 'IF(TRUE)', 'ROUND()', 'AND()']) {
+      const result = checkFormula({ ...base, source });
+      expect(result.status, source).toBe('syntax-error');
       expect(result.applicable, source).toBe(false);
     }
-    // 실제로 고른 분기가 데이터면 그대로 적용을 허용합니다.
-    const chosen = checkFormula({
-      ...base, context: { values: { amount: 'not-a-number' } }, source: 'IF(TRUE, amount, 1) + 1',
-    });
-    expect(chosen.status).toBe('not-computable');
-    expect(chosen.applicable).toBe(true);
-  });
-
-  it('샘플 값도 잘못되고 상수 인자도 잘못되면 적용을 막는다', () => {
-    const result = checkFormula({
-      ...base, context: { values: { amount: 'not-a-number' } }, source: 'FORMAT_NUMBER(amount, 21)',
-    });
-    expect(result.status).toBe('formula-error');
-    expect(result.applicable).toBe(false);
-  });
-
-  it('실행되지 않는 분기의 오류는 판정에 넣지 않는다', () => {
-    const skipped = checkFormula({ ...base, source: 'IF(TRUE, 1, 1 / 0)' });
-    expect(skipped.status).toBe('ok');
-    expect(skipped.value).toBe(1);
-    expect(skipped.applicable).toBe(true);
   });
 
   it('오류 문구는 넘긴 로케일을 따른다', () => {

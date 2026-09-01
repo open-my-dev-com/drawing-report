@@ -17,18 +17,23 @@ describe('UI 문구 사전 (ADR-013/028)', () => {
     }
   });
 
-  // 계산되지 않아도 적용할 수 있다는 것이 이 문구의 요점이라, 세 언어 모두
-  // 「샘플 값으로 계산되지 않는다」와 「그래도 적용할 수 있다」를 함께 담아야 합니다.
-  it('샘플 값 미리 계산 안내는 세 언어 모두 계산되지 않는 까닭과 적용 가능함을 알린다', () => {
-    const cases = [
-      { text: STRINGS.ko.designer.previewUnavailable, sample: '샘플 값', apply: '적용할 수 있습니다' },
-      { text: STRINGS.en.designer.previewUnavailable, sample: 'sample values', apply: 'apply' },
-      { text: STRINGS.ja.designer.previewUnavailable, sample: 'サンプル値', apply: '適用できます' },
-    ];
-    for (const { text, sample, apply } of cases) {
-      expect(text).toContain(sample);
-      expect(text).toContain(apply);
+  // 계산에 실패해도 적용할 수 있다는 것과 경고가 남는다는 것을 세 언어 모두 알려야 합니다.
+  it('계산 실패 안내는 세 언어 모두 적용 가능함과 남는 경고를 알린다', () => {
+    for (const dict of [STRINGS.ko, STRINGS.en, STRINGS.ja]) {
+      expect(dict.designer.formulaStatusWarning.trim()).not.toBe('');
+      expect(dict.designer.formulaCannotCalculate.trim()).not.toBe('');
+      expect(dict.designer.formulaWarningHint.trim()).not.toBe('');
+      expect(dict.designer.formulaWarningItem.trim()).not.toBe('');
     }
+    expect(STRINGS.ko.designer.formulaStatusWarning).toBe('현재 값으로 계산할 수 없음');
+    expect(STRINGS.ko.designer.formulaWarningHint)
+      .toBe('수식을 적용할 수 있지만, 계산할 수 없는 동안 요소에 경고가 표시됩니다.');
+    expect(STRINGS.en.designer.formulaStatusWarning).toBe('Cannot calculate with the current values');
+    expect(STRINGS.en.designer.formulaWarningHint)
+      .toBe('You can apply the formula. A warning remains on the element until it can be calculated.');
+    expect(STRINGS.ja.designer.formulaStatusWarning).toBe('現在の値では計算できません');
+    expect(STRINGS.ja.designer.formulaWarningHint)
+      .toBe('数式は適用できますが、計算できるようになるまで要素に警告が表示されます。');
   });
 
   it('getStrings는 언어 코드로 사전을 선택하고 지원하지 않는 로케일에는 영어를 사용한다', () => {

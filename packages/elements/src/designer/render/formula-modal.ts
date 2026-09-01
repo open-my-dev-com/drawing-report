@@ -113,14 +113,16 @@ function itemChoiceText(s: DesignerStrings, choice: ItemChoice): string {
 }
 
 /** 검사 결과를 어떤 상태로 보여 줄지 — 색만이 아니라 제목과 문구가 뜻을 설명합니다 */
-export type FormulaCheckTone = 'ok' | 'notice' | 'error';
+export type FormulaCheckTone = 'ok' | 'notice' | 'warning' | 'error';
 
 /** 검사 결과를 표시할 상태, 제목과 내용 */
 export interface FormulaCheckText {
-  /** 상태 제목 — 계산 결과·미리 계산할 수 없음·수식 확인 */
+  /** 상태 제목 */
   title: string;
   /** 결과 값이나 그렇게 판정한 까닭 */
   text: string;
+  /** 적용은 할 수 있음을 알리는 덧붙임. 없으면 빈 값 */
+  hint?: string;
   /** 표시 상태 */
   tone: FormulaCheckTone;
 }
@@ -140,22 +142,28 @@ export function formulaCheckText(
 ): FormulaCheckText {
   /** 원인 문구가 있으면 괄호로 덧붙입니다. */
   const withDetail = (text: string): string => (check.detail ? `${text} (${check.detail})` : text);
-  const notice = (text: string): FormulaCheckText =>
-    ({ title: s.formulaStatusUnavailable, text, tone: 'notice' });
   const error = (text: string): FormulaCheckText =>
     ({ title: s.formulaStatusError, text, tone: 'error' });
+  // 계산에 실패했지만 적용할 수 있는 상태 — 저장 뒤 요소에 남는 경고를 함께 알립니다.
+  const warning = (): FormulaCheckText => ({
+    title: s.formulaStatusWarning,
+    text: check.detail ?? s.formulaCannotCalculate,
+    hint: s.formulaWarningHint,
+    tone: 'warning',
+  });
 
   switch (check.status) {
     case 'empty':
-      return emptyAllowed ? notice(s.formulaCellEmptyHint) : error(s.formulaRequired);
+      return emptyAllowed
+        ? { title: s.formulaStatusEmpty, text: s.formulaCellEmptyHint, tone: 'notice' }
+        : error(s.formulaRequired);
     case 'syntax-error':
       return error(withDetail(s.syntaxError));
     case 'formula-error':
-      return error(withDetail(s.formulaError));
+    case 'not-computable':
+      return warning();
     case 'not-boolean':
       return error(s.conditionNotBoolean);
-    case 'not-computable':
-      return notice(withDetail(s.previewUnavailable));
     case 'target-changed':
       return error(s.formulaTargetChanged);
     case 'ok':
@@ -224,6 +232,9 @@ function editorColumn(d: DialogContext, view: FormulaModalView) {
       role="status" aria-live="polite" tabindex="-1">
       <span class="formula-status-title">${result.title}</span>
       <span class="formula-status-text">${result.text}</span>
+      ${result.hint === undefined
+        ? nothing
+        : html`<span class="formula-status-hint">${result.hint}</span>`}
     </div>
     ${columnSuggestions(d)}
     <div class="formula-hint">${s.formulaQuoteHint}</div>

@@ -119,6 +119,11 @@ function statusText(el: Designer): string {
   return status(el).querySelector('.formula-status-text')!.textContent!.trim();
 }
 
+/** 적용은 할 수 있음을 알리는 덧붙임. 없으면 null */
+function statusHint(el: Designer): string | null {
+  return status(el).querySelector('.formula-status-hint')?.textContent?.trim() ?? null;
+}
+
 function setDraft(el: Designer, value: string): void {
   const input = formulaInput(el);
   input.value = value;
@@ -233,7 +238,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(el.shadowRoot!.querySelector('.input-error')?.textContent).toContain(s.syntaxError);
   });
 
-  it('참조가 없는데 계산되지 않는 수식은 인라인 입력에서도 저장되지 않는다', async () => {
+  it('인라인 수식 입력은 계산에 실패해도 저장하고 경고를 남긴다', async () => {
     const el = await mountFile([{
       type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
       width: 40, height: 8, formula: '1 + 1',
@@ -241,8 +246,6 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     selectElement(el, 'f1');
     await el.updateComplete;
 
-    let changed = false;
-    el.addEventListener('slip-change', () => { changed = true; });
     const input = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
       .find((row) => row.querySelector('label')?.textContent?.trim() === s.formula)!
       .querySelector('input') as HTMLInputElement;
@@ -252,14 +255,22 @@ describe('<slip-designer> 수식 모달 진입점', () => {
       input.dispatchEvent(new Event('change', { bubbles: true }));
       await el.updateComplete;
 
-      expect(changed, source).toBe(false);
-      expect(elementsOf(el)[0]!.formula, source).toBe('1 + 1');
-      expect(el.shadowRoot!.querySelector('.input-error')?.textContent, source)
-        .toContain(s.formulaError);
+      expect(elementsOf(el)[0]!.formula, source).toBe(source);
+      expect(el.shadowRoot!.querySelector('.input-error'), source).toBeNull();
+      // 계산되지 않는 수식은 사이드바와 캔버스에 경고로 남습니다.
+      expect(el.shadowRoot!.querySelector('.side-row .side-warning'), source).not.toBeNull();
+      expect(el.shadowRoot!.querySelector('[data-id="f1"] .formula-warning-badge'), source).not.toBeNull();
     }
+
+    // 계산되는 수식으로 고치면 경고가 사라집니다.
+    input.value = '1 + 1';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.side-row .side-warning')).toBeNull();
+    expect(el.shadowRoot!.querySelector('[data-id="f1"] .formula-warning-badge')).toBeNull();
   });
 
-  it('실행되지 않은 분기의 참조가 있어도 고칠 수 없는 수식은 적용 버튼이 꺼진다', async () => {
+  it('계산에 실패한 수식은 원인과 경고 안내를 보여 주고 적용 버튼을 열어 둔다', async () => {
     const el = await mountFile([{
       type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
       width: 40, height: 8, formula: '1 + 1',
@@ -269,16 +280,28 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     await openModal(el);
 
     for (const source of [
-      'IF(TRUE, "not-a-number", amount) + 1',
-      'ROUND(IF(TRUE, "not-a-number", amount), 2)',
-      '1 / IF(TRUE, 0, amount)',
-      'IF(FALSE, amount, "not-a-number") + 1',
+      '1 / 0',
+      'amount / 0',
+      'FORMAT_NUMBER(amount, 21)',
+      'MID(name, 0, 1)',
+      '1 / (0 * amount)',
+      '1 / (amount - amount)',
+      'TO_NUMBER(CONCAT("a", amount))',
+      'FORMAT_NUMBER(1, ROUND(21 * amount / amount))',
     ]) {
       setDraft(el, source);
       await el.updateComplete;
-      expect(statusText(el), source).toContain(s.formulaError);
-      expect(footButton(el, s.apply).disabled, source).toBe(true);
+      expect(statusTitle(el), source).toBe(s.formulaStatusWarning);
+      expect(statusText(el), source).not.toBe('');
+      expect(statusHint(el), source).toBe(s.formulaWarningHint);
+      expect(status(el).classList.contains('warning'), source).toBe(true);
+      expect(footButton(el, s.apply).disabled, source).toBe(false);
     }
+
+    // 적용하면 그대로 저장됩니다.
+    footButton(el, s.apply).click();
+    await el.updateComplete;
+    expect(elementsOf(el)[0]!.formula).toBe('FORMAT_NUMBER(1, ROUND(21 * amount / amount))');
   });
 
   it('바코드 요소의 수식을 모달에서 고쳐 저장한다', async () => {
@@ -316,7 +339,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     await openModal(el);
     setDraft(el, '   ');
     await el.updateComplete;
-    expect(statusTitle(el)).toBe(s.formulaStatusUnavailable);
+    expect(statusTitle(el)).toBe(s.formulaStatusEmpty);
     expect(statusText(el)).toBe(s.formulaCellEmptyHint);
     footButton(el, s.apply).click();
     await el.updateComplete;
@@ -478,21 +501,15 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(statusText(el)).toBe(s.conditionNotBoolean);
     expect(footButton(el, s.apply).disabled).toBe(true);
 
-    // 지금 자리에 없는 예약 참조는 실제 전표에서 계산될 수 있어 적용을 허용합니다.
-    setDraft(el, 'SUM(@page.amount) > 0');
-    await el.updateComplete;
-    expect(statusText(el)).toContain(s.previewUnavailable);
-    // 왜 계산되지 않았는지는 안내 뒤에 괄호로 덧붙입니다.
-    expect(statusText(el)).toMatch(/\(.+\)/);
-    expect(status(el).classList.contains('notice')).toBe(true);
-    expect(footButton(el, s.apply).disabled).toBe(false);
-
-    // 참조가 없으면 값이 달라져도 같은 오류라 적용을 막습니다.
-    setDraft(el, '1 / 0 > 0');
-    await el.updateComplete;
-    expect(statusText(el)).toContain(s.formulaError);
-    expect(status(el).classList.contains('error')).toBe(true);
-    expect(footButton(el, s.apply).disabled).toBe(true);
+    // 지금 자리에 없는 예약 참조도, 계산 자체가 실패한 식도 같은 경고 상태로 알립니다.
+    for (const source of ['SUM(@page.amount) > 0', '1 / 0 > 0']) {
+      setDraft(el, source);
+      await el.updateComplete;
+      expect(statusTitle(el), source).toBe(s.formulaStatusWarning);
+      expect(statusHint(el), source).toBe(s.formulaWarningHint);
+      expect(status(el).classList.contains('warning'), source).toBe(true);
+      expect(footButton(el, s.apply).disabled, source).toBe(false);
+    }
   });
 
   it('샘플 항목을 바꾸면 출력 페이지와 계산 결과가 함께 바뀐다', async () => {
@@ -682,6 +699,63 @@ describe('<slip-designer> 수식 모달 진입점', () => {
       .toBe(s.reservedNoItem);
     // 고를 항목이 없으므로 선택 자리는 두지 않습니다.
     expect(el.shadowRoot!.querySelector('.formula-item-no')).toBeNull();
+  });
+
+  it('그리드 셀의 계산 실패는 셀 행과 부모 그리드 행에 함께 표시하고 고치면 사라진다', async () => {
+    const grid = makeGrid();
+    (grid.cells as Record<string, unknown>[])[3]!.formula = '1 / 0';
+    const el = await mountFile([grid], { items: SAMPLE_ITEMS });
+    selectElement(el, 'g1');
+    await el.updateComplete;
+
+    const gridRow = () => el.shadowRoot!.querySelector('.side-row-wrap .side-row');
+    const cellRows = () => Array.from(el.shadowRoot!.querySelectorAll('.side-cell-row'));
+    const warned = cellRows().find((row) => row.querySelector('.side-warning') !== null);
+    expect(warned, '경고가 있는 셀 행').toBeDefined();
+    expect(warned!.getAttribute('aria-label')).toContain(s.formulaWarningItem);
+    // 접어 둔 상태에서도 보이도록 부모 그리드 행에도 남깁니다.
+    expect(gridRow()!.querySelector('.side-warning')).not.toBeNull();
+    expect(gridRow()!.getAttribute('aria-label')).toContain(s.formulaWarningItem);
+    // 한 행에 표시는 하나만 둡니다.
+    expect(gridRow()!.querySelectorAll('.side-warning')).toHaveLength(1);
+
+    // 계산되는 수식으로 고치면 사라집니다.
+    (el as unknown as { _updateFile: (fn: (f: SlipTemplateFile) => void) => void })._updateFile((f) => {
+      const found = f.template.pages[0]!.elements[0]! as unknown as { cells: Record<string, unknown>[] };
+      found.cells[3]!.formula = '1 + 1';
+    });
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.side-warning')).toBeNull();
+    expect(el.shadowRoot!.querySelector('.formula-warning-badge')).toBeNull();
+  });
+
+  it('샘플 값을 채워 계산되면 경고가 사라진다', async () => {
+    const grid = makeGrid();
+    (grid.cells as Record<string, unknown>[])[3]!.formula = 'AVG(@page.amount)';
+    // 샘플 항목이 없으면 평균 낼 값이 없어 계산되지 않습니다.
+    const el = await mountFile([grid]);
+    selectElement(el, 'g1');
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.side-warning')).not.toBeNull();
+
+    (el as unknown as { _updateFile: (fn: (f: SlipTemplateFile) => void) => void })._updateFile((f) => {
+      f.template.sampleValues = { items: SAMPLE_ITEMS } as never;
+    });
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.side-warning')).toBeNull();
+  });
+
+  it('경고가 있는 요소도 그대로 고르고 옮길 수 있다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 / 0',
+    }]);
+    const box = selectElement(el, 'f1');
+    await el.updateComplete;
+    expect(box.querySelector('.formula-warning-badge')).not.toBeNull();
+    expect(box.classList.contains('selected')).toBe(true);
+    // 배지가 포인터를 가로채지 않아야 드래그와 크기 조절이 그대로 됩니다.
+    expect(el.shadowRoot!.querySelectorAll('.selection-overlay .handle').length).toBeGreaterThan(0);
   });
 
   it('참조 영역을 함수와 값 두 탭으로 나누고 한 번에 한쪽만 보여 준다', async () => {

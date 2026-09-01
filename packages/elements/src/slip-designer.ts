@@ -38,6 +38,12 @@ import { setOptional, clearValueSources } from './designer/patch.js';
 import { gridFormulaContext } from './designer/formula-context.js';
 import type { ReservedAvailability } from './designer/formula-context.js';
 import { checkFormula, TARGET_CHANGED } from './designer/formula-check.js';
+import type { FormulaCheck } from './designer/formula-check.js';
+import {
+  collectFormulaWarnings,
+  NO_FORMULA_WARNINGS,
+  type FormulaWarnings,
+} from './designer/formula-warning.js';
 import {
   isConditionTarget,
   resolveFormulaTarget,
@@ -582,6 +588,7 @@ export class SlipDesigner extends LitElement {
   private get _canvasContext(): CanvasContext {
     return {
       s: this._strings.designer,
+      formulaWarnings: this._formulaWarnings(),
       evalLocale: this._evalLocale,
       file: this._file,
       pageIndex: this._pageIndex,
@@ -638,6 +645,7 @@ export class SlipDesigner extends LitElement {
   private get _sidebarActions(): SidebarActions {
     return {
       file: this._file,
+      formulaWarnings: this._formulaWarnings(),
       pageIndex: this._pageIndex,
       selection: this._sideSelection,
       selectedId: this._selectedId,
@@ -2986,6 +2994,54 @@ export class SlipDesigner extends LitElement {
    * @param itemIndex - 미리 계산에 쓸 샘플 항목. 반복 그리드가 아니면 null
    * @returns 편집 대상, 검사 결과와 참조 목록
    */
+  /**
+   * 저장된 수식 가운데 지금 값으로 계산되지 않는 것을 모읍니다.
+   *
+   * 현재 출력 페이지·샘플 값·페이지 계획이 바뀌면 다시 그릴 때 함께 다시 계산됩니다.
+   */
+  private _formulaWarnings(): FormulaWarnings {
+    const page = this._currentPage();
+    if (page === undefined) return NO_FORMULA_WARNINGS;
+    return collectFormulaWarnings({
+      page,
+      check: (target, source, condition) => this._checkSaved(target, source, condition),
+    });
+  }
+
+  /**
+   * 저장된 수식 하나를 모달과 같은 계산 문맥으로 검사합니다.
+   * 반복 그리드 셀은 샘플 항목마다 결과가 달라지므로 항목 수만큼 검사합니다.
+   */
+  private _checkSaved(
+    target: FormulaTarget,
+    source: string,
+    condition: boolean,
+  ): FormulaCheck[] {
+    const found = resolveFormulaTarget(this._currentPage(), target);
+    if (found === null) return [];
+    const grid = found.grid?.repeat === undefined ? undefined : found.grid;
+    const formula = grid === undefined
+      ? null
+      : gridFormulaContext(grid, this._file?.template.sampleValues, this._pagePlan().plan);
+    const band = grid === undefined || found.cell === undefined ? undefined : bandAt(grid, found.cell.row);
+
+    const slots = formula === null || formula.itemCount === 0
+      ? [formula?.slotForBand(formula.fragmentAt(this._outputPage), band) ?? null]
+      : Array.from({ length: formula.itemCount }, (_row, index) => formula.slotForItem(index, band));
+
+    return slots.map((slot) => checkFormula({
+      source,
+      condition,
+      emptyAllowed: target.kind === 'cell',
+      locale: this._evalLocale,
+      context: {
+        values: { ...this._formulaProbeValues(), ...(slot?.item ?? {}) },
+        ...(slot?.reserved === undefined ? {} : { reserved: slot.reserved }),
+      },
+      diagnose: (from, context) => this._diagnose(from, context),
+    }));
+  }
+
   private _formulaState(
     target: FormulaTarget,
     source: string,

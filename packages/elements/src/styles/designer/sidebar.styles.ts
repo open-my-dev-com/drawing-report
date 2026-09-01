@@ -113,6 +113,30 @@ export const sidebarStyles = css`
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    /* 이름은 남는 폭을 쓰고 말줄임하되, 경고 표시는 줄어들거나 잘리지 않습니다 */
+    .side-row-name,
+    .side-cell-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .side-warning {
+      display: inline-flex;
+      width: 12px;
+      height: 12px;
+      flex: 0 0 12px;
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      color: var(--sk-danger);
+      pointer-events: none;
+    }
+    .side-warning svg {
+      width: 12px;
+      height: 12px;
+    }
     .side-row:hover {
       background: var(--sk-accent-soft);
     }
@@ -273,6 +297,9 @@ export const sidebarStyles = css`
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .side-cell-row {
+      gap: 6px;
     }
     .side-col-row:hover,
     .side-cell-row:hover {

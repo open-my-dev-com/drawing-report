@@ -39,6 +39,7 @@ import {
   selectElement,
 } from './helpers.js';
 import type { Designer } from './helpers.js';
+import { canvasStyles } from '../../src/styles/designer/canvas.styles.js';
 
 installDesignerTestEnv();
 
@@ -236,6 +237,57 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
     await el.updateComplete;
     return el;
   }
+
+  it('계산되지 않는 수식이 있는 요소에 경고 배지를 표시한다', async () => {
+    const el = await mountWith([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 / 0',
+    }]);
+    const badge = el.shadowRoot!.querySelector('[data-id="f1"] .formula-warning-badge') as HTMLElement;
+    expect(badge).not.toBeNull();
+    // 요소를 고르고 옮기는 데 방해가 되지 않도록 배지는 포인터를 받지 않습니다.
+    expect(canvasStyles.cssText.slice(canvasStyles.cssText.indexOf('.formula-warning-badge')))
+      .toContain('pointer-events: none;');
+    expect(badge.getAttribute('title')).toBe(strings.designer.formulaWarningItem);
+    expect(badge.getAttribute('aria-label')).toBe(strings.designer.formulaWarningItem);
+    el.remove();
+  });
+
+  it('그리드는 셀에만 배지를 두고 요소에는 중복 표시하지 않는다', async () => {
+    const el = await mountWith([{
+      type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },
+      rows: [{ height: 10 }],
+      columns: [{ width: 40 }, { width: 40 }],
+      cells: [
+        { row: 0, column: 0, formula: '1 / 0' },
+        { row: 0, column: 1, content: '값' },
+      ],
+    }]);
+    const cells = Array.from(el.shadowRoot!.querySelectorAll('.grid-preview > .grid-cell'));
+    expect(cells[0]!.querySelector('.formula-warning-badge')).not.toBeNull();
+    expect(cells[1]!.querySelector('.formula-warning-badge')).toBeNull();
+    // 배지는 셀 컨테이너의 마지막 자식으로 들어갑니다.
+    expect(cells[0]!.lastElementChild?.className).toBe('formula-warning-badge');
+    // 셀에 배지가 있으므로 그리드 상자에는 다시 두지 않습니다.
+    const box = el.shadowRoot!.querySelector('[data-id="g1"]')!;
+    expect(box.querySelectorAll('.formula-warning-badge')).toHaveLength(1);
+    el.remove();
+  });
+
+  it('계산되는 수식으로 고치면 배지가 사라진다', async () => {
+    const el = await mountWith([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 / 0',
+    }]);
+    expect(el.shadowRoot!.querySelector('.formula-warning-badge')).not.toBeNull();
+
+    const file = (el as unknown as { _file: { template: { pages: { elements: Record<string, unknown>[] }[] } } })._file;
+    file.template.pages[0]!.elements[0]!.formula = '1 + 1';
+    el.requestUpdate();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.formula-warning-badge')).toBeNull();
+    el.remove();
+  });
 
   it('텍스트의 글자 크기·정렬이 캔버스에 반영된다 (pt → 4/3px)', async () => {
     const el = await mountWith([{

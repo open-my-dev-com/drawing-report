@@ -711,12 +711,24 @@ export const dialogsStyles = css`
     .formula-status.ok .formula-status-text {
       font-size: 13px;
     }
+    .formula-status-hint {
+      color: var(--sk-text-muted);
+    }
     .formula-status.notice {
       background: var(--sk-surface-alt, rgba(0, 0, 0, 0.04));
       color: var(--sk-text-muted);
     }
     .formula-status.notice .formula-status-title {
       color: inherit;
+    }
+    /* 계산에 실패했지만 적용할 수 있는 상태 — 저장 뒤 요소에 남는 경고와 같은 색을 씁니다 */
+    .formula-status.warning {
+      border-left-color: var(--sk-danger);
+      background: color-mix(in srgb, var(--sk-danger) 7%, var(--sk-surface));
+      color: var(--sk-text);
+    }
+    .formula-status.warning .formula-status-title {
+      color: var(--sk-danger);
     }
     .formula-status.error {
       border-left-color: var(--sk-danger);

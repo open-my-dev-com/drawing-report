@@ -434,6 +434,35 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 
+  it('계산에 실패한 수식은 원인과 경고 안내를 보여 주고 그대로 저장된다', async () => {
+    const el = await loadDesigner();
+    await openFormulaModal(el);
+
+    setDraft(el, '1 / 0');
+    await el.updateComplete;
+
+    const status = el.shadowRoot!.querySelector('.formula-status')!;
+    expect(status.classList.contains('warning')).toBe(true);
+    expect(status.querySelector('.formula-status-title')?.textContent?.trim())
+      .toBe(strings.designer.formulaStatusWarning);
+    // 원인은 core가 준 오류 문구를 그대로 보여 줍니다.
+    expect(status.querySelector('.formula-status-text')?.textContent?.trim()).not.toBe('');
+    expect(status.querySelector('.formula-status-hint')?.textContent?.trim())
+      .toBe(strings.designer.formulaWarningHint);
+
+    expect(applyButton(el).disabled).toBe(false);
+    applyButton(el).click();
+    await el.updateComplete;
+    const field = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
+      .elements.at(-1)! as never as { formula?: string };
+    expect(field.formula).toBe('1 / 0');
+    expect(el.shadowRoot!.querySelector('.modal')).toBeNull();
+    // 저장한 뒤에는 사이드바와 캔버스에 경고가 남습니다.
+    expect(el.shadowRoot!.querySelector('.side-row .side-warning')).not.toBeNull();
+    expect(el.shadowRoot!.querySelector('.formula-warning-badge')).not.toBeNull();
+    el.remove();
+  });
+
   it('Escape로 적용 없이 닫힌다', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);

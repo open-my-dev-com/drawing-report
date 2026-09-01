@@ -366,4 +366,28 @@ export const canvasStyles = css`
       height: 1px;
     }
 
+
+    /* 계산할 수 없는 수식이 있는 요소·셀 표시 — 편집 캔버스에만 있고 PDF에는 넣지 않습니다 */
+    .formula-warning-badge {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      z-index: 3;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: var(--sk-radius);
+      background: var(--sk-danger);
+      color: #fff;
+      pointer-events: none;
+    }
+    .formula-warning-badge svg {
+      width: 11px;
+      height: 11px;
+    }
+    .grid-cell {
+      position: relative;
+    }
 `;
