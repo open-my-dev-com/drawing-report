@@ -108,7 +108,7 @@ export class FormulaDraftController implements ReactiveController {
    * 편집을 시작합니다.
    *
    * @param target - 편집할 대상
-   * @param origin - 열 때의 대상 내용. 적용 직전에 대상이 그대로인지 확인하는 데 씁니다
+   * @param origin - 열 때의 대상 내용. 모달이 열려 있는 동안 대상이 그대로인지 확인하는 데 씁니다
    * @param itemIndex - 계산에 사용할 샘플 항목. 반복 그리드가 아니면 null
    */
   start(target: FormulaTarget, origin: FormulaOrigin, itemIndex: number | null = null): void {

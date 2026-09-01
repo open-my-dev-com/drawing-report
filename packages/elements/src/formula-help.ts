@@ -135,8 +135,8 @@ const ko: FormulaHelpCategory[] = [
   {
     title: '조건',
     functions: [
-      { name: 'IF', signature: 'IF(조건, 참일 때, 거짓일 때)', description: '조건에 따라 두 값 중 하나',
-        args: [{ name: '조건', description: '참·거짓을 내는 식' }, { name: '참일 때', description: '조건이 참일 때 쓸 값' }, { name: '거짓일 때', description: '조건이 거짓일 때 쓸 값' }],
+      { name: 'IF', signature: 'IF(조건, 참일 때, 거짓일 때?)', description: '조건에 따라 두 값 중 하나',
+        args: [{ name: '조건', description: '참·거짓을 내는 식' }, { name: '참일 때', description: '조건이 참일 때 쓸 값' }, { name: '거짓일 때', description: '조건이 거짓일 때 쓸 값. 생략하면 빈 값', optional: true }],
         returns: '조건에 따라 고른 값',
       },
       { name: 'AND', signature: 'AND(조건, …)', description: '전부 참이면 참',
@@ -153,7 +153,7 @@ const ko: FormulaHelpCategory[] = [
     title: '포맷',
     functions: [
       { name: 'FORMAT_NUMBER', signature: 'FORMAT_NUMBER(수, 소수 자릿수?)', description: '1,234,567처럼 자릿수 구분 표기',
-        args: [{ name: '수', description: '표기할 수' }, { name: '소수 자릿수', description: '표시할 소수 자릿수. 생략하면 0', optional: true }],
+        args: [{ name: '수', description: '표기할 수' }, { name: '소수 자릿수', description: '표시할 소수 자릿수. 생략하면 있는 소수를 그대로 표기', optional: true }],
         returns: '자릿수를 구분한 글',
       },
       { name: 'FORMAT_DATE', signature: 'FORMAT_DATE(날짜, 패턴?)', description: '날짜 표기 (기본 YYYY-MM-DD)',
@@ -187,7 +187,7 @@ const ko: FormulaHelpCategory[] = [
     title: '세무',
     functions: [
       { name: 'VAT', signature: 'VAT(공급가액, 세율?)', description: '부가세액 (기본 세율 10%)',
-        args: [{ name: '공급가액', description: '세액을 구할 금액' }, { name: '세율', description: '적용할 세율. 생략하면 0.1', optional: true }],
+        args: [{ name: '공급가액', description: '세액을 구할 금액' }, { name: '세율', description: '백분율로 적은 세율. 생략하면 10 (10%)', optional: true }],
         returns: '부가세액 (수)',
       },
     ],
@@ -306,8 +306,8 @@ const en: FormulaHelpCategory[] = [
   {
     title: 'Logic',
     functions: [
-      { name: 'IF', signature: 'IF(condition, then, else)', description: 'One of two values by condition',
-        args: [{ name: 'condition', description: 'An expression that yields TRUE or FALSE' }, { name: 'then', description: 'The value to use when true' }, { name: 'else', description: 'The value to use when false' }],
+      { name: 'IF', signature: 'IF(condition, then, else?)', description: 'One of two values by condition',
+        args: [{ name: 'condition', description: 'An expression that yields TRUE or FALSE' }, { name: 'then', description: 'The value to use when true' }, { name: 'else', description: 'The value to use when false. Empty when omitted', optional: true }],
         returns: 'The value chosen by the condition',
       },
       { name: 'AND', signature: 'AND(condition, …)', description: 'True when all are true',
@@ -324,7 +324,7 @@ const en: FormulaHelpCategory[] = [
     title: 'Format',
     functions: [
       { name: 'FORMAT_NUMBER', signature: 'FORMAT_NUMBER(number, digits?)', description: 'Grouped digits like 1,234,567',
-        args: [{ name: 'number', description: 'The number to format' }, { name: 'digits', description: 'Decimal places to show. Defaults to 0', optional: true }],
+        args: [{ name: 'number', description: 'The number to format' }, { name: 'digits', description: "Decimal places to show. Without it the number's own decimals are kept", optional: true }],
         returns: 'The grouped number as text',
       },
       { name: 'FORMAT_DATE', signature: 'FORMAT_DATE(date, pattern?)', description: 'Format a date (default YYYY-MM-DD)',
@@ -358,7 +358,7 @@ const en: FormulaHelpCategory[] = [
     title: 'Tax',
     functions: [
       { name: 'VAT', signature: 'VAT(amount, rate?)', description: 'VAT amount (default rate 10%)',
-        args: [{ name: 'amount', description: 'The amount to tax' }, { name: 'rate', description: 'The rate to apply. Defaults to 0.1', optional: true }],
+        args: [{ name: 'amount', description: 'The amount to tax' }, { name: 'rate', description: 'The rate in percent. Defaults to 10 (10%)', optional: true }],
         returns: 'The VAT amount (number)',
       },
     ],
@@ -477,8 +477,8 @@ const ja: FormulaHelpCategory[] = [
   {
     title: '条件',
     functions: [
-      { name: 'IF', signature: 'IF(条件, 真のとき, 偽のとき)', description: '条件に応じて2つの値のいずれか',
-        args: [{ name: '条件', description: '真偽を返す式' }, { name: '真のとき', description: '条件が真のときに使う値' }, { name: '偽のとき', description: '条件が偽のときに使う値' }],
+      { name: 'IF', signature: 'IF(条件, 真のとき, 偽のとき?)', description: '条件に応じて2つの値のいずれか',
+        args: [{ name: '条件', description: '真偽を返す式' }, { name: '真のとき', description: '条件が真のときに使う値' }, { name: '偽のとき', description: '条件が偽のときに使う値。省略すると空', optional: true }],
         returns: '条件に応じて選ばれた値',
       },
       { name: 'AND', signature: 'AND(条件, …)', description: 'すべて真なら真',
@@ -495,7 +495,7 @@ const ja: FormulaHelpCategory[] = [
     title: '書式',
     functions: [
       { name: 'FORMAT_NUMBER', signature: 'FORMAT_NUMBER(数値, 小数桁数?)', description: '1,234,567のように桁区切り表記',
-        args: [{ name: '数値', description: '表記する数値' }, { name: '小数桁数', description: '表示する小数桁数。省略すると0', optional: true }],
+        args: [{ name: '数値', description: '表記する数値' }, { name: '小数桁数', description: '表示する小数桁数。省略すると元の小数をそのまま表記', optional: true }],
         returns: '桁区切りした文字列',
       },
       { name: 'FORMAT_DATE', signature: 'FORMAT_DATE(日付, パターン?)', description: '日付の表記 (既定 YYYY-MM-DD)',
@@ -529,7 +529,7 @@ const ja: FormulaHelpCategory[] = [
     title: '税務',
     functions: [
       { name: 'VAT', signature: 'VAT(課税標準額, 税率?)', description: '消費税額 (既定の税率10%)',
-        args: [{ name: '課税標準額', description: '税額を求める金額' }, { name: '税率', description: '適用する税率。省略すると 0.1', optional: true }],
+        args: [{ name: '課税標準額', description: '税額を求める金額' }, { name: '税率', description: '百分率で表した税率。省略すると 10 (10%)', optional: true }],
         returns: '消費税額 (数値)',
       },
     ],

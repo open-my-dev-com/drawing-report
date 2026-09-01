@@ -216,7 +216,7 @@ describe('gridFormulaContext — 계산 문맥 공통 helper', () => {
 });
 
 describe('checkFormula — 검사 결과 5종', () => {
-  const base = { condition: false, emptyAllowed: false, context: { values: { a: 1 } }, evaluate };
+  const base = { condition: false, emptyAllowed: false, locale: 'ko', context: { values: { a: 1 } }, evaluate };
 
   it('문법 오류와 샘플 값으로 계산할 수 없는 경우를 구분한다', () => {
     const broken = checkFormula({ ...base, source: 'SUM(1,' });
@@ -227,6 +227,22 @@ describe('checkFormula — 검사 결과 5종', () => {
     const missing = checkFormula({ ...base, source: 'SUM(@page.amount)' });
     expect(missing.status).toBe('not-computable');
     expect(missing.applicable).toBe(true);
+  });
+
+  it('인자 수가 틀린 수식은 어떤 데이터에서도 계산될 수 없어 적용을 막는다', () => {
+    for (const source of ['IF(TRUE)', 'ROUND()', 'MID("가나다", 1)', 'AND()']) {
+      const result = checkFormula({ ...base, source });
+      expect(result.status, source).toBe('syntax-error');
+      expect(result.applicable, source).toBe(false);
+    }
+    // 인자 수가 맞으면 값이 없어 계산되지 않을 뿐이라 적용은 허용합니다.
+    expect(checkFormula({ ...base, source: 'SUM(@page.amount)' }).applicable).toBe(true);
+  });
+
+  it('오류 문구는 넘긴 로케일을 따른다', () => {
+    expect(checkFormula({ ...base, source: 'IF(TRUE)' }).detail).toContain('IF 함수의 인자는');
+    expect(checkFormula({ ...base, locale: 'en', source: 'IF(TRUE)' }).detail)
+      .toContain('The IF function takes');
   });
 
   it('계산에 성공하면 결과를 함께 돌려준다', () => {
@@ -250,7 +266,7 @@ describe('checkFormula — 검사 결과 5종', () => {
   });
 });
 
-describe('verifyFormulaTarget — 적용 직전 대상 확인', () => {
+describe('verifyFormulaTarget — 모달 표시 중 대상 확인', () => {
   const field = {
     type: 'field', id: 'f1', name: '합계', position: { x: 0, y: 0 },
     width: 40, height: 8, formula: 'SUM(items.amount)',

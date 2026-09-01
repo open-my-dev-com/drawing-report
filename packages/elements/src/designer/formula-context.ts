@@ -66,7 +66,10 @@ export interface GridFormulaContext {
   fragmentAt(outputPage: number): GridFragment | undefined;
   /** 계획된 행 구간 인스턴스 하나의 예약 참조를 만듭니다 */
   plannedReserved(fragment: GridFragment, planned: PlannedBand): Record<string, unknown>;
-  /** 원본 행 구조를 표시할 때 행 구간 하나가 쓸 계산 문맥을 만듭니다 */
+  /**
+   * 원본 행 구조를 표시할 때 행 구간 하나가 쓸 계산 문맥을 만듭니다.
+   * 샘플 항목을 고르지 않은 자리에서도 씁니다.
+   */
   slotForBand(fragment: GridFragment | undefined, band: GridBand | undefined): FormulaSlot;
   /** 특정 샘플 항목을 골랐을 때의 계산 문맥을 만듭니다 */
   slotForItem(itemIndex: number, band: GridBand | undefined): FormulaSlot;
@@ -173,7 +176,7 @@ export function gridFormulaContext(
   const plannedOf = (fragment: GridFragment | undefined, band: GridBand | undefined) =>
     fragment?.bands.find((candidate) => candidate.band.id === band?.id);
 
-  /** 계산 문맥이 예약 참조 값을 내지 못하는 까닭을 고릅니다. */
+  /** 계산 문맥이 예약 참조 값을 제공하지 못하는 이유를 고릅니다. */
   const missingReason = (name: string): ReservedBlockReason => {
     if (name === '@item') return 'no-item';
     if (name !== '@group') return 'no-plan';
@@ -186,7 +189,13 @@ export function gridFormulaContext(
     realItems,
     fragmentAt,
     plannedReserved,
-    slotForBand: (fragment, band) => slotOf(fragment, plannedOf(fragment, band), items[0]),
+    slotForBand: (fragment, band) => slotOf(
+      fragment,
+      plannedOf(fragment, band),
+      // 계획이 없을 때 항목 구간만 첫 항목으로 미리 보여 줍니다. 다른 구간까지 채우면
+      // 캔버스에서는 계산되고 PDF에서는 계산되지 않는 수식이 생깁니다.
+      band?.placement === 'item' ? items[0] : undefined,
+    ),
     slotForItem: (itemIndex, band) => {
       const found = locate(gridPlan, itemIndex, band);
       // 계획이 없으면 페이지·그룹 의미를 만들지 않고 고른 항목만 공급합니다.

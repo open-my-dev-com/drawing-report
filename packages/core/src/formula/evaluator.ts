@@ -5,6 +5,7 @@
  * 각 원소에 적용해 배열로 반환한다. `IF`, `AND`, `OR`는 단락 평가한다.
  */
 import { BUILTIN_FUNCTIONS, toCondition, toNumber, type FormulaContext, type FormulaValue, type Scalar } from './builtins.js';
+import { assertArity } from './arity.js';
 import { FormulaEvalError } from './errors.js';
 import { fm, withFormulaLocale, type FormulaPlace } from './messages.js';
 import { parseFormula, type BinaryOperator, type FormulaAst } from './parser.js';
@@ -128,15 +129,13 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
     case 'call': {
       // 단락 평가가 필요한 함수는 인수를 개별적으로 평가한다.
       if (ast.name === 'IF') {
-        if (ast.args.length < 2 || ast.args.length > 3) {
-          throw new FormulaEvalError(fm().arity('IF', 2, 3));
-        }
+        assertArity('IF', ast.args.length);
         const condition = toCondition(requireScalar(evaluateAst(ast.args[0]!, context), { kind: 'ifCondition' }));
         if (condition) return evaluateAst(ast.args[1]!, context);
         return ast.args[2] ? evaluateAst(ast.args[2], context) : null;
       }
       if (ast.name === 'AND' || ast.name === 'OR') {
-        if (ast.args.length === 0) throw new FormulaEvalError(fm().arityAtLeastOne(ast.name));
+        assertArity(ast.name, ast.args.length);
         const shortCircuit = ast.name === 'OR';
         for (const arg of ast.args) {
           const value = toCondition(requireScalar(evaluateAst(arg, context), { kind: 'functionArg', name: ast.name }));

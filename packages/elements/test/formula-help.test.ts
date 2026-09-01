@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FORMULA_FUNCTIONS } from '@omdc-slipkit/core';
+import { FORMULA_ARITY, FORMULA_FUNCTIONS, evaluateFormula } from '@omdc-slipkit/core';
 import { getFormulaHelp } from '../src/formula-help.js';
 
 describe('수식 함수 도움말 (D-12)', () => {
@@ -48,6 +48,44 @@ describe('수식 함수 도움말 (D-12)', () => {
         }
       }
     }
+  });
+
+  it('인자 도움말이 core의 허용 인자 수와 어긋나지 않는다', () => {
+    for (const locale of ['ko', 'en', 'ja'] as const) {
+      for (const category of getFormulaHelp(locale)) {
+        for (const fn of category.functions) {
+          const arity = FORMULA_ARITY[fn.name as keyof typeof FORMULA_ARITY];
+          const variadic = fn.args.some((arg) => arg.variadic === true);
+          const where = `${locale} ${fn.name}`;
+          // 개수 제한이 없는 함수만 반복 인자로 적습니다.
+          expect(variadic, where).toBe(arity.max === undefined);
+          if (variadic) continue;
+          expect(fn.args.length, where).toBe(arity.max);
+          expect(fn.args.filter((arg) => arg.optional !== true).length, where).toBe(arity.min);
+        }
+      }
+    }
+  });
+
+  it('생략 가능 인자의 기본값 설명이 실제 계산 결과와 맞는다', () => {
+    const help = new Map(
+      getFormulaHelp('en').flatMap((category) => category.functions).map((fn) => [fn.name, fn]),
+    );
+    const evaluate = (source: string): unknown => evaluateFormula(source, { values: {} });
+
+    // VAT의 세율은 백분율 포인트이고 생략하면 10입니다 — 0.1로 알리면 100배 어긋납니다.
+    expect(help.get('VAT')!.args[1]!.description).toContain('10');
+    expect(evaluate('VAT(10000)')).toBe(1000);
+    expect(evaluate('VAT(10000, 5)')).toBe(500);
+
+    // FORMAT_NUMBER는 자릿수를 생략하면 있는 소수를 그대로 표기합니다.
+    expect(help.get('FORMAT_NUMBER')!.args[1]!.description).not.toContain('0');
+    expect(evaluate('FORMAT_NUMBER(1234567.5)')).toBe('1,234,567.5');
+    expect(evaluate('FORMAT_NUMBER(1234567.5, 0)')).toBe('1,234,568');
+
+    // IF의 세 번째 인자는 생략할 수 있고 생략하면 빈 값입니다.
+    expect(help.get('IF')!.args[2]!.optional).toBe(true);
+    expect(evaluate('IF(FALSE, 1)')).toBeNull();
   });
 
   it('지원하지 않는 로케일에는 영어를 사용한다', () => {

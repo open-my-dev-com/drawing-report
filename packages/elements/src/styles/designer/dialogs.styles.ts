@@ -783,7 +783,7 @@ export const dialogsStyles = css`
       font-size: 11px;
       color: var(--sk-text-muted);
     }
-    /* 좁은 화면 — 한 열로 접고 본문만 스크롤해 입력란과 바닥 버튼이 잘리지 않게 합니다 */
+    /* 좁은 화면 — 한 열로 접고 본문만 스크롤해 입력란과 하단 버튼이 잘리지 않게 합니다 */
     @media (max-width: 720px) {
       .modal.formula-modal {
         width: calc(100vw - 16px);

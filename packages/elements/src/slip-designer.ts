@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { designerStyles } from './styles/slip-designer.styles.js';
 import {
   parseSlipFile,
+  RESERVED_REF_NAMES,
   evaluateFormula,
   planSourcePage,
   SlipLayoutError,
@@ -33,6 +34,7 @@ import {
 } from './designer/geometry.js';
 import { setOptional, clearValueSources } from './designer/patch.js';
 import { gridFormulaContext } from './designer/formula-context.js';
+import type { ReservedAvailability } from './designer/formula-context.js';
 import { checkFormula, TARGET_CHANGED } from './designer/formula-check.js';
 import {
   isConditionTarget,
@@ -110,7 +112,14 @@ const EMPTY_SLOT = {
   groupIndex: undefined,
 } as const;
 
-/** 편집 대상이 지워졌을 때 수식 모달이 그릴 상태 */
+/** 반복 그리드가 아닌 대상에서 예약 참조에 붙일 안내 */
+const NOT_REPEAT_RESERVED: ReservedAvailability[] = RESERVED_REF_NAMES.map((name) => ({
+  name,
+  usable: false,
+  reason: 'not-repeat',
+}));
+
+/** 편집 대상이 지워졌을 때 수식 모달이 그릴 상태 — 대상을 모르므로 참조도 안내하지 않습니다 */
 const LOST_FORMULA_VIEW: FormulaModalView = {
   target: null,
   check: TARGET_CHANGED,
@@ -2984,7 +2993,12 @@ export class SlipDesigner extends LitElement {
         ? null
         : gridFormulaContext(grid, this._file?.template.sampleValues, this._pagePlan().plan);
     const band = grid === undefined || found.cell === undefined ? undefined : bandAt(grid, found.cell.row);
-    const slot = formula === null || itemIndex === null ? null : formula.slotForItem(itemIndex, band);
+    // 고른 항목이 없어도(샘플이 비었을 때 등) 계획이 주는 것은 그대로 씁니다.
+    const slot = formula === null
+      ? null
+      : itemIndex === null
+        ? formula.slotForBand(formula.fragmentAt(this._outputPage), band)
+        : formula.slotForItem(itemIndex, band);
 
     return {
       target: {
@@ -2999,6 +3013,7 @@ export class SlipDesigner extends LitElement {
         source,
         condition,
         emptyAllowed: target.kind === 'cell',
+        locale: this._evalLocale,
         context: {
           values: { ...this._formulaProbeValues(), ...(slot?.item ?? {}) },
           ...(slot?.reserved === undefined ? {} : { reserved: slot.reserved }),
@@ -3007,7 +3022,7 @@ export class SlipDesigner extends LitElement {
       }),
       itemCount: formula?.itemCount ?? 0,
       currentItem: (itemIndex === null ? undefined : formula?.choiceAt(itemIndex)) ?? null,
-      reserved: formula === null ? [] : formula.availability(slot ?? EMPTY_SLOT),
+      reserved: formula === null ? NOT_REPEAT_RESERVED : formula.availability(slot ?? EMPTY_SLOT),
     };
   }
 

@@ -33,7 +33,13 @@ export {
   SlipEncryptionError,
 } from './encryption/index.js';
 export * from './storage/adapter.js';
-export { FORMULA_FUNCTIONS, type FormulaFunctionName } from './formula/functions.js';
+export {
+  FORMULA_FUNCTIONS,
+  FORMULA_ARITY,
+  type FormulaArity,
+  type FormulaFunctionName,
+} from './formula/functions.js';
+export { assertFormulaArity } from './formula/arity.js';
 export { FormulaEvalError, FormulaSyntaxError } from './formula/errors.js';
 export { parseFormula, RESERVED_REF_NAMES, type FormulaAst, type ReservedRefName } from './formula/parser.js';
 export { evaluateFormula, type FormulaContext, type FormulaValue } from './formula/evaluator.js';

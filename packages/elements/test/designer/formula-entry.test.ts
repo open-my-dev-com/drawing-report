@@ -429,11 +429,46 @@ describe('<slip-designer> 수식 모달 진입점', () => {
 
     // 다음 항목 버튼으로도 옮길 수 있고, 끝에서는 더 갈 수 없습니다.
     const next = Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.formula-items .row-btn'))
-      .find((b) => b.getAttribute('aria-label') === s.nextPage)!;
+      .find((b) => b.getAttribute('aria-label') === s.formulaNextItem)!;
     next.click();
     await el.updateComplete;
     expect(itemNo().value).toBe('4');
     expect(next.disabled).toBe(true);
+  });
+
+  it('항목 번호에 빈 값·소수·범위 밖 값을 넣어도 실제 항목으로 맞춘다', async () => {
+    const el = await mountFile([makeGrid()], { items: SAMPLE_ITEMS });
+    selectElement(el, 'g1');
+    selectCell(el, { row: 1, column: 1 });
+    await el.updateComplete;
+    await openModal(el);
+
+    const itemNo = (): HTMLInputElement =>
+      el.shadowRoot!.querySelector('.formula-item-no') as HTMLInputElement;
+    const where = (): string =>
+      el.shadowRoot!.querySelector('.formula-item-where')!.textContent!.trim();
+    const type = async (value: string): Promise<void> => {
+      itemNo().value = value;
+      itemNo().dispatchEvent(new Event('change', { bubbles: true }));
+      await el.updateComplete;
+    };
+
+    // 범위를 넘으면 마지막 항목으로 맞추고 입력란 표시도 함께 고칩니다.
+    await type('999');
+    expect(itemNo().value).toBe('4');
+    expect(where()).toContain(s.formulaItemAt.replace('{index}', '4'));
+
+    // 이미 마지막 항목이라 선택이 그대로여도 입력란은 어긋난 채 남지 않습니다.
+    await type('999');
+    expect(itemNo().value).toBe('4');
+
+    await type('0');
+    expect(itemNo().value).toBe('1');
+    await type('');
+    expect(itemNo().value).toBe('1');
+    await type('2.4');
+    expect(itemNo().value).toBe('2');
+    expect(where()).toContain(s.formulaItemAt.replace('{index}', '2'));
   });
 
   it('샘플 항목이 많아도 선택 조작부 수는 늘지 않는다', async () => {
@@ -460,8 +495,14 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     selectElement(el, 'f1');
     await el.updateComplete;
     await openModal(el);
-    // 반복 그리드가 아니므로 예약 참조 구역 자체가 나오지 않습니다.
-    expect(el.shadowRoot!.querySelector('.parameter-chip.reserved')).toBeNull();
+    // 반복 그리드가 아니어도 목록에는 두고 왜 쓸 수 없는지 알려 줍니다.
+    const notRepeat = Array.from(
+      el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.parameter-chip.reserved'),
+    );
+    expect(notRepeat.map((b) => b.textContent?.trim()))
+      .toEqual(['@item', '@group', '@page', '@all', '@carried']);
+    expect(notRepeat.every((b) => b.disabled)).toBe(true);
+    expect(notRepeat.every((b) => b.title === s.reservedNeedRepeat)).toBe(true);
     el.remove();
 
     const grid = await mountFile([makeGrid()], { items: SAMPLE_ITEMS });
@@ -480,6 +521,49 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(reserved.find((b) => b.textContent?.trim() === '@page')!.disabled).toBe(false);
     expect(grid.shadowRoot!.querySelector('.formula-reserved-reasons')?.textContent)
       .toContain(s.reservedNoItem);
+  });
+
+  it('정적 그리드 셀에서도 예약 참조를 이유와 함께 비활성으로 보여 준다', async () => {
+    const grid = makeGrid();
+    delete grid.repeat;
+    (grid.cells as Record<string, unknown>[])[3]!.formula = '1 + 1';
+    const el = await mountFile([grid]);
+    selectElement(el, 'g1');
+    selectCell(el, { row: 1, column: 1 });
+    await el.updateComplete;
+    await openModal(el);
+
+    const reserved = Array.from(
+      el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.parameter-chip.reserved'),
+    );
+    expect(reserved).toHaveLength(5);
+    expect(reserved.every((b) => b.disabled)).toBe(true);
+    expect(el.shadowRoot!.querySelectorAll('.formula-reserved-reasons li')).toHaveLength(5);
+    expect(el.shadowRoot!.querySelector('.formula-reserved-reasons')?.textContent)
+      .toContain(s.reservedNeedRepeat);
+  });
+
+  it('샘플 항목이 없어도 계획이 주는 예약 참조는 그대로 쓴다', async () => {
+    // 반복 그리드지만 샘플 값이 없는 상태입니다.
+    const grid = makeGrid();
+    (grid.cells as Record<string, unknown>[])[3]!.formula = 'COUNT(@all)';
+    const el = await mountFile([grid]);
+    selectElement(el, 'g1');
+    selectCell(el, { row: 1, column: 1 });
+    await el.updateComplete;
+    await openModal(el);
+
+    // 항목이 0개여도 `@all`은 빈 목록으로 계산됩니다.
+    expect(status(el).textContent).toContain(`${s.previewResult}: 0`);
+    const reserved = new Map(
+      Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.parameter-chip.reserved'))
+        .map((b) => [b.textContent!.trim(), b]),
+    );
+    expect(reserved.get('@all')!.disabled).toBe(false);
+    expect(reserved.get('@item')!.disabled).toBe(true);
+    expect(reserved.get('@item')!.title).toBe(s.reservedNoItem);
+    // 고를 항목이 없으므로 선택 자리는 두지 않습니다.
+    expect(el.shadowRoot!.querySelector('.formula-item-no')).toBeNull();
   });
 
   it('함수를 이름과 로케일 설명으로 찾고, 분류와 검색어를 함께 적용한다', async () => {
@@ -574,7 +658,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(el.shadowRoot!.activeElement).toBe(apply);
   });
 
-  it('머리·바닥을 본문 밖에 두고 좁은 화면에서는 한 열로 접는다', async () => {
+  it('헤더와 하단 버튼을 본문 밖에 두고 좁은 화면에서는 한 열로 접는다', async () => {
     const el = await mountFile([{
       type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
       width: 40, height: 8, formula: '1 + 1',

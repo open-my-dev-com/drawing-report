@@ -1,5 +1,5 @@
 /**
- * 수식 모달이 편집하는 대상 — 식별 정보, 다시 찾기와 적용 직전 확인.
+ * 수식 모달이 편집하는 대상 — 식별 정보, 다시 찾기와 표시 중 확인.
  *
  * @remarks
  * 모달은 열려 있는 동안 선택 상태를 보지 않고 여기에 기록한 대상만 봅니다. 모달을 연 뒤에
@@ -27,7 +27,7 @@ export type FormulaTarget =
   /** 그리드 셀 조건부 서식 규칙의 조건식 */
   | { kind: 'cell-condition'; elementId: string; row: number; column: number; ruleIndex: number };
 
-/** 편집을 시작할 때의 대상 내용 — 적용 직전에 이것과 비교합니다 */
+/** 편집을 시작할 때의 대상 내용 — 모달이 열려 있는 동안 이것과 비교합니다 */
 export interface FormulaOrigin {
   /** 열 때 저장되어 있던 수식·조건식 */
   formula: string | undefined;
