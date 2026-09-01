@@ -400,6 +400,31 @@ The list of currently registered formula function names. Functions not in this l
 
 For each function's arguments and usage, see the [Formula Function Reference](formula.md).
 
+#### `FORMULA_ARITY`
+
+```ts
+interface FormulaArity {
+  min: number;
+  max?: number;
+}
+
+const FORMULA_ARITY:
+  Record<FormulaFunctionName, FormulaArity>;
+```
+
+Defines the minimum and maximum number of arguments accepted by each supported function. When `max` is omitted, there is no upper limit.
+
+#### `assertFormulaArity`
+
+```ts
+function assertFormulaArity(
+  ast: FormulaAst,
+  options?: { locale?: string },
+): void;
+```
+
+Checks the number of arguments in every function call in a parsed AST. It throws `FormulaEvalError` when an argument count does not match `FORMULA_ARITY`. The formula is not evaluated, so no voucher values are required.
+
 #### `FormulaFunctionName`
 
 ```ts

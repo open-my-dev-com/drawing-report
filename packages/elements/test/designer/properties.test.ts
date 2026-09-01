@@ -1136,7 +1136,7 @@ describe('<slip-designer> 사이드바', () => {
       .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.parameterKey);
     expect((keyRow?.querySelector('input') as HTMLInputElement).value).toBe('amount');
 
-    // 「사용하는 곳」에는 해당 필드를 참조하는 칸이 표시됩니다.
+    // "사용하는 곳"에는 해당 필드를 참조하는 칸이 표시됩니다.
     const usage = Array.from(el.shadowRoot!.querySelectorAll('.usage-row'))
       .map((u) => u.textContent?.replace(/\s+/g, ' ').trim());
     expect(usage.some((u) => u?.includes(`${strings.designer.cell} (2, 2)`))).toBe(true);

@@ -237,6 +237,10 @@ describe('checkFormula — 검사 결과 5종', () => {
     }
     // 인자 수가 맞으면 값이 없어 계산되지 않을 뿐이라 적용은 허용합니다.
     expect(checkFormula({ ...base, source: 'SUM(@page.amount)' }).applicable).toBe(true);
+
+    // AVG는 평균 낼 값이 없으면 데이터가 달라져도 계산되지 않으므로 인자가 있어야 합니다.
+    expect(checkFormula({ ...base, source: 'AVG()' }).applicable).toBe(false);
+    expect(checkFormula({ ...base, source: 'AVG(@page.amount)' }).applicable).toBe(true);
   });
 
   it('오류 문구는 넘긴 로케일을 따른다', () => {

@@ -245,13 +245,10 @@ SlipKit은 핵심 기능 구현을 마치고 첫 공개 전 품질 검토를 진
 - [ ] 치명적이거나 높은 우선순위의 미결 문제 해소
 - [ ] 전체 검증 명령 통과
 
-전체 검증은 다음 명령을 기준으로 합니다.
+전체 검증은 다음 명령을 기준으로 합니다. 실행 순서는 루트 `package.json`의 `verify` 스크립트에 있습니다.
 
 ```bash
-pnpm lint
-pnpm -r typecheck
-pnpm -r build
-pnpm -r test
+pnpm verify
 ```
 
 > [!NOTE]

@@ -6,7 +6,7 @@ SlipKit의 공개 전 품질 확인 범위와 방법을 정리합니다.
 
 이 문서는 **계획과 판정 기준**만 담습니다. 측정값은 실행할 때마다 달라지므로 여기에 적지 않고, 아래 명령으로 그때그때 확인합니다. 확정된 요구사항은 [요구사항](./REQUIREMENTS.md), 파일 형식은 [파일 형식 명세](./SPEC.md), 설계 배경은 [설계 결정 기록](./DECISIONS.md)을 참고합니다.
 
-최종 갱신: 2026-08-31
+최종 갱신: 2026-09-01
 
 ## 1. 테스트 대상과 실행 환경
 
@@ -35,7 +35,7 @@ SlipKit은 자체 계정이나 원격 서비스를 제공하지 않습니다. Co
 
 ## 3. 시작·종료 기준
 
-**시작 기준** — 검증 게이트(`pnpm lint && pnpm -r typecheck && pnpm -r build && pnpm -r test`)가 통과한 상태.
+**시작 기준** — 검증 게이트(`pnpm verify`)가 통과한 상태.
 
 **종료 기준**
 
@@ -230,11 +230,8 @@ WCAG 2.2 AA의 관련 성공 기준을 참고하되, 자동 검사로 잡히지 
 ## 11. 실행 방법
 
 ```bash
-# 검증 게이트 4단계
-pnpm lint
-pnpm -r typecheck
-pnpm -r build
-pnpm -r test
+# 검증 게이트 — 순서는 루트 package.json의 verify 스크립트에 있다
+pnpm verify
 
 # 커버리지
 pnpm test:coverage

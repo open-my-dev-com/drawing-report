@@ -60,7 +60,7 @@ PR을 만들거나 갱신하기 전에 아래를 **하나씩 확인하고, 어�
 | 9 | 용어를 바꿨다면 `terms.md`의 대상 목록을 전부 훑었는가 (오류 메시지·`strings.ts` 포함) | `terms.md` |
 | 10 | 선언 주석이 TSDoc인가, 공개 함수에 `@param`·`@returns`가 있는가 | `comments.md` |
 | 11 | `ROADMAP.md`의 현재 상태·다음 작업을 갱신했는가 | CLAUDE.md |
-| 12 | 검증 게이트 4단계를 통과했는가 | CLAUDE.md |
+| 12 | 검증 게이트(`pnpm verify`)를 통과했는가 | CLAUDE.md |
 | 13 | PR을 새로 만들거나 본문을 크게 다시 쓴다면 모델 상태 확인을 요청했는가 | 아래 「커밋 · PR」 |
 
 ## 커밋 · PR

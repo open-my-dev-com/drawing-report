@@ -143,6 +143,9 @@ pnpm build
 
 # Run tests
 pnpm test
+
+# Full verification gate (lint, build, type check, tests)
+pnpm verify
 ```
 
 ## License

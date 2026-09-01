@@ -464,11 +464,35 @@ describe('<slip-designer> 수식 모달 진입점', () => {
 
     await type('0');
     expect(itemNo().value).toBe('1');
-    await type('');
-    expect(itemNo().value).toBe('1');
     await type('2.4');
     expect(itemNo().value).toBe('2');
     expect(where()).toContain(s.formulaItemAt.replace('{index}', '2'));
+  });
+
+  it('항목 번호를 비우거나 숫자가 아닌 값을 넣으면 고른 항목을 유지한다', async () => {
+    const el = await mountFile([makeGrid()], { items: SAMPLE_ITEMS });
+    selectElement(el, 'g1');
+    selectCell(el, { row: 1, column: 1 });
+    await el.updateComplete;
+    await openModal(el);
+
+    const itemNo = (): HTMLInputElement =>
+      el.shadowRoot!.querySelector('.formula-item-no') as HTMLInputElement;
+    const type = async (value: string): Promise<void> => {
+      itemNo().value = value;
+      itemNo().dispatchEvent(new Event('change', { bubbles: true }));
+      await el.updateComplete;
+    };
+
+    // 마지막 항목으로 옮긴 뒤 지워도 첫 항목으로 되돌아가지 않아야 합니다.
+    await type('4');
+    expect(status(el).textContent).toContain(`${s.previewResult}: 1200`);
+    await type('');
+    expect(itemNo().value).toBe('4');
+    expect(status(el).textContent).toContain(`${s.previewResult}: 1200`);
+    await type('   ');
+    expect(itemNo().value).toBe('4');
+    expect(status(el).textContent).toContain(`${s.previewResult}: 1200`);
   });
 
   it('샘플 항목이 많아도 선택 조작부 수는 늘지 않는다', async () => {

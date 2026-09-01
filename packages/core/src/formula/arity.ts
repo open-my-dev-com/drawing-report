@@ -1,8 +1,8 @@
 /**
- * 함수 인자 수 검사 — 값 없이도 확인할 수 있는 규칙.
+ * 함수 인자 수 검사 — 데이터 없이 확인할 수 있는 규칙.
  *
- * 인자 수가 틀린 수식은 어떤 데이터에서도 계산되지 않는다. 편집기는 이것을
- * 「샘플 값이 없어 계산하지 못함」과 구분해 저장을 막는 데 사용한다.
+ * 인자 수가 잘못된 수식은 데이터가 달라져도 계산할 수 없습니다. 편집기는 이를
+ * 현재 샘플 값이 없어 계산할 수 없는 경우와 구분하여 저장을 차단합니다.
  */
 import { FormulaEvalError } from './errors.js';
 import { FORMULA_ARITY, type FormulaFunctionName } from './functions.js';
@@ -19,7 +19,7 @@ import type { FormulaAst } from './parser.js';
 export function assertArity(name: FormulaFunctionName, count: number): void {
   const { min, max } = FORMULA_ARITY[name];
   if (count >= min && (max === undefined || count <= max)) return;
-  // 상한 없이 하나 이상을 받는 함수는 「1개 이상」으로 안내한다.
+  // 최대 인자 수가 없고 최소 한 개가 필요한 함수는 "1개 이상"으로 안내합니다.
   if (max === undefined) throw new FormulaEvalError(fm().arityAtLeastOne(name));
   throw new FormulaEvalError(fm().arity(name, min, max));
 }

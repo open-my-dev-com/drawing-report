@@ -400,6 +400,31 @@ const FORMULA_FUNCTIONS:
 
 함수별 인자와 사용 방법은 [수식 함수 참조](formula.ko.md)를 확인하세요.
 
+#### `FORMULA_ARITY`
+
+```ts
+interface FormulaArity {
+  min: number;
+  max?: number;
+}
+
+const FORMULA_ARITY:
+  Record<FormulaFunctionName, FormulaArity>;
+```
+
+지원하는 각 함수의 최소 인자 수와 최대 인자 수를 정의합니다. `max`가 없으면 인자 수에 상한이 없습니다.
+
+#### `assertFormulaArity`
+
+```ts
+function assertFormulaArity(
+  ast: FormulaAst,
+  options?: { locale?: string },
+): void;
+```
+
+파싱된 AST에 포함된 모든 함수 호출의 인자 수를 검사합니다. 인자 수가 `FORMULA_ARITY`와 맞지 않으면 `FormulaEvalError`가 발생합니다. 이 함수는 수식을 평가하지 않으므로 전표 값 없이 사용할 수 있습니다.
+
 #### `FormulaFunctionName`
 
 ```ts

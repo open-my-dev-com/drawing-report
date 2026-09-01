@@ -333,7 +333,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
 
     const rows = el.shadowRoot!.querySelectorAll('.fn-row');
     expect(rows.length).toBe(32);
-    // 분류는 검색 결과를 좁히는 칩으로 표시하며 「전체」가 하나 더 있습니다.
+    // 분류는 검색 결과를 좁히는 칩으로 표시하고, "전체" 항목을 함께 제공합니다.
     expect(el.shadowRoot!.querySelectorAll('.fn-chip').length).toBe(9);
     // 각 항목에 사용법·설명이 있습니다
     expect(rows[0]?.querySelector('.fn-signature')?.textContent).toContain('SUM');

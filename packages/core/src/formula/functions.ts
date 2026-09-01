@@ -39,9 +39,10 @@ export interface FormulaArity {
  * 평가기와 편집기가 같은 표를 본다.
  */
 export const FORMULA_ARITY: Record<FormulaFunctionName, FormulaArity> = {
-  // 집계 — 개수 제한 없이 값과 범위를 받는다
+  // 집계 — 개수 제한 없이 값과 범위를 받는다.
+  // AVG는 평균 낼 값이 없으면 어떤 데이터에서도 계산되지 않으므로 하나 이상을 받는다.
   SUM: { min: 0 },
-  AVG: { min: 0 },
+  AVG: { min: 1 },
   COUNT: { min: 0 },
   MIN: { min: 0 },
   MAX: { min: 0 },

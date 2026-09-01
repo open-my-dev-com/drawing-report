@@ -59,9 +59,10 @@ describe('수식 함수 도움말 (D-12)', () => {
           const where = `${locale} ${fn.name}`;
           // 개수 제한이 없는 함수만 반복 인자로 적습니다.
           expect(variadic, where).toBe(arity.max === undefined);
+          // 반복 인자도 생략 가능 여부로 「0개 이상」과 「1개 이상」을 구분합니다.
+          expect(fn.args.filter((arg) => arg.optional !== true).length, where).toBe(arity.min);
           if (variadic) continue;
           expect(fn.args.length, where).toBe(arity.max);
-          expect(fn.args.filter((arg) => arg.optional !== true).length, where).toBe(arity.min);
         }
       }
     }

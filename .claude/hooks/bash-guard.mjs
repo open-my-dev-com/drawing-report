@@ -6,7 +6,7 @@
  * 2) 브랜치 형식: commit·push 시 현재 브랜치가 규칙 형식(<type>/<scope>-<topic>)이 아니면
  *    차단한다. 규칙에 맞지 않는 브랜치를 써야 할 때(환경이 이름을 강제하는 경우 등)는
  *    `.claude/hooks/branch-guard.json`의 allowBranches에 패턴을 추가해 허용한다 (ADR-058).
- * 3) 검증 게이트: git commit 전에 `pnpm lint && pnpm -r typecheck && pnpm -r build && pnpm -r test`를
+ * 3) 검증 게이트: git commit 전에 `pnpm verify`를
  *    실행해 실패하면 커밋을 차단한다.
  *
  * 종료 코드 2 = 차단 (stderr가 Claude에게 사유로 전달됨). 0 = 통과.
@@ -109,7 +109,7 @@ if (hasGitCommit) {
   requireBranchAllowed(branch);
   // 검증 게이트 — 실패 시 커밋 차단
   try {
-    execSync('pnpm lint && pnpm -r typecheck && pnpm -r build && pnpm -r test', {
+    execSync('pnpm verify', {
       cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -120,7 +120,7 @@ if (hasGitCommit) {
     const tail = output.length > 1500 ? `...(생략)...\n${output.slice(-1500)}` : output;
     block(
       `[bash-guard] 검증 게이트 실패 — 커밋이 차단되었습니다 (CLAUDE.md).\n` +
-        `pnpm lint && pnpm -r typecheck && pnpm -r build && pnpm -r test 가 모두 통과해야 커밋할 수 있습니다.\n` +
+        `pnpm verify 가 통과해야 커밋할 수 있습니다.\n` +
         `실패하는 테스트를 스킵·삭제·완화로 통과시키지 마세요.\n\n${tail}`,
     );
   }

@@ -400,6 +400,31 @@ const FORMULA_FUNCTIONS:
 
 関数ごとの引数と使い方は[数式関数リファレンス](formula.ja.md)を確認してください。
 
+#### `FORMULA_ARITY`
+
+```ts
+interface FormulaArity {
+  min: number;
+  max?: number;
+}
+
+const FORMULA_ARITY:
+  Record<FormulaFunctionName, FormulaArity>;
+```
+
+サポートする各関数の引数の最小数と最大数を定義します。`max`を省略した場合、引数の数に上限はありません。
+
+#### `assertFormulaArity`
+
+```ts
+function assertFormulaArity(
+  ast: FormulaAst,
+  options?: { locale?: string },
+): void;
+```
+
+解析済みのASTに含まれるすべての関数呼び出しについて、引数の数を検査します。引数の数が`FORMULA_ARITY`と一致しない場合は、`FormulaEvalError`が発生します。数式は評価しないため、伝票の値がなくても使用できます。
+
 #### `FormulaFunctionName`
 
 ```ts

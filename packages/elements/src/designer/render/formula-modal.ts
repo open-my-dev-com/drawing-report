@@ -209,21 +209,26 @@ function sampleItemPicker(d: DialogContext, view: FormulaModalView) {
   const current = view.currentItem;
   if (current === null || view.itemCount < 2) return nothing;
   const s = d.s;
-  /** 범위를 벗어나거나 정수가 아닌 입력을 가장 가까운 항목 번호로 맞춥니다. */
-  const clamp = (to: number): number =>
-    Number.isFinite(to) ? Math.min(Math.max(Math.round(to), 0), view.itemCount - 1) : current.index;
+  /** 범위를 벗어나거나 정수가 아닌 항목 번호를 실제 항목으로 맞춥니다. */
+  const clamp = (to: number): number => Math.min(Math.max(Math.round(to), 0), view.itemCount - 1);
+  /** 입력한 글을 항목 번호로 읽습니다. 비어 있거나 숫자가 아니면 고른 항목을 유지합니다. */
+  const parse = (typed: string): number => {
+    if (typed.trim() === '') return current.index;
+    const value = Number(typed);
+    return Number.isFinite(value) ? clamp(value - 1) : current.index;
+  };
 
   return html`
     <div class="modal-section-title">${s.formulaSampleItem}</div>
     <div class="formula-items" role="group" aria-label=${s.formulaSampleItem}>
       <button class="row-btn" title=${s.formulaPrevItem} aria-label=${s.formulaPrevItem}
         ?disabled=${current.index === 0}
-        @click=${() => d.formula.selectItem(clamp(current.index - 1))}>${icons.up}</button>
+        @click=${() => d.formula.selectItem(clamp(current.index - 1))}>${icons.pagePrev}</button>
       <input type="number" class="formula-item-no" min="1" max=${view.itemCount} step="1"
         aria-label=${s.formulaSampleItem} .value=${live(String(current.index + 1))}
         @change=${(e: Event) => {
           const input = e.target as HTMLInputElement;
-          const next = clamp(Number(input.value) - 1);
+          const next = parse(input.value);
           // 고른 항목이 그대로면 다시 그리지 않으므로 입력란을 여기서 맞춥니다.
           input.value = String(next + 1);
           d.formula.selectItem(next);
@@ -231,7 +236,7 @@ function sampleItemPicker(d: DialogContext, view: FormulaModalView) {
       <span class="formula-item-total">/ ${view.itemCount}</span>
       <button class="row-btn" title=${s.formulaNextItem} aria-label=${s.formulaNextItem}
         ?disabled=${current.index === view.itemCount - 1}
-        @click=${() => d.formula.selectItem(clamp(current.index + 1))}>${icons.down}</button>
+        @click=${() => d.formula.selectItem(clamp(current.index + 1))}>${icons.pageNext}</button>
       <span class="formula-item-where">${itemChoiceText(s, current)}</span>
     </div>
   `;

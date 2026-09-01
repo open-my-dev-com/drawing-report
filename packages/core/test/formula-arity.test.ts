@@ -34,6 +34,17 @@ describe('assertFormulaArity', () => {
     }
   });
 
+  it('값이 있어야만 계산되는 함수는 인자 없이 쓸 수 없다', () => {
+    // AVG는 평균 낼 값이 없으면 데이터가 달라져도 계산되지 않습니다.
+    expect(() => check('AVG()')).toThrow(FormulaEvalError);
+    // 목록이 지금 비어 있을 뿐이면 실제 전표에서는 계산될 수 있습니다.
+    expect(() => check('AVG(@page.amount)')).not.toThrow();
+    // 합계·개수는 값이 없어도 정의된 결과를 냅니다.
+    expect(() => check('SUM()')).not.toThrow();
+    expect(evaluateFormula('SUM()', { values: {} })).toBe(0);
+    expect(evaluateFormula('COUNT()', { values: {} })).toBe(0);
+  });
+
   it('중첩된 함수의 인자 수도 검사한다', () => {
     expect(() => check('SUM(1, ROUND())')).toThrow(FormulaEvalError);
     expect(() => check('-ABS()')).toThrow(FormulaEvalError);
