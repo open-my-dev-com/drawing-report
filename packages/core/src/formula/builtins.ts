@@ -307,7 +307,7 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
   SUM: (args) => collectNumbers(args).reduce((a, b) => a + b, 0),
   AVG: (args) => {
     const numbers = collectNumbers(args);
-    if (numbers.length === 0) throw new FormulaEvalError(fm().avgEmpty());
+    if (numbers.length === 0) throw new FormulaEvalError(fm().avgEmpty(), 'data');
     return numbers.reduce((a, b) => a + b, 0) / numbers.length;
   },
   /** 빈 값(null·'')을 제외한 항목 수 */
@@ -329,7 +329,7 @@ export const BUILTIN_FUNCTIONS: Record<string, (args: FormulaValue[], ctx: Formu
     const testValues = flatten([range ?? null]);
     const sumValues = sumRange === undefined ? testValues : flatten([sumRange]);
     if (sumRange !== undefined && sumValues.length !== testValues.length) {
-      throw new FormulaEvalError(fm().sumifLengthMismatch());
+      throw new FormulaEvalError(fm().sumifLengthMismatch(), 'data');
     }
     let total = 0;
     testValues.forEach((value, index) => {

@@ -329,7 +329,24 @@ function evaluateFormula(
 ): FormulaValue;
 ```
 
-数式文字列またはパース済みの AST を評価します。
+数式文字列またはパース済みの AST を評価します。最初のエラーで停止し、例外を投げます。
+
+#### `diagnoseFormula`
+
+```ts
+interface FormulaDiagnosis {
+  value: FormulaValue;
+  formulaError?: FormulaEvalError;
+  dataError?: FormulaEvalError;
+}
+
+function diagnoseFormula(
+  source: string | FormulaAst,
+  context: FormulaContext,
+): FormulaDiagnosis;
+```
+
+数式を計算できるかどうかを診断します。最初のエラーで停止せず、値がない、または予約範囲を使えないために失敗した箇所は空の値で補って最後まで計算し、その失敗を `dataError` として返します。どのような値でも解消しない失敗は `formulaError` として返します。エディタが数式を保存してよいかを判断するときに使います。`SUM(@page.amount) / 0` は両方を返すため、値の不足の後ろに隠れたゼロ除算を「後で値が入れば計算できる数式」と誤って扱いません。`dataError` がある場合の `value` は空の値で補って計算した結果なので、結果として表示しないでください。
 
 #### `FormulaContext`
 
@@ -1842,7 +1859,24 @@ class FormulaSyntaxError
 
 ### `FormulaEvalError`
 
+```ts
+type FormulaEvalReason =
+  | 'data'
+  | 'value'
+  | 'formula';
+
+class FormulaEvalError
+  extends Error {
+  readonly reason: FormulaEvalReason;
+  get dataDependent(): boolean;
+}
+```
+
 数式の評価中に、型の不一致、誤った引数、または 0 での除算などが発生したときに使います。
+
+`reason` は評価に失敗した理由です。`data` は値がない、または予約範囲を使えない場合、`value` は計算に使った値が正しくない場合、`formula` は数式そのものが正しくない場合です。
+
+`dataDependent` は値が変われば解消しうるエラーかどうかを示します。`value` では、エラーが発生した箇所の被演算子がすべて参照から来ている場合にのみ真になるため、`amount / 0` は保存できず、`amount / quantity` は保存できます。エラーメッセージを比較する代わりにこの値を使います。
 
 ### `SlipEncryptionError`
 

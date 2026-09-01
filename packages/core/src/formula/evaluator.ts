@@ -102,7 +102,53 @@ function applyBinary(operator: BinaryOperator, left: FormulaValue, right: Formul
 // 평가
 // ---------------------------------------------------------------------------
 
+/** 수식이 값이나 예약 참조를 하나라도 참조하는지 확인한다. */
+function hasReference(ast: FormulaAst): boolean {
+  switch (ast.type) {
+    case 'reference': return true;
+    case 'call': return ast.args.some(hasReference);
+    case 'unary': return hasReference(ast.operand);
+    case 'binary': return hasReference(ast.left) || hasReference(ast.right);
+    default: return false;
+  }
+}
+
+/**
+ * 이 자리의 계산에 쓴 값이 모두 데이터에서 왔는지 확인한다.
+ *
+ * @remarks
+ * 상수가 하나라도 섞이면 그 상수가 오류의 원인일 수 있으므로 데이터에서 왔다고 보지 않는다.
+ * 참조를 푸는 중 난 오류는 데이터 자체에서 온 것이다.
+ */
+function operandsFromData(ast: FormulaAst): boolean {
+  switch (ast.type) {
+    case 'reference': return true;
+    case 'unary': return hasReference(ast.operand);
+    case 'binary': return hasReference(ast.left) && hasReference(ast.right);
+    case 'call': return ast.args.length > 0 && ast.args.every(hasReference);
+    default: return false;
+  }
+}
+
+// 진단 중에만 값이 없어 실패한 자리를 빈 값으로 잇고 계속 평가한다.
+let recovery: { error?: FormulaEvalError } | null = null;
+
 function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
+  try {
+    return evaluateNode(ast, context);
+  } catch (error) {
+    // 오류를 실제로 낸 가장 안쪽 자리에서만 값 출처가 정해진다.
+    if (!(error instanceof FormulaEvalError)) throw error;
+    error.locate(operandsFromData(ast));
+    if (recovery === null || !error.dataDependent) throw error;
+    // 값이 채워지면 풀릴 오류는 여기서 멈추지 않는다. 바깥에 남아 있는
+    // 식 자체의 잘못을 이 오류가 가리면 고칠 수 없는 수식을 저장하게 된다.
+    recovery.error ??= error;
+    return null;
+  }
+}
+
+function evaluateNode(ast: FormulaAst, context: FormulaContext): FormulaValue {
   switch (ast.type) {
     case 'number':
     case 'string':
@@ -113,7 +159,7 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
       // 예약 참조(@item 등)는 페이지 계획이 공급한 reserved에서만 조회한다.
       if (head.startsWith('@')) {
         if (context.reserved === undefined || !(head in context.reserved)) {
-          throw new FormulaEvalError(fm().reservedRefUnavailable(head));
+          throw new FormulaEvalError(fm().reservedRefUnavailable(head), 'data');
         }
         return resolvePath(context.reserved[head], ast.path, 1);
       }
@@ -145,7 +191,7 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
       }
       const fn = BUILTIN_FUNCTIONS[ast.name];
       // 파서에 등록됐지만 평가기에 구현되지 않은 함수를 확인한다.
-      if (!fn) throw new FormulaEvalError(fm().notImplementedFunction(ast.name));
+      if (!fn) throw new FormulaEvalError(fm().notImplementedFunction(ast.name), 'formula');
       return fn(ast.args.map((arg) => evaluateAst(arg, context)), context);
     }
   }
@@ -170,6 +216,71 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): FormulaValue {
 export function evaluateFormula(source: string | FormulaAst, context: FormulaContext): FormulaValue {
   return withFormulaLocale(context.locale, () => {
     const ast = typeof source === 'string' ? parseFormula(source) : source;
-    return evaluateAst(ast, context);
+    // 평가는 첫 오류에서 멈춘다. 진단 중에 불려도 오류를 이어 붙이지 않는다.
+    const previous = recovery;
+    recovery = null;
+    try {
+      return evaluateAst(ast, context);
+    } finally {
+      recovery = previous;
+    }
+  });
+}
+
+/** 수식을 계산할 수 있는지 진단한 결과 */
+export interface FormulaDiagnosis {
+  /**
+   * 계산 결과.
+   *
+   * @remarks
+   * `dataError`가 있으면 값이 없는 자리를 빈 값으로 이어 계산한 것이라 결과로 쓰지 않는다.
+   */
+  value: FormulaValue;
+  /** 값이 달라져도 계산되지 않는 오류. 수식을 고쳐야 한다 */
+  formulaError?: FormulaEvalError;
+  /** 지금 값으로만 계산하지 못한 오류. 값이 채워지면 계산될 수 있다 */
+  dataError?: FormulaEvalError;
+}
+
+/**
+ * 수식을 계산할 수 있는지 진단한다.
+ *
+ * @remarks
+ * 평가와 달리 첫 오류에서 멈추지 않는다. 값이 없거나 예약 범위를 쓸 수 없어 실패한 자리는
+ * 빈 값으로 이어 끝까지 계산하므로, `SUM(@page.amount) / 0`처럼 값이 채워져도 풀리지 않는
+ * 잘못이 값 부족 뒤에 가려지지 않는다. 편집기가 저장 여부를 정할 때 사용한다.
+ *
+ * @param source - 진단할 수식 문자열 또는 미리 파싱한 AST
+ * @param context - 실행 문맥 (전표 values·기준 시각·로케일)
+ * @returns 계산 결과와 발견한 오류
+ * @throws FormulaSyntaxError 문자열 파싱 중 문법 오류 시
+ *
+ * @example
+ * ```ts
+ * const found = diagnoseFormula('SUM(@page.amount)', { values: {} });
+ * found.dataError !== undefined; // true — 예약 범위가 없어 지금은 계산할 수 없다
+ * found.formulaError === undefined; // true — 값이 채워지면 계산된다
+ * ```
+ */
+export function diagnoseFormula(
+  source: string | FormulaAst,
+  context: FormulaContext,
+): FormulaDiagnosis {
+  return withFormulaLocale(context.locale, () => {
+    const ast = typeof source === 'string' ? parseFormula(source) : source;
+    const previous = recovery;
+    const found: { error?: FormulaEvalError } = {};
+    recovery = found;
+    try {
+      const value = evaluateAst(ast, context);
+      return found.error === undefined ? { value } : { value, dataError: found.error };
+    } catch (error) {
+      if (!(error instanceof FormulaEvalError)) throw error;
+      return found.error === undefined
+        ? { value: null, formulaError: error }
+        : { value: null, formulaError: error, dataError: found.error };
+    } finally {
+      recovery = previous;
+    }
   });
 }

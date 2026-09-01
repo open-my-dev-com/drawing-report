@@ -629,12 +629,14 @@ export const dialogsStyles = css`
 
     /* 수식 모달 — 편집과 참조를 나란히 두어 참조를 보면서 수식을 고칠 수 있게 합니다 */
     .modal.formula-modal {
-      width: min(940px, calc(100vw - 32px));
-      max-height: min(760px, calc(100dvh - 32px));
+      width: min(960px, calc(100vw - 48px));
+      /* 함수를 골라도 높이가 달라지지 않도록 본문 높이를 고정합니다 */
+      height: min(560px, calc(100vh - 48px));
+      max-height: calc(100vh - 48px);
     }
     .formula-layout {
       display: grid;
-      /* 목록과 설명이 있는 참조 쪽을 넓게 둡니다 */
+      /* 목록과 설명이 있는 참조 영역을 넓게 둡니다. */
       grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);
       gap: 0;
       /* 본문이 늘어나도 헤더와 하단 버튼이 밀려나지 않도록 축소를 허용합니다 */
@@ -643,12 +645,23 @@ export const dialogsStyles = css`
     }
     .formula-editor,
     .formula-reference {
+      display: flex;
+      flex-direction: column;
       min-height: 0;
-      padding: 12px 14px;
+      padding: 20px;
+    }
+    .formula-editor {
+      gap: 8px;
       overflow-y: auto;
     }
     .formula-reference {
       border-left: 1px solid var(--sk-border);
+    }
+    .formula-tabpanel {
+      min-height: 0;
+      flex: 1;
+      /* 함수 탭은 안에서 스크롤하고, 값 탭은 길어지면 이 자리가 스크롤합니다 */
+      overflow-y: auto;
     }
     .formula-target {
       display: flex;
@@ -666,24 +679,47 @@ export const dialogsStyles = css`
     }
     /* 수식 작성이 이 모달의 주 작업이므로 입력란을 가장 크게 둡니다 */
     .formula-modal .formula-input {
+      /* 220px로 열고 140px까지 줄일 수 있습니다 — 남는 높이를 입력란이 가져갑니다 */
+      height: 220px;
       min-height: 140px;
       max-height: 220px;
       font-size: 13px;
     }
+    /* 검사 결과 — 상태 제목이 뜻을 설명하고 그 아래에 결과나 까닭을 적습니다 */
     .formula-status {
-      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-height: 48px;
+      padding: 8px 10px;
+      border-left: 3px solid var(--sk-border-strong);
       border-radius: var(--sk-radius);
       font-size: 12px;
     }
+    .formula-status-title {
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+    .formula-status-text {
+      overflow-wrap: anywhere;
+    }
     .formula-status.ok {
+      border-left-color: var(--sk-accent);
       background: var(--sk-accent-soft);
       color: inherit;
+    }
+    .formula-status.ok .formula-status-text {
+      font-size: 13px;
     }
     .formula-status.notice {
       background: var(--sk-surface-alt, rgba(0, 0, 0, 0.04));
       color: var(--sk-text-muted);
     }
+    .formula-status.notice .formula-status-title {
+      color: inherit;
+    }
     .formula-status.error {
+      border-left-color: var(--sk-danger);
       background: rgba(194, 65, 12, 0.08);
       color: var(--sk-danger);
     }
@@ -713,18 +749,19 @@ export const dialogsStyles = css`
       outline: 2px solid var(--sk-accent);
       outline-offset: -2px;
     }
-    /* 값과 범위 — 코드 이름만으로는 뜻을 알 수 없어 사용자 이름을 앞에 둡니다 */
-    .reserved-list {
+    /* 값과 범위 — 코드 이름만으로는 뜻을 알 수 없어 표시 이름을 앞에 둡니다 */
+    .value-list {
       display: flex;
       flex-direction: column;
       gap: 2px;
+      margin-bottom: 4px;
     }
-    .reserved-row {
+    .value-row {
       display: flex;
       align-items: baseline;
       gap: 8px;
       width: 100%;
-      padding: 6px 8px;
+      padding: 7px 8px;
       border: none;
       border-radius: var(--sk-radius);
       background: transparent;
@@ -734,26 +771,26 @@ export const dialogsStyles = css`
       color: inherit;
       cursor: pointer;
     }
-    .reserved-row:hover:not(:disabled) {
+    .value-row:hover:not(:disabled) {
       background: var(--sk-accent-soft);
     }
-    .reserved-row:focus-visible {
+    .value-row:focus-visible {
       outline: 2px solid var(--sk-accent);
       outline-offset: -1px;
     }
-    .reserved-row:disabled {
+    .value-row:disabled {
       opacity: 0.55;
       cursor: default;
     }
-    .reserved-label {
+    .value-name {
       font-size: 12.5px;
     }
-    .reserved-code {
+    .value-code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 11.5px;
       color: var(--sk-text-muted);
     }
-    .reserved-reason {
+    .value-reason {
       margin-left: auto;
       color: var(--sk-text-muted);
     }
@@ -817,24 +854,41 @@ export const dialogsStyles = css`
       background: var(--sk-accent-soft);
       color: var(--sk-accent);
     }
+    /* 함수 탭 — 목록만 스크롤하고 검색과 상세는 자리를 지킵니다 */
+    .fn-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);
+      gap: 14px;
+      min-height: 0;
+      height: 100%;
+    }
+    .fn-browse {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
     .fn-list {
-      max-height: 240px;
+      min-height: 0;
+      flex: 1;
       overflow-y: auto;
     }
     .fn-row.selected {
       background: var(--sk-accent-soft);
     }
     .fn-detail {
-      margin-top: 8px;
-      padding: 8px 10px;
+      min-height: 0;
+      padding: 10px 12px;
       border: 1px solid var(--sk-border);
       border-radius: var(--sk-radius);
+      overflow-y: auto;
     }
-    .fn-detail-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+    .fn-detail-name {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .fn-insert {
+      margin-top: 10px;
     }
     .fn-detail-title {
       margin: 8px 0 2px;
@@ -864,27 +918,5 @@ export const dialogsStyles = css`
     .parameter-chip:disabled {
       opacity: 0.45;
       cursor: default;
-    }
-    /* 좁은 화면 — 한 열로 접고 본문만 스크롤해 입력란과 하단 버튼이 잘리지 않게 합니다 */
-    @media (max-width: 720px) {
-      .modal.formula-modal {
-        width: calc(100vw - 16px);
-        max-height: calc(100dvh - 16px);
-      }
-      .formula-layout {
-        grid-template-columns: minmax(0, 1fr);
-        overflow-y: auto;
-      }
-      .formula-editor,
-      .formula-reference {
-        overflow-y: visible;
-      }
-      .formula-reference {
-        border-left: none;
-        border-top: 1px solid var(--sk-border);
-      }
-      .fn-list {
-        max-height: 180px;
-      }
     }
 `;

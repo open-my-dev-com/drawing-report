@@ -329,7 +329,24 @@ function evaluateFormula(
 ): FormulaValue;
 ```
 
-Evaluates a formula string or a parsed AST.
+Evaluates a formula string or a parsed AST. It stops at the first error and throws.
+
+#### `diagnoseFormula`
+
+```ts
+interface FormulaDiagnosis {
+  value: FormulaValue;
+  formulaError?: FormulaEvalError;
+  dataError?: FormulaEvalError;
+}
+
+function diagnoseFormula(
+  source: string | FormulaAst,
+  context: FormulaContext,
+): FormulaDiagnosis;
+```
+
+Reports whether a formula can be evaluated, without stopping at the first error. A place that fails because a value is missing or a reserved range is unavailable is filled with an empty value so evaluation continues, and that failure is reported as `dataError`. A failure that no data can resolve is reported as `formulaError`. Use this when an editor has to decide whether a formula is worth saving: `SUM(@page.amount) / 0` reports both, so a division by zero hidden behind a missing range is not mistaken for a value that will arrive later. When `dataError` is set, `value` was computed with empty values filled in, so do not show it as a result.
 
 #### `FormulaContext`
 
@@ -1842,7 +1859,24 @@ class FormulaSyntaxError
 
 ### `FormulaEvalError`
 
+```ts
+type FormulaEvalReason =
+  | 'data'
+  | 'value'
+  | 'formula';
+
+class FormulaEvalError
+  extends Error {
+  readonly reason: FormulaEvalReason;
+  get dataDependent(): boolean;
+}
+```
+
 Used when a type mismatch, an invalid argument, or division by zero occurs during formula evaluation.
+
+`reason` says why the evaluation failed: `data` when a value is missing or a reserved range is unavailable, `value` when a value used in the calculation is wrong, and `formula` when the formula itself is wrong.
+
+`dataDependent` is true when different values could resolve the error. For a `value` reason that holds only when every operand at the failing place came from a reference, so `amount / 0` stays blocked while `amount / quantity` does not. Use it instead of comparing error messages.
 
 ### `SlipEncryptionError`
 

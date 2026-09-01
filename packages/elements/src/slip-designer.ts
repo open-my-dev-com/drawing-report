@@ -4,9 +4,11 @@ import {
   parseSlipFile,
   RESERVED_REF_NAMES,
   evaluateFormula,
+  diagnoseFormula,
   planSourcePage,
   SlipLayoutError,
   type FormulaContext,
+  type FormulaDiagnosis,
   type FormulaValue,
   type GridItem,
   type SourcePagePlan,
@@ -321,6 +323,12 @@ export class SlipDesigner extends LitElement {
     if (this.slipkit) return this.slipkit.evaluate(source, context);
     const locale = this._evalLocale;
     return evaluateFormula(source, locale === undefined ? context : { ...context, locale });
+  }
+
+  /** 수식을 계산할 수 있는지 진단합니다. 평가와 같은 로케일로 오류 문구를 맞춥니다 */
+  private _diagnose(source: string, context: FormulaContext): FormulaDiagnosis {
+    const locale = this._evalLocale;
+    return diagnoseFormula(source, locale === undefined ? context : { ...context, locale });
   }
 
   // ---------------------------------------------------------------------------
@@ -3018,7 +3026,7 @@ export class SlipDesigner extends LitElement {
           values: { ...this._formulaProbeValues(), ...(slot?.item ?? {}) },
           ...(slot?.reserved === undefined ? {} : { reserved: slot.reserved }),
         },
-        evaluate: (from, context) => this._evaluate(from, context),
+        diagnose: (from, context) => this._diagnose(from, context),
       }),
       itemCount: formula?.itemCount ?? 0,
       currentItem: (itemIndex === null ? undefined : formula?.choiceAt(itemIndex)) ?? null,

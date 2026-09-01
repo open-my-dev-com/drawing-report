@@ -20,8 +20,8 @@ export function assertArity(name: FormulaFunctionName, count: number): void {
   const { min, max } = FORMULA_ARITY[name];
   if (count >= min && (max === undefined || count <= max)) return;
   // 최대 인자 수가 없고 최소 한 개가 필요한 함수는 "1개 이상"으로 안내합니다.
-  if (max === undefined) throw new FormulaEvalError(fm().arityAtLeastOne(name));
-  throw new FormulaEvalError(fm().arity(name, min, max));
+  if (max === undefined) throw new FormulaEvalError(fm().arityAtLeastOne(name), 'formula');
+  throw new FormulaEvalError(fm().arity(name, min, max), 'formula');
 }
 
 /**

@@ -295,10 +295,15 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     await openFormulaModal(el);
     await openValuesTab(el);
 
-    const columnChips = Array.from(el.shadowRoot!.querySelectorAll('.parameter-chip.column'));
-    expect(columnChips.map((c) => c.textContent?.trim())).toEqual(['품명', '금액', '수량']);
+    // 목록 항목의 필드는 표시 이름과 삽입될 코드 이름을 함께 보여 줍니다.
+    const fieldRows = Array.from(el.shadowRoot!.querySelectorAll('.value-list'))[1]!
+      .querySelectorAll<HTMLButtonElement>('.value-row');
+    expect(Array.from(fieldRows).map((c) => c.querySelector('.value-name')?.textContent?.trim()))
+      .toEqual(['품명', '금액', '수량']);
+    expect(Array.from(fieldRows).map((c) => c.querySelector('.value-code')?.textContent?.trim()))
+      .toEqual(['items.itemName', 'items.amount', 'items.quantity']);
 
-    (columnChips[1] as HTMLElement).click();
+    fieldRows[1]!.click();
     await el.updateComplete;
     expect(formulaInput(el).value).toBe('items.amount');
     el.remove();
@@ -354,9 +359,10 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     // 고르기만 해서는 수식이 바뀌지 않고 인자와 반환값 설명이 나옵니다.
     expect(formulaInput(el).value).toBe('');
     const detail = el.shadowRoot!.querySelector('.fn-detail')!;
+    expect(detail.querySelector('.fn-detail-name')?.textContent?.trim()).toBe('SUM');
     expect(detail.querySelectorAll('.fn-args dt').length).toBe(1);
 
-    (detail.querySelector('.btn.primary') as HTMLButtonElement).click();
+    (detail.querySelector('.fn-insert') as HTMLButtonElement).click();
     await el.updateComplete;
     expect(formulaInput(el).value).toBe('SUM()');
     el.remove();
@@ -370,7 +376,10 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     await el.updateComplete;
     const status = el.shadowRoot!.querySelector('.formula-status');
     expect(status?.classList.contains('error')).toBe(true);
-    expect(status?.textContent).toContain(strings.designer.syntaxError);
+    expect(status?.querySelector('.formula-status-title')?.textContent?.trim())
+      .toBe(strings.designer.formulaStatusError);
+    expect(status?.querySelector('.formula-status-text')?.textContent)
+      .toContain(strings.designer.syntaxError);
     expect(applyButton(el).disabled).toBe(true);
     el.remove();
   });
@@ -398,7 +407,9 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     await el.updateComplete;
     const status = el.shadowRoot!.querySelector('.formula-status');
     expect(status?.classList.contains('error')).toBe(false);
-    expect(status?.textContent).toContain(`${strings.designer.previewResult}: 3`);
+    expect(status?.querySelector('.formula-status-title')?.textContent?.trim())
+      .toBe(strings.designer.previewResult);
+    expect(status?.querySelector('.formula-status-text')?.textContent?.trim()).toBe('3');
 
     applyButton(el).click();
     await el.updateComplete;
@@ -414,10 +425,10 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     await openFormulaModal(el);
     await openValuesTab(el);
 
-    const chips = el.shadowRoot!.querySelectorAll('.parameter-chip');
+    const rows = el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.value-row');
     // 방금 만든 필드의 기본 파라미터가 하나 있습니다
-    expect(chips.length).toBeGreaterThan(0);
-    (chips[0] as HTMLButtonElement).click();
+    expect(rows.length).toBeGreaterThan(0);
+    rows[0]!.click();
     await el.updateComplete;
     expect(formulaInput(el).value.length).toBeGreaterThan(0);
     el.remove();

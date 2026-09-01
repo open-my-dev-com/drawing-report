@@ -109,6 +109,16 @@ function status(el: Designer): HTMLElement {
   return el.shadowRoot!.querySelector('#formula-status') as HTMLElement;
 }
 
+/** 검사 결과의 상태 제목 */
+function statusTitle(el: Designer): string {
+  return status(el).querySelector('.formula-status-title')!.textContent!.trim();
+}
+
+/** 검사 결과의 내용 — 결과 값이나 그렇게 판정한 까닭 */
+function statusText(el: Designer): string {
+  return status(el).querySelector('.formula-status-text')!.textContent!.trim();
+}
+
 function setDraft(el: Designer, value: string): void {
   const input = formulaInput(el);
   input.value = value;
@@ -137,13 +147,13 @@ async function openModal(el: Designer, index = 0): Promise<HTMLButtonElement> {
 
 /** 「값과 범위」 탭의 반복 데이터 범위 줄 */
 function reservedRows(el: Designer): HTMLButtonElement[] {
-  return Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.reserved-row'));
+  return Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.reserved-list .value-row'));
 }
 
 /** 반복 데이터 범위 줄을 코드 이름으로 찾을 수 있게 모읍니다 */
 function reservedByCode(el: Designer): Map<string, HTMLButtonElement> {
   return new Map(reservedRows(el)
-    .map((b) => [b.querySelector('.reserved-code')!.textContent!.trim(), b]));
+    .map((b) => [b.querySelector('.value-code')!.textContent!.trim(), b]));
 }
 
 /** 모든 줄이 같은 이유로 막혔을 때 한 번만 적는 안내. 없으면 null */
@@ -176,7 +186,8 @@ describe('<slip-designer> 수식 모달 진입점', () => {
 
     setDraft(el, 'ROUND(1.5) + 1');
     await el.updateComplete;
-    expect(status(el).textContent).toContain(`${s.previewResult}: 3`);
+    expect(statusTitle(el)).toBe(s.previewResult);
+    expect(statusText(el)).toBe('3');
 
     footButton(el, s.apply).click();
     await el.updateComplete;
@@ -195,7 +206,8 @@ describe('<slip-designer> 수식 모달 진입점', () => {
 
     setDraft(el, '   ');
     await el.updateComplete;
-    expect(status(el).textContent).toBe(s.formulaRequired);
+    expect(statusTitle(el)).toBe(s.formulaStatusError);
+    expect(statusText(el)).toBe(s.formulaRequired);
     expect(footButton(el, s.apply).disabled).toBe(true);
   });
 
@@ -282,7 +294,8 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     await openModal(el);
     setDraft(el, '   ');
     await el.updateComplete;
-    expect(status(el).textContent).toBe(s.formulaCellEmptyHint);
+    expect(statusTitle(el)).toBe(s.formulaStatusUnavailable);
+    expect(statusText(el)).toBe(s.formulaCellEmptyHint);
     footButton(el, s.apply).click();
     await el.updateComplete;
     expect((elementsOf(el)[0]!.cells as Record<string, unknown>[])[3]!.formula).toBeUndefined();
@@ -345,7 +358,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     el.requestUpdate();
     await el.updateComplete;
 
-    expect(status(el).textContent).toBe(s.formulaTargetChanged);
+    expect(statusText(el)).toBe(s.formulaTargetChanged);
     expect(footButton(el, s.apply).disabled).toBe(true);
     footButton(el, s.apply).click();
     await el.updateComplete;
@@ -371,7 +384,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     el.requestUpdate();
     await el.updateComplete;
 
-    expect(status(el).textContent).toBe(s.formulaTargetChanged);
+    expect(statusText(el)).toBe(s.formulaTargetChanged);
     expect(footButton(el, s.apply).disabled).toBe(true);
     footButton(el, s.apply).click();
     await el.updateComplete;
@@ -400,7 +413,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     rules()[0]!.fontColor = '#00FF00';
     el.requestUpdate();
     await el.updateComplete;
-    expect(status(el).textContent).toBe(s.formulaTargetChanged);
+    expect(statusText(el)).toBe(s.formulaTargetChanged);
     expect(footButton(el, s.apply).disabled).toBe(true);
     footButton(el, s.cancel).click();
     await el.updateComplete;
@@ -415,7 +428,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     rules().reverse();
     el.requestUpdate();
     await el.updateComplete;
-    expect(status(el).textContent).toBe(s.formulaTargetChanged);
+    expect(statusText(el)).toBe(s.formulaTargetChanged);
     footButton(el, s.apply).click();
     await el.updateComplete;
     expect(modal(el)).not.toBeNull();
@@ -434,28 +447,28 @@ describe('<slip-designer> 수식 모달 진입점', () => {
 
     setDraft(el, 'SUM(1,');
     await el.updateComplete;
-    expect(status(el).textContent).toContain(s.syntaxError);
+    expect(statusText(el)).toContain(s.syntaxError);
     expect(footButton(el, s.apply).disabled).toBe(true);
 
     // 조건식이 아닌 자리에서는 막지 않는 값이지만 조건식은 논리값이어야 합니다.
     setDraft(el, '1 + 1');
     await el.updateComplete;
-    expect(status(el).textContent).toBe(s.conditionNotBoolean);
+    expect(statusText(el)).toBe(s.conditionNotBoolean);
     expect(footButton(el, s.apply).disabled).toBe(true);
 
     // 지금 자리에 없는 예약 참조는 실제 전표에서 계산될 수 있어 적용을 허용합니다.
     setDraft(el, 'SUM(@page.amount) > 0');
     await el.updateComplete;
-    expect(status(el).textContent).toContain(s.previewUnavailable);
+    expect(statusText(el)).toContain(s.previewUnavailable);
     // 왜 계산되지 않았는지는 안내 뒤에 괄호로 덧붙입니다.
-    expect(status(el).textContent).toMatch(/\(.+\)/);
+    expect(statusText(el)).toMatch(/\(.+\)/);
     expect(status(el).classList.contains('notice')).toBe(true);
     expect(footButton(el, s.apply).disabled).toBe(false);
 
     // 참조가 없으면 값이 달라져도 같은 오류라 적용을 막습니다.
     setDraft(el, '1 / 0 > 0');
     await el.updateComplete;
-    expect(status(el).textContent).toContain(s.formulaError);
+    expect(statusText(el)).toContain(s.formulaError);
     expect(status(el).classList.contains('error')).toBe(true);
     expect(footButton(el, s.apply).disabled).toBe(true);
   });
@@ -475,14 +488,14 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(itemNo().value).toBe('1');
     expect(el.shadowRoot!.querySelector('.formula-item-total')?.textContent).toContain('4');
     expect(where()).toContain(s.formulaOutputPageAt.replace('{page}', '1'));
-    expect(status(el).textContent).toContain(`${s.previewResult}: 300`);
+    expect(statusText(el)).toBe('300');
 
     // 번호를 직접 적어 다른 출력 페이지의 항목으로 옮깁니다.
     itemNo().value = '3';
     itemNo().dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
     expect(where()).toContain(s.formulaOutputPageAt.replace('{page}', '2'));
-    expect(status(el).textContent).toContain(`${s.previewResult}: 1200`);
+    expect(statusText(el)).toBe('1200');
 
     // 다음 항목 버튼으로도 옮길 수 있고, 끝에서는 더 갈 수 없습니다.
     const next = Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.formula-items .row-btn'))
@@ -543,13 +556,13 @@ describe('<slip-designer> 수식 모달 진입점', () => {
 
     // 마지막 항목으로 옮긴 뒤 지워도 첫 항목으로 되돌아가지 않아야 합니다.
     await type('4');
-    expect(status(el).textContent).toContain(`${s.previewResult}: 1200`);
+    expect(statusText(el)).toBe('1200');
     await type('');
     expect(itemNo().value).toBe('4');
-    expect(status(el).textContent).toContain(`${s.previewResult}: 1200`);
+    expect(statusText(el)).toBe('1200');
     await type('   ');
     expect(itemNo().value).toBe('4');
-    expect(status(el).textContent).toContain(`${s.previewResult}: 1200`);
+    expect(statusText(el)).toBe('1200');
   });
 
   it('샘플 항목이 많아도 선택 조작부 수는 늘지 않는다', async () => {
@@ -579,17 +592,17 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     await openValuesTab(el);
     // 반복 그리드가 아니어도 목록에는 두고 왜 쓸 수 없는지 알려 줍니다.
     const notRepeat = reservedRows(el);
-    expect(notRepeat.map((b) => b.querySelector('.reserved-code')?.textContent?.trim()))
+    expect(notRepeat.map((b) => b.querySelector('.value-code')?.textContent?.trim()))
       .toEqual(['@item', '@group', '@page', '@all', '@carried']);
     // 코드 이름만으로는 뜻을 알 수 없으므로 사용자 이름을 함께 적습니다.
-    expect(notRepeat.map((b) => b.querySelector('.reserved-label')?.textContent?.trim()))
+    expect(notRepeat.map((b) => b.querySelector('.value-name')?.textContent?.trim()))
       .toEqual([
         s.formulaReservedItem, s.formulaReservedGroup, s.formulaReservedPage,
         s.formulaReservedAll, s.formulaReservedCarried,
       ]);
     expect(notRepeat.every((b) => b.disabled)).toBe(true);
     // 모두 같은 이유로 막혔으므로 이유는 한 번만 적습니다.
-    expect(notRepeat.some((b) => b.querySelector('.reserved-reason') !== null)).toBe(false);
+    expect(notRepeat.some((b) => b.querySelector('.value-reason') !== null)).toBe(false);
     expect(reservedNotice(el)).toBe(s.reservedNeedRepeat);
     el.remove();
 
@@ -603,7 +616,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     const reserved = reservedByCode(grid);
     // 헤더 행 구간에는 항목이 없습니다.
     expect(reserved.get('@item')!.disabled).toBe(true);
-    expect(reserved.get('@item')!.querySelector('.reserved-reason')?.textContent?.trim())
+    expect(reserved.get('@item')!.querySelector('.value-reason')?.textContent?.trim())
       .toBe(s.reservedNoItem);
     expect(reserved.get('@page')!.disabled).toBe(false);
     // 막힌 이유가 서로 다르면 한 번만 적을 수 없으므로 줄마다 적습니다.
@@ -638,12 +651,12 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     await openModal(el);
 
     // 항목이 0개여도 `@all`은 빈 목록으로 계산됩니다.
-    expect(status(el).textContent).toContain(`${s.previewResult}: 0`);
+    expect(statusText(el)).toBe('0');
     await openValuesTab(el);
     const reserved = reservedByCode(el);
     expect(reserved.get('@all')!.disabled).toBe(false);
     expect(reserved.get('@item')!.disabled).toBe(true);
-    expect(reserved.get('@item')!.querySelector('.reserved-reason')?.textContent?.trim())
+    expect(reserved.get('@item')!.querySelector('.value-reason')?.textContent?.trim())
       .toBe(s.reservedNoItem);
     // 고를 항목이 없으므로 선택 자리는 두지 않습니다.
     expect(el.shadowRoot!.querySelector('.formula-item-no')).toBeNull();
@@ -766,7 +779,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(el.shadowRoot!.activeElement).toBe(apply);
   });
 
-  it('헤더와 하단 버튼을 본문 밖에 두고 좁은 화면에서는 한 열로 접는다', async () => {
+  it('헤더와 하단 버튼을 본문 밖에 두고 뷰포트 너비와 무관하게 2단을 유지한다', async () => {
     const el = await mountFile([{
       type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
       width: 40, height: 8, formula: '1 + 1',
@@ -782,11 +795,9 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(Array.from(layout.children).map((c) => c.className))
       .toEqual(['formula-editor', 'formula-reference']);
 
+    // 디자이너는 데스크톱 전용이라 너비에 따라 배치를 바꾸지 않습니다.
     const css = dialogsStyles.cssText;
-    expect(css).toContain('@media (max-width: 720px)');
-    // 좁은 화면에서는 편집과 참조를 한 열로 쌓고 본문만 스크롤합니다.
-    const narrow = css.slice(css.indexOf('@media (max-width: 720px)'));
-    expect(narrow).toContain('grid-template-columns: minmax(0, 1fr);');
-    expect(narrow).toContain('100dvh');
+    expect(css).not.toContain('@media');
+    expect(css).toContain('grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);');
   });
 });

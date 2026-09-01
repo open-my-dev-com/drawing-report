@@ -2,6 +2,7 @@
 // 수식 모달의 계산 문맥·편집 대상·검사 판정
 import { describe, expect, it } from 'vitest';
 import {
+  diagnoseFormula,
   evaluateFormula,
   planSourcePage,
   type GridElement,
@@ -61,8 +62,8 @@ function planOf(grid: GridElement): SourcePagePlan {
   return planSourcePage(PAPER, makePage([grid]), new Map([[grid.id, SAMPLE_ITEMS]]));
 }
 
-const evaluate = (source: string, context: Parameters<typeof evaluateFormula>[1]) =>
-  evaluateFormula(source, context);
+const diagnose = (source: string, context: Parameters<typeof diagnoseFormula>[1]) =>
+  diagnoseFormula(source, context);
 
 describe('gridFormulaContext — 계산 문맥 공통 helper', () => {
   it('샘플 값에서 객체인 행만 항목으로 읽고 maxItems를 적용한다', () => {
@@ -114,7 +115,7 @@ describe('gridFormulaContext — 계산 문맥 공통 helper', () => {
     const band = grid.repeat!.bands[1]!;
     const valueAt = (index: number): unknown => {
       const slot = context.slotForItem(index, band);
-      return evaluate('SUM(@page.amount)', {
+      return evaluateFormula('SUM(@page.amount)', {
         values: { ...(slot.item ?? {}) },
         reserved: slot.reserved!,
       });
@@ -216,7 +217,7 @@ describe('gridFormulaContext — 계산 문맥 공통 helper', () => {
 });
 
 describe('checkFormula — 검사 결과 7종', () => {
-  const base = { condition: false, emptyAllowed: false, locale: 'ko', context: { values: { a: 1 } }, evaluate };
+  const base = { condition: false, emptyAllowed: false, locale: 'ko', context: { values: { a: 1 } }, diagnose };
 
   it('문법 오류와 샘플 값으로 계산할 수 없는 경우를 구분한다', () => {
     const broken = checkFormula({ ...base, source: 'SUM(1,' });
@@ -243,10 +244,14 @@ describe('checkFormula — 검사 결과 7종', () => {
     expect(checkFormula({ ...base, source: 'AVG(@page.amount)' }).applicable).toBe(true);
   });
 
-  it('참조가 없는데 계산에 실패하면 어떤 데이터에서도 같은 결과라 적용을 막는다', () => {
+  it('값이 달라져도 풀리지 않는 계산 오류는 적용을 막는다', () => {
     for (const source of [
       '1 / 0',
+      'a / 0',
+      // 값이 없어 평가가 먼저 멈추더라도 바깥에 남은 잘못을 놓치지 않습니다.
+      'SUM(@page.amount) / 0',
       'FORMAT_NUMBER(1, 21)',
+      'FORMAT_NUMBER(a, 21)',
       'MID("abc", 0, 1)',
       'DATE_ADD("not-a-date", 1)',
     ]) {
@@ -257,10 +262,21 @@ describe('checkFormula — 검사 결과 7종', () => {
     }
   });
 
-  it('참조가 있으면 계산에 실패해도 값이 채워지면 계산될 수 있어 적용을 허용한다', () => {
-    const withReference = checkFormula({ ...base, source: 'SUM(@page.amount) / 0' });
-    expect(withReference.status).toBe('not-computable');
-    expect(withReference.applicable).toBe(true);
+  it('값이 없어서만 계산하지 못한 수식은 적용을 허용한다', () => {
+    for (const source of ['SUM(@page.amount)', 'SUM(@page.amount) + a', 'AVG(@group.amount)']) {
+      const result = checkFormula({ ...base, source });
+      expect(result.status, source).toBe('not-computable');
+      expect(result.applicable, source).toBe(true);
+    }
+  });
+
+  it('모든 피연산자가 값에서 온 오류는 값이 달라지면 풀릴 수 있어 적용을 허용한다', () => {
+    // 지금 샘플에서만 나누는 값이 0입니다.
+    const bySample = checkFormula({
+      ...base, context: { values: { a: 1, b: 0 } }, source: 'a / b',
+    });
+    expect(bySample.status).toBe('not-computable');
+    expect(bySample.applicable).toBe(true);
   });
 
   it('실행되지 않는 분기의 오류는 판정에 넣지 않는다', () => {

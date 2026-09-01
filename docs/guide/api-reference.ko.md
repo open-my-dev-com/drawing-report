@@ -329,7 +329,24 @@ function evaluateFormula(
 ): FormulaValue;
 ```
 
-수식 문자열 또는 파싱된 AST를 평가합니다.
+수식 문자열 또는 파싱된 AST를 평가합니다. 첫 오류에서 멈추고 오류를 던집니다.
+
+#### `diagnoseFormula`
+
+```ts
+interface FormulaDiagnosis {
+  value: FormulaValue;
+  formulaError?: FormulaEvalError;
+  dataError?: FormulaEvalError;
+}
+
+function diagnoseFormula(
+  source: string | FormulaAst,
+  context: FormulaContext,
+): FormulaDiagnosis;
+```
+
+수식을 계산할 수 있는지 진단합니다. 첫 오류에서 멈추지 않고, 값이 없거나 예약 범위를 쓸 수 없어 실패한 자리는 빈 값으로 이어 끝까지 계산한 뒤 그 실패를 `dataError`로 알립니다. 어떤 값으로도 풀리지 않는 실패는 `formulaError`로 알립니다. 편집기가 수식을 저장할지 정할 때 사용합니다 — `SUM(@page.amount) / 0`은 둘 다 알려 주므로, 값 부족 뒤에 가려진 0 나눗셈을 나중에 값이 채워질 수식으로 잘못 보지 않습니다. `dataError`가 있으면 `value`는 빈 값을 채워 계산한 것이므로 결과로 보여 주지 않습니다.
 
 #### `FormulaContext`
 
@@ -1842,7 +1859,24 @@ class FormulaSyntaxError
 
 ### `FormulaEvalError`
 
+```ts
+type FormulaEvalReason =
+  | 'data'
+  | 'value'
+  | 'formula';
+
+class FormulaEvalError
+  extends Error {
+  readonly reason: FormulaEvalReason;
+  get dataDependent(): boolean;
+}
+```
+
 수식 평가 중 타입 불일치, 잘못된 인자 또는 0으로 나누기 등이 발생했을 때 사용합니다.
+
+`reason`은 평가에 실패한 까닭입니다. `data`는 값이 없거나 예약 범위를 쓸 수 없는 경우, `value`는 계산에 쓴 값이 잘못된 경우, `formula`는 식 자체가 잘못된 경우입니다.
+
+`dataDependent`는 값이 달라지면 풀릴 수 있는 오류인지를 알려 줍니다. `value`에서는 오류가 난 자리의 피연산자가 모두 참조에서 왔을 때만 참이므로, `amount / 0`은 막히고 `amount / quantity`는 막히지 않습니다. 오류 문구를 비교하는 대신 이 값을 사용합니다.
 
 ### `SlipEncryptionError`
 

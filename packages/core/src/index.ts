@@ -40,9 +40,15 @@ export {
   type FormulaFunctionName,
 } from './formula/functions.js';
 export { assertFormulaArity } from './formula/arity.js';
-export { FormulaEvalError, FormulaSyntaxError } from './formula/errors.js';
+export { FormulaEvalError, FormulaSyntaxError, type FormulaEvalReason } from './formula/errors.js';
 export { parseFormula, RESERVED_REF_NAMES, type FormulaAst, type ReservedRefName } from './formula/parser.js';
-export { evaluateFormula, type FormulaContext, type FormulaValue } from './formula/evaluator.js';
+export {
+  evaluateFormula,
+  diagnoseFormula,
+  type FormulaDiagnosis,
+  type FormulaContext,
+  type FormulaValue,
+} from './formula/evaluator.js';
 export {
   SlipRenderError,
   createPdfRenderer,
