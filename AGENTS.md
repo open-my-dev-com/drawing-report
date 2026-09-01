@@ -37,6 +37,7 @@ pnpm 모노레포이며 주요 패키지는 `packages/core`, `packages/elements`
 
 ## GitHub 협업
 
+- Codex가 PR을 작성할 때는 `.claude/rules/branching.md`의 모델 상태 확인 절차를 적용하지 않는다.
 - PM 역할에서는 요구사항으로 결정할 수 있는 질문에 결론, 기대 동작, 예외와 검증 기준을
   구체적으로 답한다.
 - `알아서 처리`, `적절히 반영`, `필요하면 수정`처럼 판단을 상대에게 넘기지 않는다.
