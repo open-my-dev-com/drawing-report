@@ -978,8 +978,6 @@ export function groupPanel(kit: PanelKit, act: ElementActions) {
   `;
 }
 
-/** 선택한 요소에 같은 그룹 ID를 지정합니다. */
-
 /**
  * 그리드의 「셀 기본 테두리」와 「그리드 테두리」 구역을 렌더링합니다.
  *

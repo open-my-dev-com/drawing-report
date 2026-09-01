@@ -881,10 +881,33 @@ class SlipToPdfmeConverter {
       const o = grid.outline;
       const half = o.width / 2;
       const prefix = `${grid.idPrefix}__outline`;
-      this.pushLine(schemas, `${prefix}-t`, { x: originX, y: Math.max(0, originY - half) }, width, o.width, o.color, o.style);
-      this.pushLine(schemas, `${prefix}-b`, { x: originX, y: Math.max(0, originY + height - half) }, width, o.width, o.color, o.style);
-      this.pushLine(schemas, `${prefix}-l`, { x: Math.max(0, originX - half), y: originY }, o.width, height, o.color, o.style);
-      this.pushLine(schemas, `${prefix}-r`, { x: Math.max(0, originX + width - half), y: originY }, o.width, height, o.color, o.style);
+      const paper = this.body.paper;
+      // 네 변이 모서리에서 굵기만큼 겹쳐 닫힌 사각형이 되도록 각 변을 양 끝으로 굵기의 반만큼
+      // 늘린다. 용지 밖으로 나간 부분만 잘라 내고 선 중심은 옮기지 않는다.
+      const pushEdge = (suffix: string, x: number, y: number, w: number, h: number): void => {
+        const cutLeft = Math.max(0, -x);
+        const cutTop = Math.max(0, -y);
+        const cutRight = Math.max(0, x + w - paper.width);
+        const cutBottom = Math.max(0, y + h - paper.height);
+        const visibleWidth = w - cutLeft - cutRight;
+        const visibleHeight = h - cutTop - cutBottom;
+        if (visibleWidth <= 0 || visibleHeight <= 0) return;
+        this.pushLine(
+          schemas,
+          `${prefix}-${suffix}`,
+          { x: x + cutLeft, y: y + cutTop },
+          visibleWidth,
+          visibleHeight,
+          o.color,
+          o.style,
+        );
+      };
+      const outerWidth = width + o.width;
+      const outerHeight = height + o.width;
+      pushEdge('t', originX - half, originY - half, outerWidth, o.width);
+      pushEdge('b', originX - half, originY + height - half, outerWidth, o.width);
+      pushEdge('l', originX - half, originY - half, o.width, outerHeight);
+      pushEdge('r', originX + width - half, originY - half, o.width, outerHeight);
     }
 
     // 5. 셀 텍스트
@@ -1301,18 +1324,20 @@ class SlipToPdfmeConverter {
       );
       return;
     }
-    // 파선과 점선은 긴 변의 방향을 따라 여러 선분으로 나눈다.
+    // 파선과 점선은 긴 변의 방향을 따라 여러 선분으로 나눈다. 양 끝이 모두 칠해진 선분으로
+    // 끝나도록 주기를 길이에 맞춰 늘려, 테두리와 외곽선의 모서리가 빈 자리에 걸리지 않게 한다.
     const pattern = DASH_PATTERNS[style];
     const horizontal = width >= height;
     const length = horizontal ? width : height;
-    let offset = 0;
-    let index = 0;
-    while (offset < length) {
-      const segment = Math.min(pattern.on, length - offset);
+    const count = Math.floor((length - pattern.on) / (pattern.on + pattern.off));
+    const step = count > 0 ? (length - pattern.on) / count : 0;
+    for (let index = 0; index <= count; index++) {
+      const offset = index * step;
+      const segment = count > 0 ? Math.min(pattern.on, length - offset) : length;
       this.push(
         schemas,
         {
-          name: `${name}~${index++}`,
+          name: `${name}~${index}`,
           type: 'line',
           position: horizontal
             ? { x: position.x + offset, y: position.y }
@@ -1325,7 +1350,6 @@ class SlipToPdfmeConverter {
         },
         '',
       );
-      offset += pattern.on + pattern.off;
     }
   }
 

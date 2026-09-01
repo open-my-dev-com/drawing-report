@@ -49,10 +49,10 @@ export function outlineOf(el: GridElement): GridBorder {
 }
 
 /**
- * 이전 파일 표기(`border*`)를 그리드가 아직 쓰고 있는지 확인합니다.
+ * 그리드에 이전 파일용 `border*` 속성이 남아 있는지 확인합니다.
  *
  * @param el - 그리드 요소
- * @returns `border*` 가운데 하나라도 있으면 true
+ * @returns `border*` 가운데 하나라도 있으면 `true`
  */
 export function hasLegacyGridBorder(el: GridElement): boolean {
   return el.borderColor !== undefined || el.borderWidth !== undefined || el.borderStyle !== undefined;

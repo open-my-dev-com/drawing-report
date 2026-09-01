@@ -474,25 +474,73 @@ describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
     for (const line of lines) expect(line.color).toBe('#00AA00');
   });
 
-  it('외곽선은 셀 경계선 뒤에 그리드 경계 중심으로 네 변을 그린다', () => {
+  it('외곽선은 셀 경계선 뒤에 그리드 경계 중심으로 네 변을 그리고 모서리가 닫힌다', () => {
     const file = makeFile({ outlineColor: '#123456', outlineWidth: 0.6 });
     const schemas = pageSchemas(file);
     const outlines = outlinesOf(file);
     expect(outlines).toHaveLength(4);
-    // 위·아래·왼쪽·오른쪽 — 굵기의 반(0.3)만큼 경계 바깥으로 나간다.
+    // 선 중심은 그리드 경계(10~110, 10~30)에 있고, 각 변은 모서리를 덮도록 양 끝으로
+    // 굵기의 반(0.3)씩 늘어난다.
     const named = Object.fromEntries(outlines.map((line) => [String(line.name).slice(-1), line]));
-    expect(named['t']?.position).toEqual({ x: 10, y: 10 - 0.3 });
-    expect(named['t']?.width).toBe(100);
-    expect(named['t']?.height).toBe(0.6);
-    expect(named['b']?.position).toEqual({ x: 10, y: 30 - 0.3 });
-    expect(named['l']?.position).toEqual({ x: 10 - 0.3, y: 10 });
-    expect(named['l']?.height).toBe(20);
-    expect(named['r']?.position).toEqual({ x: 110 - 0.3, y: 10 });
+    expect(named['t']?.position).toEqual({ x: 10 - 0.3, y: 10 - 0.3 });
+    expect(named['t']?.width).toBeCloseTo(100.6);
+    expect(named['t']?.height).toBeCloseTo(0.6);
+    expect(named['b']?.position).toEqual({ x: 10 - 0.3, y: 30 - 0.3 });
+    expect(named['b']?.width).toBeCloseTo(100.6);
+    expect(named['l']?.position).toEqual({ x: 10 - 0.3, y: 10 - 0.3 });
+    expect(named['l']?.width).toBeCloseTo(0.6);
+    expect(named['l']?.height).toBeCloseTo(20.6);
+    expect(named['r']?.position).toEqual({ x: 110 - 0.3, y: 10 - 0.3 });
+    expect(named['r']?.height).toBeCloseTo(20.6);
     for (const line of outlines) expect(line.color).toBe('#123456');
     // 셀 경계선보다 뒤에 놓여 위에 겹친다.
     const lastCellLine = Math.max(...schemas.map((sc, i) => (sc.type === 'line' && !String(sc.name).includes('__outline') ? i : -1)));
     const firstOutline = schemas.findIndex((sc) => String(sc.name).includes('__outline'));
     expect(firstOutline).toBeGreaterThan(lastCellLine);
+  });
+
+  it('용지 경계에 닿은 외곽선은 선 중심을 옮기지 않고 용지 밖 부분만 잘라 낸다', () => {
+    // 원점 (0,0) — 왼쪽·위쪽 변은 굵기의 반만 보인다.
+    const file = makeFile({ outlineWidth: 2 });
+    const page = file.template.pages[0]!;
+    const grid = page.elements[0] as GridElement;
+    grid.position = { x: 0, y: 0 };
+    const atOrigin = Object.fromEntries(outlinesOf(file).map((line) => [String(line.name).slice(-1), line]));
+    expect(atOrigin['t']?.position).toEqual({ x: 0, y: 0 });
+    expect(atOrigin['t']?.height).toBeCloseTo(1);
+    expect(atOrigin['t']?.width).toBeCloseTo(101);
+    expect(atOrigin['l']?.position).toEqual({ x: 0, y: 0 });
+    expect(atOrigin['l']?.width).toBeCloseTo(1);
+    expect(atOrigin['l']?.height).toBeCloseTo(21);
+    // 안쪽 변은 그대로 전체 굵기다.
+    expect(atOrigin['b']?.position).toEqual({ x: 0, y: 19 });
+    expect(atOrigin['b']?.height).toBeCloseTo(2);
+    expect(atOrigin['r']?.position).toEqual({ x: 99, y: 0 });
+    expect(atOrigin['r']?.width).toBeCloseTo(2);
+
+    // 오른쪽·아래쪽 경계(용지 210×297) — 반대쪽 변이 잘린다.
+    grid.position = { x: 110, y: 277 };
+    const atCorner = Object.fromEntries(outlinesOf(file).map((line) => [String(line.name).slice(-1), line]));
+    expect(atCorner['r']?.position).toEqual({ x: 209, y: 276 });
+    expect(atCorner['r']?.width).toBeCloseTo(1);
+    expect(atCorner['r']?.height).toBeCloseTo(21);
+    expect(atCorner['b']?.position).toEqual({ x: 109, y: 296 });
+    expect(atCorner['b']?.height).toBeCloseTo(1);
+    expect(atCorner['b']?.width).toBeCloseTo(101);
+    expect(atCorner['t']?.position).toEqual({ x: 109, y: 276 });
+    expect(atCorner['t']?.height).toBeCloseTo(2);
+  });
+
+  it('파선 외곽선의 선분들도 모서리까지 이어진 닫힌 범위를 덮는다', () => {
+    const dashed = outlinesOf(makeFile({ outlineWidth: 0.6, outlineStyle: 'dashed' }));
+    const side = (suffix: string) => dashed.filter((line) => String(line.name).includes(`__outline-${suffix}~`));
+    const top = side('t');
+    expect(top.length).toBeGreaterThan(1);
+    expect(Math.min(...top.map((line) => line.position.x))).toBeCloseTo(10 - 0.3);
+    expect(Math.max(...top.map((line) => line.position.x + line.width))).toBeCloseTo(110 + 0.3);
+    const left = side('l');
+    expect(Math.min(...left.map((line) => line.position.y))).toBeCloseTo(10 - 0.3);
+    expect(Math.max(...left.map((line) => line.position.y + line.height))).toBeCloseTo(30 + 0.3);
   });
 
   it('파선 외곽선은 여러 선분으로 나뉘어도 모두 외곽선 색을 쓴다', () => {
