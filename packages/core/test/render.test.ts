@@ -543,6 +543,31 @@ describe('그리드 셀 기본 테두리와 외곽선의 분리', () => {
     expect(Math.max(...left.map((line) => line.position.y + line.height))).toBeCloseTo(30 + 0.3);
   });
 
+  it('점선 외곽선도 양 끝이 칠해진 선분으로 끝나 모서리까지 이어진다', () => {
+    const dotted = outlinesOf(makeFile({ outlineWidth: 0.6, outlineStyle: 'dotted' }));
+    const side = (suffix: string) => dotted.filter((line) => String(line.name).includes(`__outline-${suffix}~`));
+    const bottom = side('b');
+    expect(Math.min(...bottom.map((line) => line.position.x))).toBeCloseTo(10 - 0.3);
+    expect(Math.max(...bottom.map((line) => line.position.x + line.width))).toBeCloseTo(110 + 0.3);
+    for (const line of bottom) expect(line.width).toBeLessThanOrEqual(0.4 + 1e-9);
+    const right = side('r');
+    expect(Math.min(...right.map((line) => line.position.y))).toBeCloseTo(10 - 0.3);
+    expect(Math.max(...right.map((line) => line.position.y + line.height))).toBeCloseTo(30 + 0.3);
+  });
+
+  it('이전 파일의 파선 셀 경계선은 선분 위치가 그대로다 (2.4mm 간격 3.6mm 주기, 끝 맞춤 없음)', () => {
+    const top = cellLinesOf(makeFile({ borderStyle: 'dashed' }))
+      .filter((line) => line.position.y === 10 - 0.1 && String(line.name).includes('__h'))
+      .sort((a, b) => a.position.x - b.position.x);
+    expect(top).toHaveLength(28);
+    top.forEach((line, i) => {
+      expect(line.position.x).toBeCloseTo(10 + i * 3.6);
+      expect(line.width).toBeCloseTo(2.4);
+    });
+    // 마지막 선분은 97.2에서 시작해 99.6에서 끝난다 — 끝(110)까지 채우지 않는다.
+    expect(top[27]!.position.x + top[27]!.width).toBeCloseTo(109.6);
+  });
+
   it('파선 외곽선은 여러 선분으로 나뉘어도 모두 외곽선 색을 쓴다', () => {
     const solid = outlinesOf(makeFile({ outlineWidth: 0.4 }));
     const dashed = outlinesOf(makeFile({ outlineWidth: 0.4, outlineColor: '#123456', outlineStyle: 'dashed' }));
@@ -887,6 +912,39 @@ describe('도형·글자 스타일 변환 (ADR-032)', () => {
     expect(segments.length).toBeGreaterThan(5);
     // 각 선분은 2.4mm 파선 패턴보다 길지 않아야 한다.
     for (const seg of segments) expect(seg.width).toBeLessThanOrEqual(2.4);
+  });
+
+  it('사각형 파선 테두리의 선분 위치는 그대로다 (2.4mm 선분 3.6mm 주기)', () => {
+    const [schemas] = convertSlipFile(
+      makeShapeFile([{ type: 'rect', ...base, borderStyle: 'dashed', borderWidth: 0.5 }]),
+    ).template.schemas as PdfmeSchema[][];
+    const top = schemas!.filter((s) => String(s.name).startsWith('s1__t~'));
+    expect(top).toHaveLength(17);
+    top.forEach((seg, i) => {
+      expect(seg.position.x).toBeCloseTo(20 + i * 3.6);
+      expect(seg.position.y).toBeCloseTo(30 - 0.25);
+      expect(seg.width).toBeCloseTo(2.4);
+    });
+    const left = schemas!.filter((s) => String(s.name).startsWith('s1__l~'));
+    expect(left).toHaveLength(9);
+    expect(left[8]!.height).toBeCloseTo(30 - 8 * 3.6);
+  });
+
+  it('한 선분보다 짧은 파선·점선 테두리는 그 길이의 선분 하나로 그려져 사라지지 않는다', () => {
+    const [dashed] = convertSlipFile(
+      makeShapeFile([{ type: 'rect', ...base, width: 1, height: 1, borderStyle: 'dashed', borderWidth: 0.2 }]),
+    ).template.schemas as PdfmeSchema[][];
+    const dashedLines = dashed!.filter((s) => s.type === 'line');
+    expect(dashedLines.map((s) => s.name).sort()).toEqual(['s1__b~0', 's1__l~0', 's1__r~0', 's1__t~0']);
+    expect(dashedLines.find((s) => s.name === 's1__t~0')!.width).toBe(1);
+    expect(dashedLines.find((s) => s.name === 's1__l~0')!.height).toBe(1);
+
+    const [dotted] = convertSlipFile(
+      makeShapeFile([{ type: 'rect', ...base, width: 0.2, height: 0.2, borderStyle: 'dotted', borderWidth: 0.1 }]),
+    ).template.schemas as PdfmeSchema[][];
+    const dottedLines = dotted!.filter((s) => s.type === 'line');
+    expect(dottedLines).toHaveLength(4);
+    for (const seg of dottedLines) expect(Math.max(seg.width, seg.height)).toBeCloseTo(0.2);
   });
 
   it('타원은 ellipse로, 다각형(오각형)은 svg 폴리곤으로 변환된다', () => {

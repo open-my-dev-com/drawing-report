@@ -900,6 +900,7 @@ class SlipToPdfmeConverter {
           visibleHeight,
           o.color,
           o.style,
+          true,
         );
       };
       const outerWidth = width + o.width;
@@ -1315,6 +1316,7 @@ class SlipToPdfmeConverter {
     height: number,
     color: string,
     style: BorderStyle = 'solid',
+    closeEnds = false,
   ): void {
     if (style === 'solid') {
       this.push(
@@ -1324,16 +1326,11 @@ class SlipToPdfmeConverter {
       );
       return;
     }
-    // 파선과 점선은 긴 변의 방향을 따라 여러 선분으로 나눈다. 양 끝이 모두 칠해진 선분으로
-    // 끝나도록 주기를 길이에 맞춰 늘려, 테두리와 외곽선의 모서리가 빈 자리에 걸리지 않게 한다.
+    // 파선과 점선은 긴 변의 방향을 따라 여러 선분으로 나눈다.
     const pattern = DASH_PATTERNS[style];
     const horizontal = width >= height;
     const length = horizontal ? width : height;
-    const count = Math.floor((length - pattern.on) / (pattern.on + pattern.off));
-    const step = count > 0 ? (length - pattern.on) / count : 0;
-    for (let index = 0; index <= count; index++) {
-      const offset = index * step;
-      const segment = count > 0 ? Math.min(pattern.on, length - offset) : length;
+    const pushSegment = (index: number, offset: number, segment: number): void => {
       this.push(
         schemas,
         {
@@ -1350,6 +1347,27 @@ class SlipToPdfmeConverter {
         },
         '',
       );
+    };
+    if (!closeEnds) {
+      let offset = 0;
+      let index = 0;
+      while (offset < length) {
+        pushSegment(index++, offset, Math.min(pattern.on, length - offset));
+        offset += pattern.on + pattern.off;
+      }
+      return;
+    }
+    // 양 끝이 모두 칠해진 선분으로 끝나도록 주기를 길이에 맞춰 늘린다 — 외곽선의 네 모서리가
+    // 빈 자리에 걸리지 않게 하기 위한 것이다. 한 선분보다 짧으면 그 길이의 선분 하나만 그린다.
+    if (length <= pattern.on) {
+      pushSegment(0, 0, length);
+      return;
+    }
+    const count = Math.max(1, Math.floor((length - pattern.on) / (pattern.on + pattern.off)));
+    const step = (length - pattern.on) / count;
+    for (let index = 0; index <= count; index++) {
+      const offset = index * step;
+      pushSegment(index, offset, Math.min(pattern.on, length - offset));
     }
   }
 
