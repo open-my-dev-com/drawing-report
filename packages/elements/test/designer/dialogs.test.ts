@@ -333,20 +333,28 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
 
     const rows = el.shadowRoot!.querySelectorAll('.fn-row');
     expect(rows.length).toBe(32);
-    expect(el.shadowRoot!.querySelectorAll('.fn-category').length).toBe(8);
+    // 분류는 검색 결과를 좁히는 칩으로 표시하며 「전체」가 하나 더 있습니다.
+    expect(el.shadowRoot!.querySelectorAll('.fn-chip').length).toBe(9);
     // 각 항목에 사용법·설명이 있습니다
     expect(rows[0]?.querySelector('.fn-signature')?.textContent).toContain('SUM');
     expect(rows[0]?.querySelector('.fn-desc')?.textContent?.length).toBeGreaterThan(0);
     el.remove();
   });
 
-  it('함수를 클릭하면 커서 위치에 삽입된다', async () => {
+  it('함수를 고르면 상세가 나오고, 삽입 버튼으로 커서 위치에 넣는다', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);
 
     const sumRow = Array.from(el.shadowRoot!.querySelectorAll('.fn-row'))
       .find((b) => b.getAttribute('aria-label') === 'SUM') as HTMLButtonElement;
     sumRow.click();
+    await el.updateComplete;
+    // 고르기만 해서는 수식이 바뀌지 않고 인자와 반환값 설명이 나옵니다.
+    expect(formulaInput(el).value).toBe('');
+    const detail = el.shadowRoot!.querySelector('.fn-detail')!;
+    expect(detail.querySelectorAll('.fn-args dt').length).toBe(1);
+
+    (detail.querySelector('.btn.primary') as HTMLButtonElement).click();
     await el.updateComplete;
     expect(formulaInput(el).value).toBe('SUM()');
     el.remove();
@@ -365,7 +373,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 
-  // 화면에서 뗐습니다 붙여도 편집 중이던 내용이 사라지지 않아야 합니다.
+  // 화면에서 뗐다 붙여도 편집 중이던 내용이 사라지지 않아야 합니다.
   it('요소를 문서에서 뗐다 다시 붙여도 모달과 편집 중이던 수식이 남는다', async () => {
     const el = await loadDesigner();
     await openFormulaModal(el);

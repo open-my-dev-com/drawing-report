@@ -12,6 +12,7 @@ import {
   type SlipFile,
   type SlipTemplateFile,
   type SlipElement,
+  type SlipPage,
   type GridElement,
   type BarcodeKind,
   type ParameterValueType,
@@ -31,6 +32,15 @@ import {
   THUMB_WIDTH_PX,
 } from './designer/geometry.js';
 import { setOptional, clearValueSources } from './designer/patch.js';
+import { gridFormulaContext } from './designer/formula-context.js';
+import { checkFormula, TARGET_CHANGED } from './designer/formula-check.js';
+import {
+  isConditionTarget,
+  resolveFormulaTarget,
+  verifyFormulaTarget,
+  type FormulaTarget,
+  type ResolvedFormulaTarget,
+} from './designer/formula-target.js';
 import { ModalFocusController } from './designer/controllers/modal-focus.js';
 import { DialogsController } from './designer/controllers/dialogs.js';
 import { FormulaDraftController } from './designer/controllers/formula-draft.js';
@@ -53,19 +63,21 @@ import { GRID_COLORS } from './designer/grid-view.js';
 import type { GridColorId, CreatableType } from './designer/grid-view.js';
 import type { ParameterUse, ParameterInfo, ParameterFieldInfo } from './designer/parameters.js';
 import type { FormActions } from './designer/render/form-props.js';
-import { canvas, repeatSampleItems } from './designer/render/canvas.js';
+import { sampleItemsOf } from './designer/formula-context.js';
+import { canvas } from './designer/render/canvas.js';
 import { GridCommandsController } from './designer/controllers/grid-commands.js';
 import type { GridCommandsHost } from './designer/controllers/grid-commands.js';
 import { CanvasPointerController } from './designer/controllers/canvas-pointer.js';
 import type { PointerHost } from './designer/controllers/canvas-pointer.js';
 import {
-  formulaModal,
   imageModal,
   sampleModal,
   saveModal,
   myFormsModal,
 } from './designer/render/dialogs.js';
 import type { DialogContext } from './designer/render/dialogs.js';
+import { formulaCheckText, formulaModal } from './designer/render/formula-modal.js';
+import type { FormulaModalView } from './designer/render/formula-modal.js';
 import { toolbar } from './designer/render/toolbar.js';
 import type { ToolbarActions } from './designer/render/toolbar.js';
 import type { CanvasContext } from './designer/render/canvas.js';
@@ -74,7 +86,6 @@ import type { PanelContext } from './designer/render/property-panel.js';
 import { sidebar } from './designer/render/sidebar.js';
 import type { SidebarActions, SideSelection } from './designer/render/sidebar.js';
 import type { GridActions } from './designer/render/grid-props.js';
-import type { ConditionalFormatDeps } from './designer/render/conditional-formats.js';
 import type { PanelKit } from './designer/render/panel-kit.js';
 import { imagePickErrorText, PLACEHOLDER_IMG } from './designer/image-pick.js';
 import type { ImagePickFailure } from './designer/image-pick.js';
@@ -85,10 +96,28 @@ import {
   gridHeaderTitle,
   itemBandOf,
   inItemBand,
+  bandAt,
 } from './designer/grid-model.js';
 
 /** 파라미터 키와 충돌하지 않는 "새 값 등록" 항목의 내부 값 */
 const NEW_BINDING_OPTION = '\u0000new';
+
+/** 반복 그리드가 아닐 때 예약 참조 판정에 쓰는 빈 자리 */
+const EMPTY_SLOT = {
+  item: undefined,
+  reserved: undefined,
+  outputPage: undefined,
+  groupIndex: undefined,
+} as const;
+
+/** 편집 대상이 지워졌을 때 수식 모달이 그릴 상태 */
+const LOST_FORMULA_VIEW: FormulaModalView = {
+  target: null,
+  check: TARGET_CHANGED,
+  itemChoices: [],
+  itemIndex: null,
+  reserved: [],
+};
 
 const MAX_UNDO = 50;
 /**
@@ -347,6 +376,8 @@ export class SlipDesigner extends LitElement {
       reject: (message, field) => this._rejectInput(message, field),
       error: (field) => this._renderInputError(field),
       hasError: (field) => this._hasInputError(field),
+      acceptFormula: (target, value, field) => this._acceptFormula(target, value, field),
+      openFormulaModal: (target) => this._openFormulaModal(target),
       listSelect: (config) => listSelect(this._popovers, (id, event) => this._toggleListSelect(id, event), config),
       popovers: this._popovers,
       picker: this._picker,
@@ -370,7 +401,6 @@ export class SlipDesigner extends LitElement {
         this.requestUpdate();
       },
       fontNames: this._fontNames,
-      openFormulaModal: () => this._openFormulaModal(),
       setFieldSource: (kind) => this._setFieldSource(kind),
       parameterSelect: (current) => this._renderParameterSelect(current),
       barcodeParameterSelect: (current) => this._renderBarcodeParameterSelect(current),
@@ -383,15 +413,6 @@ export class SlipDesigner extends LitElement {
       groupSelected: () => this._groupSelected(),
       ungroupSelected: () => this._ungroupSelected(),
       selectedIds: this._selectedIds,
-    };
-  }
-
-  /** 조건부 서식 편집에 사용하는 평가와 갱신 */
-  private get _conditionalDeps(): ConditionalFormatDeps {
-    return {
-      evaluate: (source, context) => this._evaluate(source, context),
-      probeValues: () => this._formulaProbeValues(),
-      refresh: () => this.requestUpdate(),
     };
   }
 
@@ -412,7 +433,6 @@ export class SlipDesigner extends LitElement {
       ensureParameterDef: (key, valueType) =>
         this._ensureParameterDef(key, valueType as ParameterValueType | undefined),
       parameters: () => this._parameterList(),
-      probeValues: () => this._formulaProbeValues(),
       refresh: () => this.requestUpdate(),
     };
   }
@@ -466,10 +486,10 @@ export class SlipDesigner extends LitElement {
       maxImageBytes: this.maxImageBytes,
       parameters: () => this._parameterList(),
       parameterKeys: () => this._collectParameters(),
-      probeValues: () => this._formulaProbeValues(),
       sampleSkeleton: () => this._sampleSkeleton(),
-      evaluate: (source, context) => this._evaluate(source, context),
       selectedElement: () => this._findSelectedElement(),
+      typeName: (type) => this._typeName(type),
+      formulaView: () => this._formulaView(),
       applyFormula: () => this._applyFormulaModal(),
       closeFormula: () => this._closeFormulaModal(),
       applyImageSrc: (src) => this._applyImageSrc(src),
@@ -590,7 +610,6 @@ export class SlipDesigner extends LitElement {
       element: this._actions,
       form: this._formActions,
       grid: this._gridActions,
-      conditional: this._conditionalDeps,
       selection: this._sideSelection,
       selectedIds: this._selectedIds,
       selectedElement: () => this._findSelectedElement(),
@@ -673,7 +692,6 @@ export class SlipDesigner extends LitElement {
   private get _gridActions(): GridActions {
     return {
       edit: this._gridEdit,
-      conditional: this._conditionalDeps,
       refresh: () => this.requestUpdate(),
       toggleListSelect: (id, event) => this._toggleListSelect(id, event),
       parameters: () => this._parameterList(),
@@ -702,7 +720,6 @@ export class SlipDesigner extends LitElement {
       updateCellStyle: (key, value) => this._gridCommands.updateCellStyle(key, value),
       updateCellConditionalFormats: (next) => this._gridCommands.updateCellConditionalFormats(next),
       cellParameterSelect: (el, current, inBand) => this._gridCellParameterSelect(el, current, inBand),
-      repeatProbeItem: (el) => this._gridCommands.repeatProbeItem(el),
     };
   }
 
@@ -1013,8 +1030,12 @@ export class SlipDesigner extends LitElement {
   // Element helpers
   // ---------------------------------------------------------------------------
 
+  private _currentPage(): SlipPage | undefined {
+    return this._file?.template.pages[this._pageIndex];
+  }
+
   private _currentElements(): SlipElement[] | undefined {
-    return this._file?.template.pages[this._pageIndex]?.elements;
+    return this._currentPage()?.elements;
   }
 
   private _findElement(id: string): SlipElement | undefined {
@@ -2104,7 +2125,7 @@ export class SlipDesigner extends LitElement {
     const itemsByGrid = new Map<string, readonly GridItem[]>();
     for (const el of page.elements) {
       if (el.type === 'grid' && el.repeat !== undefined) {
-        itemsByGrid.set(el.id, repeatSampleItems(this._canvasContext, el) as GridItem[]);
+        itemsByGrid.set(el.id, sampleItemsOf(el, file.template.sampleValues));
       }
     }
     const key = JSON.stringify([this._pageIndex, file.template.paper, page, [...itemsByGrid.entries()]]);
@@ -2884,12 +2905,43 @@ export class SlipDesigner extends LitElement {
     this._sample.setImageError(this._pickErrorText(result));
   }
 
-  /** 선택한 필드의 수식으로 수식 편집 모달을 엽니다. */
-  private _openFormulaModal(): void {
-    const el = this._findSelectedElement();
-    if (!el || el.type !== 'field') return;
-    this._formula.start(el.formula);
+  /**
+   * 수식 편집 모달을 엽니다.
+   * 대상은 여는 시점에 확정하며, 모달이 열려 있는 동안 선택이 바뀌어도 따라가지 않습니다.
+   *
+   * @param target - 편집할 대상
+   */
+  private _openFormulaModal(target: FormulaTarget): void {
+    const found = resolveFormulaTarget(this._currentPage(), target);
+    if (found === null) {
+      this._rejectInput(this._strings.designer.formulaTargetChanged);
+      return;
+    }
+    this._formula.start(
+      target,
+      { formula: found.formula, ...(found.rule === undefined ? {} : { rule: found.rule }) },
+      this._defaultFormulaItem(found),
+    );
     this._dialogs.open('formula');
+  }
+
+  /**
+   * 모달을 열 때 미리 계산에 쓸 샘플 항목을 고릅니다.
+   *
+   * @param found - 다시 찾은 편집 대상
+   * @returns 지금 보고 있는 출력 페이지에서 이 셀이 쓰는 항목, 없으면 첫 항목.
+   *   반복 그리드가 아니거나 샘플이 없으면 null
+   */
+  private _defaultFormulaItem(found: ResolvedFormulaTarget): number | null {
+    const grid = found.grid;
+    const cell = found.cell;
+    if (grid === undefined || cell === undefined || grid.repeat === undefined) return null;
+    const formula = gridFormulaContext(grid, this._file?.template.sampleValues, this._pagePlan().plan);
+    if (formula.realItems.length === 0) return null;
+    // 지금 보고 있는 출력 페이지에서 이 셀이 쓰는 항목을 먼저 씁니다.
+    const slot = formula.slotForBand(formula.fragmentAt(this._outputPage), bandAt(grid, cell.row));
+    const used = slot.item === undefined ? -1 : formula.realItems.indexOf(slot.item);
+    return used >= 0 ? used : 0;
   }
 
   private _closeFormulaModal(): void {
@@ -2897,14 +2949,156 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 수식 편집 값을 선택한 필드에 적용합니다. 빈 값이면 수식을 제거합니다. */
+  /** 수식 모달이 화면을 그리는 데 필요한 상태를 만듭니다. */
+  private _formulaView(): FormulaModalView {
+    const target = this._formula.target;
+    if (target === null) return LOST_FORMULA_VIEW;
+    return this._formulaState(target, this._formula.draft, this._formula.itemIndex);
+  }
+
+  /**
+   * 대상과 수식으로 검사 결과와 참조 목록을 만듭니다. 모달과 인라인 입력이 함께 씁니다.
+   *
+   * @param target - 검사할 편집 대상
+   * @param source - 검사할 수식·조건식
+   * @param itemIndex - 미리 계산에 쓸 샘플 항목. 반복 그리드가 아니면 null
+   * @returns 편집 대상, 검사 결과와 참조 목록
+   */
+  private _formulaState(
+    target: FormulaTarget,
+    source: string,
+    itemIndex: number | null,
+  ): FormulaModalView {
+    const found = resolveFormulaTarget(this._currentPage(), target);
+    if (found === null) return LOST_FORMULA_VIEW;
+
+    const condition = isConditionTarget(target);
+    const grid = found.grid?.repeat === undefined ? undefined : found.grid;
+    const formula =
+      grid === undefined
+        ? null
+        : gridFormulaContext(grid, this._file?.template.sampleValues, this._pagePlan().plan);
+    const band = grid === undefined || found.cell === undefined ? undefined : bandAt(grid, found.cell.row);
+    const slot = formula === null || itemIndex === null ? null : formula.slotForItem(itemIndex, band);
+
+    return {
+      target: {
+        target,
+        element: found.element,
+        ...(found.cell === undefined ? {} : { cell: found.cell }),
+        condition,
+        outputPage: slot?.outputPage ?? null,
+        groupIndex: slot?.groupIndex ?? null,
+      },
+      check: checkFormula({
+        source,
+        condition,
+        emptyAllowed: target.kind === 'cell',
+        context: {
+          values: { ...this._formulaProbeValues(), ...(slot?.item ?? {}) },
+          ...(slot?.reserved === undefined ? {} : { reserved: slot.reserved }),
+        },
+        evaluate: (from, context) => this._evaluate(from, context),
+      }),
+      itemChoices: formula?.itemChoices() ?? [],
+      itemIndex,
+      reserved: formula === null ? [] : formula.availability(slot ?? EMPTY_SLOT),
+    };
+  }
+
+  /**
+   * 인라인으로 입력한 수식·조건식을 모달과 같은 기준으로 검사합니다.
+   *
+   * @param target - 검사할 편집 대상
+   * @param value - 입력한 수식·조건식
+   * @param field - 오류를 붙일 항목 키
+   * @returns 저장해도 되면 true
+   */
+  private _acceptFormula(target: FormulaTarget, value: string, field: string): boolean {
+    const found = resolveFormulaTarget(this._currentPage(), target);
+    if (found === null) {
+      this._rejectInput(this._strings.designer.formulaTargetChanged, field);
+      return false;
+    }
+    const view = this._formulaState(target, value, this._defaultFormulaItem(found));
+    if (view.check.applicable) {
+      this._clearInputError();
+      return true;
+    }
+    const message = formulaCheckText(this._strings.designer, view.check, target.kind === 'cell');
+    this._rejectInput(message.text, field);
+    return false;
+  }
+
+  /** 수식 편집 값을 대상에 적용합니다. 대상이 바뀌었으면 적용하지 않고 모달을 열어 둡니다. */
   private _applyFormulaModal(): void {
-    const formula = this._formula.commit();
+    const target = this._formula.target;
+    const origin = this._formula.origin;
+    if (target === null || origin === null) return;
+    if (
+      verifyFormulaTarget(this._currentPage(), target, origin) === null ||
+      !this._formulaView().check.applicable
+    ) {
+      // 적용을 막을 때는 모달과 초안을 그대로 두고 안내로 초점을 옮깁니다.
+      this.requestUpdate();
+      void this.updateComplete.then(() => {
+        this.renderRoot.querySelector<HTMLElement>('#formula-status')?.focus();
+      });
+      return;
+    }
+    this._writeFormula(target, this._formula.commit());
     this._dialogs.close('formula');
-    this._updateElement((el) => {
-      if (el.type !== 'field') return;
-      setOptional(el, 'formula', formula);
+  }
+
+  /** 검사를 마친 수식을 대상에 씁니다. */
+  private _writeFormula(target: FormulaTarget, value: string | null): void {
+    this._updateElementById(target.elementId, (el) => {
+      if (target.kind === 'field' || target.kind === 'barcode') {
+        if (el.type !== target.kind) return;
+        setOptional(el, 'formula', value);
+        return;
+      }
+      if (target.kind === 'element-condition') {
+        if (!('conditionalFormats' in el)) return;
+        const rule = el.conditionalFormats?.[target.ruleIndex];
+        if (rule !== undefined && value !== null) rule.condition = value;
+        return;
+      }
+      if (el.type !== 'grid') return;
+      const cell = el.cells.find((c) => c.row === target.row && c.column === target.column);
+      if (cell === undefined) return;
+      if (target.kind === 'cell') {
+        // 셀은 값 소스를 하나만 가지므로 수식을 넣으면 나머지를 지웁니다.
+        if (value === null) delete cell.formula;
+        else {
+          delete cell.content;
+          delete cell.parameter;
+          cell.formula = value;
+        }
+        return;
+      }
+      const rule = cell.conditionalFormats?.[target.ruleIndex];
+      if (rule !== undefined && value !== null) rule.condition = value;
     });
+  }
+
+  /**
+   * 요소를 id로 찾아 수정합니다. 선택 상태와 무관하게 대상을 지목할 때 씁니다.
+   *
+   * @param id - 수정할 요소 id
+   * @param fn - 요소 수정 함수
+   */
+  private _updateElementById(id: string, fn: (el: SlipElement) => void): void {
+    const el = this._findElement(id);
+    if (!el) {
+      this._rejectInput();
+      return;
+    }
+    this._resetPanelErrors();
+    this._pushUndo();
+    fn(el);
+    this._emitChange();
+    this.requestUpdate();
   }
 
   private _setSampleValue(key: string, value: unknown): void {

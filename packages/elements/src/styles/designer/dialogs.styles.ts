@@ -289,11 +289,6 @@ export const dialogsStyles = css`
       border-style: solid;
       color: inherit;
     }
-    .fn-category {
-      margin: 8px 0 2px;
-      font-size: 11px;
-      font-weight: 600;
-    }
     .fn-row {
       display: flex;
       flex-direction: column;
@@ -630,5 +625,165 @@ export const dialogsStyles = css`
       font-size: 11px;
       font-weight: 600;
       line-height: 16px;
+    }
+
+    /* 수식 모달 — 편집과 참조를 나란히 두어 참조를 보면서 수식을 고칠 수 있게 합니다 */
+    .modal.formula-modal {
+      width: min(940px, calc(100vw - 32px));
+      max-height: min(760px, calc(100dvh - 32px));
+    }
+    .formula-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 0;
+      /* 본문이 늘어나도 머리·바닥이 밀려나지 않도록 축소를 허용합니다 */
+      min-height: 0;
+      flex: 1;
+    }
+    .formula-editor,
+    .formula-reference {
+      min-height: 0;
+      padding: 12px 14px;
+      overflow-y: auto;
+    }
+    .formula-reference {
+      border-left: 1px solid var(--sk-border);
+    }
+    .formula-target {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+    .formula-target-label {
+      color: var(--sk-text-muted);
+    }
+    .formula-target-name {
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+    .formula-modal .formula-input {
+      max-height: 180px;
+    }
+    .formula-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .formula-search {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 12px;
+      color: inherit;
+    }
+    .formula-search:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: -1px;
+    }
+    .fn-categories {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin: 6px 0;
+    }
+    .fn-chip {
+      padding: 2px 8px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: 999px;
+      background: var(--sk-surface);
+      font-family: inherit;
+      font-size: 11px;
+      color: inherit;
+      cursor: pointer;
+    }
+    .fn-chip:hover,
+    .fn-chip.selected {
+      border-color: var(--sk-accent);
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+    }
+    .fn-list {
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .fn-row.selected {
+      background: var(--sk-accent-soft);
+    }
+    .fn-detail {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--sk-border);
+      border-radius: var(--sk-radius);
+    }
+    .fn-detail-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .fn-detail-title {
+      margin: 8px 0 2px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--sk-text-muted);
+    }
+    .fn-args {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: 2px 10px;
+      margin: 0;
+      font-size: 11px;
+    }
+    .fn-args dt {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .fn-args dd {
+      margin: 0;
+      color: var(--sk-text-muted);
+    }
+    .fn-optional {
+      margin-left: 4px;
+      font-family: inherit;
+      color: var(--sk-text-muted);
+    }
+    .parameter-chip.reserved {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .parameter-chip:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+    .formula-reserved-reasons {
+      margin: 4px 0 0;
+      padding-left: 16px;
+      font-size: 11px;
+      color: var(--sk-text-muted);
+    }
+    /* 좁은 화면 — 한 열로 접고 본문만 스크롤해 입력란과 바닥 버튼이 잘리지 않게 합니다 */
+    @media (max-width: 720px) {
+      .modal.formula-modal {
+        width: calc(100vw - 16px);
+        max-height: calc(100dvh - 16px);
+      }
+      .formula-layout {
+        grid-template-columns: minmax(0, 1fr);
+        overflow-y: auto;
+      }
+      .formula-editor,
+      .formula-reference {
+        overflow-y: visible;
+      }
+      .formula-reference {
+        border-left: none;
+        border-top: 1px solid var(--sk-border);
+      }
+      .fn-list {
+        max-height: 180px;
+      }
     }
 `;

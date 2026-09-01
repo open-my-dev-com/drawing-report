@@ -94,24 +94,26 @@ describe('columnSuggestion', () => {
   });
 });
 
+const FIELD_TARGET = { kind: 'field', elementId: 'e1' } as const;
+
 describe('FormulaDraftController', () => {
   it('편집을 시작하면 커서가 글 끝에 온다', () => {
     const c = new FormulaDraftController(host(), () => null);
-    c.start('SUM(a)');
+    c.start(FIELD_TARGET, { formula: 'SUM(a)' });
     expect(c.draft).toBe('SUM(a)');
     expect(c.caret).toBe(6);
   });
 
   it('수식이 없던 필드는 빈 초안으로 시작한다', () => {
     const c = new FormulaDraftController(host(), () => null);
-    c.start(undefined);
+    c.start(FIELD_TARGET, { formula: undefined });
     expect(c.draft).toBe('');
   });
 
   it('커서 위치가 그대로면 화면을 다시 그리지 않는다', () => {
     const h = host();
     const c = new FormulaDraftController(h, () => null);
-    c.start('abc');
+    c.start(FIELD_TARGET, { formula: 'abc' });
     h.requestUpdate.mockClear();
     c.syncCaret(3);
     expect(h.requestUpdate).not.toHaveBeenCalled();
@@ -121,7 +123,7 @@ describe('FormulaDraftController', () => {
 
   it('입력란이 없으면 글 끝에 끼워 넣는다', () => {
     const c = new FormulaDraftController(host(), () => null);
-    c.start('SUM(');
+    c.start(FIELD_TARGET, { formula: 'SUM(' });
     c.insert('items');
     expect(c.draft).toBe('SUM(items');
   });
@@ -129,23 +131,23 @@ describe('FormulaDraftController', () => {
   it('선택 범위가 있으면 해당 범위를 삽입할 텍스트로 대체한다', () => {
     const input = { selectionStart: 4, selectionEnd: 7, focus() {}, setSelectionRange() {} };
     const c = new FormulaDraftController(host(), () => input as unknown as HTMLTextAreaElement);
-    c.start('SUM(old)');
+    c.start(FIELD_TARGET, { formula: 'SUM(old)' });
     c.insert('new');
     expect(c.draft).toBe('SUM(new)');
   });
 
   it('뒤에 붙일 글도 함께 넣는다', () => {
     const c = new FormulaDraftController(host(), () => null);
-    c.start('');
+    c.start(FIELD_TARGET, { formula: '' });
     c.insert('ROUND(', ')');
     expect(c.draft).toBe('ROUND()');
   });
 
   it('앞뒤 공백을 제거한 값을 반환하고, 빈 문자열이면 삭제를 나타내는 null을 반환한다', () => {
     const c = new FormulaDraftController(host(), () => null);
-    c.start('  SUM(a)  ');
+    c.start(FIELD_TARGET, { formula: '  SUM(a)  ' });
     expect(c.commit()).toBe('SUM(a)');
-    c.start('   ');
+    c.start(FIELD_TARGET, { formula: '   ' });
     expect(c.commit()).toBeNull();
   });
 });

@@ -51,6 +51,7 @@ import {
   inItemBand,
   isGrid,
 } from '../grid-model.js';
+import { gridFormulaContext } from '../formula-context.js';
 import { PLACEHOLDER_IMG } from '../image-pick.js';
 import { BARCODE_KINDS, BARCODE_2D } from '../barcode.js';
 import { TYPE_BADGE } from './badges.js';
@@ -715,37 +716,17 @@ export function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment
   // 원본 행 구조 표시 — 항목 구간 셀에는 첫 샘플 항목을 적용합니다.
   const heights = el.rows.map((row) => row.height);
   const rowTracks = heights.map((h) => `${h}fr`).join(' ');
-  const items = repeatSampleItems(ctx, el);
-  const realItems = el.repeat?.maxItems === undefined ? items : items.slice(0, el.repeat.maxItems);
-  const gridPlan = el.repeat === undefined ? undefined : ctx.pagePlan().plan?.gridPlans.get(el.id);
-  const plannedFragment = gridPlan?.fragments.find((candidate) => candidate.outputPage === ctx.outputPage);
-  const itemsOf = (indexes: readonly number[] | undefined): Record<string, unknown>[] => indexes === undefined
-    ? realItems
-    : indexes.map((index) => realItems[index]).filter(
-        (item): item is Record<string, unknown> => item !== undefined,
-      );
+  const formula = gridFormulaContext(el, ctx.file?.template.sampleValues, ctx.pagePlan().plan);
+  const plannedFragment = formula.fragmentAt(ctx.outputPage);
 
   const boxes = el.cells.map((cell) => {
     const isSelectedCell =
       selected && ctx.gridEdit.cell?.row === cell.row && ctx.gridEdit.cell?.column === cell.column;
     const inBand = inItemBand(el, cell.row);
-    const band = bandAt(el, cell.row);
-    const planned = plannedFragment?.bands.find((candidate) => candidate.band.id === band?.id);
-    const reserved: Record<string, unknown> | undefined = el.repeat === undefined
-      ? undefined
-      : {
-          '@all': realItems,
-          '@page': itemsOf(plannedFragment?.pageItems),
-          '@carried': itemsOf(plannedFragment?.carriedItems ?? []),
-          '@group': planned?.groupIndex === undefined
-            ? realItems
-            : itemsOf(gridPlan?.groups[planned.groupIndex]),
-        };
-    const previewItem = planned?.itemIndex === undefined ? items[0] : realItems[planned.itemIndex];
-    if (reserved !== undefined && previewItem !== undefined) reserved['@item'] = previewItem;
+    const slot = formula.slotForBand(plannedFragment, bandAt(el, cell.row));
     return gridCellBox(ctx, el, cell, { row: cell.row, rowSpan: cell.rowSpan ?? 1 }, {
-      item: inBand ? previewItem : undefined,
-      ...(reserved === undefined ? {} : { reserved }),
+      item: inBand ? slot.item : undefined,
+      ...(slot.reserved === undefined ? {} : { reserved: slot.reserved }),
       selected: isSelectedCell,
       borderCssOf,
     });
@@ -798,17 +779,8 @@ export function gridFragment(
   fragment: GridFragment,
   context: { colTracks: string; borderCssOf: (cell?: GridCell, overrideColor?: string) => string },
 ) {
-  const repeat = el.repeat!;
-  const gridPlan = ctx.pagePlan().plan?.gridPlans.get(el.id);
-  const sample = repeatSampleItems(ctx, el);
-  const real = repeat.maxItems === undefined ? sample : sample.slice(0, repeat.maxItems);
-  const itemsOf = (indexes: readonly number[]): Record<string, unknown>[] =>
-    indexes.map((i) => real[i]).filter((item): item is Record<string, unknown> => item !== undefined);
-  const baseReserved: Record<string, unknown> = {
-    '@all': real,
-    '@page': itemsOf(fragment.pageItems),
-    '@carried': itemsOf(fragment.carriedItems),
-  };
+  const formula = gridFormulaContext(el, ctx.file?.template.sampleValues, ctx.pagePlan().plan);
+  const real = formula.realItems;
 
   const rowTracks = fragment.rowHeights.map((h) => `${h}fr`).join(' ');
   const autoMergeColumns = new Set<number>();
@@ -845,11 +817,7 @@ export function gridFragment(
     lastGroup = isItem ? planned.groupIndex : undefined;
     const item = planned.itemIndex === undefined ? undefined : real[planned.itemIndex];
     const empty = planned.emptyItem === true;
-    const reserved: Record<string, unknown> = { ...baseReserved };
-    if (item !== undefined) reserved['@item'] = item;
-    if (planned.groupIndex !== undefined && gridPlan !== undefined) {
-      reserved['@group'] = itemsOf(gridPlan.groups[planned.groupIndex] ?? []);
-    }
+    const reserved = formula.plannedReserved(fragment, planned);
     for (const cell of el.cells) {
       if (cell.row < band.fromRow || cell.row > band.toRow) continue;
       const row = planned.rowStart + (cell.row - band.fromRow);
@@ -1182,22 +1150,6 @@ export function previewConditionalColors(
     }
   }
   return result;
-}
-
-/**
- * 항목 구간에 사용할 샘플 항목 배열을 반환합니다.
- *
- * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
- * @param el - 반복 설정이 있는 그리드
- * @returns 샘플 항목 목록. 샘플이 없으면 빈 목록
- */
-export function repeatSampleItems(ctx: CanvasContext, el: GridElement): Record<string, unknown>[] {
-  if (!el.repeat) return [];
-  const sample = ctx.file?.template.sampleValues?.[el.repeat.parameter];
-  if (!Array.isArray(sample)) return [];
-  return sample
-    .filter((row) => typeof row === 'object' && row !== null && !Array.isArray(row))
-    .map((row) => row as unknown as Record<string, unknown>);
 }
 
 /** 직접 입력, 파라미터 또는 수식으로 셀의 표시 텍스트를 만듭니다. */

@@ -32,7 +32,6 @@ import {
 import type { GridEditController } from '../controllers/grid-edit.js';
 import { numberRow, colorControl, textStyleToggles, borderShapeRow, borderWidthSelect } from './inputs.js';
 import { conditionalFormatsSection } from './conditional-formats.js';
-import type { ConditionalFormatDeps } from './conditional-formats.js';
 import { gridOverflowRow, fontNameRow } from './element-props.js';
 import type { ElementActions } from './element-props.js';
 import type { ParameterInfo } from '../parameters.js';
@@ -42,8 +41,6 @@ import type { PanelKit } from './panel-kit.js';
 export interface GridActions {
   /** 그리드 셀·행 구간 선택 상태 */
   readonly edit: GridEditController;
-  /** 조건부 서식 편집이 사용하는 평가와 갱신 */
-  readonly conditional: ConditionalFormatDeps;
   /** 화면을 다시 그립니다 */
   refresh(): void;
   /** 리스트형 선택 상자를 열거나 닫습니다 */
@@ -80,7 +77,6 @@ export interface GridActions {
   updateCellStyle(key: string, value: unknown): void;
   updateCellConditionalFormats(next: ConditionalFormatRule[]): void;
   cellParameterSelect(el: GridElement, current: string, inBand: boolean): TemplateResult;
-  repeatProbeItem(el: GridElement): Record<string, unknown> | undefined;
 }
 
 /**
@@ -588,8 +584,19 @@ export function gridCellProps(
                 <div class="prop-row">
                   <label>${s.formula}</label>
                   <input .value=${cellDef?.formula ?? ''}
-                    @change=${(e: Event) => grid.setCellSource('formula', valOf(e))}>
-                </div>`}
+                    aria-invalid=${String(kit.hasError('cell-formula'))}
+                    @change=${(e: Event) => {
+                      const value = valOf(e);
+                      const target = { kind: 'cell', elementId: el.id, ...cellTarget } as const;
+                      if (!kit.acceptFormula(target, value, 'cell-formula')) return;
+                      grid.setCellSource('formula', value.trim());
+                    }}>
+                  <button class="row-btn"
+                    title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
+                    @click=${() => kit.openFormulaModal({ kind: 'cell', elementId: el.id, ...cellTarget })}
+                    >${icons.formula}</button>
+                </div>
+                ${kit.error('cell-formula')}`}
         </div>
 
         <div class="prop-section">
@@ -739,12 +746,12 @@ export function gridCellProps(
             (v) => grid.updateCellStyle('borderStyle', v),
           )}
         </div>
-        ${conditionalFormatsSection(kit, grid.conditional,
+        ${conditionalFormatsSection(kit,
           cellDef?.conditionalFormats,
           'cellCondFmt',
           (next) => grid.updateCellConditionalFormats(next),
+          (index) => ({ kind: 'cell-condition', elementId: el.id, ...cellTarget, ruleIndex: index }),
           `${s.cell} `,
-          inBand ? grid.repeatProbeItem(el) : undefined,
         )}`
     : nothing;
 }

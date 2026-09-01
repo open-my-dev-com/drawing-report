@@ -28,7 +28,6 @@ import type { GridActions } from './grid-props.js';
 import { pageSettings, formSettings, parameterPanel, parameterFieldPanel } from './form-props.js';
 import type { FormActions } from './form-props.js';
 import { conditionalFormatsSection } from './conditional-formats.js';
-import type { ConditionalFormatDeps } from './conditional-formats.js';
 import type { SideSelection } from './sidebar.js';
 import type { PanelKit } from './panel-kit.js';
 
@@ -42,8 +41,6 @@ export interface PanelContext {
   readonly form: FormActions;
   /** 그리드 조작 */
   readonly grid: GridActions;
-  /** 조건부 서식 평가 */
-  readonly conditional: ConditionalFormatDeps;
   /** 사이드바에서 선택한 대상 */
   readonly selection: SideSelection;
   /** 함께 선택된 요소 id 모음 */
@@ -149,11 +146,14 @@ export function propertyPanel(ctx: PanelContext) {
     ${typeProps(ctx, el)}
     ${el.type === 'grid' && ctx.grid.edit.cell !== null ? nothing : styleGroups(ctx.kit, ctx.element, el)}
     ${el.type === 'text' || el.type === 'field'
-      ? conditionalFormatsSection(ctx.kit, ctx.conditional, el.conditionalFormats, 'condFmt', (next) =>
+      ? conditionalFormatsSection(ctx.kit, el.conditionalFormats, 'condFmt', (next) =>
           ctx.element.update((target) => {
             const record = target as Record<string, unknown>;
             if (next.length === 0) delete record.conditionalFormats;
             else record.conditionalFormats = next;
+          }),
+          (index) => ({
+            kind: 'element-condition', elementId: el.id, elementType: el.type, ruleIndex: index,
           }))
       : nothing}
   `;

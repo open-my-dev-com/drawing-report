@@ -26,6 +26,30 @@ describe('수식 함수 도움말 (D-12)', () => {
     }
   });
 
+  it('모든 항목이 사용법 표기와 같은 수의 인자 설명과 반환값 설명을 갖는다', () => {
+    for (const locale of ['ko', 'en', 'ja'] as const) {
+      for (const category of getFormulaHelp(locale)) {
+        for (const fn of category.functions) {
+          const inside = fn.signature.slice(fn.signature.indexOf('(') + 1, fn.signature.lastIndexOf(')'));
+          // 사용법 표기의 `…`는 앞 인자를 여러 번 쓸 수 있다는 뜻이라 인자 하나로 셉니다.
+          const written = inside.trim() === ''
+            ? []
+            : inside.split(',').map((part) => part.trim()).filter((part) => part !== '…');
+          expect(fn.args.length, `${locale} ${fn.name}`).toBe(written.length);
+          fn.args.forEach((arg, index) => {
+            expect(arg.name, `${locale} ${fn.name}`).toBe(written[index]!.replace(/\?$/, ''));
+            expect(arg.description.length).toBeGreaterThan(0);
+            expect(arg.optional === true, `${locale} ${fn.name} ${arg.name}`)
+              .toBe(written[index]!.endsWith('?'));
+            expect(arg.variadic === true, `${locale} ${fn.name} ${arg.name}`)
+              .toBe(inside.includes('…') && index === fn.args.length - 1);
+          });
+          expect(fn.returns.length).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
   it('지원하지 않는 로케일에는 영어를 사용한다', () => {
     expect(getFormulaHelp('fr')).toEqual(getFormulaHelp('en'));
     expect(getFormulaHelp(undefined)).toEqual(getFormulaHelp('en'));

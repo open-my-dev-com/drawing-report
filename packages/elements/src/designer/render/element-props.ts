@@ -49,8 +49,6 @@ export interface ElementActions {
   setAnchorIndex(elementId: string, index: number): void;
   /** 등록된 폰트 이름 */
   readonly fontNames: readonly string[];
-  /** 수식 편집 모달을 엽니다 */
-  openFormulaModal(): void;
   /** 필드 요소의 값 소스를 바꿉니다 */
   setFieldSource(kind: 'parameter' | 'formula'): void;
   /** 일반 파라미터 선택 상자를 그립니다 */
@@ -493,13 +491,21 @@ export function fieldProps(kit: PanelKit, act: ElementActions, el: FieldElement)
           <div class="prop-row">
             <label>${s.formula}</label>
             <input .value=${live(el.formula ?? '')}
-              @change=${(e: Event) => act.update((target) => {
-                if (target.type !== 'field') return;
-                setOptional(target, 'formula', valOf(e) || null);
-              })}>
-            <button class="row-btn" title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
-              @click=${() => act.openFormulaModal()}>${icons.formula}</button>
-          </div>`}
+              aria-invalid=${String(kit.hasError('field-formula'))}
+              @change=${(e: Event) => {
+                const value = valOf(e);
+                if (!kit.acceptFormula({ kind: 'field', elementId: el.id }, value, 'field-formula')) return;
+                act.update((target) => {
+                  if (target.type !== 'field') return;
+                  setOptional(target, 'formula', value.trim() || null);
+                });
+              }}>
+            <button class="row-btn"
+              title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
+              @click=${() => kit.openFormulaModal({ kind: 'field', elementId: el.id })}
+              >${icons.formula}</button>
+          </div>
+          ${kit.error('field-formula')}`}
     </div>
   `;
 }
@@ -568,9 +574,19 @@ export function barcodeProps(kit: PanelKit, act: ElementActions, el: BarcodeElem
               : html`
                 <div class="prop-row">
                   <label>${s.formula}</label>
-                  <input .value=${el.formula ?? ''}
-                    @change=${(e: Event) => act.setBarcodeSource('formula', valOf(e))}>
-                </div>`}
+                  <input .value=${live(el.formula ?? '')}
+                    aria-invalid=${String(kit.hasError('barcode-formula'))}
+                    @change=${(e: Event) => {
+                      const value = valOf(e);
+                      if (!kit.acceptFormula({ kind: 'barcode', elementId: el.id }, value, 'barcode-formula')) return;
+                      act.setBarcodeSource('formula', value.trim());
+                    }}>
+                  <button class="row-btn"
+                    title=${s.formulaModalTitle} aria-label=${s.formulaModalTitle}
+                    @click=${() => kit.openFormulaModal({ kind: 'barcode', elementId: el.id })}
+                    >${icons.formula}</button>
+                </div>
+                ${kit.error('barcode-formula')}`}
         </div>
       `;
 }

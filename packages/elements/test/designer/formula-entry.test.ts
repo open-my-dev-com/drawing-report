@@ -1,0 +1,501 @@
+// @vitest-environment happy-dom
+// 수식 모달 진입점 4곳 — 필드·바코드·그리드 셀·조건부 서식
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@omdc-slipkit/core', async () => {
+  // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용합니다.
+  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+  return {
+    ...actual,
+    parseSlipFile: vi.fn(),
+    renderSlipToPdf: vi.fn(),
+    CURRENT_SCHEMA_VERSION: '0.1.0',
+  };
+});
+
+vi.mock('../../src/default-fonts.js', () => ({
+  // 모달 조작만 확인하므로 대용량 동봉 폰트 로딩은 모의합니다.
+  loadDefaultFonts: () => Promise.resolve([{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }]),
+}));
+
+import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
+import {
+  strings,
+  parseSlipFileMock,
+  makeTemplateFile,
+  installDesignerTestEnv,
+  createElement,
+  flush,
+  selectElement,
+} from './helpers.js';
+import type { Designer } from './helpers.js';
+import { dialogsStyles } from '../../src/styles/designer/dialogs.styles.js';
+
+installDesignerTestEnv();
+
+const s = strings.designer;
+
+const SAMPLE_ITEMS = [
+  { category: '가', itemName: '연필', amount: 100 },
+  { category: '가', itemName: '지우개', amount: 200 },
+  { category: '나', itemName: '공책', amount: 400 },
+  { category: '나', itemName: '자', amount: 800 },
+];
+
+/** 페이지당 2개씩 내는 그룹 반복 그리드 */
+function makeGrid(): Record<string, unknown> {
+  return {
+    type: 'grid', id: 'g1', name: '품목 표', position: { x: 10, y: 10 },
+    rows: [{ height: 8 }, { height: 8 }],
+    columns: [{ width: 100 }, { width: 60 }],
+    repeat: {
+      parameter: 'items',
+      bands: [
+        { id: 'b-head', fromRow: 0, toRow: 0, placement: 'page-start' },
+        { id: 'b-item', fromRow: 1, toRow: 1, placement: 'item' },
+      ],
+      pagination: { mode: 'fixed', itemsPerPage: 2 },
+      groupBy: ['category'],
+    },
+    cells: [
+      { row: 0, column: 0, content: '품명' },
+      { row: 0, column: 1, formula: '"금액"' },
+      { row: 1, column: 0, parameter: 'itemName' },
+      { row: 1, column: 1, formula: 'SUM(@page.amount)' },
+    ],
+  };
+}
+
+async function mountFile(
+  elements: unknown[],
+  sampleValues?: Record<string, unknown>,
+): Promise<Designer> {
+  const file = makeTemplateFile();
+  file.template.pages[0]!.elements = elements as never;
+  if (sampleValues) file.template.sampleValues = sampleValues as never;
+  parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+  const el = await createElement();
+  el.src = '{"valid": true}';
+  await el.updateComplete;
+  await flush();
+  await el.updateComplete;
+  return el;
+}
+
+function fileOf(el: Designer): SlipTemplateFile {
+  return (el as unknown as { _file: SlipTemplateFile })._file;
+}
+
+function elementsOf(el: Designer): Record<string, unknown>[] {
+  return fileOf(el).template.pages[0]!.elements as unknown as Record<string, unknown>[];
+}
+
+/** 선택한 셀을 바꿉니다 */
+function selectCell(el: Designer, cell: { row: number; column: number }): void {
+  (el as unknown as { _gridEdit: { selectCell(c: { row: number; column: number }): void } })
+    ._gridEdit.selectCell(cell);
+}
+
+function modal(el: Designer): HTMLElement | null {
+  return el.shadowRoot!.querySelector('.formula-modal');
+}
+
+function formulaInput(el: Designer): HTMLTextAreaElement {
+  return el.shadowRoot!.querySelector('.formula-input') as HTMLTextAreaElement;
+}
+
+function status(el: Designer): HTMLElement {
+  return el.shadowRoot!.querySelector('#formula-status') as HTMLElement;
+}
+
+function setDraft(el: Designer, value: string): void {
+  const input = formulaInput(el);
+  input.value = value;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function footButton(el: Designer, label: string): HTMLButtonElement {
+  return Array.from(el.shadowRoot!.querySelectorAll('.modal-foot button'))
+    .find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
+}
+
+/** 수식 모달을 여는 버튼들 — 아이콘 버튼이라 aria-label로 찾습니다 */
+function openButtons(el: Designer): HTMLButtonElement[] {
+  return Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.row-btn'))
+    .filter((b) => b.getAttribute('aria-label')?.includes(s.formulaModalTitle));
+}
+
+/** 첫 번째 수식 모달 버튼을 눌러 모달을 엽니다 */
+async function openModal(el: Designer, index = 0): Promise<HTMLButtonElement> {
+  const button = openButtons(el)[index]!;
+  button.focus();
+  button.click();
+  await el.updateComplete;
+  return button;
+}
+
+// 떼지 않은 디자이너가 남으면 다음 시험의 렌더링을 방해합니다.
+afterEach(() => {
+  for (const el of Array.from(document.body.querySelectorAll('slip-designer'))) el.remove();
+});
+
+describe('<slip-designer> 수식 모달 진입점', () => {
+  it('필드 요소의 수식을 모달에서 고쳐 저장한다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+
+    await openModal(el);
+    expect(formulaInput(el).value).toBe('1 + 1');
+    expect(el.shadowRoot!.querySelector('.formula-target-name')?.textContent)
+      .toContain('합계');
+
+    setDraft(el, 'ROUND(1.5) + 1');
+    await el.updateComplete;
+    expect(status(el).textContent).toContain(`${s.previewResult}: 3`);
+
+    footButton(el, s.apply).click();
+    await el.updateComplete;
+    expect(elementsOf(el)[0]!.formula).toBe('ROUND(1.5) + 1');
+    expect(modal(el)).toBeNull();
+  });
+
+  it('필드 수식은 비워서 적용할 수 없다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+    await openModal(el);
+
+    setDraft(el, '   ');
+    await el.updateComplete;
+    expect(status(el).textContent).toBe(s.formulaRequired);
+    expect(footButton(el, s.apply).disabled).toBe(true);
+  });
+
+  it('인라인 수식 입력도 모달과 같은 검사를 거친다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+
+    let changed = false;
+    el.addEventListener('slip-change', () => { changed = true; });
+    const input = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
+      .find((row) => row.querySelector('label')?.textContent?.trim() === s.formula)!
+      .querySelector('input') as HTMLInputElement;
+    input.value = 'SUM(1,';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+
+    expect(changed).toBe(false);
+    expect(elementsOf(el)[0]!.formula).toBe('1 + 1');
+    expect(el.shadowRoot!.querySelector('.input-error')?.textContent).toContain(s.syntaxError);
+  });
+
+  it('바코드 요소의 수식을 모달에서 고쳐 저장한다', async () => {
+    const el = await mountFile([{
+      type: 'barcode', id: 'b1', name: '코드', position: { x: 10, y: 10 },
+      width: 40, height: 20, kind: 'code128', formula: '"A"',
+    }]);
+    selectElement(el, 'b1');
+    await el.updateComplete;
+
+    await openModal(el);
+    setDraft(el, 'CONCAT("A", "B")');
+    await el.updateComplete;
+    footButton(el, s.apply).click();
+    await el.updateComplete;
+    expect(elementsOf(el)[0]!.formula).toBe('CONCAT("A", "B")');
+  });
+
+  it('그리드 셀의 수식을 모달에서 고쳐 저장하고, 비우면 수식을 지운다', async () => {
+    const el = await mountFile([makeGrid()], { items: SAMPLE_ITEMS });
+    selectElement(el, 'g1');
+    selectCell(el, { row: 1, column: 1 });
+    await el.updateComplete;
+
+    await openModal(el);
+    expect(formulaInput(el).value).toBe('SUM(@page.amount)');
+    setDraft(el, 'SUM(@group.amount)');
+    await el.updateComplete;
+    footButton(el, s.apply).click();
+    await el.updateComplete;
+    const cells = elementsOf(el)[0]!.cells as Record<string, unknown>[];
+    expect(cells[3]!.formula).toBe('SUM(@group.amount)');
+
+    // 셀 수식은 비워서 적용하면 값 소스가 사라집니다.
+    await openModal(el);
+    setDraft(el, '   ');
+    await el.updateComplete;
+    expect(status(el).textContent).toBe(s.formulaCellEmptyHint);
+    footButton(el, s.apply).click();
+    await el.updateComplete;
+    expect((elementsOf(el)[0]!.cells as Record<string, unknown>[])[3]!.formula).toBeUndefined();
+  });
+
+  it('요소 조건부 서식의 조건식을 모달에서 고쳐 저장한다', async () => {
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: '제목', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [{ condition: 'TRUE', fontColor: '#FF0000' }],
+    }]);
+    selectElement(el, 't1');
+    await el.updateComplete;
+
+    await openModal(el);
+    expect(el.shadowRoot!.querySelector('.formula-target-name')?.textContent)
+      .toContain(s.formulaConditionAt.replace('{index}', '1'));
+
+    setDraft(el, 'FALSE');
+    await el.updateComplete;
+    footButton(el, s.apply).click();
+    await el.updateComplete;
+    const rules = elementsOf(el)[0]!.conditionalFormats as Record<string, unknown>[];
+    expect(rules[0]!.condition).toBe('FALSE');
+  });
+
+  it('그리드 셀 조건부 서식의 조건식을 모달에서 고쳐 저장한다', async () => {
+    const grid = makeGrid();
+    (grid.cells as Record<string, unknown>[])[3]!.conditionalFormats =
+      [{ condition: 'TRUE', fontColor: '#FF0000' }];
+    const el = await mountFile([grid], { items: SAMPLE_ITEMS });
+    selectElement(el, 'g1');
+    selectCell(el, { row: 1, column: 1 });
+    await el.updateComplete;
+
+    // 셀 수식 버튼 다음이 조건부 서식 규칙 버튼입니다.
+    await openModal(el, 1);
+    setDraft(el, 'amount > 100');
+    await el.updateComplete;
+    footButton(el, s.apply).click();
+    await el.updateComplete;
+    const cells = elementsOf(el)[0]!.cells as Record<string, unknown>[];
+    expect((cells[3]!.conditionalFormats as Record<string, unknown>[])[0]!.condition)
+      .toBe('amount > 100');
+  });
+
+  it('모달을 연 뒤 대상이 사라지면 적용을 막고 모달과 초안을 남긴다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+    await openModal(el);
+    setDraft(el, '2 + 2');
+    await el.updateComplete;
+
+    // 모달이 열린 채로 대상 요소를 지웁니다.
+    elementsOf(el).length = 0;
+    el.requestUpdate();
+    await el.updateComplete;
+
+    expect(status(el).textContent).toBe(s.formulaTargetChanged);
+    expect(footButton(el, s.apply).disabled).toBe(true);
+    footButton(el, s.apply).click();
+    await el.updateComplete;
+    // 초안을 잃지 않도록 모달을 그대로 둡니다.
+    expect(modal(el)).not.toBeNull();
+    expect(formulaInput(el).value).toBe('2 + 2');
+  });
+
+  it('문법 오류, 계산 불가와 논리값 아님을 구분해 안내한다', async () => {
+    const el = await mountFile([{
+      type: 'text', id: 't1', name: '제목', position: { x: 10, y: 10 },
+      width: 60, height: 10, content: '제목',
+      conditionalFormats: [{ condition: 'TRUE', fontColor: '#FF0000' }],
+    }]);
+    selectElement(el, 't1');
+    await el.updateComplete;
+    await openModal(el);
+
+    setDraft(el, 'SUM(1,');
+    await el.updateComplete;
+    expect(status(el).textContent).toContain(s.syntaxError);
+    expect(footButton(el, s.apply).disabled).toBe(true);
+
+    // 조건식이 아닌 자리에서는 막지 않는 값이지만 조건식은 논리값이어야 합니다.
+    setDraft(el, '1 + 1');
+    await el.updateComplete;
+    expect(status(el).textContent).toBe(s.conditionNotBoolean);
+    expect(footButton(el, s.apply).disabled).toBe(true);
+
+    // 지금 자리에 없는 예약 참조는 실제 전표에서 계산될 수 있어 적용을 허용합니다.
+    setDraft(el, 'SUM(@page.amount) > 0');
+    await el.updateComplete;
+    expect(status(el).textContent).toContain(s.previewUnavailable);
+    expect(footButton(el, s.apply).disabled).toBe(false);
+  });
+
+  it('샘플 항목을 바꾸면 출력 페이지와 계산 결과가 함께 바뀐다', async () => {
+    const el = await mountFile([makeGrid()], { items: SAMPLE_ITEMS });
+    selectElement(el, 'g1');
+    selectCell(el, { row: 1, column: 1 });
+    await el.updateComplete;
+    await openModal(el);
+
+    const chips = Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.formula-items button'));
+    expect(chips).toHaveLength(4);
+    expect(chips[0]!.textContent?.trim()).toContain(s.formulaOutputPageAt.replace('{page}', '1'));
+    expect(chips[2]!.textContent?.trim()).toContain(s.formulaOutputPageAt.replace('{page}', '2'));
+    expect(status(el).textContent).toContain(`${s.previewResult}: 300`);
+
+    chips[2]!.click();
+    await el.updateComplete;
+    expect(status(el).textContent).toContain(`${s.previewResult}: 1200`);
+  });
+
+  it('쓸 수 없는 예약 참조는 이유와 함께 비활성으로 표시한다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+    await openModal(el);
+    // 반복 그리드가 아니므로 예약 참조 구역 자체가 나오지 않습니다.
+    expect(el.shadowRoot!.querySelector('.parameter-chip.reserved')).toBeNull();
+    el.remove();
+
+    const grid = await mountFile([makeGrid()], { items: SAMPLE_ITEMS });
+    selectElement(grid, 'g1');
+    selectCell(grid, { row: 0, column: 1 });
+    await grid.updateComplete;
+    await openModal(grid);
+
+    const reserved = Array.from(
+      grid.shadowRoot!.querySelectorAll<HTMLButtonElement>('.parameter-chip.reserved'),
+    );
+    const item = reserved.find((b) => b.textContent?.trim() === '@item')!;
+    // 헤더 행 구간에는 항목이 없습니다.
+    expect(item.disabled).toBe(true);
+    expect(item.title).toBe(s.reservedNoItem);
+    expect(reserved.find((b) => b.textContent?.trim() === '@page')!.disabled).toBe(false);
+    expect(grid.shadowRoot!.querySelector('.formula-reserved-reasons')?.textContent)
+      .toContain(s.reservedNoItem);
+  });
+
+  it('함수를 이름과 로케일 설명으로 찾고, 분류와 검색어를 함께 적용한다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+    await openModal(el);
+
+    const search = el.shadowRoot!.querySelector('.formula-search') as HTMLInputElement;
+    const names = (): string[] => Array.from(el.shadowRoot!.querySelectorAll('.fn-row'))
+      .map((b) => b.getAttribute('aria-label')!);
+
+    const type = async (value: string): Promise<void> => {
+      search.value = value;
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+      await el.updateComplete;
+    };
+
+    // 이름 검색은 대소문자를 가리지 않습니다.
+    await type('CountIf');
+    expect(names()).toEqual(['COUNTIF']);
+
+    // 이름에 없는 말이라도 현재 로케일의 설명에서 찾습니다.
+    await type('absolute');
+    expect(names()).toEqual(['ABS']);
+
+    // 분류를 고르면 검색어와 함께 좁힙니다.
+    const chips = Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.fn-chip'));
+    chips.find((c) => c.textContent?.trim() === 'Aggregation')!.click();
+    await el.updateComplete;
+    expect(names()).toEqual([]);
+    expect(el.shadowRoot!.querySelector('.fn-list .image-hint')?.textContent)
+      .toBe(s.formulaSearchEmpty);
+
+    await type('criteria');
+    expect(names()).toEqual(['SUMIF', 'COUNTIF']);
+  });
+
+  it('선택 범위를 삽입한 글로 바꾸고 커서를 괄호 안에 둔다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+    await openModal(el);
+
+    setDraft(el, 'ABS(old)');
+    await el.updateComplete;
+    const input = formulaInput(el);
+    input.setSelectionRange(4, 7);
+
+    const abs = Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.fn-row'))
+      .find((b) => b.getAttribute('aria-label') === 'SUM')!;
+    abs.click();
+    await el.updateComplete;
+    (el.shadowRoot!.querySelector('.fn-detail .btn.primary') as HTMLButtonElement).click();
+    await el.updateComplete;
+
+    expect(formulaInput(el).value).toBe('ABS(SUM())');
+    // 이어서 인자를 적을 수 있도록 커서를 여는 괄호 뒤에 둡니다.
+    expect(formulaInput(el).selectionStart).toBe('ABS(SUM('.length);
+  });
+
+  it('취소·Escape·적용 어느 쪽으로 닫아도 연 버튼으로 초점이 돌아온다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+
+    const cancel = await openModal(el);
+    footButton(el, s.cancel).click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.activeElement).toBe(cancel);
+
+    const escape = await openModal(el);
+    modal(el)!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await el.updateComplete;
+    expect(el.shadowRoot!.activeElement).toBe(escape);
+
+    const apply = await openModal(el);
+    setDraft(el, '2 + 2');
+    await el.updateComplete;
+    footButton(el, s.apply).click();
+    await el.updateComplete;
+    expect(modal(el)).toBeNull();
+    expect(el.shadowRoot!.activeElement).toBe(apply);
+  });
+
+  it('머리·바닥을 본문 밖에 두고 좁은 화면에서는 한 열로 접는다', async () => {
+    const el = await mountFile([{
+      type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
+      width: 40, height: 8, formula: '1 + 1',
+    }]);
+    selectElement(el, 'f1');
+    await el.updateComplete;
+    await openModal(el);
+
+    // 본문이 길어져도 제목과 적용 버튼이 밀려나지 않도록 스크롤 영역 밖에 둡니다.
+    const children = Array.from(modal(el)!.children).map((c) => c.className);
+    expect(children).toEqual(['modal-head', 'formula-layout', 'modal-foot']);
+    const layout = el.shadowRoot!.querySelector('.formula-layout')!;
+    expect(Array.from(layout.children).map((c) => c.className))
+      .toEqual(['formula-editor', 'formula-reference']);
+
+    const css = dialogsStyles.cssText;
+    expect(css).toContain('@media (max-width: 720px)');
+    // 좁은 화면에서는 편집과 참조를 한 열로 쌓고 본문만 스크롤합니다.
+    const narrow = css.slice(css.indexOf('@media (max-width: 720px)'));
+    expect(narrow).toContain('grid-template-columns: minmax(0, 1fr);');
+    expect(narrow).toContain('100dvh');
+  });
+});
