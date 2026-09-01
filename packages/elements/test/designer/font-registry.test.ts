@@ -208,7 +208,7 @@ describe('FontRegistryController', () => {
     expect(a.fontNames).toEqual([]);
   });
 
-  it('화면에서 떨어진 뒤에는 다시 그리지 않는다', async () => {
+  it('호스트 연결이 끊어진 뒤에는 다시 그리지 않는다', async () => {
     const host = makeHost();
     const key = {};
     let resolveFonts: (fonts: SlipFont[]) => void = () => undefined;

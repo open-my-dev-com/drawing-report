@@ -46,7 +46,7 @@ function markOf(source: unknown): number {
 /**
  * 폰트 등록을 흉내 내는 FontFace 대역을 만듭니다.
  *
- * @param outcome - 폰트 표시(첫 바이트)마다 `ready`·`pending`·`failed`를 정합니다.
+ * @param outcome - 폰트 데이터를 구분하는 첫 바이트별 등록 결과
  * 지정하지 않은 폰트는 등록에 성공합니다
  */
 function fakeFontFace(outcome: Record<number, 'ready' | 'pending' | 'failed'> = {}) {
@@ -132,7 +132,7 @@ describe('<slip-designer> 폰트 선택과 캔버스 적용', () => {
     return el;
   }
 
-  it('선택 목록에 기본값과 기저 폰트만 넣고, 기본값에 대체 폰트 이름을 적는다', async () => {
+  it('선택 목록에 기본값과 기본 폰트만 넣고, 기본값에 대체 폰트 이름을 적는다', async () => {
     const el = await mountText();
     expect(await listOptionLabels(el, fontSelect(el)))
       .toEqual([`${s.fontDefault} (Pretendard)`, 'Pretendard', 'Noto Sans JP', 'Serif']);

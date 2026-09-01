@@ -1163,7 +1163,7 @@ describe('등록되지 않은 폰트 이름의 대체', () => {
     const file = makeFile([{
       type: 'text', ...base, content: '가', fontName: 'NoSuchFont', bold: true, italic: true,
     }]);
-    // BoldItalic이 없으므로 Bold로 내려갑니다.
+    // BoldItalic이 없으므로 Bold를 선택합니다.
     expect(fontNameOf(file, 't1')).toBe('Pretendard-Bold');
   });
 

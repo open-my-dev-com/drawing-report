@@ -295,20 +295,14 @@ async function loadAppFonts(): Promise<SlipFont[]> {
   ];
 }
 
-let fontPromise:
-  Promise<SlipFont[]> | undefined;
-
 const slipkit = createSlipKit({
-  getFonts: () => {
-    fontPromise ??= loadAppFonts();
-    return fontPromise;
-  },
+  getFonts: loadAppFonts,
 });
 ```
 
 > [!TIP]
-> `getFonts` may be called again when a PDF is rendered.
-> If you read fonts from the network or file system, keep the resulting `Promise` as in the example above so that the same font is not fetched repeatedly.
+> A `SlipKit` instance reuses a successful `getFonts` result across the designer and PDF renderer.
+> If loading fails, the next call retries the provider.
 
 ### Rules for applying your own fonts
 

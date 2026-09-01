@@ -4,7 +4,7 @@
 
 - 문서 상태: **Draft**
 - 현재 `schemaVersion`: **`0.1.0`**
-- 최종 갱신: 2026-09-01
+- 최종 갱신: 2026-09-02
 - 레퍼런스 구현: `@omdc-slipkit/core`
 - JSON Schema: `@omdc-slipkit/core/schemas/slip.schema.json`
 

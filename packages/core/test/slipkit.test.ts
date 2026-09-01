@@ -39,12 +39,12 @@ describe('createSlipKit (ADR-056)', () => {
     expect(slip.evaluate('FORMAT_NUMBER(1234.5)', { values: {}, locale: 'ko-KR' })).toBe('1,234.5');
   });
 
-  it('getFonts는 인스턴스 안에서 한 번만 호출하고 결과를 나눠 쓴다', async () => {
+  it('getFonts는 인스턴스 안에서 한 번만 호출하고 결과를 공유한다', async () => {
     const fonts = [{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }];
     const supply = vi.fn(() => fonts);
     const slip = createSlipKit({ getFonts: supply });
 
-    // 디자이너가 쓰는 경로와 렌더링 경로가 같은 결과를 나눠 씁니다.
+    // 디자이너와 렌더링 경로가 같은 조회 결과를 공유합니다.
     await slip.getFonts!();
     await slip.getFonts!();
     await slip.render(template());
@@ -67,7 +67,7 @@ describe('createSlipKit (ADR-056)', () => {
     expect(supply).toHaveBeenCalledTimes(2);
   });
 
-  it('getFonts가 그 자리에서 예외를 던져도 거부로 다루고 다시 시도한다', async () => {
+  it('getFonts에서 동기 예외가 발생해도 Promise 거부로 처리하고 다시 시도한다', async () => {
     const fonts = [{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }];
     let attempt = 0;
     const supply = vi.fn(() => {
@@ -77,7 +77,7 @@ describe('createSlipKit (ADR-056)', () => {
     });
     const slip = createSlipKit({ getFonts: supply });
 
-    // 호출이 그 자리에서 던지지 않고 거부된 Promise로 끝납니다.
+    // 호출은 동기 예외를 던지지 않고 거부된 Promise를 반환합니다.
     await expect(slip.getFonts!()).rejects.toThrow('설정 오류');
     await expect(slip.getFonts!()).resolves.toEqual(fonts);
     expect(supply).toHaveBeenCalledTimes(2);
@@ -130,7 +130,7 @@ describe('createSlipKit (ADR-056)', () => {
     const fonts = [{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }];
     const slip = createSlipKit({ locale: 'ko', getFonts: () => fonts });
     expect(slip.locale).toBe('ko');
-    // 결과를 나눠 쓰려고 감싸므로 함수 자체가 아니라 반환값으로 확인합니다.
+    // 조회 결과를 공유하도록 감싸므로 함수 자체가 아니라 반환값으로 확인합니다.
     await expect(slip.getFonts!()).resolves.toEqual(fonts);
 
     const bare = createSlipKit();

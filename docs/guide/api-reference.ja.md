@@ -185,7 +185,7 @@ interface SlipKit {
 | プロパティ・メソッド | 戻り値 | 説明 |
 |---|---|---|
 | `locale` | `string \| undefined` | インスタンスに設定されたロケール |
-| `getFonts` | 関数または `undefined` | インスタンスに設定されたフォント供給関数 |
+| `getFonts` | 関数または `undefined` | インスタンスで共有するフォント取得関数。成功した結果は再利用し、失敗した取得は次の呼び出しで再試行する。 |
 | `render` | `Promise<Uint8Array>` | テンプレートまたは伝票を PDF バイトに変換 |
 | `buildVoucher` | `SlipVoucherFile` | テンプレートと値で作成中の伝票を生成 |
 | `evaluate` | `FormulaValue` | 数式文字列または AST を評価 |

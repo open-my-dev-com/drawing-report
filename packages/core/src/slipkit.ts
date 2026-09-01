@@ -91,8 +91,8 @@ export interface SlipKit {
  * 폰트 공급 함수를 인스턴스 안에서 한 번만 호출하도록 감싼다.
  *
  * @remarks
- * 디자이너와 렌더러가 같은 인스턴스를 쓰면 같은 결과를 나눠 쓴다.
- * 조회에 실패하면 기억하지 않아 다음 호출에서 다시 시도한다.
+ * 디자이너와 렌더러가 같은 인스턴스를 쓰면 조회 결과를 공유한다.
+ * 실패한 조회 결과는 저장하지 않고 다음 호출에서 다시 시도한다.
  *
  * @param supply - 설정에서 받은 폰트 공급 함수
  * @returns 결과를 재사용하는 폰트 공급 함수
@@ -103,7 +103,7 @@ function shareFonts(
   let pending: Promise<readonly SlipFont[]> | undefined;
   return () => {
     if (pending === undefined) {
-      // 공급 함수가 그 자리에서 예외를 던져도 비동기 거부와 같게 다루도록 체인 안에서 부른다.
+      // 동기 예외도 Promise 거부로 처리할 수 있도록 공급 함수를 체인 안에서 호출한다.
       pending = Promise.resolve().then(() => supply());
       pending.catch(() => {
         pending = undefined;

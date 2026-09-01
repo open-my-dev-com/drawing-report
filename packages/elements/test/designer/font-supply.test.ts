@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// 호스트 폰트 공급의 실패와 재시도 — 디자이너와 PDF가 같은 출처를 보는지 확인합니다.
+// 호스트 폰트 공급 실패와 재시도 과정에서 디자이너와 PDF가 같은 출처를 쓰는지 확인합니다.
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@omdc-slipkit/core', async () => {
@@ -150,7 +150,7 @@ describe('<slip-designer> 호스트 폰트 공급 실패와 재시도', () => {
     first.remove();
     second.remove();
   });
-  it('밖에서 조회가 성공한 뒤 다시 연결하면 공급을 더 부르지 않고 복구된다', async () => {
+  it('외부 조회가 성공한 뒤 다시 연결하면 공급 함수를 추가로 호출하지 않고 복구된다', async () => {
     let attempt = 0;
     const supply = vi.fn(() => {
       attempt += 1;
@@ -163,7 +163,7 @@ describe('<slip-designer> 호스트 폰트 공급 실패와 재시도', () => {
     expect(fontNames(el)).toEqual([]);
     expect(supply).toHaveBeenCalledTimes(1);
 
-    // 디자이너 밖에서 같은 인스턴스의 조회가 성공합니다.
+    // 디자이너 외부에서 같은 인스턴스의 조회가 성공합니다.
     await slipkit.getFonts!();
     expect(supply).toHaveBeenCalledTimes(2);
 

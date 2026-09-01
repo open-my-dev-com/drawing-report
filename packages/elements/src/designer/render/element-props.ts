@@ -132,7 +132,7 @@ export interface FontDefaultOption {
 }
 
 /**
- * 폰트를 지정하지 않은 요소의 「기본값」 항목 문구를 만듭니다.
+ * 폰트를 지정하지 않은 요소의 `기본값` 항목 문구를 만듭니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param fallback - 지정이 없을 때 적용되는 대체 폰트 이름
@@ -143,7 +143,7 @@ function fontDefaultOption(kit: PanelKit, fallback: string | undefined): FontDef
 }
 
 /**
- * 그리드 셀의 「기본값」 항목 문구를 만듭니다.
+ * 그리드 셀의 `기본값` 항목 문구를 만듭니다.
  *
  * @remarks
  * 셀은 대체 폰트가 아니라 그리드 공통 폰트를 상속하므로 상속되는 이름을 그대로 보여 줍니다.
@@ -173,7 +173,7 @@ export function cellInheritOption(
  *
  * @remarks
  * 등록된 폰트가 하나뿐이어도 숨기지 않습니다. 지정 상태와 기본값으로 되돌린 상태를 구분해야 하고,
- * 지금 적용 중인 폰트 이름도 이 자리에서 확인하기 때문입니다.
+ * 현재 표시되는 폰트 이름도 폰트 항목에서 확인할 수 있어야 하기 때문입니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
@@ -231,8 +231,8 @@ export function fontNameRow(
  * 굵게·기울임에 쓸 변형 글꼴이 없다는 안내를 렌더링합니다.
  *
  * @remarks
- * PDF는 등록된 변형 글꼴이 없으면 굵게·기울임을 적용하지 않습니다. 캔버스도 같게 그리므로
- * 화면이 달라지지 않는 이유를 이 자리에서 알립니다.
+ * PDF는 등록된 변형 글꼴이 없으면 굵게·기울임을 적용하지 않습니다. 캔버스도 같은 규칙을
+ * 사용하므로 스타일이 적용되지 않는 이유를 폰트 항목에서 알립니다.
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param fonts - 폰트 목록과 브라우저 등록 상태
@@ -257,7 +257,7 @@ export function fontVariantNote(kit: PanelKit, fonts: DesignerFonts, style: Font
       ? html`<div class="font-note"><span>${s.fontNoBold}</span></div>`
       : nothing;
   }
-  // 굵게와 기울임을 함께 쓰면 BoldItalic·Bold·Italic·기본 형태 순으로 내려갑니다.
+  // 굵게와 기울임을 함께 쓰면 BoldItalic, Bold, Italic, 기본 형태 순으로 선택합니다.
   if (chosen !== plain && chosen !== at(true) && chosen !== at(undefined, true)) return nothing;
   const text = chosen === plain
     ? s.fontNoBoldItalic

@@ -144,10 +144,10 @@ class SlipToPdfmeConverter {
   ) {}
 
   /**
-   * 등록된 폰트 이름만 남긴다.
+   * 등록된 폰트 이름만 반환한다.
    *
    * @remarks
-   * 등록되지 않은 이름을 그대로 넘기면 PDF 생성이 실패하므로 대체 폰트를 쓰도록 undefined로 바꾼다.
+   * 등록되지 않은 이름을 그대로 넘기면 PDF 생성이 실패하므로 `undefined`를 반환해 대체 폰트를 쓴다.
    * 파일에 저장된 `fontName` 값은 바꾸지 않는다.
    */
   private registeredFontName(fontName: string | undefined): string | undefined {
@@ -156,7 +156,7 @@ class SlipToPdfmeConverter {
   }
 
   /**
-   * 기본 폰트에서 요청한 굵기와 기울임 변형의 이름을 찾는다.
+   * 지정한 폰트에서 요청한 굵기와 기울임 변형의 이름을 찾는다.
    * 등록된 변형이 없으면 `undefined`를 반환한다.
    */
   private resolveVariantFontName(fontName: string | undefined, variant: string): string | undefined {
@@ -168,8 +168,8 @@ class SlipToPdfmeConverter {
 
   /**
    * 굵기와 기울임을 반영할 폰트 이름을 결정한다.
-   * 두 스타일이 모두 필요하면 `<이름>-BoldItalic`을 먼저 찾고, 등록된 변형이 없으면
-   * 기본 폰트를 사용한다. 지정한 폰트가 등록되어 있지 않으면 대체 폰트를 기준으로 삼는다.
+   * 두 스타일이 모두 필요하면 `BoldItalic`, `Bold`, `Italic`, 기본 형태 순으로 선택한다.
+   * 지정한 폰트가 등록되어 있지 않으면 대체 폰트를 기준으로 같은 순서를 적용한다.
    */
   private resolveVariantFont(
     fontName: string | undefined,

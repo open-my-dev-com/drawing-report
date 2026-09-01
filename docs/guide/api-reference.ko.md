@@ -185,7 +185,7 @@ interface SlipKit {
 | 프로퍼티·메서드 | 반환값 | 설명 |
 |---|---|---|
 | `locale` | `string \| undefined` | 인스턴스에 설정된 로케일 |
-| `getFonts` | 함수 또는 `undefined` | 인스턴스에 설정된 폰트 공급 함수 |
+| `getFonts` | 함수 또는 `undefined` | 인스턴스가 공유하는 폰트 조회 함수. 성공한 결과는 재사용하고 실패한 조회는 다음 호출에서 다시 시도한다. |
 | `render` | `Promise<Uint8Array>` | 양식 또는 전표를 PDF 바이트로 변환 |
 | `buildVoucher` | `SlipVoucherFile` | 양식과 값으로 작성 중 전표 생성 |
 | `evaluate` | `FormulaValue` | 수식 문자열 또는 AST 평가 |

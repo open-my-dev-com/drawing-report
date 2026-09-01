@@ -379,7 +379,7 @@ export class SlipDesigner extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
-    // 떨어져 있는 동안 다른 곳에서 폰트 조회가 풀렸을 수 있으므로 실패 상태일 때만 다시 봅니다.
+    // 연결이 끊긴 동안 외부 폰트 조회가 성공했을 수 있으므로 실패 상태일 때만 다시 확인합니다.
     this._retryFontSource();
     this.addEventListener('keydown', this._onKeyDown);
     if (!this.hasAttribute('tabindex')) {
@@ -1513,7 +1513,7 @@ export class SlipDesigner extends LitElement {
           : this._file;
       const pdfBytes = await renderSlip(this.slipkit, target, this._locale);
       if (gen !== this._previewGeneration) return;
-      // 렌더링이 성공했다면 앞서 실패한 폰트 조회도 풀렸을 수 있으므로 출처를 다시 확인합니다.
+      // 렌더링이 성공했다면 후속 폰트 조회도 성공했을 수 있으므로 출처를 다시 확인합니다.
       this._retryFontSource();
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._previewUrl = URL.createObjectURL(blob);
@@ -1535,7 +1535,7 @@ export class SlipDesigner extends LitElement {
         ${this._error ?? this._strings.designer.noTemplate}
       </div>`;
     }
-    // 사이드바와 캔버스가 같은 결과를 나눠 쓰도록 한 번 그릴 때 한 번만 모읍니다.
+    // 사이드바와 캔버스가 동일한 경고 집계를 사용하도록 렌더링마다 한 번만 수집합니다.
     this._warnings = this._collectFormulaWarnings();
     this._fonts = this._collectFonts();
 
@@ -2407,7 +2407,7 @@ export class SlipDesigner extends LitElement {
   private _useFontSource(): void {
     const slipkit = this.slipkit;
     const locale = this._renderLocale;
-    // 같은 설정에서는 다시 확인하지 않습니다. 갱신마다 공급 함수를 부르면 화면이 되풀이됩니다.
+    // 같은 설정에서는 다시 확인하지 않습니다. 화면을 갱신할 때마다 호출하면 실패 시 재시도가 반복됩니다.
     const last = this._fontSourceFor;
     if (last !== null && last.slipkit === slipkit && last.locale === locale) return;
     this._fontSourceFor = { slipkit, locale };
@@ -2419,7 +2419,7 @@ export class SlipDesigner extends LitElement {
       useBundled();
       return;
     }
-    // 공급 함수가 그 자리에서 예외를 던져도 화면 갱신이 끊기지 않도록 Promise 안에서 부릅니다.
+    // 동기 예외도 Promise 거부로 처리하여 화면 갱신이 중단되지 않게 합니다.
     // 인스턴스가 결과를 재사용하므로 이 확인이 공급 함수를 다시 부르지는 않습니다.
     void Promise.resolve().then(() => slipkit.getFonts!()).then(
       (fonts) => {
@@ -2429,7 +2429,7 @@ export class SlipDesigner extends LitElement {
       },
       (error: unknown) => {
         if (this.slipkit !== slipkit || this._renderLocale !== locale) return;
-        // 공급 실패도 출처의 상태로 남겨 같은 인스턴스를 쓰는 화면이 모두 같은 결과를 봅니다.
+        // 공급 실패를 출처 상태로 기록하여 같은 인스턴스를 쓰는 화면에 함께 반영합니다.
         registry.use(slipkit, () => Promise.reject(error));
       },
     );
@@ -2439,8 +2439,8 @@ export class SlipDesigner extends LitElement {
    * 실패했던 폰트 조회를 다시 시도합니다.
    *
    * @remarks
-   * 조회 실패는 화면을 다시 그리게 하므로 갱신마다 재시도하면 되풀이됩니다. 그래서 설정이 바뀌거나
-   * 미리보기 렌더링이 성공한 뒤처럼 성공 가능성이 생긴 시점에만 다시 확인합니다.
+   * 조회 실패는 화면 갱신을 요청하므로 매번 재시도하면 실패와 갱신이 반복됩니다. 설정이 바뀌거나
+   * 미리보기 렌더링이 성공하는 등 성공 가능성이 생긴 시점에만 다시 확인합니다.
    */
   private _retryFontSource(): void {
     if (!this._fontRegistry.loadFailed) return;
@@ -2468,8 +2468,8 @@ export class SlipDesigner extends LitElement {
     registry.ensure(required);
     const resolved = (style: FontStyleInput): string | undefined =>
       effectiveFontName(names, style.fontName, fallback, style.bold, style.italic);
-    // 등록이 끝난 폰트만 골라 PDF와 같은 순서로 내려갑니다. 지정 폰트 계열에 쓸 수 있는 것이
-    // 없으면 대체 폰트 계열에서 다시 찾고, 등록이 끝나면 다시 그립니다.
+    // 등록된 폰트를 PDF와 같은 우선순위로 선택합니다. 지정한 폰트 계열을 쓸 수 없으면
+    // 대체 폰트 계열에서 다시 찾고, 등록 상태가 바뀌면 화면을 다시 그립니다.
     const readyIn = (base: string | undefined, style: FontStyleInput): string | undefined =>
       variantCandidates(names, base, style.bold, style.italic).find((name) => registry.isReady(name));
     const applied = (style: FontStyleInput): string | undefined =>

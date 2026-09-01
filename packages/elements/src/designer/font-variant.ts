@@ -12,10 +12,10 @@ import type { SlipFont, SlipPage } from '@omdc-slipkit/core';
 const VARIANT_SUFFIXES = ['BoldItalic', 'Bold', 'Italic'] as const;
 
 /**
- * 변형 접미사를 뗀 기저 이름을 찾습니다.
+ * 변형 접미사를 뗀 기본 이름을 찾습니다.
  *
  * @param name - 등록된 폰트 이름
- * @returns 기저 이름. 변형 접미사가 없으면 undefined
+ * @returns 기본 이름. 변형 접미사가 없으면 undefined
  */
 function baseNameOf(name: string): string | undefined {
   for (const suffix of VARIANT_SUFFIXES) {
@@ -71,7 +71,7 @@ export function resolveVariantFontName(
  *
  * @remarks
  * PDF 변환과 같은 `BoldItalic → Bold → Italic → 기본 형태` 순서이며 등록된 이름만 남깁니다.
- * 앞쪽 후보를 쓸 수 없을 때 뒤로 내려가려면 목록 전체가 필요합니다.
+ * 우선순위가 높은 폰트를 쓸 수 없을 때 다음 후보를 선택하려면 목록 전체가 필요합니다.
  *
  * @param fontNames - 등록된 폰트 이름 목록
  * @param baseName - 기준이 되는 등록된 폰트 이름
@@ -141,8 +141,8 @@ export function effectiveFontName(
  * 폰트 선택 목록에 표시할 이름을 고릅니다.
  *
  * @remarks
- * 기저 이름이 함께 등록된 변형은 굵게·기울임 설정으로 선택하므로 목록에 넣지 않습니다.
- * 기저 이름이 등록되어 있지 않은 변형은 독립된 폰트로 표시합니다.
+ * 기본 이름이 함께 등록된 변형은 굵게·기울임 설정으로 선택하므로 목록에 넣지 않습니다.
+ * 기본 이름이 등록되어 있지 않은 변형은 독립된 폰트로 표시합니다.
  *
  * @param fontNames - 등록된 폰트 이름 목록
  * @returns 선택 목록에 표시할 폰트 이름

@@ -1,11 +1,10 @@
 /**
- * 폰트 데이터의 브라우저 등록과 재사용.
+ * 폰트 데이터를 브라우저에 등록하고 재사용합니다.
  *
  * @remarks
- * 캔버스는 shadow DOM 안에 있어 컴포넌트 스타일의 `@font-face`가 닿지 않으므로 `FontFace`로
- * 문서에 등록합니다. 호스트 문서의 폰트와 이름이 겹치지 않도록 CSS에서 쓰는 이름은 따로 만들고
- * 파일에 저장하는 `fontName`은 그대로 둡니다. 같은 이름이라도 폰트를 제공한 출처가 다르면
- * 데이터가 다를 수 있으므로 출처별로 나누어 등록합니다.
+ * 캔버스에 사용할 폰트는 `FontFace`로 문서에 등록합니다. 호스트 문서의 폰트와 충돌하지 않도록
+ * CSS 전용 이름을 만들고 파일에 저장하는 `fontName`은 그대로 유지합니다. 같은 이름이라도 폰트
+ * 출처에 따라 데이터가 다를 수 있으므로 출처별로 구분해 등록합니다.
  *
  * 등록은 필요한 폰트부터 합니다. 등록이 끝나기 전에는 대체 폰트로 표시하고, 끝나면 다시 그립니다.
  */
@@ -92,11 +91,11 @@ interface FontSource {
   loading: Promise<readonly SlipFont[]> | null;
   /** 가져온 폰트 목록 */
   fonts: readonly SlipFont[];
-  /** 목록 조회에 실패했는지. 실패는 다시 시도하지 않고 이 상태로 남깁니다 */
+  /** 목록 조회에 실패했는지. 실패한 출처는 다음 사용 시 다시 조회합니다 */
   loadFailed: boolean;
   /** 폰트 이름별 등록 상태 */
   readonly faces: Map<string, FaceEntry>;
-  /** 이 출처를 쓰는 화면들. 목록 조회와 등록이 끝나면 모두 다시 그립니다 */
+  /** 이 출처를 쓰는 디자이너. 목록 조회와 등록이 끝나면 모두 다시 그립니다 */
   readonly hosts: Set<FontRegistryHost>;
 }
 
@@ -165,22 +164,21 @@ export class FontRegistryController implements ReactiveController {
   ) {}
 
   hostConnected(): void {
-    // 다시 연결한 화면도 지금 출처의 완료 통지를 받아야 합니다.
+    // 다시 연결한 디자이너도 현재 출처의 완료 알림을 받도록 구독을 복구합니다.
     if (this._key !== null) sources.get(this._key)?.hosts.add(this.host);
     this.host.requestUpdate();
   }
 
   hostDisconnected(): void {
-    // 화면에서 떨어진 디자이너는 더 이상 다시 그리지 않습니다.
+    // DOM에서 분리된 디자이너는 갱신 대상에서 제외합니다.
     if (this._key !== null) sources.get(this._key)?.hosts.delete(this.host);
   }
 
   /**
-   * 폰트를 가져올 출처를 지정합니다. 같은 출처를 다시 지정해도 폰트를 다시 가져오지 않습니다.
-   * 조회에 실패한 출처도 다시 시도하지 않고 빈 목록으로 둡니다.
+   * 폰트를 가져올 출처를 지정합니다. 성공한 조회 결과는 재사용하고 실패한 조회는 다시 시도합니다.
    *
-   * @param key - {@link fontSourceKey}가 만든 출처 키
-   * @param load - 폰트 목록을 가져오는 함수. 출처마다 한 번만 호출합니다
+   * @param key - {@link bundledFontSourceKey}가 만든 키 또는 폰트를 제공한 SlipKit 인스턴스
+   * @param load - 폰트 목록을 가져오는 함수. 성공할 때까지 출처를 다시 사용할 때마다 호출합니다
    */
   use(key: object, load: () => Promise<readonly SlipFont[]>): void {
     if (this._key !== null && this._key !== key) {
@@ -189,7 +187,7 @@ export class FontRegistryController implements ReactiveController {
     this._key = key;
     const source = sourceOf(key);
     source.hosts.add(this.host);
-    // 실패한 출처는 호출부가 다시 쓰려 할 때 새로 시도합니다.
+    // 실패한 출처는 호출부가 다시 사용할 때 새로 조회합니다.
     if (source.loading !== null && !source.loadFailed) {
       // 이미 가져온 출처로 바꾸면 새 목록을 반영하도록 이 화면을 다시 그립니다.
       this.host.requestUpdate();
@@ -201,8 +199,7 @@ export class FontRegistryController implements ReactiveController {
       refreshHosts(source);
       return fonts;
     });
-    // 조회에 실패하면 폰트 목록은 빈 상태로 유지하고, Promise 거부가 전역 오류로
-    // 전달되지 않도록 처리합니다. 실패도 상태로 남겨 같은 출처의 화면이 모두 같은 결과를 봅니다.
+    // 조회 실패를 상태로 기록하고 모든 구독자에게 알립니다. 거부된 Promise는 여기서 처리합니다.
     source.loading.catch(() => {
       source.loadFailed = true;
       refreshHosts(source);

@@ -76,11 +76,11 @@ describe('effectiveFontName', () => {
 });
 
 describe('selectableFontNames', () => {
-  it('기저 이름이 함께 등록된 변형은 목록에서 뺀다', () => {
+  it('기본 이름이 함께 등록된 변형은 목록에서 뺀다', () => {
     expect(selectableFontNames(NAMES)).toEqual(['Pretendard', 'Noto Sans JP']);
   });
 
-  it('기저 이름이 없는 변형은 독립된 폰트로 남긴다', () => {
+  it('기본 이름이 없는 변형은 독립된 폰트로 남긴다', () => {
     expect(selectableFontNames(['Pretendard-Bold', 'Noto Sans JP']))
       .toEqual(['Pretendard-Bold', 'Noto Sans JP']);
   });
@@ -124,7 +124,7 @@ describe('collectUsedFontNames', () => {
 
 // 이 표는 `packages/core/test/render.test.ts`의 같은 표와 짝입니다.
 // 캔버스가 고르는 폰트와 PDF가 고르는 폰트를 같은 기대값으로 확인합니다.
-// core는 대체 폰트를 쓸 때 이름을 넣지 않으므로 그 자리를 대체 폰트 이름으로 적습니다.
+// core는 대체 폰트를 쓸 때 이름을 생략하므로 비교표에는 실제 대체 폰트 이름을 적습니다.
 describe('캔버스와 PDF의 폰트 선택 일치', () => {
   // core 시험과 같은 등록 목록을 씁니다 — BoldItalic 변형은 없습니다.
   const PARITY_NAMES = ['Pretendard', 'Pretendard-Bold', 'Pretendard-Italic', 'Noto Sans JP'];
