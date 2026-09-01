@@ -1,9 +1,5 @@
 /**
  * 그리드 속성 패널 — 행·열, 반복 설정, 행 구간 목록과 셀 설정.
- *
- * @remarks
- * 컴포넌트 전체가 아니라 `PanelKit`(공통 입력), `ElementActions`(요소 조작),
- * `GridActions`(그리드 조작)만 받는다.
  */
 
 import { html, nothing } from 'lit';

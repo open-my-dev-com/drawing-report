@@ -3,7 +3,6 @@
  *
  * @remarks
  * 이미지 값은 base64(`data:`)만 다룬다 — 외부 URL은 호스트가 변환해 전달한다.
- * 화면 상태에 의존하지 않는다.
  */
 
 import type { SlipTemplateFile } from '@omdc-slipkit/core';

@@ -1,8 +1,5 @@
 /**
  * 요소 종류별 속성 입력 항목 — 글자, 폰트, 이미지, 선, 다각형과 공통 크기·기준점.
- *
- * @remarks
- * 컴포넌트 전체가 아니라 `PanelKit`(공통 입력)과 `ElementActions`(요소 조작)만 받는다.
  */
 
 import { html, nothing } from 'lit';

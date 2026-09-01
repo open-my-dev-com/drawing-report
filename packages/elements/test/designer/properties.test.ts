@@ -1680,7 +1680,6 @@ describe('<slip-designer> 패널 표시 정리 (F-18)', () => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
 
-    // 값이 사라지지 않고 되돌아온다
     expect(sizeInput().value).toBe('10');
     // 유효하지 않은 입력임을 표시한다.
     expect(el.shadowRoot!.querySelector('.input-error')?.textContent?.trim())
@@ -2174,7 +2173,6 @@ describe('<slip-designer> 바코드 요소 (G-33)', () => {
     expect(bc.type).toBe('barcode');
     expect(bc.kind).toBe('qrcode');
     expect(typeof bc.parameter).toBe('string');
-    // 캔버스에 견본(svg)이 그려진다
     expect(el.shadowRoot!.querySelector('.barcode-preview svg')).not.toBeNull();
     el.remove();
   });

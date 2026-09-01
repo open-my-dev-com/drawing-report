@@ -2,7 +2,7 @@
  * 디자이너의 좌표와 크기 계산.
  *
  * @remarks
- * 용지 좌표는 mm, 화면 좌표는 px다. 화면 상태에 의존하지 않는다.
+ * 용지 좌표는 mm, 화면 좌표는 px다.
  */
 
 import { elementBounds, type SlipElement, type LineElement } from '@omdc-slipkit/core';

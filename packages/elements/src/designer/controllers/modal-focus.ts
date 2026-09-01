@@ -8,7 +8,6 @@
  * `hostUpdated`가 아니라 컴포넌트의 `updated`에서 `sync`를 부른다.
  */
 
-/** 모달 초점 관리가 필요로 하는 호스트의 최소 범위 */
 export interface ModalFocusHost {
   readonly renderRoot: DocumentFragment | HTMLElement;
   readonly shadowRoot: ShadowRoot | null;

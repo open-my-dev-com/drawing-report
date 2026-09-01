@@ -10,7 +10,6 @@ import type { ReactiveController } from 'lit';
 /** 디자이너가 여는 모달의 종류 */
 export type DialogKind = 'formula' | 'image' | 'sample' | 'save' | 'myForms';
 
-/** 모달 관리가 필요로 하는 호스트의 최소 범위 */
 export interface DialogsHost {
   requestUpdate(): void;
 }
@@ -20,7 +19,6 @@ export class DialogsController implements ReactiveController {
 
   constructor(private readonly host: DialogsHost) {}
 
-  /** 연결 시 현재 컨트롤러 상태가 화면에 반영되도록 갱신을 요청한다. */
   hostConnected(): void {
     this.host.requestUpdate();
   }

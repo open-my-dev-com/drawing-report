@@ -1,8 +1,5 @@
 /**
  * 그리드의 트랙, 셀과 행 구간을 조회하고 변경하는 로직.
- *
- * @remarks
- * 화면 상태에 의존하지 않고 그리드 요소만 다룬다.
  */
 
 import type { GridBand, GridBandPlacement, GridCell, GridElement, SlipElement } from '@omdc-slipkit/core';

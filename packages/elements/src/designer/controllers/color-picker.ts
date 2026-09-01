@@ -48,7 +48,6 @@ export function saveCustomColor(color: string): string[] {
   return list;
 }
 
-/** 색 선택기 상태가 필요로 하는 호스트의 최소 범위 */
 export interface ColorPickerHost {
   requestUpdate(): void;
 }
@@ -62,7 +61,6 @@ export class ColorPickerController implements ReactiveController {
 
   constructor(private readonly host: ColorPickerHost) {}
 
-  /** 연결 시 현재 컨트롤러 상태가 화면에 반영되도록 갱신을 요청한다. */
   hostConnected(): void {
     this.host.requestUpdate();
   }

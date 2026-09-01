@@ -395,7 +395,6 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     const field = (el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!
       .elements.at(-1)! as never as { formula?: string };
     expect(field.formula).toBe('ROUND(1.5) + 1');
-    // 모달은 닫힌다
     expect(el.shadowRoot!.querySelector('.modal')).toBeNull();
     el.remove();
   });
@@ -492,7 +491,6 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     const el = await loadDesigner();
     await openSampleModal(el);
 
-    // 목록 파라미터(items)는 행 편집 그리드로 표시한다
     expect(el.shadowRoot!.querySelector('.sample-grid')).not.toBeNull();
     byAria(el, `items ${strings.designer.addRow}`).click();
     await el.updateComplete;
@@ -726,7 +724,6 @@ describe('<slip-designer> 이미지 업로드', () => {
 
     const file = (el as unknown as { _file: SlipTemplateFile })._file;
     expect((file.template.pages[0]!.elements[1] as { src: string }).src).toBe(PNG_A);
-    // 선택하면 모달이 닫힌다
     expect(el.shadowRoot!.querySelector('.image-choice')).toBeNull();
     el.remove();
   });

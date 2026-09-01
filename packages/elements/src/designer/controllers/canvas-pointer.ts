@@ -159,7 +159,6 @@ export class CanvasPointerController implements ReactiveController {
 
   constructor(private readonly host: PointerHost) {}
 
-  /** 연결 시 현재 컨트롤러 상태가 화면에 반영되도록 갱신을 요청한다. */
   hostConnected(): void {
     this.host.refresh();
   }

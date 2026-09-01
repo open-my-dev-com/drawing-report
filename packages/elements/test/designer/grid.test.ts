@@ -134,7 +134,6 @@ describe('<slip-designer> 표 내부 편집', () => {
     expect(after.rows.length).toBe(2);
     expect(after.columns.length).toBe(2);
     expect(after.cells.some((c) => c.row >= 2 || c.column >= 2)).toBe(false);
-    // 남은 셀은 유지
     expect(after.cells.some((c) => c.content === '라벨')).toBe(true);
     el.remove();
   });
