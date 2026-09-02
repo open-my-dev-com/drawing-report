@@ -3,7 +3,13 @@
  * AI에 제공하는 내용은 영어로 작성하고, 전체 필드 정의는 core가 생성한 JSON Schema로 제공한다.
  * 요소 종류처럼 스키마와 함께 바뀌어야 하는 내용은 테스트에서 대조한다.
  */
-import { CURRENT_SCHEMA_VERSION, FORMULA_FUNCTIONS, SLIP_LIMITS, slipFileJsonSchema } from '@omdc-slipkit/core';
+import {
+  CURRENT_SCHEMA_VERSION,
+  FORMULA_FUNCTIONS,
+  MAX_IMAGE_BYTES,
+  SLIP_LIMITS,
+  slipFileJsonSchema,
+} from '@omdc-slipkit/core';
 
 /** `slip_schema` 도구가 지원하는 주제 */
 export const SCHEMA_TOPICS = [
@@ -82,6 +88,9 @@ via slip_edit set_element/set_cell fields, or pass {"conditionalFormats": null} 
   { "type": "field", "parameter": "customerName" } or { "type": "field", "formula": "SUM(items.amount)" }
 - image: exactly ONE of "src" or "parameter". For a fixed image, use slip_edit set_image with a local
   file path. It stores the bytes as a base64 data URL in assets[] and sets src to "asset://<assetId>".
+  Images must be PNG or JPEG and at most ${MAX_IMAGE_BYTES / 1024 / 1024} MiB each; the server checks the
+  file content (signature), not just the extension, and applies the same rule to any "data:" image
+  given directly in src, assets[], or voucher image values.
   Do not author http(s) URLs. The file schema recognizes them for compatibility, but PDF rendering
   does not fetch external images and issued vouchers reject them. set_image replaces parameter binding;
   this server does not provide a path-based operation for voucher image parameter values.

@@ -1,9 +1,22 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { readFile, writeFile } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { isEncryptedSlipFile, serializeSlipFile } from '@omdc-slipkit/core';
-import { FileSystemStorage } from '../src/storage.js';
+import { FileSystemStorage, resolveInRoot, writeFileAtomic } from '../src/storage.js';
 import { makeTemplate, makeWorkDir, removeWorkDir } from './helpers.js';
+
+// 이름 바꾸기 실패를 흉내 내기 위해 rename만 가로챈다. 기본은 실제 구현을 그대로 쓴다.
+const renameFailure = vi.hoisted(() => ({ error: null as Error | null }));
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return {
+    ...actual,
+    rename: async (from: string, to: string): Promise<void> => {
+      if (renameFailure.error !== null) throw renameFailure.error;
+      return actual.rename(from, to);
+    },
+  };
+});
 
 let dir: string;
 
@@ -12,6 +25,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  renameFailure.error = null;
   await removeWorkDir(dir);
 });
 
@@ -38,6 +52,51 @@ describe('FileSystemStorage', () => {
     await expect(storage.save('/etc/passwd', makeTemplate())).rejects.toMatchObject({
       code: 'io',
     });
+  });
+
+  it('빈 이름과 디렉터리로 끝나는 이름은 이름 없는 .slip을 만들지 않고 거부한다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    for (const id of ['', '.slip', 'sub/', 'sub/.slip']) {
+      await expect(storage.save(id, makeTemplate()), id).rejects.toMatchObject({ code: 'io' });
+      await expect(storage.load(id), id).rejects.toMatchObject({ code: 'io' });
+    }
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it('점 두 개로 시작하는 정상 이름은 상위 디렉터리 참조로 오인하지 않는다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    await storage.save('..hidden', makeTemplate());
+    expect(await storage.load('..hidden')).toEqual(makeTemplate());
+    expect(resolveInRoot(dir, '...three')).toBe(path.join(dir, '...three'));
+    expect(() => resolveInRoot(dir, '..')).toThrow(/outside the working directory/);
+    expect(() => resolveInRoot(dir, '../x')).toThrow(/outside the working directory/);
+    expect(() => resolveInRoot(dir, 'a/../../x')).toThrow(/outside the working directory/);
+  });
+
+  it('저장은 임시 파일을 남기지 않고, 이름 바꾸기가 실패하면 기존 파일을 그대로 둔다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    const original = makeTemplate();
+    await storage.save('doc', original);
+    expect(await readdir(dir)).toEqual(['doc.slip']);
+
+    const changed = makeTemplate();
+    changed.template.meta.title = '바뀐 제목';
+    renameFailure.error = Object.assign(new Error('EXDEV: cross-device link'), { code: 'EXDEV' });
+    await expect(storage.save('doc', changed)).rejects.toMatchObject({
+      code: 'io',
+      message: expect.stringContaining('EXDEV') as string,
+    });
+    // 원본은 그대로이고 임시 파일도 남지 않는다.
+    expect(await storage.load('doc')).toEqual(original);
+    expect(await readdir(dir)).toEqual(['doc.slip']);
+  });
+
+  it('writeFileAtomic은 부모 디렉터리를 만들고 바이너리도 그대로 쓴다', async () => {
+    const target = path.join(dir, 'out', 'nested', 'file.bin');
+    const bytes = Uint8Array.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0x00, 0xff]);
+    await writeFileAtomic(target, bytes);
+    expect([...(await readFile(target))]).toEqual([...bytes]);
+    expect(await readdir(path.join(dir, 'out', 'nested'))).toEqual(['file.bin']);
   });
 
   it('없는 파일은 not-found 오류를 던진다', async () => {

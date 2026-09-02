@@ -16,6 +16,11 @@ export {
   type ResolveInput,
   type SlipMcpConfig,
 } from './config.js';
-export { startPdfLinkServer, startOrJoinPdfLinkServer, type PdfLinkServer } from './http.js';
+export {
+  createPdfLinkToken,
+  startPdfLinkServer,
+  startOrJoinPdfLinkServer,
+  type PdfLinkServer,
+} from './http.js';
 export { editOpSchema, MAX_IMAGE_BYTES, type EditOp } from './edit.js';
 export { SCHEMA_TOPICS, schemaTopicText, type SchemaTopic } from './schema-docs.js';

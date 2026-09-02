@@ -2,7 +2,8 @@
  * 로컬 파일 시스템에 `.slip` 파일을 저장하는 저장소 어댑터.
  * MCP 서버와 Node.js 호스트 애플리케이션이 같은 파일 접근 규칙을 사용할 수 있다.
  */
-import { mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   SlipStorageError,
@@ -63,16 +64,21 @@ export class FileSystemStorage implements StorageAdapter {
    *
    * @param id - 상대 경로 저장 키 (`.slip` 확장자는 없으면 붙인다)
    * @returns 절대 경로
-   * @throws SlipStorageError 경로가 기준 디렉터리를 벗어나면 (`io`)
+   * @throws SlipStorageError 파일 이름이 비어 있거나 경로가 기준 디렉터리를 벗어나면 (`io`)
    */
   resolvePath(id: string): string {
     const withExt = id.endsWith('.slip') ? id : `${id}.slip`;
+    // 빈 id나 디렉터리로 끝나는 id는 이름 없는 `.slip` 파일을 만들므로 거부한다.
+    if (path.basename(withExt) === '.slip') {
+      throw new SlipStorageError('io', mcpText(this.locale).emptyId(id));
+    }
     return resolveInRoot(this.rootDir, withExt, this.locale);
   }
 
   /**
    * `.slip` 파일을 저장한다. 같은 id가 이미 있으면 덮어쓴다.
    * 암호화가 설정되어 있으면 암호화 봉투로 저장한다.
+   * 임시 파일에 쓴 뒤 이름을 바꿔 교체하므로 쓰기가 실패해도 기존 파일은 그대로 남는다.
    *
    * @param id - 상대 경로 저장 키
    * @param file - 저장할 `.slip` 파일
@@ -84,8 +90,7 @@ export class FileSystemStorage implements StorageAdapter {
       ? await encryptSlipFile(file, this.encryption.key, this.localeOptions())
       : serializeSlipFile(file);
     try {
-      await mkdir(path.dirname(abs), { recursive: true });
-      await writeFile(abs, text, 'utf8');
+      await writeFileAtomic(abs, text);
     } catch (error) {
       throw new SlipStorageError('io', reasonOf(error));
     }
@@ -226,10 +231,33 @@ export class FileSystemStorage implements StorageAdapter {
 export function resolveInRoot(rootDir: string, relPath: string, locale?: string): string {
   const abs = path.resolve(rootDir, relPath);
   const rel = path.relative(rootDir, abs);
-  if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) {
+  // `..foo`처럼 점 두 개로 시작하는 정상 이름은 상위 디렉터리 참조가 아니다.
+  if (rel === '' || rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
     throw new SlipStorageError('io', mcpText(locale).outsideRoot(relPath));
   }
   return abs;
+}
+
+/**
+ * 파일을 원자적으로 쓴다. 같은 디렉터리의 임시 파일에 먼저 쓰고 이름을 바꿔 교체하므로
+ * 도중에 실패해도 대상 파일은 이전 내용 그대로 남고, 임시 파일은 정리한다.
+ * 부모 디렉터리가 없으면 만든다.
+ *
+ * @param abs - 대상 파일의 절대 경로
+ * @param data - 쓸 내용 (문자열은 UTF-8)
+ * @throws Error 디렉터리 생성·쓰기·이름 바꾸기가 실패했을 때 (Node 파일 오류 그대로)
+ */
+export async function writeFileAtomic(abs: string, data: string | Uint8Array): Promise<void> {
+  await mkdir(path.dirname(abs), { recursive: true });
+  // 임시 파일은 `.slip`·`.pdf`로 끝나지 않아 목록 조회나 링크 서버에 노출되지 않는다.
+  const temp = `${abs}.${process.pid}-${randomBytes(6).toString('hex')}.tmp`;
+  try {
+    await writeFile(temp, data, typeof data === 'string' ? 'utf8' : undefined);
+    await rename(temp, abs);
+  } catch (error) {
+    await unlink(temp).catch(() => undefined);
+    throw error;
+  }
 }
 
 /** 항목의 제목 또는 경로에 검색어가 부분 일치하는지 확인한다. */
@@ -238,8 +266,13 @@ function matchesQuery(item: SlipListItem, query: string): boolean {
   return item.title.toLowerCase().includes(q) || item.id.toLowerCase().includes(q);
 }
 
-/** Node 파일 오류가 "파일 없음"인지 판별한다. */
-function isNotFound(error: unknown): boolean {
+/**
+ * Node 파일 오류가 "파일 없음"인지 판별한다.
+ *
+ * @param error - 확인할 오류
+ * @returns `ENOENT` 오류면 true
+ */
+export function isNotFound(error: unknown): boolean {
   return (
     typeof error === 'object' &&
     error !== null &&
@@ -258,6 +291,7 @@ const MCP_TEXT = {
   en: {
     notFound: (id: string) => `No saved file: ${id}`,
     outsideRoot: (id: string) => `Path is outside the working directory: ${id}`,
+    emptyId: (id: string) => `File name is empty: "${id}"`,
     encryptedNoKey: () =>
       'The file is encrypted but no key is configured. Set the SLIPKIT_MCP_KEY environment variable.',
     badCursor: () => 'Invalid list cursor',
@@ -265,6 +299,7 @@ const MCP_TEXT = {
   ko: {
     notFound: (id: string) => `저장된 파일이 없습니다: ${id}`,
     outsideRoot: (id: string) => `작업 디렉터리 밖의 경로입니다: ${id}`,
+    emptyId: (id: string) => `파일 이름이 비어 있습니다: "${id}"`,
     encryptedNoKey: () =>
       '암호화된 파일인데 설정된 키가 없습니다. SLIPKIT_MCP_KEY 환경변수를 설정하세요.',
     badCursor: () => '잘못된 목록 커서입니다',
@@ -272,6 +307,7 @@ const MCP_TEXT = {
   ja: {
     notFound: (id: string) => `保存されたファイルがありません: ${id}`,
     outsideRoot: (id: string) => `作業ディレクトリ外のパスです: ${id}`,
+    emptyId: (id: string) => `ファイル名が空です: "${id}"`,
     encryptedNoKey: () =>
       '暗号化されたファイルですが、キーが設定されていません。SLIPKIT_MCP_KEY 環境変数を設定してください。',
     badCursor: () => '無効なリストカーソルです',
