@@ -28,6 +28,12 @@ export const layoutStyles = css`
       display: grid;
       grid-template-rows: auto 1fr;
       grid-template-columns: 176px 1fr 300px;
+      /*
+       * 데스크톱 전용 화면이라 뷰포트에 따라 열을 바꾸지 않습니다. 호스트가 확보해야 하는 최소 영역은
+       * 1280×640이며, 더 작은 영역에서는 줄어들지 않고 호스트 쪽 스크롤 컨테이너에 맡깁니다.
+       */
+      min-width: 1280px;
+      min-height: 640px;
       height: 100%;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
       font-size: 13px;

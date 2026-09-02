@@ -415,23 +415,4 @@ export const gridStyles = css`
       font: inherit;
       cursor: pointer;
     }
-
-    @media (max-width: 960px) {
-      :host {
-        grid-template-columns: 156px minmax(0, 1fr) 280px;
-      }
-      .sidebar {
-        padding-inline: 8px;
-      }
-      .canvas-area {
-        padding: 16px;
-      }
-      .prop-panel {
-        padding-inline: 10px;
-      }
-      .type-name {
-        margin-inline: -10px;
-        padding-inline: 10px;
-      }
-    }
 `;
