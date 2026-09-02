@@ -356,6 +356,16 @@ const fonts = [
 
 `getFonts`가 비어 있지 않은 배열을 반환하면 동봉 기본 폰트는 자동으로 추가되지 않습니다.
 
+컴포넌트의 기본 동작과 같은 언어별 동봉 폰트 구성이 필요하면 `loadDefaultFonts(locale)`를 사용합니다. 두 동봉 폰트 묶음을 의도적으로 함께 써야 할 때만 폰트 서브패스를 사용합니다.
+
+```ts
+import { loadDefaultFonts } from '@omdc-slipkit/elements';
+
+const slipkit = createSlipKit({
+  getFonts: () => loadDefaultFonts('ko'),
+});
+```
+
 동봉 폰트를 사용자 폰트와 함께 사용하려면 폰트 서브패스에서 직접 불러옵니다.
 
 ```ts
@@ -640,15 +650,15 @@ designer.presets = appPresets;
 
 사용자 프리셋을 지정하면 동봉 프리셋 대신 사용자 프리셋이 표시됩니다.
 
-두 종류를 함께 표시하려면 동봉 `presets`를 펼쳐서 전달합니다.
+두 종류를 함께 표시하려면 `getPresets`로 현재 언어의 동봉 프리셋을 가져와 펼쳐서 전달합니다.
 
 ```ts
 import {
-  presets as builtInPresets,
+  getPresets,
 } from '@omdc-slipkit/elements';
 
 const appPresets = [
-  ...builtInPresets,
+  ...getPresets('ko'),
   shippingLabelPreset,
 ];
 

@@ -148,6 +148,7 @@ codex mcp add slipkit -- \
 | 로케일 | `--locale` → `SLIPKIT_MCP_LOCALE` → `locale` → 영어 |
 | 폰트 | 설정 파일의 `fonts` → 로케일에 맞는 동봉 폰트 |
 | 암호화 키 | `encryption`에서 지정한 이름의 환경변수. 이름을 생략하면 기본 환경변수 이름 사용 |
+| PDF 링크 | 설정 파일의 `httpPort`. 생략하면 비활성화 |
 
 기존의 위치 인자와 `--locale`은 설정 파일 값을 일시적으로 덮어쓸 때 계속 사용할 수 있습니다.
 
@@ -207,6 +208,10 @@ codex mcp add slipkit -- \
 
 현재 키 환경변수가 설정되면 새로 저장하는 파일은 암호화됩니다. 평문 `.slip` 파일은 그대로 읽을 수 있지만, 암호화된 파일은 일치하는 현재 키나 이전 키가 없으면 읽을 수 없습니다. `encryption.keyEnv`를 명시했는데 해당 환경변수가 없으면 서버는 시작되지 않습니다.
 
+### 로컬 PDF 링크
+
+`httpPort`를 설정하면 `127.0.0.1`에 바인딩된 읽기 전용 서버로 렌더링한 PDF를 제공합니다. MCP 프로세스마다 별도의 64자 토큰을 만들며 반환 URL은 `http://127.0.0.1:<포트>/<토큰>/<파일>.pdf` 형식입니다. 프로세스끼리 토큰이나 기존 링크 서버를 공유하지 않고, 요청한 포트가 사용 중이면 빈 포트를 선택합니다. 작업 디렉터리 안의 PDF만 제공합니다.
+
 ### PDF 폰트
 
 `fonts`를 생략하면 MCP 서버는 `@omdc-slipkit/elements`에 base64로 동봉된 폰트를 사용합니다. 폰트를 네트워크에서 내려받거나 운영체제 폰트를 자동으로 읽지 않습니다.
@@ -251,7 +256,7 @@ codex mcp add slipkit -- \
 | `slip_save` | 완성된 JSON을 검증하고 새 `.slip` 파일로 저장합니다. | `path`, `file`, `overwrite` |
 | `slip_edit` | 기존 파일에 대상을 지정한 수정 연산을 원자적으로 적용합니다. | `path`, `ops` |
 | `slip_build_voucher` | 양식과 파라미터 값으로 미발행 전표를 만듭니다. | `templatePath`, `values`, `outPath`, `overwrite` |
-| `slip_render_pdf` | 양식이나 전표를 PDF 파일로 렌더링합니다. | `path`, `outPath` |
+| `slip_render_pdf` | 양식이나 전표를 PDF 파일로 렌더링하고 선택적으로 미리보기 URL을 반환합니다. | `path`, `outPath`, `preview`, `previewPage` |
 | `slip_schema` | `.slip` 구조를 주제별로 안내합니다. | `topic` |
 
 `slip://schema` 리소스는 현재 `.slip` JSON Schema 전체를 제공합니다. `slip_schema`의 `topic`은 `overview`, `elements`, `grid`, `parameters`, `formula`, `voucher`, `json-schema`입니다.
@@ -266,6 +271,8 @@ codex mcp add slipkit -- \
 | `full` | 파일 전체 내용 |
 
 읽기 응답의 base64 이미지 데이터는 크기 표시로 대체됩니다. `.slip` 파일의 이미지 형식은 base64 데이터 URL을 사용하며, MCP에서 이미지를 넣을 때는 `slip_edit`의 `set_image`에 작업 디렉터리 안의 파일 경로를 전달합니다. 서버가 파일을 읽어 base64 에셋으로 변환합니다.
+
+이미지 데이터 검사는 이미지로 선언된 값에만 적용합니다. 이미지 요소가 참조하는 파라미터, `valueType: 'image'`인 파라미터와 같은 형식의 목록 하위 필드가 대상입니다. `data:`로 시작하는 미정의 키를 포함한 다른 업무 데이터 문자열은 그대로 보존합니다.
 
 ### `slip_edit` 연산
 
@@ -339,12 +346,13 @@ MCP 서버가 만드는 전표는 `issued: false`인 미발행 전표입니다. 
 
 ## 파일 접근과 안전 범위
 
-- 모든 입력·출력 경로는 MCP 서버를 시작할 때 지정한 작업 디렉터리 안으로 제한됩니다.
+- 모든 입력·출력 경로는 MCP 서버를 시작할 때 지정한 작업 디렉터리 안으로 제한됩니다. 읽기·쓰기·삭제·이미지·PDF·HTTP 접근에서 기존 경로와 심볼릭 링크 대상의 실제 경로를 확인합니다.
+- `rootDir`는 실제 경로로 정규화합니다. 대상 자체가 심볼릭 링크이면 거부하며 `slip_list`는 링크 파일과 링크된 디렉터리를 제외합니다.
 - 저장 경로에 `.slip` 확장자가 없으면 자동으로 붙습니다.
 - `slip_edit` 연산 묶음은 전체가 유효할 때만 저장됩니다.
 - `slip_save`와 `slip_build_voucher`는 기존 파일을 기본적으로 덮어쓰지 않습니다. 명시적으로 `overwrite: true`를 전달해도 발행된 전표는 교체할 수 없습니다.
-- PDF 출력 경로에는 `.slip` 확장자를 사용할 수 없습니다.
-- `set_image`는 PNG, JPEG, GIF, WebP 파일을 지원하며 파일당 최대 크기는 2MB입니다.
+- PDF `outPath`는 `.pdf`로 끝나야 합니다. 기존 대상이 PDF일 때만 렌더링 결과로 교체합니다.
+- `set_image`는 파일당 최대 2MiB인 PNG와 JPEG만 지원하며 파일 시그니처와 미디어 타입을 함께 확인합니다.
 - 서버는 임의 코드 실행, 네트워크 접속, 사용자 인증 또는 전표 발행 기능을 제공하지 않습니다.
 
 `slip_edit`에는 요소·페이지·파라미터 삭제 연산이 있습니다. 사용자 확인 정책은 MCP 클라이언트의 도구 승인 설정에서 구성하세요.

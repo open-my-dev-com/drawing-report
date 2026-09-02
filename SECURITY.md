@@ -55,13 +55,13 @@ Out of scope:
 
 **Markup is built through Lit templates.** The UI components do not use `innerHTML`, `unsafeHTML`, or `document.write`, so values are inserted as data rather than parsed as markup.
 
-**Untrusted input must go through validation.** `parseSlipFile` and `validateSlipFile` run a schema over the whole file: values must match their declared types, colors must match `#RRGGBB` or `#RRGGBBAA`, and sizes, counts, and nesting are all capped. Properties the schema does not define are dropped rather than passed through to the renderer, and a file that fails validation is not returned. Pass JSON and any other untrusted values through one of these functions before rendering — TypeScript types alone are not runtime validation, and an object your application builds and hands straight to the renderer is not re-checked.
+**Untrusted input must go through validation.** `parseSlipFile` and `validateSlipFile` run a schema over the whole file: colors must match `#RRGGBB` or `#RRGGBBAA`, and sizes, counts, strings, images, and nesting are capped. Unknown properties are rejected on structural objects. `values`, `sampleValues`, and list rows are open business-data maps, so unknown keys there are preserved; the host must validate their business meaning. A file that fails structural validation is not returned. Pass JSON and any other untrusted values through one of these functions before rendering — TypeScript types alone are not runtime validation, and an object your application builds and hands straight to the renderer is not re-checked.
 
 **Inputs are bounded.** Pages, elements per page, grid cells, repeat items, output pages, formula length, and formula nesting all have hard limits, which bounds the work a single hostile file can cause. These limits do not replace host-level limits on request size, image size, memory, and concurrency.
 
 **Authenticated encryption.** `.slip` files can be saved in an AES-256-GCM envelope. A wrong key and a tampered file both fail the same way, with the same message. Passphrases are stretched with PBKDF2-HMAC-SHA256 using the iteration count recommended by the OWASP Password Storage Cheat Sheet; the count is stored in the envelope, so files written by older versions still open.
 
-**The MCP server stays local.** It speaks stdio. Its optional PDF link server binds to `127.0.0.1` only, answers `GET` only, and serves only `.pdf` paths that are lexically contained within the configured working directory — the symbolic-link limitation described below still applies. It rejects requests whose `Host` header is not a local address, which mitigates common DNS-rebinding attempts from a web page.
+**The MCP server stays local.** It speaks stdio. Its optional PDF link server binds to `127.0.0.1` only, answers `GET` only, and requires a process-local random token in the URL path. File operations resolve existing targets or their nearest existing parent with `realpath` and reject paths whose actual location leaves the configured working directory, including symbolic-link traversal. Requests with a non-local `Host` header or a missing or incorrect token receive 404.
 
 ### What SlipKit does not guarantee — your responsibility as the host
 
@@ -69,7 +69,7 @@ Out of scope:
 
 **Passphrase strength.** The passphrase you pass in is stretched with a key derivation function, but no minimum length or complexity is enforced. Apply your own policy before calling the API.
 
-**Templates from untrusted sources.** A `.slip` template may reference images by `https://` URL. Opening such a template makes the viewer's browser fetch that URL, which tells the third party that the file was opened, and from which IP. If you accept templates from people you do not trust, serve your application with a Content Security Policy that restricts `img-src`, or strip URL images before rendering. (Issued vouchers cannot contain URL images — those must be embedded — but templates can.)
+**Templates from untrusted sources.** A `.slip` template may contain an `http://` or `https://` image reference, but SlipKit does not fetch it. The Designer shows a non-embedded-image placeholder and Core PDF rendering rejects it. If the host chooses to fetch an external image, it must enforce its own URL allowlist, response-size and content checks, then pass a signed PNG or JPEG data URI to SlipKit. Issued vouchers cannot contain external image URLs.
 
 **Content Security Policy.** SlipKit does not require inline scripts or `eval`. The host application's CSP must still allow any font and image sources its configuration and templates use.
 
@@ -83,9 +83,9 @@ Out of scope:
 
 These are known and currently accepted:
 
-- **Symbolic links inside the MCP working directory are not resolved.** Containment is checked on the lexical path, so a symlink created inside the working directory may reference a file outside it. Do not allow untrusted users or processes to write to the MCP working directory.
+- **Filesystem checks cannot remove every local race.** The MCP server checks the resolved path immediately before I/O, but a different process that can replace entries in the working directory may race that check. Do not share the working directory with an untrusted local writer.
 - **Page planning runs on the main thread.** A voucher with tens of thousands of repeat items takes a noticeable moment to lay out, during which the browser tab does not respond. Cap the item count you pass in if your data can grow without bound.
-- **No CI runs on pull requests.** The verification gate runs on a developer's machine through a commit hook, which can be skipped with `--no-verify` or missing in a fresh checkout. Do not treat a branch as independently verified.
+- **External template images are not embedded automatically.** Core never fetches them. Resolve and validate images in the host before issuing; embedded images are limited to signed PNG or JPEG data up to 2MiB each.
 
 ## Hardening checklist for hosts
 
@@ -102,5 +102,6 @@ Relevant security checks, automated tests, and manual review items are documente
 
 ```bash
 pnpm audit        # known vulnerabilities in dependencies
-pnpm -r test      # includes the security test cases
+pnpm verify       # lint, build, typecheck, package tests, and workflow helper tests
+pnpm verify:packages # real tarballs in clean npm and pnpm consumers
 ```

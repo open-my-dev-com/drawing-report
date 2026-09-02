@@ -1380,8 +1380,16 @@ const BUILT_IN_MIGRATIONS:
 | `maxGridColumnTracks` | 100 | 그리드 최대 열 수 |
 | `maxRepeatPerPage` | 1,000 | 페이지당 최대 반복 항목 수 |
 | `maxRepeatItems` | 100,000 | 반복 목록 전체 항목 수 상한 |
+| `maxGridBands` | 20 | 그리드당 최대 행 구간 수 |
+| `maxOutputPages` | 2,000 | 양식 페이지 하나에서 생성할 수 있는 최대 출력 페이지 수 |
+| `maxConditionalFormats` | 20 | 요소·셀당 최대 조건부 서식 규칙 수 |
 | `maxLineHeight` | 10 | 줄 간격 배수 상한 |
 | `maxCharacterSpacing` | 100 | 자간 절댓값 상한(pt) |
+| `maxMillimeters` | 5,000 | 위치·크기·트랙·테두리·여백의 상한(mm) |
+| `maxFontSize` | 500 | 글자 크기 상한(pt) |
+| `maxTextLength` | 20,000 | 구조 문자열과 렌더링 문자열의 최대 길이 |
+| `maxValueStringLength` | 3,000,000 | 업무 데이터 맵 문자열의 최대 길이 |
+| `maxImageBytes` | 2MiB | PNG 또는 JPEG 이미지 한 장의 최대 디코딩 크기 |
 
 ## `@omdc-slipkit/elements`
 
@@ -1423,7 +1431,7 @@ import type {
 
 | 이벤트 | `detail` | 발생 시점 |
 |---|---|---|
-| `slip-change` | `{ file: SlipFile }` | 양식이 편집될 때 |
+| `slip-change` | `{ file: SlipTemplateFile }` | 양식이 편집될 때 |
 
 실제 `file.kind`는 `'template'`입니다.
 
@@ -1450,12 +1458,14 @@ import type {
 
 발행된 전표를 전달하면 입력이 잠깁니다.
 
+현재 원본 양식에서 빈 미발행 전표를 다시 시작하려면 `reset()`을 호출합니다. 모든 값을 지우고 발행된 원본도 잠금 해제한 뒤 `slip-change`를 발생시키며, `src`를 읽을 수 없으면 아무 작업도 하지 않습니다.
+
 #### 이벤트
 
 | 이벤트 | `detail` | 발생 시점 |
 |---|---|---|
-| `slip-change` | `{ file: SlipFile }` | 입력값이 변경될 때 |
-| `slip-issue` | `{ file: SlipFile }` | 전표 발행이 완료될 때 |
+| `slip-change` | `{ file: SlipVoucherFile }` | 입력값이 변경될 때 |
+| `slip-issue` | `{ file: SlipVoucherFile }` | 전표 발행이 완료될 때 |
 
 두 이벤트에서 실제 `file.kind`는 `'voucher'`입니다.
 
@@ -1600,6 +1610,16 @@ interface SlipFileExchangeOptions {
 
 ### 동봉 폰트
 
+#### `loadDefaultFonts`
+
+```ts
+function loadDefaultFonts(
+  locale?: SlipLocale,
+): Promise<SlipFont[]>;
+```
+
+일본어에는 Noto Sans JP 서브셋을, 그 밖의 언어에는 Pretendard Regular와 Bold를 불러옵니다. 같은 언어의 호출은 로딩 Promise를 공유합니다.
+
 #### `PRETENDARD_FONTS`
 
 ```ts
@@ -1639,12 +1659,12 @@ interface SlipDesignerProps {
   maxImageBytes?: number;
 
   onSlipChange?(
-    file: SlipFile,
+    file: SlipTemplateFile,
   ): void;
 }
 ```
 
-Web Component의 `slip-change` 이벤트에서 `CustomEvent`를 제거하고 `SlipFile` 객체를 콜백에 직접 전달합니다.
+Web Component의 `slip-change` 이벤트에서 `CustomEvent`를 제거하고 `SlipTemplateFile` 객체를 콜백에 직접 전달합니다.
 
 ### `SlipForm`
 
@@ -1657,11 +1677,11 @@ interface SlipFormProps {
   maxImageBytes?: number;
 
   onSlipChange?(
-    file: SlipFile,
+    file: SlipVoucherFile,
   ): void;
 
   onSlipIssue?(
-    file: SlipFile,
+    file: SlipVoucherFile,
   ): void;
 }
 ```
@@ -1686,6 +1706,8 @@ import type {
 } from '@omdc-slipkit/react';
 ```
 
+선택형 래퍼 prop은 명시적으로 전달한 동안에만 내부 요소에 설정되며, 제거하면 요소 자체의 기본값으로 돌아갑니다. 발행 뒤 같은 원본으로 새 전표를 시작하려면 React의 `key`를 바꿔 `SlipForm`을 다시 마운트합니다.
+
 ## `@omdc-slipkit/vue`
 
 Vue 3.4 이상을 지원합니다.
@@ -1706,7 +1728,7 @@ Vue 3.4 이상을 지원합니다.
 
 | 이벤트 | 전달값 |
 |---|---|
-| `slip-change` | `SlipFile` |
+| `slip-change` | `SlipTemplateFile` |
 
 ### `SlipForm`
 
@@ -1721,8 +1743,8 @@ Vue 3.4 이상을 지원합니다.
 
 | 이벤트 | 전달값 |
 |---|---|
-| `slip-change` | `SlipFile` |
-| `slip-issue` | `SlipFile` |
+| `slip-change` | `SlipVoucherFile` |
+| `slip-issue` | `SlipVoucherFile` |
 
 ### `SlipViewer`
 
@@ -1731,6 +1753,8 @@ Vue 3.4 이상을 지원합니다.
 | `src` | `string` | ● |
 | `locale` | `string` | — |
 | `slipkit` | `SlipKit` | — |
+
+선택형 래퍼 prop도 같은 규칙을 따릅니다. prop을 제거하면 내부 요소의 기본값으로 돌아가며, 발행 뒤에는 Vue의 `:key`를 바꿔 `SlipForm`을 다시 마운트합니다.
 
 ## `@omdc-slipkit/mcp`
 

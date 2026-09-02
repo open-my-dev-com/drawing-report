@@ -1380,8 +1380,16 @@ const BUILT_IN_MIGRATIONS:
 | `maxGridColumnTracks` | 100 | グリッドの最大列数 |
 | `maxRepeatPerPage` | 1,000 | ページあたりの最大繰り返し項目数 |
 | `maxRepeatItems` | 100,000 | 繰り返しリスト全体の項目数の上限 |
+| `maxGridBands` | 20 | グリッドあたりの最大行バンド数 |
+| `maxOutputPages` | 2,000 | 1 つのテンプレートページから生成できる最大出力ページ数 |
+| `maxConditionalFormats` | 20 | 要素・セルあたりの最大条件付き書式ルール数 |
 | `maxLineHeight` | 10 | 行間の倍率の上限 |
 | `maxCharacterSpacing` | 100 | 字間の絶対値の上限(pt) |
+| `maxMillimeters` | 5,000 | 位置・寸法・トラック・罫線・余白の上限(mm) |
+| `maxFontSize` | 500 | フォントサイズの上限(pt) |
+| `maxTextLength` | 20,000 | 構造文字列と描画文字列の最大長 |
+| `maxValueStringLength` | 3,000,000 | 業務データマップの文字列最大長 |
+| `maxImageBytes` | 2 MiB | PNG または JPEG 画像 1 件の最大デコードサイズ |
 
 ## `@omdc-slipkit/elements`
 
@@ -1423,7 +1431,7 @@ import type {
 
 | イベント | `detail` | 発生タイミング |
 |---|---|---|
-| `slip-change` | `{ file: SlipFile }` | テンプレートが編集されたとき |
+| `slip-change` | `{ file: SlipTemplateFile }` | テンプレートが編集されたとき |
 
 実際の `file.kind` は `'template'` です。
 
@@ -1450,12 +1458,14 @@ import type {
 
 発行済みの伝票を渡すと、入力がロックされます。
 
+現在の元テンプレートから空の未発行伝票を開始するには `reset()` を呼び出します。すべての値を消去し、発行済みの入力もロック解除して `slip-change` を発火します。`src` を解析できない場合は何もしません。
+
 #### イベント
 
 | イベント | `detail` | 発生タイミング |
 |---|---|---|
-| `slip-change` | `{ file: SlipFile }` | 入力値が変わったとき |
-| `slip-issue` | `{ file: SlipFile }` | 伝票の発行が完了したとき |
+| `slip-change` | `{ file: SlipVoucherFile }` | 入力値が変わったとき |
+| `slip-issue` | `{ file: SlipVoucherFile }` | 伝票の発行が完了したとき |
 
 どちらのイベントでも、実際の `file.kind` は `'voucher'` です。
 
@@ -1600,6 +1610,16 @@ interface SlipFileExchangeOptions {
 
 ### 同梱フォント
 
+#### `loadDefaultFonts`
+
+```ts
+function loadDefaultFonts(
+  locale?: SlipLocale,
+): Promise<SlipFont[]>;
+```
+
+日本語では Noto Sans JP サブセットを、それ以外では Pretendard Regular と Bold を読み込みます。同じロケールの呼び出しは読み込み Promise を共有します。
+
 #### `PRETENDARD_FONTS`
 
 ```ts
@@ -1639,12 +1659,12 @@ interface SlipDesignerProps {
   maxImageBytes?: number;
 
   onSlipChange?(
-    file: SlipFile,
+    file: SlipTemplateFile,
   ): void;
 }
 ```
 
-Web Component の `slip-change` イベントから `CustomEvent` を取り除き、`SlipFile` オブジェクトをコールバックに直接渡します。
+Web Component の `slip-change` イベントから `CustomEvent` を取り除き、`SlipTemplateFile` オブジェクトをコールバックに直接渡します。
 
 ### `SlipForm`
 
@@ -1657,11 +1677,11 @@ interface SlipFormProps {
   maxImageBytes?: number;
 
   onSlipChange?(
-    file: SlipFile,
+    file: SlipVoucherFile,
   ): void;
 
   onSlipIssue?(
-    file: SlipFile,
+    file: SlipVoucherFile,
   ): void;
 }
 ```
@@ -1686,6 +1706,8 @@ import type {
 } from '@omdc-slipkit/react';
 ```
 
+省略可能なラッパー prop は明示的に渡した間だけ内部要素へ設定され、削除すると要素自身の既定値に戻ります。発行後に同じ元データで新しい伝票を始めるには、React の `key` を変えて `SlipForm` を再マウントします。
+
 ## `@omdc-slipkit/vue`
 
 Vue 3.4 以上をサポートします。
@@ -1706,7 +1728,7 @@ Vue 3.4 以上をサポートします。
 
 | イベント | 渡す値 |
 |---|---|
-| `slip-change` | `SlipFile` |
+| `slip-change` | `SlipTemplateFile` |
 
 ### `SlipForm`
 
@@ -1721,8 +1743,8 @@ Vue 3.4 以上をサポートします。
 
 | イベント | 渡す値 |
 |---|---|
-| `slip-change` | `SlipFile` |
-| `slip-issue` | `SlipFile` |
+| `slip-change` | `SlipVoucherFile` |
+| `slip-issue` | `SlipVoucherFile` |
 
 ### `SlipViewer`
 
@@ -1731,6 +1753,8 @@ Vue 3.4 以上をサポートします。
 | `src` | `string` | ● |
 | `locale` | `string` | — |
 | `slipkit` | `SlipKit` | — |
+
+省略可能なラッパー prop も同じ規則に従います。prop を削除すると内部要素の既定値に戻り、発行後は Vue の `:key` を変えて `SlipForm` を再マウントします。
 
 ## `@omdc-slipkit/mcp`
 

@@ -451,9 +451,9 @@ Both formulas can count items with the number `3`.
 
 `ROUND(number, digits?)`
 
-Rounds to the specified number of digits. If digits is omitted, it rounds to an integer.
+Rounds to the specified number of digits. If digits is omitted, it rounds to an integer. An exact half is rounded away from zero, so `ROUND(-2.5)` is `-3`.
 
-Digits must be an integer, and specifying a negative number rounds to tens, hundreds, or thousands.
+Digits must be an integer from -20 through 20, and specifying a negative number rounds to tens, hundreds, or thousands.
 
 ```text
 ROUND(1234.567, 2)
