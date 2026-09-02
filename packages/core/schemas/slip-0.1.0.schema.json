@@ -22,7 +22,8 @@
               "properties": {
                 "title": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "maxLength": 20000
                 },
                 "createdAt": {
                   "type": "string",
@@ -45,30 +46,36 @@
               "properties": {
                 "width": {
                   "type": "number",
-                  "exclusiveMinimum": 0
+                  "exclusiveMinimum": 0,
+                  "maximum": 5000
                 },
                 "height": {
                   "type": "number",
-                  "exclusiveMinimum": 0
+                  "exclusiveMinimum": 0,
+                  "maximum": 5000
                 },
                 "padding": {
                   "type": "array",
                   "prefixItems": [
                     {
                       "type": "number",
-                      "minimum": 0
+                      "minimum": 0,
+                      "maximum": 5000
                     },
                     {
                       "type": "number",
-                      "minimum": 0
+                      "minimum": 0,
+                      "maximum": 5000
                     },
                     {
                       "type": "number",
-                      "minimum": 0
+                      "minimum": 0,
+                      "maximum": 5000
                     },
                     {
                       "type": "number",
-                      "minimum": 0
+                      "minimum": 0,
+                      "maximum": 5000
                     }
                   ]
                 }
@@ -101,21 +108,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -126,15 +137,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -170,11 +184,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -199,7 +215,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "borderStyle": {
                               "type": "string",
@@ -210,15 +227,18 @@
                               ]
                             },
                             "content": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "fontName": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "fontSize": {
                               "type": "number",
-                              "exclusiveMinimum": 0
+                              "exclusiveMinimum": 0,
+                              "maximum": 500
                             },
                             "alignment": {
                               "type": "string",
@@ -269,7 +289,8 @@
                                 "properties": {
                                   "condition": {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 20000
                                   },
                                   "fontColor": {
                                     "type": "string",
@@ -323,21 +344,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -348,7 +373,8 @@
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -384,11 +410,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -413,7 +441,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "borderStyle": {
                               "type": "string",
@@ -425,11 +454,13 @@
                             },
                             "fontName": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "fontSize": {
                               "type": "number",
-                              "exclusiveMinimum": 0
+                              "exclusiveMinimum": 0,
+                              "maximum": 500
                             },
                             "alignment": {
                               "type": "string",
@@ -478,7 +509,8 @@
                             },
                             "cellBorderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "cellBorderStyle": {
                               "type": "string",
@@ -494,7 +526,8 @@
                             },
                             "outlineWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "outlineStyle": {
                               "type": "string",
@@ -513,7 +546,8 @@
                                 "properties": {
                                   "width": {
                                     "type": "number",
-                                    "exclusiveMinimum": 0
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 5000
                                   },
                                   "autoMerge": {
                                     "type": "boolean"
@@ -534,7 +568,8 @@
                                 "properties": {
                                   "height": {
                                     "type": "number",
-                                    "exclusiveMinimum": 0
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 5000
                                   }
                                 },
                                 "required": [
@@ -563,7 +598,8 @@
                                   },
                                   "borderWidth": {
                                     "type": "number",
-                                    "minimum": 0
+                                    "minimum": 0,
+                                    "maximum": 5000
                                   },
                                   "borderStyle": {
                                     "type": "string",
@@ -584,7 +620,8 @@
                                     "maximum": 9007199254740991
                                   },
                                   "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "maxLength": 20000
                                   },
                                   "rowSpan": {
                                     "type": "integer",
@@ -597,14 +634,17 @@
                                     "maximum": 9007199254740991
                                   },
                                   "content": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "maxLength": 20000
                                   },
                                   "parameter": {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 20000
                                   },
                                   "formula": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "maxLength": 20000
                                   },
                                   "overflow": {
                                     "type": "string",
@@ -615,11 +655,13 @@
                                   },
                                   "fontName": {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 20000
                                   },
                                   "fontSize": {
                                     "type": "number",
-                                    "exclusiveMinimum": 0
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 500
                                   },
                                   "alignment": {
                                     "type": "string",
@@ -670,7 +712,8 @@
                                       "properties": {
                                         "condition": {
                                           "type": "string",
-                                          "minLength": 1
+                                          "minLength": 1,
+                                          "maxLength": 20000
                                         },
                                         "fontColor": {
                                           "type": "string",
@@ -716,7 +759,8 @@
                               "properties": {
                                 "parameter": {
                                   "type": "string",
-                                  "minLength": 1
+                                  "minLength": 1,
+                                  "maxLength": 20000
                                 },
                                 "bands": {
                                   "minItems": 1,
@@ -727,10 +771,12 @@
                                     "properties": {
                                       "id": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "maxLength": 20000
                                       },
                                       "name": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "maxLength": 20000
                                       },
                                       "fromRow": {
                                         "type": "integer",
@@ -824,7 +870,8 @@
                                   "type": "array",
                                   "items": {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 20000
                                   }
                                 },
                                 "maxItems": {
@@ -868,21 +915,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -893,15 +944,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -937,11 +991,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -953,11 +1009,14 @@
                               ]
                             },
                             "src": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 3000000,
+                              "pattern": "^(?:https?:\\/\\/\\S+|data:image\\/(?:png|jpeg);base64,[A-Za-z0-9+/]+=*|asset:\\/\\/\\S+)$"
                             },
                             "parameter": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             }
                           },
                           "required": [
@@ -979,21 +1038,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -1004,15 +1067,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -1048,11 +1114,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -1081,14 +1149,17 @@
                               ]
                             },
                             "content": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "parameter": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "formula": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "fontColor": {
                               "type": "string",
@@ -1119,21 +1190,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -1144,15 +1219,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -1188,11 +1266,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -1209,7 +1289,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "borderStyle": {
                               "type": "string",
@@ -1248,21 +1329,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -1273,15 +1358,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -1317,11 +1405,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -1342,7 +1432,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "borderStyle": {
                               "type": "string",
@@ -1354,7 +1445,8 @@
                             },
                             "radius": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             }
                           },
                           "required": [
@@ -1376,21 +1468,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -1401,15 +1497,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -1445,11 +1544,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -1470,7 +1571,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             }
                           },
                           "required": [
@@ -1492,21 +1594,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -1517,15 +1623,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -1561,11 +1670,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -1591,7 +1702,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             }
                           },
                           "required": [
@@ -1614,21 +1726,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -1639,15 +1755,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -1683,11 +1802,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -1712,7 +1833,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "borderStyle": {
                               "type": "string",
@@ -1724,18 +1846,22 @@
                             },
                             "parameter": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "formula": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "fontName": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "fontSize": {
                               "type": "number",
-                              "exclusiveMinimum": 0
+                              "exclusiveMinimum": 0,
+                              "maximum": 500
                             },
                             "alignment": {
                               "type": "string",
@@ -1786,7 +1912,8 @@
                                 "properties": {
                                   "condition": {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 20000
                                   },
                                   "fontColor": {
                                     "type": "string",
@@ -1835,11 +1962,13 @@
                   },
                   "key": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20000
                   },
                   "label": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20000
                   },
                   "pageNumber": {
                     "type": "object",
@@ -1857,11 +1986,13 @@
                       },
                       "format": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "maxLength": 20000
                       },
                       "fontSize": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 500
                       }
                     },
                     "required": [
@@ -1874,11 +2005,13 @@
                     "properties": {
                       "top": {
                         "type": "number",
-                        "minimum": 0
+                        "minimum": 0,
+                        "maximum": 5000
                       },
                       "bottom": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 5000
                       }
                     },
                     "required": [
@@ -1902,14 +2035,18 @@
                 "properties": {
                   "id": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20000
                   },
                   "mimeType": {
                     "type": "string",
+                    "maxLength": 20000,
                     "pattern": "^[\\w.+-]+\\/[\\w.+-]+$"
                   },
                   "src": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 3000000,
+                    "pattern": "^(?:https?:\\/\\/\\S+|data:image\\/(?:png|jpeg);base64,[A-Za-z0-9+/]+=*|asset:\\/\\/\\S+)$"
                   }
                 },
                 "required": [
@@ -1928,11 +2065,13 @@
                 "properties": {
                   "key": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20000
                   },
                   "label": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20000
                   },
                   "valueType": {
                     "type": "string",
@@ -1952,11 +2091,13 @@
                       "properties": {
                         "key": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "maxLength": 20000
                         },
                         "label": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "maxLength": 20000
                         },
                         "valueType": {
                           "type": "string",
@@ -2028,7 +2169,8 @@
               "properties": {
                 "title": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "maxLength": 20000
                 },
                 "createdAt": {
                   "type": "string",
@@ -2051,30 +2193,36 @@
               "properties": {
                 "width": {
                   "type": "number",
-                  "exclusiveMinimum": 0
+                  "exclusiveMinimum": 0,
+                  "maximum": 5000
                 },
                 "height": {
                   "type": "number",
-                  "exclusiveMinimum": 0
+                  "exclusiveMinimum": 0,
+                  "maximum": 5000
                 },
                 "padding": {
                   "type": "array",
                   "prefixItems": [
                     {
                       "type": "number",
-                      "minimum": 0
+                      "minimum": 0,
+                      "maximum": 5000
                     },
                     {
                       "type": "number",
-                      "minimum": 0
+                      "minimum": 0,
+                      "maximum": 5000
                     },
                     {
                       "type": "number",
-                      "minimum": 0
+                      "minimum": 0,
+                      "maximum": 5000
                     },
                     {
                       "type": "number",
-                      "minimum": 0
+                      "minimum": 0,
+                      "maximum": 5000
                     }
                   ]
                 }
@@ -2107,21 +2255,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -2132,15 +2284,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -2176,11 +2331,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -2205,7 +2362,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "borderStyle": {
                               "type": "string",
@@ -2216,15 +2374,18 @@
                               ]
                             },
                             "content": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "fontName": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "fontSize": {
                               "type": "number",
-                              "exclusiveMinimum": 0
+                              "exclusiveMinimum": 0,
+                              "maximum": 500
                             },
                             "alignment": {
                               "type": "string",
@@ -2275,7 +2436,8 @@
                                 "properties": {
                                   "condition": {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 20000
                                   },
                                   "fontColor": {
                                     "type": "string",
@@ -2329,21 +2491,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -2354,7 +2520,8 @@
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -2390,11 +2557,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -2419,7 +2588,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "borderStyle": {
                               "type": "string",
@@ -2431,11 +2601,13 @@
                             },
                             "fontName": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "fontSize": {
                               "type": "number",
-                              "exclusiveMinimum": 0
+                              "exclusiveMinimum": 0,
+                              "maximum": 500
                             },
                             "alignment": {
                               "type": "string",
@@ -2484,7 +2656,8 @@
                             },
                             "cellBorderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "cellBorderStyle": {
                               "type": "string",
@@ -2500,7 +2673,8 @@
                             },
                             "outlineWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "outlineStyle": {
                               "type": "string",
@@ -2519,7 +2693,8 @@
                                 "properties": {
                                   "width": {
                                     "type": "number",
-                                    "exclusiveMinimum": 0
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 5000
                                   },
                                   "autoMerge": {
                                     "type": "boolean"
@@ -2540,7 +2715,8 @@
                                 "properties": {
                                   "height": {
                                     "type": "number",
-                                    "exclusiveMinimum": 0
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 5000
                                   }
                                 },
                                 "required": [
@@ -2569,7 +2745,8 @@
                                   },
                                   "borderWidth": {
                                     "type": "number",
-                                    "minimum": 0
+                                    "minimum": 0,
+                                    "maximum": 5000
                                   },
                                   "borderStyle": {
                                     "type": "string",
@@ -2590,7 +2767,8 @@
                                     "maximum": 9007199254740991
                                   },
                                   "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "maxLength": 20000
                                   },
                                   "rowSpan": {
                                     "type": "integer",
@@ -2603,14 +2781,17 @@
                                     "maximum": 9007199254740991
                                   },
                                   "content": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "maxLength": 20000
                                   },
                                   "parameter": {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 20000
                                   },
                                   "formula": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "maxLength": 20000
                                   },
                                   "overflow": {
                                     "type": "string",
@@ -2621,11 +2802,13 @@
                                   },
                                   "fontName": {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 20000
                                   },
                                   "fontSize": {
                                     "type": "number",
-                                    "exclusiveMinimum": 0
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 500
                                   },
                                   "alignment": {
                                     "type": "string",
@@ -2676,7 +2859,8 @@
                                       "properties": {
                                         "condition": {
                                           "type": "string",
-                                          "minLength": 1
+                                          "minLength": 1,
+                                          "maxLength": 20000
                                         },
                                         "fontColor": {
                                           "type": "string",
@@ -2722,7 +2906,8 @@
                               "properties": {
                                 "parameter": {
                                   "type": "string",
-                                  "minLength": 1
+                                  "minLength": 1,
+                                  "maxLength": 20000
                                 },
                                 "bands": {
                                   "minItems": 1,
@@ -2733,10 +2918,12 @@
                                     "properties": {
                                       "id": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "maxLength": 20000
                                       },
                                       "name": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "maxLength": 20000
                                       },
                                       "fromRow": {
                                         "type": "integer",
@@ -2830,7 +3017,8 @@
                                   "type": "array",
                                   "items": {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 20000
                                   }
                                 },
                                 "maxItems": {
@@ -2874,21 +3062,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -2899,15 +3091,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -2943,11 +3138,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -2959,11 +3156,14 @@
                               ]
                             },
                             "src": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 3000000,
+                              "pattern": "^(?:https?:\\/\\/\\S+|data:image\\/(?:png|jpeg);base64,[A-Za-z0-9+/]+=*|asset:\\/\\/\\S+)$"
                             },
                             "parameter": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             }
                           },
                           "required": [
@@ -2985,21 +3185,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -3010,15 +3214,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -3054,11 +3261,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -3087,14 +3296,17 @@
                               ]
                             },
                             "content": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "parameter": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "formula": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "fontColor": {
                               "type": "string",
@@ -3125,21 +3337,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -3150,15 +3366,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -3194,11 +3413,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -3215,7 +3436,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "borderStyle": {
                               "type": "string",
@@ -3254,21 +3476,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -3279,15 +3505,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -3323,11 +3552,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -3348,7 +3579,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "borderStyle": {
                               "type": "string",
@@ -3360,7 +3592,8 @@
                             },
                             "radius": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             }
                           },
                           "required": [
@@ -3382,21 +3615,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -3407,15 +3644,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -3451,11 +3691,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -3476,7 +3718,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             }
                           },
                           "required": [
@@ -3498,21 +3741,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -3523,15 +3770,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -3567,11 +3817,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -3597,7 +3849,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             }
                           },
                           "required": [
@@ -3620,21 +3873,25 @@
                             },
                             "id": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "name": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "position": {
                               "type": "object",
                               "properties": {
                                 "x": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 },
                                 "y": {
                                   "type": "number",
-                                  "minimum": 0
+                                  "minimum": 0,
+                                  "maximum": 5000
                                 }
                               },
                               "required": [
@@ -3645,15 +3902,18 @@
                             },
                             "width": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "height": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "group": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "pagePlacement": {
                               "oneOf": [
@@ -3689,11 +3949,13 @@
                                     },
                                     "target": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 1,
+                                      "maxLength": 20000
                                     },
                                     "gap": {
                                       "type": "number",
-                                      "minimum": 0
+                                      "minimum": 0,
+                                      "maximum": 5000
                                     }
                                   },
                                   "required": [
@@ -3718,7 +3980,8 @@
                             },
                             "borderWidth": {
                               "type": "number",
-                              "minimum": 0
+                              "minimum": 0,
+                              "maximum": 5000
                             },
                             "borderStyle": {
                               "type": "string",
@@ -3730,18 +3993,22 @@
                             },
                             "parameter": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "formula": {
-                              "type": "string"
+                              "type": "string",
+                              "maxLength": 20000
                             },
                             "fontName": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 1,
+                              "maxLength": 20000
                             },
                             "fontSize": {
                               "type": "number",
-                              "exclusiveMinimum": 0
+                              "exclusiveMinimum": 0,
+                              "maximum": 500
                             },
                             "alignment": {
                               "type": "string",
@@ -3792,7 +4059,8 @@
                                 "properties": {
                                   "condition": {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 20000
                                   },
                                   "fontColor": {
                                     "type": "string",
@@ -3841,11 +4109,13 @@
                   },
                   "key": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20000
                   },
                   "label": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20000
                   },
                   "pageNumber": {
                     "type": "object",
@@ -3863,11 +4133,13 @@
                       },
                       "format": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "maxLength": 20000
                       },
                       "fontSize": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 500
                       }
                     },
                     "required": [
@@ -3880,11 +4152,13 @@
                     "properties": {
                       "top": {
                         "type": "number",
-                        "minimum": 0
+                        "minimum": 0,
+                        "maximum": 5000
                       },
                       "bottom": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 5000
                       }
                     },
                     "required": [
@@ -3908,14 +4182,18 @@
                 "properties": {
                   "id": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20000
                   },
                   "mimeType": {
                     "type": "string",
+                    "maxLength": 20000,
                     "pattern": "^[\\w.+-]+\\/[\\w.+-]+$"
                   },
                   "src": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 3000000,
+                    "pattern": "^(?:https?:\\/\\/\\S+|data:image\\/(?:png|jpeg);base64,[A-Za-z0-9+/]+=*|asset:\\/\\/\\S+)$"
                   }
                 },
                 "required": [
@@ -3934,11 +4212,13 @@
                 "properties": {
                   "key": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20000
                   },
                   "label": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20000
                   },
                   "valueType": {
                     "type": "string",
@@ -3958,11 +4238,13 @@
                       "properties": {
                         "key": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "maxLength": 20000
                         },
                         "label": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "maxLength": 20000
                         },
                         "valueType": {
                           "type": "string",
@@ -4034,7 +4316,8 @@
     "__schema0": {
       "anyOf": [
         {
-          "type": "string"
+          "type": "string",
+          "maxLength": 3000000
         },
         {
           "type": "number"

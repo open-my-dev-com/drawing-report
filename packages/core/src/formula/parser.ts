@@ -203,31 +203,38 @@ class Parser {
     }
   }
 
-  private comparisonInner(): FormulaAst {
-    let left = this.additive();
-    for (;;) {
-      const op = this.matchOp('=', '<>', '<=', '>=', '<', '>');
-      if (!op) return left;
-      left = { type: 'binary', operator: op as ComparisonOperator, left, right: this.additive() };
+  /**
+   * 왼쪽 결합 이항 연산 사슬을 파싱한다.
+   *
+   * `1+1+…`처럼 항이 이어질 때마다 트리가 한 단계 깊어지므로, 두 번째 항부터는 중첩 깊이에
+   * 포함해 평가기·진단·인자 수 검사가 긴 사슬에서 호출 스택을 넘치지 않게 한다.
+   */
+  private chain(ops: readonly string[], operand: () => FormulaAst): FormulaAst {
+    let left = operand();
+    let chained = 0;
+    try {
+      for (;;) {
+        const op = this.matchOp(...ops);
+        if (!op) return left;
+        this.enter();
+        chained++;
+        left = { type: 'binary', operator: op as BinaryOperator, left, right: operand() };
+      }
+    } finally {
+      this.depth -= chained;
     }
+  }
+
+  private comparisonInner(): FormulaAst {
+    return this.chain(['=', '<>', '<=', '>=', '<', '>'], () => this.additive());
   }
 
   private additive(): FormulaAst {
-    let left = this.multiplicative();
-    for (;;) {
-      const op = this.matchOp('+', '-');
-      if (!op) return left;
-      left = { type: 'binary', operator: op as '+' | '-', left, right: this.multiplicative() };
-    }
+    return this.chain(['+', '-'], () => this.multiplicative());
   }
 
   private multiplicative(): FormulaAst {
-    let left = this.unary();
-    for (;;) {
-      const op = this.matchOp('*', '/');
-      if (!op) return left;
-      left = { type: 'binary', operator: op as '*' | '/', left, right: this.unary() };
-    }
+    return this.chain(['*', '/'], () => this.unary());
   }
 
   private unary(): FormulaAst {
@@ -293,7 +300,7 @@ class Parser {
 
 /** 파서가 허용하는 수식 문자열의 최대 길이. */
 export const MAX_FORMULA_LENGTH = 10_000;
-/** 괄호, 함수 인수, 단항 연산자를 포함한 수식의 최대 중첩 깊이. */
+/** 괄호, 함수 인수, 단항 연산자와 이항 연산 사슬을 포함한 수식의 최대 중첩 깊이. */
 export const MAX_FORMULA_DEPTH = 100;
 
 /**

@@ -52,6 +52,15 @@ interface FormatMessages {
   conditionalFormatsMax(max: number): string;
   paddingTooLarge(): string;
   mimeTypeFormat(): string;
+  millimetersMax(max: number): string;
+  fontSizeMax(max: number): string;
+  textMax(max: number): string;
+  valueStringMax(max: number): string;
+  gridSizeMax(max: number): string;
+  imageTooLarge(maxBytes: number): string;
+  imageContentMismatch(): string;
+  imageMimeUnsupported(): string;
+  assetMimeMismatch(declared: string, actual: string): string;
   elementsMax(max: number): string;
   subFieldsOnlyForList(): string;
   duplicateSubField(key: string): string;
@@ -78,7 +87,7 @@ interface FormatMessages {
 
 const EN: FormatMessages = {
   colorFormat: () => 'Color must be in #RRGGBB or #RRGGBBAA format',
-  srcFormat: () => 'src must be an http(s) URL, data:<mime>;base64 or asset:// reference',
+  srcFormat: () => 'src must be an http(s) URL, a data:image/png;base64 or data:image/jpeg;base64 image, or an asset:// reference',
   semverFormat: () => 'schemaVersion must be in semver format',
   percentagesSum: () => 'Percentages must add up to 100',
   itemsPerPageMax: (max) => `itemsPerPage can be at most ${max}`,
@@ -129,6 +138,15 @@ const EN: FormatMessages = {
   conditionalFormatsMax: (max) => `At most ${max} conditional format rules are allowed`,
   paddingTooLarge: () => 'The paddings must add up to less than the paper size',
   mimeTypeFormat: () => 'Not a valid mimeType',
+  millimetersMax: (max) => `Lengths in mm can be at most ${max}`,
+  fontSizeMax: (max) => `The font size can be at most ${max}pt`,
+  textMax: (max) => `Text can be at most ${max} characters`,
+  valueStringMax: (max) => `A string value can be at most ${max} characters`,
+  gridSizeMax: (max) => `The total width and height of a grid can be at most ${max}mm`,
+  imageTooLarge: (maxBytes) => `The image exceeds the size limit (${Math.round(maxBytes / 1024 / 1024)} MiB)`,
+  imageContentMismatch: () => 'The image data is not the declared PNG or JPEG (the content is damaged or of another format)',
+  imageMimeUnsupported: () => 'Only PNG and JPEG images are supported',
+  assetMimeMismatch: (declared, actual) => `The asset mimeType (${declared}) does not match the image data (${actual})`,
   elementsMax: (max) => `A page can have at most ${max} elements`,
   subFieldsOnlyForList: () => "Sub-fields are only allowed on parameters whose valueType is 'list'",
   duplicateSubField: (key) => `Duplicate sub-field name: ${key}`,
@@ -143,7 +161,7 @@ const EN: FormatMessages = {
   duplicateElementId: (id) => `Duplicate element id: ${id}`,
   issuedExternalImage: () =>
     'An issued voucher cannot contain external URL images (embed as base64)',
-  imageValueFormat: () => 'A dynamic image value must be in data:<mime>;base64 format',
+  imageValueFormat: () => 'A dynamic image value must be a PNG or JPEG in data:<mime>;base64 format',
   envelopeInvalid: (issues) => `.slip envelope validation failed: ${issues}`,
   bodyInvalid: (issues) => `.slip body validation failed: ${issues}`,
   valueTooDeep: () => 'The values in the .slip body are nested too deeply',
@@ -157,7 +175,7 @@ const EN: FormatMessages = {
 
 const KO: FormatMessages = {
   colorFormat: () => '색상은 #RRGGBB 또는 #RRGGBBAA 형식이어야 합니다',
-  srcFormat: () => 'src는 http(s) URL, data:<mime>;base64 또는 asset:// 형식이어야 합니다',
+  srcFormat: () => 'src는 http(s) URL, data:image/png;base64 또는 data:image/jpeg;base64 이미지, asset:// 참조 중 하나여야 합니다',
   semverFormat: () => 'schemaVersion은 semver 형식이어야 합니다',
   percentagesSum: () => '비율의 합은 100이어야 합니다',
   itemsPerPageMax: (max) => `itemsPerPage는 최대 ${max}입니다`,
@@ -204,6 +222,15 @@ const KO: FormatMessages = {
   conditionalFormatsMax: (max) => `조건부 서식 규칙은 최대 ${max}개입니다`,
   paddingTooLarge: () => '여백의 합이 용지 크기보다 작아야 합니다',
   mimeTypeFormat: () => 'mimeType 값의 형식이 올바르지 않습니다',
+  millimetersMax: (max) => `mm 길이는 최대 ${max}입니다`,
+  fontSizeMax: (max) => `글자 크기는 최대 ${max}pt입니다`,
+  textMax: (max) => `문자열은 최대 ${max}자입니다`,
+  valueStringMax: (max) => `값 문자열은 최대 ${max}자입니다`,
+  gridSizeMax: (max) => `그리드의 전체 너비와 높이는 최대 ${max}mm입니다`,
+  imageTooLarge: (maxBytes) => `이미지가 크기 상한(${Math.round(maxBytes / 1024 / 1024)} MiB)을 넘습니다`,
+  imageContentMismatch: () => '이미지 데이터가 선언한 PNG·JPEG가 아닙니다. 내용이 손상되었거나 다른 형식입니다',
+  imageMimeUnsupported: () => '이미지는 PNG와 JPEG만 지원합니다',
+  assetMimeMismatch: (declared, actual) => `에셋의 mimeType(${declared})이 이미지 데이터(${actual})와 다릅니다`,
   elementsMax: (max) => `페이지당 요소는 최대 ${max}개입니다`,
   subFieldsOnlyForList: () => "하위 필드는 valueType이 'list'인 파라미터에만 둘 수 있습니다",
   duplicateSubField: (key) => `하위 필드 이름이 중복됩니다: ${key}`,
@@ -218,7 +245,7 @@ const KO: FormatMessages = {
   duplicateElementId: (id) => `요소 ID가 중복됩니다: ${id}`,
   issuedExternalImage: () =>
     '발행된 전표(issued: true)에는 외부 URL 이미지를 포함할 수 없습니다. 이미지를 base64로 포함해야 합니다',
-  imageValueFormat: () => '변동 이미지 값은 data:<mime>;base64 형식이어야 합니다',
+  imageValueFormat: () => '변동 이미지 값은 data:<mime>;base64 형식의 PNG 또는 JPEG여야 합니다',
   envelopeInvalid: (issues) => `.slip 봉투 검증 실패: ${issues}`,
   bodyInvalid: (issues) => `.slip 본문 검증 실패: ${issues}`,
   valueTooDeep: () => '.slip 본문에 포함된 값의 중첩이 너무 깊습니다',
@@ -233,7 +260,7 @@ const KO: FormatMessages = {
 
 const JA: FormatMessages = {
   colorFormat: () => '色は #RRGGBB または #RRGGBBAA 形式でなければなりません',
-  srcFormat: () => 'src は http(s) URL、data:<mime>;base64 または asset:// 形式でなければなりません',
+  srcFormat: () => 'src は http(s) URL、data:image/png;base64 または data:image/jpeg;base64 の画像、asset:// 参照のいずれかでなければなりません',
   semverFormat: () => 'schemaVersion は semver 形式でなければなりません',
   percentagesSum: () => '比率の合計は 100 でなければなりません',
   itemsPerPageMax: (max) => `itemsPerPage は最大 ${max} です`,
@@ -281,6 +308,15 @@ const JA: FormatMessages = {
   conditionalFormatsMax: (max) => `条件付き書式のルールは最大 ${max} 個です`,
   paddingTooLarge: () => '余白の合計は用紙サイズより小さくなければなりません',
   mimeTypeFormat: () => 'mimeType の形式ではありません',
+  millimetersMax: (max) => `mm の長さは最大 ${max} です`,
+  fontSizeMax: (max) => `文字サイズは最大 ${max}pt です`,
+  textMax: (max) => `文字列は最大 ${max} 文字です`,
+  valueStringMax: (max) => `値の文字列は最大 ${max} 文字です`,
+  gridSizeMax: (max) => `グリッド全体の幅と高さは最大 ${max}mm です`,
+  imageTooLarge: (maxBytes) => `画像がサイズ上限（${Math.round(maxBytes / 1024 / 1024)} MiB）を超えています`,
+  imageContentMismatch: () => '画像データが宣言された PNG・JPEG ではありません（内容が破損しているか別の形式です）',
+  imageMimeUnsupported: () => '画像は PNG と JPEG のみ対応しています',
+  assetMimeMismatch: (declared, actual) => `アセットの mimeType（${declared}）が画像データ（${actual}）と一致しません`,
   elementsMax: (max) => `1 ページの要素は最大 ${max} 個です`,
   subFieldsOnlyForList: () => "サブフィールドは valueType が 'list' のパラメータにのみ置けます",
   duplicateSubField: (key) => `サブフィールド名が重複しています: ${key}`,
@@ -294,7 +330,7 @@ const JA: FormatMessages = {
   duplicatePageKey: (key) => `ページ key が重複しています: ${key}`,
   duplicateElementId: (id) => `要素 id が重複しています: ${id}`,
   issuedExternalImage: () => '発行(issued)された伝票は外部 URL の画像を含められません (base64 埋め込みが必要です)',
-  imageValueFormat: () => '可変画像の値は data:<mime>;base64 形式でなければなりません',
+  imageValueFormat: () => '可変画像の値は data:<mime>;base64 形式の PNG または JPEG でなければなりません',
   envelopeInvalid: (issues) => `.slip エンベロープの検証に失敗しました: ${issues}`,
   bodyInvalid: (issues) => `.slip 本文の検証に失敗しました: ${issues}`,
   valueTooDeep: () => '.slip 本文の値のネストが深すぎます',

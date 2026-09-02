@@ -44,8 +44,11 @@ export interface GridFragment {
   bands: PlannedBand[];
   /** 이 페이지에 배치된 실제 항목 인덱스 (`@page`) */
   pageItems: number[];
-  /** 이 페이지 이전까지 배치된 실제 항목 인덱스 (`@carried`) */
-  carriedItems: number[];
+  /**
+   * 이 페이지 이전까지 배치된 실제 항목 수 (`@carried`).
+   * 항목은 인덱스 순서로 배치되므로 이월 항목은 실제 항목 배열의 앞 `carriedCount`개다.
+   */
+  carriedCount: number;
 }
 
 /** 그리드 하나의 페이지 계획 결과. */
@@ -161,7 +164,7 @@ export function planGrid(
         rowHeights,
         bands: [],
         pageItems: [],
-        carriedItems: [],
+        carriedCount: 0,
       }],
       itemCount: 0,
       groupOf: [],
@@ -254,7 +257,7 @@ export function planGrid(
   // ---------------------------------------------------------------------------
 
   const fragments: GridFragment[] = [];
-  const carried: number[] = [];
+  let carriedCount = 0;
   let index = 0;
   let fragmentNo = 0;
   /** 페이지를 넘긴 그룹의 시작 구간을 다음 페이지 머리에 다시 표시하기 위한 목록. */
@@ -304,9 +307,9 @@ export function planGrid(
       rowHeights,
       bands,
       pageItems,
-      carriedItems: carried.slice(),
+      carriedCount,
     });
-    carried.push(...pageItems);
+    carriedCount += pageItems.length;
   };
 
   /**

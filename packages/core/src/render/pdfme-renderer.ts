@@ -47,7 +47,8 @@ interface ResolvedFonts {
  * 다른 폰트를 적용하려면 렌더러를 새로 생성한다.
  *
  * @param options - 폰트·로케일 등 렌더링 옵션
- * @returns `.slip` 파일을 PDF로 렌더하는 렌더러
+ * @returns `.slip` 파일을 PDF로 렌더하는 렌더러. `renderToPdf`는 변환 실패와 PDF 생성 실패를
+ *   모두 `SlipRenderError`로 알린다
  * @throws SlipRenderError 폰트 지정이 잘못된 경우(대체 폰트 2개 이상, 이름 중복)
  */
 export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer {
@@ -77,12 +78,20 @@ export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer 
         ...(fallbackFontName === undefined ? {} : { fallbackFontName }),
         ...(fonts === undefined ? {} : { fonts: fonts as SlipFont[] }),
       });
-      return generate({
-        template,
-        inputs,
-        plugins: { text, table, line, rectangle, ellipse, svg, image, ...barcodes },
-        ...(font ? { options: { font } } : {}),
-      });
+      try {
+        return await generate({
+          template,
+          inputs,
+          plugins: { text, table, line, rectangle, ellipse, svg, image, ...barcodes },
+          ...(font ? { options: { font } } : {}),
+        });
+      } catch (error) {
+        // 렌더링 엔진과 PDF 라이브러리의 예외는 종류가 제각각이라 하나의 렌더 오류로 바꿔 알린다.
+        if (error instanceof SlipRenderError) throw error;
+        throw new SlipRenderError(
+          rm(options.locale).pdfGenerationFailed(error instanceof Error ? error.message : String(error)),
+        );
+      }
     },
   };
 }
@@ -93,7 +102,7 @@ export function createPdfRenderer(options: RenderOptions = {}): SlipPdfRenderer 
  * @param file - 렌더할 `.slip` 파일 (양식 또는 전표)
  * @param options - 폰트·로케일 등 렌더링 옵션
  * @returns PDF 파일 바이트
- * @throws SlipRenderError 폰트 지정 오류·변환 실패 시
+ * @throws SlipRenderError 폰트 지정 오류·변환 실패·PDF 생성 실패 시
  */
 export function renderSlipToPdf(file: SlipFile, options?: RenderOptions): Promise<Uint8Array> {
   return createPdfRenderer(options).renderToPdf(file);

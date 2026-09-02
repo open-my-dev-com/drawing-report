@@ -15,6 +15,7 @@ interface RenderMessages {
   subjectGridCell(name: string, id: string, row: number, column: number): string;
   subjectImage(name: string, id: string): string;
   subjectBarcode(name: string, id: string): string;
+  subjectPageNumber(page: number): string;
   subjectDefault(): string;
   conditionFailed(what: string, index: number, reason: string): string;
   conditionNotBoolean(what: string, index: number): string;
@@ -29,9 +30,17 @@ interface RenderMessages {
   externalUrl(what: string, src: string): string;
   imageValueNotString(what: string, parameter: string): string;
   imageValueNotData(what: string, parameter: string): string;
+  imageInvalid(what: string, reason: ImageProblem): string;
+  barcodeValueInvalid(what: string, kind: string): string;
+  textTooLong(what: string, max: number): string;
+  missingGlyph(what: string, fontName: string, char: string): string;
+  pdfGenerationFailed(reason: string): string;
   multipleFallbackFonts(): string;
   duplicateFontName(): string;
 }
+
+/** 이미지 데이터 검사에서 드러난 문제 종류 */
+export type ImageProblem = 'format' | 'mime' | 'content' | 'size';
 
 const EN: RenderMessages = {
   subjectText: (name, id) => `text '${name}' (${id})`,
@@ -40,6 +49,7 @@ const EN: RenderMessages = {
   subjectGridCell: (name, id, row, column) => `cell (${row},${column}) of grid '${name}' (${id})`,
   subjectImage: (name, id) => `image '${name}' (${id})`,
   subjectBarcode: (name, id) => `barcode '${name}' (${id})`,
+  subjectPageNumber: (page) => `the page number of output page ${page}`,
   subjectDefault: () => 'the element',
   conditionFailed: (what, index, reason) =>
     `Failed to evaluate the condition of conditional format rule ${index} on ${what}: ${reason}`,
@@ -59,6 +69,20 @@ const EN: RenderMessages = {
   imageValueNotString: (what, parameter) => `The value '${parameter}' of ${what} must be an image string`,
   imageValueNotData: (what, parameter) =>
     `The value '${parameter}' of ${what} must be data: base64 (the host must embed URLs before sending)`,
+  imageInvalid: (what, reason) => {
+    const detail = {
+      format: 'is not data:<mime>;base64',
+      mime: 'is not PNG or JPEG',
+      content: 'is not the declared PNG or JPEG (the content is damaged or of another format)',
+      size: 'exceeds the size limit',
+    }[reason];
+    return `The image of ${what} ${detail}`;
+  },
+  barcodeValueInvalid: (what, kind) => `The value of ${what} is not valid for a ${kind} barcode`,
+  textTooLong: (what, max) => `The text of ${what} is too long (max ${max} characters)`,
+  missingGlyph: (what, fontName, char) =>
+    `The font '${fontName}' of ${what} has no glyph for '${char}' (U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')})`,
+  pdfGenerationFailed: (reason) => `PDF generation failed: ${reason}`,
   multipleFallbackFonts: () => 'Only one fallback font can be specified',
   duplicateFontName: () => 'Duplicate font name',
 };
@@ -70,6 +94,7 @@ const KO: RenderMessages = {
   subjectGridCell: (name, id, row, column) => `그리드 '${name}' (${id})의 셀 (${row},${column})`,
   subjectImage: (name, id) => `이미지 '${name}' (${id})`,
   subjectBarcode: (name, id) => `바코드 '${name}' (${id})`,
+  subjectPageNumber: (page) => `출력 페이지 ${page}의 페이지 번호`,
   subjectDefault: () => '요소',
   conditionFailed: (what, index, reason) =>
     `${what}의 조건부 서식 ${index}번째 규칙의 조건식을 계산하지 못했습니다: ${reason}`,
@@ -89,6 +114,20 @@ const KO: RenderMessages = {
   imageValueNotString: (_what, parameter) => `파라미터 '${parameter}'의 이미지 값은 문자열이어야 합니다`,
   imageValueNotData: (what, parameter) =>
     `파라미터 '${parameter}'의 이미지 값은 data: base64 형식이어야 합니다. ${what}에 사용할 외부 URL은 호스트에서 base64로 변환해 전달해야 합니다`,
+  imageInvalid: (what, reason) => {
+    const detail = {
+      format: 'data:<mime>;base64 형식이 아닙니다',
+      mime: 'PNG 또는 JPEG가 아닙니다',
+      content: '선언한 PNG·JPEG가 아닙니다. 내용이 손상되었거나 다른 형식입니다',
+      size: '크기 상한을 넘습니다',
+    }[reason];
+    return `${what}의 이미지가 ${detail}`;
+  },
+  barcodeValueInvalid: (what, kind) => `${what}의 값은 ${kind} 바코드로 표현할 수 없습니다`,
+  textTooLong: (what, max) => `${what}의 글이 너무 깁니다 (최대 ${max}자)`,
+  missingGlyph: (what, fontName, char) =>
+    `${what}에 쓴 폰트 '${fontName}'에 '${char}'(U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}) 글리프가 없습니다`,
+  pdfGenerationFailed: (reason) => `PDF 생성에 실패했습니다: ${reason}`,
   multipleFallbackFonts: () => '대체 폰트(fallback)는 하나만 지정할 수 있습니다',
   duplicateFontName: () => '폰트 이름이 중복되었습니다',
 };
@@ -100,6 +139,7 @@ const JA: RenderMessages = {
   subjectGridCell: (name, id, row, column) => `グリッド '${name}'(${id})のセル(${row},${column})`,
   subjectImage: (name, id) => `画像 '${name}'(${id})`,
   subjectBarcode: (name, id) => `バーコード '${name}'(${id})`,
+  subjectPageNumber: (page) => `出力ページ ${page} のページ番号`,
   subjectDefault: () => '要素',
   conditionFailed: (what, index, reason) =>
     `${what}の条件付き書式のルール ${index} の条件式を計算できませんでした: ${reason}`,
@@ -119,6 +159,20 @@ const JA: RenderMessages = {
   imageValueNotString: (what, parameter) => `${what}の値 '${parameter}' は画像の文字列でなければなりません`,
   imageValueNotData: (what, parameter) =>
     `${what}の値 '${parameter}' は data: base64 でなければなりません (URL はホストが埋め込んで渡します)`,
+  imageInvalid: (what, reason) => {
+    const detail = {
+      format: 'data:<mime>;base64 形式ではありません',
+      mime: 'PNG または JPEG ではありません',
+      content: '宣言された PNG・JPEG ではありません（内容が破損しているか別の形式です）',
+      size: 'サイズ上限を超えています',
+    }[reason];
+    return `${what}の画像が${detail}`;
+  },
+  barcodeValueInvalid: (what, kind) => `${what}の値は ${kind} バーコードとして表現できません`,
+  textTooLong: (what, max) => `${what}のテキストが長すぎます（最大 ${max} 文字）`,
+  missingGlyph: (what, fontName, char) =>
+    `${what}のフォント '${fontName}' に '${char}'（U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}）のグリフがありません`,
+  pdfGenerationFailed: (reason) => `PDF の生成に失敗しました: ${reason}`,
   multipleFallbackFonts: () => '代替(fallback)フォントは 1 つだけ指定できます',
   duplicateFontName: () => 'フォント名が重複しています',
 };

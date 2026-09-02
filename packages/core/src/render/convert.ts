@@ -28,8 +28,9 @@ import type {
   PolygonElement,
   TextElement,
 } from '../format/schema.js';
+import { inspectImageDataUrl } from '../format/image-source.js';
 import { normalizeNumericParameters } from '../format/normalize.js';
-import { elementBounds } from '../format/schema.js';
+import { SLIP_LIMITS, elementBounds } from '../format/schema.js';
 import {
   filterVisibleOnPage,
   planSourcePage,
@@ -39,6 +40,7 @@ import {
   type PlannedBand,
   type SourcePagePlan,
 } from '../layout/index.js';
+import { isValidBarcodeValue } from './barcode.js';
 import { resolveConditionalFormats, type ConditionalFormatOverrides } from './conditional.js';
 import { SlipRenderError } from './errors.js';
 import { rm } from './messages.js';
@@ -271,8 +273,44 @@ class SlipToPdfmeConverter {
       boxHeight,
       { alignment, verticalAlignment: 'middle', fontSize, padding: 0 },
     );
+    this.assertGlyphs(text, schema, rm(this.locale).subjectPageNumber(output + 1));
     this.inputs[`__page-number-${output}`] = text;
     return schema as unknown as Schema;
+  }
+
+  /**
+   * 표시 문자열이 길이 상한 안에 있는지 확인한다.
+   *
+   * @param text - 표시할 문자열
+   * @param what - 오류 메시지에 쓸 대상 이름
+   * @returns 그대로의 문자열
+   * @throws SlipRenderError 상한을 넘으면
+   */
+  private limitText(text: string, what: string): string {
+    if (text.length > SLIP_LIMITS.maxTextLength) {
+      throw new SlipRenderError(rm(this.locale).textTooLong(what, SLIP_LIMITS.maxTextLength));
+    }
+    return text;
+  }
+
+  /**
+   * 텍스트 스키마에 고른 폰트가 값의 모든 문자를 그릴 수 있는지 확인한다.
+   * 등록된 폰트가 없으면(엔진 기본 폰트 사용) 검사하지 않는다.
+   *
+   * @throws SlipRenderError 글리프가 없는 문자가 있으면
+   */
+  private assertGlyphs(value: string, schema: Record<string, unknown>, what: string): void {
+    const fontName = typeof schema.fontName === 'string' ? schema.fontName : undefined;
+    const missing = this.measurer.missingGlyph(value, fontName);
+    if (missing !== undefined) {
+      throw new SlipRenderError(rm(this.locale).missingGlyph(what, missing.fontName, missing.char));
+    }
+  }
+
+  /** 글리프를 확인한 뒤 텍스트 스키마와 값을 추가한다. */
+  private pushText(schemas: Schema[], schema: Record<string, unknown>, value: string, what: string): void {
+    this.assertGlyphs(value, schema, what);
+    this.push(schemas, schema, value);
   }
 
   /** pdfme가 값을 이름으로 찾을 수 있도록 문서 전체에서 고유한 이름을 만든다. */
@@ -433,11 +471,8 @@ class SlipToPdfmeConverter {
   }
 
   private appendText(schemas: Schema[], element: TextElement): void {
-    const conditional = this.conditionalColors(
-      element.conditionalFormats,
-      this.values,
-      rm(this.locale).subjectText(element.name, element.id),
-    );
+    const what = rm(this.locale).subjectText(element.name, element.id);
+    const conditional = this.conditionalColors(element.conditionalFormats, this.values, what);
     const schema = this.textSchema(
       element.id,
       element.position,
@@ -446,15 +481,12 @@ class SlipToPdfmeConverter {
       { ...this.textStyleFromElement(element), ...conditional },
     );
     // 직접 입력한 텍스트도 pdfme 표현식 평가를 거치지 않도록 inputs로 전달한다.
-    this.push(schemas, schema, stackVertically(element.content, element.vertical));
+    this.pushText(schemas, schema, stackVertically(this.limitText(element.content, what), element.vertical), what);
   }
 
   private appendField(schemas: Schema[], element: FieldElement): void {
-    const conditional = this.conditionalColors(
-      element.conditionalFormats,
-      this.values,
-      rm(this.locale).subjectField(element.name, element.id),
-    );
+    const what = rm(this.locale).subjectField(element.name, element.id);
+    const conditional = this.conditionalColors(element.conditionalFormats, this.values, what);
     const schema = this.textSchema(
       element.id,
       element.position,
@@ -462,7 +494,7 @@ class SlipToPdfmeConverter {
       element.height,
       { ...this.textStyleFromElement(element), ...conditional },
     );
-    this.push(schemas, schema, stackVertically(this.fieldValue(element), element.vertical));
+    this.pushText(schemas, schema, stackVertically(this.fieldValue(element), element.vertical), what);
   }
 
   /**
@@ -525,11 +557,11 @@ class SlipToPdfmeConverter {
     if (element.formula !== undefined) {
       // 편집 중인 빈 수식은 빈 문자열로 표시한다.
       if (element.formula.trim() === '') return '';
-      return toDisplayText(this.evaluate(element.formula, this.values, what), what, this.locale);
+      return this.limitText(toDisplayText(this.evaluate(element.formula, this.values, what), what, this.locale), what);
     }
     return element.parameter === undefined
       ? ''
-      : toDisplayText(this.values[element.parameter], what, this.locale);
+      : this.limitText(toDisplayText(this.values[element.parameter], what, this.locale), what);
   }
 
   // -------------------------------------------------------------------------
@@ -586,6 +618,7 @@ class SlipToPdfmeConverter {
       padding: GRID_CELL_PADDING,
       blankRows: new Set<number>(),
       overflow: element.overflow ?? 'clip',
+      subject: rm(this.locale).subjectGrid(element.name, element.id),
     });
   }
 
@@ -603,7 +636,8 @@ class SlipToPdfmeConverter {
     const baseReserved: Record<string, unknown> = {
       '@all': real,
       '@page': toValues(fragment.pageItems),
-      '@carried': toValues(fragment.carriedItems),
+      // 이월 항목은 인덱스 순서상 앞 구간이라 렌더 시점에 잘라 만든다.
+      '@carried': real.slice(0, fragment.carriedCount),
     };
 
     const autoMergeColumns = new Set<number>();
@@ -743,14 +777,15 @@ class SlipToPdfmeConverter {
   ): string {
     const what = rm(this.locale).subjectGridCell(element.name, element.id, cell.row, cell.column);
     if (cell.formula !== undefined) {
-      return toDisplayText(
-        this.evaluate(cell.formula, context.scope, what, context.reserved),
+      return this.limitText(
+        toDisplayText(this.evaluate(cell.formula, context.scope, what, context.reserved), what, this.locale),
         what,
-        this.locale,
       );
     }
-    if (cell.parameter !== undefined) return toDisplayText(context.scope[cell.parameter], what, this.locale);
-    return cell.content ?? '';
+    if (cell.parameter !== undefined) {
+      return this.limitText(toDisplayText(context.scope[cell.parameter], what, this.locale), what);
+    }
+    return this.limitText(cell.content ?? '', what);
   }
 
   // -------------------------------------------------------------------------
@@ -951,7 +986,7 @@ class SlipToPdfmeConverter {
           lineHeight: cell.lineHeight,
         });
       }
-      this.push(schemas, schema, value);
+      this.pushText(schemas, schema, value, grid.subject);
     });
   }
 
@@ -1019,7 +1054,10 @@ class SlipToPdfmeConverter {
 // 이미지와 도형
   // -------------------------------------------------------------------------
 
+  /** 이미지 요소를 그린다. 변동 이미지 값이 비어 있으면 그리지 않고 자리를 비워 둔다. */
   private appendImage(schemas: Schema[], element: ImageElement): void {
+    const src = this.resolveImageSrc(element);
+    if (src === undefined) return;
     const schema: Record<string, unknown> = {
       name: element.id,
       type: 'image',
@@ -1029,23 +1067,28 @@ class SlipToPdfmeConverter {
       content: '',
       opacity: 1,
     };
-    this.push(schemas, schema, this.resolveImageSrc(element));
+    this.push(schemas, schema, src);
   }
 
   /**
-   * 이미지 소스를 해석한다. `data:` URL은 그대로 사용하고 `asset://` 참조는 문서의
-   * 에셋에서 찾는다. 외부 URL은 렌더링하지 않으며 변동 이미지는 전표 값의 base64 데이터를
-   * 사용한다 (SPEC §3.1).
+   * 이미지 소스를 해석하고 PNG·JPEG 서명과 크기를 검사한다. `data:` URL은 그대로 사용하고
+   * `asset://` 참조는 문서의 에셋에서 찾는다. 외부 URL은 렌더링하지 않으며 변동 이미지는
+   * 전표 값의 base64 데이터를 사용한다 (SPEC §3.1·§12.2).
+   *
+   * @returns 검사를 통과한 `data:` 문자열. 변동 이미지 값이 비어 있으면 `undefined`
+   * @throws SlipRenderError 소스가 없거나, 에셋을 찾지 못하거나, 외부 URL이거나, 이미지 데이터가 잘못되었을 때
    */
-  private resolveImageSrc(element: ImageElement): string {
+  private resolveImageSrc(element: ImageElement): string | undefined {
     const what = rm(this.locale).subjectImage(element.name, element.id);
-    const src = element.parameter !== undefined
-      ? this.boundImageSrc(element, element.parameter, what)
-      : element.src;
+    if (element.parameter !== undefined) {
+      const bound = this.boundImageSrc(element, element.parameter, what);
+      return bound === undefined ? undefined : this.checkedImage(bound, what);
+    }
+    const src = element.src;
     if (src === undefined) {
       throw new SlipRenderError(rm(this.locale).noImageSource(what));
     }
-    if (src.startsWith('data:')) return src;
+    if (src.startsWith('data:')) return this.checkedImage(src, what);
     if (src.startsWith('asset://')) {
       const assetId = src.slice('asset://'.length);
       const asset = this.body.assets.find((entry) => entry.id === assetId);
@@ -1055,16 +1098,31 @@ class SlipToPdfmeConverter {
       if (!asset.src.startsWith('data:')) {
         throw new SlipRenderError(rm(this.locale).assetNotEmbedded(what, assetId));
       }
-      return asset.src;
+      return this.checkedImage(asset.src, what);
     }
     throw new SlipRenderError(rm(this.locale).externalUrl(what, src));
   }
 
+  /** `data:` 이미지의 형식·서명·크기를 검사한다. 검증을 거치지 않은 값도 렌더 전에 막는다. */
+  private checkedImage(src: string, what: string): string {
+    const inspection = inspectImageDataUrl(src);
+    if (!inspection.ok) {
+      throw new SlipRenderError(rm(this.locale).imageInvalid(what, inspection.reason));
+    }
+    return src;
+  }
+
   /**
    * 바코드 요소를 pdfme 바코드 스키마로 변환한다.
-   * 바코드 종류별 값 형식은 pdfme가 검증한다.
+   * 값이 비어 있으면 그리지 않고, 비어 있지 않으면 종류별 형식을 먼저 검사한다.
    */
   private appendBarcode(schemas: Schema[], element: BarcodeElement): void {
+    const what = rm(this.locale).subjectBarcode(element.name, element.id);
+    const value = this.barcodeValue(element, what);
+    if (value === '') return;
+    if (!isValidBarcodeValue(element.kind, value)) {
+      throw new SlipRenderError(rm(this.locale).barcodeValueInvalid(what, element.kind));
+    }
     const schema: Schema = {
       name: element.id,
       type: element.kind,
@@ -1075,18 +1133,17 @@ class SlipToPdfmeConverter {
       barColor: element.fontColor ?? DEFAULT_FONT_COLOR,
       backgroundColor: element.backgroundColor ?? NO_COLOR,
     } as unknown as Schema;
-    this.push(schemas, schema, this.barcodeValue(element));
+    this.push(schemas, schema, value);
   }
 
   /** 직접 입력, 전표 값 또는 수식으로 바코드 값을 만든다. */
-  private barcodeValue(element: BarcodeElement): string {
-    const what = rm(this.locale).subjectBarcode(element.name, element.id);
-    if (element.content !== undefined) return element.content;
+  private barcodeValue(element: BarcodeElement, what: string): string {
+    if (element.content !== undefined) return this.limitText(element.content, what);
     if (element.formula !== undefined) {
-      return toDisplayText(this.evaluate(element.formula, this.values, what), what, this.locale);
+      return this.limitText(toDisplayText(this.evaluate(element.formula, this.values, what), what, this.locale), what);
     }
     if (element.parameter !== undefined) {
-      return toDisplayText(this.values[element.parameter], what, this.locale);
+      return this.limitText(toDisplayText(this.values[element.parameter], what, this.locale), what);
     }
     return '';
   }
@@ -1481,6 +1538,8 @@ interface DrawGridOptions {
   blankRows?: Set<number>;
   /** 셀을 넘치는 글의 기본 처리 */
   overflow?: 'clip' | 'shrink' | undefined;
+  /** 오류 메시지에 쓸 그리드 이름 */
+  subject: string;
 }
 
 /** 트랙 크기 배열을 누적 오프셋 배열로 변환한다. */

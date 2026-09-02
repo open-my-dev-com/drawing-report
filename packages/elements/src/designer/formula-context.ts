@@ -143,7 +143,7 @@ export function gridFormulaContext(
     const reserved: Record<string, unknown> = { '@all': [...realItems] };
     if (fragment !== undefined) {
       reserved['@page'] = itemsOf(fragment.pageItems);
-      reserved['@carried'] = itemsOf(fragment.carriedItems);
+      reserved['@carried'] = realItems.slice(0, fragment.carriedCount);
     }
     const item = planned?.itemIndex === undefined ? previewItem : realItems[planned.itemIndex];
     if (item !== undefined) reserved['@item'] = item;

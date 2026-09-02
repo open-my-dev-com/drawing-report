@@ -84,6 +84,7 @@ interface FormulaMessages {
   sumifLengthMismatch(): string;
   midStartTooSmall(): string;
   fractionDigitsRange(): string;
+  digitsRange(max: number): string;
   vatRateNegative(): string;
   numberToKoreanInteger(): string;
   numberToKoreanRange(): string;
@@ -225,6 +226,7 @@ const EN: FormulaMessages = {
   sumifLengthMismatch: () => 'SUMIF: the criteria range and the sum range have different lengths',
   midStartTooSmall: () => 'MID: the start position must be 1 or greater',
   fractionDigitsRange: () => 'The fraction digit count must be between 0 and 20',
+  digitsRange: (max) => `The digit count must be between -${max} and ${max}`,
   vatRateNegative: () => 'VAT: the tax rate must be 0 or greater',
   numberToKoreanInteger: () => 'NUMBER_TO_KOREAN only supports integers',
   numberToKoreanRange: () => 'NUMBER_TO_KOREAN: the number is out of the supported range',
@@ -277,6 +279,7 @@ const KO: FormulaMessages = {
   sumifLengthMismatch: () => 'SUMIF: 조건 범위와 합계 범위의 길이가 다릅니다',
   midStartTooSmall: () => 'MID: 시작 위치는 1 이상이어야 합니다',
   fractionDigitsRange: () => '소수 자릿수는 0~20이어야 합니다',
+  digitsRange: (max) => `자릿수는 -${max}~${max}이어야 합니다`,
   vatRateNegative: () => 'VAT: 세율은 0 이상이어야 합니다',
   numberToKoreanInteger: () => 'NUMBER_TO_KOREAN은 정수만 지원합니다',
   numberToKoreanRange: () => '값이 NUMBER_TO_KOREAN의 지원 범위를 벗어났습니다',
@@ -325,6 +328,7 @@ const JA: FormulaMessages = {
   sumifLengthMismatch: () => 'SUMIF: 条件範囲と合計範囲の長さが異なります',
   midStartTooSmall: () => 'MID: 開始位置は 1 以上でなければなりません',
   fractionDigitsRange: () => '小数の桁数は 0~20 でなければなりません',
+  digitsRange: (max) => `桁数は -${max}~${max} でなければなりません`,
   vatRateNegative: () => 'VAT: 税率は 0 以上でなければなりません',
   numberToKoreanInteger: () => 'NUMBER_TO_KOREAN は整数のみ対応しています',
   numberToKoreanRange: () => 'NUMBER_TO_KOREAN の対応範囲を超えました',

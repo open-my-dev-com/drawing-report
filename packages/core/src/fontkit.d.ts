@@ -9,6 +9,7 @@ declare module 'fontkit' {
   }
   interface FontkitFont {
     layout(text: string): FontkitLayoutResult;
+    hasGlyphForCodePoint(codePoint: number): boolean;
     unitsPerEm: number;
     ascent: number;
     descent: number;

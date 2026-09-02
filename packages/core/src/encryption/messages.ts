@@ -12,6 +12,8 @@ interface EncryptionMessages {
   rawKeyLength(): string;
   notAnEnvelope(): string;
   unsupportedEnvelopeVersion(): string;
+  unsupportedCipher(): string;
+  envelopeFieldInvalid(field: string): string;
   lockedWithPassphrase(): string;
   lockedWithRawKey(): string;
   unsupportedKdf(): string;
@@ -29,6 +31,9 @@ const EN: EncryptionMessages = {
   notAnEnvelope: () => 'Not an encrypted `.slip` envelope',
   unsupportedEnvelopeVersion: () =>
     'Unsupported encryption envelope version — the file may have been locked with a newer SlipKit',
+  unsupportedCipher: () => 'Unsupported encryption cipher — only A256GCM envelopes can be opened',
+  envelopeFieldInvalid: (field) =>
+    `The encrypted envelope is corrupted — the '${field}' field is missing or not in the expected format`,
   lockedWithPassphrase: () => 'This file is locked with a passphrase',
   lockedWithRawKey: () => 'This file is locked with a raw key',
   unsupportedKdf: () => 'Unsupported key derivation method',
@@ -46,6 +51,8 @@ const KO: EncryptionMessages = {
   notAnEnvelope: () => '`.slip` 암호화 봉투 형식이 아닙니다',
   unsupportedEnvelopeVersion: () =>
     '지원하지 않는 암호화 봉투 버전입니다. 더 최신 버전의 SlipKit으로 암호화한 파일일 수 있습니다',
+  unsupportedCipher: () => '지원하지 않는 암호 방식입니다. A256GCM 봉투만 열 수 있습니다',
+  envelopeFieldInvalid: (field) => `암호화 봉투가 손상되었습니다. '${field}' 필드가 없거나 형식이 맞지 않습니다`,
   lockedWithPassphrase: () => '이 파일은 암호 문구(passphrase)로 암호화되어 있습니다',
   lockedWithRawKey: () => '이 파일은 원시 키로 암호화되어 있습니다',
   unsupportedKdf: () => '지원하지 않는 키 파생 방식입니다',
@@ -63,6 +70,8 @@ const JA: EncryptionMessages = {
   notAnEnvelope: () => '暗号化された `.slip` エンベロープの形式ではありません',
   unsupportedEnvelopeVersion: () =>
     'サポートされていない暗号化エンベロープのバージョンです — より新しい SlipKit でロックされたファイルの可能性があります',
+  unsupportedCipher: () => 'サポートされていない暗号方式です — A256GCM のエンベロープのみ開けます',
+  envelopeFieldInvalid: (field) => `暗号化エンベロープが破損しています — '${field}' フィールドがないか、形式が正しくありません`,
   lockedWithPassphrase: () => 'このファイルはパスフレーズでロックされています',
   lockedWithRawKey: () => 'このファイルは生キーでロックされています',
   unsupportedKdf: () => 'サポートされていない鍵導出方式です',
