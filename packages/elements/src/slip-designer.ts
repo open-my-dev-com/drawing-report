@@ -775,6 +775,7 @@ export class SlipDesigner extends LitElement {
       commitCellContent: (value) => this._gridCommands.commitCellContent(value),
       setCellSpan: (kind, value) => this._gridCommands.setCellSpan(kind, value),
       updateCellStyle: (key, value) => this._gridCommands.updateCellStyle(key, value),
+      resetCellStyles: (keys) => this._gridCommands.resetCellStyles(keys),
       updateCellConditionalFormats: (next) => this._gridCommands.updateCellConditionalFormats(next),
       cellParameterSelect: (el, current, inBand) => this._gridCellParameterSelect(el, current, inBand),
     };
@@ -1165,15 +1166,11 @@ export class SlipDesigner extends LitElement {
       if (alive.size !== this._selectedIds.size) this._selectedIds = alive;
       if (this._selectedId === null) this._selectedId = alive.values().next().value ?? null;
     }
-    // 선택된 셀이 현재 그리드 범위 안에 있는지 확인합니다.
+    // 선택된 셀이 현재 그리드 범위 안에 있는지 확인하고 벗어난 셀은 선택에서 뺍니다.
     if (this._gridEdit.cell) {
       const el = this._findSelectedElement();
-      if (
-        !isGrid(el) ||
-        this._gridEdit.cell.row >= el.rows.length || this._gridEdit.cell.column >= el.columns.length
-      ) {
-        this._gridEdit.clearCell();
-      }
+      if (!isGrid(el)) this._gridEdit.clearCell();
+      else this._gridEdit.pruneCells(el.rows.length, el.columns.length);
     }
   }
 
@@ -1441,6 +1438,13 @@ export class SlipDesigner extends LitElement {
         e.preventDefault();
         this._setGridPlanPreview(false);
       }
+      return;
+    }
+    // 셀이 선택된 상태의 Esc는 셀 선택만 해제하고 그리드 요소 선택은 유지합니다.
+    // 인라인 편집 중의 Esc는 캔버스 입력기가 편집 종료로 처리합니다.
+    if (e.key === 'Escape' && this._gridEdit.cell !== null && !this._gridEdit.editing) {
+      e.preventDefault();
+      this._gridCommands.clearCellSelection();
       return;
     }
     if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedId) {

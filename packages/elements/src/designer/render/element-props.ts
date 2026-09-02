@@ -33,6 +33,9 @@ import { PLACEHOLDER_IMG } from '../image-pick.js';
 import { numberRow, borderWidthSelect, borderShapeRow, colorControl, textStyleToggles } from './inputs.js';
 import type { PanelKit } from './panel-kit.js';
 
+
+/** 목록 선택기에서 선택한 셀마다 값이 다를 때 보여 주는, 파일에 저장되지 않는 항목의 값 */
+export const MIXED_OPTION = '__mixed__';
 /** 요소 속성 줄이 컴포넌트에 요청하는 조작 */
 export interface ElementActions {
   /** 선택한 요소를 수정합니다 */
@@ -190,11 +193,13 @@ export function fontNameRow(
   act: ElementActions,
   current: string | undefined,
   apply: (value: string | null) => void,
-  opts?: { ariaLabel?: string; inherit?: FontDefaultOption; style?: FontStyleInput },
+  opts?: { ariaLabel?: string; inherit?: FontDefaultOption; style?: FontStyleInput; mixed?: boolean },
 ) {
   const s = kit.s;
   const fonts = act.fonts;
   const inherit = opts?.inherit ?? fontDefaultOption(kit, fonts.fallback);
+  // 선택한 셀마다 폰트가 다르면 저장되지 않는 「혼합」 항목을 현재 값으로 보여 줍니다.
+  const mixed = opts?.mixed === true;
   // 목록에 없는 이름을 지정한 요소도 그 값을 그대로 고를 수 있어야 합니다.
   const options = current !== undefined && !fonts.selectable.includes(current)
     ? [current, ...fonts.selectable]
@@ -210,13 +215,17 @@ export function fontNameRow(
       ${kit.listSelect({
         id: 'font-name',
         ariaLabel: opts?.ariaLabel ?? s.fontName,
-        value: current ?? '',
-        className: current === undefined ? 'dim' : '',
+        value: mixed ? MIXED_OPTION : current ?? '',
+        className: mixed ? 'mixed' : current === undefined ? 'dim' : '',
         options: [
+          ...(mixed ? [{ value: MIXED_OPTION, label: s.mixed }] : []),
           { value: '', label: inherit.label },
           ...options.map((name) => ({ value: name, label: name })),
         ],
-        onPick: (value) => apply(value || null),
+        onPick: (value) => {
+          if (value === MIXED_OPTION) return;
+          apply(value || null);
+        },
       })}
     </div>
     ${unregistered || failed
@@ -441,25 +450,32 @@ export function polygonProps(kit: PanelKit, act: ElementActions, el: PolygonElem
  */
 export function gridOverflowRow(kit: PanelKit, config: {
   id: string;
-  value: 'inherit' | 'clip' | 'shrink';
+  /** 현재 값. `mixed`는 선택한 셀마다 달라 저장되지 않는 「혼합」 항목을 표시합니다 */
+  value: 'inherit' | 'clip' | 'shrink' | 'mixed';
   inherit?: boolean;
   ariaLabel?: string;
   onPick: (value: 'inherit' | 'clip' | 'shrink') => void;
 }) {
   const s = kit.s;
+  const mixed = config.value === 'mixed';
   return html`
     <div class="prop-row">
       <label>${s.overflow}</label>
       ${kit.listSelect({
         id: config.id,
         ariaLabel: config.ariaLabel ?? s.overflow,
-        value: config.value,
+        value: mixed ? MIXED_OPTION : config.value,
+        className: mixed ? 'mixed' : '',
         options: [
+          ...(mixed ? [{ value: MIXED_OPTION, label: s.mixed }] : []),
           ...(config.inherit ? [{ value: 'inherit', label: s.overflowInherit }] : []),
           { value: 'clip', label: s.overflowClip },
           { value: 'shrink', label: s.overflowShrink },
         ],
-        onPick: (value) => config.onPick(value as 'inherit' | 'clip' | 'shrink'),
+        onPick: (value) => {
+          if (value === MIXED_OPTION) return;
+          config.onPick(value as 'inherit' | 'clip' | 'shrink');
+        },
       })}
     </div>
   `;

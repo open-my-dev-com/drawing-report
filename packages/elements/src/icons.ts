@@ -32,6 +32,7 @@ export const icons = {
   /** lucide: text-cursor-input */
   field: icon(svg`<path d="M12 20h-1a2 2 0 0 1-2-2 2 2 0 0 1-2 2H6" /><path d="M13 8h7a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-7" /><path d="M5 16H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1" /><path d="M6 4h1a2 2 0 0 1 2 2 2 2 0 0 1 2-2h1" /><path d="M9 6v12" />`),
   /** lucide: undo-2 */
+  reset: icon(svg`<path d="M3 12a9 9 0 1 0 2.6-6.4" /><path d="M3 4v5h5" />`),
   undo: icon(svg`<path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />`),
   /** lucide: redo-2 */
   redo: icon(svg`<path d="m15 14 5-5-5-5" /><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13" />`),

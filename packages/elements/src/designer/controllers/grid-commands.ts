@@ -601,15 +601,49 @@ export class GridCommandsController {
     });
   }
 
-  /** 선택 셀의 스타일 속성을 설정하거나 제거합니다. */
+  /**
+   * 선택한 모든 셀의 스타일 속성을 설정하거나 제거합니다.
+   * 여러 셀을 고쳐도 실행 취소 한 단위입니다.
+   *
+   * @param key - 스타일 속성 이름
+   * @param value - 저장할 값. null·undefined·빈 문자열이면 속성을 제거해 그리드 공통값을 물려받습니다
+   */
   updateCellStyle(key: string, value: unknown): void {
-    const target = this.host.edit.cell;
-    if (!target) return;
+    const targets = this.host.edit.cells;
+    if (targets.length === 0) return;
     this.host.updateElement((element) => {
       if (!isGrid(element)) return;
-      const record = ensureCell(element, target.row, target.column);
-      if (value === null || value === undefined || value === '') delete record[key];
-      else record[key] = value;
+      for (const target of targets) {
+        const record = ensureCell(element, target.row, target.column);
+        if (value === null || value === undefined || value === '') delete record[key];
+        else record[key] = value;
+      }
+    });
+  }
+
+  /**
+   * 선택한 모든 셀에서 스타일 속성을 제거해 그리드 공통값을 물려받게 합니다 (기본값으로 되돌리기).
+   *
+   * @param keys - 제거할 스타일 속성 이름 목록
+   */
+  resetCellStyles(keys: readonly string[]): void {
+    const targets = this.host.edit.cells;
+    if (targets.length === 0) return;
+    const el = this.host.selectedElement();
+    if (!isGrid(el)) return;
+    // 지울 값이 하나도 없으면 실행 취소 기록을 남기지 않습니다.
+    const hasAny = targets.some((target) => {
+      const record = el.cells.find((cell) => cell.row === target.row && cell.column === target.column);
+      return record !== undefined && keys.some((key) => key in record);
+    });
+    if (!hasAny) return;
+    this.host.updateElement((element) => {
+      if (!isGrid(element)) return;
+      for (const target of targets) {
+        const record = element.cells.find((cell) => cell.row === target.row && cell.column === target.column);
+        if (record === undefined) continue;
+        for (const key of keys) delete (record as unknown as Record<string, unknown>)[key];
+      }
     });
   }
 

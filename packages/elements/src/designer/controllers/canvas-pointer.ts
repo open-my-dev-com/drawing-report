@@ -21,6 +21,7 @@ import {
   type ResizeHandle,
   type SnapCandidates,
 } from '../geometry.js';
+import { cellOriginAt, cellsInRectangle } from '../cell-selection.js';
 import { columnWidths, gridDims, isGrid } from '../grid-model.js';
 import type { CreatableType } from '../grid-view.js';
 import type { GridEditController } from './grid-edit.js';
@@ -653,10 +654,27 @@ export class CanvasPointerController implements ReactiveController {
     if (isGrid(el) && drag.wasSelected && drag.snapshot === null) {
       const cell = this.cellAtPoint(el, e);
       if (cell) {
-        if (this.host.gridEdit.cell?.row !== cell.row || this.host.gridEdit.cell?.column !== cell.column) {
-          this.host.gridEdit.setSourceKind(null);
+        const edit = this.host.gridEdit;
+        // Shift·Ctrl/Cmd 클릭은 선택만 바꾸고 인라인 편집을 시작하지 않습니다.
+        const additive = e.ctrlKey || e.metaKey;
+        if (additive || e.shiftKey) {
+          edit.setEditing(false);
+          edit.setSourceKind(null);
+          edit.closeBandMenu(true);
+          if (e.shiftKey && edit.cell !== null) {
+            edit.selectRange(cellsInRectangle(el, edit.cell, cell), additive);
+          } else if (additive) {
+            edit.toggleCell(cell);
+          } else {
+            edit.selectCell(cell);
+          }
+          this.host.refresh();
+          return;
         }
-        this.host.gridEdit.selectCell(cell);
+        if (edit.cell?.row !== cell.row || edit.cell?.column !== cell.column) {
+          edit.setSourceKind(null);
+        }
+        edit.selectCell(cell);
         this.host.gridEdit.closeBandMenu(true);
         const definition = el.cells.find((item) => item.row === cell.row && item.column === cell.column);
         // 파라미터와 수식 셀은 속성 패널에서 편집하며 캔버스 입력기는 열지 않습니다.
@@ -694,16 +712,8 @@ export class CanvasPointerController implements ReactiveController {
     };
     const column = indexOf(relX, colOffsets, dims.columns);
     const row = indexOf(relY, rowOffsets, dims.rows);
-
     // 병합된 셀 안의 좌표는 병합 시작 셀로 변환합니다.
-    for (const cell of el.cells) {
-      const rowSpan = cell.rowSpan ?? 1;
-      const colSpan = cell.colSpan ?? 1;
-      if (row >= cell.row && row < cell.row + rowSpan && column >= cell.column && column < cell.column + colSpan) {
-        return { row: cell.row, column: cell.column };
-      }
-    }
-    return { row, column };
+    return cellOriginAt(el, row, column);
   }
 
   /**

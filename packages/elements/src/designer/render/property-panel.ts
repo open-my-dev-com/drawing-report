@@ -83,8 +83,10 @@ export function propertyPanel(ctx: PanelContext) {
   if (el.type === 'grid' && selectedCell !== null) {
     return html`
       <div class="type-name">
-        ${`${s.cell} (${selectedCell.row + 1}, ${selectedCell.column + 1})`}
-        ${cellInBand ? html`<span class="cell-band">${s.repeatCellHint}</span>` : nothing}
+        ${ctx.grid.edit.multiCell
+          ? s.cellsSelected.replace('{count}', String(ctx.grid.edit.cells.length))
+          : `${s.cell} (${selectedCell.row + 1}, ${selectedCell.column + 1})`}
+        ${cellInBand && !ctx.grid.edit.multiCell ? html`<span class="cell-band">${s.repeatCellHint}</span>` : nothing}
       </div>
       ${typeProps(ctx, el)}
     `;

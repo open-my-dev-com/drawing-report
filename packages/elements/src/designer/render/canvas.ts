@@ -44,6 +44,7 @@ import {
   textStyleCss,
   verticalFlexAlign,
 } from '../style-css.js';
+import { sameCell } from '../cell-selection.js';
 import {
   BAND_PLACEMENTS,
   bandAt,
@@ -757,14 +758,14 @@ export function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment
   const plannedFragment = formula.fragmentAt(ctx.outputPage);
 
   const boxes = el.cells.map((cell) => {
-    const isSelectedCell =
-      selected && ctx.gridEdit.cell?.row === cell.row && ctx.gridEdit.cell?.column === cell.column;
+    const isSelectedCell = selected && ctx.gridEdit.isCellSelected(cell);
     const inBand = inItemBand(el, cell.row);
     const slot = formula.slotForBand(plannedFragment, bandAt(el, cell.row));
     return gridCellBox(ctx, el, cell, { row: cell.row, rowSpan: cell.rowSpan ?? 1 }, {
       item: inBand ? slot.item : undefined,
       ...(slot.reserved === undefined ? {} : { reserved: slot.reserved }),
       selected: isSelectedCell,
+      anchor: isSelectedCell && sameCell(ctx.gridEdit.cell, cell),
       borderCssOf,
     });
   });
@@ -780,9 +781,9 @@ export function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment
   for (let r = 0; r < heights.length; r++) {
     for (let c = 0; c < widths.length; c++) {
       if (taken.has(`${r},${c}`)) continue;
-      const blankSelected =
-        selected && ctx.gridEdit.cell?.row === r && ctx.gridEdit.cell?.column === c;
-      blanks.push(html`<div class=${blankSelected ? 'cell-selected' : ''}
+      const blankSelected = selected && ctx.gridEdit.isCellSelected({ row: r, column: c });
+      const blankAnchor = blankSelected && sameCell(ctx.gridEdit.cell, { row: r, column: c });
+      blanks.push(html`<div class="${blankSelected ? 'cell-selected' : ''} ${blankAnchor ? 'cell-anchor' : ''}"
         style="grid-area:${r + 1}/${c + 1};border:${borderCssOf()}"></div>`);
     }
   }
@@ -1044,6 +1045,8 @@ export function gridCellBox(
     empty?: boolean;
     reserved?: Readonly<Record<string, unknown>> | undefined;
     selected?: boolean;
+    /** 기준 셀이면 `true` — Shift 범위 선택의 시작점을 진한 외곽선으로 구분합니다 */
+    anchor?: boolean;
     borderCssOf: (cell?: GridCell, overrideColor?: string) => string;
   },
 ) {
@@ -1073,7 +1076,7 @@ export function gridCellBox(
     ? ''
     : gridCellPreviewText(ctx, cell, context.item, context.reserved);
   const warned = hasCellWarning(ctx.formulaWarnings, el.id, cell.row, cell.column);
-  return html`<div class="grid-cell ${context.selected === true ? 'cell-selected' : ''}" style=${style}
+  return html`<div class="grid-cell ${context.selected === true ? 'cell-selected' : ''} ${context.anchor === true ? 'cell-anchor' : ''}" style=${style}
     >${stackVertically(text, cell.vertical)}${warned ? formulaWarningBadge(ctx) : nothing}</div>`;
 }
 

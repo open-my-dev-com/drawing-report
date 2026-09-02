@@ -28,7 +28,8 @@ import {
   type GridRowCommand,
 } from '../grid-model.js';
 import type { GridEditController } from '../controllers/grid-edit.js';
-import { numberRow, colorControl, textStyleToggles, borderShapeRow, borderWidthSelect } from './inputs.js';
+import { numberRow, colorControl, textStyleToggles, borderShapeRow, borderWidthSelect, resetButton, type TextEmphasisKey } from './inputs.js';
+import { cellRecordsOf, summarizeCellValue } from '../cell-selection.js';
 import { conditionalFormatsSection } from './conditional-formats.js';
 import {
   gridOverflowRow,
@@ -80,6 +81,7 @@ export interface GridActions {
   commitCellContent(value: string): void;
   setCellSpan(kind: 'rowSpan' | 'colSpan', value: number): void;
   updateCellStyle(key: string, value: unknown): void;
+  resetCellStyles(keys: readonly string[]): void;
   updateCellConditionalFormats(next: ConditionalFormatRule[]): void;
   cellParameterSelect(el: GridElement, current: string, inBand: boolean): TemplateResult;
 }
@@ -261,7 +263,9 @@ export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions,
               <span class="grid-back-label">${s.gridBack}</span>
               <span class="grid-back-name">${el.name}</span>
             </button>`}
-        ${gridCellProps(kit, act, grid, el, cellTarget, cellDef, source, inBand)}
+        ${grid.edit.multiCell
+          ? cellStyleSections(kit, act, grid, el, grid.edit.cells)
+          : gridCellProps(kit, act, grid, el, cellTarget, cellDef, source, inBand)}
       `;
 }
 
@@ -543,8 +547,6 @@ export function gridCellProps(
   inBand: boolean,
 ) {
   const s = kit.s;
-  // 셀에 설정이 없을 때 적용되는 셀 기본 테두리 — 이전 파일의 border*도 반영합니다.
-  const cellDefault = cellDefaultBorderOf(el);
   const valOf = (e: Event) => (e.target as HTMLInputElement).value;
   return cellTarget
     ? html`
@@ -660,113 +662,7 @@ export function gridCellProps(
           ${kit.error('cell-column-span')}
         </div>
 
-        <div class="prop-section">
-          <div class="prop-section-title">${s.styleText}</div>
-          ${fontNameRow(kit, act,
-            cellDef?.fontName,
-            (v) => grid.updateCellStyle('fontName', v),
-            {
-              ariaLabel: `${s.cell} ${s.fontName}`,
-              inherit: cellInheritOption(kit, act.fonts, el.fontName),
-              style: { ...el, ...cellDef },
-            },
-          )}
-          ${numberRow(kit,
-            s.fontSize, cellDef?.fontSize, el.fontSize ?? DEFAULT_FONT_SIZE,
-            (v) => grid.updateCellStyle('fontSize', v),
-            { step: '0.5', min: '0.5', ariaLabel: `${s.cell} ${s.fontSize}`, errorKey: 'cell-font-size' },
-          )}
-          ${gridOverflowRow(kit, {
-            id: 'grid-cell-overflow',
-            value: cellDef?.overflow ?? 'inherit',
-            inherit: true,
-            ariaLabel: `${s.cell} ${s.overflow}`,
-            onPick: (value) =>
-              grid.updateCellStyle('overflow', value === 'inherit' ? null : value),
-          })}
-          <div class="prop-row">
-            <label>${s.alignment}</label>
-            <div class="toggle-group" role="group" aria-label="${s.cell} ${s.alignment}">
-              ${([
-                ['left', s.alignLeft, icons.alignLeft],
-                ['center', s.alignCenter, icons.alignCenter],
-                ['right', s.alignRight, icons.alignRight],
-              ] as const).map(([value, label, glyph]) => html`
-                <button title=${label} aria-label="${s.cell} ${s.alignment}: ${label}"
-                  aria-pressed=${String((cellDef?.alignment ?? el.alignment ?? 'left') === value)}
-                  @click=${() => grid.updateCellStyle('alignment', value === 'left' ? null : value)}>${glyph}</button>`)}
-            </div>
-          </div>
-          <div class="prop-row">
-            <label>${s.verticalAlignment}</label>
-            <div class="toggle-group" role="group" aria-label="${s.cell} ${s.verticalAlignment}">
-              ${([
-                ['top', s.alignTop, icons.alignTop],
-                ['middle', s.alignMiddle, icons.alignMiddle],
-                ['bottom', s.alignBottom, icons.alignBottom],
-              ] as const).map(([value, label, glyph]) => html`
-                <button title=${label} aria-label="${s.cell} ${s.verticalAlignment}: ${label}"
-                  aria-pressed=${String((cellDef?.verticalAlignment ?? el.verticalAlignment ?? 'top') === value)}
-                  @click=${() => grid.updateCellStyle('verticalAlignment', value === 'top' ? null : value)}
-                  >${glyph}</button>`)}
-            </div>
-          </div>
-          ${numberRow(kit,
-            s.lineHeight, cellDef?.lineHeight, el.lineHeight ?? 1,
-            (v) => grid.updateCellStyle('lineHeight', v),
-            { step: '0.1', min: '0.1', ariaLabel: `${s.cell} ${s.lineHeight}`, errorKey: 'cell-line-height' },
-          )}
-          ${numberRow(kit,
-            s.characterSpacing, cellDef?.characterSpacing, el.characterSpacing ?? 0,
-            (v) => grid.updateCellStyle('characterSpacing', v),
-            { step: '0.1', ariaLabel: `${s.cell} ${s.characterSpacing}`, errorKey: 'cell-character-spacing' },
-          )}
-          ${textStyleToggles(kit,
-            cellDef ?? {},
-            (key, value) => grid.updateCellStyle(key, value ? true : null),
-            `${s.cell} `,
-          )}
-          ${fontVariantNote(kit, act.fonts, { ...el, ...cellDef })}
-          ${colorControl(kit,
-            s.fontColor, cellDef?.fontColor, 'cellFontColor',
-            (v) => grid.updateCellStyle('fontColor', v),
-            el.fontColor ?? DEFAULT_FONT_COLOR,
-            `${s.cell} ${s.fontColor}`,
-          )}
-        </div>
-
-        <div class="prop-section">
-          <div class="prop-section-title">${s.styleBackground}</div>
-          ${colorControl(kit,
-            s.backgroundColor, cellDef?.backgroundColor, 'cellBackgroundColor',
-            (v) => grid.updateCellStyle('backgroundColor', v),
-            undefined,
-            `${s.cell} ${s.backgroundColor}`,
-          )}
-        </div>
-
-        <div class="prop-section">
-          <div class="prop-section-title">${s.styleCellBorder}</div>
-          ${colorControl(kit,
-            s.borderColor, cellDef?.borderColor, 'cellBorderColor',
-            (v) => grid.updateCellStyle('borderColor', v),
-            cellDefault.color,
-            `${s.cell} ${s.borderColor}`,
-          )}
-          ${borderWidthSelect(kit,
-            cellDef?.borderWidth,
-            cellDefault.width,
-            true,
-            'cellBorderWidth',
-            (v) => grid.updateCellStyle('borderWidth', v),
-          )}
-          ${borderShapeRow(kit,
-            cellDef?.borderStyle,
-            `${s.cell} ${s.borderShape}`,
-            'cellBorderStyle',
-            (v) => grid.updateCellStyle('borderStyle', v),
-          )}
-        </div>
+        ${cellStyleSections(kit, act, grid, el, [cellTarget])}
         ${conditionalFormatsSection(kit,
           cellDef?.conditionalFormats,
           'cellCondFmt',
@@ -775,4 +671,193 @@ export function gridCellProps(
           `${s.cell} `,
         )}`
     : nothing;
+}
+
+/**
+ * 선택한 셀들의 텍스트·배경·셀 테두리 구역을 렌더링합니다. 셀 하나와 여러 셀이 같은 화면을 씁니다.
+ *
+ * @remarks
+ * 값은 셀 값, 없으면 그리드 공통값, 그것도 없으면 렌더러 기본값을 실제 적용값으로 보고
+ * 서로 다르면 「혼합」으로 표시합니다. 고른 값은 모든 선택 셀에 적용하되 그리드 공통값과 같은
+ * 값은 저장하지 않고 물려받게 합니다. 기본값으로 되돌리기만 셀별 값을 지웁니다.
+ *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param grid - 그리드 편집 동작
+ * @param el - 선택한 그리드 요소
+ * @param targets - 선택한 셀 좌표 목록 (하나 이상)
+ * @returns 스타일 구역 세 개
+ */
+export function cellStyleSections(
+  kit: PanelKit,
+  act: ElementActions,
+  grid: GridActions,
+  el: GridElement,
+  targets: readonly { row: number; column: number }[],
+) {
+  const s = kit.s;
+  const records = cellRecordsOf(el, targets);
+  const summary = <T,>(pick: (cell: GridCell) => T | undefined, inherited: T) =>
+    summarizeCellValue(records, pick, inherited);
+  // 그리드 공통값과 같은 값은 저장하지 않아 그대로 물려받습니다.
+  const applyRelative = (key: string, value: unknown, gridValue: unknown): void =>
+    grid.updateCellStyle(key, Object.is(value, gridValue) ? null : value);
+  // 셀에 설정이 없을 때 적용되는 셀 기본 테두리 — 이전 파일의 border*도 반영합니다.
+  const cellDefault = cellDefaultBorderOf(el);
+
+  const fontName = summary((cell) => cell.fontName, el.fontName);
+  const fontSize = summary((cell) => cell.fontSize, el.fontSize ?? DEFAULT_FONT_SIZE);
+  const overflow = summary((cell) => cell.overflow, undefined as 'clip' | 'shrink' | undefined);
+  const gridAlignment = el.alignment ?? 'left';
+  const alignment = summary((cell) => cell.alignment, gridAlignment);
+  const gridVerticalAlignment = el.verticalAlignment ?? 'top';
+  const verticalAlignment = summary((cell) => cell.verticalAlignment, gridVerticalAlignment);
+  const lineHeight = summary((cell) => cell.lineHeight, el.lineHeight ?? 1);
+  const characterSpacing = summary((cell) => cell.characterSpacing, el.characterSpacing ?? 0);
+  const emphasisKeys: readonly TextEmphasisKey[] = ['bold', 'italic', 'underline', 'strikethrough'];
+  const emphasis = {
+    bold: summary((cell) => cell.bold, el.bold === true),
+    italic: summary((cell) => cell.italic, el.italic === true),
+    underline: summary((cell) => cell.underline, el.underline === true),
+    strikethrough: summary((cell) => cell.strikethrough, el.strikethrough === true),
+  };
+  const mixedEmphasis = new Set(emphasisKeys.filter((key) => emphasis[key].mixed));
+  const fontColor = summary((cell) => cell.fontColor, el.fontColor ?? DEFAULT_FONT_COLOR);
+  const backgroundColor = summary((cell) => cell.backgroundColor, el.backgroundColor);
+  const borderColor = summary((cell) => cell.borderColor, cellDefault.color);
+  const borderWidth = summary((cell) => cell.borderWidth, cellDefault.width);
+  const borderStyle = summary((cell) => cell.borderStyle, cellDefault.style);
+  // 변형 글꼴 안내는 실제 적용값으로 판정합니다.
+  const effectiveStyle = {
+    fontName: fontName.effective,
+    bold: emphasis.bold.effective,
+    italic: emphasis.italic.effective,
+  };
+
+  const alignGroup = <V extends string>(
+    label: string,
+    key: 'alignment' | 'verticalAlignment',
+    options: readonly (readonly [V, string, unknown])[],
+    state: { mixed: boolean; effective: V | undefined },
+    gridValue: V,
+  ) => html`
+          <div class="prop-row">
+            <label>${label}</label>
+            <div class="toggle-group" role="group" aria-label="${s.cell} ${label}">
+              ${options.map(([value, name, glyph]) => html`
+                <button title=${name} aria-label="${s.cell} ${label}: ${name}"
+                  aria-pressed=${String(!state.mixed && state.effective === value)}
+                  @click=${() => applyRelative(key, value, gridValue)}>${glyph}</button>`)}
+            </div>
+            ${resetButton(kit, `${s.cell} ${label}`, () => grid.resetCellStyles([key]))}
+          </div>`;
+
+  return html`
+        <div class="prop-section">
+          <div class="prop-section-title">${s.styleText}</div>
+          ${fontNameRow(kit, act,
+            fontName.stored,
+            (v) => grid.updateCellStyle('fontName', v),
+            {
+              ariaLabel: `${s.cell} ${s.fontName}`,
+              inherit: cellInheritOption(kit, act.fonts, el.fontName),
+              style: effectiveStyle,
+              mixed: fontName.mixed,
+            },
+          )}
+          ${numberRow(kit,
+            s.fontSize, fontSize.stored, el.fontSize ?? DEFAULT_FONT_SIZE,
+            (v) => grid.updateCellStyle('fontSize', v),
+            { step: '0.5', min: '0.5', ariaLabel: `${s.cell} ${s.fontSize}`, errorKey: 'cell-font-size', mixed: fontSize.mixed },
+          )}
+          ${gridOverflowRow(kit, {
+            id: 'grid-cell-overflow',
+            value: overflow.mixed ? 'mixed' : overflow.stored ?? 'inherit',
+            inherit: true,
+            ariaLabel: `${s.cell} ${s.overflow}`,
+            onPick: (value) =>
+              grid.updateCellStyle('overflow', value === 'inherit' ? null : value),
+          })}
+          ${alignGroup(s.alignment, 'alignment', [
+            ['left', s.alignLeft, icons.alignLeft],
+            ['center', s.alignCenter, icons.alignCenter],
+            ['right', s.alignRight, icons.alignRight],
+          ] as const, alignment, gridAlignment)}
+          ${alignGroup(s.verticalAlignment, 'verticalAlignment', [
+            ['top', s.alignTop, icons.alignTop],
+            ['middle', s.alignMiddle, icons.alignMiddle],
+            ['bottom', s.alignBottom, icons.alignBottom],
+          ] as const, verticalAlignment, gridVerticalAlignment)}
+          ${numberRow(kit,
+            s.lineHeight, lineHeight.stored, el.lineHeight ?? 1,
+            (v) => grid.updateCellStyle('lineHeight', v),
+            { step: '0.1', min: '0.1', ariaLabel: `${s.cell} ${s.lineHeight}`, errorKey: 'cell-line-height', mixed: lineHeight.mixed },
+          )}
+          ${numberRow(kit,
+            s.characterSpacing, characterSpacing.stored, el.characterSpacing ?? 0,
+            (v) => grid.updateCellStyle('characterSpacing', v),
+            { step: '0.1', ariaLabel: `${s.cell} ${s.characterSpacing}`, errorKey: 'cell-character-spacing', mixed: characterSpacing.mixed },
+          )}
+          ${textStyleToggles(kit,
+            {
+              bold: emphasis.bold.effective,
+              italic: emphasis.italic.effective,
+              underline: emphasis.underline.effective,
+              strikethrough: emphasis.strikethrough.effective,
+            },
+            (key, value) => applyRelative(key, value, el[key] === true),
+            `${s.cell} `,
+            {
+              keys: emphasisKeys,
+              mixed: mixedEmphasis,
+              onReset: () => grid.resetCellStyles(emphasisKeys),
+            },
+          )}
+          ${fontVariantNote(kit, act.fonts, effectiveStyle)}
+          ${colorControl(kit,
+            s.fontColor, fontColor.stored, 'cellFontColor',
+            (v) => grid.updateCellStyle('fontColor', v),
+            el.fontColor ?? DEFAULT_FONT_COLOR,
+            `${s.cell} ${s.fontColor}`,
+            { mixed: fontColor.mixed },
+          )}
+        </div>
+
+        <div class="prop-section">
+          <div class="prop-section-title">${s.styleBackground}</div>
+          ${colorControl(kit,
+            s.backgroundColor, backgroundColor.stored, 'cellBackgroundColor',
+            (v) => grid.updateCellStyle('backgroundColor', v),
+            undefined,
+            `${s.cell} ${s.backgroundColor}`,
+            { mixed: backgroundColor.mixed },
+          )}
+        </div>
+
+        <div class="prop-section">
+          <div class="prop-section-title">${s.styleCellBorder}</div>
+          ${colorControl(kit,
+            s.borderColor, borderColor.stored, 'cellBorderColor',
+            (v) => grid.updateCellStyle('borderColor', v),
+            cellDefault.color,
+            `${s.cell} ${s.borderColor}`,
+            { mixed: borderColor.mixed },
+          )}
+          ${borderWidthSelect(kit,
+            borderWidth.stored,
+            cellDefault.width,
+            true,
+            'cellBorderWidth',
+            (v) => grid.updateCellStyle('borderWidth', v),
+            undefined,
+            { mixed: borderWidth.mixed },
+          )}
+          ${borderShapeRow(kit,
+            borderStyle.stored,
+            `${s.cell} ${s.borderShape}`,
+            'cellBorderStyle',
+            (v) => grid.updateCellStyle('borderStyle', v),
+            { mixed: borderStyle.mixed },
+          )}
+        </div>`;
 }
