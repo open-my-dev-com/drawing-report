@@ -18,7 +18,7 @@ SlipKit は単独で動作するサービスではありません。ユーザー
 - ブラウザおよび Node.js で使える PDF 生成機能
 - JSON ベースの `.slip` ファイルによるテンプレート・伝票の保存
 - 数式、条件付き書式、表、画像、図形、バーコードのサポート
-- IndexedDB とローカルファイルベースのストレージアダプタ
+- IndexedDB ストレージとローカルファイルの読み込み・ダウンロード
 - 任意の AES-256-GCM ファイル暗号化
 - 韓国語・英語・日本語の UI
 - Web Component と React・Vue 向けラッパーの提供
@@ -59,14 +59,18 @@ SlipKit は pnpm ワークスペースベースのモノレポで構成されて
 ### 要件
 
 - Node.js 22.13 以上
-- pnpm 10.33.0
+- pnpm 10.33.0（Corepack で管理）
 - `<slip-designer>`: 1440×810 以上のデスクトップブラウザー表示領域
 
 ### リポジトリの準備
 
+依存関係をインストールする前に Corepack を有効にします。リポジトリ内で `pnpm` を実行すると、Corepack が `packageManager` フィールドで指定された pnpm 10.33.0 を選択します。
+
 ```bash
 git clone https://github.com/open-my-dev-com/drawing-report.git
 cd drawing-report
+corepack enable
+pnpm --version
 pnpm install
 ```
 
@@ -113,6 +117,7 @@ pnpm demo:mcp
 |---|---|
 | [スタートガイド](docs/guide/getting-started.ja.md) | デモの実行とテンプレートデザイナーの最小接続 |
 | [アプリケーション統合ガイド](docs/guide/integration.ja.md) | デザイナー・作成フォーム・ビューアの接続、保存・復元、サーバー連携 |
+| [サーバー統合ガイド](docs/guide/server-integration.ja.md) | Node.js サーバーで伝票を発行し、PDF を生成・保管する方法 |
 | [テンプレートデザイナー利用ガイド](docs/guide/designer.ja.md) | デザイナー画面でテンプレートを作成する方法 |
 | [Core 利用ガイド](docs/guide/core.ja.md) | `.slip` ファイル処理、伝票の組み立て、数式評価、PDF 生成、暗号化 |
 | [MCP 利用ガイド](docs/guide/mcp.ja.md) | AI による `.slip` の作成・編集、伝票の組み立て、PDF 確認 |
@@ -132,15 +137,17 @@ pnpm demo:mcp
 
 ## 開発コマンド
 
+`pnpm typecheck` は、ワークスペースパッケージのビルド時に生成される型宣言ファイルを使用します。クリーンチェックアウトでは、先に `pnpm build` を実行してください。
+
 ```bash
 # コードスタイルチェック
 pnpm lint
 
-# 型チェック
-pnpm typecheck
-
 # パッケージのビルド
 pnpm build
+
+# 型チェック
+pnpm typecheck
 
 # テストの実行
 pnpm test

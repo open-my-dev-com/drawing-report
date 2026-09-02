@@ -31,20 +31,23 @@
 ### 要件
 
 - Node.js 22.13 以上
-- pnpm 10.33.0
+- pnpm 10.33.0（Corepack で管理）
 
-インストール済みのバージョンは次のコマンドで確認できます。
+インストール済みの Node.js バージョンは次のコマンドで確認できます。
 
 ```bash
 node --version
-pnpm --version
 ```
 
 ### 1. リポジトリの準備
 
+依存関係をインストールする前に Corepack を有効にします。リポジトリ内で `pnpm` を実行すると、Corepack が `packageManager` フィールドで指定された pnpm 10.33.0 を選択します。
+
 ```bash
 git clone https://github.com/open-my-dev-com/drawing-report.git
 cd drawing-report
+corepack enable
+pnpm --version
 pnpm install
 ```
 
