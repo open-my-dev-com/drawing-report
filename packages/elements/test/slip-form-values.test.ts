@@ -362,6 +362,34 @@ describe('<slip-form> 잘못된 목록 행 보존', () => {
     el.remove();
   });
 
+  it('배열이 아닌 목록 값은 행 추가로 덮어쓰지 않고, 지운 뒤에만 행을 만들 수 있다', async () => {
+    for (const clear of ['reset', 'button'] as const) {
+      const el = await mount(typedVoucher({ tags: 'legacy' }));
+      const last = lastChange(el);
+      const addButton = () => buttonByLabel(el, `태그 ${strings.form.addRow}`);
+      expect(addButton().disabled).toBe(true);
+      expect(hintTexts(el)).toEqual([strings.form.invalidList]);
+      // 비활성 버튼을 눌러도, 내부 갱신을 직접 호출해도 값은 그대로다.
+      addButton().click();
+      (el as unknown as { _updateList(key: string, mutate: (list: unknown[]) => void): void })
+        ._updateList('tags', (list) => { list.push({}); });
+      await el.updateComplete;
+      expect(last()).toBeUndefined();
+      expect((el as unknown as { _values: Record<string, unknown> })._values.tags).toBe('legacy');
+      await expectIssueBlocked(el);
+
+      if (clear === 'reset') el.reset();
+      else buttonByLabel(el, strings.form.reset).click();
+      await el.updateComplete;
+      expect(last()!.values.tags).toBeUndefined();
+      expect(addButton().disabled).toBe(false);
+      addButton().click();
+      await el.updateComplete;
+      expect(last()!.values.tags).toEqual([{}]);
+      el.remove();
+    }
+  });
+
   it('입력 지우기와 reset()에서만 잘못된 행이 제거되어 발행할 수 있다', async () => {
     for (const clear of ['reset', 'button'] as const) {
       const el = await mount(typedVoucher({ tags: MIXED_TAGS }));

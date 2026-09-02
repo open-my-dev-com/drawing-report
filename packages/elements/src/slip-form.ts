@@ -458,6 +458,16 @@ export class SlipForm extends LitElement {
   }
 
   /**
+   * 목록형 입력의 값이 비어 있지도 배열도 아닌지 확인합니다.
+   * 이런 값은 잘못된 업무 데이터라 사용자가 입력 지우기나 `reset()`으로 명시해 지우기 전까지
+   * 행 편집으로 덮어쓰지 않습니다.
+   */
+  private _listLocked(key: string): boolean {
+    const raw = this._values[key];
+    return !isEmptyValue(raw) && !Array.isArray(raw);
+  }
+
+  /**
    * 목록형 입력에서 객체로 구성된 행만 원본 인덱스와 함께 반환합니다.
    * 객체가 아닌 행은 화면에 보이지 않지만 원본 배열에는 그대로 남습니다.
    */
@@ -485,7 +495,7 @@ export class SlipForm extends LitElement {
    * 화면에 보이지 않는 잘못된 행은 건드리지 않아 사용자가 지우기 전까지 남습니다.
    */
   private _updateList(key: string, mutate: (list: unknown[]) => void): void {
-    if (this._issued) return;
+    if (this._issued || this._listLocked(key)) return;
     const list = [...this._listOf(key)];
     mutate(list);
     if (list.length === 0) delete this._values[key];
@@ -842,7 +852,8 @@ export class SlipForm extends LitElement {
               </button>`)}
           </div>
         </div>
-        <button class="row-add" aria-label="${input.label} ${t.addRow}" ?disabled=${this._issued}
+        <button class="row-add" aria-label="${input.label} ${t.addRow}"
+          ?disabled=${this._issued || this._listLocked(input.key)}
           @click=${() => this._updateList(input.key, (list) => { list.push({}); })}>
           ${icons.pageAdd}<span>${t.addRow}</span>
         </button>
