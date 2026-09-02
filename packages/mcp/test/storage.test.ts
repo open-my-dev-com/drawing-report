@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { isEncryptedSlipFile, serializeSlipFile } from '@omdc-slipkit/core';
-import { FileSystemStorage, resolveInRoot, writeFileAtomic } from '../src/storage.js';
-import { makeTemplate, makeWorkDir, removeWorkDir } from './helpers.js';
+import { FileSystemStorage, assertInsideRootReal, resolveInRoot, writeFileAtomic } from '../src/storage.js';
+import { makeTemplate, makeWorkDir, removeWorkDir, symlinksUnavailable } from './helpers.js';
 
 // 이름 바꾸기 실패를 흉내 내기 위해 rename만 가로챈다. 기본은 실제 구현을 그대로 쓴다.
 const renameFailure = vi.hoisted(() => ({ error: null as Error | null }));
@@ -156,6 +156,129 @@ describe('FileSystemStorage', () => {
 
     await writeFile(path.join(dir, 'open.slip'), serializeSlipFile(makeTemplate()), 'utf8');
     expect(await withKey.load('open')).toEqual(makeTemplate());
+  });
+});
+
+// 기준 디렉터리 안의 심볼릭 링크를 거쳐 밖의 파일에 닿는 경로를 막는지 실제 링크로 확인한다.
+// Windows에서 링크 생성 권한이 없을 때만 건너뛴다.
+describe.skipIf(symlinksUnavailable())('FileSystemStorage (심볼릭 링크)', () => {
+  /** 기준 디렉터리 밖의 디렉터리 */
+  let outside: string;
+
+  beforeEach(async () => {
+    outside = await makeWorkDir();
+  });
+
+  afterEach(async () => {
+    await removeWorkDir(outside);
+  });
+
+  /** 링크가 그대로 남아 있는지 확인한다. */
+  async function isLink(target: string): Promise<boolean> {
+    return (await lstat(target)).isSymbolicLink();
+  }
+
+  it('밖을 가리키는 파일 링크로는 읽지도 쓰지도 지우지도 않는다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    const secret = path.join(outside, 'secret.slip');
+    await writeFile(secret, serializeSlipFile(makeTemplate()), 'utf8');
+    await symlink(secret, path.join(dir, 'link.slip'), 'file');
+
+    await expect(storage.load('link')).rejects.toMatchObject({
+      code: 'io',
+      message: expect.stringContaining('outside the working directory') as string,
+    });
+
+    const changed = makeTemplate();
+    changed.template.meta.title = '바뀐 제목';
+    await expect(storage.save('link', changed)).rejects.toMatchObject({ code: 'io' });
+    expect(await readFile(secret, 'utf8')).toBe(serializeSlipFile(makeTemplate()));
+    expect(await isLink(path.join(dir, 'link.slip'))).toBe(true);
+
+    await expect(storage.delete('link')).rejects.toMatchObject({ code: 'io' });
+    expect(await isLink(path.join(dir, 'link.slip'))).toBe(true);
+    expect(await readdir(outside)).toEqual(['secret.slip']);
+    // 링크 옆에 임시 파일도 남기지 않는다.
+    expect(await readdir(dir)).toEqual(['link.slip']);
+  });
+
+  it('밖을 가리키는 디렉터리 링크 아래의 경로는 깊이와 무관하게 거부한다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    await symlink(outside, path.join(dir, 'shared'), 'dir');
+
+    await expect(storage.save('shared/doc', makeTemplate())).rejects.toMatchObject({
+      code: 'io',
+      message: expect.stringContaining('outside the working directory') as string,
+    });
+    await expect(storage.save('shared/deep/er/doc', makeTemplate())).rejects.toMatchObject({ code: 'io' });
+    expect(await readdir(outside)).toEqual([]);
+
+    await writeFile(path.join(outside, 'doc.slip'), serializeSlipFile(makeTemplate()), 'utf8');
+    await expect(storage.load('shared/doc')).rejects.toMatchObject({ code: 'io' });
+    await expect(storage.delete('shared/doc')).rejects.toMatchObject({ code: 'io' });
+    expect(await readdir(outside)).toEqual(['doc.slip']);
+  });
+
+  it('가리키는 곳이 안이라도 대상 자체가 링크면 거부하고, 안을 가리키는 디렉터리 링크는 허용한다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    await storage.save('real', makeTemplate());
+    await symlink(path.join(dir, 'real.slip'), path.join(dir, 'alias.slip'), 'file');
+    await expect(storage.load('alias')).rejects.toMatchObject({ code: 'io' });
+    await expect(storage.save('alias', makeTemplate())).rejects.toMatchObject({ code: 'io' });
+    expect(await isLink(path.join(dir, 'alias.slip'))).toBe(true);
+
+    await mkdir(path.join(dir, 'sub'));
+    await symlink(path.join(dir, 'sub'), path.join(dir, 'sub-link'), 'dir');
+    await storage.save('sub-link/doc', makeTemplate());
+    expect(await storage.load('sub-link/doc')).toEqual(makeTemplate());
+    expect(await readdir(path.join(dir, 'sub'))).toEqual(['doc.slip']);
+    await storage.delete('sub-link/doc');
+    expect(await readdir(path.join(dir, 'sub'))).toEqual([]);
+  });
+
+  it('list는 링크 파일과 링크된 디렉터리 안의 파일을 포함하지 않는다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    await storage.save('own', makeTemplate());
+    await writeFile(path.join(outside, 'secret.slip'), serializeSlipFile(makeTemplate()), 'utf8');
+    await symlink(path.join(outside, 'secret.slip'), path.join(dir, 'link.slip'), 'file');
+    await symlink(outside, path.join(dir, 'shared'), 'dir');
+    const page = await storage.list();
+    expect(page.items.map((item) => item.id)).toEqual(['own.slip']);
+  });
+
+  it('기준 디렉터리가 링크면 실제 경로로 고정하고, 그 안의 파일은 정상 처리한다', async () => {
+    const rootLink = path.join(outside, 'root-link');
+    await symlink(dir, rootLink, 'dir');
+    const storage = new FileSystemStorage({ rootDir: rootLink });
+    expect(storage.rootDir).toBe(dir);
+    await storage.save('doc', makeTemplate());
+    expect(await readdir(dir)).toEqual(['doc.slip']);
+    expect(await storage.load('doc')).toEqual(makeTemplate());
+    // 아직 없는 기준 디렉터리는 절대 경로 그대로 둔다.
+    const missing = path.join(dir, 'later');
+    expect(new FileSystemStorage({ rootDir: missing }).rootDir).toBe(missing);
+  });
+
+  it('assertInsideRootReal은 아직 없는 경로를 가장 가까운 존재하는 상위 경로로 판정한다', async () => {
+    await symlink(outside, path.join(dir, 'shared'), 'dir');
+    await expect(assertInsideRootReal(dir, path.join(dir, 'new', 'a.slip'))).resolves.toBeUndefined();
+    await expect(assertInsideRootReal(dir, path.join(dir, 'shared', 'new', 'a.slip'))).rejects.toMatchObject({
+      code: 'io',
+      message: expect.stringContaining(path.join('shared', 'new', 'a.slip')) as string,
+    });
+    await expect(assertInsideRootReal(dir, path.join(dir, 'shared', 'a.slip'), 'ko', 'shared/a.slip')).rejects.toThrow(
+      '작업 디렉터리 밖의 경로입니다: shared/a.slip',
+    );
+
+    // 기준 디렉터리 자체가 링크면 링크를 풀어 판정한다 — 안의 파일은 허용하고 밖으로 나가는 링크는 거부한다.
+    const rootLink = path.join(outside, 'root-link');
+    await symlink(dir, rootLink, 'dir');
+    await writeFile(path.join(dir, 'real.slip'), '{}', 'utf8');
+    await expect(assertInsideRootReal(rootLink, path.join(rootLink, 'real.slip'))).resolves.toBeUndefined();
+    await expect(assertInsideRootReal(rootLink, path.join(rootLink, 'new', 'a.slip'))).resolves.toBeUndefined();
+    await expect(assertInsideRootReal(rootLink, path.join(rootLink, 'shared', 'a.slip'))).rejects.toMatchObject({
+      code: 'io',
+    });
   });
 });
 

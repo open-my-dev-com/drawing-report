@@ -19,6 +19,7 @@ import {
 } from '@omdc-slipkit/core';
 import {
   FileSystemStorage,
+  assertInsideRootReal,
   isNotFound,
   reasonOf,
   resolveInRoot,
@@ -31,6 +32,7 @@ import {
   assertFileImages,
   assertImageValues,
   editOpSchema,
+  imageValueSpec,
   MAX_IMAGE_BYTES,
   McpToolError,
 } from './edit.js';
@@ -402,7 +404,11 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
           for (const op of ops) {
             lines.push(
               await applyEditOp(draft, op, {
-                resolveFilePath: (relPath) => resolveInRoot(storage.rootDir, relPath, locale),
+                resolveFilePath: async (relPath) => {
+                  const abs = resolveInRoot(storage.rootDir, relPath, locale);
+                  await assertInsideRootReal(storage.rootDir, abs, locale, relPath);
+                  return abs;
+                },
               }),
             );
           }
@@ -448,7 +454,7 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         if (template.kind !== 'template') {
           throw new McpToolError(`"${templatePath}" is a voucher, not a template.`);
         }
-        assertImageValues(values ?? {});
+        assertImageValues(values ?? {}, imageValueSpec(template.template));
         const voucher = buildVoucher(template, (values ?? {}) as Record<string, JsonValue>);
         await withFile(outPath, async () => {
           const existing = await loadExisting(outPath);
@@ -510,6 +516,8 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         const pdf = await slipKit.render(file);
         // 같은 출력 파일을 향한 검사와 쓰기는 줄을 세워 검사 뒤에 다른 호출이 끼어들지 못하게 한다.
         await queue.run(queueKey(abs), async () => {
+          // 링크를 거쳐 작업 디렉터리 밖에 쓰는 일을 막는다.
+          await assertInsideRootReal(storage.rootDir, abs, locale, target);
           await assertReplaceablePdf(abs, target);
           try {
             await writeFileAtomic(abs, pdf);

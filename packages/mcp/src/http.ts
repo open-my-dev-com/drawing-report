@@ -3,6 +3,7 @@
  *
  * `httpPort`를 설정하면 렌더 응답에 브라우저에서 열 수 있는 PDF URL을 포함한다.
  * 서버는 127.0.0.1에만 바인딩하며 작업 디렉터리 안의 `.pdf` 파일만 제공한다.
+ * 심볼릭 링크를 거쳐 작업 디렉터리 밖에 있는 파일은 제공하지 않는다.
  * 링크에는 프로세스마다 다른 난수 접근 토큰이 들어가므로, 같은 컴퓨터의 다른 프로그램이나
  * 브라우저 페이지가 파일 이름만 알고 PDF를 읽어 갈 수 없다.
  */
@@ -10,7 +11,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import path from 'node:path';
-import { resolveInRoot } from './storage.js';
+import { assertInsideRootReal, resolveInRoot } from './storage.js';
 
 /** 같은 작업 디렉터리를 제공하는 링크 서버인지 확인하는 상태 경로 (토큰 없이 조회할 수 있다) */
 const STATUS_PATH = '/slipkit-mcp/status';
@@ -131,6 +132,8 @@ export async function startPdfLinkServer(options: {
           return;
         }
         const abs = resolveInRoot(options.rootDir, relPath);
+        // 링크를 거쳐 작업 디렉터리 밖에 있는 파일도 제공하지 않는다.
+        await assertInsideRootReal(options.rootDir, abs, undefined, relPath);
         const data = await readFile(abs);
         response
           .writeHead(200, {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { writeFile } from 'node:fs/promises';
+import { readdir, symlink, writeFile } from 'node:fs/promises';
 import { createServer, request } from 'node:http';
 import path from 'node:path';
 import {
@@ -8,7 +8,7 @@ import {
   startPdfLinkServer,
   type PdfLinkServer,
 } from '../src/http.js';
-import { callText, connect, makeTemplate, makeWorkDir, removeWorkDir } from './helpers.js';
+import { callText, connect, makeTemplate, makeWorkDir, removeWorkDir, symlinksUnavailable } from './helpers.js';
 
 let dir: string;
 let linkServer: PdfLinkServer;
@@ -78,6 +78,24 @@ describe('PDF 링크 서버', () => {
     expect((await fetch(`${linkServer.baseUrl}/%2e%2e/outside.pdf`)).status).toBe(404);
     expect((await fetch(`${linkServer.baseUrl}/missing.pdf`)).status).toBe(404);
     expect((await fetch(`${linkServer.baseUrl}/`)).status).toBe(404);
+  });
+
+  // Windows에서 링크 생성 권한이 없을 때만 건너뛴다.
+  it.skipIf(symlinksUnavailable())('작업 디렉터리 안의 링크를 거쳐 밖에 있는 PDF는 제공하지 않는다', async () => {
+    const outside = await makeWorkDir();
+    try {
+      await writeFile(path.join(outside, 'secret.pdf'), '%PDF-1.7 secret');
+      await writeFile(path.join(dir, 'own.pdf'), '%PDF-1.7 own');
+      await symlink(path.join(outside, 'secret.pdf'), path.join(dir, 'leak.pdf'), 'file');
+      await symlink(outside, path.join(dir, 'shared'), 'dir');
+      expect((await fetch(`${linkServer.baseUrl}/leak.pdf`)).status).toBe(404);
+      expect((await fetch(`${linkServer.baseUrl}/shared/secret.pdf`)).status).toBe(404);
+      // 같은 디렉터리의 실제 파일은 그대로 제공한다.
+      expect((await fetch(`${linkServer.baseUrl}/own.pdf`)).status).toBe(200);
+      expect(await readdir(outside)).toEqual(['secret.pdf']);
+    } finally {
+      await removeWorkDir(outside);
+    }
   });
 
   it('GET 이외의 메서드는 405다', async () => {

@@ -3,7 +3,18 @@
  * MCP 서버와 Node.js 호스트 애플리케이션이 같은 파일 접근 규칙을 사용할 수 있다.
  */
 import { randomBytes } from 'node:crypto';
-import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
+import {
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  stat,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 import {
   SlipStorageError,
@@ -24,7 +35,10 @@ export type FileSystemStorageKey = string | Uint8Array;
 
 /** {@link FileSystemStorage} 생성 옵션 */
 export interface FileSystemStorageOptions {
-  /** `.slip` 파일을 읽고 쓸 기준 디렉터리. 이 밖의 경로는 거부한다. */
+  /**
+   * `.slip` 파일을 읽고 쓸 기준 디렉터리. 이 밖의 경로는 거부한다.
+   * 디렉터리 안에 있는 심볼릭 링크라도 실제 위치가 밖이면 거부한다.
+   */
   rootDir: string;
   /** 오류 메시지 언어 (`ko`, `en`, `ja`). 기본 영어 */
   locale?: string;
@@ -45,7 +59,7 @@ const LIST_PAGE_SIZE = 50;
  * `.slip` 확장자는 없으면 붙인다. 기준 디렉터리를 벗어나는 경로는 `io` 오류로 거부한다.
  */
 export class FileSystemStorage implements StorageAdapter {
-  /** 기준 디렉터리의 절대 경로 */
+  /** 기준 디렉터리의 절대 경로. 디렉터리가 있으면 심볼릭 링크를 푼 실제 경로다 */
   readonly rootDir: string;
   private readonly locale: string | undefined;
   private readonly encryption: FileSystemStorageOptions['encryption'];
@@ -54,7 +68,7 @@ export class FileSystemStorage implements StorageAdapter {
    * @param options - 기준 디렉터리, 오류 메시지 언어와 암호화 설정
    */
   constructor(options: FileSystemStorageOptions) {
-    this.rootDir = path.resolve(options.rootDir);
+    this.rootDir = realRootDir(options.rootDir);
     this.locale = options.locale;
     this.encryption = options.encryption;
   }
@@ -82,13 +96,14 @@ export class FileSystemStorage implements StorageAdapter {
    *
    * @param id - 상대 경로 저장 키
    * @param file - 저장할 `.slip` 파일
-   * @throws SlipStorageError 경로 이탈·쓰기 실패(io) 시
+   * @throws SlipStorageError 경로 이탈(심볼릭 링크 경유 포함)·쓰기 실패(io) 시
    */
   async save(id: string, file: SlipFile): Promise<void> {
     const abs = this.resolvePath(id);
     const text = this.encryption
       ? await encryptSlipFile(file, this.encryption.key, this.localeOptions())
       : serializeSlipFile(file);
+    await assertInsideRootReal(this.rootDir, abs, this.locale, id);
     try {
       await writeFileAtomic(abs, text);
     } catch (error) {
@@ -107,6 +122,7 @@ export class FileSystemStorage implements StorageAdapter {
    */
   async load(id: string): Promise<SlipFile> {
     const abs = this.resolvePath(id);
+    await assertInsideRootReal(this.rootDir, abs, this.locale, id);
     let text: string;
     try {
       text = await readFile(abs, 'utf8');
@@ -127,6 +143,7 @@ export class FileSystemStorage implements StorageAdapter {
    */
   async delete(id: string): Promise<void> {
     const abs = this.resolvePath(id);
+    await assertInsideRootReal(this.rootDir, abs, this.locale, id);
     try {
       await unlink(abs);
     } catch (error) {
@@ -139,7 +156,7 @@ export class FileSystemStorage implements StorageAdapter {
 
   /**
    * 기준 디렉터리(하위 디렉터리 포함)의 `.slip` 파일 목록을 반환한다.
-   * 읽거나 복호화할 수 없는 파일은 목록에서 제외한다.
+   * 읽거나 복호화할 수 없는 파일과 심볼릭 링크(링크된 디렉터리 안의 파일 포함)는 목록에서 제외한다.
    *
    * @param filter - 종류·검색어 필터 (검색어는 제목과 경로에 부분 일치)
    * @param cursor - 이전 페이지가 돌려준 nextCursor
@@ -230,12 +247,98 @@ export class FileSystemStorage implements StorageAdapter {
  */
 export function resolveInRoot(rootDir: string, relPath: string, locale?: string): string {
   const abs = path.resolve(rootDir, relPath);
-  const rel = path.relative(rootDir, abs);
-  // `..foo`처럼 점 두 개로 시작하는 정상 이름은 상위 디렉터리 참조가 아니다.
-  if (rel === '' || rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
+  if (escapesRoot(rootDir, abs)) {
     throw new SlipStorageError('io', mcpText(locale).outsideRoot(relPath));
   }
   return abs;
+}
+
+/** 절대 경로가 기준 디렉터리 자신이거나 그 밖에 있는지 문자열 기준으로 판정한다. */
+function escapesRoot(rootDir: string, abs: string): boolean {
+  const rel = path.relative(rootDir, abs);
+  // `..foo`처럼 점 두 개로 시작하는 정상 이름은 상위 디렉터리 참조가 아니다.
+  return rel === '' || rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel);
+}
+
+/** 기준 디렉터리를 절대 경로로 만들고, 디렉터리가 있으면 심볼릭 링크를 푼 실제 경로로 바꾼다. */
+function realRootDir(rootDir: string): string {
+  const resolved = path.resolve(rootDir);
+  try {
+    return realpathSync(resolved);
+  } catch {
+    return resolved;
+  }
+}
+
+/** Node 파일 오류가 경로의 일부가 없거나 디렉터리가 아니라는 뜻인지 판별한다. */
+function isMissingPath(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === 'ENOENT' || code === 'ENOTDIR';
+}
+
+/**
+ * 경로의 심볼릭 링크를 풀어 실제 경로를 구한다. 아직 없는 꼬리 부분은 가장 가까운
+ * 존재하는 상위 경로의 실제 경로 뒤에 그대로 붙인다.
+ *
+ * @param abs - 절대 경로
+ * @param followTargetLink - true면 경로 자체가 링크여도 따라가 실제 경로를 구한다 (기준 디렉터리용)
+ * @returns 실제 경로와, 경로가 가리키는 항목 자체가 심볼릭 링크인지 여부
+ */
+async function realizePath(
+  abs: string,
+  followTargetLink = false,
+): Promise<{ real: string; isLink: boolean }> {
+  const rest: string[] = [];
+  let current = abs;
+  for (;;) {
+    try {
+      const info = await lstat(current);
+      // 대상 자체가 링크면 가리키는 곳이 없어도(단절된 링크) 링크라는 사실만으로 충분하다.
+      if (current === abs && info.isSymbolicLink() && !followTargetLink) {
+        return { real: abs, isLink: true };
+      }
+      break;
+    } catch (error) {
+      if (!isMissingPath(error)) throw error;
+      const parent = path.dirname(current);
+      // 파일 시스템 루트까지 없으면 더 올라갈 곳이 없다.
+      if (parent === current) break;
+      rest.unshift(path.basename(current));
+      current = parent;
+    }
+  }
+  return { real: path.join(await realpath(current), ...rest), isLink: false };
+}
+
+/**
+ * 절대 경로가 실제로도 기준 디렉터리 안에 있는지 확인한다. {@link resolveInRoot}의 문자열 검사와
+ * 달리 심볼릭 링크를 풀어 판정하므로, 기준 디렉터리 안에 있는 링크를 거쳐 밖의 파일에 닿는 경로를
+ * 막는다. 대상 자체가 링크면 어디를 가리키든 거부하고, 아직 없는 경로는 가장 가까운 존재하는
+ * 상위 경로의 실제 위치로 판정한다. 파일을 읽고 쓰기 직전에 호출한다.
+ *
+ * @param rootDir - 기준 디렉터리 (절대 경로)
+ * @param abs - {@link resolveInRoot}를 통과한 절대 경로
+ * @param locale - 오류 메시지 언어
+ * @param label - 오류 메시지에 쓸 경로 표기 (기본은 기준 디렉터리 기준 상대 경로)
+ * @throws SlipStorageError 실제 위치가 기준 디렉터리 밖이거나 대상이 심볼릭 링크일 때, 또는 경로를 확인할 수 없을 때 (`io`)
+ */
+export async function assertInsideRootReal(
+  rootDir: string,
+  abs: string,
+  locale?: string,
+  label: string = path.relative(rootDir, abs),
+): Promise<void> {
+  let rootReal: string;
+  let target: { real: string; isLink: boolean };
+  try {
+    rootReal = (await realizePath(path.resolve(rootDir), true)).real;
+    target = await realizePath(abs);
+  } catch (error) {
+    throw new SlipStorageError('io', reasonOf(error));
+  }
+  if (target.isLink || escapesRoot(rootReal, target.real)) {
+    throw new SlipStorageError('io', mcpText(locale).outsideRoot(label));
+  }
 }
 
 /**
