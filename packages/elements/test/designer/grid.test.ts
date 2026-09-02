@@ -268,7 +268,7 @@ describe('<slip-designer> 표 내부 편집', () => {
     expect(titles).toContain(strings.designer.panelStructure);
     expect(titles).toContain(strings.designer.styleText);
     expect(titles).toContain(strings.designer.styleBackground);
-    expect(titles).toContain(strings.designer.styleBorder);
+    expect(titles).toContain(strings.designer.styleCellBorder);
 
     const colorLabels = Array.from(el.shadowRoot!.querySelectorAll('.color-btn'))
       .map((button) => button.getAttribute('aria-label'));

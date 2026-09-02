@@ -153,9 +153,18 @@ export const canvasStyles = css`
       box-shadow: 0 0 0 2px var(--sk-accent);
       z-index: 10;
     }
-    /* 반복 그리드의 행 편집 도구는 요소 바깥까지 표시합니다. 미리보기 자체는 계속 자릅니다. */
-    .element.type-grid.selected {
+    /*
+     * 그리드 테두리는 PDF처럼 경계 중심에 놓여 요소 상자 바깥으로 반이 나가므로 자르지 않습니다.
+     * 반복 그리드의 행 편집 도구도 요소 바깥까지 표시합니다. 미리보기 자체는 계속 자릅니다.
+     */
+    .element.type-grid {
       overflow: visible;
+    }
+    /* 저장된 그리드 테두리 전용 레이어. 편집 안내선·선택 표시와 별개입니다. */
+    .element .grid-outline {
+      position: absolute;
+      pointer-events: none;
+      box-sizing: border-box;
     }
     .element.type-grid.selected .grid-preview {
       overflow: hidden;

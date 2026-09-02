@@ -277,6 +277,9 @@ const ko = {
     styleText: '텍스트',
     styleBackground: '배경',
     styleBorder: '테두리',
+    styleCellBorder: '셀 테두리',
+    styleCellDefaultBorder: '셀 기본 테두리',
+    styleOutline: '그리드 테두리',
     borderShape: '형태',
     /* 선은 테두리를 두르는 게 아니라 선 자체가 굵기·색·모양을 갖습니다  */
     /* 이미지 업로드: 파일을 base64로 저장하며 URL 입력은 제공하지 않습니다. */
@@ -760,6 +763,9 @@ const en: SlipStrings = {
     styleText: 'Text',
     styleBackground: 'Background',
     styleBorder: 'Border',
+    styleCellBorder: 'Cell border',
+    styleCellDefaultBorder: 'Default cell border',
+    styleOutline: 'Grid border',
     borderShape: 'Line style',
     imageModalTitle: 'Select image',
     imagePick: 'Upload image',
@@ -1238,6 +1244,9 @@ const ja: SlipStrings = {
     styleText: 'テキスト',
     styleBackground: '背景',
     styleBorder: '枠線',
+    styleCellBorder: 'セルの枠線',
+    styleCellDefaultBorder: 'セルの既定の枠線',
+    styleOutline: 'グリッドの枠線',
     borderShape: '形状',
     /* 선은 테두리를 두르는 게 아니라 선 자체가 굵기·색·모양을 갖습니다  */
     /* 이미지 업로드: 파일을 base64로 저장하며 URL 입력은 제공하지 않습니다. */

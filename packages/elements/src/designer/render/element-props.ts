@@ -15,6 +15,7 @@ import type {
   OutputPageFilter,
   SlipElement,
   TextElement,
+  GridElement,
 } from '@omdc-slipkit/core';
 import { icons } from '../../icons.js';
 import { ANCHORS, round1, boxOf, setElementBox, lineLengthAngle } from '../geometry.js';
@@ -27,6 +28,7 @@ import {
 import { setOptional } from '../patch.js';
 import { withFontName } from '../../strings.js';
 import type { DesignerFonts, FontStyleInput } from '../font-variant.js';
+import { applyCellDefaultBorder, applyOutline } from '../grid-border.js';
 import { PLACEHOLDER_IMG } from '../image-pick.js';
 import { numberRow, borderWidthSelect, borderShapeRow, colorControl, textStyleToggles } from './inputs.js';
 import type { PanelKit } from './panel-kit.js';
@@ -878,6 +880,7 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
         <div class="prop-section-title">${s.styleBackground}</div>
         ${colorControl(kit, s.backgroundColor, r.backgroundColor as string | undefined, 'backgroundColor')}
       </div>` : nothing}
+    ${el.type === 'grid' ? gridBorderSections(kit, act, el) : html`
     <div class="prop-section">
       <div class="prop-section-title">${isLine ? s.styleLine : s.styleBorder}</div>
       ${colorControl(kit,
@@ -934,7 +937,7 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
             }}>
         </div>
         ${kit.error('corner-radius')}` : nothing}
-    </div>
+    </div>`}
   `;
 }
 
@@ -975,4 +978,70 @@ export function groupPanel(kit: PanelKit, act: ElementActions) {
   `;
 }
 
-/** 선택한 요소에 같은 그룹 ID를 지정합니다. */
+/**
+ * 그리드의 「셀 기본 테두리」와 「그리드 테두리」 구역을 렌더링합니다.
+ *
+ * @remarks
+ * 셀 기본 테두리는 셀에 설정이 없을 때 쓰는 값이고, 그리드 테두리는 그리드를 감싸는 별도
+ * 그리드 테두리입니다. 이전 파일의 `border*` 값은 셀 기본 테두리의 현재 적용값으로 보여 주고,
+ * 한 항목이라도 바꾸면 새 표기로 옮깁니다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param el - 그리드 요소
+ * @returns 두 구역 조각
+ */
+export function gridBorderSections(kit: PanelKit, act: ElementActions, el: GridElement) {
+  const s = kit.s;
+  const onGrid = (fn: (grid: GridElement) => void) =>
+    act.update((target) => {
+      if (target.type === 'grid') fn(target);
+    });
+  return html`
+    <div class="prop-section">
+      <div class="prop-section-title">${s.styleCellDefaultBorder}</div>
+      ${colorControl(kit,
+        s.borderColor, el.cellBorderColor ?? el.borderColor, 'cellDefaultBorderColor',
+        (v) => onGrid((grid) => applyCellDefaultBorder(grid, { key: 'color', value: v })),
+        DEFAULT_BORDER_COLOR,
+        `${s.styleCellDefaultBorder} ${s.borderColor}`,
+      )}
+      ${borderWidthSelect(kit,
+        el.cellBorderWidth ?? el.borderWidth,
+        DEFAULT_LINE_WIDTH,
+        true,
+        'cellDefaultBorderWidth',
+        (v) => onGrid((grid) => applyCellDefaultBorder(grid, { key: 'width', value: v })),
+        `${s.styleCellDefaultBorder} ${s.borderWidth}`,
+      )}
+      ${borderShapeRow(kit,
+        el.cellBorderStyle ?? el.borderStyle,
+        `${s.styleCellDefaultBorder} ${s.borderShape}`,
+        'cellDefaultBorderStyle',
+        (v) => onGrid((grid) => applyCellDefaultBorder(grid, { key: 'style', value: v })),
+      )}
+    </div>
+    <div class="prop-section">
+      <div class="prop-section-title">${s.styleOutline}</div>
+      ${colorControl(kit,
+        s.borderColor, el.outlineColor, 'outlineColor',
+        (v) => onGrid((grid) => applyOutline(grid, { key: 'color', value: v })),
+        DEFAULT_BORDER_COLOR,
+        `${s.styleOutline} ${s.borderColor}`,
+      )}
+      ${borderWidthSelect(kit,
+        el.outlineWidth,
+        0,
+        true,
+        'outlineWidth',
+        (v) => onGrid((grid) => applyOutline(grid, { key: 'width', value: v })),
+        `${s.styleOutline} ${s.borderWidth}`,
+      )}
+      ${borderShapeRow(kit,
+        el.outlineStyle,
+        `${s.styleOutline} ${s.borderShape}`,
+        'outlineStyle',
+        (v) => onGrid((grid) => applyOutline(grid, { key: 'style', value: v })),
+      )}
+    </div>`;
+}

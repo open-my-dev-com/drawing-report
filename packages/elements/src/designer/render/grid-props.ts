@@ -15,10 +15,8 @@ import type {
 } from '@omdc-slipkit/core';
 import { icons } from '../../icons.js';
 import {
-  DEFAULT_BORDER_COLOR,
   DEFAULT_FONT_COLOR,
   DEFAULT_FONT_SIZE,
-  DEFAULT_LINE_WIDTH,
 } from '../style-css.js';
 import {
   BAND_PLACEMENTS,
@@ -39,6 +37,7 @@ import {
   cellInheritOption,
 } from './element-props.js';
 import { setOptional } from '../patch.js';
+import { cellDefaultBorderOf } from '../grid-border.js';
 import type { ElementActions } from './element-props.js';
 import type { ParameterInfo } from '../parameters.js';
 import type { PanelKit } from './panel-kit.js';
@@ -544,6 +543,8 @@ export function gridCellProps(
   inBand: boolean,
 ) {
   const s = kit.s;
+  // 셀에 설정이 없을 때 적용되는 셀 기본 테두리 — 이전 파일의 border*도 반영합니다.
+  const cellDefault = cellDefaultBorderOf(el);
   const valOf = (e: Event) => (e.target as HTMLInputElement).value;
   return cellTarget
     ? html`
@@ -745,16 +746,16 @@ export function gridCellProps(
         </div>
 
         <div class="prop-section">
-          <div class="prop-section-title">${s.styleBorder}</div>
+          <div class="prop-section-title">${s.styleCellBorder}</div>
           ${colorControl(kit,
             s.borderColor, cellDef?.borderColor, 'cellBorderColor',
             (v) => grid.updateCellStyle('borderColor', v),
-            el.borderColor ?? DEFAULT_BORDER_COLOR,
+            cellDefault.color,
             `${s.cell} ${s.borderColor}`,
           )}
           ${borderWidthSelect(kit,
             cellDef?.borderWidth,
-            el.borderWidth ?? DEFAULT_LINE_WIDTH,
+            cellDefault.width,
             true,
             'cellBorderWidth',
             (v) => grid.updateCellStyle('borderWidth', v),

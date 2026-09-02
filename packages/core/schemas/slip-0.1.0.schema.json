@@ -472,6 +472,38 @@
                             "vertical": {
                               "type": "boolean"
                             },
+                            "cellBorderColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "cellBorderWidth": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "cellBorderStyle": {
+                              "type": "string",
+                              "enum": [
+                                "solid",
+                                "dashed",
+                                "dotted"
+                              ]
+                            },
+                            "outlineColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "outlineWidth": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "outlineStyle": {
+                              "type": "string",
+                              "enum": [
+                                "solid",
+                                "dashed",
+                                "dotted"
+                              ]
+                            },
                             "columns": {
                               "minItems": 1,
                               "maxItems": 100,
@@ -2445,6 +2477,38 @@
                             },
                             "vertical": {
                               "type": "boolean"
+                            },
+                            "cellBorderColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "cellBorderWidth": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "cellBorderStyle": {
+                              "type": "string",
+                              "enum": [
+                                "solid",
+                                "dashed",
+                                "dotted"
+                              ]
+                            },
+                            "outlineColor": {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                            },
+                            "outlineWidth": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "outlineStyle": {
+                              "type": "string",
+                              "enum": [
+                                "solid",
+                                "dashed",
+                                "dotted"
+                              ]
                             },
                             "columns": {
                               "minItems": 1,

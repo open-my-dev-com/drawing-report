@@ -1056,6 +1056,13 @@ interface GridElement {
   group?: string;
   pagePlacement?: PagePlacement;
 
+  cellBorderColor?: string;
+  cellBorderWidth?: number;
+  cellBorderStyle?: 'solid' | 'dashed' | 'dotted';
+  outlineColor?: string;
+  outlineWidth?: number;
+  outlineStyle?: 'solid' | 'dashed' | 'dotted';
+
   columns: {
     width: number;
     autoMerge?: boolean;
@@ -1081,6 +1088,15 @@ Column widths and row heights are absolute values in millimeters, not ratios.
 - Grid width is calculated from the sum of column widths.
 - The template height of a grid is calculated from the sum of row heights.
 - Repeated output height and output-page count are calculated from the row bands and page mode in `repeat`.
+
+`cellBorder*` defines the default border for cells that do not specify the corresponding `border*`
+property. Its default is a black 0.2 mm solid line. `outline*` defines a separate frame around the
+whole grid; its default width is 0, so no frame is drawn. Each repeated output fragment receives its
+own four-sided frame.
+
+For compatibility, `borderColor`, `borderWidth`, and `borderStyle` on a grid are read only as
+fallbacks for missing `cellBorder*` properties. They do not define the grid frame and should not be
+written to new files.
 
 ### `GridCell`
 
@@ -1109,6 +1125,9 @@ interface GridCell {
 `row` and `column` start at 0.
 
 `content`, `parameter`, and `formula` cannot be used two or more at the same time.
+
+A cell's `borderColor`, `borderWidth`, and `borderStyle` override the corresponding `cellBorder*`
+property on the grid.
 
 `name` identifies the cell in the designer and is not printed in the PDF. When omitted, the designer shows the cell coordinates.
 

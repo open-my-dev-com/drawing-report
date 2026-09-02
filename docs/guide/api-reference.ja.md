@@ -1056,6 +1056,13 @@ interface GridElement {
   group?: string;
   pagePlacement?: PagePlacement;
 
+  cellBorderColor?: string;
+  cellBorderWidth?: number;
+  cellBorderStyle?: 'solid' | 'dashed' | 'dotted';
+  outlineColor?: string;
+  outlineWidth?: number;
+  outlineStyle?: 'solid' | 'dashed' | 'dotted';
+
   columns: {
     width: number;
     autoMerge?: boolean;
@@ -1081,6 +1088,14 @@ interface GridElement {
 - グリッドの幅は列幅の合計から求めます。
 - グリッドのテンプレート上の高さは行の高さの合計から求めます。
 - 繰り返し出力の高さと出力ページ数は、`repeat` の行範囲とページ方式から求めます。
+
+`cellBorder*` は、対応する `border*` を指定していないセルに適用する既定の枠線です。既定値は
+黒の実線 0.2 mm です。`outline*` はグリッド全体を囲む独立した枠線で、既定の太さは 0 のため
+表示されません。繰り返し出力では、出力された各部分に四辺のグリッド枠線を描画します。
+
+互換性のため、グリッドの `borderColor`、`borderWidth`、`borderStyle` は、対応する
+`cellBorder*` がない場合に限り、セルの既定の枠線として読み取ります。グリッドの枠線としては
+解釈せず、新しいファイルには使用しません。
 
 ### `GridCell`
 
@@ -1109,6 +1124,9 @@ interface GridCell {
 `row` と `column` は 0 から始まります。
 
 `content`、`parameter`、`formula` は、同時に 2 つ以上使えません。
+
+セルの `borderColor`、`borderWidth`、`borderStyle` は、対応するグリッドの `cellBorder*`
+より優先されます。
 
 `name` はデザイナーでセルを識別する名前で、PDF には出力されません。省略した場合、デザイナーは行と列の座標を表示します。
 
