@@ -85,7 +85,10 @@ function makeTemplate(withExternalImage = false): SlipTemplateFile {
       assets: [],
       parameters: [
         { key: 'tradeDate', label: '거래일자' },
-        { key: 'items', label: '품목' },
+        {
+          key: 'items', label: '품목', valueType: 'list',
+          fields: [{ key: 'itemName', valueType: 'text' }, { key: 'amount', valueType: 'number' }],
+        },
         { key: 'totalAmount', label: '합계금액' },
         { key: 'memo', label: '비고' },
       ],
@@ -189,7 +192,7 @@ describe('<slip-form> 입력 칸 구성', () => {
 });
 
 describe('<slip-form> 값 입력·행 편집', () => {
-  it('값을 입력하면 작성 중 전표를 slip-change로 알린다 (숫자 표기는 수로)', async () => {
+  it('값을 입력하면 작성 중 전표를 slip-change로 알린다 (문자 파라미터는 원문 그대로)', async () => {
     const el = await mount();
     const changes: SlipVoucherFile[] = [];
     el.addEventListener('slip-change', (e) => {
@@ -206,7 +209,7 @@ describe('<slip-form> 값 입력·행 편집', () => {
     expect(last.kind).toBe('voucher');
     expect(last.issued).toBe(false);
     expect(last.values.tradeDate).toBe('2026-08-20');
-    expect(last.values.memo).toBe(1200);
+    expect(last.values.memo).toBe('1200');
     el.remove();
   });
 

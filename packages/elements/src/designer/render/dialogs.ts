@@ -66,7 +66,14 @@ export interface DialogContext {
   applySampleJson(): void;
   confirmSave(): void;
   loadMyForm(id: string): void;
+  /** 삭제 확인 모달을 엽니다 */
   deleteMyForm(id: string): void;
+  /** 삭제 확인 모달이 가리키는 양식. 열려 있지 않으면 null */
+  readonly pendingDelete: { id: string; title: string } | null;
+  /** 확인 모달에서 삭제를 확정합니다 */
+  confirmDeleteMyForm(): void;
+  /** 삭제 확인 모달을 닫습니다 */
+  cancelDeleteMyForm(): void;
   /** 화면을 다시 그립니다 */
   refresh(): void;
 }
@@ -456,6 +463,39 @@ export function myFormsModal(d: DialogContext) {
       </div>
       <div class="modal-foot">
         <button class="btn primary" @click=${close}>${s.close}</button>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * 저장된 양식을 지우기 전에 확인하는 모달을 렌더링합니다.
+ * 내 양식 목록 모달 위에 열리며 초점은 이 모달 안에 머뭅니다.
+ *
+ * @param d - 모달 렌더링에 필요한 상태와 동작
+ * @returns 삭제 확인 모달. 열려 있지 않으면 빈 것
+ */
+export function confirmDeleteModal(d: DialogContext) {
+  const pending = d.pendingDelete;
+  if (!d.dialogs.isOpen('confirmDelete') || pending === null) return nothing;
+  const s = d.s;
+  const close = (): void => d.cancelDeleteMyForm();
+  return html`
+    <div class="menu-backdrop modal-backdrop" @click=${close}></div>
+    <div class="modal modal-confirm" role="alertdialog" aria-modal="true" tabindex="-1"
+      aria-label=${s.deleteFormTitle} aria-describedby="confirm-delete-text"
+      @keydown=${(e: KeyboardEvent) => d.modalFocus.handleKeydown(e, close)}>
+      <div class="modal-head">
+        <span>${s.deleteFormTitle}</span>
+        <button class="modal-close" title=${s.close} aria-label=${s.close}
+          @click=${close}>${icons.close}</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-delete-text" class="confirm-text">${s.deleteFormConfirm.replace('{title}', pending.title)}</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn confirm-cancel" @click=${close}>${s.cancel}</button>
+        <button class="btn primary confirm-delete" @click=${() => d.confirmDeleteMyForm()}>${s.delete}</button>
       </div>
     </div>
   `;

@@ -191,6 +191,7 @@ export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions,
                   <div class="prop-row">
                     <label>${s.minItems}</label>
                     <input type="number" min="0" max=${String(GRID_MAX_ITEMS_UI)}
+                      aria-label=${s.minItems}
                       .value=${String(repeat.pagination.minItems)}
                       aria-invalid=${String(kit.hasError('repeat-min-items'))}
                       aria-describedby=${kit.hasError('repeat-min-items') ? 'error-repeat-min-items' : nothing}
@@ -201,6 +202,7 @@ export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions,
                   <div class="prop-row">
                     <label>${s.itemsPerPage}</label>
                     <input type="number" min="1" max=${String(GRID_MAX_PER_PAGE_UI)}
+                      aria-label=${s.itemsPerPage}
                       .value=${String(repeat.pagination.itemsPerPage)}
                       aria-invalid=${String(kit.hasError('repeat-per-page') || gridPlanError !== null)}
                       aria-describedby=${kit.hasError('repeat-per-page')
@@ -215,6 +217,7 @@ export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions,
                   <div class="prop-row">
                     <label>${s.repeatMaxItems}</label>
                     <input type="number" min="1" max=${String(GRID_MAX_ITEMS_UI)}
+                      aria-label=${s.repeatMaxItems}
                       class=${repeat.maxItems === undefined ? 'dim' : ''}
                       placeholder=${s.repeatMaxItemsNone}
                       .value=${repeat.maxItems === undefined ? '' : String(repeat.maxItems)}
@@ -234,6 +237,7 @@ export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions,
                         : repeatFields.map((field) => html`
                           <label class="field-check" title=${field.key}>
                             <input type="checkbox" data-field=${field.key}
+                              aria-label="${s.groupBy}: ${field.key}"
                               .checked=${repeat.groupBy?.includes(field.key) === true}
                               @change=${(e: Event) => grid.toggleGroupField(
                                 field.key,
@@ -586,7 +590,7 @@ export function gridCellProps(
             ? html`
               <div class="prop-row">
                 <label>${s.content}</label>
-                <input .value=${cellDef?.content ?? ''}
+                <input .value=${cellDef?.content ?? ''} aria-label=${s.content}
                   @change=${(e: Event) => {
                     grid.edit.selectCell(cellTarget);
                     grid.commitCellContent(valOf(e));
@@ -601,7 +605,7 @@ export function gridCellProps(
               : html`
                 <div class="prop-row">
                   <label>${s.formula}</label>
-                  <input .value=${cellDef?.formula ?? ''}
+                  <input .value=${cellDef?.formula ?? ''} aria-label=${s.formula}
                     aria-invalid=${String(kit.hasError('cell-formula'))}
                     @change=${(e: Event) => {
                       const value = valOf(e);
@@ -622,7 +626,7 @@ export function gridCellProps(
           <div class="prop-pair">
             <div class="prop-row">
               <label>${s.rowHeight}</label>
-              <input type="number" min="2" step="0.5"
+              <input type="number" min="2" step="0.5" aria-label=${s.rowHeight}
                 .value=${String(el.rows[cellTarget.row]?.height ?? '')}
                 aria-invalid=${String(kit.hasError('cell-row-height'))}
                 aria-describedby=${kit.hasError('cell-row-height') ? 'error-cell-row-height' : nothing}
@@ -631,7 +635,7 @@ export function gridCellProps(
             </div>
             <div class="prop-row">
               <label>${s.columnWidth}</label>
-              <input type="number" min="2" step="0.5"
+              <input type="number" min="2" step="0.5" aria-label=${s.columnWidth}
                 .value=${String(el.columns[cellTarget.column]?.width ?? '')}
                 aria-invalid=${String(kit.hasError('cell-column-width'))}
                 aria-describedby=${kit.hasError('cell-column-width') ? 'error-cell-column-width' : nothing}

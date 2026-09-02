@@ -939,4 +939,18 @@ export const dialogsStyles = css`
       opacity: 0.45;
       cursor: default;
     }
+    /* 삭제 확인 모달 — 목록 모달 위에 작게 띄웁니다 */
+    .modal.modal-confirm {
+      width: min(400px, calc(100vw - 32px));
+      z-index: 53;
+    }
+    .modal-confirm + .menu-backdrop,
+    .modal-backdrop:has(+ .modal-confirm) {
+      z-index: 52;
+    }
+    .confirm-text {
+      margin: 0;
+      line-height: 1.5;
+      color: var(--sk-text);
+    }
 `;

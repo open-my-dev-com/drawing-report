@@ -4,6 +4,9 @@ import { parseSlipFile, type SlipFile, type SlipKit } from '@omdc-slipkit/core';
 import { getStrings } from './strings.js';
 import { renderSlip } from './settings.js';
 
+/** 표시할 오류 종류. 문구는 렌더링 시점의 로케일로 고른다 */
+type ViewerError = 'parseError' | 'renderError';
+
 /**
  * `.slip` 양식 또는 전표를 PDF로 렌더링해 표시하는 웹 컴포넌트.
  */
@@ -36,7 +39,7 @@ export class SlipViewer extends LitElement {
   slipkit?: SlipKit;
 
   private _pdfUrl: string | null = null;
-  private _error: string | null = null;
+  private _error: ViewerError | null = null;
   private _loading = false;
   private _renderGeneration = 0;
 
@@ -50,13 +53,21 @@ export class SlipViewer extends LitElement {
     return getStrings(this._locale).viewer;
   }
 
+  override connectedCallback(): void {
+    super.connectedCallback();
+    // 분리됐다 다시 연결되면 분리 중 버린 결과 대신 현재 src로 미리보기를 복구한다.
+    if (this.hasUpdated && this.src) void this._renderPdf();
+  }
+
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this._revokePdfUrl();
   }
 
-  override updated(changed: Map<string, unknown>): void {
-    if (changed.has('src') || changed.has('slipkit')) {
+  // 렌더 시작은 갱신 전에 처리해 같은 갱신에 로딩 상태가 반영되게 한다.
+  // 갱신이 끝난 뒤 동기적으로 상태를 바꾸면 Lit이 중복 갱신을 경고한다.
+  protected override willUpdate(changed: Map<string, unknown>): void {
+    if (changed.has('src') || changed.has('slipkit') || changed.has('locale')) {
       void this._renderPdf();
     }
   }
@@ -89,19 +100,20 @@ export class SlipViewer extends LitElement {
     } catch (error) {
       console.error('[slip-viewer] .slip parse failed:', error);
       this._loading = false;
-      this._error = this._t.parseError;
+      this._error = 'parseError';
       return;
     }
 
     try {
       const pdfBytes = await renderSlip(this.slipkit, file, locale);
-      if (gen !== this._renderGeneration) return;
+      // 분리됐거나 새 렌더가 시작됐으면 결과를 버린다 — Blob URL은 만들지 않는다.
+      if (gen !== this._renderGeneration || !this.isConnected) return;
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._pdfUrl = URL.createObjectURL(blob);
     } catch (error) {
       console.error('[slip-viewer] PDF rendering failed:', error);
-      if (gen !== this._renderGeneration) return;
-      this._error = this._t.renderError;
+      if (gen !== this._renderGeneration || !this.isConnected) return;
+      this._error = 'renderError';
     } finally {
       if (gen === this._renderGeneration) {
         this._loading = false;
@@ -117,7 +129,7 @@ export class SlipViewer extends LitElement {
       return html`<div class="status">${this._t.loading}</div>`;
     }
     if (this._error) {
-      return html`<div class="status error">${this._error}</div>`;
+      return html`<div class="status error">${this._t[this._error]}</div>`;
     }
     if (this._pdfUrl) {
       return html`<iframe src=${this._pdfUrl} title=${this._t.pdfTitle}></iframe>`;

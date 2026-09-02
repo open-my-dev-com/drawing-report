@@ -30,10 +30,10 @@ export function focusableIn(container: HTMLElement): HTMLElement[] {
 
 export class ModalFocusController {
   /**
-   * 모달을 열기 직전에 초점이 있던 요소.
-   * `undefined`는 모달이 열려 있지 않다는 뜻이고, `null`은 되돌릴 곳이 없다는 뜻입니다.
+   * 열려 있는 모달과 각 모달을 열기 직전에 초점이 있던 요소.
+   * 확인 모달처럼 모달 위에 모달이 열리면 뒤에 쌓입니다.
    */
-  private returnFocus: HTMLElement | null | undefined = undefined;
+  private readonly stack: { modal: HTMLElement; returnTo: HTMLElement | null }[] = [];
 
   constructor(private readonly host: ModalFocusHost) {}
 
@@ -64,19 +64,21 @@ export class ModalFocusController {
     }
   }
 
-  /** 모달이 열리면 안으로 초점을 옮기고, 닫히면 열기 전 요소로 되돌립니다. */
+  /**
+   * 모달이 열리면 안으로 초점을 옮기고, 닫히면 열기 전 요소로 되돌립니다.
+   * 맨 위 모달만 초점을 받으며, 위 모달이 닫히면 아래 모달의 열었던 요소로 돌아갑니다.
+   */
   sync(): void {
-    const modal = this.host.renderRoot.querySelector('.modal') as HTMLElement | null;
-    if (modal !== null && this.returnFocus === undefined) {
-      const active = this.host.shadowRoot?.activeElement;
-      this.returnFocus = active instanceof HTMLElement ? active : null;
-      (focusableIn(modal)[0] ?? modal).focus();
-      return;
+    const modals = Array.from(this.host.renderRoot.querySelectorAll<HTMLElement>('.modal'));
+    // 닫힌 모달을 위에서부터 걷어 내고 그 모달을 열기 전 요소로 초점을 되돌립니다.
+    while (this.stack.length > 0 && !modals.includes(this.stack[this.stack.length - 1]!.modal)) {
+      const { returnTo } = this.stack.pop()!;
+      if (returnTo?.isConnected) returnTo.focus();
     }
-    if (modal === null && this.returnFocus !== undefined) {
-      const previous = this.returnFocus;
-      this.returnFocus = undefined;
-      previous?.focus();
-    }
+    const top = modals[modals.length - 1];
+    if (top === undefined || this.stack[this.stack.length - 1]?.modal === top) return;
+    const active = this.host.shadowRoot?.activeElement;
+    this.stack.push({ modal: top, returnTo: active instanceof HTMLElement ? active : null });
+    (focusableIn(top)[0] ?? top).focus();
   }
 }

@@ -26,7 +26,7 @@ import {
   type SourcePagePlan,
 } from '@omdc-slipkit/core';
 import { icons } from '../../icons.js';
-import { RULER_PX } from '../../styles/slip-designer.styles.js';
+import { RULER_PX } from '../../styles/designer/metrics.js';
 import {
   PX_PER_MM,
   RESIZE_HANDLES,
@@ -58,7 +58,7 @@ import {
   hasElementWarning,
   type FormulaWarnings,
 } from '../formula-warning.js';
-import { PLACEHOLDER_IMG } from '../image-pick.js';
+import { PLACEHOLDER_IMG, resolveDisplayImage } from '../image-pick.js';
 import { BARCODE_KINDS, BARCODE_2D } from '../barcode.js';
 import { TYPE_BADGE } from './badges.js';
 import type { GridBandPlacement } from '@omdc-slipkit/core';
@@ -134,6 +134,8 @@ export interface CanvasContext {
   selectedElement(): SlipElement | undefined;
   /** 인라인 편집한 셀 내용을 저장합니다 */
   commitCellContent(value: string): void;
+  /** 인라인 셀 편집을 마친 뒤 초점을 선택한 요소(없으면 컴포넌트)로 되돌립니다 */
+  focusSelectedElement(): void;
   /** 수식을 평가합니다 */
   evaluate(source: string, context: FormulaContext): FormulaValue;
   /** 행 번호를 눌렀을 때 */
@@ -437,6 +439,7 @@ export function cellEditor(ctx: CanvasContext) {
   ].filter(Boolean).join(';');
   return html`<input class="cell-editor"
     style="left:${rect.left}px;top:${rect.top}px;width:${Math.max(24, rect.width)}px;height:${Math.max(16, rect.height)}px;${inherited}"
+    aria-label=${ctx.s.content}
     .value=${cell?.content ?? ''}
     @keydown=${(e: KeyboardEvent) => {
       if (e.key === 'Enter') {
@@ -444,7 +447,11 @@ export function cellEditor(ctx: CanvasContext) {
       } else if (e.key === 'Escape') {
         ctx.gridEdit.setEditing(false);
         ctx.refresh();
+      } else {
+        return;
       }
+      // 편집을 마치면 단축키가 계속 듣도록 초점을 그리드 요소로 되돌립니다.
+      ctx.focusSelectedElement();
     }}
     @blur=${(e: Event) => {
       if (ctx.gridEdit.editing) ctx.commitCellContent((e.target as HTMLInputElement).value);
@@ -547,7 +554,7 @@ export function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourceP
   return html`
     <div class="element ${selected ? 'selected' : ''} ${hasLayoutError ? 'layout-error' : ''} type-${el.type}"
          data-id=${el.id}
-         tabindex=${hasLayoutError ? '-1' : nothing}
+         tabindex=${hasLayoutError || selected ? '-1' : nothing}
          aria-invalid=${hasLayoutError ? 'true' : nothing}
          aria-describedby=${hasLayoutError ? 'page-plan-error' : nothing}
          style=${style}>
@@ -603,10 +610,14 @@ export function elementContent(ctx: CanvasContext, el: SlipElement, fragment: Gr
           ? html`<img src=${sample} alt="">`
           : html`<span class="el-content">{${el.parameter}}</span>`;
       }
-      // 기본 투명 이미지는 이미지가 선택되지 않았음을 나타내는 문구로 표시합니다.
-      return el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:')
-        ? html`<img src=${el.src} alt="">`
-        : html`<span class="el-content">${ctx.s.typeImage}</span>`;
+      // 고정 이미지는 PDF 변환과 같은 규칙으로 `data:`·`asset://`를 해석해 표시합니다.
+      const image = resolveDisplayImage(ctx.file, el.src, PLACEHOLDER_IMG);
+      if (image.kind === 'data') return html`<img src=${image.src} alt="">`;
+      if (image.kind === 'none') return html`<span class="el-content">${ctx.s.typeImage}</span>`;
+      const text = (image.kind === 'missing' ? ctx.s.imageAssetMissing : ctx.s.imageAssetNotEmbedded)
+        .replace('{id}', image.assetId);
+      return html`<span class="el-content image-missing" role="img" aria-label=${text} title=${text}
+        >${icons.warning}<span>${text}</span></span>`;
     }
 
     case 'line':

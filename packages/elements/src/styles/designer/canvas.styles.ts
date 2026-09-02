@@ -399,4 +399,21 @@ export const canvasStyles = css`
     .grid-cell {
       position: relative;
     }
+    /* 에셋을 찾지 못한 고정 이미지의 자리표시 — 경고 아이콘과 사유를 함께 보입니다 */
+    .element .el-content.image-missing {
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 2px 4px;
+      font-size: 11px;
+      color: var(--sk-danger);
+      text-align: center;
+      overflow: hidden;
+    }
+    .element .el-content.image-missing svg {
+      flex: none;
+      width: 12px;
+      height: 12px;
+    }
 `;

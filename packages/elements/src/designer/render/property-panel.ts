@@ -100,7 +100,7 @@ export function propertyPanel(ctx: PanelContext) {
       <div class="prop-section-title">${s.panelLayout}</div>
       <div class="prop-row">
         <label>${s.name}</label>
-        <input .value=${el.name}
+        <input .value=${el.name} aria-label=${s.name}
                @change=${(e: Event) => ctx.element.update((el) => { el.name = valOf(e); })}>
       </div>
       ${anchorRow(ctx.kit, ctx.element, el)}
@@ -108,6 +108,7 @@ export function propertyPanel(ctx: PanelContext) {
         <div class="prop-row">
           <label>X</label>
           <input type="number" step="0.5" .value=${String(round1(el.position.x + anchor.ax * elBox.width))}
+                 aria-label="X"
                  aria-invalid=${String(ctx.kit.hasError('element-x'))}
                  aria-describedby=${ctx.kit.hasError('element-x') ? 'error-element-x' : nothing}
                  @change=${(e: Event) => {
@@ -125,6 +126,7 @@ export function propertyPanel(ctx: PanelContext) {
         <div class="prop-row">
           <label>Y</label>
           <input type="number" step="0.5" .value=${String(round1(el.position.y + anchor.ay * elBox.height))}
+                 aria-label="Y"
                  aria-invalid=${String(ctx.kit.hasError('element-y'))}
                  aria-describedby=${ctx.kit.hasError('element-y') ? 'error-element-y' : nothing}
                  @change=${(e: Event) => {

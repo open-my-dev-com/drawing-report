@@ -500,7 +500,8 @@ describe('slip_edit', () => {
     });
     const saved = await callText(client, 'slip_save', { path: 'big-doc', file: template });
     expect(saved.isError).toBe(true);
-    expect(saved.text).toMatch(/Asset "big" src is \d+KB; the limit is/);
+    // core 스키마 검증이 먼저 걸리므로 core의 크기 상한 메시지 또는 MCP의 안내 중 하나가 나온다.
+    expect(saved.text).toMatch(/exceeds the size limit \(2 MiB\)|Asset "big" src is \d+KB; the limit is/);
     expect((await readdir(dir)).includes('big-doc.slip')).toBe(false);
 
     const built = await callText(client, 'slip_build_voucher', {

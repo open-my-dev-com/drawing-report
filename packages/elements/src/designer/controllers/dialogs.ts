@@ -8,7 +8,7 @@
 import type { ReactiveController } from 'lit';
 
 /** 디자이너가 여는 모달의 종류 */
-export type DialogKind = 'formula' | 'image' | 'sample' | 'save' | 'myForms';
+export type DialogKind = 'formula' | 'image' | 'sample' | 'save' | 'myForms' | 'confirmDelete';
 
 export interface DialogsHost {
   requestUpdate(): void;

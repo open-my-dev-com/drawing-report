@@ -264,3 +264,94 @@ describe('<slip-viewer> UI 언어 (ADR-028)', () => {
     el.remove();
   });
 });
+
+// ---------------------------------------------------------------------------
+// 로케일·slipkit 변경과 분리·재연결
+// ---------------------------------------------------------------------------
+
+describe('<slip-viewer> 로케일 변경과 재연결', () => {
+  async function settle(el: Element & { updateComplete: Promise<boolean> }): Promise<void> {
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+  }
+
+  it('locale이 바뀌면 그 로케일로 PDF를 다시 만든다', async () => {
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await settle(el);
+    expect(renderSlipToPdfMock).toHaveBeenCalledTimes(1);
+
+    el.locale = 'ja';
+    await settle(el);
+    expect(renderSlipToPdfMock).toHaveBeenCalledTimes(2);
+    expect(renderSlipToPdfMock.mock.calls.at(-1)![1]?.locale).toBe('ja');
+    // 이전 미리보기 Blob URL은 해제하고 새 것을 표시한다.
+    expect(revokedUrls).toContain(blobUrls[0]!);
+    expect(el.shadowRoot?.querySelector('iframe')?.getAttribute('src')).toBe(blobUrls[1]!);
+    el.remove();
+  });
+
+  it('slipkit이 바뀌면 새 인스턴스로 PDF를 다시 만든다', async () => {
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await settle(el);
+    const render = vi.fn().mockResolvedValue(DUMMY_PDF);
+    el.slipkit = { locale: 'ko', getFonts: () => [{ name: 'F', data: new Uint8Array([1]) }], render } as unknown as SlipKit;
+    await settle(el);
+    expect(render).toHaveBeenCalledTimes(1);
+    el.remove();
+  });
+
+  it('로케일이 바뀌면 파싱 오류 문구도 그 언어로 바뀐다', async () => {
+    parseSlipFileMock.mockImplementation(() => {
+      throw new Error('parse error');
+    });
+    const el = await createElement();
+    el.src = '{ invalid json }';
+    await settle(el);
+    expect(shadowText(el)).toBe(strings.viewer.parseError);
+    el.locale = 'ko';
+    await settle(el);
+    expect(shadowText(el)).toBe(getStrings('ko').viewer.parseError);
+    el.remove();
+  });
+
+  it('분리 중 완료된 렌더 결과는 버리고 다시 연결하면 현재 src로 복구한다', async () => {
+    let resolveRender!: (pdf: Uint8Array) => void;
+    renderSlipToPdfMock.mockImplementationOnce(
+      () => new Promise<Uint8Array>((resolve) => { resolveRender = resolve; }),
+    );
+    const el = await createElement();
+    el.src = '{"valid": true}';
+    await el.updateComplete;
+    await flush();
+
+    el.remove();
+    resolveRender(DUMMY_PDF);
+    await flush();
+    expect(blobUrls.length).toBe(0);
+
+    // 다시 연결하면 분리 중 버린 결과 대신 현재 src로 다시 렌더한다.
+    document.body.appendChild(el);
+    await settle(el);
+    expect(renderSlipToPdfMock).toHaveBeenCalledTimes(2);
+    expect(blobUrls.length).toBe(1);
+    expect(el.shadowRoot?.querySelector('iframe')?.getAttribute('src')).toBe(blobUrls[0]!);
+    el.remove();
+    expect(revokedUrls).toContain(blobUrls[0]!);
+  });
+
+  it('갱신 중 상태 변경으로 Lit 경고를 내지 않는다', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const el = await createElement();
+    el.src = '{"first": true}';
+    await settle(el);
+    el.src = '{"second": true}';
+    el.locale = 'ja';
+    await settle(el);
+    const messages = warn.mock.calls.map((c) => String(c[0]));
+    expect(messages.filter((m) => m.includes('scheduled an update'))).toEqual([]);
+    el.remove();
+  });
+});

@@ -64,6 +64,8 @@ export interface ElementActions {
   barcodeParameterSelect(current: string): TemplateResult;
   /** 호스트가 허용한 바코드 종류 */
   barcodeKinds(): readonly { value: BarcodeKind; label: string }[];
+  /** 호스트 바코드 종류를 읽지 못했을 때의 안내. 없으면 null */
+  readonly barcodeKindsError: string | null;
   /** 바코드 내용이 규격에 맞는지 알리는 문구 */
   barcodeContentWarning(kind: BarcodeKind, content: string): string | null;
   /** 바코드의 값 소스 종류를 선택합니다 */
@@ -421,6 +423,7 @@ export function polygonProps(kit: PanelKit, act: ElementActions, el: PolygonElem
           <div class="prop-row">
             <label>${s.sides}</label>
             <input type="number" min="3" max="12" step="1" .value=${String(el.sides)}
+              aria-label=${s.sides}
               aria-invalid=${String(kit.hasError('polygon-sides'))}
               aria-describedby=${kit.hasError('polygon-sides') ? 'error-polygon-sides' : nothing}
               @change=${(e: Event) => {
@@ -617,7 +620,7 @@ export function fieldProps(kit: PanelKit, act: ElementActions, el: FieldElement)
         : html`
           <div class="prop-row">
             <label>${s.formula}</label>
-            <input .value=${live(el.formula ?? '')}
+            <input .value=${live(el.formula ?? '')} aria-label=${s.formula}
               aria-invalid=${String(kit.hasError('field-formula'))}
               @change=${(e: Event) => {
                 const value = valOf(e);
@@ -673,6 +676,9 @@ export function barcodeProps(kit: PanelKit, act: ElementActions, el: BarcodeElem
               }),
             })}
           </div>
+          ${act.barcodeKindsError
+            ? html`<div class="input-error field-error barcode-kinds-error" role="alert">${act.barcodeKindsError}</div>`
+            : nothing}
           <div class="prop-row">
             <label>${s.barcodeValue}</label>
             ${kit.listSelect({
@@ -692,7 +698,7 @@ export function barcodeProps(kit: PanelKit, act: ElementActions, el: BarcodeElem
             ? html`
               <div class="prop-row">
                 <label>${s.content}</label>
-                <input .value=${el.content ?? ''}
+                <input .value=${el.content ?? ''} aria-label=${s.content}
                   @change=${(e: Event) => act.setBarcodeSource('content', valOf(e))}>
               </div>
               ${warning ? html`<p class="image-error" role="alert">${warning}</p>` : nothing}`
@@ -701,7 +707,7 @@ export function barcodeProps(kit: PanelKit, act: ElementActions, el: BarcodeElem
               : html`
                 <div class="prop-row">
                   <label>${s.formula}</label>
-                  <input .value=${live(el.formula ?? '')}
+                  <input .value=${live(el.formula ?? '')} aria-label=${s.formula}
                     aria-invalid=${String(kit.hasError('barcode-formula'))}
                     @change=${(e: Event) => {
                       const value = valOf(e);

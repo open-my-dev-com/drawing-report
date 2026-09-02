@@ -156,6 +156,8 @@ newSlipButton.addEventListener('click', () => {
   voucher = null;
   void store.delete(VOUCHER_KEY).catch(() => undefined);
   setMode('fill', messages.newSlip);
+  // 같은 양식이면 src 문자열이 그대로라 변경으로 잡히지 않는다 — 발행 상태를 풀고 빈 전표로 명시적으로 되돌린다.
+  form.reset();
 });
 
 // ---------------------------------------------------------------------------

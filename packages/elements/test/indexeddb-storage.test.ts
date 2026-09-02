@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createSlipKit, serializeSlipFile, isEncryptedSlipFile } from '@omdc-slipkit/core';
 import { IndexedDbStorage } from '../src/storage/indexeddb-storage.js';
 import { getPresets } from '../src/presets.js';
+import { getStrings } from '../src/strings.js';
 
 const presets = getPresets();
 
@@ -103,7 +104,7 @@ describe('IndexedDbStorage 열기 실패 복구', () => {
     expect(loaded.kind).toBe('template');
   });
 
-  it('v1(문자열 본문)으로 저장된 것을 v2(Blob)로 마이그레이션해 로드한다 (ADR-045)', async () => {
+  it('v1(문자열 본문)으로 저장된 것을 현재 버전(Blob·메타데이터)으로 마이그레이션해 로드한다', async () => {
     const dbName = `test-mig-${++dbCounter}`;
     const file = presets[0]!.create();
     // 버전 1 레코드는 본문을 문자열로 저장한다.
@@ -129,19 +130,62 @@ describe('IndexedDbStorage 열기 실패 복구', () => {
       req.onerror = () => reject(req.error);
     });
 
-    // 버전 2로 열 때 문자열 본문을 Blob으로 마이그레이션한다.
+    // 현재 버전으로 열 때 문자열 본문을 Blob으로 바꾸고 목록용 메타데이터를 채운다.
     const storage = new IndexedDbStorage(plainKit, { dbName });
     const loaded = await storage.load('old-1');
     expect(loaded).toEqual(file);
     const page = await storage.list();
-    expect(page.items.map((i) => i.id)).toContain('old-1');
+    expect(page.items).toEqual([
+      { id: 'old-1', kind: file.kind, title: 'old', updatedAt: '2026-01-01T00:00:00.000Z' },
+    ]);
+    const raw = await readRawRecord(dbName, 'old-1');
+    expect(raw.data).toBe(serializeSlipFile(file));
+  });
+
+  it('v2(Blob 본문, 메타데이터 스토어 없음)를 업그레이드해도 기존 데이터를 보존하고 목록에 보인다', async () => {
+    const dbName = `test-mig-${++dbCounter}`;
+    const file = presets[1]!.create();
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open(dbName, 2);
+      req.onupgradeneeded = () => req.result.createObjectStore('slips', { keyPath: 'id' });
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction('slips', 'readwrite');
+        tx.objectStore('slips').put({
+          id: 'v2-1',
+          kind: file.kind,
+          title: 'v2 제목',
+          updatedAt: '2026-02-02T00:00:00.000Z',
+          data: new Blob([serializeSlipFile(file)]),
+        });
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
+      req.onerror = () => reject(req.error);
+    });
+
+    const storage = new IndexedDbStorage(plainKit, { dbName });
+    expect((await storage.list()).items).toEqual([
+      { id: 'v2-1', kind: file.kind, title: 'v2 제목', updatedAt: '2026-02-02T00:00:00.000Z' },
+    ]);
+    expect(await storage.load('v2-1')).toEqual(file);
+    // 업그레이드 뒤 저장·삭제도 메타데이터와 본문을 함께 다룬다.
+    await storage.save('v2-2', presets[0]!.create());
+    expect((await storage.list()).items.map((i) => i.id)).toEqual(['v2-2', 'v2-1']);
+    await storage.delete('v2-1');
+    expect((await storage.list()).items.map((i) => i.id)).toEqual(['v2-2']);
+    await expect(storage.load('v2-1')).rejects.toMatchObject({ code: 'not-found' });
   });
 });
 
 /** 저장된 레코드의 본문과 제목을 IndexedDB에서 직접 읽는다. */
 function readRawRecord(dbName: string, id: string): Promise<{ data: string; title: string }> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(dbName, 2);
+    // 버전을 지정하지 않고 열어 현재 스키마 버전을 그대로 쓴다.
+    const req = indexedDB.open(dbName);
     req.onsuccess = () => {
       const db = req.result;
       const get = db.transaction('slips', 'readonly').objectStore('slips').get(id);
@@ -277,5 +321,133 @@ describe('IndexedDbStorage 암호화 — 공통 키 재사용', () => {
     // 저장소가 만든 암호화 봉투를 같은 인스턴스의 decrypt(파일 교환의 열기 경로)로 풀 수 있다.
     const raw = await readRawRecord(dbName, 'doc');
     expect(await slipkit.decrypt(raw.data)).toEqual(file);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 연결 상태와 페이지 크기
+// ---------------------------------------------------------------------------
+
+/** 어댑터가 쓰는 연결을 꺼내 온다. */
+function openedDb(storage: IndexedDbStorage): Promise<IDBDatabase> {
+  return (storage as unknown as { open(): Promise<IDBDatabase> }).open();
+}
+
+describe('IndexedDbStorage 연결 상태', () => {
+  it('다른 연결이 열려 있어 버전을 올리지 못하면 기다리지 않고 io 오류로 거부하고, 닫힌 뒤에는 복구된다', async () => {
+    const dbName = `test-blocked-${++dbCounter}`;
+    // 버전 1 연결을 versionchange에 닫지 않고 붙들어 둔다.
+    const held = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open(dbName, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('slips', { keyPath: 'id' });
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+
+    const storage = new IndexedDbStorage(plainKit, { dbName });
+    const error = await storage.save('doc', presets[0]!.create()).catch((e: unknown) => e);
+    expect(error).toMatchObject({ name: 'SlipStorageError', code: 'io' });
+    expect((error as Error).message).toBe(getStrings().storage.openBlocked);
+
+    held.close();
+    await storage.save('doc', presets[0]!.create());
+    expect((await storage.load('doc')).kind).toBe('template');
+  });
+
+  it('브라우저가 연결을 강제로 닫으면 다음 호출에서 다시 연다', async () => {
+    const storage = freshStorage();
+    await storage.save('doc', presets[0]!.create());
+    const db = await openedDb(storage);
+    db.close();
+    db.onclose?.(new Event('close'));
+
+    expect((await storage.load('doc')).kind).toBe('template');
+    expect(await openedDb(storage)).not.toBe(db);
+  });
+
+  it('닫힌 연결로 트랜잭션을 열면 SlipStorageError로 알리고 다음 호출은 복구된다', async () => {
+    const storage = freshStorage();
+    await storage.save('doc', presets[0]!.create());
+    (await openedDb(storage)).close();
+
+    await expect(storage.list()).rejects.toMatchObject({ name: 'SlipStorageError', code: 'io' });
+    expect((await storage.list()).items.map((i) => i.id)).toEqual(['doc']);
+  });
+
+  it('다른 탭이 데이터베이스를 지우면(versionchange) 연결을 닫고 다음 호출에서 새로 만든다', async () => {
+    const dbName = `test-vc-${++dbCounter}`;
+    const storage = new IndexedDbStorage(plainKit, { dbName });
+    await storage.save('doc', presets[0]!.create());
+
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.deleteDatabase(dbName);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+
+    expect((await storage.list()).items).toEqual([]);
+    await storage.save('doc', presets[0]!.create());
+    expect((await storage.load('doc')).kind).toBe('template');
+  });
+});
+
+describe('IndexedDbStorage pageSize', () => {
+  it.each([0, -1, 1.5, Infinity, Number.NaN, 2 ** 53])('pageSize %s는 생성자에서 거부한다', (pageSize) => {
+    expect(() => new IndexedDbStorage(plainKit, { dbName: 'x', pageSize })).toThrow(RangeError);
+    expect(() => new IndexedDbStorage(plainKit, { dbName: 'x', pageSize })).toThrow(
+      getStrings().storage.badPageSize,
+    );
+  });
+
+  it('가장 큰 안전한 정수는 허용한다', async () => {
+    const storage = freshStorage(Number.MAX_SAFE_INTEGER);
+    await storage.save('doc', presets[0]!.create());
+    expect((await storage.list()).items.length).toBe(1);
+  });
+
+  it('커서는 항상 앞으로 나아가 모든 항목을 한 번씩 돌려준다', async () => {
+    const storage = freshStorage(2);
+    for (let i = 0; i < 5; i += 1) await storage.save(`doc-${i}`, presets[i % 2]!.create());
+
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    let pages = 0;
+    do {
+      const page = await storage.list(undefined, cursor);
+      ids.push(...page.items.map((i) => i.id));
+      cursor = page.nextCursor;
+      pages += 1;
+      if (pages > 5) throw new Error('커서가 앞으로 나아가지 않습니다');
+    } while (cursor !== undefined);
+    expect(pages).toBe(3);
+    expect(new Set(ids).size).toBe(5);
+  });
+
+  it('잘못된 커서는 io 오류로 거부한다', async () => {
+    const storage = freshStorage();
+    await expect(storage.list(undefined, 'abc')).rejects.toMatchObject({ code: 'io' });
+    await expect(storage.list(undefined, '-1')).rejects.toMatchObject({ code: 'io' });
+  });
+});
+
+describe('IndexedDbStorage 목록은 본문을 읽지 않는다', () => {
+  it('list는 메타데이터 스토어만 열고 Blob 본문을 읽지 않는다', async () => {
+    const storage = freshStorage(10);
+    for (let i = 0; i < 30; i += 1) await storage.save(`doc-${i}`, presets[i % 2]!.create());
+
+    const text = vi.spyOn(Blob.prototype, 'text');
+    const arrayBuffer = vi.spyOn(Blob.prototype, 'arrayBuffer');
+    const transaction = vi.spyOn(IDBDatabase.prototype, 'transaction');
+
+    const page = await storage.list({ query: 'inv' });
+    expect(page.items.length).toBeGreaterThan(0);
+    expect(text).not.toHaveBeenCalled();
+    expect(arrayBuffer).not.toHaveBeenCalled();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.mock.calls[0]![0]).toBe('slip-meta');
+
+    text.mockRestore();
+    arrayBuffer.mockRestore();
+    transaction.mockRestore();
   });
 });
