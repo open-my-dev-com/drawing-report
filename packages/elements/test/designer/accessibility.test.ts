@@ -83,13 +83,13 @@ async function mount(): Promise<Designer> {
   return loadDesigner();
 }
 
-/** 접근 가능한 이름이 없는 입력 — aria-label, label[for]=id, 감싸는 label 모두 없는 것 */
+/** 접근 가능한 이름이 없는 입력(input·textarea·select) — aria-label, label[for]=id, 감싸는 label 모두 없는 것 */
 function unnamedInputs(el: Element): string[] {
   const root = el.shadowRoot!;
   const labelled = new Set(
     Array.from(root.querySelectorAll('label[for]')).map((l) => l.getAttribute('for')),
   );
-  return Array.from(root.querySelectorAll<HTMLInputElement>('input'))
+  return Array.from(root.querySelectorAll<HTMLElement>('input, textarea, select'))
     .filter((input) => {
       if (input.getAttribute('aria-label')) return false;
       if (input.id && labelled.has(input.id)) return false;

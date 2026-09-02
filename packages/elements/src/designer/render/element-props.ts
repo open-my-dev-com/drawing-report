@@ -100,7 +100,7 @@ export function textProps(kit: PanelKit, act: ElementActions, el: TextElement) {
       ${textFieldKindRow(kit, act, 'text')}
       <div class="prop-row stacked">
         <label>${s.content}</label>
-        <textarea rows="3" .value=${el.content}
+        <textarea rows="3" aria-label=${s.content} .value=${el.content}
           @change=${(e: Event) => act.update((el) => {
             if (el.type === 'text') el.content = (e.target as HTMLTextAreaElement).value;
           })}></textarea>
