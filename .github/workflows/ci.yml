@@ -49,9 +49,10 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node }}
+          package-manager-cache: false
       - name: Corepack으로 pnpm 준비
         run: |
-          npm install --global "corepack@${COREPACK_VERSION}"
+          npm install --global --force "corepack@${COREPACK_VERSION}"
           corepack enable
           expected="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
           actual="$(corepack pnpm --version)"
@@ -76,9 +77,10 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
+          package-manager-cache: false
       - name: Corepack으로 pnpm 준비
         run: |
-          npm install --global "corepack@${COREPACK_VERSION}"
+          npm install --global --force "corepack@${COREPACK_VERSION}"
           corepack enable
           expected="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
           actual="$(corepack pnpm --version)"
@@ -119,9 +121,10 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node }}
+          package-manager-cache: false
       - name: Corepack으로 pnpm 준비
         run: |
-          npm install --global "corepack@${COREPACK_VERSION}"
+          npm install --global --force "corepack@${COREPACK_VERSION}"
           corepack enable
           expected="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
           actual="$(corepack pnpm --version)"
@@ -148,9 +151,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
+          package-manager-cache: false
       - name: Corepack으로 pnpm 준비
         run: |
-          npm install --global "corepack@${COREPACK_VERSION}"
+          # Windows hosted images already contain Yarn shims in the npm prefix.
+          npm install --global --force "corepack@${COREPACK_VERSION}"
           corepack enable
           expected="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
           actual="$(corepack pnpm --version)"
