@@ -8,6 +8,12 @@ For how a developer connects `<slip-designer>` to an application, see [Getting s
 
 The screens in this document are based on loading <kbd>Transaction statement</kbd> from <kbd>Presets</kbd> in the bundled demo.
 
+## Supported screen size
+
+The form designer is a desktop-only interface. Use it in a browser viewport of at least 1440×810 and allocate at least 1280×640 to the `<slip-designer>` element. The toolbar, sidebars, and canvas keep the same three-column layout and do not switch to a mobile or tablet layout.
+
+If the host application cannot allocate 1280×640, place the designer in a container with `overflow: auto`. The designer does not show a warning or block editing below the supported size.
+
 ## Order of building a template
 
 If you're building a template for the first time, we recommend working in this order.

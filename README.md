@@ -60,6 +60,7 @@ SlipKit is a pnpm workspace-based monorepo.
 
 - Node.js 22.13 or later
 - pnpm 10.33.0
+- `<slip-designer>`: desktop browser viewport of 1440×810 or larger
 
 ### Set up the repository
 

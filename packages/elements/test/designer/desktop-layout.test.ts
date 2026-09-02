@@ -1,11 +1,10 @@
 // @vitest-environment happy-dom
-// 디자이너의 데스크톱 전용 배치 — 뷰포트에 따른 열 전환이 없고 최소 크기를 선언한다
 import { describe, expect, it } from 'vitest';
 import { designerStyles } from '../../src/styles/slip-designer.styles.js';
 import { layoutStyles } from '../../src/styles/designer/layout.styles.js';
 import { dialogsStyles } from '../../src/styles/designer/dialogs.styles.js';
 
-/** 스타일 시트 안에서 선택자 블록 하나의 본문을 꺼냅니다 */
+/** 스타일 시트에서 지정한 선택자의 선언 블록을 반환합니다. */
 function ruleBody(cssText: string, selector: string): string {
   const start = cssText.indexOf(`${selector} {`);
   expect(start, `규칙을 찾지 못했습니다: ${selector}`).toBeGreaterThanOrEqual(0);

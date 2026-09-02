@@ -29,8 +29,8 @@ export const layoutStyles = css`
       grid-template-rows: auto 1fr;
       grid-template-columns: 176px 1fr 300px;
       /*
-       * 데스크톱 전용 화면이라 뷰포트에 따라 열을 바꾸지 않습니다. 호스트가 확보해야 하는 최소 영역은
-       * 1280×640이며, 더 작은 영역에서는 줄어들지 않고 호스트 쪽 스크롤 컨테이너에 맡깁니다.
+       * 디자이너는 데스크톱 전용이며 1280×640보다 작게 줄어들지 않습니다.
+       * 더 작은 영역을 제공하는 호스트는 디자이너 바깥에서 스크롤을 처리합니다.
        */
       min-width: 1280px;
       min-height: 640px;
