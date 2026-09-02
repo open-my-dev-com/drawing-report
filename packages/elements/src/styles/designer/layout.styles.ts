@@ -28,6 +28,12 @@ export const layoutStyles = css`
       display: grid;
       grid-template-rows: auto 1fr;
       grid-template-columns: 176px 1fr 300px;
+      /*
+       * 디자이너는 데스크톱 전용이며 1280×640보다 작게 줄어들지 않습니다.
+       * 더 작은 영역을 제공하는 호스트는 디자이너 바깥에서 스크롤을 처리합니다.
+       */
+      min-width: 1280px;
+      min-height: 640px;
       height: 100%;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
       font-size: 13px;
