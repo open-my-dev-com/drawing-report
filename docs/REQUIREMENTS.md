@@ -85,6 +85,9 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 | `DIST-09` | `core`와 동봉 폰트 하위 경로는 CommonJS 프로젝트에서도 패키지 이름으로 불러올 수 있어야 한다. | `exports`의 `require` 조건이 ESM 산출물을 가리키고, 지원 Node에서 `require('@omdc-slipkit/core')`와 폰트 하위 경로 `require`가 동작한다. 이중 빌드는 하지 않는다. | ADR-057 |
 | `DIST-10` | 패키지는 Node.js 지원 하한을 선언해야 한다. | `core`, `elements`와 `mcp`의 `engines.node`가 `>=22.13`으로 선언된다. | ADR-057 |
 | `DIST-11` | 배포할 패키지는 실제 tarball을 사용하는 깨끗한 소비자 환경에서 설치하고 실행할 수 있어야 한다. | npm과 pnpm 소비자 프로젝트에서 공개 진입점, 타입, Node.js·브라우저 PDF, 프레임워크 래퍼와 MCP CLI를 검증하고 내부 `dist` 경로 접근은 거부된다. | ADR-074 |
+| `DIST-12` | PR과 `main` 변경은 지원 Node.js 환경과 배포 소비자 경로에서 자동 검증해야 한다. | Node.js 22.13과 최신 LTS에서 `pnpm verify`·`pnpm verify:packages`가 실행되고, JSON Schema 재생성 차이와 Windows MCP 경로 시험이 별도 작업으로 검증된다. | ADR-075 |
+| `DIST-13` | npm 배포는 장기 쓰기 토큰 없이 승인된 GitHub Actions 워크플로에서만 실행해야 한다. | GitHub-hosted runner의 OIDC, `npm-publish` Environment와 저장소 변수가 모두 준비된 `main` 수동 실행만 실제 배포할 수 있고, 그렇지 않으면 dry-run 검증으로 끝난다. | ADR-075 |
+| `DIST-14` | 여러 패키지의 배포 순서와 부분 실패 후 재개 경계를 보장해야 한다. | 검증한 같은 tarball을 `core` → `elements` → `react` → `vue` → `mcp` 순서로 배포하며, 이미 존재하는 버전은 레지스트리 SRI가 같을 때만 건너뛰고 불일치나 조회 오류가 나면 즉시 중단한다. | ADR-075 |
 
 ## 5. 양식 디자이너
 

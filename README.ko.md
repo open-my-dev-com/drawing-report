@@ -134,6 +134,7 @@ pnpm demo:mcp
 | [요구사항](docs/REQUIREMENTS.md) | 확정된 제품 요구사항 |
 | [설계 결정 기록](docs/DECISIONS.md) | 주요 설계 결정과 그 근거 |
 | [로드맵](docs/ROADMAP.md) | 개발 현황과 예정 작업 |
+| [배포 운영 절차](docs/RELEASE.md) | CI, npm Trusted Publishing 설정과 부분 배포 복구 |
 
 ## 개발 명령어
 

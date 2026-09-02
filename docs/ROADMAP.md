@@ -28,8 +28,9 @@ SlipKit은 핵심 기능 구현을 마치고 첫 공개 전 품질 검토를 진
 | 수식 편집 화면 | 완료 | 진입점 4곳, 편집 대상 확정과 적용 확인, 계산 문맥·검사 공통화 |
 | 테스트 계획 | 완료 | 시험 수준·부하·보안·접근성 기준을 `TEST-PLAN.md`로 정리 |
 | 배포 패키지 검증 | 완료 | 실제 tarball을 깨끗한 npm·pnpm 소비자에 설치해 Node.js·Chromium 사용 경로 확인 |
+| CI·배포 자동화 | 완료 | 지원 Node.js·Windows 검증과 OIDC 기반 npm 배포·dry-run 워크플로 준비 |
 | 기본설계 문서 | 예정 | 화면·기능·데이터·인터페이스별 설계서 작성 |
-| 공개 준비 | 예정 | 전체 검증과 배포 산출물 확인 |
+| 공개 준비 | 진행 중 | npm 조직·최초 패키지 생성·라이선스와 릴리스 정책 확정이 남음 |
 | MCP·AI 연동 | 완료 | 확장은 필요성이 확인되면 재검토 |
 | 조건부 서식 | 완료 | 공개 전 회귀 검증 |
 | 요소별 폰트 설정 | 완료 | 캔버스·PDF 폰트 일치와 미등록 폰트 대체 반영 |
@@ -116,6 +117,15 @@ SlipKit은 핵심 기능 구현을 마치고 첫 공개 전 품질 검토를 진
 - 요약 기본 읽기와 base64 데이터 제외, 요소 id를 지목하는 부분 수정
 - 연결 방법과 안전 범위는 [MCP 사용 가이드](guide/mcp.ko.md)와 영어·일본어판 참고
 - `slipkit-mcp --help`·`--version`, 사용법 오류 종료 코드와 패키지 README 정비 (ADR-073)
+
+### CI와 npm 배포 준비 (ADR-074·075)
+
+- PR과 `main` push에서 Node.js 22.13·최신 LTS의 `pnpm verify`와 실제 tarball 소비자 검증 실행
+- JSON Schema 재생성 차이와 Windows MCP 저장 경로를 별도 작업에서 확인
+- GitHub Actions OIDC와 `npm-publish` Environment를 사용하는 수동 배포 워크플로
+- 외부 설정이 없을 때 실제 배포를 차단하고 `npm publish --dry-run`과 결과 요약만 실행
+- artifact 해시 검증, `core` → `elements` → `react` → `vue` → `mcp` 순서와 동일 SRI 기반 재개
+- 실제 npm·GitHub 설정과 부분 배포 복구 절차는 [배포 운영 절차](./RELEASE.md)에 정리
 
 ### 조건부 서식 (ADR-062·063)
 
@@ -239,6 +249,10 @@ SlipKit은 핵심 기능 구현을 마치고 첫 공개 전 품질 검토를 진
 ## 공개 준비
 
 문서, 데모와 소스 코드 검토가 끝나면 첫 공개 여부를 판단합니다.
+
+PR 검증과 npm Trusted Publishing 워크플로는 준비됐습니다. npm 조직과 최초 패키지 생성,
+라이선스·버전·dist-tag·승인 정책, 첫 배포 방식은 아직 확정하지 않았습니다. 이 외부 설정과 정책이
+결정되기 전에는 `NPM_TRUSTED_PUBLISHING` 저장소 변수를 켜거나 실제 배포를 실행하지 않습니다.
 
 ### 공개 전 확인
 

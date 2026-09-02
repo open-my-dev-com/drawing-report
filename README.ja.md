@@ -134,6 +134,7 @@ pnpm demo:mcp
 | [要件](docs/REQUIREMENTS.md) | 確定した製品要件 |
 | [設計判断の記録](docs/DECISIONS.md) | 主要な設計判断とその根拠 |
 | [ロードマップ](docs/ROADMAP.md) | 開発状況と予定作業 |
+| [リリース運用手順](docs/RELEASE.md) | CI、npm Trusted Publishing の設定、一部のパッケージだけが公開された場合の復旧 |
 
 ## 開発コマンド
 
