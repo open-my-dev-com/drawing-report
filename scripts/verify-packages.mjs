@@ -11,10 +11,11 @@
  * - `SLIPKIT_VERIFY_KEEP=1` — 임시 디렉터리를 지우지 않고 남긴다 (실패 재현용)
  * - `SLIPKIT_CHROMIUM` — 브라우저 시나리오에 쓸 Chromium 실행 파일. 없으면 Playwright가 관리하는 Chromium
  *
- * 소비자 프로젝트는 임시 디렉터리에 만들고 저장소 안의 경로를 참조하지 않는다.
+ * 소비자 프로젝트는 임시 디렉터리에 만들고 저장소 안의 경로를 참조하지 않는다. pnpm 소비자는 저장소와 같은
+ * pnpm 버전을 `packageManager`로 적고 Corepack(`corepack pnpm`)으로 실행한다.
  */
 import { spawn } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,6 +37,9 @@ const CONSUMER_DEV_DEPENDENCIES = {
   '@vitejs/plugin-vue': '6.0.8',
   'vue-tsc': '3.3.10',
 };
+
+/** pnpm 소비자에 Corepack으로 고정하는 pnpm 버전 — 저장소 루트 package.json의 `packageManager`와 같다. */
+const CONSUMER_PNPM_VERSION = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')).packageManager.replace(/^pnpm@/, '');
 
 /** tarball마다 있어야 하는 항목과 있으면 안 되는 항목 */
 const REQUIRED_ENTRIES = {
@@ -189,25 +193,35 @@ async function main() {
       const dependencies = Object.fromEntries(PACKAGES.map((name) => [`@omdc-slipkit/${name}`, `file:${tarballs[name]}`]));
       // pnpm은 tarball 안의 `@omdc-slipkit/*` 의존성(예: mcp → core)을 레지스트리에서 찾으므로, 아직 배포되지 않은
       // 패키지를 같은 tarball로 대체하는 overrides가 필요하다. npm은 최상위 file: 의존성으로 해소하므로 두지 않는다.
-      const overrides = pm === 'pnpm' ? { pnpm: { overrides: dependencies } } : {};
+      // pnpm 소비자는 저장소와 같은 pnpm 버전을 Corepack으로 고정한다. 임시 디렉터리에서 그냥 `pnpm`을 부르면 Corepack이
+      // 최신 pnpm을 고를 수 있고, pnpm 11은 package.json의 `pnpm.overrides`를 읽지 않아 아래 overrides가 무시된다.
+      const pnpmConsumer = pm === 'pnpm' ? { packageManager: `pnpm@${CONSUMER_PNPM_VERSION}`, pnpm: { overrides: dependencies } } : {};
       writeFileSync(path.join(consumer, 'package.json'), JSON.stringify({
         name: `slipkit-consumer-${pm}`,
         private: true,
         type: 'module',
         dependencies,
         devDependencies: CONSUMER_DEV_DEPENDENCIES,
-        ...overrides,
+        ...pnpmConsumer,
       }, null, 2));
       const exec = (bin, args, options = {}) =>
         pm === 'npm'
           ? run('npx', ['--no-install', bin, ...args], { cwd: consumer, ...options })
-          : run('pnpm', ['exec', bin, ...args], { cwd: consumer, ...options });
+          : run('corepack', ['pnpm', 'exec', bin, ...args], { cwd: consumer, ...options });
 
       const installed = await scenario(`${pm}: install tarballs`, '다섯 tarball과 고정한 도구 버전이 설치된다', async () => {
+        const version = pm === 'npm'
+          ? await run('npm', ['--version'], { cwd: consumer })
+          : await run('corepack', ['pnpm', '--version'], { cwd: consumer });
+        if (version.code !== 0) return { command: `${pm} --version`, ...version };
+        const selected = `${pm} ${version.stdout.trim()}`;
+        if (pm === 'pnpm' && version.stdout.trim() !== CONSUMER_PNPM_VERSION) {
+          return { command: 'corepack pnpm --version', code: 1, stdout: version.stdout, stderr: `expected pnpm ${CONSUMER_PNPM_VERSION}` };
+        }
         const result = pm === 'npm'
           ? await run('npm', ['install', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: consumer })
-          : await run('pnpm', ['install', '--no-frozen-lockfile', '--reporter=append-only'], { cwd: consumer });
-        return { command: pm === 'npm' ? 'npm install' : 'pnpm install', ...result };
+          : await run('corepack', ['pnpm', 'install', '--no-frozen-lockfile', '--reporter=append-only'], { cwd: consumer });
+        return { command: pm === 'npm' ? 'npm install' : 'corepack pnpm install', ...result, detail: selected };
       });
       if (!installed) continue;
 
@@ -282,7 +296,7 @@ async function browserPdfScenario(pm, consumer, outDir, exec) {
     const previewArgs = ['preview', 'browser-pdf', '--outDir', outDir, '--port', String(port), '--strictPort', '--host', '127.0.0.1'];
     // npx·pnpm 래퍼 아래에서 vite가 따로 돌므로 프로세스 그룹으로 띄워 한 번에 끝낸다. 래퍼만 죽이면 vite가 남아
     // 파이프를 잡고 있어 이 스크립트가 종료되지 않는다.
-    const preview = spawn(pm === 'npm' ? 'npx' : 'pnpm', pm === 'npm' ? ['--no-install', 'vite', ...previewArgs] : ['exec', 'vite', ...previewArgs], {
+    const preview = spawn(pm === 'npm' ? 'npx' : 'corepack', pm === 'npm' ? ['--no-install', 'vite', ...previewArgs] : ['pnpm', 'exec', 'vite', ...previewArgs], {
       cwd: consumer, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32',
     });
     let previewLog = '';
