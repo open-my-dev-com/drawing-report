@@ -1,0 +1,225 @@
+# npm 배포 워크플로 (Trusted Publishing · OIDC).
+#
+# 이벤트: workflow_dispatch만. 태그 push 트리거와 태그 생성은 다루지 않는다.
+# 입력:
+#   version     — 배포할 버전. 정확한 SemVer이고 다섯 패키지의 package.json 버전과 모두 같아야 한다.
+#   dist_tag    — latest | next
+#   environment — npm-publish (npm Trusted Publisher에 등록한 GitHub Environment 이름과 같아야 한다)
+#   dry_run     — true(기본)면 검증·pack·`npm publish --dry-run`까지만 실행한다.
+# 권한: 최상위 contents: read. `id-token: write`는 실제 publish 작업에만 준다.
+# 동시 실행: 저장소 전체에서 그룹 하나(release), 진행 중인 실행을 취소하지 않는다.
+# 작업:
+#   prepare         — ref·입력 검사 → pnpm verify → pnpm verify:packages → pnpm pack → tarball·SHA256SUMS·manifest artifact(보존 1일)
+#   publish-dry-run — 실제 배포 조건이 아닐 때. artifact SHA-256 검증 → npm 11.19.1 → npm publish --dry-run (순서·명령 확인)
+#   publish         — 실제 배포 조건일 때. Environment npm-publish, id-token: write. artifact SHA-256 검증 → npm 11.19.1 →
+#                     core → elements → react → vue → mcp 순서로 npm publish <tarball> --provenance --access public --tag <dist_tag>
+#   status          — Job Summary에 배포 여부와 이유를 남긴다. 검증만 하고 배포하지 않은 실행을 배포 성공으로 오해하지 않게 한다.
+# 실제 배포 조건 (모두 만족): dry_run == false, vars.NPM_TRUSTED_PUBLISHING == 'true', ref == refs/heads/main, environment == npm-publish.
+# 저장소 변수 NPM_TRUSTED_PUBLISHING은 사용자가 npm Trusted Publisher와 GitHub Environment를 실제로 설정한 뒤 켠다.
+# 재개: 같은 버전이 이미 있으면 레지스트리 dist.integrity와 로컬 tarball의 SHA-512 SRI가 같을 때만 건너뛴다 (scripts/release/publish.mjs).
+# npm 토큰은 쓰지 않는다 (NODE_AUTH_TOKEN 없음). 패키지 관리자 캐시는 쓰지 않는다. 외부 Action은 전체 커밋 SHA로 고정한다.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '배포할 버전 (정확한 SemVer, 다섯 패키지와 일치)'
+        type: string
+        required: true
+      dist_tag:
+        description: 'npm dist-tag'
+        type: choice
+        options: [latest, next]
+        default: latest
+      environment:
+        description: 'GitHub Environment (npm Trusted Publisher 설정과 같아야 함)'
+        type: choice
+        options: [npm-publish]
+        default: npm-publish
+      dry_run:
+        description: 'true면 검증과 npm publish --dry-run까지만 실행'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  COREPACK_VERSION: 0.34.6
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+  NPM_CLI_VERSION: 11.19.1
+  ARTIFACT_NAME: npm-tarballs-${{ inputs.version }}
+
+jobs:
+  prepare:
+    name: prepare (검증 · pack)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: 실행 ref와 입력 검사
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_ENVIRONMENT: ${{ inputs.environment }}
+        run: node scripts/release/inputs.mjs
+      - name: Corepack으로 pnpm 준비
+        run: |
+          npm install --global "corepack@${COREPACK_VERSION}"
+          corepack enable
+          expected="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
+          actual="$(corepack pnpm --version)"
+          echo "pnpm ${actual} (packageManager ${expected})"
+          if [ "${actual}" != "${expected}" ]; then
+            echo "::error::pnpm ${actual} does not match packageManager pnpm@${expected}"
+            exit 1
+          fi
+      - name: 의존성 설치
+        run: corepack pnpm install --frozen-lockfile
+      - name: 검증 게이트 (lint · build · typecheck · test)
+        run: corepack pnpm verify
+      - name: Playwright Chromium 설치
+        run: corepack pnpm exec playwright install --with-deps chromium
+      - name: 패키지 tarball·소비자 설치·브라우저 PDF 검증
+        run: corepack pnpm verify:packages
+      - name: 배포용 tarball 생성 (SHA256SUMS · manifest.json)
+        run: node scripts/release/pack.mjs --out release-artifacts
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-dry-run:
+    name: publish (dry-run)
+    needs: prepare
+    if: ${{ !(inputs.dry_run == false && vars.NPM_TRUSTED_PUBLISHING == 'true' && github.ref == 'refs/heads/main' && inputs.environment == 'npm-publish') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: npm CLI 고정
+        run: |
+          npm install --global "npm@${NPM_CLI_VERSION}"
+          actual="$(npm --version)"
+          echo "npm ${actual}"
+          if [ "${actual}" != "${NPM_CLI_VERSION}" ]; then
+            echo "::error::npm ${actual} does not match ${NPM_CLI_VERSION}"
+            exit 1
+          fi
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: release-artifacts
+      - name: artifact 검증과 npm publish --dry-run (core → elements → react → vue → mcp)
+        env:
+          TARBALL_DIR: release-artifacts
+          DIST_TAG: ${{ inputs.dist_tag }}
+          DRY_RUN: 'true'
+        run: node scripts/release/publish.mjs
+
+  publish:
+    name: publish (npm Trusted Publishing)
+    needs: prepare
+    if: ${{ inputs.dry_run == false && vars.NPM_TRUSTED_PUBLISHING == 'true' && github.ref == 'refs/heads/main' && inputs.environment == 'npm-publish' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: npm CLI 고정
+        run: |
+          npm install --global "npm@${NPM_CLI_VERSION}"
+          actual="$(npm --version)"
+          echo "npm ${actual}"
+          if [ "${actual}" != "${NPM_CLI_VERSION}" ]; then
+            echo "::error::npm ${actual} does not match ${NPM_CLI_VERSION}"
+            exit 1
+          fi
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: release-artifacts
+      - name: artifact 검증과 npm publish (core → elements → react → vue → mcp)
+        env:
+          TARBALL_DIR: release-artifacts
+          DIST_TAG: ${{ inputs.dist_tag }}
+          DRY_RUN: 'false'
+        run: node scripts/release/publish.mjs
+
+  status:
+    name: status (배포 여부 요약)
+    needs: [prepare, publish-dry-run, publish]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Job Summary 작성
+        env:
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+          DRY_RUN_RESULT: ${{ needs.publish-dry-run.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_DIST_TAG: ${{ inputs.dist_tag }}
+          TRUSTED_PUBLISHING: ${{ vars.NPM_TRUSTED_PUBLISHING }}
+        run: |
+          {
+            echo "## Release ${INPUT_VERSION} (${INPUT_DIST_TAG})"
+            echo
+            echo "| 작업 | 결과 |"
+            echo "|---|---|"
+            echo "| prepare | ${PREPARE_RESULT} |"
+            echo "| publish-dry-run | ${DRY_RUN_RESULT} |"
+            echo "| publish | ${PUBLISH_RESULT} |"
+            echo
+          } >> "${GITHUB_STEP_SUMMARY}"
+          if [ "${PREPARE_RESULT}" != "success" ]; then
+            echo "**배포하지 않았습니다.** 준비 단계(검증·pack)가 ${PREPARE_RESULT} 상태로 끝났습니다." >> "${GITHUB_STEP_SUMMARY}"
+            exit 1
+          fi
+          if [ "${PUBLISH_RESULT}" = "success" ]; then
+            echo "**npm에 배포했습니다.** 버전 ${INPUT_VERSION}, dist-tag ${INPUT_DIST_TAG}." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+          if [ "${PUBLISH_RESULT}" = "skipped" ]; then
+            if [ "${INPUT_DRY_RUN}" = "true" ]; then
+              reason="dry_run 입력이 true입니다."
+            elif [ "${TRUSTED_PUBLISHING}" != "true" ]; then
+              reason="저장소 변수 NPM_TRUSTED_PUBLISHING이 true가 아닙니다 — npm Trusted Publishing 외부 설정이 아직 없습니다."
+            else
+              reason="실제 배포 조건(ref main, environment npm-publish)을 만족하지 않습니다."
+            fi
+            echo "**검증만 완료했고 npm에 배포하지 않았습니다.** ${reason} (publish-dry-run: ${DRY_RUN_RESULT})" >> "${GITHUB_STEP_SUMMARY}"
+            if [ "${DRY_RUN_RESULT}" != "success" ]; then exit 1; fi
+            exit 0
+          fi
+          echo "**배포가 실패했습니다.** publish 작업 결과: ${PUBLISH_RESULT}. 같은 입력으로 다시 실행하면 이미 올라간 같은 tarball은 건너뛰고 남은 패키지부터 이어집니다." >> "${GITHUB_STEP_SUMMARY}"
+          exit 1

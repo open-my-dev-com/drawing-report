@@ -1,0 +1,167 @@
+# PR 검증 워크플로.
+#
+# 이벤트: main을 대상으로 한 pull_request, main으로의 push.
+# 권한: contents: read (모든 작업 공통, 추가 권한 없음).
+# 동시 실행: 같은 PR·브랜치의 이전 실행은 취소한다.
+# 작업:
+#   verify (Node 22.13·24 매트릭스) — pnpm install --frozen-lockfile → pnpm verify
+#   schema (Node 24)               — core 빌드 → generate:schemas → 재생성 결과에 변경·미추적 파일이 없어야 통과
+#   packages (Node 22.13·24 매트릭스) — Playwright Chromium 설치 → pnpm verify:packages
+#   mcp-windows (windows-latest, Node 24) — MCP와 의존 패키지 빌드 → MCP 전체 테스트
+# pnpm은 pnpm/action-setup 없이 Corepack 0.34.6으로 준비하고, 루트 packageManager(10.33.0)와 다르면 실패한다.
+# 의존성·node_modules 캐시는 쓰지 않는다. 외부 Action은 전체 커밋 SHA로 고정한다.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  COREPACK_VERSION: 0.34.6
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+jobs:
+  verify:
+    name: verify (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.13', '24']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Corepack으로 pnpm 준비
+        run: |
+          npm install --global "corepack@${COREPACK_VERSION}"
+          corepack enable
+          expected="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
+          actual="$(corepack pnpm --version)"
+          echo "pnpm ${actual} (packageManager ${expected})"
+          if [ "${actual}" != "${expected}" ]; then
+            echo "::error::pnpm ${actual} does not match packageManager pnpm@${expected}"
+            exit 1
+          fi
+      - name: 의존성 설치
+        run: corepack pnpm install --frozen-lockfile
+      - name: 검증 게이트 (lint · build · typecheck · test)
+        run: corepack pnpm verify
+
+  schema:
+    name: schema (JSON Schema 재생성 확인)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Corepack으로 pnpm 준비
+        run: |
+          npm install --global "corepack@${COREPACK_VERSION}"
+          corepack enable
+          expected="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
+          actual="$(corepack pnpm --version)"
+          echo "pnpm ${actual} (packageManager ${expected})"
+          if [ "${actual}" != "${expected}" ]; then
+            echo "::error::pnpm ${actual} does not match packageManager pnpm@${expected}"
+            exit 1
+          fi
+      - name: 의존성 설치
+        run: corepack pnpm install --frozen-lockfile
+      - name: core 빌드와 JSON Schema 재생성
+        run: |
+          corepack pnpm --filter @omdc-slipkit/core run build
+          corepack pnpm --filter @omdc-slipkit/core run generate:schemas
+      - name: 재생성 결과가 커밋된 스키마와 같은지 확인
+        run: |
+          status="$(git status --porcelain -- packages/core/schemas)"
+          if [ -n "${status}" ]; then
+            echo "::error::packages/core/schemas differs from the generated JSON Schema"
+            echo "${status}"
+            git --no-pager diff -- packages/core/schemas
+            exit 1
+          fi
+          echo "JSON Schema is up to date"
+
+  packages:
+    name: packages (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.13', '24']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Corepack으로 pnpm 준비
+        run: |
+          npm install --global "corepack@${COREPACK_VERSION}"
+          corepack enable
+          expected="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
+          actual="$(corepack pnpm --version)"
+          echo "pnpm ${actual} (packageManager ${expected})"
+          if [ "${actual}" != "${expected}" ]; then
+            echo "::error::pnpm ${actual} does not match packageManager pnpm@${expected}"
+            exit 1
+          fi
+      - name: 의존성 설치
+        run: corepack pnpm install --frozen-lockfile
+      - name: Playwright Chromium 설치
+        run: corepack pnpm exec playwright install --with-deps chromium
+      - name: 패키지 tarball·소비자 설치·브라우저 PDF 검증
+        run: corepack pnpm verify:packages
+
+  mcp-windows:
+    name: mcp-windows (Node 24)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Corepack으로 pnpm 준비
+        run: |
+          npm install --global "corepack@${COREPACK_VERSION}"
+          corepack enable
+          expected="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
+          actual="$(corepack pnpm --version)"
+          echo "pnpm ${actual} (packageManager ${expected})"
+          if [ "${actual}" != "${expected}" ]; then
+            echo "::error::pnpm ${actual} does not match packageManager pnpm@${expected}"
+            exit 1
+          fi
+      - name: 의존성 설치
+        run: corepack pnpm install --frozen-lockfile
+      - name: MCP와 의존 패키지 빌드
+        run: corepack pnpm --filter "@omdc-slipkit/mcp..." run build
+      - name: MCP 테스트 (Windows 경로 처리 포함)
+        run: corepack pnpm --filter @omdc-slipkit/mcp run test
