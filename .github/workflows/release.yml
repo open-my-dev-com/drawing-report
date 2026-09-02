@@ -80,6 +80,17 @@ jobs:
       - name: Corepack으로 pnpm 준비
         run: |
           npm install --global --force "corepack@${COREPACK_VERSION}"
+          # 전역 prefix의 bin 디렉터리를 PATH 앞에 둔다. Windows는 Node 동봉 Corepack이 먼저 잡히기 때문이다.
+          prefix="$(npm prefix --global)"
+          if [ -d "${prefix}/bin" ]; then bindir="${prefix}/bin"; else bindir="${prefix}"; fi
+          export PATH="$(cygpath -u "${bindir}" 2>/dev/null || printf '%s' "${bindir}"):${PATH}"
+          echo "${bindir}" >> "${GITHUB_PATH}"
+          corepack_actual="$(corepack --version)"
+          echo "corepack ${corepack_actual} (${bindir})"
+          if [ "${corepack_actual}" != "${COREPACK_VERSION}" ]; then
+            echo "::error::corepack ${corepack_actual} does not match ${COREPACK_VERSION}"
+            exit 1
+          fi
           corepack enable
           expected="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
           actual="$(corepack pnpm --version)"
