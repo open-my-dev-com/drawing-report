@@ -156,6 +156,15 @@ pnpm test
 pnpm verify
 ```
 
+`pnpm verify:packages`는 다섯 패키지를 다시 빌드하고 tarball로 만든 뒤 공개 파일과 타입 정보를
+검사합니다. 이어서 깨끗한 npm·pnpm 소비자 프로젝트에 설치해 Node.js와 Chromium 시나리오를
+실행합니다. 처음 실행하기 전 관리형 브라우저를 한 번 설치하세요.
+
+```bash
+pnpm exec playwright install chromium
+pnpm verify:packages
+```
+
 ## 라이선스
 
 SlipKit은 [Business Source License 1.1](LICENSE)에 따라 제공됩니다. 소스 코드는 공개되어 있지만 현재 OSI 승인 오픈소스 라이선스는 아닙니다.

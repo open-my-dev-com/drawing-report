@@ -84,6 +84,7 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 | `DIST-08` | PDF 엔진은 `core` 내부 구현으로 감춰야 한다. | 공개 API와 `.slip` 파일이 pdfme의 템플릿 구조를 외부 계약으로 노출하지 않는다. | ADR-016 |
 | `DIST-09` | `core`와 동봉 폰트 하위 경로는 CommonJS 프로젝트에서도 패키지 이름으로 불러올 수 있어야 한다. | `exports`의 `require` 조건이 ESM 산출물을 가리키고, 지원 Node에서 `require('@omdc-slipkit/core')`와 폰트 하위 경로 `require`가 동작한다. 이중 빌드는 하지 않는다. | ADR-057 |
 | `DIST-10` | 패키지는 Node.js 지원 하한을 선언해야 한다. | `core`, `elements`와 `mcp`의 `engines.node`가 `>=22.13`으로 선언된다. | ADR-057 |
+| `DIST-11` | 배포할 패키지는 실제 tarball을 사용하는 깨끗한 소비자 환경에서 설치하고 실행할 수 있어야 한다. | npm과 pnpm 소비자 프로젝트에서 공개 진입점, 타입, Node.js·브라우저 PDF, 프레임워크 래퍼와 MCP CLI를 검증하고 내부 `dist` 경로 접근은 거부된다. | ADR-074 |
 
 ## 5. 양식 디자이너
 
