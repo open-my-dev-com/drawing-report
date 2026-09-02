@@ -46,6 +46,14 @@ interface FormColumn {
   valueType: ParameterValueType;
 }
 
+/** 목록형 입력의 객체 행 하나. 원본 배열에서의 실제 위치를 함께 둡니다. */
+interface ListRow {
+  /** 원본 배열의 인덱스 — 행 편집·삭제는 이 위치의 값만 바꿉니다 */
+  index: number;
+  /** 행 객체 */
+  row: Record<string, unknown>;
+}
+
 /** 작성 폼에 렌더링할 입력 항목. */
 interface FormInput {
   /** 전표 `values`에 값을 저장할 파라미터 키 */
@@ -92,6 +100,11 @@ function isEmptyValue(value: unknown): boolean {
   return value === undefined || value === null || value === '';
 }
 
+/** 목록의 행이 입력 표에 보여 줄 수 있는 객체인지 확인합니다. */
+function isRowObject(row: unknown): row is Record<string, unknown> {
+  return typeof row === 'object' && row !== null && !Array.isArray(row);
+}
+
 /**
  * 스칼라 값이 선언된 형식에 맞는지 검사합니다.
  *
@@ -123,9 +136,9 @@ function listProblem(value: unknown, columns: FormColumn[]): ValueErrorKey | nul
   if (isEmptyValue(value)) return null;
   if (!Array.isArray(value)) return 'invalidList';
   for (const row of value) {
-    if (typeof row !== 'object' || row === null || Array.isArray(row)) return 'invalidList';
+    if (!isRowObject(row)) return 'invalidList';
     for (const column of columns) {
-      if (scalarProblem((row as Record<string, unknown>)[column.key], column.valueType) !== null) {
+      if (scalarProblem(row[column.key], column.valueType) !== null) {
         return 'invalidList';
       }
     }
@@ -438,15 +451,22 @@ export class SlipForm extends LitElement {
     return inputs;
   }
 
-  /** 목록형 입력에서 객체로 구성된 행만 반환합니다. */
-  private _rowsOf(key: string): Record<string, unknown>[] {
+  /** 목록형 입력의 원본 배열. 배열이 아니면 빈 목록으로 봅니다. */
+  private _listOf(key: string): unknown[] {
     const raw = this._values[key];
-    return Array.isArray(raw)
-      ? raw.filter(
-          (row): row is Record<string, unknown> =>
-            typeof row === 'object' && row !== null && !Array.isArray(row),
-        )
-      : [];
+    return Array.isArray(raw) ? raw : [];
+  }
+
+  /**
+   * 목록형 입력에서 객체로 구성된 행만 원본 인덱스와 함께 반환합니다.
+   * 객체가 아닌 행은 화면에 보이지 않지만 원본 배열에는 그대로 남습니다.
+   */
+  private _rowsOf(key: string): ListRow[] {
+    const rows: ListRow[] = [];
+    this._listOf(key).forEach((row, index) => {
+      if (isRowObject(row)) rows.push({ index, row });
+    });
+    return rows;
   }
 
   // ---------------------------------------------------------------------------
@@ -460,10 +480,16 @@ export class SlipForm extends LitElement {
     this._afterValueChange();
   }
 
-  private _setRows(key: string, rows: Record<string, unknown>[]): void {
+  /**
+   * 목록형 입력의 원본 배열을 복제해 `mutate`가 바꾼 위치만 반영합니다.
+   * 화면에 보이지 않는 잘못된 행은 건드리지 않아 사용자가 지우기 전까지 남습니다.
+   */
+  private _updateList(key: string, mutate: (list: unknown[]) => void): void {
     if (this._issued) return;
-    if (rows.length === 0) delete this._values[key];
-    else this._values[key] = rows;
+    const list = [...this._listOf(key)];
+    mutate(list);
+    if (list.length === 0) delete this._values[key];
+    else this._values[key] = list;
     this._afterValueChange();
   }
 
@@ -791,33 +817,33 @@ export class SlipForm extends LitElement {
             style="grid-template-columns:repeat(${columns.length}, minmax(56px, 1fr)) 22px">
             ${columns.map((col) => html`<span class="col-title">${col.title || col.key}</span>`)}
             <span></span>
-            ${rows.map((row, rowIndex) => html`
+            ${rows.map(({ index, row }) => html`
               ${columns.map((col) => html`
                 <input type=${inputTypeOf(col.valueType)}
                   step=${col.valueType === 'number' ? 'any' : nothing}
                   .value=${col.valueType === 'boolean' ? 'on' : inputText(row[col.key])}
                   .checked=${col.valueType === 'boolean' && row[col.key] === true}
-                  aria-label="${input.label} ${rowIndex + 1} ${col.title || col.key}"
+                  aria-label="${input.label} ${index + 1} ${col.title || col.key}"
                   aria-invalid=${scalarProblem(row[col.key], col.valueType) !== null ? 'true' : 'false'}
                   ?disabled=${this._issued}
                   @change=${(e: Event) => {
-                    const next = rows.map((r) => ({ ...r }));
+                    // 열에 없는 키도 함께 복사해 행의 다른 데이터를 잃지 않습니다.
+                    const next = { ...row };
                     const value = cellValue(col, e);
-                    if (value === '') delete next[rowIndex]![col.key];
-                    else next[rowIndex]![col.key] = value;
-                    this._setRows(input.key, next);
+                    if (value === '') delete next[col.key];
+                    else next[col.key] = value;
+                    this._updateList(input.key, (list) => { list[index] = next; });
                   }}>`)}
               <button class="row-remove" title=${t.deleteRow}
-                aria-label="${input.label} ${rowIndex + 1} ${t.deleteRow}"
+                aria-label="${input.label} ${index + 1} ${t.deleteRow}"
                 ?disabled=${this._issued}
-                @click=${() =>
-                  this._setRows(input.key, rows.filter((_, i) => i !== rowIndex).map((r) => ({ ...r })))}>
+                @click=${() => this._updateList(input.key, (list) => { list.splice(index, 1); })}>
                 ${icons.pageRemove}
               </button>`)}
           </div>
         </div>
         <button class="row-add" aria-label="${input.label} ${t.addRow}" ?disabled=${this._issued}
-          @click=${() => this._setRows(input.key, [...rows.map((r) => ({ ...r })), {}])}>
+          @click=${() => this._updateList(input.key, (list) => { list.push({}); })}>
           ${icons.pageAdd}<span>${t.addRow}</span>
         </button>
         ${this._renderProblem(input)}

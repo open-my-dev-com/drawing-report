@@ -301,6 +301,90 @@ describe('<slip-form> 값 형식', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 잘못된 목록 행 보존
+// ---------------------------------------------------------------------------
+
+/** 객체 행 하나와 화면에 보이지 않는 잘못된 행 두 개를 가진 목록 값 */
+const MIXED_TAGS = [{ name: 'A', extra: 1 }, 'legacy', ['x']];
+
+/** 발행을 눌렀을 때 `invalidList`로 막히는지 확인합니다. */
+async function expectIssueBlocked(el: SlipForm): Promise<void> {
+  const issued: SlipVoucherFile[] = [];
+  const onIssue = (e: Event) => issued.push((e as CustomEvent).detail.file);
+  el.addEventListener('slip-issue', onIssue);
+  buttonByLabel(el, strings.form.issue).click();
+  await el.updateComplete;
+  await flush();
+  el.removeEventListener('slip-issue', onIssue);
+  expect(issued.length).toBe(0);
+  expect(hintTexts(el)).toEqual([strings.form.invalidList]);
+  expect(noticeText(el)).toContain(strings.form.issueInvalid);
+}
+
+describe('<slip-form> 잘못된 목록 행 보존', () => {
+  it('보이는 행을 수정해도 숨겨진 잘못된 행과 열에 없는 키를 보존한다', async () => {
+    const el = await mount(typedVoucher({ tags: MIXED_TAGS }));
+    const last = lastChange(el);
+    expect(hintTexts(el)).toEqual([strings.form.invalidList]);
+    // 객체 행만 화면에 보이고 행 번호는 원본 배열 위치를 따른다.
+    expect(inputByLabel(el, '태그 1 이름').value).toBe('A');
+    expect(() => inputByLabel(el, '태그 2 이름')).toThrow();
+
+    setInput(inputByLabel(el, '태그 1 이름'), 'B');
+    await el.updateComplete;
+    expect(last()!.values.tags).toEqual([{ name: 'B', extra: 1 }, 'legacy', ['x']]);
+    await expectIssueBlocked(el);
+    el.remove();
+  });
+
+  it('행을 추가하면 원본 끝에 붙고 잘못된 행은 남는다', async () => {
+    const el = await mount(typedVoucher({ tags: MIXED_TAGS }));
+    const last = lastChange(el);
+    buttonByLabel(el, `태그 ${strings.form.addRow}`).click();
+    await el.updateComplete;
+    expect(last()!.values.tags).toEqual([{ name: 'A', extra: 1 }, 'legacy', ['x'], {}]);
+    // 새 행의 번호도 원본 인덱스(4)를 따른다.
+    setInput(inputByLabel(el, '태그 4 이름'), 'D');
+    await el.updateComplete;
+    expect(last()!.values.tags).toEqual([{ name: 'A', extra: 1 }, 'legacy', ['x'], { name: 'D' }]);
+    await expectIssueBlocked(el);
+    el.remove();
+  });
+
+  it('보이는 행을 삭제하면 그 행만 빠지고 잘못된 행은 남는다', async () => {
+    const el = await mount(typedVoucher({ tags: MIXED_TAGS }));
+    const last = lastChange(el);
+    buttonByLabel(el, `태그 1 ${strings.form.deleteRow}`).click();
+    await el.updateComplete;
+    expect(last()!.values.tags).toEqual(['legacy', ['x']]);
+    expect(() => inputByLabel(el, '태그 1 이름')).toThrow();
+    await expectIssueBlocked(el);
+    el.remove();
+  });
+
+  it('입력 지우기와 reset()에서만 잘못된 행이 제거되어 발행할 수 있다', async () => {
+    for (const clear of ['reset', 'button'] as const) {
+      const el = await mount(typedVoucher({ tags: MIXED_TAGS }));
+      const last = lastChange(el);
+      await expectIssueBlocked(el);
+
+      if (clear === 'reset') el.reset();
+      else buttonByLabel(el, strings.form.reset).click();
+      await el.updateComplete;
+      expect(last()!.values.tags).toBeUndefined();
+      expect(hintTexts(el)).toEqual([]);
+
+      const issued: SlipVoucherFile[] = [];
+      el.addEventListener('slip-issue', (e) => issued.push((e as CustomEvent).detail.file));
+      buttonByLabel(el, strings.form.issue).click();
+      await waitFor(() => issued.length > 0);
+      expect(issued[0]!.values.tags).toBeUndefined();
+      el.remove();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 이미지 선택
 // ---------------------------------------------------------------------------
 
