@@ -28,6 +28,7 @@ SlipKit은 자체 계정이나 원격 서비스를 제공하지 않습니다. Co
 | 단위 | 함수·클래스 단위 동작과 경계값 | Vitest | 자동화됨 |
 | 통합 | 패키지 사이 연결(core↔elements↔래퍼) | Vitest + happy-dom | 자동화됨 |
 | 배포 패키지 | tarball 설치와 공개 진입점의 실제 소비자 동작 | 깨끗한 npm·pnpm 프로젝트 + Node.js·Chromium | 자동화됨 |
+| PR·배포 자동화 | 지원 Node.js, 스키마, Windows 경로와 배포 dry-run | GitHub Actions + actionlint | 자동화됨 |
 | 시스템 | 사용자 흐름 전체(양식 작성 → 전표 발행 → PDF) | 브라우저에서 데모 직접 확인 | 수동 |
 | 회귀 | 이미 고친 문제가 다시 나오지 않는지 | 검증 게이트 | 자동화됨 |
 | 부하·성능 | 큰 문서에서 응답 시간과 메모리 | `pnpm bench` (Node.js) + 브라우저 수동 확인 | 6절 |
@@ -116,6 +117,19 @@ Chromium도 설치되어 있어야 합니다.
 | Node.js 공개 API | ESM·CommonJS·JSON Schema·PDF·MCP CLI가 공개 진입점으로 동작하고 내부 `dist` 경로는 거부되는지 |
 | 브라우저 공개 API | Elements·React·Vue 소비자가 빌드되고 Chromium에서 만든 PDF가 `%PDF`로 시작하는지 |
 | 실패 진단 | 실패 단계와 명령을 표시하고 요청 시 임시 디렉터리를 보존하는지 |
+
+### 5.6 PR과 배포 워크플로
+
+| 항목 | 확인할 것 |
+|---|---|
+| 지원 Node.js | `verify`와 `verify:packages`가 Node.js 22.13과 최신 LTS에서 모두 실행되는지 |
+| JSON Schema | 재생성 뒤 수정 파일뿐 아니라 미추적 파일도 실패로 잡는지 |
+| Windows MCP | 다른 드라이브·UNC·상위 경로 이탈을 거부하고 정상 하위 경로를 읽고 쓰는지 |
+| 최소 권한 | CI는 `contents: read`, 실제 배포만 `id-token: write`를 사용하고 checkout 자격 증명을 남기지 않는지 |
+| 외부 설정 차단 | `main`, `dry_run=false`, `npm-publish` Environment와 저장소 변수가 모두 맞을 때만 실제 배포하는지 |
+| 산출물 무결성 | 준비 작업이 만든 tarball과 SHA-256 목록을 내려받아 검증하고 다시 빌드하거나 pack하지 않는지 |
+| 순서와 재개 | `core` → `elements` → `react` → `vue` → `mcp` 순서를 지키고 E404·같은 SRI·다른 SRI·조회 오류를 구분하는지 |
+| 결과 보고 | dry-run과 외부 설정 미완료를 실제 배포 성공과 구분해 Job Summary에 남기는지 |
 
 ## 6. 부하·성능 시험
 
@@ -230,18 +244,22 @@ WCAG 2.2 AA의 관련 성공 기준을 참고하되, 자동 검사로 잡히지 
 | 타입 검사·빌드·주석 형식·커버리지 | PDF 출력물의 시각적 대조 |
 | tarball 공개 파일·타입·npm·pnpm 소비자 설치 | 화면 낭독기 확인 |
 | Node.js·Chromium 소비자 로드와 PDF 생성 | 키보드·초점·확대 조작 확인 |
+| PR의 Node.js·스키마·Windows 검증 | npm 조직·Trusted Publisher·GitHub Environment의 실제 외부 설정 |
+| 배포 tarball 무결성·순서·dry-run | 실제 npm 배포와 최초 패키지 생성 |
 | 성능 기준선과 의존성 취약점 검사 | 브라우저 성능, 서버 동시 처리량과 장시간 메모리 증가 |
 
-검증 게이트는 개발자 컴퓨터의 커밋 훅에서 실행됩니다. 훅은 `--no-verify`로 건너뛸 수 있고 새로
-받은 작업 환경에서는 설정이 빠져 있을 수도 있으므로, 모든 커밋에서 반드시 실행된다고 볼 수는
-없습니다. `pnpm verify:packages`도 공개 전에는 별도로 실행해야 합니다. 저장소에 CI 설정
-(`.github/workflows`)이 없어 PR에서 독립적으로 검증하는 단계는 아직 없습니다.
+검증 게이트는 개발자 컴퓨터의 커밋 훅과 GitHub Actions에서 실행됩니다. PR과 `main` push에서는
+`pnpm verify`와 `pnpm verify:packages`를 지원 Node.js 매트릭스로 다시 실행합니다. Windows 전용
+경로 시험과 GitHub Environment 승인, OIDC 교환은 로컬에서 완전히 재현할 수 없으므로 워크플로의
+실제 결과를 함께 확인해야 합니다.
 
 ## 10. 위험과 대응
 
 | 위험 | 영향 | 대응 |
 |---|---|---|
-| PR 자동 검증이 없음 | 게이트를 건너뛴 변경이 병합될 수 있음 | CI 워크플로 추가 |
+| GitHub-hosted runner에서만 재현되는 차이 | 로컬 검증은 통과하지만 CI가 실패할 수 있음 | 지원 Node.js·Ubuntu·Windows 작업 결과를 PR에서 모두 확인 |
+| 외부 npm 설정이 불완전함 | 검증 성공을 실제 배포 성공으로 오해할 수 있음 | 실제 배포 작업을 건너뛰고 Job Summary에 검증만 완료했다고 표시 |
+| 부분 배포 뒤 다른 산출물로 재실행 | 같은 버전에 서로 다른 내용을 이어서 배포할 수 있음 | 레지스트리 SRI가 같은 패키지만 건너뛰고 불일치는 즉시 실패 |
 | 디자이너 화면 확인이 수동 | 시각적 회귀를 놓칠 수 있음 | 공개 전 체크리스트로 대신하고, 필요하면 UI E2E 도입 |
 | 브라우저·서버 성능을 측정하지 않음 | 실사용 환경의 응답성과 처리량을 알 수 없음 | 공개 전 브라우저 실측 추가, 서버 사용 사례가 확인되면 동시 처리량 측정 |
 | 화면과 PDF의 글꼴 측정 환경이 다름 | 줄바꿈 위치가 어긋날 수 있음 | 로드맵의 보류 항목으로 관리 |
@@ -256,6 +274,9 @@ pnpm verify
 # 패키지 소비자 검증 — 첫 실행 전에 관리형 Chromium을 설치한다
 pnpm exec playwright install chromium
 pnpm verify:packages
+
+# GitHub Actions 워크플로 정적 검사
+actionlint .github/workflows/ci.yml .github/workflows/release.yml
 
 # 커버리지
 pnpm test:coverage

@@ -134,6 +134,7 @@ The full documentation is organized by goal in the [SlipKit Guide](docs/guide/RE
 | [Requirements](docs/REQUIREMENTS.md) | Confirmed product requirements |
 | [Design decision log](docs/DECISIONS.md) | Key design decisions and their rationale |
 | [Roadmap](docs/ROADMAP.md) | Development status and planned work |
+| [Release operations](docs/RELEASE.md) | CI, npm Trusted Publishing setup, and partial-release recovery |
 
 ## Development commands
 

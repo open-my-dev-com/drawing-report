@@ -99,3 +99,36 @@ describe('FileSystemStorage', () => {
     expect(await withKey.load('open')).toEqual(makeTemplate());
   });
 });
+
+// Windows 경로 규칙(드라이브 문자·UNC·역슬래시)에서도 기준 디렉터리 밖 접근이 막히는지 Node의 path 동작 그대로 확인한다.
+// 운영 코드에는 OS별 분기가 없으므로 Windows 실행 환경(CI의 windows-latest)에서만 실행한다.
+describe.runIf(process.platform === 'win32')('FileSystemStorage (Windows 경로)', () => {
+  it('다른 드라이브의 절대 경로는 io 오류로 거부한다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    const rootDrive = path.parse(storage.rootDir).root.slice(0, 1).toUpperCase();
+    const otherDrive = rootDrive === 'Z' ? 'Y' : 'Z';
+    await expect(storage.load(`${otherDrive}:\\outside\\doc`)).rejects.toMatchObject({ code: 'io' });
+    await expect(storage.save(`${otherDrive}:\\outside\\doc`, makeTemplate())).rejects.toMatchObject({ code: 'io' });
+  });
+
+  it('UNC 절대 경로는 io 오류로 거부한다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    await expect(storage.load('\\\\server\\share\\doc')).rejects.toMatchObject({ code: 'io' });
+    await expect(storage.save('\\\\server\\share\\doc', makeTemplate())).rejects.toMatchObject({ code: 'io' });
+  });
+
+  it('..로 기준 디렉터리를 벗어나는 경로는 io 오류로 거부한다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    await expect(storage.load('..\\outside')).rejects.toMatchObject({ code: 'io' });
+    await expect(storage.load('forms\\..\\..\\outside')).rejects.toMatchObject({ code: 'io' });
+    await expect(storage.save('forms/../../outside', makeTemplate())).rejects.toMatchObject({ code: 'io' });
+  });
+
+  it('정상 하위 경로는 역슬래시와 슬래시 어느 쪽으로도 저장·조회된다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    await storage.save('forms\\2026\\invoice', makeTemplate());
+    expect(await storage.load('forms/2026/invoice')).toEqual(makeTemplate());
+    expect(await storage.load('forms\\2026\\invoice.slip')).toEqual(makeTemplate());
+    expect(storage.resolvePath('forms\\2026\\invoice')).toBe(path.join(storage.rootDir, 'forms', '2026', 'invoice.slip'));
+  });
+});
