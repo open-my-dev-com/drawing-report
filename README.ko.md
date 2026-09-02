@@ -18,7 +18,7 @@ SlipKit은 독립 실행형 서비스가 아닙니다. 사용자 인증, 권한 
 - 브라우저 및 Node.js에서 사용할 수 있는 PDF 생성 기능
 - JSON 기반 `.slip` 파일을 이용한 양식·전표 저장
 - 수식, 조건부 서식, 표, 이미지, 도형 및 바코드 지원
-- IndexedDB와 로컬 파일 기반 저장소 어댑터
+- IndexedDB 저장소와 로컬 파일 불러오기·내려받기
 - 선택적 AES-256-GCM 파일 암호화
 - 한국어, 영어, 일본어 UI
 - Web Component와 React·Vue용 래퍼 제공
@@ -59,14 +59,18 @@ SlipKit은 pnpm 워크스페이스 기반 모노레포로 구성되어 있습니
 ### 요구 환경
 
 - Node.js 22.13 이상
-- pnpm 10.33.0
+- pnpm 10.33.0(Corepack으로 관리)
 - `<slip-designer>`: 1440×810 이상의 데스크톱 브라우저 표시 영역
 
 ### 저장소 준비
 
+의존성을 설치하기 전에 Corepack을 활성화합니다. 저장소 안에서 `pnpm`을 실행하면 Corepack이 `packageManager` 필드에 지정된 pnpm 10.33.0을 선택합니다.
+
 ```bash
 git clone https://github.com/open-my-dev-com/drawing-report.git
 cd drawing-report
+corepack enable
+pnpm --version
 pnpm install
 ```
 
@@ -113,6 +117,7 @@ pnpm demo:mcp
 |---|---|
 | [시작하기](docs/guide/getting-started.ko.md) | 데모 실행과 양식 디자이너의 최소 연결 |
 | [애플리케이션 통합 가이드](docs/guide/integration.ko.md) | 디자이너·작성폼·뷰어 연결, 저장·복원 및 서버 연계 |
+| [서버 통합 가이드](docs/guide/server-integration.ko.md) | Node.js 서버에서 전표를 발행하고 PDF를 생성·보관하는 방법 |
 | [양식 디자이너 사용 가이드](docs/guide/designer.ko.md) | 디자이너 화면에서 양식을 제작하는 방법 |
 | [Core 사용 가이드](docs/guide/core.ko.md) | `.slip` 파일 처리, 전표 조립, 수식 평가, PDF 생성과 암호화 |
 | [MCP 사용 가이드](docs/guide/mcp.ko.md) | AI를 통한 `.slip` 양식 생성·수정, 전표 조립과 PDF 확인 |
@@ -132,15 +137,17 @@ pnpm demo:mcp
 
 ## 개발 명령어
 
+`pnpm typecheck`는 워크스페이스 패키지를 빌드할 때 생성된 타입 선언 파일을 사용합니다. 저장소를 새로 복제한 뒤에는 먼저 `pnpm build`를 실행해야 합니다.
+
 ```bash
 # 코드 스타일 검사
 pnpm lint
 
-# 타입 검사
-pnpm typecheck
-
 # 패키지 빌드
 pnpm build
+
+# 타입 검사
+pnpm typecheck
 
 # 테스트 실행
 pnpm test

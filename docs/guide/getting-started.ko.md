@@ -31,20 +31,23 @@
 ### 요구 환경
 
 - Node.js 22.13 이상
-- pnpm 10.33.0
+- pnpm 10.33.0(Corepack으로 관리)
 
-설치된 버전은 다음 명령으로 확인할 수 있습니다.
+설치된 Node.js 버전은 다음 명령으로 확인할 수 있습니다.
 
 ```bash
 node --version
-pnpm --version
 ```
 
 ### 1. 저장소 준비
 
+의존성을 설치하기 전에 Corepack을 활성화합니다. 저장소 안에서 `pnpm`을 실행하면 Corepack이 `packageManager` 필드에 지정된 pnpm 10.33.0을 선택합니다.
+
 ```bash
 git clone https://github.com/open-my-dev-com/drawing-report.git
 cd drawing-report
+corepack enable
+pnpm --version
 pnpm install
 ```
 

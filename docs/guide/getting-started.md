@@ -31,20 +31,23 @@ This is the way you can run it right now.
 ### Requirements
 
 - Node.js 22.13 or later
-- pnpm 10.33.0
+- pnpm 10.33.0 (managed with Corepack)
 
-You can check the installed versions with:
+You can check the installed Node.js version with:
 
 ```bash
 node --version
-pnpm --version
 ```
 
 ### 1. Set up the repository
 
+Enable Corepack before installing dependencies. When you run `pnpm` inside the repository, Corepack selects pnpm 10.33.0 from the `packageManager` field.
+
 ```bash
 git clone https://github.com/open-my-dev-com/drawing-report.git
 cd drawing-report
+corepack enable
+pnpm --version
 pnpm install
 ```
 
