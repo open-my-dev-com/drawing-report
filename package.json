@@ -11,6 +11,7 @@
   "scripts": {
     "lint": "eslint .",
     "verify": "pnpm lint && pnpm -r build && pnpm -r typecheck && pnpm -r test",
+    "verify:packages": "node scripts/verify-packages.mjs",
     "build": "pnpm -r --filter './packages/*' run build",
     "test": "pnpm -r --filter './packages/*' run test",
     "test:coverage": "pnpm -r --filter \"./packages/*\" exec vitest run --coverage.enabled --coverage.provider=v8 --coverage.reporter=text --coverage.include=\"src/**\" --coverage.exclude=\"src/fonts/**\"",
@@ -23,11 +24,14 @@
     "demo:mcp:reset": "node examples/mcp-demo/prepare.mjs --reset"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
     "@modelcontextprotocol/inspector": "^2.4.0",
     "@typescript-eslint/parser": "^8.67.0",
     "@vitest/coverage-v8": "^3.2.7",
     "eslint": "^10.8.1",
     "eslint-plugin-tsdoc": "^0.5.2",
+    "playwright": "1.62.1",
+    "publint": "0.3.24",
     "tsup": "^8.0.0",
     "typescript": "^5.6.0",
     "vitest": "^3.0.0"
