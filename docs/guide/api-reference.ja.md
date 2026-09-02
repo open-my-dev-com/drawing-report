@@ -1380,7 +1380,7 @@ const BUILT_IN_MIGRATIONS:
 | `maxGridColumnTracks` | 100 | グリッドの最大列数 |
 | `maxRepeatPerPage` | 1,000 | ページあたりの最大繰り返し項目数 |
 | `maxRepeatItems` | 100,000 | 繰り返しリスト全体の項目数の上限 |
-| `maxGridBands` | 20 | グリッドあたりの最大行バンド数 |
+| `maxGridBands` | 20 | グリッドあたりの最大行範囲数 |
 | `maxOutputPages` | 2,000 | 1 つのテンプレートページから生成できる最大出力ページ数 |
 | `maxConditionalFormats` | 20 | 要素・セルあたりの最大条件付き書式ルール数 |
 | `maxLineHeight` | 10 | 行間の倍率の上限 |
@@ -1614,11 +1614,11 @@ interface SlipFileExchangeOptions {
 
 ```ts
 function loadDefaultFonts(
-  locale?: SlipLocale,
+  locale?: 'ko' | 'en' | 'ja',
 ): Promise<SlipFont[]>;
 ```
 
-日本語では Noto Sans JP サブセットを、それ以外では Pretendard Regular と Bold を読み込みます。同じロケールの呼び出しは読み込み Promise を共有します。
+どのロケールでも同梱の 2 つのファミリー(Pretendard Regular・Bold と Noto Sans JP サブセット)をすべて読み込みます。ロケールは代替フォントだけを決めます。`'ja'` なら Noto Sans JP、それ以外は Pretendard です。同じ代替フォントを選ぶ呼び出しは読み込み Promise を共有します。
 
 #### `PRETENDARD_FONTS`
 

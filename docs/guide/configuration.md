@@ -353,7 +353,7 @@ If the required variant font is not registered, the corresponding weight or ital
 
 If `getFonts` returns a non-empty array, the bundled default fonts are not added automatically.
 
-Use `loadDefaultFonts(locale)` when you want the same locale-based bundled set that the components use by default. Use the font subpaths when you intentionally need both bundled families together.
+Use `loadDefaultFonts(locale)` when you want the same bundled set that the components use by default. It already contains both bundled families and selects one fallback by locale. Use the font subpaths only when you need a single family or set `fallback` yourself. Each subpath list marks its own font as `fallback: true`, so spreading both lists unchanged fails with `Only one fallback font can be specified`.
 
 ```ts
 import { loadDefaultFonts } from '@omdc-slipkit/elements';
@@ -378,7 +378,10 @@ import {
 const slipkit = createSlipKit({
   getFonts: () => [
     ...PRETENDARD_FONTS,
-    ...NOTO_SANS_JP_FONTS,
+    ...NOTO_SANS_JP_FONTS.map((font) => ({
+      ...font,
+      fallback: false,
+    })),
     {
       name: 'AppFont',
       data: appFont,

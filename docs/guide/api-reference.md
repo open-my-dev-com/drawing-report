@@ -1615,11 +1615,11 @@ interface SlipFileExchangeOptions {
 
 ```ts
 function loadDefaultFonts(
-  locale?: SlipLocale,
+  locale?: 'ko' | 'en' | 'ja',
 ): Promise<SlipFont[]>;
 ```
 
-Loads the bundled locale default: the Noto Sans JP subset for Japanese, or Pretendard Regular and Bold for other locales. Calls for the same locale share the loading promise.
+Loads both bundled families — Pretendard Regular and Bold, and the Noto Sans JP subset — for every locale. The locale only selects the fallback font: Noto Sans JP for `'ja'`, Pretendard otherwise. Calls that select the same fallback share the loading promise.
 
 #### `PRETENDARD_FONTS`
 

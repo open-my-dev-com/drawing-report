@@ -353,7 +353,7 @@ const fonts = [
 
 `getFonts` が空でない配列を返すと、同梱の既定フォントは自動的には追加されません。
 
-コンポーネントの既定動作と同じロケール別の同梱フォント構成が必要なら、`loadDefaultFonts(locale)` を使います。2 つの同梱フォント群を意図的に併用するときだけ、フォントのサブパスを使います。
+コンポーネントの既定動作と同じ同梱フォント構成が必要なら、`loadDefaultFonts(locale)` を使います。この一覧には同梱の 2 つのファミリーがすべて含まれ、代替フォントだけがロケールで決まります。1 つのファミリーだけを使うときや `fallback` を自分で決めるときだけ、フォントのサブパスを使います。サブパスの一覧はそれぞれ自分のフォントを `fallback: true` にしているため、両方をそのまま展開して渡すと「代替(fallback)フォントは 1 つだけ指定できます」エラーになります。
 
 ```ts
 import { loadDefaultFonts } from '@omdc-slipkit/elements';
@@ -378,7 +378,10 @@ import {
 const slipkit = createSlipKit({
   getFonts: () => [
     ...PRETENDARD_FONTS,
-    ...NOTO_SANS_JP_FONTS,
+    ...NOTO_SANS_JP_FONTS.map((font) => ({
+      ...font,
+      fallback: false,
+    })),
     {
       name: 'AppFont',
       data: appFont,

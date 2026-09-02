@@ -1614,11 +1614,11 @@ interface SlipFileExchangeOptions {
 
 ```ts
 function loadDefaultFonts(
-  locale?: SlipLocale,
+  locale?: 'ko' | 'en' | 'ja',
 ): Promise<SlipFont[]>;
 ```
 
-일본어에는 Noto Sans JP 서브셋을, 그 밖의 언어에는 Pretendard Regular와 Bold를 불러옵니다. 같은 언어의 호출은 로딩 Promise를 공유합니다.
+어떤 언어든 동봉된 두 패밀리(Pretendard Regular·Bold와 Noto Sans JP 서브셋)를 모두 불러옵니다. 언어는 대체 폰트만 정합니다. `'ja'`면 Noto Sans JP, 그 밖에는 Pretendard입니다. 같은 대체 폰트를 선택하는 호출은 로딩 Promise를 공유합니다.
 
 #### `PRETENDARD_FONTS`
 

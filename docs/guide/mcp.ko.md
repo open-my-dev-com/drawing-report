@@ -210,7 +210,7 @@ codex mcp add slipkit -- \
 
 ### 로컬 PDF 링크
 
-`httpPort`를 설정하면 `127.0.0.1`에 바인딩된 읽기 전용 서버로 렌더링한 PDF를 제공합니다. MCP 프로세스마다 별도의 64자 토큰을 만들며 반환 URL은 `http://127.0.0.1:<포트>/<토큰>/<파일>.pdf` 형식입니다. 프로세스끼리 토큰이나 기존 링크 서버를 공유하지 않고, 요청한 포트가 사용 중이면 빈 포트를 선택합니다. 작업 디렉터리 안의 PDF만 제공합니다.
+`httpPort`를 설정하면 `127.0.0.1`에 바인딩된 읽기 전용 서버로 렌더링한 PDF를 제공합니다. MCP 프로세스마다 별도의 64자 토큰을 만들며 반환 URL은 `http://127.0.0.1:<포트>/<토큰>/<파일>.pdf` 형식입니다. 프로세스끼리 토큰이나 기존 링크 서버를 공유하지 않습니다. 같은 작업 디렉터리의 다른 `slipkit-mcp` 링크 서버가 그 포트를 쓰고 있으면 빈 포트에 자기 서버를 띄우고, 다른 프로그램이나 다른 작업 디렉터리의 `slipkit-mcp`가 포트를 쓰고 있으면 오류로 시작하지 않습니다. 작업 디렉터리 안의 PDF만 제공합니다.
 
 ### PDF 폰트
 
@@ -256,7 +256,7 @@ codex mcp add slipkit -- \
 | `slip_save` | 완성된 JSON을 검증하고 새 `.slip` 파일로 저장합니다. | `path`, `file`, `overwrite` |
 | `slip_edit` | 기존 파일에 대상을 지정한 수정 연산을 원자적으로 적용합니다. | `path`, `ops` |
 | `slip_build_voucher` | 양식과 파라미터 값으로 미발행 전표를 만듭니다. | `templatePath`, `values`, `outPath`, `overwrite` |
-| `slip_render_pdf` | 양식이나 전표를 PDF 파일로 렌더링하고 선택적으로 미리보기 URL을 반환합니다. | `path`, `outPath`, `preview`, `previewPage` |
+| `slip_render_pdf` | 양식이나 전표를 PDF 파일로 렌더링하고, 선택하면 한 페이지를 PNG 미리보기 이미지로 함께 반환합니다. `httpPort`가 설정돼 있으면 링크 URL도 포함합니다. | `path`, `outPath`, `preview`, `previewPage` |
 | `slip_schema` | `.slip` 구조를 주제별로 안내합니다. | `topic` |
 
 `slip://schema` 리소스는 현재 `.slip` JSON Schema 전체를 제공합니다. `slip_schema`의 `topic`은 `overview`, `elements`, `grid`, `parameters`, `formula`, `voucher`, `json-schema`입니다.

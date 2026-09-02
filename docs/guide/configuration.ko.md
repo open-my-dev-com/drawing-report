@@ -356,7 +356,7 @@ const fonts = [
 
 `getFonts`가 비어 있지 않은 배열을 반환하면 동봉 기본 폰트는 자동으로 추가되지 않습니다.
 
-컴포넌트의 기본 동작과 같은 언어별 동봉 폰트 구성이 필요하면 `loadDefaultFonts(locale)`를 사용합니다. 두 동봉 폰트 묶음을 의도적으로 함께 써야 할 때만 폰트 서브패스를 사용합니다.
+컴포넌트의 기본 동작과 같은 동봉 폰트 구성이 필요하면 `loadDefaultFonts(locale)`를 사용합니다. 이 목록에는 동봉된 두 패밀리가 모두 들어 있고 대체 폰트만 언어로 정해집니다. 한 패밀리만 쓰거나 `fallback`을 직접 정할 때만 폰트 서브패스를 사용합니다. 서브패스 목록은 각각 자기 폰트를 `fallback: true`로 표시하므로 두 목록을 그대로 펼쳐 넘기면 `대체 폰트(fallback)는 하나만 지정할 수 있습니다` 오류가 납니다.
 
 ```ts
 import { loadDefaultFonts } from '@omdc-slipkit/elements';
@@ -381,7 +381,10 @@ import {
 const slipkit = createSlipKit({
   getFonts: () => [
     ...PRETENDARD_FONTS,
-    ...NOTO_SANS_JP_FONTS,
+    ...NOTO_SANS_JP_FONTS.map((font) => ({
+      ...font,
+      fallback: false,
+    })),
     {
       name: 'AppFont',
       data: appFont,

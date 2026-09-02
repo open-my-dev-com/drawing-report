@@ -210,7 +210,7 @@ codex mcp add slipkit -- \
 
 ### ローカル PDF リンク
 
-`httpPort` を設定すると、`127.0.0.1` にバインドした読み取り専用サーバーでレンダリング済み PDF を提供します。MCP プロセスごとに別の 64 文字トークンを作成し、返される URL は `http://127.0.0.1:<ポート>/<トークン>/<ファイル>.pdf` 形式です。プロセス間でトークンや既存リンクサーバーを共有せず、指定ポートが使用中なら空きポートを選びます。作業ディレクトリ内の PDF だけを提供します。
+`httpPort` を設定すると、`127.0.0.1` にバインドした読み取り専用サーバーでレンダリング済み PDF を提供します。MCP プロセスごとに別の 64 文字トークンを作成し、返される URL は `http://127.0.0.1:<ポート>/<トークン>/<ファイル>.pdf` 形式です。プロセス間でトークンや既存リンクサーバーを共有しません。同じ作業ディレクトリの別の `slipkit-mcp` リンクサーバーがそのポートを使っている場合は空きポートに自分のサーバーを起動し、他のプログラムや別の作業ディレクトリの `slipkit-mcp` がポートを使っている場合はエラーで起動しません。作業ディレクトリ内の PDF だけを提供します。
 
 ### PDF フォント
 
@@ -256,7 +256,7 @@ codex mcp add slipkit -- \
 | `slip_save` | 完成した JSON を検証し、新しい `.slip` ファイルとして保存します。 | `path`, `file`, `overwrite` |
 | `slip_edit` | 既存ファイルに対象を指定した編集操作をアトミックに適用します。 | `path`, `ops` |
 | `slip_build_voucher` | テンプレートとパラメータ値から未発行伝票を作成します。 | `templatePath`, `values`, `outPath`, `overwrite` |
-| `slip_render_pdf` | テンプレートまたは伝票を PDF にレンダリングし、必要に応じてプレビュー URL を返します。 | `path`, `outPath`, `preview`, `previewPage` |
+| `slip_render_pdf` | テンプレートまたは伝票を PDF にレンダリングし、指定すれば 1 ページを PNG プレビュー画像として併せて返します。`httpPort` が設定されていればリンク URL も含みます。 | `path`, `outPath`, `preview`, `previewPage` |
 | `slip_schema` | `.slip` 構造をトピックごとに説明します。 | `topic` |
 
 `slip://schema` リソースは現在の `.slip` JSON Schema 全体を提供します。`slip_schema` の `topic` は `overview`、`elements`、`grid`、`parameters`、`formula`、`voucher`、`json-schema` です。

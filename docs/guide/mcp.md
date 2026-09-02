@@ -210,7 +210,7 @@ When the current-key environment variable is set, newly saved files are encrypte
 
 ### Local PDF links
 
-Set `httpPort` to expose rendered PDFs through a read-only server bound to `127.0.0.1`. Each MCP process creates its own 64-character token, and returned links have the form `http://127.0.0.1:<port>/<token>/<file>.pdf`. Processes do not share tokens or join an existing link server; if the requested port is occupied, the process selects a free port. Only PDFs inside the working directory are served.
+Set `httpPort` to expose rendered PDFs through a read-only server bound to `127.0.0.1`. Each MCP process creates its own 64-character token, and returned links have the form `http://127.0.0.1:<port>/<token>/<file>.pdf`. Processes do not share tokens or join an existing link server. If the port is already used by another `slipkit-mcp` link server for the same working directory, the process starts its own server on a free port. If any other program, or a `slipkit-mcp` server for a different working directory, holds the port, startup fails. Only PDFs inside the working directory are served.
 
 ### PDF fonts
 
@@ -256,7 +256,7 @@ When running from this repository, keep the pnpm-installed workspace dependencie
 | `slip_save` | Validate complete JSON and save it as a new `.slip` file. | `path`, `file`, `overwrite` |
 | `slip_edit` | Atomically apply targeted edit operations to an existing file. | `path`, `ops` |
 | `slip_build_voucher` | Build an unissued voucher from a template and parameter values. | `templatePath`, `values`, `outPath`, `overwrite` |
-| `slip_render_pdf` | Render a template or voucher to a PDF file, optionally returning a preview URL. | `path`, `outPath`, `preview`, `previewPage` |
+| `slip_render_pdf` | Render a template or voucher to a PDF file, optionally returning one page as a PNG preview image. A link URL is included whenever `httpPort` is set. | `path`, `outPath`, `preview`, `previewPage` |
 | `slip_schema` | Explain the `.slip` structure by topic. | `topic` |
 
 The `slip://schema` resource provides the full current `.slip` JSON Schema. Supported `slip_schema` topics are `overview`, `elements`, `grid`, `parameters`, `formula`, `voucher`, and `json-schema`.
