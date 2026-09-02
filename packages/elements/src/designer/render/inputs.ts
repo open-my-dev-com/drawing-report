@@ -24,7 +24,7 @@ import type { PanelKit } from './panel-kit.js';
  * @param current - 현재 저장된 값
  * @param fallback - 지정하지 않았을 때 실제로 적용되는 값
  * @param apply - 저장 콜백. 기본값과 같으면 `null`이 와서 필드를 지웁니다
- * @param opts - `step`·`min` 등 입력 상자 설정. `mixed`이면 선택한 셀들의 값이 달라 빈 칸에 「혼합」을 표시합니다
+ * @param opts - `step`·`min` 등 입력 상자 설정. `mixed`이면 선택한 셀의 값이 서로 달라 빈 칸에 「혼합」을 표시합니다
  * @returns 수 입력 한 줄
  */
 export function numberRow(
@@ -185,7 +185,7 @@ export function resetButton(kit: PanelKit, target: string, onReset: (() => void)
  * @param key - 펼침 상태를 구분할 키
  * @param apply - 선택한 굵기를 저장하는 콜백
  * @param labelText - 화면에 표시할 레이블
- * @param opts - `mixed`이면 선택한 셀들의 굵기가 달라 「혼합」을 표시합니다
+ * @param opts - `mixed`이면 선택한 셀의 굵기가 서로 달라 「혼합」을 표시합니다
  * @returns 굵기 선택기
  */
 export function borderWidthSelect(
@@ -250,14 +250,15 @@ export function borderWidthSelect(
 
 /**
  * 실선, 파선, 점선 선택기를 선 미리보기와 함께 렌더링합니다.
- * 실선은 기본값이므로 `null`로 적용합니다.
+ * 고른 형태를 그대로 넘기므로 실선을 기본값으로 볼지는 호출부가 정합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param current - 명시된 형태 (미지정이면 실선)
  * @param ariaLabel - 보조기기용 이름 (요소·셀 구분)
  * @param key - 펼침 상태를 구분할 키
- * @param apply - 선택한 값을 저장하는 콜백
- * @param opts - `mixed`이면 선택한 셀들의 형태가 달라 「혼합」을 표시합니다
+ * @param apply - 선택한 형태를 저장하는 콜백
+ * @param opts - `fallback`은 미지정일 때 실제로 적용되는 형태(기본 실선). `mixed`이면 선택한 셀의 형태가
+ *   서로 달라 「혼합」을 표시합니다. `onReset`이 있으면 되돌리기 버튼을 둡니다
  * @returns 선 형태 선택기
  */
 export function borderShapeRow(
@@ -265,11 +266,16 @@ export function borderShapeRow(
   current: 'solid' | 'dashed' | 'dotted' | undefined,
   ariaLabel: string,
   key: string,
-  apply: (value: 'dashed' | 'dotted' | null) => void,
-  opts: { mixed?: boolean } = {},
+  apply: (value: 'solid' | 'dashed' | 'dotted') => void,
+  opts: {
+    fallback?: 'solid' | 'dashed' | 'dotted';
+    mixed?: boolean;
+    onReset?: () => void;
+    resetTarget?: string;
+  } = {},
 ) {
   const s = kit.s;
-  const effective = current ?? 'solid';
+  const effective = current ?? opts.fallback ?? 'solid';
   const mixed = opts.mixed === true;
   const open = kit.popovers.isOpen('property', key);
   const shapes = [
@@ -281,7 +287,7 @@ export function borderShapeRow(
     shapes.find(([value]) => value === shape)![1];
   const pick = (shape: 'solid' | 'dashed' | 'dotted'): void => {
     kit.popovers.close('property');
-    apply(shape === 'solid' ? null : shape);
+    apply(shape);
   };
 
   return html`
@@ -296,6 +302,7 @@ export function borderShapeRow(
             <span class="width-value ${current === undefined ? 'dim' : ''}">${labelOf(effective)}</span>`}
         <span class="list-select-caret" aria-hidden="true">${icons.down}</span>
       </button>
+      ${resetButton(kit, opts.resetTarget ?? ariaLabel, opts.onReset)}
     </div>
     ${open ? html`
       <div class="menu-backdrop" @click=${() => kit.popovers.close('property')}></div>
@@ -323,7 +330,7 @@ export function borderShapeRow(
  * @param apply - 색을 저장하는 콜백 (없으면 선택 요소의 스타일 필드에 저장)
  * @param fallback - 명시된 값이 없을 때 적용할 색
  * @param ariaLabel - 접근성 레이블
- * @param opts - `mixed`이면 선택한 셀들의 색이 달라 빗금 견본과 「혼합」을 표시합니다
+ * @param opts - `mixed`이면 선택한 셀의 색이 서로 달라 빗금 견본과 「혼합」을 표시합니다
  * @returns 색상 입력 조각
  */
 export function colorControl(

@@ -28,6 +28,7 @@ import {
   makeTemplateFile,
   installDesignerTestEnv,
   loadDesigner,
+  pickBorderShape,
   selectElement,
 } from './helpers.js';
 
@@ -462,6 +463,93 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     await el.updateComplete;
     expect(selectedId(el)).toBe('text-1');
     expect(gridEdit(el).cells).toHaveLength(0);
+    el.remove();
+  });
+
+  it('그리드 공통 셀 테두리가 점선일 때 실선을 고르면 셀마다 solid를 저장하고 캔버스도 실선이 된다', async () => {
+    const el = await mount([{ row: 0, column: 0, content: '라벨' }], {
+      cellBorderStyle: 'dotted', cellBorderWidth: 0.5, cellBorderColor: '#336699',
+    });
+    await pickAnchor(el, 0, 0);
+    await clickCell(el, 1, 1, { shiftKey: true });
+    // 물려받는 점선이 흐리게 표시된다.
+    const shapeValue = () => Array.from(el.shadowRoot!.querySelectorAll('.width-btn'))
+      .find((b) => b.getAttribute('aria-label') === `${s.cell} ${s.borderShape}`)!
+      .querySelector('.width-value')!;
+    expect(shapeValue().textContent?.trim()).toBe(s.borderDotted);
+    expect(shapeValue().classList.contains('dim')).toBe(true);
+    await pickBorderShape(el, `${s.cell} ${s.borderShape}`, s.borderSolid);
+    expect(shapeValue().textContent?.trim()).toBe(s.borderSolid);
+    expect(shapeValue().classList.contains('dim')).toBe(false);
+    const targets = [[0, 0], [0, 1], [1, 0], [1, 1]] as const;
+    for (const [row, column] of targets) expect(cellOf(el, row, column)?.borderStyle).toBe('solid');
+    const cells = Array.from(el.shadowRoot!.querySelectorAll('.grid-preview .cell-selected')) as HTMLElement[];
+    expect(cells).toHaveLength(4);
+    for (const cell of cells) expect(cell.style.border).toContain('solid');
+
+    // 그리드 공통값과 같은 점선을 고르면 셀 값을 지워 물려받는다.
+    await pickBorderShape(el, `${s.cell} ${s.borderShape}`, s.borderDotted);
+    for (const [row, column] of targets) expect(cellOf(el, row, column)?.borderStyle).toBeUndefined();
+    el.remove();
+  });
+
+  it('셀 테두리 되돌리기는 색·굵기·형태를 함께 지우고, 적용과 되돌리기는 각각 실행 취소 한 단위다', async () => {
+    const el = await mount([
+      { row: 0, column: 0, content: '라벨', borderColor: '#ff0000', borderWidth: 1, borderStyle: 'dashed' },
+      { row: 0, column: 1, content: '', borderWidth: 0 },
+    ], { cellBorderStyle: 'dotted' });
+    await pickAnchor(el, 0, 0);
+    await clickCell(el, 0, 1, { ctrlKey: true });
+    await pickBorderShape(el, `${s.cell} ${s.borderShape}`, s.borderSolid);
+    expect(cellOf(el, 0, 0)?.borderStyle).toBe('solid');
+    expect(cellOf(el, 0, 1)?.borderStyle).toBe('solid');
+
+    const reset = byAria(el, `${s.styleCellBorder}: ${s.resetToDefault}`);
+    expect(reset.getAttribute('title')).toBe(s.resetToDefault);
+    reset.click();
+    await el.updateComplete;
+    for (const column of [0, 1]) {
+      const cell = cellOf(el, 0, column)!;
+      expect(cell.borderColor).toBeUndefined();
+      expect(cell.borderWidth).toBeUndefined();
+      expect(cell.borderStyle).toBeUndefined();
+    }
+    expect(cellOf(el, 0, 0)?.content).toBe('라벨');
+
+    // 실행 취소 한 번 — 되돌리기 전(실선)으로, 두 번 — 적용 전(파선·없음)으로 돌아간다.
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+    await el.updateComplete;
+    expect(cellOf(el, 0, 0)?.borderStyle).toBe('solid');
+    expect(cellOf(el, 0, 0)?.borderColor).toBe('#ff0000');
+    expect(cellOf(el, 0, 1)?.borderStyle).toBe('solid');
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+    await el.updateComplete;
+    expect(cellOf(el, 0, 0)?.borderStyle).toBe('dashed');
+    expect(cellOf(el, 0, 1)?.borderStyle).toBeUndefined();
+    expect(cellOf(el, 0, 1)?.borderWidth).toBe(0);
+    el.remove();
+  });
+
+  it('폰트가 혼합이면 단일 폰트용 안내를 감추고, 공통 폰트를 고른 뒤에만 그 안내를 보여 준다', async () => {
+    const el = await mount([
+      { row: 0, column: 0, content: '라벨', fontName: 'NoSuchFont' },
+      { row: 0, column: 1, content: '' },
+    ]);
+    await pickAnchor(el, 0, 0);
+    // 셀 하나(미등록 폰트)에서는 안내가 보인다.
+    expect(el.shadowRoot!.querySelector('.font-note')).not.toBeNull();
+    await clickCell(el, 0, 1, { ctrlKey: true });
+    const fontSelect = el.shadowRoot!.querySelector(`[aria-label="${s.cell} ${s.fontName}"]`)!;
+    expect(fontSelect.querySelector('.list-select-value')?.textContent?.trim()).toBe(s.mixed);
+    expect(el.shadowRoot!.querySelector('.font-note')).toBeNull();
+
+    // 같은 선택에 미등록 폰트를 공통으로 적용하면 그 폰트의 안내가 나타난다.
+    (el as unknown as { _gridCommands: { updateCellStyle(key: string, value: unknown): void } })
+      ._gridCommands.updateCellStyle('fontName', 'NoSuchFont');
+    await el.updateComplete;
+    expect(cellOf(el, 0, 1)?.fontName).toBe('NoSuchFont');
+    expect(fontSelect.querySelector('.list-select-value')?.textContent?.trim()).toBe('NoSuchFont');
+    expect(el.shadowRoot!.querySelector('.font-note')?.textContent).toContain(s.fontUnregistered);
     el.remove();
   });
 });

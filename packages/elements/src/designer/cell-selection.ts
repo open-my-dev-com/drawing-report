@@ -1,5 +1,5 @@
 /**
- * 그리드 셀 복수 선택의 계산 — 범위를 원점 셀로 펼치기와 선택 셀들의 공통값 판정.
+ * 그리드 셀 복수 선택에 필요한 범위 계산과 공통값 판정을 제공합니다.
  *
  * @remarks
  * 화면 상태를 읽지 않습니다. 병합 셀은 원점 셀 하나로만 다루며, 범위에 병합 셀의 일부만
@@ -61,7 +61,7 @@ export function cellOriginAt(el: GridElement, row: number, column: number): Cell
  * @param el - 대상 그리드
  * @param from - 범위의 한쪽 모서리 (기준 셀)
  * @param to - 범위의 다른 모서리 (클릭한 셀)
- * @returns 범위 안의 셀 좌표 목록 — 행 우선 순서, 병합 셀은 한 번만
+ * @returns 행 우선으로 정렬된 셀 좌표 목록. 병합 셀은 한 번만 포함합니다.
  */
 export function cellsInRectangle(el: GridElement, from: CellRef, to: CellRef): CellRef[] {
   const rows = el.rows.length;
@@ -82,7 +82,7 @@ export function cellsInRectangle(el: GridElement, from: CellRef, to: CellRef): C
 }
 
 /**
- * 선택한 셀들의 저장 레코드를 찾습니다. 레코드가 없는 빈 셀은 `undefined`입니다.
+ * 선택한 각 셀의 저장 레코드를 찾습니다. 레코드가 없는 빈 셀은 `undefined`입니다.
  *
  * @param el - 대상 그리드
  * @param cells - 선택한 셀 좌표 목록
@@ -92,7 +92,7 @@ export function cellRecordsOf(el: GridElement, cells: readonly CellRef[]): (Grid
   return cells.map((at) => el.cells.find((cell) => cell.row === at.row && cell.column === at.column));
 }
 
-/** 선택한 셀들의 한 속성을 요약한 결과 */
+/** 선택한 셀의 속성값 요약 결과 */
 export interface CellValueSummary<T> {
   /** 실제 적용값이 서로 다르면 `true` */
   mixed: boolean;
@@ -103,13 +103,13 @@ export interface CellValueSummary<T> {
 }
 
 /**
- * 선택한 셀들의 한 속성을 실제 적용값 기준으로 요약합니다.
+ * 선택한 셀의 속성값을 실제 적용값 기준으로 요약합니다.
  *
  * @remarks
  * 직접 지정한 값과 그리드에서 물려받은 값이 같으면 혼합으로 보지 않습니다.
  * 입력 상자는 `stored`가 있으면 그 값을, 없으면 물려받는 값을 흐리게 표시합니다.
  *
- * @param records - 선택한 셀들의 레코드 (빈 셀은 `undefined`)
+ * @param records - 선택한 각 셀의 레코드 (빈 셀은 `undefined`)
  * @param pick - 레코드에서 속성을 꺼내는 함수
  * @param inherited - 셀에 값이 없을 때 적용되는 값
  * @returns 혼합 여부와 공통값

@@ -674,7 +674,7 @@ export function gridCellProps(
 }
 
 /**
- * 선택한 셀들의 텍스트·배경·셀 테두리 구역을 렌더링합니다. 셀 하나와 여러 셀이 같은 화면을 씁니다.
+ * 선택한 셀의 텍스트, 배경과 셀 테두리 설정을 렌더링합니다. 단일 선택과 복수 선택에서 같은 스타일 편집 UI를 사용합니다.
  *
  * @remarks
  * 값은 셀 값, 없으면 그리드 공통값, 그것도 없으면 렌더러 기본값을 실제 적용값으로 보고
@@ -813,7 +813,9 @@ export function cellStyleSections(
               onReset: () => grid.resetCellStyles(emphasisKeys),
             },
           )}
-          ${fontVariantNote(kit, act.fonts, effectiveStyle)}
+          ${fontName.mixed || emphasis.bold.mixed || emphasis.italic.mixed
+            ? nothing
+            : fontVariantNote(kit, act.fonts, effectiveStyle)}
           ${colorControl(kit,
             s.fontColor, fontColor.stored, 'cellFontColor',
             (v) => grid.updateCellStyle('fontColor', v),
@@ -848,7 +850,7 @@ export function cellStyleSections(
             cellDefault.width,
             true,
             'cellBorderWidth',
-            (v) => grid.updateCellStyle('borderWidth', v),
+            (v) => applyRelative('borderWidth', v, cellDefault.width),
             undefined,
             { mixed: borderWidth.mixed },
           )}
@@ -856,8 +858,13 @@ export function cellStyleSections(
             borderStyle.stored,
             `${s.cell} ${s.borderShape}`,
             'cellBorderStyle',
-            (v) => grid.updateCellStyle('borderStyle', v),
-            { mixed: borderStyle.mixed },
+            (v) => applyRelative('borderStyle', v, cellDefault.style),
+            {
+              fallback: cellDefault.style,
+              mixed: borderStyle.mixed,
+              resetTarget: s.styleCellBorder,
+              onReset: () => grid.resetCellStyles(['borderColor', 'borderWidth', 'borderStyle']),
+            },
           )}
         </div>`;
 }

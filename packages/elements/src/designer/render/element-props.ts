@@ -198,7 +198,7 @@ export function fontNameRow(
   const s = kit.s;
   const fonts = act.fonts;
   const inherit = opts?.inherit ?? fontDefaultOption(kit, fonts.fallback);
-  // 선택한 셀마다 폰트가 다르면 저장되지 않는 「혼합」 항목을 현재 값으로 보여 줍니다.
+  // 선택한 셀의 폰트가 서로 다르면 파일에 저장되지 않는 「혼합」 항목을 표시합니다.
   const mixed = opts?.mixed === true;
   // 목록에 없는 이름을 지정한 요소도 그 값을 그대로 고를 수 있어야 합니다.
   const options = current !== undefined && !fonts.selectable.includes(current)
@@ -228,7 +228,9 @@ export function fontNameRow(
         },
       })}
     </div>
-    ${unregistered || failed
+    ${mixed
+      ? nothing
+      : unregistered || failed
       ? html`<div class="font-note">
           <span>${unregistered ? s.fontUnregistered : s.fontLoadFailed}</span>
           ${applied === undefined ? nothing : html`<span>${s.fontApplied}: ${applied}</span>`}
@@ -919,7 +921,7 @@ export function styleGroups(kit: PanelKit, act: ElementActions, el: SlipElement)
             'borderStyle',
             (v) => act.update((target) => {
               const t = target as Record<string, unknown>;
-              if (v === null) delete t.borderStyle;
+              if (v === 'solid') delete t.borderStyle;
               else {
                 t.borderStyle = v;
                 // 모서리 반경은 파선 또는 점선과 함께 사용할 수 없습니다.
@@ -1034,7 +1036,7 @@ export function gridBorderSections(kit: PanelKit, act: ElementActions, el: GridE
         el.cellBorderStyle ?? el.borderStyle,
         `${s.styleCellDefaultBorder} ${s.borderShape}`,
         'cellDefaultBorderStyle',
-        (v) => onGrid((grid) => applyCellDefaultBorder(grid, { key: 'style', value: v })),
+        (v) => onGrid((grid) => applyCellDefaultBorder(grid, { key: 'style', value: v === 'solid' ? null : v })),
       )}
     </div>
     <div class="prop-section">
@@ -1057,7 +1059,7 @@ export function gridBorderSections(kit: PanelKit, act: ElementActions, el: GridE
         el.outlineStyle,
         `${s.styleOutline} ${s.borderShape}`,
         'outlineStyle',
-        (v) => onGrid((grid) => applyOutline(grid, { key: 'style', value: v })),
+        (v) => onGrid((grid) => applyOutline(grid, { key: 'style', value: v === 'solid' ? null : v })),
       )}
     </div>`;
 }

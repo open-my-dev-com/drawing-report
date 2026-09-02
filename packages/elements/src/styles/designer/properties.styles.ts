@@ -304,7 +304,7 @@ export const propertiesStyles = css`
       border-top: 1.5px solid var(--sk-accent);
       transform: rotate(-18deg);
     }
-    /* 선택한 셀마다 값이 다른 토글 — 누르지 않은 모양에 점선 테두리와 점으로 혼합을 표시합니다 */
+    /* 선택한 셀의 값이 서로 다른 토글은 점선 테두리와 점으로 혼합 상태를 표시합니다. */
     .toggle-group button.mixed-value {
       background: var(--sk-surface);
       color: var(--sk-text-muted);
