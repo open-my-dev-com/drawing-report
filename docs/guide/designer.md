@@ -295,6 +295,20 @@ When you select a cell, decide the cell type in the right settings panel.
 
 Give a cell a name to make it selectable from the sidebar's element list regardless of its value type. An unnamed cell is shown by its row and column coordinates.
 
+To edit the styles of several cells together, select one cell and use these modifier keys.
+
+| Action | Result |
+|---|---|
+| Select another cell while holding <kbd>Shift</kbd> | Select the rectangular range from the anchor cell to that cell |
+| Select a cell while holding <kbd>Ctrl</kbd>, or <kbd>⌘</kbd> on macOS | Add that cell to the selection or remove it from the selection |
+| Select a cell while holding <kbd>Ctrl</kbd>/<kbd>⌘</kbd> and <kbd>Shift</kbd> | Add the rectangular range from the anchor cell to the existing selection |
+
+A regular click, or a cell newly added with Ctrl/⌘, makes that cell the anchor. The anchor has a darker outline
+than the other selected cells. A multi-cell selection can edit only text, background, and cell-border styles;
+cell names, value types, merges, and conditional formatting remain unchanged. Controls whose values differ show
+<kbd>Mixed</kbd>. Each reset button removes the corresponding cell-level settings from every selected cell so
+that they inherit the grid defaults again.
+
 ### Building a repeating list
 
 A table that grows with its data, such as an items table, uses the grid's <kbd>Repeat</kbd> setting. One item may occupy one row or a range of several rows.

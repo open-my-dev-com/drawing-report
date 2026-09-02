@@ -304,6 +304,36 @@ export const propertiesStyles = css`
       border-top: 1.5px solid var(--sk-accent);
       transform: rotate(-18deg);
     }
+    /* 선택한 셀의 값이 서로 다른 토글은 점선 테두리와 점으로 혼합 상태를 표시합니다. */
+    .toggle-group button.mixed-value {
+      background: var(--sk-surface);
+      color: var(--sk-text-muted);
+      border-style: dashed;
+      border-color: var(--sk-accent);
+    }
+    .toggle-group button.mixed-value::after {
+      content: '';
+      left: auto;
+      right: 3px;
+      top: 3px;
+      width: 5px;
+      height: 5px;
+      border: 0;
+      border-radius: 50%;
+      background: var(--sk-accent);
+      transform: none;
+    }
+    .reset-btn {
+      width: 22px;
+      min-width: 22px;
+      height: 32px;
+      padding: 0;
+      margin-left: 4px;
+    }
+    .reset-btn svg {
+      width: 13px;
+      height: 13px;
+    }
     .anchor-grid {
       display: grid;
       grid-template-columns: repeat(3, 16px);
@@ -362,6 +392,10 @@ export const propertiesStyles = css`
       border-radius: 3px;
     }
     /* 색 미지정 상태 — 검정으로 오해하지 않게 '없음'(사선)으로 표시 */
+    /* 선택한 셀마다 색이 다를 때의 빗금 견본 */
+    .color-chip.mixed {
+      background: repeating-linear-gradient(-45deg, var(--sk-border-strong) 0 2px, var(--sk-surface) 2px 5px);
+    }
     .color-chip.none {
       background:
         linear-gradient(to top left, transparent 44%, var(--sk-guide) 45%, var(--sk-guide) 55%, transparent 56%),
@@ -565,6 +599,10 @@ export const propertiesStyles = css`
       border-top-style: dotted;
     }
     /* 지정하지 않아 기본값·상속값이 적용 중인 항목  */
+    .mixed {
+      color: var(--sk-text-muted);
+      font-style: italic;
+    }
     .dim {
       opacity: 0.55;
     }
@@ -619,6 +657,11 @@ export const propertiesStyles = css`
     .grid-preview .cell-selected {
       outline: 2px solid var(--sk-accent);
       outline-offset: -2px;
+    }
+    /* 기준 셀 — Shift 범위 선택의 시작점을 한 단계 진한 외곽선으로 구분합니다 */
+    .grid-preview .cell-selected.cell-anchor {
+      outline-width: 3px;
+      box-shadow: inset 0 0 0 4px var(--sk-accent-soft);
     }
     .step-inputs {
       flex: 1;

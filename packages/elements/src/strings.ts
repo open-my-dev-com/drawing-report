@@ -136,6 +136,9 @@ const ko = {
     columns: '열',
     cell: '선택 셀',
     gridBack: '그리드 설정',
+    cellsSelected: '선택한 셀: {count}개',
+    mixed: '혼합',
+    resetToDefault: '기본값으로 되돌리기',
     /** 그리드  */
     rowHeight: '행 높이',
     columnWidth: '열 너비',
@@ -622,6 +625,9 @@ const en: SlipStrings = {
     columns: 'Columns',
     cell: 'Selected cell',
     gridBack: 'Grid settings',
+    cellsSelected: 'Selected cells: {count}',
+    mixed: 'Mixed',
+    resetToDefault: 'Reset to default',
     /** Grid  */
     rowHeight: 'Row height',
     columnWidth: 'Column width',
@@ -1103,6 +1109,9 @@ const ja: SlipStrings = {
     columns: '列',
     cell: '選択セル',
     gridBack: 'グリッド設定',
+    cellsSelected: '選択中のセル: {count}',
+    mixed: '混在',
+    resetToDefault: '既定値に戻す',
     /** 그리드  */
     rowHeight: '行の高さ',
     columnWidth: '列の幅',

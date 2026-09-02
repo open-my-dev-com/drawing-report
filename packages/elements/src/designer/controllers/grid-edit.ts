@@ -7,6 +7,7 @@
  */
 
 import type { ReactiveController } from 'lit';
+import { cellKey, sameCell } from '../cell-selection.js';
 import type { GridRowCommand } from '../grid-model.js';
 
 export interface GridEditHost {
@@ -30,6 +31,8 @@ export type CellSourceKind = 'content' | 'parameter' | 'formula';
 
 export class GridEditController implements ReactiveController {
   private _cell: CellPosition | null = null;
+  /** 선택한 셀 전체 — 추가한 순서를 유지하며 기준 셀도 포함합니다 */
+  private _cells: CellPosition[] = [];
   private _sourceKind: CellSourceKind | null = null;
   private _editing = false;
   private _bandRange: BandRange | null = null;
@@ -44,9 +47,29 @@ export class GridEditController implements ReactiveController {
     this.host.requestUpdate();
   }
 
-  /** 병합과 인라인 편집의 대상인 셀. 선택한 셀이 없으면 null */
+  /** 기준 셀 — 병합·인라인 편집의 대상이고 Shift 범위 선택의 시작점. 선택한 셀이 없으면 null */
   get cell(): CellPosition | null {
     return this._cell;
+  }
+
+  /** 선택한 셀 전체 (기준 셀 포함). 셀을 고르지 않았으면 빈 목록 */
+  get cells(): readonly CellPosition[] {
+    return this._cells;
+  }
+
+  /** 셀을 둘 이상 선택했는지 */
+  get multiCell(): boolean {
+    return this._cells.length > 1;
+  }
+
+  /**
+   * 셀이 선택 목록에 있는지 확인합니다.
+   *
+   * @param cell - 확인할 셀 좌표
+   * @returns 선택되어 있으면 `true`
+   */
+  isCellSelected(cell: CellPosition): boolean {
+    return this._cells.some((item) => sameCell(item, cell));
   }
 
   /** 셀에서 편집 중인 값 소스 종류 */
@@ -86,12 +109,73 @@ export class GridEditController implements ReactiveController {
    */
   selectCell(cell: CellPosition): void {
     this._cell = cell;
+    this._cells = [cell];
+    this.host.requestUpdate();
+  }
+
+  /**
+   * 셀을 선택 목록에 더하거나 뺍니다 (Ctrl/Cmd 클릭).
+   * 더한 셀이 기준 셀이 되고, 기준 셀을 빼면 가장 최근에 더한 셀이 기준 셀이 됩니다.
+   * 마지막 셀을 빼면 셀 선택이 비고 인라인 편집도 끝납니다.
+   *
+   * @param cell - 더하거나 뺄 셀 좌표
+   */
+  toggleCell(cell: CellPosition): void {
+    if (this.isCellSelected(cell)) {
+      this._cells = this._cells.filter((item) => !sameCell(item, cell));
+      if (sameCell(this._cell, cell)) this._cell = this._cells[this._cells.length - 1] ?? null;
+      if (this._cell === null) this._editing = false;
+    } else {
+      this._cells = [...this._cells, cell];
+      this._cell = cell;
+    }
+    this.host.requestUpdate();
+  }
+
+  /**
+   * 기준 셀부터의 사각형 범위로 선택을 바꾸거나(Shift) 기존 선택에 더합니다(Ctrl/Cmd+Shift).
+   * 기준 셀은 그대로 둡니다.
+   *
+   * @param cells - 범위에 든 셀 좌표 목록 (기준 셀 포함)
+   * @param append - 기존 선택을 유지하고 더하면 `true`
+   */
+  selectRange(cells: readonly CellPosition[], append: boolean): void {
+    const anchor = this._cell;
+    const seen = new Set<string>();
+    const next: CellPosition[] = [];
+    const add = (cell: CellPosition): void => {
+      const key = cellKey(cell);
+      if (seen.has(key)) return;
+      seen.add(key);
+      next.push(cell);
+    };
+    if (anchor !== null) add(anchor);
+    if (append) this._cells.forEach(add);
+    cells.forEach(add);
+    this._cells = next;
+    if (this._cell === null) this._cell = next[0] ?? null;
+    this.host.requestUpdate();
+  }
+
+  /**
+   * 그리드 범위를 벗어난 셀을 선택에서 뺍니다 (실행 취소·행 삭제 뒤).
+   *
+   * @param rows - 현재 행 수
+   * @param columns - 현재 열 수
+   */
+  pruneCells(rows: number, columns: number): void {
+    const inside = (cell: CellPosition): boolean => cell.row < rows && cell.column < columns;
+    if (this._cells.every(inside)) return;
+    this._cells = this._cells.filter(inside);
+    if (this._cell !== null && !inside(this._cell)) this._cell = this._cells[this._cells.length - 1] ?? null;
+    if (this._cell === null) this._editing = false;
     this.host.requestUpdate();
   }
 
   /** 셀 선택과 인라인 편집을 함께 해제합니다. 값 소스 종류는 그대로 둡니다. */
   clearCell(): void {
     this._cell = null;
+    this._cells = [];
     this._editing = false;
     this.host.requestUpdate();
   }
@@ -200,6 +284,7 @@ export class GridEditController implements ReactiveController {
   /** 그리드 편집 상태를 모두 지웁니다. 화면 갱신은 호출부가 처리합니다. */
   reset(): void {
     this._cell = null;
+    this._cells = [];
     this._sourceKind = null;
     this._editing = false;
     this._bandRange = null;

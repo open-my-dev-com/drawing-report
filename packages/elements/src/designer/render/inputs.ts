@@ -24,7 +24,7 @@ import type { PanelKit } from './panel-kit.js';
  * @param current - 현재 저장된 값
  * @param fallback - 지정하지 않았을 때 실제로 적용되는 값
  * @param apply - 저장 콜백. 기본값과 같으면 `null`이 와서 필드를 지웁니다
- * @param opts - `step`·`min` 등 입력 상자 설정
+ * @param opts - `step`·`min` 등 입력 상자 설정. `mixed`이면 선택한 셀의 값이 서로 달라 빈 칸에 「혼합」을 표시합니다
  * @returns 수 입력 한 줄
  */
 export function numberRow(
@@ -33,7 +33,7 @@ export function numberRow(
   current: number | undefined,
   fallback: number,
   apply: (value: number | null) => void,
-  opts: { step?: string; min?: string; ariaLabel?: string; errorKey?: string } = {},
+  opts: { step?: string; min?: string; ariaLabel?: string; errorKey?: string; mixed?: boolean } = {},
 ) {
   const errorKey = opts.errorKey ?? 'number-input';
   const commit = (e: Event): void => {
@@ -67,8 +67,9 @@ export function numberRow(
         aria-label=${opts.ariaLabel ?? label}
         aria-invalid=${String(kit.hasError(errorKey))}
         aria-describedby=${kit.hasError(errorKey) ? `error-${errorKey}` : nothing}
-        class=${current === undefined ? 'dim' : ''}
-        .value=${String(current ?? fallback)}
+        class=${opts.mixed ? 'mixed' : current === undefined ? 'dim' : ''}
+        placeholder=${opts.mixed ? kit.s.mixed : nothing}
+        .value=${opts.mixed ? '' : String(current ?? fallback)}
         @change=${commit}>
     </div>
     ${kit.error(errorKey)}`;
@@ -101,41 +102,77 @@ export function twisty(
       @click=${toggle}>${expanded ? icons.treeOpen : icons.treeClosed}</button>`;
 }
 
+/** 글자 강조 토글의 종류 */
+export type TextEmphasisKey = 'bold' | 'italic' | 'underline' | 'strikethrough';
+
 /**
- * 굵게, 밑줄, 취소선 토글을 렌더링합니다.
+ * 굵게, 기울임, 밑줄, 취소선 토글을 렌더링합니다.
+ *
+ * @remarks
+ * `mixed`에 든 항목은 선택한 셀마다 값이 달라 누르지 않은 모양에 혼합 표시를 덧붙이고,
+ * 한 번 누르면 모든 셀을 켭니다. `onReset`이 있으면 묶음 끝에 기본값으로 되돌리는 버튼을 둡니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
- * @param current - 현재 글자 강조 상태
+ * @param current - 현재 적용 중인 글자 강조 상태
  * @param apply - 바뀐 강조를 저장하는 콜백
  * @param ariaPrefix - 접근성 레이블 앞에 붙일 대상 이름
- * @returns 강조 토글 세 개
+ * @param opts - 표시할 토글 종류(기본은 굵게·밑줄·취소선), 혼합 항목, 되돌리기 콜백
+ * @returns 강조 토글 묶음
  */
 export function textStyleToggles(
   kit: PanelKit,
   current: {
     bold?: boolean | undefined;
+    italic?: boolean | undefined;
     underline?: boolean | undefined;
     strikethrough?: boolean | undefined;
   },
-  apply: (key: 'bold' | 'underline' | 'strikethrough', value: boolean) => void,
+  apply: (key: TextEmphasisKey, value: boolean) => void,
   ariaPrefix = '',
+  opts: { keys?: readonly TextEmphasisKey[]; mixed?: ReadonlySet<TextEmphasisKey>; onReset?: () => void } = {},
 ) {
   const s = kit.s;
+  const keys = opts.keys ?? ['bold', 'underline', 'strikethrough'];
+  const all: Record<TextEmphasisKey, [string, unknown]> = {
+    bold: [s.bold, icons.bold],
+    italic: [s.italic, icons.italic],
+    underline: [s.underline, icons.underline],
+    strikethrough: [s.strikethrough, icons.strikethrough],
+  };
   return html`
     <div class="prop-row">
       <label>${s.style}</label>
       <div class="toggle-group" role="group" aria-label="${ariaPrefix}${s.style}">
-        ${([
-          ['bold', s.bold, icons.bold],
-          ['underline', s.underline, icons.underline],
-          ['strikethrough', s.strikethrough, icons.strikethrough],
-        ] as const).map(([key, label, glyph]) => html`
-          <button title=${label} aria-label="${ariaPrefix}${label}"
-            aria-pressed=${String(current[key] === true)}
-            @click=${() => apply(key, current[key] !== true)}>${glyph}</button>`)}
+        ${keys.map((key) => {
+          const [label, glyph] = all[key];
+          const mixed = opts.mixed?.has(key) === true;
+          const pressed = !mixed && current[key] === true;
+          return html`
+          <button class=${mixed ? 'mixed-value' : ''}
+            title=${mixed ? `${label}: ${s.mixed}` : label}
+            aria-label=${mixed ? `${ariaPrefix}${label}: ${s.mixed}` : `${ariaPrefix}${label}`}
+            aria-pressed=${mixed ? 'mixed' : String(pressed)}
+            @click=${() => apply(key, mixed ? true : !pressed)}>${glyph}</button>`;
+        })}
       </div>
+      ${resetButton(kit, `${ariaPrefix}${s.style}`, opts.onReset)}
     </div>
   `;
+}
+
+/**
+ * 셀별 덮어쓰기를 지워 그리드 공통값을 물려받게 하는 작은 아이콘 버튼을 렌더링합니다.
+ *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param target - 무엇을 되돌리는지 (접근성 레이블 앞부분)
+ * @param onReset - 되돌리기 콜백. 없으면 버튼을 그리지 않습니다
+ * @returns 되돌리기 버튼 또는 빈 것
+ */
+export function resetButton(kit: PanelKit, target: string, onReset: (() => void) | undefined) {
+  if (onReset === undefined) return nothing;
+  const label = kit.s.resetToDefault;
+  return html`<button class="row-btn reset-btn" title=${label} aria-label="${target}: ${label}"
+    @click=${onReset}>${icons.reset}</button>`;
 }
 
 /**
@@ -148,6 +185,7 @@ export function textStyleToggles(
  * @param key - 펼침 상태를 구분할 키
  * @param apply - 선택한 굵기를 저장하는 콜백
  * @param labelText - 화면에 표시할 레이블
+ * @param opts - `mixed`이면 선택한 셀의 굵기가 서로 달라 「혼합」을 표시합니다
  * @returns 굵기 선택기
  */
 export function borderWidthSelect(
@@ -158,10 +196,12 @@ export function borderWidthSelect(
   key: string,
   apply: (value: number) => void,
   labelText?: string,
+  opts: { mixed?: boolean } = {},
 ) {
   const s = kit.s;
   const label = labelText ?? s.borderWidth;
   const effective = current ?? fallback;
+  const mixed = opts.mixed === true;
   const open = kit.popovers.isOpen('property', key);
   // 기본 선택지에 없는 현재 값도 목록에 포함합니다.
   const steps = [...new Set<number>([...BORDER_WIDTH_STEPS, ...(effective > 0 ? [effective] : [])])]
@@ -177,10 +217,12 @@ export function borderWidthSelect(
       <button class="width-btn" aria-label=${label} aria-haspopup="menu"
         aria-expanded=${String(open)}
         @click=${(event: Event) => kit.togglePropertyMenu(key, event)}>
-        ${effective > 0
-          ? html`<span class="width-line" style="border-top-width:${previewPx(effective)}px"></span>
+        ${mixed
+          ? html`<span class="width-value mixed">${s.mixed}</span>`
+          : effective > 0
+            ? html`<span class="width-line" style="border-top-width:${previewPx(effective)}px"></span>
               <span class="width-value ${current === undefined ? 'dim' : ''}">${effective}mm</span>`
-          : html`<span class="width-value ${current === undefined ? 'dim' : ''}"
+            : html`<span class="width-value ${current === undefined ? 'dim' : ''}"
               >${s.colorNone}</span>`}
         <span class="list-select-caret" aria-hidden="true">${icons.down}</span>
       </button>
@@ -191,13 +233,13 @@ export function borderWidthSelect(
         style=${propertyMenuStyle(kit.popovers.placement('property'))}>
         ${allowNone ? html`
           <button role="menuitem" aria-label="${label}: ${s.colorNone}"
-            aria-pressed=${String(effective <= 0)}
+            aria-pressed=${String(!mixed && effective <= 0)}
             @click=${() => pick(0)}>
             <span class="width-value">${s.colorNone}</span>
           </button>` : nothing}
         ${steps.map((w) => html`
           <button role="menuitem" aria-label="${label}: ${w}mm"
-            aria-pressed=${String(w === effective)}
+            aria-pressed=${String(!mixed && w === effective)}
             @click=${() => pick(w)}>
             <span class="width-line" style="border-top-width:${previewPx(w)}px"></span>
             <span class="width-value">${w}mm</span>
@@ -208,13 +250,15 @@ export function borderWidthSelect(
 
 /**
  * 실선, 파선, 점선 선택기를 선 미리보기와 함께 렌더링합니다.
- * 실선은 기본값이므로 `null`로 적용합니다.
+ * 고른 형태를 그대로 넘기므로 실선을 기본값으로 볼지는 호출부가 정합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param current - 명시된 형태 (미지정이면 실선)
  * @param ariaLabel - 보조기기용 이름 (요소·셀 구분)
  * @param key - 펼침 상태를 구분할 키
- * @param apply - 선택한 값을 저장하는 콜백
+ * @param apply - 선택한 형태를 저장하는 콜백
+ * @param opts - `fallback`은 미지정일 때 실제로 적용되는 형태(기본 실선). `mixed`이면 선택한 셀의 형태가
+ *   서로 달라 「혼합」을 표시합니다. `onReset`이 있으면 되돌리기 버튼을 둡니다
  * @returns 선 형태 선택기
  */
 export function borderShapeRow(
@@ -222,10 +266,17 @@ export function borderShapeRow(
   current: 'solid' | 'dashed' | 'dotted' | undefined,
   ariaLabel: string,
   key: string,
-  apply: (value: 'dashed' | 'dotted' | null) => void,
+  apply: (value: 'solid' | 'dashed' | 'dotted') => void,
+  opts: {
+    fallback?: 'solid' | 'dashed' | 'dotted';
+    mixed?: boolean;
+    onReset?: () => void;
+    resetTarget?: string;
+  } = {},
 ) {
   const s = kit.s;
-  const effective = current ?? 'solid';
+  const effective = current ?? opts.fallback ?? 'solid';
+  const mixed = opts.mixed === true;
   const open = kit.popovers.isOpen('property', key);
   const shapes = [
     ['solid', s.borderSolid],
@@ -236,7 +287,7 @@ export function borderShapeRow(
     shapes.find(([value]) => value === shape)![1];
   const pick = (shape: 'solid' | 'dashed' | 'dotted'): void => {
     kit.popovers.close('property');
-    apply(shape === 'solid' ? null : shape);
+    apply(shape);
   };
 
   return html`
@@ -245,10 +296,13 @@ export function borderShapeRow(
       <button class="width-btn" aria-label=${ariaLabel} aria-haspopup="menu"
         aria-expanded=${String(open)}
         @click=${(event: Event) => kit.togglePropertyMenu(key, event)}>
-        <span class="shape-line shape-${effective}"></span>
-        <span class="width-value ${current === undefined ? 'dim' : ''}">${labelOf(effective)}</span>
+        ${mixed
+          ? html`<span class="width-value mixed">${s.mixed}</span>`
+          : html`<span class="shape-line shape-${effective}"></span>
+            <span class="width-value ${current === undefined ? 'dim' : ''}">${labelOf(effective)}</span>`}
         <span class="list-select-caret" aria-hidden="true">${icons.down}</span>
       </button>
+      ${resetButton(kit, opts.resetTarget ?? ariaLabel, opts.onReset)}
     </div>
     ${open ? html`
       <div class="menu-backdrop" @click=${() => kit.popovers.close('property')}></div>
@@ -256,7 +310,7 @@ export function borderShapeRow(
         style=${propertyMenuStyle(kit.popovers.placement('property'))}>
         ${shapes.map(([value, label]) => html`
           <button role="menuitem" aria-label="${ariaLabel}: ${label}"
-            aria-pressed=${String(value === effective)}
+            aria-pressed=${String(!mixed && value === effective)}
             @click=${() => pick(value)}>
             <span class="shape-line shape-${value}"></span>
             <span class="width-value">${label}</span>
@@ -276,6 +330,7 @@ export function borderShapeRow(
  * @param apply - 색을 저장하는 콜백 (없으면 선택 요소의 스타일 필드에 저장)
  * @param fallback - 명시된 값이 없을 때 적용할 색
  * @param ariaLabel - 접근성 레이블
+ * @param opts - `mixed`이면 선택한 셀의 색이 서로 달라 빗금 견본과 「혼합」을 표시합니다
  * @returns 색상 입력 조각
  */
 export function colorControl(
@@ -286,7 +341,9 @@ export function colorControl(
   apply?: (value: string | null) => void,
   fallback?: string | undefined,
   ariaLabel?: string,
+  opts: { mixed?: boolean } = {},
 ) {
+  const mixed = opts.mixed === true;
   // apply가 없으면 선택된 요소의 색상 속성을 변경합니다.
   const commit = (value: string | null): void => {
     if (apply) {
@@ -322,17 +379,17 @@ export function colorControl(
           // 열 때 현재 색으로, 지정된 색이 없으면 기본 빨강으로 선택기를 맞춥니다.
           if (!open) kit.picker.seed(current ?? '#ff0000');
         }}>
-        <span class="color-chip ${shown ? '' : 'none'}"
-          style=${shown ? `background:${shown.slice(0, 7)}` : nothing}></span>
-        <span class="color-value ${current === undefined ? 'dim' : ''}"
-          >${shown ?? s.colorNone}</span>
+        <span class="color-chip ${mixed ? 'mixed' : shown ? '' : 'none'}"
+          style=${!mixed && shown ? `background:${shown.slice(0, 7)}` : nothing}></span>
+        <span class="color-value ${mixed ? 'mixed' : current === undefined ? 'dim' : ''}"
+          >${mixed ? s.mixed : shown ?? s.colorNone}</span>
       </button>
     </div>
     ${open ? html`
       <div class="color-pop">
         <div class="color-extras">
           <button class="swatch none" title=${s.colorNone} aria-label="${name}: ${s.colorNone}"
-            aria-pressed=${String(current === undefined)}
+            aria-pressed=${String(!mixed && current === undefined)}
             @click=${() => commit(null)}></button>
           ${COLOR_PALETTE.map((c) => html`<button class="swatch" style="background:${c}"
             title=${c} aria-label="${name} ${c}"

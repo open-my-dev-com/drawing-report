@@ -192,8 +192,7 @@ export function elementRow(kit: PanelKit, side: SidebarActions, pageIndex: numbe
     </div>
     ${expanded
       ? cells.map((c) => {
-          const cellSelected = side.selectedId === el.id
-            && side.gridEdit.cell?.row === c.row && side.gridEdit.cell?.column === c.column;
+          const cellSelected = side.selectedId === el.id && side.gridEdit.isCellSelected(c);
           const cellWarned = hasCellWarning(warnings, el.id, c.row, c.column);
           return html`
             <button class="side-cell-row ${cellSelected ? 'selected' : ''}" title=${c.at}
