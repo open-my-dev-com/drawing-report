@@ -230,9 +230,10 @@ describe('글리프 검사', () => {
     await expect(renderSlipToPdf(numbered, { getFonts: () => fonts })).rejects.toThrow(/page number of output page 1/);
   });
 
-  it('개행·탭·제로폭 문자는 검사하지 않고, 등록 폰트가 없으면 검사를 건너뛴다', async () => {
+  it('개행·탭·제로폭 문자와 변형 선택자는 검사하지 않고, 등록 폰트가 없으면 검사를 건너뛴다', async () => {
     const fonts = await defaultFonts();
-    const file = voucher([text('line 1\nline\t2​﻿⁠')]);
+    // U+FE0F·U+E0100(변형 선택자)은 폰트에 글리프가 없어도 표시에 영향이 없으므로 오류가 아니다.
+    const file = voucher([text('line 1\nline\t2​﻿⁠ A️ B\u{e0100}')]);
     const pdf = await renderSlipToPdf(file, { getFonts: () => fonts });
     expect(new TextDecoder().decode(pdf.slice(0, 4))).toBe('%PDF');
     // 등록 폰트가 없으면 엔진 기본 폰트를 쓰므로 검사할 수 없다 — 오류 없이 렌더한다.

@@ -127,6 +127,11 @@ function moveLineEndForbidden(lines: readonly string[]): string[] {
 /** 글리프 검사에서 제외하는 제어·서식 문자 (줄바꿈·탭·제로폭 문자) */
 const GLYPH_CHECK_EXEMPT = new Set([0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x200b, 0x200c, 0x200d, 0x2060, 0xfeff]);
 
+/** 글리프가 없어도 표시에 영향이 없는 변형 선택자(U+FE00–FE0F, U+E0100–E01EF)인지 확인한다. */
+function isVariationSelector(codePoint: number): boolean {
+  return (codePoint >= 0xfe00 && codePoint <= 0xfe0f) || (codePoint >= 0xe0100 && codePoint <= 0xe01ef);
+}
+
 /**
  * 렌더링 폰트로 글자 폭과 줄 수를 계산한다.
  *
@@ -267,7 +272,7 @@ export class TextMeasurer {
     if (!metrics || name === undefined) return undefined;
     for (const char of text) {
       const codePoint = char.codePointAt(0)!;
-      if (GLYPH_CHECK_EXEMPT.has(codePoint)) continue;
+      if (GLYPH_CHECK_EXEMPT.has(codePoint) || isVariationSelector(codePoint)) continue;
       if (!metrics.hasGlyphForCodePoint(codePoint)) return { char, fontName: name };
     }
     return undefined;
