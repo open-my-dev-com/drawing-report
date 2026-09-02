@@ -158,10 +158,14 @@ The positional working-directory argument and `--locale` remain available as tem
 | First positional argument | Working directory. The server's current directory is used when omitted. |
 | `--config <path>` | Path to `slipkit-mcp.json`. A relative path is resolved from the server process current directory. |
 | `--locale <locale>` | Language for errors and the default PDF font. Supported values are `ko`, `en`, and `ja`. |
+| `--help`, `-h` | Print CLI usage to stdout and exit without reading configuration or starting the server. |
+| `--version`, `-v` | Print the npm package version to stdout and exit without starting the server. |
 | `SLIPKIT_MCP_CONFIG` | Configuration path used when `--config` is omitted. |
 | `SLIPKIT_MCP_LOCALE` | Locale used when `--locale` is omitted. |
 | `SLIPKIT_MCP_KEY` | Current key for encrypting and decrypting `.slip` files. Accepted only as an environment variable. |
 | `SLIPKIT_MCP_PREVIOUS_KEYS` | Comma-separated keys used before the current key. They are tried after the current key when decrypting. |
+
+Unknown options, missing option values, and more than one positional working directory are usage errors. The CLI writes the cause and a `--help` hint to stderr and exits with code 2. Configuration and server startup failures exit with code 1. A running server reserves stdout for MCP protocol messages and writes startup information to stderr.
 
 ### Encryption configuration
 

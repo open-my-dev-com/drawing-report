@@ -107,13 +107,14 @@ SlipKit은 핵심 기능 구현을 마치고 첫 공개 전 품질 검토를 진
 - 기본 한국어·일본어 렌더링 폰트
 - 파일 형식 명세와 JSON Schema
 
-### MCP·AI 연동 (ADR-061)
+### MCP·AI 연동 (ADR-061·073)
 
 - 도구 7종을 제공하는 로컬 stdio MCP 서버 `@omdc-slipkit/mcp`
 - 작업 디렉터리 안으로 제한한 파일 접근과 `FileSystemStorage` 어댑터
 - `slipkit-mcp.json` 설정 파일 (작업 디렉터리, 로케일, 커스텀 폰트, 암호화 키 환경변수 이름, PDF 링크 포트)
 - 요약 기본 읽기와 base64 데이터 제외, 요소 id를 지목하는 부분 수정
 - 연결 방법과 안전 범위는 [MCP 사용 가이드](guide/mcp.ko.md)와 영어·일본어판 참고
+- `slipkit-mcp --help`·`--version`, 사용법 오류 종료 코드와 패키지 README 정비 (ADR-073)
 
 ### 조건부 서식 (ADR-062·063)
 
