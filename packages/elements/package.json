@@ -1,7 +1,21 @@
 {
   "name": "@omdc-slipkit/elements",
   "version": "0.0.1",
-  "description": "SlipKit Web Component UI — <slip-designer>, <slip-viewer> 등 (Lit)",
+  "description": "Web Components for designing, filling, and viewing .slip forms",
+  "keywords": [
+    "slipkit",
+    "slip",
+    "form",
+    "voucher",
+    "pdf",
+    "web-components",
+    "lit",
+    "designer"
+  ],
+  "homepage": "https://github.com/open-my-dev-com/drawing-report#readme",
+  "bugs": {
+    "url": "https://github.com/open-my-dev-com/drawing-report/issues"
+  },
   "type": "module",
   "repository": {
     "type": "git",

@@ -1,7 +1,21 @@
 {
   "name": "@omdc-slipkit/mcp",
   "version": "0.0.1",
-  "description": "SlipKit MCP 서버 — AI가 .slip 양식을 만들고 고치고 전표 조립과 PDF 렌더링을 요청할 수 있는 로컬 stdio 서버",
+  "description": "Local MCP server for creating and editing .slip forms, assembling vouchers, and rendering PDFs",
+  "keywords": [
+    "slipkit",
+    "slip",
+    "form",
+    "voucher",
+    "pdf",
+    "mcp",
+    "model-context-protocol",
+    "ai"
+  ],
+  "homepage": "https://github.com/open-my-dev-com/drawing-report#readme",
+  "bugs": {
+    "url": "https://github.com/open-my-dev-com/drawing-report/issues"
+  },
   "type": "module",
   "repository": {
     "type": "git",
@@ -33,7 +47,7 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsup src/index.ts src/cli.ts --format esm --dts --clean",
+    "build": "tsup",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
