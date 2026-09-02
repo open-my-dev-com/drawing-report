@@ -1,7 +1,19 @@
 {
   "name": "@omdc-slipkit/react",
   "version": "0.0.1",
-  "description": "SlipKit React 얇은 래퍼 — @omdc-slipkit/elements의 커스텀 엘리먼트를 React 관례로 노출",
+  "description": "React wrappers for the SlipKit Web Components",
+  "keywords": [
+    "slipkit",
+    "slip",
+    "form",
+    "voucher",
+    "pdf",
+    "react"
+  ],
+  "homepage": "https://github.com/open-my-dev-com/drawing-report#readme",
+  "bugs": {
+    "url": "https://github.com/open-my-dev-com/drawing-report/issues"
+  },
   "type": "module",
   "repository": {
     "type": "git",
@@ -28,6 +40,9 @@
     "build": "tsup src/index.tsx --format esm --dts --clean --external react",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22.13"
   },
   "dependencies": {
     "@omdc-slipkit/core": "workspace:*",

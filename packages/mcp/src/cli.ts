@@ -4,6 +4,7 @@
  * HTTP 등 다른 전송을 쓰려면 `createSlipMcpServer`로 서버를 만들어 직접 연결한다.
  *
  * 사용법: `slipkit-mcp [작업-디렉터리] [--locale ko] [--config 경로]`
+ * `--help`는 사용법을, `--version`은 패키지 버전을 stdout에 출력하고 서버를 시작하지 않는다.
  *
  * 저장소 경로, 로케일, 커스텀 폰트, PDF 링크 포트와 암호화 키 환경변수 이름은
  * 설정 파일(`slipkit-mcp.json`)로 관리한다. 탐색 순서는 `--config` 인자,
@@ -16,25 +17,22 @@
  * - `SLIPKIT_MCP_KEY` — 파일 암호화 키 (프로세스 목록에 노출되지 않도록 환경변수로만 받는다.
  *   설정 파일 `encryption.keyEnv`로 다른 변수 이름을 지정할 수 있다)
  * - `SLIPKIT_MCP_PREVIOUS_KEYS` — 키를 바꾸기 전에 쓰던 키 목록 (쉼표로 구분)
+ *
+ * 종료 코드: 정상 0, 설정·서버 시작 오류 1, 사용법 오류 2.
  */
-import { parseArgs } from 'node:util';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { resolveServerOptions, SlipMcpConfigError } from './config.js';
+import { runCli, type ServeArgs } from './cli-command.js';
+import { resolveServerOptions } from './config.js';
 import { startOrJoinPdfLinkServer } from './http.js';
 import { createSlipMcpServer } from './server.js';
 
-async function main(): Promise<void> {
-  const { values, positionals } = parseArgs({
-    args: process.argv.slice(2),
-    options: { locale: { type: 'string' }, config: { type: 'string' } },
-    allowPositionals: true,
-  });
-
-  const configPathArg = values.config ?? process.env['SLIPKIT_MCP_CONFIG'];
-  const cliLocale = values.locale ?? process.env['SLIPKIT_MCP_LOCALE'];
+/** 설정을 읽고 stdio 서버를 시작한다. 오류는 호출부가 stderr와 종료 코드 1로 처리한다. */
+async function serve(args: ServeArgs): Promise<void> {
+  const configPathArg = args.configPath ?? process.env['SLIPKIT_MCP_CONFIG'];
+  const cliLocale = args.locale ?? process.env['SLIPKIT_MCP_LOCALE'];
   const { options, configPath, httpPort } = await resolveServerOptions({
     ...(configPathArg === undefined ? {} : { configPath: configPathArg }),
-    ...(positionals[0] === undefined ? {} : { cliRootDir: positionals[0] }),
+    ...(args.rootDir === undefined ? {} : { cliRootDir: args.rootDir }),
     ...(cliLocale === undefined ? {} : { cliLocale }),
     cwd: process.cwd(),
     env: process.env,
@@ -65,11 +63,13 @@ async function main(): Promise<void> {
   );
 }
 
-main().catch((error: unknown) => {
-  if (error instanceof SlipMcpConfigError) {
-    console.error(`slipkit-mcp: ${error.message}`);
-  } else {
-    console.error(`slipkit-mcp: ${error instanceof Error ? error.message : String(error)}`);
-  }
-  process.exit(1);
-});
+const code = await runCli(
+  process.argv.slice(2),
+  {
+    stdout: (text) => process.stdout.write(text),
+    stderr: (text) => process.stderr.write(text),
+  },
+  serve,
+);
+// 서버가 떠 있는 동안(0)은 프로세스를 유지하고, 오류일 때만 바로 끝낸다.
+if (code !== 0) process.exit(code);

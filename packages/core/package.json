@@ -1,7 +1,20 @@
 {
   "name": "@omdc-slipkit/core",
   "version": "0.0.1",
-  "description": "SlipKit core — .slip 파일 포맷 스키마·검증·마이그레이션·수식·렌더링 (순수 TS, DOM 비의존)",
+  "description": "TypeScript core for validating .slip files, evaluating formulas, assembling vouchers, and generating PDFs",
+  "keywords": [
+    "slipkit",
+    "slip",
+    "form",
+    "voucher",
+    "pdf",
+    "schema",
+    "formula"
+  ],
+  "homepage": "https://github.com/open-my-dev-com/drawing-report#readme",
+  "bugs": {
+    "url": "https://github.com/open-my-dev-com/drawing-report/issues"
+  },
   "type": "module",
   "repository": {
     "type": "git",
