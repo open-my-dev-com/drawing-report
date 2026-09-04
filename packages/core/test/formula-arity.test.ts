@@ -4,10 +4,13 @@ import {
   FORMULA_ARITY,
   FORMULA_FUNCTIONS,
   FormulaEvalError,
+  FormulaSyntaxError,
   assertFormulaArity,
+  diagnoseFormula,
   evaluateFormula,
   parseFormula,
 } from '../src/index.js';
+import { MAX_FORMULA_DEPTH } from '../src/formula/parser.js';
 
 describe('FORMULA_ARITY', () => {
   it('모든 함수의 허용 인자 수를 정의한다', () => {
@@ -63,5 +66,29 @@ describe('assertFormulaArity', () => {
       .toThrow(/IF 함수의 인자는 2~3개여야 합니다/);
     expect(() => assertFormulaArity(parseFormula('AND()'), { locale: 'ko' }))
       .toThrow(/AND 함수의 인자는 1개 이상이어야 합니다/);
+  });
+});
+
+describe('이항 연산 사슬 깊이 (MAX_FORMULA_DEPTH)', () => {
+  const chain = (count: number, op = '+'): string => Array.from({ length: count }, () => '1').join(op);
+
+  it('3,000항 사슬은 파싱 단계에서 FormulaSyntaxError로 거부한다', () => {
+    for (const op of ['+', '*', '=']) {
+      expect(() => parseFormula(chain(3000, op))).toThrow(FormulaSyntaxError);
+      expect(() => parseFormula(chain(3000, op))).toThrow(/nesting/);
+    }
+  });
+
+  it('평가·진단·인자 수 검사는 RangeError 없이 같은 문법 오류를 낸다', () => {
+    const long = `SUM(${chain(3000)})`;
+    expect(() => evaluateFormula(long, { values: {} })).toThrow(FormulaSyntaxError);
+    expect(() => diagnoseFormula(long, { values: {} })).toThrow(FormulaSyntaxError);
+  });
+
+  it('허용 깊이 안의 사슬은 정상 계산한다', () => {
+    expect(evaluateFormula(chain(MAX_FORMULA_DEPTH), { values: {} })).toBe(MAX_FORMULA_DEPTH);
+    expect(evaluateFormula(`(${chain(50)}) * (${chain(50)})`, { values: {} })).toBe(2500);
+    assertFormulaArity(parseFormula(chain(MAX_FORMULA_DEPTH)));
+    expect(() => parseFormula(chain(MAX_FORMULA_DEPTH + 1))).toThrow(FormulaSyntaxError);
   });
 });

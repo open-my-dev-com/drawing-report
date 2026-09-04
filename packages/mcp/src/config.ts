@@ -188,6 +188,12 @@ export async function resolveServerOptions(
       `The config names encryption key variable "${keyEnv}", but it is not set in the environment.`,
     );
   }
+  // 비어 있는 키로 조용히 평문 저장을 하지 않는다 — 설정 실수는 시작 시점에 드러낸다.
+  if (key !== undefined && key.trim() === '') {
+    throw new SlipMcpConfigError(
+      `Encryption key variable "${keyEnv}" is set but empty. Set a key, or unset the variable to store files unencrypted.`,
+    );
+  }
 
   const options: SlipMcpServerOptions = {
     rootDir,

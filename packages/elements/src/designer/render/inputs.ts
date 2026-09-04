@@ -439,6 +439,7 @@ export function colorControl(
             commit(compose(kit.picker.hex, alphaPct))}>
         <div class="color-pop-row">
           <input .value=${current ?? ''} placeholder="#RRGGBB"
+            aria-label="${name}: ${s.colorCode}"
             aria-invalid=${String(kit.hasError(`color-${key}`))}
             aria-describedby=${kit.hasError(`color-${key}`) ? `error-color-${key}` : nothing}
             @change=${(e: Event) => {

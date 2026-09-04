@@ -229,8 +229,10 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     await el.updateComplete;
     expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(2);
 
-    // 삭제
+    // 삭제는 확인 모달을 거칩니다
     byAria(el, `청구서 ${strings.designer.delete}`).click();
+    await el.updateComplete;
+    (el.shadowRoot!.querySelector('.modal-confirm .confirm-delete') as HTMLButtonElement).click();
     await flush();
     await el.updateComplete;
     expect(storage.delete).toHaveBeenCalledWith('b');

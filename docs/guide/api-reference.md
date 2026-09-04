@@ -1381,8 +1381,16 @@ The structural size limits used in file validation.
 | `maxGridColumnTracks` | 100 | Maximum number of grid columns |
 | `maxRepeatPerPage` | 1,000 | Maximum number of repeat items per page |
 | `maxRepeatItems` | 100,000 | Upper limit on the total number of repeat-list items |
+| `maxGridBands` | 20 | Maximum number of row bands per grid |
+| `maxOutputPages` | 2,000 | Maximum output pages generated from one template page |
+| `maxConditionalFormats` | 20 | Maximum conditional-format rules per element or cell |
 | `maxLineHeight` | 10 | Upper limit on the line spacing multiple |
 | `maxCharacterSpacing` | 100 | Upper limit on the absolute character spacing (pt) |
+| `maxMillimeters` | 5,000 | Upper limit for dimensions, positions, tracks, borders, and margins (mm) |
+| `maxFontSize` | 500 | Upper limit for font size (pt) |
+| `maxTextLength` | 20,000 | Maximum structural and rendered text length |
+| `maxValueStringLength` | 3,000,000 | Maximum string length in business-data maps |
+| `maxImageBytes` | 2 MiB | Maximum decoded size of one PNG or JPEG image |
 
 ## `@omdc-slipkit/elements`
 
@@ -1424,7 +1432,7 @@ For `src`, pass the JSON string of a `kind: 'template'` file converted with `ser
 
 | Event | `detail` | When it fires |
 |---|---|---|
-| `slip-change` | `{ file: SlipFile }` | When the template is edited |
+| `slip-change` | `{ file: SlipTemplateFile }` | When the template is edited |
 
 The actual `file.kind` is `'template'`.
 
@@ -1451,12 +1459,14 @@ For `src`, you can pass the following files.
 
 If you pass an issued voucher, input is locked.
 
+Call `reset()` to clear all values and start a new unissued voucher from the current source template. It also unlocks an issued source and emits `slip-change`; it does nothing when `src` cannot be parsed.
+
 #### Events
 
 | Event | `detail` | When it fires |
 |---|---|---|
-| `slip-change` | `{ file: SlipFile }` | When the input values change |
-| `slip-issue` | `{ file: SlipFile }` | When voucher issuing completes |
+| `slip-change` | `{ file: SlipVoucherFile }` | When the input values change |
+| `slip-issue` | `{ file: SlipVoucherFile }` | When voucher issuing completes |
 
 In both events, the actual `file.kind` is `'voucher'`.
 
@@ -1601,6 +1611,16 @@ interface SlipFileExchangeOptions {
 
 ### Bundled fonts
 
+#### `loadDefaultFonts`
+
+```ts
+function loadDefaultFonts(
+  locale?: 'ko' | 'en' | 'ja',
+): Promise<SlipFont[]>;
+```
+
+Loads both bundled families — Pretendard Regular and Bold, and the Noto Sans JP subset — for every locale. The locale only selects the fallback font: Noto Sans JP for `'ja'`, Pretendard otherwise. Calls that select the same fallback share the loading promise.
+
 #### `PRETENDARD_FONTS`
 
 ```ts
@@ -1640,12 +1660,12 @@ interface SlipDesignerProps {
   maxImageBytes?: number;
 
   onSlipChange?(
-    file: SlipFile,
+    file: SlipTemplateFile,
   ): void;
 }
 ```
 
-It removes the `CustomEvent` from the Web Component's `slip-change` event and passes the `SlipFile` object directly to the callback.
+It removes the `CustomEvent` from the Web Component's `slip-change` event and passes the `SlipTemplateFile` object directly to the callback.
 
 ### `SlipForm`
 
@@ -1658,11 +1678,11 @@ interface SlipFormProps {
   maxImageBytes?: number;
 
   onSlipChange?(
-    file: SlipFile,
+    file: SlipVoucherFile,
   ): void;
 
   onSlipIssue?(
-    file: SlipFile,
+    file: SlipVoucherFile,
   ): void;
 }
 ```
@@ -1687,6 +1707,8 @@ import type {
 } from '@omdc-slipkit/react';
 ```
 
+Optional wrapper props are assigned to the underlying element only while explicitly provided; removing one restores the element's own default. After issuing, change React's `key` to remount `SlipForm` and start another voucher from the same source.
+
 ## `@omdc-slipkit/vue`
 
 Supports Vue 3.4 or later.
@@ -1707,7 +1729,7 @@ Emitted events:
 
 | Event | Payload |
 |---|---|
-| `slip-change` | `SlipFile` |
+| `slip-change` | `SlipTemplateFile` |
 
 ### `SlipForm`
 
@@ -1722,8 +1744,8 @@ Emitted events:
 
 | Event | Payload |
 |---|---|
-| `slip-change` | `SlipFile` |
-| `slip-issue` | `SlipFile` |
+| `slip-change` | `SlipVoucherFile` |
+| `slip-issue` | `SlipVoucherFile` |
 
 ### `SlipViewer`
 
@@ -1732,6 +1754,8 @@ Emitted events:
 | `src` | `string` | ● |
 | `locale` | `string` | — |
 | `slipkit` | `SlipKit` | — |
+
+Optional wrapper props follow the same rule: removing a prop restores the underlying element default. After issuing, change Vue's `:key` to remount `SlipForm`.
 
 ## `@omdc-slipkit/mcp`
 

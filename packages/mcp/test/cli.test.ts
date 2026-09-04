@@ -1,11 +1,15 @@
 // slipkit-mcp 명령줄 — 인자 해석, 도움말·버전 출력, 종료 코드
-import { execFile } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
 import { HELP_TEXT, PACKAGE_VERSION, parseCliArgs, runCli } from '../src/cli-command.js';
+import { startPdfLinkServer } from '../src/http.js';
+import { makeWorkDir, removeWorkDir } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
 const packageDir = fileURLToPath(new URL('..', import.meta.url));
@@ -23,6 +27,56 @@ async function runBuiltCli(args: string[]): Promise<{ stdout: string; stderr: st
     const failed = error as { stdout: string; stderr: string; code: number };
     return { stdout: failed.stdout, stderr: failed.stderr, code: failed.code };
   }
+}
+
+/** 비어 있는 포트 번호를 하나 얻는다. */
+async function freePort(): Promise<number> {
+  const probe = createServer();
+  await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', () => resolve()));
+  const address = probe.address();
+  const port = typeof address === 'object' && address !== null ? address.port : 0;
+  await new Promise((resolve) => probe.close(resolve));
+  return port;
+}
+
+/** 포트에 HTTP 서버가 응답하는지 확인한다. */
+async function portOpen(port: number): Promise<boolean> {
+  try {
+    await fetch(`http://127.0.0.1:${port}/slipkit-mcp/status`, { signal: AbortSignal.timeout(1000) });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 빌드된 CLI를 서버 모드로 띄우고 stderr의 시작 안내를 기다린다. */
+function spawnServer(args: string[]): {
+  child: ChildProcess;
+  stderr: () => string;
+  waitForStart: () => Promise<string>;
+  exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
+} {
+  const child = spawn(process.execPath, [cliPath, ...args], { stdio: ['pipe', 'pipe', 'pipe'] });
+  let stderr = '';
+  child.stderr!.setEncoding('utf8');
+  child.stderr!.on('data', (chunk: string) => {
+    stderr += chunk;
+  });
+  child.stdout!.resume();
+  const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) => {
+    child.once('exit', (code, signal) => resolve({ code, signal }));
+  });
+  const waitForStart = (): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const check = (): void => {
+        const line = stderr.split('\n').find((entry) => entry.startsWith('slipkit-mcp: serving'));
+        if (line !== undefined) resolve(line);
+      };
+      check();
+      child.stderr!.on('data', check);
+      void exited.then(() => reject(new Error(`exited before start: ${stderr}`)));
+    });
+  return { child, stderr: () => stderr, waitForStart, exited };
 }
 
 function fakeIo() {
@@ -130,5 +184,66 @@ describe.skipIf(!existsSync(cliPath))('빌드된 dist/cli.js', () => {
     expect(result.code).toBe(2);
     expect(result.stdout).toBe('');
     expect(result.stderr).toMatch(/^slipkit-mcp: .*--bogus.*\nRun 'slipkit-mcp --help' for usage\.\n$/);
+  });
+
+  it('httpPort로 링크 서버를 띄운 뒤 stdin이 닫히면 종료 코드 0으로 끝나고 포트를 놓는다', async () => {
+    const dir = await makeWorkDir();
+    try {
+      const port = await freePort();
+      await writeFile(path.join(dir, 'slipkit-mcp.json'), JSON.stringify({ httpPort: port }));
+      const { child, stderr, waitForStart, exited } = spawnServer([dir]);
+      const line = await waitForStart();
+      expect(line).toContain(`pdf links at http://127.0.0.1:${port}`);
+      // 링크 토큰은 stderr에 적지 않는다.
+      expect(stderr()).not.toMatch(/[0-9a-f]{64}/);
+      expect(await portOpen(port)).toBe(true);
+
+      child.stdin!.end();
+      const result = await exited;
+      expect(result).toEqual({ code: 0, signal: null });
+      expect(await portOpen(port)).toBe(false);
+    } finally {
+      await removeWorkDir(dir);
+    }
+  });
+
+  it.runIf(process.platform !== 'win32')('SIGTERM을 받으면 링크 서버를 닫고 종료 코드 0으로 끝난다', async () => {
+    const dir = await makeWorkDir();
+    try {
+      const port = await freePort();
+      await writeFile(path.join(dir, 'slipkit-mcp.json'), JSON.stringify({ httpPort: port }));
+      const { child, waitForStart, exited } = spawnServer([dir]);
+      await waitForStart();
+      expect(await portOpen(port)).toBe(true);
+
+      child.kill('SIGTERM');
+      expect(await exited).toEqual({ code: 0, signal: null });
+      expect(await portOpen(port)).toBe(false);
+    } finally {
+      await removeWorkDir(dir);
+    }
+  });
+
+  it('같은 작업 디렉터리의 다른 링크 서버가 포트를 쓰면 빈 포트에 새로 띄우고 안내한다', async () => {
+    const dir = await makeWorkDir();
+    const occupying = await startPdfLinkServer({ rootDir: dir, port: 0 });
+    try {
+      await writeFile(path.join(dir, 'slipkit-mcp.json'), JSON.stringify({ httpPort: occupying.port }));
+      const { child, waitForStart, exited } = spawnServer([dir]);
+      const line = await waitForStart();
+      const match = /pdf links at http:\/\/127\.0\.0\.1:(\d+) \(port (\d+) was in use\)/.exec(line);
+      expect(match, line).not.toBeNull();
+      expect(Number(match![2])).toBe(occupying.port);
+      expect(Number(match![1])).not.toBe(occupying.port);
+      expect(await portOpen(Number(match![1]))).toBe(true);
+
+      child.stdin!.end();
+      expect(await exited).toEqual({ code: 0, signal: null });
+      // 원래 서버는 그대로 살아 있다.
+      expect(await portOpen(occupying.port)).toBe(true);
+    } finally {
+      await occupying.close();
+      await removeWorkDir(dir);
+    }
   });
 });

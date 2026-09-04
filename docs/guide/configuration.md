@@ -353,6 +353,16 @@ If the required variant font is not registered, the corresponding weight or ital
 
 If `getFonts` returns a non-empty array, the bundled default fonts are not added automatically.
 
+Use `loadDefaultFonts(locale)` when you want the same bundled set that the components use by default. It already contains both bundled families and selects one fallback by locale. Use the font subpaths only when you need a single family or set `fallback` yourself. Each subpath list marks its own font as `fallback: true`, so spreading both lists unchanged fails with `Only one fallback font can be specified`.
+
+```ts
+import { loadDefaultFonts } from '@omdc-slipkit/elements';
+
+const slipkit = createSlipKit({
+  getFonts: () => loadDefaultFonts('en'),
+});
+```
+
 To use the bundled fonts together with your own fonts, import them directly from the font subpaths.
 
 ```ts
@@ -368,7 +378,10 @@ import {
 const slipkit = createSlipKit({
   getFonts: () => [
     ...PRETENDARD_FONTS,
-    ...NOTO_SANS_JP_FONTS,
+    ...NOTO_SANS_JP_FONTS.map((font) => ({
+      ...font,
+      fallback: false,
+    })),
     {
       name: 'AppFont',
       data: appFont,
@@ -637,15 +650,15 @@ designer.presets = appPresets;
 
 If you specify your own presets, they are shown instead of the bundled presets.
 
-To show both together, spread the bundled `presets` and pass them.
+To show both together, get the bundled presets for the current locale with `getPresets` and spread them.
 
 ```ts
 import {
-  presets as builtInPresets,
+  getPresets,
 } from '@omdc-slipkit/elements';
 
 const appPresets = [
-  ...builtInPresets,
+  ...getPresets('en'),
   shippingLabelPreset,
 ];
 

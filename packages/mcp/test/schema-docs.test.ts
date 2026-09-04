@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CURRENT_SCHEMA_VERSION, SLIP_LIMITS, slipElementSchema } from '@omdc-slipkit/core';
+import { CURRENT_SCHEMA_VERSION, MAX_IMAGE_BYTES, SLIP_LIMITS, slipElementSchema } from '@omdc-slipkit/core';
 import { SCHEMA_TOPICS, schemaTopicText } from '../src/schema-docs.js';
 
 describe('slip_schema 안내문', () => {
@@ -35,6 +35,14 @@ describe('slip_schema 안내문', () => {
     expect(documented).toContain('slip_edit set_image');
     expect(documented).toContain('Do not author http(s) URLs');
     expect(documented).toContain('asset://');
+  });
+
+  it('이미지는 PNG·JPEG와 크기 상한만 안내하고 GIF·WebP는 안내하지 않는다', () => {
+    const elements = schemaTopicText('elements');
+    expect(elements).toContain('PNG or JPEG');
+    expect(elements).toContain(`${MAX_IMAGE_BYTES / 1024 / 1024} MiB`);
+    expect(elements).toContain('signature');
+    expect(elements).not.toMatch(/GIF|WebP/i);
   });
 
   it('바코드 필드와 그리드 제약을 실제 스키마에 맞게 안내한다', () => {

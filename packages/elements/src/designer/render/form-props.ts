@@ -42,6 +42,8 @@ export interface FormActions {
   setPaperSaveName(value: string): void;
   /** 호스트가 용지 크기 저장을 지원하는지 */
   readonly canSavePaperSize: boolean;
+  /** 호스트 용지 목록을 읽거나 저장하지 못했을 때의 안내. 없으면 null */
+  readonly paperSettingsError: string | null;
   /** 양식을 수정합니다 */
   updateFile(fn: (file: SlipTemplateFile) => void): void;
   /** 양식의 페이지 수 */
@@ -101,7 +103,7 @@ export function pageSettings(kit: PanelKit, form: FormActions) {
       <div class="prop-section-title">${s.panelBasic}</div>
       <div class="prop-row">
         <label>${s.pageName}</label>
-        <input .value=${page.label ?? ''}
+        <input .value=${page.label ?? ''} aria-label=${s.pageName}
           placeholder=${s.pageLabel.replace('{n}', String(index + 1))}
           @change=${(e: Event) => {
             const v = valOf(e).trim();
@@ -115,6 +117,7 @@ export function pageSettings(kit: PanelKit, form: FormActions) {
       <div class="prop-row">
         <label>${s.pageKey}</label>
         <input class=${form.pageKeyError ? 'error' : ''} .value=${page.key ?? ''}
+          aria-label=${s.pageKey}
           aria-invalid=${String(form.pageKeyError)}
           aria-describedby=${form.pageKeyError ? 'error-page-key' : nothing}
           @change=${(e: Event) => form.commitPageKey(index, valOf(e))}>
@@ -232,7 +235,7 @@ export function formSettings(kit: PanelKit, form: FormActions) {
       <div class="prop-section-title">${s.panelBasic}</div>
       <div class="prop-row">
         <label>${s.formTitle}</label>
-        <input .value=${file.template.meta.title}
+        <input .value=${file.template.meta.title} aria-label=${s.formTitle}
                aria-invalid=${String(kit.hasError('form-title'))}
                aria-describedby=${kit.hasError('form-title') ? 'error-form-title' : nothing}
                @change=${(e: Event) => {
@@ -281,10 +284,14 @@ export function formSettings(kit: PanelKit, form: FormActions) {
               @click=${() => void form.savePaperSize(form.paperSaveName)}>${icons.save}</button>
           </div>`
         : nothing}
+      ${form.paperSettingsError
+        ? html`<div class="input-error field-error paper-settings-error" role="alert">${form.paperSettingsError}</div>`
+        : nothing}
       <div class="prop-pair">
         <div class="prop-row">
           <label>${s.width}</label>
           <input type="number" step="0.5" min="1" .value=${String(paper.width)}
+                 aria-label="${s.panelPaper} ${s.width}"
                  aria-invalid=${String(kit.hasError('paper-width'))}
                  aria-describedby=${kit.hasError('paper-width') ? 'error-paper-width' : nothing}
                  @change=${(e: Event) => setSize(numOf(e), paper.height, 'paper-width')}>
@@ -292,6 +299,7 @@ export function formSettings(kit: PanelKit, form: FormActions) {
         <div class="prop-row">
           <label>${s.height}</label>
           <input type="number" step="0.5" min="1" .value=${String(paper.height)}
+                 aria-label="${s.panelPaper} ${s.height}"
                  aria-invalid=${String(kit.hasError('paper-height'))}
                  aria-describedby=${kit.hasError('paper-height') ? 'error-paper-height' : nothing}
                  @change=${(e: Event) => setSize(paper.width, numOf(e), 'paper-height')}>
@@ -323,6 +331,7 @@ export function formSettings(kit: PanelKit, form: FormActions) {
         <div class="prop-row">
           <label>${s.marginTop}</label>
           <input type="number" step="1" min="0" .value=${String(pt)}
+                 aria-label=${s.marginTop}
                  aria-invalid=${String(kit.hasError('paper-margin-0'))}
                  aria-describedby=${kit.hasError('paper-margin-0') ? 'error-paper-margin-0' : nothing}
                  @change=${(e: Event) => setPadding(0, numOf(e))}>
@@ -330,6 +339,7 @@ export function formSettings(kit: PanelKit, form: FormActions) {
         <div class="prop-row">
           <label>${s.marginRight}</label>
           <input type="number" step="1" min="0" .value=${String(pr)}
+                 aria-label=${s.marginRight}
                  aria-invalid=${String(kit.hasError('paper-margin-1'))}
                  aria-describedby=${kit.hasError('paper-margin-1') ? 'error-paper-margin-1' : nothing}
                  @change=${(e: Event) => setPadding(1, numOf(e))}>
@@ -341,6 +351,7 @@ export function formSettings(kit: PanelKit, form: FormActions) {
         <div class="prop-row">
           <label>${s.marginBottom}</label>
           <input type="number" step="1" min="0" .value=${String(pb)}
+                 aria-label=${s.marginBottom}
                  aria-invalid=${String(kit.hasError('paper-margin-2'))}
                  aria-describedby=${kit.hasError('paper-margin-2') ? 'error-paper-margin-2' : nothing}
                  @change=${(e: Event) => setPadding(2, numOf(e))}>
@@ -348,6 +359,7 @@ export function formSettings(kit: PanelKit, form: FormActions) {
         <div class="prop-row">
           <label>${s.marginLeft}</label>
           <input type="number" step="1" min="0" .value=${String(pl)}
+                 aria-label=${s.marginLeft}
                  aria-invalid=${String(kit.hasError('paper-margin-3'))}
                  aria-describedby=${kit.hasError('paper-margin-3') ? 'error-paper-margin-3' : nothing}
                  @change=${(e: Event) => setPadding(3, numOf(e))}>
@@ -380,7 +392,7 @@ export function parameterPanel(kit: PanelKit, form: FormActions, key: string) {
       <div class="prop-section-title">${s.panelBasic}</div>
       <div class="prop-row">
         <label>${s.parameterKey}</label>
-        <input class="parameter-key-input" .value=${info.key}
+        <input class="parameter-key-input" .value=${info.key} aria-label=${s.parameterKey}
           aria-invalid=${String(form.parameterKeyError || kit.hasError('parameter-key'))}
           aria-describedby=${form.parameterKeyError || kit.hasError('parameter-key')
             ? 'error-parameter-key' : nothing}
@@ -393,6 +405,7 @@ export function parameterPanel(kit: PanelKit, form: FormActions, key: string) {
       <div class="prop-row">
         <label>${s.parameterLabel}</label>
         <input class="parameter-label-input" .value=${info.rawLabel ?? ''} placeholder=${info.key}
+          aria-label=${s.parameterLabel}
           @change=${(e: Event) => form.commitParameterLabel(info.key, valOf(e))}>
       </div>
       <div class="prop-row">
@@ -466,7 +479,7 @@ export function parameterFieldPanel(kit: PanelKit, form: FormActions, listKey: s
       </div>
       <div class="prop-row">
         <label>${s.parameterKey}</label>
-        <input class="parameter-key-input" .value=${info.key}
+        <input class="parameter-key-input" .value=${info.key} aria-label=${s.parameterKey}
           aria-invalid=${String(form.parameterKeyError || kit.hasError('parameter-key'))}
           aria-describedby=${form.parameterKeyError || kit.hasError('parameter-key')
             ? 'error-parameter-key' : nothing}
@@ -478,7 +491,7 @@ export function parameterFieldPanel(kit: PanelKit, form: FormActions, listKey: s
         : kit.error('parameter-key')}
       <div class="prop-row">
         <label>${s.parameterLabel}</label>
-        <input .value=${info.rawLabel ?? ''} placeholder=${info.key}
+        <input .value=${info.rawLabel ?? ''} placeholder=${info.key} aria-label=${s.parameterLabel}
           @change=${(e: Event) => form.updateParameterField(listKey, info.key, { label: valOf(e) })}>
       </div>
       <div class="prop-row">

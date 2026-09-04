@@ -86,7 +86,13 @@ import { MY_FORMS_PAGE_SIZE } from './designer/pagination.js';
 import { BARCODE_KINDS, BARCODE_DIGIT_RULES } from './designer/barcode.js';
 import { GRID_COLORS } from './designer/grid-view.js';
 import type { GridColorId, CreatableType } from './designer/grid-view.js';
-import type { ParameterUse, ParameterInfo, ParameterFieldInfo } from './designer/parameters.js';
+import type { ParameterInfo, ParameterFieldInfo } from './designer/parameters.js';
+import {
+  collectParameterUses,
+  ensureParameterDef as ensureParameterDefIn,
+  parameterUsesOf,
+  renameParameterReferences,
+} from './designer/parameters.js';
 import type { FormActions } from './designer/render/form-props.js';
 import { sampleItemsOf } from './designer/formula-context.js';
 import { canvas } from './designer/render/canvas.js';
@@ -99,6 +105,7 @@ import {
   sampleModal,
   saveModal,
   myFormsModal,
+  confirmDeleteModal,
 } from './designer/render/dialogs.js';
 import type { DialogContext } from './designer/render/dialogs.js';
 import { formulaCheckText, formulaModal } from './designer/render/formula-modal.js';
@@ -117,6 +124,7 @@ import type { ImagePickFailure } from './designer/image-pick.js';
 import {
   GRID_DEFAULT_ROW_MM,
   GRID_DEFAULT_COL_MM,
+  ensureCell,
   isGrid,
   gridHeaderTitle,
   itemBandOf,
@@ -152,6 +160,15 @@ const LOST_FORMULA_VIEW: FormulaModalView = {
 };
 
 const MAX_UNDO = 50;
+
+/**
+ * 되돌리기 한 단계 — 양식 스냅샷과 그 시점의 저장 식별자.
+ * 불러온 양식을 되돌린 뒤 저장해도 불러온 양식을 덮어쓰지 않도록 식별자를 함께 되살립니다.
+ */
+interface UndoEntry {
+  file: string;
+  savedId: string | null;
+}
 /**
  * 업로드할 수 있는 이미지 파일의 기본 최대 크기(바이트).
  * base64로 담기면 약 33% 커지므로 2MB 원본이 파일에는 ~2.7MB로 들어갑니다.
@@ -205,6 +222,9 @@ export class SlipDesigner extends LitElement {
     storage: { attribute: false },
     _outputPage: { state: true },
     _gridPlanPreview: { state: true },
+    _paperSettingsError: { state: true },
+    _barcodeKindsError: { state: true },
+    _pendingDelete: { state: true },
   };
 
   src = '';
@@ -269,10 +289,20 @@ export class SlipDesigner extends LitElement {
   private _hostPaperSizes: PaperSize[] = [];
   /** 호스트가 `settings.getBarcodeKinds`로 제한한 바코드 종류  */
   private _hostBarcodeKinds: BarcodeKind[] = [];
+  /** 호스트 용지 목록을 읽거나 저장하지 못했을 때 패널에 표시할 안내 */
+  private _paperSettingsError: string | null = null;
+  /** 호스트 바코드 종류를 읽지 못했을 때 패널에 표시할 안내 */
+  private _barcodeKindsError: string | null = null;
+  /** `settings`가 바뀔 때마다 올려 늦게 온 호스트 응답을 버리는 세대 */
+  private _settingsGeneration = 0;
+  /** 내 양식 불러오기가 시작될 때마다 올려 늦게 온 응답을 버리는 세대 */
+  private _loadGeneration = 0;
+  /** 삭제 확인 모달이 가리키는 저장된 양식 */
+  private _pendingDelete: { id: string; title: string } | null = null;
   /** 사용자 지정 용지 이름의 편집 중 값 */
   private _paperSaveName = '';
-  private _undoStack: string[] = [];
-  private _redoStack: string[] = [];
+  private _undoStack: UndoEntry[] = [];
+  private _redoStack: UndoEntry[] = [];
   private _previewMode = false;
   private _previewUrl: string | null = null;
   private _previewError: string | null = null;
@@ -284,6 +314,10 @@ export class SlipDesigner extends LitElement {
   /** 도형 선택 메뉴의 열림 상태 */
   private _shapeMenuOpen = false;
   private _shapeMenuPos = { left: 0, top: 0 };
+  /** 마지막으로 툴바 메뉴를 연 버튼 — 키보드로 닫을 때 초점을 되돌립니다 */
+  private _menuOpener: HTMLElement | null = null;
+  /** 다음 렌더 뒤 툴바 메뉴의 첫 항목으로 초점을 옮길지 (키보드로 열었을 때) */
+  private _focusMenuItem = false;
   /**
    * 사이드바에서 미리보기를 표시 중인 페이지 번호.
    */
@@ -385,6 +419,8 @@ export class SlipDesigner extends LitElement {
     if (!this.hasAttribute('tabindex')) {
       this.setAttribute('tabindex', '0');
     }
+    // 분리될 때 미리보기 결과를 버렸으므로, 미리보기가 열려 있었으면 현재 양식으로 다시 만듭니다.
+    if (this._previewMode && this._file) void this._renderPreview();
   }
 
   override disconnectedCallback(): void {
@@ -400,8 +436,18 @@ export class SlipDesigner extends LitElement {
     }
     // 설정 기반 목록은 업데이트가 끝난 뒤 추가 렌더를 예약하지 않도록 미리 불러옵니다.
     if (changed.has('settings')) {
+      this._settingsGeneration += 1;
       void this._loadPaperSizes();
       void this._loadBarcodeKinds();
+    }
+    // PDF에 영향을 주는 로케일이나 인스턴스가 바뀌면 열려 있는 미리보기를 다시 만듭니다.
+    if (this._previewMode && this._file && (changed.has('locale') || changed.has('slipkit'))) {
+      const previousSlipkit = changed.has('slipkit') ? changed.get('slipkit') as SlipKit | undefined : this.slipkit;
+      const previousLocale = changed.has('locale') ? changed.get('locale') as string | undefined : this.locale;
+      const previousRenderLocale = previousSlipkit?.locale ?? previousLocale;
+      if (previousSlipkit !== this.slipkit || previousRenderLocale !== this._renderLocale) {
+        void this._renderPreview();
+      }
     }
     // 폰트 목록은 slipkit의 공급 함수 또는 로케일별 동봉 기본 폰트에서 가져옵니다.
     // 같은 출처는 다시 가져오지 않으므로 첫 갱신을 포함해 매번 확인합니다.
@@ -450,6 +496,7 @@ export class SlipDesigner extends LitElement {
       parameterSelect: (current) => this._renderParameterSelect(current),
       barcodeParameterSelect: (current) => this._renderBarcodeParameterSelect(current),
       barcodeKinds: () => this._barcodeKinds(),
+      barcodeKindsError: this._barcodeKindsError,
       barcodeContentWarning: (kind, content) => this._barcodeContentWarning(kind, content),
       chooseBarcodeSource: (kind) => this._chooseBarcodeSource(kind),
       setBarcodeSource: (kind, value) => this._setBarcodeSource(kind, value),
@@ -489,31 +536,31 @@ export class SlipDesigner extends LitElement {
   private _pointerHost(): PointerHost {
     const owner = this;
     return {
-    get file() { return owner._file; },
-    get selectedId() { return owner._selectedId; },
-    get selectedIds() { return owner._selectedIds; },
-    get sideSelection() { return owner._sideSelection; },
-    get gridEdit() { return owner._gridEdit; },
-    get gridPlanPreview() { return owner._gridPlanPreview; },
-    get shapeMenuOpen() { return owner._shapeMenuOpen; },
-    get renderRoot() { return owner.renderRoot; },
-    restoreSnapshot: (snapshot) => { owner._file = JSON.parse(snapshot) as SlipTemplateFile; },
-    closeShapeMenu: () => { owner._shapeMenuOpen = false; },
-    clearSideSelection: () => { owner._sideSelection = null; },
-    pageElements: () => owner._currentElements(),
-    findElement: (id) => owner._findElement(id),
-    selectedElement: () => owner._findSelectedElement(),
-    addElement: (type, place) => { owner._addElement(type, place); },
-    selectElement: (id) => owner._selectElement(id),
-    clearSelection: () => owner._clearSelection(),
-    updateElement: (fn) => owner._updateElement(fn),
-    pushUndoSnapshot: (snapshot) => owner._pushUndoSnapshot(snapshot),
-    emitChange: () => owner._emitChange(),
-    expandParameterOfElement: (id) => owner._expandParameterOfElement(id),
-    gridDelta: (value) => owner._gridDelta(value),
-    focusHost: () => owner._focusHost(),
-    refresh: () => owner.requestUpdate(),
-  };
+      get file() { return owner._file; },
+      get selectedId() { return owner._selectedId; },
+      get selectedIds() { return owner._selectedIds; },
+      get sideSelection() { return owner._sideSelection; },
+      get gridEdit() { return owner._gridEdit; },
+      get gridPlanPreview() { return owner._gridPlanPreview; },
+      get shapeMenuOpen() { return owner._shapeMenuOpen; },
+      get renderRoot() { return owner.renderRoot; },
+      restoreSnapshot: (snapshot) => { owner._file = JSON.parse(snapshot) as SlipTemplateFile; },
+      closeShapeMenu: () => { owner._shapeMenuOpen = false; },
+      clearSideSelection: () => { owner._sideSelection = null; },
+      pageElements: () => owner._currentElements(),
+      findElement: (id) => owner._findElement(id),
+      selectedElement: () => owner._findSelectedElement(),
+      addElement: (type, place) => { owner._addElement(type, place); },
+      selectElement: (id) => owner._selectElement(id),
+      clearSelection: () => owner._clearSelection(),
+      updateElement: (fn) => owner._updateElement(fn),
+      pushUndoSnapshot: (snapshot) => owner._pushUndoSnapshot(snapshot),
+      emitChange: () => owner._emitChange(),
+      expandParameterOfElement: (id) => owner._expandParameterOfElement(id),
+      gridDelta: (value) => owner._gridDelta(value),
+      focusHost: () => owner._focusHost(),
+      refresh: () => owner.requestUpdate(),
+    };
   }
 
   /** 모달 화면의 상태와 조작 */
@@ -545,7 +592,10 @@ export class SlipDesigner extends LitElement {
       applySampleJson: () => this._applySampleJson(),
       confirmSave: () => void this._confirmSave(),
       loadMyForm: (id) => void this._loadMyForm(id),
-      deleteMyForm: (id) => void this._deleteMyForm(id),
+      deleteMyForm: (id) => this._askDeleteMyForm(id),
+      pendingDelete: this._pendingDelete,
+      confirmDeleteMyForm: () => void this._deleteMyForm(),
+      cancelDeleteMyForm: () => this._cancelDeleteMyForm(),
       refresh: () => this.requestUpdate(),
     };
   }
@@ -568,12 +618,7 @@ export class SlipDesigner extends LitElement {
         this._gridMenuOpen = false;
         this.requestUpdate();
       },
-      closeMenus: () => {
-        this._presetMenuOpen = false;
-        this._shapeMenuOpen = false;
-        this._gridMenuOpen = false;
-        this.requestUpdate();
-      },
+      closeMenus: (restoreFocus) => this._closeToolbarMenus(restoreFocus === true),
       gridGap: this._gridGap,
       gridColor: this._gridColor,
       gridMenuOpen: this._gridMenuOpen,
@@ -650,6 +695,7 @@ export class SlipDesigner extends LitElement {
       },
       selectedElement: () => this._findSelectedElement(),
       commitCellContent: (value) => this._gridCommands.commitCellContent(value),
+      focusSelectedElement: () => this._focusSelectedElement(),
       evaluate: (source, context) => this._evaluate(source, context),
       onBandRowClick: (row, extend) => this._onBandRowClick(row, extend),
       closeBandMenu: (clearSelection) => this._closeBandMenu(clearSelection),
@@ -724,6 +770,7 @@ export class SlipDesigner extends LitElement {
       paperSaveName: this._paperSaveName,
       setPaperSaveName: (value) => { this._paperSaveName = value; },
       canSavePaperSize: this.settings?.savePaperSize !== undefined,
+      paperSettingsError: this._paperSettingsError,
       updateFile: (fn) => this._updateFile(fn),
       pageCount: () => this._pageCount(),
       movePage: (delta) => this._movePage(delta),
@@ -817,6 +864,11 @@ export class SlipDesigner extends LitElement {
     if (this._gridEdit.takeFocusBandMenu()) {
       (this.renderRoot.querySelector('.band-menu-item') as HTMLButtonElement | null)?.focus();
     }
+    // 키보드로 연 툴바 메뉴는 첫 항목부터 방향키로 고를 수 있게 초점을 옮깁니다.
+    if (this._focusMenuItem) {
+      this._focusMenuItem = false;
+      (this.renderRoot.querySelector('.toolbar [role="menuitem"]') as HTMLElement | null)?.focus();
+    }
     this._modalFocus.sync();
   }
 
@@ -825,6 +877,8 @@ export class SlipDesigner extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _parseSource(): void {
+    // 진행 중인 내 양식 불러오기는 새 소스가 우선이므로 그 결과를 버립니다.
+    this._loadGeneration += 1;
     this._revokePreviewUrl();
     this._error = null;
     this._resetPanelErrors();
@@ -840,9 +894,11 @@ export class SlipDesigner extends LitElement {
     this._clipboard = null;
     this._presetMenuOpen = false;
     this._shapeMenuOpen = false;
+    this._gridMenuOpen = false;
     this._gridEdit.clearCell();
     this._pointer.cancelLine();
     this._dialogs.closeAllQuietly();
+    this._pendingDelete = null;
     this._imageError = null;
     this._sideSelection = null;
     this._parameterKeyError = false;
@@ -931,9 +987,26 @@ export class SlipDesigner extends LitElement {
   }
 
   private _pushUndoSnapshot(snapshot: string): void {
-    this._undoStack.push(snapshot);
+    this._undoStack.push({ file: snapshot, savedId: this._forms.savedId });
     this._redoStack = [];
     if (this._undoStack.length > MAX_UNDO) this._undoStack.shift();
+  }
+
+  /**
+   * 되돌리기 한 단계를 되살립니다 — 양식과 그 시점의 저장 식별자를 함께 돌려놓습니다.
+   *
+   * @param from - 꺼낼 쪽
+   * @param to - 지금 상태를 넣을 쪽
+   */
+  private _restoreUndoEntry(from: UndoEntry[], to: UndoEntry[]): void {
+    if (from.length === 0 || !this._file) return;
+    to.push({ file: JSON.stringify(this._file), savedId: this._forms.savedId });
+    const entry = from.pop()!;
+    this._file = JSON.parse(entry.file) as SlipTemplateFile;
+    this._forms.restoreSavedId(entry.savedId);
+    this._clampPageIndex();
+    this._validateSelection();
+    this._emitChange();
   }
 
   /**
@@ -976,21 +1049,11 @@ export class SlipDesigner extends LitElement {
   }
 
   private _undo(): void {
-    if (this._undoStack.length === 0 || !this._file) return;
-    this._redoStack.push(JSON.stringify(this._file));
-    this._file = JSON.parse(this._undoStack.pop()!) as SlipTemplateFile;
-    this._clampPageIndex();
-    this._validateSelection();
-    this._emitChange();
+    this._restoreUndoEntry(this._undoStack, this._redoStack);
   }
 
   private _redo(): void {
-    if (this._redoStack.length === 0 || !this._file) return;
-    this._undoStack.push(JSON.stringify(this._file));
-    this._file = JSON.parse(this._redoStack.pop()!) as SlipTemplateFile;
-    this._clampPageIndex();
-    this._validateSelection();
-    this._emitChange();
+    this._restoreUndoEntry(this._redoStack, this._undoStack);
   }
 
   /** 현재 페이지 인덱스를 문서의 페이지 범위로 제한합니다. */
@@ -1275,13 +1338,8 @@ export class SlipDesigner extends LitElement {
     elements.push(element);
     this._selectElement(id);
     this._sideSelection = null;
-    // 새 요소가 사용하는 파라미터를 정의 목록에 등록합니다.
-    if (element.type === 'field' && element.parameter !== undefined) {
-      this._ensureParameterDef(element.parameter);
-    }
-    if (element.type === 'grid' && element.repeat) {
-      this._ensureParameterDef(element.repeat.parameter, 'list');
-    }
+    // 새 요소가 사용하는 파라미터를 정의 목록에 등록합니다 — 변경 이벤트로 내보내는 파일에 함께 담깁니다.
+    this._ensureElementParameterDef(element);
     this._emitChange();
     this.requestUpdate();
   }
@@ -1314,8 +1372,7 @@ export class SlipDesigner extends LitElement {
         groupRemap.set(copy.group, mapped);
         copy.group = mapped;
       }
-      if (copy.type === 'field' && copy.parameter !== undefined) this._ensureParameterDef(copy.parameter);
-      if (copy.type === 'grid' && copy.repeat) this._ensureParameterDef(copy.repeat.parameter, 'list');
+      this._ensureElementParameterDef(copy);
       elements.push(copy);
       pasted.push(copy);
     }
@@ -1330,6 +1387,23 @@ export class SlipDesigner extends LitElement {
     this._sideSelection = null;
     this._emitChange();
     this.requestUpdate();
+  }
+
+  /**
+   * 요소가 참조하는 파라미터를 정의 목록에 등록합니다 (필드·바코드·이미지, 반복 그리드의 목록).
+   *
+   * @param element - 새로 만들거나 붙여넣은 요소
+   */
+  private _ensureElementParameterDef(element: SlipElement): void {
+    if ((element.type === 'field' || element.type === 'barcode') && element.parameter !== undefined) {
+      this._ensureParameterDef(element.parameter);
+    }
+    if (element.type === 'image' && element.parameter !== undefined) {
+      this._ensureParameterDef(element.parameter, 'image');
+    }
+    if (element.type === 'grid' && element.repeat) {
+      this._ensureParameterDef(element.repeat.parameter, 'list');
+    }
   }
 
   /** 선택된 요소를 모두 삭제합니다. */
@@ -1421,11 +1495,19 @@ export class SlipDesigner extends LitElement {
     // 모달이 열려 있으면 Esc는 모달 닫기 (모달 안 입력란의 Esc는 모달 자체가 처리)
     if (e.key === 'Escape' && this._dialogs.anyOpen) {
       this._dialogs.closeAllQuietly();
+      this._pendingDelete = null;
       this._imageError = null;
       this.requestUpdate();
       return;
     }
+    // 모달이 열려 있는 동안 문서 명령(삭제·되돌리기·복사 등)은 뒤의 양식에 닿지 않습니다.
+    if (this._dialogs.anyOpen) return;
 
+    if (e.key === 'Escape' && this._toolbarMenuOpen) {
+      e.preventDefault();
+      this._closeToolbarMenus(true);
+      return;
+    }
     if (e.key === 'Escape' && (this._pointer.pendingTool || this._pointer.draw || this._pointer.lineDraft)) {
       this._pointer.cancelDrawing();
       this.requestUpdate();
@@ -1447,32 +1529,48 @@ export class SlipDesigner extends LitElement {
       this._gridCommands.clearCellSelection();
       return;
     }
-    if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedId) {
+    // 셀을 고른 동안의 Delete·Backspace는 셀에 대한 조작이므로 그리드 요소를 지우지 않습니다.
+    if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedId && this._gridEdit.cell === null) {
       e.preventDefault();
       this._deleteSelected();
     }
-    if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
+    // Shift를 함께 누르면 `e.key`가 대문자로 오므로 소문자로 맞춰 비교합니다.
+    const key = e.key.toLowerCase();
+    const command = e.ctrlKey || e.metaKey;
+    if (key === 'c' && command) {
       this._copySelected();
     }
-    if (e.key === 'v' && (e.ctrlKey || e.metaKey)) {
+    if (key === 'v' && command) {
       e.preventDefault();
       this._paste();
     }
-    if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+    if (key === 'z' && command) {
       e.preventDefault();
       if (e.shiftKey) this._redo();
       else this._undo();
     }
-    if (e.key === 'y' && (e.ctrlKey || e.metaKey)) {
+    if (key === 'y' && command) {
       e.preventDefault();
       this._redo();
     }
-    if ((e.key === 'b' || e.key === 'B') && (e.ctrlKey || e.metaKey)) {
+    if (key === 'b' && command) {
       e.preventDefault();
       this._showBadges = !this._showBadges;
       this.requestUpdate();
     }
   };
+
+  /** 인라인 셀 편집을 마친 뒤 초점을 선택한 요소로, 없으면 컴포넌트로 되돌립니다. */
+  private _focusSelectedElement(): void {
+    void this.updateComplete.then(() => {
+      const id = this._selectedId;
+      const target = id === null
+        ? null
+        : this.renderRoot.querySelector(`[data-id="${id}"]`) as HTMLElement | null;
+      if (target !== null) target.focus({ preventScroll: true });
+      else this._focusHost();
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Preview
@@ -1497,6 +1595,15 @@ export class SlipDesigner extends LitElement {
     if (!this._file) return;
 
     this._previewMode = true;
+    await this._renderPreview();
+  }
+
+  /**
+   * 현재 양식으로 PDF 미리보기를 만듭니다.
+   * 시작 뒤에 소스·로케일·인스턴스가 바뀌거나 분리되면 그 결과는 버립니다.
+   */
+  private async _renderPreview(): Promise<void> {
+    if (!this._file) return;
     this._previewError = null;
     this._revokePreviewUrl();
 
@@ -1516,7 +1623,7 @@ export class SlipDesigner extends LitElement {
             }
           : this._file;
       const pdfBytes = await renderSlip(this.slipkit, target, this._locale);
-      if (gen !== this._previewGeneration) return;
+      if (gen !== this._previewGeneration || !this.isConnected) return;
       // 렌더링이 성공했다면 후속 폰트 조회도 성공했을 수 있으므로 출처를 다시 확인합니다.
       this._retryFontSource();
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
@@ -1578,6 +1685,7 @@ export class SlipDesigner extends LitElement {
             ${sampleModal(this._dialogContext)}
             ${saveModal(this._dialogContext)}
             ${myFormsModal(this._dialogContext)}
+            ${confirmDeleteModal(this._dialogContext)}
           `}
     `;
   }
@@ -1590,13 +1698,45 @@ export class SlipDesigner extends LitElement {
     return GRID_COLORS.find((color) => color.id === this._gridColor)!.line;
   }
 
+  /** 툴바 메뉴(프리셋·도형·격자) 가운데 하나라도 열려 있는지 */
+  private get _toolbarMenuOpen(): boolean {
+    return this._presetMenuOpen || this._shapeMenuOpen || this._gridMenuOpen;
+  }
+
+  /**
+   * 툴바 메뉴를 모두 닫습니다.
+   *
+   * @param restoreFocus - 메뉴를 연 버튼으로 초점을 되돌리면 true
+   */
+  private _closeToolbarMenus(restoreFocus: boolean): void {
+    this._presetMenuOpen = false;
+    this._shapeMenuOpen = false;
+    this._gridMenuOpen = false;
+    if (restoreFocus && this._menuOpener?.isConnected) this._menuOpener.focus();
+    this.requestUpdate();
+  }
+
+  /**
+   * 툴바 메뉴를 연 버튼을 기억하고 키보드로 열었으면 첫 항목으로 초점을 옮기도록 표시합니다.
+   * 키보드로 누른 클릭은 `detail`이 0입니다.
+   *
+   * @param e - 메뉴 버튼의 클릭 이벤트
+   * @returns 메뉴를 붙일 화면 좌표
+   */
+  private _openToolbarMenu(e: Event): { left: number; top: number } {
+    const button = e.currentTarget as HTMLElement;
+    this._menuOpener = button;
+    this._focusMenuItem = (e as MouseEvent).detail === 0;
+    const rect = button.getBoundingClientRect();
+    return { left: rect.left, top: rect.bottom + 4 };
+  }
+
   /** 격자 설정 메뉴를 열거나 닫습니다. */
   private _toggleGridMenu(e: Event): void {
     if (this._gridMenuOpen) {
       this._gridMenuOpen = false;
     } else {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      this._gridMenuPos = { left: rect.left, top: rect.bottom + 4 };
+      this._gridMenuPos = this._openToolbarMenu(e);
       this._gridMenuOpen = true;
     }
     this.requestUpdate();
@@ -1628,8 +1768,7 @@ export class SlipDesigner extends LitElement {
     if (this._shapeMenuOpen) {
       this._shapeMenuOpen = false;
     } else {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      this._shapeMenuPos = { left: rect.left, top: rect.bottom + 4 };
+      this._shapeMenuPos = this._openToolbarMenu(e);
       this._shapeMenuOpen = true;
     }
     this.requestUpdate();
@@ -1650,8 +1789,7 @@ export class SlipDesigner extends LitElement {
     if (this._presetMenuOpen) {
       this._presetMenuOpen = false;
     } else {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      this._presetMenuPos = { left: rect.left, top: rect.bottom + 4 };
+      this._presetMenuPos = this._openToolbarMenu(e);
       this._presetMenuOpen = true;
     }
     this.requestUpdate();
@@ -1667,6 +1805,8 @@ export class SlipDesigner extends LitElement {
 
     this._pushUndo();
     this._file = preset.create();
+    // 프리셋은 새 양식이므로 이전에 불러온 양식의 저장 대상을 잇지 않습니다.
+    this._forms.reset();
     this._clearSelection();
     this._sideSelection = null;
     this._pageIndex = 0;
@@ -1768,57 +1908,7 @@ export class SlipDesigner extends LitElement {
     if (!file) return [];
     const defs = file.template.parameters ?? [];
     const defOf = new Map(defs.map((b) => [b.key, b] as const));
-
-    const uses = new Map<string, ParameterUse[]>();
-    // 목록 하위 필드별로 해당 필드를 사용하는 그리드 셀 위치를 기록합니다.
-    const fieldAt = new Map<string, Map<string, NonNullable<ParameterFieldInfo['at']>>>();
-
-    file.template.pages.forEach((page, pageIndex) => {
-      for (const el of page.elements) {
-        // 그리드의 반복 파라미터와 고정 행의 셀 파라미터를 수집합니다.
-        if (el.type === 'grid') {
-          const itemBand = el.repeat === undefined ? undefined : itemBandOf(el);
-          if (el.repeat && itemBand) {
-            const listKey = el.repeat.parameter;
-            const at = fieldAt.get(listKey) ?? new Map();
-            const band = el.cells
-              .filter((c) => c.row >= itemBand.fromRow && c.row <= itemBand.toRow && c.parameter !== undefined)
-              .sort((a, b) => a.column - b.column || a.row - b.row);
-            for (const cell of band) {
-              const key = cell.parameter as string;
-              if (!at.has(key)) {
-                at.set(key, { pageIndex, gridId: el.id, row: cell.row, column: cell.column });
-              }
-            }
-            fieldAt.set(listKey, at);
-          }
-          const keys = new Set<string>();
-          if (el.repeat) keys.add(el.repeat.parameter);
-          // 항목 구간의 셀 파라미터는 목록 항목의 하위 필드이므로 최상위 값에서 제외합니다.
-          for (const cell of el.cells) {
-            if (cell.parameter !== undefined && !inItemBand(el, cell.row)) keys.add(cell.parameter);
-          }
-          for (const key of keys) {
-            const list = uses.get(key) ?? [];
-            list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
-            uses.set(key, list);
-          }
-          continue;
-        }
-        // 변동 이미지가 참조하는 파라미터를 사용 위치에 추가합니다.
-        if (el.type === 'image' && el.parameter !== undefined) {
-          const list = uses.get(el.parameter) ?? [];
-          list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
-          uses.set(el.parameter, list);
-          continue;
-        }
-        // 수식만 사용하는 필드에는 파라미터를 지정하지 않습니다
-        if (el.type !== 'field' || el.parameter === undefined) continue;
-        const list = uses.get(el.parameter) ?? [];
-        list.push({ pageIndex, id: el.id, name: el.name, type: el.type });
-        uses.set(el.parameter, list);
-      }
-    });
+    const { uses, fieldAt } = collectParameterUses(file);
 
     const list: ParameterInfo[] = [];
     const seen = new Set<string>();
@@ -1937,21 +2027,17 @@ export class SlipDesigner extends LitElement {
   /**
    * 요소가 사용하는 파라미터를 정의 목록에 등록합니다.
    *
+   * @remarks
+   * 되돌리기 스냅샷을 남긴 뒤, 변경 이벤트를 내보내기 전에 불러야 합니다 — 즉
+   * `_updateFile`·`_updateElement`의 수정 함수 안에서 씁니다.
+   *
    * @param key - 파라미터 물리명
    * @param valueType - 등록할 값 종류. 이미 있는 항목이면 종류가 비어 있을 때만 채웁니다
+   * @param label - 새로 만들 때 붙일 논리명
    */
-  private _ensureParameterDef(key: string, valueType?: ParameterValueType): void {
-    const file = this._file;
-    if (!file || !key) return;
-    const defs = file.template.parameters ?? [];
-    const found = defs.find((b) => b.key === key);
-    if (found) {
-      // 기존 정의에 값 종류가 없을 때만 요청한 종류를 적용합니다.
-      if (valueType !== undefined && found.valueType === undefined) found.valueType = valueType;
-      return;
-    }
-    defs.push(valueType === undefined ? { key } : { key, valueType });
-    file.template.parameters = defs;
+  private _ensureParameterDef(key: string, valueType?: ParameterValueType, label?: string): void {
+    if (!this._file) return;
+    ensureParameterDefIn(this._file, key, valueType, label);
   }
 
   /**
@@ -1979,30 +2065,8 @@ export class SlipDesigner extends LitElement {
       return;
     }
     this._parameterKeyError = false;
-    this._updateFile((f) => {
-      const defs = f.template.parameters ?? [];
-      const def = defs.find((b) => b.key === key);
-      if (def) def.key = trimmed;
-      else defs.push({ key: trimmed });
-      f.template.parameters = defs;
-      for (const page of f.template.pages) {
-        for (const el of page.elements) {
-          if (el.type === 'field' && el.parameter === key) el.parameter = trimmed;
-          if (el.type === 'grid') {
-            if (el.repeat?.parameter === key) el.repeat.parameter = trimmed;
-            for (const cell of el.cells) {
-              // 항목 구간 안의 셀 파라미터는 목록 하위 필드이므로 최상위 키 변경에서 제외합니다.
-              if (!inItemBand(el, cell.row) && cell.parameter === key) cell.parameter = trimmed;
-            }
-          }
-        }
-      }
-      const samples = f.template.sampleValues;
-      if (samples && key in samples) {
-        samples[trimmed] = samples[key]!;
-        delete samples[key];
-      }
-    });
+    // 정의·모든 참조·샘플 값을 한 번의 수정으로 바꿔 되돌리기 한 단위로 남깁니다.
+    this._updateFile((f) => renameParameterReferences(f, key, trimmed));
     this._sideSelection = { kind: 'parameter', key: trimmed };
     this.requestUpdate();
   }
@@ -2165,8 +2229,24 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 정의부에서 파라미터를 제거합니다 — 요소가 사용하는 키면 목록에는 사용처 기준으로 남습니다 */
+  /**
+   * 정의부에서 파라미터를 제거합니다.
+   * 요소가 아직 쓰는 키면 참조가 끊기므로 사용 위치를 안내하고 지우지 않습니다.
+   */
   private _removeParameterDef(key: string): void {
+    const file = this._file;
+    if (!file) return;
+    const uses = parameterUsesOf(file, key);
+    if (uses.length > 0) {
+      const s = this._strings.designer;
+      const where = uses
+        .map((use) => s.parameterUseAt
+          .replace('{name}', use.name)
+          .replace('{page}', this._pageDisplayName(file.template.pages[use.pageIndex] ?? {}, use.pageIndex)))
+        .join(', ');
+      this._rejectInput(s.parameterInUse.replace('{uses}', where));
+      return;
+    }
     this._updateFile((f) => {
       const defs = (f.template.parameters ?? []).filter((b) => b.key !== key);
       if (defs.length > 0) f.template.parameters = defs;
@@ -2491,10 +2571,24 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 호스트가 지정한 바코드 종류를 불러옵니다. */
+  /**
+   * 호스트가 지정한 바코드 종류를 불러옵니다.
+   * 실패하면 기본 목록(모든 종류)을 유지하고 패널에 안내합니다. 늦게 온 응답은 버립니다.
+   */
   private async _loadBarcodeKinds(): Promise<void> {
-    const kinds = this.settings?.getBarcodeKinds ? await this.settings.getBarcodeKinds() : [];
-    this._hostBarcodeKinds = kinds ?? [];
+    const gen = this._settingsGeneration;
+    const settings = this.settings;
+    let kinds: BarcodeKind[] = [];
+    let failed = false;
+    try {
+      kinds = (settings?.getBarcodeKinds ? await settings.getBarcodeKinds() : []) ?? [];
+    } catch (error) {
+      console.error('[slip-designer] getBarcodeKinds failed:', error);
+      failed = true;
+    }
+    if (gen !== this._settingsGeneration) return;
+    this._hostBarcodeKinds = failed ? [] : kinds;
+    this._barcodeKindsError = failed ? this._strings.designer.barcodeKindsLoadError : null;
     this.requestUpdate();
   }
 
@@ -2505,23 +2599,49 @@ export class SlipDesigner extends LitElement {
     return BARCODE_KINDS.filter((k) => allowed.has(k.value));
   }
 
-  /** 호스트가 제공하는 용지 목록을 불러옵니다. */
+  /**
+   * 호스트가 제공하는 용지 목록을 불러옵니다.
+   * 실패하면 기본 용지만 남기고 패널에 안내합니다. 늦게 온 응답은 버립니다.
+   */
   private async _loadPaperSizes(): Promise<void> {
-    const sizes = this.settings?.getPaperSizes ? await this.settings.getPaperSizes() : [];
-    this._hostPaperSizes = sizes ?? [];
+    const gen = this._settingsGeneration;
+    const settings = this.settings;
+    let sizes: PaperSize[] = [];
+    let failed = false;
+    try {
+      sizes = (settings?.getPaperSizes ? await settings.getPaperSizes() : []) ?? [];
+    } catch (error) {
+      console.error('[slip-designer] getPaperSizes failed:', error);
+      failed = true;
+    }
+    if (gen !== this._settingsGeneration) return;
+    this._hostPaperSizes = failed ? [] : sizes;
+    this._paperSettingsError = failed ? this._strings.designer.paperSizesLoadError : null;
     this.requestUpdate();
   }
 
   /**
    * 현재 용지 크기를 호스트 설정에 저장하고 선택 목록을 갱신합니다.
+   * 저장에 실패하면 입력한 이름을 유지하고 패널에 안내합니다.
    *
    * @param name - 선택 목록에 표시할 용지 이름
    */
   private async _savePaperSize(name: string): Promise<void> {
     const trimmed = name.trim();
-    if (!trimmed || !this.settings?.savePaperSize || !this._file) return;
+    const settings = this.settings;
+    if (!trimmed || !settings?.savePaperSize || !this._file) return;
+    const gen = this._settingsGeneration;
     const { paper } = this._file.template;
-    await this.settings.savePaperSize({ name: trimmed, width: paper.width, height: paper.height });
+    try {
+      await settings.savePaperSize({ name: trimmed, width: paper.width, height: paper.height });
+    } catch (error) {
+      console.error('[slip-designer] savePaperSize failed:', error);
+      if (gen !== this._settingsGeneration) return;
+      this._paperSettingsError = this._strings.designer.paperSaveError;
+      this.requestUpdate();
+      return;
+    }
+    if (gen !== this._settingsGeneration) return;
     this._paperSaveName = '';
     // 저장된 용지가 선택 목록에 포함되도록 다시 불러옵니다.
     await this._loadPaperSizes();
@@ -2616,17 +2736,45 @@ export class SlipDesigner extends LitElement {
     if (created) this._gridCommands.setCellSource('parameter', created.key);
   }
 
-  /** 새 최상위 파라미터를 만들고 현재 셀에 연결합니다. */
+  /** 새 최상위 파라미터를 만들고 현재 셀에 연결합니다 — 정의와 연결이 되돌리기 한 단위입니다. */
   private _newParameterForCell(): void {
     const cell = this._gridEdit.cell;
+    if (!cell) {
+      this._rejectInput();
+      return;
+    }
     const { key, label } = this._nextParameter();
-    this._updateFile((f) => {
-      const defs = f.template.parameters ?? [];
-      defs.push({ key, label });
-      f.template.parameters = defs;
+    this._updateElement((element) => {
+      if (!isGrid(element)) return;
+      this._ensureParameterDef(key, undefined, label);
+      const target = ensureCell(element, cell.row, cell.column);
+      clearValueSources(target);
+      target.parameter = key;
     });
-    if (cell) this._gridEdit.selectCell(cell);
-    this._gridCommands.setCellSource('parameter', key);
+  }
+
+  /**
+   * 새 파라미터를 만들어 선택한 요소에 연결합니다. 정의 추가와 연결이 되돌리기 한 단위입니다.
+   *
+   * @param type - 선택되어 있어야 하는 요소 종류
+   * @param valueType - 새 정의의 값 종류
+   * @param link - 요소에 새 키를 연결하는 수정 함수
+   */
+  private _assignNewParameterTo(
+    type: SlipElement['type'],
+    valueType: ParameterValueType | undefined,
+    link: (el: SlipElement, key: string) => void,
+  ): void {
+    const el = this._findSelectedElement();
+    if (el?.type !== type) {
+      this._rejectInput();
+      return;
+    }
+    const { key, label } = this._nextParameter();
+    this._updateElementById(el.id, (target) => {
+      this._ensureParameterDef(key, valueType, label);
+      link(target, key);
+    });
   }
 
   /** 기존 파라미터 선택과 새 파라미터 추가를 제공하는 공통 선택기를 렌더링합니다. */
@@ -2666,26 +2814,11 @@ export class SlipDesigner extends LitElement {
 
   /** 새 파라미터를 만들고 선택한 필드 요소에 연결합니다. */
   private _assignNewParameter(): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'field') {
-      this._rejectInput();
-      return;
-    }
-    const { key, label } = this._nextParameter();
-    const id = el.id;
-    this._updateFile((f) => {
-      const defs = f.template.parameters ?? [];
-      defs.push({ key, label });
-      f.template.parameters = defs;
-      for (const page of f.template.pages) {
-        for (const target of page.elements) {
-          if (target.id === id && target.type === 'field') {
-            // 필드는 파라미터와 수식 중 하나만 사용합니다.
-            delete (target as Record<string, unknown>).formula;
-            target.parameter = key;
-          }
-        }
-      }
+    this._assignNewParameterTo('field', undefined, (target, key) => {
+      if (target.type !== 'field') return;
+      // 필드는 파라미터와 수식 중 하나만 사용합니다.
+      delete (target as Record<string, unknown>).formula;
+      target.parameter = key;
     });
   }
 
@@ -2709,34 +2842,15 @@ export class SlipDesigner extends LitElement {
       this._rejectInput();
       return;
     }
-    const id = el.id;
     if (variable) {
       if (el.parameter !== undefined) return;
-      const { key, label } = this._nextParameter();
-      this._updateFile((f) => {
-        const defs = f.template.parameters ?? [];
-        // 이미지 파라미터로 등록해 작성 폼과 샘플 편집기에 파일 입력을 표시합니다.
-        defs.push({ key, label, valueType: 'image' });
-        f.template.parameters = defs;
-        for (const page of f.template.pages) {
-          for (const target of page.elements) {
-            if (target.id === id && target.type === 'image') {
-              target.parameter = key;
-              delete target.src;
-            }
-          }
-        }
-      });
+      // 이미지 파라미터로 등록해 작성 폼과 샘플 편집기에 파일 입력을 표시합니다.
+      this._assignNewImageParameter();
     } else {
-      this._updateFile((f) => {
-        for (const page of f.template.pages) {
-          for (const target of page.elements) {
-            if (target.id === id && target.type === 'image') {
-              delete target.parameter;
-              target.src = PLACEHOLDER_IMG;
-            }
-          }
-        }
+      this._updateElementById(el.id, (target) => {
+        if (target.type !== 'image') return;
+        delete target.parameter;
+        target.src = PLACEHOLDER_IMG;
       });
     }
   }
@@ -2746,43 +2860,21 @@ export class SlipDesigner extends LitElement {
     return this._parameterSelect(
       current,
       () => this._assignNewImageParameter(),
-      (value) => {
-        this._updateFile((f) => {
-          for (const page of f.template.pages) {
-            for (const target of page.elements) {
-              if (target.id === this._selectedId && target.type === 'image') {
-                target.parameter = value;
-                delete target.src;
-              }
-            }
-          }
-        });
+      (value) => this._updateElement((target) => {
+        if (target.type !== 'image') return;
         this._ensureParameterDef(value, 'image');
-      },
+        target.parameter = value;
+        delete target.src;
+      }),
     );
   }
 
   /** 새 이미지 파라미터를 만들고 선택한 이미지 요소에 연결합니다. */
   private _assignNewImageParameter(): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'image') {
-      this._rejectInput();
-      return;
-    }
-    const { key, label } = this._nextParameter();
-    const id = el.id;
-    this._updateFile((f) => {
-      const defs = f.template.parameters ?? [];
-      defs.push({ key, label, valueType: 'image' });
-      f.template.parameters = defs;
-      for (const page of f.template.pages) {
-        for (const target of page.elements) {
-          if (target.id === id && target.type === 'image') {
-            target.parameter = key;
-            delete target.src;
-          }
-        }
-      }
+    this._assignNewParameterTo('image', 'image', (target, key) => {
+      if (target.type !== 'image') return;
+      target.parameter = key;
+      delete target.src;
     });
   }
 
@@ -2825,42 +2917,21 @@ export class SlipDesigner extends LitElement {
     return this._parameterSelect(
       current,
       () => this._assignNewBarcodeParameter(),
-      (value) => {
-        this._updateElement((element) => {
-          if (element.type !== 'barcode') return;
-          const r = element as Record<string, unknown>;
-          delete r.content;
-          delete r.formula;
-          r.parameter = value;
-        });
+      (value) => this._updateElement((element) => {
+        if (element.type !== 'barcode') return;
         this._ensureParameterDef(value);
-      },
+        clearValueSources(element);
+        element.parameter = value;
+      }),
     );
   }
 
   /** 새 파라미터를 만들고 선택한 바코드 요소에 연결합니다. */
   private _assignNewBarcodeParameter(): void {
-    const el = this._findSelectedElement();
-    if (el?.type !== 'barcode') {
-      this._rejectInput();
-      return;
-    }
-    const { key, label } = this._nextParameter();
-    const id = el.id;
-    this._updateFile((f) => {
-      const defs = f.template.parameters ?? [];
-      defs.push({ key, label });
-      f.template.parameters = defs;
-      for (const page of f.template.pages) {
-        for (const target of page.elements) {
-          if (target.id === id && target.type === 'barcode') {
-            const r = target as Record<string, unknown>;
-            delete r.content;
-            delete r.formula;
-            r.parameter = key;
-          }
-        }
-      }
+    this._assignNewParameterTo('barcode', undefined, (target, key) => {
+      if (target.type !== 'barcode') return;
+      clearValueSources(target);
+      target.parameter = key;
     });
   }
 
@@ -2911,22 +2982,12 @@ export class SlipDesigner extends LitElement {
     if (!el || (el.type !== 'text' && el.type !== 'field') || el.type === to) return;
     if (to === 'field') {
       // 필드에 필요한 새 파라미터를 만들어 연결합니다.
-      const { key, label } = this._nextParameter();
-      const id = el.id;
-      this._updateFile((f) => {
-        const defs = f.template.parameters ?? [];
-        defs.push({ key, label });
-        f.template.parameters = defs;
-        for (const page of f.template.pages) {
-          for (const target of page.elements) {
-            if (target.id !== id || target.type !== 'text') continue;
-            const r = target as Record<string, unknown>;
-            delete r.content;
-            delete r.formula;
-            r.type = 'field';
-            r.parameter = key;
-          }
-        }
+      this._assignNewParameterTo('text', undefined, (target, key) => {
+        const r = target as Record<string, unknown>;
+        delete r.content;
+        delete r.formula;
+        r.type = 'field';
+        r.parameter = key;
       });
       return;
     }
@@ -3354,17 +3415,20 @@ export class SlipDesigner extends LitElement {
       this._rejectInput();
       return;
     }
-    if (title !== this._file.template.meta.title) {
-      this._updateFile((f) => {
-        f.template.meta.title = title;
-      });
-    }
+    // 제목은 저장이 성공한 뒤에만 양식에 반영합니다 — 실패하면 양식과 되돌리기 이력이 그대로입니다.
+    const file = structuredClone(this._file) as SlipTemplateFile;
+    file.template.meta.title = title;
     const id = this._forms.nextId();
     try {
-      await adapter.save(id, structuredClone(this._file) as SlipFile);
+      await adapter.save(id, file as SlipFile);
     } catch (error) {
       this._forms.fail(error);
       return;
+    }
+    if (this._file && title !== this._file.template.meta.title) {
+      this._updateFile((f) => {
+        f.template.meta.title = title;
+      });
     }
     this._dialogs.close('save');
     this._forms.markSaved(id);
@@ -3391,13 +3455,17 @@ export class SlipDesigner extends LitElement {
   private async _loadMyForm(id: string): Promise<void> {
     const adapter = this.storage;
     if (!adapter) return;
+    // 빠르게 다른 양식을 고르거나 소스가 바뀌면 먼저 시작한 불러오기 결과는 버립니다.
+    const gen = ++this._loadGeneration;
     let file: SlipFile;
     try {
       file = await adapter.load(id);
     } catch (error) {
+      if (gen !== this._loadGeneration) return;
       this._forms.fail(error);
       return;
     }
+    if (gen !== this._loadGeneration || this.storage !== adapter) return;
     if (file.kind !== 'template') {
       this._forms.fail(this._strings.designer.onlyTemplate);
       return;
@@ -3415,17 +3483,33 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 선택한 양식을 삭제하고 현재 양식의 저장 ID를 갱신합니다. */
-  private async _deleteMyForm(id: string): Promise<void> {
+  /** 저장된 양식을 지우기 전에 확인 모달을 엽니다. */
+  private _askDeleteMyForm(id: string): void {
+    const item = this._forms.filtered().find((entry) => entry.id === id);
+    if (!item) return;
+    this._pendingDelete = { id, title: item.title };
+    this._dialogs.open('confirmDelete');
+  }
+
+  /** 삭제 확인 모달을 닫고 아무것도 지우지 않습니다. */
+  private _cancelDeleteMyForm(): void {
+    this._pendingDelete = null;
+    this._dialogs.close('confirmDelete');
+  }
+
+  /** 확인한 양식을 저장소에서 삭제하고 현재 양식의 저장 ID를 갱신합니다. */
+  private async _deleteMyForm(): Promise<void> {
     const adapter = this.storage;
-    if (!adapter) return;
+    const pending = this._pendingDelete;
+    if (!adapter || pending === null) return;
+    this._cancelDeleteMyForm();
     try {
-      await adapter.delete(id);
+      await adapter.delete(pending.id);
     } catch (error) {
       this._forms.fail(error);
       return;
     }
-    this._forms.forget(id, MY_FORMS_PAGE_SIZE);
+    this._forms.forget(pending.id, MY_FORMS_PAGE_SIZE);
   }
 
 }

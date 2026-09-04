@@ -33,8 +33,12 @@ export interface ToolbarActions {
   setShowBadges(on: boolean): void;
   /** 격자선 색을 바꾸고 메뉴를 닫습니다 */
   setGridColor(color: GridColorId): void;
-  /** 열려 있는 툴바 메뉴를 모두 닫습니다 */
-  closeMenus(): void;
+  /**
+   * 열려 있는 툴바 메뉴를 모두 닫습니다.
+   *
+   * @param restoreFocus - 메뉴를 연 버튼으로 초점을 되돌리면 true (키보드로 닫을 때)
+   */
+  closeMenus(restoreFocus?: boolean): void;
   /** 격자 간격(mm). null이면 격자 없음 */
   readonly gridGap: number | null;
   /** 격자선 색 */
@@ -154,7 +158,8 @@ export function toolbar(bar: ToolbarActions) {
       ? html`
           <div class="menu-backdrop" @click=${() => bar.closeMenus()}></div>
           <div class="preset-menu" role="menu" aria-label=${s.preset}
-               style="left:${bar.presetMenuPos.left}px;top:${bar.presetMenuPos.top}px">
+               style="left:${bar.presetMenuPos.left}px;top:${bar.presetMenuPos.top}px"
+               @keydown=${(e: KeyboardEvent) => menuKeydown(e, () => bar.closeMenus(true))}>
             ${bar.presets().map((p, index) => html`
               <button role="menuitem" @click=${() => bar.applyPreset(index)}>${p.name}</button>`)}
           </div>`
@@ -163,7 +168,8 @@ export function toolbar(bar: ToolbarActions) {
       ? html`
           <div class="menu-backdrop" @click=${() => bar.closeMenus()}></div>
           <div class="preset-menu" role="menu" aria-label=${s.shape}
-               style="left:${bar.shapeMenuPos.left}px;top:${bar.shapeMenuPos.top}px">
+               style="left:${bar.shapeMenuPos.left}px;top:${bar.shapeMenuPos.top}px"
+               @keydown=${(e: KeyboardEvent) => menuKeydown(e, () => bar.closeMenus(true))}>
             ${([
               [s.shapeRect, 'rect', 3],
               [s.shapeEllipse, 'ellipse', 3],
@@ -180,7 +186,8 @@ export function toolbar(bar: ToolbarActions) {
       ? html`
           <div class="menu-backdrop" @click=${() => bar.closeMenus()}></div>
           <div class="preset-menu" role="menu" aria-label=${s.gridGap}
-               style="left:${bar.gridMenuPos.left}px;top:${bar.gridMenuPos.top}px">
+               style="left:${bar.gridMenuPos.left}px;top:${bar.gridMenuPos.top}px"
+               @keydown=${(e: KeyboardEvent) => menuKeydown(e, () => bar.closeMenus(true))}>
             <button role="menuitem" aria-pressed=${String(bar.gridGap === null)}
               @click=${() => bar.setGridGap(null)}>${s.gridNone}</button>
             ${GRID_GAPS.map((gap) => html`
@@ -202,6 +209,38 @@ export function toolbar(bar: ToolbarActions) {
           </div>`
       : nothing}
   `;
+}
+
+/**
+ * 툴바 메뉴 안의 키보드 조작 — 방향키·Home·End로 항목을 옮기고 Escape로 닫습니다.
+ *
+ * @remarks
+ * 처리한 키는 문서 단축키로 올라가지 않도록 전파를 멈춥니다.
+ *
+ * @param event - 메뉴 요소에서 받은 키보드 이벤트
+ * @param close - Escape를 눌렀을 때 실행할 닫기 처리
+ */
+export function menuKeydown(event: KeyboardEvent, close: () => void): void {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+    return;
+  }
+  const menu = event.currentTarget as HTMLElement;
+  const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+  if (items.length === 0) return;
+  const root = menu.getRootNode() as Document | ShadowRoot;
+  const current = items.indexOf(root.activeElement as HTMLButtonElement);
+  let next = -1;
+  if (event.key === 'ArrowDown') next = current < 0 ? 0 : (current + 1) % items.length;
+  else if (event.key === 'ArrowUp') next = current <= 0 ? items.length - 1 : current - 1;
+  else if (event.key === 'Home') next = 0;
+  else if (event.key === 'End') next = items.length - 1;
+  if (next < 0) return;
+  event.preventDefault();
+  event.stopPropagation();
+  items[next]?.focus();
 }
 
 /**

@@ -71,6 +71,8 @@ const mode = ref<DemoMode>('design');
 const status = ref<string>(messages.welcome);
 const autosave = ref('');
 const formSrc = ref('');
+// 새 전표마다 올려 SlipForm을 다시 마운트하는 세션 번호
+const formSession = ref(0);
 const viewerSrc = ref('');
 
 // 디자이너에 넣는 시작 입력 — 편집 중에는 바꾸지 않고, 외부 양식을 명시적으로 열 때만 갱신한다
@@ -109,7 +111,11 @@ function setMode(next: DemoMode, message?: string): void {
   if (next === 'fill') {
     const continuing = canResumeVoucher(voucher.value);
     // 이어 쓸 전표가 없으면 buildVoucher로 양식에서 빈 전표를 만들어 시작한다.
-    if (!continuing) voucher.value = buildVoucher(template.value, {});
+    if (!continuing) {
+      voucher.value = buildVoucher(template.value, {});
+      // 새 전표는 SlipForm을 다시 마운트해 시작한다 — 같은 양식이면 src가 그대로라 발행 상태가 풀리지 않는다.
+      formSession.value += 1;
+    }
     formSrc.value = serializeSlipFile(voucher.value!);
     status.value = message ?? (continuing ? messages.fillContinue : messages.fillNew);
   } else if (next === 'view') {
@@ -266,6 +272,7 @@ onMounted(async () => {
   <div class="pane" :hidden="mode !== 'fill'">
     <SlipForm
       v-if="formSrc !== ''"
+      :key="formSession"
       :src="formSrc"
       :slipkit="slipKit"
       @slip-change="onFormChange"

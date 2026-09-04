@@ -8,4 +8,9 @@ const { version } = JSON.parse(readFileSync(new URL('./package.json', import.met
 
 export default defineConfig({
   define: { __SLIPKIT_MCP_VERSION__: JSON.stringify(version) },
+  test: {
+    // 자식 프로세스 실행과 PDF 렌더·래스터화는 커버리지 병렬 실행에서 기본 5초를 넘길 수 있다.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
+  },
 });

@@ -171,6 +171,144 @@ export async function encryptSlipFile(
   return JSON.stringify(envelope);
 }
 
+/** 봉투에서 읽어 디코딩까지 마친 복호화 입력. */
+export interface ParsedEnvelope {
+  /** 암호 문구로 잠갔으면 솔트와 반복 횟수, 원시 키로 잠갔으면 없음 */
+  kdf?: { salt: Uint8Array; iterations: number };
+  iv: Uint8Array;
+  data: Uint8Array;
+}
+
+/** 키가 맞지 않아 복호화하지 못한 오류를 표시한다 — 봉투 손상과 구분해 다음 키를 시도할 수 있게 한다. */
+const keyMismatch = new WeakSet<SlipEncryptionError>();
+
+/**
+ * 오류가 키 불일치(틀린 키·키 종류 불일치) 때문인지 알려 준다.
+ *
+ * @param error - 검사할 값
+ * @returns 키를 바꾸면 해결될 수 있는 오류면 true
+ */
+export function isKeyMismatchError(error: unknown): boolean {
+  return error instanceof SlipEncryptionError && keyMismatch.has(error);
+}
+
+function mismatch(message: string): SlipEncryptionError {
+  const error = new SlipEncryptionError(message);
+  keyMismatch.add(error);
+  return error;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** base64url 문자열을 디코딩한다. 형식이 틀리거나 길이가 맞지 않으면 `undefined`. */
+function decodeField(value: unknown, expectedLength?: number): Uint8Array | undefined {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]*$/.test(value)) return undefined;
+  let bytes: Uint8Array;
+  try {
+    bytes = base64urlDecode(value);
+  } catch {
+    return undefined;
+  }
+  if (expectedLength !== undefined && bytes.length !== expectedLength) return undefined;
+  return bytes;
+}
+
+/**
+ * 암호화 봉투 JSON 문자열의 구조·필드 형식·길이를 검증하고 디코딩한다 (SPEC §21.3 1~4단계).
+ *
+ * @param json - 암호화 봉투 JSON 문자열
+ * @param locale - 오류 메시지에 사용할 BCP 47 로케일
+ * @returns 디코딩한 봉투
+ * @throws SlipEncryptionError 봉투 형식이 아니거나, 버전·암호·키 파생 방식을 지원하지 않거나,
+ *   `kdf`·`iv`·`data` 필드가 손상되었을 때
+ */
+export function parseEncryptedEnvelope(json: string, locale?: string): ParsedEnvelope {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json);
+  } catch {
+    throw new SlipEncryptionError(em(locale).notAnEnvelope());
+  }
+  if (!isRecord(raw) || raw['slipkit'] !== MARKER) {
+    throw new SlipEncryptionError(em(locale).notAnEnvelope());
+  }
+  // 버전을 먼저 보고 암호를 본다 — 더 새로운 봉투를 "봉투 아님"으로 보고하지 않기 위해서다.
+  if (raw['v'] !== 1) {
+    throw new SlipEncryptionError(em(locale).unsupportedEnvelopeVersion());
+  }
+  if (raw['cipher'] !== 'A256GCM') {
+    throw new SlipEncryptionError(em(locale).unsupportedCipher());
+  }
+  const envelope: ParsedEnvelope = { iv: new Uint8Array(0), data: new Uint8Array(0) };
+  if (raw['kdf'] !== undefined) {
+    const kdf = raw['kdf'];
+    if (!isRecord(kdf)) throw new SlipEncryptionError(em(locale).envelopeFieldInvalid('kdf'));
+    const iterations = kdf['iterations'];
+    const validIterations =
+      typeof iterations === 'number' &&
+      Number.isSafeInteger(iterations) &&
+      iterations >= 1 &&
+      iterations <= MAX_PBKDF2_ITERATIONS;
+    if (kdf['algo'] !== 'PBKDF2-SHA256' || !validIterations) {
+      throw new SlipEncryptionError(em(locale).unsupportedKdf());
+    }
+    const salt = decodeField(kdf['salt'], SALT_BYTES);
+    if (salt === undefined) throw new SlipEncryptionError(em(locale).envelopeFieldInvalid('kdf.salt'));
+    envelope.kdf = { salt, iterations };
+  }
+  const iv = decodeField(raw['iv'], IV_BYTES);
+  if (iv === undefined) throw new SlipEncryptionError(em(locale).envelopeFieldInvalid('iv'));
+  const data = decodeField(raw['data']);
+  if (data === undefined || data.length === 0) {
+    throw new SlipEncryptionError(em(locale).envelopeFieldInvalid('data'));
+  }
+  envelope.iv = iv;
+  envelope.data = data;
+  return envelope;
+}
+
+/**
+ * 검증을 마친 봉투를 키로 복호화하고 `.slip` 형식인지 검증한다 (SPEC §21.3 5~8단계).
+ *
+ * @param envelope - {@link parseEncryptedEnvelope}의 결과
+ * @param key - 암호화에 사용한 암호 또는 원시 키
+ * @param locale - 오류 메시지에 사용할 BCP 47 로케일
+ * @returns 복호화하고 검증한 `.slip` 파일
+ * @throws SlipEncryptionError 키 종류가 봉투와 다르거나, 키가 틀리거나(복호화 실패), 파일 변조 시
+ * @throws SlipParseError 복호화된 내용이 유효한 `.slip`이 아니면
+ */
+export async function decryptParsedEnvelope(
+  envelope: ParsedEnvelope,
+  key: string | Uint8Array,
+  locale?: string,
+): Promise<SlipFile> {
+  const subtle = requireSubtle(locale);
+  const usePassphrase = typeof key === 'string';
+  if (usePassphrase !== (envelope.kdf !== undefined)) {
+    throw mismatch(envelope.kdf ? em(locale).lockedWithPassphrase() : em(locale).lockedWithRawKey());
+  }
+  // 복호화에는 봉투에 기록된 반복 횟수를 사용한다.
+  const aesKey = await toAesKey(
+    key,
+    envelope.kdf?.salt ?? new Uint8Array(0),
+    envelope.kdf?.iterations ?? PBKDF2_ITERATIONS,
+    locale,
+  );
+  let plainBuf: ArrayBuffer;
+  try {
+    plainBuf = await subtle.decrypt({ name: 'AES-GCM', iv: envelope.iv }, aesKey, envelope.data);
+  } catch {
+    // GCM 인증 실패는 잘못된 키나 파일 변조를 뜻한다.
+    throw mismatch(em(locale).decryptFailed());
+  }
+  return parseSlipFile(
+    new TextDecoder().decode(new Uint8Array(plainBuf)),
+    locale === undefined ? undefined : { locale },
+  );
+}
+
 /**
  * 암호화 봉투 JSON 문자열을 복호화하고 `.slip` 형식인지 검증한다.
  *
@@ -178,8 +316,9 @@ export async function encryptSlipFile(
  * @param key - 암호화에 사용한 암호 또는 원시 키
  * @param options - 오류 메시지에 사용할 로케일 설정 (생략하면 영어)
  * @returns 복호화하고 검증한 `.slip` 파일
- * @throws SlipEncryptionError 봉투 형식이 아니거나, 봉투 버전·키 파생 방식을 지원하지
- *   않거나, 키가 틀리거나(복호화 실패), 파일 변조 시
+ * @throws SlipEncryptionError 봉투 형식이 아니거나, 봉투 버전·암호·키 파생 방식을 지원하지
+ *   않거나, `kdf`·`iv`·`data` 필드가 손상되었거나, 키 종류가 다르거나, 키가 틀리거나
+ *   (복호화 실패), 파일 변조 시
  * @throws SlipParseError 복호화된 내용이 유효한 `.slip`이 아니면
  */
 export async function decryptSlipFile(
@@ -188,50 +327,5 @@ export async function decryptSlipFile(
   options?: { locale?: string },
 ): Promise<SlipFile> {
   const locale = options?.locale;
-  const subtle = requireSubtle(locale);
-  let envelope: EncryptedEnvelope;
-  try {
-    const raw = JSON.parse(json) as EncryptedEnvelope;
-    if (raw?.slipkit !== MARKER || raw.cipher !== 'A256GCM') throw new Error('marker');
-    envelope = raw;
-  } catch {
-    throw new SlipEncryptionError(em(locale).notAnEnvelope());
-  }
-  // 지원하지 않는 봉투 버전은 해석하지 않는다 (SPEC §21.3).
-  if (envelope.v !== 1) {
-    throw new SlipEncryptionError(em(locale).unsupportedEnvelopeVersion());
-  }
-  const usePassphrase = typeof key === 'string';
-  if (usePassphrase !== (envelope.kdf !== undefined)) {
-    throw new SlipEncryptionError(
-      envelope.kdf ? em(locale).lockedWithPassphrase() : em(locale).lockedWithRawKey(),
-    );
-  }
-  // 지원하는 알고리즘과 반복 횟수 범위인지 확인한다.
-  if (envelope.kdf) {
-    const { algo, iterations } = envelope.kdf;
-    const validIterations =
-      Number.isSafeInteger(iterations) && iterations >= 1 && iterations <= MAX_PBKDF2_ITERATIONS;
-    if (algo !== 'PBKDF2-SHA256' || !validIterations) {
-      throw new SlipEncryptionError(em(locale).unsupportedKdf());
-    }
-  }
-  const salt = envelope.kdf ? base64urlDecode(envelope.kdf.salt) : new Uint8Array(0);
-  // 복호화에는 봉투에 기록된 반복 횟수를 사용한다.
-  const aesKey = await toAesKey(key, salt, envelope.kdf?.iterations ?? PBKDF2_ITERATIONS, locale);
-  let plainBuf: ArrayBuffer;
-  try {
-    plainBuf = await subtle.decrypt(
-      { name: 'AES-GCM', iv: base64urlDecode(envelope.iv) },
-      aesKey,
-      base64urlDecode(envelope.data),
-    );
-  } catch {
-    // GCM 인증 실패는 잘못된 키나 파일 변조를 뜻한다.
-    throw new SlipEncryptionError(em(locale).decryptFailed());
-  }
-  return parseSlipFile(
-    new TextDecoder().decode(new Uint8Array(plainBuf)),
-    locale === undefined ? undefined : { locale },
-  );
+  return decryptParsedEnvelope(parseEncryptedEnvelope(json, locale), key, locale);
 }

@@ -197,21 +197,31 @@ function looseEquals(a: Scalar, b: Scalar): boolean {
 // ---------------------------------------------------------------------------
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+/** 시간대 표기가 없는 ISO 날짜·시간 (`2026-01-01T00:30`, `2026-01-01 00:30:15.250`) */
+const LOCAL_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/;
 
 function parseDate(value: FormulaValue, what: FormulaSubject, fromData: boolean): Date {
   if (typeof value === 'string') {
-    const m = DATE_ONLY.exec(value);
+    const m = DATE_ONLY.exec(value) ?? LOCAL_DATE_TIME.exec(value);
     if (m) {
       const year = Number(m[1]);
       const month = Number(m[2]);
       const day = Number(m[3]);
-      const date = new Date(Date.UTC(year, month - 1, day));
-      // Date.UTC는 범위 밖 월·일을 다음 달·해로 넘겨 버리므로(2026-13-45 → 2027-02-14),
+      const hour = Number(m[4] ?? 0);
+      const minute = Number(m[5] ?? 0);
+      const second = Number(m[6] ?? 0);
+      const millisecond = Number((m[7] ?? '0').padEnd(3, '0'));
+      // 시간대가 없는 값은 실행 환경의 시간대와 무관하게 UTC로 해석해 브라우저와 Node의 결과를 맞춘다.
+      const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second, millisecond));
+      // Date.UTC는 범위 밖 월·일·시각을 다음 단위로 넘겨 버리므로(2026-13-45 → 2027-02-14),
       // Date 생성 전후의 구성요소가 다르면 유효하지 않은 날짜로 처리한다.
       if (
         date.getUTCFullYear() === year &&
         date.getUTCMonth() === month - 1 &&
-        date.getUTCDate() === day
+        date.getUTCDate() === day &&
+        date.getUTCHours() === hour &&
+        date.getUTCMinutes() === minute &&
+        date.getUTCSeconds() === second
       ) {
         return date;
       }
@@ -295,6 +305,9 @@ function arity(name: FormulaFunctionName, args: FormulaValue[]): void {
   assertArity(name, args.length);
 }
 
+/** ROUND·FLOOR·CEIL이 받는 자릿수 인자의 절대값 상한 */
+const MAX_ROUND_DIGITS = 20;
+
 /** ROUND·FLOOR·CEIL의 공통 구현 — 자릿수 인자만 다르다 */
 function roundArg(
   args: FormulaValue[],
@@ -304,16 +317,76 @@ function roundArg(
 ): number {
   arity(name, args);
   const digits = args.length > 1 ? requireInt(args[1] ?? null, 'digits', origins[1] === true) : 0;
+  if (digits < -MAX_ROUND_DIGITS || digits > MAX_ROUND_DIGITS) {
+    throw valueError(fm().digitsRange(MAX_ROUND_DIGITS), origins[1] === true);
+  }
   return roundTo(toNumber(args[0] ?? null, 'value', origins[0] === true), digits, mode);
 }
 
+/**
+ * 수의 절대값을 10진 자릿수 문자열로 푼다. `String(n)`이 주는 가장 짧은 표기(사람이 적은
+ * 그대로: `1.005` → `"1005"`)를 쓰므로 `1.005 * 100 = 100.49999…` 같은 이진 오차가 끼지 않는다.
+ *
+ * @returns `digits`는 숫자만 이어 붙인 문자열, `intDigits`는 소수점 앞 자릿수(1 이상)
+ */
+function decimalDigits(abs: number): { digits: string; intDigits: number } {
+  const text = String(abs);
+  const exponentAt = text.indexOf('e');
+  const mantissa = exponentAt < 0 ? text : text.slice(0, exponentAt);
+  const exponent = exponentAt < 0 ? 0 : Number(text.slice(exponentAt + 1));
+  const pointAt = mantissa.indexOf('.');
+  let digits = pointAt < 0 ? mantissa : mantissa.slice(0, pointAt) + mantissa.slice(pointAt + 1);
+  let intDigits = (pointAt < 0 ? mantissa.length : pointAt) + exponent;
+  if (intDigits > digits.length) {
+    digits = digits.padEnd(intDigits, '0');
+  } else if (intDigits < 1) {
+    // 0.001처럼 정수부가 없는 수는 앞에 0을 채워 정수부 한 자리를 만든다.
+    digits = '0'.repeat(1 - intDigits) + digits;
+    intDigits = 1;
+  }
+  return { digits, intDigits };
+}
+
+/**
+ * 10진 자릿수 기준으로 반올림·내림·올림한다.
+ * - `round`: 정확한 절반은 0에서 멀어지는 쪽으로 (2.5 → 3, -2.5 → -3)
+ * - `floor`·`ceil`: 수학적 방향(음의 무한대·양의 무한대 쪽)
+ */
 function roundTo(n: number, digits: number, mode: 'round' | 'floor' | 'ceil'): number {
-  const factor = 10 ** digits;
-  const scaled = n * factor;
-  // 부동소수점 오차 보정 (예: 1.005 * 100 = 100.49999...)
-  const corrected = Number(scaled.toPrecision(12));
-  const fn = mode === 'round' ? Math.round : mode === 'floor' ? Math.floor : Math.ceil;
-  return fn(corrected) / factor;
+  if (n === 0) return 0;
+  const negative = n < 0;
+  const decimal = decimalDigits(Math.abs(n));
+  const cut = decimal.intDigits + digits;
+  // 남기는 자릿수가 실제 자릿수보다 많으면 뒤를 0으로 채워 자리 이동을 맞춘다.
+  const padded = decimal.digits.padEnd(Math.max(cut, 0), '0');
+  const kept = cut > 0 ? padded.slice(0, cut) : '';
+  const rest = cut > 0 ? padded.slice(cut) : padded;
+  const restNonZero = /[1-9]/.test(rest);
+  let bumpMagnitude: boolean;
+  if (mode === 'round') {
+    // cut이 음수이면 버리는 첫 자리가 정수부 앞의 0이므로 올리지 않는다.
+    bumpMagnitude = cut >= 0 && (rest[0] ?? '0') >= '5';
+  } else if (mode === 'floor') {
+    bumpMagnitude = negative && restNonZero;
+  } else {
+    bumpMagnitude = !negative && restNonZero;
+  }
+  const magnitude = (kept === '' ? 0n : BigInt(kept)) + (bumpMagnitude ? 1n : 0n);
+  if (magnitude === 0n) return 0;
+  // 정수 자릿수와 10의 거듭제곱을 문자열로 합쳐 Number가 가장 가까운 double을 고르게 한다.
+  const value = Number(`${magnitude.toString()}e${-digits}`);
+  return negative ? -value : value;
+}
+
+/** 집계 대상의 최솟값·최댓값을 반복문으로 구한다 — 인자 전개(spread)는 큰 범위에서 호출 스택을 넘친다. */
+function extremum(numbers: readonly number[], pick: 'min' | 'max'): number {
+  if (numbers.length === 0) return 0;
+  let result = numbers[0]!;
+  for (let i = 1; i < numbers.length; i++) {
+    const value = numbers[i]!;
+    if (pick === 'min' ? value < result : value > result) result = value;
+  }
+  return result;
 }
 
 /**
@@ -336,14 +409,8 @@ export const BUILTIN_FUNCTIONS: Record<
   },
   /** 빈 값(null·'')을 제외한 항목 수 */
   COUNT: (args) => flatten(args).filter((v) => v !== null && v !== '').length,
-  MIN: (args, _ctx, origins) => {
-    const numbers = collectNumbers(args, origins);
-    return numbers.length === 0 ? 0 : Math.min(...numbers);
-  },
-  MAX: (args, _ctx, origins) => {
-    const numbers = collectNumbers(args, origins);
-    return numbers.length === 0 ? 0 : Math.max(...numbers);
-  },
+  MIN: (args, _ctx, origins) => extremum(collectNumbers(args, origins), 'min'),
+  MAX: (args, _ctx, origins) => extremum(collectNumbers(args, origins), 'max'),
 
   // --- 조건부 집계 ---
   SUMIF: (args, _ctx, origins) => {

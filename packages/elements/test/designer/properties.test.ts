@@ -2075,17 +2075,26 @@ describe('<slip-designer> 파라미터 관리 (ADR-034)', () => {
     el.remove();
   });
 
-  it('정의부 삭제는 항목을 제거하고, 요소가 사용하는 키는 목록에 남으며 삭제가 비활성화된다', async () => {
+  it('요소가 사용하는 정의는 사용 위치를 안내하고 지우지 않으며, 요소를 지운 뒤에는 정의를 지울 수 있다', async () => {
     const el = await loadDesigner();
     await addByCanvasClick(el, strings.designer.addField);
-    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { parameter: string };
+    const field = fileOf(el).template.pages[0]!.elements.at(-1)! as never as { id: string; name: string; parameter: string };
 
     byAria(el, `${field.parameter} ${strings.designer.delete}`).click();
     await el.updateComplete;
 
-    // 정의부에서는 빠지지만 요소가 쓰고 있으니 목록에는 남고, 그 삭제 버튼은 비활성
+    // 필드가 쓰고 있으니 정의는 그대로이고, 어느 요소가 쓰는지 안내합니다
+    expect(defsOf(el)?.map((d) => d.key)).toContain(field.parameter);
+    expect(el.shadowRoot!.querySelector('.prop-panel .input-error')?.textContent)
+      .toContain(`${field.name} (${strings.designer.pageLabel.replace('{n}', '1')})`);
+
+    // 요소를 지우면 더는 쓰이지 않으므로 정의를 지울 수 있습니다
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
+    await el.updateComplete;
+    byAria(el, `${field.parameter} ${strings.designer.delete}`).click();
+    await el.updateComplete;
     expect(defsOf(el)).toBeUndefined();
-    expect(byAria(el, `${field.parameter} ${strings.designer.delete}`).disabled).toBe(true);
+    expect(byAria(el, `${field.parameter} ${strings.designer.delete}`)).toBeUndefined();
     el.remove();
   });
 });

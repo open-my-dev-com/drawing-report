@@ -8,7 +8,8 @@ import type { JsonValue, SlipFile, SlipTemplateFile, SlipVoucherFile } from './f
 import { createPdfRenderer, type SlipFont } from './render/index.js';
 import type { FormulaAst } from './formula/parser.js';
 import { evaluateFormula, type FormulaContext, type FormulaValue } from './formula/evaluator.js';
-import { encryptSlipFile, decryptSlipFile } from './encryption/index.js';
+import { encryptSlipFile } from './encryption/index.js';
+import { decryptParsedEnvelope, isKeyMismatchError, parseEncryptedEnvelope } from './encryption/crypto.js';
 import { SlipEncryptionError } from './encryption/errors.js';
 import { em } from './encryption/messages.js';
 
@@ -82,7 +83,9 @@ export interface SlipKit {
    * @param json - 암호화 봉투 JSON 문자열
    * @param key - 이 호출에 사용할 키. 생략하면 설정된 키를 사용한다
    * @returns 복호화하고 검증한 `.slip` 파일
-   * @throws SlipEncryptionError 키가 없거나 복호화에 실패하거나 파일이 변조되었을 때
+   * @throws SlipEncryptionError 키가 없거나, 봉투가 손상·미지원 형식이거나, 시도한 어떤 키로도
+   *   복호화하지 못했을 때(키 불일치·파일 변조)
+   * @throws SlipParseError 복호화된 내용이 유효한 `.slip`이 아니면
    */
   decrypt(json: string, key?: EncryptionKey): Promise<SlipFile>;
 }
@@ -168,20 +171,22 @@ export function createSlipKit(config: SlipKitConfig = {}): SlipKit {
       encryptSlipFile(file, keyForEncrypt(key), { ...(config.locale === undefined ? {} : { locale: config.locale }) }),
     decrypt: async (json, key) => {
       const keys = keysForDecrypt(key);
-      let lastError: unknown;
+      const locale = config.locale;
+      // 봉투 손상은 키와 무관하므로 키를 시도하기 전에 한 번만 검사해 보고한다.
+      const envelope = parseEncryptedEnvelope(json, locale);
+      let lastError: SlipEncryptionError | undefined;
       for (const k of keys) {
         try {
-          return await decryptSlipFile(json, k, {
-            ...(config.locale === undefined ? {} : { locale: config.locale }),
-          });
+          return await decryptParsedEnvelope(envelope, k, locale);
         } catch (error) {
-          if (!(error instanceof SlipEncryptionError)) throw error;
-          lastError = error;
+          // 키 불일치만 다음 키로 넘어간다. 복호화된 내용의 검증 실패 등은 그대로 전달한다.
+          if (!isKeyMismatchError(error)) throw error;
+          lastError = error as SlipEncryptionError;
         }
       }
-      throw lastError instanceof Error
-        ? lastError
-        : new SlipEncryptionError(em(config.locale).noMatchingKey());
+      // 키를 하나만 시도했으면 그 오류를, 여러 개를 시도했으면 어느 키도 맞지 않았다고 알린다.
+      if (keys.length === 1 && lastError !== undefined) throw lastError;
+      throw new SlipEncryptionError(em(locale).noMatchingKey());
     },
   };
 }

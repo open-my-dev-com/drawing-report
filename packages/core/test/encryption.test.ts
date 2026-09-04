@@ -156,3 +156,75 @@ describe('메시지 언어 (로케일 설정)', () => {
     );
   });
 });
+
+describe('봉투 검증 — 손상된 봉투는 모두 SlipEncryptionError로 보고한다 (SPEC §21.3)', () => {
+  async function envelopeOf(key: string | Uint8Array = 'pw'): Promise<Record<string, unknown>> {
+    return JSON.parse(await encryptSlipFile(template(), key)) as Record<string, unknown>;
+  }
+  const rejects = (env: unknown, key: string | Uint8Array = 'pw') =>
+    expect(decryptSlipFile(JSON.stringify(env), key)).rejects;
+
+  it.each([
+    ['salt 누락', (e: Record<string, unknown>) => { delete (e['kdf'] as Record<string, unknown>)['salt']; }, "'kdf.salt'"],
+    ['salt 오형식', (e: Record<string, unknown>) => { (e['kdf'] as Record<string, unknown>)['salt'] = '***'; }, "'kdf.salt'"],
+    ['salt 길이 불일치', (e: Record<string, unknown>) => { (e['kdf'] as Record<string, unknown>)['salt'] = 'AAAA'; }, "'kdf.salt'"],
+    ['salt가 문자열이 아님', (e: Record<string, unknown>) => { (e['kdf'] as Record<string, unknown>)['salt'] = 12; }, "'kdf.salt'"],
+    ['iv 누락', (e: Record<string, unknown>) => { delete e['iv']; }, "'iv'"],
+    ['iv 오형식', (e: Record<string, unknown>) => { e['iv'] = 'not base64url!'; }, "'iv'"],
+    ['iv 길이 불일치', (e: Record<string, unknown>) => { e['iv'] = 'AAAAAAAA'; }, "'iv'"],
+    ['data 누락', (e: Record<string, unknown>) => { delete e['data']; }, "'data'"],
+    ['data 오형식', (e: Record<string, unknown>) => { e['data'] = 'A'; }, "'data'"],
+    ['data가 객체', (e: Record<string, unknown>) => { e['data'] = { x: 1 }; }, "'data'"],
+    ['빈 암호문', (e: Record<string, unknown>) => { e['data'] = ''; }, "'data'"],
+    ['kdf가 null', (e: Record<string, unknown>) => { e['kdf'] = null; }, "'kdf'"],
+    ['kdf가 배열', (e: Record<string, unknown>) => { e['kdf'] = []; }, "'kdf'"],
+  ])('%s → 봉투 손상 오류', async (_label, mutate, field) => {
+    const env = await envelopeOf();
+    mutate(env);
+    await rejects(env).toBeInstanceOf(SlipEncryptionError);
+    await rejects(env).toThrow(field);
+  });
+
+  it('kdf가 null이면 빈 솔트로 해석하지 않고 손상으로 보고한다 (원시 키로도 마찬가지)', async () => {
+    const env = await envelopeOf(new Uint8Array(32).fill(7));
+    env['kdf'] = null;
+    await rejects(env, new Uint8Array(32).fill(7)).toThrow("'kdf'");
+  });
+
+  it('반복 횟수가 숫자가 아니면 키 파생 방식 오류로 보고한다', async () => {
+    const env = await envelopeOf();
+    (env['kdf'] as Record<string, unknown>)['iterations'] = '600000';
+    await rejects(env).toThrow('key derivation');
+  });
+
+  it('버전을 암호보다 먼저 검사한다 — v: 2인 봉투는 미래 버전으로 보고한다', async () => {
+    const env = await envelopeOf();
+    env['v'] = 2;
+    env['cipher'] = 'A256GCM-SIV';
+    await rejects(env).toThrow('envelope version');
+  });
+
+  it('지원하지 않는 암호 방식은 별도 오류로 보고한다', async () => {
+    const env = await envelopeOf();
+    env['cipher'] = 'CHACHA';
+    await rejects(env).toThrow('cipher');
+  });
+
+  it('slipkit 표식이 없거나 JSON이 객체가 아니면 봉투 아님으로 보고한다', async () => {
+    await expect(decryptSlipFile('[1,2]', 'pw')).rejects.toThrow('Not an encrypted');
+    await expect(decryptSlipFile('null', 'pw')).rejects.toThrow('Not an encrypted');
+    await expect(decryptSlipFile('{{', 'pw')).rejects.toThrow('Not an encrypted');
+  });
+
+  it('손상 메시지는 세 언어로 제공한다', async () => {
+    const env = await envelopeOf();
+    env['iv'] = 'AAAA';
+    const json = JSON.stringify(env);
+    await expect(decryptSlipFile(json, 'pw')).rejects.toThrow("The encrypted envelope is corrupted — the 'iv' field");
+    await expect(decryptSlipFile(json, 'pw', { locale: 'ko-KR' })).rejects.toThrow("암호화 봉투가 손상되었습니다. 'iv' 필드");
+    await expect(decryptSlipFile(json, 'pw', { locale: 'ja' })).rejects.toThrow("暗号化エンベロープが破損しています — 'iv' フィールド");
+    env['cipher'] = 'X';
+    await expect(decryptSlipFile(JSON.stringify(env), 'pw', { locale: 'ko-KR' })).rejects.toThrow('지원하지 않는 암호 방식');
+    await expect(decryptSlipFile(JSON.stringify(env), 'pw', { locale: 'ja' })).rejects.toThrow('サポートされていない暗号方式');
+  });
+});

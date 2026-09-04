@@ -2,7 +2,7 @@
  * SlipKit MCP 서버 — 도구 7종과 `.slip` JSON Schema 리소스를 제공한다.
  * 파일 접근은 {@link FileSystemStorage}를 통해 작업 디렉터리 안으로 제한한다.
  */
-import { writeFile } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
@@ -19,11 +19,24 @@ import {
 } from '@omdc-slipkit/core';
 import {
   FileSystemStorage,
+  assertInsideRootReal,
+  isNotFound,
   reasonOf,
   resolveInRoot,
+  writeFileAtomic,
   type FileSystemStorageOptions,
 } from './storage.js';
-import { applyEditOp, editOpSchema, McpToolError } from './edit.js';
+import { PACKAGE_VERSION } from './cli-command.js';
+import {
+  applyEditOp,
+  assertFileImages,
+  assertImageValues,
+  editOpSchema,
+  imageValueSpec,
+  MAX_IMAGE_BYTES,
+  McpToolError,
+} from './edit.js';
+import { PathQueue } from './file-queue.js';
 import { bodyOf, elideDataUrls, findElement, summarize } from './summary.js';
 import { SCHEMA_TOPICS, schemaTopicText } from './schema-docs.js';
 
@@ -31,12 +44,9 @@ import { SCHEMA_TOPICS, schemaTopicText } from './schema-docs.js';
 export interface SlipMcpServerOptions extends FileSystemStorageOptions {
   /** PDF 렌더링에 사용할 커스텀 폰트. 생략하면 로케일에 맞는 동봉 폰트를 사용한다 */
   fonts?: readonly SlipFont[];
-  /** PDF 링크 서버의 기본 URL. 지정하면 렌더 응답에 PDF URL을 포함한다 */
+  /** PDF 링크 서버의 기본 URL (접근 토큰 포함). 지정하면 렌더 응답에 PDF URL을 포함한다 */
   pdfBaseUrl?: string;
 }
-
-/** 패키지 버전. 배포 버전을 올릴 때 함께 갱신한다. */
-const SERVER_VERSION = '0.0.1';
 
 /** 연결 시 MCP 클라이언트에 전달하는 작업 지침. */
 const INSTRUCTIONS = `SlipKit MCP server: create and edit .slip business-form files in the working directory.
@@ -50,13 +60,15 @@ addressing elements by id. Do not rewrite whole files to make small changes.
 
 Every save validates the file and reports precise errors without writing anything — fix and retry.
 Do not pass source image data as base64 tool input. Attach fixed images with slip_edit's set_image op
-using a file path inside the working directory. To add a new image element, put add_element before
+using a file path inside the working directory (PNG or JPEG, at most ${MAX_IMAGE_BYTES / 1024 / 1024} MiB;
+the file content is checked). To add a new image element, put add_element before
 set_image in the same ops array; operations run in order and validation happens after all of them.
 set_image creates a fixed asset, not a voucher image-parameter value. Build filled vouchers with
 slip_build_voucher. Issued (finalized) vouchers are immutable and this server cannot issue them.
 For visual inspection, call slip_render_pdf with preview: true. It returns one page as a PNG image;
-use previewPage to select another page. The PDF is always saved to the working directory. The result
-includes its absolute path and a resource link, plus an HTTP URL when pdfBaseUrl is configured.`;
+use previewPage to select another page. The PDF is always saved to the working directory (outPath must
+end with .pdf; only an existing PDF file is replaced). The result includes its absolute path and a
+resource link, plus an HTTP URL when pdfBaseUrl is configured.`;
 
 /** 도구 응답 하나를 텍스트로 만든다. */
 function text(value: unknown): { content: { type: 'text'; text: string }[] } {
@@ -84,6 +96,41 @@ function savedLine(id: string, file: SlipFile): string {
 
 /** PDF의 72pt/in 좌표를 2배로 래스터화해 144ppi 미리보기를 만든다. */
 const PREVIEW_SCALE = 2;
+
+/** PDF 파일이 시작하는 서명 */
+const PDF_SIGNATURE = '%PDF-';
+
+/**
+ * PDF 출력 경로에 이미 있는 파일을 덮어써도 되는지 확인한다.
+ * 파일이 없으면 통과하고, 있으면 PDF 서명으로 시작할 때만 통과한다.
+ *
+ * @param abs - 출력 파일의 절대 경로
+ * @param target - 오류 메시지에 쓸 상대 경로
+ * @throws McpToolError 기존 파일이 PDF가 아니거나 읽을 수 없을 때
+ */
+async function assertReplaceablePdf(abs: string, target: string): Promise<void> {
+  let handle: Awaited<ReturnType<typeof open>>;
+  try {
+    handle = await open(abs, 'r');
+  } catch (error) {
+    if (isNotFound(error)) return;
+    throw new McpToolError(`Cannot write the PDF to "${target}": ${reasonOf(error)}`);
+  }
+  try {
+    const { bytesRead, buffer } = await handle.read(Buffer.alloc(PDF_SIGNATURE.length), 0, PDF_SIGNATURE.length, 0);
+    if (bytesRead < PDF_SIGNATURE.length || buffer.toString('latin1') !== PDF_SIGNATURE) {
+      throw new McpToolError(
+        `"${target}" already exists and is not a PDF file. slip_render_pdf replaces only existing PDF files; ` +
+          'choose another outPath ending with .pdf.',
+      );
+    }
+  } catch (error) {
+    if (error instanceof McpToolError) throw error;
+    throw new McpToolError(`Cannot write the PDF to "${target}": ${reasonOf(error)}`);
+  } finally {
+    await handle.close();
+  }
+}
 
 /**
  * PDF의 한 페이지를 PNG 이미지 콘텐츠로 변환한다.
@@ -136,9 +183,22 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
   });
 
   const server = new McpServer(
-    { name: 'slipkit-mcp-server', version: SERVER_VERSION },
+    { name: 'slipkit-mcp-server', version: PACKAGE_VERSION },
     { instructions: INSTRUCTIONS },
   );
+
+  // 같은 파일을 읽고 고쳐 저장하는 작업은 파일별로 줄을 세워 나중 저장이 앞선 변경을 지우지 않게 한다.
+  const queue = new PathQueue();
+
+  /** 큐 키를 만든다. 대소문자를 구분하지 않는 파일 시스템(Windows)에서는 같은 파일이 같은 키가 되게 한다. */
+  function queueKey(abs: string): string {
+    return process.platform === 'win32' ? abs.toLowerCase() : abs;
+  }
+
+  /** 저장 키가 가리키는 파일에 대한 작업을 직렬화해 실행한다. */
+  function withFile<T>(id: string, task: () => Promise<T>): Promise<T> {
+    return queue.run(queueKey(storage.resolvePath(id)), task);
+  }
 
   /** 기존 파일을 읽는다. 파일이 없으면 null을 반환한다. */
   async function loadExisting(id: string): Promise<SlipFile | null> {
@@ -288,16 +348,19 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
       try {
         const file = validateSlipFile(raw, locale === undefined ? {} : { locale });
         rejectIssued(file, id);
-        const existing = await loadExisting(id);
-        if (existing !== null) {
-          rejectIssued(existing, id);
-          if (overwrite !== true) {
-            throw new McpToolError(
-              `"${id}" already exists. Use slip_edit for changes, or pass overwrite: true to replace it.`,
-            );
+        assertFileImages(file);
+        await withFile(id, async () => {
+          const existing = await loadExisting(id);
+          if (existing !== null) {
+            rejectIssued(existing, id);
+            if (overwrite !== true) {
+              throw new McpToolError(
+                `"${id}" already exists. Use slip_edit for changes, or pass overwrite: true to replace it.`,
+              );
+            }
           }
-        }
-        await storage.save(id, file);
+          await storage.save(id, file);
+        });
         return text(savedLine(id, file));
       } catch (error) {
         return toolError(error);
@@ -319,8 +382,9 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         'source; omit fields you do not change); add_element {pageIndex, element, ' +
         'beforeId?}; remove_element {id}; add_page {index?}; remove_page {index}; add_parameter ' +
         '{parameter}; set_parameter {key, fields}; remove_parameter {key}; set_cell {elementId, row, ' +
-        'column, fields}; set_image {elementId, imagePath} (reads the image file from the working ' +
-        'directory and stores it as an asset — never pass base64); set_values {values} (voucher only; null is stored as the value, not a removal).',
+        'column, fields}; set_image {elementId, imagePath} (reads a PNG or JPEG file of at most ' +
+        `${MAX_IMAGE_BYTES / 1024 / 1024} MiB from the working directory and stores it as an asset — never pass base64); ` +
+        'set_values {values} (voucher only; null is stored as the value, not a removal).',
       inputSchema: {
         path: z.string().describe('File path relative to the working directory'),
         ops: z
@@ -332,19 +396,26 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
     },
     async ({ path: id, ops }) => {
       try {
-        const original = await storage.load(id);
-        rejectIssued(original, id);
-        const draft = structuredClone(original);
-        const applied: string[] = [];
-        for (const op of ops) {
-          applied.push(
-            await applyEditOp(draft, op, {
-              resolveFilePath: (relPath) => resolveInRoot(storage.rootDir, relPath, locale),
-            }),
-          );
-        }
-        const validated = validateSlipFile(draft, locale === undefined ? {} : { locale });
-        await storage.save(id, validated);
+        const applied = await withFile(id, async () => {
+          const original = await storage.load(id);
+          rejectIssued(original, id);
+          const draft = structuredClone(original);
+          const lines: string[] = [];
+          for (const op of ops) {
+            lines.push(
+              await applyEditOp(draft, op, {
+                resolveFilePath: async (relPath) => {
+                  const abs = resolveInRoot(storage.rootDir, relPath, locale);
+                  await assertInsideRootReal(storage.rootDir, abs, locale, relPath);
+                  return abs;
+                },
+              }),
+            );
+          }
+          const validated = validateSlipFile(draft, locale === undefined ? {} : { locale });
+          await storage.save(id, validated);
+          return lines;
+        });
         return text(`Applied to ${id}:\n- ${applied.join('\n- ')}`);
       } catch (error) {
         return toolError(error);
@@ -383,15 +454,18 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         if (template.kind !== 'template') {
           throw new McpToolError(`"${templatePath}" is a voucher, not a template.`);
         }
-        const existing = await loadExisting(outPath);
-        if (existing !== null) {
-          rejectIssued(existing, outPath);
-          if (overwrite !== true) {
-            throw new McpToolError(`"${outPath}" already exists. Pass overwrite: true to replace it.`);
-          }
-        }
+        assertImageValues(values ?? {}, imageValueSpec(template.template));
         const voucher = buildVoucher(template, (values ?? {}) as Record<string, JsonValue>);
-        await storage.save(outPath, voucher);
+        await withFile(outPath, async () => {
+          const existing = await loadExisting(outPath);
+          if (existing !== null) {
+            rejectIssued(existing, outPath);
+            if (overwrite !== true) {
+              throw new McpToolError(`"${outPath}" already exists. Pass overwrite: true to replace it.`);
+            }
+          }
+          await storage.save(outPath, voucher);
+        });
         return text(savedLine(outPath, voucher));
       } catch (error) {
         return toolError(error);
@@ -407,14 +481,15 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         'Render a template or voucher to a PDF file in the working directory, using the bundled ' +
         'fonts. Use this to check the visual result of your work (a client that can view files can ' +
         'open the PDF). A template renders with empty values; render a built voucher to see real data. ' +
-        'The output path cannot use the .slip extension. An existing non-.slip output file is replaced.',
+        'The output path must end with .pdf. An existing file is replaced only if it is a PDF; any other ' +
+        'existing file is left untouched and the call fails.',
       inputSchema: {
         path: z.string().describe('Template or voucher path relative to the working directory'),
         outPath: z
           .string()
           .optional()
           .describe(
-            'Output path relative to the working directory; defaults to the input path with .pdf and replaces an existing file',
+            'Output path relative to the working directory, ending with .pdf; defaults to the input path with .pdf. Replaces an existing PDF file only',
           ),
         preview: z
           .boolean()
@@ -433,12 +508,23 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
       try {
         const file = await storage.load(id);
         const target = outPath ?? id.replace(/\.slip$/, '') + '.pdf';
-        if (target.toLowerCase().endsWith('.slip')) {
-          throw new McpToolError('PDF output path cannot use the .slip extension.');
+        // .pdf가 아닌 이름으로는 쓰지 않는다 — .slip·이미지 등 다른 파일을 PDF로 덮어쓰는 일을 막는다.
+        if (!/\.pdf$/i.test(target)) {
+          throw new McpToolError(`PDF output path "${target}" must end with .pdf.`);
         }
-        const pdf = await slipKit.render(file);
         const abs = resolveInRoot(storage.rootDir, target, locale);
-        await writeFile(abs, pdf);
+        const pdf = await slipKit.render(file);
+        // 같은 출력 파일을 향한 검사와 쓰기는 줄을 세워 검사 뒤에 다른 호출이 끼어들지 못하게 한다.
+        await queue.run(queueKey(abs), async () => {
+          // 링크를 거쳐 작업 디렉터리 밖에 쓰는 일을 막는다.
+          await assertInsideRootReal(storage.rootDir, abs, locale, target);
+          await assertReplaceablePdf(abs, target);
+          try {
+            await writeFileAtomic(abs, pdf);
+          } catch (error) {
+            throw new McpToolError(`Cannot write the PDF to "${target}": ${reasonOf(error)}`);
+          }
+        });
         // 링크 서버가 켜져 있으면 렌더 응답에 PDF URL을 포함한다.
         const link =
           options.pdfBaseUrl === undefined

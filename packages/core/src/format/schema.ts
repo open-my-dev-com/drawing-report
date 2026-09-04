@@ -7,26 +7,13 @@ import { z } from 'zod';
 import { CURRENT_SCHEMA_VERSION } from './version.js';
 import { migrateSlipDocument } from './migrate.js';
 import { fmt, withFormatLocale, zodParseParams } from './messages.js';
+import { MAX_IMAGE_BYTES, inspectImageDataUrl, type ImageInspection } from './image-source.js';
 
 export { CURRENT_SCHEMA_VERSION };
 
 // ---------------------------------------------------------------------------
 // 공통 원자 타입
 // ---------------------------------------------------------------------------
-
-/** 용지 좌표계에서 사용하는 mm 단위의 유한한 수. */
-const millimeter = z.number().finite();
-const nonNegativeMm = millimeter.nonnegative();
-const positiveMm = millimeter.positive();
-
-const idSchema = z.string().min(1);
-
-/** 색상은 #RRGGBB 또는 #RRGGBBAA */
-const colorSchema = z
-  .string()
-  .regex(/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, { error: () => fmt().colorFormat() });
-
-const alignmentSchema = z.enum(['left', 'center', 'right']);
 
 /**
  * 렌더러와 검증기의 메모리 사용량을 제한하는 구조 크기 상한 (SPEC §3.2).
@@ -61,18 +48,78 @@ export const SLIP_LIMITS = {
   maxLineHeight: 10,
   /** 자간 절대값 상한(pt) */
   maxCharacterSpacing: 100,
+  /** 위치·크기·용지·트랙·테두리 두께·여백 등 mm 값의 상한 (그리드 트랙 합 포함) */
+  maxMillimeters: 5000,
+  /** 글자 크기 상한(pt) */
+  maxFontSize: 500,
+  /** 이름·직접 입력·수식·라벨 등 구조 문자열과 렌더할 표시 문자열의 최대 길이 */
+  maxTextLength: 20_000,
+  /** `values`·`sampleValues` 문자열의 최대 길이 — 2 MiB 이미지의 `data:` 표기가 들어가야 한다 */
+  maxValueStringLength: 3_000_000,
+  /** 이미지 한 장의 디코딩 크기 상한(바이트) */
+  maxImageBytes: MAX_IMAGE_BYTES,
 } as const;
 
-const HTTP_SRC = /^https?:\/\/\S+$/;
-const DATA_SRC = /^data:[\w.+-]+\/[\w.+-]+;base64,[A-Za-z0-9+/]+=*$/;
-const ASSET_SRC = /^asset:\/\/\S+$/;
+/** 용지 좌표계에서 사용하는 mm 단위의 유한한 수. */
+const millimeter = z
+  .number()
+  .finite()
+  .max(SLIP_LIMITS.maxMillimeters, { error: () => fmt().millimetersMax(SLIP_LIMITS.maxMillimeters) });
+const nonNegativeMm = millimeter.nonnegative();
+const positiveMm = millimeter.positive();
 
-/** 이미지 참조 문자열에 허용하는 URL, `data:` base64, `asset://` 형식. */
+/** 이름·직접 입력·수식 등 구조에 들어가는 문자열. */
+const shortText = z
+  .string()
+  .max(SLIP_LIMITS.maxTextLength, { error: () => fmt().textMax(SLIP_LIMITS.maxTextLength) });
+
+const idSchema = shortText.min(1);
+
+/** 색상은 #RRGGBB 또는 #RRGGBBAA */
+const colorSchema = z
+  .string()
+  .regex(/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, { error: () => fmt().colorFormat() });
+
+const alignmentSchema = z.enum(['left', 'center', 'right']);
+
+/** 글자 크기(pt) */
+const fontSizeSchema = z
+  .number()
+  .positive()
+  .max(SLIP_LIMITS.maxFontSize, { error: () => fmt().fontSizeMax(SLIP_LIMITS.maxFontSize) });
+
+const HTTP_SRC = /^https?:\/\/\S+$/;
+/** PDF에 심을 수 있는 PNG·JPEG의 `data:` base64 표기 */
+const DATA_SRC = /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+=*$/;
+const ASSET_SRC = /^asset:\/\/\S+$/;
+/** 세 형식을 하나로 합친 패턴 — JSON Schema에 `pattern`으로 그대로 나온다 */
+const SRC_PATTERN = /^(?:https?:\/\/\S+|data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+=*|asset:\/\/\S+)$/;
+
+/** 이미지 참조 문자열에 허용하는 URL, `data:` base64(PNG·JPEG), `asset://` 형식. */
 const srcSchema = z
   .string()
-  .refine((s) => HTTP_SRC.test(s) || DATA_SRC.test(s) || ASSET_SRC.test(s), {
-    error: () => fmt().srcFormat(),
-  });
+  .max(SLIP_LIMITS.maxValueStringLength, { error: () => fmt().valueStringMax(SLIP_LIMITS.maxValueStringLength) })
+  .regex(SRC_PATTERN, { error: () => fmt().srcFormat() });
+
+/** 검사 실패 사유를 사용자 문구로 바꾼다. */
+function imageInspectionMessage(inspection: Exclude<ImageInspection, { ok: true }>): string {
+  switch (inspection.reason) {
+    case 'size':
+      return fmt().imageTooLarge(SLIP_LIMITS.maxImageBytes);
+    case 'content':
+      return fmt().imageContentMismatch();
+    default:
+      return fmt().imageMimeUnsupported();
+  }
+}
+
+/** `data:` 이미지의 선언 MIME·서명·크기를 검사해 문제가 있으면 이슈를 추가한다. */
+function checkDataImage(src: string, ctx: z.RefinementCtx, path: (string | number)[]): ImageInspection | undefined {
+  if (!src.startsWith('data:')) return undefined;
+  const inspection = inspectImageDataUrl(src);
+  if (!inspection.ok) ctx.addIssue({ code: 'custom', path, message: imageInspectionMessage(inspection) });
+  return inspection;
+}
 
 const semverSchema = z
   .string()
@@ -103,9 +150,9 @@ const colorStyleShape = {
  * 조건식이 참이면 지정한 색과 강조로 기본 서식을 덮어쓴다 (SPEC §9.4).
  */
 const conditionalFormatRuleSchema = z
-  .object({
+  .strictObject({
     /** 논리값을 반환하는 조건식. 항목 구간 안에서는 현재 항목의 필드를 참조할 수 있다. */
-    condition: z.string().min(1),
+    condition: idSchema,
     fontColor: colorSchema.optional(),
     backgroundColor: colorSchema.optional(),
     borderColor: colorSchema.optional(),
@@ -163,12 +210,12 @@ const pagePlacementSchema = z.discriminatedUnion('mode', [
 
 const elementBaseShape = {
   id: idSchema,
-  name: z.string(),
-  position: z.object({ x: nonNegativeMm, y: nonNegativeMm }),
+  name: shortText,
+  position: z.strictObject({ x: nonNegativeMm, y: nonNegativeMm }),
   width: nonNegativeMm,
   height: nonNegativeMm,
   /** 같은 값을 가진 요소를 함께 선택하기 위한 그룹 식별자. */
-  group: z.string().min(1).optional(),
+  group: idSchema.optional(),
   /** 출력 페이지 배치 설정. 생략하면 모든 출력 페이지에 같은 위치로 표시한다. */
   pagePlacement: pagePlacementSchema.optional(),
 };
@@ -189,8 +236,8 @@ const gridBaseShape = {
 const verticalAlignmentSchema = z.enum(['top', 'middle', 'bottom']);
 
 const fontShape = {
-  fontName: z.string().min(1).optional(),
-  fontSize: z.number().positive().optional(),
+  fontName: idSchema.optional(),
+  fontSize: fontSizeSchema.optional(),
   alignment: alignmentSchema.optional(),
   /** 수직 정렬 — 생략하면 상단 */
   verticalAlignment: verticalAlignmentSchema.optional(),
@@ -220,12 +267,12 @@ const fontShape = {
 // 요소 스키마
 // ---------------------------------------------------------------------------
 
-const textElementSchema = z.object({
+const textElementSchema = z.strictObject({
   type: z.literal('text'),
   ...elementBaseShape,
   ...colorStyleShape,
   /** 직접 입력한 텍스트. */
-  content: z.string(),
+  content: shortText,
   ...fontShape,
   /** 값에 따라 색과 글자 강조를 바꾸는 조건부 서식 규칙. */
   conditionalFormats: conditionalFormatsSchema.optional(),
@@ -239,7 +286,7 @@ const textElementSchema = z.object({
 const overflowSchema = z.enum(['clip', 'shrink']);
 
 /** 그리드 열. 너비는 mm 단위의 절대값이다. */
-const gridColumnSchema = z.object({
+const gridColumnSchema = z.strictObject({
   width: positiveMm,
   /**
    * 자동 병합 여부. 항목 구간에서 이전 항목과 값이 같은 셀을 세로로 병합한다.
@@ -249,9 +296,9 @@ const gridColumnSchema = z.object({
 });
 
 /** 그리드 행. 높이는 mm 단위의 절대값이다. */
-const gridRowSchema = z.object({ height: positiveMm });
+const gridRowSchema = z.strictObject({ height: positiveMm });
 
-const gridCellSchema = z.object({
+const gridCellSchema = z.strictObject({
   ...colorStyleShape,
   /** 0-기반 행/열 좌표 */
   row: z.number().int().nonnegative(),
@@ -260,16 +307,16 @@ const gridCellSchema = z.object({
    * 편집기에서 셀을 식별하는 이름. PDF에 출력하지 않으며 값 소스와도 무관하다.
    * 식별 키가 아니므로 중복을 허용한다. 없으면 편집기는 좌표를 표시한다.
    */
-  name: z.string().optional(),
+  name: shortText.optional(),
   /** 병합 범위 (기본 1) */
   rowSpan: z.number().int().min(1).optional(),
   colSpan: z.number().int().min(1).optional(),
   /** 직접 입력한 글 */
-  content: z.string().optional(),
+  content: shortText.optional(),
   /** 값 키 — 항목 구간 안이면 그 항목의 필드, 밖이면 전표 values의 키 */
   parameter: idSchema.optional(),
   /** 표시 값을 계산하는 수식. */
-  formula: z.string().optional(),
+  formula: shortText.optional(),
   /** 그리드 기본 overflow 설정을 덮어쓸 셀별 처리 방식. */
   overflow: overflowSchema.optional(),
   ...fontShape,
@@ -292,10 +339,10 @@ const bandPlacementSchema = z.enum([
  * 같은 출력 시점을 갖는 연속된 템플릿 행 범위.
  * 반복 그리드의 모든 템플릿 행은 정확히 하나의 행 구간에 속한다.
  */
-const gridBandSchema = z.object({
+const gridBandSchema = z.strictObject({
   id: idSchema,
   /** 편집기에서 표시할 구간 이름. */
-  name: z.string().optional(),
+  name: shortText.optional(),
   /** 구간이 차지하는 템플릿 행 범위 (0-기반, 양끝 포함) */
   fromRow: z.number().int().nonnegative(),
   toRow: z.number().int().nonnegative(),
@@ -338,7 +385,7 @@ const gridPaginationSchema = z.discriminatedUnion('mode', [
 ]);
 
 /** 항목 배열을 행 구간 구성에 따라 반복 출력하는 설정. */
-const gridRepeatSchema = z.object({
+const gridRepeatSchema = z.strictObject({
   /** 전표 values에서 항목 배열(객체 배열)을 담는 키 */
   parameter: idSchema,
   /** 행 구간 목록. 모든 템플릿 행을 겹침·빈틈 없이 포함해야 한다. */
@@ -366,7 +413,7 @@ const gridRepeatSchema = z.object({
 });
 
 /** 고정 행과 반복 행 구간으로 구성된 그리드. 크기는 행·열 정의의 합으로 계산한다. */
-const gridElementObject = z.object({
+const gridElementObject = z.strictObject({
   type: z.literal('grid'),
   ...gridBaseShape,
   /**
@@ -584,14 +631,27 @@ function checkGridAutoMerge(grid: GridInput, ctx: z.RefinementCtx, cellOriginAt:
   });
 }
 
+/** 열 너비 합과 행 높이 합이 mm 상한 안에 있는지 검사한다. */
+function checkGridSize(grid: GridInput, ctx: z.RefinementCtx): void {
+  const width = grid.columns.reduce((sum, column) => sum + column.width, 0);
+  const height = grid.rows.reduce((sum, row) => sum + row.height, 0);
+  if (width > SLIP_LIMITS.maxMillimeters) {
+    ctx.addIssue({ code: 'custom', path: ['columns'], message: fmt().gridSizeMax(SLIP_LIMITS.maxMillimeters) });
+  }
+  if (height > SLIP_LIMITS.maxMillimeters) {
+    ctx.addIssue({ code: 'custom', path: ['rows'], message: fmt().gridSizeMax(SLIP_LIMITS.maxMillimeters) });
+  }
+}
+
 const gridElementSchema = gridElementObject.superRefine((grid, ctx) => {
+  checkGridSize(grid, ctx);
   checkGridBands(grid, ctx);
   const cellOriginAt = checkGridCells(grid, ctx);
   checkGridAutoMerge(grid, ctx, cellOriginAt);
 });
 
 const imageElementSchema = z
-  .object({
+  .strictObject({
     type: z.literal('image'),
     ...elementBaseShape,
     /** 고정 이미지 소스. `parameter`를 사용하면 생략할 수 있다. */
@@ -610,6 +670,7 @@ const imageElementSchema = z
     if (image.src !== undefined && image.parameter !== undefined) {
       ctx.addIssue({ code: 'custom', path: ['parameter'], message: fmt().imageSourceExclusive() });
     }
+    if (image.src !== undefined) checkDataImage(image.src, ctx, ['src']);
   });
 
 /** 렌더링 엔진이 지원하는 바코드 종류 */
@@ -621,17 +682,17 @@ const barcodeKindSchema = z.enum([
 
 /** 직접 입력, 전표 값 또는 수식 결과를 표시하는 바코드 요소 */
 const barcodeElementSchema = z
-  .object({
+  .strictObject({
     type: z.literal('barcode'),
     ...elementBaseShape,
     /** 바코드 종류 */
     kind: barcodeKindSchema,
     /** 직접 입력한 글 */
-    content: z.string().optional(),
+    content: shortText.optional(),
     /** 전표 values의 키 */
     parameter: idSchema.optional(),
     /** 표시 값을 계산하는 수식. */
-    formula: z.string().optional(),
+    formula: shortText.optional(),
     /** 막대·점 색 (생략하면 검정) */
     fontColor: colorSchema.optional(),
     /** 바탕색 (생략하면 없음) */
@@ -651,7 +712,7 @@ const barcodeElementSchema = z
 // 도형별로 지원하는 스타일이 달라 요소 타입을 구분한다.
 
 /** 요소 영역의 두 모서리 또는 중앙을 잇는 선. */
-const lineElementSchema = z.object({
+const lineElementSchema = z.strictObject({
   type: z.literal('line'),
   ...elementBaseShape,
   /** 선 색 (기본 #000000) */
@@ -669,7 +730,7 @@ const lineElementSchema = z.object({
 
 /** 사각형 요소 */
 const rectElementSchema = z
-  .object({
+  .strictObject({
     type: z.literal('rect'),
     ...elementBaseShape,
     backgroundColor: colorSchema.optional(),
@@ -690,7 +751,7 @@ const rectElementSchema = z
   });
 
 /** 요소 영역에 내접하는 타원. 테두리는 실선만 지원한다. */
-const ellipseElementSchema = z.object({
+const ellipseElementSchema = z.strictObject({
   type: z.literal('ellipse'),
   ...elementBaseShape,
   backgroundColor: colorSchema.optional(),
@@ -702,7 +763,7 @@ const ellipseElementSchema = z.object({
  * 요소 영역에 내접하는 정다각형.
  * 첫 꼭짓점은 위쪽에 두며 테두리는 실선만 지원한다.
  */
-const polygonElementSchema = z.object({
+const polygonElementSchema = z.strictObject({
   type: z.literal('polygon'),
   ...elementBaseShape,
   /** 변 수 (3~12) */
@@ -723,14 +784,14 @@ const polygonElementSchema = z.object({
  * 값 소스는 파라미터와 수식 중 하나만 지정한다.
  */
 const fieldElementSchema = z
-  .object({
+  .strictObject({
     type: z.literal('field'),
     ...elementBaseShape,
     ...colorStyleShape,
     /** 전표 `values`의 키. 수식을 사용할 때는 지정하지 않는다. */
     parameter: idSchema.optional(),
     /** 표시 값을 계산하는 수식. 예: `FORMAT_NUMBER(...)`. */
-    formula: z.string().optional(),
+    formula: shortText.optional(),
     ...fontShape,
     /** 값에 따라 색과 글자 강조를 바꾸는 조건부 서식 규칙. */
     conditionalFormats: conditionalFormatsSchema.optional(),
@@ -765,7 +826,7 @@ export const slipElementSchema = z.discriminatedUnion('type', [
 
 /** 용지 크기(mm)와 여백. 여백의 합은 용지 크기보다 작아야 한다 */
 export const paperSchema = z
-  .object({
+  .strictObject({
     width: positiveMm,
     height: positiveMm,
     /** [top, right, bottom, left] */
@@ -782,11 +843,19 @@ export const paperSchema = z
     }
   });
 
-const assetEntrySchema = z.object({
-  id: idSchema,
-  mimeType: z.string().regex(/^[\w.+-]+\/[\w.+-]+$/, { error: () => fmt().mimeTypeFormat() }),
-  src: srcSchema,
-});
+const assetEntrySchema = z
+  .strictObject({
+    id: idSchema,
+    mimeType: shortText.regex(/^[\w.+-]+\/[\w.+-]+$/, { error: () => fmt().mimeTypeFormat() }),
+    src: srcSchema,
+  })
+  .superRefine((asset, ctx) => {
+    // 파일에 심은 이미지는 선언한 MIME과 실제 내용이 맞아야 한다.
+    const inspection = checkDataImage(asset.src, ctx, ['src']);
+    if (inspection?.ok === true && inspection.mimeType !== asset.mimeType) {
+      ctx.addIssue({ code: 'custom', path: ['mimeType'], message: fmt().assetMimeMismatch(asset.mimeType, inspection.mimeType) });
+    }
+  });
 
 /** 페이지 번호를 표시할 위치 */
 const pageNumberPositionSchema = z.enum([
@@ -795,11 +864,11 @@ const pageNumberPositionSchema = z.enum([
 ]);
 
 /** PDF 후처리 단계에서 추가하는 페이지 번호 설정 */
-const pageNumberSchema = z.object({
+const pageNumberSchema = z.strictObject({
   position: pageNumberPositionSchema,
   /** `{n}`은 현재 페이지, `{total}`은 전체 페이지 수로 치환된다. */
-  format: z.string().min(1).optional(),
-  fontSize: z.number().positive().optional(),
+  format: idSchema.optional(),
+  fontSize: fontSizeSchema.optional(),
 });
 
 /**
@@ -807,21 +876,21 @@ const pageNumberSchema = z.object({
  * 생략하면 용지의 위·아래 여백 경계를 사용한다.
  */
 const flowAreaSchema = z
-  .object({ top: nonNegativeMm, bottom: positiveMm })
+  .strictObject({ top: nonNegativeMm, bottom: positiveMm })
   .superRefine((area, ctx) => {
     if (area.top >= area.bottom) {
       ctx.addIssue({ code: 'custom', path: ['top'], message: fmt().flowAreaInvalid() });
     }
   });
 
-const slipPageSchema = z.object({
+const slipPageSchema = z.strictObject({
   elements: z
     .array(slipElementSchema)
     .max(SLIP_LIMITS.maxElementsPerPage, { error: () => fmt().elementsMax(SLIP_LIMITS.maxElementsPerPage) }),
   /** 호스트가 페이지를 식별할 때 사용하는 문서 내 고유 키 */
   key: idSchema.optional(),
   /** 썸네일과 목록에 표시할 페이지 이름 */
-  label: z.string().min(1).optional(),
+  label: idSchema.optional(),
   /** 페이지 번호 표시 설정 */
   pageNumber: pageNumberSchema.optional(),
   /** 자동 확장 요소가 흐를 수 있는 세로 범위 */
@@ -835,10 +904,13 @@ const slipPageSchema = z.object({
 /** JSON으로 표현 가능한 값 (전표 values의 값 타입) */
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
-/** JSON으로 표현 가능한 값 (전표 values) */
+/**
+ * JSON으로 표현 가능한 값 (전표 values). 객체는 열린 맵이라 `parameters`에 정의되지 않은
+ * 키도 그대로 보존한다. 문자열 길이만 상한을 둔다.
+ */
 const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
-    z.string(),
+    z.string().max(SLIP_LIMITS.maxValueStringLength, { error: () => fmt().valueStringMax(SLIP_LIMITS.maxValueStringLength) }),
     z.number(),
     z.boolean(),
     z.null(),
@@ -858,9 +930,9 @@ const parameterValueTypeSchema = z.enum(['text', 'number', 'date', 'boolean', 'i
  * 목록 항목에 포함되는 하위 필드 정의.
  * 목록 항목은 한 단계의 객체이며 하위 필드를 중첩할 수 없다.
  */
-const parameterFieldSchema = z.object({
+const parameterFieldSchema = z.strictObject({
   key: idSchema,
-  label: z.string().min(1).optional(),
+  label: idSchema.optional(),
   valueType: parameterValueTypeSchema.optional(),
 });
 
@@ -870,9 +942,9 @@ const parameterFieldSchema = z.object({
  * `valueType`이 `list`이면 목록 항목의 필드를 `fields`에 선언한다.
  */
 const parameterDefSchema = z
-  .object({
+  .strictObject({
     key: idSchema,
-    label: z.string().min(1).optional(),
+    label: idSchema.optional(),
     /** 값 종류. 생략하면 텍스트로 처리한다. */
     valueType: parameterValueTypeSchema.optional(),
     /** 목록 항목의 하위 필드. `valueType`이 `list`일 때만 사용한다. */
@@ -900,15 +972,15 @@ const parameterDefSchema = z
     });
   });
 
-const templateMetaSchema = z.object({
-  title: z.string().min(1),
+const templateMetaSchema = z.strictObject({
+  title: idSchema,
   createdAt: z.iso.datetime({ offset: true }).optional(),
   updatedAt: z.iso.datetime({ offset: true }).optional(),
 });
 
 /** 양식 본문. 식별자 중복과 `asset://` 참조의 유효성도 검증한다. */
 export const slipTemplateBodySchema = z
-  .object({
+  .strictObject({
     meta: templateMetaSchema,
     paper: paperSchema,
     pages: z
@@ -1070,7 +1142,7 @@ export const slipEnvelopeSchema = z.object({
 });
 
 /** 양식(template) 파일 전체 */
-export const slipTemplateFileSchema = z.object({
+export const slipTemplateFileSchema = z.strictObject({
   schemaVersion: semverSchema,
   kind: z.literal('template'),
   template: slipTemplateBodySchema,
@@ -1093,7 +1165,7 @@ function findExternalUrlPath(body: z.infer<typeof slipTemplateBodySchema>): (str
 
 /** 전표 파일. 발행된 전표에는 외부 이미지 URL을 허용하지 않는다. */
 export const slipVoucherFileSchema = z
-  .object({
+  .strictObject({
     schemaVersion: semverSchema,
     kind: z.literal('voucher'),
     /** 전표를 생성할 때 복사한 양식 본문. */
@@ -1114,19 +1186,23 @@ export const slipVoucherFileSchema = z
         message: fmt().issuedExternalImage(),
       });
     }
-    // 이미지 파라미터 값은 data: base64 형식인지 검증한다.
+    // 이미지 파라미터 값은 PNG·JPEG의 data: base64 형식이고 내용·크기가 맞는지 검증한다.
     // 빈 문자열은 이미지가 없는 값으로 허용한다.
     for (const page of voucher.templateSnapshot.pages) {
       for (const element of page.elements) {
         if (element.type !== 'image' || element.parameter === undefined) continue;
         const value = voucher.values[element.parameter];
-        if (typeof value === 'string' && value !== '' && !DATA_SRC.test(value)) {
+        if (typeof value !== 'string' || value === '') continue;
+        const path = ['values', element.parameter];
+        if (!DATA_SRC.test(value)) {
           ctx.addIssue({
             code: 'custom',
-            path: ['values', element.parameter],
+            path,
             message: HTTP_SRC.test(value) ? fmt().issuedExternalImage() : fmt().imageValueFormat(),
           });
+          continue;
         }
+        checkDataImage(value, ctx, path);
       }
     }
   });

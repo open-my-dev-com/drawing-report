@@ -6,23 +6,158 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import type { SlipFile, SlipTemplateBody } from '@omdc-slipkit/core';
+import {
+  MAX_IMAGE_BYTES,
+  inspectImageBytes,
+  inspectImageDataUrl,
+  type ImageInspection,
+  type ImageMimeType,
+  type SlipFile,
+  type SlipTemplateBody,
+} from '@omdc-slipkit/core';
 import { allElementIds, bodyOf, findElement } from './summary.js';
+
+export { MAX_IMAGE_BYTES };
 
 /** AI가 입력을 고쳐 다시 호출할 수 있는 도구 오류. */
 export class McpToolError extends Error {}
 
-/** `set_image`가 읽을 수 있는 이미지 파일의 최대 크기. */
-export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
-
-/** 확장자별 이미지 MIME 타입 */
-const IMAGE_MIME: Record<string, string> = {
+/** `set_image`가 받는 파일 확장자와 그 확장자가 뜻하는 이미지 형식. 실제 내용은 서명으로 다시 확인한다. */
+const IMAGE_EXTENSIONS: Record<string, ImageMimeType> = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
 };
+
+/** 사람이 읽는 이미지 형식 안내 */
+const SUPPORTED_IMAGES = `PNG or JPEG, up to ${MAX_IMAGE_BYTES / 1024}KB (${MAX_IMAGE_BYTES / 1024 / 1024} MiB)`;
+
+/** 이미지 검사 실패를 AI가 고칠 수 있는 한 줄 설명으로 만든다. */
+function imageProblem(inspection: Extract<ImageInspection, { ok: false }>, subject: string): string {
+  switch (inspection.reason) {
+    case 'format':
+      return `${subject} must be a data:<mime>;base64 URL (${SUPPORTED_IMAGES}).`;
+    case 'mime':
+      return `${subject} declares "${inspection.mimeType ?? ''}"; supported: ${SUPPORTED_IMAGES}.`;
+    case 'content':
+      return (
+        `${subject} content is not ${inspection.mimeType === undefined ? 'a PNG or JPEG image' : inspection.mimeType} ` +
+        `(checked by the file signature, not the extension). Supported: ${SUPPORTED_IMAGES}.`
+      );
+    case 'size':
+      return `${subject} is ${Math.round(inspection.bytes / 1024)}KB; the limit is ${MAX_IMAGE_BYTES / 1024}KB.`;
+  }
+}
+
+/**
+ * `data:` 이미지 문자열이 PNG·JPEG이고 크기 상한 안인지 확인한다.
+ *
+ * @param src - 검사할 `data:` 문자열
+ * @param subject - 오류 메시지에 쓸 대상 이름 (예: `Image element "logo" src`)
+ * @throws McpToolError 형식·종류·내용·크기가 맞지 않을 때
+ */
+export function assertImageDataUrl(src: string, subject: string): void {
+  const inspection = inspectImageDataUrl(src);
+  if (!inspection.ok) throw new McpToolError(imageProblem(inspection, subject));
+}
+
+/**
+ * 파일 전체에 들어 있는 `data:` 이미지(에셋, 고정 이미지 요소, 이미지로 선언된 전표 값)를 검사한다.
+ * `slip_save`처럼 파일을 통째로 받는 경로가 `set_image`의 크기·형식 검사를 우회하지 못하게 한다.
+ *
+ * @param file - 검사할 파일 (구조 검증은 끝난 상태)
+ * @throws McpToolError PNG·JPEG가 아니거나 크기 상한을 넘는 이미지가 있을 때
+ */
+export function assertFileImages(file: SlipFile): void {
+  const body = bodyOf(file);
+  for (const asset of body.assets) {
+    if (asset.src.startsWith('data:')) assertImageDataUrl(asset.src, `Asset "${asset.id}" src`);
+  }
+  for (const page of body.pages) {
+    for (const element of page.elements) {
+      if (element.type === 'image' && element.src?.startsWith('data:') === true) {
+        assertImageDataUrl(element.src, `Image element "${element.id}" src`);
+      }
+    }
+  }
+  if (file.kind === 'voucher') {
+    assertImageValues(file.values as Record<string, unknown>, imageValueSpec(body));
+  }
+}
+
+/** 양식에서 이미지 값으로 선언된 파라미터 키와 목록 파라미터의 이미지 하위 필드 키 */
+export interface ImageValueSpec {
+  /** 이미지 요소가 참조하거나 `valueType: 'image'`로 선언된 파라미터 키 */
+  keys: ReadonlySet<string>;
+  /** 목록 파라미터 키별로 `valueType: 'image'`인 하위 필드 키 */
+  listFields: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
+/**
+ * 양식 본문에서 이미지 값이 들어가는 자리를 모은다. 이미지 요소의 `parameter`, `parameters[]`의
+ * `valueType: 'image'` 정의, 목록 파라미터 `fields[]`의 `valueType: 'image'` 하위 필드가 대상이다.
+ * 그 밖의 값은 업무 데이터로 보고 검사하지 않는다.
+ *
+ * @param body - 양식 본문 (전표면 내장된 양식 스냅샷)
+ * @returns 이미지 값 자리 목록
+ */
+export function imageValueSpec(body: SlipTemplateBody): ImageValueSpec {
+  const keys = new Set<string>();
+  const listFields = new Map<string, Set<string>>();
+  for (const parameter of body.parameters ?? []) {
+    if (parameter.valueType === 'image') keys.add(parameter.key);
+    if (parameter.valueType !== 'list') continue;
+    for (const field of parameter.fields ?? []) {
+      if (field.valueType !== 'image') continue;
+      const fields = listFields.get(parameter.key) ?? new Set<string>();
+      fields.add(field.key);
+      listFields.set(parameter.key, fields);
+    }
+  }
+  for (const page of body.pages) {
+    for (const element of page.elements) {
+      if (element.type === 'image' && element.parameter !== undefined) keys.add(element.parameter);
+    }
+  }
+  return { keys, listFields };
+}
+
+/**
+ * 이미지 값으로 선언된 자리의 `data:` 문자열을 검사한다. 선언되지 않은 키와 목록 행의 다른 필드는
+ * `data:`로 시작해도 검사하지 않고 그대로 둔다.
+ *
+ * @param values - 파라미터 key별 값 (일부만 담긴 병합용 값이어도 된다)
+ * @param spec - {@link imageValueSpec}이 모은 이미지 값 자리
+ * @throws McpToolError PNG·JPEG가 아니거나 크기 상한을 넘는 이미지 값이 있을 때
+ */
+export function assertImageValues(values: Record<string, unknown>, spec: ImageValueSpec): void {
+  for (const key of spec.keys) {
+    const value = values[key];
+    if (typeof value === 'string' && value.startsWith('data:')) {
+      assertImageDataUrl(value, `Value "${key}"`);
+    }
+  }
+  for (const [key, fields] of spec.listFields) {
+    const rows = values[key];
+    if (!Array.isArray(rows)) continue;
+    rows.forEach((row, index) => {
+      if (typeof row !== 'object' || row === null) return;
+      for (const field of fields) {
+        const value = (row as Record<string, unknown>)[field];
+        if (typeof value === 'string' && value.startsWith('data:')) {
+          assertImageDataUrl(value, `Value "${key}[${index}].${field}"`);
+        }
+      }
+    });
+  }
+}
+
+/** 요소가 `data:` 고정 이미지를 가지면 검사한다. */
+function assertElementImage(element: { type?: unknown; id?: unknown; src?: unknown }): void {
+  if (element.type === 'image' && typeof element.src === 'string' && element.src.startsWith('data:')) {
+    assertImageDataUrl(element.src, `Image element "${String(element.id ?? '')}" src`);
+  }
+}
 
 const fieldsSchema = z
   .record(z.string(), z.unknown())
@@ -135,8 +270,8 @@ export type EditOp = z.infer<typeof editOpSchema>;
 
 /** 연산 적용에 필요한 파일 경로 처리 함수. */
 export interface EditContext {
-  /** 이미지 경로를 작업 디렉터리 안의 절대 경로로 변환한다. 벗어나면 던진다. */
-  resolveFilePath: (relPath: string) => string;
+  /** 이미지 경로를 작업 디렉터리 안의 절대 경로로 변환한다. 링크를 거쳐서라도 벗어나면 던진다. */
+  resolveFilePath: (relPath: string) => Promise<string>;
 }
 
 /**
@@ -204,6 +339,7 @@ export async function applyEditOp(
     case 'set_element': {
       const { element } = requireElement(file, op.id);
       mergeFields(element as unknown as Record<string, unknown>, op.fields);
+      if ('src' in op.fields) assertElementImage(element);
       return `set_element ${op.id}: ${Object.keys(op.fields).join(', ')}`;
     }
     case 'add_element': {
@@ -219,6 +355,7 @@ export async function applyEditOp(
       if (at < 0) {
         throw new McpToolError(`beforeId "${op.beforeId}" is not on page ${op.pageIndex}.`);
       }
+      assertElementImage(element);
       page.elements.splice(at, 0, element);
       return `add_element ${element.id ?? '(no id)'} on page ${op.pageIndex}`;
     }
@@ -289,24 +426,27 @@ export async function applyEditOp(
       if (element.type !== 'image') {
         throw new McpToolError(`Element "${op.elementId}" is not an image element.`);
       }
-      const mime = IMAGE_MIME[path.extname(op.imagePath).toLowerCase()];
-      if (mime === undefined) {
+      const extension = path.extname(op.imagePath).toLowerCase();
+      const declared = IMAGE_EXTENSIONS[extension];
+      if (declared === undefined) {
         throw new McpToolError(
-          `Unsupported image extension "${path.extname(op.imagePath)}". Supported: png, jpg, jpeg, gif, webp.`,
+          `Unsupported image file "${op.imagePath}" (extension "${extension}"). Supported: ${SUPPORTED_IMAGES}; ` +
+            'use a .png, .jpg, or .jpeg file.',
         );
       }
-      const abs = context.resolveFilePath(op.imagePath);
+      const abs = await context.resolveFilePath(op.imagePath);
       let bytes: Buffer;
       try {
         bytes = await readFile(abs);
       } catch {
         throw new McpToolError(`Could not read image file: ${op.imagePath}`);
       }
-      if (bytes.length > MAX_IMAGE_BYTES) {
-        throw new McpToolError(
-          `Image is ${Math.round(bytes.length / 1024)}KB; the limit is ${MAX_IMAGE_BYTES / 1024}KB.`,
-        );
+      // 확장자는 선언일 뿐이므로 실제 내용(서명)과 크기를 다시 확인한다.
+      const inspection = inspectImageBytes(bytes, { declaredMimeType: declared });
+      if (!inspection.ok) {
+        throw new McpToolError(imageProblem(inspection, `Image file "${op.imagePath}"`));
       }
+      const mime = inspection.mimeType;
       const src = `data:${mime};base64,${bytes.toString('base64')}`;
       // 기존 고정 이미지는 같은 에셋을 갱신해 불필요한 에셋이 남지 않게 한다.
       const currentId = element.src?.startsWith('asset://') ? element.src.slice(8) : undefined;
@@ -326,6 +466,7 @@ export async function applyEditOp(
       if (file.kind !== 'voucher') {
         throw new McpToolError('set_values applies only to voucher files.');
       }
+      assertImageValues(op.values, imageValueSpec(body));
       mergeValues(file.values as Record<string, unknown>, op.values);
       return `set_values: ${Object.keys(op.values).join(', ')}`;
     }

@@ -148,6 +148,7 @@ Configuration values use the following precedence.
 | Locale | `--locale` → `SLIPKIT_MCP_LOCALE` → `locale` → English |
 | Fonts | Configuration `fonts` → bundled fonts selected by locale |
 | Encryption keys | Environment variables named by `encryption`, or the default names when omitted |
+| PDF links | `httpPort` in the configuration file; disabled when omitted |
 
 The positional working-directory argument and `--locale` remain available as temporary overrides.
 
@@ -207,6 +208,10 @@ Do not commit an MCP client configuration containing real keys. Use user or loca
 
 When the current-key environment variable is set, newly saved files are encrypted. Plain `.slip` files remain readable, but encrypted files require a matching current or previous key. If `encryption.keyEnv` is explicitly configured but that variable is absent, the server does not start.
 
+### Local PDF links
+
+Set `httpPort` to expose rendered PDFs through a read-only server bound to `127.0.0.1`. Each MCP process creates its own 64-character token, and returned links have the form `http://127.0.0.1:<port>/<token>/<file>.pdf`. Processes do not share tokens or join an existing link server. If the port is already used by another `slipkit-mcp` link server for the same working directory, the process starts its own server on a free port. If any other program, or a `slipkit-mcp` server for a different working directory, holds the port, startup fails. Only PDFs inside the working directory are served.
+
 ### PDF fonts
 
 When `fonts` is omitted, the MCP server uses fonts embedded as base64 in `@omdc-slipkit/elements`. It does not download fonts from the network or automatically load operating-system fonts.
@@ -251,7 +256,7 @@ When running from this repository, keep the pnpm-installed workspace dependencie
 | `slip_save` | Validate complete JSON and save it as a new `.slip` file. | `path`, `file`, `overwrite` |
 | `slip_edit` | Atomically apply targeted edit operations to an existing file. | `path`, `ops` |
 | `slip_build_voucher` | Build an unissued voucher from a template and parameter values. | `templatePath`, `values`, `outPath`, `overwrite` |
-| `slip_render_pdf` | Render a template or voucher to a PDF file. | `path`, `outPath` |
+| `slip_render_pdf` | Render a template or voucher to a PDF file, optionally returning one page as a PNG preview image. A link URL is included whenever `httpPort` is set. | `path`, `outPath`, `preview`, `previewPage` |
 | `slip_schema` | Explain the `.slip` structure by topic. | `topic` |
 
 The `slip://schema` resource provides the full current `.slip` JSON Schema. Supported `slip_schema` topics are `overview`, `elements`, `grid`, `parameters`, `formula`, `voucher`, and `json-schema`.
@@ -266,6 +271,8 @@ The `slip://schema` resource provides the full current `.slip` JSON Schema. Supp
 | `full` | The complete file |
 
 Base64 image data in read responses is replaced with a size marker. Images inside `.slip` files still use base64 data URLs. To add an image through MCP, pass a file path inside the working directory to the `set_image` operation. The server reads the file and creates the base64 asset.
+
+Image data validation applies only to values declared as images: an image element's parameter, a parameter with `valueType: 'image'`, or a list field with that value type. Other business-data strings, including unknown keys beginning with `data:`, are preserved.
 
 ### `slip_edit` operations
 
@@ -339,12 +346,13 @@ Vouchers created by the MCP server are unissued (`issued: false`). Issuing must 
 
 ## File access and safety boundaries
 
-- Every input and output path is restricted to the working directory selected at startup.
+- Every input and output path is restricted to the working directory selected at startup. Existing paths and symlink targets are checked by real path, including read, write, delete, image, PDF, and HTTP access.
+- `rootDir` is normalized to its real path. A target that is itself a symlink is rejected, and `slip_list` omits symlink files and linked directories.
 - The `.slip` extension is appended to storage paths when omitted.
 - A group of `slip_edit` operations is stored only when the complete result is valid.
 - `slip_save` and `slip_build_voucher` do not replace an existing file by default. Even with `overwrite: true`, they cannot replace an issued voucher.
-- A PDF output path cannot use the `.slip` extension.
-- `set_image` supports PNG, JPEG, GIF, and WebP files up to 2 MB each.
+- A PDF `outPath` must end with `.pdf`. Rendering replaces an existing target only when the existing file is a PDF.
+- `set_image` supports PNG and JPEG files up to 2 MiB each and validates both the signature and media type.
 - The server does not provide arbitrary code execution, network access, user authentication, or voucher issuing.
 
 `slip_edit` includes operations that remove elements, pages, and parameters. Configure user confirmation for such tool calls in the MCP client's approval settings.

@@ -22,6 +22,15 @@ export {
   type SlipMigrationStep,
 } from './format/migrate.js';
 export { slipFileJsonSchema } from './format/json-schema.js';
+export {
+  IMAGE_MIME_TYPES,
+  MAX_IMAGE_BYTES,
+  detectImageMimeType,
+  inspectImageBytes,
+  inspectImageDataUrl,
+  type ImageInspection,
+  type ImageMimeType,
+} from './format/image-source.js';
 export * from './layout/index.js';
 export { normalizeNumericParameters } from './format/normalize.js';
 export { buildVoucher } from './format/voucher.js';

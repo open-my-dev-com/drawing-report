@@ -23,7 +23,7 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { runCli, type ServeArgs } from './cli-command.js';
 import { resolveServerOptions } from './config.js';
-import { startOrJoinPdfLinkServer } from './http.js';
+import { startOrJoinPdfLinkServer, type PdfLinkServer } from './http.js';
 import { createSlipMcpServer } from './server.js';
 
 /** 설정을 읽고 stdio 서버를 시작한다. 오류는 호출부가 stderr와 종료 코드 1로 처리한다. */
@@ -39,22 +39,48 @@ async function serve(args: ServeArgs): Promise<void> {
   });
 
   // httpPort가 있으면 렌더된 PDF를 브라우저에서 열 수 있는 URL로 제공한다.
-  // 같은 작업 디렉터리의 링크 서버가 해당 포트를 사용 중이면 기존 서버를 재사용한다.
-  let sharedLinkServer = false;
+  // 링크에는 이 프로세스만 아는 접근 토큰이 들어가므로 다른 프로세스의 서버에는 합류하지 않는다.
+  // 같은 작업 디렉터리의 다른 slipkit-mcp가 그 포트를 쓰고 있으면 빈 포트에 새 서버를 띄운다.
+  let linkServer: PdfLinkServer | null = null;
   if (httpPort !== null) {
-    const linkServer = await startOrJoinPdfLinkServer({ rootDir: options.rootDir, port: httpPort });
+    linkServer = await startOrJoinPdfLinkServer({
+      rootDir: options.rootDir,
+      port: httpPort,
+      fallbackToFreePort: true,
+    });
     options.pdfBaseUrl = linkServer.baseUrl;
-    sharedLinkServer = !linkServer.owned;
   }
 
   const { server } = createSlipMcpServer(options);
+  // 클라이언트가 stdin을 닫거나 종료 신호를 보내면 링크 서버까지 닫고 프로세스를 끝낸다.
+  // 그렇지 않으면 링크 서버가 이벤트 루프를 붙들어 프로세스와 포트가 남는다.
+  let closing = false;
+  const shutdown = (): void => {
+    if (closing) return;
+    closing = true;
+    void (async () => {
+      try {
+        await linkServer?.close();
+        await server.close();
+      } finally {
+        process.exit(0);
+      }
+    })();
+  };
+  server.server.onclose = shutdown;
+  process.stdin.once('end', shutdown);
+  process.stdin.once('close', shutdown);
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
   await server.connect(new StdioServerTransport());
-  // stdout은 MCP 메시지 전용이므로 실행 정보는 stderr로 보낸다.
+
+  // stdout은 MCP 메시지 전용이므로 실행 정보는 stderr로 보낸다. 링크 토큰은 적지 않는다.
   const notes = [
     configPath === null ? null : `config ${configPath}`,
-    options.pdfBaseUrl === undefined
+    linkServer === null
       ? null
-      : `pdf links at ${options.pdfBaseUrl}${sharedLinkServer ? ' (shared server)' : ''}`,
+      : `pdf links at http://127.0.0.1:${linkServer.port}` +
+        (linkServer.port === httpPort ? '' : ` (port ${httpPort} was in use)`),
     options.fonts === undefined ? null : `${options.fonts.length} custom font(s)`,
     options.encryption === undefined ? null : 'encryption on',
   ].filter((note) => note !== null);

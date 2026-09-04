@@ -52,8 +52,6 @@ describe('<slip-designer> 표 내부 편집', () => {
       id: 'grid-1',
       name: 'grid',
       position: { x: 10, y: 10 },
-      width: 90,
-      height: 30,
       rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
       columns: [{ width: 36 }, { width: 27 }, { width: 27 }],
       cells: [{ row: 0, column: 0, content: '라벨' }],
@@ -356,8 +354,6 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
             id: 'g-1',
             name: 'test-grid',
             position: { x: 10, y: 10 },
-            width: 60,
-            height: 60,
             columns: [{ width: 30 }, { width: 30 }],
             rows: [{ height: 10 }, { height: 10 }, { height: 10 }],
             repeat: {
@@ -374,7 +370,6 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
               { row: 1, column: 0, parameter: '품명' },
             ],
           }],
-          assets: [],
         }],
         assets: [],
         sampleValues: { items: [{ 품명: '사과' }, { 품명: '배' }] },
@@ -1192,7 +1187,6 @@ describe('<slip-designer> 행 구간 옵션·반복 파라미터', () => {
               { row: 2, column: 0, parameter: '품명' },
             ],
           }],
-          assets: [],
         }],
         assets: [],
         parameters: [

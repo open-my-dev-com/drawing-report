@@ -333,12 +333,10 @@ describe('그리드 페이지 계획 (planGrid)', () => {
     expect(placements(plan, 0)).toEqual(['page-start', 'item']);
   });
 
-  it('pageItems·carriedItems가 @page·@carried 범위대로 쌓인다', () => {
+  it('pageItems·carriedCount가 @page·@carried 범위대로 쌓인다', () => {
     const plan = planGrid(headerItemTail({ mode: 'fixed', itemsPerPage: 4 }), items(10), FLOW);
-    expect(plan.fragments.map((f) => f.carriedItems)).toEqual([
-      [], [0, 1, 2, 3], [0, 1, 2, 3, 4, 5, 6, 7],
-    ]);
-    // 빈 항목은 pageItems(@page)와 carriedItems(@carried)에 들어가지 않는다
+    expect(plan.fragments.map((f) => f.carriedCount)).toEqual([0, 4, 8]);
+    // 빈 항목은 pageItems(@page)와 carriedCount(@carried)에 들어가지 않는다
     expect(plan.fragments[2]!.pageItems).toEqual([8, 9]);
   });
 
@@ -366,7 +364,7 @@ describe('그리드 페이지 계획 (planGrid)', () => {
     expect(plan.fragments[0]!.pageItems).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(placements(plan, 0)).not.toContain('after-data');
     expect(placements(plan, 1)).toEqual(['after-data']);
-    expect(plan.fragments[1]!.carriedItems).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(plan.fragments[1]!.carriedCount).toBe(7);
   });
 
   it('고정 페이지 묶음이 흐름 영역에 들어가지 않으면 오류를 반환한다', () => {
@@ -695,5 +693,30 @@ describe('일반 요소의 표시 페이지 (filterVisibleOnPage)', () => {
     expect(filterVisibleOnPage('non-final', 2, 3)).toBe(false);
     expect(filterVisibleOnPage('last', 2, 3)).toBe(true);
     expect(filterVisibleOnPage('last', 1, 3)).toBe(false);
+  });
+});
+
+describe('대량 항목 계획의 시간·메모리 (carriedCount)', () => {
+  it('6만 항목 자동 확장 계획이 조각마다 이월 목록을 복사하지 않는다', () => {
+    const grid = makeGrid({
+      rows: [10, 10],
+      bands: [band('h', 0, 0, 'page-start'), band('i', 1, 1, 'item')],
+      pagination: { mode: 'auto', minItems: 0 },
+    });
+    const count = 60_000;
+    const data = Array.from({ length: count }, (_, i) => ({ 금액: i }));
+    // 페이지당 항목 수가 많아야 출력 페이지 상한(2000) 안에 들어간다.
+    const flow: GridFlow = { firstPage: 0, firstTop: 10, top: 10, bottom: 10 + 10 + 10 * 40 };
+    const heapBefore = process.memoryUsage().heapUsed;
+    const started = performance.now();
+    const plan = planGrid(grid, data, flow);
+    const elapsed = performance.now() - started;
+    const heapGrowth = process.memoryUsage().heapUsed - heapBefore;
+    expect(plan.fragments).toHaveLength(count / 40);
+    expect(plan.fragments.at(-1)!.carriedCount).toBe(count - 40);
+    expect(plan.fragments.at(-1)!.pageItems).toHaveLength(40);
+    // 느슨한 회귀 상한: 이월 목록을 복사하면 1500 조각 × 6만 인덱스로 수백 MB가 든다.
+    expect(elapsed).toBeLessThan(5_000);
+    expect(heapGrowth).toBeLessThan(150 * 1024 * 1024);
   });
 });

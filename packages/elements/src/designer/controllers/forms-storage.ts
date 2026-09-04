@@ -125,6 +125,17 @@ export class FormsController implements ReactiveController {
     this._savedNotice = false;
   }
 
+  /**
+   * 되돌리기·다시 실행으로 양식이 바뀔 때 그 시점의 저장 식별자를 되살립니다.
+   * 저장 완료 안내는 현재 양식이 저장된 상태가 아니므로 지웁니다.
+   *
+   * @param id - 되살릴 식별자. 저장한 적이 없던 상태면 null
+   */
+  restoreSavedId(id: string | null): void {
+    this._savedId = id;
+    this._savedNotice = false;
+  }
+
   /** 저장 완료 안내를 지웁니다. */
   clearNotice(): void {
     this._savedNotice = false;

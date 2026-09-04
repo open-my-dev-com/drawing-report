@@ -20,7 +20,8 @@ export const formStyles = css`
       --sk-radius: 4px;
 
       display: grid;
-      grid-template-columns: minmax(320px, 480px) 1fr;
+      /* 입력 pane은 화면 폭에 따라 넓어져 목록 열이 가로 스크롤 없이 들어가게 한다 */
+      grid-template-columns: clamp(320px, 40%, 720px) 1fr;
       height: 100%;
       min-height: 320px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
@@ -108,6 +109,21 @@ export const formStyles = css`
     .field .hint.error {
       color: var(--sk-danger);
     }
+    .field input[aria-invalid='true'] {
+      border-color: var(--sk-danger);
+    }
+    .field.boolean .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--sk-text);
+      cursor: pointer;
+    }
+    .field.boolean .check input {
+      width: auto;
+      margin: 0;
+    }
 
     .row-scroll {
       overflow-x: auto;
@@ -116,8 +132,9 @@ export const formStyles = css`
       display: grid;
       gap: 4px;
       align-items: center;
-      width: max-content;
-      min-width: 100%;
+      /* 열은 pane 폭을 나누어 채우고, 열 최소 폭을 넘을 때만 가로 스크롤이 생긴다 */
+      width: 100%;
+      min-width: 0;
       margin-bottom: 4px;
     }
     .row-grid .col-title {
@@ -137,6 +154,10 @@ export const formStyles = css`
       font-size: 12px;
       font-family: inherit;
       color: inherit;
+    }
+    .row-grid input[type='checkbox'] {
+      width: auto;
+      justify-self: start;
     }
     .row-remove {
       display: inline-flex;

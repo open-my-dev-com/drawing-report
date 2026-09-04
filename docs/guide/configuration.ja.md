@@ -353,6 +353,16 @@ const fonts = [
 
 `getFonts` が空でない配列を返すと、同梱の既定フォントは自動的には追加されません。
 
+コンポーネントの既定動作と同じ同梱フォント構成が必要なら、`loadDefaultFonts(locale)` を使います。この一覧には同梱の 2 つのファミリーがすべて含まれ、代替フォントだけがロケールで決まります。1 つのファミリーだけを使うときや `fallback` を自分で決めるときだけ、フォントのサブパスを使います。サブパスの一覧はそれぞれ自分のフォントを `fallback: true` にしているため、両方をそのまま展開して渡すと「代替(fallback)フォントは 1 つだけ指定できます」エラーになります。
+
+```ts
+import { loadDefaultFonts } from '@omdc-slipkit/elements';
+
+const slipkit = createSlipKit({
+  getFonts: () => loadDefaultFonts('ja'),
+});
+```
+
 同梱フォントを独自フォントと併用するには、フォントのサブパスから直接読み込みます。
 
 ```ts
@@ -368,7 +378,10 @@ import {
 const slipkit = createSlipKit({
   getFonts: () => [
     ...PRETENDARD_FONTS,
-    ...NOTO_SANS_JP_FONTS,
+    ...NOTO_SANS_JP_FONTS.map((font) => ({
+      ...font,
+      fallback: false,
+    })),
     {
       name: 'AppFont',
       data: appFont,
@@ -637,15 +650,15 @@ designer.presets = appPresets;
 
 独自プリセットを指定すると、同梱プリセットの代わりに独自プリセットが表示されます。
 
-両方を一緒に表示するには、同梱の `presets` を展開して渡します。
+両方を一緒に表示するには、`getPresets` で現在の言語の同梱プリセットを取得して展開します。
 
 ```ts
 import {
-  presets as builtInPresets,
+  getPresets,
 } from '@omdc-slipkit/elements';
 
 const appPresets = [
-  ...builtInPresets,
+  ...getPresets('ja'),
   shippingLabelPreset,
 ];
 

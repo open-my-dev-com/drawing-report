@@ -56,7 +56,10 @@ export interface GridCommandsHost {
   resetPanelErrors(): void;
   /** 입력 오류 하나를 지웁니다 */
   clearInputError(): void;
-  /** 파라미터 정의가 없으면 만듭니다 */
+  /**
+   * 파라미터 정의가 없으면 만듭니다.
+   * 되돌리기 한 단위와 내보내는 파일에 함께 담기도록 `updateElement`의 수정 함수 안에서 부릅니다
+   */
   ensureParameterDef(key: string, valueType?: string): void;
   /** 정의와 사용처를 합친 파라미터 목록 */
   parameters(): ParameterInfo[];
@@ -185,8 +188,8 @@ export class GridCommandsController {
       return;
     }
     const key = `items_${el.id.slice(0, 4)}`;
-    this.host.ensureParameterDef(key, 'list');
     this.updateGrid((grid) => {
+      this.host.ensureParameterDef(key, 'list');
       grid.repeat = {
         parameter: key,
         bands,
@@ -199,8 +202,8 @@ export class GridCommandsController {
   setRepeatParameter(key: string): void {
     const el = this.host.selectedElement();
     if (el?.type !== 'grid' || !el.repeat) return;
-    this.host.ensureParameterDef(key, 'list');
     this.updateGrid((grid) => {
+      this.host.ensureParameterDef(key, 'list');
       grid.repeat!.parameter = key;
     });
   }

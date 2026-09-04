@@ -74,6 +74,8 @@ export function App() {
   const [autosave, setAutosave] = useState<string>('');
   // 전표 쓰기·조회로 넘어간 시점의 파일 — 화면을 옮길 때만 새로 정한다
   const [formSrc, setFormSrc] = useState<string>('');
+  // 새 전표마다 올려 SlipForm을 다시 마운트하는 세션 번호
+  const [formSession, setFormSession] = useState(0);
   const [viewerSrc, setViewerSrc] = useState<string>('');
   const [booted, setBooted] = useState(false);
 
@@ -117,6 +119,8 @@ export function App() {
       if (!continuing) {
         setVoucher(target);
         latest.current.voucher = target;
+        // 새 전표는 SlipForm을 다시 마운트해 시작한다 — 같은 양식이면 src가 그대로라 발행 상태가 풀리지 않는다.
+        setFormSession((session) => session + 1);
       }
       setFormSrc(serializeSlipFile(target));
       setStatus(message ?? (continuing ? messages.fillContinue : messages.fillNew));
@@ -294,6 +298,7 @@ export function App() {
       <div className="pane" hidden={mode !== 'fill'}>
         {booted && formSrc !== '' ? (
           <SlipForm
+            key={formSession}
             src={formSrc}
             slipkit={slipKit}
             onSlipChange={onFormChange}

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { readFile, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, readdir, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { MAX_IMAGE_BYTES, type SlipTemplateFile, type SlipVoucherFile } from '@omdc-slipkit/core';
 import { FileSystemStorage } from '../src/storage.js';
 import {
   TINY_PNG_B64,
@@ -10,11 +11,45 @@ import {
   makeTemplate,
   makeWorkDir,
   removeWorkDir,
+  symlinksUnavailable,
 } from './helpers.js';
 
 let dir: string;
 let client: Client;
 let close: () => Promise<void>;
+
+/** 서명만 갖춘 최소 JPEG 바이트 (형식 판정은 앞 3바이트로 한다) */
+const TINY_JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0xff, 0xd9]);
+
+/** PNG 서명으로 시작하지만 크기 상한을 1바이트 넘는 바이트 */
+function oversizedPng(): Buffer {
+  const bytes = Buffer.alloc(MAX_IMAGE_BYTES + 1);
+  Buffer.from(TINY_PNG_B64, 'base64').copy(bytes);
+  return bytes;
+}
+
+/** 저장된 양식을 읽는다. */
+async function loadTemplate(id: string): Promise<SlipTemplateFile> {
+  const file = await new FileSystemStorage({ rootDir: dir }).load(id);
+  if (file.kind !== 'template') throw new Error('template expected');
+  return file;
+}
+
+/** 저장된 전표를 읽는다. */
+async function loadVoucher(id: string): Promise<SlipVoucherFile> {
+  const file = await new FileSystemStorage({ rootDir: dir }).load(id);
+  if (file.kind !== 'voucher') throw new Error('voucher expected');
+  return file;
+}
+
+/** 이미지가 아닌 자리에 들어가는 `data:` 문자열 — 형식과 무관하게 업무 데이터로 보존되어야 한다. */
+const TEXT_DATA_URL = 'data:text/plain;base64,SGVsbG8=';
+const GIF_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+
+/** 텍스트 요소 하나를 만든다. */
+function textElement(id: string, y: number): Record<string, unknown> {
+  return { type: 'text', id, name: id, position: { x: 15, y }, width: 100, height: 6, content: id };
+}
 
 beforeEach(async () => {
   dir = await makeWorkDir();
@@ -332,6 +367,290 @@ describe('slip_edit', () => {
     expect(logo?.type === 'image' && logo.src).toBe('asset://img-1');
   });
 
+  it('set_image는 확장자가 아니라 내용으로 PNG·JPEG를 판정한다', async () => {
+    await writeFile(path.join(dir, 'photo.JPG'), TINY_JPEG);
+    const jpeg = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_image', elementId: 'logo', imagePath: 'photo.JPG' }],
+    });
+    expect(jpeg.isError).toBe(false);
+    let file = await loadTemplate('doc');
+    expect(file.template.assets[0]).toMatchObject({ id: 'img-1', mimeType: 'image/jpeg' });
+
+    // 같은 요소에 다시 넣으면 같은 에셋을 갱신한다.
+    await writeFile(path.join(dir, 'logo.png'), Buffer.from(TINY_PNG_B64, 'base64'));
+    const png = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_image', elementId: 'logo', imagePath: 'logo.png' }],
+    });
+    expect(png.isError).toBe(false);
+    expect(png.text).toContain('replaced asset img-1');
+    file = await loadTemplate('doc');
+    expect(file.template.assets).toHaveLength(1);
+    expect(file.template.assets[0]).toMatchObject({ id: 'img-1', mimeType: 'image/png' });
+  });
+
+  it('set_image는 확장자를 위장한 파일과 지원하지 않는 형식을 거부한다', async () => {
+    await writeFile(path.join(dir, 'text.png'), 'not an image at all');
+    await writeFile(path.join(dir, 'jpeg-inside.png'), TINY_JPEG);
+    await writeFile(path.join(dir, 'anim.gif'), Buffer.from('GIF89a\u0001\u0000\u0001\u0000', 'latin1'));
+    await writeFile(path.join(dir, 'pic.webp'), Buffer.from('RIFF\u0000\u0000\u0000\u0000WEBPVP8 ', 'latin1'));
+    await writeFile(path.join(dir, 'vector.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+    await writeFile(path.join(dir, 'png-as-gif.gif'), Buffer.from(TINY_PNG_B64, 'base64'));
+    const cases: [string, RegExp][] = [
+      ['text.png', /not image\/png.*signature/],
+      ['jpeg-inside.png', /not image\/png.*signature/],
+      ['anim.gif', /Unsupported image file.*PNG or JPEG/],
+      ['pic.webp', /Unsupported image file.*PNG or JPEG/],
+      ['vector.svg', /Unsupported image file.*PNG or JPEG/],
+      ['png-as-gif.gif', /Unsupported image file/],
+      ['missing.png', /Could not read image file/],
+    ];
+    for (const [imagePath, pattern] of cases) {
+      const result = await callText(client, 'slip_edit', {
+        path: 'doc',
+        ops: [{ action: 'set_image', elementId: 'logo', imagePath }],
+      });
+      expect(result.isError, imagePath).toBe(true);
+      expect(result.text, imagePath).toMatch(pattern);
+    }
+    expect((await loadTemplate('doc')).template.assets).toEqual([]);
+  });
+
+  it('set_image는 크기 상한을 넘는 파일을 거부한다', async () => {
+    await writeFile(path.join(dir, 'big.png'), oversizedPng());
+    const result = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_image', elementId: 'logo', imagePath: 'big.png' }],
+    });
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain(`the limit is ${MAX_IMAGE_BYTES / 1024}KB`);
+    expect((await loadTemplate('doc')).template.assets).toEqual([]);
+  });
+
+  it('add_element·set_element의 data: 이미지도 형식과 크기를 검사한다', async () => {
+    const bigDataUrl = `data:image/png;base64,${oversizedPng().toString('base64')}`;
+    const image = (src: string): Record<string, unknown> => ({
+      type: 'image', id: 'stamp', name: '도장', position: { x: 10, y: 100 }, width: 20, height: 20, src,
+    });
+
+    const oversized = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'add_element', pageIndex: 0, element: image(bigDataUrl) }],
+    });
+    expect(oversized.isError).toBe(true);
+    expect(oversized.text).toMatch(/Image element "stamp" src is \d+KB; the limit is/);
+
+    const gif = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'add_element', pageIndex: 0, element: image('data:image/gif;base64,R0lGODlhAQABAAAAACw=') }],
+    });
+    expect(gif.isError).toBe(true);
+    expect(gif.text).toContain('image/gif');
+
+    const disguised = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'add_element', pageIndex: 0, element: image(`data:image/jpeg;base64,${TINY_PNG_B64}`) }],
+    });
+    expect(disguised.isError).toBe(true);
+    expect(disguised.text).toContain('signature');
+
+    const fine = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'add_element', pageIndex: 0, element: image(`data:image/png;base64,${TINY_PNG_B64}`) }],
+    });
+    expect(fine.isError).toBe(false);
+
+    const replaced = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_element', id: 'stamp', fields: { src: bigDataUrl } }],
+    });
+    expect(replaced.isError).toBe(true);
+    expect(replaced.text).toContain('the limit is');
+    // 기존 요소는 그대로다.
+    const stamp = (await loadTemplate('doc')).template.pages[0]!.elements.find((entry) => entry.id === 'stamp');
+    expect(stamp?.type === 'image' && stamp.src).toBe(`data:image/png;base64,${TINY_PNG_B64}`);
+  });
+
+  it('set_values의 잘못된 이미지 값을 거부한다', async () => {
+    await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [
+        { action: 'add_parameter', parameter: { key: 'stamp', valueType: 'image' } },
+        { action: 'set_element', id: 'logo', fields: { src: null, parameter: 'stamp' } },
+      ],
+    });
+    await callText(client, 'slip_build_voucher', { templatePath: 'doc', values: {}, outPath: 'v-img' });
+
+    const oversized = await callText(client, 'slip_edit', {
+      path: 'v-img',
+      ops: [{ action: 'set_values', values: { stamp: `data:image/png;base64,${oversizedPng().toString('base64')}` } }],
+    });
+    expect(oversized.isError).toBe(true);
+    expect(oversized.text).toMatch(/Value "stamp" is \d+KB; the limit is/);
+
+    const webp = await callText(client, 'slip_edit', {
+      path: 'v-img',
+      ops: [{ action: 'set_values', values: { stamp: 'data:image/webp;base64,UklGRgAAAABXRUJQ' } }],
+    });
+    expect(webp.isError).toBe(true);
+    expect(webp.text).toContain('image/webp');
+
+    const fine = await callText(client, 'slip_edit', {
+      path: 'v-img',
+      ops: [{ action: 'set_values', values: { stamp: `data:image/png;base64,${TINY_PNG_B64}` } }],
+    });
+    expect(fine.isError).toBe(false);
+  });
+
+  it('slip_save는 data: 에셋의 크기 상한을 적용하고, 이미지가 아닌 파라미터의 data: 문자열은 보존한다', async () => {
+    const template = makeTemplate();
+    template.template.assets.push({
+      id: 'big',
+      mimeType: 'image/png',
+      src: `data:image/png;base64,${oversizedPng().toString('base64')}`,
+    });
+    const saved = await callText(client, 'slip_save', { path: 'big-doc', file: template });
+    expect(saved.isError).toBe(true);
+    // core 스키마 검증이 먼저 걸리므로 core의 크기 상한 메시지 또는 MCP의 안내 중 하나가 나온다.
+    expect(saved.text).toMatch(/exceeds the size limit \(2 MiB\)|Asset "big" src is \d+KB; the limit is/);
+    expect((await readdir(dir)).includes('big-doc.slip')).toBe(false);
+
+    // customerName은 문자 파라미터라 GIF data: 문자열도 업무 데이터로 그대로 저장한다.
+    const built = await callText(client, 'slip_build_voucher', {
+      templatePath: 'doc',
+      values: { customerName: GIF_DATA_URL },
+      outPath: 'v-text',
+    });
+    expect(built.isError).toBe(false);
+    expect((await loadVoucher('v-text')).values['customerName']).toBe(GIF_DATA_URL);
+  });
+
+  it('이미지로 선언되지 않은 값의 data: 문자열은 저장·조립·set_values를 거쳐도 그대로 남는다', async () => {
+    const values = {
+      customerName: GIF_DATA_URL,
+      memo: TEXT_DATA_URL,
+      attachment: `data:image/gif;base64,${oversizedPng().toString('base64')}`,
+      items: [{ name: '연필', amount: 500, photo: GIF_DATA_URL, note: TEXT_DATA_URL }],
+    };
+    const built = await callText(client, 'slip_build_voucher', {
+      templatePath: 'doc',
+      values,
+      outPath: 'v-open',
+    });
+    expect(built.isError).toBe(false);
+    const voucher = await loadVoucher('v-open');
+    expect(voucher.values).toEqual(values);
+
+    const saved = await callText(client, 'slip_save', {
+      path: 'v-saved',
+      file: { ...voucher, values: { ...values, extra: TEXT_DATA_URL } },
+    });
+    expect(saved.isError).toBe(false);
+    expect((await loadVoucher('v-saved')).values).toEqual({ ...values, extra: TEXT_DATA_URL });
+
+    const edited = await callText(client, 'slip_edit', {
+      path: 'v-open',
+      ops: [{ action: 'set_values', values: { memo: GIF_DATA_URL, tag: TEXT_DATA_URL } }],
+    });
+    expect(edited.isError).toBe(false);
+    expect((await loadVoucher('v-open')).values).toEqual({ ...values, memo: GIF_DATA_URL, tag: TEXT_DATA_URL });
+  });
+
+  it('이미지 요소가 참조하거나 image로 선언된 파라미터 값만 형식과 크기를 검사한다', async () => {
+    // stamp는 valueType 없이 이미지 요소가 참조하고, seal은 valueType: image로만 선언한다.
+    const prepared = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [
+        { action: 'add_parameter', parameter: { key: 'stamp' } },
+        { action: 'add_parameter', parameter: { key: 'seal', valueType: 'image' } },
+        { action: 'set_element', id: 'logo', fields: { src: null, parameter: 'stamp' } },
+      ],
+    });
+    expect(prepared.isError).toBe(false);
+
+    const rejected: [string, Record<string, unknown>, RegExp][] = [
+      ['stamp GIF', { stamp: GIF_DATA_URL }, /Value "stamp" declares "image\/gif"/],
+      ['seal GIF', { seal: GIF_DATA_URL }, /Value "seal" declares "image\/gif"/],
+      ['위장 MIME', { stamp: `data:image/jpeg;base64,${TINY_PNG_B64}` }, /Value "stamp" content is not image\/jpeg/],
+      ['크기 초과', { seal: `data:image/png;base64,${oversizedPng().toString('base64')}` }, /Value "seal" is \d+KB; the limit is/],
+    ];
+    for (const [label, values, pattern] of rejected) {
+      const built = await callText(client, 'slip_build_voucher', { templatePath: 'doc', values, outPath: 'v-bad' });
+      expect(built.isError, label).toBe(true);
+      expect(built.text, label).toMatch(pattern);
+    }
+    expect((await readdir(dir)).includes('v-bad.slip')).toBe(false);
+
+    const fine = await callText(client, 'slip_build_voucher', {
+      templatePath: 'doc',
+      values: {
+        stamp: `data:image/png;base64,${TINY_PNG_B64}`,
+        seal: `data:image/jpeg;base64,${TINY_JPEG.toString('base64')}`,
+        customerName: GIF_DATA_URL,
+      },
+      outPath: 'v-ok',
+    });
+    expect(fine.isError).toBe(false);
+
+    // slip_save로 통째로 넣어도 같은 판정을 쓴다.
+    const voucher = await loadVoucher('v-ok');
+    const saved = await callText(client, 'slip_save', {
+      path: 'v-ok',
+      file: { ...voucher, values: { ...voucher.values, seal: GIF_DATA_URL } },
+      overwrite: true,
+    });
+    expect(saved.isError).toBe(true);
+    expect(saved.text).toContain('Value "seal"');
+    expect((await loadVoucher('v-ok')).values['seal']).toBe(`data:image/jpeg;base64,${TINY_JPEG.toString('base64')}`);
+  });
+
+  it('목록 파라미터는 image로 선언된 하위 필드만 검사하고 다른 행 키는 보존한다', async () => {
+    const prepared = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [
+        {
+          action: 'add_parameter',
+          parameter: {
+            key: 'photos',
+            valueType: 'list',
+            fields: [{ key: 'img', valueType: 'image' }, { key: 'caption' }],
+          },
+        },
+      ],
+    });
+    expect(prepared.isError).toBe(false);
+
+    const bad = await callText(client, 'slip_build_voucher', {
+      templatePath: 'doc',
+      values: { photos: [{ img: `data:image/png;base64,${TINY_PNG_B64}` }, { img: GIF_DATA_URL, caption: 'x' }] },
+      outPath: 'v-photos',
+    });
+    expect(bad.isError).toBe(true);
+    expect(bad.text).toContain('Value "photos[1].img" declares "image/gif"');
+    expect((await readdir(dir)).includes('v-photos.slip')).toBe(false);
+
+    const rows = [
+      { img: `data:image/png;base64,${TINY_PNG_B64}`, caption: TEXT_DATA_URL, extra: GIF_DATA_URL },
+      { caption: GIF_DATA_URL },
+    ];
+    const fine = await callText(client, 'slip_build_voucher', {
+      templatePath: 'doc',
+      values: { photos: rows },
+      outPath: 'v-photos',
+    });
+    expect(fine.isError).toBe(false);
+    expect((await loadVoucher('v-photos')).values['photos']).toEqual(rows);
+
+    const edited = await callText(client, 'slip_edit', {
+      path: 'v-photos',
+      ops: [{ action: 'set_values', values: { photos: [{ img: GIF_DATA_URL }] } }],
+    });
+    expect(edited.isError).toBe(true);
+    expect(edited.text).toContain('Value "photos[0].img"');
+    expect((await loadVoucher('v-photos')).values['photos']).toEqual(rows);
+  });
+
   it('발행된 전표는 수정을 거부한다', async () => {
     await callText(client, 'slip_build_voucher', {
       templatePath: 'doc',
@@ -349,6 +668,293 @@ describe('slip_edit', () => {
     });
     expect(result.isError).toBe(true);
     expect(result.text).toContain('issued');
+  });
+});
+
+describe('slip_edit 페이지·용지·파라미터 연산', () => {
+  beforeEach(async () => {
+    await callText(client, 'slip_save', { path: 'doc', file: makeTemplate() });
+  });
+
+  it('set_paper는 용지 필드를 병합하고 검증에 어긋나면 저장하지 않는다', async () => {
+    const ok = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_paper', fields: { width: 297, height: 210 } }],
+    });
+    expect(ok.isError).toBe(false);
+    expect(ok.text).toContain('set_paper: width, height');
+    expect((await loadTemplate('doc')).template.paper).toMatchObject({ width: 297, height: 210, padding: [15, 15, 15, 15] });
+
+    const bad = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_paper', fields: { width: -5 } }],
+    });
+    expect(bad.isError).toBe(true);
+    expect((await loadTemplate('doc')).template.paper.width).toBe(297);
+  });
+
+  it('remove_element는 id로 요소를 지우고 없는 id는 목록을 안내한다', async () => {
+    const ok = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'remove_element', id: 'title' }],
+    });
+    expect(ok.isError).toBe(false);
+    const ids = (await loadTemplate('doc')).template.pages[0]!.elements.map((entry) => entry.id);
+    expect(ids).toEqual(['customer', 'logo', 'items-table']);
+
+    const missing = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'remove_element', id: 'title' }],
+    });
+    expect(missing.isError).toBe(true);
+    expect(missing.text).toContain('No element with id "title"');
+    expect(missing.text).toContain('customer, logo, items-table');
+  });
+
+  it('add_page는 끝이나 지정한 위치에 빈 페이지를 넣고 범위 밖 위치는 거부한다', async () => {
+    const ok = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [
+        { action: 'add_page' },
+        { action: 'add_page', index: 0 },
+      ],
+    });
+    expect(ok.isError).toBe(false);
+    expect(ok.text).toContain('add_page at 1');
+    expect(ok.text).toContain('add_page at 0');
+    const pages = (await loadTemplate('doc')).template.pages;
+    expect(pages).toHaveLength(3);
+    expect(pages[0]!.elements).toEqual([]);
+    expect(pages[1]!.elements.map((entry) => entry.id)).toContain('title');
+    expect(pages[2]!.elements).toEqual([]);
+
+    const outOfRange = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'add_page', index: 7 }],
+    });
+    expect(outOfRange.isError).toBe(true);
+    expect(outOfRange.text).toContain('Page index 7 is out of range (0..3)');
+    expect((await loadTemplate('doc')).template.pages).toHaveLength(3);
+  });
+
+  it('remove_page는 페이지를 지우고, 없는 번호와 마지막 페이지 삭제는 거부한다', async () => {
+    await callText(client, 'slip_edit', { path: 'doc', ops: [{ action: 'add_page', index: 0 }] });
+    const ok = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'remove_page', index: 0 }],
+    });
+    expect(ok.isError).toBe(false);
+    const pages = (await loadTemplate('doc')).template.pages;
+    expect(pages).toHaveLength(1);
+    expect(pages[0]!.elements.map((entry) => entry.id)).toContain('title');
+
+    const missing = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'remove_page', index: 5 }],
+    });
+    expect(missing.isError).toBe(true);
+    expect(missing.text).toContain('No page at index 5. The file has 1 page(s).');
+
+    // 페이지가 하나도 없는 양식은 검증에서 거부되어 저장되지 않는다.
+    const last = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'remove_page', index: 0 }],
+    });
+    expect(last.isError).toBe(true);
+    expect((await loadTemplate('doc')).template.pages).toHaveLength(1);
+  });
+
+  it('set_page는 페이지 필드를 병합하고 없는 번호는 거부한다', async () => {
+    const ok = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_page', index: 0, fields: { key: 'front', label: '앞면' } }],
+    });
+    expect(ok.isError).toBe(false);
+    expect((await loadTemplate('doc')).template.pages[0]).toMatchObject({ key: 'front', label: '앞면' });
+
+    const removed = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_page', index: 0, fields: { label: null } }],
+    });
+    expect(removed.isError).toBe(false);
+    expect((await loadTemplate('doc')).template.pages[0]!.label).toBeUndefined();
+
+    const missing = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_page', index: 3, fields: { label: 'x' } }],
+    });
+    expect(missing.isError).toBe(true);
+    expect(missing.text).toContain('No page at index 3');
+  });
+
+  it('add_parameter는 정의를 추가하고 중복 key는 검증에서 거부한다', async () => {
+    const ok = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'add_parameter', parameter: { key: 'memo', label: '비고' } }],
+    });
+    expect(ok.isError).toBe(false);
+    expect(ok.text).toContain('add_parameter memo');
+    expect((await loadTemplate('doc')).template.parameters?.map((entry) => entry.key)).toEqual([
+      'customerName', 'items', 'memo',
+    ]);
+
+    const duplicate = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'add_parameter', parameter: { key: 'memo' } }],
+    });
+    expect(duplicate.isError).toBe(true);
+    expect((await loadTemplate('doc')).template.parameters).toHaveLength(3);
+  });
+
+  it('set_parameter는 key로 정의를 고치고 없는 key는 정의된 key를 안내한다', async () => {
+    const ok = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_parameter', key: 'customerName', fields: { label: '거래처' } }],
+    });
+    expect(ok.isError).toBe(false);
+    expect((await loadTemplate('doc')).template.parameters?.[0]).toMatchObject({ key: 'customerName', label: '거래처' });
+
+    const missing = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_parameter', key: 'nope', fields: { label: 'x' } }],
+    });
+    expect(missing.isError).toBe(true);
+    expect(missing.text).toContain('No parameter with key "nope". Defined keys: customerName, items');
+  });
+
+  it('remove_parameter는 정의를 지우고 없는 key는 거부한다', async () => {
+    await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'add_parameter', parameter: { key: 'memo' } }],
+    });
+    const ok = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'remove_parameter', key: 'memo' }],
+    });
+    expect(ok.isError).toBe(false);
+    expect((await loadTemplate('doc')).template.parameters?.map((entry) => entry.key)).toEqual(['customerName', 'items']);
+
+    const missing = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'remove_parameter', key: 'memo' }],
+    });
+    expect(missing.isError).toBe(true);
+    expect(missing.text).toContain('No parameter with key "memo"');
+  });
+});
+
+describe('같은 파일의 동시 편집', () => {
+  beforeEach(async () => {
+    await callText(client, 'slip_save', { path: 'doc', file: makeTemplate() });
+  });
+
+  it('병렬 slip_edit의 변경이 모두 보존된다', async () => {
+    const ids = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'];
+    const results = await Promise.all(
+      ids.map((id, index) =>
+        callText(client, 'slip_edit', {
+          path: 'doc',
+          ops: [{ action: 'add_element', pageIndex: 0, element: textElement(id, 100 + index * 8) }],
+        }),
+      ),
+    );
+    for (const result of results) expect(result.isError).toBe(false);
+    const elementIds = (await loadTemplate('doc')).template.pages[0]!.elements.map((entry) => entry.id);
+    for (const id of ids) expect(elementIds).toContain(id);
+    expect(elementIds).toHaveLength(4 + ids.length);
+  });
+
+  it('병렬 편집 중 실패한 호출은 다른 호출의 변경을 지우지 않는다', async () => {
+    const results = await Promise.all([
+      callText(client, 'slip_edit', {
+        path: 'doc',
+        ops: [{ action: 'add_element', pageIndex: 0, element: textElement('a', 100) }],
+      }),
+      callText(client, 'slip_edit', {
+        path: 'doc',
+        ops: [{ action: 'set_element', id: 'missing', fields: { width: 1 } }],
+      }),
+      callText(client, 'slip_edit', {
+        path: 'doc',
+        ops: [{ action: 'set_meta', fields: { title: '' } }],
+      }),
+      callText(client, 'slip_edit', {
+        path: 'doc',
+        ops: [{ action: 'add_element', pageIndex: 0, element: textElement('b', 110) }],
+      }),
+      callText(client, 'slip_edit', {
+        path: 'doc',
+        ops: [{ action: 'set_meta', fields: { title: '병렬' } }],
+      }),
+    ]);
+    expect(results.map((result) => result.isError)).toEqual([false, true, true, false, false]);
+    const file = await loadTemplate('doc');
+    expect(file.template.meta.title).toBe('병렬');
+    const elementIds = file.template.pages[0]!.elements.map((entry) => entry.id);
+    expect(elementIds).toContain('a');
+    expect(elementIds).toContain('b');
+  });
+
+  it('slip_save와 slip_build_voucher도 같은 파일 앞에서 줄을 선다', async () => {
+    const changed = makeTemplate();
+    changed.template.meta.title = '덮어씀';
+    const results = await Promise.all([
+      callText(client, 'slip_edit', {
+        path: 'doc',
+        ops: [{ action: 'add_element', pageIndex: 0, element: textElement('x', 100) }],
+      }),
+      callText(client, 'slip_save', { path: 'doc', file: changed, overwrite: true }),
+      callText(client, 'slip_edit', {
+        path: 'doc',
+        ops: [{ action: 'add_element', pageIndex: 0, element: textElement('y', 110) }],
+      }),
+    ]);
+    for (const result of results) expect(result.isError).toBe(false);
+    // 순서대로 실행됐으므로 덮어쓴 뒤의 편집(y)은 남고 그 앞의 편집(x)은 덮어써진다.
+    const file = await loadTemplate('doc');
+    expect(file.template.meta.title).toBe('덮어씀');
+    const elementIds = file.template.pages[0]!.elements.map((entry) => entry.id);
+    expect(elementIds).not.toContain('x');
+    expect(elementIds).toContain('y');
+
+    const vouchers = await Promise.all([
+      callText(client, 'slip_build_voucher', { templatePath: 'doc', values: { customerName: 'A' }, outPath: 'v' }),
+      callText(client, 'slip_build_voucher', { templatePath: 'doc', values: { customerName: 'B' }, outPath: 'v' }),
+    ]);
+    // 같은 출력 경로에 두 번 만들면 뒤의 호출은 overwrite 없이는 실패한다.
+    expect(vouchers.filter((result) => result.isError)).toHaveLength(1);
+    expect(vouchers.find((result) => result.isError)?.text).toContain('already exists');
+  });
+
+  it('서로 다른 파일의 병렬 편집은 각각 반영된다', async () => {
+    await callText(client, 'slip_save', { path: 'other', file: makeTemplate() });
+    const results = await Promise.all([
+      callText(client, 'slip_edit', {
+        path: 'doc',
+        ops: [{ action: 'set_meta', fields: { title: 'doc-1' } }],
+      }),
+      callText(client, 'slip_edit', {
+        path: 'other',
+        ops: [{ action: 'set_meta', fields: { title: 'other-1' } }],
+      }),
+      callText(client, 'slip_edit', {
+        path: 'doc.slip',
+        ops: [{ action: 'add_element', pageIndex: 0, element: textElement('d', 100) }],
+      }),
+      callText(client, 'slip_edit', {
+        path: 'other.slip',
+        ops: [{ action: 'add_element', pageIndex: 0, element: textElement('o', 100) }],
+      }),
+    ]);
+    for (const result of results) expect(result.isError).toBe(false);
+    const doc = await loadTemplate('doc');
+    const other = await loadTemplate('other');
+    expect(doc.template.meta.title).toBe('doc-1');
+    expect(doc.template.pages[0]!.elements.map((entry) => entry.id)).toContain('d');
+    expect(other.template.meta.title).toBe('other-1');
+    expect(other.template.pages[0]!.elements.map((entry) => entry.id)).toContain('o');
+    // 임시 파일은 남지 않는다.
+    expect((await readdir(dir)).sort()).toEqual(['doc.slip', 'other.slip']);
   });
 });
 
@@ -402,9 +1008,60 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
       outPath: 'doc.slip',
     });
     expect(rendered.isError).toBe(true);
+    expect(rendered.text).toContain('must end with .pdf');
 
     const storage = new FileSystemStorage({ rootDir: dir });
     expect(await storage.load('doc')).toMatchObject({ kind: 'template' });
+  });
+
+  it('PDF 출력 경로는 대소문자와 무관하게 .pdf여야 하고 없는 디렉터리는 만든다', async () => {
+    const upper = await callText(client, 'slip_render_pdf', { path: 'doc', outPath: 'out/UPPER.PDF' });
+    expect(upper.isError).toBe(false);
+    expect((await readFile(path.join(dir, 'out', 'UPPER.PDF'))).subarray(0, 5).toString()).toBe('%PDF-');
+
+    for (const outPath of ['out.json', 'out.png', 'out', 'out.pdf.bak', 'sub/']) {
+      const result = await callText(client, 'slip_render_pdf', { path: 'doc', outPath });
+      expect(result.isError, outPath).toBe(true);
+      expect(result.text, outPath).toContain(`"${outPath}" must end with .pdf`);
+    }
+    expect((await readdir(dir)).sort()).toEqual(['doc.slip', 'out']);
+  });
+
+  it('기존 PDF 파일은 덮어쓰고 PDF가 아닌 기존 파일은 남겨 둔다', async () => {
+    await writeFile(path.join(dir, 'old.pdf'), '%PDF-1.4 old');
+    const replaced = await callText(client, 'slip_render_pdf', { path: 'doc', outPath: 'old.pdf' });
+    expect(replaced.isError).toBe(false);
+    const pdf = await readFile(path.join(dir, 'old.pdf'));
+    expect(pdf.length).toBeGreaterThan(100);
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+
+    await writeFile(path.join(dir, 'notes.pdf'), 'hello, this is not a pdf');
+    await writeFile(path.join(dir, 'empty.pdf'), '');
+    for (const outPath of ['notes.pdf', 'empty.pdf']) {
+      const kept = await callText(client, 'slip_render_pdf', { path: 'doc', outPath });
+      expect(kept.isError, outPath).toBe(true);
+      expect(kept.text, outPath).toContain(`"${outPath}" already exists and is not a PDF file`);
+    }
+    expect((await readFile(path.join(dir, 'notes.pdf'), 'utf8'))).toBe('hello, this is not a pdf');
+    expect((await readFile(path.join(dir, 'empty.pdf'))).length).toBe(0);
+
+    // 출력 경로가 디렉터리면 쓰지 않는다.
+    await mkdir(path.join(dir, 'folder.pdf'));
+    const directory = await callText(client, 'slip_render_pdf', { path: 'doc', outPath: 'folder.pdf' });
+    expect(directory.isError).toBe(true);
+    expect(directory.text).toContain('"folder.pdf"');
+  });
+
+  it('작업 디렉터리 밖의 PDF 출력 경로를 거부한다', async () => {
+    const outside = await callText(client, 'slip_render_pdf', { path: 'doc', outPath: '../escape.pdf' });
+    expect(outside.isError).toBe(true);
+    expect(outside.text).toContain('outside the working directory');
+    const absolute = await callText(client, 'slip_render_pdf', {
+      path: 'doc',
+      outPath: path.join(path.dirname(dir), 'escape.pdf'),
+    });
+    expect(absolute.isError).toBe(true);
+    expect((await readdir(path.dirname(dir))).includes('escape.pdf')).toBe(false);
   });
 
   it('`ja`가 아닌 로케일에서도 fontName으로 Noto Sans JP를 사용할 수 있다', async () => {
@@ -457,7 +1114,92 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
   });
 });
 
+// 작업 디렉터리 안의 심볼릭 링크를 거쳐 밖의 파일을 읽거나 쓰지 않는지 실제 링크로 확인한다.
+// Windows에서 링크 생성 권한이 없을 때만 건너뛴다.
+describe.skipIf(symlinksUnavailable())('심볼릭 링크를 거친 작업 디렉터리 이탈', () => {
+  /** 작업 디렉터리 밖의 디렉터리 */
+  let outside: string;
+
+  beforeEach(async () => {
+    outside = await makeWorkDir();
+    await callText(client, 'slip_save', { path: 'doc', file: makeTemplate() });
+  });
+
+  afterEach(async () => {
+    await removeWorkDir(outside);
+  });
+
+  it('set_image는 파일 링크와 디렉터리 링크 너머의 이미지를 읽지 않는다', async () => {
+    await writeFile(path.join(outside, 'logo.png'), Buffer.from(TINY_PNG_B64, 'base64'));
+    await symlink(path.join(outside, 'logo.png'), path.join(dir, 'link.png'), 'file');
+    await symlink(outside, path.join(dir, 'shared'), 'dir');
+    for (const imagePath of ['link.png', 'shared/logo.png']) {
+      const result = await callText(client, 'slip_edit', {
+        path: 'doc',
+        ops: [{ action: 'set_image', elementId: 'logo', imagePath }],
+      });
+      expect(result.isError, imagePath).toBe(true);
+      expect(result.text, imagePath).toContain('outside the working directory');
+    }
+    expect((await loadTemplate('doc')).template.assets).toEqual([]);
+
+    // 안을 가리키는 디렉터리 링크 너머의 이미지는 읽는다.
+    await mkdir(path.join(dir, 'images'));
+    await writeFile(path.join(dir, 'images', 'logo.png'), Buffer.from(TINY_PNG_B64, 'base64'));
+    await symlink(path.join(dir, 'images'), path.join(dir, 'images-link'), 'dir');
+    const inside = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_image', elementId: 'logo', imagePath: 'images-link/logo.png' }],
+    });
+    expect(inside.isError).toBe(false);
+    expect((await loadTemplate('doc')).template.assets).toHaveLength(1);
+  });
+
+  it('slip_render_pdf는 링크 너머에 PDF를 쓰지 않는다', async () => {
+    await writeFile(path.join(outside, 'old.pdf'), '%PDF-1.4 old');
+    await symlink(path.join(outside, 'old.pdf'), path.join(dir, 'link.pdf'), 'file');
+    await symlink(path.join(outside, 'new.pdf'), path.join(dir, 'dangling.pdf'), 'file');
+    await symlink(outside, path.join(dir, 'shared'), 'dir');
+    for (const outPath of ['link.pdf', 'dangling.pdf', 'shared/out.pdf', 'shared/deep/out.pdf']) {
+      const result = await callText(client, 'slip_render_pdf', { path: 'doc', outPath });
+      expect(result.isError, outPath).toBe(true);
+      expect(result.text, outPath).toContain('outside the working directory');
+    }
+    expect(await readFile(path.join(outside, 'old.pdf'), 'utf8')).toBe('%PDF-1.4 old');
+    expect((await readdir(outside)).sort()).toEqual(['old.pdf']);
+    expect((await lstat(path.join(dir, 'link.pdf'))).isSymbolicLink()).toBe(true);
+    expect((await lstat(path.join(dir, 'dangling.pdf'))).isSymbolicLink()).toBe(true);
+    // 링크 옆에 임시 파일도 남기지 않는다.
+    expect((await readdir(dir)).sort()).toEqual(['dangling.pdf', 'doc.slip', 'link.pdf', 'shared']);
+  });
+
+  it('slip_read·slip_save는 링크 너머의 .slip 파일을 읽거나 쓰지 않는다', async () => {
+    const storage = new FileSystemStorage({ rootDir: outside });
+    await storage.save('secret', makeTemplate());
+    await symlink(path.join(outside, 'secret.slip'), path.join(dir, 'link.slip'), 'file');
+    await symlink(outside, path.join(dir, 'shared'), 'dir');
+
+    for (const id of ['link', 'shared/secret']) {
+      const read = await callText(client, 'slip_read', { path: id });
+      expect(read.isError, id).toBe(true);
+      expect(read.text, id).toContain('outside the working directory');
+      const saved = await callText(client, 'slip_save', { path: id, file: makeTemplate(), overwrite: true });
+      expect(saved.isError, id).toBe(true);
+      expect(saved.text, id).toContain('outside the working directory');
+    }
+    const fresh = await callText(client, 'slip_save', { path: 'shared/new', file: makeTemplate() });
+    expect(fresh.isError).toBe(true);
+    expect(await readdir(outside)).toEqual(['secret.slip']);
+    expect(await storage.load('secret')).toEqual(makeTemplate());
+  });
+});
+
 describe('서버 안내', () => {
+  it('서버 버전은 패키지 버전과 같다', async () => {
+    const { PACKAGE_VERSION } = await import('../src/cli-command.js');
+    expect(client.getServerVersion()).toEqual({ name: 'slipkit-mcp-server', version: PACKAGE_VERSION });
+  });
+
   it('도구 7종이 등록되어 있다', async () => {
     const tools = await client.listTools();
     expect(tools.tools.map((tool) => tool.name).sort()).toEqual([

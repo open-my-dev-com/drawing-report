@@ -4,6 +4,7 @@ import {
   createSlipKit,
   isEncryptedSlipFile,
   SlipEncryptionError,
+  SlipParseError,
   type SlipTemplateFile,
 } from '../src/index.js';
 
@@ -136,5 +137,49 @@ describe('createSlipKit (ADR-056)', () => {
     const bare = createSlipKit();
     expect(bare.locale).toBeUndefined();
     expect(bare.getFonts).toBeUndefined();
+  });
+});
+
+describe('SlipKit.decrypt — 키 순회와 오류 구분', () => {
+  it('원시 키와 암호 문구가 섞인 previousKeys를 끝까지 시도한다', async () => {
+    const raw = new Uint8Array(32).fill(3);
+    const locked = await createSlipKit({ encryption: { key: 'oldest' } }).encrypt(template());
+    const rotated = createSlipKit({ encryption: { key: raw, previousKeys: [new Uint8Array(32).fill(9), 'wrong', 'oldest'] } });
+    expect(await rotated.decrypt(locked)).toEqual(template());
+  });
+
+  it('어떤 키도 맞지 않으면 "일치하는 키 없음"으로 보고한다', async () => {
+    const locked = await createSlipKit({ encryption: { key: 'a' } }).encrypt(template());
+    const slip = createSlipKit({ encryption: { key: 'b', previousKeys: [new Uint8Array(32), 'c'] } });
+    await expect(slip.decrypt(locked)).rejects.toThrow('no matching key');
+    await expect(createSlipKit({ locale: 'ko-KR', encryption: { key: 'b', previousKeys: ['c'] } }).decrypt(locked))
+      .rejects.toThrow('일치하는 키가 없습니다');
+  });
+
+  it('키가 하나뿐이면 그 키의 오류를 그대로 보고한다', async () => {
+    const locked = await createSlipKit({ encryption: { key: 'a' } }).encrypt(template());
+    await expect(createSlipKit({ encryption: { key: 'b' } }).decrypt(locked)).rejects.toThrow('key is wrong');
+    await expect(createSlipKit({ encryption: { key: new Uint8Array(32) } }).decrypt(locked))
+      .rejects.toThrow('locked with a passphrase');
+  });
+
+  it('봉투가 손상되면 키를 시도하지 않고 손상 오류를 보고한다', async () => {
+    const locked = await createSlipKit({ encryption: { key: 'a' } }).encrypt(template());
+    const env = JSON.parse(locked) as Record<string, unknown>;
+    env['iv'] = 'AAAA';
+    const slip = createSlipKit({ encryption: { key: 'b', previousKeys: ['a'] } });
+    await expect(slip.decrypt(JSON.stringify(env))).rejects.toThrow("'iv' field");
+    await expect(slip.decrypt('{"x":1}')).rejects.toThrow('Not an encrypted');
+  });
+
+  it('복호화는 됐지만 내용이 .slip이 아니면 SlipParseError를 그대로 전달한다', async () => {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const rawKey = new Uint8Array(32).fill(5);
+    const aesKey = await crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['encrypt']);
+    const data = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode('{"kind":"nope"}')));
+    const b64u = (bytes: Uint8Array) => Buffer.from(bytes).toString('base64url');
+    const envelope = JSON.stringify({ slipkit: 'encrypted', v: 1, cipher: 'A256GCM', iv: b64u(iv), data: b64u(data) });
+    const slip = createSlipKit({ encryption: { key: rawKey, previousKeys: ['other'] } });
+    await expect(slip.decrypt(envelope)).rejects.toBeInstanceOf(SlipParseError);
   });
 });

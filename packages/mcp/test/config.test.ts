@@ -115,6 +115,20 @@ describe('resolveServerOptions', () => {
     await expect(resolveServerOptions({ cwd: dir, env: {} })).rejects.toThrow(/MY_SLIP_KEY/);
   });
 
+  it('비어 있거나 공백뿐인 키 환경변수는 평문 저장으로 넘어가지 않고 시작을 막는다', async () => {
+    await expect(
+      resolveServerOptions({ cwd: dir, env: { SLIPKIT_MCP_KEY: '' } }),
+    ).rejects.toThrow(/SLIPKIT_MCP_KEY.*set but empty/);
+    await expect(
+      resolveServerOptions({ cwd: dir, env: { SLIPKIT_MCP_KEY: '   ' } }),
+    ).rejects.toThrow(SlipMcpConfigError);
+
+    await writeConfig({ encryption: { keyEnv: 'MY_SLIP_KEY' } });
+    await expect(
+      resolveServerOptions({ cwd: dir, env: { MY_SLIP_KEY: '' } }),
+    ).rejects.toThrow(/MY_SLIP_KEY.*set but empty/);
+  });
+
   it('설정 파일이 없어도 기본 환경변수의 키와 이전 키를 읽는다', async () => {
     const { options } = await resolveServerOptions({
       cwd: dir,

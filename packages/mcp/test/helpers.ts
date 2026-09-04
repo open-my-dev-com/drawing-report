@@ -1,5 +1,6 @@
 /** MCP 서버·저장소 테스트 공용 도우미. */
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -7,9 +8,27 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { CURRENT_SCHEMA_VERSION, type SlipTemplateFile } from '@omdc-slipkit/core';
 import { createSlipMcpServer, type SlipMcpServerOptions } from '../src/server.js';
 
-/** 임시 작업 디렉터리를 만든다. */
-export function makeWorkDir(): Promise<string> {
-  return mkdtemp(path.join(tmpdir(), 'slipkit-mcp-'));
+/** 임시 작업 디렉터리를 만든다. 임시 디렉터리가 링크(macOS의 `/tmp` 등)여도 실제 경로를 돌려준다. */
+export async function makeWorkDir(): Promise<string> {
+  return realpath(await mkdtemp(path.join(tmpdir(), 'slipkit-mcp-')));
+}
+
+/**
+ * 심볼릭 링크 시험을 건너뛸지 판정한다. Windows에서 링크 생성이 권한 오류(`EPERM`)로 실패할 때만
+ * 건너뛰고, 그 밖의 환경에서는 항상 실행한다.
+ */
+export function symlinksUnavailable(): boolean {
+  if (process.platform !== 'win32') return false;
+  const probe = mkdtempSync(path.join(tmpdir(), 'slipkit-mcp-symlink-'));
+  try {
+    writeFileSync(path.join(probe, 'target'), '');
+    symlinkSync(path.join(probe, 'target'), path.join(probe, 'link'), 'file');
+    return false;
+  } catch (error) {
+    return (error as { code?: unknown } | null)?.code === 'EPERM';
+  } finally {
+    rmSync(probe, { recursive: true, force: true });
+  }
 }
 
 /** 임시 작업 디렉터리를 지운다. */
