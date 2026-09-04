@@ -10,12 +10,22 @@ import type { ConditionalFormatRule, GridElement, SlipPage } from '@omdc-slipkit
 import type { FormulaCheck } from './formula-check.js';
 import type { FormulaTarget } from './formula-target.js';
 
+/** 계산되지 않는 수식·조건식 한 자리와 그 원인 */
+export interface FormulaWarningDetail {
+  /** 계산되지 않는 자리 */
+  readonly target: FormulaTarget;
+  /** 계산에 실패한 원인 — 평가기가 낸 오류 문구. 문구가 없으면 빈 값 */
+  readonly message: string;
+}
+
 /** 경고가 있는 요소와 그리드 셀 */
 export interface FormulaWarnings {
   /** 경고가 있는 요소 id */
   readonly elements: ReadonlySet<string>;
   /** 그리드 id별로 경고가 있는 셀 자리 ({@link warningCellKey}) */
   readonly cells: ReadonlyMap<string, ReadonlySet<string>>;
+  /** 계산되지 않는 자리와 원인 (요소·셀·규칙 순) */
+  readonly details: readonly FormulaWarningDetail[];
 }
 
 /** 경고 집계에 필요한 것 */
@@ -42,7 +52,7 @@ export function warningCellKey(row: number, column: number): string {
 }
 
 /** 경고 없음 */
-export const NO_FORMULA_WARNINGS: FormulaWarnings = { elements: new Set(), cells: new Map() };
+export const NO_FORMULA_WARNINGS: FormulaWarnings = { elements: new Set(), cells: new Map(), details: [] };
 
 /**
  * 페이지에 저장된 수식·조건식을 모두 검사해 경고 대상을 모읍니다.
@@ -53,12 +63,16 @@ export const NO_FORMULA_WARNINGS: FormulaWarnings = { elements: new Set(), cells
 export function collectFormulaWarnings(input: FormulaWarningInput): FormulaWarnings {
   const elements = new Set<string>();
   const cells = new Map<string, Set<string>>();
+  const details: FormulaWarningDetail[] = [];
 
-  /** 한 자리를 검사해 계산되지 않으면 참을 돌려줍니다. */
+  /** 한 자리를 검사해 계산되지 않으면 원인을 기록하고 참을 돌려줍니다. */
   const fails = (target: FormulaTarget, source: string | undefined, condition: boolean): boolean => {
     if (source === undefined || source.trim() === '') return false;
-    return input.check(target, source, condition)
-      .some((check) => check.status === 'formula-error' || check.status === 'not-computable');
+    const failed = input.check(target, source, condition)
+      .find((check) => check.status === 'formula-error' || check.status === 'not-computable');
+    if (failed === undefined) return false;
+    details.push({ target, message: failed.detail ?? '' });
+    return true;
   };
 
   for (const element of input.page.elements) {
@@ -87,7 +101,7 @@ export function collectFormulaWarnings(input: FormulaWarningInput): FormulaWarni
     if (warned) elements.add(elementId);
   }
 
-  return { elements, cells };
+  return { elements, cells, details };
 }
 
 /** 조건부 서식 규칙 목록. 규칙을 가지지 않는 종류면 빈 목록 */

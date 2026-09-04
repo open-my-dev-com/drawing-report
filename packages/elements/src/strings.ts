@@ -440,6 +440,8 @@ const ko = {
     deleteFormTitle: '양식 삭제',
     deleteFormConfirm: '「{title}」 양식을 삭제할까요? 되돌릴 수 없습니다.',
     colorCode: '색상 코드',
+    formulaErrorLabel: '수식 오류',
+    saveInvalidFile: '양식이 파일 형식에 맞지 않아 저장하지 않았습니다. {detail}',
   },
   form: {
     noFile: '전표를 작성할 양식을 불러오세요.',
@@ -948,6 +950,8 @@ const en: SlipStrings = {
     deleteFormTitle: 'Delete form',
     deleteFormConfirm: 'Delete the form "{title}"? This cannot be undone.',
     colorCode: 'Color code',
+    formulaErrorLabel: 'Formula error',
+    saveInvalidFile: 'The form was not saved because it does not match the file format. {detail}',
   },
   form: {
     noFile: 'Load a template to fill in a slip.',
@@ -1455,6 +1459,8 @@ const ja: SlipStrings = {
     deleteFormTitle: 'テンプレートの削除',
     deleteFormConfirm: 'テンプレート「{title}」を削除しますか？元に戻せません。',
     colorCode: 'カラーコード',
+    formulaErrorLabel: '数式エラー',
+    saveInvalidFile: 'テンプレートがファイル形式に合わないため保存しませんでした。{detail}',
   },
   form: {
     noFile: '伝票を作成するテンプレートを読み込んでください。',

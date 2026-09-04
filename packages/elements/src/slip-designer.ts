@@ -2,6 +2,8 @@ import { LitElement, html, nothing } from 'lit';
 import { designerStyles } from './styles/slip-designer.styles.js';
 import {
   parseSlipFile,
+  serializeSlipFile,
+  validateSlipFile,
   RESERVED_REF_NAMES,
   evaluateFormula,
   diagnoseFormula,
@@ -91,6 +93,7 @@ import {
   collectParameterUses,
   ensureParameterDef as ensureParameterDefIn,
   parameterUsesOf,
+  renameParameterFieldReferences,
   renameParameterReferences,
 } from './designer/parameters.js';
 import type { FormActions } from './designer/render/form-props.js';
@@ -686,6 +689,8 @@ export class SlipDesigner extends LitElement {
       pagePlan: () => this._pagePlan(),
       planError: () => this._planError(),
       focusPlanError: (error) => this._focusPlanError(error),
+      focusFormulaWarning: (target) => this._focusFormulaTarget(target),
+      typeName: (type) => this._typeName(type),
       setGridPlanPreview: (enabled) => this._setGridPlanPreview(enabled),
       trackCursor: (event) => this._pointer.trackCursor(event),
       clearCursor: () => this._pointer.clearCursor(),
@@ -2128,7 +2133,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 하위 필드 키와 해당 필드를 참조하는 항목 구간 셀을 함께 변경합니다.
+   * 하위 필드 키와 해당 필드를 참조하는 셀·수식·그룹 설정·샘플 항목을 함께 변경합니다.
    *
    * @param listKey - 목록 파라미터 물리명
    * @param key - 현재 필드 키
@@ -2156,21 +2161,8 @@ export class SlipDesigner extends LitElement {
       return;
     }
     this._parameterKeyError = false;
-    this._updateFile((f) => {
-      const defs = f.template.parameters ?? [];
-      const def = defs.find((b) => b.key === listKey);
-      const field = def?.fields?.find((x) => x.key === key);
-      if (field) field.key = trimmed;
-      // 해당 목록 파라미터의 항목 구간에서 참조하는 셀만 변경합니다.
-      for (const page of f.template.pages) {
-        for (const el of page.elements) {
-          if (el.type !== 'grid' || el.repeat?.parameter !== listKey) continue;
-          for (const cell of el.cells) {
-            if (inItemBand(el, cell.row) && cell.parameter === key) cell.parameter = trimmed;
-          }
-        }
-      }
-    });
+    // 정의·항목 구간 셀·수식·그룹 설정·샘플 항목을 한 번의 수정으로 바꿔 되돌리기 한 단위로 남깁니다.
+    this._updateFile((f) => renameParameterFieldReferences(f, listKey, key, trimmed));
     this._sideSelection = { kind: 'parameterField', key: listKey, field: trimmed };
     this.requestUpdate();
   }
@@ -2312,6 +2304,24 @@ export class SlipDesigner extends LitElement {
       if (!(target instanceof HTMLElement)) return;
       target.focus({ preventScroll: true });
       target.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  /** 계산되지 않는 수식이 있는 요소와 셀을 선택하고 편집 위치로 이동합니다. */
+  private _focusFormulaTarget(target: FormulaTarget): void {
+    const element = this._findElement(target.elementId);
+    if (element === undefined) return;
+    this._selectElement(element.id);
+    this._gridEdit.clearCell();
+    if (element.type === 'grid' && (target.kind === 'cell' || target.kind === 'cell-condition')) {
+      this._gridEdit.selectCell({ row: target.row, column: target.column });
+    }
+    this.requestUpdate();
+    void this.updateComplete.then(() => {
+      const found = this.renderRoot.querySelector(`[data-id="${element.id}"]`);
+      if (!(found instanceof HTMLElement)) return;
+      found.focus({ preventScroll: true });
+      found.scrollIntoView({ block: 'nearest' });
     });
   }
 
@@ -3418,6 +3428,17 @@ export class SlipDesigner extends LitElement {
     // 제목은 저장이 성공한 뒤에만 양식에 반영합니다 — 실패하면 양식과 되돌리기 이력이 그대로입니다.
     const file = structuredClone(this._file) as SlipTemplateFile;
     file.template.meta.title = title;
+    // 저장될 그대로(JSON)를 파일 형식으로 검증해 형식에 맞지 않는 양식은 저장소에 남기지 않습니다.
+    try {
+      validateSlipFile(
+        JSON.parse(serializeSlipFile(file as SlipFile)),
+        this._locale === undefined ? undefined : { locale: this._locale },
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      this._forms.fail(this._strings.designer.saveInvalidFile.replace('{detail}', detail));
+      return;
+    }
     const id = this._forms.nextId();
     try {
       await adapter.save(id, file as SlipFile);

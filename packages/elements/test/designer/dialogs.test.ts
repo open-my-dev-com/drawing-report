@@ -290,7 +290,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 
-  it('파라미터 목록에 표의 하위 열까지 나오고, 누르면 표파라미터.열키로 삽입된다 (F-21)', async () => {
+  it('파라미터 목록에 표의 하위 열까지 나오고, 누르면 `$(목록).$(필드)`로 삽입된다 (F-21)', async () => {
     const el = await loadWithTable();
     await openFormulaModal(el);
     await openValuesTab(el);
@@ -301,11 +301,11 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     expect(Array.from(fieldRows).map((c) => c.querySelector('.value-name')?.textContent?.trim()))
       .toEqual(['품명', '금액', '수량']);
     expect(Array.from(fieldRows).map((c) => c.querySelector('.value-code')?.textContent?.trim()))
-      .toEqual(['items.itemName', 'items.amount', 'items.quantity']);
+      .toEqual(['$(items).$(itemName)', '$(items).$(amount)', '$(items).$(quantity)']);
 
     fieldRows[1]!.click();
     await el.updateComplete;
-    expect(formulaInput(el).value).toBe('items.amount');
+    expect(formulaInput(el).value).toBe('$(items).$(amount)');
     el.remove();
   });
 

@@ -5,7 +5,12 @@
  * 사이드바, 속성 패널과 수식 모달이 같은 요약을 사용합니다.
  */
 
-import type { ParameterValueType, SlipTemplateFile } from '@omdc-slipkit/core';
+import {
+  RESERVED_REF_NAMES,
+  renameFormulaReferences,
+  type ParameterValueType,
+  type SlipTemplateFile,
+} from '@omdc-slipkit/core';
 import { inItemBand, itemBandOf } from './grid-model.js';
 
 /** 파라미터를 사용하는 요소의 위치 */
@@ -137,13 +142,70 @@ export function parameterUsesOf(file: SlipTemplateFile, key: string): ParameterU
   return collectParameterUses(file).uses.get(key) ?? [];
 }
 
+/** 수식·조건식 문자열을 고쳐 쓰는 함수. 바꿀 것이 없으면 입력을 그대로 돌려줍니다 */
+type FormulaRewrite = (source: string) => string;
+
+/** 조건부 서식 규칙 목록을 가진 것 */
+interface HasConditions {
+  conditionalFormats?: { condition: string }[] | undefined;
+}
+
+/** 조건부 서식 규칙의 조건식을 모두 고쳐 씁니다. */
+function rewriteConditions(owner: HasConditions, rewrite: FormulaRewrite): void {
+  for (const rule of owner.conditionalFormats ?? []) rule.condition = rewrite(rule.condition);
+}
+
 /**
- * 최상위 파라미터 키를 바꾸고, 그 키를 참조하는 모든 요소와 샘플 값을 함께 바꿉니다.
+ * 파싱할 수 없는 수식은 건드리지 않는 고쳐 쓰기 함수를 만듭니다.
+ *
+ * @param from - 바꿀 참조 경로의 앞부분
+ * @param to - 새 경로
+ * @returns 참조 이름을 바꾸되 문법 오류가 있는 수식은 그대로 돌려주는 함수
+ */
+function renamer(from: readonly string[], to: readonly string[]): FormulaRewrite {
+  return (source) => {
+    try {
+      return renameFormulaReferences(source, from, to);
+    } catch {
+      // 문법이 깨진 수식은 참조를 찾을 수 없으므로 그대로 둡니다.
+      return source;
+    }
+  };
+}
+
+/**
+ * 요소 하나가 가진 수식·조건식을 모두 고쳐 씁니다.
+ *
+ * @param el - 요소
+ * @param rewrite - 요소의 수식·조건식에 적용할 함수
+ * @param cellRewrite - 그리드 셀에 적용할 함수. 셀마다 다르게 고칠 때 넘기며, 없으면 `rewrite`
+ */
+function rewriteElementFormulas(
+  el: SlipTemplateFile['template']['pages'][number]['elements'][number],
+  rewrite: FormulaRewrite,
+  cellRewrite?: (cell: { row: number; column: number }) => FormulaRewrite,
+): void {
+  if (el.type === 'field' || el.type === 'barcode') {
+    if (el.formula !== undefined) el.formula = rewrite(el.formula);
+  }
+  if (el.type === 'text' || el.type === 'field') rewriteConditions(el, rewrite);
+  if (el.type === 'grid') {
+    for (const cell of el.cells) {
+      const forCell = cellRewrite === undefined ? rewrite : cellRewrite(cell);
+      if (cell.formula !== undefined) cell.formula = forCell(cell.formula);
+      rewriteConditions(cell, forCell);
+    }
+  }
+}
+
+/**
+ * 최상위 파라미터 키를 바꾸고, 그 키를 참조하는 모든 요소·수식과 샘플 값을 함께 바꿉니다.
  *
  * @remarks
  * 정의부, 필드·이미지·바코드의 `parameter`, 그리드의 반복 파라미터와 항목 구간 밖 셀,
- * `sampleValues`의 키를 한 번에 바꿉니다. 항목 구간 안의 셀 파라미터는 하위 필드라 건드리지 않습니다.
- * 정의가 없던 키는 새 키로 정의를 만듭니다.
+ * 모든 수식·조건식의 참조, `sampleValues`의 키를 한 번에 바꿉니다. 항목 구간 안의 셀
+ * 파라미터는 하위 필드라 건드리지 않습니다. 정의가 없던 키는 새 키로 정의를 만듭니다.
+ * 문법 오류가 있어 파싱할 수 없는 수식은 그대로 둡니다.
  *
  * @param file - 수정할 양식 파일
  * @param key - 현재 물리명
@@ -155,6 +217,7 @@ export function renameParameterReferences(file: SlipTemplateFile, key: string, n
   if (def) def.key = next;
   else defs.push({ key: next });
   file.template.parameters = defs;
+  const rewrite = renamer([key], [next]);
   for (const page of file.template.pages) {
     for (const el of page.elements) {
       if ((el.type === 'field' || el.type === 'image' || el.type === 'barcode') && el.parameter === key) {
@@ -166,6 +229,7 @@ export function renameParameterReferences(file: SlipTemplateFile, key: string, n
           if (!inItemBand(el, cell.row) && cell.parameter === key) cell.parameter = next;
         }
       }
+      rewriteElementFormulas(el, rewrite);
     }
   }
   const samples = file.template.sampleValues;
@@ -173,6 +237,70 @@ export function renameParameterReferences(file: SlipTemplateFile, key: string, n
     samples[next] = samples[key]!;
     delete samples[key];
   }
+}
+
+/**
+ * 목록 파라미터의 하위 필드 키를 바꾸고, 그 필드를 참조하는 셀·수식·그룹 설정과 샘플 항목을
+ * 함께 바꿉니다.
+ *
+ * @remarks
+ * 정의부의 필드 키, 그 목록을 반복하는 그리드의 항목 구간 셀 `parameter`와 `groupBy`,
+ * 양식 전체 수식의 `목록.필드` 참조, 그 그리드 안 수식의 `@item.필드` 같은 예약 참조 뒤
+ * 필드와 항목 구간 셀의 필드 이름 참조, `sampleValues` 목록 항목의 키를 한 번에 바꿉니다.
+ * 샘플 항목의 다른 키와 순서는 그대로 둡니다. 문법 오류가 있어 파싱할 수 없는 수식은
+ * 그대로 둡니다.
+ *
+ * @param file - 수정할 양식 파일
+ * @param listKey - 목록 파라미터 물리명
+ * @param key - 현재 필드 키
+ * @param next - 새 필드 키
+ */
+export function renameParameterFieldReferences(
+  file: SlipTemplateFile,
+  listKey: string,
+  key: string,
+  next: string,
+): void {
+  const def = (file.template.parameters ?? []).find((b) => b.key === listKey);
+  const field = def?.fields?.find((x) => x.key === key);
+  if (field) field.key = next;
+
+  const byListPath = renamer([listKey, key], [listKey, next]);
+  // 그 목록을 반복하는 그리드 안에서는 예약 참조 뒤의 필드도 같은 하위 필드입니다.
+  const byReserved = RESERVED_REF_NAMES.map((name) => renamer([name, key], [name, next]));
+  const byBareField = renamer([key], [next]);
+  const inRepeatGrid: FormulaRewrite = (source) =>
+    byReserved.reduce((text, rename) => rename(text), byListPath(source));
+
+  for (const page of file.template.pages) {
+    for (const el of page.elements) {
+      if (el.type !== 'grid' || el.repeat?.parameter !== listKey) {
+        rewriteElementFormulas(el, byListPath);
+        continue;
+      }
+      for (const cell of el.cells) {
+        if (inItemBand(el, cell.row) && cell.parameter === key) cell.parameter = next;
+      }
+      if (el.repeat.groupBy !== undefined) {
+        el.repeat.groupBy = el.repeat.groupBy.map((name) => (name === key ? next : name));
+      }
+      // 항목 구간 셀은 필드 이름만 적어도 현재 항목의 값을 읽으므로 그 참조도 바꿉니다.
+      rewriteElementFormulas(el, inRepeatGrid, (cell) =>
+        inItemBand(el, cell.row) ? (source) => byBareField(inRepeatGrid(source)) : inRepeatGrid);
+    }
+  }
+
+  const rows = file.template.sampleValues?.[listKey];
+  if (!Array.isArray(rows)) return;
+  rows.forEach((row, index) => {
+    if (row === null || typeof row !== 'object' || Array.isArray(row)) return;
+    const record = row as Record<string, unknown>;
+    if (!Object.prototype.hasOwnProperty.call(record, key)) return;
+    // 키 순서를 지키려고 항목을 처음부터 다시 만듭니다.
+    const renamed: Record<string, unknown> = {};
+    for (const [name, value] of Object.entries(record)) renamed[name === key ? next : name] = value;
+    rows[index] = renamed as typeof row;
+  });
 }
 
 /**

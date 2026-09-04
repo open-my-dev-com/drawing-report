@@ -58,6 +58,7 @@ import {
   hasElementWarning,
   type FormulaWarnings,
 } from '../formula-warning.js';
+import { describeFormulaTarget, resolveFormulaTarget, type FormulaTarget } from '../formula-target.js';
 import { PLACEHOLDER_IMG, resolveDisplayImage } from '../image-pick.js';
 import { BARCODE_KINDS, BARCODE_2D } from '../barcode.js';
 import { TYPE_BADGE } from './badges.js';
@@ -122,6 +123,10 @@ export interface CanvasContext {
   planError(): SlipLayoutError | null;
   /** 계획 오류가 난 요소와 행 구간으로 이동합니다 */
   focusPlanError(error: SlipLayoutError): void;
+  /** 계산되지 않는 수식이 있는 요소·셀로 이동합니다 */
+  focusFormulaWarning(target: FormulaTarget): void;
+  /** 요소 종류의 표시 이름 */
+  typeName(type: SlipElement['type']): string;
   /** 출력 결과 보기를 켜거나 끕니다 */
   setGridPlanPreview(enabled: boolean): void;
   /** 용지 위 커서 위치를 갱신합니다 */
@@ -184,6 +189,7 @@ export function canvas(ctx: CanvasContext) {
                 ${ctx.s.planErrorLocate}
               </button>`}
         </div>`}
+    ${formulaWarningList(ctx, page)}
     <div class="paper-wrap"
       @pointermove=${(e: PointerEvent) => ctx.trackCursor(e)}
       @pointerleave=${() => {
@@ -578,6 +584,40 @@ export function formulaWarningBadge(ctx: CanvasContext) {
   const label = ctx.s.formulaWarningItem;
   return html`<span class="formula-warning-badge" title=${label} aria-label=${label}
     >${icons.warning}</span>`;
+}
+
+/**
+ * 지금 값으로 계산되지 않는 수식·조건식의 자리와 원인을 계획 오류와 같은 자리에 늘어놓습니다.
+ *
+ * @remarks
+ * 원인 문구는 평가기가 낸 것이라 PDF 변환이 알리는 오류와 같습니다. 자리를 누르면 그 요소·셀을
+ * 선택해 바로 고칠 수 있습니다.
+ *
+ * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
+ * @param page - 보고 있는 양식 페이지
+ * @returns 안내 목록. 경고가 없으면 빈 것
+ */
+export function formulaWarningList(ctx: CanvasContext, page: SlipPage) {
+  const details = ctx.formulaWarnings.details;
+  if (details.length === 0) return nothing;
+  const s = ctx.s;
+  return html`<div id="formula-warnings" class="plan-error formula-warnings" role="alert"
+    @pointerdown=${(event: PointerEvent) => event.stopPropagation()}>
+    <span class="formula-warnings-title">${s.formulaWarningItem}</span>
+    <ul>
+      ${details.map((detail) => {
+        const found = resolveFormulaTarget(page, detail.target);
+        if (found === null) return nothing;
+        const where = describeFormulaTarget(s, (type) => ctx.typeName(type), detail.target, found);
+        return html`<li>
+          <span>${where}: ${detail.message || s.formulaCannotCalculate}</span>
+          <button type="button" @click=${() => ctx.focusFormulaWarning(detail.target)}>
+            ${s.planErrorLocate}
+          </button>
+        </li>`;
+      })}
+    </ul>
+  </div>`;
 }
 
 /**
@@ -1083,12 +1123,23 @@ export function gridCellBox(
   ].filter(Boolean).join(';')
     + textStyleCss(merged, { omitVerticalAlign: true, fontFamily: ctx.fonts.cssFamily(merged) });
   // 빈 항목은 파라미터 이름을 출력값처럼 표시하지 않습니다 (§7.5).
-  const text = context.empty === true
-    ? ''
+  const preview = context.empty === true
+    ? { text: '', error: null }
     : gridCellPreviewText(ctx, cell, context.item, context.reserved);
   const warned = hasCellWarning(ctx.formulaWarnings, el.id, cell.row, cell.column);
-  return html`<div class="grid-cell ${context.selected === true ? 'cell-selected' : ''} ${context.anchor === true ? 'cell-anchor' : ''}" style=${style}
-    >${stackVertically(text, cell.vertical)}${warned ? formulaWarningBadge(ctx) : nothing}</div>`;
+  const classes = [
+    'grid-cell',
+    context.selected === true ? 'cell-selected' : '',
+    context.anchor === true ? 'cell-anchor' : '',
+    preview.error === null ? '' : 'formula-error',
+  ].filter(Boolean).join(' ');
+  // 계산되지 않는 수식은 결과가 있는 것처럼 보이지 않게 오류 표시로 바꾸고 원인은 제목으로 둡니다.
+  const content = preview.error === null
+    ? stackVertically(preview.text, cell.vertical)
+    : html`<span class="formula-error-text" role="img" title=${preview.error}
+        aria-label="${ctx.s.formulaErrorLabel}: ${preview.error}">${ctx.s.formulaErrorLabel}</span>`;
+  return html`<div class=${classes} style=${style}
+    >${content}${warned ? formulaWarningBadge(ctx) : nothing}</div>`;
 }
 
 /**
@@ -1116,25 +1167,37 @@ export function cellRectPx(
   return { left, top, width, height };
 }
 
+/** 셀에 표시할 내용 — 계산되지 않는 수식이면 표시할 글 대신 원인을 담습니다 */
+export interface CellPreview {
+  /** 셀에 표시할 글. 수식이 계산되지 않으면 빈 값 */
+  text: string;
+  /** 수식이 계산되지 않은 원인 — 평가기가 낸 오류 문구. 계산됐으면 null */
+  error: string | null;
+}
+
 /**
- * 직접 입력, 파라미터 또는 수식으로 셀의 표시 텍스트를 만듭니다.
+ * 직접 입력, 파라미터 또는 수식으로 셀의 표시 내용을 만듭니다.
+ *
+ * @remarks
+ * 수식은 PDF 변환과 같은 평가기로 계산하므로 계산에 실패하면 PDF가 알릴 오류 문구를 그대로
+ * 돌려줍니다. 수식 원문을 결과처럼 보여 주지 않습니다.
  *
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @param cell - 표시할 셀
  * @param item - 항목 구간의 현재 샘플 항목
  * @param reserved - 행 구간의 예약 참조 값 (`@page` 등)
- * @returns 셀에 표시할 글
+ * @returns 셀에 표시할 글 또는 계산 실패 원인
  */
 export function gridCellPreviewText(
   ctx: CanvasContext,
   cell: GridCell,
   item: Record<string, unknown> | undefined,
   reserved?: Readonly<Record<string, unknown>>,
-): string {
+): CellPreview {
   const values = { ...(ctx.file?.template.sampleValues ?? {}), ...(item ?? {}) };
   if (cell.parameter !== undefined) {
     const value = values[cell.parameter];
-    return value === undefined || value === null ? `{${cell.parameter}}` : String(value);
+    return { text: value === undefined || value === null ? `{${cell.parameter}}` : String(value), error: null };
   }
   if (cell.formula !== undefined) {
     try {
@@ -1142,12 +1205,12 @@ export function gridCellPreviewText(
         values,
         ...(reserved === undefined ? {} : { reserved }),
       });
-      return result === null ? '' : String(result);
-    } catch {
-      return `= ${cell.formula}`;
+      return { text: result === null ? '' : String(result), error: null };
+    } catch (error) {
+      return { text: '', error: error instanceof Error ? error.message : String(error) };
     }
   }
-  return cell.content ?? '';
+  return { text: cell.content ?? '', error: null };
 }
 
 /**
@@ -1179,6 +1242,7 @@ export function gridCellMergeText(
       });
       return result === null ? '' : String(result);
     } catch {
+      // 계산되지 않는 셀은 값이 없는 것으로 보아 병합하지 않습니다. 원인은 셀과 경고 목록이 알립니다.
       return '';
     }
   }
@@ -1218,7 +1282,7 @@ export function previewConditionalColors(
         }),
       );
     } catch {
-      // 조건식이 계산되지 않으면 기본 서식으로 표시합니다. 오류는 PDF 미리보기에서 안내합니다.
+      // 조건식이 계산되지 않으면 기본 서식으로 표시합니다. 원인은 경고 목록이 규칙 번호와 함께 알립니다.
     }
   }
   return result;

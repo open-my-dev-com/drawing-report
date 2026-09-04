@@ -13,6 +13,7 @@ import type {
   SlipElement,
   SlipPage,
 } from '@omdc-slipkit/core';
+import type { DesignerStrings } from '../strings.js';
 
 /** 수식 모달이 편집하는 대상 */
 export type FormulaTarget =
@@ -128,4 +129,36 @@ function sameRule(a: ConditionalFormatRule | undefined, b: ConditionalFormatRule
     if (a[key as keyof ConditionalFormatRule] !== b[key as keyof ConditionalFormatRule]) return false;
   }
   return true;
+}
+
+/**
+ * 편집 대상의 자리를 한 줄로 설명합니다 — 요소 종류·이름, 셀 이름(없으면 행·열), 조건식이면 규칙 번호.
+ *
+ * @param s - 로케일에 맞는 문구
+ * @param typeName - 요소 종류의 표시 이름을 돌려주는 함수
+ * @param target - 설명할 편집 대상
+ * @param found - 대상을 다시 찾은 결과
+ * @returns 수식 모달과 캔버스 안내가 함께 쓰는 자리 설명
+ */
+export function describeFormulaTarget(
+  s: DesignerStrings,
+  typeName: (type: SlipElement['type']) => string,
+  target: FormulaTarget,
+  found: Pick<ResolvedFormulaTarget, 'element' | 'cell'>,
+): string {
+  const parts = [typeName(found.element.type), found.element.name];
+  if (found.cell !== undefined) {
+    parts.push(
+      found.cell.name
+        ?? s.formulaCellAt
+          .replaceAll('{row}', String(found.cell.row + 1))
+          .replaceAll('{column}', String(found.cell.column + 1)),
+    );
+  }
+  if (target.kind === 'element-condition' || target.kind === 'cell-condition') {
+    parts.push(s.formulaConditionAt.replaceAll('{index}', String(target.ruleIndex + 1)));
+  } else {
+    parts.push(s.formula);
+  }
+  return parts.join(' · ');
 }

@@ -8,13 +8,13 @@
 
 import { html, nothing } from 'lit';
 import { live } from 'lit/directives/live.js';
-import type { GridCell, SlipElement } from '@omdc-slipkit/core';
+import { formatReferencePath, type GridCell, type SlipElement } from '@omdc-slipkit/core';
 import { icons } from '../../icons.js';
 import { getFormulaHelp, type FormulaHelpEntry } from '../../formula-help.js';
 import { formulaPreviewText } from './sample-values.js';
 import type { FormulaCheck } from '../formula-check.js';
 import type { ItemChoice, ReservedAvailability, ReservedBlockReason } from '../formula-context.js';
-import type { FormulaTarget } from '../formula-target.js';
+import { describeFormulaTarget, type FormulaTarget } from '../formula-target.js';
 import type { DesignerStrings } from '../../strings.js';
 import type { DialogContext } from './dialogs.js';
 
@@ -83,21 +83,7 @@ function fill(template: string, values: Record<string, string | number>): string
 
 /** 편집 대상을 한 줄로 설명합니다. */
 function targetText(d: DialogContext, view: FormulaTargetView): string {
-  const s = d.s;
-  const parts = [d.typeName(view.element.type), view.element.name];
-  if (view.cell !== undefined) {
-    parts.push(
-      view.cell.name ??
-        fill(s.formulaCellAt, { row: view.cell.row + 1, column: view.cell.column + 1 }),
-    );
-  }
-  const target = view.target;
-  if (target.kind === 'element-condition' || target.kind === 'cell-condition') {
-    parts.push(fill(s.formulaConditionAt, { index: target.ruleIndex + 1 }));
-  } else {
-    parts.push(s.formula);
-  }
-  return parts.join(' · ');
+  return describeFormulaTarget(d.s, (type) => d.typeName(type), view.target, view);
 }
 
 /** 지금 고른 샘플 항목이 놓인 자리를 한 줄로 설명합니다. */
@@ -395,8 +381,9 @@ function functionDetail(d: DialogContext, fn: FormulaHelpEntry) {
 /**
  * 값 한 줄을 렌더링합니다.
  *
- * 표시 이름과 함께 실제로 삽입될 코드 이름을 화면에 두어 무엇이 들어가는지 보고 알 수 있게
- * 합니다. 쓸 수 없는 줄은 흐리게 두되 이름과 코드는 그대로 읽힙니다.
+ * 표시 이름과 함께 실제로 삽입될 참조를 화면에 두어 무엇이 들어가는지 보고 알 수 있게
+ * 합니다. 값은 `$(...)` 참조로 넣고 예약 참조 이름은 그대로 넣습니다. 쓸 수 없는 줄은
+ * 흐리게 두되 이름과 참조는 그대로 읽힙니다.
  */
 function valueRow(options: {
   name: string;
@@ -439,8 +426,8 @@ function valueSection(d: DialogContext, view: FormulaModalView) {
         <div class="value-list">
           ${parameters.map((b) => valueRow({
             name: b.label,
-            code: b.key,
-            insert: () => d.formula.insert(b.key),
+            code: formatReferencePath([b.key]),
+            insert: () => d.formula.insertReference([b.key]),
           }))}
         </div>`}
     ${fields.length === 0
@@ -450,8 +437,8 @@ function valueSection(d: DialogContext, view: FormulaModalView) {
         <div class="value-list">
           ${fields.map(({ parameter, field }) => valueRow({
             name: field.title,
-            code: `${parameter.key}.${field.key}`,
-            insert: () => d.formula.insert(`${parameter.key}.${field.key}`),
+            code: formatReferencePath([parameter.key, field.key]),
+            insert: () => d.formula.insertReference([parameter.key, field.key]),
           }))}
         </div>`}
     ${view.reserved.length === 0
@@ -491,7 +478,7 @@ export function columnSuggestions(d: DialogContext) {
       <span class="formula-suggest-label">${s.formulaColumnSuggest}</span>
       ${suggestion.columns.map((col) => html`
         <button class="parameter-chip column" title=${col.key}
-          @click=${() => d.formula.insert(col.key.slice(suggestion.typedLength))}
+          @click=${() => d.formula.complete(col)}
           >${col.title ? `${col.title} · ${col.key}` : col.key}</button>`)}
     </div>
   `;
