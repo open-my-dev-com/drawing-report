@@ -8,6 +8,7 @@ import { CURRENT_SCHEMA_VERSION } from './version.js';
 import { migrateSlipDocument } from './migrate.js';
 import { fmt, withFormatLocale, zodParseParams } from './messages.js';
 import { MAX_IMAGE_BYTES, inspectImageDataUrl, type ImageInspection } from './image-source.js';
+import { readOwn } from '../own-property.js';
 
 export { CURRENT_SCHEMA_VERSION };
 
@@ -1191,7 +1192,7 @@ export const slipVoucherFileSchema = z
     for (const page of voucher.templateSnapshot.pages) {
       for (const element of page.elements) {
         if (element.type !== 'image' || element.parameter === undefined) continue;
-        const value = voucher.values[element.parameter];
+        const value = readOwn(voucher.values, element.parameter);
         if (typeof value !== 'string' || value === '') continue;
         const path = ['values', element.parameter];
         if (!DATA_SRC.test(value)) {

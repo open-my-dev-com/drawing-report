@@ -30,6 +30,7 @@ import type {
 } from '../format/schema.js';
 import { inspectImageDataUrl } from '../format/image-source.js';
 import { normalizeNumericParameters } from '../format/normalize.js';
+import { readOwn } from '../own-property.js';
 import { SLIP_LIMITS, elementBounds } from '../format/schema.js';
 import {
   filterVisibleOnPage,
@@ -561,7 +562,7 @@ class SlipToPdfmeConverter {
     }
     return element.parameter === undefined
       ? ''
-      : this.limitText(toDisplayText(this.values[element.parameter], what, this.locale), what);
+      : this.limitText(toDisplayText(readOwn(this.values, element.parameter), what, this.locale), what);
   }
 
   // -------------------------------------------------------------------------
@@ -755,7 +756,7 @@ class SlipToPdfmeConverter {
 
   /** 반복에 사용할 항목 배열을 읽는다. */
   private repeatItems(element: GridElement, parameter: string): Record<string, unknown>[] {
-    const raw = this.values[parameter];
+    const raw = readOwn(this.values, parameter);
     const what = rm(this.locale).subjectGrid(element.name, element.id);
     if (raw === undefined || raw === null) return [];
     if (!Array.isArray(raw)) {
@@ -1143,7 +1144,7 @@ class SlipToPdfmeConverter {
       return this.limitText(toDisplayText(this.evaluate(element.formula, this.values, what), what, this.locale), what);
     }
     if (element.parameter !== undefined) {
-      return this.limitText(toDisplayText(this.values[element.parameter], what, this.locale), what);
+      return this.limitText(toDisplayText(readOwn(this.values, element.parameter), what, this.locale), what);
     }
     return '';
   }
@@ -1162,7 +1163,7 @@ class SlipToPdfmeConverter {
     parameter: string,
     what: string,
   ): string | undefined {
-    const value = this.values[parameter];
+    const value = readOwn(this.values, parameter);
     if (value === undefined || value === null || value === '') return undefined;
     if (typeof value !== 'string') {
       throw new SlipRenderError(rm(this.locale).imageValueNotString(what, parameter));

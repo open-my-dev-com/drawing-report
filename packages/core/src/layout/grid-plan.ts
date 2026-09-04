@@ -7,7 +7,8 @@
 import { SLIP_LIMITS } from '../format/schema.js';
 import type { GridBand, GridBandPlacement, GridElement, OutputPageFilter } from '../format/types.js';
 import { SlipLayoutError } from './errors.js';
-import { lm } from './messages.js';
+import { lm, type PlanSpace } from './messages.js';
+import { readOwn } from '../own-property.js';
 
 /** 반복 항목 하나의 값 객체 */
 export type GridItem = Record<string, unknown>;
@@ -76,7 +77,9 @@ export interface GridFlow {
   bottom: number;
   /**
    * `after` 배치로 시작이 줄어든 흐름인지.
-   * 참이면 첫 페이지에 아무것도 들어가지 않을 때 빈 조각 없이 다음 페이지에서 시작한다.
+   * 참이면 실제 항목이 없어도 첫 페이지에 아무것도 들어가지 않을 때 빈 조각 없이 다음
+   * 페이지에서 시작한다. 실제 항목이 하나 이상인 그리드는 이 값과 무관하게 같은 규칙으로
+   * 시작을 옮긴다 ({@link planGrid} 참고).
    */
   allowStartShift?: boolean;
 }
@@ -114,8 +117,8 @@ function filterMatches(filter: OutputPageFilter | undefined, isFirst: boolean, i
 /** 두 항목이 groupBy 기준으로 같은 그룹인지 비교한다. */
 function sameGroup(a: GridItem, b: GridItem, groupBy: readonly string[]): boolean {
   return groupBy.every((field) => {
-    const va = a[field] ?? null;
-    const vb = b[field] ?? null;
+    const va = readOwn(a, field) ?? null;
+    const vb = readOwn(b, field) ?? null;
     if (va === null || vb === null) return va === vb;
     if (typeof va === 'object' || typeof vb === 'object') return JSON.stringify(va) === JSON.stringify(vb);
     return va === vb;
@@ -137,6 +140,14 @@ function bandsOf(grid: GridElement, placement: GridBandPlacement): GridBand[] {
 
 /**
  * 반복 그리드 하나의 페이지 계획을 만든다.
+ *
+ * 첫 조각의 시작 위치가 흐름 영역 상단보다 낮아 항목 인스턴스(실제 항목·빈 항목)를 하나도
+ * 배치하지 못하면, 첫 페이지에 조각을 남기지 않고 다음 출력 페이지의 흐름 영역 상단에서
+ * 다시 시작한다(시작 이동). 시작 이동은 첫 조각에서 한 번만 일어나며, 실제 항목이 하나 이상인
+ * 그리드와 `after` 배치 흐름({@link GridFlow.allowStartShift})에 적용된다. 실제 항목이 없는
+ * 절대 배치 그리드는 빈 항목을 `position.y`부터 그대로 배치한다. 옮긴 뒤에도 빈 페이지의
+ * 흐름 영역 전체에 머리·꼬리 구간, 항목 블록 또는 고정 페이지 묶음이 들어가지 않으면
+ * 빈 조각을 만들지 않고 바로 오류를 반환한다.
  *
  * @param grid - 반복 설정이 있는 그리드 요소
  * @param items - `maxItems`를 적용하기 전의 실제 항목 배열
@@ -341,17 +352,19 @@ export function planGrid(
     }
   };
 
-  // after 배치로 줄어든 첫 페이지에 아무것도 들어가지 않으면 시작을 다음 페이지로 옮긴다.
   let startPage = flow.firstPage;
   let firstTop = flow.firstTop;
+  // 실제 항목이 있는 그리드는 배치 방식과 무관하게, after 배치 흐름은 항목이 없어도 옮긴다.
+  const canShiftStart = flow.allowStartShift === true || real.length > 0;
 
   /**
-   * 줄어든 첫 페이지를 빈 조각 없이 건너뛰고 다음 출력 페이지에서 시작한다 (§6.2).
-   * after 배치 흐름에서, 첫 조각을 만들기 전이고 시작 위치가 흐름 영역 상단보다
-   * 낮을 때만 옮길 수 있다.
+   * 항목 인스턴스를 하나도 배치하지 못한 첫 페이지를 빈 조각 없이 건너뛰고 다음 출력
+   * 페이지의 흐름 영역 상단에서 시작한다.
+   * 첫 조각을 만들기 전이고 시작 위치가 흐름 영역 상단보다 낮을 때만 옮길 수 있다 —
+   * 호출하는 쪽은 아직 아무 인스턴스도 배치하지 않았을 때만 부른다.
    */
   const shiftStart = (): boolean => {
-    if (flow.allowStartShift !== true) return false;
+    if (!canShiftStart) return false;
     if (fragmentNo !== 0 || firstTop <= flow.top + 0.001) return false;
     startPage += 1;
     firstTop = flow.top;
@@ -368,6 +381,10 @@ export function planGrid(
     const outputPage = startPage + fragmentNo;
     const y = isFirst ? firstTop : flow.top;
     const available = flow.bottom - y;
+    // 흐름 영역 상단에서 시작하는 페이지는 빈 페이지 전체를 쓴다. 여기서 넘치면 다음
+    // 페이지도 같은 구성이므로 시작을 옮기거나 페이지를 넘겨도 해결되지 않는다.
+    const atFlowTop = y <= flow.top + 0.001;
+    const space: PlanSpace = atFlowTop ? 'empty-page' : 'first-page';
     // 고정 페이지는 마지막 묶음 여부가 항목 수로 정해지고, 자동 확장은 남은 전체가
     // 이 페이지에 들어가는지로 마지막 페이지를 판정한다.
     const isFinal = pagination.mode === 'fixed'
@@ -396,7 +413,7 @@ export function planGrid(
       const tail = tailBands(isFirst, isFinal, withAfter);
       if (used + chunkHeight + heightOf(tail) > available + 0.001) {
         if (shiftStart()) continue;
-        throw new SlipLayoutError(lm(locale).fixedPageTooTall(what, pagination.itemsPerPage), {
+        throw new SlipLayoutError(lm(locale).fixedPageTooTall(what, pagination.itemsPerPage, space), {
           elementId: grid.id, bandId: itemBand.id,
         });
       }
@@ -412,7 +429,7 @@ export function planGrid(
     // 페이지 머리 구간만으로 흐름 영역이 넘치면 항목을 배치할 자리가 없다.
     if (used + tailReserve > available + 0.001) {
       if (shiftStart()) continue;
-      throw new SlipLayoutError(lm(locale).bandsTooTall(what), { elementId: grid.id });
+      throw new SlipLayoutError(lm(locale).bandsTooTall(what, space), { elementId: grid.id });
     }
 
     // 자동 확장: 남은 공간까지 블록을 채우고, 다음 블록이 들어가지 않으면 페이지를 넘긴다.
@@ -421,9 +438,9 @@ export function planGrid(
     while (index < instanceCount) {
       const block = blockOf(index);
       if (used + block.height + tailReserve > available + 0.001) {
-        // 빈 이어지는 페이지에서 블록을 배치하지 못하면 다음 페이지도 같은 구성이므로
-        // (이월된 그룹 머리 포함) 더 진행할 수 없다 — 즉시 오류를 반환한다.
-        if (!placedAny && !isFirst) {
+        // 빈 페이지에서 블록을 배치하지 못하면 다음 페이지도 같은 구성이므로
+        // (이월된 그룹 머리 포함) 더 진행할 수 없다 — 빈 조각 없이 즉시 오류를 반환한다.
+        if (!placedAny && atFlowTop) {
           const groupBlock = block.bands.length > 1 || carriedGroupHead;
           throw new SlipLayoutError(
             groupBlock ? lm(locale).groupTooTall(what) : lm(locale).itemTooTall(what),
@@ -439,7 +456,7 @@ export function planGrid(
       index++;
     }
 
-    // 줄어든 첫 페이지에 항목이 하나도 들어가지 않으면 빈 조각 없이 다음 페이지에서 시작한다.
+    // 첫 페이지에 항목 인스턴스가 하나도 들어가지 않으면 빈 조각 없이 다음 페이지에서 시작한다.
     if (pageBroken && !placedAny && shiftStart()) continue;
 
     const finishedItems = index >= instanceCount;
@@ -454,7 +471,8 @@ export function planGrid(
           break;
         }
       }
-      // 최종 구간이 줄어든 첫 페이지에 들어가지 않고 항목도 없다면 시작을 옮겨 다시 시도한다.
+      // 배치할 항목 인스턴스가 없는 after 배치 흐름은 최종 구간이 들어가지 않으면
+      // 시작을 옮겨 다시 시도한다.
       if (!placedAny && shiftStart()) continue;
       // 최종 전용 구간이나 합계가 이 페이지에 들어가지 않는다 —
       // 비최종 구간으로 마감하고 새 출력 페이지에 최종 구간을 배치한다 (§6.2).
@@ -471,7 +489,7 @@ export function planGrid(
         });
       }
       if (heightOf(lastBands) > flow.bottom - flow.top + 0.001) {
-        throw new SlipLayoutError(lm(locale).bandsTooTall(what), { elementId: grid.id });
+        throw new SlipLayoutError(lm(locale).bandsTooTall(what, 'empty-page'), { elementId: grid.id });
       }
       commitFragment(startPage + fragmentNo, flow.top, lastBands);
       fragmentNo++;

@@ -9,6 +9,7 @@ import { assertArity } from './arity.js';
 import { FormulaEvalError, valueError } from './errors.js';
 import { fm, withFormulaLocale, type FormulaPlace } from './messages.js';
 import { parseFormula, type BinaryOperator, type FormulaAst } from './parser.js';
+import { readOwn } from '../own-property.js';
 
 export type { FormulaContext, FormulaValue };
 
@@ -34,7 +35,8 @@ function resolvePath(value: unknown, path: string[], index: number, depth = 0): 
     return value.map((item) => resolvePath(item, path, index, depth + 1));
   }
   if (typeof value === 'object') {
-    return resolvePath((value as Record<string, unknown>)[path[index]!], path, index + 1, depth + 1);
+    // 객체가 직접 가진 키만 읽어 프로토타입의 메서드가 값으로 새어 나오지 않게 한다.
+    return resolvePath(readOwn(value as Record<string, unknown>, path[index]!), path, index + 1, depth + 1);
   }
   throw valueError(fm().notAnObject(path.slice(0, index).join('.'), path[index] ?? ''), true);
 }
@@ -185,10 +187,10 @@ function evaluateNode(ast: FormulaAst, context: FormulaContext): Evaluated {
       const head = ast.path[0]!;
       // 예약 참조(@item 등)는 페이지 계획이 공급한 reserved에서만 조회한다.
       if (head.startsWith('@')) {
-        if (context.reserved === undefined || !(head in context.reserved)) {
+        if (context.reserved === undefined || !Object.hasOwn(context.reserved, head)) {
           throw new FormulaEvalError(fm().reservedRefUnavailable(head), 'data');
         }
-        return { value: resolvePath(context.reserved[head], ast.path, 1), fromData: true };
+        return { value: resolvePath(readOwn(context.reserved, head), ast.path, 1), fromData: true };
       }
       return { value: resolvePath(context.values, ast.path, 0), fromData: true };
     }

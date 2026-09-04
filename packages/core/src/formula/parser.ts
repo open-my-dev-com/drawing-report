@@ -9,12 +9,19 @@
  * mul     := unary (('*' | '/') unary)*
  * unary   := ('-' | '+') unary | primary
  * primary := number | string | TRUE | FALSE | FUNC '(' args ')' | ref | '(' expr ')'
- * ref     := ('@' ident | ident) ('.' ident)*   # 값 참조 (예: items.금액, @group.금액)
+ * ref     := ('@' ident | ident) ('.' ident)*        # 일반 참조 (예: items.금액, @group.금액)
+ *          | ('@' ident '.')? key ('.' key)*         # 명시 참조 (예: $(items).$(금액), @group.$(금액))
+ * key     := '$(' chars ')'                          # 키 한 단계. ')'와 '\'는 '\)'·'\\'로 적는다
  * ```
  *
  * 문자열 리터럴은 큰따옴표, 내부 큰따옴표는 "" 로 이스케이프한다.
  * 식별자는 유니코드 문자(한글 포함)·숫자·언더스코어, 숫자로 시작 불가.
  * `@`로 시작하는 참조는 그리드 행 구간에서 계획 계층이 공급하는 예약 참조만 허용한다.
+ *
+ * `$(...)`는 키 한 단계를 있는 그대로 적는 명시 참조다. 식별자 규칙에 맞지 않는 키
+ * (`datas-2`·`customer.name`·공백 포함 등)도 쓸 수 있다. 수식에 명시 참조가 하나라도 있으면
+ * 그 수식의 값 참조는 모두 명시 참조여야 하고, 한 경로 안에서 두 형식을 섞을 수 없다.
+ * 예약 참조 이름은 어느 형식에서나 그대로 적는다.
  */
 import { FormulaSyntaxError } from './errors.js';
 import { FORMULA_FUNCTIONS, type FormulaFunctionName } from './functions.js';
@@ -31,29 +38,38 @@ export type ArithmeticOperator = '+' | '-' | '*' | '/';
 /** 이항 연산자 전체 */
 export type BinaryOperator = ComparisonOperator | ArithmeticOperator;
 
+/** 참조가 수식 문자열에서 차지하는 범위 (0부터 시작, `end`는 포함하지 않음). */
+export interface ReferenceSpan {
+  /** 참조 텍스트가 시작하는 인덱스 */
+  start: number;
+  /** 참조 텍스트 바로 다음 인덱스 */
+  end: number;
+}
+
 /** 파싱 결과를 나타내는 구문 트리 노드의 판별 유니온. */
 export type FormulaAst =
   | { type: 'number'; value: number }
   | { type: 'string'; value: string }
   | { type: 'boolean'; value: boolean }
-  | { type: 'reference'; path: string[] }
+  | {
+      type: 'reference';
+      path: string[];
+      /** 경로를 `$(...)` 명시 참조로 적었을 때만 `true` */
+      explicit?: true;
+      /** 원본 수식에서 이 참조가 차지하는 범위 */
+      span?: ReferenceSpan;
+    }
   | { type: 'call'; name: FormulaFunctionName; args: FormulaAst[] }
   | { type: 'unary'; operator: '-' | '+'; operand: FormulaAst }
   | { type: 'binary'; operator: BinaryOperator; left: FormulaAst; right: FormulaAst };
 
 // ---------------------------------------------------------------------------
-// 토크나이저
+// 참조 표기
 // ---------------------------------------------------------------------------
-
-type Token =
-  | { type: 'number'; value: number; pos: number }
-  | { type: 'string'; value: string; pos: number }
-  | { type: 'ident'; value: string; pos: number }
-  | { type: 'op'; value: string; pos: number } // 연산자·괄호·쉼표·점
-  | { type: 'end'; pos: number };
 
 const IDENT_START = /[\p{L}_]/u;
 const IDENT_PART = /[\p{L}\p{N}_]/u;
+const BARE_IDENTIFIER = /^[\p{L}_][\p{L}\p{N}_]*$/u;
 
 /**
  * 그리드 행 구간에서 사용할 수 있는 예약 참조 이름.
@@ -65,6 +81,89 @@ export const RESERVED_REF_NAMES = ['@item', '@group', '@page', '@all', '@carried
 export type ReservedRefName = (typeof RESERVED_REF_NAMES)[number];
 
 const RESERVED_REFS = new Set<string>(RESERVED_REF_NAMES);
+
+/**
+ * 이름이 `$(...)` 없이 그대로 쓸 수 있는 식별자인지 확인한다.
+ *
+ * 토크나이저의 식별자 규칙과 같다 — 유니코드 문자 또는 `_`로 시작하고 문자·숫자·`_`만 이어진다.
+ * 예약 참조 이름(`@item` 등)은 식별자가 아니다.
+ *
+ * @param name - 확인할 이름
+ * @returns 식별자 규칙에 맞으면 `true`
+ */
+export function isBareIdentifier(name: string): boolean {
+  return BARE_IDENTIFIER.test(name);
+}
+
+/**
+ * 키 한 단계를 `$(...)` 안에 넣을 수 있게 이스케이프한다.
+ *
+ * @param key - 이스케이프할 키
+ * @returns `\`는 `\\`로, `)`는 `\)`로 바꾼 문자열
+ */
+export function escapeReferenceKey(key: string): string {
+  return key.replace(/[\\)]/g, (ch) => `\\${ch}`);
+}
+
+/**
+ * 참조 경로를 `$(a).$(b)` 형식의 명시 참조 문자열로 만든다.
+ *
+ * @param path - 참조 경로. 첫 단계가 예약 참조 이름이면 그대로 적는다
+ * @param options - `reserved`로 첫 단계를 예약 참조로 볼지 직접 지정한다 (생략하면 이름으로 판단)
+ * @returns 명시 참조 문자열 (예: `@item.$(unit-price)`)
+ * @throws RangeError 경로가 비어 있을 때
+ */
+export function formatReferencePath(
+  path: readonly string[],
+  options?: { reserved?: boolean },
+): string {
+  if (path.length === 0) throw new RangeError('reference path must have at least one step');
+  const reserved = options?.reserved ?? RESERVED_REFS.has(path[0]!);
+  return path
+    .map((step, index) => (index === 0 && reserved ? step : `$(${escapeReferenceKey(step)})`))
+    .join('.');
+}
+
+// ---------------------------------------------------------------------------
+// 토크나이저
+// ---------------------------------------------------------------------------
+
+type Token =
+  | { type: 'number'; value: number; pos: number }
+  | { type: 'string'; value: string; pos: number }
+  | { type: 'ident'; value: string; pos: number; end: number }
+  | { type: 'key'; value: string; pos: number; end: number } // `$(...)` 키 한 단계
+  | { type: 'op'; value: string; pos: number } // 연산자·괄호·쉼표·점
+  | { type: 'end'; pos: number };
+
+/** `$(` 다음부터 짝이 맞는 `)`까지 읽어 키 토큰을 만든다. 반환값은 `)` 다음 인덱스. */
+function readReferenceKey(source: string, start: number, tokens: Token[]): number {
+  let value = '';
+  let i = start + 2;
+  for (;;) {
+    if (i >= source.length) throw new FormulaSyntaxError(fm().unterminatedReference(), start);
+    const ch = source[i]!;
+    if (ch === '\\') {
+      const escaped = source[i + 1];
+      if (escaped === undefined) throw new FormulaSyntaxError(fm().unterminatedReference(), start);
+      if (escaped !== ')' && escaped !== '\\') {
+        throw new FormulaSyntaxError(fm().invalidReferenceEscape(`\\${escaped}`), i);
+      }
+      value += escaped;
+      i += 2;
+      continue;
+    }
+    if (ch === ')') {
+      i++;
+      break;
+    }
+    value += ch;
+    i++;
+  }
+  if (value === '') throw new FormulaSyntaxError(fm().emptyReferenceKey(), start);
+  tokens.push({ type: 'key', value, pos: start, end: i });
+  return i;
+}
 
 function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
@@ -107,10 +206,22 @@ function tokenize(source: string): Token[] {
       tokens.push({ type: 'string', value, pos });
       continue;
     }
+    if (ch === '$') {
+      if (source[i + 1] === '(') {
+        i = readReferenceKey(source, i, tokens);
+        continue;
+      }
+      // `$name`처럼 괄호 없이 쓴 참조는 `$(name)`으로 고치도록 안내한다.
+      let j = i + 1;
+      while (j < source.length && IDENT_PART.test(source[j]!)) j++;
+      const name = source.slice(i + 1, j);
+      if (name === '') throw new FormulaSyntaxError(fm().unknownCharacter(ch), pos);
+      throw new FormulaSyntaxError(fm().referenceNeedsParens(name), pos);
+    }
     if (IDENT_START.test(ch)) {
       let j = i + 1;
       while (j < source.length && IDENT_PART.test(source[j]!)) j++;
-      tokens.push({ type: 'ident', value: source.slice(i, j), pos });
+      tokens.push({ type: 'ident', value: source.slice(i, j), pos, end: j });
       i = j;
       continue;
     }
@@ -118,7 +229,7 @@ function tokenize(source: string): Token[] {
     if (ch === '@' && IDENT_START.test(source[i + 1] ?? '')) {
       let j = i + 2;
       while (j < source.length && IDENT_PART.test(source[j]!)) j++;
-      tokens.push({ type: 'ident', value: source.slice(i, j), pos });
+      tokens.push({ type: 'ident', value: source.slice(i, j), pos, end: j });
       i = j;
       continue;
     }
@@ -149,9 +260,17 @@ function tokenize(source: string): Token[] {
 
 const FUNCTION_NAMES = new Set<string>(FORMULA_FUNCTIONS);
 
+type StepToken = Extract<Token, { type: 'ident' | 'key' }>;
+
 class Parser {
   private index = 0;
-  constructor(private readonly tokens: Token[]) {}
+
+  /** 수식에 `$(...)` 참조가 하나라도 있으면 값 참조는 모두 명시 참조여야 한다. */
+  private readonly explicit: boolean;
+
+  constructor(private readonly tokens: Token[]) {
+    this.explicit = tokens.some((token) => token.type === 'key');
+  }
 
   parse(): FormulaAst {
     const expr = this.comparison();
@@ -259,6 +378,7 @@ class Parser {
       this.expectClosingParen();
       return expr;
     }
+    if (token.type === 'key') return this.reference(token);
     if (token.type === 'ident') {
       // 예약 참조는 정해진 이름만 허용한다. 값은 평가 컨텍스트가 공급한다.
       if (token.value.startsWith('@') && !RESERVED_REFS.has(token.value)) {
@@ -283,18 +403,42 @@ class Parser {
         }
         return { type: 'call', name: upper as FormulaFunctionName, args };
       }
-      // 점으로 구분한 식별자를 값 참조 경로로 파싱한다.
-      const path = [token.value];
-      while (this.matchOp('.')) {
-        const segment = this.next();
-        if (segment.type !== 'ident') {
-          throw new FormulaSyntaxError(fm().expectedFieldAfterDot(), segment.pos);
-        }
-        path.push(segment.value);
-      }
-      return { type: 'reference', path };
+      return this.reference(token);
     }
     throw new FormulaSyntaxError(fm().expectedValue(), token.pos);
+  }
+
+  /** 첫 단계 토큰 뒤에 점으로 이어지는 단계를 읽어 값 참조 경로를 만든다. */
+  private reference(head: StepToken): FormulaAst {
+    const path = [head.value];
+    let end = head.end;
+    const reserved = head.type === 'ident' && head.value.startsWith('@');
+    // 예약 참조 이름은 어느 형식에서나 그대로 적으므로 경로의 형식은 그 뒤 첫 단계가 정한다.
+    let stepType: StepToken['type'] | undefined = reserved ? undefined : head.type;
+    while (this.matchOp('.')) {
+      const segment = this.next();
+      if (segment.type !== 'ident' && segment.type !== 'key') {
+        throw new FormulaSyntaxError(fm().expectedFieldAfterDot(), segment.pos);
+      }
+      if (stepType === undefined) stepType = segment.type;
+      else if (stepType !== segment.type) {
+        throw new FormulaSyntaxError(fm().mixedReferenceSteps(), segment.pos);
+      }
+      path.push(segment.value);
+      end = segment.end;
+    }
+    const explicit = stepType === 'key';
+    // 명시 참조를 쓰는 수식에서는 예약 참조 이름 하나만 적은 경우 말고는 모두 명시 참조여야 한다.
+    if (this.explicit && !explicit && (!reserved || path.length > 1)) {
+      throw new FormulaSyntaxError(
+        fm().bareReferenceInExplicit(path.join('.'), formatReferencePath(path)),
+        head.pos,
+      );
+    }
+    const span: ReferenceSpan = { start: head.pos, end };
+    return explicit
+      ? { type: 'reference', path, explicit: true, span }
+      : { type: 'reference', path, span };
   }
 }
 
@@ -306,7 +450,7 @@ export const MAX_FORMULA_DEPTH = 100;
 /**
  * 수식 문자열을 AST로 파싱한다.
  *
- * @param source - 수식 문자열 (예: `SUM(items.금액) * 1.1`)
+ * @param source - 수식 문자열 (예: `SUM(items.금액) * 1.1`, `SUM($(items).$(금액)) * 1.1`)
  * @param options - 오류 메시지에 사용할 로케일 설정 (생략하면 영어)
  * @returns 파싱된 구문 트리
  * @throws FormulaSyntaxError 문법 오류·미등록 함수·길이/깊이 제한 초과 시

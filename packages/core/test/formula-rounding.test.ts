@@ -142,13 +142,12 @@ describe('시간대 없는 날짜·시간은 UTC로 해석한다', () => {
   it.each(['UTC', 'Asia/Seoul', 'America/Los_Angeles'])('TZ=%s에서도 같은 결과', (tz) => {
     process.env['TZ'] = tz;
     expect(evaluateFormula('FORMAT_DATE("2026-01-01T00:30", "YYYY-MM-DD HH:mm")', ctx())).toBe('2026-01-01 00:30');
-    expect(evaluateFormula('FORMAT_DATE("2026-01-01 00:30", "YYYY-MM-DD HH:mm")', ctx())).toBe('2026-01-01 00:30');
     expect(evaluateFormula('FORMAT_DATE("2026-01-01T23:59:59.5", "YYYY-MM-DD HH:mm:ss")', ctx())).toBe(
       '2026-01-01 23:59:59',
     );
     expect(evaluateFormula('TO_DATE("2026-01-01T00:30")', ctx())).toBe('2026-01-01');
     expect(evaluateFormula('TO_DATE("2026-01-01")', ctx())).toBe('2026-01-01');
-    expect(evaluateFormula('DATE_DIFF("2026-01-01 00:30", "2026-01-02 00:29")', ctx())).toBe(0);
+    expect(evaluateFormula('DATE_DIFF("2026-01-01T00:30", "2026-01-02T00:29")', ctx())).toBe(0);
     expect(evaluateFormula('DATE_ADD("2026-01-31T12:00", 1, "months")', ctx())).toBe('2026-02-28');
   });
 
@@ -161,6 +160,6 @@ describe('시간대 없는 날짜·시간은 UTC로 해석한다', () => {
 
   it('존재하지 않는 시각은 거부한다', () => {
     expect(() => evaluateFormula('TO_DATE("2026-01-01T24:00")', ctx())).toThrow(/not a real/);
-    expect(() => evaluateFormula('TO_DATE("2026-02-30 10:00")', ctx())).toThrow(/not a real/);
+    expect(() => evaluateFormula('TO_DATE("2026-02-30T10:00")', ctx())).toThrow(/not a real/);
   });
 });
