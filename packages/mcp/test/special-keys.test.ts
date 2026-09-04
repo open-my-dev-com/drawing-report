@@ -220,7 +220,7 @@ describe('특수 키의 저장·읽기 왕복', () => {
     const values = loaded.values as Record<string, unknown>;
     expect(Object.getPrototypeOf(values)).toBe(Object.prototype);
     for (const [key, expected] of [
-      ['constructor', 'c'], ['toString', 't'], ['a b', 'space'], ['한글', '값'], ['a.b', 'dot'],
+      ['__proto__', 'p'], ['constructor', 'c'], ['toString', 't'], ['a b', 'space'], ['한글', '값'], ['a.b', 'dot'],
     ] as const) {
       expect(Object.hasOwn(values, key), key).toBe(true);
       expect(values[key]).toBe(expected);
@@ -228,9 +228,12 @@ describe('특수 키의 저장·읽기 왕복', () => {
     const row = (values['items'] as Record<string, unknown>[])[0]!;
     expect(Object.hasOwn(row, 'constructor')).toBe(true);
     expect(row['constructor']).toBe('rc');
+    expect(Object.hasOwn(row, '__proto__')).toBe(true);
+    expect(row['__proto__']).toBe('row');
 
     const full = await callText(client, 'slip_read', { path: 'voucher', part: 'full' });
     expect(full.isError).toBe(false);
+    expect(full.text).toContain('"__proto__": "p"');
     expect(full.text).toContain('"constructor": "c"');
     expect(full.text).toContain('"a b": "space"');
   });
