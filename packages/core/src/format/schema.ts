@@ -8,7 +8,7 @@ import { CURRENT_SCHEMA_VERSION } from './version.js';
 import { migrateSlipDocument } from './migrate.js';
 import { fmt, withFormatLocale, zodParseParams } from './messages.js';
 import { MAX_IMAGE_BYTES, inspectImageDataUrl, type ImageInspection } from './image-source.js';
-import { readOwn } from '../own-property.js';
+import { readOwn, writeOwn } from '../own-property.js';
 
 export { CURRENT_SCHEMA_VERSION };
 
@@ -902,6 +902,42 @@ const slipPageSchema = z.strictObject({
 // 전표 값
 // ---------------------------------------------------------------------------
 
+/** 열린 맵을 검사하는 동안 `__proto__` 키를 잠시 바꿔 두는 이름. 외부 입력과 겹치지 않는 값이다. */
+const PROTO_KEY_ALIAS = `\u0000__proto__\u0000${Math.random().toString(36).slice(2)}`;
+
+/**
+ * 키 제약이 없는 열린 맵 스키마.
+ *
+ * `z.record`는 결과 객체에 키를 대입해 만들기 때문에 `__proto__`라는 키가 사라진다. 검사 전에 그
+ * 키만 임시 이름으로 바꿔 넘기고, 검사가 끝난 결과에서 원래 키로 되돌려 객체가 직접 가진 속성으로
+ * 남긴다. JSON Schema 생성에는 안쪽 `z.record`가 그대로 쓰인다.
+ *
+ * @param valueSchema - 맵 값 하나의 스키마
+ * @returns 모든 키를 직접 가진 속성으로 보존하는 맵 스키마
+ */
+function openMapSchema<T>(valueSchema: z.ZodType<T>): z.ZodType<Record<string, T>> {
+  const record = z.record(z.string(), valueSchema);
+  return z
+    .preprocess((input) => {
+      if (typeof input !== 'object' || input === null || Array.isArray(input) || !Object.hasOwn(input, '__proto__')) {
+        return input;
+      }
+      const source = input as Record<string, unknown>;
+      const aliased: Record<string, unknown> = {};
+      for (const key of Object.keys(source)) {
+        writeOwn(aliased, key === '__proto__' ? PROTO_KEY_ALIAS : key, readOwn(source, key));
+      }
+      return aliased;
+    }, record)
+    .superRefine((parsed) => {
+      if (!Object.hasOwn(parsed, PROTO_KEY_ALIAS)) return;
+      // 결과 객체는 검사기가 새로 만든 것이라 원래 키 순서를 유지하며 제자리에서 되돌린다.
+      const entries = Object.keys(parsed).map((key) => [key, readOwn(parsed, key)] as const);
+      for (const [key] of entries) delete parsed[key];
+      for (const [key, value] of entries) writeOwn(parsed, key === PROTO_KEY_ALIAS ? '__proto__' : key, value);
+    }) as unknown as z.ZodType<Record<string, T>>;
+}
+
 /** JSON으로 표현 가능한 값 (전표 values의 값 타입) */
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -916,7 +952,7 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
     z.boolean(),
     z.null(),
     z.array(jsonValueSchema),
-    z.record(z.string(), jsonValueSchema),
+    openMapSchema(jsonValueSchema),
   ]),
 );
 
@@ -997,7 +1033,7 @@ export const slipTemplateBodySchema = z
       .max(SLIP_LIMITS.maxParameters, { error: () => fmt().parametersMax(SLIP_LIMITS.maxParameters) })
       .optional(),
     /** 미리보기용 샘플 값. 생성된 전표에는 포함하지 않는다. */
-    sampleValues: z.record(z.string(), jsonValueSchema).optional(),
+    sampleValues: openMapSchema(jsonValueSchema).optional(),
   })
   .superRefine((body, ctx) => {
     // 파라미터 키는 정의 목록에서 고유해야 한다.
@@ -1172,7 +1208,7 @@ export const slipVoucherFileSchema = z
     /** 전표를 생성할 때 복사한 양식 본문. */
     templateSnapshot: slipTemplateBodySchema,
     /** 필드 파라미터 키별 값 */
-    values: z.record(z.string(), jsonValueSchema),
+    values: openMapSchema(jsonValueSchema),
     /** 발행 여부. 발행된 전표의 이미지는 base64로 포함한다. */
     issued: z.boolean(),
   })

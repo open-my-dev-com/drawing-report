@@ -33,6 +33,7 @@ import {
   assertImageValues,
   editOpSchema,
   imageValueSpec,
+  jsonObjectSchema,
   MAX_IMAGE_BYTES,
   McpToolError,
 } from './edit.js';
@@ -336,7 +337,7 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         'this server neither creates nor replaces issued vouchers. See slip_schema for the structure.',
       inputSchema: {
         path: z.string().describe('File path relative to the working directory (.slip appended if missing)'),
-        file: z.record(z.string(), z.unknown()).describe('The complete .slip document as a JSON object'),
+        file: jsonObjectSchema('The complete .slip document as a JSON object'),
         overwrite: z
           .boolean()
           .optional()
@@ -436,10 +437,9 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         templatePath: z
           .string()
           .describe('Template file path relative to the working directory'),
-        values: z
-          .record(z.string(), z.unknown())
-          .optional()
-          .describe('Values keyed by parameter key; list parameters take arrays of flat objects'),
+        values: jsonObjectSchema(
+          'JSON object of values keyed by parameter key; list parameters take arrays of flat objects',
+        ).optional(),
         outPath: z.string().describe('Output path for the voucher (.slip appended if missing)'),
         overwrite: z
           .boolean()

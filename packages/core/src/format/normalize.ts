@@ -5,7 +5,7 @@
  * 0으로 변환한다. 작성 폼, 미리보기, PDF 렌더러는 이 규칙을 함께 사용한다.
  */
 import type { ParameterDef } from './schema.js';
-import { readOwn } from '../own-property.js';
+import { readOwn, writeOwn } from '../own-property.js';
 
 /**
  * `number` 파라미터의 빈 값(미입력, null, 빈 문자열)을 0으로 변환한다.
@@ -29,7 +29,7 @@ export function normalizeNumericParameters(
     const value = readOwn(values, parameter.key);
     if (value === undefined || value === null || value === '') {
       if (!out) out = { ...values };
-      out[parameter.key] = 0;
+      writeOwn(out, parameter.key, 0);
     }
   }
   return out ?? values;

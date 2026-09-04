@@ -65,14 +65,54 @@ describe('slip_schema 안내문', () => {
     for (const name of ['@item', '@group', '@page', '@all', '@carried']) {
       expect(formula).toContain(name);
     }
-    expect(formula).toContain('SUM(@page.amount)');
+    expect(formula).toContain('SUM(@page.$(amount))');
+  });
+
+  it('키 규칙과 $(...) 명시 참조를 안내하고 예시 수식은 명시 참조로 적는다', () => {
+    const parameters = schemaTopicText('parameters');
+    expect(parameters).toContain('any non-empty string');
+    expect(parameters).toContain('unique by exact match');
+    expect(parameters).toContain('"__proto__"');
+    expect(parameters).toContain('reads as null');
+
+    const formula = schemaTopicText('formula');
+    expect(formula).toContain('one $(...) per path step');
+    expect(formula).toContain('$(items).$(amount)');
+    expect(formula).toContain('@item.$(amount)');
+    expect(formula).toContain('"\\)" for ")"');
+    expect(formula).toContain('must not mix the two forms');
+    expect(formula).toContain('Write new formulas with $(...)');
+    // 업무 데이터를 참조하는 예시는 모두 명시 참조다.
+    expect(formula).not.toContain('SUM(items.amount)');
+    expect(formula).not.toContain('SUM(@page.amount)');
+    expect(formula).toContain('$(amount) < 0');
+    expect(schemaTopicText('elements')).toContain('"formula": "SUM($(items).$(amount))"');
+  });
+
+  it('FORMAT_DATE의 토큰·리터럴 블록·입력 형식을 안내한다', () => {
+    const formula = schemaTopicText('formula');
+    expect(formula).toContain('exactly nine tokens');
+    expect(formula).toContain('YYYY YY MM M DD D HH mm ss');
+    expect(formula).toContain('[...]');
+    expect(formula).toContain('"\\]" is "]"');
+    expect(formula).toContain('"YYYYY", "MMM", "Date"');
+    expect(formula).toContain('"YYYY-MM-DDTHH:mm[:ss[.fff]][Z|±HH:mm]"');
+    expect(formula).toContain('read as UTC');
+  });
+
+  it('반복 그리드의 첫 페이지 시작 이동과 빈 페이지 계획 오류를 안내한다', () => {
+    const grid = schemaTopicText('grid');
+    expect(grid).toContain('starts on the next output page');
+    expect(grid).toContain('header-only fragment');
+    expect(grid).toContain('full flow area of an empty page');
+    expect(grid).toContain('planning fails with an error');
   });
 
   it('FORMAT_NUMBER의 두 번째 인자를 소수 자릿수로 안내한다', () => {
     const formula = schemaTopicText('formula');
     expect(formula).toContain('fractionDigits');
-    expect(formula).toContain('FORMAT_NUMBER(SUM(items.amount) * 1.1, 0)');
-    expect(formula).not.toContain('FORMAT_NUMBER(SUM(items.amount) * 1.1, "#,##0")');
+    expect(formula).toContain('FORMAT_NUMBER(SUM($(items).$(amount)) * 1.1, 0)');
+    expect(formula).not.toContain('* 1.1, "#,##0")');
   });
 
   it('수식에서 실제 파서가 지원하는 연산자만 안내한다', () => {
