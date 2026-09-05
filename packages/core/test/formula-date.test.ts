@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { FormulaEvalError, evaluateFormula, type FormulaContext } from '../src/index.js';
+import { FormulaEvalError, evaluateFormula, type FormulaContext, type FormulaValue } from '../src/index.js';
 
 const ctx = (values: FormulaContext['values'] = {}, locale?: string): FormulaContext =>
   locale === undefined ? { values } : { values, locale };
@@ -264,7 +264,7 @@ describe('0001~9999년', () => {
 
   it('DATE_ADD·DATE_DIFF도 같은 범위에서 동작한다', () => {
     expect(evaluateFormula('DATE_ADD("0001-01-31", 1, "months")', ctx())).toBe('0001-02-28');
-    expect(evaluateFormula('DATE_ADD("0001-01-01", -1)', ctx())).toBe('0000-12-31');
+    expect(evaluateFormula('DATE_ADD("0001-01-02", -1)', ctx())).toBe('0001-01-01');
     expect(evaluateFormula('DATE_ADD("0099-12-31", 1)', ctx())).toBe('0100-01-01');
     expect(evaluateFormula('DATE_ADD("0099-12-31", 1, "years")', ctx())).toBe('0100-12-31');
     expect(evaluateFormula('DATE_ADD("9999-12-31", -1, "years")', ctx())).toBe('9998-12-31');
@@ -272,6 +272,102 @@ describe('0001~9999년', () => {
     expect(evaluateFormula('DATE_DIFF("0001-01-01", "0001-01-02")', ctx())).toBe(1);
     expect(evaluateFormula('DATE_DIFF("0001-01-01", "9999-12-31", "years")', ctx())).toBe(9998);
     expect(evaluateFormula('DATE_DIFF("0099-12-31", "0100-01-31", "months")', ctx())).toBe(1);
+  });
+});
+
+describe('연도 범위 밖의 결과', () => {
+  const OUT_OF_RANGE = /outside the supported years 0001–9999/;
+
+  it('오프셋을 적용한 결과가 범위 안이면 통과한다', () => {
+    expect(evaluateFormula('TO_DATE("0001-01-01T23:59+23:59")', ctx())).toBe('0001-01-01');
+    expect(evaluateFormula('FORMAT_DATE("0001-01-01T23:59+23:59", "YYYY-MM-DD HH:mm")', ctx())).toBe('0001-01-01 00:00');
+    expect(evaluateFormula('TO_DATE("9999-12-31T00:00-23:59")', ctx())).toBe('9999-12-31');
+    expect(evaluateFormula('FORMAT_DATE("9999-12-31T00:00-23:59", "YYYY-MM-DD HH:mm")', ctx())).toBe('9999-12-31 23:59');
+    expect(evaluateFormula('TO_DATE("0001-01-01T00:00Z")', ctx())).toBe('0001-01-01');
+    expect(evaluateFormula('TO_DATE("9999-12-31T23:59:59.999Z")', ctx())).toBe('9999-12-31');
+  });
+
+  it.each([
+    '0001-01-01T23:58+23:59',
+    '0001-01-01T00:00+23:59',
+    '0001-01-01T00:00+00:01',
+    '9999-12-31T00:01-23:59',
+    '9999-12-31T23:59-23:59',
+    '9999-12-31T23:59-00:01',
+    '0000-12-31',
+    '0000-01-01T00:00Z',
+  ])('%s은(는) 오프셋을 적용한 결과가 범위 밖', (value) => {
+    for (const fn of ['FORMAT_DATE', 'TO_DATE']) {
+      expect(() => evaluateFormula(`${fn}("${value}")`, ctx()), fn).toThrow(OUT_OF_RANGE);
+    }
+    expect(() => evaluateFormula(`DATE_ADD("${value}", 0)`, ctx())).toThrow(OUT_OF_RANGE);
+    expect(() => evaluateFormula(`DATE_DIFF("${value}", "2026-09-04")`, ctx())).toThrow(/start date gives a result outside/);
+    expect(() => evaluateFormula(`DATE_DIFF("2026-09-04", "${value}")`, ctx())).toThrow(/end date gives a result outside/);
+  });
+
+  it('DATE_ADD 결과가 범위 안이면 통과한다', () => {
+    expect(evaluateFormula('DATE_ADD("0001-01-02", -1, "days")', ctx())).toBe('0001-01-01');
+    expect(evaluateFormula('DATE_ADD("9999-12-30", 1, "days")', ctx())).toBe('9999-12-31');
+    expect(evaluateFormula('DATE_ADD("0001-02-15", -1, "months")', ctx())).toBe('0001-01-15');
+    expect(evaluateFormula('DATE_ADD("9999-11-30", 1, "months")', ctx())).toBe('9999-12-30');
+    expect(evaluateFormula('DATE_ADD("0002-06-01", -1, "years")', ctx())).toBe('0001-06-01');
+    expect(evaluateFormula('DATE_ADD("9998-06-01", 1, "years")', ctx())).toBe('9999-06-01');
+    expect(evaluateFormula('DATE_ADD("0001-01-01", 9998, "years")', ctx())).toBe('9999-01-01');
+    expect(evaluateFormula('DATE_ADD("9999-12-31", -9998, "years")', ctx())).toBe('0001-12-31');
+  });
+
+  it.each([
+    'DATE_ADD("0001-01-01", -1, "days")',
+    'DATE_ADD("9999-12-31", 1, "days")',
+    'DATE_ADD("0001-01-15", -1, "months")',
+    'DATE_ADD("9999-12-15", 1, "months")',
+    'DATE_ADD("0001-06-01", -1, "years")',
+    'DATE_ADD("9999-06-01", 1, "years")',
+    'DATE_ADD("2026-01-01", 10000, "years")',
+    'DATE_ADD("2026-01-01", -3000000, "days")',
+    'DATE_ADD("2026-01-01", 100000000000, "days")',
+  ])('%s은(는) 결과가 범위 밖', (source) => {
+    expect(() => evaluateFormula(source, ctx())).toThrow(OUT_OF_RANGE);
+  });
+
+  it('값 오류이고 날짜·증감량 중 하나라도 데이터에서 오면 데이터 의존이다', () => {
+    const literal = evalError('DATE_ADD("9999-12-31", 1)');
+    expect(literal.reason).toBe('value');
+    expect(literal.dataDependent).toBe(false);
+    const dateFromData = evalError('DATE_ADD(d, 1)', ctx({ d: '9999-12-31' }));
+    expect(dateFromData.reason).toBe('value');
+    expect(dateFromData.dataDependent).toBe(true);
+    const amountFromData = evalError('DATE_ADD("9999-12-31", n)', ctx({ n: 1 }));
+    expect(amountFromData.reason).toBe('value');
+    expect(amountFromData.dataDependent).toBe(true);
+    const offset = evalError('TO_DATE("0001-01-01T00:00+23:59")');
+    expect(offset.reason).toBe('value');
+    expect(offset.dataDependent).toBe(false);
+    expect(evalError('TO_DATE(d)', ctx({ d: '0001-01-01T00:00+23:59' })).dataDependent).toBe(true);
+  });
+
+  it('세 언어의 메시지가 대상과 입력을 알려 준다', () => {
+    expect(evalError('TO_DATE("0001-01-01T00:00+23:59")').message).toBe(
+      'The date gives a result outside the supported years 0001–9999: "0001-01-01T00:00+23:59"',
+    );
+    expect(evalError('TO_DATE("0001-01-01T00:00+23:59")', ctx({}, 'ko')).message).toBe(
+      '날짜: 결과가 지원하는 연도 범위(0001~9999년)를 벗어났습니다. 현재 값: "0001-01-01T00:00+23:59"',
+    );
+    expect(evalError('TO_DATE("0001-01-01T00:00+23:59")', ctx({}, 'ja')).message).toBe(
+      '日付の結果が対応する年の範囲（0001~9999 年）を超えました: "0001-01-01T00:00+23:59"',
+    );
+    expect(evalError('DATE_ADD("9999-12-31", 1)').message).toBe(
+      'The date gives a result outside the supported years 0001–9999: "9999-12-31"',
+    );
+    expect(evalError('DATE_ADD("9999-12-31", 1)', ctx({}, 'ko')).message).toBe(
+      '날짜: 결과가 지원하는 연도 범위(0001~9999년)를 벗어났습니다. 현재 값: "9999-12-31"',
+    );
+    expect(evalError('DATE_ADD("9999-12-31", 1)', ctx({}, 'ja')).message).toBe(
+      '日付の結果が対応する年の範囲（0001~9999 年）を超えました: "9999-12-31"',
+    );
+    expect(evalError('DATE_DIFF("2026-09-04", "9999-12-31T23:59-00:01")').message).toBe(
+      'The end date gives a result outside the supported years 0001–9999: "9999-12-31T23:59-00:01"',
+    );
   });
 });
 
@@ -291,12 +387,33 @@ describe('실행 환경 시간대와 무관한 결과', () => {
     ['TO_DATE("2026-09-04T23:59+09:00")', '2026-09-04'],
     ['DATE_ADD("2026-01-31T12:00", 1, "months")', '2026-02-28'],
     ['DATE_DIFF("2026-09-04T00:30", "2026-09-05T00:29")', 0],
+    // 연도 범위 경계 — 통과하는 값과 범위 밖 오류(`!value`는 값 오류로 실패했다는 표시)
+    ['TO_DATE("0001-01-01T23:59+23:59")', '0001-01-01'],
+    ['TO_DATE("9999-12-31T00:00-23:59")', '9999-12-31'],
+    ['TO_DATE("0001-01-01T23:58+23:59")', '!value'],
+    ['TO_DATE("9999-12-31T00:01-23:59")', '!value'],
+    ['DATE_ADD("0001-01-02", -1)', '0001-01-01'],
+    ['DATE_ADD("9999-12-30", 1)', '9999-12-31'],
+    ['DATE_ADD("0001-01-01", -1)', '!value'],
+    ['DATE_ADD("9999-12-31", 1)', '!value'],
+    ['DATE_ADD("0001-01-15", -1, "months")', '!value'],
+    ['DATE_ADD("9999-06-01", 1, "years")', '!value'],
   ];
+
+  /** 평가 결과를 돌려주고, 평가 오류면 `!<reason>`으로 표시한다. */
+  function run(formula: string): FormulaValue {
+    try {
+      return evaluateFormula(formula, ctx());
+    } catch (error) {
+      if (error instanceof FormulaEvalError) return `!${error.reason}`;
+      throw error;
+    }
+  }
 
   it.each(['UTC', 'Asia/Tokyo', 'America/New_York'])('TZ=%s (같은 프로세스)', (tz) => {
     process.env['TZ'] = tz;
     for (const [formula, expected] of CASES) {
-      expect(evaluateFormula(formula, ctx()), formula).toBe(expected);
+      expect(run(formula), formula).toBe(expected);
     }
   });
 
@@ -306,9 +423,11 @@ describe('실행 환경 시간대와 무관한 결과', () => {
       throw new Error('dist/index.js가 없습니다 — 먼저 @omdc-slipkit/core를 build한 뒤 실행해야 합니다');
     }
     const script = [
-      `import { evaluateFormula } from ${JSON.stringify(pathToFileURL(dist).href)};`,
+      `import { FormulaEvalError, evaluateFormula } from ${JSON.stringify(pathToFileURL(dist).href)};`,
       `const formulas = ${JSON.stringify(CASES.map(([formula]) => formula))};`,
-      'process.stdout.write(JSON.stringify(formulas.map((f) => evaluateFormula(f, { values: {} }))));',
+      'const run = (f) => { try { return evaluateFormula(f, { values: {} }); }',
+      '  catch (e) { if (e instanceof FormulaEvalError) return `!${e.reason}`; throw e; } };',
+      'process.stdout.write(JSON.stringify(formulas.map(run)));',
     ].join('\n');
     const output = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
       env: { ...process.env, TZ: tz },

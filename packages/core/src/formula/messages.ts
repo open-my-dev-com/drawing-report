@@ -99,6 +99,7 @@ interface FormulaMessages {
   datePatternUnknownToken(name: string, run: string, position: number): string;
   datePatternUnclosedLiteral(name: string, position: number): string;
   datePatternBadEscape(name: string, position: number): string;
+  dateYearRange(subject: FormulaSubject, shown: string): string;
 }
 
 const EN_SUBJECTS: Record<FormulaSubject, string> = {
@@ -256,6 +257,8 @@ const EN: FormulaMessages = {
   datePatternUnclosedLiteral: (name, position) => `The ${name} pattern has an unclosed '[' at character ${position}`,
   datePatternBadEscape: (name, position) =>
     `The ${name} pattern has an invalid backslash at character ${position} (inside [ ], only \\] and \\\\ are allowed)`,
+  dateYearRange: (subject, shown) =>
+    `${EN_SUBJECTS[subject]} gives a result outside the supported years 0001–9999: ${shown}`,
 };
 
 const KO: FormulaMessages = {
@@ -324,6 +327,8 @@ const KO: FormulaMessages = {
   datePatternUnclosedLiteral: (name, position) => `${name} 패턴: ${position}번째 글자의 '['가 닫히지 않았습니다`,
   datePatternBadEscape: (name, position) =>
     `${name} 패턴: ${position}번째 글자의 백슬래시를 해석할 수 없습니다 ([ ] 안에서 \\]와 \\\\만 쓸 수 있습니다)`,
+  dateYearRange: (subject, shown) =>
+    `${KO_SUBJECTS[subject]}: 결과가 지원하는 연도 범위(0001~9999년)를 벗어났습니다. 현재 값: ${shown}`,
 };
 
 const JA: FormulaMessages = {
@@ -389,6 +394,8 @@ const JA: FormulaMessages = {
   datePatternUnclosedLiteral: (name, position) => `${name} のパターン: ${position} 文字目の '[' が閉じられていません`,
   datePatternBadEscape: (name, position) =>
     `${name} のパターン: ${position} 文字目のバックスラッシュを解釈できません（[ ] の中では \\] と \\\\ のみ使えます）`,
+  dateYearRange: (subject, shown) =>
+    `${JA_SUBJECTS[subject]}の結果が対応する年の範囲（0001~9999 年）を超えました: ${shown}`,
 };
 
 const CATALOG: Record<MessageLocale, FormulaMessages> = { en: EN, ko: KO, ja: JA };

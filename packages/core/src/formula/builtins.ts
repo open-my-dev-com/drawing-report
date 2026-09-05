@@ -217,6 +217,25 @@ function utcDate(year: number, month: number, day: number, hour = 0, minute = 0,
   return date;
 }
 
+/**
+ * 날짜가 지원하는 연도 범위(0001~9999년) 안에 있는지 확인한다.
+ *
+ * @remarks
+ * 입력 연도가 네 자리여도 오프셋을 적용하거나 날짜를 가감한 결과는 0년 이하나 10000년 이상으로
+ * 넘어갈 수 있고, `YYYY`는 네 자리로만 출력하므로 그런 결과는 오류로 막는다. 유효하지 않은
+ * `Date`(연도가 `NaN`)도 같은 오류다.
+ *
+ * @param date - 검사할 날짜
+ * @param what - 오류 메시지에서 대상을 가리키는 키
+ * @param shown - 오류 메시지에 표시할 원래 입력
+ * @param fromData - 이 값이 참조를 통해 데이터에서 왔는지
+ * @throws FormulaEvalError 연도가 1~9999 밖이면
+ */
+function assertSupportedYear(date: Date, what: FormulaSubject, shown: string, fromData: boolean): void {
+  const year = date.getUTCFullYear();
+  if (!(year >= 1 && year <= 9999)) throw valueError(fm().dateYearRange(what, shown), fromData);
+}
+
 function parseDate(value: FormulaValue, what: FormulaSubject, fromData: boolean): Date {
   if (typeof value !== 'string') throw valueError(fm().dateInvalid(what, describe(value)), fromData);
   const m = DATE_INPUT.exec(value);
@@ -253,6 +272,8 @@ function parseDate(value: FormulaValue, what: FormulaSubject, fromData: boolean)
     const sign = offset[0] === '-' ? -1 : 1;
     date.setTime(date.getTime() - sign * (offsetHours * 60 + offsetMinutes) * 60_000);
   }
+  // 오프셋을 뺀 UTC 순간은 입력 연도와 달라질 수 있다 (0001-01-01T00:00+23:59 → 0000-12-31).
+  assertSupportedYear(date, what, describe(value), fromData);
   return date;
 }
 
@@ -641,8 +662,12 @@ export const BUILTIN_FUNCTIONS: Record<
     const date = parseDate(args[0] ?? null, 'date', origins[0] === true);
     const amount = requireInt(args[1] ?? null, 'amountDelta', origins[1] === true);
     const unit = toDateUnit(args.length > 2 ? (args[2] ?? null) : null, origins[2] === true);
+    // 결과는 날짜와 증감량 양쪽에 달려 있으므로 둘 중 하나라도 데이터에서 왔으면 데이터 의존 오류다.
+    const shown = describe(args[0] ?? null);
+    const fromData = origins[0] === true || origins[1] === true;
     if (unit === 'days') {
       date.setUTCDate(date.getUTCDate() + amount);
+      assertSupportedYear(date, 'date', shown, fromData);
     } else {
       // 월·해 가감은 대상 달의 마지막 날로 맞춘다 — setUTCMonth는 짧은 달에서 다음 달로
       // 넘어가므로(1/31 + 1개월 → 3/3), 원래 일을 대상 달 말일로 클램프한다(EDATE 방식).
@@ -650,6 +675,7 @@ export const BUILTIN_FUNCTIONS: Record<
       date.setUTCDate(1);
       if (unit === 'months') date.setUTCMonth(date.getUTCMonth() + amount);
       else date.setUTCFullYear(date.getUTCFullYear() + amount);
+      assertSupportedYear(date, 'date', shown, fromData);
       const lastDay = utcDate(date.getUTCFullYear(), date.getUTCMonth() + 1, 0).getUTCDate();
       date.setUTCDate(Math.min(day, lastDay));
     }
