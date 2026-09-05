@@ -719,9 +719,11 @@ The supported pattern tokens are as follows.
 | `mm` | Two-digit minute | `30` |
 | `ss` | Two-digit second | `00` |
 
-Tokens are matched longest first. Wrap literal ASCII letters in `[...]`; non-ASCII text, spaces,
-and punctuation are literal outside brackets too. Inside brackets, `\]` means `]` and `\\` means
-`\`. An unknown ASCII-letter token, an invalid escape, or an unclosed bracket is an error.
+Outside brackets, each run of the same ASCII letter must be exactly one token. Different tokens can
+be adjacent, so `YYYYMMDD` works, but `MMM`, `YYYYY`, and `hh` are errors. Wrap literal ASCII letters
+in `[...]`. Numbers, non-ASCII characters, spaces, punctuation, and `]` are literal outside brackets.
+Inside brackets, `\]` means `]` and `\\` means `\`. An unknown ASCII-letter token, a backslash outside
+brackets, an invalid escape, or an unclosed bracket is an error.
 
 The date must be strict ISO `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm[:ss[.fraction]][Z|±HH:mm]`, with 1-9
 fractional-second digits. A value

@@ -340,6 +340,10 @@ the first page, the grid starts at the top of the flow area on the next page ins
 empty grid fragment. An item or fixed group that cannot fit even on a full continuation page is a
 layout error.
 
+With `after` placement, the same move can occur even when there is no actual data because the grid's
+start position has been reduced. Otherwise, blank items required by fixed pages or the minimum-item
+setting remain at the grid's original position.
+
 For example, connect the repeat rows of the `items` list like this.
 
 | Column | Sub-field to connect |
