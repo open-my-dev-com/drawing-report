@@ -48,6 +48,11 @@ interface FormulaMessages {
   unknownFunction(name: string): string;
   expectedFieldAfterDot(): string;
   unknownReservedRef(name: string): string;
+  emptyReferenceKey(): string;
+  unterminatedReference(): string;
+  invalidReferenceEscape(sequence: string): string;
+  referenceNeedsParens(name: string): string;
+  bareReference(name: string, suggested: string): string;
   reservedRefUnavailable(name: string): string;
   expectedValue(): string;
   emptyFormula(): string;
@@ -88,6 +93,12 @@ interface FormulaMessages {
   vatRateNegative(): string;
   numberToKoreanInteger(): string;
   numberToKoreanRange(): string;
+  // 날짜 입력·FORMAT_DATE 패턴
+  dateOffsetRange(subject: FormulaSubject, shown: string): string;
+  datePatternUnknownToken(name: string, run: string, position: number): string;
+  datePatternUnclosedLiteral(name: string, position: number): string;
+  datePatternBadEscape(name: string, position: number): string;
+  dateYearRange(subject: FormulaSubject, shown: string): string;
 }
 
 const EN_SUBJECTS: Record<FormulaSubject, string> = {
@@ -194,6 +205,11 @@ const EN: FormulaMessages = {
   unknownFunction: (name) => `Unsupported function: ${name}`,
   expectedFieldAfterDot: () => `A field name must follow '.'`,
   unknownReservedRef: (name) => `Unknown reserved reference: ${name} (available: @item, @group, @page, @all, @carried)`,
+  emptyReferenceKey: () => 'The key inside $( ) cannot be empty',
+  unterminatedReference: () => `The $( reference is not closed (a ')' is required)`,
+  invalidReferenceEscape: (sequence) => `Invalid escape '${sequence}' inside $( ) (only \\) and \\\\ are allowed)`,
+  referenceNeedsParens: (name) => `Write $(${name}) instead of $${name}`,
+  bareReference: (name, suggested) => `'${name}' must be written as ${suggested}`,
   reservedRefUnavailable: (name) => `${name} can only be used in grid row bands`,
   expectedValue: () => 'A value, reference, or function is required',
   emptyFormula: () => 'The formula is empty',
@@ -220,7 +236,8 @@ const EN: FormulaMessages = {
   conditionRequired: (shown) => `The condition must be a logical value: ${shown}`,
   criteriaRange: () => 'A range cannot be used as a criterion',
   dateNotReal: (subject, shown) => `${EN_SUBJECTS[subject]} is not a real calendar date: ${shown}`,
-  dateInvalid: (subject, shown) => `${EN_SUBJECTS[subject]} must be an ISO-format string (such as YYYY-MM-DD): ${shown}`,
+  dateInvalid: (subject, shown) =>
+    `${EN_SUBJECTS[subject]} must be a string in the form YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss (optionally with Z or ±HH:mm): ${shown}`,
   dateUnitInvalid: (shown) => `The date unit must be one of days/months/years: ${shown}`,
   avgEmpty: () => 'AVG: there are no values to average',
   sumifLengthMismatch: () => 'SUMIF: the criteria range and the sum range have different lengths',
@@ -230,6 +247,15 @@ const EN: FormulaMessages = {
   vatRateNegative: () => 'VAT: the tax rate must be 0 or greater',
   numberToKoreanInteger: () => 'NUMBER_TO_KOREAN only supports integers',
   numberToKoreanRange: () => 'NUMBER_TO_KOREAN: the number is out of the supported range',
+  dateOffsetRange: (subject, shown) =>
+    `${EN_SUBJECTS[subject]} has a time zone offset out of range (up to ±23:59): ${shown}`,
+  datePatternUnknownToken: (name, run, position) =>
+    `The ${name} pattern has an unknown token "${run}" at character ${position} (allowed: YYYY, YY, MM, M, DD, D, HH, mm, ss; wrap literal text in [ ])`,
+  datePatternUnclosedLiteral: (name, position) => `The ${name} pattern has an unclosed '[' at character ${position}`,
+  datePatternBadEscape: (name, position) =>
+    `The ${name} pattern has an invalid backslash at character ${position} (inside [ ], only \\] and \\\\ are allowed)`,
+  dateYearRange: (subject, shown) =>
+    `${EN_SUBJECTS[subject]} gives a result outside the supported years 0001–9999: ${shown}`,
 };
 
 const KO: FormulaMessages = {
@@ -243,6 +269,12 @@ const KO: FormulaMessages = {
   unknownFunction: (name) => `지원하지 않는 함수입니다: ${name}`,
   expectedFieldAfterDot: () => "'.' 뒤에는 필드 이름이 와야 합니다",
   unknownReservedRef: (name) => `알 수 없는 예약 참조입니다: ${name} (사용 가능: @item, @group, @page, @all, @carried)`,
+  emptyReferenceKey: () => '$( ) 안의 키가 비어 있습니다',
+  unterminatedReference: () => `$( 참조가 닫히지 않았습니다. ')'가 필요합니다`,
+  invalidReferenceEscape: (sequence) =>
+    `$( ) 안에서 쓸 수 없는 이스케이프입니다: '${sequence}' (\\)와 \\\\만 쓸 수 있습니다)`,
+  referenceNeedsParens: (name) => `$${name} 대신 $(${name})으로 쓰세요`,
+  bareReference: (name, suggested) => `'${name}'은(는) ${suggested}으로 써야 합니다`,
   reservedRefUnavailable: (name) => `${name}은(는) 그리드 행 구간에서만 사용할 수 있습니다`,
   expectedValue: () => '값, 참조 또는 함수가 필요합니다',
   emptyFormula: () => '빈 수식입니다',
@@ -273,7 +305,7 @@ const KO: FormulaMessages = {
   criteriaRange: () => '조건에는 범위를 쓸 수 없습니다',
   dateNotReal: (subject, shown) => `${KO_SUBJECTS[subject]}: 존재하지 않는 날짜입니다. 현재 값: ${shown}`,
   dateInvalid: (subject, shown) =>
-    `${KO_SUBJECTS[subject]}: ISO 형식(예: YYYY-MM-DD)의 문자열이어야 합니다. 현재 값: ${shown}`,
+    `${KO_SUBJECTS[subject]}: YYYY-MM-DD 또는 YYYY-MM-DDTHH:mm:ss 형식(Z·±HH:mm 오프셋은 선택)의 문자열이어야 합니다. 현재 값: ${shown}`,
   dateUnitInvalid: (shown) => `날짜 단위는 days, months, years 중 하나여야 합니다. 현재 값: ${shown}`,
   avgEmpty: () => 'AVG: 평균을 낼 값이 없습니다',
   sumifLengthMismatch: () => 'SUMIF: 조건 범위와 합계 범위의 길이가 다릅니다',
@@ -283,6 +315,15 @@ const KO: FormulaMessages = {
   vatRateNegative: () => 'VAT: 세율은 0 이상이어야 합니다',
   numberToKoreanInteger: () => 'NUMBER_TO_KOREAN은 정수만 지원합니다',
   numberToKoreanRange: () => '값이 NUMBER_TO_KOREAN의 지원 범위를 벗어났습니다',
+  dateOffsetRange: (subject, shown) =>
+    `${KO_SUBJECTS[subject]}: 시간대 오프셋이 허용 범위(±23:59까지)를 벗어났습니다. 현재 값: ${shown}`,
+  datePatternUnknownToken: (name, run, position) =>
+    `${name} 패턴: ${position}번째 글자에 알 수 없는 토큰이 있습니다: "${run}" (사용 가능: YYYY, YY, MM, M, DD, D, HH, mm, ss. 그대로 표시할 글자는 [ ]로 감싸세요)`,
+  datePatternUnclosedLiteral: (name, position) => `${name} 패턴: ${position}번째 글자의 '['가 닫히지 않았습니다`,
+  datePatternBadEscape: (name, position) =>
+    `${name} 패턴: ${position}번째 글자의 백슬래시를 해석할 수 없습니다 ([ ] 안에서 \\]와 \\\\만 쓸 수 있습니다)`,
+  dateYearRange: (subject, shown) =>
+    `${KO_SUBJECTS[subject]}: 결과가 지원하는 연도 범위(0001~9999년)를 벗어났습니다. 현재 값: ${shown}`,
 };
 
 const JA: FormulaMessages = {
@@ -296,6 +337,12 @@ const JA: FormulaMessages = {
   unknownFunction: (name) => `サポートされていない関数です: ${name}`,
   expectedFieldAfterDot: () => `'.' の後にはフィールド名が必要です`,
   unknownReservedRef: (name) => `不明な予約参照です: ${name}（使用可能: @item, @group, @page, @all, @carried）`,
+  emptyReferenceKey: () => '$( ) の中のキーが空です',
+  unterminatedReference: () => `$( 参照が閉じられていません（')' が必要です）`,
+  invalidReferenceEscape: (sequence) =>
+    `$( ) の中で使えないエスケープです: '${sequence}'（\\) と \\\\ のみ使えます）`,
+  referenceNeedsParens: (name) => `$${name} ではなく $(${name}) と書いてください`,
+  bareReference: (name, suggested) => `'${name}' は ${suggested} と書く必要があります`,
   reservedRefUnavailable: (name) => `${name} はグリッドの行範囲でのみ使用できます`,
   expectedValue: () => '値・参照・関数が必要です',
   emptyFormula: () => '数式が空です',
@@ -322,7 +369,8 @@ const JA: FormulaMessages = {
   conditionRequired: (shown) => `条件は論理値でなければなりません: ${shown}`,
   criteriaRange: () => '条件に範囲は使えません',
   dateNotReal: (subject, shown) => `${JA_SUBJECTS[subject]}が実在する日付ではありません: ${shown}`,
-  dateInvalid: (subject, shown) => `${JA_SUBJECTS[subject]}は ISO 形式（YYYY-MM-DD など）の文字列でなければなりません: ${shown}`,
+  dateInvalid: (subject, shown) =>
+    `${JA_SUBJECTS[subject]}は YYYY-MM-DD または YYYY-MM-DDTHH:mm:ss 形式（Z・±HH:mm オフセットは任意）の文字列でなければなりません: ${shown}`,
   dateUnitInvalid: (shown) => `日付の単位は days/months/years のいずれかでなければなりません: ${shown}`,
   avgEmpty: () => 'AVG: 平均を求める値がありません',
   sumifLengthMismatch: () => 'SUMIF: 条件範囲と合計範囲の長さが異なります',
@@ -332,6 +380,15 @@ const JA: FormulaMessages = {
   vatRateNegative: () => 'VAT: 税率は 0 以上でなければなりません',
   numberToKoreanInteger: () => 'NUMBER_TO_KOREAN は整数のみ対応しています',
   numberToKoreanRange: () => 'NUMBER_TO_KOREAN の対応範囲を超えました',
+  dateOffsetRange: (subject, shown) =>
+    `${JA_SUBJECTS[subject]}のタイムゾーンオフセットが範囲外です（±23:59 まで）: ${shown}`,
+  datePatternUnknownToken: (name, run, position) =>
+    `${name} のパターン: ${position} 文字目に不明なトークンがあります: "${run}"（使用可能: YYYY, YY, MM, M, DD, D, HH, mm, ss。そのまま表示する文字は [ ] で囲んでください）`,
+  datePatternUnclosedLiteral: (name, position) => `${name} のパターン: ${position} 文字目の '[' が閉じられていません`,
+  datePatternBadEscape: (name, position) =>
+    `${name} のパターン: ${position} 文字目のバックスラッシュを解釈できません（[ ] の中では \\] と \\\\ のみ使えます）`,
+  dateYearRange: (subject, shown) =>
+    `${JA_SUBJECTS[subject]}の結果が対応する年の範囲（0001~9999 年）を超えました: ${shown}`,
 };
 
 const CATALOG: Record<MessageLocale, FormulaMessages> = { en: EN, ko: KO, ja: JA };

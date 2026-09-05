@@ -7,6 +7,7 @@
  */
 
 import type { ReactiveController } from 'lit';
+import { formatReferencePath } from '@omdc-slipkit/core';
 import type { FormulaOrigin, FormulaTarget } from '../formula-target.js';
 
 /** 참조 영역에서 보고 있는 탭 */
@@ -23,18 +24,41 @@ export interface SuggestParameter {
   fields: readonly { key: string; title: string }[];
 }
 
+/** 자동완성으로 넣을 하위 필드 하나 — `$(목록).` 뒤에 `$(필드)`로 넣습니다 */
+export interface ColumnCompletion {
+  /** 하위 필드 물리명 */
+  key: string;
+  /** 화면에 표시할 이름 */
+  title: string;
+  /** 커서 앞에서 지우고 바꿔 넣을 글자 수 — 이미 입력한 부분입니다 */
+  replaceLength: number;
+}
+
 /** 커서 앞 입력에 맞는 하위 필드 제안 */
 export interface ColumnSuggestion {
-  columns: { key: string; title: string }[];
-  /** 이미 입력한 글자 수 — 이어 붙일 때 이만큼 건너뜁니다 */
+  columns: ColumnCompletion[];
+  /** 이미 입력한 필드 글자 수 — 목록을 거르는 데 쓴 부분입니다 */
   typedLength: number;
 }
 
-/** 목록 파라미터와 하위 필드를 잇는 `파라미터.필드` 입력 */
-const FIELD_REFERENCE = /([A-Za-z0-9_가-힣]+)\.([A-Za-z0-9_가-힣]*)$/;
+/** `$(...)` 안 키 한 단계 — `\)`와 `\\`를 이스케이프한 형태 */
+const KEY = String.raw`(?:[^)\\]|\\.)*`;
+/** `$(목록).$(필드` 입력 — 필드 참조를 여는 중. 앞에 점이 있으면 목록이 아니라 경로의 중간 단계입니다 */
+const OPEN_STEP = new RegExp(String.raw`(?<!\.)\$\((${KEY})\)\.\$\((${KEY})$`, 'u');
+/** `$(목록).필드` 입력 — 점 뒤에 이름을 그대로 치는 중 */
+const BARE_STEP = new RegExp(String.raw`(?<!\.)\$\((${KEY})\)\.([\p{L}\p{N}_]*)$`, 'u');
+
+/** `$(...)` 안에 적힌 키의 이스케이프를 풉니다. */
+function unescapeKey(raw: string): string {
+  return raw.replace(/\\(.)/g, '$1');
+}
 
 /**
- * 커서 앞의 `목록파라미터.필드` 입력에 맞는 하위 필드를 제안합니다.
+ * 커서 앞의 `$(목록).` 입력에 맞는 하위 필드를 제안합니다.
+ *
+ * @remarks
+ * `$(목록).`·`$(목록).$(필드`·`$(목록).필드` 뒤만 보고 `$(필드)`로 완성합니다. 목록 파라미터를
+ * `$(...)` 없이 적은 입력은 참조가 아니므로 제안하지 않습니다.
  *
  * @param draft - 입력 중인 수식
  * @param caret - 커서 위치
@@ -47,15 +71,21 @@ export function columnSuggestion(
   parameters: readonly SuggestParameter[],
 ): ColumnSuggestion | null {
   const at = Math.min(caret, draft.length);
-  const match = FIELD_REFERENCE.exec(draft.slice(0, at));
+  const before = draft.slice(0, at);
+  const open = OPEN_STEP.exec(before);
+  const match = open ?? BARE_STEP.exec(before);
   if (!match) return null;
+  const listKey = unescapeKey(match[1] ?? '');
+  const rawTyped = match[2] ?? '';
+  const typed = open === null ? rawTyped : unescapeKey(rawTyped);
 
-  const target = parameters.find((b) => b.key === match[1] && b.fields.length > 0);
+  const target = parameters.find((b) => b.key === listKey && b.fields.length > 0);
   if (!target) return null;
-  const typed = match[2] ?? '';
+  // `$(목록).`은 이미 있으므로 친 이름(열어 둔 `$(` 포함)만 지우고 `$(필드)`를 넣습니다.
+  const replaceLength = rawTyped.length + (open === null ? 0 : 2);
   const columns = target.fields
     .filter((field) => field.key.toLowerCase().startsWith(typed.toLowerCase()))
-    .map((field) => ({ key: field.key, title: field.title }));
+    .map((field): ColumnCompletion => ({ key: field.key, title: field.title, replaceLength }));
   return columns.length > 0 ? { columns, typedLength: typed.length } : null;
 }
 
@@ -232,16 +262,52 @@ export class FormulaDraftController implements ReactiveController {
    * @param after - 커서 뒤에 함께 붙일 글 (함수 이름 뒤의 닫는 괄호 등)
    */
   insert(text: string, after = ''): void {
+    const [start, end] = this._selection();
+    this._splice(start, end, text, after);
+  }
+
+  /**
+   * 값 참조를 `$(...)` 형식으로 커서 자리에 넣습니다.
+   *
+   * @param path - 넣을 참조 경로. 파라미터 키는 `@item`이라는 이름이어도 `$(@item)`으로 적습니다
+   * @param options - 첫 단계가 그리드 예약 참조 이름이면 `reserved`를 지정해 그대로 적습니다
+   */
+  insertReference(path: readonly string[], options?: { reserved?: boolean }): void {
+    const [start, end] = this._selection();
+    this._splice(start, end, formatReferencePath(path, options));
+  }
+
+  /**
+   * 자동완성 항목으로 커서 앞의 입력을 `$(필드)`로 완성합니다.
+   *
+   * @param column - 고른 하위 필드
+   */
+  complete(column: ColumnCompletion): void {
+    const [, end] = this._selection();
+    const start = Math.max(0, end - column.replaceLength);
+    this._splice(start, end, formatReferencePath([column.key]));
+  }
+
+  /** 입력란의 선택 범위. 입력란이 없으면 초안 끝 */
+  private _selection(): [number, number] {
     const input = this.getInput();
-    const start = input?.selectionStart ?? this._draft.length;
-    const end = input?.selectionEnd ?? this._draft.length;
-    this._draft = this._draft.slice(0, start) + text + after + this._draft.slice(end);
+    return [input?.selectionStart ?? this._draft.length, input?.selectionEnd ?? this._draft.length];
+  }
+
+  /** `start`~`end`를 `text + after`로 바꾸고 커서를 `text` 뒤에 둡니다. */
+  private _splice(start: number, end: number, text: string, after = ''): void {
+    this._apply(this._draft.slice(0, start) + text + after + this._draft.slice(end), start + text.length);
+  }
+
+  /** 초안을 바꾸고 화면을 다시 그린 뒤 입력란의 커서를 옮깁니다. */
+  private _apply(draft: string, caret: number): void {
+    this._draft = draft;
+    this._caret = caret;
     this.host.requestUpdate();
     void this.host.updateComplete.then(() => {
       const next = this.getInput();
       if (!next) return;
       next.focus();
-      const caret = start + text.length;
       next.setSelectionRange(caret, caret);
       this._caret = caret;
     });

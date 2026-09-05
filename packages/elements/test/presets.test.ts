@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSlipFile } from '@omdc-slipkit/core';
+import { collectFormulaReferences, formatReferencePath, parseSlipFile } from '@omdc-slipkit/core';
 import { getPresets } from '../src/presets.js';
 import { getStrings } from '../src/strings.js';
 
@@ -30,6 +30,30 @@ describe('디자이너 프리셋', () => {
       }
     });
   }
+
+  it('프리셋의 수식은 업무 값을 모두 명시형 참조로 적는다', () => {
+    const formulas: string[] = [];
+    for (const preset of getPresets()) {
+      const file = parseSlipFile(JSON.stringify(preset.create()));
+      if (file.kind !== 'template') continue;
+      for (const page of file.template.pages) {
+        for (const element of page.elements) {
+          if ('formula' in element && typeof element.formula === 'string') formulas.push(element.formula);
+          if (element.type === 'grid') {
+            for (const cell of element.cells) if (cell.formula !== undefined) formulas.push(cell.formula);
+          }
+        }
+      }
+    }
+    expect(formulas).toEqual(['SUM($(items).$(amount))', 'SUM($(items).$(amount))']);
+    for (const formula of formulas) {
+      for (const ref of collectFormulaReferences(formula)) {
+        // 업무 값 참조는 전부 `$(...)`로 적혀 있어야 한다 — 원문 조각이 표준 표기와 같다.
+        expect(formula.slice(ref.span.start, ref.span.end), formula)
+          .toBe(formatReferencePath(ref.path, { reserved: ref.reserved }));
+      }
+    }
+  });
 
   it('create()는 호출마다 새 객체를 반환한다', () => {
     const presets = getPresets();

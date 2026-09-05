@@ -73,40 +73,40 @@ SlipKit の数式は、テンプレートに入力された値の計算、表示
 すべての品目金額を合計します。
 
 ```text
-SUM(items.amount)
+SUM($(items).$(amount))
 → 13000
 ```
 
 送料を含めた総額を計算します。
 
 ```text
-SUM(items.amount) + shippingFee
+SUM($(items).$(amount)) + $(shippingFee)
 → 16000
 ```
 
 表示する文言を作ります。
 
 ```text
-CONCAT(customerName, " 御中")
+CONCAT($(customerName), " 御中")
 → "ハンビット商事 御中"
 ```
 
 総額に桁区切り記号を適用します。
 
 ```text
-CONCAT(FORMAT_NUMBER(SUM(items.amount) + shippingFee), "ウォン")
+CONCAT(FORMAT_NUMBER(SUM($(items).$(amount)) + $(shippingFee)), "ウォン")
 → "16,000ウォン"
 ```
 
 繰り返しグリッドの中では、現在の項目のフィールドを名前で直接参照できます。
 
 ```text
-quantity * unitPrice
+$(quantity) * $(unitPrice)
 ```
 
 > [!IMPORTANT]
 > データ繰り返し領域の中では、現在の項目のフィールドが、同じ名前の伝票最上位の値より優先されます。
-> 全体のリストは、これまでどおり `items.amount` の形で参照できます。
+> リスト全体は `$(items).$(amount)` で参照します。
 
 ### 繰り返しグリッドの計算範囲
 
@@ -114,11 +114,11 @@ quantity * unitPrice
 
 | 参照 | 範囲 | 例 |
 |---|---|---|
-| `@item` | 現在の項目 | `@item.amount` |
-| `@group` | 現在のグループに含まれる項目 | `SUM(@group.amount)` |
-| `@page` | 現在の出力ページに含まれる項目 | `SUM(@page.amount)` |
-| `@carried` | 現在の出力ページより前に配置された項目 | `SUM(@carried.amount)` |
-| `@all` | 出力対象の全項目 | `SUM(@all.amount)` |
+| `@item` | 現在の項目 | `@item.$(amount)` |
+| `@group` | 現在のグループに含まれる項目 | `SUM(@group.$(amount))` |
+| `@page` | 現在の出力ページに含まれる項目 | `SUM(@page.$(amount))` |
+| `@carried` | 現在の出力ページより前に配置された項目 | `SUM(@carried.$(amount))` |
+| `@all` | 出力対象の全項目 | `SUM(@all.$(amount))` |
 
 空の項目はこれらの計算範囲に含まれません。<kbd>最大項目数</kbd>を設定した場合、制限適用後の項目だけが `@all` に含まれます。
 
@@ -133,9 +133,9 @@ quantity * unitPrice
 | 数値 | 数値をそのまま書く | `1500`, `-3.5`, `1e3` |
 | 文字列 | 二重引用符で囲んで書く | `"完了"` |
 | 論理値 | `TRUE` または `FALSE` | `TRUE` |
-| パラメータ | パラメータキーを書く | `totalAmount` |
-| 下位フィールド | ピリオドでパスをつなぐ | `customer.name` |
-| リスト範囲 | リストと下位フィールドをつなぐ | `items.amount` |
+| パラメータ | キー 1 段階を `$(` と `)` で囲む | `$(totalAmount)` |
+| 下位フィールド | 個別に囲んだキーをピリオドでつなぐ | `$(customer).$(name)` |
+| リスト範囲 | リストキーと下位フィールドキーをつなぐ | `$(items).$(amount)` |
 
 文字列の中に二重引用符を入れるには、二重引用符を 2 回書きます。
 
@@ -144,23 +144,20 @@ quantity * unitPrice
 → ハン "ビット"
 ```
 
-パラメータとフィールドの名前は、次のルールに従うと数式で参照できます。
-
-- 文字またはアンダースコア(`_`)で始める
-- その後は、文字、数字、アンダースコアを使える
-- 韓国語を含む Unicode 文字を使える
-- 空白、ハイフン(`-`)、特殊文字は使えない
+`$(...)` 1 つは正確にキー 1 段階を表すため、特殊文字と演算子を曖昧さなく区別できます。
 
 ```text
-totalAmount     正しい
-총금액           正しい
-_item1          正しい
-item-price      数式の参照名として使えない
-1stItem         数字で始まるので使えない
+$(datas-2)             "datas-2" というキー
+$(datas) - 2           "datas" の値から 2 を引く
+$(customer.name)       ピリオドを含む 1 つのキー
+$(customer).$(name)    2 段階のネストしたパス
 ```
 
-> [!TIP]
-> テンプレートのパラメータを作るときから、英字・韓国語の文字、数字、アンダースコアだけを使えば、数式参照の問題を防げます。
+キー内の `)` は `\)`、`\` は `\\` と書きます。キーに含まれる文字に関係なく、すべての業務
+データキーは `$(...)` で参照します。`totalAmount`、`items.amount`、`@item.amount` のように括弧
+なしで書いた業務キーは構文エラーです。関数名、`TRUE`・`FALSE` と繰り返しグリッドの予約参照
+ルートは括弧なしで書き、下位の業務キーは `@item.$(amount)` のようにつなぎます。`$(@item)` は
+予約参照ではなく、`@item` という名前の業務データキーです。
 
 ### 演算子
 
@@ -210,13 +207,13 @@ SlipKit の数式の値は、次の 5 つの型に分けられます。
 数値を要求する演算や関数は、文字列を自動的には数値に変換しません。
 
 ```text
-amount * 2
+$(amount) * 2
 ```
 
 `amount` が文字列 `"1500"` なら、上の数式はエラーになります。明示的に変換する必要があります。
 
 ```text
-TO_NUMBER(amount) * 2
+TO_NUMBER($(amount)) * 2
 → 3000
 ```
 
@@ -265,26 +262,26 @@ TO_STRING(3) = "3"
 リストパラメータの下位フィールドを参照すると、範囲が作られます。
 
 ```text
-items.amount
+$(items).$(amount)
 ```
 
 範囲は、`SUM`、`AVG`、`COUNT`、`MIN`、`MAX`、`SUMIF`、`COUNTIF` のような集計関数に渡せます。
 
 ```text
-SUM(items.amount)
+SUM($(items).$(amount))
 ```
 
 範囲を算術演算に直接使うことはできません。
 
 ```text
-items.amount + 1000
+$(items).$(amount) + 1000
 → エラー
 ```
 
 集計関数を使う必要があります。
 
 ```text
-SUM(items.amount) + 1000
+SUM($(items).$(amount)) + 1000
 ```
 
 リスト項目にそのフィールドがなければ、その項目の値は空の値として扱われます。
@@ -306,8 +303,8 @@ SUM(items.amount) + 1000
 関数名は大文字と小文字を区別しません。
 
 ```text
-SUM(items.amount)
-sum(items.amount)
+SUM($(items).$(amount))
+sum($(items).$(amount))
 ```
 
 2 つの数式は同じ関数として扱われます。
@@ -325,10 +322,10 @@ sum(items.amount)
 空の値と空文字列は除外します。集計対象に数値でない値があるとエラーになります。
 
 ```text
-SUM(items.amount)
+SUM($(items).$(amount))
 → 品目金額の合計
 
-SUM(items.amount, shippingFee)
+SUM($(items).$(amount), $(shippingFee))
 → 品目金額の合計 + 送料
 
 SUM()
@@ -344,7 +341,7 @@ SUM()
 空の値と空文字列は除外し、平均を計算する数値が一つもなければエラーになります。
 
 ```text
-AVG(items.unitPrice)
+AVG($(items).$(unitPrice))
 ```
 
 ### `COUNT`
@@ -356,7 +353,7 @@ AVG(items.unitPrice)
 数値だけでなく、文字列と論理値も、値があれば個数に含まれます。
 
 ```text
-COUNT(items.name)
+COUNT($(items).$(name))
 → 品名が入力された項目数
 ```
 
@@ -367,7 +364,7 @@ COUNT(items.name)
 最も小さい数値を返します。計算する数値がなければ `0` を返します。
 
 ```text
-MIN(items.unitPrice)
+MIN($(items).$(unitPrice))
 ```
 
 ### `MAX`
@@ -377,7 +374,7 @@ MIN(items.unitPrice)
 最も大きい数値を返します。計算する数値がなければ `0` を返します。
 
 ```text
-MAX(items.amount)
+MAX($(items).$(amount))
 ```
 
 ## 条件付き集計関数
@@ -391,10 +388,10 @@ MAX(items.amount)
 合計範囲を省略すると、条件範囲の値を合計します。
 
 ```text
-SUMIF(items.category, "食品", items.amount)
+SUMIF($(items).$(category), "食品", $(items).$(amount))
 → category が "食品" の項目の amount の合計
 
-SUMIF(items.amount, ">=10000")
+SUMIF($(items).$(amount), ">=10000")
 → 10000 以上の amount の合計
 ```
 
@@ -409,10 +406,10 @@ SUMIF(items.amount, ">=10000")
 条件に合う項目数を返します。
 
 ```text
-COUNTIF(items.status, "完了")
+COUNTIF($(items).$(status), "完了")
 → status が "完了" の項目数
 
-COUNTIF(items.quantity, ">4")
+COUNTIF($(items).$(quantity), ">4")
 → quantity が 4 より大きい項目数
 ```
 
@@ -435,15 +432,15 @@ COUNTIF(items.quantity, ">4")
 数値比較の条件は、条件文字列の比較対象が数値として解釈できるときのみ動作します。
 
 ```text
-COUNTIF(items.quantity, "3")
-COUNTIF(items.quantity, "=3")
+COUNTIF($(items).$(quantity), "3")
+COUNTIF($(items).$(quantity), "=3")
 ```
 
 どちらの数式も、数値 `3` の項目を数えられます。
 
 > [!CAUTION]
 > `"<>"` の条件は、空の値も指定した値と異なると判断します。
-> たとえば `COUNTIF(items.status, "<>完了")` には、状態が空の項目も含まれます。
+> たとえば `COUNTIF($(items).$(status), "<>完了")` には、状態が空の項目も含まれます。
 
 ## 算術関数
 
@@ -516,7 +513,7 @@ ABS(-500)
 CONCAT("合計: ", 1000, "ウォン")
 → "合計: 1000ウォン"
 
-CONCAT(customerName, " 御中")
+CONCAT($(customerName), " 御中")
 → "ハンビット商事 御中"
 ```
 
@@ -616,15 +613,15 @@ LOWER("SLIP-001")
 偽のときの値を省略すると、条件が偽のとき空の値を返します。
 
 ```text
-IF(totalAmount >= 100000, "大量", "通常")
+IF($(totalAmount) >= 100000, "大量", "通常")
 
-IF(isPaid, "決済完了")
+IF($(isPaid), "決済完了")
 ```
 
 `IF` は選ばれた結果だけを計算します。使われない側の数式は評価しません。
 
 ```text
-IF(quantity = 0, 0, amount / quantity)
+IF($(quantity) = 0, 0, $(amount) / $(quantity))
 ```
 
 数量が `0` なら除算を実行しないため、0 での除算エラーは発生しません。
@@ -638,7 +635,7 @@ IF(quantity = 0, 0, amount / quantity)
 一つ以上の条件が必要です。
 
 ```text
-AND(quantity > 0, unitPrice > 0)
+AND($(quantity) > 0, $(unitPrice) > 0)
 ```
 
 ### `OR`
@@ -650,7 +647,7 @@ AND(quantity > 0, unitPrice > 0)
 一つ以上の条件が必要です。
 
 ```text
-OR(status = "完了", status = "発行")
+OR($(status) = "完了", $(status) = "発行")
 ```
 
 条件には論理値または数値を使えます。
@@ -704,6 +701,9 @@ FORMAT_DATE("2026-08-25")
 
 FORMAT_DATE("2026-08-25", "YYYY年M月D日")
 → "2026年8月25日"
+
+FORMAT_DATE("2026-08-25", "[日付:] YYYY[年]M[月]D[日]")
+→ "日付: 2026年8月25日"
 ```
 
 サポートするパターントークンは次のとおりです。
@@ -720,12 +720,25 @@ FORMAT_DATE("2026-08-25", "YYYY年M月D日")
 | `mm` | 2 桁の分 | `30` |
 | `ss` | 2 桁の秒 | `00` |
 
-日付と時刻は UTC 基準で処理されます。
+括弧の外では、同じ ASCII 英字が連続するまとまり 1 つがトークン 1 つと正確に一致する必要が
+あります。`YYYYMMDD` のように異なるトークンを続けて書くことはできますが、`MMM`、`YYYYY`、
+`hh` はエラーです。英字をそのまま表示する場合は `[...]` で囲みます。数字、ASCII 以外の文字、
+空白、句読点、`]` は括弧の外でもそのまま表示されます。括弧内の `\]` は `]`、`\\` は `\` として
+解釈します。不明な英字トークン、括弧の外のバックスラッシュ、不正なエスケープ、閉じていない
+括弧はエラーです。
+
+日付は厳密な ISO `YYYY-MM-DD` または
+`YYYY-MM-DDTHH:mm[:ss[.fraction]][Z|±HH:mm]` 形式で、小数秒は 1～9 桁である必要があります。オフセットがなければ
+UTC として読み、オフセットがあれば UTC に変換します。結果の年は `0001` から `9999` の範囲
+だけを許可し、`DATE_ADD` も同じ年の範囲を使います。
 
 実際に存在しない日付は自動補正せず、エラーとして扱います。
 
 ```text
 FORMAT_DATE("2026-02-30")
+→ エラー
+
+FORMAT_DATE("2026-08-25", "Date YYYY")
 → エラー
 ```
 
@@ -756,7 +769,7 @@ NUMBER_TO_KOREAN(-3000)
 金額の文言を作るときは、次のように組み合わせられます。
 
 ```text
-CONCAT("금 ", NUMBER_TO_KOREAN(totalAmount), " 원")
+CONCAT("금 ", NUMBER_TO_KOREAN($(totalAmount)), " 원")
 ```
 
 ## 日付関数

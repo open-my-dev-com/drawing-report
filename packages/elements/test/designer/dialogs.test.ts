@@ -290,7 +290,7 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     el.remove();
   });
 
-  it('파라미터 목록에 표의 하위 열까지 나오고, 누르면 표파라미터.열키로 삽입된다 (F-21)', async () => {
+  it('파라미터 목록에 표의 하위 열까지 나오고, 누르면 `$(목록).$(필드)`로 삽입된다 (F-21)', async () => {
     const el = await loadWithTable();
     await openFormulaModal(el);
     await openValuesTab(el);
@@ -301,11 +301,11 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     expect(Array.from(fieldRows).map((c) => c.querySelector('.value-name')?.textContent?.trim()))
       .toEqual(['품명', '금액', '수량']);
     expect(Array.from(fieldRows).map((c) => c.querySelector('.value-code')?.textContent?.trim()))
-      .toEqual(['items.itemName', 'items.amount', 'items.quantity']);
+      .toEqual(['$(items).$(itemName)', '$(items).$(amount)', '$(items).$(quantity)']);
 
     fieldRows[1]!.click();
     await el.updateComplete;
-    expect(formulaInput(el).value).toBe('items.amount');
+    expect(formulaInput(el).value).toBe('$(items).$(amount)');
     el.remove();
   });
 
@@ -316,21 +316,21 @@ describe('<slip-designer> 수식 편집 모달 (D-12)', () => {
     // 제안은 목록 파라미터 뒤에 점을 입력했을 때만 표시합니다
     expect(el.shadowRoot!.querySelector('.formula-suggest')).toBeNull();
 
-    setDraft(el, 'SUM(items.');
+    setDraft(el, 'SUM($(items).');
     await el.updateComplete;
     const suggested = () => Array.from(el.shadowRoot!.querySelectorAll('.formula-suggest .parameter-chip'));
     expect(suggested().map((c) => c.textContent?.trim()))
       .toEqual(['품명 · itemName', '금액 · amount', '수량 · quantity']);
 
     // 몇 글자 치면 그 글자로 시작하는 열만 남습니다
-    setDraft(el, 'SUM(items.a');
+    setDraft(el, 'SUM($(items).a');
     await el.updateComplete;
     expect(suggested().map((c) => c.textContent?.trim())).toEqual(['금액 · amount']);
 
-    // 제안 항목을 선택하면 현재 입력 뒤에 남은 텍스트를 삽입합니다
+    // 제안 항목을 선택하면 친 이름을 `$(필드)`로 바꿔 넣습니다
     (suggested()[0] as HTMLElement).click();
     await el.updateComplete;
-    expect(formulaInput(el).value).toBe('SUM(items.amount');
+    expect(formulaInput(el).value).toBe('SUM($(items).$(amount)');
     el.remove();
   });
 
@@ -835,7 +835,7 @@ describe('<slip-designer> 수식 입력 커서 위치', () => {
     await el.updateComplete;
 
     const input = el.shadowRoot!.querySelector('.formula-input') as HTMLTextAreaElement;
-    input.value = 'SUM(items.';
+    input.value = 'SUM($(items).';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await el.updateComplete;
     expect(el.shadowRoot!.querySelector('.formula-suggest')).not.toBeNull();

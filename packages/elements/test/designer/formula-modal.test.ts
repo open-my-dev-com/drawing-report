@@ -42,7 +42,7 @@ function makeGrid(): GridElement {
       { row: 0, column: 0, content: '품명' },
       { row: 0, column: 1, content: '금액' },
       { row: 1, column: 0, parameter: 'itemName' },
-      { row: 1, column: 1, formula: 'SUM(@page.amount)' },
+      { row: 1, column: 1, formula: 'SUM(@page.$(amount))' },
     ],
   } as unknown as GridElement;
 }
@@ -115,7 +115,7 @@ describe('gridFormulaContext — 계산 문맥 공통 helper', () => {
     const band = grid.repeat!.bands[1]!;
     const valueAt = (index: number): unknown => {
       const slot = context.slotForItem(index, band);
-      return evaluateFormula('SUM(@page.amount)', {
+      return evaluateFormula('SUM(@page.$(amount))', {
         values: { ...(slot.item ?? {}) },
         reserved: slot.reserved!,
       });
@@ -184,7 +184,7 @@ describe('gridFormulaContext — 계산 문맥 공통 helper', () => {
     ];
     grid.cells = [
       { row: 0, column: 0, content: '품명' },
-      { row: 1, column: 0, formula: 'SUM(@group.amount)' },
+      { row: 1, column: 0, formula: 'SUM(@group.$(amount))' },
       { row: 2, column: 0, parameter: 'itemName' },
     ] as never;
     const context = gridFormulaContext(grid, { items: SAMPLE_ITEMS }, planOf(grid));
@@ -225,7 +225,7 @@ describe('checkFormula — 저장 판정', () => {
     expect(broken.applicable).toBe(false);
 
     // 문법은 맞고 지금 자리에 예약 참조가 없을 뿐이라 다른 자리에서는 계산될 수 있습니다.
-    const missing = checkFormula({ ...base, source: 'SUM(@page.amount)' });
+    const missing = checkFormula({ ...base, source: 'SUM(@page.$(amount))' });
     expect(missing.status).toBe('not-computable');
     expect(missing.applicable).toBe(true);
   });
@@ -237,24 +237,24 @@ describe('checkFormula — 저장 판정', () => {
       expect(result.applicable, source).toBe(false);
     }
     // 인자 수가 맞으면 값이 없어 계산되지 않을 뿐이라 적용은 허용합니다.
-    expect(checkFormula({ ...base, source: 'SUM(@page.amount)' }).applicable).toBe(true);
+    expect(checkFormula({ ...base, source: 'SUM(@page.$(amount))' }).applicable).toBe(true);
 
     // AVG는 평균 낼 값이 없으면 데이터가 달라져도 계산되지 않으므로 인자가 있어야 합니다.
     expect(checkFormula({ ...base, source: 'AVG()' }).applicable).toBe(false);
-    expect(checkFormula({ ...base, source: 'AVG(@page.amount)' }).applicable).toBe(true);
+    expect(checkFormula({ ...base, source: 'AVG(@page.$(amount))' }).applicable).toBe(true);
   });
 
   it('계산에 실패해도 원인을 알리고 적용은 허용한다', () => {
     const context = { values: { amount: 10, name: '연필' } };
     for (const source of [
       '1 / 0',
-      'amount / 0',
-      'FORMAT_NUMBER(amount, 21)',
-      'MID(name, 0, 1)',
-      '1 / (0 * amount)',
-      '1 / (amount - amount)',
-      'TO_NUMBER(CONCAT("a", amount))',
-      'FORMAT_NUMBER(1, ROUND(21 * amount / amount))',
+      '$(amount) / 0',
+      'FORMAT_NUMBER($(amount), 21)',
+      'MID($(name), 0, 1)',
+      '1 / (0 * $(amount))',
+      '1 / ($(amount) - $(amount))',
+      'TO_NUMBER(CONCAT("a", $(amount)))',
+      'FORMAT_NUMBER(1, ROUND(21 * $(amount) / $(amount)))',
     ]) {
       const result = checkFormula({ ...base, context, source });
       // 계산에 실패한 두 상태는 적용 허용과 경고 표시가 같습니다.
@@ -265,7 +265,7 @@ describe('checkFormula — 저장 판정', () => {
   });
 
   it('값이 없어서만 계산하지 못한 수식도 원인을 알리고 적용을 허용한다', () => {
-    for (const source of ['SUM(@page.amount)', 'SUM(@page.amount) + a', 'AVG(@group.amount)']) {
+    for (const source of ['SUM(@page.$(amount))', 'SUM(@page.$(amount)) + $(a)', 'AVG(@group.$(amount))']) {
       const result = checkFormula({ ...base, source });
       expect(result.status, source).toBe('not-computable');
       expect(result.applicable, source).toBe(true);
@@ -275,10 +275,10 @@ describe('checkFormula — 저장 판정', () => {
   it('실행되지 않은 분기의 참조가 있어도 계산 실패는 그대로 알린다', () => {
     const context = { values: { amount: 10 } };
     for (const source of [
-      'IF(TRUE, "not-a-number", amount) + 1',
-      'ROUND(IF(TRUE, "not-a-number", amount), 2)',
-      '1 / IF(TRUE, 0, amount)',
-      'IF(FALSE, amount, "not-a-number") + 1',
+      'IF(TRUE, "not-a-number", $(amount)) + 1',
+      'ROUND(IF(TRUE, "not-a-number", $(amount)), 2)',
+      '1 / IF(TRUE, 0, $(amount))',
+      'IF(FALSE, $(amount), "not-a-number") + 1',
     ]) {
       const result = checkFormula({ ...base, context, source });
       expect(result.status, source).toBe('formula-error');
@@ -312,7 +312,7 @@ describe('checkFormula — 저장 판정', () => {
     const notBoolean = checkFormula({ ...base, condition: true, source: '1 + 1' });
     expect(notBoolean.status).toBe('not-boolean');
     expect(notBoolean.applicable).toBe(false);
-    expect(checkFormula({ ...base, condition: true, source: 'a > 0' }).status).toBe('ok');
+    expect(checkFormula({ ...base, condition: true, source: '$(a) > 0' }).status).toBe('ok');
   });
 
   it('빈 값은 대상에 따라 적용 여부가 갈린다', () => {
@@ -324,14 +324,14 @@ describe('checkFormula — 저장 판정', () => {
 describe('verifyFormulaTarget — 모달 표시 중 대상 확인', () => {
   const field = {
     type: 'field', id: 'f1', name: '합계', position: { x: 0, y: 0 },
-    width: 40, height: 8, formula: 'SUM(items.amount)',
+    width: 40, height: 8, formula: 'SUM($(items).$(amount))',
     conditionalFormats: [
-      { condition: 'amount < 0', fontColor: '#FF0000' },
-      { condition: 'amount > 100', fontColor: '#0000FF' },
+      { condition: '$(amount) < 0', fontColor: '#FF0000' },
+      { condition: '$(amount) > 100', fontColor: '#0000FF' },
     ],
   };
   const target: FormulaTarget = { kind: 'field', elementId: 'f1' };
-  const origin = { formula: 'SUM(items.amount)' };
+  const origin = { formula: 'SUM($(items).$(amount))' };
 
   it('대상이 그대로면 다시 찾은 결과를 돌려준다', () => {
     const page = makePage([structuredClone(field)]);
@@ -350,7 +350,7 @@ describe('verifyFormulaTarget — 모달 표시 중 대상 확인', () => {
 
   it('저장된 수식이 그 사이 바뀌면 적용을 막는다', () => {
     const changed = structuredClone(field);
-    changed.formula = 'SUM(items.qty)';
+    changed.formula = 'SUM($(items).$(qty))';
     expect(verifyFormulaTarget(makePage([changed]), target, origin)).toBeNull();
   });
 
@@ -372,7 +372,7 @@ describe('verifyFormulaTarget — 모달 표시 중 대상 확인', () => {
     const rule: FormulaTarget = {
       kind: 'element-condition', elementId: 'f1', elementType: 'field', ruleIndex: 0,
     };
-    const ruleOrigin = { formula: 'amount < 0', rule: field.conditionalFormats[0]! };
+    const ruleOrigin = { formula: '$(amount) < 0', rule: field.conditionalFormats[0]! };
     expect(verifyFormulaTarget(makePage([structuredClone(field)]), rule, ruleOrigin)).not.toBeNull();
 
     const swapped = structuredClone(field);
@@ -387,7 +387,7 @@ describe('verifyFormulaTarget — 모달 표시 중 대상 확인', () => {
     const recolored = structuredClone(field);
     recolored.conditionalFormats[0]!.fontColor = '#00FF00';
     expect(verifyFormulaTarget(makePage([recolored]), rule, {
-      formula: 'amount < 0', rule: field.conditionalFormats[0]!,
+      formula: '$(amount) < 0', rule: field.conditionalFormats[0]!,
     })).toBeNull();
   });
 });

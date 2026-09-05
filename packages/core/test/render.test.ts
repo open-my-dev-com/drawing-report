@@ -111,7 +111,7 @@ function makeBody(): SlipTemplateBody {
             position: { x: 140, y: 210 },
             width: 55,
             height: 8,
-            formula: 'FORMAT_NUMBER(SUM(items.금액))',
+            formula: 'FORMAT_NUMBER(SUM($(items).$(금액)))',
             alignment: 'right',
           },
         ],
@@ -681,9 +681,9 @@ describe('조건부 서식 (ADR-062)', () => {
   it('참인 규칙을 선언 순서대로 합성하고 같은 속성은 뒤 규칙 값을 쓴다', () => {
     const overrides = resolveConditionalFormats(
       [
-        { condition: 'amount < 0', fontColor: '#FF0000', backgroundColor: '#FFEEEE' },
-        { condition: 'amount < -100', fontColor: '#AA0000' },
-        { condition: 'amount > 0', borderColor: '#00FF00' },
+        { condition: '$(amount) < 0', fontColor: '#FF0000', backgroundColor: '#FFEEEE' },
+        { condition: '$(amount) < -100', fontColor: '#AA0000' },
+        { condition: '$(amount) > 0', borderColor: '#00FF00' },
       ],
       { amount: -200 },
     );
@@ -691,7 +691,7 @@ describe('조건부 서식 (ADR-062)', () => {
   });
 
   it('결과가 논리값이 아니거나 문법이 깨진 조건식은 오류가 발생한다', () => {
-    const rule = { condition: 'amount + 1', fontColor: '#FF0000' };
+    const rule = { condition: '$(amount) + 1', fontColor: '#FF0000' };
     expect(() => resolveConditionalFormats([rule], { amount: 1 })).toThrow(SlipRenderError);
     expect(() => resolveConditionalFormats([rule], { amount: 1 })).toThrow(/TRUE or FALSE/);
     expect(() =>
@@ -702,7 +702,7 @@ describe('조건부 서식 (ADR-062)', () => {
   it('값이 없어 계산할 수 없는 조건은 그 규칙만 건너뛴다', () => {
     const overrides = resolveConditionalFormats(
       [
-        { condition: 'amount < 0', fontColor: '#FF0000' },
+        { condition: '$(amount) < 0', fontColor: '#FF0000' },
         { condition: 'TRUE', borderColor: '#00FF00' },
       ],
       {}, // amount가 없어 첫 규칙은 계산할 수 없다
@@ -715,7 +715,7 @@ describe('조건부 서식 (ADR-062)', () => {
     patchElement(file.template, 'total', {
       formula: undefined,
       parameter: 'total',
-      conditionalFormats: [{ condition: 'total < 0', fontColor: '#FF0000' }],
+      conditionalFormats: [{ condition: '$(total) < 0', fontColor: '#FF0000' }],
     } as never);
     const schema = findSchema(pageSchemas(file), 'total');
     expect(schema.fontColor).toBe('#000000');
@@ -730,7 +730,7 @@ describe('조건부 서식 (ADR-062)', () => {
     const grid = voucher.templateSnapshot.pages[0]!.elements.find((el) => el.id === 'items')!;
     if (grid.type !== 'grid') throw new Error('grid여야 한다');
     grid.cells.find((cell) => cell.row === 1 && cell.column === 2)!.conditionalFormats = [
-      { condition: '금액 < 0', fontColor: '#FF0000' },
+      { condition: '$(금액) < 0', fontColor: '#FF0000' },
     ];
     const { template, inputs } = convertSlipFile(voucher);
     const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
@@ -757,7 +757,7 @@ describe('조건부 서식 (ADR-062)', () => {
     patchElement(voucher.templateSnapshot, 'total', {
       formula: undefined,
       parameter: 'total',
-      conditionalFormats: [{ condition: 'total < 0', bold: true, underline: true }],
+      conditionalFormats: [{ condition: '$(total) < 0', bold: true, underline: true }],
     } as never);
     const { template } = convertSlipFile(voucher, {
       fontNames: ['Pretendard', 'Pretendard-Bold'],
@@ -776,7 +776,7 @@ describe('조건부 서식 (ADR-062)', () => {
       parameter: 'total',
       fontName: 'Pretendard',
       bold: true,
-      conditionalFormats: [{ condition: 'total < 0', bold: false }],
+      conditionalFormats: [{ condition: '$(total) < 0', bold: false }],
     } as never);
     const { template } = convertSlipFile(voucher, {
       fontNames: ['Pretendard', 'Pretendard-Bold'],
@@ -800,7 +800,7 @@ describe('조건부 서식 (ADR-062)', () => {
       },
       cells: [{
         row: 0, column: 0, parameter: 'g',
-        conditionalFormats: [{ condition: 'amount >= 1000', fontColor: '#FF0000' }],
+        conditionalFormats: [{ condition: '$(amount) >= 1000', fontColor: '#FF0000' }],
       }],
     }] as never;
     const { template, inputs } = convertSlipFile(voucher);
@@ -818,7 +818,7 @@ describe('조건부 서식 (ADR-062)', () => {
       patchElement(voucher.templateSnapshot, 'total', {
         formula: undefined,
         parameter: 'total',
-        conditionalFormats: [{ condition: 'total < 0', fontColor: '#FF0000', backgroundColor: '#FFEEEE' }],
+        conditionalFormats: [{ condition: '$(total) < 0', fontColor: '#FF0000', backgroundColor: '#FFEEEE' }],
       } as never);
       return findSchema(pageSchemas(voucher), 'total');
     }
@@ -834,7 +834,7 @@ describe('조건부 서식 (ADR-062)', () => {
     const grid = voucher.templateSnapshot.pages[0]!.elements.find((el) => el.id === 'items')!;
     if (grid.type !== 'grid') throw new Error('grid여야 한다');
     const amountCell = grid.cells.find((cell) => cell.row === 1 && cell.column === 2)!;
-    amountCell.conditionalFormats = [{ condition: '금액 >= 2000', fontColor: '#FF0000' }];
+    amountCell.conditionalFormats = [{ condition: '$(금액) >= 2000', fontColor: '#FF0000' }];
 
     const { template, inputs } = convertSlipFile(voucher);
     const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
@@ -852,10 +852,10 @@ describe('조건부 서식 (ADR-062)', () => {
     // 거짓 규칙 19개 뒤에 참이 될 수 있는 규칙 1개 — 상한(20개)까지 채워 평가한다.
     amountCell.conditionalFormats = [
       ...Array.from({ length: 19 }, (_, i) => ({
-        condition: `금액 < ${-(i + 1)}`,
+        condition: `$(금액) < ${-(i + 1)}`,
         fontColor: '#00FF00',
       })),
-      { condition: '금액 >= 100000', fontColor: '#FF0000' },
+      { condition: '$(금액) >= 100000', fontColor: '#FF0000' },
     ];
     const { template } = convertSlipFile(voucher);
     const schemas = template.schemas.flat() as unknown as PdfmeSchema[];
@@ -1139,7 +1139,7 @@ function makeGridBody(options?: {
               { row: 1, column: 0, parameter: '품명' },
               { row: 1, column: 1, parameter: '금액' },
               { row: 2, column: 0, content: '합계' },
-              { row: 2, column: 1, formula: 'FORMAT_NUMBER(SUM(items.금액))' },
+              { row: 2, column: 1, formula: 'FORMAT_NUMBER(SUM($(items).$(금액)))' },
             ],
           },
         ],
@@ -1722,9 +1722,9 @@ describe('행 구간의 예약 참조 렌더링 (@page·@carried·@all)', () => 
             },
             cells: [
               { row: 0, column: 0, parameter: '금액' },
-              { row: 1, column: 0, formula: 'SUM(@page.금액)' },
-              { row: 1, column: 1, formula: 'SUM(@carried.금액)' },
-              { row: 1, column: 2, formula: 'SUM(@all.금액)' },
+              { row: 1, column: 0, formula: 'SUM(@page.$(금액))' },
+              { row: 1, column: 1, formula: 'SUM(@carried.$(금액))' },
+              { row: 1, column: 2, formula: 'SUM(@all.$(금액))' },
             ],
           }],
         }],

@@ -12,6 +12,7 @@ import { formatBytes } from '../../image-file.js';
 import { parseSampleScalar, sampleScalarText } from './sample-values.js';
 import { PLACEHOLDER_IMG, imageParameterKeys, usedImages } from '../image-pick.js';
 import { inItemBand } from '../grid-model.js';
+import { cloneOwn, deleteOwn, readOwn, writeOwn } from '../own-map.js';
 import { MY_FORMS_PAGE_SIZE, SAMPLE_PAGE_SIZE } from '../pagination.js';
 import type { DialogsController } from '../controllers/dialogs.js';
 import type { FormsController } from '../controllers/forms-storage.js';
@@ -255,12 +256,13 @@ export function sampleModal(d: DialogContext) {
                 : nothing}
               ${visible.map((b) => {
                 const columns = tableOf.get(b.key);
-                if (columns) return sampleTable(d, b, columns, samples[b.key]);
-                if (imageKeys.has(b.key)) return sampleImage(d, b, samples[b.key]);
+                const sample = readOwn(samples, b.key);
+                if (columns) return sampleTable(d, b, columns, sample);
+                if (imageKeys.has(b.key)) return sampleImage(d, b, sample);
                 return html`
                   <div class="prop-row">
                     <label title=${b.key}>${b.label}</label>
-                    <input .value=${sampleScalarText(samples[b.key])}
+                    <input .value=${sampleScalarText(sample)}
                       aria-label="${s.sampleData} ${b.key}"
                       @change=${(e: Event) =>
                         d.setSampleValue(b.key, parseSampleScalar((e.target as HTMLInputElement).value))}>
@@ -313,24 +315,24 @@ export function sampleTable(
         <span></span>
         ${rows.map((row, rowIndex) => html`
           ${columns.map((col) => html`
-            <input .value=${sampleScalarText(row[col.key])}
+            <input .value=${sampleScalarText(readOwn(row, col.key))}
               aria-label="${b.key} ${rowIndex + 1} ${col.key}"
               @change=${(e: Event) => {
-                const next = rows.map((r) => ({ ...r }));
+                const next = rows.map(cloneOwn);
                 const text = (e.target as HTMLInputElement).value;
-                if (text === '') delete next[rowIndex]![col.key];
-                else next[rowIndex]![col.key] = parseSampleScalar(text);
+                if (text === '') deleteOwn(next[rowIndex]!, col.key);
+                else writeOwn(next[rowIndex]!, col.key, parseSampleScalar(text));
                 commitRows(next);
               }}>`)}
           <button class="col-remove" title=${s.delete}
             aria-label="${b.key} ${rowIndex + 1} ${s.delete}"
-            @click=${() => commitRows(rows.filter((_, i) => i !== rowIndex).map((r) => ({ ...r })))}>
+            @click=${() => commitRows(rows.filter((_, i) => i !== rowIndex).map(cloneOwn))}>
             ${icons.pageRemove}
           </button>`)}
       </div>
     </div>
     <button class="col-add" aria-label="${b.key} ${s.addRow}"
-      @click=${() => commitRows([...rows.map((r) => ({ ...r })), {}])}>
+      @click=${() => commitRows([...rows.map(cloneOwn), {}])}>
       ${icons.pageAdd}<span>${s.addRow}</span>
     </button>
   `;

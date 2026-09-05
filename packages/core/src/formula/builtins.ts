@@ -196,63 +196,193 @@ function looseEquals(a: Scalar, b: Scalar): boolean {
 // 날짜
 // ---------------------------------------------------------------------------
 
-const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
-/** 시간대 표기가 없는 ISO 날짜·시간 (`2026-01-01T00:30`, `2026-01-01 00:30:15.250`) */
-const LOCAL_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/;
+/**
+ * 날짜 함수가 받는 문자열 형식. 날짜만 쓰거나(`2026-09-04`) `T`로 시각을 잇는다
+ * (`2026-09-04T09:30`, 초·소수 초·`Z`·`±HH:mm` 오프셋은 선택).
+ * 브라우저·Node의 `new Date(문자열)`은 형식마다 시간대 해석이 달라 쓰지 않는다.
+ */
+const DATE_INPUT =
+  /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})?)?$/;
+
+/**
+ * 연·월·일과 시각을 UTC 구성요소로 하는 `Date`를 만든다.
+ *
+ * @remarks
+ * `Date.UTC`는 0~99년을 1900년대로 바꾸므로 연도는 `setUTCFullYear`로 따로 넣는다.
+ */
+function utcDate(year: number, month: number, day: number, hour = 0, minute = 0, second = 0, ms = 0): Date {
+  const date = new Date(0);
+  date.setUTCFullYear(year, month, day);
+  date.setUTCHours(hour, minute, second, ms);
+  return date;
+}
+
+/**
+ * 날짜가 지원하는 연도 범위(0001~9999년) 안에 있는지 확인한다.
+ *
+ * @remarks
+ * 입력 연도가 네 자리여도 오프셋을 적용하거나 날짜를 가감한 결과는 0년 이하나 10000년 이상으로
+ * 넘어갈 수 있고, `YYYY`는 네 자리로만 출력하므로 그런 결과는 오류로 막는다. 유효하지 않은
+ * `Date`(연도가 `NaN`)도 같은 오류다.
+ *
+ * @param date - 검사할 날짜
+ * @param what - 오류 메시지에서 대상을 가리키는 키
+ * @param shown - 오류 메시지에 표시할 원래 입력
+ * @param fromData - 이 값이 참조를 통해 데이터에서 왔는지
+ * @throws FormulaEvalError 연도가 1~9999 밖이면
+ */
+function assertSupportedYear(date: Date, what: FormulaSubject, shown: string, fromData: boolean): void {
+  const year = date.getUTCFullYear();
+  if (!(year >= 1 && year <= 9999)) throw valueError(fm().dateYearRange(what, shown), fromData);
+}
 
 function parseDate(value: FormulaValue, what: FormulaSubject, fromData: boolean): Date {
-  if (typeof value === 'string') {
-    const m = DATE_ONLY.exec(value) ?? LOCAL_DATE_TIME.exec(value);
-    if (m) {
-      const year = Number(m[1]);
-      const month = Number(m[2]);
-      const day = Number(m[3]);
-      const hour = Number(m[4] ?? 0);
-      const minute = Number(m[5] ?? 0);
-      const second = Number(m[6] ?? 0);
-      const millisecond = Number((m[7] ?? '0').padEnd(3, '0'));
-      // 시간대가 없는 값은 실행 환경의 시간대와 무관하게 UTC로 해석해 브라우저와 Node의 결과를 맞춘다.
-      const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second, millisecond));
-      // Date.UTC는 범위 밖 월·일·시각을 다음 단위로 넘겨 버리므로(2026-13-45 → 2027-02-14),
-      // Date 생성 전후의 구성요소가 다르면 유효하지 않은 날짜로 처리한다.
-      if (
-        date.getUTCFullYear() === year &&
-        date.getUTCMonth() === month - 1 &&
-        date.getUTCDate() === day &&
-        date.getUTCHours() === hour &&
-        date.getUTCMinutes() === minute &&
-        date.getUTCSeconds() === second
-      ) {
-        return date;
-      }
-      throw valueError(fm().dateNotReal(what, describe(value)), fromData);
-    }
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) return parsed;
+  if (typeof value !== 'string') throw valueError(fm().dateInvalid(what, describe(value)), fromData);
+  const m = DATE_INPUT.exec(value);
+  if (!m) throw valueError(fm().dateInvalid(what, describe(value)), fromData);
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const hour = Number(m[4] ?? 0);
+  const minute = Number(m[5] ?? 0);
+  const second = Number(m[6] ?? 0);
+  const millisecond = Number((m[7] ?? '0').slice(0, 3).padEnd(3, '0'));
+  // 시간대가 없는 값은 실행 환경의 시간대와 무관하게 UTC로 해석해 브라우저와 Node의 결과를 맞춘다.
+  const date = utcDate(year, month - 1, day, hour, minute, second, millisecond);
+  // setUTCFullYear·setUTCHours는 범위 밖 월·일·시각을 다음 단위로 넘겨 버리므로(2026-13-45 → 2027-02-14),
+  // 넣은 구성요소를 다시 읽어 하나라도 다르면 존재하지 않는 날짜·시각으로 처리한다.
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day ||
+    date.getUTCHours() !== hour ||
+    date.getUTCMinutes() !== minute ||
+    date.getUTCSeconds() !== second
+  ) {
+    throw valueError(fm().dateNotReal(what, describe(value)), fromData);
   }
-  throw valueError(fm().dateInvalid(what, describe(value)), fromData);
+  const offset = m[8];
+  if (offset !== undefined && offset !== 'Z') {
+    const offsetHours = Number(offset.slice(1, 3));
+    const offsetMinutes = Number(offset.slice(4, 6));
+    if (offsetHours > 23 || offsetMinutes > 59) {
+      throw valueError(fm().dateOffsetRange(what, describe(value)), fromData);
+    }
+    // 오프셋이 붙은 값은 그 시간대의 벽시계 시각이므로 오프셋을 빼서 UTC 순간으로 옮긴다.
+    const sign = offset[0] === '-' ? -1 : 1;
+    date.setTime(date.getTime() - sign * (offsetHours * 60 + offsetMinutes) * 60_000);
+  }
+  // 오프셋을 뺀 UTC 순간은 입력 연도와 달라질 수 있다 (0001-01-01T00:00+23:59 → 0000-12-31).
+  assertSupportedYear(date, what, describe(value), fromData);
+  return date;
 }
 
-function formatDate(date: Date, pattern: string): string {
-  const pad = (n: number, w: number) => String(n).padStart(w, '0');
-  return pattern.replace(/YYYY|YY|MM|M|DD|D|HH|mm|ss/g, (token) => {
-    switch (token) {
-      case 'YYYY': return pad(date.getUTCFullYear(), 4);
-      case 'YY': return pad(date.getUTCFullYear() % 100, 2);
-      case 'MM': return pad(date.getUTCMonth() + 1, 2);
-      case 'M': return String(date.getUTCMonth() + 1);
-      case 'DD': return pad(date.getUTCDate(), 2);
-      case 'D': return String(date.getUTCDate());
-      case 'HH': return pad(date.getUTCHours(), 2);
-      case 'mm': return pad(date.getUTCMinutes(), 2);
-      case 'ss': return pad(date.getUTCSeconds(), 2);
-      default: return token;
+/** `FORMAT_DATE` 패턴이 인식하는 토큰. 같은 글자가 이어진 묶음은 이 중 하나와 정확히 같아야 한다. */
+const DATE_TOKENS = new Set(['YYYY', 'YY', 'MM', 'M', 'DD', 'D', 'HH', 'mm', 'ss']);
+
+/** 패턴을 해석한 조각. 토큰은 날짜 값으로 바뀌고 리터럴은 그대로 출력된다. */
+type DatePatternPart = { kind: 'token'; token: string } | { kind: 'literal'; text: string };
+
+/**
+ * `FORMAT_DATE` 패턴을 토큰·리터럴 조각으로 나눈다.
+ *
+ * @remarks
+ * - `[...]` 안은 리터럴 블록이다. 블록 안에서 `\]`는 `]`, `\\`는 `\`이고 그 밖의 백슬래시는 오류다.
+ * - 블록 밖의 ASCII 글자는 같은 글자가 이어진 묶음 단위로 토큰과 정확히 같아야 한다
+ *   (`YYYYMMDD`는 되고 `YYYYY`·`MMM`·`Date`는 안 된다). 그 밖의 문자(한글·한자·공백·기호·`]`)는 리터럴이다.
+ * - 블록 밖의 백슬래시는 오류다.
+ *
+ * @param pattern - 패턴 문자열
+ * @param fail - 위치(1부터)를 담은 패턴 오류를 던지는 함수
+ * @returns 순서대로 이어 붙일 조각 목록
+ */
+function compileDatePattern(pattern: string, fail: (message: string) => never): DatePatternPart[] {
+  const name = 'FORMAT_DATE';
+  const parts: DatePatternPart[] = [];
+  const isAsciiLetter = (ch: string) => (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+  let i = 0;
+  while (i < pattern.length) {
+    const ch = pattern[i] as string;
+    if (ch === '[') {
+      let text = '';
+      let j = i + 1;
+      for (;;) {
+        if (j >= pattern.length) fail(fm().datePatternUnclosedLiteral(name, i + 1));
+        const c = pattern[j] as string;
+        if (c === ']') {
+          j += 1;
+          break;
+        }
+        if (c === '\\') {
+          const next = pattern[j + 1];
+          if (next !== ']' && next !== '\\') fail(fm().datePatternBadEscape(name, j + 1));
+          text += next;
+          j += 2;
+          continue;
+        }
+        text += c;
+        j += 1;
+      }
+      parts.push({ kind: 'literal', text });
+      i = j;
+      continue;
     }
-  });
+    if (ch === '\\') fail(fm().datePatternBadEscape(name, i + 1));
+    if (isAsciiLetter(ch)) {
+      let j = i;
+      while (j < pattern.length && isAsciiLetter(pattern[j] as string)) j += 1;
+      const run = pattern.slice(i, j);
+      let k = 0;
+      while (k < run.length) {
+        let end = k + 1;
+        while (end < run.length && run[end] === run[k]) end += 1;
+        const token = run.slice(k, end);
+        if (!DATE_TOKENS.has(token)) fail(fm().datePatternUnknownToken(name, run, i + 1));
+        parts.push({ kind: 'token', token });
+        k = end;
+      }
+      i = j;
+      continue;
+    }
+    parts.push({ kind: 'literal', text: ch });
+    i += 1;
+  }
+  return parts;
 }
+
+function formatDate(date: Date, parts: readonly DatePatternPart[]): string {
+  const pad = (n: number, w: number) => String(n).padStart(w, '0');
+  let out = '';
+  for (const part of parts) {
+    if (part.kind === 'literal') {
+      out += part.text;
+      continue;
+    }
+    switch (part.token) {
+      case 'YYYY': out += pad(date.getUTCFullYear(), 4); break;
+      case 'YY': out += pad(date.getUTCFullYear() % 100, 2); break;
+      case 'MM': out += pad(date.getUTCMonth() + 1, 2); break;
+      case 'M': out += String(date.getUTCMonth() + 1); break;
+      case 'DD': out += pad(date.getUTCDate(), 2); break;
+      case 'D': out += String(date.getUTCDate()); break;
+      case 'HH': out += pad(date.getUTCHours(), 2); break;
+      case 'mm': out += pad(date.getUTCMinutes(), 2); break;
+      case 'ss': out += pad(date.getUTCSeconds(), 2); break;
+    }
+  }
+  return out;
+}
+
+const ISO_DATE_PARTS: readonly DatePatternPart[] = [
+  { kind: 'token', token: 'YYYY' },
+  { kind: 'literal', text: '-' },
+  { kind: 'token', token: 'MM' },
+  { kind: 'literal', text: '-' },
+  { kind: 'token', token: 'DD' },
+];
 
 function toIsoDate(date: Date): string {
-  return formatDate(date, 'YYYY-MM-DD');
+  return formatDate(date, ISO_DATE_PARTS);
 }
 
 type DateUnit = 'days' | 'months' | 'years';
@@ -504,13 +634,17 @@ export const BUILTIN_FUNCTIONS: Record<
     }
     return n.toLocaleString(locale, { maximumFractionDigits: 20 });
   },
-  /** FORMAT_DATE(날짜, 패턴? = "YYYY-MM-DD") — 토큰: YYYY YY MM M DD D HH mm ss */
+  /** FORMAT_DATE(날짜, 패턴? = "YYYY-MM-DD") — 토큰: YYYY YY MM M DD D HH mm ss, 리터럴은 `[...]` */
   FORMAT_DATE: (args, _ctx, origins) => {
     arity('FORMAT_DATE', args);
-    return formatDate(
-      parseDate(args[0] ?? null, 'date', origins[0] === true),
-      args.length > 1 ? toText(args[1] ?? null, origins[1] === true) : 'YYYY-MM-DD',
-    );
+    const date = parseDate(args[0] ?? null, 'date', origins[0] === true);
+    if (args.length < 2) return formatDate(date, ISO_DATE_PARTS);
+    const patternFromData = origins[1] === true;
+    const parts = compileDatePattern(toText(args[1] ?? null, patternFromData), (message) => {
+      // 패턴이 수식에 직접 적힌 문자열이면 수식 구성 오류이고, 데이터에서 왔으면 값 오류다.
+      throw patternFromData ? valueError(message, true) : new FormulaEvalError(message, 'formula');
+    });
+    return formatDate(date, parts);
   },
   NUMBER_TO_KOREAN: (args, _ctx, origins) => {
     arity('NUMBER_TO_KOREAN', args);
@@ -528,8 +662,12 @@ export const BUILTIN_FUNCTIONS: Record<
     const date = parseDate(args[0] ?? null, 'date', origins[0] === true);
     const amount = requireInt(args[1] ?? null, 'amountDelta', origins[1] === true);
     const unit = toDateUnit(args.length > 2 ? (args[2] ?? null) : null, origins[2] === true);
+    // 결과는 날짜와 증감량 양쪽에 달려 있으므로 둘 중 하나라도 데이터에서 왔으면 데이터 의존 오류다.
+    const shown = describe(args[0] ?? null);
+    const fromData = origins[0] === true || origins[1] === true;
     if (unit === 'days') {
       date.setUTCDate(date.getUTCDate() + amount);
+      assertSupportedYear(date, 'date', shown, fromData);
     } else {
       // 월·해 가감은 대상 달의 마지막 날로 맞춘다 — setUTCMonth는 짧은 달에서 다음 달로
       // 넘어가므로(1/31 + 1개월 → 3/3), 원래 일을 대상 달 말일로 클램프한다(EDATE 방식).
@@ -537,7 +675,8 @@ export const BUILTIN_FUNCTIONS: Record<
       date.setUTCDate(1);
       if (unit === 'months') date.setUTCMonth(date.getUTCMonth() + amount);
       else date.setUTCFullYear(date.getUTCFullYear() + amount);
-      const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+      assertSupportedYear(date, 'date', shown, fromData);
+      const lastDay = utcDate(date.getUTCFullYear(), date.getUTCMonth() + 1, 0).getUTCDate();
       date.setUTCDate(Math.min(day, lastDay));
     }
     return toIsoDate(date);

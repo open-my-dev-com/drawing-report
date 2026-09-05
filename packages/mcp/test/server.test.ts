@@ -218,14 +218,14 @@ describe('slip_edit', () => {
   });
 
   it('요소와 셀의 조건부 서식 규칙을 통째로 바꾸고 null로 제거한다 (ADR-062)', async () => {
-    const rules = [{ condition: 'total < 0', fontColor: '#FF0000' }];
+    const rules = [{ condition: '$(total) < 0', fontColor: '#FF0000' }];
     const applied = await callText(client, 'slip_edit', {
       path: 'doc',
       ops: [
         { action: 'set_element', id: 'customer', fields: { conditionalFormats: rules } },
         {
           action: 'set_cell', elementId: 'items-table', row: 1, column: 1,
-          fields: { conditionalFormats: [{ condition: 'amount >= 1000', fontColor: '#0000FF' }] },
+          fields: { conditionalFormats: [{ condition: '$(amount) >= 1000', fontColor: '#0000FF' }] },
         },
       ],
     });
@@ -254,7 +254,7 @@ describe('slip_edit', () => {
       ops: [
         {
           action: 'set_element', id: 'customer',
-          fields: { conditionalFormats: [{ condition: 'total < 0' }] },
+          fields: { conditionalFormats: [{ condition: '$(total) < 0' }] },
         },
       ],
     });
@@ -302,6 +302,26 @@ describe('slip_edit', () => {
     expect(grid.cells.find((cell) => cell.row === 0 && cell.column === 0)?.rowSpan).toBeUndefined();
   });
 
+  it('일반 참조 수식으로 바꾸려는 편집은 파일을 쓰기 전에 거부한다', async () => {
+    const result = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [
+        {
+          action: 'set_cell', elementId: 'items-table', row: 2, column: 1,
+          fields: { formula: 'SUM(items.amount)' },
+        },
+      ],
+    });
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain('$(items).$(amount)');
+
+    const file = await loadTemplate('doc');
+    const grid = file.template.pages[0]!.elements.find((entry) => entry.id === 'items-table');
+    if (grid?.type !== 'grid') throw new Error('grid expected');
+    expect(grid.cells.find((cell) => cell.row === 2 && cell.column === 1)?.formula)
+      .toBe('SUM($(items).$(amount))');
+  });
+
   it('필드를 null로 지정하면 제거되어 값 소스를 바꿀 수 있다', async () => {
     const result = await callText(client, 'slip_edit', {
       path: 'doc',
@@ -312,7 +332,7 @@ describe('slip_edit', () => {
           elementId: 'items-table',
           row: 1,
           column: 0,
-          fields: { parameter: null, formula: 'CONCAT(name, "!")' },
+          fields: { parameter: null, formula: 'CONCAT($(name), "!")' },
         },
       ],
     });
@@ -329,7 +349,7 @@ describe('slip_edit', () => {
     if (grid?.type !== 'grid') throw new Error('grid expected');
     const cell = grid.cells.find((entry) => entry.row === 1 && entry.column === 0);
     expect(cell?.parameter).toBeUndefined();
-    expect(cell?.formula).toBe('CONCAT(name, "!")');
+    expect(cell?.formula).toBe('CONCAT($(name), "!")');
   });
 
   it('set_values의 null은 삭제가 아니라 값으로 저장된다', async () => {
@@ -1000,6 +1020,20 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
     expect(rendered.text).toContain(path.join(dir, 'doc.pdf'));
     const pdf = await readFile(path.join(dir, 'doc.pdf'));
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  it('$(...) 없는 참조가 든 수식은 파일을 쓰기 전에 대체 표기와 함께 거부한다', async () => {
+    const template = makeTemplate();
+    const grid = template.template.pages[0]!.elements.find((entry) => entry.id === 'items-table');
+    if (grid?.type !== 'grid') throw new Error('grid expected');
+    const total = grid.cells.find((cell) => cell.row === 2 && cell.column === 1);
+    if (total === undefined) throw new Error('total cell expected');
+    total.formula = 'SUM(items.amount)';
+
+    const saved = await callText(client, 'slip_save', { path: 'invalid-formula', file: template });
+    expect(saved.isError).toBe(true);
+    expect(saved.text).toContain('$(items).$(amount)');
+    await expect(new FileSystemStorage({ rootDir: dir }).load('invalid-formula')).rejects.toThrow();
   });
 
   it('PDF 출력으로 .slip 파일을 덮어쓰지 않는다', async () => {

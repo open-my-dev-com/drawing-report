@@ -266,14 +266,15 @@ describe('그리드 페이지 계획 (planGrid)', () => {
     expect(placements(plan, 0)).toEqual(['item', 'item', 'page-end']);
   });
 
-  it('페이지 머리 구간이 흐름 영역에 들어가지 않으면 오류를 반환한다', () => {
+  it('페이지 머리 구간이 빈 페이지의 흐름 영역에도 들어가지 않으면 오류를 반환한다', () => {
+    // 첫 페이지(70mm)에 들어가지 않으면 다음 페이지(80mm)로 옮겨 보고, 거기에도 들어가지 않을 때 오류다.
     const grid = makeGrid({
-      rows: [80, 10],
+      rows: [90, 10],
       bands: [band('bd', 0, 0, 'before-data'), band('i', 1, 1, 'item')],
       pagination: { mode: 'auto', minItems: 0 },
     });
     expect(() => planGrid(grid, items(1), FLOW)).toThrow(SlipLayoutError);
-    expect(() => planGrid(grid, items(1), FLOW)).toThrow(/do not fit/);
+    expect(() => planGrid(grid, items(1), FLOW)).toThrow(/do not fit in the full flow area of an empty page/);
   });
 
   it('새 마지막 페이지의 최종 구간이 흐름 영역보다 크면 오류를 반환한다', () => {

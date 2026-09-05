@@ -133,7 +133,7 @@ const template = {
 };
 
 const templateJson = serializeSlipFile(template);
-const formula = parseFormula('ROUND(SUM(items.amount) * 1.1, 0)');
+const formula = parseFormula('ROUND(SUM($(items).$(amount)) * 1.1, 0)');
 const formulaContext = { values: { items: makeItems(1000) } };
 const rawKey = new Uint8Array(32).fill(7);
 const passphrase = 'correct-horse-battery-staple';
@@ -151,7 +151,7 @@ const CASES = [
     return [`페이지 계획 — 항목 ${n}건`, 15, 5, 1, () => planSourcePage(paper, page, new Map([['items', data]])), false];
   }),
   [`parseSlipFile — ${(templateJson.length / 1024).toFixed(1)}KB`, 15, 5, 500, () => parseSlipFile(templateJson), false],
-  ['parseFormula', 15, 5, 10_000, () => parseFormula('ROUND(SUM(items.amount) * 1.1, 0)'), false],
+  ['parseFormula', 15, 5, 10_000, () => parseFormula('ROUND(SUM($(items).$(amount)) * 1.1, 0)'), false],
   ['evaluateFormula — 항목 1,000건 합계', 15, 5, 1000, () => evaluateFormula(formula, formulaContext), false],
   // 키 파생은 의도적으로 느리므로 한 번씩 잰다.
   ['암호화 — 암호 (PBKDF2 + AES-GCM)', 10, 3, 1, () => encryptSlipFile(template, passphrase), true],

@@ -9,6 +9,7 @@ import { assertArity } from './arity.js';
 import { FormulaEvalError, valueError } from './errors.js';
 import { fm, withFormulaLocale, type FormulaPlace } from './messages.js';
 import { parseFormula, type BinaryOperator, type FormulaAst } from './parser.js';
+import { readOwn } from '../own-property.js';
 
 export type { FormulaContext, FormulaValue };
 
@@ -34,7 +35,8 @@ function resolvePath(value: unknown, path: string[], index: number, depth = 0): 
     return value.map((item) => resolvePath(item, path, index, depth + 1));
   }
   if (typeof value === 'object') {
-    return resolvePath((value as Record<string, unknown>)[path[index]!], path, index + 1, depth + 1);
+    // 객체가 직접 가진 키만 읽어 프로토타입의 메서드가 값으로 새어 나오지 않게 한다.
+    return resolvePath(readOwn(value as Record<string, unknown>, path[index]!), path, index + 1, depth + 1);
   }
   throw valueError(fm().notAnObject(path.slice(0, index).join('.'), path[index] ?? ''), true);
 }
@@ -151,7 +153,7 @@ function evaluateAst(ast: FormulaAst, context: FormulaContext): Evaluated {
  *
  * @remarks
  * 진단 중에 데이터 값 때문에 실패하면, 데이터에서 온 인자를 빈 값으로 바꿔 한 번 더 부른다.
- * 그래야 `FORMAT_NUMBER(amount, 21)`처럼 잘못된 상수 인자가 값 오류 뒤에 가려지지 않는다.
+ * 그래야 `FORMAT_NUMBER($(amount), 21)`처럼 잘못된 상수 인자가 값 오류 뒤에 가려지지 않는다.
  */
 function callBuiltin(
   fn: (args: FormulaValue[], ctx: FormulaContext, origins: readonly boolean[]) => FormulaValue,
@@ -183,12 +185,13 @@ function evaluateNode(ast: FormulaAst, context: FormulaContext): Evaluated {
       return constant(ast.value);
     case 'reference': {
       const head = ast.path[0]!;
-      // 예약 참조(@item 등)는 페이지 계획이 공급한 reserved에서만 조회한다.
-      if (head.startsWith('@')) {
-        if (context.reserved === undefined || !(head in context.reserved)) {
+      // 예약 참조(@item 등)는 페이지 계획이 공급한 reserved에서만 조회한다. `$(@item)`처럼
+      // 키로 적은 이름은 예약 참조가 아니라 값 키이므로 파서가 남긴 표시로만 가른다.
+      if (ast.reserved === true) {
+        if (context.reserved === undefined || !Object.hasOwn(context.reserved, head)) {
           throw new FormulaEvalError(fm().reservedRefUnavailable(head), 'data');
         }
-        return { value: resolvePath(context.reserved[head], ast.path, 1), fromData: true };
+        return { value: resolvePath(readOwn(context.reserved, head), ast.path, 1), fromData: true };
       }
       return { value: resolvePath(context.values, ast.path, 0), fromData: true };
     }
@@ -258,7 +261,7 @@ function evaluateNode(ast: FormulaAst, context: FormulaContext): Evaluated {
  *
  * @example
  * ```ts
- * evaluateFormula('SUM(items.금액)', {
+ * evaluateFormula('SUM($(items).$(금액))', {
  *   values: { items: [{ 금액: 1000 }, { 금액: 2000 }] },
  * }); // 3000
  * ```
@@ -307,7 +310,7 @@ export interface FormulaDiagnosis {
  *
  * @example
  * ```ts
- * const found = diagnoseFormula('SUM(@page.amount)', { values: {} });
+ * const found = diagnoseFormula('SUM(@page.$(amount))', { values: {} });
  * found.dataError !== undefined; // true — 예약 범위가 없어 현재 평가가 실패했다
  * found.formulaError === undefined; // true — 수식 구성 오류로 분류된 것은 없다
  * ```

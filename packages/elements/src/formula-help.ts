@@ -44,7 +44,7 @@ const ko: FormulaHelpCategory[] = [
   {
     title: '집계',
     functions: [
-      { name: 'SUM', signature: 'SUM(범위?, …)', description: '값·범위의 합계 (예: SUM(items.amount))',
+      { name: 'SUM', signature: 'SUM(범위?, …)', description: '값·범위의 합계 (예: SUM($(items).$(amount)))',
         args: [{ name: '범위', description: '더할 값이나 목록 필드', variadic: true, optional: true }],
         returns: '합계 (수)',
       },
@@ -215,7 +215,7 @@ const en: FormulaHelpCategory[] = [
   {
     title: 'Aggregation',
     functions: [
-      { name: 'SUM', signature: 'SUM(range?, …)', description: 'Sum of values/ranges (e.g. SUM(items.amount))',
+      { name: 'SUM', signature: 'SUM(range?, …)', description: 'Sum of values/ranges (e.g. SUM($(items).$(amount)))',
         args: [{ name: 'range', description: 'Values or list fields to add', variadic: true, optional: true }],
         returns: 'The sum (number)',
       },
@@ -386,7 +386,7 @@ const ja: FormulaHelpCategory[] = [
   {
     title: '集計',
     functions: [
-      { name: 'SUM', signature: 'SUM(範囲?, …)', description: '値・範囲の合計 (例: SUM(items.amount))',
+      { name: 'SUM', signature: 'SUM(範囲?, …)', description: '値・範囲の合計 (例: SUM($(items).$(amount)))',
         args: [{ name: '範囲', description: '合計する値または一覧フィールド', variadic: true, optional: true }],
         returns: '合計 (数値)',
       },

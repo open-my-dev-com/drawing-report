@@ -6,14 +6,15 @@
  * 입력 검증에 실패하면 호스트에 오류 표시를 맡기고 파일은 수정하지 않습니다.
  */
 
-import type {
-  ConditionalFormatRule,
-  GridBand,
-  GridBandPlacement,
-  GridCell,
-  GridElement,
-  OutputPageFilter,
-  SlipElement,
+import {
+  formatReferencePath,
+  type ConditionalFormatRule,
+  type GridBand,
+  type GridBandPlacement,
+  type GridCell,
+  type GridElement,
+  type OutputPageFilter,
+  type SlipElement,
 } from '@omdc-slipkit/core';
 import { MIN_SIZE_MM, round1 } from '../geometry.js';
 import { clearValueSources } from '../patch.js';
@@ -511,7 +512,7 @@ export class GridCommandsController {
         const valueCell = cloneCellStyle(fieldSource, row, targetColumn);
         const scope = command === 'group-subtotal' ? '@group'
           : command === 'page-subtotal' ? '@page' : '@all';
-        valueCell.formula = `SUM(${scope}.${numericField!.key})`;
+        valueCell.formula = `SUM(${formatReferencePath([scope, numericField!.key], { reserved: true })})`;
         grid.cells.push(valueCell);
       },
     });

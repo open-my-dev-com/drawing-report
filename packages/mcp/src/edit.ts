@@ -22,6 +22,70 @@ export { MAX_IMAGE_BYTES };
 /** AI가 입력을 고쳐 다시 호출할 수 있는 도구 오류. */
 export class McpToolError extends Error {}
 
+// 파라미터 키·하위 필드 키·요소 필드 이름은 어떤 문자열이든 될 수 있다. `__proto__`·`constructor`
+// 같은 키도 업무 데이터이므로 값 객체는 프로토타입 체인을 거치지 않고 자신의 속성만 읽고 쓴다.
+
+/** 객체가 직접 가진 키의 값을 읽는다. 없으면 `undefined`다. */
+function readOwn(record: Record<string, unknown>, key: string): unknown {
+  return Object.hasOwn(record, key) ? record[key] : undefined;
+}
+
+/** 키 이름과 무관하게 객체 자신의 속성으로 값을 쓴다. `__proto__` 키도 프로토타입을 바꾸지 않는다. */
+function writeOwn(record: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(record, key, { value, enumerable: true, writable: true, configurable: true });
+}
+
+/** 객체가 직접 가진 키만 지운다. */
+function deleteOwn(record: Record<string, unknown>, key: string): void {
+  if (Object.hasOwn(record, key)) delete record[key];
+}
+
+/** 값이 배열이 아닌 JSON 객체인지 확인한다. */
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** 입력을 검사하는 동안 `__proto__` 키를 잠시 바꿔 두는 이름. 외부 입력과 겹치지 않는 값이다. */
+const PROTO_KEY_ALIAS = `\u0000__proto__\u0000${Math.random().toString(36).slice(2)}`;
+
+/** 객체가 직접 가진 `__proto__` 키를 임시 이름으로 바꾼 얕은 사본을 만든다. 그 키가 없으면 입력을 그대로 돌려준다. */
+function aliasProtoKey(input: unknown): unknown {
+  if (!isJsonObject(input) || !Object.hasOwn(input, '__proto__')) return input;
+  const aliased: Record<string, unknown> = {};
+  for (const key of Object.keys(input)) {
+    writeOwn(aliased, key === '__proto__' ? PROTO_KEY_ALIAS : key, readOwn(input, key));
+  }
+  return aliased;
+}
+
+/** 검사를 마친 객체에서 임시 이름을 `__proto__` 키로 되돌린다. 키 순서를 유지하려고 제자리에서 다시 채운다. */
+function restoreProtoKeyInPlace(parsed: unknown): void {
+  if (!isJsonObject(parsed) || !Object.hasOwn(parsed, PROTO_KEY_ALIAS)) return;
+  const entries = Object.keys(parsed).map((key) => [key, readOwn(parsed, key)] as const);
+  for (const [key] of entries) deleteOwn(parsed, key);
+  for (const [key, value] of entries) writeOwn(parsed, key === PROTO_KEY_ALIAS ? '__proto__' : key, value);
+}
+
+/**
+ * 키 제약이 없는 JSON 객체를 받는 도구 입력 스키마. 모든 키를 객체가 직접 가진 속성으로 보존한다.
+ *
+ * `z.record`는 결과 객체에 키를 대입해 만들기 때문에 `__proto__`라는 키가 사라진다. 검사 전에 그
+ * 키만 임시 이름으로 바꿔 넘기고, 검사가 끝난 결과에서 원래 키로 되돌린다. MCP SDK가 도구 목록에
+ * 싣는 JSON Schema는 전처리 뒤의 `z.record`에서 만들어지므로 `type: "object"`와
+ * `additionalProperties`가 그대로 드러난다. 전처리 단계는 입력을 선택 항목으로 표시하므로
+ * `nonoptional`로 감싸 필수 입력으로 유지한다. 선택 입력이 필요하면 호출하는 쪽에서 `.optional()`을 붙인다.
+ *
+ * @param description - 도구 설명에 실을 입력 안내
+ * @returns 객체가 아니면 거부하고, 객체면 키를 모두 보존한 얕은 사본을 돌려주는 스키마
+ */
+export function jsonObjectSchema(description: string): z.ZodType<Record<string, unknown>> {
+  return z
+    .preprocess(aliasProtoKey, z.record(z.string(), z.unknown()))
+    .superRefine(restoreProtoKeyInPlace)
+    .nonoptional()
+    .describe(description);
+}
+
 /** `set_image`가 받는 파일 확장자와 그 확장자가 뜻하는 이미지 형식. 실제 내용은 서명으로 다시 확인한다. */
 const IMAGE_EXTENSIONS: Record<string, ImageMimeType> = {
   '.png': 'image/png',
@@ -132,18 +196,18 @@ export function imageValueSpec(body: SlipTemplateBody): ImageValueSpec {
  */
 export function assertImageValues(values: Record<string, unknown>, spec: ImageValueSpec): void {
   for (const key of spec.keys) {
-    const value = values[key];
+    const value = readOwn(values, key);
     if (typeof value === 'string' && value.startsWith('data:')) {
       assertImageDataUrl(value, `Value "${key}"`);
     }
   }
   for (const [key, fields] of spec.listFields) {
-    const rows = values[key];
+    const rows = readOwn(values, key);
     if (!Array.isArray(rows)) continue;
     rows.forEach((row, index) => {
-      if (typeof row !== 'object' || row === null) return;
+      if (!isJsonObject(row)) return;
       for (const field of fields) {
-        const value = (row as Record<string, unknown>)[field];
+        const value = readOwn(row, field);
         if (typeof value === 'string' && value.startsWith('data:')) {
           assertImageDataUrl(value, `Value "${key}[${index}].${field}"`);
         }
@@ -159,21 +223,19 @@ function assertElementImage(element: { type?: unknown; id?: unknown; src?: unkno
   }
 }
 
-const fieldsSchema = z
-  .record(z.string(), z.unknown())
-  .describe(
-    'Fields to merge; omit fields that should remain unchanged. Set a field to null to REMOVE it — ' +
-      'e.g. {"parameter": null, "formula": "..."} switches the value source of a cell or field',
-  );
-const elementSchema = z
-  .record(z.string(), z.unknown())
-  .describe('Complete element object; use slip_schema for fields by element type');
-const parameterSchema = z
-  .record(z.string(), z.unknown())
-  .describe('Complete parameter definition; use slip_schema topic "parameters"');
-const valuesSchema = z
-  .record(z.string(), z.unknown())
-  .describe('Voucher values keyed by the template parameter keys');
+const fieldsSchema = jsonObjectSchema(
+  'JSON object of fields to merge; omit fields that should remain unchanged. Set a field to null to ' +
+    'REMOVE it — e.g. {"parameter": null, "formula": "..."} switches the value source of a cell or field',
+);
+const elementSchema = jsonObjectSchema(
+  'Complete element object (JSON object); use slip_schema for fields by element type',
+);
+const parameterSchema = jsonObjectSchema(
+  'Complete parameter definition (JSON object); use slip_schema topic "parameters"',
+);
+const valuesSchema = jsonObjectSchema(
+  'JSON object of voucher values keyed by the template parameter keys',
+);
 
 /** `slip_edit` 연산 입력 스키마 (`action`으로 구분) */
 export const editOpSchema = z.discriminatedUnion('action', [
@@ -281,15 +343,15 @@ export interface EditContext {
  */
 function mergeFields(target: Record<string, unknown>, fields: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(fields)) {
-    if (value === undefined || value === null) delete target[key];
-    else target[key] = value;
+    if (value === undefined || value === null) deleteOwn(target, key);
+    else writeOwn(target, key, value);
   }
 }
 
 /** 전달된 값을 전표에 반영한다. `null`은 필드 삭제가 아닌 전표 값으로 저장한다. */
 function mergeValues(target: Record<string, unknown>, values: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(values)) {
-    if (value !== undefined) target[key] = value;
+    if (value !== undefined) writeOwn(target, key, value);
   }
 }
 
@@ -385,7 +447,7 @@ export async function applyEditOp(
     case 'add_parameter': {
       body.parameters ??= [];
       body.parameters.push(op.parameter as unknown as NonNullable<typeof body.parameters>[number]);
-      return `add_parameter ${String(op.parameter['key'] ?? '(no key)')}`;
+      return `add_parameter ${String(readOwn(op.parameter, 'key') ?? '(no key)')}`;
     }
     case 'set_parameter': {
       const parameter = body.parameters?.find((entry) => entry.key === op.key);

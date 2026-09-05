@@ -73,40 +73,40 @@ SlipKit 수식은 양식에 입력된 값을 계산하거나 표시 형식으로
 전체 품목 금액을 합산합니다.
 
 ```text
-SUM(items.amount)
+SUM($(items).$(amount))
 → 13000
 ```
 
 배송비를 포함한 총액을 계산합니다.
 
 ```text
-SUM(items.amount) + shippingFee
+SUM($(items).$(amount)) + $(shippingFee)
 → 16000
 ```
 
 표시할 문구를 만듭니다.
 
 ```text
-CONCAT(customerName, " 귀중")
+CONCAT($(customerName), " 귀중")
 → "한빛상사 귀중"
 ```
 
 총액에 자릿수 구분 기호를 적용합니다.
 
 ```text
-CONCAT(FORMAT_NUMBER(SUM(items.amount) + shippingFee), "원")
+CONCAT(FORMAT_NUMBER(SUM($(items).$(amount)) + $(shippingFee)), "원")
 → "16,000원"
 ```
 
 반복 그리드 안에서는 현재 항목의 필드를 이름으로 직접 참조할 수 있습니다.
 
 ```text
-quantity * unitPrice
+$(quantity) * $(unitPrice)
 ```
 
 > [!IMPORTANT]
 > 데이터 반복 영역 안에서는 현재 항목의 필드가 같은 이름의 전표 최상위 값보다 우선합니다.
-> 전체 목록은 기존과 같이 `items.amount` 형태로 참조할 수 있습니다.
+> 전체 목록은 `$(items).$(amount)`로 참조합니다.
 
 ### 반복 그리드의 계산 범위
 
@@ -114,11 +114,11 @@ quantity * unitPrice
 
 | 참조 | 범위 | 예 |
 |---|---|---|
-| `@item` | 현재 항목 | `@item.amount` |
-| `@group` | 현재 그룹의 항목 | `SUM(@group.amount)` |
-| `@page` | 현재 출력 페이지의 항목 | `SUM(@page.amount)` |
-| `@carried` | 현재 출력 페이지보다 앞에 배치된 항목 | `SUM(@carried.amount)` |
-| `@all` | 출력 대상 전체 항목 | `SUM(@all.amount)` |
+| `@item` | 현재 항목 | `@item.$(amount)` |
+| `@group` | 현재 그룹의 항목 | `SUM(@group.$(amount))` |
+| `@page` | 현재 출력 페이지의 항목 | `SUM(@page.$(amount))` |
+| `@carried` | 현재 출력 페이지보다 앞에 배치된 항목 | `SUM(@carried.$(amount))` |
+| `@all` | 출력 대상 전체 항목 | `SUM(@all.$(amount))` |
 
 빈 항목은 이 계산 범위에 포함되지 않습니다. <kbd>최대 항목 수</kbd>를 설정했다면 제한을 적용한 항목만 `@all`에 포함됩니다.
 
@@ -133,9 +133,9 @@ quantity * unitPrice
 | 숫자 | 숫자를 그대로 작성 | `1500`, `-3.5`, `1e3` |
 | 문자열 | 큰따옴표로 감싸서 작성 | `"완료"` |
 | 논리값 | `TRUE` 또는 `FALSE` | `TRUE` |
-| 파라미터 | 파라미터 키를 작성 | `totalAmount` |
-| 하위 필드 | 마침표로 경로를 연결 | `customer.name` |
-| 목록 범위 | 목록과 하위 필드를 연결 | `items.amount` |
+| 파라미터 | 키 한 단계를 `$(`와 `)`로 감싸서 작성 | `$(totalAmount)` |
+| 하위 필드 | 각각 감싼 키 단계를 마침표로 연결 | `$(customer).$(name)` |
+| 목록 범위 | 목록 키와 하위 필드 키를 연결 | `$(items).$(amount)` |
 
 문자열 안에 큰따옴표를 넣으려면 큰따옴표를 두 번 작성합니다.
 
@@ -144,23 +144,20 @@ quantity * unitPrice
 → 한빛 "문구"
 ```
 
-파라미터와 필드 이름은 다음 규칙을 따라야 수식에서 참조할 수 있습니다.
-
-- 문자 또는 밑줄(`_`)로 시작
-- 이후에는 문자, 숫자, 밑줄 사용 가능
-- 한글을 포함한 유니코드 문자 사용 가능
-- 공백, 하이픈(`-`), 특수문자 사용 불가
+`$(...)` 하나는 정확히 키 한 단계를 뜻하므로 특수문자와 연산자를 모호하지 않게 구분합니다.
 
 ```text
-totalAmount     올바름
-총금액           올바름
-_item1          올바름
-item-price      수식 참조 이름으로 사용할 수 없음
-1stItem         숫자로 시작하므로 사용할 수 없음
+$(datas-2)             "datas-2"라는 키
+$(datas) - 2           "datas" 값에서 2를 뺌
+$(customer.name)       마침표가 포함된 키 하나
+$(customer).$(name)    두 단계 중첩 경로
 ```
 
-> [!TIP]
-> 양식 파라미터를 만들 때부터 영문·한글 문자, 숫자와 밑줄만 사용하면 수식 참조 문제를 예방할 수 있습니다.
+키 안의 `)`는 `\)`, `\`는 `\\`로 적습니다. 키의 문자 구성과 관계없이 모든 업무 데이터 키는
+`$(...)`로 참조해야 합니다. `totalAmount`, `items.amount`, `@item.amount`처럼 괄호 없이 쓴 업무
+키는 문법 오류입니다. 함수 이름, `TRUE`·`FALSE`와 반복 그리드 예약 참조 루트는 괄호 없이 쓰며,
+하위 업무 키는 `@item.$(amount)`처럼 연결합니다. `$(@item)`은 예약 참조가 아니라 이름이
+`@item`인 업무 키입니다.
 
 ### 연산자
 
@@ -210,13 +207,13 @@ SlipKit 수식 값은 다음 다섯 가지 타입으로 구분됩니다.
 숫자를 요구하는 연산이나 함수는 문자열을 자동으로 숫자로 변환하지 않습니다.
 
 ```text
-amount * 2
+$(amount) * 2
 ```
 
 `amount`가 문자열 `"1500"`이면 위 수식은 오류가 발생합니다. 명시적으로 변환해야 합니다.
 
 ```text
-TO_NUMBER(amount) * 2
+TO_NUMBER($(amount)) * 2
 → 3000
 ```
 
@@ -265,26 +262,26 @@ TO_STRING(3) = "3"
 목록 파라미터의 하위 필드를 참조하면 범위가 만들어집니다.
 
 ```text
-items.amount
+$(items).$(amount)
 ```
 
 범위는 `SUM`, `AVG`, `COUNT`, `MIN`, `MAX`, `SUMIF`, `COUNTIF`와 같은 집계 함수에 전달할 수 있습니다.
 
 ```text
-SUM(items.amount)
+SUM($(items).$(amount))
 ```
 
 범위를 산술 연산에 직접 사용할 수는 없습니다.
 
 ```text
-items.amount + 1000
+$(items).$(amount) + 1000
 → 오류
 ```
 
 집계 함수를 사용해야 합니다.
 
 ```text
-SUM(items.amount) + 1000
+SUM($(items).$(amount)) + 1000
 ```
 
 목록 항목에 해당 필드가 없으면 그 항목의 값은 빈 값으로 처리됩니다.
@@ -306,8 +303,8 @@ SUM(items.amount) + 1000
 함수 이름은 대소문자를 구분하지 않습니다.
 
 ```text
-SUM(items.amount)
-sum(items.amount)
+SUM($(items).$(amount))
+sum($(items).$(amount))
 ```
 
 두 수식은 같은 함수로 처리됩니다.
@@ -325,10 +322,10 @@ sum(items.amount)
 빈 값과 빈 문자열은 제외합니다. 집계 대상에 숫자가 아닌 값이 있으면 오류가 발생합니다.
 
 ```text
-SUM(items.amount)
+SUM($(items).$(amount))
 → 품목 금액 합계
 
-SUM(items.amount, shippingFee)
+SUM($(items).$(amount), $(shippingFee))
 → 품목 금액 합계 + 배송비
 
 SUM()
@@ -344,7 +341,7 @@ SUM()
 빈 값과 빈 문자열은 제외하며, 평균을 계산할 숫자가 하나도 없으면 오류가 발생합니다.
 
 ```text
-AVG(items.unitPrice)
+AVG($(items).$(unitPrice))
 ```
 
 ### `COUNT`
@@ -356,7 +353,7 @@ AVG(items.unitPrice)
 숫자뿐 아니라 문자열과 논리값도 값이 있으면 개수에 포함됩니다.
 
 ```text
-COUNT(items.name)
+COUNT($(items).$(name))
 → 품명이 입력된 항목 수
 ```
 
@@ -367,7 +364,7 @@ COUNT(items.name)
 가장 작은 숫자를 반환합니다. 계산할 숫자가 없으면 `0`을 반환합니다.
 
 ```text
-MIN(items.unitPrice)
+MIN($(items).$(unitPrice))
 ```
 
 ### `MAX`
@@ -377,7 +374,7 @@ MIN(items.unitPrice)
 가장 큰 숫자를 반환합니다. 계산할 숫자가 없으면 `0`을 반환합니다.
 
 ```text
-MAX(items.amount)
+MAX($(items).$(amount))
 ```
 
 ## 조건부 집계 함수
@@ -391,10 +388,10 @@ MAX(items.amount)
 합계 범위를 생략하면 조건 범위의 값을 합산합니다.
 
 ```text
-SUMIF(items.category, "식품", items.amount)
+SUMIF($(items).$(category), "식품", $(items).$(amount))
 → category가 "식품"인 항목의 amount 합계
 
-SUMIF(items.amount, ">=10000")
+SUMIF($(items).$(amount), ">=10000")
 → 10000 이상인 amount의 합계
 ```
 
@@ -409,10 +406,10 @@ SUMIF(items.amount, ">=10000")
 조건에 맞는 항목 수를 반환합니다.
 
 ```text
-COUNTIF(items.status, "완료")
+COUNTIF($(items).$(status), "완료")
 → status가 "완료"인 항목 수
 
-COUNTIF(items.quantity, ">4")
+COUNTIF($(items).$(quantity), ">4")
 → quantity가 4보다 큰 항목 수
 ```
 
@@ -435,15 +432,15 @@ COUNTIF(items.quantity, ">4")
 숫자 비교 조건은 조건 문자열의 비교 대상이 숫자로 해석될 때만 동작합니다.
 
 ```text
-COUNTIF(items.quantity, "3")
-COUNTIF(items.quantity, "=3")
+COUNTIF($(items).$(quantity), "3")
+COUNTIF($(items).$(quantity), "=3")
 ```
 
 두 수식 모두 숫자 `3`인 항목을 셀 수 있습니다.
 
 > [!CAUTION]
 > `"<>"` 조건은 빈 값도 지정한 값과 다르다고 판단합니다.
-> 예를 들어 `COUNTIF(items.status, "<>완료")`에는 상태가 비어 있는 항목도 포함됩니다.
+> 예를 들어 `COUNTIF($(items).$(status), "<>완료")`에는 상태가 비어 있는 항목도 포함됩니다.
 
 ## 산술 함수
 
@@ -516,7 +513,7 @@ ABS(-500)
 CONCAT("합계: ", 1000, "원")
 → "합계: 1000원"
 
-CONCAT(customerName, " 귀중")
+CONCAT($(customerName), " 귀중")
 → "한빛상사 귀중"
 ```
 
@@ -616,15 +613,15 @@ LOWER("SLIP-001")
 거짓일 때의 값을 생략하면 조건이 거짓일 때 빈 값을 반환합니다.
 
 ```text
-IF(totalAmount >= 100000, "대량", "일반")
+IF($(totalAmount) >= 100000, "대량", "일반")
 
-IF(isPaid, "결제 완료")
+IF($(isPaid), "결제 완료")
 ```
 
 `IF`는 선택된 결과만 계산합니다. 사용되지 않는 쪽의 수식은 평가하지 않습니다.
 
 ```text
-IF(quantity = 0, 0, amount / quantity)
+IF($(quantity) = 0, 0, $(amount) / $(quantity))
 ```
 
 수량이 `0`이면 나눗셈을 실행하지 않으므로 0으로 나누기 오류가 발생하지 않습니다.
@@ -638,7 +635,7 @@ IF(quantity = 0, 0, amount / quantity)
 한 개 이상의 조건이 필요합니다.
 
 ```text
-AND(quantity > 0, unitPrice > 0)
+AND($(quantity) > 0, $(unitPrice) > 0)
 ```
 
 ### `OR`
@@ -650,7 +647,7 @@ AND(quantity > 0, unitPrice > 0)
 한 개 이상의 조건이 필요합니다.
 
 ```text
-OR(status = "완료", status = "발행")
+OR($(status) = "완료", $(status) = "발행")
 ```
 
 조건에는 논리값 또는 숫자를 사용할 수 있습니다.
@@ -704,6 +701,9 @@ FORMAT_DATE("2026-08-25")
 
 FORMAT_DATE("2026-08-25", "YYYY년 M월 D일")
 → "2026년 8월 25일"
+
+FORMAT_DATE("2026-08-25", "[날짜:] YYYY[년] M[월] D[일]")
+→ "날짜: 2026년 8월 25일"
 ```
 
 지원하는 패턴 토큰은 다음과 같습니다.
@@ -720,12 +720,24 @@ FORMAT_DATE("2026-08-25", "YYYY년 M월 D일")
 | `mm` | 두 자리 분 | `30` |
 | `ss` | 두 자리 초 | `00` |
 
-날짜와 시각은 UTC 기준으로 처리됩니다.
+대괄호 밖에서는 같은 ASCII 영문자가 이어진 묶음 하나가 토큰 하나와 정확히 같아야 합니다.
+`YYYYMMDD`처럼 서로 다른 토큰은 붙여 쓸 수 있지만 `MMM`, `YYYYY`, `hh`는 오류입니다. 영문을
+그대로 표시하려면 `[...]`로 감쌉니다. 숫자, 비ASCII 문자, 공백, 문장 부호와 `]`는 대괄호
+밖에서도 그대로 표시됩니다. 대괄호 안에서는 `\]`를 `]`로, `\\`를 `\`로 해석합니다. 알 수
+없는 영문 토큰, 대괄호 밖의 백슬래시, 잘못된 이스케이프와 닫히지 않은 대괄호는 오류입니다.
+
+날짜는 엄격한 ISO `YYYY-MM-DD` 또는
+`YYYY-MM-DDTHH:mm[:ss[.fraction]][Z|±HH:mm]` 형식이어야 하며 소수 초는 1~9자리입니다. 시간대가 없으면 UTC로 읽고,
+시간대가 있으면 UTC로 변환합니다. 결과 연도는 `0001`부터 `9999`까지만 허용하며 `DATE_ADD`도
+같은 연도 범위를 사용합니다.
 
 실제로 존재하지 않는 날짜는 자동 보정하지 않고 오류로 처리합니다.
 
 ```text
 FORMAT_DATE("2026-02-30")
+→ 오류
+
+FORMAT_DATE("2026-08-25", "Date YYYY")
 → 오류
 ```
 
@@ -756,7 +768,7 @@ NUMBER_TO_KOREAN(-3000)
 금액 문구를 만들 때는 다음과 같이 조합할 수 있습니다.
 
 ```text
-CONCAT("금 ", NUMBER_TO_KOREAN(totalAmount), " 원")
+CONCAT("금 ", NUMBER_TO_KOREAN($(totalAmount)), " 원")
 ```
 
 ## 날짜 함수

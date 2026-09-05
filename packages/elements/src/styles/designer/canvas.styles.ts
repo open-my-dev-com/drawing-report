@@ -416,4 +416,45 @@ export const canvasStyles = css`
       width: 12px;
       height: 12px;
     }
+    /* 계산되지 않는 수식이 있는 셀 — 결과처럼 보이지 않게 오류 표시로 바꿉니다 */
+    .grid-cell.formula-error {
+      color: var(--sk-danger);
+      background-image: repeating-linear-gradient(
+        -45deg,
+        transparent 0 6px,
+        rgba(197, 34, 31, 0.08) 6px 8px
+      );
+    }
+    .grid-cell .formula-error-text {
+      font-size: 10px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* 계산되지 않는 수식의 자리와 원인 목록 — 계획 오류와 같은 자리·같은 색으로 두되 세로로 쌓습니다 */
+    .plan-error.formula-warnings {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+    }
+    .formula-warnings-title {
+      font-weight: 600;
+    }
+    .formula-warnings ul {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 120px;
+      margin: 0;
+      padding: 0;
+      overflow-y: auto;
+      list-style: none;
+    }
+    .formula-warnings li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
 `;

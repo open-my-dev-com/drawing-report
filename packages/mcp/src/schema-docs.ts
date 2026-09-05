@@ -76,7 +76,7 @@ Conditional formats (text, field, and grid cells): "conditionalFormats"?: [
   { "condition": formula, "fontColor"?, "backgroundColor"?, "borderColor"?,
     "bold"?, "italic"?, "underline"?, "strikethrough"? }, ... ]
   (max ${SLIP_LIMITS.maxConditionalFormats}).
-The condition is a formula (see topic "formula") that must return a boolean, e.g. "amount < 0".
+The condition is a formula (see topic "formula") that must return a boolean, e.g. "$(amount) < 0".
 Rules whose condition is true apply in declared order (later rules win per property); each rule
 needs at least one color or emphasis. Emphasis booleans: true applies it, false clears the base
 style's emphasis. bold/italic need a matching font variant to show in the PDF (SPEC 9.3). A condition that cannot be computed for the current data (missing value, type
@@ -85,7 +85,7 @@ via slip_edit set_element/set_cell fields, or pass {"conditionalFormats": null} 
 
 - text: fixed label. { "type": "text", "content": string, ...styling }
 - field: value filled per voucher. Exactly ONE of: "parameter" (a values key) or "formula".
-  { "type": "field", "parameter": "customerName" } or { "type": "field", "formula": "SUM(items.amount)" }
+  { "type": "field", "parameter": "customerName" } or { "type": "field", "formula": "SUM($(items).$(amount))" }
 - image: exactly ONE of "src" or "parameter". For a fixed image, use slip_edit set_image with a local
   file path. It stores the bytes as a base64 data URL in assets[] and sets src to "asset://<assetId>".
   Images must be PNG or JPEG and at most ${MAX_IMAGE_BYTES / 1024 / 1024} MiB each; the server checks the
@@ -156,7 +156,12 @@ Constraints the validator enforces:
 - columns[i].autoMerge merges vertically adjacent equal values inside the item band; merges break
   at group and output-page boundaries.
 - Formulas and conditions in band cells can use reserved references (@item, @group, @page, @all,
-  @carried) — see topic "formula".`;
+  @carried) — see topic "formula".
+- Page start: when the first item block of a repeating grid with data (page-start bands plus
+  one item, or the whole itemsPerPage set in "fixed" mode) does not fit the remaining space of
+  the page it is placed on, the grid starts on the next output page instead of leaving a
+  header-only fragment. This applies to absolutely placed grids and "after" flows alike. If a
+  block still does not fit the full flow area of an empty page, planning fails with an error.`;
 
 const PARAMETERS = `# Parameters (values that fill a form)
 
@@ -169,7 +174,14 @@ ParameterDef = {
   "fields"?: [ { "key", "label"?, "valueType"? }, ... ]  // only when valueType is "list"
 }
 
-- Keys must be unique. List items are flat objects — fields cannot nest lists or objects.
+- A key is any non-empty string: dots, hyphens, spaces, leading digits, non-ASCII text, and
+  names such as "__proto__", "constructor" or "toString" are all valid business keys. Keys must
+  be unique by exact match — nothing is trimmed, case-folded or otherwise normalized, so "a" and
+  "A" are different keys. List field keys follow the same rules.
+- In formulas, write a key as $(key) — see topic "formula" for keys that are not plain identifiers.
+- "values" may hold keys that no parameter declares; they are kept as open data. A key that is
+  absent from "values" reads as null in formulas.
+- List items are flat objects — fields cannot nest lists or objects.
 - Elements reference parameters by key ("parameter": "customerName"); a grid repeat references a
   list parameter, and cells inside the repeat range reference the item's field keys.
 - Template BODY.sampleValues holds sample data for preview only; voucher "values" holds real data.`;
@@ -179,20 +191,32 @@ const FORMULA = `# Formulas
 Fields, barcodes and grid cells can compute their value with "formula" instead of "parameter".
 Formulas run in a purpose-built parser (no JavaScript). Values are typed; convert explicitly.
 
-- Reference values by parameter key: customerName, items.amount (list field inside aggregates).
+- Reference values by parameter key, one $(...) per path step: $(customerName),
+  $(items).$(amount) (a list field inside aggregates), @item.$(amount) (a reserved root followed
+  by a key step). Inside $(...) any key is allowed — "a.b", "a b", "1a", non-ASCII, "__proto__" —
+  and only two escapes exist: "\\)" for ")" and "\\\\" for "\\".
+- Every business-data reference must use $(...). Only function names, TRUE/FALSE and the reserved
+  roots (@item, @group, @page, @all, @carried) are written bare. A bare reference such as
+  customerName, items.amount or @item.amount is a syntax error; the error names the $(...) form to
+  write instead (for example $(items).$(amount)). slip_save and slip_edit reject invalid formulas
+  before writing the file.
 - Arithmetic operators: + - * /. Comparisons: = <> < > <= >=.
 - Use CONCAT(...) for text concatenation; arithmetic operators require numeric values.
 - Functions: ${FORMULA_FUNCTIONS.join(', ')}.
 - FORMAT_NUMBER(value, fractionDigits?) adds locale digit grouping; the second argument is an
   integer number of decimal places (0-20), NOT a pattern string like "#,##0".
-  FORMAT_DATE(date, pattern? = "YYYY-MM-DD") takes a token pattern (YYYY YY MM M DD D HH mm ss).
-- Example: FORMAT_NUMBER(SUM(items.amount) * 1.1, 0)
+  FORMAT_DATE(date, pattern? = "YYYY-MM-DD") takes a token pattern with exactly nine tokens:
+  YYYY YY MM M DD D HH mm ss. Put literal text in [...] (inside, "\\]" is "]" and "\\\\" is "\\").
+  Outside brackets any other run of ASCII letters is an error ("YYYYY", "MMM", "Date"), while
+  non-ASCII text, spaces and punctuation are literal. The date value must be "YYYY-MM-DD" or
+  "YYYY-MM-DDTHH:mm[:ss[.fff]][Z|±HH:mm]"; without an offset it is read as UTC.
+- Example: FORMAT_NUMBER(SUM($(items).$(amount)) * 1.1, 0)
 - Reserved references (grid band cells only): @item (the current item), @group (items of the
   current group), @page (real items on the current output page), @all (all items after maxItems),
-  @carried (real items placed on previous output pages). Example: SUM(@page.amount) for a page
-  subtotal, SUM(@carried.amount) for a carried-over total. Empty padding rows are excluded.
+  @carried (real items placed on previous output pages). Example: SUM(@page.$(amount)) for a page
+  subtotal, SUM(@carried.$(amount)) for a carried-over total. Empty padding rows are excluded.
 - The "condition" of a conditionalFormats rule uses this same language and must return a boolean,
-  e.g. amount < 0 or AND(amount > 0, status = "open").`;
+  e.g. $(amount) < 0 or AND($(amount) > 0, $(status) = "open").`;
 
 const VOUCHER = `# Voucher files
 

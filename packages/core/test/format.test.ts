@@ -112,7 +112,7 @@ function makeTemplate(): SlipTemplateFile {
               position: { x: 140, y: 210 },
               width: 55,
               height: 8,
-              formula: 'FORMAT_NUMBER(SUM(items.금액))',
+              formula: 'FORMAT_NUMBER(SUM($(items).$(금액)))',
               alignment: 'right',
             },
           ],
@@ -235,14 +235,14 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
   it('텍스트·필드 요소와 그리드 셀은 조건부 서식 규칙을 담을 수 있다 (ADR-062)', () => {
     const file = makeTemplate();
     getElement(file, 0, 'text').conditionalFormats = [
-      { condition: 'total < 0', fontColor: '#FF0000' },
+      { condition: '$(total) < 0', fontColor: '#FF0000' },
     ];
     getElement(file, 5, 'field').conditionalFormats = [
-      { condition: 'total < 0', fontColor: '#FF0000' },
-      { condition: 'total = 0', backgroundColor: '#EEEEEE', borderColor: '#333333' },
+      { condition: '$(total) < 0', fontColor: '#FF0000' },
+      { condition: '$(total) = 0', backgroundColor: '#EEEEEE', borderColor: '#333333' },
     ];
     getElement(file, 2, 'grid').cells[1]!.conditionalFormats = [
-      { condition: '금액 < 0', fontColor: '#FF0000' },
+      { condition: '$(금액) < 0', fontColor: '#FF0000' },
     ];
     const parsed = parseSlipFile(serializeSlipFile(file));
     if (parsed.kind !== 'template') throw new Error('template이어야 한다');
@@ -254,18 +254,18 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
 
   it('색과 강조를 모두 지정하지 않은 조건부 서식 규칙은 거부한다 (ADR-062·063)', () => {
     const file = makeTemplate();
-    getElement(file, 0, 'text').conditionalFormats = [{ condition: 'total < 0' }];
+    getElement(file, 0, 'text').conditionalFormats = [{ condition: '$(total) < 0' }];
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/at least one of fontColor/);
 
     // 강조만 지정한 규칙은 유효하다.
-    getElement(file, 0, 'text').conditionalFormats = [{ condition: 'total < 0', bold: true }];
+    getElement(file, 0, 'text').conditionalFormats = [{ condition: '$(total) < 0', bold: true }];
     expect(() => parseSlipFile(serializeSlipFile(file))).not.toThrow();
   });
 
   it('조건부 서식 규칙 수가 상한을 넘으면 거부한다', () => {
     const file = makeTemplate();
     getElement(file, 0, 'text').conditionalFormats = Array.from({ length: 21 }, () => ({
-      condition: 'total < 0',
+      condition: '$(total) < 0',
       fontColor: '#FF0000',
     }));
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/At most 20 conditional format rules/);

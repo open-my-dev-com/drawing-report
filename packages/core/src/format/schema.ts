@@ -8,6 +8,9 @@ import { CURRENT_SCHEMA_VERSION } from './version.js';
 import { migrateSlipDocument } from './migrate.js';
 import { fmt, withFormatLocale, zodParseParams } from './messages.js';
 import { MAX_IMAGE_BYTES, inspectImageDataUrl, type ImageInspection } from './image-source.js';
+import { readOwn, writeOwn } from '../own-property.js';
+import { assertFormulaArity } from '../formula/arity.js';
+import { parseFormula } from '../formula/parser.js';
 
 export { CURRENT_SCHEMA_VERSION };
 
@@ -901,6 +904,42 @@ const slipPageSchema = z.strictObject({
 // 전표 값
 // ---------------------------------------------------------------------------
 
+/** 열린 맵을 검사하는 동안 `__proto__` 키를 잠시 바꿔 두는 이름. 외부 입력과 겹치지 않는 값이다. */
+const PROTO_KEY_ALIAS = `\u0000__proto__\u0000${Math.random().toString(36).slice(2)}`;
+
+/**
+ * 키 제약이 없는 열린 맵 스키마.
+ *
+ * `z.record`는 결과 객체에 키를 대입해 만들기 때문에 `__proto__`라는 키가 사라진다. 검사 전에 그
+ * 키만 임시 이름으로 바꿔 넘기고, 검사가 끝난 결과에서 원래 키로 되돌려 객체가 직접 가진 속성으로
+ * 남긴다. JSON Schema 생성에는 안쪽 `z.record`가 그대로 쓰인다.
+ *
+ * @param valueSchema - 맵 값 하나의 스키마
+ * @returns 모든 키를 직접 가진 속성으로 보존하는 맵 스키마
+ */
+function openMapSchema<T>(valueSchema: z.ZodType<T>): z.ZodType<Record<string, T>> {
+  const record = z.record(z.string(), valueSchema);
+  return z
+    .preprocess((input) => {
+      if (typeof input !== 'object' || input === null || Array.isArray(input) || !Object.hasOwn(input, '__proto__')) {
+        return input;
+      }
+      const source = input as Record<string, unknown>;
+      const aliased: Record<string, unknown> = {};
+      for (const key of Object.keys(source)) {
+        writeOwn(aliased, key === '__proto__' ? PROTO_KEY_ALIAS : key, readOwn(source, key));
+      }
+      return aliased;
+    }, record)
+    .superRefine((parsed) => {
+      if (!Object.hasOwn(parsed, PROTO_KEY_ALIAS)) return;
+      // 결과 객체는 검사기가 새로 만든 것이라 원래 키 순서를 유지하며 제자리에서 되돌린다.
+      const entries = Object.keys(parsed).map((key) => [key, readOwn(parsed, key)] as const);
+      for (const [key] of entries) delete parsed[key];
+      for (const [key, value] of entries) writeOwn(parsed, key === PROTO_KEY_ALIAS ? '__proto__' : key, value);
+    }) as unknown as z.ZodType<Record<string, T>>;
+}
+
 /** JSON으로 표현 가능한 값 (전표 values의 값 타입) */
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -915,7 +954,7 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
     z.boolean(),
     z.null(),
     z.array(jsonValueSchema),
-    z.record(z.string(), jsonValueSchema),
+    openMapSchema(jsonValueSchema),
   ]),
 );
 
@@ -996,7 +1035,7 @@ export const slipTemplateBodySchema = z
       .max(SLIP_LIMITS.maxParameters, { error: () => fmt().parametersMax(SLIP_LIMITS.maxParameters) })
       .optional(),
     /** 미리보기용 샘플 값. 생성된 전표에는 포함하지 않는다. */
-    sampleValues: z.record(z.string(), jsonValueSchema).optional(),
+    sampleValues: openMapSchema(jsonValueSchema).optional(),
   })
   .superRefine((body, ctx) => {
     // 파라미터 키는 정의 목록에서 고유해야 한다.
@@ -1171,7 +1210,7 @@ export const slipVoucherFileSchema = z
     /** 전표를 생성할 때 복사한 양식 본문. */
     templateSnapshot: slipTemplateBodySchema,
     /** 필드 파라미터 키별 값 */
-    values: z.record(z.string(), jsonValueSchema),
+    values: openMapSchema(jsonValueSchema),
     /** 발행 여부. 발행된 전표의 이미지는 base64로 포함한다. */
     issued: z.boolean(),
   })
@@ -1191,7 +1230,7 @@ export const slipVoucherFileSchema = z
     for (const page of voucher.templateSnapshot.pages) {
       for (const element of page.elements) {
         if (element.type !== 'image' || element.parameter === undefined) continue;
-        const value = voucher.values[element.parameter];
+        const value = readOwn(voucher.values, element.parameter);
         if (typeof value !== 'string' || value === '') continue;
         const path = ['values', element.parameter];
         if (!DATA_SRC.test(value)) {
@@ -1208,10 +1247,48 @@ export const slipVoucherFileSchema = z
   });
 
 /** `kind`로 양식과 전표를 구분하는 `.slip` 파일 스키마 */
-export const slipFileSchema = z.discriminatedUnion('kind', [
-  slipTemplateFileSchema,
-  slipVoucherFileSchema,
-]);
+/** 어떤 키든 보존하는 열린 업무 데이터의 뿌리 경로. 이 아래의 객체는 구조 객체가 아니다. */
+const OPEN_DATA_ROOTS: readonly (readonly string[])[] = [
+  ['values'],
+  ['template', 'sampleValues'],
+  ['templateSnapshot', 'sampleValues'],
+];
+
+function isOpenDataRoot(path: readonly (string | number)[]): boolean {
+  return OPEN_DATA_ROOTS.some((root) => root.length === path.length && root.every((seg, i) => seg === path[i]));
+}
+
+/**
+ * 구조 객체가 직접 가진 `__proto__` 키를 미정의 키로 보고한다.
+ *
+ * `z.strictObject`는 `__proto__`를 미정의 키로 열거하지 않고 결과에서 조용히 빼 버리므로,
+ * 검사 전에 입력을 훑어 열린 업무 데이터 밖에 있는 `__proto__`를 다른 미정의 키와 같은
+ * 오류로 남긴다. 입력은 바꾸지 않는다.
+ */
+function reportStructuralProtoKeys(input: unknown, ctx: z.RefinementCtx): unknown {
+  const walk = (value: unknown, path: (string | number)[]): void => {
+    if (typeof value !== 'object' || value === null) return;
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => walk(item, [...path, index]));
+      return;
+    }
+    if (isOpenDataRoot(path)) return;
+    const record = value as Record<string, unknown>;
+    if (Object.hasOwn(record, '__proto__')) {
+      ctx.addIssue({ code: 'unrecognized_keys', keys: ['__proto__'], path, input: record });
+    }
+    for (const key of Object.keys(record)) {
+      if (key !== '__proto__') walk(readOwn(record, key), [...path, key]);
+    }
+  };
+  walk(input, []);
+  return input;
+}
+
+export const slipFileSchema = z.preprocess(
+  reportStructuralProtoKeys,
+  z.discriminatedUnion('kind', [slipTemplateFileSchema, slipVoucherFileSchema]),
+);
 
 // ---------------------------------------------------------------------------
 // 파싱 · 직렬화
@@ -1223,6 +1300,50 @@ export class SlipParseError extends Error {
     super(message);
     this.name = 'SlipParseError';
   }
+}
+
+/** 양식 본문의 모든 수식과 조건식을 저장 가능한 문법으로 검사한다. */
+function validateTemplateFormulas(
+  body: z.infer<typeof slipTemplateBodySchema>,
+  root: 'template' | 'templateSnapshot',
+  locale: string | undefined,
+): void {
+  const issues: string[] = [];
+  const check = (source: string, path: (string | number)[]): void => {
+    if (source.trim() === '') return;
+    try {
+      const options = locale === undefined ? undefined : { locale };
+      assertFormulaArity(parseFormula(source, options), options);
+    } catch (error) {
+      issues.push(`${path.join('.')}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+  const checkConditions = (
+    rules: readonly { condition: string }[] | undefined,
+    path: (string | number)[],
+  ): void => {
+    rules?.forEach((rule, index) => check(rule.condition, [...path, index, 'condition']));
+  };
+
+  body.pages.forEach((page, pageIndex) => {
+    page.elements.forEach((element, elementIndex) => {
+      const elementPath: (string | number)[] = [root, 'pages', pageIndex, 'elements', elementIndex];
+      if ('formula' in element && element.formula !== undefined) {
+        check(element.formula, [...elementPath, 'formula']);
+      }
+      if ('conditionalFormats' in element) {
+        checkConditions(element.conditionalFormats, [...elementPath, 'conditionalFormats']);
+      }
+      if (element.type !== 'grid') return;
+      element.cells.forEach((cell, cellIndex) => {
+        const cellPath = [...elementPath, 'cells', cellIndex];
+        if (cell.formula !== undefined) check(cell.formula, [...cellPath, 'formula']);
+        checkConditions(cell.conditionalFormats, [...cellPath, 'conditionalFormats']);
+      });
+    });
+  });
+
+  if (issues.length > 0) throw new SlipParseError(fmt().bodyInvalid(issues.join(', ')));
 }
 
 function formatIssues(error: z.ZodError): string {
@@ -1265,6 +1386,11 @@ export function validateSlipFile(raw: unknown, options?: { locale?: string }): S
     }
     if (!result.success) {
       throw new SlipParseError(fmt().bodyInvalid(formatIssues(result.error)));
+    }
+    if (result.data.kind === 'template') {
+      validateTemplateFormulas(result.data.template, 'template', options?.locale);
+    } else {
+      validateTemplateFormulas(result.data.templateSnapshot, 'templateSnapshot', options?.locale);
     }
     return result.data;
   });

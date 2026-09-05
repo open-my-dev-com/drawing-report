@@ -33,7 +33,7 @@ describe('createSlipKit (ADR-056)', () => {
 
   it('evaluate는 수식을 계산하고, 컨텍스트에 로케일이 없으면 설정 로케일을 쓴다', () => {
     const slip = createSlipKit({ locale: 'de-DE' });
-    expect(slip.evaluate('SUM(items.amount)', { values: { items: { amount: [1000, 2000] } } })).toBe(3000);
+    expect(slip.evaluate('SUM($(items).$(amount))', { values: { items: { amount: [1000, 2000] } } })).toBe(3000);
     // 컨텍스트에 로케일이 없으면 SlipKit 설정을 사용한다.
     expect(slip.evaluate('FORMAT_NUMBER(1234.5)', { values: {} })).toBe('1.234,5');
     // 평가 컨텍스트의 로케일이 SlipKit 설정보다 우선한다.

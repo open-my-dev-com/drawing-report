@@ -476,7 +476,7 @@ function downloadPdf(
 
 ```ts
 const result = slip.evaluate(
-  'SUM(items.amount)',
+  'SUM($(items).$(amount))',
   {
     values: {
       items: [
@@ -529,7 +529,7 @@ import {
 } from '@omdc-slipkit/core';
 
 const result = evaluateFormula(
-  'quantity * unitPrice',
+  '$(quantity) * $(unitPrice)',
   {
     values: {
       quantity: 12,

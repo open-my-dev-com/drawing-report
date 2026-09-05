@@ -329,10 +329,10 @@ describe('<slip-designer> 캔버스 스타일 반영', () => {
 
     const formulaField = await mountWith([{
       type: 'field', id: 'f2', name: 'f', position: { x: 10, y: 10 },
-      width: 40, height: 10, formula: 'SUM(items.amount)',
+      width: 40, height: 10, formula: 'SUM($(items).$(amount))',
     }]);
     const content = (formulaField.shadowRoot?.querySelector('.el-content') as HTMLElement).textContent;
-    expect(content).toBe('SUM(items.amount)');
+    expect(content).toBe('SUM($(items).$(amount))');
     expect(content).not.toContain('undefined');
     formulaField.remove();
   });

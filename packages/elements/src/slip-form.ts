@@ -58,6 +58,11 @@ interface ListRow {
 interface FormInput {
   /** 전표 `values`에 값을 저장할 파라미터 키 */
   key: string;
+  /**
+   * 화면 안에서 입력과 레이블을 잇는 순번. 키는 공백·따옴표 등 어떤 문자든 담을 수 있어
+   * DOM id로 쓰지 않습니다.
+   */
+  ordinal: number;
   /** 화면에 표시할 이름 */
   label: string;
   /** 파라미터 정의의 값 형식. 이미지 요소가 참조하는 키는 `image`로 본다 */
@@ -105,6 +110,36 @@ function isRowObject(row: unknown): row is Record<string, unknown> {
   return typeof row === 'object' && row !== null && !Array.isArray(row);
 }
 
+// 파라미터 키와 하위 필드 키는 어떤 문자열이든 될 수 있습니다. `__proto__`·`constructor` 같은
+// 키도 업무 데이터이므로 값 객체는 프로토타입 체인을 거치지 않고 자신의 속성만 읽고 씁니다.
+
+/** 객체가 직접 가진 키의 값을 읽습니다. 없으면 `undefined`입니다. */
+function readOwn(record: Record<string, unknown>, key: string): unknown {
+  return Object.hasOwn(record, key) ? record[key] : undefined;
+}
+
+/** 키 이름과 무관하게 객체 자신의 속성으로 값을 씁니다. `__proto__` 키도 프로토타입을 바꾸지 않습니다. */
+function writeOwn(record: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(record, key, { value, enumerable: true, writable: true, configurable: true });
+}
+
+/** 객체가 직접 가진 키만 지웁니다. */
+function deleteOwn(record: Record<string, unknown>, key: string): void {
+  if (Object.hasOwn(record, key)) delete record[key];
+}
+
+/** 프로토타입이 없는 빈 값 객체를 만듭니다. */
+function emptyValues(): Record<string, unknown> {
+  return Object.create(null) as Record<string, unknown>;
+}
+
+/** 값 객체의 얕은 사본을 프로토타입이 없는 객체로 만듭니다. */
+function copyValues(source: Record<string, unknown>): Record<string, unknown> {
+  const out = emptyValues();
+  for (const key of Object.keys(source)) writeOwn(out, key, source[key]);
+  return out;
+}
+
 /**
  * 스칼라 값이 선언된 형식에 맞는지 검사합니다.
  *
@@ -138,7 +173,7 @@ function listProblem(value: unknown, columns: FormColumn[]): ValueErrorKey | nul
   for (const row of value) {
     if (!isRowObject(row)) return 'invalidList';
     for (const column of columns) {
-      if (scalarProblem(row[column.key], column.valueType) !== null) {
+      if (scalarProblem(readOwn(row, column.key), column.valueType) !== null) {
         return 'invalidList';
       }
     }
@@ -249,7 +284,7 @@ export class SlipForm extends LitElement {
   private _body: SlipTemplateBody | null = null;
   private _imageError: ImageError | null = null;
   private _schemaVersion = '';
-  private _values: Record<string, unknown> = {};
+  private _values: Record<string, unknown> = emptyValues();
   private _issued = false;
   private _issuing = false;
   private _issueError: IssueError | null = null;
@@ -308,7 +343,7 @@ export class SlipForm extends LitElement {
 
     if (!this.src) {
       this._body = null;
-      this._values = {};
+      this._values = emptyValues();
       this._issued = false;
       return;
     }
@@ -325,11 +360,11 @@ export class SlipForm extends LitElement {
 
     if (file.kind === 'template') {
       this._body = file.template;
-      this._values = {};
+      this._values = emptyValues();
       this._issued = false;
     } else {
       this._body = file.templateSnapshot;
-      this._values = JSON.parse(JSON.stringify(file.values)) as Record<string, unknown>;
+      this._values = copyValues(JSON.parse(JSON.stringify(file.values)) as Record<string, unknown>);
       this._issued = file.issued;
     }
     this._schemaVersion = file.schemaVersion;
@@ -351,7 +386,7 @@ export class SlipForm extends LitElement {
       this.requestUpdate();
       return;
     }
-    this._values = {};
+    this._values = emptyValues();
     this._issued = false;
     this._issuing = false;
     this._afterValueChange();
@@ -397,7 +432,7 @@ export class SlipForm extends LitElement {
 
     const inputs: FormInput[] = [];
     const seen = new Set<string>();
-    const add = (key: string, input: Omit<FormInput, 'key' | 'label' | 'valueType'>, name?: string): void => {
+    const add = (key: string, input: Omit<FormInput, 'key' | 'ordinal' | 'label' | 'valueType'>, name?: string): void => {
       if (seen.has(key)) return;
       seen.add(key);
       const valueType = valueTypeOf(key);
@@ -405,6 +440,7 @@ export class SlipForm extends LitElement {
         input.columns !== undefined || valueType === 'list' ? columnsOf(key, input.columns ?? []) : undefined;
       inputs.push({
         key,
+        ordinal: inputs.length,
         label: defs.get(key)?.label ?? name ?? key,
         valueType,
         ...input,
@@ -453,7 +489,7 @@ export class SlipForm extends LitElement {
 
   /** 목록형 입력의 원본 배열. 배열이 아니면 빈 목록으로 봅니다. */
   private _listOf(key: string): unknown[] {
-    const raw = this._values[key];
+    const raw = readOwn(this._values, key);
     return Array.isArray(raw) ? raw : [];
   }
 
@@ -463,7 +499,7 @@ export class SlipForm extends LitElement {
    * 행 편집으로 덮어쓰지 않습니다.
    */
   private _listLocked(key: string): boolean {
-    const raw = this._values[key];
+    const raw = readOwn(this._values, key);
     return !isEmptyValue(raw) && !Array.isArray(raw);
   }
 
@@ -485,8 +521,8 @@ export class SlipForm extends LitElement {
 
   private _setValue(key: string, value: unknown): void {
     if (this._issued) return;
-    if (value === undefined || value === '') delete this._values[key];
-    else this._values[key] = value;
+    if (value === undefined || value === '') deleteOwn(this._values, key);
+    else writeOwn(this._values, key, value);
     this._afterValueChange();
   }
 
@@ -498,8 +534,8 @@ export class SlipForm extends LitElement {
     if (this._issued || this._listLocked(key)) return;
     const list = [...this._listOf(key)];
     mutate(list);
-    if (list.length === 0) delete this._values[key];
-    else this._values[key] = list;
+    if (list.length === 0) deleteOwn(this._values, key);
+    else writeOwn(this._values, key, list);
     this._afterValueChange();
   }
 
@@ -513,7 +549,7 @@ export class SlipForm extends LitElement {
   /** 발행 전 입력값을 모두 지웁니다. 파라미터에 없는 값은 남겨 둡니다. */
   private _clearValues(): void {
     if (this._issued) return;
-    for (const input of this._collectInputs()) delete this._values[input.key];
+    for (const input of this._collectInputs()) deleteOwn(this._values, input.key);
     this._afterValueChange();
   }
 
@@ -547,7 +583,7 @@ export class SlipForm extends LitElement {
 
   /** 형식에 맞지 않는 값이 있는 입력이 하나라도 있는지 확인합니다. */
   private _hasInvalidValues(): boolean {
-    return this._collectInputs().some((input) => inputProblem(input, this._values[input.key]) !== null);
+    return this._collectInputs().some((input) => inputProblem(input, readOwn(this._values, input.key)) !== null);
   }
 
   /**
@@ -698,9 +734,9 @@ export class SlipForm extends LitElement {
 
   /** 입력 아래에 형식 오류 문구를 표시합니다. 문제가 없으면 아무것도 그리지 않습니다. */
   private _renderProblem(input: FormInput) {
-    const problem = inputProblem(input, this._values[input.key]);
+    const problem = inputProblem(input, readOwn(this._values, input.key));
     if (problem === null) return nothing;
-    return html`<div class="hint error" id=${`e-${input.key}`}>${this._t[problem]}</div>`;
+    return html`<div class="hint error" id=${`e-${input.ordinal}`}>${this._t[problem]}</div>`;
   }
 
   private _renderInput(input: FormInput) {
@@ -730,8 +766,8 @@ export class SlipForm extends LitElement {
       }
       return html`
         <div class="field computed">
-          <label for=${`f-${input.key}`}>${input.label}</label>
-          <input id=${`f-${input.key}`} .value=${error ? '' : text} disabled
+          <label for=${`f-${input.ordinal}`}>${input.label}</label>
+          <input id=${`f-${input.ordinal}`} .value=${error ? '' : text} disabled
             aria-label="${input.label} (${t.computed})">
           <div class="hint ${error ? 'error' : ''}">
             ${error ? `${t.calcError}: ${error}` : t.computed}
@@ -740,13 +776,13 @@ export class SlipForm extends LitElement {
       `;
     }
 
-    const value = this._values[input.key];
+    const value = readOwn(this._values, input.key);
     const problem = inputProblem(input, value);
     if (input.valueType === 'boolean') {
       return html`
         <div class="field boolean">
           <label class="check">
-            <input id=${`f-${input.key}`} type="checkbox" .checked=${value === true}
+            <input id=${`f-${input.ordinal}`} type="checkbox" .checked=${value === true}
               aria-label=${input.label} ?disabled=${this._issued}
               aria-invalid=${problem !== null ? 'true' : 'false'}
               @change=${(e: Event) => this._setValue(input.key, (e.target as HTMLInputElement).checked)}>
@@ -759,8 +795,8 @@ export class SlipForm extends LitElement {
 
     return html`
       <div class="field">
-        <label for=${`f-${input.key}`}>${input.label}</label>
-        <input id=${`f-${input.key}`} type=${inputTypeOf(input.valueType)}
+        <label for=${`f-${input.ordinal}`}>${input.label}</label>
+        <input id=${`f-${input.ordinal}`} type=${inputTypeOf(input.valueType)}
           step=${input.valueType === 'number' ? 'any' : nothing}
           .value=${inputText(value)}
           aria-label=${input.label} ?disabled=${this._issued}
@@ -775,7 +811,7 @@ export class SlipForm extends LitElement {
   /** base64 이미지 파일 선택과 현재 이미지 미리보기를 렌더링합니다. */
   private _renderImageInput(input: FormInput) {
     const t = this._t;
-    const raw = this._values[input.key];
+    const raw = readOwn(this._values, input.key);
     const chosen = typeof raw === 'string' && raw.startsWith('data:');
     return html`
       <div class="field">
@@ -831,17 +867,17 @@ export class SlipForm extends LitElement {
               ${columns.map((col) => html`
                 <input type=${inputTypeOf(col.valueType)}
                   step=${col.valueType === 'number' ? 'any' : nothing}
-                  .value=${col.valueType === 'boolean' ? 'on' : inputText(row[col.key])}
-                  .checked=${col.valueType === 'boolean' && row[col.key] === true}
+                  .value=${col.valueType === 'boolean' ? 'on' : inputText(readOwn(row, col.key))}
+                  .checked=${col.valueType === 'boolean' && readOwn(row, col.key) === true}
                   aria-label="${input.label} ${index + 1} ${col.title || col.key}"
-                  aria-invalid=${scalarProblem(row[col.key], col.valueType) !== null ? 'true' : 'false'}
+                  aria-invalid=${scalarProblem(readOwn(row, col.key), col.valueType) !== null ? 'true' : 'false'}
                   ?disabled=${this._issued}
                   @change=${(e: Event) => {
                     // 열에 없는 키도 함께 복사해 행의 다른 데이터를 잃지 않습니다.
                     const next = { ...row };
                     const value = cellValue(col, e);
-                    if (value === '') delete next[col.key];
-                    else next[col.key] = value;
+                    if (value === '') deleteOwn(next, col.key);
+                    else writeOwn(next, col.key, value);
                     this._updateList(input.key, (list) => { list[index] = next; });
                   }}>`)}
               <button class="row-remove" title=${t.deleteRow}

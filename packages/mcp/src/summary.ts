@@ -29,9 +29,8 @@ export function elideDataUrls(value: unknown): unknown {
   }
   if (Array.isArray(value)) return value.map(elideDataUrls);
   if (typeof value === 'object' && value !== null) {
-    const out: Record<string, unknown> = {};
-    for (const [key, entry] of Object.entries(value)) out[key] = elideDataUrls(entry);
-    return out;
+    // `__proto__` 같은 키도 업무 데이터이므로 대입 대신 자신의 속성으로 만든다.
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, elideDataUrls(entry)]));
   }
   return value;
 }

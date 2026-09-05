@@ -170,7 +170,8 @@ export function planSourcePage(
           firstTop: startY,
           top: flowArea.top,
           bottom: flowArea.bottom,
-          // after 배치로 시작이 줄어든 그리드는 첫 페이지에 들어가지 않으면 다음 페이지에서 시작한다.
+          // after 배치로 시작이 줄어든 그리드는 항목이 없어도 첫 페이지에 들어가지 않으면
+          // 다음 페이지에서 시작한다. 실제 항목이 있는 그리드의 시작 이동은 planGrid가 정한다.
           allowStartShift: placement?.mode === 'after',
         }, locale);
         gridPlans.set(element.id, plan);

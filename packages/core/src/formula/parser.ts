@@ -9,12 +9,21 @@
  * mul     := unary (('*' | '/') unary)*
  * unary   := ('-' | '+') unary | primary
  * primary := number | string | TRUE | FALSE | FUNC '(' args ')' | ref | '(' expr ')'
- * ref     := ('@' ident | ident) ('.' ident)*   # 값 참조 (예: items.금액, @group.금액)
+ * ref     := key ('.' key)*                          # 값 참조 (예: $(items).$(금액))
+ *          | reserved ('.' key)*                     # 예약 참조 (예: @item, @group.$(금액))
+ * key     := '$(' chars ')'                          # 키 한 단계. ')'와 '\'는 '\)'·'\\'로 적는다
+ * reserved := '@item' | '@group' | '@page' | '@all' | '@carried'
  * ```
  *
  * 문자열 리터럴은 큰따옴표, 내부 큰따옴표는 "" 로 이스케이프한다.
- * 식별자는 유니코드 문자(한글 포함)·숫자·언더스코어, 숫자로 시작 불가.
- * `@`로 시작하는 참조는 그리드 행 구간에서 계획 계층이 공급하는 예약 참조만 허용한다.
+ * 함수 이름과 `TRUE`·`FALSE`는 유니코드 문자·숫자·언더스코어로 이루어진 식별자로 적는다.
+ * `@`로 시작하는 예약 참조는 그리드 행 구간에서 계획 계층이 공급하는 다섯 이름만 허용한다.
+ *
+ * 값 참조는 키 한 단계마다 `$(...)`로 적는다. 그래서 식별자 규칙에 맞지 않는 키
+ * (`datas-2`·`customer.name`·공백 포함 등)도 쓸 수 있고, `$(datas-2)`(키 하나)와 `$(datas) - 2`(뺄셈)가
+ * 구분된다. `$(...)` 없이 적은 이름(`amount`·`items.amount`·`@item.amount`)은 함수 호출이나 논리
+ * 상수가 아니면 문법 오류이며, 오류 메시지에 고쳐 쓸 예를 함께 알린다. 예약 참조 이름은 `$(...)`
+ * 없이 그대로 적는다 — `$(@item)`은 예약 참조가 아니라 `@item`이라는 이름의 값 키다.
  */
 import { FormulaSyntaxError } from './errors.js';
 import { FORMULA_FUNCTIONS, type FormulaFunctionName } from './functions.js';
@@ -31,26 +40,34 @@ export type ArithmeticOperator = '+' | '-' | '*' | '/';
 /** 이항 연산자 전체 */
 export type BinaryOperator = ComparisonOperator | ArithmeticOperator;
 
+/** 참조가 수식 문자열에서 차지하는 범위 (0부터 시작, `end`는 포함하지 않음). */
+export interface ReferenceSpan {
+  /** 참조 텍스트가 시작하는 인덱스 */
+  start: number;
+  /** 참조 텍스트 바로 다음 인덱스 */
+  end: number;
+}
+
 /** 파싱 결과를 나타내는 구문 트리 노드의 판별 유니온. */
 export type FormulaAst =
   | { type: 'number'; value: number }
   | { type: 'string'; value: string }
   | { type: 'boolean'; value: boolean }
-  | { type: 'reference'; path: string[] }
+  | {
+      type: 'reference';
+      path: string[];
+      /** 첫 단계를 `$(...)` 없이 `@item`처럼 적은 예약 참조일 때만 `true`. `$(@item)`은 값 키다 */
+      reserved?: true;
+      /** 원본 수식에서 이 참조가 차지하는 범위 */
+      span?: ReferenceSpan;
+    }
   | { type: 'call'; name: FormulaFunctionName; args: FormulaAst[] }
   | { type: 'unary'; operator: '-' | '+'; operand: FormulaAst }
   | { type: 'binary'; operator: BinaryOperator; left: FormulaAst; right: FormulaAst };
 
 // ---------------------------------------------------------------------------
-// 토크나이저
+// 참조 표기
 // ---------------------------------------------------------------------------
-
-type Token =
-  | { type: 'number'; value: number; pos: number }
-  | { type: 'string'; value: string; pos: number }
-  | { type: 'ident'; value: string; pos: number }
-  | { type: 'op'; value: string; pos: number } // 연산자·괄호·쉼표·점
-  | { type: 'end'; pos: number };
 
 const IDENT_START = /[\p{L}_]/u;
 const IDENT_PART = /[\p{L}\p{N}_]/u;
@@ -65,6 +82,90 @@ export const RESERVED_REF_NAMES = ['@item', '@group', '@page', '@all', '@carried
 export type ReservedRefName = (typeof RESERVED_REF_NAMES)[number];
 
 const RESERVED_REFS = new Set<string>(RESERVED_REF_NAMES);
+
+/**
+ * 키 한 단계를 `$(...)` 안에 넣을 수 있게 이스케이프한다.
+ *
+ * @param key - 이스케이프할 키
+ * @returns `\`는 `\\`로, `)`는 `\)`로 바꾼 문자열
+ */
+export function escapeReferenceKey(key: string): string {
+  return key.replace(/[\\)]/g, (ch) => `\\${ch}`);
+}
+
+/** 참조 경로를 문자열로 만들 때의 옵션 */
+export interface FormatReferenceOptions {
+  /**
+   * 첫 단계가 예약 참조 이름이면 `true`로 지정한다. 그러면 첫 단계만 `$(...)` 없이 적는다.
+   * 이름만으로 판단하지 않으므로 생략하면 `@item`도 값 키 `$(@item)`으로 적는다.
+   *
+   * @defaultValue false
+   */
+  reserved?: boolean;
+}
+
+/**
+ * 참조 경로를 `$(a).$(b)` 형식의 참조 문자열로 만든다.
+ *
+ * @param path - 참조 경로
+ * @param options - 첫 단계를 예약 참조로 적을지 여부
+ * @returns 참조 문자열 (예: `$(unit-price)`, `reserved`이면 `@item.$(unit-price)`)
+ * @throws RangeError 경로가 비어 있거나, `reserved`인데 첫 단계가 예약 참조 이름이 아닐 때
+ */
+export function formatReferencePath(
+  path: readonly string[],
+  options?: FormatReferenceOptions,
+): string {
+  if (path.length === 0) throw new RangeError('reference path must have at least one step');
+  const reserved = options?.reserved === true;
+  if (reserved && !RESERVED_REFS.has(path[0]!)) {
+    throw new RangeError(`reserved reference path must start with one of ${RESERVED_REF_NAMES.join(', ')}`);
+  }
+  return path
+    .map((step, index) => (index === 0 && reserved ? step : `$(${escapeReferenceKey(step)})`))
+    .join('.');
+}
+
+// ---------------------------------------------------------------------------
+// 토크나이저
+// ---------------------------------------------------------------------------
+
+type Token =
+  | { type: 'number'; value: number; pos: number }
+  | { type: 'string'; value: string; pos: number }
+  | { type: 'ident'; value: string; pos: number; end: number }
+  | { type: 'key'; value: string; pos: number; end: number } // `$(...)` 키 한 단계
+  | { type: 'op'; value: string; pos: number } // 연산자·괄호·쉼표·점
+  | { type: 'end'; pos: number };
+
+/** `$(` 다음부터 짝이 맞는 `)`까지 읽어 키 토큰을 만든다. 반환값은 `)` 다음 인덱스. */
+function readReferenceKey(source: string, start: number, tokens: Token[]): number {
+  let value = '';
+  let i = start + 2;
+  for (;;) {
+    if (i >= source.length) throw new FormulaSyntaxError(fm().unterminatedReference(), start);
+    const ch = source[i]!;
+    if (ch === '\\') {
+      const escaped = source[i + 1];
+      if (escaped === undefined) throw new FormulaSyntaxError(fm().unterminatedReference(), start);
+      if (escaped !== ')' && escaped !== '\\') {
+        throw new FormulaSyntaxError(fm().invalidReferenceEscape(`\\${escaped}`), i);
+      }
+      value += escaped;
+      i += 2;
+      continue;
+    }
+    if (ch === ')') {
+      i++;
+      break;
+    }
+    value += ch;
+    i++;
+  }
+  if (value === '') throw new FormulaSyntaxError(fm().emptyReferenceKey(), start);
+  tokens.push({ type: 'key', value, pos: start, end: i });
+  return i;
+}
 
 function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
@@ -107,10 +208,22 @@ function tokenize(source: string): Token[] {
       tokens.push({ type: 'string', value, pos });
       continue;
     }
+    if (ch === '$') {
+      if (source[i + 1] === '(') {
+        i = readReferenceKey(source, i, tokens);
+        continue;
+      }
+      // `$name`처럼 괄호 없이 쓴 참조는 `$(name)`으로 고치도록 안내한다.
+      let j = i + 1;
+      while (j < source.length && IDENT_PART.test(source[j]!)) j++;
+      const name = source.slice(i + 1, j);
+      if (name === '') throw new FormulaSyntaxError(fm().unknownCharacter(ch), pos);
+      throw new FormulaSyntaxError(fm().referenceNeedsParens(name), pos);
+    }
     if (IDENT_START.test(ch)) {
       let j = i + 1;
       while (j < source.length && IDENT_PART.test(source[j]!)) j++;
-      tokens.push({ type: 'ident', value: source.slice(i, j), pos });
+      tokens.push({ type: 'ident', value: source.slice(i, j), pos, end: j });
       i = j;
       continue;
     }
@@ -118,7 +231,7 @@ function tokenize(source: string): Token[] {
     if (ch === '@' && IDENT_START.test(source[i + 1] ?? '')) {
       let j = i + 2;
       while (j < source.length && IDENT_PART.test(source[j]!)) j++;
-      tokens.push({ type: 'ident', value: source.slice(i, j), pos });
+      tokens.push({ type: 'ident', value: source.slice(i, j), pos, end: j });
       i = j;
       continue;
     }
@@ -149,8 +262,11 @@ function tokenize(source: string): Token[] {
 
 const FUNCTION_NAMES = new Set<string>(FORMULA_FUNCTIONS);
 
+type StepToken = Extract<Token, { type: 'ident' | 'key' }>;
+
 class Parser {
   private index = 0;
+
   constructor(private readonly tokens: Token[]) {}
 
   parse(): FormulaAst {
@@ -259,6 +375,7 @@ class Parser {
       this.expectClosingParen();
       return expr;
     }
+    if (token.type === 'key') return this.reference(token);
     if (token.type === 'ident') {
       // 예약 참조는 정해진 이름만 허용한다. 값은 평가 컨텍스트가 공급한다.
       if (token.value.startsWith('@') && !RESERVED_REFS.has(token.value)) {
@@ -283,18 +400,47 @@ class Parser {
         }
         return { type: 'call', name: upper as FormulaFunctionName, args };
       }
-      // 점으로 구분한 식별자를 값 참조 경로로 파싱한다.
-      const path = [token.value];
-      while (this.matchOp('.')) {
-        const segment = this.next();
-        if (segment.type !== 'ident') {
-          throw new FormulaSyntaxError(fm().expectedFieldAfterDot(), segment.pos);
-        }
-        path.push(segment.value);
-      }
-      return { type: 'reference', path };
+      // 함수 호출도 논리 상수도 아닌 식별자는 예약 참조 이름이거나 `$(...)`를 빠뜨린 값 참조다.
+      return this.reference(token);
     }
     throw new FormulaSyntaxError(fm().expectedValue(), token.pos);
+  }
+
+  /**
+   * 첫 단계 토큰 뒤에 점으로 이어지는 단계를 읽어 참조 경로를 만든다.
+   *
+   * 예약 참조 이름을 그대로 적은 첫 단계를 뺀 모든 단계는 `$(...)` 키여야 한다. `$(...)` 없이 적은
+   * 단계가 하나라도 있으면 경로 전체를 고쳐 쓸 예와 함께 거부한다.
+   */
+  private reference(head: StepToken): FormulaAst {
+    const steps: StepToken[] = [head];
+    while (this.matchOp('.')) {
+      const segment = this.next();
+      if (segment.type !== 'ident' && segment.type !== 'key') {
+        throw new FormulaSyntaxError(fm().expectedFieldAfterDot(), segment.pos);
+      }
+      steps.push(segment);
+    }
+    // `$(@item)`은 키 토큰이라 예약 참조가 아니다. 예약 참조는 `@item`을 그대로 적은 식별자뿐이다.
+    const reserved = head.type === 'ident' && head.value.startsWith('@');
+    const path = steps.map((step) => step.value);
+    const bare = steps.some((step, index) => step.type === 'ident' && !(index === 0 && reserved));
+    if (bare) {
+      const written = steps
+        .map((step) => (step.type === 'key' ? `$(${escapeReferenceKey(step.value)})` : step.value))
+        .join('.');
+      throw new FormulaSyntaxError(
+        fm().bareReference(written, formatReferencePath(path, { reserved })),
+        head.pos,
+      );
+    }
+    const span: ReferenceSpan = { start: head.pos, end: steps[steps.length - 1]!.end };
+    return {
+      type: 'reference',
+      path,
+      ...(reserved ? { reserved: true as const } : {}),
+      span,
+    };
   }
 }
 
@@ -306,7 +452,7 @@ export const MAX_FORMULA_DEPTH = 100;
 /**
  * 수식 문자열을 AST로 파싱한다.
  *
- * @param source - 수식 문자열 (예: `SUM(items.금액) * 1.1`)
+ * @param source - 수식 문자열 (예: `SUM($(items).$(금액)) * 1.1`)
  * @param options - 오류 메시지에 사용할 로케일 설정 (생략하면 영어)
  * @returns 파싱된 구문 트리
  * @throws FormulaSyntaxError 문법 오류·미등록 함수·길이/깊이 제한 초과 시

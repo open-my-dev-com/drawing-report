@@ -363,7 +363,7 @@ const ko = {
     /* 조건부 서식 */
     conditionalFormat: '조건부 서식',
     condition: '조건식',
-    conditionPlaceholder: '예: amount < 0',
+    conditionPlaceholder: '예: $(amount) < 0',
     conditionHint: '조건식이 참이면 지정한 색과 강조를 적용합니다. 규칙이 겹치면 아래 규칙이 우선합니다.',
     addConditionRule: '규칙 추가',
     deleteConditionRule: '규칙 삭제',
@@ -440,6 +440,8 @@ const ko = {
     deleteFormTitle: '양식 삭제',
     deleteFormConfirm: '「{title}」 양식을 삭제할까요? 되돌릴 수 없습니다.',
     colorCode: '색상 코드',
+    formulaErrorLabel: '수식 오류',
+    saveInvalidFile: '양식이 파일 형식에 맞지 않아 저장하지 않았습니다. {detail}',
   },
   form: {
     noFile: '전표를 작성할 양식을 불러오세요.',
@@ -871,7 +873,7 @@ const en: SlipStrings = {
     /* Conditional format */
     conditionalFormat: 'Conditional format',
     condition: 'Condition',
-    conditionPlaceholder: 'e.g. amount < 0',
+    conditionPlaceholder: 'e.g. $(amount) < 0',
     conditionHint: 'Colors and emphasis apply when the condition is true. When rules overlap, the lower rule wins.',
     addConditionRule: 'Add rule',
     deleteConditionRule: 'Delete rule',
@@ -948,6 +950,8 @@ const en: SlipStrings = {
     deleteFormTitle: 'Delete form',
     deleteFormConfirm: 'Delete the form "{title}"? This cannot be undone.',
     colorCode: 'Color code',
+    formulaErrorLabel: 'Formula error',
+    saveInvalidFile: 'The form was not saved because it does not match the file format. {detail}',
   },
   form: {
     noFile: 'Load a template to fill in a slip.',
@@ -1378,7 +1382,7 @@ const ja: SlipStrings = {
     /* 条件付き書式 */
     conditionalFormat: '条件付き書式',
     condition: '条件式',
-    conditionPlaceholder: '例: amount < 0',
+    conditionPlaceholder: '例: $(amount) < 0',
     conditionHint: '条件式が真のとき指定した色と強調を適用します。ルールが重なる場合は下のルールが優先されます。',
     addConditionRule: 'ルールを追加',
     deleteConditionRule: 'ルールを削除',
@@ -1455,6 +1459,8 @@ const ja: SlipStrings = {
     deleteFormTitle: 'テンプレートの削除',
     deleteFormConfirm: 'テンプレート「{title}」を削除しますか？元に戻せません。',
     colorCode: 'カラーコード',
+    formulaErrorLabel: '数式エラー',
+    saveInvalidFile: 'テンプレートがファイル形式に合わないため保存しませんでした。{detail}',
   },
   form: {
     noFile: '伝票を作成するテンプレートを読み込んでください。',

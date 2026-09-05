@@ -64,33 +64,34 @@ describe('columnSuggestion', () => {
   ];
 
   it('점 뒤에 아무것도 없으면 하위 필드를 모두 제안한다', () => {
-    const found = columnSuggestion('SUM(items.', 10, parameters);
+    const found = columnSuggestion('SUM($(items).', 13, parameters);
     expect(found?.columns.map((c) => c.key)).toEqual(['amount', 'agent', 'qty']);
     expect(found?.typedLength).toBe(0);
   });
 
   it('입력한 글자로 시작하는 필드만 남기고 대소문자를 가리지 않는다', () => {
-    const found = columnSuggestion('SUM(items.A', 11, parameters);
+    const found = columnSuggestion('SUM($(items).A', 14, parameters);
     expect(found?.columns.map((c) => c.key)).toEqual(['amount', 'agent']);
     expect(found?.typedLength).toBe(1);
   });
 
   it('커서 앞만 본다 — 뒤에 남은 글은 제안에 영향을 주지 않는다', () => {
-    const found = columnSuggestion('SUM(items.) + 1', 10, parameters);
+    const found = columnSuggestion('SUM($(items).) + 1', 13, parameters);
     expect(found?.columns.length).toBe(3);
   });
 
   it('하위 필드가 없는 파라미터나 모르는 이름은 제안하지 않는다', () => {
-    expect(columnSuggestion('total.', 6, parameters)).toBeNull();
-    expect(columnSuggestion('nope.', 5, parameters)).toBeNull();
+    expect(columnSuggestion('$(total).', 9, parameters)).toBeNull();
+    expect(columnSuggestion('$(nope).', 8, parameters)).toBeNull();
   });
 
   it('맞는 필드가 하나도 없으면 제안하지 않는다', () => {
-    expect(columnSuggestion('items.zz', 8, parameters)).toBeNull();
+    expect(columnSuggestion('$(items).zz', 11, parameters)).toBeNull();
   });
 
-  it('점이 없으면 제안하지 않는다', () => {
-    expect(columnSuggestion('items', 5, parameters)).toBeNull();
+  it('점이 없거나 목록을 `$(...)` 없이 적으면 제안하지 않는다', () => {
+    expect(columnSuggestion('$(items)', 8, parameters)).toBeNull();
+    expect(columnSuggestion('SUM(items.', 10, parameters)).toBeNull();
   });
 });
 
@@ -99,9 +100,9 @@ const FIELD_TARGET = { kind: 'field', elementId: 'e1' } as const;
 describe('FormulaDraftController', () => {
   it('편집을 시작하면 커서가 글 끝에 온다', () => {
     const c = new FormulaDraftController(host(), () => null);
-    c.start(FIELD_TARGET, { formula: 'SUM(a)' });
-    expect(c.draft).toBe('SUM(a)');
-    expect(c.caret).toBe(6);
+    c.start(FIELD_TARGET, { formula: 'SUM($(a))' });
+    expect(c.draft).toBe('SUM($(a))');
+    expect(c.caret).toBe(9);
   });
 
   it('수식이 없던 필드는 빈 초안으로 시작한다', () => {
@@ -124,16 +125,16 @@ describe('FormulaDraftController', () => {
   it('입력란이 없으면 글 끝에 끼워 넣는다', () => {
     const c = new FormulaDraftController(host(), () => null);
     c.start(FIELD_TARGET, { formula: 'SUM(' });
-    c.insert('items');
-    expect(c.draft).toBe('SUM(items');
+    c.insert('$(items)');
+    expect(c.draft).toBe('SUM($(items)');
   });
 
   it('선택 범위가 있으면 해당 범위를 삽입할 텍스트로 대체한다', () => {
-    const input = { selectionStart: 4, selectionEnd: 7, focus() {}, setSelectionRange() {} };
+    const input = { selectionStart: 4, selectionEnd: 10, focus() {}, setSelectionRange() {} };
     const c = new FormulaDraftController(host(), () => input as unknown as HTMLTextAreaElement);
-    c.start(FIELD_TARGET, { formula: 'SUM(old)' });
-    c.insert('new');
-    expect(c.draft).toBe('SUM(new)');
+    c.start(FIELD_TARGET, { formula: 'SUM($(old))' });
+    c.insert('$(new)');
+    expect(c.draft).toBe('SUM($(new))');
   });
 
   it('뒤에 붙일 글도 함께 넣는다', () => {
@@ -145,8 +146,8 @@ describe('FormulaDraftController', () => {
 
   it('앞뒤 공백을 제거한 값을 반환하고, 빈 문자열이면 삭제를 나타내는 null을 반환한다', () => {
     const c = new FormulaDraftController(host(), () => null);
-    c.start(FIELD_TARGET, { formula: '  SUM(a)  ' });
-    expect(c.commit()).toBe('SUM(a)');
+    c.start(FIELD_TARGET, { formula: '  SUM($(a))  ' });
+    expect(c.commit()).toBe('SUM($(a))');
     c.start(FIELD_TARGET, { formula: '   ' });
     expect(c.commit()).toBeNull();
   });

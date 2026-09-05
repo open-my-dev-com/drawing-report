@@ -73,40 +73,40 @@ Assume you have the following voucher values.
 Sum all line-item amounts.
 
 ```text
-SUM(items.amount)
+SUM($(items).$(amount))
 → 13000
 ```
 
 Compute the total including the shipping fee.
 
 ```text
-SUM(items.amount) + shippingFee
+SUM($(items).$(amount)) + $(shippingFee)
 → 16000
 ```
 
 Build display text.
 
 ```text
-CONCAT(customerName, " Co.")
+CONCAT($(customerName), " Co.")
 → "Hanbit Trading Co."
 ```
 
 Apply a thousands separator to the total.
 
 ```text
-CONCAT(FORMAT_NUMBER(SUM(items.amount) + shippingFee), " KRW")
+CONCAT(FORMAT_NUMBER(SUM($(items).$(amount)) + $(shippingFee)), " KRW")
 → "16,000 KRW"
 ```
 
 Inside a repeat grid, you can reference the current item's fields directly by name.
 
 ```text
-quantity * unitPrice
+$(quantity) * $(unitPrice)
 ```
 
 > [!IMPORTANT]
 > Inside the data repeat area, the current item's fields take precedence over top-level voucher values of the same name.
-> The whole list can still be referenced as `items.amount` as before.
+> Reference the whole list as `$(items).$(amount)`.
 
 ### Calculation scopes in repeating grids
 
@@ -114,11 +114,11 @@ Formulas in row bands can select a calculation scope with an `@` reserved refere
 
 | Reference | Scope | Example |
 |---|---|---|
-| `@item` | Current item | `@item.amount` |
-| `@group` | Items in the current group | `SUM(@group.amount)` |
-| `@page` | Items on the current output page | `SUM(@page.amount)` |
-| `@carried` | Items placed before the current output page | `SUM(@carried.amount)` |
-| `@all` | All items included in the output | `SUM(@all.amount)` |
+| `@item` | Current item | `@item.$(amount)` |
+| `@group` | Items in the current group | `SUM(@group.$(amount))` |
+| `@page` | Items on the current output page | `SUM(@page.$(amount))` |
+| `@carried` | Items placed before the current output page | `SUM(@carried.$(amount))` |
+| `@all` | All items included in the output | `SUM(@all.$(amount))` |
 
 Blank items are excluded from these scopes. When <kbd>Maximum items</kbd> is set, `@all` contains only the items left after that limit is applied.
 
@@ -133,9 +133,9 @@ The designer's <kbd>Group subtotal</kbd>, <kbd>Page subtotal</kbd>, and <kbd>Fin
 | Number | Write the number as-is | `1500`, `-3.5`, `1e3` |
 | String | Wrap in double quotes | `"Done"` |
 | Boolean | `TRUE` or `FALSE` | `TRUE` |
-| Parameter | Write the parameter key | `totalAmount` |
-| Sub-field | Join the path with a dot | `customer.name` |
-| List range | Join the list and a sub-field | `items.amount` |
+| Parameter | Wrap one key in `$(` and `)` | `$(totalAmount)` |
+| Sub-field | Join individually wrapped key steps with a dot | `$(customer).$(name)` |
+| List range | Join the list key and field key | `$(items).$(amount)` |
 
 To include a double quote inside a string, write the double quote twice.
 
@@ -144,23 +144,19 @@ To include a double quote inside a string, write the double quote twice.
 → Han "bit"
 ```
 
-Parameter and field names must follow these rules to be referenceable in a formula.
-
-- Start with a letter or an underscore (`_`)
-- After that, letters, digits, and underscores can be used
-- Unicode characters, including Korean, can be used
-- Spaces, hyphens (`-`), and special characters cannot be used
+Each `$(...)` is exactly one key step. This makes punctuation and operators unambiguous.
 
 ```text
-totalAmount     valid
-총금액           valid
-_item1          valid
-item-price      cannot be used as a formula reference name
-1stItem         cannot be used because it starts with a digit
+$(datas-2)             key named "datas-2"
+$(datas) - 2           subtract 2 from "datas"
+$(customer.name)       one key containing a dot
+$(customer).$(name)    two-step nested path
 ```
 
-> [!TIP]
-> If you use only Latin and Korean letters, digits, and underscores from the moment you create a template parameter, you can prevent formula-reference problems.
+Inside a key, write `\)` for `)` and `\\` for `\`. Every business-data key must use `$(...)`,
+regardless of the characters in its name. Bare references such as `totalAmount`, `items.amount`, and
+`@item.amount` are syntax errors. Function names, `TRUE`, `FALSE`, and reserved repeating-grid roots
+remain bare: write `@item.$(amount)`. `$(@item)` means a business-data key named `@item`.
 
 ### Operators
 
@@ -210,13 +206,13 @@ SlipKit formula values are distinguished into the following five types.
 Operations or functions that require a number do not automatically convert a string to a number.
 
 ```text
-amount * 2
+$(amount) * 2
 ```
 
 If `amount` is the string `"1500"`, the formula above throws an error. You must convert it explicitly.
 
 ```text
-TO_NUMBER(amount) * 2
+TO_NUMBER($(amount)) * 2
 → 3000
 ```
 
@@ -265,26 +261,26 @@ The empty string `""` is excluded from aggregation functions, but using it direc
 Referencing a sub-field of a list parameter creates a range.
 
 ```text
-items.amount
+$(items).$(amount)
 ```
 
 A range can be passed to aggregation functions such as `SUM`, `AVG`, `COUNT`, `MIN`, `MAX`, `SUMIF`, and `COUNTIF`.
 
 ```text
-SUM(items.amount)
+SUM($(items).$(amount))
 ```
 
 A range cannot be used directly in an arithmetic operation.
 
 ```text
-items.amount + 1000
+$(items).$(amount) + 1000
 → error
 ```
 
 You must use an aggregation function.
 
 ```text
-SUM(items.amount) + 1000
+SUM($(items).$(amount)) + 1000
 ```
 
 If a list item does not have the given field, that item's value is treated as an empty value.
@@ -306,8 +302,8 @@ If a list item does not have the given field, that item's value is treated as an
 Function names are case-insensitive.
 
 ```text
-SUM(items.amount)
-sum(items.amount)
+SUM($(items).$(amount))
+sum($(items).$(amount))
 ```
 
 Both formulas are treated as the same function.
@@ -325,10 +321,10 @@ Computes the sum of numbers and ranges. You can pass multiple values and ranges 
 Empty values and empty strings are excluded. If the aggregation target contains a non-number value, an error occurs.
 
 ```text
-SUM(items.amount)
+SUM($(items).$(amount))
 → the sum of item amounts
 
-SUM(items.amount, shippingFee)
+SUM($(items).$(amount), $(shippingFee))
 → the sum of item amounts + the shipping fee
 
 SUM()
@@ -344,7 +340,7 @@ Computes the average of numbers and ranges.
 Empty values and empty strings are excluded, and if there is not a single number to average, an error occurs.
 
 ```text
-AVG(items.unitPrice)
+AVG($(items).$(unitPrice))
 ```
 
 ### `COUNT`
@@ -356,7 +352,7 @@ Returns the number of items excluding empty values and empty strings.
 Not only numbers but also strings and booleans are included in the count if they have a value.
 
 ```text
-COUNT(items.name)
+COUNT($(items).$(name))
 → the number of items with a product name entered
 ```
 
@@ -367,7 +363,7 @@ COUNT(items.name)
 Returns the smallest number. If there is no number to compute, it returns `0`.
 
 ```text
-MIN(items.unitPrice)
+MIN($(items).$(unitPrice))
 ```
 
 ### `MAX`
@@ -377,7 +373,7 @@ MIN(items.unitPrice)
 Returns the largest number. If there is no number to compute, it returns `0`.
 
 ```text
-MAX(items.amount)
+MAX($(items).$(amount))
 ```
 
 ## Conditional aggregation functions
@@ -391,10 +387,10 @@ Sums only the items that match the condition.
 If the sum range is omitted, it sums the values of the condition range.
 
 ```text
-SUMIF(items.category, "Food", items.amount)
+SUMIF($(items).$(category), "Food", $(items).$(amount))
 → the sum of amount for items whose category is "Food"
 
-SUMIF(items.amount, ">=10000")
+SUMIF($(items).$(amount), ">=10000")
 → the sum of amount that is 10000 or more
 ```
 
@@ -409,10 +405,10 @@ Empty values and empty strings in the sum target are excluded. If a matching sum
 Returns the number of items that match the condition.
 
 ```text
-COUNTIF(items.status, "Done")
+COUNTIF($(items).$(status), "Done")
 → the number of items whose status is "Done"
 
-COUNTIF(items.quantity, ">4")
+COUNTIF($(items).$(quantity), ">4")
 → the number of items whose quantity is greater than 4
 ```
 
@@ -435,15 +431,15 @@ A condition without a comparison operator is treated as an equality comparison.
 A numeric comparison condition works only when the comparison operand of the condition string can be interpreted as a number.
 
 ```text
-COUNTIF(items.quantity, "3")
-COUNTIF(items.quantity, "=3")
+COUNTIF($(items).$(quantity), "3")
+COUNTIF($(items).$(quantity), "=3")
 ```
 
 Both formulas can count items with the number `3`.
 
 > [!CAUTION]
 > A `"<>"` condition judges an empty value to also be different from the specified value.
-> For example, `COUNTIF(items.status, "<>Done")` includes items whose status is empty.
+> For example, `COUNTIF($(items).$(status), "<>Done")` includes items whose status is empty.
 
 ## Arithmetic functions
 
@@ -516,7 +512,7 @@ Numbers and booleans are converted to strings, and empty values are treated as e
 CONCAT("Total: ", 1000, " KRW")
 → "Total: 1000 KRW"
 
-CONCAT(customerName, " Co.")
+CONCAT($(customerName), " Co.")
 → "Hanbit Trading Co."
 ```
 
@@ -616,15 +612,15 @@ Returns the second argument if the condition is true, and the third argument if 
 If the false value is omitted, it returns an empty value when the condition is false.
 
 ```text
-IF(totalAmount >= 100000, "Bulk", "Regular")
+IF($(totalAmount) >= 100000, "Bulk", "Regular")
 
-IF(isPaid, "Payment complete")
+IF($(isPaid), "Payment complete")
 ```
 
 `IF` computes only the selected result. It does not evaluate the formula on the unused side.
 
 ```text
-IF(quantity = 0, 0, amount / quantity)
+IF($(quantity) = 0, 0, $(amount) / $(quantity))
 ```
 
 If the quantity is `0`, the division is not performed, so a division-by-zero error does not occur.
@@ -638,7 +634,7 @@ Returns `TRUE` if all conditions are true. If even one is false, it returns `FAL
 At least one condition is required.
 
 ```text
-AND(quantity > 0, unitPrice > 0)
+AND($(quantity) > 0, $(unitPrice) > 0)
 ```
 
 ### `OR`
@@ -650,7 +646,7 @@ Returns `TRUE` if at least one condition is true. When it meets a true condition
 At least one condition is required.
 
 ```text
-OR(status = "Done", status = "Issued")
+OR($(status) = "Done", $(status) = "Issued")
 ```
 
 A condition can use a boolean or a number.
@@ -704,6 +700,9 @@ FORMAT_DATE("2026-08-25")
 
 FORMAT_DATE("2026-08-25", "M/D/YYYY")
 → "8/25/2026"
+
+FORMAT_DATE("2026-08-25", "[Date:] YYYY-MM-DD")
+→ "Date: 2026-08-25"
 ```
 
 The supported pattern tokens are as follows.
@@ -720,12 +719,24 @@ The supported pattern tokens are as follows.
 | `mm` | Two-digit minute | `30` |
 | `ss` | Two-digit second | `00` |
 
-Dates and times are handled in UTC.
+Outside brackets, each run of the same ASCII letter must be exactly one token. Different tokens can
+be adjacent, so `YYYYMMDD` works, but `MMM`, `YYYYY`, and `hh` are errors. Wrap literal ASCII letters
+in `[...]`. Numbers, non-ASCII characters, spaces, punctuation, and `]` are literal outside brackets.
+Inside brackets, `\]` means `]` and `\\` means `\`. An unknown ASCII-letter token, a backslash outside
+brackets, an invalid escape, or an unclosed bracket is an error.
+
+The date must be strict ISO `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm[:ss[.fraction]][Z|±HH:mm]`, with 1-9
+fractional-second digits. A value
+without an offset is read as UTC; a value with an offset is converted to UTC. The resulting year
+must be between `0001` and `9999`. `DATE_ADD` uses the same year boundary.
 
 A date that does not actually exist is not auto-corrected but treated as an error.
 
 ```text
 FORMAT_DATE("2026-02-30")
+→ error
+
+FORMAT_DATE("2026-08-25", "Date YYYY")
 → error
 ```
 
@@ -756,7 +767,7 @@ Only integers are supported, and a value beyond JavaScript's safe integer range 
 When building an amount phrase, you can combine it as follows.
 
 ```text
-CONCAT("금 ", NUMBER_TO_KOREAN(totalAmount), " 원")
+CONCAT("금 ", NUMBER_TO_KOREAN($(totalAmount)), " 원")
 ```
 
 ## Date functions

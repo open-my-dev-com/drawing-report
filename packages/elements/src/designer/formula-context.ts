@@ -15,6 +15,7 @@ import type {
   PlannedBand,
   SourcePagePlan,
 } from '@omdc-slipkit/core';
+import { readOwn } from './own-map.js';
 
 /** 예약 참조 값을 제공할 수 없는 이유 */
 export type ReservedBlockReason =
@@ -96,7 +97,7 @@ export function sampleItemsOf(
   sampleValues: Readonly<Record<string, unknown>> | undefined,
 ): GridItem[] {
   if (!el.repeat) return [];
-  const sample = sampleValues?.[el.repeat.parameter];
+  const sample = readOwn(sampleValues, el.repeat.parameter);
   if (!Array.isArray(sample)) return [];
   return sample
     .filter((row) => typeof row === 'object' && row !== null && !Array.isArray(row))
