@@ -1245,10 +1245,48 @@ export const slipVoucherFileSchema = z
   });
 
 /** `kind`로 양식과 전표를 구분하는 `.slip` 파일 스키마 */
-export const slipFileSchema = z.discriminatedUnion('kind', [
-  slipTemplateFileSchema,
-  slipVoucherFileSchema,
-]);
+/** 어떤 키든 보존하는 열린 업무 데이터의 뿌리 경로. 이 아래의 객체는 구조 객체가 아니다. */
+const OPEN_DATA_ROOTS: readonly (readonly string[])[] = [
+  ['values'],
+  ['template', 'sampleValues'],
+  ['templateSnapshot', 'sampleValues'],
+];
+
+function isOpenDataRoot(path: readonly (string | number)[]): boolean {
+  return OPEN_DATA_ROOTS.some((root) => root.length === path.length && root.every((seg, i) => seg === path[i]));
+}
+
+/**
+ * 구조 객체가 직접 가진 `__proto__` 키를 미정의 키로 보고한다.
+ *
+ * `z.strictObject`는 `__proto__`를 미정의 키로 열거하지 않고 결과에서 조용히 빼 버리므로,
+ * 검사 전에 입력을 훑어 열린 업무 데이터 밖에 있는 `__proto__`를 다른 미정의 키와 같은
+ * 오류로 남긴다. 입력은 바꾸지 않는다.
+ */
+function reportStructuralProtoKeys(input: unknown, ctx: z.RefinementCtx): unknown {
+  const walk = (value: unknown, path: (string | number)[]): void => {
+    if (typeof value !== 'object' || value === null) return;
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => walk(item, [...path, index]));
+      return;
+    }
+    if (isOpenDataRoot(path)) return;
+    const record = value as Record<string, unknown>;
+    if (Object.hasOwn(record, '__proto__')) {
+      ctx.addIssue({ code: 'unrecognized_keys', keys: ['__proto__'], path, input: record });
+    }
+    for (const key of Object.keys(record)) {
+      if (key !== '__proto__') walk(readOwn(record, key), [...path, key]);
+    }
+  };
+  walk(input, []);
+  return input;
+}
+
+export const slipFileSchema = z.preprocess(
+  reportStructuralProtoKeys,
+  z.discriminatedUnion('kind', [slipTemplateFileSchema, slipVoucherFileSchema]),
+);
 
 // ---------------------------------------------------------------------------
 // 파싱 · 직렬화

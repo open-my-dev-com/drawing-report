@@ -318,21 +318,27 @@ describe('특수 키의 저장·읽기 왕복', () => {
     expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
   });
 
-  it('set_meta의 __proto__ 필드는 도구 입력을 거쳐도 자신의 속성으로 병합되고 프로토타입을 바꾸지 않는다', async () => {
+  it('set_meta의 __proto__ 필드는 구조 검증에서 경로와 함께 거부되고 파일은 바뀌지 않는다', async () => {
+    const before = await readFile(path.join(dir, 'doc.slip'), 'utf8');
     const edited = await callText(client, 'slip_edit', {
       path: 'doc',
       ops: [{ action: 'set_meta', fields: fromJson('{"__proto__":{"polluted":true},"title":"바뀐 제목"}') }],
     });
-    expect(edited.isError).toBe(false);
-    // 적용 결과 줄은 병합한 필드의 자신의 키 목록이므로 __proto__가 키로 도착했음을 보여 준다.
-    expect(edited.text).toContain('set_meta: __proto__, title');
+    expect(edited.isError).toBe(true);
+    expect(edited.text).toMatch(/template\.meta.*__proto__/);
+    expect(await readFile(path.join(dir, 'doc.slip'), 'utf8')).toBe(before);
+    expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
+  });
 
-    // 고정 구조인 meta에 남길지는 core의 구조 검증이 정한다. 여기서는 프로토타입이 바뀌지 않았는지만 본다.
-    const file = await new FileSystemStorage({ rootDir: dir }).load('doc');
-    if (file.kind !== 'template') throw new Error('template expected');
-    expect(file.template.meta.title).toBe('바뀐 제목');
-    expect(Object.getPrototypeOf(file.template.meta)).toBe(Object.prototype);
-    expect((file.template.meta as { polluted?: unknown }).polluted).toBeUndefined();
+  it('slip_save는 구조 객체의 __proto__ 키를 저장 전에 거부한다', async () => {
+    const file = keyedTemplate() as { template: { meta: Record<string, unknown> } };
+    Object.defineProperty(file.template.meta, '__proto__', {
+      value: { polluted: true }, enumerable: true, writable: true, configurable: true,
+    });
+    const saved = await callText(client, 'slip_save', { path: 'rejected', file });
+    expect(saved.isError).toBe(true);
+    expect(saved.text).toMatch(/template\.meta.*__proto__/);
+    await expect(readFile(path.join(dir, 'rejected.slip'))).rejects.toThrow();
     expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
   });
 

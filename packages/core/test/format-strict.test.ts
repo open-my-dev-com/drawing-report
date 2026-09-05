@@ -94,7 +94,8 @@ function withKey(file: unknown, path: (string | number)[], key: string, value: u
   const clone = JSON.parse(JSON.stringify(file)) as Record<string, unknown>;
   let node: Record<string, unknown> = clone;
   for (const segment of path) node = node[segment as string] as Record<string, unknown>;
-  node[key] = value;
+  // `__proto__`도 객체가 직접 가진 키로 심기 위해 대입 대신 속성 정의를 쓴다.
+  Object.defineProperty(node, key, { value, enumerable: true, writable: true, configurable: true });
   return clone;
 }
 
@@ -103,7 +104,7 @@ describe('구조 객체는 정의되지 않은 프로퍼티를 거부한다', ()
   const P = [...T, 'pages', 0];
   const E = (index: number) => [...P, 'elements', index];
   const G = E(8);
-  it.each<[string, (string | number)[]]>([
+  const LAYERS: [string, (string | number)[]][] = [
     ['최상위 파일', []],
     ['template', T],
     ['meta', [...T, 'meta']],
@@ -133,11 +134,35 @@ describe('구조 객체는 정의되지 않은 프로퍼티를 거부한다', ()
     ['asset', [...T, 'assets', 0]],
     ['파라미터 정의', [...T, 'parameters', 0]],
     ['목록 하위 필드', [...T, 'parameters', 1, 'fields', 0]],
-  ])('%s에 미정의 키가 있으면 경로와 키 이름을 담은 SlipParseError', (_label, path) => {
+  ];
+  it.each(LAYERS)('%s에 미정의 키가 있으면 경로와 키 이름을 담은 SlipParseError', (_label, path) => {
     const raw = withKey(makeTemplate(), path, 'unknownKey');
     expect(() => validateSlipFile(raw)).toThrow(SlipParseError);
     const pathText = path.length === 0 ? '' : path.join('.');
     expect(() => validateSlipFile(raw)).toThrow(new RegExp(`${pathText.replace(/\./g, '\\.')}.*unknownKey`));
+  });
+
+  it.each(LAYERS)('%s이(가) 직접 가진 __proto__ 키도 미정의 키로 거부한다', (_label, path) => {
+    const raw = withKey(makeTemplate(), path, '__proto__');
+    const pathText = path.length === 0 ? '' : path.join('.');
+    const pattern = new RegExp(`${pathText.replace(/\./g, '\\.')}.*__proto__`);
+    expect(() => validateSlipFile(raw)).toThrow(SlipParseError);
+    expect(() => validateSlipFile(raw)).toThrow(pattern);
+    expect(() => parseSlipFile(JSON.stringify(raw))).toThrow(pattern);
+    // 문자열로 만든 JSON도 같은 판정을 받는다.
+    const text = JSON.stringify(raw);
+    expect(text).toContain('"__proto__"');
+  });
+
+  it('전표 파일·templateSnapshot·values 안의 목록 행이 아닌 구조에서도 __proto__를 거부한다', () => {
+    expect(() => validateSlipFile(withKey(makeVoucher({}), [], '__proto__'))).toThrow(/__proto__/);
+    expect(() => validateSlipFile(withKey(makeVoucher({}), ['templateSnapshot', 'meta'], '__proto__')))
+      .toThrow(/templateSnapshot\.meta.*__proto__/);
+  });
+
+  it('구조에 정의되지 않은 constructor·toString도 거부한다', () => {
+    expect(() => validateSlipFile(withKey(makeTemplate(), ['template', 'meta'], 'constructor'))).toThrow(/constructor/);
+    expect(() => validateSlipFile(withKey(makeTemplate(), ['template', 'paper'], 'toString'))).toThrow(/toString/);
   });
 
   it('전표 파일과 templateSnapshot도 엄격하다', () => {
@@ -169,6 +194,26 @@ describe('values·sampleValues는 열린 맵으로 그대로 보존한다', () =
     expect(once).toEqual(voucher);
     expect(twice).toEqual(voucher);
     if (twice.kind === 'voucher') expect(twice.values).toEqual(values);
+  });
+
+  it('values·sampleValues·목록 행·중첩 객체의 __proto__·constructor·toString은 순서까지 보존한다', () => {
+    const row = JSON.parse('{"__proto__": 1, "constructor": 2, "toString": 3, "name": "a"}') as Record<string, unknown>;
+    const nested = JSON.parse('{"__proto__": {"__proto__": "deep"}, "toString": "t"}') as Record<string, unknown>;
+    const values = JSON.parse('{"__proto__": "p", "constructor": "c", "toString": "s"}') as Record<string, unknown>;
+    values['items'] = [row];
+    values['nested'] = nested;
+    const parsed = validateSlipFile(makeVoucher(values));
+    if (parsed.kind !== 'voucher') throw new Error('voucher expected');
+    expect(Object.keys(parsed.values)).toEqual(['__proto__', 'constructor', 'toString', 'items', 'nested']);
+    expect(Object.keys((parsed.values['items'] as Record<string, unknown>[])[0]!)).toEqual(['__proto__', 'constructor', 'toString', 'name']);
+    const deep = parsed.values['nested'] as Record<string, unknown>;
+    expect(Object.hasOwn(deep, '__proto__')).toBe(true);
+    expect(Object.hasOwn(deep['__proto__'] as object, '__proto__')).toBe(true);
+    expect((deep['__proto__'] as Record<string, unknown>)['__proto__']).toBe('deep');
+    const sample = withKey(makeTemplate(), ['template', 'sampleValues'], '__proto__', 'sp');
+    const template = validateSlipFile(sample);
+    if (template.kind !== 'template') throw new Error('template expected');
+    expect(template.template.sampleValues?.['__proto__']).toBe('sp');
   });
 
   it('sampleValues의 미정의 키도 보존한다', () => {
