@@ -87,7 +87,7 @@ import type { ElementActions } from './designer/render/element-props.js';
 import { MY_FORMS_PAGE_SIZE } from './designer/pagination.js';
 import { BARCODE_KINDS, BARCODE_DIGIT_RULES } from './designer/barcode.js';
 import { GRID_COLORS } from './designer/grid-view.js';
-import { cloneOwn, deleteOwn, entriesOwn, hasOwn, readOwn, writeOwn } from './designer/own-map.js';
+import { cloneOwn, deleteOwn, hasOwn, readOwn, writeOwn } from './designer/own-map.js';
 import type { GridColorId, CreatableType } from './designer/grid-view.js';
 import type { ParameterInfo, ParameterFieldInfo } from './designer/parameters.js';
 import {
@@ -2361,9 +2361,12 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 선언된 모든 파라미터에 현재 샘플 값을 적용한 JSON 객체를 만듭니다.
+   * JSON 편집 초안으로 쓸 샘플 값 객체를 만듭니다.
    *
-   * @returns 파라미터 물리명 → 값 (없으면 종류에 맞는 빈 값)
+   * 기존 샘플은 정의에 없는 키와 값의 모양(비배열 목록 값, 빈 배열, 원시값·null·일부 필드만 있는
+   * 행)까지 그대로 두고, 선언됐지만 샘플에 없는 파라미터에만 종류에 맞는 빈 값을 덧붙입니다.
+   *
+   * @returns 기존 샘플 값에 빠진 파라미터의 빈 값을 더한 객체 (기존 키 순서 유지)
    */
   private _sampleSkeleton(): Record<string, unknown> {
     const samples = this._file?.template.sampleValues ?? {};
@@ -2375,33 +2378,17 @@ export class SlipDesigner extends LitElement {
         default: return '';
       }
     };
-    /** 목록 항목에 선언된 모든 하위 필드의 키를 추가합니다. */
-    const withFields = (
-      row: Record<string, unknown>,
-      fields: readonly ParameterFieldInfo[],
-    ): Record<string, unknown> => {
-      const item: Record<string, unknown> = {};
-      for (const f of fields) writeOwn(item, f.key, readOwn(row, f.key) ?? emptyFor(f.valueType));
-      // 정의에 없는 기존 값도 유지합니다.
-      for (const [k, v] of entriesOwn(row)) if (!hasOwn(item, k)) writeOwn(item, k, v);
-      return item;
-    };
-
-    const out: Record<string, unknown> = {};
+    const out = cloneOwn(samples);
     for (const b of this._parameterList()) {
-      const current = readOwn(samples, b.key);
-      // 각 목록 항목에 선언된 하위 필드를 모두 추가합니다.
-      if (b.valueType === 'list') {
-        const rows = Array.isArray(current) ? current : [];
-        writeOwn(out, b.key, rows.length > 0
-          ? rows.map((row) =>
-              typeof row === 'object' && row !== null && !Array.isArray(row)
-                ? withFields(row as Record<string, unknown>, b.fields)
-                : row)
-          : b.fields.length > 0 ? [withFields({}, b.fields)] : []);
+      // 이미 있는 값은 사용자가 고치기 전까지 형식과 키 순서를 바꾸지 않습니다.
+      if (hasOwn(out, b.key)) continue;
+      if (b.valueType === 'list' && b.fields.length > 0) {
+        const row: Record<string, unknown> = {};
+        for (const f of b.fields) writeOwn(row, f.key, emptyFor(f.valueType));
+        writeOwn(out, b.key, [row]);
         continue;
       }
-      writeOwn(out, b.key, current !== undefined ? current : emptyFor(b.valueType));
+      writeOwn(out, b.key, emptyFor(b.valueType));
     }
     return out;
   }

@@ -1020,7 +1020,7 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
-  it('샘플 JSON은 저장된 행에 없는 하위 필드도 키로 표시한다 (입력폼 탭과 일치하도록)', async () => {
+  it('샘플 JSON은 저장된 행을 그대로 두고 없는 하위 필드를 덧붙이지 않는다', async () => {
     const file = makeTemplateFile();
     file.template.parameters = [{
       key: 'items', valueType: 'list',
@@ -1033,7 +1033,7 @@ describe('<slip-designer> 사이드바', () => {
 
     const skeleton = (el as unknown as { _sampleSkeleton: () => Record<string, unknown> })
       ._sampleSkeleton();
-    expect(skeleton['items']).toEqual([{ name: '사과', amount: 0 }]);
+    expect(skeleton['items']).toEqual([{ name: '사과' }]);
     el.remove();
   });
 

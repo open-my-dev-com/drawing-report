@@ -23,7 +23,7 @@ vi.mock('../../src/default-fonts.js', () => ({
 }));
 
 import type { FormulaContext, GridCell, SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
-import { evaluateFormula } from '@omdc-slipkit/core';
+import { evaluateFormula, validateSlipFile } from '@omdc-slipkit/core';
 import {
   strings,
   parseSlipFileMock,
@@ -474,10 +474,11 @@ describe('<slip-designer> 샘플 데이터의 프로토타입 이름 키', () =>
     };
 
     const skeleton = internals._sampleSkeleton();
-    expect(Object.keys(skeleton)).toEqual(['constructor', 'toString', 'items']);
-    expect(plain(skeleton)).toEqual(json('{"constructor": "c", "toString": 0, "items": [{"__proto__": 1, "toString": 0, "extra": 2}]}'));
+    // 기존 키는 순서대로 그대로 두고, 선언됐지만 없는 toString만 뒤에 덧붙입니다. 행에도 빠진 필드를 넣지 않습니다.
+    expect(Object.keys(skeleton)).toEqual(['constructor', 'items', 'toString']);
+    expect(plain(skeleton)).toEqual(json('{"constructor": "c", "items": [{"__proto__": 1, "extra": 2}], "toString": 0}'));
     const row = (readOwn(skeleton, 'items') as Record<string, unknown>[])[0]!;
-    expect(Object.keys(row)).toEqual(['__proto__', 'toString', 'extra']);
+    expect(Object.keys(row)).toEqual(['__proto__', 'extra']);
     expect(Object.getPrototypeOf(row)).toBe(Object.prototype);
     // JSON 편집 탭의 초안도 같은 본문입니다.
     await openSampleModal(el);
@@ -572,5 +573,103 @@ describe('<slip-designer> 샘플 데이터의 프로토타입 이름 키', () =>
     expect(inputByAria(reopened, `items 1 __proto__`).value).toBe('1');
     expect(inputByAria(reopened, `items 1 toString`).value).toBe('row');
     reopened.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// JSON 초안과 변경 없는 적용의 보존
+// ---------------------------------------------------------------------------
+
+describe('<slip-designer> 샘플 JSON 초안은 기존 값의 모양과 미정의 키를 그대로 둔다', () => {
+  /** 정의에 없는 키, 프로토타입 이름 키, 비배열 목록 값, 빈 배열, 원시값·null·일부 필드만 있는 행을 함께 둔 샘플 */
+  const SAMPLE = '{"z": 1, "__proto__": 7, "constructor": "c", "items": "text", "rows": [], "flags": [1, null, {"name": "x"}], "a.b": {"__proto__": "n", "toString": "s"}}';
+  /** 폼 → JSON 초안: 기존 키는 순서대로, 선언됐지만 없는 toString만 끝에 빈 값으로 덧붙는다 */
+  const DRAFT = SAMPLE.slice(0, -1) + ', "toString": ""}';
+  const plain = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
+
+  function makeFile(): SlipTemplateFile {
+    const file = makeListFile(['__proto__', 'name', 'toString']);
+    file.template.parameters!.push(
+      ...PROTO_KEYS.map((key) => ({ key })),
+      { key: 'rows', valueType: 'list', fields: [{ key: 'name' }, { key: 'qty', valueType: 'number' }] },
+      { key: 'flags', valueType: 'list', fields: [{ key: 'name' }] },
+    );
+    file.template.pages[0]!.elements.push(...makeScalarFile().template.pages[0]!.elements);
+    file.template.sampleValues = json(SAMPLE) as never;
+    return file;
+  }
+
+  function jsonTextarea(el: Designer): HTMLTextAreaElement {
+    return el.shadowRoot!.querySelector('.sample-json') as HTMLTextAreaElement;
+  }
+
+  async function toJsonMode(el: Designer): Promise<void> {
+    byAria(el, `${strings.designer.sampleData}: JSON`).click();
+    await el.updateComplete;
+  }
+
+  async function toFormMode(el: Designer): Promise<void> {
+    byAria(el, `${strings.designer.sampleData}: ${strings.designer.formMode}`).click();
+    await el.updateComplete;
+  }
+
+  async function applyWithoutEditing(el: Designer): Promise<void> {
+    const apply = Array.from(el.shadowRoot!.querySelectorAll('.modal-foot button'))
+      .find((b) => b.textContent?.trim() === strings.designer.apply) as HTMLButtonElement;
+    expect(apply.disabled).toBe(false);
+    apply.click();
+    await el.updateComplete;
+  }
+
+  it('폼 → JSON 초안이 기존 값을 순서까지 담고 없는 파라미터만 빈 값으로 덧붙인다', async () => {
+    const el = await mountWith(makeFile());
+    await openSampleModal(el);
+    await toJsonMode(el);
+    const draft = json(jsonTextarea(el).value);
+    expect(Object.keys(draft)).toEqual(['z', '__proto__', 'constructor', 'items', 'rows', 'flags', 'a.b', 'toString']);
+    expect(plain(draft)).toEqual(json(DRAFT));
+    // 비배열 목록 값·빈 배열·원시값·null·일부 필드만 있는 행이 그대로다.
+    expect(readOwn(draft, 'items')).toBe('text');
+    expect(readOwn(draft, 'rows')).toEqual([]);
+    expect(plain(readOwn(draft, 'flags'))).toEqual([1, null, { name: 'x' }]);
+    expect(Object.keys(readOwn(draft, 'a.b') as object)).toEqual(['__proto__', 'toString']);
+    el.remove();
+  });
+
+  it('JSON → 폼 → JSON을 오가도 초안이 같고, 고치지 않고 적용해도 기존 값이 깊은 동등으로 남는다', async () => {
+    const el = await mountWith(makeFile());
+    const changes: SlipTemplateFile[] = [];
+    el.addEventListener('slip-change', (e) => changes.push((e as CustomEvent<{ file: SlipTemplateFile }>).detail.file));
+    await openSampleModal(el);
+    await toJsonMode(el);
+    const first = jsonTextarea(el).value;
+    await toFormMode(el);
+    await toJsonMode(el);
+    expect(jsonTextarea(el).value).toBe(first);
+
+    await applyWithoutEditing(el);
+    const samples = samplesOf(el)!;
+    expect(Object.keys(samples)).toEqual(['z', '__proto__', 'constructor', 'items', 'rows', 'flags', 'a.b', 'toString']);
+    expect(plain(samples)).toEqual(json(DRAFT));
+    expect(Object.getPrototypeOf(samples)).toBe(Object.prototype);
+    expect(hasOwn(samples, '__proto__')).toBe(true);
+    expect(hasOwn(readOwn(samples, 'a.b') as Record<string, unknown>, '__proto__')).toBe(true);
+
+    // 변경 이벤트의 복제본, 직렬화 본문, core 파서를 거친 결과가 모두 같다.
+    const emitted = changes.at(-1)!.template.sampleValues as Record<string, unknown>;
+    expect(Object.keys(emitted)).toEqual(Object.keys(samples));
+    expect(plain(emitted)).toEqual(json(DRAFT));
+    const text = JSON.stringify(fileOf(el));
+    expect(plain(JSON.parse(text).template.sampleValues)).toEqual(json(DRAFT));
+    const reparsed = validateSlipFile(JSON.parse(text));
+    if (reparsed.kind !== 'template') throw new Error('template expected');
+    expect(Object.keys(reparsed.template.sampleValues as object)).toEqual(Object.keys(samples));
+    expect(plain(reparsed.template.sampleValues)).toEqual(json(DRAFT));
+
+    // 다시 JSON 초안을 열어도 같은 본문이다.
+    await toFormMode(el);
+    await toJsonMode(el);
+    expect(json(jsonTextarea(el).value)).toEqual(json(DRAFT));
+    el.remove();
   });
 });
