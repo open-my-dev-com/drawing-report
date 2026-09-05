@@ -230,6 +230,15 @@ describe('values·sampleValues는 열린 맵으로 그대로 보존한다', () =
 });
 
 describe('저장 형식은 수식 문법을 함께 검증한다', () => {
+  it('빈 수식은 편집 중 상태로 허용한다', () => {
+    const template = makeTemplate();
+    const field = template.template.pages[0]!.elements[1]!;
+    if (field.type !== 'field') throw new Error('field expected');
+    delete field.parameter;
+    field.formula = '   ';
+    expect(validateSlipFile(template)).toEqual(template);
+  });
+
   it('요소·셀의 일반 참조와 잘못된 함수 인자 수를 정확한 경로에서 거부한다', () => {
     const template = makeTemplate();
     const field = template.template.pages[0]!.elements[1]!;

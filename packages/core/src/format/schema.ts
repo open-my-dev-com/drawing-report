@@ -1310,6 +1310,7 @@ function validateTemplateFormulas(
 ): void {
   const issues: string[] = [];
   const check = (source: string, path: (string | number)[]): void => {
+    if (source.trim() === '') return;
     try {
       const options = locale === undefined ? undefined : { locale };
       assertFormulaArity(parseFormula(source, options), options);

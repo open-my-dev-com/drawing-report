@@ -106,7 +106,7 @@ $(quantity) * $(unitPrice)
 
 > [!IMPORTANT]
 > Inside the data repeat area, the current item's fields take precedence over top-level voucher values of the same name.
-> Reference the whole list as `$(items).$(amount)`. Existing `items.amount` formulas remain compatible.
+> Reference the whole list as `$(items).$(amount)`.
 
 ### Calculation scopes in repeating grids
 
