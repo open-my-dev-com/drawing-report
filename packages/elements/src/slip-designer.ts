@@ -87,6 +87,7 @@ import type { ElementActions } from './designer/render/element-props.js';
 import { MY_FORMS_PAGE_SIZE } from './designer/pagination.js';
 import { BARCODE_KINDS, BARCODE_DIGIT_RULES } from './designer/barcode.js';
 import { GRID_COLORS } from './designer/grid-view.js';
+import { cloneOwn, deleteOwn, entriesOwn, hasOwn, readOwn, writeOwn } from './designer/own-map.js';
 import type { GridColorId, CreatableType } from './designer/grid-view.js';
 import type { ParameterInfo, ParameterFieldInfo } from './designer/parameters.js';
 import {
@@ -2345,16 +2346,16 @@ export class SlipDesigner extends LitElement {
         default: return '가';
       }
     };
-    const out: Record<string, unknown> = { ...samples };
+    const out = cloneOwn(samples);
     for (const b of this._parameterList()) {
-      if (out[b.key] !== undefined) continue;
+      if (readOwn(out, b.key) !== undefined) continue;
       if (b.valueType === 'list') {
         const item: Record<string, unknown> = {};
-        for (const f of b.fields) item[f.key] = probeFor(f.valueType);
-        out[b.key] = [item];
+        for (const f of b.fields) writeOwn(item, f.key, probeFor(f.valueType));
+        writeOwn(out, b.key, [item]);
         continue;
       }
-      out[b.key] = probeFor(b.valueType);
+      writeOwn(out, b.key, probeFor(b.valueType));
     }
     return out;
   }
@@ -2380,27 +2381,27 @@ export class SlipDesigner extends LitElement {
       fields: readonly ParameterFieldInfo[],
     ): Record<string, unknown> => {
       const item: Record<string, unknown> = {};
-      for (const f of fields) item[f.key] = row[f.key] ?? emptyFor(f.valueType);
+      for (const f of fields) writeOwn(item, f.key, readOwn(row, f.key) ?? emptyFor(f.valueType));
       // 정의에 없는 기존 값도 유지합니다.
-      for (const [k, v] of Object.entries(row)) if (!(k in item)) item[k] = v;
+      for (const [k, v] of entriesOwn(row)) if (!hasOwn(item, k)) writeOwn(item, k, v);
       return item;
     };
 
     const out: Record<string, unknown> = {};
     for (const b of this._parameterList()) {
-      const current = samples[b.key];
+      const current = readOwn(samples, b.key);
       // 각 목록 항목에 선언된 하위 필드를 모두 추가합니다.
       if (b.valueType === 'list') {
         const rows = Array.isArray(current) ? current : [];
-        out[b.key] = rows.length > 0
+        writeOwn(out, b.key, rows.length > 0
           ? rows.map((row) =>
               typeof row === 'object' && row !== null && !Array.isArray(row)
                 ? withFields(row as Record<string, unknown>, b.fields)
                 : row)
-          : b.fields.length > 0 ? [withFields({}, b.fields)] : [];
+          : b.fields.length > 0 ? [withFields({}, b.fields)] : []);
         continue;
       }
-      out[b.key] = current !== undefined ? current : emptyFor(b.valueType);
+      writeOwn(out, b.key, current !== undefined ? current : emptyFor(b.valueType));
     }
     return out;
   }
@@ -3383,13 +3384,13 @@ export class SlipDesigner extends LitElement {
       const template = f.template;
       if (value === undefined || value === '') {
         if (template.sampleValues) {
-          delete template.sampleValues[key];
+          deleteOwn(template.sampleValues, key);
           if (Object.keys(template.sampleValues).length === 0) {
             delete (template as { sampleValues?: unknown }).sampleValues;
           }
         }
       } else {
-        (template.sampleValues ??= {})[key] = value as never;
+        writeOwn(template.sampleValues ??= {}, key, value);
       }
     });
   }

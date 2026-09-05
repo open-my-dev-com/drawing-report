@@ -60,6 +60,7 @@ import {
 } from '../formula-warning.js';
 import { describeFormulaTarget, resolveFormulaTarget, type FormulaTarget } from '../formula-target.js';
 import { PLACEHOLDER_IMG, resolveDisplayImage } from '../image-pick.js';
+import { readOwn } from '../own-map.js';
 import { BARCODE_KINDS, BARCODE_2D } from '../barcode.js';
 import { TYPE_BADGE } from './badges.js';
 import type { GridBandPlacement } from '@omdc-slipkit/core';
@@ -645,7 +646,7 @@ export function elementContent(ctx: CanvasContext, el: SlipElement, fragment: Gr
     case 'image': {
       // 변동 이미지는 샘플 이미지가 있으면 표시하고 없으면 파라미터 키를 표시합니다.
       if (el.parameter !== undefined) {
-        const sample = ctx.file?.template.sampleValues?.[el.parameter];
+        const sample = readOwn(ctx.file?.template.sampleValues, el.parameter);
         return typeof sample === 'string' && sample.startsWith('data:')
           ? html`<img src=${sample} alt="">`
           : html`<span class="el-content">{${el.parameter}}</span>`;
@@ -1196,7 +1197,7 @@ export function gridCellPreviewText(
 ): CellPreview {
   const values = { ...(ctx.file?.template.sampleValues ?? {}), ...(item ?? {}) };
   if (cell.parameter !== undefined) {
-    const value = values[cell.parameter];
+    const value = readOwn(values, cell.parameter);
     return { text: value === undefined || value === null ? `{${cell.parameter}}` : String(value), error: null };
   }
   if (cell.formula !== undefined) {
@@ -1231,7 +1232,7 @@ export function gridCellMergeText(
 ): string {
   const values = { ...(ctx.file?.template.sampleValues ?? {}), ...(item ?? {}) };
   if (cell.parameter !== undefined) {
-    const value = values[cell.parameter];
+    const value = readOwn(values, cell.parameter);
     return value === null || value === undefined ? '' : String(value);
   }
   if (cell.formula !== undefined) {

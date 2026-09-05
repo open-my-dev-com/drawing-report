@@ -12,6 +12,7 @@ import {
   type SlipTemplateFile,
 } from '@omdc-slipkit/core';
 import { inItemBand, itemBandOf } from './grid-model.js';
+import { hasOwn, readOwn, renameOwn } from './own-map.js';
 
 /** 파라미터를 사용하는 요소의 위치 */
 export interface ParameterUse {
@@ -238,9 +239,8 @@ export function renameParameterReferences(file: SlipTemplateFile, key: string, n
     }
   }
   const samples = file.template.sampleValues;
-  if (samples && key in samples) {
-    samples[next] = samples[key]!;
-    delete samples[key];
+  if (samples && hasOwn(samples, key)) {
+    file.template.sampleValues = renameOwn(samples, key, next) as never;
   }
 }
 
@@ -296,16 +296,32 @@ export function renameParameterFieldReferences(
     }
   }
 
-  const rows = file.template.sampleValues?.[listKey];
+  renameSampleFieldKey(file, listKey, key, next);
+}
+
+/**
+ * 목록 파라미터의 하위 필드 키를 바꿀 때 샘플 행의 같은 키를 함께 옮깁니다.
+ *
+ * @remarks
+ * 행마다 키 순서를 유지한 채 옮기고, 그 키가 없는 행과 객체가 아닌 항목은 그대로 둡니다.
+ *
+ * @param file - 수정할 양식 파일
+ * @param listKey - 목록 파라미터 물리명
+ * @param key - 현재 하위 필드 키
+ * @param next - 새 하위 필드 키
+ */
+export function renameSampleFieldKey(
+  file: SlipTemplateFile,
+  listKey: string,
+  key: string,
+  next: string,
+): void {
+  const rows = readOwn(file.template.sampleValues, listKey);
   if (!Array.isArray(rows)) return;
-  rows.forEach((row, index) => {
-    if (row === null || typeof row !== 'object' || Array.isArray(row)) return;
-    const record = row as Record<string, unknown>;
-    if (!Object.prototype.hasOwnProperty.call(record, key)) return;
-    // 키 순서를 지키려고 항목을 처음부터 다시 만듭니다.
-    const renamed: Record<string, unknown> = {};
-    for (const [name, value] of Object.entries(record)) renamed[name === key ? next : name] = value;
-    rows[index] = renamed as typeof row;
+  rows.forEach((row: unknown, index) => {
+    if (typeof row !== 'object' || row === null || Array.isArray(row)) return;
+    if (!hasOwn(row as Record<string, unknown>, key)) return;
+    rows[index] = renameOwn(row as Record<string, unknown>, key, next);
   });
 }
 
