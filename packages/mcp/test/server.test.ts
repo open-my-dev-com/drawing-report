@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { lstat, mkdir, readFile, readdir, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { MAX_IMAGE_BYTES, parseFormula, type SlipTemplateFile, type SlipVoucherFile } from '@omdc-slipkit/core';
+import { MAX_IMAGE_BYTES, type SlipTemplateFile, type SlipVoucherFile } from '@omdc-slipkit/core';
 import { FileSystemStorage } from '../src/storage.js';
 import {
   TINY_PNG_B64,
@@ -300,6 +300,26 @@ describe('slip_edit', () => {
     const grid = file.template.pages[0]!.elements.find((entry) => entry.id === 'items-table');
     if (grid?.type !== 'grid') throw new Error('grid expected');
     expect(grid.cells.find((cell) => cell.row === 0 && cell.column === 0)?.rowSpan).toBeUndefined();
+  });
+
+  it('일반 참조 수식으로 바꾸려는 편집은 파일을 쓰기 전에 거부한다', async () => {
+    const result = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [
+        {
+          action: 'set_cell', elementId: 'items-table', row: 2, column: 1,
+          fields: { formula: 'SUM(items.amount)' },
+        },
+      ],
+    });
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain('$(items).$(amount)');
+
+    const file = await loadTemplate('doc');
+    const grid = file.template.pages[0]!.elements.find((entry) => entry.id === 'items-table');
+    if (grid?.type !== 'grid') throw new Error('grid expected');
+    expect(grid.cells.find((cell) => cell.row === 2 && cell.column === 1)?.formula)
+      .toBe('SUM($(items).$(amount))');
   });
 
   it('필드를 null로 지정하면 제거되어 값 소스를 바꿀 수 있다', async () => {
@@ -1002,36 +1022,19 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
   });
 
-  // core 파서가 $(...) 없는 업무 데이터 참조를 거부할 때만 실행한다. 아직 받아 주는 파서에서는
-  // 렌더링이 성공하므로 이 시험은 core 변경이 반영된 뒤에 통과한다.
-  const coreRejectsBareReferences = (() => {
-    try {
-      parseFormula('SUM(items.amount)');
-      return false;
-    } catch {
-      return true;
-    }
-  })();
+  it('$(...) 없는 참조가 든 수식은 파일을 쓰기 전에 대체 표기와 함께 거부한다', async () => {
+    const template = makeTemplate();
+    const grid = template.template.pages[0]!.elements.find((entry) => entry.id === 'items-table');
+    if (grid?.type !== 'grid') throw new Error('grid expected');
+    const total = grid.cells.find((cell) => cell.row === 2 && cell.column === 1);
+    if (total === undefined) throw new Error('total cell expected');
+    total.formula = 'SUM(items.amount)';
 
-  it.runIf(coreRejectsBareReferences)(
-    '$(...) 없는 참조가 든 수식은 저장은 되지만 렌더링에서 대체 표기를 안내하며 실패한다',
-    async () => {
-      const template = makeTemplate();
-      const grid = template.template.pages[0]!.elements.find((entry) => entry.id === 'items-table');
-      if (grid?.type !== 'grid') throw new Error('grid expected');
-      const total = grid.cells.find((cell) => cell.row === 2 && cell.column === 1);
-      if (total === undefined) throw new Error('total cell expected');
-      total.formula = 'SUM(items.amount)';
-
-      // 저장 검증은 수식을 파싱하지 않으므로 파일은 그대로 저장된다.
-      const saved = await callText(client, 'slip_save', { path: 'legacy', file: template });
-      expect(saved.isError).toBe(false);
-
-      const rendered = await callText(client, 'slip_render_pdf', { path: 'legacy' });
-      expect(rendered.isError).toBe(true);
-      expect(rendered.text).toContain('$(items).$(amount)');
-    },
-  );
+    const saved = await callText(client, 'slip_save', { path: 'invalid-formula', file: template });
+    expect(saved.isError).toBe(true);
+    expect(saved.text).toContain('$(items).$(amount)');
+    await expect(new FileSystemStorage({ rootDir: dir }).load('invalid-formula')).rejects.toThrow();
+  });
 
   it('PDF 출력으로 .slip 파일을 덮어쓰지 않는다', async () => {
     const rendered = await callText(client, 'slip_render_pdf', {

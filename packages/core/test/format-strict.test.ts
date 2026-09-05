@@ -229,6 +229,39 @@ describe('values·sampleValues는 열린 맵으로 그대로 보존한다', () =
   });
 });
 
+describe('저장 형식은 수식 문법을 함께 검증한다', () => {
+  it('요소·셀의 일반 참조와 잘못된 함수 인자 수를 정확한 경로에서 거부한다', () => {
+    const template = makeTemplate();
+    const field = template.template.pages[0]!.elements[1]!;
+    if (field.type !== 'field') throw new Error('field expected');
+    delete field.parameter;
+    field.formula = 'total';
+    const grid = template.template.pages[0]!.elements[8]!;
+    if (grid.type !== 'grid') throw new Error('grid expected');
+    delete grid.cells[0]!.content;
+    grid.cells[0]!.formula = 'ABS(1, 2)';
+
+    expect(() => validateSlipFile(template)).toThrow(/template\.pages\.0\.elements\.1\.formula.*\$\(total\)/);
+    expect(() => validateSlipFile(template)).toThrow(/template\.pages\.0\.elements\.8\.cells\.0\.formula.*ABS/);
+  });
+
+  it('조건식과 전표의 양식 스냅샷도 같은 규칙으로 거부한다', () => {
+    const template = makeTemplate();
+    const text = template.template.pages[0]!.elements[0]!;
+    if (text.type !== 'text' || text.conditionalFormats === undefined) throw new Error('text expected');
+    text.conditionalFormats[0]!.condition = 'total > 0';
+    expect(() => validateSlipFile(template, { locale: 'ko-KR' }))
+      .toThrow(/template\.pages\.0\.elements\.0\.conditionalFormats\.0\.condition.*\$\(total\)/);
+
+    const voucher = makeVoucher({});
+    const voucherText = voucher.templateSnapshot.pages[0]!.elements[0]!;
+    if (voucherText.type !== 'text' || voucherText.conditionalFormats === undefined) throw new Error('text expected');
+    voucherText.conditionalFormats[0]!.condition = 'total > 0';
+    expect(() => validateSlipFile(voucher))
+      .toThrow(/templateSnapshot\.pages\.0\.elements\.0\.conditionalFormats\.0\.condition.*\$\(total\)/);
+  });
+});
+
 describe('JSON Schema 산출물은 같은 정책을 표현한다', () => {
   type Node = Record<string, unknown>;
   const schema = slipFileJsonSchema();

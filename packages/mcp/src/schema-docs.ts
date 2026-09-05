@@ -198,8 +198,8 @@ Formulas run in a purpose-built parser (no JavaScript). Values are typed; conver
 - Every business-data reference must use $(...). Only function names, TRUE/FALSE and the reserved
   roots (@item, @group, @page, @all, @carried) are written bare. A bare reference such as
   customerName, items.amount or @item.amount is a syntax error; the error names the $(...) form to
-  write instead (for example $(items).$(amount)). slip_save and slip_edit do not parse formulas, so
-  such a formula in a saved file fails when the file is rendered with slip_render_pdf.
+  write instead (for example $(items).$(amount)). slip_save and slip_edit reject invalid formulas
+  before writing the file.
 - Arithmetic operators: + - * /. Comparisons: = <> < > <= >=.
 - Use CONCAT(...) for text concatenation; arithmetic operators require numeric values.
 - Functions: ${FORMULA_FUNCTIONS.join(', ')}.

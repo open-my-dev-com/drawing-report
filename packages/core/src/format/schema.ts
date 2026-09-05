@@ -9,6 +9,8 @@ import { migrateSlipDocument } from './migrate.js';
 import { fmt, withFormatLocale, zodParseParams } from './messages.js';
 import { MAX_IMAGE_BYTES, inspectImageDataUrl, type ImageInspection } from './image-source.js';
 import { readOwn, writeOwn } from '../own-property.js';
+import { assertFormulaArity } from '../formula/arity.js';
+import { parseFormula } from '../formula/parser.js';
 
 export { CURRENT_SCHEMA_VERSION };
 
@@ -1300,6 +1302,49 @@ export class SlipParseError extends Error {
   }
 }
 
+/** 양식 본문의 모든 수식과 조건식을 저장 가능한 문법으로 검사한다. */
+function validateTemplateFormulas(
+  body: z.infer<typeof slipTemplateBodySchema>,
+  root: 'template' | 'templateSnapshot',
+  locale: string | undefined,
+): void {
+  const issues: string[] = [];
+  const check = (source: string, path: (string | number)[]): void => {
+    try {
+      const options = locale === undefined ? undefined : { locale };
+      assertFormulaArity(parseFormula(source, options), options);
+    } catch (error) {
+      issues.push(`${path.join('.')}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+  const checkConditions = (
+    rules: readonly { condition: string }[] | undefined,
+    path: (string | number)[],
+  ): void => {
+    rules?.forEach((rule, index) => check(rule.condition, [...path, index, 'condition']));
+  };
+
+  body.pages.forEach((page, pageIndex) => {
+    page.elements.forEach((element, elementIndex) => {
+      const elementPath: (string | number)[] = [root, 'pages', pageIndex, 'elements', elementIndex];
+      if ('formula' in element && element.formula !== undefined) {
+        check(element.formula, [...elementPath, 'formula']);
+      }
+      if ('conditionalFormats' in element) {
+        checkConditions(element.conditionalFormats, [...elementPath, 'conditionalFormats']);
+      }
+      if (element.type !== 'grid') return;
+      element.cells.forEach((cell, cellIndex) => {
+        const cellPath = [...elementPath, 'cells', cellIndex];
+        if (cell.formula !== undefined) check(cell.formula, [...cellPath, 'formula']);
+        checkConditions(cell.conditionalFormats, [...cellPath, 'conditionalFormats']);
+      });
+    });
+  });
+
+  if (issues.length > 0) throw new SlipParseError(fmt().bodyInvalid(issues.join(', ')));
+}
+
 function formatIssues(error: z.ZodError): string {
   return error.issues
     .map((issue) => (issue.path.length ? `${issue.path.join('.')}: ${issue.message}` : issue.message))
@@ -1340,6 +1385,11 @@ export function validateSlipFile(raw: unknown, options?: { locale?: string }): S
     }
     if (!result.success) {
       throw new SlipParseError(fmt().bodyInvalid(formatIssues(result.error)));
+    }
+    if (result.data.kind === 'template') {
+      validateTemplateFormulas(result.data.template, 'template', options?.locale);
+    } else {
+      validateTemplateFormulas(result.data.templateSnapshot, 'templateSnapshot', options?.locale);
     }
     return result.data;
   });
