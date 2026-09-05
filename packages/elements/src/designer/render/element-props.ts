@@ -26,7 +26,9 @@ import {
   DEFAULT_LINE_WIDTH,
 } from '../style-css.js';
 import { setOptional } from '../patch.js';
-import { withFontName } from '../../strings.js';
+import { distributeUnits, exceedsPaper, selectionUnits } from '../arrange.js';
+import type { AlignEdge, DistributeAxis, DistributeResult } from '../arrange.js';
+import { withFontName, type DesignerStrings } from '../../strings.js';
 import type { DesignerFonts, FontStyleInput } from '../font-variant.js';
 import { applyCellDefaultBorder, applyOutline } from '../grid-border.js';
 import { PLACEHOLDER_IMG } from '../image-pick.js';
@@ -80,8 +82,93 @@ export interface ElementActions {
   groupSelected(): void;
   /** 그룹을 해제합니다 */
   ungroupSelected(): void;
+  /** 선택한 요소·그룹의 변이나 중앙선을 맞춥니다 */
+  alignSelected(edge: AlignEdge): void;
+  /** 선택한 요소·그룹 사이의 간격을 고르게 나눕니다 */
+  distributeSelected(axis: DistributeAxis): void;
+  /** 편집 중인 양식의 용지 크기(mm). 양식이 없으면 undefined */
+  paper(): { width: number; height: number } | undefined;
   /** 지금 선택된 요소 id 모음 */
   readonly selectedIds: ReadonlySet<string>;
+}
+
+/**
+ * 선택한 요소 중 하나라도 용지의 오른쪽·아래쪽을 넘으면 PDF에 출력되지 않는 영역이 있음을 알립니다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param els - 판정할 요소들
+ * @returns 안내 조각. 넘는 요소가 없으면 빈 것
+ */
+export function paperOverflowNotice(kit: PanelKit, act: ElementActions, els: readonly SlipElement[]) {
+  const paper = act.paper();
+  if (paper === undefined || !els.some((el) => exceedsPaper(el, paper))) return nothing;
+  return html`<div class="paper-overflow-notice" role="note">${kit.s.paperOverflowNotice}</div>`;
+}
+
+/** 정렬 명령의 변·중앙선과 그 문구·아이콘 키 */
+const ALIGN_COMMANDS: readonly [AlignEdge, keyof DesignerStrings, keyof typeof icons][] = [
+  ['left', 'alignLeftEdges', 'alignLeftEdges'],
+  ['hcenter', 'alignHCenters', 'alignHCenters'],
+  ['right', 'alignRightEdges', 'alignRightEdges'],
+  ['top', 'alignTopEdges', 'alignTop'],
+  ['vcenter', 'alignVCenters', 'alignMiddle'],
+  ['bottom', 'alignBottomEdges', 'alignBottom'],
+];
+
+/**
+ * 여러 요소를 함께 선택했을 때 변·중앙선 정렬과 간격 배치 명령을 렌더링합니다.
+ *
+ * @remarks
+ * 실행할 수 없는 간격 배치는 버튼을 비활성화하고 그 이유를 툴팁과 버튼 아래 안내로 보여 줍니다.
+ *
+ * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
+ * @param act - 요소 편집 동작
+ * @param els - 선택한 요소들
+ * @returns 정렬·배치 구역 조각
+ */
+export function arrangeSection(kit: PanelKit, act: ElementActions, els: readonly SlipElement[]) {
+  const s = kit.s;
+  const units = selectionUnits(els);
+  const canAlign = units.length >= 2;
+  const distributes: readonly [DistributeAxis, string, unknown, DistributeResult][] = [
+    ['horizontal', s.distributeHorizontally, icons.distributeH, distributeUnits(units, 'horizontal')],
+    ['vertical', s.distributeVertically, icons.distributeV, distributeUnits(units, 'vertical')],
+  ];
+  const reasonOf = (result: DistributeResult): string | null =>
+    result.ok ? null : result.reason === 'needsThree' ? s.distributeNeedsThree : s.distributeNoRoom;
+  // 같은 이유는 한 번만 보여 주고 두 버튼이 같은 안내를 가리키게 합니다.
+  const reasons = new Map<string, string>();
+  for (const [axis, , , result] of distributes) {
+    const reason = reasonOf(result);
+    if (reason !== null && !reasons.has(reason)) reasons.set(reason, `arrange-reason-${axis}`);
+  }
+  return html`
+    <div class="prop-section">
+      <div class="prop-section-title">${s.arrange}</div>
+      <div class="arrange-actions">
+        <div class="toggle-group" role="group" aria-label=${s.arrange}>
+          ${ALIGN_COMMANDS.map(([edge, key, icon]) => html`
+            <button type="button" title=${s[key]} aria-label=${s[key]}
+              ?disabled=${!canAlign}
+              @click=${() => act.alignSelected(edge)}>${icons[icon]}</button>`)}
+        </div>
+        <div class="toggle-group" role="group" aria-label=${s.arrange}>
+          ${distributes.map(([axis, label, glyph, result]) => {
+            const reason = reasonOf(result);
+            return html`
+            <button type="button"
+              title=${reason === null ? label : `${label} — ${reason}`}
+              aria-label=${label}
+              aria-disabled=${reason === null ? nothing : 'true'}
+              aria-describedby=${reason === null ? nothing : reasons.get(reason)!}
+              ?disabled=${reason !== null}
+              @click=${() => act.distributeSelected(axis)}>${glyph}</button>`;
+          })}
+        </div>
+      </div>
+      ${[...reasons].map(([reason, id]) => html`<div id=${id} class="cell-hint">${reason}</div>`)}
+    </div>`;
 }
 
 /**
@@ -998,7 +1085,9 @@ export function groupPanel(kit: PanelKit, act: ElementActions) {
               ${s.ungroupElements}</button>`
           : nothing}
       </div>
+      ${paperOverflowNotice(kit, act, els)}
     </div>
+    ${arrangeSection(kit, act, els)}
   `;
 }
 

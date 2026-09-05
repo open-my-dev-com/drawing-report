@@ -49,6 +49,68 @@ export const propertiesStyles = css`
       color: var(--sk-text);
       backdrop-filter: blur(4px);
     }
+    /* 반복 그리드의 머리줄 — 이름 옆에 출력 결과 전환과 출력 페이지 이동을 둡니다 */
+    .type-name.has-output-tools {
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+    }
+    .output-tools,
+    .output-preview-toggle,
+    .output-page-nav {
+      display: inline-flex;
+      align-items: center;
+    }
+    .output-tools {
+      flex-wrap: wrap;
+      gap: 6px 8px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--sk-text-muted, #666);
+    }
+    .output-preview-toggle {
+      justify-content: center;
+      gap: 5px;
+      min-height: 28px;
+      padding: 3px 9px;
+      border: 1px solid var(--sk-border-strong);
+      border-radius: var(--sk-radius);
+      background: var(--sk-surface);
+      color: var(--sk-text);
+      font: inherit;
+      cursor: pointer;
+    }
+    .output-preview-toggle[aria-pressed='true'] {
+      border-color: var(--sk-accent);
+      background: var(--sk-accent-soft);
+      color: var(--sk-accent);
+    }
+    .output-preview-toggle:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .output-preview-toggle svg {
+      width: 14px;
+      height: 14px;
+    }
+    .output-preview-toggle:focus-visible,
+    .output-page-nav button:focus-visible {
+      outline: 2px solid var(--sk-accent);
+      outline-offset: 1px;
+    }
+    .output-page-nav {
+      gap: 6px;
+    }
+    .output-page-status {
+      min-width: 96px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    /* 양식·페이지 설정의 출력 페이지 줄 */
+    .prop-row .output-page-nav {
+      flex: 1;
+      justify-content: flex-end;
+    }
     .group-actions {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
@@ -58,6 +120,25 @@ export const propertiesStyles = css`
     .group-actions .btn {
       min-height: 32px;
       padding-inline: 10px;
+    }
+    /* 정렬·간격 배치 아이콘 버튼 묶음 — 변 맞춤과 간격 배치를 두 묶음으로 나눕니다 */
+    .arrange-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 8px;
+    }
+    .arrange-actions .toggle-group button:disabled {
+      color: var(--sk-text-muted);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    /* 선택한 요소가 용지 오른쪽·아래쪽을 넘을 때의 안내 — 입력을 막지 않는 참고 문구 */
+    .paper-overflow-notice {
+      margin: 8px 0 0;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--sk-text-muted);
     }
     .prop-row {
       display: flex;

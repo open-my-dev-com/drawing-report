@@ -128,14 +128,10 @@ export interface CanvasContext {
   focusFormulaWarning(target: FormulaTarget): void;
   /** 요소 종류의 표시 이름 */
   typeName(type: SlipElement['type']): string;
-  /** 출력 결과 보기를 켜거나 끕니다 */
-  setGridPlanPreview(enabled: boolean): void;
   /** 용지 위 커서 위치를 갱신합니다 */
   trackCursor(event: PointerEvent): void;
   /** 용지 위 커서 표시를 지웁니다 */
   clearCursor(): void;
-  /** 보고 있는 출력 페이지를 옮깁니다 */
-  setOutputPage(page: number): void;
   /** 속성 패널이 대상으로 삼는 요소 */
   selectedElement(): SlipElement | undefined;
   /** 인라인 편집한 셀 내용을 저장합니다 */
@@ -178,7 +174,6 @@ export function canvas(ctx: CanvasContext) {
 
   return html`
     <div class="canvas-stack" style="--paper-w:${pw}px;--paper-h:${ph}px">
-    ${outputPageBar(ctx, outputPage, outputPageCount, plan)}
     ${error === null
       ? nothing
       : html`<div id="page-plan-error" class="plan-error" role="alert"
@@ -295,53 +290,6 @@ export function ruler(ctx: CanvasContext, axis: 'h' | 'v', lengthMm: number, len
       </svg>
     </div>
   `;
-}
-
-/**
- * 출력 페이지 이동과 선택한 반복 그리드의 출력 결과 전환을 렌더링합니다.
- *
- * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
- * @param outputPage - 보고 있는 출력 페이지(0-기반)
- * @param outputPageCount - 전체 출력 페이지 수
- * @param plan - 현재 양식 페이지의 계획. 계획 오류면 null
- * @returns 출력 페이지 이동 막대
- */
-export function outputPageBar(ctx: CanvasContext, outputPage: number, outputPageCount: number, plan: SourcePagePlan | null) {
-  const s = ctx.s;
-  const selected = ctx.selectedElement();
-  const canPreviewGrid = selected?.type === 'grid'
-    && selected.repeat !== undefined
-    && plan?.gridPlans.has(selected.id) === true;
-  if (outputPageCount <= 1 && !canPreviewGrid) return nothing;
-  return html`
-    <div class="output-page-bar" role="group" aria-label=${s.outputPage}
-      @pointerdown=${(event: PointerEvent) => event.stopPropagation()}>
-      ${canPreviewGrid
-        ? html`<button type="button" class="output-preview-toggle"
-            aria-pressed=${String(ctx.gridPlanPreview)}
-            @click=${() => ctx.setGridPlanPreview(!ctx.gridPlanPreview)}>
-            ${ctx.gridPlanPreview ? icons.edit : icons.preview}
-            <span>${ctx.gridPlanPreview ? s.gridStructureEdit : s.outputResult}</span>
-          </button>`
-        : nothing}
-      ${outputPageCount <= 1
-        ? nothing
-        : html`<div class="output-page-nav">
-            <button type="button" class="row-btn output-page-prev" aria-label=${s.prevPage}
-              ?disabled=${outputPage === 0}
-              @click=${() => {
-                ctx.setOutputPage(Math.max(0, outputPage - 1));
-              }}>${icons.pagePrev}</button>
-            <span class="output-page-status" aria-live="polite">
-              ${s.outputPage} ${outputPage + 1} / ${outputPageCount}
-            </span>
-            <button type="button" class="row-btn output-page-next" aria-label=${s.nextPage}
-              ?disabled=${outputPage >= outputPageCount - 1}
-              @click=${() => {
-                ctx.setOutputPage(Math.min(outputPageCount - 1, outputPage + 1));
-              }}>${icons.pageNext}</button>
-          </div>`}
-    </div>`;
 }
 
 /**

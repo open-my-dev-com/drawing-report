@@ -27,10 +27,29 @@ describe('<slip-designer> 데스크톱 전용 배치', () => {
     expect(host).toMatch(/overflow:\s*hidden/);
   });
 
-  it('수식 편집 모달은 편집과 참조를 두 열로 나란히 둔다', () => {
+  it('수식 편집 모달은 입력을 위에, 참조를 아래에 두고 함수 상세는 고른 뒤에만 옆에 편다', () => {
     const layout = ruleBody(dialogsStyles.cssText, '.formula-layout');
-    expect(layout).toMatch(/grid-template-columns:\s*minmax\(0, 42fr\) minmax\(0, 58fr\)/);
+    expect(layout).toMatch(/flex-direction:\s*column/);
+    // 참조 영역의 배치 기준은 뷰포트가 아니라 모달 너비입니다.
+    expect(layout).toMatch(/container-type:\s*inline-size/);
+    expect(layout).toMatch(/container-name:\s*formula-modal/);
+
+    // 고른 함수가 없으면 목록이 너비 전체를 쓰고, 고르면 목록·상세 두 열이 됩니다.
     const functions = ruleBody(dialogsStyles.cssText, '.fn-panel');
-    expect(functions).toMatch(/grid-template-columns:\s*minmax\(0, 44fr\) minmax\(0, 56fr\)/);
+    expect(functions).toMatch(/grid-template-columns:\s*minmax\(0, 1fr\);/);
+    const withDetail = ruleBody(dialogsStyles.cssText, '.fn-panel.with-detail');
+    expect(withDetail).toMatch(/grid-template-columns:\s*minmax\(0, 44fr\) minmax\(0, 56fr\)/);
+  });
+
+  it('좁은 모달에서는 모달 너비를 기준으로 함수 목록과 상세를 위아래로 쌓는다', () => {
+    const css = dialogsStyles.cssText;
+    const container = css.indexOf('@container formula-modal (max-width: 899px)');
+    expect(container).toBeGreaterThanOrEqual(0);
+    const stacked = ruleBody(css.slice(container), '.fn-panel.with-detail');
+    expect(stacked).toMatch(/grid-template-columns:\s*minmax\(0, 1fr\)/);
+    expect(stacked).toMatch(/grid-template-rows:\s*minmax\(0, 1fr\) minmax\(0, 1fr\)/);
+    // 목록과 상세는 각자 안에서 스크롤해 입력란과 하단 버튼을 밀지 않습니다.
+    expect(ruleBody(css, '.fn-list')).toMatch(/overflow-y:\s*auto/);
+    expect(ruleBody(css, '.fn-detail')).toMatch(/overflow-y:\s*auto/);
   });
 });

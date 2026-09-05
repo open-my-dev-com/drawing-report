@@ -21,6 +21,7 @@ import {
   type ResizeHandle,
   type SnapCandidates,
 } from '../geometry.js';
+import { movedPositions } from '../arrange.js';
 import { cellOriginAt, cellsInRectangle } from '../cell-selection.js';
 import { columnWidths, gridDims, isGrid } from '../grid-model.js';
 import type { CreatableType } from '../grid-view.js';
@@ -82,8 +83,8 @@ export interface PointerHost {
   clearSideSelection(): void;
   /** 그리드 셀·행 구간 선택 상태 */
   readonly gridEdit: GridEditController;
-  /** 출력 결과 보기(읽기 전용)인지 */
-  readonly gridPlanPreview: boolean;
+  /** 출력 결과를 보는 중이면 행 구조 편집으로 돌아갑니다 */
+  leaveOutputResult(): void;
   /** 도형 메뉴가 열려 있는지 */
   readonly shapeMenuOpen: boolean;
   /** 캔버스 DOM을 조회할 루트 */
@@ -107,6 +108,10 @@ export interface PointerHost {
   ): void;
   /** 요소를 선택합니다 */
   selectElement(id: string): void;
+  /** 요소가 속한 선택 단위(그룹 전체 또는 요소 하나)를 선택에 넣거나 뺍니다 */
+  toggleInSelection(id: string): void;
+  /** 이미 선택된 요소를 주 선택으로 삼고 나머지 선택은 그대로 둡니다 */
+  keepSelection(id: string): void;
   /** 선택을 모두 해제합니다 */
   clearSelection(): void;
   /** 선택한 요소를 수정합니다 */
@@ -276,11 +281,8 @@ export class CanvasPointerController implements ReactiveController {
     // preventDefault로 기본 포커스 이동이 막히므로 호스트에 포커스를 설정해 단축키를 유지합니다.
     this.host.focusHost();
 
-    // 출력 결과 보기는 계획 결과를 확인하는 읽기 전용 상태입니다.
-    if (this.host.gridPlanPreview) {
-      e.preventDefault();
-      return;
-    }
+    // 출력 결과를 보는 중이었다면 행 구조 편집으로 돌아간 뒤 이 포인터 조작을 그대로 이어 갑니다.
+    this.host.leaveOutputResult();
 
     // 생성 도구가 선택돼 있으면 클릭·드래그는 요소 생성입니다 (선택·이동보다 우선)
     if (this._pendingTool) {
@@ -343,8 +345,23 @@ export class CanvasPointerController implements ReactiveController {
       const id = target.dataset.id;
       if (!id) return;
       const wasSelected = this.host.selectedId === id;
-      // 그룹에 속하면 그룹 전체가 함께 선택됩니다
-      this.host.selectElement(id);
+      // Shift·Ctrl/Cmd 클릭은 선택 단위를 넣거나 빼기만 하고 드래그는 시작하지 않습니다.
+      // 이미 선택된 그리드 안에서는 셀 범위·개별 선택 조작이므로 아래 경로에 맡깁니다.
+      const additiveClick = e.shiftKey || e.ctrlKey || e.metaKey;
+      if (additiveClick && !(wasSelected && isGrid(this.host.findElement(id)))) {
+        this.host.toggleInSelection(id);
+        this.host.clearSideSelection();
+        e.preventDefault();
+        this.host.refresh();
+        return;
+      }
+      if (this.host.selectedIds.has(id)) {
+        // 이미 선택된 요소를 다시 누르면 다중 선택을 유지한 채 함께 옮길 수 있게 합니다.
+        this.host.keepSelection(id);
+      } else {
+        // 그룹에 속하면 그룹 전체가 함께 선택됩니다
+        this.host.selectElement(id);
+      }
       this.host.clearSideSelection();
       this.host.expandParameterOfElement(id);
       if (!wasSelected) {
@@ -453,14 +470,18 @@ export class CanvasPointerController implements ReactiveController {
       }
     }
 
-    // 주 요소를 옮긴 만큼(스냅 반영) 선택된 요소를 모두 같은 양으로 옮깁니다
-    const deltaX = nx - this._drag.origMmX;
-    const deltaY = ny - this._drag.origMmY;
-    for (const m of this._drag.members) {
+    // 주 요소를 옮긴 만큼(스냅 반영) 선택된 요소를 모두 같은 양으로 옮깁니다.
+    // 왼쪽·위쪽 경계 보정도 선택 전체에 같은 양으로 적용해 요소 사이 간격을 유지합니다.
+    const moved = movedPositions(
+      this._drag.members.map((m) => ({ id: m.id, x: m.origX, y: m.origY })),
+      nx - this._drag.origMmX,
+      ny - this._drag.origMmY,
+    );
+    for (const m of moved) {
       const me = this.host.findElement(m.id);
       if (!me) continue;
-      me.position.x = Math.max(0, round1(m.origX + deltaX));
-      me.position.y = Math.max(0, round1(m.origY + deltaY));
+      me.position.x = m.x;
+      me.position.y = m.y;
     }
     this._guideX = guideX;
     this._guideY = guideY;

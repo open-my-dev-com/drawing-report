@@ -523,34 +523,31 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     selectElement(el, 'g-1');
     await el.updateComplete;
 
-    const toggle = el.shadowRoot!.querySelector('.output-preview-toggle') as HTMLButtonElement;
+    // 전환 버튼은 캔버스가 아니라 속성 패널의 고정 머리줄에 있습니다.
+    const toggle = el.shadowRoot!.querySelector('.prop-panel .output-preview-toggle') as HTMLButtonElement;
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
-    expect(toggle.closest('.canvas-stack')).not.toBeNull();
-    expect(toggle.closest('.paper-wrap')).toBeNull();
-    toggle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }));
-    expect((el as unknown as { _selectedId: string | null })._selectedId).toBe('g-1');
+    expect(toggle.closest('.type-name')).not.toBeNull();
+    expect(el.shadowRoot!.querySelector('.canvas-area .output-preview-toggle')).toBeNull();
+    expect(el.shadowRoot!.querySelector('.output-page-bar')).toBeNull();
     toggle.click();
     await el.updateComplete;
 
-    const activeToggle = el.shadowRoot!.querySelector('.output-preview-toggle') as HTMLButtonElement;
+    const activeToggle = el.shadowRoot!.querySelector('.prop-panel .output-preview-toggle') as HTMLButtonElement;
     expect(activeToggle.getAttribute('aria-pressed')).toBe('true');
     expect(el.shadowRoot!.querySelector('[data-id="g-1"] .band-strip')).toBeNull();
     expect(el.shadowRoot!.querySelector('[data-id="g-1"]')?.textContent).toContain('페이지 소계');
 
-    const next = el.shadowRoot!.querySelector('.output-page-next') as HTMLButtonElement;
+    const next = el.shadowRoot!.querySelector('.prop-panel .output-page-next') as HTMLButtonElement;
     next.click();
     await el.updateComplete;
     next.click();
     await el.updateComplete;
-    expect(el.shadowRoot!.querySelector('.output-page-status')?.textContent).toContain('3 / 3');
+    expect(el.shadowRoot!.querySelector('.prop-panel .output-page-status')?.textContent).toContain('3 / 3');
     expect(el.shadowRoot!.querySelector('[data-id="g-1"]')?.textContent).not.toContain('페이지 소계');
 
-    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
-    expect((el as unknown as { _file: SlipTemplateFile })._file.template.pages[0]!.elements)
-      .toHaveLength(1);
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await el.updateComplete;
-    expect(el.shadowRoot!.querySelector('.output-preview-toggle')?.getAttribute('aria-pressed')).toBe('false');
+    expect(el.shadowRoot!.querySelector('.prop-panel .output-preview-toggle')?.getAttribute('aria-pressed')).toBe('false');
     expect(el.shadowRoot!.querySelector('[data-id="g-1"] .band-strip')).not.toBeNull();
     (el.shadowRoot!.activeElement as HTMLElement | null)?.blur();
     el.remove();

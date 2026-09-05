@@ -957,7 +957,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(el.shadowRoot!.activeElement).toBe(apply);
   });
 
-  it('헤더와 하단 버튼을 본문 밖에 두고 뷰포트 너비와 무관하게 2단을 유지한다', async () => {
+  it('헤더와 하단 버튼을 본문 밖에 두고 입력 영역을 참조 영역 위에 둔다', async () => {
     const el = await mountFile([{
       type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
       width: 40, height: 8, formula: '1 + 1',
@@ -973,9 +973,10 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(Array.from(layout.children).map((c) => c.className))
       .toEqual(['formula-editor', 'formula-reference']);
 
-    // 디자이너는 데스크톱 전용이라 너비에 따라 배치를 바꾸지 않습니다.
+    // 좁은 모달의 배치는 뷰포트가 아니라 모달 너비를 기준으로 정합니다.
     const css = dialogsStyles.cssText;
     expect(css).not.toContain('@media');
-    expect(css).toContain('grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);');
+    expect(css).toContain('@container formula-modal (max-width: 899px)');
+    expect(css).toContain('grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);');
   });
 });

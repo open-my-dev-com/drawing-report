@@ -307,59 +307,9 @@ export const gridStyles = css`
       font-size: 12px;
     }
 
-    /* 출력 페이지 전환 막대 */
-    .output-page-bar {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      min-height: 42px;
-      padding: 6px 10px;
-      border: 1px solid var(--sk-border);
-      border-radius: var(--sk-radius);
-      background: var(--sk-surface);
-      font-size: 12px;
-      color: var(--sk-text-muted, #666);
-    }
-    .output-preview-toggle,
-    .output-page-nav {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .output-preview-toggle {
-      gap: 5px;
-      min-height: 30px;
-      padding: 4px 9px;
-      border: 1px solid var(--sk-border-strong);
-      border-radius: var(--sk-radius);
-      background: var(--sk-surface);
-      color: var(--sk-text);
-      font: inherit;
-      cursor: pointer;
-    }
-    .output-preview-toggle[aria-pressed='true'] {
-      border-color: var(--sk-accent);
-      background: var(--sk-accent-soft);
-      color: var(--sk-accent);
-    }
-    .output-preview-toggle svg {
-      width: 14px;
-      height: 14px;
-    }
-    .output-preview-toggle:focus-visible,
-    .output-page-nav button:focus-visible,
     .plan-error button:focus-visible {
       outline: 2px solid var(--sk-accent);
       outline-offset: 1px;
-    }
-    .output-page-nav {
-      gap: 6px;
-    }
-    .output-page-status {
-      min-width: 112px;
-      text-align: center;
     }
 
     /* 자동 확장 흐름 영역 하단 안내선 */

@@ -30,6 +30,12 @@ export interface FormActions {
   readonly file: SlipTemplateFile | null;
   /** 보고 있는 양식 페이지 (0부터) */
   readonly pageIndex: number;
+  /** 현재 양식 페이지에서 보고 있는 출력 페이지 (0부터) */
+  readonly outputPage: number;
+  /** 현재 양식 페이지가 만드는 출력 페이지 수 */
+  outputPageCount(): number;
+  /** 보고 있는 출력 페이지를 옮깁니다 */
+  setOutputPage(page: number): void;
   /** 페이지 키 입력에 오류가 있는지 */
   readonly pageKeyError: boolean;
   /** 파라미터 물리명이 겹치는지 */
@@ -71,6 +77,54 @@ export interface FormActions {
 }
 
 /**
+ * 출력 페이지 이전·다음 이동과 현재 위치를 렌더링합니다.
+ *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param outputPage - 보고 있는 출력 페이지 (0부터)
+ * @param outputPageCount - 전체 출력 페이지 수
+ * @param setOutputPage - 보고 있는 출력 페이지를 옮기는 동작
+ * @returns 출력 페이지 이동 조각
+ */
+export function outputPageNav(
+  kit: PanelKit,
+  outputPage: number,
+  outputPageCount: number,
+  setOutputPage: (page: number) => void,
+) {
+  const s = kit.s;
+  const current = Math.max(0, Math.min(outputPage, outputPageCount - 1));
+  return html`<div class="output-page-nav" role="group" aria-label=${s.outputPage}>
+    <button type="button" class="row-btn output-page-prev" aria-label=${s.prevPage}
+      ?disabled=${current === 0}
+      @click=${() => setOutputPage(Math.max(0, current - 1))}>${icons.pagePrev}</button>
+    <span class="output-page-status" aria-live="polite">
+      ${s.outputPage} ${current + 1} / ${outputPageCount}
+    </span>
+    <button type="button" class="row-btn output-page-next" aria-label=${s.nextPage}
+      ?disabled=${current >= outputPageCount - 1}
+      @click=${() => setOutputPage(Math.min(outputPageCount - 1, current + 1))}>${icons.pageNext}</button>
+  </div>`;
+}
+
+/**
+ * 양식·페이지 설정에서 출력 페이지를 옮기는 줄을 렌더링합니다. 출력 페이지가 하나면 표시하지 않습니다.
+ *
+ * @param kit - 패널 렌더링에 필요한 문구와 상태
+ * @param form - 양식·페이지·파라미터 편집 동작
+ * @returns 출력 페이지 줄. 출력 페이지가 하나면 빈 것
+ */
+export function outputPageRow(kit: PanelKit, form: FormActions) {
+  const count = form.outputPageCount();
+  if (count <= 1) return nothing;
+  return html`<div class="prop-section">
+    <div class="prop-row">
+      <label>${kit.s.outputPage}</label>
+      ${outputPageNav(kit, form.outputPage, count, (page) => form.setOutputPage(page))}
+    </div>
+  </div>`;
+}
+
+/**
  * 현재 페이지의 이름, 페이지 번호, 순서를 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
@@ -98,6 +152,7 @@ export function pageSettings(kit: PanelKit, form: FormActions) {
 
   return html`
     <div class="type-name">${s.pageSettings}</div>
+    ${outputPageRow(kit, form)}
 
     <div class="prop-section">
       <div class="prop-section-title">${s.panelBasic}</div>
@@ -230,6 +285,7 @@ export function formSettings(kit: PanelKit, form: FormActions) {
 
   return html`
     <div class="type-name">${s.formSettings}</div>
+    ${outputPageRow(kit, form)}
 
     <div class="prop-section">
       <div class="prop-section-title">${s.panelBasic}</div>

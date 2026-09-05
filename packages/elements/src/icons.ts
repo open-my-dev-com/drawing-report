@@ -111,6 +111,16 @@ export const icons = {
   alignMiddle: icon(svg`<rect x="7" y="7" width="10" height="10" rx="1" /><path d="M4 12h16" />`),
   /** 세로 정렬 아래 */
   alignBottom: icon(svg`<rect x="7" y="4" width="10" height="11" rx="1" /><path d="M4 20h16" />`),
+  /** 요소 배치: 왼쪽 변 맞춤 — 왼쪽 기준선에 붙은 두 상자 */
+  alignLeftEdges: icon(svg`<path d="M4 3v18" /><rect x="7" y="6" width="13" height="5" rx="1" /><rect x="7" y="13" width="8" height="5" rx="1" />`),
+  /** 요소 배치: 가로 가운데 맞춤 — 세로 중심선에 걸친 두 상자 */
+  alignHCenters: icon(svg`<path d="M12 3v18" /><rect x="5" y="6" width="14" height="5" rx="1" /><rect x="8" y="13" width="8" height="5" rx="1" />`),
+  /** 요소 배치: 오른쪽 변 맞춤 — 오른쪽 기준선에 붙은 두 상자 */
+  alignRightEdges: icon(svg`<path d="M20 3v18" /><rect x="4" y="6" width="13" height="5" rx="1" /><rect x="9" y="13" width="8" height="5" rx="1" />`),
+  /** 요소 배치: 가로 간격 균등 — 양 끝 기준선 사이에 고르게 놓인 상자 */
+  distributeH: icon(svg`<path d="M3 4v16" /><path d="M21 4v16" /><rect x="8" y="8" width="3" height="8" rx="1" /><rect x="13" y="8" width="3" height="8" rx="1" />`),
+  /** 요소 배치: 세로 간격 균등 — 위아래 기준선 사이에 고르게 놓인 상자 */
+  distributeV: icon(svg`<path d="M4 3h16" /><path d="M4 21h16" /><rect x="8" y="8" width="8" height="3" rx="1" /><rect x="8" y="13" width="8" height="3" rx="1" />`),
   /** 바코드 요소 — 굵기가 다른 막대 줄 */
   barcode: icon(svg`<path d="M4 5v14" /><path d="M8 5v14" /><path d="M12 5v14" /><path d="M17 5v14" /><path d="M21 5v14" />`),
   /** 계산할 수 없는 수식이 있는 자리를 알리는 경고 삼각형. */
