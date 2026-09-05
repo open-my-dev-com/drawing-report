@@ -1427,7 +1427,7 @@ const BUILT_IN_MIGRATIONS:
 | `@omdc-slipkit/elements` | `SlipDesigner`, `SlipForm`, `SlipViewer`, `getPresets`, `loadDefaultFonts`, `IndexedDbStorage`, `SlipFileExchange` | `SlipFont`, `SlipDesignerSettings`, `PaperSize`, `SlipPreset`, `IndexedDbStorageOptions`, `SlipFileExchangeOptions` |
 | `@omdc-slipkit/elements/default-fonts` | `loadDefaultFonts` | — |
 | `@omdc-slipkit/elements/fonts/pretendard` | `PRETENDARD_FONTS` | — |
-| `@omdc-slipkit/elements/fonts/noto-sans-jp` | `NOTO_SANS_JP_FONTS` | — |
+| `@omdc-slipkit/elements/fonts/noto-sans-jp` | `NOTO_SANS_JP_FONTS`, 기본 내보내기 | — |
 | `@omdc-slipkit/react` | `SlipDesigner`, `SlipForm`, `SlipViewer` | `SlipDesignerProps`, `SlipFormProps`, `SlipViewerProps` |
 | `@omdc-slipkit/vue` | `SlipDesigner`, `SlipForm`, `SlipViewer` | — |
 | `@omdc-slipkit/mcp` | `createSlipMcpServer`, `FileSystemStorage`, `resolveInRoot`, `readConfigFile`, `loadConfigFonts`, `resolveServerOptions`, `SlipMcpConfigError`, `CONFIG_FILE_NAME`, `DEFAULT_KEY_ENV`, `DEFAULT_PREVIOUS_KEYS_ENV`, `editOpSchema`, `MAX_IMAGE_BYTES`, `SCHEMA_TOPICS`, `schemaTopicText` | `SlipMcpServerOptions`, `FileSystemStorageKey`, `FileSystemStorageOptions`, `SlipMcpConfig`, `ResolveInput`, `EditOp`, `SchemaTopic` |

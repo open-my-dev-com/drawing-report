@@ -27,3 +27,5 @@ function decode(b64: string): Uint8Array {
 export const NOTO_SANS_JP_FONTS: SlipFont[] = [
   { name: 'Noto Sans JP', data: decode(NOTO_SANS_JP_REGULAR_B64), fallback: true },
 ];
+
+export default NOTO_SANS_JP_FONTS;

@@ -179,7 +179,8 @@
     },
     "./fonts/noto-sans-jp": {
       "runtime": [
-        "NOTO_SANS_JP_FONTS"
+        "NOTO_SANS_JP_FONTS",
+        "default"
       ],
       "types": []
     }
