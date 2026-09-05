@@ -12,7 +12,7 @@ SlipKit을 설계하면서 내린 주요 결정과 그 이유를 기록합니다
 - [미결 사항](./OPEN-QUESTIONS.md)
 - [기술 조사](./TECH-RESEARCH.md)
 
-최종 갱신: 2026-09-05
+최종 갱신: 2026-09-06
 
 ## 문서 원칙
 
@@ -2783,3 +2783,86 @@ MCP의 `slip_save`와 `slip_edit`도 이 검증을 통과한 결과만 기록하
   자동으로 확정할 수 있어 채택하지 않았습니다.
 - **스키마 버전 변경과 마이그레이션 제공**: 아직 공개된 파일 형식이 없고 변환 대상 계약도 없으므로
   불필요합니다.
+
+---
+
+## ADR-079: 첫 공개 전 파일 인코딩·React 표준 props·공개 export 경계를 확정한다
+
+**상태:** 채택
+
+**관련 결정:** ADR-002, ADR-003, ADR-007, ADR-054, ADR-057, ADR-074, ADR-076, ADR-078
+
+### 배경
+
+첫 공개 전 검토에서 호환성과 관련된 세 가지 경계가 문서와 구현 어디에도 명시되어 있지
+않았습니다.
+
+- 텍스트 편집기나 일부 언어 런타임은 UTF-8 파일 맨 앞에 BOM(U+FEFF)을 붙입니다. `.slip` JSON을
+  그대로 `JSON.parse`에 넘기면 이 파일은 파싱 오류가 됩니다. 한편 한글처럼 조합형(NFD)과
+  완성형(NFC)이 함께 쓰이는 문자는 정규화 정책이 없으면 저장 시스템마다 다른 키가 될 수 있고,
+  같은 암호 문구가 입력 방식에 따라 다른 키를 만들 수 있습니다.
+- React 래퍼는 전용 props만 받았습니다. `className`·`style`·`aria-*` 같은 표준 속성을 붙이거나
+  `ref`로 실제 `slip-*` 요소에 접근할 방법이 없어 호스트가 래퍼를 감싸는 요소를 하나 더 두어야
+  했습니다.
+- 다섯 패키지의 루트 export에는 계획 계층 구현 세부(`planGrid`·`visiblePageRange` 등)와 MCP CLI의
+  HTTP 수명주기 API가 포함되어 있었고, 어떤 이름이 공개 계약인지 시험으로 고정되어 있지
+  않았습니다.
+
+### 결정
+
+**BOM과 NFC.** 평문 `.slip` JSON과 암호화 봉투 JSON은 문자열 맨 앞의 U+FEFF 한 개만 UTF-8 BOM으로
+허용하고 파싱 전에 제거합니다. 중간이나 끝의 U+FEFF는 일반 문자열 내용으로 보존합니다.
+`serializeSlipFile()`과 암호화 봉투 출력은 BOM을 쓰지 않습니다. 양식 제목, 라벨, 파라미터 키와
+업무 값 등 문서 안 문자열은 NFC로 자동 변환하지 않고 코드 포인트를 그대로 보존합니다. NFC 키와
+NFD 키는 서로 다른 키입니다. 문자열 암호 문구는 PBKDF2 입력 직전에 NFC로 정규화하므로 시각적으로
+같은 NFC/NFD 암호 문구는 같은 키를 만들고, 32바이트 원시 키에는 정규화를 적용하지 않습니다.
+첫 공개 전 개발 버전이므로 옛 암호 문구 바이트 규칙을 위한 이중 복호화나 마이그레이션은 두지
+않습니다. `parseSlipFile`·`isEncryptedSlipFile`·`decryptSlipFile`과 이를 소비하는 Elements의 파일
+열기, MCP의 파일 저장소가 같은 계약을 따릅니다.
+
+**React 표준 props와 ref.** `SlipViewer`·`SlipDesigner`·`SlipForm`은 실제 `slip-*` HTMLElement를
+가리키는 React 19 `ref`를 받고, `className`·`style`·`id`·`title`·`role`·`tabIndex`·`aria-*`·`data-*`와
+표준 DOM 이벤트 props를 기저 커스텀 엘리먼트에 전달합니다. `src`, SlipKit 설정 props와
+`onSlipChange`·`onSlipIssue`는 전용 계약을 유지하며 임의 spread가 이 값을 덮어쓰지 못합니다.
+shadow DOM을 직접 관리하는 래퍼이므로 `children`과 `dangerouslySetInnerHTML`은 공개 props에서
+제외합니다.
+
+**공개 export.** 다섯 패키지의 루트와 공개 서브패스를 런타임 값과 타입으로 나눠 allowlist로
+고정하고, 실제 tarball 소비자가 그 목록을 import하도록 검증합니다. Elements·MCP가 패키지 경계를
+넘어 사용하는 core의 `elementBounds`, `filterVisibleOnPage`, `planSourcePage`, `SlipLayoutError`,
+`RESERVED_REF_NAMES`, `GridFragment`, `GridItem`, `GridPlan`, `PlannedBand`, `SourcePagePlan`은 패키지
+통합 API로 유지하고 API 문서에 용도를 명시합니다. core 루트의 `planGrid`, `visiblePageRange`,
+`GridFlow`, `ElementPlacement`, `PlanPaper`와 MCP 루트의 `createPdfLinkToken`, `startPdfLinkServer`,
+`startOrJoinPdfLinkServer`, `PdfLinkServer`는 루트 export에서 제거하고 내부 코드와 시험은 내부
+모듈을 직접 사용합니다. Elements의 `loadDefaultFonts`와 폰트·`default-fonts` 서브패스, React·Vue의
+래퍼 export는 실제 소비자 API이므로 유지합니다. 첫 공개 전이므로 제거 대상에 폐기 경고나 호환
+shim을 두지 않고, 제거한 이름이 tarball 루트에서 import되지 않는 부정 시험을 둡니다.
+
+### 영향
+
+- BOM이 붙은 파일도 열 수 있지만 SlipKit이 만드는 파일은 항상 BOM 없이 시작하므로 다른 도구와의
+  교환에서 인코딩 차이가 생기지 않습니다.
+- 파라미터 키와 업무 값은 호스트가 넘긴 그대로 보존됩니다. 정규화가 필요하면 호스트가 파일에
+  넣기 전에 수행합니다.
+- 같은 암호 문구를 다른 입력 방식으로 넣어도 복호화가 실패하지 않습니다. 정규화가 없던 개발 중
+  봉투는 NFD 문구로 잠근 경우에만 다시 암호화해야 합니다.
+- React 호스트는 감싸는 요소 없이 래퍼에 직접 클래스·스타일·접근성 속성을 붙이고 `ref`로 요소
+  메서드와 `updateComplete`에 접근할 수 있습니다.
+- 공개 export가 시험으로 고정되므로 이름이 추가·삭제되면 allowlist를 함께 고쳐야 하고, 계획 계층과
+  MCP HTTP 구현은 공개 계약 없이 바꿀 수 있습니다.
+
+### 기각한 대안
+
+- **문서 안 문자열도 NFC로 정규화**: 호스트 데이터베이스의 키와 다른 문자열이 되어 값 조회가
+  어긋나고, 왕복 보존 원칙(ADR-076)에 어긋납니다.
+- **암호 문구도 정규화하지 않음**: 같은 문구가 입력 방식에 따라 다른 키가 되어 복호화 실패 원인을
+  사용자가 찾을 수 없습니다.
+- **옛 문구 바이트로 한 번 더 복호화 시도**: 공개된 봉투가 없어 호환 대상이 없고 복호화 시간이
+  두 배가 됩니다.
+- **React 래퍼에 `forwardRef`와 전용 `ref` 이름 추가**: React 19에서는 함수 컴포넌트가 `ref`를 일반
+  prop으로 받으므로 별도 API가 필요하지 않습니다.
+- **`children`을 받아 slot으로 전달**: 세 컴포넌트가 slot을 정의하지 않아 전달할 곳이 없습니다.
+- **제거 대상에 폐기 경고를 두고 다음 릴리스에서 삭제**: 아직 공개 배포가 없어 폐기 절차의 대상이
+  없습니다.
+- **export 목록을 문서로만 관리**: 문서와 실제 산출물이 조용히 어긋날 수 있어 tarball 소비자 시험으로
+  고정합니다.

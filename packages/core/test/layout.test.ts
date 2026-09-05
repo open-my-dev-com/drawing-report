@@ -2,15 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   SlipLayoutError,
   filterVisibleOnPage,
-  planGrid,
   planSourcePage,
   type GridBand,
   type GridElement,
-  type GridFlow,
   type GridPagination,
   type SlipElement,
   type SlipPage,
 } from '../src/index.js';
+import { planGrid, type GridFlow } from '../src/layout/grid-plan.js';
 
 /** 행 구간 리터럴을 짧게 만든다. */
 function band(

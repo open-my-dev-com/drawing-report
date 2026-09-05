@@ -122,6 +122,8 @@ React と Vue のラッパーは `CustomEvent` を外し、`SlipFile` オブジ�
 
 </details>
 
+React ラッパーは `ref`（基底の `slip-*` 要素）と `className`・`style`・`aria-*` などの標準 HTML 属性も受け取るため、サイズ指定やラベル付けのために要素をもう 1 つ重ねる必要はありません。API リファレンスの [`@omdc-slipkit/react`](api-reference.ja.md#omdc-slipkitreact) を参照してください。
+
 <details>
 <summary><strong>Vue</strong></summary>
 

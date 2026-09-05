@@ -8,6 +8,7 @@ import {
   type SlipKit,
 } from '@omdc-slipkit/core';
 import { SlipFileExchange } from '../src/storage/file-exchange.js';
+import { deserializeFromStorage } from '../src/storage/encryption.js';
 import { getPresets } from '../src/presets.js';
 
 const presets = getPresets();
@@ -150,5 +151,30 @@ describe('SlipFileExchange 암호화 — 공통 키 재사용', () => {
     await expect(
       openPicked(createSlipKit({ encryption: { key: '틀린-키' } }), saved),
     ).rejects.toMatchObject({ name: 'SlipEncryptionError' });
+  });
+});
+
+describe('SlipFileExchange — 앞에 BOM이 붙은 파일', () => {
+  /** UTF-8 BOM (U+FEFF) */
+  const BOM = '\uFEFF';
+
+  it('open은 BOM으로 시작하는 평문 .slip을 파싱한다', async () => {
+    const file = presets[0]!.create();
+    expect(await openPicked(createSlipKit(), BOM + serializeSlipFile(file))).toEqual(file);
+  });
+
+  it('open은 BOM으로 시작하는 암호화 .slip을 복호화한다', async () => {
+    const slipkit = createSlipKit({ encryption: { key: '내-키' } });
+    const file = presets[0]!.create();
+    const encrypted = await slipkit.encrypt(file);
+    expect(encrypted.charAt(0)).toBe('{');
+    expect(await openPicked(slipkit, BOM + encrypted)).toEqual(file);
+  });
+
+  it('deserializeFromStorage는 BOM으로 시작하는 평문·암호화 문자열을 모두 읽는다', async () => {
+    const slipkit = createSlipKit({ encryption: { key: '내-키' } });
+    const file = presets[0]!.create();
+    expect(await deserializeFromStorage(slipkit, BOM + serializeSlipFile(file))).toEqual(file);
+    expect(await deserializeFromStorage(slipkit, BOM + (await slipkit.encrypt(file)))).toEqual(file);
   });
 });

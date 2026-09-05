@@ -122,6 +122,8 @@ The React and Vue wrappers unwrap the `CustomEvent` and pass the `SlipFile` obje
 
 </details>
 
+The React wrapper also accepts `ref` (the underlying `slip-*` element) and standard HTML attributes such as `className`, `style` and `aria-*`, so you do not need an extra wrapping element to size or label the component. See [`@omdc-slipkit/react`](api-reference.md#omdc-slipkitreact) in the API reference.
+
 <details>
 <summary><strong>Vue</strong></summary>
 

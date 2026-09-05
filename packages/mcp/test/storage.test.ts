@@ -314,3 +314,32 @@ describe.runIf(process.platform === 'win32')('FileSystemStorage (Windows 경로)
     expect(storage.resolvePath('forms\\2026\\invoice')).toBe(path.join(storage.rootDir, 'forms', '2026', 'invoice.slip'));
   });
 });
+
+describe('FileSystemStorage — 앞에 BOM이 붙은 .slip', () => {
+  /** UTF-8 BOM (U+FEFF) */
+  const BOM = '\uFEFF';
+
+  it('BOM으로 시작하는 평문 .slip을 load하고 list에 포함한다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    await writeFile(path.join(dir, 'bom.slip'), BOM + serializeSlipFile(makeTemplate()), 'utf8');
+    // 파일 첫 바이트가 실제로 BOM(EF BB BF)인지 확인한다.
+    expect([...(await readFile(path.join(dir, 'bom.slip'))).subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+
+    expect(await storage.load('bom')).toEqual(makeTemplate());
+    const page = await storage.list();
+    expect(page.items.map((item) => item.id)).toEqual(['bom.slip']);
+    expect(page.items[0]).toMatchObject({ kind: 'template', title: '거래명세서' });
+  });
+
+  it('BOM으로 시작하는 암호화 .slip을 설정된 키로 load하고 list에 포함한다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir, encryption: { key: '키' } });
+    await storage.save('locked', makeTemplate());
+    const envelope = await readFile(path.join(dir, 'locked.slip'), 'utf8');
+    expect(envelope.charAt(0)).toBe('{');
+    await writeFile(path.join(dir, 'locked-bom.slip'), BOM + envelope, 'utf8');
+
+    expect(await storage.load('locked-bom')).toEqual(makeTemplate());
+    const page = await storage.list();
+    expect(page.items.map((item) => item.id)).toEqual(['locked-bom.slip', 'locked.slip']);
+  });
+});

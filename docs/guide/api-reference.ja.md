@@ -55,6 +55,8 @@ JSON 文字列をパースし、`.slip` ファイル全体を検証します。�
 
 不正な JSON やファイル構造は `SlipParseError` を発生させます。`options.locale` はエラーメッセージの言語を決めます（既定は英語）。
 
+文字列先頭の U+FEFF 1 個は UTF-8 BOM とみなし、パース前に取り除きます。それ以外の位置の U+FEFF は通常の文字列内容としてそのまま保持します。ドキュメント内の文字列（タイトル、ラベル、パラメータキー、値）は Unicode 正規化を行わないため、NFC と NFD の表記は別のキーです。
+
 #### `validateSlipFile`
 
 ```ts
@@ -79,6 +81,8 @@ function serializeSlipFile(
 `SlipFile` オブジェクトをインデント付きの JSON 文字列に変換します。
 
 この関数は入力オブジェクトを再検証しません。
+
+出力が BOM で始まることはありません。
 
 #### `CURRENT_SCHEMA_VERSION`
 
@@ -467,6 +471,8 @@ function encryptSlipFile(
 
 文字列キーはパスフレーズとして扱い、`Uint8Array` キーは 32 バイトの生 AES キーである必要があります。
 
+パスフレーズは PBKDF2 の鍵導出直前に NFC へ正規化するため、見た目が同じ NFC/NFD のパスフレーズは同じ鍵になります。生キーはそのまま使います。エンベロープ JSON が BOM で始まることはありません。
+
 #### `decryptSlipFile`
 
 ```ts
@@ -479,6 +485,8 @@ function decryptSlipFile(
 
 暗号化エンベロープを復号した後、`parseSlipFile` で検証します。`options.locale` はエラーメッセージの言語を決めます（既定は英語）。
 
+エンベロープ文字列先頭の U+FEFF 1 個はパース前に取り除き、文字列キーは `encryptSlipFile` と同じく NFC へ正規化します。
+
 #### `isEncryptedSlipFile`
 
 ```ts
@@ -490,6 +498,8 @@ function isEncryptedSlipFile(
 JSON に SlipKit の暗号化エンベロープの目印があるかを確認します。
 
 復号できるかどうかや、データの完全性を検証する関数ではありません。
+
+先頭の U+FEFF 1 個は無視するため、BOM 付きのエンベロープも検出します。
 
 ## `.slip` ファイルの型
 
@@ -1391,6 +1401,39 @@ const BUILT_IN_MIGRATIONS:
 | `maxValueStringLength` | 3,000,000 | 業務データマップの文字列最大長 |
 | `maxImageBytes` | 2 MiB | PNG または JPEG 画像 1 件の最大デコードサイズ |
 
+## パッケージ統合 API
+
+次の Core の export は、`@omdc-slipkit/elements` と `@omdc-slipkit/mcp` がパッケージ境界を越えて同じレイアウト・数式ルールを共有するために存在します。公開 API の一部として安定的に維持しますが、ほとんどのホストアプリケーションには必要ありません。
+
+| API | 利用パッケージ | 用途 |
+|---|---|---|
+| `elementBounds(element)` | Elements, MCP | 要素の境界ボックスをミリメートルで計算します。サイズをトラックから算出するグリッドも含みます。 |
+| `planSourcePage(page, values, options)` | Elements | テンプレートページ 1 枚の出力ページ計画（行範囲の配置、項目インスタンス、`after` 配置）を作ります。デザイナーのプレビューは PDF レンダリングと同じ計画を使います。 |
+| `filterVisibleOnPage(elements, pageIndex, total)` | Elements | 指定した出力ページで `pagePlacement` により表示される要素だけを選びます。 |
+| `SlipLayoutError` | Elements | グリッドを配置できないとき（例: フロー領域より高い行範囲）に計画層がスローするエラーです。デザイナーはそのメッセージをプレビューに表示します。 |
+| `RESERVED_REF_NAMES` | Elements | 自動補完と検査に使う予約参照ルート（`@item`, `@group`, `@page`, `@all`, `@carried`）の一覧です。 |
+| `GridPlan`, `GridFragment`, `GridItem`, `PlannedBand`, `SourcePagePlan` | Elements | `planSourcePage` が返す計画の型です。 |
+
+`planGrid`・`visiblePageRange` などその他の計画ヘルパーと `GridFlow`・`ElementPlacement`・`PlanPaper` 型は実装の詳細であり export しません。パッケージごとの export 名の全体は、tarball 利用者検証が確認する allowlist で固定します。[公開 export](#公開-export) を参照してください。
+
+## 公開 export
+
+各パッケージはルートと公開サブパスから、ちょうど次の名前だけを提供します。`dist/` 内のそれ以外のパスは内部用で、import できません。
+
+| パッケージ / サブパス | ランタイム値 | 型 |
+|---|---|---|
+| `@omdc-slipkit/core` | このドキュメントの `@omdc-slipkit/core`、スキーマとマイグレーション API、ストレージ API、エラーの型に記載したすべての値 | このドキュメントに記載したすべての `.slip` ファイル・要素・ストレージ・数式・レンダリングの型 |
+| `@omdc-slipkit/core/schemas/*` | `slip.schema.json`, `slip-0.1.0.schema.json`（JSON ファイル） | — |
+| `@omdc-slipkit/elements` | `SlipDesigner`, `SlipForm`, `SlipViewer`, `getPresets`, `loadDefaultFonts`, `IndexedDbStorage`, `SlipFileExchange` | `SlipFont`, `SlipDesignerSettings`, `PaperSize`, `SlipPreset`, `IndexedDbStorageOptions`, `SlipFileExchangeOptions` |
+| `@omdc-slipkit/elements/default-fonts` | `loadDefaultFonts` | — |
+| `@omdc-slipkit/elements/fonts/pretendard` | `PRETENDARD_FONTS` | — |
+| `@omdc-slipkit/elements/fonts/noto-sans-jp` | `NOTO_SANS_JP_FONTS` | — |
+| `@omdc-slipkit/react` | `SlipDesigner`, `SlipForm`, `SlipViewer` | `SlipDesignerProps`, `SlipFormProps`, `SlipViewerProps` |
+| `@omdc-slipkit/vue` | `SlipDesigner`, `SlipForm`, `SlipViewer` | — |
+| `@omdc-slipkit/mcp` | `createSlipMcpServer`, `FileSystemStorage`, `resolveInRoot`, `readConfigFile`, `loadConfigFonts`, `resolveServerOptions`, `SlipMcpConfigError`, `CONFIG_FILE_NAME`, `DEFAULT_KEY_ENV`, `DEFAULT_PREVIOUS_KEYS_ENV`, `editOpSchema`, `MAX_IMAGE_BYTES`, `SCHEMA_TOPICS`, `schemaTopicText` | `SlipMcpServerOptions`, `FileSystemStorageKey`, `FileSystemStorageOptions`, `SlipMcpConfig`, `ResolveInput`, `EditOp`, `SchemaTopic` |
+
+`slipkit-mcp` CLI が使う PDF リンクサーバー（`startPdfLinkServer` など）は CLI 内部の実装であり export しません。
+
 ## `@omdc-slipkit/elements`
 
 パッケージのルートを import すると、3 つの Web Component が登録されます。
@@ -1642,10 +1685,14 @@ Noto Sans JP Regular のサブセットを含みます。そのフォントが�
 
 React 19 以上をサポートします。
 
+各コンポーネントは基底の `slip-*` 要素を指す `ref` を受け取り、標準の HTML 属性（`className`, `style`, `id`, `title`, `role`, `tabIndex`, `aria-*`, `data-*`）と標準の DOM イベント props（`onClick`, `onKeyDown` など）をその要素へそのまま渡します。`children` と `dangerouslySetInnerHTML` は props に含まれません。要素が自身の shadow DOM を描画するためです。
+
 ### `SlipDesigner`
 
 ```ts
-interface SlipDesignerProps {
+interface SlipDesignerProps
+  extends SlipHostAttributes {
+  ref?: Ref<SlipDesignerElement>;
   src: string;
   locale?: string;
   slipkit?: SlipKit;
@@ -1669,7 +1716,9 @@ Web Component の `slip-change` イベントから `CustomEvent` を取り除き
 ### `SlipForm`
 
 ```ts
-interface SlipFormProps {
+interface SlipFormProps
+  extends SlipHostAttributes {
+  ref?: Ref<SlipFormElement>;
   src: string;
   locale?: string;
   slipkit?: SlipKit;
@@ -1689,7 +1738,9 @@ interface SlipFormProps {
 ### `SlipViewer`
 
 ```ts
-interface SlipViewerProps {
+interface SlipViewerProps
+  extends SlipHostAttributes {
+  ref?: Ref<SlipViewerElement>;
   src: string;
   locale?: string;
   slipkit?: SlipKit;
@@ -1706,7 +1757,29 @@ import type {
 } from '@omdc-slipkit/react';
 ```
 
-省略可能なラッパー prop は明示的に渡した間だけ内部要素へ設定され、削除すると要素自身の既定値に戻ります。発行後に同じ元データで新しい伝票を始めるには、React の `key` を変えて `SlipForm` を再マウントします。
+`SlipHostAttributes` は React の `HTMLAttributes<HTMLElement>` から `children` と `dangerouslySetInnerHTML` を除いたものを表し、独立した名前としては export しません。`SlipDesignerElement`, `SlipFormElement`, `SlipViewerElement` は `@omdc-slipkit/elements` が export する `SlipDesigner`, `SlipForm`, `SlipViewer` クラスです。
+
+```tsx
+import { useRef } from 'react';
+import { SlipDesigner } from '@omdc-slipkit/react';
+import type { SlipDesigner as SlipDesignerElement } from '@omdc-slipkit/elements';
+
+export function DesignerPane() {
+  const designer = useRef<SlipDesignerElement>(null);
+  return (
+    <SlipDesigner
+      ref={designer}
+      className="designer-pane"
+      style={{ height: '80vh' }}
+      aria-label="テンプレートデザイナー"
+      src={designerSrc}
+      onSlipChange={handleSlipChange}
+    />
+  );
+}
+```
+
+専用の props（`src`、設定 props、`onSlipChange`, `onSlipIssue`）は常に優先され、spread したオブジェクトで上書きできません。省略可能なラッパー prop は明示的に渡した間だけ内部要素へ設定され、削除すると要素自身の既定値に戻ります。発行後に同じ元データで新しい伝票を始めるには、React の `key` を変えて `SlipForm` を再マウントします。
 
 ## `@omdc-slipkit/vue`
 

@@ -1,5 +1,16 @@
 import '@omdc-slipkit/elements';
-import { createElement, useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type HTMLAttributes,
+  type ReactElement,
+  type Ref,
+  type RefCallback,
+  type RefObject,
+} from 'react';
 import type {
   SlipViewer as SlipViewerElement,
   SlipDesigner as SlipDesignerElement,
@@ -14,6 +25,61 @@ import type {
 } from '@omdc-slipkit/core';
 
 type SlipPresets = SlipDesignerElement['presets'];
+
+/**
+ * 래퍼가 `slip-*` 요소에 그대로 넘기는 표준 HTML 속성과 DOM 이벤트 props.
+ *
+ * @remarks
+ * `className`·`style`·`id`·`title`·`role`·`tabIndex`·`aria-*`·`data-*`와 `onClick`·`onKeyDown` 같은
+ * React DOM 이벤트를 모두 받는다. 요소가 자체 shadow DOM을 그리므로 `children`과
+ * `dangerouslySetInnerHTML`은 지원하지 않는다.
+ */
+type SlipHostAttributes = Omit<HTMLAttributes<HTMLElement>, 'children' | 'dangerouslySetInnerHTML'>;
+
+/**
+ * 사용자가 넘긴 `ref`에 요소를 넣거나 해제한다.
+ *
+ * @returns 콜백 ref가 정리 함수를 돌려주면 그 함수, 아니면 `undefined`
+ */
+function assignRef<T>(ref: Ref<T> | undefined, value: T | null): (() => void) | undefined {
+  if (typeof ref === 'function') {
+    const cleanup = ref(value);
+    return typeof cleanup === 'function' ? cleanup : undefined;
+  }
+  if (ref) ref.current = value;
+  return undefined;
+}
+
+/**
+ * 래퍼 내부 ref와 사용자가 넘긴 `ref`를 하나의 콜백 ref로 합친다.
+ *
+ * @remarks
+ * 요소가 붙으면 두 ref에 모두 요소를 넣고, 떨어지면 둘 다 해제한다. 사용자 콜백 ref가
+ * 정리 함수를 돌려주면 `null` 호출 대신 그 함수를 부른다. 사용자 ref가 바뀌면 콜백의
+ * 동일성도 바뀌어 React가 옛 ref를 해제하고 새 ref에 요소를 다시 넣는다.
+ */
+function useMergedRef<T>(internal: RefObject<T | null>, external: Ref<T> | undefined): RefCallback<T> {
+  return useCallback<RefCallback<T>>((node) => {
+    internal.current = node;
+    // 정리 함수를 돌려주므로 React 19는 요소가 떨어질 때 이 콜백을 `null`로 다시 부르지 않는다.
+    const cleanup = assignRef(external, node);
+    return () => {
+      internal.current = null;
+      if (cleanup) cleanup();
+      else assignRef(external, null);
+    };
+  }, [internal, external]);
+}
+
+/**
+ * 요소에 넘길 최종 props를 만든다. 전용 값(`ref`·`src`)을 나머지 props 뒤에 두어 항상 우선하게 한다.
+ */
+function hostProps<T extends HTMLElement>(rest: SlipHostAttributes, ref: RefCallback<T>, src: string) {
+  const { className, ...attributes } = rest;
+  // className은 `class` 속성으로 넘긴다. React는 커스텀 엘리먼트의 className을 프로퍼티로 쓰는데,
+  // prop을 제거하면 undefined가 대입되어 브라우저에 class="undefined"가 남기 때문이다.
+  return { ...attributes, class: className, ref, src };
+}
 
 /**
  * 선택적 설정을 웹 컴포넌트의 JavaScript 프로퍼티로 쓴다.
@@ -56,8 +122,17 @@ function useSlipEvent<F>(
   }, [ref, name, handler]);
 }
 
-/** SlipViewer 컴포넌트 props */
-export interface SlipViewerProps {
+/**
+ * SlipViewer 컴포넌트 props.
+ *
+ * @remarks
+ * 아래 항목 외의 표준 HTML 속성(`className`·`style`·`id`·`title`·`role`·`tabIndex`·`aria-*`·`data-*`)과
+ * DOM 이벤트(`onClick`·`onKeyDown` 등)는 `<slip-viewer>` 요소에 그대로 전달된다.
+ * `children`과 `dangerouslySetInnerHTML`은 지원하지 않는다.
+ */
+export interface SlipViewerProps extends SlipHostAttributes {
+  /** 실제 `<slip-viewer>` 요소를 받는 ref. 객체 ref와 콜백 ref를 모두 쓸 수 있다. */
+  ref?: Ref<SlipViewerElement> | undefined;
   /** `.slip` JSON 문자열. */
   src: string;
   /**
@@ -73,15 +148,32 @@ export interface SlipViewerProps {
 /**
  * `<slip-viewer>`를 React 컴포넌트로 노출한다.
  * 생략한 설정은 요소에 쓰지 않아 요소의 기본 동작을 유지한다.
+ *
+ * @remarks
+ * `ref`로 실제 `<slip-viewer>` 요소를 받을 수 있고, 표준 HTML 속성과 DOM 이벤트 props는
+ * 요소에 그대로 전달된다. `src`는 전달된 나머지 props보다 항상 우선한다.
+ *
+ * @param props - 컴포넌트 props
+ * @returns `<slip-viewer>` React 요소
  */
-export function SlipViewer({ src, locale, slipkit }: SlipViewerProps) {
+export function SlipViewer({ ref: externalRef, src, locale, slipkit, ...rest }: SlipViewerProps): ReactElement {
   const ref = useRef<SlipViewerElement>(null);
+  const mergedRef = useMergedRef(ref, externalRef);
   useElementProps(ref, { locale, slipkit });
-  return createElement('slip-viewer', { ref, src });
+  return createElement('slip-viewer', hostProps(rest, mergedRef, src));
 }
 
-/** SlipDesigner 컴포넌트 props */
-export interface SlipDesignerProps {
+/**
+ * SlipDesigner 컴포넌트 props.
+ *
+ * @remarks
+ * 아래 항목 외의 표준 HTML 속성(`className`·`style`·`id`·`title`·`role`·`tabIndex`·`aria-*`·`data-*`)과
+ * DOM 이벤트(`onClick`·`onKeyDown` 등)는 `<slip-designer>` 요소에 그대로 전달된다.
+ * `children`과 `dangerouslySetInnerHTML`은 지원하지 않는다.
+ */
+export interface SlipDesignerProps extends SlipHostAttributes {
+  /** 실제 `<slip-designer>` 요소를 받는 ref. 객체 ref와 콜백 ref를 모두 쓸 수 있다. */
+  ref?: Ref<SlipDesignerElement> | undefined;
   /** 양식 파일을 담은 `.slip` JSON 문자열. */
   src: string;
   /**
@@ -107,8 +199,16 @@ export interface SlipDesignerProps {
 /**
  * `<slip-designer>`를 노출하고 `slip-change` 이벤트를 `onSlipChange`에 연결한다.
  * 생략한 설정은 요소에 쓰지 않아 요소의 기본 동작을 유지한다.
+ *
+ * @remarks
+ * `ref`로 실제 `<slip-designer>` 요소를 받을 수 있고, 표준 HTML 속성과 DOM 이벤트 props는
+ * 요소에 그대로 전달된다. `src`는 전달된 나머지 props보다 항상 우선한다.
+ *
+ * @param props - 컴포넌트 props
+ * @returns `<slip-designer>` React 요소
  */
 export function SlipDesigner({
+  ref: externalRef,
   src,
   locale,
   slipkit,
@@ -117,15 +217,26 @@ export function SlipDesigner({
   storage,
   maxImageBytes,
   onSlipChange,
-}: SlipDesignerProps) {
+  ...rest
+}: SlipDesignerProps): ReactElement {
   const ref = useRef<SlipDesignerElement>(null);
+  const mergedRef = useMergedRef(ref, externalRef);
   useElementProps(ref, { locale, slipkit, settings, presets, storage, maxImageBytes });
   useSlipEvent(ref, 'slip-change', onSlipChange);
-  return createElement('slip-designer', { ref, src });
+  return createElement('slip-designer', hostProps(rest, mergedRef, src));
 }
 
-/** SlipForm 컴포넌트 props */
-export interface SlipFormProps {
+/**
+ * SlipForm 컴포넌트 props.
+ *
+ * @remarks
+ * 아래 항목 외의 표준 HTML 속성(`className`·`style`·`id`·`title`·`role`·`tabIndex`·`aria-*`·`data-*`)과
+ * DOM 이벤트(`onClick`·`onKeyDown` 등)는 `<slip-form>` 요소에 그대로 전달된다.
+ * `children`과 `dangerouslySetInnerHTML`은 지원하지 않는다.
+ */
+export interface SlipFormProps extends SlipHostAttributes {
+  /** 실제 `<slip-form>` 요소를 받는 ref. 객체 ref와 콜백 ref를 모두 쓸 수 있다. */
+  ref?: Ref<SlipFormElement> | undefined;
   /** 양식 또는 작성 중인 전표를 담은 `.slip` JSON 문자열. */
   src: string;
   /**
@@ -149,20 +260,29 @@ export interface SlipFormProps {
  * 생략한 설정은 요소에 쓰지 않아 요소의 기본 동작을 유지한다.
  *
  * @remarks
+ * `ref`로 실제 `<slip-form>` 요소를 받을 수 있고, 표준 HTML 속성과 DOM 이벤트 props는
+ * 요소에 그대로 전달된다. `src`는 전달된 나머지 props보다 항상 우선한다.
+ *
  * 발행 뒤 같은 양식으로 새 전표를 시작하려면 `key`를 바꿔 다시 마운트한다.
  * 같은 `src` 문자열을 다시 넘기는 것만으로는 발행 상태가 풀리지 않는다.
+ *
+ * @param props - 컴포넌트 props
+ * @returns `<slip-form>` React 요소
  */
 export function SlipForm({
+  ref: externalRef,
   src,
   locale,
   slipkit,
   maxImageBytes,
   onSlipChange,
   onSlipIssue,
-}: SlipFormProps) {
+  ...rest
+}: SlipFormProps): ReactElement {
   const ref = useRef<SlipFormElement>(null);
+  const mergedRef = useMergedRef(ref, externalRef);
   useElementProps(ref, { locale, slipkit, maxImageBytes });
   useSlipEvent(ref, 'slip-change', onSlipChange);
   useSlipEvent(ref, 'slip-issue', onSlipIssue);
-  return createElement('slip-form', { ref, src });
+  return createElement('slip-form', hostProps(rest, mergedRef, src));
 }

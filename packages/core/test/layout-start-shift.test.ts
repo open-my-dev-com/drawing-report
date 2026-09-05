@@ -3,16 +3,15 @@ import { convertSlipFile } from '../src/render/convert.js';
 import {
   CURRENT_SCHEMA_VERSION,
   SlipLayoutError,
-  planGrid,
   planSourcePage,
   type GridBand,
   type GridElement,
-  type GridFlow,
   type GridPagination,
   type SlipElement,
   type SlipPage,
   type SlipVoucherFile,
 } from '../src/index.js';
+import { planGrid, type GridFlow } from '../src/layout/grid-plan.js';
 
 // A4·여백 15 → 흐름 영역 15~282mm(267mm). 첫 페이지의 남은 공간은 282 - position.y다.
 const PAPER = { width: 210, height: 297, padding: [15, 15, 15, 15] as const };

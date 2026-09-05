@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { CURRENT_SCHEMA_VERSION } from './version.js';
 import { migrateSlipDocument } from './migrate.js';
+import { stripLeadingBom } from './text.js';
 import { fmt, withFormatLocale, zodParseParams } from './messages.js';
 import { MAX_IMAGE_BYTES, inspectImageDataUrl, type ImageInspection } from './image-source.js';
 import { readOwn, writeOwn } from '../own-property.js';
@@ -1399,6 +1400,10 @@ export function validateSlipFile(raw: unknown, options?: { locale?: string }): S
 /**
  * JSON 문자열을 `.slip` 파일로 파싱한다.
  *
+ * 텍스트 맨 앞의 UTF-8 BOM(U+FEFF) 하나는 받아들여 제거하고 파싱한다. 그 밖의 U+FEFF와
+ * 문서 안의 문자열(제목·라벨·파라미터 키·값)은 유니코드 정규화 없이 코드 포인트를 그대로
+ * 보존한다 — NFC와 NFD로 적은 같은 글자는 서로 다른 키다.
+ *
  * @param json - `.slip` 파일 내용 (JSON 문자열)
  * @param options - `locale`: 오류 메시지에 사용할 BCP 47 로케일 (생략하면 영어)
  * @returns 검증·마이그레이션이 끝난 `.slip` 파일
@@ -1414,7 +1419,7 @@ export function parseSlipFile(json: string, options?: { locale?: string }): Slip
   return withFormatLocale(options?.locale, () => {
     let raw: unknown;
     try {
-      raw = JSON.parse(json);
+      raw = JSON.parse(stripLeadingBom(json));
     } catch {
       throw new SlipParseError(fmt().invalidJson());
     }
@@ -1424,6 +1429,9 @@ export function parseSlipFile(json: string, options?: { locale?: string }): Slip
 
 /**
  * `.slip` 파일을 저장용 JSON 문자열로 직렬화한다.
+ *
+ * 결과에 BOM을 붙이지 않으며(첫 글자는 항상 `{`), 문서 안의 문자열은 유니코드 정규화 없이
+ * 그대로 기록한다.
  *
  * @param file - 직렬화할 `.slip` 파일
  * @returns 들여쓰기 2칸의 JSON 문자열
