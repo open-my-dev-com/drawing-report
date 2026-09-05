@@ -228,3 +228,60 @@ describe('봉투 검증 — 손상된 봉투는 모두 SlipEncryptionError로 �
     await expect(decryptSlipFile(JSON.stringify(env), 'pw', { locale: 'ja' })).rejects.toThrow('サポートされていない暗号方式');
   });
 });
+
+describe('암호화 봉투의 BOM·유니코드 정규화', () => {
+  /** UTF-8 BOM (U+FEFF) */
+  const BOM = '\uFEFF';
+  /** 완성형 '각' (NFC, U+AC01) */
+  const NFC_PW = '\uAC01';
+  /** 자모 분해형 '각' (NFD, U+1100 U+1161 U+11A8) */
+  const NFD_PW = '\u1100\u1161\u11A8';
+
+  it('봉투 맨 앞의 BOM 하나는 판별과 복호화에서 무시한다', async () => {
+    const file = template();
+    const locked = BOM + (await encryptSlipFile(file, 'pw'));
+    expect(isEncryptedSlipFile(locked)).toBe(true);
+    await expect(decryptSlipFile(locked, 'pw')).resolves.toEqual(file);
+  });
+
+  it('BOM이 두 개인 봉투는 봉투로 보지 않는다', async () => {
+    const locked = BOM + BOM + (await encryptSlipFile(template(), 'pw'));
+    expect(isEncryptedSlipFile(locked)).toBe(false);
+    await expect(decryptSlipFile(locked, 'pw')).rejects.toBeInstanceOf(SlipEncryptionError);
+  });
+
+  it('encryptSlipFile 결과에는 BOM을 붙이지 않는다', async () => {
+    const locked = await encryptSlipFile(template(), 'pw');
+    expect(locked.charAt(0)).toBe('{');
+    expect(locked).not.toContain(BOM);
+  });
+
+  it('NFD 암호로 잠근 파일을 NFC 암호로 열고, 그 반대도 된다', async () => {
+    expect(NFC_PW).not.toBe(NFD_PW);
+    const file = template();
+    const lockedNfd = await encryptSlipFile(file, NFD_PW);
+    await expect(decryptSlipFile(lockedNfd, NFC_PW)).resolves.toEqual(file);
+    const lockedNfc = await encryptSlipFile(file, NFC_PW);
+    await expect(decryptSlipFile(lockedNfc, NFD_PW)).resolves.toEqual(file);
+  });
+
+  it('원시 키는 정규화 없이 바이트 그대로 쓴다 — 한 바이트만 달라도 실패한다', async () => {
+    const file = template();
+    const key = new Uint8Array(32).fill(0xe1);
+    const locked = await encryptSlipFile(file, key);
+    await expect(decryptSlipFile(locked, new Uint8Array(32).fill(0xe1))).resolves.toEqual(file);
+    const nearMiss = new Uint8Array(32).fill(0xe1);
+    nearMiss[31] = 0xe0;
+    await expect(decryptSlipFile(locked, nearMiss)).rejects.toBeInstanceOf(SlipEncryptionError);
+  });
+
+  it('문서 안 문자열은 정규화하지 않는다 — 중간 U+FEFF와 NFD 제목이 그대로 남는다', async () => {
+    const file = template();
+    file.template.meta.title = `A${BOM}B${NFD_PW}`;
+    const unlocked = await decryptSlipFile(await encryptSlipFile(file, 'pw'), 'pw');
+    expect(unlocked).toEqual(file);
+    if (unlocked.kind !== 'template') throw new Error('template expected');
+    expect(unlocked.template.meta.title).toBe(`A${BOM}B${NFD_PW}`);
+    expect(unlocked.template.meta.title).toHaveLength(6);
+  });
+});

@@ -55,6 +55,8 @@ Parses a JSON string and validates the entire `.slip` file. If a supported migra
 
 Invalid JSON or file structure throws a `SlipParseError`. `options.locale` selects the error message language (English by default).
 
+A single U+FEFF at the very start of the string is treated as a UTF-8 BOM and removed before parsing. U+FEFF anywhere else is ordinary text and is preserved. Strings inside the document (titles, labels, parameter keys, values) are not Unicode-normalized: NFC and NFD spellings are different keys.
+
 #### `validateSlipFile`
 
 ```ts
@@ -79,6 +81,8 @@ function serializeSlipFile(
 Converts a `SlipFile` object into an indented JSON string.
 
 This function does not re-validate the input object.
+
+The output never starts with a BOM.
 
 #### `CURRENT_SCHEMA_VERSION`
 
@@ -467,6 +471,8 @@ Converts a `.slip` file into an AES-256-GCM encryption envelope JSON.
 
 A string key is treated as a passphrase, and a `Uint8Array` key must be a 32-byte raw AES key.
 
+A passphrase is NFC-normalized right before PBKDF2 key derivation, so visually identical NFC and NFD passphrases produce the same key. Raw keys are used as-is. The envelope JSON never starts with a BOM.
+
 #### `decryptSlipFile`
 
 ```ts
@@ -479,6 +485,8 @@ function decryptSlipFile(
 
 Decrypts an encryption envelope and then validates it with `parseSlipFile`. `options.locale` selects the error message language (English by default).
 
+A single leading U+FEFF on the envelope string is removed before parsing, and a string key is NFC-normalized like in `encryptSlipFile`.
+
 #### `isEncryptedSlipFile`
 
 ```ts
@@ -490,6 +498,8 @@ function isEncryptedSlipFile(
 Checks whether the JSON has the SlipKit encryption envelope marker.
 
 It is not a function that verifies whether decryption is possible or that the data has integrity.
+
+A single leading U+FEFF is ignored, so a BOM-prefixed envelope is still detected.
 
 ## `.slip` file types
 
@@ -1392,6 +1402,39 @@ The structural size limits used in file validation.
 | `maxValueStringLength` | 3,000,000 | Maximum string length in business-data maps |
 | `maxImageBytes` | 2 MiB | Maximum decoded size of one PNG or JPEG image |
 
+## Package integration API
+
+The following Core exports exist so that `@omdc-slipkit/elements` and `@omdc-slipkit/mcp` can share the same layout and formula rules across the package boundary. They are part of the public surface and are kept stable, but most host applications do not need them.
+
+| Export | Used by | Purpose |
+|---|---|---|
+| `elementBounds(element)` | Elements, MCP | Computes the bounding box of an element in millimeters, including grids whose size is derived from their tracks. |
+| `planSourcePage(page, values, options)` | Elements | Builds the output-page plan of one template page (band placement, item instances, `after` placement). The designer preview uses the same plan as PDF rendering. |
+| `filterVisibleOnPage(elements, pageIndex, total)` | Elements | Filters elements by their `pagePlacement` for a given output page. |
+| `SlipLayoutError` | Elements | Thrown by the planning layer when a grid cannot be laid out (for example a band taller than the flow area). The designer shows its message in the preview. |
+| `RESERVED_REF_NAMES` | Elements | The reserved formula roots (`@item`, `@group`, `@page`, `@all`, `@carried`) used by autocomplete and validation. |
+| `GridPlan`, `GridFragment`, `GridItem`, `PlannedBand`, `SourcePagePlan` | Elements | Types of the plan returned by `planSourcePage`. |
+
+Other planning helpers such as `planGrid` and `visiblePageRange`, and the types `GridFlow`, `ElementPlacement` and `PlanPaper`, are implementation details and are not exported. The full list of exported names per package is fixed by an allowlist that the tarball consumer verification checks; see [Public exports](#public-exports).
+
+## Public exports
+
+Each package exposes exactly the names below from its root and public subpaths. Anything else in `dist/` is internal and cannot be imported.
+
+| Package / subpath | Runtime values | Types |
+|---|---|---|
+| `@omdc-slipkit/core` | Everything documented in this file under `@omdc-slipkit/core`, the schema and migration API, the storage API and the error types. | All `.slip` file, element, storage, formula and render types documented here. |
+| `@omdc-slipkit/core/schemas/*` | `slip.schema.json`, `slip-0.1.0.schema.json` (JSON files) | — |
+| `@omdc-slipkit/elements` | `SlipDesigner`, `SlipForm`, `SlipViewer`, `getPresets`, `loadDefaultFonts`, `IndexedDbStorage`, `SlipFileExchange` | `SlipFont`, `SlipDesignerSettings`, `PaperSize`, `SlipPreset`, `IndexedDbStorageOptions`, `SlipFileExchangeOptions` |
+| `@omdc-slipkit/elements/default-fonts` | `loadDefaultFonts` | — |
+| `@omdc-slipkit/elements/fonts/pretendard` | `PRETENDARD_FONTS` | — |
+| `@omdc-slipkit/elements/fonts/noto-sans-jp` | `NOTO_SANS_JP_FONTS`, default export | — |
+| `@omdc-slipkit/react` | `SlipDesigner`, `SlipForm`, `SlipViewer` | `SlipDesignerProps`, `SlipFormProps`, `SlipViewerProps` |
+| `@omdc-slipkit/vue` | `SlipDesigner`, `SlipForm`, `SlipViewer` | — |
+| `@omdc-slipkit/mcp` | `createSlipMcpServer`, `FileSystemStorage`, `resolveInRoot`, `readConfigFile`, `loadConfigFonts`, `resolveServerOptions`, `SlipMcpConfigError`, `CONFIG_FILE_NAME`, `DEFAULT_KEY_ENV`, `DEFAULT_PREVIOUS_KEYS_ENV`, `editOpSchema`, `MAX_IMAGE_BYTES`, `SCHEMA_TOPICS`, `schemaTopicText` | `SlipMcpServerOptions`, `FileSystemStorageKey`, `FileSystemStorageOptions`, `SlipMcpConfig`, `ResolveInput`, `EditOp`, `SchemaTopic` |
+
+The PDF link server used by the `slipkit-mcp` CLI (`startPdfLinkServer` and related names) is internal to the CLI and is not exported.
+
 ## `@omdc-slipkit/elements`
 
 Importing the package root registers the three Web Components.
@@ -1643,10 +1686,14 @@ Includes the Noto Sans JP Regular subset. That font is specified as the fallback
 
 Supports React 19 or later.
 
+Each component accepts a `ref` that points at the underlying `slip-*` element, and passes standard HTML attributes (`className`, `style`, `id`, `title`, `role`, `tabIndex`, `aria-*`, `data-*`) and standard DOM event props (`onClick`, `onKeyDown`, ...) through to that element. `children` and `dangerouslySetInnerHTML` are not part of the props: the elements render their own shadow DOM.
+
 ### `SlipDesigner`
 
 ```ts
-interface SlipDesignerProps {
+interface SlipDesignerProps
+  extends SlipHostAttributes {
+  ref?: Ref<SlipDesignerElement>;
   src: string;
   locale?: string;
   slipkit?: SlipKit;
@@ -1670,7 +1717,9 @@ It removes the `CustomEvent` from the Web Component's `slip-change` event and pa
 ### `SlipForm`
 
 ```ts
-interface SlipFormProps {
+interface SlipFormProps
+  extends SlipHostAttributes {
+  ref?: Ref<SlipFormElement>;
   src: string;
   locale?: string;
   slipkit?: SlipKit;
@@ -1690,7 +1739,9 @@ interface SlipFormProps {
 ### `SlipViewer`
 
 ```ts
-interface SlipViewerProps {
+interface SlipViewerProps
+  extends SlipHostAttributes {
+  ref?: Ref<SlipViewerElement>;
   src: string;
   locale?: string;
   slipkit?: SlipKit;
@@ -1707,7 +1758,29 @@ import type {
 } from '@omdc-slipkit/react';
 ```
 
-Optional wrapper props are assigned to the underlying element only while explicitly provided; removing one restores the element's own default. After issuing, change React's `key` to remount `SlipForm` and start another voucher from the same source.
+`SlipHostAttributes` stands for React's `HTMLAttributes<HTMLElement>` without `children` and `dangerouslySetInnerHTML`; it is not exported as a separate name. `SlipDesignerElement`, `SlipFormElement` and `SlipViewerElement` are the `SlipDesigner`, `SlipForm` and `SlipViewer` classes exported by `@omdc-slipkit/elements`.
+
+```tsx
+import { useRef } from 'react';
+import { SlipDesigner } from '@omdc-slipkit/react';
+import type { SlipDesigner as SlipDesignerElement } from '@omdc-slipkit/elements';
+
+export function DesignerPane() {
+  const designer = useRef<SlipDesignerElement>(null);
+  return (
+    <SlipDesigner
+      ref={designer}
+      className="designer-pane"
+      style={{ height: '80vh' }}
+      aria-label="Template designer"
+      src={designerSrc}
+      onSlipChange={handleSlipChange}
+    />
+  );
+}
+```
+
+The dedicated props (`src`, the settings props, `onSlipChange`, `onSlipIssue`) always win: a spread object cannot override them. Optional wrapper props are assigned to the underlying element only while explicitly provided; removing one restores the element's own default. After issuing, change React's `key` to remount `SlipForm` and start another voucher from the same source.
 
 ## `@omdc-slipkit/vue`
 

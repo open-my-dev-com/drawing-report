@@ -8,7 +8,7 @@
 - 예정된 작업과 보류 항목은 [로드맵](ROADMAP.md)을 참고합니다.
 - 결정되지 않은 사항은 [미결 사항](OPEN-QUESTIONS.md)에서 관리합니다.
 
-최종 갱신: 2026-09-05
+최종 갱신: 2026-09-06
 
 > [!NOTE]
 > 이 문서는 구현 진행 상황이나 개발 작업 이력을 기록하지 않습니다.
@@ -88,6 +88,9 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 | `DIST-12` | PR과 `main` 변경은 지원 Node.js 환경과 배포 소비자 경로에서 자동 검증해야 한다. | Node.js 22.13과 최신 LTS에서 `pnpm verify`·`pnpm verify:packages`가 실행되고, JSON Schema 재생성 차이와 Windows MCP 경로 시험이 별도 작업으로 검증된다. | ADR-075 |
 | `DIST-13` | npm 배포는 장기 쓰기 토큰 없이 승인된 GitHub Actions 워크플로에서만 실행해야 한다. | GitHub-hosted runner의 OIDC, `npm-publish` Environment와 저장소 변수가 모두 준비된 `main` 수동 실행만 실제 배포할 수 있고, 그렇지 않으면 dry-run 검증으로 끝난다. | ADR-075 |
 | `DIST-14` | 여러 패키지의 배포 순서와 부분 실패 후 재개 경계를 보장해야 한다. | 검증한 같은 tarball을 `core` → `elements` → `react` → `vue` → `mcp` 순서로 배포하며, 이미 존재하는 버전은 레지스트리 SRI가 같을 때만 건너뛰고 불일치나 조회 오류가 나면 즉시 중단한다. | ADR-075 |
+| `DIST-15` | React 래퍼는 React의 표준 props와 `ref`를 기저 커스텀 엘리먼트에 전달해야 한다. | `SlipViewer`·`SlipDesigner`·`SlipForm`이 실제 `slip-*` 요소를 가리키는 React 19 `ref`를 받고 `className`·`style`·`id`·`title`·`role`·`tabIndex`·`aria-*`·`data-*`와 표준 DOM 이벤트 props를 전달한다. `src`, 설정 props와 `onSlipChange`·`onSlipIssue`는 spread로 덮어쓸 수 없고 `children`·`dangerouslySetInnerHTML`은 props 타입에 없다. | ADR-003, ADR-079 |
+| `DIST-16` | 다섯 패키지의 공개 export는 allowlist로 고정하고 실제 tarball에서 검증해야 한다. | 루트와 공개 서브패스의 런타임 값·타입 이름이 allowlist와 정확히 일치하고, 제거한 이름은 tarball 루트에서 import되지 않는다. 폐기 경고나 호환 shim은 두지 않는다. | ADR-074, ADR-079 |
+| `DIST-17` | 패키지 통합 API와 구현 세부를 구분해야 한다. | Elements·MCP가 사용하는 core의 `elementBounds`, `filterVisibleOnPage`, `planSourcePage`, `SlipLayoutError`, `RESERVED_REF_NAMES`, `GridFragment`, `GridItem`, `GridPlan`, `PlannedBand`, `SourcePagePlan`은 용도를 문서화한 채 유지하고, `planGrid`·`visiblePageRange`·`GridFlow`·`ElementPlacement`·`PlanPaper`와 MCP의 PDF 링크 서버 API는 루트에서 제공하지 않는다. | ADR-079 |
 
 ## 5. 양식 디자이너
 
@@ -247,6 +250,8 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 | `FILE-23` | 구조 객체와 업무 데이터 객체의 미정의 프로퍼티 정책을 구분해야 한다. | 구조 객체는 미정의 키를 거부하고 `values`·`sampleValues`·목록 행은 미정의 키를 보존한다. | ADR-076 |
 | `FILE-26` | 구조 객체와 열린 업무 데이터는 프로토타입 이름 키도 같은 경계로 처리해야 한다. | 구조 객체가 직접 가진 `__proto__`·`constructor`·`toString` 미정의 키는 경로와 함께 거부하고, 열린 업무 데이터의 같은 키는 자체 프로퍼티로 안전하게 왕복 보존한다. | ADR-076, ADR-077 |
 | `FILE-24` | 파일과 렌더링 입력에 자원 고갈 방지 상한을 적용해야 한다. | 길이·좌표·글자·텍스트·업무 값·이미지 상한이 `SLIP_LIMITS`와 SPEC에 같은 값으로 정의되고, 수식 길이·중첩·값 깊이 상한은 수식 파서·평가기 상수와 SPEC에 같은 값으로 정의된다. | ADR-076 |
+| `FILE-27` | 파일 맨 앞의 UTF-8 BOM 한 개를 허용하고 출력에는 쓰지 않아야 한다. | 평문 `.slip`과 암호화 봉투 문자열 맨 앞의 U+FEFF 한 개는 파싱 전에 제거하고, 중간·끝의 U+FEFF는 문자열 내용으로 보존한다. `serializeSlipFile()`과 봉투 출력은 `{`로 시작한다. | ADR-079 |
+| `FILE-28` | 문서 안 문자열의 코드 포인트를 그대로 보존해야 한다. | 제목, 라벨, 파라미터 키와 업무 값을 NFC로 자동 변환하지 않으며 NFC 키와 NFD 키는 서로 다른 키로 왕복 보존된다. | ADR-076, ADR-079 |
 
 ### 8.2 공개 명세와 검증
 
@@ -426,6 +431,7 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 | `SEC-15` | 저장 정책과 무관하게 암호화 파일과 평문 파일을 모두 불러올 수 있어야 한다. | `encryptOnSave: false`인 저장 수단에서도 암호화 봉투를 감지해 공통 키로 복호화하고, 평문 파일은 그대로 읽는다. | ADR-055, ADR-064 |
 | `SEC-16` | 암호화 키가 없으면 묵시적으로 대체 키를 쓰지 않아야 한다. | 키 없이 암호화 저장이나 복호화를 시도하면 오류가 발생하며, 데모의 샘플 키는 데모 코드에서 명시적으로 전달한다. | ADR-064 |
 | `SEC-17` | 암호화 키 관리는 호스트 책임이어야 한다. | SlipKit이 운영 키를 생성하거나 외부에 보관하는 서비스를 제공하지 않는다. | ADR-004, ADR-054 |
+| `SEC-20` | 문자열 암호 문구는 키 파생 직전에 NFC로 정규화해야 한다. | 시각적으로 같은 NFC/NFD 암호 문구로 잠근 파일을 서로 복호화할 수 있고, 32바이트 원시 키에는 정규화를 적용하지 않으며 옛 바이트 규칙을 위한 이중 복호화는 두지 않는다. | ADR-054, ADR-079 |
 
 > [!WARNING]
 > 암호화는 파일 내용을 읽기 어렵게 하고 복호화 과정에서 변경을 감지할 수 있게 합니다.

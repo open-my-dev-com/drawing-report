@@ -122,6 +122,8 @@ React와 Vue 래퍼는 `CustomEvent`를 벗기고 `SlipFile` 객체를 직접 �
 
 </details>
 
+React 래퍼는 `ref`(기저 `slip-*` 요소)와 `className`·`style`·`aria-*` 같은 표준 HTML 속성도 받으므로, 크기를 정하거나 라벨을 붙이기 위해 요소를 하나 더 감쌀 필요가 없습니다. API 문서의 [`@omdc-slipkit/react`](api-reference.ko.md#omdc-slipkitreact)를 참고합니다.
+
 <details>
 <summary><strong>Vue</strong></summary>
 

@@ -8,6 +8,7 @@
  * 암호 연산에는 Web Crypto API의 `crypto.subtle`을 사용한다.
  */
 import { parseSlipFile, serializeSlipFile, type SlipFile } from '../format/schema.js';
+import { stripLeadingBom } from '../format/text.js';
 import { base64urlEncode, base64urlDecode } from './base64url.js';
 import { SlipEncryptionError } from './errors.js';
 import { em } from './messages.js';
@@ -83,6 +84,8 @@ function randomBytes(length: number): Uint8Array {
  * 입력 키를 AES-GCM 키로 변환한다.
  * `string`은 PBKDF2로 파생할 암호로, `Uint8Array`는 32바이트 원시 키로 처리한다.
  *
+ * 암호 문자열은 PBKDF2에 넣기 직전에 NFC로 정규화한다 — 같은 글자를 NFC와 NFD로 다르게 입력해도
+ * 같은 키가 나오도록 한다. 원시 키는 바이트 그대로 쓴다.
  * 암호화에는 현재 기본 반복 횟수를 사용하고, 복호화에는 봉투에 기록된 반복 횟수를 사용한다.
  */
 async function toAesKey(
@@ -96,7 +99,7 @@ async function toAesKey(
     if (key.length === 0) throw new SlipEncryptionError(em(locale).emptyPassphrase());
     const baseKey = await subtle.importKey(
       'raw',
-      new TextEncoder().encode(key),
+      new TextEncoder().encode(key.normalize('NFC')),
       { name: 'PBKDF2' },
       false,
       ['deriveKey'],
@@ -117,13 +120,14 @@ async function toAesKey(
 
 /**
  * 이미 직렬화된 JSON 문자열이 암호화 봉투인지 판별한다.
+ * 텍스트 맨 앞의 UTF-8 BOM 하나는 무시하고 판별한다.
  *
  * @param json - 검사할 JSON 문자열
  * @returns 암호화 봉투면 true (표준 `.slip`이면 false)
  */
 export function isEncryptedSlipFile(json: string): boolean {
   try {
-    const raw = JSON.parse(json) as { slipkit?: unknown };
+    const raw = JSON.parse(stripLeadingBom(json)) as { slipkit?: unknown };
     return raw?.slipkit === MARKER;
   } catch {
     return false;
@@ -132,6 +136,9 @@ export function isEncryptedSlipFile(json: string): boolean {
 
 /**
  * `.slip` 파일을 암호화 봉투 형식의 JSON 문자열로 변환한다.
+ *
+ * 결과 봉투에는 BOM을 붙이지 않는다(첫 글자는 항상 `{`). 암호 문자열은 키 파생 직전에 NFC로
+ * 정규화하고, 원시 키와 파일 안의 문자열은 정규화하지 않는다.
  *
  * @param file - 암호화할 `.slip` 파일
  * @param key - 암호(passphrase 문자열) 또는 32바이트 원시 키(Uint8Array)
@@ -217,6 +224,7 @@ function decodeField(value: unknown, expectedLength?: number): Uint8Array | unde
 
 /**
  * 암호화 봉투 JSON 문자열의 구조·필드 형식·길이를 검증하고 디코딩한다 (SPEC §21.3 1~4단계).
+ * 텍스트 맨 앞의 UTF-8 BOM 하나는 받아들여 제거하고 파싱한다.
  *
  * @param json - 암호화 봉투 JSON 문자열
  * @param locale - 오류 메시지에 사용할 BCP 47 로케일
@@ -227,7 +235,7 @@ function decodeField(value: unknown, expectedLength?: number): Uint8Array | unde
 export function parseEncryptedEnvelope(json: string, locale?: string): ParsedEnvelope {
   let raw: unknown;
   try {
-    raw = JSON.parse(json);
+    raw = JSON.parse(stripLeadingBom(json));
   } catch {
     throw new SlipEncryptionError(em(locale).notAnEnvelope());
   }
@@ -311,6 +319,10 @@ export async function decryptParsedEnvelope(
 
 /**
  * 암호화 봉투 JSON 문자열을 복호화하고 `.slip` 형식인지 검증한다.
+ *
+ * 봉투 텍스트 맨 앞의 UTF-8 BOM 하나는 받아들여 제거한다. 암호 문자열은 키 파생 직전에 NFC로
+ * 정규화하므로 암호화할 때와 다른 정규화 형태로 입력해도 복호화된다. 복호화된 문서 안의
+ * 문자열은 정규화하지 않고 그대로 돌려준다.
  *
  * @param json - 암호화 봉투 JSON 문자열
  * @param key - 암호화에 사용한 암호 또는 원시 키

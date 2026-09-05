@@ -1,0 +1,251 @@
+{
+  "$comment": "다섯 패키지의 공개 export 허용 목록. runtime은 Object.keys(await import(name))과 정확히 같아야 하는 값 이름, types는 d.ts가 타입으로만 선언하는 이름이다. removed는 공개 API에서 뺀 이름으로 없음을 확인한다. 하위 경로 schemas/*는 모듈이 아니라 JSON 파일이다.",
+  "@omdc-slipkit/core": {
+    ".": {
+      "runtime": [
+        "BUILT_IN_MIGRATIONS",
+        "CURRENT_SCHEMA_VERSION",
+        "FORMULA_ARITY",
+        "FORMULA_FUNCTIONS",
+        "FormulaEvalError",
+        "FormulaSyntaxError",
+        "IMAGE_MIME_TYPES",
+        "MAX_IMAGE_BYTES",
+        "RESERVED_REF_NAMES",
+        "SLIP_LIMITS",
+        "SlipEncryptionError",
+        "SlipLayoutError",
+        "SlipMigrationError",
+        "SlipParseError",
+        "SlipRenderError",
+        "SlipStorageError",
+        "assertFormulaArity",
+        "buildVoucher",
+        "collectFormulaReferences",
+        "createPdfRenderer",
+        "createSlipKit",
+        "decryptSlipFile",
+        "detectImageMimeType",
+        "diagnoseFormula",
+        "elementBounds",
+        "encryptSlipFile",
+        "escapeReferenceKey",
+        "evaluateFormula",
+        "filterVisibleOnPage",
+        "formatReferencePath",
+        "inspectImageBytes",
+        "inspectImageDataUrl",
+        "isEncryptedSlipFile",
+        "migrateSlipDocument",
+        "normalizeNumericParameters",
+        "paperSchema",
+        "parseFormula",
+        "parseSlipFile",
+        "planSourcePage",
+        "renameFormulaReferences",
+        "renderSlipToPdf",
+        "resolveConditionalFormats",
+        "serializeSlipFile",
+        "slipElementSchema",
+        "slipEnvelopeSchema",
+        "slipFileJsonSchema",
+        "slipFileSchema",
+        "slipTemplateBodySchema",
+        "slipTemplateFileSchema",
+        "slipVoucherFileSchema",
+        "stackVertically",
+        "supportsVersions",
+        "validateSlipFile"
+      ],
+      "types": [
+        "AssetEntry",
+        "BarcodeElement",
+        "BarcodeKind",
+        "ConditionalFormatOverrides",
+        "ConditionalFormatRule",
+        "EllipseElement",
+        "FieldElement",
+        "FormatReferenceOptions",
+        "FormulaArity",
+        "FormulaAst",
+        "FormulaContext",
+        "FormulaDiagnosis",
+        "FormulaEvalReason",
+        "FormulaFunctionName",
+        "FormulaReference",
+        "FormulaValue",
+        "GridBand",
+        "GridBandPlacement",
+        "GridCell",
+        "GridElement",
+        "GridFragment",
+        "GridItem",
+        "GridPagination",
+        "GridPlan",
+        "GridRepeat",
+        "ImageElement",
+        "ImageInspection",
+        "ImageMimeType",
+        "JsonValue",
+        "LineElement",
+        "OutputPageFilter",
+        "PageFlowArea",
+        "PageNumber",
+        "PageNumberPosition",
+        "PagePlacement",
+        "PaperSize",
+        "ParameterDef",
+        "ParameterField",
+        "ParameterValueType",
+        "PlannedBand",
+        "PolygonElement",
+        "RectElement",
+        "ReferenceOptions",
+        "ReferenceSpan",
+        "RenameReferenceOptions",
+        "RenderOptions",
+        "ReservedRefName",
+        "SlipElement",
+        "SlipFile",
+        "SlipFileKind",
+        "SlipFont",
+        "SlipKit",
+        "SlipKitConfig",
+        "SlipListFilter",
+        "SlipListItem",
+        "SlipListPage",
+        "SlipMigrationStep",
+        "SlipPage",
+        "SlipPdfRenderer",
+        "SlipStorageErrorCode",
+        "SlipTemplateBody",
+        "SlipTemplateFile",
+        "SlipVoucherFile",
+        "SourcePagePlan",
+        "StorageAdapter",
+        "TextElement",
+        "VersionedStorageAdapter"
+      ],
+      "removed": {
+        "runtime": [
+          "planGrid",
+          "visiblePageRange"
+        ],
+        "types": [
+          "GridFlow",
+          "ElementPlacement",
+          "PlanPaper"
+        ]
+      }
+    },
+    "./schemas/*": {
+      "files": [
+        "slip.schema.json",
+        "slip-0.1.0.schema.json"
+      ]
+    }
+  },
+  "@omdc-slipkit/elements": {
+    ".": {
+      "runtime": [
+        "IndexedDbStorage",
+        "SlipDesigner",
+        "SlipFileExchange",
+        "SlipForm",
+        "SlipViewer",
+        "getPresets",
+        "loadDefaultFonts"
+      ],
+      "types": [
+        "IndexedDbStorageOptions",
+        "PaperSize",
+        "SlipDesignerSettings",
+        "SlipFileExchangeOptions",
+        "SlipFont",
+        "SlipPreset"
+      ]
+    },
+    "./default-fonts": {
+      "runtime": [
+        "loadDefaultFonts"
+      ],
+      "types": []
+    },
+    "./fonts/pretendard": {
+      "runtime": [
+        "PRETENDARD_FONTS"
+      ],
+      "types": []
+    },
+    "./fonts/noto-sans-jp": {
+      "runtime": [
+        "NOTO_SANS_JP_FONTS",
+        "default"
+      ],
+      "types": []
+    }
+  },
+  "@omdc-slipkit/react": {
+    ".": {
+      "runtime": [
+        "SlipDesigner",
+        "SlipForm",
+        "SlipViewer"
+      ],
+      "types": [
+        "SlipDesignerProps",
+        "SlipFormProps",
+        "SlipViewerProps"
+      ]
+    }
+  },
+  "@omdc-slipkit/vue": {
+    ".": {
+      "runtime": [
+        "SlipDesigner",
+        "SlipForm",
+        "SlipViewer"
+      ],
+      "types": []
+    }
+  },
+  "@omdc-slipkit/mcp": {
+    ".": {
+      "runtime": [
+        "CONFIG_FILE_NAME",
+        "DEFAULT_KEY_ENV",
+        "DEFAULT_PREVIOUS_KEYS_ENV",
+        "FileSystemStorage",
+        "MAX_IMAGE_BYTES",
+        "SCHEMA_TOPICS",
+        "SlipMcpConfigError",
+        "createSlipMcpServer",
+        "editOpSchema",
+        "loadConfigFonts",
+        "readConfigFile",
+        "resolveInRoot",
+        "resolveServerOptions",
+        "schemaTopicText"
+      ],
+      "types": [
+        "EditOp",
+        "FileSystemStorageKey",
+        "FileSystemStorageOptions",
+        "ResolveInput",
+        "SchemaTopic",
+        "SlipMcpConfig",
+        "SlipMcpServerOptions"
+      ],
+      "removed": {
+        "runtime": [
+          "createPdfLinkToken",
+          "startPdfLinkServer",
+          "startOrJoinPdfLinkServer"
+        ],
+        "types": [
+          "PdfLinkServer"
+        ]
+      }
+    }
+  }
+}

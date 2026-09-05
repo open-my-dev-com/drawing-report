@@ -4,7 +4,9 @@
  *
  * 워크스페이스에 남은 `dist`에 기대지 않도록 산출물을 지우고 다시 빌드한 뒤, 다섯 패키지를
  * 실제 tarball로 만들어 내용·정적 검사(publint·attw)를 거치고, npm과 pnpm 임시 소비자
- * 프로젝트에 설치해 Node·Vite·React·Vue·MCP CLI·브라우저 PDF 시나리오를 실행한다.
+ * 프로젝트에 설치해 Node·Vite·React·Vue·MCP CLI·브라우저 PDF 시나리오를 실행한다. 공개 export 표면은
+ * 허용 목록(`verify-packages/fixtures/public-exports.json`)과 대조한다 — 런타임 이름은 Node에서 다섯 패키지를
+ * 직접 import해, 타입 이름은 `public-types` 픽스처를 tsc로 검사해 확인한다.
  *
  * 사용법: `pnpm verify:packages`
  * 환경변수:
@@ -231,6 +233,7 @@ async function main() {
         ['JSON Schema subpath', 'schema.mjs', '최신·버전 고정 스키마를 하위 경로로 읽는다'],
         ['Node.js PDF', 'node-pdf.mjs', 'PDF 바이트가 %PDF로 시작한다'],
         ['deep import rejected', 'deep-import.mjs', 'dist 내부 경로가 ERR_PACKAGE_PATH_NOT_EXPORTED로 거부된다'],
+        ['public exports', 'public-exports.mjs', '다섯 패키지 루트·하위 경로의 런타임 export가 허용 목록과 정확히 같고 뺀 이름이 없다'],
         ['MCP CLI', 'mcp-cli.mjs', 'help·version·사용법 오류·설정 파일 기반 서버 시작이 기준대로 동작한다'],
       ];
       for (const [label, file, expected] of nodeScenarios) {
@@ -240,6 +243,10 @@ async function main() {
         });
       }
 
+      await scenario(`${pm}: public types typecheck`, '허용 목록의 값·타입 이름을 d.ts가 선언하고 뺀 이름은 @ts-expect-error로 없음이 확인된다', async () => {
+        const result = await exec('tsc', ['-p', 'public-types/tsconfig.json']);
+        return { command: 'tsc -p public-types/tsconfig.json', ...result };
+      });
       await scenario(`${pm}: Vite + Elements build`, 'vite build가 성공한다', async () => {
         const result = await exec('vite', ['build', 'elements-app', '--outDir', path.join(consumer, 'out', 'elements'), '--logLevel', 'warn']);
         return { command: 'vite build elements-app', ...result };

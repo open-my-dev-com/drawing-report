@@ -55,6 +55,8 @@ JSON 문자열을 파싱하고 `.slip` 파일 전체를 검증합니다. 지원�
 
 유효하지 않은 JSON이나 파일 구조는 `SlipParseError`를 발생시킵니다. `options.locale`은 오류 메시지 언어를 정합니다(기본 영어).
 
+문자열 맨 앞의 U+FEFF 한 개는 UTF-8 BOM으로 보고 파싱 전에 제거합니다. 다른 위치의 U+FEFF는 일반 문자열 내용이며 그대로 보존합니다. 문서 안의 문자열(제목, 라벨, 파라미터 키, 값)은 유니코드 정규화를 하지 않으므로 NFC와 NFD 표기는 서로 다른 키입니다.
+
 #### `validateSlipFile`
 
 ```ts
@@ -79,6 +81,8 @@ function serializeSlipFile(
 `SlipFile` 객체를 들여쓰기된 JSON 문자열로 변환합니다.
 
 이 함수는 입력 객체를 다시 검증하지 않습니다.
+
+출력은 BOM으로 시작하지 않습니다.
 
 #### `CURRENT_SCHEMA_VERSION`
 
@@ -467,6 +471,8 @@ function encryptSlipFile(
 
 문자열 키는 암호 문구로 처리하고, `Uint8Array` 키는 32바이트 원시 AES 키여야 합니다.
 
+암호 문구는 PBKDF2 키 파생 직전에 NFC로 정규화하므로 시각적으로 같은 NFC/NFD 암호 문구는 같은 키를 만듭니다. 원시 키는 그대로 사용합니다. 봉투 JSON은 BOM으로 시작하지 않습니다.
+
 #### `decryptSlipFile`
 
 ```ts
@@ -479,6 +485,8 @@ function decryptSlipFile(
 
 암호화 봉투를 복호화한 뒤 `parseSlipFile`로 검증합니다. `options.locale`은 오류 메시지 언어를 정합니다(기본 영어).
 
+봉투 문자열 맨 앞의 U+FEFF 한 개는 파싱 전에 제거하고, 문자열 키는 `encryptSlipFile`과 같이 NFC로 정규화합니다.
+
 #### `isEncryptedSlipFile`
 
 ```ts
@@ -490,6 +498,8 @@ function isEncryptedSlipFile(
 JSON에 SlipKit 암호화 봉투 표식이 있는지 확인합니다.
 
 복호화 가능 여부나 데이터 무결성을 검증하는 함수는 아닙니다.
+
+맨 앞의 U+FEFF 한 개는 무시하므로 BOM이 붙은 봉투도 감지합니다.
 
 ## `.slip` 파일 타입
 
@@ -1391,6 +1401,39 @@ const BUILT_IN_MIGRATIONS:
 | `maxValueStringLength` | 3,000,000 | 업무 데이터 맵 문자열의 최대 길이 |
 | `maxImageBytes` | 2MiB | PNG 또는 JPEG 이미지 한 장의 최대 디코딩 크기 |
 
+## 패키지 통합 API
+
+다음 Core export는 `@omdc-slipkit/elements`와 `@omdc-slipkit/mcp`가 패키지 경계를 넘어 같은 배치·수식 규칙을 공유하기 위해 존재합니다. 공개 API의 일부이며 안정적으로 유지하지만, 대부분의 호스트 애플리케이션에는 필요하지 않습니다.
+
+| API | 사용 패키지 | 용도 |
+|---|---|---|
+| `elementBounds(element)` | Elements, MCP | 요소의 경계 상자를 밀리미터로 계산합니다. 크기를 트랙에서 계산하는 그리드도 포함합니다. |
+| `planSourcePage(page, values, options)` | Elements | 양식 페이지 하나의 출력 페이지 계획(행 구간 배치, 항목 인스턴스, `after` 배치)을 만듭니다. 디자이너 미리보기는 PDF 렌더링과 같은 계획을 사용합니다. |
+| `filterVisibleOnPage(elements, pageIndex, total)` | Elements | 주어진 출력 페이지에서 `pagePlacement`에 따라 보이는 요소만 고릅니다. |
+| `SlipLayoutError` | Elements | 그리드를 배치할 수 없을 때(예: 흐름 영역보다 높은 행 구간) 계획 계층이 던지는 오류입니다. 디자이너는 그 메시지를 미리보기에 표시합니다. |
+| `RESERVED_REF_NAMES` | Elements | 자동완성과 검사에 쓰는 예약 참조 루트(`@item`, `@group`, `@page`, `@all`, `@carried`) 목록입니다. |
+| `GridPlan`, `GridFragment`, `GridItem`, `PlannedBand`, `SourcePagePlan` | Elements | `planSourcePage`가 반환하는 계획의 타입입니다. |
+
+`planGrid`·`visiblePageRange` 같은 그 밖의 계획 도우미와 `GridFlow`·`ElementPlacement`·`PlanPaper` 타입은 구현 세부이며 export하지 않습니다. 패키지별 export 이름 전체는 tarball 소비자 검증이 확인하는 allowlist로 고정합니다. [공개 export](#공개-export)를 참고합니다.
+
+## 공개 export
+
+각 패키지는 루트와 공개 서브패스에서 정확히 아래 이름만 제공합니다. `dist/` 안의 그 밖의 경로는 내부용이며 import할 수 없습니다.
+
+| 패키지 / 서브패스 | 런타임 값 | 타입 |
+|---|---|---|
+| `@omdc-slipkit/core` | 이 문서의 `@omdc-slipkit/core`, 스키마·마이그레이션 API, 저장소 API와 오류 타입에 적힌 모든 값 | 이 문서에 적힌 모든 `.slip` 파일·요소·저장소·수식·렌더링 타입 |
+| `@omdc-slipkit/core/schemas/*` | `slip.schema.json`, `slip-0.1.0.schema.json` (JSON 파일) | — |
+| `@omdc-slipkit/elements` | `SlipDesigner`, `SlipForm`, `SlipViewer`, `getPresets`, `loadDefaultFonts`, `IndexedDbStorage`, `SlipFileExchange` | `SlipFont`, `SlipDesignerSettings`, `PaperSize`, `SlipPreset`, `IndexedDbStorageOptions`, `SlipFileExchangeOptions` |
+| `@omdc-slipkit/elements/default-fonts` | `loadDefaultFonts` | — |
+| `@omdc-slipkit/elements/fonts/pretendard` | `PRETENDARD_FONTS` | — |
+| `@omdc-slipkit/elements/fonts/noto-sans-jp` | `NOTO_SANS_JP_FONTS`, 기본 내보내기 | — |
+| `@omdc-slipkit/react` | `SlipDesigner`, `SlipForm`, `SlipViewer` | `SlipDesignerProps`, `SlipFormProps`, `SlipViewerProps` |
+| `@omdc-slipkit/vue` | `SlipDesigner`, `SlipForm`, `SlipViewer` | — |
+| `@omdc-slipkit/mcp` | `createSlipMcpServer`, `FileSystemStorage`, `resolveInRoot`, `readConfigFile`, `loadConfigFonts`, `resolveServerOptions`, `SlipMcpConfigError`, `CONFIG_FILE_NAME`, `DEFAULT_KEY_ENV`, `DEFAULT_PREVIOUS_KEYS_ENV`, `editOpSchema`, `MAX_IMAGE_BYTES`, `SCHEMA_TOPICS`, `schemaTopicText` | `SlipMcpServerOptions`, `FileSystemStorageKey`, `FileSystemStorageOptions`, `SlipMcpConfig`, `ResolveInput`, `EditOp`, `SchemaTopic` |
+
+`slipkit-mcp` CLI가 쓰는 PDF 링크 서버(`startPdfLinkServer` 등)는 CLI 내부 구현이며 export하지 않습니다.
+
 ## `@omdc-slipkit/elements`
 
 패키지 루트를 import하면 세 Web Component가 등록됩니다.
@@ -1642,10 +1685,14 @@ Noto Sans JP Regular 서브셋을 포함합니다. 해당 폰트가 대체 폰�
 
 React 19 이상을 지원합니다.
 
+각 컴포넌트는 기저 `slip-*` 요소를 가리키는 `ref`를 받고, 표준 HTML 속성(`className`, `style`, `id`, `title`, `role`, `tabIndex`, `aria-*`, `data-*`)과 표준 DOM 이벤트 props(`onClick`, `onKeyDown` 등)를 그 요소에 그대로 전달합니다. `children`과 `dangerouslySetInnerHTML`은 props에 없습니다. 요소가 자체 shadow DOM을 그리기 때문입니다.
+
 ### `SlipDesigner`
 
 ```ts
-interface SlipDesignerProps {
+interface SlipDesignerProps
+  extends SlipHostAttributes {
+  ref?: Ref<SlipDesignerElement>;
   src: string;
   locale?: string;
   slipkit?: SlipKit;
@@ -1669,7 +1716,9 @@ Web Component의 `slip-change` 이벤트에서 `CustomEvent`를 제거하고 `Sl
 ### `SlipForm`
 
 ```ts
-interface SlipFormProps {
+interface SlipFormProps
+  extends SlipHostAttributes {
+  ref?: Ref<SlipFormElement>;
   src: string;
   locale?: string;
   slipkit?: SlipKit;
@@ -1689,7 +1738,9 @@ interface SlipFormProps {
 ### `SlipViewer`
 
 ```ts
-interface SlipViewerProps {
+interface SlipViewerProps
+  extends SlipHostAttributes {
+  ref?: Ref<SlipViewerElement>;
   src: string;
   locale?: string;
   slipkit?: SlipKit;
@@ -1706,7 +1757,29 @@ import type {
 } from '@omdc-slipkit/react';
 ```
 
-선택형 래퍼 prop은 명시적으로 전달한 동안에만 내부 요소에 설정되며, 제거하면 요소 자체의 기본값으로 돌아갑니다. 발행 뒤 같은 원본으로 새 전표를 시작하려면 React의 `key`를 바꿔 `SlipForm`을 다시 마운트합니다.
+`SlipHostAttributes`는 React의 `HTMLAttributes<HTMLElement>`에서 `children`과 `dangerouslySetInnerHTML`을 뺀 것을 뜻하며 별도 이름으로 export하지 않습니다. `SlipDesignerElement`, `SlipFormElement`, `SlipViewerElement`는 `@omdc-slipkit/elements`가 export하는 `SlipDesigner`, `SlipForm`, `SlipViewer` 클래스입니다.
+
+```tsx
+import { useRef } from 'react';
+import { SlipDesigner } from '@omdc-slipkit/react';
+import type { SlipDesigner as SlipDesignerElement } from '@omdc-slipkit/elements';
+
+export function DesignerPane() {
+  const designer = useRef<SlipDesignerElement>(null);
+  return (
+    <SlipDesigner
+      ref={designer}
+      className="designer-pane"
+      style={{ height: '80vh' }}
+      aria-label="양식 디자이너"
+      src={designerSrc}
+      onSlipChange={handleSlipChange}
+    />
+  );
+}
+```
+
+전용 props(`src`, 설정 props, `onSlipChange`, `onSlipIssue`)는 항상 우선하므로 spread한 객체가 이 값을 덮어쓸 수 없습니다. 선택형 래퍼 prop은 명시적으로 전달한 동안에만 내부 요소에 설정되며, 제거하면 요소 자체의 기본값으로 돌아갑니다. 발행 뒤 같은 원본으로 새 전표를 시작하려면 React의 `key`를 바꿔 `SlipForm`을 다시 마운트합니다.
 
 ## `@omdc-slipkit/vue`
 
