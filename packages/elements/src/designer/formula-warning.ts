@@ -2,8 +2,9 @@
  * 저장된 수식·조건식 가운데 지금 값으로 계산되지 않는 것을 모읍니다.
  *
  * @remarks
- * 저장된 수식은 현재 값에서 계산에 실패할 수 있으므로 편집 화면에서 해당 위치를 알립니다.
- * 검사는 호스트의 공통 검사 함수를 사용하고, 이 모듈은 결과를 요소와 셀 단위로 집계합니다.
+ * 저장된 수식은 현재 값에서 계산에 실패할 수 있고, 파일에서 읽은 수식은 문법이 맞지 않을 수도
+ * 있으므로 편집 화면에서 해당 위치와 원인을 알립니다. 검사는 호스트의 공통 검사 함수를 사용하고,
+ * 이 모듈은 결과를 요소와 셀 단위로 집계합니다.
  */
 
 import type { ConditionalFormatRule, GridElement, SlipPage } from '@omdc-slipkit/core';
@@ -14,7 +15,7 @@ import type { FormulaTarget } from './formula-target.js';
 export interface FormulaWarningDetail {
   /** 계산되지 않는 자리 */
   readonly target: FormulaTarget;
-  /** 계산에 실패한 원인 — 평가기가 낸 오류 문구. 문구가 없으면 빈 값 */
+  /** 계산에 실패한 원인 — 파서·평가기가 낸 오류 문구. 문구가 없으면 빈 값 */
   readonly message: string;
 }
 
@@ -51,6 +52,9 @@ export function warningCellKey(row: number, column: number): string {
   return `${row},${column}`;
 }
 
+/** 경고로 모으는 검사 상태 — 문법 오류, 계산 실패, 지금 값으로 계산 불가 */
+const FAILING: ReadonlySet<FormulaCheck['status']> = new Set(['syntax-error', 'formula-error', 'not-computable']);
+
 /** 경고 없음 */
 export const NO_FORMULA_WARNINGS: FormulaWarnings = { elements: new Set(), cells: new Map(), details: [] };
 
@@ -68,8 +72,7 @@ export function collectFormulaWarnings(input: FormulaWarningInput): FormulaWarni
   /** 한 자리를 검사해 계산되지 않으면 원인을 기록하고 참을 돌려줍니다. */
   const fails = (target: FormulaTarget, source: string | undefined, condition: boolean): boolean => {
     if (source === undefined || source.trim() === '') return false;
-    const failed = input.check(target, source, condition)
-      .find((check) => check.status === 'formula-error' || check.status === 'not-computable');
+    const failed = input.check(target, source, condition).find((check) => FAILING.has(check.status));
     if (failed === undefined) return false;
     details.push({ target, message: failed.detail ?? '' });
     return true;

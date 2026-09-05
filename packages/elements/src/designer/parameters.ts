@@ -44,7 +44,7 @@ export interface ParameterInfo {
  * 목록 파라미터의 하위 필드와 해당 필드를 사용하는 그리드 셀 위치.
  */
 export interface ParameterFieldInfo {
-  /** 항목 필드 물리명 — 수식에서 `목록파라미터.필드`로 사용합니다 */
+  /** 항목 필드 물리명 — 수식에서 `$(목록파라미터).$(필드)`로 사용합니다 */
   key: string;
   /** 화면에 표시할 이름 — 논리명이 없으면 물리명 */
   title: string;
@@ -159,6 +159,10 @@ function rewriteConditions(owner: HasConditions, rewrite: FormulaRewrite): void 
 /**
  * 파싱할 수 없는 수식은 건드리지 않는 고쳐 쓰기 함수를 만듭니다.
  *
+ * @remarks
+ * 값 참조는 `$(...)` 형식만 참조로 인식합니다. `$(...)` 없이 적은 이름을 포함해 문법 오류가
+ * 있는 수식은 참조를 찾을 수 없으므로 원문 그대로 돌려주고, 바꾼 참조는 항상 `$(...)`로 적습니다.
+ *
  * @param from - 바꿀 참조 경로의 앞부분
  * @param to - 새 경로
  * @param options - `from`·`to`의 첫 단계가 그리드 예약 참조 이름이면 `reservedRoot`를 지정합니다
@@ -209,9 +213,9 @@ function rewriteElementFormulas(
  *
  * @remarks
  * 정의부, 필드·이미지·바코드의 `parameter`, 그리드의 반복 파라미터와 항목 구간 밖 셀,
- * 모든 수식·조건식의 참조, `sampleValues`의 키를 한 번에 바꿉니다. 항목 구간 안의 셀
+ * 모든 수식·조건식의 `$(키)` 참조, `sampleValues`의 키를 한 번에 바꿉니다. 항목 구간 안의 셀
  * 파라미터는 하위 필드라 건드리지 않습니다. 정의가 없던 키는 새 키로 정의를 만듭니다.
- * 문법 오류가 있어 파싱할 수 없는 수식은 그대로 둡니다.
+ * 문법 오류가 있어 파싱할 수 없는 수식(`$(...)` 없이 적은 참조 포함)은 그대로 둡니다.
  *
  * @param file - 수정할 양식 파일
  * @param key - 현재 물리명
@@ -250,10 +254,10 @@ export function renameParameterReferences(file: SlipTemplateFile, key: string, n
  *
  * @remarks
  * 정의부의 필드 키, 그 목록을 반복하는 그리드의 항목 구간 셀 `parameter`와 `groupBy`,
- * 양식 전체 수식의 `목록.필드` 참조, 그 그리드 안 수식의 `@item.필드` 같은 예약 참조 뒤
- * 필드와 항목 구간 셀의 필드 이름 참조, `sampleValues` 목록 항목의 키를 한 번에 바꿉니다.
- * 샘플 항목의 다른 키와 순서는 그대로 둡니다. 문법 오류가 있어 파싱할 수 없는 수식은
- * 그대로 둡니다.
+ * 양식 전체 수식의 `$(목록).$(필드)` 참조, 그 그리드 안 수식의 `@item.$(필드)` 같은 예약 참조 뒤
+ * 필드와 항목 구간 셀의 `$(필드)` 참조, `sampleValues` 목록 항목의 키를 한 번에 바꿉니다.
+ * 샘플 항목의 다른 키와 순서는 그대로 둡니다. 문법 오류가 있어 파싱할 수 없는
+ * 수식(`$(...)` 없이 적은 참조 포함)은 그대로 둡니다.
  *
  * @param file - 수정할 양식 파일
  * @param listKey - 목록 파라미터 물리명
@@ -290,7 +294,7 @@ export function renameParameterFieldReferences(
       if (el.repeat.groupBy !== undefined) {
         el.repeat.groupBy = el.repeat.groupBy.map((name) => (name === key ? next : name));
       }
-      // 항목 구간 셀은 필드 이름만 적어도 현재 항목의 값을 읽으므로 그 참조도 바꿉니다.
+      // 항목 구간 셀은 `$(필드)`만 적어도 현재 항목의 값을 읽으므로 그 참조도 바꿉니다.
       rewriteElementFormulas(el, inRepeatGrid, (cell) =>
         inItemBand(el, cell.row) ? (source) => byBareField(inRepeatGrid(source)) : inRepeatGrid);
     }

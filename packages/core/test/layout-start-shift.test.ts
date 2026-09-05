@@ -390,8 +390,8 @@ describe('양식 페이지 계획과 렌더링에서의 시작 이동', () => {
         { row: 1, column: 0, content: 'HDR' },
         { row: 2, column: 0, parameter: 'name' },
         { row: 2, column: 1, parameter: 'amount' },
-        { row: 4, column: 0, formula: 'AVG(@page.amount)' },
-        { row: 4, column: 1, formula: 'SUM(@carried.amount)' },
+        { row: 4, column: 0, formula: 'AVG(@page.$(amount))' },
+        { row: 4, column: 1, formula: 'SUM(@carried.$(amount))' },
       ],
     });
     const { template, inputs } = convertSlipFile(voucher(grid, { items: items(2) }, extras));

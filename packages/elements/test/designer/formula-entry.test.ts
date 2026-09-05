@@ -66,7 +66,7 @@ function makeGrid(): Record<string, unknown> {
       { row: 0, column: 0, content: '품명' },
       { row: 0, column: 1, formula: '"금액"' },
       { row: 1, column: 0, parameter: 'itemName' },
-      { row: 1, column: 1, formula: 'SUM(@page.amount)' },
+      { row: 1, column: 1, formula: 'SUM(@page.$(amount))' },
     ],
   };
 }
@@ -285,13 +285,13 @@ describe('<slip-designer> 수식 모달 진입점', () => {
 
     for (const source of [
       '1 / 0',
-      'amount / 0',
-      'FORMAT_NUMBER(amount, 21)',
-      'MID(name, 0, 1)',
-      '1 / (0 * amount)',
-      '1 / (amount - amount)',
-      'TO_NUMBER(CONCAT("a", amount))',
-      'FORMAT_NUMBER(1, ROUND(21 * amount / amount))',
+      '$(amount) / 0',
+      'FORMAT_NUMBER($(amount), 21)',
+      'MID($(name), 0, 1)',
+      '1 / (0 * $(amount))',
+      '1 / ($(amount) - $(amount))',
+      'TO_NUMBER(CONCAT("a", $(amount)))',
+      'FORMAT_NUMBER(1, ROUND(21 * $(amount) / $(amount)))',
     ]) {
       setDraft(el, source);
       await el.updateComplete;
@@ -305,7 +305,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     // 적용하면 그대로 저장됩니다.
     footButton(el, s.apply).click();
     await el.updateComplete;
-    expect(elementsOf(el)[0]!.formula).toBe('FORMAT_NUMBER(1, ROUND(21 * amount / amount))');
+    expect(elementsOf(el)[0]!.formula).toBe('FORMAT_NUMBER(1, ROUND(21 * $(amount) / $(amount)))');
   });
 
   it('바코드 요소의 수식을 모달에서 고쳐 저장한다', async () => {
@@ -331,13 +331,13 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     await el.updateComplete;
 
     await openModal(el);
-    expect(formulaInput(el).value).toBe('SUM(@page.amount)');
-    setDraft(el, 'SUM(@group.amount)');
+    expect(formulaInput(el).value).toBe('SUM(@page.$(amount))');
+    setDraft(el, 'SUM(@group.$(amount))');
     await el.updateComplete;
     footButton(el, s.apply).click();
     await el.updateComplete;
     const cells = elementsOf(el)[0]!.cells as Record<string, unknown>[];
-    expect(cells[3]!.formula).toBe('SUM(@group.amount)');
+    expect(cells[3]!.formula).toBe('SUM(@group.$(amount))');
 
     // 셀 수식은 비워서 적용하면 값 소스가 사라집니다.
     await openModal(el);
@@ -382,13 +382,13 @@ describe('<slip-designer> 수식 모달 진입점', () => {
 
     // 셀 수식 버튼 다음이 조건부 서식 규칙 버튼입니다.
     await openModal(el, 1);
-    setDraft(el, 'amount > 100');
+    setDraft(el, '$(amount) > 100');
     await el.updateComplete;
     footButton(el, s.apply).click();
     await el.updateComplete;
     const cells = elementsOf(el)[0]!.cells as Record<string, unknown>[];
     expect((cells[3]!.conditionalFormats as Record<string, unknown>[])[0]!.condition)
-      .toBe('amount > 100');
+      .toBe('$(amount) > 100');
   });
 
   it('모달을 연 뒤 대상이 사라지면 적용을 막고 모달과 초안을 남긴다', async () => {
@@ -506,7 +506,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(footButton(el, s.apply).disabled).toBe(true);
 
     // 지금 자리에 없는 예약 참조도, 계산 자체가 실패한 식도 같은 경고 상태로 알립니다.
-    for (const source of ['SUM(@page.amount) > 0', '1 / 0 > 0']) {
+    for (const source of ['SUM(@page.$(amount)) > 0', '1 / 0 > 0']) {
       setDraft(el, source);
       await el.updateComplete;
       expect(statusTitle(el), source).toBe(s.formulaStatusWarning);
@@ -735,7 +735,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
 
   it('샘플 값을 채워 계산되면 경고가 사라진다', async () => {
     const grid = makeGrid();
-    (grid.cells as Record<string, unknown>[])[3]!.formula = 'AVG(@page.amount)';
+    (grid.cells as Record<string, unknown>[])[3]!.formula = 'AVG(@page.$(amount))';
     // 샘플 항목이 없으면 평균 낼 값이 없어 계산되지 않습니다.
     const el = await mountFile([grid]);
     selectElement(el, 'g1');
@@ -768,7 +768,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     const field = diagnose.mock.calls.filter(([source]) => source === '1 / 0');
     expect(field).toHaveLength(1);
     // 반복 그리드 셀은 샘플 항목 수만큼만 검사합니다.
-    const cell = diagnose.mock.calls.filter(([source]) => source === 'SUM(@page.amount)');
+    const cell = diagnose.mock.calls.filter(([source]) => source === 'SUM(@page.$(amount))');
     expect(cell).toHaveLength(SAMPLE_ITEMS.length);
   });
 
@@ -913,10 +913,10 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     await el.updateComplete;
     await openModal(el);
 
-    setDraft(el, 'ABS(old)');
+    setDraft(el, 'ABS($(old))');
     await el.updateComplete;
     const input = formulaInput(el);
-    input.setSelectionRange(4, 7);
+    input.setSelectionRange(4, 10);
 
     const abs = Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.fn-row'))
       .find((b) => b.getAttribute('aria-label') === 'SUM')!;

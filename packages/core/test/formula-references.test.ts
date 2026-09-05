@@ -5,10 +5,8 @@ import {
   escapeReferenceKey,
   evaluateFormula,
   formatReferencePath,
-  isBareIdentifier,
   parseFormula,
   renameFormulaReferences,
-  toExplicitReferences,
   type FormulaContext,
 } from '../src/index.js';
 
@@ -25,7 +23,7 @@ function syntaxError(source: string, locale?: string): FormulaSyntaxError {
   throw new Error(`파싱이 실패해야 합니다: ${source}`);
 }
 
-describe('명시 참조 $(...)', () => {
+describe('값 참조 $(...)', () => {
   it('$(datas-2)는 키 하나이고 $(datas) - 2는 뺄셈이다', () => {
     const values = { datas: 10, 'datas-2': 99 };
     expect(evaluateFormula('$(datas-2)', ctx(values))).toBe(99);
@@ -53,6 +51,11 @@ describe('명시 참조 $(...)', () => {
     expect(evaluateFormula('$(a\\\\b)', ctx(values))).toBe('backslash');
   });
 
+  it('$( ) 안의 공백은 키의 일부다', () => {
+    const values = { ' padded ': 'yes', padded: 'no' };
+    expect(evaluateFormula('$( padded )', ctx(values))).toBe('yes');
+  });
+
   it('한 단계와 여러 단계 경로를 구분한다', () => {
     const values = { customer: { name: '중첩' }, 'customer.name': '평면' };
     expect(evaluateFormula('$(customer.name)', ctx(values))).toBe('평면');
@@ -60,18 +63,17 @@ describe('명시 참조 $(...)', () => {
     expect(parseFormula('$(customer).$(name)')).toEqual({
       type: 'reference',
       path: ['customer', 'name'],
-      explicit: true,
       span: { start: 0, end: 19 },
     });
   });
 
-  it('행 배열 위의 명시 경로는 배열을 돌려준다', () => {
+  it('행 배열 위의 경로는 배열을 돌려준다', () => {
     const values = { 'order-items': [{ 'unit-price': 100 }, { 'unit-price': 250 }] };
     expect(evaluateFormula('$(order-items).$(unit-price)', ctx(values))).toEqual([100, 250]);
     expect(evaluateFormula('SUM($(order-items).$(unit-price))', ctx(values))).toBe(350);
   });
 
-  it('예약 참조 뒤에 명시 단계를 이을 수 있다', () => {
+  it('예약 참조 뒤에 $( ) 단계를 이을 수 있다', () => {
     const reserved = {
       '@item': { 'unit-price': 70 },
       '@page': [{ 'line-amount': 1 }, { 'line-amount': 2 }],
@@ -81,10 +83,17 @@ describe('명시 참조 $(...)', () => {
     expect(parseFormula('@item.$(unit-price)')).toEqual({
       type: 'reference',
       path: ['@item', 'unit-price'],
-      explicit: true,
       reserved: true,
       span: { start: 0, end: 19 },
     });
+    // 예약 참조 이름 하나만 적은 것은 그대로 허용한다.
+    expect(parseFormula('@item')).toEqual({
+      type: 'reference',
+      path: ['@item'],
+      reserved: true,
+      span: { start: 0, end: 5 },
+    });
+    expect(parseFormula('@item + $(x)')).toMatchObject({ type: 'binary', operator: '+' });
   });
 
   it('$(@item)·$(@page)·$(@foo)는 예약 참조가 아니라 그 이름의 값 키다', () => {
@@ -104,9 +113,9 @@ describe('명시 참조 $(...)', () => {
     expect(parseFormula('$(@item)')).toEqual({
       type: 'reference',
       path: ['@item'],
-      explicit: true,
       span: { start: 0, end: 8 },
     });
+    expect(parseFormula('$(@item)')).not.toHaveProperty('reserved');
   });
 
   it('같은 수식에서 @item은 예약 참조, $(@item)은 값 키로 함께 쓸 수 있다', () => {
@@ -114,84 +123,98 @@ describe('명시 참조 $(...)', () => {
     const reserved = { '@item': { amount: 100 } };
     expect(evaluateFormula('@item.$(amount) + $(@item)', ctx(values, reserved))).toBe(103);
     expect(collectFormulaReferences('@item.$(amount) + $(@item)')).toEqual([
-      { path: ['@item', 'amount'], explicit: true, reserved: true, span: { start: 0, end: 15 } },
-      { path: ['@item'], explicit: true, reserved: false, span: { start: 18, end: 26 } },
+      { path: ['@item', 'amount'], reserved: true, span: { start: 0, end: 15 } },
+      { path: ['@item'], reserved: false, span: { start: 18, end: 26 } },
     ]);
     // 예약 참조가 없는 문맥에서는 @item만 실패한다.
     expect(() => evaluateFormula('@item.$(amount) + $(@item)', ctx(values))).toThrow(/grid row bands/);
   });
 
-  it('문자열 리터럴 안의 $(는 참조 형식을 바꾸지 않는다', () => {
-    expect(evaluateFormula('IF(amount > 1, "$(x)", "no")', ctx({ amount: 2 }))).toBe('$(x)');
-    expect(collectFormulaReferences('IF(amount > 1, "$(x)", "no")')).toEqual([
-      { path: ['amount'], explicit: false, reserved: false, span: { start: 3, end: 9 } },
+  it('문자열 리터럴 안의 $(와 이름은 참조가 아니다', () => {
+    expect(evaluateFormula('IF($(amount) > 1, "$(x)", "amount")', ctx({ amount: 2 }))).toBe('$(x)');
+    expect(evaluateFormula('IF($(amount) > 1, "$(x)", "amount")', ctx({ amount: 0 }))).toBe('amount');
+    expect(collectFormulaReferences('IF($(amount) > 1, "$(x)", "amount")')).toEqual([
+      { path: ['amount'], reserved: false, span: { start: 3, end: 12 } },
     ]);
   });
-});
 
-describe('일반 참조는 그대로 동작한다', () => {
-  const items = [
-    { 품명: '노트', 수량: 2, 금액: 3000 },
-    { 품명: '연필', 수량: 10, 금액: 5000 },
-  ];
-
-  it('기존 수식의 파싱 결과와 평가 값이 같다', () => {
-    const values = { items, rate: 0.1, customer: { name: '홍길동' } };
-    expect(evaluateFormula('SUM(items.금액) * (1 + rate)', ctx(values))).toBeCloseTo(8800);
-    expect(evaluateFormula('customer.name', ctx(values))).toBe('홍길동');
-    expect(evaluateFormula('items.금액', ctx(values))).toEqual([3000, 5000]);
-    expect(parseFormula('items.금액')).toEqual({
-      type: 'reference',
-      path: ['items', '금액'],
-      span: { start: 0, end: 8 },
-    });
-    expect(parseFormula('@item.금액', undefined)).toEqual({
-      type: 'reference',
-      path: ['@item', '금액'],
-      reserved: true,
-      span: { start: 0, end: 8 },
-    });
-  });
-
-  it('일반 참조 노드에는 explicit 표시가 없고 예약 참조만 reserved 표시가 있다', () => {
-    const refs = collectFormulaReferences('SUM(items.금액) + rate + @item.금액');
-    expect(refs.map((ref) => ref.explicit)).toEqual([false, false, false]);
-    expect(refs.map((ref) => ref.reserved)).toEqual([false, false, true]);
-    expect(parseFormula('items.금액')).not.toHaveProperty('reserved');
+  it('함수 이름과 TRUE·FALSE만 $( ) 없이 적는다', () => {
+    expect(evaluateFormula('IF(TRUE, 1, 2)', ctx())).toBe(1);
+    expect(evaluateFormula('IF(false, 1, 2)', ctx())).toBe(2);
+    expect(evaluateFormula('sum($(items).$(amount))', ctx({ items: [{ amount: 1 }, { amount: 2 }] }))).toBe(3);
+    // 함수 이름을 값처럼 쓰면 참조로 보고 거부한다.
+    expect(syntaxError('SUM + 1').message).toBe("'SUM' must be written as $(SUM)");
   });
 });
 
-describe('형식 혼용 오류', () => {
-  it('명시 참조를 쓰는 수식의 일반 참조는 이름을 밝히며 거부한다', () => {
-    const error = syntaxError('$(a) + amount');
-    expect(error.message).toContain("'amount'");
-    expect(error.message).toContain('$(amount)');
-    expect(error.position).toBe(7);
-    expect(syntaxError('$(a) + items.amount').message).toContain('$(items).$(amount)');
-    expect(syntaxError('$(a) + amount', 'ko').message).toContain('$(amount)으로');
-    expect(syntaxError('$(a) + amount', 'ja').message).toContain('$(amount)');
-  });
-
-  it('예약 참조 뒤의 일반 단계도 명시 수식에서는 거부한다', () => {
-    const error = syntaxError('@item.amount + $(x)');
-    expect(error.message).toContain("'@item.amount'");
-    expect(error.message).toContain('@item.$(amount)');
+describe('$( ) 없이 적은 참조는 고쳐 쓸 예와 함께 거부한다', () => {
+  it('키 하나를 그대로 적은 이름', () => {
+    const error = syntaxError('amount');
+    expect(error.message).toBe("'amount' must be written as $(amount)");
     expect(error.position).toBe(0);
-    // 예약 참조 이름 하나만 적은 것은 허용한다.
-    expect(() => parseFormula('@item + $(x)')).not.toThrow();
+    expect(syntaxError('1 + rate * 2').position).toBe(4);
   });
 
-  it('한 경로 안에서 두 형식을 섞을 수 없다', () => {
-    expect(syntaxError('$(items).amount').message).toMatch(/cannot mix/);
-    expect(syntaxError('$(items).amount').position).toBe(9);
-    expect(syntaxError('items.$(amount)').message).toMatch(/cannot mix/);
-    expect(syntaxError('items.$(amount)').position).toBe(6);
-    expect(syntaxError('@item.a.$(b)').message).toMatch(/cannot mix/);
-    expect(syntaxError('items.$(amount)', 'ko').message).toContain('섞어 쓸 수 없습니다');
+  it('점으로 이은 경로', () => {
+    const error = syntaxError('items.amount');
+    expect(error.message).toBe("'items.amount' must be written as $(items).$(amount)");
+    expect(error.position).toBe(0);
+    expect(syntaxError('a.b.c').message).toBe("'a.b.c' must be written as $(a).$(b).$(c)");
+    // 단계 사이의 공백은 고쳐 쓸 예에서 사라진다.
+    expect(syntaxError('items . 금액').message).toBe("'items.금액' must be written as $(items).$(금액)");
+  });
+
+  it('예약 참조 뒤의 하위 필드', () => {
+    const error = syntaxError('@item.amount');
+    expect(error.message).toBe("'@item.amount' must be written as @item.$(amount)");
+    expect(error.position).toBe(0);
+    expect(syntaxError('SUM(@page.amount)').message).toBe("'@page.amount' must be written as @page.$(amount)");
+    expect(syntaxError('SUM(@page.amount)').position).toBe(4);
+    expect(syntaxError('@item.a.$(b)').message).toBe("'@item.a.$(b)' must be written as @item.$(a).$(b)");
+  });
+
+  it('일부 단계만 $( )로 적은 경로', () => {
+    const tail = syntaxError('$(items).amount');
+    expect(tail.message).toBe("'$(items).amount' must be written as $(items).$(amount)");
+    expect(tail.position).toBe(0);
+    const head = syntaxError('items.$(amount)');
+    expect(head.message).toBe("'items.$(amount)' must be written as $(items).$(amount)");
+    expect(head.position).toBe(0);
+    // 이미 $( )로 적은 단계는 이스케이프까지 그대로 보여 준다.
+    expect(syntaxError('$(a\\)b).c').message).toBe("'$(a\\)b).c' must be written as $(a\\)b).$(c)");
+  });
+
+  it('수식 일부가 $( )를 써도 나머지 참조는 따로 거부한다', () => {
+    const error = syntaxError('SUM(items.amount) + $(x)');
+    expect(error.message).toBe("'items.amount' must be written as $(items).$(amount)");
+    expect(error.position).toBe(4);
+    expect(syntaxError('$(a) + amount').position).toBe(7);
+  });
+
+  it('한국어·일본어 메시지에도 고쳐 쓸 예를 담는다', () => {
+    expect(syntaxError('items.amount', 'ko').message).toBe(
+      "'items.amount'은(는) $(items).$(amount)으로 써야 합니다",
+    );
+    expect(syntaxError('@item.amount', 'ko').message).toBe("'@item.amount'은(는) @item.$(amount)으로 써야 합니다");
+    expect(syntaxError('items.amount', 'ja').message).toBe(
+      "'items.amount' は $(items).$(amount) と書く必要があります",
+    );
+    expect(syntaxError('@item.amount', 'ja').message).toBe("'@item.amount' は @item.$(amount) と書く必要があります");
+  });
+
+  it('알 수 없는 예약 참조 이름은 별도 오류다', () => {
+    expect(syntaxError('@foo').message).toMatch(/Unknown reserved reference: @foo/);
+    expect(syntaxError('@foo.$(x)').message).toMatch(/Unknown reserved reference: @foo/);
+  });
+
+  it('evaluateFormula와 collectFormulaReferences도 같은 오류를 낸다', () => {
+    expect(() => evaluateFormula('amount + 1', ctx({ amount: 1 }))).toThrow(FormulaSyntaxError);
+    expect(() => evaluateFormula('amount + 1', ctx({ amount: 1 }))).toThrow(/must be written as \$\(amount\)/);
+    expect(() => collectFormulaReferences('SUM(items.amount)')).toThrow(/\$\(items\)\.\$\(amount\)/);
   });
 });
 
-describe('명시 참조 문법 오류', () => {
+describe('$( ) 문법 오류', () => {
   it('$name은 $(name)을 안내한다', () => {
     const error = syntaxError('$datas + 1');
     expect(error.message).toBe('Write $(datas) instead of $datas');
@@ -220,11 +243,17 @@ describe('명시 참조 문법 오류', () => {
   it('홀로 쓴 $는 알 수 없는 문자다', () => {
     expect(syntaxError('$ + 1').message).toMatch(/Unknown character/);
   });
+
+  it('점 뒤에 단계가 없으면 실패한다', () => {
+    expect(syntaxError('$(a).').message).toMatch(/field name must follow/);
+    expect(syntaxError('@item.').message).toMatch(/field name must follow/);
+    expect(syntaxError('$(a).(b)').message).toMatch(/field name must follow/);
+  });
 });
 
 describe('객체가 직접 가진 키만 읽는다', () => {
   it('constructor·toString·__proto__는 없으면 빈 값이고 함수가 아니다', () => {
-    for (const source of ['$(constructor)', 'constructor', '$(toString)', 'toString', '$(__proto__)', '__proto__']) {
+    for (const source of ['$(constructor)', '$(toString)', '$(__proto__)']) {
       expect(evaluateFormula(source, ctx({}))).toBeNull();
     }
     expect(evaluateFormula('$(items).$(constructor)', ctx({ items: [{}, {}] }))).toEqual([null, null]);
@@ -233,30 +262,17 @@ describe('객체가 직접 가진 키만 읽는다', () => {
   it('직접 가진 값이면 일반 키처럼 읽는다', () => {
     const values = JSON.parse('{"constructor": 7, "toString": "text", "__proto__": {"x": 1}}') as Record<string, unknown>;
     expect(evaluateFormula('$(constructor) + 1', ctx(values))).toBe(8);
-    expect(evaluateFormula('toString', ctx(values))).toBe('text');
+    expect(evaluateFormula('$(toString)', ctx(values))).toBe('text');
     expect(evaluateFormula('$(__proto__).$(x)', ctx(values))).toBe(1);
   });
 
   it('예약 참조 값도 직접 가진 키만 읽는다', () => {
-    expect(() => evaluateFormula('@item.x', ctx({}, { '@item': { x: 1 } }))).not.toThrow();
+    expect(evaluateFormula('@item.$(x)', ctx({}, { '@item': { x: 1 } }))).toBe(1);
     expect(evaluateFormula('@item.$(constructor)', ctx({}, { '@item': { x: 1 } }))).toBeNull();
   });
 });
 
 describe('참조 표기 도우미', () => {
-  it('isBareIdentifier는 토크나이저의 식별자 규칙을 따른다', () => {
-    expect(isBareIdentifier('amount')).toBe(true);
-    expect(isBareIdentifier('금액_2')).toBe(true);
-    expect(isBareIdentifier('_x')).toBe(true);
-    expect(isBareIdentifier('2nd')).toBe(false);
-    expect(isBareIdentifier('unit-price')).toBe(false);
-    expect(isBareIdentifier('customer.name')).toBe(false);
-    expect(isBareIdentifier('unit price')).toBe(false);
-    expect(isBareIdentifier('नमस्ते')).toBe(false);
-    expect(isBareIdentifier('@item')).toBe(false);
-    expect(isBareIdentifier('')).toBe(false);
-  });
-
   it('formatReferencePath는 이스케이프하고 reserved를 지정한 예약 이름만 그대로 둔다', () => {
     expect(formatReferencePath(['a', 'b'])).toBe('$(a).$(b)');
     expect(formatReferencePath(['@item', 'unit-price'], { reserved: true })).toBe('@item.$(unit-price)');
@@ -275,110 +291,77 @@ describe('참조 표기 도우미', () => {
   });
 
   it('formatReferencePath 결과를 파싱하면 같은 경로가 된다', () => {
-    for (const path of [['a)b', 'c\\d'], ['x.y', ' z '], ['\\)', ')('], ['@item'], ['@page', 'line-amount']]) {
+    for (const path of [['a)b', 'c\\d'], ['x.y', ' z '], ['\\)', ')('], ['@item'], ['@page', 'line-amount'], ['TRUE'], ['SUM']]) {
       const ast = parseFormula(formatReferencePath(path));
-      expect(ast).toMatchObject({ type: 'reference', path, explicit: true });
+      expect(ast).toMatchObject({ type: 'reference', path });
       expect(ast).not.toHaveProperty('reserved');
     }
     const reserved = parseFormula(formatReferencePath(['@page', 'line-amount'], { reserved: true }));
-    expect(reserved).toMatchObject({ type: 'reference', path: ['@page', 'line-amount'], explicit: true, reserved: true });
+    expect(reserved).toMatchObject({ type: 'reference', path: ['@page', 'line-amount'], reserved: true });
   });
 
   it('collectFormulaReferences는 원본 순서와 범위를 돌려준다', () => {
-    expect(collectFormulaReferences('SUM(items.amount) + @item.x * rate')).toEqual([
-      { path: ['items', 'amount'], explicit: false, reserved: false, span: { start: 4, end: 16 } },
-      { path: ['@item', 'x'], explicit: false, reserved: true, span: { start: 20, end: 27 } },
-      { path: ['rate'], explicit: false, reserved: false, span: { start: 30, end: 34 } },
+    expect(collectFormulaReferences('SUM($(items).$(amount)) + @item.$(x) * $(rate)')).toEqual([
+      { path: ['items', 'amount'], reserved: false, span: { start: 4, end: 22 } },
+      { path: ['@item', 'x'], reserved: true, span: { start: 26, end: 36 } },
+      { path: ['rate'], reserved: false, span: { start: 39, end: 46 } },
     ]);
-    expect(collectFormulaReferences('SUM($(items).$(amount)) + @item.$(x)')).toEqual([
-      { path: ['items', 'amount'], explicit: true, reserved: false, span: { start: 4, end: 22 } },
-      { path: ['@item', 'x'], explicit: true, reserved: true, span: { start: 26, end: 36 } },
+    expect(collectFormulaReferences('IF(TRUE, "items", 1)')).toEqual([]);
+    expect(collectFormulaReferences('@page + @item')).toEqual([
+      { path: ['@page'], reserved: true, span: { start: 0, end: 5 } },
+      { path: ['@item'], reserved: true, span: { start: 8, end: 13 } },
     ]);
-  });
-});
-
-describe('toExplicitReferences', () => {
-  it('일반 참조만 $(...)로 바꾸고 나머지는 그대로 둔다', () => {
-    const source = 'SUM(items.금액) * rate + IF(FALSE, "items.x", 1) + @item.amount + @page';
-    const explicit = toExplicitReferences(source);
-    expect(explicit).toBe(
-      'SUM($(items).$(금액)) * $(rate) + IF(FALSE, "items.x", 1) + @item.$(amount) + @page',
-    );
-    const values = { items: [{ 금액: 1 }, { 금액: 2 }], rate: 2 };
-    const reserved = { '@item': { amount: 10 }, '@page': 5 };
-    expect(evaluateFormula(explicit, ctx(values, reserved))).toBe(
-      evaluateFormula(source, ctx(values, reserved)),
-    );
-  });
-
-  it('이미 명시 참조를 쓰는 수식은 그대로 돌려준다', () => {
-    const source = 'SUM($(items).$(amount)) + @item';
-    expect(toExplicitReferences(source)).toBe(source);
-  });
-
-  it('예약 참조 이름은 그대로 두고 $(...)로 감싸지 않는다', () => {
-    expect(toExplicitReferences('@item.amount + x')).toBe('@item.$(amount) + $(x)');
-    expect(toExplicitReferences('@item + @page.qty')).toBe('@item + @page.$(qty)');
-    expect(evaluateFormula(toExplicitReferences('@item.amount + x'), ctx({ x: 1 }, { '@item': { amount: 2 } }))).toBe(3);
-  });
-
-  it('공백이 섞인 경로도 범위째 바꾼다', () => {
-    expect(toExplicitReferences('items . 금액 + 1')).toBe('$(items).$(금액) + 1');
   });
 });
 
 describe('renameFormulaReferences', () => {
-  it('일반 수식에서 새 이름이 식별자면 형식을 유지한다', () => {
-    expect(renameFormulaReferences('SUM(items.amount) + itemsExtra + items', ['items'], ['lines'])).toBe(
-      'SUM(lines.amount) + itemsExtra + lines',
-    );
-    expect(renameFormulaReferences('items.amount * 2', ['items', 'amount'], ['items', 'total'])).toBe(
-      'items.total * 2',
+  it('일치하는 참조만 새 경로로 바꾼다', () => {
+    expect(
+      renameFormulaReferences('SUM($(items).$(amount)) + $(itemsExtra) + $(items)', ['items'], ['lines']),
+    ).toBe('SUM($(lines).$(amount)) + $(itemsExtra) + $(lines)');
+    expect(renameFormulaReferences('$(items).$(amount) * 2', ['items', 'amount'], ['items', 'total'])).toBe(
+      '$(items).$(total) * 2',
     );
   });
 
-  it('일반 수식에서 새 이름이 식별자가 아니면 수식 전체를 명시 참조로 바꾼다', () => {
-    expect(renameFormulaReferences('SUM(items.amount) + rate', ['items'], ['order-items'])).toBe(
+  it('식별자 규칙에 맞지 않는 새 이름도 이스케이프해 그대로 넣는다', () => {
+    expect(renameFormulaReferences('SUM($(items).$(amount)) + $(rate)', ['items'], ['order-items'])).toBe(
       'SUM($(order-items).$(amount)) + $(rate)',
     );
-    expect(renameFormulaReferences('amount + 1', ['amount'], ['नमस्ते'])).toBe('$(नमस्ते) + 1');
-    expect(renameFormulaReferences('amount + 1', ['amount'], ['TRUE'])).toBe('$(TRUE) + 1');
-    expect(renameFormulaReferences('amount + 1', ['amount'], ['customer.name'])).toBe(
-      '$(customer.name) + 1',
-    );
+    expect(renameFormulaReferences('$(amount) + 1', ['amount'], ['नमस्ते'])).toBe('$(नमस्ते) + 1');
+    expect(renameFormulaReferences('$(amount) + 1', ['amount'], ['TRUE'])).toBe('$(TRUE) + 1');
+    expect(renameFormulaReferences('$(amount) + 1', ['amount'], ['customer.name'])).toBe('$(customer.name) + 1');
+    expect(renameFormulaReferences('$(a\\)b) + $(c)', ['a)b'], ['x\\y'])).toBe('$(x\\\\y) + $(c)');
   });
 
-  it('명시 수식에서는 명시 참조로 바꿔 넣는다', () => {
-    expect(renameFormulaReferences('SUM($(items).$(amount))', ['items', 'amount'], ['items', 'total'])).toBe(
-      'SUM($(items).$(total))',
-    );
-    expect(renameFormulaReferences('$(a\\)b) + $(c)', ['a)b'], ['x\\y'])).toBe('$(x\\\\y) + $(c)');
+  it('공백이 섞인 경로도 범위째 바꾼다', () => {
+    expect(renameFormulaReferences('$(items) . $(금액) + 1', ['items'], ['lines'])).toBe('$(lines).$(금액) + 1');
   });
 
   it('reservedRoot를 지정하면 예약 참조 뒤의 하위 필드를 바꾼다', () => {
     const reserved = { reservedRoot: true } as const;
     expect(
-      renameFormulaReferences('@item.amount + @page.amount', ['@item', 'amount'], ['@item', 'sum'], reserved),
-    ).toBe('@item.sum + @page.amount');
+      renameFormulaReferences('@item.$(amount) + @page.$(amount)', ['@item', 'amount'], ['@item', 'sum'], reserved),
+    ).toBe('@item.$(sum) + @page.$(amount)');
     expect(
-      renameFormulaReferences('@item.amount', ['@item', 'amount'], ['@item', 'unit-price'], reserved),
+      renameFormulaReferences('@item.$(amount)', ['@item', 'amount'], ['@item', 'unit-price'], reserved),
     ).toBe('@item.$(unit-price)');
     expect(
       renameFormulaReferences('@item.$(amount) + $(@item)', ['@item', 'amount'], ['@item', 'sum'], reserved),
     ).toBe('@item.$(sum) + $(@item)');
     // 지정하지 않으면 @item은 값 키라 예약 참조와 맞지 않는다.
-    expect(renameFormulaReferences('@item.amount', ['@item', 'amount'], ['@item', 'sum'])).toBe('@item.amount');
+    expect(renameFormulaReferences('@item.$(amount)', ['@item', 'amount'], ['@item', 'sum'])).toBe('@item.$(amount)');
     // 첫 단계가 예약 참조 이름이 아니면 거부한다.
-    expect(() => renameFormulaReferences('a.b', ['a', 'b'], ['a', 'c'], reserved)).toThrow(RangeError);
-    expect(() => renameFormulaReferences('@item.b', ['@item', 'b'], ['x', 'c'], reserved)).toThrow(RangeError);
+    expect(() => renameFormulaReferences('$(a).$(b)', ['a', 'b'], ['a', 'c'], reserved)).toThrow(RangeError);
+    expect(() => renameFormulaReferences('@item.$(b)', ['@item', 'b'], ['x', 'c'], reserved)).toThrow(RangeError);
   });
 
   it('값 키를 @item으로 바꾸면 $(@item)이 되고, 다시 되돌릴 수 있다', () => {
-    const renamed = renameFormulaReferences('amount + 1', ['amount'], ['@item']);
+    const renamed = renameFormulaReferences('$(amount) + 1', ['amount'], ['@item']);
     expect(renamed).toBe('$(@item) + 1');
     expect(evaluateFormula(renamed, ctx({ '@item': 3 }))).toBe(4);
     expect(evaluateFormula(renamed, ctx({ '@item': 3 }, { '@item': { amount: 100 } }))).toBe(4);
-    // 되돌릴 때 from은 값 키 경로라 $(@item)과 맞고, 명시 수식이므로 명시 참조를 유지한다.
+    // 되돌릴 때 from은 값 키 경로라 $(@item)과 맞는다.
     expect(renameFormulaReferences(renamed, ['@item'], ['amount'])).toBe('$(amount) + 1');
     expect(renameFormulaReferences('$(@foo).$(x)', ['@foo'], ['bar'])).toBe('$(bar).$(x)');
   });
@@ -391,20 +374,20 @@ describe('renameFormulaReferences', () => {
     expect(renameFormulaReferences(renamed, ['@page', '@item'], ['@page', 'amount'], reserved)).toBe(
       'SUM(@page.$(amount))',
     );
-    // 일반 참조 수식은 @item이 식별자가 아니므로 수식 전체가 명시 참조로 바뀐다.
-    expect(renameFormulaReferences('SUM(@page.amount) + rate', ['@page', 'amount'], ['@page', '@item'], reserved)).toBe(
-      'SUM(@page.$(@item)) + $(rate)',
-    );
   });
 
   it('일치하는 참조가 없거나 앞부분만 겹치면 바꾸지 않는다', () => {
-    expect(renameFormulaReferences('itemsExtra + 1', ['items'], ['x-y'])).toBe('itemsExtra + 1');
+    expect(renameFormulaReferences('$(itemsExtra) + 1', ['items'], ['x-y'])).toBe('$(itemsExtra) + 1');
     expect(renameFormulaReferences('IF(TRUE, "items", 1)', ['items'], ['lines'])).toBe('IF(TRUE, "items", 1)');
-    expect(() => renameFormulaReferences('a', [], ['b'])).toThrow(RangeError);
+    expect(() => renameFormulaReferences('$(a)', [], ['b'])).toThrow(RangeError);
+  });
+
+  it('$( ) 없이 적은 참조가 있는 수식은 바꾸지 못하고 문법 오류를 낸다', () => {
+    expect(() => renameFormulaReferences('SUM(items.amount)', ['items'], ['lines'])).toThrow(FormulaSyntaxError);
   });
 
   it('이름을 바꾼 수식은 바뀐 데이터로 같은 값을 낸다', () => {
-    const source = 'SUM(items.amount) * rate';
+    const source = 'SUM($(items).$(amount)) * $(rate)';
     const renamed = renameFormulaReferences(source, ['items'], ['order-items']);
     const before = evaluateFormula(source, ctx({ items: [{ amount: 2 }, { amount: 3 }], rate: 10 }));
     const after = evaluateFormula(renamed, ctx({ 'order-items': [{ amount: 2 }, { amount: 3 }], rate: 10 }));

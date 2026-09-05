@@ -68,7 +68,7 @@ describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
         type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
         width: 60, height: 10, content: '취소됨',
         conditionalFormats: [
-          { condition: 'status = "취소"', fontColor: '#FF0000', backgroundColor: '#FFEEEE' },
+          { condition: '$(status) = "취소"', fontColor: '#FF0000', backgroundColor: '#FFEEEE' },
         ],
       }],
       { status: '취소' },
@@ -94,7 +94,7 @@ describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
         },
         cells: [{
           row: 0, column: 0, parameter: 'amount',
-          conditionalFormats: [{ condition: 'amount >= 2000', fontColor: '#FF0000' }],
+          conditionalFormats: [{ condition: '$(amount) >= 2000', fontColor: '#FF0000' }],
         }],
       }],
       { items: [{ amount: 1000 }, { amount: 2000 }] },
@@ -113,7 +113,7 @@ describe('<slip-designer> 조건부 서식 (ADR-062)', () => {
         type: 'text', id: 't1', name: 't', position: { x: 10, y: 10 },
         width: 60, height: 10, content: '제목',
         conditionalFormats: [
-          { condition: 'status <', fontColor: '#00FF00' },
+          { condition: '$(status) <', fontColor: '#00FF00' },
           { condition: 'TRUE', fontColor: '#FF0000' },
         ],
       }],
@@ -944,7 +944,7 @@ describe('<slip-designer> 사이드바', () => {
 
     // 수식 모달을 열고 글자 파라미터를 숫자 자리에 넣습니다
     (el as unknown as { _formulaModalOpen: boolean })._formulaModalOpen = true;
-    (el as unknown as { _formulaDraft: string })._formulaDraft = 'SUM(memo)';
+    (el as unknown as { _formulaDraft: string })._formulaDraft = 'SUM($(memo))';
     (el as unknown as { requestUpdate: () => void }).requestUpdate();
     await el.updateComplete;
 

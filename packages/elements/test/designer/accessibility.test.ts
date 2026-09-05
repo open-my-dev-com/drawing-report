@@ -69,7 +69,7 @@ function makeFile(): SlipTemplateFile {
       cells: [
         { row: 0, column: 0, content: '라벨' },
         { row: 1, column: 0, parameter: 'qty' },
-        { row: 2, column: 0, formula: 'SUM(@all.qty)' },
+        { row: 2, column: 0, formula: 'SUM(@all.$(qty))' },
         { row: 2, column: 1, content: '' },
       ],
     } as never,

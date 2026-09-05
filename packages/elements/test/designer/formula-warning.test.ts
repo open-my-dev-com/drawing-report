@@ -58,8 +58,14 @@ describe('collectFormulaWarnings — 계산되지 않는 수식 모으기', () =
       .toBe(true);
   });
 
-  it('정상 수식·빈 수식·저장이 막히는 상태는 경고 대상이 아니다', () => {
-    for (const status of ['ok', 'syntax-error', 'not-boolean', 'target-changed'] as const) {
+  it('파일에서 읽은 수식이 문법에 맞지 않으면 경고 대상이다 — 편집 중에는 저장이 막혀 생기지 않는 상태다', () => {
+    const { check } = checkBy({ BAD: 'syntax-error' });
+    expect(hasElementWarning(collectFormulaWarnings({ page: makePage([FIELD]), check }), 'f1'))
+      .toBe(true);
+  });
+
+  it('정상 수식·빈 수식·논리값이 아닌 조건식·대상이 바뀐 상태는 경고 대상이 아니다', () => {
+    for (const status of ['ok', 'not-boolean', 'target-changed'] as const) {
       const { check } = checkBy({ BAD: status });
       const warnings = collectFormulaWarnings({ page: makePage([FIELD]), check });
       expect(hasElementWarning(warnings, 'f1'), status).toBe(false);

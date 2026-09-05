@@ -46,7 +46,7 @@ function makeTemplate(): SlipTemplateFile {
           flowArea: { top: 10, bottom: 280 },
           elements: [
             { type: 'text', id: 't', name: '글', position: { x: 10, y: 10 }, width: 50, height: 10, content: '글',
-              conditionalFormats: [{ condition: 'total > 0', bold: true }],
+              conditionalFormats: [{ condition: '$(total) > 0', bold: true }],
               pagePlacement: { mode: 'absolute', pages: 'all' } },
             { type: 'field', id: 'f', name: '값', position: { x: 10, y: 20 }, width: 50, height: 10, parameter: 'total' },
             { type: 'image', id: 'i', name: '그림', position: { x: 10, y: 30 }, width: 20, height: 10, src: 'asset://logo' },
@@ -68,7 +68,7 @@ function makeTemplate(): SlipTemplateFile {
               },
               cells: [
                 { row: 0, column: 0, content: '품명' },
-                { row: 1, column: 0, parameter: 'name', conditionalFormats: [{ condition: 'name = "a"', fontColor: '#FF0000' }] },
+                { row: 1, column: 0, parameter: 'name', conditionalFormats: [{ condition: '$(name) = "a"', fontColor: '#FF0000' }] },
               ],
             },
           ],

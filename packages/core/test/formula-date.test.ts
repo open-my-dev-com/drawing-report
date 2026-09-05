@@ -104,7 +104,7 @@ describe('FORMAT_DATE 패턴 — 토큰', () => {
 
   it('문자열이 아닌 패턴은 문자열로 바꾼 뒤 같은 문법을 적용한다', () => {
     expect(evaluateFormula(`FORMAT_DATE(${d}, 20260904)`, ctx())).toBe('20260904');
-    expect(evaluateFormula(`FORMAT_DATE(${d}, a)`, ctx({ a: null }))).toBe('');
+    expect(evaluateFormula(`FORMAT_DATE(${d}, $(a))`, ctx({ a: null }))).toBe('');
     expect(() => evaluateFormula(`FORMAT_DATE(${d}, TRUE)`, ctx())).toThrow(/unknown token "TRUE"/);
   });
 
@@ -179,7 +179,7 @@ describe('날짜 입력 — 거부', () => {
     '1788800000000',
     '0',
     'TRUE',
-    'NULL',
+    '$(NULL)',
   ])('%s은(는) 형식 오류', (source) => {
     for (const fn of ['FORMAT_DATE', 'TO_DATE']) {
       expect(() => evaluateFormula(`${fn}(${source})`, ctx()), fn).toThrow(INVALID);
@@ -225,7 +225,7 @@ describe('입력 오류와 패턴 오류의 구분', () => {
     const literal = evalError('FORMAT_DATE("2026/09/04", "YYYY")');
     expect(literal.reason).toBe('value');
     expect(literal.dataDependent).toBe(false);
-    const fromData = evalError('FORMAT_DATE(d, "YYYY")', ctx({ d: '2026/09/04' }));
+    const fromData = evalError('FORMAT_DATE($(d), "YYYY")', ctx({ d: '2026/09/04' }));
     expect(fromData.reason).toBe('value');
     expect(fromData.dataDependent).toBe(true);
   });
@@ -239,7 +239,7 @@ describe('입력 오류와 패턴 오류의 구분', () => {
   });
 
   it('데이터에서 온 패턴의 오류는 데이터 의존 값 오류다', () => {
-    const error = evalError('FORMAT_DATE("2026-09-04", p)', ctx({ p: '[Date' }));
+    const error = evalError('FORMAT_DATE("2026-09-04", $(p))', ctx({ p: '[Date' }));
     expect(error.reason).toBe('value');
     expect(error.dataDependent).toBe(true);
     expect(error.message).toMatch(/unclosed '\[' at character 1/);
@@ -334,16 +334,16 @@ describe('연도 범위 밖의 결과', () => {
     const literal = evalError('DATE_ADD("9999-12-31", 1)');
     expect(literal.reason).toBe('value');
     expect(literal.dataDependent).toBe(false);
-    const dateFromData = evalError('DATE_ADD(d, 1)', ctx({ d: '9999-12-31' }));
+    const dateFromData = evalError('DATE_ADD($(d), 1)', ctx({ d: '9999-12-31' }));
     expect(dateFromData.reason).toBe('value');
     expect(dateFromData.dataDependent).toBe(true);
-    const amountFromData = evalError('DATE_ADD("9999-12-31", n)', ctx({ n: 1 }));
+    const amountFromData = evalError('DATE_ADD("9999-12-31", $(n))', ctx({ n: 1 }));
     expect(amountFromData.reason).toBe('value');
     expect(amountFromData.dataDependent).toBe(true);
     const offset = evalError('TO_DATE("0001-01-01T00:00+23:59")');
     expect(offset.reason).toBe('value');
     expect(offset.dataDependent).toBe(false);
-    expect(evalError('TO_DATE(d)', ctx({ d: '0001-01-01T00:00+23:59' })).dataDependent).toBe(true);
+    expect(evalError('TO_DATE($(d))', ctx({ d: '0001-01-01T00:00+23:59' })).dataDependent).toBe(true);
   });
 
   it('세 언어의 메시지가 대상과 입력을 알려 준다', () => {

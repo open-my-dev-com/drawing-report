@@ -9,20 +9,21 @@
  * mul     := unary (('*' | '/') unary)*
  * unary   := ('-' | '+') unary | primary
  * primary := number | string | TRUE | FALSE | FUNC '(' args ')' | ref | '(' expr ')'
- * ref     := ('@' ident | ident) ('.' ident)*        # 일반 참조 (예: items.금액, @group.금액)
- *          | ('@' ident '.')? key ('.' key)*         # 명시 참조 (예: $(items).$(금액), @group.$(금액))
+ * ref     := key ('.' key)*                          # 값 참조 (예: $(items).$(금액))
+ *          | reserved ('.' key)*                     # 예약 참조 (예: @item, @group.$(금액))
  * key     := '$(' chars ')'                          # 키 한 단계. ')'와 '\'는 '\)'·'\\'로 적는다
+ * reserved := '@item' | '@group' | '@page' | '@all' | '@carried'
  * ```
  *
  * 문자열 리터럴은 큰따옴표, 내부 큰따옴표는 "" 로 이스케이프한다.
- * 식별자는 유니코드 문자(한글 포함)·숫자·언더스코어, 숫자로 시작 불가.
- * `@`로 시작하는 참조는 그리드 행 구간에서 계획 계층이 공급하는 예약 참조만 허용한다.
+ * 함수 이름과 `TRUE`·`FALSE`는 유니코드 문자·숫자·언더스코어로 이루어진 식별자로 적는다.
+ * `@`로 시작하는 예약 참조는 그리드 행 구간에서 계획 계층이 공급하는 다섯 이름만 허용한다.
  *
- * `$(...)`는 키 한 단계를 있는 그대로 적는 명시 참조다. 식별자 규칙에 맞지 않는 키
- * (`datas-2`·`customer.name`·공백 포함 등)도 쓸 수 있다. 수식에 명시 참조가 하나라도 있으면
- * 그 수식의 값 참조는 모두 명시 참조여야 하고, 한 경로 안에서 두 형식을 섞을 수 없다.
- * 예약 참조 이름은 어느 형식에서나 `$(...)` 없이 그대로 적는다 — `$(@item)`은 예약 참조가
- * 아니라 `@item`이라는 이름의 값 키다.
+ * 값 참조는 키 한 단계마다 `$(...)`로 적는다. 그래서 식별자 규칙에 맞지 않는 키
+ * (`datas-2`·`customer.name`·공백 포함 등)도 쓸 수 있고, `$(datas-2)`(키 하나)와 `$(datas) - 2`(뺄셈)가
+ * 구분된다. `$(...)` 없이 적은 이름(`amount`·`items.amount`·`@item.amount`)은 함수 호출이나 논리
+ * 상수가 아니면 문법 오류이며, 오류 메시지에 고쳐 쓸 예를 함께 알린다. 예약 참조 이름은 `$(...)`
+ * 없이 그대로 적는다 — `$(@item)`은 예약 참조가 아니라 `@item`이라는 이름의 값 키다.
  */
 import { FormulaSyntaxError } from './errors.js';
 import { FORMULA_FUNCTIONS, type FormulaFunctionName } from './functions.js';
@@ -55,8 +56,6 @@ export type FormulaAst =
   | {
       type: 'reference';
       path: string[];
-      /** 경로를 `$(...)` 명시 참조로 적었을 때만 `true` */
-      explicit?: true;
       /** 첫 단계를 `$(...)` 없이 `@item`처럼 적은 예약 참조일 때만 `true`. `$(@item)`은 값 키다 */
       reserved?: true;
       /** 원본 수식에서 이 참조가 차지하는 범위 */
@@ -72,7 +71,6 @@ export type FormulaAst =
 
 const IDENT_START = /[\p{L}_]/u;
 const IDENT_PART = /[\p{L}\p{N}_]/u;
-const BARE_IDENTIFIER = /^[\p{L}_][\p{L}\p{N}_]*$/u;
 
 /**
  * 그리드 행 구간에서 사용할 수 있는 예약 참조 이름.
@@ -84,19 +82,6 @@ export const RESERVED_REF_NAMES = ['@item', '@group', '@page', '@all', '@carried
 export type ReservedRefName = (typeof RESERVED_REF_NAMES)[number];
 
 const RESERVED_REFS = new Set<string>(RESERVED_REF_NAMES);
-
-/**
- * 이름이 `$(...)` 없이 그대로 쓸 수 있는 식별자인지 확인한다.
- *
- * 토크나이저의 식별자 규칙과 같다 — 유니코드 문자 또는 `_`로 시작하고 문자·숫자·`_`만 이어진다.
- * 예약 참조 이름(`@item` 등)은 식별자가 아니다.
- *
- * @param name - 확인할 이름
- * @returns 식별자 규칙에 맞으면 `true`
- */
-export function isBareIdentifier(name: string): boolean {
-  return BARE_IDENTIFIER.test(name);
-}
 
 /**
  * 키 한 단계를 `$(...)` 안에 넣을 수 있게 이스케이프한다.
@@ -120,11 +105,11 @@ export interface FormatReferenceOptions {
 }
 
 /**
- * 참조 경로를 `$(a).$(b)` 형식의 명시 참조 문자열로 만든다.
+ * 참조 경로를 `$(a).$(b)` 형식의 참조 문자열로 만든다.
  *
  * @param path - 참조 경로
  * @param options - 첫 단계를 예약 참조로 적을지 여부
- * @returns 명시 참조 문자열 (예: `$(unit-price)`, `reserved`이면 `@item.$(unit-price)`)
+ * @returns 참조 문자열 (예: `$(unit-price)`, `reserved`이면 `@item.$(unit-price)`)
  * @throws RangeError 경로가 비어 있거나, `reserved`인데 첫 단계가 예약 참조 이름이 아닐 때
  */
 export function formatReferencePath(
@@ -282,12 +267,7 @@ type StepToken = Extract<Token, { type: 'ident' | 'key' }>;
 class Parser {
   private index = 0;
 
-  /** 수식에 `$(...)` 참조가 하나라도 있으면 값 참조는 모두 명시 참조여야 한다. */
-  private readonly explicit: boolean;
-
-  constructor(private readonly tokens: Token[]) {
-    this.explicit = tokens.some((token) => token.type === 'key');
-  }
+  constructor(private readonly tokens: Token[]) {}
 
   parse(): FormulaAst {
     const expr = this.comparison();
@@ -420,44 +400,44 @@ class Parser {
         }
         return { type: 'call', name: upper as FormulaFunctionName, args };
       }
+      // 함수 호출도 논리 상수도 아닌 식별자는 예약 참조 이름이거나 `$(...)`를 빠뜨린 값 참조다.
       return this.reference(token);
     }
     throw new FormulaSyntaxError(fm().expectedValue(), token.pos);
   }
 
-  /** 첫 단계 토큰 뒤에 점으로 이어지는 단계를 읽어 값 참조 경로를 만든다. */
+  /**
+   * 첫 단계 토큰 뒤에 점으로 이어지는 단계를 읽어 참조 경로를 만든다.
+   *
+   * 예약 참조 이름을 그대로 적은 첫 단계를 뺀 모든 단계는 `$(...)` 키여야 한다. `$(...)` 없이 적은
+   * 단계가 하나라도 있으면 경로 전체를 고쳐 쓸 예와 함께 거부한다.
+   */
   private reference(head: StepToken): FormulaAst {
-    const path = [head.value];
-    let end = head.end;
-    // `$(@item)`은 키 토큰이라 예약 참조가 아니다. 예약 참조는 `@item`을 그대로 적은 식별자뿐이다.
-    const reserved = head.type === 'ident' && head.value.startsWith('@');
-    // 예약 참조 이름은 어느 형식에서나 그대로 적으므로 경로의 형식은 그 뒤 첫 단계가 정한다.
-    let stepType: StepToken['type'] | undefined = reserved ? undefined : head.type;
+    const steps: StepToken[] = [head];
     while (this.matchOp('.')) {
       const segment = this.next();
       if (segment.type !== 'ident' && segment.type !== 'key') {
         throw new FormulaSyntaxError(fm().expectedFieldAfterDot(), segment.pos);
       }
-      if (stepType === undefined) stepType = segment.type;
-      else if (stepType !== segment.type) {
-        throw new FormulaSyntaxError(fm().mixedReferenceSteps(), segment.pos);
-      }
-      path.push(segment.value);
-      end = segment.end;
+      steps.push(segment);
     }
-    const explicit = stepType === 'key';
-    // 명시 참조를 쓰는 수식에서는 예약 참조 이름 하나만 적은 경우 말고는 모두 명시 참조여야 한다.
-    if (this.explicit && !explicit && (!reserved || path.length > 1)) {
+    // `$(@item)`은 키 토큰이라 예약 참조가 아니다. 예약 참조는 `@item`을 그대로 적은 식별자뿐이다.
+    const reserved = head.type === 'ident' && head.value.startsWith('@');
+    const path = steps.map((step) => step.value);
+    const bare = steps.some((step, index) => step.type === 'ident' && !(index === 0 && reserved));
+    if (bare) {
+      const written = steps
+        .map((step) => (step.type === 'key' ? `$(${escapeReferenceKey(step.value)})` : step.value))
+        .join('.');
       throw new FormulaSyntaxError(
-        fm().bareReferenceInExplicit(path.join('.'), formatReferencePath(path, { reserved })),
+        fm().bareReference(written, formatReferencePath(path, { reserved })),
         head.pos,
       );
     }
-    const span: ReferenceSpan = { start: head.pos, end };
+    const span: ReferenceSpan = { start: head.pos, end: steps[steps.length - 1]!.end };
     return {
       type: 'reference',
       path,
-      ...(explicit ? { explicit: true as const } : {}),
       ...(reserved ? { reserved: true as const } : {}),
       span,
     };
@@ -472,7 +452,7 @@ export const MAX_FORMULA_DEPTH = 100;
 /**
  * 수식 문자열을 AST로 파싱한다.
  *
- * @param source - 수식 문자열 (예: `SUM(items.금액) * 1.1`, `SUM($(items).$(금액)) * 1.1`)
+ * @param source - 수식 문자열 (예: `SUM($(items).$(금액)) * 1.1`)
  * @param options - 오류 메시지에 사용할 로케일 설정 (생략하면 영어)
  * @returns 파싱된 구문 트리
  * @throws FormulaSyntaxError 문법 오류·미등록 함수·길이/깊이 제한 초과 시

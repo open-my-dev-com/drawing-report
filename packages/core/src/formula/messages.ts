@@ -52,8 +52,7 @@ interface FormulaMessages {
   unterminatedReference(): string;
   invalidReferenceEscape(sequence: string): string;
   referenceNeedsParens(name: string): string;
-  bareReferenceInExplicit(name: string, suggested: string): string;
-  mixedReferenceSteps(): string;
+  bareReference(name: string, suggested: string): string;
   reservedRefUnavailable(name: string): string;
   expectedValue(): string;
   emptyFormula(): string;
@@ -210,9 +209,7 @@ const EN: FormulaMessages = {
   unterminatedReference: () => `The $( reference is not closed (a ')' is required)`,
   invalidReferenceEscape: (sequence) => `Invalid escape '${sequence}' inside $( ) (only \\) and \\\\ are allowed)`,
   referenceNeedsParens: (name) => `Write $(${name}) instead of $${name}`,
-  bareReferenceInExplicit: (name, suggested) =>
-    `'${name}' must be written as ${suggested} because this formula uses $( ) references`,
-  mixedReferenceSteps: () => 'A reference path cannot mix plain names and $( ) steps',
+  bareReference: (name, suggested) => `'${name}' must be written as ${suggested}`,
   reservedRefUnavailable: (name) => `${name} can only be used in grid row bands`,
   expectedValue: () => 'A value, reference, or function is required',
   emptyFormula: () => 'The formula is empty',
@@ -277,9 +274,7 @@ const KO: FormulaMessages = {
   invalidReferenceEscape: (sequence) =>
     `$( ) 안에서 쓸 수 없는 이스케이프입니다: '${sequence}' (\\)와 \\\\만 쓸 수 있습니다)`,
   referenceNeedsParens: (name) => `$${name} 대신 $(${name})으로 쓰세요`,
-  bareReferenceInExplicit: (name, suggested) =>
-    `이 수식은 $( ) 참조를 쓰므로 '${name}'도 ${suggested}으로 써야 합니다`,
-  mixedReferenceSteps: () => '참조 경로에 일반 이름과 $( ) 단계를 섞어 쓸 수 없습니다',
+  bareReference: (name, suggested) => `'${name}'은(는) ${suggested}으로 써야 합니다`,
   reservedRefUnavailable: (name) => `${name}은(는) 그리드 행 구간에서만 사용할 수 있습니다`,
   expectedValue: () => '값, 참조 또는 함수가 필요합니다',
   emptyFormula: () => '빈 수식입니다',
@@ -347,9 +342,7 @@ const JA: FormulaMessages = {
   invalidReferenceEscape: (sequence) =>
     `$( ) の中で使えないエスケープです: '${sequence}'（\\) と \\\\ のみ使えます）`,
   referenceNeedsParens: (name) => `$${name} ではなく $(${name}) と書いてください`,
-  bareReferenceInExplicit: (name, suggested) =>
-    `この数式は $( ) 参照を使うため、'${name}' も ${suggested} と書く必要があります`,
-  mixedReferenceSteps: () => '参照パスに通常の名前と $( ) の段階を混在させることはできません',
+  bareReference: (name, suggested) => `'${name}' は ${suggested} と書く必要があります`,
   reservedRefUnavailable: (name) => `${name} はグリッドの行範囲でのみ使用できます`,
   expectedValue: () => '値・参照・関数が必要です',
   emptyFormula: () => '数式が空です',

@@ -111,7 +111,7 @@ afterEach(() => {
 
 describe('<slip-designer> 계산되지 않는 수식의 캔버스 표시', () => {
   it('계산에 실패한 셀은 수식 원문 대신 오류 표시와 core의 오류 문구를 보여 준다', async () => {
-    const formula = 'amount / qty';
+    const formula = '$(amount) / $(qty)';
     const el = await mountFile([makeGrid(formula)], { items: SAMPLE_ITEMS });
 
     // 고르지 않은 반복 그리드는 출력 결과로 보이므로 항목마다 계산합니다 — 첫 항목은 100 / 2,
@@ -134,7 +134,7 @@ describe('<slip-designer> 계산되지 않는 수식의 캔버스 표시', () =>
   });
 
   it('경고 목록에 자리와 원인을 적고, 자리를 누르면 그 셀을 선택한다', async () => {
-    const formula = 'amount / qty';
+    const formula = '$(amount) / $(qty)';
     const el = await mountFile([makeGrid(formula)], { items: SAMPLE_ITEMS });
     const list = warningList(el);
     expect(list).not.toBeNull();
@@ -159,7 +159,7 @@ describe('<slip-designer> 계산되지 않는 수식의 캔버스 표시', () =>
       {
         type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 }, width: 40, height: 8,
         formula: '1 / 0',
-        conditionalFormats: [{ condition: 'nope > 1', fontColor: '#FF0000' }],
+        conditionalFormats: [{ condition: '$(nope) > 1', fontColor: '#FF0000' }],
       },
     ]);
     const rows = Array.from(warningList(el)!.querySelectorAll('li')).map((li) => li.querySelector('span')!.textContent!);
@@ -177,7 +177,7 @@ describe('<slip-designer> 계산되지 않는 수식의 캔버스 표시', () =>
 
     (el as unknown as { _updateFile: (fn: (f: SlipTemplateFile) => void) => void })._updateFile((f) => {
       const grid = f.template.pages[0]!.elements[0]! as unknown as { cells: Record<string, unknown>[] };
-      grid.cells[3]!.formula = 'amount * qty';
+      grid.cells[3]!.formula = '$(amount) * $(qty)';
     });
     await el.updateComplete;
     expect(warningList(el)).toBeNull();
@@ -238,14 +238,14 @@ describe('<slip-designer> 저장 전 파일 형식 검증', () => {
 
 describe('<slip-designer> 하위 필드 이름 변경', () => {
   it('셀·수식·그룹 설정·샘플 항목이 함께 바뀌고 되돌리기 한 단위로 남는다', async () => {
-    const grid = makeGrid('amount * qty');
+    const grid = makeGrid('$(amount) * $(qty)');
     (grid.repeat as Record<string, unknown>).groupBy = ['qty'];
     const el = await mountFile(
       [
         grid,
         {
           type: 'field', id: 'f1', name: '수량 합', position: { x: 10, y: 60 }, width: 40, height: 8,
-          formula: 'SUM(items.qty)',
+          formula: 'SUM($(items).$(qty))',
         },
       ],
       { items: SAMPLE_ITEMS },
@@ -261,9 +261,9 @@ describe('<slip-designer> 하위 필드 이름 변경', () => {
 
     const file = fileOf(el);
     const saved = file.template.pages[0]!.elements as unknown as Record<string, unknown>[];
-    expect((saved[0]!.cells as Record<string, unknown>[])[3]!.formula).toBe('amount * count');
+    expect((saved[0]!.cells as Record<string, unknown>[])[3]!.formula).toBe('$(amount) * $(count)');
     expect((saved[0]!.repeat as Record<string, unknown>).groupBy).toEqual(['count']);
-    expect(saved[1]!.formula).toBe('SUM(items.count)');
+    expect(saved[1]!.formula).toBe('SUM($(items).$(count))');
     expect(file.template.parameters![0]!.fields!.map((f) => f.key)).toEqual(['itemName', 'amount', 'count']);
     const rows = (file.template.sampleValues as Record<string, unknown>).items as Record<string, unknown>[];
     expect(Object.keys(rows[0]!)).toEqual(['itemName', 'amount', 'count']);

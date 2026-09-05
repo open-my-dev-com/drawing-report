@@ -363,7 +363,7 @@ const ko = {
     /* 조건부 서식 */
     conditionalFormat: '조건부 서식',
     condition: '조건식',
-    conditionPlaceholder: '예: amount < 0',
+    conditionPlaceholder: '예: $(amount) < 0',
     conditionHint: '조건식이 참이면 지정한 색과 강조를 적용합니다. 규칙이 겹치면 아래 규칙이 우선합니다.',
     addConditionRule: '규칙 추가',
     deleteConditionRule: '규칙 삭제',
@@ -873,7 +873,7 @@ const en: SlipStrings = {
     /* Conditional format */
     conditionalFormat: 'Conditional format',
     condition: 'Condition',
-    conditionPlaceholder: 'e.g. amount < 0',
+    conditionPlaceholder: 'e.g. $(amount) < 0',
     conditionHint: 'Colors and emphasis apply when the condition is true. When rules overlap, the lower rule wins.',
     addConditionRule: 'Add rule',
     deleteConditionRule: 'Delete rule',
@@ -1382,7 +1382,7 @@ const ja: SlipStrings = {
     /* 条件付き書式 */
     conditionalFormat: '条件付き書式',
     condition: '条件式',
-    conditionPlaceholder: '例: amount < 0',
+    conditionPlaceholder: '例: $(amount) < 0',
     conditionHint: '条件式が真のとき指定した色と強調を適用します。ルールが重なる場合は下のルールが優先されます。',
     addConditionRule: 'ルールを追加',
     deleteConditionRule: 'ルールを削除',

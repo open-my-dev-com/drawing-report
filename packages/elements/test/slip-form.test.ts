@@ -65,7 +65,7 @@ function makeTemplate(withExternalImage = false): SlipTemplateFile {
     {
       type: 'field', id: 'f-total', name: '합계 필드',
       position: { x: 140, y: 100 }, width: 55, height: 8,
-      formula: 'SUM(items.amount)',
+      formula: 'SUM($(items).$(amount))',
     },
   ];
   if (withExternalImage) {

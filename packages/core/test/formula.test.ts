@@ -55,53 +55,53 @@ describe('파서', () => {
 
 describe('참조', () => {
   it('단순 참조와 중첩 경로', () => {
-    expect(evaluateFormula('total', ctx({ total: 3000 }))).toBe(3000);
-    expect(evaluateFormula('공급자.상호', ctx({ 공급자: { 상호: '한빛문구' } }))).toBe('한빛문구');
+    expect(evaluateFormula('$(total)', ctx({ total: 3000 }))).toBe(3000);
+    expect(evaluateFormula('$(공급자).$(상호)', ctx({ 공급자: { 상호: '한빛문구' } }))).toBe('한빛문구');
   });
 
-  it('배열을 만나면 나머지 경로를 각 원소에 사상한다 (items.금액)', () => {
-    expect(evaluateFormula('SUM(items.금액)', ctx({ items }))).toBe(10000);
+  it('배열을 만나면 나머지 경로를 각 원소에 사상한다 ($(items).$(금액))', () => {
+    expect(evaluateFormula('SUM($(items).$(금액))', ctx({ items }))).toBe(10000);
   });
 
   it('없는 키는 빈 값(null)', () => {
-    expect(evaluateFormula('IF(없는키 = 0, "기본", "값")', ctx())).toBe('값');
-    expect(evaluateFormula('CONCAT("[", 없는키, "]")', ctx())).toBe('[]');
+    expect(evaluateFormula('IF($(없는키) = 0, "기본", "값")', ctx())).toBe('값');
+    expect(evaluateFormula('CONCAT("[", $(없는키), "]")', ctx())).toBe('[]');
   });
 
   it('범위를 산술에 직접 쓰면 평가 오류', () => {
-    expect(() => evaluateFormula('items.금액 + 1', ctx({ items }))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('$(items).$(금액) + 1', ctx({ items }))).toThrow(FormulaEvalError);
   });
 });
 
 describe('집계·조건부 집계', () => {
   it('SUM / AVG / COUNT / MIN / MAX', () => {
     const c = ctx({ items });
-    expect(evaluateFormula('SUM(items.금액)', c)).toBe(10000);
-    expect(evaluateFormula('AVG(items.수량)', c)).toBeCloseTo(17 / 3);
-    expect(evaluateFormula('COUNT(items.품명)', c)).toBe(3);
-    expect(evaluateFormula('MIN(items.금액)', c)).toBe(2000);
-    expect(evaluateFormula('MAX(items.금액)', c)).toBe(5000);
+    expect(evaluateFormula('SUM($(items).$(금액))', c)).toBe(10000);
+    expect(evaluateFormula('AVG($(items).$(수량))', c)).toBeCloseTo(17 / 3);
+    expect(evaluateFormula('COUNT($(items).$(품명))', c)).toBe(3);
+    expect(evaluateFormula('MIN($(items).$(금액))', c)).toBe(2000);
+    expect(evaluateFormula('MAX($(items).$(금액))', c)).toBe(5000);
   });
 
   it('SUM은 빈 값을 건너뛴다', () => {
-    expect(evaluateFormula('SUM(rows.v)', ctx({ rows: [{ v: 1 }, {}, { v: 2 }] }))).toBe(3);
+    expect(evaluateFormula('SUM($(rows).$(v))', ctx({ rows: [{ v: 1 }, {}, { v: 2 }] }))).toBe(3);
   });
 
   it('AVG는 대상이 없으면 오류', () => {
-    expect(() => evaluateFormula('AVG(rows.v)', ctx({ rows: [] }))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('AVG($(rows).$(v))', ctx({ rows: [] }))).toThrow(FormulaEvalError);
   });
 
   it('SUMIF(조건 범위, 조건, 합계 범위)', () => {
     const c = ctx({ items });
-    expect(evaluateFormula('SUMIF(items.구분, "과세", items.금액)', c)).toBe(5000);
-    expect(evaluateFormula('SUMIF(items.금액, ">=3000")', c)).toBe(8000);
+    expect(evaluateFormula('SUMIF($(items).$(구분), "과세", $(items).$(금액))', c)).toBe(5000);
+    expect(evaluateFormula('SUMIF($(items).$(금액), ">=3000")', c)).toBe(8000);
   });
 
   it('COUNTIF와 비교 조건 문자열', () => {
     const c = ctx({ items });
-    expect(evaluateFormula('COUNTIF(items.구분, "과세")', c)).toBe(2);
-    expect(evaluateFormula('COUNTIF(items.수량, ">4")', c)).toBe(2);
-    expect(evaluateFormula('COUNTIF(items.구분, "<>과세")', c)).toBe(1);
+    expect(evaluateFormula('COUNTIF($(items).$(구분), "과세")', c)).toBe(2);
+    expect(evaluateFormula('COUNTIF($(items).$(수량), ">4")', c)).toBe(2);
+    expect(evaluateFormula('COUNTIF($(items).$(구분), "<>과세")', c)).toBe(1);
   });
 });
 
@@ -120,11 +120,11 @@ describe('산술 함수·연산', () => {
   });
 
   it('숫자 자리에 글자를 넣으면 오류 — 자동 변환하지 않는다 (ADR-044)', () => {
-    expect(() => evaluateFormula('금액 * 2', ctx({ 금액: '1500' }))).toThrow(/must be a number/);
+    expect(() => evaluateFormula('$(금액) * 2', ctx({ 금액: '1500' }))).toThrow(/must be a number/);
   });
 
   it('TO_NUMBER로 감싸면 글자를 수로 변환한다 (ADR-044)', () => {
-    expect(evaluateFormula('TO_NUMBER(금액) * 2', ctx({ 금액: '1500' }))).toBe(3000);
+    expect(evaluateFormula('TO_NUMBER($(금액)) * 2', ctx({ 금액: '1500' }))).toBe(3000);
   });
 });
 
@@ -222,17 +222,17 @@ describe('세무', () => {
   it('VAT 기본 10%, 세율 지정 가능, ROUND 조합', () => {
     expect(evaluateFormula('VAT(10000)', ctx())).toBe(1000);
     expect(evaluateFormula('VAT(10000, 5)', ctx())).toBe(500);
-    expect(evaluateFormula('FLOOR(VAT(공급가액))', ctx({ 공급가액: 12345 }))).toBe(1234);
+    expect(evaluateFormula('FLOOR(VAT($(공급가액)))', ctx({ 공급가액: 12345 }))).toBe(1234);
   });
 });
 
 describe('실전 조합', () => {
   it('전표 합계란 시나리오', () => {
     const c = ctx({ items });
-    expect(evaluateFormula('CONCAT("합계: ", FORMAT_NUMBER(SUM(items.금액) + VAT(SUM(items.금액))), "원")', c)).toBe(
+    expect(evaluateFormula('CONCAT("합계: ", FORMAT_NUMBER(SUM($(items).$(금액)) + VAT(SUM($(items).$(금액)))), "원")', c)).toBe(
       '합계: 11,000원',
     );
-    expect(evaluateFormula('CONCAT("금", NUMBER_TO_KOREAN(SUM(items.금액)), "원整")', c)).toBe('금일만원整');
+    expect(evaluateFormula('CONCAT("금", NUMBER_TO_KOREAN(SUM($(items).$(금액))), "원整")', c)).toBe('금일만원整');
   });
 });
 
@@ -259,8 +259,8 @@ describe('적대적 수식 방어 (SPEC §3.2)', () => {
   it('너무 깊게 중첩된 값 참조는 FormulaEvalError로 거부한다', () => {
     let nested: unknown = 1;
     for (let i = 0; i < 5000; i++) nested = [nested];
-    expect(() => evaluateFormula('SUM(v)', ctx({ v: nested as never }))).toThrow(FormulaEvalError);
-    expect(() => evaluateFormula('SUM(v)', ctx({ v: nested as never }))).toThrow(/nesting exceeds the limit/);
+    expect(() => evaluateFormula('SUM($(v))', ctx({ v: nested as never }))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('SUM($(v))', ctx({ v: nested as never }))).toThrow(/nesting exceeds the limit/);
   });
 });
 
@@ -281,10 +281,10 @@ describe('FORMAT_NUMBER 로케일 (ADR-013)', () => {
 
 describe('경계·잘못된 입력 방어 (G-48)', () => {
   it('TO_NUMBER는 유한한 10진수만 받는다 (Infinity·16진수 거부, ADR-044)', () => {
-    expect(() => evaluateFormula('TO_NUMBER(a)', ctx({ a: '1e400' }))).toThrow(FormulaEvalError);
-    expect(() => evaluateFormula('TO_NUMBER(a)', ctx({ a: 'Infinity' }))).toThrow(FormulaEvalError);
-    expect(() => evaluateFormula('TO_NUMBER(a)', ctx({ a: '0x1F' }))).toThrow(FormulaEvalError);
-    expect(evaluateFormula('TO_NUMBER(a) + 1', ctx({ a: '2.5' }))).toBe(3.5);
+    expect(() => evaluateFormula('TO_NUMBER($(a))', ctx({ a: '1e400' }))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('TO_NUMBER($(a))', ctx({ a: 'Infinity' }))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('TO_NUMBER($(a))', ctx({ a: '0x1F' }))).toThrow(FormulaEvalError);
+    expect(evaluateFormula('TO_NUMBER($(a)) + 1', ctx({ a: '2.5' }))).toBe(3.5);
   });
 
   it('너무 큰 숫자 리터럴(Infinity)은 파싱 단계에서 거부한다', () => {
@@ -304,7 +304,7 @@ describe('경계·잘못된 입력 방어 (G-48)', () => {
   });
 
   it('NUMBER_TO_KOREAN은 안전 정수 범위를 넘으면 거부한다', () => {
-    expect(() => evaluateFormula('NUMBER_TO_KOREAN(a)', ctx({ a: 1e20 }))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('NUMBER_TO_KOREAN($(a))', ctx({ a: 1e20 }))).toThrow(FormulaEvalError);
     expect(evaluateFormula('NUMBER_TO_KOREAN(110)', ctx())).toBe('일백일십');
   });
 });
@@ -313,23 +313,23 @@ describe('타입 변환 함수 (ADR-044)', () => {
   it('TO_NUMBER: 글자·논리를 수로, 빈 값·빈 문자열은 0', () => {
     expect(evaluateFormula('TO_NUMBER("1500")', ctx())).toBe(1500);
     expect(evaluateFormula('TO_NUMBER("-3.5")', ctx())).toBe(-3.5);
-    expect(evaluateFormula('TO_NUMBER(a)', ctx({ a: '' }))).toBe(0);
-    expect(evaluateFormula('TO_NUMBER(a)', ctx({ a: null }))).toBe(0);
+    expect(evaluateFormula('TO_NUMBER($(a))', ctx({ a: '' }))).toBe(0);
+    expect(evaluateFormula('TO_NUMBER($(a))', ctx({ a: null }))).toBe(0);
     expect(evaluateFormula('TO_NUMBER(TRUE)', ctx())).toBe(1);
     expect(evaluateFormula('TO_NUMBER(FALSE)', ctx())).toBe(0);
   });
 
   it('TO_NUMBER: 숫자로 볼 수 없는 글자는 오류', () => {
     expect(() => evaluateFormula('TO_NUMBER("abc")', ctx())).toThrow(FormulaEvalError);
-    expect(() => evaluateFormula('TO_NUMBER(items)', ctx({ items: [1, 2] }))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('TO_NUMBER($(items))', ctx({ items: [1, 2] }))).toThrow(FormulaEvalError);
   });
 
   it('TO_STRING: 수·논리·빈 값을 글자로', () => {
     expect(evaluateFormula('TO_STRING(1500)', ctx())).toBe('1500');
     expect(evaluateFormula('TO_STRING(TRUE)', ctx())).toBe('TRUE');
-    expect(evaluateFormula('TO_STRING(a)', ctx({ a: null }))).toBe('');
+    expect(evaluateFormula('TO_STRING($(a))', ctx({ a: null }))).toBe('');
     expect(evaluateFormula('TO_STRING(3) = "3"', ctx())).toBe(true);
-    expect(evaluateFormula('3 = a', ctx({ a: '3' }))).toBe(false);
+    expect(evaluateFormula('3 = $(a)', ctx({ a: '3' }))).toBe(false);
   });
 
   it('TO_DATE: 날짜 문자열을 ISO(YYYY-MM-DD)로 정규화·검증', () => {
@@ -371,21 +371,21 @@ describe('예약 참조 (@item·@group·@page·@all·@carried)', () => {
     '@carried': [] as unknown[],
   };
 
-  it('@item.필드는 현재 항목의 값을 읽는다', () => {
-    expect(evaluateFormula('@item.금액', { values: {}, reserved })).toBe(3000);
+  it('@item.$(필드)는 현재 항목의 값을 읽는다', () => {
+    expect(evaluateFormula('@item.$(금액)', { values: {}, reserved })).toBe(3000);
   });
 
-  it('@group.필드는 그룹 항목의 값 배열을 만들고 집계할 수 있다', () => {
-    expect(evaluateFormula('SUM(@group.금액)', { values: {}, reserved })).toBe(8000);
+  it('@group.$(필드)는 그룹 항목의 값 배열을 만들고 집계할 수 있다', () => {
+    expect(evaluateFormula('SUM(@group.$(금액))', { values: {}, reserved })).toBe(8000);
   });
 
   it('@page와 @all은 페이지·전체 항목 배열을 참조한다', () => {
-    expect(evaluateFormula('SUM(@page.금액)', { values: {}, reserved })).toBe(10000);
-    expect(evaluateFormula('COUNT(@all.수량)', { values: {}, reserved })).toBe(3);
+    expect(evaluateFormula('SUM(@page.$(금액))', { values: {}, reserved })).toBe(10000);
+    expect(evaluateFormula('COUNT(@all.$(수량))', { values: {}, reserved })).toBe(3);
   });
 
   it('@carried가 빈 배열이면 누계 합이 0이다', () => {
-    expect(evaluateFormula('SUM(@carried.금액)', { values: {}, reserved })).toBe(0);
+    expect(evaluateFormula('SUM(@carried.$(금액))', { values: {}, reserved })).toBe(0);
   });
 
   it('정의되지 않은 예약 이름은 문법 오류로 거부한다', () => {
@@ -394,13 +394,13 @@ describe('예약 참조 (@item·@group·@page·@all·@carried)', () => {
   });
 
   it('reserved 없이 예약 참조를 평가하면 평가 오류가 발생한다', () => {
-    expect(() => evaluateFormula('SUM(@page.금액)', ctx({}))).toThrow(FormulaEvalError);
-    expect(() => evaluateFormula('SUM(@page.금액)', { values: {}, locale: 'ko' })).toThrow(
+    expect(() => evaluateFormula('SUM(@page.$(금액))', ctx({}))).toThrow(FormulaEvalError);
+    expect(() => evaluateFormula('SUM(@page.$(금액))', { values: {}, locale: 'ko' })).toThrow(
       '행 구간에서만 사용할 수 있습니다',
     );
   });
 
   it('@ 없는 같은 이름은 전표 값 참조로 남는다', () => {
-    expect(evaluateFormula('item + 1', ctx({ item: 2 }))).toBe(3);
+    expect(evaluateFormula('$(item) + 1', ctx({ item: 2 }))).toBe(3);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectFormulaReferences, parseSlipFile } from '@omdc-slipkit/core';
+import { collectFormulaReferences, formatReferencePath, parseSlipFile } from '@omdc-slipkit/core';
 import { getPresets } from '../src/presets.js';
 import { getStrings } from '../src/strings.js';
 
@@ -48,8 +48,9 @@ describe('디자이너 프리셋', () => {
     expect(formulas).toEqual(['SUM($(items).$(amount))', 'SUM($(items).$(amount))']);
     for (const formula of formulas) {
       for (const ref of collectFormulaReferences(formula)) {
-        // 예약 참조가 아닌 업무 값 참조는 전부 `$(...)`로 적혀 있어야 한다.
-        if (!ref.reserved) expect(ref.explicit, formula).toBe(true);
+        // 업무 값 참조는 전부 `$(...)`로 적혀 있어야 한다 — 원문 조각이 표준 표기와 같다.
+        expect(formula.slice(ref.span.start, ref.span.end), formula)
+          .toBe(formatReferencePath(ref.path, { reserved: ref.reserved }));
       }
     }
   });

@@ -194,7 +194,7 @@ describe('표시 문자열 길이 상한', () => {
     expect(schemaNames(voucher([text('a'.repeat(max))]))).toEqual(['tx']);
     const field: SlipElement = { type: 'field', id: 'f', name: '값', position: { x: 10, y: 10 }, width: 50, height: 10, parameter: 'memo' };
     expect(() => convertSlipFile(voucher([field], { memo: 'a'.repeat(max + 1) }))).toThrow(/field '값' \(f\).*too long/);
-    const formulaField: SlipElement = { ...field, parameter: undefined, formula: 'CONCAT(memo, memo)' } as SlipElement;
+    const formulaField: SlipElement = { ...field, parameter: undefined, formula: 'CONCAT($(memo), $(memo))' } as SlipElement;
     delete (formulaField as { parameter?: string }).parameter;
     expect(() => convertSlipFile(voucher([formulaField], { memo: 'a'.repeat(max) }))).toThrow(SlipRenderError);
     expect(() => convertSlipFile(voucher([barcode('qrcode', { parameter: 'code' })], { code: 'a'.repeat(max + 1) }))).toThrow(/too long/);

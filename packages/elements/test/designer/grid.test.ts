@@ -756,12 +756,12 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
       else expect(addedBand?.pages).toBe(pages);
       expect(after.cells).toContainEqual(expect.objectContaining({
         column: 1,
-        formula: `SUM(${scope}.금액)`,
+        formula: `SUM(${scope}.$(금액))`,
       }));
       if (command === 'page-subtotal') {
         const canvasText = el.shadowRoot!.querySelector('[data-id="g-1"] .grid-preview')?.textContent ?? '';
         expect(canvasText).toContain('30');
-        expect(canvasText).not.toContain(`SUM(${scope}.금액)`);
+        expect(canvasText).not.toContain(`SUM(${scope}.$(금액))`);
       }
       expect(() => validateSlipFile(
         (el as unknown as { _file: SlipTemplateFile })._file,
@@ -965,12 +965,12 @@ describe('<slip-designer> 그리드 편집 (ADR-037)', () => {
     await pickListValue(el, row(el, s.cellSource).querySelector('.list-select') as HTMLButtonElement, 'formula');
 
     const input = row(el, s.formula).querySelector('input') as HTMLInputElement;
-    input.value = 'SUM(items.금액)';
+    input.value = 'SUM($(items).$(금액))';
     input.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
 
     const cell = gridOf(el).cells.find((c) => c.row === 1 && c.column === 0)!;
-    expect(cell.formula).toBe('SUM(items.금액)');
+    expect(cell.formula).toBe('SUM($(items).$(금액))');
     expect(cell.parameter).toBeUndefined();
     expect(cell.content).toBeUndefined();
     el.remove();

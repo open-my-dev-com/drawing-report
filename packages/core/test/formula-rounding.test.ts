@@ -120,15 +120,15 @@ describe('MIN·MAX 대량 집계', () => {
     const count = 200_000;
     const items = Array.from({ length: count }, (_, i) => ({ v: (i * 7919) % count }));
     const c = ctx({ items });
-    expect(evaluateFormula('MIN(items.v)', c)).toBe(0);
-    expect(evaluateFormula('MAX(items.v)', c)).toBe(count - 1);
-    expect(evaluateFormula('SUM(items.v)', c)).toBe((count * (count - 1)) / 2);
-    expect(evaluateFormula('COUNT(items.v)', c)).toBe(count);
+    expect(evaluateFormula('MIN($(items).$(v))', c)).toBe(0);
+    expect(evaluateFormula('MAX($(items).$(v))', c)).toBe(count - 1);
+    expect(evaluateFormula('SUM($(items).$(v))', c)).toBe((count * (count - 1)) / 2);
+    expect(evaluateFormula('COUNT($(items).$(v))', c)).toBe(count);
   });
 
   it('빈 범위의 MIN·MAX는 0이다', () => {
-    expect(evaluateFormula('MIN(items.v)', ctx({ items: [] }))).toBe(0);
-    expect(evaluateFormula('MAX(items.v)', ctx({ items: [] }))).toBe(0);
+    expect(evaluateFormula('MIN($(items).$(v))', ctx({ items: [] }))).toBe(0);
+    expect(evaluateFormula('MAX($(items).$(v))', ctx({ items: [] }))).toBe(0);
   });
 });
 
