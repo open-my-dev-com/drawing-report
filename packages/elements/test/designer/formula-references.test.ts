@@ -121,10 +121,17 @@ describe('FormulaDraftController.insertReference — 명시 참조 삽입', () =
     expect(c.draft).toBe('$(items).$(unit-price)$(a\\)b)');
   });
 
-  it('예약 참조로 시작하는 경로는 예약 이름을 그대로 두고 뒤 단계만 감싼다', () => {
+  it('reserved를 지정한 예약 참조 경로는 예약 이름을 그대로 두고 뒤 단계만 감싼다', () => {
     const c = draft('');
-    c.insertReference(['@item', 'amount']);
+    c.insertReference(['@item', 'amount'], { reserved: true });
     expect(c.draft).toBe('@item.$(amount)');
+  });
+
+  it('@item이라는 이름의 파라미터는 예약 참조가 아니라 $(@item)으로 넣는다', () => {
+    const c = draft('');
+    c.insertReference(['@item']);
+    expect(c.draft).toBe('$(@item)');
+    expect(evaluateFormula(c.draft, { values: { '@item': 5 } })).toBe(5);
   });
 
   it('일반 참조만 쓰던 초안은 먼저 전체를 명시 참조로 바꿔 두 형식이 섞이지 않게 한다', () => {

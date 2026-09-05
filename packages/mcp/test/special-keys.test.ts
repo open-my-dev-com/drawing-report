@@ -38,24 +38,38 @@ function keyedTemplate() {
 describe('slip_edit 연산의 자신의 속성 읽기·쓰기', () => {
   const context = { resolveFilePath: async (relPath: string) => relPath };
 
-  it('도구 입력 스키마는 __proto__ 키를 잃지 않고 같은 객체를 돌려준다', () => {
+  it('도구 입력 스키마는 __proto__ 키를 자신의 속성으로 보존하고 키 순서를 유지한다', () => {
     const op = fromJson<Record<string, unknown>>(
       '{"action":"set_values","values":{"__proto__":"p","constructor":"c","a b":1}}',
     );
     const parsed = editOpSchema.parse(op);
     if (parsed.action !== 'set_values') throw new Error('set_values expected');
-    expect(parsed.values).toBe(op['values']);
+    expect(Object.getPrototypeOf(parsed.values)).toBe(Object.prototype);
     expect(Object.hasOwn(parsed.values, '__proto__')).toBe(true);
     expect(parsed.values['__proto__']).toBe('p');
+    expect(parsed.values['constructor']).toBe('c');
     expect(Object.keys(parsed.values)).toEqual(['__proto__', 'constructor', 'a b']);
+    // 검사 중에 쓰는 임시 키 이름은 결과에 남지 않고, 입력 객체도 바뀌지 않는다.
+    expect(Object.keys(parsed.values).some((key) => key.includes(String.fromCharCode(0)))).toBe(false);
+    expect(Object.keys(op['values'] as object)).toEqual(['__proto__', 'constructor', 'a b']);
 
     const fields = fromJson<Record<string, unknown>>('{"action":"set_meta","fields":{"__proto__":{"x":1}}}');
     const merged = editOpSchema.parse(fields);
     if (merged.action !== 'set_meta') throw new Error('set_meta expected');
     expect(Object.hasOwn(merged.fields, '__proto__')).toBe(true);
+    expect(merged.fields['__proto__']).toEqual({ x: 1 });
+
+    // __proto__ 키가 없는 객체는 그대로 통과하고 중첩 값은 같은 참조로 남는다.
+    const nested = { title: '제목', deep: { keep: true } };
+    const plain = editOpSchema.parse({ action: 'set_meta', fields: nested });
+    if (plain.action !== 'set_meta') throw new Error('set_meta expected');
+    expect(plain.fields).toEqual(nested);
+    expect(plain.fields['deep']).toBe(nested.deep);
 
     expect(editOpSchema.safeParse({ action: 'set_values', values: [] }).success).toBe(false);
     expect(editOpSchema.safeParse({ action: 'set_values', values: 'x' }).success).toBe(false);
+    expect(editOpSchema.safeParse({ action: 'set_values', values: null }).success).toBe(false);
+    expect(editOpSchema.safeParse({ action: 'set_values' }).success).toBe(false);
   });
 
   it('set_values는 __proto__·constructor 값을 전표 자신의 속성으로 쓰고 프로토타입을 바꾸지 않는다', async () => {
@@ -266,6 +280,60 @@ describe('특수 키의 저장·읽기 왕복', () => {
     // 값이 없는 키는 프로토타입 값이 아닌 빈 값으로 요약된다.
     const summary = await callText(client, 'slip_read', { path: 'v' });
     expect(summary.text).not.toContain('function Object');
+  });
+
+  it('slip_save로 저장한 전표의 __proto__·constructor 값이 자신의 속성으로 남고 다시 읽힌다', async () => {
+    const voucher: SlipVoucherFile = {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      kind: 'voucher',
+      templateSnapshot: keyedTemplate().template,
+      values: fromJson(
+        '{"__proto__":"p","constructor":"c","toString":"t","customerName":"홍길동",' +
+          '"items":[{"name":"연필","amount":500,"__proto__":"row","constructor":"rc"}]}',
+      ),
+      issued: false,
+    };
+    const saved = await callText(client, 'slip_save', { path: 'saved', file: voucher });
+    expect(saved.isError).toBe(false);
+
+    const raw = fromJson<{ values: Record<string, unknown> }>(await readFile(path.join(dir, 'saved.slip'), 'utf8'));
+    expect(Object.hasOwn(raw.values, '__proto__')).toBe(true);
+    expect(raw.values['__proto__']).toBe('p');
+    expect(Object.keys(raw.values)).toEqual(['__proto__', 'constructor', 'toString', 'customerName', 'items']);
+
+    const values = (await loadVoucher('saved')).values as Record<string, unknown>;
+    expect(Object.getPrototypeOf(values)).toBe(Object.prototype);
+    for (const [key, expected] of [['__proto__', 'p'], ['constructor', 'c'], ['toString', 't']] as const) {
+      expect(Object.hasOwn(values, key), key).toBe(true);
+      expect(values[key]).toBe(expected);
+    }
+    const row = (values['items'] as Record<string, unknown>[])[0]!;
+    expect(row['__proto__']).toBe('row');
+    expect(row['constructor']).toBe('rc');
+
+    const full = await callText(client, 'slip_read', { path: 'saved', part: 'full' });
+    expect(full.isError).toBe(false);
+    expect(full.text).toContain('"__proto__": "p"');
+    expect(full.text).toContain('"constructor": "rc"');
+    expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
+  });
+
+  it('set_meta의 __proto__ 필드는 도구 입력을 거쳐도 자신의 속성으로 병합되고 프로토타입을 바꾸지 않는다', async () => {
+    const edited = await callText(client, 'slip_edit', {
+      path: 'doc',
+      ops: [{ action: 'set_meta', fields: fromJson('{"__proto__":{"polluted":true},"title":"바뀐 제목"}') }],
+    });
+    expect(edited.isError).toBe(false);
+    // 적용 결과 줄은 병합한 필드의 자신의 키 목록이므로 __proto__가 키로 도착했음을 보여 준다.
+    expect(edited.text).toContain('set_meta: __proto__, title');
+
+    // 고정 구조인 meta에 남길지는 core의 구조 검증이 정한다. 여기서는 프로토타입이 바뀌지 않았는지만 본다.
+    const file = await new FileSystemStorage({ rootDir: dir }).load('doc');
+    if (file.kind !== 'template') throw new Error('template expected');
+    expect(file.template.meta.title).toBe('바뀐 제목');
+    expect(Object.getPrototypeOf(file.template.meta)).toBe(Object.prototype);
+    expect((file.template.meta as { polluted?: unknown }).polluted).toBeUndefined();
+    expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
   });
 
   it('값 도구 입력이 객체가 아니면 저장하지 않고 거부한다', async () => {

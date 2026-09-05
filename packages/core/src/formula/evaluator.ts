@@ -185,8 +185,9 @@ function evaluateNode(ast: FormulaAst, context: FormulaContext): Evaluated {
       return constant(ast.value);
     case 'reference': {
       const head = ast.path[0]!;
-      // 예약 참조(@item 등)는 페이지 계획이 공급한 reserved에서만 조회한다.
-      if (head.startsWith('@')) {
+      // 예약 참조(@item 등)는 페이지 계획이 공급한 reserved에서만 조회한다. `$(@item)`처럼
+      // 명시 참조로 적은 이름은 예약 참조가 아니라 값 키이므로 파서가 남긴 표시로만 가른다.
+      if (ast.reserved === true) {
         if (context.reserved === undefined || !Object.hasOwn(context.reserved, head)) {
           throw new FormulaEvalError(fm().reservedRefUnavailable(head), 'data');
         }

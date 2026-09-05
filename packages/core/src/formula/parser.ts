@@ -21,7 +21,8 @@
  * `$(...)`는 키 한 단계를 있는 그대로 적는 명시 참조다. 식별자 규칙에 맞지 않는 키
  * (`datas-2`·`customer.name`·공백 포함 등)도 쓸 수 있다. 수식에 명시 참조가 하나라도 있으면
  * 그 수식의 값 참조는 모두 명시 참조여야 하고, 한 경로 안에서 두 형식을 섞을 수 없다.
- * 예약 참조 이름은 어느 형식에서나 그대로 적는다.
+ * 예약 참조 이름은 어느 형식에서나 `$(...)` 없이 그대로 적는다 — `$(@item)`은 예약 참조가
+ * 아니라 `@item`이라는 이름의 값 키다.
  */
 import { FormulaSyntaxError } from './errors.js';
 import { FORMULA_FUNCTIONS, type FormulaFunctionName } from './functions.js';
@@ -56,6 +57,8 @@ export type FormulaAst =
       path: string[];
       /** 경로를 `$(...)` 명시 참조로 적었을 때만 `true` */
       explicit?: true;
+      /** 첫 단계를 `$(...)` 없이 `@item`처럼 적은 예약 참조일 때만 `true`. `$(@item)`은 값 키다 */
+      reserved?: true;
       /** 원본 수식에서 이 참조가 차지하는 범위 */
       span?: ReferenceSpan;
     }
@@ -105,20 +108,34 @@ export function escapeReferenceKey(key: string): string {
   return key.replace(/[\\)]/g, (ch) => `\\${ch}`);
 }
 
+/** 참조 경로를 문자열로 만들 때의 옵션 */
+export interface FormatReferenceOptions {
+  /**
+   * 첫 단계가 예약 참조 이름이면 `true`로 지정한다. 그러면 첫 단계만 `$(...)` 없이 적는다.
+   * 이름만으로 판단하지 않으므로 생략하면 `@item`도 값 키 `$(@item)`으로 적는다.
+   *
+   * @defaultValue false
+   */
+  reserved?: boolean;
+}
+
 /**
  * 참조 경로를 `$(a).$(b)` 형식의 명시 참조 문자열로 만든다.
  *
- * @param path - 참조 경로. 첫 단계가 예약 참조 이름이면 그대로 적는다
- * @param options - `reserved`로 첫 단계를 예약 참조로 볼지 직접 지정한다 (생략하면 이름으로 판단)
- * @returns 명시 참조 문자열 (예: `@item.$(unit-price)`)
- * @throws RangeError 경로가 비어 있을 때
+ * @param path - 참조 경로
+ * @param options - 첫 단계를 예약 참조로 적을지 여부
+ * @returns 명시 참조 문자열 (예: `$(unit-price)`, `reserved`이면 `@item.$(unit-price)`)
+ * @throws RangeError 경로가 비어 있거나, `reserved`인데 첫 단계가 예약 참조 이름이 아닐 때
  */
 export function formatReferencePath(
   path: readonly string[],
-  options?: { reserved?: boolean },
+  options?: FormatReferenceOptions,
 ): string {
   if (path.length === 0) throw new RangeError('reference path must have at least one step');
-  const reserved = options?.reserved ?? RESERVED_REFS.has(path[0]!);
+  const reserved = options?.reserved === true;
+  if (reserved && !RESERVED_REFS.has(path[0]!)) {
+    throw new RangeError(`reserved reference path must start with one of ${RESERVED_REF_NAMES.join(', ')}`);
+  }
   return path
     .map((step, index) => (index === 0 && reserved ? step : `$(${escapeReferenceKey(step)})`))
     .join('.');
@@ -412,6 +429,7 @@ class Parser {
   private reference(head: StepToken): FormulaAst {
     const path = [head.value];
     let end = head.end;
+    // `$(@item)`은 키 토큰이라 예약 참조가 아니다. 예약 참조는 `@item`을 그대로 적은 식별자뿐이다.
     const reserved = head.type === 'ident' && head.value.startsWith('@');
     // 예약 참조 이름은 어느 형식에서나 그대로 적으므로 경로의 형식은 그 뒤 첫 단계가 정한다.
     let stepType: StepToken['type'] | undefined = reserved ? undefined : head.type;
@@ -431,14 +449,18 @@ class Parser {
     // 명시 참조를 쓰는 수식에서는 예약 참조 이름 하나만 적은 경우 말고는 모두 명시 참조여야 한다.
     if (this.explicit && !explicit && (!reserved || path.length > 1)) {
       throw new FormulaSyntaxError(
-        fm().bareReferenceInExplicit(path.join('.'), formatReferencePath(path)),
+        fm().bareReferenceInExplicit(path.join('.'), formatReferencePath(path, { reserved })),
         head.pos,
       );
     }
     const span: ReferenceSpan = { start: head.pos, end };
-    return explicit
-      ? { type: 'reference', path, explicit: true, span }
-      : { type: 'reference', path, span };
+    return {
+      type: 'reference',
+      path,
+      ...(explicit ? { explicit: true as const } : {}),
+      ...(reserved ? { reserved: true as const } : {}),
+      span,
+    };
   }
 }
 

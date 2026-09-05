@@ -160,12 +160,17 @@ function rewriteConditions(owner: HasConditions, rewrite: FormulaRewrite): void 
  *
  * @param from - 바꿀 참조 경로의 앞부분
  * @param to - 새 경로
+ * @param options - `from`·`to`의 첫 단계가 그리드 예약 참조 이름이면 `reservedRoot`를 지정합니다
  * @returns 참조 이름을 바꾸되 문법 오류가 있는 수식은 그대로 돌려주는 함수
  */
-function renamer(from: readonly string[], to: readonly string[]): FormulaRewrite {
+function renamer(
+  from: readonly string[],
+  to: readonly string[],
+  options?: { reservedRoot?: boolean },
+): FormulaRewrite {
   return (source) => {
     try {
-      return renameFormulaReferences(source, from, to);
+      return renameFormulaReferences(source, from, to, options);
     } catch {
       // 문법이 깨진 수식은 참조를 찾을 수 없으므로 그대로 둡니다.
       return source;
@@ -267,7 +272,8 @@ export function renameParameterFieldReferences(
 
   const byListPath = renamer([listKey, key], [listKey, next]);
   // 그 목록을 반복하는 그리드 안에서는 예약 참조 뒤의 필드도 같은 하위 필드입니다.
-  const byReserved = RESERVED_REF_NAMES.map((name) => renamer([name, key], [name, next]));
+  const byReserved = RESERVED_REF_NAMES.map((name) =>
+    renamer([name, key], [name, next], { reservedRoot: true }));
   const byBareField = renamer([key], [next]);
   const inRepeatGrid: FormulaRewrite = (source) =>
     byReserved.reduce((text, rename) => rename(text), byListPath(source));

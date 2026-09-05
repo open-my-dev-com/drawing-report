@@ -144,7 +144,7 @@ function rewriteReferences(
 function mapConvertedPosition(refs: readonly FormulaReference[], position: number): number {
   let delta = 0;
   for (const ref of refs) {
-    const length = formatReferencePath(ref.path).length;
+    const length = formatReferencePath(ref.path, { reserved: ref.reserved }).length;
     if (ref.span.end <= position) {
       delta += length - (ref.span.end - ref.span.start);
       continue;
@@ -187,7 +187,7 @@ function spliceReference(
     );
     if (placed !== undefined && placed.path.length === 1 && !refs.some((ref) => ref.explicit)) {
       const converted = rewriteReferences(probe, refs, (ref) =>
-        ref === placed ? text : formatReferencePath(ref.path));
+        ref === placed ? text : formatReferencePath(ref.path, { reserved: ref.reserved }));
       return { draft: converted, caret: mapConvertedPosition(refs, head.length) + text.length };
     }
   } catch {
@@ -394,11 +394,12 @@ export class FormulaDraftController implements ReactiveController {
    * 초안이 일반 참조만 쓰는 수식이면 먼저 초안 전체를 `$(...)` 참조로 바꿔 두 형식이 섞이지
    * 않게 합니다. 초안을 파싱할 수 없으면 바꾸지 않고 그대로 넣으며, 문법 검사가 알립니다.
    *
-   * @param path - 넣을 참조 경로. 첫 단계가 예약 참조 이름이면 그대로 적습니다
+   * @param path - 넣을 참조 경로. 파라미터 키는 `@item`이라는 이름이어도 `$(@item)`으로 적습니다
+   * @param options - 첫 단계가 그리드 예약 참조 이름이면 `reserved`를 지정해 그대로 적습니다
    */
-  insertReference(path: readonly string[]): void {
+  insertReference(path: readonly string[], options?: { reserved?: boolean }): void {
     const [start, end] = this._selection();
-    this._insertReferenceAt(start, end, path);
+    this._insertReferenceAt(start, end, path, options);
   }
 
   /**
@@ -423,8 +424,13 @@ export class FormulaDraftController implements ReactiveController {
   }
 
   /** `start`~`end`를 지운 자리에 `$(...)` 참조를 넣습니다. 남은 초안이 일반 참조만 쓰면 먼저 바꿉니다. */
-  private _insertReferenceAt(start: number, end: number, path: readonly string[]): void {
-    const result = spliceReference(this._draft, start, end, formatReferencePath(path));
+  private _insertReferenceAt(
+    start: number,
+    end: number,
+    path: readonly string[],
+    options?: { reserved?: boolean },
+  ): void {
+    const result = spliceReference(this._draft, start, end, formatReferencePath(path, options));
     this._apply(result.draft, result.caret);
   }
 

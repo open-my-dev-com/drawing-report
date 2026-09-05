@@ -64,7 +64,10 @@ export {
   isBareIdentifier,
   renameFormulaReferences,
   toExplicitReferences,
+  type FormatReferenceOptions,
   type FormulaReference,
+  type ReferenceOptions,
+  type RenameReferenceOptions,
 } from './formula/references.js';
 export {
   evaluateFormula,

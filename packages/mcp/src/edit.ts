@@ -45,15 +45,45 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** 입력을 검사하는 동안 `__proto__` 키를 잠시 바꿔 두는 이름. 외부 입력과 겹치지 않는 값이다. */
+const PROTO_KEY_ALIAS = `\u0000__proto__\u0000${Math.random().toString(36).slice(2)}`;
+
+/** 객체가 직접 가진 `__proto__` 키를 임시 이름으로 바꾼 얕은 사본을 만든다. 그 키가 없으면 입력을 그대로 돌려준다. */
+function aliasProtoKey(input: unknown): unknown {
+  if (!isJsonObject(input) || !Object.hasOwn(input, '__proto__')) return input;
+  const aliased: Record<string, unknown> = {};
+  for (const key of Object.keys(input)) {
+    writeOwn(aliased, key === '__proto__' ? PROTO_KEY_ALIAS : key, readOwn(input, key));
+  }
+  return aliased;
+}
+
+/** 검사를 마친 객체에서 임시 이름을 `__proto__` 키로 되돌린다. 키 순서를 유지하려고 제자리에서 다시 채운다. */
+function restoreProtoKeyInPlace(parsed: unknown): void {
+  if (!isJsonObject(parsed) || !Object.hasOwn(parsed, PROTO_KEY_ALIAS)) return;
+  const entries = Object.keys(parsed).map((key) => [key, readOwn(parsed, key)] as const);
+  for (const [key] of entries) deleteOwn(parsed, key);
+  for (const [key, value] of entries) writeOwn(parsed, key === PROTO_KEY_ALIAS ? '__proto__' : key, value);
+}
+
 /**
- * 받은 JSON 객체를 다시 만들지 않고 그대로 넘기는 도구 입력 스키마.
- * `z.record`는 키를 하나씩 대입해 새 객체를 만들므로 `__proto__` 키가 사라진다.
+ * 키 제약이 없는 JSON 객체를 받는 도구 입력 스키마. 모든 키를 객체가 직접 가진 속성으로 보존한다.
+ *
+ * `z.record`는 결과 객체에 키를 대입해 만들기 때문에 `__proto__`라는 키가 사라진다. 검사 전에 그
+ * 키만 임시 이름으로 바꿔 넘기고, 검사가 끝난 결과에서 원래 키로 되돌린다. MCP SDK가 도구 목록에
+ * 싣는 JSON Schema는 전처리 뒤의 `z.record`에서 만들어지므로 `type: "object"`와
+ * `additionalProperties`가 그대로 드러난다. 전처리 단계는 입력을 선택 항목으로 표시하므로
+ * `nonoptional`로 감싸 필수 입력으로 유지한다. 선택 입력이 필요하면 호출하는 쪽에서 `.optional()`을 붙인다.
  *
  * @param description - 도구 설명에 실을 입력 안내
- * @returns 객체가 아니면 거부하고, 객체면 같은 참조를 돌려주는 스키마
+ * @returns 객체가 아니면 거부하고, 객체면 키를 모두 보존한 얕은 사본을 돌려주는 스키마
  */
 export function jsonObjectSchema(description: string): z.ZodType<Record<string, unknown>> {
-  return z.unknown().refine(isJsonObject, { message: 'Expected a JSON object' }).describe(description);
+  return z
+    .preprocess(aliasProtoKey, z.record(z.string(), z.unknown()))
+    .superRefine(restoreProtoKeyInPlace)
+    .nonoptional()
+    .describe(description);
 }
 
 /** `set_image`가 받는 파일 확장자와 그 확장자가 뜻하는 이미지 형식. 실제 내용은 서명으로 다시 확인한다. */
