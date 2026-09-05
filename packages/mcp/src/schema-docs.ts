@@ -195,9 +195,11 @@ Formulas run in a purpose-built parser (no JavaScript). Values are typed; conver
   $(items).$(amount) (a list field inside aggregates), @item.$(amount) (a reserved root followed
   by a key step). Inside $(...) any key is allowed — "a.b", "a b", "1a", non-ASCII, "__proto__" —
   and only two escapes exist: "\\)" for ")" and "\\\\" for "\\".
-- Bare references (customerName, items.amount) are still accepted in existing files, but only for
-  identifier-like keys, and one formula must not mix the two forms: once it contains $(...), every
-  reference in it must use $(...). Write new formulas with $(...).
+- Every business-data reference must use $(...). Only function names, TRUE/FALSE and the reserved
+  roots (@item, @group, @page, @all, @carried) are written bare. A bare reference such as
+  customerName, items.amount or @item.amount is a syntax error; the error names the $(...) form to
+  write instead (for example $(items).$(amount)). slip_save and slip_edit do not parse formulas, so
+  such a formula in a saved file fails when the file is rendered with slip_render_pdf.
 - Arithmetic operators: + - * /. Comparisons: = <> < > <= >=.
 - Use CONCAT(...) for text concatenation; arithmetic operators require numeric values.
 - Functions: ${FORMULA_FUNCTIONS.join(', ')}.

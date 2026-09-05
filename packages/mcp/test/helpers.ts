@@ -93,7 +93,7 @@ export function makeTemplate(): SlipTemplateFile {
                 { row: 1, column: 0, parameter: 'name' },
                 { row: 1, column: 1, parameter: 'amount' },
                 { row: 2, column: 0, content: '합계' },
-                { row: 2, column: 1, formula: 'SUM(items.amount)' },
+                { row: 2, column: 1, formula: 'SUM($(items).$(amount))' },
               ],
               repeat: {
                 parameter: 'items',

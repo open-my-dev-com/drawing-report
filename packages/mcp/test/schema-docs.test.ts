@@ -80,8 +80,9 @@ describe('slip_schema 안내문', () => {
     expect(formula).toContain('$(items).$(amount)');
     expect(formula).toContain('@item.$(amount)');
     expect(formula).toContain('"\\)" for ")"');
-    expect(formula).toContain('must not mix the two forms');
-    expect(formula).toContain('Write new formulas with $(...)');
+    expect(formula).toContain('Every business-data reference must use $(...)');
+    expect(formula).toContain('is a syntax error');
+    expect(formula).not.toContain('still accepted');
     // 업무 데이터를 참조하는 예시는 모두 명시 참조다.
     expect(formula).not.toContain('SUM(items.amount)');
     expect(formula).not.toContain('SUM(@page.amount)');
