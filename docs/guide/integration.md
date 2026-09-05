@@ -305,7 +305,7 @@ In React and Vue as well, we recommend managing the entry form's input `formSrc`
 
 After issuing, call the Web Component's `reset()` method to clear values and start another voucher from the same template. The React and Vue wrappers do not expose that method, so change the component `key` to remount it. Reassigning the same `src` string does not unlock an issued form.
 
-The `.slip` validator keeps `values`, `sampleValues`, list rows, and unknown business-data keys so they survive load, edit, and save. Structural objects reject unknown properties. The form preserves malformed business values instead of silently repairing them and blocks issuing until the user explicitly clears or corrects them; the host remains responsible for business-rule validation.
+The `.slip` validator keeps `values`, `sampleValues`, list rows, and unknown business-data keys so they survive load, edit, and save. This includes own properties named `__proto__`, `constructor`, and `toString`. Structural objects reject unknown properties, including those names. The form preserves malformed business values instead of silently repairing them and blocks issuing until the user explicitly clears or corrects them; the host remains responsible for business-rule validation.
 
 ## Continuing an in-progress voucher
 

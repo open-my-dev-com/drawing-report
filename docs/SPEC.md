@@ -4,7 +4,7 @@
 
 - 문서 상태: **Draft**
 - 현재 `schemaVersion`: **`0.1.0`**
-- 최종 갱신: 2026-09-03
+- 최종 갱신: 2026-09-05
 - 레퍼런스 구현: `@omdc-slipkit/core`
 - JSON Schema: `@omdc-slipkit/core/schemas/slip.schema.json`
 
@@ -69,7 +69,9 @@ JSON 객체의 프로퍼티 순서는 의미가 없습니다. 들여쓰기와 �
 파일 구조를 이루는 객체에는 JSON Schema에 정의되지 않은 프로퍼티를 추가하면 안 됩니다. 새로운
 구조 필드가 필요하다면 스키마 버전을 변경해야 합니다. 다만 `values`, `sampleValues`와 목록 행은
 호스트 업무 데이터를 담는 열린 객체이므로 파라미터 정의에 없는 키도 허용하고 왕복 과정에서
-보존해야 합니다.
+보존해야 합니다. 이 경계는 객체가 직접 가진 `__proto__`, `constructor`, `toString` 같은 키에도
+같이 적용합니다. 구조 객체의 미정의 키는 경로와 함께 거부하고 열린 업무 데이터의 키는 안전한
+자체 프로퍼티로 유지해야 합니다.
 
 > [!NOTE]
 > 암호화된 봉투는 일반 `.slip` 문서가 아닙니다. 복호화한 내부 데이터가 이 명세를 따라야 합니다.
@@ -153,7 +155,9 @@ JSON 객체의 프로퍼티 순서는 의미가 없습니다. 들여쓰기와 �
 | 파라미터 `key` | `parameters` 배열 |
 | 하위 필드 `key` | 해당 파라미터의 `fields` 배열 |
 
-수식에서 참조할 파라미터 키와 하위 필드 키는 다음 규칙을 따르는 것을 권장합니다.
+파라미터 키와 하위 필드 키는 비어 있지 않은 문자열이어야 합니다. 새 수식에서는 키 한 단계를
+`$(key)`로 참조하므로 공백, 하이픈, 마침표와 유니코드 문자를 포함한 키도 사용할 수 있습니다.
+기존 일반 참조와의 호환성을 위해 다음 식별자 규칙을 따르는 키를 권장합니다.
 
 - 문자 또는 밑줄로 시작
 - 이후에는 문자, 숫자 또는 밑줄 사용
@@ -692,7 +696,7 @@ SlipKit은 다음 9개 요소 타입을 지원합니다.
   "position": { "x": 140, "y": 250 },
   "width": 50,
   "height": 8,
-  "formula": "FORMAT_NUMBER(SUM(items.amount))",
+  "formula": "FORMAT_NUMBER(SUM($(items).$(amount)))",
   "alignment": "right"
 }
 ```
@@ -1127,7 +1131,10 @@ addition   := multiply (("+" | "-") multiply)*
 multiply   := unary (("*" | "/") unary)*
 unary      := ("+" | "-") unary | primary
 primary    := number | string | TRUE | FALSE | function | reference | "(" expr ")"
-reference  := ("@")? identifier ("." identifier)*
+reference  := legacy-reference | explicit-reference
+legacy-reference   := ("@")? identifier ("." identifier)*
+explicit-reference := ("@" identifier ".")? key ("." key)*
+key        := "$(" key-char* ")"
 ```
 
 문자열은 큰따옴표로 감쌉니다. 문자열 안의 큰따옴표는 두 번 작성합니다.
@@ -1137,6 +1144,16 @@ reference  := ("@")? identifier ("." identifier)*
 ```
 
 함수 이름은 대소문자를 구분하지 않습니다.
+
+`$(...)`는 괄호 안의 문자열 전체를 키 한 단계로 해석합니다. `)`와 `\`는 각각 `\)`와 `\\`로
+이스케이프합니다. 예를 들어 `$(datas-2)`는 `datas-2`라는 키 하나이고, `$(datas) - 2`는 `datas`
+값에서 2를 빼는 식입니다. `$(customer.name)`은 마침표가 포함된 키 하나이고,
+`$(customer).$(name)`은 두 단계 경로입니다.
+
+식별자 규칙에 맞는 기존 일반 참조(`amount`, `items.amount`)는 호환을 위해 계속 지원합니다. 새
+수식은 명시형 참조를 사용해야 하며, 한 수식 안에서 일반 참조와 명시형 참조를 섞으면 안 됩니다.
+반복 그리드의 예약 참조는 `@item`처럼 괄호 없이 쓰고 그 뒤의 업무 키는
+`@item.$(amount)`처럼 씁니다. `$(@item)`은 예약 참조가 아니라 `@item`이라는 업무 키입니다.
 
 ### 16.2 지원 함수
 
@@ -1153,6 +1170,16 @@ reference  := ("@")? identifier ("." identifier)*
 | 타입 변환 | `TO_NUMBER`, `TO_STRING`, `TO_DATE` |
 
 지원되지 않는 함수는 수식 파싱에서 거부합니다.
+
+`FORMAT_DATE`의 입력 날짜는 `YYYY-MM-DD` 또는
+`YYYY-MM-DDTHH:mm[:ss[.fraction]][Z|+HH:mm|-HH:mm]` 형식이어야 하며 소수 초는 1~9자리입니다. 시간대가 없으면 UTC로
+해석하고 시간대가 있으면 UTC로 변환합니다. 결과 연도는 `0001`부터 `9999`까지여야 하며,
+`DATE_ADD` 결과도 같은 범위를 벗어나면 오류입니다.
+
+날짜 패턴은 `YYYY`, `YY`, `MM`, `M`, `DD`, `D`, `HH`, `mm`, `ss` 아홉 토큰을 가장 긴 토큰부터
+해석합니다. 그대로 표시할 영문은 `[Date:]`처럼 대괄호로 감쌉니다. 비ASCII 문자, 공백과 문장
+부호는 대괄호 밖에서도 리터럴입니다. 대괄호 안에서는 `\]`와 `\\`만 이스케이프할 수 있습니다.
+대괄호 밖의 알 수 없는 영문 토큰과 닫히지 않은 대괄호는 오류입니다.
 
 ### 16.3 값과 타입
 
@@ -1187,7 +1214,7 @@ TO_NUMBER(amount) * 2
 | `@all` | `maxItems` 적용 후의 전체 실제 항목 배열 |
 | `@carried` | 이전 출력 페이지까지 배치된 실제 항목 배열 |
 
-- 예약 참조 뒤에 점 표기로 필드를 이어 쓸 수 있습니다. 예: `SUM(@page.amount)` (페이지 소계), `SUM(@carried.amount)` (누계).
+- 예약 참조 뒤에 명시형 키 단계를 이어 쓸 수 있습니다. 예: `SUM(@page.$(amount))` (페이지 소계), `SUM(@carried.$(amount))` (누계).
 - 빈 항목 인스턴스는 어떤 예약 참조에도 포함되지 않습니다.
 - 위 다섯 가지 외의 `@` 참조는 수식 파싱에서 거부합니다.
 - 행 구간 밖(필드 요소 등)에서 예약 참조를 평가하면 오류입니다.

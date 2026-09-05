@@ -335,6 +335,11 @@ The page modes work as follows.
 | Auto grow | Reserves blank items up to <kbd>Minimum items shown</kbd>, then grows within the flow area when more data exists. It creates continuation output pages when the area is full. |
 | Fixed pages | Reserves exactly <kbd>Items per page</kbd> slots on each output page. Unused slots are shown as blank items. |
 
+If actual data exists but the first item or fixed-page group cannot fit at all in the space left on
+the first page, the grid starts at the top of the flow area on the next page instead of leaving an
+empty grid fragment. An item or fixed group that cannot fit even on a full continuation page is a
+layout error.
+
 For example, connect the repeat rows of the `items` list like this.
 
 | Column | Sub-field to connect |
@@ -394,7 +399,7 @@ In the formula editor you can use the following features.
 
 For example, to sum every item's amount, you can use the following formula.
 
-`SUM(items.amount)`
+`SUM($(items).$(amount))`
 
 If you need to calculate a single row's amount from quantity and unit price, build a formula in the repeat cell using those sub-fields.
 
@@ -449,6 +454,11 @@ With sample data you can check the following.
 - Whether results that split across multiple pages are correct
 
 A parameter with no sample value may show its value name or a blank value in the preview.
+
+The dialog preserves existing sample-data keys and values when you switch between Form and JSON or
+apply without making a change. This includes keys not declared as parameters, keys such as
+`__proto__`, `constructor`, and `toString`, and malformed existing list values. A default editing
+value is added only for a declared parameter that has no sample value.
 
 > [!NOTE]
 > Sample data are values used for building the template and previewing. They are not automatically copied as actual input values when a voucher is created from the template.
