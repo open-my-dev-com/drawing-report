@@ -510,11 +510,11 @@ describe('<slip-designer> 샘플 데이터의 프로토타입 이름 키', () =>
       evaluate: (source: string, context: FormulaContext) => evaluateFormula(source, context),
     } as unknown as CanvasContext;
     const cell = (parameter: string): GridCell => ({ row: 0, column: 0, parameter }) as GridCell;
-    expect(gridCellPreviewText(ctx, cell('constructor'), undefined)).toBe('{constructor}');
-    expect(gridCellPreviewText(ctx, cell('toString'), undefined)).toBe('{toString}');
-    expect(gridCellPreviewText(ctx, cell('toString'), json('{"toString": "T"}'))).toBe('T');
-    expect(gridCellPreviewText(ctx, cell('__proto__'), undefined)).toBe('top');
-    expect(gridCellPreviewText(ctx, cell('__proto__'), json('{"__proto__": "row"}'))).toBe('row');
+    expect(gridCellPreviewText(ctx, cell('constructor'), undefined).text).toBe('{constructor}');
+    expect(gridCellPreviewText(ctx, cell('toString'), undefined).text).toBe('{toString}');
+    expect(gridCellPreviewText(ctx, cell('toString'), json('{"toString": "T"}')).text).toBe('T');
+    expect(gridCellPreviewText(ctx, cell('__proto__'), undefined).text).toBe('top');
+    expect(gridCellPreviewText(ctx, cell('__proto__'), json('{"__proto__": "row"}')).text).toBe('row');
     expect(gridCellMergeText(ctx, cell('constructor'), undefined)).toBe('');
     expect(gridCellMergeText(ctx, cell('__proto__'), json('{"__proto__": 0}'))).toBe('0');
   });
