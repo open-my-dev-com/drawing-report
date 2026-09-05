@@ -153,9 +153,9 @@ $(customer.name)       one key containing a dot
 $(customer).$(name)    two-step nested path
 ```
 
-Inside a key, write `\)` for `)` and `\\` for `\`. Existing formulas may continue to use bare
-identifier-like references such as `totalAmount` and `items.amount`. New formulas should use
-`$(...)`, and a formula cannot mix bare and explicit data references. Reserved repeating-grid roots
+Inside a key, write `\)` for `)` and `\\` for `\`. Every business-data key must use `$(...)`,
+regardless of the characters in its name. Bare references such as `totalAmount`, `items.amount`, and
+`@item.amount` are syntax errors. Function names, `TRUE`, `FALSE`, and reserved repeating-grid roots
 remain bare: write `@item.$(amount)`. `$(@item)` means a business-data key named `@item`.
 
 ### Operators
@@ -767,7 +767,7 @@ Only integers are supported, and a value beyond JavaScript's safe integer range 
 When building an amount phrase, you can combine it as follows.
 
 ```text
-CONCAT("금 ", NUMBER_TO_KOREAN(totalAmount), " 원")
+CONCAT("금 ", NUMBER_TO_KOREAN($(totalAmount)), " 원")
 ```
 
 ## Date functions

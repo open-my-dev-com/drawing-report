@@ -155,17 +155,9 @@ JSON 객체의 프로퍼티 순서는 의미가 없습니다. 들여쓰기와 �
 | 파라미터 `key` | `parameters` 배열 |
 | 하위 필드 `key` | 해당 파라미터의 `fields` 배열 |
 
-파라미터 키와 하위 필드 키는 비어 있지 않은 문자열이어야 합니다. 새 수식에서는 키 한 단계를
+파라미터 키와 하위 필드 키는 비어 있지 않은 문자열이어야 합니다. 수식에서는 키 한 단계를
 `$(key)`로 참조하므로 공백, 하이픈, 마침표와 유니코드 문자를 포함한 키도 사용할 수 있습니다.
-기존 일반 참조와의 호환성을 위해 다음 식별자 규칙을 따르는 키를 권장합니다.
-
-- 문자 또는 밑줄로 시작
-- 이후에는 문자, 숫자 또는 밑줄 사용
-- 한글을 포함한 유니코드 문자 사용 가능
-- 공백, 하이픈과 기타 특수문자 사용 불가
-
-파일 스키마는 비어 있지 않은 문자열만 요구합니다. 위 규칙을 따르지 않는 키는 일반 참조로는
-쓸 수 없고 명시형 참조(`$(key)`)로만 참조할 수 있습니다.
+키의 문자 구성과 관계없이 업무 데이터 참조에는 항상 이 명시형 문법을 사용합니다.
 
 ### 5.4 날짜와 일시
 
@@ -1132,9 +1124,9 @@ addition   := multiply (("+" | "-") multiply)*
 multiply   := unary (("*" | "/") unary)*
 unary      := ("+" | "-") unary | primary
 primary    := number | string | TRUE | FALSE | function | reference | "(" expr ")"
-reference  := legacy-reference | explicit-reference
-legacy-reference   := ("@")? identifier ("." identifier)*
-explicit-reference := ("@" identifier ".")? key ("." key)*
+reference  := data-reference | reserved-reference
+data-reference     := key ("." key)*
+reserved-reference := ("@item" | "@group" | "@page" | "@all" | "@carried") ("." key)*
 key        := "$(" key-char+ ")"
 ```
 
@@ -1151,10 +1143,11 @@ key        := "$(" key-char+ ")"
 값에서 2를 빼는 식입니다. `$(customer.name)`은 마침표가 포함된 키 하나이고,
 `$(customer).$(name)`은 두 단계 경로입니다.
 
-식별자 규칙에 맞는 기존 일반 참조(`amount`, `items.amount`)는 호환을 위해 계속 지원합니다. 새
-수식은 명시형 참조를 사용해야 하며, 한 수식 안에서 일반 참조와 명시형 참조를 섞으면 안 됩니다.
-반복 그리드의 예약 참조는 `@item`처럼 괄호 없이 쓰고 그 뒤의 업무 키는
-`@item.$(amount)`처럼 씁니다. `$(@item)`은 예약 참조가 아니라 `@item`이라는 업무 키입니다.
+업무 데이터는 키의 모양과 관계없이 `$(amount)`와 `$(items).$(amount)`처럼 참조합니다.
+`amount`, `items.amount`, `@item.amount`처럼 괄호 없이 쓴 업무 키는 문법 오류이며 오류 위치와
+`$(...)` 교체 예시를 함께 제공합니다. 함수 이름, `TRUE`·`FALSE`와 반복 그리드의 예약 참조 루트는
+괄호 없이 씁니다. 예약 참조 뒤의 업무 키는 `@item.$(amount)`처럼 연결합니다. `$(@item)`은 예약
+참조가 아니라 `@item`이라는 업무 키입니다.
 
 ### 16.2 지원 함수
 
@@ -1190,7 +1183,7 @@ key        := "$(" key-char+ ")"
 숫자가 필요한 연산과 함수는 문자열을 자동으로 숫자로 변환하지 않습니다.
 
 ```text
-TO_NUMBER(amount) * 2
+TO_NUMBER($(amount)) * 2
 ```
 
 숫자 파라미터의 값이 없거나 `null` 또는 빈 문자열이면 `buildVoucher()`와 PDF 렌더링 과정에서 `0`으로 정규화합니다.
