@@ -56,7 +56,7 @@ function selectedId(el: Element): string | null {
 }
 
 function undoDepth(el: Element): number {
-  return (el as unknown as { _undoStack: unknown[] })._undoStack.length;
+  return (el as unknown as { _history: { undoDepth: number } })._history.undoDepth;
 }
 
 function watchChanges(el: Element): CustomEvent[] {

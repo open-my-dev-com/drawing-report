@@ -17,6 +17,7 @@
     "test": "pnpm -r --filter './packages/*' run test",
     "test:coverage": "pnpm -r --filter \"./packages/*\" exec vitest run --coverage.enabled --coverage.provider=v8 --coverage.reporter=text --coverage.include=\"src/**\" --coverage.exclude=\"src/fonts/**\"",
     "bench": "pnpm --filter @omdc-slipkit/core build && node scripts/benchmark.mjs",
+    "bench:designer": "pnpm --filter @omdc-slipkit/core build && pnpm --filter @omdc-slipkit/elements build && node scripts/bench-designer.mjs",
     "typecheck": "pnpm -r --filter './packages/*' run typecheck",
     "demo": "pnpm --filter slipkit-demo dev",
     "demo:react": "pnpm --filter slipkit-demo-react dev",

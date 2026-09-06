@@ -3,13 +3,14 @@
  *
  * @remarks
  * 키를 누르고 있는 동안(keyup 전까지)의 연속 이동은 한 번의 되돌리기 단계와 한 번의
- * 변경 알림으로 묶습니다. 첫 keydown에서 스냅샷을 찍고, 화살표 키를 떼거나 초점을 잃을 때
+ * 변경 알림으로 묶습니다. 첫 keydown에서 검사점을 찍고, 화살표 키를 떼거나 초점을 잃을 때
  * 커밋합니다. 좌표 계산은 `arrange.ts`가 맡습니다.
  */
 
 import type { ReactiveController } from 'lit';
 import type { SlipElement, SlipTemplateFile } from '@omdc-slipkit/core';
 import { movedPositions, nudgeDelta } from '../arrange.js';
+import type { EditCheckpoint } from './history.js';
 
 /** 키보드 이동이 문서에 요청하는 것 */
 export interface NudgeHost {
@@ -19,10 +20,14 @@ export interface NudgeHost {
   readonly selectedIds: ReadonlySet<string>;
   /** id로 요소를 찾습니다 */
   findElement(id: string): SlipElement | undefined;
-  /** 조작 직전 상태를 되돌리기 기록에 넣습니다 */
-  pushUndoSnapshot(snapshot: string): void;
+  /** 조작 직전 상태를 검사점으로 찍습니다 */
+  beginEdit(): EditCheckpoint;
+  /** 검사점을 되돌리기 기록에 넣습니다 */
+  commitEdit(checkpoint: EditCheckpoint): void;
   /** 바뀐 양식을 호스트에 알립니다 */
   emitChange(): void;
+  /** 요소를 직접 바꾼 뒤 문서가 달라졌음을 알립니다 — 화면을 다시 그리기 전에 부릅니다 */
+  touch(): void;
   /** 화면을 다시 그립니다 */
   refresh(): void;
 }
@@ -31,8 +36,8 @@ const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta']);
 
 export class KeyboardNudgeController implements ReactiveController {
-  /** 진행 중인 연속 이동 — 첫 keydown의 스냅샷과 실제로 움직였는지 */
-  private _run: { snapshot: string; moved: boolean } | null = null;
+  /** 진행 중인 연속 이동 — 첫 keydown의 검사점과 실제로 움직였는지 */
+  private _run: { snapshot: EditCheckpoint; moved: boolean } | null = null;
 
   constructor(private readonly host: NudgeHost) {}
 
@@ -73,7 +78,7 @@ export class KeyboardNudgeController implements ReactiveController {
     if (members.length === 0) return false;
 
     e.preventDefault();
-    this._run ??= { snapshot: JSON.stringify(this.host.file), moved: false };
+    this._run ??= { snapshot: this.host.beginEdit(), moved: false };
     const next = movedPositions(
       members.map((el) => ({ id: el.id, x: el.position.x, y: el.position.y })),
       delta.dx,
@@ -85,6 +90,7 @@ export class KeyboardNudgeController implements ReactiveController {
       el.position.x = move.x;
       el.position.y = move.y;
     });
+    if (this._run.moved) this.host.touch();
     this.host.refresh();
     return true;
   }
@@ -104,7 +110,7 @@ export class KeyboardNudgeController implements ReactiveController {
     if (run === null) return;
     this._run = null;
     if (!run.moved) return;
-    this.host.pushUndoSnapshot(run.snapshot);
+    this.host.commitEdit(run.snapshot);
     this.host.emitChange();
   }
 
