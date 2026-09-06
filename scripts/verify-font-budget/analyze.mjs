@@ -5,7 +5,7 @@
  *   「정적 import closure」로 잰다. bare 지정자(`lit`, `@omdc-slipkit/core`)와 동적 `import()`는
  *   따라가지 않는다 — 루트를 불러올 때 실제로 읽히는 파일만 세기 위해서다.
  * - 폰트 청크는 파일 이름을 하드코딩하지 않고 분류한다: `package.json`의 `./fonts/*` exports가
- *   가리키는 파일과 루트 closure 안의 동적 import 대상이 같은 두 파일을 가리키고, 그 모듈이
+ *   가리키는 두 파일이 루트 closure 안의 동적 import 대상에 포함되고, 각 모듈이 대응하는
  *   `PRETENDARD_FONTS` 또는 `NOTO_SANS_JP_FONTS`를 export할 때만 성공한다.
  * - gzip 바이트는 `node:zlib` `gzipSync` 기본 레벨로 파일마다 압축한 크기의 합이다.
  * - tarball 크기는 `pnpm pack` 결과 파일 크기, unpacked 크기는 그 tarball의 tar 항목 크기 합이다
@@ -240,14 +240,15 @@ function listRelative(base, files) {
 /**
  * dist 안 폰트 청크를 분류한다.
  *
- * `package.json` exports(`./fonts/pretendard`·`./fonts/noto-sans-jp`)가 가리키는 파일과 루트 진입점 closure의
- * 동적 import 대상이 정확히 같은 두 파일을 가리키고, 각 모듈이 `PRETENDARD_FONTS`/`NOTO_SANS_JP_FONTS` 중
- * 하나만 export할 때만 성공한다. 청크의 `files`는 그 진입점의 정적 closure에서 루트 closure에 든 파일을 뺀 것이다.
+ * `package.json` exports(`./fonts/pretendard`·`./fonts/noto-sans-jp`)가 가리키는 두 파일이 루트 진입점 closure의
+ * 동적 import 대상에 포함되고, 각 모듈이 대응하는 `PRETENDARD_FONTS`/`NOTO_SANS_JP_FONTS`만 export할 때
+ * 성공한다. 폰트와 무관한 동적 import 대상은 분류에서 제외한다. 청크의 `files`는 그 진입점의 정적
+ * closure에서 루트 closure에 든 파일을 뺀 것이다.
  *
  * @param {string} packageDir - 패키지 루트 (`package.json`·`dist`를 읽는다)
  * @returns {Promise<{ pretendard: { entry: string, files: string[], raw: number, gzip: number, exportName: string }, notoSansJp: { entry: string, files: string[], raw: number, gzip: number, exportName: string } }>} 분류된 청크
- * @throws {FontBudgetError} `missing-chunk` — 동적 import 대상이 둘보다 적거나 파일이 없을 때.
- *   `classification-failure` — 대상이 둘보다 많거나 exports와 어긋나거나 export 이름으로 종류를 확정할 수 없을 때
+ * @throws {FontBudgetError} `missing-chunk` — 동적 import 대상이나 exports 대상 파일이 없을 때.
+ *   `classification-failure` — exports와 동적 import가 어긋나거나 export 이름으로 종류를 확정할 수 없을 때
  */
 export async function classifyFontChunks(packageDir) {
   const dir = path.resolve(packageDir);
@@ -259,45 +260,39 @@ export async function classifyFontChunks(packageDir) {
   if (missing.length > 0) {
     throw new FontBudgetError('missing-chunk', `동적 import 대상 파일이 없다: ${listRelative(dir, missing)}`);
   }
-  if (dynamic.length < 2) {
-    throw new FontBudgetError('missing-chunk', `루트 closure의 동적 import 대상이 2개여야 하는데 ${dynamic.length}개다: ${listRelative(dir, dynamic)}`);
-  }
-  if (dynamic.length > 2) {
-    throw new FontBudgetError('classification-failure', `루트 closure의 동적 import 대상이 2개여야 하는데 ${dynamic.length}개다: ${listRelative(dir, dynamic)}`);
-  }
-
   const exported = {};
   for (const [key, subpath] of Object.entries(CHUNK_SUBPATHS)) {
     const target = exportTarget(dir, pkg, subpath);
     if (target === undefined) throw new FontBudgetError('classification-failure', `package.json exports에 ${subpath} 항목이 없다`);
     exported[key] = target;
   }
-  const exportedFiles = Object.values(exported).sort();
-  if (exportedFiles.join('\n') !== dynamic.join('\n')) {
+  const exportedFiles = Object.values(exported);
+  const missingExportFiles = exportedFiles.filter((file) => !existsSync(file));
+  if (missingExportFiles.length > 0) {
+    throw new FontBudgetError('missing-chunk', `폰트 exports 대상 파일이 없다: ${listRelative(dir, missingExportFiles)}`);
+  }
+  if (dynamic.length < exportedFiles.length) {
+    throw new FontBudgetError(
+      'missing-chunk',
+      `필수 폰트 동적 import 대상이 ${exportedFiles.length}개여야 하는데 ${dynamic.length}개다: ${listRelative(dir, dynamic)}`,
+    );
+  }
+  const unreferenced = exportedFiles.filter((file) => !dynamic.includes(file));
+  if (unreferenced.length > 0) {
     throw new FontBudgetError(
       'classification-failure',
-      `exports가 가리키는 파일(${listRelative(dir, exportedFiles)})과 동적 import 대상(${listRelative(dir, dynamic)})이 다르다`,
+      `폰트 exports 대상이 루트 closure의 동적 import에 없다: ${listRelative(dir, unreferenced)}`,
     );
   }
 
   const classified = {};
-  for (const entry of dynamic) {
+  for (const [key, entry] of Object.entries(exported)) {
     const mod = await import(pathToFileURL(entry).href);
     const kinds = Object.entries(CHUNK_EXPORTS).filter(([, name]) => fontArrayExport(mod, name) !== undefined).map(([key]) => key);
-    if (kinds.length !== 1) {
+    if (kinds.length !== 1 || kinds[0] !== key) {
       throw new FontBudgetError(
         'classification-failure',
-        `${path.relative(dir, entry)} 가 export하는 폰트 배열로 종류를 확정할 수 없다 (${kinds.join(', ') || '없음'})`,
-      );
-    }
-    const [key] = kinds;
-    if (classified[key] !== undefined) {
-      throw new FontBudgetError('classification-failure', `${CHUNK_LABELS[key]}가 두 파일에서 나온다: ${listRelative(dir, [classified[key].entry, entry])}`);
-    }
-    if (exported[key] !== entry) {
-      throw new FontBudgetError(
-        'classification-failure',
-        `${CHUNK_SUBPATHS[key]} exports는 ${path.relative(dir, exported[key])} 인데 ${CHUNK_EXPORTS[key]} 는 ${path.relative(dir, entry)} 가 export한다`,
+        `${CHUNK_SUBPATHS[key]} 대상 ${path.relative(dir, entry)} 의 폰트 배열 export가 올바르지 않다 (${kinds.join(', ') || '없음'})`,
       );
     }
     const files = closureFiles(entry).filter((file) => !root.includes(file));

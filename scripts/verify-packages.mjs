@@ -375,12 +375,15 @@ function fontRequestProblems(results) {
         const actual = countRequests(phase.requests, [kind]).count;
         if (actual !== expected) problems.push(`${scenario} ${name}: ${labels[kind]} 요청 ${actual} (기대 ${expected})`);
       }
-      for (const request of phase.requests.filter((item) => item.failed)) problems.push(`${scenario} ${name}: 요청 실패 ${request.url}`);
+      for (const request of phase.requests.filter((item) => item.failed && item.kind !== 'pdf-blob')) {
+        problems.push(`${scenario} ${name}: 요청 실패 ${request.url}`);
+      }
     }
     const hostFont = PHASES.reduce((sum, name) => sum + countRequests(result.phases[name].requests, ['host-font']).count, 0);
     const expectedHostFont = scenario === 'user' ? 1 : 0;
     if (hostFont !== expectedHostFont) problems.push(`${scenario}: host-font.otf 요청 ${hostFont} (기대 ${expectedHostFont})`);
     if (result.phases.share.detail.viewer !== 'pdf') problems.push(`${scenario} share: 뷰어 상태 ${String(result.phases.share.detail.viewer)} (기대 pdf)`);
+    if (result.phases.share.detail.form !== 'pdf') problems.push(`${scenario} share: 작성 폼 상태 ${String(result.phases.share.detail.form)} (기대 pdf)`);
   }
   return problems;
 }

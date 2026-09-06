@@ -116,7 +116,7 @@ Chromium도 설치되어 있어야 합니다.
 | npm·pnpm 설치 | 서로 분리된 깨끗한 소비자 프로젝트가 tarball만 설치하고, pnpm 소비자는 Corepack의 pnpm 10.33.0을 사용하는지 |
 | Node.js 공개 API | ESM·CommonJS·JSON Schema·PDF·MCP CLI가 공개 진입점으로 동작하고 내부 `dist` 경로는 거부되는지 |
 | 브라우저 공개 API | Elements·React·Vue 소비자가 빌드되고 Chromium에서 만든 PDF가 `%PDF`로 시작하는지 |
-| 폰트 청크 요청 | Chromium 소비자에서 루트 import·요소 생성·호스트 `getFonts` 경로의 폰트 청크 요청이 0이고, 기본 폰트 최초 해석에서 Pretendard·Noto Sans JP 청크가 각 1회, 세 컴포넌트가 공유한 뒤 추가 요청이 0이며 뷰어가 PDF를 만드는지 |
+| 폰트 청크 요청 | Chromium 소비자에서 루트 import·요소 생성의 폰트 청크 요청이 0이고, 첫 렌더 전에 설정한 호스트 `getFonts` 경로도 0인지 확인한다. 기본 폰트 최초 해석에서는 Pretendard·Noto Sans JP 청크가 각 1회, 세 컴포넌트가 공유한 뒤 추가 요청이 0이며 뷰어가 PDF를 만드는지 확인한다. |
 | 실패 진단 | 실패 단계와 명령을 표시하고 요청 시 임시 디렉터리를 보존하는지 |
 
 ### 5.6 PR과 배포 워크플로

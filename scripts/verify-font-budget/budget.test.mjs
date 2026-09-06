@@ -161,7 +161,7 @@ describe('정적 import closure', () => {
 });
 
 describe('폰트 청크 분류와 예산 비교 (합성 패키지)', () => {
-  it('exports와 동적 import 대상이 같고 export 이름으로 종류를 정한다', async () => {
+  it('폰트 exports 대상과 export 이름으로 종류를 정한다', async () => {
     const dir = makePackage();
     const chunks = await classifyFontChunks(dir);
     assert.deepEqual(Object.keys(chunks), ['pretendard', 'notoSansJp']);
@@ -172,6 +172,23 @@ describe('폰트 청크 분류와 예산 비교 (합성 패키지)', () => {
     assert.deepEqual(chunks.notoSansJp.files, abs(dir, ['dist/fonts/noto-sans-jp.js']));
     assert.deepEqual({ raw: chunks.pretendard.raw, gzip: chunks.pretendard.gzip }, expectedSizes(chunks.pretendard.files));
     assert.deepEqual({ raw: chunks.notoSansJp.raw, gzip: chunks.notoSansJp.gzip }, expectedSizes(chunks.notoSansJp.files));
+  });
+
+  it('폰트와 무관한 동적 import는 폰트 청크 분류와 예산에서 제외한다', async () => {
+    const dir = makePackage({
+      'dist/chunk-x.js': [
+        'export function loadDefaultFonts() {',
+        '  return Promise.all([import("./fonts/pretendard.js"), import("./fonts/noto-sans-jp.js")]);',
+        '}',
+        'export function loadOptionalTool() { return import("./optional-tool.js"); }',
+        '',
+      ].join('\n'),
+      'dist/optional-tool.js': 'export const optionalTool = true;\n',
+    });
+    const chunks = await classifyFontChunks(dir);
+    assert.deepEqual(Object.keys(chunks), ['pretendard', 'notoSansJp']);
+    assert.ok(!chunks.pretendard.files.some((file) => file.endsWith('optional-tool.js')));
+    assert.ok(!chunks.notoSansJp.files.some((file) => file.endsWith('optional-tool.js')));
   });
 
   it('디코딩 데이터 바이트를 폰트 이름별로 돌려준다', async () => {

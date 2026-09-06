@@ -388,7 +388,7 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 | `CONF-11` | 호스트가 이미지 입력 크기 제한을 조정할 수 있어야 한다. | 디자이너와 작성 폼에서 `maxImageBytes` 설정이 적용된다. | ADR-036 |
 | `CONF-12` | 한 인스턴스에서 성공한 `getFonts` 조회 결과를 재사용해야 한다. | 같은 `SlipKit`을 디자이너와 렌더링에 함께 사용해도 성공한 공급 함수 호출은 한 번만 발생한다. 조회에 실패하면 다음 호출에서 다시 시도한다. | ADR-069 |
 | `CONF-13` | React·Vue 래퍼에서 선택 prop을 생략하거나 제거하면 Web Component 기본값을 유지해야 한다. | `slipkit`·`settings`·`presets`·`storage`·`locale`·`maxImageBytes`를 지정한 경우에만 프로퍼티로 전달하고 제거하면 최초 기본값으로 복원한다. | ADR-076 |
-| `CONF-14` | 동봉 폰트 청크는 실제 폰트 해석이 처음 필요한 시점에만 읽어야 한다. | Elements 루트 import와 `<slip-designer>`·`<slip-form>`·`<slip-viewer>` 생성만으로는 폰트 청크 요청이 0이다. `getFonts`가 비어 있지 않은 목록을 주면 폰트 청크를 읽지 않는다. `getFonts`가 없거나 빈 목록이면 첫 해석에서 Pretendard·Noto Sans JP 청크를 각 한 번만 읽고, 같은 로케일의 Designer·Form·Viewer는 같은 Promise를 재사용해 추가 요청이 0이다. 실제 tarball 소비자의 Chromium에서 단계별 요청 수로 검증한다. | ADR-082 |
+| `CONF-14` | 동봉 폰트 청크는 실제 폰트 해석이 처음 필요한 시점에만 읽어야 한다. | Elements 루트 import와 `<slip-designer>`·`<slip-form>`·`<slip-viewer>` 생성만으로는 폰트 청크 요청이 0이다. 첫 폰트 해석 전에 설정된 `getFonts`가 비어 있지 않은 목록을 주면 폰트 청크를 읽지 않는다. `getFonts`가 없거나 빈 목록이면 첫 해석에서 Pretendard·Noto Sans JP 청크를 각 한 번만 읽고, 같은 로케일의 Designer·Form·Viewer는 같은 Promise를 재사용해 추가 요청이 0이다. 실제 tarball 소비자의 Chromium에서 단계별 요청 수로 검증한다. | ADR-082 |
 
 ## 13. 국제화
 

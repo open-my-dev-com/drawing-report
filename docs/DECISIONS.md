@@ -3050,8 +3050,9 @@ Pretendard만 대체(fallback) 폰트로 표시합니다. `loadDefaultFonts('ja'
 루트, `./default-fonts`와 두 폰트 서브패스는 그대로 유지합니다.
 
 **로딩 시점.** Elements 루트를 import하거나 `<slip-designer>`·`<slip-form>`·`<slip-viewer>` 모듈을
-평가하고 요소를 만드는 것만으로는 두 폰트 청크를 읽지 않습니다. 호스트 `getFonts`가 비어 있지 않은
-목록을 돌려주면 동봉 폰트 청크를 전혀 읽지 않습니다. `getFonts`가 없거나 빈 목록이면 실제 폰트 해석이
+평가하고 요소를 만드는 것만으로는 두 폰트 청크를 읽지 않습니다. 첫 폰트 해석 전에 설정된 호스트
+`getFonts`가 비어 있지 않은 목록을 돌려주면 동봉 폰트 청크를 전혀 읽지 않습니다. `getFonts`가 없거나
+빈 목록이면 실제 폰트 해석이
 처음 필요한 시점(캔버스 폰트 등록, PDF 렌더링, `loadDefaultFonts` 호출)에 두 청크를 각각 한 번만 읽고,
 로케일별 Promise를 같은 출처를 쓰는 Designer·Form·Viewer가 재사용합니다. 첫 렌더, 대체 폰트, 명시적
 폰트 선택과 브라우저·Node.js PDF 결과는 바뀌지 않습니다.
@@ -3067,8 +3068,9 @@ cold run으로 측정합니다. cold run은 반복마다 새 Node.js 자식 프�
 
 **자동 예산.** `pnpm verify:font-budget`(`scripts/verify-font-budget.mjs`)을 `verify`의 build 다음에
 실행합니다. 청크는 해시가 붙은 파일 이름을 하드코딩하지 않고, `package.json`의 `exports`가 가리키는
-폰트 서브패스 파일과 `dist/index.js`의 정적 import closure에서 찾은 동적 import 대상이 같은 두 파일을
-가리키며 그 모듈이 `PRETENDARD_FONTS`·`NOTO_SANS_JP_FONTS`를 내보낼 때만 분류합니다. 상한은 다음과
+폰트 서브패스 파일이 `dist/index.js`의 정적 import closure에서 찾은 동적 import 대상에 포함되고 그 모듈이
+각각 `PRETENDARD_FONTS`·`NOTO_SANS_JP_FONTS`를 내보낼 때만 분류합니다. 폰트와 무관한 동적 청크는 폰트
+예산에서 제외합니다. 상한은 다음과
 같고 하나라도 넘으면 검증 게이트가 실패합니다.
 
 | 항목 | 상한 |
@@ -3096,6 +3098,8 @@ cold run으로 측정합니다. cold run은 반복마다 새 Node.js 자식 프�
   기준과 시험도 같은 변경에서 갱신해야 합니다.
 - 세 컴포넌트가 로케일별 Promise를 공유하는 계약이 단위 시험(모듈 평가 횟수)과 Chromium 요청 수로
   고정됩니다. 폰트 해석 경로를 새로 만들 때는 `resolveFonts`를 거쳐야 합니다.
+- 동봉 폰트 요청을 피하려는 호스트는 요소를 문서에 연결해 첫 렌더를 시작하기 전에 `slipkit`과
+  `getFonts`를 설정합니다.
 - 로케일별 목록 축소를 하지 않으므로 일본어 전용 호스트도 Pretendard 청크를 함께 받습니다. 전송량을
   줄이려는 호스트는 `getFonts`로 필요한 폰트만 공급하거나 폰트 서브패스를 직접 import합니다.
 
