@@ -627,41 +627,55 @@ export const dialogsStyles = css`
       line-height: 16px;
     }
 
-    /* 수식 모달 — 편집과 참조를 나란히 두어 참조를 보면서 수식을 고칠 수 있게 합니다 */
+    /* 수식 모달 — 입력과 검사 결과를 위에 모달 너비로 두고, 함수·값 참조를 그 아래에 둡니다 */
     .modal.formula-modal {
       width: min(960px, calc(100vw - 48px));
       /* 함수를 골라도 높이가 달라지지 않도록 본문 높이를 고정합니다 */
-      height: min(560px, calc(100vh - 48px));
+      height: min(720px, calc(100vh - 48px));
       max-height: calc(100vh - 48px);
     }
     .formula-layout {
-      display: grid;
-      /* 목록과 설명이 있는 참조 영역을 넓게 둡니다. */
-      grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);
-      gap: 0;
+      display: flex;
+      flex-direction: column;
       /* 본문이 늘어나도 헤더와 하단 버튼이 밀려나지 않도록 축소를 허용합니다 */
       min-height: 0;
       flex: 1;
+      /* 참조 영역을 더 줄일 수 없을 만큼 낮은 화면에서는 본문이 안에서 스크롤합니다 */
+      overflow-y: auto;
+      /* 참조 영역의 배치는 뷰포트가 아니라 모달 너비를 기준으로 정합니다 */
+      container-type: inline-size;
+      container-name: formula-modal;
     }
     .formula-editor,
     .formula-reference {
       display: flex;
       flex-direction: column;
-      min-height: 0;
-      padding: 20px;
+      padding: 16px 20px;
     }
+    /* 입력란과 검사 결과는 자리를 지키고 참조 영역이 남은 높이를 씁니다 */
     .formula-editor {
+      flex: none;
       gap: 8px;
-      overflow-y: auto;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--sk-border);
     }
     .formula-reference {
-      border-left: 1px solid var(--sk-border);
+      flex: 1;
+      /* 목록 몇 줄은 늘 보이게 하고, 그보다 낮으면 본문 스크롤에 맡깁니다 */
+      min-height: 200px;
+      padding-top: 12px;
     }
     .formula-tabpanel {
       min-height: 0;
       flex: 1;
-      /* 함수 탭은 안에서 스크롤하고, 값 탭은 길어지면 이 자리가 스크롤합니다 */
+      /* 값 탭은 길어지면 이 자리가 스크롤합니다 */
       overflow-y: auto;
+    }
+    /* 함수 탭은 목록과 상세가 각자 안에서 스크롤합니다 */
+    .formula-tabpanel.functions {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
     .formula-target {
       display: flex;
@@ -677,12 +691,12 @@ export const dialogsStyles = css`
       font-weight: 600;
       overflow-wrap: anywhere;
     }
-    /* 수식 작성이 이 모달의 주 작업이므로 입력란을 가장 크게 둡니다 */
+    /* 수식 작성이 이 모달의 주 작업이므로 입력란에 모달 너비 전체를 줍니다 */
     .formula-modal .formula-input {
-      /* 수식 입력란은 220px로 표시하며, 사용자가 세로로 줄이면 140px까지 허용합니다. */
-      height: 220px;
-      min-height: 140px;
-      max-height: 220px;
+      /* 네 줄 높이로 표시하며, 사용자가 세로로 늘리면 참조 영역이 그만큼 줄어듭니다. */
+      height: 96px;
+      min-height: 64px;
+      max-height: 240px;
       font-size: 13px;
     }
     /* 검사 결과 — 상태 제목이 뜻을 설명하고 그 아래에 결과나 까닭을 적습니다 */
@@ -871,13 +885,25 @@ export const dialogsStyles = css`
       background: var(--sk-accent-soft);
       color: var(--sk-accent);
     }
-    /* 함수 탭 — 목록만 스크롤하고 검색과 상세는 자리를 지킵니다 */
+    /* 함수 탭 — 고른 함수가 없으면 검색·분류·목록이 너비 전체를 씁니다 */
     .fn-panel {
       display: grid;
-      grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
       gap: 14px;
+      flex: 1;
       min-height: 0;
-      height: 100%;
+    }
+    /* 함수를 고르면 목록을 왼쪽에 그대로 두고 오른쪽에 상세를 폅니다 */
+    .fn-panel.with-detail {
+      grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);
+    }
+    /* 모달이 좁으면 목록과 상세를 위아래로 쌓고 각자 안에서 스크롤합니다 */
+    @container formula-modal (max-width: 899px) {
+      .fn-panel.with-detail {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+      }
     }
     .fn-browse {
       display: flex;

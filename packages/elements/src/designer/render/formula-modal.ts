@@ -1,5 +1,5 @@
 /**
- * 수식 편집 모달 — 편집 대상, 수식 입력과 검사 결과, 함수·값 참조.
+ * 수식 편집 모달 — 위쪽에 편집 대상, 수식 입력과 검사 결과를, 아래쪽에 함수·값 참조를 둡니다.
  *
  * @remarks
  * 대상은 모달을 열 때 확정합니다. 이 모듈은 선택 상태를 보지 않고 컴포넌트가 넘긴
@@ -180,8 +180,8 @@ export function formulaModal(d: DialogContext) {
           @click=${close}>${icons.close}</button>
       </div>
       <div class="formula-layout">
-        <div class="formula-editor">${editorColumn(d, view)}</div>
-        <div class="formula-reference">${referenceColumn(d, view)}</div>
+        <div class="formula-editor">${editorArea(d, view)}</div>
+        <div class="formula-reference">${referenceArea(d, view)}</div>
       </div>
       <div class="modal-foot">
         <button class="btn" @click=${close}>${s.cancel}</button>
@@ -192,8 +192,13 @@ export function formulaModal(d: DialogContext) {
   `;
 }
 
-/** 편집 대상, 수식 입력, 검사 결과와 샘플 항목 선택을 렌더링합니다. */
-function editorColumn(d: DialogContext, view: FormulaModalView) {
+/**
+ * 편집 대상, 수식 입력, 검사 결과와 샘플 항목 선택을 렌더링합니다.
+ *
+ * 수식 작성이 이 모달의 주 작업이라 모달 너비 전체를 입력란에 주고, 검사 결과는 입력란
+ * 바로 아래에 두어 고친 결과를 시선을 옮기지 않고 확인할 수 있게 합니다.
+ */
+function editorArea(d: DialogContext, view: FormulaModalView) {
   const s = d.s;
   const emptyAllowed = view.target?.target.kind === 'cell';
   const result = formulaCheckText(s, view.check, emptyAllowed);
@@ -234,7 +239,7 @@ function editorColumn(d: DialogContext, view: FormulaModalView) {
  * 함수는 골라서 상세를 본 뒤 삽입하고 값은 누르면 바로 들어가므로, 조작이 다른 둘을
  * 탭으로 나눠 무엇을 하는 자리인지 분명히 합니다.
  */
-function referenceColumn(d: DialogContext, view: FormulaModalView) {
+function referenceArea(d: DialogContext, view: FormulaModalView) {
   const s = d.s;
   const tab = d.formula.tab;
   const tabButton = (value: 'functions' | 'values', label: string) => html`
@@ -246,7 +251,7 @@ function referenceColumn(d: DialogContext, view: FormulaModalView) {
       ${tabButton('functions', s.formulaFunctionsTab)}
       ${tabButton('values', s.formulaValuesTab)}
     </div>
-    <div class="formula-tabpanel" role="tabpanel">
+    <div class="formula-tabpanel ${tab}" role="tabpanel">
       ${tab === 'functions' ? functionSection(d) : valueSection(d, view)}
     </div>
   `;
@@ -299,8 +304,10 @@ function sampleItemPicker(d: DialogContext, view: FormulaModalView) {
 /**
  * 함수 검색, 분류, 검색 결과와 상세를 렌더링합니다.
  *
- * 목록과 상세를 좌우로 나눠 함수를 골라도 모달 높이가 달라지지 않고, 검색과 상세가
- * 목록 스크롤에 밀려나지 않게 합니다.
+ * 함수를 고르기 전에는 검색·분류·목록이 참조 영역 전체를 쓰고, 고르면 그 옆(좁은 모달은
+ * 아래)에 상세를 폅니다. 상세만 조건부로 그리므로 다른 함수를 골라도 목록은 다시 만들지
+ * 않아 스크롤 위치가 남고, 목록과 상세는 각자 안에서 스크롤해 입력란과 하단 버튼을 밀지
+ * 않습니다.
  */
 function functionSection(d: DialogContext) {
   const s = d.s;
@@ -315,7 +322,7 @@ function functionSection(d: DialogContext) {
   const picked = matches.find((fn) => fn.name === d.formula.picked);
 
   return html`
-    <div class="fn-panel">
+    <div class="fn-panel ${picked === undefined ? '' : 'with-detail'}">
       <div class="fn-browse">
         <input class="formula-search" type="search" placeholder=${s.formulaSearch}
           aria-label=${s.formulaSearch} .value=${live(d.formula.query)}
@@ -341,11 +348,9 @@ function functionSection(d: DialogContext) {
               </button>`)}
         </div>
       </div>
-      <div class="fn-detail">
-        ${picked === undefined
-          ? html`<p class="image-hint">${s.formulaPickHint}</p>`
-          : functionDetail(d, picked)}
-      </div>
+      ${picked === undefined
+        ? nothing
+        : html`<div class="fn-detail">${functionDetail(d, picked)}</div>`}
     </div>
   `;
 }

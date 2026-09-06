@@ -215,6 +215,8 @@ When you select an element, you can edit its position, size, content, and style 
 - Enter values in X, Y, width, and height in the settings panel for precise placement.
 - Use <kbd>Anchor</kbd> to set the reference position for calculating the X/Y coordinates.
 - Turn on <kbd>Grid</kbd> in the toolbar to align elements to a set interval.
+- With an element selected, press an arrow key to move it 0.5 mm, or <kbd>Shift</kbd> + arrow key to move it 5 mm. Holding the key moves repeatedly; the whole run is undone as one step.
+- Elements can extend past the right or bottom edge of the paper. The part outside the paper is not printed to the PDF, and the settings panel shows a notice while such an element is selected. Elements cannot go past the left or top edge; moving several elements together stops when the outermost one reaches the edge, keeping their spacing.
 
 ### Selecting and editing elements
 
@@ -227,9 +229,11 @@ When you select an element, you can edit its position, size, content, and style 
 <details>
 <summary><strong>Moving multiple elements together</strong></summary>
 
-In the sidebar's element list, hold <kbd>Ctrl</kbd> (or <kbd>⌘</kbd> on macOS) and select multiple elements.
+On the canvas or in the sidebar's element list, hold <kbd>Shift</kbd> or <kbd>Ctrl</kbd> (<kbd>⌘</kbd> on macOS) and click elements to add them to or remove them from the selection. A group always counts as one unit.
 
-The selected elements can be moved together or bundled into a group. Once grouped, selecting one element in the group selects the whole group.
+Drag any selected element to move the whole selection together, or bundle them into a group. Once grouped, selecting one element in the group selects the whole group.
+
+With several elements selected, the settings panel offers alignment buttons (left, horizontal center, right, top, vertical center, bottom) and equal-spacing buttons (horizontal, vertical). Alignment uses the outer edges of the whole selection; equal spacing needs at least three elements or groups and keeps the first and last in place. Each command is one undo step.
 
 </details>
 
@@ -326,7 +330,7 @@ A table that grows with its data, such as an items table, uses the grid's <kbd>R
 5. In <kbd>Row bands</kbd>, assign the item rows to <kbd>Data repeat area</kbd>.
 6. Connect each cell in the data repeat area to a sub-field of the list.
 7. Choose a page mode.
-8. Select <kbd>View output</kbd> to inspect the repeated result.
+8. Select <kbd>View output</kbd> in the header of the grid settings panel to inspect the repeated result. The canvas stays in place, and any editing action returns to row editing automatically; <kbd>Esc</kbd> also returns.
 
 The page modes work as follows.
 
@@ -393,6 +397,8 @@ Fields, barcodes, and grid cells can show a formula result instead of a paramete
 Select the element or cell that will use a formula, then change its value kind to <kbd>Formula</kbd>. Press the formula edit button to open the editor.
 
 ![The formula editor](images/en/formula.png)
+
+The formula input and its result are at the top of the editor, across its full width. Below them, the <kbd>Functions</kbd> and <kbd>Values</kbd> tabs help you insert references; picking a function shows its details next to the list, and inserting returns the cursor to where it was.
 
 In the formula editor you can use the following features.
 

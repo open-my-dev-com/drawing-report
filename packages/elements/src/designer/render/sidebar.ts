@@ -183,7 +183,7 @@ export function elementRow(kit: PanelKit, side: SidebarActions, pageIndex: numbe
       ${twisty(kit, hasCells, expanded, el.name, () => side.toggleElementRow(el.id))}
       <button class="side-row ${rowSelected ? 'selected' : ''}" title=${el.name}
         aria-label=${warned ? `${el.name} ${s.formulaWarningItem}` : el.name}
-        @click=${(e: MouseEvent) => side.selectFromSidebar(pageIndex, el.id, e.ctrlKey || e.metaKey)}>
+        @click=${(e: MouseEvent) => side.selectFromSidebar(pageIndex, el.id, e.shiftKey || e.ctrlKey || e.metaKey)}>
         ${TYPE_BADGE[el.type]}<span class="side-row-name">${el.name}</span>
         ${warned ? warningMark(s.formulaWarningItem) : nothing}
       </button>

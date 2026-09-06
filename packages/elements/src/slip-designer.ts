@@ -104,6 +104,10 @@ import { GridCommandsController } from './designer/controllers/grid-commands.js'
 import type { GridCommandsHost } from './designer/controllers/grid-commands.js';
 import { CanvasPointerController } from './designer/controllers/canvas-pointer.js';
 import type { PointerHost } from './designer/controllers/canvas-pointer.js';
+import { KeyboardNudgeController } from './designer/controllers/keyboard-nudge.js';
+import type { NudgeHost } from './designer/controllers/keyboard-nudge.js';
+import { alignUnits, distributeUnits, selectionUnits } from './designer/arrange.js';
+import type { AlignEdge, DistributeAxis, PositionMove } from './designer/arrange.js';
 import {
   imageModal,
   sampleModal,
@@ -153,6 +157,18 @@ const NOT_REPEAT_RESERVED: ReservedAvailability[] = RESERVED_REF_NAMES.map((name
   usable: false,
   reason: 'not-repeat',
 }));
+
+/**
+ * 출력 결과를 보는 동안 눌렀을 때 행 구조 편집으로 돌아가서 처리할 편집 단축키인지 판정합니다.
+ *
+ * @param e - 키 입력
+ * @returns 삭제·이동·복사·붙여넣기·실행 취소·다시 실행 키면 true
+ */
+function isEditingShortcut(e: KeyboardEvent): boolean {
+  if (e.key === 'Delete' || e.key === 'Backspace' || e.key.startsWith('Arrow')) return true;
+  const command = e.ctrlKey || e.metaKey;
+  return command && ['c', 'v', 'z', 'y'].includes(e.key.toLowerCase());
+}
 
 /** 편집 대상이 지워졌을 때 수식 모달이 그릴 상태 — 대상을 모르므로 참조도 안내하지 않습니다 */
 const LOST_FORMULA_VIEW: FormulaModalView = {
@@ -404,6 +420,7 @@ export class SlipDesigner extends LitElement {
       this._dialogs,
       this._fontRegistry,
       this._pointer,
+      this._nudge,
       this._popovers,
       this._picker,
       this._gridEdit,
@@ -420,6 +437,10 @@ export class SlipDesigner extends LitElement {
     // 연결이 끊긴 동안 외부 폰트 조회가 성공했을 수 있으므로 실패 상태일 때만 다시 확인합니다.
     this._retryFontSource();
     this.addEventListener('keydown', this._onKeyDown);
+    this.addEventListener('keyup', this._onKeyUp);
+    // 화살표 키를 누른 채 초점이 다른 곳으로 가면 keyup을 받지 못하므로 그 자리에서 이동을 마무리합니다.
+    this.addEventListener('blur', this._onFocusLost);
+    this.addEventListener('focusout', this._onFocusLost);
     if (!this.hasAttribute('tabindex')) {
       this.setAttribute('tabindex', '0');
     }
@@ -430,6 +451,9 @@ export class SlipDesigner extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this.removeEventListener('keydown', this._onKeyDown);
+    this.removeEventListener('keyup', this._onKeyUp);
+    this.removeEventListener('blur', this._onFocusLost);
+    this.removeEventListener('focusout', this._onFocusLost);
     this._revokePreviewUrl();
   }
 
@@ -508,6 +532,9 @@ export class SlipDesigner extends LitElement {
       findElement: (id) => this._findElement(id),
       groupSelected: () => this._groupSelected(),
       ungroupSelected: () => this._ungroupSelected(),
+      alignSelected: (edge) => this._alignSelected(edge),
+      distributeSelected: (axis) => this._distributeSelected(axis),
+      paper: () => this._file?.template.paper,
       selectedIds: this._selectedIds,
     };
   }
@@ -545,7 +572,7 @@ export class SlipDesigner extends LitElement {
       get selectedIds() { return owner._selectedIds; },
       get sideSelection() { return owner._sideSelection; },
       get gridEdit() { return owner._gridEdit; },
-      get gridPlanPreview() { return owner._gridPlanPreview; },
+      leaveOutputResult: () => owner._leaveOutputResult(),
       get shapeMenuOpen() { return owner._shapeMenuOpen; },
       get renderRoot() { return owner.renderRoot; },
       restoreSnapshot: (snapshot) => { owner._file = JSON.parse(snapshot) as SlipTemplateFile; },
@@ -556,6 +583,8 @@ export class SlipDesigner extends LitElement {
       selectedElement: () => owner._findSelectedElement(),
       addElement: (type, place) => { owner._addElement(type, place); },
       selectElement: (id) => owner._selectElement(id),
+      toggleInSelection: (id) => owner._toggleInSelection(id),
+      keepSelection: (id) => owner._keepSelection(id),
       clearSelection: () => owner._clearSelection(),
       updateElement: (fn) => owner._updateElement(fn),
       pushUndoSnapshot: (snapshot) => owner._pushUndoSnapshot(snapshot),
@@ -563,6 +592,22 @@ export class SlipDesigner extends LitElement {
       expandParameterOfElement: (id) => owner._expandParameterOfElement(id),
       gridDelta: (value) => owner._gridDelta(value),
       focusHost: () => owner._focusHost(),
+      refresh: () => owner.requestUpdate(),
+    };
+  }
+
+  /** 화살표 키로 선택한 요소를 옮기는 조작 */
+  private readonly _nudge = new KeyboardNudgeController(this._nudgeHost());
+
+  /** 키보드 이동이 문서에 요청하는 것 */
+  private _nudgeHost(): NudgeHost {
+    const owner = this;
+    return {
+      get file() { return owner._file; },
+      get selectedIds() { return owner._selectedIds; },
+      findElement: (id) => owner._findElement(id),
+      pushUndoSnapshot: (snapshot) => owner._pushUndoSnapshot(snapshot),
+      emitChange: () => owner._emitChange(),
       refresh: () => owner.requestUpdate(),
     };
   }
@@ -635,8 +680,14 @@ export class SlipDesigner extends LitElement {
       hasStorage: this.storage !== undefined,
       pageCount: () => this._pageCount(),
       presets: () => this._presetList(),
-      selectTool: (type) => this._pointer.selectTool(type),
-      selectShapeTool: (type, sides) => this._pointer.selectShapeTool(type, sides),
+      selectTool: (type) => {
+        this._leaveOutputResult();
+        this._pointer.selectTool(type);
+      },
+      selectShapeTool: (type, sides) => {
+        this._leaveOutputResult();
+        this._pointer.selectShapeTool(type, sides);
+      },
       toggleShapeMenu: (event) => this._toggleShapeMenu(event),
       togglePresetMenu: (event) => this._togglePresetMenu(event),
       toggleGridMenu: (event) => this._toggleGridMenu(event),
@@ -692,13 +743,8 @@ export class SlipDesigner extends LitElement {
       focusPlanError: (error) => this._focusPlanError(error),
       focusFormulaWarning: (target) => this._focusFormulaTarget(target),
       typeName: (type) => this._typeName(type),
-      setGridPlanPreview: (enabled) => this._setGridPlanPreview(enabled),
       trackCursor: (event) => this._pointer.trackCursor(event),
       clearCursor: () => this._pointer.clearCursor(),
-      setOutputPage: (page) => {
-        this._outputPage = page;
-        this.requestUpdate();
-      },
       selectedElement: () => this._findSelectedElement(),
       commitCellContent: (value) => this._gridCommands.commitCellContent(value),
       focusSelectedElement: () => this._focusSelectedElement(),
@@ -720,8 +766,13 @@ export class SlipDesigner extends LitElement {
       grid: this._gridActions,
       selection: this._sideSelection,
       selectedIds: this._selectedIds,
+      gridPlanPreview: this._gridPlanPreview,
+      outputPage: this._outputPage,
+      outputPageCount: this._outputPageCount(),
       selectedElement: () => this._findSelectedElement(),
       typeName: (type) => this._typeName(type),
+      setGridPlanPreview: (enabled) => this._setGridPlanPreview(enabled),
+      setOutputPage: (page) => this._setOutputPage(page),
     };
   }
 
@@ -770,6 +821,9 @@ export class SlipDesigner extends LitElement {
     return {
       file: this._file,
       pageIndex: this._pageIndex,
+      outputPage: this._outputPage,
+      outputPageCount: () => this._outputPageCount(),
+      setOutputPage: (page) => this._setOutputPage(page),
       pageKeyError: this._pageKeyError,
       parameterKeyError: this._parameterKeyError,
       hostPaperSizes: this._hostPaperSizes,
@@ -897,6 +951,7 @@ export class SlipDesigner extends LitElement {
     this._outputPage = 0;
     this._gridPlanPreview = false;
     this._pointer.reset();
+    this._nudge.discard();
     this._clipboard = null;
     this._presetMenuOpen = false;
     this._shapeMenuOpen = false;
@@ -1055,10 +1110,12 @@ export class SlipDesigner extends LitElement {
   }
 
   private _undo(): void {
+    this._leaveOutputResult();
     this._restoreUndoEntry(this._undoStack, this._redoStack);
   }
 
   private _redo(): void {
+    this._leaveOutputResult();
     this._restoreUndoEntry(this._redoStack, this._undoStack);
   }
 
@@ -1131,6 +1188,7 @@ export class SlipDesigner extends LitElement {
 
   /** 현재 페이지 뒤에 빈 페이지를 추가하고 그 페이지로 이동합니다 */
   private _addPage(): void {
+    this._leaveOutputResult();
     if (!this._file) return;
     this._pushUndo();
     this._file.template.pages.splice(this._pageIndex + 1, 0, { elements: [] });
@@ -1143,6 +1201,7 @@ export class SlipDesigner extends LitElement {
 
   /** 현재 페이지를 삭제합니다 (마지막 한 페이지는 삭제 불가) */
   private _deletePage(): void {
+    this._leaveOutputResult();
     if (!this._file || this._pageCount() <= 1) return;
     this._pushUndo();
     this._file.template.pages.splice(this._pageIndex, 1);
@@ -1204,25 +1263,43 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 요소를 다중 선택 목록에 추가하거나 제거합니다.
+   * 요소가 속한 선택 단위를 다중 선택 목록에 추가하거나 제거합니다.
+   * 그룹에 속한 요소는 그룹 전체가 한 단위로 함께 들어가거나 빠집니다.
    * 추가한 요소는 주 선택이 되며 주 선택을 제거하면 남은 요소 중 하나를 주 선택으로 지정합니다.
    *
    * @param id - 토글할 요소 id
    */
   private _toggleInSelection(id: string): void {
+    this._leaveOutputResult();
     this._resetPanelErrors();
+    const group = this._findElement(id)?.group;
+    const unit = group === undefined ? [id] : this._pageGroupMembers(group).map((el) => el.id);
     const next = new Set(this._selectedIds);
-    if (next.has(id)) {
-      next.delete(id);
-      if (this._selectedId === id) this._selectedId = next.values().next().value ?? null;
+    if (unit.every((member) => next.has(member))) {
+      for (const member of unit) next.delete(member);
+      if (this._selectedId !== null && !next.has(this._selectedId)) {
+        this._selectedId = next.values().next().value ?? null;
+      }
     } else {
-      next.add(id);
+      for (const member of unit) next.add(member);
       this._selectedId = id;
     }
     this._selectedIds = next;
     this._gridEdit.clearCell();
     this._sideSelection = null;
     this.requestUpdate();
+  }
+
+  /**
+   * 이미 선택된 요소를 주 선택으로 삼습니다. 다중 선택은 그대로 유지합니다.
+   *
+   * @param id - 주 선택으로 삼을 요소 id
+   */
+  private _keepSelection(id: string): void {
+    if (!this._selectedIds.has(id)) return;
+    this._resetPanelErrors();
+    this._selectedId = id;
+    this._gridEdit.clearRowCommand();
   }
 
   private _validateSelection(): void {
@@ -1260,6 +1337,7 @@ export class SlipDesigner extends LitElement {
       lineDirection?: 'horizontal' | 'vertical' | 'down' | 'up';
     },
   ): void {
+    this._leaveOutputResult();
     const elements = this._currentElements();
     if (!elements || !this._file) return;
 
@@ -1351,6 +1429,7 @@ export class SlipDesigner extends LitElement {
   }
 
   private _copySelected(): void {
+    this._leaveOutputResult();
     const elements = this._currentElements();
     if (!elements || this._selectedIds.size === 0) return;
     // 선택된 요소와 그룹을 함께 복사합니다.
@@ -1361,6 +1440,7 @@ export class SlipDesigner extends LitElement {
   }
 
   private _paste(): void {
+    this._leaveOutputResult();
     const elements = this._currentElements();
     if (!elements || !this._clipboard || this._clipboard.length === 0) return;
 
@@ -1414,6 +1494,7 @@ export class SlipDesigner extends LitElement {
 
   /** 선택된 요소를 모두 삭제합니다. */
   private _deleteSelected(): void {
+    this._leaveOutputResult();
     const elements = this._currentElements();
     if (!elements || this._selectedIds.size === 0) return;
     const ids = this._selectedIds;
@@ -1449,6 +1530,7 @@ export class SlipDesigner extends LitElement {
    * @param fn - 요소 수정 함수
    */
   private _updateElement(fn: (el: SlipElement) => void): void {
+    this._leaveOutputResult();
     const el = this._findSelectedElement();
     if (!el) {
       this._rejectInput();
@@ -1520,14 +1602,18 @@ export class SlipDesigner extends LitElement {
     }
     // PDF 미리보기 상태에서는 문서를 변경하는 단축키를 처리하지 않습니다.
     if (this._previewMode) return;
-    // 출력 결과는 읽기 전용입니다. Esc만 행 구조 편집으로 돌아가는 데 사용합니다.
+    // 출력 결과를 보는 동안 Esc는 행 구조 편집으로 돌아가기만 합니다.
+    // 편집 단축키는 먼저 행 구조 편집으로 돌아간 뒤 같은 키 입력으로 그대로 처리합니다.
     if (this._gridPlanPreview) {
       if (e.key === 'Escape') {
         e.preventDefault();
         this._setGridPlanPreview(false);
+        return;
       }
-      return;
+      if (isEditingShortcut(e)) this._leaveOutputResult();
     }
+    // 화살표 키는 선택한 요소를 옮깁니다. 셀을 고르거나 편집하는 동안은 셀 조작이라 가로채지 않습니다.
+    if (this._gridEdit.cell === null && !this._gridEdit.editing && this._nudge.onKeyDown(e)) return;
     // 셀이 선택된 상태의 Esc는 셀 선택만 해제하고 그리드 요소 선택은 유지합니다.
     // 인라인 편집 중의 Esc는 캔버스 입력기가 편집 종료로 처리합니다.
     if (e.key === 'Escape' && this._gridEdit.cell !== null && !this._gridEdit.editing) {
@@ -1564,6 +1650,16 @@ export class SlipDesigner extends LitElement {
       this._showBadges = !this._showBadges;
       this.requestUpdate();
     }
+  };
+
+  /** 화살표 키를 떼면 그동안의 이동을 한 번의 되돌리기 단계로 마무리합니다. */
+  private _onKeyUp = (e: KeyboardEvent): void => {
+    this._nudge.onKeyUp(e);
+  };
+
+  /** 초점을 잃으면 진행 중인 키보드 이동을 마무리합니다. */
+  private _onFocusLost = (): void => {
+    this._nudge.commit();
   };
 
   /** 인라인 셀 편집을 마친 뒤 초점을 선택한 요소로, 없으면 컴포넌트로 되돌립니다. */
@@ -1827,8 +1923,9 @@ export class SlipDesigner extends LitElement {
 
   /** 요소가 있는 페이지로 이동하고 해당 요소를 선택합니다. */
   private _selectFromSidebar(pageIndex: number, id: string, additive = false): void {
+    this._leaveOutputResult();
     this._goToPage(pageIndex);
-    // Ctrl/Cmd+클릭은 다중 선택 상태를 전환합니다.
+    // Shift·Ctrl/Cmd+클릭은 요소(그룹이면 그룹 전체)를 다중 선택에 넣거나 뺍니다.
     if (additive) {
       this._toggleInSelection(id);
       return;
@@ -1842,6 +1939,7 @@ export class SlipDesigner extends LitElement {
 
   /** 목록 파라미터의 하위 필드를 선택하고 사용 중인 첫 번째 그리드 셀로 이동합니다. */
   private _selectParameterField(listKey: string, field: ParameterFieldInfo): void {
+    this._leaveOutputResult();
     this._resetPanelErrors();
     if (field.at) {
       this._goToPage(field.at.pageIndex);
@@ -1869,6 +1967,7 @@ export class SlipDesigner extends LitElement {
 
   /** 현재 페이지를 지정한 상대 위치로 이동합니다. */
   private _movePage(delta: number): void {
+    this._leaveOutputResult();
     const pages = this._file?.template.pages;
     if (!pages) return;
     const target = this._pageIndex + delta;
@@ -1888,6 +1987,7 @@ export class SlipDesigner extends LitElement {
    * @param index - 선택한 페이지 번호(0-기반)
    */
   private _selectPage(index: number): void {
+    this._leaveOutputResult();
     this._goToPage(index);
     this._clearSelection();
     this._gridEdit.clearCell();
@@ -1897,6 +1997,7 @@ export class SlipDesigner extends LitElement {
 
   /** 파라미터를 선택하고 오른쪽에 편집 패널을 표시합니다. */
   private _selectParameter(key: string): void {
+    this._leaveOutputResult();
     this._parameterKeyError = false;
     this._clearSelection();
     this._gridEdit.clearCell();
@@ -1981,6 +2082,7 @@ export class SlipDesigner extends LitElement {
    * @param column - 셀의 열
    */
   private _selectGridCell(pageIndex: number, gridId: string, row: number, column: number): void {
+    this._leaveOutputResult();
     this._resetPanelErrors();
     this._goToPage(pageIndex);
     // 셀을 선택할 때는 그리드 그룹의 다른 요소를 선택하지 않습니다.
@@ -2000,6 +2102,7 @@ export class SlipDesigner extends LitElement {
 
   /** 지정한 페이지에서 요소를 삭제합니다. */
   private _deleteElementById(pageIndex: number, id: string): void {
+    this._leaveOutputResult();
     const elements = this._file?.template.pages[pageIndex]?.elements;
     if (!elements) return;
     const idx = elements.findIndex((el) => el.id === id);
@@ -2335,6 +2438,28 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
+  /**
+   * 출력 결과를 보는 중이면 행 구조 편집으로 돌아갑니다.
+   * 편집 조작의 진입점마다 먼저 불러, 출력 결과 상태가 조작을 막지 않고 그 조작이 한 번만 실행되게 합니다.
+   */
+  private _leaveOutputResult(): void {
+    if (!this._gridPlanPreview) return;
+    this._setGridPlanPreview(false);
+  }
+
+  /** 현재 양식 페이지가 만드는 출력 페이지 수. 계획이 없으면 1 */
+  private _outputPageCount(): number {
+    return this._pagePlan().plan?.outputPageCount ?? 1;
+  }
+
+  /** 보고 있는 출력 페이지를 범위 안에서 옮깁니다. 출력 결과 상태는 그대로 둡니다. */
+  private _setOutputPage(page: number): void {
+    const clamped = Math.max(0, Math.min(page, this._outputPageCount() - 1));
+    if (clamped === this._outputPage) return;
+    this._outputPage = clamped;
+    this.requestUpdate();
+  }
+
   private _formulaProbeValues(): Record<string, unknown> {
     const samples = this._file?.template.sampleValues ?? {};
     const probeFor = (type: ParameterValueType | undefined): unknown => {
@@ -2394,6 +2519,7 @@ export class SlipDesigner extends LitElement {
   }
 
   private _onBandRowClick(row: number, extend: boolean): void {
+    this._leaveOutputResult();
     const previous = this._gridEdit.bandRange;
     this._gridEdit.selectBand(
       extend && previous !== null ? { from: previous.from, to: row } : { from: row, to: row },
@@ -2435,6 +2561,7 @@ export class SlipDesigner extends LitElement {
   };
 
   private _updateFile(fn: (file: SlipTemplateFile) => void): void {
+    this._leaveOutputResult();
     // 유효한 편집이 적용되면 이전 입력 오류를 지웁니다.
     this._resetPanelErrors();
     if (!this._file) return;
@@ -2673,6 +2800,56 @@ export class SlipDesigner extends LitElement {
         }
       }
     });
+  }
+
+  /** 현재 페이지에서 선택된 요소들을 선택 순서대로 돌려줍니다. */
+  private _selectedElements(): SlipElement[] {
+    return [...this._selectedIds]
+      .map((id) => this._findElement(id))
+      .filter((el): el is SlipElement => el !== undefined);
+  }
+
+  /**
+   * 계산한 새 위치를 한 번의 되돌리기 단계와 변경 알림으로 적용합니다. 바뀌는 위치가 없으면 기록하지 않습니다.
+   *
+   * @param moves - 요소별 새 위치
+   */
+  private _applyMoves(moves: readonly PositionMove[]): void {
+    const changed = moves.some((m) => {
+      const el = this._findElement(m.id);
+      return el !== undefined && (el.position.x !== m.x || el.position.y !== m.y);
+    });
+    if (!changed) return;
+    this._updateFile(() => {
+      for (const m of moves) {
+        const el = this._findElement(m.id);
+        if (!el) continue;
+        el.position.x = m.x;
+        el.position.y = m.y;
+      }
+    });
+  }
+
+  /**
+   * 선택한 요소·그룹의 변이나 중앙선을 선택 전체의 경계 상자에 맞춥니다.
+   *
+   * @param edge - 맞출 변 또는 중앙선
+   */
+  private _alignSelected(edge: AlignEdge): void {
+    const units = selectionUnits(this._selectedElements());
+    if (units.length < 2) return;
+    this._applyMoves(alignUnits(units, edge));
+  }
+
+  /**
+   * 선택한 요소·그룹 사이의 간격을 고르게 나눕니다. 셋 미만이거나 들어갈 자리가 없으면 아무것도 하지 않습니다.
+   *
+   * @param axis - 간격을 나눌 방향
+   */
+  private _distributeSelected(axis: DistributeAxis): void {
+    const result = distributeUnits(selectionUnits(this._selectedElements()), axis);
+    if (!result.ok) return;
+    this._applyMoves(result.moves);
   }
 
   private _selectGridCellAt(at: { pageIndex: number; gridId: string; row: number; column: number }): void {
@@ -3354,6 +3531,7 @@ export class SlipDesigner extends LitElement {
    * @param fn - 요소 수정 함수
    */
   private _updateElementById(id: string, fn: (el: SlipElement) => void): void {
+    this._leaveOutputResult();
     const el = this._findElement(id);
     if (!el) {
       this._rejectInput();
