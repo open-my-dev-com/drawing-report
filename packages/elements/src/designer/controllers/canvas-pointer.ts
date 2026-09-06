@@ -26,6 +26,7 @@ import { cellOriginAt, cellsInRectangle } from '../cell-selection.js';
 import { columnWidths, gridDims, isGrid } from '../grid-model.js';
 import type { CreatableType } from '../grid-view.js';
 import type { GridEditController } from './grid-edit.js';
+import type { EditCheckpoint } from './history.js';
 import type { SideSelection } from '../selection.js';
 
 /** 요소를 드래그로 옮기는 중의 상태 */
@@ -35,8 +36,8 @@ export interface DragState {
   startPxY: number;
   origMmX: number;
   origMmY: number;
-  /** 실제 이동이 시작될 때 생성하는 되돌리기용 스냅샷 */
-  snapshot: string | null;
+  /** 실제 이동이 시작될 때 찍는 되돌리기용 검사점 */
+  snapshot: EditCheckpoint | null;
   /** pointerdown 전에 선택된 요소였는지 여부 */
   wasSelected: boolean;
   /** 함께 이동할 선택 요소의 원래 위치 */
@@ -53,15 +54,16 @@ export interface ResizeState {
   origY: number;
   origW: number;
   origH: number;
-  /** 첫 크기 변경 시 생성하는 되돌리기용 스냅샷 */
-  snapshot: string | null;
+  /** 첫 크기 변경 시 찍는 되돌리기용 검사점 */
+  snapshot: EditCheckpoint | null;
 }
 
 /** 선 끝점을 드래그하는 중의 상태 */
 export interface LineEndState {
   id: string;
   fixed: { x: number; y: number };
-  snapshot: string | null;
+  /** 첫 끝점 이동 시 찍는 되돌리기용 검사점 */
+  snapshot: EditCheckpoint | null;
   orig: { x: number; y: number; w: number; h: number; direction: string | undefined };
 }
 
@@ -69,8 +71,14 @@ export interface LineEndState {
 export interface PointerHost {
   /** 편집 중인 양식 */
   readonly file: SlipTemplateFile | null;
-  /** 조작을 취소하고 조작 직전 상태로 되돌립니다 */
-  restoreSnapshot(snapshot: string): void;
+  /** 조작 직전 상태를 검사점으로 찍습니다 */
+  beginEdit(): EditCheckpoint;
+  /** 검사점을 되돌리기 기록에 넣습니다 */
+  commitEdit(checkpoint: EditCheckpoint): void;
+  /** 조작을 취소하고 검사점 시점으로 되돌립니다 */
+  cancelEdit(checkpoint: EditCheckpoint): void;
+  /** 요소를 직접 바꾼 뒤 문서가 달라졌음을 알립니다 — 화면을 다시 그리기 전에 부릅니다 */
+  touch(): void;
   /** 도형 메뉴를 닫습니다 */
   closeShapeMenu(): void;
   /** 주 선택 요소 */
@@ -116,8 +124,6 @@ export interface PointerHost {
   clearSelection(): void;
   /** 선택한 요소를 수정합니다 */
   updateElement(fn: (el: SlipElement) => void): void;
-  /** 조작 직전 상태를 되돌리기 기록에 넣습니다 */
-  pushUndoSnapshot(snapshot: string): void;
   /** 바뀐 양식을 호스트에 알립니다 */
   emitChange(): void;
   /** 요소가 사용하는 파라미터를 사이드바에서 펼칩니다 */
@@ -437,7 +443,7 @@ export class CanvasPointerController implements ReactiveController {
 
     const el = this.host.findElement(this._drag.id);
     if (!el) return;
-    this._drag.snapshot ??= JSON.stringify(this.host.file);
+    this._drag.snapshot ??= this.host.beginEdit();
 
     const dx = (e.clientX - this._drag.startPxX) / PX_PER_MM;
     const dy = (e.clientY - this._drag.startPxY) / PX_PER_MM;
@@ -485,6 +491,7 @@ export class CanvasPointerController implements ReactiveController {
     }
     this._guideX = guideX;
     this._guideY = guideY;
+    this.host.touch();
     this.host.refresh();
   };
 
@@ -497,7 +504,7 @@ export class CanvasPointerController implements ReactiveController {
     const r = this._resize!;
     const el = this.host.findElement(r.id);
     if (!el) return;
-    r.snapshot ??= JSON.stringify(this.host.file);
+    r.snapshot ??= this.host.beginEdit();
 
     const dx = (e.clientX - r.startPxX) / PX_PER_MM;
     const dy = (e.clientY - r.startPxY) / PX_PER_MM;
@@ -551,6 +558,7 @@ export class CanvasPointerController implements ReactiveController {
     setElementBox(el, round1(right - left), round1(bottom - top));
     this._guideX = guideX;
     this._guideY = guideY;
+    this.host.touch();
     this.host.refresh();
   }
 
@@ -559,7 +567,7 @@ export class CanvasPointerController implements ReactiveController {
     const state = this._lineEnd!;
     const el = this.host.findElement(state.id);
     if (!el || el.type !== 'line') return;
-    state.snapshot ??= JSON.stringify(this.host.file);
+    state.snapshot ??= this.host.beginEdit();
 
     const p = this.paperPoint(e);
     const dx = p.x - state.fixed.x;
@@ -573,14 +581,15 @@ export class CanvasPointerController implements ReactiveController {
     el.position.y = round1(Math.min(p.y, state.fixed.y));
     el.width = round1(Math.abs(dx));
     el.height = round1(Math.abs(dy));
+    this.host.touch();
     this.host.refresh();
   }
 
   onPointerCancel = (): void => {
-    // 포인터 동작이 취소되면 편집 전 스냅샷을 복원하고 드래그 상태를 초기화합니다.
+    // 포인터 동작이 취소되면 편집 전 검사점으로 되돌리고 드래그 상태를 초기화합니다.
     const snapshot = this._drag?.snapshot ?? this._resize?.snapshot ?? this._lineEnd?.snapshot;
     if (snapshot) {
-      this.host.restoreSnapshot(snapshot);
+      this.host.cancelEdit(snapshot);
     }
     this._drag = null;
     this._resize = null;
@@ -595,15 +604,15 @@ export class CanvasPointerController implements ReactiveController {
   };
 
   /**
-   * 드래그·크기 조절·끝점 이동이 실제로 값을 바꿨으면 스냅샷을 되돌리기 기록에 쌓고 변경을 알립니다.
+   * 드래그·크기 조절·끝점 이동이 실제로 값을 바꿨으면 검사점을 되돌리기 기록에 넣고 변경을 알립니다.
    *
-   * @param snapshot - 조작 시작 시 찍어 둔 되돌리기 스냅샷 (없으면 커밋하지 않음)
+   * @param snapshot - 조작 시작 시 찍어 둔 검사점 (없으면 커밋하지 않음)
    * @param changed - 위치·크기가 실제로 바뀌었는지
    * @returns 커밋했으면 true
    */
-  commitIfMoved(snapshot: string | null, changed: boolean): boolean {
+  commitIfMoved(snapshot: EditCheckpoint | null, changed: boolean): boolean {
     if (snapshot !== null && changed) {
-      this.host.pushUndoSnapshot(snapshot);
+      this.host.commitEdit(snapshot);
       this.host.emitChange();
       return true;
     }

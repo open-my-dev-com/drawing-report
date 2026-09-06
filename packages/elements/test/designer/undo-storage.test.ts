@@ -72,7 +72,7 @@ function savedId(el: Element): string | null {
 }
 
 function undoDepth(el: Element): number {
-  return (el as unknown as { _undoStack: unknown[] })._undoStack.length;
+  return (el as unknown as { _history: { undoDepth: number } })._history.undoDepth;
 }
 
 function press(el: Element, key: string, init: KeyboardEventInit = {}): void {

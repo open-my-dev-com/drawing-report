@@ -253,9 +253,9 @@ describe('<slip-designer> 하위 필드 이름 변경', () => {
     );
     const designer = el as unknown as {
       _renameParameterField(listKey: string, key: string, next: string): void;
-      _undoStack: unknown[];
+      _history: { undoDepth: number };
     };
-    const before = designer._undoStack.length;
+    const before = designer._history.undoDepth;
     designer._renameParameterField('items', 'qty', 'count');
     await el.updateComplete;
 
@@ -267,7 +267,7 @@ describe('<slip-designer> 하위 필드 이름 변경', () => {
     expect(file.template.parameters![0]!.fields!.map((f) => f.key)).toEqual(['itemName', 'amount', 'count']);
     const rows = (file.template.sampleValues as Record<string, unknown>).items as Record<string, unknown>[];
     expect(Object.keys(rows[0]!)).toEqual(['itemName', 'amount', 'count']);
-    expect(designer._undoStack.length).toBe(before + 1);
+    expect(designer._history.undoDepth).toBe(before + 1);
 
     // 바뀐 수식은 캔버스에서 그대로 계산됩니다.
     selectElement(el, 'g1');

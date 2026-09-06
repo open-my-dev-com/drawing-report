@@ -44,7 +44,7 @@ type Internals = {
   _outputPage: number;
   _selectedId: string | null;
   _file: SlipTemplateFile;
-  _undoStack: unknown[];
+  _history: { undoDepth: number };
   _selectPage(index: number): void;
 };
 
@@ -328,14 +328,14 @@ describe('<slip-designer> 출력 결과 상태의 자동 복귀', () => {
   it('속성을 바꾸면 돌아가고 변경이 한 번만 적용된다', async () => {
     const el = await mount();
     await enterOutputResult(el);
-    const undoDepth = internals(el)._undoStack.length;
+    const undoDepth = internals(el)._history.undoDepth;
     const input = el.shadowRoot!.querySelector(`.prop-panel input[aria-label="${s.name}"]`) as HTMLInputElement;
     input.value = 'renamed';
     input.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
     expect(internals(el)._gridPlanPreview).toBe(false);
     expect(elementsOf(el)[0]!.name).toBe('renamed');
-    expect(internals(el)._undoStack).toHaveLength(undoDepth + 1);
+    expect(internals(el)._history.undoDepth).toBe(undoDepth + 1);
     el.remove();
   });
 

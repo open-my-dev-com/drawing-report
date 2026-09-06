@@ -7,13 +7,10 @@ import {
   RESERVED_REF_NAMES,
   evaluateFormula,
   diagnoseFormula,
-  planSourcePage,
   SlipLayoutError,
   type FormulaContext,
   type FormulaDiagnosis,
   type FormulaValue,
-  type GridItem,
-  type SourcePagePlan,
   type SlipFile,
   type SlipTemplateFile,
   type SlipElement,
@@ -30,6 +27,8 @@ import {
   FontRegistryController,
   bundledFontSourceKey,
 } from './designer/controllers/font-registry.js';
+import { HistoryController, type HistoryHost } from './designer/controllers/history.js';
+import { PagePlanController, type PagePlanResult } from './designer/controllers/page-plan.js';
 import {
   NO_DESIGNER_FONTS,
   baseFontName,
@@ -98,7 +97,6 @@ import {
   renameParameterReferences,
 } from './designer/parameters.js';
 import type { FormActions } from './designer/render/form-props.js';
-import { sampleItemsOf } from './designer/formula-context.js';
 import { canvas } from './designer/render/canvas.js';
 import { GridCommandsController } from './designer/controllers/grid-commands.js';
 import type { GridCommandsHost } from './designer/controllers/grid-commands.js';
@@ -179,16 +177,6 @@ const LOST_FORMULA_VIEW: FormulaModalView = {
   reserved: [],
 };
 
-const MAX_UNDO = 50;
-
-/**
- * 되돌리기 한 단계 — 양식 스냅샷과 그 시점의 저장 식별자.
- * 불러온 양식을 되돌린 뒤 저장해도 불러온 양식을 덮어쓰지 않도록 식별자를 함께 되살립니다.
- */
-interface UndoEntry {
-  file: string;
-  savedId: string | null;
-}
 /**
  * 업로드할 수 있는 이미지 파일의 기본 최대 크기(바이트).
  * base64로 담기면 약 33% 커지므로 2MB 원본이 파일에는 ~2.7MB로 들어갑니다.
@@ -292,13 +280,18 @@ export class SlipDesigner extends LitElement {
   maxImageBytes = DEFAULT_MAX_IMAGE_BYTES;
 
   private _file: SlipTemplateFile | null = null;
+  /**
+   * 문서 개정 번호 — 양식이 바뀌는 모든 경로에서 `_touch`로 올립니다.
+   * 페이지 계획 캐시는 이 번호로 유효성을 판단하므로 올리지 않은 변경은 이전 계획이 남습니다.
+   */
+  private _revision = 0;
   private _pageIndex = 0;
   /** 현재 양식 페이지에서 보고 있는 출력 페이지 (0부터) */
   private _outputPage = 0;
   /** 선택한 반복 그리드를 원본 행 구조 대신 현재 출력 결과로 표시할지 여부 */
   private _gridPlanPreview = false;
-  /** 현재 양식 페이지의 계획 캐시 — 페이지·샘플 값이 바뀌면 다시 계산합니다 */
-  private _planCache: { key: string; plan: SourcePagePlan | null; error: SlipLayoutError | null } | null = null;
+  /** 현재 양식 페이지의 계획과 캐시 */
+  private readonly _planner = new PagePlanController();
   /** 속성 패널과 크기 조절 핸들이 대상으로 삼는 주 선택 요소 */
   private _selectedId: string | null = null;
   /**
@@ -321,8 +314,8 @@ export class SlipDesigner extends LitElement {
   private _pendingDelete: { id: string; title: string } | null = null;
   /** 사용자 지정 용지 이름의 편집 중 값 */
   private _paperSaveName = '';
-  private _undoStack: UndoEntry[] = [];
-  private _redoStack: UndoEntry[] = [];
+  /** 되돌리기·다시 실행 기록 */
+  private readonly _history = new HistoryController(this._historyHost());
   private _previewMode = false;
   private _previewUrl: string | null = null;
   private _previewError: string | null = null;
@@ -414,11 +407,13 @@ export class SlipDesigner extends LitElement {
 
   constructor() {
     super();
-    // 상태를 갖고 호스트에 갱신을 요청하는 컨트롤러만 등록합니다.
+    // 상태를 갖는 컨트롤러를 등록합니다.
     // `_gridCommands`는 자체 상태가 없고 `_modalFocus`는 갱신을 요청하지 않습니다.
     for (const controller of [
       this._dialogs,
       this._fontRegistry,
+      this._history,
+      this._planner,
       this._pointer,
       this._nudge,
       this._popovers,
@@ -575,7 +570,10 @@ export class SlipDesigner extends LitElement {
       leaveOutputResult: () => owner._leaveOutputResult(),
       get shapeMenuOpen() { return owner._shapeMenuOpen; },
       get renderRoot() { return owner.renderRoot; },
-      restoreSnapshot: (snapshot) => { owner._file = JSON.parse(snapshot) as SlipTemplateFile; },
+      beginEdit: () => owner._history.begin(),
+      commitEdit: (checkpoint) => owner._history.commit(checkpoint),
+      cancelEdit: (checkpoint) => owner._history.cancel(checkpoint),
+      touch: () => owner._touch(),
       closeShapeMenu: () => { owner._shapeMenuOpen = false; },
       clearSideSelection: () => { owner._sideSelection = null; },
       pageElements: () => owner._currentElements(),
@@ -587,7 +585,6 @@ export class SlipDesigner extends LitElement {
       keepSelection: (id) => owner._keepSelection(id),
       clearSelection: () => owner._clearSelection(),
       updateElement: (fn) => owner._updateElement(fn),
-      pushUndoSnapshot: (snapshot) => owner._pushUndoSnapshot(snapshot),
       emitChange: () => owner._emitChange(),
       expandParameterOfElement: (id) => owner._expandParameterOfElement(id),
       gridDelta: (value) => owner._gridDelta(value),
@@ -606,9 +603,22 @@ export class SlipDesigner extends LitElement {
       get file() { return owner._file; },
       get selectedIds() { return owner._selectedIds; },
       findElement: (id) => owner._findElement(id),
-      pushUndoSnapshot: (snapshot) => owner._pushUndoSnapshot(snapshot),
+      beginEdit: () => owner._history.begin(),
+      commitEdit: (checkpoint) => owner._history.commit(checkpoint),
       emitChange: () => owner._emitChange(),
+      touch: () => owner._touch(),
       refresh: () => owner.requestUpdate(),
+    };
+  }
+
+  /** 되돌리기 기록이 문서에 요청하는 것 */
+  private _historyHost(): HistoryHost {
+    const owner = this;
+    return {
+      get file() { return owner._file; },
+      setFile: (file) => { owner._file = file; owner._touch(); },
+      get savedId() { return owner._forms.savedId; },
+      restoreSavedId: (id) => owner._forms.restoreSavedId(id),
     };
   }
 
@@ -657,8 +667,8 @@ export class SlipDesigner extends LitElement {
       previewMode: this._previewMode,
       selectedId: this._selectedId,
       hasClipboard: this._clipboard !== null,
-      undoDepth: this._undoStack.length,
-      redoDepth: this._redoStack.length,
+      undoDepth: this._history.undoDepth,
+      redoDepth: this._history.redoDepth,
       pageIndex: this._pageIndex,
       showBadges: this._showBadges,
       setShowBadges: (on) => { this._showBadges = on; this.requestUpdate(); },
@@ -943,8 +953,10 @@ export class SlipDesigner extends LitElement {
     this._error = null;
     this._resetPanelErrors();
     this._clearSelection();
-    this._undoStack = [];
-    this._redoStack = [];
+    this._history.reset();
+    // 아래 모든 경로가 양식을 바꾸므로 여기서 개정 번호를 한 번 올리고 이전 계획을 버립니다.
+    this._touch();
+    this._planner.invalidate();
     this._previewMode = false;
     this._previewError = null;
     this._pageIndex = 0;
@@ -1042,29 +1054,13 @@ export class SlipDesigner extends LitElement {
   // Undo / Redo
   // ---------------------------------------------------------------------------
 
-  private _pushUndo(): void {
-    if (!this._file) return;
-    this._pushUndoSnapshot(JSON.stringify(this._file));
+  /** 양식이 바뀌었음을 기록합니다 — 페이지 계획 캐시가 이 번호로 다시 계산할지 판단합니다. */
+  private _touch(): void {
+    this._revision += 1;
   }
 
-  private _pushUndoSnapshot(snapshot: string): void {
-    this._undoStack.push({ file: snapshot, savedId: this._forms.savedId });
-    this._redoStack = [];
-    if (this._undoStack.length > MAX_UNDO) this._undoStack.shift();
-  }
-
-  /**
-   * 되돌리기 한 단계를 되살립니다 — 양식과 그 시점의 저장 식별자를 함께 돌려놓습니다.
-   *
-   * @param from - 꺼낼 쪽
-   * @param to - 지금 상태를 넣을 쪽
-   */
-  private _restoreUndoEntry(from: UndoEntry[], to: UndoEntry[]): void {
-    if (from.length === 0 || !this._file) return;
-    to.push({ file: JSON.stringify(this._file), savedId: this._forms.savedId });
-    const entry = from.pop()!;
-    this._file = JSON.parse(entry.file) as SlipTemplateFile;
-    this._forms.restoreSavedId(entry.savedId);
+  /** 되돌리기·다시 실행으로 양식이 바뀐 뒤 페이지·선택을 맞추고 변경을 알립니다. */
+  private _afterHistoryRestore(): void {
     this._clampPageIndex();
     this._validateSelection();
     this._emitChange();
@@ -1111,12 +1107,12 @@ export class SlipDesigner extends LitElement {
 
   private _undo(): void {
     this._leaveOutputResult();
-    this._restoreUndoEntry(this._undoStack, this._redoStack);
+    if (this._history.undo()) this._afterHistoryRestore();
   }
 
   private _redo(): void {
     this._leaveOutputResult();
-    this._restoreUndoEntry(this._redoStack, this._undoStack);
+    if (this._history.redo()) this._afterHistoryRestore();
   }
 
   /** 현재 페이지 인덱스를 문서의 페이지 범위로 제한합니다. */
@@ -1190,8 +1186,9 @@ export class SlipDesigner extends LitElement {
   private _addPage(): void {
     this._leaveOutputResult();
     if (!this._file) return;
-    this._pushUndo();
+    this._history.record();
     this._file.template.pages.splice(this._pageIndex + 1, 0, { elements: [] });
+    this._touch();
     this._pageIndex += 1;
     this._clearSelection();
     this._sideSelection = null;
@@ -1203,8 +1200,9 @@ export class SlipDesigner extends LitElement {
   private _deletePage(): void {
     this._leaveOutputResult();
     if (!this._file || this._pageCount() <= 1) return;
-    this._pushUndo();
+    this._history.record();
     this._file.template.pages.splice(this._pageIndex, 1);
+    this._touch();
     this._clampPageIndex();
     this._clearSelection();
     this._sideSelection = null;
@@ -1341,7 +1339,7 @@ export class SlipDesigner extends LitElement {
     const elements = this._currentElements();
     if (!elements || !this._file) return;
 
-    this._pushUndo();
+    this._history.record();
 
     const id = crypto.randomUUID();
     const { paper } = this._file.template;
@@ -1424,6 +1422,7 @@ export class SlipDesigner extends LitElement {
     this._sideSelection = null;
     // 새 요소가 사용하는 파라미터를 정의 목록에 등록합니다 — 변경 이벤트로 내보내는 파일에 함께 담깁니다.
     this._ensureElementParameterDef(element);
+    this._touch();
     this._emitChange();
     this.requestUpdate();
   }
@@ -1444,7 +1443,7 @@ export class SlipDesigner extends LitElement {
     const elements = this._currentElements();
     if (!elements || !this._clipboard || this._clipboard.length === 0) return;
 
-    this._pushUndo();
+    this._history.record();
 
     // 복사한 그룹에는 원본과 다른 그룹 ID를 부여합니다.
     const groupRemap = new Map<string, string>();
@@ -1471,6 +1470,7 @@ export class SlipDesigner extends LitElement {
     this._selectedId = pasted[0]!.id;
     this._selectedIds = new Set(pasted.map((el) => el.id));
     this._sideSelection = null;
+    this._touch();
     this._emitChange();
     this.requestUpdate();
   }
@@ -1500,10 +1500,11 @@ export class SlipDesigner extends LitElement {
     const ids = this._selectedIds;
     if (!elements.some((el) => ids.has(el.id))) return;
 
-    this._pushUndo();
+    this._history.record();
     for (let i = elements.length - 1; i >= 0; i -= 1) {
       if (ids.has(elements[i]!.id)) elements.splice(i, 1);
     }
+    this._touch();
     this._clearSelection();
     this._sideSelection = null;
     this._emitChange();
@@ -1537,8 +1538,9 @@ export class SlipDesigner extends LitElement {
       return;
     }
     this._resetPanelErrors();
-    this._pushUndo();
+    this._history.record();
     fn(el);
+    this._touch();
     this._emitChange();
     this.requestUpdate();
   }
@@ -1905,8 +1907,9 @@ export class SlipDesigner extends LitElement {
     const preset = this._presetList()[index];
     if (!preset) return;
 
-    this._pushUndo();
+    this._history.record();
     this._file = preset.create();
+    this._touch();
     // 프리셋은 새 양식이므로 이전에 불러온 양식의 저장 대상을 잇지 않습니다.
     this._forms.reset();
     this._clearSelection();
@@ -1973,9 +1976,10 @@ export class SlipDesigner extends LitElement {
     const target = this._pageIndex + delta;
     if (target < 0 || target >= pages.length) return;
 
-    this._pushUndo();
+    this._history.record();
     const [moved] = pages.splice(this._pageIndex, 1);
     pages.splice(target, 0, moved!);
+    this._touch();
     this._pageIndex = target;
     this._emitChange();
     this.requestUpdate();
@@ -2108,8 +2112,9 @@ export class SlipDesigner extends LitElement {
     const idx = elements.findIndex((el) => el.id === id);
     if (idx < 0) return;
 
-    this._pushUndo();
+    this._history.record();
     elements.splice(idx, 1);
+    this._touch();
     if (this._selectedIds.has(id)) {
       const next = new Set(this._selectedIds);
       next.delete(id);
@@ -2360,28 +2365,14 @@ export class SlipDesigner extends LitElement {
   // Render: canvas
   // ---------------------------------------------------------------------------
 
-  private _pagePlan(): { plan: SourcePagePlan | null; error: SlipLayoutError | null } {
-    const file = this._file;
-    const page = file?.template.pages[this._pageIndex];
-    if (!file || !page) return { plan: null, error: null };
-    const itemsByGrid = new Map<string, readonly GridItem[]>();
-    for (const el of page.elements) {
-      if (el.type === 'grid' && el.repeat !== undefined) {
-        itemsByGrid.set(el.id, sampleItemsOf(el, file.template.sampleValues));
-      }
-    }
-    const key = JSON.stringify([this._pageIndex, file.template.paper, page, [...itemsByGrid.entries()]]);
-    if (this._planCache?.key === key) return this._planCache;
-    let plan: SourcePagePlan | null = null;
-    let error: SlipLayoutError | null = null;
-    try {
-      plan = planSourcePage(file.template.paper, page, itemsByGrid, this._evalLocale);
-    } catch (cause) {
-      if (!(cause instanceof SlipLayoutError)) throw cause;
-      error = cause;
-    }
-    this._planCache = { key, plan, error };
-    return this._planCache;
+  /** 현재 양식 페이지의 계획 — 문서 개정·페이지·평가 로케일이 같으면 캐시를 재사용합니다 */
+  private _pagePlan(): PagePlanResult {
+    return this._planner.plan({
+      file: this._file,
+      pageIndex: this._pageIndex,
+      locale: this._evalLocale,
+      revision: this._revision,
+    });
   }
 
   /** 현재 양식 페이지의 계획 오류 메시지 (없으면 null) */
@@ -2565,8 +2556,9 @@ export class SlipDesigner extends LitElement {
     // 유효한 편집이 적용되면 이전 입력 오류를 지웁니다.
     this._resetPanelErrors();
     if (!this._file) return;
-    this._pushUndo();
+    this._history.record();
     fn(this._file);
+    this._touch();
     this._emitChange();
     this.requestUpdate();
   }
@@ -3538,8 +3530,9 @@ export class SlipDesigner extends LitElement {
       return;
     }
     this._resetPanelErrors();
-    this._pushUndo();
+    this._history.record();
     fn(el);
+    this._touch();
     this._emitChange();
     this.requestUpdate();
   }
@@ -3657,8 +3650,9 @@ export class SlipDesigner extends LitElement {
       this._forms.fail(this._strings.designer.onlyTemplate);
       return;
     }
-    this._pushUndo();
+    this._history.record();
     this._file = file;
+    this._touch();
     this._forms.markLoaded(id);
     this._clearSelection();
     this._sideSelection = null;
