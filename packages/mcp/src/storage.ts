@@ -11,7 +11,6 @@ import {
   readFile,
   realpath,
   rename,
-  stat,
   unlink,
   writeFile,
 } from 'node:fs/promises';
@@ -29,6 +28,14 @@ import {
   type SlipListPage,
   type StorageAdapter,
 } from '@omdc-slipkit/core';
+import {
+  LIST_METRICS,
+  ListMetadataCache,
+  statCandidates,
+  type CandidateStat,
+  type ListCacheResult,
+  type ListMetrics,
+} from './list-cache.js';
 
 /** 파일 암호화에 사용할 문자열 또는 32바이트 원시 키. */
 export type FileSystemStorageKey = string | Uint8Array;
@@ -63,6 +70,8 @@ export class FileSystemStorage implements StorageAdapter {
   readonly rootDir: string;
   private readonly locale: string | undefined;
   private readonly encryption: FileSystemStorageOptions['encryption'];
+  /** 목록 조회가 쓰는 인스턴스 메모리 캐시. 다른 인스턴스와 결과를 나누지 않는다 */
+  private readonly listCache = new ListMetadataCache();
 
   /**
    * @param options - 기준 디렉터리, 오류 메시지 언어와 암호화 설정
@@ -71,6 +80,11 @@ export class FileSystemStorage implements StorageAdapter {
     this.rootDir = realRootDir(options.rootDir);
     this.locale = options.locale;
     this.encryption = options.encryption;
+    // 계측 값은 공개 API를 늘리지 않으려고 열거되지 않는 심볼 속성으로만 노출한다.
+    Object.defineProperty(this, LIST_METRICS, {
+      value: this.listCache.metrics,
+      enumerable: false,
+    });
   }
 
   /**
@@ -109,6 +123,7 @@ export class FileSystemStorage implements StorageAdapter {
     } catch (error) {
       throw new SlipStorageError('io', reasonOf(error));
     }
+    this.listCache.invalidate(this.cacheKey(abs));
   }
 
   /**
@@ -152,11 +167,15 @@ export class FileSystemStorage implements StorageAdapter {
       }
       throw new SlipStorageError('io', reasonOf(error));
     }
+    this.listCache.invalidate(this.cacheKey(abs));
   }
 
   /**
    * 기준 디렉터리(하위 디렉터리 포함)의 `.slip` 파일 목록을 반환한다.
    * 읽거나 복호화할 수 없는 파일과 심볼릭 링크(링크된 디렉터리 안의 파일 포함)는 목록에서 제외한다.
+   *
+   * 이름 탐색과 `lstat`은 조회할 때마다 다시 하고, 파일이 바뀌지 않았으면 본문을 다시 읽지 않는다.
+   * 한 페이지와 다음 페이지 존재 여부를 판정할 만큼 모이면 남은 후보는 열어 보지 않는다.
    *
    * @param filter - 종류·검색어 필터 (검색어는 제목과 경로에 부분 일치)
    * @param cursor - 이전 페이지가 돌려준 nextCursor
@@ -164,6 +183,8 @@ export class FileSystemStorage implements StorageAdapter {
    * @throws SlipStorageError 디렉터리 조회 실패(io)·잘못된 커서(io) 시
    */
   async list(filter?: SlipListFilter, cursor?: string): Promise<SlipListPage> {
+    const metrics = this.listCache.metrics;
+    metrics.listCalls += 1;
     const offset = cursor === undefined ? 0 : Number.parseInt(cursor, 10);
     if (Number.isNaN(offset) || offset < 0) {
       throw new SlipStorageError('io', mcpText(this.locale).badCursor());
@@ -172,6 +193,7 @@ export class FileSystemStorage implements StorageAdapter {
     let names: string[];
     try {
       const entries = await readdir(this.rootDir, { recursive: true, withFileTypes: true });
+      metrics.directoryEntries += entries.length;
       names = entries
         .filter((entry) => entry.isFile() && entry.name.endsWith('.slip'))
         .map((entry) => path.relative(this.rootDir, path.join(entry.parentPath, entry.name)))
@@ -179,14 +201,31 @@ export class FileSystemStorage implements StorageAdapter {
     } catch (error) {
       throw new SlipStorageError('io', reasonOf(error));
     }
+    metrics.candidates += names.length;
+    // 이번 탐색에서 사라진 경로는 캐시에 남겨 두지 않는다.
+    this.listCache.retain(new Set(names));
 
+    const stats = await statCandidates(
+      names.map((name) => path.join(this.rootDir, name)),
+      metrics,
+    );
+
+    // 한 페이지와 다음 페이지 존재 여부를 판정할 만큼 모이면 남은 후보는 열어 보지 않는다.
+    const needed = offset + LIST_PAGE_SIZE + 1;
     const items: SlipListItem[] = [];
-    for (const name of names) {
-      const item = await this.listItem(name);
-      if (item === null) continue;
+    for (let index = 0; index < names.length && items.length < needed; index += 1) {
+      const name = names[index] as string;
+      const info = stats[index];
+      if (info === null || info === undefined) continue;
+      const result =
+        this.listCache.lookup(name, info.fingerprint) ??
+        (await this.listCache.resolve(name, info.fingerprint, () => this.readListItem(name, info)));
+      if (!('item' in result)) continue;
+      const item = result.item;
       if (filter?.kind !== undefined && item.kind !== filter.kind) continue;
       if (filter?.query !== undefined && !matchesQuery(item, filter.query)) continue;
-      items.push(item);
+      // 호출자가 반환값을 바꿔도 내부 캐시와 다음 조회에 영향을 주지 않게 새 객체로 돌려준다.
+      items.push({ ...item });
     }
 
     const page = items.slice(offset, offset + LIST_PAGE_SIZE);
@@ -197,23 +236,39 @@ export class FileSystemStorage implements StorageAdapter {
     };
   }
 
-  /** 목록 항목 하나를 만든다. 읽지 못하는 파일이면 null을 반환한다. */
-  private async listItem(id: string): Promise<SlipListItem | null> {
+  /** 후보 파일 하나를 목록 항목으로 해석한다. 목록에 넣을 수 없는 파일은 제외 결과가 된다. */
+  private async readListItem(name: string, info: CandidateStat): Promise<ListCacheResult> {
+    // 심볼릭 링크와 일반 파일이 아닌 항목은 본문을 열지 않고 제외한다.
+    if (info.isSymbolicLink || !info.isFile) return { excluded: true };
+    const metrics = this.listCache.metrics;
     try {
-      const abs = this.resolvePath(id);
-      const file = await this.load(id);
-      const info = await stat(abs);
+      const abs = this.resolvePath(name);
+      // 링크된 디렉터리를 거쳐 기준 디렉터리 밖에 닿는 경로는 본문을 읽기 전에 막는다.
+      await assertInsideRootReal(this.rootDir, abs, this.locale, name);
+      const text = await readFile(abs, 'utf8');
+      metrics.bodyReads += 1;
+      metrics.bodyBytes += Buffer.byteLength(text, 'utf8');
+      const file = await this.parseText(text, metrics);
       const title =
         file.kind === 'template' ? file.template.meta.title : file.templateSnapshot.meta.title;
-      return { id, kind: file.kind, title, updatedAt: info.mtime.toISOString() };
+      return { item: { id: name, kind: file.kind, title, updatedAt: info.mtime.toISOString() } };
     } catch {
-      return null;
+      return { excluded: true };
     }
   }
 
-  /** 파일 내용을 파싱한다. 암호화 봉투는 설정된 키와 이전 키를 순서대로 시도한다. */
-  private async parseText(text: string): Promise<SlipFile> {
+  /** 절대 경로를 캐시 키로 쓰는 기준 디렉터리 기준 상대 경로로 바꾼다. */
+  private cacheKey(abs: string): string {
+    return path.relative(this.rootDir, abs);
+  }
+
+  /**
+   * 파일 내용을 파싱한다. 암호화 봉투는 설정된 키와 이전 키를 순서대로 시도한다.
+   * 계측 객체를 넘기면 파싱·복호화 횟수를 센다.
+   */
+  private async parseText(text: string, metrics?: ListMetrics): Promise<SlipFile> {
     if (!isEncryptedSlipFile(text)) {
+      if (metrics !== undefined) metrics.parses += 1;
       return parseSlipFile(text, this.localeOptions());
     }
     if (!this.encryption) {
@@ -223,7 +278,10 @@ export class FileSystemStorage implements StorageAdapter {
     let lastError: unknown;
     for (const key of keys) {
       try {
-        return await decryptSlipFile(text, key, this.localeOptions());
+        if (metrics !== undefined) metrics.decryptAttempts += 1;
+        const file = await decryptSlipFile(text, key, this.localeOptions());
+        if (metrics !== undefined) metrics.parses += 1;
+        return file;
       } catch (error) {
         lastError = error;
       }

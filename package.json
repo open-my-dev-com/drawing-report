@@ -20,6 +20,7 @@
     "bench": "pnpm --filter @omdc-slipkit/core build && node scripts/benchmark.mjs",
     "bench:designer": "pnpm --filter @omdc-slipkit/core build && pnpm --filter @omdc-slipkit/elements build && node scripts/bench-designer.mjs",
     "bench:fonts": "pnpm --filter @omdc-slipkit/core build && pnpm --filter @omdc-slipkit/elements build && node scripts/bench-fonts.mjs",
+    "bench:mcp-list": "pnpm --filter @omdc-slipkit/core build && pnpm --filter @omdc-slipkit/elements build && pnpm --filter @omdc-slipkit/mcp build && node scripts/bench-mcp-list.mjs",
     "typecheck": "pnpm -r --filter './packages/*' run typecheck",
     "demo": "pnpm --filter slipkit-demo dev",
     "demo:react": "pnpm --filter slipkit-demo-react dev",
