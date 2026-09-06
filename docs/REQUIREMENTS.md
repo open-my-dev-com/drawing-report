@@ -91,6 +91,8 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 | `DIST-15` | React 래퍼는 React의 표준 props와 `ref`를 기저 커스텀 엘리먼트에 전달해야 한다. | `SlipViewer`·`SlipDesigner`·`SlipForm`이 실제 `slip-*` 요소를 가리키는 React 19 `ref`를 받고 `className`·`style`·`id`·`title`·`role`·`tabIndex`·`aria-*`·`data-*`와 표준 DOM 이벤트 props를 전달한다. `src`, 설정 props와 `onSlipChange`·`onSlipIssue`는 spread로 덮어쓸 수 없고 `children`·`dangerouslySetInnerHTML`은 props 타입에 없다. | ADR-003, ADR-079 |
 | `DIST-16` | 다섯 패키지의 공개 export는 allowlist로 고정하고 실제 tarball에서 검증해야 한다. | 루트와 공개 서브패스의 런타임 값·타입 이름이 allowlist와 정확히 일치하고, 제거한 이름은 tarball 루트에서 import되지 않는다. 폐기 경고나 호환 shim은 두지 않는다. | ADR-074, ADR-079 |
 | `DIST-17` | 패키지 통합 API와 구현 세부를 구분해야 한다. | Elements·MCP가 사용하는 core의 `elementBounds`, `filterVisibleOnPage`, `planSourcePage`, `SlipLayoutError`, `RESERVED_REF_NAMES`, `GridFragment`, `GridItem`, `GridPlan`, `PlannedBand`, `SourcePagePlan`은 용도를 문서화한 채 유지하고, `planGrid`·`visiblePageRange`·`GridFlow`·`ElementPlacement`·`PlanPaper`와 MCP의 PDF 링크 서버 API는 루트에서 제공하지 않는다. | ADR-079 |
+| `DIST-18` | Elements의 배포 크기와 동봉 폰트 청크 크기는 결정적인 바이트 예산 안에 있어야 한다. | `pnpm verify:font-budget`이 `verify`의 build 다음에 실행되어 `pnpm pack` tarball 6,300,000 B, unpacked 12,000,000 B, 루트 진입점 정적 import closure raw 760,000 B·gzip 170,000 B, Pretendard 청크 raw 4,300,000 B·gzip 2,650,000 B, Noto Sans JP 청크 raw 6,500,000 B·gzip 3,400,000 B, 디코딩 데이터 Pretendard Regular·Bold 각 1,600,000 B와 Noto Sans JP 4,850,000 B 가운데 하나라도 넘으면 실패한다. 청크는 해시 이름을 하드코딩하지 않고 `exports`와 `dist/index.js`의 정적 import closure·동적 import 대상으로 분류하며, 분류 실패와 청크 누락도 실패로 보고한다. | ADR-082 |
+| `DIST-19` | 동봉 폰트 로딩 비용은 재현 가능한 명령으로 측정해야 한다. | `pnpm bench:fonts`가 Core·Elements를 다시 빌드·pack하고 깨끗한 소비자에 설치한 뒤 기본 폰트 `en`·`ko`·`ja`와 호스트 `getFonts` 네 시나리오를 격리된 cold run으로 측정해, tarball·unpacked 크기, 루트 정적 closure raw·gzip, 폰트 청크 raw·gzip, 디코딩 폰트 바이트, 단계별 요청 URL·횟수·전송 바이트, `import`·`loadDefaultFonts` median·p95, Node `heapUsed`·`arrayBuffers`·RSS 변화, Chromium `usedJSHeapSize` 변화, 반복 횟수와 실행 환경을 JSON으로 남긴다. 시간·메모리 수치는 보고값이며 CI 상한이 아니다. | ADR-082 |
 
 ## 5. 양식 디자이너
 
@@ -386,6 +388,7 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 | `CONF-11` | 호스트가 이미지 입력 크기 제한을 조정할 수 있어야 한다. | 디자이너와 작성 폼에서 `maxImageBytes` 설정이 적용된다. | ADR-036 |
 | `CONF-12` | 한 인스턴스에서 성공한 `getFonts` 조회 결과를 재사용해야 한다. | 같은 `SlipKit`을 디자이너와 렌더링에 함께 사용해도 성공한 공급 함수 호출은 한 번만 발생한다. 조회에 실패하면 다음 호출에서 다시 시도한다. | ADR-069 |
 | `CONF-13` | React·Vue 래퍼에서 선택 prop을 생략하거나 제거하면 Web Component 기본값을 유지해야 한다. | `slipkit`·`settings`·`presets`·`storage`·`locale`·`maxImageBytes`를 지정한 경우에만 프로퍼티로 전달하고 제거하면 최초 기본값으로 복원한다. | ADR-076 |
+| `CONF-14` | 동봉 폰트 청크는 실제 폰트 해석이 처음 필요한 시점에만 읽어야 한다. | Elements 루트 import와 `<slip-designer>`·`<slip-form>`·`<slip-viewer>` 생성만으로는 폰트 청크 요청이 0이다. 첫 폰트 해석 전에 설정된 `getFonts`가 비어 있지 않은 목록을 주면 폰트 청크를 읽지 않는다. `getFonts`가 없거나 빈 목록이면 첫 해석에서 Pretendard·Noto Sans JP 청크를 각 한 번만 읽고, 같은 로케일의 Designer·Form·Viewer는 같은 Promise를 재사용해 추가 요청이 0이다. 실제 tarball 소비자의 Chromium에서 단계별 요청 수로 검증한다. | ADR-082 |
 
 ## 13. 국제화
 
@@ -402,6 +405,7 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 | `I18N-09` | `NUMBER_TO_KOREAN`은 한국어 전용 함수로 유지해야 한다. | 일본어 로케일에서도 일본어 대자 변환으로 동작하지 않는다. | ADR-042 |
 | `I18N-10` | 사용자 대면 오류 메시지는 로케일에 맞는 언어로 표시해야 한다. | 파싱, 검증, 수식, 렌더링과 암호화의 오류 메시지가 `locale`에 따라 영어(기본), 한국어 또는 일본어로 나온다. | ADR-060 |
 | `I18N-11` | 형식 함수의 기본 로케일은 `en-US`여야 한다. | `locale`을 지정하지 않으면 `FORMAT_NUMBER`가 `en-US` 형식으로 표기한다. | ADR-060 |
+| `I18N-12` | 동봉 기본 폰트 목록은 로케일과 무관하게 같아야 한다. | `loadDefaultFonts()`·`loadDefaultFonts('ko')`·`loadDefaultFonts('en')`·`loadDefaultFonts('ja')`가 모두 `Pretendard`, `Pretendard-Bold`, `Noto Sans JP` 순서의 세 폰트를 돌려주고, 한국어·영어는 Pretendard만, 일본어는 Noto Sans JP만 대체 폰트로 표시한다. 로케일은 대체 폰트 선택과 캐시 구분에만 쓰이며 로케일별로 폰트를 줄이지 않는다. | ADR-042, ADR-064, ADR-082 |
 
 ## 14. 보안과 신뢰 경계
 

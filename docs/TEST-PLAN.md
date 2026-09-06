@@ -116,6 +116,7 @@ Chromium도 설치되어 있어야 합니다.
 | npm·pnpm 설치 | 서로 분리된 깨끗한 소비자 프로젝트가 tarball만 설치하고, pnpm 소비자는 Corepack의 pnpm 10.33.0을 사용하는지 |
 | Node.js 공개 API | ESM·CommonJS·JSON Schema·PDF·MCP CLI가 공개 진입점으로 동작하고 내부 `dist` 경로는 거부되는지 |
 | 브라우저 공개 API | Elements·React·Vue 소비자가 빌드되고 Chromium에서 만든 PDF가 `%PDF`로 시작하는지 |
+| 폰트 청크 요청 | Chromium 소비자에서 루트 import·요소 생성의 폰트 청크 요청이 0이고, 첫 렌더 전에 설정한 호스트 `getFonts` 경로도 0인지 확인한다. 기본 폰트 최초 해석에서는 Pretendard·Noto Sans JP 청크가 각 1회, 세 컴포넌트가 공유한 뒤 추가 요청이 0이며 뷰어가 PDF를 만드는지 확인한다. |
 | 실패 진단 | 실패 단계와 명령을 표시하고 요청 시 임시 디렉터리를 보존하는지 |
 
 ### 5.6 PR과 배포 워크플로
@@ -131,6 +132,26 @@ Chromium도 설치되어 있어야 합니다.
 | 순서와 재개 | `core` → `elements` → `react` → `vue` → `mcp` 순서를 지키고 E404·같은 SRI·다른 SRI·조회 오류를 구분하는지 |
 | 결과 보고 | dry-run과 외부 설정 미완료를 실제 배포 성공과 구분해 Job Summary에 남기는지 |
 
+### 5.7 폰트 예산
+
+`pnpm verify:font-budget`(`scripts/verify-font-budget.mjs`)은 `verify`의 build 다음에 실행되어 Elements의
+결정적인 산출물 바이트를 상한과 비교합니다. 청크는 해시가 붙은 파일 이름을 하드코딩하지 않고 `package.json`의
+`exports`가 가리키는 폰트 서브패스와 `dist/index.js`의 정적 import closure에서 찾은 동적 import 대상으로 분류합니다.
+
+| 항목 | 상한 |
+|---|---:|
+| Elements tarball (`pnpm pack`) | 6,300,000 B |
+| Elements unpacked | 12,000,000 B |
+| 루트 정적 JS closure raw / gzip | 760,000 B / 170,000 B |
+| Pretendard 청크 raw / gzip | 4,300,000 B / 2,650,000 B |
+| Noto Sans JP 청크 raw / gzip | 6,500,000 B / 3,400,000 B |
+| Pretendard Regular / Bold 디코딩 데이터 | 각 1,600,000 B |
+| Noto Sans JP 디코딩 데이터 | 4,850,000 B |
+
+검사 자체는 합성 dist로 정상, 상한 초과, 청크 누락, 분류 실패(같은 종류 두 청크·`exports` 불일치·예산에 있는
+폰트 이름 없음)를 `scripts/verify-font-budget/budget.test.mjs`에서 시험하고, 실제 dist에 대한 분류와 통과도 함께
+확인합니다.
+
 ## 6. 부하·성능 시험
 
 ### 6.1 두 갈래로 나눠 본다
@@ -140,7 +161,7 @@ Chromium도 설치되어 있어야 합니다.
 | 브라우저 | 조작이 끊기지 않는지 | 주 스레드 점유 시간, 큰 이미지·문서의 메모리 사용량 |
 | Node.js 서버 | 서버에서 여러 전표를 동시에 만들 때 버티는지 | 단일 렌더 시간, 동시 렌더 수, 처리량, 메모리 사용량 |
 
-이번 공개 전 점검에서는 **Node.js 기준선**과 Designer 편집 조작(6.6)을 측정합니다. 브라우저 실측 일부와 서버 동시 처리량은 아직 측정하지 않았습니다 (6.4).
+이번 공개 전 점검에서는 **Node.js 기준선**, Designer 편집 조작(6.6)과 동봉 폰트 로딩(6.7)을 측정합니다. 브라우저 실측 일부와 서버 동시 처리량은 아직 측정하지 않았습니다 (6.4).
 
 ### 6.2 측정 방법
 
@@ -214,6 +235,43 @@ Chromium도 설치되어 있어야 합니다.
 캐시 적중 때문에 34회였고, 수정 뒤에는 이동 프레임마다 revision이 올라 120회 계산하지만 직렬화가 없어
 전체 시간은 줄었습니다. Node의 heapUsed 변화(약 50MB·145MB)는 happy-dom 자체 캐시이며 Chromium에서는
 같은 시나리오의 보존 메모리가 0.1MB 이하입니다.
+
+### 6.7 동봉 폰트 로딩
+
+`pnpm bench:fonts`(`scripts/bench-fonts.mjs`)는 Core·Elements를 빌드하고 `pnpm pack`한 뒤 깨끗한 임시 소비자에
+tarball을 설치해, 기본 폰트 `en`·`ko`·`ja`와 호스트 `getFonts` 네 시나리오를 측정합니다.
+
+- cold run 격리: Node.js는 반복마다 새 자식 프로세스, Chromium은 캐시를 끈 새 브라우저 컨텍스트
+- 단계: 루트 import → 세 요소 생성 → 폰트 해석(`loadDefaultFonts` 또는 호스트 폰트 공급) → 세 컴포넌트 공유(같은
+  `slipkit`·양식으로 뷰어 PDF 렌더까지). 단계마다 요청 URL·횟수·전송 바이트를 나눠 기록합니다
+- 정적 측정: tarball·unpacked, 루트 정적 import closure raw·gzip, 폰트 청크 raw·gzip, 디코딩 폰트 바이트와 예산 결과
+- 시간·메모리: `import`·`loadDefaultFonts` median·p95, Node `heapUsed`·`arrayBuffers`·RSS 변화, Chromium
+  `usedJSHeapSize` 변화. 반복 횟수와 실행 환경(Node·Chromium 버전, CPU, 메모리)을 JSON에 함께 남깁니다
+
+시간·메모리 수치는 실행 환경에 따라 달라지므로 CI 임계값으로 쓰지 않습니다. CI가 고정하는 것은 5.7의 바이트
+예산과 5.5의 요청 경계입니다.
+
+측정 환경: Node v22.22.2, Intel Xeon 2.10GHz 4코어, 16,075MB, Chromium 141.0.7390.37, 예열 1회 + 본 측정 5회, 기준 커밋 `9bc7621`의 dist.
+
+Chromium (컨텍스트마다 cold, 캐시 비활성; 전송 바이트는 `vite preview`가 gzip한 크기):
+
+| 시나리오 | import 요청 (전송 B) | resolve 요청 (전송 B) | share 추가 폰트 청크 요청 | import median / p95 (ms) | resolve median / p95 (ms) | resolve heap Δ median (B) |
+|---|---|---|---:|---:|---:|---:|
+| en | elements 청크 1 (1,124,930) | Pretendard 청크 1 (2,540,719) + Noto Sans JP 청크 1 (3,237,095) | 0 | 227.3 / 260.8 | 310.9 / 353.4 | +29,138,687 |
+| ko | elements 청크 1 (1,124,930) | Pretendard 청크 1 (2,540,719) + Noto Sans JP 청크 1 (3,237,095) | 0 | 234.3 / 245.8 | 299.1 / 304.6 | +29,138,595 |
+| ja | elements 청크 1 (1,124,930) | Pretendard 청크 1 (2,540,719) + Noto Sans JP 청크 1 (3,237,095) | 0 | 229.1 / 237.2 | 294.0 / 309.5 | +29,138,815 |
+| user (호스트 `getFonts`) | elements 청크 1 (1,124,930) | 호스트 폰트 1 (1,574,352), 폰트 청크 0 | 0 | 243.0 / 268.3 | 17.2 / 20.4 | +1,585,854 |
+
+Node.js cold run (반복마다 새 프로세스, `--expose-gc`; import heapUsed Δ는 네 시나리오 모두 약 +35.7MB, RSS Δ 약 +203~211MB):
+
+| 시나리오 | import median / p95 (ms) | 해석·렌더 median / p95 (ms) | 읽힌 폰트 청크 | 해석 heapUsed Δ (B) | 해석 arrayBuffers Δ (B) | 해석 RSS Δ (B) |
+|---|---:|---:|---:|---:|---:|---:|
+| en | 2,464.9 / 2,545.6 | `loadDefaultFonts` 77.1 / 84.8 | 2 | +20,983,400 | +7,942,756 | +52,314,112 |
+| ko | 2,419.6 / 2,489.9 | `loadDefaultFonts` 82.3 / 84.5 | 2 | +20,982,944 | +7,942,756 | +52,678,656 |
+| ja | 2,419.6 / 2,427.1 | `loadDefaultFonts` 74.7 / 84.5 | 2 | +20,982,560 | +7,789,958 | +28,454,912 |
+| user (호스트 `getFonts`) | 2,427.7 / 2,506.8 | `render` 160.1 / 176.5 (PDF 25,298 B) | 0 | +1,275,232 | +1,446,857 | +6,668,288 |
+
+세 기본 폰트 시나리오는 로케일과 무관하게 같은 두 청크를 `resolve` 단계에서 각 1회 요청하고, 같은 `slipkit`을 받은 Designer·Form·Viewer는 `share` 단계에서 폰트 청크를 다시 요청하지 않습니다(뷰어·폼이 만든 PDF blob 2건만 추가). 호스트 폰트 시나리오는 어느 단계에서도 폰트 청크를 요청하지 않습니다. `import` 단계의 elements 청크(vite build가 Elements·Core·lit를 묶은 것)와 페이지 로드 3건(HTML·진입 모듈·preload 도우미)은 모든 시나리오에서 같습니다. Node의 `import` 약 2.4초는 lit·pdfme·fontkit 전체를 읽는 시간이며, `loadDefaultFonts`는 두 청크 읽기와 base64 디코딩(7,942,752 B)을 포함합니다.
 
 ## 7. 보안 시험
 
@@ -309,6 +367,9 @@ WCAG 2.2 AA의 관련 성공 기준을 참고하되, 자동 검사로 잡히지 
 # 검증 게이트 — 순서는 루트 package.json의 verify 스크립트에 있다
 pnpm verify
 
+# 폰트 예산 검사만 다시 실행 (verify의 build 다음에 자동으로 실행된다)
+pnpm verify:font-budget
+
 # 패키지 소비자 검증 — 첫 실행 전에 관리형 Chromium을 설치한다
 pnpm exec playwright install chromium
 pnpm verify:packages
@@ -324,6 +385,9 @@ pnpm bench
 
 # Designer 편집 조작 계측 — Core·Elements 빌드까지 함께 실행한다
 pnpm bench:designer
+
+# 동봉 폰트 로딩 계측 — Core·Elements 빌드·pack과 임시 소비자 설치까지 함께 실행한다 (레지스트리 접근 필요)
+pnpm bench:fonts
 
 # 의존성 취약점
 pnpm audit
