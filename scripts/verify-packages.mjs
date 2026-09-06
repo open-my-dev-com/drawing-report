@@ -4,7 +4,7 @@
  *
  * 워크스페이스에 남은 `dist`에 기대지 않도록 산출물을 지우고 다시 빌드한 뒤, 다섯 패키지를
  * 실제 tarball로 만들어 내용·정적 검사(publint·attw)를 거치고, npm과 pnpm 임시 소비자
- * 프로젝트에 설치해 Node·Vite·React·Vue·MCP CLI·브라우저 PDF 시나리오를 실행한다. 공개 export 표면은
+ * 프로젝트에 설치해 Node·Vite·React·Vue·MCP CLI·브라우저 PDF·동봉 폰트 청크 요청 시나리오를 실행한다. 공개 export 표면은
  * 허용 목록(`verify-packages/fixtures/public-exports.json`)과 대조한다 — 런타임 이름은 Node에서 다섯 패키지를
  * 직접 import해, 타입 이름은 `public-types` 픽스처를 tsc로 검사해 확인한다.
  *
@@ -21,6 +21,8 @@ import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writ
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchChromium, runFontScenario, countRequests, PHASES, FONT_CHUNK_KINDS } from './bench-fonts/chromium.mjs';
+import { writeHostFont } from './bench-fonts/host-font.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FIXTURES = path.join(ROOT, 'scripts', 'verify-packages', 'fixtures');
@@ -275,6 +277,9 @@ async function main() {
         return { command: 'vite build browser-pdf', ...result };
       });
       if (built) await browserPdfScenario(pm, consumer, browserOut, exec);
+
+      // 6. 폰트 청크 요청 — 동봉 폰트 청크가 폰트 해석 시점에만, 각각 한 번만 읽히는지 Chromium에서 확인한다.
+      await browserFontRequestsScenario(pm, consumer, extractDir, exec);
     }
   } finally {
     report();
@@ -346,6 +351,122 @@ async function browserPdfScenario(pm, consumer, outDir, exec) {
       stopPreview(preview);
     }
   });
+}
+
+/**
+ * `en`·`user` 시나리오의 단계별 요청이 동봉 폰트 계약과 어긋나는 점을 모은다.
+ *
+ * - `en`: `import`·`elements` 단계에 폰트 청크 요청이 없고, `resolve` 단계에 Pretendard 1 + Noto Sans JP 1,
+ *   `share` 단계에 없다 (세 컴포넌트가 같은 Promise를 재사용). 뷰어가 PDF를 만든다.
+ * - `user`: 모든 단계에 폰트 청크 요청이 없고 `host-font.otf` 요청이 정확히 1이다. 뷰어가 PDF를 만든다.
+ *
+ * @param {Record<string, Awaited<ReturnType<typeof runFontScenario>>>} results - 시나리오 이름 → 실행 결과
+ * @returns {string[]} 어긋난 점. 비어 있으면 통과
+ */
+function fontRequestProblems(results) {
+  const problems = [];
+  const labels = { 'font-pretendard': 'Pretendard 청크', 'font-noto-sans-jp': 'Noto Sans JP 청크' };
+  for (const [scenario, result] of Object.entries(results)) {
+    for (const error of result.errors) problems.push(`${scenario}: ${error}`);
+    for (const name of PHASES) {
+      const phase = result.phases[name];
+      for (const kind of FONT_CHUNK_KINDS) {
+        const expected = scenario === 'en' && name === 'resolve' ? 1 : 0;
+        const actual = countRequests(phase.requests, [kind]).count;
+        if (actual !== expected) problems.push(`${scenario} ${name}: ${labels[kind]} 요청 ${actual} (기대 ${expected})`);
+      }
+      for (const request of phase.requests.filter((item) => item.failed)) problems.push(`${scenario} ${name}: 요청 실패 ${request.url}`);
+    }
+    const hostFont = PHASES.reduce((sum, name) => sum + countRequests(result.phases[name].requests, ['host-font']).count, 0);
+    const expectedHostFont = scenario === 'user' ? 1 : 0;
+    if (hostFont !== expectedHostFont) problems.push(`${scenario}: host-font.otf 요청 ${hostFont} (기대 ${expectedHostFont})`);
+    if (result.phases.share.detail.viewer !== 'pdf') problems.push(`${scenario} share: 뷰어 상태 ${String(result.phases.share.detail.viewer)} (기대 pdf)`);
+  }
+  return problems;
+}
+
+/**
+ * 시나리오의 단계별 폰트 청크·호스트 폰트 요청 수와 전송 바이트를 한 줄로 적는다.
+ *
+ * @param {Awaited<ReturnType<typeof runFontScenario>>} result - 실행 결과
+ * @returns {string} 예: `import 0 / elements 0 / resolve P1(2,540,719 B)+N1(3,237,095 B) / share 0`
+ */
+function fontRequestDetail(result) {
+  return PHASES.map((name) => {
+    const requests = result.phases[name].requests;
+    const parts = [
+      ['P', countRequests(requests, ['font-pretendard'])],
+      ['N', countRequests(requests, ['font-noto-sans-jp'])],
+      ['H', countRequests(requests, ['host-font'])],
+    ].filter(([, count]) => count.count > 0).map(([tag, count]) => `${tag}${count.count}(${count.bytes.toLocaleString('en-US')} B)`);
+    return `${name} ${parts.length === 0 ? '0' : parts.join('+')}`;
+  }).join(' / ');
+}
+
+/**
+ * `font-requests` 픽스처를 빌드해 vite preview로 제공하고, Chromium에서 `?scenario=en`·`?scenario=user`를 차례로
+ * 돌려 단계별 폰트 청크 요청 수를 검증한다. 호스트 폰트 파일은 추출한 elements tarball의 Pretendard 청크에서 파생한다.
+ *
+ * @param {string} pm
+ * @param {string} consumer
+ * @param {string} extractDir
+ * @param {(bin: string, args: string[], options?: object) => Promise<{ code: number; stdout: string; stderr: string }>} exec
+ */
+async function browserFontRequestsScenario(pm, consumer, extractDir, exec) {
+  await scenario(
+    `${pm}: font chunk requests (Chromium)`,
+    'en: import·elements 단계 폰트 청크 요청 0, resolve 단계 Pretendard 1 + Noto Sans JP 1, share 단계 0, 뷰어 PDF 생성 · user: 모든 단계 폰트 청크 0, host-font.otf 1, 뷰어 PDF 생성',
+    async () => {
+      const outDir = path.join(consumer, 'out', 'font-requests');
+      const port = 4300 + Math.floor(Math.random() * 500);
+      const command = `vite build font-requests + vite preview --port ${port} + playwright chromium (?scenario=en, ?scenario=user)`;
+      await writeHostFont(
+        path.join(extractDir, 'elements', 'package', 'dist', 'fonts', 'pretendard.js'),
+        path.join(consumer, 'font-requests', 'public', 'host-font.otf'),
+      );
+      const build = await exec('vite', ['build', 'font-requests', '--outDir', outDir, '--logLevel', 'warn']);
+      if (build.code !== 0) return { command, ...build };
+
+      const previewArgs = ['preview', 'font-requests', '--outDir', outDir, '--port', String(port), '--strictPort', '--host', '127.0.0.1'];
+      const preview = spawn(pm === 'npm' ? 'npx' : 'corepack', pm === 'npm' ? ['--no-install', 'vite', ...previewArgs] : ['pnpm', 'exec', 'vite', ...previewArgs], {
+        cwd: consumer, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32',
+      });
+      let previewLog = '';
+      preview.stdout.on('data', (chunk) => { previewLog += chunk; });
+      preview.stderr.on('data', (chunk) => { previewLog += chunk; });
+      try {
+        const url = `http://127.0.0.1:${port}/`;
+        const ready = await waitForServer(url, 30_000);
+        if (!ready) return { command, code: 1, stdout: previewLog, stderr: 'vite preview did not start' };
+        let browser;
+        try {
+          browser = await launchChromium();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return {
+            command, code: 1, stdout: previewLog,
+            stderr: `Chromium을 시작하지 못했습니다. SLIPKIT_CHROMIUM으로 실행 파일을 지정하거나 'pnpm exec playwright install chromium'을 실행하십시오.\n${message}`,
+          };
+        }
+        try {
+          const results = {};
+          for (const name of ['en', 'user']) results[name] = await runFontScenario(browser, { baseUrl: url, scenario: name });
+          const problems = fontRequestProblems(results);
+          const summary = Object.fromEntries(Object.entries(results).map(([name, result]) => [name, result.phases]));
+          return {
+            command, code: problems.length === 0 ? 0 : 1,
+            stdout: JSON.stringify(summary),
+            stderr: problems.join('\n'),
+            detail: `en: ${fontRequestDetail(results.en)} · user: ${fontRequestDetail(results.user)}`,
+          };
+        } finally {
+          await browser.close();
+        }
+      } finally {
+        stopPreview(preview);
+      }
+    },
+  );
 }
 
 /** vite preview와 그 래퍼(npx·pnpm)를 프로세스 그룹째 종료한다. */

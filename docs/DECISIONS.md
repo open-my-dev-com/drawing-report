@@ -3019,3 +3019,94 @@ CI 임계값으로 쓰지 않고 전후 비교 기록으로만 남깁니다.
 - **구조 공유 스냅샷**: 제자리 수정이 과거 스냅샷을 오염시킵니다.
 - **불변 상태 라이브러리 도입**: 공개 전 범위에서 Designer 전체를 다시 쓰는 비용이 이번 문제의 크기를 넘습니다.
 - **시간 임계값을 CI에 두기**: 공유 실행기에서 값이 크게 흔들려 게이트를 불안정하게 만듭니다.
+
+## ADR-082: 동봉 폰트는 로케일과 무관한 두 청크를 첫 해석 시점에 읽고, 배포 크기는 결정적 바이트 예산으로 지킨다
+
+**상태:** 채택
+
+**관련 결정:** ADR-012, ADR-040, ADR-042, ADR-056, ADR-064, ADR-069, ADR-074, ADR-081
+
+### 배경
+
+Elements는 Pretendard Regular·Bold와 Noto Sans JP Regular 서브셋을 base64 문자열로 담은 JS 모듈로
+동봉합니다. 두 모듈은 tsup의 별도 진입점(`fonts/pretendard`, `fonts/noto-sans-jp`)이라 공개 서브패스로
+직접 가져올 수도 있고, `loadDefaultFonts`가 동적 `import()`로 읽어 세 컴포넌트가 함께 쓰는 로케일별
+Promise를 만들기도 합니다. 폰트 청크는 Pretendard 약 4.2MB, Noto Sans JP 약 6.4MB로 패키지 크기의
+대부분을 차지합니다.
+
+공개 전 품질 검토에서 세 가지가 확정되지 않은 채 남아 있었습니다. 로케일별로 폰트 목록을 줄여
+전송량을 낮출지, 두 청크가 정확히 어느 시점에 읽히는지가 계약으로 고정되어 있는지, 그리고 패키지
+크기가 회귀했을 때 이를 자동으로 잡는 장치와 재현 가능한 계측이 있는지입니다. 지금까지의 크기 값은
+수동 측정에 의존했고 청크 파일 이름에는 빌드마다 바뀔 수 있는 해시가 붙습니다.
+
+### 결정
+
+**로케일별로 폰트 목록을 줄이지 않습니다.** `loadDefaultFonts()`·`loadDefaultFonts('ko')`·
+`loadDefaultFonts('en')`은 `Pretendard`, `Pretendard-Bold`, `Noto Sans JP` 순서로 세 폰트를 돌려주고
+Pretendard만 대체(fallback) 폰트로 표시합니다. `loadDefaultFonts('ja')`도 같은 세 폰트를 같은 순서로
+돌려주고 Noto Sans JP만 대체 폰트로 표시합니다. 로케일은 대체 폰트 선택과 캐시 구분에만 쓰입니다.
+`.slip`에 저장된 명시적 `fontName`은 어느 로케일에서 열어도 같은 폰트로 그려져야 하고, Designer의
+폰트 목록과 캔버스·PDF 결과가 로케일에 따라 달라지면 같은 파일이 다른 문서가 되기 때문입니다. 공개
+루트, `./default-fonts`와 두 폰트 서브패스는 그대로 유지합니다.
+
+**로딩 시점.** Elements 루트를 import하거나 `<slip-designer>`·`<slip-form>`·`<slip-viewer>` 모듈을
+평가하고 요소를 만드는 것만으로는 두 폰트 청크를 읽지 않습니다. 호스트 `getFonts`가 비어 있지 않은
+목록을 돌려주면 동봉 폰트 청크를 전혀 읽지 않습니다. `getFonts`가 없거나 빈 목록이면 실제 폰트 해석이
+처음 필요한 시점(캔버스 폰트 등록, PDF 렌더링, `loadDefaultFonts` 호출)에 두 청크를 각각 한 번만 읽고,
+로케일별 Promise를 같은 출처를 쓰는 Designer·Form·Viewer가 재사용합니다. 첫 렌더, 대체 폰트, 명시적
+폰트 선택과 브라우저·Node.js PDF 결과는 바뀌지 않습니다.
+
+**측정 기준.** `pnpm bench:fonts`(`scripts/bench-fonts.mjs`)가 Core·Elements를 다시 빌드하고 `pnpm pack`한
+뒤 깨끗한 임시 소비자에 tarball을 설치해, 기본 폰트 `en`·`ko`·`ja`와 호스트 `getFonts` 네 시나리오를
+cold run으로 측정합니다. cold run은 반복마다 새 Node.js 자식 프로세스와 캐시를 끈 새 Chromium
+컨텍스트로 격리하고, 각 시나리오를 루트 import → 요소 생성 → 폰트 해석 → 세 컴포넌트 공유의 단계로
+나눠 단계별 요청 URL·횟수·전송 바이트를 기록합니다. 결과에는 tarball·unpacked 크기, 루트 진입점의
+정적 import closure raw·gzip, 각 폰트 청크의 raw·gzip, 디코딩된 폰트별 바이트, `import`와
+`loadDefaultFonts`의 median·p95, Node `heapUsed`·`arrayBuffers`·RSS 변화, Chromium `usedJSHeapSize` 변화,
+반복 횟수와 실행 환경을 JSON으로 남깁니다.
+
+**자동 예산.** `pnpm verify:font-budget`(`scripts/verify-font-budget.mjs`)을 `verify`의 build 다음에
+실행합니다. 청크는 해시가 붙은 파일 이름을 하드코딩하지 않고, `package.json`의 `exports`가 가리키는
+폰트 서브패스 파일과 `dist/index.js`의 정적 import closure에서 찾은 동적 import 대상이 같은 두 파일을
+가리키며 그 모듈이 `PRETENDARD_FONTS`·`NOTO_SANS_JP_FONTS`를 내보낼 때만 분류합니다. 상한은 다음과
+같고 하나라도 넘으면 검증 게이트가 실패합니다.
+
+| 항목 | 상한 |
+|---|---:|
+| Elements tarball (`pnpm pack`) | 6,300,000 B |
+| Elements unpacked | 12,000,000 B |
+| 루트 정적 JS closure raw / gzip | 760,000 B / 170,000 B |
+| Pretendard 청크 raw / gzip | 4,300,000 B / 2,650,000 B |
+| Noto Sans JP 청크 raw / gzip | 6,500,000 B / 3,400,000 B |
+| Pretendard Regular / Bold 디코딩 데이터 | 각 1,600,000 B |
+| Noto Sans JP 디코딩 데이터 | 4,850,000 B |
+
+**시간·메모리는 CI 상한으로 삼지 않습니다.** `import`·`loadDefaultFonts` 시간과 heap 변화는 실행기와
+캐시 상태에 따라 크게 흔들려 게이트로 쓰면 무관한 PR을 막습니다. 이 값은 `bench:fonts`의 보고값으로만
+남기고 같은 환경에서 전후를 비교합니다. CI가 고정하는 것은 결정적인 산출물 바이트(위 예산)와 요청
+경계입니다 — `verify:packages`가 실제 tarball 소비자를 Chromium에서 실행해 루트 import·요소 생성·호스트
+폰트 경로에서 폰트 청크 요청 0, 기본 폰트 최초 해석에서 두 청크 각 1회, 세 컴포넌트 공유에서 추가 요청
+0을 확인합니다.
+
+### 영향
+
+- 폰트 데이터나 Elements 루트 코드가 예산을 넘게 커지면 `pnpm verify`가 build 직후 실패하므로, 크기를
+  늘리는 변경은 예산을 함께 조정하는 결정(후속 ADR)을 수반해야 합니다.
+- 청크 분류가 `exports`와 동적 import 대상에 의존하므로, 폰트 진입점을 추가·이동하면 예산 검사의 분류
+  기준과 시험도 같은 변경에서 갱신해야 합니다.
+- 세 컴포넌트가 로케일별 Promise를 공유하는 계약이 단위 시험(모듈 평가 횟수)과 Chromium 요청 수로
+  고정됩니다. 폰트 해석 경로를 새로 만들 때는 `resolveFonts`를 거쳐야 합니다.
+- 로케일별 목록 축소를 하지 않으므로 일본어 전용 호스트도 Pretendard 청크를 함께 받습니다. 전송량을
+  줄이려는 호스트는 `getFonts`로 필요한 폰트만 공급하거나 폰트 서브패스를 직접 import합니다.
+
+### 기각한 대안
+
+- **로케일별 폰트 목록 축소**(ko·en은 Pretendard만, ja는 Noto Sans JP만): 다른 로케일에서 저장한
+  `fontName`이 미등록 폰트가 되어 Designer 목록·캔버스·PDF가 로케일마다 달라집니다.
+- **루트 import 시점의 즉시 로딩**: 호스트 폰트만 쓰는 소비자도 약 10.6MB를 내려받게 됩니다.
+- **대체 폰트만 먼저 읽고 나머지는 필요할 때 읽기**: Designer 폰트 목록과 명시적 `fontName` 렌더링에
+  전체 목록이 필요해 첫 해석 시점에 두 청크가 모두 필요합니다. 절약이 없고 경로만 늘어납니다.
+- **폰트를 별도 npm 패키지로 분리**: 공개 서브패스와 소비자 설치 방식이 바뀝니다. 공개 전 범위에서는
+  예산과 지연 로딩으로 충분하며 필요성이 확인되면 별도 결정으로 다룹니다.
+- **해시가 붙은 청크 파일 이름을 예산 검사에 하드코딩**: 빌드마다 바뀌어 검사가 깨집니다.
+- **시간·heap 상한을 CI에 두기**: 공유 실행기에서 값이 크게 흔들려 게이트를 불안정하게 만듭니다 (ADR-081과 같은 이유).

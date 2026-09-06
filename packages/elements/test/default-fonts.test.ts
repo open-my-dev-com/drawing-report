@@ -19,6 +19,8 @@ describe('동봉 기본 폰트 (Pretendard, ADR-012)', () => {
   });
 
   it('한국어·영어 로케일에는 동봉 폰트 3종과 Pretendard 대체 폰트를 반환한다', async () => {
+    // 결과뿐 아니라 Promise 자체를 로케일 사이에서 재사용한다.
+    expect(loadDefaultFonts('ko')).toBe(loadDefaultFonts('en'));
     const a = await loadDefaultFonts();
     const b = await loadDefaultFonts('ko');
     const c = await loadDefaultFonts('en');
