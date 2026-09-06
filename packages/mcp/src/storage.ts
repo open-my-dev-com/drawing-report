@@ -224,7 +224,8 @@ export class FileSystemStorage implements StorageAdapter {
       const item = result.item;
       if (filter?.kind !== undefined && item.kind !== filter.kind) continue;
       if (filter?.query !== undefined && !matchesQuery(item, filter.query)) continue;
-      items.push(item);
+      // 호출자가 반환값을 바꿔도 내부 캐시와 다음 조회에 영향을 주지 않게 새 객체로 돌려준다.
+      items.push({ ...item });
     }
 
     const page = items.slice(offset, offset + LIST_PAGE_SIZE);

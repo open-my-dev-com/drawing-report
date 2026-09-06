@@ -10,8 +10,8 @@
  * 옵션
  * - `--sizes 1000,10000` 평문·raw 키 시나리오의 파일 수 (기본 `1000,10000`)
  * - `--runs N`           본 측정 반복 수 (기본 5). 예열 1회는 따로 돈다
- * - `--json <path>`      전체 원자료를 저장할 파일. 생략하면 `os.tmpdir()` 아래에 만들고 마지막 줄에 경로를 적는다
- * - `--keep`             fixture 임시 디렉터리를 지우지 않는다 (기본은 `finally`에서 지운다)
+ * - `--json <path>`      전체 원자료를 보존할 파일. 생략하면 fixture와 함께 임시로 만들고 정리한다
+ * - `--keep`             fixture와 기본 JSON 원자료를 지우지 않는다 (기본은 `finally`에서 지운다)
  *
  * 측정 대상
  * - 빌드된 `packages/mcp/dist/index.js`의 `FileSystemStorage` 공개 API만 쓴다. 파일 경로로 직접
@@ -129,9 +129,7 @@ const sizes = (arg('--sizes') ?? '1000,10000').split(',').map((value) => Number.
 if (sizes.length === 0 || sizes.some((size) => !Number.isInteger(size) || size < 1)) {
   throw new Error('--sizes 는 쉼표로 구분한 1 이상의 정수여야 한다 (예: 1000,10000)');
 }
-const jsonPath =
-  arg('--json') ??
-  path.join(os.tmpdir(), `slipkit-bench-mcp-list-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+const requestedJsonPath = arg('--json');
 const keep = process.argv.includes('--keep');
 
 /**
@@ -273,6 +271,10 @@ const STAGE_DEFS = [
       const removed = relPathOf(CHURN_INDEX);
       if (page.items.some((item) => item.id === removed)) {
         return `삭제한 파일이 목록에 남아 있다 — ${removed}`;
+      }
+      const added = path.normalize(ADDED_ID);
+      if (!page.items.some((item) => item.id === added)) {
+        return `새로 만든 파일이 목록에 없다 — ${added}`;
       }
       return null;
     },
@@ -609,6 +611,7 @@ async function main() {
   const { FileSystemStorage } = await loadDist('packages/mcp/dist/index.js');
 
   const work = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'slipkit-bench-mcp-list-')));
+  const jsonPath = requestedJsonPath ?? path.join(work, 'result.json');
   const env = {
     node: process.version,
     cpu: os.cpus()[0]?.model ?? 'unknown',
@@ -731,7 +734,11 @@ async function main() {
     process.stdout.write('## 단계별 측정\n\n');
     for (const scenario of scenarios) printScenario(scenario, scenario.summary);
     writeFileSync(jsonPath, JSON.stringify(result, null, 2));
-    process.stdout.write(`JSON: ${jsonPath}\n`);
+    process.stdout.write(
+      requestedJsonPath !== undefined || keep
+        ? `JSON: ${jsonPath}\n`
+        : 'JSON 원자료: fixture 임시 디렉터리와 함께 정리\n',
+    );
   } finally {
     if (keep) process.stdout.write(`fixture 임시 디렉터리 보존: ${work}\n`);
     else rmSync(work, { recursive: true, force: true });

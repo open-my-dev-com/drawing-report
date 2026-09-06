@@ -174,6 +174,19 @@ describe('목록 메타데이터 캐시', () => {
     expect(metrics.cacheMisses).toBe(0);
   });
 
+  it('반환한 목록 항목을 수정해도 내부 캐시와 다음 조회는 바뀌지 않는다', async () => {
+    writeSlip(dir, 'a.slip', templateText('원래 제목'));
+    const storage = new FileSystemStorage({ rootDir: dir });
+
+    const first = await storage.list();
+    first.items[0]!.id = 'changed.slip';
+    first.items[0]!.title = '바뀐 제목';
+
+    const second = await storage.list();
+    expect(second.items[0]).toMatchObject({ id: 'a.slip', title: '원래 제목' });
+    expect(second.items[0]).not.toBe(first.items[0]);
+  });
+
   it('다른 인스턴스는 캐시를 나눠 쓰지 않는다', async () => {
     writeSlip(dir, 'a.slip', templateText('가'));
     const first = new FileSystemStorage({ rootDir: dir });

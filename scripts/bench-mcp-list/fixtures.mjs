@@ -31,8 +31,8 @@ export const TOUCH_INDEX = 0;
 /** 삭제·추가 단계가 지우는 파일의 색인 */
 export const CHURN_INDEX = 1;
 
-/** 삭제·추가 단계가 새로 만드는 파일의 저장 키 (정렬하면 항상 맨 뒤) */
-export const ADDED_ID = 'zz-added.slip';
+/** 삭제·추가 단계가 새로 만드는 파일의 저장 키 (지운 파일 자리에 정렬되어 첫 페이지에 포함) */
+export const ADDED_ID = 'shard-000/slip-00001-added.slip';
 
 /** 더미 텍스트 요소 하나의 기본 글자 수 */
 const PAD_CHARS = 48;
