@@ -92,6 +92,7 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 | `DIST-16` | 다섯 패키지의 공개 export는 allowlist로 고정하고 실제 tarball에서 검증해야 한다. | 루트와 공개 서브패스의 런타임 값·타입 이름이 allowlist와 정확히 일치하고, 제거한 이름은 tarball 루트에서 import되지 않는다. 폐기 경고나 호환 shim은 두지 않는다. | ADR-074, ADR-079 |
 | `DIST-17` | 패키지 통합 API와 구현 세부를 구분해야 한다. | Elements·MCP가 사용하는 core의 `elementBounds`, `filterVisibleOnPage`, `planSourcePage`, `SlipLayoutError`, `RESERVED_REF_NAMES`, `GridFragment`, `GridItem`, `GridPlan`, `PlannedBand`, `SourcePagePlan`은 용도를 문서화한 채 유지하고, `planGrid`·`visiblePageRange`·`GridFlow`·`ElementPlacement`·`PlanPaper`와 MCP의 PDF 링크 서버 API는 루트에서 제공하지 않는다. | ADR-079 |
 | `DIST-18` | Elements의 배포 크기와 동봉 폰트 청크 크기는 결정적인 바이트 예산 안에 있어야 한다. | `pnpm verify:font-budget`이 `verify`의 build 다음에 실행되어 `pnpm pack` tarball 6,300,000 B, unpacked 12,000,000 B, 루트 진입점 정적 import closure raw 760,000 B·gzip 170,000 B, Pretendard 청크 raw 4,300,000 B·gzip 2,650,000 B, Noto Sans JP 청크 raw 6,500,000 B·gzip 3,400,000 B, 디코딩 데이터 Pretendard Regular·Bold 각 1,600,000 B와 Noto Sans JP 4,850,000 B 가운데 하나라도 넘으면 실패한다. 청크는 해시 이름을 하드코딩하지 않고 `exports`와 `dist/index.js`의 정적 import closure·동적 import 대상으로 분류하며, 분류 실패와 청크 누락도 실패로 보고한다. | ADR-082 |
+| `DIST-20` | 부분 배포는 원래 실행이 검증한 artifact로만 재개해야 한다. | 배포가 중간에 실패하면 같은 실행의 `Re-run failed jobs`로 이어서 배포하며, 성공한 `prepare`를 다시 실행하거나 다른 실행·러너·로컬에서 tarball을 다시 만들지 않는다. release artifact 보존 기간은 7일이고, artifact가 없거나 만료됐으면 같은 버전 재개를 중단하고 새 버전의 새 릴리스로 처리한다. pack이 `prepare`에만 있고 두 publish 작업이 같은 이름의 artifact를 내려받아 빌드·pack 없이 배포하는 구조와 실패 안내 문구를 자동 시험으로 고정한다. | ADR-075, ADR-084 |
 | `DIST-19` | 동봉 폰트 로딩 비용은 재현 가능한 명령으로 측정해야 한다. | `pnpm bench:fonts`가 Core·Elements를 다시 빌드·pack하고 깨끗한 소비자에 설치한 뒤 기본 폰트 `en`·`ko`·`ja`와 호스트 `getFonts` 네 시나리오를 격리된 cold run으로 측정해, tarball·unpacked 크기, 루트 정적 closure raw·gzip, 폰트 청크 raw·gzip, 디코딩 폰트 바이트, 단계별 요청 URL·횟수·전송 바이트, `import`·`loadDefaultFonts` median·p95, Node `heapUsed`·`arrayBuffers`·RSS 변화, Chromium `usedJSHeapSize` 변화, 반복 횟수와 실행 환경을 JSON으로 남긴다. 시간·메모리 수치는 보고값이며 CI 상한이 아니다. | ADR-082 |
 
 ## 5. 양식 디자이너
@@ -417,6 +418,8 @@ SlipKit은 다음 사용자를 대상으로 합니다.
 | `SEC-02` | 호스트가 어떤 사용자에게 어떤 구성 요소를 제공할지 결정할 수 있어야 한다. | 호스트가 화면 구성과 업무 상태에 따라 디자이너, 작성 폼 또는 뷰어를 선택해 표시한다. | ADR-003, ADR-004 |
 | `SEC-03` | 클라이언트에서 생성된 파일을 서버가 무조건 신뢰하도록 요구하지 않아야 한다. | 호스트 서버가 파일 검증, 권한 확인과 저장 정책을 별도로 적용할 수 있다. | ADR-004, ADR-006 |
 | `SEC-04` | 전표의 업무 식별자, 개정 번호와 감사 기록은 호스트가 관리해야 한다. | `.slip` 파일만으로 사용자 또는 업무 이력을 증명한다고 설명하지 않는다. | ADR-004, ADR-008 |
+| `SEC-05` | 동봉 데모는 브라우저에 남는 데이터와 삭제 방법을 화면에서 알려야 한다. | 세 데모가 헤더 아래의 항상 보이는 안내에서 지금 양식과 전표가 이 브라우저에 남아 다음 방문에 복원된다는 것, 공용 기기에서는 사용 후 지워야 한다는 것을 `ko`·`en`·`ja`로 표시하고, 자체 키를 설정하지 않아 공개 샘플 암호화 키를 쓰는 동안에는 그 키가 개인정보 보호 수단이 아니므로 민감한 정보를 넣지 말라는 경고를 함께 표시한다. | ADR-084 |
+| `SEC-06` | 데모의 저장 데이터 삭제는 확인을 거치고 대상을 한정해야 한다. | 삭제 버튼이 파괴적 동작을 알리는 확인 대화상자를 열고 취소하면 아무것도 바꾸지 않는다. 확인하면 예약된 자동 저장을 먼저 취소한 뒤 자동 저장 세 키와 화면 기억 키만 지우고 초기 양식·양식 편집 화면·빈 작성 상태로 돌아가며, 그 복귀가 즉시 다시 저장되지 않는다. 내려받은 파일, 같은 origin의 다른 항목과 다른 데모의 DB는 지우지 않고, 일부 삭제 실패는 세 로케일 오류 문구로 알린다. 키 목록과 삭제 순서는 데모 공통 모듈 한 곳에서 관리한다. | ADR-084 |
 
 ### 14.2 발행 상태
 

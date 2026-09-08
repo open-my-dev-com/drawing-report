@@ -33,13 +33,43 @@ header .sep { width: 1px; height: 18px; background: #546e7a; margin: 0 4px; }
 header button[hidden] { display: none; }
 .autosave { margin-left: auto; font-size: 11px; color: #78909c; }
 .status { font-size: 12px; color: #b0bec5; }
-slip-designer, slip-form { flex: 1; min-height: 0; }
+/* 저장 안내 — 헤더 아래에 늘 보이고, 좁은 화면에서는 줄을 바꿔 캔버스를 가리지 않는다 */
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 12px;
+  background: #fff8e1;
+  border-bottom: 1px solid #ffe082;
+  color: #5d4037;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.notice .warn { color: #b71c1c; font-weight: 600; }
+.notice button {
+  margin-left: auto;
+  flex: none;
+  padding: 4px 10px;
+  border: 1px solid #c62828;
+  border-radius: 3px;
+  background: #fff;
+  color: #c62828;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.notice button:hover { background: #ffebee; }
+
+slip-designer, slip-form, slip-viewer { flex: 1; min-height: 0; }
 /* 두 화면을 함께 두고 하나만 보여준다 — 화면을 옮겨도 편집 상태가 남는다 */
 .pane { flex: 1; min-height: 0; display: flex; }
 .pane[hidden] { display: none; }
 .pane > * { flex: 1; min-height: 0; }
 
 dialog {
+  /* 위 * 선택자가 지운 기본 여백을 되살려 화면 가운데에 띄운다 */
+  margin: auto;
   border: none;
   border-radius: 6px;
   padding: 0;
@@ -49,6 +79,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
 dialog form { display: flex; flex-direction: column; min-width: 320px; }
 dialog h2 { padding: 12px 14px; font-size: 14px; border-bottom: 1px solid #e0e0e0; }
 dialog .body { padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+dialog .body p { font-size: 12px; line-height: 1.6; color: #444; max-width: 380px; }
 dialog label { font-size: 12px; color: #666; }
 dialog input {
   padding: 6px 8px;
@@ -74,3 +105,5 @@ dialog .foot button {
   cursor: pointer;
 }
 dialog .foot button[value='ok'] { background: #1a73e8; border-color: #1a73e8; color: #fff; }
+/* 되돌릴 수 없는 삭제는 확인 버튼을 다르게 보여 준다 */
+dialog .foot button.danger { background: #c62828; border-color: #c62828; color: #fff; }
