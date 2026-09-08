@@ -148,16 +148,22 @@ export function sampleModal(d: DialogContext) {
     d.refresh();
   };
 
+  // 열 제목은 파라미터 정의의 논리명을 쓰고, 논리명이 없는 하위 필드만 값 키로 표시합니다.
+  const fieldTitleOf = new Map<string, Map<string, string>>(
+    d.parameters().map((info) => [info.key, new Map(info.fields.map((f) => [f.key, f.title]))]),
+  );
+
   // 반복 파라미터별 열 구조는 해당 파라미터를 처음 사용하는 그리드에서 가져옵니다.
   const tableOf = new Map<string, { key: string; title: string }[]>();
   for (const page of template.pages) {
     for (const el of page.elements) {
       if (el.type !== 'grid' || !el.repeat || tableOf.has(el.repeat.parameter)) continue;
+      const titles = fieldTitleOf.get(el.repeat.parameter);
       const fields: { key: string; title: string }[] = [];
       for (const cell of el.cells) {
         if (inItemBand(el, cell.row) && cell.parameter !== undefined
           && !fields.some((f) => f.key === cell.parameter)) {
-          fields.push({ key: cell.parameter, title: cell.parameter });
+          fields.push({ key: cell.parameter, title: titles?.get(cell.parameter) ?? cell.parameter });
         }
       }
       if (fields.length > 0) tableOf.set(el.repeat.parameter, fields);
@@ -263,7 +269,7 @@ export function sampleModal(d: DialogContext) {
                   <div class="prop-row">
                     <label title=${b.key}>${b.label}</label>
                     <input .value=${sampleScalarText(sample)}
-                      aria-label="${s.sampleData} ${b.key}"
+                      aria-label="${s.sampleData} ${b.label}"
                       @change=${(e: Event) =>
                         d.setSampleValue(b.key, parseSampleScalar((e.target as HTMLInputElement).value))}>
                   </div>`;
@@ -316,7 +322,7 @@ function sampleTable(
         ${rows.map((row, rowIndex) => html`
           ${columns.map((col) => html`
             <input .value=${sampleScalarText(readOwn(row, col.key))}
-              aria-label="${b.key} ${rowIndex + 1} ${col.key}"
+              aria-label="${b.label} ${rowIndex + 1} ${col.title || col.key}"
               @change=${(e: Event) => {
                 const next = rows.map(cloneOwn);
                 const text = (e.target as HTMLInputElement).value;
@@ -325,13 +331,13 @@ function sampleTable(
                 commitRows(next);
               }}>`)}
           <button class="col-remove" title=${s.delete}
-            aria-label="${b.key} ${rowIndex + 1} ${s.delete}"
+            aria-label="${b.label} ${rowIndex + 1} ${s.delete}"
             @click=${() => commitRows(rows.filter((_, i) => i !== rowIndex).map(cloneOwn))}>
             ${icons.pageRemove}
           </button>`)}
       </div>
     </div>
-    <button class="col-add" aria-label="${b.key} ${s.addRow}"
+    <button class="col-add" aria-label="${b.label} ${s.addRow}"
       @click=${() => commitRows([...rows.map(cloneOwn), {}])}>
       ${icons.pageAdd}<span>${s.addRow}</span>
     </button>

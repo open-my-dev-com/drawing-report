@@ -9,6 +9,8 @@ import {
   VOUCHER_KEY,
   clearDemoStorage,
   createDemoStorageQueue,
+  demoFontLocale,
+  getMessages,
   initialTemplate,
   resolveDemoEncryption,
   usesDemoSampleKey,
@@ -194,5 +196,28 @@ describe('usesDemoSampleKey', () => {
     expect(usesDemoSampleKey('my-key')).toBe(false);
     expect(usesDemoSampleKey('  my-key  ')).toBe(false);
     expect(resolveDemoEncryption('my-key').key).toBe('my-key');
+  });
+});
+
+describe('저장 데이터 삭제 안내 문구', () => {
+  // 지우는 대상은 자동 저장분과 마지막으로 보던 화면뿐이므로, 남는 것도 함께 알려야 합니다.
+  const kept = { ko: '내 양식', en: 'My templates', ja: 'マイテンプレート' } as const;
+
+  for (const locale of ['ko', 'en', 'ja'] as const) {
+    it(`${locale} 문구는 지우는 범위와 남는 양식을 함께 알린다`, () => {
+      const messages = getMessages(locale);
+      expect(messages.storageNotice).toContain(kept[locale]);
+      expect(messages.clearConfirmBody).toContain(kept[locale]);
+      expect(messages.cleared).toContain(kept[locale]);
+    });
+  }
+});
+
+describe('demoFontLocale', () => {
+  it('일본어만 일본어 폰트를 고르고 나머지는 기본 폰트를 쓴다', () => {
+    expect(demoFontLocale('ja-JP')).toBe('ja');
+    expect(demoFontLocale('ko-KR')).toBe('ko');
+    expect(demoFontLocale('en-US')).toBe('en');
+    expect(demoFontLocale(undefined)).toBe('en');
   });
 });

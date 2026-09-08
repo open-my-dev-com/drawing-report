@@ -5,8 +5,9 @@
  * - 실행 ref가 `refs/heads/main`인지
  * - `version`이 정확한 SemVer이고 다섯 패키지의 `package.json` 버전과 모두 같은지
  * - `environment`가 `npm-publish`인지
+ * - `dist_tag`가 허용 목록에 있고, 미리 배포 버전(`1.0.0-beta.1` 등)에 `latest`를 붙이지 않는지
  *
- * 사용: `RELEASE_VERSION=… RELEASE_ENVIRONMENT=… GITHUB_REF=… node scripts/release/inputs.mjs`
+ * 사용: `RELEASE_VERSION=… RELEASE_DIST_TAG=… RELEASE_ENVIRONMENT=… GITHUB_REF=… node scripts/release/inputs.mjs`
  */
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -20,6 +21,12 @@ export const RELEASE_ENVIRONMENT = 'npm-publish';
 
 /** 배포를 허용하는 ref */
 export const RELEASE_REF = 'refs/heads/main';
+
+/** 배포에 허용하는 dist-tag */
+export const DIST_TAGS = ['latest', 'next'];
+
+/** 미리 배포 버전에 붙일 수 없는 dist-tag — 설치 기본값이라 정식 버전만 가리켜야 한다. */
+const STABLE_DIST_TAG = 'latest';
 
 /** semver.org 2.0.0의 정확한 버전 형식 (범위·접두사 없음) */
 const SEMVER =
@@ -36,19 +43,38 @@ export function isExactSemver(version) {
 }
 
 /**
+ * 미리 배포(prerelease) 버전인지 확인한다.
+ *
+ * @param version - 검사할 문자열
+ * @returns `1.0.0-beta.1`처럼 prerelease 식별자가 붙은 정확한 SemVer면 true
+ */
+export function isPrerelease(version) {
+  if (typeof version !== 'string') return false;
+  const match = SEMVER.exec(version);
+  return match !== null && match[4] !== undefined;
+}
+
+/**
  * 배포 입력을 검사해 문제 목록을 돌려준다. 비어 있으면 통과다.
  *
  * @param input - 검사 대상
  * @param input.ref - 실행 ref (`GITHUB_REF`)
  * @param input.version - 요청한 버전
+ * @param input.distTag - 요청한 npm dist-tag
  * @param input.environment - 요청한 GitHub Environment 이름
  * @param input.packageVersions - 패키지 이름별 `package.json` 버전
  * @returns 문제 설명 목록
  */
-export function validateReleaseInputs({ ref, version, environment, packageVersions }) {
+export function validateReleaseInputs({ ref, version, distTag, environment, packageVersions }) {
   const problems = [];
   if (ref !== RELEASE_REF) problems.push(`release must run from ${RELEASE_REF}, got ${ref ?? '(unset)'}`);
   if (!isExactSemver(version)) problems.push(`version must be exact SemVer, got ${version ?? '(unset)'}`);
+  if (!DIST_TAGS.includes(distTag)) {
+    problems.push(`dist_tag must be one of ${DIST_TAGS.join(', ')}, got ${distTag ?? '(unset)'}`);
+  } else if (distTag === STABLE_DIST_TAG && isPrerelease(version)) {
+    // `latest`는 버전을 적지 않은 설치가 받는 태그다. prerelease를 여기에 붙이면 모든 사용자가 받는다.
+    problems.push(`prerelease version ${version} must not use dist_tag ${STABLE_DIST_TAG}`);
+  }
   if (environment !== RELEASE_ENVIRONMENT) {
     problems.push(`environment must be ${RELEASE_ENVIRONMENT}, got ${environment ?? '(unset)'}`);
   }
@@ -82,10 +108,13 @@ if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLTo
   const problems = validateReleaseInputs({
     ref: process.env['GITHUB_REF'],
     version: process.env['RELEASE_VERSION'],
+    distTag: process.env['RELEASE_DIST_TAG'],
     environment: process.env['RELEASE_ENVIRONMENT'],
     packageVersions: await readPackageVersions(root),
   });
   for (const problem of problems) process.stdout.write(`::error::${problem}\n`);
   if (problems.length > 0) process.exit(1);
-  process.stdout.write(`release inputs ok: version ${process.env['RELEASE_VERSION']}, environment ${process.env['RELEASE_ENVIRONMENT']}\n`);
+  process.stdout.write(
+    `release inputs ok: version ${process.env['RELEASE_VERSION']}, dist-tag ${process.env['RELEASE_DIST_TAG']}, environment ${process.env['RELEASE_ENVIRONMENT']}\n`,
+  );
 }

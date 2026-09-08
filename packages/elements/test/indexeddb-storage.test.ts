@@ -374,6 +374,18 @@ describe('IndexedDbStorage 연결 상태', () => {
     expect((await storage.list()).items.map((i) => i.id)).toEqual(['doc']);
   });
 
+  it('저장소 실패는 로케일 문구로 알리고 브라우저가 준 원인은 cause로만 남긴다', async () => {
+    const koKit = createSlipKit({ locale: 'ko' });
+    const storage = new IndexedDbStorage(koKit, { dbName: `test-db-${++dbCounter}` });
+    await storage.save('doc', presets[0]!.create());
+    (await openedDb(storage)).close();
+
+    const error = await storage.list().catch((e: unknown) => e);
+    expect(error).toMatchObject({ name: 'SlipStorageError', code: 'io' });
+    expect((error as Error).message).toBe(getStrings('ko').storage.ioError);
+    expect((error as Error).cause).toBeDefined();
+  });
+
   it('다른 탭이 데이터베이스를 지우면(versionchange) 연결을 닫고 다음 호출에서 새로 만든다', async () => {
     const dbName = `test-vc-${++dbCounter}`;
     const storage = new IndexedDbStorage(plainKit, { dbName });

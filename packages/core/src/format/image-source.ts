@@ -95,6 +95,87 @@ export function inspectImageDataUrl(src: string, options: { maxBytes?: number } 
   return { ok: true, mimeType: actual, bytes };
 }
 
+/** 크기 정보를 담은 JPEG 프레임 시작(SOF) 마커. 산술 부호화와 계층 부호화 변형을 모두 포함한다. */
+const JPEG_FRAME_MARKERS = new Set([
+  0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
+]);
+
+/**
+ * `data:` base64 이미지를 끝까지 디코딩해 PDF에 심을 수 있는 구조인지 확인한다.
+ *
+ * @remarks
+ * 서명만 맞고 내용이 깨진 이미지는 PDF 생성 단계에서야 실패해 어느 요소인지 알 수 없다.
+ * 렌더 전에 PNG 청크와 JPEG 마커를 훑어 크기 정보까지 읽히는지 확인한다.
+ * 전체 바이트를 디코딩하므로 렌더링처럼 한 번만 검사하는 자리에서 사용한다.
+ *
+ * @param src - `data:<mime>;base64,<data>` 문자열
+ * @returns PDF에 심을 수 있는 구조면 `true`
+ */
+export function isEmbeddableImageData(src: string): boolean {
+  const match = DATA_URL.exec(src);
+  if (match === null) return false;
+  const data = match[2] ?? '';
+  const bytes = decodeBase64Prefix(data, decodedBase64Length(data));
+  const mimeType = detectImageMimeType(bytes);
+  if (mimeType === 'image/png') return isCompletePng(bytes);
+  if (mimeType === 'image/jpeg') return isCompleteJpeg(bytes);
+  return false;
+}
+
+/** PNG 청크를 순서대로 훑어 IHDR·IDAT·IEND가 모두 읽히는지 확인한다. */
+function isCompletePng(bytes: Uint8Array): boolean {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = PNG_SIGNATURE.length;
+  let hasHeader = false;
+  let hasData = false;
+  while (offset + 8 <= bytes.length) {
+    const length = view.getUint32(offset);
+    const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+    // 청크 하나는 길이 4바이트 + 종류 4바이트 + 데이터 + CRC 4바이트다.
+    const next = offset + 12 + length;
+    if (next > bytes.length) return false;
+    if (!hasHeader) {
+      if (type !== 'IHDR' || length !== 13) return false;
+      if (view.getUint32(offset + 8) === 0 || view.getUint32(offset + 12) === 0) return false;
+      hasHeader = true;
+    }
+    if (type === 'IDAT') hasData = true;
+    if (type === 'IEND') return hasData;
+    offset = next;
+  }
+  return false;
+}
+
+/** JPEG 마커를 순서대로 훑어 크기를 담은 프레임 시작 구획까지 읽히는지 확인한다. */
+function isCompleteJpeg(bytes: Uint8Array): boolean {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = 2;
+  while (offset < bytes.length) {
+    if (bytes[offset] !== 0xff) return false;
+    // 마커 앞에는 0xFF 채움 바이트가 여러 개 올 수 있다.
+    let markerAt = offset + 1;
+    while (markerAt < bytes.length && bytes[markerAt] === 0xff) markerAt += 1;
+    if (markerAt >= bytes.length) return false;
+    const marker = bytes[markerAt]!;
+    if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      offset = markerAt + 1;
+      continue;
+    }
+    // 크기를 읽기 전에 스캔이 시작되거나 이미지가 끝나면 심을 수 없다.
+    if (marker === 0xd9 || marker === 0xda || marker === 0x00) return false;
+    const lengthAt = markerAt + 1;
+    if (lengthAt + 2 > bytes.length) return false;
+    const length = view.getUint16(lengthAt);
+    if (length < 2 || lengthAt + length > bytes.length) return false;
+    if (JPEG_FRAME_MARKERS.has(marker)) {
+      if (length < 8) return false;
+      return view.getUint16(lengthAt + 3) > 0 && view.getUint16(lengthAt + 5) > 0;
+    }
+    offset = lengthAt + length;
+  }
+  return false;
+}
+
 /** base64 문자열이 디코딩되면 몇 바이트인지 계산한다 (패딩 반영). */
 function decodedBase64Length(data: string): number {
   if (data.length === 0) return 0;

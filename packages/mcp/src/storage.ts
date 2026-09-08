@@ -185,8 +185,10 @@ export class FileSystemStorage implements StorageAdapter {
   async list(filter?: SlipListFilter, cursor?: string): Promise<SlipListPage> {
     const metrics = this.listCache.metrics;
     metrics.listCalls += 1;
-    const offset = cursor === undefined ? 0 : Number.parseInt(cursor, 10);
-    if (Number.isNaN(offset) || offset < 0) {
+    // 커서는 이 저장소가 직접 만든 10진 정수 문자열이다. `12abc`처럼 뒤에 다른 글자가 붙은 값은
+    // 앞부분만 읽히지 않도록 전체가 정수일 때만 받는다.
+    const offset = cursor === undefined ? 0 : /^\d+$/.test(cursor) ? Number(cursor) : Number.NaN;
+    if (!Number.isSafeInteger(offset) || offset < 0) {
       throw new SlipStorageError('io', mcpText(this.locale).badCursor());
     }
 

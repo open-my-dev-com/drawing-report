@@ -699,6 +699,37 @@ describe('조건부 서식 (ADR-062)', () => {
     ).toThrow(SlipRenderError);
   });
 
+  it('값이 없는 조건식은 그 규칙만 건너뛰고 논리값이 아닌 결과만 오류로 알린다', () => {
+    const rules = [
+      { condition: '$(flag)', bold: true },
+      { condition: 'TRUE', borderColor: '#00FF00' },
+    ];
+    expect(resolveConditionalFormats(rules, {})).toEqual({ borderColor: '#00FF00' });
+    expect(resolveConditionalFormats(rules, { flag: true })).toEqual({ bold: true, borderColor: '#00FF00' });
+    expect(() => resolveConditionalFormats(rules, { flag: 1 })).toThrow(/TRUE or FALSE/);
+    expect(() => resolveConditionalFormats(rules, { flag: 'x' })).toThrow(SlipRenderError);
+  });
+
+  it('내용이 비어 있는 조건식은 규칙을 적용하지 않는다', () => {
+    expect(
+      resolveConditionalFormats(
+        [{ condition: '   ', bold: true }, { condition: 'TRUE', italic: true }],
+        {},
+      ),
+    ).toEqual({ italic: true });
+  });
+
+  it('값이 없는 조건식이 있어도 양식 전체를 PDF로 낼 수 있다', async () => {
+    const file = makeTemplateFile();
+    patchElement(file.template, 'total', {
+      formula: undefined,
+      parameter: 'total',
+      conditionalFormats: [{ condition: '$(flag)', fontColor: '#FF0000' }],
+    } as never);
+    const pdf = await renderSlipToPdf(file);
+    expect(pdf.byteLength).toBeGreaterThan(0);
+  });
+
   it('값이 없어 계산할 수 없는 조건은 그 규칙만 건너뛴다', () => {
     const overrides = resolveConditionalFormats(
       [
@@ -1377,6 +1408,16 @@ describe('글자 조판 변환', () => {
       type: 'text', ...base, content: '가나\n다', vertical: true,
     }]));
     expect(inputs[0]!['t1']).toBe('가\n나\n다');
+  });
+
+  it('세로쓰기는 자모를 따로 적은 한글과 결합 악센트를 한 줄에 둔다', () => {
+    // .slip은 문서 문자열을 정규화하지 않으므로 NFD로 적힌 글자가 그대로 들어온다.
+    const decomposed = '각나'.normalize('NFD');
+    const { inputs } = convertSlipFile(makeFile([{
+      type: 'text', ...base, content: `${decomposed}e\u0301`, vertical: true,
+    }]));
+    expect(inputs[0]!['t1']).toBe(`${'각'.normalize('NFD')}\n${'나'.normalize('NFD')}\ne\u0301`);
+    expect((inputs[0]!['t1'] as string).split('\n')).toHaveLength(3);
   });
 
   it('기울임은 자형 폰트가 있을 때만 그 폰트로 바뀐다 (없으면 무시)', () => {

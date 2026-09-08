@@ -2,7 +2,7 @@
 #
 # 이벤트: main을 대상으로 한 pull_request, main으로의 push.
 # 권한: contents: read (모든 작업 공통, 추가 권한 없음).
-# 동시 실행: 같은 PR·브랜치의 이전 실행은 취소한다.
+# 동시 실행: 같은 PR의 이전 실행만 취소한다. main push는 커밋마다 그룹이 달라 앞 커밋 검증이 취소되지 않는다.
 # 작업:
 #   verify (Node 22.13·24 매트릭스) — pnpm install --frozen-lockfile → pnpm verify
 #   schema (Node 24)               — core 빌드 → generate:schemas → 재생성 결과에 변경·미추적 파일이 없어야 통과
@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 defaults:
@@ -56,7 +56,8 @@ jobs:
           # 전역 prefix의 bin 디렉터리를 PATH 앞에 둔다. Windows는 Node 동봉 Corepack이 먼저 잡히기 때문이다.
           prefix="$(npm prefix --global)"
           if [ -d "${prefix}/bin" ]; then bindir="${prefix}/bin"; else bindir="${prefix}"; fi
-          export PATH="$(cygpath -u "${bindir}" 2>/dev/null || printf '%s' "${bindir}"):${PATH}"
+          unixbin="$(cygpath -u "${bindir}" 2>/dev/null || printf '%s' "${bindir}")"
+          export PATH="${unixbin}:${PATH}"
           echo "${bindir}" >> "${GITHUB_PATH}"
           corepack_actual="$(corepack --version)"
           echo "corepack ${corepack_actual} (${bindir})"
@@ -95,7 +96,8 @@ jobs:
           # 전역 prefix의 bin 디렉터리를 PATH 앞에 둔다. Windows는 Node 동봉 Corepack이 먼저 잡히기 때문이다.
           prefix="$(npm prefix --global)"
           if [ -d "${prefix}/bin" ]; then bindir="${prefix}/bin"; else bindir="${prefix}"; fi
-          export PATH="$(cygpath -u "${bindir}" 2>/dev/null || printf '%s' "${bindir}"):${PATH}"
+          unixbin="$(cygpath -u "${bindir}" 2>/dev/null || printf '%s' "${bindir}")"
+          export PATH="${unixbin}:${PATH}"
           echo "${bindir}" >> "${GITHUB_PATH}"
           corepack_actual="$(corepack --version)"
           echo "corepack ${corepack_actual} (${bindir})"
@@ -150,7 +152,8 @@ jobs:
           # 전역 prefix의 bin 디렉터리를 PATH 앞에 둔다. Windows는 Node 동봉 Corepack이 먼저 잡히기 때문이다.
           prefix="$(npm prefix --global)"
           if [ -d "${prefix}/bin" ]; then bindir="${prefix}/bin"; else bindir="${prefix}"; fi
-          export PATH="$(cygpath -u "${bindir}" 2>/dev/null || printf '%s' "${bindir}"):${PATH}"
+          unixbin="$(cygpath -u "${bindir}" 2>/dev/null || printf '%s' "${bindir}")"
+          export PATH="${unixbin}:${PATH}"
           echo "${bindir}" >> "${GITHUB_PATH}"
           corepack_actual="$(corepack --version)"
           echo "corepack ${corepack_actual} (${bindir})"
@@ -192,7 +195,8 @@ jobs:
           # 전역 prefix의 bin 디렉터리를 PATH 앞에 둔다. Windows는 Node 동봉 Corepack이 먼저 잡히기 때문이다.
           prefix="$(npm prefix --global)"
           if [ -d "${prefix}/bin" ]; then bindir="${prefix}/bin"; else bindir="${prefix}"; fi
-          export PATH="$(cygpath -u "${bindir}" 2>/dev/null || printf '%s' "${bindir}"):${PATH}"
+          unixbin="$(cygpath -u "${bindir}" 2>/dev/null || printf '%s' "${bindir}")"
+          export PATH="${unixbin}:${PATH}"
           echo "${bindir}" >> "${GITHUB_PATH}"
           corepack_actual="$(corepack --version)"
           echo "corepack ${corepack_actual} (${bindir})"

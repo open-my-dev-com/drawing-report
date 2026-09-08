@@ -57,7 +57,7 @@ export interface ServeArgs {
 }
 
 /** 명령줄 인자를 해석한 결과 */
-export type CliCommand =
+type CliCommand =
   | { kind: 'help' }
   | { kind: 'version' }
   | { kind: 'serve'; args: ServeArgs }

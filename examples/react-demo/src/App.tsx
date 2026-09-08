@@ -26,6 +26,7 @@ import {
   canResumeVoucher,
   createDemoStorageQueue,
   createStores,
+  demoFontLocale,
   getMessages,
   initialTemplate,
   isCancelled,
@@ -51,13 +52,15 @@ document.title = messages.appTitle('React');
 // 전부 이 인스턴스의 폰트·로케일·암호화 키를 사용한다.
 // 암호화 키는 .env(VITE_SLIPKIT_KEY)에서 한 번 읽고, 없으면 데모 샘플 키를 명시적으로 쓴다.
 const slipKit = createSlipKit({
-  getFonts: () => loadDefaultFonts(locale?.toLowerCase().startsWith('ja') ? 'ja' : 'ko'),
+  // 데모는 PDF 내려받기를 직접 렌더링하므로 동봉 기본 폰트를 명시적으로 공급한다.
+  // 컴포넌트 미리보기는 이 설정이 없어도 같은 기본 폰트로 되돌아간다.
+  getFonts: () => loadDefaultFonts(demoFontLocale(locale)),
   ...(locale === undefined ? {} : { locale }),
   encryption: resolveDemoEncryption(import.meta.env.VITE_SLIPKIT_KEY as string | undefined),
 });
 
 // 호스트가 용지 후보를 공급하는 예시 — 기본 용지 뒤에 추가로 표시된다.
-// 폰트(getFonts)와 바코드 종류(getBarcodeKinds)도 같은 방식으로 공급할 수 있다.
+// 바코드 종류(getBarcodeKinds)도 같은 방식으로 공급하고, 폰트는 위 createSlipKit의 getFonts로 공급한다.
 const designerSettings: SlipDesignerSettings = {
   getPaperSizes: () => [{ name: 'Label 100x150', width: 100, height: 150 }],
 };
@@ -92,6 +95,11 @@ export function App() {
   // 자동 저장은 최신 값을 봐야 하므로 ref로도 들고 있는다
   const latest = useRef({ template, voucher, issued });
   latest.current = { template, voucher, issued };
+
+  /** 자동 저장 정리 작업의 실패도 자동 저장 실패와 같은 수준으로 알린다 */
+  const reportStorageFailure = useCallback((error: unknown) => {
+    setStatus(messages.autosaveFailed(reasonOf(error)));
+  }, []);
 
   const saveNow = useCallback(async () => {
     try {
@@ -200,10 +208,10 @@ export function App() {
     setIssued(file);
     latest.current.voucher = null;
     latest.current.issued = file;
-    void storageQueue.save([[ISSUED_KEY, file]]).catch(() => undefined);
-    void storageQueue.delete([VOUCHER_KEY]).catch(() => undefined);
+    void storageQueue.save([[ISSUED_KEY, file]]).catch(reportStorageFailure);
+    void storageQueue.delete([VOUCHER_KEY]).catch(reportStorageFailure);
     switchMode('view', messages.issued);
-  }, [storageQueue, switchMode]);
+  }, [storageQueue, switchMode, reportStorageFailure]);
 
   /** 지금 화면에서 다루고 있는 파일 — 내려받기 대상 */
   const activeFile = (): SlipFile => {
@@ -252,12 +260,14 @@ export function App() {
           setVoucher(null);
           latest.current.template = file;
           latest.current.voucher = null;
+          // 열기 전에 쓰던 전표 초안까지 지운다 — 남겨 두면 다음 실행에서 되살아난다.
+          void storageQueue.delete([VOUCHER_KEY]).catch(reportStorageFailure);
           setDesignerSrc(serializeSlipFile(file));
           switchMode('design', messages.openedTemplate);
         } else if (file.issued) {
           setIssued(file);
           latest.current.issued = file;
-          void storageQueue.save([[ISSUED_KEY, file]]).catch(() => undefined);
+          void storageQueue.save([[ISSUED_KEY, file]]).catch(reportStorageFailure);
           switchMode('view', messages.openedIssued);
         } else {
           const fromVoucher = templateFromVoucher(file);
@@ -280,7 +290,7 @@ export function App() {
   const newSlip = (): void => {
     setVoucher(null);
     latest.current.voucher = null;
-    void storageQueue.delete([VOUCHER_KEY]).catch(() => undefined);
+    void storageQueue.delete([VOUCHER_KEY]).catch(reportStorageFailure);
     switchMode('fill', messages.newSlip);
   };
 

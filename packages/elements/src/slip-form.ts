@@ -785,6 +785,7 @@ export class SlipForm extends LitElement {
             <input id=${`f-${input.ordinal}`} type="checkbox" .checked=${value === true}
               aria-label=${input.label} ?disabled=${this._issued}
               aria-invalid=${problem !== null ? 'true' : 'false'}
+              aria-describedby=${problem !== null ? `e-${input.ordinal}` : nothing}
               @change=${(e: Event) => this._setValue(input.key, (e.target as HTMLInputElement).checked)}>
             <span>${input.label}</span>
           </label>
@@ -801,6 +802,7 @@ export class SlipForm extends LitElement {
           .value=${inputText(value)}
           aria-label=${input.label} ?disabled=${this._issued}
           aria-invalid=${problem !== null ? 'true' : 'false'}
+          aria-describedby=${problem !== null ? `e-${input.ordinal}` : nothing}
           @change=${(e: Event) =>
             this._setValue(input.key, parseInputValue((e.target as HTMLInputElement).value, input.valueType))}>
         ${this._renderProblem(input)}
@@ -864,22 +866,26 @@ export class SlipForm extends LitElement {
             ${columns.map((col) => html`<span class="col-title">${col.title || col.key}</span>`)}
             <span></span>
             ${rows.map(({ index, row }) => html`
-              ${columns.map((col) => html`
-                <input type=${inputTypeOf(col.valueType)}
-                  step=${col.valueType === 'number' ? 'any' : nothing}
-                  .value=${col.valueType === 'boolean' ? 'on' : inputText(readOwn(row, col.key))}
-                  .checked=${col.valueType === 'boolean' && readOwn(row, col.key) === true}
-                  aria-label="${input.label} ${index + 1} ${col.title || col.key}"
-                  aria-invalid=${scalarProblem(readOwn(row, col.key), col.valueType) !== null ? 'true' : 'false'}
-                  ?disabled=${this._issued}
-                  @change=${(e: Event) => {
-                    // 열에 없는 키도 함께 복사해 행의 다른 데이터를 잃지 않습니다.
-                    const next = { ...row };
-                    const value = cellValue(col, e);
-                    if (value === '') deleteOwn(next, col.key);
-                    else writeOwn(next, col.key, value);
-                    this._updateList(input.key, (list) => { list[index] = next; });
-                  }}>`)}
+              ${columns.map((col) => {
+                const invalid = scalarProblem(readOwn(row, col.key), col.valueType) !== null;
+                return html`
+                  <input type=${inputTypeOf(col.valueType)}
+                    step=${col.valueType === 'number' ? 'any' : nothing}
+                    .value=${col.valueType === 'boolean' ? 'on' : inputText(readOwn(row, col.key))}
+                    .checked=${col.valueType === 'boolean' && readOwn(row, col.key) === true}
+                    aria-label="${input.label} ${index + 1} ${col.title || col.key}"
+                    aria-invalid=${invalid ? 'true' : 'false'}
+                    aria-describedby=${invalid ? `e-${input.ordinal}` : nothing}
+                    ?disabled=${this._issued}
+                    @change=${(e: Event) => {
+                      // 열에 없는 키도 함께 복사해 행의 다른 데이터를 잃지 않습니다.
+                      const next = { ...row };
+                      const value = cellValue(col, e);
+                      if (value === '') deleteOwn(next, col.key);
+                      else writeOwn(next, col.key, value);
+                      this._updateList(input.key, (list) => { list[index] = next; });
+                    }}>`;
+              })}
               <button class="row-remove" title=${t.deleteRow}
                 aria-label="${input.label} ${index + 1} ${t.deleteRow}"
                 ?disabled=${this._issued}

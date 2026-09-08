@@ -63,6 +63,20 @@ function demoLanguage(locale?: string): DemoLocale {
 }
 
 /**
+ * 데모가 PDF 렌더링에 쓸 동봉 기본 폰트의 언어를 고른다.
+ *
+ * @remarks
+ * 컴포넌트는 `getFonts`가 없으면 알아서 동봉 기본 폰트로 되돌아가지만, 데모가 직접 부르는
+ * `slipkit.render`에는 그 대체가 없다. 세 데모가 같은 폰트를 쓰도록 언어 선택을 여기 한 곳에 둔다.
+ *
+ * @param locale - 데모 언어 (생략하거나 지원하지 않는 언어면 영어)
+ * @returns `loadDefaultFonts`에 넘길 언어
+ */
+export function demoFontLocale(locale?: string): DemoLocale {
+  return demoLanguage(locale);
+}
+
+/**
  * 키를 지정하지 않은 데모에서 사용하는 샘플 키.
  * 소스에 포함된 공개 값이므로 실제 데이터 보호에는 쓸 수 없다.
  *
@@ -395,12 +409,12 @@ const KO: DemoMessages = {
   filenameLabel: '파일 이름',
   cancel: '취소',
   download: '내려받기',
-  storageNotice: '작업 중인 양식과 전표는 이 브라우저에 저장되어 다음에 열 때 그대로 복원됩니다. 공용 기기에서는 사용을 마친 뒤 저장 데이터를 삭제하세요.',
+  storageNotice: '작업 중인 양식과 전표는 이 브라우저에 자동 저장되어 다음에 열 때 그대로 복원됩니다. 공용 기기에서는 사용을 마친 뒤 저장 데이터를 삭제하세요 — 「내 양식」으로 저장한 양식은 그대로 남습니다.',
   storageKeyWarning: '데모의 암호화 키는 소스에 공개된 샘플 값이라 개인정보를 지켜 주지 않습니다 — 실제 개인정보나 대외비 내용을 입력하지 마세요.',
   clearConfirmTitle: '저장 데이터를 삭제할까요?',
-  clearConfirmBody: '이 브라우저에 저장된 양식과 작성 중·발행된 전표를 지웁니다. 지운 내용은 되돌릴 수 없고, 이미 내려받은 파일은 그대로 남습니다.',
+  clearConfirmBody: '자동 저장된 양식과 작성 중·발행된 전표, 마지막으로 보던 화면을 지웁니다. 「내 양식」으로 저장한 양식과 이미 내려받은 파일은 그대로 남습니다. 지운 내용은 되돌릴 수 없습니다.',
   clearConfirmOk: '삭제',
-  cleared: '저장 데이터를 삭제했습니다 — 처음 상태로 돌아갑니다',
+  cleared: '자동 저장된 작업 내용을 삭제했습니다 — 처음 상태로 돌아갑니다 (「내 양식」은 그대로입니다)',
   design: '양식을 고칩니다 — 바꾼 내용은 자동으로 저장됩니다',
   fillNew: '값을 채운 뒤 발행하면 나중에 내용이 바뀌지 않았는지 확인할 수 있는 표시가 함께 남습니다',
   fillContinue: '쓰던 전표를 이어서 작성합니다',
@@ -436,12 +450,12 @@ const EN: DemoMessages = {
   filenameLabel: 'File name',
   cancel: 'Cancel',
   download: 'Download',
-  storageNotice: 'The template and vouchers you work on are saved in this browser and restored the next time you open the demo. Delete the saved data when you are done on a shared device.',
+  storageNotice: 'The template and vouchers you work on are autosaved in this browser and restored the next time you open the demo. Delete the saved data when you are done on a shared device — templates you saved to My templates are kept.',
   storageKeyWarning: 'The demo encryption key is a public sample from the source code and protects nothing — do not enter real personal or confidential information.',
   clearConfirmTitle: 'Delete saved data?',
-  clearConfirmBody: 'This deletes the template and the draft and issued vouchers saved in this browser. It cannot be undone, and files you already downloaded are kept.',
+  clearConfirmBody: 'This deletes the autosaved template, the draft and issued vouchers, and the screen you last used. Templates you saved to My templates and files you already downloaded are kept. It cannot be undone.',
   clearConfirmOk: 'Delete',
-  cleared: 'Deleted the saved data — back to the initial state',
+  cleared: 'Deleted the autosaved work — back to the initial state (My templates are kept)',
   design: 'Editing the template — changes are saved automatically',
   fillNew: 'Fill in the values and issue the voucher — an issued voucher carries a mark that shows its content has not been changed',
   fillContinue: 'Continuing the voucher you were working on',
@@ -477,12 +491,12 @@ const JA: DemoMessages = {
   filenameLabel: 'ファイル名',
   cancel: 'キャンセル',
   download: 'ダウンロード',
-  storageNotice: '作業中のテンプレートと伝票はこのブラウザーに保存され、次に開いたときにそのまま復元されます。共用の端末では使い終わったら保存データを削除してください。',
+  storageNotice: '作業中のテンプレートと伝票はこのブラウザーに自動保存され、次に開いたときにそのまま復元されます。共用の端末では使い終わったら保存データを削除してください — 「マイテンプレート」に保存したテンプレートはそのまま残ります。',
   storageKeyWarning: 'デモの暗号化キーはソースに公開されたサンプル値で、個人情報を守るものではありません — 実際の個人情報や機密情報は入力しないでください。',
   clearConfirmTitle: '保存データを削除しますか？',
-  clearConfirmBody: 'このブラウザーに保存されたテンプレートと、作成中・発行済みの伝票を削除します。元に戻せません。ダウンロード済みのファイルはそのまま残ります。',
+  clearConfirmBody: '自動保存されたテンプレートと、作成中・発行済みの伝票、最後に開いていた画面を削除します。「マイテンプレート」に保存したテンプレートとダウンロード済みのファイルはそのまま残ります。元に戻せません。',
   clearConfirmOk: '削除',
-  cleared: '保存データを削除しました — 最初の状態に戻ります',
+  cleared: '自動保存された作業内容を削除しました — 最初の状態に戻ります（「マイテンプレート」はそのまま残ります）',
   design: 'テンプレートを編集します — 変更内容は自動的に保存されます',
   fillNew: '値を入力して発行すると、後から内容が変わっていないことを確認できる印が残ります',
   fillContinue: '作成中の伝票を続けて入力します',

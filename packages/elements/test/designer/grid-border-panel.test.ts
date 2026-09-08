@@ -177,7 +177,9 @@ describe('<slip-designer> 그리드 테두리 캔버스 표시', () => {
     const el = await mount({ borderWidth: 0.6, borderColor: '#CC0000' });
     const box = gridBox(el);
     expect(box.getAttribute('style')).not.toContain('#CC0000');
-    expect(box.getAttribute('style')).toContain('var(--sk-guide-faint)');
+    expect(box.getAttribute('style')).not.toContain('border-width');
+    // 요소 상자에는 편집 안내선만 남습니다 — 저장된 테두리를 그릴 때 붙는 표시가 없습니다.
+    expect(box.classList.contains('has-border')).toBe(false);
     expect(box.querySelector('.grid-outline')).toBeNull();
     // 이전 border*는 셀 경계선에는 그대로 적용된다.
     const cell = box.querySelector('.grid-cell') as HTMLElement;

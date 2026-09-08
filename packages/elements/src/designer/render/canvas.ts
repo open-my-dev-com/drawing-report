@@ -465,11 +465,12 @@ function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourcePagePlan
 
   // 선과 곡선 도형은 PDF 변환 방식에 맞춰 SVG로 그립니다.
   const drawnAsSvg = el.type === 'line' || el.type === 'ellipse' || el.type === 'polygon';
+  // 저장된 테두리를 그리는 요소인지 — 편집 안내선을 겹쳐 그리지 않습니다.
+  let hasBorder = false;
   if (el.type === 'grid') {
     // 셀 경계선과 그리드 테두리는 별도 레이어가 그리므로 요소 상자에는 안내선만 둡니다.
     if (el.backgroundColor !== undefined) style += `;background-color:${el.backgroundColor}`;
     if (el.fontColor !== undefined) style += `;color:${el.fontColor}`;
-    style += ';border-color:var(--sk-guide-faint)';
   } else if (el.type !== 'image' && !drawnAsSvg) {
     const r = el as Record<string, unknown>;
     // 텍스트와 필드는 샘플 값으로 조건부 서식을 미리 적용합니다.
@@ -491,9 +492,7 @@ function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourcePagePlan
       const color = conditional.borderColor ?? (r.borderColor as string | undefined) ?? DEFAULT_BORDER_COLOR;
       style += `;border-color:${color}`;
       style += `;border-width:${(effectiveWidth * PX_PER_MM).toFixed(2)}px`;
-    } else {
-      // 테두리 굵기가 0이면 캔버스 안내선만 표시합니다.
-      style += ';border-color:var(--sk-guide-faint)';
+      hasBorder = true;
     }
     if (el.type === 'rect') {
       // 모서리 반경과 테두리 형태는 사각형 요소에만 적용합니다.
@@ -507,7 +506,9 @@ function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourcePagePlan
   }
 
   return html`
-    <div class="element ${selected ? 'selected' : ''} ${hasLayoutError ? 'layout-error' : ''} type-${el.type}"
+    <div class="element ${selected ? 'selected' : ''} ${hasLayoutError ? 'layout-error' : ''} ${
+      hasBorder ? 'has-border' : ''
+    } type-${el.type}"
          data-id=${el.id}
          tabindex=${hasLayoutError || selected ? '-1' : nothing}
          aria-invalid=${hasLayoutError ? 'true' : nothing}
@@ -1117,7 +1118,7 @@ function cellRectPx(
 }
 
 /** 셀에 표시할 내용 — 계산되지 않는 수식이면 표시할 글 대신 원인을 담습니다 */
-export interface CellPreview {
+interface CellPreview {
   /** 셀에 표시할 글. 수식이 계산되지 않으면 빈 값 */
   text: string;
   /** 수식이 계산되지 않은 원인 — 평가기가 낸 오류 문구. 계산됐으면 null */

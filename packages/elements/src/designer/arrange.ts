@@ -11,7 +11,7 @@ import { elementBounds, type SlipElement } from '@omdc-slipkit/core';
 import { round1 } from './geometry.js';
 
 /** 용지 위의 사각 영역(mm) */
-export interface Box {
+interface Box {
   x: number;
   y: number;
   width: number;

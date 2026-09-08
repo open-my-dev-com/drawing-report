@@ -230,6 +230,29 @@ describe('<slip-form> 값 형식', () => {
     el.remove();
   });
 
+  it('형식이 어긋난 입력은 아래에 보이는 오류 문구를 가리킨다', async () => {
+    const el = await mount(typedVoucher({ qty: 'abc', tags: [{ name: 'a', score: 'x' }] }));
+    const root = el.shadowRoot!;
+    const invalid = Array.from(root.querySelectorAll<HTMLInputElement>('input[aria-invalid="true"]'));
+    expect(invalid.length).toBeGreaterThan(0);
+    for (const input of invalid) {
+      const described = input.getAttribute('aria-describedby');
+      expect(described, input.getAttribute('aria-label') ?? '').not.toBeNull();
+      const hint = root.getElementById(described!);
+      expect(hint?.classList.contains('error')).toBe(true);
+      expect(hint?.textContent?.trim()).not.toBe('');
+    }
+
+    // 값을 고치면 오류 문구와 함께 연결도 사라집니다
+    const qty = inputByLabel(el, '수량');
+    qty.value = '3';
+    qty.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(qty.getAttribute('aria-invalid')).toBe('false');
+    expect(qty.getAttribute('aria-describedby')).toBeNull();
+    el.remove();
+  });
+
   it('형식 오류 문구는 로케일에 따라 세 언어로 표시된다', async () => {
     const el = await mount(typedVoucher({ qty: 'abc' }));
     buttonByLabel(el, strings.form.issue).click();

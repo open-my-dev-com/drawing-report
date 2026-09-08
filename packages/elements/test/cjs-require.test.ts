@@ -23,8 +23,27 @@ function makeCjsProject(): { require: ReturnType<typeof createRequire>; cleanup:
   };
 }
 
+/**
+ * 심볼릭 링크 시험을 건너뛸지 판정한다. Windows에서 링크 생성이 권한 오류(`EPERM`)로 실패할 때만
+ * 건너뛰고, 그 밖의 환경에서는 항상 실행한다.
+ */
+function symlinksUnavailable(): boolean {
+  if (process.platform !== 'win32') return false;
+  const probe = mkdtempSync(join(tmpdir(), 'slipkit-cjs-symlink-'));
+  try {
+    mkdirSync(join(probe, 'target'));
+    symlinkSync(join(probe, 'target'), join(probe, 'link'), 'dir');
+    return false;
+  } catch (error) {
+    return (error as { code?: unknown } | null)?.code === 'EPERM';
+  } finally {
+    rmSync(probe, { recursive: true, force: true });
+  }
+}
+
 describe('동봉 폰트의 CommonJS 소비 (ADR-057)', () => {
-  it('서버에서 폰트 하위 경로를 패키지 이름으로 require할 수 있다', () => {
+  // Windows에서 링크 생성 권한이 없을 때만 건너뛴다.
+  it.skipIf(symlinksUnavailable())('서버에서 폰트 하위 경로를 패키지 이름으로 require할 수 있다', () => {
     if (!existsSync(join(packageRoot, 'dist', 'fonts', 'pretendard.js'))) {
       throw new Error('dist/fonts가 없습니다 — 먼저 @omdc-slipkit/elements를 build한 뒤 실행해야 합니다');
     }

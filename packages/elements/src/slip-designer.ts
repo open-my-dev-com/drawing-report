@@ -1769,6 +1769,8 @@ export class SlipDesigner extends LitElement {
             <div class="canvas-area ${this._pointer.pendingTool ? 'drawing' : ''} ${
               this._showBadges ? 'show-badges' : ''
             }"
+                 role="region"
+                 aria-label=${this._strings.designer.canvasArea}
                  @pointerdown=${this._pointer.onPointerDown}
                  @pointermove=${this._pointer.onPointerMove}
                  @pointerup=${this._pointer.onPointerUp}

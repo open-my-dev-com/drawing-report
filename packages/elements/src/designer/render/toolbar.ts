@@ -98,10 +98,10 @@ export function toolbar(bar: ToolbarActions) {
       )}
       ${iconButton(s.shape, icons.shape, (e) => bar.toggleShapeMenu(e), {
         pressed:
-          bar.shapeMenuOpen ||
           bar.pendingTool === 'rect' ||
           bar.pendingTool === 'ellipse' ||
           bar.pendingTool === 'polygon',
+        expanded: bar.shapeMenuOpen,
         disabled: bar.previewMode,
       })}
       ${iconButton(s.addField, icons.field, () => bar.selectTool('field'), {
@@ -134,13 +134,14 @@ export function toolbar(bar: ToolbarActions) {
       ${iconButton(s.showBadges, icons.badges, () => bar.setShowBadges(!bar.showBadges),
         { pressed: bar.showBadges, disabled: bar.previewMode })}
       ${iconButton(s.grid, icons.grid, (e) => bar.toggleGridMenu(e), {
-        pressed: bar.gridMenuOpen || bar.gridGap !== null,
+        pressed: bar.gridGap !== null,
+        expanded: bar.gridMenuOpen,
         disabled: bar.previewMode,
       })}
     </div>
     <div class="tool-group">
       ${iconButton(s.preset, icons.preset, (e) => bar.togglePresetMenu(e), {
-        pressed: bar.presetMenuOpen,
+        expanded: bar.presetMenuOpen,
         disabled: bar.previewMode,
       })}
     </div>
@@ -249,17 +250,20 @@ function menuKeydown(event: KeyboardEvent, close: () => void): void {
  * @param label - 표시 이름이자 접근성 레이블
  * @param glyph - 버튼에 넣을 아이콘
  * @param onClick - 누를 때 실행할 함수
- * @param opts - 비활성 여부와 눌림 상태
+ * @param opts - 비활성 여부, 눌림 상태와 메뉴 펼침 상태. `expanded`를 주면 메뉴를 여는 버튼으로
+ *   표시합니다(`aria-haspopup`·`aria-expanded`)
  * @returns 툴바 버튼
  */
 function iconButton(
   label: string,
   glyph: TemplateResult,
   onClick: (e: Event) => void,
-  opts: { disabled?: boolean; pressed?: boolean } = {},
+  opts: { disabled?: boolean; pressed?: boolean; expanded?: boolean } = {},
 ) {
   return html`<button title=${label} aria-label=${label}
     aria-pressed=${opts.pressed === undefined ? nothing : String(opts.pressed)}
+    aria-haspopup=${opts.expanded === undefined ? nothing : 'menu'}
+    aria-expanded=${opts.expanded === undefined ? nothing : String(opts.expanded)}
     ?disabled=${opts.disabled === true}
     @click=${onClick}>${glyph}<span class="btn-label">${label}</span></button>`;
 }

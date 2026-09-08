@@ -133,63 +133,34 @@ describe('PDF 링크 서버', () => {
     expect(response.headers.get('x-content-type-options')).toBe('nosniff');
   });
 
-  it('지정한 토큰으로 서버를 띄우고 형식이 잘못된 토큰은 거부한다', async () => {
-    const token = 'shared-token-0123456789';
-    const own = await startPdfLinkServer({ rootDir: dir, port: 0, token });
+  it('서버마다 다른 토큰을 만들고 상태 경로로도 토큰을 알아낼 수 없다', async () => {
+    const own = await startPdfLinkServer({ rootDir: dir, port: 0 });
     try {
       await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
-      expect(own.token).toBe(token);
+      expect(own.token).not.toBe(linkServer.token);
+      // 같은 작업 디렉터리라도 다른 서버의 토큰은 통하지 않는다.
       expect((await fetch(`${own.baseUrl}/doc.pdf`)).status).toBe(200);
+      expect((await fetch(`http://127.0.0.1:${own.port}/${linkServer.token}/doc.pdf`)).status).toBe(404);
+      // 토큰을 붙인 상태 경로도 상태만 돌려주지 않고 파일처럼 404다.
+      expect((await fetch(`${own.baseUrl}/slipkit-mcp/status`)).status).toBe(404);
     } finally {
       await own.close();
     }
-    await expect(startPdfLinkServer({ rootDir: dir, port: 0, token: 'short' })).rejects.toThrow(
-      /at least 16 characters/,
-    );
-    await expect(startPdfLinkServer({ rootDir: dir, port: 0, token: 'has/slash-0123456789' })).rejects.toThrow(
-      /at least 16 characters/,
-    );
   });
 
-  it('같은 작업 디렉터리의 서버가 포트를 쓰고 있으면 같은 토큰을 전달한 경우에만 재사용한다', async () => {
-    const joined = await startOrJoinPdfLinkServer({
-      rootDir: dir,
-      port: linkServer.port,
-      token: linkServer.token,
-    });
-    expect(joined.owned).toBe(false);
-    expect(joined.baseUrl).toBe(linkServer.baseUrl);
-    expect(joined.token).toBe(linkServer.token);
-
-    await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
-    expect((await fetch(`${joined.baseUrl}/doc.pdf`)).status).toBe(200);
-
-    // 재사용한 서버의 close는 기존 서버를 종료하지 않는다.
-    await joined.close();
-    expect((await fetch(`${linkServer.baseUrl}/doc.pdf`)).status).toBe(200);
-  });
-
-  it('토큰이 없거나 다르면 합류하지 않는다', async () => {
+  it('같은 작업 디렉터리의 서버가 포트를 쓰고 있어도 합류하지 않는다', async () => {
     await expect(startOrJoinPdfLinkServer({ rootDir: dir, port: linkServer.port })).rejects.toThrow(
-      /link token to share it/,
+      /used by another slipkit-mcp server for this working directory/,
     );
-    await expect(
-      startOrJoinPdfLinkServer({ rootDir: dir, port: linkServer.port, token: createPdfLinkToken() }),
-    ).rejects.toThrow(/different link token/);
-    // 형식이 잘못된 토큰은 요청해 보지 않고 형식 오류로 거부한다.
-    await expect(
-      startOrJoinPdfLinkServer({ rootDir: dir, port: linkServer.port, token: 'short' }),
-    ).rejects.toThrow(/at least 16 characters/);
   });
 
-  it('토큰이 맞지 않을 때 fallbackToFreePort면 다른 포트에 새 서버를 띄운다', async () => {
+  it('포트가 막혀 있을 때 fallbackToFreePort면 다른 포트에 새 서버를 띄운다', async () => {
     const fallback = await startOrJoinPdfLinkServer({
       rootDir: dir,
       port: linkServer.port,
       fallbackToFreePort: true,
     });
     try {
-      expect(fallback.owned).toBe(true);
       expect(fallback.port).not.toBe(linkServer.port);
       expect(fallback.token).not.toBe(linkServer.token);
       await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
@@ -206,7 +177,6 @@ describe('PDF 링크 서버', () => {
       startOrJoinPdfLinkServer({
         rootDir: path.join(dir, '..'),
         port: linkServer.port,
-        token: linkServer.token,
         fallbackToFreePort: true,
       }),
     ).rejects.toThrow(/different working directory/);

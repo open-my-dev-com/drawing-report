@@ -112,6 +112,8 @@ export class KeyboardNudgeController implements ReactiveController {
     if (!run.moved) return;
     this.host.commitEdit(run.snapshot);
     this.host.emitChange();
+    // 기록이 한 단계 늘었으므로 되돌리기·다시 실행 버튼 상태를 바로 다시 그립니다.
+    this.host.refresh();
   }
 
   /** 진행 중인 이동을 기록하지 않고 버립니다 — 양식을 새로 불러올 때 사용합니다. */

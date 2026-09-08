@@ -129,6 +129,17 @@ describe('FileSystemStorage', () => {
     expect((await storage.list({ query: 'b-doc' })).items).toHaveLength(1);
   });
 
+  it('list는 전체가 10진 정수인 커서만 받는다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    await storage.save('a-doc', makeTemplate());
+
+    expect((await storage.list(undefined, '0')).items).toHaveLength(1);
+    expect((await storage.list(undefined, '1')).items).toEqual([]);
+    for (const bad of ['12abc', ' 1', '1.5', '-1', '0x2', '', '1e3', '9'.repeat(20)]) {
+      await expect(storage.list(undefined, bad)).rejects.toMatchObject({ code: 'io' });
+    }
+  });
+
   it('암호화를 설정하면 봉투로 저장하고 이전 키로도 복호화한다', async () => {
     const encrypted = new FileSystemStorage({ rootDir: dir, encryption: { key: '새-키' } });
     const legacy = new FileSystemStorage({ rootDir: dir, encryption: { key: '옛-키' } });

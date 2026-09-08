@@ -29,6 +29,8 @@ export interface ConditionalFormatOverrides {
  *
  * 값이 없거나 타입이 맞지 않아 계산할 수 없는 조건은 참으로 보지 않고 규칙을
  * 건너뛴다 — 빈 양식과 입력 중인 전표에는 값이 없는 것이 정상 상태이기 때문이다.
+ * 내용이 비어 있는 조건식도 같은 이유로 규칙을 적용하지 않는다. 논리값이 아닌 결과가
+ * 나오는 조건식만 오류로 알린다.
  *
  * @param rules - 조건부 서식 규칙 목록. 생략하면 빈 결과를 반환한다
  * @param scope - 조건식이 참조할 값. 항목 구간 안에서는 전표 값에 현재 항목을 합쳐 전달한다
@@ -48,6 +50,8 @@ export function resolveConditionalFormats(
   const messages = rm(locale);
   const what = options?.subject ?? messages.subjectDefault();
   rules.forEach((rule, index) => {
+    // 편집 중인 빈 조건식은 규칙을 적용하지 않는다.
+    if (rule.condition.trim() === '') return;
     let value: unknown;
     try {
       value = evaluateFormula(rule.condition, {
@@ -63,6 +67,8 @@ export function resolveConditionalFormats(
         messages.conditionFailed(what, index + 1, error instanceof Error ? error.message : String(error)),
       );
     }
+    // 값이 없는 자리는 빈 양식과 입력 중인 전표의 정상 상태이므로 규칙만 건너뛴다.
+    if (value === null || value === undefined) return;
     // 조건식은 논리값을 반환해야 한다. 숫자·문자열의 암묵 변환은 허용하지 않는다.
     if (typeof value !== 'boolean') {
       throw new SlipRenderError(messages.conditionNotBoolean(what, index + 1));

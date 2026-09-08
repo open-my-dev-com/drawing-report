@@ -367,6 +367,31 @@ describe('<slip-designer> 편집 단위', () => {
     el.remove();
   });
 
+  it('키보드 이동을 마치면 툴바의 되돌리기 버튼이 바로 켜진다', async () => {
+    const el = await mountFile(makeSmallFile());
+    const undoButton = (): HTMLButtonElement => toolbarButton(el, strings.designer.undo);
+    expect(undoButton().disabled).toBe(true);
+
+    selectElement(el, 't-1');
+    await el.updateComplete;
+    press(el, 'ArrowRight');
+    await el.updateComplete;
+    // 키를 누르고 있는 동안은 아직 한 단계로 기록되지 않습니다
+    expect(undoButton().disabled).toBe(true);
+
+    release(el, 'ArrowRight');
+    await el.updateComplete;
+    expect(internals(el)._history.undoDepth).toBe(1);
+    expect(undoButton().disabled).toBe(false);
+
+    // 켜진 버튼을 그대로 눌러 되돌릴 수 있습니다
+    undoButton().click();
+    await el.updateComplete;
+    expect(positionOf(el, 't-1')).toEqual({ x: 60, y: 40 });
+    expect(undoButton().disabled).toBe(true);
+    el.remove();
+  });
+
   it('되돌리기·다시 실행은 양식 JSON과 저장 대상을 그대로 되살리고, 되돌린 뒤 새 편집은 다시 실행 기록을 지운다', async () => {
     const loaded = makeSmallFile();
     loaded.template.meta.title = '불러온 양식';

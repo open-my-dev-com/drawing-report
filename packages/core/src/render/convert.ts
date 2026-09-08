@@ -28,7 +28,7 @@ import type {
   PolygonElement,
   TextElement,
 } from '../format/schema.js';
-import { inspectImageDataUrl } from '../format/image-source.js';
+import { inspectImageDataUrl, isEmbeddableImageData } from '../format/image-source.js';
 import { normalizeNumericParameters } from '../format/normalize.js';
 import { readOwn } from '../own-property.js';
 import { SLIP_LIMITS } from '../format/schema.js';
@@ -777,13 +777,15 @@ class SlipToPdfmeConverter {
   ): string {
     const what = rm(this.locale).subjectGridCell(element.name, element.id, cell.row, cell.column);
     if (cell.formula !== undefined) {
+      // 편집 중인 빈 수식은 빈 문자열로 표시한다.
+      if (cell.formula.trim() === '') return '';
       return this.limitText(
         toDisplayText(this.evaluate(cell.formula, context.scope, what, context.reserved), what, this.locale),
         what,
       );
     }
     if (cell.parameter !== undefined) {
-      return this.limitText(toDisplayText(context.scope[cell.parameter], what, this.locale), what);
+      return this.limitText(toDisplayText(readOwn(context.scope, cell.parameter), what, this.locale), what);
     }
     return this.limitText(cell.content ?? '', what);
   }
@@ -1103,11 +1105,17 @@ class SlipToPdfmeConverter {
     throw new SlipRenderError(rm(this.locale).externalUrl(what, src));
   }
 
-  /** `data:` 이미지의 형식·서명·크기를 검사한다. 검증을 거치지 않은 값도 렌더 전에 막는다. */
+  /**
+   * `data:` 이미지의 형식·서명·크기와 PNG·JPEG 구조를 검사한다. 검증을 거치지 않은 값도
+   * 렌더 전에 막고, 서명만 맞고 내용이 깨진 이미지도 어느 요소인지 알 수 있게 여기서 막는다.
+   */
   private checkedImage(src: string, what: string): string {
     const inspection = inspectImageDataUrl(src);
     if (!inspection.ok) {
       throw new SlipRenderError(rm(this.locale).imageInvalid(what, inspection.reason));
+    }
+    if (!isEmbeddableImageData(src)) {
+      throw new SlipRenderError(rm(this.locale).imageInvalid(what, 'damaged'));
     }
     return src;
   }
@@ -1140,6 +1148,8 @@ class SlipToPdfmeConverter {
   private barcodeValue(element: BarcodeElement, what: string): string {
     if (element.content !== undefined) return this.limitText(element.content, what);
     if (element.formula !== undefined) {
+      // 편집 중인 빈 수식은 빈 문자열로 표시한다.
+      if (element.formula.trim() === '') return '';
       return this.limitText(toDisplayText(this.evaluate(element.formula, this.values, what), what, this.locale), what);
     }
     if (element.parameter !== undefined) {

@@ -1246,3 +1246,31 @@ describe('<slip-designer> 그리드 크기 조절', () => {
     el.remove();
   });
 });
+
+// ---------------------------------------------------------------------------
+// 화면과 PDF의 줄바꿈을 맞추는 캔버스 CSS
+// ---------------------------------------------------------------------------
+
+describe('캔버스 CSS — 화면과 PDF의 줄바꿈 위치', () => {
+  /** 줄 첫머리에서 시작하는 규칙 하나의 본문을 잘라 냅니다 */
+  function rule(selector: string): string {
+    const css = canvasStyles.cssText;
+    const start = css.indexOf(`\n    ${selector}`);
+    expect(start, selector).toBeGreaterThan(-1);
+    return css.slice(start, css.indexOf('}', start));
+  }
+
+  it('편집 안내선은 테두리가 아니라 outline이라 요소의 내용 폭을 줄이지 않는다', () => {
+    const element = rule('.element {');
+    expect(element).toContain('border: 0 solid transparent');
+    expect(element).toContain('outline: 1px solid var(--sk-guide-faint)');
+    expect(element).not.toMatch(/border:\s*1px/);
+    // 저장된 테두리를 그리는 요소에서만 안내선을 끕니다 — 인라인 스타일로 끄면 오류 표시까지 지워집니다.
+    expect(rule('.element.has-border {')).toContain('outline: none');
+  });
+
+  it('그리드 셀 미리보기도 텍스트처럼 낱말 단위로 줄을 바꾼다', () => {
+    expect(rule('.element .grid-preview > div {')).toContain('word-break: keep-all');
+    expect(rule('.element .el-content {')).toContain('word-break: keep-all');
+  });
+});

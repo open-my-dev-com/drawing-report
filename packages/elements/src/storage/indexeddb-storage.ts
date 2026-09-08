@@ -66,18 +66,28 @@ function metaOf(record: SlipRecord): SlipMetaRecord {
   return { id: record.id, kind: record.kind, title: record.title, updatedAt: record.updatedAt };
 }
 
+/**
+ * 저장소 실패를 알린다. 화면에 보이는 문구는 로케일 사전을 쓰고, 브라우저가 준 원인은
+ * `cause`로만 남겨 개발자 도구에서 확인할 수 있게 한다.
+ */
+function ioFailure(message: string, cause: unknown): SlipStorageError {
+  const error = new SlipStorageError('io', message);
+  if (cause !== undefined && cause !== null) error.cause = cause;
+  return error;
+}
+
 function request<T>(req: IDBRequest<T>, ioError: string): Promise<T> {
   return new Promise((resolve, reject) => {
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(new SlipStorageError('io', req.error?.message ?? ioError));
+    req.onerror = () => reject(ioFailure(ioError, req.error));
   });
 }
 
 function transactionDone(tx: IDBTransaction, ioError: string): Promise<void> {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(new SlipStorageError('io', tx.error?.message ?? ioError));
-    tx.onabort = () => reject(new SlipStorageError('io', tx.error?.message ?? ioError));
+    tx.onerror = () => reject(ioFailure(ioError, tx.error));
+    tx.onabort = () => reject(ioFailure(ioError, tx.error));
   });
 }
 
@@ -171,7 +181,7 @@ export class IndexedDbStorage implements StorageAdapter {
         settled = true;
         // 데이터베이스 열기에 실패하면 다음 호출에서 다시 시도한다.
         this.dbPromise = null;
-        reject(new SlipStorageError('io', req.error?.message ?? this.messages.ioError));
+        reject(ioFailure(this.messages.ioError, req.error));
       };
     });
     this.dbPromise = promise;
@@ -185,7 +195,7 @@ export class IndexedDbStorage implements StorageAdapter {
       return db.transaction(stores, mode);
     } catch (error) {
       this.dbPromise = null;
-      throw new SlipStorageError('io', error instanceof Error ? error.message : this.messages.ioError);
+      throw ioFailure(this.messages.ioError, error);
     }
   }
 

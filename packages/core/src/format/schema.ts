@@ -1414,7 +1414,7 @@ export function parseSlipFile(json: string, options?: { locale?: string }): Slip
     } catch {
       throw new SlipParseError(fmt().invalidJson());
     }
-    return validateSlipFile(raw);
+    return validateSlipFile(raw, options);
   });
 }
 

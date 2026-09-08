@@ -15,22 +15,31 @@ import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DIST_TAGS } from './inputs.mjs';
 import { sriSha512, verifySha256Sums } from './integrity.mjs';
-
-/** 배포에 허용하는 dist-tag */
-export const DIST_TAGS = ['latest', 'next'];
 
 /**
  * `npm view <name>@<version> dist.integrity --json` 결과를 해석한다.
  *
  * @param result - npm 실행 결과
- * @returns `found`(integrity 포함), `missing`(E404), `error`(그 밖의 실패) 중 하나
+ * @returns `found`(integrity 포함), `missing`(E404), `error`(빈 출력·해석 불가·그 밖의 실패) 중 하나
  */
 export function interpretView(result) {
   if (result.code === 0) {
-    const value = JSON.parse(result.stdout);
+    // `npm view`는 값이 없는 필드를 빈 출력으로 끝내기도 한다. 그대로 JSON으로 읽으면 원인을 알 수 없는
+    // 구문 오류만 남으므로 조회 실패로 분류한다.
+    const raw = typeof result.stdout === 'string' ? result.stdout.trim() : '';
+    if (raw === '') {
+      return { status: 'error', message: 'npm view returned no dist.integrity output' };
+    }
+    let value;
+    try {
+      value = JSON.parse(raw);
+    } catch (error) {
+      return { status: 'error', message: `npm view output is not JSON: ${error instanceof Error ? error.message : String(error)}` };
+    }
     if (typeof value !== 'string' || !value.startsWith('sha512-')) {
-      return { status: 'error', message: `unexpected dist.integrity value: ${result.stdout.trim()}` };
+      return { status: 'error', message: `unexpected dist.integrity value: ${raw}` };
     }
     return { status: 'found', integrity: value };
   }

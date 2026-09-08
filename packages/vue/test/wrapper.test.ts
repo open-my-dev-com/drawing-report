@@ -5,7 +5,7 @@
  * 실제 `@omdc-slipkit/elements` 빌드를 마운트해 설정 전달과 이벤트 연결을 확인한다.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createApp, h, nextTick, shallowReactive, type App } from 'vue';
+import { createApp, h, nextTick, ref, shallowReactive, type App, type ComponentPublicInstance } from 'vue';
 import {
   CURRENT_SCHEMA_VERSION,
   serializeSlipFile,
@@ -343,5 +343,111 @@ describe('@omdc-slipkit/vue 이벤트', () => {
     m.unmount();
     const d = mount(() => h(SlipDesigner, { src: '', onSlipChange: generic }));
     d.unmount();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Vue 표준 동작 — ref, 속성 전달, DOM 이벤트
+// ---------------------------------------------------------------------------
+
+describe('@omdc-slipkit/vue 표준 동작', () => {
+  it('세 컴포넌트의 ref는 컴포넌트 인스턴스이고 $el이 웹 컴포넌트다', async () => {
+    const cases: [unknown, string][] = [
+      [SlipViewer, 'slip-viewer'],
+      [SlipDesigner, 'slip-designer'],
+      [SlipForm, 'slip-form'],
+    ];
+    for (const [component, tag] of cases) {
+      const instance = ref<ComponentPublicInstance | null>(null);
+      const m = mount(() => h(component as typeof SlipViewer, { ref: instance, src: '' }));
+      await nextTick();
+      const el = instance.value?.$el as HTMLElement;
+      expect(el).toBe(m.container.querySelector(tag));
+      expect(el.tagName.toLowerCase()).toBe(tag);
+      m.unmount();
+    }
+  });
+
+  it('class·style·id·aria-*·data-*·tabindex를 웹 컴포넌트에 그대로 넘긴다', async () => {
+    const m = mount(() => h(SlipViewer, {
+      src: '',
+      class: 'sheet wide',
+      style: { border: '1px solid red' },
+      id: 'viewer-1',
+      'aria-label': '전표 미리보기',
+      'data-testid': 'viewer',
+      tabindex: '0',
+      title: '미리보기',
+    }));
+    const el = m.container.querySelector('slip-viewer') as HTMLElement;
+    expect(el.className).toBe('sheet wide');
+    expect(el.style.border).toBe('1px solid red');
+    expect(el.id).toBe('viewer-1');
+    expect(el.getAttribute('aria-label')).toBe('전표 미리보기');
+    expect(el.dataset['testid']).toBe('viewer');
+    expect(el.getAttribute('tabindex')).toBe('0');
+    expect(el.getAttribute('title')).toBe('미리보기');
+    m.unmount();
+  });
+
+  it('갱신한 속성은 다시 쓰고 제거한 속성은 웹 컴포넌트에서도 지운다', async () => {
+    const state = shallowReactive<{ id: string | undefined; label: string | undefined }>({
+      id: 'first',
+      label: '첫 이름',
+    });
+    const m = mount(() => h(SlipViewer, { src: '', id: state.id, 'aria-label': state.label }));
+    const el = m.container.querySelector('slip-viewer') as HTMLElement;
+    expect(el.id).toBe('first');
+
+    state.id = 'second';
+    state.label = '둘째 이름';
+    await nextTick();
+    expect(el.id).toBe('second');
+    expect(el.getAttribute('aria-label')).toBe('둘째 이름');
+
+    state.label = undefined;
+    await nextTick();
+    expect(el.hasAttribute('aria-label')).toBe(false);
+    m.unmount();
+  });
+
+  it('DOM 이벤트 핸들러를 웹 컴포넌트에 붙여 클릭·포커스·키 입력을 그대로 받는다', async () => {
+    const clicked = vi.fn();
+    const focused = vi.fn();
+    const keyed = vi.fn();
+    const m = mount(() => h(SlipViewer, {
+      src: '',
+      onClick: clicked,
+      onFocusin: focused,
+      onKeydown: keyed,
+    }));
+    const el = m.container.querySelector('slip-viewer') as HTMLElement;
+
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(clicked).toHaveBeenCalledTimes(1);
+    expect(focused).toHaveBeenCalledTimes(1);
+    expect(keyed.mock.calls[0]?.[0]).toMatchObject({ key: 'Enter' });
+
+    // 언마운트하면 웹 컴포넌트가 문서에서 사라진다. 떨어져 나간 노드에 남는 리스너는 Vue가 지우지 않는다.
+    m.unmount();
+    expect(m.container.querySelector('slip-viewer')).toBeNull();
+  });
+
+  it('DOM 이벤트는 부모로 올라가고 slip 이벤트 핸들러와 서로 방해하지 않는다', async () => {
+    const bubbled = vi.fn();
+    const changed = vi.fn();
+    const m = mount(() => h(
+      'div',
+      { onClick: bubbled },
+      [h(SlipForm, { src: '', onSlipChange: changed })],
+    ));
+    const el = m.container.querySelector('slip-form')!;
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    el.dispatchEvent(new CustomEvent('slip-change', { detail: { file: { kind: 'voucher' } as SlipVoucherFile } }));
+    expect(bubbled).toHaveBeenCalledTimes(1);
+    expect(changed).toHaveBeenCalledTimes(1);
+    m.unmount();
   });
 });

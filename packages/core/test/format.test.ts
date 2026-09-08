@@ -906,4 +906,16 @@ describe('메시지 언어 (로케일 설정)', () => {
   it('지원하지 않는 언어는 영어로 대체한다', () => {
     expect(() => parseSlipFile('broken', { locale: 'fr-FR' })).toThrow('Not valid JSON');
   });
+
+  it('파일을 열 때의 수식 오류도 지정한 언어로 표시한다', () => {
+    const file = makeTemplate();
+    getElement(file, 5, 'field').formula = 'NOPE()';
+    const json = serializeSlipFile(file);
+    expect(() => parseSlipFile(json)).toThrow('Unsupported function: NOPE');
+    expect(() => parseSlipFile(json, { locale: 'ko-KR' })).toThrow('지원하지 않는 함수입니다: NOPE');
+    expect(() => parseSlipFile(json, { locale: 'ja' })).toThrow('サポートされていない関数です: NOPE');
+    // 열기와 저장이 같은 언어로 알린다.
+    expect(() => validateSlipFile(JSON.parse(json), { locale: 'ko-KR' }))
+      .toThrow('지원하지 않는 함수입니다: NOPE');
+  });
 });

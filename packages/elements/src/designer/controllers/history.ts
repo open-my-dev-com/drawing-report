@@ -3,7 +3,7 @@
  *
  * @remarks
  * 사용자 명령 하나가 끝날 때마다 그 직전의 양식을 JSON 문자열 스냅샷으로 한 벌 보관합니다.
- * 스냅샷은 만들어진 뒤 바뀌지 않으며 최대 50개까지만 남기고 가장 오래된 것부터 버립니다.
+ * 스냅샷은 만들어진 뒤 바뀌지 않으며 개수와 전체 크기 상한을 함께 두어 가장 오래된 것부터 버립니다.
  * 새 명령이 기록되면 다시 실행 기록은 비웁니다. 각 항목은 그 시점의 저장 식별자도 함께 담아,
  * 불러온 양식을 되돌린 뒤 저장해도 불러온 양식을 덮어쓰지 않게 합니다.
  *
@@ -16,6 +16,16 @@ import type { SlipTemplateFile } from '@omdc-slipkit/core';
 
 /** 기록으로 남길 수 있는 최대 단계 수 */
 const MAX_ENTRIES = 50;
+
+/**
+ * 되돌리기 기록이 보관하는 스냅샷 문자열의 기본 상한. `snapshotBytes`와 같은 기준으로 잽니다.
+ *
+ * @remarks
+ * 이미지를 담은 양식은 한 벌이 수 MB이므로 개수만으로는 기록이 차지하는 크기를 가늠할 수 없습니다.
+ * 상한을 넘으면 가장 오래된 단계부터 버리되 최근 한 단계는 남겨, 예산과 무관하게 마지막 편집은
+ * 항상 되돌릴 수 있게 합니다.
+ */
+export const MAX_SNAPSHOT_BYTES = 32 * 1024 * 1024;
 
 declare const checkpointBrand: unique symbol;
 
@@ -63,7 +73,14 @@ export class HistoryController implements ReactiveController {
   /** 검사점마다 보관하는 상태. 검사점이 버려지면 함께 사라집니다 */
   private readonly _records = new WeakMap<EditCheckpoint, CheckpointRecord>();
 
-  constructor(private readonly host: HistoryHost) {}
+  /**
+   * @param host - 양식과 저장 대상을 주고받는 문서
+   * @param maxSnapshotBytes - 보관할 스냅샷 크기의 상한
+   */
+  constructor(
+    private readonly host: HistoryHost,
+    private readonly maxSnapshotBytes: number = MAX_SNAPSHOT_BYTES,
+  ) {}
 
   hostConnected(): void {}
 
@@ -118,7 +135,16 @@ export class HistoryController implements ReactiveController {
     record.committed = true;
     this._undo.push({ file: record.file, savedId: record.savedId });
     this._redo = [];
+    this._trim();
+  }
+
+  /** 개수와 크기 상한에 맞게 오래된 단계부터 버립니다. 최근 한 단계는 남깁니다. */
+  private _trim(): void {
     if (this._undo.length > MAX_ENTRIES) this._undo.shift();
+    let bytes = this.undoSnapshotBytes;
+    while (this._undo.length > 1 && bytes > this.maxSnapshotBytes) {
+      bytes -= this._undo.shift()!.file.length;
+    }
   }
 
   /**

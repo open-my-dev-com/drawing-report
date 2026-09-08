@@ -9,21 +9,21 @@ export function bodyOf(file: SlipFile): SlipTemplateBody {
   return file.kind === 'template' ? file.template : file.templateSnapshot;
 }
 
-/** 그대로 반환할 수 있는 data URL의 최대 문자열 길이. */
-const DATA_URL_KEEP_LENGTH = 64;
-
 /**
- * 값 안의 긴 data URL을 `[data 12KB image/png]` 형태로 치환한 사본을 만든다.
+ * 값 안의 data URL을 `[data 12KB image/png]` 형태로 치환한 사본을 만든다. 도구 설명이 약속한 대로
+ * 길이와 상관없이 모든 `data:` 값을 치환한다.
  *
  * @param value - 치환할 값 (객체·배열은 재귀적으로 처리)
  * @returns 치환된 깊은 사본
  */
 export function elideDataUrls(value: unknown): unknown {
   if (typeof value === 'string') {
-    if (value.startsWith('data:') && value.length > DATA_URL_KEEP_LENGTH) {
-      const mime = value.slice(5, value.indexOf(';') > 0 ? value.indexOf(';') : 5 + 40);
+    if (value.startsWith('data:')) {
+      // `data:<mime>[;파라미터],<데이터>` — 형식만 남기고 데이터는 버린다.
+      const end = value.slice(5).search(/[;,]/);
+      const mime = end < 0 ? value.slice(5) : value.slice(5, 5 + end);
       const kb = Math.max(1, Math.round(value.length / 1024));
-      return `[data ${kb}KB ${mime}]`;
+      return mime === '' ? `[data ${kb}KB]` : `[data ${kb}KB ${mime}]`;
     }
     return value;
   }

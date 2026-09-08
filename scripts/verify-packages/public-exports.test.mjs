@@ -97,7 +97,7 @@ describe('공개 export 허용 목록', () => {
       for (const [subpath, expected] of Object.entries(subpaths)) {
         if (expected.files) continue;
         const names = [
-          ...expected.runtime.filter((name) => name !== 'default'),
+          ...expected.runtime,
           ...expected.types,
           ...(expected.removed?.runtime ?? []),
           ...(expected.removed?.types ?? []),

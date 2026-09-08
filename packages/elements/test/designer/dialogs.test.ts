@@ -546,8 +546,11 @@ describe('<slip-designer> 샘플 데이터 (D-13)', () => {
     byAria(el, `items ${strings.designer.addRow}`).click();
     await el.updateComplete;
 
+    // 열은 물리명(itemName)이 아니라 파라미터 정의의 논리명으로 표시합니다.
+    expect(Array.from(el.shadowRoot!.querySelectorAll('.sample-col')).map((c) => c.textContent?.trim()))
+      .toEqual(['품명', 'amount']);
     const cell = Array.from(el.shadowRoot!.querySelectorAll('.sample-grid input'))
-      .find((i) => i.getAttribute('aria-label') === 'items 1 itemName') as HTMLInputElement;
+      .find((i) => i.getAttribute('aria-label') === 'items 1 품명') as HTMLInputElement;
     cell.value = '노트';
     cell.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;

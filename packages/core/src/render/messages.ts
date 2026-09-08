@@ -40,7 +40,7 @@ interface RenderMessages {
 }
 
 /** 이미지 데이터 검사에서 드러난 문제 종류 */
-type ImageProblem = 'format' | 'mime' | 'content' | 'size';
+type ImageProblem = 'format' | 'mime' | 'content' | 'size' | 'damaged';
 
 const EN: RenderMessages = {
   subjectText: (name, id) => `text '${name}' (${id})`,
@@ -75,6 +75,7 @@ const EN: RenderMessages = {
       mime: 'is not PNG or JPEG',
       content: 'is not the declared PNG or JPEG (the content is damaged or of another format)',
       size: 'exceeds the size limit',
+      damaged: 'is damaged and cannot be embedded in a PDF',
     }[reason];
     return `The image of ${what} ${detail}`;
   },
@@ -111,7 +112,7 @@ const KO: RenderMessages = {
     `${what}에서 참조한 에셋 '${assetId}'가 파일에 포함되어 있지 않습니다. data: base64 형식의 데이터가 필요합니다`,
   externalUrl: (what, src) =>
     `${what}에서 외부 URL 이미지를 참조하고 있습니다: ${src}. PDF로 출력하려면 이미지를 data: base64 또는 asset:// 형식으로 전달해야 합니다`,
-  imageValueNotString: (_what, parameter) => `파라미터 '${parameter}'의 이미지 값은 문자열이어야 합니다`,
+  imageValueNotString: (what, parameter) => `${what}의 값 '${parameter}'는 이미지 문자열이어야 합니다`,
   imageValueNotData: (what, parameter) =>
     `파라미터 '${parameter}'의 이미지 값은 data: base64 형식이어야 합니다. ${what}에 사용할 외부 URL은 호스트에서 base64로 변환해 전달해야 합니다`,
   imageInvalid: (what, reason) => {
@@ -120,6 +121,7 @@ const KO: RenderMessages = {
       mime: 'PNG 또는 JPEG가 아닙니다',
       content: '선언한 PNG·JPEG가 아닙니다. 내용이 손상되었거나 다른 형식입니다',
       size: '크기 상한을 넘습니다',
+      damaged: '손상되어 PDF에 넣을 수 없습니다',
     }[reason];
     return `${what}의 이미지가 ${detail}`;
   },
@@ -165,6 +167,7 @@ const JA: RenderMessages = {
       mime: 'PNG または JPEG ではありません',
       content: '宣言された PNG・JPEG ではありません（内容が破損しているか別の形式です）',
       size: 'サイズ上限を超えています',
+      damaged: '破損しており PDF に埋め込めません',
     }[reason];
     return `${what}の画像が${detail}`;
   },

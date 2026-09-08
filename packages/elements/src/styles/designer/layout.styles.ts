@@ -98,7 +98,8 @@ export const layoutStyles = css`
       color: var(--sk-text-muted);
     }
     .toolbar button:hover:not(:disabled) .btn-label,
-    .toolbar button[aria-pressed='true'] .btn-label {
+    .toolbar button[aria-pressed='true'] .btn-label,
+    .toolbar button[aria-expanded='true'] .btn-label {
       color: inherit;
     }
     .toolbar button:hover:not(:disabled) {
@@ -109,7 +110,9 @@ export const layoutStyles = css`
       outline: 2px solid var(--sk-accent);
       outline-offset: 1px;
     }
-    .toolbar button[aria-pressed='true'] {
+    /* 눌린 도구와 열려 있는 메뉴를 같은 강조로 표시합니다 */
+    .toolbar button[aria-pressed='true'],
+    .toolbar button[aria-expanded='true'] {
       background: var(--sk-accent-soft);
       color: var(--sk-accent);
       border-color: var(--sk-accent);

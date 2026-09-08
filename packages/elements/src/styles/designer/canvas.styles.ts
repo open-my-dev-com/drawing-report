@@ -138,13 +138,24 @@ export const canvasStyles = css`
     .element {
       position: absolute;
       box-sizing: border-box;
-      border: 1px solid var(--sk-guide-faint);
+      /*
+       * 편집 안내선은 테두리가 아니라 outline으로 그립니다. 테두리로 그리면 내용 상자가
+       * 요소 폭보다 좁아져 캔버스가 PDF보다 이른 자리에서 줄을 바꿉니다.
+       * 저장된 테두리를 그릴 때는 굵기·색을 요소 style로 덮어씁니다.
+       */
+      border: 0 solid transparent;
+      outline: 1px solid var(--sk-guide-faint);
+      outline-offset: -1px;
       cursor: move;
       overflow: hidden;
       touch-action: none;
       user-select: none;
       font-size: 11px;
       line-height: 1.3;
+    }
+    /* 저장된 테두리를 그리는 요소에는 편집 안내선을 겹치지 않습니다 */
+    .element.has-border {
+      outline: none;
     }
     .element > * {
       pointer-events: none;
@@ -262,6 +273,8 @@ export const canvasStyles = css`
       /* PDF는 셀을 넘치는 글을 낱말 단위로 줄바꿈합니다 — 캔버스도 같게 접어 화면·PDF를 맞춥니다.
          줄바꿈 문자는 pre-line으로 그대로 보입니다 */
       white-space: pre-line;
+      /* 낱말 단위로 끊고, 한 낱말이 셀보다 길 때만 낱말 안에서 끊습니다 */
+      word-break: keep-all;
       overflow-wrap: anywhere;
     }
     .element .table-preview {
@@ -285,11 +298,11 @@ export const canvasStyles = css`
       width: 100%;
       height: 100%;
     }
-    /* 선·타원·삼각형에는 편집 영역의 테두리를 표시하지 않습니다 (선택 시 강조는 유지) */
+    /* 선·타원·삼각형에는 편집 영역의 안내선을 표시하지 않습니다 (선택 시 강조는 유지) */
     .element.type-line,
     .element.type-ellipse,
     .element.type-polygon {
-      border-color: transparent;
+      outline-color: transparent;
     }
     /* 선 요소는 배지가 선과 겹치므로 표시하지 않습니다. */
     .element.type-line .badge {

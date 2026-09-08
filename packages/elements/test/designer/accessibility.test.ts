@@ -244,6 +244,46 @@ describe('<slip-designer> 툴바 메뉴 키보드 조작', () => {
   });
 });
 
+describe('<slip-designer> 메뉴 버튼과 캔버스 영역의 역할', () => {
+  it('메뉴를 여는 툴바 버튼은 haspopup·expanded로 알리고 눌림 상태와 섞지 않는다', async () => {
+    const el = await mount();
+    for (const label of [strings.designer.preset, strings.designer.shape, strings.designer.grid]) {
+      const button = toolbarButton(el, label);
+      expect(button.getAttribute('aria-haspopup'), label).toBe('menu');
+      expect(button.getAttribute('aria-expanded'), label).toBe('false');
+
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+      await el.updateComplete;
+      expect(toolbarButton(el, label).getAttribute('aria-expanded'), label).toBe('true');
+      // 메뉴가 열린 것을 눌림 상태로 알리지 않습니다 — 도구·격자가 켜졌는지와 다른 뜻입니다
+      expect(toolbarButton(el, label).getAttribute('aria-pressed'), label).not.toBe('true');
+
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await el.updateComplete;
+      expect(toolbarButton(el, label).getAttribute('aria-expanded'), label).toBe('false');
+    }
+    el.remove();
+  });
+
+  it('캔버스 영역은 이름이 있는 영역으로 알린다', async () => {
+    const el = await mount();
+    const area = el.shadowRoot!.querySelector('.canvas-area') as HTMLElement;
+    expect(area.getAttribute('role')).toBe('region');
+    expect(area.getAttribute('aria-label')).toBe(strings.designer.canvasArea);
+    el.remove();
+  });
+
+  it('샘플 데이터 모달은 목록 열을 논리명으로 표시한다', async () => {
+    const el = await mount();
+    byAria(el, strings.designer.sampleData).click();
+    await el.updateComplete;
+    const columns = Array.from(el.shadowRoot!.querySelectorAll('.sample-col')).map((c) => c.textContent?.trim());
+    expect(columns).toContain('수량');
+    expect(columns).not.toContain('qty');
+    el.remove();
+  });
+});
+
 describe('<slip-designer> 인라인 셀 편집 뒤의 초점', () => {
   it('Enter로 마치면 그리드 요소가 초점을 받고 단축키가 계속 듣는다', async () => {
     const el = await mount();

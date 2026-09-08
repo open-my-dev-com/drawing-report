@@ -3,7 +3,7 @@
 # 이벤트: workflow_dispatch만. 태그 push 트리거와 태그 생성은 다루지 않는다.
 # 입력:
 #   version     — 배포할 버전. 정확한 SemVer이고 다섯 패키지의 package.json 버전과 모두 같아야 한다.
-#   dist_tag    — latest | next
+#   dist_tag    — latest | next. prerelease 버전(1.0.0-beta.1 등)에는 latest를 쓸 수 없다.
 #   environment — npm-publish (npm Trusted Publisher에 등록한 GitHub Environment 이름과 같아야 한다)
 #   dry_run     — true(기본)면 검증·pack·`npm publish --dry-run`까지만 실행한다.
 # 권한: 최상위 contents: read. `id-token: write`는 실제 publish 작업에만 준다.
@@ -77,6 +77,7 @@ jobs:
       - name: 실행 ref와 입력 검사
         env:
           RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_DIST_TAG: ${{ inputs.dist_tag }}
           RELEASE_ENVIRONMENT: ${{ inputs.environment }}
         run: node scripts/release/inputs.mjs
       - name: Corepack으로 pnpm 준비
@@ -85,7 +86,8 @@ jobs:
           # 전역 prefix의 bin 디렉터리를 PATH 앞에 둔다. Windows는 Node 동봉 Corepack이 먼저 잡히기 때문이다.
           prefix="$(npm prefix --global)"
           if [ -d "${prefix}/bin" ]; then bindir="${prefix}/bin"; else bindir="${prefix}"; fi
-          export PATH="$(cygpath -u "${bindir}" 2>/dev/null || printf '%s' "${bindir}"):${PATH}"
+          unixbin="$(cygpath -u "${bindir}" 2>/dev/null || printf '%s' "${bindir}")"
+          export PATH="${unixbin}:${PATH}"
           echo "${bindir}" >> "${GITHUB_PATH}"
           corepack_actual="$(corepack --version)"
           echo "corepack ${corepack_actual} (${bindir})"
@@ -240,8 +242,8 @@ jobs:
           {
             echo "**배포가 실패했습니다.** publish 작업 결과: ${PUBLISH_RESULT}."
             echo
-            echo '원인을 해결한 뒤 이 실행에서 `Re-run failed jobs`를 선택합니다. 성공한 prepare는 다시 실행되지 않고, publish가 원래 artifact를 그대로 내려받아 SHA-256과 manifest를 검증한 뒤 이미 올라간 같은 tarball은 건너뛰고 남은 패키지부터 이어서 배포합니다.'
+            echo "원인을 해결한 뒤 이 실행에서 \`Re-run failed jobs\`를 선택합니다. 성공한 prepare는 다시 실행되지 않고, publish가 원래 artifact를 그대로 내려받아 SHA-256과 manifest를 검증한 뒤 이미 올라간 같은 tarball은 건너뛰고 남은 패키지부터 이어서 배포합니다."
             echo
-            echo '`Re-run all jobs`, 새 `Run workflow` 실행이나 로컬 재-pack으로 같은 버전을 이어서 배포하지 않습니다. artifact 보존 기간(7일)이 지났거나 artifact가 없으면 같은 버전 재개를 중단하고, 이미 공개된 패키지 상태를 확인한 뒤 새 버전의 새 릴리스로 처리합니다.'
+            echo "\`Re-run all jobs\`, 새 \`Run workflow\` 실행이나 로컬 재-pack으로 같은 버전을 이어서 배포하지 않습니다. artifact 보존 기간(7일)이 지났거나 artifact가 없으면 같은 버전 재개를 중단하고, 이미 공개된 패키지 상태를 확인한 뒤 새 버전의 새 릴리스로 처리합니다."
           } >> "${GITHUB_STEP_SUMMARY}"
           exit 1

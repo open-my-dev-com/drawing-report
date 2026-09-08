@@ -28,6 +28,25 @@ function dataUrl(mime: string, head: number[], size = head.length + 16): string 
   return `data:${mime};base64,${Buffer.from(bytes).toString('base64')}`;
 }
 const PNG_HEAD = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+/** SOI·APP0·SOF0·EOI만 담은 1x1 JPEG */
+const JPEG_1PX = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/wAALCAABAAEBAREA/9k=';
+
+/** PNG 뒤에 채움 바이트를 붙여 지정한 크기의 data: 문자열을 만든다 (크기 상한 검사용). */
+function paddedPng(size: number): string {
+  const png = Buffer.from(PNG_1PX.slice(PNG_1PX.indexOf(',') + 1), 'base64');
+  const bytes = new Uint8Array(size);
+  bytes.set(png.subarray(0, Math.min(png.length, size)));
+  return `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`;
+}
+
+/** IDAT 데이터만 망가뜨려 청크 구조는 온전하지만 압축을 풀 수 없는 PNG를 만든다. */
+function pngWithBrokenPixels(): string {
+  const bytes = Buffer.from(PNG_1PX.slice(PNG_1PX.indexOf(',') + 1), 'base64');
+  const start = bytes.indexOf('IDAT') + 4;
+  const length = bytes.readUInt32BE(start - 8);
+  bytes.fill(0xff, start, start + length);
+  return `data:image/png;base64,${bytes.toString('base64')}`;
+}
 const JPEG_HEAD = [0xff, 0xd8, 0xff, 0xe0];
 const GIF_HEAD = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61];
 
@@ -131,7 +150,19 @@ describe('바코드 값 검사', () => {
 describe('렌더 단계의 이미지 데이터 검사', () => {
   it('PNG와 JPEG는 통과한다', () => {
     expect(schemaNames(voucher([image({ src: PNG_1PX })]))).toEqual(['img']);
-    expect(schemaNames(voucher([image({ src: dataUrl('image/jpeg', JPEG_HEAD) })]))).toEqual(['img']);
+    expect(schemaNames(voucher([image({ src: JPEG_1PX })]))).toEqual(['img']);
+  });
+
+  it('서명만 맞고 구조가 깨진 이미지는 요소 이름을 담은 SlipRenderError', () => {
+    const png = voucher([image({ src: dataUrl('image/png', PNG_HEAD, 64) })]);
+    expect(() => convertSlipFile(png)).toThrow(SlipRenderError);
+    expect(() => convertSlipFile(png)).toThrow(/image '서명' \(img\).*damaged and cannot be embedded/);
+    expect(() => convertSlipFile(png, { locale: 'ko-KR' }))
+      .toThrow("이미지 '서명' (img)의 이미지가 손상되어 PDF에 넣을 수 없습니다");
+    expect(() => convertSlipFile(png, { locale: 'ja' }))
+      .toThrow("画像 '서명'(img)の画像が破損しており PDF に埋め込めません");
+    const jpeg = voucher([image({ src: dataUrl('image/jpeg', JPEG_HEAD) })]);
+    expect(() => convertSlipFile(jpeg)).toThrow(/image '서명' \(img\).*damaged and cannot be embedded/);
   });
 
   it('선언은 PNG인데 내용이 JPEG면 요소 이름을 담은 SlipRenderError', () => {
@@ -148,6 +179,15 @@ describe('렌더 단계의 이미지 데이터 검사', () => {
     expect(() => convertSlipFile(file, { locale: 'ja' })).toThrow("画像 '서명'(img)の画像が宣言された PNG・JPEG ではありません");
   });
 
+  it('이미지 값이 문자열이 아니면 세 언어 모두 어느 이미지 요소인지 알린다', () => {
+    const file = voucher([image({ parameter: 'sign' })], { sign: 123 });
+    expect(() => convertSlipFile(file)).toThrow("The value 'sign' of image '서명' (img) must be an image string");
+    expect(() => convertSlipFile(file, { locale: 'ko-KR' }))
+      .toThrow("이미지 '서명' (img)의 값 'sign'는 이미지 문자열이어야 합니다");
+    expect(() => convertSlipFile(file, { locale: 'ja' }))
+      .toThrow("画像 '서명'(img)の値 'sign' は画像の文字列でなければなりません");
+  });
+
   it('GIF·WebP·SVG는 거부한다', () => {
     for (const src of [
       dataUrl('image/gif', GIF_HEAD),
@@ -159,8 +199,8 @@ describe('렌더 단계의 이미지 데이터 검사', () => {
   });
 
   it('2 MiB를 넘는 이미지는 거부한다', () => {
-    const tooBig = dataUrl('image/png', PNG_HEAD, MAX_IMAGE_BYTES + 1);
-    const justFits = dataUrl('image/png', PNG_HEAD, MAX_IMAGE_BYTES);
+    const tooBig = paddedPng(MAX_IMAGE_BYTES + 1);
+    const justFits = paddedPng(MAX_IMAGE_BYTES);
     expect(() => convertSlipFile(voucher([image({ parameter: 'sign' })], { sign: tooBig }))).toThrow(/size limit/);
     expect(schemaNames(voucher([image({ parameter: 'sign' })], { sign: justFits }))).toEqual(['img']);
   });
@@ -172,13 +212,60 @@ describe('렌더 단계의 이미지 데이터 검사', () => {
   });
 });
 
+describe('값 소스의 경계 처리', () => {
+  const grid = (cells: Record<string, unknown>[]): SlipElement =>
+    ({
+      type: 'grid', id: 'g', name: '표', position: { x: 10, y: 10 },
+      rows: [{ height: 8 }], columns: [{ width: 40 }, { width: 40 }], cells,
+    }) as SlipElement;
+
+  /** 그리드 셀에 그려진 표시 문자열을 순서대로 읽는다. 빈 셀은 그려지지 않는다. */
+  function cellTexts(file: SlipVoucherFile): string[] {
+    const { template, inputs } = convertSlipFile(file);
+    const page = (template.schemas[0] ?? []) as { name: string }[];
+    return page
+      .filter((schema) => schema.name.includes('__cell-'))
+      .map((schema) => String(inputs[0]?.[schema.name] ?? ''));
+  }
+
+  it('그리드 셀의 파라미터도 객체가 직접 가진 키만 읽는다', () => {
+    for (const key of ['constructor', 'toString', 'hasOwnProperty', '__proto__']) {
+      expect(cellTexts(voucher([grid([{ row: 0, column: 0, parameter: key }])]))).toEqual([]);
+    }
+    expect(cellTexts(voucher([grid([{ row: 0, column: 0, parameter: 'toString' }])], { toString: '값' })))
+      .toEqual(['값']);
+  });
+
+  it('공백뿐인 수식은 필드·그리드 셀·바코드에서 모두 빈 값이 된다', () => {
+    const field: SlipElement =
+      { type: 'field', id: 'f', name: '값', position: { x: 10, y: 40 }, width: 50, height: 10, formula: '  ' } as SlipElement;
+    expect(schemaNames(voucher([field]))).toEqual(['f']);
+    expect(convertSlipFile(voucher([field])).inputs[0]?.['f']).toBe('');
+    expect(cellTexts(voucher([grid([
+      { row: 0, column: 0, formula: ' \n ' },
+      { row: 0, column: 1, content: '표시' },
+    ])]))).toEqual(['표시']);
+    // 값이 비어 있는 바코드는 그리지 않는다.
+    expect(schemaNames(voucher([barcode('qrcode', { formula: '   ' })]))).toEqual([]);
+  });
+});
+
 describe('PDF 생성 실패는 SlipRenderError로 통일한다', () => {
-  it('서명은 맞지만 본문이 깨진 PNG는 생성 단계에서 SlipRenderError가 된다', async () => {
-    const file = voucher([image({ src: dataUrl('image/png', PNG_HEAD, 64) })]);
+  it('청크 구조는 맞지만 압축을 풀 수 없는 PNG는 생성 단계에서 SlipRenderError가 된다', async () => {
+    const file = voucher([image({ src: pngWithBrokenPixels() })]);
     await expect(renderSlipToPdf(file)).rejects.toBeInstanceOf(SlipRenderError);
     await expect(renderSlipToPdf(file)).rejects.toThrow(/PDF generation failed/);
     await expect(renderSlipToPdf(file, { locale: 'ko-KR' })).rejects.toThrow('PDF 생성에 실패했습니다');
     await expect(renderSlipToPdf(file, { locale: 'ja' })).rejects.toThrow('PDF の生成に失敗しました');
+  });
+
+  it('구조가 깨진 이미지는 PDF 생성 전에 어느 이미지 요소인지 알린다', async () => {
+    const file = voucher([image({ src: dataUrl('image/png', PNG_HEAD, 64) })]);
+    await expect(renderSlipToPdf(file)).rejects.toThrow(/image '서명' \(img\).*damaged and cannot be embedded/);
+    await expect(renderSlipToPdf(file, { locale: 'ko-KR' }))
+      .rejects.toThrow("이미지 '서명' (img)의 이미지가 손상되어 PDF에 넣을 수 없습니다");
+    await expect(renderSlipToPdf(file, { locale: 'ja' }))
+      .rejects.toThrow("画像 '서명'(img)の画像が破損しており PDF に埋め込めません");
   });
 
   it('변환 단계의 SlipRenderError는 그대로 전달한다', async () => {

@@ -36,6 +36,21 @@ describe('UI 문구 사전 (ADR-013/028)', () => {
       .toBe('数式は適用できますが、計算できるようになるまで要素に警告が表示されます。');
   });
 
+  // 영어 가이드·명세가 쓰는 말과 화면 문구가 어긋나지 않게 합니다.
+  it('영어 UI는 값이 비어 있는 틀을 template으로 부른다', () => {
+    const d = STRINGS.en.designer;
+    const aboutTemplate = [
+      d.formSettings, d.myForms, d.saveAsMyForm, d.myFormsList, d.saveAsNew,
+      d.noSavedForms, d.savedNotice, d.deleteFormTitle, d.deleteFormConfirm, d.saveInvalidFile,
+    ];
+    for (const text of aboutTemplate) {
+      expect(text.toLowerCase(), text).toContain('template');
+      expect(text.toLowerCase(), text).not.toMatch(/\bforms?\b/);
+    }
+    // 입력폼 탭 이름은 전표를 채우는 화면을 가리키므로 그대로 둡니다.
+    expect(d.formMode).toBe('Form');
+  });
+
   it('getStrings는 언어 코드로 사전을 선택하고 지원하지 않는 로케일에는 영어를 사용한다', () => {
     expect(getStrings('en')).toBe(STRINGS.en);
     expect(getStrings('en-US')).toBe(STRINGS.en);

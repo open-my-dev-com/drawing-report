@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { formatSha256Sums, parseSha256Sums, sha256Hex, sriSha512, verifySha256Sums } from './integrity.mjs';
-import { isExactSemver, validateReleaseInputs } from './inputs.mjs';
+import { isExactSemver, isPrerelease, validateReleaseInputs } from './inputs.mjs';
 import { buildManifest, tarballFileName } from './pack.mjs';
 import { decidePublish, interpretView, publishAll } from './publish.mjs';
 
@@ -25,8 +25,13 @@ describe('inputs', () => {
     for (const bad of ['v1.2.3', '1.2', '^1.2.3', '1.02.3', '1.2.3 ', '', undefined, 'latest']) assert.equal(isExactSemver(bad), false, String(bad));
   });
 
-  it('main·SemVer·환경·다섯 패키지 버전 일치를 모두 요구한다', () => {
-    const base = { ref: 'refs/heads/main', version: '0.1.0', environment: 'npm-publish', packageVersions: ALL_SAME };
+  it('prerelease 식별자가 붙은 버전을 가려낸다', () => {
+    for (const yes of ['1.0.0-beta.1', '0.1.0-rc.1+sha.abc', '2.0.0-0']) assert.equal(isPrerelease(yes), true, yes);
+    for (const no of ['1.0.0', '0.1.0+build.5', '1.0', undefined]) assert.equal(isPrerelease(no), false, String(no));
+  });
+
+  it('main·SemVer·dist-tag·환경·다섯 패키지 버전 일치를 모두 요구한다', () => {
+    const base = { ref: 'refs/heads/main', version: '0.1.0', distTag: 'latest', environment: 'npm-publish', packageVersions: ALL_SAME };
     assert.deepEqual(validateReleaseInputs(base), []);
     assert.match(validateReleaseInputs({ ...base, ref: 'refs/heads/feat/x' })[0], /refs\/heads\/main/);
     assert.match(validateReleaseInputs({ ...base, version: '0.1' })[0], /exact SemVer/);
@@ -35,6 +40,16 @@ describe('inputs', () => {
     assert.deepEqual(mismatch, ['@omdc-slipkit/mcp is 0.0.9, expected 0.1.0']);
     const missing = validateReleaseInputs({ ...base, packageVersions: { '@omdc-slipkit/core': '0.1.0' } });
     assert.match(missing[0], /expected 5 packages, got 1/);
+  });
+
+  it('허용 목록 밖의 dist-tag와 prerelease의 latest를 거부한다', () => {
+    const prerelease = { '@omdc-slipkit/core': '1.0.0-beta.1', '@omdc-slipkit/elements': '1.0.0-beta.1', '@omdc-slipkit/react': '1.0.0-beta.1', '@omdc-slipkit/vue': '1.0.0-beta.1', '@omdc-slipkit/mcp': '1.0.0-beta.1' };
+    const base = { ref: 'refs/heads/main', version: '0.1.0', distTag: 'latest', environment: 'npm-publish', packageVersions: ALL_SAME };
+    assert.match(validateReleaseInputs({ ...base, distTag: 'beta' })[0], /dist_tag must be one of latest, next/);
+    assert.match(validateReleaseInputs({ ...base, distTag: undefined })[0], /got \(unset\)/);
+    const pre = { ...base, version: '1.0.0-beta.1', packageVersions: prerelease };
+    assert.deepEqual(validateReleaseInputs(pre), ['prerelease version 1.0.0-beta.1 must not use dist_tag latest']);
+    assert.deepEqual(validateReleaseInputs({ ...pre, distTag: 'next' }), []);
   });
 });
 
@@ -108,6 +123,17 @@ describe('publish', () => {
     assert.equal(interpretView(network).status, 'error');
     assert.match(interpretView(network).message, /ENOTFOUND/);
     assert.equal(interpretView({ code: 0, stdout: '{"weird":1}', stderr: '' }).status, 'error');
+  });
+
+  it('성공했는데 출력이 비었거나 JSON이 아니면 원인을 적은 조회 오류다', () => {
+    for (const stdout of ['', '   \n', undefined]) {
+      const view = interpretView({ code: 0, stdout, stderr: '' });
+      assert.equal(view.status, 'error');
+      assert.match(view.message, /no dist\.integrity output/);
+    }
+    const broken = interpretView({ code: 0, stdout: 'sha512-AAAA', stderr: '' });
+    assert.equal(broken.status, 'error');
+    assert.match(broken.message, /not JSON/);
   });
 
   it('E404는 배포, 같은 SRI는 건너뜀, 다른 SRI·조회 오류는 실패다', () => {

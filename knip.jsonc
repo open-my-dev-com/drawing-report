@@ -54,10 +54,5 @@
         "scripts/generate-noto-sans-jp.mjs"
       ]
     }
-  },
-  "rules": {
-    // `./fonts/noto-sans-jp`의 이름 있는 export와 default export는 둘 다
-    // `scripts/verify-packages/fixtures/public-exports.json` 허용 목록에 있는 공개 계약이다.
-    "duplicates": "off"
   }
 }
