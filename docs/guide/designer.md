@@ -525,8 +525,20 @@ The following features at the top of the bundled demo are provided by the demo a
 - <kbd>Open file</kbd>
 - Restoring work after a refresh
 - Switching between the <kbd>Design</kbd> and <kbd>Fill</kbd> screens
+- The saved-data notice below the header and the <kbd>Delete saved data</kbd> button
 
 For how to implement these features in a real application, see the [Application Integration Guide](integration.md).
+
+### Data saved in the browser
+
+The demo saves the template and vouchers you work on in this browser, so they are restored the next time you open it. The notice below the header states this and stays visible while you work.
+
+<kbd>Delete saved data</kbd> in the same notice removes what the demo saved: the template, the draft voucher, the issued voucher, and the remembered screen. It asks for confirmation first because the deletion cannot be undone, and it returns the demo to the bundled starting template. Files you already downloaded are kept, and nothing else stored in the browser is touched.
+
+> [!WARNING]
+> When no key is configured, the demo encrypts with a public sample key from its own source code. That key protects nothing — do not enter real personal or confidential information in the demo, and delete the saved data when you are done on a shared device.
+
+A real application decides for itself where to keep data and how to let users delete it. See the [Application Integration Guide](integration.md).
 
 ## Common problems
 

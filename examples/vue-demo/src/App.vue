@@ -25,6 +25,7 @@ import {
   VOUCHER_KEY,
   asDemoMode,
   canResumeVoucher,
+  createDemoStorageQueue,
   createStores,
   getMessages,
   initialTemplate,
@@ -37,6 +38,7 @@ import {
   savedLabel,
   suggestedName,
   templateFromVoucher,
+  usesDemoSampleKey,
   type DemoMode,
 } from 'slipkit-demo-shared';
 
@@ -61,7 +63,11 @@ const designerSettings: SlipDesignerSettings = {
   getPaperSizes: () => [{ name: 'Label 100x150', width: 100, height: 150 }],
 };
 
+// 공개된 샘플 키를 쓰는 동안에만 화면에 키 경고를 띄운다
+const sampleKey = usesDemoSampleKey(import.meta.env.VITE_SLIPKIT_KEY as string | undefined);
+
 const { store, files } = createStores(slipKit, 'slipkit-demo-vue');
+const storageQueue = createDemoStorageQueue(store);
 
 // 파일 객체는 통째로 갈아 끼우므로 깊은 반응성이 필요 없다
 const template = shallowRef<SlipTemplateFile>(initialTemplate(locale));
@@ -79,13 +85,16 @@ const viewerSrc = ref('');
 const designerSrc = ref(serializeSlipFile(template.value));
 
 const dialog = ref<HTMLDialogElement | null>(null);
+const clearDialog = ref<HTMLDialogElement | null>(null);
 const filename = ref<HTMLInputElement | null>(null);
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function saveNow(): Promise<void> {
   try {
-    await store.save(TEMPLATE_KEY, template.value);
-    if (voucher.value) await store.save(VOUCHER_KEY, voucher.value);
+    await storageQueue.save([
+      [TEMPLATE_KEY, template.value],
+      ...(voucher.value ? [[VOUCHER_KEY, voucher.value] as const] : []),
+    ]);
     autosave.value = savedLabel(new Date(), locale);
   } catch (error) {
     autosave.value = '';
@@ -99,6 +108,13 @@ function scheduleAutosave(): void {
     autosaveTimer = null;
     void saveNow();
   }, AUTOSAVE_DELAY_MS);
+}
+
+/** 예약해 둔 자동 저장을 취소한다 */
+function cancelAutosave(): void {
+  if (autosaveTimer === null) return;
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
 }
 
 /** 화면 전환 — 양식 편집 · 전표 작성 · 발행 전표 조회 */
@@ -150,15 +166,55 @@ function onFormIssue(file: SlipFile): void {
   // 발행된 전표는 작성 대상에서 내리고 조회 화면으로 넘긴다.
   voucher.value = null;
   issued.value = file;
-  void store.save(ISSUED_KEY, file).catch(() => undefined);
-  void store.delete(VOUCHER_KEY).catch(() => undefined);
+  void storageQueue.save([[ISSUED_KEY, file]]).catch(() => undefined);
+  void storageQueue.delete([VOUCHER_KEY]).catch(() => undefined);
   setMode('view', messages.issued);
 }
 
 function newSlip(): void {
   voucher.value = null;
-  void store.delete(VOUCHER_KEY).catch(() => undefined);
+  void storageQueue.delete([VOUCHER_KEY]).catch(() => undefined);
   setMode('fill', messages.newSlip);
+}
+
+function openClearDialog(): void {
+  if (!clearDialog.value) return;
+  clearDialog.value.returnValue = 'cancel';
+  clearDialog.value.showModal();
+}
+
+/** 지운 뒤 처음 상태로 되돌린다 — 화면을 내렸다 다시 올리므로 자동 저장이 새로 예약되지 않는다 */
+function resetToInitial(): void {
+  template.value = initialTemplate(locale);
+  voucher.value = null;
+  issued.value = null;
+  designerSrc.value = serializeSlipFile(template.value);
+  // 작성·조회 화면을 내려 이전 전표를 남기지 않는다. 다음에 열 때 빈 전표로 다시 만든다.
+  formSrc.value = '';
+  viewerSrc.value = '';
+  formSession.value += 1;
+  autosave.value = '';
+  // 방금 지운 화면 기억(localStorage)을 다시 쓰지 않도록 setMode를 거치지 않는다.
+  mode.value = 'design';
+  status.value = messages.cleared;
+}
+
+async function clearStorage(): Promise<void> {
+  // 예약된 저장이 남아 있으면 지운 직후 다시 저장된다 — 먼저 취소한다.
+  cancelAutosave();
+  try {
+    await storageQueue.clear();
+  } catch (error) {
+    status.value = messages.clearFailed(reasonOf(error));
+    return;
+  }
+  resetToInitial();
+}
+
+function onClearDialogClose(): void {
+  // 취소하면 저장된 내용을 그대로 둔다.
+  if (clearDialog.value?.returnValue !== 'ok') return;
+  void clearStorage();
 }
 
 function openDownloadDialog(): void {
@@ -208,7 +264,7 @@ function openFile(): void {
         setMode('design', messages.openedTemplate);
       } else if (file.issued) {
         issued.value = file;
-        void store.save(ISSUED_KEY, file).catch(() => undefined);
+        void storageQueue.save([[ISSUED_KEY, file]]).catch(() => undefined);
         setMode('view', messages.openedIssued);
       } else {
         voucher.value = file;
@@ -259,6 +315,12 @@ onMounted(async () => {
     <span class="status">{{ status }}</span>
   </header>
 
+  <div class="notice">
+    <span>{{ messages.storageNotice }}</span>
+    <span v-if="sampleKey" class="warn">{{ messages.storageKeyWarning }}</span>
+    <button @click="openClearDialog">{{ messages.buttonClearStorage }}</button>
+  </div>
+
   <div class="pane" :hidden="mode !== 'design'">
     <!-- UI 언어와 렌더 설정은 slipkit이 공급한다 — 컴포넌트 locale은 다르게 표시할 때만 쓴다 -->
     <SlipDesigner
@@ -293,6 +355,19 @@ onMounted(async () => {
       <div class="foot">
         <button value="cancel">{{ messages.cancel }}</button>
         <button value="ok">{{ messages.download }}</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog ref="clearDialog" @close="onClearDialogClose">
+    <form method="dialog">
+      <h2>{{ messages.clearConfirmTitle }}</h2>
+      <div class="body">
+        <p>{{ messages.clearConfirmBody }}</p>
+      </div>
+      <div class="foot">
+        <button value="cancel">{{ messages.cancel }}</button>
+        <button value="ok" class="danger">{{ messages.clearConfirmOk }}</button>
       </div>
     </form>
   </dialog>

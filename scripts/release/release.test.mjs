@@ -1,8 +1,10 @@
 // 배포 도우미의 단위 시험 — `node --test`로 실행한다.
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { formatSha256Sums, parseSha256Sums, sha256Hex, sriSha512, verifySha256Sums } from './integrity.mjs';
 import { isExactSemver, validateReleaseInputs } from './inputs.mjs';
@@ -217,5 +219,80 @@ describe('publish', () => {
       await assert.rejects(publishAll({ dir, manifest, distTag: 'latest', dryRun: true, npm }), /does not match manifest integrity/);
       await assert.rejects(publishAll({ dir, manifest, distTag: 'beta', dryRun: true, npm }), /dist_tag must be one of/);
     });
+  });
+});
+
+const WORKFLOW_TEXT = readFileSync(fileURLToPath(new URL('../../.github/workflows/release.yml', import.meta.url)), 'utf8');
+
+/**
+ * release.yml의 최상위 `jobs:` 아래를 작업 이름별 원문 블록으로 나눈다.
+ *
+ * @returns 작업 이름을 키로, 해당 작업의 YAML 원문을 값으로 갖는 Map.
+ */
+function workflowJobs() {
+  const lines = WORKFLOW_TEXT.split('\n');
+  const start = lines.indexOf('jobs:');
+  assert.ok(start >= 0, 'release.yml에 최상위 jobs: 키가 없다');
+  const blocks = new Map();
+  let current = null;
+  for (const line of lines.slice(start + 1)) {
+    // 들여쓰기가 없는 줄은 다음 최상위 키다.
+    if (line.trim() !== '' && !line.startsWith(' ')) break;
+    const header = /^ {2}([A-Za-z0-9_-]+):\s*$/.exec(line);
+    if (header !== null) {
+      current = header[1];
+      blocks.set(current, []);
+      continue;
+    }
+    if (current !== null) blocks.get(current).push(line);
+  }
+  return new Map([...blocks].map(([name, body]) => [name, body.join('\n')]));
+}
+
+describe('release workflow', () => {
+  const jobs = workflowJobs();
+  const publishJobs = ['publish-dry-run', 'publish'];
+
+  it('작업 구성은 prepare · publish-dry-run · publish · status다', () => {
+    assert.deepEqual([...jobs.keys()], ['prepare', 'publish-dry-run', 'publish', 'status']);
+  });
+
+  it('tarball을 만드는 pack은 prepare에서만 실행한다', () => {
+    assert.match(jobs.get('prepare'), /scripts\/release\/pack\.mjs/);
+    for (const name of publishJobs) {
+      assert.doesNotMatch(jobs.get(name), /pack\.mjs|pnpm pack/, `${name}이 tarball을 다시 만든다`);
+    }
+  });
+
+  it('publish 작업은 prepare가 올린 artifact를 그대로 내려받는다', () => {
+    const uploaded = /uses: actions\/upload-artifact@[^\n]+\n\s+with:\n\s+name: ([^\n]+)\n/.exec(jobs.get('prepare'));
+    assert.ok(uploaded !== null, 'prepare가 artifact를 올리지 않는다');
+    for (const name of publishJobs) {
+      const job = jobs.get(name);
+      assert.match(job, /^\s+needs: prepare$/m, `${name}이 prepare를 needs로 두지 않는다`);
+      const downloaded = /uses: actions\/download-artifact@[^\n]+\n\s+with:\n\s+name: ([^\n]+)\n/.exec(job);
+      assert.ok(downloaded !== null, `${name}이 artifact를 내려받지 않는다`);
+      assert.equal(downloaded[1], uploaded[1]);
+    }
+  });
+
+  it('publish 작업은 소스를 다시 빌드하지 않는다', () => {
+    for (const name of publishJobs) {
+      assert.doesNotMatch(jobs.get(name), /pnpm install|pnpm verify|pnpm build|corepack/, `${name}이 빌드 단계를 갖는다`);
+    }
+  });
+
+  it('artifact 보존 기간은 재개할 수 있도록 7일이다', () => {
+    assert.match(jobs.get('prepare'), /^\s+retention-days: 7$/m);
+  });
+
+  it('배포 실패 안내는 원래 실행의 Re-run failed jobs를 가리킨다', () => {
+    const status = jobs.get('status');
+    assert.match(status, /Re-run failed jobs/);
+    assert.match(status, /Re-run all jobs/);
+    assert.match(status, /Run workflow/);
+    // 새 workflow 실행으로 오해하게 하던 이전 문구가 남아 있으면 안 된다.
+    assert.doesNotMatch(status, /같은 입력으로 다시 실행/);
+    assert.doesNotMatch(status, /다시 실행하면/);
   });
 });

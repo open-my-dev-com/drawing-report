@@ -2,7 +2,7 @@
 
 이 문서는 SlipKit 저장소의 PR 검증과 npm 배포 준비·실행·복구 절차를 설명합니다.
 
-최종 갱신: 2026-09-03
+최종 갱신: 2026-09-08
 
 > [!IMPORTANT]
 > `@omdc-slipkit/*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 이 문서에 적힌 npm 조직,
@@ -81,9 +81,10 @@ GitHub 저장소의 **Actions → Release → Run workflow**에서 `main`을 선
 | `dry_run` | `true` | 실제 배포 없이 검증과 `npm publish --dry-run` 실행 |
 
 `prepare` 작업은 `pnpm verify`, `pnpm verify:packages`를 통과한 뒤 다섯 tarball과
-`SHA256SUMS`·`manifest.json`을 1일 보존 artifact로 만듭니다. `publish-dry-run`은 npm 11.19.1로
-artifact를 검증하고 배포 명령을 실행하되 레지스트리에 올리지 않습니다. 마지막 `status`의 Job
-Summary에서 `publish`가 실행되지 않았고 검증만 끝났는지 확인합니다.
+`SHA256SUMS`·`manifest.json`을 7일 보존 artifact로 만듭니다. 이 보존 기간은 부분 배포를 원래 실행에서
+재개할 수 있는 기간입니다(§5). `publish-dry-run`은 npm 11.19.1로 artifact를 검증하고 배포 명령을
+실행하되 레지스트리에 올리지 않습니다. 마지막 `status`의 Job Summary에서 `publish`가 실행되지 않았고
+검증만 끝났는지 확인합니다.
 
 저장소 변수가 없거나 `true`가 아니면 `dry_run=false`로 실행해도 실제 `publish` 작업은 건너뜁니다.
 이 경우도 Job Summary는 배포 성공이 아니라 외부 설정이 없어 검증만 완료됐다고 표시합니다.
@@ -113,22 +114,49 @@ Environment 승인을 거치면 같은 artifact를 다시 빌드하지 않고 SH
 
 ## 5. 부분 배포 후 재개
 
-먼저 실패한 패키지와 마지막으로 성공한 패키지를 Job Summary와 npm에서 확인합니다. 인증,
-Environment 승인 또는 일시적인 통신 문제를 해결한 뒤 **같은 소스·버전·dist-tag**로 Release
-워크플로를 다시 실행합니다.
+다섯 패키지 중 일부만 올라간 상태로 `publish`가 실패하면, **실패한 원래 실행에서 `Re-run failed jobs`로
+이어서 배포**합니다. 성공한 `prepare`는 다시 실행하지 않고, 그 실행이 올린 원래 artifact의 tarball을
+그대로 사용합니다. 같은 버전을 새 tarball로 다시 만들어 올리지 않기 때문입니다.
 
-재실행은 각 패키지를 다음처럼 판정합니다.
+### 5.1 재개 절차
+
+1. **실패 지점을 확인합니다.** 원래 실행의 Job Summary와 `publish` 로그에서 마지막으로 성공한
+   패키지와 실패한 패키지를 확인하고, npm에서 각 패키지의 버전·`dist.integrity`·dist-tag를 대조합니다.
+2. **원인을 해결합니다.** Environment 승인 대기, Trusted Publisher 설정, 권한이나 일시적인 통신 오류를
+   먼저 해결합니다. 원인을 해결하지 않은 재개는 같은 자리에서 다시 실패합니다.
+3. **원래 실행에서 `Re-run failed jobs`를 누릅니다.** 실패한 `publish`와 `status`만 다시 돌고,
+   `prepare`는 성공 상태 그대로 남아 artifact를 제공합니다.
+4. **재개 실행을 검증합니다.** `publish`가 `prepare`의 artifact를 내려받아 `SHA256SUMS`와
+   `manifest.json`을 검증했는지, 이미 올라간 패키지를 건너뛰고 남은 패키지만 배포했는지, `status`의 Job
+   Summary가 배포 성공으로 끝났는지 확인합니다. 마지막으로 npm에서 다섯 패키지의 버전,
+   `dist.integrity`, dist-tag와 provenance를 확인합니다.
+
+### 5.2 하지 않는 것
+
+- `Re-run all jobs`를 쓰지 않습니다. `prepare`가 다시 돌면 tarball을 새로 만들게 됩니다.
+- 새 **Run workflow** 실행으로 같은 버전을 이어서 배포하지 않습니다.
+- 로컬이나 다른 runner에서 다시 pack한 tarball로 남은 패키지를 배포하지 않습니다.
+
+### 5.3 각 패키지의 판정
+
+재개한 `publish`는 패키지마다 레지스트리를 조회해 다음처럼 판정합니다.
 
 | 레지스트리 조회 결과 | 처리 |
 |---|---|
 | E404 | 아직 없는 버전이므로 배포 |
-| 로컬 tarball과 같은 SHA-512 SRI | 이전 실행에서 같은 파일을 배포했으므로 건너뜀 |
+| 원래 artifact의 tarball과 같은 SHA-512 SRI | 앞선 실행에서 같은 파일을 배포했으므로 건너뜀 |
 | 다른 SRI | 다른 내용이 같은 버전에 존재하므로 즉시 중단 |
 | 인증·통신 오류 | 상태를 확정할 수 없으므로 즉시 중단 |
 
-같은 버전의 tarball 내용을 수정해서 재개하지 않습니다. npm에 올라간 버전은 덮어쓸 수 없으므로,
-내용 변경이 필요하면 현재 실행을 중단하고 모든 패키지의 새 버전을 정한 뒤 처음부터 검증합니다.
-부분 배포된 이전 버전의 폐기·deprecate 여부는 확정된 릴리스 정책에 따라 별도로 처리합니다.
+### 5.4 재개할 수 없을 때
+
+release artifact는 7일 동안 보존합니다. 이 기간이 지나 artifact가 만료됐거나, artifact가 남아 있지
+않거나, `prepare`를 다시 실행해야 하는 상황이면 **같은 버전의 재개를 중단합니다.** 이미 공개된 패키지와
+dist-tag 상태를 확인한 뒤, 다섯 패키지의 새 버전을 정해 새 릴리스로 처음부터 실행합니다.
+
+같은 버전의 tarball 내용을 고쳐서 재개하지도 않습니다. npm에 올라간 버전은 덮어쓸 수 없으므로, 내용
+변경이 필요하면 마찬가지로 새 버전으로 처리합니다. 부분 배포된 이전 버전의 폐기·deprecate 여부는
+확정된 릴리스 정책에 따라 별도로 처리합니다.
 
 ## 6. 외부 설정을 바꿀 때
 

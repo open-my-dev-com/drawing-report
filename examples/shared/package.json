@@ -11,14 +11,16 @@
     "./demo.css": "./demo.css"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@omdc-slipkit/core": "workspace:*",
     "@omdc-slipkit/elements": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
   },
   "files": [
     "src",

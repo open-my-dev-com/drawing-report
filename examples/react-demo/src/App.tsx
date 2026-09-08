@@ -24,6 +24,7 @@ import {
   VOUCHER_KEY,
   asDemoMode,
   canResumeVoucher,
+  createDemoStorageQueue,
   createStores,
   getMessages,
   initialTemplate,
@@ -36,6 +37,7 @@ import {
   savedLabel,
   suggestedName,
   templateFromVoucher,
+  usesDemoSampleKey,
   type DemoMode,
 } from 'slipkit-demo-shared';
 
@@ -60,9 +62,13 @@ const designerSettings: SlipDesignerSettings = {
   getPaperSizes: () => [{ name: 'Label 100x150', width: 100, height: 150 }],
 };
 
+// 공개된 샘플 키를 쓰는 동안에만 화면에 키 경고를 띄운다
+const sampleKey = usesDemoSampleKey(import.meta.env.VITE_SLIPKIT_KEY as string | undefined);
+
 export function App() {
   // 저장소는 화면이 다시 그려져도 그대로 써야 하므로 한 번만 만든다
   const { store, files } = useMemo(() => createStores(slipKit, 'slipkit-demo-react'), []);
+  const storageQueue = useMemo(() => createDemoStorageQueue(store), [store]);
 
   const [template, setTemplate] = useState<SlipTemplateFile>(() => initialTemplate(locale));
   // 디자이너에 넣는 시작 입력 — 편집 중에는 바꾸지 않고, 외부 양식을 명시적으로 열 때만 갱신한다
@@ -80,6 +86,7 @@ export function App() {
   const [booted, setBooted] = useState(false);
 
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const clearDialogRef = useRef<HTMLDialogElement>(null);
   const filenameRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 자동 저장은 최신 값을 봐야 하므로 ref로도 들고 있는다
@@ -88,14 +95,17 @@ export function App() {
 
   const saveNow = useCallback(async () => {
     try {
-      await store.save(TEMPLATE_KEY, latest.current.template);
-      if (latest.current.voucher) await store.save(VOUCHER_KEY, latest.current.voucher);
+      const current = latest.current;
+      await storageQueue.save([
+        [TEMPLATE_KEY, current.template],
+        ...(current.voucher ? [[VOUCHER_KEY, current.voucher] as const] : []),
+      ]);
       setAutosave(savedLabel(new Date(), locale));
     } catch (error) {
       setAutosave('');
       setStatus(messages.autosaveFailed(reasonOf(error)));
     }
-  }, [store]);
+  }, [storageQueue]);
 
   const scheduleAutosave = useCallback(() => {
     if (timerRef.current !== null) clearTimeout(timerRef.current);
@@ -104,6 +114,13 @@ export function App() {
       void saveNow();
     }, AUTOSAVE_DELAY_MS);
   }, [saveNow]);
+
+  /** 예약해 둔 자동 저장을 취소한다 */
+  const cancelAutosave = useCallback(() => {
+    if (timerRef.current === null) return;
+    clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }, []);
 
   /** 화면 전환 — 양식 편집, 전표 작성, 발행 전표 조회 */
   const switchMode = useCallback((next: DemoMode, message?: string) => {
@@ -183,10 +200,10 @@ export function App() {
     setIssued(file);
     latest.current.voucher = null;
     latest.current.issued = file;
-    void store.save(ISSUED_KEY, file).catch(() => undefined);
-    void store.delete(VOUCHER_KEY).catch(() => undefined);
+    void storageQueue.save([[ISSUED_KEY, file]]).catch(() => undefined);
+    void storageQueue.delete([VOUCHER_KEY]).catch(() => undefined);
     switchMode('view', messages.issued);
-  }, [store, switchMode]);
+  }, [storageQueue, switchMode]);
 
   /** 지금 화면에서 다루고 있는 파일 — 내려받기 대상 */
   const activeFile = (): SlipFile => {
@@ -240,7 +257,7 @@ export function App() {
         } else if (file.issued) {
           setIssued(file);
           latest.current.issued = file;
-          void store.save(ISSUED_KEY, file).catch(() => undefined);
+          void storageQueue.save([[ISSUED_KEY, file]]).catch(() => undefined);
           switchMode('view', messages.openedIssued);
         } else {
           const fromVoucher = templateFromVoucher(file);
@@ -263,8 +280,51 @@ export function App() {
   const newSlip = (): void => {
     setVoucher(null);
     latest.current.voucher = null;
-    void store.delete(VOUCHER_KEY).catch(() => undefined);
+    void storageQueue.delete([VOUCHER_KEY]).catch(() => undefined);
     switchMode('fill', messages.newSlip);
+  };
+
+  const openClearDialog = (): void => {
+    const dialog = clearDialogRef.current;
+    if (!dialog) return;
+    dialog.returnValue = 'cancel';
+    dialog.showModal();
+  };
+
+  /** 지운 뒤 처음 상태로 되돌린다 — 화면을 내렸다 다시 올리므로 자동 저장이 새로 예약되지 않는다 */
+  const resetToInitial = (): void => {
+    const fresh = initialTemplate(locale);
+    latest.current = { template: fresh, voucher: null, issued: null };
+    setTemplate(fresh);
+    setVoucher(null);
+    setIssued(null);
+    setDesignerSrc(serializeSlipFile(fresh));
+    // 작성·조회 화면을 내려 이전 전표를 남기지 않는다. 다음에 열 때 빈 전표로 다시 만든다.
+    setFormSrc('');
+    setViewerSrc('');
+    setFormSession((session) => session + 1);
+    setAutosave('');
+    // 방금 지운 화면 기억(localStorage)을 다시 쓰지 않도록 switchMode를 거치지 않는다.
+    setMode('design');
+    setStatus(messages.cleared);
+  };
+
+  const clearStorage = async (): Promise<void> => {
+    // 예약된 저장이 남아 있으면 지운 직후 다시 저장된다 — 먼저 취소한다.
+    cancelAutosave();
+    try {
+      await storageQueue.clear();
+    } catch (error) {
+      setStatus(messages.clearFailed(reasonOf(error)));
+      return;
+    }
+    resetToInitial();
+  };
+
+  const onClearDialogClose = (): void => {
+    // 취소하면 저장된 내용을 그대로 둔다.
+    if (clearDialogRef.current?.returnValue !== 'ok') return;
+    void clearStorage();
   };
 
   return (
@@ -284,6 +344,12 @@ export function App() {
         <span className="autosave">{autosave}</span>
         <span className="status">{status}</span>
       </header>
+
+      <div className="notice">
+        <span>{messages.storageNotice}</span>
+        {sampleKey && <span className="warn">{messages.storageKeyWarning}</span>}
+        <button onClick={openClearDialog}>{messages.buttonClearStorage}</button>
+      </div>
 
       <div className="pane" hidden={mode !== 'design'}>
         {/* UI 언어와 렌더 설정은 slipkit이 공급한다 — 컴포넌트 locale은 다르게 표시할 때만 쓴다 */}
@@ -320,6 +386,19 @@ export function App() {
           <div className="foot">
             <button value="cancel">{messages.cancel}</button>
             <button value="ok">{messages.download}</button>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog ref={clearDialogRef} onClose={onClearDialogClose}>
+        <form method="dialog">
+          <h2>{messages.clearConfirmTitle}</h2>
+          <div className="body">
+            <p>{messages.clearConfirmBody}</p>
+          </div>
+          <div className="foot">
+            <button value="cancel">{messages.cancel}</button>
+            <button value="ok" className="danger">{messages.clearConfirmOk}</button>
           </div>
         </form>
       </dialog>
