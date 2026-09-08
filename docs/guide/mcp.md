@@ -54,7 +54,7 @@ See [`examples/mcp-demo`](../../examples/mcp-demo) for ready-to-use inputs.
 }
 ```
 
-The configuration file may be stored anywhere. Relative `rootDir` and font paths are resolved from the directory containing the configuration file. `~` is not expanded to the home directory, so use an absolute path or a valid relative path.
+The configuration file may be stored anywhere. Relative `rootDir` and font paths are resolved from the directory containing the configuration file. `~` is not expanded to the home directory, so use an absolute path or a valid relative path. Symbolic links are excluded from storage operations, but a hard link is indistinguishable from a regular file after it is created. Do not place hard links to sensitive files in the working directory.
 
 | Field | Description | Default |
 |---|---|---|

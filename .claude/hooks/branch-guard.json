@@ -4,7 +4,5 @@
     "claude*",
     "codex*"
   ],
-  "allowBranches": [
-    "fix/user-acceptance-review"
-  ]
+  "allowBranches": []
 }

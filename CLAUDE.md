@@ -3,7 +3,8 @@
 # SlipKit (drawing-report) — 개발 규칙
 
 UI로 전표 양식을 만들고 채워서 인쇄·PDF 출력하는 임베드형 패키지(`@omdc-slipkit/*`).
-pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `vue`.
+pnpm 모노레포: `packages/core`(순수 TS) · `packages/elements`(Lit) · `packages/react` ·
+`packages/vue` · `packages/mcp`.
 
 이 파일은 리포 전체 개발 규칙의 입구다. 상세 규칙은 `.claude/rules/`에 둔다 (ADR-024).
 로드맵:
@@ -23,17 +24,21 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
   전체 코멘트의 번호와 상태를 확인하고, 답변·구현·리뷰 단계에 맞게 기존 코멘트 상태를 수정한다
 - **용어 사전**: `.claude/rules/terms.md` — 이름을 붙이기 전에 먼저 본다. 그리드(요소)와
   격자(캔버스 모눈)처럼 헷갈리는 말의 구분, 용어를 바꿀 때 훑을 곳 목록
-- **패키지·문서별 상세 규칙**: `.claude/rules/core.md`(순수 TS·
-  eval 금지·Zod 단일 원천·스키마 변경 체크리스트·pdfme 외부 비공개) · `ui-packages.md`(Lit·`slip-*`·
-  얇은 래퍼) · `docs.md`(ADR·SPEC 일관성) · `comments.md`(TSDoc 주석 표준, ADR-029/059)
+- **경로별 상세 규칙**: `.claude/rules/core.md`는 `packages/core/**`, `ui-packages.md`는
+  `packages/elements/**`·`packages/react/**`·`packages/vue/**`, `docs.md`는 `docs/**`에 적용한다.
+  각 파일의 `paths` 머리말이 범위를 정한다
+- **저장소 전체 주석 규칙**: `.claude/rules/comments.md` — 공개 API와 내부 선언을 포함한 모든 TSDoc의
+  작성 표준(ADR-029/059)
 
 ## 문서 규칙
 
 - 새 설계 결정 → `docs/DECISIONS.md`에 ADR 추가. 기존 결정 번복은 삭제하지 않고 후속 ADR로 갈음한다.
   ADR 번호는 안정 식별자라 재사용하지 않는다(상세·릴리스 정리 예외는 `.claude/rules/docs.md`).
 - `docs/REQUIREMENTS.md`는 항상 DECISIONS.md와 일치하도록 함께 갱신한다.
-- 새 쟁점은 임의로 결정하지 말고 `docs/OPEN-QUESTIONS.md`에 다음 Q 번호로 추가하고 사용자에게 확인한다.
-- 작업 완료 시 `docs/ROADMAP.md`의 현재 상태·다음 작업을 갱신한다.
+- 기존 요구사항과 결정으로 답할 수 있는 쟁점은 PM 역할의 AI가 결론을 낸다. 공개 API·파일 형식·
+  데이터 보존·제품 동작을 새로 정해야 하는 쟁점만 `docs/OPEN-QUESTIONS.md`에 다음 Q 번호로 추가하고
+  사용자에게 확인한다 (`issue-comments.md`의 답변 원칙과 같은 기준).
+- 작업 완료 시 `docs/ROADMAP.md`를 PR 병합 뒤의 현재 상태와 다음 작업 기준으로 갱신한다.
 
 ## 작업 원칙
 
@@ -47,6 +52,8 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
 ## 코드 불변 규칙 (경로 무관)
 
 - 수식은 자체 파서만 사용. `eval`·`new Function` 절대 금지 (ADR-010).
+- 문자열로 모듈 경로를 조립하는 동적 import는 패키지와 경로에 관계없이 금지한다. 번들러가 정적으로
+  추적할 수 있는 리터럴 동적 import만 사용한다.
 - `@omdc-slipkit/core`는 순수 TS — DOM·브라우저·프레임워크 API 의존 금지 (ADR-002).
 - pdfme 타입·API를 공개 API에 노출 금지 (ADR-016).
 - **용어·문구·설정값 변경 시 SSOT 준수**: 한 곳에서 정의되고 여러 곳에서 쓰이는 것(용어,
@@ -56,8 +63,8 @@ pnpm 모노레포: `packages/core`(순수 TS) · `elements`(Lit) · `react` · `
 
 ## 검증 게이트
 
-- `pnpm verify`가 통과한 상태에서만 커밋합니다. 검증 단계와 실행 순서는 루트 `package.json`의
-  `verify` 스크립트에서 관리합니다 (lint = TSDoc 주석 형식 검사, ADR-030).
+- `pnpm verify`가 통과한 상태에서만 커밋한다. 검증 단계와 실행 순서는 루트 `package.json`의
+  `verify` 스크립트에서 관리한다 (lint = TSDoc 주석 형식 검사, ADR-030).
   (PreToolUse 훅이 `git commit` 시 이 게이트를 자동 실행해 실패하면 커밋을 차단한다.)
 - 실패하는 테스트를 스킵·삭제·완화로 통과시키지 않는다.
 - `/verify`로 수동 실행, `/next-task`로 로드맵 다음 작업을 규칙대로 시작할 수 있다.

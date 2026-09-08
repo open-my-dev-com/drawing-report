@@ -38,5 +38,5 @@ paths:
 - 연결 해제 시 컨트롤러 상태를 초기화하지 않는다. `hostConnected`에서 화면을 다시 그려 재연결
   뒤에도 화면과 상태가 어긋나지 않게 한다.
 - shadow root는 하나다. 자식 커스텀 엘리먼트를 만들지 않는다.
-- `packages/elements`는 `noUnusedLocals`·`noUnusedParameters`를 켠다. 모듈 분리 후 남은 미사용 import와
-  사용하지 않는 매개변수를 `pnpm -r typecheck`가 잡는다.
+- `tsconfig.base.json`은 모든 패키지와 예제에 `noUnusedLocals`·`noUnusedParameters`를 적용한다.
+  모듈 분리 후 남은 미사용 import와 사용하지 않는 매개변수는 `pnpm -r typecheck`로 확인한다.

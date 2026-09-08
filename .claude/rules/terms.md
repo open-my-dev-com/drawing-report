@@ -56,14 +56,16 @@
 
 CLAUDE.md의 SSOT 규칙대로 **한 번에 전부** 바꾼다 — 일부만 바꾸지 않는다:
 
-1. 문서 — `docs/SPEC.md` · `DECISIONS.md` · `REQUIREMENTS.md` · `ROADMAP.md` · `docs/guide/*`(영어·한국어·일본어 모두)
+1. 문서 — 루트 `README*` · `docs/SPEC.md` · `DECISIONS.md` · `REQUIREMENTS.md` · `TEST-PLAN.md` ·
+   `ARCHITECTURE.md` · `RELEASE.md` · `ROADMAP.md` · `docs/guide/*`(영어·한국어·일본어 모두)
 2. 코드 주석 (TSDoc·`//` 둘 다)
 3. **사용자 대면 오류 메시지** — `SlipRenderError`·`SlipParseError` 등에 담기는 문구
-4. UI 문구 — `packages/elements/src/strings.ts`의 한국어·영어·일본어 사전
+4. UI·MCP 문구 — `packages/elements/src/strings.ts`와 `packages/mcp/src/storage.ts`의 `MCP_TEXT`
+   한국어·영어·일본어 사전
 5. 테스트 설명 (`describe`·`it` 제목)
 6. 커밋 메시지·PR 제목·본문
 
-바꾼 뒤 `grep -rn "<옛 용어>"`로 잔존 0건을 확인한다. 남겨야 할 것이 있으면
+바꾼 뒤 `rg -n "<옛 용어>"`로 잔존 0건을 확인한다. 남겨야 할 것이 있으면
 (위 표의 `격자`처럼 다른 뜻으로 쓰이는 경우) 이 파일에 그 이유를 적는다.
 
 ## 문서 3벌 유지 (ADR-042·066)

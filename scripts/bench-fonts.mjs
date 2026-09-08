@@ -238,7 +238,7 @@ function cell(entry) {
 function printStatic(measurements, budget, elementsDir) {
   const out = [];
   out.push('## 정적 측정 (packages/elements dist)', '');
-  out.push('| 항목 | 실측 (B) | 상한 (B) | 결과 |', '|---|---:|---:|---|');
+  out.push('| 항목 | 측정값 (B) | 상한 (B) | 결과 |', '|---|---:|---:|---|');
   for (const row of budget.rows) out.push(`| ${row.item} | ${formatInt(row.actual)} | ${formatInt(row.limit)} | ${row.ok ? 'OK' : '초과'} |`);
   out.push('', `예산 결과: ${budget.ok ? '전부 통과' : '초과 항목 있음'}`, '');
   const rel = (files) => files.map((file) => path.relative(elementsDir, file)).join(', ') || '(없음)';
