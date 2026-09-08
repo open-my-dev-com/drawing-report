@@ -341,7 +341,7 @@ function printTable(title, results, withPlan) {
   console.log(`### ${title}\n`);
   const head = ['양식', '중앙값', 'p95', 'stringify 호출 (문서 크기/전체)', 'stringify 문자', 'structuredClone'];
   if (withPlan) head.push('planSourcePage');
-  head.push('되돌리기 항목', '스냅샷 바이트', '최대 보존량 (50개)', 'heapUsed 변화');
+  head.push('되돌리기 항목', '스냅샷 문자 수', '최대 보존량 (50개)', 'heapUsed 변화');
   console.log(`| ${head.join(' | ')} |`);
   console.log(`|${head.map(() => '---').join('|')}|`);
   for (const r of results) {
@@ -381,12 +381,12 @@ if (jsonPath !== undefined) {
   for (const row of rows) {
     const context = { fixture: row.name, runs: RUNS };
     const deterministic = [
-      ['templateChars', '양식 문자 수', 'bytes', row.templateChars],
+      ['templateChars', '양식 문자 수', 'count', row.templateChars],
       ['stringifyDocCalls', '문서 크기 JSON.stringify 호출', 'count', row.stringifyDocCalls],
       ['cloneCalls', 'structuredClone 호출', 'count', row.cloneCalls],
       ['planCalls', 'planSourcePage 호출', 'count', row.planCalls],
       ['undoEntries', '드래그 한 번의 되돌리기 항목', 'count', row.undoEntries],
-      ['snapshotChars', '되돌리기 스냅샷 바이트', 'bytes', row.snapshotChars],
+      ['snapshotChars', '되돌리기 스냅샷 문자 수', 'count', row.snapshotChars],
     ];
     for (const [key, label, unit, value] of deterministic) {
       metrics.push(metric(`designer.${row.name}.${key}`, {

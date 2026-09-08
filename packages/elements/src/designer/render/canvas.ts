@@ -52,6 +52,7 @@ import {
   inItemBand,
   isGrid,
 } from '../grid-model.js';
+import { isBlankFormula } from '../../formula-blank.js';
 import { gridFormulaContext } from '../formula-context.js';
 import {
   hasCellWarning,
@@ -1150,6 +1151,8 @@ export function gridCellPreviewText(
     return { text: value === undefined || value === null ? `{${cell.parameter}}` : String(value), error: null };
   }
   if (cell.formula !== undefined) {
+    // 편집 중인 빈 수식은 PDF 변환과 같이 빈 값으로 표시합니다.
+    if (isBlankFormula(cell.formula)) return { text: '', error: null };
     try {
       const result = ctx.evaluate(cell.formula, {
         values,
@@ -1185,6 +1188,8 @@ export function gridCellMergeText(
     return value === null || value === undefined ? '' : String(value);
   }
   if (cell.formula !== undefined) {
+    // 편집 중인 빈 수식은 PDF 변환과 같이 빈 값으로 보아 병합하지 않습니다.
+    if (isBlankFormula(cell.formula)) return '';
     try {
       const result = ctx.evaluate(cell.formula, {
         values,

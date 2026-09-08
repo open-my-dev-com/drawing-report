@@ -23,7 +23,7 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { runCli, type ServeArgs } from './cli-command.js';
 import { resolveServerOptions } from './config.js';
-import { startOrJoinPdfLinkServer, type PdfLinkServer } from './http.js';
+import { startPdfLinkServerWithFallback, type PdfLinkServer } from './http.js';
 import { createSlipMcpServer } from './server.js';
 
 /** 설정을 읽고 stdio 서버를 시작한다. 오류는 호출부가 stderr와 종료 코드 1로 처리한다. */
@@ -43,7 +43,7 @@ async function serve(args: ServeArgs): Promise<void> {
   // 같은 작업 디렉터리의 다른 slipkit-mcp가 그 포트를 쓰고 있으면 빈 포트에 새 서버를 띄운다.
   let linkServer: PdfLinkServer | null = null;
   if (httpPort !== null) {
-    linkServer = await startOrJoinPdfLinkServer({
+    linkServer = await startPdfLinkServerWithFallback({
       rootDir: options.rootDir,
       port: httpPort,
       fallbackToFreePort: true,

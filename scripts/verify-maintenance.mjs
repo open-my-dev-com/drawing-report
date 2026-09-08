@@ -12,8 +12,9 @@
  *    가리키는 `ignoreDependencies`. 진입점 하나가 낡으면 그 아래가 조용히 검사에서 빠진다.
  * 2. 기본 실행 — 어디서도 가져오지 않는 파일, 아무도 쓰지 않는 export, 쓰지 않는 의존성과
  *    `package.json`에 적히지 않은 의존성.
- * 3. `--production` 실행 — 패키지 진입점과 `bin`에서 닿지 않는 export. 시험만 쓰는 export는
- *    `scripts/verify-maintenance/production.mjs`의 허용 목록에 까닭과 쓰는 파일을 적어 둔 것만 통과한다.
+ * 3. `--production` 실행 — 패키지 진입점과 `bin`에서 닿지 않는 파일과 export. 시험만 쓰는 export와
+ *    명령으로만 돌리는 도구 파일은 `scripts/verify-maintenance/production.mjs`의 허용 목록에 까닭을
+ *    적어 둔 것만 통과한다. 예제 앱은 제품 도달 근거로 세지 않는다.
  *
  * 진입점과 개별 예외는 `knip.jsonc`에서 까닭과 함께 관리한다. 자식 프로세스나 `node --import`로만
  * 실행하는 파일은 정적 import가 없어 그곳에 진입점으로 적어야 한다.
@@ -24,8 +25,14 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkKnipConfig, parseJsonc } from './verify-maintenance/config.mjs';
-import { checkProductionExports, exportFindings, renderProductionReport } from './verify-maintenance/production.mjs';
+import { checkKnipConfig, createReferenceFinder, parseJsonc } from './verify-maintenance/config.mjs';
+import {
+  checkProductionExports,
+  checkProductionFiles,
+  exportFindings,
+  fileFindings,
+  renderProductionReport,
+} from './verify-maintenance/production.mjs';
 import { collectFindings, formatFinding, renderReport } from './verify-maintenance/report.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -122,8 +129,36 @@ function collectFiles(dir) {
   return files;
 }
 
-/** 의존성 이름을 찾을 때 읽는 파일 확장자 — 소스와 설정 파일만 본다. */
-const CODE_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs', '.jsx', '.vue', '.html']);
+/** 워크스페이스를 알아볼 때 찾는 매니페스트 파일 이름 */
+const MANIFEST = 'package.json';
+
+/**
+ * 저장소의 워크스페이스 디렉터리를 모은다 — `package.json`을 둔 디렉터리와 루트.
+ *
+ * @param {string[]} files - 루트 기준 파일 경로 목록 (`/` 구분)
+ * @returns {string[]} 루트 기준 디렉터리 경로 목록 (`/` 구분). 루트는 `.`
+ */
+function workspaceDirsFrom(files) {
+  const dirs = new Set(['.']);
+  for (const file of files) {
+    if (file.endsWith(`/${MANIFEST}`)) dirs.add(file.slice(0, -(MANIFEST.length + 1)));
+  }
+  return [...dirs].sort();
+}
+
+/**
+ * 워크스페이스 안에 든 다른 워크스페이스의 디렉터리를 그 워크스페이스 기준 경로로 돌려준다.
+ *
+ * @param {string} name - 기준 워크스페이스 이름 (루트 기준 경로, 루트는 `.`)
+ * @param {string[]} workspaceDirs - 저장소의 모든 워크스페이스 디렉터리 (루트 기준 경로)
+ * @returns {string[]} `name` 안에 든 워크스페이스의 `name` 기준 경로 목록
+ */
+function nestedWorkspacesOf(name, workspaceDirs) {
+  const prefix = name === '.' ? '' : `${name}/`;
+  return workspaceDirs
+    .filter((dir) => dir !== '.' && dir !== name && dir.startsWith(prefix))
+    .map((dir) => dir.slice(prefix.length));
+}
 
 /**
  * `knip.jsonc`가 저장소 내용과 맞는지 확인한다.
@@ -132,20 +167,28 @@ const CODE_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '
  * @returns {string[]} 어긋난 점
  */
 function knipConfigProblems(config) {
+  const repoFiles = collectFiles(ROOT);
+  const workspaceDirs = workspaceDirsFrom(repoFiles);
   const files = {};
   const dependencies = {};
+  const nestedWorkspaces = {};
   for (const name of Object.keys(config.workspaces ?? {})) {
     const dir = path.resolve(ROOT, name);
     let owned;
-    try {
-      owned = collectFiles(dir);
-    } catch {
-      continue;
+    if (name === '.') {
+      owned = repoFiles;
+    } else {
+      try {
+        owned = collectFiles(dir);
+      } catch {
+        continue;
+      }
     }
     files[name] = owned;
+    nestedWorkspaces[name] = nestedWorkspacesOf(name, workspaceDirs);
     let manifest = {};
     try {
-      manifest = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
+      manifest = JSON.parse(readFileSync(path.join(dir, MANIFEST), 'utf8'));
     } catch {
       manifest = {};
     }
@@ -156,32 +199,15 @@ function knipConfigProblems(config) {
       ...Object.keys(manifest.peerDependencies ?? {}),
     ];
   }
-  // 이름이 파일에 있는지는 필요할 때만 읽어 확인한다 (워크스페이스 파일을 한 번만 읽는다).
-  const sources = new Map();
-  const readSources = (workspace) => {
-    if (!sources.has(workspace)) {
-      const dir = path.resolve(ROOT, workspace);
-      const text = (files[workspace] ?? [])
-        .filter((file) => CODE_EXTENSIONS.has(path.extname(file)))
-        .map((file) => {
-          try {
-            return readFileSync(path.join(dir, file), 'utf8');
-          } catch {
-            return '';
-          }
-        })
-        .join('\n');
-      sources.set(workspace, text);
+  const readFile = (workspace, file) => {
+    try {
+      return readFileSync(path.resolve(ROOT, workspace, file), 'utf8');
+    } catch {
+      return '';
     }
-    return sources.get(workspace);
   };
-  const hasReference = (workspace, name) =>
-    readSources(workspace).includes(`'${name}'`) ||
-    readSources(workspace).includes(`"${name}"`) ||
-    readSources(workspace).includes(`'${name}/`) ||
-    readSources(workspace).includes(`"${name}/`);
-
-  return checkKnipConfig({ config, files, dependencies, hasReference });
+  const hasReference = createReferenceFinder({ config, files, nestedWorkspaces, readFile });
+  return checkKnipConfig({ config, files, dependencies, hasReference, workspaceDirs });
 }
 
 /** 파일이 그 이름을 담고 있는지 본다 (허용 목록의 근거 확인). */
@@ -227,18 +253,24 @@ async function main(argv) {
   console.log(renderReport(findings));
   console.log('');
 
-  const productionResult = checkProductionExports(
-    exportFindings(collectFindings(production)),
-    undefined,
-    fileHasName,
-  );
+  const productionFindings = collectFindings(production);
+  const productionResult = {
+    exports: checkProductionExports(exportFindings(productionFindings), undefined, fileHasName),
+    files: checkProductionFiles(fileFindings(productionFindings)),
+  };
   console.log(renderProductionReport(productionResult, formatFinding));
   if (options.json) {
     console.log('');
     console.log(`JSON 저장: ${options.json}`);
   }
 
-  const total = configProblems.length + findings.length + productionResult.unexpected.length + productionResult.stale.length;
+  const total =
+    configProblems.length +
+    findings.length +
+    productionResult.exports.unexpected.length +
+    productionResult.exports.stale.length +
+    productionResult.files.unexpected.length +
+    productionResult.files.stale.length;
   if (total > 0) {
     console.error(`정적 검사 실패: 지적 ${total}건`);
     return 1;

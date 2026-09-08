@@ -27,3 +27,6 @@ function decode(b64: string): Uint8Array {
 export const NOTO_SANS_JP_FONTS: SlipFont[] = [
   { name: 'Noto Sans JP', data: decode(NOTO_SANS_JP_REGULAR_B64), fallback: true },
 ];
+
+/** `NOTO_SANS_JP_FONTS`와 같은 목록 — `import fonts from '@omdc-slipkit/elements/fonts/noto-sans-jp'`로도 가져올 수 있다. */
+export default NOTO_SANS_JP_FONTS;

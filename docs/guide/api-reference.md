@@ -1780,7 +1780,7 @@ export function DesignerPane() {
 }
 ```
 
-The dedicated props (`src`, the settings props, `onSlipChange`, `onSlipIssue`) always win: a spread object cannot override them. Optional wrapper props are assigned to the underlying element only while explicitly provided; removing one restores the element's own default. After issuing, change React's `key` to remount `SlipForm` and start another voucher from the same source.
+The dedicated props (`src`, the settings props, `onSlipChange`, `onSlipIssue`) always win: a spread object cannot override them. Optional wrapper props are assigned to the underlying element only while explicitly provided; removing one restores the element's own default. After issuing, call `reset()` on the `<slip-form>` element that the `ref` provides to start another voucher from the same source; changing React's `key` to remount `SlipForm` is an alternative.
 
 ## `@omdc-slipkit/vue`
 
@@ -1828,7 +1828,7 @@ Emitted events:
 | `locale` | `string` | — |
 | `slipkit` | `SlipKit` | — |
 
-Optional wrapper props follow the same rule: removing a prop restores the underlying element default. After issuing, change Vue's `:key` to remount `SlipForm`.
+Optional wrapper props follow the same rule: removing a prop restores the underlying element default. After issuing, call `reset()` through the component ref's `$el` (the underlying `<slip-form>` element, per Vue's standard behavior); changing Vue's `:key` to remount `SlipForm` is an alternative.
 
 ## `@omdc-slipkit/mcp`
 

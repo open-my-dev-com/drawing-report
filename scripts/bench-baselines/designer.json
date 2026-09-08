@@ -31,7 +31,7 @@
     {
       "id": "designer.small.templateChars",
       "label": "small — 양식 문자 수",
-      "unit": "bytes",
+      "unit": "count",
       "kind": "deterministic",
       "value": 2750,
       "context": {
@@ -90,8 +90,8 @@
     },
     {
       "id": "designer.small.snapshotChars",
-      "label": "small — 되돌리기 스냅샷 바이트",
-      "unit": "bytes",
+      "label": "small — 되돌리기 스냅샷 문자 수",
+      "unit": "count",
       "kind": "deterministic",
       "value": 2750,
       "context": {
@@ -103,7 +103,7 @@
     {
       "id": "designer.large.templateChars",
       "label": "large — 양식 문자 수",
-      "unit": "bytes",
+      "unit": "count",
       "kind": "deterministic",
       "value": 170160,
       "context": {
@@ -162,8 +162,8 @@
     },
     {
       "id": "designer.large.snapshotChars",
-      "label": "large — 되돌리기 스냅샷 바이트",
-      "unit": "bytes",
+      "label": "large — 되돌리기 스냅샷 문자 수",
+      "unit": "count",
       "kind": "deterministic",
       "value": 170160,
       "context": {

@@ -1,7 +1,14 @@
 // knip 설정 점검의 단위 시험 — `node --test`로 실행한다.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { checkKnipConfig, globToRegExp, parseJsonc } from './config.mjs';
+import {
+  checkKnipConfig,
+  createReferenceFinder,
+  globToRegExp,
+  hasDependencyReference,
+  parseJsonc,
+  scopeWorkspaceFiles,
+} from './config.mjs';
 
 /** 저장소를 흉내 낸 워크스페이스 파일 목록 */
 const FILES = {
@@ -82,5 +89,118 @@ describe('checkKnipConfig', () => {
     assert.deepEqual(checkKnipConfig({ config, files: FILES, dependencies: DEPENDENCIES }), [
       '워크스페이스 packages/gone: 저장소에 없다',
     ]);
+  });
+});
+
+describe('scopeWorkspaceFiles', () => {
+  const files = [
+    'scripts/verify-packages/fixtures/react-app/main.tsx',
+    'packages/react/src/index.ts',
+    'examples/react-demo/src/main.tsx',
+  ];
+
+  it('project·entry glob이 있으면 그 glob과 맞는 파일만 남긴다', () => {
+    assert.deepEqual(scopeWorkspaceFiles({ workspace: { project: ['scripts/**'] }, files }), [
+      'scripts/verify-packages/fixtures/react-app/main.tsx',
+    ]);
+  });
+
+  it('glob이 없으면 안에 든 다른 워크스페이스의 파일만 뺀다', () => {
+    assert.deepEqual(
+      scopeWorkspaceFiles({ workspace: {}, files, nestedWorkspaces: ['packages/react', 'examples/react-demo'] }),
+      ['scripts/verify-packages/fixtures/react-app/main.tsx'],
+    );
+  });
+
+  it('production 접미사가 붙은 glob도 같은 패턴으로 본다', () => {
+    assert.deepEqual(scopeWorkspaceFiles({ workspace: { entry: ['scripts/**!'] }, files }), [
+      'scripts/verify-packages/fixtures/react-app/main.tsx',
+    ]);
+  });
+});
+
+describe('hasDependencyReference', () => {
+  it('패키지 이름과 하위 경로 모듈 지정자를 찾는다', () => {
+    assert.equal(hasDependencyReference("import x from 'vite';", 'vite'), true);
+    assert.equal(hasDependencyReference('import x from "vite/client";', 'vite'), true);
+    assert.equal(hasDependencyReference("import x from '@vitejs/plugin-vue';", '@vitejs/plugin-vue'), true);
+  });
+
+  it('이름이 일부만 겹치는 다른 패키지는 찾지 않는다', () => {
+    assert.equal(hasDependencyReference("import x from 'vitest';", 'vite'), false);
+    assert.equal(hasDependencyReference('// vite 라는 낱말만 있는 주석', 'vite'), false);
+  });
+});
+
+describe('createReferenceFinder', () => {
+  const config = {
+    workspaces: {
+      '.': { project: ['scripts/**'] },
+      'packages/react': {},
+    },
+  };
+  const files = {
+    '.': ['scripts/tool.mjs', 'packages/react/src/index.ts', 'examples/react-demo/src/main.tsx'],
+    'packages/react': ['src/index.ts'],
+  };
+  const nestedWorkspaces = { '.': ['packages/react', 'examples/react-demo'], 'packages/react': [] };
+  const sources = {
+    './scripts/tool.mjs': 'console.log("도구");',
+    './packages/react/src/index.ts': "import React from 'react';",
+    './examples/react-demo/src/main.tsx': "import React from 'react';",
+    'packages/react/src/index.ts': "import React from 'react';",
+  };
+  const readFile = (workspace, file) => sources[`${workspace}/${file}`] ?? '';
+
+  it('다른 패키지·예제의 import는 루트 예외를 살리지 못한다', () => {
+    const hasReference = createReferenceFinder({ config, files, nestedWorkspaces, readFile });
+    assert.equal(hasReference('.', 'react'), false);
+    assert.equal(hasReference('packages/react', 'react'), true);
+  });
+
+  it('워크스페이스가 소유한 파일이 가져오면 예외가 살아 있다', () => {
+    const own = { ...sources, './scripts/tool.mjs': "import React from 'react';" };
+    const hasReference = createReferenceFinder({
+      config,
+      files,
+      nestedWorkspaces,
+      readFile: (workspace, file) => own[`${workspace}/${file}`] ?? '',
+    });
+    assert.equal(hasReference('.', 'react'), true);
+  });
+
+  it('삭제된 동적 의존성 예외를 checkKnipConfig가 지적한다', () => {
+    const withException = {
+      workspaces: {
+        '.': { project: ['scripts/**'], ignoreDependencies: ['react'] },
+        'packages/react': {},
+      },
+    };
+    const hasReference = createReferenceFinder({ config: withException, files, nestedWorkspaces, readFile });
+    assert.deepEqual(
+      checkKnipConfig({ config: withException, files, dependencies: { '.': [], 'packages/react': ['react'] }, hasReference }),
+      ['워크스페이스 .: ignoreDependencies "react"를 선언하지도 가져오지도 않는다'],
+    );
+  });
+});
+
+describe('checkKnipConfig의 ignoreWorkspaces', () => {
+  const config = { workspaces: {}, ignoreWorkspaces: ['examples/*!'] };
+
+  it('맞는 워크스페이스가 있으면 지적하지 않는다', () => {
+    assert.deepEqual(
+      checkKnipConfig({ config, files: {}, dependencies: {}, workspaceDirs: ['.', 'examples/demo', 'packages/core'] }),
+      [],
+    );
+  });
+
+  it('맞는 워크스페이스가 없으면 낡은 예외로 잡는다', () => {
+    assert.deepEqual(checkKnipConfig({ config, files: {}, dependencies: {}, workspaceDirs: ['.', 'packages/core'] }), [
+      'ignoreWorkspaces "examples/*!"과 맞는 워크스페이스가 없다',
+    ]);
+  });
+
+  it('workspaceDirs를 주지 않으면 ignoreWorkspaces를 보지 않는다', () => {
+    assert.deepEqual(checkKnipConfig({ config, files: {}, dependencies: {} }), []);
   });
 });

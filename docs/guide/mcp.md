@@ -270,7 +270,7 @@ The `slip://schema` resource provides the full current `.slip` JSON Schema. Supp
 | `page` | The complete page selected by `pageIndex` |
 | `full` | The complete file |
 
-Base64 image data in read responses is replaced with a size marker. Images inside `.slip` files still use base64 data URLs. To add an image through MCP, pass a file path inside the working directory to the `set_image` operation. The server reads the file and creates the base64 asset.
+Base64 image data in read responses is replaced with a size marker — only values that follow the data URL syntax are replaced, and every other string (including one that merely starts with `data:`) is returned as it is. Images inside `.slip` files still use base64 data URLs. To add an image through MCP, pass a file path inside the working directory to the `set_image` operation. The server reads the file and creates the base64 asset.
 
 Image data validation applies only to values declared as images: an image element's parameter, a parameter with `valueType: 'image'`, or a list field with that value type. Other business-data strings, including unknown keys beginning with `data:`, are preserved.
 

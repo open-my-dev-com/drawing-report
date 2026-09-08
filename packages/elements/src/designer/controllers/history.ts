@@ -18,14 +18,16 @@ import type { SlipTemplateFile } from '@omdc-slipkit/core';
 const MAX_ENTRIES = 50;
 
 /**
- * 되돌리기 기록이 보관하는 스냅샷 문자열의 기본 상한. `snapshotBytes`와 같은 기준으로 잽니다.
+ * 되돌리기 기록이 보관하는 스냅샷 문자열 길이의 기본 상한. `snapshotChars`와 같은 기준으로 잽니다.
  *
  * @remarks
+ * 길이는 JSON 문자열의 UTF-16 코드 단위 수(`String.length`)입니다 — 스냅샷마다 인코딩하지 않고
+ * 크기를 가늠하기 위한 기준이며, 실제 메모리·전송 바이트와는 다릅니다.
  * 이미지를 담은 양식은 한 벌이 수 MB이므로 개수만으로는 기록이 차지하는 크기를 가늠할 수 없습니다.
  * 상한을 넘으면 가장 오래된 단계부터 버리되 최근 한 단계는 남겨, 예산과 무관하게 마지막 편집은
  * 항상 되돌릴 수 있게 합니다.
  */
-export const MAX_SNAPSHOT_BYTES = 32 * 1024 * 1024;
+export const MAX_SNAPSHOT_CHARS = 32 * 1024 * 1024;
 
 declare const checkpointBrand: unique symbol;
 
@@ -75,11 +77,11 @@ export class HistoryController implements ReactiveController {
 
   /**
    * @param host - 양식과 저장 대상을 주고받는 문서
-   * @param maxSnapshotBytes - 보관할 스냅샷 크기의 상한
+   * @param maxSnapshotChars - 보관할 스냅샷 문자열 길이(UTF-16 코드 단위)의 상한
    */
   constructor(
     private readonly host: HistoryHost,
-    private readonly maxSnapshotBytes: number = MAX_SNAPSHOT_BYTES,
+    private readonly maxSnapshotChars: number = MAX_SNAPSHOT_CHARS,
   ) {}
 
   hostConnected(): void {}
@@ -94,15 +96,15 @@ export class HistoryController implements ReactiveController {
     return this._redo.length;
   }
 
-  /** 되돌리기 기록만의 스냅샷 문자열 길이 합 — 한 명령이 남긴 스냅샷 크기를 재는 데 씁니다 */
-  get undoSnapshotBytes(): number {
+  /** 되돌리기 기록만의 스냅샷 문자열 길이(UTF-16 코드 단위) 합 — 한 명령이 남긴 스냅샷 크기를 재는 데 씁니다 */
+  get undoSnapshotChars(): number {
     let total = 0;
     for (const entry of this._undo) total += entry.file.length;
     return total;
   }
 
-  /** 보관 중인 스냅샷 문자열 길이의 합 — 기록이 차지하는 크기를 가늠하는 데 씁니다 */
-  get snapshotBytes(): number {
+  /** 보관 중인 스냅샷 문자열 길이(UTF-16 코드 단위)의 합 — 기록이 차지하는 크기를 가늠하는 데 씁니다 */
+  get snapshotChars(): number {
     let total = 0;
     for (const entry of this._undo) total += entry.file.length;
     for (const entry of this._redo) total += entry.file.length;
@@ -145,7 +147,7 @@ export class HistoryController implements ReactiveController {
       else this._redo.shift();
     }
 
-    while (this._undo.length + this._redo.length > 1 && this.snapshotBytes > this.maxSnapshotBytes) {
+    while (this._undo.length + this._redo.length > 1 && this.snapshotChars > this.maxSnapshotChars) {
       if (this._undo.length > 0) this._undo.shift();
       else this._redo.shift();
     }

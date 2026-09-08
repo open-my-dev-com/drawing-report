@@ -269,7 +269,8 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         'Read a .slip file. part "summary" (default) returns the structure: pages with element ' +
         'ids/types/positions, parameters and assets — start here. part "element" (with elementId) or ' +
         '"page" (with pageIndex) returns just that part in full. part "full" returns the whole file. ' +
-        'Embedded base64 image data is always replaced by a size placeholder and never returned.',
+        'Embedded data URLs (data:<mime>[;params],<payload> — base64 image data) are always replaced by a ' +
+        'size placeholder and never returned; every other string is returned as it is.',
       inputSchema: {
         path: z.string().describe('File path relative to the working directory'),
         part: z

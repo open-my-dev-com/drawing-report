@@ -149,7 +149,7 @@ import type {
 } from '@omdc-slipkit/elements';
 import { loadDefaultFonts as loadDefaultFontsSubpath } from '@omdc-slipkit/elements/default-fonts';
 import { PRETENDARD_FONTS } from '@omdc-slipkit/elements/fonts/pretendard';
-import { NOTO_SANS_JP_FONTS } from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+import notoSansJpFonts, { NOTO_SANS_JP_FONTS } from '@omdc-slipkit/elements/fonts/noto-sans-jp';
 
 // ---- @omdc-slipkit/react ----
 import {
@@ -260,6 +260,7 @@ export const elementsValues = [
   loadDefaultFontsSubpath,
   PRETENDARD_FONTS,
   NOTO_SANS_JP_FONTS,
+  notoSansJpFonts,
 ];
 export const reactValues = [ReactSlipDesigner, ReactSlipForm, ReactSlipViewer];
 export const vueValues = [VueSlipDesigner, VueSlipForm, VueSlipViewer];

@@ -1779,7 +1779,7 @@ export function DesignerPane() {
 }
 ```
 
-전용 props(`src`, 설정 props, `onSlipChange`, `onSlipIssue`)는 항상 우선하므로 spread한 객체가 이 값을 덮어쓸 수 없습니다. 선택형 래퍼 prop은 명시적으로 전달한 동안에만 내부 요소에 설정되며, 제거하면 요소 자체의 기본값으로 돌아갑니다. 발행 뒤 같은 원본으로 새 전표를 시작하려면 React의 `key`를 바꿔 `SlipForm`을 다시 마운트합니다.
+전용 props(`src`, 설정 props, `onSlipChange`, `onSlipIssue`)는 항상 우선하므로 spread한 객체가 이 값을 덮어쓸 수 없습니다. 선택형 래퍼 prop은 명시적으로 전달한 동안에만 내부 요소에 설정되며, 제거하면 요소 자체의 기본값으로 돌아갑니다. 발행 뒤 같은 원본으로 새 전표를 시작하려면 `ref`가 주는 `<slip-form>` 요소의 `reset()`을 호출합니다. React의 `key`를 바꿔 `SlipForm`을 다시 마운트하는 방법도 쓸 수 있습니다.
 
 ## `@omdc-slipkit/vue`
 
@@ -1827,7 +1827,7 @@ Vue 3.4 이상을 지원합니다.
 | `locale` | `string` | — |
 | `slipkit` | `SlipKit` | — |
 
-선택형 래퍼 prop도 같은 규칙을 따릅니다. prop을 제거하면 내부 요소의 기본값으로 돌아가며, 발행 뒤에는 Vue의 `:key`를 바꿔 `SlipForm`을 다시 마운트합니다.
+선택형 래퍼 prop도 같은 규칙을 따릅니다. prop을 제거하면 내부 요소의 기본값으로 돌아가며, 발행 뒤에는 컴포넌트 ref의 `$el`(Vue 표준 동작대로 내부 `<slip-form>` 요소)로 `reset()`을 호출하거나, Vue의 `:key`를 바꿔 `SlipForm`을 다시 마운트합니다.
 
 ## `@omdc-slipkit/mcp`
 

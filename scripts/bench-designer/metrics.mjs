@@ -85,7 +85,7 @@ export function readCounters(global) {
  */
 export function undoState(el) {
   if (el._history !== undefined) {
-    return { depth: el._history.undoDepth, chars: el._history.undoSnapshotBytes };
+    return { depth: el._history.undoDepth, chars: el._history.undoSnapshotChars };
   }
   const stack = el._undoStack ?? [];
   return { depth: stack.length, chars: stack.reduce((sum, entry) => sum + entry.file.length, 0) };

@@ -3,6 +3,9 @@
 // 예외는 개별 항목마다 이름과 까닭을 적는다. 디렉터리 전체나 `src/**` 같은 포괄 예외는 두지 않는다.
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  // 예제 앱은 패키지를 쓰는 쪽이라 제품 도달성의 근거가 되면 안 된다 — production 실행에서만 뺀다
+  // (`!` 접미사). 기본 실행에서는 그대로 분석해 예제 안의 미사용 파일·export를 잡는다.
+  "ignoreWorkspaces": ["examples/*!"],
   "workspaces": {
     ".": {
       // 루트 워크스페이스는 도구 스크립트만 분석한다. `.claude/hooks/*`는 Claude Code가 직접
@@ -39,7 +42,7 @@
         "publint",
         // `test:coverage`가 `--coverage.provider=v8` 옵션으로만 요구하는 vitest 제공자.
         "@vitest/coverage-v8",
-        // 아래 넷은 verify-packages 픽스처의 소비자 앱만 쓰며, 임시 소비자 프로젝트에서 설치한다.
+        // 아래 다섯은 verify-packages 픽스처의 소비자 앱만 쓰며, 임시 소비자 프로젝트에서 설치한다.
         "react",
         "react-dom",
         "vue",
@@ -48,6 +51,12 @@
       ]
     },
     "packages/elements": {
+      "ignoreIssues": {
+        // 동봉 일본어 폰트 목록은 이름 있는 export와 default export 두 가지로 공개한다. 두 이름 모두
+        // `scripts/verify-packages/fixtures/public-exports.json`이 계약으로 고정하고 tarball 소비자
+        // 시험이 실제로 가져오므로, 같은 값을 두 이름으로 낸다는 지적만 이 파일에서 뺀다.
+        "src/fonts/noto-sans-jp.ts": ["duplicates"]
+      },
       "entry": [
         // 동봉 폰트 데이터 재생성 명령 — 생성 파일 머리말에 실행 방법이 적혀 있다.
         "scripts/generate-pretendard.mjs",

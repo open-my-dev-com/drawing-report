@@ -8,6 +8,7 @@
  */
 
 import type { ConditionalFormatRule, GridElement, SlipPage } from '@omdc-slipkit/core';
+import { isBlankFormula } from '../formula-blank.js';
 import type { FormulaCheck } from './formula-check.js';
 import type { FormulaTarget } from './formula-target.js';
 
@@ -71,7 +72,8 @@ export function collectFormulaWarnings(input: FormulaWarningInput): FormulaWarni
 
   /** 한 자리를 검사해 계산되지 않으면 원인을 기록하고 참을 돌려줍니다. */
   const fails = (target: FormulaTarget, source: string | undefined, condition: boolean): boolean => {
-    if (source === undefined || source.trim() === '') return false;
+    // 빈 수식은 PDF 변환이 빈 값으로 그리므로 경고 대상이 아닙니다.
+    if (source === undefined || isBlankFormula(source)) return false;
     const failed = input.check(target, source, condition).find((check) => FAILING.has(check.status));
     if (failed === undefined) return false;
     details.push({ target, message: failed.detail ?? '' });

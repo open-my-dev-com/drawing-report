@@ -98,7 +98,7 @@ async function runInPage(options) {
     if (!target) throw new Error(`캔버스에 요소가 없습니다: ${dragId}`);
     // 기록이 컨트롤러로 분리된 코드와 옛 배열 코드를 모두 읽는다 (metrics.mjs의 undoState와 같은 규칙).
     const undoState = () => el._history !== undefined
-      ? { depth: el._history.undoDepth, chars: el._history.undoSnapshotBytes }
+      ? { depth: el._history.undoDepth, chars: el._history.undoSnapshotChars }
       : { depth: (el._undoStack ?? []).length, chars: (el._undoStack ?? []).reduce((sum, entry) => sum + entry.file.length, 0) };
     const undoBefore = undoState();
     reset();

@@ -5,6 +5,9 @@
  * `--production`으로 다시 돌리면 패키지 진입점·`bin`에서 닿는 것만 남아, 시험 전용 export와 아무도
  * 쓰지 않는 export가 함께 드러난다. 여기서는 그 목록을 아래 허용 목록과 맞춰 본다.
  *
+ * export뿐 아니라 **어디서도 닿지 않는 파일**도 같이 본다. 시험만 가져오는 `src` 파일은 기본 실행에서
+ * 쓰이는 것으로 나오므로 production 실행의 파일 지적을 버리면 그대로 지나간다.
+ *
  * 허용 목록은 항목마다 이름·까닭·그 이름을 실제로 쓰는 파일을 적는다. 디렉터리 전체나 종류 전체를
  * 여는 포괄 예외는 두지 않는다. 목록에 없는 지적은 죽은 코드로 보고 실패하고, 지적이 사라진 항목은
  * 낡은 예외로 보고 함께 실패한다.
@@ -68,9 +71,9 @@ export const PRODUCTION_EXPORT_ALLOWLIST = [
   },
   {
     file: 'packages/elements/src/designer/controllers/history.ts',
-    name: 'MAX_SNAPSHOT_BYTES',
+    name: 'MAX_SNAPSHOT_CHARS',
     usedBy: 'packages/elements/test/designer/history-budget.test.ts',
-    reason: '되돌리기 기록의 바이트 상한을 시험이 그대로 읽어 상한을 넘기는 문서를 만든다',
+    reason: '되돌리기 기록의 스냅샷 길이 상한을 시험이 그대로 읽어 상한을 넘기는 문서를 만든다',
   },
   {
     file: 'packages/elements/src/designer/controllers/font-registry.ts',
@@ -194,8 +197,19 @@ export const PRODUCTION_EXPORT_ALLOWLIST = [
   },
 ];
 
-/** 허용 목록으로 다루는 지적 종류 — 파일·의존성 지적은 기본 실행이 이미 잡는다. */
+/** 제품 진입점에서 닿지 않아도 되는 파일 — 항목마다 까닭을 적는다. */
+export const PRODUCTION_FILE_ALLOWLIST = [
+  {
+    file: 'packages/core/scripts/generate-json-schema.mjs',
+    reason: '`pnpm --filter @omdc-slipkit/core schema` 명령으로만 돌리는 JSON Schema 재생성 도구라 패키지 진입점에서 닿지 않는다',
+  },
+];
+
+/** 허용 목록으로 다루는 export 지적 종류 */
 const EXPORT_KINDS = ['exports', 'types'];
+
+/** 허용 목록으로 다루는 파일 지적 종류 */
+const FILE_KINDS = ['files'];
 
 /**
  * production 실행 결과에서 export 지적만 남긴다.
@@ -205,6 +219,46 @@ const EXPORT_KINDS = ['exports', 'types'];
  */
 export function exportFindings(findings) {
   return findings.filter((finding) => EXPORT_KINDS.includes(finding.kind));
+}
+
+/**
+ * production 실행 결과에서 파일 지적만 남긴다.
+ *
+ * @param findings - `collectFindings`가 편 지적 목록
+ * @returns 미사용 파일 지적만 남긴 목록
+ */
+export function fileFindings(findings) {
+  return findings.filter((finding) => FILE_KINDS.includes(finding.kind));
+}
+
+/**
+ * production 파일 지적과 허용 목록을 맞춰 본다.
+ *
+ * @param findings - {@link fileFindings}의 결과
+ * @param allowlist - 허용 목록 (기본값은 이 모듈의 목록)
+ * @returns `unexpected`(허용 목록에 없는 지적), `stale`(더 필요 없거나 두 번 적은 항목)
+ */
+export function checkProductionFiles(findings, allowlist = PRODUCTION_FILE_ALLOWLIST) {
+  const found = new Set(findings.map((finding) => finding.file));
+  const unexpected = [];
+  const stale = [];
+  const seen = new Set();
+
+  for (const entry of allowlist) {
+    if (seen.has(entry.file)) {
+      stale.push(`${entry.file}: 허용 목록에 두 번 적혀 있다`);
+      continue;
+    }
+    seen.add(entry.file);
+    if (!found.has(entry.file)) {
+      stale.push(`${entry.file}: 더 이상 지적되지 않는다 (허용 목록에서 지운다)`);
+    }
+  }
+
+  for (const finding of findings) {
+    if (!seen.has(finding.file)) unexpected.push(finding);
+  }
+  return { unexpected, stale };
 }
 
 /**
@@ -244,25 +298,41 @@ export function checkProductionExports(findings, allowlist = PRODUCTION_EXPORT_A
   return { unexpected, stale };
 }
 
+/** 지적이 없는 결과 */
+const EMPTY_RESULT = { unexpected: [], stale: [] };
+
 /**
  * production 검사 결과를 사람이 읽는 요약으로 만든다.
  *
- * @param result - {@link checkProductionExports}의 결과
+ * @param result - 검사 결과 묶음
+ * @param result.exports - {@link checkProductionExports}의 결과
+ * @param result.files - {@link checkProductionFiles}의 결과
  * @param formatFinding - 지적 하나를 한 줄로 적는 함수
  * @returns stdout에 적을 문자열 (끝에 줄바꿈 없음)
  */
-export function renderProductionReport({ unexpected, stale }, formatFinding) {
+export function renderProductionReport({ exports = EMPTY_RESULT, files = EMPTY_RESULT }, formatFinding) {
   const lines = ['# 제품 코드 도달 검사 (knip --production)', ''];
-  if (unexpected.length === 0 && stale.length === 0) {
-    lines.push(`지적 0건 — 제품 코드에서 닿지 않는 export는 허용 목록 ${PRODUCTION_EXPORT_ALLOWLIST.length}건뿐이다.`);
+  const total =
+    exports.unexpected.length + exports.stale.length + files.unexpected.length + files.stale.length;
+  if (total === 0) {
+    lines.push(
+      `지적 0건 — 제품 코드에서 닿지 않는 것은 export 허용 목록 ${PRODUCTION_EXPORT_ALLOWLIST.length}건과 파일 허용 목록 ${PRODUCTION_FILE_ALLOWLIST.length}건뿐이다.`,
+    );
     return lines.join('\n');
   }
-  if (unexpected.length > 0) {
-    lines.push(`## 허용 목록에 없는 export (${unexpected.length}건)`, '');
-    for (const finding of unexpected) lines.push(`- ${formatFinding(finding)}`);
+  if (files.unexpected.length > 0) {
+    lines.push(`## 허용 목록에 없는 파일 (${files.unexpected.length}건)`, '');
+    for (const finding of files.unexpected) lines.push(`- ${formatFinding(finding)}`);
+    lines.push('', '패키지 진입점·bin에서 닿지 않는 파일이다. 지우거나, 시험이나 명령으로만 쓰는 도구면');
+    lines.push('까닭을 적어 scripts/verify-maintenance/production.mjs의 파일 허용 목록에 넣는다.', '');
+  }
+  if (exports.unexpected.length > 0) {
+    lines.push(`## 허용 목록에 없는 export (${exports.unexpected.length}건)`, '');
+    for (const finding of exports.unexpected) lines.push(`- ${formatFinding(finding)}`);
     lines.push('', '제품 코드에서 닿지 않는 export다. 지우거나, 시험 전용이면 까닭과 쓰는 파일을 적어');
     lines.push('scripts/verify-maintenance/production.mjs의 허용 목록에 넣는다.', '');
   }
+  const stale = [...files.stale, ...exports.stale];
   if (stale.length > 0) {
     lines.push(`## 낡은 허용 목록 항목 (${stale.length}건)`, '');
     for (const message of stale) lines.push(`- ${message}`);

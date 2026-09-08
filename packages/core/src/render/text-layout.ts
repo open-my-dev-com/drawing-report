@@ -2,6 +2,7 @@
  * PDF와 캔버스 미리보기에 공통으로 적용하는 텍스트 배치 함수.
  */
 
+/** 글자 묶음 분할기 — 만드는 비용이 크므로 처음 쓸 때 한 번만 만들어 재사용한다. */
 let graphemeSegmenter: Intl.Segmenter | undefined;
 
 /** 결합 문자를 낱자로 쪼개지 않도록 글자 묶음(grapheme cluster) 단위로 나눈다. */

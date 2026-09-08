@@ -1,7 +1,7 @@
 // 되돌리기 기록의 크기 예산 — 개수 상한과 별개로 보관하는 스냅샷 전체 크기를 제한합니다.
 import { describe, expect, it } from 'vitest';
 import type { SlipTemplateFile } from '@omdc-slipkit/core';
-import { HistoryController, MAX_SNAPSHOT_BYTES } from '../../src/designer/controllers/history.js';
+import { HistoryController, MAX_SNAPSHOT_CHARS } from '../../src/designer/controllers/history.js';
 
 /** 본문 크기를 마음대로 정할 수 있는 양식 — 이미지를 담은 큰 양식을 대신합니다 */
 function makeFile(title: string, fillerLength: number): SlipTemplateFile {
@@ -44,7 +44,7 @@ describe('되돌리기 기록의 크기 예산', () => {
     }
 
     expect(history.undoDepth).toBeLessThan(4);
-    expect(history.undoSnapshotBytes).toBeLessThanOrEqual(BUDGET);
+    expect(history.undoSnapshotChars).toBeLessThanOrEqual(BUDGET);
     // 버린 것은 오래된 단계이고, 마지막 편집 직전 상태는 그대로 남습니다
     expect(history.undo()).toBe(true);
     expect(host.file.template.meta.title).toBe('3');
@@ -56,7 +56,7 @@ describe('되돌리기 기록의 크기 예산', () => {
 
     history.record();
     expect(history.undoDepth).toBe(1);
-    expect(history.undoSnapshotBytes).toBeGreaterThan(BUDGET);
+    expect(history.undoSnapshotChars).toBeGreaterThan(BUDGET);
 
     host.file = makeFile('나중', 10);
     expect(history.undo()).toBe(true);
@@ -75,13 +75,13 @@ describe('되돌리기 기록의 크기 예산', () => {
     expect(history.undo()).toBe(true);
     expect(history.undoDepth).toBe(0);
     expect(history.redoDepth).toBe(1);
-    expect(history.snapshotBytes).toBeGreaterThan(BUDGET);
+    expect(history.snapshotChars).toBeGreaterThan(BUDGET);
     expect(history.redo()).toBe(true);
     expect(host.file.template.meta.title).toBe('2');
   });
 
   it('기본 예산 안에서는 개수 상한(50단계)까지 그대로 쌓는다', () => {
-    // 200KB짜리 양식 51벌은 기본 예산(32MiB) 안이라 개수 상한만 적용됩니다.
+    // 200,000자짜리 양식 51벌은 기본 예산(약 3,355만 자) 안이라 개수 상한만 적용됩니다.
     const host = makeHost(makeFile('0', 200_000));
     const history = new HistoryController(host);
 
@@ -91,6 +91,6 @@ describe('되돌리기 기록의 크기 예산', () => {
     }
 
     expect(history.undoDepth).toBe(50);
-    expect(history.undoSnapshotBytes).toBeLessThanOrEqual(MAX_SNAPSHOT_BYTES);
+    expect(history.undoSnapshotChars).toBeLessThanOrEqual(MAX_SNAPSHOT_CHARS);
   });
 });

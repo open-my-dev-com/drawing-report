@@ -617,7 +617,7 @@ const en: SlipStrings = {
     distributeNeedsThree: 'Select at least three elements or groups.',
     distributeNoRoom: 'Not enough room to space the elements evenly.',
     paperOverflowNotice: 'Areas outside the paper are not printed to PDF.',
-    canvasArea: 'Design canvas',
+    canvasArea: 'Editing canvas',
     panelBasic: 'Basic',
     panelLayout: 'Layout',
     panelStructure: 'Structure',

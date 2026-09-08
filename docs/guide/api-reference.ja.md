@@ -1779,7 +1779,7 @@ export function DesignerPane() {
 }
 ```
 
-専用の props（`src`、設定 props、`onSlipChange`, `onSlipIssue`）は常に優先され、spread したオブジェクトで上書きできません。省略可能なラッパー prop は明示的に渡した間だけ内部要素へ設定され、削除すると要素自身の既定値に戻ります。発行後に同じ元データで新しい伝票を始めるには、React の `key` を変えて `SlipForm` を再マウントします。
+専用の props（`src`、設定 props、`onSlipChange`, `onSlipIssue`）は常に優先され、spread したオブジェクトで上書きできません。省略可能なラッパー prop は明示的に渡した間だけ内部要素へ設定され、削除すると要素自身の既定値に戻ります。発行後に同じ元データで新しい伝票を始めるには、`ref` が返す `<slip-form>` 要素の `reset()` を呼び出します。React の `key` を変えて `SlipForm` を再マウントする方法も使えます。
 
 ## `@omdc-slipkit/vue`
 
@@ -1827,7 +1827,7 @@ Vue 3.4 以上をサポートします。
 | `locale` | `string` | — |
 | `slipkit` | `SlipKit` | — |
 
-省略可能なラッパー prop も同じ規則に従います。prop を削除すると内部要素の既定値に戻り、発行後は Vue の `:key` を変えて `SlipForm` を再マウントします。
+省略可能なラッパー prop も同じ規則に従います。prop を削除すると内部要素の既定値に戻り、発行後はコンポーネント ref の `$el`（Vue の標準動作どおり内部の `<slip-form>` 要素）で `reset()` を呼び出すか、Vue の `:key` を変えて `SlipForm` を再マウントします。
 
 ## `@omdc-slipkit/mcp`
 

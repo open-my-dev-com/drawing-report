@@ -4,7 +4,7 @@ import { createServer, request } from 'node:http';
 import path from 'node:path';
 import {
   createPdfLinkToken,
-  startOrJoinPdfLinkServer,
+  startPdfLinkServerWithFallback,
   startPdfLinkServer,
   type PdfLinkServer,
 } from '../src/http.js';
@@ -149,13 +149,13 @@ describe('PDF 링크 서버', () => {
   });
 
   it('같은 작업 디렉터리의 서버가 포트를 쓰고 있어도 합류하지 않는다', async () => {
-    await expect(startOrJoinPdfLinkServer({ rootDir: dir, port: linkServer.port })).rejects.toThrow(
+    await expect(startPdfLinkServerWithFallback({ rootDir: dir, port: linkServer.port })).rejects.toThrow(
       /used by another slipkit-mcp server for this working directory/,
     );
   });
 
   it('포트가 막혀 있을 때 fallbackToFreePort면 다른 포트에 새 서버를 띄운다', async () => {
-    const fallback = await startOrJoinPdfLinkServer({
+    const fallback = await startPdfLinkServerWithFallback({
       rootDir: dir,
       port: linkServer.port,
       fallbackToFreePort: true,
@@ -174,7 +174,7 @@ describe('PDF 링크 서버', () => {
 
   it('다른 작업 디렉터리의 서버나 다른 프로그램이 쓰는 포트는 대체 포트를 허용해도 거부한다', async () => {
     await expect(
-      startOrJoinPdfLinkServer({
+      startPdfLinkServerWithFallback({
         rootDir: path.join(dir, '..'),
         port: linkServer.port,
         fallbackToFreePort: true,
@@ -187,7 +187,7 @@ describe('PDF 링크 서버', () => {
     const foreignPort = typeof address === 'object' && address !== null ? address.port : 0;
     try {
       await expect(
-        startOrJoinPdfLinkServer({ rootDir: dir, port: foreignPort, fallbackToFreePort: true }),
+        startPdfLinkServerWithFallback({ rootDir: dir, port: foreignPort, fallbackToFreePort: true }),
       ).rejects.toThrow(/already in use by another program/);
     } finally {
       await new Promise((resolve) => foreign.close(resolve));

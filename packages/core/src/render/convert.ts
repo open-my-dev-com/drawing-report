@@ -43,7 +43,7 @@ import {
 import { isValidBarcodeValue } from './barcode.js';
 import { resolveConditionalFormats, type ConditionalFormatOverrides } from './conditional.js';
 import { SlipRenderError } from './errors.js';
-import { rm } from './messages.js';
+import { rm, type ImageProblem } from './messages.js';
 import { TextMeasurer } from './measure.js';
 import { stackVertically } from './text-layout.js';
 import type { SlipFont } from './types.js';
@@ -135,6 +135,11 @@ class SlipToPdfmeConverter {
   private readonly inputs: Record<string, string> = {};
   /** 반복 그리드 id별 실제 항목 배열 (`maxItems` 적용 전) — 셀 값과 예약 참조에 쓴다. */
   private readonly gridItems = new Map<string, readonly GridItem[]>();
+  /**
+   * 이미지 `src`별 검사 결과 — 통과했으면 `undefined`, 아니면 실패 사유.
+   * 같은 이미지가 여러 출력 페이지에 놓여도 한 변환 안에서는 한 번만 디코딩해 검사한다.
+   */
+  private readonly imageChecks = new Map<string, ImageProblem | undefined>();
 
   constructor(
     private readonly body: SlipTemplateBody,
@@ -1110,14 +1115,21 @@ class SlipToPdfmeConverter {
    * 렌더 전에 막고, 서명만 맞고 내용이 깨진 이미지도 어느 요소인지 알 수 있게 여기서 막는다.
    */
   private checkedImage(src: string, what: string): string {
-    const inspection = inspectImageDataUrl(src);
-    if (!inspection.ok) {
-      throw new SlipRenderError(rm(this.locale).imageInvalid(what, inspection.reason));
-    }
-    if (!isEmbeddableImageData(src)) {
-      throw new SlipRenderError(rm(this.locale).imageInvalid(what, 'damaged'));
+    // 검사 결과는 이미지 데이터에만 달려 있으므로 같은 src는 다시 디코딩하지 않는다.
+    // 오류 문구의 대상 이름은 호출할 때마다 붙인다.
+    const problem = this.imageChecks.has(src) ? this.imageChecks.get(src) : this.inspectImage(src);
+    if (problem !== undefined) {
+      throw new SlipRenderError(rm(this.locale).imageInvalid(what, problem));
     }
     return src;
+  }
+
+  /** `data:` 이미지를 검사해 실패 사유를 기록하고 돌려준다. 통과하면 `undefined`. */
+  private inspectImage(src: string): ImageProblem | undefined {
+    const inspection = inspectImageDataUrl(src);
+    const problem = !inspection.ok ? inspection.reason : isEmbeddableImageData(src) ? undefined : 'damaged';
+    this.imageChecks.set(src, problem);
+    return problem;
   }
 
   /**

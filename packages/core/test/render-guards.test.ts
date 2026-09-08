@@ -183,7 +183,7 @@ describe('렌더 단계의 이미지 데이터 검사', () => {
     const file = voucher([image({ parameter: 'sign' })], { sign: 123 });
     expect(() => convertSlipFile(file)).toThrow("The value 'sign' of image '서명' (img) must be an image string");
     expect(() => convertSlipFile(file, { locale: 'ko-KR' }))
-      .toThrow("이미지 '서명' (img)의 값 'sign'는 이미지 문자열이어야 합니다");
+      .toThrow("이미지 '서명' (img)의 'sign' 값은 이미지 문자열이어야 합니다");
     expect(() => convertSlipFile(file, { locale: 'ja' }))
       .toThrow("画像 '서명'(img)の値 'sign' は画像の文字列でなければなりません");
   });

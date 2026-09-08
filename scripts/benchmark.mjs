@@ -290,14 +290,14 @@ for (const item of CASES) {
 
 if (jsonPath !== undefined) {
   const deterministic = {
-    templateBytes: templateJson.length,
+    templateChars: templateJson.length,
     planPages: Object.fromEntries([100, 1000, 5000, 20000].map((n) => [n, outputPages(n)])),
     pdf: { small: await pdfFacts('small'), large: await pdfFacts('large') },
   };
   const metrics = [
-    metric('core.template.serializedBytes', {
-      label: '양식 직렬화 바이트', unit: 'bytes', kind: 'deterministic',
-      value: deterministic.templateBytes, context: { fixture: 'bench-template' },
+    metric('core.template.serializedChars', {
+      label: '양식 직렬화 문자 수', unit: 'count', kind: 'deterministic',
+      value: deterministic.templateChars, context: { fixture: 'bench-template' },
     }),
   ];
   for (const [count, pages] of Object.entries(deterministic.planPages)) {

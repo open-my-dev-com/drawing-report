@@ -24,9 +24,9 @@
   "notes": "`node scripts/benchmark.mjs`의 기본 설정으로 잰 값이다. 시간은 항목마다 정한 본 측정 반복의 중앙값이고, 페이지 계획·PDF는 같은 fixture에서 늘 같은 결과가 나와야 한다.",
   "metrics": [
     {
-      "id": "core.template.serializedBytes",
-      "label": "양식 직렬화 바이트",
-      "unit": "bytes",
+      "id": "core.template.serializedChars",
+      "label": "양식 직렬화 문자 수",
+      "unit": "count",
       "kind": "deterministic",
       "value": 4384,
       "context": {

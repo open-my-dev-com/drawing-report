@@ -41,7 +41,7 @@ installDesignerTestEnv();
 /** 테스트가 들여다보는 디자이너 내부 상태 */
 type Internals = {
   _file: SlipTemplateFile;
-  _history: { undoDepth: number; redoDepth: number; snapshotBytes: number };
+  _history: { undoDepth: number; redoDepth: number; snapshotChars: number };
   _planner: { computations: number };
   _forms: { savedId: string | null };
   _pagePlan(): { plan: { outputPageCount: number } | null };
@@ -273,7 +273,7 @@ describe('<slip-designer> 드래그 중 문서 직렬화', () => {
     expect(changes).toHaveLength(1);
     expect(internals(el)._history.undoDepth).toBe(depth + 1);
     expect(positionOf(el, 't-0-0').x).toBeGreaterThan(10);
-    expect(internals(el)._history.snapshotBytes).toBeGreaterThan(10_000);
+    expect(internals(el)._history.snapshotChars).toBeGreaterThan(10_000);
     el.remove();
   });
 
@@ -550,7 +550,7 @@ describe('<slip-designer> 페이지 계획 캐시', () => {
 
     expect(history.undoDepth).toBe(0);
     expect(history.redoDepth).toBe(0);
-    expect(history.snapshotBytes).toBe(0);
+    expect(history.snapshotChars).toBe(0);
     expect(planner.computations).toBeGreaterThan(count);
     expect(fileOf(el).template.meta.title).toBe('고정 페이지');
     expect(internals(el)._pagePlan().plan?.outputPageCount).toBe(3);

@@ -152,18 +152,18 @@ export async function startPdfLinkServer(options: {
 }
 
 /**
- * 지정한 포트에 PDF 링크 서버를 시작한다. 그 포트를 이미 다른 프로세스가 쓰고 있으면
- * 무엇이 쓰고 있는지 확인해 대체 포트로 옮기거나 원인을 알리는 오류를 던진다.
+ * 지정한 포트에 PDF 링크 서버를 시작하고, 그 포트를 이미 다른 프로세스가 쓰고 있으면
+ * 무엇이 쓰고 있는지 확인해 빈 포트로 대체하거나 원인을 알리는 오류를 던진다.
  *
  * 접근 토큰은 프로세스마다 새로 만들고 밖으로 알리지 않으므로 이미 떠 있는 서버를 함께 쓰지는 않는다.
  * 같은 작업 디렉터리의 SlipKit 링크 서버가 그 포트를 쓰고 있으면 `fallbackToFreePort`가 true일 때만
- * 자동 선택한 다른 포트에 새 서버를 띄운다.
+ * 자동 선택한 빈 포트에 새 서버를 띄운다.
  *
  * @param options - PDF 작업 디렉터리, 바인딩할 포트, 포트가 막혔을 때 다른 포트로 대체할지
  * @returns 링크 서버의 주소, 포트, 토큰과 종료 함수
  * @throws Error 포트를 다른 프로그램이나 다른 작업 디렉터리의 서버가 쓰고 있을 때, 또는 대체 포트를 허용하지 않았을 때
  */
-export async function startOrJoinPdfLinkServer(options: {
+export async function startPdfLinkServerWithFallback(options: {
   rootDir: string;
   port: number;
   fallbackToFreePort?: boolean;

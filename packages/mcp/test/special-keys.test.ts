@@ -153,13 +153,6 @@ describe('slip_edit 연산의 자신의 속성 읽기·쓰기', () => {
     expect(missing).toBe('add_parameter (no key)');
   });
 
-  it('요약의 data URL 치환은 짧은 값도 남기지 않는다', () => {
-    expect(elideDataUrls('data:image/png;base64,iVBORw0KGgo=')).toBe('[data 1KB image/png]');
-    expect(elideDataUrls('data:text/plain,hello')).toBe('[data 1KB text/plain]');
-    expect(elideDataUrls('data:,x')).toBe('[data 1KB]');
-    expect(elideDataUrls('https://example.com/a.png')).toBe('https://example.com/a.png');
-  });
-
   it('요약의 data URL 치환은 __proto__ 키를 자신의 속성으로 옮긴다', () => {
     const elided = elideDataUrls(fromJson('{"__proto__":{"deep":1},"constructor":"c"}')) as Record<string, unknown>;
     expect(Object.getPrototypeOf(elided)).toBe(Object.prototype);

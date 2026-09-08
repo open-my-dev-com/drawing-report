@@ -14,6 +14,7 @@ import {
   type FormulaDiagnosis,
   type FormulaValue,
 } from '@omdc-slipkit/core';
+import { isBlankFormula } from '../formula-blank.js';
 
 /** 수식·조건식 검사 결과의 종류 */
 export type FormulaCheckStatus =
@@ -75,8 +76,8 @@ export const TARGET_CHANGED: FormulaCheck = { status: 'target-changed', applicab
  * @returns 검사 결과와 적용 가능 여부
  */
 export function checkFormula(input: FormulaCheckInput): FormulaCheck {
+  if (isBlankFormula(input.source)) return { status: 'empty', applicable: input.emptyAllowed };
   const source = input.source.trim();
-  if (source === '') return { status: 'empty', applicable: input.emptyAllowed };
 
   const options = input.locale === undefined ? undefined : { locale: input.locale };
   try {

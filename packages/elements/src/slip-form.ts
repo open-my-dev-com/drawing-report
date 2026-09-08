@@ -20,6 +20,7 @@ import { getStrings, type SlipStrings } from './strings.js';
 import { icons } from './icons.js';
 import { pickImageFile, formatBytes, type ImagePickResult } from './image-file.js';
 import { renderSlip } from './settings.js';
+import { isBlankFormula } from './formula-blank.js';
 
 /** 입력이 끝난 뒤 PDF 미리보기를 갱신하기까지 기다리는 시간(ms) */
 const PREVIEW_DEBOUNCE_MS = 500;
@@ -748,21 +749,24 @@ export class SlipForm extends LitElement {
       // 수식 필드는 입력 대신 현재 계산 결과를 표시합니다.
       let text = '';
       let error: string | null = null;
-      try {
-        // 빈 number 파라미터를 0으로 정규화한 뒤 계산합니다.
-        const values = normalizeNumericParameters(this._values, this._body?.parameters);
-        // slipkit이 있으면 수식도 같은 인스턴스로 평가해 PDF와 같은 로케일을 사용합니다.
-        // 컴포넌트 locale은 UI 언어 전용이라 수식 컨텍스트에 넣지 않습니다.
-        text = resultText(
-          this.slipkit
-            ? this.slipkit.evaluate(input.formula, { values })
-            : evaluateFormula(input.formula, {
-                values,
-                ...(this.locale === undefined ? {} : { locale: this.locale }),
-              }),
-        );
-      } catch (e) {
-        error = e instanceof Error ? e.message : String(e);
+      // 편집 중인 빈 수식은 PDF 변환과 같이 빈 값으로 표시하고 계산하지 않습니다.
+      if (!isBlankFormula(input.formula)) {
+        try {
+          // 빈 number 파라미터를 0으로 정규화한 뒤 계산합니다.
+          const values = normalizeNumericParameters(this._values, this._body?.parameters);
+          // slipkit이 있으면 수식도 같은 인스턴스로 평가해 PDF와 같은 로케일을 사용합니다.
+          // 컴포넌트 locale은 UI 언어 전용이라 수식 컨텍스트에 넣지 않습니다.
+          text = resultText(
+            this.slipkit
+              ? this.slipkit.evaluate(input.formula, { values })
+              : evaluateFormula(input.formula, {
+                  values,
+                  ...(this.locale === undefined ? {} : { locale: this.locale }),
+                }),
+          );
+        } catch (e) {
+          error = e instanceof Error ? e.message : String(e);
+        }
       }
       return html`
         <div class="field computed">
