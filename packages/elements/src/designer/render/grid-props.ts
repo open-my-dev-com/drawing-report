@@ -281,7 +281,7 @@ export function gridProps(kit: PanelKit, act: ElementActions, grid: GridActions,
  * @param el - 선택한 그리드 요소
  * @returns 행 추가 명령 조각
  */
-export function gridRowCommands(kit: PanelKit, grid: GridActions, el: GridElement) {
+function gridRowCommands(kit: PanelKit, grid: GridActions, el: GridElement) {
   const s = kit.s;
   const command = grid.edit.rowCommand;
   const fields = grid.parameters()
@@ -379,7 +379,7 @@ export function gridRowCommands(kit: PanelKit, grid: GridActions, el: GridElemen
  * @param el - 선택한 그리드 요소
  * @returns 행 구간 목록 조각. 반복 설정이 없으면 행 명령만 표시합니다
  */
-export function bandList(kit: PanelKit, grid: GridActions, el: GridElement) {
+function bandList(kit: PanelKit, grid: GridActions, el: GridElement) {
   const s = kit.s;
   const bands = el.repeat?.bands ?? [];
   const planError = grid.planError();
@@ -540,7 +540,7 @@ export function bandList(kit: PanelKit, grid: GridActions, el: GridElement) {
  * @param inBand - 선택한 셀이 항목 구간 안인지
  * @returns 셀 편집 패널 조각. 선택한 셀이 없으면 빈 것
  */
-export function gridCellProps(
+function gridCellProps(
   kit: PanelKit,
   act: ElementActions,
   grid: GridActions,
@@ -692,7 +692,7 @@ export function gridCellProps(
  * @param targets - 선택한 셀 좌표 목록 (하나 이상)
  * @returns 스타일 구역 세 개
  */
-export function cellStyleSections(
+function cellStyleSections(
   kit: PanelKit,
   act: ElementActions,
   grid: GridActions,

@@ -1,0 +1,236 @@
+{
+  "schema": {
+    "name": "slipkit-bench-baseline",
+    "version": 1
+  },
+  "tool": "designer",
+  "baselineCommit": "46c73cda6930492197a760366074ddb225f2bff2",
+  "measuredAt": "2026-09-08T10:08:53.004Z",
+  "environment": {
+    "node": "v22.22.2",
+    "v8": "12.4.254.21-node.39",
+    "platform": "linux",
+    "arch": "x64",
+    "osRelease": "6.18.44-fc-v24",
+    "cpuModel": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores": 4,
+    "memoryBytes": 16856092672,
+    "memoryGiB": 15.7,
+    "chromium": null
+  },
+  "options": {
+    "warmup": 5,
+    "runs": 30,
+    "moves": 120,
+    "stepPx": 0.5,
+    "maxUndo": 50,
+    "chromium": false
+  },
+  "notes": "`node scripts/bench-designer.mjs`의 기본 설정(워밍업 5회, 본 측정 30회, pointermove 120번)으로 잰 값이다. Chromium 표는 기준선에 넣지 않는다.",
+  "metrics": [
+    {
+      "id": "designer.small.templateChars",
+      "label": "small — 양식 문자 수",
+      "unit": "bytes",
+      "kind": "deterministic",
+      "value": 2750,
+      "context": {
+        "fixture": "small",
+        "runs": 30
+      },
+      "rationale": "양식은 색인에서 결정적으로 만들어 길이가 늘 같다"
+    },
+    {
+      "id": "designer.small.stringifyDocCalls",
+      "label": "small — 문서 크기 JSON.stringify 호출",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "small",
+        "runs": 30
+      },
+      "rationale": "드래그 한 번에 문서 전체를 직렬화하는 횟수 — 늘면 되돌리기 기록이나 캐시 키가 늘어난 것이다"
+    },
+    {
+      "id": "designer.small.cloneCalls",
+      "label": "small — structuredClone 호출",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "small",
+        "runs": 30
+      },
+      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 한다 — 값이 달라지면 동작이 바뀐 것이다"
+    },
+    {
+      "id": "designer.small.planCalls",
+      "label": "small — planSourcePage 호출",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 120,
+      "context": {
+        "fixture": "small",
+        "runs": 30
+      },
+      "rationale": "pointermove 120번마다 페이지 계획을 한 번씩 다시 계산한다"
+    },
+    {
+      "id": "designer.small.undoEntries",
+      "label": "small — 드래그 한 번의 되돌리기 항목",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "small",
+        "runs": 30
+      },
+      "rationale": "연속 이동은 되돌리기 한 단계로 묶인다"
+    },
+    {
+      "id": "designer.small.snapshotChars",
+      "label": "small — 되돌리기 스냅샷 바이트",
+      "unit": "bytes",
+      "kind": "deterministic",
+      "value": 2750,
+      "context": {
+        "fixture": "small",
+        "runs": 30
+      },
+      "rationale": "되돌리기 스냅샷은 양식 전체라 양식 길이와 같다"
+    },
+    {
+      "id": "designer.large.templateChars",
+      "label": "large — 양식 문자 수",
+      "unit": "bytes",
+      "kind": "deterministic",
+      "value": 170160,
+      "context": {
+        "fixture": "large",
+        "runs": 30
+      },
+      "rationale": "양식은 색인에서 결정적으로 만들어 길이가 늘 같다"
+    },
+    {
+      "id": "designer.large.stringifyDocCalls",
+      "label": "large — 문서 크기 JSON.stringify 호출",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "large",
+        "runs": 30
+      },
+      "rationale": "드래그 한 번에 문서 전체를 직렬화하는 횟수 — 늘면 되돌리기 기록이나 캐시 키가 늘어난 것이다"
+    },
+    {
+      "id": "designer.large.cloneCalls",
+      "label": "large — structuredClone 호출",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "large",
+        "runs": 30
+      },
+      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 한다 — 값이 달라지면 동작이 바뀐 것이다"
+    },
+    {
+      "id": "designer.large.planCalls",
+      "label": "large — planSourcePage 호출",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 120,
+      "context": {
+        "fixture": "large",
+        "runs": 30
+      },
+      "rationale": "pointermove 120번마다 페이지 계획을 한 번씩 다시 계산한다"
+    },
+    {
+      "id": "designer.large.undoEntries",
+      "label": "large — 드래그 한 번의 되돌리기 항목",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "large",
+        "runs": 30
+      },
+      "rationale": "연속 이동은 되돌리기 한 단계로 묶인다"
+    },
+    {
+      "id": "designer.large.snapshotChars",
+      "label": "large — 되돌리기 스냅샷 바이트",
+      "unit": "bytes",
+      "kind": "deterministic",
+      "value": 170160,
+      "context": {
+        "fixture": "large",
+        "runs": 30
+      },
+      "rationale": "되돌리기 스냅샷은 양식 전체라 양식 길이와 같다"
+    },
+    {
+      "id": "designer.small.medianMs",
+      "label": "small — 드래그 한 번 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 251.98,
+      "context": {
+        "fixture": "small",
+        "runs": 30
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.6
+      },
+      "rationale": "컨테이너에서 잰 값이라 부하를 탄다. 같은 환경 fingerprint일 때만 보고 1.6배를 넘으면 회귀로 본다"
+    },
+    {
+      "id": "designer.large.medianMs",
+      "label": "large — 드래그 한 번 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 773.13,
+      "context": {
+        "fixture": "large",
+        "runs": 30
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.6
+      },
+      "rationale": "컨테이너에서 잰 값이라 부하를 탄다. 같은 환경 fingerprint일 때만 보고 1.6배를 넘으면 회귀로 본다"
+    },
+    {
+      "id": "designer.small.p95Ms",
+      "label": "small — 드래그 한 번 p95",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 287.61,
+      "context": {
+        "fixture": "small",
+        "runs": 30
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.8
+      },
+      "rationale": "p95는 중앙값보다 튀는 값을 그대로 받는다 — 1.8배로 넓게 잡는다"
+    },
+    {
+      "id": "designer.large.p95Ms",
+      "label": "large — 드래그 한 번 p95",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 973.44,
+      "context": {
+        "fixture": "large",
+        "runs": 30
+      },
+      "tolerance": {
+        "maxRegressionRatio": 2
+      },
+      "rationale": "p95는 튀는 값을 그대로 받고, 대형 양식은 GC가 끼면 한 번에 400ms 넘게 늘어난다 — 2배로 넓게 잡는다"
+    }
+  ]
+}

@@ -13,7 +13,7 @@ import { icons } from '../../icons.js';
  * 파라미터 값 종류별 아이콘.
  * 종류를 지정하지 않은 파라미터에는 텍스트 아이콘을 사용합니다 (SPEC §4).
  */
-export const VALUE_TYPE_BADGE: Record<string, TemplateResult> = {
+const VALUE_TYPE_BADGE: Record<string, TemplateResult> = {
   text: icons.typeText,
   number: icons.typeNumber,
   date: icons.typeDate,

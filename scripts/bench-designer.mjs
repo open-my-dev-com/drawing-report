@@ -31,6 +31,8 @@
  *
  * `--chromium`: Playwright로 실제 Chromium에서 같은 시나리오를 한 번 더 잰다
  * (`scripts/bench-designer/chromium.mjs`). 이 모드에서는 `planSourcePage` 수를 세지 않는다.
+ *
+ * `--json <path>`: 환경·양식·본 측정 원자료와 집계를 판 번호가 있는 JSON으로 남긴다.
  */
 import { register, createRequire } from 'node:module';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -38,9 +40,12 @@ import { realpathSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
-import os from 'node:os';
 import { benchTemplates } from './bench-designer/templates.mjs';
-import { installCounters, resetCounters, readCounters, median, percentile, formatInt, undoState, DOC_SIZE_CHARS } from './bench-designer/metrics.mjs';
+import { installCounters, resetCounters, readCounters, undoState, DOC_SIZE_CHARS } from './bench-designer/metrics.mjs';
+import { readArg } from './bench-shared/args.mjs';
+import { collectEnvironment } from './bench-shared/env.mjs';
+import { median, percentile, formatInt } from './bench-shared/stats.mjs';
+import { createResult, metric, writeResultFile } from './bench-shared/result.mjs';
 
 const WARMUP = 5;
 const RUNS = 30;
@@ -52,7 +57,9 @@ const MAX_UNDO = 50;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
-const useChromium = process.argv.includes('--chromium');
+const argv = process.argv.slice(2);
+const useChromium = argv.includes('--chromium');
+const jsonPath = readArg(argv, '--json');
 
 // heapUsed 차이를 재려면 gc()가 필요하다. 없으면 --expose-gc를 붙여 자신을 다시 실행한다.
 if (typeof globalThis.gc !== 'function' && process.env.SLIPKIT_BENCH_CHILD !== '1') {
@@ -310,9 +317,9 @@ async function benchTemplate(spec) {
 // 실행
 // ---------------------------------------------------------------------------
 
-const cpu = os.cpus()[0];
-console.log(`Node ${process.version} · ${os.platform()}/${os.arch()} · ${os.cpus().length} core · ${(os.totalmem() / 1024 ** 3).toFixed(1)}GB`);
-console.log(`CPU: ${cpu ? cpu.model : '알 수 없음'}`);
+const environment = collectEnvironment();
+console.log(`Node ${environment.node} · ${environment.platform}/${environment.arch} · ${environment.cores} core · ${(environment.memoryBytes / 1024 ** 3).toFixed(1)}GB`);
+console.log(`CPU: ${environment.cpuModel}`);
 console.log(`happy-dom ${happyDomPackage.version} · Chromium ${useChromium ? '사용 (--chromium)' : '미사용'} · planSourcePage 훅 ${globalThis.__slipkitPlanHook === true ? '적용' : '미적용'}`);
 console.log(`드래그 = pointerdown + pointermove ×${MOVES} + pointerup · 워밍업 ${WARMUP}회 · 본 측정 ${RUNS}회 · 드래그 사이 Ctrl+Z`);
 console.log('시간은 드래그 한 번의 벽시계 시간, 카운터는 드래그 한 번 동안의 값 — 모두 본 측정의 중앙값(p95만 95번째 백분위)');
@@ -360,12 +367,48 @@ function printTable(title, results, withPlan) {
 
 printTable('Node + happy-dom', rows, true);
 
+let chromiumRows = null;
 if (useChromium) {
   const { benchInChromium } = await import('./bench-designer/chromium.mjs');
-  const chromiumRows = await benchInChromium({
+  chromiumRows = await benchInChromium({
     root, elementsDist, coreDist, templates: benchTemplates(), warmup: WARMUP, runs: RUNS, moves: MOVES, stepPx: STEP_PX, maxUndo: MAX_UNDO,
   });
   printTable('Chromium (Playwright)', chromiumRows, false);
+}
+
+if (jsonPath !== undefined) {
+  const metrics = [];
+  for (const row of rows) {
+    const context = { fixture: row.name, runs: RUNS };
+    const deterministic = [
+      ['templateChars', '양식 문자 수', 'bytes', row.templateChars],
+      ['stringifyDocCalls', '문서 크기 JSON.stringify 호출', 'count', row.stringifyDocCalls],
+      ['cloneCalls', 'structuredClone 호출', 'count', row.cloneCalls],
+      ['planCalls', 'planSourcePage 호출', 'count', row.planCalls],
+      ['undoEntries', '드래그 한 번의 되돌리기 항목', 'count', row.undoEntries],
+      ['snapshotChars', '되돌리기 스냅샷 바이트', 'bytes', row.snapshotChars],
+    ];
+    for (const [key, label, unit, value] of deterministic) {
+      metrics.push(metric(`designer.${row.name}.${key}`, {
+        label: `${row.name} — ${label}`, unit, kind: 'deterministic', value, context,
+      }));
+    }
+    metrics.push(metric(`designer.${row.name}.medianMs`, {
+      label: `${row.name} — 드래그 한 번 중앙값`, unit: 'ms', kind: 'environmental', value: row.medianMs, context,
+    }));
+    metrics.push(metric(`designer.${row.name}.p95Ms`, {
+      label: `${row.name} — 드래그 한 번 p95`, unit: 'ms', kind: 'environmental', value: row.p95Ms, context,
+    }));
+  }
+  const result = createResult({
+    tool: 'designer',
+    environment,
+    options: { warmup: WARMUP, runs: RUNS, moves: MOVES, stepPx: STEP_PX, maxUndo: MAX_UNDO, chromium: useChromium },
+    metrics,
+    data: { happyDom: happyDomPackage.version, rows, chromiumRows },
+  });
+  writeResultFile(jsonPath, result);
+  console.log(`JSON: ${jsonPath}`);
 }
 
 // happy-dom 창이 잡고 있는 타이머 때문에 프로세스가 남지 않도록 정리한다.

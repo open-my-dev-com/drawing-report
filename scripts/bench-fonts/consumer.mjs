@@ -9,7 +9,7 @@ import { cpSync, mkdirSync, readdirSync, realpathSync, writeFileSync } from 'nod
 import path from 'node:path';
 
 /** 소비자 프로젝트에 고정하는 Vite 버전 — `scripts/verify-packages.mjs`의 `CONSUMER_DEV_DEPENDENCIES`와 같다 */
-export const CONSUMER_VITE_VERSION = '7.3.6';
+const CONSUMER_VITE_VERSION = '7.3.6';
 
 /**
  * 명령을 실행하고 stdout·stderr·종료 코드를 모은다.
@@ -19,7 +19,7 @@ export const CONSUMER_VITE_VERSION = '7.3.6';
  * @param {{ cwd?: string, env?: NodeJS.ProcessEnv, timeoutMs?: number }} [options] - 작업 디렉터리·환경·제한 시간
  * @returns {Promise<{ code: number, stdout: string, stderr: string }>} 결과
  */
-export function run(command, args, options = {}) {
+function run(command, args, options = {}) {
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
@@ -157,7 +157,7 @@ export async function startPreview(consumer, app, outDir) {
  * @param {number} timeoutMs - 제한 시간
  * @returns {Promise<boolean>} 제한 시간 안에 응답했으면 true
  */
-export async function waitForServer(url, timeoutMs) {
+async function waitForServer(url, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {

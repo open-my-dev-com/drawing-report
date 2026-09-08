@@ -120,7 +120,7 @@ function imageProblem(inspection: Extract<ImageInspection, { ok: false }>, subje
  * @param subject - 오류 메시지에 쓸 대상 이름 (예: `Image element "logo" src`)
  * @throws McpToolError 형식·종류·내용·크기가 맞지 않을 때
  */
-export function assertImageDataUrl(src: string, subject: string): void {
+function assertImageDataUrl(src: string, subject: string): void {
   const inspection = inspectImageDataUrl(src);
   if (!inspection.ok) throw new McpToolError(imageProblem(inspection, subject));
 }

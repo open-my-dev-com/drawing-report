@@ -13,7 +13,6 @@ interface FormatMessages {
   colorFormat(): string;
   srcFormat(): string;
   semverFormat(): string;
-  percentagesSum(): string;
   itemsPerPageMax(max: number): string;
   minItemsMax(max: number): string;
   maxItemsMax(max: number): string;
@@ -89,7 +88,6 @@ const EN: FormatMessages = {
   colorFormat: () => 'Color must be in #RRGGBB or #RRGGBBAA format',
   srcFormat: () => 'src must be an http(s) URL, a data:image/png;base64 or data:image/jpeg;base64 image, or an asset:// reference',
   semverFormat: () => 'schemaVersion must be in semver format',
-  percentagesSum: () => 'Percentages must add up to 100',
   itemsPerPageMax: (max) => `itemsPerPage can be at most ${max}`,
   minItemsMax: (max) => `minItems can be at most ${max}`,
   maxItemsMax: (max) => `maxItems can be at most ${max}`,
@@ -177,7 +175,6 @@ const KO: FormatMessages = {
   colorFormat: () => '색상은 #RRGGBB 또는 #RRGGBBAA 형식이어야 합니다',
   srcFormat: () => 'src는 http(s) URL, data:image/png;base64 또는 data:image/jpeg;base64 이미지, asset:// 참조 중 하나여야 합니다',
   semverFormat: () => 'schemaVersion은 semver 형식이어야 합니다',
-  percentagesSum: () => '비율의 합은 100이어야 합니다',
   itemsPerPageMax: (max) => `itemsPerPage는 최대 ${max}입니다`,
   minItemsMax: (max) => `minItems는 최대 ${max}입니다`,
   maxItemsMax: (max) => `maxItems는 최대 ${max}입니다`,
@@ -262,7 +259,6 @@ const JA: FormatMessages = {
   colorFormat: () => '色は #RRGGBB または #RRGGBBAA 形式でなければなりません',
   srcFormat: () => 'src は http(s) URL、data:image/png;base64 または data:image/jpeg;base64 の画像、asset:// 参照のいずれかでなければなりません',
   semverFormat: () => 'schemaVersion は semver 形式でなければなりません',
-  percentagesSum: () => '比率の合計は 100 でなければなりません',
   itemsPerPageMax: (max) => `itemsPerPage は最大 ${max} です`,
   minItemsMax: (max) => `minItems は最大 ${max} です`,
   maxItemsMax: (max) => `maxItems は最大 ${max} です`,

@@ -6,7 +6,7 @@
  */
 
 /** 함수 인자 하나의 도움말. */
-export interface FormulaHelpArgument {
+interface FormulaHelpArgument {
   /** UI 언어로 쓴 인자 이름. `signature`의 표기와 같다. */
   name: string;
   /** 인자가 무엇을 받는지에 대한 설명. */

@@ -17,7 +17,7 @@ import type { ParameterFieldInfo, ParameterInfo } from '../parameters.js';
 import type { PanelKit } from './panel-kit.js';
 
 /** 하위 필드를 가리키는 위치 */
-export interface CellReference {
+interface CellReference {
   pageIndex: number;
   gridId: string;
   row: number;
@@ -113,7 +113,7 @@ export function outputPageNav(
  * @param form - 양식·페이지·파라미터 편집 동작
  * @returns 출력 페이지 줄. 출력 페이지가 하나면 빈 것
  */
-export function outputPageRow(kit: PanelKit, form: FormActions) {
+function outputPageRow(kit: PanelKit, form: FormActions) {
   const count = form.outputPageCount();
   if (count <= 1) return nothing;
   return html`<div class="prop-section">

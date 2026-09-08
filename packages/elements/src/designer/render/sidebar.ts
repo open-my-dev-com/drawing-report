@@ -169,7 +169,7 @@ export function sidebar(kit: PanelKit, side: SidebarActions) {
  * @param el - 그릴 요소
  * @returns 요소 줄과 (그리드면) 펼쳐진 셀 하위 줄
  */
-export function elementRow(kit: PanelKit, side: SidebarActions, pageIndex: number, el: SlipElement) {
+function elementRow(kit: PanelKit, side: SidebarActions, pageIndex: number, el: SlipElement) {
   const s = kit.s;
   const cells = isGrid(el) ? side.gridValueCells(el) : [];
   const hasCells = cells.length > 0;
@@ -218,7 +218,7 @@ function warningMark(label: string) {
  * @param b - 표시할 파라미터 정보
  * @returns 파라미터 줄과 (목록이면) 하위 필드 줄
  */
-export function parameterRow(kit: PanelKit, side: SidebarActions, b: ParameterInfo) {
+function parameterRow(kit: PanelKit, side: SidebarActions, b: ParameterInfo) {
   const s = kit.s;
   const sel = side.selection;
   const selected = sel?.kind === 'parameter' && sel.key === b.key;

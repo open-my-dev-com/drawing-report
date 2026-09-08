@@ -220,7 +220,7 @@ export function toolbar(bar: ToolbarActions) {
  * @param event - 메뉴 요소에서 받은 키보드 이벤트
  * @param close - Escape를 눌렀을 때 실행할 닫기 처리
  */
-export function menuKeydown(event: KeyboardEvent, close: () => void): void {
+function menuKeydown(event: KeyboardEvent, close: () => void): void {
   if (event.key === 'Escape') {
     event.preventDefault();
     event.stopPropagation();
@@ -252,7 +252,7 @@ export function menuKeydown(event: KeyboardEvent, close: () => void): void {
  * @param opts - 비활성 여부와 눌림 상태
  * @returns 툴바 버튼
  */
-export function iconButton(
+function iconButton(
   label: string,
   glyph: TemplateResult,
   onClick: (e: Event) => void,

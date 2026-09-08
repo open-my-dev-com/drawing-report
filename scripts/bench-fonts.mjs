@@ -7,7 +7,8 @@
  *
  * 옵션
  * - `--runs N`        본 측정 반복 수 (기본 5). 예열 1회는 따로 돈다
- * - `--json <path>`   전체 결과(환경·반복 수·정적 측정·시나리오별 원자료)를 저장할 파일. 생략하면 `os.tmpdir()` 아래
+ * - `--json <path>`   전체 결과를 저장할 파일. 판 번호가 있는 공통 봉투(`schema`·`tool`·`environment`·`metrics`)에
+ *                     환경·반복 수·정적 측정·시나리오별 원자료를 담는다. 생략하면 `os.tmpdir()` 아래
  * - `--skip-chromium` Chromium 측정을 건너뛴다
  * - `--skip-node`     Node cold run을 건너뛴다
  * - `--keep`          임시 디렉터리(tarball·소비자 프로젝트)를 지우지 않는다
@@ -41,13 +42,17 @@
  * - 기본 시나리오는 `import` 시간과 `loadDefaultFonts(locale)` 시간, user는 `createSlipKit({ getFonts }).render(template)`
  *   시간과 PDF 바이트. 읽힌 파일 중 `dist/fonts/` 청크 수는 기본 2, user 0이어야 한다.
  */
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { measureElementsDist, checkFontBudget, CHUNK_LABELS } from './verify-font-budget/analyze.mjs';
-import { median, percentile, formatInt } from './bench-designer/metrics.mjs';
+import { hasFlag, readArg, readPositiveInt } from './bench-shared/args.mjs';
+import { collectEnvironment } from './bench-shared/env.mjs';
+import { median, percentile, formatInt } from './bench-shared/stats.mjs';
+import { createResult, metric, writeResultFile } from './bench-shared/result.mjs';
+import { createWorkDir, disposeWorkDir } from './bench-shared/workdir.mjs';
 import { packTarballs, installConsumer, copyFixture, vite, must, startPreview } from './bench-fonts/consumer.mjs';
 import { launchChromium, runFontScenario, countRequests, PHASES, SCENARIOS, FONT_CHUNK_KINDS } from './bench-fonts/chromium.mjs';
 import { writeHostFont } from './bench-fonts/host-font.mjs';
@@ -70,23 +75,12 @@ const SCENARIO_LABELS = {
 // 인자
 // ---------------------------------------------------------------------------
 
-/**
- * `--name value` 인자를 읽는다.
- *
- * @param {string} name - 인자 이름
- * @returns {string | undefined} 값
- */
-function arg(name) {
-  const index = process.argv.indexOf(name);
-  return index >= 0 ? process.argv[index + 1] : undefined;
-}
-
-const runs = Number.parseInt(arg('--runs') ?? '5', 10);
-if (!Number.isInteger(runs) || runs < 1) throw new Error('--runs 는 1 이상의 정수여야 한다');
-const jsonPath = arg('--json') ?? path.join(os.tmpdir(), `slipkit-bench-fonts-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
-const skipChromium = process.argv.includes('--skip-chromium');
-const skipNode = process.argv.includes('--skip-node');
-const keep = process.argv.includes('--keep');
+const argv = process.argv.slice(2);
+const runs = readPositiveInt(argv, '--runs', 5);
+const jsonPath = readArg(argv, '--json') ?? path.join(os.tmpdir(), `slipkit-bench-fonts-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+const skipChromium = hasFlag(argv, '--skip-chromium');
+const skipNode = hasFlag(argv, '--skip-node');
+const keep = hasFlag(argv, '--keep');
 
 /** 진행 상황은 stderr로, 표는 stdout으로 낸다. */
 function progress(message) {
@@ -304,23 +298,119 @@ function printNode(byScenario) {
 }
 
 // ---------------------------------------------------------------------------
+// 기준선과 맞대 볼 지표
+// ---------------------------------------------------------------------------
+
+/** 지표 id에 쓰는 폰트 이름 표기 */
+const FONT_SLUGS = { Pretendard: 'pretendard', 'Pretendard-Bold': 'pretendardBold', 'Noto Sans JP': 'notoSansJp' };
+
+/**
+ * 결과에서 기준선과 맞대 볼 지표를 뽑는다.
+ *
+ * 정적 크기의 상한은 `verify:font-budget`이 이미 지키므로 여기서는 그 판정 결과(`budget.ok`)를
+ * 그대로 쓰고, 크기 자체는 참고 값으로만 남긴다. 하드 판정 대상은 폰트 청크 요청 수·읽힌 파일 수처럼
+ * 환경이 달라도 같아야 하는 값이다.
+ *
+ * @param {Record<string, any>} result - 이 스크립트가 모은 원자료
+ * @param {{ runs: number }} options - 본 측정 반복 수
+ * @returns {object[]} 지표 목록
+ */
+function fontMetrics(result, options) {
+  const metrics = [];
+  const context = { runs: options.runs };
+  const measurements = result.static?.measurements;
+  if (result.static !== null) {
+    metrics.push(metric('fonts.budget.ok', {
+      label: '폰트 예산 통과 여부', unit: 'flag', kind: 'deterministic',
+      value: result.static.budget.ok ? 1 : 0, context: { fixture: 'elements-dist' },
+    }));
+    for (const [name, bytes] of Object.entries(measurements.decoded ?? {})) {
+      const slug = FONT_SLUGS[name];
+      if (slug === undefined) continue;
+      metrics.push(metric(`fonts.static.decoded.${slug}`, {
+        label: `${name} 디코딩 데이터 바이트`, unit: 'bytes', kind: 'deterministic',
+        value: bytes, context: { fixture: 'elements-dist' },
+      }));
+    }
+    metrics.push(metric('fonts.static.rootClosureRawBytes', {
+      label: '루트 정적 closure raw 바이트', unit: 'bytes', kind: 'deterministic',
+      value: measurements.rootClosure.raw, context: { fixture: 'elements-dist' },
+    }));
+    metrics.push(metric('fonts.static.rootClosureGzipBytes', {
+      label: '루트 정적 closure gzip 바이트', unit: 'bytes', kind: 'deterministic',
+      value: measurements.rootClosure.gzip, context: { fixture: 'elements-dist' },
+    }));
+  }
+
+  for (const scenario of SCENARIOS) {
+    const chromium = result.chromium[scenario]?.summary;
+    if (chromium !== undefined) {
+      const fixture = `chromium-${scenario}`;
+      const sum = (kind) => Object.values(chromium).reduce((total, row) => total + row.requests[kind].count, 0);
+      const requests = [
+        ['fontChunkRequests', '동봉 폰트 청크 요청 수', FONT_CHUNK_KINDS.reduce((total, kind) => total + sum(kind), 0)],
+        ['hostFontRequests', '호스트 폰트 요청 수', sum('host-font')],
+        ['elementsRequests', 'elements 청크 요청 수', sum('elements')],
+        ['pdfBlobRequests', 'PDF blob 요청 수', sum('pdf-blob')],
+      ];
+      for (const [key, label, value] of requests) {
+        metrics.push(metric(`fonts.chromium.${scenario}.${key}`, {
+          label: `Chromium ${scenario} — ${label}`, unit: 'count', kind: 'deterministic', value,
+          context: { fixture },
+        }));
+      }
+      for (const phase of PHASES) {
+        const row = chromium[phase];
+        if (typeof row?.msMedian !== 'number') continue;
+        metrics.push(metric(`fonts.chromium.${scenario}.${phase}.msMedian`, {
+          label: `Chromium ${scenario} — ${phase} 중앙값`, unit: 'ms', kind: 'environmental',
+          value: row.msMedian, context: { ...context, fixture },
+        }));
+      }
+    }
+
+    const node = result.node[scenario]?.summary;
+    if (node !== undefined) {
+      const fixture = `node-${scenario}`;
+      metrics.push(metric(`fonts.node.${scenario}.fontChunkFiles`, {
+        label: `Node ${scenario} — 읽힌 폰트 청크 파일 수`, unit: 'count', kind: 'deterministic',
+        value: node.fontChunkCount, context: { fixture },
+      }));
+      metrics.push(metric(`fonts.node.${scenario}.loadedFiles`, {
+        label: `Node ${scenario} — 읽힌 파일 수`, unit: 'count', kind: 'deterministic',
+        value: node.loadedFiles.length, context: { fixture },
+      }));
+      if (typeof node.pdfBytes === 'number') {
+        metrics.push(metric(`fonts.node.${scenario}.pdfBytes`, {
+          label: `Node ${scenario} — PDF 바이트`, unit: 'bytes', kind: 'deterministic',
+          value: node.pdfBytes, context: { fixture },
+        }));
+      }
+      metrics.push(metric(`fonts.node.${scenario}.importMsMedian`, {
+        label: `Node ${scenario} — import 중앙값`, unit: 'ms', kind: 'environmental',
+        value: node.importMsMedian, context: { ...context, fixture },
+      }));
+      const work = node.resolveMsMedian ?? node.renderMsMedian;
+      if (typeof work === 'number') {
+        metrics.push(metric(`fonts.node.${scenario}.workMsMedian`, {
+          label: `Node ${scenario} — 해석·렌더 중앙값`, unit: 'ms', kind: 'environmental',
+          value: work, context: { ...context, fixture },
+        }));
+      }
+    }
+  }
+  return metrics;
+}
+
+// ---------------------------------------------------------------------------
 // 본문
 // ---------------------------------------------------------------------------
 
 async function main() {
   const elementsPackage = path.join(root, 'packages', 'elements');
-  const work = mkdtempSync(path.join(os.tmpdir(), 'slipkit-bench-fonts-'));
-  const env = {
-    node: process.version,
-    cpu: os.cpus()[0]?.model ?? 'unknown',
-    cores: os.cpus().length,
-    memoryBytes: os.totalmem(),
-    platform: `${os.platform()} ${os.release()}`,
-    chromium: null,
-    runs,
-    warmup: WARMUP,
-  };
-  const result = { env, static: null, chromium: {}, node: {} };
+  const work = createWorkDir('slipkit-bench-fonts-');
+  const environment = collectEnvironment();
+  const result = { env: { ...environment, runs, warmup: WARMUP }, static: null, chromium: {}, node: {} };
 
   try {
     progress('정적 측정 (pnpm pack 포함)');
@@ -346,7 +436,7 @@ async function main() {
       const preview = await startPreview(consumer, 'font-requests', outDir);
       const browser = await launchChromium();
       try {
-        env.chromium = browser.version();
+        environment.chromium = browser.version();
         for (const scenario of SCENARIOS) {
           const samples = [];
           for (let i = 0; i < WARMUP + runs; i++) {
@@ -376,18 +466,28 @@ async function main() {
     }
 
     // 출력
-    process.stdout.write(`실행 환경: Node ${env.node} · ${env.cpu} × ${env.cores} · 메모리 ${formatInt(env.memoryBytes / 1024 / 1024)} MB · ${env.platform} · Chromium ${env.chromium ?? '(생략)'} · 예열 ${WARMUP}회 + 본 측정 ${runs}회\n\n`);
+    result.env = { ...environment, runs, warmup: WARMUP };
+    process.stdout.write(
+      `실행 환경: Node ${environment.node} · ${environment.cpuModel} × ${environment.cores} · ` +
+        `메모리 ${formatInt(environment.memoryBytes / 1024 / 1024)} MB · ${environment.platform} ${environment.osRelease} · ` +
+        `Chromium ${environment.chromium ?? '(생략)'} · 예열 ${WARMUP}회 + 본 측정 ${runs}회\n\n`,
+    );
     printStatic(measurements, budget, elementsPackage);
     if (!skipChromium) {
       process.stdout.write('## Chromium (컨텍스트마다 cold, 캐시 비활성)\n\n');
       for (const scenario of SCENARIOS) printChromium(scenario, result.chromium[scenario].summary);
     }
     if (!skipNode) printNode(Object.fromEntries(SCENARIOS.map((scenario) => [scenario, result.node[scenario].summary])));
-    writeFileSync(jsonPath, JSON.stringify(result, null, 2));
+    writeResultFile(jsonPath, createResult({
+      tool: 'fonts',
+      environment,
+      options: { runs, warmup: WARMUP, skipChromium, skipNode },
+      metrics: fontMetrics(result, { runs }),
+      data: result,
+    }));
     process.stdout.write(`JSON: ${jsonPath}\n`);
   } finally {
-    if (keep) process.stdout.write(`임시 디렉터리 보존: ${work}\n`);
-    else rmSync(work, { recursive: true, force: true });
+    if (!disposeWorkDir(work, { keep })) process.stdout.write(`임시 디렉터리 보존: ${work}\n`);
   }
 }
 

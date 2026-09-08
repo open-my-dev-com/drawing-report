@@ -1,0 +1,292 @@
+{
+  "schema": {
+    "name": "slipkit-bench-baseline",
+    "version": 1
+  },
+  "tool": "core",
+  "baselineCommit": "46c73cda6930492197a760366074ddb225f2bff2",
+  "measuredAt": "2026-09-08T10:08:10.090Z",
+  "environment": {
+    "node": "v22.22.2",
+    "v8": "12.4.254.21-node.39",
+    "platform": "linux",
+    "arch": "x64",
+    "osRelease": "6.18.44-fc-v24",
+    "cpuModel": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores": 4,
+    "memoryBytes": 16856092672,
+    "memoryGiB": 15.7,
+    "chromium": null
+  },
+  "options": {
+    "cases": 12
+  },
+  "notes": "`node scripts/benchmark.mjs`의 기본 설정으로 잰 값이다. 시간은 항목마다 정한 본 측정 반복의 중앙값이고, 페이지 계획·PDF는 같은 fixture에서 늘 같은 결과가 나와야 한다.",
+  "metrics": [
+    {
+      "id": "core.template.serializedBytes",
+      "label": "양식 직렬화 바이트",
+      "unit": "bytes",
+      "kind": "deterministic",
+      "value": 4384,
+      "context": {
+        "fixture": "bench-template"
+      },
+      "rationale": "양식을 직렬화한 문자 수는 fixture가 같으면 언제나 같다"
+    },
+    {
+      "id": "core.plan.100.outputPages",
+      "label": "페이지 계획 출력 페이지 수 — 항목 100건",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 4,
+      "context": {
+        "fixture": "plan-100",
+        "items": 100
+      },
+      "rationale": "페이지 계획은 같은 입력에서 같은 출력 페이지 수를 낸다"
+    },
+    {
+      "id": "core.plan.1000.outputPages",
+      "label": "페이지 계획 출력 페이지 수 — 항목 1000건",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 33,
+      "context": {
+        "fixture": "plan-1000",
+        "items": 1000
+      },
+      "rationale": "페이지 계획은 같은 입력에서 같은 출력 페이지 수를 낸다"
+    },
+    {
+      "id": "core.plan.5000.outputPages",
+      "label": "페이지 계획 출력 페이지 수 — 항목 5000건",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 162,
+      "context": {
+        "fixture": "plan-5000",
+        "items": 5000
+      },
+      "rationale": "페이지 계획은 같은 입력에서 같은 출력 페이지 수를 낸다"
+    },
+    {
+      "id": "core.plan.20000.outputPages",
+      "label": "페이지 계획 출력 페이지 수 — 항목 20000건",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 646,
+      "context": {
+        "fixture": "plan-20000",
+        "items": 20000
+      },
+      "rationale": "페이지 계획은 같은 입력에서 같은 출력 페이지 수를 낸다"
+    },
+    {
+      "id": "core.pdf.small.pages",
+      "label": "PDF 페이지 수 — 항목 5건",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "pdf-5",
+        "items": 5
+      },
+      "rationale": "작은 전표는 한 페이지에 들어간다"
+    },
+    {
+      "id": "core.pdf.large.pages",
+      "label": "PDF 페이지 수 — 항목 200건",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 7,
+      "context": {
+        "fixture": "pdf-200",
+        "items": 200
+      },
+      "rationale": "대형 전표의 페이지 수가 달라지면 페이지 분할이 바뀐 것이다"
+    },
+    {
+      "id": "core.pdf.small.bytes",
+      "label": "PDF 바이트 — 항목 5건",
+      "unit": "bytes",
+      "kind": "deterministic",
+      "value": 5135,
+      "context": {
+        "fixture": "pdf-5",
+        "items": 5
+      },
+      "tolerance": {
+        "absolute": 16
+      },
+      "rationale": "PDF에 생성 시각이 들어가 압축 결과가 몇 바이트 흔들린다"
+    },
+    {
+      "id": "core.pdf.large.bytes",
+      "label": "PDF 바이트 — 항목 200건",
+      "unit": "bytes",
+      "kind": "deterministic",
+      "value": 49754,
+      "context": {
+        "fixture": "pdf-200",
+        "items": 200
+      },
+      "tolerance": {
+        "absolute": 16
+      },
+      "rationale": "PDF에 생성 시각이 들어가 압축 결과가 몇 바이트 흔들린다"
+    },
+    {
+      "id": "core.pdf.small.header",
+      "label": "PDF 서명 확인 — 항목 5건",
+      "unit": "flag",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "pdf-5",
+        "items": 5
+      },
+      "rationale": "%PDF로 시작하지 않으면 PDF가 아니다"
+    },
+    {
+      "id": "core.pdf.large.header",
+      "label": "PDF 서명 확인 — 항목 200건",
+      "unit": "flag",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "pdf-200",
+        "items": 200
+      },
+      "rationale": "%PDF로 시작하지 않으면 PDF가 아니다"
+    },
+    {
+      "id": "core.plan.20000.medianMs",
+      "label": "페이지 계획 — 항목 20000건 — 한 측정 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 10.6,
+      "context": {
+        "fixture": "plan-20000",
+        "runs": 15,
+        "batch": 1
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.6
+      },
+      "rationale": "컨테이너에서 잰 값이라 부하를 탄다. 같은 환경 fingerprint일 때만 보고 1.6배를 넘으면 회귀로 본다"
+    },
+    {
+      "id": "core.parse.medianMs",
+      "label": "parseSlipFile — 4.3KB — 한 측정 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 56.84,
+      "context": {
+        "fixture": "bench-template",
+        "runs": 15,
+        "batch": 500
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.6
+      },
+      "rationale": "컨테이너에서 잰 값이라 부하를 탄다. 같은 환경 fingerprint일 때만 보고 1.6배를 넘으면 회귀로 본다"
+    },
+    {
+      "id": "core.formula.parse.medianMs",
+      "label": "parseFormula — 한 측정 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 26.68,
+      "context": {
+        "fixture": "bench-formula",
+        "runs": 15,
+        "batch": 10000
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.6
+      },
+      "rationale": "컨테이너에서 잰 값이라 부하를 탄다. 같은 환경 fingerprint일 때만 보고 1.6배를 넘으면 회귀로 본다"
+    },
+    {
+      "id": "core.formula.evaluate.medianMs",
+      "label": "evaluateFormula — 항목 1,000건 합계 — 한 측정 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 51.66,
+      "context": {
+        "fixture": "bench-formula-1000",
+        "runs": 15,
+        "batch": 1000
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.6
+      },
+      "rationale": "컨테이너에서 잰 값이라 부하를 탄다. 같은 환경 fingerprint일 때만 보고 1.6배를 넘으면 회귀로 본다"
+    },
+    {
+      "id": "core.encrypt.passphrase.medianMs",
+      "label": "암호화 — 암호 (PBKDF2 + AES-GCM) — 한 측정 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 113.29,
+      "context": {
+        "fixture": "bench-template",
+        "runs": 10,
+        "batch": 1
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.5
+      },
+      "rationale": "PBKDF2 반복 수가 고정이라 다른 항목보다 덜 흔들린다 — 1.5배로 좁게 잡는다"
+    },
+    {
+      "id": "core.decrypt.passphrase.medianMs",
+      "label": "복호화 — 암호 — 한 측정 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 107.67,
+      "context": {
+        "fixture": "bench-template",
+        "runs": 10,
+        "batch": 1
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.5
+      },
+      "rationale": "PBKDF2 반복 수가 고정이라 다른 항목보다 덜 흔들린다 — 1.5배로 좁게 잡는다"
+    },
+    {
+      "id": "core.pdf.small.medianMs",
+      "label": "PDF 생성 — 작은 전표 (항목 5건) — 한 측정 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 34.23,
+      "context": {
+        "fixture": "pdf-5",
+        "runs": 10,
+        "batch": 1
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.8
+      },
+      "rationale": "PDF 한 번이 수십 ms라 GC가 끼면 크게 흔들린다 — 1.8배로 넓게 잡는다"
+    },
+    {
+      "id": "core.pdf.large.medianMs",
+      "label": "PDF 생성 — 대형 전표 (항목 200건) — 한 측정 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 487.3,
+      "context": {
+        "fixture": "pdf-200",
+        "runs": 5,
+        "batch": 1
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.8
+      },
+      "rationale": "PDF 한 번이 수백 ms라 GC가 끼면 크게 흔들린다 — 1.8배로 넓게 잡는다"
+    }
+  ]
+}

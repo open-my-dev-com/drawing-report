@@ -19,7 +19,7 @@ export interface ModalFocusHost {
  * @param container - 찾을 범위
  * @returns 화면 순서대로 정렬한 초점 대상
  */
-export function focusableIn(container: HTMLElement): HTMLElement[] {
+function focusableIn(container: HTMLElement): HTMLElement[] {
   const selector =
     'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
     'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';

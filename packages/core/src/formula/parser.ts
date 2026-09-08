@@ -34,9 +34,9 @@ import { fm, withFormulaLocale } from './messages.js';
 // ---------------------------------------------------------------------------
 
 /** 비교 연산자 */
-export type ComparisonOperator = '=' | '<>' | '<' | '>' | '<=' | '>=';
+type ComparisonOperator = '=' | '<>' | '<' | '>' | '<=' | '>=';
 /** 산술 연산자 */
-export type ArithmeticOperator = '+' | '-' | '*' | '/';
+type ArithmeticOperator = '+' | '-' | '*' | '/';
 /** 이항 연산자 전체 */
 export type BinaryOperator = ComparisonOperator | ArithmeticOperator;
 
@@ -445,7 +445,7 @@ class Parser {
 }
 
 /** 파서가 허용하는 수식 문자열의 최대 길이. */
-export const MAX_FORMULA_LENGTH = 10_000;
+const MAX_FORMULA_LENGTH = 10_000;
 /** 괄호, 함수 인수, 단항 연산자와 이항 연산 사슬을 포함한 수식의 최대 중첩 깊이. */
 export const MAX_FORMULA_DEPTH = 100;
 

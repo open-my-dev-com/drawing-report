@@ -11,7 +11,7 @@ import type { GridElement } from '@omdc-slipkit/core';
 import { DEFAULT_BORDER_COLOR, DEFAULT_LINE_WIDTH } from './style-css.js';
 
 /** 선 형태 */
-export type GridBorderStyle = 'solid' | 'dashed' | 'dotted';
+type GridBorderStyle = 'solid' | 'dashed' | 'dotted';
 
 /** 해소된 테두리 값 */
 export interface GridBorder {

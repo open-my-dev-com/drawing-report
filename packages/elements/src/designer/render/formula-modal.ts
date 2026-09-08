@@ -19,7 +19,7 @@ import type { DesignerStrings } from '../../strings.js';
 import type { DialogContext } from './dialogs.js';
 
 /** 모달이 표시하는 편집 대상 */
-export interface FormulaTargetView {
+interface FormulaTargetView {
   /** 편집 대상 식별 정보 */
   target: FormulaTarget;
   /** 대상 요소 */
@@ -99,7 +99,7 @@ function itemChoiceText(s: DesignerStrings, choice: ItemChoice): string {
 }
 
 /** 검사 결과를 어떤 상태로 보여 줄지 — 색만이 아니라 제목과 문구가 뜻을 설명합니다 */
-export type FormulaCheckTone = 'ok' | 'notice' | 'warning' | 'error';
+type FormulaCheckTone = 'ok' | 'notice' | 'warning' | 'error';
 
 /** 검사 결과를 표시할 상태, 제목과 내용 */
 export interface FormulaCheckText {
@@ -473,7 +473,7 @@ function valueSection(d: DialogContext, view: FormulaModalView) {
  * @param d - 모달 렌더링에 필요한 상태와 동작
  * @returns 자동완성 목록. 후보가 없으면 빈 것
  */
-export function columnSuggestions(d: DialogContext) {
+function columnSuggestions(d: DialogContext) {
   const suggestion = d.formula.suggestion(d.parameters());
   if (!suggestion) return nothing;
   const s = d.s;

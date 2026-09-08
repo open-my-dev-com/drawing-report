@@ -11,7 +11,7 @@ import { planGrid, type GridItem, type GridPlan } from './grid-plan.js';
 import { lm } from './messages.js';
 
 /** 요소 하나의 출력 페이지 배치 결과. */
-export interface ElementPlacement {
+interface ElementPlacement {
   outputPage: number;
   /** 배치된 시작 Y (용지 절대 mm) */
   y: number;
@@ -49,7 +49,7 @@ const MAX_PLAN_PASSES = 8;
  * @param outputPageCount - 전체 출력 페이지 수
  * @returns 표시 범위. 표시되는 페이지가 없으면(한 페이지 문서의 continuation 등) undefined
  */
-export function visiblePageRange(
+function visiblePageRange(
   filter: OutputPageFilter | undefined,
   outputPageCount: number,
 ): { first: number; last: number } | undefined {

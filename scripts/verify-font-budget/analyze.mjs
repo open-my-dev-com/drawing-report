@@ -358,7 +358,7 @@ function tarUnpackedBytes(tar) {
  * @returns {Promise<{ tarballBytes: number, unpackedBytes: number, fileName: string }>} tarball 파일 크기·tar 항목 크기 합·파일 이름
  * @throws {FontBudgetError} `pack-failed` — pnpm pack이 실패했거나 tarball을 찾지 못했을 때
  */
-export async function packSizes(packageDir) {
+async function packSizes(packageDir) {
   const dir = path.resolve(packageDir);
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'slipkit-font-budget-'));
   try {

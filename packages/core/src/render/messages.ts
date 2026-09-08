@@ -40,7 +40,7 @@ interface RenderMessages {
 }
 
 /** 이미지 데이터 검사에서 드러난 문제 종류 */
-export type ImageProblem = 'format' | 'mime' | 'content' | 'size';
+type ImageProblem = 'format' | 'mime' | 'content' | 'size';
 
 const EN: RenderMessages = {
   subjectText: (name, id) => `text '${name}' (${id})`,
