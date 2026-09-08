@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { BASELINE_SCHEMA, compareMetric, compareToBaseline, loadBaselines, validateBaseline } from './baseline.mjs';
+import { BASELINE_SCHEMA, KNOWN_CONTEXT_KEYS, compareMetric, compareToBaseline, loadBaselines, validateBaseline } from './baseline.mjs';
 import { BenchSchemaError, TOOLS, createResult, metric } from './result.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -86,6 +86,11 @@ describe('validateBaseline', () => {
     assert.throws(() => validateBaseline(baseline([item])), BenchSchemaError);
   });
 
+  it('모르는 비교 문맥 키가 있으면 거절한다', () => {
+    const item = entry({ context: { fixture: 'plan-1000', items: 1000, locale: 'ko' } });
+    assert.throws(() => validateBaseline(baseline([item])), BenchSchemaError);
+  });
+
   it('지표 id가 겹치면 거절한다', () => {
     assert.throws(() => validateBaseline(baseline([entry(), entry()])), BenchSchemaError);
   });
@@ -133,6 +138,21 @@ describe('compareMetric — 결정적 지표', () => {
     const finding = compareMetric(entry(), actual, SAME);
     assert.equal(finding.status, 'fail');
     assert.match(finding.reason, /비교 문맥/);
+  });
+
+  it('한 측정당 호출 수(batch)가 다르면 실패한다', () => {
+    const item = entry({ context: { fixture: 'plan-1000', batch: 100 } });
+    const actual = measured({ context: { fixture: 'plan-1000', batch: 10 } });
+    const finding = compareMetric(item, actual, SAME);
+    assert.equal(finding.status, 'fail');
+    assert.match(finding.reason, /batch 100 ≠ 10/);
+  });
+
+  it('이번 측정에 모르는 문맥 키가 있으면 실패한다', () => {
+    const actual = measured({ context: { fixture: 'plan-1000', items: 1000, locale: 'ko' } });
+    const finding = compareMetric(entry(), actual, SAME);
+    assert.equal(finding.status, 'fail');
+    assert.match(finding.reason, /모르는 문맥 키 locale/);
   });
 });
 
@@ -206,6 +226,16 @@ describe('저장소의 기준선 파일', () => {
     for (const [tool, file] of baselines) {
       for (const item of file.metrics) {
         assert.ok(item.id.startsWith(prefixes[tool]), `${tool}: ${item.id}`);
+      }
+    }
+  });
+
+  it('알려진 비교 문맥 키만 쓴다', () => {
+    for (const [tool, file] of baselines) {
+      for (const item of file.metrics) {
+        for (const key of Object.keys(item.context ?? {})) {
+          assert.ok(KNOWN_CONTEXT_KEYS.includes(key), `${tool}: ${item.id}의 문맥 키 ${key}`);
+        }
       }
     }
   });

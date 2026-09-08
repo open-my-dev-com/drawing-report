@@ -2,8 +2,14 @@
  * 성능 기준선 파일의 해석과 비교.
  *
  * 기준선은 `scripts/bench-baselines/<benchmark>.json`에 둔다. 항목마다 지표 id·단위·성질·기준값과
- * 비교 문맥(fixture 크기·반복 수), 그리고 허용치를 적는다. 허용치는 항목별로 적고 전역 하나로
- * 묶지 않는다 — 작업마다 흔들리는 폭이 다르기 때문이다.
+ * 비교 문맥(fixture 크기·반복 수·한 측정당 호출 수), 그리고 허용치를 적는다. 허용치는 항목별로 적고
+ * 전역 하나로 묶지 않는다 — 작업마다 흔들리는 폭이 다르기 때문이다.
+ *
+ * `baselineCommit`은 그 기준값을 만들어 낸 코드의 커밋 SHA다 — 측정한 시점의 작업 트리가 아니라,
+ * 재려는 코드가 들어 있는 커밋을 적는다. 다시 재서 값을 갱신할 때 함께 바꾼다.
+ *
+ * 비교 문맥은 `KNOWN_CONTEXT_KEYS`에 적힌 키만 쓴다. 기준선이든 이번 측정이든 목록에 없는 키가
+ * 있으면 실패로 잡는다 — 결과의 의미를 가르는 키가 비교에서 조용히 빠지지 않게 하려는 것이다.
  *
  * 판정 방법
  * - `deterministic`: 환경과 무관하게 같아야 하는 값이라 어긋나면 실패다. 생성 시각이 섞여
@@ -11,7 +17,7 @@
  * - `environmental`: 시간·메모리처럼 기계와 부하를 타는 값이라, 환경 fingerprint와 반복 수가
  *   기준선과 같을 때만 항목별 허용 회귀율로 판정한다. 다르면 비교하지 않고 사유와 두 수치를
  *   함께 알린다 — 일반 CI에서 시간을 하드 한계로 쓰지 않기 위해서다.
- * - 지표가 없거나, 값이 유한한 숫자가 아니거나, 단위·성질·fixture가 다르면 실패다.
+ * - 지표가 없거나, 값이 유한한 숫자가 아니거나, 단위·성질·비교 문맥이 다르면 실패다.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
@@ -21,8 +27,14 @@ import { BenchSchemaError, METRIC_KINDS, METRIC_UNITS, TOOLS, metricsById } from
 /** 기준선 파일 봉투의 이름과 판 번호 */
 export const BASELINE_SCHEMA = Object.freeze({ name: 'slipkit-bench-baseline', version: 1 });
 
-/** 비교 문맥에서 값이 같아야 하는 항목 — 다르면 같은 지표로 보지 않는다 */
-const CONTEXT_KEYS = ['fixture', 'items', 'files'];
+/** 비교 문맥에서 값이 같아야 하는 키 — 다르면 같은 측정으로 보지 않는다 */
+const COMPARED_CONTEXT_KEYS = ['fixture', 'items', 'files', 'batch'];
+
+/** 반복 수 키 — 값을 견주지 않고 환경 조건부 지표를 비교할 수 있는지만 가른다 */
+const RUNS_CONTEXT_KEY = 'runs';
+
+/** 쓸 수 있는 비교 문맥 키 전부. 새 문맥 키를 적을 때 여기에 함께 더한다 */
+export const KNOWN_CONTEXT_KEYS = Object.freeze([...COMPARED_CONTEXT_KEYS, RUNS_CONTEXT_KEY]);
 
 /**
  * 기준선 파일을 검사한다.
@@ -62,6 +74,10 @@ export function validateBaseline(value) {
     }
     if (typeof entry.rationale !== 'string' || entry.rationale.length === 0) {
       throw new BenchSchemaError(`${id}: 허용치 근거(rationale)가 필요하다`);
+    }
+    const unknownKeys = unknownContextKeys([entry.context]);
+    if (unknownKeys.length > 0) {
+      throw new BenchSchemaError(`${id}: 모르는 비교 문맥 키가 있다 — ${unknownKeys.join(', ')}`);
     }
     if (entry.kind === 'environmental') {
       const ratio = entry.tolerance?.maxRegressionRatio;
@@ -115,6 +131,17 @@ export function loadBaselines(dir) {
 }
 
 /**
+ * 알려진 문맥 키에 없는 키를 모은다.
+ *
+ * @param {Array<Record<string, any> | undefined>} contexts - 살펴볼 비교 문맥
+ * @returns {string[]} 모르는 키 목록. 없으면 빈 배열
+ */
+function unknownContextKeys(contexts) {
+  const keys = new Set(contexts.flatMap((context) => Object.keys(context ?? {})));
+  return [...keys].filter((key) => !KNOWN_CONTEXT_KEYS.includes(key));
+}
+
+/**
  * 비교 문맥이 같은지 본다.
  *
  * @param {Record<string, any>} expected - 기준선 항목의 문맥
@@ -123,9 +150,12 @@ export function loadBaselines(dir) {
  */
 function contextDifferences(expected = {}, actual = {}) {
   const out = [];
-  for (const key of CONTEXT_KEYS) {
+  for (const key of COMPARED_CONTEXT_KEYS) {
     if (expected[key] === undefined && actual[key] === undefined) continue;
     if (expected[key] !== actual[key]) out.push(`${key} ${String(expected[key])} ≠ ${String(actual[key])}`);
+  }
+  for (const key of unknownContextKeys([expected, actual])) {
+    out.push(`모르는 문맥 키 ${key} — 알려진 문맥 키 목록에 더해야 비교한다`);
   }
   return out;
 }
@@ -184,8 +214,8 @@ export function compareMetric(entry, actual, environment) {
     const fields = environment.differences.map((diff) => `${diff.field}: ${String(diff.baseline)} → ${String(diff.actual)}`);
     return { ...filled, status: 'incomparable', reason: `환경이 달라 비교하지 않는다 (${fields.join(', ')})` };
   }
-  const baselineRuns = entry.context?.runs;
-  const actualRuns = actual.context?.runs;
+  const baselineRuns = entry.context?.[RUNS_CONTEXT_KEY];
+  const actualRuns = actual.context?.[RUNS_CONTEXT_KEY];
   if (baselineRuns !== undefined && baselineRuns !== actualRuns) {
     return { ...filled, status: 'incomparable', reason: `반복 수가 달라 비교하지 않는다 (기준선 ${baselineRuns}회, 이번 ${String(actualRuns)}회)` };
   }

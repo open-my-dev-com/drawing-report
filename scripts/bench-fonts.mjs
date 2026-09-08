@@ -49,6 +49,7 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { measureElementsDist, checkFontBudget, CHUNK_LABELS } from './verify-font-budget/analyze.mjs';
 import { hasFlag, readArg, readPositiveInt } from './bench-shared/args.mjs';
+import { FONTS_DEFAULT_RUNS } from './bench-shared/defaults.mjs';
 import { collectEnvironment } from './bench-shared/env.mjs';
 import { median, percentile, formatInt } from './bench-shared/stats.mjs';
 import { createResult, metric, writeResultFile } from './bench-shared/result.mjs';
@@ -76,7 +77,7 @@ const SCENARIO_LABELS = {
 // ---------------------------------------------------------------------------
 
 const argv = process.argv.slice(2);
-const runs = readPositiveInt(argv, '--runs', 5);
+const runs = readPositiveInt(argv, '--runs', FONTS_DEFAULT_RUNS);
 const jsonPath = readArg(argv, '--json') ?? path.join(os.tmpdir(), `slipkit-bench-fonts-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
 const skipChromium = hasFlag(argv, '--skip-chromium');
 const skipNode = hasFlag(argv, '--skip-node');

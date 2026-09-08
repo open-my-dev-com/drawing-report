@@ -54,6 +54,7 @@ import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { hasFlag, readArg, readPositiveInt, readPositiveIntList } from './bench-shared/args.mjs';
+import { MCP_LIST_DEFAULT_RUNS, MCP_LIST_DEFAULT_SIZES } from './bench-shared/defaults.mjs';
 import { collectEnvironment } from './bench-shared/env.mjs';
 import { median, percentile, formatInt } from './bench-shared/stats.mjs';
 import { createResult, metric, writeResultFile } from './bench-shared/result.mjs';
@@ -117,8 +118,8 @@ const PREVIOUS_PASSPHRASES = ['bench-previous-1', 'bench-previous-2', 'bench-pre
 // ---------------------------------------------------------------------------
 
 const argv = process.argv.slice(2);
-const runs = readPositiveInt(argv, '--runs', 5);
-const sizes = readPositiveIntList(argv, '--sizes', [1000, 10000]);
+const runs = readPositiveInt(argv, '--runs', MCP_LIST_DEFAULT_RUNS);
+const sizes = readPositiveIntList(argv, '--sizes', [...MCP_LIST_DEFAULT_SIZES]);
 const requestedJsonPath = readArg(argv, '--json');
 const keep = hasFlag(argv, '--keep');
 

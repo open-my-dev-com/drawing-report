@@ -518,7 +518,7 @@ pnpm bench:fonts
 pnpm bench:mcp-list
 
 # 네 갈래를 차례로 실행하고 원본 JSON·manifest·기준선 비교 결과를 남긴다
-# (--out-dir 를 주지 않으면 임시 디렉터리에 쓴다)
+# (--out 을 주지 않으면 임시 디렉터리에 쓴다)
 pnpm bench:all
 
 # 의존성 취약점
