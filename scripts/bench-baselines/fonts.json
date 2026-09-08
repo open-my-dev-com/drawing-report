@@ -4,8 +4,8 @@
     "version": 1
   },
   "tool": "fonts",
-  "baselineCommit": "46c73cda6930492197a760366074ddb225f2bff2",
-  "measuredAt": "2026-09-08T10:11:31.312Z",
+  "baselineCommit": "6dfd89a3b7ebe55f751f9264d2f6f43b5cde1b8e",
+  "measuredAt": "2026-09-08T11:36:19.861Z",
   "environment": {
     "node": "v22.22.2",
     "v8": "12.4.254.21-node.39",
@@ -19,12 +19,12 @@
     "chromium": "141.0.7390.37"
   },
   "options": {
-    "runs": 3,
+    "runs": 5,
     "warmup": 1,
     "skipChromium": false,
     "skipNode": false
   },
-  "notes": "`node scripts/bench-fonts.mjs --runs 3`으로 잰 값이다. 정적 크기의 상한은 `verify:font-budget`이 지키므로 여기서는 그 판정 결과와 요청·읽힌 파일 수만 본다.",
+  "notes": "`node scripts/bench-fonts.mjs`의 기본 설정(본 측정 5회)으로 잰 값이다. 정적 크기의 상한은 `verify:font-budget`이 지키므로 여기서는 그 판정 결과와 요청·읽힌 파일 수만 본다.",
   "metrics": [
     {
       "id": "fonts.budget.ok",
@@ -353,10 +353,10 @@
       "label": "Node en — import 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 4089.53,
+      "value": 2790.53,
       "context": {
-        "runs": 3,
-        "fixture": "node-en"
+        "fixture": "node-en",
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 1.5
@@ -368,10 +368,10 @@
       "label": "Node ko — import 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 3347.94,
+      "value": 2888.25,
       "context": {
-        "runs": 3,
-        "fixture": "node-ko"
+        "fixture": "node-ko",
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 1.5
@@ -383,10 +383,10 @@
       "label": "Node ja — import 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 3875.82,
+      "value": 2904.39,
       "context": {
-        "runs": 3,
-        "fixture": "node-ja"
+        "fixture": "node-ja",
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 1.5
@@ -398,10 +398,10 @@
       "label": "Node user — import 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 3731.22,
+      "value": 2969.03,
       "context": {
-        "runs": 3,
-        "fixture": "node-user"
+        "fixture": "node-user",
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 1.5
@@ -413,10 +413,10 @@
       "label": "Node en — 해석·렌더 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 131.81,
+      "value": 87.18,
       "context": {
-        "runs": 3,
-        "fixture": "node-en"
+        "fixture": "node-en",
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 2
@@ -428,10 +428,10 @@
       "label": "Node ko — 해석·렌더 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 112.06,
+      "value": 85.77,
       "context": {
-        "runs": 3,
-        "fixture": "node-ko"
+        "fixture": "node-ko",
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 2
@@ -443,10 +443,10 @@
       "label": "Node ja — 해석·렌더 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 128.85,
+      "value": 88.1,
       "context": {
-        "runs": 3,
-        "fixture": "node-ja"
+        "fixture": "node-ja",
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 2
@@ -458,10 +458,10 @@
       "label": "Node user — 해석·렌더 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 271.49,
+      "value": 188.04,
       "context": {
-        "runs": 3,
-        "fixture": "node-user"
+        "fixture": "node-user",
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 2
@@ -473,10 +473,10 @@
       "label": "Chromium en — resolve 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 513.9,
+      "value": 415.7,
       "context": {
-        "runs": 3,
-        "fixture": "chromium-en"
+        "fixture": "chromium-en",
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 2
@@ -488,10 +488,10 @@
       "label": "Chromium ko — resolve 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 454.3,
+      "value": 396.2,
       "context": {
-        "runs": 3,
-        "fixture": "chromium-ko"
+        "fixture": "chromium-ko",
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 2
@@ -503,10 +503,10 @@
       "label": "Chromium ja — resolve 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 486.7,
+      "value": 412.5,
       "context": {
-        "runs": 3,
-        "fixture": "chromium-ja"
+        "fixture": "chromium-ja",
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 2
@@ -518,10 +518,10 @@
       "label": "Chromium user — resolve 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 25.4,
+      "value": 19.3,
       "context": {
-        "runs": 3,
-        "fixture": "chromium-user"
+        "fixture": "chromium-user",
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 2

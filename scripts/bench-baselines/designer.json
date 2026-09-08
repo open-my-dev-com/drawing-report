@@ -4,8 +4,8 @@
     "version": 1
   },
   "tool": "designer",
-  "baselineCommit": "46c73cda6930492197a760366074ddb225f2bff2",
-  "measuredAt": "2026-09-08T10:08:53.004Z",
+  "baselineCommit": "6dfd89a3b7ebe55f751f9264d2f6f43b5cde1b8e",
+  "measuredAt": "2026-09-08T11:33:03.838Z",
   "environment": {
     "node": "v22.22.2",
     "v8": "12.4.254.21-node.39",
@@ -177,7 +177,7 @@
       "label": "small — 드래그 한 번 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 251.98,
+      "value": 228.74,
       "context": {
         "fixture": "small",
         "runs": 30
@@ -192,7 +192,7 @@
       "label": "large — 드래그 한 번 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 773.13,
+      "value": 754.55,
       "context": {
         "fixture": "large",
         "runs": 30
@@ -207,7 +207,7 @@
       "label": "small — 드래그 한 번 p95",
       "unit": "ms",
       "kind": "environmental",
-      "value": 287.61,
+      "value": 255.25,
       "context": {
         "fixture": "small",
         "runs": 30
@@ -222,7 +222,7 @@
       "label": "large — 드래그 한 번 p95",
       "unit": "ms",
       "kind": "environmental",
-      "value": 973.44,
+      "value": 916.74,
       "context": {
         "fixture": "large",
         "runs": 30

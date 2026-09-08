@@ -4,8 +4,8 @@
     "version": 1
   },
   "tool": "core",
-  "baselineCommit": "46c73cda6930492197a760366074ddb225f2bff2",
-  "measuredAt": "2026-09-08T10:08:10.090Z",
+  "baselineCommit": "6dfd89a3b7ebe55f751f9264d2f6f43b5cde1b8e",
+  "measuredAt": "2026-09-08T11:32:24.693Z",
   "environment": {
     "node": "v22.22.2",
     "v8": "12.4.254.21-node.39",
@@ -126,7 +126,7 @@
       "label": "PDF 바이트 — 항목 200건",
       "unit": "bytes",
       "kind": "deterministic",
-      "value": 49754,
+      "value": 49755,
       "context": {
         "fixture": "pdf-200",
         "items": 200
@@ -165,11 +165,11 @@
       "label": "페이지 계획 — 항목 20000건 — 한 측정 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 10.6,
+      "value": 12.9,
       "context": {
+        "batch": 1,
         "fixture": "plan-20000",
-        "runs": 15,
-        "batch": 1
+        "runs": 15
       },
       "tolerance": {
         "maxRegressionRatio": 1.6
@@ -181,11 +181,11 @@
       "label": "parseSlipFile — 4.3KB — 한 측정 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 56.84,
+      "value": 63.06,
       "context": {
+        "batch": 500,
         "fixture": "bench-template",
-        "runs": 15,
-        "batch": 500
+        "runs": 15
       },
       "tolerance": {
         "maxRegressionRatio": 1.6
@@ -197,11 +197,11 @@
       "label": "parseFormula — 한 측정 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 26.68,
+      "value": 31.95,
       "context": {
+        "batch": 10000,
         "fixture": "bench-formula",
-        "runs": 15,
-        "batch": 10000
+        "runs": 15
       },
       "tolerance": {
         "maxRegressionRatio": 1.6
@@ -213,11 +213,11 @@
       "label": "evaluateFormula — 항목 1,000건 합계 — 한 측정 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 51.66,
+      "value": 53.66,
       "context": {
+        "batch": 1000,
         "fixture": "bench-formula-1000",
-        "runs": 15,
-        "batch": 1000
+        "runs": 15
       },
       "tolerance": {
         "maxRegressionRatio": 1.6
@@ -229,11 +229,11 @@
       "label": "암호화 — 암호 (PBKDF2 + AES-GCM) — 한 측정 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 113.29,
+      "value": 107.85,
       "context": {
+        "batch": 1,
         "fixture": "bench-template",
-        "runs": 10,
-        "batch": 1
+        "runs": 10
       },
       "tolerance": {
         "maxRegressionRatio": 1.5
@@ -245,11 +245,11 @@
       "label": "복호화 — 암호 — 한 측정 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 107.67,
+      "value": 104.48,
       "context": {
+        "batch": 1,
         "fixture": "bench-template",
-        "runs": 10,
-        "batch": 1
+        "runs": 10
       },
       "tolerance": {
         "maxRegressionRatio": 1.5
@@ -261,11 +261,11 @@
       "label": "PDF 생성 — 작은 전표 (항목 5건) — 한 측정 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 34.23,
+      "value": 33.55,
       "context": {
+        "batch": 1,
         "fixture": "pdf-5",
-        "runs": 10,
-        "batch": 1
+        "runs": 10
       },
       "tolerance": {
         "maxRegressionRatio": 1.8
@@ -277,11 +277,11 @@
       "label": "PDF 생성 — 대형 전표 (항목 200건) — 한 측정 중앙값",
       "unit": "ms",
       "kind": "environmental",
-      "value": 487.3,
+      "value": 526.02,
       "context": {
+        "batch": 1,
         "fixture": "pdf-200",
-        "runs": 5,
-        "batch": 1
+        "runs": 5
       },
       "tolerance": {
         "maxRegressionRatio": 1.8
