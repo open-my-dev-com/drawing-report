@@ -25,7 +25,7 @@ import {
   VOUCHER_KEY,
   asDemoMode,
   canResumeVoucher,
-  clearDemoStorage,
+  createDemoStorageQueue,
   createStores,
   getMessages,
   initialTemplate,
@@ -67,6 +67,7 @@ const designerSettings: SlipDesignerSettings = {
 const sampleKey = usesDemoSampleKey(import.meta.env.VITE_SLIPKIT_KEY as string | undefined);
 
 const { store, files } = createStores(slipKit, 'slipkit-demo-vue');
+const storageQueue = createDemoStorageQueue(store);
 
 // 파일 객체는 통째로 갈아 끼우므로 깊은 반응성이 필요 없다
 const template = shallowRef<SlipTemplateFile>(initialTemplate(locale));
@@ -90,8 +91,10 @@ let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function saveNow(): Promise<void> {
   try {
-    await store.save(TEMPLATE_KEY, template.value);
-    if (voucher.value) await store.save(VOUCHER_KEY, voucher.value);
+    await storageQueue.save([
+      [TEMPLATE_KEY, template.value],
+      ...(voucher.value ? [[VOUCHER_KEY, voucher.value] as const] : []),
+    ]);
     autosave.value = savedLabel(new Date(), locale);
   } catch (error) {
     autosave.value = '';
@@ -163,14 +166,14 @@ function onFormIssue(file: SlipFile): void {
   // 발행된 전표는 작성 대상에서 내리고 조회 화면으로 넘긴다.
   voucher.value = null;
   issued.value = file;
-  void store.save(ISSUED_KEY, file).catch(() => undefined);
-  void store.delete(VOUCHER_KEY).catch(() => undefined);
+  void storageQueue.save([[ISSUED_KEY, file]]).catch(() => undefined);
+  void storageQueue.delete([VOUCHER_KEY]).catch(() => undefined);
   setMode('view', messages.issued);
 }
 
 function newSlip(): void {
   voucher.value = null;
-  void store.delete(VOUCHER_KEY).catch(() => undefined);
+  void storageQueue.delete([VOUCHER_KEY]).catch(() => undefined);
   setMode('fill', messages.newSlip);
 }
 
@@ -200,7 +203,7 @@ async function clearStorage(): Promise<void> {
   // 예약된 저장이 남아 있으면 지운 직후 다시 저장된다 — 먼저 취소한다.
   cancelAutosave();
   try {
-    await clearDemoStorage(store);
+    await storageQueue.clear();
   } catch (error) {
     status.value = messages.clearFailed(reasonOf(error));
     return;
@@ -261,7 +264,7 @@ function openFile(): void {
         setMode('design', messages.openedTemplate);
       } else if (file.issued) {
         issued.value = file;
-        void store.save(ISSUED_KEY, file).catch(() => undefined);
+        void storageQueue.save([[ISSUED_KEY, file]]).catch(() => undefined);
         setMode('view', messages.openedIssued);
       } else {
         voucher.value = file;

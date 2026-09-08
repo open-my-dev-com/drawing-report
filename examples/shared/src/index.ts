@@ -269,6 +269,65 @@ export async function clearDemoStorage(
   if (failures.length > 0) throw failures[0];
 }
 
+/** 한 번의 저장 작업에서 순서대로 기록할 자동 저장 항목 */
+export type DemoSaveEntry = readonly [key: string, file: SlipFile];
+
+/** 데모의 자동 저장·삭제 작업을 호출 순서대로 실행하는 큐 */
+export interface DemoStorageQueue {
+  /**
+   * 파일 묶음을 다른 저장·삭제 작업과 섞이지 않게 순서대로 저장한다.
+   *
+   * @param entries - 저장할 키와 파일 묶음
+   * @returns 모든 파일을 저장한 뒤 끝나는 Promise
+   */
+  save(entries: readonly DemoSaveEntry[]): Promise<void>;
+  /**
+   * 키 묶음을 다른 저장·삭제 작업과 섞이지 않게 순서대로 지운다.
+   *
+   * @param keys - 지울 키 목록
+   * @returns 모든 키를 지운 뒤 끝나는 Promise
+   */
+  delete(keys: readonly string[]): Promise<void>;
+  /**
+   * 앞서 시작한 저장·삭제가 끝난 뒤 데모 저장 데이터를 지운다.
+   *
+   * @param options - 화면 기억 삭제 여부
+   * @returns 삭제가 끝난 뒤 완료되는 Promise
+   */
+  clear(options?: ClearDemoStorageOptions): Promise<void>;
+}
+
+/**
+ * 데모의 자동 저장과 삭제를 하나의 순서로 직렬화한다.
+ *
+ * @remarks
+ * 삭제 확인 직전에 이미 시작된 IndexedDB 저장이 삭제보다 늦게 끝나면 지운 데이터가 되살아날 수
+ * 있다. 한 번의 자동 저장 묶음과 삭제를 같은 큐에 넣어, 삭제가 앞선 저장을 항상 기다리게 한다.
+ * 실패한 작업은 호출자에게 그대로 전달하지만 뒤 작업의 실행은 막지 않는다.
+ *
+ * @param store - 데모 자동 저장에 쓰는 저장소
+ * @returns 호출 순서대로 작업하는 저장 큐
+ */
+export function createDemoStorageQueue(store: StorageAdapter): DemoStorageQueue {
+  let tail: Promise<void> = Promise.resolve();
+
+  function enqueue(operation: () => Promise<void>): Promise<void> {
+    const result = tail.then(operation, operation);
+    tail = result.catch(() => undefined);
+    return result;
+  }
+
+  return {
+    save: (entries) => enqueue(async () => {
+      for (const [key, file] of entries) await store.save(key, file);
+    }),
+    delete: (keys) => enqueue(async () => {
+      for (const key of keys) await store.delete(key);
+    }),
+    clear: (options) => enqueue(() => clearDemoStorage(store, options)),
+  };
+}
+
 /**
  * 자동 저장 표시 문구.
  *

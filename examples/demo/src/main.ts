@@ -30,7 +30,7 @@ import {
   VOUCHER_KEY,
   asDemoMode,
   canResumeVoucher,
-  clearDemoStorage,
+  createDemoStorageQueue,
   createStores,
   getMessages,
   initialTemplate,
@@ -81,6 +81,7 @@ const clearDialog = document.getElementById('clear-dialog') as HTMLDialogElement
 const sampleKey = usesDemoSampleKey(import.meta.env.VITE_SLIPKIT_KEY as string | undefined);
 
 const { store, files } = createStores(slipKit, 'slipkit-demo');
+const storageQueue = createDemoStorageQueue(store);
 
 let template: SlipTemplateFile = initialTemplate(locale);
 let voucher: SlipVoucherFile | null = null;
@@ -123,8 +124,10 @@ function cancelAutosave(): void {
 
 async function saveNow(): Promise<void> {
   try {
-    await store.save(TEMPLATE_KEY, template);
-    if (voucher) await store.save(VOUCHER_KEY, voucher);
+    await storageQueue.save([
+      [TEMPLATE_KEY, template],
+      ...(voucher ? [[VOUCHER_KEY, voucher] as const] : []),
+    ]);
     // 저장 표시는 안내 문구와 따로 둔다 — 조작 안내가 저장 알림에 덮이지 않도록
     autosaveEl.textContent = savedLabel(new Date(), locale);
   } catch (error) {
@@ -172,7 +175,7 @@ viewButton.addEventListener('click', () => setMode('view'));
 
 newSlipButton.addEventListener('click', () => {
   voucher = null;
-  void store.delete(VOUCHER_KEY).catch(() => undefined);
+  void storageQueue.delete([VOUCHER_KEY]).catch(() => undefined);
   setMode('fill', messages.newSlip);
   // 같은 양식이면 src 문자열이 그대로라 변경으로 잡히지 않는다 — 발행 상태를 풀고 빈 전표로 명시적으로 되돌린다.
   form.reset();
@@ -202,8 +205,8 @@ form.addEventListener('slip-issue', (event) => {
   // 발행된 전표는 작성 대상에서 내리고 조회 화면으로 넘긴다.
   voucher = null;
   issued = file;
-  void store.save(ISSUED_KEY, file).catch(() => undefined);
-  void store.delete(VOUCHER_KEY).catch(() => undefined);
+  void storageQueue.save([[ISSUED_KEY, file]]).catch(() => undefined);
+  void storageQueue.delete([VOUCHER_KEY]).catch(() => undefined);
   setMode('view', messages.issued);
 });
 
@@ -250,7 +253,7 @@ document.getElementById('open')!.addEventListener('click', () => {
         setMode('design', messages.openedTemplate);
       } else if (file.issued) {
         issued = file;
-        void store.save(ISSUED_KEY, file).catch(() => undefined);
+        void storageQueue.save([[ISSUED_KEY, file]]).catch(() => undefined);
         setMode('view', messages.openedIssued);
       } else {
         voucher = file;
@@ -294,7 +297,7 @@ async function clearStorage(): Promise<void> {
   // 예약된 저장이 남아 있으면 지운 직후 다시 저장된다 — 먼저 취소한다.
   cancelAutosave();
   try {
-    await clearDemoStorage(store);
+    await storageQueue.clear();
   } catch (error) {
     status(messages.clearFailed(reasonOf(error)));
     return;

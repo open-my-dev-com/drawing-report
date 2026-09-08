@@ -107,9 +107,6 @@ importers:
         specifier: workspace:*
         version: link:../../packages/elements
     devDependencies:
-      happy-dom:
-        specifier: ^20.11.2
-        version: 20.11.2
       typescript:
         specifier: ^5.6.0
         version: 5.9.3

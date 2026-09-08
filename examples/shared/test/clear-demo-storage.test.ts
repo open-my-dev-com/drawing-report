@@ -1,5 +1,4 @@
-// @vitest-environment happy-dom
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SlipStorageError, type SlipFile, type SlipListPage, type StorageAdapter } from '@omdc-slipkit/core';
 import {
   AUTOSAVE_KEYS,
@@ -9,6 +8,8 @@ import {
   TEMPLATE_KEY,
   VOUCHER_KEY,
   clearDemoStorage,
+  createDemoStorageQueue,
+  initialTemplate,
   resolveDemoEncryption,
   usesDemoSampleKey,
 } from '../src/index.js';
@@ -41,11 +42,44 @@ class FakeStore implements StorageAdapter {
   }
 }
 
-describe('clearDemoStorage', () => {
-  beforeEach(() => {
-    localStorage.clear();
-  });
+/** Node 버전의 내장 localStorage 상태와 무관하게 동작하는 시험용 구현 */
+class FakeLocalStorage implements Storage {
+  private readonly items = new Map<string, string>();
 
+  get length(): number {
+    return this.items.size;
+  }
+
+  clear(): void {
+    this.items.clear();
+  }
+
+  getItem(key: string): string | null {
+    return this.items.get(key) ?? null;
+  }
+
+  key(index: number): string | null {
+    return [...this.items.keys()][index] ?? null;
+  }
+
+  removeItem(key: string): void {
+    this.items.delete(key);
+  }
+
+  setItem(key: string, value: string): void {
+    this.items.set(key, value);
+  }
+}
+
+beforeEach(() => {
+  vi.stubGlobal('localStorage', new FakeLocalStorage());
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe('clearDemoStorage', () => {
   it('자동 저장 키 세 개를 정해진 순서로 한 번씩 지운다', async () => {
     const store = new FakeStore([TEMPLATE_KEY, VOUCHER_KEY, ISSUED_KEY]);
 
@@ -93,6 +127,58 @@ describe('clearDemoStorage', () => {
     expect(store.deleted).toEqual([TEMPLATE_KEY, VOUCHER_KEY, ISSUED_KEY]);
     expect([...store.items]).toEqual([VOUCHER_KEY]);
     expect(localStorage.getItem(MODE_KEY)).toBeNull();
+  });
+});
+
+describe('createDemoStorageQueue', () => {
+  it('진행 중인 자동 저장이 끝난 뒤 저장 데이터 삭제를 시작한다', async () => {
+    const calls: string[] = [];
+    let finishSave!: () => void;
+    const saveGate = new Promise<void>((resolve) => {
+      finishSave = resolve;
+    });
+    const store: StorageAdapter = {
+      async save(id: string): Promise<void> {
+        calls.push(`save:start:${id}`);
+        await saveGate;
+        calls.push(`save:end:${id}`);
+      },
+      load(): Promise<SlipFile> {
+        throw new Error('시험에서 사용하지 않습니다');
+      },
+      async delete(id: string): Promise<void> {
+        calls.push(`delete:${id}`);
+      },
+      list(): Promise<SlipListPage> {
+        throw new Error('시험에서 사용하지 않습니다');
+      },
+    };
+    const queue = createDemoStorageQueue(store);
+
+    const saving = queue.save([[TEMPLATE_KEY, initialTemplate('ko')]]);
+    const clearing = queue.clear({ removeMode: false });
+    await Promise.resolve();
+
+    expect(calls).toEqual(['save:start:autosave-template']);
+    finishSave();
+    await Promise.all([saving, clearing]);
+    expect(calls).toEqual([
+      'save:start:autosave-template',
+      'save:end:autosave-template',
+      'delete:autosave-template',
+      'delete:autosave-voucher',
+      'delete:autosave-issued',
+    ]);
+  });
+
+  it('앞선 작업이 실패해도 다음 삭제를 실행한다', async () => {
+    const store = new FakeStore([]);
+    const queue = createDemoStorageQueue(store);
+
+    await expect(queue.save([[TEMPLATE_KEY, initialTemplate('ko')]])).rejects.toThrow('시험에서 사용하지 않습니다');
+    await queue.clear({ removeMode: false });
+
+    expect(store.deleted).toEqual([TEMPLATE_KEY, VOUCHER_KEY, ISSUED_KEY]);
   });
 });
 

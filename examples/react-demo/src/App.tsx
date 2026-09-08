@@ -24,7 +24,7 @@ import {
   VOUCHER_KEY,
   asDemoMode,
   canResumeVoucher,
-  clearDemoStorage,
+  createDemoStorageQueue,
   createStores,
   getMessages,
   initialTemplate,
@@ -68,6 +68,7 @@ const sampleKey = usesDemoSampleKey(import.meta.env.VITE_SLIPKIT_KEY as string |
 export function App() {
   // 저장소는 화면이 다시 그려져도 그대로 써야 하므로 한 번만 만든다
   const { store, files } = useMemo(() => createStores(slipKit, 'slipkit-demo-react'), []);
+  const storageQueue = useMemo(() => createDemoStorageQueue(store), [store]);
 
   const [template, setTemplate] = useState<SlipTemplateFile>(() => initialTemplate(locale));
   // 디자이너에 넣는 시작 입력 — 편집 중에는 바꾸지 않고, 외부 양식을 명시적으로 열 때만 갱신한다
@@ -94,14 +95,17 @@ export function App() {
 
   const saveNow = useCallback(async () => {
     try {
-      await store.save(TEMPLATE_KEY, latest.current.template);
-      if (latest.current.voucher) await store.save(VOUCHER_KEY, latest.current.voucher);
+      const current = latest.current;
+      await storageQueue.save([
+        [TEMPLATE_KEY, current.template],
+        ...(current.voucher ? [[VOUCHER_KEY, current.voucher] as const] : []),
+      ]);
       setAutosave(savedLabel(new Date(), locale));
     } catch (error) {
       setAutosave('');
       setStatus(messages.autosaveFailed(reasonOf(error)));
     }
-  }, [store]);
+  }, [storageQueue]);
 
   const scheduleAutosave = useCallback(() => {
     if (timerRef.current !== null) clearTimeout(timerRef.current);
@@ -196,10 +200,10 @@ export function App() {
     setIssued(file);
     latest.current.voucher = null;
     latest.current.issued = file;
-    void store.save(ISSUED_KEY, file).catch(() => undefined);
-    void store.delete(VOUCHER_KEY).catch(() => undefined);
+    void storageQueue.save([[ISSUED_KEY, file]]).catch(() => undefined);
+    void storageQueue.delete([VOUCHER_KEY]).catch(() => undefined);
     switchMode('view', messages.issued);
-  }, [store, switchMode]);
+  }, [storageQueue, switchMode]);
 
   /** 지금 화면에서 다루고 있는 파일 — 내려받기 대상 */
   const activeFile = (): SlipFile => {
@@ -253,7 +257,7 @@ export function App() {
         } else if (file.issued) {
           setIssued(file);
           latest.current.issued = file;
-          void store.save(ISSUED_KEY, file).catch(() => undefined);
+          void storageQueue.save([[ISSUED_KEY, file]]).catch(() => undefined);
           switchMode('view', messages.openedIssued);
         } else {
           const fromVoucher = templateFromVoucher(file);
@@ -276,7 +280,7 @@ export function App() {
   const newSlip = (): void => {
     setVoucher(null);
     latest.current.voucher = null;
-    void store.delete(VOUCHER_KEY).catch(() => undefined);
+    void storageQueue.delete([VOUCHER_KEY]).catch(() => undefined);
     switchMode('fill', messages.newSlip);
   };
 
@@ -309,7 +313,7 @@ export function App() {
     // 예약된 저장이 남아 있으면 지운 직후 다시 저장된다 — 먼저 취소한다.
     cancelAutosave();
     try {
-      await clearDemoStorage(store);
+      await storageQueue.clear();
     } catch (error) {
       setStatus(messages.clearFailed(reasonOf(error)));
       return;
