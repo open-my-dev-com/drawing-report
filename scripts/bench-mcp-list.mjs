@@ -10,7 +10,8 @@
  * 옵션
  * - `--sizes 1000,10000` 평문·raw 키 시나리오의 파일 수 (기본 `1000,10000`)
  * - `--runs N`           본 측정 반복 수 (기본 5). 예열 1회는 따로 돈다
- * - `--json <path>`      전체 원자료를 보존할 파일. 생략하면 fixture와 함께 임시로 만들고 정리한다
+ * - `--json <path>`      전체 원자료를 보존할 파일. 판 번호가 있는 공통 봉투(`schema`·`tool`·`environment`·
+ *                        `metrics`)에 담는다. 생략하면 fixture와 함께 임시로 만들고 정리한다
  * - `--keep`             fixture와 기본 JSON 원자료를 지우지 않는다 (기본은 `finally`에서 지운다)
  *
  * 측정 대상
@@ -49,11 +50,15 @@
  * 메모리 수치는 GC 시점에 흔들린다. `node --expose-gc scripts/bench-mcp-list.mjs`로 실행하면
  * 단계마다 GC를 돌려 더 안정적인 값을 얻는다.
  */
-import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { median, percentile, formatInt } from './bench-designer/metrics.mjs';
+import { hasFlag, readArg, readPositiveInt, readPositiveIntList } from './bench-shared/args.mjs';
+import { MCP_LIST_DEFAULT_RUNS, MCP_LIST_DEFAULT_SIZES } from './bench-shared/defaults.mjs';
+import { collectEnvironment } from './bench-shared/env.mjs';
+import { median, percentile, formatInt } from './bench-shared/stats.mjs';
+import { createResult, metric, writeResultFile } from './bench-shared/result.mjs';
+import { createWorkDir, disposeWorkDir } from './bench-shared/workdir.mjs';
 import {
   ADDED_ID,
   CHURN_INDEX,
@@ -112,25 +117,11 @@ const PREVIOUS_PASSPHRASES = ['bench-previous-1', 'bench-previous-2', 'bench-pre
 // 인자
 // ---------------------------------------------------------------------------
 
-/**
- * `--name value` 인자를 읽는다.
- *
- * @param name - 인자 이름
- * @returns 값
- */
-function arg(name) {
-  const index = process.argv.indexOf(name);
-  return index >= 0 ? process.argv[index + 1] : undefined;
-}
-
-const runs = Number.parseInt(arg('--runs') ?? '5', 10);
-if (!Number.isInteger(runs) || runs < 1) throw new Error('--runs 는 1 이상의 정수여야 한다');
-const sizes = (arg('--sizes') ?? '1000,10000').split(',').map((value) => Number.parseInt(value.trim(), 10));
-if (sizes.length === 0 || sizes.some((size) => !Number.isInteger(size) || size < 1)) {
-  throw new Error('--sizes 는 쉼표로 구분한 1 이상의 정수여야 한다 (예: 1000,10000)');
-}
-const requestedJsonPath = arg('--json');
-const keep = process.argv.includes('--keep');
+const argv = process.argv.slice(2);
+const runs = readPositiveInt(argv, '--runs', MCP_LIST_DEFAULT_RUNS);
+const sizes = readPositiveIntList(argv, '--sizes', [...MCP_LIST_DEFAULT_SIZES]);
+const requestedJsonPath = readArg(argv, '--json');
+const keep = hasFlag(argv, '--keep');
 
 /**
  * 진행 상황은 stderr로, 표는 stdout으로 낸다.
@@ -588,6 +579,57 @@ function printScenario(scenario, summary) {
 }
 
 // ---------------------------------------------------------------------------
+// 기준선과 맞대 볼 지표
+// ---------------------------------------------------------------------------
+
+/** 기준선과 맞대 볼 계측 항목 — 파일 접근 횟수와 캐시 동작이 환경과 무관하게 같아야 한다 */
+const BASELINE_COUNTERS = [
+  'lstat', 'maxConcurrentLstat', 'bodyReads', 'parses', 'decryptAttempts', 'cacheHits', 'cacheMisses',
+];
+
+/**
+ * 결과에서 기준선과 맞대 볼 지표를 뽑는다.
+ *
+ * @param {Record<string, any>} result - 이 스크립트가 모은 원자료
+ * @param {{ runs: number }} options - 본 측정 반복 수
+ * @returns {object[]} 지표 목록
+ */
+function listMetrics(result, options) {
+  const metrics = [];
+  for (const scenario of result.scenarios) {
+    const fixture = scenario.id;
+    const files = scenario.count;
+    for (const stage of scenario.stages) {
+      const row = scenario.summary[stage];
+      if (row === null || row === undefined) continue;
+      const context = { fixture, files };
+      for (const key of BASELINE_COUNTERS) {
+        const value = row.counters[key];
+        if (typeof value !== 'number') continue;
+        metrics.push(metric(`mcp.${fixture}.${stage}.${key}`, {
+          label: `${scenario.id} ${stage} — ${key}`, unit: 'count', kind: 'deterministic', value, context,
+        }));
+      }
+      metrics.push(metric(`mcp.${fixture}.${stage}.items`, {
+        label: `${scenario.id} ${stage} — 반환 항목 수`, unit: 'count', kind: 'deterministic',
+        value: row.items, context,
+      }));
+      if (typeof row.nextCursor === 'string') {
+        metrics.push(metric(`mcp.${fixture}.${stage}.nextCursorOffset`, {
+          label: `${scenario.id} ${stage} — 다음 커서 offset`, unit: 'count', kind: 'deterministic',
+          value: Number(row.nextCursor), context,
+        }));
+      }
+      metrics.push(metric(`mcp.${fixture}.${stage}.msMedian`, {
+        label: `${scenario.id} ${stage} — 중앙값`, unit: 'ms', kind: 'environmental',
+        value: row.msMedian, context: { ...context, runs: options.runs },
+      }));
+    }
+  }
+  return metrics;
+}
+
+// ---------------------------------------------------------------------------
 // 본문
 // ---------------------------------------------------------------------------
 
@@ -610,14 +652,11 @@ async function main() {
   const core = await loadDist('packages/core/dist/index.js');
   const { FileSystemStorage } = await loadDist('packages/mcp/dist/index.js');
 
-  const work = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'slipkit-bench-mcp-list-')));
+  const work = createWorkDir('slipkit-bench-mcp-list-');
   const jsonPath = requestedJsonPath ?? path.join(work, 'result.json');
+  const environment = collectEnvironment();
   const env = {
-    node: process.version,
-    cpu: os.cpus()[0]?.model ?? 'unknown',
-    cores: os.cpus().length,
-    memoryBytes: os.totalmem(),
-    platform: `${os.platform()} ${os.release()}`,
+    ...environment,
     runs,
     warmup: WARMUP,
     sizes,
@@ -726,22 +765,28 @@ async function main() {
     env.metricsAvailable = metricsAvailable;
 
     process.stdout.write(
-      `실행 환경: Node ${env.node} · ${env.cpu} × ${env.cores} · 메모리 ${formatInt(env.memoryBytes / 1024 / 1024)} MB · ${env.platform} · ` +
+      `실행 환경: Node ${env.node} · ${env.cpuModel} × ${env.cores} · 메모리 ${formatInt(env.memoryBytes / 1024 / 1024)} MB · ` +
+        `${env.platform} ${env.osRelease} · ` +
         `예열 ${WARMUP}회 + 본 측정 ${runs}회 · fixture 규모 ${sizes.map((size) => formatInt(size)).join('·')}개(문자열 키는 ${PASSPHRASE_COUNT}개) · ` +
         `목록 계측 심볼 ${metricsAvailable ? '있음' : '없음 (계측 열은 -)'} · GC 노출 ${env.gcExposed ? '있음' : '없음'}\n\n`,
     );
     printFixtures(scenarios);
     process.stdout.write('## 단계별 측정\n\n');
     for (const scenario of scenarios) printScenario(scenario, scenario.summary);
-    writeFileSync(jsonPath, JSON.stringify(result, null, 2));
+    writeResultFile(jsonPath, createResult({
+      tool: 'mcp-list',
+      environment,
+      options: { runs, warmup: WARMUP, sizes, passphraseCount: PASSPHRASE_COUNT, gcExposed: env.gcExposed },
+      metrics: listMetrics(result, { runs }),
+      data: result,
+    }));
     process.stdout.write(
       requestedJsonPath !== undefined || keep
         ? `JSON: ${jsonPath}\n`
         : 'JSON 원자료: fixture 임시 디렉터리와 함께 정리\n',
     );
   } finally {
-    if (keep) process.stdout.write(`fixture 임시 디렉터리 보존: ${work}\n`);
-    else rmSync(work, { recursive: true, force: true });
+    if (!disposeWorkDir(work, { keep })) process.stdout.write(`fixture 임시 디렉터리 보존: ${work}\n`);
   }
 }
 

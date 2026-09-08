@@ -222,9 +222,6 @@ export function planGrid(
   const afterBands = bandsOf(grid, 'after-data');
   const pageEndBands = bandsOf(grid, 'page-end');
 
-  const sumHeights = (bands: readonly GridBand[]): number =>
-    bands.reduce((sum, band) => sum + bandHeight(grid, band), 0);
-
   /** 항목 인스턴스 하나를 배치 블록으로 만든다 (그룹 시작·종료 동반 규칙 포함). */
   const blockOf = (index: number): PlanBlock => {
     const isReal = index < real.length;

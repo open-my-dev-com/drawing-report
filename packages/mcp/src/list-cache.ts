@@ -68,7 +68,7 @@ const COUNTER_KEYS = [
  * @param cachedEntries - 현재 캐시 항목 수를 돌려주는 함수
  * @returns 카운터가 모두 0인 계측 객체
  */
-export function createListMetrics(cachedEntries: () => number): ListMetrics {
+function createListMetrics(cachedEntries: () => number): ListMetrics {
   const metrics = {
     listCalls: 0,
     directoryEntries: 0,
@@ -125,7 +125,7 @@ export interface CandidateStat {
  * @param b - 비교할 지문
  * @returns 모든 항목이 같으면 true
  */
-export function sameFingerprint(a: FileFingerprint, b: FileFingerprint): boolean {
+function sameFingerprint(a: FileFingerprint, b: FileFingerprint): boolean {
   return (
     a.dev === b.dev &&
     a.ino === b.ino &&
@@ -144,7 +144,7 @@ export function sameFingerprint(a: FileFingerprint, b: FileFingerprint): boolean
  * @param worker - 항목 하나를 처리하는 함수
  * @returns 입력과 같은 순서의 결과 배열
  */
-export async function mapWithLimit<T, R>(
+async function mapWithLimit<T, R>(
   items: readonly T[],
   limit: number,
   worker: (item: T, index: number) => Promise<R>,

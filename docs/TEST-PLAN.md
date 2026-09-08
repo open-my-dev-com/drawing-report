@@ -197,6 +197,20 @@ Chromium도 설치되어 있어야 합니다.
 | 보존 기간 | `retention-days`가 7인지 |
 | 실패 안내 | 배포 실패 Job Summary가 원래 실행의 `Re-run failed jobs`를 가리키고 새 실행을 권하는 이전 문구가 남아 있지 않은지 |
 
+### 5.11 저장소 정적 정리 검사
+
+죽은 코드와 필요 없는 `export`, 쓰지 않는 의존성이 다시 쌓이지 않는지 `pnpm verify:maintenance`가
+`verify`의 build 다음에 확인합니다.
+
+| 항목 | 확인할 것 |
+|---|---|
+| 미사용 지역 선언·인자 | `noUnusedLocals`·`noUnusedParameters`가 모든 패키지·예제에 적용되어 typecheck가 통과하는지 |
+| 미사용 파일·export·의존성 | 지적이 하나라도 있으면 비영 종료 코드로 실패하는지 |
+| 진입점 인식 | 자식 프로세스·`node --import` 전용 파일, verify-packages 픽스처, 폰트 생성 명령, 동적 import를 미사용으로 잡지 않는지 |
+| 예외의 범위 | 예외가 항목마다 이름과 까닭을 갖는지, 디렉터리 전체·`src/**`·모든 export 같은 포괄 예외가 없는지 |
+| 공개 export 보존 | 저장소 내부 사용량만으로 공개 루트·subpath export가 사라지지 않고 `verify:packages`의 허용 목록과 일치하는지 |
+| 결정성·부수효과 | 같은 입력에 같은 출력을 내고 작업 트리에 산출물을 남기지 않는지 |
+
 ## 6. 부하·성능 시험
 
 ### 6.1 두 갈래로 나눠 본다
@@ -206,7 +220,7 @@ Chromium도 설치되어 있어야 합니다.
 | 브라우저 | 조작이 끊기지 않는지 | 주 스레드 점유 시간, 큰 이미지·문서의 메모리 사용량 |
 | Node.js 서버 | 서버에서 여러 전표를 동시에 만들 때 버티는지 | 단일 렌더 시간, 동시 렌더 수, 처리량, 메모리 사용량 |
 
-이번 공개 전 점검에서는 **Node.js 기준선**, Designer 편집 조작(6.6), 동봉 폰트 로딩(6.7)과 MCP 목록 조회(6.8)를 측정합니다. 브라우저 실측 일부와 서버 동시 처리량은 아직 측정하지 않았습니다 (6.4).
+이번 공개 전 점검에서는 **Node.js 기준선**, Designer 편집 조작(6.7), 동봉 폰트 로딩(6.8)과 MCP 목록 조회(6.9)를 측정합니다. 네 갈래를 한 번에 실행하고 기준선과 비교하는 방법은 6.3에 있습니다. 브라우저 실측 일부와 서버 동시 처리량은 아직 측정하지 않았습니다 (6.5).
 
 ### 6.2 측정 방법
 
@@ -222,7 +236,29 @@ Chromium도 설치되어 있어야 합니다.
 
 입력 크기를 100 → 1,000 → 5,000 → 20,000건으로 늘리며 처리 시간이 어떻게 늘어나는지 봅니다. 워밍업 없이 한 번만 재면 첫 측정이 부풀려져 작은 입력이 큰 입력보다 느리게 나오므로, 이 스크립트를 거치지 않은 값은 기록하지 않습니다.
 
-### 6.3 판정 기준
+### 6.3 공통 결과와 기준선 비교
+
+네 갈래 계측은 판 번호가 있는 같은 형식의 결과 JSON을 남기고, `pnpm bench:all`이 Core → Designer →
+fonts → MCP list를 차례로 실행해 원본 JSON과 manifest 하나를 지정한 디렉터리에 씁니다. 출력 디렉터리를
+주지 않으면 임시 디렉터리에 쓰며, 성공한 실행은 작업 트리에 산출물을 남기지 않습니다. 하위 명령은 그대로
+따로 실행할 수 있습니다.
+
+기준선과 허용치는 `scripts/bench-baselines/*.json`에 있고 fixture 크기·반복 수·Node와 Chromium·OS·CPU,
+측정 단위, 기준 커밋을 함께 적습니다. 비교기는 지표의 성질에 따라 다르게 판정합니다.
+
+| 지표 | 판정 |
+|---|---|
+| 직렬화 바이트, clone·plan·snapshot 횟수, 폰트 바이트·요청 수, MCP I/O 횟수·동시성 상한·cursor 진행, PDF 페이지 수와 `%PDF` 서명 | 환경과 무관하게 어긋나면 **실패** |
+| wall time, 메모리 | 실행 환경 fingerprint와 반복 수가 같을 때만 항목별 허용 회귀율로 판정. 다르면 **비교 불가**로 사유와 두 수치를 함께 보고 |
+| 지표 누락, `NaN`, 단위·fixture·schema 불일치 | **실패** |
+| 기준선에 없는 지표 | 「기준선 없음」으로 세고 실패로 보지 않음 |
+
+무거운 측정은 `verify`에 넣지 않습니다. 결과 schema, 기준선 parser와 비교기, 결정적 계약만
+`pnpm test:scripts`의 단위 시험으로 고정하고, 실제 전체 기준선은 `pnpm bench:all`로 따로 재현합니다.
+`verify:font-budget`, 실제 tarball의 Chromium 폰트 요청 시험, Designer 계수 시험과 MCP I/O 회귀 시험은
+복제하지 않고 비교기가 그 결과 형식을 그대로 소비합니다.
+
+### 6.4 판정 기준
 
 | 작업 | 기준 | 근거 |
 |---|---|---|
@@ -232,20 +268,20 @@ Chromium도 설치되어 있어야 합니다.
 
 주 스레드 점유 기준은 브라우저 기준입니다. `pnpm bench`는 Node.js 값이므로 브라우저 응답성 판단에 그대로 쓸 수 없습니다.
 
-### 6.4 아직 측정하지 않은 것
+### 6.5 아직 측정하지 않은 것
 
 - 브라우저에서의 실제 주 스레드 점유 시간
 - 브라우저·모바일에서의 키 파생 소요 시간
 - Node.js 서버의 동시 렌더 수와 처리량
 - 큰 이미지를 많이 넣은 양식의 메모리 사용량
 
-### 6.5 알려진 병목
+### 6.6 알려진 병목
 
 페이지 계획은 조각마다 누계 항목 배열을 복사하지 않고 `carriedCount`만 저장합니다. 60,000개 항목
 계획에서 시간과 힙 증가량을 측정하고, `@carried`가 렌더링 시 접두 범위를 같은 결과로 집계하는지
 회귀 시험으로 확인합니다.
 
-### 6.6 Designer 편집 조작
+### 6.7 Designer 편집 조작
 
 `pnpm bench:designer`(`scripts/bench-designer.mjs`)는 Core·Elements를 빌드한 뒤 Node.js와 happy-dom에서
 `<slip-designer>`를 붙여 포인터 드래그 한 제스처(120회 pointermove 뒤 pointerup)를 측정합니다.
@@ -281,7 +317,7 @@ Chromium도 설치되어 있어야 합니다.
 전체 시간은 줄었습니다. Node의 heapUsed 변화(약 50MB·145MB)는 happy-dom 자체 캐시이며 Chromium에서는
 같은 시나리오의 보존 메모리가 0.1MB 이하입니다.
 
-### 6.7 동봉 폰트 로딩
+### 6.8 동봉 폰트 로딩
 
 `pnpm bench:fonts`(`scripts/bench-fonts.mjs`)는 Core·Elements를 빌드하고 `pnpm pack`한 뒤 깨끗한 임시 소비자에
 tarball을 설치해, 기본 폰트 `en`·`ko`·`ja`와 호스트 `getFonts` 네 시나리오를 측정합니다.
@@ -318,7 +354,7 @@ Node.js cold run (반복마다 새 프로세스, `--expose-gc`; import heapUsed 
 
 세 기본 폰트 시나리오는 로케일과 무관하게 같은 두 청크를 `resolve` 단계에서 각 1회 요청하고, 같은 `slipkit`을 받은 Designer·Form·Viewer는 `share` 단계에서 폰트 청크를 다시 요청하지 않습니다(뷰어·폼이 만든 PDF blob 2건만 추가). 호스트 폰트 시나리오는 어느 단계에서도 폰트 청크를 요청하지 않습니다. `import` 단계의 elements 청크(vite build가 Elements·Core·lit를 묶은 것)와 페이지 로드 3건(HTML·진입 모듈·preload 도우미)은 모든 시나리오에서 같습니다. Node의 `import` 약 2.4초는 lit·pdfme·fontkit 전체를 읽는 시간이며, `loadDefaultFonts`는 두 청크 읽기와 base64 디코딩(7,942,752 B)을 포함합니다.
 
-### 6.8 MCP 목록 조회
+### 6.9 MCP 목록 조회
 
 `pnpm bench:mcp-list`(`scripts/bench-mcp-list.mjs`)는 Core·MCP를 빌드한 뒤 임시 디렉터리에 fixture를 만들어
 `FileSystemStorage.list()`를 측정합니다. 기본 실행은 fixture와 원자료를 지우고 `--keep`을 줬을 때만 남깁니다.
@@ -456,6 +492,9 @@ pnpm verify
 # 폰트 예산 검사만 다시 실행 (verify의 build 다음에 자동으로 실행된다)
 pnpm verify:font-budget
 
+# 저장소 정적 정리 검사만 다시 실행 (verify의 폰트 예산 검사 다음에 자동으로 실행된다)
+pnpm verify:maintenance
+
 # 패키지 소비자 검증 — 첫 실행 전에 관리형 Chromium을 설치한다
 pnpm exec playwright install chromium
 pnpm verify:packages
@@ -477,6 +516,10 @@ pnpm bench:fonts
 
 # MCP 목록 조회 계측 — Core·MCP 빌드와 임시 디렉터리 fixture 생성까지 함께 실행한다
 pnpm bench:mcp-list
+
+# 네 갈래를 차례로 실행하고 원본 JSON·manifest·기준선 비교 결과를 남긴다
+# (--out 을 주지 않으면 임시 디렉터리에 쓴다)
+pnpm bench:all
 
 # 의존성 취약점
 pnpm audit

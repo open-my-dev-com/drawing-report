@@ -12,7 +12,7 @@ import type { FormulaCheck } from './formula-check.js';
 import type { FormulaTarget } from './formula-target.js';
 
 /** 계산되지 않는 수식·조건식 한 자리와 그 원인 */
-export interface FormulaWarningDetail {
+interface FormulaWarningDetail {
   /** 계산되지 않는 자리 */
   readonly target: FormulaTarget;
   /** 계산에 실패한 원인 — 파서·평가기가 낸 오류 문구. 문구가 없으면 빈 값 */

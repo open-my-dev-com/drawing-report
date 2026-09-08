@@ -38,7 +38,7 @@ export interface ReservedAvailability {
 }
 
 /** 한 자리(셀 + 항목)의 계산 문맥 */
-export interface FormulaSlot {
+interface FormulaSlot {
   /** 항목 구간에서 필드 이름으로 참조할 현재 항목 */
   item: GridItem | undefined;
   /** 수식 평가에 넘길 예약 참조. 반복 설정이 없으면 undefined */

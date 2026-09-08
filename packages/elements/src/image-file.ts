@@ -49,7 +49,7 @@ export function pickImageFile(maxBytes: number): Promise<ImagePickResult> {
  * @param maxBytes - 허용하는 최대 파일 크기(바이트)
  * @returns 검사와 변환 결과
  */
-export async function readImageFile(file: Blob, maxBytes: number): Promise<ImagePickResult> {
+async function readImageFile(file: Blob, maxBytes: number): Promise<ImagePickResult> {
   if (file.size > maxBytes) return { ok: false, reason: 'tooLarge', size: file.size };
   let bytes: Uint8Array;
   try {

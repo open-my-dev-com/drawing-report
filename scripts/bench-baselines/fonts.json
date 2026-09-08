@@ -1,0 +1,532 @@
+{
+  "schema": {
+    "name": "slipkit-bench-baseline",
+    "version": 1
+  },
+  "tool": "fonts",
+  "baselineCommit": "6dfd89a3b7ebe55f751f9264d2f6f43b5cde1b8e",
+  "measuredAt": "2026-09-08T11:36:19.861Z",
+  "environment": {
+    "node": "v22.22.2",
+    "v8": "12.4.254.21-node.39",
+    "platform": "linux",
+    "arch": "x64",
+    "osRelease": "6.18.44-fc-v24",
+    "cpuModel": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores": 4,
+    "memoryBytes": 16856092672,
+    "memoryGiB": 15.7,
+    "chromium": "141.0.7390.37"
+  },
+  "options": {
+    "runs": 5,
+    "warmup": 1,
+    "skipChromium": false,
+    "skipNode": false
+  },
+  "notes": "`node scripts/bench-fonts.mjs`의 기본 설정(본 측정 5회)으로 잰 값이다. 정적 크기의 상한은 `verify:font-budget`이 지키므로 여기서는 그 판정 결과와 요청·읽힌 파일 수만 본다.",
+  "metrics": [
+    {
+      "id": "fonts.budget.ok",
+      "label": "폰트 예산 통과 여부",
+      "unit": "flag",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "elements-dist"
+      },
+      "rationale": "정적 크기의 상한은 verify:font-budget이 지킨다 — 여기서는 그 판정 결과만 본다"
+    },
+    {
+      "id": "fonts.static.decoded.pretendard",
+      "label": "Pretendard 디코딩 데이터 바이트",
+      "unit": "bytes",
+      "kind": "deterministic",
+      "value": 1574352,
+      "context": {
+        "fixture": "elements-dist"
+      },
+      "rationale": "동봉 폰트 데이터는 폰트 파일을 바꾸지 않는 한 같다"
+    },
+    {
+      "id": "fonts.static.decoded.pretendardBold",
+      "label": "Pretendard-Bold 디코딩 데이터 바이트",
+      "unit": "bytes",
+      "kind": "deterministic",
+      "value": 1576660,
+      "context": {
+        "fixture": "elements-dist"
+      },
+      "rationale": "동봉 폰트 데이터는 폰트 파일을 바꾸지 않는 한 같다"
+    },
+    {
+      "id": "fonts.static.decoded.notoSansJp",
+      "label": "Noto Sans JP 디코딩 데이터 바이트",
+      "unit": "bytes",
+      "kind": "deterministic",
+      "value": 4791740,
+      "context": {
+        "fixture": "elements-dist"
+      },
+      "rationale": "동봉 폰트 데이터는 폰트 파일을 바꾸지 않는 한 같다"
+    },
+    {
+      "id": "fonts.chromium.en.fontChunkRequests",
+      "label": "Chromium en — 동봉 폰트 청크 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 2,
+      "context": {
+        "fixture": "chromium-en"
+      },
+      "rationale": "기본 폰트는 청크 두 개를 각 한 번만 받아야 한다"
+    },
+    {
+      "id": "fonts.chromium.en.hostFontRequests",
+      "label": "Chromium en — 호스트 폰트 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 0,
+      "context": {
+        "fixture": "chromium-en"
+      },
+      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 한다 — 값이 달라지면 동작이 바뀐 것이다"
+    },
+    {
+      "id": "fonts.chromium.en.elementsRequests",
+      "label": "Chromium en — elements 청크 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "chromium-en"
+      },
+      "rationale": "Elements 청크는 한 번만 받는다"
+    },
+    {
+      "id": "fonts.chromium.en.pdfBlobRequests",
+      "label": "Chromium en — PDF blob 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 2,
+      "context": {
+        "fixture": "chromium-en"
+      },
+      "rationale": "뷰어와 폼이 PDF를 하나씩 만든다"
+    },
+    {
+      "id": "fonts.node.en.fontChunkFiles",
+      "label": "Node en — 읽힌 폰트 청크 파일 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 2,
+      "context": {
+        "fixture": "node-en"
+      },
+      "rationale": "기본 폰트는 청크 파일 두 개만 읽는다"
+    },
+    {
+      "id": "fonts.node.en.loadedFiles",
+      "label": "Node en — 읽힌 파일 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 4,
+      "context": {
+        "fixture": "node-en"
+      },
+      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 한다 — 값이 달라지면 동작이 바뀐 것이다"
+    },
+    {
+      "id": "fonts.chromium.ko.fontChunkRequests",
+      "label": "Chromium ko — 동봉 폰트 청크 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 2,
+      "context": {
+        "fixture": "chromium-ko"
+      },
+      "rationale": "기본 폰트는 청크 두 개를 각 한 번만 받아야 한다"
+    },
+    {
+      "id": "fonts.chromium.ko.hostFontRequests",
+      "label": "Chromium ko — 호스트 폰트 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 0,
+      "context": {
+        "fixture": "chromium-ko"
+      },
+      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 한다 — 값이 달라지면 동작이 바뀐 것이다"
+    },
+    {
+      "id": "fonts.chromium.ko.elementsRequests",
+      "label": "Chromium ko — elements 청크 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "chromium-ko"
+      },
+      "rationale": "Elements 청크는 한 번만 받는다"
+    },
+    {
+      "id": "fonts.chromium.ko.pdfBlobRequests",
+      "label": "Chromium ko — PDF blob 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 2,
+      "context": {
+        "fixture": "chromium-ko"
+      },
+      "rationale": "뷰어와 폼이 PDF를 하나씩 만든다"
+    },
+    {
+      "id": "fonts.node.ko.fontChunkFiles",
+      "label": "Node ko — 읽힌 폰트 청크 파일 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 2,
+      "context": {
+        "fixture": "node-ko"
+      },
+      "rationale": "기본 폰트는 청크 파일 두 개만 읽는다"
+    },
+    {
+      "id": "fonts.node.ko.loadedFiles",
+      "label": "Node ko — 읽힌 파일 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 4,
+      "context": {
+        "fixture": "node-ko"
+      },
+      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 한다 — 값이 달라지면 동작이 바뀐 것이다"
+    },
+    {
+      "id": "fonts.chromium.ja.fontChunkRequests",
+      "label": "Chromium ja — 동봉 폰트 청크 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 2,
+      "context": {
+        "fixture": "chromium-ja"
+      },
+      "rationale": "기본 폰트는 청크 두 개를 각 한 번만 받아야 한다"
+    },
+    {
+      "id": "fonts.chromium.ja.hostFontRequests",
+      "label": "Chromium ja — 호스트 폰트 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 0,
+      "context": {
+        "fixture": "chromium-ja"
+      },
+      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 한다 — 값이 달라지면 동작이 바뀐 것이다"
+    },
+    {
+      "id": "fonts.chromium.ja.elementsRequests",
+      "label": "Chromium ja — elements 청크 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "chromium-ja"
+      },
+      "rationale": "Elements 청크는 한 번만 받는다"
+    },
+    {
+      "id": "fonts.chromium.ja.pdfBlobRequests",
+      "label": "Chromium ja — PDF blob 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 2,
+      "context": {
+        "fixture": "chromium-ja"
+      },
+      "rationale": "뷰어와 폼이 PDF를 하나씩 만든다"
+    },
+    {
+      "id": "fonts.node.ja.fontChunkFiles",
+      "label": "Node ja — 읽힌 폰트 청크 파일 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 2,
+      "context": {
+        "fixture": "node-ja"
+      },
+      "rationale": "기본 폰트는 청크 파일 두 개만 읽는다"
+    },
+    {
+      "id": "fonts.node.ja.loadedFiles",
+      "label": "Node ja — 읽힌 파일 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 4,
+      "context": {
+        "fixture": "node-ja"
+      },
+      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 한다 — 값이 달라지면 동작이 바뀐 것이다"
+    },
+    {
+      "id": "fonts.chromium.user.fontChunkRequests",
+      "label": "Chromium user — 동봉 폰트 청크 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 0,
+      "context": {
+        "fixture": "chromium-user"
+      },
+      "rationale": "호스트가 폰트를 주면 동봉 폰트 청크를 받지 않아야 한다"
+    },
+    {
+      "id": "fonts.chromium.user.hostFontRequests",
+      "label": "Chromium user — 호스트 폰트 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "chromium-user"
+      },
+      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 한다 — 값이 달라지면 동작이 바뀐 것이다"
+    },
+    {
+      "id": "fonts.chromium.user.elementsRequests",
+      "label": "Chromium user — elements 청크 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 1,
+      "context": {
+        "fixture": "chromium-user"
+      },
+      "rationale": "Elements 청크는 한 번만 받는다"
+    },
+    {
+      "id": "fonts.chromium.user.pdfBlobRequests",
+      "label": "Chromium user — PDF blob 요청 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 2,
+      "context": {
+        "fixture": "chromium-user"
+      },
+      "rationale": "뷰어와 폼이 PDF를 하나씩 만든다"
+    },
+    {
+      "id": "fonts.node.user.fontChunkFiles",
+      "label": "Node user — 읽힌 폰트 청크 파일 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 0,
+      "context": {
+        "fixture": "node-user"
+      },
+      "rationale": "호스트 폰트만 쓰면 동봉 폰트 청크를 읽지 않아야 한다"
+    },
+    {
+      "id": "fonts.node.user.loadedFiles",
+      "label": "Node user — 읽힌 파일 수",
+      "unit": "count",
+      "kind": "deterministic",
+      "value": 2,
+      "context": {
+        "fixture": "node-user"
+      },
+      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 한다 — 값이 달라지면 동작이 바뀐 것이다"
+    },
+    {
+      "id": "fonts.node.user.pdfBytes",
+      "label": "Node user — PDF 바이트",
+      "unit": "bytes",
+      "kind": "deterministic",
+      "value": 25298,
+      "context": {
+        "fixture": "node-user"
+      },
+      "tolerance": {
+        "absolute": 64
+      },
+      "rationale": "PDF에 생성 시각이 들어가 압축 결과가 몇 바이트 흔들린다"
+    },
+    {
+      "id": "fonts.node.en.importMsMedian",
+      "label": "Node en — import 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 2790.53,
+      "context": {
+        "fixture": "node-en",
+        "runs": 5
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.5
+      },
+      "rationale": "새 프로세스에서 Elements를 읽는 시간 — 디스크 캐시 상태를 타 1.5배까지 본다"
+    },
+    {
+      "id": "fonts.node.ko.importMsMedian",
+      "label": "Node ko — import 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 2888.25,
+      "context": {
+        "fixture": "node-ko",
+        "runs": 5
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.5
+      },
+      "rationale": "새 프로세스에서 Elements를 읽는 시간 — 디스크 캐시 상태를 타 1.5배까지 본다"
+    },
+    {
+      "id": "fonts.node.ja.importMsMedian",
+      "label": "Node ja — import 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 2904.39,
+      "context": {
+        "fixture": "node-ja",
+        "runs": 5
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.5
+      },
+      "rationale": "새 프로세스에서 Elements를 읽는 시간 — 디스크 캐시 상태를 타 1.5배까지 본다"
+    },
+    {
+      "id": "fonts.node.user.importMsMedian",
+      "label": "Node user — import 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 2969.03,
+      "context": {
+        "fixture": "node-user",
+        "runs": 5
+      },
+      "tolerance": {
+        "maxRegressionRatio": 1.5
+      },
+      "rationale": "새 프로세스에서 Elements를 읽는 시간 — 디스크 캐시 상태를 타 1.5배까지 본다"
+    },
+    {
+      "id": "fonts.node.en.workMsMedian",
+      "label": "Node en — 해석·렌더 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 87.18,
+      "context": {
+        "fixture": "node-en",
+        "runs": 5
+      },
+      "tolerance": {
+        "maxRegressionRatio": 2
+      },
+      "rationale": "폰트 해석·렌더는 한 번이 짧아 크게 흔들린다 — 2배로 넓게 잡는다"
+    },
+    {
+      "id": "fonts.node.ko.workMsMedian",
+      "label": "Node ko — 해석·렌더 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 85.77,
+      "context": {
+        "fixture": "node-ko",
+        "runs": 5
+      },
+      "tolerance": {
+        "maxRegressionRatio": 2
+      },
+      "rationale": "폰트 해석·렌더는 한 번이 짧아 크게 흔들린다 — 2배로 넓게 잡는다"
+    },
+    {
+      "id": "fonts.node.ja.workMsMedian",
+      "label": "Node ja — 해석·렌더 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 88.1,
+      "context": {
+        "fixture": "node-ja",
+        "runs": 5
+      },
+      "tolerance": {
+        "maxRegressionRatio": 2
+      },
+      "rationale": "폰트 해석·렌더는 한 번이 짧아 크게 흔들린다 — 2배로 넓게 잡는다"
+    },
+    {
+      "id": "fonts.node.user.workMsMedian",
+      "label": "Node user — 해석·렌더 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 188.04,
+      "context": {
+        "fixture": "node-user",
+        "runs": 5
+      },
+      "tolerance": {
+        "maxRegressionRatio": 2
+      },
+      "rationale": "폰트 해석·렌더는 한 번이 짧아 크게 흔들린다 — 2배로 넓게 잡는다"
+    },
+    {
+      "id": "fonts.chromium.en.resolve.msMedian",
+      "label": "Chromium en — resolve 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 415.7,
+      "context": {
+        "fixture": "chromium-en",
+        "runs": 5
+      },
+      "tolerance": {
+        "maxRegressionRatio": 2
+      },
+      "rationale": "브라우저 안에서 잰 값이라 컨텍스트마다 흔들린다 — 2배로 넓게 잡는다"
+    },
+    {
+      "id": "fonts.chromium.ko.resolve.msMedian",
+      "label": "Chromium ko — resolve 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 396.2,
+      "context": {
+        "fixture": "chromium-ko",
+        "runs": 5
+      },
+      "tolerance": {
+        "maxRegressionRatio": 2
+      },
+      "rationale": "브라우저 안에서 잰 값이라 컨텍스트마다 흔들린다 — 2배로 넓게 잡는다"
+    },
+    {
+      "id": "fonts.chromium.ja.resolve.msMedian",
+      "label": "Chromium ja — resolve 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 412.5,
+      "context": {
+        "fixture": "chromium-ja",
+        "runs": 5
+      },
+      "tolerance": {
+        "maxRegressionRatio": 2
+      },
+      "rationale": "브라우저 안에서 잰 값이라 컨텍스트마다 흔들린다 — 2배로 넓게 잡는다"
+    },
+    {
+      "id": "fonts.chromium.user.resolve.msMedian",
+      "label": "Chromium user — resolve 중앙값",
+      "unit": "ms",
+      "kind": "environmental",
+      "value": 19.3,
+      "context": {
+        "fixture": "chromium-user",
+        "runs": 5
+      },
+      "tolerance": {
+        "maxRegressionRatio": 2
+      },
+      "rationale": "브라우저 안에서 잰 값이라 컨텍스트마다 흔들린다 — 2배로 넓게 잡는다"
+    }
+  ]
+}

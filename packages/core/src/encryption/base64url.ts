@@ -80,13 +80,3 @@ export function base64urlDecode(str: string): Uint8Array {
   }
   return out;
 }
-
-/**
- * UTF-8 문자열을 base64url로 인코딩한다 (JWS 페이로드용).
- *
- * @param str - 인코딩할 문자열
- * @returns base64url 문자열 (패딩 없음)
- */
-export function base64urlEncodeString(str: string): string {
-  return base64urlEncode(new TextEncoder().encode(str));
-}

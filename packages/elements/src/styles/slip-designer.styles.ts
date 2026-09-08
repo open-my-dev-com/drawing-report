@@ -12,8 +12,6 @@ import { propertiesStyles } from './designer/properties.styles.js';
 import { dialogsStyles } from './designer/dialogs.styles.js';
 import { gridStyles } from './designer/grid.styles.js';
 
-export { RULER_PX } from './designer/metrics.js';
-
 /** `<slip-designer>` 스타일 — 선언 순서대로 적용합니다 */
 export const designerStyles = [
   layoutStyles,

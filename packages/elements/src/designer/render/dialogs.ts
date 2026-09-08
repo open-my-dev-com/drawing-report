@@ -291,7 +291,7 @@ export function sampleModal(d: DialogContext) {
  * @param raw - 현재 샘플 값
  * @returns 샘플 행 편집 표
  */
-export function sampleTable(
+function sampleTable(
   d: DialogContext,
   b: { key: string; label: string },
   columns: { key: string; title: string }[],
@@ -350,7 +350,7 @@ export function sampleTable(
  * @param raw - 현재 샘플 값
  * @returns 파일 선택과 미리보기 조각
  */
-export function sampleImage(d: DialogContext, b: { key: string; label: string }, raw: unknown) {
+function sampleImage(d: DialogContext, b: { key: string; label: string }, raw: unknown) {
   const s = d.s;
   const chosen = typeof raw === 'string' && raw.startsWith('data:');
   return html`
@@ -509,7 +509,7 @@ export function confirmDeleteModal(d: DialogContext) {
  * @param d - 모달 렌더링에 필요한 상태와 동작
  * @returns 현재 페이지의 양식 목록
  */
-export function myFormsPage(d: DialogContext) {
+function myFormsPage(d: DialogContext) {
   const s = d.s;
   const filtered = d.forms.filtered();
   if (filtered.length === 0) {

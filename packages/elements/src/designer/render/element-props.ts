@@ -37,7 +37,7 @@ import type { PanelKit } from './panel-kit.js';
 
 
 /** 목록 선택기에서 선택한 셀마다 값이 다를 때 보여 주는, 파일에 저장되지 않는 항목의 값 */
-export const MIXED_OPTION = '__mixed__';
+const MIXED_OPTION = '__mixed__';
 /** 요소 속성 줄이 컴포넌트에 요청하는 조작 */
 export interface ElementActions {
   /** 선택한 요소를 수정합니다 */
@@ -127,7 +127,7 @@ const ALIGN_COMMANDS: readonly [AlignEdge, keyof DesignerStrings, keyof typeof i
  * @param els - 선택한 요소들
  * @returns 정렬·배치 구역 조각
  */
-export function arrangeSection(kit: PanelKit, act: ElementActions, els: readonly SlipElement[]) {
+function arrangeSection(kit: PanelKit, act: ElementActions, els: readonly SlipElement[]) {
   const s = kit.s;
   const units = selectionUnits(els);
   const canAlign = units.length >= 2;
@@ -204,7 +204,7 @@ export function textProps(kit: PanelKit, act: ElementActions, el: TextElement) {
  * @param current - 현재 요소 종류
  * @returns 종류 전환 조각
  */
-export function textFieldKindRow(kit: PanelKit, act: ElementActions, current: 'text' | 'field') {
+function textFieldKindRow(kit: PanelKit, act: ElementActions, current: 'text' | 'field') {
   const s = kit.s;
   return html`
     <div class="prop-row">
@@ -377,7 +377,7 @@ export function fontVariantNote(kit: PanelKit, fonts: DesignerFonts, style: Font
  * @param el - 선택한 요소
  * @returns 글자 스타일 편집 조각
  */
-export function fontProps(kit: PanelKit, act: ElementActions, el: SlipElement) {
+function fontProps(kit: PanelKit, act: ElementActions, el: SlipElement) {
   if (el.type !== 'text' && el.type !== 'field') return nothing;
   const s = kit.s;
 
@@ -1104,7 +1104,7 @@ export function groupPanel(kit: PanelKit, act: ElementActions) {
  * @param el - 그리드 요소
  * @returns 두 구역 조각
  */
-export function gridBorderSections(kit: PanelKit, act: ElementActions, el: GridElement) {
+function gridBorderSections(kit: PanelKit, act: ElementActions, el: GridElement) {
   const s = kit.s;
   const onGrid = (fn: (grid: GridElement) => void) =>
     act.update((target) => {

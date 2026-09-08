@@ -31,14 +31,13 @@ import type {
 import { inspectImageDataUrl } from '../format/image-source.js';
 import { normalizeNumericParameters } from '../format/normalize.js';
 import { readOwn } from '../own-property.js';
-import { SLIP_LIMITS, elementBounds } from '../format/schema.js';
+import { SLIP_LIMITS } from '../format/schema.js';
 import {
   filterVisibleOnPage,
   planSourcePage,
   type GridFragment,
   type GridItem,
   type GridPlan,
-  type PlannedBand,
   type SourcePagePlan,
 } from '../layout/index.js';
 import { isValidBarcodeValue } from './barcode.js';
@@ -1082,7 +1081,7 @@ class SlipToPdfmeConverter {
   private resolveImageSrc(element: ImageElement): string | undefined {
     const what = rm(this.locale).subjectImage(element.name, element.id);
     if (element.parameter !== undefined) {
-      const bound = this.boundImageSrc(element, element.parameter, what);
+      const bound = this.boundImageSrc(element.parameter, what);
       return bound === undefined ? undefined : this.checkedImage(bound, what);
     }
     const src = element.src;
@@ -1152,17 +1151,12 @@ class SlipToPdfmeConverter {
   /**
    * 전표 값에서 변동 이미지의 base64 데이터를 읽는다.
    *
-   * @param element - 이미지 요소
    * @param parameter - 값 키
    * @param what - 오류 문구에 쓸 요소 이름
    * @returns `data:` base64 문자열. 값이 없으면 `undefined`
    * @throws SlipRenderError 값이 문자열이 아니거나 base64가 아닐 때
    */
-  private boundImageSrc(
-    element: ImageElement,
-    parameter: string,
-    what: string,
-  ): string | undefined {
+  private boundImageSrc(parameter: string, what: string): string | undefined {
     const value = readOwn(this.values, parameter);
     if (value === undefined || value === null || value === '') return undefined;
     if (typeof value !== 'string') {

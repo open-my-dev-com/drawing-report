@@ -10,9 +10,10 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "lint": "eslint .",
-    "verify": "pnpm lint && pnpm -r build && pnpm verify:font-budget && pnpm -r typecheck && pnpm -r test && pnpm test:scripts",
+    "verify": "pnpm lint && pnpm -r build && pnpm verify:font-budget && pnpm verify:maintenance && pnpm -r typecheck && pnpm -r test && pnpm test:scripts",
     "verify:packages": "node scripts/verify-packages.mjs",
     "verify:font-budget": "node scripts/verify-font-budget.mjs",
+    "verify:maintenance": "node scripts/verify-maintenance.mjs",
     "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
     "build": "pnpm -r --filter './packages/*' run build",
     "test": "pnpm -r --filter './packages/*' run test",
@@ -26,7 +27,8 @@
     "demo:react": "pnpm --filter slipkit-demo-react dev",
     "demo:vue": "pnpm --filter slipkit-demo-vue dev",
     "demo:mcp": "node examples/mcp-demo/prepare.mjs && pnpm --filter @omdc-slipkit/mcp build && mcp-inspector --web node packages/mcp/dist/cli.js -- --config examples/mcp-demo/slipkit-mcp.json",
-    "demo:mcp:reset": "node examples/mcp-demo/prepare.mjs --reset"
+    "demo:mcp:reset": "node examples/mcp-demo/prepare.mjs --reset",
+    "bench:all": "node scripts/bench-all.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
@@ -35,6 +37,7 @@
     "@vitest/coverage-v8": "^3.2.7",
     "eslint": "^10.8.1",
     "eslint-plugin-tsdoc": "^0.5.2",
+    "knip": "6.34.0",
     "playwright": "1.62.1",
     "publint": "0.3.24",
     "tsup": "^8.0.0",

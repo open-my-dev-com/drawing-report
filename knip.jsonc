@@ -1,0 +1,63 @@
+// 미사용 파일·export·의존성 검사 설정. `pnpm verify:maintenance`가 이 설정으로 knip을 실행한다.
+//
+// 예외는 개별 항목마다 이름과 까닭을 적는다. 디렉터리 전체나 `src/**` 같은 포괄 예외는 두지 않는다.
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      // 루트 워크스페이스는 도구 스크립트만 분석한다. `.claude/hooks/*`는 Claude Code가 직접
+      // 실행하는 훅이라 제품·검증 경로가 아니어서 뺀다.
+      "project": ["scripts/**", "examples/mcp-demo/**"],
+      "entry": [
+        // `pnpm bench*`·`pnpm verify*`가 부르는 실행 스크립트와 `pnpm test:scripts`의 `node --test` 대상.
+        "scripts/*.mjs",
+        "scripts/**/*.test.mjs",
+        // `node --import`로 별도 프로세스에 붙이거나 자식 프로세스로 실행해 정적 import가 없는 파일.
+        "scripts/bench-designer/core-hooks.mjs",
+        "scripts/bench-fonts/node-hooks.mjs",
+        "scripts/bench-fonts/node-run.mjs",
+        // verify-packages가 임시 소비자 프로젝트로 복사한 뒤 Node·vite build로 실행하는 소비자 앱.
+        "scripts/verify-packages/fixtures/deep-import.mjs",
+        "scripts/verify-packages/fixtures/mcp-cli.mjs",
+        "scripts/verify-packages/fixtures/node-cjs.cjs",
+        "scripts/verify-packages/fixtures/node-esm.mjs",
+        "scripts/verify-packages/fixtures/node-pdf.mjs",
+        "scripts/verify-packages/fixtures/public-exports.mjs",
+        "scripts/verify-packages/fixtures/schema.mjs",
+        "scripts/verify-packages/fixtures/public-types/index.ts",
+        "scripts/verify-packages/fixtures/browser-pdf/main.ts",
+        "scripts/verify-packages/fixtures/elements-app/main.ts",
+        "scripts/verify-packages/fixtures/font-requests/main.ts",
+        "scripts/verify-packages/fixtures/font-requests/vite.config.ts",
+        "scripts/verify-packages/fixtures/react-app/main.tsx",
+        "scripts/verify-packages/fixtures/vue-app/main.ts",
+        "scripts/verify-packages/fixtures/vue-app/vite.config.ts"
+      ],
+      "ignoreDependencies": [
+        // `pnpm exec attw`·`pnpm exec publint`로 verify-packages 안에서 문자열 인자로 실행한다.
+        "@arethetypeswrong/cli",
+        "publint",
+        // `test:coverage`가 `--coverage.provider=v8` 옵션으로만 요구하는 vitest 제공자.
+        "@vitest/coverage-v8",
+        // 아래 넷은 verify-packages 픽스처의 소비자 앱만 쓰며, 임시 소비자 프로젝트에서 설치한다.
+        "react",
+        "react-dom",
+        "vue",
+        "vite",
+        "@vitejs/plugin-vue"
+      ]
+    },
+    "packages/elements": {
+      "entry": [
+        // 동봉 폰트 데이터 재생성 명령 — 생성 파일 머리말에 실행 방법이 적혀 있다.
+        "scripts/generate-pretendard.mjs",
+        "scripts/generate-noto-sans-jp.mjs"
+      ]
+    }
+  },
+  "rules": {
+    // `./fonts/noto-sans-jp`의 이름 있는 export와 default export는 둘 다
+    // `scripts/verify-packages/fixtures/public-exports.json` 허용 목록에 있는 공개 계약이다.
+    "duplicates": "off"
+  }
+}

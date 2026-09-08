@@ -34,7 +34,7 @@ const CHROMIUM_CANDIDATES = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome
  * @param {string} url - 요청 URL
  * @returns {'page' | 'entry' | 'vite-preload' | 'elements' | 'font-pretendard' | 'font-noto-sans-jp' | 'host-font' | 'pdf-blob' | 'other'} 분류
  */
-export function classifyRequest(url) {
+function classifyRequest(url) {
   const parsed = new URL(url);
   if (parsed.protocol === 'blob:') return 'pdf-blob';
   const base = parsed.pathname.split('/').pop() ?? '';
@@ -53,7 +53,7 @@ export function classifyRequest(url) {
  *
  * @returns {string | undefined} 실행 파일 경로. Playwright 기본을 쓰면 undefined
  */
-export function chromiumExecutablePath() {
+function chromiumExecutablePath() {
   return process.env['SLIPKIT_CHROMIUM'] ?? CHROMIUM_CANDIDATES.find((candidate) => existsSync(candidate));
 }
 

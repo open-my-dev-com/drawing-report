@@ -251,7 +251,7 @@ export function canvas(ctx: CanvasContext) {
  * @param lengthPx - 용지 길이(px)
  * @returns 눈금자 조각
  */
-export function ruler(ctx: CanvasContext, axis: 'h' | 'v', lengthMm: number, lengthPx: number) {
+function ruler(ctx: CanvasContext, axis: 'h' | 'v', lengthMm: number, lengthPx: number) {
   const horizontal = axis === 'h';
   const marks: TemplateResult[] = [];
   for (let mm = 0; mm <= Math.floor(lengthMm); mm += 5) {
@@ -298,7 +298,7 @@ export function ruler(ctx: CanvasContext, axis: 'h' | 'v', lengthMm: number, len
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @returns 선택 표시 조각
  */
-export function selectionOverlay(ctx: CanvasContext) {
+function selectionOverlay(ctx: CanvasContext) {
   if (ctx.gridPlanPreview) return nothing;
   // 크기 조절 핸들은 요소 하나만 선택한 경우에 표시합니다.
   if (ctx.selectedIds.size > 1) return nothing;
@@ -349,7 +349,7 @@ export function selectionOverlay(ctx: CanvasContext) {
  * @param paperH - 용지 높이(mm)
  * @returns 미리보기 선 조각. 생성 중이 아니면 빈 것
  */
-export function lineGhost(ctx: CanvasContext, paperW: number, paperH: number) {
+function lineGhost(ctx: CanvasContext, paperW: number, paperH: number) {
   const from = ctx.draw?.type === 'line' && ctx.draw.moved
     ? { x: ctx.draw.startX, y: ctx.draw.startY }
     : ctx.lineDraft;
@@ -371,7 +371,7 @@ export function lineGhost(ctx: CanvasContext, paperW: number, paperH: number) {
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @returns 인라인 편집 입력. 편집 중인 셀이 없으면 빈 것
  */
-export function cellEditor(ctx: CanvasContext) {
+function cellEditor(ctx: CanvasContext) {
   if (!ctx.gridEdit.editing || !ctx.gridEdit.cell) return nothing;
   const el = ctx.selectedElement();
   if (!isGrid(el)) return nothing;
@@ -423,7 +423,7 @@ export function cellEditor(ctx: CanvasContext) {
  * @param outputPageCount - 전체 출력 페이지 수
  * @returns 요소 조각. 이 출력 페이지에 나오지 않으면 빈 것
  */
-export function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourcePagePlan | null, outputPage: number, outputPageCount: number) {
+function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourcePagePlan | null, outputPage: number, outputPageCount: number) {
   // 다중 선택된 요소의 영역을 모두 강조합니다.
   const selected = ctx.selectedIds.has(el.id);
   const layoutError = ctx.planError();
@@ -529,7 +529,7 @@ export function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourceP
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @returns 경고 배지 조각
  */
-export function formulaWarningBadge(ctx: CanvasContext) {
+function formulaWarningBadge(ctx: CanvasContext) {
   const label = ctx.s.formulaWarningItem;
   return html`<span class="formula-warning-badge" title=${label} aria-label=${label}
     >${icons.warning}</span>`;
@@ -546,7 +546,7 @@ export function formulaWarningBadge(ctx: CanvasContext) {
  * @param page - 보고 있는 양식 페이지
  * @returns 안내 목록. 경고가 없으면 빈 것
  */
-export function formulaWarningList(ctx: CanvasContext, page: SlipPage) {
+function formulaWarningList(ctx: CanvasContext, page: SlipPage) {
   const details = ctx.formulaWarnings.details;
   if (details.length === 0) return nothing;
   const s = ctx.s;
@@ -577,7 +577,7 @@ export function formulaWarningList(ctx: CanvasContext, page: SlipPage) {
  * @param fragment - 그리드일 때 표시할 출력 페이지 계획 조각
  * @returns 요소 내용 조각
  */
-export function elementContent(ctx: CanvasContext, el: SlipElement, fragment: GridFragment | null = null) {
+function elementContent(ctx: CanvasContext, el: SlipElement, fragment: GridFragment | null = null) {
   switch (el.type) {
     case 'text': {
       // 조건부 서식의 글자 강조를 샘플 값으로 미리 적용합니다.
@@ -640,7 +640,7 @@ export function elementContent(ctx: CanvasContext, el: SlipElement, fragment: Gr
  * @param el - 바코드 요소
  * @returns 바코드 견본 조각
  */
-export function barcodePreview(el: SlipElement & { type: 'barcode' }) {
+function barcodePreview(el: SlipElement & { type: 'barcode' }) {
   const label = el.content ?? (el.parameter !== undefined ? `{${el.parameter}}` : el.formula ?? '');
   const color = el.fontColor ?? '#000000';
   const kindLabel = BARCODE_KINDS.find((k) => k.value === el.kind)?.label ?? el.kind;
@@ -685,7 +685,7 @@ export function barcodePreview(el: SlipElement & { type: 'barcode' }) {
  * @param el - 선, 타원 또는 다각형 요소
  * @returns 도형 SVG 조각
  */
-export function shapePreview(el: SlipElement & { type: 'line' | 'ellipse' | 'polygon' }) {
+function shapePreview(el: SlipElement & { type: 'line' | 'ellipse' | 'polygon' }) {
   const w = Math.max(1, el.width * PX_PER_MM);
   const h = Math.max(1, el.height * PX_PER_MM);
   const stroke = el.borderColor ?? '#000000';
@@ -734,7 +734,7 @@ export function shapePreview(el: SlipElement & { type: 'line' | 'ellipse' | 'pol
  * @param fragment - 표시할 출력 페이지 계획 조각. 없으면 원본 행 구조를 표시합니다
  * @returns 그리드 조각
  */
-export function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment: GridFragment | null = null) {
+function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment: GridFragment | null = null) {
   const selected = el.id === ctx.selectedId;
   const widths = columnWidths(el);
   const colTracks = widths.map((w) => `${w}fr`).join(' ');
@@ -812,7 +812,7 @@ export function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment
  * @param el - 그리드 요소
  * @returns 그리드 테두리 레이어. 테두리가 없으면 빈 것
  */
-export function gridOutlineLayer(el: GridElement) {
+function gridOutlineLayer(el: GridElement) {
   const outline = outlineOf(el);
   if (outline.width <= 0) return nothing;
   const px = Math.max(1, Math.round(outline.width * PX_PER_MM));
@@ -830,7 +830,7 @@ export function gridOutlineLayer(el: GridElement) {
  * @param context - 열 트랙 CSS와 테두리 CSS 계산 함수
  * @returns 계획 조각을 펼친 그리드 표시
  */
-export function gridFragment(
+function gridFragment(
   ctx: CanvasContext,
   el: GridElement,
   fragment: GridFragment,
@@ -937,7 +937,7 @@ export function gridFragment(
  * @param rowTracks - 행 트랙 CSS
  * @returns 행 번호 선택 영역
  */
-export function bandStrip(ctx: CanvasContext, el: GridElement, rowTracks: string) {
+function bandStrip(ctx: CanvasContext, el: GridElement, rowTracks: string) {
   const s = ctx.s;
   const select = ctx.gridEdit.bandRange;
   const rows = el.rows.map((_, r) => {
@@ -965,7 +965,7 @@ export function bandStrip(ctx: CanvasContext, el: GridElement, rowTracks: string
  * @param el - 그리드 요소
  * @returns 역할 명령 메뉴
  */
-export function bandMenu(ctx: CanvasContext, el: GridElement) {
+function bandMenu(ctx: CanvasContext, el: GridElement) {
   const s = ctx.s;
   const select = ctx.gridEdit.bandRange!;
   const from = Math.min(select.from, select.to);
@@ -1003,7 +1003,7 @@ export function bandMenu(ctx: CanvasContext, el: GridElement) {
  * @param padding - 여백 `[상, 우, 하, 좌]`(mm)
  * @returns 번호 자리표시 조각. 번호 표시가 꺼져 있으면 빈 것
  */
-export function pageNumberPlaceholder(
+function pageNumberPlaceholder(
   page: SlipPage,
   paper: { width: number; height: number },
   padding: [number, number, number, number],
@@ -1035,7 +1035,7 @@ export function pageNumberPlaceholder(
  * @param context - 샘플 항목, 빈 항목 여부, 예약 참조 값, 선택 여부와 테두리 CSS 계산 함수
  * @returns 셀 조각
  */
-export function gridCellBox(
+function gridCellBox(
   ctx: CanvasContext,
   el: GridElement,
   cell: GridCell,
@@ -1099,7 +1099,7 @@ export function gridCellBox(
  * @param column - 열 번호(0-기반)
  * @returns 그리드 왼쪽 위를 기준으로 한 셀 영역(px)
  */
-export function cellRectPx(
+function cellRectPx(
   el: GridElement,
   row: number,
   column: number,
@@ -1212,7 +1212,7 @@ export function gridCellMergeText(
  * @param reserved - 행 구간의 예약 참조 값 (`@page` 등)
  * @returns 덮어쓸 색·강조 목록
  */
-export function previewConditionalColors(
+function previewConditionalColors(
   ctx: CanvasContext,
   rules: readonly ConditionalFormatRule[] | undefined,
   item?: Record<string, unknown>,

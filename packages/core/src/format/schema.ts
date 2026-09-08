@@ -95,7 +95,6 @@ const fontSizeSchema = z
 const HTTP_SRC = /^https?:\/\/\S+$/;
 /** PDF에 심을 수 있는 PNG·JPEG의 `data:` base64 표기 */
 const DATA_SRC = /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+=*$/;
-const ASSET_SRC = /^asset:\/\/\S+$/;
 /** 세 형식을 하나로 합친 패턴 — JSON Schema에 `pattern`으로 그대로 나온다 */
 const SRC_PATTERN = /^(?:https?:\/\/\S+|data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+=*|asset:\/\/\S+)$/;
 
@@ -128,14 +127,6 @@ function checkDataImage(src: string, ctx: z.RefinementCtx, path: (string | numbe
 const semverSchema = z
   .string()
   .regex(/^\d+\.\d+\.\d+$/, { error: () => fmt().semverFormat() });
-
-/** 합계가 100이어야 하는 비율 배열. ±0.01의 오차를 허용한다 (SPEC §3). */
-const percentagesSchema = z
-  .array(z.number().positive())
-  .min(1)
-  .refine((arr) => Math.abs(arr.reduce((a, b) => a + b, 0) - 100) <= 0.01, {
-    error: () => fmt().percentagesSum(),
-  });
 
 // ---------------------------------------------------------------------------
 // 요소 공통 스타일

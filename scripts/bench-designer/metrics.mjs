@@ -1,9 +1,10 @@
 /**
- * 벤치마크 카운터와 통계 도우미.
+ * 디자이너 벤치마크의 카운터.
  *
  * `installCounters`는 전역 `JSON.stringify`·`structuredClone`을 호출 수를 세는 함수로 감싼다.
  * 감싼 뒤에 가져온 모듈은 전역 객체의 속성을 그대로 참조하므로 dist를 바꾸지 않고도 센다.
  * `planSourcePage` 수는 로더 훅(`core-hooks.mjs`)이 `globalThis.__slipkitPlanCalls`에 쌓는다.
+ * 중앙값·백분위수 같은 통계는 `scripts/bench-shared/stats.mjs`에 있다.
  */
 
 /** 이 길이 이상인 `JSON.stringify` 결과는 문서(양식 전체) 크기로 본다 */
@@ -71,44 +72,6 @@ export function resetCounters(global, docThreshold = DOC_SIZE_CHARS) {
 export function readCounters(global) {
   const { docThreshold: _threshold, ...counters } = global[STATE];
   return { ...counters, planCalls: global.__slipkitPlanCalls ?? 0 };
-}
-
-/**
- * 중앙값.
- *
- * @param values - 숫자 배열 (비우면 0)
- * @returns 중앙값
- */
-export function median(values) {
-  return percentile(values, 50);
-}
-
-/**
- * 백분위수 (가장 가까운 순위 방식).
- *
- * @param values - 숫자 배열 (비우면 0)
- * @param p - 0~100
- * @returns 백분위 값
- */
-export function percentile(values, p) {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  if (p === 50 && sorted.length % 2 === 0) {
-    const mid = sorted.length / 2;
-    return (sorted[mid - 1] + sorted[mid]) / 2;
-  }
-  const rank = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
-  return sorted[rank];
-}
-
-/**
- * 천 단위 구분 기호를 넣어 적는다. 소수는 반올림한다.
- *
- * @param value - 숫자
- * @returns 문자열
- */
-export function formatInt(value) {
-  return Math.round(value).toLocaleString('en-US');
 }
 
 /**

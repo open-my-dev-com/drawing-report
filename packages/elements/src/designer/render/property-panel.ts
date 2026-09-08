@@ -184,7 +184,7 @@ export function propertyPanel(ctx: PanelContext) {
  * @param el - 선택한 요소
  * @returns 머리줄 조각
  */
-export function panelHeader(ctx: PanelContext, el: SlipElement) {
+function panelHeader(ctx: PanelContext, el: SlipElement) {
   if (el.type !== 'grid' || el.repeat === undefined) {
     return html`<div class="type-name">${ctx.typeName(el.type)}</div>`;
   }
@@ -218,7 +218,7 @@ export function panelHeader(ctx: PanelContext, el: SlipElement) {
  * @param el - 선택한 요소
  * @returns 종류별 속성 조각
  */
-export function typeProps(ctx: PanelContext, el: SlipElement) {
+function typeProps(ctx: PanelContext, el: SlipElement) {
   switch (el.type) {
     case 'text':
       return textProps(ctx.kit, ctx.element, el);

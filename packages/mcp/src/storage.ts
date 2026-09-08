@@ -476,7 +476,7 @@ const MCP_TEXT = {
 } as const;
 
 /** 로케일에 맞는 문구 사전을 반환한다 (기본 영어). */
-export function mcpText(locale: string | undefined): (typeof MCP_TEXT)['en'] {
+function mcpText(locale: string | undefined): (typeof MCP_TEXT)['en'] {
   const lang = locale?.toLowerCase().split('-')[0];
   if (lang === 'ko') return MCP_TEXT.ko;
   if (lang === 'ja') return MCP_TEXT.ja;

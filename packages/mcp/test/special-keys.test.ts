@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { CURRENT_SCHEMA_VERSION, type SlipFile, type SlipVoucherFile } from '@omdc-slipkit/core';
-import { applyEditOp, editOpSchema, type EditOp } from '../src/edit.js';
+import { applyEditOp, editOpSchema } from '../src/edit.js';
 import { elideDataUrls } from '../src/summary.js';
 import { FileSystemStorage } from '../src/storage.js';
 import { callText, connect, makeTemplate, makeWorkDir, removeWorkDir } from './helpers.js';

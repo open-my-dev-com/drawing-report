@@ -70,7 +70,7 @@ export const BINDING_VALUE_TYPES: readonly { value: string; stringKey: 'valueTyp
 export const BINDING_FIELD_VALUE_TYPES = BINDING_VALUE_TYPES.filter((t) => t.value !== 'list');
 
 /** 목록 하위 필드를 읽는 그리드 셀의 자리 */
-export type ParameterFieldAt = NonNullable<ParameterFieldInfo['at']>;
+type ParameterFieldAt = NonNullable<ParameterFieldInfo['at']>;
 
 /** 양식 전체에서 모은 파라미터 사용 위치 */
 export interface ParameterUsage {

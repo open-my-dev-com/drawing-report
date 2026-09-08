@@ -12,10 +12,8 @@ import type { PopoverController } from '../controllers/popover.js';
 import type { FormulaTarget } from '../formula-target.js';
 import type { DesignerStrings } from '../../strings.js';
 
-export type { DesignerStrings };
-
 /** 리스트형 선택 상자에 넘길 설정 */
-export interface ListSelectConfig {
+interface ListSelectConfig {
   id: string;
   ariaLabel: string;
   value: string;
