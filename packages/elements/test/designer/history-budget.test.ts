@@ -63,6 +63,23 @@ describe('되돌리기 기록의 크기 예산', () => {
     expect(host.file.template.meta.title).toBe('처음');
   });
 
+  it('undo로 만든 redo 스냅샷까지 전체 예산에 포함한다', () => {
+    const host = makeHost(makeFile('0', THIRD_OF_BUDGET));
+    const history = new HistoryController(host, BUDGET);
+
+    history.record();
+    host.file = makeFile('1', THIRD_OF_BUDGET);
+    history.record();
+    host.file = makeFile('2', BUDGET * 2);
+
+    expect(history.undo()).toBe(true);
+    expect(history.undoDepth).toBe(0);
+    expect(history.redoDepth).toBe(1);
+    expect(history.snapshotBytes).toBeGreaterThan(BUDGET);
+    expect(history.redo()).toBe(true);
+    expect(host.file.template.meta.title).toBe('2');
+  });
+
   it('기본 예산 안에서는 개수 상한(50단계)까지 그대로 쌓는다', () => {
     // 200KB짜리 양식 51벌은 기본 예산(32MiB) 안이라 개수 상한만 적용됩니다.
     const host = makeHost(makeFile('0', 200_000));

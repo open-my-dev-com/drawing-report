@@ -2,7 +2,7 @@
 
 이 문서는 SlipKit 저장소의 PR 검증과 npm 배포 준비·실행·복구 절차를 설명합니다.
 
-최종 갱신: 2026-09-08
+최종 갱신: 2026-09-09
 
 > [!IMPORTANT]
 > `@omdc-slipkit/*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 이 문서에 적힌 npm 조직,
@@ -79,6 +79,9 @@ GitHub 저장소의 **Actions → Release → Run workflow**에서 `main`을 선
 | `dist_tag` | `latest` 또는 `next` | npm에 적용할 dist-tag |
 | `environment` | `npm-publish` | 다른 값은 허용하지 않음 |
 | `dry_run` | `true` | 실제 배포 없이 검증과 `npm publish --dry-run` 실행 |
+
+정식 버전은 `latest` 또는 `next`를 사용할 수 있습니다. 하이픈이 들어간 prerelease 버전은 `latest`를
+사용할 수 없으며 `next`를 선택해야 합니다. 준비 작업은 이 조합을 tarball을 만들기 전에 거부합니다.
 
 `prepare` 작업은 `pnpm verify`, `pnpm verify:packages`를 통과한 뒤 다섯 tarball과
 `SHA256SUMS`·`manifest.json`을 7일 보존 artifact로 만듭니다. 이 보존 기간은 부분 배포를 원래 실행에서

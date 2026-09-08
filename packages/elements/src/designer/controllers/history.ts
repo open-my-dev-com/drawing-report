@@ -138,12 +138,16 @@ export class HistoryController implements ReactiveController {
     this._trim();
   }
 
-  /** 개수와 크기 상한에 맞게 오래된 단계부터 버립니다. 최근 한 단계는 남깁니다. */
+  /** 개수와 전체 크기 상한에 맞게 오래된 단계부터 버립니다. 최근 한 단계는 남깁니다. */
   private _trim(): void {
-    if (this._undo.length > MAX_ENTRIES) this._undo.shift();
-    let bytes = this.undoSnapshotBytes;
-    while (this._undo.length > 1 && bytes > this.maxSnapshotBytes) {
-      bytes -= this._undo.shift()!.file.length;
+    while (this._undo.length + this._redo.length > MAX_ENTRIES) {
+      if (this._undo.length > 0) this._undo.shift();
+      else this._redo.shift();
+    }
+
+    while (this._undo.length + this._redo.length > 1 && this.snapshotBytes > this.maxSnapshotBytes) {
+      if (this._undo.length > 0) this._undo.shift();
+      else this._redo.shift();
     }
   }
 
@@ -196,6 +200,7 @@ export class HistoryController implements ReactiveController {
     const entry = from.pop()!;
     this.host.setFile(JSON.parse(entry.file) as SlipTemplateFile);
     this.host.restoreSavedId(entry.savedId);
+    this._trim();
     return true;
   }
 }
