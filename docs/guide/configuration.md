@@ -203,7 +203,7 @@ When `getFonts` is not configured, `SlipKit.locale` selects the bundled default 
 The following are not translated automatically.
 
 - Text entered directly into the template
-- Parameter logical names
+- Parameter display names
 - The contents of a `.slip` file received from an external source
 - The names and contents of presets supplied by the application
 
@@ -225,7 +225,7 @@ If `getFonts` is not configured on `SlipKit`, the UI component loads the default
 
 The bundled fonts are lazily loaded when PDF rendering is needed, and once loaded they are reused for the same language.
 
-The Japanese default font is a subset that includes common kana, kanji, and Latin characters. If you need characters outside the bundled range or a bold Japanese font, you must supply your own font.
+The Japanese default font is a subset that includes common kana, kanji, and Latin characters. Pretendard covers Korean and Latin text but does not provide general CJK ideographs, while the bundled Noto Sans JP subset does not cover Korean syllables. Supply a font that covers every script used in a mixed-language document, or split the elements by font. You must also supply your own font for characters outside the bundled ranges or bold Japanese text.
 
 ### Supplying your own fonts
 

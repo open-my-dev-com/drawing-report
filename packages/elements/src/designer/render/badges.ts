@@ -1,5 +1,5 @@
 /**
- * 요소 종류와 파라미터 종류를 나타내는 작은 배지.
+ * 요소 종류와 파라미터 종류를 나타내는 작은 배지를 만듭니다.
  *
  * @remarks
  * 사이드바와 속성 패널이 같은 배지를 사용합니다.
@@ -10,8 +10,8 @@ import type { SlipElement } from '@omdc-slipkit/core';
 import { icons } from '../../icons.js';
 
 /**
- * 파라미터 값 종류별 아이콘.
- * 종류를 지정하지 않은 파라미터에는 텍스트 아이콘을 사용합니다 (SPEC §4).
+ * 파라미터 값 종류별 아이콘입니다.
+ * 종류를 지정하지 않은 파라미터에는 텍스트 아이콘을 사용합니다(SPEC §4).
  */
 const VALUE_TYPE_BADGE: Record<string, TemplateResult> = {
   text: icons.typeText,
@@ -23,16 +23,16 @@ const VALUE_TYPE_BADGE: Record<string, TemplateResult> = {
 };
 
 /**
- * 파라미터·하위 필드 줄에 붙일 아이콘.
+ * 파라미터와 하위 필드 줄에 표시할 아이콘입니다.
  *
- * @param valueType - 값 종류 (없으면 글자)
+ * @param valueType - 값 종류(없으면 글자)
  * @returns 그 종류의 아이콘
  */
 export function valueTypeBadge(valueType: string | undefined): TemplateResult {
   return VALUE_TYPE_BADGE[valueType ?? 'text'] ?? icons.typeText;
 }
 
-/** 캔버스 요소 종류별 배지 아이콘 */
+/** 캔버스 요소 종류별 배지 아이콘입니다. */
 export const TYPE_BADGE: Record<SlipElement['type'], TemplateResult> = {
   text: icons.text,
   grid: icons.gridElement,

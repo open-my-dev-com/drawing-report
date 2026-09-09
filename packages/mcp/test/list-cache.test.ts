@@ -13,7 +13,7 @@ import { FileSystemStorage } from '../src/storage.js';
 import { LIST_METRICS, MAX_LSTAT_CONCURRENCY, type ListMetrics } from '../src/list-cache.js';
 import { makeTemplate, makeWorkDir, removeWorkDir, symlinksUnavailable } from './helpers.js';
 
-// 파일 접근 횟수를 계측과 따로 세고, 쓰기·삭제 실패를 흉내 낸다. 기본은 실제 구현을 그대로 쓴다.
+// 파일 접근 횟수를 측정값과 별도로 세며, 필요한 시험에서만 쓰기·삭제 실패를 재현합니다.
 const fsCalls = vi.hoisted(() => ({
   readFile: 0,
   lstat: 0,
@@ -40,7 +40,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
       fsCalls.readFile += 1;
       return (actual.readFile as unknown as AnyCall)(...args);
     },
-    // 후보 지문을 구하는 호출만 센다. 경로 검사에 쓰는 호출은 bigint 옵션이 없다.
+    // 후보 파일 상태 식별값을 구하는 호출만 셉니다. 경로 검사에 쓰는 호출은 bigint 옵션이 없습니다.
     lstat: async (...args: unknown[]): Promise<unknown> => {
       const bigint = (args[1] as { bigint?: unknown } | undefined)?.bigint === true;
       if (bigint) {
@@ -67,21 +67,21 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   };
 });
 
-/** 인스턴스에 붙은 목록 계측 값을 꺼낸다. */
+/** 인스턴스에 기록된 목록 측정값을 가져옵니다. */
 function metricsOf(storage: FileSystemStorage): ListMetrics {
   const metrics = (storage as unknown as Record<symbol, ListMetrics | undefined>)[LIST_METRICS];
-  if (metrics === undefined) throw new Error('목록 계측 값이 없습니다');
+  if (metrics === undefined) throw new Error('목록 측정 값이 없습니다');
   return metrics;
 }
 
-/** 제목만 바꾼 양식 텍스트를 만든다. */
+/** 제목만 바꾼 양식 텍스트를 만듭니다. */
 function templateText(title = '거래명세서'): string {
   const file = makeTemplate();
   file.template.meta.title = title;
   return serializeSlipFile(file);
 }
 
-/** 전표 텍스트를 만든다. */
+/** 전표 텍스트를 만듭니다. */
 function voucherText(title = '거래명세서'): string {
   const template = makeTemplate();
   template.template.meta.title = title;
@@ -95,7 +95,7 @@ function voucherText(title = '거래명세서'): string {
   return serializeSlipFile(file);
 }
 
-/** 파일 하나를 직접 쓴다. 필요한 디렉터리는 만든다. */
+/** 파일 하나를 직접 씁니다. 필요한 디렉터리는 만듭니다. */
 function writeSlip(dir: string, name: string, text: string): string {
   const abs = path.join(dir, name);
   mkdirSync(path.dirname(abs), { recursive: true });
@@ -103,7 +103,7 @@ function writeSlip(dir: string, name: string, text: string): string {
   return abs;
 }
 
-/** 같은 내용의 유효한 양식 파일을 개수만큼 만든다. */
+/** 같은 내용의 유효한 양식 파일을 개수만큼 만듭니다. */
 function writeBulk(dir: string, count: number, prefix = 'doc'): string[] {
   const text = templateText();
   const names: string[] = [];
@@ -115,7 +115,7 @@ function writeBulk(dir: string, count: number, prefix = 'doc'): string[] {
   return names.sort();
 }
 
-/** 커서를 끝까지 따라가며 모든 페이지의 항목을 모은다. */
+/** 커서를 끝까지 따라가며 모든 페이지의 항목을 모읍니다. */
 async function collectAll(
   storage: FileSystemStorage,
 ): Promise<{ items: SlipListItem[]; cursors: (string | undefined)[] }> {
@@ -127,7 +127,7 @@ async function collectAll(
     items.push(...page.items);
     cursors.push(page.nextCursor);
     if (page.nextCursor === undefined) return { items, cursors };
-    // 커서가 앞으로 나아가지 않으면 무한 반복이므로 바로 실패시킨다.
+    // 커서가 앞으로 나아가지 않으면 무한 반복이므로 바로 실패시킵니다.
     if (cursor !== undefined && Number(page.nextCursor) <= Number(cursor)) {
       throw new Error(`커서가 나아가지 않습니다: ${cursor} → ${page.nextCursor}`);
     }
@@ -209,7 +209,7 @@ describe('목록 메타데이터 캐시', () => {
     expect(metrics.maxConcurrentLstat).toBeLessThanOrEqual(MAX_LSTAT_CONCURRENCY);
     expect(metrics.maxConcurrentLstat).toBe(MAX_LSTAT_CONCURRENCY);
     expect(fsCalls.maxLstat).toBeLessThanOrEqual(MAX_LSTAT_CONCURRENCY);
-    // 첫 페이지와 다음 페이지 존재 여부만 판정하면 되므로 51개까지만 연다.
+    // 첫 페이지와 다음 페이지 존재 여부만 판정하면 되므로 51개까지만 엽니다.
     expect(metrics.bodyReads).toBe(51);
 
     metrics.reset();
@@ -315,7 +315,7 @@ describe('목록 메타데이터 캐시', () => {
     const metrics = metricsOf(storage);
     expect((await storage.list()).items[0]).toMatchObject({ title: '거래명세서' });
 
-    // 같은 크기의 다른 내용을 임시 파일에 쓰고 이름을 바꿔 교체한 뒤 수정 시각을 되돌린다.
+    // 같은 크기의 다른 내용을 임시 파일에 쓰고 이름을 바꿔 교체한 뒤 수정 시각을 되돌립니다.
     const temp = path.join(dir, 'swap.tmp');
     const replaced = templateText('거래명세표');
     writeFileSync(temp, replaced, 'utf8');
@@ -415,7 +415,7 @@ describe('목록 메타데이터 캐시', () => {
     });
     const rotatedMetrics = metricsOf(rotated);
     expect((await rotated.list()).items[0]).toMatchObject({ title: '옛 키' });
-    // 현재 키와 이전 키를 순서대로 시도해 네 번째에 열린다.
+    // 현재 키와 이전 키를 순서대로 시도해 네 번째에 열립니다.
     expect(rotatedMetrics.decryptAttempts).toBe(4);
     rotatedMetrics.reset();
     expect((await rotated.list()).items).toHaveLength(1);
@@ -450,7 +450,7 @@ describe('목록 메타데이터 캐시', () => {
     expect((await storage.list()).items[0]).toMatchObject({ title: '저장으로 바꾼 제목' });
     expect(metrics.bodyReads).toBe(1);
 
-    // 이름 바꾸기가 실패하면 파일도 캐시도 그대로다.
+    // 이름 바꾸기가 실패하면 파일도 캐시도 그대로입니다.
     fsCalls.renameError = new Error('rename 실패');
     await expect(storage.save('doc', makeTemplate())).rejects.toMatchObject({ code: 'io' });
     fsCalls.renameError = null;
@@ -480,7 +480,7 @@ describe('목록 메타데이터 캐시', () => {
     expect((await storage.list()).items.map((item) => item.id)).toEqual(['b.slip']);
     expect(metrics.bodyReads).toBe(0);
 
-    // 없는 파일 삭제는 not-found로 끝나고 남은 캐시를 건드리지 않는다.
+    // 없는 파일 삭제는 not-found로 끝나고 남은 캐시는 변경하지 않습니다.
     await expect(storage.delete('a')).rejects.toMatchObject({ code: 'not-found' });
     expect(metrics.cachedEntries).toBe(1);
   });
@@ -513,12 +513,12 @@ describe('목록 메타데이터 캐시', () => {
     const { items, cursors } = await collectAll(storage);
     expect(items.map((item) => item.id)).toEqual(valid);
     expect(cursors).toEqual(['50', undefined]);
-    // 두 페이지를 도는 동안 후보 수는 매번 같고, 손상 파일은 두 번째부터 캐시한 제외 결과로 걸러진다.
+    // 두 페이지를 도는 동안 후보 수는 매번 같고, 손상 파일은 두 번째부터 캐시한 제외 결과로 걸러집니다.
     const metrics = metricsOf(storage);
     expect(metrics.listCalls).toBe(2);
     expect(metrics.candidates).toBe(71 * 2);
     expect(metrics.excludedHits).toBe(11);
-    // 첫 페이지에서 손상 파일 11개와 유효 파일 51개를 열고, 다음 페이지에서 남은 9개만 더 연다.
+    // 첫 페이지에서 손상 파일 11개와 유효 파일 51개를 열고, 다음 페이지에서 남은 9개만 더 엽니다.
     expect(metrics.bodyReads).toBe(11 + 51 + 9);
   });
 
@@ -599,7 +599,7 @@ describe('목록 메타데이터 캐시 — 대량 디렉터리', () => {
     expect(page.nextCursor).toBe('50');
     expect(metrics.candidates).toBe(1_000);
     expect(metrics.lstat).toBe(1_000);
-    // 첫 페이지와 다음 페이지 존재 여부를 판정할 만큼만 연다.
+    // 첫 페이지와 다음 페이지 존재 여부를 판정할 만큼만 엽니다.
     expect(metrics.bodyReads).toBe(51);
     expect(metrics.parses).toBe(51);
     expect(fsCalls.readFile).toBe(51);
@@ -627,7 +627,7 @@ describe('목록 메타데이터 캐시 — 대량 디렉터리', () => {
     expect(page.nextCursor).toBe('50');
     expect(metrics.candidates).toBe(10_000);
     expect(metrics.lstat).toBe(10_000);
-    // 첫 페이지와 다음 페이지 존재 여부를 판정할 만큼만 연다.
+    // 첫 페이지와 다음 페이지 존재 여부를 판정할 만큼만 엽니다.
     expect(metrics.bodyReads).toBe(51);
     expect(metrics.parses).toBe(51);
     expect(fsCalls.readFile).toBe(51);
@@ -654,7 +654,7 @@ describe('목록 메타데이터 캐시 — 대량 디렉터리', () => {
     expect(new Set(items.map((item) => item.id)).size).toBe(1_000);
     expect(cursors).toHaveLength(20);
     expect(cursors[19]).toBeUndefined();
-    // 순회가 끝나면 모든 항목이 캐시에 남고 본문은 파일마다 한 번씩만 읽는다.
+    // 순회가 끝나면 모든 항목이 캐시에 남고 본문은 파일마다 한 번씩만 읽습니다.
     expect(metrics.bodyReads).toBe(1_000);
     expect(metrics.cachedEntries).toBe(1_000);
   });

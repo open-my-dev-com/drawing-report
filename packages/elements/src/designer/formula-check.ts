@@ -1,5 +1,5 @@
 /**
- * 수식·조건식 검사 — 인라인 입력과 수식 모달이 함께 쓰는 판정.
+ * 인라인 입력과 수식 모달에서 공통으로 사용하는 수식·조건식 검사입니다.
  *
  * @remarks
  * 수식·조건식의 문법과 현재 값에서의 계산 결과를 검사합니다. 문법 오류, 등록되지 않은 함수,
@@ -14,46 +14,47 @@ import {
   type FormulaDiagnosis,
   type FormulaValue,
 } from '@omdc-slipkit/core';
+import { isBlankFormula } from '../formula-blank.js';
 
-/** 수식·조건식 검사 결과의 종류 */
+/** 수식과 조건식 검사 결과의 종류입니다. */
 export type FormulaCheckStatus =
-  /** 비어 있음 */
+  /** 입력이 비어 있는 상태입니다. */
   | 'empty'
-  /** 문법이 깨졌거나 등록되지 않은 함수·잘못된 인자 수를 썼음 */
+  /** 문법이 잘못되었거나 등록되지 않은 함수 또는 잘못된 수의 인자를 사용한 상태입니다. */
   | 'syntax-error'
-  /** 현재 값으로 계산하다 식에서 오류가 났음 */
+  /** 현재 값으로 계산하는 중에 수식 오류가 발생한 상태입니다. */
   | 'formula-error'
-  /** 현재 값으로 계산됨 */
+  /** 현재 값으로 계산한 상태입니다. */
   | 'ok'
-  /** 조건식인데 결과가 논리값이 아님 */
+  /** 조건식의 결과가 논리값이 아닌 상태입니다. */
   | 'not-boolean'
-  /** 값이 없거나 지금 자리에서 쓸 수 없어 현재 값으로 계산하지 못했음 */
+  /** 값이 없거나 현재 위치에서 사용할 수 없어 계산하지 못한 상태입니다. */
   | 'not-computable'
-  /** 편집 대상이 지워졌거나 바뀜 */
+  /** 편집 대상이 삭제되었거나 바뀐 상태입니다. */
   | 'target-changed';
 
-/** 수식·조건식 검사 결과 */
+/** 수식·조건식 검사 결과입니다. */
 export interface FormulaCheck {
   status: FormulaCheckStatus;
-  /** 지금 이대로 저장할 수 있는지 */
+  /** 현재 입력을 저장할 수 있는지를 나타냅니다. */
   applicable: boolean;
-  /** 계산에 성공했을 때의 결과 */
+  /** 계산에 성공했을 때의 결과입니다. */
   value?: FormulaValue;
-  /** 잘못된 수식·계산 실패의 원인 */
+  /** 잘못된 수식·계산 실패의 원인입니다. */
   detail?: string;
 }
 
-/** 검사에 필요한 것 */
+/** 수식과 조건식을 검사할 때 필요한 입력입니다. */
 export interface FormulaCheckInput {
-  /** 검사할 수식·조건식 */
+  /** 검사할 수식·조건식입니다. */
   source: string;
-  /** 조건식이면 결과가 논리값인지도 확인합니다 */
+  /** 조건식이면 결과가 논리값인지도 확인합니다. */
   condition: boolean;
-  /** 비어 있어도 적용할 수 있는지 — 그리드 셀 수식은 비우면 수식을 제거합니다 */
+  /** 빈 입력의 적용 허용 여부입니다. 그리드 셀에서 수식을 비우면 기존 수식을 제거합니다. */
   emptyAllowed: boolean;
-  /** 오류 문구에 사용할 로케일. 평가 오류와 같은 언어로 맞춥니다 */
+  /** 오류 문구에 사용할 로케일. 평가 오류와 같은 언어로 맞춥니다. */
   locale: string | undefined;
-  /** 평가에 사용할 값과 예약 참조 */
+  /** 평가에 사용할 값과 예약 참조입니다. */
   context: FormulaContext;
   /**
    * 수식을 계산할 수 있는지 진단합니다.
@@ -65,7 +66,7 @@ export interface FormulaCheckInput {
   diagnose(source: string, context: FormulaContext): FormulaDiagnosis;
 }
 
-/** 편집 대상이 바뀌어 적용할 수 없는 결과 */
+/** 편집 대상이 바뀌어 적용할 수 없는 결과입니다. */
 export const TARGET_CHANGED: FormulaCheck = { status: 'target-changed', applicable: false };
 
 /**
@@ -75,8 +76,8 @@ export const TARGET_CHANGED: FormulaCheck = { status: 'target-changed', applicab
  * @returns 검사 결과와 적용 가능 여부
  */
 export function checkFormula(input: FormulaCheckInput): FormulaCheck {
+  if (isBlankFormula(input.source)) return { status: 'empty', applicable: input.emptyAllowed };
   const source = input.source.trim();
-  if (source === '') return { status: 'empty', applicable: input.emptyAllowed };
 
   const options = input.locale === undefined ? undefined : { locale: input.locale };
   try {
@@ -101,7 +102,7 @@ export function checkFormula(input: FormulaCheckInput): FormulaCheck {
   return { status: 'ok', applicable: true, value: found.value };
 }
 
-/** 오류에서 표시할 원인 문구를 꺼냅니다. 문구가 없으면 빈 것을 돌려줍니다. */
+/** 오류에서 사용자에게 표시할 원인 문구를 가져옵니다. 문구가 없으면 빈 객체를 반환합니다. */
 function reasonOf(error: unknown): { detail?: string } {
   return error instanceof Error ? { detail: error.message } : {};
 }

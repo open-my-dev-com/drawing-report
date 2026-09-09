@@ -67,7 +67,7 @@ describe('값 참조 $(...)', () => {
     });
   });
 
-  it('행 배열 위의 경로는 배열을 돌려준다', () => {
+  it('행 배열 위의 경로는 배열을 반환한다', () => {
     const values = { 'order-items': [{ 'unit-price': 100 }, { 'unit-price': 250 }] };
     expect(evaluateFormula('$(order-items).$(unit-price)', ctx(values))).toEqual([100, 250]);
     expect(evaluateFormula('SUM($(order-items).$(unit-price))', ctx(values))).toBe(350);
@@ -86,7 +86,7 @@ describe('값 참조 $(...)', () => {
       reserved: true,
       span: { start: 0, end: 19 },
     });
-    // 예약 참조 이름 하나만 적은 것은 그대로 허용한다.
+    // 예약 참조 이름 하나만 적은 것은 그대로 허용합니다.
     expect(parseFormula('@item')).toEqual({
       type: 'reference',
       path: ['@item'],
@@ -98,16 +98,16 @@ describe('값 참조 $(...)', () => {
 
   it('$(@item)·$(@page)·$(@foo)는 예약 참조가 아니라 그 이름의 값 키다', () => {
     const values = { '@item': 3, '@page': { n: 7 }, '@foo': 'foo' };
-    // 예약 참조를 공급하지 않는 문맥에서도 값 키로 읽는다.
+    // 예약 참조를 전달하지 않는 문맥에서도 값 키로 읽습니다.
     expect(evaluateFormula('$(@item)', ctx(values))).toBe(3);
     expect(evaluateFormula('$(@page).$(n)', ctx(values))).toBe(7);
     expect(evaluateFormula('$(@foo)', ctx(values))).toBe('foo');
     expect(evaluateFormula('$(@item) + 1', ctx(values))).toBe(4);
-    // 예약 참조를 공급하는 문맥에서도 $(@item)은 값 키 쪽을 읽는다.
+    // 예약 참조를 전달하는 문맥에서도 $(@item)은 값 키 쪽을 읽습니다.
     const reserved = { '@item': { amount: 100 }, '@page': [{ amount: 1 }] };
     expect(evaluateFormula('$(@item)', ctx(values, reserved))).toBe(3);
     expect(evaluateFormula('$(@page).$(n)', ctx(values, reserved))).toBe(7);
-    // 값 키가 없으면 빈 값이고, 예약 참조 오류가 아니다.
+    // 값 키가 없으면 빈 값이며 예약 참조 오류로 처리하지 않습니다.
     expect(evaluateFormula('$(@item)', ctx({}, reserved))).toBeNull();
     expect(evaluateFormula('$(@item)', ctx({}))).toBeNull();
     expect(parseFormula('$(@item)')).toEqual({
@@ -126,7 +126,7 @@ describe('값 참조 $(...)', () => {
       { path: ['@item', 'amount'], reserved: true, span: { start: 0, end: 15 } },
       { path: ['@item'], reserved: false, span: { start: 18, end: 26 } },
     ]);
-    // 예약 참조가 없는 문맥에서는 @item만 실패한다.
+    // 예약 참조가 없는 문맥에서는 @item만 실패합니다.
     expect(() => evaluateFormula('@item.$(amount) + $(@item)', ctx(values))).toThrow(/grid row bands/);
   });
 
@@ -142,7 +142,7 @@ describe('값 참조 $(...)', () => {
     expect(evaluateFormula('IF(TRUE, 1, 2)', ctx())).toBe(1);
     expect(evaluateFormula('IF(false, 1, 2)', ctx())).toBe(2);
     expect(evaluateFormula('sum($(items).$(amount))', ctx({ items: [{ amount: 1 }, { amount: 2 }] }))).toBe(3);
-    // 함수 이름을 값처럼 쓰면 참조로 보고 거부한다.
+    // 함수 이름을 값처럼 쓰면 참조로 보고 거부합니다.
     expect(syntaxError('SUM + 1').message).toBe("'SUM' must be written as $(SUM)");
   });
 });
@@ -160,7 +160,7 @@ describe('$( ) 없이 적은 참조는 고쳐 쓸 예와 함께 거부한다', (
     expect(error.message).toBe("'items.amount' must be written as $(items).$(amount)");
     expect(error.position).toBe(0);
     expect(syntaxError('a.b.c').message).toBe("'a.b.c' must be written as $(a).$(b).$(c)");
-    // 단계 사이의 공백은 고쳐 쓸 예에서 사라진다.
+    // 단계 사이의 공백은 고쳐 쓸 예에서 사라집니다.
     expect(syntaxError('items . 금액').message).toBe("'items.금액' must be written as $(items).$(금액)");
   });
 
@@ -180,7 +180,7 @@ describe('$( ) 없이 적은 참조는 고쳐 쓸 예와 함께 거부한다', (
     const head = syntaxError('items.$(amount)');
     expect(head.message).toBe("'items.$(amount)' must be written as $(items).$(amount)");
     expect(head.position).toBe(0);
-    // 이미 $( )로 적은 단계는 이스케이프까지 그대로 보여 준다.
+    // 이미 $( )로 적은 단계는 이스케이프까지 그대로 보여 줍니다.
     expect(syntaxError('$(a\\)b).c').message).toBe("'$(a\\)b).c' must be written as $(a\\)b).$(c)");
   });
 
@@ -193,9 +193,11 @@ describe('$( ) 없이 적은 참조는 고쳐 쓸 예와 함께 거부한다', (
 
   it('한국어·일본어 메시지에도 고쳐 쓸 예를 담는다', () => {
     expect(syntaxError('items.amount', 'ko').message).toBe(
-      "'items.amount'은(는) $(items).$(amount)으로 써야 합니다",
+      "'items.amount' 참조는 $(items).$(amount) 형식으로 입력해야 합니다",
     );
-    expect(syntaxError('@item.amount', 'ko').message).toBe("'@item.amount'은(는) @item.$(amount)으로 써야 합니다");
+    expect(syntaxError('@item.amount', 'ko').message).toBe(
+      "'@item.amount' 참조는 @item.$(amount) 형식으로 입력해야 합니다",
+    );
     expect(syntaxError('items.amount', 'ja').message).toBe(
       "'items.amount' は $(items).$(amount) と書く必要があります",
     );
@@ -219,7 +221,9 @@ describe('$( ) 문법 오류', () => {
     const error = syntaxError('$datas + 1');
     expect(error.message).toBe('Write $(datas) instead of $datas');
     expect(error.position).toBe(0);
-    expect(syntaxError('1 + $datas', 'ko').message).toBe('$datas 대신 $(datas)으로 쓰세요');
+    expect(syntaxError('1 + $datas', 'ko').message).toBe(
+      '$datas 대신 $(datas) 형식으로 입력하세요',
+    );
     expect(syntaxError('1 + $datas', 'ja').message).toBe('$datas ではなく $(datas) と書いてください');
     expect(syntaxError('1 + $datas').position).toBe(4);
   });
@@ -277,7 +281,7 @@ describe('참조 표기 도우미', () => {
     expect(formatReferencePath(['a', 'b'])).toBe('$(a).$(b)');
     expect(formatReferencePath(['@item', 'unit-price'], { reserved: true })).toBe('@item.$(unit-price)');
     expect(formatReferencePath(['@item'], { reserved: true })).toBe('@item');
-    // 이름만으로 예약 참조로 보지 않는다 — 지정하지 않으면 값 키다.
+    // 이름만으로 예약 참조로 보지 않습니다. 별도로 지정하지 않으면 값 키입니다.
     expect(formatReferencePath(['@item'])).toBe('$(@item)');
     expect(formatReferencePath(['@item', 'unit-price'])).toBe('$(@item).$(unit-price)');
     expect(formatReferencePath(['@item'], { reserved: false })).toBe('$(@item)');
@@ -285,7 +289,7 @@ describe('참조 표기 도우미', () => {
     expect(formatReferencePath(['a)b', 'c\\d'])).toBe('$(a\\)b).$(c\\\\d)');
     expect(escapeReferenceKey(')\\')).toBe('\\)\\\\');
     expect(() => formatReferencePath([])).toThrow(RangeError);
-    // 예약 참조 이름이 아닌 첫 단계를 그대로 적으면 파싱할 수 없는 문자열이 되므로 거부한다.
+    // 예약 참조 이름이 아닌 첫 단계를 그대로 적으면 파싱할 수 없는 문자열이 되므로 거부합니다.
     expect(() => formatReferencePath(['amount'], { reserved: true })).toThrow(RangeError);
     expect(() => formatReferencePath(['@foo', 'x'], { reserved: true })).toThrow(RangeError);
   });
@@ -300,7 +304,7 @@ describe('참조 표기 도우미', () => {
     expect(reserved).toMatchObject({ type: 'reference', path: ['@page', 'line-amount'], reserved: true });
   });
 
-  it('collectFormulaReferences는 원본 순서와 범위를 돌려준다', () => {
+  it('collectFormulaReferences는 원본 순서와 범위를 반환한다', () => {
     expect(collectFormulaReferences('SUM($(items).$(amount)) + @item.$(x) * $(rate)')).toEqual([
       { path: ['items', 'amount'], reserved: false, span: { start: 4, end: 22 } },
       { path: ['@item', 'x'], reserved: true, span: { start: 26, end: 36 } },
@@ -349,9 +353,9 @@ describe('renameFormulaReferences', () => {
     expect(
       renameFormulaReferences('@item.$(amount) + $(@item)', ['@item', 'amount'], ['@item', 'sum'], reserved),
     ).toBe('@item.$(sum) + $(@item)');
-    // 지정하지 않으면 @item은 값 키라 예약 참조와 맞지 않는다.
+    // 지정하지 않으면 @item은 값 키라 예약 참조와 맞지 않습니다.
     expect(renameFormulaReferences('@item.$(amount)', ['@item', 'amount'], ['@item', 'sum'])).toBe('@item.$(amount)');
-    // 첫 단계가 예약 참조 이름이 아니면 거부한다.
+    // 첫 단계가 예약 참조 이름이 아니면 거부합니다.
     expect(() => renameFormulaReferences('$(a).$(b)', ['a', 'b'], ['a', 'c'], reserved)).toThrow(RangeError);
     expect(() => renameFormulaReferences('@item.$(b)', ['@item', 'b'], ['x', 'c'], reserved)).toThrow(RangeError);
   });
@@ -361,7 +365,7 @@ describe('renameFormulaReferences', () => {
     expect(renamed).toBe('$(@item) + 1');
     expect(evaluateFormula(renamed, ctx({ '@item': 3 }))).toBe(4);
     expect(evaluateFormula(renamed, ctx({ '@item': 3 }, { '@item': { amount: 100 } }))).toBe(4);
-    // 되돌릴 때 from은 값 키 경로라 $(@item)과 맞는다.
+    // 되돌릴 때 from은 값 키 경로라 $(@item)과 맞습니다.
     expect(renameFormulaReferences(renamed, ['@item'], ['amount'])).toBe('$(amount) + 1');
     expect(renameFormulaReferences('$(@foo).$(x)', ['@foo'], ['bar'])).toBe('$(bar).$(x)');
   });

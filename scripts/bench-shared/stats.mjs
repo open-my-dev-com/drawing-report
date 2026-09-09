@@ -1,12 +1,11 @@
 /**
- * benchmark 네 갈래가 함께 쓰는 통계·숫자 표기 도우미.
+ * 네 성능 측정이 함께 사용하는 통계·숫자 표기 도우미입니다.
  *
- * 예전에는 Core benchmark가 자체 `middle()`을, 나머지 셋이 `bench-designer/metrics.mjs`의
- * `median`·`percentile`·`formatInt`를 각각 썼다. 계산 방법이 같으므로 여기 하나로 모은다.
+ * 중앙값·백분위수·숫자 표기 계산은 아래 구현을 공통으로 사용합니다.
  */
 
 /**
- * 백분위수 (가장 가까운 순위 방식). 짝수 개의 중앙값만 두 값의 평균을 쓴다.
+ * 가장 가까운 순위 방식으로 백분위수를 계산합니다. 값이 짝수 개일 때 중앙값만 가운데 두 값의 평균을 씁니다.
  *
  * @param {number[]} values - 숫자 배열 (비우면 0)
  * @param {number} p - 0~100
@@ -24,7 +23,7 @@ export function percentile(values, p) {
 }
 
 /**
- * 중앙값.
+ * 중앙값을 계산합니다.
  *
  * @param {number[]} values - 숫자 배열 (비우면 0)
  * @returns {number} 중앙값
@@ -34,7 +33,7 @@ export function median(values) {
 }
 
 /**
- * 천 단위 구분 기호를 넣어 적는다. 소수는 반올림한다.
+ * 천 단위 구분 기호를 넣어 표시합니다. 소수는 반올림합니다.
  *
  * @param {number} value - 숫자
  * @returns {string} 문자열

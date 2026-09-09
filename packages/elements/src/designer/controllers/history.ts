@@ -1,91 +1,111 @@
 /**
- * 되돌리기·다시 실행 기록.
+ * 되돌리기·다시 실행 기록입니다.
  *
  * @remarks
- * 사용자 명령 하나가 끝날 때마다 그 직전의 양식을 JSON 문자열 스냅샷으로 한 벌 보관합니다.
- * 스냅샷은 만들어진 뒤 바뀌지 않으며 최대 50개까지만 남기고 가장 오래된 것부터 버립니다.
+ * 사용자 명령 하나가 끝날 때마다 그 직전의 양식을 JSON 문자열 스냅샷 하나로 보관합니다.
+ * 스냅샷은 만들어진 뒤 바뀌지 않으며 개수와 전체 크기 상한을 함께 두어 가장 오래된 것부터 버립니다.
  * 새 명령이 기록되면 다시 실행 기록은 비웁니다. 각 항목은 그 시점의 저장 식별자도 함께 담아,
  * 불러온 양식을 되돌린 뒤 저장해도 불러온 양식을 덮어쓰지 않게 합니다.
  *
- * 드래그처럼 여러 단계에 걸치는 편집은 `begin`으로 시작 시점을 한 번만 찍고, 끝날 때 `commit`
- * 또는 `cancel`로 마무리합니다. 조작 컨트롤러는 스냅샷의 표현 방식을 알지 못하고 검사점만 주고받습니다.
+ * 드래그처럼 여러 단계에 걸치는 편집은 `begin`으로 시작 직전 상태를 한 번만 기록하고, 끝날 때
+ * `commit` 또는 `cancel`로 마무리합니다. 조작 컨트롤러는 스냅샷의 저장 방식을 알 필요 없이
+ * `begin`이 반환한 값만 전달합니다.
  */
 
 import type { ReactiveController } from 'lit';
 import type { SlipTemplateFile } from '@omdc-slipkit/core';
 
-/** 기록으로 남길 수 있는 최대 단계 수 */
+/** 기록으로 남길 수 있는 최대 단계 수입니다. */
 const MAX_ENTRIES = 50;
+
+/**
+ * 되돌리기 기록이 보관하는 스냅샷 문자열 길이의 기본 상한입니다. `snapshotChars`와 같은 기준으로 측정합니다.
+ *
+ * @remarks
+ * 길이는 JSON 문자열의 UTF-16 코드 단위 수(`String.length`)입니다. 스냅샷마다 인코딩하지 않고
+ * 보관량을 제한하기 위한 기준이며 실제 메모리 사용량이나 전송 바이트 수와는 다릅니다.
+ * 이미지를 담은 양식 하나가 수 MB일 수 있으므로 단계 수와 문자열 길이를 함께 제한합니다.
+ * 상한을 넘으면 가장 오래된 단계부터 버리되 최근 한 단계는 남겨, 예산과 무관하게 마지막 편집은
+ * 항상 되돌릴 수 있게 합니다.
+ */
+export const MAX_SNAPSHOT_CHARS = 32 * 1024 * 1024;
 
 declare const checkpointBrand: unique symbol;
 
 /**
- * 편집 시작 시점의 문서 상태를 가리키는 검사점.
+ * 편집 시작 직전 상태를 가리키는 값입니다.
  *
  * @remarks
- * 내용은 `HistoryController`만 읽습니다. 조작 컨트롤러는 받은 검사점을 그대로 돌려주기만 합니다.
+ * 실제 내용은 `HistoryController`만 읽습니다. 조작 컨트롤러는 받은 값을 그대로 전달합니다.
  */
 export interface EditCheckpoint {
   readonly [checkpointBrand]: true;
 }
 
-/** 검사점 뒤에 보관하는 실제 상태 */
+/** 편집 시작 값에 연결해 보관하는 실제 상태입니다. */
 interface CheckpointRecord {
-  /** 검사점을 찍은 시점의 양식 스냅샷. 양식이 없었으면 null */
+  /** 편집 시작 직전의 양식 스냅샷입니다. 양식이 없었으면 `null`입니다. */
   file: string | null;
-  /** 검사점을 찍은 시점의 저장 식별자 */
+  /** 편집 시작 직전의 저장 식별자입니다. */
   savedId: string | null;
-  /** 이미 기록으로 남겼는지 — 같은 검사점을 두 번 넣지 않습니다 */
+  /** 이미 되돌리기 기록에 추가했는지를 나타냅니다. */
   committed: boolean;
 }
 
-/** 되돌리기 한 단계 — 양식 스냅샷과 그 시점의 저장 식별자 */
+/** 되돌리기 한 단계에 보관하는 양식 스냅샷과 저장 식별자입니다. */
 interface HistoryEntry {
   file: string;
   savedId: string | null;
 }
 
-/** 기록이 문서에 요청하는 것 */
+/** 되돌리기 기록에서 사용하는 문서 작업입니다. */
 export interface HistoryHost {
-  /** 편집 중인 양식 */
+  /** 편집 중인 양식입니다. */
   readonly file: SlipTemplateFile | null;
-  /** 양식을 통째로 바꿉니다. 호스트는 이 호출로 문서 개정 번호를 올립니다 */
+  /** 양식 전체를 교체합니다. 호스트는 이 호출로 문서 개정 번호를 올립니다. */
   setFile(file: SlipTemplateFile): void;
-  /** 현재 저장 대상 식별자 */
+  /** 현재 저장 대상 식별자입니다. */
   readonly savedId: string | null;
-  /** 저장 대상 식별자를 되살립니다 */
+  /** 저장 대상 식별자를 되살립니다. */
   restoreSavedId(id: string | null): void;
 }
 
 export class HistoryController implements ReactiveController {
   private _undo: HistoryEntry[] = [];
   private _redo: HistoryEntry[] = [];
-  /** 검사점마다 보관하는 상태. 검사점이 버려지면 함께 사라집니다 */
+  /** `begin`이 반환한 값마다 보관하는 편집 시작 상태입니다. */
   private readonly _records = new WeakMap<EditCheckpoint, CheckpointRecord>();
 
-  constructor(private readonly host: HistoryHost) {}
+  /**
+   * @param host - 양식과 저장 대상을 주고받는 문서
+   * @param maxSnapshotChars - 보관할 스냅샷 문자열 길이(UTF-16 코드 단위)의 상한
+   */
+  constructor(
+    private readonly host: HistoryHost,
+    private readonly maxSnapshotChars: number = MAX_SNAPSHOT_CHARS,
+  ) {}
 
   hostConnected(): void {}
 
-  /** 되돌릴 수 있는 단계 수 */
+  /** 되돌릴 수 있는 단계 수입니다. */
   get undoDepth(): number {
     return this._undo.length;
   }
 
-  /** 다시 실행할 수 있는 단계 수 */
+  /** 다시 실행할 수 있는 단계 수입니다. */
   get redoDepth(): number {
     return this._redo.length;
   }
 
-  /** 되돌리기 기록만의 스냅샷 문자열 길이 합 — 한 명령이 남긴 스냅샷 크기를 재는 데 씁니다 */
-  get undoSnapshotBytes(): number {
+  /** 되돌리기 기록에 든 스냅샷 문자열 길이의 합(UTF-16 코드 단위)입니다. */
+  get undoSnapshotChars(): number {
     let total = 0;
     for (const entry of this._undo) total += entry.file.length;
     return total;
   }
 
-  /** 보관 중인 스냅샷 문자열 길이의 합 — 기록이 차지하는 크기를 가늠하는 데 씁니다 */
-  get snapshotBytes(): number {
+  /** 되돌리기와 다시 실행 기록에 든 스냅샷 문자열 길이의 합(UTF-16 코드 단위)입니다. */
+  get snapshotChars(): number {
     let total = 0;
     for (const entry of this._undo) total += entry.file.length;
     for (const entry of this._redo) total += entry.file.length;
@@ -93,9 +113,9 @@ export class HistoryController implements ReactiveController {
   }
 
   /**
-   * 편집 시작 시점의 양식을 한 번 담아 검사점을 만듭니다.
+   * 편집 시작 직전의 양식과 저장 식별자를 한 번 기록합니다.
    *
-   * @returns 나중에 `commit` 또는 `cancel`에 넘길 검사점
+   * @returns 나중에 `commit` 또는 `cancel`에 전달할 값
    */
   begin(): EditCheckpoint {
     const checkpoint = Object.freeze({}) as EditCheckpoint;
@@ -108,9 +128,10 @@ export class HistoryController implements ReactiveController {
   }
 
   /**
-   * 검사점을 되돌리기 기록에 넣고 다시 실행 기록을 비웁니다. 같은 검사점을 다시 넣어도 한 번만 기록합니다.
+   * 편집 시작 상태를 되돌리기 기록에 추가하고 다시 실행 기록을 비웁니다.
+   * 같은 값을 다시 전달해도 한 번만 기록합니다.
    *
-   * @param checkpoint - `begin`으로 만든 검사점
+   * @param checkpoint - `begin`이 반환한 값
    */
   commit(checkpoint: EditCheckpoint): void {
     const record = this._records.get(checkpoint);
@@ -118,13 +139,26 @@ export class HistoryController implements ReactiveController {
     record.committed = true;
     this._undo.push({ file: record.file, savedId: record.savedId });
     this._redo = [];
-    if (this._undo.length > MAX_ENTRIES) this._undo.shift();
+    this._trim();
+  }
+
+  /** 개수와 전체 크기 상한에 맞게 오래된 단계부터 버립니다. 최근 한 단계는 남깁니다. */
+  private _trim(): void {
+    while (this._undo.length + this._redo.length > MAX_ENTRIES) {
+      if (this._undo.length > 0) this._undo.shift();
+      else this._redo.shift();
+    }
+
+    while (this._undo.length + this._redo.length > 1 && this.snapshotChars > this.maxSnapshotChars) {
+      if (this._undo.length > 0) this._undo.shift();
+      else this._redo.shift();
+    }
   }
 
   /**
-   * 검사점을 찍은 시점의 양식으로 되돌립니다. 기록은 건드리지 않습니다.
+   * 편집 시작 직전의 양식으로 되돌립니다. 되돌리기와 다시 실행 기록은 변경하지 않습니다.
    *
-   * @param checkpoint - `begin`으로 만든 검사점
+   * @param checkpoint - `begin`이 반환한 값
    */
   cancel(checkpoint: EditCheckpoint): void {
     const record = this._records.get(checkpoint);
@@ -132,7 +166,7 @@ export class HistoryController implements ReactiveController {
     this.host.setFile(JSON.parse(record.file) as SlipTemplateFile);
   }
 
-  /** 지금 상태를 되돌리기 한 단계로 바로 기록합니다 — 한 번에 끝나는 편집에 씁니다. */
+  /** 현재 상태를 되돌리기 한 단계로 바로 기록합니다. 한 번에 끝나는 편집에 사용합니다. */
   record(): void {
     if (this.host.file === null) return;
     this.commit(this.begin());
@@ -156,7 +190,7 @@ export class HistoryController implements ReactiveController {
     return this._restore(this._redo, this._undo);
   }
 
-  /** 되돌리기·다시 실행 기록을 모두 비웁니다 — 양식을 새로 불러올 때 씁니다. */
+  /** 되돌리기·다시 실행 기록을 모두 비웁니다. 양식을 새로 불러올 때 사용합니다. */
   reset(): void {
     this._undo = [];
     this._redo = [];
@@ -170,6 +204,7 @@ export class HistoryController implements ReactiveController {
     const entry = from.pop()!;
     this.host.setFile(JSON.parse(entry.file) as SlipTemplateFile);
     this.host.restoreSavedId(entry.savedId);
+    this._trim();
     return true;
   }
 }

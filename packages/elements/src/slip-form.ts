@@ -20,14 +20,15 @@ import { getStrings, type SlipStrings } from './strings.js';
 import { icons } from './icons.js';
 import { pickImageFile, formatBytes, type ImagePickResult } from './image-file.js';
 import { renderSlip } from './settings.js';
+import { isBlankFormula } from './formula-blank.js';
 
-/** 입력이 끝난 뒤 PDF 미리보기를 갱신하기까지 기다리는 시간(ms) */
+/** 입력이 끝난 뒤 PDF 미리보기를 갱신하기까지 기다리는 시간(ms)입니다. */
 const PREVIEW_DEBOUNCE_MS = 500;
 
-/** 업로드할 수 있는 이미지 파일의 기본 최대 크기(바이트) */
+/** 업로드할 수 있는 이미지 파일의 기본 최대 크기(바이트)입니다. */
 const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
-/** 값 형식 오류를 가리키는 문구 키 */
+/** 값 형식 오류를 가리키는 문구 키입니다. */
 type ValueErrorKey =
   | 'invalidText'
   | 'invalidNumber'
@@ -36,47 +37,47 @@ type ValueErrorKey =
   | 'invalidImage'
   | 'invalidList';
 
-/** 목록형 입력의 열 하나 */
+/** 목록형 입력의 열 하나입니다. */
 interface FormColumn {
-  /** 행 객체에 값을 저장할 하위 필드 키 */
+  /** 행 객체에 값을 저장할 하위 필드 키입니다. */
   key: string;
-  /** 열 제목 */
+  /** 열 제목입니다. */
   title: string;
-  /** 열 값의 형식 */
+  /** 열 값의 형식입니다. */
   valueType: ParameterValueType;
 }
 
 /** 목록형 입력의 객체 행 하나. 원본 배열에서의 실제 위치를 함께 둡니다. */
 interface ListRow {
-  /** 원본 배열의 인덱스 — 행 편집·삭제는 이 위치의 값만 바꿉니다 */
+  /** 원본 배열의 인덱스입니다. 행 편집과 삭제는 이 위치의 값만 바꿉니다. */
   index: number;
-  /** 행 객체 */
+  /** 행 객체입니다. */
   row: Record<string, unknown>;
 }
 
-/** 작성 폼에 렌더링할 입력 항목. */
+/** 작성 폼에 렌더링할 입력 항목입니다. */
 interface FormInput {
-  /** 전표 `values`에 값을 저장할 파라미터 키 */
+  /** 전표 `values`에 값을 저장할 파라미터 키입니다. */
   key: string;
   /**
    * 화면 안에서 입력과 레이블을 잇는 순번. 키는 공백·따옴표 등 어떤 문자든 담을 수 있어
    * DOM id로 쓰지 않습니다.
    */
   ordinal: number;
-  /** 화면에 표시할 이름 */
+  /** 화면에 표시할 이름입니다. */
   label: string;
-  /** 파라미터 정의의 값 형식. 이미지 요소가 참조하는 키는 `image`로 본다 */
+  /** 파라미터 정의의 값 형식입니다. 이미지 요소가 참조하는 키는 `image`로 판단합니다. */
   valueType: ParameterValueType;
-  /** 목록형 입력의 열 구조 */
+  /** 목록형 입력의 열 구조입니다. */
   columns?: FormColumn[];
-  /** 입력 요소 대신 계산 결과를 표시할 수식. */
+  /** 입력 요소 대신 계산 결과를 표시할 수식입니다. */
   formula?: string;
 }
 
-/** 발행 실패 상태. 문구는 렌더링 시점의 로케일로 고른다 */
+/** 발행 실패 상태. 문구는 렌더링 시점의 로케일로 고릅니다. */
 type IssueError = { key: 'issueError'; detail: string } | { key: 'issueInvalid' };
 
-/** 이미지 선택 실패 상태. 문구는 렌더링 시점의 로케일로 고른다 */
+/** 이미지 선택 실패 상태. 문구는 렌더링 시점의 로케일로 고릅니다. */
 type ImageError = { key: string; result: Extract<ImagePickResult, { ok: false }> };
 
 const NUMBER_RE = /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/;
@@ -181,7 +182,7 @@ function listProblem(value: unknown, columns: FormColumn[]): ValueErrorKey | nul
   return null;
 }
 
-/** 입력 항목의 현재 값이 형식에 맞지 않으면 문구 키를 돌려줍니다. */
+/** 입력 항목의 현재 값이 형식에 맞지 않으면 문구 키를 반환합니다. */
 function inputProblem(input: FormInput, value: unknown): ValueErrorKey | null {
   if (input.formula !== undefined) return null;
   if (input.columns) return listProblem(value, input.columns);
@@ -215,7 +216,7 @@ function resultText(value: unknown): string {
   return String(value);
 }
 
-/** 형식별 `<input type>` — 텍스트 외 형식은 브라우저의 전용 컨트롤을 사용합니다. */
+/** 값 형식별 `<input type>`입니다. 텍스트 외 형식은 브라우저 전용 입력 방식을 사용합니다. */
 function inputTypeOf(valueType: ParameterValueType): string {
   switch (valueType) {
     case 'number':
@@ -230,7 +231,7 @@ function inputTypeOf(valueType: ParameterValueType): string {
 }
 
 /**
- * 양식에 정의된 파라미터 값을 입력하고 전표를 발행하는 `<slip-form>` 컴포넌트.
+ * 양식에 정의된 파라미터 값을 입력하고 전표를 발행하는 `<slip-form>` 컴포넌트입니다.
  *
  * 양식이나 작성 중인 전표에서 입력 필드를 구성합니다. 파라미터의 값 형식에 맞는 입력
  * 컨트롤을 쓰고, 목록 파라미터는 행을 추가하거나 삭제할 수 있으며 수식 필드는 입력값이
@@ -258,7 +259,7 @@ export class SlipForm extends LitElement {
     _imageError: { state: true },
   };
 
-  /** 양식 또는 작성 중인 전표의 `.slip` JSON 문자열. */
+  /** 양식 또는 작성 중인 전표의 `.slip` JSON 문자열입니다. */
   src = '';
 
   /**
@@ -275,7 +276,7 @@ export class SlipForm extends LitElement {
   slipkit?: SlipKit;
 
   /**
-   * 업로드할 수 있는 이미지 파일의 최대 크기(바이트).
+   * 업로드할 수 있는 이미지 파일의 최대 크기(바이트)입니다.
    *
    * @defaultValue 2MB
    */
@@ -294,19 +295,19 @@ export class SlipForm extends LitElement {
   private _previewGeneration = 0;
   private _previewTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** 컴포넌트 속성이 우선하고, 없으면 slipkit 설정을 따르는 유효 로케일 */
+  /** 컴포넌트 속성이 우선하고, 없으면 slipkit 설정을 따르는 유효 로케일입니다. */
   private get _locale(): string | undefined {
     return this.locale ?? this.slipkit?.locale;
   }
 
-  /** 현재 로케일의 작성 폼 문구 */
+  /** 현재 로케일의 작성 폼 문구입니다. */
   private get _t(): SlipStrings['form'] {
     return getStrings(this._locale).form;
   }
 
   override connectedCallback(): void {
     super.connectedCallback();
-    // 분리됐다 다시 연결되면 분리 중 버린 미리보기를 현재 값으로 복구합니다.
+    // 분리되었다가 다시 연결되면 분리된 동안 폐기한 미리보기를 현재 값으로 복구합니다.
     if (this.hasUpdated && this._body) this._schedulePreview();
   }
 
@@ -320,7 +321,7 @@ export class SlipForm extends LitElement {
   }
 
   // 파싱 결과가 같은 렌더링에 반영되도록 렌더링 전에 처리합니다.
-  // slipkit·locale 변경으로는 다시 파싱하지 않습니다 — 입력 중인 값을 지우지 않기 위해서입니다.
+  // 입력 중인 값을 보존하기 위해 slipkit·locale 변경만으로는 다시 파싱하지 않습니다.
   protected override willUpdate(changed: Map<string, unknown>): void {
     if (changed.has('src')) {
       this._parseSource();
@@ -487,7 +488,7 @@ export class SlipForm extends LitElement {
     return inputs;
   }
 
-  /** 목록형 입력의 원본 배열. 배열이 아니면 빈 목록으로 봅니다. */
+  /** 목록형 입력의 원본 배열입니다. 배열이 아니면 빈 목록으로 판단합니다. */
   private _listOf(key: string): unknown[] {
     const raw = readOwn(this._values, key);
     return Array.isArray(raw) ? raw : [];
@@ -528,7 +529,7 @@ export class SlipForm extends LitElement {
 
   /**
    * 목록형 입력의 원본 배열을 복제해 `mutate`가 바꾼 위치만 반영합니다.
-   * 화면에 보이지 않는 잘못된 행은 건드리지 않아 사용자가 지우기 전까지 남습니다.
+   * 화면에 보이지 않는 잘못된 행은 변경하지 않으며 사용자가 삭제하기 전까지 유지합니다.
    */
   private _updateList(key: string, mutate: (list: unknown[]) => void): void {
     if (this._issued || this._listLocked(key)) return;
@@ -588,7 +589,7 @@ export class SlipForm extends LitElement {
 
   /**
    * 현재 값을 확정하고 발행 규칙을 검증한 전표를 `slip-issue`로 전달합니다.
-   * 검증에 실패하면 입력 상태를 유지합니다 (SPEC §7.1).
+   * 검증에 실패하면 입력 상태를 유지합니다(SPEC §7.1).
    */
   private async _issue(): Promise<void> {
     if (!this._body || this._issued || this._issuing) return;
@@ -629,7 +630,7 @@ export class SlipForm extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _revokePreviewUrl(): void {
-    // 진행 중인 렌더링 결과가 새 Blob URL을 적용하지 못하도록 세대를 갱신합니다.
+    // 이전 렌더링 결과가 새 Blob URL을 적용하지 못하도록 요청 순서 번호를 갱신합니다.
     this._previewGeneration++;
     if (this._previewUrl) {
       URL.revokeObjectURL(this._previewUrl);
@@ -653,7 +654,7 @@ export class SlipForm extends LitElement {
     const gen = ++this._previewGeneration;
     try {
       const pdfBytes = await renderSlip(this.slipkit, this._buildVoucher(this._issued), this._locale);
-      // 분리됐거나 새 렌더가 시작됐으면 결과를 버립니다 — Blob URL은 만들지 않습니다.
+      // 분리됐거나 새 렌더가 시작됐으면 결과를 버립니다. Blob URL은 만들지 않습니다.
       if (gen !== this._previewGeneration || !this.isConnected) return;
       const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       this._previewUrl = URL.createObjectURL(blob);
@@ -748,21 +749,24 @@ export class SlipForm extends LitElement {
       // 수식 필드는 입력 대신 현재 계산 결과를 표시합니다.
       let text = '';
       let error: string | null = null;
-      try {
-        // 빈 number 파라미터를 0으로 정규화한 뒤 계산합니다.
-        const values = normalizeNumericParameters(this._values, this._body?.parameters);
-        // slipkit이 있으면 수식도 같은 인스턴스로 평가해 PDF와 같은 로케일을 사용합니다.
-        // 컴포넌트 locale은 UI 언어 전용이라 수식 컨텍스트에 넣지 않습니다.
-        text = resultText(
-          this.slipkit
-            ? this.slipkit.evaluate(input.formula, { values })
-            : evaluateFormula(input.formula, {
-                values,
-                ...(this.locale === undefined ? {} : { locale: this.locale }),
-              }),
-        );
-      } catch (e) {
-        error = e instanceof Error ? e.message : String(e);
+      // 편집 중인 빈 수식은 PDF 변환과 같이 빈 값으로 표시하고 계산하지 않습니다.
+      if (!isBlankFormula(input.formula)) {
+        try {
+          // 빈 number 파라미터를 0으로 정규화한 뒤 계산합니다.
+          const values = normalizeNumericParameters(this._values, this._body?.parameters);
+          // slipkit이 있으면 수식도 같은 인스턴스로 평가해 PDF와 같은 로케일을 사용합니다.
+          // 컴포넌트 locale은 UI 언어 전용이라 수식 계산 문맥에 넣지 않습니다.
+          text = resultText(
+            this.slipkit
+              ? this.slipkit.evaluate(input.formula, { values })
+              : evaluateFormula(input.formula, {
+                  values,
+                  ...(this.locale === undefined ? {} : { locale: this.locale }),
+                }),
+          );
+        } catch (e) {
+          error = e instanceof Error ? e.message : String(e);
+        }
       }
       return html`
         <div class="field computed">
@@ -785,6 +789,7 @@ export class SlipForm extends LitElement {
             <input id=${`f-${input.ordinal}`} type="checkbox" .checked=${value === true}
               aria-label=${input.label} ?disabled=${this._issued}
               aria-invalid=${problem !== null ? 'true' : 'false'}
+              aria-describedby=${problem !== null ? `e-${input.ordinal}` : nothing}
               @change=${(e: Event) => this._setValue(input.key, (e.target as HTMLInputElement).checked)}>
             <span>${input.label}</span>
           </label>
@@ -801,6 +806,7 @@ export class SlipForm extends LitElement {
           .value=${inputText(value)}
           aria-label=${input.label} ?disabled=${this._issued}
           aria-invalid=${problem !== null ? 'true' : 'false'}
+          aria-describedby=${problem !== null ? `e-${input.ordinal}` : nothing}
           @change=${(e: Event) =>
             this._setValue(input.key, parseInputValue((e.target as HTMLInputElement).value, input.valueType))}>
         ${this._renderProblem(input)}
@@ -808,7 +814,7 @@ export class SlipForm extends LitElement {
     `;
   }
 
-  /** base64 이미지 파일 선택과 현재 이미지 미리보기를 렌더링합니다. */
+  /** Base64 이미지 파일 선택과 현재 이미지 미리보기를 렌더링합니다. */
   private _renderImageInput(input: FormInput) {
     const t = this._t;
     const raw = readOwn(this._values, input.key);
@@ -834,7 +840,7 @@ export class SlipForm extends LitElement {
     `;
   }
 
-  /** 선택한 이미지 파일을 base64로 변환해 전표 값에 저장합니다. */
+  /** 선택한 이미지 파일을 Base64로 변환해 전표 값에 저장합니다. */
   private async _pickImage(key: string): Promise<void> {
     if (this._issued) return;
     const result = await pickImageFile(this.maxImageBytes);
@@ -864,22 +870,26 @@ export class SlipForm extends LitElement {
             ${columns.map((col) => html`<span class="col-title">${col.title || col.key}</span>`)}
             <span></span>
             ${rows.map(({ index, row }) => html`
-              ${columns.map((col) => html`
-                <input type=${inputTypeOf(col.valueType)}
-                  step=${col.valueType === 'number' ? 'any' : nothing}
-                  .value=${col.valueType === 'boolean' ? 'on' : inputText(readOwn(row, col.key))}
-                  .checked=${col.valueType === 'boolean' && readOwn(row, col.key) === true}
-                  aria-label="${input.label} ${index + 1} ${col.title || col.key}"
-                  aria-invalid=${scalarProblem(readOwn(row, col.key), col.valueType) !== null ? 'true' : 'false'}
-                  ?disabled=${this._issued}
-                  @change=${(e: Event) => {
-                    // 열에 없는 키도 함께 복사해 행의 다른 데이터를 잃지 않습니다.
-                    const next = { ...row };
-                    const value = cellValue(col, e);
-                    if (value === '') deleteOwn(next, col.key);
-                    else writeOwn(next, col.key, value);
-                    this._updateList(input.key, (list) => { list[index] = next; });
-                  }}>`)}
+              ${columns.map((col) => {
+                const invalid = scalarProblem(readOwn(row, col.key), col.valueType) !== null;
+                return html`
+                  <input type=${inputTypeOf(col.valueType)}
+                    step=${col.valueType === 'number' ? 'any' : nothing}
+                    .value=${col.valueType === 'boolean' ? 'on' : inputText(readOwn(row, col.key))}
+                    .checked=${col.valueType === 'boolean' && readOwn(row, col.key) === true}
+                    aria-label="${input.label} ${index + 1} ${col.title || col.key}"
+                    aria-invalid=${invalid ? 'true' : 'false'}
+                    aria-describedby=${invalid ? `e-${input.ordinal}` : nothing}
+                    ?disabled=${this._issued}
+                    @change=${(e: Event) => {
+                      // 열에 없는 키도 함께 복사해 행의 다른 데이터를 잃지 않습니다.
+                      const next = { ...row };
+                      const value = cellValue(col, e);
+                      if (value === '') deleteOwn(next, col.key);
+                      else writeOwn(next, col.key, value);
+                      this._updateList(input.key, (list) => { list[index] = next; });
+                    }}>`;
+              })}
               <button class="row-remove" title=${t.deleteRow}
                 aria-label="${input.label} ${index + 1} ${t.deleteRow}"
                 ?disabled=${this._issued}

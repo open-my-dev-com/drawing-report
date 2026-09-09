@@ -1,6 +1,6 @@
 /**
- * 로컬 파일 시스템에 `.slip` 파일을 저장하는 저장소 어댑터.
- * MCP 서버와 Node.js 호스트 애플리케이션이 같은 파일 접근 규칙을 사용할 수 있다.
+ * 로컬 파일 시스템에 `.slip` 파일을 저장하는 저장소 어댑터입니다.
+ * MCP 서버와 Node.js 호스트 애플리케이션이 같은 파일 접근 규칙을 사용할 수 있습니다.
  */
 import { randomBytes } from 'node:crypto';
 import { realpathSync } from 'node:fs';
@@ -37,40 +37,40 @@ import {
   type ListMetrics,
 } from './list-cache.js';
 
-/** 파일 암호화에 사용할 문자열 또는 32바이트 원시 키. */
+/** 파일 암호화에 사용할 암호 문구 또는 32바이트 원시 키입니다. */
 export type FileSystemStorageKey = string | Uint8Array;
 
-/** {@link FileSystemStorage} 생성 옵션 */
+/** {@link FileSystemStorage} 생성 옵션입니다. */
 export interface FileSystemStorageOptions {
   /**
-   * `.slip` 파일을 읽고 쓸 기준 디렉터리. 이 밖의 경로는 거부한다.
-   * 디렉터리 안에 있는 심볼릭 링크라도 실제 위치가 밖이면 거부한다.
+   * `.slip` 파일을 읽고 쓸 기준 디렉터리입니다. 이 디렉터리 밖의 경로는 거부합니다.
+   * 디렉터리 안에 있는 심볼릭 링크라도 실제 위치가 밖이면 거부합니다.
    */
   rootDir: string;
-  /** 오류 메시지 언어 (`ko`, `en`, `ja`). 기본 영어 */
+  /** 오류 메시지 언어(`ko`, `en`, `ja`)입니다. 기본값은 영어입니다. */
   locale?: string;
   /**
-   * 파일 암호화 설정. 지정하면 저장 시 암호화 봉투로 쓰고, 읽을 때는
-   * `key`와 `previousKeys`를 순서대로 시도해 복호화한다. 평문 파일은 그대로 읽는다.
+   * 파일 암호화 설정입니다. 지정하면 저장할 때 암호화 봉투로 쓰고, 읽을 때는
+   * `key`와 `previousKeys`를 순서대로 시도해 복호화합니다. 평문 파일은 그대로 읽습니다.
    */
   encryption?: { key: FileSystemStorageKey; previousKeys?: FileSystemStorageKey[] };
 }
 
-/** 목록 조회 한 페이지에 담는 항목 수 */
+/** 목록 조회 한 페이지에 담는 항목 수입니다. */
 const LIST_PAGE_SIZE = 50;
 
 /**
- * 지정한 디렉터리 안의 `.slip` 파일을 읽고 쓰는 {@link StorageAdapter} 구현.
+ * 지정한 디렉터리 안의 `.slip` 파일을 읽고 쓰는 {@link StorageAdapter} 구현입니다.
  *
- * 저장 키(id)는 기준 디렉터리에 대한 상대 경로다. 하위 디렉터리를 포함할 수 있고
- * `.slip` 확장자는 없으면 붙인다. 기준 디렉터리를 벗어나는 경로는 `io` 오류로 거부한다.
+ * 저장 키(id)는 기준 디렉터리에 대한 상대 경로입니다. 하위 디렉터리를 포함할 수 있고
+ * `.slip` 확장자는 없으면 붙입니다. 기준 디렉터리를 벗어나는 경로는 `io` 오류로 거부합니다.
  */
 export class FileSystemStorage implements StorageAdapter {
-  /** 기준 디렉터리의 절대 경로. 디렉터리가 있으면 심볼릭 링크를 푼 실제 경로다 */
+  /** 기준 디렉터리의 절대 경로입니다. 디렉터리가 있으면 심볼릭 링크를 해석한 실제 경로입니다. */
   readonly rootDir: string;
   private readonly locale: string | undefined;
   private readonly encryption: FileSystemStorageOptions['encryption'];
-  /** 목록 조회가 쓰는 인스턴스 메모리 캐시. 다른 인스턴스와 결과를 나누지 않는다 */
+  /** 목록 조회용 인스턴스 메모리 캐시입니다. 다른 인스턴스와 공유하지 않습니다. */
   private readonly listCache = new ListMetadataCache();
 
   /**
@@ -80,7 +80,7 @@ export class FileSystemStorage implements StorageAdapter {
     this.rootDir = realRootDir(options.rootDir);
     this.locale = options.locale;
     this.encryption = options.encryption;
-    // 계측 값은 공개 API를 늘리지 않으려고 열거되지 않는 심볼 속성으로만 노출한다.
+    // 측정값은 공개 API를 추가하지 않도록 열거되지 않는 심볼 속성으로만 제공합니다.
     Object.defineProperty(this, LIST_METRICS, {
       value: this.listCache.metrics,
       enumerable: false,
@@ -88,15 +88,15 @@ export class FileSystemStorage implements StorageAdapter {
   }
 
   /**
-   * 저장 키를 기준 디렉터리 안의 절대 경로로 변환한다.
+   * 저장 키를 기준 디렉터리 안의 절대 경로로 변환합니다.
    *
-   * @param id - 상대 경로 저장 키 (`.slip` 확장자는 없으면 붙인다)
+   * @param id - 상대 경로 저장 키입니다. `.slip` 확장자가 없으면 추가합니다.
    * @returns 절대 경로
    * @throws SlipStorageError 파일 이름이 비어 있거나 경로가 기준 디렉터리를 벗어나면 (`io`)
    */
   resolvePath(id: string): string {
     const withExt = id.endsWith('.slip') ? id : `${id}.slip`;
-    // 빈 id나 디렉터리로 끝나는 id는 이름 없는 `.slip` 파일을 만들므로 거부한다.
+    // 빈 ID나 디렉터리로 끝나는 ID는 이름 없는 `.slip` 파일을 만들므로 거부합니다.
     if (path.basename(withExt) === '.slip') {
       throw new SlipStorageError('io', mcpText(this.locale).emptyId(id));
     }
@@ -104,9 +104,9 @@ export class FileSystemStorage implements StorageAdapter {
   }
 
   /**
-   * `.slip` 파일을 저장한다. 같은 id가 이미 있으면 덮어쓴다.
-   * 암호화가 설정되어 있으면 암호화 봉투로 저장한다.
-   * 임시 파일에 쓴 뒤 이름을 바꿔 교체하므로 쓰기가 실패해도 기존 파일은 그대로 남는다.
+   * `.slip` 파일을 저장합니다. 같은 ID가 이미 있으면 덮어씁니다.
+   * 암호화가 설정되어 있으면 암호화 봉투로 저장합니다.
+   * 임시 파일에 쓴 뒤 이름을 바꿔 교체하므로 쓰기가 실패해도 기존 파일은 그대로 남습니다.
    *
    * @param id - 상대 경로 저장 키
    * @param file - 저장할 `.slip` 파일
@@ -127,7 +127,7 @@ export class FileSystemStorage implements StorageAdapter {
   }
 
   /**
-   * id의 `.slip` 파일을 읽는다. 암호화 봉투는 설정된 키로 복호화한다.
+   * ID가 가리키는 `.slip` 파일을 읽습니다. 암호화 봉투는 설정된 키로 복호화합니다.
    *
    * @param id - 상대 경로 저장 키
    * @returns 파싱·검증한 `.slip` 파일
@@ -151,7 +151,7 @@ export class FileSystemStorage implements StorageAdapter {
   }
 
   /**
-   * id의 파일을 삭제한다.
+   * ID가 가리키는 파일을 삭제합니다.
    *
    * @param id - 상대 경로 저장 키
    * @throws SlipStorageError 파일 없음(not-found), 경로 이탈 또는 삭제 실패(io) 시
@@ -171,22 +171,24 @@ export class FileSystemStorage implements StorageAdapter {
   }
 
   /**
-   * 기준 디렉터리(하위 디렉터리 포함)의 `.slip` 파일 목록을 반환한다.
-   * 읽거나 복호화할 수 없는 파일과 심볼릭 링크(링크된 디렉터리 안의 파일 포함)는 목록에서 제외한다.
+   * 기준 디렉터리(하위 디렉터리 포함)의 `.slip` 파일 목록을 반환합니다.
+   * 읽거나 복호화할 수 없는 파일과 심볼릭 링크(링크된 디렉터리 안의 파일 포함)는 목록에서 제외합니다.
    *
-   * 이름 탐색과 `lstat`은 조회할 때마다 다시 하고, 파일이 바뀌지 않았으면 본문을 다시 읽지 않는다.
-   * 한 페이지와 다음 페이지 존재 여부를 판정할 만큼 모이면 남은 후보는 열어 보지 않는다.
+   * 이름 탐색과 `lstat`은 조회할 때마다 다시 하고, 파일이 바뀌지 않았으면 본문을 다시 읽지 않습니다.
+   * 한 페이지와 다음 페이지 존재 여부를 판정할 만큼 모이면 남은 후보는 열어 보지 않습니다.
    *
    * @param filter - 종류·검색어 필터 (검색어는 제목과 경로에 부분 일치)
-   * @param cursor - 이전 페이지가 돌려준 nextCursor
+   * @param cursor - 이전 페이지가 반환한 nextCursor
    * @returns 목록 한 페이지 (경로순 정렬)
    * @throws SlipStorageError 디렉터리 조회 실패(io)·잘못된 커서(io) 시
    */
   async list(filter?: SlipListFilter, cursor?: string): Promise<SlipListPage> {
     const metrics = this.listCache.metrics;
     metrics.listCalls += 1;
-    const offset = cursor === undefined ? 0 : Number.parseInt(cursor, 10);
-    if (Number.isNaN(offset) || offset < 0) {
+    // 커서는 이 저장소가 직접 만든 10진 정수 문자열입니다. `12abc`처럼 뒤에 다른 글자가 붙은 값은
+    // 앞부분만 읽히지 않도록 전체가 정수일 때만 받습니다.
+    const offset = cursor === undefined ? 0 : /^\d+$/.test(cursor) ? Number(cursor) : Number.NaN;
+    if (!Number.isSafeInteger(offset) || offset < 0) {
       throw new SlipStorageError('io', mcpText(this.locale).badCursor());
     }
 
@@ -202,7 +204,7 @@ export class FileSystemStorage implements StorageAdapter {
       throw new SlipStorageError('io', reasonOf(error));
     }
     metrics.candidates += names.length;
-    // 이번 탐색에서 사라진 경로는 캐시에 남겨 두지 않는다.
+    // 이번 탐색에서 사라진 경로는 캐시에 남겨 두지 않습니다.
     this.listCache.retain(new Set(names));
 
     const stats = await statCandidates(
@@ -210,7 +212,7 @@ export class FileSystemStorage implements StorageAdapter {
       metrics,
     );
 
-    // 한 페이지와 다음 페이지 존재 여부를 판정할 만큼 모이면 남은 후보는 열어 보지 않는다.
+    // 한 페이지와 다음 페이지 존재 여부를 판정할 만큼 모이면 남은 후보는 열어 보지 않습니다.
     const needed = offset + LIST_PAGE_SIZE + 1;
     const items: SlipListItem[] = [];
     for (let index = 0; index < names.length && items.length < needed; index += 1) {
@@ -224,7 +226,7 @@ export class FileSystemStorage implements StorageAdapter {
       const item = result.item;
       if (filter?.kind !== undefined && item.kind !== filter.kind) continue;
       if (filter?.query !== undefined && !matchesQuery(item, filter.query)) continue;
-      // 호출자가 반환값을 바꿔도 내부 캐시와 다음 조회에 영향을 주지 않게 새 객체로 돌려준다.
+      // 호출자가 반환값을 바꿔도 내부 캐시와 다음 조회에 영향을 주지 않게 새 객체로 반환합니다.
       items.push({ ...item });
     }
 
@@ -236,14 +238,14 @@ export class FileSystemStorage implements StorageAdapter {
     };
   }
 
-  /** 후보 파일 하나를 목록 항목으로 해석한다. 목록에 넣을 수 없는 파일은 제외 결과가 된다. */
+  /** 후보 파일 하나를 목록 항목으로 해석합니다. 목록에 넣을 수 없는 파일은 제외 결과가 됩니다. */
   private async readListItem(name: string, info: CandidateStat): Promise<ListCacheResult> {
-    // 심볼릭 링크와 일반 파일이 아닌 항목은 본문을 열지 않고 제외한다.
+    // 심볼릭 링크와 일반 파일이 아닌 항목은 본문을 열지 않고 제외합니다.
     if (info.isSymbolicLink || !info.isFile) return { excluded: true };
     const metrics = this.listCache.metrics;
     try {
       const abs = this.resolvePath(name);
-      // 링크된 디렉터리를 거쳐 기준 디렉터리 밖에 닿는 경로는 본문을 읽기 전에 막는다.
+      // 링크된 디렉터리를 거쳐 기준 디렉터리 밖에 닿는 경로는 본문을 읽기 전에 막습니다.
       await assertInsideRootReal(this.rootDir, abs, this.locale, name);
       const text = await readFile(abs, 'utf8');
       metrics.bodyReads += 1;
@@ -257,14 +259,14 @@ export class FileSystemStorage implements StorageAdapter {
     }
   }
 
-  /** 절대 경로를 캐시 키로 쓰는 기준 디렉터리 기준 상대 경로로 바꾼다. */
+  /** 절대 경로를 캐시 키로 쓰는 기준 디렉터리 기준 상대 경로로 바꿉니다. */
   private cacheKey(abs: string): string {
     return path.relative(this.rootDir, abs);
   }
 
   /**
-   * 파일 내용을 파싱한다. 암호화 봉투는 설정된 키와 이전 키를 순서대로 시도한다.
-   * 계측 객체를 넘기면 파싱·복호화 횟수를 센다.
+   * 파일 내용을 파싱합니다. 암호화 봉투는 설정된 키와 이전 키를 순서대로 시도합니다.
+   * 측정 객체를 넘기면 파싱·복호화 횟수를 셉니다.
    */
   private async parseText(text: string, metrics?: ListMetrics): Promise<SlipFile> {
     if (!isEncryptedSlipFile(text)) {
@@ -295,7 +297,7 @@ export class FileSystemStorage implements StorageAdapter {
 }
 
 /**
- * 상대 경로를 기준 디렉터리 안의 절대 경로로 변환한다.
+ * 상대 경로를 기준 디렉터리 안의 절대 경로로 변환합니다.
  *
  * @param rootDir - 기준 디렉터리 (절대 경로)
  * @param relPath - 변환할 상대 경로
@@ -311,14 +313,14 @@ export function resolveInRoot(rootDir: string, relPath: string, locale?: string)
   return abs;
 }
 
-/** 절대 경로가 기준 디렉터리 자신이거나 그 밖에 있는지 문자열 기준으로 판정한다. */
+/** 절대 경로가 기준 디렉터리 자체이거나 기준 디렉터리 밖에 있는지 문자열로 판정합니다. */
 function escapesRoot(rootDir: string, abs: string): boolean {
   const rel = path.relative(rootDir, abs);
-  // `..foo`처럼 점 두 개로 시작하는 정상 이름은 상위 디렉터리 참조가 아니다.
+  // `..foo`처럼 점 두 개로 시작하는 정상 이름은 상위 디렉터리 참조가 아닙니다.
   return rel === '' || rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel);
 }
 
-/** 기준 디렉터리를 절대 경로로 만들고, 디렉터리가 있으면 심볼릭 링크를 푼 실제 경로로 바꾼다. */
+/** 기준 디렉터리를 절대 경로로 만들고, 디렉터리가 있으면 심볼릭 링크를 푼 실제 경로로 바꿉니다. */
 function realRootDir(rootDir: string): string {
   const resolved = path.resolve(rootDir);
   try {
@@ -328,18 +330,18 @@ function realRootDir(rootDir: string): string {
   }
 }
 
-/** Node 파일 오류가 경로의 일부가 없거나 디렉터리가 아니라는 뜻인지 판별한다. */
+/** Node 파일 오류가 경로의 일부가 없거나 디렉터리가 아니라는 뜻인지 판별합니다. */
 function isMissingPath(error: unknown): boolean {
   const code = (error as { code?: unknown } | null)?.code;
   return code === 'ENOENT' || code === 'ENOTDIR';
 }
 
 /**
- * 경로의 심볼릭 링크를 풀어 실제 경로를 구한다. 아직 없는 꼬리 부분은 가장 가까운
- * 존재하는 상위 경로의 실제 경로 뒤에 그대로 붙인다.
+ * 경로의 심볼릭 링크를 풀어 실제 경로를 구합니다. 아직 없는 꼬리 부분은 가장 가까운
+ * 존재하는 상위 경로의 실제 경로 뒤에 그대로 붙입니다.
  *
  * @param abs - 절대 경로
- * @param followTargetLink - true면 경로 자체가 링크여도 따라가 실제 경로를 구한다 (기준 디렉터리용)
+ * @param followTargetLink - true이면 경로 자체가 링크여도 따라가 실제 경로를 구합니다. 기준 디렉터리에 사용합니다.
  * @returns 실제 경로와, 경로가 가리키는 항목 자체가 심볼릭 링크인지 여부
  */
 async function realizePath(
@@ -351,7 +353,7 @@ async function realizePath(
   for (;;) {
     try {
       const info = await lstat(current);
-      // 대상 자체가 링크면 가리키는 곳이 없어도(단절된 링크) 링크라는 사실만으로 충분하다.
+      // 대상 자체가 링크면 가리키는 곳이 없어도(단절된 링크) 링크라는 사실만으로 충분합니다.
       if (current === abs && info.isSymbolicLink() && !followTargetLink) {
         return { real: abs, isLink: true };
       }
@@ -359,7 +361,7 @@ async function realizePath(
     } catch (error) {
       if (!isMissingPath(error)) throw error;
       const parent = path.dirname(current);
-      // 파일 시스템 루트까지 없으면 더 올라갈 곳이 없다.
+      // 파일 시스템 루트까지 없으면 더 올라갈 곳이 없습니다.
       if (parent === current) break;
       rest.unshift(path.basename(current));
       current = parent;
@@ -369,10 +371,10 @@ async function realizePath(
 }
 
 /**
- * 절대 경로가 실제로도 기준 디렉터리 안에 있는지 확인한다. {@link resolveInRoot}의 문자열 검사와
+ * 절대 경로가 실제로도 기준 디렉터리 안에 있는지 확인합니다. {@link resolveInRoot}의 문자열 검사와
  * 달리 심볼릭 링크를 풀어 판정하므로, 기준 디렉터리 안에 있는 링크를 거쳐 밖의 파일에 닿는 경로를
- * 막는다. 대상 자체가 링크면 어디를 가리키든 거부하고, 아직 없는 경로는 가장 가까운 존재하는
- * 상위 경로의 실제 위치로 판정한다. 파일을 읽고 쓰기 직전에 호출한다.
+ * 막습니다. 대상 자체가 링크면 어디를 가리키든 거부하고, 아직 없는 경로는 가장 가까운 존재하는
+ * 상위 경로의 실제 위치로 판정합니다. 파일을 읽고 쓰기 직전에 호출합니다.
  *
  * @param rootDir - 기준 디렉터리 (절대 경로)
  * @param abs - {@link resolveInRoot}를 통과한 절대 경로
@@ -400,9 +402,9 @@ export async function assertInsideRootReal(
 }
 
 /**
- * 파일을 원자적으로 쓴다. 같은 디렉터리의 임시 파일에 먼저 쓰고 이름을 바꿔 교체하므로
- * 도중에 실패해도 대상 파일은 이전 내용 그대로 남고, 임시 파일은 정리한다.
- * 부모 디렉터리가 없으면 만든다.
+ * 파일을 원자적으로 씁니다. 같은 디렉터리의 임시 파일에 먼저 쓰고 이름을 바꿔 교체하므로
+ * 도중에 실패해도 대상 파일은 이전 내용 그대로 남고, 임시 파일은 정리합니다.
+ * 부모 디렉터리가 없으면 만듭니다.
  *
  * @param abs - 대상 파일의 절대 경로
  * @param data - 쓸 내용 (문자열은 UTF-8)
@@ -410,7 +412,7 @@ export async function assertInsideRootReal(
  */
 export async function writeFileAtomic(abs: string, data: string | Uint8Array): Promise<void> {
   await mkdir(path.dirname(abs), { recursive: true });
-  // 임시 파일은 `.slip`·`.pdf`로 끝나지 않아 목록 조회나 링크 서버에 노출되지 않는다.
+  // 임시 파일은 `.slip`·`.pdf`로 끝나지 않아 목록 조회나 링크 서버에 노출되지 않습니다.
   const temp = `${abs}.${process.pid}-${randomBytes(6).toString('hex')}.tmp`;
   try {
     await writeFile(temp, data, typeof data === 'string' ? 'utf8' : undefined);
@@ -421,14 +423,14 @@ export async function writeFileAtomic(abs: string, data: string | Uint8Array): P
   }
 }
 
-/** 항목의 제목 또는 경로에 검색어가 부분 일치하는지 확인한다. */
+/** 항목의 제목 또는 경로에 검색어가 부분 일치하는지 확인합니다. */
 function matchesQuery(item: SlipListItem, query: string): boolean {
   const q = query.toLowerCase();
   return item.title.toLowerCase().includes(q) || item.id.toLowerCase().includes(q);
 }
 
 /**
- * Node 파일 오류가 "파일 없음"인지 판별한다.
+ * Node 파일 오류가 "파일 없음"인지 판별합니다.
  *
  * @param error - 확인할 오류
  * @returns `ENOENT` 오류면 true
@@ -442,12 +444,12 @@ export function isNotFound(error: unknown): boolean {
   );
 }
 
-/** 오류 값을 도구 응답에 넣을 문자열로 변환한다. */
+/** 오류 값을 도구 응답에 넣을 문자열로 변환합니다. */
 export function reasonOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** 파일 저장소 오류 문구. 영어를 기본으로 한국어와 일본어를 지원한다. */
+/** 파일 저장소 오류 문구입니다. 영어를 기본으로 한국어와 일본어를 지원합니다. */
 const MCP_TEXT = {
   en: {
     notFound: (id: string) => `No saved file: ${id}`,
@@ -462,7 +464,7 @@ const MCP_TEXT = {
     outsideRoot: (id: string) => `작업 디렉터리 밖의 경로입니다: ${id}`,
     emptyId: (id: string) => `파일 이름이 비어 있습니다: "${id}"`,
     encryptedNoKey: () =>
-      '암호화된 파일인데 설정된 키가 없습니다. SLIPKIT_MCP_KEY 환경변수를 설정하세요.',
+      '파일이 암호화되어 있지만 설정된 키가 없습니다. SLIPKIT_MCP_KEY 환경 변수를 설정하세요.',
     badCursor: () => '잘못된 목록 커서입니다',
   },
   ja: {
@@ -475,7 +477,7 @@ const MCP_TEXT = {
   },
 } as const;
 
-/** 로케일에 맞는 문구 사전을 반환한다 (기본 영어). */
+/** 로케일에 맞는 문구 사전을 반환합니다. 기본 언어는 영어입니다. */
 function mcpText(locale: string | undefined): (typeof MCP_TEXT)['en'] {
   const lang = locale?.toLowerCase().split('-')[0];
   if (lang === 'ko') return MCP_TEXT.ko;

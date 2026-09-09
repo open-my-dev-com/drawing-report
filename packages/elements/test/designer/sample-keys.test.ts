@@ -73,7 +73,7 @@ function byAria(el: Element, label: string): HTMLButtonElement {
 function inputByAria(el: Element, label: string): HTMLInputElement {
   const found = Array.from(el.shadowRoot!.querySelectorAll('.modal input'))
     .find((i) => i.getAttribute('aria-label') === label);
-  if (!found) throw new Error(`입력칸을 찾지 못했습니다: ${label}`);
+  if (!found) throw new Error(`입력란을 찾지 못했습니다: ${label}`);
   return found as HTMLInputElement;
 }
 
@@ -93,7 +93,7 @@ async function openSampleModal(el: Designer): Promise<void> {
   await el.updateComplete;
 }
 
-/** 프로토타입 이름 키 3개를 스칼라 파라미터로 선언하고 필드 요소가 각각 참조하는 양식 */
+/** 프로토타입 이름 키 3개를 스칼라 파라미터로 선언하고 필드 요소가 각각 참조하는 양식입니다. */
 function makeScalarFile(): SlipTemplateFile {
   const file = makeTemplateFile();
   file.template.parameters = PROTO_KEYS.map((key) => ({ key }));
@@ -104,7 +104,7 @@ function makeScalarFile(): SlipTemplateFile {
   return file;
 }
 
-/** 목록 파라미터 `items`의 하위 필드로 프로토타입 이름 키를 쓰는 반복 그리드 양식 */
+/** 목록 파라미터 `items`의 하위 필드로 프로토타입 이름 키를 쓰는 반복 그리드 양식입니다. */
 function makeListFile(fieldKeys: readonly string[] = PROTO_KEYS): SlipTemplateFile {
   const file = makeTemplateFile();
   file.template.parameters = [
@@ -168,7 +168,7 @@ describe('own-map 도우미', () => {
     );
   });
 
-  it('deleteOwn은 자체 속성만 지우고 물려받은 속성은 건드리지 않는다', () => {
+  it('deleteOwn은 자체 속성만 지우고 상속받은 속성은 변경하지 않는다', () => {
     const record = json('{"__proto__": 1, "b": 2}');
     deleteOwn(record, '__proto__');
     deleteOwn(record, 'constructor');
@@ -221,7 +221,7 @@ describe('renameParameterReferences 샘플 키', () => {
     expect(hasOwn(samples, next)).toBe(true);
     expect(Object.getPrototypeOf(samples)).toBe(Object.prototype);
 
-    // 되돌리면 원래 모양으로 돌아옵니다.
+    // 되돌리면 변경 전 상태로 돌아옵니다.
     renameParameterReferences(file, next, 'amount');
     expect(entriesOwn(file.template.sampleValues as Record<string, unknown>))
       .toEqual([['a', 1], ['amount', 5], ['z', 9]]);
@@ -282,7 +282,7 @@ describe('renameSampleFieldKey', () => {
 describe('<slip-designer> 샘플 데이터의 프로토타입 이름 키', () => {
   const JSON_BODY = '{"__proto__": 7, "constructor": "c", "toString": "t", "items": [{"__proto__": 1, "name": "x", "toString": "row"}]}';
 
-  /** 스칼라 3개와 목록 `items`(하위 필드 `__proto__`·`name`·`toString`)를 함께 선언한 양식 */
+  /** 스칼라 3개와 목록 `items`(하위 필드 `__proto__`·`name`·`toString`)를 함께 선언한 양식입니다. */
   function makeJsonFile(): SlipTemplateFile {
     const file = makeListFile(['__proto__', 'name', 'toString']);
     file.template.parameters!.push(...PROTO_KEYS.map((key) => ({ key })));
@@ -304,7 +304,7 @@ describe('<slip-designer> 샘플 데이터의 프로토타입 이름 키', () =>
     await el.updateComplete;
   }
 
-  /** 자체 속성만 깊이 비교할 수 있도록 JSON으로 다시 만든 값 */
+  /** 자체 속성만 깊이 비교할 수 있도록 JSON으로 다시 만든 값입니다. */
   const plain = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
 
   it('JSON 편집으로 넣은 값을 입력한 그대로 순서까지 보관하고 변경 이벤트와 저장 본문에도 남긴다', async () => {
@@ -328,7 +328,7 @@ describe('<slip-designer> 샘플 데이터의 프로토타입 이름 키', () =>
     expect(plain(emitted)).toEqual(json(JSON_BODY));
     expect(plain(JSON.parse(JSON.stringify(fileOf(el))).template.sampleValues)).toEqual(json(JSON_BODY));
 
-    // 폼 편집으로 돌아오면 입력칸에 그 값이 보입니다 (물려받은 함수가 아니라).
+    // 폼 편집으로 돌아오면 입력란에 해당 값이 표시됩니다. 상속된 함수는 표시하지 않습니다.
     byAria(el, `${strings.designer.sampleData}: ${strings.designer.formMode}`).click();
     await el.updateComplete;
     expect(inputByAria(el, `${strings.designer.sampleData} __proto__`).value).toBe('7');
@@ -459,7 +459,7 @@ describe('<slip-designer> 샘플 데이터의 프로토타입 이름 키', () =>
     el.remove();
   });
 
-  it('JSON 초안 뼈대와 수식 검사용 값은 프로토타입 이름 키를 선언대로 채우고 기존 값을 잃지 않는다', async () => {
+  it('JSON 초안의 기본 구조와 수식 검사용 값은 프로토타입 이름 키를 선언대로 채우고 기존 값을 잃지 않는다', async () => {
     const file = makeTemplateFile();
     file.template.parameters = [
       { key: 'constructor' },
@@ -520,7 +520,7 @@ describe('<slip-designer> 샘플 데이터의 프로토타입 이름 키', () =>
     expect(gridCellMergeText(ctx, cell('__proto__'), json('{"__proto__": 0}'))).toBe('0');
   });
 
-  it('캔버스 미리보기는 값이 없는 프로토타입 이름 셀에 자리표시자를 보이고 값이 있으면 그 값을 보인다', async () => {
+  it('캔버스 미리보기는 값이 없는 프로토타입 이름 셀에 자리 표시자를 보이고 값이 있으면 그 값을 보인다', async () => {
     const el = await mountWith(makeListFile());
     // 선택한 그리드는 원본 행 구조를 보이므로 항목 구간 셀에 첫 샘플 항목이 적용됩니다.
     selectElement(el, 'g-items');
@@ -581,9 +581,9 @@ describe('<slip-designer> 샘플 데이터의 프로토타입 이름 키', () =>
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 샘플 JSON 초안은 기존 값의 모양과 미정의 키를 그대로 둔다', () => {
-  /** 정의에 없는 키, 프로토타입 이름 키, 비배열 목록 값, 빈 배열, 원시값·null·일부 필드만 있는 행을 함께 둔 샘플 */
+  /** 정의에 없는 키, 프로토타입 이름 키, 비배열 목록 값, 빈 배열, 원시값·null·일부 필드만 있는 행을 함께 둔 샘플입니다. */
   const SAMPLE = '{"z": 1, "__proto__": 7, "constructor": "c", "items": "text", "rows": [], "flags": [1, null, {"name": "x"}], "a.b": {"__proto__": "n", "toString": "s"}}';
-  /** 폼 → JSON 초안: 기존 키는 순서대로, 선언됐지만 없는 toString만 끝에 빈 값으로 덧붙는다 */
+  /** 폼에서 만든 JSON 초안입니다. 기존 키의 순서를 유지하고, 선언됐지만 값이 없는 toString만 끝에 빈 값으로 추가합니다. */
   const DRAFT = SAMPLE.slice(0, -1) + ', "toString": ""}';
   const plain = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
 
@@ -628,7 +628,7 @@ describe('<slip-designer> 샘플 JSON 초안은 기존 값의 모양과 미정�
     const draft = json(jsonTextarea(el).value);
     expect(Object.keys(draft)).toEqual(['z', '__proto__', 'constructor', 'items', 'rows', 'flags', 'a.b', 'toString']);
     expect(plain(draft)).toEqual(json(DRAFT));
-    // 비배열 목록 값·빈 배열·원시값·null·일부 필드만 있는 행이 그대로다.
+    // 비배열 목록 값·빈 배열·원시값·null·일부 필드만 있는 행이 그대로입니다.
     expect(readOwn(draft, 'items')).toBe('text');
     expect(readOwn(draft, 'rows')).toEqual([]);
     expect(plain(readOwn(draft, 'flags'))).toEqual([1, null, { name: 'x' }]);
@@ -655,7 +655,7 @@ describe('<slip-designer> 샘플 JSON 초안은 기존 값의 모양과 미정�
     expect(hasOwn(samples, '__proto__')).toBe(true);
     expect(hasOwn(readOwn(samples, 'a.b') as Record<string, unknown>, '__proto__')).toBe(true);
 
-    // 변경 이벤트의 복제본, 직렬화 본문, core 파서를 거친 결과가 모두 같다.
+    // 변경 이벤트의 복제본, 직렬화 본문, core 파서를 거친 결과가 모두 같습니다.
     const emitted = changes.at(-1)!.template.sampleValues as Record<string, unknown>;
     expect(Object.keys(emitted)).toEqual(Object.keys(samples));
     expect(plain(emitted)).toEqual(json(DRAFT));
@@ -666,7 +666,7 @@ describe('<slip-designer> 샘플 JSON 초안은 기존 값의 모양과 미정�
     expect(Object.keys(reparsed.template.sampleValues as object)).toEqual(Object.keys(samples));
     expect(plain(reparsed.template.sampleValues)).toEqual(json(DRAFT));
 
-    // 다시 JSON 초안을 열어도 같은 본문이다.
+    // 다시 JSON 초안을 열어도 같은 본문입니다.
     await toFormMode(el);
     await toJsonMode(el);
     expect(json(jsonTextarea(el).value)).toEqual(json(DRAFT));

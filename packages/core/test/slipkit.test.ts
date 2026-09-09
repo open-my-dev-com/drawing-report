@@ -31,12 +31,12 @@ describe('createSlipKit (ADR-056)', () => {
     expect(voucher.values.total).toBe(100);
   });
 
-  it('evaluate는 수식을 계산하고, 컨텍스트에 로케일이 없으면 설정 로케일을 쓴다', () => {
+  it('evaluate는 수식을 계산하고, 계산 문맥에 로케일이 없으면 설정 로케일을 쓴다', () => {
     const slip = createSlipKit({ locale: 'de-DE' });
     expect(slip.evaluate('SUM($(items).$(amount))', { values: { items: { amount: [1000, 2000] } } })).toBe(3000);
-    // 컨텍스트에 로케일이 없으면 SlipKit 설정을 사용한다.
+    // 계산 문맥에 로케일이 없으면 SlipKit 설정을 사용합니다.
     expect(slip.evaluate('FORMAT_NUMBER(1234.5)', { values: {} })).toBe('1.234,5');
-    // 평가 컨텍스트의 로케일이 SlipKit 설정보다 우선한다.
+    // 계산 문맥의 로케일이 SlipKit 설정보다 우선합니다.
     expect(slip.evaluate('FORMAT_NUMBER(1234.5)', { values: {}, locale: 'ko-KR' })).toBe('1,234.5');
   });
 
@@ -94,12 +94,12 @@ describe('createSlipKit (ADR-056)', () => {
   it('encrypt는 인자 키로 설정 키를 덮어쓴다', async () => {
     const slip = createSlipKit({ encryption: { key: 'cfg' } });
     const locked = await slip.encrypt(template(), 'override');
-    // 호출 시 전달한 키가 SlipKit 기본 키보다 우선한다.
+    // 호출 시 전달한 키가 SlipKit 기본 키보다 우선합니다.
     await expect(slip.decrypt(locked)).rejects.toBeInstanceOf(SlipEncryptionError);
     expect(await slip.decrypt(locked, 'override')).toEqual(template());
   });
 
-  it('decrypt는 previousKeys로 옛 키로 잠근 파일을 푼다 (키 회전)', async () => {
+  it('decrypt는 previousKeys로 옛 키로 잠근 파일을 푼다(키 회전)', async () => {
     const locked = await createSlipKit({ encryption: { key: 'old' } }).encrypt(template());
     const rotated = createSlipKit({ encryption: { key: 'new', previousKeys: ['old'] } });
     expect(await rotated.decrypt(locked)).toEqual(template());

@@ -1,8 +1,8 @@
-/** 수식을 파싱할 수 없을 때 발생하는 오류. */
+/** 수식을 파싱할 수 없을 때 발생하는 오류입니다. */
 export class FormulaSyntaxError extends Error {
   constructor(
     message: string,
-    /** 수식 문자열에서 오류가 발생한 위치의 0부터 시작하는 인덱스. */
+    /** 수식 문자열에서 오류가 발생한 위치의 0부터 시작하는 인덱스입니다. */
     readonly position: number,
   ) {
     super(message);
@@ -15,26 +15,26 @@ export class FormulaSyntaxError extends Error {
  * 오류 문구 비교에는 사용하지 않습니다.
  */
 export type FormulaEvalReason =
-  /** 현재 평가 문맥에 필요한 값이나 예약 범위가 없음 */
+  /** 현재 평가 문맥에 필요한 값이나 예약 범위가 없습니다. */
   | 'data'
-  /** 현재 평가에 사용한 값이 연산 또는 함수의 조건을 충족하지 않음 */
+  /** 현재 평가에 사용한 값이 연산 또는 함수의 조건을 충족하지 않습니다. */
   | 'value'
-  /** 현재 평가에서 수식 구성에 관한 오류로 분류됨 */
+  /** 현재 평가에서 수식 구성에 관한 오류로 분류됩니다. */
   | 'formula';
 
 /**
  * 오류를 일으킨 값이 데이터에서 왔는지 기록합니다.
  *
  * @remarks
- * 오류 객체의 공개 표면에 두면 밖에서 판정을 바꿀 수 있으므로 모듈 안에만 둔다.
+ * 오류 객체의 공개 속성에 두면 외부에서 판정을 바꿀 수 있으므로 모듈 안에만 둡니다.
  */
 const fromDataOf = new WeakMap<FormulaEvalError, boolean>();
 
-/** 파싱한 수식을 평가할 수 없을 때 발생하는 오류. */
+/** 파싱한 수식을 평가할 수 없을 때 발생하는 오류입니다. */
 export class FormulaEvalError extends Error {
   constructor(
     message: string,
-    /** 평가에 실패한 까닭의 종류 */
+    /** 평가에 실패한 이유의 종류입니다. */
     readonly reason: FormulaEvalReason = 'value',
   ) {
     super(message);
@@ -56,7 +56,7 @@ export class FormulaEvalError extends Error {
 }
 
 /**
- * 값이 잘못돼 계산하지 못한 오류를 만든다.
+ * 값이 잘못되어 계산하지 못한 오류를 만듭니다.
  *
  * @param message - 사용자에게 보여 줄 오류 문구
  * @param fromData - 오류를 일으킨 값이 참조를 통해 데이터에서 왔는지

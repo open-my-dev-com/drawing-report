@@ -36,7 +36,7 @@ installDesignerTestEnv();
 
 const s = strings.designer;
 
-/** 수식을 가진 필드 하나 — 모달 진입점으로 씁니다 */
+/** 수식 모달을 여는 데 사용하는 필드입니다. */
 const FIELD = {
   type: 'field', id: 'f1', name: '합계', position: { x: 10, y: 10 },
   width: 40, height: 8, formula: '1 + 1',
@@ -86,7 +86,7 @@ function footButton(el: Designer, label: string): HTMLButtonElement {
     .find((b) => b.textContent?.trim() === label)!;
 }
 
-/** 필드를 고르고 수식 모달을 엽니다 */
+/** 필드를 고르고 수식 모달을 엽니다. */
 async function openModal(el: Designer): Promise<void> {
   selectElement(el, 'f1');
   await el.updateComplete;
@@ -97,19 +97,19 @@ async function openModal(el: Designer): Promise<void> {
   await el.updateComplete;
 }
 
-/** 함수 목록에서 이름으로 함수를 골라 상세를 폅니다 */
+/** 함수 목록에서 이름으로 함수를 골라 상세를 폅니다. */
 async function pickFunction(el: Designer, name: string): Promise<void> {
   queryAll<HTMLButtonElement>(el, '.fn-row')
     .find((b) => b.getAttribute('aria-label') === name)!.click();
   await el.updateComplete;
 }
 
-/** 함수 목록에 남은 이름 */
+/** 함수 목록에 남은 이름입니다. */
 function listedNames(el: Designer): string[] {
   return queryAll(el, '.fn-row').map((b) => b.getAttribute('aria-label')!);
 }
 
-/** `a`가 `b`보다 문서 순서에서 앞인지 */
+/** `a`가 `b`보다 문서 순서에서 앞인지 나타냅니다. */
 function precedes(a: Element, b: Element): boolean {
   return (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 }

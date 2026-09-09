@@ -8,36 +8,37 @@
  */
 
 import type { ConditionalFormatRule, GridElement, SlipPage } from '@omdc-slipkit/core';
+import { isBlankFormula } from '../formula-blank.js';
 import type { FormulaCheck } from './formula-check.js';
 import type { FormulaTarget } from './formula-target.js';
 
-/** 계산되지 않는 수식·조건식 한 자리와 그 원인 */
+/** 계산되지 않는 수식·조건식의 위치와 원인입니다. */
 interface FormulaWarningDetail {
-  /** 계산되지 않는 자리 */
+  /** 계산되지 않는 자리입니다. */
   readonly target: FormulaTarget;
-  /** 계산에 실패한 원인 — 파서·평가기가 낸 오류 문구. 문구가 없으면 빈 값 */
+  /** 파서나 평가기가 반환한 계산 실패 원인입니다. 문구가 없으면 빈 문자열입니다. */
   readonly message: string;
 }
 
-/** 경고가 있는 요소와 그리드 셀 */
+/** 경고가 있는 요소와 그리드 셀입니다. */
 export interface FormulaWarnings {
-  /** 경고가 있는 요소 id */
+  /** 경고가 있는 요소 ID입니다. */
   readonly elements: ReadonlySet<string>;
-  /** 그리드 id별로 경고가 있는 셀 자리 ({@link warningCellKey}) */
+  /** 그리드 ID별로 경고가 있는 셀 자리 ({@link warningCellKey})입니다. */
   readonly cells: ReadonlyMap<string, ReadonlySet<string>>;
-  /** 계산되지 않는 자리와 원인 (요소·셀·규칙 순) */
+  /** 계산되지 않는 위치와 원인을 요소·셀·규칙 순서로 담습니다. */
   readonly details: readonly FormulaWarningDetail[];
 }
 
-/** 경고 집계에 필요한 것 */
+/** 수식 경고를 모을 때 필요한 입력입니다. */
 export interface FormulaWarningInput {
-  /** 검사할 양식 페이지 */
+  /** 검사할 양식 페이지입니다. */
   page: SlipPage;
   /**
    * 저장된 수식 하나를 지금 값으로 검사합니다.
    *
    * @remarks
-   * 반복 그리드 셀은 샘플 항목마다 결과가 다르므로 여러 결과를 돌려줄 수 있습니다.
+   * 반복 그리드 셀은 샘플 항목마다 결과가 다르므로 여러 결과를 반환할 수 있습니다.
    *
    * @param target - 검사할 자리
    * @param source - 저장된 수식·조건식
@@ -52,26 +53,27 @@ export function warningCellKey(row: number, column: number): string {
   return `${row},${column}`;
 }
 
-/** 경고로 모으는 검사 상태 — 문법 오류, 계산 실패, 지금 값으로 계산 불가 */
+/** 경고로 수집하는 검사 상태입니다. 문법 오류, 계산 실패, 현재 값으로 계산할 수 없는 상태가 해당합니다. */
 const FAILING: ReadonlySet<FormulaCheck['status']> = new Set(['syntax-error', 'formula-error', 'not-computable']);
 
-/** 경고 없음 */
+/** 경고가 없는 상태입니다. */
 export const NO_FORMULA_WARNINGS: FormulaWarnings = { elements: new Set(), cells: new Map(), details: [] };
 
 /**
  * 페이지에 저장된 수식·조건식을 모두 검사해 경고 대상을 모읍니다.
  *
  * @param input - 검사할 페이지와 검사 함수
- * @returns 경고가 있는 요소 id와 그리드별 셀 자리
+ * @returns 경고가 있는 요소 ID와 그리드별 셀 자리
  */
 export function collectFormulaWarnings(input: FormulaWarningInput): FormulaWarnings {
   const elements = new Set<string>();
   const cells = new Map<string, Set<string>>();
   const details: FormulaWarningDetail[] = [];
 
-  /** 한 자리를 검사해 계산되지 않으면 원인을 기록하고 참을 돌려줍니다. */
+  /** 한 위치를 검사해 계산할 수 없으면 원인을 기록하고 `true`를 반환합니다. */
   const fails = (target: FormulaTarget, source: string | undefined, condition: boolean): boolean => {
-    if (source === undefined || source.trim() === '') return false;
+    // 빈 수식은 PDF 변환이 빈 값으로 그리므로 경고 대상이 아닙니다.
+    if (source === undefined || isBlankFormula(source)) return false;
     const failed = input.check(target, source, condition).find((check) => FAILING.has(check.status));
     if (failed === undefined) return false;
     details.push({ target, message: failed.detail ?? '' });
@@ -107,7 +109,7 @@ export function collectFormulaWarnings(input: FormulaWarningInput): FormulaWarni
   return { elements, cells, details };
 }
 
-/** 조건부 서식 규칙 목록. 규칙을 가지지 않는 종류면 빈 목록 */
+/** 조건부 서식 규칙 목록. 규칙을 가지지 않는 종류면 빈 목록입니다. */
 function rulesOf(source: object): readonly ConditionalFormatRule[] {
   return 'conditionalFormats' in source
     ? ((source as { conditionalFormats?: ConditionalFormatRule[] }).conditionalFormats ?? [])

@@ -1,5 +1,5 @@
 /**
- * 선택 속성(생략 가능한 키)을 쓰고 지우는 공통 처리.
+ * 선택 속성(생략할 수 있는 키)을 쓰고 지우는 공통 처리입니다.
  *
  * @remarks
  * 스키마가 `undefined`를 허용하지 않으므로 값을 비울 때는 키 자체를 지웁니다.
@@ -24,7 +24,7 @@ export function setOptional(target: object, key: string, value: unknown): void {
 
 /**
  * 셀 또는 바코드의 값 소스를 바꾸기 전에 `content`, `parameter`, `formula`를 제거합니다.
- * 호출부는 제거 후 사용할 소스 하나만 설정합니다 (SPEC §5.6/§5.7).
+ * 호출부는 제거 후 사용할 소스 하나만 설정합니다(SPEC §5.6/§5.7).
  *
  * @param record - content·parameter·formula를 가질 수 있는 셀 또는 요소
  */

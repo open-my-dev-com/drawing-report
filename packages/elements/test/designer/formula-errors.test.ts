@@ -41,7 +41,7 @@ const SAMPLE_ITEMS = [
   { itemName: '지우개', amount: 200, qty: 0 },
 ];
 
-/** 항목 구간 셀에 계산되지 않는 수식이 있는 반복 그리드 */
+/** 항목 구간 셀에 계산되지 않는 수식이 있는 반복 그리드입니다. */
 function makeGrid(formula: string): Record<string, unknown> {
   return {
     type: 'grid', id: 'g1', name: '품목 표', position: { x: 10, y: 10 },
@@ -86,7 +86,7 @@ function fileOf(el: Designer): SlipTemplateFile {
   return (el as unknown as { _file: SlipTemplateFile })._file;
 }
 
-/** 캔버스의 그리드 셀 가운데 수식 오류 표시가 있는 것 */
+/** 캔버스에서 수식 오류가 표시된 그리드 셀을 찾습니다. */
 function errorCells(el: Designer): HTMLElement[] {
   return Array.from(el.shadowRoot!.querySelectorAll<HTMLElement>('.grid-cell.formula-error'));
 }
@@ -95,7 +95,7 @@ function warningList(el: Designer): HTMLElement | null {
   return el.shadowRoot!.querySelector('#formula-warnings');
 }
 
-/** core 평가기가 같은 값으로 내는 오류 문구 — PDF 변환도 같은 문구를 알립니다 */
+/** Core 평가기가 같은 값으로 내는 오류 문구를 반환합니다. PDF 변환도 같은 문구를 사용합니다. */
 function coreMessage(formula: string, values: Record<string, unknown>): string {
   try {
     evaluateFormula(formula, { values });
@@ -172,7 +172,7 @@ describe('<slip-designer> 계산되지 않는 수식의 캔버스 표시', () =>
   it('계산되는 수식으로 고치면 오류 표시와 목록이 사라진다', async () => {
     const el = await mountFile([makeGrid('1 / 0')], { items: SAMPLE_ITEMS });
     expect(warningList(el)).not.toBeNull();
-    // 항목 두 벌 모두 계산되지 않습니다.
+    // 항목 두 개 모두 계산되지 않습니다.
     expect(errorCells(el)).toHaveLength(2);
 
     (el as unknown as { _updateFile: (fn: (f: SlipTemplateFile) => void) => void })._updateFile((f) => {

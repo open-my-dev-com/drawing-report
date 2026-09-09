@@ -1,35 +1,35 @@
 /**
- * `font-requests` 픽스처 페이지를 Playwright Chromium에서 단계별로 돌리며 네트워크 요청을 나눠 기록한다.
+ * `font-requests` 시험 페이지를 Playwright Chromium에서 단계별로 실행하며 네트워크 요청을 나눠 기록합니다.
  *
- * `scripts/bench-fonts.mjs`(계측)와 `scripts/verify-packages.mjs`(검증)가 같은 페이지·같은 단계 프로토콜을
- * 공유하도록 여기에 둔다. 페이지는 `window.__fontBench.runPhase(name)`으로 단계를 실행하고
- * `{ ms, heapBefore, heapAfter, detail }`을 돌려준다 (`scripts/verify-packages/fixtures/font-requests/main.ts`).
+ * `scripts/bench-fonts.mjs`(측정)와 `scripts/verify-packages.mjs`(검증)가 같은 페이지·같은 단계 프로토콜을
+ * 공유하도록 여기에 둡니다. 페이지는 `window.__fontBench.runPhase(name)`으로 단계를 실행하고
+ * `{ ms, heapBefore, heapAfter, detail }`을 반환합니다(`scripts/verify-packages/fixtures/font-requests/main.ts`).
  *
- * - 시나리오마다 새 브라우저 컨텍스트를 만들고 CDP `Network.setCacheDisabled(true)`로 캐시를 끈다 — 매번 cold.
+ * - 시나리오마다 새 브라우저 컨텍스트를 만들고 CDP `Network.setCacheDisabled(true)`로 캐시를 끕니다.
  * - 요청은 `requestfinished`의 `request.sizes()`로 전송 바이트(`responseBodySize` — 서버가 압축했으면 압축된 크기)·헤더
  *   바이트를 모으고,
- *   단계를 시작할 때 바꾸는 현재 단계 이름으로 나눈다. 단계가 끝나면 진행 중인 요청이 없는 상태가 500ms 이어질 때까지
- *   기다린다 (Playwright의 `networkidle`은 PDF iframe이 열리면 도달하지 않을 수 있어 쓰지 않는다).
- * - `http(s):`와 `blob:` 요청만 기록한다. `blob:`은 뷰어·폼이 만든 PDF iframe이다 (`pdf-blob`).
- * - 요청 분류는 URL의 파일 이름으로 한다. 픽스처 `vite.config.ts`의 `manualChunks`가 청크 이름을
- *   `font-pretendard`·`font-noto-sans-jp`·`elements`로 고정하므로 해시가 붙어도 앞부분으로 알 수 있다.
+ *   단계를 시작할 때 바꾸는 현재 단계 이름으로 나눕니다. 단계가 끝나면 진행 중인 요청이 없는 상태가 500ms 이어질 때까지
+ *   기다립니다 (Playwright의 `networkidle`은 PDF iframe이 열리면 도달하지 않을 수 있어 쓰지 않습니다).
+ * - `http(s):`와 `blob:` 요청만 기록합니다. `blob:`은 뷰어와 폼이 만든 PDF iframe입니다(`pdf-blob`).
+ * - 요청 분류는 URL의 파일 이름으로 합니다. 시험용 `vite.config.ts`의 `manualChunks`가 청크 이름을
+ *   `font-pretendard`·`font-noto-sans-jp`·`elements`로 고정하므로 해시가 붙어도 앞부분으로 알 수 있습니다.
  */
 import { existsSync } from 'node:fs';
 
-/** 단계 이름 — 페이지의 `runPhase`가 받는 순서 그대로 */
+/** 단계 이름 — 페이지의 `runPhase`가 받는 순서 그대로입니다. */
 export const PHASES = ['import', 'elements', 'resolve', 'share'];
 
-/** 시나리오 이름과 페이지에 넘기는 쿼리 값 */
+/** 시나리오 이름과 페이지에 넘기는 쿼리 값입니다. */
 export const SCENARIOS = ['en', 'ko', 'ja', 'user'];
 
-/** 동봉 폰트 청크의 요청 분류 이름 */
+/** 동봉 폰트 청크의 요청 분류 이름입니다. */
 export const FONT_CHUNK_KINDS = ['font-pretendard', 'font-noto-sans-jp'];
 
-/** Playwright가 관리형 Chromium을 찾지 못할 때 시도하는 실행 파일 후보 (`SLIPKIT_CHROMIUM`이 우선) */
+/** Playwright가 관리형 Chromium을 찾지 못할 때 시도하는 실행 파일 후보 (`SLIPKIT_CHROMIUM`이 우선)입니다. */
 const CHROMIUM_CANDIDATES = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome'];
 
 /**
- * 요청 URL을 파일 이름으로 분류한다.
+ * 요청 URL을 파일 이름으로 분류합니다.
  *
  * @param {string} url - 요청 URL
  * @returns {'page' | 'entry' | 'vite-preload' | 'elements' | 'font-pretendard' | 'font-noto-sans-jp' | 'host-font' | 'pdf-blob' | 'other'} 분류
@@ -49,7 +49,7 @@ function classifyRequest(url) {
 }
 
 /**
- * Chromium 실행 파일을 고른다 — `SLIPKIT_CHROMIUM` → 알려진 후보 → Playwright 기본.
+ * Chromium 실행 파일은 `SLIPKIT_CHROMIUM`, 알려진 후보, Playwright 기본값 순서로 선택합니다.
  *
  * @returns {string | undefined} 실행 파일 경로. Playwright 기본을 쓰면 undefined
  */
@@ -58,7 +58,7 @@ function chromiumExecutablePath() {
 }
 
 /**
- * 정밀 메모리 정보와 `gc()`를 켠 Chromium을 띄운다.
+ * 정밀 메모리 정보와 `gc()`를 활성화한 Chromium을 시작합니다.
  *
  * @returns {Promise<import('playwright').Browser>} 브라우저
  */
@@ -73,9 +73,9 @@ export async function launchChromium() {
 }
 
 /**
- * 시나리오 하나를 새 컨텍스트에서 단계별로 실행한다.
+ * 시나리오 하나를 새 컨텍스트에서 단계별로 실행합니다.
  *
- * @param {import('playwright').Browser} browser - `launchChromium`이 돌려준 브라우저
+ * @param {import('playwright').Browser} browser - `launchChromium`이 반환한 브라우저
  * @param {{ baseUrl: string, scenario: string, timeoutMs?: number }} options - 미리보기 서버 주소와 시나리오
  * @returns {Promise<{ scenario: string, phases: Record<string, { ms: number, heapBefore: number | null, heapAfter: number | null, detail: Record<string, unknown>, requests: Array<{ url: string, kind: string, bytes: number, headersBytes: number, status: number, failed: boolean }> }>, load: Array<{ url: string, kind: string, bytes: number, headersBytes: number, status: number, failed: boolean }>, errors: string[] }>}
  *   단계별 결과와 요청 목록. `load`는 페이지 자체를 여는 동안의 요청(HTML·진입 모듈)
@@ -105,7 +105,7 @@ export async function runFontScenario(browser, { baseUrl, scenario, timeoutMs = 
           phase: current,
           url: request.url(),
           kind: classifyRequest(request.url()),
-          // `blob:` 요청처럼 크기를 알 수 없으면 Chromium이 음수를 준다 — 0으로 적는다.
+          // `blob:` 요청처럼 크기를 알 수 없으면 Chromium이 음수를 반환하므로 0으로 기록합니다.
           bytes: Math.max(0, sizes.responseBodySize),
           headersBytes: Math.max(0, sizes.responseHeadersSize),
           status: response?.status() ?? 0,
@@ -121,7 +121,7 @@ export async function runFontScenario(browser, { baseUrl, scenario, timeoutMs = 
     page.on('console', (message) => {
       if (message.type() === 'error') errors.push(`console.error: ${message.text()}`);
     });
-    /** 진행 중인 요청이 없는 상태가 `quietMs` 이어질 때까지 기다린다. */
+    /** 진행 중인 요청이 없는 상태가 `quietMs` 이어질 때까지 기다립니다. */
     const waitForQuiet = async (quietMs = 500) => {
       const deadline = Date.now() + timeoutMs;
       let quietSince = null;
@@ -134,7 +134,7 @@ export async function runFontScenario(browser, { baseUrl, scenario, timeoutMs = 
         }
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
-      throw new Error(`네트워크가 잠잠해지지 않았다: ${[...inflight].map((request) => request.url()).join(', ')}`);
+      throw new Error(`네트워크 요청이 끝나지 않았습니다: ${[...inflight].map((request) => request.url()).join(', ')}`);
     };
 
     const url = new URL(baseUrl);
@@ -159,7 +159,7 @@ export async function runFontScenario(browser, { baseUrl, scenario, timeoutMs = 
 }
 
 /**
- * 단계의 요청 가운데 분류가 일치하는 것의 수와 바이트 합.
+ * 단계별 요청에서 분류가 일치하는 요청 수와 전체 바이트를 계산합니다.
  *
  * @param {Array<{ kind: string, bytes: number }>} requests - 단계의 요청 목록
  * @param {string[]} kinds - 셀 분류 이름

@@ -155,10 +155,10 @@ The supported parameter types are as follows.
 | List | Items, work history, billing items |
 
 > [!TIP]
-> The physical name is not a phrase shown on screen but an identifier used for data integration.
+> The key is not a phrase shown on screen but an identifier used for data integration.
 > Prefer a name without spaces that conveys its meaning, like `tradeDate`, over `trade date`.
 
-Changing a physical name also updates the elements and sample values that reference that parameter. A name that duplicates an existing physical name, or an empty name, cannot be used.
+Changing a key also updates the elements and sample values that reference that parameter. A name that duplicates an existing key, or an empty name, cannot be used.
 
 ### List parameters and sub-fields
 
@@ -533,7 +533,7 @@ For how to implement these features in a real application, see the [Application 
 
 The demo saves the template and vouchers you work on in this browser, so they are restored the next time you open it. The notice below the header states this and stays visible while you work.
 
-<kbd>Delete saved data</kbd> in the same notice removes what the demo saved: the template, the draft voucher, the issued voucher, and the remembered screen. It asks for confirmation first because the deletion cannot be undone, and it returns the demo to the bundled starting template. Files you already downloaded are kept, and nothing else stored in the browser is touched.
+<kbd>Delete saved data</kbd> in the same notice removes only the demo's autosaved template, draft voucher, issued voucher, and remembered screen. Templates saved explicitly under <kbd>My templates</kbd> remain. It asks for confirmation first because the deletion cannot be undone, and it returns the demo to the bundled starting template with an empty voucher. Files you already downloaded are kept, and nothing else stored in the browser is touched. Opening another template also clears the autosaved draft voucher so it cannot be restored with a different template.
 
 > [!WARNING]
 > When no key is configured, the demo encrypts with a public sample key from its own source code. That key protects nothing — do not enter real personal or confidential information in the demo, and delete the saved data when you are done on a shared device.

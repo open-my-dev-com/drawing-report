@@ -1,39 +1,39 @@
 #!/usr/bin/env node
 /**
- * benchmark 네 갈래를 한 번에 돌리고 결과를 한곳에 모은다 — Core → Designer → fonts → MCP list.
+ * Core, Designer, fonts, MCP list 성능 측정을 차례로 실행하고 결과를 한곳에 모읍니다.
  *
- * 실행: `pnpm bench:all`. 고른 benchmark가 쓰는 패키지를 먼저 한 번 빌드하므로 명령 하나로 재현되고,
+ * 실행: `pnpm bench:all`. 선택한 측정에 필요한 패키지를 먼저 한 번 빌드하므로 명령 하나로 재현되고,
  * 하위 명령은 각자 그대로 실행되므로(같은 옵션·같은 기본값) 따로 돌린 결과와 여기서 모은 결과가
- * 다르지 않다. 하위 명령이 만드는 임시 fixture·소비자 프로젝트는 하위 명령이 스스로 지운다.
+ * 다르지 않습니다. 하위 명령이 만드는 임시 시험 자료와 소비자 프로젝트는 해당 명령이 지웁니다.
  *
  * 실행 순서
  * 1. 옵션 해석과 하위 실행 선택
- * 2. 기준선 확인 — 비교가 켜져 있으면 고른 benchmark의 기준선이 모두 있어야 한다. 하나라도 없으면
- *    재기 전에 멈춘다
- * 3. 고른 benchmark가 쓰는 패키지 빌드 (`--only core`면 Core만, 한 번에 모아서 한 번만)
- * 4. 하위 benchmark 실행과 기준선 비교, manifest 저장
+ * 2. 기준선 확인: 비교가 켜져 있으면 선택한 측정의 기준선이 모두 있어야 합니다. 하나라도 없으면
+ *    재기 전에 멈춥니다.
+ * 3. 선택한 측정에 필요한 패키지 빌드(`--only core`면 Core만 한 번 빌드합니다.)
+ * 4. 하위 측정 실행과 기준선 비교, 실행 목록 저장
  *
  * 출력
- * - 하위 실행마다 결과 JSON(`core.json`·`designer.json`·`fonts.json`·`mcp-list.json`)과 표 출력 로그
- * - 실행 전체를 묶는 `manifest.json` — 하위 실행의 schema 판, 결과 파일 경로, 성공 여부,
- *   실행 환경 fingerprint와 기준선 판정
- * - 출력 디렉터리를 지정하지 않으면 `os.tmpdir()` 아래에 만든다. 저장소 작업 트리에는 아무것도
- *   남기지 않는다.
+ * - 하위 실행마다 결과 JSON(`core.json`·`designer.json`·`fonts.json`·`mcp-list.json`)과 표 출력 로그를 남깁니다.
+ * - 실행 전체를 묶는 `manifest.json`: 하위 실행의 스키마 버전, 결과 파일 경로, 성공 여부,
+ *   실행 환경 정보와 기준선 판정을 담습니다.
+ * - 출력 디렉터리를 지정하지 않으면 `os.tmpdir()` 아래에 만듭니다. 저장소 작업 트리에는 아무것도
+ *   남기지 않습니다.
  *
- * 옵션 — 하위 명령에 넘기는 값의 기본은 하위 명령의 기본값과 같다. 축소는 명시적 옵션으로만 한다.
- * - `--out <dir>`           결과를 남길 디렉터리 (기본: 임시 디렉터리)
- * - `--only a,b`            돌릴 benchmark만 고른다 (`core,designer,fonts,mcp-list`)
- * - `--skip a,b`            돌리지 않을 benchmark
- * - `--baselines <dir>`     기준선 디렉터리 (기본 `scripts/bench-baselines`)
- * - `--no-baseline`         기준선 비교를 건너뛴다 (기준선 파일이 없어도 실행한다)
- * - `--designer-chromium`   Designer benchmark를 Chromium에서도 잰다
- * - `--fonts-runs N`        fonts benchmark의 본 측정 반복 수
- * - `--fonts-skip-chromium` fonts benchmark의 Chromium 측정을 건너뛴다
- * - `--mcp-sizes 1000`      MCP list benchmark의 fixture 파일 수
- * - `--mcp-runs N`          MCP list benchmark의 본 측정 반복 수
+ * 옵션: 하위 명령에 넘기는 값의 기본은 하위 명령의 기본값과 같습니다. 축소는 명시적 옵션으로만 합니다.
+ * - `--out <dir>`           결과를 남길 디렉터리입니다(기본: 임시 디렉터리).
+ * - `--only a,b`            실행할 측정만 선택합니다(`core,designer,fonts,mcp-list`).
+ * - `--skip a,b`            실행하지 않을 측정입니다.
+ * - `--baselines <dir>`     기준선 디렉터리입니다(기본 `scripts/bench-baselines`).
+ * - `--no-baseline`         기준선 비교를 건너뜁니다(기준선 파일이 없어도 실행합니다).
+ * - `--designer-chromium`   Designer를 Chromium에서도 측정합니다.
+ * - `--fonts-runs N`        fonts의 실제 측정 반복 수입니다.
+ * - `--fonts-skip-chromium` fonts의 Chromium 측정을 건너뜁니다.
+ * - `--mcp-sizes 1000`      MCP list의 시험 파일 수입니다.
+ * - `--mcp-runs N`          MCP list의 실제 측정 반복 수입니다.
  *
- * 기준선 비교는 `scripts/bench-shared/baseline.mjs`가 한다. 결정적 지표가 어긋나면 실패로,
- * 시간·메모리는 환경 fingerprint와 반복 수가 같을 때만 항목별 허용 회귀율로 판정한다.
+ * 기준선 비교는 `scripts/bench-shared/baseline.mjs`가 합니다. 환경과 무관하게 같아야 하는 지표가 어긋나면 실패로,
+ * 시간·메모리는 실행 환경 정보와 반복 수가 같을 때만 항목별 허용 회귀율로 판정합니다.
  */
 import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
@@ -50,7 +50,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 const argv = process.argv.slice(2);
 
-/** 패키지 매니저 실행 파일 — Windows는 확장자가 붙은 shim만 실행할 수 있다 */
+/** 패키지 관리자 실행 파일입니다. Windows에서는 확장자가 붙은 실행 연결 파일만 실행할 수 있습니다. */
 const PNPM = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
 const options = parseOptions(argv);
@@ -60,7 +60,7 @@ const baselineDir = options.baselines === undefined
 const selected = selectRuns(options);
 
 /**
- * 진행 상황은 stderr로 낸다.
+ * 진행 상황은 stderr로 출력합니다.
  *
  * @param {string} message - 진행 문구
  */
@@ -69,7 +69,7 @@ function progress(message) {
 }
 
 /**
- * 하위 benchmark 하나를 자식 프로세스로 돌린다. 표 출력은 로그 파일에, 진행 문구는 그대로 흘린다.
+ * 하위 측정 하나를 자식 프로세스로 실행합니다. 표 출력은 로그 파일에 쓰고 진행 문구는 그대로 전달합니다.
  *
  * @param {{ script: string, execArgv: string[], args: string[], logFile: string }} spec - 실행할 명령
  * @returns {Promise<{ code: number | null, error: string | null }>} 종료 코드와 오류 문구
@@ -101,10 +101,10 @@ function runChild(spec) {
 }
 
 /**
- * 고른 benchmark가 쓰는 패키지를 한 번에 빌드한다.
+ * 선택한 측정에 필요한 패키지를 한 번에 빌드합니다.
  *
  * @param {string[]} packages - 빌드할 패키지 이름
- * @returns {Promise<void>} 빌드가 끝나면 이행된다
+ * @returns {Promise<void>} 빌드가 끝나면 이행됩니다.
  * @throws Error 빌드가 실패했을 때
  */
 async function buildPackages(packages) {
@@ -117,26 +117,26 @@ async function buildPackages(packages) {
   });
   if (result.code !== 0) {
     const reason = result.error === null ? `exit ${result.code}` : result.error;
-    throw new Error(`패키지 빌드가 실패했다 (${reason}): pnpm ${args.join(' ')}`);
+    throw new Error(`패키지 빌드에 실패했습니다(${reason}): pnpm ${args.join(' ')}`);
   }
 }
 
 // ---------------------------------------------------------------------------
-// 기준선 — 재기 전에 확인한다
+// 기준선은 측정 전에 확인합니다.
 // ---------------------------------------------------------------------------
 
 let baselines = new Map();
 if (options.useBaseline) {
   if (!existsSync(baselineDir)) {
-    throw new Error(`기준선 디렉터리가 없다: ${baselineDir} — --baselines 로 경로를 주거나 --no-baseline 으로 비교를 건너뛴다`);
+    throw new Error(`기준선 디렉터리가 없습니다: ${baselineDir}. --baselines로 경로를 지정하거나 --no-baseline로 비교를 건너뛰세요.`);
   }
   baselines = loadBaselines(baselineDir);
   const missing = missingBaselineTools(selected, baselines);
   if (missing.length > 0) {
     const files = missing.map((tool) => path.join(baselineDir, `${tool}.json`)).join(', ');
     throw new Error(
-      `고른 benchmark의 기준선이 없다: ${missing.join(', ')} (${files}) — ` +
-        '기준선을 먼저 재거나 --no-baseline 으로 비교를 건너뛴다',
+      `선택한 성능 측정의 기준선이 없습니다: ${missing.join(', ')}(${files}). ` +
+        '기준선을 먼저 측정하거나 --no-baseline로 비교를 건너뛰세요.',
     );
   }
 }
@@ -149,7 +149,7 @@ await buildPackages(buildTargets(selected));
 
 const missingDist = [...new Set(selected.flatMap((run) => run.needs))].filter((rel) => !existsSync(path.join(root, rel)));
 if (missingDist.length > 0) {
-  throw new Error(`빌드했는데도 산출물이 없다: ${missingDist.join(', ')} — 빌드 로그를 확인한다`);
+  throw new Error(`빌드 뒤에도 산출물이 없습니다: ${missingDist.join(', ')}. 빌드 로그를 확인하세요.`);
 }
 
 const outDir = options.out === undefined ? createWorkDir('slipkit-bench-all-') : path.resolve(options.out);
@@ -188,7 +188,7 @@ for (const def of selected) {
     try {
       comparison = compareToBaseline(baselines.get(def.tool), result);
     } catch (failure) {
-      // 기준선과 결과의 형식이 어긋나면 비교 자체를 실패로 남긴다.
+      // 기준선과 결과의 형식이 어긋나면 비교 자체를 실패로 남깁니다.
       const message = failure instanceof BenchSchemaError ? failure.message : String(failure);
       comparison = { tool: def.tool, ok: false, baselineCommit: baselines.get(def.tool).baselineCommit,
         environment: { same: false, differences: [] }, findings: [], unlisted: [],
@@ -242,7 +242,7 @@ out.push('# bench:all', '');
 out.push(`실행 환경: ${fingerprint}`);
 out.push(`출력 디렉터리: ${outDir}`);
 out.push(`전체 소요: ${(manifest.durationMs / 1000).toFixed(1)}초`, '');
-out.push('| benchmark | 결과 | 소요 | 지표 수 | 결과 파일 | 기준선 (통과/실패/비교 불가) |');
+out.push('| 성능 측정 | 결과 | 소요 시간 | 지표 수 | 결과 파일 | 기준선(통과/실패/비교 불가) |');
 out.push('|---|---|---:|---:|---|---|');
 for (const record of manifest.runs) {
   const verdict = record.comparison === null

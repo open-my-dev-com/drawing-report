@@ -1,6 +1,6 @@
 /**
- * 지원하는 수식 함수 이름을 분류별로 정의한다.
- * `IF`, `AND`, `OR`는 단락 평가가 필요하므로 evaluator.ts에서 처리한다.
+ * 지원하는 수식 함수 이름을 분류별로 정의합니다.
+ * `IF`, `AND`, `OR`는 단락 평가가 필요하므로 evaluator.ts에서 처리합니다.
  */
 export const FORMULA_FUNCTIONS = [
   // 집계
@@ -19,27 +19,27 @@ export const FORMULA_FUNCTIONS = [
   'TODAY', 'DATE_ADD', 'DATE_DIFF',
   // 세무
   'VAT',
-  // 타입 변환. 문자열과 숫자 사이의 변환은 명시적으로 요청해야 한다.
+  // 타입 변환. 문자열과 숫자 사이의 변환은 명시적으로 요청해야 합니다.
   'TO_NUMBER', 'TO_STRING', 'TO_DATE',
 ] as const;
 
-/** 파서가 허용하는 수식 함수 이름의 집합. */
+/** 파서가 허용하는 수식 함수 이름의 집합입니다. */
 export type FormulaFunctionName = (typeof FORMULA_FUNCTIONS)[number];
 
-/** 함수 하나가 받을 수 있는 인자 수. `max`가 없으면 개수에 상한이 없다. */
+/** 함수 하나가 받을 수 있는 인자 수입니다. `max`가 없으면 개수에 상한이 없습니다. */
 export interface FormulaArity {
   min: number;
   max?: number;
 }
 
 /**
- * 함수별 허용 인자 수의 단일 원천.
+ * 함수별로 허용하는 인자 수를 한 곳에서 정의합니다.
  *
- * 인자 수는 데이터와 무관한 규칙이므로, 값 없이도 잘못된 수식을 걸러낼 수 있다.
- * 평가기와 편집기가 같은 표를 본다.
+ * 인자 수는 데이터와 무관한 규칙이므로, 값 없이도 잘못된 수식을 걸러낼 수 있습니다.
+ * 평가기와 편집기가 같은 표를 확인합니다.
  */
 export const FORMULA_ARITY: Record<FormulaFunctionName, FormulaArity> = {
-  // 집계 — 개수 제한 없이 값과 범위를 받는다.
+  // 집계 — 개수 제한 없이 값과 범위를 받습니다.
   // AVG는 평균을 계산할 값이 최소 하나 필요합니다.
   SUM: { min: 0 },
   AVG: { min: 1 },
@@ -62,7 +62,7 @@ export const FORMULA_ARITY: Record<FormulaFunctionName, FormulaArity> = {
   TRIM: { min: 1, max: 1 },
   UPPER: { min: 1, max: 1 },
   LOWER: { min: 1, max: 1 },
-  // 조건 — AND·OR는 하나 이상이면 개수 제한이 없다
+  // AND와 OR은 인수가 하나 이상이면 개수 제한이 없습니다.
   IF: { min: 2, max: 3 },
   AND: { min: 1 },
   OR: { min: 1 },

@@ -1,5 +1,5 @@
 /**
- * 샘플 값·목록 행처럼 사용자가 정한 키를 담는 열린 맵을 자체 속성으로만 다루는 도우미.
+ * 샘플 값이나 목록 행처럼 사용자가 정한 키를 담는 열린 맵에서 자체 속성만 다룹니다.
  *
  * @remarks
  * `__proto__`·`constructor`·`toString`처럼 `Object.prototype`과 겹치는 키도 보통 키처럼
@@ -8,13 +8,13 @@
  * 값을 잃습니다. 키 순서는 넣은 순서를 유지합니다.
  */
 
-/** 문자열 키와 임의 값의 열린 맵 */
+/** 문자열 키와 임의 값의 열린 맵입니다. */
 export type OwnRecord = Record<string, unknown>;
 
 /**
  * 맵이 키를 자체 속성으로 갖는지 확인합니다.
  *
- * @param record - 확인할 맵. undefined면 갖지 않은 것으로 봅니다
+ * @param record - 확인할 맵입니다. `undefined`이면 해당 속성이 없는 것으로 판단합니다.
  * @param key - 확인할 키
  * @returns 자체 속성이면 true. 프로토타입에서 물려받은 속성은 false
  */
@@ -25,7 +25,7 @@ export function hasOwn(record: Readonly<OwnRecord> | undefined, key: string): bo
 /**
  * 맵의 자체 속성 값을 읽습니다.
  *
- * @param record - 읽을 맵. undefined면 값이 없는 것으로 봅니다
+ * @param record - 읽을 맵입니다. `undefined`이면 값이 없는 것으로 판단합니다.
  * @param key - 읽을 키
  * @returns 자체 속성 값. 없거나 물려받은 속성이면 undefined
  */
@@ -48,7 +48,7 @@ export function writeOwn(record: OwnRecord, key: string, value: unknown): void {
 }
 
 /**
- * 맵에서 자체 속성을 지웁니다. 물려받은 속성은 건드리지 않습니다.
+ * 맵에서 자체 속성을 지웁니다. 상속받은 속성은 변경하지 않습니다.
  *
  * @param record - 수정할 맵
  * @param key - 지울 키

@@ -1,5 +1,5 @@
 /**
- * 파라미터 목록과 사용처를 나타내는 공통 타입과 값 종류 선택지.
+ * 파라미터 목록과 사용 위치를 나타내는 공통 타입과 값 종류 선택지입니다.
  *
  * @remarks
  * 사이드바, 속성 패널과 수식 모달이 같은 요약을 사용합니다.
@@ -14,7 +14,7 @@ import {
 import { inItemBand, itemBandOf } from './grid-model.js';
 import { hasOwn, readOwn, renameOwn } from './own-map.js';
 
-/** 파라미터를 사용하는 요소의 위치 */
+/** 파라미터를 사용하는 요소의 위치입니다. */
 export interface ParameterUse {
   pageIndex: number;
   id: string;
@@ -22,37 +22,37 @@ export interface ParameterUse {
   type: 'field' | 'grid' | 'image' | 'barcode';
 }
 
-/** 파라미터 정의와 사용 위치를 합친 사이드바 항목 */
+/** 파라미터 정의와 사용 위치를 합친 사이드바 항목입니다. */
 export interface ParameterInfo {
-  /** 전표 값에서 사용하는 키 */
+  /** 전표 값에서 사용하는 키입니다. */
   key: string;
-  /** 화면에 표시할 이름 */
+  /** 화면에 표시할 이름입니다. */
   label: string;
-  /** 파라미터 정의에 지정된 레이블 */
+  /** 파라미터 정의에 지정된 표시 이름입니다. */
   rawLabel: string | undefined;
-  /** 파라미터 정의에 지정된 값 종류 */
+  /** 파라미터 정의에 지정된 값 종류입니다. */
   valueType: ParameterValueType | undefined;
-  /** 파라미터 정의에 등록되어 있는지 여부 */
+  /** 파라미터 정의에 등록되어 있는지 나타냅니다. */
   defined: boolean;
-  /** 이 값을 사용하는 요소들 */
+  /** 이 값을 사용하는 요소입니다. */
   uses: ParameterUse[];
-  /** 파라미터 정의에 등록된 목록 하위 필드  */
+  /** 파라미터 정의에 등록된 목록 하위 필드입니다. */
   fields: ParameterFieldInfo[];
 }
 
 /**
- * 목록 파라미터의 하위 필드와 해당 필드를 사용하는 그리드 셀 위치.
+ * 목록 파라미터의 하위 필드와 해당 필드를 사용하는 그리드 셀 위치입니다.
  */
 export interface ParameterFieldInfo {
-  /** 항목 필드 물리명 — 수식에서 `$(목록파라미터).$(필드)`로 사용합니다 */
+  /** 수식에서 `$(목록파라미터).$(필드)`로 사용하는 항목 필드의 키입니다. */
   key: string;
-  /** 화면에 표시할 이름 — 논리명이 없으면 물리명 */
+  /** 화면에 표시할 이름입니다. 표시 이름이 없으면 키를 사용합니다. */
   title: string;
-  /** 정의부에 적힌 논리명 (없으면 undefined) */
+  /** 파라미터 정의에 적힌 표시 이름입니다. 없으면 `undefined`입니다. */
   rawLabel: string | undefined;
-  /** 값 종류 */
+  /** 값 종류입니다. */
   valueType: ParameterValueType | undefined;
-  /** 이 필드를 읽는 그리드 셀의 자리 (없으면 undefined) */
+  /** 이 필드를 읽는 그리드 셀의 위치입니다. 없으면 `undefined`입니다. */
   at: { pageIndex: number; gridId: string; row: number; column: number } | undefined;
 }
 
@@ -66,17 +66,17 @@ export const BINDING_VALUE_TYPES: readonly { value: string; stringKey: 'valueTyp
   { value: 'list', stringKey: 'valueTypeList' },
 ];
 
-/** 목록 중첩을 제외한 하위 필드의 값 종류 선택지  */
+/** 목록 중첩을 제외한 하위 필드의 값 종류 선택지입니다. */
 export const BINDING_FIELD_VALUE_TYPES = BINDING_VALUE_TYPES.filter((t) => t.value !== 'list');
 
-/** 목록 하위 필드를 읽는 그리드 셀의 자리 */
+/** 목록 하위 필드를 읽는 그리드 셀의 위치입니다. */
 type ParameterFieldAt = NonNullable<ParameterFieldInfo['at']>;
 
-/** 양식 전체에서 모은 파라미터 사용 위치 */
+/** 양식 전체에서 수집한 파라미터 사용 위치입니다. */
 export interface ParameterUsage {
-  /** 최상위 파라미터 키별 사용 요소 (페이지·요소 순) */
+  /** 최상위 파라미터 키별 사용 요소를 페이지와 요소 순서로 저장합니다. */
   uses: Map<string, ParameterUse[]>;
-  /** 목록 파라미터 키 → 하위 필드 키 → 그 필드를 처음 읽는 셀 자리 */
+  /** 목록 파라미터 키와 하위 필드 키별로 해당 필드를 처음 읽는 셀 위치를 저장합니다. */
   fieldAt: Map<string, Map<string, ParameterFieldAt>>;
 }
 
@@ -85,10 +85,10 @@ export interface ParameterUsage {
  *
  * @remarks
  * 항목 구간 안의 셀 파라미터는 목록 항목의 하위 필드이므로 최상위 키에 넣지 않고
- * `fieldAt`에 셀 자리로 기록합니다. 사이드바 목록, 키 변경과 정의 삭제가 같은 결과를 씁니다.
+ * `fieldAt`에 셀 위치로 기록합니다. 사이드바 목록, 키 변경과 정의 삭제가 같은 결과를 사용합니다.
  *
- * @param file - 양식 파일
- * @returns 키별 사용 요소와 하위 필드의 셀 자리
+ * @param file - 양식 파일입니다.
+ * @returns 키별 사용 요소와 하위 필드의 셀 위치
  */
 export function collectParameterUses(file: SlipTemplateFile): ParameterUsage {
   const uses = new Map<string, ParameterUse[]>();
@@ -136,17 +136,17 @@ export function collectParameterUses(file: SlipTemplateFile): ParameterUsage {
  * 한 파라미터를 사용하는 요소를 찾습니다.
  *
  * @param file - 양식 파일
- * @param key - 파라미터 물리명
+ * @param key - 파라미터 키
  * @returns 사용 요소 목록. 없으면 빈 배열
  */
 export function parameterUsesOf(file: SlipTemplateFile, key: string): ParameterUse[] {
   return collectParameterUses(file).uses.get(key) ?? [];
 }
 
-/** 수식·조건식 문자열을 고쳐 쓰는 함수. 바꿀 것이 없으면 입력을 그대로 돌려줍니다 */
+/** 수식과 조건식 문자열을 바꿉니다. 바꿀 내용이 없으면 입력을 그대로 반환합니다. */
 type FormulaRewrite = (source: string) => string;
 
-/** 조건부 서식 규칙 목록을 가진 것 */
+/** 조건부 서식 규칙 목록을 가질 수 있는 객체입니다. */
 interface HasConditions {
   conditionalFormats?: { condition: string }[] | undefined;
 }
@@ -157,16 +157,16 @@ function rewriteConditions(owner: HasConditions, rewrite: FormulaRewrite): void 
 }
 
 /**
- * 파싱할 수 없는 수식은 건드리지 않는 고쳐 쓰기 함수를 만듭니다.
+ * 파싱할 수 없는 수식은 변경하지 않는 수식 수정 함수를 만듭니다.
  *
  * @remarks
  * 값 참조는 `$(...)` 형식만 참조로 인식합니다. `$(...)` 없이 적은 이름을 포함해 문법 오류가
- * 있는 수식은 참조를 찾을 수 없으므로 원문 그대로 돌려주고, 바꾼 참조는 항상 `$(...)`로 적습니다.
+ * 문법 오류가 있는 수식은 참조를 찾을 수 없으므로 원문 그대로 반환하고, 바꾼 참조는 항상 `$(...)`로 적습니다.
  *
  * @param from - 바꿀 참조 경로의 앞부분
  * @param to - 새 경로
- * @param options - `from`·`to`의 첫 단계가 그리드 예약 참조 이름이면 `reservedRoot`를 지정합니다
- * @returns 참조 이름을 바꾸되 문법 오류가 있는 수식은 그대로 돌려주는 함수
+ * @param options - `from`·`to`의 첫 단계가 그리드 예약 참조 이름이면 `reservedRoot`를 지정합니다.
+ * @returns 참조 이름을 바꾸되 문법 오류가 있는 수식은 그대로 반환하는 함수
  */
 function renamer(
   from: readonly string[],
@@ -214,12 +214,12 @@ function rewriteElementFormulas(
  * @remarks
  * 정의부, 필드·이미지·바코드의 `parameter`, 그리드의 반복 파라미터와 항목 구간 밖 셀,
  * 모든 수식·조건식의 `$(키)` 참조, `sampleValues`의 키를 한 번에 바꿉니다. 항목 구간 안의 셀
- * 파라미터는 하위 필드라 건드리지 않습니다. 정의가 없던 키는 새 키로 정의를 만듭니다.
+ * 파라미터는 하위 필드이므로 변경하지 않습니다. 정의가 없던 키는 새 키로 정의를 만듭니다.
  * 문법 오류가 있어 파싱할 수 없는 수식(`$(...)` 없이 적은 참조 포함)은 그대로 둡니다.
  *
  * @param file - 수정할 양식 파일
- * @param key - 현재 물리명
- * @param next - 새 물리명
+ * @param key - 현재 키
+ * @param next - 새 키
  */
 export function renameParameterReferences(file: SlipTemplateFile, key: string, next: string): void {
   const defs = file.template.parameters ?? [];
@@ -260,7 +260,7 @@ export function renameParameterReferences(file: SlipTemplateFile, key: string, n
  * 수식(`$(...)` 없이 적은 참조 포함)은 그대로 둡니다.
  *
  * @param file - 수정할 양식 파일
- * @param listKey - 목록 파라미터 물리명
+ * @param listKey - 목록 파라미터 키
  * @param key - 현재 필드 키
  * @param next - 새 필드 키
  */
@@ -310,7 +310,7 @@ export function renameParameterFieldReferences(
  * 행마다 키 순서를 유지한 채 옮기고, 그 키가 없는 행과 객체가 아닌 항목은 그대로 둡니다.
  *
  * @param file - 수정할 양식 파일
- * @param listKey - 목록 파라미터 물리명
+ * @param listKey - 목록 파라미터 키
  * @param key - 현재 하위 필드 키
  * @param next - 새 하위 필드 키
  */
@@ -333,9 +333,9 @@ export function renameSampleFieldKey(
  * 파라미터 정의가 없으면 만들고, 있으면 비어 있는 값 종류만 채웁니다.
  *
  * @param file - 수정할 양식 파일
- * @param key - 파라미터 물리명
- * @param valueType - 등록할 값 종류. 기존 정의에 종류가 없을 때만 적용합니다
- * @param label - 새로 만들 때 붙일 논리명. 기존 정의의 논리명은 바꾸지 않습니다
+ * @param key - 파라미터 키
+ * @param valueType - 등록할 값 종류. 기존 정의에 종류가 없을 때만 적용합니다.
+ * @param label - 새로 만들 때 붙일 표시 이름. 기존 정의의 표시 이름은 바꾸지 않습니다.
  */
 export function ensureParameterDef(
   file: SlipTemplateFile,

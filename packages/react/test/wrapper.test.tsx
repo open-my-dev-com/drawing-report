@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 /**
- * `@omdc-slipkit/react` 래퍼 테스트.
+ * `@omdc-slipkit/react` 래퍼의 동작을 시험합니다.
  *
- * 실제 `@omdc-slipkit/elements` 빌드를 마운트해 설정 전달과 이벤트 연결을 확인한다.
+ * 실제 `@omdc-slipkit/elements` 빌드를 마운트해 설정 전달과 이벤트 연결을 확인합니다.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement, type ReactNode, type Ref, type RefObject } from 'react';
@@ -24,7 +24,7 @@ import { SlipDesigner, SlipForm, SlipViewer } from '../src/index.js';
 
 (globalThis as Record<string, unknown>)['IS_REACT_ACT_ENVIRONMENT'] = true;
 
-/** 요소의 이미지 크기 기본값(2MB) */
+/** 요소의 이미지 크기 기본값(2MB)입니다. */
 const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const DUMMY_SLIPKIT = {
@@ -36,7 +36,7 @@ const SAMPLE_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 const PNG_BYTES = new Uint8Array(Uint8Array.from(atob(SAMPLE_PNG.split(',')[1]!), (c) => c.charCodeAt(0)));
 
-/** 이미지 파라미터 하나와 문자 파라미터 하나를 가진 양식 */
+/** 이미지 파라미터 하나와 문자 파라미터 하나를 가진 양식입니다. */
 function makeTemplate(): SlipTemplateFile {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -185,7 +185,7 @@ function buttonByLabel(el: HTMLElement, label: string): HTMLButtonElement {
   return found as HTMLButtonElement;
 }
 
-/** 이미지 선택 버튼을 누르고 파일 선택을 흉내 낸다. */
+/** 이미지 선택 버튼을 누른 뒤 파일 선택 동작을 재현합니다. */
 async function pickFile(el: SlipFormElement, file: File): Promise<void> {
   let captured: HTMLInputElement | null = null;
   const original = document.createElement.bind(document);
@@ -237,7 +237,7 @@ describe('@omdc-slipkit/react 이미지 상한', () => {
     expect(changes.length).toBe(0);
     expect(el.shadowRoot?.querySelector('.notice.error')?.textContent).toContain('10B');
 
-    // 상한을 제거하면 요소 기본값으로 돌아가 같은 이미지를 받는다.
+    // 상한을 제거하면 요소 기본값으로 돌아가 같은 이미지를 받습니다.
     m.rerender(createElement(SlipForm, {
       src: TEMPLATE_SRC, slipkit: DUMMY_SLIPKIT, onSlipChange: (file) => changes.push(file),
     }));
@@ -332,7 +332,7 @@ describe('@omdc-slipkit/react 이벤트', () => {
 // ---------------------------------------------------------------------------
 
 describe('@omdc-slipkit/react ref', () => {
-  /** 객체 ref의 연결·교체·해제를 세 컴포넌트에 같은 절차로 확인한다. */
+  /** 객체 ref의 연결·교체·해제를 세 컴포넌트에 같은 절차로 확인합니다. */
   function checkObjectRef<E extends HTMLElement>(
     tag: string,
     make: (ref: RefObject<E | null>) => ReactNode,
@@ -344,7 +344,7 @@ describe('@omdc-slipkit/react ref', () => {
     expect(el).not.toBeNull();
     expect(first.current).toBe(el);
 
-    // 다른 ref 객체로 바꾸면 옛 ref는 비워지고 새 ref가 같은 요소를 받는다.
+    // 다른 ref 객체로 바꾸면 옛 ref는 비워지고 새 ref가 같은 요소를 받습니다.
     m.rerender(make(second));
     expect(first.current).toBeNull();
     expect(second.current).toBe(el);
@@ -375,7 +375,7 @@ describe('@omdc-slipkit/react ref', () => {
     const el = m.container.querySelector('slip-form') as SlipFormElement;
     expect(calls).toEqual([el]);
 
-    // 같은 콜백이면 다시 렌더해도 다시 부르지 않는다.
+    // 같은 콜백이면 다시 렌더해도 다시 부르지 않습니다.
     m.rerender(createElement(SlipForm, { src: '', maxImageBytes: 10, ref }));
     expect(calls).toEqual([el]);
 
@@ -383,7 +383,7 @@ describe('@omdc-slipkit/react ref', () => {
     expect(calls).toEqual([el, null]);
   });
 
-  it('정리 함수를 돌려주는 콜백 ref는 null 호출 대신 정리 함수가 불린다', () => {
+  it('정리 함수를 반환하는 콜백 ref는 null 호출 대신 정리 함수가 불린다', () => {
     const attached: SlipViewerElement[] = [];
     const cleanup = vi.fn();
     const ref: Ref<SlipViewerElement> = (node) => {

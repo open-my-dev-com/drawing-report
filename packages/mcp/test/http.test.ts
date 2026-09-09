@@ -4,7 +4,7 @@ import { createServer, request } from 'node:http';
 import path from 'node:path';
 import {
   createPdfLinkToken,
-  startOrJoinPdfLinkServer,
+  startPdfLinkServerWithFallback,
   startPdfLinkServer,
   type PdfLinkServer,
 } from '../src/http.js';
@@ -12,7 +12,7 @@ import { callText, connect, makeTemplate, makeWorkDir, removeWorkDir, symlinksUn
 
 let dir: string;
 let linkServer: PdfLinkServer;
-/** 토큰을 뺀 서버 주소 (예: `http://127.0.0.1:8123`) */
+/** 토큰을 제외한 서버 주소입니다. 예: `http://127.0.0.1:8123` */
 let origin: string;
 
 beforeEach(async () => {
@@ -26,7 +26,7 @@ afterEach(async () => {
   await removeWorkDir(dir);
 });
 
-/** Host 헤더를 직접 지정해 요청하고 상태 코드를 돌려준다 (fetch는 Host를 바꿀 수 없다). */
+/** fetch로 바꿀 수 없는 Host 헤더를 직접 지정해 요청하고 상태 코드를 반환합니다. */
 function statusWithHost(requestPath: string, host: string | null): Promise<number> {
   return new Promise((resolve, reject) => {
     const req = request(
@@ -34,7 +34,7 @@ function statusWithHost(requestPath: string, host: string | null): Promise<numbe
         host: '127.0.0.1',
         port: linkServer.port,
         path: requestPath,
-        // Host를 아예 빼려면 헤더 자동 추가를 끈다.
+        // Host를 아예 빼려면 헤더 자동 추가를 끕니다.
         ...(host === null ? { setHost: false } : { headers: { host } }),
       },
       (res) => {
@@ -62,10 +62,10 @@ describe('PDF 링크 서버', () => {
     await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
     expect((await fetch(`${origin}/doc.pdf`)).status).toBe(404);
     expect((await fetch(`${origin}/${createPdfLinkToken()}/doc.pdf`)).status).toBe(404);
-    // 앞부분만 같은 토큰도 거부한다.
+    // 앞부분만 같은 토큰도 거부합니다.
     expect((await fetch(`${origin}/${linkServer.token.slice(0, -1)}/doc.pdf`)).status).toBe(404);
     expect((await fetch(`${origin}/${linkServer.token}x/doc.pdf`)).status).toBe(404);
-    // 토큰 없는 상태 조회는 서버 식별 정보만 주고 토큰을 노출하지 않는다.
+    // 토큰 없는 상태 조회는 서버 식별 정보만 주고 토큰을 노출하지 않습니다.
     const status = await fetch(`${origin}/slipkit-mcp/status`);
     expect(status.status).toBe(200);
     expect(await status.text()).not.toContain(linkServer.token);
@@ -80,7 +80,7 @@ describe('PDF 링크 서버', () => {
     expect((await fetch(`${linkServer.baseUrl}/`)).status).toBe(404);
   });
 
-  // Windows에서 링크 생성 권한이 없을 때만 건너뛴다.
+  // Windows에서 링크 생성 권한이 없을 때만 건너뜁니다.
   it.skipIf(symlinksUnavailable())('작업 디렉터리 안의 링크를 거쳐 밖에 있는 PDF는 제공하지 않는다', async () => {
     const outside = await makeWorkDir();
     try {
@@ -90,7 +90,7 @@ describe('PDF 링크 서버', () => {
       await symlink(outside, path.join(dir, 'shared'), 'dir');
       expect((await fetch(`${linkServer.baseUrl}/leak.pdf`)).status).toBe(404);
       expect((await fetch(`${linkServer.baseUrl}/shared/secret.pdf`)).status).toBe(404);
-      // 같은 디렉터리의 실제 파일은 그대로 제공한다.
+      // 같은 디렉터리의 실제 파일은 그대로 제공합니다.
       expect((await fetch(`${linkServer.baseUrl}/own.pdf`)).status).toBe(200);
       expect(await readdir(outside)).toEqual(['secret.pdf']);
     } finally {
@@ -106,7 +106,7 @@ describe('PDF 링크 서버', () => {
   it('로컬호스트가 아닌 Host 헤더의 요청은 거부한다', async () => {
     await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
     const linkPath = `/${linkServer.token}/doc.pdf`;
-    // DNS 리바인딩으로 붙은 브라우저는 공격자 도메인을 Host에 담아 보낸다.
+    // DNS 리바인딩으로 붙은 브라우저는 공격자 도메인을 Host에 담아 보냅니다.
     expect(await statusWithHost(linkPath, 'attacker.example')).toBe(403);
     expect(await statusWithHost(linkPath, `localhost:${linkServer.port}`)).toBe(200);
     expect(await statusWithHost(linkPath, `127.0.0.1:${linkServer.port}`)).toBe(200);
@@ -115,15 +115,15 @@ describe('PDF 링크 서버', () => {
   it('로컬 주소의 여러 표기를 허용하고 비슷한 이름은 거부한다', async () => {
     await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
     const linkPath = `/${linkServer.token}/doc.pdf`;
-    // 호스트 이름은 대소문자를 구분하지 않는다.
+    // 호스트 이름은 대소문자를 구분하지 않습니다.
     expect(await statusWithHost(linkPath, `LOCALHOST:${linkServer.port}`)).toBe(200);
     expect(await statusWithHost(linkPath, `[::1]:${linkServer.port}`)).toBe(200);
-    // Host가 없으면 거부한다 — HTTP/1.1 필수 헤더라 Node가 먼저 400으로 걸러낸다.
+    // Host가 없으면 거부합니다. HTTP/1.1 필수 헤더라 Node가 먼저 400으로 걸러냅니다.
     expect(await statusWithHost(linkPath, null)).not.toBe(200);
     // 로컬 주소로 시작할 뿐인 공격자 도메인
     expect(await statusWithHost(linkPath, 'localhost.attacker.example')).toBe(403);
     expect(await statusWithHost(linkPath, '127.0.0.1.attacker.example')).toBe(403);
-    // 닫는 괄호가 없는 잘못된 IPv6 표기 — Node의 헤더 해석에서 먼저 400으로 걸린다
+    // 닫는 괄호가 없는 잘못된 IPv6 표기 — Node의 헤더 해석에서 먼저 400으로 걸립니다.
     expect(await statusWithHost(linkPath, '[::1')).not.toBe(200);
   });
 
@@ -133,68 +133,39 @@ describe('PDF 링크 서버', () => {
     expect(response.headers.get('x-content-type-options')).toBe('nosniff');
   });
 
-  it('지정한 토큰으로 서버를 띄우고 형식이 잘못된 토큰은 거부한다', async () => {
-    const token = 'shared-token-0123456789';
-    const own = await startPdfLinkServer({ rootDir: dir, port: 0, token });
+  it('서버마다 다른 토큰을 만들고 상태 경로로도 토큰을 알아낼 수 없다', async () => {
+    const own = await startPdfLinkServer({ rootDir: dir, port: 0 });
     try {
       await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
-      expect(own.token).toBe(token);
+      expect(own.token).not.toBe(linkServer.token);
+      // 같은 작업 디렉터리라도 다른 서버의 토큰은 통하지 않습니다.
       expect((await fetch(`${own.baseUrl}/doc.pdf`)).status).toBe(200);
+      expect((await fetch(`http://127.0.0.1:${own.port}/${linkServer.token}/doc.pdf`)).status).toBe(404);
+      // 토큰이 있는 상태 경로도 상태 응답을 반환하지 않고 파일과 같이 404를 반환합니다.
+      expect((await fetch(`${own.baseUrl}/slipkit-mcp/status`)).status).toBe(404);
     } finally {
       await own.close();
     }
-    await expect(startPdfLinkServer({ rootDir: dir, port: 0, token: 'short' })).rejects.toThrow(
-      /at least 16 characters/,
-    );
-    await expect(startPdfLinkServer({ rootDir: dir, port: 0, token: 'has/slash-0123456789' })).rejects.toThrow(
-      /at least 16 characters/,
+  });
+
+  it('같은 작업 디렉터리의 서버가 포트를 쓰고 있어도 합류하지 않는다', async () => {
+    await expect(startPdfLinkServerWithFallback({ rootDir: dir, port: linkServer.port })).rejects.toThrow(
+      /used by another slipkit-mcp server for this working directory/,
     );
   });
 
-  it('같은 작업 디렉터리의 서버가 포트를 쓰고 있으면 같은 토큰을 전달한 경우에만 재사용한다', async () => {
-    const joined = await startOrJoinPdfLinkServer({
-      rootDir: dir,
-      port: linkServer.port,
-      token: linkServer.token,
-    });
-    expect(joined.owned).toBe(false);
-    expect(joined.baseUrl).toBe(linkServer.baseUrl);
-    expect(joined.token).toBe(linkServer.token);
-
-    await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
-    expect((await fetch(`${joined.baseUrl}/doc.pdf`)).status).toBe(200);
-
-    // 재사용한 서버의 close는 기존 서버를 종료하지 않는다.
-    await joined.close();
-    expect((await fetch(`${linkServer.baseUrl}/doc.pdf`)).status).toBe(200);
-  });
-
-  it('토큰이 없거나 다르면 합류하지 않는다', async () => {
-    await expect(startOrJoinPdfLinkServer({ rootDir: dir, port: linkServer.port })).rejects.toThrow(
-      /link token to share it/,
-    );
-    await expect(
-      startOrJoinPdfLinkServer({ rootDir: dir, port: linkServer.port, token: createPdfLinkToken() }),
-    ).rejects.toThrow(/different link token/);
-    // 형식이 잘못된 토큰은 요청해 보지 않고 형식 오류로 거부한다.
-    await expect(
-      startOrJoinPdfLinkServer({ rootDir: dir, port: linkServer.port, token: 'short' }),
-    ).rejects.toThrow(/at least 16 characters/);
-  });
-
-  it('토큰이 맞지 않을 때 fallbackToFreePort면 다른 포트에 새 서버를 띄운다', async () => {
-    const fallback = await startOrJoinPdfLinkServer({
+  it('포트가 막혀 있을 때 fallbackToFreePort면 다른 포트에 새 서버를 띄운다', async () => {
+    const fallback = await startPdfLinkServerWithFallback({
       rootDir: dir,
       port: linkServer.port,
       fallbackToFreePort: true,
     });
     try {
-      expect(fallback.owned).toBe(true);
       expect(fallback.port).not.toBe(linkServer.port);
       expect(fallback.token).not.toBe(linkServer.token);
       await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
       expect((await fetch(`${fallback.baseUrl}/doc.pdf`)).status).toBe(200);
-      // 서로의 토큰은 통하지 않는다.
+      // 서로의 토큰은 통하지 않습니다.
       expect((await fetch(`http://127.0.0.1:${fallback.port}/${linkServer.token}/doc.pdf`)).status).toBe(404);
     } finally {
       await fallback.close();
@@ -203,10 +174,9 @@ describe('PDF 링크 서버', () => {
 
   it('다른 작업 디렉터리의 서버나 다른 프로그램이 쓰는 포트는 대체 포트를 허용해도 거부한다', async () => {
     await expect(
-      startOrJoinPdfLinkServer({
+      startPdfLinkServerWithFallback({
         rootDir: path.join(dir, '..'),
         port: linkServer.port,
-        token: linkServer.token,
         fallbackToFreePort: true,
       }),
     ).rejects.toThrow(/different working directory/);
@@ -217,7 +187,7 @@ describe('PDF 링크 서버', () => {
     const foreignPort = typeof address === 'object' && address !== null ? address.port : 0;
     try {
       await expect(
-        startOrJoinPdfLinkServer({ rootDir: dir, port: foreignPort, fallbackToFreePort: true }),
+        startPdfLinkServerWithFallback({ rootDir: dir, port: foreignPort, fallbackToFreePort: true }),
       ).rejects.toThrow(/already in use by another program/);
     } finally {
       await new Promise((resolve) => foreign.close(resolve));
@@ -227,7 +197,7 @@ describe('PDF 링크 서버', () => {
   it('close는 열린 keep-alive 연결이 있어도 끝난다', async () => {
     const own = await startPdfLinkServer({ rootDir: dir, port: 0 });
     await writeFile(path.join(dir, 'doc.pdf'), '%PDF-1.7 test');
-    // Node fetch는 기본으로 keep-alive 연결을 유지한다.
+    // Node fetch는 기본으로 keep-alive 연결을 유지합니다.
     expect((await fetch(`${own.baseUrl}/doc.pdf`)).status).toBe(200);
     await own.close();
     await expect(fetch(`${own.baseUrl}/doc.pdf`)).rejects.toThrow();

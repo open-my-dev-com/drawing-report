@@ -1,14 +1,14 @@
 /**
- * 사용자에게 표시하는 `.slip` 검증·마이그레이션 메시지를 언어별로 정의한다.
+ * 사용자에게 표시하는 `.slip` 검증·마이그레이션 메시지를 언어별로 정의합니다.
  *
- * 파싱과 검증은 동기로 실행된다. 진입점은 {@link withFormatLocale}에서 언어를
- * 선택하고, 스키마와 마이그레이션 코드는 {@link fmt}에서 해당 메시지 사전을 읽는다.
- * 이 방식은 비동기 코드에 사용하지 않는다.
+ * 파싱과 검증은 동기로 실행됩니다. 진입점은 {@link withFormatLocale}에서 언어를
+ * 선택하고, 스키마와 마이그레이션 코드는 {@link fmt}에서 해당 메시지 사전을 읽습니다.
+ * 이 방식은 비동기 코드에 사용하지 않습니다.
  */
 import { ko as zodKo, ja as zodJa } from 'zod/locales';
 import { resolveMessageLocale, type MessageLocale } from '../i18n.js';
 
-/** `.slip` 검증·파싱·마이그레이션 메시지 목록 */
+/** `.slip` 검증·파싱·마이그레이션 메시지 목록입니다. */
 interface FormatMessages {
   colorFormat(): string;
   srcFormat(): string;
@@ -173,8 +173,8 @@ const EN: FormatMessages = {
 
 const KO: FormatMessages = {
   colorFormat: () => '색상은 #RRGGBB 또는 #RRGGBBAA 형식이어야 합니다',
-  srcFormat: () => 'src는 http(s) URL, data:image/png;base64 또는 data:image/jpeg;base64 이미지, asset:// 참조 중 하나여야 합니다',
-  semverFormat: () => 'schemaVersion은 semver 형식이어야 합니다',
+  srcFormat: () => 'src는 HTTP(S) URL, PNG·JPEG Base64 데이터 URL 또는 asset:// 참조 중 하나여야 합니다',
+  semverFormat: () => 'schemaVersion은 x.y.z 형식이어야 합니다',
   itemsPerPageMax: (max) => `itemsPerPage는 최대 ${max}입니다`,
   minItemsMax: (max) => `minItems는 최대 ${max}입니다`,
   maxItemsMax: (max) => `maxItems는 최대 ${max}입니다`,
@@ -183,19 +183,19 @@ const KO: FormatMessages = {
   cellsMax: (max) => `셀 수는 최대 ${max}개입니다`,
   bandsMax: (max) => `행 구간은 최대 ${max}개입니다`,
   bandFromAboveTo: (bandId) => `행 구간 '${bandId}': fromRow는 toRow보다 클 수 없습니다`,
-  bandOutOfRange: (bandId, rows) => `행 구간 '${bandId}'이(가) 행 수(${rows})를 벗어납니다`,
+  bandOutOfRange: (bandId, rows) => `행 구간 '${bandId}'의 범위가 전체 ${rows}개 행을 벗어납니다`,
   bandsMustCoverRows: () => '행 구간은 모든 행을 겹침과 빈틈 없이 정확히 한 번씩 포함해야 합니다',
   bandOrderInvalid: (bandId) =>
-    `행 구간 '${bandId}'의 순서가 잘못되었습니다 — before-data, page-start, group-start, item, group-end, after-data, page-end 순서를 따라야 합니다`,
-  bandItemExactlyOne: () => '반복 그리드에는 item 구간이 정확히 하나 필요합니다',
+    `행 구간 '${bandId}'의 순서가 잘못되었습니다. before-data, page-start, group-start, item, group-end, after-data, page-end 순서를 따라야 합니다`,
+  bandItemExactlyOne: () => '반복 그리드에는 항목 구간(item)이 정확히 하나 필요합니다',
   bandPagesOnlyPageBands: (bandId) =>
     `행 구간 '${bandId}': pages는 page-start와 page-end 구간에만 지정할 수 있습니다`,
   bandRepeatOnlyGroupStart: (bandId) =>
     `행 구간 '${bandId}': repeatOnPageBreak는 group-start 구간에만 지정할 수 있습니다`,
-  bandNeedsGroupBy: (bandId) => `행 구간 '${bandId}'은(는) 반복 설정에 groupBy가 있어야 사용할 수 있습니다`,
-  duplicateBandId: (bandId) => `행 구간 id '${bandId}'이(가) 중복되었습니다`,
-  groupByDuplicate: (field) => `groupBy 필드 '${field}'이(가) 중복되었습니다`,
-  cellSourceExclusive: (row, column) => `셀(${row},${column})은 content·parameter·formula 중 하나만 가질 수 있습니다`,
+  bandNeedsGroupBy: (bandId) => `행 구간 '${bandId}'를 사용하려면 반복 설정에 groupBy가 필요합니다`,
+  duplicateBandId: (bandId) => `중복된 행 구간 ID입니다: '${bandId}'`,
+  groupByDuplicate: (field) => `중복된 groupBy 필드입니다: '${field}'`,
+  cellSourceExclusive: (row, column) => `셀(${row},${column})에는 content·parameter·formula 중 하나만 지정할 수 있습니다`,
   cellSpanOutOfRange: (row, column, rows, columns) =>
     `셀(${row},${column})의 병합 범위가 그리드(${rows}×${columns})를 벗어납니다`,
   cellSpanCrossesBand: (row, column) => `셀(${row},${column})의 병합이 행 구간 경계를 넘습니다`,
@@ -205,15 +205,15 @@ const KO: FormatMessages = {
     `${column}열의 자동 병합은 그 열의 항목 구간 셀이 구간 전체 높이를 차지할 때만 켤 수 있습니다`,
   flowAreaInvalid: () => 'flowArea.top은 flowArea.bottom보다 작아야 합니다',
   flowAreaOutOfPaper: (bottom, height) => `flowArea.bottom(${bottom})은 용지 높이(${height})를 넘을 수 없습니다`,
-  afterTargetMissing: (target) => `pagePlacement.target '${target}'은(는) 같은 페이지의 요소를 가리켜야 합니다`,
+  afterTargetMissing: (target) => `pagePlacement.target은 같은 페이지의 요소를 가리켜야 합니다: '${target}'`,
   afterTargetCycle: () => 'pagePlacement의 after 참조가 순환합니다',
   imageSourceRequired: () => '이미지는 src 또는 parameter 중 하나가 필요합니다',
   imageSourceExclusive: () => '이미지는 src와 parameter를 함께 가질 수 없습니다',
-  barcodeSourceExclusive: () => '바코드는 content·parameter·formula 중 하나만 가져야 합니다',
+  barcodeSourceExclusive: () => '바코드에는 content·parameter·formula 중 하나만 지정할 수 있습니다',
   radiusWithDashedBorder: () => 'radius와 파선·점선 테두리는 함께 지정할 수 없습니다',
   polygonSidesMin: () => '다각형의 변은 3개 이상이어야 합니다',
   polygonSidesMax: () => '다각형의 변은 최대 12개입니다',
-  fieldSourceExclusive: (name) => `필드 '${name}'는 parameter·formula 중 하나만 가져야 합니다`,
+  fieldSourceExclusive: (name) => `필드 '${name}'에는 parameter 또는 formula 중 하나만 있어야 합니다`,
   conditionalFormatEffectRequired: () =>
     '조건부 서식 규칙은 색(fontColor·backgroundColor·borderColor)이나 강조(bold·italic·underline·strikethrough)를 하나 이상 지정해야 합니다',
   conditionalFormatsMax: (max) => `조건부 서식 규칙은 최대 ${max}개입니다`,
@@ -225,9 +225,9 @@ const KO: FormatMessages = {
   valueStringMax: (max) => `값 문자열은 최대 ${max}자입니다`,
   gridSizeMax: (max) => `그리드의 전체 너비와 높이는 최대 ${max}mm입니다`,
   imageTooLarge: (maxBytes) => `이미지가 크기 상한(${Math.round(maxBytes / 1024 / 1024)} MiB)을 넘습니다`,
-  imageContentMismatch: () => '이미지 데이터가 선언한 PNG·JPEG가 아닙니다. 내용이 손상되었거나 다른 형식입니다',
+  imageContentMismatch: () => '이미지 데이터가 지정된 PNG 또는 JPEG 형식과 일치하지 않습니다. 내용이 손상되었거나 다른 형식입니다',
   imageMimeUnsupported: () => '이미지는 PNG와 JPEG만 지원합니다',
-  assetMimeMismatch: (declared, actual) => `에셋의 mimeType(${declared})이 이미지 데이터(${actual})와 다릅니다`,
+  assetMimeMismatch: (declared, actual) => `에셋의 mimeType(${declared})과 실제 이미지 형식(${actual})이 다릅니다`,
   elementsMax: (max) => `페이지당 요소는 최대 ${max}개입니다`,
   subFieldsOnlyForList: () => "하위 필드는 valueType이 'list'인 파라미터에만 둘 수 있습니다",
   duplicateSubField: (key) => `하위 필드 이름이 중복됩니다: ${key}`,
@@ -241,16 +241,16 @@ const KO: FormatMessages = {
   duplicatePageKey: (key) => `페이지 키가 중복됩니다: ${key}`,
   duplicateElementId: (id) => `요소 ID가 중복됩니다: ${id}`,
   issuedExternalImage: () =>
-    '발행된 전표(issued: true)에는 외부 URL 이미지를 포함할 수 없습니다. 이미지를 base64로 포함해야 합니다',
-  imageValueFormat: () => '변동 이미지 값은 data:<mime>;base64 형식의 PNG 또는 JPEG여야 합니다',
+    '발행된 전표(issued: true)에는 외부 URL 이미지를 포함할 수 없습니다. 이미지를 Base64 데이터 URL로 포함해야 합니다',
+  imageValueFormat: () => '변동 이미지 값은 PNG 또는 JPEG Base64 데이터 URL이어야 합니다',
   envelopeInvalid: (issues) => `.slip 봉투 검증 실패: ${issues}`,
   bodyInvalid: (issues) => `.slip 본문 검증 실패: ${issues}`,
   valueTooDeep: () => '.slip 본문에 포함된 값의 중첩이 너무 깊습니다',
   invalidJson: () => '유효한 JSON이 아닙니다',
-  migrateSemver: () => 'schemaVersion이 semver 형식이 아닙니다',
+  migrateSemver: () => 'schemaVersion이 x.y.z 형식이 아닙니다',
   migrateNewer: (version, current) =>
     `이 파일의 schemaVersion(${version})은 지원 버전(${current})보다 새롭습니다. 라이브러리를 업데이트하세요.`,
-  migrateCycle: (version) => `마이그레이션 경로에 순환이 있습니다: ${version}`,
+  migrateCycle: (version) => `마이그레이션 경로가 순환합니다: ${version}`,
   migrateNoPath: (from, to) =>
     `schemaVersion ${from}에서 ${to} 버전으로 변환하는 마이그레이션 경로가 없습니다`,
 };
@@ -340,14 +340,14 @@ const JA: FormatMessages = {
 
 const CATALOG: Record<MessageLocale, FormatMessages> = { en: EN, ko: KO, ja: JA };
 
-// 동기 실행 중 사용할 메시지 사전을 모듈 상태로 유지한다.
+// 동기 실행 중 사용할 메시지 사전을 모듈 상태로 유지합니다.
 let current: FormatMessages = EN;
 let currentLocale: MessageLocale = 'en';
 
 /**
- * 지정한 로케일의 메시지 사전을 사용해 함수를 실행한다. 실행 후에는 이전 사전으로 복원한다.
+ * 지정한 로케일의 메시지 사전을 사용해 함수를 실행합니다. 실행 후에는 이전 사전으로 복원합니다.
  *
- * @param locale - BCP 47 로케일 (생략하면 현재 메시지 사전 유지)
+ * @param locale - BCP 47 로케일(생략하면 현재 메시지 사전 유지)
  * @param fn - 실행할 동기 함수
  * @returns `fn`의 반환값
  */
@@ -365,23 +365,23 @@ export function withFormatLocale<T>(locale: string | undefined, fn: () => T): T 
   }
 }
 
-/** 현재 선택된 `.slip` 형식 메시지 사전 */
+/** 현재 선택된 `.slip` 형식 메시지 사전입니다. */
 export function fmt(): FormatMessages {
   return current;
 }
 
-/** Zod 로케일이 제공하는 내장 메시지 변환 함수 타입 */
+/** Zod 로케일이 제공하는 내장 메시지 변환 함수 타입입니다. */
 type ZodErrorMap = NonNullable<ReturnType<typeof zodKo>['localeError']>;
 
-// 필수 값 누락과 타입 불일치 등 Zod 내장 메시지에 적용할 언어별 파싱 옵션.
-// 스키마에 직접 지정한 메시지가 이 옵션보다 우선한다.
+// 필수 값 누락이나 타입 불일치 같은 Zod 기본 메시지에 언어별 해석 옵션을 적용합니다.
+// 스키마에 직접 지정한 메시지가 이 옵션보다 우선합니다.
 const ZOD_PARSE_PARAMS: Record<MessageLocale, { error?: ZodErrorMap }> = {
   en: {},
   ko: { error: zodKo().localeError },
   ja: { error: zodJa().localeError },
 };
 
-/** 현재 선택된 언어의 Zod `safeParse` 옵션 (영어이면 빈 객체) */
+/** 현재 선택된 언어의 Zod `safeParse` 옵션 (영어이면 빈 객체)입니다. */
 export function zodParseParams(): { error?: ZodErrorMap } {
   return ZOD_PARSE_PARAMS[currentLocale];
 }

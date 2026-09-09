@@ -1,12 +1,12 @@
 /**
- * 페이지 계획 계층의 공개 진입점.
+ * 페이지 계획 기능의 공개 진입점입니다.
  *
  * @remarks
  * 여기서 내보내는 이름은 `@omdc-slipkit/elements`와 `@omdc-slipkit/mcp`가 화면·PDF·미리보기에
- * 같은 페이지 계획을 쓰기 위해 가져가는 패키지 연동 API다. 계획을 계산하는 `planGrid`와 그 입력
- * 타입(`GridFlow`·`PlanPaper`)은 계획 계층의 구현 세부이므로 공개하지 않는다 — core 안에서는
- * `./grid-plan.js`·`./page-plan.js`에서 직접 가져온다. `visiblePageRange`·`ElementPlacement`처럼
- * `./page-plan.js` 안에서만 쓰는 이름은 파일 밖으로 내보내지 않는다.
+ * 같은 페이지 계획을 사용하기 위한 패키지 연동 API입니다. 계획을 계산하는 `planGrid`와 그 입력
+ * 타입(`GridFlow`·`PlanPaper`)은 계획 계층의 구현 세부이므로 공개하지 않습니다. core 안에서는
+ * `./grid-plan.js`·`./page-plan.js`에서 직접 가져옵니다. `visiblePageRange`·`ElementPlacement`처럼
+ * `./page-plan.js` 안에서만 쓰는 이름은 파일 밖으로 내보내지 않습니다.
  */
 export { SlipLayoutError } from './errors.js';
 export { type GridFragment, type GridItem, type GridPlan, type PlannedBand } from './grid-plan.js';

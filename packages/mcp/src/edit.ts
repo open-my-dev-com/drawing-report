@@ -1,7 +1,7 @@
 /**
- * `.slip` 파일의 일부를 식별자로 수정하는 `slip_edit` 연산.
- * 요소는 id, 파라미터는 key로 찾아 배열 순서가 바뀌어도 같은 대상을 수정한다.
- * 연산을 모두 적용한 뒤 파일 전체를 core로 검증하고, 실패하면 아무것도 저장하지 않는다.
+ * `.slip` 파일의 일부를 식별자로 수정하는 `slip_edit` 연산입니다.
+ * 요소는 ID로, 파라미터는 키로 찾아 배열 순서가 바뀌어도 같은 대상을 수정합니다.
+ * 연산을 모두 적용한 뒤 파일 전체를 core로 검증하고, 실패하면 아무것도 저장하지 않습니다.
  */
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -19,36 +19,36 @@ import { allElementIds, bodyOf, findElement } from './summary.js';
 
 export { MAX_IMAGE_BYTES };
 
-/** AI가 입력을 고쳐 다시 호출할 수 있는 도구 오류. */
+/** AI가 입력을 수정해 다시 호출할 수 있도록 원인을 설명하는 도구 오류입니다. */
 export class McpToolError extends Error {}
 
-// 파라미터 키·하위 필드 키·요소 필드 이름은 어떤 문자열이든 될 수 있다. `__proto__`·`constructor`
-// 같은 키도 업무 데이터이므로 값 객체는 프로토타입 체인을 거치지 않고 자신의 속성만 읽고 쓴다.
+// 파라미터 키·하위 필드 키·요소 필드 이름은 어떤 문자열이든 될 수 있습니다. `__proto__`·`constructor`
+// 같은 키도 입력 데이터이므로 값 객체는 프로토타입 체인을 거치지 않고 자신의 속성만 읽고 씁니다.
 
-/** 객체가 직접 가진 키의 값을 읽는다. 없으면 `undefined`다. */
+/** 객체가 직접 가진 키의 값을 읽습니다. 없으면 `undefined`입니다. */
 function readOwn(record: Record<string, unknown>, key: string): unknown {
   return Object.hasOwn(record, key) ? record[key] : undefined;
 }
 
-/** 키 이름과 무관하게 객체 자신의 속성으로 값을 쓴다. `__proto__` 키도 프로토타입을 바꾸지 않는다. */
+/** 키 이름과 무관하게 객체 자신의 속성으로 값을 씁니다. `__proto__` 키도 프로토타입을 바꾸지 않습니다. */
 function writeOwn(record: Record<string, unknown>, key: string, value: unknown): void {
   Object.defineProperty(record, key, { value, enumerable: true, writable: true, configurable: true });
 }
 
-/** 객체가 직접 가진 키만 지운다. */
+/** 객체가 직접 가진 키만 지웁니다. */
 function deleteOwn(record: Record<string, unknown>, key: string): void {
   if (Object.hasOwn(record, key)) delete record[key];
 }
 
-/** 값이 배열이 아닌 JSON 객체인지 확인한다. */
+/** 값이 배열이 아닌 JSON 객체인지 확인합니다. */
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** 입력을 검사하는 동안 `__proto__` 키를 잠시 바꿔 두는 이름. 외부 입력과 겹치지 않는 값이다. */
+/** 입력을 검사하는 동안 `__proto__` 키를 임시로 바꿀 때 사용하는 이름입니다. 외부 입력과 겹치지 않습니다. */
 const PROTO_KEY_ALIAS = `\u0000__proto__\u0000${Math.random().toString(36).slice(2)}`;
 
-/** 객체가 직접 가진 `__proto__` 키를 임시 이름으로 바꾼 얕은 사본을 만든다. 그 키가 없으면 입력을 그대로 돌려준다. */
+/** 객체가 직접 가진 `__proto__` 키를 임시 이름으로 바꾼 얕은 사본을 만듭니다. 그 키가 없으면 입력을 그대로 반환합니다. */
 function aliasProtoKey(input: unknown): unknown {
   if (!isJsonObject(input) || !Object.hasOwn(input, '__proto__')) return input;
   const aliased: Record<string, unknown> = {};
@@ -58,7 +58,7 @@ function aliasProtoKey(input: unknown): unknown {
   return aliased;
 }
 
-/** 검사를 마친 객체에서 임시 이름을 `__proto__` 키로 되돌린다. 키 순서를 유지하려고 제자리에서 다시 채운다. */
+/** 검사를 마친 객체에서 임시 이름을 `__proto__` 키로 되돌립니다. 키 순서를 유지하려고 제자리에서 다시 채웁니다. */
 function restoreProtoKeyInPlace(parsed: unknown): void {
   if (!isJsonObject(parsed) || !Object.hasOwn(parsed, PROTO_KEY_ALIAS)) return;
   const entries = Object.keys(parsed).map((key) => [key, readOwn(parsed, key)] as const);
@@ -67,16 +67,16 @@ function restoreProtoKeyInPlace(parsed: unknown): void {
 }
 
 /**
- * 키 제약이 없는 JSON 객체를 받는 도구 입력 스키마. 모든 키를 객체가 직접 가진 속성으로 보존한다.
+ * 키 제약이 없는 JSON 객체를 받는 도구 입력 스키마입니다. 모든 키를 객체가 직접 가진 속성으로 보존합니다.
  *
- * `z.record`는 결과 객체에 키를 대입해 만들기 때문에 `__proto__`라는 키가 사라진다. 검사 전에 그
- * 키만 임시 이름으로 바꿔 넘기고, 검사가 끝난 결과에서 원래 키로 되돌린다. MCP SDK가 도구 목록에
+ * `z.record`는 결과 객체에 키를 대입해 만들기 때문에 `__proto__`라는 키가 사라집니다. 검사 전에 그
+ * 키만 임시 이름으로 바꿔 넘기고, 검사가 끝난 결과에서 원래 키로 되돌립니다. MCP SDK가 도구 목록에
  * 싣는 JSON Schema는 전처리 뒤의 `z.record`에서 만들어지므로 `type: "object"`와
- * `additionalProperties`가 그대로 드러난다. 전처리 단계는 입력을 선택 항목으로 표시하므로
- * `nonoptional`로 감싸 필수 입력으로 유지한다. 선택 입력이 필요하면 호출하는 쪽에서 `.optional()`을 붙인다.
+ * `additionalProperties`가 그대로 드러납니다. 전처리 단계는 입력을 선택 항목으로 표시하므로
+ * `nonoptional`로 감싸 필수 입력으로 유지합니다. 선택 입력이 필요하면 호출하는 쪽에서 `.optional()`을 붙입니다.
  *
  * @param description - 도구 설명에 실을 입력 안내
- * @returns 객체가 아니면 거부하고, 객체면 키를 모두 보존한 얕은 사본을 돌려주는 스키마
+ * @returns 객체가 아니면 거부하고, 객체이면 모든 키를 보존한 얕은 사본을 반환하는 스키마
  */
 export function jsonObjectSchema(description: string): z.ZodType<Record<string, unknown>> {
   return z
@@ -86,17 +86,17 @@ export function jsonObjectSchema(description: string): z.ZodType<Record<string, 
     .describe(description);
 }
 
-/** `set_image`가 받는 파일 확장자와 그 확장자가 뜻하는 이미지 형식. 실제 내용은 서명으로 다시 확인한다. */
+/** `set_image`가 받는 파일 확장자와 이미지 형식입니다. 실제 형식은 파일 서명으로 다시 확인합니다. */
 const IMAGE_EXTENSIONS: Record<string, ImageMimeType> = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
 };
 
-/** 사람이 읽는 이미지 형식 안내 */
+/** 사람이 읽을 수 있는 이미지 형식 안내입니다. */
 const SUPPORTED_IMAGES = `PNG or JPEG, up to ${MAX_IMAGE_BYTES / 1024}KB (${MAX_IMAGE_BYTES / 1024 / 1024} MiB)`;
 
-/** 이미지 검사 실패를 AI가 고칠 수 있는 한 줄 설명으로 만든다. */
+/** 이미지 검사 실패를 AI가 고칠 수 있는 한 줄 설명으로 만듭니다. */
 function imageProblem(inspection: Extract<ImageInspection, { ok: false }>, subject: string): string {
   switch (inspection.reason) {
     case 'format':
@@ -114,7 +114,7 @@ function imageProblem(inspection: Extract<ImageInspection, { ok: false }>, subje
 }
 
 /**
- * `data:` 이미지 문자열이 PNG·JPEG이고 크기 상한 안인지 확인한다.
+ * `data:` 이미지 문자열이 PNG 또는 JPEG이고 크기 상한 안인지 확인합니다.
  *
  * @param src - 검사할 `data:` 문자열
  * @param subject - 오류 메시지에 쓸 대상 이름 (예: `Image element "logo" src`)
@@ -126,8 +126,8 @@ function assertImageDataUrl(src: string, subject: string): void {
 }
 
 /**
- * 파일 전체에 들어 있는 `data:` 이미지(에셋, 고정 이미지 요소, 이미지로 선언된 전표 값)를 검사한다.
- * `slip_save`처럼 파일을 통째로 받는 경로가 `set_image`의 크기·형식 검사를 우회하지 못하게 한다.
+ * 파일 전체에 들어 있는 `data:` 이미지(에셋, 고정 이미지 요소, 이미지로 선언된 전표 값)를 검사합니다.
+ * `slip_save`처럼 파일 전체를 받는 경로에서도 `set_image`와 같은 크기·형식 검사를 적용합니다.
  *
  * @param file - 검사할 파일 (구조 검증은 끝난 상태)
  * @throws McpToolError PNG·JPEG가 아니거나 크기 상한을 넘는 이미지가 있을 때
@@ -149,18 +149,18 @@ export function assertFileImages(file: SlipFile): void {
   }
 }
 
-/** 양식에서 이미지 값으로 선언된 파라미터 키와 목록 파라미터의 이미지 하위 필드 키 */
+/** 양식에서 이미지 값으로 선언된 파라미터 키와 목록 파라미터의 이미지 하위 필드 키입니다. */
 export interface ImageValueSpec {
-  /** 이미지 요소가 참조하거나 `valueType: 'image'`로 선언된 파라미터 키 */
+  /** 이미지 요소가 참조하거나 `valueType: 'image'`로 선언된 파라미터 키입니다. */
   keys: ReadonlySet<string>;
-  /** 목록 파라미터 키별로 `valueType: 'image'`인 하위 필드 키 */
+  /** 목록 파라미터 키별로 `valueType: 'image'`인 하위 필드 키입니다. */
   listFields: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
 /**
- * 양식 본문에서 이미지 값이 들어가는 자리를 모은다. 이미지 요소의 `parameter`, `parameters[]`의
- * `valueType: 'image'` 정의, 목록 파라미터 `fields[]`의 `valueType: 'image'` 하위 필드가 대상이다.
- * 그 밖의 값은 업무 데이터로 보고 검사하지 않는다.
+ * 양식 본문에서 이미지 값이 들어가는 위치를 찾습니다. 이미지 요소의 `parameter`, `parameters[]`의
+ * `valueType: 'image'` 정의와 목록 파라미터 `fields[]`의 `valueType: 'image'` 하위 필드가 대상입니다.
+ * 그 밖의 값은 일반 입력 데이터로 보고 검사하지 않습니다.
  *
  * @param body - 양식 본문 (전표면 내장된 양식 스냅샷)
  * @returns 이미지 값 자리 목록
@@ -187,11 +187,11 @@ export function imageValueSpec(body: SlipTemplateBody): ImageValueSpec {
 }
 
 /**
- * 이미지 값으로 선언된 자리의 `data:` 문자열을 검사한다. 선언되지 않은 키와 목록 행의 다른 필드는
- * `data:`로 시작해도 검사하지 않고 그대로 둔다.
+ * 이미지 값으로 선언된 위치의 `data:` 문자열을 검사합니다. 선언되지 않은 키와 목록 행의 다른 필드는
+ * `data:`로 시작해도 검사하지 않고 그대로 둡니다.
  *
- * @param values - 파라미터 key별 값 (일부만 담긴 병합용 값이어도 된다)
- * @param spec - {@link imageValueSpec}이 모은 이미지 값 자리
+ * @param values - 파라미터 키별 값입니다. 병합할 값만 포함해도 됩니다.
+ * @param spec - {@link imageValueSpec}이 찾은 이미지 값 위치입니다.
  * @throws McpToolError PNG·JPEG가 아니거나 크기 상한을 넘는 이미지 값이 있을 때
  */
 export function assertImageValues(values: Record<string, unknown>, spec: ImageValueSpec): void {
@@ -216,7 +216,7 @@ export function assertImageValues(values: Record<string, unknown>, spec: ImageVa
   }
 }
 
-/** 요소가 `data:` 고정 이미지를 가지면 검사한다. */
+/** 요소가 `data:` 고정 이미지를 가지면 검사합니다. */
 function assertElementImage(element: { type?: unknown; id?: unknown; src?: unknown }): void {
   if (element.type === 'image' && typeof element.src === 'string' && element.src.startsWith('data:')) {
     assertImageDataUrl(element.src, `Image element "${String(element.id ?? '')}" src`);
@@ -237,7 +237,7 @@ const valuesSchema = jsonObjectSchema(
   'JSON object of voucher values keyed by the template parameter keys',
 );
 
-/** `slip_edit` 연산 입력 스키마 (`action`으로 구분) */
+/** `slip_edit` 연산 입력 스키마 (`action`으로 구분)입니다. */
 export const editOpSchema = z.discriminatedUnion('action', [
   z
     .object({ action: z.literal('set_meta'), fields: fieldsSchema })
@@ -327,19 +327,19 @@ export const editOpSchema = z.discriminatedUnion('action', [
     .describe('Merge values into an unissued voucher'),
 ]);
 
-/** `slip_edit` 연산 하나 */
+/** `slip_edit` 연산 하나입니다. */
 export type EditOp = z.infer<typeof editOpSchema>;
 
-/** 연산 적용에 필요한 파일 경로 처리 함수. */
+/** 연산 적용에 필요한 파일 경로 처리 함수입니다. */
 export interface EditContext {
-  /** 이미지 경로를 작업 디렉터리 안의 절대 경로로 변환한다. 링크를 거쳐서라도 벗어나면 던진다. */
+  /** 이미지 경로를 작업 디렉터리 안의 절대 경로로 변환합니다. 링크를 거쳐서라도 벗어나면 던집니다. */
   resolveFilePath: (relPath: string) => Promise<string>;
 }
 
 /**
- * 전달된 필드만 대상에 반영한다. `null`은 해당 필드를 삭제한다.
- * MCP의 JSON 입력에는 `undefined`를 사용할 수 없으므로 필드 삭제에 `null`을 사용한다.
- * 예를 들어 `{ "parameter": null, "formula": "..." }`는 값 소스를 수식으로 바꾼다.
+ * 전달된 필드만 대상에 반영합니다. `null`은 해당 필드를 삭제합니다.
+ * MCP의 JSON 입력에는 `undefined`를 사용할 수 없으므로 필드 삭제에 `null`을 사용합니다.
+ * 예를 들어 `{ "parameter": null, "formula": "..." }`는 값 소스를 수식으로 바꿉니다.
  */
 function mergeFields(target: Record<string, unknown>, fields: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(fields)) {
@@ -348,14 +348,14 @@ function mergeFields(target: Record<string, unknown>, fields: Record<string, unk
   }
 }
 
-/** 전달된 값을 전표에 반영한다. `null`은 필드 삭제가 아닌 전표 값으로 저장한다. */
+/** 전달된 값을 전표에 반영합니다. `null`은 필드 삭제가 아닌 전표 값으로 저장합니다. */
 function mergeValues(target: Record<string, unknown>, values: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(values)) {
     if (value !== undefined) writeOwn(target, key, value);
   }
 }
 
-/** 요소를 찾고, 없으면 현재 요소 id 목록을 담은 오류를 던진다. */
+/** 요소를 찾고, 없으면 현재 요소 ID 목록을 담은 오류를 던집니다. */
 function requireElement(file: SlipFile, id: string): ReturnType<typeof findElement> & object {
   const found = findElement(file, id);
   if (!found) {
@@ -365,7 +365,7 @@ function requireElement(file: SlipFile, id: string): ReturnType<typeof findEleme
   return found;
 }
 
-/** 페이지를 찾고, 없으면 페이지 수를 안내하는 오류를 던진다. */
+/** 페이지를 찾고, 없으면 페이지 수를 안내하는 오류를 던집니다. */
 function requirePage(body: SlipTemplateBody, index: number): (typeof body.pages)[number] {
   const page = body.pages[index];
   if (!page) {
@@ -375,10 +375,10 @@ function requirePage(body: SlipTemplateBody, index: number): (typeof body.pages)
 }
 
 /**
- * 연산 하나를 파일(사본)에 적용한다.
+ * 연산 하나를 파일 사본에 적용합니다.
  *
- * @param file - 수정할 파일 (호출 전에 깊은 사본을 만들어 넘긴다)
- * @param op - 적용할 연산
+ * @param file - 수정할 파일입니다. 호출 전에 깊은 사본을 만들어 전달합니다.
+ * @param op - 적용할 연산입니다.
  * @param context - 이미지 경로 해석 함수
  * @returns 적용 내용 한 줄 설명
  * @throws McpToolError 대상이 없거나 연산을 적용할 수 없을 때
@@ -503,14 +503,14 @@ export async function applyEditOp(
       } catch {
         throw new McpToolError(`Could not read image file: ${op.imagePath}`);
       }
-      // 확장자는 선언일 뿐이므로 실제 내용(서명)과 크기를 다시 확인한다.
+      // 확장자는 선언일 뿐이므로 실제 내용의 서명과 크기를 다시 확인합니다.
       const inspection = inspectImageBytes(bytes, { declaredMimeType: declared });
       if (!inspection.ok) {
         throw new McpToolError(imageProblem(inspection, `Image file "${op.imagePath}"`));
       }
       const mime = inspection.mimeType;
       const src = `data:${mime};base64,${bytes.toString('base64')}`;
-      // 기존 고정 이미지는 같은 에셋을 갱신해 불필요한 에셋이 남지 않게 한다.
+      // 기존 고정 이미지는 같은 에셋을 갱신해 불필요한 에셋이 남지 않게 합니다.
       const currentId = element.src?.startsWith('asset://') ? element.src.slice(8) : undefined;
       const current = body.assets.find((asset) => asset.id === currentId);
       if (current) {
@@ -535,7 +535,7 @@ export async function applyEditOp(
   }
 }
 
-/** 문서 안에서 겹치지 않는 새 에셋 id를 만든다. */
+/** 문서 안에서 중복되지 않는 새 에셋 ID를 만듭니다. */
 function nextAssetId(body: SlipTemplateBody): string {
   for (let index = 1; ; index += 1) {
     const id = `img-${index}`;

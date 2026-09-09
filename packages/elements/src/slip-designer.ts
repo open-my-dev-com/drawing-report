@@ -138,10 +138,10 @@ import {
   bandAt,
 } from './designer/grid-model.js';
 
-/** 파라미터 키와 충돌하지 않는 "새 값 등록" 항목의 내부 값 */
+/** 파라미터 키와 충돌하지 않는 "새 값 등록" 항목의 내부 값입니다. */
 const NEW_BINDING_OPTION = '\u0000new';
 
-/** 반복 그리드가 아닐 때 예약 참조 판정에 쓰는 빈 자리 */
+/** 반복 그리드가 아닐 때 예약 참조 판정에 쓰는 빈 자리입니다. */
 const EMPTY_SLOT = {
   item: undefined,
   reserved: undefined,
@@ -149,7 +149,7 @@ const EMPTY_SLOT = {
   groupIndex: undefined,
 } as const;
 
-/** 반복 그리드가 아닌 대상에서 예약 참조에 붙일 안내 */
+/** 반복 그리드가 아닌 대상에서 예약 참조에 붙일 안내입니다. */
 const NOT_REPEAT_RESERVED: ReservedAvailability[] = RESERVED_REF_NAMES.map((name) => ({
   name,
   usable: false,
@@ -168,7 +168,7 @@ function isEditingShortcut(e: KeyboardEvent): boolean {
   return command && ['c', 'v', 'z', 'y'].includes(e.key.toLowerCase());
 }
 
-/** 편집 대상이 지워졌을 때 수식 모달이 그릴 상태 — 대상을 모르므로 참조도 안내하지 않습니다 */
+/** 편집 대상이 삭제되어 수식과 참조를 표시할 수 없을 때 사용하는 모달 상태입니다. */
 const LOST_FORMULA_VIEW: FormulaModalView = {
   target: null,
   check: TARGET_CHANGED,
@@ -178,17 +178,17 @@ const LOST_FORMULA_VIEW: FormulaModalView = {
 };
 
 /**
- * 업로드할 수 있는 이미지 파일의 기본 최대 크기(바이트).
- * base64로 담기면 약 33% 커지므로 2MB 원본이 파일에는 ~2.7MB로 들어갑니다.
+ * 업로드할 수 있는 이미지 파일의 기본 최대 크기(바이트)입니다.
+ * Base64로 인코딩하면 약 33% 커지므로 2MiB 원본은 파일에서 약 2.7MiB를 차지합니다.
  */
 const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
-/** 새 요소의 기본 위치를 순차 이동할 간격과 반복 주기(mm) */
+/** 새 요소의 기본 위치를 순차 이동할 간격과 반복 주기(mm)입니다. */
 const NEW_ELEMENT_CASCADE_STEP_MM = 5;
 const NEW_ELEMENT_CASCADE_WRAP_MM = 50;
 
 /**
- * `.slip` 양식을 편집하는 `<slip-designer>` 컴포넌트.
+ * `.slip` 양식을 편집하는 `<slip-designer>` 컴포넌트입니다.
  *
  * 캔버스 편집, 속성 패널, 요소 추가와 삭제,
  * 복사·붙여넣기, 되돌리기·다시 실행, 다중 페이지, 프리셋 불러오기, PDF 미리보기를
@@ -245,35 +245,35 @@ export class SlipDesigner extends LitElement {
   locale?: string;
 
   /**
-   * 폰트·로케일·암호화 키 공통 설정 인스턴스.
+   * 폰트·로케일·암호화 키 공통 설정 인스턴스입니다.
    * PDF 미리보기와 수식 평가는 이 인스턴스의 설정을 사용합니다.
    * `getFonts`가 없으면 동봉 기본 폰트로 렌더링합니다.
    */
   slipkit?: SlipKit;
 
   /**
-   * 바코드 종류와 용지 정보를 제공하는 호스트 설정.
+   * 바코드 종류와 용지 정보를 제공하는 호스트 설정입니다.
    * 생략하면 기본 용지만 표시합니다.
    */
   settings?: SlipDesignerSettings;
 
   /**
-   * 툴바에 표시할 양식 프리셋 목록.
+   * 툴바에 표시할 양식 프리셋 목록입니다.
    * 지정하면 기본 프리셋을 대체합니다.
    */
   presets?: SlipPreset[];
 
   /**
-   * "내 양식" 저장과 불러오기에 사용할 저장소 어댑터.
+   * "내 양식" 저장과 불러오기에 사용할 저장소 어댑터입니다.
    * 지정한 경우에만 관련 도구를 표시합니다.
    */
   storage?: StorageAdapter;
 
   /**
-   * 업로드할 수 있는 이미지 파일의 최대 크기(바이트).
+   * 업로드할 수 있는 이미지 파일의 최대 크기(바이트)입니다.
    *
    * @remarks
-   * base64 인코딩 결과는 원본보다 약 33% 크므로 호스트의 저장 및 전송 제한에 맞게
+   * Base64 인코딩 결과는 원본보다 약 33% 크므로 호스트의 저장 및 전송 제한에 맞게
    * 크기를 지정할 수 있습니다.
    * HTML 속성으로도 줄 수 있습니다: `<slip-designer max-image-bytes="1048576">`.
    */
@@ -281,40 +281,40 @@ export class SlipDesigner extends LitElement {
 
   private _file: SlipTemplateFile | null = null;
   /**
-   * 문서 개정 번호 — 양식이 바뀌는 모든 경로에서 `_touch`로 올립니다.
+   * 문서 개정 번호입니다. 양식이 바뀌는 모든 경로에서 `_touch`로 증가시킵니다.
    * 페이지 계획 캐시는 이 번호로 유효성을 판단하므로 올리지 않은 변경은 이전 계획이 남습니다.
    */
   private _revision = 0;
   private _pageIndex = 0;
-  /** 현재 양식 페이지에서 보고 있는 출력 페이지 (0부터) */
+  /** 현재 양식 페이지에서 보고 있는 출력 페이지의 인덱스입니다. 0부터 시작합니다. */
   private _outputPage = 0;
-  /** 선택한 반복 그리드를 원본 행 구조 대신 현재 출력 결과로 표시할지 여부 */
+  /** 선택한 반복 그리드를 원본 행 구조 대신 현재 출력 결과로 표시하는지 나타냅니다. */
   private _gridPlanPreview = false;
-  /** 현재 양식 페이지의 계획과 캐시 */
+  /** 현재 양식 페이지의 계획과 캐시입니다. */
   private readonly _planner = new PagePlanController();
-  /** 속성 패널과 크기 조절 핸들이 대상으로 삼는 주 선택 요소 */
+  /** 속성 패널과 크기 조절 핸들이 대상으로 삼는 주 선택 요소입니다. */
   private _selectedId: string | null = null;
   /**
    * 선택된 요소 ID 모음. 주 선택 요소를 포함하며 이동, 삭제, 그룹화에 사용합니다.
    */
   private _selectedIds = new Set<string>();
-  /** 호스트가 `settings.getPaperSizes`로 제공한 추가 용지 목록 */
+  /** 호스트가 `settings.getPaperSizes`로 제공한 추가 용지 목록입니다. */
   private _hostPaperSizes: PaperSize[] = [];
-  /** 호스트가 `settings.getBarcodeKinds`로 제한한 바코드 종류  */
+  /** 호스트가 `settings.getBarcodeKinds`로 제한한 바코드 종류입니다. */
   private _hostBarcodeKinds: BarcodeKind[] = [];
-  /** 호스트 용지 목록을 읽거나 저장하지 못했을 때 패널에 표시할 안내 */
+  /** 호스트 용지 목록을 읽거나 저장하지 못했을 때 패널에 표시할 안내입니다. */
   private _paperSettingsError: string | null = null;
-  /** 호스트 바코드 종류를 읽지 못했을 때 패널에 표시할 안내 */
+  /** 호스트 바코드 종류를 읽지 못했을 때 패널에 표시할 안내입니다. */
   private _barcodeKindsError: string | null = null;
-  /** `settings`가 바뀔 때마다 올려 늦게 온 호스트 응답을 버리는 세대 */
+  /** `settings` 변경 요청의 순서를 구분하는 번호입니다. 늦게 도착한 이전 응답을 버릴 때 사용합니다. */
   private _settingsGeneration = 0;
-  /** 내 양식 불러오기가 시작될 때마다 올려 늦게 온 응답을 버리는 세대 */
+  /** 내 양식 불러오기 요청의 순서를 구분하는 번호입니다. 늦게 도착한 이전 응답을 버릴 때 사용합니다. */
   private _loadGeneration = 0;
-  /** 삭제 확인 모달이 가리키는 저장된 양식 */
+  /** 삭제 확인 모달이 가리키는 저장된 양식입니다. */
   private _pendingDelete: { id: string; title: string } | null = null;
-  /** 사용자 지정 용지 이름의 편집 중 값 */
+  /** 사용자 지정 용지 이름의 편집 중 값입니다. */
   private _paperSaveName = '';
-  /** 되돌리기·다시 실행 기록 */
+  /** 되돌리기·다시 실행 기록입니다. */
   private readonly _history = new HistoryController(this._historyHost());
   private _previewMode = false;
   private _previewUrl: string | null = null;
@@ -324,70 +324,70 @@ export class SlipDesigner extends LitElement {
   private _previewGeneration = 0;
   private _presetMenuOpen = false;
   private _presetMenuPos = { left: 0, top: 0 };
-  /** 도형 선택 메뉴의 열림 상태 */
+  /** 도형 선택 메뉴의 열림 상태입니다. */
   private _shapeMenuOpen = false;
   private _shapeMenuPos = { left: 0, top: 0 };
-  /** 마지막으로 툴바 메뉴를 연 버튼 — 키보드로 닫을 때 초점을 되돌립니다 */
+  /** 마지막으로 툴바 메뉴를 연 버튼입니다. 키보드로 메뉴를 닫을 때 초점을 되돌립니다. */
   private _menuOpener: HTMLElement | null = null;
-  /** 다음 렌더 뒤 툴바 메뉴의 첫 항목으로 초점을 옮길지 (키보드로 열었을 때) */
+  /** 키보드로 메뉴를 열었을 때 다음 화면 갱신 후 첫 항목으로 초점을 옮길지 나타냅니다. */
   private _focusMenuItem = false;
   /**
-   * 사이드바에서 미리보기를 표시 중인 페이지 번호.
+   * 사이드바에서 미리보기를 표시 중인 페이지 번호입니다.
    */
   private _thumbPage: number | null = null;
-  /** 페이지 미리보기의 화면 기준 좌표 */
+  /** 페이지 미리보기의 화면 기준 좌표입니다. */
   private _thumbPos: { top: number; left: number } | null = null;
-  /** 이미지 선택 실패 사유 */
+  /** 이미지 선택 실패 사유입니다. */
   private _imageError: string | null = null;
   /**
-   * 사이드바에서 선택한 페이지 또는 파라미터.
+   * 사이드바에서 선택한 페이지 또는 파라미터입니다.
    * 요소를 선택하면 `null`이 됩니다.
    */
   private _sideSelection: SideSelection = null;
   /**
-   * 값 목록에서 하위 필드를 펼친 파라미터 키.
+   * 값 목록에서 하위 필드를 펼친 파라미터 키입니다.
    */
   private _expandedParameters = new Set<string>();
   /**
-   * 요소 목록에서 셀 항목을 펼친 그리드 ID 모음.
+   * 요소 목록에서 셀 항목을 펼친 그리드 ID 모음입니다.
    */
   private _expandedElements = new Set<string>();
-  /** 파라미터 키 중복 오류 여부 */
+  /** 파라미터 키 중복 오류가 있는지 나타냅니다. */
   private _parameterKeyError = false;
-  /** 마지막으로 거부한 입력의 오류 메시지 */
+  /** 마지막으로 거부한 입력의 오류 메시지입니다. */
   private _inputError: string | null = null;
   /** 오류가 발생한 속성 입력의 식별자. 없으면 패널 전체 오류입니다. */
   private _inputErrorField: string | null = null;
-  /** 페이지 키 중복 오류 여부 */
+  /** 페이지 키 중복 오류가 있는지 나타냅니다. */
   private _pageKeyError = false;
   /**
-   * 요소 ID별 좌표 기준점의 ANCHORS 인덱스.
+   * 요소 ID별 좌표 기준점의 ANCHORS 인덱스입니다.
    * 파일에는 저장하지 않으며 기본값은 왼쪽 위입니다.
    */
   private _anchorByElement = new Map<string, number>();
-  /** 컴포넌트 속성이 우선하고, 없으면 slipkit 설정을 따르는 UI 언어 로케일 */
+  /** 컴포넌트 속성이 우선하고, 없으면 slipkit 설정을 따르는 UI 언어 로케일입니다. */
   private get _locale(): string | undefined {
     return this.locale ?? this.slipkit?.locale;
   }
 
-  /** 동봉 기본 폰트와 PDF 렌더링에 사용할 로케일 — `renderSlip`과 같은 기준입니다 */
+  /** 동봉 기본 폰트와 PDF 렌더링에 사용할 로케일입니다. `renderSlip`과 같은 기준을 적용합니다. */
   private get _renderLocale(): string | undefined {
     return this.slipkit?.locale ?? this.locale;
   }
 
-  /** 수식·조건식 평가에 사용할 로케일 — slipkit이 있으면 인스턴스 설정을 따릅니다 */
+  /** 수식·조건식 평가에 사용할 로케일입니다. `slipkit`이 있으면 인스턴스 설정을 따릅니다. */
   private get _evalLocale(): string | undefined {
     return this.slipkit ? this.slipkit.locale : this.locale;
   }
 
-  /** 현재 locale의 문구 사전 */
+  /** 현재 로케일의 문구 사전입니다. */
   private get _strings() {
     return getStrings(this._locale);
   }
 
   /**
    * 수식을 평가합니다. slipkit이 있으면 같은 인스턴스로 평가해 호스트의 렌더 결과와 맞춥니다.
-   * 수식 로케일은 인스턴스 설정을 따릅니다 — 컴포넌트 locale은 UI 언어 전용입니다.
+   * 수식 로케일은 인스턴스 설정을 따릅니다. 컴포넌트 `locale`은 UI 언어에만 사용합니다.
    */
   private _evaluate(source: string, context: FormulaContext): FormulaValue {
     if (this.slipkit) return this.slipkit.evaluate(source, context);
@@ -395,7 +395,7 @@ export class SlipDesigner extends LitElement {
     return evaluateFormula(source, locale === undefined ? context : { ...context, locale });
   }
 
-  /** 수식을 계산할 수 있는지 진단합니다. 평가와 같은 로케일로 오류 문구를 맞춥니다 */
+  /** 수식을 계산할 수 있는지 진단합니다. 평가와 같은 로케일로 오류 문구를 맞춥니다. */
   private _diagnose(source: string, context: FormulaContext): FormulaDiagnosis {
     const locale = this._evalLocale;
     return diagnoseFormula(source, locale === undefined ? context : { ...context, locale });
@@ -472,18 +472,18 @@ export class SlipDesigner extends LitElement {
         void this._renderPreview();
       }
     }
-    // 폰트 목록은 slipkit의 공급 함수 또는 로케일별 동봉 기본 폰트에서 가져옵니다.
+    // 폰트 목록은 slipkit의 제공 함수 또는 로케일별 동봉 기본 폰트에서 가져옵니다.
     // 같은 출처는 다시 가져오지 않으므로 첫 갱신을 포함해 매번 확인합니다.
     this._useFontSource();
   }
 
-  /** 열려 있는 모달 */
+  /** 열려 있는 모달입니다. */
   private readonly _dialogs = new DialogsController(this);
 
-  /** 폰트 목록과 브라우저 등록 상태 */
+  /** 폰트 목록과 브라우저 등록 상태입니다. */
   private readonly _fontRegistry = new FontRegistryController(this);
 
-  /** 속성 패널 렌더 모듈에 넘길 공통 입력 도구 */
+  /** 속성 패널 렌더 모듈에 넘길 공통 입력 도구입니다. */
   private get _kit(): PanelKit {
     return {
       s: this._strings.designer,
@@ -500,7 +500,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 요소 속성 줄이 요청하는 조작 */
+  /** 요소 속성 줄이 요청하는 조작입니다. */
   private get _actions(): ElementActions {
     return {
       update: (fn) => this._updateElement(fn),
@@ -534,10 +534,10 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 그리드 편집 작업 */
+  /** 그리드 편집 작업입니다. */
   private readonly _gridCommands = new GridCommandsController(this._gridCommandsHost());
 
-  /** 그리드 조작이 컴포넌트에 요청하는 것 */
+  /** 그리드 조작에서 사용하는 컴포넌트 작업입니다. */
   private _gridCommandsHost(): GridCommandsHost {
     const owner = this;
     return {
@@ -555,10 +555,10 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 캔버스 포인터 조작 */
+  /** 캔버스 포인터 조작입니다. */
   private readonly _pointer = new CanvasPointerController(this._pointerHost());
 
-  /** 포인터 조작이 문서에 요청하는 것 */
+  /** 포인터 조작에서 사용하는 문서 작업입니다. */
   private _pointerHost(): PointerHost {
     const owner = this;
     return {
@@ -593,10 +593,10 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 화살표 키로 선택한 요소를 옮기는 조작 */
+  /** 화살표 키로 선택한 요소를 옮기는 조작입니다. */
   private readonly _nudge = new KeyboardNudgeController(this._nudgeHost());
 
-  /** 키보드 이동이 문서에 요청하는 것 */
+  /** 키보드 이동에서 사용하는 문서 작업입니다. */
   private _nudgeHost(): NudgeHost {
     const owner = this;
     return {
@@ -611,7 +611,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 되돌리기 기록이 문서에 요청하는 것 */
+  /** 되돌리기 기록에서 사용하는 문서 작업입니다. */
   private _historyHost(): HistoryHost {
     const owner = this;
     return {
@@ -622,7 +622,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 모달 화면의 상태와 조작 */
+  /** 모달 화면의 상태와 조작입니다. */
   private get _dialogContext(): DialogContext {
     return {
       s: this._strings.designer,
@@ -659,7 +659,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 툴바의 상태와 조작 */
+  /** 툴바의 상태와 조작입니다. */
   private get _toolbarActions(): ToolbarActions {
     return {
       s: this._strings.designer,
@@ -716,16 +716,16 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 이번 렌더에서 사이드바와 캔버스가 함께 쓰는 경고 집계 */
+  /** 현재 렌더링에서 사이드바와 캔버스가 함께 쓰는 경고 모음입니다. */
   private _warnings: FormulaWarnings = NO_FORMULA_WARNINGS;
 
-  /** 이번 렌더에서 속성 패널과 캔버스가 함께 쓰는 폰트 상태 */
+  /** 현재 렌더링에서 속성 패널과 캔버스가 함께 쓰는 폰트 상태입니다. */
   private _fonts: DesignerFonts = NO_DESIGNER_FONTS;
 
-  /** 폰트 출처를 마지막으로 정할 때의 설정. 같으면 다시 확인하지 않습니다 */
+  /** 마지막으로 폰트 출처를 판단할 때 사용한 설정입니다. 설정이 같으면 다시 확인하지 않습니다. */
   private _fontSourceFor: { slipkit: SlipKit | undefined; locale: string | undefined } | null = null;
 
-  /** 캔버스의 상태와 조작 */
+  /** 캔버스의 상태와 조작입니다. */
   private get _canvasContext(): CanvasContext {
     return {
       s: this._strings.designer,
@@ -767,7 +767,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 속성 패널의 조작 모음 */
+  /** 속성 패널의 조작 모음입니다. */
   private get _panelContext(): PanelContext {
     return {
       kit: this._kit,
@@ -786,7 +786,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 사이드바가 요청하는 조작 */
+  /** 사이드바가 요청하는 조작입니다. */
   private get _sidebarActions(): SidebarActions {
     return {
       file: this._file,
@@ -826,7 +826,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 양식·파라미터 패널이 요청하는 조작 */
+  /** 양식·파라미터 패널이 요청하는 조작입니다. */
   private get _formActions(): FormActions {
     return {
       file: this._file,
@@ -862,7 +862,7 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 그리드 속성 패널이 요청하는 조작 */
+  /** 그리드 속성 패널이 요청하는 조작입니다. */
   private get _gridActions(): GridActions {
     return {
       edit: this._gridEdit,
@@ -898,32 +898,32 @@ export class SlipDesigner extends LitElement {
     };
   }
 
-  /** 속성 패널의 팝오버 */
+  /** 속성 패널의 팝오버입니다. */
   private readonly _popovers = new PopoverController(this);
 
-  /** 색 선택기 */
+  /** 색 선택기입니다. */
   private readonly _picker = new ColorPickerController(this);
 
-  /** 그리드 셀·행 구간 선택 */
+  /** 그리드 셀·행 구간 선택입니다. */
   private readonly _gridEdit = new GridEditController(this);
 
-  /** 저장 모달과 내 양식 목록 */
+  /** 저장 모달과 내 양식 목록입니다. */
   private readonly _forms = new FormsController(this);
 
-  /** 샘플 데이터 모달의 초안 */
+  /** 샘플 데이터 모달의 초안입니다. */
   private readonly _sample = new SampleDraftController(this);
 
-  /** 수식 편집 모달의 초안 */
+  /** 수식 편집 모달의 초안입니다. */
   private readonly _formula = new FormulaDraftController(
     this,
     () => this.renderRoot.querySelector('.formula-input') as HTMLTextAreaElement | null,
   );
 
-  /** 모달의 초점 가두기와 되돌리기 */
+  /** 모달 안에서 초점을 관리하고 닫을 때 이전 위치로 되돌립니다. */
   private readonly _modalFocus = new ModalFocusController(this);
 
   override updated(): void {
-    // 인라인 셀 편집을 열면 바로 입력할 수 있게 포커스를 줍니다
+    // 인라인 셀 편집을 열면 바로 입력할 수 있게 포커스를 줍니다.
     if (this._gridEdit.editing) {
       const editor = this.renderRoot.querySelector('.cell-editor') as HTMLInputElement | null;
       if (editor && this.shadowRoot?.activeElement !== editor) {
@@ -1054,7 +1054,7 @@ export class SlipDesigner extends LitElement {
   // Undo / Redo
   // ---------------------------------------------------------------------------
 
-  /** 양식이 바뀌었음을 기록합니다 — 페이지 계획 캐시가 이 번호로 다시 계산할지 판단합니다. */
+  /** 문서 개정 번호를 올려 페이지 계획 캐시를 다시 계산하도록 합니다. */
   private _touch(): void {
     this._revision += 1;
   }
@@ -1069,7 +1069,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 잘못된 입력을 모델에 반영하지 않고 오류 메시지를 표시합니다.
    *
-   * @param message - 표시할 문구 (생략하면 기본 안내)
+   * @param message - 표시할 문구(생략하면 기본 안내)
    * @param field - 오류가 발생한 속성 입력 식별자
    */
   private _rejectInput(message?: string, field?: string): void {
@@ -1132,7 +1132,7 @@ export class SlipDesigner extends LitElement {
    * 페이지 레이블이 있으면 반환하고 없으면 페이지 번호로 이름을 만듭니다.
    *
    * @param page - 페이지
-   * @param index - 페이지 번호(0-기반)
+   * @param index - 0부터 시작하는 페이지 인덱스
    * @returns 화면에 표시할 이름
    */
   private _pageDisplayName(page: { label?: string | undefined }, index: number): string {
@@ -1182,7 +1182,7 @@ export class SlipDesigner extends LitElement {
     this._gridEdit.clearCell();
   }
 
-  /** 현재 페이지 뒤에 빈 페이지를 추가하고 그 페이지로 이동합니다 */
+  /** 현재 페이지 뒤에 빈 페이지를 추가하고 그 페이지로 이동합니다. */
   private _addPage(): void {
     this._leaveOutputResult();
     if (!this._file) return;
@@ -1196,7 +1196,7 @@ export class SlipDesigner extends LitElement {
     this.requestUpdate();
   }
 
-  /** 현재 페이지를 삭제합니다 (마지막 한 페이지는 삭제 불가) */
+  /** 현재 페이지를 삭제합니다. 마지막 한 페이지는 삭제할 수 없습니다. */
   private _deletePage(): void {
     this._leaveOutputResult();
     if (!this._file || this._pageCount() <= 1) return;
@@ -1247,7 +1247,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 요소를 선택합니다. 그룹에 속한 요소이면 같은 그룹을 함께 선택합니다.
    *
-   * @param id - 선택할 요소 id
+   * @param id - 선택할 요소 ID
    */
   private _selectElement(id: string): void {
     this._resetPanelErrors();
@@ -1265,7 +1265,7 @@ export class SlipDesigner extends LitElement {
    * 그룹에 속한 요소는 그룹 전체가 한 단위로 함께 들어가거나 빠집니다.
    * 추가한 요소는 주 선택이 되며 주 선택을 제거하면 남은 요소 중 하나를 주 선택으로 지정합니다.
    *
-   * @param id - 토글할 요소 id
+   * @param id - 토글할 요소 ID
    */
   private _toggleInSelection(id: string): void {
     this._leaveOutputResult();
@@ -1291,7 +1291,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 이미 선택된 요소를 주 선택으로 삼습니다. 다중 선택은 그대로 유지합니다.
    *
-   * @param id - 주 선택으로 삼을 요소 id
+   * @param id - 주 선택으로 삼을 요소 ID
    */
   private _keepSelection(id: string): void {
     if (!this._selectedIds.has(id)) return;
@@ -1331,7 +1331,7 @@ export class SlipDesigner extends LitElement {
       position: { x: number; y: number };
       width?: number;
       height?: number;
-      /** 드래그 방향에서 계산한 선 방향 */
+      /** 드래그 방향에서 계산한 선 방향입니다. */
       lineDirection?: 'horizontal' | 'vertical' | 'down' | 'up';
     },
   ): void {
@@ -1354,7 +1354,7 @@ export class SlipDesigner extends LitElement {
         element = { type: 'text', id, name, position, width: 60, height: 10, content: '' };
         break;
       case 'grid':
-        // 새 그리드는 반복 설정이 없는 정적 그리드로 시작합니다 (§7.1).
+        // 새 그리드는 반복 설정이 없는 정적 그리드로 시작합니다(§7.1).
         element = {
           type: 'grid', id, name, position,
           columns: [{ width: GRID_DEFAULT_COL_MM }, { width: GRID_DEFAULT_COL_MM }, { width: GRID_DEFAULT_COL_MM }],
@@ -1404,7 +1404,7 @@ export class SlipDesigner extends LitElement {
         break;
     }
 
-    // 드래그로 지정한 크기를 적용합니다. 그리드는 행과 열 크기를 이 크기에 맞춥니다 (SPEC §5.7).
+    // 드래그로 지정한 크기를 적용합니다. 그리드는 행과 열 크기를 이 크기에 맞춥니다(SPEC §5.7).
     setElementBox(
       element,
       place?.width === undefined ? undefined : Math.max(MIN_SIZE_MM, round1(place.width)),
@@ -1420,7 +1420,7 @@ export class SlipDesigner extends LitElement {
     elements.push(element);
     this._selectElement(id);
     this._sideSelection = null;
-    // 새 요소가 사용하는 파라미터를 정의 목록에 등록합니다 — 변경 이벤트로 내보내는 파일에 함께 담깁니다.
+    // 새 요소가 사용하는 파라미터를 정의 목록에 등록합니다. 변경 이벤트로 내보내는 파일에 함께 담깁니다.
     this._ensureElementParameterDef(element);
     this._touch();
     this._emitChange();
@@ -1476,7 +1476,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 요소가 참조하는 파라미터를 정의 목록에 등록합니다 (필드·바코드·이미지, 반복 그리드의 목록).
+   * 요소가 참조하는 파라미터를 정의 목록에 등록합니다(필드·바코드·이미지, 반복 그리드의 목록).
    *
    * @param element - 새로 만들거나 붙여넣은 요소
    */
@@ -1563,7 +1563,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 키보드 단축키가 듣도록 호스트에 포커스를 줍니다 — 이미 안쪽에 있으면 건드리지 않습니다 */
+  /** 키보드 단축키가 동작하도록 호스트에 포커스를 줍니다. 이미 내부에 있으면 포커스를 변경하지 않습니다. */
   private _focusHost(): void {
     if (this.contains(document.activeElement) || this.renderRoot.contains(this.shadowRoot?.activeElement ?? null)) {
       return;
@@ -1572,7 +1572,7 @@ export class SlipDesigner extends LitElement {
   }
 
   private _onKeyDown = (e: KeyboardEvent): void => {
-    // 입력 필드 안에서는 편집기 단축키를 가로채지 않습니다.
+    // 입력 필드 안에서는 편집기 단축키를 처리하지 않습니다.
     // Shadow DOM 안에서 올라온 이벤트는 호스트에서 target이 호스트 요소로
     // 재지정(retargeting)되므로, 실제 입력 대상은 composedPath의 첫 항목으로 판정합니다.
     const target = e.composedPath()[0] ?? e.target;
@@ -1582,7 +1582,7 @@ export class SlipDesigner extends LitElement {
       target instanceof HTMLSelectElement;
     if (inFormField) return;
 
-    // 모달이 열려 있으면 Esc는 모달 닫기 (모달 안 입력란의 Esc는 모달 자체가 처리)
+    // 모달이 열려 있으면 Esc로 모달을 닫습니다. 모달의 입력란에서 누른 Esc는 모달이 직접 처리합니다.
     if (e.key === 'Escape' && this._dialogs.anyOpen) {
       this._dialogs.closeAllQuietly();
       this._pendingDelete = null;
@@ -1614,7 +1614,7 @@ export class SlipDesigner extends LitElement {
       }
       if (isEditingShortcut(e)) this._leaveOutputResult();
     }
-    // 화살표 키는 선택한 요소를 옮깁니다. 셀을 고르거나 편집하는 동안은 셀 조작이라 가로채지 않습니다.
+    // 화살표 키는 선택한 요소를 옮깁니다. 셀을 선택하거나 편집하는 동안에는 셀에서 처리합니다.
     if (this._gridEdit.cell === null && !this._gridEdit.editing && this._nudge.onKeyDown(e)) return;
     // 셀이 선택된 상태의 Esc는 셀 선택만 해제하고 그리드 요소 선택은 유지합니다.
     // 인라인 편집 중의 Esc는 캔버스 입력기가 편집 종료로 처리합니다.
@@ -1769,6 +1769,8 @@ export class SlipDesigner extends LitElement {
             <div class="canvas-area ${this._pointer.pendingTool ? 'drawing' : ''} ${
               this._showBadges ? 'show-badges' : ''
             }"
+                 role="region"
+                 aria-label=${this._strings.designer.canvasArea}
                  @pointerdown=${this._pointer.onPointerDown}
                  @pointermove=${this._pointer.onPointerMove}
                  @pointerup=${this._pointer.onPointerUp}
@@ -1802,7 +1804,7 @@ export class SlipDesigner extends LitElement {
     return GRID_COLORS.find((color) => color.id === this._gridColor)!.line;
   }
 
-  /** 툴바 메뉴(프리셋·도형·격자) 가운데 하나라도 열려 있는지 */
+  /** 프리셋·도형·격자 메뉴 중 하나라도 열려 있는지를 나타냅니다. */
   private get _toolbarMenuOpen(): boolean {
     return this._presetMenuOpen || this._shapeMenuOpen || this._gridMenuOpen;
   }
@@ -1958,7 +1960,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 선택한 그리드의 목록 파라미터와 값이 있는 셀 항목을 사이드바에서 펼칩니다.
    *
-   * @param id - 선택한 요소 id
+   * @param id - 선택한 요소 ID
    */
   private _expandParameterOfElement(id: string): void {
     const el = this._findElement(id);
@@ -1988,7 +1990,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 선택한 페이지로 이동하고 페이지 설정 패널을 표시합니다.
    *
-   * @param index - 선택한 페이지 번호(0-기반)
+   * @param index - 0부터 시작하는 선택한 페이지 인덱스
    */
   private _selectPage(index: number): void {
     this._leaveOutputResult();
@@ -2062,7 +2064,7 @@ export class SlipDesigner extends LitElement {
       .slice()
       .sort((a, b) => a.row - b.row || a.column - b.column)
       .map((c) => {
-        // 사용자가 지정한 셀 이름을 우선 사용하고, 이름이 없으면 좌표를 표시합니다 (§7.4).
+        // 사용자가 지정한 셀 이름을 우선 사용하고, 이름이 없으면 좌표를 표시합니다(§7.4).
         const at = s.gridCellAt
           .replace('{r}', String(c.row + 1))
           .replace('{c}', String(c.column + 1));
@@ -2081,7 +2083,7 @@ export class SlipDesigner extends LitElement {
    * 그리드 셀의 페이지로 이동해 해당 셀을 선택합니다.
    *
    * @param pageIndex - 그리드가 있는 페이지 번호
-   * @param gridId - 그리드 요소 id
+   * @param gridId - 그리드 요소 ID
    * @param row - 셀의 행
    * @param column - 셀의 열
    */
@@ -2142,12 +2144,12 @@ export class SlipDesigner extends LitElement {
    * 요소가 사용하는 파라미터를 정의 목록에 등록합니다.
    *
    * @remarks
-   * 되돌리기 스냅샷을 남긴 뒤, 변경 이벤트를 내보내기 전에 불러야 합니다 — 즉
-   * `_updateFile`·`_updateElement`의 수정 함수 안에서 씁니다.
+   * 되돌리기 스냅샷을 남긴 뒤 변경 이벤트를 내보내기 전에 호출해야 합니다.
+   * `_updateFile`·`_updateElement`의 수정 함수 안에서 호출합니다.
    *
-   * @param key - 파라미터 물리명
-   * @param valueType - 등록할 값 종류. 이미 있는 항목이면 종류가 비어 있을 때만 채웁니다
-   * @param label - 새로 만들 때 붙일 논리명
+   * @param key - 파라미터 키
+   * @param valueType - 등록할 값 종류. 이미 있는 항목이면 종류가 비어 있을 때만 채웁니다.
+   * @param label - 새로 만들 때 붙일 표시 이름
    */
   private _ensureParameterDef(key: string, valueType?: ParameterValueType, label?: string): void {
     if (!this._file) return;
@@ -2204,7 +2206,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 파라미터의 값 종류를 변경합니다. 목록이 아니면 하위 필드를 제거합니다.
    *
-   * @param key - 파라미터 물리명
+   * @param key - 파라미터 키
    * @param valueType - 새 값 종류 (빈 문자열이면 지정 없음 = 글자)
    */
   private _setParameterValueType(key: string, valueType: string): void {
@@ -2244,10 +2246,10 @@ export class SlipDesigner extends LitElement {
   /**
    * 하위 필드 키와 해당 필드를 참조하는 셀·수식·그룹 설정·샘플 항목을 함께 변경합니다.
    *
-   * @param listKey - 목록 파라미터 물리명
+   * @param listKey - 목록 파라미터 키
    * @param key - 현재 필드 키
-   * @param next - 새 물리명
-   * @param input - 되돌릴 입력칸 (중복·빈 이름일 때)
+   * @param next - 새 키
+   * @param input - 이름이 중복되거나 비었을 때 값을 되돌릴 입력란
    */
   private _renameParameterField(listKey: string, key: string, next: string, input?: HTMLInputElement): void {
     const trimmed = next.trim();
@@ -2279,8 +2281,8 @@ export class SlipDesigner extends LitElement {
   /**
    * 하위 필드의 레이블과 값 종류를 변경합니다.
    *
-   * @param listKey - 목록 파라미터 물리명
-   * @param key - 필드 물리명
+   * @param listKey - 목록 파라미터 키
+   * @param key - 필드 키
    * @param patch - 바꿀 값 (빈 문자열이면 그 항목을 지웁니다)
    */
   private _updateParameterField(
@@ -2353,7 +2355,7 @@ export class SlipDesigner extends LitElement {
       if (defs.length > 0) f.template.parameters = defs;
       else delete (f.template as { parameters?: unknown }).parameters;
     });
-    // 목록에서 사라진 파라미터를 선택한 채로 두지 않습니다
+    // 목록에서 사라진 파라미터를 선택한 채로 두지 않습니다.
     const sel = this._sideSelection;
     if (sel?.kind === 'parameter' && sel.key === key && !this._parameterList().some((b) => b.key === key)) {
       this._sideSelection = null;
@@ -2365,7 +2367,7 @@ export class SlipDesigner extends LitElement {
   // Render: canvas
   // ---------------------------------------------------------------------------
 
-  /** 현재 양식 페이지의 계획 — 문서 개정·페이지·평가 로케일이 같으면 캐시를 재사용합니다 */
+  /** 현재 양식 페이지의 계획입니다. 문서 개정 번호·페이지·평가 로케일이 같으면 캐시를 재사용합니다. */
   private _pagePlan(): PagePlanResult {
     return this._planner.plan({
       file: this._file,
@@ -2375,7 +2377,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 현재 양식 페이지의 계획 오류 메시지 (없으면 null) */
+  /** 현재 양식 페이지의 계획 오류 메시지입니다. 오류가 없으면 `null`입니다. */
   private _planError(): SlipLayoutError | null {
     return this._pagePlan().error;
   }
@@ -2438,7 +2440,7 @@ export class SlipDesigner extends LitElement {
     this._setGridPlanPreview(false);
   }
 
-  /** 현재 양식 페이지가 만드는 출력 페이지 수. 계획이 없으면 1 */
+  /** 현재 양식 페이지가 만드는 출력 페이지 수. 계획이 없으면 1입니다. */
   private _outputPageCount(): number {
     return this._pagePlan().plan?.outputPageCount ?? 1;
   }
@@ -2583,7 +2585,7 @@ export class SlipDesigner extends LitElement {
   /**
    * 페이지 번호 표시를 설정하거나 제거합니다.
    *
-   * @param index - 페이지 번호(0-기반)
+   * @param index - 0부터 시작하는 페이지 인덱스
    * @param on - 켤지 여부
    */
   private _togglePageNumber(index: number, on: boolean): void {
@@ -2599,11 +2601,11 @@ export class SlipDesigner extends LitElement {
    *
    * @remarks
    * 동봉 폰트는 로케일에 따라 대체 폰트가 달라지므로 PDF 렌더링과 같은 기준
-   * (`slipkit.locale`을 먼저 보는 렌더 로케일)을 씁니다. UI 로케일을 쓰면 캔버스와 PDF의
+   * (`slipkit.locale`을 먼저 확인하는 렌더링 로케일)을 사용합니다. UI 로케일을 사용하면 캔버스와 PDF의
    * 대체 폰트가 어긋납니다.
    *
-   * 호스트가 실제로 폰트를 준 경우에만 인스턴스로 출처를 나눕니다. `getFonts`가 빈 목록을
-   * 주면 캔버스도 PDF와 같이 동봉 폰트를 쓰므로 로케일별 출처를 씁니다.
+   * 호스트가 실제로 폰트를 제공한 경우에만 인스턴스별로 출처를 구분합니다. `getFonts`가 빈 목록을
+   * 전달하면 캔버스도 PDF와 같이 동봉 폰트를 사용하므로 로케일별 출처를 구분합니다.
    */
   private _useFontSource(): void {
     const slipkit = this.slipkit;
@@ -2621,7 +2623,7 @@ export class SlipDesigner extends LitElement {
       return;
     }
     // 동기 예외도 Promise 거부로 처리하여 화면 갱신이 중단되지 않게 합니다.
-    // 인스턴스가 결과를 재사용하므로 이 확인이 공급 함수를 다시 부르지는 않습니다.
+    // 인스턴스가 결과를 재사용하므로 이 확인이 제공 함수를 다시 부르지는 않습니다.
     void Promise.resolve().then(() => slipkit.getFonts!()).then(
       (fonts) => {
         if (this.slipkit !== slipkit || this._renderLocale !== locale) return;
@@ -2630,7 +2632,7 @@ export class SlipDesigner extends LitElement {
       },
       (error: unknown) => {
         if (this.slipkit !== slipkit || this._renderLocale !== locale) return;
-        // 공급 실패를 출처 상태로 기록하여 같은 인스턴스를 쓰는 화면에 함께 반영합니다.
+        // 조회 실패를 출처 상태로 기록하여 같은 인스턴스를 쓰는 화면에 함께 반영합니다.
         registry.use(slipkit, () => Promise.reject(error));
       },
     );
@@ -2650,7 +2652,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 이번 렌더에서 쓸 폰트 상태를 만들고 필요한 폰트를 브라우저에 등록합니다.
+   * 현재 렌더링에 쓸 폰트 상태를 만들고 필요한 폰트를 브라우저에 등록합니다.
    *
    * @returns 속성 패널과 캔버스가 함께 쓰는 폰트 상태
    */
@@ -2794,7 +2796,7 @@ export class SlipDesigner extends LitElement {
     });
   }
 
-  /** 현재 페이지에서 선택된 요소들을 선택 순서대로 돌려줍니다. */
+  /** 현재 페이지에서 선택된 요소들을 선택 순서대로 반환합니다. */
   private _selectedElements(): SlipElement[] {
     return [...this._selectedIds]
       .map((id) => this._findElement(id))
@@ -2903,7 +2905,7 @@ export class SlipDesigner extends LitElement {
     if (created) this._gridCommands.setCellSource('parameter', created.key);
   }
 
-  /** 새 최상위 파라미터를 만들고 현재 셀에 연결합니다 — 정의와 연결이 되돌리기 한 단위입니다. */
+  /** 새 최상위 파라미터를 만들고 현재 셀에 연결합니다. 정의와 연결이 되돌리기 한 단위입니다. */
   private _newParameterForCell(): void {
     const cell = this._gridEdit.cell;
     if (!cell) {
@@ -3046,7 +3048,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 바코드의 값 소스를 선택하고 다른 값 소스를 제거합니다 (SPEC §5.6).
+   * 바코드의 값 소스를 선택하고 다른 값 소스를 제거합니다(SPEC §5.6).
    * 파라미터 소스를 선택하면 새 파라미터를 만들어 연결합니다.
    *
    * @param kind - 선택할 값 종류
@@ -3141,7 +3143,7 @@ export class SlipDesigner extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // Render: type-specific props
+  // 선택한 요소 종류에 맞는 속성 패널을 렌더링합니다.
   // ---------------------------------------------------------------------------
 
   private _convertTextField(to: 'text' | 'field'): void {
@@ -3196,7 +3198,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 모든 요소의 종류 배지를 표시할지 여부.
+   * 모든 요소에 종류 배지를 표시하는지 나타냅니다.
    * 파일에 저장하지 않는 화면 상태입니다.
    */
   private _showBadges = false;
@@ -3206,13 +3208,13 @@ export class SlipDesigner extends LitElement {
    */
   private _gridGap: number | null = null;
 
-  /** 격자 간격 메뉴 열림 여부 */
+  /** 격자 간격 메뉴가 열려 있는지 나타냅니다. */
   private _gridMenuOpen = false;
 
-  /** 캔버스 격자선 색 */
+  /** 캔버스 격자선 색입니다. */
   private _gridColor: GridColorId = 'gray';
 
-  /** 격자 설정 메뉴의 화면 좌표 */
+  /** 격자 설정 메뉴의 화면 좌표입니다. */
   private _gridMenuPos = { left: 0, top: 0 };
 
   /** 요소의 색상 속성을 설정하거나 제거하고 색 선택기 상태를 갱신합니다. */
@@ -3245,8 +3247,8 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 파일 선택 대화 상자에서 이미지를 선택하고 base64로 변환해 적용합니다.
-   * 외부 URL은 지원하지 않으며 호스트가 base64로 변환해 전달해야 합니다.
+   * 파일 선택 대화 상자에서 이미지를 선택하고 Base64로 변환해 적용합니다.
+   * 외부 URL은 지원하지 않으며 호스트가 Base64로 변환해 전달해야 합니다.
    */
   private async _pickImageFile(): Promise<void> {
     const result = await pickImageFile(this.maxImageBytes);
@@ -3304,7 +3306,7 @@ export class SlipDesigner extends LitElement {
    * 모달을 열 때 미리 계산에 쓸 샘플 항목을 고릅니다.
    *
    * @param found - 다시 찾은 편집 대상
-   * @returns 지금 보고 있는 출력 페이지에서 이 셀이 쓰는 항목, 없으면 첫 항목.
+   * @returns 현재 출력 페이지에서 이 셀이 사용하는 항목입니다. 없으면 첫 항목을 반환합니다.
    *   반복 그리드가 아니거나 샘플이 없으면 null
    */
   private _defaultFormulaItem(found: ResolvedFormulaTarget): number | null {
@@ -3313,7 +3315,7 @@ export class SlipDesigner extends LitElement {
     if (grid === undefined || cell === undefined || grid.repeat === undefined) return null;
     const formula = gridFormulaContext(grid, this._file?.template.sampleValues, this._pagePlan().plan);
     if (formula.realItems.length === 0) return null;
-    // 지금 보고 있는 출력 페이지에서 이 셀이 쓰는 항목을 먼저 씁니다.
+    // 현재 출력 페이지에서 이 셀이 사용하는 항목을 우선합니다.
     const slot = formula.slotForBand(formula.fragmentAt(this._outputPage), bandAt(grid, cell.row));
     const used = slot.item === undefined ? -1 : formula.realItems.indexOf(slot.item);
     return used >= 0 ? used : 0;
@@ -3326,7 +3328,7 @@ export class SlipDesigner extends LitElement {
 
   /**
    * 수식 모달이 화면을 그리는 데 필요한 상태를 만듭니다.
-   * 열 때의 대상 내용과 비교해, 모달 밖에서 대상이 바뀌었으면 그 자리에서 적용을 막습니다.
+   * 모달을 열 때 기록한 대상 내용과 비교해 모달 밖에서 대상이 바뀌었으면 적용을 막습니다.
    */
   private _formulaView(): FormulaModalView {
     const target = this._formula.target;
@@ -3337,13 +3339,13 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 저장된 수식 가운데 지금 값으로 계산되지 않는 것을 모읍니다.
+   * 저장된 수식 가운데 현재 값으로 계산할 수 없는 수식을 모읍니다.
    *
    * @remarks
-   * 페이지의 모든 수식을 반복 그리드의 샘플 항목마다 검사하므로, 한 번 그릴 때 한 번만
-   * 계산해 사이드바와 캔버스가 같은 결과를 나눠 씁니다.
+   * 페이지의 모든 수식을 반복 그리드의 샘플 항목마다 검사하므로 화면을 그릴 때 한 번만 계산해
+   * 사이드바와 캔버스에서 같은 결과를 공유합니다.
    *
-   * @returns 경고가 있는 요소 id와 그리드별 셀 자리
+   * @returns 경고가 있는 요소 ID와 그리드별 셀 위치
    */
   private _collectFormulaWarnings(): FormulaWarnings {
     const page = this._currentPage();
@@ -3389,7 +3391,7 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 대상과 수식으로 검사 결과와 참조 목록을 만듭니다. 모달과 인라인 입력이 함께 씁니다.
+   * 대상과 수식으로 검사 결과와 참조 목록을 만듭니다. 모달과 인라인 입력에서 함께 사용합니다.
    *
    * @param target - 검사할 편집 대상
    * @param source - 검사할 수식·조건식
@@ -3411,7 +3413,7 @@ export class SlipDesigner extends LitElement {
         ? null
         : gridFormulaContext(grid, this._file?.template.sampleValues, this._pagePlan().plan);
     const band = grid === undefined || found.cell === undefined ? undefined : bandAt(grid, found.cell.row);
-    // 고른 항목이 없어도(샘플이 비었을 때 등) 계획이 주는 것은 그대로 씁니다.
+    // 선택한 항목이 없어도 샘플이 비어 있는 경우처럼 계획에서 제공한 값은 그대로 사용합니다.
     const slot = formula === null
       ? null
       : itemIndex === null
@@ -3517,9 +3519,9 @@ export class SlipDesigner extends LitElement {
   }
 
   /**
-   * 요소를 id로 찾아 수정합니다. 선택 상태와 무관하게 대상을 지목할 때 씁니다.
+   * 요소를 ID로 찾아 수정합니다. 선택 상태와 무관하게 대상을 지정할 때 사용합니다.
    *
-   * @param id - 수정할 요소 id
+   * @param id - 수정할 요소 ID
    * @param fn - 요소 수정 함수
    */
   private _updateElementById(id: string, fn: (el: SlipElement) => void): void {
@@ -3584,7 +3586,7 @@ export class SlipDesigner extends LitElement {
       this._rejectInput();
       return;
     }
-    // 제목은 저장이 성공한 뒤에만 양식에 반영합니다 — 실패하면 양식과 되돌리기 이력이 그대로입니다.
+    // 제목은 저장이 성공한 뒤에만 양식에 반영합니다. 실패하면 양식과 되돌리기 이력이 그대로입니다.
     const file = structuredClone(this._file) as SlipTemplateFile;
     file.template.meta.title = title;
     // 저장될 그대로(JSON)를 파일 형식으로 검증해 형식에 맞지 않는 양식은 저장소에 남기지 않습니다.

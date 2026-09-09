@@ -1,15 +1,15 @@
 /**
- * `<slip-designer>` 스타일 — 레이아웃과 툴바.
+ * `<slip-designer>` 스타일 — 레이아웃과 툴바입니다.
  *
  * @remarks
- * 호스트 레이아웃, 디자인 토큰과 상단 툴바.
- * 규칙 순서는 원래 한 파일이던 때와 같습니다 — 순서를 바꾸면 cascade가 달라집니다.
+ * 호스트 레이아웃, 디자인 토큰과 상단 툴바입니다.
+ * 규칙 순서는 유지해야 합니다. 순서를 바꾸면 CSS 적용 결과가 달라집니다.
  */
 import { css } from 'lit';
 
 export const layoutStyles = css`
     :host {
-      /* 컴포넌트 디자인 토큰  */
+      /* 컴포넌트 디자인 토큰 */
       --sk-bg: #f6f7f8;
       --sk-surface: #ffffff;
       --sk-canvas-bg: #e2e4e7;
@@ -98,7 +98,8 @@ export const layoutStyles = css`
       color: var(--sk-text-muted);
     }
     .toolbar button:hover:not(:disabled) .btn-label,
-    .toolbar button[aria-pressed='true'] .btn-label {
+    .toolbar button[aria-pressed='true'] .btn-label,
+    .toolbar button[aria-expanded='true'] .btn-label {
       color: inherit;
     }
     .toolbar button:hover:not(:disabled) {
@@ -109,7 +110,9 @@ export const layoutStyles = css`
       outline: 2px solid var(--sk-accent);
       outline-offset: 1px;
     }
-    .toolbar button[aria-pressed='true'] {
+    /* 눌린 도구와 열려 있는 메뉴를 같은 강조로 표시합니다. */
+    .toolbar button[aria-pressed='true'],
+    .toolbar button[aria-expanded='true'] {
       background: var(--sk-accent-soft);
       color: var(--sk-accent);
       border-color: var(--sk-accent);

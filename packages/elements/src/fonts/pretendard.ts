@@ -1,11 +1,11 @@
 /**
- * 동봉된 Pretendard Regular 및 Bold 폰트.
+ * 동봉된 Pretendard Regular 및 Bold 폰트입니다.
  *
- * 호스트가 폰트를 제공하지 않았을 때 기본 폰트로 사용한다. 호스트는
- * `@omdc-slipkit/elements/fonts/pretendard`에서 직접 가져올 수도 있다.
+ * 호스트가 폰트를 제공하지 않았을 때 기본 폰트로 사용합니다. 호스트는
+ * `@omdc-slipkit/elements/fonts/pretendard`에서 직접 가져올 수도 있습니다.
  *
  * 폰트 저작권: Copyright (c) 2021, Kil Hyung-jin — SIL Open Font License 1.1.
- * 라이선스 전문은 패키지 루트의 `OFL-Pretendard.txt`.
+ * 라이선스 전체 내용은 패키지 루트의 `OFL-Pretendard.txt`에서 확인할 수 있습니다.
  */
 import type { SlipFont } from '@omdc-slipkit/core';
 import { PRETENDARD_REGULAR_B64, PRETENDARD_BOLD_B64 } from './pretendard-data.js';
@@ -17,7 +17,7 @@ function decode(b64: string): Uint8Array {
   return bytes;
 }
 
-/** Regular를 대체 폰트로 지정한 동봉 폰트 등록 목록. */
+/** Regular를 대체 폰트로 지정한 동봉 폰트 등록 목록입니다. */
 export const PRETENDARD_FONTS: SlipFont[] = [
   { name: 'Pretendard', data: decode(PRETENDARD_REGULAR_B64), fallback: true },
   { name: 'Pretendard-Bold', data: decode(PRETENDARD_BOLD_B64) },

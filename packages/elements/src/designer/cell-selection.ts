@@ -92,13 +92,13 @@ export function cellRecordsOf(el: GridElement, cells: readonly CellRef[]): (Grid
   return cells.map((at) => el.cells.find((cell) => cell.row === at.row && cell.column === at.column));
 }
 
-/** 선택한 셀의 속성값 요약 결과 */
+/** 선택한 셀의 속성값을 요약한 결과입니다. */
 export interface CellValueSummary<T> {
   /** 실제 적용값이 서로 다르면 `true` */
   mixed: boolean;
   /** 실제 적용값이 모두 같을 때 그 값. 혼합이면 `undefined` */
   effective: T | undefined;
-  /** 모든 셀이 같은 값을 직접 갖고 있을 때 그 값. 하나라도 상속하거나 값이 다르면 `undefined` */
+  /** 모든 셀에 같은 값이 직접 지정되어 있으면 그 값이고, 하나라도 상속하거나 값이 다르면 `undefined`입니다. */
   stored: T | undefined;
 }
 

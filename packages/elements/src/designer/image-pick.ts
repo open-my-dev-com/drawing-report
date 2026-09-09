@@ -1,26 +1,26 @@
 /**
- * 이미지 선택 결과 처리와 양식에 포함된 이미지 수집.
+ * 이미지 선택 결과를 처리하고 양식에 포함된 이미지를 수집합니다.
  *
  * @remarks
- * 이미지 값은 base64(`data:`)만 다룹니다 — 외부 URL은 호스트가 변환해 전달합니다.
+ * 이미지 값은 Base64 `data:` URL만 다룹니다. 외부 URL은 호스트에서 변환해 전달해야 합니다.
  */
 
 import type { SlipTemplateFile } from '@omdc-slipkit/core';
 import { formatBytes, type ImagePickResult } from '../image-file.js';
 
-/** 이미지를 선택하지 않은 요소에 사용하는 투명한 1×1 PNG */
+/** 이미지를 선택하지 않은 요소에 사용하는 투명한 1×1 PNG입니다. */
 export const PLACEHOLDER_IMG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
-/** 이미지 선택 실패를 알릴 때 사용할 문구 */
+/** 이미지 선택 실패를 알릴 때 사용할 문구입니다. */
 export interface ImagePickTexts {
   notImage: string;
   readFailed: string;
-  /** `{max}`와 `{size}` 자리에 크기를 넣습니다 */
+  /** `{max}`와 `{size}` 자리에 크기를 넣습니다. */
   tooLarge: string;
 }
 
-/** 이미지 선택 실패 결과 */
+/** 이미지 선택 실패 결과입니다. */
 export type ImagePickFailure = Extract<ImagePickResult, { ok: false }>;
 
 /**
@@ -47,8 +47,8 @@ export function imagePickErrorText(
  * 모든 페이지에서 쓰고 있는 이미지를 중복 없이 모읍니다.
  *
  * @param file - 양식 파일
- * @param placeholder - 제외할 자리표시 이미지
- * @returns 등록된 이미지의 base64 목록
+ * @param placeholder - 제외할 자리 표시 이미지
+ * @returns 등록된 이미지의 Base64 목록
  */
 export function usedImages(file: SlipTemplateFile | null, placeholder: string): string[] {
   if (!file) return [];
@@ -83,7 +83,7 @@ export function imageParameterKeys(file: SlipTemplateFile | null): Set<string> {
   return keys;
 }
 
-/** 캔버스에 표시할 고정 이미지의 해석 결과 */
+/** 캔버스에 표시할 고정 이미지의 해석 결과입니다. */
 export type DisplayImage =
   | { kind: 'data'; src: string }
   | { kind: 'none' }
@@ -96,11 +96,11 @@ export type DisplayImage =
  * @remarks
  * `data:` URL은 그대로 쓰고 `asset://id`는 양식의 `assets`에서 찾습니다. 에셋이 없거나
  * 에셋의 `src`가 `data:`가 아니면(다른 에셋을 다시 가리키는 경우 포함) 표시할 수 없는 사유를
- * 돌려줍니다. 자리표시 이미지나 그 밖의 값은 이미지가 없는 것으로 봅니다.
+ * 반환합니다. 자리 표시 이미지나 그 밖의 값은 이미지가 없는 것으로 판단합니다.
  *
- * @param file - 양식 파일 (에셋을 찾는 데 씁니다)
+ * @param file - 양식 파일(에셋을 찾는 데 씁니다)
  * @param src - 이미지 요소의 `src`
- * @param placeholder - 이미지가 없음을 뜻하는 자리표시 값
+ * @param placeholder - 이미지가 없음을 뜻하는 자리 표시 값
  * @returns 표시할 `data:` URL 또는 표시할 수 없는 사유
  */
 export function resolveDisplayImage(

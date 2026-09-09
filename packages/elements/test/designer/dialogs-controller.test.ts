@@ -46,7 +46,7 @@ describe('DialogsController', () => {
     expect(h.requestUpdate).toHaveBeenCalledTimes(2);
   });
 
-  it('조용히 모두 닫기는 화면 갱신을 요청하지 않는다', () => {
+  it('화면 갱신 없이 모두 닫으면 새 갱신을 요청하지 않는다', () => {
     const h = host();
     const c = new DialogsController(h);
     c.open('image');
@@ -318,7 +318,7 @@ describe('이미지 선택 도우미', () => {
     } as unknown as SlipTemplateFile;
   }
 
-  it('등록된 이미지를 중복 없이 모으고 자리표시자는 제외한다', () => {
+  it('등록된 이미지를 중복 없이 모으고 자리 표시자는 제외한다', () => {
     const file = fileWith([
       { type: 'image', id: 'a', src: 'data:image/png;base64,AAA' },
       { type: 'image', id: 'b', src: 'data:image/png;base64,AAA' },

@@ -1,4 +1,4 @@
-// 배포 도우미의 단위 시험 — `node --test`로 실행한다.
+// 배포 도우미의 단위 시험 — `node --test`로 실행합니다.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { formatSha256Sums, parseSha256Sums, sha256Hex, sriSha512, verifySha256Sums } from './integrity.mjs';
-import { isExactSemver, validateReleaseInputs } from './inputs.mjs';
+import { isExactSemver, isPrerelease, validateReleaseInputs } from './inputs.mjs';
 import { buildManifest, tarballFileName } from './pack.mjs';
 import { decidePublish, interpretView, publishAll } from './publish.mjs';
 
@@ -25,8 +25,13 @@ describe('inputs', () => {
     for (const bad of ['v1.2.3', '1.2', '^1.2.3', '1.02.3', '1.2.3 ', '', undefined, 'latest']) assert.equal(isExactSemver(bad), false, String(bad));
   });
 
-  it('main·SemVer·환경·다섯 패키지 버전 일치를 모두 요구한다', () => {
-    const base = { ref: 'refs/heads/main', version: '0.1.0', environment: 'npm-publish', packageVersions: ALL_SAME };
+  it('prerelease 식별자가 붙은 버전을 가려낸다', () => {
+    for (const yes of ['1.0.0-beta.1', '0.1.0-rc.1+sha.abc', '2.0.0-0']) assert.equal(isPrerelease(yes), true, yes);
+    for (const no of ['1.0.0', '0.1.0+build.5', '1.0', undefined]) assert.equal(isPrerelease(no), false, String(no));
+  });
+
+  it('main·SemVer·dist-tag·환경·다섯 패키지 버전 일치를 모두 요구한다', () => {
+    const base = { ref: 'refs/heads/main', version: '0.1.0', distTag: 'latest', environment: 'npm-publish', packageVersions: ALL_SAME };
     assert.deepEqual(validateReleaseInputs(base), []);
     assert.match(validateReleaseInputs({ ...base, ref: 'refs/heads/feat/x' })[0], /refs\/heads\/main/);
     assert.match(validateReleaseInputs({ ...base, version: '0.1' })[0], /exact SemVer/);
@@ -35,6 +40,16 @@ describe('inputs', () => {
     assert.deepEqual(mismatch, ['@omdc-slipkit/mcp is 0.0.9, expected 0.1.0']);
     const missing = validateReleaseInputs({ ...base, packageVersions: { '@omdc-slipkit/core': '0.1.0' } });
     assert.match(missing[0], /expected 5 packages, got 1/);
+  });
+
+  it('허용 목록 밖의 dist-tag와 prerelease의 latest를 거부한다', () => {
+    const prerelease = { '@omdc-slipkit/core': '1.0.0-beta.1', '@omdc-slipkit/elements': '1.0.0-beta.1', '@omdc-slipkit/react': '1.0.0-beta.1', '@omdc-slipkit/vue': '1.0.0-beta.1', '@omdc-slipkit/mcp': '1.0.0-beta.1' };
+    const base = { ref: 'refs/heads/main', version: '0.1.0', distTag: 'latest', environment: 'npm-publish', packageVersions: ALL_SAME };
+    assert.match(validateReleaseInputs({ ...base, distTag: 'beta' })[0], /dist_tag must be one of latest, next/);
+    assert.match(validateReleaseInputs({ ...base, distTag: undefined })[0], /got \(unset\)/);
+    const pre = { ...base, version: '1.0.0-beta.1', packageVersions: prerelease };
+    assert.deepEqual(validateReleaseInputs(pre), ['prerelease version 1.0.0-beta.1 must not use dist_tag latest']);
+    assert.deepEqual(validateReleaseInputs({ ...pre, distTag: 'next' }), []);
   });
 });
 
@@ -110,6 +125,17 @@ describe('publish', () => {
     assert.equal(interpretView({ code: 0, stdout: '{"weird":1}', stderr: '' }).status, 'error');
   });
 
+  it('성공했는데 출력이 비었거나 JSON이 아니면 원인을 적은 조회 오류다', () => {
+    for (const stdout of ['', '   \n', undefined]) {
+      const view = interpretView({ code: 0, stdout, stderr: '' });
+      assert.equal(view.status, 'error');
+      assert.match(view.message, /no dist\.integrity output/);
+    }
+    const broken = interpretView({ code: 0, stdout: 'sha512-AAAA', stderr: '' });
+    assert.equal(broken.status, 'error');
+    assert.match(broken.message, /not JSON/);
+  });
+
   it('E404는 배포, 같은 SRI는 건너뜀, 다른 SRI·조회 오류는 실패다', () => {
     assert.equal(decidePublish({ status: 'missing' }, SRI), 'publish');
     assert.equal(decidePublish({ status: 'found', integrity: SRI }, SRI), 'skip');
@@ -132,7 +158,7 @@ describe('publish', () => {
     });
     afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
 
-    /** 레지스트리 상태를 흉내 내는 npm 실행 함수. 호출 기록을 남긴다. */
+    /** 시험용 레지스트리 상태를 반환하고 npm 호출 기록을 남기는 함수입니다. */
     function fakeNpm(registry, { publishFails = [], tagAfterPublish = 'latest' } = {}) {
       const calls = [];
       const npm = async (args) => {
@@ -178,7 +204,7 @@ describe('publish', () => {
       assert.equal(calls.filter((args) => args[0] === 'publish').length, 2);
     });
 
-    it('같은 버전이 다른 내용이면 즉시 실패하고 뒤 패키지를 건드리지 않는다', async () => {
+    it('같은 버전이 다른 내용이면 즉시 실패하고 뒤 패키지는 처리하지 않는다', async () => {
       const { npm, calls } = fakeNpm({ '@omdc-slipkit/core@0.1.0': { integrity: 'sha512-other', tag: 'latest' } });
       await assert.rejects(publishAll({ dir, manifest, distTag: 'latest', dryRun: false, npm }), /different content/);
       assert.equal(calls.filter((args) => args[0] === 'publish').length, 0);
@@ -225,18 +251,18 @@ describe('publish', () => {
 const WORKFLOW_TEXT = readFileSync(fileURLToPath(new URL('../../.github/workflows/release.yml', import.meta.url)), 'utf8');
 
 /**
- * release.yml의 최상위 `jobs:` 아래를 작업 이름별 원문 블록으로 나눈다.
+ * release.yml의 최상위 `jobs:` 아래를 작업 이름별 원문 블록으로 나눕니다.
  *
- * @returns 작업 이름을 키로, 해당 작업의 YAML 원문을 값으로 갖는 Map.
+ * @returns 작업 이름을 키로, 해당 작업의 YAML 원문을 값으로 갖는 Map입니다.
  */
 function workflowJobs() {
   const lines = WORKFLOW_TEXT.split('\n');
   const start = lines.indexOf('jobs:');
-  assert.ok(start >= 0, 'release.yml에 최상위 jobs: 키가 없다');
+  assert.ok(start >= 0, 'release.yml에 최상위 jobs: 키가 없습니다.');
   const blocks = new Map();
   let current = null;
   for (const line of lines.slice(start + 1)) {
-    // 들여쓰기가 없는 줄은 다음 최상위 키다.
+    // 들여쓰기가 없는 줄은 다음 최상위 키입니다.
     if (line.trim() !== '' && !line.startsWith(' ')) break;
     const header = /^ {2}([A-Za-z0-9_-]+):\s*$/.exec(line);
     if (header !== null) {
@@ -249,7 +275,7 @@ function workflowJobs() {
   return new Map([...blocks].map(([name, body]) => [name, body.join('\n')]));
 }
 
-describe('release workflow', () => {
+describe('release 워크플로', () => {
   const jobs = workflowJobs();
   const publishJobs = ['publish-dry-run', 'publish'];
 
@@ -264,14 +290,14 @@ describe('release workflow', () => {
     }
   });
 
-  it('publish 작업은 prepare가 올린 artifact를 그대로 내려받는다', () => {
+  it('publish 작업은 prepare가 올린 배포 산출물을 그대로 내려받는다', () => {
     const uploaded = /uses: actions\/upload-artifact@[^\n]+\n\s+with:\n\s+name: ([^\n]+)\n/.exec(jobs.get('prepare'));
-    assert.ok(uploaded !== null, 'prepare가 artifact를 올리지 않는다');
+    assert.ok(uploaded !== null, 'prepare가 배포 산출물을 올리지 않습니다.');
     for (const name of publishJobs) {
       const job = jobs.get(name);
-      assert.match(job, /^\s+needs: prepare$/m, `${name}이 prepare를 needs로 두지 않는다`);
+      assert.match(job, /^\s+needs: prepare$/m, `${name}이 prepare를 needs로 지정하지 않았습니다.`);
       const downloaded = /uses: actions\/download-artifact@[^\n]+\n\s+with:\n\s+name: ([^\n]+)\n/.exec(job);
-      assert.ok(downloaded !== null, `${name}이 artifact를 내려받지 않는다`);
+      assert.ok(downloaded !== null, `${name}이 배포 산출물을 내려받지 않습니다.`);
       assert.equal(downloaded[1], uploaded[1]);
     }
   });
@@ -282,16 +308,16 @@ describe('release workflow', () => {
     }
   });
 
-  it('artifact 보존 기간은 재개할 수 있도록 7일이다', () => {
+  it('배포 산출물 보존 기간은 재개할 수 있도록 7일이다', () => {
     assert.match(jobs.get('prepare'), /^\s+retention-days: 7$/m);
   });
 
-  it('배포 실패 안내는 원래 실행의 Re-run failed jobs를 가리킨다', () => {
+  it('배포 실패 안내는 처음 실패한 실행의 Re-run failed jobs를 가리킨다', () => {
     const status = jobs.get('status');
     assert.match(status, /Re-run failed jobs/);
     assert.match(status, /Re-run all jobs/);
     assert.match(status, /Run workflow/);
-    // 새 workflow 실행으로 오해하게 하던 이전 문구가 남아 있으면 안 된다.
+    // 새 워크플로 실행을 재개 방법으로 안내하는 문구가 없어야 합니다.
     assert.doesNotMatch(status, /같은 입력으로 다시 실행/);
     assert.doesNotMatch(status, /다시 실행하면/);
   });

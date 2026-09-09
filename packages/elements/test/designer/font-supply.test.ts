@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// 호스트 폰트 공급 실패와 재시도 과정에서 디자이너와 PDF가 같은 출처를 쓰는지 확인합니다.
+// 호스트 폰트 조회 실패와 재시도 과정에서 디자이너와 PDF가 같은 출처를 쓰는지 확인합니다.
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@omdc-slipkit/core', async () => {
@@ -30,7 +30,7 @@ import {
 
 const HOST_FONTS = [{ name: 'Host Sans', data: new Uint8Array([7]), fallback: true }];
 
-/** 등록에 성공하는 FontFace 대역 */
+/** 등록에 성공하는 FontFace 대체 구현입니다. */
 class FakeFontFace {
   constructor(readonly family: string, readonly source: unknown) {}
   load(): Promise<this> {
@@ -38,7 +38,7 @@ class FakeFontFace {
   }
 }
 
-describe('<slip-designer> 호스트 폰트 공급 실패와 재시도', () => {
+describe('<slip-designer> 호스트 폰트 조회 실패와 재시도', () => {
   const s = strings.designer;
 
   beforeEach(() => {
@@ -54,7 +54,7 @@ describe('<slip-designer> 호스트 폰트 공급 실패와 재시도', () => {
     Reflect.deleteProperty(document, 'fonts');
   });
 
-  /** 첫 호출만 실패하고 이후에는 사용자 폰트를 주는 SlipKit 대역 */
+  /** 첫 호출만 실패하고 이후에는 사용자 폰트를 반환하는 SlipKit 대체 구현입니다. */
   function failingSlipKit(failFirst: () => never): {
     slipkit: SlipKit;
     getFonts: ReturnType<typeof vi.fn>;
@@ -150,7 +150,7 @@ describe('<slip-designer> 호스트 폰트 공급 실패와 재시도', () => {
     first.remove();
     second.remove();
   });
-  it('외부 조회가 성공한 뒤 다시 연결하면 공급 함수를 추가로 호출하지 않고 복구된다', async () => {
+  it('외부 조회가 성공한 뒤 다시 연결하면 제공 함수를 추가로 호출하지 않고 복구된다', async () => {
     let attempt = 0;
     const supply = vi.fn(() => {
       attempt += 1;
@@ -174,7 +174,7 @@ describe('<slip-designer> 호스트 폰트 공급 실패와 재시도', () => {
     await el.updateComplete;
 
     expect(fontNames(el)).toEqual(['Host Sans']);
-    // 재연결이 공급 함수를 다시 부르지는 않습니다.
+    // 재연결이 제공 함수를 다시 부르지는 않습니다.
     expect(supply).toHaveBeenCalledTimes(2);
     el.remove();
   });

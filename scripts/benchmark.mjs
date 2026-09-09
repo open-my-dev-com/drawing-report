@@ -1,31 +1,31 @@
 /**
- * `docs/TEST-PLAN.md`의 성능 기준선을 다시 측정한다.
+ * `docs/TEST-PLAN.md`의 성능 기준선을 다시 측정합니다.
  *
- * 실행: `pnpm bench` — Core를 먼저 빌드한 뒤 측정하므로 명령 하나로 재현된다.
+ * 실행: `pnpm bench`. Core를 먼저 빌드한 뒤 측정하므로 명령 하나로 재현됩니다.
  *
  * 옵션
- * - `--json <path>` 환경·fixture·반복 원자료·median·p95와 결정적 결과를 판 번호가 있는 JSON으로 남긴다.
- *   생략하면 표만 출력한다.
+ * - `--json <path>` 환경·시험 데이터·반복별 원본 데이터·중앙값·p95와 결정적 결과를 형식 버전이 있는 JSON으로 남깁니다.
+ *   생략하면 표만 출력합니다.
  *
  * 측정 방법
- * - 각 작업마다 워밍업을 돌린 뒤 본 측정을 반복하고 **중앙값**을 적는다.
- *   중앙값을 쓰는 이유는 가비지 수집이나 다른 프로세스 때문에 드물게 튀는
- *   값이 평균을 끌어올리기 때문이다.
- * - 한 번의 호출이 측정 오차보다 짧은 작업은 한 측정 안에서 여러 번 돌린다
+ * - 각 작업마다 워밍업을 실행한 뒤 실제 측정을 반복하고 **중앙값**을 적습니다.
+ *   중앙값을 쓰는 이유는 가비지 수집이나 다른 프로세스로 생기는 일부 큰 값이
+ *   평균을 크게 바꿀 수 있기 때문입니다.
+ * - 한 번의 호출이 측정 오차보다 짧은 작업은 한 측정 안에서 반복 실행합니다.
  *   (`batch`). 그러면 시계 읽기의 비중이 줄고, 호출당 시간을 유효 자릿수까지
- *   볼 수 있다. 워밍업도 본 측정과 같은 횟수만큼 돌려 최적화 상태를 맞춘다.
- * - 동기 함수는 반복문에서 그대로 호출하고, 비동기 함수만 `await`한다.
+ *   확인할 수 있습니다. 워밍업도 실제 측정과 같은 횟수만큼 실행해 최적화 상태를 맞춥니다.
+ * - 동기 함수는 반복문에서 그대로 호출하고, 비동기 함수만 `await`합니다.
  *   동기 함수를 `await`하면 호출마다 Promise를 만들고 마이크로태스크로
- *   넘어가는 비용이 측정에 섞여, 호출이 짧은 작업일수록 왜곡이 커진다.
- * - 표에는 한 측정의 소요 시간, 호출당 시간, 초당 호출 수를 함께 적는다.
- * - 이 스크립트는 Node.js 기준선이다. 브라우저 주 스레드 점유 시간은
- *   별도로 측정해야 한다.
+ *   넘어가는 비용이 측정에 섞여, 호출이 짧은 작업일수록 왜곡이 커집니다.
+ * - 표에는 한 측정의 소요 시간, 호출당 시간, 초당 호출 수를 함께 적습니다.
+ * - 이 스크립트는 Node.js 기준선입니다. 브라우저 주 스레드 점유 시간은
+ *   별도로 측정해야 합니다.
  *
- * 결정적 결과 — 환경이 달라도 같아야 하는 값이라 JSON에 따로 남긴다
- * - 양식 직렬화 바이트 수
+ * 결정적 결과는 환경이 달라도 같아야 하므로 JSON에 따로 남깁니다.
+ * - 양식 직렬화 문자 수
  * - 항목 수별 페이지 계획의 출력 페이지 수
  * - 작은·대형 전표 PDF의 페이지 수·바이트 수와 `%PDF` 서명 확인
- *   (PDF에는 생성 시각이 들어가 압축 결과가 몇 바이트 흔들린다)
+ *   PDF에는 생성 시각이 들어가므로 압축 결과가 몇 바이트 달라질 수 있습니다.
  */
 import { performance } from 'node:perf_hooks';
 import {
@@ -48,10 +48,10 @@ const argv = process.argv.slice(2);
 const jsonPath = readArg(argv, '--json');
 
 /**
- * 동기 함수를 워밍업한 뒤 `batch`번씩 묶어 `runs`번 잰다.
- * 측정 구간에 `await`를 두지 않아 Promise 비용이 섞이지 않는다.
+ * 동기 함수를 워밍업한 뒤 `batch`번씩 묶어 `runs`번 측정합니다.
+ * 측정 구간에 `await`를 두지 않아 Promise 비용이 섞이지 않습니다.
  *
- * @param {number} runs - 본 측정 반복 수
+ * @param {number} runs - 실제 측정 반복 수
  * @param {number} warmup - 워밍업 반복 수
  * @param {number} batch - 한 측정당 호출 수
  * @param {() => unknown} fn - 잴 함수
@@ -69,9 +69,9 @@ function sampleSync(runs, warmup, batch, fn) {
 }
 
 /**
- * 비동기 함수용. 호출마다 결과를 기다린 뒤 다음 호출로 넘어간다.
+ * 비동기 함수용. 호출마다 결과를 기다린 뒤 다음 호출로 넘어갑니다.
  *
- * @param {number} runs - 본 측정 반복 수
+ * @param {number} runs - 실제 측정 반복 수
  * @param {number} warmup - 워밍업 반복 수
  * @param {number} batch - 한 측정당 호출 수
  * @param {() => Promise<unknown>} fn - 잴 함수
@@ -89,7 +89,7 @@ async function sampleAsync(runs, warmup, batch, fn) {
 }
 
 /**
- * 호출당 시간을 유효 자릿수가 남게 적는다.
+ * 호출당 시간을 유효 자릿수가 남게 적습니다.
  *
  * @param {number} ms - 호출당 밀리초
  * @returns {string} 문자열
@@ -103,7 +103,7 @@ function perCall(ms) {
 const paper = { width: 210, height: 297, padding: [20, 15, 20, 15] };
 
 /**
- * 머리·항목·꼬리 세 구간을 가진 반복 그리드.
+ * 머리·항목·꼬리 세 구간을 가진 반복 그리드입니다.
  *
  * @returns {Record<string, any>} 그리드 요소
  */
@@ -133,7 +133,7 @@ function repeatGrid() {
 }
 
 /**
- * 항목 n건. 값은 측정마다 같도록 색인에서 만든다.
+ * 항목 n건. 값은 측정마다 같도록 색인에서 만듭니다.
  *
  * @param {number} n - 항목 수
  * @returns {Array<Record<string, unknown>>} 항목 목록
@@ -177,17 +177,17 @@ const rawKey = new Uint8Array(32).fill(7);
 const passphrase = 'correct-horse-battery-staple';
 const envelope = await encryptSlipFile(template, passphrase);
 
-/** PDF 생성에 쓰는 전표 — 작은 것과 대형 것 두 벌 */
+/** PDF 생성에 사용하는 작은 전표와 대형 전표입니다. */
 const PDF_ITEMS = { small: 5, large: 200 };
 const vouchers = {
   small: buildVoucher(template, { items: makeItems(PDF_ITEMS.small) }),
   large: buildVoucher(template, { items: makeItems(PDF_ITEMS.large) }),
 };
-/** 호스트가 폰트를 주지 않는 기본 경로 — 렌더링 엔진의 기본 폰트를 쓴다 */
+/** 호스트가 폰트를 제공하지 않는 기본 경로에서 렌더링 엔진의 기본 폰트를 사용합니다. */
 const slipkit = createSlipKit({ locale: 'en' });
 
 /**
- * 페이지 계획의 출력 페이지 수를 센다.
+ * 페이지 계획의 출력 페이지 수를 셉니다.
  *
  * @param {number} count - 항목 수
  * @returns {number} 출력 페이지 수
@@ -197,7 +197,7 @@ function outputPages(count) {
 }
 
 /**
- * 전표 PDF를 한 번 만들어 결정적 결과를 모은다.
+ * 전표 PDF를 한 번 만들어 결정적 결과를 모읍니다.
  *
  * @param {'small' | 'large'} size - 전표 크기
  * @returns {Promise<{ bytes: number, pages: number, header: boolean }>} 바이트 수·페이지 수·서명 확인
@@ -212,24 +212,24 @@ async function pdfFacts(size) {
 }
 
 /**
- * 측정 항목.
- * `async`가 참인 항목만 측정 구간에서 `await`한다.
+ * 측정 항목입니다.
+ * `async`가 참인 항목만 측정 구간에서 `await`합니다.
  */
 const CASES = [
-  // 페이지 계획은 한 번이 충분히 길어 호출을 묶지 않는다.
+  // 페이지 계획은 한 번이 충분히 길어 호출을 묶지 않습니다.
   ...[100, 1000, 5000, 20000].map((n) => {
     const page = { elements: [repeatGrid()] };
     const data = makeItems(n);
     return {
       id: `core.plan.${n}`,
-      name: `페이지 계획 — 항목 ${n}건`,
+      name: `페이지 계획 · 항목 ${n}건`,
       fixture: `plan-${n}`,
       runs: 15, warmup: 5, batch: 1, async: false,
       fn: () => planSourcePage(paper, page, new Map([['items', data]])),
     };
   }),
   {
-    id: 'core.parse', name: `parseSlipFile — ${(templateJson.length / 1024).toFixed(1)}KB`, fixture: 'bench-template',
+    id: 'core.parse', name: `parseSlipFile · ${(templateJson.length / 1024).toFixed(1)}KB`, fixture: 'bench-template',
     runs: 15, warmup: 5, batch: 500, async: false, fn: () => parseSlipFile(templateJson),
   },
   {
@@ -238,28 +238,28 @@ const CASES = [
     fn: () => parseFormula('ROUND(SUM($(items).$(amount)) * 1.1, 0)'),
   },
   {
-    id: 'core.formula.evaluate', name: 'evaluateFormula — 항목 1,000건 합계', fixture: 'bench-formula-1000',
+    id: 'core.formula.evaluate', name: 'evaluateFormula · 항목 1,000건 합계', fixture: 'bench-formula-1000',
     runs: 15, warmup: 5, batch: 1000, async: false, fn: () => evaluateFormula(formula, formulaContext),
   },
-  // 키 파생은 의도적으로 느리므로 한 번씩 잰다.
+  // 키 파생은 의도적으로 느리므로 한 번씩 측정합니다.
   {
-    id: 'core.encrypt.passphrase', name: '암호화 — 암호 (PBKDF2 + AES-GCM)', fixture: 'bench-template',
+    id: 'core.encrypt.passphrase', name: '암호화 · 암호 문구 (PBKDF2 + AES-GCM)', fixture: 'bench-template',
     runs: 10, warmup: 3, batch: 1, async: true, fn: () => encryptSlipFile(template, passphrase),
   },
   {
-    id: 'core.decrypt.passphrase', name: '복호화 — 암호', fixture: 'bench-template',
+    id: 'core.decrypt.passphrase', name: '복호화 · 암호 문구', fixture: 'bench-template',
     runs: 10, warmup: 3, batch: 1, async: true, fn: () => decryptSlipFile(envelope, passphrase),
   },
   {
-    id: 'core.encrypt.rawKey', name: '암호화 — 원시 키 (PBKDF2 없음)', fixture: 'bench-template',
+    id: 'core.encrypt.rawKey', name: '암호화 · 원시 키 (PBKDF2 없음)', fixture: 'bench-template',
     runs: 15, warmup: 5, batch: 50, async: true, fn: () => encryptSlipFile(template, rawKey),
   },
   {
-    id: 'core.pdf.small', name: `PDF 생성 — 작은 전표 (항목 ${PDF_ITEMS.small}건)`, fixture: `pdf-${PDF_ITEMS.small}`,
+    id: 'core.pdf.small', name: `PDF 생성 · 작은 전표 (항목 ${PDF_ITEMS.small}건)`, fixture: `pdf-${PDF_ITEMS.small}`,
     runs: 10, warmup: 3, batch: 1, async: true, fn: () => slipkit.render(vouchers.small),
   },
   {
-    id: 'core.pdf.large', name: `PDF 생성 — 대형 전표 (항목 ${PDF_ITEMS.large}건)`, fixture: `pdf-${PDF_ITEMS.large}`,
+    id: 'core.pdf.large', name: `PDF 생성 · 대형 전표 (항목 ${PDF_ITEMS.large}건)`, fixture: `pdf-${PDF_ITEMS.large}`,
     runs: 5, warmup: 1, batch: 1, async: true, fn: () => slipkit.render(vouchers.large),
   },
 ];
@@ -267,7 +267,7 @@ const CASES = [
 const environment = collectEnvironment();
 console.log(`Node ${environment.node} · ${environment.platform}/${environment.arch} · ${environment.cores} core`);
 console.log(`CPU: ${environment.cpuModel} · 메모리 ${(environment.memoryBytes / 1024 ** 3).toFixed(1)}GB`);
-console.log('각 값은 워밍업 뒤 본 측정의 중앙값\n');
+console.log('각 값은 워밍업 뒤 실제 측정의 중앙값입니다.\n');
 console.log('| 작업 | 측정 | 한 측정 | 호출당 | 초당 호출 |');
 console.log('|---|---|---|---|---|');
 
@@ -290,19 +290,19 @@ for (const item of CASES) {
 
 if (jsonPath !== undefined) {
   const deterministic = {
-    templateBytes: templateJson.length,
+    templateChars: templateJson.length,
     planPages: Object.fromEntries([100, 1000, 5000, 20000].map((n) => [n, outputPages(n)])),
     pdf: { small: await pdfFacts('small'), large: await pdfFacts('large') },
   };
   const metrics = [
-    metric('core.template.serializedBytes', {
-      label: '양식 직렬화 바이트', unit: 'bytes', kind: 'deterministic',
-      value: deterministic.templateBytes, context: { fixture: 'bench-template' },
+    metric('core.template.serializedChars', {
+      label: '양식 직렬화 문자 수', unit: 'count', kind: 'deterministic',
+      value: deterministic.templateChars, context: { fixture: 'bench-template' },
     }),
   ];
   for (const [count, pages] of Object.entries(deterministic.planPages)) {
     metrics.push(metric(`core.plan.${count}.outputPages`, {
-      label: `페이지 계획 출력 페이지 수 — 항목 ${count}건`, unit: 'count', kind: 'deterministic',
+      label: `페이지 계획 출력 페이지 수 · 항목 ${count}건`, unit: 'count', kind: 'deterministic',
       value: pages, context: { fixture: `plan-${count}`, items: Number(count) },
     }));
   }
@@ -310,21 +310,21 @@ if (jsonPath !== undefined) {
     const facts = deterministic.pdf[size];
     const items = PDF_ITEMS[size];
     metrics.push(metric(`core.pdf.${size}.pages`, {
-      label: `PDF 페이지 수 — 항목 ${items}건`, unit: 'count', kind: 'deterministic',
+      label: `PDF 페이지 수 · 항목 ${items}건`, unit: 'count', kind: 'deterministic',
       value: facts.pages, context: { fixture: `pdf-${items}`, items },
     }));
     metrics.push(metric(`core.pdf.${size}.bytes`, {
-      label: `PDF 바이트 — 항목 ${items}건`, unit: 'bytes', kind: 'deterministic',
+      label: `PDF 바이트 · 항목 ${items}건`, unit: 'bytes', kind: 'deterministic',
       value: facts.bytes, context: { fixture: `pdf-${items}`, items },
     }));
     metrics.push(metric(`core.pdf.${size}.header`, {
-      label: `PDF 서명 확인 — 항목 ${items}건`, unit: 'flag', kind: 'deterministic',
+      label: `PDF 서명 확인 · 항목 ${items}건`, unit: 'flag', kind: 'deterministic',
       value: facts.header ? 1 : 0, context: { fixture: `pdf-${items}`, items },
     }));
   }
   for (const row of measurements) {
     metrics.push(metric(`${row.id}.medianMs`, {
-      label: `${row.name} — 한 측정 중앙값`, unit: 'ms', kind: 'environmental',
+      label: `${row.name} · 1회당 중앙값`, unit: 'ms', kind: 'environmental',
       value: row.medianMs, context: { fixture: row.fixture, runs: row.runs, batch: row.batch },
     }));
   }

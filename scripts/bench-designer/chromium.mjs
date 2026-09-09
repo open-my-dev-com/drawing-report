@@ -1,18 +1,18 @@
 /**
- * `--chromium` 모드 — 같은 드래그 시나리오를 Playwright의 실제 Chromium에서 잰다.
+ * `--chromium` 모드에서 같은 드래그 시나리오를 Playwright의 실제 Chromium으로 측정합니다.
  *
  * 준비
  * - tsup이 쓰는 esbuild로 `packages/core/dist`와 `packages/elements/dist`를 브라우저용 한 파일로
- *   묶는다. 동봉 폰트 청크는 외부 모듈로 남겨 묶음에 넣지 않는다 (페이지는 이름만 있는 폰트를
- *   `getFonts`로 공급하므로 읽지 않는다).
- * - Node `http` 서버가 임시 포트에서 빈 페이지와 묶음을 내준다.
- * - `page.addInitScript`로 `JSON.stringify`·`structuredClone` 카운터를 페이지에 먼저 심는다.
- *   `planSourcePage` 수는 이 모드에서 세지 않는다 (묶음 안의 함수는 밖에서 감쌀 수 없다).
- * - Chromium은 `--js-flags=--expose-gc`로 띄워 본 측정 전후에 `gc()`를 부르고
- *   `performance.memory.usedJSHeapSize` 차이를 적는다.
+ *   묶습니다. 동봉 폰트 청크는 외부 모듈로 남겨 묶음에 넣지 않습니다. 페이지에는 이름만 있는 폰트를
+ *   `getFonts`로 제공하므로 폰트 청크를 읽지 않습니다.
+ * - Node `http` 서버가 임시 포트에서 빈 페이지와 번들을 제공합니다.
+ * - `page.addInitScript`로 `JSON.stringify`·`structuredClone` 카운터를 페이지에 먼저 심습니다.
+ *   묶음 안의 함수는 외부에서 감쌀 수 없으므로 이 모드에서는 `planSourcePage` 호출 수를 세지 않습니다.
+ * - Chromium은 `--js-flags=--expose-gc`로 시작해 실제 측정 전후에 `gc()`를 부르고
+ *   `performance.memory.usedJSHeapSize` 차이를 적습니다.
  *
- * 측정 자체는 페이지 안에서 Node 모드와 같은 순서로 진행한다 — pointerdown, pointermove ×N,
- * pointerup을 shadow root의 `.element[data-id]`에 보내고 이벤트마다 `updateComplete`를 기다린다.
+ * 측정 자체는 페이지 안에서 Node 모드와 같은 순서로 진행합니다. pointerdown, pointermove ×N,
+ * pointerup을 shadow root의 `.element[data-id]`에 보내고 이벤트마다 `updateComplete`를 기다립니다.
  */
 import { createRequire } from 'node:module';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -22,12 +22,12 @@ import path from 'node:path';
 import os from 'node:os';
 import { median, percentile } from './metrics.mjs';
 
-/** Playwright가 관리형 Chromium을 찾지 못할 때 시도하는 실행 파일 후보 (`SLIPKIT_CHROMIUM`이 우선) */
+/** Playwright가 관리형 Chromium을 찾지 못할 때 시도하는 실행 파일 후보 (`SLIPKIT_CHROMIUM`이 우선)입니다. */
 const CHROMIUM_CANDIDATES = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome'];
 
 /**
- * 페이지에 먼저 심는 카운터. `metrics.mjs`의 `installCounters`와 같은 규칙이다.
- * 문자열로 넘기므로 바깥 변수를 참조하지 않는다.
+ * 페이지에 먼저 심는 카운터. `metrics.mjs`의 `installCounters`와 같은 규칙입니다.
+ * 문자열로 넘기므로 바깥 변수를 참조하지 않습니다.
  */
 const INIT_SCRIPT = `
 (() => {
@@ -55,9 +55,9 @@ const INIT_SCRIPT = `
 `;
 
 /**
- * 페이지 안에서 실행하는 측정 본문. Playwright가 함수 소스를 넘기므로 인자 외에는 참조하지 않는다.
+ * 페이지 안에서 실행하는 측정 본문. Playwright가 함수 소스를 넘기므로 인자 외에는 참조하지 않습니다.
  *
- * @param options - 양식 JSON, 끌 요소 id, 반복 수 등
+ * @param options - 양식 JSON, 끌 요소 ID, 반복 수 등
  * @returns 드래그별 표본과 힙 변화
  */
 async function runInPage(options) {
@@ -96,9 +96,9 @@ async function runInPage(options) {
     }
     const target = el.shadowRoot.querySelector(`.element[data-id="${dragId}"]`);
     if (!target) throw new Error(`캔버스에 요소가 없습니다: ${dragId}`);
-    // 기록이 컨트롤러로 분리된 코드와 옛 배열 코드를 모두 읽는다 (metrics.mjs의 undoState와 같은 규칙).
+    // metrics.mjs의 undoState와 같은 규칙으로 컨트롤러와 배열 형태의 기록을 모두 읽습니다.
     const undoState = () => el._history !== undefined
-      ? { depth: el._history.undoDepth, chars: el._history.undoSnapshotBytes }
+      ? { depth: el._history.undoDepth, chars: el._history.undoSnapshotChars }
       : { depth: (el._undoStack ?? []).length, chars: (el._undoStack ?? []).reduce((sum, entry) => sum + entry.file.length, 0) };
     const undoBefore = undoState();
     reset();
@@ -139,13 +139,13 @@ async function runInPage(options) {
 }
 
 /**
- * core·elements dist를 브라우저용 한 파일로 묶는다.
+ * core·elements dist를 브라우저용 한 파일로 묶습니다.
  *
  * @param options - `root`, `coreDist`, `elementsDist`, `outDir`
  * @returns 묶음 파일 경로
  */
 async function bundle({ root, coreDist, elementsDist, outDir }) {
-  // esbuild는 tsup의 의존성이라 tsup 위치에서 찾는다.
+  // esbuild는 tsup의 의존성이라 tsup 위치에서 찾습니다.
   const rootRequire = createRequire(path.join(root, 'package.json'));
   const tsupRequire = createRequire(rootRequire.resolve('tsup/package.json'));
   const esbuild = await import(pathToFileURL(tsupRequire.resolve('esbuild')).href);
@@ -171,15 +171,15 @@ async function bundle({ root, coreDist, elementsDist, outDir }) {
 }
 
 /**
- * Chromium에서 양식마다 드래그를 측정한다.
+ * Chromium에서 양식마다 드래그를 측정합니다.
  *
  * @param options - 경로·양식·반복 수. `templates`는 `benchTemplates()` 결과
- * @returns `bench-designer.mjs`의 표 행과 같은 모양의 결과 목록
+ * @returns `bench-designer.mjs`의 표 행과 같은 구조를 가진 결과 목록
  */
 export async function benchInChromium(options) {
   const { root, coreDist, elementsDist, templates, warmup, runs, moves, stepPx, maxUndo } = options;
   const outDir = mkdtempSync(path.join(os.tmpdir(), 'slipkit-bench-designer-'));
-  // playwright는 리포 루트의 devDependency다. scripts/에서 바로 가져온다.
+  // Playwright는 저장소 루트의 개발 의존성입니다. scripts에서 직접 가져옵니다.
   const { chromium } = await import('playwright');
   let server = null;
   let browser = null;
@@ -198,7 +198,7 @@ export async function benchInChromium(options) {
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const { port } = server.address();
 
-    // 관리형 Chromium이 기본 위치에 없으면 SLIPKIT_CHROMIUM 또는 알려진 후보 경로를 쓴다.
+    // 관리형 Chromium이 기본 위치에 없으면 SLIPKIT_CHROMIUM 또는 알려진 후보 경로를 씁니다.
     const executablePath = process.env['SLIPKIT_CHROMIUM'] ?? CHROMIUM_CANDIDATES.find((candidate) => existsSync(candidate));
     browser = await chromium.launch({
       headless: true,

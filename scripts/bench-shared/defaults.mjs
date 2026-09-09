@@ -1,15 +1,15 @@
 /**
- * benchmark 하위 명령의 기본값.
+ * 성능 측정 하위 명령의 기본값입니다.
  *
- * 하위 명령과 `bench:all`이 같은 값을 쓰도록 한곳에 모아 둔다 — 옵션을 주지 않은 공통 실행이
- * 하위 명령을 따로 돌린 것과 다른 측정이 되지 않게 하려는 것이다. 축소는 명시적 옵션으로만 한다.
+ * 하위 명령과 `bench:all`이 같은 값을 사용하도록 한곳에 모아 둡니다. 옵션 없이 실행하면 하위 명령을
+ * 따로 실행할 때와 같은 조건으로 측정하며, 측정 규모는 명시적인 옵션으로만 줄입니다.
  */
 
-/** fonts benchmark의 본 측정 반복 수 (`--runs`) */
+/** fonts 실제 측정의 반복 횟수이며 `--runs`로 지정합니다. */
 export const FONTS_DEFAULT_RUNS = 5;
 
-/** MCP list benchmark의 본 측정 반복 수 (`--runs`) */
+/** MCP list 실제 측정의 반복 횟수이며 `--runs`로 지정합니다. */
 export const MCP_LIST_DEFAULT_RUNS = 5;
 
-/** MCP list benchmark의 fixture 파일 수 (`--sizes`) */
+/** MCP list 측정에 사용할 시험 파일 수이며 `--sizes`로 지정합니다. */
 export const MCP_LIST_DEFAULT_SIZES = Object.freeze([1000, 10000]);

@@ -1,12 +1,12 @@
 /**
- * `<slip-form>`의 스타일 시트.
+ * `<slip-form>`의 스타일 시트입니다.
  */
 import { css } from 'lit';
 
-/** `<slip-form>` 스타일 */
+/** `<slip-form>` 스타일입니다. */
 export const formStyles = css`
     :host {
-      /* 디자이너와 공유하는 디자인 토큰  */
+      /* 디자이너와 공유하는 디자인 토큰 */
       --sk-bg: #f6f7f8;
       --sk-surface: #ffffff;
       --sk-canvas-bg: #e2e4e7;
@@ -20,7 +20,7 @@ export const formStyles = css`
       --sk-radius: 4px;
 
       display: grid;
-      /* 입력 pane은 화면 폭에 따라 넓어져 목록 열이 가로 스크롤 없이 들어가게 한다 */
+      /* 입력 영역은 화면 폭에 따라 넓어져 목록의 열이 가로 스크롤 없이 들어가게 합니다. */
       grid-template-columns: clamp(320px, 40%, 720px) 1fr;
       height: 100%;
       min-height: 320px;
@@ -30,7 +30,7 @@ export const formStyles = css`
       overflow: hidden;
     }
 
-    /* :host의 display보다 hidden 속성을 우선한다. */
+    /* hidden 속성이 :host의 display보다 우선하도록 합니다. */
     :host([hidden]) {
       display: none;
     }
@@ -132,7 +132,7 @@ export const formStyles = css`
       display: grid;
       gap: 4px;
       align-items: center;
-      /* 열은 pane 폭을 나누어 채우고, 열 최소 폭을 넘을 때만 가로 스크롤이 생긴다 */
+      /* 열은 입력 영역의 너비를 나누어 채우며, 열의 최소 너비를 넘을 때만 가로 스크롤이 생깁니다. */
       width: 100%;
       min-width: 0;
       margin-bottom: 4px;

@@ -1,5 +1,5 @@
 /**
- * `<slip-designer>`의 스타일 시트.
+ * `<slip-designer>`의 스타일 시트입니다.
  *
  * @remarks
  * 영역별 파일로 나누되 적용 순서는 그대로 둡니다 — 뒤쪽 규칙이 앞쪽을 덮으므로
@@ -12,7 +12,7 @@ import { propertiesStyles } from './designer/properties.styles.js';
 import { dialogsStyles } from './designer/dialogs.styles.js';
 import { gridStyles } from './designer/grid.styles.js';
 
-/** `<slip-designer>` 스타일 — 선언 순서대로 적용합니다 */
+/** 선언 순서대로 적용하는 `<slip-designer>` 스타일입니다. */
 export const designerStyles = [
   layoutStyles,
   sidebarStyles,

@@ -1,40 +1,40 @@
 /**
- * 수식 편집 모달에 표시할 함수 분류, 사용법, 설명을 정의한다.
+ * 수식 편집 모달에 표시할 함수 분류, 사용법, 설명을 정의합니다.
  *
- * 함수 목록은 core의 `FORMULA_FUNCTIONS`와 일치해야 한다. core에 함수를 추가할 때
- * 각 언어의 도움말도 함께 추가한다.
+ * 함수 목록은 core의 `FORMULA_FUNCTIONS`와 일치해야 합니다. core에 함수를 추가할 때
+ * 각 언어의 도움말도 함께 추가합니다.
  */
 
-/** 함수 인자 하나의 도움말. */
+/** 함수 인자 하나의 도움말입니다. */
 interface FormulaHelpArgument {
-  /** UI 언어로 쓴 인자 이름. `signature`의 표기와 같다. */
+  /** UI 언어로 쓴 인자 이름. `signature`의 표기와 같습니다. */
   name: string;
-  /** 인자가 무엇을 받는지에 대한 설명. */
+  /** 인자에 넣는 값의 설명입니다. */
   description: string;
-  /** 생략할 수 있는 인자면 true. */
+  /** 생략할 수 있는 인자면 true입니다. */
   optional?: boolean;
-  /** 같은 종류의 인자를 여러 개 이어 쓸 수 있으면 true. */
+  /** 같은 종류의 인자를 여러 개 이어 쓸 수 있으면 true입니다. */
   variadic?: boolean;
 }
 
-/** 함수 이름, 사용법, 설명과 인자·반환값으로 구성된 도움말 항목. */
+/** 함수 이름, 사용법, 설명과 인자·반환값으로 구성된 도움말 항목입니다. */
 export interface FormulaHelpEntry {
   name: string;
   /**
    * UI 언어로 작성한 사용법 표기. 예: `SUM(범위, …)`.
    *
    * @remarks
-   * 표시용 문자열이다. 인자 목록은 이 문자열을 다시 해석하지 않고 `args`에서 읽는다.
+   * 표시용 문자열입니다. 인자 목록은 이 문자열을 다시 해석하지 않고 `args`에서 읽습니다.
    */
   signature: string;
   description: string;
-  /** 인자 도움말 (사용법 표기와 같은 순서). 인자가 없으면 빈 배열. */
+  /** 인자 도움말 (사용법 표기와 같은 순서). 인자가 없으면 빈 배열입니다. */
   args: FormulaHelpArgument[];
-  /** 반환값 설명. */
+  /** 반환값 설명입니다. */
   returns: string;
 }
 
-/** 함수 분류 한 묶음 */
+/** 함수 분류 한 묶음입니다. */
 export interface FormulaHelpCategory {
   title: string;
   functions: FormulaHelpEntry[];
@@ -44,61 +44,61 @@ const ko: FormulaHelpCategory[] = [
   {
     title: '집계',
     functions: [
-      { name: 'SUM', signature: 'SUM(범위?, …)', description: '값·범위의 합계 (예: SUM($(items).$(amount)))',
+      { name: 'SUM', signature: 'SUM(범위?, …)', description: '값과 범위의 합계(예: SUM($(items).$(amount)))',
         args: [{ name: '범위', description: '더할 값이나 목록 필드', variadic: true, optional: true }],
-        returns: '합계 (수)',
+        returns: '합계(숫자)',
       },
       { name: 'AVG', signature: 'AVG(범위, …)', description: '값·범위의 평균',
-        args: [{ name: '범위', description: '평균을 낼 값이나 목록 필드', variadic: true }],
-        returns: '평균 (수)',
+        args: [{ name: '범위', description: '평균을 계산할 값이나 목록 필드', variadic: true }],
+        returns: '평균(숫자)',
       },
       { name: 'COUNT', signature: 'COUNT(범위?, …)', description: '빈 값을 뺀 항목 수',
         args: [{ name: '범위', description: '셀 값이나 목록 필드', variadic: true, optional: true }],
-        returns: '빈 값을 뺀 개수 (수)',
+        returns: '빈 값을 뺀 개수(숫자)',
       },
-      { name: 'MIN', signature: 'MIN(범위?, …)', description: '가장 작은 값 (값이 없으면 0)',
+      { name: 'MIN', signature: 'MIN(범위?, …)', description: '가장 작은 값(값이 없으면 0)',
         args: [{ name: '범위', description: '비교할 값이나 목록 필드', variadic: true, optional: true }],
-        returns: '가장 작은 값 (수)',
+        returns: '가장 작은 값(숫자)',
       },
-      { name: 'MAX', signature: 'MAX(범위?, …)', description: '가장 큰 값 (값이 없으면 0)',
+      { name: 'MAX', signature: 'MAX(범위?, …)', description: '가장 큰 값(값이 없으면 0)',
         args: [{ name: '범위', description: '비교할 값이나 목록 필드', variadic: true, optional: true }],
-        returns: '가장 큰 값 (수)',
+        returns: '가장 큰 값(숫자)',
       },
-      { name: 'SUMIF', signature: 'SUMIF(범위, 조건, 합계범위?)', description: '조건에 맞는 값만 더한다 (조건 예: ">=1000")',
-        args: [{ name: '범위', description: '조건을 검사할 값 목록' }, { name: '조건', description: '비교할 조건' }, { name: '합계범위', description: '실제로 더할 값 목록. 생략하면 범위를 더합니다', optional: true }],
-        returns: '조건에 맞는 값의 합계 (수)',
+      { name: 'SUMIF', signature: 'SUMIF(범위, 조건, 합계 범위?)', description: '조건에 맞는 값의 합계(조건 예: ">=1000")',
+        args: [{ name: '범위', description: '조건을 검사할 값 목록' }, { name: '조건', description: '비교할 조건' }, { name: '합계 범위', description: '실제로 더할 값 목록. 생략하면 범위를 더합니다', optional: true }],
+        returns: '조건에 맞는 값의 합계(숫자)',
       },
       { name: 'COUNTIF', signature: 'COUNTIF(범위, 조건)', description: '조건에 맞는 항목 수',
         args: [{ name: '범위', description: '조건을 검사할 값 목록' }, { name: '조건', description: '비교할 조건' }],
-        returns: '조건에 맞는 개수 (수)',
+        returns: '조건에 맞는 개수(숫자)',
       },
     ],
   },
   {
     title: '산술',
     functions: [
-      { name: 'ROUND', signature: 'ROUND(수, 자릿수?)', description: '반올림 (자릿수 생략 시 정수로)',
-        args: [{ name: '수', description: '반올림할 수' }, { name: '자릿수', description: '남길 소수 자릿수. 생략하면 정수', optional: true }],
-        returns: '반올림한 수',
+      { name: 'ROUND', signature: 'ROUND(숫자, 자릿수?)', description: '지정한 자릿수로 반올림',
+        args: [{ name: '숫자', description: '반올림할 숫자' }, { name: '자릿수', description: '남길 소수 자릿수(생략하면 정수)', optional: true }],
+        returns: '반올림한 숫자',
       },
-      { name: 'FLOOR', signature: 'FLOOR(수, 자릿수?)', description: '내림',
-        args: [{ name: '수', description: '내림할 수' }, { name: '자릿수', description: '남길 소수 자릿수. 생략하면 정수', optional: true }],
-        returns: '내림한 수',
+      { name: 'FLOOR', signature: 'FLOOR(숫자, 자릿수?)', description: '지정한 자릿수로 내림',
+        args: [{ name: '숫자', description: '내림할 숫자' }, { name: '자릿수', description: '남길 소수 자릿수(생략하면 정수)', optional: true }],
+        returns: '내림한 숫자',
       },
-      { name: 'CEIL', signature: 'CEIL(수, 자릿수?)', description: '올림',
-        args: [{ name: '수', description: '올림할 수' }, { name: '자릿수', description: '남길 소수 자릿수. 생략하면 정수', optional: true }],
-        returns: '올림한 수',
+      { name: 'CEIL', signature: 'CEIL(숫자, 자릿수?)', description: '지정한 자릿수로 올림',
+        args: [{ name: '숫자', description: '올림할 숫자' }, { name: '자릿수', description: '남길 소수 자릿수(생략하면 정수)', optional: true }],
+        returns: '올림한 숫자',
       },
-      { name: 'ABS', signature: 'ABS(수)', description: '절댓값',
-        args: [{ name: '수', description: '절댓값을 구할 수' }],
-        returns: '부호를 없앤 수',
+      { name: 'ABS', signature: 'ABS(숫자)', description: '절댓값 계산',
+        args: [{ name: '숫자', description: '절댓값을 구할 숫자' }],
+        returns: '부호를 없앤 숫자',
       },
     ],
   },
   {
     title: '문자열',
     functions: [
-      { name: 'CONCAT', signature: 'CONCAT(값?, …)', description: '값들을 글자로 이어 붙인다',
+      { name: 'CONCAT', signature: 'CONCAT(값?, …)', description: '값을 이어 붙인 문자열',
         args: [{ name: '값', description: '이어 붙일 값', variadic: true, optional: true }],
         returns: '이어 붙인 글',
       },
@@ -110,23 +110,23 @@ const ko: FormulaHelpCategory[] = [
         args: [{ name: '문자열', description: '자를 글' }, { name: '글자 수', description: '오른쪽에서 가져올 글자 수. 생략하면 1', optional: true }],
         returns: '오른쪽에서 잘라낸 글',
       },
-      { name: 'MID', signature: 'MID(문자열, 시작, 길이)', description: '시작 위치(1부터)에서 지정 길이만큼',
-        args: [{ name: '문자열', description: '자를 글' }, { name: '시작', description: '가져오기 시작할 위치 (1부터)' }, { name: '길이', description: '가져올 글자 수' }],
+      { name: 'MID', signature: 'MID(문자열, 시작, 길이)', description: '시작 위치(1부터)에서 지정한 길이만큼',
+        args: [{ name: '문자열', description: '자를 글' }, { name: '시작', description: '가져오기 시작할 위치(1부터)' }, { name: '길이', description: '가져올 글자 수' }],
         returns: '잘라낸 글',
       },
-      { name: 'REPLACE', signature: 'REPLACE(문자열, 찾기, 바꾸기)', description: '일치하는 부분을 모두 바꾼다',
+      { name: 'REPLACE', signature: 'REPLACE(문자열, 찾기, 바꾸기)', description: '일치하는 모든 부분 바꾸기',
         args: [{ name: '문자열', description: '바꿀 대상 글' }, { name: '찾기', description: '찾을 글' }, { name: '바꾸기', description: '대신 넣을 글' }],
         returns: '바꾼 글',
       },
-      { name: 'TRIM', signature: 'TRIM(문자열)', description: '양끝 공백 제거',
+      { name: 'TRIM', signature: 'TRIM(문자열)', description: '양 끝 공백 제거',
         args: [{ name: '문자열', description: '공백을 지울 글' }],
-        returns: '양끝 공백을 지운 글',
+        returns: '양 끝 공백을 지운 글',
       },
-      { name: 'UPPER', signature: 'UPPER(문자열)', description: '영문 대문자로',
+      { name: 'UPPER', signature: 'UPPER(문자열)', description: '영문 대문자로 변환',
         args: [{ name: '문자열', description: '바꿀 글' }],
         returns: '영문을 대문자로 바꾼 글',
       },
-      { name: 'LOWER', signature: 'LOWER(문자열)', description: '영문 소문자로',
+      { name: 'LOWER', signature: 'LOWER(문자열)', description: '영문 소문자로 변환',
         args: [{ name: '문자열', description: '바꿀 글' }],
         returns: '영문을 소문자로 바꾼 글',
       },
@@ -136,75 +136,75 @@ const ko: FormulaHelpCategory[] = [
     title: '조건',
     functions: [
       { name: 'IF', signature: 'IF(조건, 참일 때, 거짓일 때?)', description: '조건에 따라 두 값 중 하나',
-        args: [{ name: '조건', description: '참·거짓을 내는 식' }, { name: '참일 때', description: '조건이 참일 때 쓸 값' }, { name: '거짓일 때', description: '조건이 거짓일 때 쓸 값. 생략하면 빈 값', optional: true }],
+        args: [{ name: '조건', description: '참 또는 거짓을 반환하는 식' }, { name: '참일 때', description: '조건이 참일 때 쓸 값' }, { name: '거짓일 때', description: '조건이 거짓일 때 쓸 값. 생략하면 빈 값', optional: true }],
         returns: '조건에 따라 고른 값',
       },
       { name: 'AND', signature: 'AND(조건, …)', description: '전부 참이면 참',
-        args: [{ name: '조건', description: '참·거짓을 내는 식', variadic: true }],
+        args: [{ name: '조건', description: '참 또는 거짓을 반환하는 식', variadic: true }],
         returns: '전부 참이면 참 (논리값)',
       },
       { name: 'OR', signature: 'OR(조건, …)', description: '하나라도 참이면 참',
-        args: [{ name: '조건', description: '참·거짓을 내는 식', variadic: true }],
+        args: [{ name: '조건', description: '참 또는 거짓을 반환하는 식', variadic: true }],
         returns: '하나라도 참이면 참 (논리값)',
       },
     ],
   },
   {
-    title: '포맷',
+    title: '표시 형식',
     functions: [
-      { name: 'FORMAT_NUMBER', signature: 'FORMAT_NUMBER(수, 소수 자릿수?)', description: '1,234,567처럼 자릿수 구분 표기',
-        args: [{ name: '수', description: '표기할 수' }, { name: '소수 자릿수', description: '표시할 소수 자릿수. 생략하면 입력값의 소수 부분을 유지합니다', optional: true }],
+      { name: 'FORMAT_NUMBER', signature: 'FORMAT_NUMBER(숫자, 소수 자릿수?)', description: '1,234,567처럼 자릿수를 구분해 표시',
+        args: [{ name: '숫자', description: '표시할 숫자' }, { name: '소수 자릿수', description: '표시할 소수 자릿수(생략하면 입력값의 소수 부분 유지)', optional: true }],
         returns: '자릿수를 구분한 글',
       },
-      { name: 'FORMAT_DATE', signature: 'FORMAT_DATE(날짜, 패턴?)', description: '날짜 표기 (기본 YYYY-MM-DD)',
+      { name: 'FORMAT_DATE', signature: 'FORMAT_DATE(날짜, 패턴?)', description: '날짜 표기(기본 YYYY-MM-DD)',
         args: [{ name: '날짜', description: '표기할 날짜' }, { name: '패턴', description: '표기 형식. 생략하면 YYYY-MM-DD', optional: true }],
-        returns: '형식에 맞춘 날짜 글',
+        returns: '형식에 맞춘 날짜 문자열',
       },
-      { name: 'NUMBER_TO_KOREAN', signature: 'NUMBER_TO_KOREAN(수)', description: '금액을 한글로 (예: 일만이천삼백)',
-        args: [{ name: '수', description: '한글로 옮길 금액' }],
-        returns: '한글로 옮긴 금액 글',
+      { name: 'NUMBER_TO_KOREAN', signature: 'NUMBER_TO_KOREAN(숫자)', description: '금액을 한글로 표시(예: 일만이천삼백)',
+        args: [{ name: '숫자', description: '한글로 표시할 금액' }],
+        returns: '한글로 표시한 금액',
       },
     ],
   },
   {
     title: '날짜',
     functions: [
-      { name: 'TODAY', signature: 'TODAY()', description: '오늘 날짜 (YYYY-MM-DD)',
+      { name: 'TODAY', signature: 'TODAY()', description: '오늘 날짜(YYYY-MM-DD)',
         args: [],
-        returns: '오늘 날짜 (YYYY-MM-DD)',
+        returns: '오늘 날짜(YYYY-MM-DD)',
       },
-      { name: 'DATE_ADD', signature: 'DATE_ADD(날짜, 증감량, 단위?)', description: '날짜 더하기·빼기 (단위: days·months·years)',
-        args: [{ name: '날짜', description: '기준 날짜' }, { name: '증감량', description: '더할 양. 음수면 뺍니다' }, { name: '단위', description: 'days·months·years 중 하나. 생략하면 days', optional: true }],
-        returns: '옮긴 날짜 (YYYY-MM-DD)',
+      { name: 'DATE_ADD', signature: 'DATE_ADD(날짜, 증감량, 단위?)', description: '날짜 더하기·빼기(단위: days·months·years)',
+        args: [{ name: '날짜', description: '기준 날짜' }, { name: '증감량', description: '더할 값. 음수면 뺍니다' }, { name: '단위', description: 'days·months·years 중 하나. 생략하면 days', optional: true }],
+        returns: '계산한 날짜(YYYY-MM-DD)',
       },
-      { name: 'DATE_DIFF', signature: 'DATE_DIFF(시작, 끝, 단위?)', description: '두 날짜의 차이 (끝 − 시작)',
+      { name: 'DATE_DIFF', signature: 'DATE_DIFF(시작, 끝, 단위?)', description: '두 날짜의 차이(끝 − 시작)',
         args: [{ name: '시작', description: '시작 날짜' }, { name: '끝', description: '끝 날짜' }, { name: '단위', description: 'days·months·years 중 하나. 생략하면 days', optional: true }],
-        returns: '끝에서 시작을 뺀 차이 (수)',
+        returns: '끝에서 시작을 뺀 차이(숫자)',
       },
     ],
   },
   {
     title: '세무',
     functions: [
-      { name: 'VAT', signature: 'VAT(공급가액, 세율?)', description: '부가세액 (기본 세율 10%)',
-        args: [{ name: '공급가액', description: '세액을 구할 금액' }, { name: '세율', description: '백분율로 적은 세율. 생략하면 10 (10%)', optional: true }],
-        returns: '부가세액 (수)',
+      { name: 'VAT', signature: 'VAT(공급가액, 세율?)', description: '부가세액(기본 세율 10%)',
+        args: [{ name: '공급가액', description: '세액을 구할 금액' }, { name: '세율', description: '백분율로 표시한 세율. 생략하면 10(10%)', optional: true }],
+        returns: '부가세액(숫자)',
       },
     ],
   },
   {
-    title: '타입 변환',
+    title: '값 변환',
     functions: [
-      { name: 'TO_NUMBER', signature: 'TO_NUMBER(값)', description: '글자를 수로 (빈 값은 0). 숫자 자리에 글자를 넣을 때',
-        args: [{ name: '값', description: '수로 바꿀 값' }],
-        returns: '바꾼 수 (빈 값은 0)',
+      { name: 'TO_NUMBER', signature: 'TO_NUMBER(값)', description: '문자열을 숫자로 변환(빈 값은 0)',
+        args: [{ name: '값', description: '숫자로 바꿀 값' }],
+        returns: '변환한 숫자(빈 값은 0)',
       },
-      { name: 'TO_STRING', signature: 'TO_STRING(값)', description: '수·논리를 글자로',
-        args: [{ name: '값', description: '글로 바꿀 값' }],
-        returns: '바꾼 글',
+      { name: 'TO_STRING', signature: 'TO_STRING(값)', description: '숫자·논리값을 문자열로 변환',
+        args: [{ name: '값', description: '문자열로 바꿀 값' }],
+        returns: '변환한 문자열',
       },
-      { name: 'TO_DATE', signature: 'TO_DATE(값)', description: '날짜 문자열을 검증해 YYYY-MM-DD로',
-        args: [{ name: '값', description: '검증할 날짜 글' }],
+      { name: 'TO_DATE', signature: 'TO_DATE(값)', description: '날짜 문자열을 확인하고 YYYY-MM-DD 형식으로 변환',
+        args: [{ name: '값', description: '확인할 날짜 문자열' }],
         returns: 'YYYY-MM-DD 형식의 날짜',
       },
     ],
@@ -556,10 +556,10 @@ const ja: FormulaHelpCategory[] = [
 const HELP = { ko, en, ja } as const;
 
 /**
- * 로케일에 맞는 함수 도움말을 반환한다. 지역 코드는 제외하고 언어 코드만 사용한다.
- * 지원하지 않는 언어에는 영어 도움말을 반환한다.
+ * 로케일에 맞는 함수 도움말을 반환합니다. 지역 코드는 제외하고 언어 코드만 사용합니다.
+ * 지원하지 않는 언어에는 영어 도움말을 반환합니다.
  *
- * @param locale - UI 언어 (생략하면 영어)
+ * @param locale - UI 언어(생략하면 영어)
  * @returns 분류별 함수 도움말 목록
  */
 export function getFormulaHelp(locale?: string): FormulaHelpCategory[] {

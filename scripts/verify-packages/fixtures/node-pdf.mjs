@@ -1,4 +1,4 @@
-// Node.js PDF 생성: 동봉 폰트 하위 경로와 core만으로 PDF 바이트를 만든다.
+// Node.js PDF 생성: 동봉 폰트 하위 경로와 core만으로 PDF 바이트를 만듭니다.
 import { createSlipKit } from '@omdc-slipkit/core';
 import { PRETENDARD_FONTS } from '@omdc-slipkit/elements/fonts/pretendard';
 import { template } from './template.mjs';

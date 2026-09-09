@@ -11,7 +11,7 @@ import {
 } from '../src/index.js';
 import { planGrid, type GridFlow } from '../src/layout/grid-plan.js';
 
-/** 행 구간 리터럴을 짧게 만든다. */
+/** 행 구간 리터럴을 짧게 만듭니다. */
 function band(
   id: string,
   fromRow: number,
@@ -22,7 +22,7 @@ function band(
   return { id, fromRow, toRow, placement, ...extra };
 }
 
-/** 계획 테스트용 반복 그리드. 행 높이는 목록 그대로, 열은 50mm 한 개다. */
+/** 계획 테스트용 반복 그리드. 행 높이는 목록 그대로, 열은 50mm 한 개입니다. */
 function makeGrid(options: {
   id?: string;
   rows: number[];
@@ -50,19 +50,19 @@ function makeGrid(options: {
   };
 }
 
-/** 첫 페이지는 y=20부터(70mm), 이어지는 페이지는 y=10부터(80mm) 쓰는 흐름. */
+/** 첫 페이지는 y=20부터(70mm), 이어지는 페이지는 y=10부터(80mm) 쓰는 흐름입니다. */
 const FLOW: GridFlow = { firstPage: 0, firstTop: 20, top: 10, bottom: 90 };
 
 function items(count: number, group = 'A'): { 금액: number; g: string }[] {
   return Array.from({ length: count }, (_, i) => ({ 금액: (i + 1) * 1000, g: group }));
 }
 
-/** 조각의 행 구간 placement 목록 (배치 순서) */
+/** 조각의 행 구간을 배치 순서대로 나열한 목록입니다. */
 function placements(plan: ReturnType<typeof planGrid>, fragment: number): string[] {
   return plan.fragments[fragment]!.bands.map((planned) => planned.band.placement);
 }
 
-/** 헤더(page-start) + 항목 1행 + 합계(after-data) 그리드 */
+/** 헤더(page-start) + 항목 1행 + 합계(after-data) 그리드입니다. */
 function headerItemTail(pagination: GridPagination): GridElement {
   return makeGrid({
     rows: [10, 10, 10],
@@ -101,7 +101,7 @@ describe('그리드 페이지 계획 (planGrid)', () => {
     expect(placements(plan, 0)).toEqual([
       'page-start', 'item', 'item', 'item', 'item', 'item', 'after-data',
     ]);
-    // 실제 항목은 2개뿐이고 나머지 3개는 빈 항목이다.
+    // 실제 항목은 2개뿐이고 나머지 3개는 빈 항목입니다.
     expect(plan.fragments[0]!.pageItems).toEqual([0, 1]);
     expect(plan.fragments[0]!.bands.filter((b) => b.emptyItem === true)).toHaveLength(3);
   });
@@ -121,7 +121,7 @@ describe('그리드 페이지 계획 (planGrid)', () => {
     expect(plan.fragments[0]!.pageItems).toEqual([0, 1, 2, 3, 4, 5]);
     expect(plan.fragments[0]!.y).toBe(20);
     expect(plan.fragments[0]!.height).toBe(70);
-    // 이어지는 페이지는 흐름 영역 위(10mm)부터 시작하고 합계가 마지막에 붙는다
+    // 이어지는 페이지는 흐름 영역 위(10mm)부터 시작하고 합계가 마지막에 붙습니다.
     expect(plan.fragments[1]!.outputPage).toBe(1);
     expect(plan.fragments[1]!.y).toBe(10);
     expect(plan.fragments[1]!.pageItems).toEqual([6, 7, 8, 9]);
@@ -150,7 +150,7 @@ describe('그리드 페이지 계획 (planGrid)', () => {
     expect(plan.fragments).toHaveLength(3);
     expect(plan.fragments.map((f) => f.pageItems)).toEqual([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9]]);
     expect(plan.fragments[2]!.bands.filter((b) => b.emptyItem === true)).toHaveLength(2);
-    // 합계는 마지막 페이지에만 붙는다
+    // 합계는 마지막 페이지에만 붙습니다.
     expect(placements(plan, 0)).not.toContain('after-data');
     expect(placements(plan, 2)).toContain('after-data');
   });
@@ -163,7 +163,7 @@ describe('그리드 페이지 계획 (planGrid)', () => {
     });
     const plan = planGrid(grid, items(4), FLOW);
     expect(plan.fragments).toHaveLength(2);
-    // 첫 페이지 70mm: 헤더 10 + 20mm 항목 3개 — 4번째(60→80mm)는 통째로 다음 페이지로
+    // 첫 페이지는 70mm입니다. 헤더 10mm와 20mm 항목 세 개를 배치하고, 네 번째 항목은 다음 페이지로 넘깁니다.
     expect(plan.fragments[0]!.pageItems).toEqual([0, 1, 2]);
     expect(plan.fragments[0]!.rowHeights).toHaveLength(1 + 3 * 2);
     expect(plan.fragments[1]!.pageItems).toEqual([3]);
@@ -222,7 +222,7 @@ describe('그리드 페이지 계획 (planGrid)', () => {
     });
     const plan = planGrid(grid, items(8), FLOW);
     expect(plan.fragments).toHaveLength(2);
-    // 이어지는 페이지 머리에 같은 그룹의 시작 구간이 다시 나온다 (그룹의 첫 항목을 가리킨다)
+    // 이어지는 페이지 머리에 같은 그룹의 시작 구간이 다시 나옵니다. 이 구간은 그룹의 첫 항목을 가리킵니다.
     const head = plan.fragments[1]!.bands[0]!;
     expect(head.band.id).toBe('gs');
     expect(head).toMatchObject({ itemIndex: 0, groupIndex: 0 });
@@ -266,7 +266,7 @@ describe('그리드 페이지 계획 (planGrid)', () => {
   });
 
   it('페이지 머리 구간이 빈 페이지의 흐름 영역에도 들어가지 않으면 오류를 반환한다', () => {
-    // 첫 페이지(70mm)에 들어가지 않으면 다음 페이지(80mm)로 옮겨 보고, 거기에도 들어가지 않을 때 오류다.
+    // 첫 페이지(70mm)에 들어가지 않으면 다음 페이지(80mm)로 옮겨 보고, 거기에도 들어가지 않으면 오류입니다.
     const grid = makeGrid({
       rows: [90, 10],
       bands: [band('bd', 0, 0, 'before-data'), band('i', 1, 1, 'item')],
@@ -288,7 +288,7 @@ describe('그리드 페이지 계획 (planGrid)', () => {
 
   it('이월된 그룹 머리 때문에 빈 페이지에서도 항목이 들어가지 않으면 즉시 오류를 반환한다', () => {
     // 첫 페이지(90mm)에는 page-start 20 + 그룹 시작 20 + 항목 50이 정확히 들어가고,
-    // 이어지는 페이지(80mm)에는 page-start 20 + 이월 그룹 머리 20 + 항목 50이 들어가지 않는다.
+    // 이어지는 페이지(80mm)에는 page-start 20 + 이월 그룹 머리 20 + 항목 50이 들어가지 않습니다.
     const grid = makeGrid({
       rows: [20, 20, 50],
       bands: [
@@ -301,7 +301,7 @@ describe('그리드 페이지 계획 (planGrid)', () => {
     });
     const flow: GridFlow = { firstPage: 0, firstTop: 0, top: 10, bottom: 90 };
     expect(() => planGrid(grid, items(2), flow)).toThrow(SlipLayoutError);
-    // 출력 페이지 상한까지 빈 페이지를 만들지 않고 그룹 오류로 바로 알린다.
+    // 출력 페이지 상한까지 빈 페이지를 만들지 않고 그룹 오류를 바로 알립니다.
     expect(() => planGrid(grid, items(2), flow)).toThrow(/group/);
   });
 
@@ -311,7 +311,7 @@ describe('그리드 페이지 계획 (planGrid)', () => {
       bands: [band('i', 0, 0, 'item')],
       pagination: { mode: 'fixed', itemsPerPage: 2 },
     });
-    // 남은 공간 10mm < 묶음 20mm — 빈 조각 없이 다음 페이지 상단에서 시작한다.
+    // 남은 공간 10mm가 묶음 높이 20mm보다 작으므로 빈 조각 없이 다음 페이지 상단에서 시작합니다.
     const plan = planGrid(grid, items(2), {
       firstPage: 0, firstTop: 80, top: 10, bottom: 90, allowStartShift: true,
     });
@@ -336,7 +336,7 @@ describe('그리드 페이지 계획 (planGrid)', () => {
   it('pageItems·carriedCount가 @page·@carried 범위대로 쌓인다', () => {
     const plan = planGrid(headerItemTail({ mode: 'fixed', itemsPerPage: 4 }), items(10), FLOW);
     expect(plan.fragments.map((f) => f.carriedCount)).toEqual([0, 4, 8]);
-    // 빈 항목은 pageItems(@page)와 carriedCount(@carried)에 들어가지 않는다
+    // 빈 항목은 pageItems(@page)와 carriedCount(@carried)에 포함하지 않습니다.
     expect(plan.fragments[2]!.pageItems).toEqual([8, 9]);
   });
 
@@ -358,7 +358,7 @@ describe('그리드 페이지 계획 (planGrid)', () => {
       bands: [band('i', 0, 0, 'item'), band('t', 1, 1, 'after-data')],
       pagination: { mode: 'auto', minItems: 0 },
     });
-    // 첫 페이지 70mm를 항목 7개가 꽉 채워 합계 자리가 없다.
+    // 항목 7개가 첫 페이지의 70mm를 모두 차지해 합계를 넣을 자리가 없습니다.
     const plan = planGrid(grid, items(7), FLOW);
     expect(plan.fragments).toHaveLength(2);
     expect(plan.fragments[0]!.pageItems).toEqual([0, 1, 2, 3, 4, 5, 6]);
@@ -482,7 +482,7 @@ describe('양식 페이지 계획 (planSourcePage)', () => {
       width: 60, height: 10, content: 'N',
       pagePlacement: { mode: 'after', target: 'target' },
     };
-    // 출력 페이지가 하나뿐이라 continuation 대상은 표시되지 않는다.
+    // 출력 페이지가 하나뿐이므로 continuation 대상은 표시되지 않습니다.
     const plan = planSourcePage(paper, { elements: [target, note] }, new Map());
     expect(plan.outputPageCount).toBe(1);
     expect(plan.afterPlacements.has('note')).toBe(false);
@@ -547,15 +547,15 @@ describe('양식 페이지 계획 (planSourcePage)', () => {
     const custom: SlipPage = { ...base, flowArea: { top: 30, bottom: 80 } };
     const plan = planSourcePage(paper, custom, new Map([['a', items(5)]]));
     expect(plan.flowArea).toEqual({ top: 30, bottom: 80 });
-    // 이어지는 조각은 흐름 영역 상단부터 시작한다
+    // 이어지는 조각은 흐름 영역 상단부터 시작합니다.
     expect(plan.gridPlans.get('a')!.fragments[1]!.y).toBe(30);
   });
 });
 
 describe('remainderFits 조기 종료 회귀', () => {
-  // 흐름은 첫 페이지 70mm(20~90), 이어지는 페이지 80mm(10~90)를 쓴다.
+  // 흐름은 첫 페이지에서 70mm(20~90), 이어지는 페이지에서 80mm(10~90)를 사용합니다.
   // 아래 기대값은 구간 높이와 흐름 높이에서 직접 계산한 것으로,
-  // 남은 항목을 끝까지 세든 넘치는 순간 멈추든 같아야 한다.
+  // 남은 항목을 끝까지 세거나 넘치는 순간 멈춰도 결과는 같아야 합니다.
   const headItemTail = makeGrid({
     rows: [10, 10, 10],
     bands: [
@@ -566,13 +566,13 @@ describe('remainderFits 조기 종료 회귀', () => {
     pagination: { mode: 'auto', minItems: 0 },
   });
 
-  /** 조각별 [출력 페이지, 항목 색인 목록] */
+  /** 조각별 [출력 페이지, 항목 색인 목록]입니다. */
   function layout(plan: ReturnType<typeof planGrid>): [number, number[]][] {
     return plan.fragments.map((f) => [f.outputPage, f.pageItems]);
   }
 
   it('머리 10 + 항목 10 + 꼬리 10이 첫 페이지에 꼭 맞으면 한 조각이다', () => {
-    // 10 + 5×10 + 10 = 70 — 첫 페이지 높이와 같다.
+    // 10 + 5×10 + 10 = 70이므로 첫 페이지 높이와 같습니다.
     const plan = planGrid(headItemTail, items(5), FLOW);
     expect(layout(plan)).toEqual([[0, [0, 1, 2, 3, 4]]]);
     expect(placements(plan, 0)).toEqual([
@@ -581,7 +581,7 @@ describe('remainderFits 조기 종료 회귀', () => {
   });
 
   it('항목 하나가 더 늘면 꼬리만 다음 페이지로 넘어간다', () => {
-    // 항목 6개는 머리와 함께 70mm를 채우지만 꼬리 10mm가 들어갈 자리가 없다.
+    // 항목 6개는 머리와 함께 70mm를 채우므로 꼬리 10mm를 넣을 자리가 없습니다.
     const plan = planGrid(headItemTail, items(6), FLOW);
     expect(layout(plan)).toEqual([[0, [0, 1, 2, 3, 4, 5]], [1, []]]);
     expect(placements(plan, 1)).toEqual(['page-start', 'after-data']);
@@ -612,7 +612,7 @@ describe('remainderFits 조기 종료 회귀', () => {
     });
     // 8×2(앞·머리) + 4×8(항목) + 8(꼬리) + 8(페이지 아래) = 64 ≤ 70
     expect(layout(planGrid(full, items(4), FLOW))).toEqual([[0, [0, 1, 2, 3]]]);
-    // 항목이 5개면 꼬리까지 72mm라 넘친다 — 꼬리만 다음 페이지로 간다.
+    // 항목이 5개이면 꼬리까지 72mm여서 넘치므로 꼬리만 다음 페이지로 이동합니다.
     const plan = planGrid(full, items(5), FLOW);
     expect(layout(plan)).toEqual([[0, [0, 1, 2, 3, 4]], [1, []]]);
     expect(placements(plan, 0)).toEqual([
@@ -636,7 +636,7 @@ describe('remainderFits 조기 종료 회귀', () => {
       [1, [4, 5, 6, 7]],
       [2, [8]],
     ]);
-    // 마지막 페이지도 빈 자리를 포함해 네 자리를 그린다.
+    // 마지막 페이지도 빈 자리를 포함해 네 자리를 그립니다.
     expect(placements(planGrid(fixed, items(9), FLOW), 2)).toEqual([
       'page-start', 'item', 'item', 'item', 'item', 'after-data',
     ]);
@@ -661,7 +661,7 @@ describe('remainderFits 조기 종료 회귀', () => {
     expect(placements(plan, 0)).toEqual([
       'group-start', 'item', 'item', 'item', 'group-end', 'group-start', 'item',
     ]);
-    // 두 번째 페이지는 이어지는 그룹의 시작을 다시 표시한다
+    // 두 번째 페이지는 이어지는 그룹의 시작을 다시 표시합니다.
     expect(placements(plan, 1)).toEqual([
       'group-start', 'item', 'item', 'group-end', 'after-data',
     ]);
@@ -705,7 +705,7 @@ describe('대량 항목 계획의 시간·메모리 (carriedCount)', () => {
     });
     const count = 60_000;
     const data = Array.from({ length: count }, (_, i) => ({ 금액: i }));
-    // 페이지당 항목 수가 많아야 출력 페이지 상한(2000) 안에 들어간다.
+    // 페이지당 항목 수가 많아야 출력 페이지 상한(2000) 안에 들어갑니다.
     const flow: GridFlow = { firstPage: 0, firstTop: 10, top: 10, bottom: 10 + 10 + 10 * 40 };
     const heapBefore = process.memoryUsage().heapUsed;
     const started = performance.now();
@@ -715,7 +715,7 @@ describe('대량 항목 계획의 시간·메모리 (carriedCount)', () => {
     expect(plan.fragments).toHaveLength(count / 40);
     expect(plan.fragments.at(-1)!.carriedCount).toBe(count - 40);
     expect(plan.fragments.at(-1)!.pageItems).toHaveLength(40);
-    // 느슨한 회귀 상한: 이월 목록을 복사하면 1500 조각 × 6만 인덱스로 수백 MB가 든다.
+    // 넉넉한 회귀 상한입니다. 이월 목록을 복사하면 1,500개 조각과 6만 개 인덱스 때문에 수백 MB가 필요합니다.
     expect(elapsed).toBeLessThan(5_000);
     expect(heapGrowth).toBeLessThan(150 * 1024 * 1024);
   });

@@ -1,4 +1,4 @@
-// 실행 환경 수집·비교 시험 — fingerprint가 같은 환경을 같다고 보는지 확인한다.
+// 실행 환경 수집·비교 시험입니다. 환경 정보가 같을 때 같은 환경으로 판단하는지 확인합니다.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { FINGERPRINT_FIELDS, collectEnvironment, compareEnvironments, describeEnvironment, environmentFingerprint } from './env.mjs';
@@ -7,7 +7,7 @@ describe('collectEnvironment', () => {
   it('fingerprint 항목을 모두 채운다', () => {
     const environment = collectEnvironment();
     for (const field of FINGERPRINT_FIELDS) {
-      assert.ok(field in environment, `${field}가 없다`);
+      assert.ok(field in environment, `${field}가 없습니다.`);
     }
     assert.equal(environment.node, process.version);
     assert.equal(environment.chromium, null);

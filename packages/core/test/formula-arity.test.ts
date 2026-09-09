@@ -42,7 +42,7 @@ describe('assertFormulaArity', () => {
     expect(() => check('AVG()')).toThrow(FormulaEvalError);
     // 목록이 지금 비어 있을 뿐이면 실제 전표에서는 계산될 수 있습니다.
     expect(() => check('AVG(@page.$(amount))')).not.toThrow();
-    // 합계·개수는 값이 없어도 정의된 결과를 냅니다.
+    // 합계와 개수는 값이 없어도 정해진 결과를 반환합니다.
     expect(() => check('SUM()')).not.toThrow();
     expect(evaluateFormula('SUM()', { values: {} })).toBe(0);
     expect(evaluateFormula('COUNT()', { values: {} })).toBe(0);

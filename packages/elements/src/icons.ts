@@ -1,5 +1,5 @@
 /**
- * 툴바와 패널에서 사용하는 아이콘 모음.
+ * 툴바와 패널에서 사용하는 아이콘 모음입니다.
  *
  * 아이콘 저작권: Lucide Contributors, ISC 라이선스 — https://lucide.dev
  * lucide-static v1.33.0에서 추출했으며 색상은 `currentColor`를 사용합니다.
@@ -11,7 +11,7 @@ function icon(body: TemplateResult): TemplateResult {
     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 }
 
-/** 용도별 아이콘 목록 */
+/** 용도별 아이콘 목록입니다. */
 export const icons = {
   /** lucide: type */
   text: icon(svg`<path d="M12 4v16" /><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" /><path d="M9 20h6" />`),
@@ -52,19 +52,19 @@ export const icons = {
   pagePrev: icon(svg`<path d="m15 18-6-6 6-6" />`),
   /** lucide: chevron-right */
   pageNext: icon(svg`<path d="m9 18 6-6-6-6" />`),
-  /** 파라미터 타입: 글자 — 대문자 T와 밑줄 */
+  /** 파라미터 값 종류가 글자임을 나타내는 대문자 T와 밑줄입니다. */
   typeText: icon(svg`<path d="M5 6V5h14v1" /><path d="M12 5v14" /><path d="M9 19h6" />`),
-  /** 숫자 파라미터를 나타내는 # 기호. */
+  /** 숫자 파라미터를 나타내는 # 기호입니다. */
   typeNumber: icon(svg`<path d="M4 9h16" /><path d="M4 15h16" /><path d="M10 3 8 21" /><path d="M16 3l-2 18" />`),
-  /** 파라미터 타입: 날짜 — 달력 */
+  /** 파라미터 값 종류가 날짜임을 나타내는 달력입니다. */
   typeDate: icon(svg`<rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18" /><path d="M8 3v4" /><path d="M16 3v4" />`),
-  /** 파라미터 타입: 참/거짓 — 체크 상자 */
+  /** 파라미터 값 종류가 참/거짓임을 나타내는 체크 상자입니다. */
   typeBoolean: icon(svg`<rect x="3" y="3" width="18" height="18" rx="2" /><path d="M8 12l3 3 5-6" />`),
-  /** 파라미터 타입: 이미지 — 산과 해 */
+  /** 파라미터 값 종류가 이미지임을 나타내는 산과 해입니다. */
   typeImage: icon(svg`<rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9.5" r="1.5" /><path d="m21 16-5-5L5 20" />`),
-  /** 파라미터 타입: 목록 — 글머리 목록 */
+  /** 파라미터 값 종류가 목록임을 나타내는 글머리 목록입니다. */
   typeList: icon(svg`<path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" />`),
-  /** 항목 더하기 — 목록·패널 공용 더하기 표시 */
+  /** 항목 더하기 — 목록·패널 공용 더하기 표시입니다. */
   add: icon(svg`<path d="M5 12h14" /><path d="M12 5v14" />`),
   /** lucide: plus */
   pageAdd: icon(svg`<path d="M5 12h14" /><path d="M12 5v14" />`),
@@ -99,34 +99,34 @@ export const icons = {
   alignCenter: icon(svg`<path d="M21 5H3" /><path d="M17 12H7" /><path d="M19 19H5" />`),
   /** lucide: align-right */
   alignRight: icon(svg`<path d="M21 5H3" /><path d="M21 12H9" /><path d="M21 19H7" />`),
-  /** 캔버스 격자 */
+  /** 캔버스 격자입니다. */
   grid: icon(svg`<rect width="18" height="18" x="3" y="3" rx="1" /><path d="M9 3v18" /><path d="M15 3v18" /><path d="M3 9h18" /><path d="M3 15h18" />`),
-  /** 모든 열을 같은 너비로 맞추기 */
+  /** 모든 열을 같은 너비로 맞추는 기능입니다. */
   evenWidths: icon(svg`<rect width="18" height="14" x="3" y="5" rx="1" /><path d="M9 5v14" /><path d="M15 5v14" />`),
-  /** 요소 종류 표시 전환 */
+  /** 요소 종류 표시 전환입니다. */
   badges: icon(svg`<path d="M3.5 5.5A2 2 0 0 1 5.5 3.5h4.7a2 2 0 0 1 1.42.59l7.79 7.8a2 2 0 0 1 0 2.82l-4.7 4.7a2 2 0 0 1-2.83 0l-7.79-7.8a2 2 0 0 1-.59-1.41z" /><circle cx="7.5" cy="7.5" r="1.2" />`),
-  /** 세로 정렬 위 — 위 변에 붙은 막대 */
+  /** 세로 정렬 위 — 위 변에 붙은 막대입니다. */
   alignTop: icon(svg`<rect x="7" y="9" width="10" height="11" rx="1" /><path d="M4 4h16" />`),
-  /** 세로 정렬 가운데 */
+  /** 세로 정렬 가운데입니다. */
   alignMiddle: icon(svg`<rect x="7" y="7" width="10" height="10" rx="1" /><path d="M4 12h16" />`),
-  /** 세로 정렬 아래 */
+  /** 세로 정렬 아래입니다. */
   alignBottom: icon(svg`<rect x="7" y="4" width="10" height="11" rx="1" /><path d="M4 20h16" />`),
-  /** 요소 배치: 왼쪽 변 맞춤 — 왼쪽 기준선에 붙은 두 상자 */
+  /** 요소 배치: 왼쪽 변 맞춤 — 왼쪽 기준선에 붙은 두 상자입니다. */
   alignLeftEdges: icon(svg`<path d="M4 3v18" /><rect x="7" y="6" width="13" height="5" rx="1" /><rect x="7" y="13" width="8" height="5" rx="1" />`),
-  /** 요소 배치: 가로 가운데 맞춤 — 세로 중심선에 걸친 두 상자 */
+  /** 요소 배치: 가로 가운데 맞춤 — 세로 중심선에 걸친 두 상자입니다. */
   alignHCenters: icon(svg`<path d="M12 3v18" /><rect x="5" y="6" width="14" height="5" rx="1" /><rect x="8" y="13" width="8" height="5" rx="1" />`),
-  /** 요소 배치: 오른쪽 변 맞춤 — 오른쪽 기준선에 붙은 두 상자 */
+  /** 요소 배치: 오른쪽 변 맞춤 — 오른쪽 기준선에 붙은 두 상자입니다. */
   alignRightEdges: icon(svg`<path d="M20 3v18" /><rect x="4" y="6" width="13" height="5" rx="1" /><rect x="9" y="13" width="8" height="5" rx="1" />`),
-  /** 요소 배치: 가로 간격 균등 — 양 끝 기준선 사이에 고르게 놓인 상자 */
+  /** 요소 배치: 가로 간격 균등 — 양 끝 기준선 사이에 고르게 놓인 상자입니다. */
   distributeH: icon(svg`<path d="M3 4v16" /><path d="M21 4v16" /><rect x="8" y="8" width="3" height="8" rx="1" /><rect x="13" y="8" width="3" height="8" rx="1" />`),
-  /** 요소 배치: 세로 간격 균등 — 위아래 기준선 사이에 고르게 놓인 상자 */
+  /** 요소 배치: 세로 간격 균등 — 위아래 기준선 사이에 고르게 놓인 상자입니다. */
   distributeV: icon(svg`<path d="M4 3h16" /><path d="M4 21h16" /><rect x="8" y="8" width="8" height="3" rx="1" /><rect x="8" y="13" width="8" height="3" rx="1" />`),
-  /** 바코드 요소 — 굵기가 다른 막대 줄 */
+  /** 바코드 요소 — 굵기가 다른 막대 줄입니다. */
   barcode: icon(svg`<path d="M4 5v14" /><path d="M8 5v14" /><path d="M12 5v14" /><path d="M17 5v14" /><path d="M21 5v14" />`),
-  /** 계산할 수 없는 수식이 있는 자리를 알리는 경고 삼각형. */
+  /** 계산할 수 없는 수식이 있는 자리를 알리는 경고 삼각형입니다. */
   warning: icon(svg`<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" />`),
-  /** 접힌 목록을 나타내는 오른쪽 꺾쇠. */
+  /** 접힌 목록을 나타내는 오른쪽 꺾쇠입니다. */
   treeClosed: icon(svg`<path d="m9 18 6-6-6-6" />`),
-  /** 펼친 목록을 나타내는 아래쪽 꺾쇠. */
+  /** 펼친 목록을 나타내는 아래쪽 꺾쇠입니다. */
   treeOpen: icon(svg`<path d="m6 9 6 6 6-6" />`),
 };

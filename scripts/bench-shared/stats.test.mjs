@@ -1,10 +1,9 @@
-// 통계 도우미 시험 — `node --test`로 실행한다. 예전에 Core benchmark가 따로 갖고 있던 중앙값
-// 계산과 값이 같은지도 함께 본다.
+// 통계 도우미를 `node --test`로 시험합니다. 기존 중앙값 계산과 결과가 같은지도 확인합니다.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { formatInt, median, percentile } from './stats.mjs';
 
-/** 통합 전 `scripts/benchmark.mjs`가 쓰던 중앙값 계산 (배열을 직접 정렬했다) */
+/** 결과 비교에 사용하는 기준 중앙값 계산입니다. */
 function legacyMiddle(times) {
   const values = [...times].sort((a, b) => a - b);
   const mid = Math.floor(values.length / 2);
@@ -12,15 +11,15 @@ function legacyMiddle(times) {
 }
 
 describe('median', () => {
-  it('홀수 개면 가운데 값을 돌려준다', () => {
+  it('홀수 개면 가운데 값을 반환한다', () => {
     assert.equal(median([3, 1, 2]), 2);
   });
 
-  it('짝수 개면 가운데 두 값의 평균을 돌려준다', () => {
+  it('짝수 개면 가운데 두 값의 평균을 반환한다', () => {
     assert.equal(median([4, 1, 2, 3]), 2.5);
   });
 
-  it('비어 있으면 0을 돌려준다', () => {
+  it('비어 있으면 0을 반환한다', () => {
     assert.equal(median([]), 0);
   });
 
@@ -30,7 +29,7 @@ describe('median', () => {
     assert.deepEqual(values, [3, 1, 2]);
   });
 
-  it('통합 전 Core benchmark의 중앙값과 같은 값을 낸다', () => {
+  it('Core 기준 중앙값 계산과 같은 값을 낸다', () => {
     const samples = [
       [1],
       [2, 1],
@@ -54,7 +53,7 @@ describe('percentile', () => {
     assert.equal(percentile(values, 100), 9);
   });
 
-  it('비어 있으면 0을 돌려준다', () => {
+  it('비어 있으면 0을 반환한다', () => {
     assert.equal(percentile([], 95), 0);
   });
 });

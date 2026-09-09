@@ -1,5 +1,5 @@
 /**
- * 캔버스 — 용지, 눈금자, 요소 렌더링, 선택 표시와 그리드 미리보기.
+ * 용지, 눈금자, 요소, 선택 상태와 그리드 미리보기를 캔버스에 렌더링합니다.
  *
  * @remarks
  * 캔버스와 PDF가 동일한 페이지 계획을 사용하도록 호스트가 계산한 결과를 전달받습니다.
@@ -52,6 +52,7 @@ import {
   inItemBand,
   isGrid,
 } from '../grid-model.js';
+import { isBlankFormula } from '../../formula-blank.js';
 import { gridFormulaContext } from '../formula-context.js';
 import {
   hasCellWarning,
@@ -69,41 +70,41 @@ import type { DesignerFonts } from '../font-variant.js';
 import { borderCss, cellDefaultBorderOf, outlineOf } from '../grid-border.js';
 import type { DesignerStrings } from '../../strings.js';
 
-/** 캔버스가 컴포넌트에서 받는 것 */
+/** 캔버스 렌더링에 필요한 상태와 동작입니다. */
 export interface CanvasContext {
-  /** 로케일에 맞는 문구 */
+  /** 로케일에 맞는 문구입니다. */
   readonly s: DesignerStrings;
-  /** 지금 값으로 계산되지 않는 수식이 있는 요소와 셀 */
+  /** 지금 값으로 계산되지 않는 수식이 있는 요소와 셀입니다. */
   readonly formulaWarnings: FormulaWarnings;
-  /** 폰트 목록과 브라우저 등록 상태 */
+  /** 폰트 목록과 브라우저 등록 상태입니다. */
   readonly fonts: DesignerFonts;
-  /** 수식 평가에 사용할 로케일 */
+  /** 수식 평가에 사용할 로케일입니다. */
   readonly evalLocale: string | undefined;
-  /** 편집 중인 양식 */
+  /** 편집 중인 양식입니다. */
   readonly file: SlipTemplateFile | null;
-  /** 보고 있는 양식 페이지 (0부터) */
+  /** 현재 양식 페이지의 인덱스입니다. 0부터 시작합니다. */
   readonly pageIndex: number;
-  /** 보고 있는 출력 페이지 (0부터) */
+  /** 현재 출력 페이지의 인덱스입니다. 0부터 시작합니다. */
   readonly outputPage: number;
-  /** 반복 그리드를 출력 결과로 볼지 */
+  /** 반복 그리드의 출력 결과 표시 여부입니다. */
   readonly gridPlanPreview: boolean;
-  /** 주 선택 요소 */
+  /** 주 선택 요소입니다. */
   readonly selectedId: string | null;
-  /** 함께 선택된 요소 id 모음 */
+  /** 함께 선택된 요소 ID 모음입니다. */
   readonly selectedIds: ReadonlySet<string>;
-  /** 그리드 셀·행 구간 선택 상태 */
+  /** 그리드 셀·행 구간 선택 상태입니다. */
   readonly gridEdit: GridEditController;
-  /** 격자 간격(mm). null이면 격자를 그리지 않습니다 */
+  /** 격자 간격(mm). null이면 격자를 그리지 않습니다. */
   readonly gridGap: number | null;
-  /** 용지 위 커서 위치(mm) */
+  /** 용지 위 커서 위치(mm)입니다. */
   readonly cursorMm: { x: number; y: number } | null;
-  /** 세로 정렬 안내선 위치(mm) */
+  /** 세로 정렬 안내선 위치(mm)입니다. */
   readonly guideX: number | null;
-  /** 가로 정렬 안내선 위치(mm) */
+  /** 가로 정렬 안내선 위치(mm)입니다. */
   readonly guideY: number | null;
-  /** 드래그로 만드는 중인 사각 영역(mm) */
+  /** 드래그로 만드는 중인 사각 영역(mm)입니다. */
   readonly drawRect: { x: number; y: number; w: number; h: number } | null;
-  /** 드래그로 만드는 중인 사각 영역의 시작·끝(mm) */
+  /** 드래그로 만드는 중인 사각 영역의 시작·끝(mm)입니다. */
   readonly draw: {
     type: SlipElement['type'];
     startX: number;
@@ -112,43 +113,43 @@ export interface CanvasContext {
     endY: number;
     moved: boolean;
   } | null;
-  /** 선을 그리기 시작한 점(mm) */
+  /** 선을 그리기 시작한 점(mm)입니다. */
   readonly lineDraft: { x: number; y: number } | null;
-  /** 선의 현재 끝점(mm) */
+  /** 선의 현재 끝점(mm)입니다. */
   readonly lineGhost: { x: number; y: number } | null;
-  /** 격자선 색 */
+  /** 격자선 색입니다. */
   gridLine(): string;
-  /** 현재 양식 페이지의 계획 */
+  /** 현재 양식 페이지의 계획입니다. */
   pagePlan(): { plan: SourcePagePlan | null; error: SlipLayoutError | null };
-  /** 계획 오류 */
+  /** 계획 오류입니다. */
   planError(): SlipLayoutError | null;
-  /** 계획 오류가 난 요소와 행 구간으로 이동합니다 */
+  /** 계획 오류가 난 요소와 행 구간으로 이동합니다. */
   focusPlanError(error: SlipLayoutError): void;
-  /** 계산되지 않는 수식이 있는 요소·셀로 이동합니다 */
+  /** 계산되지 않는 수식이 있는 요소·셀로 이동합니다. */
   focusFormulaWarning(target: FormulaTarget): void;
-  /** 요소 종류의 표시 이름 */
+  /** 요소 종류의 표시 이름입니다. */
   typeName(type: SlipElement['type']): string;
-  /** 용지 위 커서 위치를 갱신합니다 */
+  /** 용지 위 커서 위치를 갱신합니다. */
   trackCursor(event: PointerEvent): void;
-  /** 용지 위 커서 표시를 지웁니다 */
+  /** 용지 위 커서 표시를 지웁니다. */
   clearCursor(): void;
-  /** 속성 패널이 대상으로 삼는 요소 */
+  /** 속성 패널이 대상으로 삼는 요소입니다. */
   selectedElement(): SlipElement | undefined;
-  /** 인라인 편집한 셀 내용을 저장합니다 */
+  /** 인라인 편집한 셀 내용을 저장합니다. */
   commitCellContent(value: string): void;
-  /** 인라인 셀 편집을 마친 뒤 초점을 선택한 요소(없으면 컴포넌트)로 되돌립니다 */
+  /** 인라인 셀 편집을 마친 뒤 초점을 선택한 요소(없으면 컴포넌트)로 되돌립니다. */
   focusSelectedElement(): void;
-  /** 수식을 평가합니다 */
+  /** 수식을 평가합니다. */
   evaluate(source: string, context: FormulaContext): FormulaValue;
-  /** 행 번호를 눌렀을 때 */
+  /** 행 번호를 선택합니다. */
   onBandRowClick(row: number, extend: boolean): void;
-  /** 행 역할 메뉴를 닫습니다 */
+  /** 행 역할 메뉴를 닫습니다. */
   closeBandMenu(clearSelection: boolean): void;
-  /** 행 역할 메뉴의 키 조작 */
+  /** 행 역할 메뉴의 키 조작입니다. */
   onBandMenuKeyDown(event: KeyboardEvent): void;
-  /** 선택한 행 범위에 역할을 지정합니다 */
+  /** 선택한 행 범위에 역할을 지정합니다. */
   setRowBandRole(fromRow: number, toRow: number, placement: GridBandPlacement): void;
-  /** 화면을 다시 그립니다 */
+  /** 화면을 다시 그립니다. */
   refresh(): void;
 }
 
@@ -156,7 +157,7 @@ export interface CanvasContext {
  * 용지, 눈금자, 요소와 선택 표시를 포함한 캔버스 전체를 렌더링합니다.
  *
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
- * @returns 캔버스 조각. 편집 중인 파일이 없으면 빈 것
+ * @returns 캔버스에 표시할 내용을 반환합니다. 편집 중인 파일이 없으면 아무것도 표시하지 않습니다.
  */
 export function canvas(ctx: CanvasContext) {
   if (!ctx.file) return nothing;
@@ -347,7 +348,7 @@ function selectionOverlay(ctx: CanvasContext) {
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @param paperW - 용지 너비(mm)
  * @param paperH - 용지 높이(mm)
- * @returns 미리보기 선 조각. 생성 중이 아니면 빈 것
+ * @returns 미리보기 선 조각. 생성 중이 아니면 빈 템플릿
  */
 function lineGhost(ctx: CanvasContext, paperW: number, paperH: number) {
   const from = ctx.draw?.type === 'line' && ctx.draw.moved
@@ -369,7 +370,7 @@ function lineGhost(ctx: CanvasContext, paperW: number, paperH: number) {
  * 선택된 셀 위에 인라인 편집 입력을 표시합니다.
  *
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
- * @returns 인라인 편집 입력. 편집 중인 셀이 없으면 빈 것
+ * @returns 인라인 편집 입력. 편집 중인 셀이 없으면 빈 템플릿
  */
 function cellEditor(ctx: CanvasContext) {
   if (!ctx.gridEdit.editing || !ctx.gridEdit.cell) return nothing;
@@ -421,7 +422,7 @@ function cellEditor(ctx: CanvasContext) {
  * @param plan - 현재 양식 페이지의 계획 (계획 오류 시 null)
  * @param outputPage - 보고 있는 출력 페이지 (0부터)
  * @param outputPageCount - 전체 출력 페이지 수
- * @returns 요소 조각. 이 출력 페이지에 나오지 않으면 빈 것
+ * @returns 요소 조각. 이 출력 페이지에 나오지 않으면 빈 템플릿
  */
 function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourcePagePlan | null, outputPage: number, outputPageCount: number) {
   // 다중 선택된 요소의 영역을 모두 강조합니다.
@@ -465,11 +466,12 @@ function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourcePagePlan
 
   // 선과 곡선 도형은 PDF 변환 방식에 맞춰 SVG로 그립니다.
   const drawnAsSvg = el.type === 'line' || el.type === 'ellipse' || el.type === 'polygon';
+  // 저장된 테두리를 그리는 요소인지 — 편집 안내선을 겹쳐 그리지 않습니다.
+  let hasBorder = false;
   if (el.type === 'grid') {
     // 셀 경계선과 그리드 테두리는 별도 레이어가 그리므로 요소 상자에는 안내선만 둡니다.
     if (el.backgroundColor !== undefined) style += `;background-color:${el.backgroundColor}`;
     if (el.fontColor !== undefined) style += `;color:${el.fontColor}`;
-    style += ';border-color:var(--sk-guide-faint)';
   } else if (el.type !== 'image' && !drawnAsSvg) {
     const r = el as Record<string, unknown>;
     // 텍스트와 필드는 샘플 값으로 조건부 서식을 미리 적용합니다.
@@ -491,9 +493,7 @@ function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourcePagePlan
       const color = conditional.borderColor ?? (r.borderColor as string | undefined) ?? DEFAULT_BORDER_COLOR;
       style += `;border-color:${color}`;
       style += `;border-width:${(effectiveWidth * PX_PER_MM).toFixed(2)}px`;
-    } else {
-      // 테두리 굵기가 0이면 캔버스 안내선만 표시합니다.
-      style += ';border-color:var(--sk-guide-faint)';
+      hasBorder = true;
     }
     if (el.type === 'rect') {
       // 모서리 반경과 테두리 형태는 사각형 요소에만 적용합니다.
@@ -507,7 +507,9 @@ function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourcePagePlan
   }
 
   return html`
-    <div class="element ${selected ? 'selected' : ''} ${hasLayoutError ? 'layout-error' : ''} type-${el.type}"
+    <div class="element ${selected ? 'selected' : ''} ${hasLayoutError ? 'layout-error' : ''} ${
+      hasBorder ? 'has-border' : ''
+    } type-${el.type}"
          data-id=${el.id}
          tabindex=${hasLayoutError || selected ? '-1' : nothing}
          aria-invalid=${hasLayoutError ? 'true' : nothing}
@@ -524,7 +526,7 @@ function renderElement(ctx: CanvasContext, el: SlipElement, plan: SourcePagePlan
 }
 
 /**
- * 계산할 수 없는 수식이 있는 자리에 붙이는 경고 배지.
+ * 계산할 수 없는 수식이 있는 자리에 붙이는 경고 배지입니다.
  *
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @returns 경고 배지 조각
@@ -544,7 +546,7 @@ function formulaWarningBadge(ctx: CanvasContext) {
  *
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @param page - 보고 있는 양식 페이지
- * @returns 안내 목록. 경고가 없으면 빈 것
+ * @returns 안내 목록. 경고가 없으면 빈 템플릿
  */
 function formulaWarningList(ctx: CanvasContext, page: SlipPage) {
   const details = ctx.formulaWarnings.details;
@@ -727,11 +729,11 @@ function shapePreview(el: SlipElement & { type: 'line' | 'ellipse' | 'polygon' }
  * 그리드의 캔버스 표시를 만듭니다.
  *
  * 선택하지 않은 반복 그리드는 현재 출력 페이지의 계획 조각(`fragment`)을 표시하고,
- * 선택한 그리드와 정적 그리드는 원본 행 구조를 표시합니다 (§7.5).
+ * 선택한 그리드와 정적 그리드는 원본 행 구조를 표시합니다(§7.5).
  *
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @param el - 그리드 요소
- * @param fragment - 표시할 출력 페이지 계획 조각. 없으면 원본 행 구조를 표시합니다
+ * @param fragment - 표시할 출력 페이지 계획 조각. 없으면 원본 행 구조를 표시합니다.
  * @returns 그리드 조각
  */
 function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment: GridFragment | null = null) {
@@ -770,7 +772,7 @@ function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment: GridF
     });
   });
 
-  // 값이 없는 좌표에도 그리드선을 표시합니다 (SPEC §5.7).
+  // 값이 없는 좌표에도 그리드선을 표시합니다(SPEC §5.7).
   const taken = new Set<string>();
   for (const cell of el.cells) {
     for (let r = cell.row; r < cell.row + (cell.rowSpan ?? 1); r++) {
@@ -788,7 +790,7 @@ function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment: GridF
     }
   }
 
-  // 선택한 반복 그리드에는 행 구간 표식과 행 번호 선택 영역을 함께 표시합니다 (§7.2).
+  // 선택한 반복 그리드에는 행 구간 표식과 행 번호 선택 영역을 함께 표시합니다(§7.2).
   const bandOverlays = el.repeat === undefined
     ? []
     : el.repeat.bands.map((band) => html`<div
@@ -810,7 +812,7 @@ function gridElementPreview(ctx: CanvasContext, el: GridElement, fragment: GridF
  * 두께가 0이면 아무것도 그리지 않습니다.
  *
  * @param el - 그리드 요소
- * @returns 그리드 테두리 레이어. 테두리가 없으면 빈 것
+ * @returns 그리드 테두리 레이어. 테두리가 없으면 빈 템플릿
  */
 function gridOutlineLayer(el: GridElement) {
   const outline = outlineOf(el);
@@ -929,7 +931,7 @@ function gridFragment(
 }
 
 /**
- * 그리드 왼쪽의 행 번호 선택 영역을 렌더링합니다 (§7.2).
+ * 그리드 왼쪽의 행 번호 선택 영역을 렌더링합니다(§7.2).
  * 행을 눌러 선택하고 Shift로 연속 범위를 넓힌 뒤 역할 명령을 선택합니다.
  *
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
@@ -995,13 +997,13 @@ function bandMenu(ctx: CanvasContext, el: GridElement) {
 }
 
 /**
- * 캔버스에 페이지 번호 자리표시를 렌더링합니다.
+ * 캔버스에 페이지 번호 자리 표시를 렌더링합니다.
  * 실제 페이지 번호는 PDF 후처리에서 결정되므로 캔버스에는 `X / X`를 표시합니다.
  *
  * @param page - 현재 페이지
  * @param paper - 용지 크기
  * @param padding - 여백 `[상, 우, 하, 좌]`(mm)
- * @returns 번호 자리표시 조각. 번호 표시가 꺼져 있으면 빈 것
+ * @returns 번호 자리 표시 조각. 번호 표시가 꺼져 있으면 빈 템플릿
  */
 function pageNumberPlaceholder(
   page: SlipPage,
@@ -1045,12 +1047,12 @@ function gridCellBox(
     empty?: boolean;
     reserved?: Readonly<Record<string, unknown>> | undefined;
     selected?: boolean;
-    /** 기준 셀이면 `true` — Shift 범위 선택의 시작점을 진한 외곽선으로 구분합니다 */
+    /** Shift 범위 선택의 시작점인 기준 셀이면 `true`입니다. */
     anchor?: boolean;
     borderCssOf: (cell?: GridCell, overrideColor?: string) => string;
   },
 ) {
-  // 빈 항목 인스턴스에는 값이 없으므로 조건부 서식을 평가하지 않습니다 (PDF 변환과 동일).
+  // 빈 항목 인스턴스에는 값이 없으므로 조건부 서식을 평가하지 않습니다(PDF 변환과 동일).
   const conditional = context.empty === true
     ? {}
     : previewConditionalColors(ctx, cell.conditionalFormats, context.item, context.reserved);
@@ -1071,7 +1073,7 @@ function gridCellBox(
     fontColor ? `color:${fontColor}` : '',
   ].filter(Boolean).join(';')
     + textStyleCss(merged, { omitVerticalAlign: true, fontFamily: ctx.fonts.cssFamily(merged) });
-  // 빈 항목은 파라미터 이름을 출력값처럼 표시하지 않습니다 (§7.5).
+  // 빈 항목은 파라미터 이름을 출력값처럼 표시하지 않습니다(§7.5).
   const preview = context.empty === true
     ? { text: '', error: null }
     : gridCellPreviewText(ctx, cell, context.item, context.reserved);
@@ -1095,8 +1097,8 @@ function gridCellBox(
  * 인라인 편집에 사용할 셀의 캔버스 영역(px)을 계산합니다.
  *
  * @param el - 그리드 요소
- * @param row - 행 번호(0-기반)
- * @param column - 열 번호(0-기반)
+ * @param row - 0부터 시작하는 행 인덱스
+ * @param column - 0부터 시작하는 열 인덱스
  * @returns 그리드 왼쪽 위를 기준으로 한 셀 영역(px)
  */
 function cellRectPx(
@@ -1116,11 +1118,11 @@ function cellRectPx(
   return { left, top, width, height };
 }
 
-/** 셀에 표시할 내용 — 계산되지 않는 수식이면 표시할 글 대신 원인을 담습니다 */
-export interface CellPreview {
-  /** 셀에 표시할 글. 수식이 계산되지 않으면 빈 값 */
+/** 셀에 표시할 내용입니다. 수식을 계산할 수 없으면 표시할 글 대신 원인을 담습니다. */
+interface CellPreview {
+  /** 셀에 표시할 글. 수식이 계산되지 않으면 빈 값입니다. */
   text: string;
-  /** 수식이 계산되지 않은 원인 — 평가기가 낸 오류 문구. 계산됐으면 null */
+  /** 수식을 계산하지 못한 원인입니다. 계산에 성공했으면 `null`입니다. */
   error: string | null;
 }
 
@@ -1129,7 +1131,7 @@ export interface CellPreview {
  *
  * @remarks
  * 수식은 PDF 변환과 같은 평가기로 계산하므로 계산에 실패하면 PDF가 알릴 오류 문구를 그대로
- * 돌려줍니다. 수식 원문을 결과처럼 보여 주지 않습니다.
+ * 반환합니다. 수식 원문을 결과처럼 보여 주지 않습니다.
  *
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @param cell - 표시할 셀
@@ -1149,6 +1151,8 @@ export function gridCellPreviewText(
     return { text: value === undefined || value === null ? `{${cell.parameter}}` : String(value), error: null };
   }
   if (cell.formula !== undefined) {
+    // 편집 중인 빈 수식은 PDF 변환과 같이 빈 값으로 표시합니다.
+    if (isBlankFormula(cell.formula)) return { text: '', error: null };
     try {
       const result = ctx.evaluate(cell.formula, {
         values,
@@ -1184,6 +1188,8 @@ export function gridCellMergeText(
     return value === null || value === undefined ? '' : String(value);
   }
   if (cell.formula !== undefined) {
+    // 편집 중인 빈 수식은 PDF 변환과 같이 빈 값으로 보아 병합하지 않습니다.
+    if (isBlankFormula(cell.formula)) return '';
     try {
       const result = ctx.evaluate(cell.formula, {
         values,
@@ -1208,7 +1214,7 @@ export function gridCellMergeText(
  *
  * @param ctx - 캔버스 렌더링에 필요한 상태와 동작
  * @param rules - 조건부 서식 규칙 목록
- * @param item - 항목 구간의 현재 샘플 항목 (없으면 샘플 값만 사용)
+ * @param item - 항목 구간의 현재 샘플 항목(없으면 샘플 값만 사용)
  * @param reserved - 행 구간의 예약 참조 값 (`@page` 등)
  * @returns 덮어쓸 색·강조 목록
  */

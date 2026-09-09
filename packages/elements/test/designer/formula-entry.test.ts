@@ -47,7 +47,7 @@ const SAMPLE_ITEMS = [
   { category: '나', itemName: '자', amount: 800 },
 ];
 
-/** 페이지당 2개씩 내는 그룹 반복 그리드 */
+/** 페이지당 2개씩 내는 그룹 반복 그리드입니다. */
 function makeGrid(): Record<string, unknown> {
   return {
     type: 'grid', id: 'g1', name: '품목 표', position: { x: 10, y: 10 },
@@ -95,7 +95,7 @@ function elementsOf(el: Designer): Record<string, unknown>[] {
   return fileOf(el).template.pages[0]!.elements as unknown as Record<string, unknown>[];
 }
 
-/** 선택한 셀을 바꿉니다 */
+/** 선택한 셀을 바꿉니다. */
 function selectCell(el: Designer, cell: { row: number; column: number }): void {
   (el as unknown as { _gridEdit: { selectCell(c: { row: number; column: number }): void } })
     ._gridEdit.selectCell(cell);
@@ -113,17 +113,17 @@ function status(el: Designer): HTMLElement {
   return el.shadowRoot!.querySelector('#formula-status') as HTMLElement;
 }
 
-/** 검사 결과의 상태 제목 */
+/** 검사 결과의 상태 제목입니다. */
 function statusTitle(el: Designer): string {
   return status(el).querySelector('.formula-status-title')!.textContent!.trim();
 }
 
-/** 검사 결과의 내용 — 결과 값이나 그렇게 판정한 까닭 */
+/** 검사 결과에 표시할 값이나 판정 이유입니다. */
 function statusText(el: Designer): string {
   return status(el).querySelector('.formula-status-text')!.textContent!.trim();
 }
 
-/** 적용은 할 수 있음을 알리는 덧붙임. 없으면 null */
+/** 수식을 적용할 수 있음을 알리는 추가 안내입니다. 안내가 없으면 `null`입니다. */
 function statusHint(el: Designer): string | null {
   return status(el).querySelector('.formula-status-hint')?.textContent?.trim() ?? null;
 }
@@ -139,13 +139,13 @@ function footButton(el: Designer, label: string): HTMLButtonElement {
     .find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
 }
 
-/** 수식 모달을 여는 버튼들 — 아이콘 버튼이라 aria-label로 찾습니다 */
+/** 수식 모달을 여는 버튼들 — 아이콘 버튼이라 aria-label로 찾습니다. */
 function openButtons(el: Designer): HTMLButtonElement[] {
   return Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.row-btn'))
     .filter((b) => b.getAttribute('aria-label')?.includes(s.formulaModalTitle));
 }
 
-/** 첫 번째 수식 모달 버튼을 눌러 모달을 엽니다 */
+/** 첫 번째 수식 모달 버튼을 눌러 모달을 엽니다. */
 async function openModal(el: Designer, index = 0): Promise<HTMLButtonElement> {
   const button = openButtons(el)[index]!;
   button.focus();
@@ -154,18 +154,18 @@ async function openModal(el: Designer, index = 0): Promise<HTMLButtonElement> {
   return button;
 }
 
-/** 「값과 범위」 탭의 반복 데이터 범위 줄 */
+/** `값과 범위` 탭의 반복 데이터 범위 행입니다. */
 function reservedRows(el: Designer): HTMLButtonElement[] {
   return Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.reserved-list .value-row'));
 }
 
-/** 반복 데이터 범위 줄을 코드 이름으로 찾을 수 있게 모읍니다 */
+/** 반복 데이터 범위 줄을 코드 이름으로 찾을 수 있게 모읍니다. */
 function reservedByCode(el: Designer): Map<string, HTMLButtonElement> {
   return new Map(reservedRows(el)
     .map((b) => [b.querySelector('.value-code')!.textContent!.trim(), b]));
 }
 
-/** 모든 줄이 같은 이유로 막혔을 때 한 번만 적는 안내. 없으면 null */
+/** 모든 줄에 같은 문제가 있을 때 한 번만 표시할 안내입니다. 안내가 없으면 `null`입니다. */
 function reservedNotice(el: Designer): string | null {
   const list = el.shadowRoot!.querySelector('.reserved-list');
   const notice = list?.previousElementSibling;
@@ -759,7 +759,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     ], { items: SAMPLE_ITEMS });
     await el.updateComplete;
 
-    // 사이드바와 캔버스가 같은 집계를 나눠 쓰므로 렌더마다 한 벌만 검사합니다.
+    // 사이드바와 캔버스가 같은 집계 결과를 공유하므로 렌더링할 때마다 한 번만 검사합니다.
     const diagnose = vi.mocked(diagnoseFormula);
     diagnose.mockClear();
     el.requestUpdate();
@@ -797,7 +797,7 @@ describe('<slip-designer> 수식 모달 진입점', () => {
       await el.updateComplete;
     };
 
-    // 배지가 포인터를 가로채지 않으므로 요소를 그대로 끌 수 있습니다.
+    // 배지가 포인터 입력을 처리하지 않으므로 요소를 그대로 끌 수 있습니다.
     await drag(el.shadowRoot!.querySelector('[data-id="f1"]') as HTMLElement, 12, 6);
     expect(field().position).toEqual({ x: 22, y: 16 });
 
@@ -848,14 +848,14 @@ describe('<slip-designer> 수식 모달 진입점', () => {
     expect(el.shadowRoot!.querySelector('.modal-tabs .formula-tab')).not.toBeNull();
     expect(dialogsStyles.cssText).toContain('.modal-tabs button[aria-selected=\'true\']');
 
-    // 탭 이름이 이미 「함수」이므로 목록 위에 같은 제목을 다시 두지 않습니다.
+    // 탭 이름이 이미 `함수`이므로 목록 위에 같은 제목을 다시 두지 않습니다.
     expect(el.shadowRoot!.querySelector('.fn-browse .modal-section-title')).toBeNull();
 
-    // 최종 저장인 「적용」만 주요 동작으로 강조합니다.
+    // 최종 저장 동작인 `적용`만 강조합니다.
     const primary = Array.from(el.shadowRoot!.querySelectorAll('.formula-modal .btn.primary'));
     expect(primary.map((b) => b.textContent?.trim())).toEqual([s.apply]);
 
-    // 고른 함수는 잠깐 지나가는 hover와 달리 표시선과 강조색으로 남습니다.
+    // 고른 함수는 마우스를 잠깐 올린 상태와 달리 표시선과 강조색으로 남습니다.
     Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.fn-row'))
       .find((b) => b.getAttribute('aria-label') === 'SUM')!.click();
     await el.updateComplete;

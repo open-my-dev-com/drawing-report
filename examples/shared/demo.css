@@ -1,4 +1,4 @@
-/* 데모 3종이 함께 쓰는 화면 스타일 (F-22) — 라이브러리가 아니라 예시 앱의 겉모습이다 */
+/* 세 데모가 함께 사용하는 예시 앱의 화면 스타일입니다. */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; }
 body {
@@ -33,7 +33,7 @@ header .sep { width: 1px; height: 18px; background: #546e7a; margin: 0 4px; }
 header button[hidden] { display: none; }
 .autosave { margin-left: auto; font-size: 11px; color: #78909c; }
 .status { font-size: 12px; color: #b0bec5; }
-/* 저장 안내 — 헤더 아래에 늘 보이고, 좁은 화면에서는 줄을 바꿔 캔버스를 가리지 않는다 */
+/* 저장 안내는 항상 헤더 아래에 표시하며, 좁은 화면에서는 줄을 바꿔 캔버스를 가리지 않습니다. */
 .notice {
   display: flex;
   flex-wrap: wrap;
@@ -62,13 +62,13 @@ header button[hidden] { display: none; }
 .notice button:hover { background: #ffebee; }
 
 slip-designer, slip-form, slip-viewer { flex: 1; min-height: 0; }
-/* 두 화면을 함께 두고 하나만 보여준다 — 화면을 옮겨도 편집 상태가 남는다 */
+/* 두 화면을 함께 유지하고 하나만 표시해 화면을 전환해도 편집 상태를 보존합니다. */
 .pane { flex: 1; min-height: 0; display: flex; }
 .pane[hidden] { display: none; }
 .pane > * { flex: 1; min-height: 0; }
 
 dialog {
-  /* 위 * 선택자가 지운 기본 여백을 되살려 화면 가운데에 띄운다 */
+  /* 위의 전체 선택자가 지운 기본 여백을 되살려 화면 가운데에 표시합니다. */
   margin: auto;
   border: none;
   border-radius: 6px;
@@ -105,5 +105,5 @@ dialog .foot button {
   cursor: pointer;
 }
 dialog .foot button[value='ok'] { background: #1a73e8; border-color: #1a73e8; color: #fff; }
-/* 되돌릴 수 없는 삭제는 확인 버튼을 다르게 보여 준다 */
+/* 되돌릴 수 없는 삭제의 확인 버튼은 다른 모양으로 표시합니다. */
 dialog .foot button.danger { background: #c62828; border-color: #c62828; color: #fff; }

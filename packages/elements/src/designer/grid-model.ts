@@ -1,19 +1,19 @@
 /**
- * 그리드의 트랙, 셀과 행 구간을 조회하고 변경하는 로직.
+ * 그리드의 트랙, 셀과 행 구간을 조회하고 변경합니다.
  */
 
 import type { GridBand, GridBandPlacement, GridCell, GridElement, SlipElement } from '@omdc-slipkit/core';
 
-/** 새 그리드의 기본 행 높이(mm) */
+/** 새 그리드의 기본 행 높이(mm)입니다. */
 export const GRID_DEFAULT_ROW_MM = 8;
 
-/** 새 그리드의 기본 열 너비(mm) */
+/** 새 그리드의 기본 열 너비(mm)입니다. */
 export const GRID_DEFAULT_COL_MM = 30;
 
-/** 디자이너에서 편집할 수 있는 그리드의 최대 행 및 열 수 */
+/** 디자이너에서 편집할 수 있는 그리드의 최대 행 및 열 수입니다. */
 export const GRID_MAX_TRACKS_UI = 100;
 
-/** 최대 항목 수·최소 표시 항목 수와 페이지당 최대 항목 수의 입력 상한 */
+/** 최대 항목 수·최소 표시 항목 수와 페이지당 최대 항목 수의 입력 상한입니다. */
 export const GRID_MAX_ITEMS_UI = 100_000;
 
 export const GRID_MAX_PER_PAGE_UI = 1000;
@@ -52,8 +52,8 @@ export function columnWidths(el: GridElement): number[] {
  * 지정한 셀을 반환하고 없으면 빈 셀을 생성합니다.
  *
  * @param el - 대상 그리드
- * @param row - 행 번호(0-기반)
- * @param column - 열 번호(0-기반)
+ * @param row - 0부터 시작하는 행 인덱스
+ * @param column - 0부터 시작하는 열 인덱스
  * @returns 찾았거나 새로 만든 셀
  */
 export function ensureCell(el: GridElement, row: number, column: number): Record<string, unknown> {
@@ -89,7 +89,7 @@ export function clampGridSpans(el: GridElement): void {
  * 항목 구간 위쪽에서 같은 열의 헤더 텍스트를 찾습니다.
  *
  * @param grid - 대상 그리드
- * @param column - 찾을 열 번호(0-기반)
+ * @param column - 0부터 시작하는 열 인덱스
  * @param fromRow - 이 행의 바로 위부터 위로 찾습니다
  * @returns 가장 가까운 비어 있지 않은 셀의 글. 없으면 undefined
  */
@@ -101,7 +101,7 @@ export function gridHeaderTitle(grid: GridElement, column: number, fromRow: numb
   return undefined;
 }
 
-/** 행 구간 placement의 세로 순서 (파일 검증과 같은 순서) */
+/** 행 구간 placement의 세로 순서 (파일 검증과 같은 순서)입니다. */
 export const BAND_PLACEMENT_ORDER: Record<GridBandPlacement, number> = {
   'before-data': 0,
   'page-start': 1,
@@ -112,7 +112,7 @@ export const BAND_PLACEMENT_ORDER: Record<GridBandPlacement, number> = {
   'page-end': 6,
 };
 
-/** 행 구간 역할을 출력 순서대로 나열한 목록 */
+/** 행 구간 역할을 출력 순서대로 나열한 목록입니다. */
 export const BAND_PLACEMENTS: readonly GridBandPlacement[] = [
   'before-data', 'page-start', 'group-start', 'item', 'group-end', 'after-data', 'page-end',
 ];
@@ -133,7 +133,7 @@ export function itemBandOf(el: GridElement): GridBand | undefined {
  * 원본 행이 항목 구간에 포함되는지 확인합니다.
  *
  * @param el - 대상 그리드
- * @param row - 원본 행 번호(0-기반)
+ * @param row - 0부터 시작하는 원본 행 인덱스
  * @returns 항목 구간 안이면 true
  */
 export function inItemBand(el: GridElement, row: number): boolean {
@@ -145,7 +145,7 @@ export function inItemBand(el: GridElement, row: number): boolean {
  * 원본 행이 속한 행 구간을 반환합니다.
  *
  * @param el - 대상 그리드
- * @param row - 원본 행 번호(0-기반)
+ * @param row - 0부터 시작하는 원본 행 인덱스
  * @returns 행이 속한 행 구간. 없으면 undefined
  */
 export function bandAt(el: GridElement, row: number): GridBand | undefined {
@@ -315,7 +315,7 @@ export function spanCrossesBand(bands: readonly GridBand[], cell: GridCell): boo
 }
 
 /**
- * 마지막 행을 지울 수 있는지 — 항목 구간이 한 행뿐이면 지울 수 없습니다.
+ * 마지막 행을 삭제할 수 있는지 확인합니다. 항목 구간이 한 행뿐이면 삭제할 수 없습니다.
  *
  * @param el - 대상 그리드
  * @returns 마지막 행을 지울 수 있으면 true
@@ -344,7 +344,7 @@ export function changeRowCount(grid: GridElement, delta: number): void {
   clampGridSpans(grid);
   if (!grid.repeat) return;
   const band = grid.repeat.bands.find((b) => removed >= b.fromRow && removed <= b.toRow);
-  // 행이 하나뿐인 구간은 통째로 사라집니다.
+  // 행이 하나뿐인 구간은 해당 구간 전체를 제거합니다.
   if (band !== undefined && band.fromRow === band.toRow) {
     grid.repeat.bands = grid.repeat.bands.filter((b) => b !== band);
   } else if (band !== undefined) {
@@ -368,13 +368,13 @@ export function changeColumnCount(grid: GridElement, delta: number): void {
   clampGridSpans(grid);
 }
 
-/** 역할 행을 새로 넣을 때의 부가 설정 */
+/** 역할 행을 새로 넣을 때의 부가 설정입니다. */
 export interface InsertRowOptions {
-  /** 같은 역할의 기존 구간에 붙이지 않고 새 구간으로 만들지 */
+  /** 같은 역할의 기존 구간과 합치지 않고 새 구간으로 만들지를 정합니다. */
   separateBand?: boolean | undefined;
-  /** 새 구간의 이름 */
+  /** 새 구간의 이름입니다. */
   name?: string | undefined;
-  /** 새 구간의 출력 페이지 */
+  /** 새 구간의 출력 페이지입니다. */
   pages?: GridBand['pages'] | undefined;
 }
 
@@ -421,7 +421,7 @@ export function insertGridRow(
     if (cell.row >= insertAt) {
       cell.row += 1;
     } else if (cell.row + (cell.rowSpan ?? 1) > insertAt) {
-      // 넣는 자리를 가로지르는 병합은 한 칸 더 걸치게 됩니다.
+      // 삽입 위치를 가로지르는 병합은 셀 하나를 더 포함하게 됩니다.
       cell.rowSpan = (cell.rowSpan ?? 1) + 1;
     }
   }

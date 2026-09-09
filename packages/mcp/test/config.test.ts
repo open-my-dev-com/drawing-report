@@ -15,7 +15,7 @@ afterEach(async () => {
   await removeWorkDir(dir);
 });
 
-/** 작업 디렉터리에 설정 파일을 쓴다. */
+/** 작업 디렉터리에 설정 파일을 씁니다. */
 async function writeConfig(config: unknown, name = 'slipkit-mcp.json'): Promise<string> {
   const filePath = path.join(dir, name);
   await writeFile(filePath, JSON.stringify(config), 'utf8');
@@ -111,7 +111,7 @@ describe('resolveServerOptions', () => {
     });
     expect(options.encryption).toEqual({ key: '비밀-키' });
 
-    // 지정한 환경변수가 비어 있으면 시작하지 않는다
+    // 지정한 환경 변수가 비어 있으면 시작하지 않습니다.
     await expect(resolveServerOptions({ cwd: dir, env: {} })).rejects.toThrow(/MY_SLIP_KEY/);
   });
 
@@ -154,9 +154,9 @@ describe('httpPort 설정', () => {
   });
 });
 
-describe('커스텀 폰트 렌더링', () => {
+describe('사용자 지정 폰트 렌더링', () => {
   it('설정 파일의 폰트로 PDF를 만든다', async () => {
-    // 동봉 폰트 바이트를 파일로 꺼내 커스텀 폰트처럼 지정한다
+    // 동봉한 폰트 바이트를 파일로 꺼내 사용자 지정 폰트처럼 지정합니다.
     await mkdir(path.join(dir, 'fonts'));
     await writeFile(path.join(dir, 'fonts/custom.ttf'), PRETENDARD_FONTS[0]!.data);
     await writeConfig({

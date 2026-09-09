@@ -1,6 +1,6 @@
 /**
- * SlipKit MCP 서버 — 도구 7종과 `.slip` JSON Schema 리소스를 제공한다.
- * 파일 접근은 {@link FileSystemStorage}를 통해 작업 디렉터리 안으로 제한한다.
+ * SlipKit MCP 서버 — 도구 7종과 `.slip` JSON Schema 리소스를 제공합니다.
+ * 파일 접근은 {@link FileSystemStorage}를 통해 작업 디렉터리 안으로 제한합니다.
  */
 import { open } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
@@ -41,15 +41,15 @@ import { PathQueue } from './file-queue.js';
 import { bodyOf, elideDataUrls, findElement, summarize } from './summary.js';
 import { SCHEMA_TOPICS, schemaTopicText } from './schema-docs.js';
 
-/** {@link createSlipMcpServer} 옵션 */
+/** {@link createSlipMcpServer} 옵션입니다. */
 export interface SlipMcpServerOptions extends FileSystemStorageOptions {
-  /** PDF 렌더링에 사용할 커스텀 폰트. 생략하면 로케일에 맞는 동봉 폰트를 사용한다 */
+  /** PDF 렌더링에 사용할 사용자 지정 폰트. 생략하면 로케일에 맞는 동봉 폰트를 사용합니다. */
   fonts?: readonly SlipFont[];
-  /** PDF 링크 서버의 기본 URL (접근 토큰 포함). 지정하면 렌더 응답에 PDF URL을 포함한다 */
+  /** PDF 링크 서버의 기본 URL (접근 토큰 포함). 지정하면 렌더 응답에 PDF URL을 포함합니다. */
   pdfBaseUrl?: string;
 }
 
-/** 연결 시 MCP 클라이언트에 전달하는 작업 지침. */
+/** 연결 시 MCP 클라이언트에 전달하는 작업 지침입니다. */
 const INSTRUCTIONS = `SlipKit MCP server: create and edit .slip business-form files in the working directory.
 
 Workflow for a NEW form: call slip_schema (topic "overview", then the topics you need) to learn the
@@ -71,7 +71,7 @@ use previewPage to select another page. The PDF is always saved to the working d
 end with .pdf; only an existing PDF file is replaced). The result includes its absolute path and a
 resource link, plus an HTTP URL when pdfBaseUrl is configured.`;
 
-/** 도구 응답 하나를 텍스트로 만든다. */
+/** 도구 응답 하나를 텍스트로 만듭니다. */
 function text(value: unknown): { content: { type: 'text'; text: string }[] } {
   return {
     content: [
@@ -80,7 +80,7 @@ function text(value: unknown): { content: { type: 'text'; text: string }[] } {
   };
 }
 
-/** 오류 메시지를 AI가 확인할 수 있는 도구 오류 응답으로 변환한다. */
+/** 오류 메시지를 AI가 확인할 수 있는 도구 오류 응답으로 변환합니다. */
 function toolError(error: unknown): {
   content: { type: 'text'; text: string }[];
   isError: true;
@@ -88,22 +88,22 @@ function toolError(error: unknown): {
   return { content: [{ type: 'text', text: `Error: ${reasonOf(error)}` }], isError: true };
 }
 
-/** 파일 저장 결과를 한 줄 요약으로 만든다. */
+/** 파일 저장 결과를 한 줄 요약으로 만듭니다. */
 function savedLine(id: string, file: SlipFile): string {
   const body = bodyOf(file);
   const elements = body.pages.reduce((sum, page) => sum + page.elements.length, 0);
   return `Saved ${id} (${file.kind} "${body.meta.title}", ${body.pages.length} page(s), ${elements} element(s))`;
 }
 
-/** PDF의 72pt/in 좌표를 2배로 래스터화해 144ppi 미리보기를 만든다. */
+/** PDF의 72pt/in 좌표를 2배로 래스터화해 144ppi 미리보기를 만듭니다. */
 const PREVIEW_SCALE = 2;
 
-/** PDF 파일이 시작하는 서명 */
+/** PDF 파일이 시작하는 서명입니다. */
 const PDF_SIGNATURE = '%PDF-';
 
 /**
- * PDF 출력 경로에 이미 있는 파일을 덮어써도 되는지 확인한다.
- * 파일이 없으면 통과하고, 있으면 PDF 서명으로 시작할 때만 통과한다.
+ * PDF 출력 경로에 이미 있는 파일을 덮어써도 되는지 확인합니다.
+ * 파일이 없으면 통과하고, 있으면 PDF 서명으로 시작할 때만 통과합니다.
  *
  * @param abs - 출력 파일의 절대 경로
  * @param target - 오류 메시지에 쓸 상대 경로
@@ -134,7 +134,7 @@ async function assertReplaceablePdf(abs: string, target: string): Promise<void> 
 }
 
 /**
- * PDF의 한 페이지를 PNG 이미지 콘텐츠로 변환한다.
+ * PDF의 한 페이지를 PNG 이미지 콘텐츠로 변환합니다.
  *
  * @param pdf - 렌더된 PDF 바이트
  * @param page - 1부터 시작하는 페이지 번호
@@ -160,7 +160,7 @@ async function renderPreview(
 }
 
 /**
- * SlipKit MCP 서버를 만든다. 전송 연결은 호출자가 한다.
+ * SlipKit MCP 서버를 만듭니다. 전송 연결은 호출자가 합니다.
  *
  * @param options - 작업 디렉터리, 로케일, 암호화, PDF 폰트와 링크 서버 설정
  * @returns 구성이 끝난 MCP 서버와 내부 저장소
@@ -174,7 +174,7 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
   const customFonts = options.fonts;
   const slipKit: SlipKit = createSlipKit({
     // 동봉된 모든 폰트를 등록하고 로케일에 따라 fontName을 생략한 요소의
-    // 대체(fallback) 폰트를 선택한다.
+    // 대체 폰트를 선택합니다.
     getFonts: async () => {
       if (customFonts !== undefined && customFonts.length > 0) return customFonts;
       const { loadDefaultFonts } = await import('@omdc-slipkit/elements/default-fonts');
@@ -188,20 +188,20 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
     { instructions: INSTRUCTIONS },
   );
 
-  // 같은 파일을 읽고 고쳐 저장하는 작업은 파일별로 줄을 세워 나중 저장이 앞선 변경을 지우지 않게 한다.
+  // 같은 파일을 읽고 수정한 뒤 저장하는 작업은 순차 실행해 나중 저장이 앞선 변경을 덮어쓰지 않게 합니다.
   const queue = new PathQueue();
 
-  /** 큐 키를 만든다. 대소문자를 구분하지 않는 파일 시스템(Windows)에서는 같은 파일이 같은 키가 되게 한다. */
+  /** 큐 키를 만듭니다. 대소문자를 구분하지 않는 파일 시스템(Windows)에서는 같은 파일이 같은 키가 되게 합니다. */
   function queueKey(abs: string): string {
     return process.platform === 'win32' ? abs.toLowerCase() : abs;
   }
 
-  /** 저장 키가 가리키는 파일에 대한 작업을 직렬화해 실행한다. */
+  /** 저장 키가 가리키는 파일에 대한 작업을 직렬화해 실행합니다. */
   function withFile<T>(id: string, task: () => Promise<T>): Promise<T> {
     return queue.run(queueKey(storage.resolvePath(id)), task);
   }
 
-  /** 기존 파일을 읽는다. 파일이 없으면 null을 반환한다. */
+  /** 기존 파일을 읽습니다. 파일이 없으면 null을 반환합니다. */
   async function loadExisting(id: string): Promise<SlipFile | null> {
     try {
       return await storage.load(id);
@@ -211,7 +211,7 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
     }
   }
 
-  /** 발행된 전표의 생성·교체·수정을 거부한다. */
+  /** 발행된 전표의 생성·교체·수정을 거부합니다. */
   function rejectIssued(file: SlipFile, id: string): void {
     if (file.kind === 'voucher' && file.issued) {
       throw new McpToolError(
@@ -269,7 +269,8 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
         'Read a .slip file. part "summary" (default) returns the structure: pages with element ' +
         'ids/types/positions, parameters and assets — start here. part "element" (with elementId) or ' +
         '"page" (with pageIndex) returns just that part in full. part "full" returns the whole file. ' +
-        'Embedded base64 image data is always replaced by a size placeholder and never returned.',
+        'Embedded base64 data URLs (data:<mime>[;params];base64,<payload>) are always replaced by a size ' +
+        'placeholder and never returned; every other string, including a plain data: value, is returned as it is.',
       inputSchema: {
         path: z.string().describe('File path relative to the working directory'),
         part: z
@@ -508,15 +509,15 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
       try {
         const file = await storage.load(id);
         const target = outPath ?? id.replace(/\.slip$/, '') + '.pdf';
-        // .pdf가 아닌 이름으로는 쓰지 않는다 — .slip·이미지 등 다른 파일을 PDF로 덮어쓰는 일을 막는다.
+        // .pdf가 아닌 이름으로는 쓰지 않습니다. .slip·이미지 등 다른 파일을 PDF로 덮어쓰는 일을 막습니다.
         if (!/\.pdf$/i.test(target)) {
           throw new McpToolError(`PDF output path "${target}" must end with .pdf.`);
         }
         const abs = resolveInRoot(storage.rootDir, target, locale);
         const pdf = await slipKit.render(file);
-        // 같은 출력 파일을 향한 검사와 쓰기는 줄을 세워 검사 뒤에 다른 호출이 끼어들지 못하게 한다.
+        // 같은 출력 파일의 검사와 쓰기는 순차 실행해 두 단계 사이에 다른 호출이 개입하지 못하게 합니다.
         await queue.run(queueKey(abs), async () => {
-          // 링크를 거쳐 작업 디렉터리 밖에 쓰는 일을 막는다.
+          // 링크를 거쳐 작업 디렉터리 밖에 쓰는 일을 막습니다.
           await assertInsideRootReal(storage.rootDir, abs, locale, target);
           await assertReplaceablePdf(abs, target);
           try {
@@ -525,7 +526,7 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
             throw new McpToolError(`Cannot write the PDF to "${target}": ${reasonOf(error)}`);
           }
         });
-        // 링크 서버가 켜져 있으면 렌더 응답에 PDF URL을 포함한다.
+        // 링크 서버가 켜져 있으면 렌더 응답에 PDF URL을 포함합니다.
         const link =
           options.pdfBaseUrl === undefined
             ? null

@@ -1,13 +1,13 @@
 /**
- * 사용자에게 표시하는 수식 파싱·평가 메시지를 언어별로 정의한다.
+ * 사용자에게 표시하는 수식 파싱·평가 메시지를 언어별로 정의합니다.
  *
- * 파싱과 평가는 동기로 실행된다. 진입점은 {@link withFormulaLocale}에서 언어를
- * 선택하고, 내부 코드는 {@link fm}에서 해당 메시지 사전을 읽는다.
- * 이 방식은 비동기 코드에 사용하지 않는다.
+ * 파싱과 평가는 동기로 실행됩니다. 진입점은 {@link withFormulaLocale}에서 언어를
+ * 선택하고, 내부 코드는 {@link fm}에서 해당 메시지 사전을 읽습니다.
+ * 이 방식은 비동기 코드에 사용하지 않습니다.
  */
 import { resolveMessageLocale, type MessageLocale } from '../i18n.js';
 
-/** 오류가 발생한 값을 언어별 명사구로 표시하기 위한 키 */
+/** 오류가 발생한 값을 언어별 명사구로 표시하기 위한 키입니다. */
 export type FormulaSubject =
   | 'value'
   | 'addOperand'
@@ -29,7 +29,7 @@ export type FormulaSubject =
   | 'startDate'
   | 'endDate';
 
-/** 범위를 쓸 수 없는 자리를 가리키는 키 */
+/** 범위를 쓸 수 없는 자리를 가리키는 키입니다. */
 export type FormulaPlace =
   | { kind: 'operator'; operator: string }
   | { kind: 'sign' }
@@ -270,20 +270,20 @@ const KO: FormulaMessages = {
   expectedFieldAfterDot: () => "'.' 뒤에는 필드 이름이 와야 합니다",
   unknownReservedRef: (name) => `알 수 없는 예약 참조입니다: ${name} (사용 가능: @item, @group, @page, @all, @carried)`,
   emptyReferenceKey: () => '$( ) 안의 키가 비어 있습니다',
-  unterminatedReference: () => `$( 참조가 닫히지 않았습니다. ')'가 필요합니다`,
+  unterminatedReference: () => `$(...) 참조를 닫는 ')'가 필요합니다`,
   invalidReferenceEscape: (sequence) =>
-    `$( ) 안에서 쓸 수 없는 이스케이프입니다: '${sequence}' (\\)와 \\\\만 쓸 수 있습니다)`,
-  referenceNeedsParens: (name) => `$${name} 대신 $(${name})으로 쓰세요`,
-  bareReference: (name, suggested) => `'${name}'은(는) ${suggested}으로 써야 합니다`,
-  reservedRefUnavailable: (name) => `${name}은(는) 그리드 행 구간에서만 사용할 수 있습니다`,
+    `$(...) 안에서 사용할 수 없는 이스케이프입니다: '${sequence}'. \\)와 \\\\만 사용할 수 있습니다`,
+  referenceNeedsParens: (name) => `$${name} 대신 $(${name}) 형식으로 입력하세요`,
+  bareReference: (name, suggested) => `'${name}' 참조는 ${suggested} 형식으로 입력해야 합니다`,
+  reservedRefUnavailable: (name) => `${name} 참조는 그리드 행 구간에서만 사용할 수 있습니다`,
   expectedValue: () => '값, 참조 또는 함수가 필요합니다',
   emptyFormula: () => '빈 수식입니다',
   formulaTooLong: (max) => `수식 길이가 허용 범위(${max}자)를 초과했습니다`,
-  valueDepthExceeded: (max) => `값의 중첩이 허용 깊이(${max})를 초과했습니다`,
+  valueDepthExceeded: (max) => `값의 중첩이 허용된 깊이(${max})를 초과했습니다`,
   notAnObject: (prefix, segment) =>
-    `'${prefix}'에서 '.${segment}'를 읽을 수 없습니다. '${prefix}'의 값이 객체가 아닙니다`,
+    `'${prefix}'의 값이 객체가 아니므로 '.${segment}'를 읽을 수 없습니다`,
   objectValueNotUsable: () => '객체 값은 수식에서 직접 사용할 수 없습니다. 하위 필드를 참조하세요',
-  rangeNotAllowed: (place) => `${koPlace(place)}에 범위를 직접 사용할 수 없습니다. SUM 등의 집계 함수를 사용하세요`,
+  rangeNotAllowed: (place) => `${koPlace(place)}에 범위를 직접 사용할 수 없습니다. SUM과 같은 집계 함수를 사용하세요`,
   divideByZero: () => '0으로 나눌 수 없습니다',
   comparisonTypeMismatch: (operator) =>
     `'${operator}' 비교 연산은 두 값이 모두 숫자이거나 모두 문자열일 때만 사용할 수 있습니다`,
@@ -305,23 +305,23 @@ const KO: FormulaMessages = {
   criteriaRange: () => '조건에는 범위를 쓸 수 없습니다',
   dateNotReal: (subject, shown) => `${KO_SUBJECTS[subject]}: 존재하지 않는 날짜입니다. 현재 값: ${shown}`,
   dateInvalid: (subject, shown) =>
-    `${KO_SUBJECTS[subject]}: YYYY-MM-DD 또는 YYYY-MM-DDTHH:mm:ss 형식(Z·±HH:mm 오프셋은 선택)의 문자열이어야 합니다. 현재 값: ${shown}`,
+    `${KO_SUBJECTS[subject]}: YYYY-MM-DD 또는 YYYY-MM-DDTHH:mm:ss 형식의 문자열이어야 합니다. Z 또는 ±HH:mm 형식의 UTC 시차를 덧붙일 수 있습니다. 현재 값: ${shown}`,
   dateUnitInvalid: (shown) => `날짜 단위는 days, months, years 중 하나여야 합니다. 현재 값: ${shown}`,
-  avgEmpty: () => 'AVG: 평균을 낼 값이 없습니다',
+  avgEmpty: () => 'AVG: 평균을 계산할 값이 없습니다',
   sumifLengthMismatch: () => 'SUMIF: 조건 범위와 합계 범위의 길이가 다릅니다',
   midStartTooSmall: () => 'MID: 시작 위치는 1 이상이어야 합니다',
-  fractionDigitsRange: () => '소수 자릿수는 0~20이어야 합니다',
-  digitsRange: (max) => `자릿수는 -${max}~${max}이어야 합니다`,
+  fractionDigitsRange: () => '소수 자릿수는 0~20 사이여야 합니다',
+  digitsRange: (max) => `자릿수는 -${max}~${max} 사이여야 합니다`,
   vatRateNegative: () => 'VAT: 세율은 0 이상이어야 합니다',
   numberToKoreanInteger: () => 'NUMBER_TO_KOREAN은 정수만 지원합니다',
   numberToKoreanRange: () => '값이 NUMBER_TO_KOREAN의 지원 범위를 벗어났습니다',
   dateOffsetRange: (subject, shown) =>
-    `${KO_SUBJECTS[subject]}: 시간대 오프셋이 허용 범위(±23:59까지)를 벗어났습니다. 현재 값: ${shown}`,
+    `${KO_SUBJECTS[subject]}: UTC와의 시차가 허용 범위(±23:59)를 벗어났습니다. 현재 값: ${shown}`,
   datePatternUnknownToken: (name, run, position) =>
-    `${name} 패턴: ${position}번째 글자에 알 수 없는 토큰이 있습니다: "${run}" (사용 가능: YYYY, YY, MM, M, DD, D, HH, mm, ss. 그대로 표시할 글자는 [ ]로 감싸세요)`,
+    `${name} 패턴: ${position}번째 글자부터 알 수 없는 표기입니다: "${run}". YYYY, YY, MM, M, DD, D, HH, mm, ss를 사용할 수 있으며, 그대로 표시할 글자는 [ ]로 감싸세요`,
   datePatternUnclosedLiteral: (name, position) => `${name} 패턴: ${position}번째 글자의 '['가 닫히지 않았습니다`,
   datePatternBadEscape: (name, position) =>
-    `${name} 패턴: ${position}번째 글자의 백슬래시를 해석할 수 없습니다 ([ ] 안에서 \\]와 \\\\만 쓸 수 있습니다)`,
+    `${name} 패턴: ${position}번째 글자의 백슬래시를 해석할 수 없습니다. [ ] 안에서는 \\]와 \\\\만 쓸 수 있습니다`,
   dateYearRange: (subject, shown) =>
     `${KO_SUBJECTS[subject]}: 결과가 지원하는 연도 범위(0001~9999년)를 벗어났습니다. 현재 값: ${shown}`,
 };
@@ -393,13 +393,13 @@ const JA: FormulaMessages = {
 
 const CATALOG: Record<MessageLocale, FormulaMessages> = { en: EN, ko: KO, ja: JA };
 
-// 동기 실행 중 사용할 메시지 사전을 모듈 상태로 유지한다.
+// 동기 실행 중 사용할 메시지 사전을 모듈 상태로 유지합니다.
 let current: FormulaMessages = EN;
 
 /**
- * 지정한 로케일의 메시지 사전을 사용해 함수를 실행한다. 실행 후에는 이전 사전으로 복원한다.
+ * 지정한 로케일의 메시지 사전을 사용해 함수를 실행합니다. 실행 후에는 이전 사전으로 복원합니다.
  *
- * @param locale - BCP 47 로케일 (생략하면 현재 메시지 사전 유지)
+ * @param locale - BCP 47 로케일(생략하면 현재 메시지 사전 유지)
  * @param fn - 실행할 동기 함수
  * @returns `fn`의 반환값
  */
@@ -414,7 +414,7 @@ export function withFormulaLocale<T>(locale: string | undefined, fn: () => T): T
   }
 }
 
-/** 현재 선택된 수식 메시지 사전 */
+/** 현재 선택된 수식 메시지 사전입니다. */
 export function fm(): FormulaMessages {
   return current;
 }

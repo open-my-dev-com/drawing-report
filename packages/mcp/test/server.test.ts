@@ -18,35 +18,35 @@ let dir: string;
 let client: Client;
 let close: () => Promise<void>;
 
-/** 서명만 갖춘 최소 JPEG 바이트 (형식 판정은 앞 3바이트로 한다) */
+/** 서명만 갖춘 최소 JPEG 바이트입니다. 형식은 앞의 3바이트로 판정합니다. */
 const TINY_JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0xff, 0xd9]);
 
-/** PNG 서명으로 시작하지만 크기 상한을 1바이트 넘는 바이트 */
+/** PNG 서명으로 시작하지만 크기 상한을 1바이트 넘는 바이트입니다. */
 function oversizedPng(): Buffer {
   const bytes = Buffer.alloc(MAX_IMAGE_BYTES + 1);
   Buffer.from(TINY_PNG_B64, 'base64').copy(bytes);
   return bytes;
 }
 
-/** 저장된 양식을 읽는다. */
+/** 저장된 양식을 읽습니다. */
 async function loadTemplate(id: string): Promise<SlipTemplateFile> {
   const file = await new FileSystemStorage({ rootDir: dir }).load(id);
   if (file.kind !== 'template') throw new Error('template expected');
   return file;
 }
 
-/** 저장된 전표를 읽는다. */
+/** 저장된 전표를 읽습니다. */
 async function loadVoucher(id: string): Promise<SlipVoucherFile> {
   const file = await new FileSystemStorage({ rootDir: dir }).load(id);
   if (file.kind !== 'voucher') throw new Error('voucher expected');
   return file;
 }
 
-/** 이미지가 아닌 자리에 들어가는 `data:` 문자열 — 형식과 무관하게 업무 데이터로 보존되어야 한다. */
+/** 이미지가 아닌 자리에 들어가는 일반 `data:` 문자열입니다. 형식과 관계없이 원문을 보존합니다. */
 const TEXT_DATA_URL = 'data:text/plain;base64,SGVsbG8=';
 const GIF_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 
-/** 텍스트 요소 하나를 만든다. */
+/** 텍스트 요소 하나를 만듭니다. */
 function textElement(id: string, y: number): Record<string, unknown> {
   return { type: 'text', id, name: id, position: { x: 15, y }, width: 100, height: 6, content: id };
 }
@@ -79,12 +79,12 @@ describe('slip_save · slip_list · slip_read', () => {
     expect(summary.isError).toBe(false);
     const parsed = JSON.parse(summary.text) as Record<string, unknown>;
     expect(parsed['kind']).toBe('template');
-    // 요약에는 요소 id만 나오고 셀 상세는 나오지 않는다
+    // 요약에는 요소 ID만 나오고 셀 세부 정보는 나오지 않습니다.
     expect(summary.text).toContain('items-table');
     expect(summary.text).not.toContain('SUM(items.amount)');
   });
 
-  it('잘못된 파일은 저장하지 않고 오류 목록을 돌려준다', async () => {
+  it('잘못된 파일은 저장하지 않고 오류 목록을 반환한다', async () => {
     const broken = makeTemplate() as unknown as { template: { pages: unknown[] } };
     broken.template.pages = [];
     const result = await callText(client, 'slip_save', { path: 'broken', file: broken });
@@ -164,7 +164,7 @@ describe('slip_save · slip_list · slip_read', () => {
     expect(result.isError).toBe(true);
   });
 
-  it('part=element로 요소 하나를 읽고, base64는 치환된다', async () => {
+  it('part=element로 요소 하나를 읽고 Base64 데이터는 크기 표시로 바꾼다', async () => {
     await callText(client, 'slip_save', { path: 'doc', file: makeTemplate() });
     const element = await callText(client, 'slip_read', {
       path: 'doc',
@@ -182,7 +182,7 @@ describe('slip_edit', () => {
     await callText(client, 'slip_save', { path: 'doc', file: makeTemplate() });
   });
 
-  it('id로 지정한 연산을 원자적으로 적용한다', async () => {
+  it('ID로 지정한 연산을 원자적으로 적용한다', async () => {
     const result = await callText(client, 'slip_edit', {
       path: 'doc',
       ops: [
@@ -217,7 +217,7 @@ describe('slip_edit', () => {
     expect(elements.some((entry) => entry.id === 'footer')).toBe(true);
   });
 
-  it('요소와 셀의 조건부 서식 규칙을 통째로 바꾸고 null로 제거한다 (ADR-062)', async () => {
+  it('요소와 셀의 조건부 서식 규칙 전체를 바꾸고 null로 제거한다(ADR-062)', async () => {
     const rules = [{ condition: '$(total) < 0', fontColor: '#FF0000' }];
     const applied = await callText(client, 'slip_edit', {
       path: 'doc',
@@ -268,7 +268,7 @@ describe('slip_edit', () => {
     expect((customer as { conditionalFormats?: unknown }).conditionalFormats).toBeUndefined();
   });
 
-  it('없는 id는 사용할 수 있는 id 목록을 안내하고 아무것도 저장하지 않는다', async () => {
+  it('없는 ID는 사용할 수 있는 ID 목록을 안내하고 아무것도 저장하지 않는다', async () => {
     const result = await callText(client, 'slip_edit', {
       path: 'doc',
       ops: [
@@ -286,7 +286,7 @@ describe('slip_edit', () => {
   });
 
   it('검증에 어긋나는 결과는 저장하지 않는다', async () => {
-    // 셀 병합이 행 구간 경계를 넘게 만든다 (헤더 행 → 항목 구간)
+    // 셀 병합이 헤더 행과 항목 구간의 경계를 넘게 만듭니다.
     const result = await callText(client, 'slip_edit', {
       path: 'doc',
       ops: [
@@ -397,7 +397,7 @@ describe('slip_edit', () => {
     let file = await loadTemplate('doc');
     expect(file.template.assets[0]).toMatchObject({ id: 'img-1', mimeType: 'image/jpeg' });
 
-    // 같은 요소에 다시 넣으면 같은 에셋을 갱신한다.
+    // 같은 요소에 다시 넣으면 같은 에셋을 갱신합니다.
     await writeFile(path.join(dir, 'logo.png'), Buffer.from(TINY_PNG_B64, 'base64'));
     const png = await callText(client, 'slip_edit', {
       path: 'doc',
@@ -487,7 +487,7 @@ describe('slip_edit', () => {
     });
     expect(replaced.isError).toBe(true);
     expect(replaced.text).toContain('the limit is');
-    // 기존 요소는 그대로다.
+    // 기존 요소는 그대로 유지됩니다.
     const stamp = (await loadTemplate('doc')).template.pages[0]!.elements.find((entry) => entry.id === 'stamp');
     expect(stamp?.type === 'image' && stamp.src).toBe(`data:image/png;base64,${TINY_PNG_B64}`);
   });
@@ -532,11 +532,11 @@ describe('slip_edit', () => {
     });
     const saved = await callText(client, 'slip_save', { path: 'big-doc', file: template });
     expect(saved.isError).toBe(true);
-    // core 스키마 검증이 먼저 걸리므로 core의 크기 상한 메시지 또는 MCP의 안내 중 하나가 나온다.
+    // core 스키마가 먼저 검증되므로 core의 크기 상한 메시지 또는 MCP 안내 중 하나가 나옵니다.
     expect(saved.text).toMatch(/exceeds the size limit \(2 MiB\)|Asset "big" src is \d+KB; the limit is/);
     expect((await readdir(dir)).includes('big-doc.slip')).toBe(false);
 
-    // customerName은 문자 파라미터라 GIF data: 문자열도 업무 데이터로 그대로 저장한다.
+    // customerName은 문자열 파라미터이므로 GIF data: 문자열도 일반 입력값으로 그대로 저장합니다.
     const built = await callText(client, 'slip_build_voucher', {
       templatePath: 'doc',
       values: { customerName: GIF_DATA_URL },
@@ -578,7 +578,7 @@ describe('slip_edit', () => {
   });
 
   it('이미지 요소가 참조하거나 image로 선언된 파라미터 값만 형식과 크기를 검사한다', async () => {
-    // stamp는 valueType 없이 이미지 요소가 참조하고, seal은 valueType: image로만 선언한다.
+    // stamp는 valueType 없이 이미지 요소가 참조하고, seal은 valueType: image로만 선언합니다.
     const prepared = await callText(client, 'slip_edit', {
       path: 'doc',
       ops: [
@@ -613,7 +613,7 @@ describe('slip_edit', () => {
     });
     expect(fine.isError).toBe(false);
 
-    // slip_save로 통째로 넣어도 같은 판정을 쓴다.
+    // slip_save로 파일 전체를 저장해도 같은 판정을 사용합니다.
     const voucher = await loadVoucher('v-ok');
     const saved = await callText(client, 'slip_save', {
       path: 'v-ok',
@@ -713,7 +713,7 @@ describe('slip_edit 페이지·용지·파라미터 연산', () => {
     expect((await loadTemplate('doc')).template.paper.width).toBe(297);
   });
 
-  it('remove_element는 id로 요소를 지우고 없는 id는 목록을 안내한다', async () => {
+  it('remove_element는 ID로 요소를 지우고 없는 ID는 목록을 안내한다', async () => {
     const ok = await callText(client, 'slip_edit', {
       path: 'doc',
       ops: [{ action: 'remove_element', id: 'title' }],
@@ -775,7 +775,7 @@ describe('slip_edit 페이지·용지·파라미터 연산', () => {
     expect(missing.isError).toBe(true);
     expect(missing.text).toContain('No page at index 5. The file has 1 page(s).');
 
-    // 페이지가 하나도 없는 양식은 검증에서 거부되어 저장되지 않는다.
+    // 페이지가 하나도 없는 양식은 검증에서 거부되어 저장되지 않습니다.
     const last = await callText(client, 'slip_edit', {
       path: 'doc',
       ops: [{ action: 'remove_page', index: 0 }],
@@ -930,7 +930,7 @@ describe('같은 파일의 동시 편집', () => {
       }),
     ]);
     for (const result of results) expect(result.isError).toBe(false);
-    // 순서대로 실행됐으므로 덮어쓴 뒤의 편집(y)은 남고 그 앞의 편집(x)은 덮어써진다.
+    // 순서대로 실행되므로 나중에 반영된 편집(y)은 남고 이전 편집(x)은 덮어써집니다.
     const file = await loadTemplate('doc');
     expect(file.template.meta.title).toBe('덮어씀');
     const elementIds = file.template.pages[0]!.elements.map((entry) => entry.id);
@@ -941,7 +941,7 @@ describe('같은 파일의 동시 편집', () => {
       callText(client, 'slip_build_voucher', { templatePath: 'doc', values: { customerName: 'A' }, outPath: 'v' }),
       callText(client, 'slip_build_voucher', { templatePath: 'doc', values: { customerName: 'B' }, outPath: 'v' }),
     ]);
-    // 같은 출력 경로에 두 번 만들면 뒤의 호출은 overwrite 없이는 실패한다.
+    // 같은 출력 경로에 두 번 만들면 나중 호출은 overwrite 없이는 실패합니다.
     expect(vouchers.filter((result) => result.isError)).toHaveLength(1);
     expect(vouchers.find((result) => result.isError)?.text).toContain('already exists');
   });
@@ -973,7 +973,7 @@ describe('같은 파일의 동시 편집', () => {
     expect(doc.template.pages[0]!.elements.map((entry) => entry.id)).toContain('d');
     expect(other.template.meta.title).toBe('other-1');
     expect(other.template.pages[0]!.elements.map((entry) => entry.id)).toContain('o');
-    // 임시 파일은 남지 않는다.
+    // 임시 파일은 남지 않습니다.
     expect((await readdir(dir)).sort()).toEqual(['doc.slip', 'other.slip']);
   });
 });
@@ -1016,7 +1016,7 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
   it('PDF를 렌더링해 파일로 저장한다', async () => {
     const rendered = await callText(client, 'slip_render_pdf', { path: 'doc' });
     expect(rendered.isError).toBe(false);
-    // 응답에 생성된 PDF의 절대 경로를 포함한다.
+    // 응답에는 생성된 PDF의 절대 경로가 포함됩니다.
     expect(rendered.text).toContain(path.join(dir, 'doc.pdf'));
     const pdf = await readFile(path.join(dir, 'doc.pdf'));
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
@@ -1079,7 +1079,7 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
     expect((await readFile(path.join(dir, 'notes.pdf'), 'utf8'))).toBe('hello, this is not a pdf');
     expect((await readFile(path.join(dir, 'empty.pdf'))).length).toBe(0);
 
-    // 출력 경로가 디렉터리면 쓰지 않는다.
+    // 출력 경로가 디렉터리이면 파일을 쓰지 않습니다.
     await mkdir(path.join(dir, 'folder.pdf'));
     const directory = await callText(client, 'slip_render_pdf', { path: 'doc', outPath: 'folder.pdf' });
     expect(directory.isError).toBe(true);
@@ -1148,10 +1148,10 @@ describe('slip_build_voucher · slip_render_pdf · slip_schema', () => {
   });
 });
 
-// 작업 디렉터리 안의 심볼릭 링크를 거쳐 밖의 파일을 읽거나 쓰지 않는지 실제 링크로 확인한다.
-// Windows에서 링크 생성 권한이 없을 때만 건너뛴다.
+// 실제 심볼릭 링크를 사용해 작업 디렉터리 밖의 파일을 읽거나 쓰지 않는지 확인합니다.
+// Windows에서 링크를 만들 권한이 없을 때만 건너뜁니다.
 describe.skipIf(symlinksUnavailable())('심볼릭 링크를 거친 작업 디렉터리 이탈', () => {
-  /** 작업 디렉터리 밖의 디렉터리 */
+  /** 작업 디렉터리 밖의 디렉터리입니다. */
   let outside: string;
 
   beforeEach(async () => {
@@ -1177,7 +1177,7 @@ describe.skipIf(symlinksUnavailable())('심볼릭 링크를 거친 작업 디렉
     }
     expect((await loadTemplate('doc')).template.assets).toEqual([]);
 
-    // 안을 가리키는 디렉터리 링크 너머의 이미지는 읽는다.
+    // 작업 디렉터리 안을 가리키는 디렉터리 링크의 이미지는 읽습니다.
     await mkdir(path.join(dir, 'images'));
     await writeFile(path.join(dir, 'images', 'logo.png'), Buffer.from(TINY_PNG_B64, 'base64'));
     await symlink(path.join(dir, 'images'), path.join(dir, 'images-link'), 'dir');
@@ -1203,7 +1203,7 @@ describe.skipIf(symlinksUnavailable())('심볼릭 링크를 거친 작업 디렉
     expect((await readdir(outside)).sort()).toEqual(['old.pdf']);
     expect((await lstat(path.join(dir, 'link.pdf'))).isSymbolicLink()).toBe(true);
     expect((await lstat(path.join(dir, 'dangling.pdf'))).isSymbolicLink()).toBe(true);
-    // 링크 옆에 임시 파일도 남기지 않는다.
+    // 링크 옆에도 임시 파일을 남기지 않습니다.
     expect((await readdir(dir)).sort()).toEqual(['dangling.pdf', 'doc.slip', 'link.pdf', 'shared']);
   });
 

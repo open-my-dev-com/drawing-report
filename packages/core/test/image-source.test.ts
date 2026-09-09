@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_IMAGE_BYTES, detectImageMimeType, inspectImageBytes, inspectImageDataUrl } from '../src/index.js';
+import { isEmbeddableImageData } from '../src/format/image-source.js';
 
 const PNG_HEAD = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
 const JPEG_HEAD = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1]);
+
+const PNG_1PX =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+/** SOI·APP0·SOF0·EOI만 담은 1x1 JPEG입니다. */
+const JPEG_1PX = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/wAALCAABAAEBAREA/9k=';
 
 function dataUrl(mime: string, bytes: Uint8Array): string {
   return `data:${mime};base64,${Buffer.from(bytes).toString('base64')}`;
@@ -36,7 +42,22 @@ describe('이미지 검사 (PNG·JPEG 서명·크기)', () => {
     expect(inspectImageDataUrl(dataUrl('image/png', PNG_HEAD), { maxBytes: 10 })).toMatchObject({ ok: false, reason: 'size', bytes: PNG_HEAD.length });
   });
 
-  it('크기는 base64 길이와 패딩에서 정확히 계산한다', () => {
+  it('구조 검사: PNG 청크와 JPEG 마커를 끝까지 읽을 수 있어야 한다', () => {
+    const png = Buffer.from(PNG_1PX.slice(PNG_1PX.indexOf(',') + 1), 'base64');
+    expect(isEmbeddableImageData(PNG_1PX)).toBe(true);
+    expect(isEmbeddableImageData(JPEG_1PX)).toBe(true);
+    // 서명만 맞고 청크가 없는 PNG
+    expect(isEmbeddableImageData(dataUrl('image/png', new Uint8Array([...PNG_HEAD.subarray(0, 8), ...new Uint8Array(56)])))).toBe(false);
+    // IEND까지 이르지 못하고 끊긴 PNG
+    expect(isEmbeddableImageData(dataUrl('image/png', png.subarray(0, png.length - 12)))).toBe(false);
+    // 크기를 담은 프레임 시작 구획이 없는 JPEG
+    expect(isEmbeddableImageData(dataUrl('image/jpeg', JPEG_HEAD))).toBe(false);
+    // PNG·JPEG가 아니거나 data: 형식이 아닌 값
+    expect(isEmbeddableImageData(dataUrl('image/png', Uint8Array.from([0x47, 0x49, 0x46, 0x38])))).toBe(false);
+    expect(isEmbeddableImageData('https://example.com/a.png')).toBe(false);
+  });
+
+  it('크기는 Base64 길이와 패딩에서 정확히 계산한다', () => {
     for (const n of [1, 2, 3, 4, 100, 1023, 4096]) {
       const bytes = new Uint8Array(n);
       bytes.set(PNG_HEAD.subarray(0, Math.min(n, PNG_HEAD.length)));

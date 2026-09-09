@@ -13,7 +13,7 @@ vi.mock('@omdc-slipkit/core', async () => {
 });
 
 vi.mock('../../src/default-fonts.js', () => ({
-  // 로케일마다 대체 폰트가 달라지는 동봉 폰트를 흉내 냅니다.
+  // 로케일에 따라 대체 폰트가 달라지는 상황을 재현합니다.
   loadDefaultFonts: (locale?: string) =>
     Promise.resolve(locale === 'ja'
       ? [
@@ -37,7 +37,7 @@ import {
   type Designer,
 } from './helpers.js';
 
-/** 등록에 성공하는 FontFace 대역 */
+/** 등록에 성공하는 FontFace 대체 구현입니다. */
 class FakeFontFace {
   constructor(readonly family: string, readonly source: unknown) {}
   load(): Promise<this> {
@@ -77,7 +77,7 @@ describe('<slip-designer> 동봉 폰트의 로케일 기준', () => {
     return el;
   }
 
-  /** 폰트 선택의 기본값 항목에 적힌 대체 폰트 이름 */
+  /** 폰트 선택의 기본값 항목에 적힌 대체 폰트 이름입니다. */
   function defaultOptionLabel(el: Designer, label: string): string {
     const row = Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
       .find((r) => r.querySelector('label')?.textContent?.trim() === label);

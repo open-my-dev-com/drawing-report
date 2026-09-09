@@ -1,5 +1,5 @@
 /**
- * 현재 양식 페이지의 페이지 계획과 그 캐시.
+ * 현재 양식 페이지의 배치 계획과 캐시를 관리합니다.
  *
  * @remarks
  * 계획은 문서 개정 번호·페이지 번호·평가 로케일이 모두 같을 때만 재사용합니다. 문서 내용을
@@ -17,29 +17,29 @@ import {
 } from '@omdc-slipkit/core';
 import { sampleItemsOf } from '../formula-context.js';
 
-/** 계획을 구할 때 넘기는 입력 */
+/** 계획을 구할 때 넘기는 입력입니다. */
 export interface PagePlanInput {
-  /** 편집 중인 양식 */
+  /** 편집 중인 양식입니다. */
   file: SlipTemplateFile | null;
-  /** 계획을 구할 양식 페이지 (0부터) */
+  /** 계획을 구할 양식 페이지 번호이며 0부터 시작합니다. */
   pageIndex: number;
-  /** 수식·조건식 평가 로케일 */
+  /** 수식·조건식 평가 로케일입니다. */
   locale: string | undefined;
-  /** 문서 개정 번호 — 양식이 바뀔 때마다 커집니다 */
+  /** 문서 개정 번호입니다. 양식이 바뀔 때마다 증가합니다. */
   revision: number;
 }
 
-/** 계획 결과 — 계획을 만들 수 없으면 오류를 대신 담습니다 */
+/** 페이지 계획 또는 계획을 만들지 못한 원인을 담는 결과입니다. */
 export interface PagePlanResult {
   plan: SourcePagePlan | null;
   error: SlipLayoutError | null;
 }
 
-/** 양식이 없거나 페이지가 없을 때의 결과 */
+/** 양식이 없거나 페이지가 없을 때의 결과입니다. */
 const EMPTY_RESULT: PagePlanResult = { plan: null, error: null };
 
 export class PagePlanController implements ReactiveController {
-  /** 마지막으로 계산한 계획과 그때의 캐시 키 */
+  /** 마지막으로 계산한 계획과 그때의 캐시 키입니다. */
   private _cache: {
     revision: number;
     pageIndex: number;
@@ -50,13 +50,13 @@ export class PagePlanController implements ReactiveController {
 
   hostConnected(): void {}
 
-  /** 지금까지 실제로 계획을 계산한 횟수 */
+  /** 지금까지 실제로 계획을 계산한 횟수입니다. */
   get computations(): number {
     return this._computations;
   }
 
   /**
-   * 현재 페이지의 계획을 돌려줍니다. 키가 같으면 캐시를 재사용합니다.
+   * 현재 페이지의 계획을 반환합니다. 키가 같으면 캐시를 재사용합니다.
    *
    * @param input - 양식, 페이지 번호, 평가 로케일과 문서 개정 번호
    * @returns 계획 또는 계획 오류

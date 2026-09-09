@@ -1,5 +1,5 @@
 /**
- * 속성 패널의 공통 입력 — 숫자 입력, 펼침 버튼, 글자 강조 토글, 테두리와 색 선택.
+ * 속성 패널에서 사용하는 숫자 입력, 펼침 버튼, 글자 강조 설정, 테두리와 색 선택 입력을 만듭니다.
  *
  * @remarks
  * 각 함수는 `PanelKit`으로 전달된 상태를 읽어 공통 입력 UI를 렌더링합니다.
@@ -24,7 +24,7 @@ import type { PanelKit } from './panel-kit.js';
  * @param current - 현재 저장된 값
  * @param fallback - 지정하지 않았을 때 실제로 적용되는 값
  * @param apply - 저장 콜백. 기본값과 같으면 `null`이 와서 필드를 지웁니다
- * @param opts - `step`·`min` 등 입력 상자 설정. `mixed`이면 선택한 셀의 값이 서로 달라 빈 칸에 「혼합」을 표시합니다
+ * @param opts - `step`·`min` 등 입력 상자 설정입니다. `mixed`이면 선택한 셀의 값이 서로 달라 빈 입력란에 `혼합`을 표시합니다.
  * @returns 수 입력 한 줄
  */
 export function numberRow(
@@ -102,7 +102,7 @@ export function twisty(
       @click=${toggle}>${expanded ? icons.treeOpen : icons.treeClosed}</button>`;
 }
 
-/** 글자 강조 토글의 종류 */
+/** 글자 강조 토글의 종류입니다. */
 export type TextEmphasisKey = 'bold' | 'italic' | 'underline' | 'strikethrough';
 
 /**
@@ -165,8 +165,8 @@ export function textStyleToggles(
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param target - 무엇을 되돌리는지 (접근성 레이블 앞부분)
- * @param onReset - 되돌리기 콜백. 없으면 버튼을 그리지 않습니다
- * @returns 되돌리기 버튼 또는 빈 것
+ * @param onReset - 되돌리기 콜백. 없으면 버튼을 그리지 않습니다.
+ * @returns 되돌리기 버튼 또는 빈 템플릿
  */
 export function resetButton(kit: PanelKit, target: string, onReset: (() => void) | undefined) {
   if (onReset === undefined) return nothing;
@@ -185,7 +185,7 @@ export function resetButton(kit: PanelKit, target: string, onReset: (() => void)
  * @param key - 펼침 상태를 구분할 키
  * @param apply - 선택한 굵기를 저장하는 콜백
  * @param labelText - 화면에 표시할 레이블
- * @param opts - `mixed`이면 선택한 셀의 굵기가 서로 달라 「혼합」을 표시합니다
+ * @param opts - `mixed`이면 선택한 셀의 굵기가 서로 달라 `혼합`을 표시합니다.
  * @returns 굵기 선택기
  */
 export function borderWidthSelect(
@@ -258,7 +258,7 @@ export function borderWidthSelect(
  * @param key - 펼침 상태를 구분할 키
  * @param apply - 선택한 형태를 저장하는 콜백
  * @param opts - `fallback`은 미지정일 때 실제로 적용되는 형태(기본 실선). `mixed`이면 선택한 셀의 형태가
- *   서로 달라 「혼합」을 표시합니다. `onReset`이 있으면 되돌리기 버튼을 둡니다
+ *   서로 달라 `혼합`을 표시합니다. `onReset`이 있으면 되돌리기 버튼을 둡니다.
  * @returns 선 형태 선택기
  */
 export function borderShapeRow(
@@ -325,12 +325,12 @@ export function borderShapeRow(
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param label - 화면에 보이는 항목 이름
- * @param current - 지정된 색 (없으면 undefined)
+ * @param current - 지정된 색(없으면 undefined)
  * @param key - 펼침 상태를 구분할 키
- * @param apply - 색을 저장하는 콜백 (없으면 선택 요소의 스타일 필드에 저장)
+ * @param apply - 색을 저장하는 콜백(없으면 선택 요소의 스타일 필드에 저장)
  * @param fallback - 명시된 값이 없을 때 적용할 색
  * @param ariaLabel - 접근성 레이블
- * @param opts - `mixed`이면 선택한 셀의 색이 서로 달라 빗금 견본과 「혼합」을 표시합니다
+ * @param opts - `mixed`이면 선택한 셀의 색이 서로 달라 빗금 견본과 `혼합`을 표시합니다.
  * @returns 색상 입력 조각
  */
 export function colorControl(
@@ -518,7 +518,7 @@ export function conditionalEmphasisRow(
 }
 
 /**
- * 네이티브 select를 대체하는 리스트형 선택 상자를 렌더링합니다.
+ * 네이티브 select를 대체하는 목록형 선택 상자를 렌더링합니다.
  * 트리거 버튼을 누르면 버튼 아래 화면 고정 위치에 항목 목록이 열립니다.
  *
  * @param pop - 팝오버 열림 상태

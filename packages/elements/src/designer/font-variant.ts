@@ -1,5 +1,5 @@
 /**
- * 폰트 이름의 변형 선택과 선택 목록 구성.
+ * 폰트 이름의 변형을 선택하고 선택 목록을 구성합니다.
  *
  * @remarks
  * PDF 변환은 굵게·기울임에 `이름-Bold`처럼 접미사가 붙은 등록 폰트를 사용하고, 등록된 변형이
@@ -43,8 +43,7 @@ export function fallbackFontNameOf(fonts: readonly SlipFont[]): string | undefin
  * @param fallbackName - 지정이 없을 때 변형을 찾을 대체 폰트 이름
  * @param bold - 굵게 여부
  * @param italic - 기울임 여부
- * @returns 사용할 폰트 이름. 등록된 변형이 없으면 지정한 이름을 그대로 반환합니다
- */
+ * @returns 사용할 폰트 이름. 등록된 변형이 없으면 지정한 이름을 그대로 반환합니다. */
 export function resolveVariantFontName(
   fontNames: readonly string[],
   fontName: string | undefined,
@@ -182,8 +181,7 @@ export function variantFontNames(fontNames: readonly string[], fontName: string)
  * 요소와 그리드 셀이 지정한 폰트 이름을 모두 모읍니다.
  *
  * @param pages - 양식의 페이지 목록
- * @returns 지정된 폰트 이름. 지정이 없는 요소는 제외합니다
- */
+ * @returns 지정된 폰트 이름. 지정이 없는 요소는 제외합니다. */
 export function collectUsedFontNames(pages: readonly SlipPage[]): string[] {
   const used = new Set<string>();
   const add = (name: string | undefined): void => {
@@ -200,13 +198,13 @@ export function collectUsedFontNames(pages: readonly SlipPage[]): string[] {
   return [...used];
 }
 
-/** 속성 패널과 캔버스가 함께 쓰는 폰트 등록 상태 */
+/** 속성 패널과 캔버스가 함께 쓰는 폰트 등록 상태입니다. */
 export interface DesignerFonts {
-  /** 등록 목록의 모든 폰트 이름 */
+  /** 등록 목록의 모든 폰트 이름입니다. */
   readonly names: readonly string[];
-  /** 선택 목록에 표시할 폰트 이름 */
+  /** 선택 목록에 표시할 폰트 이름입니다. */
   readonly selectable: readonly string[];
-  /** 대체 폰트 이름. 등록된 폰트가 없으면 undefined */
+  /** 대체 폰트 이름입니다. 등록된 폰트가 없으면 `undefined`입니다. */
   readonly fallback: string | undefined;
   /**
    * 변형 규칙만으로 정해지는 폰트 이름을 찾습니다. 브라우저 등록 상태는 보지 않습니다.
@@ -248,14 +246,14 @@ export interface DesignerFonts {
   hasFailed(style: FontStyleInput): boolean;
 }
 
-/** 폰트를 결정하는 글자 스타일 */
+/** 폰트를 결정하는 글자 스타일입니다. */
 export interface FontStyleInput {
   fontName?: string | undefined;
   bold?: boolean | undefined;
   italic?: boolean | undefined;
 }
 
-/** 폰트를 아직 가져오지 못했을 때 쓰는 빈 상태 */
+/** 폰트를 아직 가져오지 못했을 때 쓰는 빈 상태입니다. */
 export const NO_DESIGNER_FONTS: DesignerFonts = {
   names: [],
   selectable: [],

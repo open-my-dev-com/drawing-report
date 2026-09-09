@@ -1,15 +1,15 @@
 /**
- * 그리드 셀의 줄바꿈 위치와 표시 가능한 줄 수를 계산한다.
+ * 그리드 셀의 줄바꿈 위치와 표시 가능한 줄 수를 계산합니다.
  *
- * 셀 높이에 들어가는 줄 수를 렌더링 전에 계산한다. 폭, 높이, 줄바꿈에는 PDF 렌더러와
- * 같은 계산 규칙을 적용한다.
+ * 셀 높이에 들어가는 줄 수를 렌더링 전에 계산합니다. 폭, 높이, 줄바꿈에는 PDF 렌더러와
+ * 같은 계산 규칙을 적용합니다.
  *
- * - `Intl.Segmenter`로 단어를 구분하며, 셀보다 긴 단어만 글자 단위로 나눈다.
- * - 글자 폭은 폰트의 advance width와 자간으로 계산하고, 조각을 이을 때마다 자간을 한 번 더 더한다.
- * - 일본어 글자가 있으면 행두·행말 금칙 문자를 앞뒤 줄로 옮긴다.
- * - 첫 줄 높이는 폰트의 ascent를 사용하고, 다음 줄부터는 `줄간격 x 글자 크기`를 사용한다.
+ * - `Intl.Segmenter`로 단어를 구분하며, 셀보다 긴 단어만 글자 단위로 나눕니다.
+ * - 글자 폭은 폰트의 advance width와 자간으로 계산하고, 조각을 이을 때마다 자간을 한 번 더 더합니다.
+ * - 일본어 글자가 있으면 행두·행말 금칙 문자를 앞뒤 줄로 옮깁니다.
+ * - 첫 줄 높이는 폰트의 ascent를 사용하고, 다음 줄부터는 `줄간격 x 글자 크기`를 사용합니다.
  *
- * 계산한 줄은 `\n`으로 연결해 렌더링 엔진에 전달한다.
+ * 계산한 줄은 `\n`으로 연결해 렌더링 엔진에 전달합니다.
  */
 import * as fontkit from 'fontkit';
 import type { SlipFont } from './types.js';
@@ -17,7 +17,7 @@ import type { SlipFont } from './types.js';
 /** pt → mm */
 const PT_TO_MM = 25.4 / 72;
 
-/** 글자 크기 계산에 필요한 fontkit 폰트 정보 */
+/** 글자 크기 계산에 필요한 fontkit 폰트 정보입니다. */
 interface FontMetrics {
   layout(text: string): { glyphs: { advanceWidth: number }[] };
   hasGlyphForCodePoint(codePoint: number): boolean;
@@ -27,15 +27,15 @@ interface FontMetrics {
   bbox: { maxY: number; minY: number };
 }
 
-/** 셀의 글자 크기 계산에 필요한 스타일 */
+/** 셀의 글자 크기 계산에 필요한 스타일입니다. */
 export interface MeasureStyle {
-  /** 글꼴 이름 (미지정이면 대체 폰트) */
+  /** 글꼴 이름 (미지정이면 대체 폰트)입니다. */
   fontName?: string | undefined;
-  /** 글자 크기(pt) */
+  /** 글자 크기(pt)입니다. */
   fontSize: number;
-  /** 자간(pt) */
+  /** 자간(pt)입니다. */
   characterSpacing?: number | undefined;
-  /** 줄간격 배수 */
+  /** 줄간격 배수입니다. */
   lineHeight?: number | undefined;
 }
 
@@ -46,21 +46,21 @@ function segmentWords(line: string): string[] {
   return [...wordSegmenter.segment(line)].map((s) => s.segment);
 }
 
-/** 줄 첫머리에 올 수 없는 문자 (일본어 행두 금칙) */
+/** 줄 첫머리에 올 수 없는 문자 (일본어 행두 금칙)입니다. */
 const LINE_START_FORBIDDEN = new Set([
   '、', '。', ',', '.', '」', '』', ')', '}', '】', '>', '≫', ']', '・', 'ー', '―', '-', '!', '！',
   '?', '？', ':', '：', ';', '；', '/', '／', 'ゝ', '々', '〃', 'ぁ', 'ぃ', 'ぅ', 'ぇ', 'ぉ', 'っ',
   'ゃ', 'ゅ', 'ょ', 'ァ', 'ィ', 'ゥ', 'ェ', 'ォ', 'ッ', 'ャ', 'ュ', 'ョ',
 ]);
 
-/** 줄 끝에 올 수 없는 문자 (일본어 행말 금칙) */
+/** 줄 끝에 올 수 없는 문자 (일본어 행말 금칙)입니다. */
 const LINE_END_FORBIDDEN = new Set([
   '「', '『', '（', '｛', '【', '＜', '≪', '［', '〘', '〖', '〝', '‘', '“', '｟', '«',
 ]);
 
 const JAPANESE = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u;
 
-/** 행두 금칙 문자를 앞 줄 끝으로 옮긴다. 뒤 줄부터 거슬러 처리한다. */
+/** 행두 금칙 문자를 앞 줄 끝으로 옮깁니다. 뒤 줄부터 거슬러 처리합니다. */
 function moveLineStartForbidden(lines: readonly string[]): string[] {
   const filtered: string[] = [];
   let carry: string | null = null;
@@ -92,7 +92,7 @@ function moveLineStartForbidden(lines: readonly string[]): string[] {
   return filtered.reverse();
 }
 
-/** 행말 금칙 문자를 다음 줄 첫머리로 옮긴다. */
+/** 행말 금칙 문자를 다음 줄 첫머리로 옮깁니다. */
 function moveLineEndForbidden(lines: readonly string[]): string[] {
   const filtered: string[] = [];
   let carry: string | null = null;
@@ -124,19 +124,19 @@ function moveLineEndForbidden(lines: readonly string[]): string[] {
   return filtered;
 }
 
-/** 글리프 검사에서 제외하는 제어·서식 문자 (줄바꿈·탭·제로폭 문자) */
+/** 글리프 검사에서 제외하는 제어·서식 문자 (줄바꿈·탭·제로폭 문자)입니다. */
 const GLYPH_CHECK_EXEMPT = new Set([0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x200b, 0x200c, 0x200d, 0x2060, 0xfeff]);
 
-/** 글리프가 없어도 표시에 영향이 없는 변형 선택자(U+FE00–FE0F, U+E0100–E01EF)인지 확인한다. */
+/** 글리프가 없어도 표시에 영향이 없는 변형 선택자(U+FE00–FE0F, U+E0100–E01EF)인지 확인합니다. */
 function isVariationSelector(codePoint: number): boolean {
   return (codePoint >= 0xfe00 && codePoint <= 0xfe0f) || (codePoint >= 0xe0100 && codePoint <= 0xe01ef);
 }
 
 /**
- * 렌더링 폰트로 글자 폭과 줄 수를 계산한다.
+ * 렌더링 폰트로 글자 폭과 줄 수를 계산합니다.
  *
- * 사용할 수 있는 폰트가 없으면 계산 메서드는 `undefined`를 반환한다. 호출자는 이 경우
- * 원문을 자르지 않고 렌더링한다.
+ * 사용할 수 있는 폰트가 없으면 계산 메서드는 `undefined`를 반환합니다. 호출자는 이 경우
+ * 원문을 자르지 않고 렌더링합니다.
  */
 export class TextMeasurer {
   private readonly fonts = new Map<string, FontMetrics | null>();
@@ -144,7 +144,7 @@ export class TextMeasurer {
   private readonly sources = new Map<string, Uint8Array>();
 
   /**
-   * @param fonts - 렌더 옵션에 등록된 폰트 목록. 비어 있으면 측정하지 않는다
+   * @param fonts - 렌더 옵션에 등록된 폰트 목록. 비어 있으면 측정하지 않습니다.
    */
   constructor(fonts: readonly SlipFont[] = []) {
     for (const font of fonts) this.sources.set(font.name, font.data);
@@ -163,7 +163,7 @@ export class TextMeasurer {
     }
     let opened: FontMetrics | null = null;
     try {
-      // fontkit이 폰트를 읽지 못하면 해당 폰트의 크기 계산을 건너뛴다.
+      // fontkit이 폰트를 읽지 못하면 해당 폰트의 크기 계산을 건너뜁니다.
       opened = fontkit.create(data) as unknown as FontMetrics;
     } catch {
       opened = null;
@@ -176,14 +176,14 @@ export class TextMeasurer {
     const scale = 1000 / metrics.unitsPerEm;
     const { glyphs } = metrics.layout(text);
     const advance = glyphs.reduce((sum, glyph) => sum + glyph.advanceWidth * scale, 0);
-    // 렌더링 엔진과 같이 글자 사이마다 자간을 더한다 (한 글자면 0, 빈 문자열이면 음수).
+    // 렌더링 엔진과 같이 글자 사이마다 자간을 더합니다(한 글자면 0, 빈 문자열이면 음수).
     const spacing = (text.length - 1) * (style.characterSpacing ?? 0);
     return (advance * style.fontSize) / 1000 + spacing;
   }
 
   /**
-   * 한 문단을 폭에 맞춰 줄로 나눈다. 조각을 이을 때마다 자간을 한 번 더 누적하는 규칙과
-   * 일본어 금칙 처리까지 렌더링 엔진의 계산을 그대로 따른다.
+   * 한 문단을 폭에 맞춰 줄로 나눕니다. 조각을 이을 때마다 자간을 한 번 더 누적하는 규칙과
+   * 일본어 금칙 처리까지 렌더링 엔진의 계산을 그대로 따릅니다.
    */
   private splitParagraph(paragraph: string, boxWidthPt: number, metrics: FontMetrics, style: MeasureStyle): string[] {
     if (paragraph.trim() === '') return [''];
@@ -212,7 +212,7 @@ export class TextMeasurer {
         lines[++index] = segment;
         current = segmentWidth + spacing;
       } else {
-        // 셀보다 긴 단어만 글자 단위로 나눈다.
+        // 셀보다 긴 단어만 글자 단위로 나눕니다.
         for (const char of segment) {
           const charWidth = this.widthPt(char, metrics, style);
           if (current + charWidth <= boxWidthPt) {
@@ -231,7 +231,7 @@ export class TextMeasurer {
     return adjusted.map((line) => line.trimEnd());
   }
 
-  /** 렌더링 엔진과 같은 ascent 기준으로 첫 줄 높이를 계산한다. */
+  /** 렌더링 엔진과 같은 ascent 기준으로 첫 줄 높이를 계산합니다. */
   private firstLineHeightMm(metrics: FontMetrics, fontSize: number): number {
     const scale = 1000 / metrics.unitsPerEm;
     const ascent = (metrics.ascent || metrics.bbox.maxY) * scale;
@@ -241,7 +241,7 @@ export class TextMeasurer {
   }
 
   /**
-   * 셀 폭에 맞춰 줄을 나눈다.
+   * 셀 폭에 맞춰 줄을 나눕니다.
    *
    * @param text - 나눌 글
    * @param widthMm - 글을 담을 폭(mm, 안쪽 여백을 뺀 값)
@@ -260,7 +260,7 @@ export class TextMeasurer {
   }
 
   /**
-   * 글에 폰트가 그릴 수 없는 문자가 있는지 찾는다. 줄바꿈·탭·제로폭 문자는 검사하지 않는다.
+   * 글에 폰트가 그릴 수 없는 문자가 있는지 찾습니다. 줄바꿈·탭·제로폭 문자는 검사하지 않습니다.
    *
    * @param text - 렌더할 글
    * @param fontName - 렌더에 쓸 폰트 이름 (미지정이면 대체 폰트)

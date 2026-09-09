@@ -1,4 +1,4 @@
-// 현재 평가 실패를 데이터 의존과 수식 구성으로 분류하는지 확인한다.
+// 현재 평가 실패를 데이터 의존과 수식 구성으로 분류하는지 확인합니다.
 import { describe, expect, it } from 'vitest';
 import {
   diagnoseFormula,
@@ -12,7 +12,7 @@ const CONTEXT: FormulaContext = {
   locale: 'ko',
 };
 
-/** 수식을 평가해 던져진 평가 오류를 돌려준다. */
+/** 수식을 평가해 던져진 평가 오류를 반환합니다. */
 function evalError(source: string, context: FormulaContext = CONTEXT): FormulaEvalError {
   try {
     evaluateFormula(source, context);
@@ -59,12 +59,12 @@ describe('FormulaEvalError — 현재 평가 실패의 분류', () => {
     expect(error.dataDependent).toBe(true);
   });
 
-  it('참조를 푸는 중 난 오류는 데이터 의존으로 분류한다', () => {
+  it('참조를 해석할 때 발생한 오류는 데이터 의존 오류로 분류한다', () => {
     const error = evalError('$(name).$(first)', { values: { name: '연필' }, locale: 'ko' });
     expect(error.dataDependent).toBe(true);
   });
 
-  it('인자 수가 틀린 수식은 수식 구성 오류로 분류한다', () => {
+  it('인자 수가 잘못된 수식은 수식 구성 오류로 분류한다', () => {
     const error = evalError('IF(TRUE)');
     expect(error.reason).toBe('formula');
     expect(error.dataDependent).toBe(false);
@@ -78,7 +78,7 @@ describe('FormulaEvalError — 현재 평가 실패의 분류', () => {
 });
 
 describe('diagnoseFormula — 현재 평가에서 발견한 오류 분류', () => {
-  it('계산에 성공하면 결과만 돌려준다', () => {
+  it('계산에 성공하면 결과만 반환한다', () => {
     const found = diagnoseFormula('$(amount) + 1', CONTEXT);
     expect(found.value).toBe(1201);
     expect(found.formulaError).toBeUndefined();
@@ -92,7 +92,7 @@ describe('diagnoseFormula — 현재 평가에서 발견한 오류 분류', () =
   });
 
   it('데이터 오류 뒤의 평가 오류도 함께 수집한다', () => {
-    // `@page`가 없어 평가는 거기서 멈추지만, 빈 값으로 이어 계산하면 0 나눗셈이 드러난다.
+    // `@page`가 없어 평가는 거기서 멈추지만, 빈 값으로 이어 계산하면 0 나눗셈이 드러납니다.
     const found = diagnoseFormula('SUM(@page.$(amount)) / 0', CONTEXT);
     expect(found.formulaError).toBeInstanceOf(FormulaEvalError);
     expect(found.dataError).toBeInstanceOf(FormulaEvalError);
@@ -144,7 +144,7 @@ describe('값 종류가 맞지 않는 현재 값', () => {
   });
 
   it('데이터 오류 뒤에 남은 상수 인자 오류도 함께 수집한다', () => {
-    // `amount`가 숫자가 아니어서 먼저 실패하지만, 빈 값으로 이어 계산하면 소수 자릿수 21이 드러난다.
+    // `amount`가 숫자가 아니어서 먼저 실패하지만, 빈 값으로 이어 계산하면 소수 자릿수 21이 드러납니다.
     const found = diagnoseFormula('FORMAT_NUMBER($(amount), 21)', WRONG);
     expect(found.dataError).toBeInstanceOf(FormulaEvalError);
     expect(found.formulaError).toBeInstanceOf(FormulaEvalError);

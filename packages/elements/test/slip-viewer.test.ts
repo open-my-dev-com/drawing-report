@@ -7,7 +7,7 @@ vi.mock('@omdc-slipkit/core', () => ({
 }));
 
 vi.mock('../src/default-fonts.js', () => ({
-  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의한다.
+  // 웹 컴포넌트 연결만 검증하므로 대용량 동봉 폰트 로딩은 모의합니다.
   loadDefaultFonts: () =>
     Promise.resolve([
       { name: 'Pretendard', data: new Uint8Array([1]), fallback: true },
@@ -19,7 +19,7 @@ import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
 import type { SlipFile, SlipKit } from '@omdc-slipkit/core';
 import { getStrings } from '../src/strings.js';
 
-// 기본 영어 문구를 기준으로 화면을 확인한다.
+// 기본 영어 문구를 기준으로 화면을 확인합니다.
 const strings = getStrings();
 
 const parseSlipFileMock = vi.mocked(parseSlipFile);
@@ -125,7 +125,7 @@ describe('<slip-viewer> PDF 렌더링', () => {
     await el.updateComplete;
 
     expect(parseSlipFileMock).toHaveBeenCalled();
-    // 폰트 설정이 없으면 기본 폰트 공급 함수를 렌더러에 전달한다.
+    // 폰트 설정이 없으면 기본 폰트 제공 함수를 렌더러에 전달합니다.
     const call = renderSlipToPdfMock.mock.calls.at(-1)!;
     expect(call[0]).toBe(DUMMY_FILE);
     const fonts = await call[1]?.getFonts?.();
@@ -149,7 +149,7 @@ describe('<slip-viewer> PDF 렌더링', () => {
     await flush();
     await el.updateComplete;
 
-    // 미리보기가 호스트의 직접 렌더링과 같은 인스턴스를 사용한다.
+    // 미리보기가 호스트의 직접 렌더링과 같은 인스턴스를 사용합니다.
     expect(render).toHaveBeenCalledWith(DUMMY_FILE);
     expect(renderSlipToPdfMock).not.toHaveBeenCalled();
     el.remove();
@@ -245,7 +245,7 @@ describe('<slip-viewer> 생명주기 정리', () => {
     await el.updateComplete;
     await flush();
 
-    // 렌더링이 완료되기 전에 컴포넌트를 분리한다.
+    // 렌더링이 완료되기 전에 컴포넌트를 분리합니다.
     el.remove();
     resolveRender(DUMMY_PDF);
     await flush();
@@ -286,7 +286,7 @@ describe('<slip-viewer> 로케일 변경과 재연결', () => {
     await settle(el);
     expect(renderSlipToPdfMock).toHaveBeenCalledTimes(2);
     expect(renderSlipToPdfMock.mock.calls.at(-1)![1]?.locale).toBe('ja');
-    // 이전 미리보기 Blob URL은 해제하고 새 것을 표시한다.
+    // 이전 미리보기 Blob URL은 해제하고 새 것을 표시합니다.
     expect(revokedUrls).toContain(blobUrls[0]!);
     expect(el.shadowRoot?.querySelector('iframe')?.getAttribute('src')).toBe(blobUrls[1]!);
     el.remove();
@@ -332,7 +332,7 @@ describe('<slip-viewer> 로케일 변경과 재연결', () => {
     await flush();
     expect(blobUrls.length).toBe(0);
 
-    // 다시 연결하면 분리 중 버린 결과 대신 현재 src로 다시 렌더한다.
+    // 다시 연결하면 분리 중 버린 결과 대신 현재 src로 다시 렌더링합니다.
     document.body.appendChild(el);
     await settle(el);
     expect(renderSlipToPdfMock).toHaveBeenCalledTimes(2);

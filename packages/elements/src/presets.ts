@@ -1,36 +1,36 @@
 /**
- * 디자이너에서 제공하는 거래명세서와 청구서 프리셋.
+ * 디자이너에서 제공하는 거래명세서와 청구서 프리셋입니다.
  *
- * 프리셋은 core 스키마를 따르는 `.slip` 양식 데이터이며 파싱과 검증은 core에서 담당한다.
- * 제목·라벨·맺음말은 로케일에 맞는 문구 사전으로 채운다.
+ * 프리셋은 core 스키마를 따르는 `.slip` 양식 데이터이며 파싱과 검증은 core에서 담당합니다.
+ * 제목·라벨·맺음말은 로케일에 맞는 문구 사전으로 채웁니다.
  */
 import { CURRENT_SCHEMA_VERSION, type SlipElement, type SlipTemplateFile } from '@omdc-slipkit/core';
 import { getStrings, type SlipStrings } from './strings.js';
 
-/** 디자이너에 동봉되는 양식 프리셋 */
+/** 디자이너에 동봉되는 양식 프리셋입니다. */
 export interface SlipPreset {
   id: string;
   name: string;
-  /** 호출할 때마다 독립된 양식 객체를 반환한다. */
+  /** 호출할 때마다 독립된 양식 객체를 반환합니다. */
   create: () => SlipTemplateFile;
 }
 
 const LABEL_BG = '#F2F2F2';
-/** 품목 그리드의 헤더 배경 */
+/** 품목 그리드의 헤더 배경입니다. */
 const HEAD_BG = '#EEEEEE';
-/** 품목 그리드의 행 높이(mm) */
+/** 품목 그리드의 행 높이(mm)입니다. */
 const ROW_MM = 8;
-/** 품목 그리드가 한 페이지에 담는 항목 수 */
+/** 품목 그리드가 한 페이지에 담는 항목 수입니다. */
 const ITEMS_PER_PAGE = 8;
-/** 품목 그리드의 윗변 y(mm) */
+/** 품목 그리드의 윗변 y(mm)입니다. */
 const ITEMS_Y = 90;
-/** 헤더와 반복 항목을 포함한 품목 그리드의 높이(mm). */
+/** 헤더와 반복 항목을 포함한 품목 그리드의 높이(mm)입니다. */
 const ITEMS_H = ROW_MM * (1 + ITEMS_PER_PAGE);
-/** 품목 그리드 아래에 합계와 맺음말을 배치할 y 좌표(mm). */
+/** 품목 그리드 아래에 합계와 맺음말을 배치할 y 좌표(mm)입니다. */
 const TOTAL_Y = ITEMS_Y + ITEMS_H + 10;
 const FOOTER_Y = TOTAL_Y + 20;
 
-/** 상호, 성명, 주소를 입력하는 3행 4열 정보 그리드를 생성한다. */
+/** 상호, 성명, 주소를 입력하는 3행 4열 정보 그리드를 생성합니다. */
 function infoGrid(id: string, name: string, y: number, t: SlipStrings['preset']): SlipElement {
   return {
     type: 'grid',
@@ -60,7 +60,7 @@ function createTradeStatement(s: SlipStrings): SlipTemplateFile {
     template: {
       meta: { title: s.designer.presetTradeStatement },
       paper: { width: 210, height: 297, padding: [20, 15, 20, 15] },
-      // 파라미터 키는 camelCase를 사용하고 화면에는 label을 표시한다.
+      // 파라미터 키는 camelCase를 사용하고 화면에는 label을 표시합니다.
       parameters: [
         { key: 'tradeDate', label: t.tradeDate, valueType: 'date' },
         {
@@ -272,10 +272,10 @@ function createInvoice(s: SlipStrings): SlipTemplateFile {
 }
 
 /**
- * 로케일에 맞는 동봉 프리셋 목록(거래명세서·청구서)을 만든다.
- * 제목·라벨·맺음말은 해당 언어로 채워진다.
+ * 로케일에 맞는 동봉 프리셋 목록(거래명세서·청구서)을 만듭니다.
+ * 제목·라벨·맺음말은 해당 언어로 채워집니다.
  *
- * @param locale - UI 언어 (생략하거나 지원하지 않는 언어면 영어)
+ * @param locale - UI 언어(생략하거나 지원하지 않는 언어면 영어)
  * @returns 프리셋 목록
  */
 export function getPresets(locale?: string): SlipPreset[] {

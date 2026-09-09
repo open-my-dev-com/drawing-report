@@ -1,11 +1,11 @@
 /**
- * `.slip` 파일을 인증 암호화 형식으로 변환하고 복호화한다.
+ * `.slip` 파일을 인증 암호화 형식으로 변환하고 복호화합니다.
  *
  * AES-256-GCM 인증 암호화를 사용하므로 키가 올바르지 않거나 파일이 변조되면 복호화에
- * 실패한다. 키 관리와 전달은 호스트가 담당한다. 암호화 결과는 표준 `.slip` 형식과
- * 호환되지 않는다(SPEC §8).
+ * 실패합니다. 키 관리와 전달은 호스트가 담당합니다. 암호화 결과는 표준 `.slip` 형식과
+ * 호환되지 않습니다(SPEC §8).
  *
- * 암호 연산에는 Web Crypto API의 `crypto.subtle`을 사용한다.
+ * 암호 연산에는 Web Crypto API의 `crypto.subtle`을 사용합니다.
  */
 import { parseSlipFile, serializeSlipFile, type SlipFile } from '../format/schema.js';
 import { stripLeadingBom } from '../format/text.js';
@@ -13,22 +13,22 @@ import { base64urlEncode, base64urlDecode } from './base64url.js';
 import { SlipEncryptionError } from './errors.js';
 import { em } from './messages.js';
 
-/** 암호화 봉투를 식별하는 최상위 속성 값. */
+/** 암호화 봉투를 식별하는 최상위 속성 값입니다. */
 const MARKER = 'encrypted';
 /**
- * 새 암호화 봉투에 기록할 PBKDF2 반복 횟수.
- * OWASP Password Storage Cheat Sheet의 PBKDF2-HMAC-SHA256 권고치를 따른다.
+ * 새 암호화 봉투에 기록할 PBKDF2 반복 횟수입니다.
+ * OWASP Password Storage Cheat Sheet의 PBKDF2-HMAC-SHA256 권고치를 따릅니다.
  */
 const PBKDF2_ITERATIONS = 600_000;
-/** 복호화 시 허용하는 PBKDF2 반복 횟수의 상한. */
+/** 복호화 시 허용하는 PBKDF2 반복 횟수의 상한입니다. */
 const MAX_PBKDF2_ITERATIONS = 10_000_000;
-/** AES-GCM 초기화 벡터 길이(바이트) */
+/** AES-GCM 초기화 벡터 길이(바이트)입니다. */
 const IV_BYTES = 12;
-/** PBKDF2 솔트 길이(바이트) */
+/** PBKDF2 솔트 길이(바이트)입니다. */
 const SALT_BYTES = 16;
 
 /**
- * DOM과 Node의 `SubtleCrypto` 타입 차이를 분리하기 위해 사용하는 최소 인터페이스.
+ * DOM과 Node의 `SubtleCrypto` 타입 차이를 분리하는 데 필요한 최소 인터페이스입니다.
  */
 interface SubtleLike {
   importKey(
@@ -50,19 +50,19 @@ interface SubtleLike {
 }
 
 /**
- * 암호화한 `.slip` 내용을 저장하는 JSON 봉투. `kdf`는 암호를 사용한 경우에만 포함한다.
+ * 암호화한 `.slip` 내용을 저장하는 JSON 봉투입니다. `kdf`는 암호 문구를 사용한 경우에만 포함합니다.
  */
 interface EncryptedEnvelope {
   slipkit: typeof MARKER;
-  /** 봉투 형식 버전 */
+  /** 봉투 형식 버전입니다. */
   v: 1;
-  /** 대칭 암호 알고리즘 */
+  /** 대칭 암호 알고리즘입니다. */
   cipher: 'A256GCM';
-  /** 암호에서 키를 파생하는 데 필요한 정보. 원시 키를 사용하면 생략한다. */
+  /** 암호에서 키를 파생하는 데 필요한 정보이며 원시 키를 사용하면 생략합니다. */
   kdf?: { algo: 'PBKDF2-SHA256'; salt: string; iterations: number };
-  /** 초기화 벡터 (base64url) */
+  /** base64url 형식의 초기화 벡터입니다. */
   iv: string;
-  /** 암호문 + 인증 태그 (base64url) */
+  /** 암호문과 인증 태그를 담은 base64url 문자열입니다. */
   data: string;
 }
 
@@ -81,12 +81,12 @@ function randomBytes(length: number): Uint8Array {
 }
 
 /**
- * 입력 키를 AES-GCM 키로 변환한다.
- * `string`은 PBKDF2로 파생할 암호로, `Uint8Array`는 32바이트 원시 키로 처리한다.
+ * 입력 키를 AES-GCM 키로 변환합니다.
+ * `string`은 PBKDF2로 파생할 암호 문구로, `Uint8Array`는 32바이트 원시 키로 처리합니다.
  *
- * 암호 문자열은 PBKDF2에 넣기 직전에 NFC로 정규화한다 — 같은 글자를 NFC와 NFD로 다르게 입력해도
- * 같은 키가 나오도록 한다. 원시 키는 바이트 그대로 쓴다.
- * 암호화에는 현재 기본 반복 횟수를 사용하고, 복호화에는 봉투에 기록된 반복 횟수를 사용한다.
+ * 암호 문구는 PBKDF2에 넣기 직전에 NFC로 정규화합니다. 같은 글자를 NFC와 NFD로 다르게 입력해도
+ * 같은 키가 나오도록 합니다. 원시 키는 바이트 그대로 씁니다.
+ * 암호화에는 현재 기본 반복 횟수를 사용하고, 복호화에는 봉투에 기록된 반복 횟수를 사용합니다.
  */
 async function toAesKey(
   key: string | Uint8Array,
@@ -119,8 +119,8 @@ async function toAesKey(
 }
 
 /**
- * 이미 직렬화된 JSON 문자열이 암호화 봉투인지 판별한다.
- * 텍스트 맨 앞의 UTF-8 BOM 하나는 무시하고 판별한다.
+ * 이미 직렬화된 JSON 문자열이 암호화 봉투인지 판별합니다.
+ * 텍스트 맨 앞의 UTF-8 BOM 하나는 무시하고 판별합니다.
  *
  * @param json - 검사할 JSON 문자열
  * @returns 암호화 봉투면 true (표준 `.slip`이면 false)
@@ -135,21 +135,21 @@ export function isEncryptedSlipFile(json: string): boolean {
 }
 
 /**
- * `.slip` 파일을 암호화 봉투 형식의 JSON 문자열로 변환한다.
+ * `.slip` 파일을 암호화 봉투 형식의 JSON 문자열로 변환합니다.
  *
- * 결과 봉투에는 BOM을 붙이지 않는다(첫 글자는 항상 `{`). 암호 문자열은 키 파생 직전에 NFC로
- * 정규화하고, 원시 키와 파일 안의 문자열은 정규화하지 않는다.
+ * 결과 봉투에는 BOM을 붙이지 않습니다(첫 글자는 항상 `{`). 암호 문구는 키 파생 직전에 NFC로
+ * 정규화하고, 원시 키와 파일 안의 문자열은 정규화하지 않습니다.
  *
  * @param file - 암호화할 `.slip` 파일
- * @param key - 암호(passphrase 문자열) 또는 32바이트 원시 키(Uint8Array)
- * @param options - 오류 메시지에 사용할 로케일 설정 (생략하면 영어)
+ * @param key - 암호 문구 문자열 또는 32바이트 원시 키(`Uint8Array`)
+ * @param options - 오류 메시지에 사용할 로케일 설정(생략하면 영어)
  * @returns 암호화 봉투 JSON 문자열
  * @throws SlipEncryptionError 키가 비었거나 형식이 잘못되었거나 Web Crypto를 사용할 수 없을 때
  *
  * @example
  * ```ts
  * const locked = await encryptSlipFile(file, '내-비밀-암호');
- * // 암호화 결과는 decryptSlipFile로 복호화한다.
+ * // 암호화 결과는 decryptSlipFile로 복호화합니다.
  * ```
  */
 export async function encryptSlipFile(
@@ -178,19 +178,19 @@ export async function encryptSlipFile(
   return JSON.stringify(envelope);
 }
 
-/** 봉투에서 읽어 디코딩까지 마친 복호화 입력. */
+/** 봉투에서 읽어 디코딩까지 마친 복호화 입력입니다. */
 export interface ParsedEnvelope {
-  /** 암호 문구로 잠갔으면 솔트와 반복 횟수, 원시 키로 잠갔으면 없음 */
+  /** 암호 문구를 사용한 경우 솔트와 반복 횟수를 담고, 원시 키를 사용한 경우 생략합니다. */
   kdf?: { salt: Uint8Array; iterations: number };
   iv: Uint8Array;
   data: Uint8Array;
 }
 
-/** 키가 맞지 않아 복호화하지 못한 오류를 표시한다 — 봉투 손상과 구분해 다음 키를 시도할 수 있게 한다. */
+/** 키가 맞지 않아 복호화하지 못한 오류를 표시합니다. 봉투 손상과 구분해 다음 키를 시도할 수 있게 합니다. */
 const keyMismatch = new WeakSet<SlipEncryptionError>();
 
 /**
- * 오류가 키 불일치(틀린 키·키 종류 불일치) 때문인지 알려 준다.
+ * 오류가 키 불일치(잘못된 키·키 종류 불일치) 때문인지 알려 줍니다.
  *
  * @param error - 검사할 값
  * @returns 키를 바꾸면 해결될 수 있는 오류면 true
@@ -209,7 +209,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** base64url 문자열을 디코딩한다. 형식이 틀리거나 길이가 맞지 않으면 `undefined`. */
+/** base64url 문자열을 디코딩합니다. 형식이 틀리거나 길이가 맞지 않으면 `undefined`입니다. */
 function decodeField(value: unknown, expectedLength?: number): Uint8Array | undefined {
   if (typeof value !== 'string' || !/^[A-Za-z0-9_-]*$/.test(value)) return undefined;
   let bytes: Uint8Array;
@@ -223,8 +223,8 @@ function decodeField(value: unknown, expectedLength?: number): Uint8Array | unde
 }
 
 /**
- * 암호화 봉투 JSON 문자열의 구조·필드 형식·길이를 검증하고 디코딩한다 (SPEC §21.3 1~4단계).
- * 텍스트 맨 앞의 UTF-8 BOM 하나는 받아들여 제거하고 파싱한다.
+ * 암호화 봉투 JSON 문자열의 구조·필드 형식·길이를 검증하고 디코딩합니다(SPEC §21.3 1~4단계).
+ * 텍스트 맨 앞의 UTF-8 BOM 하나는 받아들여 제거하고 파싱합니다.
  *
  * @param json - 암호화 봉투 JSON 문자열
  * @param locale - 오류 메시지에 사용할 BCP 47 로케일
@@ -242,7 +242,7 @@ export function parseEncryptedEnvelope(json: string, locale?: string): ParsedEnv
   if (!isRecord(raw) || raw['slipkit'] !== MARKER) {
     throw new SlipEncryptionError(em(locale).notAnEnvelope());
   }
-  // 버전을 먼저 보고 암호를 본다 — 더 새로운 봉투를 "봉투 아님"으로 보고하지 않기 위해서다.
+  // 더 새로운 봉투를 "봉투 아님"으로 보고하지 않도록 버전을 먼저 확인한 뒤 암호를 확인합니다.
   if (raw['v'] !== 1) {
     throw new SlipEncryptionError(em(locale).unsupportedEnvelopeVersion());
   }
@@ -278,10 +278,10 @@ export function parseEncryptedEnvelope(json: string, locale?: string): ParsedEnv
 }
 
 /**
- * 검증을 마친 봉투를 키로 복호화하고 `.slip` 형식인지 검증한다 (SPEC §21.3 5~8단계).
+ * 검증을 마친 봉투를 키로 복호화하고 `.slip` 형식인지 검증합니다(SPEC §21.3 5~8단계).
  *
  * @param envelope - {@link parseEncryptedEnvelope}의 결과
- * @param key - 암호화에 사용한 암호 또는 원시 키
+ * @param key - 암호화에 사용한 암호 문구 또는 원시 키
  * @param locale - 오류 메시지에 사용할 BCP 47 로케일
  * @returns 복호화하고 검증한 `.slip` 파일
  * @throws SlipEncryptionError 키 종류가 봉투와 다르거나, 키가 틀리거나(복호화 실패), 파일 변조 시
@@ -297,7 +297,7 @@ export async function decryptParsedEnvelope(
   if (usePassphrase !== (envelope.kdf !== undefined)) {
     throw mismatch(envelope.kdf ? em(locale).lockedWithPassphrase() : em(locale).lockedWithRawKey());
   }
-  // 복호화에는 봉투에 기록된 반복 횟수를 사용한다.
+  // 복호화에는 봉투에 기록된 반복 횟수를 사용합니다.
   const aesKey = await toAesKey(
     key,
     envelope.kdf?.salt ?? new Uint8Array(0),
@@ -308,7 +308,7 @@ export async function decryptParsedEnvelope(
   try {
     plainBuf = await subtle.decrypt({ name: 'AES-GCM', iv: envelope.iv }, aesKey, envelope.data);
   } catch {
-    // GCM 인증 실패는 잘못된 키나 파일 변조를 뜻한다.
+    // GCM 인증 실패는 잘못된 키나 파일 변조를 뜻합니다.
     throw mismatch(em(locale).decryptFailed());
   }
   return parseSlipFile(
@@ -318,15 +318,15 @@ export async function decryptParsedEnvelope(
 }
 
 /**
- * 암호화 봉투 JSON 문자열을 복호화하고 `.slip` 형식인지 검증한다.
+ * 암호화 봉투 JSON 문자열을 복호화하고 `.slip` 형식인지 검증합니다.
  *
- * 봉투 텍스트 맨 앞의 UTF-8 BOM 하나는 받아들여 제거한다. 암호 문자열은 키 파생 직전에 NFC로
- * 정규화하므로 암호화할 때와 다른 정규화 형태로 입력해도 복호화된다. 복호화된 문서 안의
- * 문자열은 정규화하지 않고 그대로 돌려준다.
+ * 봉투 텍스트 맨 앞의 UTF-8 BOM 하나는 받아들여 제거합니다. 암호 문구는 키 파생 직전에 NFC로
+ * 정규화하므로 암호화할 때와 다른 정규화 형태로 입력해도 복호화됩니다. 복호화된 문서 안의
+ * 문자열은 정규화하지 않고 그대로 반환합니다.
  *
  * @param json - 암호화 봉투 JSON 문자열
- * @param key - 암호화에 사용한 암호 또는 원시 키
- * @param options - 오류 메시지에 사용할 로케일 설정 (생략하면 영어)
+ * @param key - 암호화에 사용한 암호 문구 또는 원시 키
+ * @param options - 오류 메시지에 사용할 로케일 설정(생략하면 영어)
  * @returns 복호화하고 검증한 `.slip` 파일
  * @throws SlipEncryptionError 봉투 형식이 아니거나, 봉투 버전·암호·키 파생 방식을 지원하지
  *   않거나, `kdf`·`iv`·`data` 필드가 손상되었거나, 키 종류가 다르거나, 키가 틀리거나

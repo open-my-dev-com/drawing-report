@@ -31,7 +31,7 @@ installDesignerTestEnv();
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const JPEG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==';
 
-/** MCP가 파일에 넣는 형태의 에셋 — id·mimeType·base64 `data:` URL */
+/** MCP가 파일에 넣는 형태의 에셋이며 `id`, `mimeType`, Base64 `data:` URL을 포함합니다. */
 function makeAssetFile(): SlipTemplateFile {
   const file = makeTemplateFile();
   file.template.assets = [
@@ -48,7 +48,7 @@ function makeAssetFile(): SlipTemplateFile {
   return file;
 }
 
-describe('resolveDisplayImage (상태 비의존)', () => {
+describe('resolveDisplayImage (화면 상태와 무관한 계산)', () => {
   const file = makeAssetFile();
 
   it('data: URL은 그대로, asset://은 에셋의 data: URL로 해석한다', () => {
@@ -56,13 +56,13 @@ describe('resolveDisplayImage (상태 비의존)', () => {
     expect(resolveDisplayImage(file, 'asset://logo')).toEqual({ kind: 'data', src: PNG });
   });
 
-  it('없는 에셋과 data:가 아닌 에셋(다른 에셋을 가리키는 것 포함)은 사유를 돌려준다', () => {
+  it('없는 에셋과 data:가 아닌 에셋(다른 에셋을 가리키는 것 포함)은 사유를 반환한다', () => {
     expect(resolveDisplayImage(file, 'asset://nope')).toEqual({ kind: 'missing', assetId: 'nope' });
     expect(resolveDisplayImage(file, 'asset://alias')).toEqual({ kind: 'notEmbedded', assetId: 'alias' });
     expect(resolveDisplayImage(null, 'asset://logo')).toEqual({ kind: 'missing', assetId: 'logo' });
   });
 
-  it('자리표시 이미지·빈 값·외부 URL은 이미지 없음으로 본다', () => {
+  it('자리 표시 이미지·빈 값·외부 URL은 이미지 없음으로 본다', () => {
     expect(resolveDisplayImage(file, PLACEHOLDER_IMG)).toEqual({ kind: 'none' });
     expect(resolveDisplayImage(file, undefined)).toEqual({ kind: 'none' });
     expect(resolveDisplayImage(file, 'https://example.com/a.png')).toEqual({ kind: 'none' });

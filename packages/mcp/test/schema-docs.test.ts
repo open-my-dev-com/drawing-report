@@ -25,7 +25,7 @@ describe('slip_schema 안내문', () => {
     expect(elements).toContain('conditionalFormats');
     expect(elements).toContain('must return a boolean');
     expect(schemaTopicText('grid')).toContain('conditionalFormats');
-    // 안내문의 버전·상한 표기는 core의 값을 따른다.
+    // 안내문의 버전·상한 표기는 core의 값을 따릅니다.
     expect(schemaTopicText('overview')).toContain(`"schemaVersion": "${CURRENT_SCHEMA_VERSION}"`);
     expect(elements).toContain(`max ${SLIP_LIMITS.maxConditionalFormats}`);
   });
@@ -52,7 +52,7 @@ describe('slip_schema 안내문', () => {
     expect(elements).toContain('"kind": "qrcode"');
     expect(elements).not.toContain('barcodeKind');
     expect(grid).toContain('at most ONE value source');
-    // 행 구간 모델과 페이지 방식을 안내하고 옛 반복 필드는 남기지 않는다.
+    // 행 구간 모델과 페이지 방식을 안내하고 옛 반복 필드는 남기지 않습니다.
     expect(grid).toContain('"bands"');
     expect(grid).toContain('"pagination"');
     expect(grid).toContain('exactly ONE "item" band');
@@ -83,7 +83,7 @@ describe('slip_schema 안내문', () => {
     expect(formula).toContain('Every business-data reference must use $(...)');
     expect(formula).toContain('is a syntax error');
     expect(formula).not.toContain('still accepted');
-    // 업무 데이터를 참조하는 예시는 모두 명시 참조다.
+    // 업무 데이터를 참조하는 예시는 모두 명시 참조입니다.
     expect(formula).not.toContain('SUM(items.amount)');
     expect(formula).not.toContain('SUM(@page.amount)');
     expect(formula).toContain('$(amount) < 0');

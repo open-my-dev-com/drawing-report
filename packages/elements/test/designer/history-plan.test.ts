@@ -38,10 +38,10 @@ import type { Designer } from './helpers.js';
 
 installDesignerTestEnv();
 
-/** 테스트가 들여다보는 디자이너 내부 상태 */
+/** 테스트에서 확인하는 디자이너 내부 상태입니다. */
 type Internals = {
   _file: SlipTemplateFile;
-  _history: { undoDepth: number; redoDepth: number; snapshotBytes: number };
+  _history: { undoDepth: number; redoDepth: number; snapshotChars: number };
   _planner: { computations: number };
   _forms: { savedId: string | null };
   _pagePlan(): { plan: { outputPageCount: number } | null };
@@ -56,7 +56,7 @@ function fileOf(el: Designer): SlipTemplateFile {
   return internals(el)._file;
 }
 
-/** 양식 전체를 JSON으로 — 직렬화 횟수를 세는 구간 밖에서만 부릅니다 */
+/** 직렬화 횟수를 측정하지 않는 구간에서 양식 전체를 JSON으로 변환합니다. */
 function fileJson(el: Designer): string {
   return JSON.stringify(fileOf(el));
 }
@@ -72,7 +72,7 @@ function textElement(id: string, x: number, y: number) {
   };
 }
 
-/** 항목 구간이 한 행인 자동 확장 반복 그리드 — 세로 위치가 바뀌면 출력 페이지 수가 달라집니다 */
+/** 항목 구간이 한 행인 자동 확장 반복 그리드 — 세로 위치가 바뀌면 출력 페이지 수가 달라집니다. */
 function repeatGrid(y: number) {
   return {
     type: 'grid' as const,
@@ -97,7 +97,7 @@ function repeatGrid(y: number) {
   };
 }
 
-/** 10페이지 × 100요소, 첫 페이지에 샘플 항목 500개짜리 반복 그리드를 둔 큰 양식 */
+/** 10페이지 × 100요소, 첫 페이지에 샘플 항목 500개짜리 반복 그리드를 둔 큰 양식입니다. */
 function makeLargeFile(): SlipTemplateFile {
   const pages = Array.from({ length: 10 }, (_, page) => {
     const count = page === 0 ? 99 : 100;
@@ -121,7 +121,7 @@ function makeLargeFile(): SlipTemplateFile {
   } as unknown as SlipTemplateFile;
 }
 
-/** 1페이지 × 20요소의 작은 양식. 첫 요소 `t-0`은 (30,40)에 있습니다 */
+/** 1페이지 × 20요소의 작은 양식. 첫 요소 `t-0`은 (30,40)에 있습니다. */
 function makeSmallFile(): SlipTemplateFile {
   return {
     schemaVersion: '0.1.0',
@@ -138,7 +138,7 @@ function makeSmallFile(): SlipTemplateFile {
   } as unknown as SlipTemplateFile;
 }
 
-/** 고정 페이지(항목 5개 ÷ 2 = 출력 3페이지) 반복 그리드 하나짜리 양식 */
+/** 고정 페이지(항목 5개 ÷ 2 = 출력 3페이지) 반복 그리드 하나짜리 양식입니다. */
 function makeFixedGridFile(): SlipTemplateFile {
   return {
     schemaVersion: '0.1.0',
@@ -173,7 +173,7 @@ function canvasElement(el: Designer, id: string): HTMLElement {
   return el.shadowRoot!.querySelector(`[data-id="${id}"]`) as HTMLElement;
 }
 
-/** happy-dom의 `getBoundingClientRect`는 0을 돌려주므로 mm 좌표를 `clientX / PX_PER_MM`로 씁니다 */
+/** happy-dom의 `getBoundingClientRect`는 0을 반환하므로 mm 좌표를 `clientX / PX_PER_MM`로 계산합니다. */
 function pointer(target: HTMLElement, type: string, mmX: number, mmY: number): void {
   target.dispatchEvent(new PointerEvent(type, {
     bubbles: true, composed: true, clientX: mmX * PX_PER_MM, clientY: mmY * PX_PER_MM, pointerId: 1,
@@ -194,7 +194,7 @@ function watchChanges(el: Designer): CustomEvent[] {
   return changes;
 }
 
-/** 요소를 (0,0)에서 눌러 `steps`번 나눠 (dx,dy)mm까지 끌고 놓습니다 */
+/** 요소를 (0,0)에서 눌러 `steps`번 나눠 (dx,dy)mm까지 끌고 놓습니다. */
 async function drag(el: Designer, id: string, dx: number, dy: number, steps = 3): Promise<void> {
   const div = canvasElement(el, id);
   pointer(div, 'pointerdown', 0, 0);
@@ -206,7 +206,7 @@ async function drag(el: Designer, id: string, dx: number, dy: number, steps = 3)
   await el.updateComplete;
 }
 
-/** 화살표 키 한 번 누르고 떼기 — 되돌리기 한 단계 */
+/** 화살표 키 한 번 누르고 떼기 — 되돌리기 한 단계입니다. */
 async function nudge(el: Designer, key: string, init: KeyboardEventInit = {}): Promise<void> {
   press(el, key, init);
   release(el, key);
@@ -223,7 +223,7 @@ async function redo(el: Designer): Promise<void> {
   await el.updateComplete;
 }
 
-/** 속성 패널의 출력 페이지 표시 문구 (반복 그리드를 선택했을 때) */
+/** 반복 그리드를 선택했을 때 속성 패널에 표시할 출력 페이지 문구입니다. */
 function navStatus(el: Designer): string {
   return el.shadowRoot!.querySelector('.prop-panel .output-page-nav .output-page-status')
     ?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
@@ -234,7 +234,7 @@ function navStatus(el: Designer): string {
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 드래그 중 문서 직렬화', () => {
-  it('120번 움직여도 양식은 검사점 한 번만 직렬화하고, 놓을 때 한 번 복제해 slip-change 한 번을 보낸다', async () => {
+  it('120번 움직여도 양식은 시작 상태를 한 번만 직렬화하고, 놓을 때 한 번 복제해 slip-change 한 번을 보낸다', async () => {
     const el = await mountFile(makeLargeFile());
     const file = fileOf(el);
     selectElement(el, 't-0-0');
@@ -258,7 +258,7 @@ describe('<slip-designer> 드래그 중 문서 직렬화', () => {
       await el.updateComplete;
     }
 
-    // 이동 중: 검사점 한 번 외에는 직렬화·복제·변경 알림·기록이 없습니다. 계획은 다시 계산됩니다.
+    // 이동 중에는 시작 상태 기록 외에 직렬화·복제·변경 알림을 수행하지 않습니다. 계획은 다시 계산됩니다.
     expect(largeStringifyCalls()).toBeLessThanOrEqual(1);
     expect(clone).not.toHaveBeenCalled();
     expect(changes).toHaveLength(0);
@@ -273,7 +273,7 @@ describe('<slip-designer> 드래그 중 문서 직렬화', () => {
     expect(changes).toHaveLength(1);
     expect(internals(el)._history.undoDepth).toBe(depth + 1);
     expect(positionOf(el, 't-0-0').x).toBeGreaterThan(10);
-    expect(internals(el)._history.snapshotBytes).toBeGreaterThan(10_000);
+    expect(internals(el)._history.snapshotChars).toBeGreaterThan(10_000);
     el.remove();
   });
 
@@ -351,7 +351,7 @@ describe('<slip-designer> 편집 단위', () => {
     expect(history.undoDepth).toBe(4);
     expect(changes).toHaveLength(4);
 
-    // 화살표를 누른 채 방향을 바꿔도 키를 떼기 전까지는 한 단계입니다
+    // 화살표를 누른 채 방향을 바꿔도 키를 떼기 전까지는 한 단계입니다.
     selectElement(el, 't-1');
     await el.updateComplete;
     press(el, 'ArrowRight');
@@ -364,6 +364,31 @@ describe('<slip-designer> 편집 단위', () => {
     expect(positionOf(el, 't-1')).toEqual({ x: 61, y: 45 });
     expect(history.undoDepth).toBe(5);
     expect(changes).toHaveLength(5);
+    el.remove();
+  });
+
+  it('키보드 이동을 마치면 툴바의 되돌리기 버튼이 바로 켜진다', async () => {
+    const el = await mountFile(makeSmallFile());
+    const undoButton = (): HTMLButtonElement => toolbarButton(el, strings.designer.undo);
+    expect(undoButton().disabled).toBe(true);
+
+    selectElement(el, 't-1');
+    await el.updateComplete;
+    press(el, 'ArrowRight');
+    await el.updateComplete;
+    // 키를 누르고 있는 동안은 아직 한 단계로 기록되지 않습니다.
+    expect(undoButton().disabled).toBe(true);
+
+    release(el, 'ArrowRight');
+    await el.updateComplete;
+    expect(internals(el)._history.undoDepth).toBe(1);
+    expect(undoButton().disabled).toBe(false);
+
+    // 켜진 버튼을 그대로 눌러 되돌릴 수 있습니다.
+    undoButton().click();
+    await el.updateComplete;
+    expect(positionOf(el, 't-1')).toEqual({ x: 60, y: 40 });
+    expect(undoButton().disabled).toBe(true);
     el.remove();
   });
 
@@ -388,7 +413,7 @@ describe('<slip-designer> 편집 단위', () => {
     const edited = fileJson(el);
     expect(edited).not.toBe(original);
 
-    // 내 양식을 불러오면 저장 대상이 붙습니다
+    // 내 양식을 불러오면 저장 대상이 붙습니다.
     toolbarButton(el, strings.designer.myFormsList).click();
     await settle(el);
     (Array.from(el.shadowRoot!.querySelectorAll('button'))
@@ -413,7 +438,7 @@ describe('<slip-designer> 편집 단위', () => {
     expect(internals(el)._forms.savedId).toBe('a');
     expect(history.redoDepth).toBe(0);
 
-    // 되돌린 뒤 새로 편집하면 다시 실행할 것이 없어집니다
+    // 되돌린 뒤 새로 편집하면 다시 실행할 것이 없어집니다.
     await undo(el);
     expect(history.redoDepth).toBe(1);
     selectElement(el, 't-1');
@@ -441,7 +466,7 @@ describe('<slip-designer> 편집 단위', () => {
     expect(history.undoDepth).toBe(0);
     expect(fileJson(el)).toBe(afterFirst);
 
-    // 첫 편집 이전으로는 더 돌아갈 수 없습니다
+    // 첫 편집 이전으로는 더 돌아갈 수 없습니다.
     await undo(el);
     expect(fileJson(el)).toBe(afterFirst);
     el.remove();
@@ -525,7 +550,7 @@ describe('<slip-designer> 페이지 계획 캐시', () => {
 
     expect(history.undoDepth).toBe(0);
     expect(history.redoDepth).toBe(0);
-    expect(history.snapshotBytes).toBe(0);
+    expect(history.snapshotChars).toBe(0);
     expect(planner.computations).toBeGreaterThan(count);
     expect(fileOf(el).template.meta.title).toBe('고정 페이지');
     expect(internals(el)._pagePlan().plan?.outputPageCount).toBe(3);

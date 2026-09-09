@@ -38,7 +38,7 @@ import type { Designer } from './helpers.js';
 
 installDesignerTestEnv();
 
-/** 텍스트·수식 필드·고정 이미지·그리드를 한 페이지에 둔 양식 */
+/** 텍스트·수식 필드·고정 이미지·그리드를 한 페이지에 둔 양식입니다. */
 function makeFile(): SlipTemplateFile {
   const file = makeTemplateFile();
   file.template.pages[0]!.elements.push(
@@ -74,7 +74,7 @@ function press(el: Element, key: string, init: KeyboardEventInit = {}): void {
   el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }));
 }
 
-/** 삭제·되돌리기·다시 실행·붙여넣기·배지 전환을 한꺼번에 눌러 봅니다 */
+/** 삭제, 되돌리기, 다시 실행, 붙여넣기와 배지 전환 키를 차례로 누릅니다. */
 async function pressDestructiveKeys(el: Designer): Promise<void> {
   press(el, 'Delete');
   press(el, 'Backspace');
@@ -86,7 +86,7 @@ async function pressDestructiveKeys(el: Designer): Promise<void> {
   await el.updateComplete;
 }
 
-/** 요소 이름을 바꿔 되돌릴 거리를 하나 만들어 둡니다 */
+/** 요소 이름을 바꿔 되돌릴 변경 사항을 하나 만듭니다. */
 async function makeUndoable(el: Designer): Promise<void> {
   const name = el.shadowRoot!.querySelector(`.prop-panel input[aria-label="${strings.designer.name}"]`) as HTMLInputElement;
   name.value = '바뀐 이름';
@@ -111,7 +111,7 @@ async function clickCell(el: Element, mmX: number, mmY: number, init: PointerEve
   await (el as Designer).updateComplete;
 }
 
-/** 모달 종류별로 여는 방법 */
+/** 모달 종류별로 여는 방법입니다. */
 const openers: Record<string, (el: Designer) => Promise<void>> = {
   formula: async (el) => {
     selectElement(el, 'f-1');

@@ -1,20 +1,20 @@
 /**
- * `slipkit-mcp` 명령줄 인자 해석과 도움말·버전 출력.
+ * `slipkit-mcp` 명령줄 인자 해석과 도움말·버전 출력입니다.
  *
  * @remarks
- * 서버 시작 코드와 분리해 두어 설정 파일이나 서버 없이도 인자 처리를 시험할 수 있습니다.
+ * 서버 시작 코드와 분리해 두어 설정 파일이나 서버 없이도 인자 처리를 검증할 수 있습니다.
  * 패키지 공개 API에는 포함하지 않습니다.
  */
 
 import { parseArgs } from 'node:util';
 
-/** 빌드 설정이 package.json의 버전으로 바꿔 넣는 상수 */
+/** 빌드할 때 `package.json`의 버전으로 바뀌는 상수입니다. */
 declare const __SLIPKIT_MCP_VERSION__: string;
 
-/** `--version`이 출력하는 패키지 버전 */
+/** `--version`이 출력하는 패키지 버전입니다. */
 export const PACKAGE_VERSION: string = __SLIPKIT_MCP_VERSION__;
 
-/** `--help`가 stdout에 출력하는 본문 */
+/** `--help`가 stdout에 출력하는 본문입니다. */
 export const HELP_TEXT = `Usage: slipkit-mcp [working-directory] [options]
 
 Start the SlipKit MCP server over stdio.
@@ -46,18 +46,18 @@ The positional working directory overrides rootDir from the config file.
 The locale precedence is --locale, SLIPKIT_MCP_LOCALE, then the config file.
 `;
 
-/** 서버를 시작할 때 명령줄에서 받은 값 */
+/** 서버를 시작할 때 명령줄에서 받은 값입니다. */
 export interface ServeArgs {
-  /** 위치 인자로 받은 작업 디렉터리 */
+  /** 위치 인자로 받은 작업 디렉터리입니다. */
   rootDir?: string;
-  /** `--config` 값 */
+  /** `--config` 값입니다. */
   configPath?: string;
-  /** `--locale` 값 */
+  /** `--locale` 값입니다. */
   locale?: string;
 }
 
-/** 명령줄 인자를 해석한 결과 */
-export type CliCommand =
+/** 명령줄 인자를 해석한 결과입니다. */
+type CliCommand =
   | { kind: 'help' }
   | { kind: 'version' }
   | { kind: 'serve'; args: ServeArgs }
@@ -113,22 +113,22 @@ function usageMessage(error: unknown): string {
   return raw.replace(/\.\s*To specify.*$/s, '').replace(/\.$/, '');
 }
 
-/** 명령이 쓰는 표준 출력·오류 스트림 */
+/** 명령이 쓰는 표준 출력·오류 스트림입니다. */
 export interface CliIo {
   stdout: (text: string) => void;
   stderr: (text: string) => void;
 }
 
 /**
- * 명령줄 인자대로 도움말·버전을 출력하거나 서버를 시작하고 종료 코드를 돌려줍니다.
+ * 명령줄 인자대로 도움말·버전을 출력하거나 서버를 시작하고 종료 코드를 반환합니다.
  *
  * @remarks
- * 도움말과 버전은 설정 파일·작업 디렉터리·폰트·서버를 건드리지 않습니다.
+ * 도움말과 버전은 설정 파일, 작업 디렉터리, 폰트와 서버에 영향을 주지 않습니다.
  * 사용법 오류는 종료 코드 2, 서버 시작 중 오류는 종료 코드 1입니다.
  *
  * @param argv - 실행 파일 뒤의 인자 목록
  * @param io - 표준 출력과 표준 오류에 쓰는 함수
- * @param serve - 서버를 시작하는 함수. 오류를 던지면 메시지를 stderr에 내고 1을 돌려줍니다
+ * @param serve - 서버를 시작하는 함수. 오류를 던지면 메시지를 stderr에 출력하고 1을 반환합니다.
  * @returns 프로세스 종료 코드
  */
 export async function runCli(

@@ -1,5 +1,5 @@
 /**
- * 그리드 편집 작업 — 행·열, 반복 설정, 행 구간과 셀 값·스타일.
+ * 그리드의 행·열, 반복 설정, 행 구간과 셀 값·스타일 편집을 처리합니다.
  *
  * @remarks
  * `GridEditController`가 편집 대상을 관리하고, 이 컨트롤러는 선택된 대상의 변경을 파일에 반영합니다.
@@ -41,30 +41,30 @@ import type { ParameterInfo } from '../parameters.js';
 import type { GridEditController } from './grid-edit.js';
 import type { DesignerStrings } from '../../strings.js';
 
-/** 그리드 조작이 컴포넌트에 요청하는 것 */
+/** 그리드 조작에서 호출하는 컴포넌트 변경 함수입니다. */
 export interface GridCommandsHost {
-  /** 로케일에 맞는 문구 */
+  /** 로케일에 맞는 문구입니다. */
   readonly s: DesignerStrings;
-  /** 그리드 셀·행 구간 선택 상태 */
+  /** 그리드 셀·행 구간 선택 상태입니다. */
   readonly edit: GridEditController;
-  /** 속성 패널이 대상으로 삼는 요소 */
+  /** 속성 패널이 대상으로 삼는 요소입니다. */
   selectedElement(): SlipElement | undefined;
-  /** 선택한 요소를 수정합니다 */
+  /** 선택한 요소를 수정합니다. */
   updateElement(fn: (el: SlipElement) => void): void;
-  /** 입력값을 되돌리고 오류를 표시합니다 */
+  /** 입력값을 되돌리고 오류를 표시합니다. */
   reject(message?: string, field?: string): void;
-  /** 패널의 오류 표시를 모두 지웁니다 */
+  /** 패널의 오류 표시를 모두 지웁니다. */
   resetPanelErrors(): void;
-  /** 입력 오류 하나를 지웁니다 */
+  /** 입력 오류 하나를 지웁니다. */
   clearInputError(): void;
   /**
    * 파라미터 정의가 없으면 만듭니다.
-   * 되돌리기 한 단위와 내보내는 파일에 함께 담기도록 `updateElement`의 수정 함수 안에서 부릅니다
+   * 되돌리기 한 단계와 내보내는 파일에 함께 담기도록 `updateElement`의 수정 함수 안에서 호출합니다.
    */
   ensureParameterDef(key: string, valueType?: string): void;
-  /** 정의와 사용처를 합친 파라미터 목록 */
+  /** 정의와 사용처를 합친 파라미터 목록입니다. */
   parameters(): ParameterInfo[];
-  /** 화면을 다시 그립니다 */
+  /** 화면을 다시 그립니다. */
   refresh(): void;
 }
 
@@ -164,7 +164,7 @@ export class GridCommandsController {
   /**
    * 반복 설정을 켜거나 끕니다.
    * 켜면 선택한 행(없으면 마지막 행)을 항목 구간으로 하고, 위쪽 행은 데이터 앞,
-   * 아래쪽 행은 데이터 뒤 구간으로 지정합니다. 페이지 방식은 자동 확장으로 시작합니다 (§7.1).
+   * 아래쪽 행은 데이터 뒤 구간으로 지정합니다. 페이지 방식은 자동 확장으로 시작합니다(§7.1).
    */
   toggleRepeat(on: boolean): void {
     const el = this.host.selectedElement();
@@ -209,7 +209,7 @@ export class GridCommandsController {
     });
   }
 
-  /** 최대 항목 수를 변경합니다. null은 제한 없음입니다. */
+  /** 최대 항목 수를 변경합니다. `null`이면 항목 수를 제한하지 않습니다. */
   setRepeatMaxItems(value: number | null): void {
     const el = this.host.selectedElement();
     if (el?.type !== 'grid' || !el.repeat) return;
@@ -522,7 +522,7 @@ export class GridCommandsController {
 
   /**
    * 인라인 편집으로 입력한 셀의 직접 입력 값을 저장합니다.
-   * 파라미터나 수식을 사용하는 셀은 값 소스가 하나뿐이라 저장하지 않고 거부합니다 (SPEC §5.7).
+   * 파라미터나 수식을 사용하는 셀은 값 소스가 하나뿐이라 저장하지 않고 거부합니다(SPEC §5.7).
    *
    * @param value - 입력한 글
    */
@@ -533,7 +533,7 @@ export class GridCommandsController {
     const el = this.host.selectedElement();
     if (!isGrid(el)) return;
     const existing = el.cells.find((c) => c.row === target.row && c.column === target.column);
-    // 셀은 직접 입력, 파라미터, 수식 중 하나만 사용할 수 있습니다 (SPEC §5.7).
+    // 셀은 직접 입력, 파라미터, 수식 중 하나만 사용할 수 있습니다(SPEC §5.7).
     if (existing && ('parameter' in existing || 'formula' in existing)) {
       this.host.reject();
       return;
@@ -571,7 +571,7 @@ export class GridCommandsController {
       this.host.reject(this.host.s.mergeOutOfGrid, errorKey);
       return;
     }
-    // 병합 범위는 하나의 행 구간 안에 완전히 포함되어야 합니다 (SPEC §5.7).
+    // 병합 범위는 하나의 행 구간 안에 완전히 포함되어야 합니다(SPEC §5.7).
     if (el.repeat && rowSpan > 1) {
       const probe: GridCell = { row: target.row, column: target.column, rowSpan };
       if (spanCrossesBand(el.repeat.bands, probe)) {
@@ -626,7 +626,7 @@ export class GridCommandsController {
   }
 
   /**
-   * 선택한 모든 셀에서 스타일 속성을 제거해 그리드 공통값을 물려받게 합니다 (기본값으로 되돌리기).
+   * 선택한 모든 셀에서 스타일 속성을 제거해 그리드 공통값을 물려받게 합니다(기본값으로 되돌리기).
    *
    * @param keys - 제거할 스타일 속성 이름 목록
    */
@@ -672,7 +672,7 @@ export class GridCommandsController {
   }
 
   /**
-   * 셀의 값 소스를 설정하고 다른 종류의 값 소스를 제거합니다 (SPEC §5.7).
+   * 셀의 값 소스를 설정하고 다른 종류의 값 소스를 제거합니다(SPEC §5.7).
    */
   setCellSource(kind: 'content' | 'parameter' | 'formula', value: string): void {
     const target = this.host.edit.cell;

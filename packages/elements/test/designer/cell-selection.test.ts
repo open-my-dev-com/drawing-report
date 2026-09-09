@@ -9,7 +9,7 @@ import {
   summarizeCellValue,
 } from '../../src/designer/cell-selection.js';
 
-/** 3×3 그리드 — (0,0)이 2×2로 병합되어 있고 (2,2)는 굵게 */
+/** 3×3 그리드 — (0,0)이 2×2로 병합되어 있고 (2,2)는 굵게입니다. */
 function grid(): GridElement {
   return {
     type: 'grid', id: 'g', name: '그리드', position: { x: 0, y: 0 },
@@ -62,11 +62,11 @@ describe('셀 복수 선택 계산', () => {
 
   it('실제 적용값이 같으면 직접 지정과 상속을 섞어도 혼합이 아니다', () => {
     const el = grid();
-    // (0,2)는 12를 직접 갖고, (2,0)은 없어 그리드 공통값 12를 물려받는다.
+    // (0,2)에는 12가 직접 지정되어 있고, (2,0)은 값이 없어 그리드 공통값 12를 물려받습니다.
     const records = cellRecordsOf(el, [{ row: 0, column: 2 }, { row: 2, column: 0 }]);
     const size = summarizeCellValue(records, (cell) => cell.fontSize, 12);
     expect(size).toEqual({ mixed: false, effective: 12, stored: undefined });
-    // 둘 다 12를 직접 가지면 저장값도 공통이다.
+    // 둘 다 12를 직접 가지면 저장값도 공통입니다.
     const both = cellRecordsOf(el, [{ row: 0, column: 2 }, { row: 2, column: 2 }]);
     expect(summarizeCellValue(both, (cell) => cell.fontSize, 10))
       .toEqual({ mixed: false, effective: 12, stored: 12 });
@@ -77,7 +77,7 @@ describe('셀 복수 선택 계산', () => {
     const records = cellRecordsOf(el, [{ row: 2, column: 2 }, { row: 2, column: 0 }]);
     const bold = summarizeCellValue(records, (cell) => cell.bold, false);
     expect(bold).toEqual({ mixed: true, effective: undefined, stored: undefined });
-    // 그리드 공통값이 굵게이면 (2,0)도 굵게로 보아 혼합이 아니다.
+    // 그리드 공통값이 굵게이면 (2,0)도 굵게로 보므로 혼합 상태가 아닙니다.
     expect(summarizeCellValue(records, (cell) => cell.bold, true).mixed).toBe(false);
   });
 });

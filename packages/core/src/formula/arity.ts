@@ -1,5 +1,5 @@
 /**
- * 함수 인자 수 검사 — 데이터 없이 확인할 수 있는 규칙.
+ * 데이터 없이 확인할 수 있는 함수 인자 수 규칙을 검사합니다.
  *
  * 인자 수가 잘못된 수식은 데이터가 달라져도 계산할 수 없습니다. 편집기는 이를
  * 현재 샘플 값이 없어 계산할 수 없는 경우와 구분하여 저장을 차단합니다.
@@ -10,7 +10,7 @@ import { fm, withFormulaLocale } from './messages.js';
 import type { FormulaAst } from './parser.js';
 
 /**
- * 함수 하나의 인자 수가 규칙에 맞는지 확인한다.
+ * 함수 하나의 인자 수가 규칙에 맞는지 확인합니다.
  *
  * @param name - 함수 이름
  * @param count - 실제 인자 수
@@ -25,7 +25,7 @@ export function assertArity(name: FormulaFunctionName, count: number): void {
 }
 
 /**
- * 구문 트리 전체를 훑어 함수 인자 수를 확인한다.
+ * 구문 트리 전체를 훑어 함수 인자 수를 확인합니다.
  *
  * @param ast - {@link parseFormula}가 만든 구문 트리
  * @param options - 오류 메시지 언어

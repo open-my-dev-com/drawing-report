@@ -1,5 +1,5 @@
 /**
- * 좌측 사이드바 — 페이지, 요소와 파라미터 목록.
+ * 왼쪽 사이드바에 페이지, 요소와 파라미터 목록을 표시합니다.
  */
 
 import { html, nothing } from 'lit';
@@ -22,33 +22,33 @@ import type { PanelKit } from './panel-kit.js';
 export type { SideSelection };
 
 
-/** 사이드바가 컴포넌트에 요청하는 조작 */
+/** 사이드바에서 호출하는 컴포넌트 조작입니다. */
 export interface SidebarActions {
-  /** 편집 중인 양식 */
+  /** 편집 중인 양식입니다. */
   readonly file: SlipTemplateFile | null;
-  /** 지금 값으로 계산되지 않는 수식이 있는 요소와 셀 */
+  /** 지금 값으로 계산되지 않는 수식이 있는 요소와 셀입니다. */
   readonly formulaWarnings: FormulaWarnings;
-  /** 보고 있는 양식 페이지 (0부터) */
+  /** 보고 있는 양식 페이지 번호이며 0부터 시작합니다. */
   readonly pageIndex: number;
-  /** 사이드바에서 선택한 대상 */
+  /** 사이드바에서 선택한 대상입니다. */
   readonly selection: SideSelection;
-  /** 속성 패널이 대상으로 삼는 주 선택 요소 */
+  /** 속성 패널이 대상으로 삼는 주 선택 요소입니다. */
   readonly selectedId: string | null;
-  /** 함께 선택된 요소 id 모음 */
+  /** 함께 선택된 요소 ID 모음입니다. */
   readonly selectedIds: ReadonlySet<string>;
-  /** 하위 셀 목록을 펼친 요소 id 모음 */
+  /** 하위 셀 목록을 펼친 요소 ID 모음입니다. */
   readonly expandedElements: ReadonlySet<string>;
-  /** 하위 필드를 펼친 파라미터 키 모음 */
+  /** 하위 필드를 펼친 파라미터 키 모음입니다. */
   readonly expandedParameters: ReadonlySet<string>;
-  /** 미리보기를 띄운 페이지 번호 */
+  /** 미리보기를 띄운 페이지 번호입니다. */
   readonly thumbPage: number | null;
-  /** 페이지 미리보기의 화면 위치 */
+  /** 페이지 미리보기의 화면 위치입니다. */
   readonly thumbPos: { top: number; left: number } | null;
-  /** 그리드 셀 선택 상태 */
+  /** 그리드 셀 선택 상태입니다. */
   readonly gridEdit: GridEditController;
-  /** 정의와 사용처를 합친 파라미터 목록 */
+  /** 정의와 사용처를 합친 파라미터 목록입니다. */
   parameters(): ParameterInfo[];
-  /** 페이지 목록에 표시할 이름 */
+  /** 페이지 목록에 표시할 이름입니다. */
   pageDisplayName(page: { label?: string | undefined }, index: number): string;
   goToPage(index: number): void;
   selectPage(index: number): void;
@@ -65,9 +65,9 @@ export interface SidebarActions {
   deleteElementById(pageIndex: number, id: string): void;
   selectFromSidebar(pageIndex: number, id: string, additive?: boolean): void;
   selectGridCell(pageIndex: number, gridId: string, row: number, column: number): void;
-  /** 그리드에서 값이 있는 셀 목록 */
+  /** 그리드에서 값이 있는 셀 목록입니다. */
   gridValueCells(grid: SlipElement): { row: number; column: number; label: string; at: string }[];
-  /** 샘플 데이터 모달을 처음 상태로 엽니다 */
+  /** 샘플 데이터 모달을 처음 상태로 엽니다. */
   openSampleModal(): void;
 }
 
@@ -205,7 +205,7 @@ function elementRow(kit: PanelKit, side: SidebarActions, pageIndex: number, el: 
   `;
 }
 
-/** 계산할 수 없는 수식이 있음을 알리는 표시 — 누르는 자리가 아니라 행 안의 표시입니다 */
+/** 계산할 수 없는 수식이 있음을 알리는 표시 — 누르는 자리가 아니라 행 안의 표시입니다. */
 function warningMark(label: string) {
   return html`<span class="side-warning" title=${label}>${icons.warning}</span>`;
 }

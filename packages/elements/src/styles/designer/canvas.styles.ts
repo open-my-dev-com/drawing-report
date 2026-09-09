@@ -1,9 +1,9 @@
 /**
- * `<slip-designer>` 스타일 — 캔버스.
+ * `<slip-designer>` 스타일 — 캔버스입니다.
  *
  * @remarks
- * 눈금자, 용지, 격자, 요소 표시와 선택 표시.
- * 규칙 순서는 원래 한 파일이던 때와 같습니다 — 순서를 바꾸면 cascade가 달라집니다.
+ * 눈금자, 용지, 격자, 요소 표시와 선택 표시입니다.
+ * 규칙 순서는 유지해야 합니다. 순서를 바꾸면 CSS 적용 결과가 달라집니다.
  */
 import { css } from 'lit';
 import { RULER_PX } from './metrics.js';
@@ -19,7 +19,7 @@ export const canvasStyles = css`
       justify-content: center;
       padding: 24px;
     }
-    /* 생성 도구를 선택한 동안 캔버스 클릭으로 요소를 배치하므로 십자 커서를 사용합니다 */
+    /* 생성 도구를 선택한 동안 캔버스 클릭으로 요소를 배치하므로 십자 커서를 사용합니다. */
     .canvas-area.drawing,
     .canvas-area.drawing .element {
       cursor: crosshair;
@@ -40,7 +40,7 @@ export const canvasStyles = css`
       pointer-events: none;
       z-index: 25;
     }
-    /* 눈금자와 용지를 함께 스크롤해 눈금 위치를 일치시킵니다  */
+    /* 눈금자와 용지를 함께 스크롤해 눈금 위치를 일치시킵니다. */
     .paper-wrap {
       display: grid;
       grid-template-columns: ${RULER_PX}px auto;
@@ -79,13 +79,13 @@ export const canvasStyles = css`
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
       flex-shrink: 0;
     }
-    /* 격자 — 요소보다 뒤에 표시합니다. 선 색과 간격은 인라인 스타일로 지정합니다 */
+    /* 격자 — 요소보다 뒤에 표시합니다. 선 색과 간격은 인라인 스타일로 지정합니다. */
     .grid-overlay {
       position: absolute;
       inset: 0;
       pointer-events: none;
     }
-    /* 격자 색 견본 — 격자가 켜져 있을 때만 메뉴에 표시합니다  */
+    /* 격자가 켜졌을 때만 메뉴에 표시하는 격자 색 견본입니다. */
     .grid-colors {
       display: flex;
       gap: 6px;
@@ -105,7 +105,7 @@ export const canvasStyles = css`
       outline: 2px solid var(--sk-accent);
       outline-offset: 1px;
     }
-    /* 커서 좌표 — 캔버스 오른쪽 아래에 붙어 스크롤해도 자리를 지킵니다  */
+    /* 커서 좌표는 캔버스 오른쪽 아래에 고정해 스크롤해도 같은 자리에 표시합니다. */
     .coords {
       grid-row: 2;
       grid-column: 2;
@@ -125,7 +125,7 @@ export const canvasStyles = css`
       border: 1px dashed rgba(0, 0, 0, 0.1);
       pointer-events: none;
     }
-    /* 페이지 번호 자리표시  — 실제 번호는 PDF 후처리, 캔버스는 X / X만 */
+    /* 실제 페이지 번호는 PDF 후처리에서 넣으므로 캔버스에는 X / X 형식만 표시합니다. */
     .page-number-mark {
       position: absolute;
       display: flex;
@@ -138,13 +138,24 @@ export const canvasStyles = css`
     .element {
       position: absolute;
       box-sizing: border-box;
-      border: 1px solid var(--sk-guide-faint);
+      /*
+       * 편집 안내선은 테두리가 아니라 outline으로 그립니다. 테두리로 그리면 내용 상자가
+       * 요소 폭보다 좁아져 캔버스가 PDF보다 이른 자리에서 줄을 바꿉니다.
+       * 저장된 테두리를 그릴 때는 굵기·색을 요소 style로 덮어씁니다.
+       */
+      border: 0 solid transparent;
+      outline: 1px solid var(--sk-guide-faint);
+      outline-offset: -1px;
       cursor: move;
       overflow: hidden;
       touch-action: none;
       user-select: none;
       font-size: 11px;
       line-height: 1.3;
+    }
+    /* 저장된 테두리를 그리는 요소에는 편집 안내선을 겹치지 않습니다. */
+    .element.has-border {
+      outline: none;
     }
     .element > * {
       pointer-events: none;
@@ -160,7 +171,7 @@ export const canvasStyles = css`
     .element.type-grid {
       overflow: visible;
     }
-    /* 저장된 그리드 테두리 전용 레이어. 편집 안내선·선택 표시와 별개입니다. */
+    /* 저장된 그리드 테두리를 표시하며 편집 안내선과 선택 표시에는 영향을 주지 않습니다. */
     .element .grid-outline {
       position: absolute;
       pointer-events: none;
@@ -178,7 +189,7 @@ export const canvasStyles = css`
       position: absolute;
       top: 1px;
       left: 1px;
-      /* 표·그리드 미리보기가 나중에 그려져 배지를 덮지 않도록 */
+      /* 그리드 미리보기가 나중에 그려져도 배지를 가리지 않도록 위에 배치합니다. */
       z-index: 1;
       display: none;
       align-items: center;
@@ -199,9 +210,9 @@ export const canvasStyles = css`
       width: 11px;
       height: 11px;
     }
-    /* 텍스트·필드 표시 — PDF(pdfme)와 같게: 위쪽 정렬, 줄바꿈 유지, 넘치면 자동 줄바꿈 */
+    /* 텍스트와 필드는 PDF와 같이 위쪽 정렬, 기존 줄바꿈 유지, 자동 줄바꿈을 적용합니다. */
     .element .el-content {
-      /* flex column으로 수직 정렬(justify-content)을 줍니다 — 기본은 상단 */
+      /* 세로 방향 플렉스 배치에서 justify-content로 수직 정렬합니다. 기본값은 위쪽입니다. */
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
@@ -209,7 +220,7 @@ export const canvasStyles = css`
       height: 100%;
       overflow: hidden;
       white-space: pre-wrap;
-      /* 줄바꿈 위치도 PDF와 맞춥니다 — 낱말 단위로 끊고, 한 낱말이 상자보다 길 때만 낱말 안에서 끊습니다 */
+      /* 줄바꿈 위치도 PDF와 맞춥니다. 낱말 단위로 끊고, 한 낱말이 상자보다 길 때만 낱말 안에서 끊습니다. */
       word-break: keep-all;
       overflow-wrap: break-word;
       line-height: 1;
@@ -224,7 +235,7 @@ export const canvasStyles = css`
       position: absolute;
       inset: 0;
     }
-    /* 바코드 견본 — 모듈 배열·막대 그림 위에 종류와 값을 겹쳐 표시합니다 */
+    /* 바코드 견본 — 모듈 배열·막대 그림 위에 종류와 값을 겹쳐 표시합니다. */
     .element .barcode-preview {
       position: absolute;
       inset: 0;
@@ -256,12 +267,14 @@ export const canvasStyles = css`
     .element .grid-preview > div {
       display: flex;
       align-items: center;
-      /* PDF 변환 계층의 셀 안쪽 여백과 같은 값 (GRID_CELL_PADDING = 1mm, 사방) */
+      /* PDF 변환 계층의 셀 안쪽 여백과 같은 값인 1mm를 사방에 적용합니다. */
       padding: 1mm;
       overflow: hidden;
-      /* PDF는 셀을 넘치는 글을 낱말 단위로 줄바꿈합니다 — 캔버스도 같게 접어 화면·PDF를 맞춥니다.
-         줄바꿈 문자는 pre-line으로 그대로 보입니다 */
+      /* PDF는 셀을 넘치는 글을 낱말 단위로 줄바꿈합니다. 캔버스도 같게 접어 화면·PDF를 맞춥니다.
+         줄바꿈 문자는 pre-line으로 그대로 보입니다. */
       white-space: pre-line;
+      /* 낱말 단위로 끊고, 한 낱말이 셀보다 길 때만 낱말 안에서 끊습니다. */
+      word-break: keep-all;
       overflow-wrap: anywhere;
     }
     .element .table-preview {
@@ -285,11 +298,11 @@ export const canvasStyles = css`
       width: 100%;
       height: 100%;
     }
-    /* 선·타원·삼각형에는 편집 영역의 테두리를 표시하지 않습니다 (선택 시 강조는 유지) */
+    /* 선·타원·삼각형에는 편집 영역 안내선을 표시하지 않지만 선택 강조는 유지합니다. */
     .element.type-line,
     .element.type-ellipse,
     .element.type-polygon {
-      border-color: transparent;
+      outline-color: transparent;
     }
     /* 선 요소는 배지가 선과 겹치므로 표시하지 않습니다. */
     .element.type-line .badge {
@@ -332,7 +345,7 @@ export const canvasStyles = css`
     .handle-sw { left: -4px; bottom: -4px; cursor: nesw-resize; }
     .handle-w { left: -4px; top: calc(50% - 4px); cursor: ew-resize; }
 
-    /* 선 선택 하이라이트·그리기 미리보기 — 상자 대신 선 자체를 강조합니다  */
+    /* 선을 선택하거나 그릴 때 상자 대신 선 자체를 강조합니다. */
     .selection-overlay .line-highlight {
       position: absolute;
       inset: 0;
@@ -376,7 +389,7 @@ export const canvasStyles = css`
     }
 
 
-    /* 계산할 수 없는 수식이 있는 요소·셀 표시 — 편집 캔버스에만 있고 PDF에는 넣지 않습니다 */
+    /* 계산할 수 없는 수식이 있는 요소·셀 표시 — 편집 캔버스에만 있고 PDF에는 넣지 않습니다. */
     .formula-warning-badge {
       position: absolute;
       top: 2px;
@@ -399,7 +412,7 @@ export const canvasStyles = css`
     .grid-cell {
       position: relative;
     }
-    /* 에셋을 찾지 못한 고정 이미지의 자리표시 — 경고 아이콘과 사유를 함께 보입니다 */
+    /* 에셋을 찾지 못한 고정 이미지의 자리 표시 — 경고 아이콘과 사유를 함께 보입니다. */
     .element .el-content.image-missing {
       flex-direction: row;
       align-items: center;
@@ -416,7 +429,7 @@ export const canvasStyles = css`
       width: 12px;
       height: 12px;
     }
-    /* 계산되지 않는 수식이 있는 셀 — 결과처럼 보이지 않게 오류 표시로 바꿉니다 */
+    /* 계산되지 않는 수식이 있는 셀 — 결과처럼 보이지 않게 오류 표시로 바꿉니다. */
     .grid-cell.formula-error {
       color: var(--sk-danger);
       background-image: repeating-linear-gradient(
@@ -432,7 +445,7 @@ export const canvasStyles = css`
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    /* 계산되지 않는 수식의 자리와 원인 목록 — 계획 오류와 같은 자리·같은 색으로 두되 세로로 쌓습니다 */
+    /* 계산되지 않는 수식의 자리와 원인 목록 — 계획 오류와 같은 자리·같은 색으로 두되 세로로 쌓습니다. */
     .plan-error.formula-warnings {
       flex-direction: column;
       align-items: stretch;

@@ -1,5 +1,5 @@
 /**
- * 샘플 데이터 모달의 초안 상태 — 페이지, JSON 편집과 이미지 선택 오류.
+ * 샘플 데이터 모달의 페이지, JSON 편집 내용과 이미지 선택 오류 상태를 관리합니다.
  *
  * @remarks
  * 항목별 편집은 값을 바로 파일에 반영하고, JSON 편집만 초안을 따로 둡니다.
@@ -43,22 +43,22 @@ export class SampleDraftController implements ReactiveController {
     this.host.requestUpdate();
   }
 
-  /** 항목별 편집에서 보고 있는 페이지 */
+  /** 항목별 편집에서 보고 있는 페이지입니다. */
   get page(): number {
     return this._page;
   }
 
-  /** JSON 편집 탭을 보고 있는지 */
+  /** JSON 편집 탭을 보고 있는지를 나타냅니다. */
   get jsonMode(): boolean {
     return this._jsonMode;
   }
 
-  /** JSON 편집 탭의 입력 내용 */
+  /** JSON 편집 탭의 입력 내용입니다. */
   get jsonDraft(): string {
     return this._jsonDraft;
   }
 
-  /** 이미지 선택 실패 문구 */
+  /** 이미지 선택 실패 문구입니다. */
   get imageError(): string | null {
     return this._imageError;
   }

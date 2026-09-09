@@ -1,4 +1,4 @@
-// JSON Schema 공개 하위 경로: 최신 스키마와 버전 고정 스키마를 패키지 이름으로 읽는다.
+// JSON Schema 공개 하위 경로: 최신 스키마와 버전 고정 스키마를 패키지 이름으로 읽습니다.
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);

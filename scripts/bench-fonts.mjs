@@ -1,46 +1,48 @@
 #!/usr/bin/env node
 /**
- * 동봉 폰트 로딩 비용을 재현 가능하게 측정한다 — 정적 크기, 실제 Chromium의 요청·시간·힙, Node cold run.
+ * 동봉 폰트 로딩 비용을 재현 가능하게 측정합니다. 정적 크기, 실제 Chromium의 요청·시간·힙과 Node 최초 실행을 확인합니다.
  *
- * 실행: `pnpm bench:fonts` — Core와 Elements를 먼저 빌드한 뒤 측정하므로 명령 하나로 재현된다.
- * 기준 커밋과 수정 커밋에서 같은 환경으로 실행해 표를 비교하는 용도다.
+ * 실행: `pnpm bench:fonts`. Core와 Elements를 먼저 빌드한 뒤 측정하므로 명령 하나로 재현됩니다.
+ * 기준 커밋과 수정 커밋에서 같은 환경으로 실행해 표를 비교하는 용도입니다.
  *
  * 옵션
- * - `--runs N`        본 측정 반복 수 (기본 5). 예열 1회는 따로 돈다
- * - `--json <path>`   전체 결과를 저장할 파일. 판 번호가 있는 공통 봉투(`schema`·`tool`·`environment`·`metrics`)에
- *                     환경·반복 수·정적 측정·시나리오별 원자료를 담는다. 생략하면 `os.tmpdir()` 아래
- * - `--skip-chromium` Chromium 측정을 건너뛴다
- * - `--skip-node`     Node cold run을 건너뛴다
- * - `--keep`          임시 디렉터리(tarball·소비자 프로젝트)를 지우지 않는다
- * - 환경변수 `SLIPKIT_CHROMIUM` — Chromium 실행 파일. 없으면 알려진 경로 또는 Playwright 관리형 Chromium
+ * - `--runs N`        실제 측정 반복 수입니다(기본 5회). 예열 1회는 따로 실행합니다.
+ * - `--json <path>`   전체 결과를 저장할 파일입니다. 형식 버전이 있는 공통 구조(`schema`·`tool`·`environment`·`metrics`)에
+ *                     환경·반복 수·정적 측정·시나리오별 원본 데이터를 담습니다. 생략하면 `os.tmpdir()` 아래
+ * - `--skip-chromium` Chromium 측정을 건너뜁니다.
+ * - `--skip-node`     Node의 캐시 없는 독립 실행을 건너뜁니다.
+ * - `--keep`          임시 디렉터리(tarball·소비자 프로젝트)를 지우지 않습니다.
+ * - 환경변수 `SLIPKIT_CHROMIUM`: Chromium 실행 파일입니다. 없으면 알려진 경로 또는 Playwright 관리형 Chromium을 사용합니다.
  *
  * 준비
- * - `packages/elements`의 정적 측정은 `scripts/verify-font-budget/analyze.mjs`의 `measureElementsDist`가 한다:
- *   `pnpm pack` tarball·unpacked 크기, 루트 진입점의 정적 import closure raw/gzip, 두 폰트 청크 raw/gzip,
- *   디코딩 폰트 바이트. 같은 모듈의 `checkFontBudget`으로 예산과 비교한 결과도 함께 적는다.
- * - core·elements tarball을 따로 만들어 임시 소비자 프로젝트에 `npm install`한다 (`scripts/verify-packages.mjs`와
+ * - `packages/elements`의 정적 측정은 `scripts/verify-font-budget/analyze.mjs`의 `measureElementsDist`가 수행합니다.
+ *   `pnpm pack` tarball과 압축 해제 크기, 루트 진입점의 정적 import 의존 파일 원본·gzip 크기,
+ *   두 폰트 청크의 원본·gzip 크기, 디코딩 폰트 바이트를 확인합니다. 같은 모듈의
+ *   `checkFontBudget`으로 예산과 비교한 결과도 함께 적습니다.
+ * - core·elements tarball을 따로 만들어 임시 소비자 프로젝트에 `npm install`합니다(`scripts/verify-packages.mjs`와
  *   같은 방식, 같은 Vite 버전). 호스트 폰트 파일 `public/host-font.otf`는 설치된 Elements의
- *   `dist/fonts/pretendard.js`에서 `PRETENDARD_FONTS[0].data`를 꺼내 만든다 — 저장소에 폰트 바이너리를 두지 않는다.
- * - 페이지는 `scripts/verify-packages/fixtures/font-requests/`를 그대로 복사해 쓴다. 검증(`verify:packages`)과
- *   계측이 같은 페이지·같은 단계 프로토콜을 공유한다.
+ *   `dist/fonts/pretendard.js`에서 `PRETENDARD_FONTS[0].data`를 꺼내 만듭니다. 저장소에 폰트 바이너리를 두지 않습니다.
+ * - 페이지는 `scripts/verify-packages/fixtures/font-requests/`를 그대로 복사해 씁니다. 검증(`verify:packages`)과
+ *   측정이 같은 페이지·같은 단계 프로토콜을 공유합니다.
  *
  * 시나리오 (고정) — 기본 폰트 `en`·`ko`·`ja`, 호스트 `getFonts`(`user`)
  *
- * Chromium (Playwright, `--enable-precise-memory-info --js-flags=--expose-gc`)
- * - 시나리오마다 새 브라우저 컨텍스트, CDP `Network.setCacheDisabled(true)` — 매번 cold.
- * - 단계: `import`(Elements 동적 import 시간) → `elements`(세 컴포넌트 생성) → `resolve`(기본: `loadDefaultFonts(locale)`,
- *   user: 호스트 폰트 fetch + `createSlipKit({ getFonts })`) → `share`(세 컴포넌트에 같은 slipkit·locale·양식을 넣어 DOM에
- *   붙이고 뷰어·폼 PDF가 끝날 때까지). 단계마다 페이지가 `{ ms, heapBefore, heapAfter }`를 돌려주고, Node 쪽은
- *   `requestfinished` + `request.sizes()`로 단계별 요청 URL·수·전송 바이트를 모은다.
- * - 요청 분류는 파일 이름으로 한다. 픽스처 `vite.config.ts`의 `manualChunks`가 청크 이름을
- *   `font-pretendard`·`font-noto-sans-jp`·`elements`로 고정한다.
- * - 예열 1회 + 본 측정 N회. 시간은 median·p95, 힙 변화(단계별 after−before)는 median.
+ * Chromium(Playwright, `--enable-precise-memory-info --js-flags=--expose-gc`)
+ * - 시나리오마다 새 브라우저 컨텍스트를 만들고 CDP `Network.setCacheDisabled(true)`를 적용해 매번 캐시가 없는 상태로 측정합니다.
+ * - 단계는 `import`(Elements 동적 import 시간) → `elements`(세 컴포넌트 생성) → `resolve`(기본: `loadDefaultFonts(locale)`,
+ *   user: 호스트 폰트 fetch + `createSlipKit({ getFonts })`) → `share` 순서입니다. `share` 단계에서는 세 컴포넌트에 같은
+ *   slipkit·locale·양식을 넣어 DOM에 연결하고 뷰어·폼 PDF가 끝날 때까지 기다립니다. 단계마다 페이지가
+ *   `{ ms, heapBefore, heapAfter }`를 반환하고, Node 쪽은
+ *   `requestfinished` + `request.sizes()`로 단계별 요청 URL·수·전송 바이트를 모읍니다.
+ * - 요청 분류는 파일 이름으로 합니다. 시험용 `vite.config.ts`의 `manualChunks`가 청크 이름을
+ *   `font-pretendard`·`font-noto-sans-jp`·`elements`로 고정합니다.
+ * - 한 번 예열한 뒤 N회 측정합니다. 시간은 중앙값과 p95를, 힙 변화는 단계별 변화량의 중앙값을 사용합니다.
  *
- * Node cold run
- * - 반복마다 새 자식 프로세스 `node --expose-gc scripts/bench-fonts/node-run.mjs`를 띄운다. 자식은 로더 훅으로
- *   설치된 Elements 안에서 읽힌 파일을 기록하고, `gc()` 뒤 `process.memoryUsage()`를 시작·import 뒤·해석 뒤에 읽는다.
+ * Node의 캐시 없는 독립 실행
+ * - 반복마다 새 자식 프로세스 `node --expose-gc scripts/bench-fonts/node-run.mjs`를 시작합니다. 자식은 로더 훅으로
+ *   설치된 Elements 안에서 읽힌 파일을 기록하고, `gc()` 뒤 `process.memoryUsage()`를 시작·import 뒤·해석 뒤에 읽습니다.
  * - 기본 시나리오는 `import` 시간과 `loadDefaultFonts(locale)` 시간, user는 `createSlipKit({ getFonts }).render(template)`
- *   시간과 PDF 바이트. 읽힌 파일 중 `dist/fonts/` 청크 수는 기본 2, user 0이어야 한다.
+ *   시간과 PDF 바이트. 읽힌 파일 중 `dist/fonts/` 청크 수는 기본 2, user 0이어야 합니다.
  */
 import { writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -64,11 +66,11 @@ const root = path.resolve(here, '..');
 const FIXTURES = path.join(root, 'scripts', 'verify-packages', 'fixtures');
 const WARMUP = 1;
 
-/** 시나리오 설명 — 표 제목에 쓴다 */
+/** 시나리오 설명 — 표 제목에 씁니다. */
 const SCENARIO_LABELS = {
-  en: '기본 폰트, locale en (Pretendard fallback)',
-  ko: '기본 폰트, locale ko (Pretendard fallback)',
-  ja: '기본 폰트, locale ja (Noto Sans JP fallback)',
+  en: '기본 폰트, locale en (Pretendard 대체 폰트)',
+  ko: '기본 폰트, locale ko (Pretendard 대체 폰트)',
+  ja: '기본 폰트, locale ja (Noto Sans JP 대체 폰트)',
   user: '호스트 getFonts (Host Sans = Pretendard Regular 파생, 동봉 폰트 청크 없음)',
 };
 
@@ -83,7 +85,7 @@ const skipChromium = hasFlag(argv, '--skip-chromium');
 const skipNode = hasFlag(argv, '--skip-node');
 const keep = hasFlag(argv, '--keep');
 
-/** 진행 상황은 stderr로, 표는 stdout으로 낸다. */
+/** 진행 상황은 stderr로, 표는 stdout으로 출력합니다. */
 function progress(message) {
   process.stderr.write(`[bench:fonts] ${message}\n`);
 }
@@ -93,7 +95,7 @@ function progress(message) {
 // ---------------------------------------------------------------------------
 
 /**
- * Node 자식 프로세스 한 번을 띄워 결과 JSON을 받는다.
+ * Node 자식 프로세스 한 번을 띄워 결과 JSON을 받습니다.
  *
  * @param {{ consumer: string, elementsDir: string, coreDir: string, scenario: string, hostFont: string, templatePath: string }} options - 경로와 시나리오
  * @returns {Promise<Record<string, any>>} `node-run.mjs`의 JSON
@@ -120,16 +122,16 @@ function nodeColdRun({ consumer, elementsDir, coreDir, scenario, hostFont, templ
       try {
         resolve(JSON.parse(line));
       } catch (error) {
-        reject(new Error(`node-run.mjs (${scenario}) 결과를 해석할 수 없다: ${line}\n${error instanceof Error ? error.message : String(error)}`));
+        reject(new Error(`node-run.mjs(${scenario}) 결과를 해석할 수 없습니다: ${line}\n${error instanceof Error ? error.message : String(error)}`));
       }
     });
   });
 }
 
 /**
- * Chromium 반복 결과를 단계별로 요약한다.
+ * Chromium 반복 결과를 단계별로 요약합니다.
  *
- * @param {Array<Awaited<ReturnType<typeof runFontScenario>>>} samples - 본 측정 결과 (예열 제외)
+ * @param {Array<Awaited<ReturnType<typeof runFontScenario>>>} samples - 실제 측정 결과(예열 제외)
  * @returns {Record<string, any>} 단계 → 요청 수·바이트·시간·힙 요약
  */
 function summarizeChromium(samples) {
@@ -166,10 +168,10 @@ function summarizeChromium(samples) {
 }
 
 /**
- * Node 반복 결과를 요약한다.
+ * Node 반복 결과를 요약합니다.
  *
- * @param {Array<Record<string, any>>} samples - 본 측정 결과 (예열 제외)
- * @returns {Record<string, any>} 시간 median·p95, 메모리 변화 median, 읽힌 파일
+ * @param {Array<Record<string, any>>} samples - 실제 측정 결과(예열 제외)
+ * @returns {Record<string, any>} 시간 중앙값·p95, 메모리 변화 중앙값과 읽힌 파일
  */
 function summarizeNode(samples) {
   const pick = (key) => samples.map((sample) => sample[key]).filter((value) => typeof value === 'number');
@@ -198,7 +200,7 @@ function summarizeNode(samples) {
 // ---------------------------------------------------------------------------
 
 /**
- * 밀리초를 소수 첫째 자리까지 적는다.
+ * 밀리초를 소수 첫째 자리까지 적습니다.
  *
  * @param {number | undefined} value - 밀리초
  * @returns {string} 문자열
@@ -208,7 +210,7 @@ function ms(value) {
 }
 
 /**
- * 바이트 변화량을 부호와 함께 적는다.
+ * 바이트 변화량을 부호와 함께 적습니다.
  *
  * @param {number | null | undefined} value - 바이트
  * @returns {string} 문자열
@@ -219,7 +221,7 @@ function signed(value) {
 }
 
 /**
- * 요청 수와 바이트를 한 셀에 적는다.
+ * 요청 수와 바이트를 한 셀에 적습니다.
  *
  * @param {{ count: number, bytes: number }} entry - 요약 항목
  * @returns {string} `n (bytes)` 또는 `0`
@@ -229,7 +231,7 @@ function cell(entry) {
 }
 
 /**
- * 정적 측정과 예산 표를 출력한다.
+ * 정적 측정과 예산 표를 출력합니다.
  *
  * @param {Awaited<ReturnType<typeof measureElementsDist>>} measurements - 측정값
  * @param {ReturnType<typeof checkFontBudget>} budget - 예산 비교 결과
@@ -238,11 +240,11 @@ function cell(entry) {
 function printStatic(measurements, budget, elementsDir) {
   const out = [];
   out.push('## 정적 측정 (packages/elements dist)', '');
-  out.push('| 항목 | 실측 (B) | 상한 (B) | 결과 |', '|---|---:|---:|---|');
+  out.push('| 항목 | 측정값 (B) | 상한 (B) | 결과 |', '|---|---:|---:|---|');
   for (const row of budget.rows) out.push(`| ${row.item} | ${formatInt(row.actual)} | ${formatInt(row.limit)} | ${row.ok ? 'OK' : '초과'} |`);
   out.push('', `예산 결과: ${budget.ok ? '전부 통과' : '초과 항목 있음'}`, '');
   const rel = (files) => files.map((file) => path.relative(elementsDir, file)).join(', ') || '(없음)';
-  out.push(`- 루트 정적 closure 파일: ${rel(measurements.rootClosure.files)}`);
+  out.push(`- 루트 정적 의존 파일: ${rel(measurements.rootClosure.files)}`);
   for (const [key, chunk] of Object.entries(measurements.chunks)) {
     out.push(`- ${CHUNK_LABELS[key] ?? key}: 진입 ${path.relative(elementsDir, chunk.entry)} (${chunk.exportName}), 파일 ${rel(chunk.files)}`);
   }
@@ -253,15 +255,15 @@ function printStatic(measurements, budget, elementsDir) {
 }
 
 /**
- * Chromium 시나리오 표를 출력한다.
+ * Chromium 시나리오 표를 출력합니다.
  *
  * @param {string} scenario - 시나리오 이름
  * @param {ReturnType<typeof summarizeChromium>} summary - 요약
  */
 function printChromium(scenario, summary) {
   const out = [];
-  out.push(`### Chromium — ${scenario}: ${SCENARIO_LABELS[scenario]}`, '');
-  out.push('| 단계 | 요청 수 (전송 B) | Pretendard 청크 | Noto Sans JP 청크 | elements 청크 | 호스트 폰트 | PDF blob | 시간 median (ms) | p95 (ms) | heap Δ median (B) |');
+  out.push(`### Chromium · ${scenario}: ${SCENARIO_LABELS[scenario]}`, '');
+  out.push('| 단계 | 요청 수 (전송 B) | Pretendard 청크 | Noto Sans JP 청크 | Elements 청크 | 호스트 폰트 | PDF Blob | 시간 중앙값 (ms) | p95 (ms) | 힙 변화 중앙값 (B) |');
   out.push('|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|');
   for (const [phase, row] of Object.entries(summary)) {
     const total = `${formatInt(row.totalCount)} (${formatInt(row.totalBytes)} B)${row.consistent ? '' : ' ※반복마다 다름'}`;
@@ -270,21 +272,21 @@ function printChromium(scenario, summary) {
   const share = summary.share?.detail;
   const resolve = summary.resolve?.detail;
   out.push('');
-  if (resolve) out.push(`- resolve: ${JSON.stringify(resolve)}`);
-  if (share) out.push(`- share: 뷰어 ${share.viewer}, 폼 ${share.form} (PDF blob은 뷰어·폼이 만든 PDF iframe — 크기는 전송 바이트에 잡히지 않는다)`);
+  if (resolve) out.push(`- 폰트 해석: ${JSON.stringify(resolve)}`);
+  if (share) out.push(`- 공유: 뷰어 ${share.viewer}, 폼 ${share.form}(PDF Blob은 뷰어와 폼이 만든 PDF iframe이며, 크기는 전송 바이트에 포함되지 않습니다.)`);
   out.push('');
   process.stdout.write(`${out.join('\n')}\n`);
 }
 
 /**
- * Node 시나리오 표를 출력한다.
+ * Node 시나리오 표를 출력합니다.
  *
  * @param {Record<string, ReturnType<typeof summarizeNode>>} byScenario - 시나리오 → 요약
  */
 function printNode(byScenario) {
   const out = [];
-  out.push('## Node cold run (반복마다 새 프로세스, --expose-gc)', '');
-  out.push('| 시나리오 | import median (ms) | p95 | 해석/렌더 median (ms) | p95 | 폰트 청크 파일 | 읽힌 파일 수 | import heapUsed Δ | import rss Δ | 해석 heapUsed Δ | 해석 arrayBuffers Δ | 해석 rss Δ | PDF (B) |');
+  out.push('## Node 최초 실행(반복마다 새 프로세스, --expose-gc)', '');
+  out.push('| 시나리오 | 불러오기 중앙값 (ms) | p95 | 해석·렌더링 중앙값 (ms) | p95 | 폰트 청크 파일 | 읽힌 파일 수 | 불러오기 heapUsed 변화 | 불러오기 RSS 변화 | 해석 heapUsed 변화 | 해석 arrayBuffers 변화 | 해석 RSS 변화 | PDF (B) |');
   out.push('|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|');
   for (const [scenario, row] of Object.entries(byScenario)) {
     const work = row.resolveMsMedian !== undefined ? [row.resolveMsMedian, row.resolveMsP95] : [row.renderMsMedian, row.renderMsP95];
@@ -299,21 +301,21 @@ function printNode(byScenario) {
 }
 
 // ---------------------------------------------------------------------------
-// 기준선과 맞대 볼 지표
+// 기준선과 비교할 지표를 정의합니다.
 // ---------------------------------------------------------------------------
 
-/** 지표 id에 쓰는 폰트 이름 표기 */
+/** 지표 ID에 쓰는 폰트 이름 표기입니다. */
 const FONT_SLUGS = { Pretendard: 'pretendard', 'Pretendard-Bold': 'pretendardBold', 'Noto Sans JP': 'notoSansJp' };
 
 /**
- * 결과에서 기준선과 맞대 볼 지표를 뽑는다.
+ * 결과에서 기준선과 비교할 지표를 추출합니다.
  *
- * 정적 크기의 상한은 `verify:font-budget`이 이미 지키므로 여기서는 그 판정 결과(`budget.ok`)를
- * 그대로 쓰고, 크기 자체는 참고 값으로만 남긴다. 하드 판정 대상은 폰트 청크 요청 수·읽힌 파일 수처럼
- * 환경이 달라도 같아야 하는 값이다.
+ * 정적 크기의 상한은 `verify:font-budget`에서 이미 검증하므로 여기서는 그 판정 결과(`budget.ok`)를
+ * 그대로 쓰고, 크기 자체는 참고 값으로만 남깁니다. 하드 판정 대상은 폰트 청크 요청 수·읽힌 파일 수처럼
+ * 환경이 달라도 같아야 하는 값입니다.
  *
- * @param {Record<string, any>} result - 이 스크립트가 모은 원자료
- * @param {{ runs: number }} options - 본 측정 반복 수
+ * @param {Record<string, any>} result - 이 스크립트가 모은 원본 데이터
+ * @param {{ runs: number }} options - 실제 측정 반복 수
  * @returns {object[]} 지표 목록
  */
 function fontMetrics(result, options) {
@@ -334,11 +336,11 @@ function fontMetrics(result, options) {
       }));
     }
     metrics.push(metric('fonts.static.rootClosureRawBytes', {
-      label: '루트 정적 closure raw 바이트', unit: 'bytes', kind: 'deterministic',
+      label: '루트 정적 의존 파일 원본 바이트', unit: 'bytes', kind: 'deterministic',
       value: measurements.rootClosure.raw, context: { fixture: 'elements-dist' },
     }));
     metrics.push(metric('fonts.static.rootClosureGzipBytes', {
-      label: '루트 정적 closure gzip 바이트', unit: 'bytes', kind: 'deterministic',
+      label: '루트 정적 의존 파일 gzip 바이트', unit: 'bytes', kind: 'deterministic',
       value: measurements.rootClosure.gzip, context: { fixture: 'elements-dist' },
     }));
   }
@@ -351,12 +353,12 @@ function fontMetrics(result, options) {
       const requests = [
         ['fontChunkRequests', '동봉 폰트 청크 요청 수', FONT_CHUNK_KINDS.reduce((total, kind) => total + sum(kind), 0)],
         ['hostFontRequests', '호스트 폰트 요청 수', sum('host-font')],
-        ['elementsRequests', 'elements 청크 요청 수', sum('elements')],
-        ['pdfBlobRequests', 'PDF blob 요청 수', sum('pdf-blob')],
+        ['elementsRequests', 'Elements 청크 요청 수', sum('elements')],
+        ['pdfBlobRequests', 'PDF Blob 요청 수', sum('pdf-blob')],
       ];
       for (const [key, label, value] of requests) {
         metrics.push(metric(`fonts.chromium.${scenario}.${key}`, {
-          label: `Chromium ${scenario} — ${label}`, unit: 'count', kind: 'deterministic', value,
+          label: `Chromium ${scenario} · ${label}`, unit: 'count', kind: 'deterministic', value,
           context: { fixture },
         }));
       }
@@ -364,7 +366,7 @@ function fontMetrics(result, options) {
         const row = chromium[phase];
         if (typeof row?.msMedian !== 'number') continue;
         metrics.push(metric(`fonts.chromium.${scenario}.${phase}.msMedian`, {
-          label: `Chromium ${scenario} — ${phase} 중앙값`, unit: 'ms', kind: 'environmental',
+          label: `Chromium ${scenario} · ${phase} 중앙값`, unit: 'ms', kind: 'environmental',
           value: row.msMedian, context: { ...context, fixture },
         }));
       }
@@ -374,27 +376,27 @@ function fontMetrics(result, options) {
     if (node !== undefined) {
       const fixture = `node-${scenario}`;
       metrics.push(metric(`fonts.node.${scenario}.fontChunkFiles`, {
-        label: `Node ${scenario} — 읽힌 폰트 청크 파일 수`, unit: 'count', kind: 'deterministic',
+        label: `Node ${scenario} · 읽힌 폰트 청크 파일 수`, unit: 'count', kind: 'deterministic',
         value: node.fontChunkCount, context: { fixture },
       }));
       metrics.push(metric(`fonts.node.${scenario}.loadedFiles`, {
-        label: `Node ${scenario} — 읽힌 파일 수`, unit: 'count', kind: 'deterministic',
+        label: `Node ${scenario} · 읽힌 파일 수`, unit: 'count', kind: 'deterministic',
         value: node.loadedFiles.length, context: { fixture },
       }));
       if (typeof node.pdfBytes === 'number') {
         metrics.push(metric(`fonts.node.${scenario}.pdfBytes`, {
-          label: `Node ${scenario} — PDF 바이트`, unit: 'bytes', kind: 'deterministic',
+          label: `Node ${scenario} · PDF 바이트`, unit: 'bytes', kind: 'deterministic',
           value: node.pdfBytes, context: { fixture },
         }));
       }
       metrics.push(metric(`fonts.node.${scenario}.importMsMedian`, {
-        label: `Node ${scenario} — import 중앙값`, unit: 'ms', kind: 'environmental',
+        label: `Node ${scenario} · import 중앙값`, unit: 'ms', kind: 'environmental',
         value: node.importMsMedian, context: { ...context, fixture },
       }));
       const work = node.resolveMsMedian ?? node.renderMsMedian;
       if (typeof work === 'number') {
         metrics.push(metric(`fonts.node.${scenario}.workMsMedian`, {
-          label: `Node ${scenario} — 해석·렌더 중앙값`, unit: 'ms', kind: 'environmental',
+          label: `Node ${scenario} · 해석·렌더 중앙값`, unit: 'ms', kind: 'environmental',
           value: work, context: { ...context, fixture },
         }));
       }
@@ -471,7 +473,7 @@ async function main() {
     process.stdout.write(
       `실행 환경: Node ${environment.node} · ${environment.cpuModel} × ${environment.cores} · ` +
         `메모리 ${formatInt(environment.memoryBytes / 1024 / 1024)} MB · ${environment.platform} ${environment.osRelease} · ` +
-        `Chromium ${environment.chromium ?? '(생략)'} · 예열 ${WARMUP}회 + 본 측정 ${runs}회\n\n`,
+        `Chromium ${environment.chromium ?? '(생략)'} · 예열 ${WARMUP}회 + 실제 측정 ${runs}회\n\n`,
     );
     printStatic(measurements, budget, elementsPackage);
     if (!skipChromium) {

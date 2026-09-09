@@ -1,9 +1,9 @@
 /**
- * 배포할 tarball을 만든다.
+ * 배포할 tarball을 만듭니다.
  *
  * 다섯 패키지를 배포 순서대로 `pnpm pack`해 출력 디렉터리에 모으고, 배포 작업이 같은 파일만
- * 쓰도록 `SHA256SUMS`와 `manifest.json`(이름·버전·파일명·SHA-256·SHA-512 SRI)을 함께 남긴다.
- * 빌드는 하지 않는다 — 호출 전에 `pnpm verify`·`pnpm verify:packages`로 빌드와 검증을 마친다.
+ * 쓰도록 `SHA256SUMS`와 `manifest.json`(이름·버전·파일명·SHA-256·SHA-512 SRI)을 함께 남깁니다.
+ * 빌드는 하지 않습니다. 호출 전에 `pnpm verify`와 `pnpm verify:packages`로 빌드와 검증을 마칩니다.
  *
  * 사용: `node scripts/release/pack.mjs --out <dir>`
  */
@@ -15,7 +15,7 @@ import { formatSha256Sums, sha256Hex, sriSha512 } from './integrity.mjs';
 import { RELEASE_PACKAGES } from './inputs.mjs';
 
 /**
- * 출력 디렉터리의 tarball에서 manifest 항목을 만든다.
+ * 출력 디렉터리의 tarball에서 manifest 항목을 만듭니다.
  *
  * @param outDir - tarball이 있는 디렉터리
  * @param packages - 이름·버전·tarball 파일명 목록 (배포 순서)
@@ -47,7 +47,7 @@ export function tarballFileName(name, version) {
   return `${name.replace(/^@/, '').replace('/', '-')}-${version}.tgz`;
 }
 
-/** 명령을 실행하고 실패하면 stderr를 담아 던진다. */
+/** 명령을 실행하고 실패하면 stderr를 담아 던집니다. */
 function run(command, args, cwd) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });

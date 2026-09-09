@@ -10,10 +10,10 @@
 import type { GridElement } from '@omdc-slipkit/core';
 import { DEFAULT_BORDER_COLOR, DEFAULT_LINE_WIDTH } from './style-css.js';
 
-/** 선 형태 */
+/** 선 형태입니다. */
 type GridBorderStyle = 'solid' | 'dashed' | 'dotted';
 
-/** 해소된 테두리 값 */
+/** 해소된 테두리 값입니다. */
 export interface GridBorder {
   color: string;
   width: number;
@@ -38,8 +38,7 @@ export function cellDefaultBorderOf(el: GridElement): GridBorder {
  * 그리드 테두리를 찾습니다.
  *
  * @param el - 그리드 요소
- * @returns 색·두께·형태. 두께가 0이면 그리지 않습니다
- */
+ * @returns 색·두께·형태. 두께가 0이면 그리지 않습니다. */
 export function outlineOf(el: GridElement): GridBorder {
   return {
     color: el.outlineColor ?? DEFAULT_BORDER_COLOR,
@@ -58,7 +57,7 @@ export function hasLegacyGridBorder(el: GridElement): boolean {
   return el.borderColor !== undefined || el.borderWidth !== undefined || el.borderStyle !== undefined;
 }
 
-/** 셀 기본 테두리 한 항목의 변경 */
+/** 셀 기본 테두리 한 항목의 변경입니다. */
 export type CellDefaultBorderPatch =
   | { key: 'color'; value: string | null }
   | { key: 'width'; value: number }
@@ -69,7 +68,7 @@ export type CellDefaultBorderPatch =
  *
  * @remarks
  * 이전 `border*`를 쓰던 그리드에서 한 항목만 바꾸면 나머지 두 값이 기본값으로 돌아가므로,
- * 먼저 지금 적용 중인 세 값을 모두 `cellBorder*`에 적고 바꾼 값을 얹은 뒤 `border*`를 지웁니다.
+ * 먼저 현재 적용 중인 세 값을 모두 `cellBorder*`에 기록하고 변경값을 적용한 뒤 `border*`를 지웁니다.
  * 기본값과 같은 값은 파일에 남기지 않습니다.
  *
  * @param el - 바꿀 그리드 요소 (제자리에서 수정합니다)
@@ -96,13 +95,13 @@ export function applyCellDefaultBorder(el: GridElement, patch: CellDefaultBorder
   } else {
     el.cellBorderStyle = patch.value;
   }
-  // 기본값과 같은 값은 지워 새 그리드와 같은 모양으로 둡니다.
+  // 기본값과 같은 값은 지워 새 그리드와 같은 설정 상태로 둡니다.
   if (el.cellBorderColor === DEFAULT_BORDER_COLOR) delete el.cellBorderColor;
   if (el.cellBorderWidth === DEFAULT_LINE_WIDTH) delete el.cellBorderWidth;
   if (el.cellBorderStyle === 'solid') delete el.cellBorderStyle;
 }
 
-/** 그리드 테두리 한 항목의 변경 */
+/** 그리드 테두리 한 항목의 변경입니다. */
 export type OutlinePatch =
   | { key: 'color'; value: string | null }
   | { key: 'width'; value: number }

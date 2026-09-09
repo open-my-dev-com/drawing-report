@@ -13,17 +13,17 @@ import {
 } from '../src/index.js';
 import { planGrid, type GridFlow } from '../src/layout/grid-plan.js';
 
-// A4·여백 15 → 흐름 영역 15~282mm(267mm). 첫 페이지의 남은 공간은 282 - position.y다.
+// A4 용지에서 여백이 15mm이면 흐름 영역은 15~282mm(267mm)입니다. 첫 페이지의 남은 공간은 282 - position.y입니다.
 const PAPER = { width: 210, height: 297, padding: [15, 15, 15, 15] as const };
 const FLOW_TOP = 15;
 const FLOW_BOTTOM = 282;
 
-/** 행 구간 리터럴을 짧게 만든다. */
+/** 행 구간 리터럴을 짧게 만듭니다. */
 function band(id: string, row: number, placement: GridBand['placement'], extra?: Partial<GridBand>): GridBand {
   return { id, fromRow: row, toRow: row, placement, ...extra };
 }
 
-/** `position.y`에서 시작하는 절대 배치 흐름. */
+/** `position.y`에서 시작하는 절대 배치 흐름입니다. */
 function flowAt(y: number): GridFlow {
   return { firstPage: 0, firstTop: y, top: FLOW_TOP, bottom: FLOW_BOTTOM };
 }
@@ -63,7 +63,7 @@ function grid5(
   };
 }
 
-/** 그룹 시작·종료 구간을 더한 7종(각 8mm) 그리드. 그룹 첫 항목 블록 16, 항목 8, 마지막 항목 블록 16. */
+/** 그룹 시작·종료 구간을 더한 7종(각 8mm) 그리드. 그룹 첫 항목 블록 16, 항목 8, 마지막 항목 블록 16입니다. */
 function grid7(
   pagination: GridPagination,
   y: number,
@@ -94,7 +94,7 @@ function grid7(
   };
 }
 
-/** 조각의 행 구간 placement 목록 (배치 순서). 빈 항목은 `item(empty)`로 표시한다. */
+/** 조각의 행 구간 배치 목록입니다. 배치 순서대로 나열하며 빈 항목은 `item(empty)`로 표시합니다. */
 function placements(plan: ReturnType<typeof planGrid>, fragment: number): string[] {
   return plan.fragments[fragment]!.bands.map((planned) =>
     planned.emptyItem === true ? 'item(empty)' : planned.band.placement,
@@ -107,11 +107,11 @@ const FIXED3: GridPagination = { mode: 'fixed', itemsPerPage: 3 };
 
 describe('절대 배치 반복 그리드의 시작 이동 (planGrid)', () => {
   it('자동 확장: 첫 페이지에 첫 항목이 들어가지 않으면 빈 조각 없이 다음 페이지 상단에서 시작한다', () => {
-    // 남은 공간 28: 머리 16 + 꼬리 8은 들어가지만 항목 8은 들어가지 않는다.
+    // 남은 공간 28: 머리 16 + 꼬리 8은 들어가지만 항목 8은 들어가지 않습니다.
     const plan = planGrid(grid5(AUTO0, 254), items(2), flowAt(254));
     expect(plan.fragments).toHaveLength(1);
     expect(plan.fragments[0]).toMatchObject({ outputPage: 1, y: FLOW_TOP, height: 48, pageItems: [0, 1], carriedCount: 0 });
-    // before-data와 page-start는 첫 페이지에서 소비되지 않고 첫 실제 조각과 함께 움직인다.
+    // before-data와 page-start는 첫 페이지에서 소비되지 않고 첫 실제 조각과 함께 움직입니다.
     expect(placements(plan, 0)).toEqual(['before-data', 'page-start', 'item', 'item', 'after-data', 'page-end']);
   });
 
@@ -164,7 +164,7 @@ describe('절대 배치 반복 그리드의 시작 이동 (planGrid)', () => {
   });
 
   it('고정 페이지 묶음이 정확히 들어가는 경계에서는 첫 페이지에 배치한다', () => {
-    // 1페이지 전체 = 머리 16 + 항목 3×8 + 꼬리 16 = 56 → y=226이 경계다.
+    // 1페이지 전체 = 머리 16 + 항목 3×8 + 꼬리 16 = 56 → y=226이 경계입니다.
     const fits = planGrid(grid5(FIXED3, 226), items(2), flowAt(226));
     expect(fits.fragments).toHaveLength(1);
     expect(fits.fragments[0]).toMatchObject({ outputPage: 0, y: 226, height: 56 });
@@ -303,7 +303,7 @@ describe('데이터가 없는 그리드는 시작을 옮기지 않는다', () =>
   });
 
   it('데이터 0건에서 최종 구간이 첫 페이지에 들어가지 않으면 시작을 옮기지 않고 새 마지막 페이지를 만든다', () => {
-    // 남은 공간 28 < 32 — 첫 페이지는 비최종 구간으로 마감하고 after-data는 다음 페이지로 간다.
+    // 남은 공간 28 < 32 — 첫 페이지는 비최종 구간으로 마감하고 after-data는 다음 페이지로 이동합니다.
     const plan = planGrid(grid5(AUTO0, 254), [], flowAt(254));
     expect(plan.fragments.map((f) => [f.outputPage, f.y])).toEqual([[0, 254], [1, FLOW_TOP]]);
     expect(placements(plan, 0)).toEqual(['before-data', 'page-start', 'page-end']);
@@ -337,12 +337,12 @@ describe('양식 페이지 계획과 렌더링에서의 시작 이동', () => {
     expect(plan.outputPageCount).toBe(2);
     const fragments = plan.gridPlans.get('g')!.fragments;
     expect(fragments.map((f) => f.outputPage)).toEqual([1]);
-    // after 요소는 첫 실제 조각(y 15, 높이 48) 뒤 2mm에 놓인다.
+    // after 요소는 첫 실제 조각(y 15, 높이 48) 뒤 2mm에 놓입니다.
     expect(plan.afterPlacements.get('t-after')).toEqual({ outputPage: 1, y: 65 });
   });
 
   it('첫 페이지에 겹침 검사 사각형을 남기지 않는다', () => {
-    // g가 예전에 빈 조각을 남기던 자리(y 254~278)에 다른 독립 그리드가 닿아도 겹침이 아니다.
+    // g의 흐름에서 비어 있는 영역(y 254~278)에 다른 독립 그리드가 닿아도 겹치지 않습니다.
     const other: GridElement = {
       type: 'grid', id: 'g2', name: '표2', position: { x: 15, y: 200 },
       columns: [{ width: 30 }], rows: [{ height: 10 }], cells: [],
@@ -365,7 +365,7 @@ describe('양식 페이지 계획과 렌더링에서의 시작 이동', () => {
     expect(plan.gridPlans.get('g')!.fragments[0]).toMatchObject({ outputPage: 1, y: FLOW_TOP, height: 56 });
   });
 
-  /** 반복 그리드 하나와 부가 요소로 이루어진 전표. */
+  /** 반복 그리드 하나와 부가 요소로 이루어진 전표입니다. */
   function voucher(grid: GridElement, values: SlipVoucherFile['values'], elements: SlipElement[] = []): SlipVoucherFile {
     return {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -398,7 +398,7 @@ describe('양식 페이지 계획과 렌더링에서의 시작 이동', () => {
     expect(schemas).toHaveLength(2);
     const cellNames = (page: number): string[] =>
       schemas[page]!.filter((s) => s.name.includes('__cell-')).map((s) => s.name);
-    // 첫 페이지에는 그리드 셀도 괘선도 없다.
+    // 첫 페이지에는 그리드 셀도 괘선도 없습니다.
     expect(cellNames(0)).toEqual([]);
     expect(schemas[0]!.filter((s) => s.type === 'line')).toEqual([]);
     const values = inputs[0]!;
@@ -411,7 +411,7 @@ describe('양식 페이지 계획과 렌더링에서의 시작 이동', () => {
     };
     expect(cellValue(1, 15, 55)).toBe('1500');
     expect(cellValue(1, 45, 55)).toBe('0');
-    // 페이지 번호와 표시 페이지 필터는 실제 출력 페이지 수(2)를 따른다.
+    // 페이지 번호와 표시 페이지 필터는 실제 출력 페이지 수(2)를 따릅니다.
     expect(values['__page-number-0']).toBe('1/2');
     expect(values['__page-number-1']).toBe('2/2');
     const names = (page: number): string[] => schemas[page]!.map((s) => s.name);

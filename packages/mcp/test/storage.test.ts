@@ -5,7 +5,7 @@ import { isEncryptedSlipFile, serializeSlipFile } from '@omdc-slipkit/core';
 import { FileSystemStorage, assertInsideRootReal, resolveInRoot, writeFileAtomic } from '../src/storage.js';
 import { makeTemplate, makeWorkDir, removeWorkDir, symlinksUnavailable } from './helpers.js';
 
-// 이름 바꾸기 실패를 흉내 내기 위해 rename만 가로챈다. 기본은 실제 구현을 그대로 쓴다.
+// 이름 바꾸기 실패를 재현해야 하는 시험에서만 `rename`을 가로챕니다.
 const renameFailure = vi.hoisted(() => ({ error: null as Error | null }));
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>();
@@ -86,7 +86,7 @@ describe('FileSystemStorage', () => {
       code: 'io',
       message: expect.stringContaining('EXDEV') as string,
     });
-    // 원본은 그대로이고 임시 파일도 남지 않는다.
+    // 원본은 그대로이고 임시 파일도 남지 않습니다.
     expect(await storage.load('doc')).toEqual(original);
     expect(await readdir(dir)).toEqual(['doc.slip']);
   });
@@ -116,7 +116,7 @@ describe('FileSystemStorage', () => {
     const storage = new FileSystemStorage({ rootDir: dir });
     await storage.save('a-doc', makeTemplate());
     await storage.save('sub/b-doc', makeTemplate());
-    // .slip이 아닌 파일과 손상된 파일은 목록에서 제외된다
+    // .slip이 아닌 파일과 손상된 파일은 목록에서 제외됩니다.
     await writeFile(path.join(dir, 'note.txt'), 'x', 'utf8');
     await writeFile(path.join(dir, 'broken.slip'), '{ bad json', 'utf8');
 
@@ -129,13 +129,24 @@ describe('FileSystemStorage', () => {
     expect((await storage.list({ query: 'b-doc' })).items).toHaveLength(1);
   });
 
+  it('list는 전체가 10진 정수인 커서만 받는다', async () => {
+    const storage = new FileSystemStorage({ rootDir: dir });
+    await storage.save('a-doc', makeTemplate());
+
+    expect((await storage.list(undefined, '0')).items).toHaveLength(1);
+    expect((await storage.list(undefined, '1')).items).toEqual([]);
+    for (const bad of ['12abc', ' 1', '1.5', '-1', '0x2', '', '1e3', '9'.repeat(20)]) {
+      await expect(storage.list(undefined, bad)).rejects.toMatchObject({ code: 'io' });
+    }
+  });
+
   it('암호화를 설정하면 봉투로 저장하고 이전 키로도 복호화한다', async () => {
     const encrypted = new FileSystemStorage({ rootDir: dir, encryption: { key: '새-키' } });
     const legacy = new FileSystemStorage({ rootDir: dir, encryption: { key: '옛-키' } });
     await legacy.save('locked', makeTemplate());
     expect(isEncryptedSlipFile(await readFile(path.join(dir, 'locked.slip'), 'utf8'))).toBe(true);
 
-    // 새 키만으로는 열 수 없다
+    // 새 키만으로는 열 수 없습니다.
     await expect(encrypted.load('locked')).rejects.toMatchObject({ name: 'SlipEncryptionError' });
 
     const rotated = new FileSystemStorage({
@@ -159,10 +170,10 @@ describe('FileSystemStorage', () => {
   });
 });
 
-// 기준 디렉터리 안의 심볼릭 링크를 거쳐 밖의 파일에 닿는 경로를 막는지 실제 링크로 확인한다.
-// Windows에서 링크 생성 권한이 없을 때만 건너뛴다.
+// 기준 디렉터리 안의 심볼릭 링크를 거쳐 밖의 파일에 닿는 경로를 막는지 실제 링크로 확인합니다.
+// Windows에서 링크 생성 권한이 없을 때만 건너뜁니다.
 describe.skipIf(symlinksUnavailable())('FileSystemStorage (심볼릭 링크)', () => {
-  /** 기준 디렉터리 밖의 디렉터리 */
+  /** 기준 디렉터리 밖의 디렉터리입니다. */
   let outside: string;
 
   beforeEach(async () => {
@@ -173,7 +184,7 @@ describe.skipIf(symlinksUnavailable())('FileSystemStorage (심볼릭 링크)', (
     await removeWorkDir(outside);
   });
 
-  /** 링크가 그대로 남아 있는지 확인한다. */
+  /** 링크가 그대로 남아 있는지 확인합니다. */
   async function isLink(target: string): Promise<boolean> {
     return (await lstat(target)).isSymbolicLink();
   }
@@ -198,7 +209,7 @@ describe.skipIf(symlinksUnavailable())('FileSystemStorage (심볼릭 링크)', (
     await expect(storage.delete('link')).rejects.toMatchObject({ code: 'io' });
     expect(await isLink(path.join(dir, 'link.slip'))).toBe(true);
     expect(await readdir(outside)).toEqual(['secret.slip']);
-    // 링크 옆에 임시 파일도 남기지 않는다.
+    // 링크 옆에 임시 파일도 남기지 않습니다.
     expect(await readdir(dir)).toEqual(['link.slip']);
   });
 
@@ -254,7 +265,7 @@ describe.skipIf(symlinksUnavailable())('FileSystemStorage (심볼릭 링크)', (
     await storage.save('doc', makeTemplate());
     expect(await readdir(dir)).toEqual(['doc.slip']);
     expect(await storage.load('doc')).toEqual(makeTemplate());
-    // 아직 없는 기준 디렉터리는 절대 경로 그대로 둔다.
+    // 아직 없는 기준 디렉터리는 절대 경로 그대로 둡니다.
     const missing = path.join(dir, 'later');
     expect(new FileSystemStorage({ rootDir: missing }).rootDir).toBe(missing);
   });
@@ -270,7 +281,7 @@ describe.skipIf(symlinksUnavailable())('FileSystemStorage (심볼릭 링크)', (
       '작업 디렉터리 밖의 경로입니다: shared/a.slip',
     );
 
-    // 기준 디렉터리 자체가 링크면 링크를 풀어 판정한다 — 안의 파일은 허용하고 밖으로 나가는 링크는 거부한다.
+    // 기준 디렉터리 자체가 링크면 링크를 풀어 판정합니다. 안의 파일은 허용하고 밖으로 나가는 링크는 거부합니다.
     const rootLink = path.join(outside, 'root-link');
     await symlink(dir, rootLink, 'dir');
     await writeFile(path.join(dir, 'real.slip'), '{}', 'utf8');
@@ -282,8 +293,8 @@ describe.skipIf(symlinksUnavailable())('FileSystemStorage (심볼릭 링크)', (
   });
 });
 
-// Windows 경로 규칙(드라이브 문자·UNC·역슬래시)에서도 기준 디렉터리 밖 접근이 막히는지 Node의 path 동작 그대로 확인한다.
-// 운영 코드에는 OS별 분기가 없으므로 Windows 실행 환경(CI의 windows-latest)에서만 실행한다.
+// Windows 경로 규칙(드라이브 문자·UNC·역슬래시)에서도 기준 디렉터리 밖 접근이 막히는지 Node의 path 동작 그대로 확인합니다.
+// 운영 코드에는 OS별 분기가 없으므로 Windows 실행 환경(CI의 windows-latest)에서만 실행합니다.
 describe.runIf(process.platform === 'win32')('FileSystemStorage (Windows 경로)', () => {
   it('다른 드라이브의 절대 경로는 io 오류로 거부한다', async () => {
     const storage = new FileSystemStorage({ rootDir: dir });
@@ -322,7 +333,7 @@ describe('FileSystemStorage — 앞에 BOM이 붙은 .slip', () => {
   it('BOM으로 시작하는 평문 .slip을 load하고 list에 포함한다', async () => {
     const storage = new FileSystemStorage({ rootDir: dir });
     await writeFile(path.join(dir, 'bom.slip'), BOM + serializeSlipFile(makeTemplate()), 'utf8');
-    // 파일 첫 바이트가 실제로 BOM(EF BB BF)인지 확인한다.
+    // 파일 첫 바이트가 실제로 BOM(EF BB BF)인지 확인합니다.
     expect([...(await readFile(path.join(dir, 'bom.slip'))).subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
 
     expect(await storage.load('bom')).toEqual(makeTemplate());

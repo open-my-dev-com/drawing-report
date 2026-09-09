@@ -133,7 +133,7 @@ describe('<slip-designer> 그리드 테두리 속성 패널', () => {
     const el = await mount({ borderColor: '#CC0000', borderWidth: 0.4, borderStyle: 'dashed' });
     const cellLabel = `${s.styleCellDefaultBorder} ${s.borderWidth}`;
     expect(widthButton(el, cellLabel).textContent).toContain('0.4mm');
-    // 그리드 테두리 구역에는 이전 셀 기본값이 나타나지 않는다.
+    // 그리드 테두리 구역에는 이전 셀 기본값이 나타나지 않습니다.
     expect(widthButton(el, `${s.styleOutline} ${s.borderWidth}`).textContent).toContain(s.colorNone);
 
     await pickWidth(el, cellLabel, '0.8mm');
@@ -147,7 +147,7 @@ describe('<slip-designer> 그리드 테두리 속성 패널', () => {
     el.remove();
   });
 
-  it('이전 파일을 건드리지 않으면 저장값이 그대로다', async () => {
+  it('이전 파일을 변경하지 않으면 저장값이 그대로다', async () => {
     const el = await mount({ borderColor: '#CC0000', borderWidth: 0.4 });
     await pickWidth(el, `${s.styleOutline} ${s.borderWidth}`, '0.3mm');
     const grid = gridOf(el);
@@ -177,9 +177,11 @@ describe('<slip-designer> 그리드 테두리 캔버스 표시', () => {
     const el = await mount({ borderWidth: 0.6, borderColor: '#CC0000' });
     const box = gridBox(el);
     expect(box.getAttribute('style')).not.toContain('#CC0000');
-    expect(box.getAttribute('style')).toContain('var(--sk-guide-faint)');
+    expect(box.getAttribute('style')).not.toContain('border-width');
+    // 요소 상자에는 편집 안내선만 남습니다. 저장된 테두리를 그릴 때 붙는 표시가 없습니다.
+    expect(box.classList.contains('has-border')).toBe(false);
     expect(box.querySelector('.grid-outline')).toBeNull();
-    // 이전 border*는 셀 경계선에는 그대로 적용된다.
+    // 이전 border*는 셀 경계선에는 그대로 적용됩니다.
     const cell = box.querySelector('.grid-cell') as HTMLElement;
     expect(cell.getAttribute('style')).toContain('#CC0000');
     el.remove();
@@ -190,7 +192,7 @@ describe('<slip-designer> 그리드 테두리 캔버스 표시', () => {
     const layer = gridBox(el).querySelector('.grid-outline') as HTMLElement;
     expect(layer).not.toBeNull();
     const style = layer.getAttribute('style') ?? '';
-    // 0.6mm ≈ 2px → 반인 1px만큼 바깥으로 나간다.
+    // 0.6mm ≈ 2px → 반인 1px만큼 바깥으로 나갑니다.
     expect(style).toContain('inset:-1px');
     expect(style).toContain('2px dashed #123456');
     el.remove();

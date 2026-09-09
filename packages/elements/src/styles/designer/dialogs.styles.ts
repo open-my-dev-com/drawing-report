@@ -1,9 +1,9 @@
 /**
- * `<slip-designer>` 스타일 — 메뉴와 모달.
+ * `<slip-designer>`의 메뉴와 모달 스타일입니다.
  *
  * @remarks
- * 툴바 메뉴, 리스트형 선택 목록과 모달 화면.
- * 규칙 순서는 원래 한 파일이던 때와 같습니다 — 순서를 바꾸면 cascade가 달라집니다.
+ * 툴바 메뉴, 목록형 선택 목록과 모달 화면에 적용합니다.
+ * 규칙 순서는 유지해야 합니다. 순서를 바꾸면 CSS 적용 결과가 달라집니다.
  */
 import { css } from 'lit';
 
@@ -26,7 +26,7 @@ export const dialogsStyles = css`
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
     .preset-menu button {
-      /* 툴바 안에 렌더되므로.toolbar button의 아이콘 버튼 크기 규칙을 되돌립니다 */
+      /* 툴바 안에 표시되므로 .toolbar button의 아이콘 버튼 크기 규칙을 재정의합니다. */
       display: block;
       min-width: 0;
       height: auto;
@@ -49,7 +49,7 @@ export const dialogsStyles = css`
       outline-offset: -1px;
     }
 
-    /* 모달 — 편집 항목이 많은 기능은 패널 대신 모달로 (편집 UI 배치 원칙) */
+    /* 편집 항목이 많은 기능은 패널 대신 모달에 배치합니다. */
     .modal-backdrop {
       background: rgba(0, 0, 0, 0.35);
       z-index: 50;
@@ -172,7 +172,7 @@ export const dialogsStyles = css`
       font-weight: 600;
       color: var(--sk-text-muted);
     }
-    /* 이미지 선택 — 경로가 base64라 읽을 수 없으므로 이미지 자체를 표시합니다 */
+    /* Base64 문자열 대신 이미지를 표시합니다. */
     .image-hint {
       margin: 6px 0;
       font-size: 11px;
@@ -219,7 +219,7 @@ export const dialogsStyles = css`
       border: 1px solid var(--sk-border);
       border-radius: var(--sk-radius);
     }
-    /* 샘플 데이터 모달의 변동 이미지 입력  */
+    /* 샘플 데이터 모달의 동적 이미지 입력 */
     .sample-image {
       align-items: flex-start;
     }
@@ -237,7 +237,7 @@ export const dialogsStyles = css`
       flex-wrap: wrap;
       gap: 4px;
     }
-    /* 파라미터 칩의 값 종류 — 값을 선택하기 전에 표시합니다  */
+    /* 값을 선택하기 전에 파라미터의 값 종류를 표시합니다. */
     .chip-type {
       margin-left: 4px;
       opacity: 0.6;
@@ -257,12 +257,12 @@ export const dialogsStyles = css`
       border-color: var(--sk-accent);
       color: var(--sk-accent);
     }
-    /* 표 파라미터의 하위 열 칩 — 상위 값과 구분되게 옅게  */
+    /* 표 파라미터의 하위 열 칩은 상위 값과 구분하도록 옅게 표시합니다. */
     .parameter-chip.column {
       border-style: dashed;
       color: var(--sk-text-muted);
     }
-    /* 수식 규칙 안내 한 줄  */
+    /* 수식 규칙 안내 */
     .formula-hint {
       margin-top: 6px;
       font-size: 11px;
@@ -405,7 +405,7 @@ export const dialogsStyles = css`
       height: 12px;
     }
 
-    /* 내 양식 목록 행  */
+    /* 내 양식 목록 행 */
     .form-row {
       display: flex;
       align-items: center;
@@ -497,7 +497,7 @@ export const dialogsStyles = css`
       color: #666;
     }
 
-    /* 행 구간 표식 색 — 캔버스와 속성 패널에서 같은 색을 사용합니다 (§7.2) */
+    /* 행 구간 표식은 캔버스와 속성 패널에서 같은 색을 사용합니다. */
     .placement-before-data { --sk-band: #8d6e63; }
     .placement-page-start { --sk-band: #1a73e8; }
     .placement-group-start { --sk-band: #188038; }
@@ -627,22 +627,22 @@ export const dialogsStyles = css`
       line-height: 16px;
     }
 
-    /* 수식 모달 — 입력과 검사 결과를 위에 모달 너비로 두고, 함수·값 참조를 그 아래에 둡니다 */
+    /* 입력과 검사 결과를 위에 두고 함수와 값 참조를 그 아래에 둡니다. */
     .modal.formula-modal {
       width: min(960px, calc(100vw - 48px));
-      /* 함수를 골라도 높이가 달라지지 않도록 본문 높이를 고정합니다 */
+      /* 함수를 골라도 높이가 달라지지 않도록 본문 높이를 고정합니다. */
       height: min(720px, calc(100vh - 48px));
       max-height: calc(100vh - 48px);
     }
     .formula-layout {
       display: flex;
       flex-direction: column;
-      /* 본문이 늘어나도 헤더와 하단 버튼이 밀려나지 않도록 축소를 허용합니다 */
+      /* 본문이 늘어나도 헤더와 하단 버튼이 밀려나지 않도록 축소를 허용합니다. */
       min-height: 0;
       flex: 1;
-      /* 참조 영역을 더 줄일 수 없을 만큼 낮은 화면에서는 본문이 안에서 스크롤합니다 */
+      /* 참조 영역을 더 줄일 수 없는 낮은 화면에서는 본문 안에서 스크롤합니다. */
       overflow-y: auto;
-      /* 참조 영역의 배치는 뷰포트가 아니라 모달 너비를 기준으로 정합니다 */
+      /* 참조 영역은 화면이 아닌 모달 너비를 기준으로 배치합니다. */
       container-type: inline-size;
       container-name: formula-modal;
     }
@@ -652,7 +652,7 @@ export const dialogsStyles = css`
       flex-direction: column;
       padding: 16px 20px;
     }
-    /* 입력란과 검사 결과는 자리를 지키고 참조 영역이 남은 높이를 씁니다 */
+    /* 입력란과 검사 결과는 자리를 유지하고 참조 영역이 남은 높이를 사용합니다. */
     .formula-editor {
       flex: none;
       gap: 8px;
@@ -668,10 +668,10 @@ export const dialogsStyles = css`
     .formula-tabpanel {
       min-height: 0;
       flex: 1;
-      /* 값 탭은 길어지면 이 자리가 스크롤합니다 */
+      /* 값 탭의 내용이 길어지면 이 영역을 스크롤합니다. */
       overflow-y: auto;
     }
-    /* 함수 탭은 목록과 상세가 각자 안에서 스크롤합니다 */
+    /* 함수 탭의 목록과 상세 영역은 각각 스크롤합니다. */
     .formula-tabpanel.functions {
       display: flex;
       flex-direction: column;
@@ -691,7 +691,7 @@ export const dialogsStyles = css`
       font-weight: 600;
       overflow-wrap: anywhere;
     }
-    /* 수식 작성이 이 모달의 주 작업이므로 입력란에 모달 너비 전체를 줍니다 */
+    /* 수식 입력란은 모달의 전체 너비를 사용합니다. */
     .formula-modal .formula-input {
       /* 네 줄 높이로 표시하며, 사용자가 세로로 늘리면 참조 영역이 그만큼 줄어듭니다. */
       height: 96px;
@@ -699,7 +699,7 @@ export const dialogsStyles = css`
       max-height: 240px;
       font-size: 13px;
     }
-    /* 검사 결과 — 상태 제목이 뜻을 설명하고 그 아래에 결과나 까닭을 적습니다 */
+    /* 상태 제목 아래에 검사 결과나 판정 이유를 표시합니다. */
     .formula-status {
       display: flex;
       flex-direction: column;
@@ -735,7 +735,7 @@ export const dialogsStyles = css`
     .formula-status.notice .formula-status-title {
       color: inherit;
     }
-    /* 계산에 실패했지만 적용할 수 있는 상태 — 저장 뒤 요소에 남는 경고와 같은 색을 씁니다 */
+    /* 계산에 실패했지만 적용할 수 있는 상태에는 저장 후 경고와 같은 색을 사용합니다. */
     .formula-status.warning {
       border-left-color: var(--sk-danger);
       background: color-mix(in srgb, var(--sk-danger) 7%, var(--sk-surface));
@@ -749,10 +749,10 @@ export const dialogsStyles = css`
       background: rgba(194, 65, 12, 0.08);
       color: var(--sk-danger);
     }
-    /* 모달 안 탭 — 샘플 데이터 모달과 수식 모달이 같은 모양을 씁니다 */
+    /* 샘플 데이터 모달과 수식 모달의 탭에 같은 스타일을 적용합니다. */
     .modal-tabs {
       display: inline-flex;
-      /* 세로 배치 안에서도 탭 묶음이 내용만큼만 넓어지게 합니다 */
+      /* 세로 배치에서도 탭 묶음의 너비를 내용에 맞춥니다. */
       align-self: flex-start;
       gap: 2px;
       margin-bottom: 8px;
@@ -780,7 +780,7 @@ export const dialogsStyles = css`
       outline: 2px solid var(--sk-accent);
       outline-offset: 1px;
     }
-    /* 값과 범위 — 코드 이름만으로는 뜻을 알 수 없어 표시 이름을 앞에 둡니다 */
+    /* 값과 범위는 표시 이름을 앞에 둡니다. */
     .value-list {
       display: flex;
       flex-direction: column;
@@ -885,7 +885,7 @@ export const dialogsStyles = css`
       background: var(--sk-accent-soft);
       color: var(--sk-accent);
     }
-    /* 함수 탭 — 고른 함수가 없으면 검색·분류·목록이 너비 전체를 씁니다 */
+    /* 함수를 선택하지 않았으면 검색, 분류와 목록이 전체 너비를 사용합니다. */
     .fn-panel {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
@@ -898,7 +898,7 @@ export const dialogsStyles = css`
     .fn-panel.with-detail {
       grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);
     }
-    /* 모달이 좁으면 목록과 상세를 위아래로 쌓고 각자 안에서 스크롤합니다 */
+    /* 모달이 좁으면 목록과 상세를 위아래로 배치하고 각각 스크롤합니다. */
     @container formula-modal (max-width: 899px) {
       .fn-panel.with-detail {
         grid-template-columns: minmax(0, 1fr);
@@ -916,7 +916,7 @@ export const dialogsStyles = css`
       overflow-y: auto;
     }
     .fn-row.selected {
-      /* hover와 같은 배경만으로는 상세에 연결된 항목이 어느 것인지 남지 않습니다 */
+      /* 선택한 항목을 마우스가 벗어난 뒤에도 구분할 수 있도록 배경을 유지합니다. */
       background: var(--sk-accent-soft);
       box-shadow: inset 2px 0 var(--sk-accent);
       color: var(--sk-accent);
@@ -965,7 +965,7 @@ export const dialogsStyles = css`
       opacity: 0.45;
       cursor: default;
     }
-    /* 삭제 확인 모달 — 목록 모달 위에 작게 띄웁니다 */
+    /* 삭제 확인 모달은 목록 모달 위에 작은 크기로 표시합니다. */
     .modal.modal-confirm {
       width: min(400px, calc(100vw - 32px));
       z-index: 53;
