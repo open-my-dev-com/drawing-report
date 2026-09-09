@@ -8,8 +8,10 @@
  * - `--json <path>`: knip 원본 보고서를 그대로 저장한다 (production 실행 결과는 `.production.json`).
  *
  * 무엇을 보나
- * 1. `knip.jsonc` 설정이 저장소와 맞는지 — 아무 파일과도 맞지 않는 진입점 glob, 이미 지운 의존성을
- *    가리키는 `ignoreDependencies`. 진입점 하나가 낡으면 그 아래가 조용히 검사에서 빠진다.
+ * 1. `knip.jsonc` 설정이 저장소와 맞는지 — 아무 파일과도 맞지 않는 진입점 glob, 쓰는 곳이 사라진
+ *    `ignoreDependencies`. 진입점 하나가 낡으면 그 아래가 조용히 검사에서 빠진다.
+ *    실행 파일 이름·옵션으로만 쓰는 의존성의 근거는 `scripts/verify-maintenance/dependency-evidence.mjs`에
+ *    적어 두고, 그 근거가 사라졌는지도 함께 본다.
  * 2. 기본 실행 — 어디서도 가져오지 않는 파일, 아무도 쓰지 않는 export, 쓰지 않는 의존성과
  *    `package.json`에 적히지 않은 의존성.
  * 3. `--production` 실행 — 패키지 진입점과 `bin`에서 닿지 않는 파일과 export. 시험만 쓰는 export와
@@ -26,6 +28,7 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkKnipConfig, createReferenceFinder, parseJsonc } from './verify-maintenance/config.mjs';
+import { checkDependencyEvidence, createEvidenceFinder } from './verify-maintenance/dependency-evidence.mjs';
 import {
   checkProductionExports,
   checkProductionFiles,
@@ -170,7 +173,6 @@ function knipConfigProblems(config) {
   const repoFiles = collectFiles(ROOT);
   const workspaceDirs = workspaceDirsFrom(repoFiles);
   const files = {};
-  const dependencies = {};
   const nestedWorkspaces = {};
   for (const name of Object.keys(config.workspaces ?? {})) {
     const dir = path.resolve(ROOT, name);
@@ -186,18 +188,6 @@ function knipConfigProblems(config) {
     }
     files[name] = owned;
     nestedWorkspaces[name] = nestedWorkspacesOf(name, workspaceDirs);
-    let manifest = {};
-    try {
-      manifest = JSON.parse(readFileSync(path.join(dir, MANIFEST), 'utf8'));
-    } catch {
-      manifest = {};
-    }
-    dependencies[name] = [
-      ...Object.keys(manifest.dependencies ?? {}),
-      ...Object.keys(manifest.devDependencies ?? {}),
-      ...Object.keys(manifest.optionalDependencies ?? {}),
-      ...Object.keys(manifest.peerDependencies ?? {}),
-    ];
   }
   const readFile = (workspace, file) => {
     try {
@@ -206,8 +196,15 @@ function knipConfigProblems(config) {
       return '';
     }
   };
-  const hasReference = createReferenceFinder({ config, files, nestedWorkspaces, readFile });
-  return checkKnipConfig({ config, files, dependencies, hasReference, workspaceDirs });
+  const hasToken = (workspace, file, token) => readFile(workspace, file).includes(token);
+  const importsName = createReferenceFinder({ config, files, nestedWorkspaces, readFile });
+  const hasEvidence = createEvidenceFinder({ hasToken, nestedWorkspaces });
+  const hasReference = (workspace, dependency) =>
+    importsName(workspace, dependency) || hasEvidence(workspace, dependency);
+  return [
+    ...checkKnipConfig({ config, files, hasReference, workspaceDirs }),
+    ...checkDependencyEvidence({ config, hasToken, nestedWorkspaces }),
+  ];
 }
 
 /** 파일이 그 이름을 담고 있는지 본다 (허용 목록의 근거 확인). */
@@ -234,7 +231,7 @@ async function main(argv) {
   console.log('');
   console.log(
     configProblems.length === 0
-      ? '지적 0건 — 진입점 glob이 모두 파일과 맞고 ignoreDependencies가 살아 있는 의존성을 가리킨다.'
+      ? '지적 0건 — 진입점 glob이 모두 파일과 맞고 ignoreDependencies가 실제로 쓰는 의존성을 가리킨다.'
       : configProblems.map((problem) => `- ${problem}`).join('\n'),
   );
   console.log('');

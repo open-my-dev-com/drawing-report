@@ -1,6 +1,6 @@
 /**
  * AI에 전달할 `.slip` 파일의 구조 요약을 만든다.
- * 내장 data URL은 길이와 상관없이 응답에 싣지 않고 형식과 대략적인 크기만 남긴다.
+ * 내장 base64 data URL은 길이와 상관없이 응답에 싣지 않고 형식과 대략적인 크기만 남긴다.
  */
 import { elementBounds, type SlipElement, type SlipFile, type SlipTemplateBody } from '@omdc-slipkit/core';
 
@@ -10,18 +10,22 @@ export function bodyOf(file: SlipFile): SlipTemplateBody {
 }
 
 /**
- * data URL 문법 `data:<mime>[;<이름>=<값>...][;base64],<데이터>`.
- * MIME은 `종류/하위종류`가 있어야 하고, base64면 데이터가 base64 문자로만 이루어져야 한다.
- * 문자열 안에 공백이 있으면 data URL이 아니다.
- */
-const DATA_URL = /^data:([\w.+-]+\/[\w.+-]+)(?:;[\w.+-]+=[^;,\s]*)*(?:;base64,[A-Za-z0-9+/]*=*|,\S*)$/;
-
-/**
- * 값 안의 내장 data URL을 `[data 12KB image/png]` 형태로 치환한 사본을 만든다.
+ * 내장 base64 data URL의 머리말 문법 `data:<종류>/<하위종류>[;<이름>=<값>...];base64,`.
  *
  * @remarks
- * `data:`로 시작한다는 것만으로 치환하지 않는다 — `data:2026-09-08 매출 마감`처럼 우연히 같은 접두어를 가진
- * 업무 문자열과 문법에 어긋나는 값은 원문 그대로 둔다. 문법을 만족하는 data URL은 길이와 상관없이 치환한다.
+ * `;base64,`까지 갖춘 값만 내장 payload로 본다 — payload 자체의 유효성은 조건으로 삼지 않는다.
+ * 깨진 payload도 요약 응답에 실을 이유가 없고, 이미지가 실제로 쓸 수 있는지는 렌더 단계의
+ * 이미지 검사가 판정한다.
+ */
+const EMBEDDED_DATA_URL = /^data:([\w.+-]+\/[\w.+-]+)(?:;[\w.+-]+=[^;,]*)*;base64,[\s\S]*$/;
+
+/**
+ * 값 안의 내장 base64 data URL을 `[data 12KB image/png]` 형태로 치환한 사본을 만든다.
+ *
+ * @remarks
+ * `data:`로 시작한다는 것만으로 치환하지 않는다. `data:2026-09-08 매출 마감`처럼 우연히 같은 접두어를
+ * 가진 업무 문자열과 `data:text/plain,hello`처럼 payload를 그대로 담은 값은 원문 그대로 둔다.
+ * `;base64,`로 내장 payload임이 드러나는 값만 길이와 상관없이 치환한다.
  * `__proto__`·`constructor` 같은 키도 업무 데이터이므로 그대로 보존한다.
  *
  * @param value - 치환할 값 (객체·배열은 재귀적으로 처리)
@@ -29,7 +33,7 @@ const DATA_URL = /^data:([\w.+-]+\/[\w.+-]+)(?:;[\w.+-]+=[^;,\s]*)*(?:;base64,[A
  */
 export function elideDataUrls(value: unknown): unknown {
   if (typeof value === 'string') {
-    const match = DATA_URL.exec(value);
+    const match = EMBEDDED_DATA_URL.exec(value);
     if (match === null) return value;
     const kb = Math.max(1, Math.round(value.length / 1024));
     return `[data ${kb}KB ${match[1]}]`;

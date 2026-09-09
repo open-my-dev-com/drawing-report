@@ -24,8 +24,8 @@
  * - `planSourcePage`: `node:module`의 `register()`로 로더 훅(`core-hooks.mjs`)을 등록해
  *   `packages/core/dist/index.js`를 원본을 다시 내보내면서 이 함수만 세는 모듈로 바꾼다.
  *   `packages/` 아래는 바꾸지 않는다.
- * - 되돌리기: 드래그 뒤 늘어난 되돌리기 항목 수와 그 스냅샷 문자 수(양식이 ASCII라 바이트와
- *   같다). 최대 보존량은 `50 × 스냅샷 중앙값`으로 계산한다 (되돌리기 상한 50).
+ * - 되돌리기: 드래그 뒤 늘어난 되돌리기 항목 수와 그 스냅샷 문자 수. 최대 보존량은
+ *   `50 × 스냅샷 중앙값` 문자로 계산한다 (되돌리기 상한 50) — 실제 힙 바이트가 아니다.
  * - 메모리: 본 측정 전후로 `gc()`를 부른 뒤 `heapUsed` 차이. `gc`가 없으면 `--expose-gc`로
  *   자신을 다시 실행한다.
  *
@@ -341,7 +341,7 @@ function printTable(title, results, withPlan) {
   console.log(`### ${title}\n`);
   const head = ['양식', '중앙값', 'p95', 'stringify 호출 (문서 크기/전체)', 'stringify 문자', 'structuredClone'];
   if (withPlan) head.push('planSourcePage');
-  head.push('되돌리기 항목', '스냅샷 문자 수', '최대 보존량 (50개)', 'heapUsed 변화');
+  head.push('되돌리기 항목', '스냅샷 문자 수', '최대 보존량 문자 수 (50개)', 'heapUsed 변화');
   console.log(`| ${head.join(' | ')} |`);
   console.log(`|${head.map(() => '---').join('|')}|`);
   for (const r of results) {
@@ -357,7 +357,7 @@ function printTable(title, results, withPlan) {
     cells.push(
       formatInt(r.undoEntries),
       formatInt(r.snapshotChars),
-      `${(r.retainedMax / 1024 ** 2).toFixed(1)}MB`,
+      formatInt(r.retainedMax),
       `${(r.heapDelta / 1024 ** 2).toFixed(1)}MB`,
     );
     console.log(`| ${cells.join(' | ')} |`);

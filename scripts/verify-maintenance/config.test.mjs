@@ -16,8 +16,6 @@ const FILES = {
   'packages/elements': ['scripts/generate-pretendard.mjs', 'src/index.ts'],
 };
 
-const DEPENDENCIES = { '.': ['publint'], 'packages/elements': [] };
-
 describe('parseJsonc', () => {
   it('한 줄·여러 줄 주석을 걷어내고 읽는다', () => {
     const text = `{
@@ -63,30 +61,37 @@ describe('checkKnipConfig', () => {
         'packages/elements': { entry: ['scripts/generate-pretendard.mjs'] },
       },
     };
-    const hasReference = (workspace, name) => workspace === '.' && name === 'react';
-    assert.deepEqual(checkKnipConfig({ config, files: FILES, dependencies: DEPENDENCIES, hasReference }), []);
+    const hasReference = (workspace, name) => workspace === '.' && (name === 'react' || name === 'publint');
+    assert.deepEqual(checkKnipConfig({ config, files: FILES, hasReference }), []);
   });
 
   it('아무 파일과도 맞지 않는 진입점·project glob을 잡는다', () => {
     const config = {
       workspaces: { '.': { project: ['nope/**'], entry: ['scripts/gone.mjs', 'scripts/*.mjs'] } },
     };
-    assert.deepEqual(checkKnipConfig({ config, files: FILES, dependencies: DEPENDENCIES }), [
+    assert.deepEqual(checkKnipConfig({ config, files: FILES }), [
       '워크스페이스 .: entry 항목 "scripts/gone.mjs"과 맞는 파일이 없다',
       '워크스페이스 .: project 항목 "nope/**"과 맞는 파일이 없다',
     ]);
   });
 
-  it('선언하지도 가져오지도 않는 ignoreDependencies를 잡는다', () => {
+  it('쓰는 곳이 없는 ignoreDependencies를 잡는다', () => {
     const config = { workspaces: { '.': { entry: ['scripts/*.mjs'], ignoreDependencies: ['지운-도구'] } } };
-    assert.deepEqual(checkKnipConfig({ config, files: FILES, dependencies: DEPENDENCIES }), [
-      '워크스페이스 .: ignoreDependencies "지운-도구"를 선언하지도 가져오지도 않는다',
+    assert.deepEqual(checkKnipConfig({ config, files: FILES }), [
+      '워크스페이스 .: ignoreDependencies "지운-도구"를 쓰는 곳이 없다',
+    ]);
+  });
+
+  it('package.json이 선언했다는 것만으로는 예외를 살리지 않는다', () => {
+    const config = { workspaces: { '.': { entry: ['scripts/*.mjs'], ignoreDependencies: ['dead-tool'] } } };
+    assert.deepEqual(checkKnipConfig({ config, files: FILES, hasReference: () => false }), [
+      '워크스페이스 .: ignoreDependencies "dead-tool"를 쓰는 곳이 없다',
     ]);
   });
 
   it('저장소에 없는 워크스페이스를 잡는다', () => {
     const config = { workspaces: { 'packages/gone': { entry: ['src/index.ts'] } } };
-    assert.deepEqual(checkKnipConfig({ config, files: FILES, dependencies: DEPENDENCIES }), [
+    assert.deepEqual(checkKnipConfig({ config, files: FILES }), [
       '워크스페이스 packages/gone: 저장소에 없다',
     ]);
   });
@@ -178,8 +183,8 @@ describe('createReferenceFinder', () => {
     };
     const hasReference = createReferenceFinder({ config: withException, files, nestedWorkspaces, readFile });
     assert.deepEqual(
-      checkKnipConfig({ config: withException, files, dependencies: { '.': [], 'packages/react': ['react'] }, hasReference }),
-      ['워크스페이스 .: ignoreDependencies "react"를 선언하지도 가져오지도 않는다'],
+      checkKnipConfig({ config: withException, files, hasReference }),
+      ['워크스페이스 .: ignoreDependencies "react"를 쓰는 곳이 없다'],
     );
   });
 });
@@ -189,18 +194,18 @@ describe('checkKnipConfig의 ignoreWorkspaces', () => {
 
   it('맞는 워크스페이스가 있으면 지적하지 않는다', () => {
     assert.deepEqual(
-      checkKnipConfig({ config, files: {}, dependencies: {}, workspaceDirs: ['.', 'examples/demo', 'packages/core'] }),
+      checkKnipConfig({ config, files: {}, workspaceDirs: ['.', 'examples/demo', 'packages/core'] }),
       [],
     );
   });
 
   it('맞는 워크스페이스가 없으면 낡은 예외로 잡는다', () => {
-    assert.deepEqual(checkKnipConfig({ config, files: {}, dependencies: {}, workspaceDirs: ['.', 'packages/core'] }), [
+    assert.deepEqual(checkKnipConfig({ config, files: {}, workspaceDirs: ['.', 'packages/core'] }), [
       'ignoreWorkspaces "examples/*!"과 맞는 워크스페이스가 없다',
     ]);
   });
 
   it('workspaceDirs를 주지 않으면 ignoreWorkspaces를 보지 않는다', () => {
-    assert.deepEqual(checkKnipConfig({ config, files: {}, dependencies: {} }), []);
+    assert.deepEqual(checkKnipConfig({ config, files: {} }), []);
   });
 });

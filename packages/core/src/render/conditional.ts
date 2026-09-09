@@ -60,8 +60,8 @@ export function resolveConditionalFormats(
         ...(options?.reserved === undefined ? {} : { reserved: options.reserved }),
       });
     } catch (error) {
-      // 데이터에 따라 달라지는 계산 오류(값 없음·타입 불일치)는 규칙 미적용으로 처리하고,
-      // 데이터와 무관한 문법 오류는 조건식 작성 실수이므로 오류로 알린다.
+      // 평가까지 갔다가 실패한 계산(`FormulaEvalError`)은 까닭을 가리지 않고 규칙 미적용으로 처리하고,
+      // 파싱 단계에서 나는 문법 오류는 조건식 작성 실수이므로 오류로 알린다.
       if (error instanceof FormulaEvalError) return;
       throw new SlipRenderError(
         messages.conditionFailed(what, index + 1, error instanceof Error ? error.message : String(error)),

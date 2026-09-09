@@ -5,9 +5,10 @@
  * 아무 말 없이 통과한다. 진입점 하나가 낡으면 그 아래 파일 전체가 조용히 검사 대상에서 빠지므로
  * 설정을 먼저 확인한 뒤에 knip을 돌린다.
  *
- * 예외가 살아 있는지는 **그 워크스페이스가 실제로 분석하는 파일**과 그 워크스페이스의
- * `package.json`만 근거로 삼는다. 루트 워크스페이스의 예외를 다른 패키지나 예제의 import가
- * 살려 주지 않는다 — knip도 그 파일들을 루트 워크스페이스로 보지 않는다.
+ * 예외가 살아 있는지는 **그 워크스페이스가 실제로 분석하는 파일**만 근거로 삼는다. 루트 워크스페이스의
+ * 예외를 다른 패키지나 예제의 import가 살려 주지 않고, `package.json`이 의존성을 선언했다는 사실도
+ * 사용 근거가 아니다 — 선언만 남고 실제 사용처가 사라진 예외가 바로 잡아야 할 대상이다.
+ * 실행 파일 이름이나 명령행 옵션으로만 쓰는 의존성은 `dependency-evidence.mjs`에 근거를 적는다.
  */
 
 /** 설정 파일에서 검사하는 glob 항목 */
@@ -195,12 +196,11 @@ function globMatches(pattern, files) {
  * @param input - 검사 대상
  * @param input.config - `knip.jsonc`를 파싱한 객체
  * @param input.files - 워크스페이스 이름 → 그 워크스페이스 기준 파일 경로 목록
- * @param input.dependencies - 워크스페이스 이름 → `package.json`이 선언한 의존성 이름 목록
- * @param input.hasReference - `(워크스페이스, 이름) => boolean` — 그 워크스페이스가 소유한 파일이 이름을 가져오는지 확인하는 함수 ({@link createReferenceFinder})
+ * @param input.hasReference - `(워크스페이스, 이름) => boolean` — 그 워크스페이스가 그 이름을 실제로 쓰는지 확인하는 함수 ({@link createReferenceFinder})
  * @param input.workspaceDirs - 저장소의 모든 워크스페이스 디렉터리 (루트 기준 경로). 주면 `ignoreWorkspaces`가 실제 워크스페이스를 가리키는지도 본다
  * @returns 어긋난 점. 비어 있으면 통과
  */
-export function checkKnipConfig({ config, files, dependencies, hasReference = () => false, workspaceDirs }) {
+export function checkKnipConfig({ config, files, hasReference = () => false, workspaceDirs }) {
   const problems = [];
   const workspaces = config.workspaces ?? {};
   if (workspaceDirs !== undefined) {
@@ -230,12 +230,11 @@ export function checkKnipConfig({ config, files, dependencies, hasReference = ()
         problems.push(`워크스페이스 ${name}: ignoreIssues 항목 "${pattern}"과 맞는 파일이 없다`);
       }
     }
-    const declared = dependencies[name] ?? [];
     for (const dependency of workspace.ignoreDependencies ?? []) {
-      // 무시할 대상이 남아 있어야 예외가 살아 있는 것이다 — package.json이 선언했거나(쓰지 않는 의존성),
-      // 파일이 가져오고 있거나(적히지 않은 의존성) 둘 중 하나다. 둘 다 아니면 낡은 예외다.
-      if (!declared.includes(dependency) && !hasReference(name, dependency)) {
-        problems.push(`워크스페이스 ${name}: ignoreDependencies "${dependency}"를 선언하지도 가져오지도 않는다`);
+      // 이 워크스페이스가 실제로 쓰고 있어야 예외가 살아 있는 것이다. package.json의 선언은
+      // 근거로 세지 않는다 — 선언만 남고 동적 사용처가 사라진 예외가 바로 잡아야 할 대상이다.
+      if (!hasReference(name, dependency)) {
+        problems.push(`워크스페이스 ${name}: ignoreDependencies "${dependency}"를 쓰는 곳이 없다`);
       }
     }
   }

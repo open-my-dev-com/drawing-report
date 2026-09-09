@@ -710,6 +710,27 @@ describe('조건부 서식 (ADR-062)', () => {
     expect(() => resolveConditionalFormats(rules, { flag: 'x' })).toThrow(SlipRenderError);
   });
 
+  it('평가 단계에서 실패한 계산은 까닭을 가리지 않고 그 규칙만 건너뛴다', () => {
+    const applied = { condition: 'TRUE', italic: true };
+    const skipped = [
+      ['상수 0으로 나누기', '1 / 0'],
+      ['잘못된 인자 수', 'ROUND(1, 2, 3)'],
+      ['값 없는 참조 비교', '$(missing) > 1'],
+      ['타입 불일치', '"글" + 1'],
+    ] as const;
+    for (const [label, condition] of skipped) {
+      expect(resolveConditionalFormats([{ condition, bold: true }, applied], {}), label).toEqual({ italic: true });
+    }
+  });
+
+  it('파싱되지 않는 조건식과 논리값이 아닌 정상 결과만 렌더 오류로 알린다', () => {
+    expect(() => resolveConditionalFormats([{ condition: '1 +', bold: true }], {})).toThrow(SlipRenderError);
+    expect(() => resolveConditionalFormats([{ condition: '1 +', bold: true }], {})).toThrow(
+      /A value, reference, or function is required/,
+    );
+    expect(() => resolveConditionalFormats([{ condition: '1 + 1', bold: true }], {})).toThrow(/TRUE or FALSE/);
+  });
+
   it('내용이 비어 있는 조건식은 규칙을 적용하지 않는다', () => {
     expect(
       resolveConditionalFormats(
