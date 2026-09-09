@@ -1,8 +1,8 @@
 /**
- * 수식 모달이 편집하는 대상 — 식별 정보, 다시 찾기와 표시 중 확인.
+ * 수식 모달의 편집 대상을 식별하고, 다시 찾고, 현재 표시 중인지 확인합니다.
  *
  * @remarks
- * 모달은 열려 있는 동안 선택 상태를 보지 않고 여기에 기록한 대상만 봅니다. 모달을 연 뒤에
+ * 모달은 열려 있는 동안 선택 상태 대신 여기에 기록한 대상만 사용합니다. 모달을 연 뒤에
  * 대상이 지워지거나 바뀌면 적용을 막기 위해 열 때의 내용을 함께 보관합니다.
  */
 
@@ -15,38 +15,38 @@ import type {
 } from '@omdc-slipkit/core';
 import type { DesignerStrings } from '../strings.js';
 
-/** 수식 모달이 편집하는 대상 */
+/** 수식 모달이 편집하는 대상입니다. */
 export type FormulaTarget =
-  /** 필드 요소의 값 수식 */
+  /** 필드 요소의 값 수식입니다. */
   | { kind: 'field'; elementId: string }
-  /** 바코드 요소의 값 수식 */
+  /** 바코드 요소의 값 수식입니다. */
   | { kind: 'barcode'; elementId: string }
-  /** 그리드 셀의 값 수식 */
+  /** 그리드 셀의 값 수식입니다. */
   | { kind: 'cell'; elementId: string; row: number; column: number }
-  /** 요소 조건부 서식 규칙의 조건식 */
+  /** 요소 조건부 서식 규칙의 조건식입니다. */
   | { kind: 'element-condition'; elementId: string; elementType: SlipElement['type']; ruleIndex: number }
-  /** 그리드 셀 조건부 서식 규칙의 조건식 */
+  /** 그리드 셀 조건부 서식 규칙의 조건식입니다. */
   | { kind: 'cell-condition'; elementId: string; row: number; column: number; ruleIndex: number };
 
-/** 편집을 시작할 때의 대상 내용 — 모달이 열려 있는 동안 이것과 비교합니다 */
+/** 편집을 시작할 때의 대상 내용입니다. 모달이 열려 있는 동안 이 내용과 비교합니다. */
 export interface FormulaOrigin {
-  /** 열 때 저장되어 있던 수식·조건식 */
+  /** 편집 창을 열 때 저장된 수식·조건식입니다. */
   formula: string | undefined;
-  /** 조건부 서식 대상이면 열 때 복사한 규칙 전체 */
+  /** 조건부 서식 대상이면 열 때 복사한 규칙 전체입니다. */
   rule?: ConditionalFormatRule;
 }
 
-/** 대상을 다시 찾은 결과 */
+/** 대상을 다시 찾은 결과입니다. */
 export interface ResolvedFormulaTarget {
-  /** 대상 요소 */
+  /** 대상 요소입니다. */
   element: SlipElement;
-  /** 그리드 셀 대상이면 그 셀이 속한 그리드 */
+  /** 그리드 셀 대상이면 그 셀이 속한 그리드입니다. */
   grid?: GridElement;
-  /** 그리드 셀 대상이면 그 셀 */
+  /** 그리드 셀 대상이면 그 셀입니다. */
   cell?: GridCell;
-  /** 조건부 서식 대상이면 그 규칙 */
+  /** 조건부 서식 대상이면 그 규칙입니다. */
   rule?: ConditionalFormatRule;
-  /** 지금 저장되어 있는 수식·조건식 */
+  /** 현재 저장된 수식·조건식입니다. */
   formula: string | undefined;
 }
 
@@ -132,10 +132,10 @@ function sameRule(a: ConditionalFormatRule | undefined, b: ConditionalFormatRule
 }
 
 /**
- * 편집 대상의 자리를 한 줄로 설명합니다 — 요소 종류·이름, 셀 이름(없으면 행·열), 조건식이면 규칙 번호.
+ * 편집 대상의 위치를 요소 종류·이름, 셀 이름(없으면 행·열), 조건식의 규칙 번호로 설명합니다.
  *
  * @param s - 로케일에 맞는 문구
- * @param typeName - 요소 종류의 표시 이름을 돌려주는 함수
+ * @param typeName - 요소 종류의 표시 이름을 반환하는 함수
  * @param target - 설명할 편집 대상
  * @param found - 대상을 다시 찾은 결과
  * @returns 수식 모달과 캔버스 안내가 함께 쓰는 자리 설명

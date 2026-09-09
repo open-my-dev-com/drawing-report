@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PathQueue } from '../src/file-queue.js';
 
-/** 밖에서 해결할 수 있는 약속을 만든다. */
+/** 시험에서 원하는 시점에 완료할 수 있는 Promise를 만듭니다. */
 function deferred(): { promise: Promise<void>; resolve: () => void } {
   let resolve!: () => void;
   const promise = new Promise<void>((done) => {
@@ -25,7 +25,7 @@ describe('PathQueue', () => {
       order.push('second');
       return 2;
     });
-    // 두 번째 작업은 첫 번째가 끝나기 전에는 시작하지 않는다.
+    // 두 번째 작업은 첫 번째가 끝나기 전에는 시작하지 않습니다.
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(order).toEqual(['first:start']);
     gate.resolve();
@@ -41,9 +41,9 @@ describe('PathQueue', () => {
       await gate.promise;
       return 'a';
     });
-    // 경로 b는 a가 막혀 있어도 바로 끝난다.
+    // 경로 b는 a가 막혀 있어도 바로 끝납니다.
     expect(await queue.run('b', async () => 'b')).toBe('b');
-    // 끝난 경로의 항목은 다음 틱에 정리되고, 막혀 있는 a만 남는다.
+    // 끝난 경로의 항목은 다음 틱에 정리되고, 막혀 있는 a만 남습니다.
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(queue.pendingKeys).toBe(1);
     gate.resolve();

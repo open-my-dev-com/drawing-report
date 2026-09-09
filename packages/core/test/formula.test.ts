@@ -139,7 +139,7 @@ describe('문자열 함수', () => {
     expect(evaluateFormula('MID("거래명세서", 3, 2)', ctx())).toBe('명세');
   });
 
-  it('REPLACE는 모든 일치를 치환', () => {
+  it('REPLACE는 일치하는 문자열을 모두 바꾼다', () => {
     expect(evaluateFormula('REPLACE("a-b-c", "-", "/")', ctx())).toBe('a/b/c');
   });
 
@@ -197,7 +197,7 @@ describe('포맷 함수', () => {
 describe('날짜 함수', () => {
   const now = new Date('2026-08-18T09:30:00Z');
 
-  it('TODAY는 컨텍스트 주입 시각 기준', () => {
+  it('TODAY는 계산 문맥에 전달한 시각을 기준으로 삼는다', () => {
     expect(evaluateFormula('TODAY()', ctx({}, now))).toBe('2026-08-18');
   });
 
@@ -269,7 +269,7 @@ describe('FORMAT_NUMBER 로케일 (ADR-013)', () => {
     expect(evaluateFormula('FORMAT_NUMBER(1234567.5)', ctx())).toBe('1,234,567.5');
   });
 
-  it('컨텍스트로 로케일을 지정하면 해당 표기를 따른다', () => {
+  it('계산 문맥에 로케일을 지정하면 해당 표기를 따른다', () => {
     expect(evaluateFormula('FORMAT_NUMBER(1234567.5)', { values: {}, locale: 'de-DE' })).toBe(
       '1.234.567,5',
     );
@@ -297,7 +297,7 @@ describe('경계·잘못된 입력 방어 (G-48)', () => {
     expect(evaluateFormula('FORMAT_DATE("2026-02-28")', ctx())).toBe('2026-02-28');
   });
 
-  it('DATE_ADD는 월·해 가감 시 대상 달의 마지막 날로 클램프한다', () => {
+  it('DATE_ADD는 월·해 가감 시 대상 달의 마지막 날에 맞춘다', () => {
     expect(evaluateFormula('DATE_ADD("2026-01-31", 1, "months")', ctx())).toBe('2026-02-28');
     expect(evaluateFormula('DATE_ADD("2024-01-31", 1, "months")', ctx())).toBe('2024-02-29');
     expect(evaluateFormula('DATE_ADD("2026-01-15", 1, "months")', ctx())).toBe('2026-02-15');

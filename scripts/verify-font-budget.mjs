@@ -1,25 +1,25 @@
 /**
- * Elements 동봉 폰트·빌드 산출물 크기의 정적 예산 게이트.
+ * Elements 동봉 폰트와 빌드 산출물 크기를 확인하는 자동 예산 검사입니다.
  *
  * 실행: `pnpm verify:font-budget` (또는 `node scripts/verify-font-budget.mjs`). `pnpm verify`는 build 뒤에
- * 이 게이트를 돌린다 — dist가 없으면 먼저 `pnpm -r build`를 실행한다.
+ * 이 검사를 실행합니다. dist가 없으면 먼저 `pnpm -r build`를 실행합니다.
  *
  * 옵션
- * - `--json <path>`: 측정값과 항목별 결과(rows)를 JSON으로 저장한다.
- * - `--no-pack`: `pnpm pack`을 생략한다 (tarball·unpacked 항목이 표에서 빠진다).
+ * - `--json <path>`: 측정값과 항목별 결과(rows)를 JSON으로 저장합니다.
+ * - `--no-pack`: `pnpm pack`을 생략합니다(tarball·unpacked 항목이 표에서 빠집니다).
  *
- * 무엇을 재나
- * - 루트 진입점 `dist/index.js`에서 상대 경로 정적 import만 따라간 「정적 import closure」의 raw·gzip 합.
- *   루트를 불러올 때 두 대형 폰트 청크가 함께 읽히지 않는지 이 값이 지킨다.
- * - 폰트 청크 두 개(Pretendard·Noto Sans JP)의 raw·gzip과 디코딩된 폰트 데이터 바이트.
- * - `pnpm pack` tarball 크기와 unpacked 크기.
+ * 측정 항목
+ * - 루트 진입점 `dist/index.js`에서 상대 경로 정적 import만 따라간 파일의 원본·gzip 크기 합입니다.
+ *   이 값으로 루트를 불러올 때 두 대형 폰트 청크가 함께 읽히지 않는지 검증합니다.
+ * - 폰트 청크 두 개(Pretendard·Noto Sans JP)의 원본·gzip 크기와 디코딩된 폰트 데이터 바이트입니다.
+ * - `pnpm pack` tarball 크기와 압축 해제 크기입니다.
  *
- * 분류 방식: 청크 파일 이름(빌드마다 달라질 수 있는 해시)을 하드코딩하지 않는다. `package.json`의
- * `./fonts/pretendard`·`./fonts/noto-sans-jp` exports가 가리키는 파일과 루트 closure 안의 동적 `import()` 대상이
- * 같은 두 파일이어야 하고, 각 모듈이 `PRETENDARD_FONTS` 또는 `NOTO_SANS_JP_FONTS`를 export하는지로 종류를 정한다.
+ * 분류 방식: 청크 파일 이름(빌드마다 달라질 수 있는 해시)을 하드코딩하지 않습니다. `package.json`의
+ * `./fonts/pretendard`·`./fonts/noto-sans-jp` exports가 가리키는 파일과 루트의 정적 의존 파일에서 동적으로 가져오는 대상이
+ * 같은 두 파일이어야 하고, 각 모듈이 `PRETENDARD_FONTS` 또는 `NOTO_SANS_JP_FONTS`를 export하는지로 종류를 정합니다.
  *
- * 출력: `| 항목 | 측정 | 상한 | 여유 | 결과 |` 표와 루트 closure·청크 파일 목록을 stdout에 적는다. 상한을 넘거나
- * 분류·pack에 실패하면 사유를 stderr에 적고 종료 코드 1로 끝난다.
+ * 출력: `| 항목 | 측정 | 상한 | 여유 | 결과 |` 표와 루트 의존 파일·청크 파일 목록을 표준 출력에 표시합니다. 상한을 넘거나
+ * 분류·pack에 실패하면 사유를 stderr에 적고 종료 코드 1로 끝납니다.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -30,7 +30,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PACKAGE_DIR = path.join(ROOT, 'packages', 'elements');
 
 /**
- * 명령행 인자를 읽는다.
+ * 명령행 인자를 읽습니다.
  *
  * @param {string[]} argv - `process.argv.slice(2)`
  * @returns {{ json: string | undefined, pack: boolean }} 옵션
@@ -43,7 +43,7 @@ function parseArgs(argv) {
       options.pack = false;
     } else if (arg === '--json') {
       const value = argv[++i];
-      if (value === undefined) throw new Error('--json 뒤에 저장할 파일 경로가 필요하다');
+      if (value === undefined) throw new Error('--json 뒤에 저장할 파일 경로가 필요합니다.');
       options.json = path.resolve(value);
     } else if (arg.startsWith('--json=')) {
       options.json = path.resolve(arg.slice('--json='.length));
@@ -57,7 +57,7 @@ function parseArgs(argv) {
 const formatter = new Intl.NumberFormat('en-US');
 
 /**
- * 바이트 수를 천 단위 쉼표로 적는다.
+ * 바이트 수를 천 단위 쉼표로 표시합니다.
  *
  * @param {number} value - 바이트
  * @returns {string} 예: `1,234,567`
@@ -67,7 +67,7 @@ function fmt(value) {
 }
 
 /**
- * 결과 행을 마크다운 표로 만든다.
+ * 결과 행을 마크다운 표로 만듭니다.
  *
  * @param {Array<{ item: string, actual: number, limit: number, ok: boolean }>} rows - `checkFontBudget` 결과
  * @returns {string} 표 문자열
@@ -81,7 +81,7 @@ function renderTable(rows) {
 }
 
 /**
- * 파일 목록을 크기와 함께 적는다.
+ * 파일 목록을 크기와 함께 표시합니다.
  *
  * @param {string} title - 목록 제목
  * @param {string[]} files - 절대 경로 목록
@@ -94,7 +94,7 @@ function renderFiles(title, files) {
 }
 
 /**
- * 측정·비교·출력을 수행한다.
+ * 측정·비교·출력을 수행합니다.
  *
  * @param {string[]} argv - 명령행 인자
  * @returns {Promise<number>} 종료 코드
@@ -108,7 +108,7 @@ async function main(argv) {
   console.log('');
   console.log(renderTable(result.rows));
   console.log('');
-  console.log(renderFiles('루트 정적 closure 파일', measurements.rootClosure.files));
+  console.log(renderFiles('루트 정적 의존 파일', measurements.rootClosure.files));
   for (const [key, chunk] of Object.entries(measurements.chunks)) {
     console.log('');
     console.log(renderFiles(`${CHUNK_LABELS[key] ?? key} 파일 (${chunk.exportName})`, chunk.files));

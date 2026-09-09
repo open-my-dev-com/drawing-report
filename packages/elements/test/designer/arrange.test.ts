@@ -110,7 +110,7 @@ describe('선택 단위와 감싸는 상자', () => {
     expect(units[0]!.box).toEqual({ x: 10, y: 10, width: 40, height: 25 });
   });
 
-  it('unionBox는 빈 목록에 null을 돌려준다', () => {
+  it('unionBox는 빈 목록에 null을 반환한다', () => {
     expect(unionBox([])).toBeNull();
   });
 });
@@ -127,7 +127,7 @@ describe('정렬 (alignUnits)', () => {
     expect([center.a![0], center.b![0], center.c![0]]).toEqual([40, 30, 45]);
     const right = positionsOf(alignUnits(units(), 'right'));
     expect([right.a![0], right.b![0], right.c![0]]).toEqual([70, 50, 80]);
-    // 가로 정렬은 세로 좌표를 건드리지 않습니다.
+    // 가로 정렬은 세로 좌표를 변경하지 않습니다.
     expect([left.a![1], center.b![1], right.c![1]]).toEqual([10, 40, 100]);
   });
 

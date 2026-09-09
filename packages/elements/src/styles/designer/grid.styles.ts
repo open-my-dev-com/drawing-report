@@ -1,9 +1,9 @@
 /**
- * `<slip-designer>` 스타일 — 그리드 행 편집.
+ * `<slip-designer>`의 그리드 행 편집 스타일입니다.
  *
  * @remarks
- * 행 추가 명령, 행 구간 목록과 출력 페이지 이동.
- * 규칙 순서는 원래 한 파일이던 때와 같습니다 — 순서를 바꾸면 cascade가 달라집니다.
+ * 행 추가 명령, 행 구간 목록과 출력 페이지 이동 화면에 적용합니다.
+ * 규칙 순서는 유지해야 합니다. 순서를 바꾸면 CSS 적용 결과가 달라집니다.
  */
 import { css } from 'lit';
 
@@ -215,7 +215,7 @@ export const gridStyles = css`
       border-left: 2px solid var(--sk-accent);
     }
 
-    /* 페이지 방식 세그먼트 선택 */
+    /* 페이지 방식 선택 */
     .segment {
       display: inline-flex;
       border: 1px solid var(--sk-border, #ccc);

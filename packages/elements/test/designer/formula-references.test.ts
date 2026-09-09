@@ -27,7 +27,7 @@ function host() {
   return { requestUpdate: vi.fn(), updateComplete: Promise.resolve(true) };
 }
 
-/** 입력란 없이 초안만 다루는 컨트롤러 */
+/** 입력란 없이 초안만 다루는 컨트롤러입니다. */
 function draft(formula: string, caret?: number): FormulaDraftController {
   const c = new FormulaDraftController(host(), () => null);
   c.start(FIELD_TARGET, { formula });
@@ -35,7 +35,7 @@ function draft(formula: string, caret?: number): FormulaDraftController {
   return c;
 }
 
-/** 선택 범위를 가진 입력란을 흉내 낸 컨트롤러 */
+/** 선택 범위를 가진 입력란을 재현하는 컨트롤러입니다. */
 function draftWithSelection(formula: string, start: number, end = start): FormulaDraftController {
   const input = { selectionStart: start, selectionEnd: end, focus() {}, setSelectionRange() {} };
   const c = new FormulaDraftController(host(), () => input as unknown as HTMLTextAreaElement);
@@ -197,7 +197,7 @@ describe('FormulaDraftController.complete — 자동완성 적용', () => {
   });
 });
 
-/** 필드·바코드·텍스트·그리드가 `$(amount)`·`$(items).$(qty)`를 수식과 조건식에서 쓰는 양식 */
+/** 필드·바코드·텍스트·그리드가 `$(amount)`·`$(items).$(qty)`를 수식과 조건식에서 쓰는 양식입니다. */
 function makeFormulaFile(): SlipTemplateFile {
   return {
     schemaVersion: '0.1.0',
@@ -363,7 +363,7 @@ describe('renameParameterFieldReferences — 하위 필드 이름 변경 전파'
   });
 });
 
-/** 값 없이 검사하는 입력 */
+/** 값 없이 검사하는 입력입니다. */
 function checkOf(source: string, locale = 'ko') {
   return checkFormula({
     source,

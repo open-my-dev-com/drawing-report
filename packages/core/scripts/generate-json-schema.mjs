@@ -1,5 +1,5 @@
 /**
- * 현재 `.slip` 스키마의 JSON Schema 파일을 생성한다.
+ * 현재 `.slip` 스키마의 JSON Schema 파일을 생성합니다.
  * 사용: pnpm --filter @slipkit/core build && pnpm --filter @slipkit/core generate:schemas
  * 산출: schemas/slip-<version>.schema.json + schemas/slip.schema.json(최신 별칭)
  */

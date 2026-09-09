@@ -5,7 +5,7 @@ import { fm, withFormulaLocale } from '../src/formula/messages.js';
 import { lm } from '../src/layout/messages.js';
 import { rm } from '../src/render/messages.js';
 
-// 세 언어 사전이 같은 문구를 갖추고, 받은 인자를 실제로 문구에 담는지 확인한다.
+// 세 언어 사전이 같은 문구를 갖추고, 받은 인자를 실제로 문구에 담는지 확인합니다.
 
 type Message = (...args: never[]) => string;
 type Dictionary = Record<string, Message>;
@@ -20,12 +20,12 @@ const DICTIONARIES: Record<string, (locale: string) => Dictionary> = {
   encryption: (locale) => em(locale) as unknown as Dictionary,
 };
 
-/** 문구에 그대로 나타나야 하는 인자 표시 */
+/** 문구에 그대로 나타나야 하는 인자 표시입니다. */
 const mark = (index: number): string => `«arg${index}»`;
 
 /**
- * 값에 따라 다른 문장을 고르는 인자는 실제 값을 넘겨야 하므로 따로 지정한다.
- * `mark`가 아닌 값은 문구에 그대로 나타나지 않아도 된다.
+ * 값에 따라 다른 문장을 고르는 인자는 실제 값을 넘겨야 하므로 따로 지정합니다.
+ * `mark`가 아닌 값은 문구에 그대로 나타나지 않아도 됩니다.
  */
 const FIXED_ARGS: Record<string, unknown[]> = {
   'render.imageInvalid': [mark(0), 'content'],
@@ -39,16 +39,16 @@ const FIXED_ARGS: Record<string, unknown[]> = {
   'formula.dateInvalid': ['date', mark(1)],
   'formula.dateOffsetRange': ['date', mark(1)],
   'formula.dateYearRange': ['date', mark(1)],
-  // 바이트를 MiB로 바꿔 보여 주므로 실제 수를 넘기고 변환 결과를 확인한다.
+  // 바이트를 MiB로 바꿔 보여 주므로 실제 수를 넘기고 변환 결과를 확인합니다.
   'format.imageTooLarge': [2 * 1024 * 1024],
 };
 
-/** 인자를 그대로 쓰지 않고 변환해 보여 주는 문구가 담아야 할 값 */
+/** 인자를 그대로 쓰지 않고 변환해 보여 주는 문구가 담아야 할 값입니다. */
 const DERIVED_TEXT: Record<string, string> = {
   'format.imageTooLarge': '2',
 };
 
-/** 문구 하나를 호출할 때 넘길 인자 */
+/** 문구 하나를 호출할 때 넘길 인자입니다. */
 function argsFor(name: string, fn: Message): unknown[] {
   return FIXED_ARGS[name] ?? Array.from({ length: fn.length }, (_, index) => mark(index));
 }

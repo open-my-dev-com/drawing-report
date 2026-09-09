@@ -573,7 +573,7 @@ interface SlipVoucherFile {
 | Field | Description |
 |---|---|
 | `templateSnapshot` | The entire template as it was when the voucher was created |
-| `values` | The parameter physical names and their actual values |
+| `values` | The parameter keys and their actual values |
 | `issued` | Whether it has been issued |
 
 An issued voucher cannot depend on external URL images. Fixed image and variable image values must be included in a form usable within the file.
@@ -662,8 +662,8 @@ interface SlipPage {
 | Field | Description |
 |---|---|
 | `elements` | The elements placed on the page |
-| `key` | The page physical name used for external integration |
-| `label` | The page logical name shown in the designer list |
+| `key` | The page key used for external integration |
+| `label` | The page display name shown in the designer list |
 | `pageNumber` | The page-number setting shown in the PDF |
 | `flowArea` | The vertical area used by auto-growing elements |
 
@@ -741,8 +741,8 @@ interface ParameterDef {
 
 | Field | Description |
 |---|---|
-| `key` | The physical name used in the file, formulas, and external integration |
-| `label` | The logical name shown in the form and the designer |
+| `key` | The key used in the file, formulas, and external integration |
+| `label` | The display name shown in the form and the designer |
 | `valueType` | The value type. Treated as text if omitted |
 | `fields` | The sub-fields of a list parameter |
 

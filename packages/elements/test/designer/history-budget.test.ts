@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { SlipTemplateFile } from '@omdc-slipkit/core';
 import { HistoryController, MAX_SNAPSHOT_CHARS } from '../../src/designer/controllers/history.js';
 
-/** 본문 크기를 마음대로 정할 수 있는 양식 — 이미지를 담은 큰 양식을 대신합니다 */
+/** 본문 크기를 마음대로 정할 수 있는 양식 — 이미지를 담은 큰 양식을 대신합니다. */
 function makeFile(title: string, fillerLength: number): SlipTemplateFile {
   return {
     schemaVersion: '0.1.0',
@@ -17,7 +17,7 @@ function makeFile(title: string, fillerLength: number): SlipTemplateFile {
   } as unknown as SlipTemplateFile;
 }
 
-/** 양식 하나만 들고 있는 최소 호스트 */
+/** 양식 하나만 들고 있는 최소 호스트입니다. */
 function makeHost(file: SlipTemplateFile) {
   return {
     file,
@@ -29,7 +29,7 @@ function makeHost(file: SlipTemplateFile) {
   };
 }
 
-/** 시험용 예산 — 스냅샷 세 벌이면 넘어섭니다 */
+/** 스냅샷 세 개를 저장하면 초과하는 시험용 예산입니다. */
 const BUDGET = 3_000;
 const THIRD_OF_BUDGET = Math.ceil(BUDGET / 3);
 
@@ -45,7 +45,7 @@ describe('되돌리기 기록의 크기 예산', () => {
 
     expect(history.undoDepth).toBeLessThan(4);
     expect(history.undoSnapshotChars).toBeLessThanOrEqual(BUDGET);
-    // 버린 것은 오래된 단계이고, 마지막 편집 직전 상태는 그대로 남습니다
+    // 버린 것은 오래된 단계이고, 마지막 편집 직전 상태는 그대로 남습니다.
     expect(history.undo()).toBe(true);
     expect(host.file.template.meta.title).toBe('3');
   });
@@ -81,7 +81,7 @@ describe('되돌리기 기록의 크기 예산', () => {
   });
 
   it('기본 예산 안에서는 개수 상한(50단계)까지 그대로 쌓는다', () => {
-    // 200,000자짜리 양식 51벌은 기본 예산(약 3,355만 자) 안이라 개수 상한만 적용됩니다.
+    // 200,000자짜리 양식 51개는 기본 예산(약 3,355만 자) 안이므로 개수 상한만 적용됩니다.
     const host = makeHost(makeFile('0', 200_000));
     const history = new HistoryController(host);
 

@@ -1,4 +1,4 @@
-// tarball package.json 계약 검사의 단위 시험 — `node --test`로 실행한다.
+// tarball package.json 계약 검사의 단위 시험 — `node --test`로 실행합니다.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -9,7 +9,7 @@ import { manifestProblems, REQUIRED_MANIFEST } from './manifest.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PACKAGES = ['core', 'elements', 'react', 'vue', 'mcp'];
 
-/** 계약을 모두 만족하는 package.json 원문 */
+/** 계약을 모두 만족하는 package.json 원문입니다. */
 function goodManifest(overrides = {}) {
   return JSON.stringify({
     name: '@omdc-slipkit/core',
@@ -22,11 +22,11 @@ function goodManifest(overrides = {}) {
 }
 
 describe('tarball package.json 계약', () => {
-  it('필요한 선언이 모두 있으면 지적이 없다', () => {
+  it('필요한 선언이 모두 있으면 문제가 없다', () => {
     assert.deepEqual(manifestProblems(goodManifest()), []);
   });
 
-  it('engines.node를 지우거나 다른 값으로 바꾸면 지적한다', () => {
+  it('engines.node를 지우거나 다른 값으로 바꾸면 문제로 보고한다', () => {
     assert.deepEqual(manifestProblems(goodManifest({ engines: {} })), [
       'package.json engines.node is (unset), expected >=22.13',
     ]);
@@ -43,7 +43,7 @@ describe('tarball package.json 계약', () => {
     ]);
   });
 
-  it('JSON이 아니면 해석 실패를 지적한다', () => {
+  it('JSON이 아니면 해석 실패로 보고한다', () => {
     assert.match(manifestProblems('not json')[0], /parse failed/);
   });
 

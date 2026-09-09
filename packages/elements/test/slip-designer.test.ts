@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// 조정 컴포넌트 — 로드, 페이지, 실행 취소, 로케일
+// 통합 컴포넌트의 불러오기, 페이지, 실행 취소와 로케일 동작을 시험합니다.
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@omdc-slipkit/core', async () => {

@@ -85,7 +85,7 @@ function canvasElement(el: Element, id: string): HTMLElement {
   return el.shadowRoot!.querySelector(`[data-id="${id}"]`) as HTMLElement;
 }
 
-/** 요소를 (0,0)에서 눌러 (dx,dy)mm 끌고 놓습니다 */
+/** 요소를 (0,0)에서 눌러 (dx,dy)mm 끌고 놓습니다. */
 async function drag(el: Designer, id: string, dx: number, dy: number): Promise<void> {
   const div = canvasElement(el, id);
   pointer(div, 'pointerdown', 0, 0);
@@ -108,7 +108,7 @@ function propInput(el: Element, label: string): HTMLInputElement {
   return el.shadowRoot!.querySelector(`.prop-panel input[aria-label="${label}"]`) as HTMLInputElement;
 }
 
-/** 세 개의 사각형(그중 둘은 그룹)과 기본 요소를 가진 양식 */
+/** 세 개의 사각형(그중 둘은 그룹)과 기본 요소를 가진 양식입니다. */
 function makeFile(): SlipTemplateFile {
   const file = makeTemplateFile();
   file.template.pages[0]!.elements.push(
@@ -415,7 +415,7 @@ describe('<slip-designer> 화살표 키 이동', () => {
     el.remove();
   });
 
-  it('Ctrl/Cmd+화살표는 가로채지 않는다', async () => {
+  it('Ctrl/Cmd+화살표는 처리하지 않는다', async () => {
     const el = await mount();
     selectElement(el, 'txt-1');
     await el.updateComplete;
@@ -426,7 +426,7 @@ describe('<slip-designer> 화살표 키 이동', () => {
     el.remove();
   });
 
-  it('선택이 없으면 화살표를 가로채지 않는다', async () => {
+  it('선택이 없으면 화살표를 처리하지 않는다', async () => {
     const el = await mount();
     expect(press(el, 'ArrowRight').defaultPrevented).toBe(false);
     el.remove();
@@ -475,7 +475,7 @@ describe('<slip-designer> 화살표 키 이동', () => {
 // ---------------------------------------------------------------------------
 
 describe('<slip-designer> 복수 선택 — 캔버스와 사이드바', () => {
-  it('캔버스에서 Shift·Ctrl/Cmd 클릭은 선택 단위를 넣고 빼며 그룹은 통째로 움직인다', async () => {
+  it('캔버스에서 Shift·Ctrl/Cmd 클릭은 선택 단위를 넣고 빼며 그룹은 한 단위로 움직인다', async () => {
     const el = await mount();
     selectElement(el, 'r-a');
     await el.updateComplete;
@@ -504,7 +504,7 @@ describe('<slip-designer> 복수 선택 — 캔버스와 사이드바', () => {
     el.remove();
   });
 
-  it('이미 선택된 요소를 그냥 눌러 끌면 복수 선택이 유지되어 함께 움직인다', async () => {
+  it('이미 선택된 요소에서 끌기 동작을 시작하면 복수 선택이 유지되어 함께 움직인다', async () => {
     const el = await mount();
     selectElement(el, 'r-a');
     await el.updateComplete;
@@ -519,7 +519,7 @@ describe('<slip-designer> 복수 선택 — 캔버스와 사이드바', () => {
     el.remove();
   });
 
-  it('선택되지 않은 요소를 그냥 누르면 그 요소(그룹이면 그룹 전체)만 선택한다', async () => {
+  it('선택되지 않은 요소에서 끌기 동작을 시작하면 그 요소(그룹이면 그룹 전체)만 선택한다', async () => {
     const el = await mount();
     selectElement(el, 'r-a');
     await el.updateComplete;

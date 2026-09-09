@@ -44,7 +44,7 @@ SlipKit에서는 양식과 전표를 구분합니다.
 
 ## 패키지 구성
 
-SlipKit은 pnpm 워크스페이스 기반 모노레포로 구성되어 있습니다.
+SlipKit은 pnpm 워크스페이스 기반 모노레포입니다.
 
 | 패키지 | 역할 |
 |---|---|
@@ -116,7 +116,7 @@ pnpm demo:mcp
 | 문서 | 내용 |
 |---|---|
 | [시작하기](docs/guide/getting-started.ko.md) | 데모 실행과 양식 디자이너의 최소 연결 |
-| [애플리케이션 통합 가이드](docs/guide/integration.ko.md) | 디자이너·작성폼·뷰어 연결, 저장·복원 및 서버 연계 |
+| [애플리케이션 통합 가이드](docs/guide/integration.ko.md) | 디자이너·작성 폼·뷰어 연결, 저장·복원 및 서버 연계 |
 | [서버 통합 가이드](docs/guide/server-integration.ko.md) | Node.js 서버에서 전표를 발행하고 PDF를 생성·보관하는 방법 |
 | [양식 디자이너 사용 가이드](docs/guide/designer.ko.md) | 디자이너 화면에서 양식을 제작하는 방법 |
 | [Core 사용 가이드](docs/guide/core.ko.md) | `.slip` 파일 처리, 전표 조립, 수식 평가, PDF 생성과 암호화 |

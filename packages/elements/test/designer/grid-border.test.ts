@@ -34,7 +34,7 @@ describe('cellDefaultBorderOf', () => {
 describe('outlineOf', () => {
   it('outline*이 없으면 두께 0으로 그리지 않는다', () => {
     expect(outlineOf(grid()).width).toBe(0);
-    // 이전 border*는 그리드 테두리에 영향을 주지 않는다.
+    // 이전 border*는 그리드 테두리에 영향을 주지 않습니다.
     expect(outlineOf(grid({ borderWidth: 0.5 })).width).toBe(0);
   });
 
@@ -94,7 +94,7 @@ describe('applyOutline', () => {
     expect(el).not.toHaveProperty('outlineStyle');
   });
 
-  it('그리드 테두리를 바꿔도 셀 기본 테두리와 이전 border*는 건드리지 않는다', () => {
+  it('그리드 테두리를 바꿔도 셀 기본 테두리와 이전 border*는 변경하지 않는다', () => {
     const el = grid({ borderWidth: 0.4 });
     applyOutline(el, { key: 'width', value: 0.5 });
     expect(el.borderWidth).toBe(0.4);

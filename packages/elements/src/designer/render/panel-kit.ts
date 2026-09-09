@@ -1,8 +1,8 @@
 /**
- * 속성 패널에서 공통으로 사용하는 입력 도구.
+ * 속성 패널에서 공통으로 사용하는 입력 도구입니다.
  *
  * @remarks
- * 문구, 오류 표시, 리스트형 선택 상자와 팝오버·색 선택기 상태를 이 인터페이스로 제공합니다.
+ * 문구, 오류 표시, 목록형 선택 상자와 팝오버·색 선택기 상태를 이 인터페이스로 제공합니다.
  */
 
 import type { TemplateResult } from 'lit';
@@ -12,7 +12,7 @@ import type { PopoverController } from '../controllers/popover.js';
 import type { FormulaTarget } from '../formula-target.js';
 import type { DesignerStrings } from '../../strings.js';
 
-/** 리스트형 선택 상자에 넘길 설정 */
+/** 목록형 선택 상자에 넘길 설정입니다. */
 interface ListSelectConfig {
   id: string;
   ariaLabel: string;
@@ -23,14 +23,14 @@ interface ListSelectConfig {
   placeholder?: string;
 }
 
-/** 패널 렌더 모듈이 컴포넌트에서 받는 것 */
+/** 패널 렌더 모듈이 컴포넌트에서 받는 공통 도구입니다. */
 export interface PanelKit {
-  /** 로케일에 맞는 문구 */
+  /** 로케일에 맞는 문구입니다. */
   readonly s: DesignerStrings;
   /**
    * 입력값을 되돌리고 오류를 표시합니다.
    *
-   * @param message - 표시할 문구 (없으면 기본 문구)
+   * @param message - 표시할 문구(없으면 기본 문구)
    * @param field - 오류를 붙일 항목 키
    */
   reject(message?: string, field?: string): void;
@@ -38,7 +38,7 @@ export interface PanelKit {
    * 항목에 붙일 오류 줄을 만듭니다.
    *
    * @param field - 항목 키
-   * @returns 오류가 있으면 오류 줄, 없으면 아무것도 그리지 않습니다
+   * @returns 오류가 있으면 오류 줄, 없으면 아무것도 그리지 않습니다.
    */
   error(field: string): unknown;
   /**
@@ -65,15 +65,15 @@ export interface PanelKit {
    */
   openFormulaModal(target: FormulaTarget): void;
   /**
-   * 리스트형 선택 상자를 그립니다.
+   * 목록형 선택 상자를 그립니다.
    *
    * @param config - 선택 상자 설정
    * @returns 트리거 버튼과 (열려 있으면) 목록
    */
   listSelect(config: ListSelectConfig): TemplateResult;
-  /** 테두리·색 팝오버의 열림 상태 */
+  /** 테두리·색 팝오버의 열림 상태입니다. */
   readonly popovers: PopoverController;
-  /** 색 선택기의 색조·채도·명도 */
+  /** 색 선택기의 색조·채도·명도입니다. */
   readonly picker: ColorPickerController;
   /**
    * 테두리·색 선택 메뉴를 버튼 아래에 열거나 닫습니다.

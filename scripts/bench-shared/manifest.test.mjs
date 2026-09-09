@@ -1,4 +1,4 @@
-// bench:all manifest 시험 — 하위 실행 기록이 갖춰야 할 항목과 전체 성공 판정을 본다.
+// bench:all 실행 목록에 필요한 항목과 전체 성공 판정을 확인합니다.
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -13,7 +13,7 @@ after(() => {
 });
 
 /**
- * 임시 디렉터리를 만든다.
+ * 임시 디렉터리를 만듭니다.
  *
  * @returns {string} 디렉터리 경로
  */
@@ -27,9 +27,9 @@ const environment = { node: 'v22.13.0', platform: 'linux', arch: 'x64', cpuModel
 const FINGERPRINT = 'node=v22.13.0 | platform=linux';
 
 /**
- * 성공한 하위 실행 기록을 만든다.
+ * 성공한 하위 실행 기록을 만듭니다.
  *
- * @param {string} tool - benchmark 이름
+ * @param {string} tool - 성능 측정 이름
  * @param {Record<string, any>} overrides - 덮어쓸 항목
  * @returns {Record<string, any>} 실행 기록
  */
@@ -52,7 +52,7 @@ function record(tool, overrides = {}) {
 }
 
 /**
- * manifest 하나를 만든다.
+ * 시험용 실행 목록을 만듭니다.
  *
  * @param {object[]} runs - 하위 실행 기록
  * @returns {Record<string, any>} manifest
@@ -101,7 +101,7 @@ describe('validateManifest', () => {
     }
   });
 
-  it('같은 benchmark가 두 번 들어가면 거절한다', () => {
+  it('같은 성능 측정이 두 번 들어가면 거절한다', () => {
     assert.throws(() => manifest([record('core'), record('core')]), BenchSchemaError);
   });
 
@@ -109,14 +109,14 @@ describe('validateManifest', () => {
     assert.throws(() => manifest([]), BenchSchemaError);
   });
 
-  it('schema 판 번호가 다르면 거절한다', () => {
+  it('스키마 버전이 다르면 거절한다', () => {
     const value = manifest([record('core')]);
     value.schema = { ...MANIFEST_SCHEMA, version: MANIFEST_SCHEMA.version + 1 };
     assert.throws(() => validateManifest(value), BenchSchemaError);
   });
 });
 
-describe('manifest 파일', () => {
+describe('실행 목록 파일', () => {
   it('쓰고 다시 읽으면 같은 내용이다', () => {
     const file = path.join(tempDir(), 'manifest.json');
     const value = manifest([record('core'), record('mcp-list')]);

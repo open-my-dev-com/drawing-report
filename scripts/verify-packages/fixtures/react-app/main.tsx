@@ -1,4 +1,4 @@
-// React 소비자: 래퍼 컴포넌트에 양식과 공통 설정을 넘기고, ref와 표준 HTML 속성도 함께 쓴다.
+// React 소비자: 래퍼 컴포넌트에 양식과 공통 설정을 넘기고, ref와 표준 HTML 속성도 함께 씁니다.
 import { createSlipKit, type SlipFile } from '@omdc-slipkit/core';
 import type { SlipDesigner as SlipDesignerElement } from '@omdc-slipkit/elements';
 import { SlipDesigner, SlipViewer } from '@omdc-slipkit/react';

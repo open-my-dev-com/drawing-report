@@ -1,4 +1,4 @@
-// 열린 맵(values·sampleValues·목록 행)이 어떤 키든 객체가 직접 가진 속성으로 왕복하는지 확인한다.
+// 열린 맵(values·sampleValues·목록 행)이 어떤 키든 객체가 직접 가진 속성으로 왕복하는지 확인합니다.
 import { describe, expect, it } from 'vitest';
 import { buildVoucher, normalizeNumericParameters, parseSlipFile, serializeSlipFile, validateSlipFile } from '../src/index.js';
 import type { JsonValue, SlipTemplateFile } from '../src/index.js';
@@ -45,7 +45,7 @@ describe('열린 맵의 특수 키 보존', () => {
     for (const key of SPECIAL_KEYS) expect(Object.hasOwn(samples, key)).toBe(true);
   });
 
-  it('validateSlipFile도 같은 결과를 돌려주고 잘못된 값은 키 경로로 보고한다', () => {
+  it('validateSlipFile도 같은 결과를 반환하고 잘못된 값은 키 경로로 보고한다', () => {
     const voucher = buildVoucher(template(), JSON.parse('{"__proto__": 5}') as Record<string, JsonValue>);
     const valid = validateSlipFile(JSON.parse(serializeSlipFile(voucher)));
     expect(valid.kind === 'voucher' && Object.hasOwn(valid.values, '__proto__') && valid.values['__proto__']).toBe(5);

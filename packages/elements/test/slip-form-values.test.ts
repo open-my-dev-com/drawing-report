@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 /**
- * `<slip-form>`의 값 형식 검사, 이미지 선택 검사, `reset()`, 로케일 변경과 재연결 테스트.
+ * `<slip-form>`의 값 형식 검사, 이미지 선택 검사, `reset()`, 로케일 변경과 재연결 테스트입니다.
  *
  * PDF 렌더링만 모의하고 파싱과 수식에는 core의 실제 구현을 사용합니다.
  */
@@ -138,7 +138,7 @@ function setChecked(input: HTMLInputElement, checked: boolean): void {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-/** `slip-change`로 받은 마지막 전표를 돌려주는 함수를 만듭니다. */
+/** `slip-change`로 받은 마지막 전표를 반환하는 함수를 만듭니다. */
 function lastChange(el: SlipForm): () => SlipVoucherFile | undefined {
   const changes: SlipVoucherFile[] = [];
   el.addEventListener('slip-change', (e) => {
@@ -243,7 +243,7 @@ describe('<slip-form> 값 형식', () => {
       expect(hint?.textContent?.trim()).not.toBe('');
     }
 
-    // 값을 고치면 오류 문구와 함께 연결도 사라집니다
+    // 값을 고치면 오류 문구와 함께 연결도 사라집니다.
     const qty = inputByLabel(el, '수량');
     qty.value = '3';
     qty.dispatchEvent(new Event('change', { bubbles: true }));
@@ -327,7 +327,7 @@ describe('<slip-form> 값 형식', () => {
 // 잘못된 목록 행 보존
 // ---------------------------------------------------------------------------
 
-/** 객체 행 하나와 화면에 보이지 않는 잘못된 행 두 개를 가진 목록 값 */
+/** 객체 행 하나와 화면에 보이지 않는 잘못된 행 두 개를 가진 목록 값입니다. */
 const MIXED_TAGS = [{ name: 'A', extra: 1 }, 'legacy', ['x']];
 
 /** 발행을 눌렀을 때 `invalidList`로 막히는지 확인합니다. */
@@ -349,7 +349,7 @@ describe('<slip-form> 잘못된 목록 행 보존', () => {
     const el = await mount(typedVoucher({ tags: MIXED_TAGS }));
     const last = lastChange(el);
     expect(hintTexts(el)).toEqual([strings.form.invalidList]);
-    // 객체 행만 화면에 보이고 행 번호는 원본 배열 위치를 따른다.
+    // 객체 행만 화면에 보이고 행 번호는 원본 배열 위치를 따릅니다.
     expect(inputByLabel(el, '태그 1 이름').value).toBe('A');
     expect(() => inputByLabel(el, '태그 2 이름')).toThrow();
 
@@ -366,7 +366,7 @@ describe('<slip-form> 잘못된 목록 행 보존', () => {
     buttonByLabel(el, `태그 ${strings.form.addRow}`).click();
     await el.updateComplete;
     expect(last()!.values.tags).toEqual([{ name: 'A', extra: 1 }, 'legacy', ['x'], {}]);
-    // 새 행의 번호도 원본 인덱스(4)를 따른다.
+    // 새 행의 번호도 원본 인덱스(4)를 따릅니다.
     setInput(inputByLabel(el, '태그 4 이름'), 'D');
     await el.updateComplete;
     expect(last()!.values.tags).toEqual([{ name: 'A', extra: 1 }, 'legacy', ['x'], { name: 'D' }]);
@@ -392,7 +392,7 @@ describe('<slip-form> 잘못된 목록 행 보존', () => {
       const addButton = () => buttonByLabel(el, `태그 ${strings.form.addRow}`);
       expect(addButton().disabled).toBe(true);
       expect(hintTexts(el)).toEqual([strings.form.invalidList]);
-      // 비활성 버튼을 눌러도, 내부 갱신을 직접 호출해도 값은 그대로다.
+      // 비활성 버튼을 눌러도, 내부 갱신을 직접 호출해도 값은 그대로입니다.
       addButton().click();
       (el as unknown as { _updateList(key: string, mutate: (list: unknown[]) => void): void })
         ._updateList('tags', (list) => { list.push({}); });
@@ -446,7 +446,7 @@ function base64Bytes(base64: string): Uint8Array<ArrayBuffer> {
 const PNG_BYTES = base64Bytes(SAMPLE_PNG.split(',')[1]!);
 const GIF_BYTES = new Uint8Array(new TextEncoder().encode('GIF89a-not-a-png'));
 
-/** 이미지 선택 버튼을 누르고 파일 선택을 흉내 냅니다. */
+/** 이미지 선택 버튼을 누른 뒤 파일 선택 동작을 재현합니다. */
 async function pickFile(el: SlipForm, file: File): Promise<void> {
   let captured: HTMLInputElement | null = null;
   const original = document.createElement.bind(document);
@@ -540,7 +540,7 @@ describe('<slip-form> reset()', () => {
     expect(el.shadowRoot?.textContent).not.toContain(strings.form.issuedNotice);
     const file = last()!;
     expect(file.issued).toBe(false);
-    // 입력값은 모두 비어 있다 — 빈 number 파라미터만 buildVoucher가 0으로 정규화한다.
+    // 입력값은 모두 비어 있습니다. 빈 number 파라미터만 buildVoucher가 0으로 정규화합니다.
     expect(file.values).toEqual({ qty: 0 });
 
     setInput(inputByLabel(el, '전화'), '011');

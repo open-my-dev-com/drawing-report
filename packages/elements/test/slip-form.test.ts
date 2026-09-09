@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 /**
- * `<slip-form>` 전표 작성 폼 테스트.
+ * `<slip-form>` 전표 작성 폼의 동작을 시험합니다.
  *
  * PDF 렌더링만 모의하고 파싱과 수식에는 core의 실제 구현을 사용합니다.
  */
@@ -172,8 +172,8 @@ describe('<slip-form> 기본 상태', () => {
   });
 });
 
-describe('<slip-form> 입력 칸 구성', () => {
-  it('파라미터마다 입력 칸을 만들고 논리명으로 보여준다 (정의부에만 있는 값 포함)', async () => {
+describe('<slip-form> 입력 필드 구성', () => {
+  it('파라미터마다 입력 필드를 만들고 표시 이름으로 보여준다(정의부에만 있는 값 포함)', async () => {
     const el = await mount();
     expect(inputByLabel(el, '거래일자')).toBeTruthy();
     expect(inputByLabel(el, '비고')).toBeTruthy(); // 요소 없이 정의부에만 있는 파라미터
@@ -235,7 +235,7 @@ describe('<slip-form> 값 입력·행 편집', () => {
     el.remove();
   });
 
-  it('행 값이 바뀌면 수식 칸이 즉시 다시 계산된다', async () => {
+  it('행 값이 바뀌면 수식 필드가 즉시 다시 계산된다', async () => {
     const el = await mount();
     const total = () => inputByLabel(el, `합계 필드 (${strings.form.computed})`).value;
     expect(total()).toBe('0');
@@ -359,7 +359,7 @@ describe('<slip-form> UI 언어', () => {
 const SAMPLE_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
-/** 이미지 파라미터를 사용하는 양식. */
+/** 이미지 파라미터를 사용하는 양식입니다. */
 function makeImageTemplate(): SlipTemplateFile {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,

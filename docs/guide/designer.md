@@ -155,10 +155,10 @@ The supported parameter types are as follows.
 | List | Items, work history, billing items |
 
 > [!TIP]
-> The physical name is not a phrase shown on screen but an identifier used for data integration.
+> The key is not a phrase shown on screen but an identifier used for data integration.
 > Prefer a name without spaces that conveys its meaning, like `tradeDate`, over `trade date`.
 
-Changing a physical name also updates the elements and sample values that reference that parameter. A name that duplicates an existing physical name, or an empty name, cannot be used.
+Changing a key also updates the elements and sample values that reference that parameter. A name that duplicates an existing key, or an empty name, cannot be used.
 
 ### List parameters and sub-fields
 

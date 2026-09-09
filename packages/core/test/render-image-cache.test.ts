@@ -3,7 +3,7 @@ import * as imageSource from '../src/format/image-source.js';
 import { convertSlipFile } from '../src/render/convert.js';
 import { CURRENT_SCHEMA_VERSION, SlipRenderError, type SlipElement, type SlipVoucherFile } from '../src/index.js';
 
-// 구조 검사(전체 디코딩) 호출 횟수를 세기 위해 원본 구현을 감싼다.
+// 구조 검사(전체 디코딩) 호출 횟수를 세기 위해 원본 구현을 감쌉니다.
 vi.mock('../src/format/image-source.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/format/image-source.js')>();
   return {
@@ -18,17 +18,17 @@ const embeddableSpy = vi.mocked(imageSource.isEmbeddableImageData);
 
 const PNG_1PX =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-/** SOI·APP0·SOF0·EOI만 담은 1x1 JPEG */
+/** SOI·APP0·SOF0·EOI만 담은 1x1 JPEG입니다. */
 const JPEG_1PX = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/wAALCAABAAEBAREA/9k=';
 
-/** 앞부분 바이트만 채운 `data:` 문자열 (서명은 맞지만 구조가 없는 손상 이미지) */
+/** 앞부분 바이트만 채운 `data:` 문자열 (서명은 맞지만 구조가 없는 손상 이미지)입니다. */
 function dataUrl(mime: string, head: number[], size = head.length + 16): string {
   const bytes = new Uint8Array(size);
   bytes.set(head);
   return `data:${mime};base64,${Buffer.from(bytes).toString('base64')}`;
 }
 
-/** 항목 하나마다 출력 페이지를 하나씩 만드는 반복 그리드 */
+/** 항목마다 출력 페이지를 하나씩 만드는 반복 그리드입니다. */
 const repeatGrid: SlipElement = {
   type: 'grid',
   id: 'items',
@@ -74,7 +74,7 @@ describe('한 PDF 변환 안에서 같은 이미지는 한 번만 검사한다',
   it('세 출력 페이지에 놓이는 고정 이미지의 구조 검사는 한 번이다', () => {
     const { template } = convertSlipFile(voucher([image('logo', { src: PNG_1PX })], threeItems));
     expect(template.schemas).toHaveLength(3);
-    // 페이지마다 이미지가 그려진다 (이름은 문서 전체에서 고유하게 `logo`, `logo#2`, …로 붙는다).
+    // 페이지마다 이미지를 그립니다. 이름은 문서 전체에서 고유하도록 `logo`, `logo#2`, … 순서로 붙입니다.
     expect(template.schemas.map((page) => page.filter((schema) => schema.name.startsWith('logo')).length)).toEqual([1, 1, 1]);
     expect(inspectSpy).toHaveBeenCalledTimes(1);
     expect(embeddableSpy).toHaveBeenCalledTimes(1);
@@ -93,7 +93,7 @@ describe('한 PDF 변환 안에서 같은 이미지는 한 번만 검사한다',
     );
     const { template } = convertSlipFile(file);
     expect(template.schemas).toHaveLength(3);
-    // 서로 다른 데이터는 PNG·JPEG 두 벌이므로 검사도 두 번이다.
+    // PNG와 JPEG는 데이터가 서로 다르므로 각각 한 번씩 검사합니다.
     expect(embeddableSpy).toHaveBeenCalledTimes(2);
     expect(embeddableSpy.mock.calls.map(([src]) => src).sort()).toEqual([JPEG_1PX, PNG_1PX].sort());
   });
@@ -112,7 +112,7 @@ describe('검사 결과를 재사용해도 오류 문구는 그대로다', () =>
     expect(() => convertSlipFile(file)).toThrow(SlipRenderError);
     expect(() => convertSlipFile(file)).toThrow(/image '이미지 sign' \(sign\).*damaged/);
     expect(() => convertSlipFile(file, { locale: 'ko-KR' })).toThrow(
-      "이미지 '이미지 sign' (sign)의 이미지가 손상되어 PDF에 넣을 수 없습니다",
+      "이미지 '이미지 sign' (sign): 이미지 데이터가 손상되어 PDF에 넣을 수 없습니다",
     );
   });
 

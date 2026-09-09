@@ -22,7 +22,7 @@ function flush(): Promise<void> {
   return new Promise((r) => setTimeout(r, 0));
 }
 
-/** `download`가 내려받은 Blob의 내용을 문자열로 반환한다. */
+/** `download`가 내려받은 Blob의 내용을 문자열로 반환합니다. */
 async function captureDownloadedText(
   slipkit: SlipKit,
   file: SlipFile,
@@ -45,7 +45,7 @@ async function captureDownloadedText(
   return captured!.text();
 }
 
-/** 파일 선택을 모의하고 `open` 결과를 반환한다. */
+/** 파일 선택을 모의하고 `open` 결과를 반환합니다. */
 async function openPicked(slipkit: SlipKit, content: string): Promise<SlipFile> {
   vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
   const promise = new SlipFileExchange(slipkit).open();
@@ -64,7 +64,7 @@ describe('SlipFileExchange', () => {
     expect(names).toEqual(['doc.slip']);
   });
 
-  it('open은 선택한 .slip 파일을 파싱해 돌려준다', async () => {
+  it('open은 선택한 .slip 파일을 파싱해 반환한다', async () => {
     const file = presets[1]!.create();
     expect(await openPicked(createSlipKit(), serializeSlipFile(file))).toEqual(file);
   });
@@ -142,14 +142,14 @@ describe('SlipFileExchange 암호화 — 공통 키 재사용', () => {
     });
   });
 
-  it('틀린 키로 암호화 파일을 열면 복호화 오류로 거부된다', async () => {
+  it('잘못된 키로 암호화 파일을 열면 복호화 오류로 거부된다', async () => {
     const saved = await captureDownloadedText(
       createSlipKit({ encryption: { key: '맞는-키' } }),
       presets[0]!.create(),
       true,
     );
     await expect(
-      openPicked(createSlipKit({ encryption: { key: '틀린-키' } }), saved),
+      openPicked(createSlipKit({ encryption: { key: '잘못된-키' } }), saved),
     ).rejects.toMatchObject({ name: 'SlipEncryptionError' });
   });
 });

@@ -77,7 +77,7 @@ describe('clampGridSpans', () => {
     expect(el.cells[0]).toMatchObject({ rowSpan: 2, colSpan: 2 });
   });
 
-  it('한 칸까지 줄어들면 병합 키 자체를 지운다', () => {
+  it('한 셀까지 줄어들면 병합 키 자체를 지운다', () => {
     const el = makeGrid(2, 2, [{ row: 1, column: 1, rowSpan: 3, colSpan: 3 }]);
     clampGridSpans(el);
     expect('rowSpan' in el.cells[0]!).toBe(false);
@@ -318,7 +318,7 @@ describe('insertPositionFor · insertGridRow', () => {
     expect(insertPositionFor(el, 'before-data')).toEqual({ insertAt: 0, sameBandId: undefined });
   });
 
-  it('넣은 자리 아래의 셀 좌표가 한 칸씩 밀린다', () => {
+  it('추가한 자리 아래의 셀 좌표가 한 행씩 이동한다', () => {
     const el = makeGrid(3, 1, [{ row: 0, column: 0 }, { row: 2, column: 0 }], bands());
     insertGridRow(el, 1, 'page-start', 'b-head', {}, 12);
     expect(el.rows.length).toBe(4);
@@ -326,13 +326,13 @@ describe('insertPositionFor · insertGridRow', () => {
     expect(el.cells.map((c) => c.row)).toEqual([0, 3]);
   });
 
-  it('넣는 자리를 가로지르는 병합은 한 칸 더 걸친다', () => {
+  it('삽입 위치를 가로지르는 병합은 셀 하나를 더 포함한다', () => {
     const el = makeGrid(3, 1, [{ row: 0, column: 0, rowSpan: 3 }], bands());
     insertGridRow(el, 1, 'page-start', 'b-head', {}, 10);
     expect(el.cells[0]!.rowSpan).toBe(4);
   });
 
-  it('붙일 구간은 끝이 늘고 아래 구간은 통째로 밀린다', () => {
+  it('붙일 구간은 끝이 늘고 아래 구간은 전체가 밀린다', () => {
     const el = makeGrid(3, 1, [], bands());
     insertGridRow(el, 1, 'page-start', 'b-head', {}, 10);
     expect(el.repeat!.bands.map((b) => [b.id, b.fromRow, b.toRow])).toEqual([

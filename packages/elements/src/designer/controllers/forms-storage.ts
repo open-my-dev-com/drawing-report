@@ -1,5 +1,5 @@
 /**
- * 저장 모달과 내 양식 목록 모달의 상태.
+ * 저장 모달과 내 양식 목록 모달의 상태를 관리합니다.
  *
  * @remarks
  * 저장소 작업은 호스트가 제공한 어댑터를 통해 수행합니다.
@@ -29,37 +29,37 @@ export class FormsController implements ReactiveController {
     this.host.requestUpdate();
   }
 
-  /** 저장 모달에 입력한 제목 */
+  /** 저장 모달에 입력한 제목입니다. */
   get title(): string {
     return this._title;
   }
 
-  /** 새 양식으로 저장할지 */
+  /** 새 양식으로 저장할지를 정합니다. */
   get asNew(): boolean {
     return this._asNew;
   }
 
-  /** 현재 양식이 저장된 식별자. 저장한 적이 없으면 null */
+  /** 현재 양식의 저장 식별자입니다. 저장한 적이 없으면 `null`입니다. */
   get savedId(): string | null {
     return this._savedId;
   }
 
-  /** 저장 완료 안내를 표시할지 */
+  /** 저장 완료 안내를 표시할지를 정합니다. */
   get savedNotice(): boolean {
     return this._savedNotice;
   }
 
-  /** 목록 모달의 검색어 */
+  /** 목록 모달의 검색어입니다. */
   get query(): string {
     return this._query;
   }
 
-  /** 목록 모달에서 보고 있는 페이지 */
+  /** 목록 모달에서 보고 있는 페이지입니다. */
   get page(): number {
     return this._page;
   }
 
-  /** 저장·불러오기 실패 문구 */
+  /** 저장·불러오기 실패 문구입니다. */
   get error(): string | null {
     return this._error;
   }
@@ -95,7 +95,7 @@ export class FormsController implements ReactiveController {
   }
 
   /**
-   * 이번에 저장할 식별자를 정합니다.
+   * 저장에 사용할 식별자를 정합니다.
    *
    * @returns 새 양식이거나 저장한 적이 없으면 새로 만든 식별자, 아니면 기존 식별자
    */
@@ -141,7 +141,7 @@ export class FormsController implements ReactiveController {
     this._savedNotice = false;
   }
 
-  /** 저장 식별자와 안내를 모두 지웁니다 — 새 양식을 열 때 사용합니다. */
+  /** 저장 식별자와 안내를 모두 지웁니다. 새 양식을 열 때 사용합니다. */
   reset(): void {
     this._savedId = null;
     this._savedNotice = false;
@@ -219,7 +219,7 @@ export class FormsController implements ReactiveController {
    * 목록에서 한 항목을 지웁니다. 저장소 삭제는 호출부가 합니다.
    *
    * @param id - 지운 양식의 식별자
-   * @param pageSize - 한 페이지에 보이는 항목 수 — 목록이 줄어 빈 페이지가 되면 되돌립니다
+   * @param pageSize - 한 페이지에 표시할 항목 수입니다. 목록이 줄어 현재 페이지가 비면 이전 페이지로 이동합니다.
    */
   forget(id: string, pageSize: number): void {
     this._items = this._items.filter((item) => item.id !== id);

@@ -1,5 +1,5 @@
 /**
- * 색 선택기의 상태 — 색조·채도·명도와 사용자 지정 색 목록.
+ * 색 선택기의 색조·채도·명도와 사용자 지정 색 목록을 관리합니다.
  *
  * @remarks
  * 색은 파일 스키마와 같은 `#RRGGBB`로 다루고, HSV는 화면에서 선택하기 위한 표현입니다.
@@ -9,7 +9,7 @@
 import type { ReactiveController } from 'lit';
 import { MAX_CUSTOM_COLORS, hexToHsv, hsvToHex } from '../color.js';
 
-/** 사용자 지정 색상을 저장하는 localStorage 키 */
+/** 사용자 지정 색상을 저장하는 localStorage 키입니다. */
 export const CUSTOM_COLORS_KEY = 'slipkit-designer-custom-colors';
 
 /**
@@ -65,22 +65,22 @@ export class ColorPickerController implements ReactiveController {
     this.host.requestUpdate();
   }
 
-  /** 색조(0~360) */
+  /** 색조(0~360)입니다. */
   get hue(): number {
     return this._hue;
   }
 
-  /** 채도(0~1) */
+  /** 채도(0~1)입니다. */
   get saturation(): number {
     return this._saturation;
   }
 
-  /** 명도(0~1) */
+  /** 명도(0~1)입니다. */
   get value(): number {
     return this._value;
   }
 
-  /** 지금 선택한 색 */
+  /** 지금 선택한 색입니다. */
   get hex(): string {
     return hsvToHex(this._hue, this._saturation, this._value);
   }
@@ -147,7 +147,7 @@ export class ColorPickerController implements ReactiveController {
     this.host.requestUpdate();
   }
 
-  /** 저장해 둔 사용자 지정 색 목록 */
+  /** 저장해 둔 사용자 지정 색 목록입니다. */
   customColors(): string[] {
     this._customColors ??= loadCustomColors();
     return this._customColors;

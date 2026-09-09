@@ -1,9 +1,9 @@
 /**
- * MCP 클라이언트가 도구 목록으로 받는 입력 JSON Schema 테스트.
+ * MCP 클라이언트가 도구 목록으로 받는 입력 JSON Schema를 시험합니다.
  *
  * 키 제약이 없는 객체 입력(`fields`·`element`·`parameter`·`values`·`file`)은 `type: "object"`로
- * 공개되어야 AI 클라이언트가 배열이나 문자열을 넣지 않는다. 실제 호출에서도 객체가 아닌 입력은
- * 파일을 쓰기 전에 거부한다.
+ * `type: "object"`로 명시해 AI 클라이언트가 배열이나 문자열을 넣지 않도록 합니다. 실제 호출에서도 객체가 아닌 입력은
+ * 파일을 쓰기 전에 거부합니다.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
@@ -11,7 +11,7 @@ import path from 'node:path';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { callText, connect, makeTemplate, makeWorkDir, removeWorkDir } from './helpers.js';
 
-/** 도구 목록에 실리는 JSON Schema에서 이 테스트가 보는 부분 */
+/** 도구 목록의 JSON Schema에서 시험에 필요한 속성만 정의합니다. */
 interface JsonSchema {
   type?: string;
   description?: string;
@@ -25,7 +25,7 @@ interface JsonSchema {
   const?: unknown;
 }
 
-/** `slip_edit` 연산별로 키 제약이 없는 객체 입력의 이름 */
+/** `slip_edit` 연산별로 키 제약이 없는 객체 입력의 이름입니다. */
 const OBJECT_INPUT_BY_ACTION: Record<string, string> = {
   set_meta: 'fields',
   set_paper: 'fields',
@@ -38,7 +38,7 @@ const OBJECT_INPUT_BY_ACTION: Record<string, string> = {
   set_values: 'values',
 };
 
-/** 키 제약이 없는 객체 입력이 `z.record`와 같은 계약으로 공개되는지 확인한다. */
+/** 키 제약이 없는 객체 입력이 `z.record`와 같은 계약으로 공개되는지 확인합니다. */
 function expectOpenObject(schema: JsonSchema | undefined, subject: string): void {
   expect(schema, subject).toBeDefined();
   expect(schema!.type, subject).toBe('object');
@@ -157,7 +157,7 @@ describe('객체가 아닌 입력의 거부', () => {
         { path: 'v', op: { action: 'set_values', values: bad } },
       );
     }
-    // 객체 입력을 아예 빠뜨린 연산도 거부한다.
+    // 객체 입력을 아예 빠뜨린 연산도 거부합니다.
     ops.push(
       { path: 'doc', op: { action: 'set_meta' } },
       { path: 'doc', op: { action: 'add_element', pageIndex: 0 } },

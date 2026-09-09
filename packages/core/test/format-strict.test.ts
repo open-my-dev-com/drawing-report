@@ -25,7 +25,7 @@ function dataUrl(mime: string, head: number[], size = head.length + 16): string 
 const PNG_HEAD = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const JPEG_HEAD = [0xff, 0xd8, 0xff, 0xe0];
 
-/** 모든 구조 계층(요소 9종·그리드 하위·조건부 서식·파라미터·에셋·페이지 설정)을 담은 양식 */
+/** 모든 구조 계층(요소 9종·그리드 하위·조건부 서식·파라미터·에셋·페이지 설정)을 담은 양식입니다. */
 function makeTemplate(): SlipTemplateFile {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -89,12 +89,12 @@ function makeVoucher(values: Record<string, unknown>): SlipVoucherFile {
   };
 }
 
-/** JSON으로 복제한 뒤 경로에 키를 심는다. */
+/** JSON으로 복제한 뒤 경로에 키를 넣습니다. */
 function withKey(file: unknown, path: (string | number)[], key: string, value: unknown = 1): unknown {
   const clone = JSON.parse(JSON.stringify(file)) as Record<string, unknown>;
   let node: Record<string, unknown> = clone;
   for (const segment of path) node = node[segment as string] as Record<string, unknown>;
-  // `__proto__`도 객체가 직접 가진 키로 심기 위해 대입 대신 속성 정의를 쓴다.
+  // `__proto__`도 객체가 직접 가진 키로 심기 위해 대입 대신 속성 정의를 씁니다.
   Object.defineProperty(node, key, { value, enumerable: true, writable: true, configurable: true });
   return clone;
 }
@@ -142,14 +142,14 @@ describe('구조 객체는 정의되지 않은 프로퍼티를 거부한다', ()
     expect(() => validateSlipFile(raw)).toThrow(new RegExp(`${pathText.replace(/\./g, '\\.')}.*unknownKey`));
   });
 
-  it.each(LAYERS)('%s이(가) 직접 가진 __proto__ 키도 미정의 키로 거부한다', (_label, path) => {
+  it.each(LAYERS)('%s: 직접 가진 __proto__ 키도 미정의 키로 거부한다', (_label, path) => {
     const raw = withKey(makeTemplate(), path, '__proto__');
     const pathText = path.length === 0 ? '' : path.join('.');
     const pattern = new RegExp(`${pathText.replace(/\./g, '\\.')}.*__proto__`);
     expect(() => validateSlipFile(raw)).toThrow(SlipParseError);
     expect(() => validateSlipFile(raw)).toThrow(pattern);
     expect(() => parseSlipFile(JSON.stringify(raw))).toThrow(pattern);
-    // 문자열로 만든 JSON도 같은 판정을 받는다.
+    // 문자열로 만든 JSON도 같은 판정을 받습니다.
     const text = JSON.stringify(raw);
     expect(text).toContain('"__proto__"');
   });
@@ -275,7 +275,7 @@ describe('JSON Schema 산출물은 같은 정책을 표현한다', () => {
   type Node = Record<string, unknown>;
   const schema = slipFileJsonSchema();
 
-  /** `properties`를 가진 모든 객체 스키마를 경로와 함께 모은다. */
+  /** `properties`를 가진 모든 객체 스키마를 경로와 함께 모읍니다. */
   function objectNodes(node: unknown, path: string, out: { path: string; node: Node }[] = []): { path: string; node: Node }[] {
     if (Array.isArray(node)) {
       node.forEach((item, index) => objectNodes(item, `${path}[${index}]`, out));
@@ -303,14 +303,14 @@ describe('JSON Schema 산출물은 같은 정책을 표현한다', () => {
     const values = (voucher['properties'] as Node)['values'] as Node;
     expect(values['additionalProperties']).not.toBe(false);
     expect(values['properties']).toBeUndefined();
-    // 재귀 JSON 값 정의 안의 객체도 열려 있다.
+    // 재귀 JSON 값 정의 안의 객체도 열려 있습니다.
     expect(text).toContain('"additionalProperties":{"$ref"');
   });
 
   it('요소에 미정의 키가 있는 문서는 런타임과 JSON Schema가 같은 판정을 낸다', () => {
     const raw = withKey(makeTemplate(), ['template', 'pages', 0, 'elements', 0], 'foo') as Node;
     expect(() => validateSlipFile(raw)).toThrow(/foo/);
-    // 생성 스키마의 요소 정의를 구조적으로 확인한다: text 요소 노드는 닫혀 있고 foo를 허용하지 않는다.
+    // 생성 스키마의 요소 정의를 구조적으로 확인합니다. text 요소 노드는 닫혀 있고 foo를 허용하지 않습니다.
     const elementNodes = objectNodes(schema, '$').filter(({ node }) => {
       const type = (node['properties'] as Node)['type'] as Node | undefined;
       return type?.['const'] === 'text';
@@ -458,7 +458,7 @@ describe('스키마 단계의 이미지 데이터 검사', () => {
 
   it('이미지 메시지는 로케일을 따른다', () => {
     const bad = imageAt(dataUrl('image/png', JPEG_HEAD));
-    expect(() => validateSlipFile(bad, { locale: 'ko-KR' })).toThrow('선언한 PNG·JPEG가 아닙니다');
+    expect(() => validateSlipFile(bad, { locale: 'ko-KR' })).toThrow('지정된 PNG 또는 JPEG 형식과 일치하지 않습니다');
     expect(() => validateSlipFile(bad, { locale: 'ja' })).toThrow('宣言された PNG・JPEG ではありません');
   });
 });

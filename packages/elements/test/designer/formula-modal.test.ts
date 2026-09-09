@@ -20,7 +20,7 @@ import {
 
 const PAPER = { width: 210, height: 297, padding: [10, 10, 10, 10] as const };
 
-/** 항목 4개를 페이지당 2개씩 내는 그룹 그리드 */
+/** 항목 4개를 페이지당 2개씩 내는 그룹 그리드입니다. */
 function makeGrid(): GridElement {
   return {
     type: 'grid',
@@ -157,7 +157,7 @@ describe('gridFormulaContext — 계산 문맥 공통 helper', () => {
     const noGroupReasons = new Map(noGroup.availability(item).map((r) => [r.name, r]));
     expect(noGroupReasons.get('@group')).toEqual({ name: '@group', usable: false, reason: 'no-group' });
 
-    // 계획이 없으면 페이지·그룹 값을 지어내지 않고, 안내도 그 상태에 맞춥니다.
+    // 계획이 없으면 페이지·그룹 값을 임의로 만들지 않고, 안내도 그 상태에 맞춥니다.
     const unplanned = gridFormulaContext(makeGrid(), { items: SAMPLE_ITEMS }, null);
     const slot = unplanned.slotForItem(0, grouped.repeat!.bands[1]!);
     expect(slot.reserved!['@page']).toBeUndefined();
@@ -230,7 +230,7 @@ describe('checkFormula — 저장 판정', () => {
     expect(missing.applicable).toBe(true);
   });
 
-  it('인자 수가 틀린 수식은 어떤 데이터에서도 계산될 수 없어 적용을 막는다', () => {
+  it('인자 수가 잘못된 수식은 어떤 데이터에서도 계산될 수 없어 적용을 막는다', () => {
     for (const source of ['IF(TRUE)', 'ROUND()', 'MID("가나다", 1)', 'AND()']) {
       const result = checkFormula({ ...base, source });
       expect(result.status, source).toBe('syntax-error');
@@ -300,7 +300,7 @@ describe('checkFormula — 저장 판정', () => {
       .toContain('The IF function takes');
   });
 
-  it('계산에 성공하면 결과를 함께 돌려준다', () => {
+  it('계산에 성공하면 결과를 함께 반환한다', () => {
     const ok = checkFormula({ ...base, source: 'ROUND(1.5) + 1' });
     expect(ok.status).toBe('ok');
     expect(ok.value).toBe(3);
@@ -333,7 +333,7 @@ describe('verifyFormulaTarget — 모달 표시 중 대상 확인', () => {
   const target: FormulaTarget = { kind: 'field', elementId: 'f1' };
   const origin = { formula: 'SUM($(items).$(amount))' };
 
-  it('대상이 그대로면 다시 찾은 결과를 돌려준다', () => {
+  it('대상이 그대로면 다시 찾은 결과를 반환한다', () => {
     const page = makePage([structuredClone(field)]);
     expect(verifyFormulaTarget(page, target, origin)).not.toBeNull();
   });

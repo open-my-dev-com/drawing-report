@@ -310,7 +310,7 @@ const voucher = slip.buildVoucher(template, values);
 
 ### パラメータごとの値の形
 
-`values` のキーは、テンプレートに定義したパラメータの物理名です。
+`values` のキーは、テンプレートに定義したパラメータのキーです。
 
 | パラメータのタイプ | 値の形 | 例 |
 |---|---|---|
@@ -321,7 +321,7 @@ const voucher = slip.buildVoucher(template, values);
 | 画像 | `data:` Base64 文字列 | `'data:image/png;base64,...'` |
 | リスト | オブジェクトの配列 | `[{ itemName: '鉛筆' }]` |
 
-リストパラメータは、項目ごとに下位フィールドの物理名をキーとして持つオブジェクトの配列を使います。
+リストパラメータには、各項目のオブジェクトが下位フィールドのキーと値を持つ配列を使います。
 
 ```ts
 const values = {

@@ -1,5 +1,5 @@
 /**
- * 양식·페이지 설정과 파라미터 설정 패널.
+ * 양식·페이지 설정과 파라미터 설정 패널을 만듭니다.
  *
  * @remarks
  * 요소를 선택하지 않았을 때 표시하는 패널입니다.
@@ -16,7 +16,7 @@ import { BINDING_VALUE_TYPES, BINDING_FIELD_VALUE_TYPES } from '../parameters.js
 import type { ParameterFieldInfo, ParameterInfo } from '../parameters.js';
 import type { PanelKit } from './panel-kit.js';
 
-/** 하위 필드를 가리키는 위치 */
+/** 하위 필드를 가리키는 위치입니다. */
 interface CellReference {
   pageIndex: number;
   gridId: string;
@@ -24,45 +24,45 @@ interface CellReference {
   column: number;
 }
 
-/** 양식·파라미터 패널이 컴포넌트에 요청하는 조작 */
+/** 양식·파라미터 패널에서 호출하는 컴포넌트 조작입니다. */
 export interface FormActions {
-  /** 편집 중인 양식 */
+  /** 편집 중인 양식입니다. */
   readonly file: SlipTemplateFile | null;
-  /** 보고 있는 양식 페이지 (0부터) */
+  /** 보고 있는 양식 페이지 번호이며 0부터 시작합니다. */
   readonly pageIndex: number;
-  /** 현재 양식 페이지에서 보고 있는 출력 페이지 (0부터) */
+  /** 현재 양식 페이지에서 보고 있는 출력 페이지 번호이며 0부터 시작합니다. */
   readonly outputPage: number;
-  /** 현재 양식 페이지가 만드는 출력 페이지 수 */
+  /** 현재 양식 페이지가 만드는 출력 페이지 수입니다. */
   outputPageCount(): number;
-  /** 보고 있는 출력 페이지를 옮깁니다 */
+  /** 보고 있는 출력 페이지를 옮깁니다. */
   setOutputPage(page: number): void;
-  /** 페이지 키 입력에 오류가 있는지 */
+  /** 페이지 키 입력에 오류가 있는지를 나타냅니다. */
   readonly pageKeyError: boolean;
-  /** 파라미터 물리명이 겹치는지 */
+  /** 파라미터 키가 겹치는지 나타냅니다. */
   readonly parameterKeyError: boolean;
-  /** 호스트가 공급한 용지 크기 */
+  /** 호스트가 제공한 용지 크기입니다. */
   readonly hostPaperSizes: readonly PaperSize[];
-  /** 용지 크기 저장 입력의 내용 */
+  /** 용지 크기 저장 입력의 내용입니다. */
   readonly paperSaveName: string;
-  /** 용지 크기 저장 입력의 내용을 반영합니다 */
+  /** 용지 크기 저장 입력의 내용을 반영합니다. */
   setPaperSaveName(value: string): void;
-  /** 호스트가 용지 크기 저장을 지원하는지 */
+  /** 호스트가 용지 크기 저장을 지원하는지를 나타냅니다. */
   readonly canSavePaperSize: boolean;
-  /** 호스트 용지 목록을 읽거나 저장하지 못했을 때의 안내. 없으면 null */
+  /** 호스트 용지 목록을 읽거나 저장하지 못했을 때 표시할 안내입니다. 안내가 없으면 `null`입니다. */
   readonly paperSettingsError: string | null;
-  /** 양식을 수정합니다 */
+  /** 양식을 수정합니다. */
   updateFile(fn: (file: SlipTemplateFile) => void): void;
-  /** 양식의 페이지 수 */
+  /** 양식의 페이지 수입니다. */
   pageCount(): number;
-  /** 현재 페이지를 앞뒤로 옮깁니다 */
+  /** 현재 페이지를 앞뒤로 옮깁니다. */
   movePage(delta: number): void;
-  /** 페이지 키를 저장합니다 */
+  /** 페이지 키를 저장합니다. */
   commitPageKey(index: number, raw: string): void;
-  /** 페이지 번호 표시를 켜거나 끕니다 */
+  /** 페이지 번호 표시를 켜거나 끕니다. */
   togglePageNumber(index: number, on: boolean): void;
-  /** 현재 용지 크기를 이름 붙여 저장합니다 */
+  /** 현재 용지 크기를 이름 붙여 저장합니다. */
   savePaperSize(name: string): void;
-  /** 사이드바와 같은 파라미터 목록 */
+  /** 사이드바와 같은 파라미터 목록입니다. */
   parameters(): ParameterInfo[];
   addParameterField(listKey: string): void;
   commitParameterLabel(key: string, label: string): void;
@@ -111,7 +111,7 @@ export function outputPageNav(
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param form - 양식·페이지·파라미터 편집 동작
- * @returns 출력 페이지 줄. 출력 페이지가 하나면 빈 것
+ * @returns 출력 페이지 줄. 출력 페이지가 하나면 빈 템플릿
  */
 function outputPageRow(kit: PanelKit, form: FormActions) {
   const count = form.outputPageCount();
@@ -139,7 +139,7 @@ export function pageSettings(kit: PanelKit, form: FormActions) {
   if (!page) return formSettings(kit, form);
   const valOf = (e: Event) => (e.target as HTMLInputElement).value;
 
-  // 페이지 번호는 위쪽 또는 아래쪽의 왼쪽, 가운데, 오른쪽에 배치할 수 있습니다 (SPEC §4).
+  // 페이지 번호는 위쪽 또는 아래쪽의 왼쪽, 가운데, 오른쪽에 배치할 수 있습니다(SPEC §4).
   const positions: { value: PageNumberPosition; label: string }[] = [
     { value: 'bottom-left', label: s.pagePosBottomLeft },
     { value: 'bottom-center', label: s.pagePosBottomCenter },
@@ -428,11 +428,11 @@ export function formSettings(kit: PanelKit, form: FormActions) {
 }
 
 /**
- * 파라미터의 물리명, 논리명, 값 종류와 목록 하위 필드를 편집하는 패널을 렌더링합니다.
+ * 파라미터의 키, 표시 이름, 값 종류와 목록 하위 필드를 편집하는 패널을 렌더링합니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param form - 양식·페이지·파라미터 편집 동작
- * @param key - 편집할 파라미터의 물리명
+ * @param key - 편집할 파라미터의 키
  * @returns 파라미터 설정 패널. 없는 키면 양식 설정 패널
  */
 export function parameterPanel(kit: PanelKit, form: FormActions, key: string) {
@@ -512,8 +512,8 @@ export function parameterPanel(kit: PanelKit, form: FormActions, key: string) {
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param form - 양식·페이지·파라미터 편집 동작
- * @param listKey - 하위 필드를 가진 목록 파라미터의 물리명
- * @param fieldKey - 편집할 하위 필드의 물리명
+ * @param listKey - 하위 필드를 가진 목록 파라미터의 키
+ * @param fieldKey - 편집할 하위 필드의 키
  * @returns 하위 필드 설정 패널. 없는 키면 양식 설정 패널
  */
 export function parameterFieldPanel(kit: PanelKit, form: FormActions, listKey: string, fieldKey: string) {

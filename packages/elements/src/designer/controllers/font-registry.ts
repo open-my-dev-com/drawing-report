@@ -13,7 +13,7 @@ import type { ReactiveController } from 'lit';
 import type { SlipFont } from '@omdc-slipkit/core';
 import { fallbackFontNameOf } from '../font-variant.js';
 
-/** 브라우저에 폰트를 등록하는 수단. 시험에서는 대역으로 바꿉니다. */
+/** 브라우저에 폰트를 등록하는 인터페이스입니다. 시험에서는 대체 구현을 사용합니다. */
 export interface FontFaceAdapter {
   /**
    * 폰트 데이터를 문서에 등록합니다.
@@ -26,7 +26,7 @@ export interface FontFaceAdapter {
   register(family: string, data: Uint8Array): Promise<void>;
 }
 
-/** 문서의 폰트 집합 가운데 등록에 사용하는 부분 */
+/** 폰트 등록에 사용하는 문서 폰트 집합의 최소 인터페이스입니다. */
 interface DocumentFontSet {
   add(face: FontFace): void;
 }
@@ -76,33 +76,33 @@ export function browserFontFaceAdapter(): FontFaceAdapter | null {
   };
 }
 
-/** 폰트 하나의 등록 상태 */
+/** 폰트 하나의 등록 상태입니다. */
 interface FaceEntry {
-  /** 캔버스 CSS에서 사용할 이름 */
+  /** 캔버스 CSS에서 사용할 이름입니다. */
   readonly family: string;
   status: 'pending' | 'ready' | 'failed';
 }
 
-/** 폰트를 제공한 출처 하나의 상태 */
+/** 폰트를 제공한 출처 하나의 상태입니다. */
 interface FontSource {
-  /** 이 출처의 CSS 이름에 붙이는 일련번호 */
+  /** 이 출처의 CSS 이름에 붙이는 일련번호입니다. */
   readonly serial: number;
-  /** 폰트 목록을 가져오는 작업. 출처마다 한 번만 실행합니다 */
+  /** 출처마다 한 번만 실행하는 폰트 목록 조회 작업입니다. */
   loading: Promise<readonly SlipFont[]> | null;
-  /** 가져온 폰트 목록 */
+  /** 가져온 폰트 목록입니다. */
   fonts: readonly SlipFont[];
-  /** 목록 조회에 실패했는지. 실패한 출처는 다음 사용 시 다시 조회합니다 */
+  /** 목록 조회 실패 여부입니다. 실패한 출처는 다음 사용 시 다시 조회합니다. */
   loadFailed: boolean;
-  /** 폰트 이름별 등록 상태 */
+  /** 폰트 이름별 등록 상태입니다. */
   readonly faces: Map<string, FaceEntry>;
-  /** 이 출처를 쓰는 디자이너. 목록 조회와 등록이 끝나면 모두 다시 그립니다 */
+  /** 이 출처를 쓰는 디자이너. 목록 조회와 등록이 끝나면 모두 다시 그립니다. */
   readonly hosts: Set<FontRegistryHost>;
 }
 
 const sources = new WeakMap<object, FontSource>();
 let nextSerial = 0;
 
-/** `slipkit`이 없을 때 로케일별로 동봉 폰트를 구분하는 키 */
+/** `slipkit`이 없을 때 로케일별로 동봉 폰트를 구분하는 키입니다. */
 const defaultSourceKeys = new Map<string, object>();
 
 /**
@@ -110,8 +110,8 @@ const defaultSourceKeys = new Map<string, object>();
  *
  * @remarks
  * 동봉 폰트는 인스턴스가 달라도 폰트가 같고 로케일에 따라 대체 폰트만 달라지므로 로케일로만
- * 나눕니다. 호스트가 실제로 폰트를 공급하는 경우에는 인스턴스 자체를 출처로 씁니다 — 같은
- * 이름에 다른 데이터를 줄 수 있기 때문입니다.
+ * 나눕니다. 호스트가 폰트를 제공하면 같은 이름에 서로 다른 데이터를 줄 수 있으므로 인스턴스
+ * 자체를 출처로 사용합니다.
  *
  * @param locale - 동봉 폰트를 고를 렌더 로케일
  * @returns 출처를 구분하는 키
@@ -147,7 +147,7 @@ function refreshHosts(source: FontSource): void {
   for (const host of source.hosts) host.requestUpdate();
 }
 
-/** 폰트 등록 결과를 화면에 반영할 호스트 */
+/** 폰트 등록 결과를 화면에 반영할 호스트입니다. */
 export interface FontRegistryHost {
   requestUpdate(): void;
 }
@@ -178,7 +178,7 @@ export class FontRegistryController implements ReactiveController {
    * 폰트를 가져올 출처를 지정합니다. 성공한 조회 결과는 재사용하고 실패한 조회는 다시 시도합니다.
    *
    * @param key - {@link bundledFontSourceKey}가 만든 키 또는 폰트를 제공한 SlipKit 인스턴스
-   * @param load - 폰트 목록을 가져오는 함수. 성공할 때까지 출처를 다시 사용할 때마다 호출합니다
+   * @param load - 폰트 목록을 가져오는 함수. 성공할 때까지 출처를 다시 사용할 때마다 호출합니다.
    */
   use(key: object, load: () => Promise<readonly SlipFont[]>): void {
     if (this._key !== null && this._key !== key) {
@@ -206,17 +206,17 @@ export class FontRegistryController implements ReactiveController {
     });
   }
 
-  /** 현재 출처에서 가져온 폰트 이름 목록 */
+  /** 현재 출처에서 가져온 폰트 이름 목록입니다. */
   get fontNames(): readonly string[] {
     return this._source?.fonts.map((font) => font.name) ?? [];
   }
 
-  /** 현재 출처의 폰트 목록 조회가 실패했는지 */
+  /** 현재 출처의 폰트 목록 조회가 실패했는지를 나타냅니다. */
   get loadFailed(): boolean {
     return this._source?.loadFailed ?? false;
   }
 
-  /** 현재 출처의 대체 폰트 이름 */
+  /** 현재 출처의 대체 폰트 이름입니다. */
   get fallbackName(): string | undefined {
     const source = this._source;
     return source ? fallbackFontNameOf(source.fonts) : undefined;
@@ -225,7 +225,7 @@ export class FontRegistryController implements ReactiveController {
   /**
    * 지정한 폰트를 브라우저에 등록합니다. 이미 등록했거나 등록 중인 폰트는 건너뜁니다.
    *
-   * @param names - 등록할 폰트 이름. undefined는 무시합니다
+   * @param names - 등록할 폰트 이름. undefined는 무시합니다.
    */
   ensure(names: Iterable<string | undefined>): void {
     const source = this._source;

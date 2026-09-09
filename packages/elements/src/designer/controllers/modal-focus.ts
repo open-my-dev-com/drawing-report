@@ -4,8 +4,8 @@
  * @remarks
  * 모달이 열린 동안 Tab 키 이동을 모달 내부로 제한합니다.
  * 호스트 갱신을 요청하지 않으므로 `ReactiveController`로 등록하지 않습니다.
- * 호출 시점은 컴포넌트가 정합니다 — 인라인 편집 등 다른 초점 처리와 순서를 맞춰야 하므로
- * `hostUpdated`가 아니라 컴포넌트의 `updated`에서 `sync`를 부릅니다.
+ * 호출 시점은 컴포넌트에서 정합니다. 인라인 편집 등 다른 초점 처리와 순서를 맞춰야 하므로
+ * `hostUpdated`가 아니라 컴포넌트의 `updated`에서 `sync`를 호출합니다.
  */
 
 export interface ModalFocusHost {
@@ -70,7 +70,7 @@ export class ModalFocusController {
    */
   sync(): void {
     const modals = Array.from(this.host.renderRoot.querySelectorAll<HTMLElement>('.modal'));
-    // 닫힌 모달을 위에서부터 걷어 내고 그 모달을 열기 전 요소로 초점을 되돌립니다.
+    // 닫힌 모달을 위에서부터 제거하고 그 모달을 열기 전 요소로 초점을 되돌립니다.
     while (this.stack.length > 0 && !modals.includes(this.stack[this.stack.length - 1]!.modal)) {
       const { returnTo } = this.stack.pop()!;
       if (returnTo?.isConnected) returnTo.focus();

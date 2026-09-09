@@ -1,4 +1,4 @@
-// 폰트의 브라우저 등록과 재사용 — 대역으로 등록 성공·중복·실패와 출처 분리를 확인합니다.
+// 폰트의 브라우저 등록과 재사용을 시험합니다. 대체 구현으로 등록 성공·중복·실패와 출처 분리를 확인합니다.
 import { describe, expect, it, vi } from 'vitest';
 import type { SlipFont } from '@omdc-slipkit/core';
 import {
@@ -13,7 +13,7 @@ const FONTS: SlipFont[] = [
   { name: 'Pretendard-Bold', data: new Uint8Array([2]) },
 ];
 
-/** 등록 요청을 기록하고 결과를 지정할 수 있는 대역 */
+/** 등록 요청을 기록하고 결과를 지정할 수 있는 대체 구현입니다. */
 function stubAdapter(fail = false) {
   const calls: string[] = [];
   const adapter: FontFaceAdapter = {

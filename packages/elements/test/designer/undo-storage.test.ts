@@ -96,7 +96,7 @@ async function mountWithStorage(storage: FakeStorage): Promise<Designer> {
   return el;
 }
 
-/** 내 양식 목록에서 한 양식을 불러옵니다 */
+/** 내 양식 목록에서 한 양식을 불러옵니다. */
 async function loadForm(el: Designer, title: string): Promise<void> {
   toolbarButton(el, strings.designer.myFormsList).click();
   await settle(el);
@@ -104,7 +104,7 @@ async function loadForm(el: Designer, title: string): Promise<void> {
   await settle(el);
 }
 
-/** 저장 모달을 열어 현재 제목 그대로 저장합니다 */
+/** 저장 모달을 열어 현재 제목으로 저장합니다. */
 async function saveCurrent(el: Designer): Promise<void> {
   toolbarButton(el, strings.designer.saveAsMyForm).click();
   await el.updateComplete;

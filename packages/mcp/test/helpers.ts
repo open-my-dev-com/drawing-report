@@ -1,4 +1,4 @@
-/** MCP 서버·저장소 테스트 공용 도우미. */
+/** MCP 서버·저장소 테스트 공용 도우미입니다. */
 import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -8,14 +8,14 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { CURRENT_SCHEMA_VERSION, type SlipTemplateFile } from '@omdc-slipkit/core';
 import { createSlipMcpServer, type SlipMcpServerOptions } from '../src/server.js';
 
-/** 임시 작업 디렉터리를 만든다. 임시 디렉터리가 링크(macOS의 `/tmp` 등)여도 실제 경로를 돌려준다. */
+/** 임시 작업 디렉터리를 만듭니다. 임시 디렉터리가 링크(macOS의 `/tmp` 등)여도 실제 경로를 반환합니다. */
 export async function makeWorkDir(): Promise<string> {
   return realpath(await mkdtemp(path.join(tmpdir(), 'slipkit-mcp-')));
 }
 
 /**
- * 심볼릭 링크 시험을 건너뛸지 판정한다. Windows에서 링크 생성이 권한 오류(`EPERM`)로 실패할 때만
- * 건너뛰고, 그 밖의 환경에서는 항상 실행한다.
+ * 심볼릭 링크 시험을 건너뛸지 판정합니다. Windows에서 링크 생성이 권한 오류(`EPERM`)로 실패할 때만
+ * 건너뛰고, 그 밖의 환경에서는 항상 실행합니다.
  */
 export function symlinksUnavailable(): boolean {
   if (process.platform !== 'win32') return false;
@@ -31,16 +31,16 @@ export function symlinksUnavailable(): boolean {
   }
 }
 
-/** 임시 작업 디렉터리를 지운다. */
+/** 임시 작업 디렉터리를 지웁니다. */
 export function removeWorkDir(dir: string): Promise<void> {
   return rm(dir, { recursive: true, force: true });
 }
 
-/** 1x1 투명 PNG의 base64 */
+/** 1x1 투명 PNG의 Base64 데이터입니다. */
 export const TINY_PNG_B64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
-/** 테스트용 최소 양식. 필드·그리드·이미지 요소와 목록 파라미터를 포함한다. */
+/** 테스트용 최소 양식. 필드·그리드·이미지 요소와 목록 파라미터를 포함합니다. */
 export function makeTemplate(): SlipTemplateFile {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -125,7 +125,7 @@ export function makeTemplate(): SlipTemplateFile {
   };
 }
 
-/** 서버와 연결된 클라이언트 쌍을 만든다. */
+/** 서버와 연결된 클라이언트 쌍을 만듭니다. */
 export async function connect(options: SlipMcpServerOptions): Promise<{
   client: Client;
   close: () => Promise<void>;
@@ -144,7 +144,7 @@ export async function connect(options: SlipMcpServerOptions): Promise<{
   };
 }
 
-/** 도구를 호출하고 첫 텍스트 응답을 반환한다. */
+/** 도구를 호출하고 첫 텍스트 응답을 반환합니다. */
 export async function callText(
   client: Client,
   name: string,

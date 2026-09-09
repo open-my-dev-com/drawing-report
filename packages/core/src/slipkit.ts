@@ -1,7 +1,7 @@
 /**
- * 렌더링, 수식 평가, 암호화에 공통 설정을 적용하는 core API.
+ * 렌더링, 수식 평가, 암호화에 공통 설정을 적용하는 Core API입니다.
  *
- * 설정이 필요 없는 순수 함수({@link parseSlipFile} 등)는 별도로 내보낸다.
+ * 설정이 필요 없는 순수 함수({@link parseSlipFile} 등)는 별도로 내보냅니다.
  */
 import { buildVoucher } from './format/voucher.js';
 import type { JsonValue, SlipFile, SlipTemplateFile, SlipVoucherFile } from './format/schema.js';
@@ -13,75 +13,75 @@ import { decryptParsedEnvelope, isKeyMismatchError, parseEncryptedEnvelope } fro
 import { SlipEncryptionError } from './encryption/errors.js';
 import { em } from './encryption/messages.js';
 
-/** 파일별 암호화에 사용하는 암호문 또는 32바이트 원시 키 */
+/** 파일별 암호화에 사용하는 암호 문구 또는 32바이트 원시 키입니다. */
 type EncryptionKey = string | Uint8Array;
 
-/** {@link createSlipKit}에 적용할 공통 설정 */
+/** {@link createSlipKit}에 적용할 공통 설정입니다. */
 export interface SlipKitConfig {
   /**
-   * 렌더링에 사용할 폰트를 반환하는 함수.
-   * 서버나 네트워크에서 비동기로 불러올 수 있다. 생략하면 렌더링 엔진의 기본 폰트를 사용한다.
+   * 렌더링에 사용할 폰트를 반환하는 함수입니다.
+   * 서버나 네트워크에서 비동기로 불러올 수 있습니다. 생략하면 렌더링 엔진의 기본 폰트를 사용합니다.
    */
   getFonts?: () => readonly SlipFont[] | Promise<readonly SlipFont[]>;
   /**
-   * `FORMAT_NUMBER` 등 형식 함수에 사용할 BCP 47 로케일.
-   * 렌더링, `evaluate`와 오류 메시지 언어에 함께 적용된다.
+   * `FORMAT_NUMBER` 같은 형식 함수에 사용할 BCP 47 로케일입니다.
+   * 렌더링, `evaluate`와 오류 메시지 언어에 함께 적용됩니다.
    *
    * @defaultValue `'en-US'`
    */
   locale?: string;
   /**
-   * 암호화 기본 설정. `key`를 주면 `encrypt`/`decrypt`가 이 키를 기본으로 쓴다.
-   * 메서드에 키를 전달하면 해당 호출에만 그 키를 사용한다. `previousKeys`는 키를 변경하기 전에
-   * 암호화한 파일을 복호화할 때 순서대로 시도한다.
+   * 기본 암호화 설정입니다. `key`를 주면 `encrypt`/`decrypt`가 이 키를 기본으로 씁니다.
+   * 메서드에 키를 전달하면 해당 호출에만 그 키를 사용합니다. `previousKeys`는 키를 변경하기 전에
+   * 암호화한 파일을 복호화할 때 순서대로 시도합니다.
    */
   encryption?: { key: EncryptionKey; previousKeys?: EncryptionKey[] };
 }
 
-/** {@link createSlipKit}가 반환하는 core API */
+/** {@link createSlipKit}가 반환하는 core API입니다. */
 export interface SlipKit {
-  /** 설정된 로케일. UI 컴포넌트와 저장소가 같은 언어 설정을 재사용할 때 읽는다. */
+  /** 설정된 로케일입니다. UI 컴포넌트와 저장소가 같은 언어 설정을 재사용할 때 읽습니다. */
   readonly locale: string | undefined;
-  /** 설정된 폰트 공급 함수. 폰트를 설정하지 않았으면 undefined다. */
+  /** 설정된 폰트 제공 함수입니다. 폰트를 설정하지 않았으면 `undefined`입니다. */
   readonly getFonts: (() => readonly SlipFont[] | Promise<readonly SlipFont[]>) | undefined;
   /**
-   * `.slip` 파일을 설정된 폰트와 로케일로 렌더링한다.
+   * `.slip` 파일을 설정된 폰트와 로케일로 렌더링합니다.
    *
    * @param file - 렌더할 `.slip` 파일 (양식 또는 전표)
    * @returns PDF 파일 바이트
    */
   render(file: SlipFile): Promise<Uint8Array>;
   /**
-   * 양식과 값을 발행 전 전표로 조립한다.
+   * 양식과 값을 발행 전 전표로 조립합니다.
    *
    * @param template - 양식 파일
-   * @param values - 파라미터 값 묶음 (물리명 → 값)
+   * @param values - 파라미터 값 묶음(키 → 값)
    * @returns 발행 전(issued: false) 전표
    */
   buildVoucher(template: SlipTemplateFile, values: Record<string, JsonValue>): SlipVoucherFile;
   /**
-   * 수식을 평가한다. 컨텍스트에 `locale`이 없으면 설정된 로케일을 사용한다.
+   * 수식을 계산합니다. 계산 문맥에 `locale`이 없으면 설정된 로케일을 사용합니다.
    *
    * @param source - 수식 문자열 또는 파싱된 AST
-   * @param context - 값(`values`)·기준 시각 등 평가 컨텍스트
+   * @param context - 값(`values`)과 기준 시각 등을 담은 계산 문맥
    * @returns 평가 결과 값
    */
   evaluate(source: string | FormulaAst, context: FormulaContext): FormulaValue;
   /**
-   * `.slip` 파일을 암호화 봉투 JSON으로 변환한다.
+   * `.slip` 파일을 암호화 봉투 JSON으로 변환합니다.
    *
    * @param file - 암호화할 `.slip` 파일
-   * @param key - 이 호출에 사용할 키. 생략하면 설정된 기본 키를 사용한다
+   * @param key - 이 호출에 사용할 키. 생략하면 설정된 기본 키를 사용합니다.
    * @returns 암호화 봉투 JSON 문자열
    * @throws SlipEncryptionError 호출 인자와 설정에 암호화 키가 없을 때
    */
   encrypt(file: SlipFile, key?: EncryptionKey): Promise<string>;
   /**
-   * 암호화 봉투 JSON을 복호화하고 `.slip` 파일을 검증한다.
-   * 키를 생략하면 기본 키와 `previousKeys`를 순서대로 시도한다.
+   * 암호화 봉투 JSON을 복호화하고 `.slip` 파일을 검증합니다.
+   * 키를 생략하면 기본 키와 `previousKeys`를 순서대로 시도합니다.
    *
    * @param json - 암호화 봉투 JSON 문자열
-   * @param key - 이 호출에 사용할 키. 생략하면 설정된 키를 사용한다
+   * @param key - 이 호출에 사용할 키. 생략하면 설정된 키를 사용합니다.
    * @returns 복호화하고 검증한 `.slip` 파일
    * @throws SlipEncryptionError 키가 없거나, 봉투가 손상·미지원 형식이거나, 시도한 어떤 키로도
    *   복호화하지 못했을 때(키 불일치·파일 변조)
@@ -91,14 +91,14 @@ export interface SlipKit {
 }
 
 /**
- * 폰트 공급 함수를 인스턴스 안에서 한 번만 호출하도록 감싼다.
+ * 폰트 제공 함수를 인스턴스 안에서 한 번만 호출하도록 감쌉니다.
  *
  * @remarks
- * 디자이너와 렌더러가 같은 인스턴스를 쓰면 조회 결과를 공유한다.
- * 실패한 조회 결과는 저장하지 않고 다음 호출에서 다시 시도한다.
+ * 디자이너와 렌더러가 같은 인스턴스를 쓰면 조회 결과를 공유합니다.
+ * 실패한 조회 결과는 저장하지 않고 다음 호출에서 다시 시도합니다.
  *
- * @param supply - 설정에서 받은 폰트 공급 함수
- * @returns 결과를 재사용하는 폰트 공급 함수
+ * @param supply - 설정에서 받은 폰트 제공 함수
+ * @returns 결과를 재사용하는 폰트 제공 함수
  */
 function shareFonts(
   supply: () => readonly SlipFont[] | Promise<readonly SlipFont[]>,
@@ -106,7 +106,7 @@ function shareFonts(
   let pending: Promise<readonly SlipFont[]> | undefined;
   return () => {
     if (pending === undefined) {
-      // 동기 예외도 Promise 거부로 처리할 수 있도록 공급 함수를 체인 안에서 호출한다.
+      // 동기 예외도 Promise 거부로 처리할 수 있도록 제공 함수를 Promise 체인 안에서 호출합니다.
       pending = Promise.resolve().then(() => supply());
       pending.catch(() => {
         pending = undefined;
@@ -117,7 +117,7 @@ function shareFonts(
 }
 
 /**
- * 공통 설정을 적용한 core API를 생성한다.
+ * 공통 설정을 적용한 core API를 생성합니다.
  *
  * @param config - 폰트, 로케일, 암호화 키 설정
  * @returns 공통 설정이 적용된 {@link SlipKit} 인스턴스
@@ -136,7 +136,7 @@ export function createSlipKit(config: SlipKitConfig = {}): SlipKit {
     ...(config.locale === undefined ? {} : { locale: config.locale }),
   });
 
-  /** 암호화에 사용할 키를 호출 인자와 기본 설정 순서로 선택한다. */
+  /** 암호화에 사용할 키를 호출 인자와 기본 설정 순서로 선택합니다. */
   function keyForEncrypt(override: EncryptionKey | undefined): EncryptionKey {
     const key = override ?? config.encryption?.key;
     if (key === undefined) {
@@ -145,7 +145,7 @@ export function createSlipKit(config: SlipKitConfig = {}): SlipKit {
     return key;
   }
 
-  /** 복호화에 시도할 키를 호출 인자, 기본 키, 이전 키 순서로 반환한다. */
+  /** 복호화에 시도할 키를 호출 인자, 기본 키, 이전 키 순서로 반환합니다. */
   function keysForDecrypt(override: EncryptionKey | undefined): EncryptionKey[] {
     if (override !== undefined) return [override];
     const base = config.encryption?.key;
@@ -172,19 +172,19 @@ export function createSlipKit(config: SlipKitConfig = {}): SlipKit {
     decrypt: async (json, key) => {
       const keys = keysForDecrypt(key);
       const locale = config.locale;
-      // 봉투 손상은 키와 무관하므로 키를 시도하기 전에 한 번만 검사해 보고한다.
+      // 봉투 손상은 키와 무관하므로 키를 시도하기 전에 한 번만 검사해 보고합니다.
       const envelope = parseEncryptedEnvelope(json, locale);
       let lastError: SlipEncryptionError | undefined;
       for (const k of keys) {
         try {
           return await decryptParsedEnvelope(envelope, k, locale);
         } catch (error) {
-          // 키 불일치만 다음 키로 넘어간다. 복호화된 내용의 검증 실패 등은 그대로 전달한다.
+          // 키 불일치만 다음 키로 넘어갑니다. 복호화된 내용의 검증 실패 등은 그대로 전달합니다.
           if (!isKeyMismatchError(error)) throw error;
           lastError = error as SlipEncryptionError;
         }
       }
-      // 키를 하나만 시도했으면 그 오류를, 여러 개를 시도했으면 어느 키도 맞지 않았다고 알린다.
+      // 키를 하나만 시도했으면 그 오류를, 여러 개를 시도했으면 어느 키도 맞지 않았다고 알립니다.
       if (keys.length === 1 && lastError !== undefined) throw lastError;
       throw new SlipEncryptionError(em(locale).noMatchingKey());
     },

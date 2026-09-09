@@ -1,17 +1,17 @@
 /**
- * 실행 환경 정보 수집과 비교.
+ * 실행 환경 정보를 수집하고 비교합니다.
  *
- * benchmark 네 갈래가 각자 `os.cpus()`·`os.totalmem()`으로 같은 머리말을 만들던 것을 모았다.
- * 여기서 만든 fingerprint는 기준선 비교에서 「같은 환경인지」를 판정하는 기준이 된다 —
- * 시간·메모리처럼 환경을 타는 값은 fingerprint가 같을 때만 비교한다.
+ * 네 성능 측정에서 공통으로 필요한 `os.cpus()`·`os.totalmem()` 결과를 이 모듈에서 만듭니다.
+ * 여기서 수집한 실행 환경 정보는 기준선과 현재 실행 환경이 같은지 판단하는 기준입니다.
+ * 시간·메모리처럼 환경에 따라 달라지는 값은 실행 환경 정보가 같을 때만 비교합니다.
  */
 import os from 'node:os';
 
-/** fingerprint에 넣는 항목 — 하나라도 다르면 환경을 타는 값은 비교하지 않는다 */
+/** 실행 환경 정보에 넣는 항목입니다. 하나라도 다르면 환경에 따라 달라지는 값은 비교하지 않습니다. */
 export const FINGERPRINT_FIELDS = ['node', 'platform', 'arch', 'cpuModel', 'cores', 'memoryGiB', 'chromium'];
 
 /**
- * 현재 프로세스의 실행 환경을 모은다.
+ * 현재 프로세스의 실행 환경을 모읍니다.
  *
  * @param {{ chromium?: string | null }} [extra] - Chromium 버전처럼 호출자만 아는 값
  * @returns {{ node: string, v8: string, platform: string, arch: string, osRelease: string,
@@ -35,20 +35,20 @@ export function collectEnvironment(extra = {}) {
 }
 
 /**
- * 환경 정보를 한 줄 문자열로 만든다. 같은 문자열이면 같은 환경으로 본다.
+ * 환경 정보를 한 줄 문자열로 만듭니다. 같은 문자열이면 같은 환경으로 확인합니다.
  *
  * @param {Record<string, unknown>} environment - `collectEnvironment` 결과
- * @returns {string} fingerprint
+ * @returns {string} 실행 환경을 비교할 때 사용하는 문자열
  */
 export function environmentFingerprint(environment) {
   return FINGERPRINT_FIELDS.map((field) => `${field}=${environment?.[field] ?? 'none'}`).join(' | ');
 }
 
 /**
- * 두 환경의 fingerprint 항목을 견줘 다른 항목을 모은다.
+ * 두 실행 환경의 항목을 비교해 서로 다른 항목을 모읍니다.
  *
- * @param {Record<string, unknown>} baseline - 기준선을 잰 환경
- * @param {Record<string, unknown>} actual - 이번에 잰 환경
+ * @param {Record<string, unknown>} baseline - 기준선을 측정한 환경
+ * @param {Record<string, unknown>} actual - 이번 측정의 실행 환경
  * @returns {{ same: boolean, differences: Array<{ field: string, baseline: unknown, actual: unknown }> }} 비교 결과
  */
 export function compareEnvironments(baseline, actual) {
@@ -62,7 +62,7 @@ export function compareEnvironments(baseline, actual) {
 }
 
 /**
- * 사람이 읽을 실행 환경 한 줄.
+ * 실행 환경을 사람이 읽을 수 있는 한 줄로 나타냅니다.
  *
  * @param {Record<string, any>} environment - `collectEnvironment` 결과
  * @returns {string} 머리말에 쓸 문자열

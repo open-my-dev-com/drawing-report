@@ -1,5 +1,5 @@
 /**
- * 요소 종류별 속성 입력 항목 — 글자, 폰트, 이미지, 선, 다각형과 공통 크기·기준점.
+ * 글자, 폰트, 이미지, 선, 다각형과 공통 크기·기준점의 속성 입력 항목을 만듭니다.
  */
 
 import { html, nothing } from 'lit';
@@ -36,59 +36,59 @@ import { numberRow, borderWidthSelect, borderShapeRow, colorControl, textStyleTo
 import type { PanelKit } from './panel-kit.js';
 
 
-/** 목록 선택기에서 선택한 셀마다 값이 다를 때 보여 주는, 파일에 저장되지 않는 항목의 값 */
+/** 목록 선택기에서 선택한 셀마다 값이 다를 때 보여 주는, 파일에 저장되지 않는 항목의 값입니다. */
 const MIXED_OPTION = '__mixed__';
-/** 요소 속성 줄이 컴포넌트에 요청하는 조작 */
+/** 요소 속성 줄에서 호출하는 컴포넌트 조작입니다. */
 export interface ElementActions {
-  /** 선택한 요소를 수정합니다 */
+  /** 선택한 요소를 수정합니다. */
   update(fn: (el: SlipElement) => void): void;
-  /** 글자 요소와 필드 요소를 서로 바꿉니다 */
+  /** 글자 요소와 필드 요소를 서로 바꿉니다. */
   convertTextField(to: 'text' | 'field'): void;
-  /** 이미지 선택 모달을 엽니다 */
+  /** 이미지 선택 모달을 엽니다. */
   openImageModal(): void;
-  /** 이미지 값을 파라미터로 받을지 바꿉니다 */
+  /** 이미지 값을 파라미터로 받을지 바꿉니다. */
   setImageVariable(variable: boolean): void;
-  /** 이미지 파라미터 선택 상자를 그립니다 */
+  /** 이미지 파라미터 선택 상자를 그립니다. */
   imageParameterSelect(current: string): TemplateResult;
-  /** 선의 길이와 각도를 적용합니다 */
+  /** 선의 길이와 각도를 적용합니다. */
   applyLineLengthAngle(length: number, angle: number): void;
-  /** 요소의 좌표 기준점 번호를 읽습니다 */
+  /** 요소의 좌표 기준점 번호를 읽습니다. */
   anchorIndex(el: SlipElement): number;
-  /** 요소의 좌표 기준점 번호를 바꿉니다 */
+  /** 요소의 좌표 기준점 번호를 바꿉니다. */
   setAnchorIndex(elementId: string, index: number): void;
-  /** 폰트 목록과 브라우저 등록 상태 */
+  /** 폰트 목록과 브라우저 등록 상태입니다. */
   readonly fonts: DesignerFonts;
-  /** 필드 요소의 값 소스를 바꿉니다 */
+  /** 필드 요소의 값 소스를 바꿉니다. */
   setFieldSource(kind: 'parameter' | 'formula'): void;
-  /** 일반 파라미터 선택 상자를 그립니다 */
+  /** 일반 파라미터 선택 상자를 그립니다. */
   parameterSelect(current: string): TemplateResult;
-  /** 바코드 파라미터 선택 상자를 그립니다 */
+  /** 바코드 파라미터 선택 상자를 그립니다. */
   barcodeParameterSelect(current: string): TemplateResult;
-  /** 호스트가 허용한 바코드 종류 */
+  /** 호스트가 허용한 바코드 종류입니다. */
   barcodeKinds(): readonly { value: BarcodeKind; label: string }[];
-  /** 호스트 바코드 종류를 읽지 못했을 때의 안내. 없으면 null */
+  /** 호스트 바코드 종류를 읽지 못했을 때 표시할 안내입니다. 안내가 없으면 `null`입니다. */
   readonly barcodeKindsError: string | null;
-  /** 바코드 내용이 규격에 맞는지 알리는 문구 */
+  /** 바코드 내용이 규격에 맞는지 알리는 문구입니다. */
   barcodeContentWarning(kind: BarcodeKind, content: string): string | null;
-  /** 바코드의 값 소스 종류를 선택합니다 */
+  /** 바코드의 값 소스 종류를 선택합니다. */
   chooseBarcodeSource(kind: 'content' | 'parameter' | 'formula'): void;
-  /** 바코드의 값 소스를 저장합니다 */
+  /** 바코드의 값 소스를 저장합니다. */
   setBarcodeSource(kind: 'content' | 'formula', value: string): void;
-  /** 현재 페이지의 요소 목록 */
+  /** 현재 페이지의 요소 목록입니다. */
   pageElements(): SlipElement[] | undefined;
-  /** id로 요소를 찾습니다 */
+  /** ID로 요소를 찾습니다. */
   findElement(id: string): SlipElement | undefined;
-  /** 선택한 요소들을 묶습니다 */
+  /** 선택한 요소들을 묶습니다. */
   groupSelected(): void;
-  /** 그룹을 해제합니다 */
+  /** 그룹을 해제합니다. */
   ungroupSelected(): void;
-  /** 선택한 요소·그룹의 변이나 중앙선을 맞춥니다 */
+  /** 선택한 요소·그룹의 변이나 중앙선을 맞춥니다. */
   alignSelected(edge: AlignEdge): void;
-  /** 선택한 요소·그룹 사이의 간격을 고르게 나눕니다 */
+  /** 선택한 요소·그룹 사이의 간격을 고르게 나눕니다. */
   distributeSelected(axis: DistributeAxis): void;
-  /** 편집 중인 양식의 용지 크기(mm). 양식이 없으면 undefined */
+  /** 편집 중인 양식의 용지 크기(mm)입니다. 양식이 없으면 `undefined`입니다. */
   paper(): { width: number; height: number } | undefined;
-  /** 지금 선택된 요소 id 모음 */
+  /** 지금 선택된 요소 ID 모음입니다. */
   readonly selectedIds: ReadonlySet<string>;
 }
 
@@ -98,7 +98,7 @@ export interface ElementActions {
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param act - 요소 편집 동작
  * @param els - 판정할 요소들
- * @returns 안내 조각. 넘는 요소가 없으면 빈 것
+ * @returns 안내 조각. 넘는 요소가 없으면 빈 템플릿
  */
 export function paperOverflowNotice(kit: PanelKit, act: ElementActions, els: readonly SlipElement[]) {
   const paper = act.paper();
@@ -106,7 +106,7 @@ export function paperOverflowNotice(kit: PanelKit, act: ElementActions, els: rea
   return html`<div class="paper-overflow-notice" role="note">${kit.s.paperOverflowNotice}</div>`;
 }
 
-/** 정렬 명령의 변·중앙선과 그 문구·아이콘 키 */
+/** 정렬 명령의 변·중앙선과 그 문구·아이콘 키입니다. */
 const ALIGN_COMMANDS: readonly [AlignEdge, keyof DesignerStrings, keyof typeof icons][] = [
   ['left', 'alignLeftEdges', 'alignLeftEdges'],
   ['hcenter', 'alignHCenters', 'alignHCenters'],
@@ -217,11 +217,11 @@ function textFieldKindRow(kit: PanelKit, act: ElementActions, current: 'text' | 
     </div>`;
 }
 
-/** 폰트를 지정하지 않았을 때 보여 줄 항목 문구와 그 아래 안내 */
+/** 폰트를 지정하지 않았을 때 보여 줄 항목 문구와 그 아래 안내입니다. */
 export interface FontDefaultOption {
-  /** 선택 목록의 첫 항목 문구 */
+  /** 선택 목록의 첫 항목 문구입니다. */
   label: string;
-  /** 항목 아래에 덧붙일 안내. 없으면 생략합니다 */
+  /** 항목 아래에 덧붙일 안내입니다. 없으면 생략합니다. */
   note?: string | undefined;
 }
 
@@ -287,7 +287,7 @@ export function fontNameRow(
   const s = kit.s;
   const fonts = act.fonts;
   const inherit = opts?.inherit ?? fontDefaultOption(kit, fonts.fallback);
-  // 선택한 셀의 폰트가 서로 다르면 파일에 저장되지 않는 「혼합」 항목을 표시합니다.
+  // 선택한 셀의 폰트가 서로 다르면 파일에 저장되지 않는 `혼합` 항목을 표시합니다.
   const mixed = opts?.mixed === true;
   // 목록에 없는 이름을 지정한 요소도 그 값을 그대로 고를 수 있어야 합니다.
   const options = current !== undefined && !fonts.selectable.includes(current)
@@ -440,7 +440,7 @@ function fontProps(kit: PanelKit, act: ElementActions, el: SlipElement) {
 }
 
 // ---------------------------------------------------------------------------
-// Render: color props
+// 요소 종류에 맞는 색상 속성 입력란을 렌더링합니다.
 // ---------------------------------------------------------------------------
 
 /**
@@ -455,7 +455,7 @@ export function imageProps(kit: PanelKit, act: ElementActions, el: ImageElement)
   const s = kit.s;
   // 이미지 요소는 고정 소스와 파라미터 중 하나만 사용합니다.
   const variable = el.parameter !== undefined;
-  // base64 문자열 대신 현재 이미지를 표시합니다.
+  // Base64 문자열 대신 현재 이미지를 표시합니다.
   const chosen = el.src !== undefined && el.src !== PLACEHOLDER_IMG && el.src.startsWith('data:');
   return html`
     <div class="prop-section">
@@ -542,7 +542,7 @@ export function polygonProps(kit: PanelKit, act: ElementActions, el: PolygonElem
  */
 export function gridOverflowRow(kit: PanelKit, config: {
   id: string;
-  /** 현재 값. `mixed`는 선택한 셀마다 달라 저장되지 않는 「혼합」 항목을 표시합니다 */
+  /** 현재 값입니다. `mixed`는 선택한 셀마다 달라 저장되지 않는 `혼합` 항목을 표시합니다. */
   value: 'inherit' | 'clip' | 'shrink' | 'mixed';
   inherit?: boolean;
   ariaLabel?: string;
@@ -738,7 +738,7 @@ export function fieldProps(kit: PanelKit, act: ElementActions, el: FieldElement)
 export function barcodeProps(kit: PanelKit, act: ElementActions, el: BarcodeElement) {
   const s = kit.s;
   const valOf = (e: Event) => (e.target as HTMLInputElement).value;
-  // 설정된 속성으로 현재 값 소스 종류를 결정합니다 (SPEC §5.6).
+  // 설정된 속성으로 현재 값 소스 종류를 결정합니다(SPEC §5.6).
       const source: 'content' | 'parameter' | 'formula' =
         el.parameter !== undefined ? 'parameter' : el.formula !== undefined ? 'formula' : 'content';
       // 직접 입력한 값만 편집 중에 바코드 형식을 검사합니다.
@@ -825,7 +825,7 @@ export function pagePlacementSection(kit: PanelKit, act: ElementActions, el: Sli
   const mode = placement?.mode ?? 'absolute';
   const pages = placement?.mode === 'absolute' ? (placement.pages ?? 'all') : 'all';
   const elements = act.pageElements() ?? [];
-  // 자신과, 자신을 뒤따르는 요소는 이어서 배치의 대상으로 선택할 수 없습니다 (순환 방지).
+  // 자신과, 자신을 뒤따르는 요소는 이어서 배치의 대상으로 선택할 수 없습니다(순환 방지).
   const followers = new Set<string>();
   const collect = (id: string): void => {
     followers.add(id);
@@ -1092,7 +1092,7 @@ export function groupPanel(kit: PanelKit, act: ElementActions) {
 }
 
 /**
- * 그리드의 「셀 기본 테두리」와 「그리드 테두리」 구역을 렌더링합니다.
+ * 그리드의 `셀 기본 테두리`와 `그리드 테두리` 구역을 렌더링합니다.
  *
  * @remarks
  * 셀 기본 테두리는 셀에 설정이 없을 때 쓰는 값이고, 그리드 테두리는 그리드를 감싸는 별도

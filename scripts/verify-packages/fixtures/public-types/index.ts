@@ -1,7 +1,7 @@
 // 공개 타입 표면: 허용 목록(public-exports.json)의 런타임 이름은 값으로, 타입 이름은 `import type`으로 가져와
-// 각 패키지의 d.ts가 정확히 그 이름들을 선언하는지 확인한다. 값 배열과 타입 튜플에 한 번씩 써서 값·타입이
-// 뒤바뀐 선언도 잡고, 공개 API에서 뺀 이름은 `@ts-expect-error`로 없음을 확인한다.
-// JSON 스키마 하위 경로(core/schemas/*)는 모듈이 아니라 여기서 다루지 않는다 — schema.mjs가 읽는다.
+// 각 패키지의 d.ts가 정확히 그 이름들을 선언하는지 확인합니다. 값 배열과 타입 튜플에 한 번씩 써서 값·타입이
+// 뒤바뀐 선언도 잡고, 공개 API에서 뺀 이름은 `@ts-expect-error`로 없음을 확인합니다.
+// JSON 스키마 하위 경로(core/schemas/*)는 모듈이 아니라 여기서 다루지 않습니다. schema.mjs가 읽습니다.
 
 // ---- @omdc-slipkit/core ----
 import {
@@ -193,7 +193,7 @@ import type {
   SlipMcpServerOptions,
 } from '@omdc-slipkit/mcp';
 
-// 값 이름은 값 위치에서 쓰여야 한다 — 타입만 선언된 이름이면 여기서 오류가 난다.
+// 값 이름은 값 위치에서 쓰여야 합니다. 타입만 선언된 이름이면 여기서 오류가 납니다.
 export const coreValues = [
   BUILT_IN_MIGRATIONS,
   CURRENT_SCHEMA_VERSION,
@@ -281,7 +281,7 @@ export const mcpValues = [
   schemaTopicText,
 ];
 
-// 타입 이름은 타입 위치에서 쓰여야 한다 — 값만 선언된 이름이면 여기서 오류가 난다.
+// 타입 이름은 타입 위치에서 쓰여야 합니다. 값만 선언된 이름이면 여기서 오류가 납니다.
 export type CoreTypes = [
   AssetEntry,
   BarcodeElement,
@@ -370,22 +370,22 @@ export type McpTypes = [
   SlipMcpServerOptions,
 ];
 
-// 공개 API에서 뺀 이름 — 한 줄에 하나씩 두어 @ts-expect-error가 그 줄만 덮는다.
-// @ts-expect-error planGrid는 core의 공개 API가 아니다
+// 공개 API에서 뺀 이름 — 한 줄에 하나씩 두어 @ts-expect-error가 그 줄만 덮습니다.
+// @ts-expect-error planGrid는 core의 공개 API가 아닙니다.
 import { planGrid } from '@omdc-slipkit/core';
-// @ts-expect-error visiblePageRange는 core의 공개 API가 아니다
+// @ts-expect-error visiblePageRange는 core의 공개 API가 아닙니다.
 import { visiblePageRange } from '@omdc-slipkit/core';
-// @ts-expect-error GridFlow는 core의 공개 API가 아니다
+// @ts-expect-error GridFlow는 core의 공개 API가 아닙니다.
 import type { GridFlow } from '@omdc-slipkit/core';
-// @ts-expect-error ElementPlacement는 core의 공개 API가 아니다
+// @ts-expect-error ElementPlacement는 core의 공개 API가 아닙니다.
 import type { ElementPlacement } from '@omdc-slipkit/core';
-// @ts-expect-error PlanPaper는 core의 공개 API가 아니다
+// @ts-expect-error PlanPaper는 core의 공개 API가 아닙니다.
 import type { PlanPaper } from '@omdc-slipkit/core';
-// @ts-expect-error createPdfLinkToken은 mcp의 공개 API가 아니다
+// @ts-expect-error createPdfLinkToken은 mcp의 공개 API가 아닙니다.
 import { createPdfLinkToken } from '@omdc-slipkit/mcp';
-// @ts-expect-error startPdfLinkServer는 mcp의 공개 API가 아니다
+// @ts-expect-error startPdfLinkServer는 mcp의 공개 API가 아닙니다.
 import { startPdfLinkServer } from '@omdc-slipkit/mcp';
-// @ts-expect-error startOrJoinPdfLinkServer는 mcp의 공개 API가 아니다
+// @ts-expect-error startOrJoinPdfLinkServer는 mcp의 공개 API가 아닙니다.
 import { startOrJoinPdfLinkServer } from '@omdc-slipkit/mcp';
-// @ts-expect-error PdfLinkServer는 mcp의 공개 API가 아니다
+// @ts-expect-error PdfLinkServer는 mcp의 공개 API가 아닙니다.
 import type { PdfLinkServer } from '@omdc-slipkit/mcp';

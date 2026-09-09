@@ -1,5 +1,5 @@
 /**
- * 디자이너 테스트 공용 도우미.
+ * 디자이너 시험에서 함께 사용하는 함수입니다.
  *
  * @remarks
  * `vi.mock`은 파일 단위로 끌어올려지므로 각 테스트 파일이 자기 파일 맨 위에서
@@ -14,15 +14,15 @@ import { getStrings } from '../../src/strings.js';
 /** 기본 영어 문구. 화면 확인의 기준입니다. */
 export const strings = getStrings();
 
-/** 렌더링 완료를 기다릴 수 있는 Lit 요소. */
+/** 렌더링 완료를 기다릴 수 있는 Lit 요소입니다. */
 export type LitHost = HTMLElement & { updateComplete: Promise<unknown> };
 
-/** 테스트에서 다루는 디자이너 요소 타입. */
+/** 테스트에서 다루는 디자이너 요소 타입입니다. */
 export type Designer = import('../../src/slip-designer.js').SlipDesigner;
 
 export const PX_PER_MM = 96 / 25.4;
 
-/** 렌더링에 사용할 더미 PDF 바이트. */
+/** 렌더링에 사용할 더미 PDF 바이트입니다. */
 export const DUMMY_PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
 
 export const parseSlipFileMock = vi.mocked(parseSlipFile);
@@ -31,7 +31,7 @@ export const renderSlipToPdfMock = vi.mocked(renderSlipToPdf);
 let revoked: string[] = [];
 let uuidCounter = 0;
 
-/** 이번 테스트에서 해제한 오브젝트 URL 목록. */
+/** 이번 테스트에서 해제한 오브젝트 URL 목록입니다. */
 export function revokedUrls(): string[] {
   return revoked;
 }
@@ -48,7 +48,7 @@ function createMemoryStorage(): Storage {
   };
 }
 
-/** 텍스트와 사각형 요소를 하나씩 가진 기본 양식. */
+/** 텍스트와 사각형 요소를 하나씩 가진 기본 양식입니다. */
 export function makeTemplateFile(): SlipTemplateFile {
   return {
     schemaVersion: '0.1.0',
@@ -142,7 +142,7 @@ export function flush(): Promise<void> {
   return new Promise((r) => setTimeout(r, 0));
 }
 
-/** shadow root의 전체 텍스트. */
+/** shadow root의 전체 텍스트입니다. */
 export function shadowText(el: Element): string {
   return el.shadowRoot?.textContent?.trim() ?? '';
 }
@@ -153,7 +153,7 @@ export function toolbarButton(el: Element, label: string): HTMLButtonElement {
     .find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === label) as HTMLButtonElement;
 }
 
-/** 리스트형 선택 상자를 열고 data-value가 일치하는 항목을 선택합니다. */
+/** 목록형 선택 상자를 열고 data-value가 일치하는 항목을 선택합니다. */
 export async function pickListValue(host: LitHost, trigger: HTMLElement, value: string): Promise<void> {
   trigger.click();
   await host.updateComplete;
@@ -165,7 +165,7 @@ export async function pickListValue(host: LitHost, trigger: HTMLElement, value: 
   await host.updateComplete;
 }
 
-/** 리스트형 선택 상자를 열어 항목 문구를 읽고 다시 닫습니다. */
+/** 목록형 선택 상자를 열어 항목 문구를 읽고 다시 닫습니다. */
 export async function listOptionLabels(host: LitHost, trigger: HTMLElement): Promise<string[]> {
   trigger.click();
   await host.updateComplete;
@@ -236,7 +236,7 @@ export async function pickBorderShape(
   await el.updateComplete;
 }
 
-/** 캔버스에서 id로 요소를 눌러 선택합니다. */
+/** 캔버스에서 ID로 요소를 눌러 선택합니다. */
 export function selectElement(el: Element, id: string): HTMLElement {
   const div = el.shadowRoot?.querySelector(`[data-id="${id}"]`) as HTMLElement;
   div.dispatchEvent(new PointerEvent('pointerdown', {
@@ -246,7 +246,7 @@ export function selectElement(el: Element, id: string): HTMLElement {
   return div;
 }
 
-/** 페이지 표시기의 문구. */
+/** 페이지 표시기의 문구입니다. */
 export function pageIndicator(el: Element): string {
   return el.shadowRoot?.querySelector('.page-indicator')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 }
@@ -263,7 +263,7 @@ export function retargetedKey(el: Element, key: string, init: KeyboardEventInit 
   return event;
 }
 
-/** 수식 모달의 「값과 범위」 탭으로 전환합니다 — 파라미터와 반복 데이터 범위가 있는 자리입니다. */
+/** 수식 모달에서 파라미터와 반복 데이터 범위를 표시하는 `값과 범위` 탭으로 전환합니다. */
 export async function openValuesTab(host: LitHost): Promise<void> {
   const tabs = Array.from(
     host.shadowRoot!.querySelectorAll<HTMLButtonElement>('.formula-tab'),

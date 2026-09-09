@@ -25,7 +25,7 @@ type PdfmeSchema = Record<string, unknown> & {
   height: number;
 };
 
-/** 여러 요소를 담고 `(1, 0)`에 두 행을 병합한 그리드가 있는 양식 본문. */
+/** 여러 요소를 담고 `(1, 0)`에 두 행을 병합한 그리드가 있는 양식 본문입니다. */
 function makeBody(): SlipTemplateBody {
   return {
     meta: { title: '거래명세서' },
@@ -153,7 +153,7 @@ function pageSchemas(file: SlipTemplateFile | SlipVoucherFile, pageIndex = 0): P
   return (template.schemas[pageIndex] ?? []) as unknown as PdfmeSchema[];
 }
 
-/** 바이트 배열의 앞부분을 ASCII 문자열로 변환한다. */
+/** 바이트 배열의 앞부분을 ASCII 문자열로 변환합니다. */
 function ascii(bytes: Uint8Array, length: number): string {
   return Array.from(bytes.slice(0, length), (byte) => String.fromCharCode(byte)).join('');
 }
@@ -202,7 +202,7 @@ describe('.slip → pdfme 변환 (요소 6종 매핑)', () => {
     const file = makeTemplateFile();
     file.template.parameters = [{ key: 'total', valueType: 'number' }];
     patchElement(file.template, 'total', { formula: undefined, parameter: 'total' } as never);
-    // number 파라미터의 빈 값을 0으로 변환하는 규칙은 전표에만 적용한다.
+    // number 파라미터의 빈 값을 0으로 변환하는 규칙은 전표에만 적용합니다.
     expect(convertSlipFile(file).inputs[0]?.total).toBe('');
   });
 
@@ -290,10 +290,10 @@ describe('그리드(grid) 분해', () => {
   });
 
   it('병합 셀 내부의 경계선은 그리지 않는다', () => {
-    // y=30은 `(1, 0)`에서 두 행을 병합한 셀의 내부 경계다.
+    // y=30은 `(1, 0)`에서 두 행을 병합한 셀의 내부 경계입니다.
     const inner = horizontals.filter((schema) => Math.abs(schema.position.y - (30 - 0.1)) < 1e-6);
     expect(inner).toHaveLength(1);
-    // 내부 경계선은 병합되지 않은 오른쪽 열에만 남는다.
+    // 내부 경계선은 병합되지 않은 오른쪽 열에만 남습니다.
     expect(inner[0]?.position.x).toBe(60);
     expect(inner[0]?.width).toBe(50);
   });
@@ -357,16 +357,16 @@ describe('그리드 셀별 테두리 (ADR-033)', () => {
 
   it('셀 테두리 굵기 0이면 그 셀 둘레 변을 그리지 않는다 (합계 박스)', () => {
     const lines = linesOf(makeGridFile([{ row: 1, column: 0, content: '', borderWidth: 0 }]));
-    // 아래쪽 경계는 굵기가 0인 왼쪽 셀을 제외한다.
+    // 아래쪽 경계는 굵기가 0인 왼쪽 셀을 제외합니다.
     const bottom = lines.filter((line) => Math.abs(line.position.y - (30 - 0.1)) < 1e-6);
     expect(bottom).toHaveLength(1);
     expect(bottom[0]?.position.x).toBe(60);
     expect(bottom[0]?.width).toBe(50);
-    // 왼쪽 경계는 기본 테두리를 사용하는 위쪽 셀에만 남는다.
+    // 왼쪽 경계는 기본 테두리를 사용하는 위쪽 셀에만 남습니다.
     const left = at(lines, 10 - 0.1, 10);
     expect(left).toHaveLength(1);
     expect(left[0]?.height).toBe(10);
-    // 공유 경계는 인접한 두 셀 중 더 굵은 테두리를 사용한다.
+    // 공유 경계는 인접한 두 셀 중 더 굵은 테두리를 사용합니다.
     const middle = at(lines, 60 - 0.1, 10);
     expect(middle).toHaveLength(1);
     expect(middle[0]?.height).toBe(20);
@@ -376,17 +376,17 @@ describe('그리드 셀별 테두리 (ADR-033)', () => {
     const lines = linesOf(
       makeGridFile([{ row: 0, column: 0, content: '', borderWidth: 0.6, borderColor: '#CC0000' }]),
     );
-    // 0.6mm 테두리는 경계 중심에 놓이므로 위쪽 좌표는 `10 - 0.3`이다.
+    // 0.6mm 테두리는 경계 중심에 놓이므로 위쪽 좌표는 `10 - 0.3`입니다.
     const top = at(lines, 10, 10 - 0.3);
     expect(top).toHaveLength(1);
     expect(top[0]?.width).toBe(50);
     expect(top[0]?.height).toBe(0.6);
     expect(top[0]?.color).toBe('#CC0000');
-    // 행 공유 경계에는 더 굵은 0.6mm 테두리를 적용한다.
+    // 행 공유 경계에는 더 굵은 0.6mm 테두리를 적용합니다.
     const shared = at(lines, 10, 20 - 0.3);
     expect(shared).toHaveLength(1);
     expect(shared[0]?.color).toBe('#CC0000');
-    // 스타일이 다른 오른쪽 셀의 위쪽 경계는 별도 선분으로 생성한다.
+    // 스타일이 다른 오른쪽 셀의 위쪽 경계는 별도 선분으로 생성합니다.
     const topRight = at(lines, 60, 10 - 0.1);
     expect(topRight).toHaveLength(1);
     expect(topRight[0]?.height).toBe(0.2);
@@ -411,7 +411,7 @@ describe('그리드 셀 기본 테두리와 그리드 테두리의 분리', () =
     | 'cellBorderColor' | 'cellBorderWidth' | 'cellBorderStyle'
     | 'outlineColor' | 'outlineWidth' | 'outlineStyle'>>;
 
-  /** 2×2 그리드(원점 10,10 · 열 50 · 행 10) 하나만 둔 양식 */
+  /** 2×2 그리드(원점 10,10 · 열 50 · 행 10) 하나만 둔 양식입니다. */
   function makeFile(extra: Extra, cells: GridElement['cells'] = [
     { row: 0, column: 0, content: '' },
   ]): SlipTemplateFile {
@@ -465,7 +465,7 @@ describe('그리드 셀 기본 테두리와 그리드 테두리의 분리', () =
     const legacy = makeFile({ borderColor: '#CC0000', borderWidth: 0.4 });
     const asNew = makeFile({ cellBorderColor: '#CC0000', cellBorderWidth: 0.4 });
     expect(outlinesOf(legacy)).toHaveLength(0);
-    // 이전 표기와 새 표기가 같은 셀 경계선을 만든다.
+    // 이전 표기와 새 표기가 같은 셀 경계선을 만듭니다.
     expect(cellLinesOf(legacy)).toEqual(cellLinesOf(asNew));
   });
 
@@ -480,7 +480,7 @@ describe('그리드 셀 기본 테두리와 그리드 테두리의 분리', () =
     const outlines = outlinesOf(file);
     expect(outlines).toHaveLength(4);
     // 선 중심은 그리드 경계(10~110, 10~30)에 있고, 각 변은 모서리를 덮도록 양 끝으로
-    // 굵기의 반(0.3)씩 늘어난다.
+    // 굵기의 반(0.3)씩 늘어납니다.
     const named = Object.fromEntries(outlines.map((line) => [String(line.name).slice(-1), line]));
     expect(named['t']?.position).toEqual({ x: 10 - 0.3, y: 10 - 0.3 });
     expect(named['t']?.width).toBeCloseTo(100.6);
@@ -493,14 +493,14 @@ describe('그리드 셀 기본 테두리와 그리드 테두리의 분리', () =
     expect(named['r']?.position).toEqual({ x: 110 - 0.3, y: 10 - 0.3 });
     expect(named['r']?.height).toBeCloseTo(20.6);
     for (const line of outlines) expect(line.color).toBe('#123456');
-    // 셀 경계선보다 뒤에 놓여 위에 겹친다.
+    // 셀 경계선보다 뒤에 놓여 위에 겹칩니다.
     const lastCellLine = Math.max(...schemas.map((sc, i) => (sc.type === 'line' && !String(sc.name).includes('__outline') ? i : -1)));
     const firstOutline = schemas.findIndex((sc) => String(sc.name).includes('__outline'));
     expect(firstOutline).toBeGreaterThan(lastCellLine);
   });
 
   it('용지 경계에 닿은 그리드 테두리는 선 중심을 옮기지 않고 용지 밖 부분만 잘라 낸다', () => {
-    // 원점 (0,0) — 왼쪽·위쪽 변은 굵기의 반만 보인다.
+    // 원점 (0,0) — 왼쪽·위쪽 변은 굵기의 반만 보입니다.
     const file = makeFile({ outlineWidth: 2 });
     const page = file.template.pages[0]!;
     const grid = page.elements[0] as GridElement;
@@ -512,13 +512,13 @@ describe('그리드 셀 기본 테두리와 그리드 테두리의 분리', () =
     expect(atOrigin['l']?.position).toEqual({ x: 0, y: 0 });
     expect(atOrigin['l']?.width).toBeCloseTo(1);
     expect(atOrigin['l']?.height).toBeCloseTo(21);
-    // 안쪽 변은 그대로 전체 굵기다.
+    // 안쪽 변은 전체 굵기로 그립니다.
     expect(atOrigin['b']?.position).toEqual({ x: 0, y: 19 });
     expect(atOrigin['b']?.height).toBeCloseTo(2);
     expect(atOrigin['r']?.position).toEqual({ x: 99, y: 0 });
     expect(atOrigin['r']?.width).toBeCloseTo(2);
 
-    // 오른쪽·아래쪽 경계(용지 210×297) — 반대쪽 변이 잘린다.
+    // 오른쪽·아래쪽 경계(용지 210×297) — 반대쪽 변이 잘립니다.
     grid.position = { x: 110, y: 277 };
     const atCorner = Object.fromEntries(outlinesOf(file).map((line) => [String(line.name).slice(-1), line]));
     expect(atCorner['r']?.position).toEqual({ x: 209, y: 276 });
@@ -564,7 +564,7 @@ describe('그리드 셀 기본 테두리와 그리드 테두리의 분리', () =
       expect(line.position.x).toBeCloseTo(10 + i * 3.6);
       expect(line.width).toBeCloseTo(2.4);
     });
-    // 마지막 선분은 97.2에서 시작해 99.6에서 끝난다 — 끝(110)까지 채우지 않는다.
+    // 마지막 선분은 97.2에서 시작해 99.6에서 끝납니다. 끝(110)까지 채우지 않습니다.
     expect(top[27]!.position.x + top[27]!.width).toBeCloseTo(109.6);
   });
 
@@ -644,7 +644,7 @@ describe('그리드 셀 기본 테두리와 그리드 테두리의 분리', () =
 });
 
 describe('픽스처 그리드의 항목 구간 변환 (ADR-037)', () => {
-  /** 그리드가 낸 텍스트 값 목록 (그린 순서대로) */
+  /** 그리드가 그린 순서대로 정리한 텍스트 값 목록입니다. */
   function itemTexts(file: SlipTemplateFile | SlipVoucherFile): string[] {
     const { template, inputs } = convertSlipFile(file);
     const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
@@ -660,7 +660,7 @@ describe('픽스처 그리드의 항목 구간 변환 (ADR-037)', () => {
     expect(texts).toContain('2000');
   });
 
-  it('양식(빈 값) 파일은 반복 칸이 비어 헤더만 남는다', () => {
+  it('값이 없는 양식 파일은 반복 셀이 비어 헤더만 남는다', () => {
     const texts = itemTexts(makeTemplateFile());
     expect(texts).toEqual(['품명', '수량', '금액']);
     const file = makeTemplateFile();
@@ -710,7 +710,7 @@ describe('조건부 서식 (ADR-062)', () => {
     expect(() => resolveConditionalFormats(rules, { flag: 'x' })).toThrow(SlipRenderError);
   });
 
-  it('평가 단계에서 실패한 계산은 까닭을 가리지 않고 그 규칙만 건너뛴다', () => {
+  it('평가 단계에서 실패한 계산은 이유와 관계없이 해당 규칙만 건너뛴다', () => {
     const applied = { condition: 'TRUE', italic: true };
     const skipped = [
       ['상수 0으로 나누기', '1 / 0'],
@@ -757,7 +757,7 @@ describe('조건부 서식 (ADR-062)', () => {
         { condition: '$(amount) < 0', fontColor: '#FF0000' },
         { condition: 'TRUE', borderColor: '#00FF00' },
       ],
-      {}, // amount가 없어 첫 규칙은 계산할 수 없다
+      {}, // amount가 없어 첫 규칙은 계산할 수 없습니다.
     );
     expect(overrides).toEqual({ borderColor: '#00FF00' });
   });
@@ -780,7 +780,7 @@ describe('조건부 서식 (ADR-062)', () => {
       { 품명: 'b', 수량: 1 }, // 금액이 아직 입력되지 않은 행
     ];
     const grid = voucher.templateSnapshot.pages[0]!.elements.find((el) => el.id === 'items')!;
-    if (grid.type !== 'grid') throw new Error('grid여야 한다');
+    if (grid.type !== 'grid') throw new Error('grid여야 합니다.');
     grid.cells.find((cell) => cell.row === 1 && cell.column === 2)!.conditionalFormats = [
       { condition: '$(금액) < 0', fontColor: '#FF0000' },
     ];
@@ -793,7 +793,7 @@ describe('조건부 서식 (ADR-062)', () => {
   });
 
   it('강조(굵게·밑줄)를 조건으로 덮어쓴다 (ADR-063)', () => {
-    // 합성 규칙: 같은 속성은 뒤 규칙이 이기고, 다른 속성은 합쳐진다.
+    // 합성 규칙: 같은 속성은 뒤 규칙이 이기고, 다른 속성은 합쳐집니다.
     expect(
       resolveConditionalFormats(
         [
@@ -858,7 +858,7 @@ describe('조건부 서식 (ADR-062)', () => {
     const { template, inputs } = convertSlipFile(voucher);
     const schemas = template.schemas.flat() as unknown as PdfmeSchema[];
     const merged = schemas.filter((s) => s.type === 'text' && inputs[0]?.[s.name] === 'A');
-    // 값이 같아 하나로 병합되고, 색은 첫 항목(amount 500)의 평가 결과를 따른다.
+    // 값이 같아 하나로 병합되고, 색은 첫 항목(amount 500)의 평가 결과를 따릅니다.
     expect(merged.length).toBe(1);
     expect(merged[0]!.fontColor).toBe('#000000');
   });
@@ -877,14 +877,14 @@ describe('조건부 서식 (ADR-062)', () => {
     const negative = totalSchema(-500);
     expect(negative.fontColor).toBe('#FF0000');
     expect(negative.backgroundColor).toBe('#FFEEEE');
-    // 조건이 거짓이면 기본 서식을 유지한다.
+    // 조건이 거짓이면 기본 서식을 유지합니다.
     expect(totalSchema(500).fontColor).toBe('#000000');
   });
 
   it('반복 그리드 셀은 행별로 조건을 평가한다', () => {
     const voucher = makeVoucher(2); // 금액: 1000, 2000
     const grid = voucher.templateSnapshot.pages[0]!.elements.find((el) => el.id === 'items')!;
-    if (grid.type !== 'grid') throw new Error('grid여야 한다');
+    if (grid.type !== 'grid') throw new Error('grid여야 합니다.');
     const amountCell = grid.cells.find((cell) => cell.row === 1 && cell.column === 2)!;
     amountCell.conditionalFormats = [{ condition: '$(금액) >= 2000', fontColor: '#FF0000' }];
 
@@ -899,9 +899,9 @@ describe('조건부 서식 (ADR-062)', () => {
   it('규칙 수 상한과 많은 반복 데이터에서도 행별 평가가 올바르다', () => {
     const voucher = makeVoucher(200); // 금액: 1000..200000
     const grid = voucher.templateSnapshot.pages[0]!.elements.find((el) => el.id === 'items')!;
-    if (grid.type !== 'grid') throw new Error('grid여야 한다');
+    if (grid.type !== 'grid') throw new Error('grid여야 합니다.');
     const amountCell = grid.cells.find((cell) => cell.row === 1 && cell.column === 2)!;
-    // 거짓 규칙 19개 뒤에 참이 될 수 있는 규칙 1개 — 상한(20개)까지 채워 평가한다.
+    // 거짓 규칙 19개 뒤에 참이 될 수 있는 규칙 1개 — 상한(20개)까지 채워 평가합니다.
     amountCell.conditionalFormats = [
       ...Array.from({ length: 19 }, (_, i) => ({
         condition: `$(금액) < ${-(i + 1)}`,
@@ -912,7 +912,7 @@ describe('조건부 서식 (ADR-062)', () => {
     const { template } = convertSlipFile(voucher);
     const schemas = template.schemas.flat() as unknown as PdfmeSchema[];
     const reds = schemas.filter((s) => s.type === 'text' && s.fontColor === '#FF0000');
-    // 금액 >= 100000인 항목은 100번째부터 200번째까지 101개다.
+    // 금액 >= 100000인 항목은 100번째부터 200번째까지 101개입니다.
     expect(reds.length).toBe(101);
   });
 
@@ -962,7 +962,7 @@ describe('도형·글자 스타일 변환 (ADR-032)', () => {
     ).template.schemas as PdfmeSchema[][];
     const segments = schemas!.filter((s) => s.type === 'line');
     expect(segments.length).toBeGreaterThan(5);
-    // 각 선분은 2.4mm 파선 패턴보다 길지 않아야 한다.
+    // 각 선분은 2.4mm 파선 패턴보다 길지 않아야 합니다.
     for (const seg of segments) expect(seg.width).toBeLessThanOrEqual(2.4);
   });
 
@@ -1035,7 +1035,7 @@ describe('도형·글자 스타일 변환 (ADR-032)', () => {
     expect(text.underline).toBe(true);
     expect(text.strikethrough).toBe(true);
 
-    // Bold 변형이 없으면 기본 폰트 이름을 유지한다.
+    // Bold 변형이 없으면 기본 폰트 이름을 유지합니다.
     const [noBold] = convertSlipFile(file, {
       fontNames: ['Pretendard'], fallbackFontName: 'Pretendard',
     }).template.schemas as PdfmeSchema[][];
@@ -1067,7 +1067,7 @@ describe('PDF 렌더링 (종단)', () => {
     expect(ascii(pdf, 4)).toBe('%PDF');
   });
 
-  it('getFonts 공급 함수로 폰트를 받아 렌더한다 (ADR-040)', async () => {
+  it('getFonts 제공 함수로 폰트를 받아 렌더한다 (ADR-040)', async () => {
     let called = 0;
     const pdf = await renderSlipToPdf(makeVoucher(3), {
       getFonts: async () => {
@@ -1089,7 +1089,7 @@ describe('PDF 렌더링 (종단)', () => {
     });
     await renderer.renderToPdf(makeVoucher(3));
     await renderer.renderToPdf(makeVoucher(3));
-    // 폰트 공급자는 렌더러 인스턴스마다 한 번만 호출한다.
+    // 폰트 제공 함수는 렌더러 인스턴스마다 한 번만 호출합니다.
     expect(called).toBe(1);
   });
 
@@ -1103,7 +1103,7 @@ describe('PDF 렌더링 (종단)', () => {
       },
     });
     await expect(renderer.renderToPdf(makeVoucher(3))).rejects.toThrow('일시 실패');
-    // 실패한 폰트 조회 결과는 캐시하지 않는다.
+    // 실패한 폰트 조회 결과는 캐시하지 않습니다.
     const pdf = await renderer.renderToPdf(makeVoucher(3));
     expect(ascii(pdf, 4)).toBe('%PDF');
     expect(called).toBe(2);
@@ -1138,8 +1138,8 @@ describe('렌더 로케일 (ADR-013)', () => {
 // ---------------------------------------------------------------------------
 
 /**
- * 헤더 1행(page-start) + 항목 1행 + 꼬리 1행(after-data)짜리 그리드.
- * 열 너비 60+40mm, 행 높이 8mm.
+ * 헤더 1행(page-start) + 항목 1행 + 꼬리 1행(after-data)짜리 그리드입니다.
+ * 열 너비 60+40mm, 행 높이 8mm입니다.
  */
 function makeGridBody(options?: {
   itemsPerPage?: number;
@@ -1216,7 +1216,7 @@ function makeGridVoucher(itemCount: number, options?: Parameters<typeof makeGrid
   };
 }
 
-/** 그리드가 낸 텍스트 스키마의 값 목록 (그린 순서대로) */
+/** 그리드가 그린 순서대로 정리한 텍스트 스키마 값 목록입니다. */
 function gridTexts(file: SlipVoucherFile | SlipTemplateFile, pageIndex = 0): string[] {
   const { template, inputs } = convertSlipFile(file);
   const schemas = (template.schemas[pageIndex] ?? []) as unknown as PdfmeSchema[];
@@ -1228,16 +1228,16 @@ function gridTexts(file: SlipVoucherFile | SlipTemplateFile, pageIndex = 0): str
 describe('그리드(grid) 변환 — 항목 구간 (ADR-037)', () => {
   it('항목 구간이 항목 수만큼 복제되고 셀 값·수식이 채워진다', () => {
     const texts = gridTexts(makeGridVoucher(3));
-    // 값 칸은 그대로, 수식 칸(합계)만 포맷된다
+    // 값 셀은 그대로 두고 수식 셀(합계)에만 형식을 적용합니다.
     expect(texts).toEqual(['품명', '금액', '품목 1', '1000', '품목 2', '2000', '품목 3', '3000', '합계', '6,000']);
   });
 
-  it('항목이 적으면 남는 칸은 빈 줄로 남고 그리드 크기는 그대로다', () => {
+  it('항목이 적으면 남는 셀은 빈 줄로 남고 그리드 크기는 그대로다', () => {
     const { template } = convertSlipFile(makeGridVoucher(1));
     const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
-    // 빈 줄에는 글자가 없다 — 헤더 2 + 항목 2 + 꼬리 2
+    // 빈 줄에는 글자가 없습니다. 헤더 2 + 항목 2 + 꼬리 2
     expect(gridTexts(makeGridVoucher(1))).toEqual(['품명', '금액', '품목 1', '1000', '합계', '1,000']);
-    // 괘선은 빈 줄까지 그린다 — 가로선이 행 경계 수(5개: 0~4)만큼 있다
+    // 괘선은 빈 줄까지 그립니다. 가로선이 행 경계 수(5개: 0~4)만큼 있습니다.
     const horizontals = schemas.filter((s) => String(s.name).includes('__h-'));
     expect(horizontals.length).toBeGreaterThanOrEqual(5);
   });
@@ -1249,7 +1249,7 @@ describe('그리드(grid) 변환 — 항목 구간 (ADR-037)', () => {
     expect(gridTexts(makeGridVoucher(7), 0)).toContain('품목 3');
     expect(gridTexts(makeGridVoucher(7), 1)).toContain('품목 4');
     expect(gridTexts(makeGridVoucher(7), 2)).toContain('품목 7');
-    // 그리드 밖 요소는 페이지마다 다시 그린다
+    // 그리드 밖 요소는 페이지마다 다시 그립니다.
     const page2 = (template.schemas[1] ?? []) as unknown as PdfmeSchema[];
     expect(page2.some((s) => String(s.name).startsWith('title'))).toBe(true);
   });
@@ -1258,7 +1258,7 @@ describe('그리드(grid) 변환 — 항목 구간 (ADR-037)', () => {
     const file = makeGridVoucher(5, { repeatHeader: false });
     expect(gridTexts(file, 0)).toContain('품명');
     expect(gridTexts(file, 1)).not.toContain('품명');
-    // 걸러진 구간은 자리도 차지하지 않는다 — 이어지는 페이지는 흐름 영역 위(여백 20mm)부터 시작한다.
+    // 걸러진 구간은 자리도 차지하지 않습니다. 이어지는 페이지는 흐름 영역 위(여백 20mm)부터 시작합니다.
     const { template } = convertSlipFile(file);
     const second = (template.schemas[1] ?? []) as unknown as PdfmeSchema[];
     const cellYs = second
@@ -1307,8 +1307,8 @@ describe('그리드(grid) 변환 — 항목 구간 (ADR-037)', () => {
   }, 30_000);
 });
 
-describe('그리드(grid) 칸을 넘치는 글 (ADR-037)', () => {
-  /** 재기용 폰트 — 하부 엔진 기본 폰트를 그대로 쓴다 (테스트 전용) */
+describe('그리드 셀을 넘치는 글(ADR-037)', () => {
+  /** 측정에 사용하는 시험용 폰트입니다. 하부 엔진의 기본 폰트를 그대로 사용합니다. */
   async function defaultFonts(): Promise<{ name: string; data: Uint8Array; fallback: boolean }[]> {
     const { getDefaultFont } = await import('@pdfme/common');
     const font = getDefaultFont();
@@ -1316,7 +1316,7 @@ describe('그리드(grid) 칸을 넘치는 글 (ADR-037)', () => {
     return [{ name, data: font[name]!.data as Uint8Array, fallback: true }];
   }
 
-  /** 두 줄이 들어가는 칸에 긴 글을 넣은 그리드 */
+  /** 두 줄이 들어가는 셀에 긴 글을 넣은 그리드입니다. */
   function longTextFile(overflow: 'clip' | 'shrink'): SlipTemplateFile {
     return {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -1352,14 +1352,14 @@ describe('그리드(grid) 칸을 넘치는 글 (ADR-037)', () => {
     };
   }
 
-  it('잘라내기는 칸에 들어가는 줄까지만 남긴다', async () => {
+  it('잘라내기는 셀에 들어가는 줄까지만 남긴다', async () => {
     const fonts = await defaultFonts();
     const { inputs } = convertSlipFile(longTextFile('clip'), { fonts });
     const value = Object.values(inputs[0] ?? {}).find((v) => v.includes('quick'))!;
     const lines = value.split('\n');
-    // 10mm - 여백 2mm = 8mm에 10pt 글자는 두 줄까지 들어간다
+    // 10mm - 여백 2mm = 8mm에 10pt 글자는 두 줄까지 들어갑니다.
     expect(lines).toHaveLength(2);
-    // 낱말 중간에서 끊기지 않는다
+    // 낱말 중간에서 끊기지 않습니다.
     for (const line of lines) expect(line).not.toMatch(/\w-$/);
     expect(lines[0]).toMatch(/^The quick/);
     expect(value.length).toBeLessThan(
@@ -1432,7 +1432,7 @@ describe('글자 조판 변환', () => {
   });
 
   it('세로쓰기는 자모를 따로 적은 한글과 결합 악센트를 한 줄에 둔다', () => {
-    // .slip은 문서 문자열을 정규화하지 않으므로 NFD로 적힌 글자가 그대로 들어온다.
+    // .slip은 문서 문자열을 정규화하지 않으므로 NFD로 적힌 글자가 그대로 들어옵니다.
     const decomposed = '각나'.normalize('NFD');
     const { inputs } = convertSlipFile(makeFile([{
       type: 'text', ...base, content: `${decomposed}e\u0301`, vertical: true,
@@ -1441,7 +1441,7 @@ describe('글자 조판 변환', () => {
     expect((inputs[0]!['t1'] as string).split('\n')).toHaveLength(3);
   });
 
-  it('기울임은 자형 폰트가 있을 때만 그 폰트로 바뀐다 (없으면 무시)', () => {
+  it('기울임은 자형 폰트가 있을 때만 그 폰트로 바뀐다(없으면 무시)', () => {
     const file = makeFile([{ type: 'text', ...base, content: '가', italic: true, fontName: 'Han' }]);
     const withoutItalic = convertSlipFile(file, { fontNames: ['Han'] })
       .template.schemas as PdfmeSchema[][];
@@ -1612,7 +1612,7 @@ describe('바코드·변동 이미지·페이지 번호 변환', () => {
     expect(inputs[0]!['bc']).toBe('SLIP-1');
   });
 
-  it('변동 이미지는 전표 값의 base64를 그린다', () => {
+  it('변동 이미지는 전표 값의 Base64 데이터를 그린다', () => {
     const { inputs } = convertSlipFile(makeVoucher(
       [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, parameter: 'sign' }],
       { sign: PNG },
@@ -1620,7 +1620,7 @@ describe('바코드·변동 이미지·페이지 번호 변환', () => {
     expect(inputs[0]!['sig']).toBe(PNG);
   });
 
-  it('변동 이미지 값이 base64가 아니면 렌더링 오류가 발생한다', () => {
+  it('변동 이미지 값이 Base64 데이터가 아니면 렌더링 오류가 발생한다', () => {
     expect(() => convertSlipFile(makeVoucher(
       [{ type: 'image', id: 'sig', name: '서명', position: { x: 10, y: 10 }, width: 20, height: 10, parameter: 'sign' }],
       { sign: 'https://example.com/a.png' },
@@ -1702,28 +1702,28 @@ describe('데이터 자동 병합 (ADR-038)', () => {
       templateSnapshot: makeBody(autoMerge, perPage), values: { rows }, issued: false,
     };
   }
-  /** 항목 구간 칸(값·수식)의 텍스트만, 페이지별 */
+  /** 페이지별 항목 구간 셀(값·수식)의 텍스트만 반환합니다. */
   function bandTexts(file: SlipVoucherFile, pageIndex = 0): string[] {
     return gridTexts(file, pageIndex);
   }
 
-  it('앞 벌과 값이 같은 칸은 한 번만 그려진다 (합쳐짐)', () => {
+  it('앞 항목과 값이 같은 셀은 한 번만 그려진다(자동 병합)', () => {
     const texts = bandTexts(makeVoucher([
       { product: '노트', orderer: '주문자 A' },
       { product: '노트', orderer: '주문자 B' },
       { product: '연필', orderer: '주문자 C' },
     ]));
-    // 품명 열은 노트가 한 번만(둘째는 흡수), 연필은 따로. 주문자 열은 전부 나온다
+    // 품명 열의 노트는 한 번만 그리고 둘째 값은 병합합니다. 연필과 주문자 값은 모두 따로 그립니다.
     expect(texts).toEqual(['품명', '주문자', '노트', '주문자 A', '주문자 B', '연필', '주문자 C']);
   });
 
-  it('합쳐진 칸은 흡수한 벌 수만큼 세로로 늘어난다', () => {
+  it('합쳐진 셀은 포함한 항목 수만큼 세로로 늘어난다', () => {
     const { template } = convertSlipFile(makeVoucher([
       { product: '노트', orderer: '주문자 A' },
       { product: '노트', orderer: '주문자 B' },
     ]));
     const schemas = (template.schemas[0] ?? []) as unknown as PdfmeSchema[];
-    // 품명 노트 칸의 높이가 한 벌(8mm)이 아니라 두 벌(16mm)이다
+    // 품명이 노트인 셀의 높이는 항목 한 개 분량(8mm)이 아니라 두 개 분량(16mm)입니다.
     const noteCell = schemas.find((s) => s.type === 'text' && String(s.name).includes('__cell-')
       && (convertSlipFile(makeVoucher([{ product: '노트', orderer: '주문자 A' }, { product: '노트', orderer: '주문자 B' }])).inputs[0]?.[s.name] === '노트'))!;
     expect(noteCell).toBeDefined();
@@ -1744,7 +1744,7 @@ describe('데이터 자동 병합 (ADR-038)', () => {
       { product: '', orderer: '주문자 B' },
       { product: '노트', orderer: '주문자 C' },
     ]));
-    // 빈 값이 끼면 앞뒤 노트가 따로 그려진다
+    // 빈 값이 끼면 앞뒤 노트가 따로 그려집니다.
     expect(texts).toEqual(['품명', '주문자', '노트', '주문자 A', '주문자 B', '노트', '주문자 C']);
   });
 
@@ -1754,7 +1754,7 @@ describe('데이터 자동 병합 (ADR-038)', () => {
       { product: '노트', orderer: 'B' },
       { product: '노트', orderer: 'C' },
     ], true, 2);
-    // 페이지당 2 → 2페이지. 1페이지: 노트(A,B 합침). 2페이지: 노트 다시 쓴다(C)
+    // 페이지당 2 → 2페이지. 1페이지: 노트(A,B 합침). 2페이지: 노트 다시 씁니다(C)
     expect(bandTexts(file, 0)).toEqual(['품명', '주문자', '노트', 'A', 'B']);
     expect(bandTexts(file, 1)).toContain('노트');
     expect(bandTexts(file, 1)).toContain('C');

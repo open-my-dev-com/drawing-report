@@ -107,7 +107,7 @@ describe('자릿수 인자 검증', () => {
 
   it('자릿수 범위 오류 메시지는 로케일을 따른다', () => {
     expect(() => evaluateFormula('ROUND(1.5, 21)', { values: {}, locale: 'ko-KR' })).toThrow(
-      '자릿수는 -20~20이어야 합니다',
+      '자릿수는 -20~20 사이여야 합니다',
     );
     expect(() => evaluateFormula('ROUND(1.5, 21)', { values: {}, locale: 'ja' })).toThrow(
       '桁数は -20~20 でなければなりません',

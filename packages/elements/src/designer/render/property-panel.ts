@@ -1,5 +1,5 @@
 /**
- * 속성 패널의 진입점. 선택 대상에 따라 표시할 설정을 결정합니다.
+ * 속성 패널의 진입점이며 선택 대상에 따라 표시할 설정을 결정합니다.
  *
  * @remarks
  * 대상별 UI는 각 렌더 모듈이 담당하며, 이 모듈은 선택 대상에 맞는 렌더 함수를 호출합니다.
@@ -33,33 +33,33 @@ import { conditionalFormatsSection } from './conditional-formats.js';
 import type { SideSelection } from './sidebar.js';
 import type { PanelKit } from './panel-kit.js';
 
-/** 속성 패널이 컴포넌트에서 받는 것 */
+/** 속성 패널이 컴포넌트에서 받는 상태와 조작입니다. */
 export interface PanelContext {
-  /** 공통 입력 도구 */
+  /** 공통 입력 도구입니다. */
   readonly kit: PanelKit;
-  /** 요소 조작 */
+  /** 요소 조작입니다. */
   readonly element: ElementActions;
-  /** 양식·파라미터 조작 */
+  /** 양식·파라미터 조작입니다. */
   readonly form: FormActions;
-  /** 그리드 조작 */
+  /** 그리드 조작입니다. */
   readonly grid: GridActions;
-  /** 사이드바에서 선택한 대상 */
+  /** 사이드바에서 선택한 대상입니다. */
   readonly selection: SideSelection;
-  /** 함께 선택된 요소 id 모음 */
+  /** 함께 선택된 요소 ID 모음입니다. */
   readonly selectedIds: ReadonlySet<string>;
-  /** 선택한 반복 그리드를 출력 결과로 보고 있는지 */
+  /** 선택한 반복 그리드를 출력 결과로 보고 있는지를 나타냅니다. */
   readonly gridPlanPreview: boolean;
-  /** 현재 양식 페이지에서 보고 있는 출력 페이지 (0부터) */
+  /** 현재 양식 페이지에서 보고 있는 출력 페이지 번호이며 0부터 시작합니다. */
   readonly outputPage: number;
-  /** 현재 양식 페이지가 만드는 출력 페이지 수 */
+  /** 현재 양식 페이지가 만드는 출력 페이지 수입니다. */
   readonly outputPageCount: number;
-  /** 속성 패널이 대상으로 삼는 요소 */
+  /** 속성 패널이 대상으로 삼는 요소입니다. */
   selectedElement(): SlipElement | undefined;
-  /** 요소 종류의 화면 표시 이름 */
+  /** 요소 종류의 화면 표시 이름입니다. */
   typeName(type: SlipElement['type']): string;
-  /** 출력 결과 보기를 켜거나 끕니다 */
+  /** 출력 결과 보기를 켜거나 끕니다. */
   setGridPlanPreview(enabled: boolean): void;
-  /** 보고 있는 출력 페이지를 옮깁니다 */
+  /** 보고 있는 출력 페이지를 옮깁니다. */
   setOutputPage(page: number): void;
 }
 
@@ -177,12 +177,12 @@ export function propertyPanel(ctx: PanelContext) {
 }
 
 /**
- * 속성 패널의 고정 머리줄을 렌더링합니다.
+ * 속성 패널의 고정 상단 영역을 렌더링합니다.
  * 반복 그리드에는 이름 옆에 출력 결과 전환과, 출력 페이지가 여럿이면 페이지 이동을 함께 둡니다.
  *
  * @param ctx - 속성 패널 렌더링에 필요한 상태와 동작
  * @param el - 선택한 요소
- * @returns 머리줄 조각
+ * @returns 속성 패널 상단에 표시할 내용
  */
 function panelHeader(ctx: PanelContext, el: SlipElement) {
   if (el.type !== 'grid' || el.repeat === undefined) {

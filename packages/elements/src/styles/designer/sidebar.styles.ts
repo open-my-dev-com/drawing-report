@@ -1,9 +1,9 @@
 /**
- * `<slip-designer>` 스타일 — 사이드바.
+ * `<slip-designer>`의 사이드바 스타일입니다.
  *
  * @remarks
- * 페이지·요소·파라미터 목록과 샘플 데이터 편집.
- * 규칙 순서는 원래 한 파일이던 때와 같습니다 — 순서를 바꾸면 cascade가 달라집니다.
+ * 페이지·요소·파라미터 목록과 샘플 데이터 편집 화면에 적용합니다.
+ * 규칙 순서는 유지해야 합니다. 순서를 바꾸면 CSS 적용 결과가 달라집니다.
  */
 import { css } from 'lit';
 
@@ -22,7 +22,7 @@ export const sidebarStyles = css`
       color: var(--sk-text-muted);
       margin-bottom: 6px;
     }
-    /* 페이지 목록은 한 줄로 표시하고 썸네일은 hover 또는 focus 상태에서만 표시합니다. */
+    /* 페이지 목록은 한 줄로 표시하고 썸네일은 마우스를 올리거나 키보드 포커스를 둔 상태에서만 표시합니다. */
     .page-row-wrap {
       position: relative;
       display: flex;
@@ -34,7 +34,7 @@ export const sidebarStyles = css`
       min-width: 0;
     }
     .page-thumb-pop {
-      /* 사이드바가 overflow를 자르므로 화면 기준(fixed)으로 띄웁니다 */
+      /* 사이드바의 overflow에 잘리지 않도록 화면을 기준으로 배치합니다. */
       position: fixed;
       z-index: 30;
       padding: 4px;
@@ -64,7 +64,7 @@ export const sidebarStyles = css`
       box-shadow: 0 0 0 1px var(--sk-accent);
     }
     .thumb-paper {
-      /* 인라인 span에는 width와 height가 적용되지 않으므로 블록 요소로 표시합니다 */
+      /* 인라인 span에는 width와 height가 적용되지 않으므로 블록 요소로 표시합니다. */
       display: block;
       position: relative;
       margin: 4px auto 0;
@@ -113,7 +113,7 @@ export const sidebarStyles = css`
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    /* 이름은 남는 폭을 쓰고 말줄임하되, 경고 표시는 줄어들거나 잘리지 않습니다 */
+    /* 이름은 남은 너비에서 줄이고, 경고 표시는 줄어들거나 잘리지 않게 합니다. */
     .side-row-name,
     .side-cell-name {
       flex: 1;
@@ -157,7 +157,7 @@ export const sidebarStyles = css`
       color: var(--sk-text-muted);
       padding: 2px 6px;
     }
-    /* 사이드바 파라미터 관리  — 제목 줄의 작은 버튼과 인라인 입력줄 */
+    /* 파라미터 관리 버튼과 인라인 입력란을 사이드바 제목 줄에 배치합니다. */
     .side-title-row {
       display: flex;
       align-items: center;
@@ -212,7 +212,7 @@ export const sidebarStyles = css`
       flex: 1;
       min-width: 0;
     }
-    /* 요소 목록의 페이지 묶음 머리 — 현재 페이지만 펼칩니다  */
+    /* 요소 목록의 페이지 머리글이며 현재 페이지만 펼칩니다. */
     .side-page-head {
       display: flex;
       align-items: center;
@@ -263,13 +263,13 @@ export const sidebarStyles = css`
       background: var(--sk-accent-soft);
       color: var(--sk-text);
     }
-    /* 펼침 표시가 없는 줄의 빈 자리 — 세 목록의 이름이 같은 자리에서 시작합니다 */
+    /* 펼침 표시가 없는 줄에도 빈자리를 두어 목록 이름의 시작 위치를 맞춥니다. */
     .side-twisty-gap {
       flex: 0 0 14px;
     }
-    /* 그리드 값의 항목 구간 필드 — 펼침 표시 아래로 한 단 들여 씁니다  */
+    /* 그리드 값의 항목 구간 필드는 펼침 표시 아래에서 한 단계 들여 씁니다. */
     /* 값 목록의 항목 구간 필드 하위 줄(.side-col-row)과 요소 목록의 그리드 셀 하위 줄
-       (.side-cell-row, G-44)은 생김새가 같습니다 */
+       (.side-cell-row)은 생김새가 같습니다. */
     .side-col-row,
     .side-cell-row {
       display: flex;
@@ -413,7 +413,7 @@ export const sidebarStyles = css`
       width: 12px;
       height: 12px;
     }
-    /* 하위 필드 추가 버튼은 하위 항목과 같은 위치에 배치하되 목록 항목으로 취급하지 않습니다 */
+    /* 하위 필드 추가 버튼은 하위 항목과 같은 위치에 두되 목록 항목으로 취급하지 않습니다. */
     .side-add-field {
       display: flex;
       align-items: center;
@@ -484,7 +484,7 @@ export const sidebarStyles = css`
       font-size: 11px;
       color: var(--sk-text-muted);
     }
-    /* 샘플 데이터 모달의 행 편집 그리드  — 열이 많으면 가로 스크롤 */
+    /* 샘플 데이터 모달의 행 편집 그리드는 열이 많으면 가로로 스크롤합니다. */
     .modal.modal-wide {
       width: min(760px, calc(100vw - 32px));
     }
@@ -545,7 +545,7 @@ export const sidebarStyles = css`
       gap: 4px;
       align-items: center;
       margin-bottom: 4px;
-      /* 열이 많으면 그리드 상자를 내용 크기로 키워 스크롤 컨테이너가 끝까지 스크롤되게 합니다 */
+      /* 열이 많으면 그리드 상자를 내용 크기로 키워 끝까지 스크롤할 수 있게 합니다. */
       width: max-content;
       min-width: 100%;
     }

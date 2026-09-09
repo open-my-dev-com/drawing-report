@@ -1,5 +1,5 @@
 /**
- * 상단 툴바 — 요소 생성, 편집 명령, 격자·프리셋 메뉴와 저장.
+ * 상단 툴바에서 요소 생성, 편집 명령, 격자·프리셋 메뉴와 저장 기능을 제공합니다.
  */
 
 import { html, nothing } from 'lit';
@@ -10,38 +10,38 @@ import type { CreatableType } from '../grid-view.js';
 import type { SlipPreset } from '../../presets.js';
 import type { DesignerStrings } from '../../strings.js';
 
-/** 툴바가 컴포넌트에 요청하는 조작과 상태 */
+/** 툴바에서 사용하는 컴포넌트 조작과 상태입니다. */
 export interface ToolbarActions {
   readonly s: DesignerStrings;
-  /** 선택한 생성 도구 */
+  /** 선택한 생성 도구입니다. */
   readonly pendingTool: CreatableType | null;
-  /** 미리보기 모드인지 */
+  /** 미리보기 모드인지 나타냅니다. */
   readonly previewMode: boolean;
-  /** 주 선택 요소 */
+  /** 주 선택 요소입니다. */
   readonly selectedId: string | null;
-  /** 붙여넣을 것이 있는지 */
+  /** 붙여넣을 내용이 있는지를 나타냅니다. */
   readonly hasClipboard: boolean;
-  /** 되돌릴 수 있는 단계 수 */
+  /** 되돌릴 수 있는 단계 수입니다. */
   readonly undoDepth: number;
-  /** 다시 실행할 수 있는 단계 수 */
+  /** 다시 실행할 수 있는 단계 수입니다. */
   readonly redoDepth: number;
-  /** 보고 있는 양식 페이지 (0부터) */
+  /** 현재 양식 페이지의 인덱스입니다. 0부터 시작합니다. */
   readonly pageIndex: number;
-  /** 요소 종류 배지를 표시할지 */
+  /** 요소 종류 배지를 표시할지 나타냅니다. */
   readonly showBadges: boolean;
-  /** 요소 종류 배지 표시를 바꿉니다 */
+  /** 요소 종류 배지 표시를 바꿉니다. */
   setShowBadges(on: boolean): void;
-  /** 격자선 색을 바꾸고 메뉴를 닫습니다 */
+  /** 격자선 색을 바꾸고 메뉴를 닫습니다. */
   setGridColor(color: GridColorId): void;
   /**
    * 열려 있는 툴바 메뉴를 모두 닫습니다.
    *
-   * @param restoreFocus - 메뉴를 연 버튼으로 초점을 되돌리면 true (키보드로 닫을 때)
+   * @param restoreFocus - 메뉴를 연 버튼으로 초점을 되돌리면 true(키보드로 닫을 때)
    */
   closeMenus(restoreFocus?: boolean): void;
-  /** 격자 간격(mm). null이면 격자 없음 */
+  /** 격자 간격(mm)입니다. `null`이면 격자를 표시하지 않습니다. */
   readonly gridGap: number | null;
-  /** 격자선 색 */
+  /** 격자선 색입니다. */
   readonly gridColor: GridColorId;
   readonly gridMenuOpen: boolean;
   readonly gridMenuPos: { left: number; top: number };
@@ -49,9 +49,9 @@ export interface ToolbarActions {
   readonly presetMenuPos: { left: number; top: number };
   readonly shapeMenuOpen: boolean;
   readonly shapeMenuPos: { left: number; top: number };
-  /** 저장 완료 안내를 표시할지 */
+  /** 저장 완료 안내를 표시할지 나타냅니다. */
   readonly savedNotice: boolean;
-  /** 저장소가 붙어 있는지 */
+  /** 저장소 연결 여부입니다. */
   readonly hasStorage: boolean;
   pageCount(): number;
   presets(): SlipPreset[];
@@ -71,7 +71,7 @@ export interface ToolbarActions {
   togglePreview(): void;
   openSaveModal(): void;
   openMyForms(): void;
-  /** 화면을 다시 그립니다 */
+  /** 화면을 다시 그립니다. */
   refresh(): void;
 }
 

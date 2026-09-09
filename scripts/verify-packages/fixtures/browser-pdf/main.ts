@@ -1,4 +1,4 @@
-// 브라우저 PDF 생성: 공개 export만으로 PDF를 만들고 결과를 페이지에 남긴다.
+// 브라우저 PDF 생성: 공개 export만으로 PDF를 만들고 결과를 페이지에 남깁니다.
 import { createSlipKit } from '@omdc-slipkit/core';
 import { loadDefaultFonts } from '@omdc-slipkit/elements';
 import { template } from '../template.mjs';

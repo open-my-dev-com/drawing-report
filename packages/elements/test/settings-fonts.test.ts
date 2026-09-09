@@ -19,7 +19,7 @@ import { renderSlip, resolveFonts } from '../src/settings.js';
 const FILE = { kind: 'template' } as unknown as SlipFile;
 const renderSlipToPdfMock = vi.mocked(renderSlipToPdf);
 
-/** 렌더러에 넘어간 `getFonts`가 실제로 돌려준 폰트 이름 */
+/** 렌더러에 전달된 `getFonts`가 실제로 반환한 폰트 이름입니다. */
 async function fontNamesPassedToRenderer(): Promise<string[]> {
   const options = renderSlipToPdfMock.mock.calls[0]![1]!;
   const fonts = await options.getFonts!();

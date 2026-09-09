@@ -1,18 +1,18 @@
 /**
- * 디자이너 벤치마크에 쓰는 양식 두 벌을 결정적으로 만든다.
+ * 디자이너 벤치마크에 쓰는 양식 두 개를 항상 같은 내용으로 만듭니다.
  *
  * - `small`: 1페이지, 텍스트·사각형 20개.
  * - `large`: 10페이지, 페이지마다 100개(총 1,000개). 첫 페이지에는 샘플 항목 500건을 가진
- *   반복 그리드가 들어 있어 포인터를 옮길 때마다 페이지 계획이 다시 계산된다.
+ *   반복 그리드가 들어 있어 포인터를 옮길 때마다 페이지 계획이 다시 계산됩니다.
  *
- * 값은 모두 색인에서 만들므로 실행마다 같은 파일이 나온다. 내용은 ASCII만 쓰므로
- * `JSON.stringify` 결과의 문자 수가 그대로 바이트 수다.
+ * 값은 모두 색인에서 만들므로 실행마다 같은 파일이 나옵니다. 내용은 ASCII만 쓰므로
+ * `JSON.stringify` 결과의 문자 수가 그대로 바이트 수입니다.
  */
 
-/** 벤치마크 양식의 용지 (A4 세로) */
+/** 벤치마크 양식의 용지 (A4 세로)입니다. */
 const PAPER = { width: 210, height: 297, padding: [20, 15, 20, 15] };
 
-/** 샘플 항목 하나의 열 정의 — 반복 그리드의 하위 필드와 셀 파라미터가 같은 키를 쓴다. */
+/** 샘플 항목 하나의 열 정의 — 반복 그리드의 하위 필드와 셀 파라미터가 같은 키를 씁니다. */
 const ITEM_FIELDS = [
   { key: 'itemName', label: 'Item' },
   { key: 'spec', label: 'Spec' },
@@ -22,9 +22,9 @@ const ITEM_FIELDS = [
 ];
 
 /**
- * 텍스트와 사각형을 번갈아 만든다. 요소는 10열 격자에 놓이며 용지 안에 들어간다.
+ * 텍스트와 사각형을 번갈아 만듭니다. 요소는 10열 격자에 놓이며 용지 안에 들어갑니다.
  *
- * @param pageIndex - 요소 id에 넣을 페이지 번호
+ * @param pageIndex - 요소 ID에 넣을 페이지 번호
  * @param count - 만들 요소 수 (최대 100)
  * @param startRow - 요소를 놓기 시작할 격자 행 (그리드 아래에 놓을 때 사용)
  * @returns 요소 배열
@@ -63,7 +63,7 @@ function fillerElements(pageIndex, count, startRow = 0) {
   return elements;
 }
 
-/** 헤더 한 행과 항목 한 행을 가진 자동 확장 반복 그리드. */
+/** 헤더 한 행과 항목 한 행을 가진 자동 확장 반복 그리드입니다. */
 function repeatGrid() {
   const cells = ITEM_FIELDS.map((field, column) => ({
     row: 0, column, content: field.label, backgroundColor: '#EEEEEE', alignment: 'center',
@@ -97,7 +97,7 @@ function repeatGrid() {
 }
 
 /**
- * 샘플 항목 n건. 값은 색인에서 만든다.
+ * 샘플 항목 n건. 값은 색인에서 만듭니다.
  *
  * @param n - 항목 수
  * @returns 항목 배열
@@ -113,7 +113,7 @@ function sampleItems(n) {
 }
 
 /**
- * 양식 파일 뼈대를 만든다.
+ * 양식 파일의 기본 구조를 만듭니다.
  *
  * @param title - 양식 제목
  * @param pages - 페이지 배열
@@ -135,9 +135,9 @@ function templateFile(title, pages, extra = {}) {
 }
 
 /**
- * 벤치마크 양식 정의.
+ * 성능 측정에 사용할 양식을 정의합니다.
  *
- * @returns `{ name, file, dragId }` 목록 — `dragId`는 드래그할 첫 페이지 텍스트 요소의 id
+ * @returns `{ name, file, dragId }` 목록 — `dragId`는 드래그할 첫 페이지 텍스트 요소 ID
  */
 export function benchTemplates() {
   const small = templateFile('small', [{ elements: fillerElements(0, 20) }]);

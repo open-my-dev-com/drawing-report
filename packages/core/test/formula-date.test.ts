@@ -1,4 +1,4 @@
-// FORMAT_DATE 패턴 문법과 날짜 함수 입력 형식을 확인한다.
+// FORMAT_DATE 패턴 문법과 날짜 함수 입력 형식을 확인합니다.
 import { afterEach, describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -9,7 +9,7 @@ import { FormulaEvalError, evaluateFormula, type FormulaContext, type FormulaVal
 const ctx = (values: FormulaContext['values'] = {}, locale?: string): FormulaContext =>
   locale === undefined ? { values } : { values, locale };
 
-/** 수식을 평가해 던져진 평가 오류를 돌려준다. */
+/** 수식을 평가해 던져진 평가 오류를 반환합니다. */
 function evalError(source: string, context: FormulaContext = ctx()): FormulaEvalError {
   try {
     evaluateFormula(source, context);
@@ -110,11 +110,11 @@ describe('FORMAT_DATE 패턴 — 토큰', () => {
 
   it('패턴 오류는 한국어·일본어 메시지도 제공한다', () => {
     expect(evalError(`FORMAT_DATE(${d}, "Date")`, ctx({}, 'ko')).message).toBe(
-      'FORMAT_DATE 패턴: 1번째 글자에 알 수 없는 토큰이 있습니다: "Date" (사용 가능: YYYY, YY, MM, M, DD, D, HH, mm, ss. 그대로 표시할 글자는 [ ]로 감싸세요)',
+      'FORMAT_DATE 패턴: 1번째 글자부터 알 수 없는 표기입니다: "Date". YYYY, YY, MM, M, DD, D, HH, mm, ss를 사용할 수 있으며, 그대로 표시할 글자는 [ ]로 감싸세요',
     );
     expect(evalError(`FORMAT_DATE(${d}, "[x")`, ctx({}, 'ko')).message).toBe("FORMAT_DATE 패턴: 1번째 글자의 '['가 닫히지 않았습니다");
     expect(evalError(`FORMAT_DATE(${d}, "[\\x]")`, ctx({}, 'ko')).message).toBe(
-      'FORMAT_DATE 패턴: 2번째 글자의 백슬래시를 해석할 수 없습니다 ([ ] 안에서 \\]와 \\\\만 쓸 수 있습니다)',
+      'FORMAT_DATE 패턴: 2번째 글자의 백슬래시를 해석할 수 없습니다. [ ] 안에서는 \\]와 \\\\만 쓸 수 있습니다',
     );
     expect(evalError(`FORMAT_DATE(${d}, "Date")`, ctx({}, 'ja')).message).toBe(
       'FORMAT_DATE のパターン: 1 文字目に不明なトークンがあります: "Date"（使用可能: YYYY, YY, MM, M, DD, D, HH, mm, ss。そのまま表示する文字は [ ] で囲んでください）',
@@ -180,7 +180,7 @@ describe('날짜 입력 — 거부', () => {
     '0',
     'TRUE',
     '$(NULL)',
-  ])('%s은(는) 형식 오류', (source) => {
+  ])('%s: 형식 오류', (source) => {
     for (const fn of ['FORMAT_DATE', 'TO_DATE']) {
       expect(() => evaluateFormula(`${fn}(${source})`, ctx()), fn).toThrow(INVALID);
     }
@@ -190,7 +190,7 @@ describe('날짜 입력 — 거부', () => {
   });
 
   it.each(['2026-02-30', '2026-13-01', '2026-00-10', '2026-01-00', '2026-09-04T24:00', '2026-09-04T23:60', '2026-09-04T23:59:60', '2027-02-29'])(
-    '%s은(는) 존재하지 않는 날짜·시각',
+    '%s: 존재하지 않는 날짜·시각',
     (value) => {
       expect(() => evaluateFormula(`TO_DATE("${value}")`, ctx())).toThrow(/not a real calendar date/);
     },
@@ -203,7 +203,7 @@ describe('날짜 입력 — 거부', () => {
       );
     }
     expect(evalError('TO_DATE("2026-09-04T00:30+24:00")', ctx({}, 'ko')).message).toBe(
-      '날짜: 시간대 오프셋이 허용 범위(±23:59까지)를 벗어났습니다. 현재 값: "2026-09-04T00:30+24:00"',
+      '날짜: UTC와의 시차가 허용 범위(±23:59)를 벗어났습니다. 현재 값: "2026-09-04T00:30+24:00"',
     );
     expect(evalError('TO_DATE("2026-09-04T00:30+24:00")', ctx({}, 'ja')).message).toBe(
       '日付のタイムゾーンオフセットが範囲外です（±23:59 まで）: "2026-09-04T00:30+24:00"',
@@ -212,7 +212,7 @@ describe('날짜 입력 — 거부', () => {
 
   it('형식 오류는 한국어·일본어 메시지도 제공한다', () => {
     expect(evalError('TO_DATE("2026/09/04")', ctx({}, 'ko')).message).toBe(
-      '날짜: YYYY-MM-DD 또는 YYYY-MM-DDTHH:mm:ss 형식(Z·±HH:mm 오프셋은 선택)의 문자열이어야 합니다. 현재 값: "2026/09/04"',
+      '날짜: YYYY-MM-DD 또는 YYYY-MM-DDTHH:mm:ss 형식의 문자열이어야 합니다. Z 또는 ±HH:mm 형식의 UTC 시차를 덧붙일 수 있습니다. 현재 값: "2026/09/04"',
     );
     expect(evalError('TO_DATE("2026/09/04")', ctx({}, 'ja')).message).toBe(
       '日付は YYYY-MM-DD または YYYY-MM-DDTHH:mm:ss 形式（Z・±HH:mm オフセットは任意）の文字列でなければなりません: "2026/09/04"',
@@ -296,7 +296,7 @@ describe('연도 범위 밖의 결과', () => {
     '9999-12-31T23:59-00:01',
     '0000-12-31',
     '0000-01-01T00:00Z',
-  ])('%s은(는) 오프셋을 적용한 결과가 범위 밖', (value) => {
+  ])('%s: 시간대 차이를 적용한 결과가 범위 밖', (value) => {
     for (const fn of ['FORMAT_DATE', 'TO_DATE']) {
       expect(() => evaluateFormula(`${fn}("${value}")`, ctx()), fn).toThrow(OUT_OF_RANGE);
     }
@@ -326,7 +326,7 @@ describe('연도 범위 밖의 결과', () => {
     'DATE_ADD("2026-01-01", 10000, "years")',
     'DATE_ADD("2026-01-01", -3000000, "days")',
     'DATE_ADD("2026-01-01", 100000000000, "days")',
-  ])('%s은(는) 결과가 범위 밖', (source) => {
+  ])('%s: 결과가 범위 밖', (source) => {
     expect(() => evaluateFormula(source, ctx())).toThrow(OUT_OF_RANGE);
   });
 
@@ -400,7 +400,7 @@ describe('실행 환경 시간대와 무관한 결과', () => {
     ['DATE_ADD("9999-06-01", 1, "years")', '!value'],
   ];
 
-  /** 평가 결과를 돌려주고, 평가 오류면 `!<reason>`으로 표시한다. */
+  /** 평가 결과를 반환하고, 평가 오류이면 `!<reason>`으로 표시합니다. */
   function run(formula: string): FormulaValue {
     try {
       return evaluateFormula(formula, ctx());
@@ -420,7 +420,7 @@ describe('실행 환경 시간대와 무관한 결과', () => {
   it.each(['UTC', 'Asia/Tokyo', 'America/New_York'])('TZ=%s (자식 프로세스)', (tz) => {
     const dist = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'index.js');
     if (!existsSync(dist)) {
-      throw new Error('dist/index.js가 없습니다 — 먼저 @omdc-slipkit/core를 build한 뒤 실행해야 합니다');
+      throw new Error('dist/index.js가 없습니다. 먼저 @omdc-slipkit/core를 빌드한 뒤 실행해야 합니다.');
     }
     const script = [
       `import { FormulaEvalError, evaluateFormula } from ${JSON.stringify(pathToFileURL(dist).href)};`,

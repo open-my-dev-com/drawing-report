@@ -1,8 +1,8 @@
 /**
- * 동봉 폰트 데이터(`src/fonts/pretendard-data.ts`)를 재생성한다.
+ * 동봉 폰트 데이터(`src/fonts/pretendard-data.ts`)를 다시 생성합니다.
  *
- * npm의 pretendard 패키지에서 Regular와 Bold OTF를 받아 base64 모듈로 변환한다.
- * 폰트 버전을 올릴 때 VERSION만 바꿔 실행한다:
+ * npm의 pretendard 패키지에서 Regular와 Bold OTF를 받아 Base64 모듈로 변환합니다.
+ * 폰트 버전을 올릴 때 VERSION만 바꿔 실행합니다.
  *   node scripts/generate-pretendard.mjs
  */
 import { writeFileSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -24,8 +24,8 @@ const bold = readFileSync(join(staticDir, 'Pretendard-Bold.otf')).toString('base
 const license = readFileSync(join(work, 'package/dist/LICENSE.txt'), 'utf8');
 
 const out = [
-  `// 생성 파일 — 직접 수정하지 않는다. 재생성: node scripts/generate-pretendard.mjs (Pretendard v${VERSION}, OTF)`,
-  '// 폰트 저작권: Copyright (c) 2021, Kil Hyung-jin. SIL Open Font License 1.1 — 전문은 패키지의 OFL-Pretendard.txt',
+  `// 자동 생성 파일입니다. 직접 수정하지 마세요. 다시 생성하려면 node scripts/generate-pretendard.mjs를 실행합니다(Pretendard v${VERSION}, OTF).`,
+  '// 폰트 저작권: Copyright (c) 2021, Kil Hyung-jin. SIL Open Font License 1.1입니다. 라이선스 전체 내용은 패키지의 OFL-Pretendard.txt에서 확인할 수 있습니다.',
   '',
   '/** Pretendard Regular OTF (base64) */',
   `export const PRETENDARD_REGULAR_B64 = '${reg}';`,

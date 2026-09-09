@@ -1,9 +1,9 @@
-// 동봉 폰트 지연 로딩 — 청크를 각각 한 번만 읽고 로케일별 Promise를 재사용하는지 확인한다.
-// 실제 `default-fonts.js`·`settings.js`를 쓰고 대형 폰트 청크만 평가 횟수를 세는 대역으로 바꾼다.
+// 동봉 폰트 지연 로딩 — 청크를 각각 한 번만 읽고 로케일별 Promise를 재사용하는지 확인합니다.
+// 실제 `default-fonts.js`와 `settings.js`를 사용하고, 대형 폰트 청크만 평가 횟수를 세는 구현으로 대체합니다.
 import { describe, expect, it, vi } from 'vitest';
 
-// 팩토리는 모듈을 처음 가져올 때 한 번 실행되므로 이 횟수가 청크를 읽은 횟수다.
-// 실제 모듈과 같은 모양(이름·순서·fallback)을 유지하고 데이터만 몇 바이트로 줄인다.
+// 팩토리는 모듈을 처음 가져올 때 한 번 실행되므로 이 횟수가 청크를 읽은 횟수입니다.
+// 실제 모듈과 이름·순서·fallback 설정을 같게 두고 데이터만 몇 바이트로 줄입니다.
 const chunkEvaluations = vi.hoisted(() => ({ pretendard: 0, notoSansJp: 0 }));
 
 vi.mock('../src/fonts/pretendard.js', () => {
@@ -25,10 +25,10 @@ import type { SlipKit } from '@omdc-slipkit/core';
 import { loadDefaultFonts } from '../src/default-fonts.js';
 import { resolveFonts } from '../src/settings.js';
 
-/** 세 로케일이 공통으로 돌려주는 동봉 폰트 이름과 순서 */
+/** 세 로케일이 공통으로 반환하는 동봉 폰트 이름과 순서입니다. */
 const BUNDLED_FONT_NAMES = ['Pretendard', 'Pretendard-Bold', 'Noto Sans JP'];
 
-/** `fallback: true`인 폰트 이름 */
+/** `fallback: true`인 폰트 이름입니다. */
 function fallbackNames(fonts: readonly { name: string; fallback?: boolean }[]): string[] {
   return fonts.filter((f) => f.fallback === true).map((f) => f.name);
 }
@@ -38,12 +38,12 @@ describe('동봉 폰트 지연 로딩', () => {
     expect(chunkEvaluations).toEqual({ pretendard: 0, notoSansJp: 0 });
   });
 
-  it('기본·ko·en은 같은 Promise를 돌려주고 ja는 별도 Promise를 재사용한다', async () => {
+  it('기본·ko·en은 같은 Promise를 반환하고 ja는 별도 Promise를 재사용한다', async () => {
     const base = loadDefaultFonts();
     expect(loadDefaultFonts('ko')).toBe(base);
     expect(loadDefaultFonts('en')).toBe(base);
-    // 같은 청크를 처음 읽는 동안 다른 로케일의 읽기가 겹치면 vitest의 모듈 대역이 두 번 만들어진다.
-    // 실제 ESM은 같은 모듈을 한 번만 평가하므로 시험에서만 첫 읽기를 순서대로 끝낸다.
+    // 같은 청크를 처음 읽는 동안 다른 로케일의 읽기가 겹치면 vitest가 대체 모듈을 두 번 만듭니다.
+    // 실제 ESM은 같은 모듈을 한 번만 평가하므로 시험에서만 첫 읽기를 순서대로 끝냅니다.
     await base;
     const ja = loadDefaultFonts('ja');
     expect(ja).not.toBe(base);
@@ -71,8 +71,8 @@ describe('동봉 폰트 지연 로딩', () => {
     expect(chunkEvaluations).toEqual({ pretendard: 1, notoSansJp: 1 });
   });
 
-  it('반환 목록은 원본 폰트 정의와 분리된 새 항목이고 원본 fallback을 바꾸지 않는다', async () => {
-    // 이미 평가된 대역 모듈을 그대로 받는다 — 여기서 청크를 다시 읽지 않는다.
+  it('반환 목록은 원본 폰트 정의와 분리된 새 항목이고 원본의 fallback 설정을 바꾸지 않는다', async () => {
+    // 이미 평가된 대체 모듈을 그대로 받으므로 여기서 청크를 다시 읽지 않습니다.
     const { PRETENDARD_FONTS } = await import('../src/fonts/pretendard.js');
     const { NOTO_SANS_JP_FONTS } = await import('../src/fonts/noto-sans-jp.js');
     const ko = await loadDefaultFonts('ko');
@@ -81,10 +81,10 @@ describe('동봉 폰트 지연 로딩', () => {
     expect(ko).not.toBe(PRETENDARD_FONTS);
     expect(ko[0]).not.toBe(PRETENDARD_FONTS[0]);
     expect(ko[2]).not.toBe(NOTO_SANS_JP_FONTS[0]);
-    // 폰트 바이트는 복사하지 않고 같은 배열을 가리킨다.
+    // 폰트 바이트는 복사하지 않고 같은 배열을 가리킵니다.
     expect(ko[0]!.data).toBe(PRETENDARD_FONTS[0]!.data);
     expect(ja[2]!.data).toBe(NOTO_SANS_JP_FONTS[0]!.data);
-    // 로케일에 따라 대체 폰트를 옮겨도 원본 정의는 그대로다.
+    // 로케일에 따라 대체 폰트를 옮겨도 원본 정의는 그대로입니다.
     expect(ko[2]!.fallback).toBeUndefined();
     expect(ja[0]!.fallback).toBeUndefined();
     expect(PRETENDARD_FONTS[0]!.fallback).toBe(true);
@@ -92,14 +92,14 @@ describe('동봉 폰트 지연 로딩', () => {
     expect(chunkEvaluations).toEqual({ pretendard: 1, notoSansJp: 1 });
   });
 
-  it('resolveFonts는 getFonts가 없거나 빈 목록이면 같은 캐시의 동봉 폰트를 돌려준다', async () => {
+  it('resolveFonts는 getFonts가 없거나 빈 목록이면 같은 캐시의 동봉 폰트를 반환한다', async () => {
     const ko = await loadDefaultFonts('ko');
     const ja = await loadDefaultFonts('ja');
 
     expect(await resolveFonts(undefined, 'ko')).toBe(ko);
     expect(await resolveFonts({} as unknown as SlipKit, 'en')).toBe(ko);
     expect(await resolveFonts({ getFonts: () => [] } as unknown as SlipKit, 'ja')).toBe(ja);
-    // 지역 코드가 붙은 로케일도 언어 코드의 캐시를 쓴다.
+    // 지역 코드가 붙은 로케일도 언어 코드의 캐시를 씁니다.
     expect(await resolveFonts(undefined, 'ja-JP')).toBe(ja);
     expect(await resolveFonts(undefined, 'ko-KR')).toBe(ko);
     expect(chunkEvaluations).toEqual({ pretendard: 1, notoSansJp: 1 });

@@ -1,5 +1,5 @@
 // 기준선 해석과 비교 시험 — 저장소에 든 기준선 파일이 형식을 지키는지, 비교기가 결정적 지표와
-// 환경 조건부 지표를 규칙대로 판정하는지 본다.
+// 환경 조건부 지표를 규칙대로 판정하는지 확인합니다.
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, it } from 'node:test';
@@ -15,7 +15,7 @@ const SAME = { same: true, differences: [] };
 const OTHER = { same: false, differences: [{ field: 'cpuModel', baseline: 'A', actual: 'B' }] };
 
 /**
- * 기준선 항목 하나를 만든다.
+ * 기준선 항목 하나를 만듭니다.
  *
  * @param {Record<string, any>} overrides - 덮어쓸 항목
  * @returns {Record<string, any>} 기준선 항목
@@ -28,13 +28,13 @@ function entry(overrides = {}) {
     kind: 'deterministic',
     value: 33,
     context: { fixture: 'plan-1000', items: 1000 },
-    rationale: '페이지 계획은 입력이 같으면 언제나 같은 페이지 수를 낸다',
+    rationale: '페이지 계획은 입력이 같으면 언제나 같은 페이지 수를 반환합니다.',
     ...overrides,
   };
 }
 
 /**
- * 이번 측정 지표 하나를 만든다.
+ * 이번 측정 지표 하나를 만듭니다.
  *
  * @param {Record<string, any>} overrides - 덮어쓸 항목
  * @returns {Record<string, any>} 지표
@@ -50,7 +50,7 @@ function measured(overrides = {}) {
 }
 
 /**
- * 기준선 파일 하나를 만든다.
+ * 기준선 파일 하나를 만듭니다.
  *
  * @param {object[]} metrics - 기준선 항목
  * @returns {Record<string, any>} 기준선
@@ -86,16 +86,16 @@ describe('validateBaseline', () => {
     assert.throws(() => validateBaseline(baseline([item])), BenchSchemaError);
   });
 
-  it('모르는 비교 문맥 키가 있으면 거절한다', () => {
+  it('알 수 없는 비교 문맥 키가 있으면 거절한다', () => {
     const item = entry({ context: { fixture: 'plan-1000', items: 1000, locale: 'ko' } });
     assert.throws(() => validateBaseline(baseline([item])), BenchSchemaError);
   });
 
-  it('지표 id가 겹치면 거절한다', () => {
+  it('지표 ID가 겹치면 거절한다', () => {
     assert.throws(() => validateBaseline(baseline([entry(), entry()])), BenchSchemaError);
   });
 
-  it('schema 판 번호가 다르면 거절한다', () => {
+  it('스키마 버전이 다르면 거절한다', () => {
     const value = baseline([entry()]);
     value.schema = { ...BASELINE_SCHEMA, version: BASELINE_SCHEMA.version + 1 };
     assert.throws(() => validateBaseline(value), BenchSchemaError);
@@ -133,7 +133,7 @@ describe('compareMetric — 결정적 지표', () => {
     assert.equal(compareMetric(entry(), measured({ unit: 'bytes' }), SAME).status, 'fail');
   });
 
-  it('fixture가 다르면 실패한다', () => {
+  it('시험 자료가 다르면 실패한다', () => {
     const actual = measured({ context: { fixture: 'plan-100', items: 100 } });
     const finding = compareMetric(entry(), actual, SAME);
     assert.equal(finding.status, 'fail');
@@ -148,11 +148,11 @@ describe('compareMetric — 결정적 지표', () => {
     assert.match(finding.reason, /batch 100 ≠ 10/);
   });
 
-  it('이번 측정에 모르는 문맥 키가 있으면 실패한다', () => {
+  it('이번 측정에 알 수 없는 문맥 키가 있으면 실패한다', () => {
     const actual = measured({ context: { fixture: 'plan-1000', items: 1000, locale: 'ko' } });
     const finding = compareMetric(entry(), actual, SAME);
     assert.equal(finding.status, 'fail');
-    assert.match(finding.reason, /모르는 문맥 키 locale/);
+    assert.match(finding.reason, /알 수 없는 문맥 키 locale/);
   });
 });
 
@@ -208,7 +208,7 @@ describe('compareToBaseline', () => {
     assert.equal(comparison.counts.pass, 1);
   });
 
-  it('benchmark 이름이 다르면 거절한다', () => {
+  it('성능 측정 이름이 다르면 거절한다', () => {
     const result = createResult({ tool: 'designer', environment, metrics: [] });
     assert.throws(() => compareToBaseline(baseline([entry()]), result), BenchSchemaError);
   });
@@ -217,11 +217,11 @@ describe('compareToBaseline', () => {
 describe('저장소의 기준선 파일', () => {
   const baselines = loadBaselines(BASELINE_DIR);
 
-  it('benchmark 네 갈래의 기준선이 모두 있다', () => {
+  it('네 종류 성능 측정의 기준선이 모두 있다', () => {
     assert.deepEqual([...baselines.keys()].sort(), [...TOOLS].sort());
   });
 
-  it('지표 id가 benchmark 이름으로 시작한다', () => {
+  it('지표 ID가 성능 측정 이름으로 시작한다', () => {
     const prefixes = { core: 'core.', designer: 'designer.', fonts: 'fonts.', 'mcp-list': 'mcp.' };
     for (const [tool, file] of baselines) {
       for (const item of file.metrics) {
@@ -243,8 +243,8 @@ describe('저장소의 기준선 파일', () => {
   it('결정적 지표와 환경 조건부 지표를 모두 담고 있다', () => {
     for (const [tool, file] of baselines) {
       const kinds = new Set(file.metrics.map((item) => item.kind));
-      assert.ok(kinds.has('deterministic'), `${tool}: 결정적 지표가 없다`);
-      assert.ok(kinds.has('environmental'), `${tool}: 환경 조건부 지표가 없다`);
+      assert.ok(kinds.has('deterministic'), `${tool}: 결정적 지표가 없습니다.`);
+      assert.ok(kinds.has('environmental'), `${tool}: 환경 조건부 지표가 없습니다.`);
     }
   });
 
@@ -259,7 +259,7 @@ describe('저장소의 기준선 파일', () => {
       });
       const comparison = compareToBaseline(file, result);
       assert.equal(comparison.counts.fail, 0, `${tool}: ${JSON.stringify(comparison.findings.filter((f) => f.status !== 'pass'))}`);
-      assert.equal(comparison.counts.incomparable, 0, `${tool}: 비교 불가 항목이 있다`);
+      assert.equal(comparison.counts.incomparable, 0, `${tool}: 비교할 수 없는 항목이 있습니다.`);
     }
   });
 });

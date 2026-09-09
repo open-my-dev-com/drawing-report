@@ -45,7 +45,7 @@ type GridEdit = {
   editing: boolean;
 };
 
-/** 3×3 그리드 (원점 10,10 · 열 36/27/27 · 행 10) — 셀과 그리드 공통값은 시험마다 지정합니다 */
+/** 셀과 공통값을 지정해 3x3 그리드 양식을 만듭니다. */
 function makeGridFile(cells: CellRecord[], gridExtra: Record<string, unknown> = {}): SlipFile {
   const file = makeTemplateFile();
   file.template.pages[0]!.elements = [{
@@ -87,11 +87,11 @@ function selectedId(el: Element): string | null {
   return (el as unknown as { _selectedId: string | null })._selectedId;
 }
 
-/** 셀 중심의 mm 좌표 */
+/** 셀 중심의 mm 좌표입니다. */
 const CENTER_X = [28, 59.5, 86.5] as const;
 const centerY = (row: number): number => 15 + row * 10;
 
-/** 그리드를 (mm 좌표로) 클릭합니다 — 보조키를 함께 누를 수 있습니다 */
+/** 밀리미터 좌표로 그리드를 클릭하며 보조 키도 함께 누를 수 있습니다. */
 async function clickCell(
   el: Element,
   row: number,
@@ -108,7 +108,7 @@ async function clickCell(
   await (el as { updateComplete?: Promise<unknown> }).updateComplete;
 }
 
-/** 보조키 없이 셀을 골라 기준 셀로 만들고, 열린 인라인 편집기는 닫습니다 */
+/** 보조키 없이 셀을 골라 기준 셀로 만들고, 열린 인라인 편집기는 닫습니다. */
 async function pickAnchor(el: Element, row: number, column: number) {
   await clickCell(el, row, column);
   const editor = el.shadowRoot!.querySelector('.cell-editor') as HTMLInputElement | null;
@@ -154,7 +154,7 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     expect(gridEdit(el).cells).toHaveLength(0);
 
     await clickCell(el, 1, 1, { ctrlKey: true });
-    // 이미 선택된 그리드 안의 Ctrl 클릭은 셀을 더하지만 인라인 편집은 열지 않는다.
+    // 이미 선택된 그리드 안의 Ctrl 클릭은 셀을 더하지만 인라인 편집은 열지 않습니다.
     expect(keys(gridEdit(el).cells)).toEqual(['1,1']);
     expect(gridEdit(el).editing).toBe(false);
     expect(el.shadowRoot!.querySelector('.cell-editor')).toBeNull();
@@ -182,7 +182,7 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     expect(el.shadowRoot!.querySelector('.type-name')?.textContent?.trim())
       .toBe(s.cellsSelected.replace('{count}', '4'));
 
-    // 다른 셀을 Shift 클릭하면 범위가 기준 셀부터 다시 계산된다.
+    // 다른 셀을 Shift 클릭하면 범위가 기준 셀부터 다시 계산됩니다.
     await clickCell(el, 0, 2, { shiftKey: true });
     expect(keys(gridEdit(el).cells).sort()).toEqual(['0,0', '0,1', '0,2']);
     expect(gridEdit(el).cell).toEqual({ row: 0, column: 0 });
@@ -197,17 +197,17 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     expect(keys(gridEdit(el).cells)).toEqual(['0,0', '2,2', '1,0']);
     expect(gridEdit(el).cell).toEqual({ row: 1, column: 0 });
 
-    // 기준 셀을 빼면 남은 셀 가운데 가장 최근에 더한 (2,2)가 기준이 된다.
+    // 기준 셀을 빼면 남은 셀 가운데 가장 최근에 더한 (2,2)가 기준이 됩니다.
     await clickCell(el, 1, 0, { ctrlKey: true });
     expect(keys(gridEdit(el).cells)).toEqual(['0,0', '2,2']);
     expect(gridEdit(el).cell).toEqual({ row: 2, column: 2 });
 
-    // 기준이 아닌 셀을 빼면 기준 셀은 그대로다.
+    // 기준이 아닌 셀을 빼면 기준 셀은 그대로입니다.
     await clickCell(el, 0, 0, { ctrlKey: true });
     expect(keys(gridEdit(el).cells)).toEqual(['2,2']);
     expect(gridEdit(el).cell).toEqual({ row: 2, column: 2 });
 
-    // 마지막 셀을 빼면 셀 선택이 비고 그리드 설정으로 돌아간다.
+    // 마지막 셀을 빼면 셀 선택이 비고 그리드 설정으로 돌아갑니다.
     await clickCell(el, 2, 2, { ctrlKey: true });
     expect(gridEdit(el).cell).toBeNull();
     expect(gridEdit(el).cells).toHaveLength(0);
@@ -236,7 +236,7 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     expect(el.shadowRoot!.querySelector('.grid-back-label')?.textContent?.trim()).toBe(s.gridBack);
     expect(el.shadowRoot!.querySelector(`input[aria-label="${s.cellName}"]`)).toBeNull();
     expect(el.shadowRoot!.querySelector(`[aria-label="${s.merge} ${s.rows}"]`)).toBeNull();
-    // 강조 토글은 굵게·기울임·밑줄·취소선 순서다.
+    // 강조 토글은 굵게·기울임·밑줄·취소선 순서입니다.
     const group = Array.from(el.shadowRoot!.querySelectorAll('.toggle-group'))
       .find((g) => g.getAttribute('aria-label') === `${s.cell} ${s.style}`)!;
     expect(Array.from(group.querySelectorAll('button')).map((b) => b.getAttribute('aria-label')))
@@ -265,7 +265,7 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
       { row: 0, column: 1, content: '', fontSize: 9 },
     ], { fontSize: 9 });
     await pickAnchor(el, 0, 0);
-    await clickCell(el, 0, 2, { shiftKey: true }); // (0,0)·(0,1)·(0,2) — (0,2)는 그리드 값 9를 물려받는다
+    await clickCell(el, 0, 2, { shiftKey: true }); // (0,0)·(0,1)·(0,2)를 선택하며, (0,2)는 그리드 값 9를 물려받습니다.
 
     const size = panelInput(el, `${s.cell} ${s.fontSize}`);
     expect(size.value).toBe('');
@@ -276,23 +276,23 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     const bg = byAria(el, `${s.cell} ${s.backgroundColor}`);
     expect(bg.querySelector('.color-chip')?.classList.contains('mixed')).toBe(true);
     expect(bg.querySelector('.color-value')?.textContent?.trim()).toBe(s.mixed);
-    // (0,1)은 9를 직접 갖고 (0,2)는 9를 물려받지만 글자색은 모두 같아 혼합이 아니다.
+    // (0,1)에는 9가 직접 지정되어 있고 (0,2)는 9를 물려받지만, 글자색은 모두 같으므로 혼합 상태가 아닙니다.
     const color = byAria(el, `${s.cell} ${s.fontColor}`);
     expect(color.querySelector('.color-chip')?.classList.contains('mixed')).toBe(false);
 
-    // 혼합 상태의 토글을 처음 누르면 모든 셀을 켠다.
+    // 혼합 상태의 토글을 처음 누르면 모든 셀을 켭니다.
     bold.click();
     await el.updateComplete;
     for (const column of [0, 1, 2]) expect(cellOf(el, 0, column)?.bold).toBe(true);
     expect(byAria(el, `${s.cell} ${s.bold}`).getAttribute('aria-pressed')).toBe('true');
 
-    // 숫자를 넣으면 모든 셀에 같은 값이 저장되고 혼합 표시가 사라진다.
+    // 숫자를 넣으면 모든 셀에 같은 값이 저장되고 혼합 표시가 사라집니다.
     setField(size, '12');
     await el.updateComplete;
     for (const column of [0, 1, 2]) expect(cellOf(el, 0, column)?.fontSize).toBe(12);
     expect(panelInput(el, `${s.cell} ${s.fontSize}`).value).toBe('12');
 
-    // 그리드 값과 같은 9를 넣으면 셀 값을 지워 물려받는다.
+    // 그리드 값과 같은 9를 넣으면 셀 값을 지워 물려받습니다.
     setField(panelInput(el, `${s.cell} ${s.fontSize}`), '9');
     await el.updateComplete;
     for (const column of [0, 1, 2]) expect(cellOf(el, 0, column)?.fontSize).toBeUndefined();
@@ -303,7 +303,7 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     const el = await mount([{ row: 0, column: 0, content: '라벨' }], { alignment: 'center', bold: true });
     await pickAnchor(el, 0, 0);
     await clickCell(el, 0, 1, { shiftKey: true });
-    // 물려받은 가운데·굵게가 눌린 상태로 보인다.
+    // 물려받은 가운데·굵게가 눌린 상태로 보입니다.
     expect(byAria(el, `${s.cell} ${s.alignment}: ${s.alignCenter}`).getAttribute('aria-pressed')).toBe('true');
     expect(byAria(el, `${s.cell} ${s.bold}`).getAttribute('aria-pressed')).toBe('true');
 
@@ -318,7 +318,7 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     expect(byAria(el, `${s.cell} ${s.alignment}: ${s.alignLeft}`).getAttribute('aria-pressed')).toBe('true');
     expect(byAria(el, `${s.cell} ${s.bold}`).getAttribute('aria-pressed')).toBe('false');
 
-    // 그리드 공통값과 같은 가운데를 고르면 셀 값을 지워 물려받는다.
+    // 그리드 공통값과 같은 가운데를 고르면 셀 값을 지워 물려받습니다.
     byAria(el, `${s.cell} ${s.alignment}: ${s.alignCenter}`).click();
     await el.updateComplete;
     for (const column of [0, 1]) expect(cellOf(el, 0, column)?.alignment).toBeUndefined();
@@ -345,7 +345,7 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
       expect(cell.italic).toBeUndefined();
       expect(cell.underline).toBeUndefined();
     }
-    // 선택하지 않은 셀과 다른 속성은 그대로다.
+    // 선택하지 않은 셀과 다른 속성은 그대로입니다.
     expect(cellOf(el, 0, 0)?.fontSize).toBe(14);
     expect(cellOf(el, 0, 0)?.content).toBe('라벨');
     expect(cellOf(el, 2, 2)?.bold).toBe(true);
@@ -365,7 +365,7 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     expect(cellOf(el, 0, 0)?.fontSize).toBeUndefined();
     expect(cellOf(el, 0, 1)).toBeUndefined();
     expect(cellOf(el, 0, 2)).toBeUndefined();
-    // 선택은 유지되어 다시 실행할 수 있다.
+    // 선택은 유지되어 다시 실행할 수 있습니다.
     expect(keys(gridEdit(el).cells).sort()).toEqual(['0,0', '0,1', '0,2']);
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, shiftKey: true, bubbles: true }));
     await el.updateComplete;
@@ -400,7 +400,7 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     el.remove();
   });
 
-  it('반복 구간 안과 밖의 셀을 함께 선택해도 스타일만 바뀐다', async () => {
+  it('항목 구간 안과 밖의 셀을 함께 선택해도 스타일만 바뀐다', async () => {
     parseSlipFileMock.mockReturnValue((() => {
       const file = makeGridFile([
         { row: 0, column: 0, content: '헤더' },
@@ -472,7 +472,7 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     });
     await pickAnchor(el, 0, 0);
     await clickCell(el, 1, 1, { shiftKey: true });
-    // 물려받는 점선이 흐리게 표시된다.
+    // 물려받는 점선이 흐리게 표시됩니다.
     const shapeValue = () => Array.from(el.shadowRoot!.querySelectorAll('.width-btn'))
       .find((b) => b.getAttribute('aria-label') === `${s.cell} ${s.borderShape}`)!
       .querySelector('.width-value')!;
@@ -487,7 +487,7 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     expect(cells).toHaveLength(4);
     for (const cell of cells) expect(cell.style.border).toContain('solid');
 
-    // 그리드 공통값과 같은 점선을 고르면 셀 값을 지워 물려받는다.
+    // 그리드 공통값과 같은 점선을 고르면 셀 값을 지워 물려받습니다.
     await pickBorderShape(el, `${s.cell} ${s.borderShape}`, s.borderDotted);
     for (const [row, column] of targets) expect(cellOf(el, row, column)?.borderStyle).toBeUndefined();
     el.remove();
@@ -516,7 +516,7 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
     }
     expect(cellOf(el, 0, 0)?.content).toBe('라벨');
 
-    // 실행 취소 한 번 — 되돌리기 전(실선)으로, 두 번 — 적용 전(파선·없음)으로 돌아간다.
+    // 실행 취소 한 번 — 되돌리기 전(실선)으로, 두 번 — 적용 전(파선·없음)으로 돌아갑니다.
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
     await el.updateComplete;
     expect(cellOf(el, 0, 0)?.borderStyle).toBe('solid');
@@ -536,14 +536,14 @@ describe('<slip-designer> 그리드 셀 복수 선택', () => {
       { row: 0, column: 1, content: '' },
     ]);
     await pickAnchor(el, 0, 0);
-    // 셀 하나(미등록 폰트)에서는 안내가 보인다.
+    // 셀 하나(미등록 폰트)에서는 안내가 보입니다.
     expect(el.shadowRoot!.querySelector('.font-note')).not.toBeNull();
     await clickCell(el, 0, 1, { ctrlKey: true });
     const fontSelect = el.shadowRoot!.querySelector(`[aria-label="${s.cell} ${s.fontName}"]`)!;
     expect(fontSelect.querySelector('.list-select-value')?.textContent?.trim()).toBe(s.mixed);
     expect(el.shadowRoot!.querySelector('.font-note')).toBeNull();
 
-    // 같은 선택에 미등록 폰트를 공통으로 적용하면 그 폰트의 안내가 나타난다.
+    // 같은 선택에 미등록 폰트를 공통으로 적용하면 그 폰트의 안내가 나타납니다.
     (el as unknown as { _gridCommands: { updateCellStyle(key: string, value: unknown): void } })
       ._gridCommands.updateCellStyle('fontName', 'NoSuchFont');
     await el.updateComplete;

@@ -25,11 +25,11 @@ function template(): SlipTemplateFile {
 }
 
 describe('파일 암호화 (ADR-054)', () => {
-  it('암호(passphrase)로 잠그고 같은 암호로 되돌린다', async () => {
+  it('암호 문구로 잠그고 같은 암호 문구로 복호화한다', async () => {
     const file = template();
     const locked = await encryptSlipFile(file, 'my-secret-passphrase');
     expect(isEncryptedSlipFile(locked)).toBe(true);
-    // 암호화 봉투는 복호화 전에는 표준 `.slip` 파일로 파싱할 수 없다.
+    // 암호화 봉투는 복호화 전에는 표준 `.slip` 파일로 파싱할 수 없습니다.
     expect(() => parseSlipFile(locked)).toThrow();
     const unlocked = await decryptSlipFile(locked, 'my-secret-passphrase');
     expect(unlocked).toEqual(file);
@@ -48,7 +48,7 @@ describe('파일 암호화 (ADR-054)', () => {
     expect(locked).not.toContain('거래명세서');
   });
 
-  it('틀린 암호는 복호화에 실패한다', async () => {
+  it('잘못된 암호 문구로는 복호화할 수 없다', async () => {
     const locked = await encryptSlipFile(template(), 'right');
     await expect(decryptSlipFile(locked, 'wrong')).rejects.toBeInstanceOf(SlipEncryptionError);
   });
@@ -56,14 +56,14 @@ describe('파일 암호화 (ADR-054)', () => {
   it('암호문이 변조되면 복호화에 실패한다 (AES-GCM 인증)', async () => {
     const locked = await encryptSlipFile(template(), 'pw');
     const env = JSON.parse(locked) as { data: string };
-    // base64url 끝 문자의 패딩 비트를 피하기 위해 디코딩한 첫 바이트를 직접 변경한다.
+    // base64url 끝 문자의 패딩 비트를 피하기 위해 디코딩한 첫 바이트를 직접 변경합니다.
     const bytes = Buffer.from(env.data, 'base64url');
     bytes[0] = (bytes[0] ?? 0) ^ 0x01;
     env.data = bytes.toString('base64url');
     await expect(decryptSlipFile(JSON.stringify(env), 'pw')).rejects.toBeInstanceOf(SlipEncryptionError);
   });
 
-  it('키 종류가 다르면 거부한다 (암호로 잠근 걸 원시 키로 열기)', async () => {
+  it('암호 문구로 잠근 파일을 원시 키로 열면 키 종류가 달라 거부한다', async () => {
     const locked = await encryptSlipFile(template(), 'pw');
     await expect(decryptSlipFile(locked, new Uint8Array(32))).rejects.toBeInstanceOf(SlipEncryptionError);
   });
@@ -114,7 +114,7 @@ describe('파일 암호화 (ADR-054)', () => {
   });
 
   it('봉투에 적힌 반복 횟수로 키를 파생한다 — 기본값과 달라도 연다', async () => {
-    // 봉투에 기록된 반복 횟수로 키를 파생하는지 확인하기 위해 기본값과 다른 봉투를 만든다.
+    // 봉투에 기록된 반복 횟수로 키를 파생하는지 확인하기 위해 기본값과 다른 봉투를 만듭니다.
     const file = template();
     const iterations = 100_000;
     const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -170,7 +170,7 @@ describe('봉투 검증 — 손상된 봉투는 모두 SlipEncryptionError로 �
     ['salt 길이 불일치', (e: Record<string, unknown>) => { (e['kdf'] as Record<string, unknown>)['salt'] = 'AAAA'; }, "'kdf.salt'"],
     ['salt가 문자열이 아님', (e: Record<string, unknown>) => { (e['kdf'] as Record<string, unknown>)['salt'] = 12; }, "'kdf.salt'"],
     ['iv 누락', (e: Record<string, unknown>) => { delete e['iv']; }, "'iv'"],
-    ['iv 오형식', (e: Record<string, unknown>) => { e['iv'] = 'not base64url!'; }, "'iv'"],
+    ['iv 형식 오류', (e: Record<string, unknown>) => { e['iv'] = 'not base64url!'; }, "'iv'"],
     ['iv 길이 불일치', (e: Record<string, unknown>) => { e['iv'] = 'AAAAAAAA'; }, "'iv'"],
     ['data 누락', (e: Record<string, unknown>) => { delete e['data']; }, "'data'"],
     ['data 오형식', (e: Record<string, unknown>) => { e['data'] = 'A'; }, "'data'"],
@@ -232,9 +232,9 @@ describe('봉투 검증 — 손상된 봉투는 모두 SlipEncryptionError로 �
 describe('암호화 봉투의 BOM·유니코드 정규화', () => {
   /** UTF-8 BOM (U+FEFF) */
   const BOM = '\uFEFF';
-  /** 완성형 '각' (NFC, U+AC01) */
+  /** 완성형 '각' (NFC, U+AC01)입니다. */
   const NFC_PW = '\uAC01';
-  /** 자모 분해형 '각' (NFD, U+1100 U+1161 U+11A8) */
+  /** 자모 분해형 '각' (NFD, U+1100 U+1161 U+11A8)입니다. */
   const NFD_PW = '\u1100\u1161\u11A8';
 
   it('봉투 맨 앞의 BOM 하나는 판별과 복호화에서 무시한다', async () => {
@@ -256,7 +256,7 @@ describe('암호화 봉투의 BOM·유니코드 정규화', () => {
     expect(locked).not.toContain(BOM);
   });
 
-  it('NFD 암호로 잠근 파일을 NFC 암호로 열고, 그 반대도 된다', async () => {
+  it('NFD 암호 문구로 잠근 파일을 NFC 암호 문구로 열 수 있으며 그 반대도 가능하다', async () => {
     expect(NFC_PW).not.toBe(NFD_PW);
     const file = template();
     const lockedNfd = await encryptSlipFile(file, NFD_PW);

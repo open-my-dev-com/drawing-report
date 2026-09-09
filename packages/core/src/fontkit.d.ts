@@ -1,4 +1,4 @@
-// 타입 정의를 제공하지 않는 fontkit에서 글자 측정에 필요한 API만 선언한다.
+// fontkit이 타입 정의를 제공하지 않으므로 글자 측정에 필요한 API만 선언합니다.
 
 declare module 'fontkit' {
   interface FontkitGlyph {

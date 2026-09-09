@@ -1,11 +1,11 @@
-// 설치된 slipkit-mcp 실행 파일: help·version·사용법 오류와 설정 파일 기반 서버 시작을 확인한다.
+// 설치된 slipkit-mcp 실행 파일: help·version·사용법 오류와 설정 파일 기반 서버 시작을 확인합니다.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// 소비자가 쓰는 그대로 `node_modules/.bin/slipkit-mcp` 링크를 실행한다. package.json은 exports에 없으므로
-// 진입점(dist/index.js) 위치에서 거슬러 올라가 기대 버전을 읽는다.
+// 소비자가 쓰는 그대로 `node_modules/.bin/slipkit-mcp` 링크를 실행합니다. package.json은 exports에 없으므로
+// 진입점(dist/index.js) 위치에서 거슬러 올라가 기대 버전을 읽습니다.
 const bin = path.resolve('node_modules', '.bin', process.platform === 'win32' ? 'slipkit-mcp.cmd' : 'slipkit-mcp');
 if (!existsSync(bin)) throw new Error(`bin link missing: ${bin}`);
 const entry = fileURLToPath(import.meta.resolve('@omdc-slipkit/mcp'));
@@ -19,7 +19,7 @@ function run(args, { closeStdin = false, timeoutMs = 30_000 } = {}) {
     child.stdout.on('data', (chunk) => { stdout += chunk; });
     child.stderr.on('data', (chunk) => {
       stderr += chunk;
-      // 서버가 뜬 것을 stderr로 확인한 뒤 stdin을 닫아 종료시킨다.
+      // 서버가 뜬 것을 stderr로 확인한 뒤 stdin을 닫아 종료합니다.
       if (closeStdin && stderr.includes('serving')) child.stdin.end();
     });
     const timer = setTimeout(() => { child.kill(); reject(new Error(`timeout: ${args.join(' ')}`)); }, timeoutMs);

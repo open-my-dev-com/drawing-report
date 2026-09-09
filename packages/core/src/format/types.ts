@@ -1,7 +1,7 @@
 /**
- * `.slip` 파일 형식의 TypeScript 타입.
+ * `.slip` 파일 형식의 TypeScript 타입입니다.
  *
- * 타입은 `schema.ts`의 Zod 스키마에서 추론하며, 형식 규범은 `docs/SPEC.md`를 따른다.
+ * 타입은 `schema.ts`의 Zod 스키마에서 추론하며, 형식 규범은 `docs/SPEC.md`를 따릅니다.
  */
 export type {
   AssetEntry,

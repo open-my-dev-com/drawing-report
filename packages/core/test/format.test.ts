@@ -22,7 +22,7 @@ function getElement<T extends SlipElement['type']>(
   type: T,
 ): Extract<SlipElement, { type: T }> {
   const element = file.template.pages[0]?.elements[index];
-  if (!element || element.type !== type) throw new Error(`요소 ${index}는 ${type}이어야 합니다`);
+  if (!element || element.type !== type) throw new Error(`요소 ${index}는 ${type}이어야 합니다.`);
   return element as Extract<SlipElement, { type: T }>;
 }
 
@@ -190,13 +190,13 @@ describe('.slip 템플릿 파싱', () => {
     expect(() => parseSlipFile(serializeSlipFile(file))).not.toThrow();
   });
 
-  it('요소 id가 중복되면 거부한다', () => {
+  it('요소 ID가 중복되면 거부한다', () => {
     const file = makeTemplate();
     getElement(file, 1, 'grid').id = 'title';
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/Duplicate element id/);
   });
 
-  it('페이지 물리명(key)이 중복되면 거부한다 (SPEC §4)', () => {
+  it('페이지 키가 중복되면 거부한다(SPEC §4)', () => {
     const file = makeTemplate();
     file.template.pages[0]!.key = 'cover';
     file.template.pages.push({ elements: [], key: 'cover' });
@@ -204,7 +204,7 @@ describe('.slip 템플릿 파싱', () => {
   });
 });
 
-describe('구조 크기 상한 (SPEC §3.2)', () => {
+describe('구조 크기 상한(SPEC §3.2)', () => {
   it('행 수가 상한을 넘는 그리드는 거부한다 (렌더 OOM 방지)', () => {
     const file = makeTemplate();
     getElement(file, 1, 'grid').rows = Array.from({ length: 1001 }, () => ({ height: 1 }));
@@ -245,9 +245,9 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
       { condition: '$(금액) < 0', fontColor: '#FF0000' },
     ];
     const parsed = parseSlipFile(serializeSlipFile(file));
-    if (parsed.kind !== 'template') throw new Error('template이어야 한다');
+    if (parsed.kind !== 'template') throw new Error('template이어야 합니다.');
     const field = parsed.template.pages[0]!.elements.find((el) => el.id === 'total')!;
-    if (field.type !== 'field') throw new Error('field여야 한다');
+    if (field.type !== 'field') throw new Error('field여야 합니다.');
     expect(field.conditionalFormats).toHaveLength(2);
     expect(field.conditionalFormats?.[1]?.backgroundColor).toBe('#EEEEEE');
   });
@@ -257,7 +257,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     getElement(file, 0, 'text').conditionalFormats = [{ condition: '$(total) < 0' }];
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/at least one of fontColor/);
 
-    // 강조만 지정한 규칙은 유효하다.
+    // 강조만 지정한 규칙은 유효합니다.
     getElement(file, 0, 'text').conditionalFormats = [{ condition: '$(total) < 0', bold: true }];
     expect(() => parseSlipFile(serializeSlipFile(file))).not.toThrow();
   });
@@ -302,7 +302,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
 
     pages[0]!.elements[pages[0]!.elements.length - 1] = { ...barcode, parameter: 'code' };
     const parsed = parseSlipFile(JSON.stringify(base));
-    if (parsed.kind !== 'template') throw new Error('template이어야 한다');
+    if (parsed.kind !== 'template') throw new Error('template이어야 합니다.');
     const saved = parsed.template.pages[0]!.elements.at(-1)!;
     expect(saved.type).toBe('barcode');
   });
@@ -311,7 +311,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as { pages: { elements: Record<string, unknown>[] }[] };
     const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
-    // 자동 병합할 열의 항목 구간(2행)을 두 개의 독립된 셀로 구성한다.
+    // 자동 병합할 열의 항목 구간(2행)을 두 개의 독립된 셀로 구성합니다.
     grid['rows'] = [{ height: 8 }, { height: 8 }, { height: 8 }];
     (grid['repeat'] as Record<string, unknown>)['bands'] = [
       { id: 'items-header', fromRow: 0, toRow: 0, placement: 'page-start' },
@@ -394,7 +394,7 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
       pages: { elements: Record<string, unknown>[]; key?: string; label?: string; pageNumber?: unknown }[];
       parameters?: { key: string; label?: string; valueType?: string }[];
     };
-    // 한 행짜리 항목 구간은 열 전체를 하나의 셀이 차지하므로 자동 병합 조건을 충족한다.
+    // 한 행짜리 항목 구간은 열 전체를 하나의 셀이 차지하므로 자동 병합 조건을 충족합니다.
     const grid = template.pages[0]!.elements.find((el) => el['id'] === 'items')!;
     (grid['columns'] as Record<string, unknown>[])[0]!['autoMerge'] = true;
     template.pages[0]!.key = 'first';
@@ -403,20 +403,20 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     template.parameters = [{ key: 'items', label: '품목', valueType: 'list' }];
 
     const parsed = parseSlipFile(JSON.stringify(base));
-    if (parsed.kind !== 'template') throw new Error('template이어야 한다');
+    if (parsed.kind !== 'template') throw new Error('template이어야 합니다.');
     const page = parsed.template.pages[0]!;
     expect(page.label).toBe('첫 장');
     expect(page.pageNumber?.position).toBe('bottom-center');
     expect(parsed.template.parameters?.[0]?.valueType).toBe('list');
     const saved = page.elements.find((el) => el.id === 'items')!;
-    if (saved.type !== 'grid') throw new Error('grid여야 한다');
+    if (saved.type !== 'grid') throw new Error('grid여야 합니다.');
     expect(saved.columns[0]?.autoMerge).toBe(true);
   });
 
 });
 
 describe('validateSlipFile (파싱된 값 검증)', () => {
-  it('이미 파싱된 객체를 그대로 검증해 돌려준다', () => {
+  it('이미 파싱된 객체를 그대로 검증해 반환한다', () => {
     const validated = validateSlipFile(makeTemplate());
     expect(validated.kind).toBe('template');
   });
@@ -561,7 +561,7 @@ describe('그리드(grid) 스키마 검증 — 행 구간 모델', () => {
     expect(() => parseSlipFile(serializeSlipFile(file))).not.toThrow();
   });
 
-  it('반복 그리드에는 item 구간이 정확히 하나 필요하다', () => {
+  it('반복 그리드에는 항목 구간이 정확히 하나 필요하다', () => {
     const noItem = makeGridFile({
       repeat: repeatOf({
         bands: [
@@ -702,7 +702,7 @@ describe('스키마 방어 보강 (G-48)', () => {
   });
 
   it('값 중첩이 지나치게 깊으면 RangeError가 아니라 SlipParseError를 던진다', () => {
-    // JSON 직렬화의 재귀 한계에 먼저 도달하지 않도록 반복문으로 깊은 배열을 만든다.
+    // JSON 직렬화의 재귀 한계에 먼저 도달하지 않도록 반복문으로 깊은 배열을 만듭니다.
     let nested: unknown = 0;
     for (let i = 0; i < 50000; i++) nested = [nested];
     const raw = {
@@ -715,7 +715,7 @@ describe('스키마 방어 보강 (G-48)', () => {
     expect(() => validateSlipFile(raw)).toThrow(SlipParseError);
   });
 
-  it('병합 칸이 행 구간을 통째로 감싸면 거부한다', () => {
+  it('병합 셀이 행 구간 전체를 감싸면 거부한다', () => {
     const file = makeTemplate();
     const page = file.template.pages[0]!;
     page.elements = [
@@ -741,7 +741,7 @@ describe('스키마 방어 보강 (G-48)', () => {
     expect(() => parseSlipFile(serializeSlipFile(file))).toThrow(/boundary/);
   });
 
-  it('항목 구간에 칸이 없는 열의 autoMerge는 거부한다', () => {
+  it('항목 구간에 셀이 없는 열의 autoMerge는 거부한다', () => {
     const file = makeTemplate();
     const page = file.template.pages[0]!;
     page.elements = [
@@ -790,7 +790,7 @@ describe('발행 전표 변동 이미지 값 검증 (G-48)', () => {
     expect(() => parseSlipFile(JSON.stringify(voucherWithImageParameter('data:nonsense'))))
       .toThrow(/data:.*base64/);
   });
-  it('변동 이미지 값이 올바른 data: base64면 통과한다', () => {
+  it('변동 이미지 값이 올바른 `data:` Base64 형식이면 통과한다', () => {
     expect(() => parseSlipFile(JSON.stringify(voucherWithImageParameter(PNG_1PX)))).not.toThrow();
   });
   it('변동 이미지 값이 비어 있으면(이미지 없음) 통과한다', () => {
@@ -811,7 +811,7 @@ describe('normalizeNumericParameters (ADR-044)', () => {
     expect(normalizeNumericParameters({}, parameters)).toEqual({ 금액: 0 });
   });
 
-  it('number가 아닌 파라미터·이미 수인 값은 건드리지 않는다', () => {
+  it('number가 아닌 파라미터와 이미 숫자인 값은 변경하지 않는다', () => {
     expect(normalizeNumericParameters({ 금액: 1500, 적요: '', 수량: '' }, parameters)).toEqual({
       금액: 1500,
       적요: '',
@@ -819,7 +819,7 @@ describe('normalizeNumericParameters (ADR-044)', () => {
     });
   });
 
-  it('바뀔 값이 없으면 입력 객체를 그대로(같은 참조) 돌려준다', () => {
+  it('바뀔 값이 없으면 입력 객체를 같은 참조로 반환한다', () => {
     const values = { 금액: 1500, 적요: '메모' };
     expect(normalizeNumericParameters(values, parameters)).toBe(values);
     const noParameters = { 금액: '' };
@@ -914,7 +914,7 @@ describe('메시지 언어 (로케일 설정)', () => {
     expect(() => parseSlipFile(json)).toThrow('Unsupported function: NOPE');
     expect(() => parseSlipFile(json, { locale: 'ko-KR' })).toThrow('지원하지 않는 함수입니다: NOPE');
     expect(() => parseSlipFile(json, { locale: 'ja' })).toThrow('サポートされていない関数です: NOPE');
-    // 열기와 저장이 같은 언어로 알린다.
+    // 열기와 저장이 같은 언어로 알립니다.
     expect(() => validateSlipFile(JSON.parse(json), { locale: 'ko-KR' }))
       .toThrow('지원하지 않는 함수입니다: NOPE');
   });

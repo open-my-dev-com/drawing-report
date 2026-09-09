@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 /**
- * `@omdc-slipkit/vue` 래퍼 테스트.
+ * `@omdc-slipkit/vue` 래퍼 테스트입니다.
  *
- * 실제 `@omdc-slipkit/elements` 빌드를 마운트해 설정 전달과 이벤트 연결을 확인한다.
+ * 실제 `@omdc-slipkit/elements` 빌드를 마운트해 설정 전달과 이벤트 연결을 확인합니다.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp, h, nextTick, ref, shallowReactive, type App, type ComponentPublicInstance } from 'vue';
@@ -17,7 +17,7 @@ import {
 import type { SlipDesigner as SlipDesignerElement, SlipForm as SlipFormElement } from '@omdc-slipkit/elements';
 import { SlipDesigner, SlipForm, SlipViewer } from '../src/index.js';
 
-/** 요소의 이미지 크기 기본값(2MB) */
+/** 요소의 이미지 크기 기본값(2MB)입니다. */
 const DEFAULT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const DUMMY_SLIPKIT = {
@@ -29,7 +29,7 @@ const SAMPLE_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 const PNG_BYTES = new Uint8Array(Uint8Array.from(atob(SAMPLE_PNG.split(',')[1]!), (c) => c.charCodeAt(0)));
 
-/** 이미지 파라미터 하나와 문자 파라미터 하나를 가진 양식 */
+/** 이미지 파라미터 하나와 문자 파라미터 하나를 가진 양식입니다. */
 function makeTemplate(): SlipTemplateFile {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -60,7 +60,7 @@ interface Mounted {
   unmount(): void;
 }
 
-/** 반응형 props 객체로 자식을 그려 갱신·제거를 시험할 수 있게 마운트한다. */
+/** 반응형 속성 객체로 자식을 그려 갱신·제거를 시험할 수 있게 마운트합니다. */
 function mount(renderNode: () => ReturnType<typeof h>): Mounted {
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -207,7 +207,7 @@ function buttonByLabel(el: HTMLElement, label: string): HTMLButtonElement {
   return found as HTMLButtonElement;
 }
 
-/** 이미지 선택 버튼을 누르고 파일 선택을 흉내 낸다. */
+/** 이미지 선택 버튼을 누른 뒤 파일 선택 동작을 재현합니다. */
 async function pickFile(el: SlipFormElement, file: File): Promise<void> {
   let captured: HTMLInputElement | null = null;
   const original = document.createElement.bind(document);
@@ -430,7 +430,7 @@ describe('@omdc-slipkit/vue 표준 동작', () => {
     expect(focused).toHaveBeenCalledTimes(1);
     expect(keyed.mock.calls[0]?.[0]).toMatchObject({ key: 'Enter' });
 
-    // 언마운트하면 웹 컴포넌트가 문서에서 사라진다. 떨어져 나간 노드에 남는 리스너는 Vue가 지우지 않는다.
+    // 언마운트하면 웹 컴포넌트가 문서에서 사라집니다. 떨어져 나간 노드에 남는 리스너는 Vue가 지우지 않습니다.
     m.unmount();
     expect(m.container.querySelector('slip-viewer')).toBeNull();
   });

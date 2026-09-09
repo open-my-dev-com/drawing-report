@@ -310,7 +310,7 @@ The template and values you pass in are deep-copied, so the returned voucher doe
 
 ### Value shape by parameter
 
-The keys of `values` are the physical names of the parameters defined in the template.
+The keys of `values` are the keys of the parameters defined in the template.
 
 | Parameter type | Value shape | Example |
 |---|---|---|
@@ -321,7 +321,7 @@ The keys of `values` are the physical names of the parameters defined in the tem
 | Image | `data:` Base64 string | `'data:image/png;base64,...'` |
 | List | Array of objects | `[{ itemName: 'Pencil' }]` |
 
-A list parameter uses an array of objects, where each item has the physical names of its sub-fields as keys.
+A list parameter uses an array of objects, where each item maps its sub-field keys to values.
 
 ```ts
 const values = {

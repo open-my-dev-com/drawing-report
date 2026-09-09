@@ -14,7 +14,7 @@ describe('수식 함수 도움말 (D-12)', () => {
     },
   );
 
-  it('모든 항목이 사용법·설명을 갖고, 사용법은 함수 이름으로 시작한다', () => {
+  it('모든 항목에 사용법과 설명이 있고, 사용법은 함수 이름으로 시작한다', () => {
     for (const locale of ['ko', 'en', 'ja'] as const) {
       for (const category of getFormulaHelp(locale)) {
         expect(category.title.length).toBeGreaterThan(0);
@@ -59,7 +59,7 @@ describe('수식 함수 도움말 (D-12)', () => {
           const where = `${locale} ${fn.name}`;
           // 개수 제한이 없는 함수만 반복 인자로 적습니다.
           expect(variadic, where).toBe(arity.max === undefined);
-          // 반복 인자도 생략 가능 여부로 「0개 이상」과 「1개 이상」을 구분합니다.
+          // 반복 인자도 생략 가능 여부에 따라 `0개 이상`과 `1개 이상`을 구분합니다.
           expect(fn.args.filter((arg) => arg.optional !== true).length, where).toBe(arity.min);
           if (variadic) continue;
           expect(fn.args.length, where).toBe(arity.max);

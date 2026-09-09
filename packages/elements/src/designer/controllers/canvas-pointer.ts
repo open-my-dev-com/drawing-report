@@ -1,5 +1,5 @@
 /**
- * 캔버스 포인터 조작 — 요소 만들기, 옮기기, 크기 조절과 선 끝점 드래그.
+ * 캔버스에서 요소 만들기, 옮기기, 크기 조절과 선 끝점 끌기를 처리합니다.
  *
  * @remarks
  * 조작 중에만 사용하는 임시 상태(드래그, 크기 조절, 그리는 중인 영역, 안내선)를 여기서 관리합니다.
@@ -29,22 +29,22 @@ import type { GridEditController } from './grid-edit.js';
 import type { EditCheckpoint } from './history.js';
 import type { SideSelection } from '../selection.js';
 
-/** 요소를 드래그로 옮기는 중의 상태 */
+/** 요소를 드래그로 옮기는 중의 상태입니다. */
 export interface DragState {
   id: string;
   startPxX: number;
   startPxY: number;
   origMmX: number;
   origMmY: number;
-  /** 실제 이동이 시작될 때 찍는 되돌리기용 검사점 */
+  /** 실제 이동을 시작하기 직전의 상태입니다. */
   snapshot: EditCheckpoint | null;
-  /** pointerdown 전에 선택된 요소였는지 여부 */
+  /** pointerdown 전에 선택된 요소였는지 여부를 나타냅니다. */
   wasSelected: boolean;
-  /** 함께 이동할 선택 요소의 원래 위치 */
+  /** 함께 이동할 선택 요소의 원래 위치입니다. */
   members: { id: string; origX: number; origY: number }[];
 }
 
-/** 크기를 조절하는 중의 상태 */
+/** 크기를 조절하는 중의 상태입니다. */
 export interface ResizeState {
   id: string;
   handle: ResizeHandle;
@@ -54,96 +54,96 @@ export interface ResizeState {
   origY: number;
   origW: number;
   origH: number;
-  /** 첫 크기 변경 시 찍는 되돌리기용 검사점 */
+  /** 크기를 처음 변경하기 직전의 상태입니다. */
   snapshot: EditCheckpoint | null;
 }
 
-/** 선 끝점을 드래그하는 중의 상태 */
+/** 선 끝점을 드래그하는 중의 상태입니다. */
 export interface LineEndState {
   id: string;
   fixed: { x: number; y: number };
-  /** 첫 끝점 이동 시 찍는 되돌리기용 검사점 */
+  /** 끝점을 처음 이동하기 직전의 상태입니다. */
   snapshot: EditCheckpoint | null;
   orig: { x: number; y: number; w: number; h: number; direction: string | undefined };
 }
 
-/** 포인터 조작이 문서에 요청하는 것 */
+/** 포인터 조작에서 호출하는 문서 변경 함수입니다. */
 export interface PointerHost {
-  /** 편집 중인 양식 */
+  /** 편집 중인 양식입니다. */
   readonly file: SlipTemplateFile | null;
-  /** 조작 직전 상태를 검사점으로 찍습니다 */
+  /** 조작 직전 상태를 기록합니다. */
   beginEdit(): EditCheckpoint;
-  /** 검사점을 되돌리기 기록에 넣습니다 */
+  /** 기록한 상태를 되돌리기 기록에 추가합니다. */
   commitEdit(checkpoint: EditCheckpoint): void;
-  /** 조작을 취소하고 검사점 시점으로 되돌립니다 */
+  /** 조작을 취소하고 시작 직전 상태로 되돌립니다. */
   cancelEdit(checkpoint: EditCheckpoint): void;
-  /** 요소를 직접 바꾼 뒤 문서가 달라졌음을 알립니다 — 화면을 다시 그리기 전에 부릅니다 */
+  /** 요소를 직접 바꾼 뒤 화면을 다시 그리기 전에 문서 변경을 알립니다. */
   touch(): void;
-  /** 도형 메뉴를 닫습니다 */
+  /** 도형 메뉴를 닫습니다. */
   closeShapeMenu(): void;
-  /** 주 선택 요소 */
+  /** 주 선택 요소입니다. */
   readonly selectedId: string | null;
-  /** 함께 선택된 요소 id 모음 */
+  /** 함께 선택된 요소 ID 모음입니다. */
   readonly selectedIds: ReadonlySet<string>;
-  /** 사이드바에서 선택한 대상 */
+  /** 사이드바에서 선택한 대상입니다. */
   readonly sideSelection: SideSelection;
-  /** 사이드바 선택을 해제합니다 */
+  /** 사이드바 선택을 해제합니다. */
   clearSideSelection(): void;
-  /** 그리드 셀·행 구간 선택 상태 */
+  /** 그리드 셀·행 구간 선택 상태입니다. */
   readonly gridEdit: GridEditController;
-  /** 출력 결과를 보는 중이면 행 구조 편집으로 돌아갑니다 */
+  /** 출력 결과를 보는 중이면 행 구조 편집으로 돌아갑니다. */
   leaveOutputResult(): void;
-  /** 도형 메뉴가 열려 있는지 */
+  /** 도형 메뉴가 열려 있는지를 나타냅니다. */
   readonly shapeMenuOpen: boolean;
-  /** 캔버스 DOM을 조회할 루트 */
+  /** 캔버스 DOM을 조회할 루트입니다. */
   readonly renderRoot: DocumentFragment | HTMLElement;
-  /** 현재 페이지의 요소 목록 */
+  /** 현재 페이지의 요소 목록입니다. */
   pageElements(): SlipElement[] | undefined;
-  /** id로 요소를 찾습니다 */
+  /** ID로 요소를 찾습니다. */
   findElement(id: string): SlipElement | undefined;
-  /** 속성 패널이 대상으로 삼는 요소 */
+  /** 속성 패널이 대상으로 삼는 요소입니다. */
   selectedElement(): SlipElement | undefined;
-  /** 요소를 만듭니다 */
+  /** 요소를 만듭니다. */
   addElement(
     type: CreatableType,
     place?: {
       position: { x: number; y: number };
       width?: number;
       height?: number;
-      /** 드래그 방향에서 계산한 선 방향 */
+      /** 드래그 방향에서 계산한 선 방향입니다. */
       lineDirection?: 'horizontal' | 'vertical' | 'down' | 'up';
     },
   ): void;
-  /** 요소를 선택합니다 */
+  /** 요소를 선택합니다. */
   selectElement(id: string): void;
-  /** 요소가 속한 선택 단위(그룹 전체 또는 요소 하나)를 선택에 넣거나 뺍니다 */
+  /** 요소가 속한 선택 단위(그룹 전체 또는 요소 하나)를 선택에 넣거나 뺍니다. */
   toggleInSelection(id: string): void;
-  /** 이미 선택된 요소를 주 선택으로 삼고 나머지 선택은 그대로 둡니다 */
+  /** 이미 선택된 요소를 주 선택으로 삼고 나머지 선택은 그대로 둡니다. */
   keepSelection(id: string): void;
-  /** 선택을 모두 해제합니다 */
+  /** 선택을 모두 해제합니다. */
   clearSelection(): void;
-  /** 선택한 요소를 수정합니다 */
+  /** 선택한 요소를 수정합니다. */
   updateElement(fn: (el: SlipElement) => void): void;
-  /** 바뀐 양식을 호스트에 알립니다 */
+  /** 바뀐 양식을 호스트에 알립니다. */
   emitChange(): void;
-  /** 요소가 사용하는 파라미터를 사이드바에서 펼칩니다 */
+  /** 요소가 사용하는 파라미터를 사이드바에서 펼칩니다. */
   expandParameterOfElement(id: string): void;
-  /** 격자에 맞춘 이동량 */
+  /** 격자에 맞춘 이동량입니다. */
   gridDelta(value: number): number | null;
-  /** 캔버스로 초점을 옮깁니다 */
+  /** 캔버스로 초점을 옮깁니다. */
   focusHost(): void;
-  /** 화면을 다시 그립니다 */
+  /** 화면을 다시 그립니다. */
   refresh(): void;
 }
 
 export class CanvasPointerController implements ReactiveController {
-  /** 요소를 드래그로 옮기는 중의 상태 */
+  /** 요소를 드래그로 옮기는 중의 상태입니다. */
   private _drag: DragState | null = null;
-  /** 크기를 조절하는 중의 상태 */
+  /** 크기를 조절하는 중의 상태입니다. */
   private _resize: ResizeState | null = null;
-  /** 선 끝점을 드래그하는 중의 상태 */
+  /** 선 끝점을 드래그하는 중의 상태입니다. */
   private _lineEnd: LineEndState | null = null;
-  /** 드래그로 만드는 중인 요소 */
+  /** 드래그로 만드는 중인 요소입니다. */
   private _draw: {
     type: CreatableType;
     startX: number;
@@ -152,21 +152,21 @@ export class CanvasPointerController implements ReactiveController {
     endY: number;
     moved: boolean;
   } | null = null;
-  /** 드래그로 만드는 중인 사각 영역(mm) */
+  /** 드래그로 만드는 중인 사각 영역(mm)입니다. */
   private _drawRect: { x: number; y: number; w: number; h: number } | null = null;
-  /** 선을 그리기 시작한 점(mm) */
+  /** 선을 그리기 시작한 점(mm)입니다. */
   private _lineDraft: { x: number; y: number } | null = null;
-  /** 선의 현재 끝점(mm) */
+  /** 선의 현재 끝점(mm)입니다. */
   private _lineGhost: { x: number; y: number } | null = null;
-  /** 세로 정렬 안내선 위치(mm) */
+  /** 세로 정렬 안내선 위치(mm)입니다. */
   private _guideX: number | null = null;
-  /** 가로 정렬 안내선 위치(mm) */
+  /** 가로 정렬 안내선 위치(mm)입니다. */
   private _guideY: number | null = null;
-  /** 용지 위 커서 위치(mm) */
+  /** 용지 위 커서 위치(mm)입니다. */
   private _cursorMm: { x: number; y: number } | null = null;
-  /** 선택한 생성 도구 */
+  /** 선택한 생성 도구입니다. */
   private _pendingTool: CreatableType | null = null;
-  /** 다각형 도구로 만들 변의 수 */
+  /** 다각형 도구로 만들 변의 수입니다. */
   private _pendingSides = 3;
 
   constructor(private readonly host: PointerHost) {}
@@ -175,62 +175,62 @@ export class CanvasPointerController implements ReactiveController {
     this.host.refresh();
   }
 
-  /** 요소를 드래그로 옮기는 중의 상태 */
+  /** 요소를 드래그로 옮기는 중의 상태입니다. */
   get drag(): DragState | null {
     return this._drag;
   }
 
-  /** 크기를 조절하는 중의 상태 */
+  /** 크기를 조절하는 중의 상태입니다. */
   get resize(): ResizeState | null {
     return this._resize;
   }
 
-  /** 드래그로 만드는 중인 요소 */
+  /** 드래그로 만드는 중인 요소입니다. */
   get draw(): CanvasPointerController['_draw'] {
     return this._draw;
   }
 
-  /** 드래그로 만드는 중인 사각 영역(mm) */
+  /** 드래그로 만드는 중인 사각 영역(mm)입니다. */
   get drawRect(): { x: number; y: number; w: number; h: number } | null {
     return this._drawRect;
   }
 
-  /** 선을 그리기 시작한 점(mm) */
+  /** 선을 그리기 시작한 점(mm)입니다. */
   get lineDraft(): { x: number; y: number } | null {
     return this._lineDraft;
   }
 
-  /** 선의 현재 끝점(mm) */
+  /** 선의 현재 끝점(mm)입니다. */
   get lineGhost(): { x: number; y: number } | null {
     return this._lineGhost;
   }
 
-  /** 세로 정렬 안내선 위치(mm) */
+  /** 세로 정렬 안내선 위치(mm)입니다. */
   get guideX(): number | null {
     return this._guideX;
   }
 
-  /** 가로 정렬 안내선 위치(mm) */
+  /** 가로 정렬 안내선 위치(mm)입니다. */
   get guideY(): number | null {
     return this._guideY;
   }
 
-  /** 용지 위 커서 위치(mm) */
+  /** 용지 위 커서 위치(mm)입니다. */
   get cursorMm(): { x: number; y: number } | null {
     return this._cursorMm;
   }
 
-  /** 선택한 생성 도구 */
+  /** 선택한 생성 도구입니다. */
   get pendingTool(): CreatableType | null {
     return this._pendingTool;
   }
 
-  /** 다각형 도구로 만들 변의 수 */
+  /** 다각형 도구로 만들 변의 수입니다. */
   get pendingSides(): number {
     return this._pendingSides;
   }
 
-  /** 진행 중인 만들기·그리기를 취소합니다. 화면 갱신은 호출부가 처리합니다. */
+  /** 진행 중인 요소 생성을 취소합니다. 화면 갱신은 호출부가 처리합니다. */
   cancelDrawing(): void {
     this._pendingTool = null;
     this._draw = null;
@@ -271,7 +271,7 @@ export class CanvasPointerController implements ReactiveController {
     this._cursorMm = null;
     this._pendingTool = null;
   }
-  /** 포인터 좌표를 용지 기준 mm 좌표로 (용지 밖은 가장자리로 보정) */
+  /** 포인터 좌표를 용지 기준 mm 좌표로 (용지 밖은 가장자리로 보정)입니다. */
   paperPoint(e: PointerEvent): { x: number; y: number } {
     const rect = (this.host.renderRoot.querySelector('.paper') as HTMLElement | null)
       ?.getBoundingClientRect();
@@ -290,7 +290,7 @@ export class CanvasPointerController implements ReactiveController {
     // 출력 결과를 보는 중이었다면 행 구조 편집으로 돌아간 뒤 이 포인터 조작을 그대로 이어 갑니다.
     this.host.leaveOutputResult();
 
-    // 생성 도구가 선택돼 있으면 클릭·드래그는 요소 생성입니다 (선택·이동보다 우선)
+    // 생성 도구가 선택돼 있으면 클릭·드래그는 요소 생성입니다(선택·이동보다 우선)
     if (this._pendingTool) {
       const p = this.paperPoint(e);
       this._draw = { type: this._pendingTool, startX: p.x, startY: p.y, endX: p.x, endY: p.y, moved: false };
@@ -342,7 +342,7 @@ export class CanvasPointerController implements ReactiveController {
       return;
     }
 
-    // 인라인 셀 입력 상자 안 클릭은 편집기에 맡깁니다 (여기서 가로채면 입력이 불가능)
+    // 인라인 셀 입력 상자 안의 클릭은 편집기에서 처리해야 입력할 수 있습니다.
     if ((e.target as HTMLElement).closest?.('.cell-editor')) return;
 
     const target = (e.target as HTMLElement).closest?.('.element') as HTMLElement | null;
@@ -365,7 +365,7 @@ export class CanvasPointerController implements ReactiveController {
         // 이미 선택된 요소를 다시 누르면 다중 선택을 유지한 채 함께 옮길 수 있게 합니다.
         this.host.keepSelection(id);
       } else {
-        // 그룹에 속하면 그룹 전체가 함께 선택됩니다
+        // 그룹에 속하면 그룹 전체가 함께 선택됩니다.
         this.host.selectElement(id);
       }
       this.host.clearSideSelection();
@@ -377,7 +377,7 @@ export class CanvasPointerController implements ReactiveController {
       const el = this.host.findElement(id);
       if (!el) return;
 
-      // 선택된 요소(그룹·다중)를 함께 옮기려 각 원래 위치를 기억합니다
+      // 선택한 요소를 함께 옮길 수 있도록 각 요소의 원래 위치를 기억합니다.
       const members = [...this.host.selectedIds]
         .map((mid) => this.host.findElement(mid))
         .filter((m): m is SlipElement => m !== undefined)
@@ -409,10 +409,10 @@ export class CanvasPointerController implements ReactiveController {
       this._draw.endY = p.y;
       const w = Math.abs(p.x - this._draw.startX);
       const h = Math.abs(p.y - this._draw.startY);
-      // 1mm 넘게 움직였을 때만 드래그로 봅니다 (클릭 손떨림은 기본 크기 생성)
+      // 1mm를 넘게 움직였을 때만 드래그로 처리합니다. 작은 움직임은 기본 크기로 요소를 만듭니다.
       if (w > 1 || h > 1) this._draw.moved = true;
       if (this._draw.type === 'line') {
-        // 선은 상자 대신 시작점에서 커서까지의 미리보기 선으로 표시합니다
+        // 선은 상자 대신 시작점에서 커서까지의 미리보기 선으로 표시합니다.
         this.host.refresh();
         return;
       }
@@ -519,7 +519,7 @@ export class CanvasPointerController implements ReactiveController {
     if (h.includes('n')) top += dy;
     if (h.includes('s')) bottom += dy;
 
-    // 움직이는 변만 후보 선에 스냅합니다 (Alt로 해제)
+    // 움직이는 변만 후보 선에 스냅합니다(Alt로 해제)
     let guideX: number | null = null;
     let guideY: number | null = null;
     if (!e.altKey) {
@@ -562,7 +562,7 @@ export class CanvasPointerController implements ReactiveController {
     this.host.refresh();
   }
 
-  /** 선 끝점 드래그 — 고정 끝점→커서 벡터로 상자와 선 방향을 다시 계산합니다  */
+  /** 고정된 끝점과 커서의 위치를 기준으로 상자와 선 방향을 다시 계산합니다. */
   onLineEndMove(e: PointerEvent): void {
     const state = this._lineEnd!;
     const el = this.host.findElement(state.id);
@@ -586,7 +586,7 @@ export class CanvasPointerController implements ReactiveController {
   }
 
   onPointerCancel = (): void => {
-    // 포인터 동작이 취소되면 편집 전 검사점으로 되돌리고 드래그 상태를 초기화합니다.
+    // 포인터 동작이 취소되면 편집 전 상태로 되돌리고 드래그 상태를 초기화합니다.
     const snapshot = this._drag?.snapshot ?? this._resize?.snapshot ?? this._lineEnd?.snapshot;
     if (snapshot) {
       this.host.cancelEdit(snapshot);
@@ -604,9 +604,9 @@ export class CanvasPointerController implements ReactiveController {
   };
 
   /**
-   * 드래그·크기 조절·끝점 이동이 실제로 값을 바꿨으면 검사점을 되돌리기 기록에 넣고 변경을 알립니다.
+   * 드래그·크기 조절·끝점 이동이 실제로 값을 바꿨으면 시작 직전 상태를 되돌리기 기록에 추가하고 변경을 알립니다.
    *
-   * @param snapshot - 조작 시작 시 찍어 둔 검사점 (없으면 커밋하지 않음)
+   * @param snapshot - 조작 시작 직전의 상태입니다. 없으면 변경을 기록하지 않습니다.
    * @param changed - 위치·크기가 실제로 바뀌었는지
    * @returns 커밋했으면 true
    */
@@ -765,7 +765,7 @@ export class CanvasPointerController implements ReactiveController {
     this.host.refresh();
   }
 
-  /** 스냅 후보 선: 용지 가장자리·여백선 + 다른 요소들의 가장자리·중앙선 (mm) */
+  /** 스냅 후보 선: 용지 가장자리·여백선 + 다른 요소들의 가장자리·중앙선 (mm)입니다. */
   snapCandidatesFor(exclude: string | ReadonlySet<string>): SnapCandidates {
     // 그룹·다중 이동 때는 함께 움직이는 요소들을 후보에서 모두 뺍니다
     const excluded = typeof exclude === 'string' ? new Set([exclude]) : exclude;

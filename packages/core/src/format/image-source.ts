@@ -1,27 +1,27 @@
 /**
- * 이미지 데이터의 형식·내용·크기를 검사하는 공통 도우미.
+ * 이미지 데이터의 형식·내용·크기를 검사하는 공통 함수입니다.
  *
- * PDF에는 PNG·JPEG만 심을 수 있으므로 디자이너·작성 폼·MCP·렌더러가 같은 기준으로
- * 이미지를 받아들이도록 한 곳에서 판정한다. 선언된 MIME이 아니라 바이트 앞부분(매직
- * 바이트)으로 실제 형식을 확인하고, base64 길이에서 계산한 디코딩 크기로 상한을 검사한다.
+ * PDF에는 PNG·JPEG만 포함할 수 있으므로 디자이너·작성 폼·MCP·렌더러가 같은 기준으로
+ * 이미지를 받아들이도록 한 곳에서 판정합니다. 선언된 MIME이 아니라 바이트 앞부분(매직
+ * 바이트)으로 실제 형식을 확인하고, Base64 길이에서 계산한 디코딩 크기로 상한을 검사합니다.
  */
 
-/** PDF에 심을 수 있는 이미지 MIME 종류 */
+/** PDF에 넣을 수 있는 이미지 MIME 종류입니다. */
 export type ImageMimeType = 'image/png' | 'image/jpeg';
 
-/** PDF에 심을 수 있는 이미지 MIME 목록 */
+/** PDF에 넣을 수 있는 이미지 MIME 목록입니다. */
 export const IMAGE_MIME_TYPES: readonly ImageMimeType[] = ['image/png', 'image/jpeg'];
 
-/** 이미지 한 장의 디코딩 크기 상한(바이트, 2 MiB) — `data:` 이미지와 에셋에 공통 적용한다 */
+/** `data:` 이미지와 에셋에 공통으로 적용하는 이미지 한 장의 디코딩 크기 상한(2MiB)입니다. */
 export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 /**
- * 이미지 검사 결과.
+ * 이미지 검사 결과입니다.
  *
- * - `format`: `data:<mime>;base64,<data>` 형식이 아니다
- * - `mime`: 선언된 MIME이 PNG·JPEG가 아니다
- * - `content`: 바이트 앞부분이 PNG·JPEG 서명과 맞지 않는다(위장·손상)
- * - `size`: 디코딩 크기가 상한을 넘는다
+ * - `format`: `data:<mime>;base64,<data>` 형식이 아닌 경우입니다.
+ * - `mime`: 선언된 MIME이 PNG·JPEG가 아닌 경우입니다.
+ * - `content`: 바이트 앞부분이 PNG·JPEG 서명과 맞지 않는 경우입니다.
+ * - `size`: 디코딩 크기가 상한을 넘는 경우입니다.
  */
 export type ImageInspection =
   | { ok: true; mimeType: ImageMimeType; bytes: number }
@@ -32,10 +32,10 @@ const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const JPEG_SIGNATURE = [0xff, 0xd8, 0xff];
 
 /**
- * 바이트 앞부분의 서명으로 이미지 형식을 판정한다.
+ * 바이트 앞부분의 서명으로 이미지 형식을 판정합니다.
  *
- * @param bytes - 이미지 바이트 (앞 8바이트만 본다)
- * @returns PNG·JPEG면 그 MIME, 아니면 `undefined`
+ * @param bytes - 이미지 바이트입니다. 앞 8바이트만 확인합니다.
+ * @returns PNG·JPEG이면 해당 MIME을, 아니면 `undefined`를 반환합니다.
  */
 export function detectImageMimeType(bytes: Uint8Array): ImageMimeType | undefined {
   if (PNG_SIGNATURE.every((b, i) => bytes[i] === b)) return 'image/png';
@@ -44,11 +44,11 @@ export function detectImageMimeType(bytes: Uint8Array): ImageMimeType | undefine
 }
 
 /**
- * 이미지 바이트를 검사한다.
+ * 이미지 바이트를 검사합니다.
  *
  * @param bytes - 이미지 바이트
- * @param options - `maxBytes`: 디코딩 크기 상한 (기본 {@link MAX_IMAGE_BYTES}); `declaredMimeType`: 선언된 MIME이 있으면 실제 형식과 대조한다
- * @returns 검사 결과
+ * @param options - 디코딩 크기 상한과 비교할 MIME을 지정하는 설정
+ * @returns 검사 결과를 반환합니다.
  */
 export function inspectImageBytes(
   bytes: Uint8Array,
@@ -71,12 +71,12 @@ export function inspectImageBytes(
 }
 
 /**
- * `data:` base64 이미지 문자열을 검사한다. 전체를 디코딩하지 않고 앞부분 서명과
- * base64 길이에서 계산한 크기만 확인하므로 큰 이미지에도 비용이 작다.
+ * `data:` Base64 이미지 문자열을 검사합니다. 전체를 디코딩하지 않고 앞부분 서명과
+ * Base64 길이에서 계산한 크기만 확인하므로 큰 이미지에도 비용이 작습니다.
  *
  * @param src - `data:<mime>;base64,<data>` 문자열
- * @param options - `maxBytes`: 디코딩 크기 상한 (기본 {@link MAX_IMAGE_BYTES})
- * @returns 검사 결과
+ * @param options - `maxBytes`: 디코딩 크기 상한(기본 {@link MAX_IMAGE_BYTES})
+ * @returns 검사 결과를 반환합니다.
  */
 export function inspectImageDataUrl(src: string, options: { maxBytes?: number } = {}): ImageInspection {
   const match = DATA_URL.exec(src);
@@ -95,21 +95,21 @@ export function inspectImageDataUrl(src: string, options: { maxBytes?: number } 
   return { ok: true, mimeType: actual, bytes };
 }
 
-/** 크기 정보를 담은 JPEG 프레임 시작(SOF) 마커. 산술 부호화와 계층 부호화 변형을 모두 포함한다. */
+/** 크기 정보를 담은 JPEG 프레임 시작(SOF) 마커이며 산술 부호화와 계층 부호화 변형을 모두 포함합니다. */
 const JPEG_FRAME_MARKERS = new Set([
   0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
 ]);
 
 /**
- * `data:` base64 이미지를 끝까지 디코딩해 PDF에 심을 수 있는 구조인지 확인한다.
+ * `data:` Base64 이미지를 끝까지 디코딩해 PDF에 포함할 수 있는 구조인지 확인합니다.
  *
  * @remarks
- * 서명만 맞고 내용이 깨진 이미지는 PDF 생성 단계에서야 실패해 어느 요소인지 알 수 없다.
- * 렌더 전에 PNG 청크와 JPEG 마커를 훑어 크기 정보까지 읽히는지 확인한다.
- * 전체 바이트를 디코딩하므로 렌더링처럼 한 번만 검사하는 자리에서 사용한다.
+ * 서명만 맞고 내용이 깨진 이미지는 PDF 생성 단계에서야 실패해 어느 요소인지 알 수 없습니다.
+ * 렌더링 전에 PNG 청크와 JPEG 마커를 검사해 크기 정보까지 읽을 수 있는지 확인합니다.
+ * 전체 바이트를 디코딩하므로 렌더링처럼 호출 과정에서 한 번만 검사하는 곳에서 사용합니다.
  *
  * @param src - `data:<mime>;base64,<data>` 문자열
- * @returns PDF에 심을 수 있는 구조면 `true`
+ * @returns PDF에 넣을 수 있는 구조이면 `true`를 반환합니다.
  */
 export function isEmbeddableImageData(src: string): boolean {
   const match = DATA_URL.exec(src);
@@ -122,7 +122,7 @@ export function isEmbeddableImageData(src: string): boolean {
   return false;
 }
 
-/** PNG 청크를 순서대로 훑어 IHDR·IDAT·IEND가 모두 읽히는지 확인한다. */
+/** PNG 청크를 순서대로 검사해 IHDR·IDAT·IEND를 모두 읽을 수 있는지 확인합니다. */
 function isCompletePng(bytes: Uint8Array): boolean {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let offset = PNG_SIGNATURE.length;
@@ -131,7 +131,7 @@ function isCompletePng(bytes: Uint8Array): boolean {
   while (offset + 8 <= bytes.length) {
     const length = view.getUint32(offset);
     const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
-    // 청크 하나는 길이 4바이트 + 종류 4바이트 + 데이터 + CRC 4바이트다.
+    // 청크 하나는 길이 4바이트 + 종류 4바이트 + 데이터 + CRC 4바이트입니다.
     const next = offset + 12 + length;
     if (next > bytes.length) return false;
     if (!hasHeader) {
@@ -146,13 +146,13 @@ function isCompletePng(bytes: Uint8Array): boolean {
   return false;
 }
 
-/** JPEG 마커를 순서대로 훑어 크기를 담은 프레임 시작 구획까지 읽히는지 확인한다. */
+/** JPEG 마커를 순서대로 검사해 크기 정보가 있는 프레임 시작 구획을 읽을 수 있는지 확인합니다. */
 function isCompleteJpeg(bytes: Uint8Array): boolean {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let offset = 2;
   while (offset < bytes.length) {
     if (bytes[offset] !== 0xff) return false;
-    // 마커 앞에는 0xFF 채움 바이트가 여러 개 올 수 있다.
+    // 마커 앞에는 0xFF 채움 바이트가 여러 개 올 수 있습니다.
     let markerAt = offset + 1;
     while (markerAt < bytes.length && bytes[markerAt] === 0xff) markerAt += 1;
     if (markerAt >= bytes.length) return false;
@@ -161,7 +161,7 @@ function isCompleteJpeg(bytes: Uint8Array): boolean {
       offset = markerAt + 1;
       continue;
     }
-    // 크기를 읽기 전에 스캔이 시작되거나 이미지가 끝나면 심을 수 없다.
+    // 크기를 읽기 전에 스캔이 시작되거나 이미지가 끝나면 유효한 JPEG가 아닙니다.
     if (marker === 0xd9 || marker === 0xda || marker === 0x00) return false;
     const lengthAt = markerAt + 1;
     if (lengthAt + 2 > bytes.length) return false;
@@ -176,7 +176,7 @@ function isCompleteJpeg(bytes: Uint8Array): boolean {
   return false;
 }
 
-/** base64 문자열이 디코딩되면 몇 바이트인지 계산한다 (패딩 반영). */
+/** 패딩을 반영해 Base64 문자열을 디코딩했을 때의 바이트 수를 계산합니다. */
 function decodedBase64Length(data: string): number {
   if (data.length === 0) return 0;
   const padding = data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0;
@@ -185,7 +185,7 @@ function decodedBase64Length(data: string): number {
 
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
-/** base64 앞부분만 디코딩한다 (서명 확인용). */
+/** 파일 서명을 확인하기 위해 Base64 앞부분만 디코딩합니다. */
 function decodeBase64Prefix(data: string, byteCount: number): Uint8Array {
   const chars = Math.ceil(byteCount / 3) * 4;
   const chunk = data.slice(0, chars).replace(/=+$/, '');

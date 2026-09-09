@@ -1,5 +1,5 @@
 /**
- * 요소를 옮기고 줄 세우는 좌표 계산 — 선택 전체 이동의 경계 보정, 용지 밖 판정, 정렬과 간격 배치.
+ * 요소를 옮기고 줄 세우는 좌표 계산 — 선택 전체 이동의 경계 보정, 용지 밖 판정, 정렬과 간격 배치입니다.
  *
  * @remarks
  * 파일 규칙은 `position.x`·`position.y`가 0 이상이라는 것뿐이고 오른쪽·아래로 넘치는 배치는
@@ -10,7 +10,7 @@
 import { elementBounds, type SlipElement } from '@omdc-slipkit/core';
 import { round1 } from './geometry.js';
 
-/** 용지 위의 사각 영역(mm) */
+/** 용지 위의 사각 영역(mm)입니다. */
 interface Box {
   x: number;
   y: number;
@@ -18,34 +18,34 @@ interface Box {
   height: number;
 }
 
-/** 요소 하나의 새 위치 */
+/** 요소 하나의 새 위치입니다. */
 export interface PositionMove {
   id: string;
   x: number;
   y: number;
 }
 
-/** 화살표 키 한 번의 이동량(mm) */
+/** 화살표 키 한 번의 이동량(mm)입니다. */
 export const NUDGE_STEP_MM = 0.5;
 
-/** Shift를 함께 누른 화살표 키 한 번의 이동량(mm) */
+/** Shift를 함께 누른 화살표 키 한 번의 이동량(mm)입니다. */
 export const NUDGE_STEP_LARGE_MM = 5;
 
-/** 정렬 기준이 되는 변 또는 중앙선 */
+/** 정렬 기준이 되는 변 또는 중앙선입니다. */
 export type AlignEdge = 'left' | 'hcenter' | 'right' | 'top' | 'vcenter' | 'bottom';
 
-/** 간격을 고르게 나눌 방향 */
+/** 간격을 고르게 나눌 방향입니다. */
 export type DistributeAxis = 'horizontal' | 'vertical';
 
-/** 정렬·간격 배치의 대상 단위 — 그룹 하나 또는 그룹에 속하지 않은 요소 하나 */
+/** 정렬·간격 배치의 대상 단위 — 그룹 하나 또는 그룹에 속하지 않은 요소 하나입니다. */
 export interface ArrangeUnit {
-  /** 단위에 속한 요소들 (그룹이 아니면 하나) */
+  /** 단위에 속한 요소입니다. 그룹이 아니면 하나만 담습니다. */
   members: SlipElement[];
-  /** 단위 전체를 감싸는 상자 */
+  /** 단위 전체를 감싸는 상자입니다. */
   box: Box;
 }
 
-/** 간격 배치 결과 — 실행할 수 없으면 그 이유를 돌려줍니다 */
+/** 간격 배치 결과 — 실행할 수 없으면 그 이유를 반환합니다. */
 export type DistributeResult =
   | { ok: true; moves: PositionMove[] }
   | { ok: false; reason: 'needsThree' | 'noRoom' };
@@ -111,7 +111,7 @@ export function clampMoveDelta(
 /**
  * 선택한 요소들을 같은 양만큼 옮긴 새 위치를 계산합니다.
  *
- * @param members - 옮길 요소의 id와 원래 왼쪽 위 좌표(mm)
+ * @param members - 옮길 요소 ID와 원래 왼쪽 위 좌표(mm)
  * @param dx - 가로 이동량(mm)
  * @param dy - 세로 이동량(mm)
  * @returns 경계 보정과 0.1mm 반올림을 거친 새 위치 목록 (입력 순서 유지)
@@ -130,7 +130,7 @@ export function movedPositions(
 }
 
 /**
- * 화살표 키가 뜻하는 이동량을 돌려줍니다.
+ * 화살표 키가 뜻하는 이동량을 반환합니다.
  *
  * @param key - `KeyboardEvent.key`
  * @param large - Shift를 함께 눌러 큰 단위로 옮기는지
@@ -261,7 +261,7 @@ export function distributeUnits(units: readonly ArrangeUnit[], axis: DistributeA
   const span = start(last) + size(last) - start(first);
   const total = ordered.reduce((sum, unit) => sum + size(unit.box), 0);
   const gap = (span - total) / (ordered.length - 1);
-  // 부동소수 오차만큼의 음수는 꼭 맞게 들어간 것으로 봅니다.
+  // 부동소수점 오차 범위의 음수는 경계 안에 정확히 들어간 것으로 판단합니다.
   if (gap < -1e-9) return { ok: false, reason: 'noRoom' };
 
   const targets = new Map<ArrangeUnit, number>();

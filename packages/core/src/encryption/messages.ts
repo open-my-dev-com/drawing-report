@@ -1,8 +1,8 @@
 /**
- * 사용자에게 표시하는 암호화·복호화 메시지를 언어별로 정의한다.
+ * 사용자에게 표시하는 암호화·복호화 메시지를 언어별로 정의합니다.
  *
- * 암호화 함수는 비동기로 실행되므로 언어를 모듈 상태에 저장하지 않는다.
- * 호출자가 전달한 로케일로 {@link em}에서 메시지 사전을 선택한다.
+ * 암호화 함수는 비동기로 실행되므로 언어를 모듈 상태에 저장하지 않습니다.
+ * 호출자가 전달한 로케일로 {@link em}에서 메시지 사전을 선택합니다.
  */
 import { resolveMessageLocale, type MessageLocale } from '../i18n.js';
 
@@ -50,15 +50,15 @@ const KO: EncryptionMessages = {
   rawKeyLength: () => '원시 키는 32바이트(AES-256)여야 합니다',
   notAnEnvelope: () => '`.slip` 암호화 봉투 형식이 아닙니다',
   unsupportedEnvelopeVersion: () =>
-    '지원하지 않는 암호화 봉투 버전입니다. 더 최신 버전의 SlipKit으로 암호화한 파일일 수 있습니다',
+    '지원하지 않는 암호화 봉투 버전입니다. 현재보다 새 버전의 SlipKit으로 암호화한 파일일 수 있습니다',
   unsupportedCipher: () => '지원하지 않는 암호 방식입니다. A256GCM 봉투만 열 수 있습니다',
   envelopeFieldInvalid: (field) => `암호화 봉투가 손상되었습니다. '${field}' 필드가 없거나 형식이 맞지 않습니다`,
-  lockedWithPassphrase: () => '이 파일은 암호 문구(passphrase)로 암호화되어 있습니다',
+  lockedWithPassphrase: () => '이 파일은 암호 문구로 암호화되어 있습니다',
   lockedWithRawKey: () => '이 파일은 원시 키로 암호화되어 있습니다',
   unsupportedKdf: () => '지원하지 않는 키 파생 방식입니다',
   decryptFailed: () => '복호화에 실패했습니다. 키가 일치하지 않거나 파일이 변조되었습니다',
-  noEncryptKey: () => '암호화 키가 없습니다. encryption.key 설정이나 함수 인자로 키를 전달하세요',
-  noDecryptKey: () => '복호화 키가 없습니다. encryption.key 설정이나 함수 인자로 키를 전달하세요',
+  noEncryptKey: () => '암호화 키가 없습니다. encryption.key에 키를 설정하거나 함수 인자로 전달하세요',
+  noDecryptKey: () => '복호화 키가 없습니다. encryption.key에 키를 설정하거나 함수 인자로 전달하세요',
   noMatchingKey: () => '복호화에 실패했습니다. 일치하는 키가 없습니다',
 };
 
@@ -84,9 +84,9 @@ const JA: EncryptionMessages = {
 const CATALOG: Record<MessageLocale, EncryptionMessages> = { en: EN, ko: KO, ja: JA };
 
 /**
- * 로케일에 맞는 암호화 메시지 사전을 반환한다.
+ * 로케일에 맞는 암호화 메시지 사전을 반환합니다.
  *
- * @param locale - BCP 47 로케일 (생략하면 영어)
+ * @param locale - BCP 47 로케일(생략하면 영어)
  * @returns 메시지 사전
  */
 export function em(locale?: string): EncryptionMessages {

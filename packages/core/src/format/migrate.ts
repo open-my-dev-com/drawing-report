@@ -1,32 +1,30 @@
 /**
- * `.slip` 문서를 현재 schemaVersion으로 변환한다.
+ * `.slip` 문서를 현재 `schemaVersion`으로 변환합니다.
  *
- * 모든 파일은 `schemaVersion`을 내장하며, 구버전 파일을 열 때 현재 버전까지
- * 단계별 마이그레이션을 적용한다. 각 단계는 `from` 버전의 문서를 `to` 버전 문서로
- * 변환하는 순수 함수다.
+ * 모든 파일은 `schemaVersion`을 포함하며, 구버전 파일을 열 때 현재 버전까지
+ * 단계별 마이그레이션을 적용합니다. 각 단계는 `from` 버전의 문서를 `to` 버전 문서로
+ * 변환하는 순수 함수입니다.
  */
 import { CURRENT_SCHEMA_VERSION } from './version.js';
 import { fmt } from './messages.js';
 
-/** `from` 버전 문서를 `to` 버전 문서로 변환하는 마이그레이션 단계. */
+/** `from` 버전 문서를 `to` 버전 문서로 변환하는 마이그레이션 단계입니다. */
 export interface SlipMigrationStep {
-  /** 이 단계가 입력으로 받는 schemaVersion */
+  /** 이 단계가 입력으로 받는 schemaVersion입니다. */
   from: string;
-  /** 이 단계를 거친 뒤의 schemaVersion */
+  /** 이 단계를 거친 뒤의 schemaVersion입니다. */
   to: string;
   migrate(document: Record<string, unknown>): Record<string, unknown>;
 }
 
 /**
- * 내장 마이그레이션 목록. 스키마가 개정될 때마다 단계를 추가한다.
+ * 내장 마이그레이션 목록입니다. 스키마가 개정될 때마다 단계를 추가합니다.
  *
- * @remarks
- * 공개 전 개발 단계의 변경은 `0.1.0`에 포함하므로 (가상 마이그레이션 이력을 만들지 않는다)
- * 현재 목록은 비어 있다.
+ * 현재 내장 마이그레이션 단계는 없습니다.
  */
 export const BUILT_IN_MIGRATIONS: readonly SlipMigrationStep[] = [];
 
-/** 지원하지 않는 버전이거나 마이그레이션 경로를 구성할 수 없을 때 발생하는 오류. */
+/** 지원하지 않는 버전이거나 마이그레이션 경로를 구성할 수 없을 때 발생하는 오류입니다. */
 export class SlipMigrationError extends Error {
   constructor(message: string) {
     super(message);
@@ -48,9 +46,9 @@ function compareSemver(a: string, b: string): number {
 }
 
 /**
- * 문서를 현재 `schemaVersion`으로 마이그레이션한다.
- * - 현재 버전이면 입력 문서를 반환한다.
- * - 지원 버전보다 새롭거나 마이그레이션 경로가 없는 문서는 오류를 발생시킨다.
+ * 문서를 현재 `schemaVersion`으로 마이그레이션합니다.
+ * - 현재 버전이면 입력 문서를 반환합니다.
+ * - 지원 버전보다 새롭거나 마이그레이션 경로가 없는 문서는 오류를 발생시킵니다.
  *
  * @param document - schemaVersion을 가진 `.slip` 문서 (파싱된 JSON 객체)
  * @param steps - 적용할 마이그레이션 단계 목록 (기본: 내장 목록)

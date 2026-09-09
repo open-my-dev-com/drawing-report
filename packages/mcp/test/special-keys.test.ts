@@ -1,8 +1,8 @@
 /**
- * 파라미터 키가 `__proto__`·`constructor`·`toString`이거나 점·공백·한글을 담을 때의 MCP 동작 테스트.
+ * 파라미터 키가 `__proto__`·`constructor`·`toString`이거나 점·공백·한글을 포함할 때의 MCP 동작을 시험합니다.
  *
- * 키는 어떤 문자열이든 업무 데이터의 이름이다. 도구 입력, 편집 연산과 요약은 값을 프로토타입
- * 체인이 아닌 객체 자신의 속성으로만 읽고 쓰며, 파일의 프로토타입은 건드리지 않는다.
+ * 키는 어떤 문자열이든 업무 데이터의 이름입니다. 도구 입력, 편집 연산과 요약은 값을 프로토타입
+ * 프로토타입 체인이 아닌 객체 자신의 속성으로만 읽고 쓰며, 파일의 프로토타입은 변경하지 않습니다.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
@@ -14,12 +14,12 @@ import { elideDataUrls } from '../src/summary.js';
 import { FileSystemStorage } from '../src/storage.js';
 import { callText, connect, makeTemplate, makeWorkDir, removeWorkDir } from './helpers.js';
 
-/** JSON 문자열을 파싱해 `__proto__`가 프로토타입이 아닌 자신의 속성이 되게 한다. */
+/** JSON 문자열을 파싱해 `__proto__`가 프로토타입이 아닌 자신의 속성이 되게 합니다. */
 function fromJson<T>(json: string): T {
   return JSON.parse(json) as T;
 }
 
-/** 특수 키 파라미터를 가진 양식. `makeTemplate`의 `customerName`·`items`에 더한다. */
+/** 특수 키 파라미터를 가진 양식. `makeTemplate`의 `customerName`·`items`에 더합니다. */
 function keyedTemplate() {
   const template = makeTemplate();
   template.template.parameters!.push(
@@ -49,7 +49,7 @@ describe('slip_edit 연산의 자신의 속성 읽기·쓰기', () => {
     expect(parsed.values['__proto__']).toBe('p');
     expect(parsed.values['constructor']).toBe('c');
     expect(Object.keys(parsed.values)).toEqual(['__proto__', 'constructor', 'a b']);
-    // 검사 중에 쓰는 임시 키 이름은 결과에 남지 않고, 입력 객체도 바뀌지 않는다.
+    // 검사 중에 쓰는 임시 키 이름은 결과에 남지 않고, 입력 객체도 바뀌지 않습니다.
     expect(Object.keys(parsed.values).some((key) => key.includes(String.fromCharCode(0)))).toBe(false);
     expect(Object.keys(op['values'] as object)).toEqual(['__proto__', 'constructor', 'a b']);
 
@@ -59,7 +59,7 @@ describe('slip_edit 연산의 자신의 속성 읽기·쓰기', () => {
     expect(Object.hasOwn(merged.fields, '__proto__')).toBe(true);
     expect(merged.fields['__proto__']).toEqual({ x: 1 });
 
-    // __proto__ 키가 없는 객체는 그대로 통과하고 중첩 값은 같은 참조로 남는다.
+    // __proto__ 키가 없는 객체는 그대로 통과하고 중첩 값은 같은 참조로 남습니다.
     const nested = { title: '제목', deep: { keep: true } };
     const plain = editOpSchema.parse({ action: 'set_meta', fields: nested });
     if (plain.action !== 'set_meta') throw new Error('set_meta expected');
@@ -102,10 +102,10 @@ describe('slip_edit 연산의 자신의 속성 읽기·쓰기', () => {
     const row = (values['items'] as Record<string, unknown>[])[0]!;
     expect(Object.hasOwn(row, '__proto__')).toBe(true);
     expect(row['__proto__']).toBe('row');
-    // 전역 프로토타입도 오염되지 않는다.
+    // 전역 프로토타입도 오염되지 않습니다.
     expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
 
-    // JSON으로 내보내도 키가 남는다.
+    // JSON으로 내보내도 키가 남습니다.
     const json = fromJson<{ values: Record<string, unknown> }>(JSON.stringify(file));
     expect(Object.hasOwn(json.values, '__proto__')).toBe(true);
   });
@@ -126,7 +126,7 @@ describe('slip_edit 연산의 자신의 속성 읽기·쓰기', () => {
     expect(Object.hasOwn(meta, '__proto__')).toBe(false);
     expect(Object.getPrototypeOf(meta)).toBe(Object.prototype);
 
-    // 정의된 파라미터 key 자체가 __proto__여도 key 문자열로 찾는다.
+    // 정의된 파라미터 키 자체가 __proto__여도 키 문자열로 찾습니다.
     await applyEditOp(
       file,
       { action: 'set_parameter', key: '__proto__', fields: { label: '바뀐 프로토' } },
@@ -153,7 +153,7 @@ describe('slip_edit 연산의 자신의 속성 읽기·쓰기', () => {
     expect(missing).toBe('add_parameter (no key)');
   });
 
-  it('요약의 data URL 치환은 __proto__ 키를 자신의 속성으로 옮긴다', () => {
+  it('요약에서 data URL을 바꿔도 __proto__ 키를 객체 자체의 속성으로 보존한다', () => {
     const elided = elideDataUrls(fromJson('{"__proto__":{"deep":1},"constructor":"c"}')) as Record<string, unknown>;
     expect(Object.getPrototypeOf(elided)).toBe(Object.prototype);
     expect(Object.hasOwn(elided, '__proto__')).toBe(true);
@@ -221,7 +221,7 @@ describe('특수 키의 저장·읽기 왕복', () => {
     });
     expect(built.isError).toBe(false);
 
-    // 저장된 JSON 자체에 모든 키가 남는다.
+    // 저장된 JSON 자체에 모든 키가 남습니다.
     const raw = fromJson<{ values: Record<string, unknown> }>(
       await readFile(path.join(dir, 'voucher.slip'), 'utf8'),
     );
@@ -229,7 +229,7 @@ describe('특수 키의 저장·읽기 왕복', () => {
     expect(raw.values['__proto__']).toBe('p');
     expect(Object.hasOwn((raw.values['items'] as Record<string, unknown>[])[0]!, '__proto__')).toBe(true);
 
-    // core 파서로 다시 읽어도 자신의 속성으로 읽힌다.
+    // core 파서로 다시 읽어도 자신의 속성으로 읽힙니다.
     const loaded = await loadVoucher('voucher');
     const values = loaded.values as Record<string, unknown>;
     expect(Object.getPrototypeOf(values)).toBe(Object.prototype);
@@ -277,7 +277,7 @@ describe('특수 키의 저장·읽기 왕복', () => {
     expect(values['한글']).toBe('값');
     expect((values['items'] as Record<string, unknown>[])[0]!['constructor']).toBe('rc');
 
-    // 값이 없는 키는 프로토타입 값이 아닌 빈 값으로 요약된다.
+    // 값이 없는 키는 프로토타입 값이 아닌 빈 값으로 요약됩니다.
     const summary = await callText(client, 'slip_read', { path: 'v' });
     expect(summary.text).not.toContain('function Object');
   });

@@ -16,7 +16,7 @@ import {
   usesDemoSampleKey,
 } from '../src/index.js';
 
-/** 지운 키를 순서대로 기록하고, 지정한 키에서만 실패하는 시험용 저장소 */
+/** 지운 키를 순서대로 기록하고, 지정한 키에서만 실패하는 시험용 저장소입니다. */
 class FakeStore implements StorageAdapter {
   readonly deleted: string[] = [];
   readonly items = new Set<string>();
@@ -44,7 +44,7 @@ class FakeStore implements StorageAdapter {
   }
 }
 
-/** Node 버전의 내장 localStorage 상태와 무관하게 동작하는 시험용 구현 */
+/** Node 버전의 내장 localStorage 상태와 무관하게 동작하는 시험용 구현입니다. */
 class FakeLocalStorage implements Storage {
   private readonly items = new Map<string, string>();
 
@@ -92,7 +92,7 @@ describe('clearDemoStorage', () => {
     expect(store.items.size).toBe(0);
   });
 
-  it('마지막으로 보던 화면 기억도 함께 지운다', async () => {
+  it('마지막으로 열었던 화면 정보도 함께 삭제한다', async () => {
     localStorage.setItem(MODE_KEY, 'fill');
 
     await clearDemoStorage(new FakeStore([]));
@@ -100,7 +100,7 @@ describe('clearDemoStorage', () => {
     expect(localStorage.getItem(MODE_KEY)).toBeNull();
   });
 
-  it('removeMode가 false면 마지막으로 보던 화면 기억을 남긴다', async () => {
+  it('removeMode가 false면 마지막으로 열었던 화면 정보를 유지한다', async () => {
     localStorage.setItem(MODE_KEY, 'view');
 
     await clearDemoStorage(new FakeStore([]), { removeMode: false });
@@ -200,7 +200,7 @@ describe('usesDemoSampleKey', () => {
 });
 
 describe('저장 데이터 삭제 안내 문구', () => {
-  // 지우는 대상은 자동 저장분과 마지막으로 보던 화면뿐이므로, 남는 것도 함께 알려야 합니다.
+  // 자동 저장 데이터와 마지막으로 열었던 화면만 지우므로 유지되는 항목도 함께 안내해야 합니다.
   const kept = { ko: '내 양식', en: 'My templates', ja: 'マイテンプレート' } as const;
 
   for (const locale of ['ko', 'en', 'ja'] as const) {

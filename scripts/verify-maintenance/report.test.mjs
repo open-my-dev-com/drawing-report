@@ -1,9 +1,9 @@
-// knip 보고서 요약의 정렬·묶음·출력 검사 — `node --test`로 실행한다.
+// knip 보고서 요약의 정렬·묶음·출력 검사 — `node --test`로 실행합니다.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { collectFindings, formatFinding, groupByKind, kindLabel, renderReport } from './report.mjs';
 
-/** knip JSON 보고서 한 벌 — 파일마다 종류별 배열을 담는 실제 구조를 따른다. */
+/** 파일마다 종류별 배열을 담는 실제 knip JSON 보고서 구조입니다. */
 const REPORT = {
   issues: [
     { file: 'scripts/left.mjs', files: [{ name: 'scripts/left.mjs' }], exports: [], types: [] },
@@ -37,7 +37,7 @@ describe('collectFindings', () => {
     assert.deepEqual(exportNames, ['alpha', 'beta']);
   });
 
-  it('빈 배열만 있는 보고서는 지적 0건이 된다', () => {
+  it('빈 배열만 있는 보고서는 문제가 없다고 알린다', () => {
     assert.deepEqual(collectFindings({ issues: [{ file: 'a.ts', exports: [], types: [] }] }), []);
   });
 
@@ -66,11 +66,11 @@ describe('groupByKind와 kindLabel', () => {
 });
 
 describe('formatFinding', () => {
-  it('파일 지적은 경로만 적는다', () => {
+  it('파일 검사 결과는 경로만 적는다', () => {
     assert.equal(formatFinding({ kind: 'files', file: 'scripts/left.mjs', name: 'scripts/left.mjs' }), 'scripts/left.mjs');
   });
 
-  it('이름 있는 지적은 이름과 위치를 함께 적는다', () => {
+  it('이름이 있는 검사 결과는 이름과 위치를 함께 적는다', () => {
     assert.equal(
       formatFinding({ kind: 'exports', file: 'packages/core/src/b.ts', name: 'alpha', line: 10, col: 1 }),
       'alpha — packages/core/src/b.ts:10:1',
@@ -79,9 +79,9 @@ describe('formatFinding', () => {
 });
 
 describe('renderReport', () => {
-  it('지적이 없으면 통과 문구만 적는다', () => {
+  it('문제가 없으면 통과 문구만 적는다', () => {
     const text = renderReport([]);
-    assert.match(text, /지적 0건/);
+    assert.match(text, /문제가 없습니다/);
     assert.doesNotMatch(text, /합계/);
   });
 

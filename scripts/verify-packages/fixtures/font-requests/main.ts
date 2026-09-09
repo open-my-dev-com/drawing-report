@@ -1,13 +1,13 @@
 // 동봉 폰트 청크가 언제 읽히는지 단계별로 확인하는 페이지. `?scenario=en|ko|ja|user`로 시나리오를 고르고,
 // Node 쪽(Playwright)이 `window.__fontBench.runPhase(name)`을 순서대로 불러 단계마다 시간·힙을 받고
-// 그 사이의 네트워크 요청을 나눠 기록한다. 공개 export(`createSlipKit`·`loadDefaultFonts`·커스텀 엘리먼트)만 쓴다.
+// 그 사이의 네트워크 요청을 나눠 기록합니다. 공개 export(`createSlipKit`·`loadDefaultFonts`·커스텀 엘리먼트)만 씁니다.
 //
 // 단계 (반드시 이 순서로)
-// - import   : `@omdc-slipkit/elements`(와 core)를 동적 import — 루트 진입점의 정적 closure를 읽는 시간
-// - elements : `<slip-designer>`·`<slip-form>`·`<slip-viewer>`를 만든다 (생성자 실행). DOM에는 붙이지 않는다 —
-//              디자이너는 첫 렌더에서 캔버스 폰트 목록을 위해 폰트를 해석하므로, 붙이는 순간이 곧 폰트 해석 시점이다
+// - import: `@omdc-slipkit/elements`와 core를 동적으로 가져와 루트 진입점의 정적 의존 파일을 읽는 시간입니다.
+// - elements: `<slip-designer>`, `<slip-form>`, `<slip-viewer>`를 만들어 생성자를 실행합니다. DOM에는 붙이지 않습니다.
+//              디자이너는 첫 렌더에서 캔버스 폰트 목록을 위해 폰트를 해석하므로, 붙이는 순간이 곧 폰트 해석 시점입니다
 // - resolve  : 기본 시나리오는 `loadDefaultFonts(locale)`, user 시나리오는 호스트 폰트 fetch + `createSlipKit({ getFonts })`
-// - share    : 세 컴포넌트에 같은 slipkit·locale·양식을 넣어 DOM에 붙이고 뷰어·폼의 PDF 미리보기가 끝날 때까지 기다린다
+// - share    : 세 컴포넌트에 같은 slipkit·locale·양식을 넣어 DOM에 붙이고 뷰어·폼의 PDF 미리보기가 끝날 때까지 기다립니다
 import { template } from '../template.mjs';
 
 type Phase = 'import' | 'elements' | 'resolve' | 'share';
@@ -52,13 +52,13 @@ let created: { designer: SlipElement; form: SlipElement; viewer: SlipElement } |
 let slipkit: SlipKit | undefined;
 const results: Partial<Record<Phase, PhaseResult>> = {};
 
-/** `gc()`가 있으면 수거한 뒤 힙 사용량을 읽는다. `performance.memory`가 없으면 null. */
+/** `gc()`가 있으면 메모리를 정리한 뒤 힙 사용량을 읽습니다. `performance.memory`가 없으면 `null`입니다. */
 function heapUsed(): number | null {
   if (typeof window.gc === 'function') window.gc();
   return performance.memory?.usedJSHeapSize ?? null;
 }
 
-/** 단계 본문의 시간과 전후 힙을 잰다. */
+/** 단계 본문의 시간과 전후 힙을 측정합니다. */
 async function measure(body: () => Promise<Record<string, unknown>>): Promise<PhaseResult> {
   const heapBefore = heapUsed();
   const start = performance.now();
@@ -68,7 +68,7 @@ async function measure(body: () => Promise<Record<string, unknown>>): Promise<Ph
   return { ms, heapBefore, heapAfter, detail };
 }
 
-/** 조건이 값을 돌려줄 때까지 50ms마다 확인한다. */
+/** 조건이 값을 반환할 때까지 50ms마다 확인합니다. */
 function waitFor<T>(probe: () => T | null, what: string, timeoutMs = 60_000): Promise<T> {
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + timeoutMs;
@@ -90,7 +90,7 @@ function waitFor<T>(probe: () => T | null, what: string, timeoutMs = 60_000): Pr
 
 /**
  * 뷰어·폼의 PDF 미리보기 상태. 두 컴포넌트는 성공하면 shadow DOM에 `blob:` iframe을, 실패하면
- * `.status.error`를 그린다 (`slip-viewer.ts`·`slip-form.ts`의 render).
+ * `.status.error`를 표시합니다(`slip-viewer.ts`·`slip-form.ts`의 render).
  */
 function previewState(el: HTMLElement): 'pdf' | 'error' | null {
   const root = el.shadowRoot;
@@ -161,7 +161,7 @@ const phases: Record<Phase, () => Promise<Record<string, unknown>>> = {
     const viewerState = await waitFor(() => previewState(viewer), 'slip-viewer PDF');
     const formState = await waitFor(() => previewState(form), 'slip-form preview PDF');
     await designer.updateComplete;
-    // 디자이너가 캔버스에 등록한 FontFace 읽기가 끝날 때까지 기다린다.
+    // 디자이너가 캔버스에 등록한 FontFace 읽기가 끝날 때까지 기다립니다.
     await document.fonts.ready;
     return { viewer: viewerState, form: formState };
   },

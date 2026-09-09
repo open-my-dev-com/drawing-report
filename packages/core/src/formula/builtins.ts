@@ -1,21 +1,21 @@
 /**
- * 수식 내장 함수와 타입 변환 규칙을 구현한다.
- * `IF`, `AND`, `OR`는 지연 평가가 필요하므로 evaluator에서 처리한다.
+ * 수식 내장 함수와 타입 변환 규칙을 구현합니다.
+ * `IF`, `AND`, `OR`는 지연 평가가 필요하므로 evaluator에서 처리합니다.
  */
 import { assertArity } from './arity.js';
 import { FormulaEvalError, valueError } from './errors.js';
 import type { FormulaFunctionName } from './functions.js';
 import { fm, type FormulaSubject } from './messages.js';
 
-/** 수식 런타임 값. 배열은 범위(참조가 배열 데이터를 가리킬 때)로 취급된다. */
+/** 수식 런타임 값. 배열은 범위(참조가 배열 데이터를 가리킬 때)로 취급됩니다. */
 export type FormulaValue = number | string | boolean | null | FormulaValue[];
 
-/** 수식 평가에 주입되는 실행 문맥 */
+/** 수식 평가에 주입되는 실행 문맥입니다. */
 export interface FormulaContext {
-  /** 수식의 참조 경로를 조회할 전표 값 */
+  /** 수식의 참조 경로를 조회할 전표 값입니다. */
   values: Record<string, unknown>;
   /**
-   * `TODAY`의 기준 시각. 테스트와 재현 가능한 평가에 사용한다.
+   * `TODAY`의 기준 시각. 테스트와 재현 가능한 평가에 사용합니다.
    *
    * @defaultValue 호출 시점의 현재 시각
    */
@@ -27,15 +27,15 @@ export interface FormulaContext {
    */
   locale?: string;
   /**
-   * 그리드 페이지 계획이 공급하는 예약 참조(`@item`·`@group`·`@page`·`@all`·`@carried`) 값.
+   * 그리드 페이지 계획이 전달하는 예약 참조(`@item`·`@group`·`@page`·`@all`·`@carried`) 값입니다.
    * 예약 참조를 지원하지 않는 곳에서는 생략하며, 생략된 상태에서 예약 참조를 평가하면
-   * 오류가 발생한다.
+   * 오류가 발생합니다.
    */
   reserved?: Readonly<Record<string, unknown>>;
 }
 
 // ---------------------------------------------------------------------------
-// 값 변환 헬퍼
+// 여러 함수에서 함께 사용하는 값 변환 도우미입니다.
 // ---------------------------------------------------------------------------
 
 function describe(value: FormulaValue): string {
@@ -45,11 +45,11 @@ function describe(value: FormulaValue): string {
 }
 
 /**
- * 수식 값을 숫자로 변환한다. 숫자와 빈 값만 허용한다.
+ * 수식 값을 숫자로 변환합니다. 숫자와 빈 값만 허용합니다.
  *
  * @remarks
- * 숫자를 요구하는 자리(산술 연산, SUM·AVG 등)는 문자열을 자동 변환하지 않는다.
- * 문자열을 숫자로 바꾸려면 수식에서 `TO_NUMBER`를 사용해야 한다. 빈 값(null)은 0으로 처리한다.
+ * 숫자를 요구하는 자리(산술 연산, SUM·AVG 등)는 문자열을 자동 변환하지 않습니다.
+ * 문자열을 숫자로 바꾸려면 수식에서 `TO_NUMBER`를 사용해야 합니다. 빈 값(null)은 0으로 처리합니다.
  *
  * @param value - 변환할 수식 값
  * @param what - 오류 메시지에서 대상을 가리키는 키 (예: `'aggregateTarget'`)
@@ -66,11 +66,11 @@ export function toNumber(value: FormulaValue, what: FormulaSubject = 'value', fr
   throw valueError(fm().mustBeNumber(what, describe(value)), fromData);
 }
 
-// `Number`가 허용하는 16진수, 2진수, Infinity를 제외하고 10진수 표기만 허용한다.
+// `Number`가 허용하는 16진수, 2진수, Infinity를 제외하고 10진수 표기만 허용합니다.
 const DECIMAL_NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 
 /**
- * 문자열과 논리값을 숫자로 명시적으로 변환한다 (`TO_NUMBER`).
+ * 문자열과 논리값을 숫자로 명시적으로 변환합니다(`TO_NUMBER`).
  *
  * @param value - 변환할 값
  * @param fromData - 이 값이 참조를 통해 데이터에서 왔는지
@@ -104,7 +104,7 @@ function toText(value: FormulaValue, fromData = false): string {
 }
 
 /**
- * 값을 조건식에 사용할 논리값으로 변환한다. 0이 아닌 숫자는 참이고 빈 값은 거짓이다.
+ * 값을 조건식에 사용할 논리값으로 변환합니다. 0이 아닌 숫자는 참이고 빈 값은 거짓입니다.
  *
  * @param value - 변환할 수식 값
  * @param fromData - 이 값이 참조를 통해 데이터에서 왔는지
@@ -124,7 +124,7 @@ function requireInt(value: FormulaValue, what: FormulaSubject, fromData: boolean
   return n;
 }
 
-/** 범위와 단일 값을 집계할 숫자 목록으로 변환한다. 빈 값은 제외한다. */
+/** 범위와 단일 값을 집계할 숫자 목록으로 변환합니다. 빈 값은 제외합니다. */
 function collectNumbers(args: FormulaValue[], origins: readonly boolean[]): number[] {
   const out: number[] = [];
   const visit = (value: FormulaValue, fromData: boolean): void => {
@@ -156,7 +156,7 @@ function flatten(args: FormulaValue[]): (number | string | boolean | null)[] {
 // SUMIF/COUNTIF에서 사용하는 비교 조건
 // ---------------------------------------------------------------------------
 
-/** 범위가 아닌 단일 수식 값 */
+/** 범위가 아닌 단일 수식 값입니다. */
 export type Scalar = number | string | boolean | null;
 
 function makeCriteria(criterion: FormulaValue, fromData: boolean): (value: Scalar) => boolean {
@@ -197,18 +197,18 @@ function looseEquals(a: Scalar, b: Scalar): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * 날짜 함수가 받는 문자열 형식. 날짜만 쓰거나(`2026-09-04`) `T`로 시각을 잇는다
- * (`2026-09-04T09:30`, 초·소수 초·`Z`·`±HH:mm` 오프셋은 선택).
- * 브라우저·Node의 `new Date(문자열)`은 형식마다 시간대 해석이 달라 쓰지 않는다.
+ * 날짜 함수가 받는 문자열 형식입니다. 날짜만 쓰거나(`2026-09-04`) `T`로 시각을 연결합니다.
+ * 시각에는 초, 소수 초, `Z` 또는 `±HH:mm` 오프셋을 선택하여 붙일 수 있습니다.
+ * 브라우저·Node의 `new Date(문자열)`은 형식마다 시간대 해석이 달라 쓰지 않습니다.
  */
 const DATE_INPUT =
   /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})?)?$/;
 
 /**
- * 연·월·일과 시각을 UTC 구성요소로 하는 `Date`를 만든다.
+ * 연·월·일과 시각을 UTC 구성요소로 하는 `Date`를 만듭니다.
  *
  * @remarks
- * `Date.UTC`는 0~99년을 1900년대로 바꾸므로 연도는 `setUTCFullYear`로 따로 넣는다.
+ * `Date.UTC`는 0~99년을 1900년대로 바꾸므로 연도는 `setUTCFullYear`로 따로 넣습니다.
  */
 function utcDate(year: number, month: number, day: number, hour = 0, minute = 0, second = 0, ms = 0): Date {
   const date = new Date(0);
@@ -218,12 +218,12 @@ function utcDate(year: number, month: number, day: number, hour = 0, minute = 0,
 }
 
 /**
- * 날짜가 지원하는 연도 범위(0001~9999년) 안에 있는지 확인한다.
+ * 날짜가 지원하는 연도 범위(0001~9999년) 안에 있는지 확인합니다.
  *
  * @remarks
  * 입력 연도가 네 자리여도 오프셋을 적용하거나 날짜를 가감한 결과는 0년 이하나 10000년 이상으로
- * 넘어갈 수 있고, `YYYY`는 네 자리로만 출력하므로 그런 결과는 오류로 막는다. 유효하지 않은
- * `Date`(연도가 `NaN`)도 같은 오류다.
+ * 넘어갈 수 있고, `YYYY`는 네 자리로만 출력하므로 그런 결과는 오류로 막습니다. 유효하지 않은
+ * `Date`(연도가 `NaN`)도 같은 오류입니다.
  *
  * @param date - 검사할 날짜
  * @param what - 오류 메시지에서 대상을 가리키는 키
@@ -247,10 +247,10 @@ function parseDate(value: FormulaValue, what: FormulaSubject, fromData: boolean)
   const minute = Number(m[5] ?? 0);
   const second = Number(m[6] ?? 0);
   const millisecond = Number((m[7] ?? '0').slice(0, 3).padEnd(3, '0'));
-  // 시간대가 없는 값은 실행 환경의 시간대와 무관하게 UTC로 해석해 브라우저와 Node의 결과를 맞춘다.
+  // 시간대가 없는 값은 실행 환경의 시간대와 무관하게 UTC로 해석해 브라우저와 Node의 결과를 맞춥니다.
   const date = utcDate(year, month - 1, day, hour, minute, second, millisecond);
   // setUTCFullYear·setUTCHours는 범위 밖 월·일·시각을 다음 단위로 넘겨 버리므로(2026-13-45 → 2027-02-14),
-  // 넣은 구성요소를 다시 읽어 하나라도 다르면 존재하지 않는 날짜·시각으로 처리한다.
+  // 넣은 구성요소를 다시 읽어 하나라도 다르면 존재하지 않는 날짜·시각으로 처리합니다.
   if (
     date.getUTCFullYear() !== year ||
     date.getUTCMonth() !== month - 1 ||
@@ -268,29 +268,30 @@ function parseDate(value: FormulaValue, what: FormulaSubject, fromData: boolean)
     if (offsetHours > 23 || offsetMinutes > 59) {
       throw valueError(fm().dateOffsetRange(what, describe(value)), fromData);
     }
-    // 오프셋이 붙은 값은 그 시간대의 벽시계 시각이므로 오프셋을 빼서 UTC 순간으로 옮긴다.
+    // 오프셋이 붙은 값은 해당 시간대의 현지 시각이므로 오프셋을 빼서 UTC 시각으로 바꿉니다.
     const sign = offset[0] === '-' ? -1 : 1;
     date.setTime(date.getTime() - sign * (offsetHours * 60 + offsetMinutes) * 60_000);
   }
-  // 오프셋을 뺀 UTC 순간은 입력 연도와 달라질 수 있다 (0001-01-01T00:00+23:59 → 0000-12-31).
+  // 오프셋을 뺀 UTC 시각은 입력 연도와 달라질 수 있습니다(0001-01-01T00:00+23:59 → 0000-12-31).
   assertSupportedYear(date, what, describe(value), fromData);
   return date;
 }
 
-/** `FORMAT_DATE` 패턴이 인식하는 토큰. 같은 글자가 이어진 묶음은 이 중 하나와 정확히 같아야 한다. */
+/** `FORMAT_DATE` 패턴이 인식하는 토큰. 같은 글자가 이어진 묶음은 이 중 하나와 정확히 같아야 합니다. */
 const DATE_TOKENS = new Set(['YYYY', 'YY', 'MM', 'M', 'DD', 'D', 'HH', 'mm', 'ss']);
 
-/** 패턴을 해석한 조각. 토큰은 날짜 값으로 바뀌고 리터럴은 그대로 출력된다. */
+/** 패턴을 해석한 조각. 토큰은 날짜 값으로 바뀌고 리터럴은 그대로 출력됩니다. */
 type DatePatternPart = { kind: 'token'; token: string } | { kind: 'literal'; text: string };
 
 /**
- * `FORMAT_DATE` 패턴을 토큰·리터럴 조각으로 나눈다.
+ * `FORMAT_DATE` 패턴을 토큰·리터럴 조각으로 나눕니다.
  *
  * @remarks
- * - `[...]` 안은 리터럴 블록이다. 블록 안에서 `\]`는 `]`, `\\`는 `\`이고 그 밖의 백슬래시는 오류다.
- * - 블록 밖의 ASCII 글자는 같은 글자가 이어진 묶음 단위로 토큰과 정확히 같아야 한다
- *   (`YYYYMMDD`는 되고 `YYYYY`·`MMM`·`Date`는 안 된다). 그 밖의 문자(한글·한자·공백·기호·`]`)는 리터럴이다.
- * - 블록 밖의 백슬래시는 오류다.
+ * - `[...]` 안은 리터럴 블록입니다. 블록 안에서 `\]`는 `]`, `\\`는 `\`이고 그 밖의 백슬래시는 오류입니다.
+ * - 블록 밖의 ASCII 글자는 같은 글자가 이어진 묶음 단위로 토큰과 정확히 같아야 합니다.
+ *   `YYYYMMDD`는 사용할 수 있지만 `YYYYY`·`MMM`·`Date`는 사용할 수 없습니다. 그 밖의 문자
+ *   (한글·한자·공백·기호·`]`)는 리터럴입니다.
+ * - 블록 밖의 백슬래시는 오류입니다.
  *
  * @param pattern - 패턴 문자열
  * @param fail - 위치(1부터)를 담은 패턴 오류를 던지는 함수
@@ -401,13 +402,13 @@ const KOREAN_DIGITS = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔
 const SMALL_UNITS = ['', '십', '백', '천'];
 const GROUP_UNITS = ['', '만', '억', '조', '경'];
 
-/** 금액 위변조 방지 관례에 따라 십/백/천 앞에도 '일'을 쓴다 (예: 110 → 일백일십) */
+/** 금액 위변조 방지 관례에 따라 십·백·천 앞에도 '일'을 씁니다(예: 110 → 일백일십). */
 function numberToKorean(n: number, fromData: boolean): string {
   if (!Number.isInteger(n)) throw valueError(fm().numberToKoreanInteger(), fromData);
   if (n === 0) return '영';
   const sign = n < 0 ? '마이너스' : '';
   let abs = Math.abs(n);
-  // 안전 정수 범위를 넘으면 % 10000·나눗셈이 부정확해져 잘못된 자릿값을 읽는다.
+  // 안전 정수 범위를 넘으면 % 10000·나눗셈이 부정확해져 잘못된 자릿값을 읽습니다.
   if (abs > Number.MAX_SAFE_INTEGER) throw valueError(fm().numberToKoreanRange(), fromData);
   const groups: string[] = [];
   let groupIndex = 0;
@@ -435,10 +436,10 @@ function arity(name: FormulaFunctionName, args: FormulaValue[]): void {
   assertArity(name, args.length);
 }
 
-/** ROUND·FLOOR·CEIL이 받는 자릿수 인자의 절대값 상한 */
+/** ROUND·FLOOR·CEIL이 받는 자릿수 인자의 절대값 상한입니다. */
 const MAX_ROUND_DIGITS = 20;
 
-/** ROUND·FLOOR·CEIL의 공통 구현 — 자릿수 인자만 다르다 */
+/** ROUND·FLOOR·CEIL의 공통 구현입니다. 자릿수 인자만 다릅니다. */
 function roundArg(
   args: FormulaValue[],
   origins: readonly boolean[],
@@ -454,8 +455,8 @@ function roundArg(
 }
 
 /**
- * 수의 절대값을 10진 자릿수 문자열로 푼다. `String(n)`이 주는 가장 짧은 표기(사람이 적은
- * 그대로: `1.005` → `"1005"`)를 쓰므로 `1.005 * 100 = 100.49999…` 같은 이진 오차가 끼지 않는다.
+ * 수의 절대값을 10진 자릿수 문자열로 풉니다. `String(n)`이 주는 가장 짧은 표기(사람이 적은
+ * 그대로: `1.005` → `"1005"`)를 쓰므로 `1.005 * 100 = 100.49999…` 같은 이진 오차가 끼지 않습니다.
  *
  * @returns `digits`는 숫자만 이어 붙인 문자열, `intDigits`는 소수점 앞 자릿수(1 이상)
  */
@@ -470,7 +471,7 @@ function decimalDigits(abs: number): { digits: string; intDigits: number } {
   if (intDigits > digits.length) {
     digits = digits.padEnd(intDigits, '0');
   } else if (intDigits < 1) {
-    // 0.001처럼 정수부가 없는 수는 앞에 0을 채워 정수부 한 자리를 만든다.
+    // 0.001처럼 정수부가 없는 수는 앞에 0을 채워 정수부 한 자리를 만듭니다.
     digits = '0'.repeat(1 - intDigits) + digits;
     intDigits = 1;
   }
@@ -478,7 +479,7 @@ function decimalDigits(abs: number): { digits: string; intDigits: number } {
 }
 
 /**
- * 10진 자릿수 기준으로 반올림·내림·올림한다.
+ * 10진 자릿수 기준으로 반올림·내림·올림합니다.
  * - `round`: 정확한 절반은 0에서 멀어지는 쪽으로 (2.5 → 3, -2.5 → -3)
  * - `floor`·`ceil`: 수학적 방향(음의 무한대·양의 무한대 쪽)
  */
@@ -487,14 +488,14 @@ function roundTo(n: number, digits: number, mode: 'round' | 'floor' | 'ceil'): n
   const negative = n < 0;
   const decimal = decimalDigits(Math.abs(n));
   const cut = decimal.intDigits + digits;
-  // 남기는 자릿수가 실제 자릿수보다 많으면 뒤를 0으로 채워 자리 이동을 맞춘다.
+  // 남기는 자릿수가 실제 자릿수보다 많으면 뒤를 0으로 채워 자리 이동을 맞춥니다.
   const padded = decimal.digits.padEnd(Math.max(cut, 0), '0');
   const kept = cut > 0 ? padded.slice(0, cut) : '';
   const rest = cut > 0 ? padded.slice(cut) : padded;
   const restNonZero = /[1-9]/.test(rest);
   let bumpMagnitude: boolean;
   if (mode === 'round') {
-    // cut이 음수이면 버리는 첫 자리가 정수부 앞의 0이므로 올리지 않는다.
+    // cut이 음수이면 버리는 첫 자리가 정수부 앞의 0이므로 올리지 않습니다.
     bumpMagnitude = cut >= 0 && (rest[0] ?? '0') >= '5';
   } else if (mode === 'floor') {
     bumpMagnitude = negative && restNonZero;
@@ -503,12 +504,12 @@ function roundTo(n: number, digits: number, mode: 'round' | 'floor' | 'ceil'): n
   }
   const magnitude = (kept === '' ? 0n : BigInt(kept)) + (bumpMagnitude ? 1n : 0n);
   if (magnitude === 0n) return 0;
-  // 정수 자릿수와 10의 거듭제곱을 문자열로 합쳐 Number가 가장 가까운 double을 고르게 한다.
+  // 정수 자릿수와 10의 거듭제곱을 문자열로 합쳐 `Number`가 가장 가까운 부동소수점 값을 고르게 합니다.
   const value = Number(`${magnitude.toString()}e${-digits}`);
   return negative ? -value : value;
 }
 
-/** 집계 대상의 최솟값·최댓값을 반복문으로 구한다 — 인자 전개(spread)는 큰 범위에서 호출 스택을 넘친다. */
+/** 인자 전개는 큰 범위에서 호출 스택을 넘을 수 있으므로 반복문으로 집계 대상의 최솟값과 최댓값을 구합니다. */
 function extremum(numbers: readonly number[], pick: 'min' | 'max'): number {
   if (numbers.length === 0) return 0;
   let result = numbers[0]!;
@@ -520,11 +521,11 @@ function extremum(numbers: readonly number[], pick: 'min' | 'max'): number {
 }
 
 /**
- * 즉시 평가 함수 구현 테이블 — 지연 평가가 필요한 IF·AND·OR는 evaluator가 직접 처리한다.
+ * 즉시 평가 함수 구현 테이블 — 지연 평가가 필요한 IF·AND·OR는 evaluator가 직접 처리합니다.
  *
  * @remarks
- * `origins[i]`는 `args[i]`가 참조를 통해 데이터에서 왔는지다. 오류를 일으킨 값의 출처를 함께
- * 넘겨야, 편집기가 「샘플 값만 잘못됨」과 「수식이 잘못됨」을 가를 수 있다.
+ * `origins[i]`는 `args[i]`가 참조를 통해 데이터에서 왔는지를 나타냅니다. 오류를 일으킨 값의 출처를 함께
+ * 넘겨야 편집기가 `샘플 값만 잘못됨`과 `수식이 잘못됨`을 구분할 수 있습니다.
  */
 export const BUILTIN_FUNCTIONS: Record<
   string,
@@ -537,7 +538,7 @@ export const BUILTIN_FUNCTIONS: Record<
     if (numbers.length === 0) throw new FormulaEvalError(fm().avgEmpty(), 'data');
     return numbers.reduce((a, b) => a + b, 0) / numbers.length;
   },
-  /** 빈 값(null·'')을 제외한 항목 수 */
+  /** 빈 값(null·'')을 제외한 항목 수입니다. */
   COUNT: (args) => flatten(args).filter((v) => v !== null && v !== '').length,
   MIN: (args, _ctx, origins) => extremum(collectNumbers(args, origins), 'min'),
   MAX: (args, _ctx, origins) => extremum(collectNumbers(args, origins), 'max'),
@@ -552,7 +553,7 @@ export const BUILTIN_FUNCTIONS: Record<
     if (sumRange !== undefined && sumValues.length !== testValues.length) {
       throw new FormulaEvalError(fm().sumifLengthMismatch(), 'data');
     }
-    // 더하는 값은 합계 범위가 있으면 그 인자에서, 없으면 검사 범위 인자에서 온다.
+    // 더하는 값은 합계 범위가 있으면 그 인자에서, 없으면 검사 범위 인자에서 옵니다.
     const sumFromData = (sumRange === undefined ? origins[0] : origins[2]) === true;
     let total = 0;
     testValues.forEach((value, index) => {
@@ -591,7 +592,7 @@ export const BUILTIN_FUNCTIONS: Record<
     const chars = [...toText(args[0] ?? null, origins[0] === true)];
     return count <= 0 ? '' : chars.slice(-count).join('');
   },
-  /** MID(문자열, 시작(1-기반), 길이) */
+  /** MID(문자열, 1부터 시작하는 위치, 길이) 함수입니다. */
   MID: (args, _ctx, origins) => {
     arity('MID', args);
     const start = requireInt(args[1] ?? null, 'startPosition', origins[1] === true);
@@ -600,7 +601,7 @@ export const BUILTIN_FUNCTIONS: Record<
     return [...toText(args[0] ?? null, origins[0] === true)]
       .slice(start - 1, start - 1 + Math.max(0, length)).join('');
   },
-  /** REPLACE(문자열, 찾을 문자열, 바꿀 문자열) — 모든 일치를 치환 */
+  /** REPLACE(문자열, 찾을 문자열, 바꿀 문자열)는 일치하는 모든 문자열을 바꿉니다. */
   REPLACE: (args, _ctx, origins) => {
     arity('REPLACE', args);
     const text = toText(args[0] ?? null, origins[0] === true);
@@ -622,7 +623,7 @@ export const BUILTIN_FUNCTIONS: Record<
   },
 
   // --- 포맷 ---
-  /** FORMAT_NUMBER(수, 소수 자릿수?) — 자릿수 구분 표기. 로케일은 컨텍스트로 지정  */
+  /** FORMAT_NUMBER(수, 소수 자릿수?)는 자릿수를 구분해 표시하며 로케일은 계산 문맥으로 지정합니다. */
   FORMAT_NUMBER: (args, ctx, origins) => {
     arity('FORMAT_NUMBER', args);
     const n = toNumber(args[0] ?? null, 'value', origins[0] === true);
@@ -634,14 +635,14 @@ export const BUILTIN_FUNCTIONS: Record<
     }
     return n.toLocaleString(locale, { maximumFractionDigits: 20 });
   },
-  /** FORMAT_DATE(날짜, 패턴? = "YYYY-MM-DD") — 토큰: YYYY YY MM M DD D HH mm ss, 리터럴은 `[...]` */
+  /** FORMAT_DATE(날짜, 패턴? = "YYYY-MM-DD") — 토큰: YYYY YY MM M DD D HH mm ss, 리터럴은 `[...]`입니다. */
   FORMAT_DATE: (args, _ctx, origins) => {
     arity('FORMAT_DATE', args);
     const date = parseDate(args[0] ?? null, 'date', origins[0] === true);
     if (args.length < 2) return formatDate(date, ISO_DATE_PARTS);
     const patternFromData = origins[1] === true;
     const parts = compileDatePattern(toText(args[1] ?? null, patternFromData), (message) => {
-      // 패턴이 수식에 직접 적힌 문자열이면 수식 구성 오류이고, 데이터에서 왔으면 값 오류다.
+      // 패턴이 수식에 직접 적힌 문자열이면 수식 구성 오류이고, 데이터에서 왔으면 값 오류입니다.
       throw patternFromData ? valueError(message, true) : new FormulaEvalError(message, 'formula');
     });
     return formatDate(date, parts);
@@ -656,21 +657,21 @@ export const BUILTIN_FUNCTIONS: Record<
     arity('TODAY', args);
     return toIsoDate(ctx.now ?? new Date());
   },
-  /** DATE_ADD(날짜, 증감량, 단위? = "days") */
+  /** DATE_ADD(날짜, 증감량, 단위? = "days")입니다. */
   DATE_ADD: (args, _ctx, origins) => {
     arity('DATE_ADD', args);
     const date = parseDate(args[0] ?? null, 'date', origins[0] === true);
     const amount = requireInt(args[1] ?? null, 'amountDelta', origins[1] === true);
     const unit = toDateUnit(args.length > 2 ? (args[2] ?? null) : null, origins[2] === true);
-    // 결과는 날짜와 증감량 양쪽에 달려 있으므로 둘 중 하나라도 데이터에서 왔으면 데이터 의존 오류다.
+    // 결과는 날짜와 증감량 양쪽에 달려 있으므로 둘 중 하나라도 데이터에서 왔으면 데이터 의존 오류입니다.
     const shown = describe(args[0] ?? null);
     const fromData = origins[0] === true || origins[1] === true;
     if (unit === 'days') {
       date.setUTCDate(date.getUTCDate() + amount);
       assertSupportedYear(date, 'date', shown, fromData);
     } else {
-      // 월·해 가감은 대상 달의 마지막 날로 맞춘다 — setUTCMonth는 짧은 달에서 다음 달로
-      // 넘어가므로(1/31 + 1개월 → 3/3), 원래 일을 대상 달 말일로 클램프한다(EDATE 방식).
+      // 월과 연도를 더하거나 뺄 때는 대상 달의 마지막 날에 맞춥니다. setUTCMonth는 짧은 달에서 다음 달로
+      // 넘어가므로(1/31 + 1개월 → 3/3), 원래 날짜를 대상 달의 마지막 날에 맞춥니다(EDATE 방식).
       const day = date.getUTCDate();
       date.setUTCDate(1);
       if (unit === 'months') date.setUTCMonth(date.getUTCMonth() + amount);
@@ -681,7 +682,7 @@ export const BUILTIN_FUNCTIONS: Record<
     }
     return toIsoDate(date);
   },
-  /** DATE_DIFF(시작, 끝, 단위? = "days") — 끝 - 시작 */
+  /** DATE_DIFF(시작, 끝, 단위? = "days") — 끝 - 시작입니다. */
   DATE_DIFF: (args, _ctx, origins) => {
     arity('DATE_DIFF', args);
     const start = parseDate(args[0] ?? null, 'startDate', origins[0] === true);
@@ -696,7 +697,7 @@ export const BUILTIN_FUNCTIONS: Record<
   },
 
   // --- 세무 ---
-  /** VAT(공급가액, 세율? = 10) — 부가세액. 절사·반올림은 ROUND/FLOOR와 조합해 지정한다 */
+  /** VAT(공급가액, 세율? = 10)는 부가세액을 계산합니다. 버림과 반올림은 ROUND/FLOOR를 조합해 지정합니다. */
   VAT: (args, _ctx, origins) => {
     arity('VAT', args);
     const amount = toNumber(args[0] ?? null, 'supplyAmount', origins[0] === true);
@@ -706,17 +707,17 @@ export const BUILTIN_FUNCTIONS: Record<
   },
 
   // --- 타입 변환  ---
-  /** TO_NUMBER(값) — 글자·논리를 숫자로. 빈 값·빈 문자열은 0, 숫자로 볼 수 없으면 오류 */
+  /** TO_NUMBER(값)는 문자열과 논리값을 숫자로 바꿉니다. 빈 값과 빈 문자열은 0이며, 숫자로 바꿀 수 없으면 오류입니다. */
   TO_NUMBER: (args, _ctx, origins) => {
     arity('TO_NUMBER', args);
     return coerceToNumber(args[0] ?? null, origins[0] === true);
   },
-  /** TO_STRING(값) — 숫자·논리·빈 값을 글자로. 범위는 바꿀 수 없다 */
+  /** TO_STRING(값)은 숫자·논리·빈 값을 문자열로 바꿉니다. 범위는 변환할 수 없습니다. */
   TO_STRING: (args, _ctx, origins) => {
     arity('TO_STRING', args);
     return toText(args[0] ?? null, origins[0] === true);
   },
-  /** TO_DATE(값) — 날짜 문자열을 검증해 ISO(YYYY-MM-DD)로 정규화한다 */
+  /** TO_DATE(값)는 날짜 문자열을 검증해 ISO(YYYY-MM-DD) 형식으로 정규화합니다. */
   TO_DATE: (args, _ctx, origins) => {
     arity('TO_DATE', args);
     return toIsoDate(parseDate(args[0] ?? null, 'date', origins[0] === true));

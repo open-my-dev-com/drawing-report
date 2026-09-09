@@ -11,7 +11,7 @@ import {
 
 const MM_TO_PT = 72 / 25.4;
 
-/** 오른쪽을 넘는 사각형과 아래쪽을 넘는 글을 담은 A4 양식 */
+/** 오른쪽 경계를 넘는 사각형과 아래쪽 경계를 넘는 글을 담은 A4 양식입니다. */
 function makeOverflowFile(): SlipTemplateFile {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,

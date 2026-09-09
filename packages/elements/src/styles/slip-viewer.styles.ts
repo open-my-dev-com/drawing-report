@@ -1,9 +1,9 @@
 /**
- * `<slip-viewer>`의 스타일 시트.
+ * `<slip-viewer>`의 스타일 시트입니다.
  */
 import { css } from 'lit';
 
-/** `<slip-viewer>` 스타일 */
+/** `<slip-viewer>` 스타일입니다. */
 export const viewerStyles = css`
     :host {
       display: block;
@@ -11,7 +11,7 @@ export const viewerStyles = css`
       min-height: 200px;
     }
 
-    /* hidden 속성이 컴포넌트의 기본 display 규칙보다 우선하도록 지정한다. */
+    /* hidden 속성이 컴포넌트의 기본 display 규칙보다 우선하도록 지정합니다. */
     :host([hidden]) {
       display: none;
     }

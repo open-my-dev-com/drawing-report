@@ -1,7 +1,7 @@
 /**
- * `slip_schema` 도구가 반환하는 `.slip` 구조 안내문.
- * AI에 제공하는 내용은 영어로 작성하고, 전체 필드 정의는 core가 생성한 JSON Schema로 제공한다.
- * 요소 종류처럼 스키마와 함께 바뀌어야 하는 내용은 테스트에서 대조한다.
+ * `slip_schema` 도구가 반환하는 `.slip` 구조 안내문입니다.
+ * AI에 제공하는 내용은 영어로 작성하고, 전체 필드 정의는 core가 생성한 JSON Schema로 제공합니다.
+ * 요소 종류처럼 스키마와 함께 바뀌어야 하는 내용은 테스트에서 대조합니다.
  */
 import {
   CURRENT_SCHEMA_VERSION,
@@ -11,7 +11,7 @@ import {
   slipFileJsonSchema,
 } from '@omdc-slipkit/core';
 
-/** `slip_schema` 도구가 지원하는 주제 */
+/** `slip_schema` 도구가 지원하는 주제입니다. */
 export const SCHEMA_TOPICS = [
   'overview',
   'elements',
@@ -22,7 +22,7 @@ export const SCHEMA_TOPICS = [
   'json-schema',
 ] as const;
 
-/** `slip_schema` 주제 이름 */
+/** `slip_schema` 주제 이름입니다. */
 export type SchemaTopic = (typeof SCHEMA_TOPICS)[number];
 
 const OVERVIEW = `# .slip file structure (overview)
@@ -92,7 +92,7 @@ via slip_edit set_element/set_cell fields, or pass {"conditionalFormats": null} 
   file content (signature), not just the extension, and applies the same rule to any "data:" image
   given directly in src, assets[], or voucher image values.
   Do not author http(s) URLs. The file schema recognizes them for compatibility, but PDF rendering
-  does not fetch external images and issued vouchers reject them. set_image replaces parameter binding;
+  does not fetch external images and issued vouchers reject them. set_image replaces a parameter reference;
   this server does not provide a path-based operation for voucher image parameter values.
 - barcode: { "type": "barcode", "kind": "qrcode"|"code128"|"ean13"|"code39"|"ean8"|"upca"|
   "upce"|"itf14"|"nw7"|"japanpost"|"gs1datamatrix"|"pdf417", plus exactly ONE of content /
@@ -237,7 +237,7 @@ A voucher freezes a template and fills it with data:
   which happens in the host application, not through this server.`;
 
 /**
- * 주제에 해당하는 안내문을 반환한다.
+ * 주제에 해당하는 안내문을 반환합니다.
  *
  * @param topic - 주제 이름
  * @returns 안내문 (json-schema 주제는 core가 생성한 JSON Schema 전체 내용)

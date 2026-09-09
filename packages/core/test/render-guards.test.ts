@@ -21,17 +21,17 @@ import {
 const PNG_1PX =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
-/** 앞부분 바이트를 지정한 크기의 data: 문자열로 만든다 (서명·크기 검사용). */
+/** 서명과 크기를 검사할 수 있도록 앞부분 바이트를 지정한 크기의 data: 문자열로 만듭니다. */
 function dataUrl(mime: string, head: number[], size = head.length + 16): string {
   const bytes = new Uint8Array(size);
   bytes.set(head);
   return `data:${mime};base64,${Buffer.from(bytes).toString('base64')}`;
 }
 const PNG_HEAD = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-/** SOI·APP0·SOF0·EOI만 담은 1x1 JPEG */
+/** SOI·APP0·SOF0·EOI만 담은 1x1 JPEG입니다. */
 const JPEG_1PX = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/wAALCAABAAEBAREA/9k=';
 
-/** PNG 뒤에 채움 바이트를 붙여 지정한 크기의 data: 문자열을 만든다 (크기 상한 검사용). */
+/** 크기 상한을 검사할 수 있도록 PNG 뒤에 채움 바이트를 붙여 지정한 크기의 data: 문자열로 만듭니다. */
 function paddedPng(size: number): string {
   const png = Buffer.from(PNG_1PX.slice(PNG_1PX.indexOf(',') + 1), 'base64');
   const bytes = new Uint8Array(size);
@@ -39,7 +39,7 @@ function paddedPng(size: number): string {
   return `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`;
 }
 
-/** IDAT 데이터만 망가뜨려 청크 구조는 온전하지만 압축을 풀 수 없는 PNG를 만든다. */
+/** IDAT 데이터만 망가뜨려 청크 구조는 온전하지만 압축을 풀 수 없는 PNG를 만듭니다. */
 function pngWithBrokenPixels(): string {
   const bytes = Buffer.from(PNG_1PX.slice(PNG_1PX.indexOf(',') + 1), 'base64');
   const start = bytes.indexOf('IDAT') + 4;
@@ -77,7 +77,7 @@ function schemaNames(file: SlipVoucherFile): string[] {
   return (page ?? []).map((s) => s.name);
 }
 
-/** 렌더링 엔진의 기본 폰트(Roboto)를 등록 폰트로 쓴다 — 라틴 문자만 있어 글리프 검사에 알맞다. */
+/** 렌더링 엔진의 기본 폰트(Roboto)를 등록 폰트로 씁니다. 라틴 문자만 있어 글리프 검사에 알맞습니다. */
 async function defaultFonts(): Promise<SlipFont[]> {
   const { getDefaultFont } = await import('@pdfme/common');
   const font = getDefaultFont();
@@ -109,7 +109,7 @@ describe('바코드 값 검사', () => {
     expect(schemaNames(voucher([barcode('qrcode', { formula: '""' })]))).toEqual([]);
   });
 
-  it('EAN-13 — 검사 숫자가 맞는 값은 그리고 틀린 값은 요소 이름을 담은 오류를 낸다', () => {
+  it('EAN-13 검사 숫자가 올바르면 그리고 잘못되면 요소 이름을 담은 오류를 낸다', () => {
     expect(schemaNames(voucher([barcode('ean13', { content: '4006381333931' })]))).toEqual(['bc']);
     expect(schemaNames(voucher([barcode('ean13', { content: '400638133393' })]))).toEqual(['bc']);
     const bad = voucher([barcode('ean13', { content: '4006381333932' })]);
@@ -158,7 +158,7 @@ describe('렌더 단계의 이미지 데이터 검사', () => {
     expect(() => convertSlipFile(png)).toThrow(SlipRenderError);
     expect(() => convertSlipFile(png)).toThrow(/image '서명' \(img\).*damaged and cannot be embedded/);
     expect(() => convertSlipFile(png, { locale: 'ko-KR' }))
-      .toThrow("이미지 '서명' (img)의 이미지가 손상되어 PDF에 넣을 수 없습니다");
+      .toThrow("이미지 '서명' (img): 이미지 데이터가 손상되어 PDF에 넣을 수 없습니다");
     expect(() => convertSlipFile(png, { locale: 'ja' }))
       .toThrow("画像 '서명'(img)の画像が破損しており PDF に埋め込めません");
     const jpeg = voucher([image({ src: dataUrl('image/jpeg', JPEG_HEAD) })]);
@@ -175,7 +175,7 @@ describe('렌더 단계의 이미지 데이터 검사', () => {
     const corrupted = dataUrl('image/png', [0x89, 0x50, 0x00, 0x00]);
     const file = voucher([image({ parameter: 'sign' })], { sign: corrupted });
     expect(() => convertSlipFile(file)).toThrow(/image '서명' \(img\).*damaged/);
-    expect(() => convertSlipFile(file, { locale: 'ko-KR' })).toThrow("이미지 '서명' (img)의 이미지가 선언한 PNG·JPEG가 아닙니다");
+    expect(() => convertSlipFile(file, { locale: 'ko-KR' })).toThrow("이미지 '서명' (img): 이미지 데이터가 지정된 PNG 또는 JPEG 형식과 일치하지 않습니다");
     expect(() => convertSlipFile(file, { locale: 'ja' })).toThrow("画像 '서명'(img)の画像が宣言された PNG・JPEG ではありません");
   });
 
@@ -183,7 +183,7 @@ describe('렌더 단계의 이미지 데이터 검사', () => {
     const file = voucher([image({ parameter: 'sign' })], { sign: 123 });
     expect(() => convertSlipFile(file)).toThrow("The value 'sign' of image '서명' (img) must be an image string");
     expect(() => convertSlipFile(file, { locale: 'ko-KR' }))
-      .toThrow("이미지 '서명' (img)의 'sign' 값은 이미지 문자열이어야 합니다");
+      .toThrow("이미지 '서명' (img)의 'sign' 값은 문자열이어야 합니다");
     expect(() => convertSlipFile(file, { locale: 'ja' }))
       .toThrow("画像 '서명'(img)の値 'sign' は画像の文字列でなければなりません");
   });
@@ -219,7 +219,7 @@ describe('값 소스의 경계 처리', () => {
       rows: [{ height: 8 }], columns: [{ width: 40 }, { width: 40 }], cells,
     }) as SlipElement;
 
-  /** 그리드 셀에 그려진 표시 문자열을 순서대로 읽는다. 빈 셀은 그려지지 않는다. */
+  /** 그리드 셀에 그려진 표시 문자열을 순서대로 읽습니다. 빈 셀은 그려지지 않습니다. */
   function cellTexts(file: SlipVoucherFile): string[] {
     const { template, inputs } = convertSlipFile(file);
     const page = (template.schemas[0] ?? []) as { name: string }[];
@@ -245,7 +245,7 @@ describe('값 소스의 경계 처리', () => {
       { row: 0, column: 0, formula: ' \n ' },
       { row: 0, column: 1, content: '표시' },
     ])]))).toEqual(['표시']);
-    // 값이 비어 있는 바코드는 그리지 않는다.
+    // 값이 비어 있는 바코드는 그리지 않습니다.
     expect(schemaNames(voucher([barcode('qrcode', { formula: '   ' })]))).toEqual([]);
   });
 });
@@ -263,7 +263,7 @@ describe('PDF 생성 실패는 SlipRenderError로 통일한다', () => {
     const file = voucher([image({ src: dataUrl('image/png', PNG_HEAD, 64) })]);
     await expect(renderSlipToPdf(file)).rejects.toThrow(/image '서명' \(img\).*damaged and cannot be embedded/);
     await expect(renderSlipToPdf(file, { locale: 'ko-KR' }))
-      .rejects.toThrow("이미지 '서명' (img)의 이미지가 손상되어 PDF에 넣을 수 없습니다");
+      .rejects.toThrow("이미지 '서명' (img): 이미지 데이터가 손상되어 PDF에 넣을 수 없습니다");
     await expect(renderSlipToPdf(file, { locale: 'ja' }))
       .rejects.toThrow("画像 '서명'(img)の画像が破損しており PDF に埋め込めません");
   });
@@ -296,12 +296,12 @@ describe('표시 문자열 길이 상한', () => {
 });
 
 describe('글리프 검사', () => {
-  it('선택된 폰트에 없는 문자는 요소 이름·id·문제 문자를 담은 SlipRenderError', async () => {
+  it('선택한 폰트에 없는 문자는 요소 이름·ID·문제 문자를 담은 SlipRenderError를 반환한다', async () => {
     const fonts = await defaultFonts();
     const file = voucher([text('Amount 금액')]);
     await expect(renderSlipToPdf(file, { getFonts: () => fonts })).rejects.toBeInstanceOf(SlipRenderError);
     await expect(renderSlipToPdf(file, { getFonts: () => fonts })).rejects.toThrow(/text '글' \(tx\).*'금' \(U\+AE08\)/);
-    await expect(renderSlipToPdf(file, { getFonts: () => fonts, locale: 'ko-KR' })).rejects.toThrow("'금'(U+AE08) 글리프가 없습니다");
+    await expect(renderSlipToPdf(file, { getFonts: () => fonts, locale: 'ko-KR' })).rejects.toThrow("텍스트 '글' (tx)에 사용한 폰트 'Roboto'로는 문자 '금'(U+AE08)를 표시할 수 없습니다");
     await expect(renderSlipToPdf(file, { getFonts: () => fonts, locale: 'ja' })).rejects.toThrow('グリフがありません');
   });
 
@@ -319,11 +319,11 @@ describe('글리프 검사', () => {
 
   it('개행·탭·제로폭 문자와 변형 선택자는 검사하지 않고, 등록 폰트가 없으면 검사를 건너뛴다', async () => {
     const fonts = await defaultFonts();
-    // U+FE0F·U+E0100(변형 선택자)은 폰트에 글리프가 없어도 표시에 영향이 없으므로 오류가 아니다.
+    // U+FE0F·U+E0100(변형 선택자)은 폰트에 글리프가 없어도 표시에 영향이 없으므로 오류가 아닙니다.
     const file = voucher([text('line 1\nline\t2​﻿⁠ A️ B\u{e0100}')]);
     const pdf = await renderSlipToPdf(file, { getFonts: () => fonts });
     expect(new TextDecoder().decode(pdf.slice(0, 4))).toBe('%PDF');
-    // 등록 폰트가 없으면 엔진 기본 폰트를 쓰므로 검사할 수 없다 — 오류 없이 렌더한다.
+    // 등록 폰트가 없으면 엔진 기본 폰트를 쓰므로 검사할 수 없습니다. 오류 없이 렌더합니다.
     expect(schemaNames(voucher([text('금액')]))).toEqual(['tx']);
   });
 });
@@ -331,7 +331,7 @@ describe('글리프 검사', () => {
 describe('clip 줄 계산은 렌더링 엔진의 줄바꿈과 같다', () => {
   const style = (characterSpacing: number, fontName?: string) => ({ fontName, fontSize: 10, characterSpacing });
 
-  /** 렌더링 엔진 내부의 줄바꿈 함수를 이름으로 찾는다 — 공개 API가 아니라 청크 파일에서 읽는다. */
+  /** 렌더링 엔진 내부의 줄바꿈 함수를 이름으로 찾습니다. 공개 API가 아니라 청크 파일에서 읽습니다. */
   async function engineSplitter(): Promise<{
     splitTextToSize: (arg: { value: string; characterSpacing: number; fontSize: number; fontKitFont: unknown; boxWidthInPt: number }) => string[];
     getFontKitFont: (fontName: string | undefined, font: Record<string, { data: Uint8Array; fallback?: boolean }>, cache: Map<string, unknown>) => Promise<unknown>;
@@ -339,7 +339,7 @@ describe('clip 줄 계산은 렌더링 엔진의 줄바꿈과 같다', () => {
     const require = createRequire(import.meta.url);
     const dist = dirname(require.resolve('@pdfme/schemas'));
     const chunk = readdirSync(dist).find((name) => /^splitRange-.*\.js$/.test(name));
-    if (chunk === undefined) throw new Error('렌더링 엔진의 줄바꿈 청크를 찾지 못했다');
+    if (chunk === undefined) throw new Error('렌더링 엔진의 줄바꿈 조각을 찾지 못했습니다.');
     const mod = (await import(pathToFileURL(join(dist, chunk)).href)) as Record<string, unknown>;
     const byName = (name: string) => Object.values(mod).find((v) => typeof v === 'function' && v.name === name);
     return { splitTextToSize: byName('splitTextToSize') as never, getFontKitFont: byName('getFontKitFont') as never };

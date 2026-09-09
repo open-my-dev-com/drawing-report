@@ -203,7 +203,7 @@ When `getFonts` is not configured, `SlipKit.locale` selects the bundled default 
 The following are not translated automatically.
 
 - Text entered directly into the template
-- Parameter logical names
+- Parameter display names
 - The contents of a `.slip` file received from an external source
 - The names and contents of presets supplied by the application
 

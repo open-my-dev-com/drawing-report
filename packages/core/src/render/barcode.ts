@@ -1,15 +1,15 @@
 /**
- * 바코드 종류별 값 형식 검사.
+ * 바코드 종류별 값 형식을 검사합니다.
  *
- * 렌더링 엔진은 형식에 맞지 않는 값을 조용히 건너뛰어 빈자리를 남기므로, 변환 계층에서
- * 같은 규칙으로 먼저 검사해 요소 이름을 담은 오류로 알린다. 규칙은 각 규격의 허용 문자와
- * 자릿수, GTIN 계열의 검사 숫자다.
+ * 렌더링 엔진은 형식에 맞지 않는 값을 오류 없이 건너뛰어 빈자리를 남기므로, 변환 계층에서
+ * 같은 규칙으로 먼저 검사해 요소 이름을 담은 오류로 알립니다. 규칙은 각 규격의 허용 문자와
+ * 자릿수, GTIN 계열의 검사 숫자입니다.
  */
 import type { BarcodeKind } from '../format/schema.js';
 
-/** GTIN 계열(EAN·UPC·ITF-14)의 마지막 자리가 modulo-10 검사 숫자와 맞는지 확인한다. */
+/** GTIN 계열(EAN·UPC·ITF-14)의 마지막 자리가 modulo-10 검사 숫자와 맞는지 확인합니다. */
 function passesCheckDigit(input: string, checkDigitPosition: number): boolean {
-  // 검사 숫자 없이 한 자리 짧게 적은 값은 렌더링 엔진이 검사 숫자를 만들어 붙이므로 그대로 허용한다.
+  // 검사 숫자를 빼고 한 자리 짧게 적은 값은 렌더링 엔진이 검사 숫자를 만들어 붙이므로 그대로 허용합니다.
   if (input.length !== checkDigitPosition) return true;
   const digits = input.slice(0, -1).replace(/[^0-9]/g, '');
   let sum = 0;
@@ -21,23 +21,23 @@ function passesCheckDigit(input: string, checkDigitPosition: number): boolean {
   return String((10 - (sum % 10)) % 10) === input.slice(-1);
 }
 
-/** Code128에 넣을 수 없는 전각·가나·한자 문자 */
+/** Code128에 넣을 수 없는 전각·가나·한자 문자입니다. */
 const CODE128_FORBIDDEN =
   /[゠-ヿ぀-ゟ々-〆ム-鿏]|[Ａ-Ｚａ-ｚ０-９！＂＃＄％＆＇（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝〜　]/;
 
-/** QR 코드에 넣을 수 있는 최대 문자 수 */
+/** QR 코드에 넣을 수 있는 최대 문자 수입니다. */
 const QR_MAX_LENGTH = 499;
-/** PDF417에 넣을 수 있는 최대 문자 수 */
+/** PDF417에 넣을 수 있는 최대 문자 수입니다. */
 const PDF417_MAX_LENGTH = 1000;
-/** GS1 DataMatrix 값의 최대 길이 */
+/** GS1 DataMatrix 값의 최대 길이입니다. */
 const GS1_DATAMATRIX_MAX_LENGTH = 52;
 
 /**
- * 바코드 종류에 맞는 값인지 검사한다.
+ * 바코드 종류에 맞는 값인지 검사합니다.
  *
- * @param kind - 바코드 종류
- * @param value - 비어 있지 않은 바코드 값
- * @returns 그릴 수 있는 값이면 true
+ * @param kind - 바코드 종류입니다.
+ * @param value - 비어 있지 않은 바코드 값입니다.
+ * @returns 그릴 수 있는 값이면 `true`를 반환합니다.
  */
 export function isValidBarcodeValue(kind: BarcodeKind, value: string): boolean {
   if (value === '') return false;

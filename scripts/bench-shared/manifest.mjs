@@ -1,19 +1,19 @@
 /**
- * `bench:all` 한 번이 남기는 manifest.
+ * `bench:all` 실행 결과를 한데 모은 목록 파일입니다.
  *
- * 하위 benchmark는 저마다 원자료 JSON을 남기고, manifest는 그 실행들을 한 장으로 묶는다 —
- * 어떤 명령을 어떤 순서로 돌렸는지, 결과 파일이 어디에 있고 어떤 schema 판인지, 성공했는지,
- * 어떤 환경에서 쟀는지(fingerprint)와 기준선 판정이 어땠는지.
+ * 각 하위 성능 측정은 원본 데이터 JSON을 남기고, 이 파일은 실행 결과를 하나로 묶습니다.
+ * 어떤 명령을 어떤 순서로 실행했는지, 결과 파일이 어디에 있고 어떤 스키마 판인지, 성공했는지,
+ * 실행 환경 정보와 기준선 판정을 함께 기록합니다.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { BenchSchemaError, TOOLS } from './result.mjs';
 
-/** manifest 봉투의 이름과 판 번호 */
+/** 실행 목록 형식의 이름과 버전입니다. */
 export const MANIFEST_SCHEMA = Object.freeze({ name: 'slipkit-bench-manifest', version: 1 });
 
 /**
- * 하위 실행 기록 하나를 만든다.
+ * 하위 실행 기록 하나를 만듭니다.
  *
  * @param {{ tool: string, command: string, argv: string[], success: boolean, exitCode: number | null,
  *   durationMs: number, resultFile: string | null, logFile: string | null,
@@ -21,10 +21,10 @@ export const MANIFEST_SCHEMA = Object.freeze({ name: 'slipkit-bench-manifest', v
  *   environment?: Record<string, unknown> | null, metricCount?: number,
  *   comparison?: Record<string, unknown> | null, error?: string | null }} spec - 실행 기록
  * @returns {Record<string, any>} 실행 기록
- * @throws BenchSchemaError 알 수 없는 benchmark 이름일 때
+ * @throws BenchSchemaError 알 수 없는 측정 이름일 때
  */
 export function createRunRecord(spec) {
-  if (!TOOLS.includes(spec.tool)) throw new BenchSchemaError(`알 수 없는 benchmark 이름 ${String(spec.tool)}`);
+  if (!TOOLS.includes(spec.tool)) throw new BenchSchemaError(`알 수 없는 성능 측정 이름입니다: ${String(spec.tool)}`);
   return {
     tool: spec.tool,
     command: spec.command,
@@ -44,7 +44,7 @@ export function createRunRecord(spec) {
 }
 
 /**
- * manifest를 만든다.
+ * manifest를 만듭니다.
  *
  * @param {{ startedAt: string, finishedAt: string, outDir: string, baselineDir: string | null,
  *   environment: Record<string, unknown>, fingerprint: string, runs: object[],
@@ -70,39 +70,39 @@ export function buildManifest(spec) {
 }
 
 /**
- * manifest를 검사한다.
+ * manifest를 검사합니다.
  *
  * @param {any} value - 검사할 값
  * @returns {Record<string, any>} 같은 값 (문제가 없을 때)
- * @throws BenchSchemaError 봉투 이름·판 번호가 다르거나 실행 기록이 형식에 맞지 않을 때
+ * @throws BenchSchemaError 실행 목록 형식의 이름·버전이 다르거나 실행 기록이 형식에 맞지 않을 때
  */
 export function validateManifest(value) {
-  if (value === null || typeof value !== 'object') throw new BenchSchemaError('manifest가 객체가 아니다');
+  if (value === null || typeof value !== 'object') throw new BenchSchemaError('manifest가 객체가 아닙니다.');
   if (value.schema?.name !== MANIFEST_SCHEMA.name) {
-    throw new BenchSchemaError(`manifest schema 이름이 다르다: ${String(value.schema?.name)} ≠ ${MANIFEST_SCHEMA.name}`);
+    throw new BenchSchemaError(`manifest 스키마 이름이 다릅니다: ${String(value.schema?.name)} ≠ ${MANIFEST_SCHEMA.name}`);
   }
   if (value.schema?.version !== MANIFEST_SCHEMA.version) {
-    throw new BenchSchemaError(`manifest schema 판 번호가 다르다: ${String(value.schema?.version)} ≠ ${MANIFEST_SCHEMA.version}`);
+    throw new BenchSchemaError(`manifest 스키마 버전이 다릅니다: ${String(value.schema?.version)} ≠ ${MANIFEST_SCHEMA.version}`);
   }
-  if (!Array.isArray(value.runs) || value.runs.length === 0) throw new BenchSchemaError('manifest runs가 비었다');
+  if (!Array.isArray(value.runs) || value.runs.length === 0) throw new BenchSchemaError('manifest의 runs가 비어 있습니다.');
   const seen = new Set();
   for (const run of value.runs) {
-    if (!TOOLS.includes(run?.tool)) throw new BenchSchemaError(`알 수 없는 benchmark 이름 ${String(run?.tool)}`);
-    if (seen.has(run.tool)) throw new BenchSchemaError(`실행 기록이 겹친다: ${run.tool}`);
+    if (!TOOLS.includes(run?.tool)) throw new BenchSchemaError(`알 수 없는 성능 측정 이름입니다: ${String(run?.tool)}`);
+    if (seen.has(run.tool)) throw new BenchSchemaError(`실행 기록이 겹칩니다: ${run.tool}`);
     seen.add(run.tool);
-    if (typeof run.success !== 'boolean') throw new BenchSchemaError(`${run.tool}: success가 참거짓이 아니다`);
-    if (run.success && run.resultFile === null) throw new BenchSchemaError(`${run.tool}: 성공한 실행에 결과 파일 경로가 없다`);
-    if (run.success && run.fingerprint === null) throw new BenchSchemaError(`${run.tool}: 성공한 실행에 환경 fingerprint가 없다`);
-    if (run.success && run.resultSchema === null) throw new BenchSchemaError(`${run.tool}: 성공한 실행에 결과 schema가 없다`);
+    if (typeof run.success !== 'boolean') throw new BenchSchemaError(`${run.tool}: success가 참 또는 거짓이 아닙니다.`);
+    if (run.success && run.resultFile === null) throw new BenchSchemaError(`${run.tool}: 성공한 실행에 결과 파일 경로가 없습니다.`);
+    if (run.success && run.fingerprint === null) throw new BenchSchemaError(`${run.tool}: 성공한 실행에 환경 fingerprint가 없습니다.`);
+    if (run.success && run.resultSchema === null) throw new BenchSchemaError(`${run.tool}: 성공한 실행에 결과 스키마가 없습니다.`);
   }
   if (typeof value.fingerprint !== 'string' || value.fingerprint.length === 0) {
-    throw new BenchSchemaError('manifest fingerprint가 비었다');
+    throw new BenchSchemaError('manifest의 fingerprint가 비어 있습니다.');
   }
   return value;
 }
 
 /**
- * manifest를 파일로 쓴다.
+ * manifest를 파일로 씁니다.
  *
  * @param {string} file - 저장할 경로
  * @param {Record<string, any>} manifest - `buildManifest` 결과
@@ -116,7 +116,7 @@ export function writeManifestFile(file, manifest) {
 }
 
 /**
- * manifest 파일을 읽어 검사한다.
+ * manifest 파일을 읽어 검사합니다.
  *
  * @param {string} file - 읽을 경로
  * @returns {Record<string, any>} manifest
@@ -127,7 +127,7 @@ export function readManifestFile(file) {
   try {
     parsed = JSON.parse(readFileSync(file, 'utf8'));
   } catch (error) {
-    throw new BenchSchemaError(`manifest를 읽지 못했다 (${file}): ${error instanceof Error ? error.message : String(error)}`);
+    throw new BenchSchemaError(`manifest를 읽지 못했습니다(${file}): ${error instanceof Error ? error.message : String(error)}`);
   }
   return validateManifest(parsed);
 }

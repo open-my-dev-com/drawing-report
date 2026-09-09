@@ -1,4 +1,4 @@
-// Vite + Elements 소비자: 커스텀 엘리먼트를 등록하고 양식을 넘긴다.
+// Vite + Elements 소비자: 커스텀 엘리먼트를 등록하고 양식을 넘깁니다.
 import '@omdc-slipkit/elements';
 import { createSlipKit } from '@omdc-slipkit/core';
 import { template } from '../template.mjs';

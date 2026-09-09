@@ -1,5 +1,5 @@
 /**
- * 조건부 서식 규칙 편집 — 조건식과 색·글자 강조 재정의.
+ * 조건부 서식의 조건식, 색과 글자 강조 설정을 편집합니다.
  *
  * @remarks
  * 조건식은 저장 전에 수식 모달과 같은 검사를 거칩니다. 문법이 깨졌거나 논리값을 내지 않는
@@ -19,7 +19,7 @@ import type { PanelKit } from './panel-kit.js';
  *
  * @param kit - 속성 패널 렌더링에 필요한 문구와 상태
  * @param rules - 현재 규칙 목록
- * @param keyPrefix - 입력 요소 id에 붙일 접두사 — 같은 화면의 다른 구역과 겹치지 않게 합니다
+ * @param keyPrefix - 입력 요소 ID에 붙일 접두사. 같은 화면의 다른 구역과 겹치지 않게 합니다.
  * @param update - 바뀐 규칙 목록을 저장하는 함수
  * @param targetOf - 규칙 순번으로 조건식 편집 대상을 만드는 함수
  * @param ariaPrefix - 접근성 레이블 앞에 붙일 대상 이름

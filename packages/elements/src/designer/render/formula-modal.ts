@@ -1,5 +1,5 @@
 /**
- * 수식 편집 모달 — 위쪽에 편집 대상, 수식 입력과 검사 결과를, 아래쪽에 함수·값 참조를 둡니다.
+ * 수식 편집 모달의 위쪽에는 편집 대상, 수식 입력과 검사 결과를 두고 아래쪽에는 함수와 값 참조를 둡니다.
  *
  * @remarks
  * 대상은 모달을 열 때 확정합니다. 이 모듈은 선택 상태를 보지 않고 컴포넌트가 넘긴
@@ -18,40 +18,40 @@ import { describeFormulaTarget, type FormulaTarget } from '../formula-target.js'
 import type { DesignerStrings } from '../../strings.js';
 import type { DialogContext } from './dialogs.js';
 
-/** 모달이 표시하는 편집 대상 */
+/** 모달이 표시하는 편집 대상입니다. */
 interface FormulaTargetView {
-  /** 편집 대상 식별 정보 */
+  /** 편집 대상 식별 정보입니다. */
   target: FormulaTarget;
-  /** 대상 요소 */
+  /** 대상 요소입니다. */
   element: SlipElement;
-  /** 그리드 셀 대상이면 그 셀 */
+  /** 그리드 셀 대상이면 그 셀입니다. */
   cell?: GridCell;
-  /** 조건부 서식의 조건식인지 */
+  /** 조건부 서식의 조건식인지 나타냅니다. */
   condition: boolean;
-  /** 미리 계산에 쓰는 항목이 놓인 출력 페이지 (0부터). 계획이 없으면 null */
+  /** 미리 계산할 항목이 놓인 출력 페이지의 인덱스입니다. 0부터 시작하며 계획이 없으면 `null`입니다. */
   outputPage: number | null;
-  /** 미리 계산에 쓰는 항목이 속한 그룹 (0부터). 그룹 설정이 없으면 null */
+  /** 미리 계산할 항목이 속한 그룹의 인덱스입니다. 0부터 시작하며 그룹 설정이 없으면 `null`입니다. */
   groupIndex: number | null;
 }
 
-/** 수식 모달이 화면을 그리는 데 필요한 상태 */
+/** 수식 모달이 화면을 그리는 데 필요한 상태입니다. */
 export interface FormulaModalView {
   /**
    * 편집 대상. 대상이 지워졌거나 모달을 연 뒤 내용이 바뀌었으면 null이며,
    * 이때 `check`는 `target-changed`입니다.
    */
   target: FormulaTargetView | null;
-  /** 지금 초안의 검사 결과 */
+  /** 지금 초안의 검사 결과입니다. */
   check: FormulaCheck;
-  /** 고를 수 있는 샘플 항목 수 */
+  /** 고를 수 있는 샘플 항목 수입니다. */
   itemCount: number;
-  /** 지금 고른 샘플 항목의 자리. 반복 그리드가 아니면 null */
+  /** 지금 고른 샘플 항목의 자리. 반복 그리드가 아니면 null입니다. */
   currentItem: ItemChoice | null;
-  /** 예약 참조별 사용 가능 여부 */
+  /** 예약 참조별 사용 가능 여부를 나타냅니다. */
   reserved: ReservedAvailability[];
 }
 
-/** 반복 데이터 범위를 쓸 수 없는 이유별 안내 문구 */
+/** 반복 데이터 범위를 쓸 수 없는 이유별 안내 문구입니다. */
 function reasonText(s: DesignerStrings, reason: ReservedBlockReason): string {
   switch (reason) {
     case 'not-repeat': return s.reservedNeedRepeat;
@@ -61,7 +61,7 @@ function reasonText(s: DesignerStrings, reason: ReservedBlockReason): string {
   }
 }
 
-/** 반복 데이터 범위의 사용자 이름 — 코드 이름만으로는 뜻을 알 수 없습니다 */
+/** 반복 데이터 범위에 표시할 이름을 반환합니다. */
 function reservedLabel(s: DesignerStrings, name: string): string {
   switch (name) {
     case '@item': return s.formulaReservedItem;
@@ -73,7 +73,7 @@ function reservedLabel(s: DesignerStrings, name: string): string {
   }
 }
 
-/** 자리표시자를 채운 문구를 만듭니다. */
+/** 자리 표시자를 채운 문구를 만듭니다. */
 function fill(template: string, values: Record<string, string | number>): string {
   return Object.entries(values).reduce(
     (text, [key, value]) => text.replaceAll(`{${key}}`, String(value)),
@@ -98,18 +98,18 @@ function itemChoiceText(s: DesignerStrings, choice: ItemChoice): string {
   return parts.join(' · ');
 }
 
-/** 검사 결과를 어떤 상태로 보여 줄지 — 색만이 아니라 제목과 문구가 뜻을 설명합니다 */
+/** 검사 결과에 적용할 표시 상태입니다. 제목과 문구도 상태의 의미를 설명합니다. */
 type FormulaCheckTone = 'ok' | 'notice' | 'warning' | 'error';
 
-/** 검사 결과를 표시할 상태, 제목과 내용 */
+/** 검사 결과를 표시할 상태, 제목과 내용입니다. */
 export interface FormulaCheckText {
-  /** 상태 제목 */
+  /** 상태 제목입니다. */
   title: string;
-  /** 결과 값이나 그렇게 판정한 까닭 */
+  /** 결과 값이나 판정 이유입니다. */
   text: string;
-  /** 적용은 할 수 있음을 알리는 덧붙임. 없으면 빈 값 */
+  /** 수식을 적용할 수 있음을 알리는 추가 안내입니다. 안내가 없으면 빈 문자열입니다. */
   hint?: string;
-  /** 표시 상태 */
+  /** 표시 상태입니다. */
   tone: FormulaCheckTone;
 }
 
@@ -130,7 +130,7 @@ export function formulaCheckText(
   const withDetail = (text: string): string => (check.detail ? `${text} (${check.detail})` : text);
   const error = (text: string): FormulaCheckText =>
     ({ title: s.formulaStatusError, text, tone: 'error' });
-  // 계산에 실패했지만 적용할 수 있는 상태 — 저장 뒤 요소에 남는 경고를 함께 알립니다.
+  // 계산에 실패했지만 적용할 수 있으면 저장 뒤 요소에 경고가 남는다는 점도 알립니다.
   const warning = (): FormulaCheckText => ({
     title: s.formulaStatusWarning,
     text: check.detail ?? s.formulaCannotCalculate,
@@ -161,7 +161,7 @@ export function formulaCheckText(
  * 수식 편집 모달을 렌더링합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
- * @returns 수식 모달. 열려 있지 않으면 빈 것
+ * @returns 수식 모달. 열려 있지 않으면 빈 템플릿
  */
 export function formulaModal(d: DialogContext) {
   if (!d.dialogs.isOpen('formula')) return nothing;
@@ -195,8 +195,8 @@ export function formulaModal(d: DialogContext) {
 /**
  * 편집 대상, 수식 입력, 검사 결과와 샘플 항목 선택을 렌더링합니다.
  *
- * 수식 작성이 이 모달의 주 작업이라 모달 너비 전체를 입력란에 주고, 검사 결과는 입력란
- * 바로 아래에 두어 고친 결과를 시선을 옮기지 않고 확인할 수 있게 합니다.
+ * 수식 입력란은 모달 너비 전체를 사용합니다. 검사 결과를 입력란 바로 아래에 표시하여
+ * 수정 결과를 한곳에서 확인할 수 있게 합니다.
  */
 function editorArea(d: DialogContext, view: FormulaModalView) {
   const s = d.s;
@@ -270,7 +270,7 @@ function sampleItemPicker(d: DialogContext, view: FormulaModalView) {
   const s = d.s;
   /** 범위를 벗어나거나 정수가 아닌 항목 번호를 실제 항목으로 맞춥니다. */
   const clamp = (to: number): number => Math.min(Math.max(Math.round(to), 0), view.itemCount - 1);
-  /** 입력한 글을 항목 번호로 읽습니다. 비어 있거나 숫자가 아니면 고른 항목을 유지합니다. */
+  /** 입력한 글을 항목 번호로 읽습니다. 비어 있거나 숫자가 아니면 선택한 항목을 유지합니다. */
   const parse = (typed: string): number => {
     if (typed.trim() === '') return current.index;
     const value = Number(typed);
@@ -288,7 +288,7 @@ function sampleItemPicker(d: DialogContext, view: FormulaModalView) {
         @change=${(e: Event) => {
           const input = e.target as HTMLInputElement;
           const next = parse(input.value);
-          // 고른 항목이 그대로면 다시 그리지 않으므로 입력란을 여기서 맞춥니다.
+          // 선택한 항목이 그대로면 다시 렌더링하지 않으므로 입력란을 여기서 맞춥니다.
           input.value = String(next + 1);
           d.formula.selectItem(next);
         }}>
@@ -471,7 +471,7 @@ function valueSection(d: DialogContext, view: FormulaModalView) {
  * 목록 파라미터의 하위 필드 자동완성 항목을 렌더링합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
- * @returns 자동완성 목록. 후보가 없으면 빈 것
+ * @returns 자동완성 목록. 후보가 없으면 빈 템플릿
  */
 function columnSuggestions(d: DialogContext) {
   const suggestion = d.formula.suggestion(d.parameters());

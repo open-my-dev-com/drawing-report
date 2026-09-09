@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STRINGS, getStrings } from '../src/strings.js';
 
-// 타입 검사 외에 각 언어 사전의 런타임 값도 확인한다.
+// 타입 검사 외에 각 언어 사전의 런타임 값도 확인합니다.
 
 function leaves(value: unknown): string[] {
   if (typeof value === 'string') return [value];
@@ -27,7 +27,7 @@ describe('UI 문구 사전 (ADR-013/028)', () => {
     }
     expect(STRINGS.ko.designer.formulaStatusWarning).toBe('현재 값으로 계산할 수 없음');
     expect(STRINGS.ko.designer.formulaWarningHint)
-      .toBe('수식을 적용할 수 있지만, 계산할 수 없는 동안 요소에 경고가 표시됩니다.');
+      .toBe('현재 값으로 계산할 수 없으면 요소에 경고가 표시되지만 수식은 적용할 수 있습니다.');
     expect(STRINGS.en.designer.formulaStatusWarning).toBe('Cannot calculate with the current values');
     expect(STRINGS.en.designer.formulaWarningHint)
       .toBe('You can apply the formula. A warning remains on the element until it can be calculated.');
@@ -47,7 +47,7 @@ describe('UI 문구 사전 (ADR-013/028)', () => {
       expect(text.toLowerCase(), text).toContain('template');
       expect(text.toLowerCase(), text).not.toMatch(/\bforms?\b/);
     }
-    // 입력폼 탭 이름은 전표를 채우는 화면을 가리키므로 그대로 둡니다.
+    // 작성 폼 탭은 전표에 값을 입력하는 화면을 가리킵니다.
     expect(d.formMode).toBe('Form');
   });
 

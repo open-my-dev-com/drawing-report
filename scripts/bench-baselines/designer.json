@@ -26,11 +26,11 @@
     "maxUndo": 50,
     "chromium": false
   },
-  "notes": "`node scripts/bench-designer.mjs`의 기본 설정(워밍업 5회, 본 측정 30회, pointermove 120번)으로 잰 값이다. Chromium 표는 기준선에 넣지 않는다.",
+  "notes": "`node scripts/bench-designer.mjs`의 기본 설정(워밍업 5회, 실제 측정 30회, pointermove 120번)으로 측정한 값입니다. Chromium 표는 기준선에 넣지 않습니다.",
   "metrics": [
     {
       "id": "designer.small.templateChars",
-      "label": "small — 양식 문자 수",
+      "label": "small · 양식 문자 수",
       "unit": "count",
       "kind": "deterministic",
       "value": 2750,
@@ -38,11 +38,11 @@
         "fixture": "small",
         "runs": 30
       },
-      "rationale": "양식은 색인에서 결정적으로 만들어 길이가 늘 같다"
+      "rationale": "양식은 정해진 규칙으로 생성하므로 길이가 항상 같습니다."
     },
     {
       "id": "designer.small.stringifyDocCalls",
-      "label": "small — 문서 크기 JSON.stringify 호출",
+      "label": "small · 문서 크기 JSON.stringify 호출",
       "unit": "count",
       "kind": "deterministic",
       "value": 1,
@@ -50,11 +50,11 @@
         "fixture": "small",
         "runs": 30
       },
-      "rationale": "드래그 한 번에 문서 전체를 직렬화하는 횟수 — 늘면 되돌리기 기록이나 캐시 키가 늘어난 것이다"
+      "rationale": "드래그 한 번에 문서 전체를 직렬화하는 횟수입니다. 값이 늘면 되돌리기 기록이나 캐시 키가 증가한 것으로 판단합니다."
     },
     {
       "id": "designer.small.cloneCalls",
-      "label": "small — structuredClone 호출",
+      "label": "small · structuredClone 호출",
       "unit": "count",
       "kind": "deterministic",
       "value": 1,
@@ -62,11 +62,11 @@
         "fixture": "small",
         "runs": 30
       },
-      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 한다 — 값이 달라지면 동작이 바뀐 것이다"
+      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 합니다. 값이 달라지면 동작 변경으로 판단합니다."
     },
     {
       "id": "designer.small.planCalls",
-      "label": "small — planSourcePage 호출",
+      "label": "small · planSourcePage 호출",
       "unit": "count",
       "kind": "deterministic",
       "value": 120,
@@ -74,11 +74,11 @@
         "fixture": "small",
         "runs": 30
       },
-      "rationale": "pointermove 120번마다 페이지 계획을 한 번씩 다시 계산한다"
+      "rationale": "pointermove 120번마다 페이지 계획을 한 번씩 다시 계산합니다."
     },
     {
       "id": "designer.small.undoEntries",
-      "label": "small — 드래그 한 번의 되돌리기 항목",
+      "label": "small · 드래그 한 번의 되돌리기 항목",
       "unit": "count",
       "kind": "deterministic",
       "value": 1,
@@ -86,11 +86,11 @@
         "fixture": "small",
         "runs": 30
       },
-      "rationale": "연속 이동은 되돌리기 한 단계로 묶인다"
+      "rationale": "연속 이동은 되돌리기 한 단계로 묶입니다."
     },
     {
       "id": "designer.small.snapshotChars",
-      "label": "small — 되돌리기 스냅샷 문자 수",
+      "label": "small · 되돌리기 스냅샷 문자 수",
       "unit": "count",
       "kind": "deterministic",
       "value": 2750,
@@ -98,11 +98,11 @@
         "fixture": "small",
         "runs": 30
       },
-      "rationale": "되돌리기 스냅샷은 양식 전체라 양식 길이와 같다"
+      "rationale": "되돌리기 스냅샷은 양식 전체라 양식 길이와 같습니다."
     },
     {
       "id": "designer.large.templateChars",
-      "label": "large — 양식 문자 수",
+      "label": "large · 양식 문자 수",
       "unit": "count",
       "kind": "deterministic",
       "value": 170160,
@@ -110,11 +110,11 @@
         "fixture": "large",
         "runs": 30
       },
-      "rationale": "양식은 색인에서 결정적으로 만들어 길이가 늘 같다"
+      "rationale": "양식은 정해진 규칙으로 생성하므로 길이가 항상 같습니다."
     },
     {
       "id": "designer.large.stringifyDocCalls",
-      "label": "large — 문서 크기 JSON.stringify 호출",
+      "label": "large · 문서 크기 JSON.stringify 호출",
       "unit": "count",
       "kind": "deterministic",
       "value": 1,
@@ -122,11 +122,11 @@
         "fixture": "large",
         "runs": 30
       },
-      "rationale": "드래그 한 번에 문서 전체를 직렬화하는 횟수 — 늘면 되돌리기 기록이나 캐시 키가 늘어난 것이다"
+      "rationale": "드래그 한 번에 문서 전체를 직렬화하는 횟수입니다. 값이 늘면 되돌리기 기록이나 캐시 키가 증가한 것으로 판단합니다."
     },
     {
       "id": "designer.large.cloneCalls",
-      "label": "large — structuredClone 호출",
+      "label": "large · structuredClone 호출",
       "unit": "count",
       "kind": "deterministic",
       "value": 1,
@@ -134,11 +134,11 @@
         "fixture": "large",
         "runs": 30
       },
-      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 한다 — 값이 달라지면 동작이 바뀐 것이다"
+      "rationale": "입력이 같으면 파일 접근·계산 횟수가 같아야 합니다. 값이 달라지면 동작 변경으로 판단합니다."
     },
     {
       "id": "designer.large.planCalls",
-      "label": "large — planSourcePage 호출",
+      "label": "large · planSourcePage 호출",
       "unit": "count",
       "kind": "deterministic",
       "value": 120,
@@ -146,11 +146,11 @@
         "fixture": "large",
         "runs": 30
       },
-      "rationale": "pointermove 120번마다 페이지 계획을 한 번씩 다시 계산한다"
+      "rationale": "pointermove 120번마다 페이지 계획을 한 번씩 다시 계산합니다."
     },
     {
       "id": "designer.large.undoEntries",
-      "label": "large — 드래그 한 번의 되돌리기 항목",
+      "label": "large · 드래그 한 번의 되돌리기 항목",
       "unit": "count",
       "kind": "deterministic",
       "value": 1,
@@ -158,11 +158,11 @@
         "fixture": "large",
         "runs": 30
       },
-      "rationale": "연속 이동은 되돌리기 한 단계로 묶인다"
+      "rationale": "연속 이동은 되돌리기 한 단계로 묶입니다."
     },
     {
       "id": "designer.large.snapshotChars",
-      "label": "large — 되돌리기 스냅샷 문자 수",
+      "label": "large · 되돌리기 스냅샷 문자 수",
       "unit": "count",
       "kind": "deterministic",
       "value": 170160,
@@ -170,11 +170,11 @@
         "fixture": "large",
         "runs": 30
       },
-      "rationale": "되돌리기 스냅샷은 양식 전체라 양식 길이와 같다"
+      "rationale": "되돌리기 스냅샷은 양식 전체라 양식 길이와 같습니다."
     },
     {
       "id": "designer.small.medianMs",
-      "label": "small — 드래그 한 번 중앙값",
+      "label": "small · 드래그 한 번 중앙값",
       "unit": "ms",
       "kind": "environmental",
       "value": 228.74,
@@ -185,11 +185,11 @@
       "tolerance": {
         "maxRegressionRatio": 1.6
       },
-      "rationale": "컨테이너에서 잰 값이라 부하를 탄다. 같은 환경 fingerprint일 때만 보고 1.6배를 넘으면 회귀로 본다"
+      "rationale": "컨테이너에서 측정한 값이라 실행 환경의 부하에 영향을 받습니다. 실행 환경 정보가 같을 때만 비교하고 허용 배수인 1.6배를 넘으면 회귀로 판단합니다."
     },
     {
       "id": "designer.large.medianMs",
-      "label": "large — 드래그 한 번 중앙값",
+      "label": "large · 드래그 한 번 중앙값",
       "unit": "ms",
       "kind": "environmental",
       "value": 754.55,
@@ -200,11 +200,11 @@
       "tolerance": {
         "maxRegressionRatio": 1.6
       },
-      "rationale": "컨테이너에서 잰 값이라 부하를 탄다. 같은 환경 fingerprint일 때만 보고 1.6배를 넘으면 회귀로 본다"
+      "rationale": "컨테이너에서 측정한 값이라 실행 환경의 부하에 영향을 받습니다. 실행 환경 정보가 같을 때만 비교하고 허용 배수인 1.6배를 넘으면 회귀로 판단합니다."
     },
     {
       "id": "designer.small.p95Ms",
-      "label": "small — 드래그 한 번 p95",
+      "label": "small · 드래그 한 번 p95",
       "unit": "ms",
       "kind": "environmental",
       "value": 255.25,
@@ -215,11 +215,11 @@
       "tolerance": {
         "maxRegressionRatio": 1.8
       },
-      "rationale": "p95는 중앙값보다 튀는 값을 그대로 받는다 — 1.8배로 넓게 잡는다"
+      "rationale": "p95는 중앙값보다 큰 값도 그대로 반영합니다. 허용 배수를 1.8배로 정합니다."
     },
     {
       "id": "designer.large.p95Ms",
-      "label": "large — 드래그 한 번 p95",
+      "label": "large · 드래그 한 번 p95",
       "unit": "ms",
       "kind": "environmental",
       "value": 916.74,
@@ -230,7 +230,7 @@
       "tolerance": {
         "maxRegressionRatio": 2
       },
-      "rationale": "p95는 튀는 값을 그대로 받고, 대형 양식은 GC가 끼면 한 번에 400ms 넘게 늘어난다 — 2배로 넓게 잡는다"
+      "rationale": "p95는 큰 값도 그대로 반영하고, 대형 양식은 가비지 컬렉션이 실행되면 한 번에 400ms 넘게 늘어날 수 있습니다. 허용 배수를 2배로 정합니다."
     }
   ]
 }

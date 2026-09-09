@@ -1,15 +1,15 @@
 /**
- * 배포 산출물(tarball)의 무결성 값을 만들고 검사하는 도우미.
+ * 배포 산출물(tarball)의 무결성 값을 만들고 검사합니다.
  *
  * `SHA256SUMS`는 `sha256sum` 형식(`<hex>  <파일명>`)이고, `integrity`는 npm 레지스트리의
- * `dist.integrity`와 같은 SHA-512 SRI(`sha512-<base64>`)다.
+ * `dist.integrity`와 같은 SHA-512 SRI(`sha512-<base64>`)입니다.
  */
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * SHA-256 해시를 16진수 문자열로 만든다.
+ * SHA-256 해시를 16진수 문자열로 만듭니다.
  *
  * @param data - 해시할 바이트
  * @returns 64자리 16진수 문자열
@@ -19,7 +19,7 @@ export function sha256Hex(data) {
 }
 
 /**
- * npm `dist.integrity`와 같은 형식의 SHA-512 SRI 문자열을 만든다.
+ * npm `dist.integrity`와 같은 형식의 SHA-512 SRI 문자열을 만듭니다.
  *
  * @param data - 해시할 바이트
  * @returns `sha512-<base64>` 문자열
@@ -29,7 +29,7 @@ export function sriSha512(data) {
 }
 
 /**
- * `SHA256SUMS` 본문을 만든다.
+ * `SHA256SUMS` 본문을 만듭니다.
  *
  * @param entries - 파일명과 SHA-256 16진수 목록
  * @returns 줄마다 `<hex>  <파일명>`인 텍스트 (마지막 줄바꿈 포함)
@@ -39,7 +39,7 @@ export function formatSha256Sums(entries) {
 }
 
 /**
- * `SHA256SUMS` 본문을 해석한다. 빈 줄은 무시하고 형식이 어긋난 줄은 오류다.
+ * `SHA256SUMS` 본문을 해석합니다. 빈 줄은 무시하고 형식이 어긋난 줄은 오류입니다.
  *
  * @param text - `SHA256SUMS` 본문
  * @returns 파일명과 SHA-256 16진수 목록
@@ -57,7 +57,7 @@ export function parseSha256Sums(text) {
 }
 
 /**
- * 디렉터리 안의 파일이 `SHA256SUMS`와 모두 일치하는지 확인한다.
+ * 디렉터리 안의 파일이 `SHA256SUMS`와 모두 일치하는지 확인합니다.
  *
  * @param dir - 파일이 있는 디렉터리
  * @param text - `SHA256SUMS` 본문

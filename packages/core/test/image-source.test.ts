@@ -7,7 +7,7 @@ const JPEG_HEAD = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 
 
 const PNG_1PX =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-/** SOI·APP0·SOF0·EOI만 담은 1x1 JPEG */
+/** SOI·APP0·SOF0·EOI만 담은 1x1 JPEG입니다. */
 const JPEG_1PX = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/wAALCAABAAEBAREA/9k=';
 
 function dataUrl(mime: string, bytes: Uint8Array): string {
@@ -57,7 +57,7 @@ describe('이미지 검사 (PNG·JPEG 서명·크기)', () => {
     expect(isEmbeddableImageData('https://example.com/a.png')).toBe(false);
   });
 
-  it('크기는 base64 길이와 패딩에서 정확히 계산한다', () => {
+  it('크기는 Base64 길이와 패딩에서 정확히 계산한다', () => {
     for (const n of [1, 2, 3, 4, 100, 1023, 4096]) {
       const bytes = new Uint8Array(n);
       bytes.set(PNG_HEAD.subarray(0, Math.min(n, PNG_HEAD.length)));

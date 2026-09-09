@@ -106,7 +106,7 @@ describe('<slip-designer> 미리보기 오류 표시', () => {
 
     const status = el.shadowRoot?.querySelector('.preview-area .status.error');
     expect(status?.textContent?.trim()).toBe(strings.designer.previewError);
-    // 편집 버튼으로 복귀 가능해야 합니다
+    // 편집 버튼으로 돌아갈 수 있어야 합니다.
     expect(toolbarButton(el, strings.designer.edit)).toBeTruthy();
     el.remove();
   });
@@ -176,7 +176,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
       .toBe('내 거래명세서');
     expect(el.shadowRoot!.textContent).toContain(strings.designer.savedNotice);
 
-    // 두 번째 저장은 같은 키로 덮어씁니다
+    // 두 번째 저장은 같은 키로 덮어씁니다.
     toolbarButton(el, strings.designer.saveAsMyForm).click();
     await el.updateComplete;
     (Array.from(el.shadowRoot!.querySelectorAll('.modal-foot button'))
@@ -185,7 +185,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     await el.updateComplete;
     expect(storage.save.mock.calls[1]![0]).toBe(id);
 
-    // "새 양식으로 저장"을 선택하면 새 키로 저장됩니다
+    // "새 양식으로 저장"을 선택하면 새 키로 저장됩니다.
     toolbarButton(el, strings.designer.saveAsMyForm).click();
     await el.updateComplete;
     const asNew = Array.from(el.shadowRoot!.querySelectorAll('input'))
@@ -223,7 +223,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     expect(storage.list).not.toHaveBeenCalled();
     expect(el.shadowRoot!.querySelectorAll('.form-row').length).toBe(1);
 
-    // 검색어를 지우면 두 항목을 다시 표시합니다
+    // 검색어를 지우면 두 항목을 다시 표시합니다.
     search.value = '';
     search.dispatchEvent(new Event('input', { bubbles: true }));
     await el.updateComplete;
@@ -299,7 +299,7 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
   });
 });
 
-describe('<slip-designer> 용지 공급·저장 (G-31)', () => {
+describe('<slip-designer> 용지 제공·저장 (G-31)', () => {
   const paperSelect = (el: Element): HTMLButtonElement =>
     Array.from(el.shadowRoot!.querySelectorAll('.prop-row'))
       .find((r) => r.querySelector('label')?.textContent?.trim() === strings.designer.paperSize)!

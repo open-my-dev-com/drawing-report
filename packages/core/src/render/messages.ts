@@ -1,13 +1,13 @@
 /**
- * 사용자에게 표시하는 렌더링 메시지를 언어별로 정의한다.
+ * 사용자에게 표시하는 렌더링 메시지를 언어별로 정의합니다.
  *
- * 렌더링은 비동기로 실행되므로 언어를 모듈 상태에 저장하지 않는다.
- * 호출자가 전달한 로케일로 {@link rm}에서 메시지 사전을 선택한다.
- * `subject*` 함수는 오류가 발생한 요소를 언어에 맞는 명사구로 만든다.
+ * 렌더링은 비동기로 실행되므로 언어를 모듈 상태에 저장하지 않습니다.
+ * 호출자가 전달한 로케일로 {@link rm}에서 메시지 사전을 선택합니다.
+ * `subject*` 함수는 오류가 발생한 요소를 언어에 맞는 명사구로 만듭니다.
  */
 import { resolveMessageLocale, type MessageLocale } from '../i18n.js';
 
-/** 렌더링 오류 메시지 목록. `what`은 `subject*`로 만든 대상 이름이다. */
+/** 렌더링 오류 메시지 목록입니다. `what`은 `subject*`로 만든 대상 이름입니다. */
 interface RenderMessages {
   subjectText(name: string, id: string): string;
   subjectField(name: string, id: string): string;
@@ -39,7 +39,7 @@ interface RenderMessages {
   duplicateFontName(): string;
 }
 
-/** 이미지 데이터 검사에서 드러난 문제 종류 */
+/** 이미지 데이터 검사에서 드러난 문제 종류입니다. */
 export type ImageProblem = 'format' | 'mime' | 'content' | 'size' | 'damaged';
 
 const EN: RenderMessages = {
@@ -98,40 +98,40 @@ const KO: RenderMessages = {
   subjectPageNumber: (page) => `출력 페이지 ${page}의 페이지 번호`,
   subjectDefault: () => '요소',
   conditionFailed: (what, index, reason) =>
-    `${what}의 조건부 서식 ${index}번째 규칙의 조건식을 계산하지 못했습니다: ${reason}`,
+    `${what}의 조건부 서식 규칙 ${index}에 있는 조건식을 계산하지 못했습니다: ${reason}`,
   conditionNotBoolean: (what, index) =>
-    `${what}의 조건부 서식 ${index}번째 규칙의 조건식은 논리값(TRUE/FALSE)을 반환해야 합니다`,
+    `${what}의 조건부 서식 규칙 ${index}에 있는 조건식은 논리값(TRUE/FALSE)을 반환해야 합니다`,
   notFinite: (what) => `${what}의 값이 유한한 수가 아닙니다`,
   notText: (what) => `${what}의 값은 배열 또는 객체이므로 텍스트로 표시할 수 없습니다`,
   formulaFailed: (what, reason) => `${what}의 수식을 계산하지 못했습니다: ${reason}`,
-  repeatNotArray: (what, parameter) => `${what}의 반복 값은 객체 배열이어야 합니다: ${parameter}`,
+  repeatNotArray: (what, parameter) => `${what}의 반복 값 '${parameter}'는 객체로 이루어진 배열이어야 합니다`,
   repeatItemNotObject: (what, index) => `${what}의 ${index}번째 항목은 객체여야 합니다`,
-  noImageSource: (what) => `${what}에 사용할 이미지가 없습니다. src 또는 parameter를 지정하세요`,
+  noImageSource: (what) => `${what}에 사용할 이미지가 없습니다. 이미지 경로나 이미지 파라미터를 지정하세요`,
   missingAsset: (what, assetId) => `${what}에서 참조하는 에셋을 찾을 수 없습니다: ${assetId}`,
   assetNotEmbedded: (what, assetId) =>
-    `${what}에서 참조한 에셋 '${assetId}'가 파일에 포함되어 있지 않습니다. data: base64 형식의 데이터가 필요합니다`,
+    `${what}에서 참조한 에셋 '${assetId}'가 파일에 포함되어 있지 않습니다. Base64 데이터 URL이 필요합니다`,
   externalUrl: (what, src) =>
-    `${what}에서 외부 URL 이미지를 참조하고 있습니다: ${src}. PDF로 출력하려면 이미지를 data: base64 또는 asset:// 형식으로 전달해야 합니다`,
-  imageValueNotString: (what, parameter) => `${what}의 '${parameter}' 값은 이미지 문자열이어야 합니다`,
+    `${what}에서 외부 URL 이미지(${src})를 참조하고 있습니다. PDF로 출력하려면 Base64 데이터 URL이나 asset:// 형식으로 이미지를 전달해야 합니다`,
+  imageValueNotString: (what, parameter) => `${what}의 '${parameter}' 값은 문자열이어야 합니다`,
   imageValueNotData: (what, parameter) =>
-    `파라미터 '${parameter}'의 이미지 값은 data: base64 형식이어야 합니다. ${what}에 사용할 외부 URL은 호스트에서 base64로 변환해 전달해야 합니다`,
+    `파라미터 '${parameter}'의 이미지 값은 Base64 데이터 URL이어야 합니다. ${what}에 사용할 외부 URL은 호스트에서 Base64 데이터 URL로 변환해 전달해야 합니다`,
   imageInvalid: (what, reason) => {
     const detail = {
-      format: 'data:<mime>;base64 형식이 아닙니다',
+      format: 'Base64 데이터 URL 형식이 아닙니다',
       mime: 'PNG 또는 JPEG가 아닙니다',
-      content: '선언한 PNG·JPEG가 아닙니다. 내용이 손상되었거나 다른 형식입니다',
+      content: '지정된 PNG 또는 JPEG 형식과 일치하지 않습니다. 내용이 손상되었거나 다른 형식입니다',
       size: '크기 상한을 넘습니다',
       damaged: '손상되어 PDF에 넣을 수 없습니다',
     }[reason];
-    return `${what}의 이미지가 ${detail}`;
+    return `${what}: 이미지 데이터가 ${detail}`;
   },
   barcodeValueInvalid: (what, kind) => `${what}의 값은 ${kind} 바코드로 표현할 수 없습니다`,
-  textTooLong: (what, max) => `${what}의 글이 너무 깁니다 (최대 ${max}자)`,
+  textTooLong: (what, max) => `${what}의 텍스트가 너무 깁니다. 최대 ${max}자까지 사용할 수 있습니다`,
   missingGlyph: (what, fontName, char) =>
-    `${what}에 쓴 폰트 '${fontName}'에 '${char}'(U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}) 글리프가 없습니다`,
+    `${what}에 사용한 폰트 '${fontName}'로는 문자 '${char}'(U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')})를 표시할 수 없습니다`,
   pdfGenerationFailed: (reason) => `PDF 생성에 실패했습니다: ${reason}`,
-  multipleFallbackFonts: () => '대체 폰트(fallback)는 하나만 지정할 수 있습니다',
-  duplicateFontName: () => '폰트 이름이 중복되었습니다',
+  multipleFallbackFonts: () => '대체 폰트는 하나만 지정할 수 있습니다',
+  duplicateFontName: () => '같은 폰트 이름이 두 번 지정되었습니다',
 };
 
 const JA: RenderMessages = {
@@ -183,9 +183,9 @@ const JA: RenderMessages = {
 const CATALOG: Record<MessageLocale, RenderMessages> = { en: EN, ko: KO, ja: JA };
 
 /**
- * 로케일에 맞는 렌더링 메시지 사전을 반환한다.
+ * 로케일에 맞는 렌더링 메시지 사전을 반환합니다.
  *
- * @param locale - BCP 47 로케일 (생략하면 영어)
+ * @param locale - BCP 47 로케일(생략하면 영어)
  * @returns 메시지 사전
  */
 export function rm(locale?: string): RenderMessages {

@@ -1,14 +1,14 @@
 /**
- * 속성 패널의 팝오버 상태 — 리스트형 선택 상자와 테두리·색 선택 메뉴.
+ * 속성 패널의 목록형 선택 상자와 테두리·색 선택 메뉴 상태를 관리합니다.
  *
  * @remarks
  * 팝오버는 패널 안이 아니라 화면 고정 위치에 뜨므로, 여는 순간의 버튼 위치에서
- * 좌표를 계산해 둡니다. 표시 높이를 화면의 사용 가능한 영역에 맞춥니다.
+ * 좌표를 미리 계산하고 표시 높이를 화면에서 사용할 수 있는 영역에 맞춥니다.
  */
 
 import type { ReactiveController } from 'lit';
 
-/** 화면 고정 위치에 뜨는 팝오버의 배치 정보 */
+/** 화면 고정 위치에 뜨는 팝오버의 배치 정보입니다. */
 export interface Placement {
   left: number;
   top: number;
@@ -16,12 +16,12 @@ export interface Placement {
   maxHeight: number;
 }
 
-/** 팝오버의 종류 — 종류마다 따로 열리고 닫힙니다 */
+/** 서로 독립적으로 열고 닫는 팝오버의 종류입니다. */
 export type PopoverSlot = 'list' | 'property';
 
-/** 버튼 아래에 펼 때의 여백(px) */
+/** 버튼 아래에 펼 때의 여백(px)입니다. */
 const GAP = 4;
-/** 화면 가장자리에 남길 여백(px) */
+/** 화면 가장자리에 남길 여백(px)입니다. */
 const MARGIN = 12;
 
 /**
@@ -119,7 +119,7 @@ export class PopoverController implements ReactiveController {
    *
    * @param slot - 팝오버 종류
    * @param key - 열거나 닫을 팝오버의 키
-   * @param place - 열 때 계산할 표시 위치. 스타일로 위치를 잡는 팝오버는 생략합니다
+   * @param place - 열 때 계산할 표시 위치. 스타일로 위치를 잡는 팝오버는 생략합니다.
    */
   toggle(slot: PopoverSlot, key: string, place?: () => Placement): void {
     if (this.keys.get(slot) === key) {
@@ -143,7 +143,7 @@ export class PopoverController implements ReactiveController {
 }
 
 /**
- * 리스트형 선택 상자 목록의 인라인 스타일을 만듭니다.
+ * 목록형 선택 상자 목록의 인라인 스타일을 만듭니다.
  *
  * @param place - 열려 있는 표시 위치
  * @returns `style` 속성에 넣을 CSS

@@ -1,25 +1,25 @@
-# npm 배포 워크플로 (Trusted Publishing · OIDC).
+# npm 배포 워크플로입니다(Trusted Publishing · OIDC).
 #
-# 이벤트: workflow_dispatch만. 태그 push 트리거와 태그 생성은 다루지 않는다.
+# 실행 조건은 workflow_dispatch뿐입니다. 태그 push를 실행 조건으로 사용하거나 태그를 만들지 않습니다.
 # 입력:
-#   version     — 배포할 버전. 정확한 SemVer이고 다섯 패키지의 package.json 버전과 모두 같아야 한다.
-#   dist_tag    — latest | next. prerelease 버전(1.0.0-beta.1 등)에는 latest를 쓸 수 없다.
-#   environment — npm-publish (npm Trusted Publisher에 등록한 GitHub Environment 이름과 같아야 한다)
-#   dry_run     — true(기본)면 검증·pack·`npm publish --dry-run`까지만 실행한다.
-# 권한: 최상위 contents: read. `id-token: write`는 실제 publish 작업에만 준다.
-# 동시 실행: 저장소 전체에서 그룹 하나(release), 진행 중인 실행을 취소하지 않는다.
+#   version: 배포할 버전입니다. 정확한 SemVer이고 다섯 패키지의 package.json 버전과 모두 같아야 합니다.
+#   dist_tag: latest | next입니다. 사전 배포 버전(1.0.0-beta.1 등)에는 latest를 사용할 수 없습니다.
+#   environment: npm-publish입니다. npm Trusted Publisher에 등록한 GitHub Environment 이름과 같아야 합니다.
+#   dry_run: true(기본값)이면 검증·pack·`npm publish --dry-run`까지만 실행합니다.
+# 권한: 최상위 contents: read. `id-token: write`는 실제 publish 작업에만 줍니다.
+# 동시 실행: 저장소 전체에서 그룹 하나(release), 진행 중인 실행을 취소하지 않습니다.
 # 작업:
-#   prepare         — ref·입력 검사 → pnpm verify → pnpm verify:packages → pnpm pack → tarball·SHA256SUMS·manifest artifact(보존 7일)
-#   publish-dry-run — 실제 배포 조건이 아닐 때. artifact SHA-256 검증 → npm 11.19.1 → npm publish --dry-run (순서·명령 확인)
-#   publish         — 실제 배포 조건일 때. Environment npm-publish, id-token: write. artifact SHA-256 검증 → npm 11.19.1 →
+#   prepare: ref·입력 검사 → pnpm verify → pnpm verify:packages → pnpm pack → tarball·SHA256SUMS·manifest 배포 산출물(7일 보존)
+#   publish-dry-run: 실제 배포 조건이 아닐 때 실행합니다. 배포 산출물의 SHA-256 검증 → npm 11.19.1 → npm publish --dry-run(순서·명령 확인)
+#   publish: 실제 배포 조건일 때 실행합니다. Environment npm-publish, id-token: write. 배포 산출물의 SHA-256 검증 → npm 11.19.1 →
 #                     core → elements → react → vue → mcp 순서로 npm publish <tarball> --provenance --access public --tag <dist_tag>
-#   status          — Job Summary에 배포 여부와 이유를 남긴다. 검증만 하고 배포하지 않은 실행을 배포 성공으로 오해하지 않게 한다.
+#   status: Job Summary에 배포 여부와 이유를 남깁니다. 검증만 하고 배포하지 않은 실행을 배포 성공으로 오해하지 않게 합니다.
 # 실제 배포 조건 (모두 만족): dry_run == false, vars.NPM_TRUSTED_PUBLISHING == 'true', ref == refs/heads/main, environment == npm-publish.
-# 저장소 변수 NPM_TRUSTED_PUBLISHING은 사용자가 npm Trusted Publisher와 GitHub Environment를 실제로 설정한 뒤 켠다.
-# 재개: 부분 배포가 실패하면 같은 실행에서 `Re-run failed jobs`만 사용한다. 성공한 prepare는 다시 실행하지 않고
-#       실패한 publish가 원래 artifact를 내려받아 검증한다. 같은 버전이 이미 있으면 레지스트리 dist.integrity와
-#       로컬 tarball의 SHA-512 SRI가 같을 때만 건너뛴다 (scripts/release/publish.mjs).
-# npm 토큰은 쓰지 않는다 (NODE_AUTH_TOKEN 없음). 패키지 관리자 캐시는 쓰지 않는다. 외부 Action은 전체 커밋 SHA로 고정한다.
+# 저장소 변수 NPM_TRUSTED_PUBLISHING은 사용자가 npm Trusted Publisher와 GitHub Environment를 실제로 설정한 뒤 켭니다.
+# 재개: 부분 배포가 실패하면 처음 실패한 실행에서 `Re-run failed jobs`만 사용합니다. 성공한 prepare는 다시 실행하지 않고
+#       실패한 publish가 해당 실행의 배포 산출물을 내려받아 검증합니다. 같은 버전이 이미 있으면 레지스트리 dist.integrity와
+#       로컬 tarball의 SHA-512 SRI가 같을 때만 건너뜁니다(scripts/release/publish.mjs).
+# npm 토큰은 사용하지 않습니다(NODE_AUTH_TOKEN 없음). 패키지 관리자 캐시도 사용하지 않습니다. 외부 Action은 전체 커밋 SHA로 고정합니다.
 name: Release
 
 on:
@@ -83,7 +83,7 @@ jobs:
       - name: Corepack으로 pnpm 준비
         run: |
           npm install --global --force "corepack@${COREPACK_VERSION}"
-          # 전역 prefix의 bin 디렉터리를 PATH 앞에 둔다. Windows는 Node 동봉 Corepack이 먼저 잡히기 때문이다.
+          # 전역 prefix의 bin 디렉터리를 PATH 앞에 둡니다. Windows는 Node 동봉 Corepack이 먼저 잡히기 때문입니다.
           prefix="$(npm prefix --global)"
           if [ -d "${prefix}/bin" ]; then bindir="${prefix}/bin"; else bindir="${prefix}"; fi
           unixbin="$(cygpath -u "${bindir}" 2>/dev/null || printf '%s' "${bindir}")"
@@ -147,7 +147,7 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: release-artifacts
-      - name: artifact 검증과 npm publish --dry-run (core → elements → react → vue → mcp)
+      - name: 배포 산출물 검증과 npm publish --dry-run (core → elements → react → vue → mcp)
         env:
           TARBALL_DIR: release-artifacts
           DIST_TAG: ${{ inputs.dist_tag }}
@@ -185,7 +185,7 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: release-artifacts
-      - name: artifact 검증과 npm publish (core → elements → react → vue → mcp)
+      - name: 배포 산출물 검증과 npm publish (core → elements → react → vue → mcp)
         env:
           TARBALL_DIR: release-artifacts
           DIST_TAG: ${{ inputs.dist_tag }}
@@ -242,8 +242,8 @@ jobs:
           {
             echo "**배포가 실패했습니다.** publish 작업 결과: ${PUBLISH_RESULT}."
             echo
-            echo "원인을 해결한 뒤 이 실행에서 \`Re-run failed jobs\`를 선택합니다. 성공한 prepare는 다시 실행되지 않고, publish가 원래 artifact를 그대로 내려받아 SHA-256과 manifest를 검증한 뒤 이미 올라간 같은 tarball은 건너뛰고 남은 패키지부터 이어서 배포합니다."
+            echo "원인을 해결한 뒤 이 실행에서 \`Re-run failed jobs\`를 선택합니다. 성공한 prepare는 다시 실행되지 않고, publish가 해당 실행의 배포 산출물을 그대로 내려받아 SHA-256과 manifest를 검증한 뒤 이미 올라간 같은 tarball은 건너뛰고 남은 패키지부터 이어서 배포합니다."
             echo
-            echo "\`Re-run all jobs\`, 새 \`Run workflow\` 실행이나 로컬 재-pack으로 같은 버전을 이어서 배포하지 않습니다. artifact 보존 기간(7일)이 지났거나 artifact가 없으면 같은 버전 재개를 중단하고, 이미 공개된 패키지 상태를 확인한 뒤 새 버전의 새 릴리스로 처리합니다."
+            echo "\`Re-run all jobs\`, 새 \`Run workflow\` 실행이나 로컬 재-pack으로 같은 버전을 이어서 배포하지 않습니다. 배포 산출물 보존 기간(7일)이 지났거나 산출물이 없으면 같은 버전 재개를 중단하고, 이미 공개된 패키지 상태를 확인한 뒤 새 버전의 새 릴리스로 처리합니다."
           } >> "${GITHUB_STEP_SUMMARY}"
           exit 1

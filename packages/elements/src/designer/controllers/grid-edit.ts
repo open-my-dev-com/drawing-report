@@ -1,5 +1,5 @@
 /**
- * 그리드 편집의 선택 상태 — 셀 선택, 인라인 편집, 행 구간 선택과 행 추가 명령.
+ * 그리드의 셀 선택, 인라인 편집, 행 구간 선택과 행 추가 명령 상태를 관리합니다.
  *
  * @remarks
  * 값 변경은 호출부가 담당하고, 이 컨트롤러는 편집 대상을 관리합니다.
@@ -14,24 +14,24 @@ export interface GridEditHost {
   requestUpdate(): void;
 }
 
-/** 선택한 셀의 좌표 (0부터) */
+/** 선택한 셀의 좌표이며 0부터 시작합니다. */
 export interface CellPosition {
   row: number;
   column: number;
 }
 
-/** 행 번호 선택 영역에서 선택한 행 범위 (0부터) */
+/** 행 번호 선택 영역에서 선택한 행 범위이며 0부터 시작합니다. */
 export interface BandRange {
   from: number;
   to: number;
 }
 
-/** 그리드 셀에서 편집 중인 값 소스 종류 */
+/** 그리드 셀에서 편집 중인 값 소스 종류입니다. */
 export type CellSourceKind = 'content' | 'parameter' | 'formula';
 
 export class GridEditController implements ReactiveController {
   private _cell: CellPosition | null = null;
-  /** 선택한 셀 전체 — 추가한 순서를 유지하며 기준 셀도 포함합니다 */
+  /** 추가한 순서를 유지하며 기준 셀까지 포함한 선택 셀 목록입니다. */
   private _cells: CellPosition[] = [];
   private _sourceKind: CellSourceKind | null = null;
   private _editing = false;
@@ -47,17 +47,17 @@ export class GridEditController implements ReactiveController {
     this.host.requestUpdate();
   }
 
-  /** 기준 셀 — 병합·인라인 편집의 대상이고 Shift 범위 선택의 시작점. 선택한 셀이 없으면 null */
+  /** 병합과 인라인 편집의 대상이자 Shift 범위 선택의 시작점인 기준 셀입니다. 선택한 셀이 없으면 `null`입니다. */
   get cell(): CellPosition | null {
     return this._cell;
   }
 
-  /** 선택한 셀 전체 (기준 셀 포함). 셀을 고르지 않았으면 빈 목록 */
+  /** 선택한 셀 전체 (기준 셀 포함). 셀을 고르지 않았으면 빈 목록입니다. */
   get cells(): readonly CellPosition[] {
     return this._cells;
   }
 
-  /** 셀을 둘 이상 선택했는지 */
+  /** 셀을 둘 이상 선택했는지를 나타냅니다. */
   get multiCell(): boolean {
     return this._cells.length > 1;
   }
@@ -72,32 +72,32 @@ export class GridEditController implements ReactiveController {
     return this._cells.some((item) => sameCell(item, cell));
   }
 
-  /** 셀에서 편집 중인 값 소스 종류 */
+  /** 셀에서 편집 중인 값 소스 종류입니다. */
   get sourceKind(): CellSourceKind | null {
     return this._sourceKind;
   }
 
-  /** 셀을 캔버스에서 직접 편집 중인지 */
+  /** 셀을 캔버스에서 직접 편집 중인지 나타냅니다. */
   get editing(): boolean {
     return this._editing;
   }
 
-  /** 역할 명령 메뉴가 대상으로 삼는 행 범위 */
+  /** 역할 명령 메뉴가 대상으로 삼는 행 범위입니다. */
   get bandRange(): BandRange | null {
     return this._bandRange;
   }
 
-  /** 행 역할 명령 메뉴가 열려 있는지 */
+  /** 행 역할 명령 메뉴가 열려 있는지를 나타냅니다. */
   get bandMenuOpen(): boolean {
     return this._bandMenuOpen;
   }
 
-  /** 적용 전 결과를 확인 중인 행 추가 명령 */
+  /** 적용 전 결과를 확인 중인 행 추가 명령입니다. */
   get rowCommand(): GridRowCommand | null {
     return this._rowCommand;
   }
 
-  /** 소계·합계 명령에서 집계할 목록 필드 */
+  /** 소계·합계 명령에서 집계할 목록 필드입니다. */
   get rowCommandField(): string {
     return this._rowCommandField;
   }
@@ -242,7 +242,7 @@ export class GridEditController implements ReactiveController {
    * 메뉴를 연 뒤 초점을 옮길 차례인지 확인하고 그 표시를 지웁니다.
    *
    * @remarks
-   * 화면을 그린 직후에 부르므로 여기서 화면 갱신을 요청하지 않습니다 — 다시 그리게 됩니다.
+   * 화면을 그린 직후에 호출하므로 여기서 다시 화면 갱신을 요청하지 않습니다.
    *
    * @returns 이번에 초점을 옮겨야 하면 true
    */
@@ -256,7 +256,7 @@ export class GridEditController implements ReactiveController {
    * 행 추가 명령을 시작합니다.
    *
    * @param command - 확인할 명령
-   * @param field - 집계할 목록 필드 (없으면 빈 문자열)
+   * @param field - 집계할 목록 필드(없으면 빈 문자열)
    */
   startRowCommand(command: GridRowCommand, field: string): void {
     this._rowCommand = command;

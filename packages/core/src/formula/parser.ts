@@ -1,5 +1,5 @@
 /**
- * 수식 문자열을 자체 문법의 AST로 변환한다. JavaScript 표현식은 실행하지 않는다.
+ * 수식 문자열을 자체 문법의 AST로 변환합니다. JavaScript 표현식은 실행하지 않습니다.
  *
  * 문법 (엑셀 스타일):
  * ```
@@ -11,19 +11,19 @@
  * primary := number | string | TRUE | FALSE | FUNC '(' args ')' | ref | '(' expr ')'
  * ref     := key ('.' key)*                          # 값 참조 (예: $(items).$(금액))
  *          | reserved ('.' key)*                     # 예약 참조 (예: @item, @group.$(금액))
- * key     := '$(' chars ')'                          # 키 한 단계. ')'와 '\'는 '\)'·'\\'로 적는다
+ * key     := '$(' chars ')'                          # 키 한 단계입니다. ')'와 '\'는 '\)'·'\\'로 작성합니다.
  * reserved := '@item' | '@group' | '@page' | '@all' | '@carried'
  * ```
  *
- * 문자열 리터럴은 큰따옴표, 내부 큰따옴표는 "" 로 이스케이프한다.
- * 함수 이름과 `TRUE`·`FALSE`는 유니코드 문자·숫자·언더스코어로 이루어진 식별자로 적는다.
- * `@`로 시작하는 예약 참조는 그리드 행 구간에서 계획 계층이 공급하는 다섯 이름만 허용한다.
+ * 문자열 리터럴은 큰따옴표, 내부 큰따옴표는 "" 로 이스케이프합니다.
+ * 함수 이름과 `TRUE`·`FALSE`는 유니코드 문자·숫자·밑줄로 이루어진 식별자로 작성합니다.
+ * `@`로 시작하는 예약 참조는 그리드 행 구간에서 계획 계층이 전달하는 다섯 이름만 허용합니다.
  *
- * 값 참조는 키 한 단계마다 `$(...)`로 적는다. 그래서 식별자 규칙에 맞지 않는 키
+ * 값 참조는 키 한 단계마다 `$(...)`로 작성합니다. 따라서 식별자 규칙에 맞지 않는 키
  * (`datas-2`·`customer.name`·공백 포함 등)도 쓸 수 있고, `$(datas-2)`(키 하나)와 `$(datas) - 2`(뺄셈)가
- * 구분된다. `$(...)` 없이 적은 이름(`amount`·`items.amount`·`@item.amount`)은 함수 호출이나 논리
- * 상수가 아니면 문법 오류이며, 오류 메시지에 고쳐 쓸 예를 함께 알린다. 예약 참조 이름은 `$(...)`
- * 없이 그대로 적는다 — `$(@item)`은 예약 참조가 아니라 `@item`이라는 이름의 값 키다.
+ * 구분됩니다. `$(...)` 없이 적은 이름(`amount`·`items.amount`·`@item.amount`)은 함수 호출이나 논리
+ * 상수가 아니면 문법 오류이며, 오류 메시지에 고쳐 쓸 예를 함께 알립니다. 예약 참조 이름은 `$(...)`
+ * 없이 그대로 적습니다. `$(@item)`은 예약 참조가 아니라 `@item`이라는 이름의 값 키입니다.
  */
 import { FormulaSyntaxError } from './errors.js';
 import { FORMULA_FUNCTIONS, type FormulaFunctionName } from './functions.js';
@@ -33,22 +33,22 @@ import { fm, withFormulaLocale } from './messages.js';
 // AST
 // ---------------------------------------------------------------------------
 
-/** 비교 연산자 */
+/** 비교 연산자입니다. */
 type ComparisonOperator = '=' | '<>' | '<' | '>' | '<=' | '>=';
-/** 산술 연산자 */
+/** 산술 연산자입니다. */
 type ArithmeticOperator = '+' | '-' | '*' | '/';
-/** 이항 연산자 전체 */
+/** 이항 연산자 전체입니다. */
 export type BinaryOperator = ComparisonOperator | ArithmeticOperator;
 
-/** 참조가 수식 문자열에서 차지하는 범위 (0부터 시작, `end`는 포함하지 않음). */
+/** 참조가 수식 문자열에서 차지하는 범위입니다. 0부터 시작하며 `end`는 포함하지 않습니다. */
 export interface ReferenceSpan {
-  /** 참조 텍스트가 시작하는 인덱스 */
+  /** 참조 텍스트가 시작하는 인덱스입니다. */
   start: number;
-  /** 참조 텍스트 바로 다음 인덱스 */
+  /** 참조 텍스트 바로 다음 인덱스입니다. */
   end: number;
 }
 
-/** 파싱 결과를 나타내는 구문 트리 노드의 판별 유니온. */
+/** 파싱 결과를 나타내는 구문 트리 노드의 판별 유니온입니다. */
 export type FormulaAst =
   | { type: 'number'; value: number }
   | { type: 'string'; value: string }
@@ -56,9 +56,9 @@ export type FormulaAst =
   | {
       type: 'reference';
       path: string[];
-      /** 첫 단계를 `$(...)` 없이 `@item`처럼 적은 예약 참조일 때만 `true`. `$(@item)`은 값 키다 */
+      /** 첫 단계를 `$(...)` 없이 `@item`처럼 적은 예약 참조일 때만 `true`입니다. `$(@item)`은 값 키입니다. */
       reserved?: true;
-      /** 원본 수식에서 이 참조가 차지하는 범위 */
+      /** 원본 수식에서 이 참조가 차지하는 범위입니다. */
       span?: ReferenceSpan;
     }
   | { type: 'call'; name: FormulaFunctionName; args: FormulaAst[] }
@@ -74,17 +74,17 @@ const IDENT_PART = /[\p{L}\p{N}_]/u;
 
 /**
  * 그리드 행 구간에서 사용할 수 있는 예약 참조 이름.
- * 값은 페이지 계획 계층이 평가 컨텍스트의 `reserved`로 공급한다.
+ * 값은 페이지 계획 계층이 계산 문맥의 `reserved`로 전달합니다.
  */
 export const RESERVED_REF_NAMES = ['@item', '@group', '@page', '@all', '@carried'] as const;
 
-/** 예약 참조 이름 */
+/** 예약 참조 이름입니다. */
 export type ReservedRefName = (typeof RESERVED_REF_NAMES)[number];
 
 const RESERVED_REFS = new Set<string>(RESERVED_REF_NAMES);
 
 /**
- * 키 한 단계를 `$(...)` 안에 넣을 수 있게 이스케이프한다.
+ * 키 한 단계를 `$(...)` 안에 넣을 수 있게 이스케이프합니다.
  *
  * @param key - 이스케이프할 키
  * @returns `\`는 `\\`로, `)`는 `\)`로 바꾼 문자열
@@ -93,11 +93,11 @@ export function escapeReferenceKey(key: string): string {
   return key.replace(/[\\)]/g, (ch) => `\\${ch}`);
 }
 
-/** 참조 경로를 문자열로 만들 때의 옵션 */
+/** 참조 경로를 문자열로 만들 때의 옵션입니다. */
 export interface FormatReferenceOptions {
   /**
-   * 첫 단계가 예약 참조 이름이면 `true`로 지정한다. 그러면 첫 단계만 `$(...)` 없이 적는다.
-   * 이름만으로 판단하지 않으므로 생략하면 `@item`도 값 키 `$(@item)`으로 적는다.
+   * 첫 단계가 예약 참조 이름이면 `true`로 지정합니다. 그러면 첫 단계만 `$(...)` 없이 기록합니다.
+   * 이름만으로 판단하지 않으므로 생략하면 `@item`도 값 키 `$(@item)`으로 기록합니다.
    *
    * @defaultValue false
    */
@@ -105,7 +105,7 @@ export interface FormatReferenceOptions {
 }
 
 /**
- * 참조 경로를 `$(a).$(b)` 형식의 참조 문자열로 만든다.
+ * 참조 경로를 `$(a).$(b)` 형식의 참조 문자열로 만듭니다.
  *
  * @param path - 참조 경로
  * @param options - 첫 단계를 예약 참조로 적을지 여부
@@ -138,7 +138,7 @@ type Token =
   | { type: 'op'; value: string; pos: number } // 연산자·괄호·쉼표·점
   | { type: 'end'; pos: number };
 
-/** `$(` 다음부터 짝이 맞는 `)`까지 읽어 키 토큰을 만든다. 반환값은 `)` 다음 인덱스. */
+/** `$(` 다음부터 짝이 맞는 `)`까지 읽어 키 토큰을 만듭니다. 반환값은 `)` 다음 인덱스입니다. */
 function readReferenceKey(source: string, start: number, tokens: Token[]): number {
   let value = '';
   let i = start + 2;
@@ -181,7 +181,7 @@ function tokenize(source: string): Token[] {
       const match = /^\d*\.?\d+(?:[eE][+-]?\d+)?/.exec(source.slice(i));
       if (!match) throw new FormulaSyntaxError(fm().invalidNumberFormat(), pos);
       const num = Number(match[0]);
-      // 유한하지 않은 숫자 리터럴은 평가 결과로 사용할 수 없다.
+      // 유한하지 않은 숫자 리터럴은 평가 결과로 사용할 수 없습니다.
       if (!Number.isFinite(num)) throw new FormulaSyntaxError(fm().numberTooLarge(), pos);
       tokens.push({ type: 'number', value: num, pos });
       i += match[0].length;
@@ -213,7 +213,7 @@ function tokenize(source: string): Token[] {
         i = readReferenceKey(source, i, tokens);
         continue;
       }
-      // `$name`처럼 괄호 없이 쓴 참조는 `$(name)`으로 고치도록 안내한다.
+      // `$name`처럼 괄호 없이 쓴 참조는 `$(name)`으로 고치도록 안내합니다.
       let j = i + 1;
       while (j < source.length && IDENT_PART.test(source[j]!)) j++;
       const name = source.slice(i + 1, j);
@@ -227,7 +227,7 @@ function tokenize(source: string): Token[] {
       i = j;
       continue;
     }
-    // '@' 뒤에 식별자가 이어지면 예약 참조 이름으로 읽는다.
+    // '@' 뒤에 식별자가 이어지면 예약 참조 이름으로 읽습니다.
     if (ch === '@' && IDENT_START.test(source[i + 1] ?? '')) {
       let j = i + 2;
       while (j < source.length && IDENT_PART.test(source[j]!)) j++;
@@ -301,7 +301,7 @@ class Parser {
     }
   }
 
-  /** 재귀 하강 파서가 허용하는 최대 중첩 깊이. */
+  /** 재귀 하강 파서가 허용하는 최대 중첩 깊이입니다. */
   private depth = 0;
 
   private enter(): void {
@@ -320,10 +320,10 @@ class Parser {
   }
 
   /**
-   * 왼쪽 결합 이항 연산 사슬을 파싱한다.
+   * 왼쪽 결합 이항 연산 사슬을 파싱합니다.
    *
    * `1+1+…`처럼 항이 이어질 때마다 트리가 한 단계 깊어지므로, 두 번째 항부터는 중첩 깊이에
-   * 포함해 평가기·진단·인자 수 검사가 긴 사슬에서 호출 스택을 넘치지 않게 한다.
+   * 포함해 평가기·진단·인자 수 검사가 긴 사슬에서 호출 스택을 넘치지 않게 합니다.
    */
   private chain(ops: readonly string[], operand: () => FormulaAst): FormulaAst {
     let left = operand();
@@ -377,14 +377,14 @@ class Parser {
     }
     if (token.type === 'key') return this.reference(token);
     if (token.type === 'ident') {
-      // 예약 참조는 정해진 이름만 허용한다. 값은 평가 컨텍스트가 공급한다.
+      // 예약 참조는 정해진 이름만 허용합니다. 값은 계산 문맥에서 전달합니다.
       if (token.value.startsWith('@') && !RESERVED_REFS.has(token.value)) {
         throw new FormulaSyntaxError(fm().unknownReservedRef(token.value), token.pos);
       }
       const upper = token.value.toUpperCase();
       if (upper === 'TRUE') return { type: 'boolean', value: true };
       if (upper === 'FALSE') return { type: 'boolean', value: false };
-      // 등록된 함수 이름 뒤에 여는 괄호가 오면 함수 호출로 파싱한다.
+      // 등록된 함수 이름 뒤에 여는 괄호가 오면 함수 호출로 파싱합니다.
       const isCall = this.peek().type === 'op' && (this.peek() as { value?: string }).value === '(';
       if (isCall) {
         if (!FUNCTION_NAMES.has(upper)) {
@@ -400,17 +400,17 @@ class Parser {
         }
         return { type: 'call', name: upper as FormulaFunctionName, args };
       }
-      // 함수 호출도 논리 상수도 아닌 식별자는 예약 참조 이름이거나 `$(...)`를 빠뜨린 값 참조다.
+      // 함수 호출도 논리 상수도 아닌 식별자는 예약 참조 이름이거나 `$(...)`를 빠뜨린 값 참조입니다.
       return this.reference(token);
     }
     throw new FormulaSyntaxError(fm().expectedValue(), token.pos);
   }
 
   /**
-   * 첫 단계 토큰 뒤에 점으로 이어지는 단계를 읽어 참조 경로를 만든다.
+   * 첫 단계 토큰 뒤에 점으로 이어지는 단계를 읽어 참조 경로를 만듭니다.
    *
-   * 예약 참조 이름을 그대로 적은 첫 단계를 뺀 모든 단계는 `$(...)` 키여야 한다. `$(...)` 없이 적은
-   * 단계가 하나라도 있으면 경로 전체를 고쳐 쓸 예와 함께 거부한다.
+   * 예약 참조 이름을 그대로 적은 첫 단계를 뺀 모든 단계는 `$(...)` 키여야 합니다. `$(...)` 없이 적은
+   * 단계가 하나라도 있으면 경로 전체를 고쳐 쓸 예와 함께 거부합니다.
    */
   private reference(head: StepToken): FormulaAst {
     const steps: StepToken[] = [head];
@@ -421,7 +421,7 @@ class Parser {
       }
       steps.push(segment);
     }
-    // `$(@item)`은 키 토큰이라 예약 참조가 아니다. 예약 참조는 `@item`을 그대로 적은 식별자뿐이다.
+    // `$(@item)`은 키 토큰이므로 예약 참조가 아닙니다. 예약 참조는 `@item`을 그대로 적은 식별자뿐입니다.
     const reserved = head.type === 'ident' && head.value.startsWith('@');
     const path = steps.map((step) => step.value);
     const bare = steps.some((step, index) => step.type === 'ident' && !(index === 0 && reserved));
@@ -444,16 +444,16 @@ class Parser {
   }
 }
 
-/** 파서가 허용하는 수식 문자열의 최대 길이. */
+/** 파서가 허용하는 수식 문자열의 최대 길이입니다. */
 const MAX_FORMULA_LENGTH = 10_000;
-/** 괄호, 함수 인수, 단항 연산자와 이항 연산 사슬을 포함한 수식의 최대 중첩 깊이. */
+/** 괄호, 함수 인수, 단항 연산자와 이항 연산 사슬을 포함한 수식의 최대 중첩 깊이입니다. */
 export const MAX_FORMULA_DEPTH = 100;
 
 /**
- * 수식 문자열을 AST로 파싱한다.
+ * 수식 문자열을 AST로 파싱합니다.
  *
  * @param source - 수식 문자열 (예: `SUM($(items).$(금액)) * 1.1`)
- * @param options - 오류 메시지에 사용할 로케일 설정 (생략하면 영어)
+ * @param options - 오류 메시지에 사용할 로케일 설정(생략하면 영어)
  * @returns 파싱된 구문 트리
  * @throws FormulaSyntaxError 문법 오류·미등록 함수·길이/깊이 제한 초과 시
  */

@@ -143,7 +143,7 @@ interface SlipKitConfig {
 
 | 필드 | 설명 |
 |---|---|
-| `getFonts` | PDF 렌더링에 사용할 폰트 공급 함수 |
+| `getFonts` | PDF 렌더링에 사용할 폰트 제공 함수 |
 | `locale` | 숫자·날짜 표시 형식과 오류 메시지에 사용할 BCP-47 로케일. 기본값은 `'en-US'` |
 | `encryption.key` | 암호화·복호화 기본 키 |
 | `encryption.previousKeys` | 이전 키로 암호화된 파일을 복호화할 때 추가로 시도할 키 |
@@ -189,7 +189,7 @@ interface SlipKit {
 | 프로퍼티·메서드 | 반환값 | 설명 |
 |---|---|---|
 | `locale` | `string \| undefined` | 인스턴스에 설정된 로케일 |
-| `getFonts` | 함수 또는 `undefined` | 인스턴스가 공유하는 폰트 조회 함수. 성공한 결과는 재사용하고 실패한 조회는 다음 호출에서 다시 시도한다. |
+| `getFonts` | 함수 또는 `undefined` | 인스턴스가 공유하는 폰트 조회 함수입니다. 성공한 결과는 재사용하고 실패한 조회는 다음 호출에서 다시 시도합니다. |
 | `render` | `Promise<Uint8Array>` | 양식 또는 전표를 PDF 바이트로 변환 |
 | `buildVoucher` | `SlipVoucherFile` | 양식과 값으로 작성 중 전표 생성 |
 | `evaluate` | `FormulaValue` | 수식 문자열 또는 AST 평가 |
@@ -266,7 +266,7 @@ interface RenderOptions {
 
 | 필드 | 기본값 | 설명 |
 |---|---|---|
-| `getFonts` | 하부 엔진 기본 폰트 | 렌더링에 사용할 폰트 공급 함수 |
+| `getFonts` | 하부 엔진 기본 폰트 | 렌더링에 사용할 폰트 제공 함수 |
 | `locale` | `'en-US'` | 숫자·날짜 표시 형식과 오류 메시지에 사용할 로케일 |
 
 #### `SlipPdfRenderer`
@@ -350,7 +350,7 @@ function diagnoseFormula(
 ): FormulaDiagnosis;
 ```
 
-현재 값으로 수식을 진단해, 첫 오류에서 멈추지 않고 발견한 오류를 `formulaError`와 `dataError`로 나눠 돌려줍니다. 값이 없거나 예약 범위를 쓸 수 없어 실패한 자리는 빈 값으로 이어 끝까지 계산하고 그 실패를 `dataError`로, 식에서 난 오류를 `formulaError`로 알립니다. 둘 다 이번 계산 한 번의 실패이며, 어느 쪽도 그 수식이 어떤 값에서도 계산되지 않는다는 것을 증명하지 않습니다. `formulaError`나 `dataError`가 있으면 `value`는 진단 과정에서 나온 값이므로 결과로 보여 주지 않습니다.
+현재 값으로 수식을 진단하며, 첫 오류에서 멈추지 않고 발견한 오류를 `formulaError`와 `dataError`로 구분해 반환합니다. 값이 없거나 예약 범위를 사용할 수 없는 자리는 빈 값으로 처리하고 계산을 계속합니다. 이때 발생한 실패는 `dataError`로, 수식 자체의 오류는 `formulaError`로 알립니다. 두 오류는 현재 계산에서 발생한 실패만 나타내며, 해당 수식을 어떤 값으로도 계산할 수 없다는 뜻은 아닙니다. `formulaError`나 `dataError`가 있으면 `value`는 진단 과정에서 나온 값이므로 결과로 표시하지 않습니다.
 
 #### `FormulaContext`
 
@@ -573,7 +573,7 @@ interface SlipVoucherFile {
 | 필드 | 설명 |
 |---|---|
 | `templateSnapshot` | 전표를 만들 당시의 양식 전체 |
-| `values` | 파라미터 물리명과 실제 값 |
+| `values` | 파라미터 키와 실제 값 |
 | `issued` | 발행 여부 |
 
 발행된 전표는 외부 URL 이미지에 의존할 수 없습니다. 고정 이미지와 변동 이미지 값은 파일 안에서 사용할 수 있는 형태로 포함해야 합니다.
@@ -662,8 +662,8 @@ interface SlipPage {
 | 필드 | 설명 |
 |---|---|
 | `elements` | 페이지에 배치된 요소 |
-| `key` | 외부 연계에 사용할 페이지 물리명 |
-| `label` | 디자이너 목록에 표시할 페이지 논리명 |
+| `key` | 외부 연계에 사용할 페이지 키 |
+| `label` | 디자이너 목록에 표시할 페이지 표시 이름 |
 | `pageNumber` | PDF에 표시할 페이지 번호 설정 |
 | `flowArea` | 자동 확장 요소가 배치될 세로 범위 |
 
@@ -741,8 +741,8 @@ interface ParameterDef {
 
 | 필드 | 설명 |
 |---|---|
-| `key` | 파일, 수식과 외부 연계에 사용하는 물리명 |
-| `label` | 작성폼과 디자이너에 표시할 논리명 |
+| `key` | 파일, 수식과 외부 연계에 사용하는 키 |
+| `label` | 작성 폼과 디자이너에 보여 줄 이름 |
 | `valueType` | 값 종류. 생략하면 글자로 취급 |
 | `fields` | 목록 파라미터의 하위 필드 |
 
@@ -1185,7 +1185,7 @@ interface GridBand {
 }
 ```
 
-`fromRow`와 `toRow`는 0부터 시작하며 양끝을 포함합니다. 모든 양식 행은 빈틈이나 겹침 없이 하나의 행 구간에 속해야 하고 `item` 구간은 정확히 하나 있어야 합니다.
+`fromRow`와 `toRow`는 0부터 시작하며 양 끝을 포함합니다. 모든 양식 행은 빈틈이나 겹침 없이 하나의 행 구간에 속해야 하고 `item` 구간은 정확히 하나 있어야 합니다.
 
 행 구간은 `before-data`, `page-start`, `group-start`, `item`, `group-end`, `after-data`, `page-end` 순서로 배치합니다. `pages`는 `page-start`와 `page-end`의 표시 페이지를 제한하고, `repeatOnPageBreak`는 다음 페이지로 이어지는 그룹의 `group-start`를 다시 표시합니다.
 
@@ -1398,7 +1398,7 @@ const BUILT_IN_MIGRATIONS:
 | `maxMillimeters` | 5,000 | 위치·크기·트랙·테두리·여백의 상한(mm) |
 | `maxFontSize` | 500 | 글자 크기 상한(pt) |
 | `maxTextLength` | 20,000 | 구조 문자열과 렌더링 문자열의 최대 길이 |
-| `maxValueStringLength` | 3,000,000 | 업무 데이터 맵 문자열의 최대 길이 |
+| `maxValueStringLength` | 3,000,000 | 전표 값과 샘플 값 문자열의 최대 길이 |
 | `maxImageBytes` | 2MiB | PNG 또는 JPEG 이미지 한 장의 최대 디코딩 크기 |
 
 ## 패키지 통합 API
@@ -1414,7 +1414,7 @@ const BUILT_IN_MIGRATIONS:
 | `RESERVED_REF_NAMES` | Elements | 자동완성과 검사에 쓰는 예약 참조 루트(`@item`, `@group`, `@page`, `@all`, `@carried`) 목록입니다. |
 | `GridPlan`, `GridFragment`, `GridItem`, `PlannedBand`, `SourcePagePlan` | Elements | `planSourcePage`가 반환하는 계획의 타입입니다. |
 
-`planGrid`·`visiblePageRange` 같은 그 밖의 계획 도우미와 `GridFlow`·`ElementPlacement`·`PlanPaper` 타입은 구현 세부이며 export하지 않습니다. 패키지별 export 이름 전체는 tarball 소비자 검증이 확인하는 allowlist로 고정합니다. [공개 export](#공개-export)를 참고합니다.
+`planGrid`·`visiblePageRange` 같은 그 밖의 계획 도우미와 `GridFlow`·`ElementPlacement`·`PlanPaper` 타입은 구현 세부이며 export하지 않습니다. 패키지별 export 이름 전체는 tarball 소비자 검증이 확인하는 허용 목록으로 고정합니다. 자세한 내용은 [공개 export](#공개-export)에서 확인할 수 있습니다.
 
 ## 공개 export
 
@@ -1560,7 +1560,7 @@ interface ElementPaperSize {
 }
 ```
 
-디자이너의 용지 선택 목록에 표시할 프리셋입니다. 실제 `.slip` 용지 타입과 달리 `name`을 가지며 `padding`은 없습니다.
+디자이너의 용지 선택 목록에 표시할 프리셋입니다. 실제 `.slip` 용지 타입과 달리 `name`을 포함하며 `padding`은 없습니다.
 
 ### `SlipPreset`
 
@@ -1685,7 +1685,7 @@ Noto Sans JP Regular 서브셋을 포함합니다. 해당 폰트가 대체 폰�
 
 React 19 이상을 지원합니다.
 
-각 컴포넌트는 기저 `slip-*` 요소를 가리키는 `ref`를 받고, 표준 HTML 속성(`className`, `style`, `id`, `title`, `role`, `tabIndex`, `aria-*`, `data-*`)과 표준 DOM 이벤트 props(`onClick`, `onKeyDown` 등)를 그 요소에 그대로 전달합니다. `children`과 `dangerouslySetInnerHTML`은 props에 없습니다. 요소가 자체 shadow DOM을 그리기 때문입니다.
+각 컴포넌트는 내부 `slip-*` 요소를 가리키는 `ref`를 받고, 표준 HTML 속성(`className`, `style`, `id`, `title`, `role`, `tabIndex`, `aria-*`, `data-*`)과 표준 DOM 이벤트 속성(`onClick`, `onKeyDown` 등)을 해당 요소에 그대로 전달합니다. `children`과 `dangerouslySetInnerHTML`은 속성에 포함되지 않습니다. 요소가 자체 shadow DOM을 그리기 때문입니다.
 
 ### `SlipDesigner`
 
@@ -1747,7 +1747,7 @@ interface SlipViewerProps
 }
 ```
 
-React 패키지에서는 다음 props 타입도 직접 가져올 수 있습니다.
+React 패키지에서는 다음 속성 타입도 직접 가져올 수 있습니다.
 
 ```ts
 import type {
@@ -1779,7 +1779,7 @@ export function DesignerPane() {
 }
 ```
 
-전용 props(`src`, 설정 props, `onSlipChange`, `onSlipIssue`)는 항상 우선하므로 spread한 객체가 이 값을 덮어쓸 수 없습니다. 선택형 래퍼 prop은 명시적으로 전달한 동안에만 내부 요소에 설정되며, 제거하면 요소 자체의 기본값으로 돌아갑니다. 발행 뒤 같은 원본으로 새 전표를 시작하려면 `ref`가 주는 `<slip-form>` 요소의 `reset()`을 호출합니다. React의 `key`를 바꿔 `SlipForm`을 다시 마운트하는 방법도 쓸 수 있습니다.
+전용 속성(`src`, 설정 속성, `onSlipChange`, `onSlipIssue`)은 항상 우선하므로 전개 구문으로 전달한 객체가 이 값을 덮어쓸 수 없습니다. 선택형 래퍼 속성은 명시적으로 전달한 동안에만 내부 요소에 설정되며, 제거하면 요소 자체의 기본값으로 돌아갑니다. 발행 뒤 같은 원본으로 새 전표를 시작하려면 `ref`로 받은 `<slip-form>` 요소의 `reset()`을 호출합니다. React의 `key`를 바꿔 `SlipForm`을 다시 마운트하는 방법도 사용할 수 있습니다.
 
 ## `@omdc-slipkit/vue`
 
@@ -1787,7 +1787,7 @@ Vue 3.4 이상을 지원합니다.
 
 ### `SlipDesigner`
 
-| prop | 타입 | 필수 |
+| 속성 | 타입 | 필수 |
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
@@ -1805,7 +1805,7 @@ Vue 3.4 이상을 지원합니다.
 
 ### `SlipForm`
 
-| prop | 타입 | 필수 |
+| 속성 | 타입 | 필수 |
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
@@ -1821,13 +1821,13 @@ Vue 3.4 이상을 지원합니다.
 
 ### `SlipViewer`
 
-| prop | 타입 | 필수 |
+| 속성 | 타입 | 필수 |
 |---|---|:---:|
 | `src` | `string` | ● |
 | `locale` | `string` | — |
 | `slipkit` | `SlipKit` | — |
 
-선택형 래퍼 prop도 같은 규칙을 따릅니다. prop을 제거하면 내부 요소의 기본값으로 돌아가며, 발행 뒤에는 컴포넌트 ref의 `$el`(Vue 표준 동작대로 내부 `<slip-form>` 요소)로 `reset()`을 호출하거나, Vue의 `:key`를 바꿔 `SlipForm`을 다시 마운트합니다.
+선택형 래퍼 속성도 같은 규칙을 따릅니다. 속성을 제거하면 내부 요소의 기본값으로 돌아갑니다. 발행 뒤에는 컴포넌트 ref의 `$el`이 가리키는 내부 `<slip-form>` 요소에서 `reset()`을 호출하거나, Vue의 `:key`를 바꿔 `SlipForm`을 다시 마운트합니다.
 
 ## `@omdc-slipkit/mcp`
 
@@ -1989,7 +1989,7 @@ class FormulaEvalError
 
 수식 평가 중 타입 불일치, 잘못된 인자 또는 0으로 나누기 등이 발생했을 때 사용합니다.
 
-`reason`은 평가에 실패한 까닭입니다. `data`는 값이 없거나 예약 범위를 쓸 수 없는 경우, `value`는 계산에 쓴 값이 잘못된 경우, `formula`는 식 자체가 잘못된 경우입니다.
+`reason`은 평가에 실패한 이유입니다. `data`는 값이 없거나 예약 범위를 사용할 수 없는 경우, `value`는 계산에 사용한 값이 잘못된 경우, `formula`는 수식 자체가 잘못된 경우입니다.
 
 `dataDependent`는 안내 문구를 구분하기 위한 진단 정보이며, 어떤 입력에서도 계산 가능한지를 증명하지 않습니다. `value`에서는 같은 자리의 다른 피연산자가 아니라, 변환·검사에서 오류를 일으킨 값이 데이터에서 왔는지를 확인합니다. 오류 문구를 비교하는 대신 이 값을 사용합니다.
 

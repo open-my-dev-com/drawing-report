@@ -7,7 +7,7 @@ import { getStrings } from '../src/strings.js';
 
 const presets = getPresets();
 
-// fake-indexeddb로 저장소 동작을 재현하고 core 직렬화 API는 실제 구현을 사용한다.
+// fake-indexeddb로 저장소 동작을 재현하고 core 직렬화 API는 실제 구현을 사용합니다.
 
 const plainKit = createSlipKit();
 
@@ -29,7 +29,7 @@ describe('IndexedDbStorage', () => {
     expect(loaded).toEqual(file);
   });
 
-  it('없는 id를 load하면 not-found 오류를 던진다', async () => {
+  it('없는 ID를 load하면 not-found 오류를 던진다', async () => {
     const storage = freshStorage();
     await expect(storage.load('없는-id')).rejects.toMatchObject({
       name: 'SlipStorageError',
@@ -98,7 +98,7 @@ describe('IndexedDbStorage 열기 실패 복구', () => {
     });
     spy.mockRestore();
 
-    // 첫 열기 실패 후 같은 어댑터가 데이터베이스 열기를 다시 시도해야 한다.
+    // 첫 열기 실패 후 같은 어댑터가 데이터베이스 열기를 다시 시도해야 합니다.
     await storage.save('doc', presets[0]!.create());
     const loaded = await storage.load('doc');
     expect(loaded.kind).toBe('template');
@@ -107,7 +107,7 @@ describe('IndexedDbStorage 열기 실패 복구', () => {
   it('v1(문자열 본문)으로 저장된 것을 현재 버전(Blob·메타데이터)으로 마이그레이션해 로드한다', async () => {
     const dbName = `test-mig-${++dbCounter}`;
     const file = presets[0]!.create();
-    // 버전 1 레코드는 본문을 문자열로 저장한다.
+    // 버전 1 레코드는 본문을 문자열로 저장합니다.
     await new Promise<void>((resolve, reject) => {
       const req = indexedDB.open(dbName, 1);
       req.onupgradeneeded = () => req.result.createObjectStore('slips', { keyPath: 'id' });
@@ -130,7 +130,7 @@ describe('IndexedDbStorage 열기 실패 복구', () => {
       req.onerror = () => reject(req.error);
     });
 
-    // 현재 버전으로 열 때 문자열 본문을 Blob으로 바꾸고 목록용 메타데이터를 채운다.
+    // 현재 버전으로 열 때 문자열 본문을 Blob으로 바꾸고 목록용 메타데이터를 채웁니다.
     const storage = new IndexedDbStorage(plainKit, { dbName });
     const loaded = await storage.load('old-1');
     expect(loaded).toEqual(file);
@@ -172,7 +172,7 @@ describe('IndexedDbStorage 열기 실패 복구', () => {
       { id: 'v2-1', kind: file.kind, title: 'v2 제목', updatedAt: '2026-02-02T00:00:00.000Z' },
     ]);
     expect(await storage.load('v2-1')).toEqual(file);
-    // 업그레이드 뒤 저장·삭제도 메타데이터와 본문을 함께 다룬다.
+    // 업그레이드 뒤 저장·삭제도 메타데이터와 본문을 함께 다룹니다.
     await storage.save('v2-2', presets[0]!.create());
     expect((await storage.list()).items.map((i) => i.id)).toEqual(['v2-2', 'v2-1']);
     await storage.delete('v2-1');
@@ -181,10 +181,10 @@ describe('IndexedDbStorage 열기 실패 복구', () => {
   });
 });
 
-/** 저장된 레코드의 본문과 제목을 IndexedDB에서 직접 읽는다. */
+/** 저장된 레코드의 본문과 제목을 IndexedDB에서 직접 읽습니다. */
 function readRawRecord(dbName: string, id: string): Promise<{ data: string; title: string }> {
   return new Promise((resolve, reject) => {
-    // 버전을 지정하지 않고 열어 현재 스키마 버전을 그대로 쓴다.
+    // 버전을 지정하지 않고 열어 현재 스키마 버전을 그대로 씁니다.
     const req = indexedDB.open(dbName);
     req.onsuccess = () => {
       const db = req.result;
@@ -215,8 +215,8 @@ describe('IndexedDbStorage 암호화 — 공통 키 재사용', () => {
     expect(await storage.load('doc')).toEqual(file);
 
     const raw = await readRawRecord(dbName, 'doc');
-    expect(isEncryptedSlipFile(raw.data)).toBe(true); // 본문은 잠겨 있다
-    expect(raw.title).toBe(file.template.meta.title); // 제목은 평문 — 목록에 그대로 보인다
+    expect(isEncryptedSlipFile(raw.data)).toBe(true); // 본문은 잠겨 있습니다.
+    expect(raw.title).toBe(file.template.meta.title); // 제목은 평문 — 목록에 그대로 보입니다.
   });
 
   it('encryptOnSave를 켰는데 키가 없으면 샘플 키로 대체하지 않고 저장을 거부한다', async () => {
@@ -236,12 +236,12 @@ describe('IndexedDbStorage 암호화 — 공통 키 재사용', () => {
     await expect(keyless.load('doc')).rejects.toMatchObject({ name: 'SlipEncryptionError' });
   });
 
-  it('틀린 키로 열면 복호화 오류를 던진다', async () => {
+  it('잘못된 키로 열면 복호화 오류를 던진다', async () => {
     const dbName = `test-enc-${++dbCounter}`;
     const right = createSlipKit({ encryption: { key: '맞는-키' } });
     await new IndexedDbStorage(right, { dbName, encryptOnSave: true }).save('doc', presets[0]!.create());
 
-    const wrong = new IndexedDbStorage(createSlipKit({ encryption: { key: '틀린-키' } }), {
+    const wrong = new IndexedDbStorage(createSlipKit({ encryption: { key: '잘못된-키' } }), {
       dbName,
       encryptOnSave: true,
     });
@@ -257,7 +257,7 @@ describe('IndexedDbStorage 암호화 — 공통 키 재사용', () => {
     const raw = await readRawRecord(dbName, 'doc');
     expect(isEncryptedSlipFile(raw.data)).toBe(false);
 
-    // 평문 레코드는 암호화 키 설정과 관계없이 파싱한다.
+    // 평문 레코드는 암호화 키 설정과 관계없이 파싱합니다.
     const other = new IndexedDbStorage(createSlipKit({ encryption: { key: '다른-키' } }), {
       dbName,
       encryptOnSave: true,
@@ -268,16 +268,16 @@ describe('IndexedDbStorage 암호화 — 공통 키 재사용', () => {
   it('키를 바꿔도 previousKeys로 옛 키 파일을 읽고, 다시 저장하면 새 키로 옮겨진다', async () => {
     const dbName = `test-enc-${++dbCounter}`;
     const file = presets[0]!.create();
-    // 이전 키로 암호화된 레코드를 준비한다.
+    // 이전 키로 암호화된 레코드를 준비합니다.
     const oldKit = createSlipKit({ encryption: { key: '옛-키' } });
     await new IndexedDbStorage(oldKit, { dbName, encryptOnSave: true }).save('doc', file);
 
-    // 현재 키가 실패하면 previousKeys의 이전 키로 복호화한다.
+    // 현재 키가 실패하면 previousKeys의 이전 키로 복호화합니다.
     const rotatedKit = createSlipKit({ encryption: { key: '새-키', previousKeys: ['옛-키'] } });
     const rotated = new IndexedDbStorage(rotatedKit, { dbName, encryptOnSave: true });
     expect(await rotated.load('doc')).toEqual(file);
 
-    // 다시 저장한 본문은 현재 키로 암호화한다.
+    // 다시 저장한 본문은 현재 키로 암호화합니다.
     await rotated.save('doc', file);
     const newOnly = new IndexedDbStorage(createSlipKit({ encryption: { key: '새-키' } }), {
       dbName,
@@ -292,13 +292,13 @@ describe('IndexedDbStorage 암호화 — 공통 키 재사용', () => {
     const keyed = createSlipKit({ encryption: { key: '키' } });
     await new IndexedDbStorage(keyed, { dbName, encryptOnSave: true }).save('doc', file);
 
-    // 저장 정책을 평문으로 바꿔도 기존 봉투는 감지해 공통 키로 복호화한다.
+    // 저장 정책을 평문으로 바꿔도 기존 봉투는 감지해 공통 키로 복호화합니다.
     const off = new IndexedDbStorage(keyed, { dbName, encryptOnSave: false });
     expect(await off.load('doc')).toEqual(file);
   });
 
-  it('공통 설정 도입 전 샘플 키로 저장된 데이터도 previousKeys 등록으로 열린다', async () => {
-    // 공통 설정 도입 전 데모의 자동 저장이 쓰던 키 값 — 회귀 방지를 위해 값을 고정한다.
+  it('이전 샘플 키로 저장된 데이터도 previousKeys 등록으로 열린다', async () => {
+    // 데모 자동 저장 키의 호환성을 확인하도록 값을 고정합니다.
     const legacyKey = 'omdc-slipkit-sample-key';
     const dbName = `test-enc-${++dbCounter}`;
     const file = presets[0]!.create();
@@ -318,7 +318,7 @@ describe('IndexedDbStorage 암호화 — 공통 키 재사용', () => {
     const slipkit = createSlipKit({ encryption: { key: '공용-키' } });
     await new IndexedDbStorage(slipkit, { dbName, encryptOnSave: true }).save('doc', file);
 
-    // 저장소가 만든 암호화 봉투를 같은 인스턴스의 decrypt(파일 교환의 열기 경로)로 풀 수 있다.
+    // 저장소가 만든 암호화 봉투를 같은 인스턴스의 decrypt(파일 교환의 열기 경로)로 풀 수 있습니다.
     const raw = await readRawRecord(dbName, 'doc');
     expect(await slipkit.decrypt(raw.data)).toEqual(file);
   });
@@ -328,7 +328,7 @@ describe('IndexedDbStorage 암호화 — 공통 키 재사용', () => {
 // 연결 상태와 페이지 크기
 // ---------------------------------------------------------------------------
 
-/** 어댑터가 쓰는 연결을 꺼내 온다. */
+/** 어댑터가 쓰는 연결을 꺼내 옵니다. */
 function openedDb(storage: IndexedDbStorage): Promise<IDBDatabase> {
   return (storage as unknown as { open(): Promise<IDBDatabase> }).open();
 }
@@ -336,7 +336,7 @@ function openedDb(storage: IndexedDbStorage): Promise<IDBDatabase> {
 describe('IndexedDbStorage 연결 상태', () => {
   it('다른 연결이 열려 있어 버전을 올리지 못하면 기다리지 않고 io 오류로 거부하고, 닫힌 뒤에는 복구된다', async () => {
     const dbName = `test-blocked-${++dbCounter}`;
-    // 버전 1 연결을 versionchange에 닫지 않고 붙들어 둔다.
+    // 버전 변경 요청이 차단된 상황을 재현하기 위해 버전 1 연결을 닫지 않습니다.
     const held = await new Promise<IDBDatabase>((resolve, reject) => {
       const req = indexedDB.open(dbName, 1);
       req.onupgradeneeded = () => req.result.createObjectStore('slips', { keyPath: 'id' });
@@ -417,7 +417,7 @@ describe('IndexedDbStorage pageSize', () => {
     expect((await storage.list()).items.length).toBe(1);
   });
 
-  it('커서는 항상 앞으로 나아가 모든 항목을 한 번씩 돌려준다', async () => {
+  it('커서는 항상 앞으로 나아가 모든 항목을 한 번씩 반환한다', async () => {
     const storage = freshStorage(2);
     for (let i = 0; i < 5; i += 1) await storage.save(`doc-${i}`, presets[i % 2]!.create());
 

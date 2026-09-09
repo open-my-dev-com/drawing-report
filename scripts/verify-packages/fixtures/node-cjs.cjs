@@ -1,4 +1,4 @@
-// CommonJS 소비자: Node 22의 require(esm)으로 패키지 이름을 require한다.
+// CommonJS 소비자입니다. Node 22의 require(esm)으로 패키지 이름을 불러옵니다.
 const core = require('@omdc-slipkit/core');
 const { PRETENDARD_FONTS } = require('@omdc-slipkit/elements/fonts/pretendard');
 

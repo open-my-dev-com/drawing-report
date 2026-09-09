@@ -1,5 +1,5 @@
 /**
- * 그리드 속성 패널 — 행·열, 반복 설정, 행 구간 목록과 셀 설정.
+ * 그리드 속성 패널에 행·열, 반복 설정, 행 구간 목록과 셀 설정을 표시합니다.
  */
 
 import { html, nothing } from 'lit';
@@ -43,17 +43,17 @@ import type { ElementActions } from './element-props.js';
 import type { ParameterInfo } from '../parameters.js';
 import type { PanelKit } from './panel-kit.js';
 
-/** 그리드 속성 패널이 컴포넌트에 요청하는 조작 */
+/** 그리드 속성 패널에서 호출하는 컴포넌트 조작입니다. */
 export interface GridActions {
-  /** 그리드 셀·행 구간 선택 상태 */
+  /** 그리드 셀·행 구간 선택 상태입니다. */
   readonly edit: GridEditController;
-  /** 화면을 다시 그립니다 */
+  /** 화면을 다시 그립니다. */
   refresh(): void;
-  /** 리스트형 선택 상자를 열거나 닫습니다 */
+  /** 목록형 선택 상자를 열거나 닫습니다. */
   toggleListSelect(id: string, event: Event): void;
-  /** 사이드바와 같은 파라미터 목록 */
+  /** 사이드바와 같은 파라미터 목록입니다. */
   parameters(): ParameterInfo[];
-  /** 현재 페이지 계획의 오류 */
+  /** 현재 페이지 계획의 오류입니다. */
   planError(): SlipLayoutError | null;
   changeRows(delta: number): void;
   changeColumns(delta: number): void;
@@ -372,13 +372,12 @@ function gridRowCommands(kit: PanelKit, grid: GridActions, el: GridElement) {
 
 /**
  * 행 구간 목록을 렌더링합니다.
- * 캔버스의 행 번호 선택 영역과 같은 색상 표식·이름으로 구간을 식별합니다 (§7.2).
+ * 캔버스의 행 번호 선택 영역과 같은 색상 표식·이름으로 구간을 식별합니다(§7.2).
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태
  * @param grid - 그리드 편집 동작
  * @param el - 선택한 그리드 요소
- * @returns 행 구간 목록 조각. 반복 설정이 없으면 행 명령만 표시합니다
- */
+ * @returns 행 구간 목록 조각. 반복 설정이 없으면 행 명령만 표시합니다. */
 function bandList(kit: PanelKit, grid: GridActions, el: GridElement) {
   const s = kit.s;
   const bands = el.repeat?.bands ?? [];
@@ -538,7 +537,7 @@ function bandList(kit: PanelKit, grid: GridActions, el: GridElement) {
  * @param cellDef - 선택한 셀의 정의. 아직 만들지 않았으면 undefined
  * @param source - 셀이 사용하는 값 소스
  * @param inBand - 선택한 셀이 항목 구간 안인지
- * @returns 셀 편집 패널 조각. 선택한 셀이 없으면 빈 것
+ * @returns 셀 편집 패널 조각. 선택한 셀이 없으면 빈 템플릿
  */
 function gridCellProps(
   kit: PanelKit,
@@ -682,7 +681,7 @@ function gridCellProps(
  *
  * @remarks
  * 값은 셀 값, 없으면 그리드 공통값, 그것도 없으면 렌더러 기본값을 실제 적용값으로 보고
- * 서로 다르면 「혼합」으로 표시합니다. 고른 값은 모든 선택 셀에 적용하되 그리드 공통값과 같은
+ * 서로 다르면 `혼합`으로 표시합니다. 고른 값은 모든 선택 셀에 적용하되 그리드 공통값과 같은
  * 값은 저장하지 않고 물려받게 합니다. 기본값으로 되돌리기만 셀별 값을 지웁니다.
  *
  * @param kit - 패널 렌더링에 필요한 문구와 상태

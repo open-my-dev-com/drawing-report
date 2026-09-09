@@ -1,38 +1,38 @@
 /**
- * 디자이너의 포인터 드래그 비용을 재현 가능하게 측정한다.
+ * 디자이너의 포인터 드래그 비용을 재현 가능하게 측정합니다.
  *
- * 실행: `pnpm bench:designer` — Core와 Elements를 먼저 빌드한 뒤 측정하므로 명령 하나로
- * 재현된다. 기준 커밋과 수정 커밋에서 같은 환경으로 실행해 표를 비교하는 용도다.
+ * 실행: `pnpm bench:designer`. Core와 Elements를 먼저 빌드한 뒤 측정하므로 명령 하나로
+ * 재현됩니다. 기준 커밋과 수정 커밋에서 같은 환경으로 실행해 표를 비교하는 용도입니다.
  *
  * 시나리오 (고정)
  * - happy-dom 위에 `<slip-designer>`를 붙이고 양식을 불러온 뒤 첫 페이지의 텍스트 요소를
- *   누르고(`pointerdown`), `pointermove` 120번, `pointerup` 한 번을 보낸다 — 드래그 한 번.
- * - 이벤트마다 `updateComplete`를 기다려 Lit이 실제로 렌더링하게 한다. 렌더마다 드는 비용이
- *   측정 대상이다.
- * - 양식은 `scripts/bench-designer/templates.mjs`가 결정적으로 만든 두 벌(small·large)이다.
- *   붙이기 전에 `parseSlipFile`로 유효한지 확인한다.
- * - 양식마다 워밍업 5번 뒤 본 측정 30번을 재고 드래그 벽시계 시간의 중앙값과 p95를 적는다.
- * - 드래그 사이에는 호스트에 Ctrl+Z를 보내 되돌린다. 위치가 원래대로 돌아가고 되돌리기
- *   깊이가 1을 넘지 않으므로 매번 같은 조건에서 잰다 (`src`를 다시 넣는 방식은 파싱 비용이
- *   섞여 쓰지 않는다).
+ *   누르고(`pointerdown`), `pointermove` 120번과 `pointerup` 한 번을 보내 한 번의 끌기 동작을 재현합니다.
+ * - 이벤트마다 `updateComplete`를 기다려 Lit이 실제로 렌더링하게 합니다. 렌더마다 드는 비용이
+ *   측정 대상입니다.
+ * - 양식은 `scripts/bench-designer/templates.mjs`가 결정적으로 만든 두 개(small·large)입니다.
+ *   붙이기 전에 `parseSlipFile`로 유효한지 확인합니다.
+ * - 양식마다 예열 5번 뒤 실제 측정 30번을 실행하고 드래그 경과 시간의 중앙값과 p95를 기록합니다.
+ * - 드래그 사이에는 호스트에 Ctrl+Z를 보내 되돌립니다. 위치가 원래대로 돌아가고 되돌리기
+ *   깊이가 1을 넘지 않으므로 매번 같은 조건에서 측정합니다. `src`를 다시 넣으면 파싱 비용이
+ *   섞이므로 사용하지 않습니다.
  *
- * 카운터 — 드래그 한 번 동안의 값을 모아 본 측정의 중앙값을 적는다
- * - `JSON.stringify`: dist를 가져오기 전에 전역을 감싸 호출 수와 결과 문자 수를 센다.
- *   결과가 10,000자 이상이면 「문서 크기」로 따로 센다 — 양식 자체가 그보다 작으면 양식 길이를
- *   문턱으로 쓴다. 되돌리기 스냅샷과 계획 캐시 키가 여기 들어간다.
- * - `structuredClone`: 같은 방식으로 감싼다.
+ * 카운터는 드래그 한 번 동안의 값을 모아 실제 측정의 중앙값으로 기록합니다.
+ * - `JSON.stringify`: dist를 가져오기 전에 전역을 감싸 호출 수와 결과 문자 수를 셉니다.
+ *   결과가 10,000자 이상이면 `문서 크기`로 따로 셉니다. 양식 자체가 그보다 작으면 양식 길이를
+ *   기준값으로 씁니다. 되돌리기 스냅샷과 계획 캐시 키가 여기 들어갑니다.
+ * - `structuredClone`: 같은 방식으로 감쌉니다.
  * - `planSourcePage`: `node:module`의 `register()`로 로더 훅(`core-hooks.mjs`)을 등록해
- *   `packages/core/dist/index.js`를 원본을 다시 내보내면서 이 함수만 세는 모듈로 바꾼다.
- *   `packages/` 아래는 바꾸지 않는다.
+ *   `packages/core/dist/index.js`를 원본을 다시 내보내면서 이 함수만 세는 모듈로 바꿉니다.
+ *   `packages/` 아래는 바꾸지 않습니다.
  * - 되돌리기: 드래그 뒤 늘어난 되돌리기 항목 수와 그 스냅샷 문자 수. 최대 보존량은
- *   `50 × 스냅샷 중앙값` 문자로 계산한다 (되돌리기 상한 50) — 실제 힙 바이트가 아니다.
- * - 메모리: 본 측정 전후로 `gc()`를 부른 뒤 `heapUsed` 차이. `gc`가 없으면 `--expose-gc`로
- *   자신을 다시 실행한다.
+ *   되돌리기 상한 50을 적용해 `50 × 스냅샷 중앙값` 문자로 계산합니다. 실제 힙 바이트 수는 아닙니다.
+ * - 메모리: 실제 측정 전후로 `gc()`를 부른 뒤 `heapUsed` 차이. `gc`가 없으면 `--expose-gc`로
+ *   자신을 다시 실행합니다.
  *
- * `--chromium`: Playwright로 실제 Chromium에서 같은 시나리오를 한 번 더 잰다
- * (`scripts/bench-designer/chromium.mjs`). 이 모드에서는 `planSourcePage` 수를 세지 않는다.
+ * `--chromium`: Playwright로 실제 Chromium에서 같은 시나리오를 한 번 더 측정합니다.
+ * (`scripts/bench-designer/chromium.mjs`). 이 모드에서는 `planSourcePage` 수를 세지 않습니다.
  *
- * `--json <path>`: 환경·양식·본 측정 원자료와 집계를 판 번호가 있는 JSON으로 남긴다.
+ * `--json <path>`: 환경·양식·실제 측정의 원본 데이터와 집계를 형식 버전이 있는 JSON으로 남깁니다.
  */
 import { register, createRequire } from 'node:module';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -50,9 +50,9 @@ import { createResult, metric, writeResultFile } from './bench-shared/result.mjs
 const WARMUP = 5;
 const RUNS = 30;
 const MOVES = 120;
-/** pointermove마다 오른쪽으로 옮기는 픽셀. 120번이면 60px ≈ 15.9mm */
+/** pointermove마다 오른쪽으로 이동하는 픽셀 수입니다. 120번이면 60px, 약 15.9mm입니다. */
 const STEP_PX = 0.5;
-/** 디자이너의 되돌리기 상한 — 최대 보존량 계산에 쓴다 */
+/** 디자이너의 되돌리기 상한 — 최대 보존량 계산에 씁니다. */
 const MAX_UNDO = 50;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -61,7 +61,7 @@ const argv = process.argv.slice(2);
 const useChromium = argv.includes('--chromium');
 const jsonPath = readArg(argv, '--json');
 
-// heapUsed 차이를 재려면 gc()가 필요하다. 없으면 --expose-gc를 붙여 자신을 다시 실행한다.
+// heapUsed 차이를 측정하려면 gc()가 필요합니다. 없으면 --expose-gc를 붙여 자신을 다시 실행합니다.
 if (typeof globalThis.gc !== 'function' && process.env.SLIPKIT_BENCH_CHILD !== '1') {
   const result = spawnSync(
     process.execPath,
@@ -72,7 +72,7 @@ if (typeof globalThis.gc !== 'function' && process.env.SLIPKIT_BENCH_CHILD !== '
 }
 
 // ---------------------------------------------------------------------------
-// 카운터와 로더 훅 — dist를 가져오기 전에 설치한다
+// 카운터와 로더 훅 — dist를 가져오기 전에 설치합니다.
 // ---------------------------------------------------------------------------
 
 installCounters(globalThis);
@@ -84,7 +84,7 @@ register(pathToFileURL(path.join(here, 'bench-designer/core-hooks.mjs')), {
 });
 
 // ---------------------------------------------------------------------------
-// happy-dom 전역 — vitest의 happy-dom 환경이 하는 일을 따른다
+// happy-dom 전역 — vitest의 happy-dom 환경이 하는 일을 따릅니다.
 // ---------------------------------------------------------------------------
 
 const elementsRequire = createRequire(path.join(root, 'packages/elements/package.json'));
@@ -92,9 +92,9 @@ const happyDomPackage = JSON.parse(readFileSync(elementsRequire.resolve('happy-d
 const { GlobalWindow } = await import(pathToFileURL(elementsRequire.resolve('happy-dom')).href);
 
 /**
- * happy-dom 창의 속성을 Node 전역에 올린다.
+ * happy-dom 창의 속성을 Node 전역에 올립니다.
  *
- * Node에 이미 있는 이름은 DOM 동작에 필요한 것만 덮어쓴다. 소문자 함수는 창에 묶어 둔다.
+ * Node에 이미 있는 이름은 DOM 동작에 필요한 것만 덮어씁니다. 소문자 함수는 창에 묶어 둡니다.
  *
  * @param win - happy-dom `GlobalWindow`
  */
@@ -126,7 +126,7 @@ function populateGlobal(win) {
 const win = new GlobalWindow({ url: 'http://localhost:3000', settings: { disableErrorCapturing: true } });
 populateGlobal(win);
 
-// Node의 localStorage는 --localstorage-file 없이는 동작하지 않으므로 메모리 저장소를 둔다.
+// Node의 localStorage는 --localstorage-file 없이는 동작하지 않으므로 메모리 저장소를 둡니다.
 {
   const values = new Map();
   Object.defineProperty(globalThis, 'localStorage', {
@@ -143,7 +143,7 @@ populateGlobal(win);
 }
 
 // ---------------------------------------------------------------------------
-// 모듈 로드 — 이 시점부터 core는 훅이 감싼 모듈이다
+// 모듈 로드 — 이 시점부터 core는 훅이 감싼 모듈입니다.
 // ---------------------------------------------------------------------------
 
 const core = await import(pathToFileURL(coreDist).href);
@@ -152,18 +152,18 @@ if (!customElements.get('slip-designer')) {
   customElements.define('slip-designer', elements.SlipDesigner);
 }
 
-/** 동봉 폰트(수 MB)를 읽지 않도록 이름만 있는 폰트를 공급하는 SlipKit 인스턴스 */
+/** 동봉 폰트(수 MB)를 읽지 않도록 이름만 있는 폰트를 제공하는 SlipKit 인스턴스입니다. */
 const slipkit = core.createSlipKit({
   getFonts: () => [{ name: 'Bench Sans', data: new Uint8Array([0]), fallback: true }],
 });
 
-/** 마이크로태스크와 타이머 한 바퀴를 비운다. */
+/** 마이크로태스크와 타이머 한 바퀴를 비웁니다. */
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /**
- * 디자이너를 만들어 양식을 불러오고 첫 렌더가 끝날 때까지 기다린다.
+ * 디자이너를 만들어 양식을 불러오고 첫 렌더가 끝날 때까지 기다립니다.
  *
- * @param file - 양식 객체 (검증은 호출자가 한다)
+ * @param file - 양식 객체입니다. 호출자가 미리 검증합니다.
  * @returns 붙여진 `<slip-designer>`
  */
 async function mountDesigner(file) {
@@ -181,7 +181,7 @@ async function mountDesigner(file) {
 }
 
 /**
- * 포인터 이벤트를 만든다. Shadow DOM을 넘어 호스트까지 올라가도록 `composed`를 켠다.
+ * 포인터 이벤트를 만듭니다. Shadow DOM을 넘어 호스트까지 올라가도록 `composed`를 켭니다.
  *
  * @param type - 이벤트 이름
  * @param clientX - X 좌표(px)
@@ -193,11 +193,11 @@ function pointer(type, clientX, clientY) {
 }
 
 /**
- * 드래그 한 번: pointerdown → pointermove × MOVES → pointerup. 이벤트마다 렌더를 기다린다.
+ * 드래그 한 번: pointerdown → pointermove × MOVES → pointerup. 이벤트마다 렌더를 기다립니다.
  *
  * @param el - 디자이너
- * @param id - 끌 요소 id
- * @returns 벽시계 시간(ms)
+ * @param id - 끌 요소 ID
+ * @returns 실제 경과 시간(ms)
  */
 async function dragGesture(el, id) {
   const target = el.shadowRoot.querySelector(`.element[data-id="${id}"]`);
@@ -215,10 +215,10 @@ async function dragGesture(el, id) {
 }
 
 /**
- * Ctrl+Z로 마지막 드래그를 되돌리고 위치가 돌아왔는지 확인한다.
+ * Ctrl+Z로 마지막 드래그를 되돌리고 위치가 돌아왔는지 확인합니다.
  *
  * @param el - 디자이너
- * @param id - 끌었던 요소 id
+ * @param id - 끌었던 요소 ID
  * @param original - 드래그 전 위치
  */
 async function undoGesture(el, id, original) {
@@ -231,10 +231,10 @@ async function undoGesture(el, id, original) {
 }
 
 /**
- * 현재 페이지에서 id로 요소를 찾는다.
+ * 현재 페이지에서 ID로 요소를 찾습니다.
  *
  * @param el - 디자이너
- * @param id - 요소 id
+ * @param id - 요소 ID
  * @returns 요소 객체
  */
 function findElement(el, id) {
@@ -242,16 +242,16 @@ function findElement(el, id) {
 }
 
 /**
- * 양식 하나를 측정한다.
+ * 양식 하나를 측정합니다.
  *
  * @param spec - `benchTemplates()`의 항목
  * @returns 표 한 행에 쓸 집계
  */
 async function benchTemplate(spec) {
-  // 유효하지 않은 양식은 디자이너가 조용히 거절하므로 먼저 파서로 확인한다.
+  // 디자이너는 유효하지 않은 양식을 반영하지 않으므로 먼저 파서로 확인합니다.
   const fileJson = JSON.stringify(spec.file);
   core.parseSlipFile(fileJson);
-  // small처럼 10,000자가 안 되는 양식은 그 길이를 문턱으로 삼아 스냅샷이 문서 크기로 잡히게 한다.
+  // small처럼 10,000자가 안 되는 양식은 그 길이를 기준값으로 삼아 스냅샷이 문서 크기로 잡히게 합니다.
   const docThreshold = Math.min(DOC_SIZE_CHARS, fileJson.length);
   const el = await mountDesigner(spec.file);
   const original = { ...findElement(el, spec.dragId).position };
@@ -321,9 +321,9 @@ const environment = collectEnvironment();
 console.log(`Node ${environment.node} · ${environment.platform}/${environment.arch} · ${environment.cores} core · ${(environment.memoryBytes / 1024 ** 3).toFixed(1)}GB`);
 console.log(`CPU: ${environment.cpuModel}`);
 console.log(`happy-dom ${happyDomPackage.version} · Chromium ${useChromium ? '사용 (--chromium)' : '미사용'} · planSourcePage 훅 ${globalThis.__slipkitPlanHook === true ? '적용' : '미적용'}`);
-console.log(`드래그 = pointerdown + pointermove ×${MOVES} + pointerup · 워밍업 ${WARMUP}회 · 본 측정 ${RUNS}회 · 드래그 사이 Ctrl+Z`);
-console.log('시간은 드래그 한 번의 벽시계 시간, 카운터는 드래그 한 번 동안의 값 — 모두 본 측정의 중앙값(p95만 95번째 백분위)');
-console.log('heapUsed 변화는 본 측정 30회 전후 gc() 뒤의 차이. Node 표에는 happy-dom 자체 캐시가 섞이므로 디자이너의 보존량은 Chromium 표를 기준으로 본다\n');
+console.log(`드래그 = pointerdown + pointermove ×${MOVES} + pointerup · 워밍업 ${WARMUP}회 · 실제 측정 ${RUNS}회 · 드래그 사이 Ctrl+Z`);
+console.log('시간은 드래그 한 번의 실제 경과 시간이며, 횟수는 드래그 한 번 동안의 값입니다. 모두 실제 측정의 중앙값이고 p95만 95번째 백분위 값입니다.');
+console.log('heapUsed 변화는 실제 측정 30회 전후에 gc()를 실행한 뒤의 차이입니다. Node 표에는 happy-dom 자체 캐시가 포함되므로 디자이너의 보존량은 Chromium 표를 기준으로 판단합니다.\n');
 
 const rows = [];
 for (const spec of benchTemplates()) {
@@ -331,7 +331,7 @@ for (const spec of benchTemplates()) {
 }
 
 /**
- * 결과 표를 마크다운으로 찍는다.
+ * 결과 표를 마크다운으로 출력합니다.
  *
  * @param title - 표 제목
  * @param results - `benchTemplate` 결과 목록
@@ -390,14 +390,14 @@ if (jsonPath !== undefined) {
     ];
     for (const [key, label, unit, value] of deterministic) {
       metrics.push(metric(`designer.${row.name}.${key}`, {
-        label: `${row.name} — ${label}`, unit, kind: 'deterministic', value, context,
+        label: `${row.name} · ${label}`, unit, kind: 'deterministic', value, context,
       }));
     }
     metrics.push(metric(`designer.${row.name}.medianMs`, {
-      label: `${row.name} — 드래그 한 번 중앙값`, unit: 'ms', kind: 'environmental', value: row.medianMs, context,
+      label: `${row.name} · 드래그 한 번 중앙값`, unit: 'ms', kind: 'environmental', value: row.medianMs, context,
     }));
     metrics.push(metric(`designer.${row.name}.p95Ms`, {
-      label: `${row.name} — 드래그 한 번 p95`, unit: 'ms', kind: 'environmental', value: row.p95Ms, context,
+      label: `${row.name} · 드래그 한 번 p95`, unit: 'ms', kind: 'environmental', value: row.p95Ms, context,
     }));
   }
   const result = createResult({
@@ -411,5 +411,5 @@ if (jsonPath !== undefined) {
   console.log(`JSON: ${jsonPath}`);
 }
 
-// happy-dom 창이 잡고 있는 타이머 때문에 프로세스가 남지 않도록 정리한다.
+// happy-dom 창이 잡고 있는 타이머 때문에 프로세스가 남지 않도록 정리합니다.
 await win.happyDOM.close();

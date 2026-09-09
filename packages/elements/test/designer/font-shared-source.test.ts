@@ -53,7 +53,7 @@ type Form = import('../../src/slip-form.js').SlipForm;
 
 const loadDefaultFontsMock = vi.mocked(loadDefaultFonts);
 
-/** 세 로케일이 공통으로 돌려주는 동봉 폰트 이름과 순서 */
+/** 세 로케일이 공통으로 반환하는 동봉 폰트 이름과 순서입니다. */
 const BUNDLED_FONT_NAMES = ['Pretendard', 'Pretendard-Bold', 'Noto Sans JP'];
 
 const HOST_FONTS: readonly SlipFont[] = [{ name: 'Host Sans', data: new Uint8Array([7]), fallback: true }];
@@ -109,7 +109,7 @@ function fallbackName(el: Designer): string | undefined {
     ._fontRegistry.fallbackName;
 }
 
-/** 렌더러에 넘어간 `getFonts`가 돌려준 배열 자체 — 같은 캐시를 쓰면 모두 같은 객체입니다. */
+/** 렌더러에 전달된 `getFonts`가 반환한 배열입니다. 같은 캐시를 사용하면 모두 같은 객체입니다. */
 async function fontListsPassedToRenderer(): Promise<readonly (readonly SlipFont[])[]> {
   return Promise.all(renderSlipToPdfMock.mock.calls.map(([, options]) => options!.getFonts!()));
 }
@@ -156,7 +156,7 @@ describe('디자이너·작성 폼·뷰어의 동봉 폰트 공유', () => {
     const form = await mount<Form>('slip-form', slipkit);
     await waitFor(() => renderSlipToPdfMock.mock.calls.length >= 2);
 
-    // 뷰어와 작성 폼은 인스턴스 렌더링이 아니라 동봉 폰트 공급 함수를 렌더러에 넘깁니다.
+    // 뷰어와 작성 폼은 인스턴스 렌더링이 아니라 동봉 폰트 제공 함수를 렌더러에 넘깁니다.
     const shared = await loadDefaultFonts('ko');
     const lists = await fontListsPassedToRenderer();
     expect(lists).toHaveLength(2);

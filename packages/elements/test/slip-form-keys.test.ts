@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 /**
- * `<slip-form>`이 특수한 파라미터 키를 다루는 방식 테스트.
+ * `<slip-form>`이 특수한 파라미터 키를 다루는 방식을 시험합니다.
  *
- * 키는 어떤 문자열이든 될 수 있습니다 — 점·공백·하이픈·숫자 시작·한글은 물론 `__proto__`·
- * `constructor`·`toString`도 업무 데이터의 키입니다. 레이블과 입력은 키가 아닌 순번 id로 잇고,
+ * 점·공백·하이픈이 있거나 숫자로 시작하는 문자열, 한글, `__proto__`, `constructor`,
+ * `toString`도 업무 데이터의 키로 사용할 수 있습니다. 레이블과 입력은 키가 아닌 순번 ID로 잇고,
  * 값 객체는 프로토타입 체인을 거치지 않고 자신의 속성만 읽고 씁니다.
  *
  * PDF 렌더링만 모의하고 파싱과 수식에는 core의 실제 구현을 사용합니다.
@@ -43,7 +43,7 @@ if (!customElements.get('slip-form')) {
 /** 화면에 나타나야 하는 특수 키. 순서는 정의부 순서와 같습니다. */
 const SPECIAL_KEYS = ['a.b', 'a-b', 'a b', '1a', '한글', '__proto__', 'constructor', 'toString', 'it"s'];
 
-/** 특수 키를 스칼라 파라미터와 목록 하위 필드로 두루 가진 양식 */
+/** 특수 키를 스칼라 파라미터와 목록 하위 필드로 두루 가진 양식입니다. */
 function makeKeyedTemplate(): SlipTemplateFile {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -137,7 +137,7 @@ function setInput(input: HTMLInputElement, value: string): void {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-/** 마지막 `slip-change` 이벤트의 전표를 돌려주는 기록기 */
+/** 마지막 `slip-change` 이벤트의 전표를 반환하는 기록기입니다. */
 function trackChange(el: SlipForm): () => SlipVoucherFile {
   let last: SlipVoucherFile | null = null;
   el.addEventListener('slip-change', (e) => {
@@ -149,7 +149,7 @@ function trackChange(el: SlipForm): () => SlipVoucherFile {
   };
 }
 
-/** 폼의 현재 값 객체 (테스트 전용 내부 접근) */
+/** 폼의 현재 값 객체 (테스트 전용 내부 접근)입니다. */
 function valuesOf(el: SlipForm): Record<string, unknown> {
   return (el as unknown as { _values: Record<string, unknown> })._values;
 }
@@ -164,16 +164,16 @@ describe('<slip-form> 특수 키의 레이블 연결', () => {
       const target = root.getElementById(label.getAttribute('for')!);
       expect(target, `label "${label.textContent?.trim()}"`).not.toBeNull();
       expect(target!.tagName).toBe('INPUT');
-      // 레이블 문구가 그 입력의 aria-label과 같아야 서로 잇는 것이다.
+      // 화면의 레이블과 접근성 이름에 같은 문구를 사용합니다.
       expect(target!.getAttribute('aria-label')).toBe(label.textContent?.trim());
     }
-    // 키 자체는 id에 들어가지 않는다 — 공백·따옴표가 있는 키도 id 문법과 무관하다.
+    // 키 자체는 ID에 들어가지 않으므로 공백이나 따옴표가 있는 키도 ID 문법과 관계없습니다.
     const ids = Array.from(root.querySelectorAll('input[id]')).map((i) => i.id);
     for (const key of SPECIAL_KEYS) expect(ids).not.toContain(`f-${key}`);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('특수 키마다 논리명으로 입력 칸을 만든다', async () => {
+  it('특수 키마다 표시 이름으로 입력 필드를 만든다', async () => {
     const el = await mount();
     for (const key of SPECIAL_KEYS) {
       expect(inputByLabel(el, `L:${key}`).type).toBe('text');
@@ -200,7 +200,7 @@ describe('<slip-form> 특수 키 값의 왕복', () => {
     expect(values['__proto__']).toBe('proto-value');
     expect(Object.hasOwn(values, 'constructor')).toBe(true);
     expect(Object.hasOwn(values, 'toString')).toBe(true);
-    // 값 객체의 프로토타입은 바뀌지 않는다.
+    // 값 객체의 프로토타입은 바뀌지 않습니다.
     expect(Object.getPrototypeOf(values)).toBe(prototype);
     expect(Object.getPrototypeOf(values)).toBeNull();
 
@@ -210,13 +210,13 @@ describe('<slip-form> 특수 키 값의 왕복', () => {
     expect(emitted['constructor']).toBe('ctor-value');
     expect(emitted['toString']).toBe('ts-value');
     expect(emitted['a b']).toBe('space-value');
-    // JSON으로 내보내도 키가 남는다.
+    // JSON으로 내보내도 키가 남습니다.
     const json = JSON.parse(serializeSlipFile(lastChange())) as { values: Record<string, unknown> };
     expect(Object.hasOwn(json.values, '__proto__')).toBe(true);
     expect(json.values['__proto__']).toBe('proto-value');
     expect(json.values['constructor']).toBe('ctor-value');
 
-    // 다시 표시해도 값이 프로토타입이 아닌 자신의 값으로 읽힌다.
+    // 다시 표시해도 값이 프로토타입이 아닌 자신의 값으로 읽힙니다.
     expect(inputByLabel(el, 'L:__proto__').value).toBe('proto-value');
     expect(inputByLabel(el, 'L:constructor').value).toBe('ctor-value');
   });
@@ -276,7 +276,7 @@ describe('<slip-form> 특수 키를 가진 목록 행', () => {
     const lastChange = trackChange(el);
     buttonByLabel(el, `행 ${strings.form.addRow}`).click();
     await el.updateComplete;
-    // 새 행은 하위 필드 값이 없으므로 프로토타입의 constructor가 보이지 않는다.
+    // 새 행은 하위 필드 값이 없으므로 프로토타입의 constructor가 보이지 않습니다.
     expect(inputByLabel(el, '행 1 프로토').value).toBe('');
     expect(inputByLabel(el, '행 1 수량').value).toBe('');
 
@@ -300,7 +300,7 @@ describe('<slip-form> 특수 키를 가진 목록 행', () => {
     expect(Object.hasOwn(json.values.rows[0]!, '__proto__')).toBe(true);
     expect(json.values.rows[0]!['constructor']).toBe(3);
 
-    // 값을 비우면 행 자신의 속성만 빠진다.
+    // 값을 비우면 행 자신의 속성만 빠집니다.
     setInput(inputByLabel(el, '행 1 프로토'), '');
     await el.updateComplete;
     const cleared = (lastChange().values['rows'] as Record<string, unknown>[])[0]!;

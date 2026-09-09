@@ -1,15 +1,15 @@
 /**
- * 준비 작업이 만든 tarball을 npm에 배포한다.
+ * 준비 작업이 만든 tarball을 npm에 배포합니다.
  *
  * 순서는 `manifest.json`의 순서(core → elements → react → vue → mcp)이고 한 패키지라도 실패하면
- * 즉시 멈춘다. 다시 실행하면 레지스트리에 같은 버전이 있는지 확인해 다음처럼 처리한다.
- * - 없음(E404): 배포한다.
- * - 있고 `dist.integrity`가 로컬 tarball의 SHA-512 SRI와 같음: 이전 실행에서 올린 같은 파일이므로 건너뛴다.
- * - 있고 값이 다름, 또는 E404가 아닌 오류: 실패한다.
- * 배포한 뒤에는 버전·`dist.integrity`·dist-tag를 다시 조회해 일치할 때만 다음 패키지로 넘어간다.
+ * 즉시 멈춥니다. 다시 실행하면 레지스트리에 같은 버전이 있는지 확인해 다음처럼 처리합니다.
+ * - 없음(E404): 배포합니다.
+ * - 있고 `dist.integrity`가 로컬 tarball의 SHA-512 SRI와 같음: 이전 실행에서 올린 같은 파일이므로 건너뜁니다.
+ * - 있고 값이 다름, 또는 E404가 아닌 오류: 실패합니다.
+ * 배포한 뒤에는 버전·`dist.integrity`·dist-tag를 다시 조회해 일치할 때만 다음 패키지로 넘어갑니다.
  *
  * 사용: `TARBALL_DIR=<dir> DIST_TAG=<latest|next> DRY_RUN=<true|false> node scripts/release/publish.mjs`
- * 실행 전에 `SHA256SUMS`로 tarball을 검증하고, 다시 빌드하거나 pack하지 않는다.
+ * 실행 전에 `SHA256SUMS`로 tarball을 검증하고, 다시 빌드하거나 pack하지 않습니다.
  */
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
@@ -19,15 +19,15 @@ import { DIST_TAGS } from './inputs.mjs';
 import { sriSha512, verifySha256Sums } from './integrity.mjs';
 
 /**
- * `npm view <name>@<version> dist.integrity --json` 결과를 해석한다.
+ * `npm view <name>@<version> dist.integrity --json` 결과를 해석합니다.
  *
  * @param result - npm 실행 결과
  * @returns `found`(integrity 포함), `missing`(E404), `error`(빈 출력·해석 불가·그 밖의 실패) 중 하나
  */
 export function interpretView(result) {
   if (result.code === 0) {
-    // `npm view`는 값이 없는 필드를 빈 출력으로 끝내기도 한다. 그대로 JSON으로 읽으면 원인을 알 수 없는
-    // 구문 오류만 남으므로 조회 실패로 분류한다.
+    // `npm view`는 값이 없는 필드를 빈 출력으로 끝내기도 합니다. 그대로 JSON으로 읽으면 원인을 알 수 없는
+    // 구문 오류만 남으므로 조회 실패로 분류합니다.
     const raw = typeof result.stdout === 'string' ? result.stdout.trim() : '';
     if (raw === '') {
       return { status: 'error', message: 'npm view returned no dist.integrity output' };
@@ -55,7 +55,7 @@ export function interpretView(result) {
 }
 
 /**
- * 레지스트리 조회 결과와 로컬 tarball의 SRI로 배포 여부를 정한다.
+ * 레지스트리 조회 결과와 로컬 tarball의 SRI로 배포 여부를 정합니다.
  *
  * @param view - {@link interpretView} 결과
  * @param localIntegrity - 로컬 tarball의 SHA-512 SRI
@@ -70,13 +70,13 @@ export function decidePublish(view, localIntegrity) {
 }
 
 /**
- * manifest의 패키지를 순서대로 배포한다.
+ * manifest의 패키지를 순서대로 배포합니다.
  *
  * @param options - 배포 설정
  * @param options.dir - tarball과 manifest가 있는 디렉터리
  * @param options.manifest - `manifest.json` 항목 목록 (배포 순서)
  * @param options.distTag - 붙일 dist-tag
- * @param options.dryRun - true면 `npm publish --dry-run`만 실행하고 배포 후 확인은 건너뛴다
+ * @param options.dryRun - true면 `npm publish --dry-run`만 실행하고 배포 후 확인은 건너뜁니다.
  * @param options.npm - npm을 실행하는 함수 `(args) => Promise<{ code, stdout, stderr }>`
  * @param options.log - 진행 메시지 출력 함수
  * @returns 패키지별 결과 (`published` / `skipped` / `dry-run`)
@@ -125,7 +125,7 @@ export async function publishAll({ dir, manifest, distTag, dryRun, npm, log = ()
   return results;
 }
 
-/** npm CLI를 실행해 종료 코드와 출력을 모은다. */
+/** npm CLI를 실행해 종료 코드와 출력을 모읍니다. */
 function runNpm(args) {
   return new Promise((resolve, reject) => {
     const child = spawn('npm', args, { stdio: ['ignore', 'pipe', 'pipe'] });

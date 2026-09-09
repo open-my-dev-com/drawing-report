@@ -15,7 +15,7 @@ DOM에 의존하지 않으므로 Node.js 서버와 브라우저 애플리케이�
 - `.slip` 파일 암호화 및 복호화
 
 > [!NOTE]
-> UI 컴포넌트를 애플리케이션에 연결하려면 [시작하기](getting-started.ko.md)를, 디자이너·작성폼·뷰어의 상태와 저장 흐름을 연결하려면 [애플리케이션 통합 가이드](integration.ko.md)를 참고하세요.
+> UI 컴포넌트를 애플리케이션에 연결하려면 [시작하기](getting-started.ko.md)를, 디자이너·작성 폼·뷰어의 상태와 저장 흐름을 연결하려면 [애플리케이션 통합 가이드](integration.ko.md)를 참고하세요.
 
 ## Core 사용 흐름
 
@@ -179,7 +179,7 @@ await writeFile('trade-statement.pdf', pdfBytes);
 6. 생성된 바이트를 PDF 파일로 저장합니다.
 
 > [!IMPORTANT]
-> 한글·일본어처럼 기본 PDF 폰트에 없는 문자를 출력하려면 해당 문자를 포함하는 폰트를 반드시 공급해야 합니다.
+> 한글·일본어처럼 기본 PDF 폰트에 없는 문자를 출력하려면 해당 문자를 포함하는 폰트를 반드시 제공해야 합니다.
 > Core에는 UI 패키지의 동봉 폰트가 자동으로 적용되지 않습니다.
 
 ## `.slip` 파일 파싱과 검증
@@ -310,9 +310,9 @@ const voucher = slip.buildVoucher(template, values);
 
 ### 파라미터별 값 형태
 
-`values`의 키는 양식에 정의한 파라미터의 물리명입니다.
+`values`의 키는 양식에 정의한 파라미터의 키입니다.
 
-| 파라미터 타입 | 값 형태 | 예 |
+| 파라미터 값 종류 | 값 형태 | 예 |
 |---|---|---|
 | 글자 | `string` | `'주식회사 예시'` |
 | 숫자 | `number` | `12000` |
@@ -321,7 +321,7 @@ const voucher = slip.buildVoucher(template, values);
 | 이미지 | `data:` Base64 문자열 | `'data:image/png;base64,...'` |
 | 목록 | 객체 배열 | `[{ itemName: '연필' }]` |
 
-목록 파라미터는 항목마다 하위 필드의 물리명을 키로 갖는 객체 배열을 사용합니다.
+목록 파라미터는 항목마다 하위 필드 키를 속성 이름으로 갖는 객체 배열을 사용합니다.
 
 ```ts
 const values = {
@@ -503,7 +503,7 @@ const result = slip.evaluate(
 );
 ```
 
-`createSlipKit`에 지정한 `locale`은 평가 컨텍스트에 별도 `locale`이 없을 때 사용됩니다.
+`createSlipKit`에 지정한 `locale`은 계산 문맥에 별도 `locale`이 없을 때 사용됩니다.
 
 ```ts
 const slip = createSlipKit({
@@ -665,7 +665,7 @@ function parseUploadedSlip(
 - 전표의 `values`만 저장하고 양식 스냅샷을 버림
 - 발행 전표에서 외부 URL 이미지를 그대로 사용
 - `issued: true`를 전자서명이나 위변조 방지로 해석
-- 한글·일본어 PDF를 만들면서 해당 문자를 포함한 폰트를 공급하지 않음
+- 한글·일본어 PDF를 만들면서 해당 문자를 포함한 폰트를 제공하지 않음
 - 파일을 렌더링할 때마다 같은 폰트를 다시 읽음
 - 암호화 키를 소스 코드나 파일과 함께 저장
 - 암호화된 봉투 JSON을 복호화하지 않고 `.slip` 파서에 전달
@@ -676,7 +676,7 @@ function parseUploadedSlip(
 - [ ] 양식과 전표를 `kind`로 구분합니다.
 - [ ] 전표 전체를 `templateSnapshot`, `values`, `issued`와 함께 저장합니다.
 - [ ] 발행 상태로 변경한 전표를 다시 검증합니다.
-- [ ] 출력 언어에 필요한 폰트를 공급합니다.
+- [ ] 출력 언어에 필요한 폰트를 제공합니다.
 - [ ] PDF 바이트를 파일 또는 HTTP 응답으로 올바르게 전달합니다.
 - [ ] 수식 오류와 PDF 렌더링 오류를 구분해 처리합니다.
 - [ ] 암호화 키를 파일 데이터와 분리하여 관리합니다.

@@ -4,23 +4,23 @@ import { elideDataUrls } from '../src/summary.js';
 const PNG_1PX =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
-/** JSON 문자열을 파싱해 `__proto__` 같은 키를 자신의 속성으로 가진 객체를 만든다. */
+/** JSON 문자열을 파싱해 `__proto__` 같은 키를 자신의 속성으로 가진 객체를 만듭니다. */
 function fromJson(text: string): unknown {
   return JSON.parse(text) as unknown;
 }
 
-describe('요약의 data URL 치환', () => {
-  it('내장 base64 data URL은 길이와 상관없이 크기 자리표시자로 바꾼다', () => {
+describe('요약의 data URL 대체', () => {
+  it('내장 Base64 데이터 URL은 길이와 상관없이 크기 자리 표시자로 바꾼다', () => {
     expect(elideDataUrls('data:image/png;base64,iVBORw0KGgo=')).toBe('[data 1KB image/png]');
     expect(elideDataUrls(PNG_1PX)).toBe('[data 1KB image/png]');
     const long = `data:image/jpeg;base64,${'/9j/'.repeat(3 * 1024)}`;
     expect(elideDataUrls(long)).toBe('[data 12KB image/jpeg]');
-    // MIME 파라미터가 있어도 `;base64,` 머리말이 있으면 내장 payload로 본다.
+    // MIME 파라미터가 있어도 `;base64,` 머리말이 있으면 내장 데이터로 판단합니다.
     expect(elideDataUrls('data:text/plain;charset=utf-8;base64,aGVsbG8=')).toBe('[data 1KB text/plain]');
   });
 
-  it('payload가 깨졌거나 커도 base64 머리말이 있으면 치환한다', () => {
-    // payload 유효성은 치환 조건이 아니다 — 요약 응답에 실을 이유가 없고, 실제 이미지 검사는 렌더가 한다.
+  it('데이터가 손상되었거나 커도 Base64 머리말이 있으면 크기 표시로 바꾼다', () => {
+    // 데이터가 손상되었더라도 요약 응답에서는 제외하며, 실제 이미지 검사는 렌더링 단계에서 수행합니다.
     expect(elideDataUrls('data:image/png;base64,AAAA!')).toBe('[data 1KB image/png]');
     expect(elideDataUrls('data:image/png;base64,AAAA AAAA')).toBe('[data 1KB image/png]');
     expect(elideDataUrls('data:image/png;base64,')).toBe('[data 1KB image/png]');
@@ -28,7 +28,7 @@ describe('요약의 data URL 치환', () => {
     expect(elideDataUrls(broken)).toBe('[data 20KB image/png]');
   });
 
-  it('base64 머리말이 없는 data URL은 업무 문자열로 보고 원문 그대로 둔다', () => {
+  it('Base64 머리말이 없는 데이터 URL은 일반 데이터 문자열로 보고 원문을 유지한다', () => {
     for (const text of [
       'data:text/plain,hello',
       'data:text/plain,hello%20world',
@@ -53,7 +53,7 @@ describe('요약의 data URL 치환', () => {
     }
   });
 
-  it('머리말 문법에 어긋나는 값은 치환하지 않는다', () => {
+  it('머리말 문법에 어긋나는 값은 바꾸지 않는다', () => {
     for (const text of [
       'data:image;base64,AAAA',
       'data:image/png;base64',
@@ -89,7 +89,7 @@ describe('요약의 data URL 치환', () => {
       },
       pages: [{ elements: [{ id: 'tx', content: 'data:안내 문구' }, { id: 'img', src: '[data 1KB image/png]' }] }],
     });
-    // 원본은 바꾸지 않는다.
+    // 원본은 바꾸지 않습니다.
     expect(input.values.sign).toBe(PNG_1PX);
   });
 

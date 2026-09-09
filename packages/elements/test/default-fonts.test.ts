@@ -4,7 +4,7 @@ import { PRETENDARD_FONTS } from '../src/fonts/pretendard.js';
 import { NOTO_SANS_JP_FONTS } from '../src/fonts/noto-sans-jp.js';
 
 describe('동봉 기본 폰트 (Pretendard, ADR-012)', () => {
-  it('Regular·Bold 2종이고 Regular가 대체(fallback) 폰트다', () => {
+  it('Regular·Bold 2종이고 Regular가 대체 폰트다', () => {
     expect(PRETENDARD_FONTS.map((f) => f.name)).toEqual(['Pretendard', 'Pretendard-Bold']);
     expect(PRETENDARD_FONTS[0]!.fallback).toBe(true);
     expect(PRETENDARD_FONTS[1]!.fallback).toBeUndefined();
@@ -19,7 +19,7 @@ describe('동봉 기본 폰트 (Pretendard, ADR-012)', () => {
   });
 
   it('한국어·영어 로케일에는 동봉 폰트 3종과 Pretendard 대체 폰트를 반환한다', async () => {
-    // 결과뿐 아니라 Promise 자체를 로케일 사이에서 재사용한다.
+    // 결과뿐 아니라 Promise 자체를 로케일 사이에서 재사용합니다.
     expect(loadDefaultFonts('ko')).toBe(loadDefaultFonts('en'));
     const a = await loadDefaultFonts();
     const b = await loadDefaultFonts('ko');
@@ -32,7 +32,7 @@ describe('동봉 기본 폰트 (Pretendard, ADR-012)', () => {
 });
 
 describe('동봉 기본 폰트 (Noto Sans JP, ADR-042)', () => {
-  it('Regular 1종이고 대체(fallback) 폰트다', () => {
+  it('Regular 1종이고 대체 폰트다', () => {
     expect(NOTO_SANS_JP_FONTS.map((f) => f.name)).toEqual(['Noto Sans JP']);
     expect(NOTO_SANS_JP_FONTS[0]!.fallback).toBe(true);
   });
@@ -49,7 +49,7 @@ describe('동봉 기본 폰트 (Noto Sans JP, ADR-042)', () => {
     expect(a).toBe(b);
     expect(a.map((f) => f.name)).toEqual(['Pretendard', 'Pretendard-Bold', 'Noto Sans JP']);
     expect(a.filter((f) => f.fallback === true).map((f) => f.name)).toEqual(['Noto Sans JP']);
-    // 반환 목록을 구성해도 원본 폰트 정의는 변경하지 않는다.
+    // 반환 목록을 구성해도 원본 폰트 정의는 변경하지 않습니다.
     expect(NOTO_SANS_JP_FONTS[0]!.fallback).toBe(true);
     expect(PRETENDARD_FONTS[0]!.fallback).toBe(true);
   });

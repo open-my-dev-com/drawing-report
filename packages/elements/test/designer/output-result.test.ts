@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// 반복 그리드 출력 결과 전환 — 속성 패널 머리줄, 출력 페이지 이동과 편집 조작의 자동 복귀
+// 반복 그리드 출력 결과 전환, 속성 패널 상단 영역, 출력 페이지 이동과 편집 조작의 자동 복귀를 확인합니다.
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@omdc-slipkit/core', async () => {
@@ -38,7 +38,7 @@ installDesignerTestEnv();
 
 const s = strings.designer;
 
-/** 테스트가 들여다보는 디자이너 내부 상태 */
+/** 테스트에서 확인하는 디자이너 내부 상태입니다. */
 type Internals = {
   _gridPlanPreview: boolean;
   _outputPage: number;
@@ -59,8 +59,7 @@ function elementsOf(el: Designer) {
 /**
  * 출력 페이지가 3장 나오는 반복 그리드(고정 페이지, 항목 5개 ÷ 2), 반복 없는 그리드와 텍스트를 둔 양식.
  *
- * @param itemCount - 샘플 항목 수. 2 이하면 출력 페이지가 한 장이 됩니다
- */
+ * @param itemCount - 샘플 항목 수. 2 이하면 출력 페이지가 한 장이 됩니다. */
 function makeFile(itemCount = 5): SlipTemplateFile {
   return {
     schemaVersion: '0.1.0',
@@ -136,7 +135,7 @@ function navStatus(el: Designer): string {
   return panelNav(el)?.querySelector('.output-page-status')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 }
 
-/** 반복 그리드를 선택하고 출력 결과 보기를 켭니다 */
+/** 반복 그리드를 선택하고 출력 결과 보기를 켭니다. */
 async function enterOutputResult(el: Designer): Promise<void> {
   selectElement(el, 'g-1');
   await el.updateComplete;
@@ -146,7 +145,7 @@ async function enterOutputResult(el: Designer): Promise<void> {
   expect(panelToggle(el)!.getAttribute('aria-pressed')).toBe('true');
 }
 
-/** 캔버스 기둥의 구조와 스크롤 위치 — 선택·출력 결과 전환으로 달라지면 안 되는 것 */
+/** 화면 전환 전후를 비교할 캔버스 구조와 스크롤 위치를 반환합니다. */
 function canvasSnapshot(el: Designer) {
   const area = el.shadowRoot!.querySelector('.canvas-area') as HTMLElement;
   const stack = area.querySelector('.canvas-stack') as HTMLElement;
@@ -202,7 +201,7 @@ describe('<slip-designer> 출력 결과 전환 위치', () => {
     el.remove();
   });
 
-  it('속성 패널 머리줄의 전환 버튼은 반복 그리드에만 있고 상태를 aria-pressed로 알린다', async () => {
+  it('속성 패널 상단의 전환 버튼은 반복 그리드에만 있고 상태를 aria-pressed로 알린다', async () => {
     const el = await mount();
     selectElement(el, 'g-1');
     await el.updateComplete;
@@ -229,7 +228,7 @@ describe('<slip-designer> 출력 결과 전환 위치', () => {
     el.remove();
   });
 
-  it('출력 페이지가 한 장이면 머리줄에 페이지 이동을 두지 않는다', async () => {
+  it('출력 페이지가 한 장이면 속성 패널 상단에 페이지 이동을 두지 않는다', async () => {
     const el = await mount(2);
     selectElement(el, 'g-1');
     await el.updateComplete;

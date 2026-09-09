@@ -1,9 +1,9 @@
 /**
- * `<slip-designer>` 스타일 — 속성 패널.
+ * `<slip-designer>`의 속성 패널 스타일입니다.
  *
  * @remarks
- * 공통 입력, 색·테두리 선택과 셀 편집.
- * 규칙 순서는 원래 한 파일이던 때와 같습니다 — 순서를 바꾸면 cascade가 달라집니다.
+ * 공통 입력, 색·테두리 선택과 셀 편집 화면에 적용합니다.
+ * 규칙 순서는 유지해야 합니다. 순서를 바꾸면 CSS 적용 결과가 달라집니다.
  */
 import { css } from 'lit';
 
@@ -49,7 +49,7 @@ export const propertiesStyles = css`
       color: var(--sk-text);
       backdrop-filter: blur(4px);
     }
-    /* 반복 그리드의 머리줄 — 이름 옆에 출력 결과 전환과 출력 페이지 이동을 둡니다 */
+    /* 반복 그리드 이름 옆에 출력 결과 전환과 출력 페이지 이동을 둡니다. */
     .type-name.has-output-tools {
       justify-content: space-between;
       flex-wrap: wrap;
@@ -121,7 +121,7 @@ export const propertiesStyles = css`
       min-height: 32px;
       padding-inline: 10px;
     }
-    /* 정렬·간격 배치 아이콘 버튼 묶음 — 변 맞춤과 간격 배치를 두 묶음으로 나눕니다 */
+    /* 변 맞춤과 간격 배치 버튼을 두 묶음으로 나눕니다. */
     .arrange-actions {
       display: flex;
       flex-wrap: wrap;
@@ -133,7 +133,7 @@ export const propertiesStyles = css`
       cursor: not-allowed;
       opacity: 0.6;
     }
-    /* 선택한 요소가 용지 오른쪽·아래쪽을 넘을 때의 안내 — 입력을 막지 않는 참고 문구 */
+    /* 선택한 요소가 용지 오른쪽이나 아래쪽을 벗어나면 입력을 막지 않는 안내를 표시합니다. */
     .paper-overflow-notice {
       margin: 8px 0 0;
       font-size: 11px;
@@ -173,7 +173,7 @@ export const propertiesStyles = css`
       flex: none;
       width: 100%;
     }
-    /* 네이티브 select를 대신하는 리스트형 선택 상자 */
+    /* 네이티브 select를 대신하는 목록형 선택 상자 */
     .list-select {
       flex: 1;
       min-width: 0;
@@ -369,7 +369,7 @@ export const propertiesStyles = css`
       color: var(--sk-accent);
       border-color: var(--sk-accent);
     }
-    /* 조건부 서식 강조의 '해제' 상태 — 기본 서식의 강조를 끄는 규칙을 사선으로 표시합니다 */
+    /* 기본 서식의 강조를 끄는 조건부 서식 규칙은 사선으로 표시합니다. */
     .toggle-group button[aria-pressed='mixed'] {
       position: relative;
       background: var(--sk-accent-soft);
@@ -472,7 +472,7 @@ export const propertiesStyles = css`
       border: 1px solid var(--sk-border);
       border-radius: 3px;
     }
-    /* 색 미지정 상태 — 검정으로 오해하지 않게 '없음'(사선)으로 표시 */
+    /* 색을 지정하지 않은 상태는 검정으로 오해하지 않도록 사선이 있는 '없음'으로 표시합니다. */
     /* 선택한 셀마다 색이 다를 때의 빗금 견본 */
     .color-chip.mixed {
       background: repeating-linear-gradient(-45deg, var(--sk-border-strong) 0 2px, var(--sk-surface) 2px 5px);
@@ -679,7 +679,7 @@ export const propertiesStyles = css`
     .shape-line.shape-dotted {
       border-top-style: dotted;
     }
-    /* 지정하지 않아 기본값·상속값이 적용 중인 항목  */
+    /* 지정하지 않아 기본값이나 상속값이 적용되는 항목 */
     .mixed {
       color: var(--sk-text-muted);
       font-style: italic;
@@ -739,7 +739,7 @@ export const propertiesStyles = css`
       outline: 2px solid var(--sk-accent);
       outline-offset: -2px;
     }
-    /* 기준 셀 — Shift 범위 선택의 시작점을 한 단계 진한 외곽선으로 구분합니다 */
+    /* Shift 범위 선택의 시작 셀은 더 진한 외곽선으로 구분합니다. */
     .grid-preview .cell-selected.cell-anchor {
       outline-width: 3px;
       box-shadow: inset 0 0 0 4px var(--sk-accent-soft);

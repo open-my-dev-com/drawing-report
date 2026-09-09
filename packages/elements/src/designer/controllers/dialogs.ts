@@ -7,7 +7,7 @@
 
 import type { ReactiveController } from 'lit';
 
-/** 디자이너가 여는 모달의 종류 */
+/** 디자이너에서 열 수 있는 모달의 종류입니다. */
 export type DialogKind = 'formula' | 'image' | 'sample' | 'save' | 'myForms' | 'confirmDelete';
 
 export interface DialogsHost {
@@ -33,7 +33,7 @@ export class DialogsController implements ReactiveController {
     return this.opened.has(kind);
   }
 
-  /** 하나라도 열려 있는지 */
+  /** 모달이 하나라도 열려 있는지를 나타냅니다. */
   get anyOpen(): boolean {
     return this.opened.size > 0;
   }

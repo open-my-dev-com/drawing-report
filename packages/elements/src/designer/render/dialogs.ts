@@ -1,5 +1,5 @@
 /**
- * 모달 화면 — 수식 편집, 이미지 선택, 샘플 데이터, 저장과 내 양식 목록.
+ * 모달 화면 — 수식 편집, 이미지 선택, 샘플 데이터, 저장과 내 양식 목록입니다.
  *
  * @remarks
  * 각 컨트롤러가 초안 상태를 관리하고, 이 모듈은 현재 상태를 렌더링한 뒤 사용자 조작을 호스트에 전달합니다.
@@ -23,39 +23,39 @@ import type { FormulaModalView } from './formula-modal.js';
 import type { ParameterInfo } from '../parameters.js';
 import type { DesignerStrings } from '../../strings.js';
 
-/** 모달 화면이 컴포넌트에서 받는 것 */
+/** 모달 렌더링에 필요한 상태와 동작입니다. */
 export interface DialogContext {
-  /** 로케일에 맞는 문구 */
+  /** 로케일에 맞는 문구입니다. */
   readonly s: DesignerStrings;
-  /** 수식 파싱·평가에 사용할 로케일 */
+  /** 수식 파싱·평가에 사용할 로케일입니다. */
   readonly locale: string | undefined;
-  /** 열려 있는 모달 */
+  /** 열려 있는 모달입니다. */
   readonly dialogs: DialogsController;
-  /** 모달의 초점 가두기 */
+  /** 모달 안에서 초점을 관리합니다. */
   readonly modalFocus: ModalFocusController;
-  /** 수식 편집 초안 */
+  /** 수식 편집 초안입니다. */
   readonly formula: FormulaDraftController;
-  /** 샘플 데이터 초안 */
+  /** 샘플 데이터 초안입니다. */
   readonly sample: SampleDraftController;
-  /** 저장·내 양식 목록 상태 */
+  /** 저장·내 양식 목록 상태입니다. */
   readonly forms: FormsController;
-  /** 편집 중인 양식 */
+  /** 편집 중인 양식입니다. */
   readonly file: SlipTemplateFile | null;
-  /** 이미지 선택 실패 문구 */
+  /** 이미지 선택 실패 문구입니다. */
   readonly imageError: string | null;
-  /** 허용하는 최대 이미지 크기(바이트) */
+  /** 허용하는 최대 이미지 크기(바이트)입니다. */
   readonly maxImageBytes: number;
-  /** 정의와 사용처를 합친 파라미터 목록 */
+  /** 정의와 사용처를 합친 파라미터 목록입니다. */
   parameters(): ParameterInfo[];
-  /** 샘플 편집에 표시할 파라미터 키와 이름 */
+  /** 샘플 편집에 표시할 파라미터 키와 이름입니다. */
   parameterKeys(): { key: string; label: string }[];
-  /** 선언된 파라미터와 현재 샘플 값을 합친 JSON 초안 */
+  /** 선언된 파라미터와 현재 샘플 값을 합친 JSON 초안입니다. */
   sampleSkeleton(): Record<string, unknown>;
-  /** 속성 패널이 대상으로 삼는 요소 */
+  /** 속성 패널이 대상으로 삼는 요소입니다. */
   selectedElement(): SlipElement | undefined;
-  /** 요소 종류의 표시 이름 */
+  /** 요소 종류의 표시 이름입니다. */
   typeName(type: SlipElement['type']): string;
-  /** 수식 모달이 그릴 편집 대상, 검사 결과와 참조 목록 */
+  /** 수식 모달이 그릴 편집 대상, 검사 결과와 참조 목록입니다. */
   formulaView(): FormulaModalView;
   applyFormula(): void;
   closeFormula(): void;
@@ -67,24 +67,24 @@ export interface DialogContext {
   applySampleJson(): void;
   confirmSave(): void;
   loadMyForm(id: string): void;
-  /** 삭제 확인 모달을 엽니다 */
+  /** 삭제 확인 모달을 엽니다. */
   deleteMyForm(id: string): void;
-  /** 삭제 확인 모달이 가리키는 양식. 열려 있지 않으면 null */
+  /** 삭제 확인 모달이 가리키는 양식. 열려 있지 않으면 null입니다. */
   readonly pendingDelete: { id: string; title: string } | null;
-  /** 확인 모달에서 삭제를 확정합니다 */
+  /** 확인 모달에서 삭제를 확정합니다. */
   confirmDeleteMyForm(): void;
-  /** 삭제 확인 모달을 닫습니다 */
+  /** 삭제 확인 모달을 닫습니다. */
   cancelDeleteMyForm(): void;
-  /** 화면을 다시 그립니다 */
+  /** 화면을 다시 그립니다. */
   refresh(): void;
 }
 
 /**
  * 파일을 업로드하거나 양식에서 사용 중인 이미지를 선택하는 모달을 렌더링합니다.
- * 이미지 값은 base64만 지원하므로 URL 입력은 제공하지 않습니다.
+ * 이미지 값은 Base64만 지원하므로 URL 입력은 제공하지 않습니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
- * @returns 이미지 모달. 열려 있지 않으면 빈 것
+ * @returns 이미지 모달. 열려 있지 않으면 빈 템플릿
  */
 export function imageModal(d: DialogContext) {
   if (!d.dialogs.isOpen('image')) return nothing;
@@ -136,7 +136,7 @@ export function imageModal(d: DialogContext) {
  * 반복 파라미터는 그리드 열에 맞춰 행 단위로 편집합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
- * @returns 샘플 데이터 모달. 열려 있지 않으면 빈 것
+ * @returns 샘플 데이터 모달. 열려 있지 않으면 빈 템플릿
  */
 export function sampleModal(d: DialogContext) {
   if (!d.dialogs.isOpen('sample') || !d.file) return nothing;
@@ -148,7 +148,7 @@ export function sampleModal(d: DialogContext) {
     d.refresh();
   };
 
-  // 열 제목은 파라미터 정의의 논리명을 쓰고, 논리명이 없는 하위 필드만 값 키로 표시합니다.
+  // 열 제목은 파라미터 정의의 표시 이름을 쓰고, 표시 이름이 없는 하위 필드만 값 키로 표시합니다.
   const fieldTitleOf = new Map<string, Map<string, string>>(
     d.parameters().map((info) => [info.key, new Map(info.fields.map((f) => [f.key, f.title]))]),
   );
@@ -292,7 +292,7 @@ export function sampleModal(d: DialogContext) {
  * 반복 파라미터의 샘플 행을 열 구조에 맞춰 편집합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
- * @param b - 편집할 목록 파라미터의 키와 논리명
+ * @param b - 편집할 목록 파라미터의 키와 표시 이름
  * @param columns - 그리드 셀에서 모은 열 키와 제목
  * @param raw - 현재 샘플 값
  * @returns 샘플 행 편집 표
@@ -352,7 +352,7 @@ function sampleTable(
  * 이미지 파라미터의 샘플 파일을 선택하고 미리보기를 표시합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
- * @param b - 편집할 이미지 파라미터의 키와 논리명
+ * @param b - 편집할 이미지 파라미터의 키와 표시 이름
  * @param raw - 현재 샘플 값
  * @returns 파일 선택과 미리보기 조각
  */
@@ -386,7 +386,7 @@ function sampleImage(d: DialogContext, b: { key: string; label: string }, raw: u
  * 양식 제목과 새 저장 여부를 입력하는 저장 모달을 렌더링합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
- * @returns 저장 모달. 열려 있지 않으면 빈 것
+ * @returns 저장 모달. 열려 있지 않으면 빈 템플릿
  */
 export function saveModal(d: DialogContext) {
   if (!d.dialogs.isOpen('save') || !d.file) return nothing;
@@ -439,7 +439,7 @@ export function saveModal(d: DialogContext) {
  * 저장된 양식을 검색하고 불러오거나 삭제하는 모달을 렌더링합니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
- * @returns 양식 목록 모달. 열려 있지 않으면 빈 것
+ * @returns 양식 목록 모달. 열려 있지 않으면 빈 템플릿
  */
 export function myFormsModal(d: DialogContext) {
   if (!d.dialogs.isOpen('myForms')) return nothing;
@@ -481,7 +481,7 @@ export function myFormsModal(d: DialogContext) {
  * 내 양식 목록 모달 위에 열리며 초점은 이 모달 안에 머뭅니다.
  *
  * @param d - 모달 렌더링에 필요한 상태와 동작
- * @returns 삭제 확인 모달. 열려 있지 않으면 빈 것
+ * @returns 삭제 확인 모달. 열려 있지 않으면 빈 템플릿
  */
 export function confirmDeleteModal(d: DialogContext) {
   const pending = d.pendingDelete;

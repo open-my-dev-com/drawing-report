@@ -1,5 +1,5 @@
 /**
- * 디자이너의 좌표와 크기 계산.
+ * 디자이너의 좌표와 크기를 계산합니다.
  *
  * @remarks
  * 용지 좌표는 mm, 화면 좌표는 px입니다.
@@ -9,14 +9,14 @@ import { elementBounds, type SlipElement, type LineElement } from '@omdc-slipkit
 
 export const PX_PER_MM = 96 / 25.4;
 
-/** 크기 조절 최소 폭·높이(mm) */
+/** 크기 조절 최소 폭·높이(mm)입니다. */
 export const MIN_SIZE_MM = 2;
 
-/** 요소와 안내선에 맞춤이 적용되는 최대 거리(mm) */
+/** 요소와 안내선에 맞춤이 적용되는 최대 거리(mm)입니다. */
 export const SNAP_MM = 1.5;
 
 /**
- * 속성 패널에서 X와 Y 좌표의 기준으로 사용할 9개 지점.
+ * 속성 패널에서 X와 Y 좌표의 기준으로 사용할 아홉 지점입니다.
  * 파일에는 기준점과 관계없이 왼쪽 위 좌표를 저장합니다.
  */
 export const ANCHORS = [
@@ -31,7 +31,7 @@ export const ANCHORS = [
   { key: 'anchorBR', ax: 1, ay: 1 },
 ] as const;
 
-/** 사이드바 페이지 미리보기의 너비(px) */
+/** 사이드바 페이지 미리보기의 너비(px)입니다. */
 export const THUMB_WIDTH_PX = 132;
 
 export const RESIZE_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
@@ -163,8 +163,8 @@ export function boxOf(el: SlipElement): { width: number; height: number } {
  * 기존 비율을 유지하며 열 너비와 행 높이를 목표 크기에 맞춥니다.
  *
  * @param el - 대상 요소
- * @param width - 목표 너비(mm). 생략하면 그대로 둡니다
- * @param height - 목표 높이(mm). 생략하면 그대로 둡니다
+ * @param width - 목표 너비(mm). 생략하면 그대로 둡니다.
+ * @param height - 목표 높이(mm). 생략하면 그대로 둡니다.
  */
 export function setElementBox(el: SlipElement, width?: number, height?: number): void {
   if (el.type === 'grid') {
@@ -197,7 +197,7 @@ export function trackOffsets(sizes: readonly number[]): number[] {
   return offsets;
 }
 
-/** 스냅 후보 선 — 용지 경계·여백과 다른 요소들의 시작·중앙·끝 */
+/** 스냅 후보 선 — 용지 경계·여백과 다른 요소들의 시작·중앙·끝입니다. */
 export interface SnapCandidates {
   xs: number[];
   ys: number[];
@@ -208,7 +208,7 @@ export interface SnapCandidates {
  *
  * @param paper - 용지 크기와 여백(mm)
  * @param elements - 같은 페이지의 요소들
- * @param exclude - 함께 움직이는 요소의 id — 후보에서 뺍니다
+ * @param exclude - 함께 움직이는 요소 ID — 후보에서 뺍니다
  * @returns 세로선(xs)과 가로선(ys)의 mm 좌표
  */
 export function snapCandidates(

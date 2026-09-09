@@ -43,7 +43,7 @@ installDesignerTestEnv();
 type ElementRecord = { id: string; type: string; parameter?: string; repeat?: { parameter: string };
   cells?: { row: number; column: number; parameter?: string }[] };
 
-/** 필드·이미지·바코드·그리드가 같은 파라미터 `amount`를 쓰고 샘플 값도 있는 양식 */
+/** 필드·이미지·바코드·그리드가 같은 파라미터 `amount`를 쓰고 샘플 값도 있는 양식입니다. */
 function makeRefFile(): SlipTemplateFile {
   const file = makeTemplateFile();
   file.template.parameters = [
@@ -98,7 +98,7 @@ async function mount(): Promise<Designer> {
   return loadDesigner();
 }
 
-/** 사이드바에서 파라미터를 골라 설정 패널을 엽니다 */
+/** 사이드바에서 파라미터를 골라 설정 패널을 엽니다. */
 async function selectParameter(el: Designer, key: string): Promise<void> {
   const row = Array.from(el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.side-row'))
     .find((b) => b.getAttribute('title') === key);
@@ -119,7 +119,7 @@ function press(el: Designer, key: string, init: KeyboardEventInit = {}): void {
   el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, ...init }));
 }
 
-/** `amount`를 참조하는 모든 자리가 `key`를 가리키는지 */
+/** `amount`를 참조하는 모든 위치가 `key`를 가리키는지 확인합니다. */
 function expectAllRefs(el: Designer, key: string): void {
   expect(elementOf(el, 0, 'f-1').parameter).toBe(key);
   expect(elementOf(el, 0, 'i-1').parameter).toBe(key);
@@ -133,7 +133,7 @@ function expectAllRefs(el: Designer, key: string): void {
   expect((fileOf(el).template.sampleValues as Record<string, unknown>)[key]).toBe(5);
 }
 
-describe('파라미터 참조 헬퍼 (상태 비의존)', () => {
+describe('화면 상태와 무관한 파라미터 참조 도우미', () => {
   it('필드·그리드·이미지·바코드의 사용 위치를 한 목록으로 모은다', () => {
     const { uses, fieldAt } = collectParameterUses(makeRefFile());
     expect(uses.get('amount')!.map((u) => `${u.type}:${u.id}@${u.pageIndex}`))

@@ -38,16 +38,17 @@ import {
   type Designer,
 } from './helpers.js';
 
-/** 폰트 데이터의 첫 바이트로 폰트를 구분합니다. 대역이 폰트별로 결과를 정할 때 씁니다. */
+/** 폰트 데이터의 첫 바이트로 폰트를 구분합니다. 대체 구현이 폰트별 결과를 정할 때 사용합니다. */
 function markOf(source: unknown): number {
   return new Uint8Array(source as ArrayBuffer)[0] ?? 0;
 }
 
 /**
- * 폰트 등록을 흉내 내는 FontFace 대역을 만듭니다.
+ * 폰트별 등록 결과를 제어할 수 있는 `FontFace` 대체 구현을 만듭니다.
  *
  * @param outcome - 폰트 데이터를 구분하는 첫 바이트별 등록 결과
- * 지정하지 않은 폰트는 등록에 성공합니다
+ *
+ * 지정하지 않은 폰트는 등록에 성공합니다.
  */
 function fakeFontFace(outcome: Record<number, 'ready' | 'pending' | 'failed'> = {}) {
   return class {
@@ -61,7 +62,7 @@ function fakeFontFace(outcome: Record<number, 'ready' | 'pending' | 'failed'> = 
   };
 }
 
-/** 등록 대역과 `document.fonts`를 설치합니다. */
+/** 등록용 대체 구현과 `document.fonts`를 설치합니다. */
 function installFontFace(face: unknown): void {
   (globalThis as { FontFace?: unknown }).FontFace = face;
   Object.defineProperty(document, 'fonts', {
@@ -70,7 +71,7 @@ function installFontFace(face: unknown): void {
   });
 }
 
-/** 설치한 대역을 걷어 냅니다. */
+/** 시험에 등록한 `FontFace`와 `document.fonts`를 제거합니다. */
 function removeFontFace(): void {
   delete (globalThis as { FontFace?: unknown }).FontFace;
   Reflect.deleteProperty(document, 'fonts');
@@ -250,7 +251,7 @@ describe('<slip-designer> 폰트 선택과 캔버스 적용', () => {
     expect(await listOptionLabels(el, fontSelect(el))).toContain('Pretendard-Bold');
     el.remove();
   });
-  /** 셀 두 개를 가진 그리드 하나만 둔 양식 */
+  /** 셀 두 개를 가진 그리드 하나만 둔 양식입니다. */
   function gridElement(extra: Record<string, unknown> = {}): Record<string, unknown> {
     return {
       type: 'grid', id: 'g1', name: 'g', position: { x: 10, y: 10 },

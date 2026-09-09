@@ -1,5 +1,5 @@
-// DOM 타입 전체를 포함하지 않고 암호화 모듈이 사용하는 Web Crypto 및 Encoding API만 선언한다.
-// crypto.subtle의 세부 인터페이스는 encryption/crypto.ts의 SubtleLike에서 정의한다.
+// DOM 타입 전체를 포함하지 않고 암호화 모듈이 사용하는 Web Crypto 및 Encoding API만 선언합니다.
+// crypto.subtle의 세부 인터페이스는 encryption/crypto.ts의 SubtleLike에서 정의합니다.
 
 interface SubtleCrypto {
   encrypt(algorithm: unknown, key: unknown, data: Uint8Array): Promise<ArrayBuffer>;

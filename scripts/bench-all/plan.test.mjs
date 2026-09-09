@@ -1,5 +1,5 @@
 // bench:all 실행 계획 시험 — 옵션 없는 공통 실행이 하위 명령의 기본값을 그대로 넘기는지,
-// 고른 benchmark가 쓰는 패키지만 한 번에 빌드하는지, 기준선이 갖춰졌는지 확인한다.
+// 선택한 성능 측정에 필요한 패키지만 한 번에 빌드하는지, 기준선이 갖춰졌는지 확인합니다.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -13,7 +13,7 @@ import { buildCommandArgs, buildTargets, missingBaselineTools, parseOptions, sel
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
- * 인자 목록으로 하위 실행을 고른다.
+ * 인자 목록으로 하위 실행을 선택합니다.
  *
  * @param {string[]} argv - 공통 실행 인자
  * @returns {ReturnType<typeof selectRuns>} 하위 실행 목록
@@ -23,20 +23,20 @@ function runsFor(argv) {
 }
 
 /**
- * 하위 실행 하나를 이름으로 찾는다.
+ * 하위 실행 하나를 이름으로 찾습니다.
  *
  * @param {string[]} argv - 공통 실행 인자
- * @param {string} tool - benchmark 이름
+ * @param {string} tool - 성능 측정 이름
  * @returns {Record<string, any>} 하위 실행
  */
 function runFor(argv, tool) {
   const run = runsFor(argv).find((item) => item.tool === tool);
-  assert.ok(run !== undefined, `${tool} 실행이 없다`);
+  assert.ok(run !== undefined, `${tool} 실행이 없습니다.`);
   return run;
 }
 
 describe('공통 실행의 기본값', () => {
-  it('네 갈래를 정해진 순서로 모두 고른다', () => {
+  it('네 종류를 정해진 순서로 모두 고른다', () => {
     assert.deepEqual(runsFor([]).map((run) => run.tool), ['core', 'designer', 'fonts', 'mcp-list']);
     assert.deepEqual([...TOOLS].sort(), runsFor([]).map((run) => run.tool).sort());
   });
@@ -46,7 +46,7 @@ describe('공통 실행의 기본값', () => {
     assert.equal(readPositiveInt(args, '--runs', 0), FONTS_DEFAULT_RUNS);
   });
 
-  it('MCP list에 하위 명령과 같은 fixture 파일 수와 반복 수를 넘긴다', () => {
+  it('MCP list에 하위 명령과 같은 시험 자료 파일 수와 반복 수를 넘긴다', () => {
     const args = runFor([], 'mcp-list').args;
     assert.deepEqual(readPositiveIntList(args, '--sizes', []), [...MCP_LIST_DEFAULT_SIZES]);
     assert.equal(readPositiveInt(args, '--runs', 0), MCP_LIST_DEFAULT_RUNS);
@@ -76,7 +76,7 @@ describe('공통 실행의 기본값', () => {
   });
 });
 
-describe('돌릴 benchmark 고르기', () => {
+describe('실행할 성능 측정 고르기', () => {
   it('--only 로 고른 것만 남긴다', () => {
     assert.deepEqual(runsFor(['--only', 'core']).map((run) => run.tool), ['core']);
   });
@@ -86,11 +86,11 @@ describe('돌릴 benchmark 고르기', () => {
   });
 
   it('알 수 없는 이름은 거절한다', () => {
-    assert.throws(() => parseOptions(['--only', 'core,pdf']), /알 수 없는 benchmark/);
+    assert.throws(() => parseOptions(['--only', 'core,pdf']), /알 수 없는 성능 측정/);
   });
 
   it('고른 것이 하나도 없으면 거절한다', () => {
-    assert.throws(() => runsFor(['--only', 'core', '--skip', 'core']), /돌릴 benchmark가 없다/);
+    assert.throws(() => runsFor(['--only', 'core', '--skip', 'core']), /실행할 성능 측정이 없습니다/);
   });
 });
 
@@ -103,7 +103,7 @@ describe('먼저 빌드할 패키지', () => {
     assert.deepEqual(buildTargets(runsFor(['--only', 'designer,fonts'])), ['@omdc-slipkit/core', '@omdc-slipkit/elements']);
   });
 
-  it('네 갈래를 다 돌리면 세 패키지를 의존 순서로 한 번에 빌드한다', () => {
+  it('네 종류를 다 실행하면 세 패키지를 의존 순서로 한 번에 빌드한다', () => {
     const packages = buildTargets(runsFor([]));
     assert.deepEqual(packages, ['@omdc-slipkit/core', '@omdc-slipkit/elements', '@omdc-slipkit/mcp']);
     assert.deepEqual(buildCommandArgs(packages), [
@@ -131,7 +131,7 @@ describe('먼저 빌드할 패키지', () => {
 });
 
 describe('기준선 확인', () => {
-  it('고른 benchmark의 기준선이 없으면 이름을 알린다', () => {
+  it('선택한 성능 측정의 기준선이 없으면 이름을 알린다', () => {
     const baselines = new Map([['designer', {}], ['fonts', {}], ['mcp-list', {}]]);
     assert.deepEqual(missingBaselineTools(runsFor(['--only', 'core']), baselines), ['core']);
   });

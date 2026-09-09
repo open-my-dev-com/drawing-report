@@ -11,7 +11,7 @@ import {
 import type { FormulaCheck, FormulaCheckStatus } from '../../src/designer/formula-check.js';
 import type { FormulaTarget } from '../../src/designer/formula-target.js';
 
-/** 수식 문자열로 결과를 정하는 검사 함수 — 계산 자체는 core가 하므로 여기서는 흉내만 냅니다 */
+/** 수식 문자열에 따라 미리 정한 검사 결과를 반환합니다. */
 function checkBy(bySource: Record<string, FormulaCheckStatus | FormulaCheckStatus[]>) {
   const calls: { target: FormulaTarget; source: string; condition: boolean }[] = [];
   const check = (target: FormulaTarget, source: string, condition: boolean): FormulaCheck[] => {

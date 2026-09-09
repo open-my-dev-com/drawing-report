@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// 공백뿐인 수식의 화면 계약 — 디자이너 캔버스·자동 병합·경고 목록과 작성 폼이 PDF 변환처럼 빈 값으로 다룬다
+// 공백뿐인 수식의 화면 계약 — 디자이너 캔버스·자동 병합·경고 목록과 작성 폼이 PDF 변환처럼 빈 값으로 다룹니다.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@omdc-slipkit/core', async () => {
@@ -41,7 +41,7 @@ if (!customElements.get('slip-form')) {
 const SAMPLE_ITEMS = [{ itemName: '연필' }, { itemName: '지우개' }, { itemName: '자' }];
 
 /**
- * 디자이너와 작성 폼에 똑같이 넘기는 양식 — 자동 병합 열의 항목 구간 셀과 필드가 같은 수식을 갖습니다.
+ * 디자이너와 작성 폼에 전달하는 공통 양식입니다. 자동 병합 열의 항목 구간 셀과 필드가 같은 수식을 사용합니다.
  */
 function makeFile(formula: string): SlipFile {
   const file = makeTemplateFile();
@@ -98,16 +98,16 @@ async function mountForm(file: SlipFile): Promise<SlipForm> {
   return el;
 }
 
-/** 캔버스에 놓인 그리드 셀 — 반복 그리드를 고르지 않았으므로 출력 결과 그대로입니다 */
+/** 캔버스에 놓인 그리드 셀 — 반복 그리드를 고르지 않았으므로 출력 결과 그대로입니다. */
 function gridCells(el: Designer): HTMLElement[] {
   return Array.from(el.shadowRoot!.querySelectorAll<HTMLElement>('.grid-preview > .grid-cell'));
 }
 
-/** 작성 폼의 수식 필드 칸과 그 아래 안내 문구 */
+/** 작성 폼의 수식 입력 필드와 그 아래 안내 문구입니다. */
 function computedField(el: SlipForm): { input: HTMLInputElement; hint: string } {
   const input = Array.from(el.shadowRoot!.querySelectorAll('input'))
     .find((i) => i.getAttribute('aria-label') === `합계 (${strings.form.computed})`);
-  if (!input) throw new Error('수식 필드 칸을 찾지 못했습니다');
+  if (!input) throw new Error('수식 입력 필드를 찾지 못했습니다');
   const hint = input.parentElement!.querySelector('.hint')!.textContent?.trim() ?? '';
   return { input, hint };
 }
@@ -129,7 +129,7 @@ describe('isBlankFormula — 공백뿐인 수식 판정', () => {
     }
   });
 
-  it('공통 검사도 같은 판정으로 비어 있음을 돌려준다', () => {
+  it('공통 검사도 같은 판정으로 비어 있음을 반환한다', () => {
     const diagnose = vi.fn();
     const check = checkFormula({
       source: ' \n ', condition: false, emptyAllowed: true, locale: undefined, context: { values: {} }, diagnose,
@@ -142,7 +142,7 @@ describe('isBlankFormula — 공백뿐인 수식 판정', () => {
 describe('공백뿐인 수식은 빈 값 — 디자이너·작성 폼이 PDF 변환과 같은 계약을 쓴다', () => {
   const BLANK = '   ';
 
-  it('디자이너 캔버스의 그리드 셀은 오류 표시 없이 빈 칸으로 그린다', async () => {
+  it('디자이너 캔버스의 그리드 셀은 오류 표시 없이 빈 셀로 그린다', async () => {
     const el = await mountDesigner(makeFile(BLANK));
     const cells = gridCells(el);
     expect(cells.length).toBeGreaterThan(0);
@@ -153,10 +153,10 @@ describe('공백뿐인 수식은 빈 값 — 디자이너·작성 폼이 PDF 변
 
   it('자동 병합 열의 빈 수식 셀은 값이 없는 것으로 보아 합치지 않는다', async () => {
     const el = await mountDesigner(makeFile(BLANK));
-    // 값이 같은 항목이 이어져도 세로로 합친 칸(span 2 이상)이 생기지 않습니다.
+    // 값이 같은 항목이 이어져도 세로로 합친 셀(span 2 이상)이 생기지 않습니다.
     const merged = gridCells(el).filter((cell) => /span[2-9]/.test(cell.style.gridArea.replaceAll(' ', '')));
     expect(merged).toHaveLength(0);
-    // 항목 세 벌의 비고 칸이 각각 빈 칸으로 남습니다.
+    // 세 항목의 비고 셀이 각각 빈 셀로 남습니다.
     const blanks = gridCells(el).filter((cell) => cell.textContent?.trim() === '');
     expect(blanks.length).toBeGreaterThanOrEqual(SAMPLE_ITEMS.length);
   });

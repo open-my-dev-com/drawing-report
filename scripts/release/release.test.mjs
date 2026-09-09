@@ -1,4 +1,4 @@
-// 배포 도우미의 단위 시험 — `node --test`로 실행한다.
+// 배포 도우미의 단위 시험 — `node --test`로 실행합니다.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -158,7 +158,7 @@ describe('publish', () => {
     });
     afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
 
-    /** 레지스트리 상태를 흉내 내는 npm 실행 함수. 호출 기록을 남긴다. */
+    /** 시험용 레지스트리 상태를 반환하고 npm 호출 기록을 남기는 함수입니다. */
     function fakeNpm(registry, { publishFails = [], tagAfterPublish = 'latest' } = {}) {
       const calls = [];
       const npm = async (args) => {
@@ -204,7 +204,7 @@ describe('publish', () => {
       assert.equal(calls.filter((args) => args[0] === 'publish').length, 2);
     });
 
-    it('같은 버전이 다른 내용이면 즉시 실패하고 뒤 패키지를 건드리지 않는다', async () => {
+    it('같은 버전이 다른 내용이면 즉시 실패하고 뒤 패키지는 처리하지 않는다', async () => {
       const { npm, calls } = fakeNpm({ '@omdc-slipkit/core@0.1.0': { integrity: 'sha512-other', tag: 'latest' } });
       await assert.rejects(publishAll({ dir, manifest, distTag: 'latest', dryRun: false, npm }), /different content/);
       assert.equal(calls.filter((args) => args[0] === 'publish').length, 0);
@@ -251,18 +251,18 @@ describe('publish', () => {
 const WORKFLOW_TEXT = readFileSync(fileURLToPath(new URL('../../.github/workflows/release.yml', import.meta.url)), 'utf8');
 
 /**
- * release.yml의 최상위 `jobs:` 아래를 작업 이름별 원문 블록으로 나눈다.
+ * release.yml의 최상위 `jobs:` 아래를 작업 이름별 원문 블록으로 나눕니다.
  *
- * @returns 작업 이름을 키로, 해당 작업의 YAML 원문을 값으로 갖는 Map.
+ * @returns 작업 이름을 키로, 해당 작업의 YAML 원문을 값으로 갖는 Map입니다.
  */
 function workflowJobs() {
   const lines = WORKFLOW_TEXT.split('\n');
   const start = lines.indexOf('jobs:');
-  assert.ok(start >= 0, 'release.yml에 최상위 jobs: 키가 없다');
+  assert.ok(start >= 0, 'release.yml에 최상위 jobs: 키가 없습니다.');
   const blocks = new Map();
   let current = null;
   for (const line of lines.slice(start + 1)) {
-    // 들여쓰기가 없는 줄은 다음 최상위 키다.
+    // 들여쓰기가 없는 줄은 다음 최상위 키입니다.
     if (line.trim() !== '' && !line.startsWith(' ')) break;
     const header = /^ {2}([A-Za-z0-9_-]+):\s*$/.exec(line);
     if (header !== null) {
@@ -275,7 +275,7 @@ function workflowJobs() {
   return new Map([...blocks].map(([name, body]) => [name, body.join('\n')]));
 }
 
-describe('release workflow', () => {
+describe('release 워크플로', () => {
   const jobs = workflowJobs();
   const publishJobs = ['publish-dry-run', 'publish'];
 
@@ -290,14 +290,14 @@ describe('release workflow', () => {
     }
   });
 
-  it('publish 작업은 prepare가 올린 artifact를 그대로 내려받는다', () => {
+  it('publish 작업은 prepare가 올린 배포 산출물을 그대로 내려받는다', () => {
     const uploaded = /uses: actions\/upload-artifact@[^\n]+\n\s+with:\n\s+name: ([^\n]+)\n/.exec(jobs.get('prepare'));
-    assert.ok(uploaded !== null, 'prepare가 artifact를 올리지 않는다');
+    assert.ok(uploaded !== null, 'prepare가 배포 산출물을 올리지 않습니다.');
     for (const name of publishJobs) {
       const job = jobs.get(name);
-      assert.match(job, /^\s+needs: prepare$/m, `${name}이 prepare를 needs로 두지 않는다`);
+      assert.match(job, /^\s+needs: prepare$/m, `${name}이 prepare를 needs로 지정하지 않았습니다.`);
       const downloaded = /uses: actions\/download-artifact@[^\n]+\n\s+with:\n\s+name: ([^\n]+)\n/.exec(job);
-      assert.ok(downloaded !== null, `${name}이 artifact를 내려받지 않는다`);
+      assert.ok(downloaded !== null, `${name}이 배포 산출물을 내려받지 않습니다.`);
       assert.equal(downloaded[1], uploaded[1]);
     }
   });
@@ -308,16 +308,16 @@ describe('release workflow', () => {
     }
   });
 
-  it('artifact 보존 기간은 재개할 수 있도록 7일이다', () => {
+  it('배포 산출물 보존 기간은 재개할 수 있도록 7일이다', () => {
     assert.match(jobs.get('prepare'), /^\s+retention-days: 7$/m);
   });
 
-  it('배포 실패 안내는 원래 실행의 Re-run failed jobs를 가리킨다', () => {
+  it('배포 실패 안내는 처음 실패한 실행의 Re-run failed jobs를 가리킨다', () => {
     const status = jobs.get('status');
     assert.match(status, /Re-run failed jobs/);
     assert.match(status, /Re-run all jobs/);
     assert.match(status, /Run workflow/);
-    // 새 workflow 실행으로 오해하게 하던 이전 문구가 남아 있으면 안 된다.
+    // 새 워크플로 실행을 재개 방법으로 안내하는 문구가 없어야 합니다.
     assert.doesNotMatch(status, /같은 입력으로 다시 실행/);
     assert.doesNotMatch(status, /다시 실행하면/);
   });

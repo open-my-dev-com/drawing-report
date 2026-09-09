@@ -1,5 +1,5 @@
 /**
- * 바코드 종류 목록과 규격 제약.
+ * 바코드 종류 목록과 규격 제약을 정의합니다.
  *
  * @remarks
  * 호스트가 종류를 제한하지 않으면 이 목록을 그대로 사용합니다.
@@ -8,7 +8,7 @@
 import type { BarcodeKind } from '@omdc-slipkit/core';
 
 /**
- * 바코드 종류의 표시 순서와 이름.
+ * 바코드 종류의 표시 순서와 이름입니다.
  * 국제 표준 이름을 사용하므로 로케일별 문구로 관리하지 않습니다.
  */
 export const BARCODE_KINDS: readonly { value: BarcodeKind; label: string }[] = [
@@ -26,7 +26,7 @@ export const BARCODE_KINDS: readonly { value: BarcodeKind; label: string }[] = [
   { value: 'pdf417', label: 'PDF417' },
 ];
 
-/** 캔버스에서 정사각형 모듈 배열로 표시할 2차원 바코드 종류 */
+/** 캔버스에서 정사각형 모듈 배열로 표시할 2차원 바코드 종류입니다. */
 export const BARCODE_2D: ReadonlySet<BarcodeKind> = new Set(['qrcode', 'gs1datamatrix']);
 
 /**

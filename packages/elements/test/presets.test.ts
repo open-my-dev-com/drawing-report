@@ -3,7 +3,7 @@ import { collectFormulaReferences, formatReferencePath, parseSlipFile } from '@o
 import { getPresets } from '../src/presets.js';
 import { getStrings } from '../src/strings.js';
 
-// 프리셋은 core의 실제 parseSlipFile로 검증한다.
+// 프리셋은 core의 실제 parseSlipFile로 검증합니다.
 
 describe('디자이너 프리셋', () => {
   it('거래명세서·청구서 2종이 제공된다', () => {
@@ -48,7 +48,7 @@ describe('디자이너 프리셋', () => {
     expect(formulas).toEqual(['SUM($(items).$(amount))', 'SUM($(items).$(amount))']);
     for (const formula of formulas) {
       for (const ref of collectFormulaReferences(formula)) {
-        // 업무 값 참조는 전부 `$(...)`로 적혀 있어야 한다 — 원문 조각이 표준 표기와 같다.
+        // 입력값 참조는 모두 `$(...)`로 작성해야 하므로 원문 조각이 표준 표기와 같습니다.
         expect(formula.slice(ref.span.start, ref.span.end), formula)
           .toBe(formatReferencePath(ref.path, { reserved: ref.reserved }));
       }
@@ -71,7 +71,7 @@ describe('디자이너 프리셋', () => {
     const ja = getPresets('ja')[1]!.create();
     expect(ja.template.meta.title).toBe('請求書');
 
-    // 지원하지 않는 언어는 영어로 대체한다.
+    // 지원하지 않는 언어는 영어로 대체합니다.
     expect(getPresets('fr')[0]!.create().template.meta.title).toBe('Transaction statement');
   });
 

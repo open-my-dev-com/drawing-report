@@ -1,4 +1,4 @@
-// 소비자 시나리오가 공유하는 최소 양식 — 텍스트 요소 하나만 둔다.
+// 소비자 시나리오가 공유하는 최소 양식 — 텍스트 요소 하나만 둡니다.
 export const template = {
   schemaVersion: '0.1.0',
   kind: 'template',

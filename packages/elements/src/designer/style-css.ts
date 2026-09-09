@@ -8,7 +8,7 @@
 import { PX_PER_MM } from './geometry.js';
 
 /**
- * 속성 패널에서 지정하지 않은 스타일에 적용할 기본값.
+ * 속성 패널에서 지정하지 않은 스타일에 적용할 기본값입니다.
  * core의 PDF 변환 기본값과 같아야 합니다.
  */
 export const DEFAULT_FONT_SIZE = 10;
@@ -23,7 +23,7 @@ export const DEFAULT_LINE_WIDTH = 0.2;
 /**
  * 글자 크기를 pt에서 CSS px로 변환합니다.
  *
- * @param size - 글자 크기(pt). 생략하면 기본 크기를 사용합니다
+ * @param size - 글자 크기(pt). 생략하면 기본 크기를 사용합니다.
  * @returns `px` 단위 CSS 값
  */
 export function fontPx(size: number | undefined): string {
@@ -104,5 +104,5 @@ export function textStyleCss(
   );
 }
 
-/** 테두리 굵기 선택지(mm) */
+/** 테두리 굵기 선택지(mm)입니다. */
 export const BORDER_WIDTH_STEPS = [0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.5, 2] as const;
