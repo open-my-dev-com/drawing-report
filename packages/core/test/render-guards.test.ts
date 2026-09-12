@@ -353,18 +353,45 @@ describe('clip 줄 계산은 렌더링 엔진의 줄바꿈과 같다', () => {
     'ひらがなだけのながいぶんしょうをいれてみてぎょうまつきんそくのてすとをおこないます「',
   ];
 
-  it.each([0, 0.5, 1, 2])('자간 %spt에서 줄 수와 줄 내용이 같다', async (spacing) => {
+  it.each([0, 0.5, 1, 2])('자간 %spt에서 안정된 엔진 결과는 유지하고 불안정한 결과는 한 번에 고정한다', async (spacing) => {
     const fonts = await defaultFonts();
     const engine = await engineSplitter();
     const fontKitFont = await engine.getFontKitFont(undefined, { [fonts[0]!.name]: { data: fonts[0]!.data, fallback: true } }, new Map());
     const measurer = new TextMeasurer(fonts);
     for (const widthMm of [20, 40, 80]) {
       for (const sample of SAMPLES) {
-        const expected = engine
+        const firstPass = engine
           .splitTextToSize({ value: sample, characterSpacing: spacing, fontSize: 10, fontKitFont, boxWidthInPt: widthMm / (25.4 / 72) })
           .map((line) => line.replace(/\n$/, ''));
-        const actual = measurer.splitLines(sample, widthMm, style(spacing));
-        expect(actual, `${widthMm}mm / ${spacing}pt / ${sample.slice(0, 12)}`).toEqual(expected);
+        const secondPass = engine
+          .splitTextToSize({
+            value: firstPass.join('\n'),
+            characterSpacing: spacing,
+            fontSize: 10,
+            fontKitFont,
+            boxWidthInPt: widthMm / (25.4 / 72),
+          })
+          .map((line) => line.replace(/\n$/, ''));
+        const actual = measurer.splitLines(sample, widthMm, style(spacing))!;
+        const label = `${widthMm}mm / ${spacing}pt / ${sample.slice(0, 12)}`;
+        const firstPassStable = secondPass.length === firstPass.length
+          && secondPass.every((line, index) => line === firstPass[index]);
+        const firstPassKeepsKinsoku = firstPass.slice(1).every((line) => !/^[、。,.」』)}】>≫\]・ー―\-!！?？:：;；/／]/.test(line))
+          && firstPass.slice(0, -1).every((line) => !/[「『（｛【＜≪［〘〖〝‘“｟«]$/.test(line));
+        if (firstPassStable && firstPassKeepsKinsoku) {
+          expect(actual, label).toEqual(firstPass);
+        } else {
+          const rendered = engine
+            .splitTextToSize({
+              value: actual.join('\n'),
+              characterSpacing: spacing,
+              fontSize: 10,
+              fontKitFont,
+              boxWidthInPt: widthMm / (25.4 / 72),
+            })
+            .map((line) => line.replace(/\n$/, ''));
+          expect(rendered, label).toEqual(actual);
+        }
       }
     }
   });
@@ -380,5 +407,32 @@ describe('clip 줄 계산은 렌더링 엔진의 줄바꿈과 같다', () => {
     const measurer = new TextMeasurer(await defaultFonts());
     const lines = measurer.splitLines(SAMPLES[2]!, 40, style(0))!;
     for (const line of lines.slice(1)) expect(line).not.toMatch(/^[、。」）]/);
+  });
+
+  it('일본어 금칙 처리 결과는 PDF 엔진이 다시 줄바꿈해도 달라지지 않는다', async () => {
+    const sample = 'あいうえおかきくけこ。さしすせそたちつてと、なにぬねの「はひふへほ」まみむめも。';
+    const fonts = await defaultFonts();
+    const engine = await engineSplitter();
+    const fontKitFont = await engine.getFontKitFont(
+      undefined,
+      { [fonts[0]!.name]: { data: fonts[0]!.data, fallback: true } },
+      new Map(),
+    );
+    const measurer = new TextMeasurer(fonts);
+    for (let quarterMm = 32; quarterMm <= 240; quarterMm++) {
+      const widthMm = quarterMm / 4;
+      const once = measurer.splitLines(sample, widthMm, style(0))!;
+      expect(once.join(''), `${widthMm.toFixed(2)}mm content`).toBe(sample);
+      const twice = engine
+        .splitTextToSize({
+          value: once.join('\n'),
+          characterSpacing: 0,
+          fontSize: 10,
+          fontKitFont,
+          boxWidthInPt: widthMm / (25.4 / 72),
+        })
+        .map((line) => line.replace(/\n$/, ''));
+      expect(twice, `${widthMm.toFixed(2)}mm`).toEqual(once);
+    }
   });
 });

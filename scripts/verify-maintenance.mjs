@@ -23,10 +23,10 @@
  *
  * 출력: 종류별 건수 표와 항목 목록을 stdout에 적습니다. 문제가 하나라도 있으면 종료 코드 1로 끝납니다.
  */
-import { spawn } from 'node:child_process';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import spawn from 'cross-spawn';
 import { checkKnipConfig, createReferenceFinder, parseJsonc } from './verify-maintenance/config.mjs';
 import { checkDependencyEvidence, createEvidenceFinder } from './verify-maintenance/dependency-evidence.mjs';
 import {

@@ -10,6 +10,7 @@ interface EncryptionMessages {
   webCryptoUnavailable(): string;
   emptyPassphrase(): string;
   rawKeyLength(): string;
+  configuredKeyInvalid(setting: string, detail: string): string;
   notAnEnvelope(): string;
   unsupportedEnvelopeVersion(): string;
   unsupportedCipher(): string;
@@ -28,6 +29,7 @@ const EN: EncryptionMessages = {
     'The Web Crypto API (crypto.subtle) is not available — Node 22.13+ or a modern browser is required',
   emptyPassphrase: () => 'The passphrase is empty',
   rawKeyLength: () => 'A raw key must be 32 bytes (AES-256)',
+  configuredKeyInvalid: (setting, detail) => `${setting} is invalid: ${detail}`,
   notAnEnvelope: () => 'Not an encrypted `.slip` envelope',
   unsupportedEnvelopeVersion: () =>
     'Unsupported encryption envelope version — the file may have been locked with a newer SlipKit',
@@ -48,6 +50,7 @@ const KO: EncryptionMessages = {
     'Web Crypto API(crypto.subtle)를 사용할 수 없습니다. Node.js 22.13 이상 또는 최신 브라우저가 필요합니다',
   emptyPassphrase: () => '암호 문구가 비어 있습니다',
   rawKeyLength: () => '원시 키는 32바이트(AES-256)여야 합니다',
+  configuredKeyInvalid: (setting, detail) => `${setting} 설정이 올바르지 않습니다. ${detail}`,
   notAnEnvelope: () => '`.slip` 암호화 봉투 형식이 아닙니다',
   unsupportedEnvelopeVersion: () =>
     '지원하지 않는 암호화 봉투 버전입니다. 현재보다 새 버전의 SlipKit으로 암호화한 파일일 수 있습니다',
@@ -67,6 +70,7 @@ const JA: EncryptionMessages = {
     'Web Crypto API（crypto.subtle）を利用できません — Node 22.13+ またはモダンブラウザが必要です',
   emptyPassphrase: () => 'パスフレーズが空です',
   rawKeyLength: () => '生キーは 32 バイト（AES-256）でなければなりません',
+  configuredKeyInvalid: (setting, detail) => `${setting} の設定が正しくありません。${detail}`,
   notAnEnvelope: () => '暗号化された `.slip` エンベロープの形式ではありません',
   unsupportedEnvelopeVersion: () =>
     'サポートされていない暗号化エンベロープのバージョンです — より新しい SlipKit でロックされたファイルの可能性があります',
