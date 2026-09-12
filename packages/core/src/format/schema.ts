@@ -956,6 +956,7 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 
 /** 작성 폼의 입력 방식과 사용 가능한 함수를 결정하는 파라미터 값 종류입니다. */
 const parameterValueTypeSchema = z.enum(['text', 'number', 'date', 'boolean', 'image', 'list']);
+const parameterFieldValueTypeSchema = z.enum(['text', 'number', 'date', 'boolean', 'image']);
 
 /**
  * 목록 항목에 포함되는 하위 필드를 정의합니다.
@@ -964,7 +965,7 @@ const parameterValueTypeSchema = z.enum(['text', 'number', 'date', 'boolean', 'i
 const parameterFieldSchema = z.strictObject({
   key: idSchema,
   label: idSchema.optional(),
-  valueType: parameterValueTypeSchema.optional(),
+  valueType: parameterFieldValueTypeSchema.optional(),
 });
 
 /**

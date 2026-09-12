@@ -148,6 +148,8 @@ interface SlipKitConfig {
 | `encryption.key` | 암호화·복호화 기본 키 |
 | `encryption.previousKeys` | 이전 키로 암호화된 파일을 복호화할 때 추가로 시도할 키 |
 
+`createSlipKit`은 설정한 모든 암호화 키의 형식을 즉시 확인합니다. 원시 키는 정확히 32바이트여야 하며, 잘못된 키가 있으면 설정 위치를 담은 `SlipEncryptionError`를 던집니다.
+
 #### `SlipKit`
 
 ```ts

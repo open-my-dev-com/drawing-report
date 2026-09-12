@@ -611,6 +611,8 @@ const restored =
 
 `decrypt` は現在のキーを先に使い、失敗すると `previousKeys` を順番に試します。以前のファイルを読み込んだ後、再度暗号化して保存すれば、新しいキーに切り替えられます。
 
+`createSlipKit` は、インスタンスの作成時に現在のキーと以前のキーの形式を検証します。生キーは正確に 32 バイトである必要があります。不正なキーがある場合は、`encryption.key` または `encryption.previousKeys[n]` の位置を示す `SlipEncryptionError` をスローします。
+
 > [!IMPORTANT]
 > 暗号化された結果は、標準の `.slip` ファイル構造ではなく、別個の暗号化エンベロープ JSON です。
 > `parseSlipFile`、PDF レンダラー、または UI コンポーネントに直接渡すことはできず、先に `decrypt` で復号する必要があります。

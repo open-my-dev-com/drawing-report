@@ -9,7 +9,12 @@ import { createPdfRenderer, type SlipFont } from './render/index.js';
 import type { FormulaAst } from './formula/parser.js';
 import { evaluateFormula, type FormulaContext, type FormulaValue } from './formula/evaluator.js';
 import { encryptSlipFile } from './encryption/index.js';
-import { decryptParsedEnvelope, isKeyMismatchError, parseEncryptedEnvelope } from './encryption/crypto.js';
+import {
+  decryptParsedEnvelope,
+  isKeyMismatchError,
+  parseEncryptedEnvelope,
+  validateEncryptionKey,
+} from './encryption/crypto.js';
 import { SlipEncryptionError } from './encryption/errors.js';
 import { em } from './encryption/messages.js';
 
@@ -130,6 +135,12 @@ function shareFonts(
  * ```
  */
 export function createSlipKit(config: SlipKitConfig = {}): SlipKit {
+  if (config.encryption !== undefined) {
+    validateEncryptionKey(config.encryption.key, config.locale, 'encryption.key');
+    for (const [index, key] of (config.encryption.previousKeys ?? []).entries()) {
+      validateEncryptionKey(key, config.locale, `encryption.previousKeys[${index}]`);
+    }
+  }
   const getFonts = config.getFonts === undefined ? undefined : shareFonts(config.getFonts);
   const renderer = createPdfRenderer({
     ...(getFonts ? { getFonts } : {}),

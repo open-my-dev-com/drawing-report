@@ -148,6 +148,8 @@ interface SlipKitConfig {
 | `encryption.key` | The default key for encryption and decryption |
 | `encryption.previousKeys` | Additional keys to try when decrypting files encrypted with a previous key |
 
+`createSlipKit` validates every configured encryption key immediately. A raw key must be exactly 32 bytes; an invalid key throws `SlipEncryptionError` with its configuration path.
+
 #### `SlipKit`
 
 ```ts

@@ -1088,6 +1088,22 @@ describe('<slip-designer> 사이드바', () => {
     el.remove();
   });
 
+  it('목록 하위 필드에는 list 값 종류를 설정하지 않는다', async () => {
+    const file = makeTemplateFile();
+    file.template.parameters = [{ key: 'rows', valueType: 'list', fields: [{ key: 'amount' }] }];
+    parseSlipFileMock.mockReturnValue(file as unknown as SlipFile);
+    const el = await loadDesigner();
+
+    const designer = el as unknown as {
+      _file: SlipTemplateFile;
+      _updateParameterField(listKey: string, key: string, patch: { valueType?: string }): void;
+    };
+    designer._updateParameterField('rows', 'amount', { valueType: 'list' });
+
+    expect(designer._file.template.parameters?.[0]?.fields?.[0]?.valueType).toBeUndefined();
+    el.remove();
+  });
+
   it('목록 파라미터의 하위 필드를 선택하면 요소가 아니라 그 필드가 편집된다 (ADR-047)', async () => {
     const file = makeTemplateFile();
     file.template.pages.push({
