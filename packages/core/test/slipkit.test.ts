@@ -141,6 +141,17 @@ describe('createSlipKit (ADR-056)', () => {
 });
 
 describe('SlipKit.decrypt — 키 순회와 오류 구분', () => {
+  it('설정된 키 형식은 인스턴스를 만들 때 경로와 함께 검사한다', () => {
+    expect(() => createSlipKit({ encryption: { key: '' } }))
+      .toThrow(/encryption\.key.*passphrase is empty/i);
+    expect(() => createSlipKit({ encryption: { key: 'current', previousKeys: [new Uint8Array(31)] } }))
+      .toThrow(/encryption\.previousKeys\[0\].*32 bytes/i);
+    expect(() => createSlipKit({
+      locale: 'ko-KR',
+      encryption: { key: 'current', previousKeys: ['old', new Uint8Array(33)] },
+    })).toThrow(/encryption\.previousKeys\[1\].*32바이트/);
+  });
+
   it('원시 키와 암호 문구가 섞인 previousKeys를 끝까지 시도한다', async () => {
     const raw = new Uint8Array(32).fill(3);
     const locked = await createSlipKit({ encryption: { key: 'oldest' } }).encrypt(template());

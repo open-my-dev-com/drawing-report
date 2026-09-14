@@ -18,11 +18,11 @@
  * 소비자 프로젝트는 임시 디렉터리에 만들고 저장소 안의 경로를 참조하지 않습니다. pnpm 소비자는 저장소와 같은
  * pnpm 버전을 `packageManager`로 적고 Corepack(`corepack pnpm`)으로 실행합니다.
  */
-import { spawn } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import spawn from 'cross-spawn';
 import { launchChromium, runFontScenario, countRequests, PHASES, FONT_CHUNK_KINDS } from './bench-fonts/chromium.mjs';
 import { writeHostFont } from './bench-fonts/host-font.mjs';
 import { manifestProblems } from './verify-packages/manifest.mjs';
@@ -94,7 +94,6 @@ function run(command, args, options = {}) {
       cwd: options.cwd ?? ROOT,
       env: { ...process.env, ...options.env },
       stdio: ['pipe', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
     });
     let stdout = '';
     let stderr = '';

@@ -148,6 +148,8 @@ interface SlipKitConfig {
 | `encryption.key` | 暗号化・復号の既定キー |
 | `encryption.previousKeys` | 以前のキーで暗号化されたファイルを復号するときに追加で試すキー |
 
+`createSlipKit` は、設定されたすべての暗号化キーの形式を直ちに検証します。生キーは正確に 32 バイトである必要があり、不正なキーがある場合は設定位置を示す `SlipEncryptionError` をスローします。
+
 #### `SlipKit`
 
 ```ts

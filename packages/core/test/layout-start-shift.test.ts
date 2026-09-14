@@ -310,6 +310,24 @@ describe('데이터가 없는 그리드는 시작을 옮기지 않는다', () =>
     expect(placements(plan, 1)).toEqual(['page-start', 'after-data', 'page-end']);
   });
 
+  it('첫 페이지에 머리글만 들어가는 minItems 경계를 기존 계약대로 유지한다', () => {
+    const empty = planGrid(grid5(AUTO3, 254), [], flowAt(254));
+    expect(empty.fragments.map((fragment) => [fragment.outputPage, fragment.y])).toEqual([
+      [0, 254],
+      [1, FLOW_TOP],
+    ]);
+    expect(placements(empty, 0)).toEqual(['before-data', 'page-start', 'page-end']);
+    expect(placements(empty, 1)).toEqual([
+      'page-start', 'item(empty)', 'item(empty)', 'item(empty)', 'after-data', 'page-end',
+    ]);
+
+    const withData = planGrid(grid5(AUTO3, 254), items(1), flowAt(254));
+    expect(withData.fragments.map((fragment) => [fragment.outputPage, fragment.y])).toEqual([[1, FLOW_TOP]]);
+    expect(placements(withData, 0)).toEqual([
+      'before-data', 'page-start', 'item', 'item(empty)', 'item(empty)', 'after-data', 'page-end',
+    ]);
+  });
+
   it('after 배치 흐름은 데이터가 없어도 첫 페이지에 들어가지 않으면 시작을 옮긴다', () => {
     const plan = planGrid(grid5(FIXED3, 0), [], { ...flowAt(254), allowStartShift: true });
     expect(plan.fragments).toHaveLength(1);

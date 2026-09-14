@@ -2106,8 +2106,7 @@
                             "number",
                             "date",
                             "boolean",
-                            "image",
-                            "list"
+                            "image"
                           ]
                         }
                       },
@@ -4253,8 +4252,7 @@
                             "number",
                             "date",
                             "boolean",
-                            "image",
-                            "list"
+                            "image"
                           ]
                         }
                       },

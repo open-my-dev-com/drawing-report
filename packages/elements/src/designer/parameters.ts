@@ -8,6 +8,7 @@
 import {
   RESERVED_REF_NAMES,
   renameFormulaReferences,
+  type ParameterField,
   type ParameterValueType,
   type SlipTemplateFile,
 } from '@omdc-slipkit/core';
@@ -51,7 +52,7 @@ export interface ParameterFieldInfo {
   /** 파라미터 정의에 적힌 표시 이름입니다. 없으면 `undefined`입니다. */
   rawLabel: string | undefined;
   /** 값 종류입니다. */
-  valueType: ParameterValueType | undefined;
+  valueType: ParameterField['valueType'];
   /** 이 필드를 읽는 그리드 셀의 위치입니다. 없으면 `undefined`입니다. */
   at: { pageIndex: number; gridId: string; row: number; column: number } | undefined;
 }
@@ -68,6 +69,15 @@ export const BINDING_VALUE_TYPES: readonly { value: string; stringKey: 'valueTyp
 
 /** 목록 중첩을 제외한 하위 필드의 값 종류 선택지입니다. */
 export const BINDING_FIELD_VALUE_TYPES = BINDING_VALUE_TYPES.filter((t) => t.value !== 'list');
+
+/** 목록 하위 필드에 사용할 수 있는 값 종류인지 확인합니다. */
+export function isParameterFieldValueType(value: string): value is NonNullable<ParameterField['valueType']> {
+  return value === 'text'
+    || value === 'number'
+    || value === 'date'
+    || value === 'boolean'
+    || value === 'image';
+}
 
 /** 목록 하위 필드를 읽는 그리드 셀의 위치입니다. */
 type ParameterFieldAt = NonNullable<ParameterFieldInfo['at']>;

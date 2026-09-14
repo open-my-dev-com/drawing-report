@@ -5,9 +5,9 @@
  * `scripts/verify-packages.mjs`의 소비자 방식을 따릅니다. core·elements를 `pnpm pack`으로 tarball로 만들어
  * `file:` 의존성으로 설치하고, Vite는 같은 고정 버전을 씁니다. 저장소 안의 경로는 참조하지 않습니다.
  */
-import { spawn } from 'node:child_process';
 import { cpSync, mkdirSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import spawn from 'cross-spawn';
 
 /** 소비자 프로젝트에 고정하는 Vite 버전입니다. `scripts/verify-packages.mjs`의 `CONSUMER_DEV_DEPENDENCIES`와 같습니다. */
 const CONSUMER_VITE_VERSION = '7.3.6';
@@ -26,7 +26,6 @@ function run(command, args, options = {}) {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
     });
     let stdout = '';
     let stderr = '';

@@ -92,6 +92,7 @@ import type { ParameterInfo, ParameterFieldInfo } from './designer/parameters.js
 import {
   collectParameterUses,
   ensureParameterDef as ensureParameterDefIn,
+  isParameterFieldValueType,
   parameterUsesOf,
   renameParameterFieldReferences,
   renameParameterReferences,
@@ -2290,6 +2291,8 @@ export class SlipDesigner extends LitElement {
     key: string,
     patch: { label?: string; valueType?: string },
   ): void {
+    const valueType = patch.valueType;
+    if (valueType !== undefined && valueType !== '' && !isParameterFieldValueType(valueType)) return;
     this._updateFile((f) => {
       const def = (f.template.parameters ?? []).find((b) => b.key === listKey);
       const field = def?.fields?.find((x) => x.key === key);
@@ -2299,8 +2302,8 @@ export class SlipDesigner extends LitElement {
         if (trimmed) field.label = trimmed;
         else delete (field as { label?: string }).label;
       }
-      if (patch.valueType !== undefined) {
-        if (patch.valueType) field.valueType = patch.valueType as ParameterValueType;
+      if (valueType !== undefined) {
+        if (valueType) field.valueType = valueType;
         else delete (field as { valueType?: unknown }).valueType;
       }
     });

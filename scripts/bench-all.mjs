@@ -36,9 +36,9 @@
  * 시간·메모리는 실행 환경 정보와 반복 수가 같을 때만 항목별 허용 회귀율로 판정합니다.
  */
 import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
-import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import spawn from 'cross-spawn';
 import { collectEnvironment, environmentFingerprint } from './bench-shared/env.mjs';
 import { compareToBaseline, formatComparison, loadBaselines } from './bench-shared/baseline.mjs';
 import { buildManifest, createRunRecord, writeManifestFile } from './bench-shared/manifest.mjs';
@@ -49,9 +49,6 @@ import { buildCommandArgs, buildTargets, missingBaselineTools, parseOptions, sel
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 const argv = process.argv.slice(2);
-
-/** 패키지 관리자 실행 파일입니다. Windows에서는 확장자가 붙은 실행 연결 파일만 실행할 수 있습니다. */
-const PNPM = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
 const options = parseOptions(argv);
 const baselineDir = options.baselines === undefined
@@ -111,7 +108,7 @@ async function buildPackages(packages) {
   const args = buildCommandArgs(packages);
   progress(`빌드 — pnpm ${args.join(' ')}`);
   const result = await new Promise((resolve) => {
-    const child = spawn(PNPM, args, { cwd: root, stdio: ['ignore', 'inherit', 'inherit'], env: process.env });
+    const child = spawn('pnpm', args, { cwd: root, stdio: ['ignore', 'inherit', 'inherit'], env: process.env });
     child.on('error', (error) => resolve({ code: -1, error: error.message }));
     child.on('close', (code) => resolve({ code, error: null }));
   });

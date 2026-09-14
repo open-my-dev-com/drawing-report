@@ -12,9 +12,6 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const BENCH_ALL = path.join(ROOT, 'scripts', 'bench-all.mjs');
 const BASELINE_DIR = path.join(ROOT, 'scripts', 'bench-baselines');
 
-// Windows에서는 확장자 없는 shim을 PATH로 가로챌 수 없어 이 시험을 돌리지 않습니다.
-const skip = process.platform === 'win32' ? 'Windows에서는 PATH로 pnpm을 가로챌 수 없다' : false;
-
 const workDirs = [];
 
 after(() => {
@@ -40,9 +37,15 @@ function workDir() {
 function fakePnpm() {
   const dir = workDir();
   const log = path.join(dir, 'pnpm-argv.txt');
-  const file = path.join(dir, 'pnpm');
-  writeFileSync(file, `#!/bin/sh\nprintf '%s\\n' "$@" > "${log}"\nexit 3\n`);
-  chmodSync(file, 0o755);
+  if (process.platform === 'win32') {
+    const runner = path.join(dir, 'fake-pnpm.mjs');
+    writeFileSync(runner, `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(log)}, process.argv.slice(2).join('\\n'));\nprocess.exit(3);\n`);
+    writeFileSync(path.join(dir, 'pnpm.cmd'), `@echo off\r\n"${process.execPath}" "${runner}" %*\r\n`);
+  } else {
+    const file = path.join(dir, 'pnpm');
+    writeFileSync(file, `#!/bin/sh\nprintf '%s\\n' "$@" > "${log}"\nexit 3\n`);
+    chmodSync(file, 0o755);
+  }
   return { bin: dir, log };
 }
 
@@ -64,7 +67,7 @@ function runBenchAll(args) {
   return { status: child.status, stderr: child.stderr, build };
 }
 
-describe('bench:all 실행 순서', { skip }, () => {
+describe('bench:all 실행 순서', () => {
   it('빌드 산출물이 없다고 먼저 죽지 않고 필요한 패키지를 빌드한다', () => {
     const result = runBenchAll(['--only', 'core', '--no-baseline']);
     assert.deepEqual(result.build, ['--filter', '@omdc-slipkit/core', 'run', 'build']);

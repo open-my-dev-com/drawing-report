@@ -85,9 +85,17 @@ const segments = withoutHeredocs.split(/&&|\|\||;|\||\n/).map((seg) => seg.repla
 const pushSegments = segments.filter((seg) => /\bgit\b[\s\S]*\bpush\b/.test(seg));
 const hasGitCommit = segments.some((seg) => /\bgit\b[\s\S]*\bcommit\b/.test(seg));
 
+/** 푸시 refspec의 목적지가 main인지 확인합니다. */
+function targetsMainRef(token) {
+  const refspec = token.replace(/^\+/, '');
+  const separator = refspec.lastIndexOf(':');
+  const destination = separator === -1 ? refspec : refspec.slice(separator + 1);
+  return destination === 'main' || destination === 'refs/heads/main';
+}
+
 if (pushSegments.length > 0) {
   const targetsMain = pushSegments.some((seg) =>
-    seg.split(/\s+/).some((t) => t === 'main' || t.endsWith(':main')),
+    seg.split(/\s+/).some(targetsMainRef),
   );
   if (targetsMain) {
     block('[bash-guard] main에 직접 푸시할 수 없습니다(.claude/rules/branching.md·ADR-024). 작업 브랜치에서 PR로 병합하세요.');

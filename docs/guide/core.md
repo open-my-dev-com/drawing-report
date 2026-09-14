@@ -611,6 +611,8 @@ const restored =
 
 `decrypt` uses the current key first and, if it fails, tries `previousKeys` in order. After loading an old file, you can re-encrypt and save it to switch to the new key.
 
+`createSlipKit` validates the configured current and previous keys when it creates the instance. A raw key must be exactly 32 bytes. An invalid key throws a `SlipEncryptionError` that identifies `encryption.key` or `encryption.previousKeys[n]`.
+
 > [!IMPORTANT]
 > The encrypted result is not a standard `.slip` file structure but a separate encryption envelope JSON.
 > It cannot be passed directly to `parseSlipFile`, the PDF renderer, or UI components; you must first decrypt it with `decrypt`.

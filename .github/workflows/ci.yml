@@ -7,7 +7,7 @@
 #   verify(Node 22.13·24 매트릭스): pnpm install --frozen-lockfile → pnpm verify
 #   schema(Node 24): core 빌드 → generate:schemas → 재생성 결과에 변경·미추적 파일이 없어야 통과
 #   packages(Node 22.13·24 매트릭스): Playwright Chromium 설치 → pnpm verify:packages
-#   mcp-windows(windows-latest, Node 24): MCP와 의존 패키지 빌드 → MCP 전체 테스트
+#   mcp-windows(windows-latest, Node 24): 유지보수 검사·Windows 스크립트 시험 → MCP와 의존 패키지 빌드 → MCP 전체 테스트
 # pnpm은 pnpm/action-setup 없이 Corepack 0.34.6으로 준비하고, 루트 packageManager(10.33.0)와 다르면 실패합니다.
 # 의존성·node_modules 캐시는 쓰지 않습니다. 외부 Action은 전체 커밋 SHA로 고정합니다.
 name: CI
@@ -214,6 +214,11 @@ jobs:
           fi
       - name: 의존성 설치
         run: corepack pnpm install --frozen-lockfile
+      - name: 유지보수 검사
+        run: corepack pnpm verify:maintenance
+      - name: Windows 스크립트 시험
+        run: |
+          node --test scripts/bench-all/orchestrator.test.mjs scripts/hooks/bash-guard.test.mjs
       - name: MCP와 의존 패키지 빌드
         run: corepack pnpm --filter "@omdc-slipkit/mcp..." run build
       - name: MCP 테스트 (Windows 경로 처리 포함)

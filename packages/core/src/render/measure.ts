@@ -40,10 +40,16 @@ export interface MeasureStyle {
 }
 
 let wordSegmenter: Intl.Segmenter | undefined;
+let graphemeSegmenter: Intl.Segmenter | undefined;
 
 function segmentWords(line: string): string[] {
   wordSegmenter ??= new Intl.Segmenter(undefined, { granularity: 'word' });
   return [...wordSegmenter.segment(line)].map((s) => s.segment);
+}
+
+function segmentGraphemes(line: string): string[] {
+  graphemeSegmenter ??= new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  return [...graphemeSegmenter.segment(line)].map((segment) => segment.segment);
 }
 
 /** 줄 첫머리에 올 수 없는 문자 (일본어 행두 금칙)입니다. */
@@ -60,7 +66,7 @@ const LINE_END_FORBIDDEN = new Set([
 
 const JAPANESE = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u;
 
-/** 행두 금칙 문자를 앞 줄 끝으로 옮깁니다. 뒤 줄부터 거슬러 처리합니다. */
+/** 렌더링 엔진과 같은 방식으로 행두 금칙 문자를 앞 줄 끝으로 옮깁니다. */
 function moveLineStartForbidden(lines: readonly string[]): string[] {
   const filtered: string[] = [];
   let carry: string | null = null;
@@ -92,7 +98,7 @@ function moveLineStartForbidden(lines: readonly string[]): string[] {
   return filtered.reverse();
 }
 
-/** 행말 금칙 문자를 다음 줄 첫머리로 옮깁니다. */
+/** 렌더링 엔진과 같은 방식으로 행말 금칙 문자를 다음 줄 첫머리로 옮깁니다. */
 function moveLineEndForbidden(lines: readonly string[]): string[] {
   const filtered: string[] = [];
   let carry: string | null = null;
@@ -181,6 +187,63 @@ export class TextMeasurer {
     return (advance * style.fontSize) / 1000 + spacing;
   }
 
+  /** 일본어 금칙 문자를 옮기면서 모든 줄을 렌더링 폭 안에 유지합니다. */
+  private adjustJapaneseBreaks(
+    source: readonly string[],
+    boxWidthPt: number,
+    metrics: FontMetrics,
+    style: MeasureStyle,
+  ): string[] {
+    const lines = source.map(segmentGraphemes);
+    const fits = (line: readonly string[]): boolean =>
+      line.length <= 1 || this.widthPt(line.join(''), metrics, style) <= boxWidthPt;
+    const rebalance = (from: number): void => {
+      for (let index = from; index < lines.length; index++) {
+        const line = lines[index]!;
+        while (!fits(line) && line.length > 1) {
+          const moved = line.pop()!;
+          if (index + 1 === lines.length) lines.push([]);
+          lines[index + 1]!.unshift(moved);
+        }
+      }
+    };
+    rebalance(0);
+
+    for (let pass = 0; pass < lines.length * 2 + 4; pass++) {
+      let changed = false;
+      for (let index = 0; index + 1 < lines.length; index++) {
+        const line = lines[index]!;
+        const next = lines[index + 1]!;
+        while (line.length > 1 && LINE_END_FORBIDDEN.has(line[line.length - 1]!)) {
+          next.unshift(line.pop()!);
+          rebalance(index + 1);
+          changed = true;
+        }
+      }
+      for (let index = 1; index < lines.length; index++) {
+        const line = lines[index]!;
+        const previous = lines[index - 1]!;
+        while (line.length > 0 && LINE_START_FORBIDDEN.has(line[0]!)) {
+          const forbidden = line[0]!;
+          if (fits([...previous, forbidden])) {
+            previous.push(line.shift()!);
+          } else if (previous.length > 1) {
+            line.unshift(previous.pop()!);
+            rebalance(index);
+          } else {
+            break;
+          }
+          changed = true;
+        }
+      }
+      for (let index = lines.length - 1; index >= 0; index--) {
+        if (lines[index]!.length === 0 && lines.length > 1) lines.splice(index, 1);
+      }
+      if (!changed) break;
+    }
+    return lines.map((line) => line.join(''));
+  }
+
   /**
    * 한 문단을 폭에 맞춰 줄로 나눕니다. 조각을 이을 때마다 자간을 한 번 더 누적하는 규칙과
    * 일본어 금칙 처리까지 렌더링 엔진의 계산을 그대로 따릅니다.
@@ -226,7 +289,7 @@ export class TextMeasurer {
     }
     const filled = lines.map((line) => line ?? '');
     const adjusted = filled.some((line) => JAPANESE.test(line))
-      ? moveLineEndForbidden(moveLineStartForbidden(filled))
+      ? this.adjustJapaneseBreaks(moveLineEndForbidden(moveLineStartForbidden(filled)), boxWidthPt, metrics, style)
       : filled;
     return adjusted.map((line) => line.trimEnd());
   }

@@ -23,6 +23,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^3.2.7
         version: 3.2.7(vitest@3.2.7(@types/debug@4.1.13)(@types/node@26.2.0)(happy-dom@20.11.2)(jiti@2.7.0)(lightningcss@1.33.0)(yaml@2.9.0))
+      cross-spawn:
+        specifier: 7.0.6
+        version: 7.0.6
       eslint:
         specifier: ^10.8.1
         version: 10.8.1(jiti@2.7.0)

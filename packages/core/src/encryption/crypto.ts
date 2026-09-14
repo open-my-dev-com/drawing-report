@@ -80,6 +80,23 @@ function randomBytes(length: number): Uint8Array {
   return bytes;
 }
 
+/** 암호 문구와 원시 키 형식을 검사합니다. */
+export function validateEncryptionKey(
+  key: unknown,
+  locale?: string,
+  setting?: string,
+): asserts key is string | Uint8Array {
+  let detail: string | undefined;
+  if (typeof key === 'string') {
+    if (key.length === 0) detail = em(locale).emptyPassphrase();
+  } else if (!(key instanceof Uint8Array) || key.length !== 32) {
+    detail = em(locale).rawKeyLength();
+  }
+  if (detail !== undefined) {
+    throw new SlipEncryptionError(setting === undefined ? detail : em(locale).configuredKeyInvalid(setting, detail));
+  }
+}
+
 /**
  * 입력 키를 AES-GCM 키로 변환합니다.
  * `string`은 PBKDF2로 파생할 암호 문구로, `Uint8Array`는 32바이트 원시 키로 처리합니다.
@@ -95,8 +112,8 @@ async function toAesKey(
   locale?: string,
 ): Promise<unknown> {
   const subtle = requireSubtle(locale);
+  validateEncryptionKey(key, locale);
   if (typeof key === 'string') {
-    if (key.length === 0) throw new SlipEncryptionError(em(locale).emptyPassphrase());
     const baseKey = await subtle.importKey(
       'raw',
       new TextEncoder().encode(key.normalize('NFC')),
@@ -111,9 +128,6 @@ async function toAesKey(
       false,
       ['encrypt', 'decrypt'],
     );
-  }
-  if (key.length !== 32) {
-    throw new SlipEncryptionError(em(locale).rawKeyLength());
   }
   return subtle.importKey('raw', key, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 }

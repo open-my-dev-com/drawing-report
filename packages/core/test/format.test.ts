@@ -388,6 +388,13 @@ describe('현재 스키마(0.1.0) 필드 검증', () => {
     expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/Duplicate sub-field name/);
   });
 
+  it('목록 하위 필드에 목록을 중첩할 수 없다 (SPEC §5.1)', () => {
+    const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
+    const template = base['template'] as { parameters?: unknown };
+    template.parameters = [{ key: 'groups', valueType: 'list', fields: [{ key: 'items', valueType: 'list' }] }];
+    expect(() => parseSlipFile(JSON.stringify(base))).toThrow(/valueType/);
+  });
+
   it('그리드 열의 자동 병합과 페이지 이름·번호를 담을 수 있다', () => {
     const base = JSON.parse(serializeSlipFile(makeTemplate())) as Record<string, unknown>;
     const template = base['template'] as {
@@ -489,6 +496,12 @@ describe('JSON Schema 산출 (ADR-022)', () => {
     expect(schema.$schema).toContain('2020-12');
     expect(schema.$id).toBe(`urn:slipkit:schema:slip:${CURRENT_SCHEMA_VERSION}`);
     expect(JSON.stringify(schema)).toContain('templateSnapshot');
+  });
+
+  it('JSON Schema도 목록 하위 필드에서 list를 제외한다', () => {
+    const source = JSON.stringify(slipFileJsonSchema());
+    expect(source).toContain('"enum":["text","number","date","boolean","image","list"]');
+    expect(source).toContain('"enum":["text","number","date","boolean","image"]');
   });
 });
 
