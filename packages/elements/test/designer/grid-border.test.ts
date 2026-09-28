@@ -1,6 +1,6 @@
 // 셀 기본 테두리·그리드 테두리 판정과 이전 표기 이전이 PDF 변환과 같은 우선순위인지 확인합니다.
 import { describe, expect, it } from 'vitest';
-import type { GridElement } from '@omdc-slipkit/core';
+import type { GridElement } from '@omdc/slipkit';
 import {
   applyCellDefaultBorder,
   applyOutline,

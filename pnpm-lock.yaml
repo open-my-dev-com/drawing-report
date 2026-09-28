@@ -53,10 +53,10 @@ importers:
 
   examples/demo:
     dependencies:
-      '@omdc-slipkit/core':
+      '@omdc/slipkit':
         specifier: workspace:*
         version: link:../../packages/core
-      '@omdc-slipkit/elements':
+      '@omdc/slipkit-elements':
         specifier: workspace:*
         version: link:../../packages/elements
       slipkit-demo-shared:
@@ -72,13 +72,13 @@ importers:
 
   examples/react-demo:
     dependencies:
-      '@omdc-slipkit/core':
+      '@omdc/slipkit':
         specifier: workspace:*
         version: link:../../packages/core
-      '@omdc-slipkit/elements':
+      '@omdc/slipkit-elements':
         specifier: workspace:*
         version: link:../../packages/elements
-      '@omdc-slipkit/react':
+      '@omdc/slipkit-react':
         specifier: workspace:*
         version: link:../../packages/react
       react:
@@ -106,10 +106,10 @@ importers:
 
   examples/shared:
     dependencies:
-      '@omdc-slipkit/core':
+      '@omdc/slipkit':
         specifier: workspace:*
         version: link:../../packages/core
-      '@omdc-slipkit/elements':
+      '@omdc/slipkit-elements':
         specifier: workspace:*
         version: link:../../packages/elements
     devDependencies:
@@ -122,13 +122,13 @@ importers:
 
   examples/vue-demo:
     dependencies:
-      '@omdc-slipkit/core':
+      '@omdc/slipkit':
         specifier: workspace:*
         version: link:../../packages/core
-      '@omdc-slipkit/elements':
+      '@omdc/slipkit-elements':
         specifier: workspace:*
         version: link:../../packages/elements
-      '@omdc-slipkit/vue':
+      '@omdc/slipkit-vue':
         specifier: workspace:*
         version: link:../../packages/vue
       slipkit-demo-shared:
@@ -175,7 +175,7 @@ importers:
 
   packages/elements:
     dependencies:
-      '@omdc-slipkit/core':
+      '@omdc/slipkit':
         specifier: workspace:*
         version: link:../core
       lit:
@@ -194,10 +194,10 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(zod@4.4.3)
-      '@omdc-slipkit/core':
+      '@omdc/slipkit':
         specifier: workspace:*
         version: link:../core
-      '@omdc-slipkit/elements':
+      '@omdc/slipkit-elements':
         specifier: workspace:*
         version: link:../elements
       '@pdfme/converter':
@@ -213,10 +213,10 @@ importers:
 
   packages/react:
     dependencies:
-      '@omdc-slipkit/core':
+      '@omdc/slipkit':
         specifier: workspace:*
         version: link:../core
-      '@omdc-slipkit/elements':
+      '@omdc/slipkit-elements':
         specifier: workspace:*
         version: link:../elements
     devDependencies:
@@ -238,10 +238,10 @@ importers:
 
   packages/vue:
     dependencies:
-      '@omdc-slipkit/core':
+      '@omdc/slipkit':
         specifier: workspace:*
         version: link:../core
-      '@omdc-slipkit/elements':
+      '@omdc/slipkit-elements':
         specifier: workspace:*
         version: link:../elements
     devDependencies:

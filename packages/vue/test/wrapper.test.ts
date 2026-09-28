@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 /**
- * `@omdc-slipkit/vue` 래퍼 테스트입니다.
+ * `@omdc/slipkit-vue` 래퍼 테스트입니다.
  *
- * 실제 `@omdc-slipkit/elements` 빌드를 마운트해 설정 전달과 이벤트 연결을 확인합니다.
+ * 실제 `@omdc/slipkit-elements` 빌드를 마운트해 설정 전달과 이벤트 연결을 확인합니다.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp, h, nextTick, ref, shallowReactive, type App, type ComponentPublicInstance } from 'vue';
@@ -13,8 +13,8 @@ import {
   type SlipKit,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
-import type { SlipDesigner as SlipDesignerElement, SlipForm as SlipFormElement } from '@omdc-slipkit/elements';
+} from '@omdc/slipkit';
+import type { SlipDesigner as SlipDesignerElement, SlipForm as SlipFormElement } from '@omdc/slipkit-elements';
 import { SlipDesigner, SlipForm, SlipViewer } from '../src/index.js';
 
 /** 요소의 이미지 크기 기본값(2MB)입니다. */
@@ -100,7 +100,7 @@ afterEach(() => {
 // 선택적 설정 전달
 // ---------------------------------------------------------------------------
 
-describe('@omdc-slipkit/vue 선택적 설정', () => {
+describe('@omdc/slipkit-vue 선택적 설정', () => {
   it('SlipViewer는 slipkit을 생략하면 요소에 쓰지 않고, 지정·갱신·제거를 그대로 반영한다', async () => {
     const state = shallowReactive<{ slipkit: SlipKit | undefined; locale: string | undefined }>({
       slipkit: undefined,
@@ -232,7 +232,7 @@ async function pickFile(el: SlipFormElement, file: File): Promise<void> {
   await el.updateComplete;
 }
 
-describe('@omdc-slipkit/vue 이미지 상한', () => {
+describe('@omdc/slipkit-vue 이미지 상한', () => {
   it('maxImageBytes를 생략하면 요소 기본값으로 실제 이미지를 받는다', async () => {
     const changes: SlipVoucherFile[] = [];
     const m = mount(() => h(SlipForm, {
@@ -273,7 +273,7 @@ describe('@omdc-slipkit/vue 이미지 상한', () => {
 // 이벤트 연결
 // ---------------------------------------------------------------------------
 
-describe('@omdc-slipkit/vue 이벤트', () => {
+describe('@omdc/slipkit-vue 이벤트', () => {
   it('SlipDesigner는 slip-change 이벤트의 양식 파일을 다시 내보낸다', () => {
     const received: SlipTemplateFile[] = [];
     const m = mount(() => h(SlipDesigner, {
@@ -350,7 +350,7 @@ describe('@omdc-slipkit/vue 이벤트', () => {
 // Vue 표준 동작 — ref, 속성 전달, DOM 이벤트
 // ---------------------------------------------------------------------------
 
-describe('@omdc-slipkit/vue 표준 동작', () => {
+describe('@omdc/slipkit-vue 표준 동작', () => {
   it('세 컴포넌트의 ref는 컴포넌트 인스턴스이고 $el이 웹 컴포넌트다', async () => {
     const cases: [unknown, string][] = [
       [SlipViewer, 'slip-viewer'],

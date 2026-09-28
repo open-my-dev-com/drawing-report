@@ -6,7 +6,7 @@ import {
   isEncryptedSlipFile,
   type SlipFile,
   type SlipKit,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { SlipFileExchange } from '../src/storage/file-exchange.js';
 import { deserializeFromStorage } from '../src/storage/encryption.js';
 import { getPresets } from '../src/presets.js';

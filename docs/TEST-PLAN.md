@@ -6,18 +6,18 @@ SlipKit의 공개 전 품질 확인 범위와 방법을 정리합니다.
 
 이 문서는 **계획과 판정 기준**만 담습니다. 측정값은 실행할 때마다 달라지므로 여기에 적지 않고, 아래 명령으로 그때그때 확인합니다. 확정된 요구사항은 [요구사항](./REQUIREMENTS.md), 파일 형식은 [파일 형식 명세](./SPEC.md), 설계 배경은 [설계 결정 기록](./DECISIONS.md)을 참고합니다.
 
-최종 갱신: 2026-09-09
+최종 갱신: 2026-09-28
 
 ## 1. 테스트 대상과 실행 환경
 
-SlipKit은 자체 계정이나 원격 서비스를 제공하지 않습니다. Core와 UI 패키지는 호스트 애플리케이션 안에서 실행되고, `@omdc-slipkit/mcp`는 로컬 Node.js 프로세스로 동작하며 선택적으로 루프백 전용 PDF 링크 서버를 엽니다.
+SlipKit은 자체 계정이나 원격 서비스를 제공하지 않습니다. Core와 UI 패키지는 호스트 애플리케이션 안에서 실행되고, `@omdc/slipkit-mcp`는 로컬 Node.js 프로세스로 동작하며 선택적으로 루프백 전용 PDF 링크 서버를 엽니다.
 
 | 대상 | 실행 환경 | 신뢰 경계 |
 |---|---|---|
-| `@omdc-slipkit/core` | 브라우저와 Node.js (순수 TS) | 외부에서 들어온 `.slip` 파일과 전표 값 |
-| `@omdc-slipkit/elements` | 브라우저 (Lit) | 사용자 입력, 이미지 파일, IndexedDB |
-| `@omdc-slipkit/react`·`vue` | 브라우저 | 호스트가 넘기는 속성·이벤트 |
-| `@omdc-slipkit/mcp` | 로컬 Node.js (stdio) | 작업 디렉터리, AI가 보내는 도구 인자, 루프백 HTTP 요청 |
+| `@omdc/slipkit` | 브라우저와 Node.js (순수 TS) | 외부에서 들어온 `.slip` 파일과 전표 값 |
+| `@omdc/slipkit-elements` | 브라우저 (Lit) | 사용자 입력, 이미지 파일, IndexedDB |
+| `@omdc/slipkit-react`·`vue` | 브라우저 | 호스트가 넘기는 속성·이벤트 |
+| `@omdc/slipkit-mcp` | 로컬 Node.js (stdio) | 작업 디렉터리, AI가 보내는 도구 인자, 루프백 HTTP 요청 |
 
 실행 환경이 둘이므로 성능 시험도 두 범주로 나눕니다(6절).
 

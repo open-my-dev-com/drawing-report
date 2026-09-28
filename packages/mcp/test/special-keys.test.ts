@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { CURRENT_SCHEMA_VERSION, type SlipFile, type SlipVoucherFile } from '@omdc-slipkit/core';
+import { CURRENT_SCHEMA_VERSION, type SlipFile, type SlipVoucherFile } from '@omdc/slipkit';
 import { applyEditOp, editOpSchema } from '../src/edit.js';
 import { elideDataUrls } from '../src/summary.js';
 import { FileSystemStorage } from '../src/storage.js';

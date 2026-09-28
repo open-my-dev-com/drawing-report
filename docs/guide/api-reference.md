@@ -20,25 +20,25 @@ For the workflow and full examples, check these documents first.
 
 | Package | Main public API |
 |---|---|
-| `@omdc-slipkit/core` | File validation, voucher assembly, formulas, PDF, encryption, storage interface |
-| `@omdc-slipkit/elements` | Web Components, settings types, built-in presets and storage implementations |
-| `@omdc-slipkit/react` | React wrapper components |
-| `@omdc-slipkit/vue` | Vue wrapper components |
-| `@omdc-slipkit/mcp` | Local stdio MCP server, file-system storage, and MCP schema guidance |
+| `@omdc/slipkit` | File validation, voucher assembly, formulas, PDF, encryption, storage interface |
+| `@omdc/slipkit-elements` | Web Components, settings types, built-in presets and storage implementations |
+| `@omdc/slipkit-react` | React wrapper components |
+| `@omdc/slipkit-vue` | Vue wrapper components |
+| `@omdc/slipkit-mcp` | Local stdio MCP server, file-system storage, and MCP schema guidance |
 
 Fonts can also be imported from the following subpaths.
 
 ```ts
 import {
   PRETENDARD_FONTS,
-} from '@omdc-slipkit/elements/fonts/pretendard';
+} from '@omdc/slipkit-elements/fonts/pretendard';
 
 import {
   NOTO_SANS_JP_FONTS,
-} from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+} from '@omdc/slipkit-elements/fonts/noto-sans-jp';
 ```
 
-## `@omdc-slipkit/core`
+## `@omdc/slipkit`
 
 ### File parsing and serialization
 
@@ -615,7 +615,7 @@ interface SlipTemplateBody {
 
 ### Core's `PaperSize`
 
-The `PaperSize` that `@omdc-slipkit/core` exposes is the actual paper size inside the `.slip` file.
+The `PaperSize` that `@omdc/slipkit` exposes is the actual paper size inside the `.slip` file.
 
 ```ts
 interface CorePaperSize {
@@ -634,7 +634,7 @@ interface CorePaperSize {
 The unit of the size and padding is millimeters.
 
 > [!CAUTION]
-> `@omdc-slipkit/elements` also exposes a name `PaperSize`, but its purpose is different.
+> `@omdc/slipkit-elements` also exposes a name `PaperSize`, but its purpose is different.
 > The Elements `PaperSize` is a paper preset in the shape `{ name, width, height }` shown in the designer's selection list.
 
 If you use both types together, it is safer to specify aliases.
@@ -642,11 +642,11 @@ If you use both types together, it is safer to specify aliases.
 ```ts
 import type {
   PaperSize as SlipPaperSize,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import type {
   PaperSize as PaperPreset,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 ```
 
 ### `SlipPage`
@@ -1305,7 +1305,7 @@ A type guard that checks whether the storage implements both `listVersions` and 
 
 ### Public Zod schemas
 
-The following schemas can be imported from `@omdc-slipkit/core`.
+The following schemas can be imported from `@omdc/slipkit`.
 
 | Schema | Validation scope |
 |---|---|
@@ -1330,7 +1330,7 @@ Creates a draft 2020-12 JSON Schema object of the current `.slip` format.
 
 The package also includes the following JSON Schema files.
 
-- `@omdc-slipkit/core/schemas/slip.schema.json`
+- `@omdc/slipkit/schemas/slip.schema.json`
 - Per-version `slip-<schemaVersion>.schema.json`
 
 > [!IMPORTANT]
@@ -1406,7 +1406,7 @@ The structural size limits used in file validation.
 
 ## Package integration API
 
-The following Core exports exist so that `@omdc-slipkit/elements` and `@omdc-slipkit/mcp` can share the same layout and formula rules across the package boundary. They are part of the public surface and are kept stable, but most host applications do not need them.
+The following Core exports exist so that `@omdc/slipkit-elements` and `@omdc/slipkit-mcp` can share the same layout and formula rules across the package boundary. They are part of the public surface and are kept stable, but most host applications do not need them.
 
 | Export | Used by | Purpose |
 |---|---|---|
@@ -1425,24 +1425,24 @@ Each package exposes exactly the names below from its root and public subpaths. 
 
 | Package / subpath | Runtime values | Types |
 |---|---|---|
-| `@omdc-slipkit/core` | Everything documented in this file under `@omdc-slipkit/core`, the schema and migration API, the storage API and the error types. | All `.slip` file, element, storage, formula and render types documented here. |
-| `@omdc-slipkit/core/schemas/*` | `slip.schema.json`, `slip-0.1.0.schema.json` (JSON files) | — |
-| `@omdc-slipkit/elements` | `SlipDesigner`, `SlipForm`, `SlipViewer`, `getPresets`, `loadDefaultFonts`, `IndexedDbStorage`, `SlipFileExchange` | `SlipFont`, `SlipDesignerSettings`, `PaperSize`, `SlipPreset`, `IndexedDbStorageOptions`, `SlipFileExchangeOptions` |
-| `@omdc-slipkit/elements/default-fonts` | `loadDefaultFonts` | — |
-| `@omdc-slipkit/elements/fonts/pretendard` | `PRETENDARD_FONTS` | — |
-| `@omdc-slipkit/elements/fonts/noto-sans-jp` | `NOTO_SANS_JP_FONTS`, default export | — |
-| `@omdc-slipkit/react` | `SlipDesigner`, `SlipForm`, `SlipViewer` | `SlipDesignerProps`, `SlipFormProps`, `SlipViewerProps` |
-| `@omdc-slipkit/vue` | `SlipDesigner`, `SlipForm`, `SlipViewer` | — |
-| `@omdc-slipkit/mcp` | `createSlipMcpServer`, `FileSystemStorage`, `resolveInRoot`, `readConfigFile`, `loadConfigFonts`, `resolveServerOptions`, `SlipMcpConfigError`, `CONFIG_FILE_NAME`, `DEFAULT_KEY_ENV`, `DEFAULT_PREVIOUS_KEYS_ENV`, `editOpSchema`, `MAX_IMAGE_BYTES`, `SCHEMA_TOPICS`, `schemaTopicText` | `SlipMcpServerOptions`, `FileSystemStorageKey`, `FileSystemStorageOptions`, `SlipMcpConfig`, `ResolveInput`, `EditOp`, `SchemaTopic` |
+| `@omdc/slipkit` | Everything documented in this file under `@omdc/slipkit`, the schema and migration API, the storage API and the error types. | All `.slip` file, element, storage, formula and render types documented here. |
+| `@omdc/slipkit/schemas/*` | `slip.schema.json`, `slip-0.1.0.schema.json` (JSON files) | — |
+| `@omdc/slipkit-elements` | `SlipDesigner`, `SlipForm`, `SlipViewer`, `getPresets`, `loadDefaultFonts`, `IndexedDbStorage`, `SlipFileExchange` | `SlipFont`, `SlipDesignerSettings`, `PaperSize`, `SlipPreset`, `IndexedDbStorageOptions`, `SlipFileExchangeOptions` |
+| `@omdc/slipkit-elements/default-fonts` | `loadDefaultFonts` | — |
+| `@omdc/slipkit-elements/fonts/pretendard` | `PRETENDARD_FONTS` | — |
+| `@omdc/slipkit-elements/fonts/noto-sans-jp` | `NOTO_SANS_JP_FONTS`, default export | — |
+| `@omdc/slipkit-react` | `SlipDesigner`, `SlipForm`, `SlipViewer` | `SlipDesignerProps`, `SlipFormProps`, `SlipViewerProps` |
+| `@omdc/slipkit-vue` | `SlipDesigner`, `SlipForm`, `SlipViewer` | — |
+| `@omdc/slipkit-mcp` | `createSlipMcpServer`, `FileSystemStorage`, `resolveInRoot`, `readConfigFile`, `loadConfigFonts`, `resolveServerOptions`, `SlipMcpConfigError`, `CONFIG_FILE_NAME`, `DEFAULT_KEY_ENV`, `DEFAULT_PREVIOUS_KEYS_ENV`, `editOpSchema`, `MAX_IMAGE_BYTES`, `SCHEMA_TOPICS`, `schemaTopicText` | `SlipMcpServerOptions`, `FileSystemStorageKey`, `FileSystemStorageOptions`, `SlipMcpConfig`, `ResolveInput`, `EditOp`, `SchemaTopic` |
 
 The PDF link server used by the `slipkit-mcp` CLI (`startPdfLinkServer` and related names) is internal to the CLI and is not exported.
 
-## `@omdc-slipkit/elements`
+## `@omdc/slipkit-elements`
 
 Importing the package root registers the three Web Components.
 
 ```ts
-import '@omdc-slipkit/elements';
+import '@omdc/slipkit-elements';
 ```
 
 The class types can also be imported directly.
@@ -1452,7 +1452,7 @@ import type {
   SlipDesigner,
   SlipForm,
   SlipViewer,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 ```
 
 ### `<slip-designer>`
@@ -1684,7 +1684,7 @@ const NOTO_SANS_JP_FONTS:
 
 Includes the Noto Sans JP Regular subset. That font is specified as the fallback font.
 
-## `@omdc-slipkit/react`
+## `@omdc/slipkit-react`
 
 Supports React 19 or later.
 
@@ -1757,15 +1757,15 @@ import type {
   SlipDesignerProps,
   SlipFormProps,
   SlipViewerProps,
-} from '@omdc-slipkit/react';
+} from '@omdc/slipkit-react';
 ```
 
-`SlipHostAttributes` stands for React's `HTMLAttributes<HTMLElement>` without `children` and `dangerouslySetInnerHTML`; it is not exported as a separate name. `SlipDesignerElement`, `SlipFormElement` and `SlipViewerElement` are the `SlipDesigner`, `SlipForm` and `SlipViewer` classes exported by `@omdc-slipkit/elements`.
+`SlipHostAttributes` stands for React's `HTMLAttributes<HTMLElement>` without `children` and `dangerouslySetInnerHTML`; it is not exported as a separate name. `SlipDesignerElement`, `SlipFormElement` and `SlipViewerElement` are the `SlipDesigner`, `SlipForm` and `SlipViewer` classes exported by `@omdc/slipkit-elements`.
 
 ```tsx
 import { useRef } from 'react';
-import { SlipDesigner } from '@omdc-slipkit/react';
-import type { SlipDesigner as SlipDesignerElement } from '@omdc-slipkit/elements';
+import { SlipDesigner } from '@omdc/slipkit-react';
+import type { SlipDesigner as SlipDesignerElement } from '@omdc/slipkit-elements';
 
 export function DesignerPane() {
   const designer = useRef<SlipDesignerElement>(null);
@@ -1784,7 +1784,7 @@ export function DesignerPane() {
 
 The dedicated props (`src`, the settings props, `onSlipChange`, `onSlipIssue`) always win: a spread object cannot override them. Optional wrapper props are assigned to the underlying element only while explicitly provided; removing one restores the element's own default. After issuing, call `reset()` on the `<slip-form>` element that the `ref` provides to start another voucher from the same source; changing React's `key` to remount `SlipForm` is an alternative.
 
-## `@omdc-slipkit/vue`
+## `@omdc/slipkit-vue`
 
 Supports Vue 3.4 or later.
 
@@ -1832,9 +1832,9 @@ Emitted events:
 
 Optional wrapper props follow the same rule: removing a prop restores the underlying element default. After issuing, call `reset()` through the component ref's `$el` (the underlying `<slip-form>` element, per Vue's standard behavior); changing Vue's `:key` to remount `SlipForm` is an alternative.
 
-## `@omdc-slipkit/mcp`
+## `@omdc/slipkit-mcp`
 
-`@omdc-slipkit/mcp` provides a local stdio MCP server and the file-system storage used by that server. See the [MCP Guide](mcp.md) for connection and tool usage.
+`@omdc/slipkit-mcp` provides a local stdio MCP server and the file-system storage used by that server. See the [MCP Guide](mcp.md) for connection and tool usage.
 
 ### `createSlipMcpServer`
 

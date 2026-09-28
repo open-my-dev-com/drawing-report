@@ -70,7 +70,7 @@ function runBenchAll(args) {
 describe('bench:all 실행 순서', () => {
   it('빌드 산출물이 없다고 먼저 죽지 않고 필요한 패키지를 빌드한다', () => {
     const result = runBenchAll(['--only', 'core', '--no-baseline']);
-    assert.deepEqual(result.build, ['--filter', '@omdc-slipkit/core', 'run', 'build']);
+    assert.deepEqual(result.build, ['--filter', '@omdc/slipkit', 'run', 'build']);
     assert.doesNotMatch(result.stderr, /빌드 산출물이 없습니다|먼저 .*pnpm build/);
     assert.match(result.stderr, /패키지 빌드에 실패했습니다\(exit 3\)/);
   });
@@ -78,9 +78,9 @@ describe('bench:all 실행 순서', () => {
   it('선택한 성능 측정에 필요한 패키지만 한 번에 빌드한다', () => {
     const result = runBenchAll(['--only', 'mcp-list', '--no-baseline']);
     assert.deepEqual(result.build, [
-      '--filter', '@omdc-slipkit/core',
-      '--filter', '@omdc-slipkit/elements',
-      '--filter', '@omdc-slipkit/mcp',
+      '--filter', '@omdc/slipkit',
+      '--filter', '@omdc/slipkit-elements',
+      '--filter', '@omdc/slipkit-mcp',
       'run', 'build',
     ]);
   });
@@ -105,12 +105,12 @@ describe('bench:all 실행 순서', () => {
     const dir = workDir();
     writeFileSync(path.join(dir, 'core.json'), readFileSync(path.join(BASELINE_DIR, 'core.json'), 'utf8'));
     const result = runBenchAll(['--only', 'core', '--baselines', dir]);
-    assert.deepEqual(result.build, ['--filter', '@omdc-slipkit/core', 'run', 'build']);
+    assert.deepEqual(result.build, ['--filter', '@omdc/slipkit', 'run', 'build']);
   });
 
   it('--no-baseline 이면 기준선 파일이 없어도 넘어간다', () => {
     const result = runBenchAll(['--only', 'core', '--no-baseline', '--baselines', path.join(workDir(), 'none')]);
-    assert.deepEqual(result.build, ['--filter', '@omdc-slipkit/core', 'run', 'build']);
+    assert.deepEqual(result.build, ['--filter', '@omdc/slipkit', 'run', 'build']);
     assert.doesNotMatch(result.stderr, /기준선/);
   });
 });

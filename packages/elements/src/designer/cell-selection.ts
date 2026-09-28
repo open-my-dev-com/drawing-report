@@ -6,7 +6,7 @@
  * 들어와도 그 병합 셀 전체를 선택합니다.
  */
 
-import type { GridCell, GridElement } from '@omdc-slipkit/core';
+import type { GridCell, GridElement } from '@omdc/slipkit';
 
 /** 셀 좌표 (0부터) */
 export interface CellRef {

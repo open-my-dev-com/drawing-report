@@ -8,7 +8,7 @@
  */
 
 import type { ReactiveController } from 'lit';
-import type { SlipElement, SlipTemplateFile } from '@omdc-slipkit/core';
+import type { SlipElement, SlipTemplateFile } from '@omdc/slipkit';
 import { movedPositions, nudgeDelta } from '../arrange.js';
 import type { EditCheckpoint } from './history.js';
 

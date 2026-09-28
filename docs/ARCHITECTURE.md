@@ -1,6 +1,6 @@
 # 아키텍처
 
-최종 갱신: 2026-08-31
+최종 갱신: 2026-09-28
 
 이 문서는 SlipKit의 전체 구조와 패키지 간 책임, 데이터 흐름, 실행 환경, 외부 시스템과의 경계를 설명합니다.
 
@@ -32,7 +32,7 @@ flowchart TB
     subgraph Browser["브라우저"]
         App["호스트 애플리케이션"]
         UI["SlipKit UI 구성 요소"]
-        BrowserCore["@omdc-slipkit/core"]
+        BrowserCore["@omdc/slipkit"]
         BrowserPdf["PDF 미리보기·다운로드"]
     end
 
@@ -40,7 +40,7 @@ flowchart TB
         API["애플리케이션 API"]
         Store["DB·오브젝트 스토리지"]
         Worker["선택 사항: Node.js 작업자"]
-        NodeCore["@omdc-slipkit/core"]
+        NodeCore["@omdc/slipkit"]
         ServerPdf["PDF 파일"]
     end
 
@@ -71,11 +71,11 @@ SlipKit은 pnpm 기반 모노레포로 관리되며, 공개 패키지는 책임�
 flowchart TB
     App["호스트 애플리케이션"]
 
-    React["@omdc-slipkit/react"]
-    Vue["@omdc-slipkit/vue"]
-    Elements["@omdc-slipkit/elements"]
-    Core["@omdc-slipkit/core"]
-    MCP["@omdc-slipkit/mcp"]
+    React["@omdc/slipkit-react"]
+    Vue["@omdc/slipkit-vue"]
+    Elements["@omdc/slipkit-elements"]
+    Core["@omdc/slipkit"]
+    MCP["@omdc/slipkit-mcp"]
     AI["MCP 클라이언트"]
     Files["작업 디렉터리<br/>.slip·이미지·PDF"]
     MCPConfig["slipkit-mcp.json<br/>작업 경로·언어·폰트·키 변수명"]
@@ -104,15 +104,15 @@ flowchart TB
 
 | 패키지 | 책임 |
 | --- | --- |
-| `@omdc-slipkit/core` | 파일 형식, 검증, 마이그레이션, 수식 평가, PDF 생성, 암호화와 저장소 인터페이스 |
-| `@omdc-slipkit/elements` | 양식 편집기, 전표 입력 폼, 뷰어와 브라우저 저장소 구현 |
-| `@omdc-slipkit/react` | SlipKit Web Component를 React에서 사용하기 위한 래퍼 |
-| `@omdc-slipkit/vue` | SlipKit Web Component를 Vue에서 사용하기 위한 래퍼 |
-| `@omdc-slipkit/mcp` | AI가 작업 디렉터리의 `.slip` 파일을 다루도록 하는 로컬 stdio MCP 서버, 설정 로더와 파일 시스템 저장소 |
+| `@omdc/slipkit` | 파일 형식, 검증, 마이그레이션, 수식 평가, PDF 생성, 암호화와 저장소 인터페이스 |
+| `@omdc/slipkit-elements` | 양식 편집기, 전표 입력 폼, 뷰어와 브라우저 저장소 구현 |
+| `@omdc/slipkit-react` | SlipKit Web Component를 React에서 사용하기 위한 래퍼 |
+| `@omdc/slipkit-vue` | SlipKit Web Component를 Vue에서 사용하기 위한 래퍼 |
+| `@omdc/slipkit-mcp` | AI가 작업 디렉터리의 `.slip` 파일을 다루도록 하는 로컬 stdio MCP 서버, 설정 로더와 파일 시스템 저장소 |
 
 ### 3.1 `core`
 
-`@omdc-slipkit/core`는 DOM에 의존하지 않는 핵심 패키지입니다. 브라우저와 Node.js에서 모두 사용할 수 있습니다.
+`@omdc/slipkit`는 DOM에 의존하지 않는 핵심 패키지입니다. 브라우저와 Node.js에서 모두 사용할 수 있습니다.
 
 주요 책임은 다음과 같습니다.
 
@@ -129,7 +129,7 @@ flowchart TB
 
 ### 3.2 `elements`
 
-`@omdc-slipkit/elements`는 Lit 기반 Web Component를 제공합니다.
+`@omdc/slipkit-elements`는 Lit 기반 Web Component를 제공합니다.
 
 | 구성 요소 | 역할 |
 | --- | --- |
@@ -146,11 +146,11 @@ React와 Vue 패키지는 Web Component를 각 프레임워크의 속성 및 이
 핵심 기능을 별도로 재구현하지 않으므로 프레임워크가 달라도 동일한 `.slip` 형식과 렌더링 결과를 사용합니다.
 
 > [!NOTE]
-> React 또는 Vue 애플리케이션에서도 파일 검증이나 서버로 보낼 전표 생성처럼 UI와 무관한 작업은 `@omdc-slipkit/core`를 직접 사용할 수 있습니다.
+> React 또는 Vue 애플리케이션에서도 파일 검증이나 서버로 보낼 전표 생성처럼 UI와 무관한 작업은 `@omdc/slipkit`를 직접 사용할 수 있습니다.
 
 ### 3.4 `mcp`
 
-`@omdc-slipkit/mcp`는 MCP 클라이언트와 stdio로 통신하는 로컬 Node.js 서버입니다. `core`의 검증·전표 조립·PDF 생성을 사용하고, 설정에 사용자 지정 폰트가 없으면 `elements`에서 노출한 동봉 폰트를 사용합니다.
+`@omdc/slipkit-mcp`는 MCP 클라이언트와 stdio로 통신하는 로컬 Node.js 서버입니다. `core`의 검증·전표 조립·PDF 생성을 사용하고, 설정에 사용자 지정 폰트가 없으면 `elements`에서 노출한 동봉 폰트를 사용합니다.
 
 서버는 `slipkit-mcp.json`에서 작업 디렉터리, 로케일, 사용자 지정 폰트와 암호화 키 환경변수 이름을 읽습니다. CLI 인자와 환경변수는 설정 파일의 값을 덮어쓸 수 있습니다. 암호화 키 값은 설정 파일에 저장하지 않고 서버 프로세스 환경에서 전달합니다.
 
@@ -313,7 +313,7 @@ UI 패키지인 `elements`, `react`, `vue`는 브라우저 환경을 대상으�
 
 ### 6.2 Node.js
 
-`@omdc-slipkit/core`는 Node.js에서도 사용할 수 있습니다.
+`@omdc/slipkit`는 Node.js에서도 사용할 수 있습니다.
 
 대표적인 사용 사례는 다음과 같습니다.
 
@@ -329,7 +329,7 @@ Node.js 작업자는 SlipKit이 제공하는 독립 서버가 아닙니다. 필�
 
 `.slip`은 JSON 형식이므로 Java, Kotlin, Go, Python 등으로 작성된 서버에서도 저장하고 전송할 수 있습니다.
 
-JSON Schema를 이용하면 언어에 관계없이 기본적인 구조를 검사할 수 있습니다. 다만 마이그레이션과 일부 교차 필드 규칙까지 SlipKit과 동일하게 적용하려면 `@omdc-slipkit/core`를 실행하거나 그 동작을 동등하게 구현해야 합니다.
+JSON Schema를 이용하면 언어에 관계없이 기본적인 구조를 검사할 수 있습니다. 다만 마이그레이션과 일부 교차 필드 규칙까지 SlipKit과 동일하게 적용하려면 `@omdc/slipkit`를 실행하거나 그 동작을 동등하게 구현해야 합니다.
 
 ## 7. 검증과 마이그레이션
 
@@ -361,7 +361,7 @@ flowchart LR
 
 JSON Schema는 외부 시스템과의 상호 운용을 위한 구조적 계약입니다. 모든 마이그레이션이나 교차 필드 규칙을 완전히 대신하지는 않습니다.
 
-파일 형식의 기준은 [.slip 파일 형식 명세](SPEC.md)이며, 실제 동작의 기준 구현은 `@omdc-slipkit/core`입니다.
+파일 형식의 기준은 [.slip 파일 형식 명세](SPEC.md)이며, 실제 동작의 기준 구현은 `@omdc/slipkit`입니다.
 
 ## 8. 렌더링 아키텍처
 
@@ -446,7 +446,7 @@ flowchart LR
     HostAPI --> Database
 ```
 
-`@omdc-slipkit/elements`는 브라우저용 구현으로 `IndexedDbStorage` 저장소와, 저장소가 아닌 파일 교환 기능 `SlipFileExchange`(내려받기·열기)를 제공합니다.
+`@omdc/slipkit-elements`는 브라우저용 구현으로 `IndexedDbStorage` 저장소와, 저장소가 아닌 파일 교환 기능 `SlipFileExchange`(내려받기·열기)를 제공합니다.
 
 서버, S3 호환 스토리지, 사내 문서 시스템 또는 데이터베이스에 저장하려면 호스트가 `StorageAdapter`를 구현합니다.
 
@@ -531,7 +531,7 @@ SlipKit이 제공하는 안전 기능과 호스트가 구현해야 하는 보안
 
 ### 13.3 Node.js PDF 작업자
 
-대량 출력이나 비동기 처리가 필요한 경우 Node.js 작업자에서 `@omdc-slipkit/core`를 사용합니다.
+대량 출력이나 비동기 처리가 필요한 경우 Node.js 작업자에서 `@omdc/slipkit`를 사용합니다.
 
 일반적인 처리 흐름은 다음과 같습니다.
 

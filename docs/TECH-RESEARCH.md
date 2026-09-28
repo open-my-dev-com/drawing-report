@@ -4,7 +4,7 @@ SlipKit의 주요 기술을 선택할 때 확인한 외부 기술의 특성, 프
 
 확정된 설계와 변경 이력은 [설계 결정 기록](./DECISIONS.md), 현재 구조는 [아키텍처](./ARCHITECTURE.md), 예정 작업은 [로드맵](./ROADMAP.md)을 참고합니다.
 
-최종 갱신: 2026-08-26
+최종 갱신: 2026-09-28
 
 ## 문서 원칙
 
@@ -184,7 +184,7 @@ Lit 컴포넌트는 표준 HTML 엘리먼트이므로 외부 공개 형태가 Li
 
 ### SlipKit의 적용 범위
 
-`@omdc-slipkit/elements`는 Lit으로 다음 커스텀 엘리먼트를 구현합니다.
+`@omdc/slipkit-elements`는 Lit으로 다음 커스텀 엘리먼트를 구현합니다.
 
 - `<slip-designer>`
 - `<slip-form>`
@@ -456,10 +456,10 @@ SlipKit은 다음 구성을 사용합니다.
 
 SlipKit은 pnpm workspace로 다음 패키지와 예제를 관리합니다.
 
-- `@omdc-slipkit/core`
-- `@omdc-slipkit/elements`
-- `@omdc-slipkit/react`
-- `@omdc-slipkit/vue`
+- `@omdc/slipkit`
+- `@omdc/slipkit-elements`
+- `@omdc/slipkit-react`
+- `@omdc/slipkit-vue`
 - Web Component, React와 Vue 데모
 
 [pnpm 공식 문서](https://pnpm.io/)는 workspace 지원과 여러 패키지의 의존성 관리를 제공합니다.

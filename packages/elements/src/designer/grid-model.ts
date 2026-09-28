@@ -2,7 +2,7 @@
  * 그리드의 트랙, 셀과 행 구간을 조회하고 변경합니다.
  */
 
-import type { GridBand, GridBandPlacement, GridCell, GridElement, SlipElement } from '@omdc-slipkit/core';
+import type { GridBand, GridBandPlacement, GridCell, GridElement, SlipElement } from '@omdc/slipkit';
 
 /** 새 그리드의 기본 행 높이(mm)입니다. */
 export const GRID_DEFAULT_ROW_MM = 8;

@@ -6,7 +6,7 @@
  */
 
 import type { TemplateResult } from 'lit';
-import type { SlipElement } from '@omdc-slipkit/core';
+import type { SlipElement } from '@omdc/slipkit';
 import { icons } from '../../icons.js';
 
 /**

@@ -6,7 +6,7 @@
  * 없으면 원래 폰트를 그대로 씁니다. 캔버스도 같은 결과를 내야 하므로 그 규칙을 이 모듈에 모읍니다.
  */
 
-import type { SlipFont, SlipPage } from '@omdc-slipkit/core';
+import type { SlipFont, SlipPage } from '@omdc/slipkit';
 
 /** 굵게·기울임에 사용하는 변형 접미사. 찾는 순서대로 둡니다. */
 const VARIANT_SUFFIXES = ['BoldItalic', 'Bold', 'Italic'] as const;

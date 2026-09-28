@@ -7,7 +7,7 @@
  * 않습니다. 캔버스와 속성 패널이 이 모듈을 함께 씁니다.
  */
 
-import type { GridElement } from '@omdc-slipkit/core';
+import type { GridElement } from '@omdc/slipkit';
 import { DEFAULT_BORDER_COLOR, DEFAULT_LINE_WIDTH } from './style-css.js';
 
 /** 선 형태입니다. */

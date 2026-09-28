@@ -1,6 +1,6 @@
 // 폰트 변형 선택과 선택 목록 구성 — PDF 변환과 같은 규칙을 쓰는지 확인합니다.
 import { describe, expect, it } from 'vitest';
-import type { SlipFont, SlipPage } from '@omdc-slipkit/core';
+import type { SlipFont, SlipPage } from '@omdc/slipkit';
 import {
   collectUsedFontNames,
   effectiveFontName,

@@ -1,6 +1,6 @@
 // 모달 상태와 초안 컨트롤러 — 화면 없이 직접 확인합니다.
 import { describe, expect, it, vi } from 'vitest';
-import type { SlipListItem, SlipTemplateFile, StorageAdapter } from '@omdc-slipkit/core';
+import type { SlipListItem, SlipTemplateFile, StorageAdapter } from '@omdc/slipkit';
 import { DialogsController } from '../../src/designer/controllers/dialogs.js';
 import { FormulaDraftController, columnSuggestion } from '../../src/designer/controllers/formula-draft.js';
 import { SampleDraftController, parseSampleValues } from '../../src/designer/controllers/sample-draft.js';

@@ -11,7 +11,7 @@ import {
   type SlipFile,
   type SlipFont,
   type SlipKit,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { loadDefaultFonts } from './default-fonts.js';
 import { normalizeLocale } from './strings.js';
 

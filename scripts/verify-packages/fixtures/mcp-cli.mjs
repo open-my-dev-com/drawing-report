@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 // 진입점(dist/index.js) 위치에서 거슬러 올라가 기대 버전을 읽습니다.
 const bin = path.resolve('node_modules', '.bin', process.platform === 'win32' ? 'slipkit-mcp.cmd' : 'slipkit-mcp');
 if (!existsSync(bin)) throw new Error(`bin link missing: ${bin}`);
-const entry = fileURLToPath(import.meta.resolve('@omdc-slipkit/mcp'));
+const entry = fileURLToPath(import.meta.resolve('@omdc/slipkit-mcp'));
 const expectedVersion = JSON.parse(readFileSync(path.join(path.dirname(entry), '..', 'package.json'), 'utf8')).version;
 
 function run(args, { closeStdin = false, timeoutMs = 30_000 } = {}) {

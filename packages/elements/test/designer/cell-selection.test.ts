@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { GridElement } from '@omdc-slipkit/core';
+import type { GridElement } from '@omdc/slipkit';
 import {
   cellKey,
   cellOriginAt,

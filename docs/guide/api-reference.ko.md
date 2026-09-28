@@ -20,25 +20,25 @@
 
 | 패키지 | 주요 공개 API |
 |---|---|
-| `@omdc-slipkit/core` | 파일 검증, 전표 조립, 수식, PDF, 암호화, 저장소 인터페이스 |
-| `@omdc-slipkit/elements` | Web Component, 설정 타입, 기본 프리셋과 저장소 구현 |
-| `@omdc-slipkit/react` | React 래퍼 컴포넌트 |
-| `@omdc-slipkit/vue` | Vue 래퍼 컴포넌트 |
-| `@omdc-slipkit/mcp` | 로컬 stdio MCP 서버, 파일 시스템 저장소와 MCP 구조 안내 |
+| `@omdc/slipkit` | 파일 검증, 전표 조립, 수식, PDF, 암호화, 저장소 인터페이스 |
+| `@omdc/slipkit-elements` | Web Component, 설정 타입, 기본 프리셋과 저장소 구현 |
+| `@omdc/slipkit-react` | React 래퍼 컴포넌트 |
+| `@omdc/slipkit-vue` | Vue 래퍼 컴포넌트 |
+| `@omdc/slipkit-mcp` | 로컬 stdio MCP 서버, 파일 시스템 저장소와 MCP 구조 안내 |
 
 폰트는 다음 서브패스에서도 가져올 수 있습니다.
 
 ```ts
 import {
   PRETENDARD_FONTS,
-} from '@omdc-slipkit/elements/fonts/pretendard';
+} from '@omdc/slipkit-elements/fonts/pretendard';
 
 import {
   NOTO_SANS_JP_FONTS,
-} from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+} from '@omdc/slipkit-elements/fonts/noto-sans-jp';
 ```
 
-## `@omdc-slipkit/core`
+## `@omdc/slipkit`
 
 ### 파일 파싱과 직렬화
 
@@ -615,7 +615,7 @@ interface SlipTemplateBody {
 
 ### Core의 `PaperSize`
 
-`@omdc-slipkit/core`가 공개하는 `PaperSize`는 `.slip` 파일 안의 실제 용지 크기입니다.
+`@omdc/slipkit`가 공개하는 `PaperSize`는 `.slip` 파일 안의 실제 용지 크기입니다.
 
 ```ts
 interface CorePaperSize {
@@ -634,7 +634,7 @@ interface CorePaperSize {
 크기와 여백의 단위는 밀리미터입니다.
 
 > [!CAUTION]
-> `@omdc-slipkit/elements`도 `PaperSize`라는 이름을 공개하지만 용도가 다릅니다.
+> `@omdc/slipkit-elements`도 `PaperSize`라는 이름을 공개하지만 용도가 다릅니다.
 > Elements의 `PaperSize`는 디자이너 선택 목록에 표시할 `{ name, width, height }` 형태의 용지 프리셋입니다.
 
 두 타입을 함께 사용한다면 별칭을 지정하는 것이 안전합니다.
@@ -642,11 +642,11 @@ interface CorePaperSize {
 ```ts
 import type {
   PaperSize as SlipPaperSize,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import type {
   PaperSize as PaperPreset,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 ```
 
 ### `SlipPage`
@@ -1304,7 +1304,7 @@ function supportsVersions(
 
 ### 공개 Zod 스키마
 
-다음 스키마를 `@omdc-slipkit/core`에서 가져올 수 있습니다.
+다음 스키마를 `@omdc/slipkit`에서 가져올 수 있습니다.
 
 | 스키마 | 검증 범위 |
 |---|---|
@@ -1329,7 +1329,7 @@ function slipFileJsonSchema():
 
 패키지에는 다음 JSON Schema 파일도 포함됩니다.
 
-- `@omdc-slipkit/core/schemas/slip.schema.json`
+- `@omdc/slipkit/schemas/slip.schema.json`
 - 버전별 `slip-<schemaVersion>.schema.json`
 
 > [!IMPORTANT]
@@ -1405,7 +1405,7 @@ const BUILT_IN_MIGRATIONS:
 
 ## 패키지 통합 API
 
-다음 Core export는 `@omdc-slipkit/elements`와 `@omdc-slipkit/mcp`가 패키지 경계를 넘어 같은 배치·수식 규칙을 공유하기 위해 존재합니다. 공개 API의 일부이며 안정적으로 유지하지만, 대부분의 호스트 애플리케이션에는 필요하지 않습니다.
+다음 Core export는 `@omdc/slipkit-elements`와 `@omdc/slipkit-mcp`가 패키지 경계를 넘어 같은 배치·수식 규칙을 공유하기 위해 존재합니다. 공개 API의 일부이며 안정적으로 유지하지만, 대부분의 호스트 애플리케이션에는 필요하지 않습니다.
 
 | API | 사용 패키지 | 용도 |
 |---|---|---|
@@ -1424,24 +1424,24 @@ const BUILT_IN_MIGRATIONS:
 
 | 패키지 / 서브패스 | 런타임 값 | 타입 |
 |---|---|---|
-| `@omdc-slipkit/core` | 이 문서의 `@omdc-slipkit/core`, 스키마·마이그레이션 API, 저장소 API와 오류 타입에 적힌 모든 값 | 이 문서에 적힌 모든 `.slip` 파일·요소·저장소·수식·렌더링 타입 |
-| `@omdc-slipkit/core/schemas/*` | `slip.schema.json`, `slip-0.1.0.schema.json` (JSON 파일) | — |
-| `@omdc-slipkit/elements` | `SlipDesigner`, `SlipForm`, `SlipViewer`, `getPresets`, `loadDefaultFonts`, `IndexedDbStorage`, `SlipFileExchange` | `SlipFont`, `SlipDesignerSettings`, `PaperSize`, `SlipPreset`, `IndexedDbStorageOptions`, `SlipFileExchangeOptions` |
-| `@omdc-slipkit/elements/default-fonts` | `loadDefaultFonts` | — |
-| `@omdc-slipkit/elements/fonts/pretendard` | `PRETENDARD_FONTS` | — |
-| `@omdc-slipkit/elements/fonts/noto-sans-jp` | `NOTO_SANS_JP_FONTS`, 기본 내보내기 | — |
-| `@omdc-slipkit/react` | `SlipDesigner`, `SlipForm`, `SlipViewer` | `SlipDesignerProps`, `SlipFormProps`, `SlipViewerProps` |
-| `@omdc-slipkit/vue` | `SlipDesigner`, `SlipForm`, `SlipViewer` | — |
-| `@omdc-slipkit/mcp` | `createSlipMcpServer`, `FileSystemStorage`, `resolveInRoot`, `readConfigFile`, `loadConfigFonts`, `resolveServerOptions`, `SlipMcpConfigError`, `CONFIG_FILE_NAME`, `DEFAULT_KEY_ENV`, `DEFAULT_PREVIOUS_KEYS_ENV`, `editOpSchema`, `MAX_IMAGE_BYTES`, `SCHEMA_TOPICS`, `schemaTopicText` | `SlipMcpServerOptions`, `FileSystemStorageKey`, `FileSystemStorageOptions`, `SlipMcpConfig`, `ResolveInput`, `EditOp`, `SchemaTopic` |
+| `@omdc/slipkit` | 이 문서의 `@omdc/slipkit`, 스키마·마이그레이션 API, 저장소 API와 오류 타입에 적힌 모든 값 | 이 문서에 적힌 모든 `.slip` 파일·요소·저장소·수식·렌더링 타입 |
+| `@omdc/slipkit/schemas/*` | `slip.schema.json`, `slip-0.1.0.schema.json` (JSON 파일) | — |
+| `@omdc/slipkit-elements` | `SlipDesigner`, `SlipForm`, `SlipViewer`, `getPresets`, `loadDefaultFonts`, `IndexedDbStorage`, `SlipFileExchange` | `SlipFont`, `SlipDesignerSettings`, `PaperSize`, `SlipPreset`, `IndexedDbStorageOptions`, `SlipFileExchangeOptions` |
+| `@omdc/slipkit-elements/default-fonts` | `loadDefaultFonts` | — |
+| `@omdc/slipkit-elements/fonts/pretendard` | `PRETENDARD_FONTS` | — |
+| `@omdc/slipkit-elements/fonts/noto-sans-jp` | `NOTO_SANS_JP_FONTS`, 기본 내보내기 | — |
+| `@omdc/slipkit-react` | `SlipDesigner`, `SlipForm`, `SlipViewer` | `SlipDesignerProps`, `SlipFormProps`, `SlipViewerProps` |
+| `@omdc/slipkit-vue` | `SlipDesigner`, `SlipForm`, `SlipViewer` | — |
+| `@omdc/slipkit-mcp` | `createSlipMcpServer`, `FileSystemStorage`, `resolveInRoot`, `readConfigFile`, `loadConfigFonts`, `resolveServerOptions`, `SlipMcpConfigError`, `CONFIG_FILE_NAME`, `DEFAULT_KEY_ENV`, `DEFAULT_PREVIOUS_KEYS_ENV`, `editOpSchema`, `MAX_IMAGE_BYTES`, `SCHEMA_TOPICS`, `schemaTopicText` | `SlipMcpServerOptions`, `FileSystemStorageKey`, `FileSystemStorageOptions`, `SlipMcpConfig`, `ResolveInput`, `EditOp`, `SchemaTopic` |
 
 `slipkit-mcp` CLI가 쓰는 PDF 링크 서버(`startPdfLinkServer` 등)는 CLI 내부 구현이며 export하지 않습니다.
 
-## `@omdc-slipkit/elements`
+## `@omdc/slipkit-elements`
 
 패키지 루트를 import하면 세 Web Component가 등록됩니다.
 
 ```ts
-import '@omdc-slipkit/elements';
+import '@omdc/slipkit-elements';
 ```
 
 클래스 타입도 직접 가져올 수 있습니다.
@@ -1451,7 +1451,7 @@ import type {
   SlipDesigner,
   SlipForm,
   SlipViewer,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 ```
 
 ### `<slip-designer>`
@@ -1683,7 +1683,7 @@ const NOTO_SANS_JP_FONTS:
 
 Noto Sans JP Regular 서브셋을 포함합니다. 해당 폰트가 대체 폰트로 지정되어 있습니다.
 
-## `@omdc-slipkit/react`
+## `@omdc/slipkit-react`
 
 React 19 이상을 지원합니다.
 
@@ -1756,15 +1756,15 @@ import type {
   SlipDesignerProps,
   SlipFormProps,
   SlipViewerProps,
-} from '@omdc-slipkit/react';
+} from '@omdc/slipkit-react';
 ```
 
-`SlipHostAttributes`는 React의 `HTMLAttributes<HTMLElement>`에서 `children`과 `dangerouslySetInnerHTML`을 뺀 것을 뜻하며 별도 이름으로 export하지 않습니다. `SlipDesignerElement`, `SlipFormElement`, `SlipViewerElement`는 `@omdc-slipkit/elements`가 export하는 `SlipDesigner`, `SlipForm`, `SlipViewer` 클래스입니다.
+`SlipHostAttributes`는 React의 `HTMLAttributes<HTMLElement>`에서 `children`과 `dangerouslySetInnerHTML`을 뺀 것을 뜻하며 별도 이름으로 export하지 않습니다. `SlipDesignerElement`, `SlipFormElement`, `SlipViewerElement`는 `@omdc/slipkit-elements`가 export하는 `SlipDesigner`, `SlipForm`, `SlipViewer` 클래스입니다.
 
 ```tsx
 import { useRef } from 'react';
-import { SlipDesigner } from '@omdc-slipkit/react';
-import type { SlipDesigner as SlipDesignerElement } from '@omdc-slipkit/elements';
+import { SlipDesigner } from '@omdc/slipkit-react';
+import type { SlipDesigner as SlipDesignerElement } from '@omdc/slipkit-elements';
 
 export function DesignerPane() {
   const designer = useRef<SlipDesignerElement>(null);
@@ -1783,7 +1783,7 @@ export function DesignerPane() {
 
 전용 속성(`src`, 설정 속성, `onSlipChange`, `onSlipIssue`)은 항상 우선하므로 전개 구문으로 전달한 객체가 이 값을 덮어쓸 수 없습니다. 선택형 래퍼 속성은 명시적으로 전달한 동안에만 내부 요소에 설정되며, 제거하면 요소 자체의 기본값으로 돌아갑니다. 발행 뒤 같은 원본으로 새 전표를 시작하려면 `ref`로 받은 `<slip-form>` 요소의 `reset()`을 호출합니다. React의 `key`를 바꿔 `SlipForm`을 다시 마운트하는 방법도 사용할 수 있습니다.
 
-## `@omdc-slipkit/vue`
+## `@omdc/slipkit-vue`
 
 Vue 3.4 이상을 지원합니다.
 
@@ -1831,9 +1831,9 @@ Vue 3.4 이상을 지원합니다.
 
 선택형 래퍼 속성도 같은 규칙을 따릅니다. 속성을 제거하면 내부 요소의 기본값으로 돌아갑니다. 발행 뒤에는 컴포넌트 ref의 `$el`이 가리키는 내부 `<slip-form>` 요소에서 `reset()`을 호출하거나, Vue의 `:key`를 바꿔 `SlipForm`을 다시 마운트합니다.
 
-## `@omdc-slipkit/mcp`
+## `@omdc/slipkit-mcp`
 
-`@omdc-slipkit/mcp`는 로컬 stdio MCP 서버와 서버가 사용하는 파일 시스템 저장소를 제공합니다. 연결 및 도구 사용법은 [MCP 사용 가이드](mcp.ko.md)를 확인하세요.
+`@omdc/slipkit-mcp`는 로컬 stdio MCP 서버와 서버가 사용하는 파일 시스템 저장소를 제공합니다. 연결 및 도구 사용법은 [MCP 사용 가이드](mcp.ko.md)를 확인하세요.
 
 ### `createSlipMcpServer`
 

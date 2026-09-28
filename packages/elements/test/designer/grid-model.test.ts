@@ -1,6 +1,6 @@
 // 그리드 구조 변경 — 화면 없이 직접 확인합니다.
 import { describe, expect, it } from 'vitest';
-import type { GridBand, GridBandPlacement, GridCell, GridElement } from '@omdc-slipkit/core';
+import type { GridBand, GridBandPlacement, GridCell, GridElement } from '@omdc/slipkit';
 import {
   isGrid,
   gridDims,

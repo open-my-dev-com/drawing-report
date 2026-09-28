@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SlipStorageError, type SlipFile, type SlipListPage, type StorageAdapter } from '@omdc-slipkit/core';
+import { SlipStorageError, type SlipFile, type SlipListPage, type StorageAdapter } from '@omdc/slipkit';
 import {
   AUTOSAVE_KEYS,
   DEMO_SAMPLE_KEY,

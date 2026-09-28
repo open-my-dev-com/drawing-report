@@ -12,11 +12,11 @@ import { buildManifest, tarballFileName } from './pack.mjs';
 import { decidePublish, interpretView, publishAll } from './publish.mjs';
 
 const ALL_SAME = {
-  '@omdc-slipkit/core': '0.1.0',
-  '@omdc-slipkit/elements': '0.1.0',
-  '@omdc-slipkit/react': '0.1.0',
-  '@omdc-slipkit/vue': '0.1.0',
-  '@omdc-slipkit/mcp': '0.1.0',
+  '@omdc/slipkit': '0.1.0',
+  '@omdc/slipkit-elements': '0.1.0',
+  '@omdc/slipkit-react': '0.1.0',
+  '@omdc/slipkit-vue': '0.1.0',
+  '@omdc/slipkit-mcp': '0.1.0',
 };
 
 describe('inputs', () => {
@@ -36,14 +36,14 @@ describe('inputs', () => {
     assert.match(validateReleaseInputs({ ...base, ref: 'refs/heads/feat/x' })[0], /refs\/heads\/main/);
     assert.match(validateReleaseInputs({ ...base, version: '0.1' })[0], /exact SemVer/);
     assert.match(validateReleaseInputs({ ...base, environment: 'staging' })[0], /npm-publish/);
-    const mismatch = validateReleaseInputs({ ...base, packageVersions: { ...ALL_SAME, '@omdc-slipkit/mcp': '0.0.9' } });
-    assert.deepEqual(mismatch, ['@omdc-slipkit/mcp is 0.0.9, expected 0.1.0']);
-    const missing = validateReleaseInputs({ ...base, packageVersions: { '@omdc-slipkit/core': '0.1.0' } });
+    const mismatch = validateReleaseInputs({ ...base, packageVersions: { ...ALL_SAME, '@omdc/slipkit-mcp': '0.0.9' } });
+    assert.deepEqual(mismatch, ['@omdc/slipkit-mcp is 0.0.9, expected 0.1.0']);
+    const missing = validateReleaseInputs({ ...base, packageVersions: { '@omdc/slipkit': '0.1.0' } });
     assert.match(missing[0], /expected 5 packages, got 1/);
   });
 
   it('허용 목록 밖의 dist-tag와 prerelease의 latest를 거부한다', () => {
-    const prerelease = { '@omdc-slipkit/core': '1.0.0-beta.1', '@omdc-slipkit/elements': '1.0.0-beta.1', '@omdc-slipkit/react': '1.0.0-beta.1', '@omdc-slipkit/vue': '1.0.0-beta.1', '@omdc-slipkit/mcp': '1.0.0-beta.1' };
+    const prerelease = { '@omdc/slipkit': '1.0.0-beta.1', '@omdc/slipkit-elements': '1.0.0-beta.1', '@omdc/slipkit-react': '1.0.0-beta.1', '@omdc/slipkit-vue': '1.0.0-beta.1', '@omdc/slipkit-mcp': '1.0.0-beta.1' };
     const base = { ref: 'refs/heads/main', version: '0.1.0', distTag: 'latest', environment: 'npm-publish', packageVersions: ALL_SAME };
     assert.match(validateReleaseInputs({ ...base, distTag: 'beta' })[0], /dist_tag must be one of latest, next/);
     assert.match(validateReleaseInputs({ ...base, distTag: undefined })[0], /got \(unset\)/);
@@ -90,7 +90,7 @@ describe('pack', () => {
   afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
 
   it('pnpm pack 파일명 규칙을 따른다', () => {
-    assert.equal(tarballFileName('@omdc-slipkit/core', '0.1.0'), 'omdc-slipkit-core-0.1.0.tgz');
+    assert.equal(tarballFileName('@omdc/slipkit', '0.1.0'), 'omdc-slipkit-0.1.0.tgz');
   });
 
   it('manifest에 순서·해시·SRI를 기록하고 없는 파일은 오류다', async () => {
@@ -99,10 +99,10 @@ describe('pack', () => {
     await writeFile(path.join(dir, 'a.tgz'), a);
     await writeFile(path.join(dir, 'b.tgz'), b);
     const manifest = await buildManifest(dir, [
-      { name: '@omdc-slipkit/core', version: '0.1.0', file: 'a.tgz' },
-      { name: '@omdc-slipkit/elements', version: '0.1.0', file: 'b.tgz' },
+      { name: '@omdc/slipkit', version: '0.1.0', file: 'a.tgz' },
+      { name: '@omdc/slipkit-elements', version: '0.1.0', file: 'b.tgz' },
     ]);
-    assert.deepEqual(manifest.map((entry) => entry.name), ['@omdc-slipkit/core', '@omdc-slipkit/elements']);
+    assert.deepEqual(manifest.map((entry) => entry.name), ['@omdc/slipkit', '@omdc/slipkit-elements']);
     assert.equal(manifest[0].sha256, sha256Hex(a));
     assert.equal(manifest[1].integrity, sriSha512(b));
     await assert.rejects(buildManifest(dir, [{ name: 'x', version: '1.0.0', file: 'missing.tgz' }]), /missing: missing\.tgz/);
@@ -149,7 +149,7 @@ describe('publish', () => {
     beforeEach(async () => {
       dir = await mkdtemp(path.join(tmpdir(), 'slipkit-release-'));
       manifest = [];
-      for (const [name, content] of [['@omdc-slipkit/core', 'core'], ['@omdc-slipkit/elements', 'elements'], ['@omdc-slipkit/mcp', 'mcp']]) {
+      for (const [name, content] of [['@omdc/slipkit', 'core'], ['@omdc/slipkit-elements', 'elements'], ['@omdc/slipkit-mcp', 'mcp']]) {
         const file = tarballFileName(name, '0.1.0');
         const data = Buffer.from(content);
         await writeFile(path.join(dir, file), data);
@@ -198,29 +198,29 @@ describe('publish', () => {
     });
 
     it('같은 tarball이 이미 있으면 건너뛰고 나머지를 이어서 배포한다', async () => {
-      const { npm, calls } = fakeNpm({ '@omdc-slipkit/core@0.1.0': { integrity: manifest[0].integrity, tag: 'latest' } });
+      const { npm, calls } = fakeNpm({ '@omdc/slipkit@0.1.0': { integrity: manifest[0].integrity, tag: 'latest' } });
       const results = await publishAll({ dir, manifest, distTag: 'latest', dryRun: false, npm });
       assert.deepEqual(results.map((result) => result.outcome), ['skipped', 'published', 'published']);
       assert.equal(calls.filter((args) => args[0] === 'publish').length, 2);
     });
 
     it('같은 버전이 다른 내용이면 즉시 실패하고 뒤 패키지는 처리하지 않는다', async () => {
-      const { npm, calls } = fakeNpm({ '@omdc-slipkit/core@0.1.0': { integrity: 'sha512-other', tag: 'latest' } });
+      const { npm, calls } = fakeNpm({ '@omdc/slipkit@0.1.0': { integrity: 'sha512-other', tag: 'latest' } });
       await assert.rejects(publishAll({ dir, manifest, distTag: 'latest', dryRun: false, npm }), /different content/);
       assert.equal(calls.filter((args) => args[0] === 'publish').length, 0);
     });
 
     it('E404가 아닌 조회 오류(인증·통신)는 실패다', async () => {
       for (const error of [e401, network]) {
-        const { npm, calls } = fakeNpm({ '@omdc-slipkit/core@0.1.0': { error } });
+        const { npm, calls } = fakeNpm({ '@omdc/slipkit@0.1.0': { error } });
         await assert.rejects(publishAll({ dir, manifest, distTag: 'latest', dryRun: false, npm }), /npm view failed/);
         assert.equal(calls.filter((args) => args[0] === 'publish').length, 0);
       }
     });
 
     it('배포가 실패하면 그 자리에서 멈춘다', async () => {
-      const { npm, calls } = fakeNpm({}, { publishFails: ['@omdc-slipkit/elements'] });
-      await assert.rejects(publishAll({ dir, manifest, distTag: 'latest', dryRun: false, npm }), /npm publish failed for @omdc-slipkit\/elements/);
+      const { npm, calls } = fakeNpm({}, { publishFails: ['@omdc/slipkit-elements'] });
+      await assert.rejects(publishAll({ dir, manifest, distTag: 'latest', dryRun: false, npm }), /npm publish failed for @omdc\/slipkit-elements/);
       assert.deepEqual(calls.filter((args) => args[0] === 'publish').map((args) => path.basename(args[1])), [manifest[0].file, manifest[1].file]);
     });
 

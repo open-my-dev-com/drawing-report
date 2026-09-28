@@ -1,5 +1,5 @@
 {
-  "name": "@omdc-slipkit/mcp",
+  "name": "@omdc/slipkit-mcp",
   "version": "0.0.1",
   "description": "Local MCP server for creating and editing .slip forms, assembling vouchers, and rendering PDFs",
   "keywords": [
@@ -57,8 +57,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@pdfme/converter": "^6.1.12",
-    "@omdc-slipkit/core": "workspace:*",
-    "@omdc-slipkit/elements": "workspace:*",
+    "@omdc/slipkit": "workspace:*",
+    "@omdc/slipkit-elements": "workspace:*",
     "zod": "^4.0.0"
   }
 }

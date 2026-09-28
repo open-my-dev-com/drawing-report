@@ -9,7 +9,7 @@ import {
   type GridItem,
   type SlipPage,
   type SourcePagePlan,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { gridFormulaContext, sampleItemsOf } from '../../src/designer/formula-context.js';
 import { checkFormula } from '../../src/designer/formula-check.js';
 import {

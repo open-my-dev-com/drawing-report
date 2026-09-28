@@ -3,7 +3,7 @@
 # SlipKit(drawing-report) 개발 규칙
 
 SlipKit은 UI에서 전표 양식을 만들고 값을 입력해 인쇄하거나 PDF로 출력하는 임베드형 패키지
-모음(`@omdc-slipkit/*`)입니다. pnpm 모노레포이며 `packages/core`(순수 TS),
+모음(`@omdc/slipkit`, `@omdc/slipkit-*`)입니다. pnpm 모노레포이며 `packages/core`(순수 TS),
 `packages/elements`(Lit), `packages/react`, `packages/vue`, `packages/mcp`로 구성됩니다.
 
 이 파일은 저장소 전체 개발 규칙의 진입점입니다. 상세 규칙은 `.claude/rules/`에 있습니다(ADR-024).
@@ -54,7 +54,7 @@ SlipKit은 UI에서 전표 양식을 만들고 값을 입력해 인쇄하거나 
 - 수식은 자체 파서만 사용합니다. `eval`과 `new Function`은 사용하지 않습니다(ADR-010).
 - 문자열을 조합해 모듈 경로를 만드는 동적 import는 패키지와 경로에 관계없이 사용하지 않습니다.
   번들러가 정적으로 추적할 수 있는 리터럴 동적 import만 사용합니다.
-- `@omdc-slipkit/core`는 순수 TypeScript로 유지하며 DOM, 브라우저, 프레임워크 API에 의존하지
+- `@omdc/slipkit`는 순수 TypeScript로 유지하며 DOM, 브라우저, 프레임워크 API에 의존하지
   않습니다(ADR-002).
 - pdfme 타입과 API를 공개 API에 노출하지 않습니다(ADR-016).
 - **용어·문구·설정값의 단일 원천 유지**: 한 곳에서 정의되고 여러 곳에서 쓰이는 것(용어,

@@ -8,6 +8,7 @@
 import { cpSync, mkdirSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import spawn from 'cross-spawn';
+import { packageName, packageTarballPrefix } from '../package-names.mjs';
 
 /** 소비자 프로젝트에 고정하는 Vite 버전입니다. `scripts/verify-packages.mjs`의 `CONSUMER_DEV_DEPENDENCIES`와 같습니다. */
 const CONSUMER_VITE_VERSION = '7.3.6';
@@ -64,7 +65,7 @@ export async function packTarballs(root, names, destination) {
   const tarballs = {};
   for (const name of names) {
     must(`pnpm pack (packages/${name})`, await run('pnpm', ['pack', '--pack-destination', destination], { cwd: path.join(root, 'packages', name) }));
-    const file = readdirSync(destination).find((entry) => entry.startsWith(`omdc-slipkit-${name}-`) && entry.endsWith('.tgz'));
+    const file = readdirSync(destination).find((entry) => entry.startsWith(packageTarballPrefix(name)) && entry.endsWith('.tgz'));
     if (file === undefined) throw new Error(`packages/${name}의 tarball을 찾지 못했습니다.`);
     tarballs[name] = path.join(destination, file);
   }
@@ -84,11 +85,11 @@ export async function installConsumer(consumer, tarballs) {
     name: 'slipkit-bench-fonts-consumer',
     private: true,
     type: 'module',
-    dependencies: Object.fromEntries(Object.entries(tarballs).map(([name, file]) => [`@omdc-slipkit/${name}`, `file:${file}`])),
+    dependencies: Object.fromEntries(Object.entries(tarballs).map(([name, file]) => [packageName(name), `file:${file}`])),
     devDependencies: { vite: CONSUMER_VITE_VERSION },
   }, null, 2));
   must('npm install', await run('npm', ['install', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: consumer }));
-  const installed = (name) => realpathSync(path.join(consumer, 'node_modules', '@omdc-slipkit', name));
+  const installed = (name) => realpathSync(path.join(consumer, 'node_modules', ...packageName(name).split('/')));
   return { elementsDir: installed('elements'), coreDir: installed('core') };
 }
 

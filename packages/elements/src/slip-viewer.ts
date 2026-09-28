@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { viewerStyles } from './styles/slip-viewer.styles.js';
-import { parseSlipFile, type SlipFile, type SlipKit } from '@omdc-slipkit/core';
+import { parseSlipFile, type SlipFile, type SlipKit } from '@omdc/slipkit';
 import { getStrings } from './strings.js';
 import { renderSlip } from './settings.js';
 

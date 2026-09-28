@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lstat, mkdir, readdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { isEncryptedSlipFile, serializeSlipFile } from '@omdc-slipkit/core';
+import { isEncryptedSlipFile, serializeSlipFile } from '@omdc/slipkit';
 import { FileSystemStorage, assertInsideRootReal, resolveInRoot, writeFileAtomic } from '../src/storage.js';
 import { makeTemplate, makeWorkDir, removeWorkDir, symlinksUnavailable } from './helpers.js';
 

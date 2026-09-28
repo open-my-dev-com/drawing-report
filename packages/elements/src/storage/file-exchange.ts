@@ -4,7 +4,7 @@
  * 저장소가 아니므로 {@link StorageAdapter}를 구현하지 않습니다. 목록과 삭제 기능이 없고,
  * 내려받기와 열기 두 동작만 제공합니다.
  */
-import { SlipStorageError, type SlipFile, type SlipKit } from '@omdc-slipkit/core';
+import { SlipStorageError, type SlipFile, type SlipKit } from '@omdc/slipkit';
 import { getStrings, type SlipStrings } from '../strings.js';
 import { serializeForStorage, deserializeFromStorage } from './encryption.js';
 

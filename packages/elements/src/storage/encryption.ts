@@ -10,7 +10,7 @@ import {
   serializeSlipFile,
   type SlipFile,
   type SlipKit,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 /**
  * 저장할 `.slip` 파일을 정책에 맞춰 문자열로 만듭니다.

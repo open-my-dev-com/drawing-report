@@ -10,7 +10,7 @@ import {
   type SlipListItem,
   type SlipListPage,
   type StorageAdapter,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { getStrings, type SlipStrings } from '../strings.js';
 import { serializeForStorage, deserializeFromStorage } from './encryption.js';
 

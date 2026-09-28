@@ -12,7 +12,7 @@ const PACKAGES = ['core', 'elements', 'react', 'vue', 'mcp'];
 /** 계약을 모두 만족하는 package.json 원문입니다. */
 function goodManifest(overrides = {}) {
   return JSON.stringify({
-    name: '@omdc-slipkit/core',
+    name: '@omdc/slipkit',
     version: '0.1.0',
     engines: { node: '>=22.13' },
     license: 'BUSL-1.1',

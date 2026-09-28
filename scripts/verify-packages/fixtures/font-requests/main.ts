@@ -3,7 +3,7 @@
 // 그 사이의 네트워크 요청을 나눠 기록합니다. 공개 export(`createSlipKit`·`loadDefaultFonts`·커스텀 엘리먼트)만 씁니다.
 //
 // 단계 (반드시 이 순서로)
-// - import: `@omdc-slipkit/elements`와 core를 동적으로 가져와 루트 진입점의 정적 의존 파일을 읽는 시간입니다.
+// - import: `@omdc/slipkit-elements`와 core를 동적으로 가져와 루트 진입점의 정적 의존 파일을 읽는 시간입니다.
 // - elements: `<slip-designer>`, `<slip-form>`, `<slip-viewer>`를 만들어 생성자를 실행합니다. DOM에는 붙이지 않습니다.
 //              디자이너는 첫 렌더에서 캔버스 폰트 목록을 위해 폰트를 해석하므로, 붙이는 순간이 곧 폰트 해석 시점입니다
 // - resolve  : 기본 시나리오는 `loadDefaultFonts(locale)`, user 시나리오는 호스트 폰트 fetch + `createSlipKit({ getFonts })`
@@ -12,8 +12,8 @@ import { template } from '../template.mjs';
 
 type Phase = 'import' | 'elements' | 'resolve' | 'share';
 type Scenario = 'en' | 'ko' | 'ja' | 'user';
-type ElementsModule = typeof import('@omdc-slipkit/elements');
-type CoreModule = typeof import('@omdc-slipkit/core');
+type ElementsModule = typeof import('@omdc/slipkit-elements');
+type CoreModule = typeof import('@omdc/slipkit');
 type SlipKit = ReturnType<CoreModule['createSlipKit']>;
 type SlipElement = HTMLElement & { src: string; locale?: string; slipkit?: SlipKit; updateComplete: Promise<boolean> };
 
@@ -107,7 +107,7 @@ function requireDone<T>(value: T | undefined, phase: Phase): T {
 
 const phases: Record<Phase, () => Promise<Record<string, unknown>>> = {
   async import() {
-    const [elementsModule, coreModule] = await Promise.all([import('@omdc-slipkit/elements'), import('@omdc-slipkit/core')]);
+    const [elementsModule, coreModule] = await Promise.all([import('@omdc/slipkit-elements'), import('@omdc/slipkit')]);
     elements = elementsModule;
     core = coreModule;
     return { elementsExports: Object.keys(elementsModule).length, coreExports: Object.keys(coreModule).length };

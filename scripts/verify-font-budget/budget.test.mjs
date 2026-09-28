@@ -46,7 +46,7 @@ const DEFAULT_FILES = {
     '  loadDefaultFonts',
     '} from "./chunk-x.js";',
     'import { LitElement } from "lit";',
-    'import "@omdc-slipkit/core";',
+    'import "@omdc/slipkit";',
     'export { helper } from "./util.js";',
     'export { loadDefaultFonts, LitElement };',
     '',

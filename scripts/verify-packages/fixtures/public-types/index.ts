@@ -3,7 +3,7 @@
 // 뒤바뀐 선언도 잡고, 공개 API에서 뺀 이름은 `@ts-expect-error`로 없음을 확인합니다.
 // JSON 스키마 하위 경로(core/schemas/*)는 모듈이 아니라 여기서 다루지 않습니다. schema.mjs가 읽습니다.
 
-// ---- @omdc-slipkit/core ----
+// ---- @omdc/slipkit ----
 import {
   BUILT_IN_MIGRATIONS,
   CURRENT_SCHEMA_VERSION,
@@ -58,7 +58,7 @@ import {
   stackVertically,
   supportsVersions,
   validateSlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import type {
   AssetEntry,
   BarcodeElement,
@@ -127,9 +127,9 @@ import type {
   StorageAdapter,
   TextElement,
   VersionedStorageAdapter,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
-// ---- @omdc-slipkit/elements ----
+// ---- @omdc/slipkit-elements ----
 import {
   IndexedDbStorage,
   SlipDesigner as ElementsSlipDesigner,
@@ -138,7 +138,7 @@ import {
   SlipViewer as ElementsSlipViewer,
   getPresets,
   loadDefaultFonts,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 import type {
   IndexedDbStorageOptions,
   PaperSize as ElementsPaperSize,
@@ -146,27 +146,27 @@ import type {
   SlipFileExchangeOptions,
   SlipFont as ElementsSlipFont,
   SlipPreset,
-} from '@omdc-slipkit/elements';
-import { loadDefaultFonts as loadDefaultFontsSubpath } from '@omdc-slipkit/elements/default-fonts';
-import { PRETENDARD_FONTS } from '@omdc-slipkit/elements/fonts/pretendard';
-import notoSansJpFonts, { NOTO_SANS_JP_FONTS } from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+} from '@omdc/slipkit-elements';
+import { loadDefaultFonts as loadDefaultFontsSubpath } from '@omdc/slipkit-elements/default-fonts';
+import { PRETENDARD_FONTS } from '@omdc/slipkit-elements/fonts/pretendard';
+import notoSansJpFonts, { NOTO_SANS_JP_FONTS } from '@omdc/slipkit-elements/fonts/noto-sans-jp';
 
-// ---- @omdc-slipkit/react ----
+// ---- @omdc/slipkit-react ----
 import {
   SlipDesigner as ReactSlipDesigner,
   SlipForm as ReactSlipForm,
   SlipViewer as ReactSlipViewer,
-} from '@omdc-slipkit/react';
-import type { SlipDesignerProps, SlipFormProps, SlipViewerProps } from '@omdc-slipkit/react';
+} from '@omdc/slipkit-react';
+import type { SlipDesignerProps, SlipFormProps, SlipViewerProps } from '@omdc/slipkit-react';
 
-// ---- @omdc-slipkit/vue ----
+// ---- @omdc/slipkit-vue ----
 import {
   SlipDesigner as VueSlipDesigner,
   SlipForm as VueSlipForm,
   SlipViewer as VueSlipViewer,
-} from '@omdc-slipkit/vue';
+} from '@omdc/slipkit-vue';
 
-// ---- @omdc-slipkit/mcp ----
+// ---- @omdc/slipkit-mcp ----
 import {
   CONFIG_FILE_NAME,
   DEFAULT_KEY_ENV,
@@ -182,7 +182,7 @@ import {
   resolveInRoot,
   resolveServerOptions,
   schemaTopicText,
-} from '@omdc-slipkit/mcp';
+} from '@omdc/slipkit-mcp';
 import type {
   EditOp,
   FileSystemStorageKey,
@@ -191,7 +191,7 @@ import type {
   SchemaTopic,
   SlipMcpConfig,
   SlipMcpServerOptions,
-} from '@omdc-slipkit/mcp';
+} from '@omdc/slipkit-mcp';
 
 // 값 이름은 값 위치에서 쓰여야 합니다. 타입만 선언된 이름이면 여기서 오류가 납니다.
 export const coreValues = [
@@ -372,20 +372,20 @@ export type McpTypes = [
 
 // 공개 API에서 뺀 이름 — 한 줄에 하나씩 두어 @ts-expect-error가 그 줄만 덮습니다.
 // @ts-expect-error planGrid는 core의 공개 API가 아닙니다.
-import { planGrid } from '@omdc-slipkit/core';
+import { planGrid } from '@omdc/slipkit';
 // @ts-expect-error visiblePageRange는 core의 공개 API가 아닙니다.
-import { visiblePageRange } from '@omdc-slipkit/core';
+import { visiblePageRange } from '@omdc/slipkit';
 // @ts-expect-error GridFlow는 core의 공개 API가 아닙니다.
-import type { GridFlow } from '@omdc-slipkit/core';
+import type { GridFlow } from '@omdc/slipkit';
 // @ts-expect-error ElementPlacement는 core의 공개 API가 아닙니다.
-import type { ElementPlacement } from '@omdc-slipkit/core';
+import type { ElementPlacement } from '@omdc/slipkit';
 // @ts-expect-error PlanPaper는 core의 공개 API가 아닙니다.
-import type { PlanPaper } from '@omdc-slipkit/core';
+import type { PlanPaper } from '@omdc/slipkit';
 // @ts-expect-error createPdfLinkToken은 mcp의 공개 API가 아닙니다.
-import { createPdfLinkToken } from '@omdc-slipkit/mcp';
+import { createPdfLinkToken } from '@omdc/slipkit-mcp';
 // @ts-expect-error startPdfLinkServer는 mcp의 공개 API가 아닙니다.
-import { startPdfLinkServer } from '@omdc-slipkit/mcp';
+import { startPdfLinkServer } from '@omdc/slipkit-mcp';
 // @ts-expect-error startOrJoinPdfLinkServer는 mcp의 공개 API가 아닙니다.
-import { startOrJoinPdfLinkServer } from '@omdc-slipkit/mcp';
+import { startOrJoinPdfLinkServer } from '@omdc/slipkit-mcp';
 // @ts-expect-error PdfLinkServer는 mcp의 공개 API가 아닙니다.
-import type { PdfLinkServer } from '@omdc-slipkit/mcp';
+import type { PdfLinkServer } from '@omdc/slipkit-mcp';

@@ -11,7 +11,7 @@ It uses NestJS as the representative example, but the validation, rendering, and
 > This document covers how to connect Core to a server application's lifecycle, storage, and HTTP requests.
 
 > [!IMPORTANT]
-> SlipKit is currently in pre-release review, and the `@omdc-slipkit/*` packages have not yet been published to the npm registry.
+> SlipKit is currently in pre-release review, and the `@omdc/slipkit` and `@omdc/slipkit-*` packages have not yet been published to the npm registry.
 > For now, you can verify everything against the source code and demos included in the repository.
 
 ## What the server is responsible for
@@ -43,28 +43,28 @@ Do not use a flow where a client-generated PDF is uploaded to the server and kep
 
 ## Installation and runtime environment
 
-On the server, use `@omdc-slipkit/core`.
+On the server, use `@omdc/slipkit`.
 
 ```bash
-npm install @omdc-slipkit/core
+npm install @omdc/slipkit
 ```
 
-To use the bundled fonts, also install `@omdc-slipkit/elements`.
+To use the bundled fonts, also install `@omdc/slipkit-elements`.
 
 ```bash
-npm install @omdc-slipkit/core @omdc-slipkit/elements
+npm install @omdc/slipkit @omdc/slipkit-elements
 ```
 
 The supported Node.js version is 22.13 or later.
 
-`@omdc-slipkit/core` is distributed as ESM but can be used in both ESM and CommonJS projects. In TypeScript, use ordinary static imports regardless of your project's output format.
+`@omdc/slipkit` is distributed as ESM but can be used in both ESM and CommonJS projects. In TypeScript, use ordinary static imports regardless of your project's output format.
 
 ```ts
 import {
   createSlipKit,
   parseSlipFile,
   validateSlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 ```
 
 You can also load it by package name when using it directly from a CommonJS file.
@@ -74,7 +74,7 @@ const {
   createSlipKit,
   parseSlipFile,
   validateSlipFile,
-} = require('@omdc-slipkit/core');
+} = require('@omdc/slipkit');
 ```
 
 > [!IMPORTANT]
@@ -130,7 +130,7 @@ import {
   createSlipKit,
   type SlipFont,
   type SlipKit,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import { SlipIssuanceService } from './slip-issuance.service';
 import { SLIP_KIT } from './slipkit.tokens';
@@ -198,7 +198,7 @@ When you reuse the same `SlipKit` instance, `getFonts` is resolved once on the f
 
 ## Using the bundled fonts
 
-If deploying separate font files to the server is difficult, you can use the bundled fonts from `@omdc-slipkit/elements`.
+If deploying separate font files to the server is difficult, you can use the bundled fonts from `@omdc/slipkit-elements`.
 
 ```ts
 import { Module } from '@nestjs/common';
@@ -206,10 +206,10 @@ import { Module } from '@nestjs/common';
 import {
   createSlipKit,
   type SlipKit,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import {
   PRETENDARD_FONTS,
-} from '@omdc-slipkit/elements/fonts/pretendard';
+} from '@omdc/slipkit-elements/fonts/pretendard';
 
 import { SLIP_KIT } from './slipkit.tokens';
 
@@ -234,7 +234,7 @@ The default Japanese font is loaded from the following path.
 ```ts
 import {
   NOTO_SANS_JP_FONTS,
-} from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+} from '@omdc/slipkit-elements/fonts/noto-sans-jp';
 ```
 
 The bundled font modules can be used on a server, but the font data is included in the JavaScript bundle. If deployment size and startup time matter, deploy TTF/OTF files as server assets and read them in `getFonts` instead.
@@ -249,7 +249,7 @@ NestJS converts JSON request bodies into JavaScript objects. Validate already-pa
 import {
   validateSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 export function validateRequestFile(
   body: unknown,
@@ -264,7 +264,7 @@ Conversely, use `parseSlipFile` when you have read a JSON string from a database
 import {
   parseSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 export function parseStoredFile(
   json: string,
@@ -298,7 +298,7 @@ import {
 
 import type {
   JsonValue,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 export interface IssueVoucherRequest {
   templateId: string;
@@ -366,7 +366,7 @@ import {
   type JsonValue,
   type SlipKit,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import { SLIP_KIT } from './slipkit.tokens';
 
@@ -695,12 +695,12 @@ Implement the following separately in your server application.
 - Using `issued: true` as a digital signature or tamper-proof marker
 - Running PDF generation jobs concurrently without limits
 - Treating a state where only one of the database write and PDF save succeeded as a completed issuance
-- Using the `@omdc-slipkit/elements` root package as if it were a Node.js server UI
+- Using the `@omdc/slipkit-elements` root package as if it were a Node.js server UI
 
 ## Server integration checklist
 
 - [ ] Use Node.js 22.13 or later.
-- [ ] Import `@omdc-slipkit/core` through its public package paths.
+- [ ] Import `@omdc/slipkit` through its public package paths.
 - [ ] Register `createSlipKit` as a singleton provider.
 - [ ] Supply the fonts needed for Korean and Japanese output.
 - [ ] Validate `.slip` files from external requests and from storage.

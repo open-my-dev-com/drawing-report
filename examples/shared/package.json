@@ -15,8 +15,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@omdc-slipkit/core": "workspace:*",
-    "@omdc-slipkit/elements": "workspace:*"
+    "@omdc/slipkit": "workspace:*",
+    "@omdc/slipkit-elements": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

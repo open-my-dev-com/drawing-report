@@ -15,7 +15,7 @@ import {
   type SlipTemplateBody,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { getStrings, type SlipStrings } from './strings.js';
 import { icons } from './icons.js';
 import { pickImageFile, formatBytes, type ImagePickResult } from './image-file.js';

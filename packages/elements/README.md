@@ -1,11 +1,11 @@
-# @omdc-slipkit/elements
+# @omdc/slipkit-elements
 
 Lit-based Web Components for designing `.slip` templates, filling vouchers, and viewing templates or issued vouchers.
 
 ## Installation
 
 ```bash
-npm install @omdc-slipkit/core @omdc-slipkit/elements
+npm install @omdc/slipkit @omdc/slipkit-elements
 ```
 
 Node.js 22.13 or later is required for the supported toolchain. The components run in modern browsers. `<slip-designer>` is a desktop interface that requires a browser viewport of at least 1440×810 and an allocated element area of at least 1280×640.
@@ -13,7 +13,7 @@ Node.js 22.13 or later is required for the supported toolchain. The components r
 ## Basic usage
 
 ```ts
-import '@omdc-slipkit/elements';
+import '@omdc/slipkit-elements';
 
 const designer = document.querySelector('slip-designer');
 designer.src = await fetch('/forms/invoice.slip').then((response) => response.text());

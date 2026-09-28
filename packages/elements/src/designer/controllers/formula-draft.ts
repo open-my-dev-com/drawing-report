@@ -7,7 +7,7 @@
  */
 
 import type { ReactiveController } from 'lit';
-import { formatReferencePath } from '@omdc-slipkit/core';
+import { formatReferencePath } from '@omdc/slipkit';
 import type { FormulaOrigin, FormulaTarget } from '../formula-target.js';
 
 /** 참조 영역에서 보고 있는 탭입니다. */

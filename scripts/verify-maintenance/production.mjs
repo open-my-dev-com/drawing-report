@@ -201,7 +201,7 @@ export const PRODUCTION_EXPORT_ALLOWLIST = [
 export const PRODUCTION_FILE_ALLOWLIST = [
   {
     file: 'packages/core/scripts/generate-json-schema.mjs',
-    reason: '`pnpm --filter @omdc-slipkit/core schema` 명령에서만 실행하는 JSON Schema 재생성 도구이므로 패키지 진입점에서 참조하지 않습니다.',
+    reason: '`pnpm --filter @omdc/slipkit schema` 명령에서만 실행하는 JSON Schema 재생성 도구이므로 패키지 진입점에서 참조하지 않습니다.',
   },
 ];
 

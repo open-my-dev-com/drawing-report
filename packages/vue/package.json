@@ -1,5 +1,5 @@
 {
-  "name": "@omdc-slipkit/vue",
+  "name": "@omdc/slipkit-vue",
   "version": "0.0.1",
   "description": "Vue wrappers for the SlipKit Web Components",
   "keywords": [
@@ -45,8 +45,8 @@
     "node": ">=22.13"
   },
   "dependencies": {
-    "@omdc-slipkit/core": "workspace:*",
-    "@omdc-slipkit/elements": "workspace:*"
+    "@omdc/slipkit": "workspace:*",
+    "@omdc/slipkit-elements": "workspace:*"
   },
   "peerDependencies": {
     "vue": ">=3.4"

@@ -13,7 +13,7 @@ SlipKit은 첫 공개 전 전체 품질 검토와 후속 수정을 마쳤습니�
 별도로 시작을 지시할 때만 진행합니다.
 
 > [!IMPORTANT]
-> `@omdc-slipkit/*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다.
+> `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다.
 >
 > 현재 파일 스키마는 공개 전 개발 버전인 `0.1.0`입니다. 공개 이후의 호환성 정책과 패키지 버전은 별도로 확정합니다.
 
@@ -33,7 +33,7 @@ SlipKit은 첫 공개 전 전체 품질 검토와 후속 수정을 마쳤습니�
 | 배포 패키지 검증 | 완료 | 실제 tarball을 깨끗한 npm·pnpm 소비자에 설치해 Node.js·Chromium 사용 경로 확인 |
 | CI·배포 자동화 | 완료 | 지원 Node.js·Windows 검증과 OIDC 기반 npm 배포·dry-run 워크플로 준비 |
 | 기본설계 문서 | 완료 | 74개 설계서·템플릿·추적표·자동 검사와 실제 화면 자산 작성 완료 |
-| 공개 준비 | 진행 중 | npm 조직·최초 패키지 생성·라이선스와 릴리스 정책 확정이 남음 |
+| 공개 준비 | 진행 중 | npm 조직 `omdc`와 패키지 이름 확정, 최초 패키지 생성·라이선스와 릴리스 정책 확정이 남음 |
 | MCP·AI 연동 | 완료 | 확장은 필요성이 확인되면 재검토 |
 | 조건부 서식 | 완료 | 공개 전 회귀 검증 |
 | 요소별 폰트 설정 | 완료 | 캔버스·PDF 폰트 일치와 미등록 폰트 대체 반영 |
@@ -45,8 +45,8 @@ SlipKit은 첫 공개 전 전체 품질 검토와 후속 수정을 마쳤습니�
 
 ### 패키지와 공개 API
 
-- DOM에 의존하지 않는 `@omdc-slipkit/core`
-- Lit 기반 `@omdc-slipkit/elements`
+- DOM에 의존하지 않는 `@omdc/slipkit`
+- Lit 기반 `@omdc/slipkit-elements`
 - React와 Vue용 얇은 래퍼
 - Core 공통 설정 진입점 `createSlipKit`
 - 독립적으로 사용할 수 있는 파싱, 검증, 수식과 전표 조립 API
@@ -122,7 +122,7 @@ SlipKit은 첫 공개 전 전체 품질 검토와 후속 수정을 마쳤습니�
 
 ### MCP·AI 연동 (ADR-061·073)
 
-- 도구 7종을 제공하는 로컬 stdio MCP 서버 `@omdc-slipkit/mcp`
+- 도구 7종을 제공하는 로컬 stdio MCP 서버 `@omdc/slipkit-mcp`
 - 작업 디렉터리 안으로 제한한 파일 접근과 `FileSystemStorage` 어댑터
 - `slipkit-mcp.json` 설정 파일 (작업 디렉터리, 로케일, 사용자 지정 폰트, 암호화 키 환경변수 이름, PDF 링크 포트)
 - 요약 기본 읽기와 Base64 데이터 제외, 요소 ID를 지정하는 부분 수정

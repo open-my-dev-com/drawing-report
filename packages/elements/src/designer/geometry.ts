@@ -5,7 +5,7 @@
  * 용지 좌표는 mm, 화면 좌표는 px입니다.
  */
 
-import { elementBounds, type SlipElement, type LineElement } from '@omdc-slipkit/core';
+import { elementBounds, type SlipElement, type LineElement } from '@omdc/slipkit';
 
 export const PX_PER_MM = 96 / 25.4;
 

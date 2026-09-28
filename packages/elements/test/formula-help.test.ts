@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FORMULA_ARITY, FORMULA_FUNCTIONS, evaluateFormula } from '@omdc-slipkit/core';
+import { FORMULA_ARITY, FORMULA_FUNCTIONS, evaluateFormula } from '@omdc/slipkit';
 import { getFormulaHelp } from '../src/formula-help.js';
 
 describe('수식 함수 도움말 (D-12)', () => {

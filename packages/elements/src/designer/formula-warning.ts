@@ -7,7 +7,7 @@
  * 이 모듈은 결과를 요소와 셀 단위로 집계합니다.
  */
 
-import type { ConditionalFormatRule, GridElement, SlipPage } from '@omdc-slipkit/core';
+import type { ConditionalFormatRule, GridElement, SlipPage } from '@omdc/slipkit';
 import { isBlankFormula } from '../formula-blank.js';
 import type { FormulaCheck } from './formula-check.js';
 import type { FormulaTarget } from './formula-target.js';

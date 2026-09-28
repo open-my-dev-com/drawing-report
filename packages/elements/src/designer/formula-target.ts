@@ -12,7 +12,7 @@ import type {
   GridElement,
   SlipElement,
   SlipPage,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import type { DesignerStrings } from '../strings.js';
 
 /** 수식 모달이 편집하는 대상입니다. */

@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 // 그 밖의 정적 의존성(Elements 루트·core·lit·pdfme 등)은 `elements` 청크 하나로 묶습니다.
 // 진입 모듈(main.ts)은 Elements를 동적 import하므로 `elements` 청크는 `import` 단계에서 읽힙니다.
 const isFontModule = (id: string, name: string): boolean =>
-  id.replace(/\\/g, '/').endsWith(`/@omdc-slipkit/elements/dist/fonts/${name}.js`);
+  id.replace(/\\/g, '/').endsWith(`/@omdc/slipkit-elements/dist/fonts/${name}.js`);
 
 export default defineConfig({
   build: {

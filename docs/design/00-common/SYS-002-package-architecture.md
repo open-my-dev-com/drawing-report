@@ -17,11 +17,11 @@ SlipKit의 다섯 공개 패키지가 맡는 책임과 허용되는 의존 방�
 
 | 패키지 | 책임 | 주요 실행 환경 |
 | --- | --- | --- |
-| `@omdc-slipkit/core` | 파일 형식, 검증, 수식, 레이아웃, PDF, 암호화, 저장소 인터페이스 | 브라우저·Node.js |
-| `@omdc-slipkit/elements` | 디자이너·작성 폼·뷰어, IndexedDB, 파일 열기·내려받기, 기본 폰트 | 브라우저 |
-| `@omdc-slipkit/react` | Web Component 속성·이벤트를 React 계약으로 연결 | 브라우저 |
-| `@omdc-slipkit/vue` | Web Component 속성·이벤트를 Vue 계약으로 연결 | 브라우저 |
-| `@omdc-slipkit/mcp` | stdio MCP 서버, 제한된 파일 저장소, 설정·PDF 링크 서버 | Node.js |
+| `@omdc/slipkit` | 파일 형식, 검증, 수식, 레이아웃, PDF, 암호화, 저장소 인터페이스 | 브라우저·Node.js |
+| `@omdc/slipkit-elements` | 디자이너·작성 폼·뷰어, IndexedDB, 파일 열기·내려받기, 기본 폰트 | 브라우저 |
+| `@omdc/slipkit-react` | Web Component 속성·이벤트를 React 계약으로 연결 | 브라우저 |
+| `@omdc/slipkit-vue` | Web Component 속성·이벤트를 Vue 계약으로 연결 | 브라우저 |
+| `@omdc/slipkit-mcp` | stdio MCP 서버, 제한된 파일 저장소, 설정·PDF 링크 서버 | Node.js |
 
 ## 의존 방향
 

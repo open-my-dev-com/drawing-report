@@ -25,11 +25,12 @@ import { fileURLToPath } from 'node:url';
 import spawn from 'cross-spawn';
 import { launchChromium, runFontScenario, countRequests, PHASES, FONT_CHUNK_KINDS } from './bench-fonts/chromium.mjs';
 import { writeHostFont } from './bench-fonts/host-font.mjs';
+import { PACKAGE_DIRS, packageName, packageTarballPrefix } from './package-names.mjs';
 import { manifestProblems } from './verify-packages/manifest.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FIXTURES = path.join(ROOT, 'scripts', 'verify-packages', 'fixtures');
-const PACKAGES = ['core', 'elements', 'react', 'vue', 'mcp'];
+const PACKAGES = PACKAGE_DIRS;
 const KEEP = process.env['SLIPKIT_VERIFY_KEEP'] === '1';
 
 /** 소비자 프로젝트에 고정하는 도구 버전 — 저장소 lockfile로 검증된 값입니다. */
@@ -172,7 +173,7 @@ async function main() {
       await scenario(`pack: ${name}`, 'pnpm pack이 tarball을 만들고 필수 파일만 담으며 package.json이 engines.node·license·publishConfig.access를 선언한다', async () => {
         const packed = await run('pnpm', ['pack', '--pack-destination', tarballDir], { cwd: dir });
         if (packed.code !== 0) return { command: `pnpm pack (packages/${name})`, ...packed };
-        const file = readdirSync(tarballDir).find((entry) => entry.startsWith(`omdc-slipkit-${name}-`) && entry.endsWith('.tgz'));
+        const file = readdirSync(tarballDir).find((entry) => entry.startsWith(packageTarballPrefix(name)) && entry.endsWith('.tgz'));
         if (file === undefined) return { command: `pnpm pack (packages/${name})`, code: 1, stdout: packed.stdout, stderr: 'tarball not found' };
         tarballs[name] = path.join(tarballDir, file);
         const list = await run('tar', ['-tzf', tarballs[name]]);
@@ -222,8 +223,8 @@ async function main() {
       const consumer = path.join(work, `consumer-${pm}`);
       mkdirSync(consumer);
       cpSync(FIXTURES, consumer, { recursive: true });
-      const dependencies = Object.fromEntries(PACKAGES.map((name) => [`@omdc-slipkit/${name}`, `file:${tarballs[name]}`]));
-      // pnpm은 tarball 안의 `@omdc-slipkit/*` 의존성(예: mcp → core)을 레지스트리에서 찾으므로, 아직 배포되지 않은
+      const dependencies = Object.fromEntries(PACKAGES.map((name) => [packageName(name), `file:${tarballs[name]}`]));
+      // pnpm은 tarball 안의 다른 SlipKit 패키지 의존성(예: MCP → Core)을 레지스트리에서 찾으므로, 아직 배포되지 않은
       // 패키지를 같은 tarball로 대체하는 overrides가 필요합니다. npm은 최상위 file: 의존성으로 해소하므로 두지 않습니다.
       // pnpm 소비자는 저장소와 같은 pnpm 버전을 Corepack으로 고정합니다. 임시 디렉터리에서 `pnpm`만 실행하면 Corepack이
       // 최신 pnpm을 고를 수 있고, pnpm 11은 package.json의 `pnpm.overrides`를 읽지 않아 아래 overrides가 무시됩니다.

@@ -4,7 +4,7 @@
  * 프리셋은 core 스키마를 따르는 `.slip` 양식 데이터이며 파싱과 검증은 core에서 담당합니다.
  * 제목·라벨·맺음말은 로케일에 맞는 문구 사전으로 채웁니다.
  */
-import { CURRENT_SCHEMA_VERSION, type SlipElement, type SlipTemplateFile } from '@omdc-slipkit/core';
+import { CURRENT_SCHEMA_VERSION, type SlipElement, type SlipTemplateFile } from '@omdc/slipkit';
 import { getStrings, type SlipStrings } from './strings.js';
 
 /** 디자이너에 동봉되는 양식 프리셋입니다. */

@@ -24,7 +24,7 @@ import {
   type SlipLayoutError,
   type SlipTemplateFile,
   type SourcePagePlan,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { icons } from '../../icons.js';
 import { RULER_PX } from '../../styles/designer/metrics.js';
 import {
@@ -64,7 +64,7 @@ import { PLACEHOLDER_IMG, resolveDisplayImage } from '../image-pick.js';
 import { readOwn } from '../own-map.js';
 import { BARCODE_KINDS, BARCODE_2D } from '../barcode.js';
 import { TYPE_BADGE } from './badges.js';
-import type { GridBandPlacement } from '@omdc-slipkit/core';
+import type { GridBandPlacement } from '@omdc/slipkit';
 import type { GridEditController } from '../controllers/grid-edit.js';
 import type { DesignerFonts } from '../font-variant.js';
 import { borderCss, cellDefaultBorderOf, outlineOf } from '../grid-border.js';

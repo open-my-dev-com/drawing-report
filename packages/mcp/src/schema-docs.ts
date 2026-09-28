@@ -9,7 +9,7 @@ import {
   MAX_IMAGE_BYTES,
   SLIP_LIMITS,
   slipFileJsonSchema,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 /** `slip_schema` 도구가 지원하는 주제입니다. */
 export const SCHEMA_TOPICS = [

@@ -12,9 +12,10 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PACKAGE_DIRS } from '../package-names.mjs';
 
 /** 배포할 패키지를 배포 순서대로 나열한 목록입니다. */
-export const RELEASE_PACKAGES = ['core', 'elements', 'react', 'vue', 'mcp'];
+export const RELEASE_PACKAGES = PACKAGE_DIRS;
 
 /** 배포 작업에 허용하는 GitHub Environment 이름입니다. */
 export const RELEASE_ENVIRONMENT = 'npm-publish';

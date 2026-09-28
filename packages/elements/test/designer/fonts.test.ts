@@ -2,8 +2,8 @@
 // 요소·셀 폰트 선택과 캔버스 적용
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+vi.mock('@omdc/slipkit', async () => {
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return {
     ...actual,
     parseSlipFile: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock('../../src/default-fonts.js', () => ({
     ]),
 }));
 
-import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
+import type { SlipFile, SlipTemplateFile } from '@omdc/slipkit';
 import { getStrings, withFontName } from '../../src/strings.js';
 import {
   strings,

@@ -8,7 +8,7 @@
 
 import { html, nothing } from 'lit';
 import { live } from 'lit/directives/live.js';
-import { SLIP_LIMITS, type ConditionalFormatRule } from '@omdc-slipkit/core';
+import { SLIP_LIMITS, type ConditionalFormatRule } from '@omdc/slipkit';
 import { icons } from '../../icons.js';
 import { colorControl, conditionalEmphasisRow } from './inputs.js';
 import type { FormulaTarget } from '../formula-target.js';

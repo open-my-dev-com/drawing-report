@@ -5,8 +5,8 @@
 - 문서 상태: **Draft**
 - 현재 `schemaVersion`: **`0.1.0`**
 - 최종 갱신: 2026-09-09
-- 레퍼런스 구현: `@omdc-slipkit/core`
-- JSON Schema: `@omdc-slipkit/core/schemas/slip.schema.json`
+- 레퍼런스 구현: `@omdc/slipkit`
+- JSON Schema: `@omdc/slipkit/schemas/slip.schema.json`
 
 > [!IMPORTANT]
 > `.slip` 파일을 생성하는 외부 시스템은 이 문서와 현재 버전의 JSON Schema를 모두 따라야 합니다.
@@ -43,7 +43,7 @@
 - 바코드 값이 해당 바코드의 형식에 맞지 않는 경우
 - 필요한 글자를 포함한 폰트가 제공되지 않은 경우
 
-`@omdc-slipkit/core`의 `parseSlipFile()`은 JSON 파싱, 버전 처리, 구조 검증과 의미 검증을 수행합니다. PDF 생성 과정에서는 렌더링에 필요한 추가 조건을 검사합니다.
+`@omdc/slipkit`의 `parseSlipFile()`은 JSON 파싱, 버전 처리, 구조 검증과 의미 검증을 수행합니다. PDF 생성 과정에서는 렌더링에 필요한 추가 조건을 검사합니다.
 
 ## 3. 파일 개요
 
@@ -102,7 +102,7 @@ JSON 객체의 프로퍼티 순서는 의미가 없습니다. 들여쓰기와 �
 
 현재 버전은 `0.1.0`이며 공개 전 첫 스키마를 나타냅니다.
 
-`schemaVersion`은 `.slip` 파일 형식의 호환 버전입니다. `@omdc-slipkit/core` 등 npm 패키지의
+`schemaVersion`은 `.slip` 파일 형식의 호환 버전입니다. `@omdc/slipkit` 등 npm 패키지의
 버전은 배포된 코드의 SemVer이며 파일 형식 버전과 독립적으로 변경됩니다. 패키지 버전이
 바뀌었다고 해서 `schemaVersion`도 같은 값으로 바뀌는 것은 아닙니다. 파일을 읽고 쓸 때는 설치한
 패키지가 지원하는 `schemaVersion`을 기준으로 호환성을 판단해야 합니다.
@@ -227,7 +227,7 @@ U+11A8)은 서로 다른 키이므로 한 `parameters` 배열에 함께 있어�
 | `values`·`sampleValues` 문자열 | 3,000,000자 | 구조 검증 |
 | 내장 이미지 원본 | 2MiB | 구조 검증·렌더링 |
 
-구조 검증 제한은 `@omdc-slipkit/core`의 `SLIP_LIMITS`에서도 확인할 수 있습니다.
+구조 검증 제한은 `@omdc/slipkit`의 `SLIP_LIMITS`에서도 확인할 수 있습니다.
 
 ## 7. 리소스 참조
 
@@ -1529,7 +1529,7 @@ JSON Schema는 다음과 같은 구조 규칙을 검사합니다.
 
 ### 22.2 레퍼런스 구현이 추가로 검사하는 항목
 
-`@omdc-slipkit/core`는 다음 교차 필드 규칙을 추가로 검사합니다.
+`@omdc/slipkit`는 다음 교차 필드 규칙을 추가로 검사합니다.
 
 - 용지 크기와 여백의 관계
 - 파라미터 및 하위 필드 키 중복
@@ -1569,12 +1569,12 @@ JSON Schema는 다음과 같은 구조 규칙을 검사합니다.
 
 ## 23. JSON Schema 제공
 
-`@omdc-slipkit/core` 패키지는 JSON Schema Draft 2020-12 파일을 제공합니다.
+`@omdc/slipkit` 패키지는 JSON Schema Draft 2020-12 파일을 제공합니다.
 
 | 경로 | 설명 |
 | --- | --- |
-| `@omdc-slipkit/core/schemas/slip-0.1.0.schema.json` | 버전 `0.1.0` 고정 스키마 |
-| `@omdc-slipkit/core/schemas/slip.schema.json` | 현재 최신 버전 별칭 |
+| `@omdc/slipkit/schemas/slip-0.1.0.schema.json` | 버전 `0.1.0` 고정 스키마 |
+| `@omdc/slipkit/schemas/slip.schema.json` | 현재 최신 버전 별칭 |
 
 스키마의 `$id`는 다음 형식을 사용합니다.
 

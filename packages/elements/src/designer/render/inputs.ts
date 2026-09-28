@@ -12,7 +12,7 @@ import { BORDER_WIDTH_STEPS } from '../style-css.js';
 import { COLOR_PALETTE } from '../color.js';
 import { propertyMenuStyle, listSelectStyle } from '../controllers/popover.js';
 import type { PopoverController } from '../controllers/popover.js';
-import type { ConditionalFormatRule } from '@omdc-slipkit/core';
+import type { ConditionalFormatRule } from '@omdc/slipkit';
 import type { PanelKit } from './panel-kit.js';
 
 /**

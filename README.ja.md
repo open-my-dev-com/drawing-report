@@ -40,7 +40,7 @@ SlipKit ではテンプレートと伝票を区別します。
 > [!IMPORTANT]
 > SlipKit は現在、公開前のレビュー段階です。
 >
-> `@omdc-slipkit/*` パッケージはまだ npm レジストリに公開されていません。現在のバージョンはリポジトリをクローンして、デモとソースコードで確認できます。
+> `@omdc/slipkit` と `@omdc/slipkit-*` パッケージはまだ npm レジストリに公開されていません。現在のバージョンはリポジトリをクローンして、デモとソースコードで確認できます。
 
 ## パッケージ構成
 
@@ -48,11 +48,11 @@ SlipKit は pnpm ワークスペースベースのモノレポで構成されて
 
 | パッケージ | 役割 |
 |---|---|
-| [`@omdc-slipkit/core`](packages/core) | `.slip` ファイルの検証、数式評価、伝票の組み立て、PDF 生成、ファイル暗号化を提供します。DOM に依存しないため、ブラウザと Node.js で利用できます。 |
-| [`@omdc-slipkit/elements`](packages/elements) | Lit で実装した `<slip-designer>`、`<slip-form>`、`<slip-viewer>` Web Component を提供します。 |
-| [`@omdc-slipkit/react`](packages/react) | SlipKit の Web Component を React コンポーネントとして使えるようにします。 |
-| [`@omdc-slipkit/vue`](packages/vue) | SlipKit の Web Component を Vue コンポーネントとして使えるようにします。 |
-| [`@omdc-slipkit/mcp`](packages/mcp) | AI が MCP ツールでテンプレートを作成・編集できるローカル MCP サーバーを提供します。 |
+| [`@omdc/slipkit`](packages/core) | `.slip` ファイルの検証、数式評価、伝票の組み立て、PDF 生成、ファイル暗号化を提供します。DOM に依存しないため、ブラウザと Node.js で利用できます。 |
+| [`@omdc/slipkit-elements`](packages/elements) | Lit で実装した `<slip-designer>`、`<slip-form>`、`<slip-viewer>` Web Component を提供します。 |
+| [`@omdc/slipkit-react`](packages/react) | SlipKit の Web Component を React コンポーネントとして使えるようにします。 |
+| [`@omdc/slipkit-vue`](packages/vue) | SlipKit の Web Component を Vue コンポーネントとして使えるようにします。 |
+| [`@omdc/slipkit-mcp`](packages/mcp) | AI が MCP ツールでテンプレートを作成・編集できるローカル MCP サーバーを提供します。 |
 
 ## ローカルでの実行
 

@@ -1,8 +1,8 @@
 // 공개하지 않은 dist 내부 경로는 exports 맵이 거부해야 합니다.
 const targets = [
-  '@omdc-slipkit/core/dist/index.js',
-  '@omdc-slipkit/elements/dist/index.js',
-  '@omdc-slipkit/mcp/dist/cli.js',
+  '@omdc/slipkit/dist/index.js',
+  '@omdc/slipkit-elements/dist/index.js',
+  '@omdc/slipkit-mcp/dist/cli.js',
 ];
 for (const target of targets) {
   try {

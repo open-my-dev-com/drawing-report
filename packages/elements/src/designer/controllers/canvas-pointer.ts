@@ -7,7 +7,7 @@
  */
 
 import type { ReactiveController } from 'lit';
-import type { GridElement, SlipElement, SlipTemplateFile } from '@omdc-slipkit/core';
+import type { GridElement, SlipElement, SlipTemplateFile } from '@omdc/slipkit';
 import {
   MIN_SIZE_MM,
   lineEndpoints,

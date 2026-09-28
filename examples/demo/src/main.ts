@@ -5,7 +5,7 @@
  * 호스트 앱에 SlipKit을 연결하는 예시입니다. 저장 대상과 작업을 이어 가는 시점은 React·Vue 데모와 같습니다.
  * 공통 부분은 `slipkit-demo-shared`에 있습니다.
  */
-import '@omdc-slipkit/elements';
+import '@omdc/slipkit-elements';
 import 'slipkit-demo-shared/demo.css';
 import {
   buildVoucher,
@@ -14,14 +14,14 @@ import {
   type SlipFile,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import {
   loadDefaultFonts,
   type SlipDesigner,
   type SlipDesignerSettings,
   type SlipForm,
   type SlipViewer,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 import {
   AUTOSAVE_DELAY_MS,
   ISSUED_KEY,

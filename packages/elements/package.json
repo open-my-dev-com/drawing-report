@@ -1,5 +1,5 @@
 {
-  "name": "@omdc-slipkit/elements",
+  "name": "@omdc/slipkit-elements",
   "version": "0.0.1",
   "description": "Web Components for designing, filling, and viewing .slip forms",
   "keywords": [
@@ -64,7 +64,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@omdc-slipkit/core": "workspace:*",
+    "@omdc/slipkit": "workspace:*",
     "lit": "^3.2.0"
   },
   "devDependencies": {

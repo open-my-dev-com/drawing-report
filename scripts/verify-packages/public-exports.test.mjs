@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { PACKAGE_NAMES } from '../package-names.mjs';
 import allowlist from './fixtures/public-exports.json' with { type: 'json' };
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -15,9 +16,16 @@ function packages() {
   return Object.entries(allowlist).filter(([name]) => !name.startsWith('$'));
 }
 
+/** 공개 npm 이름에 대응하는 패키지 디렉터리를 반환합니다. */
+function packageDir(pkg) {
+  const entry = Object.entries(PACKAGE_NAMES).find(([, name]) => name === pkg);
+  assert.ok(entry !== undefined, `등록되지 않은 공개 패키지입니다: ${pkg}`);
+  return entry[0];
+}
+
 /** 하위 경로를 dist 파일 기본 이름으로 바꿉니다. `.`은 `index`, `./fonts/pretendard`는 `fonts/pretendard`입니다. */
 function distBase(pkg, subpath) {
-  const dir = path.join(ROOT, 'packages', pkg.replace('@omdc-slipkit/', ''), 'dist');
+  const dir = path.join(ROOT, 'packages', packageDir(pkg), 'dist');
   return path.join(dir, subpath === '.' ? 'index' : subpath.replace(/^\.\//, ''));
 }
 
@@ -51,14 +59,14 @@ function diff(actual, expected) {
 
 describe('공개 export 허용 목록', () => {
   for (const [pkg, subpaths] of packages()) {
-    const dir = path.join(ROOT, 'packages', pkg.replace('@omdc-slipkit/', ''), 'dist');
+    const dir = path.join(ROOT, 'packages', packageDir(pkg), 'dist');
     assert.ok(existsSync(dir), `${dir}가 없습니다. 먼저 pnpm build를 실행하세요.`);
 
     for (const [subpath, expected] of Object.entries(subpaths)) {
       if (expected.files) {
         it(`${pkg} ${subpath}: 스키마 파일이 있다`, () => {
           for (const file of expected.files) {
-            const target = path.join(ROOT, 'packages', pkg.replace('@omdc-slipkit/', ''), subpath.replace(/^\.\//, '').replace(/\*$/, ''), file);
+            const target = path.join(ROOT, 'packages', packageDir(pkg), subpath.replace(/^\.\//, '').replace(/\*$/, ''), file);
             assert.ok(existsSync(target), `${target}가 없습니다.`);
           }
         });

@@ -63,7 +63,7 @@ SlipKit 애플리케이션은 주로 다음 세 가지 상태를 관리합니다
 `src`에는 `SlipFile` 객체가 아니라 `serializeSlipFile`로 변환한 JSON 문자열을 전달합니다.
 
 ```ts
-import { serializeSlipFile } from '@omdc-slipkit/core';
+import { serializeSlipFile } from '@omdc/slipkit';
 
 designer.src = serializeSlipFile(template);
 form.src = serializeSlipFile(template);
@@ -122,7 +122,7 @@ React와 Vue 래퍼는 `CustomEvent`를 벗기고 `SlipFile` 객체를 직접 �
 
 </details>
 
-React 래퍼는 내부 `slip-*` 요소를 가리키는 `ref`와 `className`·`style`·`aria-*` 같은 표준 HTML 속성도 받으므로, 크기를 정하거나 이름을 붙이기 위해 요소를 하나 더 감쌀 필요가 없습니다. API 문서의 [`@omdc-slipkit/react`](api-reference.ko.md#omdc-slipkitreact)를 참고합니다.
+React 래퍼는 내부 `slip-*` 요소를 가리키는 `ref`와 `className`·`style`·`aria-*` 같은 표준 HTML 속성도 받으므로, 크기를 정하거나 이름을 붙이기 위해 요소를 하나 더 감쌀 필요가 없습니다. API 문서의 [`@omdc/slipkit-react`](api-reference.ko.md#omdcslipkit-react)를 참고합니다.
 
 <details>
 <summary><strong>Vue</strong></summary>
@@ -176,19 +176,19 @@ HTML에 각 컴포넌트를 준비합니다.
 애플리케이션에서 양식과 전표 상태를 관리합니다.
 
 ```ts
-import '@omdc-slipkit/elements';
+import '@omdc/slipkit-elements';
 
 import {
   serializeSlipFile,
   type SlipFile,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import type {
   SlipDesigner,
   SlipForm,
   SlipViewer,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 import { createBlankTemplate } from './slip-template';
 
@@ -396,7 +396,7 @@ import {
   parseSlipFile,
   serializeSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 const json = serializeSlipFile(file);
 const restored = parseSlipFile(json);
@@ -413,7 +413,7 @@ import {
   parseSlipFile,
   serializeSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 export async function saveSlip(
   id: string,
@@ -463,7 +463,7 @@ export async function loadSlip(
 `slip-change`는 편집이나 입력이 발생할 때마다 전달될 수 있습니다. 매번 서버 요청을 보내지 않고 입력이 잠시 멈춘 뒤 저장하도록 지연할 수 있습니다.
 
 ```ts
-import type { SlipFile } from '@omdc-slipkit/core';
+import type { SlipFile } from '@omdc/slipkit';
 
 function createSaveScheduler(
   id: string,
@@ -553,8 +553,8 @@ form.addEventListener('slip-issue', (event) => {
 브라우저 IndexedDB를 사용하려면 다음과 같이 연결합니다.
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
-import { IndexedDbStorage } from '@omdc-slipkit/elements';
+import { createSlipKit } from '@omdc/slipkit';
+import { IndexedDbStorage } from '@omdc/slipkit-elements';
 
 const slipkit = createSlipKit({
   locale: 'ko-KR',
@@ -606,7 +606,7 @@ import {
   type SlipFile,
   type SlipListPage,
   type StorageAdapter,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 async function requireSuccess(
   response: Response,
@@ -706,7 +706,7 @@ export const serverStorage: StorageAdapter = {
 `SlipFileExchange`는 브라우저의 파일 선택 창과 다운로드 기능을 제공합니다. 컴포넌트와 IndexedDB 저장소에 전달한 `SlipKit` 인스턴스를 그대로 사용합니다.
 
 ```ts
-import { SlipFileExchange } from '@omdc-slipkit/elements';
+import { SlipFileExchange } from '@omdc/slipkit-elements';
 
 const files = new SlipFileExchange(slipkit, {
   encryptOnSave: true,

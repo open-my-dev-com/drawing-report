@@ -1,11 +1,11 @@
-# @omdc-slipkit/core
+# @omdc/slipkit
 
 TypeScript APIs for validating `.slip` files, evaluating formulas, assembling vouchers, encrypting stored files, and generating PDFs.
 
 ## Installation
 
 ```bash
-npm install @omdc-slipkit/core
+npm install @omdc/slipkit
 ```
 
 Node.js 22.13 or later is required. The package is ESM-first and includes TypeScript declarations and the current JSON Schema.
@@ -13,7 +13,7 @@ Node.js 22.13 or later is required. The package is ESM-first and includes TypeSc
 ## Basic usage
 
 ```ts
-import { parseSlipFile, serializeSlipFile } from '@omdc-slipkit/core';
+import { parseSlipFile, serializeSlipFile } from '@omdc/slipkit';
 
 const file = parseSlipFile(await fetch('/forms/invoice.slip').then((response) => response.text()));
 

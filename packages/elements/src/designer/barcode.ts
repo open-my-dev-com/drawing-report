@@ -5,7 +5,7 @@
  * 호스트가 종류를 제한하지 않으면 이 목록을 그대로 사용합니다.
  */
 
-import type { BarcodeKind } from '@omdc-slipkit/core';
+import type { BarcodeKind } from '@omdc/slipkit';
 
 /**
  * 바코드 종류의 표시 순서와 이름입니다.

@@ -13,7 +13,7 @@
  */
 
 import type { ReactiveController } from 'lit';
-import type { SlipTemplateFile } from '@omdc-slipkit/core';
+import type { SlipTemplateFile } from '@omdc/slipkit';
 
 /** 기록으로 남길 수 있는 최대 단계 수입니다. */
 const MAX_ENTRIES = 50;

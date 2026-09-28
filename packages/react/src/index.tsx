@@ -1,4 +1,4 @@
-import '@omdc-slipkit/elements';
+import '@omdc/slipkit-elements';
 import {
   createElement,
   useCallback,
@@ -16,13 +16,13 @@ import type {
   SlipDesigner as SlipDesignerElement,
   SlipForm as SlipFormElement,
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 import type {
   SlipKit,
   SlipTemplateFile,
   SlipVoucherFile,
   StorageAdapter,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 type SlipPresets = SlipDesignerElement['presets'];
 

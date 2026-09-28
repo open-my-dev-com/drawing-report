@@ -7,7 +7,7 @@
  * PDF에 포함할 수 있는 PNG·JPEG만 받으며, 파일 확장자나 선언된 MIME이 아니라
  * 파일 내용(서명)으로 형식을 확인합니다.
  */
-import { IMAGE_MIME_TYPES, inspectImageBytes } from '@omdc-slipkit/core';
+import { IMAGE_MIME_TYPES, inspectImageBytes } from '@omdc/slipkit';
 
 /** 이미지 파일 선택 결과입니다. */
 export type ImagePickResult =

@@ -2,7 +2,7 @@
 
 [한국어](core.ko.md) · [English](core.md)
 
-`@omdc-slipkit/core` は、`.slip` ファイルの検証、伝票の組み立て、数式の評価、PDF 生成、ファイル暗号化を提供する TypeScript ライブラリです。
+`@omdc/slipkit` は、`.slip` ファイルの検証、伝票の組み立て、数式の評価、PDF 生成、ファイル暗号化を提供する TypeScript ライブラリです。
 
 DOM に依存しないため、Node.js サーバーとブラウザアプリケーションのどちらでも利用できます。テンプレートデザイナーや伝票入力画面のような UI は提供しません。
 
@@ -49,13 +49,13 @@ flowchart LR
 ## インストールと実行環境
 
 > [!IMPORTANT]
-> SlipKit は現在公開前のレビュー段階であり、`@omdc-slipkit/*` パッケージは npm レジストリにまだ公開されていません。
+> SlipKit は現在公開前のレビュー段階であり、`@omdc/slipkit` と `@omdc/slipkit-*` パッケージは npm レジストリにまだ公開されていません。
 > 現時点ではリポジトリをクローンして、同梱のソースとデモで確認できます。
 
 パッケージが公開された後は、次のようにインストールします。
 
 ```bash
-npm install @omdc-slipkit/core
+npm install @omdc/slipkit
 ```
 
 主にサポートする実行環境は次のとおりです。
@@ -65,7 +65,7 @@ npm install @omdc-slipkit/core
 - 暗号化機能を使う場合は Web Crypto API をサポートする環境
 
 > [!TIP]
-> `@omdc-slipkit/elements`、`@omdc-slipkit/react`、`@omdc-slipkit/vue` を使う場合でも、アプリケーションコードで Core を直接 import するなら、`@omdc-slipkit/core` を直接の依存関係としてインストールしてください。
+> `@omdc/slipkit-elements`、`@omdc/slipkit-react`、`@omdc/slipkit-vue` を使う場合でも、アプリケーションコードで Core を直接 import するなら、`@omdc/slipkit` を直接の依存関係としてインストールしてください。
 
 ## クイック例: テンプレートから PDF を作成する
 
@@ -94,7 +94,7 @@ import {
   createSlipKit,
   parseSlipFile,
   validateSlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 const [regularFont, boldFont] = await Promise.all([
   readFile(
@@ -192,7 +192,7 @@ await writeFile('trade-statement.pdf', pdfBytes);
 import {
   parseSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 function readSlip(json: string): SlipFile {
   return parseSlipFile(json);
@@ -216,7 +216,7 @@ HTTP フレームワークがリクエストボディをすでにオブジェク
 import {
   validateSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 function validateRequestBody(body: unknown): SlipFile {
   return validateSlipFile(body);
@@ -258,7 +258,7 @@ if (file.kind === 'template') {
 import {
   serializeSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 function toJson(file: SlipFile): string {
   return serializeSlipFile(file);
@@ -279,7 +279,7 @@ import {
   type JsonValue,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 function createVoucher(
   template: SlipTemplateFile,
@@ -355,7 +355,7 @@ const values = {
 import {
   validateSlipFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 function issueVoucher(
   draft: SlipVoucherFile,
@@ -390,7 +390,7 @@ function issueVoucher(
 同じフォントとロケールで複数のファイルをレンダリングするなら、`createSlipKit` で設定を一度構成します。
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
+import { createSlipKit } from '@omdc/slipkit';
 
 const slip = createSlipKit({
   locale: 'ko-KR',
@@ -422,7 +422,7 @@ const secondPdf = await slip.render(secondVoucher);
 import {
   renderSlipToPdf,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 async function renderOne(
   file: SlipFile,
@@ -526,7 +526,7 @@ console.log(formatted);
 ```ts
 import {
   evaluateFormula,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 const result = evaluateFormula(
   '$(quantity) * $(unitPrice)',
@@ -551,7 +551,7 @@ const result = evaluateFormula(
 import {
   createSlipKit,
   isEncryptedSlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 const encryptionKey =
   process.env.SLIPKIT_ENCRYPTION_KEY;
@@ -637,7 +637,7 @@ Core は作業の段階に応じて、異なるエラータイプを提供しま
 import {
   parseSlipFile,
   SlipParseError,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 function parseUploadedSlip(
   json: string,

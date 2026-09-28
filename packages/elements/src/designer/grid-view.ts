@@ -5,7 +5,7 @@
  * 격자는 화면에만 표시하며 파일에는 저장하지 않습니다. 그리드 요소와 구분합니다.
  */
 
-import type { SlipElement } from '@omdc-slipkit/core';
+import type { SlipElement } from '@omdc/slipkit';
 
 /** 캔버스 격자 간격 선택지(mm)입니다. */
 export const GRID_GAPS = [1, 5, 10] as const;

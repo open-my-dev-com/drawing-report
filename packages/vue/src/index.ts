@@ -1,15 +1,15 @@
-import '@omdc-slipkit/elements';
+import '@omdc/slipkit-elements';
 import { defineComponent, h, ref, watchPostEffect, type PropType, type Ref } from 'vue';
 import type {
   SlipDesigner as SlipDesignerElement,
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 import type {
   SlipKit,
   SlipTemplateFile,
   SlipVoucherFile,
   StorageAdapter,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 type SlipPresets = SlipDesignerElement['presets'];
 

@@ -6,7 +6,7 @@
  */
 
 import { html, nothing } from 'lit';
-import type { PageNumberPosition, SlipTemplateFile } from '@omdc-slipkit/core';
+import type { PageNumberPosition, SlipTemplateFile } from '@omdc/slipkit';
 import { icons } from '../../icons.js';
 import { PAPER_PRESETS } from '../paper.js';
 import { round1 } from '../geometry.js';

@@ -18,7 +18,7 @@ import {
   type GridElement,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { SlipDesigner, getPresets, IndexedDbStorage } from '../src/index.js';
 import { getStrings } from '../src/strings.js';
 

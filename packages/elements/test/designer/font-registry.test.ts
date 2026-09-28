@@ -1,6 +1,6 @@
 // 폰트의 브라우저 등록과 재사용을 시험합니다. 대체 구현으로 등록 성공·중복·실패와 출처 분리를 확인합니다.
 import { describe, expect, it, vi } from 'vitest';
-import type { SlipFont } from '@omdc-slipkit/core';
+import type { SlipFont } from '@omdc/slipkit';
 import {
   FontRegistryController,
   browserFontFaceAdapter,

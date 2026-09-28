@@ -3,12 +3,12 @@
  *
  * @remarks
  * `vi.mock`은 파일 단위로 끌어올려지므로 각 테스트 파일이 자기 파일 맨 위에서
- * `@omdc-slipkit/core`와 `../../src/default-fonts.js`를 모의한 뒤 이 모듈을 가져옵니다.
+ * `@omdc/slipkit`와 `../../src/default-fonts.js`를 모의한 뒤 이 모듈을 가져옵니다.
  * 이 모듈은 모의한 모듈을 참조하기만 합니다.
  */
 import { expect, vi, beforeEach, afterEach } from 'vitest';
-import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
-import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
+import { parseSlipFile, renderSlipToPdf } from '@omdc/slipkit';
+import type { SlipFile, SlipTemplateFile } from '@omdc/slipkit';
 import { getStrings } from '../../src/strings.js';
 
 /** 기본 영어 문구. 화면 확인의 기준입니다. */

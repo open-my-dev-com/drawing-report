@@ -1,20 +1,20 @@
-# @omdc-slipkit/vue
+# @omdc/slipkit-vue
 
 Vue wrappers for the SlipKit Web Components: `SlipDesigner`, `SlipForm`, and `SlipViewer`.
 
 ## Installation
 
 ```bash
-npm install @omdc-slipkit/core @omdc-slipkit/vue vue
+npm install @omdc/slipkit @omdc/slipkit-vue vue
 ```
 
-Node.js 22.13 or later and Vue 3.4 or later are required. The package imports `@omdc-slipkit/elements` and registers the underlying custom elements.
+Node.js 22.13 or later and Vue 3.4 or later are required. The package imports `@omdc/slipkit-elements` and registers the underlying custom elements.
 
 ## Basic usage
 
 ```vue
 <script setup lang="ts">
-import { SlipDesigner } from '@omdc-slipkit/vue';
+import { SlipDesigner } from '@omdc/slipkit-vue';
 
 defineProps<{ slipJson: string }>();
 </script>

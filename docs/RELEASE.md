@@ -2,10 +2,10 @@
 
 이 문서는 SlipKit 저장소의 PR 검증과 npm 배포 준비·실행·복구 절차를 설명합니다.
 
-최종 갱신: 2026-09-09
+최종 갱신: 2026-09-28
 
 > [!IMPORTANT]
-> `@omdc-slipkit/*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 이 문서에 적힌 npm 조직,
+> `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 이 문서에 적힌 npm 조직,
 > Trusted Publisher와 GitHub Environment의 외부 설정도 아직 수행하지 않았습니다. 최초 패키지 생성과
 > 라이선스·버전·승인 정책을 확정하기 전에는 실제 배포를 실행하지 않습니다.
 
@@ -38,7 +38,7 @@ git diff --check
 ### 2.1 npm에서 설정할 것
 
 npm의 Trusted Publisher는 이미 레지스트리에 존재하는 패키지에만 연결할 수 있습니다. 따라서
-`@omdc-slipkit` 조직과 다섯 패키지의 최초 생성 방식은 첫 배포 정책을 확정한 뒤 별도로 처리합니다.
+`omdc` 조직과 다섯 패키지의 최초 생성 방식은 첫 배포 정책을 확정한 뒤 별도로 처리합니다.
 최초 패키지가 존재하기 전에는 이 절의 Trusted Publisher 설정을 완료할 수 없습니다.
 
 패키지가 만들어지면 npmjs.com에서 다섯 패키지 각각에 같은 설정을 적용합니다.
@@ -105,11 +105,11 @@ GitHub 저장소의 **Actions → Release → Run workflow**에서 `main`을 선
 Environment 승인을 거치면 같은 배포 산출물을 다시 빌드하지 않고 SHA-256을 확인한 뒤 다음 순서로
 배포합니다.
 
-1. `@omdc-slipkit/core`
-2. `@omdc-slipkit/elements`
-3. `@omdc-slipkit/react`
-4. `@omdc-slipkit/vue`
-5. `@omdc-slipkit/mcp`
+1. `@omdc/slipkit`
+2. `@omdc/slipkit-elements`
+3. `@omdc/slipkit-react`
+4. `@omdc/slipkit-vue`
+5. `@omdc/slipkit-mcp`
 
 각 단계는 `npm publish <tarball> --provenance --access public --tag <dist_tag>`를 실행합니다. 한
 패키지가 실패하면 뒤 패키지를 시도하지 않습니다. 완료 뒤 Job Summary와 npm의 다섯 패키지에서

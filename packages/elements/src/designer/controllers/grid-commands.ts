@@ -15,7 +15,7 @@ import {
   type GridElement,
   type OutputPageFilter,
   type SlipElement,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { MIN_SIZE_MM, round1 } from '../geometry.js';
 import { clearValueSources } from '../patch.js';
 import {

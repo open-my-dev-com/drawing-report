@@ -1,5 +1,5 @@
 {
-  "name": "@omdc-slipkit/react",
+  "name": "@omdc/slipkit-react",
   "version": "0.0.1",
   "description": "React wrappers for the SlipKit Web Components",
   "keywords": [
@@ -45,8 +45,8 @@
     "node": ">=22.13"
   },
   "dependencies": {
-    "@omdc-slipkit/core": "workspace:*",
-    "@omdc-slipkit/elements": "workspace:*"
+    "@omdc/slipkit": "workspace:*",
+    "@omdc/slipkit-elements": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=19"

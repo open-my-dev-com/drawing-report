@@ -1,8 +1,8 @@
 /**
- * `@omdc-slipkit/core`의 `planSourcePage` 호출 횟수를 세는 Node 모듈 로더 훅입니다.
+ * `@omdc/slipkit`의 `planSourcePage` 호출 횟수를 세는 Node 모듈 로더 훅입니다.
  *
  * `scripts/bench-designer.mjs`가 `node:module`의 `register()`로 등록합니다. 디자이너 dist가
- * `@omdc-slipkit/core`를 가져오면 Node는 pnpm 심볼릭 링크를 실제 경로로 해석해
+ * `@omdc/slipkit`를 가져오면 Node는 pnpm 심볼릭 링크를 실제 경로로 해석해
  * `packages/core/dist/index.js`의 URL을 사용합니다. 이 훅은 해당 URL의 소스만 다음과 같이 바꿉니다.
  *
  * - 원본 모듈은 `?orig=1` 쿼리를 붙인 URL로 다시 불러와 별도 인스턴스로 만듭니다.

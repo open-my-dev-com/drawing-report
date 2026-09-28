@@ -26,7 +26,7 @@ React·Vue 패키지가 래퍼를 제공하고 각 프레임워크 애플리케�
 ## 공통 원칙
 
 래퍼는 `SlipViewer`, `SlipDesigner`, `SlipForm`을 제공하며 도메인 기능을 다시 구현하지 않습니다.
-`@omdc-slipkit/elements`를 불러와 사용자 정의 요소를 등록하고 JavaScript 프로퍼티와 CustomEvent를
+`@omdc/slipkit-elements`를 불러와 사용자 정의 요소를 등록하고 JavaScript 프로퍼티와 CustomEvent를
 프레임워크 방식으로 연결합니다.
 
 선택형 설정을 생략하면 요소에 쓰지 않습니다. 전달했던 설정을 제거하면 최초 마운트 때 읽은 요소의

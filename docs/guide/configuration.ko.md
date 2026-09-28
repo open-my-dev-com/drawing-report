@@ -51,13 +51,13 @@
 객체 설정은 JavaScript 프로퍼티로 전달합니다.
 
 ```ts
-import '@omdc-slipkit/elements';
-import { createSlipKit } from '@omdc-slipkit/core';
+import '@omdc/slipkit-elements';
+import { createSlipKit } from '@omdc/slipkit';
 
 import type {
   SlipDesigner,
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const designer =
   document.querySelector<SlipDesigner>(
@@ -106,11 +106,11 @@ import { useMemo } from 'react';
 
 import {
   SlipDesigner,
-} from '@omdc-slipkit/react';
+} from '@omdc/slipkit-react';
 
 import type {
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 export function DesignerScreen() {
   const settings =
@@ -148,11 +148,11 @@ Vue 래퍼에서도 객체 prop으로 전달합니다.
 <script setup lang="ts">
 import {
   SlipDesigner,
-} from '@omdc-slipkit/vue';
+} from '@omdc/slipkit-vue';
 
 import type {
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const settings: SlipDesignerSettings = {
   getPaperSizes: () => appPaperSizes,
@@ -232,7 +232,7 @@ const settings: SlipDesignerSettings = {
 사용자 폰트는 `createSlipKit`의 `getFonts`에 한 번 설정하고, 같은 인스턴스를 컴포넌트에 전달합니다.
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
+import { createSlipKit } from '@omdc/slipkit';
 
 const slipkit = createSlipKit({
   getFonts: () => [
@@ -258,10 +258,10 @@ designer.slipkit = slipkit;
 UI 컴포넌트는 `getFonts`가 없을 때 동봉 폰트를 보완하지만, Core의 `slipkit.render()`는 Elements의 동봉 폰트를 자동으로 불러오지 않습니다. 직접 Core 렌더링과 컴포넌트 미리보기에 같은 사용자 폰트가 필요하면 `getFonts`를 설정하세요.
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
+import { createSlipKit } from '@omdc/slipkit';
 import type {
   SlipFont,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 async function loadFont(
   url: string,
@@ -359,7 +359,7 @@ const fonts = [
 컴포넌트의 기본 동작과 같은 동봉 폰트 구성이 필요하면 `loadDefaultFonts(locale)`를 사용합니다. 이 목록에는 동봉된 두 패밀리가 모두 들어 있고 대체 폰트만 언어로 정해집니다. 한 패밀리만 쓰거나 `fallback`을 직접 정할 때만 폰트 서브패스를 사용합니다. 서브패스 목록은 각각 자기 폰트를 `fallback: true`로 표시하므로 두 목록을 그대로 펼쳐 넘기면 `대체 폰트(fallback)는 하나만 지정할 수 있습니다` 오류가 납니다.
 
 ```ts
-import { loadDefaultFonts } from '@omdc-slipkit/elements';
+import { loadDefaultFonts } from '@omdc/slipkit-elements';
 
 const slipkit = createSlipKit({
   getFonts: () => loadDefaultFonts('ko'),
@@ -369,14 +369,14 @@ const slipkit = createSlipKit({
 동봉 폰트를 사용자 폰트와 함께 사용하려면 폰트 서브패스에서 직접 불러옵니다.
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
+import { createSlipKit } from '@omdc/slipkit';
 import {
   PRETENDARD_FONTS,
-} from '@omdc-slipkit/elements/fonts/pretendard';
+} from '@omdc/slipkit-elements/fonts/pretendard';
 
 import {
   NOTO_SANS_JP_FONTS,
-} from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+} from '@omdc/slipkit-elements/fonts/noto-sans-jp';
 
 const slipkit = createSlipKit({
   getFonts: () => [
@@ -406,7 +406,7 @@ const slipkit = createSlipKit({
 ```ts
 import type {
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const designerSettings:
   SlipDesignerSettings = {
@@ -437,7 +437,7 @@ const designerSettings:
 import type {
   PaperSize,
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const paperSizes: PaperSize[] = [
   {
@@ -533,11 +533,11 @@ const settings: SlipDesignerSettings = {
 ```ts
 import type {
   BarcodeKind,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import type {
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const barcodeKinds: BarcodeKind[] = [
   'qrcode',
@@ -565,11 +565,11 @@ const settings: SlipDesignerSettings = {
 ```ts
 import {
   CURRENT_SCHEMA_VERSION,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import type {
   SlipPreset,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const shippingLabelPreset:
   SlipPreset = {
@@ -658,7 +658,7 @@ designer.presets = appPresets;
 ```ts
 import {
   getPresets,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const appPresets = [
   ...getPresets('ko'),
@@ -694,8 +694,8 @@ designer.presets = appPresets;
 ```ts
 import {
   IndexedDbStorage,
-} from '@omdc-slipkit/elements';
-import { createSlipKit } from '@omdc-slipkit/core';
+} from '@omdc/slipkit-elements';
+import { createSlipKit } from '@omdc/slipkit';
 
 const slipkit = createSlipKit({
   locale: 'ko-KR',
@@ -784,7 +784,7 @@ IndexedDB 암호화는 `.slip` 본문을 보호하지만 목록에 필요한 다
 ```ts
 import {
   SlipFileExchange,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const files =
   new SlipFileExchange(slipkit, {
@@ -865,12 +865,12 @@ const opened = await files.open();
 
 ## Core 설정
 
-`@omdc-slipkit/core`에서는 `createSlipKit`에 공통 설정을 전달합니다.
+`@omdc/slipkit`에서는 `createSlipKit`에 공통 설정을 전달합니다.
 
 ```ts
 import {
   createSlipKit,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 const slip = createSlipKit({
   getFonts: () => appFonts,
@@ -909,13 +909,13 @@ Core 사용 흐름과 PDF 생성 방법은 [Core 사용 가이드](core.ko.md)�
 `src/slipkit-config.ts`:
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
+import { createSlipKit } from '@omdc/slipkit';
 import {
   IndexedDbStorage,
   getPresets,
   type SlipDesignerSettings,
   type SlipPreset,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const fontPromise =
   loadAppFonts();

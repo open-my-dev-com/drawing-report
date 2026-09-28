@@ -12,7 +12,7 @@ import type {
   GridElement,
   OutputPageFilter,
   SlipLayoutError,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { icons } from '../../icons.js';
 import {
   DEFAULT_FONT_COLOR,

@@ -2,9 +2,9 @@
 // 모달과 셀 선택 중에는 삭제·되돌리기 같은 문서 단축키가 양식에 닿지 않는지
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
+vi.mock('@omdc/slipkit', async () => {
   // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용합니다.
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return {
     ...actual,
     parseSlipFile: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock('../../src/default-fonts.js', () => ({
     ]),
 }));
 
-import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
+import type { SlipFile, SlipTemplateFile } from '@omdc/slipkit';
 import {
   strings,
   parseSlipFileMock,

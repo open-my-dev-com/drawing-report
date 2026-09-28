@@ -1,6 +1,6 @@
 // 요소 이동·정렬·간격 배치의 좌표 계산 — 화면 없이 직접 확인합니다.
 import { describe, expect, it } from 'vitest';
-import type { SlipElement } from '@omdc-slipkit/core';
+import type { SlipElement } from '@omdc/slipkit';
 import {
   NUDGE_STEP_MM,
   NUDGE_STEP_LARGE_MM,

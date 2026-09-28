@@ -2,9 +2,9 @@
 // 되돌리기 기록과 페이지 계획 캐시 — 드래그 중 직렬화 없음, 편집 단위, 기록 상한과 계획 무효화
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
+vi.mock('@omdc/slipkit', async () => {
   // 파싱과 렌더링만 모의하고 페이지 계획·수식 엔진은 실제 구현을 사용합니다.
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return {
     ...actual,
     parseSlipFile: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock('../../src/default-fonts.js', () => ({
     ]),
 }));
 
-import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
+import type { SlipFile, SlipTemplateFile } from '@omdc/slipkit';
 import {
   strings,
   PX_PER_MM,
