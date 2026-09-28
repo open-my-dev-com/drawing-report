@@ -28,6 +28,8 @@ const REQUIRED_TEMPLATES = [
   'management.md',
 ];
 
+const REQUIRED_ROOT_FILES = ['README.md', 'GLOSSARY.md'];
+
 const DESIGN_ID = /^(SYS|SCR|FNC|DAT|IF|ERR)-\d{3}$/;
 const REGISTER_ROW = /^\|\s*((?:SYS|SCR|FNC|DAT|IF|ERR)-\d{3})\s*\|/;
 const ALLOWED_STATUSES = new Set(['예정', '작성 중', '작성 완료', '검토 완료']);
@@ -370,6 +372,10 @@ export function verifyDesignDocs(repoRoot = process.cwd()) {
   for (const template of REQUIRED_TEMPLATES) {
     const target = path.join(designRoot, '_templates', template);
     if (!existsSync(target)) errors.push(`docs/design/_templates/${template}: 필수 템플릿이 없습니다.`);
+  }
+  for (const file of REQUIRED_ROOT_FILES) {
+    const target = path.join(designRoot, file);
+    if (!existsSync(target)) errors.push(`docs/design/${file}: 필수 안내 문서가 없습니다.`);
   }
 
   const registerPath = path.join(designRoot, '90-management', 'design-register.md');

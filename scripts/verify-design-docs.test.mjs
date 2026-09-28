@@ -39,6 +39,14 @@ describe('기본설계 문서 검증', () => {
     assert.ok(verifyDesignDocs(root).some((error) => error.includes('링크 대상이 없습니다: missing.md')));
   });
 
+  it('설계 용어 해설이 없으면 찾습니다', () => {
+    const root = copyRepositoryDesign();
+    rmSync(path.join(root, 'docs', 'design', 'GLOSSARY.md'));
+    assert.ok(verifyDesignDocs(root).some((error) => error.includes(
+      'docs/design/GLOSSARY.md: 필수 안내 문서가 없습니다',
+    )));
+  });
+
   it('문서의 공통 절 순서와 변경 이력을 확인합니다', () => {
     const root = copyRepositoryDesign();
     const readme = path.join(root, 'docs', 'design', 'README.md');
