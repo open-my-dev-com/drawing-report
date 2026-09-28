@@ -5,8 +5,8 @@
 최종 갱신: 2026-09-28
 
 > [!IMPORTANT]
-> `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 이 문서에 적힌 npm 조직,
-> Trusted Publisher와 GitHub Environment의 외부 설정도 아직 수행하지 않았습니다. 최초 패키지 생성과
+> npm 조직 `omdc`는 생성했지만 `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지는 아직 npm 레지스트리에
+> 배포되지 않았습니다. 이 문서에 적힌 Trusted Publisher와 GitHub Environment의 외부 설정도 아직 수행하지 않았습니다. 최초 패키지 생성과
 > 라이선스·버전·승인 정책을 확정하기 전에는 실제 배포를 실행하지 않습니다.
 
 ## 1. 자동 검증 범위
@@ -37,9 +37,20 @@ git diff --check
 
 ### 2.1 npm에서 설정할 것
 
-npm의 Trusted Publisher는 이미 레지스트리에 존재하는 패키지에만 연결할 수 있습니다. 따라서
-`omdc` 조직과 다섯 패키지의 최초 생성 방식은 첫 배포 정책을 확정한 뒤 별도로 처리합니다.
-최초 패키지가 존재하기 전에는 이 절의 Trusted Publisher 설정을 완료할 수 없습니다.
+npm의 Trusted Publisher는 이미 레지스트리에 존재하는 패키지에만 연결할 수 있습니다. 조직 `omdc`는
+생성됐지만 다섯 패키지는 아직 존재하지 않으므로, 최초 생성 전에는 Trusted Publisher 설정을 완료할 수
+없습니다.
+
+GitHub 저장소 이름을 `slipkit`으로 바꾸고 이름 변경을 반영한 PR을 병합한 뒤 다음 순서로 최초 패키지를
+만듭니다.
+
+1. 첫 버전과 dist-tag를 확정하고 다섯 `package.json`에 같은 버전을 기록합니다.
+2. `main`에서 Release 워크플로를 `dry_run=true`로 실행해 검증과 tarball 생성을 완료합니다.
+3. `omdc` 조직에 쓰기 권한이 있고 2단계 인증을 설정한 npm 계정으로 로그인합니다.
+4. 검증한 tarball을 Core, Elements, React, Vue, MCP 순서로 `npm publish --access public --tag` 명령에
+   전달해 최초 패키지를 만듭니다. 이 일회성 절차에 쓰기 토큰을 만들거나 GitHub Secrets에 추가하지
+   않습니다.
+5. 다섯 패키지가 모두 만들어지면 아래 Trusted Publisher와 GitHub 설정을 완료합니다.
 
 패키지가 만들어지면 npmjs.com에서 다섯 패키지 각각에 같은 설정을 적용합니다.
 
@@ -50,14 +61,14 @@ npm의 Trusted Publisher는 이미 레지스트리에 존재하는 패키지에�
 | npm 화면 항목 | 값 |
 |---|---|
 | Organization or user | `open-my-dev-com` |
-| Repository | `drawing-report` |
+| Repository | `slipkit` |
 | Workflow filename | `release.yml` |
 | Environment name | `npm-publish` |
 | Allowed actions | `npm publish` |
 
 워크플로 파일명에는 경로를 붙이지 않고 파일명과 `.yml` 확장자를 정확히 입력합니다. npm은 저장할 때
-GitHub 설정의 유효성을 확인하지 않으므로 대소문자와 값을 다시 확인합니다. 한 패키지에는 Trusted
-Publisher를 하나만 연결할 수 있습니다.
+GitHub 설정의 유효성을 확인하지 않으므로 대소문자와 값을 다시 확인합니다. npm은 한 패키지에 여러
+Trusted Publisher를 허용하지만 이 저장소는 위 GitHub Actions 연결 하나만 사용합니다.
 
 ### 2.2 GitHub에서 설정할 것
 

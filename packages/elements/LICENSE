@@ -5,7 +5,8 @@ Parameters
 Licensor:             JangHyeonho
 
 Licensed Work:        SlipKit (@omdc/slipkit, @omdc/slipkit-elements,
-                      @omdc/slipkit-react, @omdc/slipkit-vue)
+                      @omdc/slipkit-react, @omdc/slipkit-vue,
+                      @omdc/slipkit-mcp)
                       The Licensed Work is (c) 2026 JangHyeonho.
 
 Additional Use Grant: You may make production use of the Licensed Work,

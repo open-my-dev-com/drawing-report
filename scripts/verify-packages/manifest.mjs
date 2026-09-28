@@ -1,8 +1,8 @@
 /**
  * 배포 tarball 안 `package.json`의 계약 검사입니다.
  *
- * 소비자가 설치할 때 필요한 선언(Node.js 지원 하한, 라이선스, 공개 배포 설정)이 실제 tarball에
- * 그대로 담겨 있는지 확인합니다. 다섯 패키지가 같은 값을 선언합니다.
+ * 소비자가 설치할 때 필요한 선언(Node.js 지원 하한, 라이선스, 공개 배포 설정, 원본 저장소)이 실제
+ * tarball에 그대로 담겨 있는지 확인합니다. 다섯 패키지가 같은 값을 선언합니다.
  */
 
 /** 배포 tarball의 package.json이 선언해야 하는 값입니다. */
@@ -10,6 +10,7 @@ export const REQUIRED_MANIFEST = {
   'engines.node': '>=22.13',
   license: 'BUSL-1.1',
   'publishConfig.access': 'public',
+  'repository.url': 'git+https://github.com/open-my-dev-com/slipkit.git',
 };
 
 /**
@@ -29,6 +30,7 @@ export function manifestProblems(text) {
     'engines.node': manifest.engines?.node,
     license: manifest.license,
     'publishConfig.access': manifest.publishConfig?.access,
+    'repository.url': manifest.repository?.url,
   };
   return Object.entries(REQUIRED_MANIFEST)
     .filter(([key, value]) => actual[key] !== value)

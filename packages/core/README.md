@@ -21,14 +21,14 @@ console.log(file.kind, file.schemaVersion);
 const json = serializeSlipFile(file);
 ```
 
-See the [Core guide](https://github.com/open-my-dev-com/drawing-report/blob/main/docs/guide/core.md) for validation, formulas, voucher assembly, encryption, storage adapters, and PDF rendering.
+See the [Core guide](https://github.com/open-my-dev-com/slipkit/blob/main/docs/guide/core.md) for validation, formulas, voucher assembly, encryption, storage adapters, and PDF rendering.
 
 ## Versioning
 
-The npm package version follows the package release. A `.slip` file's `schemaVersion` describes the file format and changes independently. See the [`.slip` specification](https://github.com/open-my-dev-com/drawing-report/blob/main/docs/SPEC.md) for format compatibility.
+The npm package version follows the package release. A `.slip` file's `schemaVersion` describes the file format and changes independently. See the [`.slip` specification](https://github.com/open-my-dev-com/slipkit/blob/main/docs/SPEC.md) for format compatibility.
 
 ## License and support
 
 This package is licensed under the Business Source License 1.1. See the included `LICENSE` file for its terms and change date.
 
-Report defects and documentation problems through [GitHub Issues](https://github.com/open-my-dev-com/drawing-report/issues).
+Report defects and documentation problems through [GitHub Issues](https://github.com/open-my-dev-com/slipkit/issues).

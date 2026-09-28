@@ -67,8 +67,8 @@ SlipKit은 pnpm 워크스페이스 기반 모노레포입니다.
 의존성을 설치하기 전에 Corepack을 활성화합니다. 저장소 안에서 `pnpm`을 실행하면 Corepack이 `packageManager` 필드에 지정된 pnpm 10.33.0을 선택합니다.
 
 ```bash
-git clone https://github.com/open-my-dev-com/drawing-report.git
-cd drawing-report
+git clone https://github.com/open-my-dev-com/slipkit.git
+cd slipkit
 corepack enable
 pnpm --version
 pnpm install

@@ -76,7 +76,7 @@ pnpm demo:mcp:reset
     "slipkit": {
       "command": "node",
       "args": [
-        "/absolute/path/to/drawing-report/packages/mcp/dist/cli.js",
+        "/absolute/path/to/slipkit/packages/mcp/dist/cli.js",
         "--config",
         "/absolute/path/to/slipkit-mcp.json"
       ]
@@ -108,7 +108,7 @@ MCP クライアントの起動設定は次の場所に保存されます。
 
 ```bash
 codex mcp add slipkit -- \
-  node /absolute/path/to/drawing-report/packages/mcp/dist/cli.js \
+  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
   --config /absolute/path/to/slipkit-mcp.json
 ```
 
@@ -116,7 +116,7 @@ Claude Code では次のように登録できます。`local` スコープを使
 
 ```bash
 claude mcp add --scope local slipkit -- \
-  node /absolute/path/to/drawing-report/packages/mcp/dist/cli.js \
+  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
   --config /absolute/path/to/slipkit-mcp.json
 ```
 
@@ -191,7 +191,7 @@ codex mcp add slipkit -- \
     "slipkit": {
       "command": "node",
       "args": [
-        "/absolute/path/to/drawing-report/packages/mcp/dist/cli.js",
+        "/absolute/path/to/slipkit/packages/mcp/dist/cli.js",
         "--config",
         "/absolute/path/to/slipkit-mcp.json"
       ],

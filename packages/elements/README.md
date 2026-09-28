@@ -27,7 +27,7 @@ designer.addEventListener('slip-change', (event) => {
 <slip-designer></slip-designer>
 ```
 
-The package registers `<slip-designer>`, `<slip-form>`, and `<slip-viewer>` when imported. See [Getting started](https://github.com/open-my-dev-com/drawing-report/blob/main/docs/guide/getting-started.md) and the [configuration guide](https://github.com/open-my-dev-com/drawing-report/blob/main/docs/guide/configuration.md) for complete integration examples.
+The package registers `<slip-designer>`, `<slip-form>`, and `<slip-viewer>` when imported. See [Getting started](https://github.com/open-my-dev-com/slipkit/blob/main/docs/guide/getting-started.md) and the [configuration guide](https://github.com/open-my-dev-com/slipkit/blob/main/docs/guide/configuration.md) for complete integration examples.
 
 ## Bundled fonts and package size
 
@@ -39,10 +39,10 @@ The package includes `OFL-Pretendard.txt` and `OFL-NotoSansJP.txt` with the font
 
 ## Versioning
 
-The npm package version follows the package release. A `.slip` file's `schemaVersion` describes the file format and changes independently. See the [`.slip` specification](https://github.com/open-my-dev-com/drawing-report/blob/main/docs/SPEC.md) for format compatibility.
+The npm package version follows the package release. A `.slip` file's `schemaVersion` describes the file format and changes independently. See the [`.slip` specification](https://github.com/open-my-dev-com/slipkit/blob/main/docs/SPEC.md) for format compatibility.
 
 ## License and support
 
 SlipKit code in this package is licensed under the Business Source License 1.1. See the included `LICENSE` file for its terms and change date. The bundled fonts retain their SIL Open Font License 1.1 terms.
 
-Report defects and documentation problems through [GitHub Issues](https://github.com/open-my-dev-com/drawing-report/issues).
+Report defects and documentation problems through [GitHub Issues](https://github.com/open-my-dev-com/slipkit/issues).

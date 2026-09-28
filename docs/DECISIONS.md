@@ -3419,6 +3419,9 @@ npm 조직은 `omdc`를 사용하고 다섯 패키지를 다음 이름으로 배
 
 제품명, `.slip` 확장자, `slip-*` 커스텀 엘리먼트 이름과 `.slip` 파일 형식은 변경하지 않습니다.
 
+공개 GitHub 저장소 이름은 `open-my-dev-com/slipkit`을 사용합니다. 패키지의 `repository` 메타데이터,
+공개 문서 링크와 npm Trusted Publisher 설정은 이 이름을 기준으로 합니다.
+
 ### 근거
 
 - `omdc` 조직에서 SlipKit 외의 제품도 함께 관리할 수 있습니다.
@@ -3429,6 +3432,7 @@ npm 조직은 `omdc`를 사용하고 다섯 패키지를 다음 이름으로 배
 ### 영향
 
 - npm에서 다섯 패키지의 Trusted Publisher를 각각 설정해야 합니다.
+- GitHub 저장소 이름을 실제로 바꾼 뒤 Trusted Publisher를 설정해야 합니다.
 - 첫 배포 전 검증은 새 이름의 tarball을 npm과 pnpm 임시 소비자에 설치해 실행합니다.
 - 과거 결정과 변경 이력을 설명하는 문맥을 제외하고 `@omdc-slipkit/*` 이름은 사용하지 않습니다.
 

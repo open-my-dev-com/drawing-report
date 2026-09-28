@@ -1,6 +1,6 @@
 > 이 문서를 수정하려면 반드시 사용자의 명시적 승인을 먼저 받아야 합니다.
 
-# SlipKit(drawing-report) 개발 규칙
+# SlipKit 개발 규칙
 
 SlipKit은 UI에서 전표 양식을 만들고 값을 입력해 인쇄하거나 PDF로 출력하는 임베드형 패키지
 모음(`@omdc/slipkit`, `@omdc/slipkit-*`)입니다. pnpm 모노레포이며 `packages/core`(순수 TS),

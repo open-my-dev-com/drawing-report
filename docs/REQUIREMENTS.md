@@ -42,7 +42,7 @@
 | ID | 요구사항 | 검증 기준 | 근거 |
 | --- | --- | --- | --- |
 | `PROD-01` | 제품명은 **SlipKit**으로 합니다. | 프로젝트 및 공개 문서에서 SlipKit이라는 제품명을 사용합니다. | ADR-018 |
-| `PROD-02` | npm 조직은 `omdc`를 사용하고 패키지 이름에 SlipKit 제품군을 표시합니다. | 공개 패키지명이 `@omdc/slipkit`, `@omdc/slipkit-elements`, `@omdc/slipkit-react`, `@omdc/slipkit-vue`, `@omdc/slipkit-mcp`로 구성됩니다. | ADR-086 |
+| `PROD-02` | npm 조직은 `omdc`를 사용하고 패키지와 저장소 이름에 SlipKit 제품군을 표시합니다. | 공개 패키지명이 `@omdc/slipkit`, `@omdc/slipkit-elements`, `@omdc/slipkit-react`, `@omdc/slipkit-vue`, `@omdc/slipkit-mcp`로 구성되고 공개 저장소는 `open-my-dev-com/slipkit`을 사용합니다. | ADR-086 |
 | `PROD-03` | 양식과 전표의 파일 확장자는 `.slip`을 사용합니다. | 양식과 전표를 `.slip` 파일로 저장하고 불러올 수 있습니다. | ADR-018 |
 | `PROD-04` | UI 커스텀 엘리먼트는 `slip-*` 접두사를 사용합니다. | 공개 Web Component 이름이 `<slip-designer>`, `<slip-form>`, `<slip-viewer>`로 제공됩니다. | ADR-018 |
 | `PROD-05` | SlipKit은 문서형 전표와 회계형 전표를 표현할 수 있는 범용 양식 엔진이어야 합니다. | 거래명세서, 청구서, 견적서 등 서로 다른 문서 구조를 같은 양식 모델로 구성할 수 있습니다. | ADR-001 |

@@ -76,7 +76,7 @@ pnpm demo:mcp:reset
     "slipkit": {
       "command": "node",
       "args": [
-        "/absolute/path/to/drawing-report/packages/mcp/dist/cli.js",
+        "/absolute/path/to/slipkit/packages/mcp/dist/cli.js",
         "--config",
         "/absolute/path/to/slipkit-mcp.json"
       ]
@@ -108,7 +108,7 @@ MCP 클라이언트 설정의 위치는 다음과 같습니다.
 
 ```bash
 codex mcp add slipkit -- \
-  node /absolute/path/to/drawing-report/packages/mcp/dist/cli.js \
+  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
   --config /absolute/path/to/slipkit-mcp.json
 ```
 
@@ -116,7 +116,7 @@ Claude Code에서는 다음과 같이 등록할 수 있습니다. `local` 범위
 
 ```bash
 claude mcp add --scope local slipkit -- \
-  node /absolute/path/to/drawing-report/packages/mcp/dist/cli.js \
+  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
   --config /absolute/path/to/slipkit-mcp.json
 ```
 
@@ -191,7 +191,7 @@ codex mcp add slipkit -- \
     "slipkit": {
       "command": "node",
       "args": [
-        "/absolute/path/to/drawing-report/packages/mcp/dist/cli.js",
+        "/absolute/path/to/slipkit/packages/mcp/dist/cli.js",
         "--config",
         "/absolute/path/to/slipkit-mcp.json"
       ],

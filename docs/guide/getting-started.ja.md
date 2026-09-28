@@ -44,8 +44,8 @@ node --version
 依存関係をインストールする前に Corepack を有効にします。リポジトリ内で `pnpm` を実行すると、Corepack が `packageManager` フィールドで指定された pnpm 10.33.0 を選択します。
 
 ```bash
-git clone https://github.com/open-my-dev-com/drawing-report.git
-cd drawing-report
+git clone https://github.com/open-my-dev-com/slipkit.git
+cd slipkit
 corepack enable
 pnpm --version
 pnpm install

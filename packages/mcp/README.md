@@ -28,7 +28,7 @@ npx @omdc/slipkit-mcp --config /absolute/path/to/slipkit-mcp.json
 npx @omdc/slipkit-mcp --help
 ```
 
-The MCP client normally starts and stops this command. Do not keep a second copy running in a separate terminal. See the [MCP guide](https://github.com/open-my-dev-com/drawing-report/blob/main/docs/guide/mcp.md) for client configuration, custom fonts, encryption, safety boundaries, and all tools.
+The MCP client normally starts and stops this command. Do not keep a second copy running in a separate terminal. See the [MCP guide](https://github.com/open-my-dev-com/slipkit/blob/main/docs/guide/mcp.md) for client configuration, custom fonts, encryption, safety boundaries, and all tools.
 
 ## Library API
 
@@ -36,10 +36,10 @@ The package also exports `createSlipMcpServer`, `FileSystemStorage`, and configu
 
 ## Versioning
 
-The npm package version follows the package release. A `.slip` file's `schemaVersion` describes the file format and changes independently. See the [`.slip` specification](https://github.com/open-my-dev-com/drawing-report/blob/main/docs/SPEC.md) for format compatibility.
+The npm package version follows the package release. A `.slip` file's `schemaVersion` describes the file format and changes independently. See the [`.slip` specification](https://github.com/open-my-dev-com/slipkit/blob/main/docs/SPEC.md) for format compatibility.
 
 ## License and support
 
 This package is licensed under the Business Source License 1.1. See the included `LICENSE` file for its terms and change date.
 
-Report defects and documentation problems through [GitHub Issues](https://github.com/open-my-dev-com/drawing-report/issues).
+Report defects and documentation problems through [GitHub Issues](https://github.com/open-my-dev-com/slipkit/issues).

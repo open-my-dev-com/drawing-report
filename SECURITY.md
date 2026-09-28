@@ -6,7 +6,7 @@ SlipKit is primarily an embeddable library. It provides no accounts and no remot
 
 **Do not open a public issue for a security problem.**
 
-Report it privately through GitHub's private vulnerability reporting: open the repository's [Security tab](https://github.com/open-my-dev-com/drawing-report/security) and choose **Report a vulnerability**. If that is unavailable to you, open a regular issue that says only that you have a security report and asks for a private channel — no details.
+Report it privately through GitHub's private vulnerability reporting: open the repository's [Security tab](https://github.com/open-my-dev-com/slipkit/security) and choose **Report a vulnerability**. If that is unavailable to you, open a regular issue that says only that you have a security report and asks for a private channel — no details.
 
 Please include what you have:
 

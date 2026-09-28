@@ -44,8 +44,8 @@ node --version
 Enable Corepack before installing dependencies. When you run `pnpm` inside the repository, Corepack selects pnpm 10.33.0 from the `packageManager` field.
 
 ```bash
-git clone https://github.com/open-my-dev-com/drawing-report.git
-cd drawing-report
+git clone https://github.com/open-my-dev-com/slipkit.git
+cd slipkit
 corepack enable
 pnpm --version
 pnpm install
