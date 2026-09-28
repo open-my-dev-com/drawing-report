@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import { formatSha256Sums, parseSha256Sums, sha256Hex, sriSha512, verifySha256Sums } from './integrity.mjs';
 import { isExactSemver, isPrerelease, validateReleaseInputs } from './inputs.mjs';
 import { buildManifest, tarballFileName } from './pack.mjs';
-import { decidePublish, interpretView, publishAll } from './publish.mjs';
+import { decidePublish, interpretView, publishAll, waitForPublishedPackage } from './publish.mjs';
 import {
   ensureGitHubRelease,
   inspectExistingRelease,
@@ -205,13 +205,23 @@ describe('publish', () => {
     afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
 
     /** 시험용 레지스트리 상태를 반환하고 npm 호출 기록을 남기는 함수입니다. */
-    function fakeNpm(registry, { publishFails = [], tagAfterPublish = 'latest' } = {}) {
+    function fakeNpm(registry, {
+      publishFails = [],
+      tagAfterPublish = 'latest',
+      visibilityDelay = 0,
+      publishStdout = '',
+      publishStderr = '',
+    } = {}) {
       const calls = [];
       const npm = async (args) => {
         calls.push(args);
         if (args[0] === 'view' && args[2] === 'dist.integrity') {
           const state = registry[args[1]];
           if (state === undefined) return e404;
+          if ((state.hiddenViews ?? 0) > 0) {
+            state.hiddenViews -= 1;
+            return e404;
+          }
           if (state.error !== undefined) return state.error;
           return { code: 0, stdout: `"${state.integrity}"\n`, stderr: '' };
         }
@@ -226,8 +236,14 @@ describe('publish', () => {
           const file = path.basename(args[1]);
           const entry = manifest.find((item) => item.file === file);
           if (publishFails.includes(entry.name)) return { code: 1, stdout: '', stderr: 'npm error E403' };
-          if (!args.includes('--dry-run')) registry[`${entry.name}@${entry.version}`] = { integrity: entry.integrity, tag: tagAfterPublish };
-          return { code: 0, stdout: '', stderr: '' };
+          if (!args.includes('--dry-run')) {
+            registry[`${entry.name}@${entry.version}`] = {
+              integrity: entry.integrity,
+              tag: tagAfterPublish,
+              hiddenViews: visibilityDelay,
+            };
+          }
+          return { code: 0, stdout: publishStdout, stderr: publishStderr };
         }
         throw new Error(`unexpected npm call: ${args.join(' ')}`);
       };
@@ -250,6 +266,21 @@ describe('publish', () => {
       assert.equal(calls.filter((args) => args[0] === 'publish').length, 2);
     });
 
+    it('같은 tarball이 이미 있어도 요청한 dist-tag를 확인한 뒤 다음 패키지로 넘어간다', async () => {
+      const { npm, calls } = fakeNpm({
+        '@omdc/slipkit@0.1.0': { integrity: manifest[0].integrity, tag: 'next' },
+      });
+      await assert.rejects(publishAll({
+        dir,
+        manifest,
+        distTag: 'latest',
+        dryRun: false,
+        npm,
+        attempts: 1,
+      }), /dist-tag latest is \(unset\)/);
+      assert.equal(calls.filter((args) => args[0] === 'publish').length, 0);
+    });
+
     it('같은 버전이 다른 내용이면 즉시 실패하고 뒤 패키지는 처리하지 않는다', async () => {
       const { npm, calls } = fakeNpm({ '@omdc/slipkit@0.1.0': { integrity: 'sha512-other', tag: 'latest' } });
       await assert.rejects(publishAll({ dir, manifest, distTag: 'latest', dryRun: false, npm }), /different content/);
@@ -266,13 +297,72 @@ describe('publish', () => {
 
     it('배포가 실패하면 그 자리에서 멈춘다', async () => {
       const { npm, calls } = fakeNpm({}, { publishFails: ['@omdc/slipkit-elements'] });
-      await assert.rejects(publishAll({ dir, manifest, distTag: 'latest', dryRun: false, npm }), /npm publish failed for @omdc\/slipkit-elements/);
+      const logs = [];
+      await assert.rejects(publishAll({ dir, manifest, distTag: 'latest', dryRun: false, npm, log: (message) => logs.push(message) }), /npm publish failed for @omdc\/slipkit-elements/);
+      assert.ok(logs.includes('npm error E403'));
       assert.deepEqual(calls.filter((args) => args[0] === 'publish').map((args) => path.basename(args[1])), [manifest[0].file, manifest[1].file]);
     });
 
     it('배포 후 dist-tag가 요청과 다르면 실패한다', async () => {
       const { npm } = fakeNpm({}, { tagAfterPublish: 'latest' });
-      await assert.rejects(publishAll({ dir, manifest, distTag: 'next', dryRun: false, npm }), /dist-tag next is \(unset\)/);
+      await assert.rejects(publishAll({ dir, manifest, distTag: 'next', dryRun: false, npm, attempts: 1 }), /dist-tag next is \(unset\)/);
+    });
+
+    it('npm 자동 검토가 끝날 때까지 기다린 뒤 다음 패키지를 배포한다', async () => {
+      const logs = [];
+      let delays = 0;
+      const { npm, calls } = fakeNpm({}, {
+        visibilityDelay: 2,
+        publishStdout: '+ published',
+        publishStderr: 'npm notice provenance signed',
+      });
+      const results = await publishAll({
+        dir,
+        manifest: manifest.slice(0, 1),
+        distTag: 'latest',
+        dryRun: false,
+        npm,
+        attempts: 3,
+        delay: async () => { delays += 1; },
+        log: (message) => logs.push(message),
+      });
+      assert.deepEqual(results.map((result) => result.outcome), ['published']);
+      assert.equal(delays, 2);
+      assert.equal(calls.filter((args) => args[0] === 'publish').length, 1);
+      assert.ok(logs.includes('+ published'));
+      assert.ok(logs.includes('npm notice provenance signed'));
+      assert.equal(logs.filter((message) => message.includes('waiting for npm validation')).length, 2);
+    });
+
+    it('npm 자동 검토가 제한 횟수 안에 끝나지 않으면 다음 패키지를 배포하지 않는다', async () => {
+      let delays = 0;
+      const { npm, calls } = fakeNpm({}, { visibilityDelay: 3 });
+      await assert.rejects(publishAll({
+        dir,
+        manifest,
+        distTag: 'latest',
+        dryRun: false,
+        npm,
+        attempts: 2,
+        delay: async () => { delays += 1; },
+      }), /post-publish check timed out.*validation may still be running/);
+      assert.equal(delays, 1);
+      assert.equal(calls.filter((args) => args[0] === 'publish').length, 1);
+    });
+
+    it('배포 후 공개된 SRI가 다르면 기다리지 않고 즉시 실패한다', async () => {
+      let delays = 0;
+      await assert.rejects(waitForPublishedPackage({
+        entry: manifest[0],
+        distTag: 'latest',
+        localIntegrity: manifest[0].integrity,
+        npm: async (args) => args[2] === 'dist.integrity'
+          ? { code: 0, stdout: '"sha512-other"', stderr: '' }
+          : { code: 0, stdout: '{"latest":"0.1.0"}', stderr: '' },
+        attempts: 2,
+        delay: async () => { delays += 1; },
+      }), /integrity sha512-other/);
+      assert.equal(delays, 0);
     });
 
     it('dry-run은 --dry-run으로 명령만 확인하고 배포 후 확인을 하지 않는다', async () => {
@@ -513,6 +603,10 @@ describe('release 워크플로', () => {
 
   it('배포 산출물 보존 기간은 재개할 수 있도록 7일이다', () => {
     assert.match(jobs.get('prepare'), /^\s+retention-days: 7$/m);
+  });
+
+  it('publish 작업은 다섯 패키지의 npm 자동 검토를 순서대로 기다릴 수 있다', () => {
+    assert.match(jobs.get('publish'), /^\s+timeout-minutes: 90$/m);
   });
 
   it('배포 실패 안내는 처음 실패한 실행의 Re-run failed jobs를 가리킨다', () => {
