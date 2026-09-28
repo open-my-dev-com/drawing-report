@@ -228,9 +228,10 @@ SlipKit은 첫 공개 전 전체 품질 검토와 후속 수정을 마쳤습니�
 
 문서, 데모와 소스 코드 검토가 끝나면 첫 공개 여부를 판단합니다.
 
-PR 검증과 npm Trusted Publishing 워크플로는 준비됐고 npm 조직 `omdc`도 생성했습니다. GitHub 저장소
-이름 변경, 최초 패키지 생성, 버전·dist-tag·승인 정책과 첫 배포 방식은 아직 확정하지 않았습니다. 이 외부 설정과 정책이
-결정되기 전에는 `NPM_TRUSTED_PUBLISHING` 저장소 변수를 켜거나 실제 배포를 실행하지 않습니다.
+PR 검증과 npm Trusted Publishing 워크플로는 준비됐고 npm 조직 `omdc`와 GitHub 저장소 `slipkit`도
+준비했습니다. 최초 공개 버전은 `0.1.0`, dist-tag는 `latest`로 확정했습니다. 다섯 패키지의 최초 생성,
+Trusted Publisher, GitHub Environment와 승인 정책을 준비하기 전에는 `NPM_TRUSTED_PUBLISHING` 저장소
+변수를 켜거나 실제 배포를 실행하지 않습니다.
 
 ### 공개 전 확인
 
