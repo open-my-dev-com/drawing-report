@@ -48,11 +48,7 @@ For reading and validating files, use the standalone functions; for settings sha
 
 ## Installation and runtime environment
 
-> [!IMPORTANT]
-> SlipKit is currently in a pre-release review stage, and the `@omdc/slipkit` and `@omdc/slipkit-*` packages are not yet published to the npm registry.
-> For now, you can clone the repository and try them out with the bundled source and demos.
-
-After the packages are published, install them as follows.
+Install Core from npm.
 
 ```bash
 npm install @omdc/slipkit

@@ -11,22 +11,20 @@
 - 사용자가 편집한 양식 받기
 - 이후 저장·전표 작성 기능을 연결할 준비하기
 
-> [!IMPORTANT]
-> SlipKit은 현재 공개 전 검토 단계이며 `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지는 npm 레지스트리에 아직 배포되지 않았습니다.
-> 지금 바로 실행하려면 저장소를 복제하여 동봉 데모를 사용해야 합니다.
+SlipKit은 npm에서 `0.1.x` 개발 버전으로 배포합니다. 애플리케이션에 설치하거나 저장소의 데모를 실행할 수 있습니다.
 
 ## 실행 방법 선택
 
 | 목적 | 사용할 방법 |
 |---|---|
-| 현재 SlipKit을 실행하고 기능 확인 | [저장소에서 데모 실행](#저장소에서-데모-실행) |
-| npm 배포 후 기존 애플리케이션에 통합 | [외부 프로젝트에 연결](#외부-프로젝트에-연결) |
+| SlipKit을 애플리케이션에 통합 | [외부 프로젝트에 연결](#외부-프로젝트에-연결) |
+| 준비된 예제로 전체 기능 확인 | [저장소에서 데모 실행](#저장소에서-데모-실행) |
 
 ---
 
 ## 저장소에서 데모 실행
 
-현재 바로 실행할 수 있는 방법입니다.
+소스 코드와 준비된 데모 애플리케이션을 함께 확인할 때 사용합니다.
 
 ### 요구 환경
 
@@ -124,10 +122,6 @@ VITE_SLIPKIT_LOCALE=ko pnpm demo
 ---
 
 ## 외부 프로젝트에 연결
-
-> [!WARNING]
-> 이 절의 설치 명령은 `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지가 npm에 공개된 이후 사용할 수 있습니다.
-> 현재 실행하면 `404 Not Found` 오류가 발생합니다.
 
 다음 예제는 ESM과 TypeScript를 지원하는 Vite 등의 빌드 환경을 기준으로 합니다.
 
@@ -475,13 +469,18 @@ Web Component의 `slip-change`, React의 `onSlipChange`, Vue의 `slip-change`를
 <details>
 <summary><strong>npm에서 패키지를 찾을 수 없습니다</strong></summary>
 
-SlipKit 패키지가 아직 공개되지 않은 상태에서는 다음과 같은 오류가 발생합니다.
+패키지 이름에 `@omdc` 범위를 사용했는지, 공개 npm 레지스트리를 조회하는지 확인합니다.
 
 ```text
 npm error 404 Not Found
 ```
 
-현재는 [저장소에서 데모 실행](#저장소에서-데모-실행) 방법을 사용합니다.
+```bash
+npm config get registry
+npm view @omdc/slipkit version
+```
+
+조직에서 사설 레지스트리 미러를 사용한다면 `@omdc` 범위가 `https://registry.npmjs.org/`를 조회하도록 설정하거나 레지스트리 관리자에게 패키지 미러링을 요청합니다.
 
 </details>
 

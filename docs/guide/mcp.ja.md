@@ -6,28 +6,23 @@
 
 別のターミナルでサーバーを起動し続ける必要はありません。stdio 方式では、MCP クライアントがサーバーをローカルの子プロセスとして起動し、接続終了時に停止します。ストレージのパス、ロケール、フォント、暗号化キー用環境変数の名前は、サーバー設定ファイル `slipkit-mcp.json` で管理します。
 
-> [!IMPORTANT]
-> SlipKit パッケージはまだ npm レジストリに公開されていません。現在はこのリポジトリでパッケージをビルドし、生成された CLI を MCP クライアントに接続してください。
-
 ## 事前準備
 
 - Node.js 22.13 以上
-- pnpm 10.33.0
 - ローカル stdio MCP サーバーに接続できる MCP クライアント
 
-リポジトリのルートで依存関係をインストールし、MCP パッケージをビルドします。
+作業ディレクトリを作成し、公開済みの CLI が起動することを確認します。
 
 ```bash
-pnpm install
-pnpm --filter @omdc/slipkit-mcp build
 mkdir slip-workspace
+npx -y @omdc/slipkit-mcp --help
 ```
 
 `slip-workspace` は、AI がアクセスする `.slip` ファイルと画像を配置する作業ディレクトリの例です。別のディレクトリも使用できます。
 
 ## MCP Inspector での動作確認
 
-このリポジトリには、別の MCP クライアントを設定する前にツールを直接呼び出せる Inspector デモがあります。MCP Inspector の要件により、このデモには Node.js 22.19 以上が必要です。
+現在のソースでツールを直接呼び出したいコントリビューター向けに、リポジトリには Inspector デモがあります。最初にリポジトリをクローンして依存関係をインストールしてください。MCP Inspector の要件により、このデモには Node.js 22.19 以上が必要です。
 
 ```bash
 pnpm demo:mcp
@@ -74,9 +69,10 @@ pnpm demo:mcp:reset
 {
   "mcpServers": {
     "slipkit": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/absolute/path/to/slipkit/packages/mcp/dist/cli.js",
+        "-y",
+        "@omdc/slipkit-mcp",
         "--config",
         "/absolute/path/to/slipkit-mcp.json"
       ]
@@ -101,29 +97,20 @@ MCP クライアントの起動設定は次の場所に保存されます。
 | クライアント | 保存場所と登録方法 |
 |---|---|
 | Codex CLI | ユーザー設定 `~/.codex/config.toml`。TOML を直接編集せず、`codex mcp add` で登録できます。 |
-| Claude Code | `local`、`user`、`project` スコープを選択できます。`project` スコープはリポジトリの `.mcp.json` を使用します。現在の開発段階では端末固有の絶対パスを含むため、`local` スコープが適しています。 |
+| Claude Code | `local`、`user`、`project` スコープを選択できます。`project` スコープはリポジトリの `.mcp.json` を使用します。設定ファイルのパスや環境変数が端末ごとに異なる場合は `local` スコープを使用します。 |
 | その他のクライアント | そのクライアントが定めるユーザーまたはプロジェクト MCP 設定に、同じ `command`、`args`、`env` を登録します。 |
 
-現在のリポジトリビルドを Codex CLI に登録する例:
+公開済みパッケージを Codex CLI に登録する例:
 
 ```bash
 codex mcp add slipkit -- \
-  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
-  --config /absolute/path/to/slipkit-mcp.json
+  npx -y @omdc/slipkit-mcp --config /absolute/path/to/slipkit-mcp.json
 ```
 
 Claude Code では次のように登録できます。`local` スコープを使うと、端末固有のパスを `.mcp.json` で共有せずに済みます。
 
 ```bash
 claude mcp add --scope local slipkit -- \
-  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
-  --config /absolute/path/to/slipkit-mcp.json
-```
-
-パッケージを npm に公開した後は、このリポジトリをビルドせずに起動できます。
-
-```bash
-codex mcp add slipkit -- \
   npx -y @omdc/slipkit-mcp --config /absolute/path/to/slipkit-mcp.json
 ```
 
@@ -245,7 +232,7 @@ codex mcp add slipkit -- \
 
 フォントのパスは設定ファイルを置いたディレクトリを基準に解決されます。`fallback: true` を指定できるフォントは 1 つだけです。指定しない場合は、一覧の先頭をフォールバックフォントとして使用します。`fonts` を設定すると同梱フォントの代わりにその一覧だけが登録されるため、テンプレートから参照するフォントをすべて含めてください。太字と斜体のバリエーションには `AppFont-Bold`、`AppFont-Italic`、`AppFont-BoldItalic` の形式を使用します。
 
-開発リポジトリから実行する場合は `packages/mcp/dist` だけをコピーせず、pnpm でインストールした workspace 依存関係を維持してください。npm 公開後は `elements` 依存関係と同梱フォントも MCP パッケージと一緒にインストールされます。
+npm パッケージは `elements` 依存関係と同梱フォントを自動的にインストールします。ソースリポジトリから実行する場合は `packages/mcp/dist` だけをコピーせず、pnpm でインストールした workspace 依存関係を維持してください。
 
 ## 提供ツール
 

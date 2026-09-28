@@ -1,15 +1,30 @@
 # 배포 운영 절차
 
-이 문서는 SlipKit 저장소의 PR 검증과 npm 배포 준비·실행·복구 절차를 설명합니다.
+이 문서는 SlipKit의 버전 준비 PR, npm 배포, GitHub Release 생성과 실패 복구 절차를 설명합니다.
 
-최종 갱신: 2026-09-28
+최종 갱신: 2026-09-29
 
-> [!IMPORTANT]
-> npm 조직 `omdc`는 생성했지만 `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지는 아직 npm 레지스트리에
-> 배포되지 않았습니다. 최초 공개 버전은 `0.1.0`, dist-tag는 `latest`로 정했습니다. 이 문서에 적힌
-> Trusted Publisher와 GitHub Environment의 외부 설정을 마치기 전에는 실제 배포를 실행하지 않습니다.
+## 1. 현재 배포 구성
 
-## 1. 자동 검증 범위
+다섯 공개 패키지는 npm의 `omdc` 조직에서 같은 버전으로 배포합니다.
+
+| 패키지 | 용도 |
+|---|---|
+| `@omdc/slipkit` | Core API |
+| `@omdc/slipkit-elements` | Web Components와 동봉 폰트 |
+| `@omdc/slipkit-react` | React 래퍼 |
+| `@omdc/slipkit-vue` | Vue 래퍼 |
+| `@omdc/slipkit-mcp` | 로컬 MCP 서버 |
+
+최초 버전 `0.1.0`은 패키지 생성과 Trusted Publisher 연결을 위해 수동으로 배포했습니다. 다섯
+패키지에는 GitHub Actions Trusted Publisher와 `npm-publish` Environment가 연결되어 있으며,
+저장소 변수 `NPM_TRUSTED_PUBLISHING`은 `true`입니다. 장기 npm access token과
+`NODE_AUTH_TOKEN`은 사용하지 않습니다.
+
+`0.1.0`의 GitHub Release는 소급해 만들지 않습니다. `0.1.1`부터 이 문서의 자동화 절차를
+적용합니다.
+
+## 2. 자동 검증 범위
 
 `.github/workflows/ci.yml`은 `main` 대상 PR과 `main` push에서 다음 작업을 실행합니다.
 
@@ -20,102 +35,81 @@
 | `packages` | Ubuntu, Node.js 22.13·24 | 실제 tarball, npm·pnpm 소비자 설치와 Chromium PDF |
 | `mcp-windows` | Windows, Node.js 24 | MCP와 의존 패키지 빌드, Windows 저장 경로 시험 |
 
-모든 작업은 Corepack 0.34.6과 루트 `packageManager`의 pnpm 10.33.0을 사용합니다. CI 워크플로의
-기본 권한은 `contents: read`이며, checkout 자격 증명과 패키지 관리자 캐시는 남기지 않습니다.
-
-워크플로를 바꿀 때는 로컬 검증과 GitHub-hosted runner 결과를 모두 확인합니다.
+워크플로를 바꿀 때는 다음 검증을 실행합니다.
 
 ```bash
 actionlint .github/workflows/ci.yml .github/workflows/release.yml
 pnpm verify
-pnpm exec playwright install chromium
 pnpm verify:packages
 git diff --check
 ```
 
-## 2. 실제 배포 전 외부 설정
+## 3. 버전 준비 PR
 
-### 2.1 npm에서 설정할 것
+배포할 버전은 Release 워크플로를 실행하기 전에 PR로 검토합니다. AI가 버전 변경을 맡더라도 이
+PR이 병합되기 전에는 실제 배포를 안내하거나 실행하지 않습니다.
 
-npm의 Trusted Publisher는 이미 레지스트리에 존재하는 패키지에만 연결할 수 있습니다. 조직 `omdc`는
-생성됐지만 다섯 패키지는 아직 존재하지 않으므로, 최초 생성 전에는 Trusted Publisher 설정을 완료할 수
-없습니다.
+1. 변경 내용을 기준으로 다음 SemVer를 정합니다.
+2. 다섯 `package.json`의 버전을 같은 값으로 변경합니다.
+3. `docs/releases/버전.md`에 한국어, 일본어, 영어 순서로 릴리즈 원문을 작성합니다.
+4. README, 가이드, `SECURITY.md`와 `ROADMAP.md`에서 공개 상태나 버전 설명을 확인합니다.
+5. 변경 시험과 전체 검증을 실행합니다.
+6. PR 본문에 변경 전·후 버전, SemVer 변경 이유, dist-tag, 배포 대상, 릴리즈 원문, 공개 문서,
+   검증 결과와 병합 후 워크플로 입력을 적습니다.
 
-GitHub 저장소 이름을 `slipkit`으로 바꾸고 이름 변경을 반영한 PR을 병합한 뒤 다음 순서로 최초 패키지를
-만듭니다.
+버전은 `.slip` 파일의 `schemaVersion`과 별도로 관리합니다. 현재는 패키지 간 호환성을 명확하게
+유지하기 위해 다섯 공개 패키지의 버전을 함께 올립니다.
 
-1. 다섯 `package.json`의 버전이 최초 공개 버전 `0.1.0`으로 같은지 확인합니다. 최초 공개에는
-   dist-tag `latest`를 사용합니다.
-2. `main`에서 Release 워크플로를 `dry_run=true`로 실행해 검증과 tarball 생성을 완료합니다.
-3. `omdc` 조직에 쓰기 권한이 있고 2단계 인증을 설정한 npm 계정으로 로그인합니다.
-4. 검증한 tarball을 Core, Elements, React, Vue, MCP 순서로 `npm publish --access public --tag` 명령에
-   전달해 최초 패키지를 만듭니다. 이 일회성 절차에 쓰기 토큰을 만들거나 GitHub Secrets에 추가하지
-   않습니다.
-5. 다섯 패키지가 모두 만들어지면 아래 Trusted Publisher와 GitHub 설정을 완료합니다.
+### 3.1 릴리즈 원문 형식
 
-패키지가 만들어지면 npmjs.com에서 다섯 패키지 각각에 같은 설정을 적용합니다.
+`docs/releases/버전.md`는 다음 세 제목을 순서대로 포함해야 합니다. 각 구역에는 해당 언어로 실제
+변경 내용을 적습니다.
 
-1. **Packages**에서 패키지를 열고 **Settings → Trusted publishing**으로 이동합니다.
-2. Publisher로 **GitHub Actions**를 선택합니다.
-3. 다음 값을 입력합니다.
+```markdown
+# SlipKit 0.1.1
 
-| npm 화면 항목 | 값 |
+## 한국어
+
+한국어 릴리즈 원문
+
+## 日本語
+
+日本語のリリース本文
+
+## English
+
+English release text
+```
+
+Release 준비와 워크플로 시험은 현재 패키지 버전에 해당하는 파일이 있는지, 세 구역이 비어 있지
+않은지 확인합니다.
+
+## 4. 선택적 dry-run
+
+실제 배포 전에 배포 명령만 시험해야 할 때 GitHub의 **Actions → Release → Run workflow**에서
+다음 입력으로 실행합니다. dry-run은 선택 사항이며 실제 배포의 선행 조건이 아닙니다.
+
+| 입력 | 값 |
 |---|---|
-| Organization or user | `open-my-dev-com` |
-| Repository | `slipkit` |
-| Workflow filename | `release.yml` |
-| Environment name | `npm-publish` |
-| Allowed actions | `npm publish` |
+| `version` | 다섯 `package.json`과 같은 정확한 SemVer |
+| `dist_tag` | 정식 버전은 `latest` 또는 `next`, 사전 배포 버전은 `next` |
+| `environment` | `npm-publish` |
+| `dry_run` | `true` |
 
-워크플로 파일명에는 경로를 붙이지 않고 파일명과 `.yml` 확장자를 정확히 입력합니다. npm은 저장할 때
-GitHub 설정의 유효성을 확인하지 않으므로 대소문자와 값을 다시 확인합니다. npm은 한 패키지에 여러
-Trusted Publisher를 허용하지만 이 저장소는 위 GitHub Actions 연결 하나만 사용합니다.
+`prepare`는 전체 검증을 거친 뒤 다섯 tarball, `manifest.json`과 `SHA256SUMS`를 만듭니다. 이
+배포 산출물은 부분 배포 재개를 위해 7일 동안 보존합니다. `publish-dry-run`은 같은 산출물로
+`npm publish --dry-run`을 실행합니다. dry-run은 npm이나 GitHub Release를 변경하지 않습니다.
 
-### 2.2 GitHub에서 설정할 것
+Job Summary에서 준비·tarball 검증·dry-run이 성공했고 `publish`와 `release`가 실행되지 않았는지
+확인합니다.
 
-1. 저장소 **Settings → Environments**에서 `npm-publish` Environment를 만듭니다.
-2. 승인자와 배포 브랜치 보호 규칙을 정하고 `main`만 실제 배포할 수 있게 합니다.
-3. 다섯 npm 패키지의 Trusted Publisher 설정을 모두 마친 뒤에만 **Settings → Secrets and
-   variables → Actions → Variables**에서 `NPM_TRUSTED_PUBLISHING`을 `true`로 만듭니다.
+## 5. 실제 배포와 GitHub Release
 
-장기 npm access token, `NODE_AUTH_TOKEN`이나 npm 쓰기 토큰은 GitHub Secrets에 추가하지 않습니다.
-`id-token: write` 권한은 `release.yml`의 실제 `publish` 작업에만 있습니다.
+준비 PR을 `main`에 병합한 뒤 GitHub의 **Actions → Release → Run workflow**에서 정확한
+`version`, `dist_tag`, `environment=npm-publish`, `dry_run=false`를 입력해 한 번 실행합니다.
+`npm-publish` Environment 승인이 필요하면 승인 후 계속합니다.
 
-## 3. 배포 전 사전 검증
-
-GitHub 저장소의 **Actions → Release → Run workflow**에서 `main`을 선택하고 실행합니다.
-
-| 입력 | 사전 검증 값 | 설명 |
-|---|---|---|
-| `version` | 다섯 `package.json`과 같은 정확한 SemVer | 한 패키지라도 다르면 준비 단계에서 실패 |
-| `dist_tag` | `latest` 또는 `next` | npm에 적용할 dist-tag |
-| `environment` | `npm-publish` | 다른 값은 허용하지 않음 |
-| `dry_run` | `true` | 실제 배포 없이 검증과 `npm publish --dry-run` 실행 |
-
-정식 버전은 `latest` 또는 `next` 태그를 사용할 수 있습니다. 하이픈이 들어간 사전 배포 버전은 `latest`를
-사용할 수 없으며 `next`를 선택해야 합니다. 준비 작업은 tarball을 만들기 전에 잘못된 조합을 거부합니다.
-
-`prepare` 작업은 `pnpm verify`, `pnpm verify:packages`를 통과한 뒤 다섯 개의 tarball과
-`SHA256SUMS`·`manifest.json`을 7일 동안 보존하는 배포 산출물로 만듭니다. 이 보존 기간은 부분 배포를 처음 실패한 실행에서
-재개할 수 있는 기간입니다(§5). `publish-dry-run`은 npm 11.19.1로 배포 산출물을 검증하고 배포 명령을
-실행하되 레지스트리에 올리지 않습니다. 마지막 `status`의 Job Summary에서 `publish`가 실행되지 않았고
-검증만 끝났는지 확인합니다.
-
-저장소 변수가 없거나 `true`가 아니면 `dry_run=false`로 실행해도 실제 `publish` 작업은 건너뜁니다.
-이 경우도 Job Summary는 배포 성공이 아니라 외부 설정이 없어 검증만 완료됐다고 표시합니다.
-
-## 4. 실제 배포
-
-다음 조건을 모두 확인한 뒤 `dry_run=false`로 실행합니다.
-
-- 실행 ref가 `main`입니다.
-- 다섯 패키지의 버전이 `version` 입력과 같습니다.
-- npm의 다섯 패키지에 `release.yml`·`npm-publish` Trusted Publisher가 연결돼 있습니다.
-- GitHub의 `npm-publish` Environment 보호 규칙과 승인이 준비돼 있습니다.
-- 저장소 변수 `NPM_TRUSTED_PUBLISHING`이 정확히 `true`입니다.
-
-Environment 승인을 거치면 같은 배포 산출물을 다시 빌드하지 않고 SHA-256을 확인한 뒤 다음 순서로
-배포합니다.
+워크플로는 `prepare`가 만든 산출물을 다시 빌드하지 않고 다음 순서로 처리합니다.
 
 1. `@omdc/slipkit`
 2. `@omdc/slipkit-elements`
@@ -123,62 +117,61 @@ Environment 승인을 거치면 같은 배포 산출물을 다시 빌드하지 �
 4. `@omdc/slipkit-vue`
 5. `@omdc/slipkit-mcp`
 
-각 단계는 `npm publish <tarball> --provenance --access public --tag <dist_tag>`를 실행합니다. 한
-패키지가 실패하면 뒤 패키지를 시도하지 않습니다. 완료 뒤 Job Summary와 npm의 다섯 패키지에서
-버전, `dist.integrity`, dist-tag와 provenance를 확인합니다.
+각 패키지는 `npm publish --provenance --access public --tag`로 배포합니다. 하나가 실패하면 뒤
+패키지는 배포하지 않습니다. 다섯 패키지의 배포가 끝나면 `release` 작업이 npm에서 다음 항목을
+다시 확인합니다.
 
-## 5. 부분 배포 후 재개
+- `manifest.json`과 npm `dist.integrity`가 같은지
+- 요청한 dist-tag가 새 버전을 가리키는지
+- Trusted Publishing provenance attestation이 존재하는지
+- 공개된 정확한 다섯 버전을 설치한 뒤 `npm audit signatures --include-attestations`가 통과하는지
 
-다섯 패키지 중 일부만 올라간 상태로 `publish`가 실패하면, **처음 실패한 실행에서 `Re-run failed jobs`를
-선택해 배포를 재개**합니다. 성공한 `prepare`는 다시 실행하지 않고, 해당 실행에서 만든 배포 산출물의
-tarball을 그대로 사용합니다. 같은 버전의 tarball을 다시 만들지 않기 위한 절차입니다.
+확인이 끝나야 검증한 커밋에 `v버전` 태그와 GitHub Release를 만듭니다. Release 본문에는
+`docs/releases/버전.md`에서 검토한 세 언어 원문을 사용하고 다음 파일을 자산으로 첨부합니다.
 
-### 5.1 재개 절차
+- 다섯 npm tarball
+- `manifest.json`
+- `SHA256SUMS`
 
-1. **실패 지점을 확인합니다.** 처음 실패한 실행의 Job Summary와 `publish` 로그에서 마지막으로 성공한
-   패키지와 실패한 패키지를 확인하고, npm에서 각 패키지의 버전·`dist.integrity`·dist-tag를 대조합니다.
-2. **원인을 해결합니다.** Environment 승인 대기, Trusted Publisher 설정, 권한이나 일시적인 통신 오류를
-   먼저 해결합니다. 원인을 해결하지 않은 재개는 같은 자리에서 다시 실패합니다.
-3. **처음 실패한 실행에서 `Re-run failed jobs`를 선택합니다.** 실패한 `publish`와 `status`만 다시 실행되고,
-   `prepare`는 성공 상태 그대로 남아 배포 산출물을 제공합니다.
-4. **재개 실행을 검증합니다.** `publish`가 `prepare`의 배포 산출물을 내려받아 `SHA256SUMS`와
-   `manifest.json`을 검증했는지, 이미 올라간 패키지를 건너뛰고 남은 패키지만 배포했는지, `status`의 Job
-   Summary가 배포 성공으로 끝났는지 확인합니다. 마지막으로 npm에서 다섯 패키지의 버전,
-   `dist.integrity`, dist-tag와 provenance를 확인합니다.
+같은 태그나 Release가 이미 있으면 커밋, 본문, 공개 상태와 자산 digest가 모두 같은지 검사합니다.
+내용이 다르면 덮어쓰지 않고 실패합니다.
 
-### 5.2 하지 않는 것
+## 6. 실패 후 재개
 
-- `Re-run all jobs`를 쓰지 않습니다. `prepare`가 다시 돌면 tarball을 새로 만들게 됩니다.
-- 새 **Run workflow** 실행으로 같은 버전을 이어서 배포하지 않습니다.
-- 로컬이나 다른 실행기에서 다시 만든 tarball로 남은 패키지를 배포하지 않습니다.
+실제 실행에서 `publish` 또는 `release`가 실패하면 **처음 실패한 실행에서 Re-run failed jobs**를
+선택합니다. 새 Run workflow를 시작하거나 `Re-run all jobs`를 선택하지 않습니다.
 
-### 5.3 각 패키지의 판정
+### 6.1 npm 배포 중 실패
 
-재개한 `publish`는 패키지마다 레지스트리를 조회해 다음처럼 판정합니다.
+재개한 `publish`는 같은 실행의 배포 산출물을 내려받아 해시를 확인하고 패키지별로 다음과 같이
+판정합니다.
 
 | 레지스트리 조회 결과 | 처리 |
 |---|---|
 | E404 | 아직 없는 버전이므로 배포 |
-| 해당 실행의 배포 산출물과 SHA-512 SRI가 같음 | 앞선 시도에서 같은 파일을 배포했으므로 건너뜀 |
-| 다른 SRI | 다른 내용이 같은 버전에 존재하므로 즉시 중단 |
+| 배포 산출물과 SHA-512 SRI가 같음 | 이미 같은 파일을 배포했으므로 건너뜀 |
+| 다른 SRI | 다른 내용이 같은 버전에 있으므로 즉시 중단 |
 | 인증·통신 오류 | 상태를 확정할 수 없으므로 즉시 중단 |
 
-### 5.4 재개할 수 없을 때
+### 6.2 GitHub Release 생성 중 실패
 
-배포 산출물은 7일 동안 보존합니다. 이 기간이 지나 산출물이 만료됐거나 남아 있지
-않거나, `prepare`를 다시 실행해야 하는 상황이면 **같은 버전의 재개를 중단합니다.** 이미 공개된 패키지와
-dist-tag 상태를 확인한 뒤, 다섯 패키지의 새 버전을 정해 새 릴리스로 처음부터 실행합니다.
+npm 배포가 모두 성공하고 `release`만 실패했다면 Re-run failed jobs는 `release`와 `status`만 다시
+실행합니다. npm에 다시 publish하지 않으며, 기존 태그·Release가 있으면 내용이 같은지 확인한 뒤
+누락된 자산만 올립니다.
 
-같은 버전의 tarball 내용을 고쳐서 재개하지도 않습니다. npm에 올라간 버전은 덮어쓸 수 없으므로, 내용
-변경이 필요하면 마찬가지로 새 버전으로 처리합니다. 부분 배포된 이전 버전의 폐기·deprecate 여부는
-확정된 릴리스 정책에 따라 별도로 처리합니다.
+### 6.3 재개할 수 없는 경우
 
-## 6. 외부 설정을 바꿀 때
+배포 산출물이 7일 후 만료됐거나 다른 SRI가 이미 공개됐다면 같은 버전의 재개를 중단합니다. npm에
+공개된 상태를 확인하고 새 버전의 준비 PR부터 다시 시작합니다. npm에 올라간 버전의 내용을 바꿔
+다시 배포하지 않습니다.
 
-- 저장소나 워크플로 파일명을 바꾸면 npm의 다섯 Trusted Publisher 설정도 함께 바꿉니다.
-- Environment 이름을 바꾸려면 npm과 GitHub 설정, `release.yml` 입력 검증을 한 번에 바꿉니다.
-- 실제 배포를 잠시 막을 때는 `NPM_TRUSTED_PUBLISHING`을 `true` 이외의 값으로 바꾸거나 삭제합니다.
-- Trusted Publisher가 정상 동작하는 것을 확인한 뒤 npm의 기존 쓰기 토큰을 제한하거나 폐기합니다.
+## 7. 외부 설정 변경
 
-현재 npm 요구사항과 화면 항목은 [npm Trusted publishing 문서](https://docs.npmjs.com/trusted-publishers/),
-GitHub Environment 보호 규칙은 [GitHub Deployments and environments 문서](https://docs.github.com/actions/reference/workflows-and-actions/deployments-and-environments)를 기준으로 확인합니다.
+- 저장소나 워크플로 파일명을 바꾸면 다섯 npm 패키지의 Trusted Publisher도 함께 바꿉니다.
+- Environment 이름을 바꾸면 npm과 GitHub 설정, 워크플로 입력 검증을 함께 바꿉니다.
+- 실제 배포를 막을 때는 `NPM_TRUSTED_PUBLISHING`을 `true` 이외의 값으로 바꾸거나 삭제합니다.
+- `id-token: write`는 npm에 배포하는 `publish` 작업에만 둡니다.
+- GitHub Release를 만드는 `release` 작업에는 `contents: write`만 둡니다.
+
+현재 외부 서비스 설정은 [npm Trusted publishing](https://docs.npmjs.com/trusted-publishers/)과
+[GitHub Deployments and environments](https://docs.github.com/actions/reference/workflows-and-actions/deployments-and-environments)를 기준으로 확인합니다.

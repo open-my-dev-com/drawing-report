@@ -48,11 +48,7 @@ flowchart LR
 
 ## 설치와 실행 환경
 
-> [!IMPORTANT]
-> SlipKit은 현재 공개 전 검토 단계이며 `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지는 npm 레지스트리에 아직 배포되지 않았습니다.
-> 현재는 저장소를 복제하여 동봉된 소스와 데모에서 확인할 수 있습니다.
-
-패키지가 공개된 이후에는 다음과 같이 설치합니다.
+npm에서 Core를 설치합니다.
 
 ```bash
 npm install @omdc/slipkit

@@ -6,28 +6,23 @@
 
 별도 터미널에서 서버를 계속 실행할 필요는 없습니다. stdio 방식에서는 MCP 클라이언트가 서버를 로컬 하위 프로세스로 시작하고 연결을 종료할 때 함께 종료합니다. 저장소 경로, 로케일, 폰트와 암호화 환경변수 이름은 서버 설정 파일인 `slipkit-mcp.json`에서 관리합니다.
 
-> [!IMPORTANT]
-> SlipKit 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 현재는 저장소에서 패키지를 빌드한 뒤 MCP 클라이언트에 연결해야 합니다.
-
 ## 준비
 
 - Node.js 22.13 이상
-- pnpm 10.33.0
 - 로컬 stdio MCP 서버를 연결할 수 있는 MCP 클라이언트
 
-저장소 루트에서 의존성을 설치하고 MCP 패키지를 빌드합니다.
+작업 디렉터리를 만들고 배포된 CLI가 실행되는지 확인합니다.
 
 ```bash
-pnpm install
-pnpm --filter @omdc/slipkit-mcp build
 mkdir slip-workspace
+npx -y @omdc/slipkit-mcp --help
 ```
 
 `slip-workspace`는 AI가 접근할 `.slip` 파일과 이미지를 두는 작업 디렉터리의 예시입니다. 다른 디렉터리를 사용해도 됩니다.
 
 ## MCP Inspector에서 시험하기
 
-저장소에는 MCP 클라이언트를 따로 설정하기 전에 도구를 직접 호출해 볼 수 있는 Inspector 데모가 있습니다. MCP Inspector의 요구사항에 따라 이 데모는 Node.js 22.19 이상에서 실행해야 합니다.
+현재 소스를 기준으로 도구를 직접 호출하려는 기여자를 위해 저장소에 Inspector 데모가 있습니다. 먼저 저장소를 복제하고 의존성을 설치해야 합니다. MCP Inspector의 요구사항에 따라 이 데모는 Node.js 22.19 이상에서 실행해야 합니다.
 
 ```bash
 pnpm demo:mcp
@@ -74,9 +69,10 @@ pnpm demo:mcp:reset
 {
   "mcpServers": {
     "slipkit": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/absolute/path/to/slipkit/packages/mcp/dist/cli.js",
+        "-y",
+        "@omdc/slipkit-mcp",
         "--config",
         "/absolute/path/to/slipkit-mcp.json"
       ]
@@ -101,29 +97,20 @@ MCP 클라이언트 설정의 위치는 다음과 같습니다.
 | 클라이언트 | 저장 위치와 등록 방법 |
 |---|---|
 | Codex CLI | 사용자 설정 `~/.codex/config.toml`. `codex mcp add`로 등록하면 직접 TOML을 편집할 필요가 없습니다. |
-| Claude Code | `local`, `user`, `project` 범위를 선택할 수 있습니다. `project` 범위는 저장소의 `.mcp.json`을 사용하며, 현재처럼 절대 경로가 필요한 개발 단계에서는 기본값인 `local` 범위가 적합합니다. |
+| Claude Code | `local`, `user`, `project` 범위를 선택할 수 있습니다. `project` 범위는 저장소의 `.mcp.json`을 사용합니다. 설정 파일 경로나 환경변수가 기기마다 다르면 `local` 범위를 사용합니다. |
 | 그 밖의 클라이언트 | 해당 클라이언트가 지정한 사용자 또는 프로젝트 MCP 설정에 앞의 JSON과 같은 `command`, `args`, `env`를 등록합니다. |
 
-현재 저장소에서 Codex CLI에 등록하는 예시는 다음과 같습니다.
+배포된 패키지를 Codex CLI에 등록하는 예시는 다음과 같습니다.
 
 ```bash
 codex mcp add slipkit -- \
-  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
-  --config /absolute/path/to/slipkit-mcp.json
+  npx -y @omdc/slipkit-mcp --config /absolute/path/to/slipkit-mcp.json
 ```
 
 Claude Code에서는 다음과 같이 등록할 수 있습니다. `local` 범위를 사용하면 기기별 절대 경로를 `.mcp.json`에 공유하지 않습니다.
 
 ```bash
 claude mcp add --scope local slipkit -- \
-  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
-  --config /absolute/path/to/slipkit-mcp.json
-```
-
-패키지가 npm에 배포되면 저장소를 직접 빌드하지 않고 다음처럼 실행할 수 있습니다.
-
-```bash
-codex mcp add slipkit -- \
   npx -y @omdc/slipkit-mcp --config /absolute/path/to/slipkit-mcp.json
 ```
 
@@ -245,7 +232,7 @@ codex mcp add slipkit -- \
 
 폰트 경로는 설정 파일 위치를 기준으로 해석합니다. `fallback: true`는 하나의 폰트에만 지정할 수 있으며, 지정하지 않으면 목록의 첫 번째 폰트를 대체 폰트로 사용합니다. `fonts`를 설정하면 동봉 폰트 대신 해당 목록만 등록되므로 양식에서 참조하는 모든 폰트를 포함해야 합니다. 굵기와 기울임 변형의 이름은 `AppFont-Bold`, `AppFont-Italic`, `AppFont-BoldItalic` 형식을 사용합니다.
 
-개발 저장소에서 실행할 때는 `packages/mcp/dist`만 복사하지 말고 pnpm으로 설치된 workspace 의존성을 유지해야 합니다. npm 배포 후에는 `elements` 의존성과 동봉 폰트가 MCP 패키지와 함께 설치됩니다.
+npm 패키지는 `elements` 의존성과 동봉 폰트를 자동으로 설치합니다. 소스 저장소에서 실행할 때는 `packages/mcp/dist`만 복사하지 말고 pnpm으로 설치한 workspace 의존성을 유지합니다.
 
 ## 제공 도구
 

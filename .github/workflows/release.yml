@@ -1,6 +1,6 @@
 # npm 배포 워크플로입니다(Trusted Publishing · OIDC).
 #
-# 실행 조건은 workflow_dispatch뿐입니다. 태그 push를 실행 조건으로 사용하거나 태그를 만들지 않습니다.
+# 실행 조건은 workflow_dispatch뿐입니다. 실제 배포가 끝나면 검증한 커밋에 태그와 GitHub Release를 만듭니다.
 # 입력:
 #   version: 배포할 버전입니다. 정확한 SemVer이고 다섯 패키지의 package.json 버전과 모두 같아야 합니다.
 #   dist_tag: latest | next입니다. 사전 배포 버전(1.0.0-beta.1 등)에는 latest를 사용할 수 없습니다.
@@ -13,7 +13,8 @@
 #   publish-dry-run: 실제 배포 조건이 아닐 때 실행합니다. 배포 산출물의 SHA-256 검증 → npm 11.19.1 → npm publish --dry-run(순서·명령 확인)
 #   publish: 실제 배포 조건일 때 실행합니다. Environment npm-publish, id-token: write. 배포 산출물의 SHA-256 검증 → npm 11.19.1 →
 #                     core → elements → react → vue → mcp 순서로 npm publish <tarball> --provenance --access public --tag <dist_tag>
-#   status: Job Summary에 배포 여부와 이유를 남깁니다. 검증만 하고 배포하지 않은 실행을 배포 성공으로 오해하지 않게 합니다.
+#   release: npm의 SRI·dist-tag·provenance 확인 → v<version> 태그 → 세 언어 GitHub Release와 배포 산출물 첨부
+#   status: Job Summary에 npm 배포와 GitHub Release 여부를 남깁니다. 검증만 한 실행을 배포 성공으로 오해하지 않게 합니다.
 # 실제 배포 조건 (모두 만족): dry_run == false, vars.NPM_TRUSTED_PUBLISHING == 'true', ref == refs/heads/main, environment == npm-publish.
 # 저장소 변수 NPM_TRUSTED_PUBLISHING은 사용자가 npm Trusted Publisher와 GitHub Environment를 실제로 설정한 뒤 켭니다.
 # 재개: 부분 배포가 실패하면 처음 실패한 실행에서 `Re-run failed jobs`만 사용합니다. 성공한 prepare는 다시 실행하지 않고
@@ -21,26 +22,27 @@
 #       로컬 tarball의 SHA-512 SRI가 같을 때만 건너뜁니다(scripts/release/publish.mjs).
 # npm 토큰은 사용하지 않습니다(NODE_AUTH_TOKEN 없음). 패키지 관리자 캐시도 사용하지 않습니다. 외부 Action은 전체 커밋 SHA로 고정합니다.
 name: Release
+run-name: Release v${{ inputs.version }} · ${{ inputs.dist_tag == 'latest' && '일반 공개' || '사전 공개' }} · ${{ inputs.dry_run && '배포 테스트' || 'npm 배포' }}
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: '배포할 버전 (정확한 SemVer, 다섯 패키지와 일치)'
+        description: '배포할 버전 (예: 0.1.1, 다섯 패키지의 버전과 일치해야 함)'
         type: string
         required: true
       dist_tag:
-        description: 'npm dist-tag'
+        description: 'npm 배포 태그 (latest: 일반 공개, next: 사전 공개)'
         type: choice
         options: [latest, next]
         default: latest
       environment:
-        description: 'GitHub Environment (npm Trusted Publisher 설정과 같아야 함)'
+        description: '배포 승인 환경 (npm-publish로 고정)'
         type: choice
         options: [npm-publish]
         default: npm-publish
       dry_run:
-        description: 'true면 검증과 npm publish --dry-run까지만 실행'
+        description: 'npm에 배포하지 않고 테스트만 실행'
         type: boolean
         default: true
 
@@ -192,9 +194,46 @@ jobs:
           DRY_RUN: 'false'
         run: node scripts/release/publish.mjs
 
+  release:
+    name: release (검증 · 태그 · GitHub Release)
+    needs: [prepare, publish]
+    if: ${{ inputs.dry_run == false && vars.NPM_TRUSTED_PUBLISHING == 'true' && github.ref == 'refs/heads/main' && inputs.environment == 'npm-publish' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: npm CLI 고정
+        run: |
+          npm install --global "npm@${NPM_CLI_VERSION}"
+          actual="$(npm --version)"
+          echo "npm ${actual}"
+          if [ "${actual}" != "${NPM_CLI_VERSION}" ]; then
+            echo "::error::npm ${actual} does not match ${NPM_CLI_VERSION}"
+            exit 1
+          fi
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: release-artifacts
+      - name: npm 배포 확인과 GitHub Release 생성
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARBALL_DIR: release-artifacts
+          RELEASE_VERSION: ${{ inputs.version }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: node scripts/release/finalize.mjs
+
   status:
     name: status (배포 여부 요약)
-    needs: [prepare, publish-dry-run, publish]
+    needs: [prepare, publish-dry-run, publish, release]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -204,6 +243,7 @@ jobs:
           PREPARE_RESULT: ${{ needs.prepare.result }}
           DRY_RUN_RESULT: ${{ needs.publish-dry-run.result }}
           PUBLISH_RESULT: ${{ needs.publish.result }}
+          RELEASE_RESULT: ${{ needs.release.result }}
           INPUT_DRY_RUN: ${{ inputs.dry_run }}
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_DIST_TAG: ${{ inputs.dist_tag }}
@@ -217,6 +257,7 @@ jobs:
             echo "| prepare | ${PREPARE_RESULT} |"
             echo "| publish-dry-run | ${DRY_RUN_RESULT} |"
             echo "| publish | ${PUBLISH_RESULT} |"
+            echo "| release | ${RELEASE_RESULT} |"
             echo
           } >> "${GITHUB_STEP_SUMMARY}"
           if [ "${PREPARE_RESULT}" != "success" ]; then
@@ -224,8 +265,16 @@ jobs:
             exit 1
           fi
           if [ "${PUBLISH_RESULT}" = "success" ]; then
-            echo "**npm에 배포했습니다.** 버전 ${INPUT_VERSION}, dist-tag ${INPUT_DIST_TAG}." >> "${GITHUB_STEP_SUMMARY}"
-            exit 0
+            if [ "${RELEASE_RESULT}" = "success" ]; then
+              echo "**npm과 GitHub Release에 배포했습니다.** 버전 ${INPUT_VERSION}, dist-tag ${INPUT_DIST_TAG}." >> "${GITHUB_STEP_SUMMARY}"
+              exit 0
+            fi
+            {
+              echo "**npm 배포는 끝났지만 GitHub Release 생성이 실패했습니다.** release 작업 결과: ${RELEASE_RESULT}."
+              echo
+              echo "이 실행에서 \`Re-run failed jobs\`를 선택합니다. publish와 prepare는 다시 실행하지 않고 release가 원본 배포 산출물과 npm 상태를 다시 검증합니다."
+            } >> "${GITHUB_STEP_SUMMARY}"
+            exit 1
           fi
           if [ "${PUBLISH_RESULT}" = "skipped" ]; then
             if [ "${INPUT_DRY_RUN}" = "true" ]; then
@@ -242,7 +291,7 @@ jobs:
           {
             echo "**배포가 실패했습니다.** publish 작업 결과: ${PUBLISH_RESULT}."
             echo
-            echo "원인을 해결한 뒤 이 실행에서 \`Re-run failed jobs\`를 선택합니다. 성공한 prepare는 다시 실행되지 않고, publish가 해당 실행의 배포 산출물을 그대로 내려받아 SHA-256과 manifest를 검증한 뒤 이미 올라간 같은 tarball은 건너뛰고 남은 패키지부터 이어서 배포합니다."
+            echo "원인을 해결한 뒤 이 실행에서 \`Re-run failed jobs\`를 선택합니다. 성공한 prepare는 다시 실행되지 않고, publish가 해당 실행의 배포 산출물을 그대로 내려받아 SHA-256과 manifest를 검증한 뒤 이미 올라간 같은 tarball은 건너뛰고 남은 패키지부터 이어서 배포합니다. npm 배포가 끝나면 release가 provenance를 확인한 뒤 태그와 GitHub Release를 만듭니다."
             echo
             echo "\`Re-run all jobs\`, 새 \`Run workflow\` 실행이나 로컬 재-pack으로 같은 버전을 이어서 배포하지 않습니다. 배포 산출물 보존 기간(7일)이 지났거나 산출물이 없으면 같은 버전 재개를 중단하고, 이미 공개된 패키지 상태를 확인한 뒤 새 버전의 새 릴리스로 처리합니다."
           } >> "${GITHUB_STEP_SUMMARY}"

@@ -1,12 +1,12 @@
 # 테스트 계획
 
-SlipKit의 공개 전 품질 확인 범위와 방법을 정리합니다.
+SlipKit의 품질 확인 범위와 방법을 정리합니다.
 
 문서 구성은 ISO/IEC/IEEE 29119-3의 테스트 계획 항목(문맥·전략·기준·범위·일정·위험)을 참고했고, 보안 점검 항목은 OWASP ASVS 5.0과 치트시트를, 접근성 점검 항목은 WCAG 2.2 AA를 참고했습니다. 각 표준을 전부 준수한다는 뜻은 아니며, 이 프로젝트에 필요한 항목만 골라 썼습니다.
 
 이 문서는 **계획과 판정 기준**만 담습니다. 측정값은 실행할 때마다 달라지므로 여기에 적지 않고, 아래 명령으로 그때그때 확인합니다. 확정된 요구사항은 [요구사항](./REQUIREMENTS.md), 파일 형식은 [파일 형식 명세](./SPEC.md), 설계 배경은 [설계 결정 기록](./DECISIONS.md)을 참고합니다.
 
-최종 갱신: 2026-09-28
+최종 갱신: 2026-09-29
 
 ## 1. 테스트 대상과 실행 환경
 
@@ -139,6 +139,10 @@ Chromium도 설치되어 있어야 합니다.
 | 산출물 무결성 | 준비 작업이 만든 tarball과 SHA-256 목록을 내려받아 검증하고 다시 빌드하거나 pack하지 않는지 |
 | 순서와 재개 | `core` → `elements` → `react` → `vue` → `mcp` 순서를 지키고 E404·같은 SRI·다른 SRI·조회 오류를 구분하는지 |
 | 결과 보고 | dry-run과 외부 설정 미완료를 실제 배포 성공과 구분해 Job Summary에 남기는지 |
+| 실행 제목 | Actions 실행 제목에 버전, 배포 채널과 실행 종류를 표시하는지 |
+| 버전 준비 | 다섯 패키지 버전이 같고 현재 버전의 세 언어 릴리즈 원문과 공개 문서가 준비돼 있는지 |
+| 배포 후 확인 | npm SRI·dist-tag·provenance를 확인한 뒤에만 GitHub Release를 만드는지 |
+| GitHub Release | 검증한 커밋의 태그, 검토한 세 언어 원문과 다섯 tarball·manifest·SHA-256 목록을 게시하는지 |
 
 ### 5.7 폰트 예산
 
@@ -196,16 +200,19 @@ Chromium도 설치되어 있어야 합니다.
 
 ### 5.10 릴리스 워크플로 구조
 
-부분 배포 재개가 처음 실패한 실행의 배포 산출물에만 의존하도록 `release.yml`의 구조를 `scripts/release/release.test.mjs`가
-자동 검증합니다.
+부분 배포 재개와 GitHub Release 생성이 처음 실행의 배포 산출물에만 의존하도록 `release.yml`의
+구조와 배포 도우미를 `scripts/release/release.test.mjs`가 자동 검증합니다.
 
 | 항목 | 확인할 것 |
 |---|---|
 | `pnpm pack` 위치 | tarball을 만드는 단계가 `prepare`에만 있는지 |
-| 배포 산출물 재사용 | 두 publish 작업이 `needs: prepare`이고 `prepare`가 올린 것과 같은 이름의 배포 산출물을 내려받는지 |
-| 재빌드 없음 | publish 작업에 설치·검증·빌드·`pnpm pack` 단계가 없는지 |
+| 배포 산출물 재사용 | 두 publish 작업과 release 작업이 `prepare`가 올린 것과 같은 이름의 배포 산출물을 내려받는지 |
+| 재빌드 없음 | publish·release 작업에 설치·검증·빌드·`pnpm pack` 단계가 없는지 |
 | 보존 기간 | `retention-days`가 7인지 |
 | 실패 안내 | 배포 실패 Job Summary가 처음 실패한 실행의 `Re-run failed jobs`를 가리키고 새 실행을 권하는 문구가 없는지 |
+| 릴리즈 원문 | 한국어·일본어·영어 구역이 순서대로 있고 각 구역이 비어 있지 않은지 |
+| npm 확인 | manifest SRI, dist-tag와 attestation 존재 여부가 맞고 레지스트리 반영 지연은 제한 횟수 안에서 다시 확인하며, 공개된 정확한 버전의 `npm audit signatures --include-attestations`가 통과하는지 |
+| Release 멱등성 | 없는 Release는 만들고, 기존 Release는 커밋·본문·상태·자산 digest를 확인해 누락 자산만 추가하는지 |
 
 ### 5.11 저장소 정적 정리 검사
 
@@ -476,7 +483,7 @@ WCAG 2.2 AA의 관련 성공 기준을 참고하되, 자동 검사로 잡히지 
 | tarball 공개 파일·타입·npm·pnpm 소비자 설치 | 화면 낭독기 확인 |
 | Node.js·Chromium 소비자 로드와 PDF 생성 | 키보드·초점·확대 조작 확인 |
 | PR의 Node.js·스키마·Windows 검증 | npm 조직·Trusted Publisher·GitHub Environment의 실제 외부 설정 |
-| 배포 tarball 무결성·순서·dry-run | 실제 npm 배포와 최초 패키지 생성 |
+| 배포 tarball 무결성·순서·dry-run·GitHub Release 구조 | npm Trusted Publisher와 GitHub Environment의 실제 외부 상태 |
 | 성능 기준선과 의존성 취약점 검사 | 브라우저 성능, 서버 동시 처리량과 장시간 메모리 증가 |
 
 검증 게이트는 개발자 컴퓨터의 커밋 훅과 GitHub Actions에서 실행됩니다. PR과 `main` push에서는
@@ -541,7 +548,7 @@ pnpm audit
 pnpm demo
 ```
 
-공개 전 검증은 다음 다섯 단계를 순서대로 통과해야 합니다.
+릴리스 준비 검증은 다음 다섯 단계를 순서대로 통과해야 합니다.
 
 1. 고정 의존성 설치: `corepack pnpm install --frozen-lockfile`
 2. 저장소 게이트: `pnpm verify`
