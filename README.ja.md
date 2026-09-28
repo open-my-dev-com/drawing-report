@@ -38,9 +38,7 @@ SlipKit ではテンプレートと伝票を区別します。
 ## 現在の状態
 
 > [!IMPORTANT]
-> SlipKit は現在、公開前のレビュー段階です。
->
-> `@omdc/slipkit` と `@omdc/slipkit-*` パッケージはまだ npm レジストリに公開されていません。現在のバージョンはリポジトリをクローンして、デモとソースコードで確認できます。
+> SlipKit 0.1.x は npm の `@omdc` スコープで公開されています。公開 API はまだ 1.0 未満のため、更新前にリリースノートを確認してください。
 
 ## パッケージ構成
 
@@ -48,13 +46,29 @@ SlipKit は pnpm ワークスペースベースのモノレポで構成されて
 
 | パッケージ | 役割 |
 |---|---|
-| [`@omdc/slipkit`](packages/core) | `.slip` ファイルの検証、数式評価、伝票の組み立て、PDF 生成、ファイル暗号化を提供します。DOM に依存しないため、ブラウザと Node.js で利用できます。 |
-| [`@omdc/slipkit-elements`](packages/elements) | Lit で実装した `<slip-designer>`、`<slip-form>`、`<slip-viewer>` Web Component を提供します。 |
-| [`@omdc/slipkit-react`](packages/react) | SlipKit の Web Component を React コンポーネントとして使えるようにします。 |
-| [`@omdc/slipkit-vue`](packages/vue) | SlipKit の Web Component を Vue コンポーネントとして使えるようにします。 |
-| [`@omdc/slipkit-mcp`](packages/mcp) | AI が MCP ツールでテンプレートを作成・編集できるローカル MCP サーバーを提供します。 |
+| [`@omdc/slipkit`](https://www.npmjs.com/package/@omdc/slipkit) ([ソース](packages/core)) | `.slip` ファイルの検証、数式評価、伝票の組み立て、PDF 生成、ファイル暗号化を提供します。DOM に依存しないため、ブラウザと Node.js で利用できます。 |
+| [`@omdc/slipkit-elements`](https://www.npmjs.com/package/@omdc/slipkit-elements) ([ソース](packages/elements)) | Lit で実装した `<slip-designer>`、`<slip-form>`、`<slip-viewer>` Web Component を提供します。 |
+| [`@omdc/slipkit-react`](https://www.npmjs.com/package/@omdc/slipkit-react) ([ソース](packages/react)) | SlipKit の Web Component を React コンポーネントとして使えるようにします。 |
+| [`@omdc/slipkit-vue`](https://www.npmjs.com/package/@omdc/slipkit-vue) ([ソース](packages/vue)) | SlipKit の Web Component を Vue コンポーネントとして使えるようにします。 |
+| [`@omdc/slipkit-mcp`](https://www.npmjs.com/package/@omdc/slipkit-mcp) ([ソース](packages/mcp)) | AI が MCP ツールでテンプレートを作成・編集できるローカル MCP サーバーを提供します。 |
 
-## ローカルでの実行
+## インストール
+
+ブラウザーアプリケーションでは Core と Web Component をインストールします。
+
+```bash
+npm install @omdc/slipkit @omdc/slipkit-elements
+```
+
+使用するフレームワークのラッパーをインストールするか、MCP サーバーをグローバルインストールせずに実行できます。
+
+```bash
+npm install @omdc/slipkit @omdc/slipkit-react react react-dom
+npm install @omdc/slipkit @omdc/slipkit-vue vue
+npx -y @omdc/slipkit-mcp --help
+```
+
+## リポジトリをローカルで実行する
 
 ### 要件
 

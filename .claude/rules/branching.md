@@ -98,3 +98,31 @@ PR을 만들거나 갱신하기 전에 아래 항목을 **하나씩 확인하고
   | 경로 | 내용 |
   |---|---|
   | `packages/xx/src/yy.ts` | 무엇을 어떻게 수정했는지 한 줄 요약 |
+
+## 버전 변경 PR
+
+패키지 버전을 올리는 작업은 배포 실행 전에 별도의 준비 PR로 검토합니다. AI가 버전 변경을 맡으면
+사용자에게 Release 워크플로 실행을 안내하기 전에 다음 항목을 모두 완료합니다.
+
+1. 다음 버전과 `latest` 또는 `next` dist-tag를 정하고, SemVer 변경 이유를 설명합니다.
+2. `@omdc/slipkit`, `@omdc/slipkit-elements`, `@omdc/slipkit-react`, `@omdc/slipkit-vue`,
+   `@omdc/slipkit-mcp`의 버전을 같은 값으로 올립니다.
+3. `docs/releases/버전.md`에 한국어, 일본어, 영어 순서로 릴리즈 원문을 작성합니다.
+4. README, 가이드, 보안 정책과 로드맵에서 현재 공개 상태나 버전을 설명하는 내용을 함께
+   확인하고 필요한 문서를 갱신합니다.
+5. 변경 시험, `pnpm verify`, `pnpm verify:packages`, `actionlint`와 `git diff --check`를 통과합니다.
+6. PR 본문에 아래 정보를 적습니다.
+
+| 항목 | 작성 내용 |
+|---|---|
+| 버전 | 변경 전·후 버전, SemVer 변경 이유 |
+| 배포 대상 | 다섯 패키지와 dist-tag |
+| 릴리즈 원문 | `docs/releases/버전.md`와 세 언어 구역 확인 |
+| 공개 문서 | 변경하거나 확인한 README·가이드·정책 |
+| 검증 | 실행한 명령과 결과 |
+| 병합 후 실행 | Release 워크플로의 `version`, `dist_tag`, `environment`, `dry_run` 입력과 예상 결과 |
+
+준비 PR이 병합되기 전에는 해당 버전으로 실제 배포하거나 사용자에게 실제 배포를 지시하지 않습니다.
+병합 후에는 먼저 `dry_run=true`로 검증하고, 성공한 뒤 같은 버전과 dist-tag로 `dry_run=false`를 한 번
+실행합니다. 실제 실행은 npm 배포, provenance 확인, Git 태그와 GitHub Release 생성을 한 흐름으로
+완료해야 합니다.

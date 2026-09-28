@@ -38,9 +38,7 @@ Both templates and vouchers use the `.slip` extension and are distinguished by t
 ## Current status
 
 > [!IMPORTANT]
-> SlipKit is currently in a pre-release review stage.
->
-> The `@omdc/slipkit` and `@omdc/slipkit-*` packages are not yet published to the npm registry. For now you can explore the current version by cloning the repository and reviewing the demos and source code.
+> SlipKit 0.1.x is available on npm under the `@omdc` scope. The public API is still pre-1.0, so review the release notes before upgrading.
 
 ## Packages
 
@@ -48,13 +46,29 @@ SlipKit is a pnpm workspace-based monorepo.
 
 | Package | Role |
 |---|---|
-| [`@omdc/slipkit`](packages/core) | Provides `.slip` file validation, formula evaluation, voucher assembly, PDF generation, and file encryption. It has no DOM dependency, so it runs in the browser and Node.js. |
-| [`@omdc/slipkit-elements`](packages/elements) | Provides the `<slip-designer>`, `<slip-form>`, and `<slip-viewer>` Web Components built with Lit. |
-| [`@omdc/slipkit-react`](packages/react) | Lets you use the SlipKit Web Components as React components. |
-| [`@omdc/slipkit-vue`](packages/vue) | Lets you use the SlipKit Web Components as Vue components. |
-| [`@omdc/slipkit-mcp`](packages/mcp) | Provides a local MCP server that lets AI create and edit templates through MCP tools. |
+| [`@omdc/slipkit`](https://www.npmjs.com/package/@omdc/slipkit) ([source](packages/core)) | Provides `.slip` file validation, formula evaluation, voucher assembly, PDF generation, and file encryption. It has no DOM dependency, so it runs in the browser and Node.js. |
+| [`@omdc/slipkit-elements`](https://www.npmjs.com/package/@omdc/slipkit-elements) ([source](packages/elements)) | Provides the `<slip-designer>`, `<slip-form>`, and `<slip-viewer>` Web Components built with Lit. |
+| [`@omdc/slipkit-react`](https://www.npmjs.com/package/@omdc/slipkit-react) ([source](packages/react)) | Lets you use the SlipKit Web Components as React components. |
+| [`@omdc/slipkit-vue`](https://www.npmjs.com/package/@omdc/slipkit-vue) ([source](packages/vue)) | Lets you use the SlipKit Web Components as Vue components. |
+| [`@omdc/slipkit-mcp`](https://www.npmjs.com/package/@omdc/slipkit-mcp) ([source](packages/mcp)) | Provides a local MCP server that lets AI create and edit templates through MCP tools. |
 
-## Running locally
+## Installation
+
+Install Core and the Web Components for a browser application.
+
+```bash
+npm install @omdc/slipkit @omdc/slipkit-elements
+```
+
+Use the framework wrapper that matches your application, or run the MCP server without installing it globally.
+
+```bash
+npm install @omdc/slipkit @omdc/slipkit-react react react-dom
+npm install @omdc/slipkit @omdc/slipkit-vue vue
+npx -y @omdc/slipkit-mcp --help
+```
+
+## Running the repository locally
 
 ### Requirements
 

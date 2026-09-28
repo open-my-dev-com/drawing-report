@@ -1,0 +1,11 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: Fixes · 수정 · 修正
+      labels:
+        - 'kind: bug'
+    - title: Changes · 변경 · 変更
+      labels:
+        - '*'

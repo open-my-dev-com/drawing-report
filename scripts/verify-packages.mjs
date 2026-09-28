@@ -224,8 +224,8 @@ async function main() {
       mkdirSync(consumer);
       cpSync(FIXTURES, consumer, { recursive: true });
       const dependencies = Object.fromEntries(PACKAGES.map((name) => [packageName(name), `file:${tarballs[name]}`]));
-      // pnpm은 tarball 안의 다른 SlipKit 패키지 의존성(예: MCP → Core)을 레지스트리에서 찾으므로, 아직 배포되지 않은
-      // 패키지를 같은 tarball로 대체하는 overrides가 필요합니다. npm은 최상위 file: 의존성으로 해소하므로 두지 않습니다.
+      // pnpm이 tarball 내부의 SlipKit 의존성(예: MCP → Core)을 레지스트리 버전으로 바꾸지 않도록,
+      // 이번 실행에서 만든 tarball을 overrides로 지정합니다. npm은 최상위 file: 의존성으로 해소하므로 두지 않습니다.
       // pnpm 소비자는 저장소와 같은 pnpm 버전을 Corepack으로 고정합니다. 임시 디렉터리에서 `pnpm`만 실행하면 Corepack이
       // 최신 pnpm을 고를 수 있고, pnpm 11은 package.json의 `pnpm.overrides`를 읽지 않아 아래 overrides가 무시됩니다.
       const pnpmConsumer = pm === 'pnpm' ? { packageManager: `pnpm@${CONSUMER_PNPM_VERSION}`, pnpm: { overrides: dependencies } } : {};

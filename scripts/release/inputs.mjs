@@ -13,6 +13,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PACKAGE_DIRS } from '../package-names.mjs';
+import { readReleaseNotes } from './release-notes.mjs';
 
 /** 배포할 패키지를 배포 순서대로 나열한 목록입니다. */
 export const RELEASE_PACKAGES = PACKAGE_DIRS;
@@ -106,16 +107,24 @@ export async function readPackageVersions(root) {
 
 if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const version = process.env['RELEASE_VERSION'];
   const problems = validateReleaseInputs({
     ref: process.env['GITHUB_REF'],
-    version: process.env['RELEASE_VERSION'],
+    version,
     distTag: process.env['RELEASE_DIST_TAG'],
     environment: process.env['RELEASE_ENVIRONMENT'],
     packageVersions: await readPackageVersions(root),
   });
+  if (isExactSemver(version)) {
+    try {
+      await readReleaseNotes(root, version);
+    } catch (error) {
+      problems.push(error instanceof Error ? error.message : String(error));
+    }
+  }
   for (const problem of problems) process.stdout.write(`::error::${problem}\n`);
   if (problems.length > 0) process.exit(1);
   process.stdout.write(
-    `release inputs ok: version ${process.env['RELEASE_VERSION']}, dist-tag ${process.env['RELEASE_DIST_TAG']}, environment ${process.env['RELEASE_ENVIRONMENT']}\n`,
+    `release inputs ok: version ${version}, dist-tag ${process.env['RELEASE_DIST_TAG']}, environment ${process.env['RELEASE_ENVIRONMENT']}\n`,
   );
 }

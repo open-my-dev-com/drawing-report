@@ -10,6 +10,19 @@ import { formatSha256Sums, parseSha256Sums, sha256Hex, sriSha512, verifySha256Su
 import { isExactSemver, isPrerelease, validateReleaseInputs } from './inputs.mjs';
 import { buildManifest, tarballFileName } from './pack.mjs';
 import { decidePublish, interpretView, publishAll } from './publish.mjs';
+import {
+  ensureGitHubRelease,
+  inspectExistingRelease,
+  inspectPublishedPackage,
+  interpretGitHubLookup,
+  releaseAssets,
+  verifyPublishedPackages,
+  verifyProvenanceSignatures,
+} from './finalize.mjs';
+import { buildReleaseBody, readReleaseNotes, validateReleaseNotes } from './release-notes.mjs';
+
+const ROOT = fileURLToPath(new URL('../..', import.meta.url));
+const CURRENT_VERSION = JSON.parse(readFileSync(path.join(ROOT, 'packages/core/package.json'), 'utf8')).version;
 
 const ALL_SAME = {
   '@omdc/slipkit': '0.1.0',
@@ -50,6 +63,44 @@ describe('inputs', () => {
     const pre = { ...base, version: '1.0.0-beta.1', packageVersions: prerelease };
     assert.deepEqual(validateReleaseInputs(pre), ['prerelease version 1.0.0-beta.1 must not use dist_tag latest']);
     assert.deepEqual(validateReleaseInputs({ ...pre, distTag: 'next' }), []);
+  });
+});
+
+describe('release notes', () => {
+  const valid = '# SlipKit 0.1.1\n\n## 한국어\n\n변경 내용\n\n## 日本語\n\n変更内容\n\n## English\n\nChanges\n';
+
+  it('한국어·일본어·영어 구역을 순서대로 요구한다', () => {
+    assert.deepEqual(validateReleaseNotes(valid, '0.1.1'), []);
+    assert.deepEqual(validateReleaseNotes(valid.replace('0.1.1', '0.1.1+build.5'), '0.1.1+build.5'), []);
+    assert.match(validateReleaseNotes(valid, '0.1.2')[0], /title must be # SlipKit 0\.1\.2/);
+    assert.match(validateReleaseNotes(valid.replace('변경 내용', ''))[0], /한국어 is empty/);
+    assert.match(validateReleaseNotes(valid.replace('## 日本語', '## English').replace('## English\n\nChanges', '## 日本語\n\n変更'))[0], /exactly|ordered/);
+  });
+
+  it('현재 패키지 버전의 릴리즈 노트를 저장소에서 읽는다', async () => {
+    assert.match(await readReleaseNotes(ROOT, CURRENT_VERSION), new RegExp(`^# SlipKit ${CURRENT_VERSION.replaceAll('.', '\\.')}\\s*$`, 'm'));
+  });
+
+  it('공개 문서가 npm 미배포 상태를 안내하지 않는다', () => {
+    const files = [
+      'README.md', 'README.ko.md', 'README.ja.md', 'SECURITY.md',
+      'docs/ROADMAP.md', 'docs/RELEASE.md',
+      'docs/guide/README.md', 'docs/guide/README.ko.md', 'docs/guide/README.ja.md',
+      'docs/guide/getting-started.md', 'docs/guide/getting-started.ko.md', 'docs/guide/getting-started.ja.md',
+      'docs/guide/core.md', 'docs/guide/core.ko.md', 'docs/guide/core.ja.md',
+      'docs/guide/server-integration.md', 'docs/guide/server-integration.ko.md', 'docs/guide/server-integration.ja.md',
+      'docs/guide/mcp.md', 'docs/guide/mcp.ko.md', 'docs/guide/mcp.ja.md',
+    ];
+    const stale = /not yet (?:been )?published|pre-release review|공개 전 검토|아직 npm 레지스트리에 배포|公開前のレビュー|まだ npm レジストリに公開/u;
+    for (const file of files) {
+      assert.doesNotMatch(readFileSync(path.join(ROOT, file), 'utf8'), stale, file);
+    }
+  });
+
+  it('세 언어 원문 뒤에 GitHub 변경 목록을 붙인다', () => {
+    const body = buildReleaseBody(valid, '## What changed\n\n- PR #1');
+    assert.match(body, /## Changes · 변경 내역 · 変更履歴/);
+    assert.match(body, /- PR #1/);
   });
 });
 
@@ -248,6 +299,149 @@ describe('publish', () => {
   });
 });
 
+describe('release finalizer', () => {
+  const entry = {
+    name: '@omdc/slipkit',
+    version: '0.1.1',
+    file: 'omdc-slipkit-0.1.1.tgz',
+    integrity: 'sha512-AAAA',
+  };
+  const dist = {
+    integrity: entry.integrity,
+    attestations: {
+      url: 'https://registry.npmjs.org/-/npm/v1/attestations/example',
+      provenance: { predicateType: 'https://slsa.dev/provenance/v1' },
+    },
+  };
+
+  it('npm의 SRI·dist-tag·provenance를 모두 요구한다', () => {
+    assert.deepEqual(inspectPublishedPackage({ entry, dist, tags: { latest: '0.1.1' }, distTag: 'latest' }), []);
+    assert.deepEqual(
+      inspectPublishedPackage({ entry, dist: { integrity: entry.integrity }, tags: {}, distTag: 'latest' }),
+      ['dist-tag latest is (unset)', 'provenance attestation is missing'],
+    );
+    assert.throws(
+      () => inspectPublishedPackage({ entry, dist: { ...dist, integrity: 'sha512-BBBB' }, tags: { latest: '0.1.1' }, distTag: 'latest' }),
+      /integrity is sha512-BBBB/,
+    );
+  });
+
+  it('npm 반영이 늦으면 다시 확인하고 provenance가 보이면 통과한다', async () => {
+    let views = 0;
+    const npm = async (args) => {
+      if (args[2] === 'dist') {
+        views += 1;
+        return { code: 0, stdout: JSON.stringify(views === 1 ? { integrity: entry.integrity } : dist), stderr: '' };
+      }
+      return { code: 0, stdout: JSON.stringify({ latest: '0.1.1' }), stderr: '' };
+    };
+    let delays = 0;
+    await verifyPublishedPackages({
+      manifest: [entry],
+      distTag: 'latest',
+      npm,
+      attempts: 2,
+      delay: async () => { delays += 1; },
+    });
+    assert.equal(views, 2);
+    assert.equal(delays, 1);
+  });
+
+  it('공개된 정확한 버전을 설치해 npm 서명과 provenance를 검증한다', async () => {
+    const calls = [];
+    await verifyProvenanceSignatures({
+      manifest: [entry],
+      npm: async (args, options) => {
+        calls.push({ args, cwd: options.cwd });
+        return { code: 0, stdout: '{}', stderr: '' };
+      },
+    });
+    assert.deepEqual(calls.map((call) => call.args), [
+      ['install', '--ignore-scripts', '--no-audit', '--no-fund'],
+      ['audit', 'signatures', '--include-attestations', '--json'],
+    ]);
+    assert.equal(calls[0].cwd, calls[1].cwd);
+  });
+
+  it('GitHub 404만 없는 Release로 해석한다', () => {
+    assert.deepEqual(interpretGitHubLookup({ code: 1, stdout: '', stderr: 'gh: Not Found (HTTP 404)' }, 'release'), { status: 'missing' });
+    assert.throws(() => interpretGitHubLookup({ code: 1, stdout: '', stderr: 'network down' }, 'release'), /network down/);
+  });
+
+  describe('GitHub Release', () => {
+    let dir;
+    let assets;
+    beforeEach(async () => {
+      dir = await mkdtemp(path.join(tmpdir(), 'slipkit-finalize-'));
+      await writeFile(path.join(dir, entry.file), 'tarball');
+      await writeFile(path.join(dir, 'manifest.json'), '[]\n');
+      await writeFile(path.join(dir, 'SHA256SUMS'), 'sum\n');
+      assets = await releaseAssets(dir, [entry]);
+    });
+    afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
+
+    it('기존 Release의 커밋·본문·상태·자산 digest를 검사한다', () => {
+      const release = {
+        name: 'SlipKit 0.1.1',
+        body: 'notes',
+        draft: false,
+        prerelease: false,
+        assets: assets.map((asset) => ({ name: asset.name, digest: asset.digest })),
+      };
+      assert.deepEqual(inspectExistingRelease({ release, tagCommit: 'abc', version: '0.1.1', sha: 'abc', body: 'notes', assets }), []);
+      assert.throws(
+        () => inspectExistingRelease({ release, tagCommit: 'wrong', version: '0.1.1', sha: 'abc', body: 'notes', assets }),
+        /points to wrong/,
+      );
+      const incomplete = { ...release, assets: release.assets.slice(1) };
+      assert.deepEqual(
+        inspectExistingRelease({ release: incomplete, tagCommit: 'abc', version: '0.1.1', sha: 'abc', body: 'notes', assets }).map((asset) => asset.name),
+        [entry.file],
+      );
+    });
+
+    it('Release가 없으면 검증한 커밋에 세 언어 본문과 자산을 생성한다', async () => {
+      const calls = [];
+      let created = false;
+      const gh = async (args) => {
+        calls.push(args);
+        if (args[0] === 'api' && !created) return { code: 1, stdout: '', stderr: 'gh: Not Found (HTTP 404)' };
+        if (args[0] === 'api' && args[1]?.includes('/releases/')) {
+          return {
+            code: 0,
+            stdout: JSON.stringify({
+              name: 'SlipKit 0.1.1',
+              body: 'notes',
+              draft: false,
+              prerelease: false,
+              assets: assets.map((asset) => ({ name: asset.name, digest: asset.digest })),
+            }),
+            stderr: '',
+          };
+        }
+        if (args[0] === 'api') return { code: 0, stdout: JSON.stringify({ object: { sha: 'abc' } }), stderr: '' };
+        created = true;
+        return { code: 0, stdout: 'https://example.test/release', stderr: '' };
+      };
+      assert.equal(await ensureGitHubRelease({
+        dir,
+        manifest: [entry],
+        version: '0.1.1',
+        repo: 'open-my-dev-com/slipkit',
+        sha: 'abc',
+        body: 'notes',
+        gh,
+      }), 'created');
+      const create = calls.find((args) => args[0] === 'release' && args[1] === 'create');
+      assert.ok(create.includes('--target'));
+      assert.ok(create.includes('abc'));
+      assert.ok(create.includes('--latest'));
+      assert.ok(create.includes(entry.file) === false);
+      assert.ok(create.includes(path.join(dir, entry.file)));
+    });
+  });
+});
+
 const WORKFLOW_TEXT = readFileSync(fileURLToPath(new URL('../../.github/workflows/release.yml', import.meta.url)), 'utf8');
 
 /**
@@ -278,14 +472,15 @@ function workflowJobs() {
 describe('release 워크플로', () => {
   const jobs = workflowJobs();
   const publishJobs = ['publish-dry-run', 'publish'];
+  const artifactConsumers = [...publishJobs, 'release'];
 
-  it('작업 구성은 prepare · publish-dry-run · publish · status다', () => {
-    assert.deepEqual([...jobs.keys()], ['prepare', 'publish-dry-run', 'publish', 'status']);
+  it('작업 구성은 prepare · publish-dry-run · publish · release · status다', () => {
+    assert.deepEqual([...jobs.keys()], ['prepare', 'publish-dry-run', 'publish', 'release', 'status']);
   });
 
   it('tarball을 만드는 pack은 prepare에서만 실행한다', () => {
     assert.match(jobs.get('prepare'), /scripts\/release\/pack\.mjs/);
-    for (const name of publishJobs) {
+    for (const name of artifactConsumers) {
       assert.doesNotMatch(jobs.get(name), /pack\.mjs|pnpm pack/, `${name}이 tarball을 다시 만든다`);
     }
   });
@@ -293,9 +488,9 @@ describe('release 워크플로', () => {
   it('publish 작업은 prepare가 올린 배포 산출물을 그대로 내려받는다', () => {
     const uploaded = /uses: actions\/upload-artifact@[^\n]+\n\s+with:\n\s+name: ([^\n]+)\n/.exec(jobs.get('prepare'));
     assert.ok(uploaded !== null, 'prepare가 배포 산출물을 올리지 않습니다.');
-    for (const name of publishJobs) {
+    for (const name of artifactConsumers) {
       const job = jobs.get(name);
-      assert.match(job, /^\s+needs: prepare$/m, `${name}이 prepare를 needs로 지정하지 않았습니다.`);
+      assert.match(job, name === 'release' ? /^\s+needs: \[prepare, publish\]$/m : /^\s+needs: prepare$/m, `${name}이 prepare를 needs로 지정하지 않았습니다.`);
       const downloaded = /uses: actions\/download-artifact@[^\n]+\n\s+with:\n\s+name: ([^\n]+)\n/.exec(job);
       assert.ok(downloaded !== null, `${name}이 배포 산출물을 내려받지 않습니다.`);
       assert.equal(downloaded[1], uploaded[1]);
@@ -303,7 +498,7 @@ describe('release 워크플로', () => {
   });
 
   it('publish 작업은 소스를 다시 빌드하지 않는다', () => {
-    for (const name of publishJobs) {
+    for (const name of artifactConsumers) {
       assert.doesNotMatch(jobs.get(name), /pnpm install|pnpm verify|pnpm build|corepack/, `${name}이 빌드 단계를 갖는다`);
     }
   });
@@ -320,5 +515,14 @@ describe('release 워크플로', () => {
     // 새 워크플로 실행을 재개 방법으로 안내하는 문구가 없어야 합니다.
     assert.doesNotMatch(status, /같은 입력으로 다시 실행/);
     assert.doesNotMatch(status, /다시 실행하면/);
+  });
+
+  it('실제 npm 배포가 성공한 뒤에만 별도 최소 권한 작업이 GitHub Release를 만든다', () => {
+    const release = jobs.get('release');
+    assert.match(release, /^\s+needs: \[prepare, publish\]$/m);
+    assert.match(release, /^\s+contents: write$/m);
+    assert.doesNotMatch(release, /id-token: write/);
+    assert.match(release, /scripts\/release\/finalize\.mjs/);
+    assert.match(jobs.get('status'), /RELEASE_RESULT/);
   });
 });

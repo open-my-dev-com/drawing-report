@@ -11,22 +11,20 @@ By the end of this document you will be able to:
 - Receive the template a user has edited
 - Prepare to connect storage and voucher-entry features next
 
-> [!IMPORTANT]
-> SlipKit is currently in a pre-release review stage, and the `@omdc/slipkit` and `@omdc/slipkit-*` packages are not yet published to the npm registry.
-> To run it right now, clone the repository and use the bundled demos.
+SlipKit is available on npm as the `0.1.x` development series. You can install it in an application or run the repository demos.
 
 ## Choose how to run it
 
 | Goal | Method to use |
 |---|---|
-| Run SlipKit now and check its features | [Run the demos from the repository](#run-the-demos-from-the-repository) |
-| Integrate into an existing application after the npm release | [Connect to an external project](#connect-to-an-external-project) |
+| Integrate SlipKit into an application | [Connect to an external project](#connect-to-an-external-project) |
+| Review all features in a prepared sample | [Run the demos from the repository](#run-the-demos-from-the-repository) |
 
 ---
 
 ## Run the demos from the repository
 
-This is the way you can run it right now.
+Use this method to review the source code and prepared demo applications together.
 
 ### Requirements
 
@@ -124,10 +122,6 @@ You can find the full implementation for each framework in these directories.
 ---
 
 ## Connect to an external project
-
-> [!WARNING]
-> The install commands in this section become usable after the `@omdc/slipkit` and `@omdc/slipkit-*` packages are published to npm.
-> Running them now results in a `404 Not Found` error.
 
 The examples below assume a build environment such as Vite that supports ESM and TypeScript.
 
@@ -475,13 +469,18 @@ The next step typically adds the following features.
 <details>
 <summary><strong>The package can't be found on npm</strong></summary>
 
-While the SlipKit packages are not yet published, you get an error like this.
+Confirm that you used the `@omdc` scope and the public npm registry.
 
 ```text
 npm error 404 Not Found
 ```
 
-For now, use the [Run the demos from the repository](#run-the-demos-from-the-repository) method.
+```bash
+npm config get registry
+npm view @omdc/slipkit version
+```
+
+If your organization uses a private registry mirror, configure the `@omdc` scope to resolve from `https://registry.npmjs.org/` or ask the registry administrator to mirror the package.
 
 </details>
 

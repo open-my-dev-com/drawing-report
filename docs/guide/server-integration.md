@@ -10,10 +10,6 @@ It uses NestJS as the representative example, but the validation, rendering, and
 > For the Core API itself, see the [Core Usage Guide](core.md).
 > This document covers how to connect Core to a server application's lifecycle, storage, and HTTP requests.
 
-> [!IMPORTANT]
-> SlipKit is currently in pre-release review, and the `@omdc/slipkit` and `@omdc/slipkit-*` packages have not yet been published to the npm registry.
-> For now, you can verify everything against the source code and demos included in the repository.
-
 ## What the server is responsible for
 
 This guide assumes the server handles the following tasks.

@@ -19,14 +19,15 @@ We aim to acknowledge reports within **7 days**. After reviewing a report we wil
 
 ## Supported versions
 
-The `@omdc/slipkit` and `@omdc/slipkit-*` packages are not yet published to the npm registry, and the `.slip` schema is at the pre-release version `0.1.0`. Until the first release, **only the default branch is supported** — fixes land there, and there are no backports.
+SlipKit is currently in the `0.1.x` development series. Security fixes are released from the default branch as a new `0.1.x` package version; older `0.1.x` versions do not receive backports.
 
 | Version | Supported |
 |---|---|
-| `main` (pre-release) | Yes |
-| Anything else | No |
+| Latest `0.1.x` release | Yes |
+| `main` | Development branch |
+| Older versions | No |
 
-This table will be replaced with a real version policy at the first release.
+The policy will be reviewed before the first stable `1.0.0` release.
 
 ## Scope
 

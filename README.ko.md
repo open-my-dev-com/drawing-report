@@ -38,9 +38,7 @@ SlipKit에서는 양식과 전표를 구분합니다.
 ## 현재 상태
 
 > [!IMPORTANT]
-> SlipKit은 현재 공개 전 검토 단계입니다.
->
-> `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 현재 버전은 저장소를 복제하여 데모와 소스 코드로 확인할 수 있습니다.
+> SlipKit 0.1.x는 npm의 `@omdc` 범위에 공개되어 있습니다. 공개 API는 아직 1.0 이전이므로 버전을 올리기 전에 릴리즈 노트를 확인하세요.
 
 ## 패키지 구성
 
@@ -48,13 +46,29 @@ SlipKit은 pnpm 워크스페이스 기반 모노레포입니다.
 
 | 패키지 | 역할 |
 |---|---|
-| [`@omdc/slipkit`](packages/core) | `.slip` 파일 검증, 수식 평가, 전표 조립, PDF 생성 및 파일 암호화를 제공합니다. DOM에 의존하지 않아 브라우저와 Node.js에서 사용할 수 있습니다. |
-| [`@omdc/slipkit-elements`](packages/elements) | Lit으로 구현된 `<slip-designer>`, `<slip-form>`, `<slip-viewer>` Web Component를 제공합니다. |
-| [`@omdc/slipkit-react`](packages/react) | SlipKit Web Component를 React 컴포넌트로 사용할 수 있게 합니다. |
-| [`@omdc/slipkit-vue`](packages/vue) | SlipKit Web Component를 Vue 컴포넌트로 사용할 수 있게 합니다. |
-| [`@omdc/slipkit-mcp`](packages/mcp) | AI가 MCP 도구로 양식을 만들고 고칠 수 있게 하는 로컬 MCP 서버를 제공합니다. |
+| [`@omdc/slipkit`](https://www.npmjs.com/package/@omdc/slipkit) ([소스](packages/core)) | `.slip` 파일 검증, 수식 평가, 전표 조립, PDF 생성 및 파일 암호화를 제공합니다. DOM에 의존하지 않아 브라우저와 Node.js에서 사용할 수 있습니다. |
+| [`@omdc/slipkit-elements`](https://www.npmjs.com/package/@omdc/slipkit-elements) ([소스](packages/elements)) | Lit으로 구현된 `<slip-designer>`, `<slip-form>`, `<slip-viewer>` Web Component를 제공합니다. |
+| [`@omdc/slipkit-react`](https://www.npmjs.com/package/@omdc/slipkit-react) ([소스](packages/react)) | SlipKit Web Component를 React 컴포넌트로 사용할 수 있게 합니다. |
+| [`@omdc/slipkit-vue`](https://www.npmjs.com/package/@omdc/slipkit-vue) ([소스](packages/vue)) | SlipKit Web Component를 Vue 컴포넌트로 사용할 수 있게 합니다. |
+| [`@omdc/slipkit-mcp`](https://www.npmjs.com/package/@omdc/slipkit-mcp) ([소스](packages/mcp)) | AI가 MCP 도구로 양식을 만들고 고칠 수 있게 하는 로컬 MCP 서버를 제공합니다. |
 
-## 로컬에서 실행하기
+## 설치
+
+브라우저 애플리케이션에서는 Core와 Web Component를 설치합니다.
+
+```bash
+npm install @omdc/slipkit @omdc/slipkit-elements
+```
+
+사용하는 프레임워크의 래퍼를 설치하거나 MCP 서버를 전역 설치 없이 실행할 수 있습니다.
+
+```bash
+npm install @omdc/slipkit @omdc/slipkit-react react react-dom
+npm install @omdc/slipkit @omdc/slipkit-vue vue
+npx -y @omdc/slipkit-mcp --help
+```
+
+## 저장소를 로컬에서 실행하기
 
 ### 요구 환경
 

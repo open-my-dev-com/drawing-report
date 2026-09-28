@@ -4,17 +4,15 @@
 
 This page points you to the documents you need to run SlipKit or connect it to an existing application.
 
-If this is your first time, start with [Getting started](getting-started.md) to run the repository demos and connect the form designer.
+If this is your first time, start with [Getting started](getting-started.md) to install the npm packages, connect the form designer, or run the repository demos.
 
-> [!IMPORTANT]
-> SlipKit is currently in a pre-release review stage, and the `@omdc/slipkit` and `@omdc/slipkit-*` packages are not yet published to the npm registry.
-> For now you can explore it by cloning the repository and reviewing the bundled demos and source code.
+SlipKit is available on npm as the `0.1.x` development series. Review the release notes before upgrading because the public API may change before `1.0.0`.
 
 ## Find the document for your goal
 
 | What you want to do | Document | Audience |
 |---|---|---|
-| Run SlipKit from the repository for the first time and connect the designer | [Getting started](getting-started.md) | First-time developers |
+| Install SlipKit or run its repository demos for the first time | [Getting started](getting-started.md) | First-time developers |
 | Connect the designer, entry form, and viewer, and save the results | [Application Integration Guide](integration.md) | Frontend and application developers |
 | Build a template on the designer screen | [Form Designer Guide](designer.md) | Template authors |
 | Handle `.slip` files, assemble vouchers, and generate PDFs | [Core Usage Guide](core.md) | Backend and Core developers |

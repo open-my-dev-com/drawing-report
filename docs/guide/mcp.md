@@ -6,28 +6,23 @@
 
 You do not need to keep the server running in a separate terminal. With stdio, the MCP client starts the server as a local child process and stops it when the connection closes. The server reads its storage path, locale, fonts, and encryption environment-variable names from `slipkit-mcp.json`.
 
-> [!IMPORTANT]
-> SlipKit packages are not yet published to the npm registry. For now, build the package from this repository and connect the generated CLI to your MCP client.
-
 ## Prerequisites
 
 - Node.js 22.13 or later
-- pnpm 10.33.0
 - An MCP client that can connect to a local stdio server
 
-Install dependencies and build the MCP package from the repository root.
+Create a working directory and confirm that the published CLI starts.
 
 ```bash
-pnpm install
-pnpm --filter @omdc/slipkit-mcp build
 mkdir slip-workspace
+npx -y @omdc/slipkit-mcp --help
 ```
 
 `slip-workspace` is an example working directory for the `.slip` files and images that the AI may access. You may use any other directory.
 
 ## Try it with MCP Inspector
 
-The repository includes an Inspector demo for calling the tools before configuring a separate MCP client. MCP Inspector requires Node.js 22.19 or later.
+The repository includes an Inspector demo for contributors who want to call the tools against the current source. Clone the repository and install its dependencies first. MCP Inspector requires Node.js 22.19 or later.
 
 ```bash
 pnpm demo:mcp
@@ -74,9 +69,10 @@ Register the executable and the path to `slipkit-mcp.json` in the client's stdio
 {
   "mcpServers": {
     "slipkit": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/absolute/path/to/slipkit/packages/mcp/dist/cli.js",
+        "-y",
+        "@omdc/slipkit-mcp",
         "--config",
         "/absolute/path/to/slipkit-mcp.json"
       ]
@@ -101,29 +97,20 @@ MCP clients store their launch configuration in the following locations.
 | Client | Storage and registration |
 |---|---|
 | Codex CLI | User configuration at `~/.codex/config.toml`. Use `codex mcp add` instead of editing TOML directly. |
-| Claude Code | Supports `local`, `user`, and `project` scopes. Project scope uses `.mcp.json` in the repository. Local scope is more suitable during development because the command currently contains machine-specific absolute paths. |
+| Claude Code | Supports `local`, `user`, and `project` scopes. Project scope uses `.mcp.json` in the repository. Use local scope when the configuration path or environment variables are machine-specific. |
 | Other clients | Register the same `command`, `args`, and `env` in the user or project MCP configuration defined by that client. |
 
-To register the current repository build with Codex CLI:
+To register the published package with Codex CLI:
 
 ```bash
 codex mcp add slipkit -- \
-  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
-  --config /absolute/path/to/slipkit-mcp.json
+  npx -y @omdc/slipkit-mcp --config /absolute/path/to/slipkit-mcp.json
 ```
 
 Claude Code can register it as follows. Local scope avoids sharing machine-specific paths in `.mcp.json`.
 
 ```bash
 claude mcp add --scope local slipkit -- \
-  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
-  --config /absolute/path/to/slipkit-mcp.json
-```
-
-After the package is published to npm, clients can launch it without building this repository:
-
-```bash
-codex mcp add slipkit -- \
   npx -y @omdc/slipkit-mcp --config /absolute/path/to/slipkit-mcp.json
 ```
 
@@ -245,7 +232,7 @@ Register custom fonts in the server configuration.
 
 Font paths are resolved from the configuration file directory. At most one font may set `fallback: true`; when none does, the first font is used as the fallback. Configuring `fonts` replaces the bundled font list, so include every font referenced by the templates. Use names such as `AppFont-Bold`, `AppFont-Italic`, and `AppFont-BoldItalic` for style variants.
 
-When running from this repository, keep the pnpm-installed workspace dependencies instead of copying only `packages/mcp/dist`. After npm publication, the `elements` dependency and its embedded fonts will be installed with the MCP package.
+The npm package installs its `elements` dependency and bundled fonts automatically. When running from a source checkout, keep the pnpm-installed workspace dependencies instead of copying only `packages/mcp/dist`.
 
 ## Tools
 

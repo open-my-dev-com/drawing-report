@@ -4,18 +4,19 @@ SlipKit의 현재 개발 단계와 앞으로 진행할 작업을 정리합니다
 
 완료된 설계의 배경은 [설계 결정 기록](./DECISIONS.md), 현재 기능 요구사항은 [요구사항](./REQUIREMENTS.md), 파일 형식은 [파일 형식 명세](./SPEC.md)를 참고합니다.
 
-최종 갱신: 2026-09-28
+최종 갱신: 2026-09-29
 
 ## 현재 단계
 
-SlipKit은 첫 공개 전 전체 품질 검토와 후속 수정을 마쳤습니다. #106에서 74개 기본설계 문서와
-유형별 템플릿, 색인·추적·자동 검사 체계, 실제 화면 자산을 작성했습니다. 실제 npm 배포는 사용자가
-별도로 시작을 지시할 때만 진행합니다.
+SlipKit은 전체 품질 검토와 첫 npm 공개를 마쳤습니다. `0.1.0`은 다섯 공개 패키지를 만들고 Trusted
+Publisher를 연결하기 위한 초기 배포였으며, `0.1.1`부터 버전 준비 PR과 세 언어 GitHub Release를
+포함한 표준 배포 절차를 적용합니다.
 
 > [!IMPORTANT]
-> `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다.
+> `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지는 npm에 `0.1.x` 개발 버전으로 공개돼 있습니다.
 >
-> 현재 파일 스키마는 공개 전 개발 버전인 `0.1.0`입니다. 공개 이후의 호환성 정책과 패키지 버전은 별도로 확정합니다.
+> 패키지 버전과 `.slip` 파일 스키마 버전은 별도로 관리합니다. `1.0.0` 전에는 릴리즈 노트에서
+> 공개 API 변경 여부를 확인해야 합니다.
 
 | 영역 | 상태 | 현재 작업 |
 |---|---|---|
@@ -33,7 +34,7 @@ SlipKit은 첫 공개 전 전체 품질 검토와 후속 수정을 마쳤습니�
 | 배포 패키지 검증 | 완료 | 실제 tarball을 깨끗한 npm·pnpm 소비자에 설치해 Node.js·Chromium 사용 경로 확인 |
 | CI·배포 자동화 | 완료 | 지원 Node.js·Windows 검증과 OIDC 기반 npm 배포·dry-run 워크플로 준비 |
 | 기본설계 문서 | 완료 | 74개 설계서·템플릿·추적표·자동 검사와 실제 화면 자산 작성 완료 |
-| 공개 준비 | 진행 중 | npm 조직 `omdc` 생성과 패키지 이름 확정, 저장소 이름 변경·최초 패키지 생성·버전과 릴리스 정책 확정이 남음 |
+| 공개·릴리스 운영 | 진행 중 | `0.1.0` 최초 공개 완료, `0.1.1` 준비 PR과 자동 GitHub Release 절차 적용 |
 | MCP·AI 연동 | 완료 | 확장은 필요성이 확인되면 재검토 |
 | 조건부 서식 | 완료 | 공개 전 회귀 검증 |
 | 요소별 폰트 설정 | 완료 | 캔버스·PDF 폰트 일치와 미등록 폰트 대체 반영 |
@@ -130,7 +131,7 @@ SlipKit은 첫 공개 전 전체 품질 검토와 후속 수정을 마쳤습니�
 - 연결 방법과 안전 범위는 [MCP 사용 가이드](guide/mcp.ko.md)와 영어·일본어판 참고
 - `slipkit-mcp --help`·`--version`, 사용법 오류 종료 코드와 패키지 README 정비 (ADR-073)
 
-### CI와 npm 배포 준비 (ADR-074·075·082)
+### CI와 npm 배포 (ADR-074·075·082·088)
 
 - PR과 `main` push에서 Node.js 22.13·최신 LTS의 `pnpm verify`와 실제 tarball 소비자 검증 실행
 - JSON Schema 재생성 차이와 Windows의 MCP 저장 경로·유지보수 검사·자식 프로세스 시험을 별도 작업에서 확인
@@ -139,6 +140,8 @@ SlipKit은 첫 공개 전 전체 품질 검토와 후속 수정을 마쳤습니�
 - 배포 산출물 해시 검증, `core` → `elements` → `react` → `vue` → `mcp` 순서와 동일 SRI 기반 재개
 - 실제 npm·GitHub 설정과 부분 배포 복구 절차는 [배포 운영 절차](./RELEASE.md)에 정리
 - 부분 배포 실패는 처음 실패한 실행의 `Re-run failed jobs`로만 재개하며, 배포 산출물 7일 보존과 재빌드·새 실행 금지를 워크플로 구조 시험으로 고정
+- 버전 준비 PR에서 다섯 패키지 버전, 세 언어 릴리즈 원문과 공개 문서를 함께 검토
+- 실제 npm 배포 후 SRI·dist-tag·provenance를 확인하고 같은 실행에서 Git 태그·GitHub Release와 검증한 tarball을 생성
 - `verify`의 build 다음에 실행되는 Elements tarball·정적 의존 파일·폰트 청크·디코딩 바이트 예산 게이트(`verify:font-budget`)
 - 기본 폰트 `en`·`ko`·`ja`와 호스트 `getFonts` 네 시나리오를 캐시 없는 독립 환경에서 재는 `bench:fonts`, 실제 tarball 소비자의 Chromium 폰트 청크 요청 수 검증
 
@@ -224,40 +227,20 @@ SlipKit은 첫 공개 전 전체 품질 검토와 후속 수정을 마쳤습니�
 - 기존 `REQUIREMENTS.md`, `SPEC.md`, `DECISIONS.md` 및 실제 구현과 모순되지 않습니다.
 - 문서 색인에서 전체 설계 범위와 작성 상태를 확인할 수 있습니다.
 
-## 공개 준비
+## 릴리스 운영
 
-문서, 데모와 소스 코드 검토가 끝나면 첫 공개 여부를 판단합니다.
+`0.1.0`의 npm 공개, 다섯 패키지의 Trusted Publisher 연결과 GitHub `npm-publish` Environment 설정을
+완료했습니다. 초기 배포에는 GitHub Release를 소급해 만들지 않습니다.
 
-PR 검증과 npm Trusted Publishing 워크플로는 준비됐고 npm 조직 `omdc`와 GitHub 저장소 `slipkit`도
-준비했습니다. 최초 공개 버전은 `0.1.0`, dist-tag는 `latest`로 확정했습니다. 다섯 패키지의 최초 생성,
-Trusted Publisher, GitHub Environment와 승인 정책을 준비하기 전에는 `NPM_TRUSTED_PUBLISHING` 저장소
-변수를 켜거나 실제 배포를 실행하지 않습니다.
+다음 릴리스부터는 다음 순서를 사용합니다.
 
-### 공개 전 확인
+1. 버전 변경, 세 언어 릴리즈 원문과 공개 문서를 하나의 준비 PR에서 검토합니다.
+2. 준비 PR을 병합한 뒤 Release 워크플로를 `dry_run=true`로 실행합니다.
+3. 같은 버전과 dist-tag로 `dry_run=false`를 한 번 실행합니다.
+4. npm의 다섯 패키지에서 버전·dist-tag·provenance를 확인하고 GitHub Release와 자산을 확인합니다.
 
-- [ ] 영어 문서의 내용 확정
-- [ ] 한국어판과 일본어판 동기화
-- [ ] 문서 내부 링크 확인
-- [ ] 가이드 예제와 실제 공개 API 대조
-- [ ] 데모 애플리케이션 빌드와 실행 확인
-- [ ] JSON Schema와 런타임 스키마 일치 확인
-- [ ] 패키지 공개 파일 목록 확인
-- [ ] 라이선스와 동봉 폰트 라이선스 확인
-- [ ] 변경 사항과 알려진 제한 정리
-- [ ] 치명적이거나 높은 우선순위의 미결 문제 해소
-- [ ] 전체 검증 명령 통과
-
-전체 검증은 기본 게이트와 실제 패키지 소비자 검증을 모두 포함합니다. 패키지 검증을 처음 실행하기
-전에는 관리형 Chromium을 설치합니다.
-
-```bash
-pnpm verify
-pnpm exec playwright install chromium
-pnpm verify:packages
-```
-
-> [!NOTE]
-> 검증 명령 통과만으로 공개 준비가 끝나는 것은 아닙니다. 데모 실행과 주요 사용자 흐름은 실제 브라우저에서도 확인해야 합니다.
+`0.1.1` 준비 PR에는 현재 npm 공개 상태를 반영한 README·가이드와 자동 GitHub Release 절차가
+포함됩니다. 병합 후 dry-run과 실제 실행 결과를 확인하면 이번 릴리스 작업을 완료합니다.
 
 ## 보류 항목
 
