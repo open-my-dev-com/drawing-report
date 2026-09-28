@@ -46,7 +46,8 @@
 | `SCR-015-voucher-viewer-1440x810.png` | 1440×810 | 발행된 전표와 PDF 보기 영역 |
 | `SCR-015-voucher-viewer-output-page.png` | 1241×1754 | 뷰어가 만든 PDF의 첫 페이지 |
 | `SCR-016-demo-storage-delete-1440x810.png` | 1440×810 | 저장 안내, 개인정보 경고와 저장 데이터 삭제 명령 |
+| `SCR-017-designer-toolbar-annotated.png` | 1440×132 | 디자이너 상단 도구 모음의 버튼별 번호 |
 
-각 `SCR-001`부터 `SCR-016`까지의 `-annotated.png`는 위 원본 가운데 해당 화면을 보여 주는 파일에
+각 `SCR-001`부터 `SCR-017`까지의 `-annotated.png`는 위 원본 가운데 해당 화면을 보여 주는 파일에
 화면 구성 표의 번호를 합성한 결과입니다. 한 문서에 서로 다른 모달이 있으면 모달별 주석 이미지를 두고
 여러 이미지의 번호를 합쳐 화면 구성 표와 일치시킵니다.

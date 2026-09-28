@@ -33,6 +33,7 @@ const REGISTER_ROW = /^\|\s*((?:SYS|SCR|FNC|DAT|IF|ERR)-\d{3})\s*\|/;
 const ALLOWED_STATUSES = new Set(['예정', '작성 중', '작성 완료', '검토 완료']);
 const MERMAID_DECLARATION = /^(?:flowchart|graph|sequenceDiagram|stateDiagram(?:-v2)?|classDiagram|erDiagram)\b/;
 const SCREEN_SECTIONS = [
+  '설계 범위',
   '진입·종료 조건',
   '화면 이미지',
   '화면 구성',
@@ -45,11 +46,70 @@ const SCREEN_SECTIONS = [
 ];
 
 const SCREEN_TABLE_HEADERS = [
-  '| 번호 | 화면 항목 | 표시 내용 | 표시 조건 | 활성화 조건 |',
-  '| 화면 항목 | 사용자 동작 | 호출 기능 | 결과 | 실행할 수 없는 조건 |',
-  '| 상태 | 진입 조건 | 표시 내용 | 허용 동작 |',
-  '| 검사 대상 | 실패 조건 | 표시 위치와 표현 | 문서·화면 처리 | 복구 방법 |',
-  '| 시작 상태 | 사용자 동작 | 도착 화면·상태 | 유지 항목 | 초기화 항목 |',
+  '| 번호 | 화면 항목 | 위치와 표시 내용 | 동작과 조건 | 상세 설계 |',
+  '| 번호·화면 항목 | 사용자 동작 | 동작과 결과 | 관련 기능 |',
+  '| 상태 | 시작 조건 | 화면 표시 | 가능한 다음 동작 |',
+  '| 발생 위치 | 발생 조건 | 표시 방법 | 처리와 복구 |',
+  '| 사용자 동작 | 화면 변화 | 유지하는 내용 | 초기화하는 내용 |',
+];
+
+const SCREEN_IMPLEMENTATION_TERMS = [
+  /\`src\`/,
+  /\`storage\`/,
+  /\`iframe\`/,
+  /\`kind(?:\s*:[^\`]+)?\`/,
+  /\`role(?:=[^\`]+)?\`/,
+  /\`slip-change\`/,
+  /\`slip-issue\`/,
+  /\`reset\(\)\`/,
+  /\`(?:save|list|delete|removeItem)\`/,
+  /\`(?:StorageAdapter|renderSlip)\`/,
+  /\`alertdialog\`/,
+];
+
+const FUNCTION_SECTIONS = [
+  '호출 조건',
+  '입력·출력',
+  '사전·사후 조건',
+  '정상 처리 흐름',
+  '분기와 예외 흐름',
+  '데이터 조회·변경',
+  '하위 기능과 시퀀스',
+  '오류·복구',
+  '동시 실행·반복 호출',
+  '검증 기준',
+  '관련 설계와 근거',
+];
+
+const DATA_SECTIONS = [
+  '소유 계층',
+  '구조와 주요 항목',
+  '데이터 관계',
+  '불변 조건',
+  '생명주기',
+  '버전·검증·정규화·마이그레이션',
+  '관련 설계와 근거',
+];
+
+const INTERFACE_SECTIONS = [
+  '제공자와 소비자',
+  '호출 방향과 사용 조건',
+  '동기·비동기 처리',
+  '생명주기',
+  '반복 호출·동시 호출',
+  '오류 처리',
+  '호환성·보안·확장 경계',
+  '관련 설계와 근거',
+];
+
+const FUNCTION_FLOW_HEADER = '| 순서 | 처리 | 읽는 값 | 만드는 값·변경하는 값 | 다음 단계 |';
+const DATA_STRUCTURE_HEADER = '| 경로 | 자료형 | 필수 여부 | 기본값 | 허용 범위·형식 | 의미 |';
+const DATA_RELATION_HEADER = '| 기준 데이터 | 대상 데이터 | 관계·개수 | 연결 키 | 삭제·변경 시 처리 |';
+
+const ERROR_TABLE_HEADERS = [
+  '| 오류 식별자·종류 | 판정 조건 | 검출 위치 | 포함 정보 |',
+  '| 검출 계층 | 전달 대상 | 전달 방식 | 변환·숨김 규칙 |',
+  '| 오류 종류 | 보존하는 값 | 되돌리는 값 | 사용자의 복구 절차 | 자동 재시도·기록 |',
 ];
 
 function markdownFiles(root) {
@@ -201,7 +261,7 @@ function validateScreenDesign(file, label, source, errors) {
     if (!source.includes(header)) errors.push(`${label}: 화면 설계 표 머리말이 없습니다: ${header}`);
   }
 
-  for (const section of SCREEN_SECTIONS.slice(2, 7)) {
+  for (const section of SCREEN_SECTIONS.slice(3, 8)) {
     const rows = markdownTableRows(sectionBody(source, section));
     if (rows.length < 2) errors.push(`${label}: '${section}' 표에는 내용 행이 하나 이상 필요합니다.`);
   }
@@ -223,8 +283,73 @@ function validateScreenDesign(file, label, source, errors) {
   const eventRows = markdownTableRows(sectionBody(source, '이벤트와 호출 기능')).slice(1);
   for (const row of eventRows) {
     const cells = tableCells(row);
+    const eventNumber = Number((cells[0] ?? '').match(/^(\d+)\b/)?.[1]);
+    if (!Number.isInteger(eventNumber) || !configurationNumbers.includes(eventNumber)) {
+      errors.push(`${label}: 이벤트의 화면 항목은 화면 구성 번호로 시작해야 합니다: ${cells[0]}`);
+    }
     if (/[·]|거나|이전 또는 다음/.test(cells[1] ?? '')) {
       errors.push(`${label}: 사용자 동작은 한 행에 하나만 적습니다: ${cells[1]}`);
+    }
+  }
+
+  const behavioralSource = source.split(/^## 근거\s*$/m, 1)[0];
+  if (behavioralSource.includes('실행할 수 없습니다')) {
+    errors.push(`${label}: 실행 조건은 별도 금지 문장 대신 동작과 결과에 함께 적습니다.`);
+  }
+  for (const term of SCREEN_IMPLEMENTATION_TERMS) {
+    const match = behavioralSource.match(term);
+    if (match !== null) {
+      errors.push(`${label}: 화면 동작 설명에는 구현 식별자를 직접 쓰지 않습니다: ${match[0]}`);
+    }
+  }
+}
+
+function validateRequiredSections(label, source, sections, errors) {
+  const headings = new Set([...source.matchAll(/^##\s+(.+?)\s*$/gm)].map((match) => match[1]));
+  for (const section of sections) {
+    if (!headings.has(section)) errors.push(`${label}: 필수 절을 찾을 수 없습니다: '${section}'.`);
+  }
+}
+
+function validateFunctionDesign(label, source, errors) {
+  validateRequiredSections(label, source, FUNCTION_SECTIONS, errors);
+  const inputBody = sectionBody(source, '입력·출력');
+  const expected = '| 구분 | 항목 | 자료형·단위 | 필수 여부·기본값 | 제약과 보장 |';
+  if (!inputBody.includes(expected)) errors.push(`${label}: 기능 입력·출력 표 머리말이 없습니다: ${expected}`);
+  const flowRows = markdownTableRows(sectionBody(source, '정상 처리 흐름'));
+  if (flowRows.length < 2 || flowRows[0] !== FUNCTION_FLOW_HEADER) {
+    errors.push(`${label}: 정상 처리 흐름에는 단계별 입력·변경값·다음 단계를 설명한 표가 필요합니다.`);
+  }
+}
+
+function validateDataDesign(label, source, errors) {
+  validateRequiredSections(label, source, DATA_SECTIONS, errors);
+  const rows = markdownTableRows(sectionBody(source, '구조와 주요 항목'));
+  if (rows.length < 2 || rows[0] !== DATA_STRUCTURE_HEADER) {
+    errors.push(`${label}: 데이터 구조 표에는 자료형·필수 여부·기본값·범위·의미와 내용 행이 필요합니다.`);
+  }
+  const relationRows = markdownTableRows(sectionBody(source, '데이터 관계'));
+  if (relationRows.length < 2 || relationRows[0] !== DATA_RELATION_HEADER) {
+    errors.push(`${label}: 데이터 관계 표에는 연결 기준과 변경·삭제 처리 및 내용 행이 필요합니다.`);
+  }
+}
+
+function validateInterfaceDesign(label, source, errors) {
+  validateRequiredSections(label, source, INTERFACE_SECTIONS, errors);
+  const contractSource = source.slice(source.indexOf('## 제공자와 소비자'));
+  const contractRows = markdownTableRows(contractSource);
+  if (contractRows.length < 2 || tableCells(contractRows[0]).length < 3) {
+    errors.push(`${label}: 공개 호출·프로퍼티·이벤트의 입력과 결과를 설명한 계약 표가 필요합니다.`);
+  }
+}
+
+function validateErrorDesign(label, source, errors) {
+  for (const header of ERROR_TABLE_HEADERS) {
+    if (!source.includes(header)) errors.push(`${label}: 오류 설계 표 머리말이 없습니다: ${header}`);
+  }
+  for (const section of ['오류 분류와 식별 기준', '계층 간 전달', '복구·재시도·기록']) {
+    if (markdownTableRows(sectionBody(source, section)).length < 2) {
+      errors.push(`${label}: '${section}' 표에는 내용 행이 하나 이상 필요합니다.`);
     }
   }
 }
@@ -318,7 +443,12 @@ export function verifyDesignDocs(repoRoot = process.cwd()) {
       if (entry.file !== label) errors.push(`${label}: 등록부의 파일 경로 ${entry.file}과 다릅니다.`);
       const titleId = readFileSync(file, 'utf8').match(/^#\s+((?:SYS|SCR|FNC|DAT|IF|ERR)-\d{3})\b/m)?.[1];
       if (titleId !== id) errors.push(`${label}: 제목의 식별자 ${titleId ?? '(없음)'}가 파일명과 다릅니다.`);
-      if (prefix === 'SCR') validateScreenDesign(file, label, readFileSync(file, 'utf8'), errors);
+      const source = readFileSync(file, 'utf8');
+      if (prefix === 'SCR') validateScreenDesign(file, label, source, errors);
+      if (prefix === 'FNC') validateFunctionDesign(label, source, errors);
+      if (prefix === 'DAT') validateDataDesign(label, source, errors);
+      if (prefix === 'IF') validateInterfaceDesign(label, source, errors);
+      if (prefix === 'ERR') validateErrorDesign(label, source, errors);
     }
   }
 
