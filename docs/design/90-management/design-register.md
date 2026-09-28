@@ -12,7 +12,7 @@
 
 | 날짜 | 구분 | 변경 내용 |
 | --- | --- | --- |
-| 2026-09-28 | 신규 작성 | 73개 설계 대상을 등록하고 공통·데이터·인터페이스 27개의 기술 검토를 마쳤습니다. |
+| 2026-09-28 | 신규 작성 | 73개 설계 대상을 등록하고 공통·데이터·인터페이스·Core 기능 45개의 기술 검토를 마쳤습니다. |
 
 ## 상태 기준
 
@@ -86,24 +86,24 @@
 
 | 식별자 | 설계 대상 | 파일 | 상태 | 주요 근거 |
 | --- | --- | --- | --- | --- |
-| FNC-001 | 파일 파싱과 검증 | `docs/design/20-function/FNC-001-file-parse-validation.md` | 예정 | format/schema·json-schema, SPEC 2·22 |
-| FNC-002 | 버전 마이그레이션과 정규화 | `docs/design/20-function/FNC-002-migration-normalization.md` | 예정 | format/migrate·normalize·version |
-| FNC-003 | 양식 생성과 전표 발행 생명주기 | `docs/design/20-function/FNC-003-document-lifecycle.md` | 예정 | format/voucher, SPEC 17~19 |
-| FNC-004 | 수식 파싱과 진단 | `docs/design/20-function/FNC-004-formula-parse-diagnosis.md` | 예정 | formula/parser·arity·errors |
-| FNC-005 | 수식 평가와 함수 | `docs/design/20-function/FNC-005-formula-evaluation.md` | 예정 | formula/evaluator·builtins·functions |
-| FNC-006 | 수식 참조 변경 | `docs/design/20-function/FNC-006-formula-reference-update.md` | 예정 | formula/references |
-| FNC-007 | 원본 페이지와 출력 페이지 계획 | `docs/design/20-function/FNC-007-page-planning.md` | 예정 | layout/page-plan, ADR-065·077 |
-| FNC-008 | 반복 그리드 계획 | `docs/design/20-function/FNC-008-grid-planning.md` | 예정 | layout/grid-plan, SPEC 15.5~15.7 |
-| FNC-009 | 조건부 서식 평가 | `docs/design/20-function/FNC-009-conditional-format-evaluation.md` | 예정 | render/conditional, ADR-062·076 |
-| FNC-010 | 글자 측정과 줄바꿈 | `docs/design/20-function/FNC-010-text-layout.md` | 예정 | render/measure·text-layout |
-| FNC-011 | 이미지 확인과 해석 | `docs/design/20-function/FNC-011-image-processing.md` | 예정 | format/image-source·render/convert |
-| FNC-012 | 바코드 생성 | `docs/design/20-function/FNC-012-barcode-rendering.md` | 예정 | render/barcode |
-| FNC-013 | PDF 변환과 렌더링 | `docs/design/20-function/FNC-013-pdf-rendering.md` | 예정 | render/convert·pdfme-renderer |
-| FNC-014 | 폰트 제공과 대체 | `docs/design/20-function/FNC-014-font-resolution.md` | 예정 | default-fonts·font-registry·settings |
-| FNC-015 | 파일 암호화와 키 교체 | `docs/design/20-function/FNC-015-encryption-key-rotation.md` | 예정 | encryption, ADR-054~056·064 |
-| FNC-016 | 저장소 조회와 변경 | `docs/design/20-function/FNC-016-storage-workflow.md` | 예정 | storage/adapter, ADR-021·025 |
-| FNC-017 | IndexedDB 저장 | `docs/design/20-function/FNC-017-indexeddb-storage.md` | 예정 | indexeddb-storage, ADR-045 |
-| FNC-018 | 파일 열기와 내려받기 | `docs/design/20-function/FNC-018-file-exchange.md` | 예정 | file-exchange |
+| FNC-001 | 파일 파싱과 검증 | `docs/design/20-function/FNC-001-file-parse-validation.md` | 검토 완료 | format/schema·json-schema, SPEC 2·22 |
+| FNC-002 | 버전 마이그레이션과 정규화 | `docs/design/20-function/FNC-002-migration-normalization.md` | 검토 완료 | format/migrate·normalize·version |
+| FNC-003 | 양식 생성과 전표 발행 생명주기 | `docs/design/20-function/FNC-003-document-lifecycle.md` | 검토 완료 | format/voucher, SPEC 17~19 |
+| FNC-004 | 수식 파싱과 진단 | `docs/design/20-function/FNC-004-formula-parse-diagnosis.md` | 검토 완료 | formula/parser·arity·errors |
+| FNC-005 | 수식 평가와 함수 | `docs/design/20-function/FNC-005-formula-evaluation.md` | 검토 완료 | formula/evaluator·builtins·functions |
+| FNC-006 | 수식 참조 변경 | `docs/design/20-function/FNC-006-formula-reference-update.md` | 검토 완료 | formula/references |
+| FNC-007 | 원본 페이지와 출력 페이지 계획 | `docs/design/20-function/FNC-007-page-planning.md` | 검토 완료 | layout/page-plan, ADR-065·077 |
+| FNC-008 | 반복 그리드 계획 | `docs/design/20-function/FNC-008-grid-planning.md` | 검토 완료 | layout/grid-plan, SPEC 15.5~15.7 |
+| FNC-009 | 조건부 서식 평가 | `docs/design/20-function/FNC-009-conditional-format-evaluation.md` | 검토 완료 | render/conditional, ADR-062·076 |
+| FNC-010 | 글자 측정과 줄바꿈 | `docs/design/20-function/FNC-010-text-layout.md` | 검토 완료 | render/measure·text-layout |
+| FNC-011 | 이미지 확인과 해석 | `docs/design/20-function/FNC-011-image-processing.md` | 검토 완료 | format/image-source·render/convert |
+| FNC-012 | 바코드 생성 | `docs/design/20-function/FNC-012-barcode-rendering.md` | 검토 완료 | render/barcode |
+| FNC-013 | PDF 변환과 렌더링 | `docs/design/20-function/FNC-013-pdf-rendering.md` | 검토 완료 | render/convert·pdfme-renderer |
+| FNC-014 | 폰트 제공과 대체 | `docs/design/20-function/FNC-014-font-resolution.md` | 검토 완료 | default-fonts·font-registry·settings |
+| FNC-015 | 파일 암호화와 키 교체 | `docs/design/20-function/FNC-015-encryption-key-rotation.md` | 검토 완료 | encryption, ADR-054~056·064 |
+| FNC-016 | 저장소 조회와 변경 | `docs/design/20-function/FNC-016-storage-workflow.md` | 검토 완료 | storage/adapter, ADR-021·025 |
+| FNC-017 | IndexedDB 저장 | `docs/design/20-function/FNC-017-indexeddb-storage.md` | 검토 완료 | indexeddb-storage, ADR-045 |
+| FNC-018 | 파일 열기와 내려받기 | `docs/design/20-function/FNC-018-file-exchange.md` | 검토 완료 | file-exchange |
 | FNC-019 | 디자이너 문서 편집 | `docs/design/20-function/FNC-019-designer-document-editing.md` | 예정 | SlipDesigner·patch·geometry |
 | FNC-020 | 선택·이동과 실행 취소 | `docs/design/20-function/FNC-020-designer-history-selection.md` | 예정 | selection·history·canvas-pointer·keyboard-nudge |
 | FNC-021 | 그리드·파라미터·수식 편집 | `docs/design/20-function/FNC-021-designer-structured-editing.md` | 예정 | grid-commands·parameters·formula-target |
