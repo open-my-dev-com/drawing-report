@@ -10,10 +10,11 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "lint": "eslint .",
-    "verify": "pnpm lint && pnpm -r build && pnpm verify:font-budget && pnpm verify:maintenance && pnpm -r typecheck && pnpm -r test && pnpm test:scripts",
+    "verify": "pnpm lint && pnpm -r build && pnpm verify:font-budget && pnpm verify:maintenance && pnpm verify:design && pnpm -r typecheck && pnpm -r test && pnpm test:scripts",
     "verify:packages": "node scripts/verify-packages.mjs",
     "verify:font-budget": "node scripts/verify-font-budget.mjs",
     "verify:maintenance": "node scripts/verify-maintenance.mjs",
+    "verify:design": "node scripts/verify-design-docs.mjs",
     "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
     "build": "pnpm -r --filter './packages/*' run build",
     "test": "pnpm -r --filter './packages/*' run test",
