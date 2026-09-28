@@ -12,7 +12,7 @@
 
 | 날짜 | 구분 | 변경 내용 |
 | --- | --- | --- |
-| 2026-09-28 | 신규 작성 | 73개 설계 대상을 등록하고 디자이너 화면을 포함한 65개의 기술 검토를 마쳤습니다. |
+| 2026-09-28 | 신규 작성 | 73개 설계 대상을 등록하고 구현·규범 문서와의 기술 검토를 모두 마쳤습니다. |
 
 ## 상태 기준
 
@@ -20,7 +20,7 @@
 | --- | --- |
 | 예정 | 대상과 근거는 확정했지만 파일을 만들지 않았습니다. |
 | 작성 중 | 문서 파일을 만들었고 내용 검토가 남았습니다. |
-| 작성 완료 | Codex의 내용 작성과 문서 검증을 마쳤습니다. |
+| 작성 완료 | 내용 작성과 문서 형식 검증을 마쳤습니다. |
 | 검토 완료 | 실제 구현과의 기술적 사실 확인까지 마쳤습니다. |
 
 ## 요약
@@ -78,9 +78,9 @@
 | SCR-011 | 이미지 선택 모달 | `docs/design/10-screen/SCR-011-image-dialog.md` | 검토 완료 | imageModal·image-pick |
 | SCR-012 | 내 양식 저장·목록·삭제 모달 | `docs/design/10-screen/SCR-012-saved-forms-dialogs.md` | 검토 완료 | saveModal·myFormsModal·confirmDeleteModal |
 | SCR-013 | 출력 결과 미리보기 | `docs/design/10-screen/SCR-013-output-preview.md` | 검토 완료 | SlipDesigner PDF 미리보기 |
-| SCR-014 | 전표 작성 폼 | `docs/design/10-screen/SCR-014-voucher-form.md` | 예정 | SlipForm, REQUIREMENTS 6 |
-| SCR-015 | 전표 뷰어 | `docs/design/10-screen/SCR-015-voucher-viewer.md` | 예정 | SlipViewer, REQUIREMENTS 7 |
-| SCR-016 | 데모 저장 안내와 데이터 삭제 | `docs/design/10-screen/SCR-016-demo-storage-controls.md` | 예정 | examples/shared, ADR-084 |
+| SCR-014 | 전표 작성 폼 | `docs/design/10-screen/SCR-014-voucher-form.md` | 검토 완료 | SlipForm, REQUIREMENTS 6 |
+| SCR-015 | 전표 뷰어 | `docs/design/10-screen/SCR-015-voucher-viewer.md` | 검토 완료 | SlipViewer, REQUIREMENTS 7 |
+| SCR-016 | 데모 저장 안내와 데이터 삭제 | `docs/design/10-screen/SCR-016-demo-storage-controls.md` | 검토 완료 | examples/shared, ADR-084 |
 
 ## 기능 설계
 
@@ -147,8 +147,8 @@
 
 | 식별자 | 설계 대상 | 파일 | 상태 | 주요 근거 |
 | --- | --- | --- | --- | --- |
-| ERR-001 | 파일 파싱·검증·마이그레이션 오류 | `docs/design/50-error/ERR-001-file-errors.md` | 예정 | SlipParseError·format/messages |
-| ERR-002 | 수식과 값 오류 | `docs/design/50-error/ERR-002-formula-value-errors.md` | 예정 | FormulaSyntaxError·FormulaEvalError |
-| ERR-003 | 레이아웃·렌더링·PDF 오류 | `docs/design/50-error/ERR-003-render-layout-errors.md` | 예정 | SlipLayoutError·SlipRenderError |
-| ERR-004 | 저장·암호화·파일 교환 오류 | `docs/design/50-error/ERR-004-storage-encryption-errors.md` | 예정 | SlipEncryptionError·StorageAdapter·file-exchange |
-| ERR-005 | 화면·MCP·CLI 오류 전달 | `docs/design/50-error/ERR-005-ui-mcp-errors.md` | 예정 | slip-error·McpToolError·SlipMcpConfigError |
+| ERR-001 | 파일 파싱·검증·마이그레이션 오류 | `docs/design/50-error/ERR-001-file-errors.md` | 검토 완료 | SlipParseError·format/messages |
+| ERR-002 | 수식과 값 오류 | `docs/design/50-error/ERR-002-formula-value-errors.md` | 검토 완료 | FormulaSyntaxError·FormulaEvalError |
+| ERR-003 | 레이아웃·렌더링·PDF 오류 | `docs/design/50-error/ERR-003-render-layout-errors.md` | 검토 완료 | SlipLayoutError·SlipRenderError |
+| ERR-004 | 저장·암호화·파일 교환 오류 | `docs/design/50-error/ERR-004-storage-encryption-errors.md` | 검토 완료 | SlipEncryptionError·StorageAdapter·file-exchange |
+| ERR-005 | 화면·MCP·CLI 오류 전달 | `docs/design/50-error/ERR-005-ui-mcp-errors.md` | 검토 완료 | slip-error·McpToolError·SlipMcpConfigError |

@@ -35,7 +35,7 @@
 | --- | --- | --- |
 | 클릭·Shift 클릭 | FNC-020 | 단일·다중 선택을 바꿉니다. |
 | 끌기·크기 조정 | FNC-020 | 한 번의 실행 취소 단계로 좌표를 바꿉니다. |
-| 화살표·Shift 화살표 | FNC-020 | 1 mm·10 mm 단위로 이동합니다. |
+| 화살표·Shift 화살표 | FNC-020 | 0.5 mm·5 mm 단위로 이동합니다. |
 
 ## 상태별 표시
 
@@ -62,4 +62,3 @@
 
 - `packages/elements/src/designer/render/canvas.ts`
 - `packages/elements/src/designer/controllers/canvas-pointer.ts`
-

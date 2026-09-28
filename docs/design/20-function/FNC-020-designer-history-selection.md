@@ -42,8 +42,9 @@ flowchart LR
 
 ## 분기와 예외 흐름
 
-Shift는 다중 선택과 10배 이동에 사용합니다. Ctrl 또는 Cmd·Alt와 함께 누른 화살표는 브라우저나 다른
-단축키에 맡깁니다. 실제 변경이 없는 조작은 기록하지 않습니다.
+Shift는 다중 선택과 10배 이동에 사용합니다. 화살표 키는 한 번에 0.5 mm, Shift와 함께 누르면
+5 mm 이동합니다. Ctrl 또는 Cmd·Alt와 함께 누른 화살표는 브라우저나 다른 단축키에 맡깁니다.
+실제 변경이 없는 조작은 기록하지 않습니다.
 
 ## 데이터 조회·변경
 
@@ -70,4 +71,3 @@ Shift는 다중 선택과 10배 이동에 사용합니다. Ctrl 또는 Cmd·Alt�
 - `packages/elements/src/designer/selection.ts`
 - `packages/elements/src/designer/controllers/history.ts`
 - `packages/elements/src/designer/controllers/keyboard-nudge.ts`
-
