@@ -3586,7 +3586,7 @@ export class SlipDesigner extends LitElement {
     const title = this._forms.title.trim();
     // 빈 제목은 스키마 제약을 충족하지 않으므로 저장하지 않습니다.
     if (!title) {
-      this._rejectInput();
+      this._forms.fail(this._strings.designer.requiredInput);
       return;
     }
     // 제목은 저장이 성공한 뒤에만 양식에 반영합니다. 실패하면 양식과 되돌리기 이력이 그대로입니다.

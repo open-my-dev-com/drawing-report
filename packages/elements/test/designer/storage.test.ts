@@ -201,6 +201,26 @@ describe('<slip-designer> 내 양식 저장·목록 (D-15)', () => {
     el.remove();
   });
 
+  it('빈 제목은 저장하지 않고 저장 모달 안에 오류를 표시한다', async () => {
+    const storage = makeStorage();
+    const el = await mountWithStorage(storage);
+
+    toolbarButton(el, strings.designer.saveAsMyForm).click();
+    await el.updateComplete;
+    const title = el.shadowRoot!.querySelector('.save-title') as HTMLInputElement;
+    title.value = '   ';
+    title.dispatchEvent(new Event('input', { bubbles: true }));
+    (Array.from(el.shadowRoot!.querySelectorAll('.modal-foot button'))
+      .find((b) => b.textContent?.trim() === strings.designer.save) as HTMLButtonElement).click();
+    await el.updateComplete;
+
+    expect(storage.save).not.toHaveBeenCalled();
+    expect(el.shadowRoot!.querySelector('.modal .formula-status.error')?.textContent)
+      .toContain(strings.designer.requiredInput);
+    expect(el.shadowRoot!.querySelector('.save-title')).not.toBeNull();
+    el.remove();
+  });
+
   it('목록에서 양식을 선택하면 해당 양식을 불러오고, 검색은 클라이언트에서 처리하며 삭제와 불러오기는 저장소 어댑터에 위임한다', async () => {
     const storage = makeStorage();
     const loaded = makeTemplateFile();
