@@ -12,7 +12,7 @@
 
 | 날짜 | 구분 | 변경 내용 |
 | --- | --- | --- |
-| 2026-09-28 | 신규 작성 | 73개 설계 대상을 등록하고 공통 6개와 데이터 11개의 기술 검토를 마쳤습니다. |
+| 2026-09-28 | 신규 작성 | 73개 설계 대상을 등록하고 공통·데이터·인터페이스 27개의 기술 검토를 마쳤습니다. |
 
 ## 상태 기준
 
@@ -132,16 +132,16 @@
 
 | 식별자 | 설계 대상 | 파일 | 상태 | 주요 근거 |
 | --- | --- | --- | --- | --- |
-| IF-001 | `createSlipKit`과 `SlipKit` | `docs/design/40-interface/IF-001-slipkit-api.md` | 예정 | core/slipkit, ADR-056 |
-| IF-002 | Core 독립 공개 API와 JSON Schema | `docs/design/40-interface/IF-002-core-public-api.md` | 예정 | core/index·format·formula·layout |
-| IF-003 | `StorageAdapter` | `docs/design/40-interface/IF-003-storage-adapter.md` | 예정 | core/storage/adapter |
-| IF-004 | Web Component 공통 설정과 이벤트 | `docs/design/40-interface/IF-004-web-component-common.md` | 예정 | elements/settings·index |
-| IF-005 | `<slip-designer>` | `docs/design/40-interface/IF-005-slip-designer.md` | 예정 | elements/slip-designer |
-| IF-006 | `<slip-form>` | `docs/design/40-interface/IF-006-slip-form.md` | 예정 | elements/slip-form |
-| IF-007 | `<slip-viewer>` | `docs/design/40-interface/IF-007-slip-viewer.md` | 예정 | elements/slip-viewer |
-| IF-008 | React와 Vue 래퍼 | `docs/design/40-interface/IF-008-framework-wrappers.md` | 예정 | react/index·vue/index |
-| IF-009 | MCP 도구 계약 | `docs/design/40-interface/IF-009-mcp-tools.md` | 예정 | mcp/server·schema-docs |
-| IF-010 | MCP CLI·설정과 PDF 링크 | `docs/design/40-interface/IF-010-mcp-cli-http.md` | 예정 | mcp/cli-command·config·http |
+| IF-001 | `createSlipKit`과 `SlipKit` | `docs/design/40-interface/IF-001-slipkit-api.md` | 검토 완료 | core/slipkit, ADR-056 |
+| IF-002 | Core 독립 공개 API와 JSON Schema | `docs/design/40-interface/IF-002-core-public-api.md` | 검토 완료 | core/index·format·formula·layout |
+| IF-003 | `StorageAdapter` | `docs/design/40-interface/IF-003-storage-adapter.md` | 검토 완료 | core/storage/adapter |
+| IF-004 | Web Component 공통 설정과 이벤트 | `docs/design/40-interface/IF-004-web-component-common.md` | 검토 완료 | elements/settings·index |
+| IF-005 | `<slip-designer>` | `docs/design/40-interface/IF-005-slip-designer.md` | 검토 완료 | elements/slip-designer |
+| IF-006 | `<slip-form>` | `docs/design/40-interface/IF-006-slip-form.md` | 검토 완료 | elements/slip-form |
+| IF-007 | `<slip-viewer>` | `docs/design/40-interface/IF-007-slip-viewer.md` | 검토 완료 | elements/slip-viewer |
+| IF-008 | React와 Vue 래퍼 | `docs/design/40-interface/IF-008-framework-wrappers.md` | 검토 완료 | react/index·vue/index |
+| IF-009 | MCP 도구 계약 | `docs/design/40-interface/IF-009-mcp-tools.md` | 검토 완료 | mcp/server·schema-docs |
+| IF-010 | MCP CLI·설정과 PDF 링크 | `docs/design/40-interface/IF-010-mcp-cli-http.md` | 검토 완료 | mcp/cli-command·config·http |
 
 ## 오류 설계
 
