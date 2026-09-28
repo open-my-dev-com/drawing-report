@@ -70,4 +70,3 @@ flowchart LR
 - `packages/elements/src/designer/controllers/grid-commands.ts`
 - `packages/elements/src/designer/parameters.ts`
 - `packages/elements/src/designer/formula-target.ts`
-

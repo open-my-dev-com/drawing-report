@@ -70,4 +70,3 @@ Node.js와 Chromium에서 비교합니다.
 - 기능: FNC-013·FNC-014
 - `packages/core/src/render/measure.ts`
 - `packages/core/src/render/text-layout.ts`
-

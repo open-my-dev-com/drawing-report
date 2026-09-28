@@ -71,4 +71,3 @@ FNC-015 암호화와 FNC-016 저장소 계약을 구현합니다. 연결이 닫�
 - 기능: FNC-015·FNC-016
 - 오류: ERR-004
 - `packages/elements/src/storage/indexeddb-storage.ts`
-

@@ -50,4 +50,3 @@ MCP는 도구 실패로, CLI는 종료 코드와 표준 오류로 전달합니�
 - 인터페이스: IF-004~IF-010
 - `packages/mcp/src/edit.ts`
 - `packages/mcp/src/config.ts`
-

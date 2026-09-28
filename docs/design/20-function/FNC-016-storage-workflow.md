@@ -68,4 +68,3 @@ flowchart LR
 - 인터페이스: IF-003
 - 오류: ERR-004
 - `packages/core/src/storage/adapter.ts`
-

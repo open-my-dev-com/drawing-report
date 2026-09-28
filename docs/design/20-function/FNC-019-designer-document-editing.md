@@ -70,4 +70,3 @@ flowchart LR
 - 오류: ERR-005
 - `packages/elements/src/slip-designer.ts`
 - `packages/elements/src/designer/patch.ts`
-

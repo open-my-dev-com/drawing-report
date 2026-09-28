@@ -72,4 +72,3 @@ FNC-008 그리드 계획을 먼저 만들고 `after` 사슬의 마지막 출력 
 - 오류: ERR-003
 - `packages/core/src/layout/page-plan.ts`
 - [ADR-065](../../DECISIONS.md#adr-065)
-

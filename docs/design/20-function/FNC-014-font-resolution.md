@@ -73,4 +73,3 @@ Node.js와 Chromium에서 시험합니다.
 - `packages/core/src/slipkit.ts`
 - `packages/elements/src/default-fonts.ts`
 - `packages/elements/src/settings.ts`
-

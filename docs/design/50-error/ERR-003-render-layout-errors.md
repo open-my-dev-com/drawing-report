@@ -47,4 +47,3 @@ Core는 대상 이름·ID와 원인을 포함해 던집니다. UI는 PDF 대신 
 - 화면: SCR-013~SCR-015
 - `packages/core/src/layout/errors.ts`
 - `packages/core/src/render/errors.ts`
-

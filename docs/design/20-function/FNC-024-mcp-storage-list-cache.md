@@ -74,4 +74,3 @@ sidecar, `fs.watch`와 전역 캐시는 사용하지 않습니다.
 - `packages/mcp/src/storage.ts`
 - `packages/mcp/src/list-cache.ts`
 - `packages/mcp/src/file-queue.ts`
-

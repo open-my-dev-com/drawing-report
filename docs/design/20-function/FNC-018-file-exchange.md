@@ -72,4 +72,3 @@ FNC-001 파싱과 FNC-015 암·복호화를 Elements 저장 직렬화 함수로 
 - 오류: ERR-004
 - `packages/elements/src/storage/file-exchange.ts`
 - `packages/elements/src/storage/encryption.ts`
-

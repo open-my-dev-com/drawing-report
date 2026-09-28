@@ -71,4 +71,3 @@ flowchart LR
 - 오류: ERR-002
 - `packages/core/src/formula/parser.ts`
 - `packages/core/src/formula/arity.ts`
-

@@ -65,4 +65,3 @@
 
 - `packages/elements/src/slip-designer.ts`
 - `packages/elements/src/designer/render/toolbar.ts`
-

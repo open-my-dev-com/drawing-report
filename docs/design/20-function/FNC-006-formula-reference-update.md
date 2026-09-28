@@ -71,4 +71,3 @@ FNC-004 파서와 `formatReferencePath()`를 사용합니다. 위치가 밀리�
 - 기능: FNC-004·FNC-021
 - `packages/core/src/formula/references.ts`
 - `packages/core/src/formula/parser.ts`
-

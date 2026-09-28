@@ -72,4 +72,3 @@ FNC-004 파싱 뒤 참조 해소, 연산자 적용과 내장 함수 호출 순�
 - 오류: ERR-002
 - `packages/core/src/formula/evaluator.ts`
 - `packages/core/src/formula/builtins.ts`
-

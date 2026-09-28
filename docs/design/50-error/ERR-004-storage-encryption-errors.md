@@ -48,4 +48,3 @@ I/O 실패는 기존 파일을 유지한 채 재시도할 수 있습니다. 잘�
 - 인터페이스: IF-001·IF-003
 - `packages/core/src/storage/adapter.ts`
 - `packages/core/src/encryption/errors.ts`
-

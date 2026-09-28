@@ -46,4 +46,3 @@ BOM, JSON 오류, 모든 스키마 경로, 중복 ID, 이미지, 현재·이전�
 - 데이터: DAT-001~DAT-010
 - `packages/core/src/format/schema.ts`
 - `packages/core/src/format/migrate.ts`
-

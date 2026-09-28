@@ -69,4 +69,3 @@ flowchart LR
 - 오류: ERR-003
 - `packages/core/src/layout/grid-plan.ts`
 - [파일 형식 명세 15](../../SPEC.md)
-

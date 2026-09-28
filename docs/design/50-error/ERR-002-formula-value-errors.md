@@ -47,4 +47,3 @@ FNC-004 파싱·진단, FNC-005 평가와 작성 폼의 값 검증에서 검출�
 - 기능: FNC-004·FNC-005·FNC-009
 - 화면: SCR-007·SCR-008·SCR-014
 - `packages/core/src/formula/errors.ts`
-

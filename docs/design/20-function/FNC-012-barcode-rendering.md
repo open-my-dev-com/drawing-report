@@ -67,4 +67,3 @@ FNC-005로 수식을 계산하고 `isValidBarcodeValue()`로 검사한 뒤 FNC-0
 - 오류: ERR-003
 - `packages/core/src/render/barcode.ts`
 - `packages/core/src/render/convert.ts`
-

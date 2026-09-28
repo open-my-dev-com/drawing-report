@@ -70,4 +70,3 @@ flowchart LR
 - 오류: ERR-002·ERR-003
 - `packages/core/src/render/conditional.ts`
 - [파일 형식 명세 9.4](../../SPEC.md)
-

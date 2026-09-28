@@ -70,4 +70,3 @@ PNG·JPEG, 고정·에셋·파라미터, 일반 `data:` 문자열, MIME·서명 
 - 오류: ERR-001·ERR-003
 - `packages/core/src/format/image-source.ts`
 - `packages/core/src/render/convert.ts`
-
