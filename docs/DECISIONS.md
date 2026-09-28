@@ -3511,10 +3511,11 @@ GitHub Release를 별도로 작성하면 같은 릴리스를 두 단계로 운�
 - README, 가이드, 보안 정책과 로드맵의 공개 상태
 - 병합 후 실행할 Release 워크플로 입력과 검증 결과
 
-준비 PR이 병합된 뒤 Release 워크플로를 dry-run으로 한 번 검증하고, 같은 버전과 dist-tag로 실제
-실행을 한 번 수행합니다. 실제 실행은 다섯 npm 패키지를 배포한 뒤 SRI, dist-tag와 provenance를
-확인합니다. 확인이 끝나야 검증한 커밋에 Git 태그와 GitHub Release를 만들고, 세 언어 원문·자동
-변경 목록·다섯 tarball·manifest·SHA-256 목록을 게시합니다.
+준비 PR이 병합된 뒤 Release 워크플로를 `dry_run=false`로 한 번 실행합니다. 이 실행은 다섯 npm
+패키지를 배포한 뒤 SRI, dist-tag와 provenance를 확인합니다. 확인이 끝나야 검증한 커밋에 Git
+태그와 GitHub Release를 만들고, 검토한 세 언어 원문·다섯 tarball·manifest·SHA-256 목록을
+게시합니다. 배포 명령만 시험해야 할 때는 `dry_run=true`를 선택적으로 실행하며, 실제 배포의 선행
+조건으로 요구하지 않습니다.
 
 npm 배포와 GitHub Release 생성이 일부 실패하면 처음 실패한 실행의 `Re-run failed jobs`로 같은
 산출물을 재사용합니다. 기존 결과가 있으면 내용을 검증하고, 같은 버전의 다른 내용은 덮어쓰지

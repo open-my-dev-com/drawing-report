@@ -12,7 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isPrerelease } from './inputs.mjs';
 import { sha256Hex, verifySha256Sums } from './integrity.mjs';
-import { buildReleaseBody, readReleaseNotes } from './release-notes.mjs';
+import { readReleaseNotes } from './release-notes.mjs';
 
 /** npm 레지스트리 반영을 기다리는 기본 횟수입니다. */
 const REGISTRY_ATTEMPTS = 12;
@@ -357,12 +357,7 @@ if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLTo
     await verifyPublishedPackages({ manifest, distTag, npm, log: (message) => process.stdout.write(`${message}\n`) });
     await verifyProvenanceSignatures({ manifest, npm });
     process.stdout.write('npm registry signatures and provenance attestations verified\n');
-    const localizedNotes = await readReleaseNotes(root, version);
-    const generated = parseJsonResult(
-      await gh(['api', '--method', 'POST', `repos/${repo}/releases/generate-notes`, '-f', `tag_name=v${version}`, '-f', `target_commitish=${sha}`]),
-      `generate notes for v${version}`,
-    );
-    const body = buildReleaseBody(localizedNotes, generated.body ?? '');
+    const body = await readReleaseNotes(root, version);
     await ensureGitHubRelease({ dir, manifest, version, repo, sha, body, gh, log: (message) => process.stdout.write(`${message}\n`) });
   } catch (error) {
     process.stdout.write(`::error::${error instanceof Error ? error.message : String(error)}\n`);

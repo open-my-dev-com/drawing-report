@@ -123,6 +123,7 @@ PR을 만들거나 갱신하기 전에 아래 항목을 **하나씩 확인하고
 | 병합 후 실행 | Release 워크플로의 `version`, `dist_tag`, `environment`, `dry_run` 입력과 예상 결과 |
 
 준비 PR이 병합되기 전에는 해당 버전으로 실제 배포하거나 사용자에게 실제 배포를 지시하지 않습니다.
-병합 후에는 먼저 `dry_run=true`로 검증하고, 성공한 뒤 같은 버전과 dist-tag로 `dry_run=false`를 한 번
-실행합니다. 실제 실행은 npm 배포, provenance 확인, Git 태그와 GitHub Release 생성을 한 흐름으로
-완료해야 합니다.
+일반 릴리스는 병합 후 `dry_run=false`로 한 번 실행합니다. 이 실행이 전체 검증, npm 배포,
+provenance 확인, Git 태그와 GitHub Release 생성을 한 흐름으로 완료해야 합니다. 배포 명령만 별도로
+점검할 필요가 있을 때만 `dry_run=true`를 선택적으로 실행하며, dry-run은 실제 릴리스의 선행 조건이
+아닙니다.

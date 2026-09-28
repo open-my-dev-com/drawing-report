@@ -139,9 +139,10 @@ Chromium도 설치되어 있어야 합니다.
 | 산출물 무결성 | 준비 작업이 만든 tarball과 SHA-256 목록을 내려받아 검증하고 다시 빌드하거나 pack하지 않는지 |
 | 순서와 재개 | `core` → `elements` → `react` → `vue` → `mcp` 순서를 지키고 E404·같은 SRI·다른 SRI·조회 오류를 구분하는지 |
 | 결과 보고 | dry-run과 외부 설정 미완료를 실제 배포 성공과 구분해 Job Summary에 남기는지 |
+| 실행 제목 | Actions 실행 제목에 버전, 배포 채널과 실행 종류를 표시하는지 |
 | 버전 준비 | 다섯 패키지 버전이 같고 현재 버전의 세 언어 릴리즈 원문과 공개 문서가 준비돼 있는지 |
 | 배포 후 확인 | npm SRI·dist-tag·provenance를 확인한 뒤에만 GitHub Release를 만드는지 |
-| GitHub Release | 검증한 커밋의 태그, 세 언어 원문·자동 변경 목록과 다섯 tarball·manifest·SHA-256 목록을 게시하는지 |
+| GitHub Release | 검증한 커밋의 태그, 검토한 세 언어 원문과 다섯 tarball·manifest·SHA-256 목록을 게시하는지 |
 
 ### 5.7 폰트 예산
 

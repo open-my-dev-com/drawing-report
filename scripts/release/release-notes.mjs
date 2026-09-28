@@ -77,14 +77,3 @@ export async function readReleaseNotes(root, version) {
   if (problems.length > 0) throw new Error(problems.join('\n'));
   return markdown.trim();
 }
-
-/**
- * 세 언어 원문과 GitHub가 생성한 변경 목록을 합칩니다.
- *
- * @param localizedNotes - 저장소에서 검토한 세 언어 원문
- * @param generatedNotes - GitHub가 생성한 PR·기여자 변경 목록
- * @returns GitHub Release 본문
- */
-export function buildReleaseBody(localizedNotes, generatedNotes) {
-  return `${localizedNotes.trim()}\n\n---\n\n## Changes · 변경 내역 · 変更履歴\n\n${generatedNotes.trim()}\n`;
-}

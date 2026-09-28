@@ -84,10 +84,10 @@ English release text
 Release 준비와 워크플로 시험은 현재 패키지 버전에 해당하는 파일이 있는지, 세 구역이 비어 있지
 않은지 확인합니다.
 
-## 4. 사전 배포 검증
+## 4. 선택적 dry-run
 
-준비 PR을 `main`에 병합한 뒤 GitHub의 **Actions → Release → Run workflow**에서 다음 입력으로
-먼저 실행합니다.
+실제 배포 전에 배포 명령만 시험해야 할 때 GitHub의 **Actions → Release → Run workflow**에서
+다음 입력으로 실행합니다. dry-run은 선택 사항이며 실제 배포의 선행 조건이 아닙니다.
 
 | 입력 | 값 |
 |---|---|
@@ -105,8 +105,9 @@ Job Summary에서 준비·tarball 검증·dry-run이 성공했고 `publish`와 `
 
 ## 5. 실제 배포와 GitHub Release
 
-dry-run이 성공하면 같은 `version`, `dist_tag`, `environment`를 사용하고 `dry_run=false`로 한 번
-실행합니다. `npm-publish` Environment 승인이 필요하면 승인 후 계속합니다.
+준비 PR을 `main`에 병합한 뒤 GitHub의 **Actions → Release → Run workflow**에서 정확한
+`version`, `dist_tag`, `environment=npm-publish`, `dry_run=false`를 입력해 한 번 실행합니다.
+`npm-publish` Environment 승인이 필요하면 승인 후 계속합니다.
 
 워크플로는 `prepare`가 만든 산출물을 다시 빌드하지 않고 다음 순서로 처리합니다.
 
@@ -125,9 +126,8 @@ dry-run이 성공하면 같은 `version`, `dist_tag`, `environment`를 사용하
 - Trusted Publishing provenance attestation이 존재하는지
 - 공개된 정확한 다섯 버전을 설치한 뒤 `npm audit signatures --include-attestations`가 통과하는지
 
-확인이 끝나야 검증한 커밋에 `v버전` 태그와 GitHub Release를 만듭니다. Release 본문은
-`docs/releases/버전.md`의 세 언어 원문과 GitHub가 만든 변경 목록을 합칩니다. 다음 파일을 Release
-자산으로 첨부합니다.
+확인이 끝나야 검증한 커밋에 `v버전` 태그와 GitHub Release를 만듭니다. Release 본문에는
+`docs/releases/버전.md`에서 검토한 세 언어 원문을 사용하고 다음 파일을 자산으로 첨부합니다.
 
 - 다섯 npm tarball
 - `manifest.json`

@@ -19,7 +19,7 @@ import {
   verifyPublishedPackages,
   verifyProvenanceSignatures,
 } from './finalize.mjs';
-import { buildReleaseBody, readReleaseNotes, validateReleaseNotes } from './release-notes.mjs';
+import { readReleaseNotes, validateReleaseNotes } from './release-notes.mjs';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const CURRENT_VERSION = JSON.parse(readFileSync(path.join(ROOT, 'packages/core/package.json'), 'utf8')).version;
@@ -97,11 +97,6 @@ describe('release notes', () => {
     }
   });
 
-  it('세 언어 원문 뒤에 GitHub 변경 목록을 붙인다', () => {
-    const body = buildReleaseBody(valid, '## What changed\n\n- PR #1');
-    assert.match(body, /## Changes · 변경 내역 · 変更履歴/);
-    assert.match(body, /- PR #1/);
-  });
 });
 
 describe('integrity', () => {
@@ -478,6 +473,19 @@ describe('release 워크플로', () => {
     assert.deepEqual([...jobs.keys()], ['prepare', 'publish-dry-run', 'publish', 'release', 'status']);
   });
 
+  it('실행 제목에 버전, 배포 채널과 실행 종류를 표시한다', () => {
+    assert.match(WORKFLOW_TEXT, /^run-name: Release v\$\{\{ inputs\.version \}\}/m);
+    assert.match(WORKFLOW_TEXT, /일반 공개/);
+    assert.match(WORKFLOW_TEXT, /사전 공개/);
+    assert.match(WORKFLOW_TEXT, /배포 테스트/);
+    assert.match(WORKFLOW_TEXT, /npm 배포/);
+  });
+
+  it('입력 설명은 배포 도구의 내부 용어 대신 실제 동작을 안내한다', () => {
+    assert.match(WORKFLOW_TEXT, /npm 배포 태그 \(latest: 일반 공개, next: 사전 공개\)/);
+    assert.match(WORKFLOW_TEXT, /npm에 배포하지 않고 테스트만 실행/);
+  });
+
   it('tarball을 만드는 pack은 prepare에서만 실행한다', () => {
     assert.match(jobs.get('prepare'), /scripts\/release\/pack\.mjs/);
     for (const name of artifactConsumers) {
@@ -524,5 +532,10 @@ describe('release 워크플로', () => {
     assert.doesNotMatch(release, /id-token: write/);
     assert.match(release, /scripts\/release\/finalize\.mjs/);
     assert.match(jobs.get('status'), /RELEASE_RESULT/);
+  });
+
+  it('GitHub Release 본문은 검토한 세 언어 원문만 사용한다', () => {
+    const finalizer = readFileSync(fileURLToPath(new URL('./finalize.mjs', import.meta.url)), 'utf8');
+    assert.doesNotMatch(finalizer, /generate-notes/);
   });
 });
