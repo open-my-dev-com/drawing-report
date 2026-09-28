@@ -12,7 +12,7 @@
 
 | 날짜 | 구분 | 변경 내용 |
 | --- | --- | --- |
-| 2026-09-28 | 신규 작성 | 공통 6개, 화면 16개, 기능 25개, 데이터 11개, 인터페이스 10개와 오류 5개를 등록했습니다. |
+| 2026-09-28 | 신규 작성 | 73개 설계 대상을 등록하고 공통 6개와 데이터 11개의 기술 검토를 마쳤습니다. |
 
 ## 상태 기준
 
@@ -54,12 +54,12 @@
 
 | 식별자 | 설계 대상 | 파일 | 상태 | 주요 근거 |
 | --- | --- | --- | --- | --- |
-| SYS-001 | 시스템 개요와 적용 범위 | `docs/design/00-common/SYS-001-system-overview.md` | 예정 | ARCHITECTURE 1~2, REQUIREMENTS 2~3 |
-| SYS-002 | 패키지 구성과 책임 | `docs/design/00-common/SYS-002-package-architecture.md` | 예정 | ARCHITECTURE 3, ADR-002·003 |
-| SYS-003 | 실행 환경과 배포 구성 | `docs/design/00-common/SYS-003-runtime-deployment.md` | 예정 | ARCHITECTURE 6·13, REQUIREMENTS 4 |
-| SYS-004 | 보안과 신뢰 경계 | `docs/design/00-common/SYS-004-security-boundaries.md` | 예정 | ARCHITECTURE 12·14, REQUIREMENTS 14 |
-| SYS-005 | 국제화와 접근성 | `docs/design/00-common/SYS-005-i18n-accessibility.md` | 예정 | REQUIREMENTS 13, ADR-013·028·042·060 |
-| SYS-006 | 공통 설정과 생명주기 | `docs/design/00-common/SYS-006-configuration-lifecycle.md` | 예정 | ARCHITECTURE 5·11, ADR-056·064 |
+| SYS-001 | 시스템 개요와 적용 범위 | `docs/design/00-common/SYS-001-system-overview.md` | 검토 완료 | ARCHITECTURE 1~2, REQUIREMENTS 2~3 |
+| SYS-002 | 패키지 구성과 책임 | `docs/design/00-common/SYS-002-package-architecture.md` | 검토 완료 | ARCHITECTURE 3, ADR-002·003 |
+| SYS-003 | 실행 환경과 배포 구성 | `docs/design/00-common/SYS-003-runtime-deployment.md` | 검토 완료 | ARCHITECTURE 6·13, REQUIREMENTS 4 |
+| SYS-004 | 보안과 신뢰 경계 | `docs/design/00-common/SYS-004-security-boundaries.md` | 검토 완료 | ARCHITECTURE 12·14, REQUIREMENTS 14 |
+| SYS-005 | 국제화와 접근성 | `docs/design/00-common/SYS-005-i18n-accessibility.md` | 검토 완료 | REQUIREMENTS 13, ADR-013·028·042·060 |
+| SYS-006 | 공통 설정과 생명주기 | `docs/design/00-common/SYS-006-configuration-lifecycle.md` | 검토 완료 | ARCHITECTURE 5·11, ADR-056·064 |
 
 ## 화면 설계
 
@@ -116,17 +116,17 @@
 
 | 식별자 | 설계 대상 | 파일 | 상태 | 주요 근거 |
 | --- | --- | --- | --- | --- |
-| DAT-001 | 파일 봉투와 버전 | `docs/design/30-data/DAT-001-file-envelope-version.md` | 예정 | SPEC 3~4 |
-| DAT-002 | 양식 본문·메타데이터·용지·페이지 | `docs/design/30-data/DAT-002-template-structure.md` | 예정 | SPEC 8·17 |
-| DAT-003 | 전표 스냅샷·값·발행 상태 | `docs/design/30-data/DAT-003-voucher-structure.md` | 예정 | SPEC 18~19 |
-| DAT-004 | 요소 공통 속성과 스타일 | `docs/design/30-data/DAT-004-element-common-style.md` | 예정 | SPEC 9 |
-| DAT-005 | 요소별 데이터 | `docs/design/30-data/DAT-005-element-types.md` | 예정 | SPEC 10~15 |
-| DAT-006 | 파라미터와 샘플 값 | `docs/design/30-data/DAT-006-parameters-values.md` | 예정 | SPEC 8.5~8.6·18.2 |
-| DAT-007 | 그리드·셀·행 구간과 페이지 계획 | `docs/design/30-data/DAT-007-grid-pagination.md` | 예정 | SPEC 15, ADR-065 |
-| DAT-008 | 수식과 조건부 서식 | `docs/design/30-data/DAT-008-formula-conditional-format.md` | 예정 | SPEC 9.4·16 |
-| DAT-009 | 이미지·에셋과 폰트 | `docs/design/30-data/DAT-009-resources-fonts.md` | 예정 | SPEC 7·12, ADR-036·040 |
-| DAT-010 | 암호화 봉투 | `docs/design/30-data/DAT-010-encryption-envelope.md` | 예정 | SPEC 21 |
-| DAT-011 | 저장 메타데이터와 MCP 설정 | `docs/design/30-data/DAT-011-storage-mcp-config.md` | 예정 | StorageListItem·slipkit-mcp.json |
+| DAT-001 | 파일 봉투와 버전 | `docs/design/30-data/DAT-001-file-envelope-version.md` | 검토 완료 | SPEC 3~4 |
+| DAT-002 | 양식 본문·메타데이터·용지·페이지 | `docs/design/30-data/DAT-002-template-structure.md` | 검토 완료 | SPEC 8·17 |
+| DAT-003 | 전표 스냅샷·값·발행 상태 | `docs/design/30-data/DAT-003-voucher-structure.md` | 검토 완료 | SPEC 18~19 |
+| DAT-004 | 요소 공통 속성과 스타일 | `docs/design/30-data/DAT-004-element-common-style.md` | 검토 완료 | SPEC 9 |
+| DAT-005 | 요소별 데이터 | `docs/design/30-data/DAT-005-element-types.md` | 검토 완료 | SPEC 10~15 |
+| DAT-006 | 파라미터와 샘플 값 | `docs/design/30-data/DAT-006-parameters-values.md` | 검토 완료 | SPEC 8.5~8.6·18.2 |
+| DAT-007 | 그리드·셀·행 구간과 페이지 계획 | `docs/design/30-data/DAT-007-grid-pagination.md` | 검토 완료 | SPEC 15, ADR-065 |
+| DAT-008 | 수식과 조건부 서식 | `docs/design/30-data/DAT-008-formula-conditional-format.md` | 검토 완료 | SPEC 9.4·16 |
+| DAT-009 | 이미지·에셋과 폰트 | `docs/design/30-data/DAT-009-resources-fonts.md` | 검토 완료 | SPEC 7·12, ADR-036·040 |
+| DAT-010 | 암호화 봉투 | `docs/design/30-data/DAT-010-encryption-envelope.md` | 검토 완료 | SPEC 21 |
+| DAT-011 | 저장 메타데이터와 MCP 설정 | `docs/design/30-data/DAT-011-storage-mcp-config.md` | 검토 완료 | StorageListItem·slipkit-mcp.json |
 
 ## 인터페이스 설계
 
