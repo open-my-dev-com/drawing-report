@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="460" height="1180" viewBox="0 0 460 1180" role="img" aria-labelledby="t d">
+  <title id="t">번호를 표시한 요소와 파라미터 목록</title>
+  <desc id="d">요소 목록과 파라미터 목록의 선택, 펼치기, 삭제, 샘플 값과 추가 명령</desc>
+  <rect width="460" height="1180" fill="#ffffff"/>
+  <svg x="80" y="0" width="352" height="1180" viewBox="0 220 176 590" preserveAspectRatio="none">
+    <image href="SCR-001-designer-main-default-1440x810.png" width="1440" height="810"/>
+  </svg>
+  <g stroke="#0b57d0" stroke-width="2" fill="none">
+    <path d="M28 50H105"/><path d="M28 266H114"/><path d="M28 106H180"/><path d="M28 156H386"/>
+    <path d="M28 476H328"/><path d="M28 516H300L386 476"/><path d="M28 538H180"/><path d="M28 580H90L114 592"/>
+    <path d="M28 620H300L386 592"/><path d="M28 680H120L176 642"/>
+  </g>
+  <g fill="#0b57d0" stroke="#ffffff" stroke-width="3" font-family="Arial,sans-serif" font-size="18" font-weight="700" text-anchor="middle">
+    <circle cx="28" cy="50" r="17"/><text x="28" y="56" fill="#fff" stroke="none">1</text>
+    <circle cx="28" cy="266" r="17"/><text x="28" y="272" fill="#fff" stroke="none">2</text>
+    <circle cx="28" cy="106" r="17"/><text x="28" y="112" fill="#fff" stroke="none">3</text>
+    <circle cx="28" cy="156" r="17"/><text x="28" y="162" fill="#fff" stroke="none">4</text>
+    <circle cx="28" cy="476" r="17"/><text x="28" y="482" fill="#fff" stroke="none">5</text>
+    <circle cx="28" cy="516" r="17"/><text x="28" y="522" fill="#fff" stroke="none">6</text>
+    <circle cx="28" cy="538" r="17"/><text x="28" y="544" fill="#fff" stroke="none">7</text>
+    <circle cx="28" cy="580" r="17"/><text x="28" y="586" fill="#fff" stroke="none">8</text>
+    <circle cx="28" cy="620" r="17"/><text x="28" y="626" fill="#fff" stroke="none">9</text>
+    <circle cx="28" cy="680" r="17"/><text x="28" y="686" fill="#fff" stroke="none">10</text>
+  </g>
+</svg>

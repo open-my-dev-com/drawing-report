@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="760" viewBox="0 0 720 760" role="img" aria-labelledby="t d">
+  <title id="t">번호를 표시한 페이지 관리 화면</title>
+  <desc id="d">상단의 페이지 번호·추가·삭제 명령과 왼쪽의 페이지 목록</desc>
+  <rect width="720" height="760" fill="#f7f8fa"/>
+  <text x="24" y="34" fill="#202124" font-family="Arial,sans-serif" font-size="18" font-weight="700">상단 페이지 명령</text>
+  <svg x="24" y="52" width="672" height="150" viewBox="530 92 210 72" preserveAspectRatio="xMidYMid meet">
+    <image href="SCR-001-designer-main-default-1440x810.png" width="1440" height="810"/>
+  </svg>
+  <text x="24" y="246" fill="#202124" font-family="Arial,sans-serif" font-size="18" font-weight="700">왼쪽 페이지 목록</text>
+  <svg x="90" y="266" width="528" height="470" viewBox="0 155 176 157" preserveAspectRatio="none">
+    <image href="SCR-001-designer-main-default-1440x810.png" width="1440" height="810"/>
+  </svg>
+  <g stroke="#0b57d0" stroke-width="3" fill="none">
+    <path d="M95 135H182"/>
+    <path d="M320 135H414"/>
+    <path d="M548 135H500"/>
+    <path d="M45 350H160"/>
+  </g>
+  <g fill="#0b57d0" stroke="#ffffff" stroke-width="3" font-family="Arial,sans-serif" font-size="20" font-weight="700" text-anchor="middle">
+    <circle cx="95" cy="135" r="19"/><text x="95" y="142" fill="#ffffff" stroke="none">1</text>
+    <circle cx="320" cy="135" r="19"/><text x="320" y="142" fill="#ffffff" stroke="none">2</text>
+    <circle cx="548" cy="135" r="19"/><text x="548" y="142" fill="#ffffff" stroke="none">3</text>
+    <circle cx="45" cy="350" r="19"/><text x="45" y="357" fill="#ffffff" stroke="none">4</text>
+  </g>
+</svg>
