@@ -1,6 +1,6 @@
 {
   "name": "@omdc/slipkit-mcp",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Local MCP server for creating and editing .slip forms, assembling vouchers, and rendering PDFs",
   "keywords": [
     "slipkit",

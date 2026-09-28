@@ -1,6 +1,6 @@
 {
   "name": "@omdc/slipkit",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "TypeScript core for validating .slip files, evaluating formulas, assembling vouchers, and generating PDFs",
   "keywords": [
     "slipkit",

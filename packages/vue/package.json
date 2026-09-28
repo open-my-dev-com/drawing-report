@@ -1,6 +1,6 @@
 {
   "name": "@omdc/slipkit-vue",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Vue wrappers for the SlipKit Web Components",
   "keywords": [
     "slipkit",

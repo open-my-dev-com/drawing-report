@@ -6,8 +6,8 @@
 
 > [!IMPORTANT]
 > npm 조직 `omdc`는 생성했지만 `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지는 아직 npm 레지스트리에
-> 배포되지 않았습니다. 이 문서에 적힌 Trusted Publisher와 GitHub Environment의 외부 설정도 아직 수행하지 않았습니다. 최초 패키지 생성과
-> 라이선스·버전·승인 정책을 확정하기 전에는 실제 배포를 실행하지 않습니다.
+> 배포되지 않았습니다. 최초 공개 버전은 `0.1.0`, dist-tag는 `latest`로 정했습니다. 이 문서에 적힌
+> Trusted Publisher와 GitHub Environment의 외부 설정을 마치기 전에는 실제 배포를 실행하지 않습니다.
 
 ## 1. 자동 검증 범위
 
@@ -44,7 +44,8 @@ npm의 Trusted Publisher는 이미 레지스트리에 존재하는 패키지에�
 GitHub 저장소 이름을 `slipkit`으로 바꾸고 이름 변경을 반영한 PR을 병합한 뒤 다음 순서로 최초 패키지를
 만듭니다.
 
-1. 첫 버전과 dist-tag를 확정하고 다섯 `package.json`에 같은 버전을 기록합니다.
+1. 다섯 `package.json`의 버전이 최초 공개 버전 `0.1.0`으로 같은지 확인합니다. 최초 공개에는
+   dist-tag `latest`를 사용합니다.
 2. `main`에서 Release 워크플로를 `dry_run=true`로 실행해 검증과 tarball 생성을 완료합니다.
 3. `omdc` 조직에 쓰기 권한이 있고 2단계 인증을 설정한 npm 계정으로 로그인합니다.
 4. 검증한 tarball을 Core, Elements, React, Vue, MCP 순서로 `npm publish --access public --tag` 명령에

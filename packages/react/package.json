@@ -1,6 +1,6 @@
 {
   "name": "@omdc/slipkit-react",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "React wrappers for the SlipKit Web Components",
   "keywords": [
     "slipkit",
