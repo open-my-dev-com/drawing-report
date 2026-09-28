@@ -30,7 +30,7 @@
 첫 이미지는 미리보기 상태의 도구 모음과 PDF 영역을, 두 번째 이미지는 PDF 영역에 표시되는 실제 출력
 첫 페이지를 보여 줍니다.
 
-![번호를 표시한 출력 결과 미리보기](../assets/SCR-013-output-preview-annotated.svg)
+![번호를 표시한 출력 결과 미리보기](../assets/SCR-013-output-preview-annotated.png)
 
 ![출력 결과 PDF 첫 페이지](../assets/SCR-015-voucher-viewer-output-page.png)
 

@@ -32,9 +32,9 @@
 첫 이미지는 저장 모달, 두 번째 이미지는 내 양식 목록 모달의 번호를 표시합니다. 새 양식으로 저장,
 오류, 목록 페이지 이동과 삭제 확인은 조건에 따라 같은 위치에 추가되며 상태 표에서 설명합니다.
 
-![번호를 표시한 내 양식 저장 모달](../assets/SCR-012-saved-forms-dialogs-annotated.svg)
+![번호를 표시한 내 양식 저장 모달](../assets/SCR-012-saved-forms-dialogs-annotated.png)
 
-![번호를 표시한 내 양식 목록 모달](../assets/SCR-012-my-forms-dialog-annotated.svg)
+![번호를 표시한 내 양식 목록 모달](../assets/SCR-012-my-forms-dialog-annotated.png)
 
 ## 화면 구성
 

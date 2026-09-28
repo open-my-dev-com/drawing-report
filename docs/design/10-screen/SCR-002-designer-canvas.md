@@ -27,7 +27,7 @@
 
 ## 화면 이미지
 
-![번호를 표시한 디자이너 캔버스](../assets/SCR-002-designer-canvas-annotated.svg)
+![번호를 표시한 디자이너 캔버스](../assets/SCR-002-designer-canvas-annotated.png)
 
 ## 화면 구성
 

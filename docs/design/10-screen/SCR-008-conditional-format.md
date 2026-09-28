@@ -28,7 +28,7 @@
 
 ## 화면 이미지
 
-![번호를 표시한 조건부 서식 편집 구역](../assets/SCR-008-conditional-format-annotated.svg)
+![번호를 표시한 조건부 서식 편집 구역](../assets/SCR-008-conditional-format-annotated.png)
 
 ## 화면 구성
 

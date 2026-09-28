@@ -55,10 +55,10 @@ describe('기본설계 문서 검증', () => {
     const root = copyRepositoryDesign();
     const screen = path.join(root, 'docs', 'design', '10-screen', 'SCR-001-designer-main.md');
     writeFileSync(screen, readFileSync(screen, 'utf8').replace(
-      'SCR-001-designer-main-default-1440x810-annotated.svg',
+      'SCR-001-designer-main-default-1440x810-annotated.png',
       'SCR-001-designer-main-default-1440x810.png',
     ));
-    assert.ok(verifyDesignDocs(root).some((error) => error.includes('SCR-001 주석 이미지가 필요합니다')));
+    assert.ok(verifyDesignDocs(root).some((error) => error.includes('SCR-001 주석 PNG가 필요합니다')));
   });
 
   it('화면 설계에서 서로 다른 사용자 동작을 한 행에 묶지 못하게 합니다', () => {

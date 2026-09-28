@@ -31,7 +31,7 @@
 첫 이미지는 데모 호스트 안의 `<slip-viewer>`를, 두 번째 이미지는 브라우저 PDF 도구와 관계없는 실제
 출력 첫 페이지를 보여 줍니다.
 
-![번호를 표시한 전표 뷰어](../assets/SCR-015-voucher-viewer-annotated.svg)
+![번호를 표시한 전표 뷰어](../assets/SCR-015-voucher-viewer-annotated.png)
 
 ![발행 전표 PDF 첫 페이지](../assets/SCR-015-voucher-viewer-output-page.png)
 

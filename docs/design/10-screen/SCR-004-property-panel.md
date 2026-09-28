@@ -28,7 +28,7 @@
 
 ## 화면 이미지
 
-![번호를 표시한 속성 패널](../assets/SCR-004-property-panel-annotated.svg)
+![번호를 표시한 속성 패널](../assets/SCR-004-property-panel-annotated.png)
 
 ## 화면 구성
 

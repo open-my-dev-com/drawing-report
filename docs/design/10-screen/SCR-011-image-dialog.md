@@ -27,7 +27,7 @@
 
 ## 화면 이미지
 
-![번호를 표시한 이미지 선택 모달](../assets/SCR-011-image-dialog-annotated.svg)
+![번호를 표시한 이미지 선택 모달](../assets/SCR-011-image-dialog-annotated.png)
 
 ## 화면 구성
 

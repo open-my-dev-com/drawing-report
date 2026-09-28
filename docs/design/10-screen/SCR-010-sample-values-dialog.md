@@ -28,7 +28,7 @@
 
 ## 화면 이미지
 
-![번호를 표시한 샘플 값 편집 모달](../assets/SCR-010-sample-values-dialog-annotated.svg)
+![번호를 표시한 샘플 값 편집 모달](../assets/SCR-010-sample-values-dialog-annotated.png)
 
 ## 화면 구성
 

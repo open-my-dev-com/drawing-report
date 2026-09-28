@@ -37,7 +37,7 @@
 파란 번호는 아래 화면 구성 표의 번호와 같습니다. 이미지 위쪽의 데모 탐색과 저장 안내는
 `<slip-designer>` 밖에서 호스트가 제공하는 영역입니다.
 
-![번호를 표시한 디자이너 기본 화면](../assets/SCR-001-designer-main-default-1440x810-annotated.svg)
+![번호를 표시한 디자이너 기본 화면](../assets/SCR-001-designer-main-default-1440x810-annotated.png)
 
 ## 화면 구성
 

@@ -164,11 +164,13 @@ function tableCells(row) {
 
 function annotatedImageNumbers(file, imageBody) {
   const numbers = new Set();
-  for (const match of imageBody.matchAll(/!\[[^\]]*\]\(([^)]+-annotated\.svg)\)/g)) {
+  for (const match of imageBody.matchAll(/!\[[^\]]*\]\(([^)]+-annotated\.png)\)/g)) {
     const target = decodeURIComponent(match[1].trim());
     const absolute = path.resolve(path.dirname(file), target);
     if (!existsSync(absolute)) continue;
-    const svg = readFileSync(absolute, 'utf8');
+    const svgSource = absolute.replace(/\.png$/, '.svg');
+    if (!existsSync(svgSource)) continue;
+    const svg = readFileSync(svgSource, 'utf8');
     for (const number of svg.matchAll(/<text\b[^>]*>\s*(\d+)\s*<\/text>/g)) {
       numbers.add(Number(number[1]));
     }
@@ -191,8 +193,8 @@ function validateScreenDesign(file, label, source, errors) {
 
   const id = source.match(/^#\s+(SCR-\d{3})\b/m)?.[1];
   const imageBody = sectionBody(source, '화면 이미지');
-  if (id !== undefined && !new RegExp(`!\\[[^\\]]*\\]\\([^)]*${id}[^)]*-annotated\\.svg\\)`).test(imageBody)) {
-    errors.push(`${label}: 화면 번호와 설명을 연결한 ${id} 주석 이미지가 필요합니다.`);
+  if (id !== undefined && !new RegExp(`!\\[[^\\]]*\\]\\([^)]*${id}[^)]*-annotated\\.png\\)`).test(imageBody)) {
+    errors.push(`${label}: 화면 번호와 설명을 연결한 ${id} 주석 PNG가 필요합니다.`);
   }
 
   for (const header of SCREEN_TABLE_HEADERS) {

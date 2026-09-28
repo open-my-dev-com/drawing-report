@@ -29,7 +29,7 @@
 
 ## 화면 이미지
 
-![번호를 표시한 데모 저장 데이터 삭제 확인](../assets/SCR-016-demo-storage-controls-annotated.svg)
+![번호를 표시한 데모 저장 데이터 삭제 확인](../assets/SCR-016-demo-storage-controls-annotated.png)
 
 ## 화면 구성
 

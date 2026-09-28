@@ -27,7 +27,7 @@
 
 ## 화면 이미지
 
-![번호를 표시한 파라미터 관리 화면](../assets/SCR-009-parameter-management-annotated.svg)
+![번호를 표시한 파라미터 관리 화면](../assets/SCR-009-parameter-management-annotated.png)
 
 ## 화면 구성
 

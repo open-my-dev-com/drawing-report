@@ -27,7 +27,7 @@
 
 ## 화면 이미지
 
-![번호를 표시한 그리드 편집 화면](../assets/SCR-006-grid-editor-annotated.svg)
+![번호를 표시한 그리드 편집 화면](../assets/SCR-006-grid-editor-annotated.png)
 
 ## 화면 구성
 

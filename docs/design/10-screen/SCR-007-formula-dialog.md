@@ -28,7 +28,7 @@
 
 ## 화면 이미지
 
-![번호를 표시한 수식 편집 모달](../assets/SCR-007-formula-dialog-annotated.svg)
+![번호를 표시한 수식 편집 모달](../assets/SCR-007-formula-dialog-annotated.png)
 
 ## 화면 구성
 

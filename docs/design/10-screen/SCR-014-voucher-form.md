@@ -29,7 +29,7 @@
 
 ## 화면 이미지
 
-![번호를 표시한 전표 작성 폼](../assets/SCR-014-voucher-form-annotated.svg)
+![번호를 표시한 전표 작성 폼](../assets/SCR-014-voucher-form-annotated.png)
 
 ## 화면 구성
 

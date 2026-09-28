@@ -27,7 +27,7 @@
 
 ## 화면 이미지
 
-![번호를 표시한 페이지 관리 화면](../assets/SCR-005-page-management-annotated.svg)
+![번호를 표시한 페이지 관리 화면](../assets/SCR-005-page-management-annotated.png)
 
 ## 화면 구성
 

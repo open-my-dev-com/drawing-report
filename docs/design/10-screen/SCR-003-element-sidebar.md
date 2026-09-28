@@ -27,7 +27,7 @@
 
 ## 화면 이미지
 
-![번호를 표시한 요소와 파라미터 목록](../assets/SCR-003-element-sidebar-annotated.svg)
+![번호를 표시한 요소와 파라미터 목록](../assets/SCR-003-element-sidebar-annotated.png)
 
 ## 화면 구성
 
