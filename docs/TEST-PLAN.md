@@ -137,7 +137,7 @@ Chromium도 설치되어 있어야 합니다.
 | 최소 권한 | CI는 `contents: read`, 실제 배포만 `id-token: write`를 사용하고 checkout 자격 증명을 남기지 않는지 |
 | 외부 설정 차단 | `main`, `dry_run=false`, `npm-publish` Environment와 저장소 변수가 모두 맞을 때만 실제 배포하는지 |
 | 산출물 무결성 | 준비 작업이 만든 tarball과 SHA-256 목록을 내려받아 검증하고 다시 빌드하거나 pack하지 않는지 |
-| 순서와 재개 | `core` → `elements` → `react` → `vue` → `mcp` 순서를 지키고 E404·같은 SRI·다른 SRI·조회 오류를 구분하는지 |
+| 순서와 재개 | `core` → `elements` → `react` → `vue` → `mcp` 순서를 지키고 E404·같은 SRI·다른 SRI·조회 오류를 구분하는지, 배포 후 자동 검토 중인 E404는 제한 시간 동안 다시 확인한 뒤 다음 패키지로 넘어가는지 |
 | 결과 보고 | dry-run과 외부 설정 미완료를 실제 배포 성공과 구분해 Job Summary에 남기는지 |
 | 실행 제목 | Actions 실행 제목에 버전, 배포 채널과 실행 종류를 표시하는지 |
 | 버전 준비 | 다섯 패키지 버전이 같고 현재 버전의 세 언어 릴리즈 원문과 공개 문서가 준비돼 있는지 |
@@ -209,6 +209,8 @@ Chromium도 설치되어 있어야 합니다.
 | 배포 산출물 재사용 | 두 publish 작업과 release 작업이 `prepare`가 올린 것과 같은 이름의 배포 산출물을 내려받는지 |
 | 재빌드 없음 | publish·release 작업에 설치·검증·빌드·`pnpm pack` 단계가 없는지 |
 | 보존 기간 | `retention-days`가 7인지 |
+| npm 자동 검토 | 배포 명령의 출력을 로그에 남기고, 공개 조회가 지연되면 실제 대기 없이 재시도·성공·시간 초과를 시험하며, SRI 불일치는 즉시 실패하는지 |
+| 작업 제한 시간 | publish 작업이 다섯 패키지의 자동 검토를 순서대로 기다릴 수 있도록 90분인지 |
 | 실패 안내 | 배포 실패 Job Summary가 처음 실패한 실행의 `Re-run failed jobs`를 가리키고 새 실행을 권하는 문구가 없는지 |
 | 릴리즈 원문 | 한국어·일본어·영어 구역이 순서대로 있고 각 구역이 비어 있지 않은지 |
 | npm 확인 | manifest SRI, dist-tag와 attestation 존재 여부가 맞고 레지스트리 반영 지연은 제한 횟수 안에서 다시 확인하며, 공개된 정확한 버전의 `npm audit signatures --include-attestations`가 통과하는지 |

@@ -18,6 +18,12 @@ import { fileURLToPath } from 'node:url';
 import { DIST_TAGS } from './inputs.mjs';
 import { sriSha512, verifySha256Sums } from './integrity.mjs';
 
+/** npm 자동 검토와 공개 레지스트리 반영을 기다리는 기본 횟수입니다. */
+const REGISTRY_ATTEMPTS = 91;
+
+/** npm 공개 상태를 다시 확인하는 간격입니다. */
+const REGISTRY_DELAY_MS = 10_000;
+
 /**
  * `npm view <name>@<version> dist.integrity --json` 결과를 해석합니다.
  *
@@ -70,6 +76,74 @@ export function decidePublish(view, localIntegrity) {
 }
 
 /**
+ * npm 명령의 표준 출력과 표준 오류를 진행 로그에 남깁니다.
+ *
+ * @param result - npm 실행 결과
+ * @param log - 진행 메시지 출력 함수
+ * @returns 완료 시 undefined
+ */
+function logNpmOutput(result, log) {
+  for (const output of [result.stdout, result.stderr]) {
+    const text = typeof output === 'string' ? output.trim() : '';
+    if (text !== '') log(text);
+  }
+}
+
+/**
+ * npm 자동 검토가 끝나 SRI와 dist-tag를 공개 조회할 수 있을 때까지 기다립니다.
+ *
+ * @param options - 확인 설정
+ * @param options.entry - release manifest 항목
+ * @param options.distTag - 이번 배포의 dist-tag
+ * @param options.localIntegrity - 로컬 tarball의 SHA-512 SRI
+ * @param options.npm - npm 실행 함수
+ * @param options.attempts - 최대 확인 횟수
+ * @param options.delay - 다음 확인 전 대기 함수
+ * @param options.log - 진행 메시지 출력 함수
+ * @returns 완료 시 undefined
+ * @throws Error SRI가 다르거나 제한 횟수 안에 공개 상태를 확인하지 못하면
+ */
+export async function waitForPublishedPackage({
+  entry,
+  distTag,
+  localIntegrity,
+  npm,
+  attempts = REGISTRY_ATTEMPTS,
+  delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  log = () => {},
+}) {
+  const spec = `${entry.name}@${entry.version}`;
+  let lastProblem = 'not found';
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const view = interpretView(await npm(['view', spec, 'dist.integrity', '--json']));
+    if (view.status === 'found') {
+      if (view.integrity !== localIntegrity) {
+        throw new Error(`post-publish check failed for ${spec}: integrity ${view.integrity}, expected ${localIntegrity}`);
+      }
+      const tags = await npm(['view', entry.name, 'dist-tags', '--json']);
+      if (tags.code === 0) {
+        try {
+          const tagged = JSON.parse(tags.stdout)?.[distTag];
+          if (tagged === entry.version) return;
+          lastProblem = `dist-tag ${distTag} is ${tagged ?? '(unset)'}`;
+        } catch (error) {
+          lastProblem = `npm view dist-tags returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`;
+        }
+      } else {
+        lastProblem = `npm view dist-tags failed (exit ${tags.code}): ${tags.stderr.trim()}`;
+      }
+    } else {
+      lastProblem = view.status === 'missing' ? 'not found (npm validation may still be running)' : view.message;
+    }
+    if (attempt === attempts) {
+      throw new Error(`post-publish check timed out for ${spec}: ${lastProblem}`);
+    }
+    log(`${spec}: waiting for npm validation (${lastProblem}; ${attempt}/${attempts})`);
+    await delay(REGISTRY_DELAY_MS);
+  }
+}
+
+/**
  * manifest의 패키지를 순서대로 배포합니다.
  *
  * @param options - 배포 설정
@@ -78,11 +152,22 @@ export function decidePublish(view, localIntegrity) {
  * @param options.distTag - 붙일 dist-tag
  * @param options.dryRun - true면 `npm publish --dry-run`만 실행하고 배포 후 확인은 건너뜁니다.
  * @param options.npm - npm을 실행하는 함수 `(args) => Promise<{ code, stdout, stderr }>`
+ * @param options.attempts - 배포 후 공개 상태를 확인할 최대 횟수
+ * @param options.delay - 다음 확인 전 대기 함수
  * @param options.log - 진행 메시지 출력 함수
  * @returns 패키지별 결과 (`published` / `skipped` / `dry-run`)
  * @throws Error 검증·조회·배포·배포 후 확인이 실패하면 (그 시점에서 중단)
  */
-export async function publishAll({ dir, manifest, distTag, dryRun, npm, log = () => {} }) {
+export async function publishAll({
+  dir,
+  manifest,
+  distTag,
+  dryRun,
+  npm,
+  attempts = REGISTRY_ATTEMPTS,
+  delay,
+  log = () => {},
+}) {
   if (!DIST_TAGS.includes(distTag)) throw new Error(`dist_tag must be one of ${DIST_TAGS.join(', ')}, got ${distTag}`);
   const results = [];
   for (const entry of manifest) {
@@ -95,6 +180,9 @@ export async function publishAll({ dir, manifest, distTag, dryRun, npm, log = ()
     const view = interpretView(await npm(['view', spec, 'dist.integrity', '--json']));
     const decision = decidePublish(view, localIntegrity);
     if (decision === 'skip') {
+      if (!dryRun) {
+        await waitForPublishedPackage({ entry, distTag, localIntegrity, npm, attempts, delay, log });
+      }
       log(`${spec}: already published with the same tarball, skipping`);
       results.push({ name: entry.name, outcome: 'skipped' });
       continue;
@@ -103,22 +191,15 @@ export async function publishAll({ dir, manifest, distTag, dryRun, npm, log = ()
     if (dryRun) args.push('--dry-run');
     log(`${spec}: npm ${args.join(' ')}`);
     const published = await npm(args);
+    logNpmOutput(published, log);
     if (published.code !== 0) {
-      throw new Error(`npm publish failed for ${spec} (exit ${published.code})\n${published.stderr}`);
+      throw new Error(`npm publish failed for ${spec} (exit ${published.code})`);
     }
     if (dryRun) {
       results.push({ name: entry.name, outcome: 'dry-run' });
       continue;
     }
-    const check = interpretView(await npm(['view', spec, 'dist.integrity', '--json']));
-    if (check.status !== 'found' || check.integrity !== localIntegrity) {
-      throw new Error(`post-publish check failed for ${spec}: ${check.status === 'found' ? `integrity ${check.integrity}` : check.message ?? 'not found'}`);
-    }
-    const tags = await npm(['view', entry.name, 'dist-tags', '--json']);
-    const tagged = tags.code === 0 ? JSON.parse(tags.stdout)?.[distTag] : undefined;
-    if (tagged !== entry.version) {
-      throw new Error(`post-publish check failed for ${spec}: dist-tag ${distTag} is ${tagged ?? '(unset)'}`);
-    }
+    await waitForPublishedPackage({ entry, distTag, localIntegrity, npm, attempts, delay, log });
     log(`${spec}: published and verified (${distTag})`);
     results.push({ name: entry.name, outcome: 'published' });
   }

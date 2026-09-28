@@ -12,7 +12,8 @@
 #   prepare: ref·입력 검사 → pnpm verify → pnpm verify:packages → pnpm pack → tarball·SHA256SUMS·manifest 배포 산출물(7일 보존)
 #   publish-dry-run: 실제 배포 조건이 아닐 때 실행합니다. 배포 산출물의 SHA-256 검증 → npm 11.19.1 → npm publish --dry-run(순서·명령 확인)
 #   publish: 실제 배포 조건일 때 실행합니다. Environment npm-publish, id-token: write. 배포 산출물의 SHA-256 검증 → npm 11.19.1 →
-#                     core → elements → react → vue → mcp 순서로 npm publish <tarball> --provenance --access public --tag <dist_tag>
+#                     core → elements → react → vue → mcp 순서로 npm publish <tarball> --provenance --access public --tag <dist_tag> →
+#                     패키지별 npm 자동 검토와 공개 조회 대기
 #   release: npm의 SRI·dist-tag·provenance 확인 → v<version> 태그 → 세 언어 GitHub Release와 배포 산출물 첨부
 #   status: Job Summary에 npm 배포와 GitHub Release 여부를 남깁니다. 검증만 한 실행을 배포 성공으로 오해하지 않게 합니다.
 # 실제 배포 조건 (모두 만족): dry_run == false, vars.NPM_TRUSTED_PUBLISHING == 'true', ref == refs/heads/main, environment == npm-publish.
@@ -28,7 +29,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '배포할 버전 (예: 0.1.1, 다섯 패키지의 버전과 일치해야 함)'
+        description: '배포할 버전 (예: 0.1.2, 다섯 패키지의 버전과 일치해야 함)'
         type: string
         required: true
       dist_tag:
@@ -161,7 +162,7 @@ jobs:
     needs: prepare
     if: ${{ inputs.dry_run == false && vars.NPM_TRUSTED_PUBLISHING == 'true' && github.ref == 'refs/heads/main' && inputs.environment == 'npm-publish' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     environment: ${{ inputs.environment }}
     permissions:
       contents: read
