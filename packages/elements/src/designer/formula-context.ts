@@ -14,7 +14,7 @@ import type {
   GridPlan,
   PlannedBand,
   SourcePagePlan,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { readOwn } from './own-map.js';
 
 /** 예약 참조 값을 제공할 수 없는 이유입니다. */

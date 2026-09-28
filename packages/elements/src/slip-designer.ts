@@ -20,7 +20,7 @@ import {
   type ParameterValueType,
   type SlipKit,
   type StorageAdapter,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { getStrings } from './strings.js';
 import { renderSlip, resolveFonts, type SlipDesignerSettings, type PaperSize } from './settings.js';
 import {

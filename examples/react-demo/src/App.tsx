@@ -1,11 +1,11 @@
 /**
  * SlipKit React 데모입니다. 양식을 만들고, 전표를 작성하고, 발행된 전표를 확인하며, 파일로 주고받는 흐름을 보여 줍니다.
  *
- * 호스트 애플리케이션이 `@omdc-slipkit/react` 래퍼를 연결하는 방법을 보여 줍니다.
+ * 호스트 애플리케이션이 `@omdc/slipkit-react` 래퍼를 연결하는 방법을 보여 줍니다.
  * 무엇을 저장하고 언제 이어 쓰는지는 바닐라·Vue 데모와 같은 `slipkit-demo-shared`를 씁니다.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SlipDesigner, SlipForm, SlipViewer } from '@omdc-slipkit/react';
+import { SlipDesigner, SlipForm, SlipViewer } from '@omdc/slipkit-react';
 import {
   buildVoucher,
   createSlipKit,
@@ -13,9 +13,9 @@ import {
   type SlipFile,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
-import type { SlipDesignerSettings } from '@omdc-slipkit/elements';
-import { loadDefaultFonts } from '@omdc-slipkit/elements';
+} from '@omdc/slipkit';
+import type { SlipDesignerSettings } from '@omdc/slipkit-elements';
+import { loadDefaultFonts } from '@omdc/slipkit-elements';
 import {
   AUTOSAVE_DELAY_MS,
   ISSUED_KEY,

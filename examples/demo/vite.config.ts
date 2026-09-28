@@ -7,10 +7,10 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
-      '@omdc-slipkit/core': r('../../packages/core/src/index.ts'),
-      '@omdc-slipkit/elements/fonts/pretendard': r('../../packages/elements/src/fonts/pretendard.ts'),
-      '@omdc-slipkit/elements/fonts/noto-sans-jp': r('../../packages/elements/src/fonts/noto-sans-jp.ts'),
-      '@omdc-slipkit/elements': r('../../packages/elements/src/index.ts'),
+      '@omdc/slipkit': r('../../packages/core/src/index.ts'),
+      '@omdc/slipkit-elements/fonts/pretendard': r('../../packages/elements/src/fonts/pretendard.ts'),
+      '@omdc/slipkit-elements/fonts/noto-sans-jp': r('../../packages/elements/src/fonts/noto-sans-jp.ts'),
+      '@omdc/slipkit-elements': r('../../packages/elements/src/index.ts'),
       'slipkit-demo-shared/demo.css': r('../shared/demo.css'),
       'slipkit-demo-shared': r('../shared/src/index.ts'),
     },

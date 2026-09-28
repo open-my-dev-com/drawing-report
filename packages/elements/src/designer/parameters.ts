@@ -11,7 +11,7 @@ import {
   type ParameterField,
   type ParameterValueType,
   type SlipTemplateFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { inItemBand, itemBandOf } from './grid-model.js';
 import { hasOwn, readOwn, renameOwn } from './own-map.js';
 

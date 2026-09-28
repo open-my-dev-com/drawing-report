@@ -12,7 +12,7 @@ import { FONTS_DEFAULT_RUNS, MCP_LIST_DEFAULT_RUNS, MCP_LIST_DEFAULT_SIZES } fro
 import { TOOLS } from '../bench-shared/result.mjs';
 
 /** 빌드 순서입니다. 앞의 항목이 뒤의 항목에 필요하므로 이 순서대로 전달합니다. */
-const PACKAGE_ORDER = Object.freeze(['@omdc-slipkit/core', '@omdc-slipkit/elements', '@omdc-slipkit/mcp']);
+const PACKAGE_ORDER = Object.freeze(['@omdc/slipkit', '@omdc/slipkit-elements', '@omdc/slipkit-mcp']);
 
 /**
  * 하위 실행을 정의합니다. 아래에 적힌 순서대로 실행합니다.
@@ -24,7 +24,7 @@ const RUN_DEFS = Object.freeze([
     tool: 'core',
     script: 'benchmark.mjs',
     execArgv: [],
-    packages: ['@omdc-slipkit/core'],
+    packages: ['@omdc/slipkit'],
     needs: ['packages/core/dist/index.js'],
     args: () => [],
   },
@@ -33,7 +33,7 @@ const RUN_DEFS = Object.freeze([
     script: 'bench-designer.mjs',
     // 되돌리기 스냅샷의 heapUsed 차이를 측정하려면 gc()가 필요합니다. 없으면 스스로 다시 실행합니다.
     execArgv: ['--expose-gc'],
-    packages: ['@omdc-slipkit/core', '@omdc-slipkit/elements'],
+    packages: ['@omdc/slipkit', '@omdc/slipkit-elements'],
     needs: ['packages/core/dist/index.js', 'packages/elements/dist/index.js'],
     args: (options) => (options.designerChromium ? ['--chromium'] : []),
   },
@@ -41,7 +41,7 @@ const RUN_DEFS = Object.freeze([
     tool: 'fonts',
     script: 'bench-fonts.mjs',
     execArgv: [],
-    packages: ['@omdc-slipkit/core', '@omdc-slipkit/elements'],
+    packages: ['@omdc/slipkit', '@omdc/slipkit-elements'],
     needs: ['packages/core/dist/index.js', 'packages/elements/dist/index.js'],
     args: (options) => ['--runs', String(options.fontsRuns), ...(options.fontsSkipChromium ? ['--skip-chromium'] : [])],
   },
@@ -50,7 +50,7 @@ const RUN_DEFS = Object.freeze([
     script: 'bench-mcp-list.mjs',
     execArgv: ['--expose-gc'],
     // MCP 패키지가 Core·Elements에 기대므로 셋을 함께 빌드합니다.
-    packages: ['@omdc-slipkit/core', '@omdc-slipkit/elements', '@omdc-slipkit/mcp'],
+    packages: ['@omdc/slipkit', '@omdc/slipkit-elements', '@omdc/slipkit-mcp'],
     needs: ['packages/core/dist/index.js', 'packages/mcp/dist/index.js'],
     args: (options) => ['--sizes', options.mcpSizes, '--runs', String(options.mcpRuns)],
   },

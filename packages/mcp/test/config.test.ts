@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { PRETENDARD_FONTS } from '@omdc-slipkit/elements/fonts/pretendard';
+import { PRETENDARD_FONTS } from '@omdc/slipkit-elements/fonts/pretendard';
 import { readConfigFile, resolveServerOptions, SlipMcpConfigError } from '../src/config.js';
 import { callText, connect, makeTemplate, makeWorkDir, removeWorkDir } from './helpers.js';
 

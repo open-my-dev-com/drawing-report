@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { lstat, mkdir, readFile, readdir, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { MAX_IMAGE_BYTES, type SlipTemplateFile, type SlipVoucherFile } from '@omdc-slipkit/core';
+import { MAX_IMAGE_BYTES, type SlipTemplateFile, type SlipVoucherFile } from '@omdc/slipkit';
 import { FileSystemStorage } from '../src/storage.js';
 import {
   TINY_PNG_B64,

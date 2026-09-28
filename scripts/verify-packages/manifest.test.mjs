@@ -12,11 +12,12 @@ const PACKAGES = ['core', 'elements', 'react', 'vue', 'mcp'];
 /** 계약을 모두 만족하는 package.json 원문입니다. */
 function goodManifest(overrides = {}) {
   return JSON.stringify({
-    name: '@omdc-slipkit/core',
+    name: '@omdc/slipkit',
     version: '0.1.0',
     engines: { node: '>=22.13' },
     license: 'BUSL-1.1',
     publishConfig: { access: 'public' },
+    repository: { type: 'git', url: 'git+https://github.com/open-my-dev-com/slipkit.git' },
     ...overrides,
   });
 }
@@ -43,6 +44,20 @@ describe('tarball package.json 계약', () => {
     ]);
   });
 
+  it('원본 저장소 주소가 바뀌면 문제로 보고한다', () => {
+    assert.deepEqual(manifestProblems(goodManifest({ repository: {} })), [
+      'package.json repository.url is (unset), expected git+https://github.com/open-my-dev-com/slipkit.git',
+    ]);
+    assert.deepEqual(
+      manifestProblems(
+        goodManifest({ repository: { type: 'git', url: 'git+https://github.com/open-my-dev-com/other.git' } }),
+      ),
+      [
+        'package.json repository.url is git+https://github.com/open-my-dev-com/other.git, expected git+https://github.com/open-my-dev-com/slipkit.git',
+      ],
+    );
+  });
+
   it('JSON이 아니면 해석 실패로 보고한다', () => {
     assert.match(manifestProblems('not json')[0], /parse failed/);
   });
@@ -52,6 +67,11 @@ describe('tarball package.json 계약', () => {
       const text = readFileSync(path.join(ROOT, 'packages', name, 'package.json'), 'utf8');
       assert.deepEqual(manifestProblems(text), [], `packages/${name}/package.json`);
     }
-    assert.deepEqual(Object.keys(REQUIRED_MANIFEST), ['engines.node', 'license', 'publishConfig.access']);
+    assert.deepEqual(Object.keys(REQUIRED_MANIFEST), [
+      'engines.node',
+      'license',
+      'publishConfig.access',
+      'repository.url',
+    ]);
   });
 });

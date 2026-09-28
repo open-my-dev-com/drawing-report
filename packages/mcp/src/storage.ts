@@ -27,7 +27,7 @@ import {
   type SlipListItem,
   type SlipListPage,
   type StorageAdapter,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import {
   LIST_METRICS,
   ListMetadataCache,

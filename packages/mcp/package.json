@@ -1,5 +1,5 @@
 {
-  "name": "@omdc-slipkit/mcp",
+  "name": "@omdc/slipkit-mcp",
   "version": "0.0.1",
   "description": "Local MCP server for creating and editing .slip forms, assembling vouchers, and rendering PDFs",
   "keywords": [
@@ -12,14 +12,14 @@
     "model-context-protocol",
     "ai"
   ],
-  "homepage": "https://github.com/open-my-dev-com/drawing-report#readme",
+  "homepage": "https://github.com/open-my-dev-com/slipkit#readme",
   "bugs": {
-    "url": "https://github.com/open-my-dev-com/drawing-report/issues"
+    "url": "https://github.com/open-my-dev-com/slipkit/issues"
   },
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/open-my-dev-com/drawing-report.git",
+    "url": "git+https://github.com/open-my-dev-com/slipkit.git",
     "directory": "packages/mcp"
   },
   "publishConfig": {
@@ -57,8 +57,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@pdfme/converter": "^6.1.12",
-    "@omdc-slipkit/core": "workspace:*",
-    "@omdc-slipkit/elements": "workspace:*",
+    "@omdc/slipkit": "workspace:*",
+    "@omdc/slipkit-elements": "workspace:*",
     "zod": "^4.0.0"
   }
 }

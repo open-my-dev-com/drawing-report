@@ -1,11 +1,11 @@
-# @omdc-slipkit/elements
+# @omdc/slipkit-elements
 
 Lit-based Web Components for designing `.slip` templates, filling vouchers, and viewing templates or issued vouchers.
 
 ## Installation
 
 ```bash
-npm install @omdc-slipkit/core @omdc-slipkit/elements
+npm install @omdc/slipkit @omdc/slipkit-elements
 ```
 
 Node.js 22.13 or later is required for the supported toolchain. The components run in modern browsers. `<slip-designer>` is a desktop interface that requires a browser viewport of at least 1440×810 and an allocated element area of at least 1280×640.
@@ -13,7 +13,7 @@ Node.js 22.13 or later is required for the supported toolchain. The components r
 ## Basic usage
 
 ```ts
-import '@omdc-slipkit/elements';
+import '@omdc/slipkit-elements';
 
 const designer = document.querySelector('slip-designer');
 designer.src = await fetch('/forms/invoice.slip').then((response) => response.text());
@@ -27,7 +27,7 @@ designer.addEventListener('slip-change', (event) => {
 <slip-designer></slip-designer>
 ```
 
-The package registers `<slip-designer>`, `<slip-form>`, and `<slip-viewer>` when imported. See [Getting started](https://github.com/open-my-dev-com/drawing-report/blob/main/docs/guide/getting-started.md) and the [configuration guide](https://github.com/open-my-dev-com/drawing-report/blob/main/docs/guide/configuration.md) for complete integration examples.
+The package registers `<slip-designer>`, `<slip-form>`, and `<slip-viewer>` when imported. See [Getting started](https://github.com/open-my-dev-com/slipkit/blob/main/docs/guide/getting-started.md) and the [configuration guide](https://github.com/open-my-dev-com/slipkit/blob/main/docs/guide/configuration.md) for complete integration examples.
 
 ## Bundled fonts and package size
 
@@ -39,10 +39,10 @@ The package includes `OFL-Pretendard.txt` and `OFL-NotoSansJP.txt` with the font
 
 ## Versioning
 
-The npm package version follows the package release. A `.slip` file's `schemaVersion` describes the file format and changes independently. See the [`.slip` specification](https://github.com/open-my-dev-com/drawing-report/blob/main/docs/SPEC.md) for format compatibility.
+The npm package version follows the package release. A `.slip` file's `schemaVersion` describes the file format and changes independently. See the [`.slip` specification](https://github.com/open-my-dev-com/slipkit/blob/main/docs/SPEC.md) for format compatibility.
 
 ## License and support
 
 SlipKit code in this package is licensed under the Business Source License 1.1. See the included `LICENSE` file for its terms and change date. The bundled fonts retain their SIL Open Font License 1.1 terms.
 
-Report defects and documentation problems through [GitHub Issues](https://github.com/open-my-dev-com/drawing-report/issues).
+Report defects and documentation problems through [GitHub Issues](https://github.com/open-my-dev-com/slipkit/issues).

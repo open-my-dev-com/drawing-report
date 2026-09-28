@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const latest = require('@omdc-slipkit/core/schemas/slip.schema.json');
-const pinned = require('@omdc-slipkit/core/schemas/slip-0.1.0.schema.json');
+const latest = require('@omdc/slipkit/schemas/slip.schema.json');
+const pinned = require('@omdc/slipkit/schemas/slip-0.1.0.schema.json');
 for (const [name, schema] of [['slip.schema.json', latest], ['slip-0.1.0.schema.json', pinned]]) {
   if (typeof schema !== 'object' || schema === null || typeof schema.$schema !== 'string') {
     throw new Error(`${name} is not a JSON Schema document`);

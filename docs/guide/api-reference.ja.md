@@ -20,25 +20,25 @@
 
 | パッケージ | 主な公開 API |
 |---|---|
-| `@omdc-slipkit/core` | ファイル検証、伝票の組み立て、数式、PDF、暗号化、ストレージインターフェース |
-| `@omdc-slipkit/elements` | Web Component、設定の型、既定プリセットとストレージ実装 |
-| `@omdc-slipkit/react` | React ラッパーコンポーネント |
-| `@omdc-slipkit/vue` | Vue ラッパーコンポーネント |
-| `@omdc-slipkit/mcp` | ローカル stdio MCP サーバー、ファイルシステムストレージ、MCP 構造ガイド |
+| `@omdc/slipkit` | ファイル検証、伝票の組み立て、数式、PDF、暗号化、ストレージインターフェース |
+| `@omdc/slipkit-elements` | Web Component、設定の型、既定プリセットとストレージ実装 |
+| `@omdc/slipkit-react` | React ラッパーコンポーネント |
+| `@omdc/slipkit-vue` | Vue ラッパーコンポーネント |
+| `@omdc/slipkit-mcp` | ローカル stdio MCP サーバー、ファイルシステムストレージ、MCP 構造ガイド |
 
 フォントは次のサブパスからも取得できます。
 
 ```ts
 import {
   PRETENDARD_FONTS,
-} from '@omdc-slipkit/elements/fonts/pretendard';
+} from '@omdc/slipkit-elements/fonts/pretendard';
 
 import {
   NOTO_SANS_JP_FONTS,
-} from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+} from '@omdc/slipkit-elements/fonts/noto-sans-jp';
 ```
 
-## `@omdc-slipkit/core`
+## `@omdc/slipkit`
 
 ### ファイルのパースとシリアライズ
 
@@ -615,7 +615,7 @@ interface SlipTemplateBody {
 
 ### Core の `PaperSize`
 
-`@omdc-slipkit/core` が公開する `PaperSize` は、`.slip` ファイル内の実際の用紙サイズです。
+`@omdc/slipkit` が公開する `PaperSize` は、`.slip` ファイル内の実際の用紙サイズです。
 
 ```ts
 interface CorePaperSize {
@@ -634,7 +634,7 @@ interface CorePaperSize {
 サイズと余白の単位はミリメートルです。
 
 > [!CAUTION]
-> `@omdc-slipkit/elements` も `PaperSize` という名前を公開しますが、用途が異なります。
+> `@omdc/slipkit-elements` も `PaperSize` という名前を公開しますが、用途が異なります。
 > Elements の `PaperSize` は、デザイナーの選択リストに表示する `{ name, width, height }` の形の用紙プリセットです。
 
 2 つの型を併用するなら、別名を指定するのが安全です。
@@ -642,11 +642,11 @@ interface CorePaperSize {
 ```ts
 import type {
   PaperSize as SlipPaperSize,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import type {
   PaperSize as PaperPreset,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 ```
 
 ### `SlipPage`
@@ -1304,7 +1304,7 @@ function supportsVersions(
 
 ### 公開 Zod スキーマ
 
-次のスキーマを `@omdc-slipkit/core` から取得できます。
+次のスキーマを `@omdc/slipkit` から取得できます。
 
 | スキーマ | 検証範囲 |
 |---|---|
@@ -1329,7 +1329,7 @@ function slipFileJsonSchema():
 
 パッケージには、次の JSON Schema ファイルも含まれます。
 
-- `@omdc-slipkit/core/schemas/slip.schema.json`
+- `@omdc/slipkit/schemas/slip.schema.json`
 - バージョンごとの `slip-<schemaVersion>.schema.json`
 
 > [!IMPORTANT]
@@ -1405,7 +1405,7 @@ const BUILT_IN_MIGRATIONS:
 
 ## パッケージ統合 API
 
-次の Core の export は、`@omdc-slipkit/elements` と `@omdc-slipkit/mcp` がパッケージ境界を越えて同じレイアウト・数式ルールを共有するために存在します。公開 API の一部として安定的に維持しますが、ほとんどのホストアプリケーションには必要ありません。
+次の Core の export は、`@omdc/slipkit-elements` と `@omdc/slipkit-mcp` がパッケージ境界を越えて同じレイアウト・数式ルールを共有するために存在します。公開 API の一部として安定的に維持しますが、ほとんどのホストアプリケーションには必要ありません。
 
 | API | 利用パッケージ | 用途 |
 |---|---|---|
@@ -1424,24 +1424,24 @@ const BUILT_IN_MIGRATIONS:
 
 | パッケージ / サブパス | ランタイム値 | 型 |
 |---|---|---|
-| `@omdc-slipkit/core` | このドキュメントの `@omdc-slipkit/core`、スキーマとマイグレーション API、ストレージ API、エラーの型に記載したすべての値 | このドキュメントに記載したすべての `.slip` ファイル・要素・ストレージ・数式・レンダリングの型 |
-| `@omdc-slipkit/core/schemas/*` | `slip.schema.json`, `slip-0.1.0.schema.json`（JSON ファイル） | — |
-| `@omdc-slipkit/elements` | `SlipDesigner`, `SlipForm`, `SlipViewer`, `getPresets`, `loadDefaultFonts`, `IndexedDbStorage`, `SlipFileExchange` | `SlipFont`, `SlipDesignerSettings`, `PaperSize`, `SlipPreset`, `IndexedDbStorageOptions`, `SlipFileExchangeOptions` |
-| `@omdc-slipkit/elements/default-fonts` | `loadDefaultFonts` | — |
-| `@omdc-slipkit/elements/fonts/pretendard` | `PRETENDARD_FONTS` | — |
-| `@omdc-slipkit/elements/fonts/noto-sans-jp` | `NOTO_SANS_JP_FONTS`、デフォルトエクスポート | — |
-| `@omdc-slipkit/react` | `SlipDesigner`, `SlipForm`, `SlipViewer` | `SlipDesignerProps`, `SlipFormProps`, `SlipViewerProps` |
-| `@omdc-slipkit/vue` | `SlipDesigner`, `SlipForm`, `SlipViewer` | — |
-| `@omdc-slipkit/mcp` | `createSlipMcpServer`, `FileSystemStorage`, `resolveInRoot`, `readConfigFile`, `loadConfigFonts`, `resolveServerOptions`, `SlipMcpConfigError`, `CONFIG_FILE_NAME`, `DEFAULT_KEY_ENV`, `DEFAULT_PREVIOUS_KEYS_ENV`, `editOpSchema`, `MAX_IMAGE_BYTES`, `SCHEMA_TOPICS`, `schemaTopicText` | `SlipMcpServerOptions`, `FileSystemStorageKey`, `FileSystemStorageOptions`, `SlipMcpConfig`, `ResolveInput`, `EditOp`, `SchemaTopic` |
+| `@omdc/slipkit` | このドキュメントの `@omdc/slipkit`、スキーマとマイグレーション API、ストレージ API、エラーの型に記載したすべての値 | このドキュメントに記載したすべての `.slip` ファイル・要素・ストレージ・数式・レンダリングの型 |
+| `@omdc/slipkit/schemas/*` | `slip.schema.json`, `slip-0.1.0.schema.json`（JSON ファイル） | — |
+| `@omdc/slipkit-elements` | `SlipDesigner`, `SlipForm`, `SlipViewer`, `getPresets`, `loadDefaultFonts`, `IndexedDbStorage`, `SlipFileExchange` | `SlipFont`, `SlipDesignerSettings`, `PaperSize`, `SlipPreset`, `IndexedDbStorageOptions`, `SlipFileExchangeOptions` |
+| `@omdc/slipkit-elements/default-fonts` | `loadDefaultFonts` | — |
+| `@omdc/slipkit-elements/fonts/pretendard` | `PRETENDARD_FONTS` | — |
+| `@omdc/slipkit-elements/fonts/noto-sans-jp` | `NOTO_SANS_JP_FONTS`、デフォルトエクスポート | — |
+| `@omdc/slipkit-react` | `SlipDesigner`, `SlipForm`, `SlipViewer` | `SlipDesignerProps`, `SlipFormProps`, `SlipViewerProps` |
+| `@omdc/slipkit-vue` | `SlipDesigner`, `SlipForm`, `SlipViewer` | — |
+| `@omdc/slipkit-mcp` | `createSlipMcpServer`, `FileSystemStorage`, `resolveInRoot`, `readConfigFile`, `loadConfigFonts`, `resolveServerOptions`, `SlipMcpConfigError`, `CONFIG_FILE_NAME`, `DEFAULT_KEY_ENV`, `DEFAULT_PREVIOUS_KEYS_ENV`, `editOpSchema`, `MAX_IMAGE_BYTES`, `SCHEMA_TOPICS`, `schemaTopicText` | `SlipMcpServerOptions`, `FileSystemStorageKey`, `FileSystemStorageOptions`, `SlipMcpConfig`, `ResolveInput`, `EditOp`, `SchemaTopic` |
 
 `slipkit-mcp` CLI が使う PDF リンクサーバー（`startPdfLinkServer` など）は CLI 内部の実装であり export しません。
 
-## `@omdc-slipkit/elements`
+## `@omdc/slipkit-elements`
 
 パッケージのルートを import すると、3 つの Web Component が登録されます。
 
 ```ts
-import '@omdc-slipkit/elements';
+import '@omdc/slipkit-elements';
 ```
 
 クラスの型も直接取得できます。
@@ -1451,7 +1451,7 @@ import type {
   SlipDesigner,
   SlipForm,
   SlipViewer,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 ```
 
 ### `<slip-designer>`
@@ -1683,7 +1683,7 @@ const NOTO_SANS_JP_FONTS:
 
 Noto Sans JP Regular のサブセットを含みます。そのフォントが代替フォントとして指定されています。
 
-## `@omdc-slipkit/react`
+## `@omdc/slipkit-react`
 
 React 19 以上をサポートします。
 
@@ -1756,15 +1756,15 @@ import type {
   SlipDesignerProps,
   SlipFormProps,
   SlipViewerProps,
-} from '@omdc-slipkit/react';
+} from '@omdc/slipkit-react';
 ```
 
-`SlipHostAttributes` は React の `HTMLAttributes<HTMLElement>` から `children` と `dangerouslySetInnerHTML` を除いたものを表し、独立した名前としては export しません。`SlipDesignerElement`, `SlipFormElement`, `SlipViewerElement` は `@omdc-slipkit/elements` が export する `SlipDesigner`, `SlipForm`, `SlipViewer` クラスです。
+`SlipHostAttributes` は React の `HTMLAttributes<HTMLElement>` から `children` と `dangerouslySetInnerHTML` を除いたものを表し、独立した名前としては export しません。`SlipDesignerElement`, `SlipFormElement`, `SlipViewerElement` は `@omdc/slipkit-elements` が export する `SlipDesigner`, `SlipForm`, `SlipViewer` クラスです。
 
 ```tsx
 import { useRef } from 'react';
-import { SlipDesigner } from '@omdc-slipkit/react';
-import type { SlipDesigner as SlipDesignerElement } from '@omdc-slipkit/elements';
+import { SlipDesigner } from '@omdc/slipkit-react';
+import type { SlipDesigner as SlipDesignerElement } from '@omdc/slipkit-elements';
 
 export function DesignerPane() {
   const designer = useRef<SlipDesignerElement>(null);
@@ -1783,7 +1783,7 @@ export function DesignerPane() {
 
 専用の props（`src`、設定 props、`onSlipChange`, `onSlipIssue`）は常に優先され、spread したオブジェクトで上書きできません。省略可能なラッパー prop は明示的に渡した間だけ内部要素へ設定され、削除すると要素自身の既定値に戻ります。発行後に同じ元データで新しい伝票を始めるには、`ref` が返す `<slip-form>` 要素の `reset()` を呼び出します。React の `key` を変えて `SlipForm` を再マウントする方法も使えます。
 
-## `@omdc-slipkit/vue`
+## `@omdc/slipkit-vue`
 
 Vue 3.4 以上をサポートします。
 
@@ -1831,9 +1831,9 @@ Vue 3.4 以上をサポートします。
 
 省略可能なラッパー prop も同じ規則に従います。prop を削除すると内部要素の既定値に戻り、発行後はコンポーネント ref の `$el`（Vue の標準動作どおり内部の `<slip-form>` 要素）で `reset()` を呼び出すか、Vue の `:key` を変えて `SlipForm` を再マウントします。
 
-## `@omdc-slipkit/mcp`
+## `@omdc/slipkit-mcp`
 
-`@omdc-slipkit/mcp` は、ローカル stdio MCP サーバーと、そのサーバーが使用するファイルシステムストレージを提供します。接続方法とツールの使い方は [MCP 利用ガイド](mcp.ja.md) を確認してください。
+`@omdc/slipkit-mcp` は、ローカル stdio MCP サーバーと、そのサーバーが使用するファイルシステムストレージを提供します。接続方法とツールの使い方は [MCP 利用ガイド](mcp.ja.md) を確認してください。
 
 ### `createSlipMcpServer`
 

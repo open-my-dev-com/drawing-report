@@ -13,8 +13,8 @@ const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
  */
 function makeCjsProject(): { require: ReturnType<typeof createRequire>; cleanup: () => void } {
   const base = mkdtempSync(join(tmpdir(), 'slipkit-cjs-'));
-  mkdirSync(join(base, 'node_modules', '@omdc-slipkit'), { recursive: true });
-  symlinkSync(packageRoot, join(base, 'node_modules', '@omdc-slipkit', 'elements'), 'dir');
+  mkdirSync(join(base, 'node_modules', '@omdc'), { recursive: true });
+  symlinkSync(packageRoot, join(base, 'node_modules', '@omdc', 'slipkit-elements'), 'dir');
   const entry = join(base, 'main.cjs');
   writeFileSync(entry, '');
   return {
@@ -45,17 +45,17 @@ describe('동봉 폰트의 CommonJS 소비 (ADR-057)', () => {
   // Windows에서 링크 생성 권한이 없을 때만 건너뜁니다.
   it.skipIf(symlinksUnavailable())('서버에서 폰트 하위 경로를 패키지 이름으로 require할 수 있다', () => {
     if (!existsSync(join(packageRoot, 'dist', 'fonts', 'pretendard.js'))) {
-      throw new Error('dist/fonts가 없습니다. 먼저 @omdc-slipkit/elements를 빌드한 뒤 실행해야 합니다.');
+      throw new Error('dist/fonts가 없습니다. 먼저 @omdc/slipkit-elements를 빌드한 뒤 실행해야 합니다.');
     }
     const { require, cleanup } = makeCjsProject();
     try {
       // DOM에 의존하지 않는 폰트 데이터 진입점만 서버 CommonJS 호환 대상입니다.
-      const pretendard = require('@omdc-slipkit/elements/fonts/pretendard') as
+      const pretendard = require('@omdc/slipkit-elements/fonts/pretendard') as
         typeof import('../src/fonts/pretendard.js');
       expect(Array.isArray(pretendard.PRETENDARD_FONTS)).toBe(true);
       expect(pretendard.PRETENDARD_FONTS.length).toBeGreaterThan(0);
 
-      const notoSansJp = require('@omdc-slipkit/elements/fonts/noto-sans-jp') as
+      const notoSansJp = require('@omdc/slipkit-elements/fonts/noto-sans-jp') as
         typeof import('../src/fonts/noto-sans-jp.js');
       expect(Array.isArray(notoSansJp.NOTO_SANS_JP_FONTS)).toBe(true);
       expect(notoSansJp.NOTO_SANS_JP_FONTS.length).toBeGreaterThan(0);

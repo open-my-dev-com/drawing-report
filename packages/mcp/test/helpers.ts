@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { CURRENT_SCHEMA_VERSION, type SlipTemplateFile } from '@omdc-slipkit/core';
+import { CURRENT_SCHEMA_VERSION, type SlipTemplateFile } from '@omdc/slipkit';
 import { createSlipMcpServer, type SlipMcpServerOptions } from '../src/server.js';
 
 /** 임시 작업 디렉터리를 만듭니다. 임시 디렉터리가 링크(macOS의 `/tmp` 등)여도 실제 경로를 반환합니다. */

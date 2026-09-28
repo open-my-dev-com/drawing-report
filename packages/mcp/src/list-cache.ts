@@ -6,10 +6,10 @@
  * 보관하지 않습니다.
  */
 import { lstat } from 'node:fs/promises';
-import type { SlipListItem } from '@omdc-slipkit/core';
+import type { SlipListItem } from '@omdc/slipkit';
 
 /** 목록 측정값을 인스턴스에서 읽을 때 사용하는 전역 심볼입니다. 진단과 성능 측정에만 사용하며 공개 API가 아닙니다. */
-export const LIST_METRICS = Symbol.for('@omdc-slipkit/mcp.listMetrics');
+export const LIST_METRICS = Symbol.for('@omdc/slipkit-mcp.listMetrics');
 
 /** `lstat`을 동시에 실행할 수 있는 최대 개수입니다. */
 export const MAX_LSTAT_CONCURRENCY = 32;

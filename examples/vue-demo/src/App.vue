@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
  * SlipKit Vue 데모입니다. 양식을 만들고, 전표를 작성하고, 발행된 전표를 확인하며,
- * 파일로 주고받는 흐름을 보여 줍니다. 호스트 애플리케이션에 `@omdc-slipkit/vue` 래퍼를 연결하는 예시입니다.
+ * 파일로 주고받는 흐름을 보여 줍니다. 호스트 애플리케이션에 `@omdc/slipkit-vue` 래퍼를 연결하는 예시입니다.
  *
  * 화면을 그리는 방법만 다르며, 저장 대상과 작업을 이어 가는 시점은 바닐라·React 데모와 같습니다.
  * 공통 부분은 `slipkit-demo-shared`에 있습니다.
  */
 import { onMounted, ref, shallowRef } from 'vue';
-import { SlipDesigner, SlipForm, SlipViewer } from '@omdc-slipkit/vue';
+import { SlipDesigner, SlipForm, SlipViewer } from '@omdc/slipkit-vue';
 import {
   buildVoucher,
   createSlipKit,
@@ -15,8 +15,8 @@ import {
   type SlipFile,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
-import { loadDefaultFonts, type SlipDesignerSettings } from '@omdc-slipkit/elements';
+} from '@omdc/slipkit';
+import { loadDefaultFonts, type SlipDesignerSettings } from '@omdc/slipkit-elements';
 import {
   AUTOSAVE_DELAY_MS,
   ISSUED_KEY,

@@ -2,9 +2,9 @@
 // 통합 컴포넌트의 불러오기, 페이지, 실행 취소와 로케일 동작을 시험합니다.
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
+vi.mock('@omdc/slipkit', async () => {
   // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용합니다.
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return {
     ...actual,
     parseSlipFile: vi.fn(),
@@ -22,8 +22,8 @@ vi.mock('../src/default-fonts.js', () => ({
     ]),
 }));
 
-import { evaluateFormula } from '@omdc-slipkit/core';
-import type { SlipFile, SlipKit } from '@omdc-slipkit/core';
+import { evaluateFormula } from '@omdc/slipkit';
+import type { SlipFile, SlipKit } from '@omdc/slipkit';
 import {
   strings,
   parseSlipFileMock,

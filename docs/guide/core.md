@@ -2,7 +2,7 @@
 
 [한국어](core.ko.md) · [日本語](core.ja.md)
 
-`@omdc-slipkit/core` is a TypeScript library that provides `.slip` file validation, voucher assembly, formula evaluation, PDF generation, and file encryption.
+`@omdc/slipkit` is a TypeScript library that provides `.slip` file validation, voucher assembly, formula evaluation, PDF generation, and file encryption.
 
 It does not depend on the DOM, so it can be used in both Node.js servers and browser applications. It does not provide any UI such as a form designer or voucher entry screen.
 
@@ -49,13 +49,13 @@ For reading and validating files, use the standalone functions; for settings sha
 ## Installation and runtime environment
 
 > [!IMPORTANT]
-> SlipKit is currently in a pre-release review stage, and the `@omdc-slipkit/*` packages are not yet published to the npm registry.
+> SlipKit is currently in a pre-release review stage, and the `@omdc/slipkit` and `@omdc/slipkit-*` packages are not yet published to the npm registry.
 > For now, you can clone the repository and try them out with the bundled source and demos.
 
 After the packages are published, install them as follows.
 
 ```bash
-npm install @omdc-slipkit/core
+npm install @omdc/slipkit
 ```
 
 The main supported runtime environments are as follows.
@@ -65,7 +65,7 @@ The main supported runtime environments are as follows.
 - An environment that supports the Web Crypto API, if you use encryption
 
 > [!TIP]
-> Even when using `@omdc-slipkit/elements`, `@omdc-slipkit/react`, or `@omdc-slipkit/vue`, if your application code imports Core directly, install `@omdc-slipkit/core` as a direct dependency.
+> Even when using `@omdc/slipkit-elements`, `@omdc/slipkit-react`, or `@omdc/slipkit-vue`, if your application code imports Core directly, install `@omdc/slipkit` as a direct dependency.
 
 ## Quick example: creating a PDF from a template
 
@@ -94,7 +94,7 @@ import {
   createSlipKit,
   parseSlipFile,
   validateSlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 const [regularFont, boldFont] = await Promise.all([
   readFile(
@@ -192,7 +192,7 @@ For a JSON string received from a file, database, or HTTP response, read it with
 import {
   parseSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 function readSlip(json: string): SlipFile {
   return parseSlipFile(json);
@@ -216,7 +216,7 @@ If your HTTP framework has already converted the request body into an object, or
 import {
   validateSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 function validateRequestBody(body: unknown): SlipFile {
   return validateSlipFile(body);
@@ -258,7 +258,7 @@ To store or transmit a validated file object, use `serializeSlipFile`.
 import {
   serializeSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 function toJson(file: SlipFile): string {
   return serializeSlipFile(file);
@@ -279,7 +279,7 @@ import {
   type JsonValue,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 function createVoucher(
   template: SlipTemplateFile,
@@ -355,7 +355,7 @@ To finalize the values, change `issued` to `true` and then validate the entire f
 import {
   validateSlipFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 function issueVoucher(
   draft: SlipVoucherFile,
@@ -390,7 +390,7 @@ Issue validation also checks for values that would make the issued voucher unabl
 If you render multiple files with the same fonts and locale, configure the settings once with `createSlipKit`.
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
+import { createSlipKit } from '@omdc/slipkit';
 
 const slip = createSlipKit({
   locale: 'ko-KR',
@@ -422,7 +422,7 @@ If you do not need to reuse settings, you can use `renderSlipToPdf` directly.
 import {
   renderSlipToPdf,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 async function renderOne(
   file: SlipFile,
@@ -526,7 +526,7 @@ If you do not need settings, you can use the standalone `evaluateFormula` functi
 ```ts
 import {
   evaluateFormula,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 const result = evaluateFormula(
   '$(quantity) * $(unitPrice)',
@@ -551,7 +551,7 @@ If you need to store sensitive templates or vouchers as files, you can optionall
 import {
   createSlipKit,
   isEncryptedSlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 const encryptionKey =
   process.env.SLIPKIT_ENCRYPTION_KEY;
@@ -637,7 +637,7 @@ When processing external files, convert errors into a user-facing response or an
 import {
   parseSlipFile,
   SlipParseError,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 function parseUploadedSlip(
   json: string,

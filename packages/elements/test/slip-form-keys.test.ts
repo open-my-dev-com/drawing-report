@@ -10,8 +10,8 @@
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+vi.mock('@omdc/slipkit', async () => {
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return { ...actual, renderSlipToPdf: vi.fn() };
 });
 
@@ -26,7 +26,7 @@ import {
   serializeSlipFile,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { SlipForm } from '../src/slip-form.js';
 import { getStrings } from '../src/strings.js';
 

@@ -16,7 +16,7 @@ import type {
   SlipElement,
   TextElement,
   GridElement,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { icons } from '../../icons.js';
 import { ANCHORS, round1, boxOf, setElementBox, lineLengthAngle } from '../geometry.js';
 import {

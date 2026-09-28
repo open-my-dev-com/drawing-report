@@ -2,7 +2,7 @@
 
 [English](mcp.md) · [日本語](mcp.ja.md)
 
-`@omdc-slipkit/mcp`는 AI가 로컬 디렉터리의 `.slip` 양식과 전표를 읽고 만들고 고칠 수 있게 하는 stdio MCP 서버입니다. 양식에 값을 넣은 미발행 전표를 만들거나 PDF로 렌더링하는 작업도 지원합니다.
+`@omdc/slipkit-mcp`는 AI가 로컬 디렉터리의 `.slip` 양식과 전표를 읽고 만들고 고칠 수 있게 하는 stdio MCP 서버입니다. 양식에 값을 넣은 미발행 전표를 만들거나 PDF로 렌더링하는 작업도 지원합니다.
 
 별도 터미널에서 서버를 계속 실행할 필요는 없습니다. stdio 방식에서는 MCP 클라이언트가 서버를 로컬 하위 프로세스로 시작하고 연결을 종료할 때 함께 종료합니다. 저장소 경로, 로케일, 폰트와 암호화 환경변수 이름은 서버 설정 파일인 `slipkit-mcp.json`에서 관리합니다.
 
@@ -19,7 +19,7 @@
 
 ```bash
 pnpm install
-pnpm --filter @omdc-slipkit/mcp build
+pnpm --filter @omdc/slipkit-mcp build
 mkdir slip-workspace
 ```
 
@@ -76,7 +76,7 @@ pnpm demo:mcp:reset
     "slipkit": {
       "command": "node",
       "args": [
-        "/absolute/path/to/drawing-report/packages/mcp/dist/cli.js",
+        "/absolute/path/to/slipkit/packages/mcp/dist/cli.js",
         "--config",
         "/absolute/path/to/slipkit-mcp.json"
       ]
@@ -108,7 +108,7 @@ MCP 클라이언트 설정의 위치는 다음과 같습니다.
 
 ```bash
 codex mcp add slipkit -- \
-  node /absolute/path/to/drawing-report/packages/mcp/dist/cli.js \
+  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
   --config /absolute/path/to/slipkit-mcp.json
 ```
 
@@ -116,7 +116,7 @@ Claude Code에서는 다음과 같이 등록할 수 있습니다. `local` 범위
 
 ```bash
 claude mcp add --scope local slipkit -- \
-  node /absolute/path/to/drawing-report/packages/mcp/dist/cli.js \
+  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
   --config /absolute/path/to/slipkit-mcp.json
 ```
 
@@ -124,7 +124,7 @@ claude mcp add --scope local slipkit -- \
 
 ```bash
 codex mcp add slipkit -- \
-  npx -y @omdc-slipkit/mcp --config /absolute/path/to/slipkit-mcp.json
+  npx -y @omdc/slipkit-mcp --config /absolute/path/to/slipkit-mcp.json
 ```
 
 이 경우에도 서버 설정 파일과 작업 디렉터리는 로컬에 유지됩니다.
@@ -191,7 +191,7 @@ codex mcp add slipkit -- \
     "slipkit": {
       "command": "node",
       "args": [
-        "/absolute/path/to/drawing-report/packages/mcp/dist/cli.js",
+        "/absolute/path/to/slipkit/packages/mcp/dist/cli.js",
         "--config",
         "/absolute/path/to/slipkit-mcp.json"
       ],
@@ -214,7 +214,7 @@ codex mcp add slipkit -- \
 
 ### PDF 폰트
 
-`fonts`를 생략하면 MCP 서버는 `@omdc-slipkit/elements`에 Base64로 동봉된 폰트를 사용합니다. 폰트를 네트워크에서 내려받거나 운영체제 폰트를 자동으로 읽지 않습니다.
+`fonts`를 생략하면 MCP 서버는 `@omdc/slipkit-elements`에 Base64로 동봉된 폰트를 사용합니다. 폰트를 네트워크에서 내려받거나 운영체제 폰트를 자동으로 읽지 않습니다.
 
 | 로케일 | 기본 폰트 |
 |---|---|
@@ -362,7 +362,7 @@ MCP 서버가 만드는 전표는 `issued: false`인 미발행 전표입니다. 
 `FileSystemStorage`는 MCP 서버와 같은 경로 제한과 암호화 규칙을 사용하는 `StorageAdapter` 구현입니다.
 
 ```ts
-import { FileSystemStorage } from '@omdc-slipkit/mcp';
+import { FileSystemStorage } from '@omdc/slipkit-mcp';
 
 const key = process.env.SLIPKIT_MCP_KEY;
 if (!key) throw new Error('SLIPKIT_MCP_KEY가 필요합니다.');

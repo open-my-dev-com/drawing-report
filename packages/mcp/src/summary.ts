@@ -2,7 +2,7 @@
  * AI에 전달할 `.slip` 파일의 구조 요약을 만듭니다.
  * 내장 Base64 데이터 URL은 길이와 상관없이 응답에 싣지 않고 형식과 대략적인 크기만 남깁니다.
  */
-import { elementBounds, type SlipElement, type SlipFile, type SlipTemplateBody } from '@omdc-slipkit/core';
+import { elementBounds, type SlipElement, type SlipFile, type SlipTemplateBody } from '@omdc/slipkit';
 
 /** 양식 본문을 얻습니다. 전표면 내장된 양식 스냅샷을 반환합니다. */
 export function bodyOf(file: SlipFile): SlipTemplateBody {

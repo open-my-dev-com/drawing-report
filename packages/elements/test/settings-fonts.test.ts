@@ -1,8 +1,8 @@
 // 미리보기 렌더링의 폰트 선택 — 사용자 폰트가 비어 있으면 동봉 폰트를 씁니다.
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+vi.mock('@omdc/slipkit', async () => {
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return { ...actual, renderSlipToPdf: vi.fn(() => Promise.resolve(new Uint8Array([1]))) };
 });
 
@@ -13,7 +13,7 @@ vi.mock('../src/default-fonts.js', () => ({
       : [{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }]),
 }));
 
-import { renderSlipToPdf, type SlipFile, type SlipKit } from '@omdc-slipkit/core';
+import { renderSlipToPdf, type SlipFile, type SlipKit } from '@omdc/slipkit';
 import { renderSlip, resolveFonts } from '../src/settings.js';
 
 const FILE = { kind: 'template' } as unknown as SlipFile;

@@ -3,7 +3,7 @@
  */
 
 import { html, nothing } from 'lit';
-import type { SlipElement, SlipTemplateFile } from '@omdc-slipkit/core';
+import type { SlipElement, SlipTemplateFile } from '@omdc/slipkit';
 import { icons } from '../../icons.js';
 import { THUMB_WIDTH_PX, boxOf } from '../geometry.js';
 import { isGrid } from '../grid-model.js';

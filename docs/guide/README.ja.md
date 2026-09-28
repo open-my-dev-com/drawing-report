@@ -7,7 +7,7 @@ SlipKit を実行したり、既存のアプリケーションに接続したり
 初めて使う場合は、[スタートガイド](getting-started.ja.md) でリポジトリのデモを実行し、テンプレートデザイナーを接続する流れから確認してください。
 
 > [!IMPORTANT]
-> SlipKit は現在、公開前のレビュー段階であり、`@omdc-slipkit/*` パッケージはまだ npm レジストリに公開されていません。
+> SlipKit は現在、公開前のレビュー段階であり、`@omdc/slipkit` と `@omdc/slipkit-*` パッケージはまだ npm レジストリに公開されていません。
 > 現在はリポジトリをクローンして、同梱デモとソースコードで確認できます。
 
 ## 目的に合ったドキュメントを探す
@@ -68,11 +68,11 @@ SlipKit は、目的の異なる 3 つの UI コンポーネントを提供し�
 
 | パッケージ | 用途 |
 |---|---|
-| `@omdc-slipkit/core` | `.slip` ファイルの検証、伝票の組み立て、数式評価、PDF 生成、ファイル暗号化 |
-| `@omdc-slipkit/elements` | Web Component ベースのデザイナー・作成フォーム・ビューア |
-| `@omdc-slipkit/react` | React 向けラッパーコンポーネント |
-| `@omdc-slipkit/vue` | Vue 向けラッパーコンポーネント |
-| `@omdc-slipkit/mcp` | AI がローカルの `.slip` ファイルを扱うための stdio MCP サーバー |
+| `@omdc/slipkit` | `.slip` ファイルの検証、伝票の組み立て、数式評価、PDF 生成、ファイル暗号化 |
+| `@omdc/slipkit-elements` | Web Component ベースのデザイナー・作成フォーム・ビューア |
+| `@omdc/slipkit-react` | React 向けラッパーコンポーネント |
+| `@omdc/slipkit-vue` | Vue 向けラッパーコンポーネント |
+| `@omdc/slipkit-mcp` | AI がローカルの `.slip` ファイルを扱うための stdio MCP サーバー |
 
 React と Vue のパッケージは、Web Component を各フレームワークの利用方法に合わせて接続する薄いラッパーです。提供する SlipKit 機能に違いはありません。
 

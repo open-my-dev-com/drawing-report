@@ -2,9 +2,9 @@
 // 반복 그리드 출력 결과 전환, 속성 패널 상단 영역, 출력 페이지 이동과 편집 조작의 자동 복귀를 확인합니다.
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
+vi.mock('@omdc/slipkit', async () => {
   // 파싱과 렌더링만 모의하고 페이지 계획·수식 엔진은 실제 구현을 사용합니다.
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return {
     ...actual,
     parseSlipFile: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock('../../src/default-fonts.js', () => ({
     ]),
 }));
 
-import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
+import type { SlipFile, SlipTemplateFile } from '@omdc/slipkit';
 import {
   strings,
   parseSlipFileMock,

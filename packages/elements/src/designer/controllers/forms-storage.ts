@@ -7,7 +7,7 @@
  */
 
 import type { ReactiveController } from 'lit';
-import type { SlipListItem, StorageAdapter } from '@omdc-slipkit/core';
+import type { SlipListItem, StorageAdapter } from '@omdc/slipkit';
 
 export interface FormsHost {
   requestUpdate(): void;

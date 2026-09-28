@@ -2,9 +2,9 @@
 // 접근성 — 입력의 접근 가능한 이름, 툴바 메뉴 키보드 조작, 편집 뒤 초점, 삭제 확인
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
+vi.mock('@omdc/slipkit', async () => {
   // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용합니다.
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return {
     ...actual,
     parseSlipFile: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock('../../src/default-fonts.js', () => ({
     ]),
 }));
 
-import type { SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
+import type { SlipFile, SlipTemplateFile } from '@omdc/slipkit';
 import {
   strings,
   parseSlipFileMock,

@@ -8,7 +8,7 @@ import {
   serializeSlipFile,
   type SlipListItem,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { FileSystemStorage } from '../src/storage.js';
 import { LIST_METRICS, MAX_LSTAT_CONCURRENCY, type ListMetrics } from '../src/list-cache.js';
 import { makeTemplate, makeWorkDir, removeWorkDir, symlinksUnavailable } from './helpers.js';

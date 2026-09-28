@@ -8,7 +8,7 @@
 
 import { html, nothing } from 'lit';
 import { live } from 'lit/directives/live.js';
-import { formatReferencePath, type GridCell, type SlipElement } from '@omdc-slipkit/core';
+import { formatReferencePath, type GridCell, type SlipElement } from '@omdc/slipkit';
 import { icons } from '../../icons.js';
 import { getFormulaHelp, type FormulaHelpEntry } from '../../formula-help.js';
 import { formulaPreviewText } from './sample-values.js';

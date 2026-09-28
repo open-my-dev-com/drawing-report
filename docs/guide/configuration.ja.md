@@ -51,13 +51,13 @@
 オブジェクト設定は JavaScript プロパティで渡します。
 
 ```ts
-import '@omdc-slipkit/elements';
-import { createSlipKit } from '@omdc-slipkit/core';
+import '@omdc/slipkit-elements';
+import { createSlipKit } from '@omdc/slipkit';
 
 import type {
   SlipDesigner,
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const designer =
   document.querySelector<SlipDesigner>(
@@ -106,11 +106,11 @@ import { useMemo } from 'react';
 
 import {
   SlipDesigner,
-} from '@omdc-slipkit/react';
+} from '@omdc/slipkit-react';
 
 import type {
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 export function DesignerScreen() {
   const settings =
@@ -148,11 +148,11 @@ Vue ラッパーでも、オブジェクト prop として渡します。
 <script setup lang="ts">
 import {
   SlipDesigner,
-} from '@omdc-slipkit/vue';
+} from '@omdc/slipkit-vue';
 
 import type {
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const settings: SlipDesignerSettings = {
   getPaperSizes: () => appPaperSizes,
@@ -232,7 +232,7 @@ const settings: SlipDesignerSettings = {
 独自フォントは `createSlipKit` の `getFonts` オプションに一度設定し、同じインスタンスを各コンポーネントに渡します。
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
+import { createSlipKit } from '@omdc/slipkit';
 
 const slipkit = createSlipKit({
   getFonts: () => [
@@ -258,7 +258,7 @@ designer.slipkit = slipkit;
 UI コンポーネントは `getFonts` がない場合に同梱フォントを補いますが、Core の `slipkit.render()` は Elements の同梱フォントを自動では読み込みません。Core での直接レンダリングとコンポーネントのプレビューで同じ独自フォントを使う場合は、`getFonts` を設定してください。
 
 ```ts
-import { createSlipKit, type SlipFont } from '@omdc-slipkit/core';
+import { createSlipKit, type SlipFont } from '@omdc/slipkit';
 
 async function loadFont(
   url: string,
@@ -356,7 +356,7 @@ const fonts = [
 コンポーネントの既定動作と同じ同梱フォント構成が必要なら、`loadDefaultFonts(locale)` を使います。この一覧には同梱の 2 つのファミリーがすべて含まれ、代替フォントだけがロケールで決まります。1 つのファミリーだけを使うときや `fallback` を自分で決めるときだけ、フォントのサブパスを使います。サブパスの一覧はそれぞれ自分のフォントを `fallback: true` にしているため、両方をそのまま展開して渡すと「代替(fallback)フォントは 1 つだけ指定できます」エラーになります。
 
 ```ts
-import { loadDefaultFonts } from '@omdc-slipkit/elements';
+import { loadDefaultFonts } from '@omdc/slipkit-elements';
 
 const slipkit = createSlipKit({
   getFonts: () => loadDefaultFonts('ja'),
@@ -366,14 +366,14 @@ const slipkit = createSlipKit({
 同梱フォントを独自フォントと併用するには、フォントのサブパスから直接読み込みます。
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
+import { createSlipKit } from '@omdc/slipkit';
 import {
   PRETENDARD_FONTS,
-} from '@omdc-slipkit/elements/fonts/pretendard';
+} from '@omdc/slipkit-elements/fonts/pretendard';
 
 import {
   NOTO_SANS_JP_FONTS,
-} from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+} from '@omdc/slipkit-elements/fonts/noto-sans-jp';
 
 const slipkit = createSlipKit({
   getFonts: () => [
@@ -403,7 +403,7 @@ const slipkit = createSlipKit({
 ```ts
 import type {
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const designerSettings:
   SlipDesignerSettings = {
@@ -434,7 +434,7 @@ const designerSettings:
 import type {
   PaperSize,
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const paperSizes: PaperSize[] = [
   {
@@ -530,11 +530,11 @@ const settings: SlipDesignerSettings = {
 ```ts
 import type {
   BarcodeKind,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import type {
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const barcodeKinds: BarcodeKind[] = [
   'qrcode',
@@ -562,11 +562,11 @@ const settings: SlipDesignerSettings = {
 ```ts
 import {
   CURRENT_SCHEMA_VERSION,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import type {
   SlipPreset,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const shippingLabelPreset:
   SlipPreset = {
@@ -655,7 +655,7 @@ designer.presets = appPresets;
 ```ts
 import {
   getPresets,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const appPresets = [
   ...getPresets('ja'),
@@ -691,8 +691,8 @@ designer.presets = appPresets;
 ```ts
 import {
   IndexedDbStorage,
-} from '@omdc-slipkit/elements';
-import { createSlipKit } from '@omdc-slipkit/core';
+} from '@omdc/slipkit-elements';
+import { createSlipKit } from '@omdc/slipkit';
 
 const slipkit = createSlipKit({
   locale: 'ja-JP',
@@ -781,7 +781,7 @@ IndexedDB の暗号化は `.slip` の本体を保護しますが、一覧に必�
 ```ts
 import {
   SlipFileExchange,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const files =
   new SlipFileExchange(slipkit, {
@@ -862,12 +862,12 @@ const opened = await files.open();
 
 ## Core の設定
 
-`@omdc-slipkit/core` では、`createSlipKit` に共通設定を渡します。
+`@omdc/slipkit` では、`createSlipKit` に共通設定を渡します。
 
 ```ts
 import {
   createSlipKit,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 const slip = createSlipKit({
   getFonts: () => appFonts,
@@ -906,13 +906,13 @@ Core の利用フローと PDF 生成方法は[Core 利用ガイド](core.ja.md)
 `src/slipkit-config.ts`:
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
+import { createSlipKit } from '@omdc/slipkit';
 import {
   IndexedDbStorage,
   getPresets,
   type SlipDesignerSettings,
   type SlipPreset,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const fontPromise =
   loadAppFonts();

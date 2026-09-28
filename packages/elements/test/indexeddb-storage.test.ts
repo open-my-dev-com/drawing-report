@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it, vi } from 'vitest';
-import { createSlipKit, serializeSlipFile, isEncryptedSlipFile } from '@omdc-slipkit/core';
+import { createSlipKit, serializeSlipFile, isEncryptedSlipFile } from '@omdc/slipkit';
 import { IndexedDbStorage } from '../src/storage/indexeddb-storage.js';
 import { getPresets } from '../src/presets.js';
 import { getStrings } from '../src/strings.js';

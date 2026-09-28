@@ -2,9 +2,9 @@
 // 미리보기 복구 — 로케일·인스턴스 변경과 분리·재연결 때 PDF 미리보기를 다시 만드는지
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
+vi.mock('@omdc/slipkit', async () => {
   // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용합니다.
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return {
     ...actual,
     parseSlipFile: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock('../../src/default-fonts.js', () => ({
     ]),
 }));
 
-import type { SlipKit } from '@omdc-slipkit/core';
+import type { SlipKit } from '@omdc/slipkit';
 import {
   strings,
   renderSlipToPdfMock,

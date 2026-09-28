@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 /**
- * `@omdc-slipkit/react` 래퍼의 동작을 시험합니다.
+ * `@omdc/slipkit-react` 래퍼의 동작을 시험합니다.
  *
- * 실제 `@omdc-slipkit/elements` 빌드를 마운트해 설정 전달과 이벤트 연결을 확인합니다.
+ * 실제 `@omdc/slipkit-elements` 빌드를 마운트해 설정 전달과 이벤트 연결을 확인합니다.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement, type ReactNode, type Ref, type RefObject } from 'react';
@@ -14,12 +14,12 @@ import {
   type SlipKit,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import type {
   SlipDesigner as SlipDesignerElement,
   SlipForm as SlipFormElement,
   SlipViewer as SlipViewerElement,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 import { SlipDesigner, SlipForm, SlipViewer } from '../src/index.js';
 
 (globalThis as Record<string, unknown>)['IS_REACT_ACT_ENVIRONMENT'] = true;
@@ -111,7 +111,7 @@ afterEach(() => {
 // 선택적 설정 전달
 // ---------------------------------------------------------------------------
 
-describe('@omdc-slipkit/react 선택적 설정', () => {
+describe('@omdc/slipkit-react 선택적 설정', () => {
   it('SlipViewer는 slipkit을 생략하면 요소에 쓰지 않고, 지정·갱신·제거를 그대로 반영한다', () => {
     const m = render(createElement(SlipViewer, { src: '' }));
     const el = m.container.querySelector('slip-viewer') as HTMLElement & { src: string; slipkit?: unknown; locale?: string };
@@ -212,7 +212,7 @@ async function pickFile(el: SlipFormElement, file: File): Promise<void> {
   });
 }
 
-describe('@omdc-slipkit/react 이미지 상한', () => {
+describe('@omdc/slipkit-react 이미지 상한', () => {
   it('maxImageBytes를 생략하면 요소 기본값으로 실제 이미지를 받는다', async () => {
     const changes: SlipVoucherFile[] = [];
     const m = render(createElement(SlipForm, {
@@ -251,7 +251,7 @@ describe('@omdc-slipkit/react 이미지 상한', () => {
 // 이벤트 연결
 // ---------------------------------------------------------------------------
 
-describe('@omdc-slipkit/react 이벤트', () => {
+describe('@omdc/slipkit-react 이벤트', () => {
   it('SlipDesigner는 slip-change 이벤트의 양식 파일을 onSlipChange에 전달한다', () => {
     const received: SlipTemplateFile[] = [];
     const m = render(createElement(SlipDesigner, { src: '', onSlipChange: (file) => received.push(file) }));
@@ -331,7 +331,7 @@ describe('@omdc-slipkit/react 이벤트', () => {
 // ref 전달
 // ---------------------------------------------------------------------------
 
-describe('@omdc-slipkit/react ref', () => {
+describe('@omdc/slipkit-react ref', () => {
   /** 객체 ref의 연결·교체·해제를 세 컴포넌트에 같은 절차로 확인합니다. */
   function checkObjectRef<E extends HTMLElement>(
     tag: string,
@@ -425,7 +425,7 @@ describe('@omdc-slipkit/react ref', () => {
 // 표준 HTML 속성과 DOM 이벤트 전달
 // ---------------------------------------------------------------------------
 
-describe('@omdc-slipkit/react 표준 속성', () => {
+describe('@omdc/slipkit-react 표준 속성', () => {
   it('className·style·id·title·role·tabIndex·aria-*·data-*가 요소에 그대로 전달된다', () => {
     const m = render(
       <SlipViewer

@@ -10,7 +10,7 @@
  */
 
 import type { ReactiveController } from 'lit';
-import type { SlipFont } from '@omdc-slipkit/core';
+import type { SlipFont } from '@omdc/slipkit';
 import { fallbackFontNameOf } from '../font-variant.js';
 
 /** 브라우저에 폰트를 등록하는 인터페이스입니다. 시험에서는 대체 구현을 사용합니다. */

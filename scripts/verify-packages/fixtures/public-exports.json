@@ -1,6 +1,6 @@
 {
   "$comment": "다섯 패키지의 공개 export 허용 목록입니다. runtime에는 Object.keys(await import(name))과 정확히 일치해야 하는 값 이름을 적고, types에는 d.ts가 타입으로만 선언하는 이름을 적습니다. removed에는 공개 API에서 제거해 더는 없어야 하는 이름을 적습니다. 하위 경로 schemas/*는 모듈이 아니라 JSON 파일입니다.",
-  "@omdc-slipkit/core": {
+  "@omdc/slipkit": {
     ".": {
       "runtime": [
         "BUILT_IN_MIGRATIONS",
@@ -145,7 +145,7 @@
       ]
     }
   },
-  "@omdc-slipkit/elements": {
+  "@omdc/slipkit-elements": {
     ".": {
       "runtime": [
         "IndexedDbStorage",
@@ -185,7 +185,7 @@
       "types": []
     }
   },
-  "@omdc-slipkit/react": {
+  "@omdc/slipkit-react": {
     ".": {
       "runtime": [
         "SlipDesigner",
@@ -199,7 +199,7 @@
       ]
     }
   },
-  "@omdc-slipkit/vue": {
+  "@omdc/slipkit-vue": {
     ".": {
       "runtime": [
         "SlipDesigner",
@@ -209,7 +209,7 @@
       "types": []
     }
   },
-  "@omdc-slipkit/mcp": {
+  "@omdc/slipkit-mcp": {
     ".": {
       "runtime": [
         "CONFIG_FILE_NAME",

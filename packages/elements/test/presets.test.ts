@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectFormulaReferences, formatReferencePath, parseSlipFile } from '@omdc-slipkit/core';
+import { collectFormulaReferences, formatReferencePath, parseSlipFile } from '@omdc/slipkit';
 import { getPresets } from '../src/presets.js';
 import { getStrings } from '../src/strings.js';
 

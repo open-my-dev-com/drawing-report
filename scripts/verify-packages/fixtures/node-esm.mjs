@@ -1,5 +1,5 @@
 // ESM 소비자: 패키지 이름으로만 불러와 파싱·검증·수식 API가 동작하는지 확인합니다.
-import { createSlipKit, parseSlipFile, validateSlipFile } from '@omdc-slipkit/core';
+import { createSlipKit, parseSlipFile, validateSlipFile } from '@omdc/slipkit';
 import { template } from './template.mjs';
 
 const text = JSON.stringify(template);

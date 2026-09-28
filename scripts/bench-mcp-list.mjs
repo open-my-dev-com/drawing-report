@@ -17,7 +17,7 @@
  * 측정 대상
  * - 빌드된 `packages/mcp/dist/index.js`의 `FileSystemStorage` 공개 API만 사용합니다. 파일 경로로 직접
  *   가져오므로 패키지의 공개 export를 늘리지 않습니다.
- * - 측정값은 인스턴스에 붙은 전역 심볼 `Symbol.for('@omdc-slipkit/mcp.listMetrics')`에서 읽습니다.
+ * - 측정값은 인스턴스에 붙은 전역 심볼 `Symbol.for('@omdc/slipkit-mcp.listMetrics')`에서 읽습니다.
  *   심볼이 없는 빌드에서는 측정값 열이 `-`로 나오고 시간·항목 수·커서는 그대로 측정됩니다.
  *
  * 시험 데이터는 모두 `os.tmpdir()` 아래의 임시 디렉터리에 만듭니다.
@@ -88,7 +88,7 @@ const PASSPHRASE_COUNT = 10;
 const LARGE_BYTES = 16 * 1024;
 
 /** 인스턴스에서 목록 측정값을 읽는 전역 심볼입니다. */
-const LIST_METRICS = Symbol.for('@omdc-slipkit/mcp.listMetrics');
+const LIST_METRICS = Symbol.for('@omdc/slipkit-mcp.listMetrics');
 
 /** 표와 JSON에 기록하는 측정 항목입니다. */
 const METRIC_KEYS = [

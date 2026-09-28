@@ -8,7 +8,7 @@
  * 동봉 폰트에 없는 문자를 표시하거나 다른 굵기가 필요하면 호스트에서 `createSlipKit`의
  * `getFonts`로 폰트를 제공합니다.
  */
-import type { SlipFont } from '@omdc-slipkit/core';
+import type { SlipFont } from '@omdc/slipkit';
 import type { SlipLocale } from './strings.js';
 
 type FontList = SlipFont[];

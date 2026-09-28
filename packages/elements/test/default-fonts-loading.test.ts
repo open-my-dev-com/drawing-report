@@ -21,7 +21,7 @@ vi.mock('../src/fonts/noto-sans-jp.js', () => {
   return { NOTO_SANS_JP_FONTS, default: NOTO_SANS_JP_FONTS };
 });
 
-import type { SlipKit } from '@omdc-slipkit/core';
+import type { SlipKit } from '@omdc/slipkit';
 import { loadDefaultFonts } from '../src/default-fonts.js';
 import { resolveFonts } from '../src/settings.js';
 

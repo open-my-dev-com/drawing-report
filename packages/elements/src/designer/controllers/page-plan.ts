@@ -14,7 +14,7 @@ import {
   type GridItem,
   type SlipTemplateFile,
   type SourcePagePlan,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { sampleItemsOf } from '../formula-context.js';
 
 /** 계획을 구할 때 넘기는 입력입니다. */

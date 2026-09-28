@@ -1,6 +1,6 @@
 // 순수 좌표·크기 계산 — 화면 없이 직접 확인합니다.
 import { describe, expect, it } from 'vitest';
-import type { GridElement, LineElement, SlipElement } from '@omdc-slipkit/core';
+import type { GridElement, LineElement, SlipElement } from '@omdc/slipkit';
 import {
   PX_PER_MM,
   MIN_SIZE_MM,

@@ -40,7 +40,7 @@ Both templates and vouchers use the `.slip` extension and are distinguished by t
 > [!IMPORTANT]
 > SlipKit is currently in a pre-release review stage.
 >
-> The `@omdc-slipkit/*` packages are not yet published to the npm registry. For now you can explore the current version by cloning the repository and reviewing the demos and source code.
+> The `@omdc/slipkit` and `@omdc/slipkit-*` packages are not yet published to the npm registry. For now you can explore the current version by cloning the repository and reviewing the demos and source code.
 
 ## Packages
 
@@ -48,11 +48,11 @@ SlipKit is a pnpm workspace-based monorepo.
 
 | Package | Role |
 |---|---|
-| [`@omdc-slipkit/core`](packages/core) | Provides `.slip` file validation, formula evaluation, voucher assembly, PDF generation, and file encryption. It has no DOM dependency, so it runs in the browser and Node.js. |
-| [`@omdc-slipkit/elements`](packages/elements) | Provides the `<slip-designer>`, `<slip-form>`, and `<slip-viewer>` Web Components built with Lit. |
-| [`@omdc-slipkit/react`](packages/react) | Lets you use the SlipKit Web Components as React components. |
-| [`@omdc-slipkit/vue`](packages/vue) | Lets you use the SlipKit Web Components as Vue components. |
-| [`@omdc-slipkit/mcp`](packages/mcp) | Provides a local MCP server that lets AI create and edit templates through MCP tools. |
+| [`@omdc/slipkit`](packages/core) | Provides `.slip` file validation, formula evaluation, voucher assembly, PDF generation, and file encryption. It has no DOM dependency, so it runs in the browser and Node.js. |
+| [`@omdc/slipkit-elements`](packages/elements) | Provides the `<slip-designer>`, `<slip-form>`, and `<slip-viewer>` Web Components built with Lit. |
+| [`@omdc/slipkit-react`](packages/react) | Lets you use the SlipKit Web Components as React components. |
+| [`@omdc/slipkit-vue`](packages/vue) | Lets you use the SlipKit Web Components as Vue components. |
+| [`@omdc/slipkit-mcp`](packages/mcp) | Provides a local MCP server that lets AI create and edit templates through MCP tools. |
 
 ## Running locally
 
@@ -67,8 +67,8 @@ SlipKit is a pnpm workspace-based monorepo.
 Enable Corepack before installing dependencies. When you run `pnpm` inside the repository, Corepack selects pnpm 10.33.0 from the `packageManager` field.
 
 ```bash
-git clone https://github.com/open-my-dev-com/drawing-report.git
-cd drawing-report
+git clone https://github.com/open-my-dev-com/slipkit.git
+cd slipkit
 corepack enable
 pnpm --version
 pnpm install

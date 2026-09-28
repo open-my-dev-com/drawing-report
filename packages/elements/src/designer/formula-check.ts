@@ -13,7 +13,7 @@ import {
   type FormulaContext,
   type FormulaDiagnosis,
   type FormulaValue,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { isBlankFormula } from '../formula-blank.js';
 
 /** 수식과 조건식 검사 결과의 종류입니다. */

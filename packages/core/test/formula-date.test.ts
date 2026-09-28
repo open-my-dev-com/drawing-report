@@ -420,7 +420,7 @@ describe('실행 환경 시간대와 무관한 결과', () => {
   it.each(['UTC', 'Asia/Tokyo', 'America/New_York'])('TZ=%s (자식 프로세스)', (tz) => {
     const dist = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'index.js');
     if (!existsSync(dist)) {
-      throw new Error('dist/index.js가 없습니다. 먼저 @omdc-slipkit/core를 빌드한 뒤 실행해야 합니다.');
+      throw new Error('dist/index.js가 없습니다. 먼저 @omdc/slipkit를 빌드한 뒤 실행해야 합니다.');
     }
     const script = [
       `import { FormulaEvalError, evaluateFormula } from ${JSON.stringify(pathToFileURL(dist).href)};`,

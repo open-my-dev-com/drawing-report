@@ -7,7 +7,7 @@ This page points you to the documents you need to run SlipKit or connect it to a
 If this is your first time, start with [Getting started](getting-started.md) to run the repository demos and connect the form designer.
 
 > [!IMPORTANT]
-> SlipKit is currently in a pre-release review stage, and the `@omdc-slipkit/*` packages are not yet published to the npm registry.
+> SlipKit is currently in a pre-release review stage, and the `@omdc/slipkit` and `@omdc/slipkit-*` packages are not yet published to the npm registry.
 > For now you can explore it by cloning the repository and reviewing the bundled demos and source code.
 
 ## Find the document for your goal
@@ -68,11 +68,11 @@ Use the following packages depending on your environment.
 
 | Package | Purpose |
 |---|---|
-| `@omdc-slipkit/core` | `.slip` validation, voucher assembly, formula evaluation, PDF generation, and file encryption |
-| `@omdc-slipkit/elements` | Web Component-based designer, entry form, and viewer |
-| `@omdc-slipkit/react` | Wrapper components for React |
-| `@omdc-slipkit/vue` | Wrapper components for Vue |
-| `@omdc-slipkit/mcp` | Local stdio MCP server for AI access to `.slip` files |
+| `@omdc/slipkit` | `.slip` validation, voucher assembly, formula evaluation, PDF generation, and file encryption |
+| `@omdc/slipkit-elements` | Web Component-based designer, entry form, and viewer |
+| `@omdc/slipkit-react` | Wrapper components for React |
+| `@omdc/slipkit-vue` | Wrapper components for Vue |
+| `@omdc/slipkit-mcp` | Local stdio MCP server for AI access to `.slip` files |
 
 The React and Vue packages are thin wrappers that connect the Web Components to each framework's usage style. There is no difference in the SlipKit features they provide.
 

@@ -11,7 +11,7 @@ SlipKit Core を Node.js サーバーで使い、`.slip` ファイルの検証�
 > このドキュメントは、Core をサーバーアプリケーションのライフサイクル、ストレージ、HTTP リクエストに接続する方法を扱います。
 
 > [!IMPORTANT]
-> SlipKit は現在公開前のレビュー段階であり、`@omdc-slipkit/*` パッケージはまだ npm レジストリに公開されていません。
+> SlipKit は現在公開前のレビュー段階であり、`@omdc/slipkit` と `@omdc/slipkit-*` パッケージはまだ npm レジストリに公開されていません。
 > 現時点ではリポジトリに含まれるソースコードとデモを基準に確認できます。
 
 ## サーバーが担当する範囲
@@ -43,28 +43,28 @@ flowchart TD
 
 ## インストールと実行環境
 
-サーバーでは `@omdc-slipkit/core` を使います。
+サーバーでは `@omdc/slipkit` を使います。
 
 ```bash
-npm install @omdc-slipkit/core
+npm install @omdc/slipkit
 ```
 
-同梱フォントを使う場合は `@omdc-slipkit/elements` もインストールします。
+同梱フォントを使う場合は `@omdc/slipkit-elements` もインストールします。
 
 ```bash
-npm install @omdc-slipkit/core @omdc-slipkit/elements
+npm install @omdc/slipkit @omdc/slipkit-elements
 ```
 
 サポートする Node.js のバージョンは 22.13 以上です。
 
-`@omdc-slipkit/core` は ESM として配布されますが、ESM と CommonJS のどちらのプロジェクトでも使えます。TypeScript ではプロジェクトの出力形式に関係なく、通常の静的 import を使います。
+`@omdc/slipkit` は ESM として配布されますが、ESM と CommonJS のどちらのプロジェクトでも使えます。TypeScript ではプロジェクトの出力形式に関係なく、通常の静的 import を使います。
 
 ```ts
 import {
   createSlipKit,
   parseSlipFile,
   validateSlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 ```
 
 CommonJS ファイルから直接使う場合も、パッケージ名で読み込めます。
@@ -74,7 +74,7 @@ const {
   createSlipKit,
   parseSlipFile,
   validateSlipFile,
-} = require('@omdc-slipkit/core');
+} = require('@omdc/slipkit');
 ```
 
 > [!IMPORTANT]
@@ -130,7 +130,7 @@ import {
   createSlipKit,
   type SlipFont,
   type SlipKit,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import { SlipIssuanceService } from './slip-issuance.service';
 import { SLIP_KIT } from './slipkit.tokens';
@@ -198,7 +198,7 @@ export class SlipKitModule {}
 
 ## 同梱フォントの利用
 
-サーバーに別途フォントファイルを配置するのが難しい場合は、`@omdc-slipkit/elements` の同梱フォントを使えます。
+サーバーに別途フォントファイルを配置するのが難しい場合は、`@omdc/slipkit-elements` の同梱フォントを使えます。
 
 ```ts
 import { Module } from '@nestjs/common';
@@ -206,10 +206,10 @@ import { Module } from '@nestjs/common';
 import {
   createSlipKit,
   type SlipKit,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import {
   PRETENDARD_FONTS,
-} from '@omdc-slipkit/elements/fonts/pretendard';
+} from '@omdc/slipkit-elements/fonts/pretendard';
 
 import { SLIP_KIT } from './slipkit.tokens';
 
@@ -234,7 +234,7 @@ export class SlipKitModule {}
 ```ts
 import {
   NOTO_SANS_JP_FONTS,
-} from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+} from '@omdc/slipkit-elements/fonts/noto-sans-jp';
 ```
 
 同梱フォントモジュールはサーバーでも使えますが、フォントデータが JavaScript バンドルに含まれます。配布サイズと起動時間が重要な場合は、TTF・OTF ファイルをサーバーの資産として配置し、`getFonts` で読み込む方式を使ってください。
@@ -249,7 +249,7 @@ NestJS は JSON リクエストボディを JavaScript オブジェクトに変�
 import {
   validateSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 export function validateRequestFile(
   body: unknown,
@@ -264,7 +264,7 @@ export function validateRequestFile(
 import {
   parseSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 export function parseStoredFile(
   json: string,
@@ -298,7 +298,7 @@ import {
 
 import type {
   JsonValue,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 export interface IssueVoucherRequest {
   templateId: string;
@@ -366,7 +366,7 @@ import {
   type JsonValue,
   type SlipKit,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import { SLIP_KIT } from './slipkit.tokens';
 
@@ -695,12 +695,12 @@ SlipKit は次の機能を直接提供しません。
 - `issued: true` を電子署名や改ざん防止の印として使う
 - PDF 生成の作業を制限なく同時実行する
 - データベースと PDF の保存のどちらか一方だけが成功した状態を発行完了として扱う
-- `@omdc-slipkit/elements` のルートパッケージを Node.js サーバーの UI のように使う
+- `@omdc/slipkit-elements` のルートパッケージを Node.js サーバーの UI のように使う
 
 ## サーバー統合チェックリスト
 
 - [ ] Node.js 22.13 以上を使う。
-- [ ] `@omdc-slipkit/core` の公開パッケージパスで import する。
+- [ ] `@omdc/slipkit` の公開パッケージパスで import する。
 - [ ] `createSlipKit` をシングルトンの Provider として登録した。
 - [ ] 韓国語・日本語の出力に必要なフォントを供給する。
 - [ ] 外部リクエストとストレージから読んだ `.slip` ファイルを検証する。

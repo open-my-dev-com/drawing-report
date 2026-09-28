@@ -1,7 +1,7 @@
 // @vitest-environment node
 // 저장된 수식 가운데 계산되지 않는 것을 요소와 셀로 모으는 집계
 import { describe, expect, it } from 'vitest';
-import type { SlipPage } from '@omdc-slipkit/core';
+import type { SlipPage } from '@omdc/slipkit';
 import {
   collectFormulaWarnings,
   hasCellWarning,

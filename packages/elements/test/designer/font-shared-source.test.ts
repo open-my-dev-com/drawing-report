@@ -3,8 +3,8 @@
 // 같은 목록을 나눠 쓰는지 확인합니다. 호스트 폰트가 있으면 청크를 아예 읽지 않아야 합니다.
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+vi.mock('@omdc/slipkit', async () => {
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return {
     ...actual,
     parseSlipFile: vi.fn(),
@@ -38,7 +38,7 @@ vi.mock('../../src/default-fonts.js', async (importOriginal) => {
   return { loadDefaultFonts: vi.fn(actual.loadDefaultFonts) };
 });
 
-import { createSlipKit, type SlipFont, type SlipKit } from '@omdc-slipkit/core';
+import { createSlipKit, type SlipFont, type SlipKit } from '@omdc/slipkit';
 import { loadDefaultFonts } from '../../src/default-fonts.js';
 import {
   installDesignerTestEnv,

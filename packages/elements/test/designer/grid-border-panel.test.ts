@@ -2,8 +2,8 @@
 // 셀 기본 테두리·그리드 테두리의 속성 패널과 캔버스 표시
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+vi.mock('@omdc/slipkit', async () => {
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return {
     ...actual,
     parseSlipFile: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock('../../src/default-fonts.js', () => ({
     Promise.resolve([{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }]),
 }));
 
-import type { GridElement, SlipFile, SlipTemplateFile } from '@omdc-slipkit/core';
+import type { GridElement, SlipFile, SlipTemplateFile } from '@omdc/slipkit';
 import {
   strings,
   parseSlipFileMock,

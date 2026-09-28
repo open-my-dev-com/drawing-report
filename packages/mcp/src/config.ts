@@ -10,7 +10,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import type { SlipFont } from '@omdc-slipkit/core';
+import type { SlipFont } from '@omdc/slipkit';
 import type { SlipMcpServerOptions } from './server.js';
 
 /** 기본 설정 파일 이름입니다. */

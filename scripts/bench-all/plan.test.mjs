@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { readPositiveInt, readPositiveIntList } from '../bench-shared/args.mjs';
 import { FONTS_DEFAULT_RUNS, MCP_LIST_DEFAULT_RUNS, MCP_LIST_DEFAULT_SIZES } from '../bench-shared/defaults.mjs';
 import { TOOLS } from '../bench-shared/result.mjs';
+import { packageName } from '../package-names.mjs';
 import { buildCommandArgs, buildTargets, missingBaselineTools, parseOptions, selectRuns } from './plan.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -96,34 +97,34 @@ describe('실행할 성능 측정 고르기', () => {
 
 describe('먼저 빌드할 패키지', () => {
   it('--only core 면 Core만 빌드한다', () => {
-    assert.deepEqual(buildTargets(runsFor(['--only', 'core'])), ['@omdc-slipkit/core']);
+    assert.deepEqual(buildTargets(runsFor(['--only', 'core'])), ['@omdc/slipkit']);
   });
 
   it('Designer·fonts는 Core와 Elements를 빌드한다', () => {
-    assert.deepEqual(buildTargets(runsFor(['--only', 'designer,fonts'])), ['@omdc-slipkit/core', '@omdc-slipkit/elements']);
+    assert.deepEqual(buildTargets(runsFor(['--only', 'designer,fonts'])), ['@omdc/slipkit', '@omdc/slipkit-elements']);
   });
 
   it('네 종류를 다 실행하면 세 패키지를 의존 순서로 한 번에 빌드한다', () => {
     const packages = buildTargets(runsFor([]));
-    assert.deepEqual(packages, ['@omdc-slipkit/core', '@omdc-slipkit/elements', '@omdc-slipkit/mcp']);
+    assert.deepEqual(packages, ['@omdc/slipkit', '@omdc/slipkit-elements', '@omdc/slipkit-mcp']);
     assert.deepEqual(buildCommandArgs(packages), [
-      '--filter', '@omdc-slipkit/core',
-      '--filter', '@omdc-slipkit/elements',
-      '--filter', '@omdc-slipkit/mcp',
+      '--filter', '@omdc/slipkit',
+      '--filter', '@omdc/slipkit-elements',
+      '--filter', '@omdc/slipkit-mcp',
       'run', 'build',
     ]);
   });
 
   it('빌드 대상이 겹쳐도 패키지마다 한 번만 넣는다', () => {
     const packages = buildTargets(runsFor(['--only', 'core,designer,fonts']));
-    assert.deepEqual(packages, ['@omdc-slipkit/core', '@omdc-slipkit/elements']);
+    assert.deepEqual(packages, ['@omdc/slipkit', '@omdc/slipkit-elements']);
     assert.equal(buildCommandArgs(packages).filter((value) => value === '--filter').length, 2);
   });
 
   it('하위 실행이 요구하는 산출물은 빌드 대상 안에 있다', () => {
     for (const run of runsFor([])) {
       for (const need of run.needs) {
-        const owner = `@omdc-slipkit/${need.split('/')[1]}`;
+        const owner = packageName(need.split('/')[1]);
         assert.ok(run.packages.includes(owner), `${run.tool}: ${need}`);
       }
     }

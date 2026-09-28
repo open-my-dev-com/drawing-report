@@ -2,7 +2,7 @@
 
 [한국어](mcp.ko.md) · [日本語](mcp.ja.md)
 
-`@omdc-slipkit/mcp` is a local stdio MCP server that lets an AI read, create, and edit `.slip` templates and vouchers in a designated directory. It can also build unissued vouchers from templates and render templates or vouchers to PDF.
+`@omdc/slipkit-mcp` is a local stdio MCP server that lets an AI read, create, and edit `.slip` templates and vouchers in a designated directory. It can also build unissued vouchers from templates and render templates or vouchers to PDF.
 
 You do not need to keep the server running in a separate terminal. With stdio, the MCP client starts the server as a local child process and stops it when the connection closes. The server reads its storage path, locale, fonts, and encryption environment-variable names from `slipkit-mcp.json`.
 
@@ -19,7 +19,7 @@ Install dependencies and build the MCP package from the repository root.
 
 ```bash
 pnpm install
-pnpm --filter @omdc-slipkit/mcp build
+pnpm --filter @omdc/slipkit-mcp build
 mkdir slip-workspace
 ```
 
@@ -76,7 +76,7 @@ Register the executable and the path to `slipkit-mcp.json` in the client's stdio
     "slipkit": {
       "command": "node",
       "args": [
-        "/absolute/path/to/drawing-report/packages/mcp/dist/cli.js",
+        "/absolute/path/to/slipkit/packages/mcp/dist/cli.js",
         "--config",
         "/absolute/path/to/slipkit-mcp.json"
       ]
@@ -108,7 +108,7 @@ To register the current repository build with Codex CLI:
 
 ```bash
 codex mcp add slipkit -- \
-  node /absolute/path/to/drawing-report/packages/mcp/dist/cli.js \
+  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
   --config /absolute/path/to/slipkit-mcp.json
 ```
 
@@ -116,7 +116,7 @@ Claude Code can register it as follows. Local scope avoids sharing machine-speci
 
 ```bash
 claude mcp add --scope local slipkit -- \
-  node /absolute/path/to/drawing-report/packages/mcp/dist/cli.js \
+  node /absolute/path/to/slipkit/packages/mcp/dist/cli.js \
   --config /absolute/path/to/slipkit-mcp.json
 ```
 
@@ -124,7 +124,7 @@ After the package is published to npm, clients can launch it without building th
 
 ```bash
 codex mcp add slipkit -- \
-  npx -y @omdc-slipkit/mcp --config /absolute/path/to/slipkit-mcp.json
+  npx -y @omdc/slipkit-mcp --config /absolute/path/to/slipkit-mcp.json
 ```
 
 The server configuration and working directory remain local in this setup.
@@ -191,7 +191,7 @@ Pass the actual values through the environment that starts the server process.
     "slipkit": {
       "command": "node",
       "args": [
-        "/absolute/path/to/drawing-report/packages/mcp/dist/cli.js",
+        "/absolute/path/to/slipkit/packages/mcp/dist/cli.js",
         "--config",
         "/absolute/path/to/slipkit-mcp.json"
       ],
@@ -214,7 +214,7 @@ Set `httpPort` to expose rendered PDFs through a read-only server bound to `127.
 
 ### PDF fonts
 
-When `fonts` is omitted, the MCP server uses fonts embedded as base64 in `@omdc-slipkit/elements`. It does not download fonts from the network or automatically load operating-system fonts.
+When `fonts` is omitted, the MCP server uses fonts embedded as base64 in `@omdc/slipkit-elements`. It does not download fonts from the network or automatically load operating-system fonts.
 
 | Locale | Default fonts |
 |---|---|
@@ -362,7 +362,7 @@ Vouchers created by the MCP server are unissued (`issued: false`). Issuing must 
 `FileSystemStorage` is a `StorageAdapter` implementation with the same path restriction and encryption rules as the MCP server.
 
 ```ts
-import { FileSystemStorage } from '@omdc-slipkit/mcp';
+import { FileSystemStorage } from '@omdc/slipkit-mcp';
 
 const key = process.env.SLIPKIT_MCP_KEY;
 if (!key) throw new Error('SLIPKIT_MCP_KEY is required.');

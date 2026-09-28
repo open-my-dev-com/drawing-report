@@ -40,7 +40,7 @@ SlipKit에서는 양식과 전표를 구분합니다.
 > [!IMPORTANT]
 > SlipKit은 현재 공개 전 검토 단계입니다.
 >
-> `@omdc-slipkit/*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 현재 버전은 저장소를 복제하여 데모와 소스 코드로 확인할 수 있습니다.
+> `@omdc/slipkit`과 `@omdc/slipkit-*` 패키지는 아직 npm 레지스트리에 배포되지 않았습니다. 현재 버전은 저장소를 복제하여 데모와 소스 코드로 확인할 수 있습니다.
 
 ## 패키지 구성
 
@@ -48,11 +48,11 @@ SlipKit은 pnpm 워크스페이스 기반 모노레포입니다.
 
 | 패키지 | 역할 |
 |---|---|
-| [`@omdc-slipkit/core`](packages/core) | `.slip` 파일 검증, 수식 평가, 전표 조립, PDF 생성 및 파일 암호화를 제공합니다. DOM에 의존하지 않아 브라우저와 Node.js에서 사용할 수 있습니다. |
-| [`@omdc-slipkit/elements`](packages/elements) | Lit으로 구현된 `<slip-designer>`, `<slip-form>`, `<slip-viewer>` Web Component를 제공합니다. |
-| [`@omdc-slipkit/react`](packages/react) | SlipKit Web Component를 React 컴포넌트로 사용할 수 있게 합니다. |
-| [`@omdc-slipkit/vue`](packages/vue) | SlipKit Web Component를 Vue 컴포넌트로 사용할 수 있게 합니다. |
-| [`@omdc-slipkit/mcp`](packages/mcp) | AI가 MCP 도구로 양식을 만들고 고칠 수 있게 하는 로컬 MCP 서버를 제공합니다. |
+| [`@omdc/slipkit`](packages/core) | `.slip` 파일 검증, 수식 평가, 전표 조립, PDF 생성 및 파일 암호화를 제공합니다. DOM에 의존하지 않아 브라우저와 Node.js에서 사용할 수 있습니다. |
+| [`@omdc/slipkit-elements`](packages/elements) | Lit으로 구현된 `<slip-designer>`, `<slip-form>`, `<slip-viewer>` Web Component를 제공합니다. |
+| [`@omdc/slipkit-react`](packages/react) | SlipKit Web Component를 React 컴포넌트로 사용할 수 있게 합니다. |
+| [`@omdc/slipkit-vue`](packages/vue) | SlipKit Web Component를 Vue 컴포넌트로 사용할 수 있게 합니다. |
+| [`@omdc/slipkit-mcp`](packages/mcp) | AI가 MCP 도구로 양식을 만들고 고칠 수 있게 하는 로컬 MCP 서버를 제공합니다. |
 
 ## 로컬에서 실행하기
 
@@ -67,8 +67,8 @@ SlipKit은 pnpm 워크스페이스 기반 모노레포입니다.
 의존성을 설치하기 전에 Corepack을 활성화합니다. 저장소 안에서 `pnpm`을 실행하면 Corepack이 `packageManager` 필드에 지정된 pnpm 10.33.0을 선택합니다.
 
 ```bash
-git clone https://github.com/open-my-dev-com/drawing-report.git
-cd drawing-report
+git clone https://github.com/open-my-dev-com/slipkit.git
+cd slipkit
 corepack enable
 pnpm --version
 pnpm install

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', () => ({
+vi.mock('@omdc/slipkit', () => ({
   parseSlipFile: vi.fn(),
   renderSlipToPdf: vi.fn(),
 }));
@@ -15,8 +15,8 @@ vi.mock('../src/default-fonts.js', () => ({
     ]),
 }));
 
-import { parseSlipFile, renderSlipToPdf } from '@omdc-slipkit/core';
-import type { SlipFile, SlipKit } from '@omdc-slipkit/core';
+import { parseSlipFile, renderSlipToPdf } from '@omdc/slipkit';
+import type { SlipFile, SlipKit } from '@omdc/slipkit';
 import { getStrings } from '../src/strings.js';
 
 // 기본 영어 문구를 기준으로 화면을 확인합니다.

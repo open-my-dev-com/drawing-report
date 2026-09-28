@@ -15,7 +15,7 @@
 
 ## 제공자와 소비자
 
-`@omdc-slipkit/core`가 패키지 루트와 `schemas/*` 경로로 제공하고, 직접 통합하는 호스트와 Elements·MCP
+`@omdc/slipkit`가 패키지 루트와 `schemas/*` 경로로 제공하고, 직접 통합하는 호스트와 Elements·MCP
 패키지가 소비합니다. 내부 소스 경로와 빌드 산출물의 실제 파일명은 계약이 아닙니다.
 
 ## 호출 방향과 사용 조건
@@ -51,8 +51,8 @@
 
 | 경로 | 용도 |
 | --- | --- |
-| `@omdc-slipkit/core/schemas/slip-0.1.0.schema.json` | 특정 버전 검증 |
-| `@omdc-slipkit/core/schemas/slip.schema.json` | 최신 버전 별칭 |
+| `@omdc/slipkit/schemas/slip-0.1.0.schema.json` | 특정 버전 검증 |
+| `@omdc/slipkit/schemas/slip.schema.json` | 최신 버전 별칭 |
 
 JSON Schema는 구조 검증용이며 버전 마이그레이션, 모든 교차 필드 규칙과 렌더링 검사를 대신하지
 않습니다.

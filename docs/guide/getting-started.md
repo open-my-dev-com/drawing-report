@@ -12,7 +12,7 @@ By the end of this document you will be able to:
 - Prepare to connect storage and voucher-entry features next
 
 > [!IMPORTANT]
-> SlipKit is currently in a pre-release review stage, and the `@omdc-slipkit/*` packages are not yet published to the npm registry.
+> SlipKit is currently in a pre-release review stage, and the `@omdc/slipkit` and `@omdc/slipkit-*` packages are not yet published to the npm registry.
 > To run it right now, clone the repository and use the bundled demos.
 
 ## Choose how to run it
@@ -44,8 +44,8 @@ node --version
 Enable Corepack before installing dependencies. When you run `pnpm` inside the repository, Corepack selects pnpm 10.33.0 from the `packageManager` field.
 
 ```bash
-git clone https://github.com/open-my-dev-com/drawing-report.git
-cd drawing-report
+git clone https://github.com/open-my-dev-com/slipkit.git
+cd slipkit
 corepack enable
 pnpm --version
 pnpm install
@@ -126,7 +126,7 @@ You can find the full implementation for each framework in these directories.
 ## Connect to an external project
 
 > [!WARNING]
-> The install commands in this section become usable after the `@omdc-slipkit/*` packages are published to npm.
+> The install commands in this section become usable after the `@omdc/slipkit` and `@omdc/slipkit-*` packages are published to npm.
 > Running them now results in a `404 Not Found` error.
 
 The examples below assume a build environment such as Vite that supports ESM and TypeScript.
@@ -139,7 +139,7 @@ Install the packages that match your environment.
 <summary><strong>Web Component</strong></summary>
 
 ```bash
-npm install @omdc-slipkit/core @omdc-slipkit/elements
+npm install @omdc/slipkit @omdc/slipkit-elements
 ```
 
 </details>
@@ -148,7 +148,7 @@ npm install @omdc-slipkit/core @omdc-slipkit/elements
 <summary><strong>React</strong></summary>
 
 ```bash
-npm install @omdc-slipkit/core @omdc-slipkit/react
+npm install @omdc/slipkit @omdc/slipkit-react
 ```
 
 React 19 or later is required. If your project doesn't have React yet, install it as well.
@@ -163,7 +163,7 @@ npm install react react-dom
 <summary><strong>Vue</strong></summary>
 
 ```bash
-npm install @omdc-slipkit/core @omdc-slipkit/vue
+npm install @omdc/slipkit @omdc/slipkit-vue
 ```
 
 Vue 3.4 or later is required. If your project doesn't have Vue yet, install it as well.
@@ -176,7 +176,7 @@ npm install vue
 
 > [!TIP]
 > The `elements`, `react`, and `vue` packages use `core` internally.
-> However, if your application code imports `@omdc-slipkit/core` directly, you must also install `core` as a direct dependency.
+> However, if your application code imports `@omdc/slipkit` directly, you must also install `core` as a direct dependency.
 
 ### 2. Create a starting template
 
@@ -188,7 +188,7 @@ Create a valid blank template to share across all three environments.
 import {
   CURRENT_SCHEMA_VERSION,
   type SlipTemplateFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 export function createBlankTemplate(): SlipTemplateFile {
   return {
@@ -265,13 +265,13 @@ Register the designer and pass it the starting template.
 `src/main.ts`:
 
 ```ts
-import '@omdc-slipkit/elements';
+import '@omdc/slipkit-elements';
 
 import {
   serializeSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
-import type { SlipDesigner } from '@omdc-slipkit/elements';
+} from '@omdc/slipkit';
+import type { SlipDesigner } from '@omdc/slipkit-elements';
 
 import { createBlankTemplate } from './slip-template';
 
@@ -311,12 +311,12 @@ In Web Components, `slip-change` is delivered as a `CustomEvent`, and the change
 
 ```tsx
 import { useRef, useState } from 'react';
-import { SlipDesigner } from '@omdc-slipkit/react';
+import { SlipDesigner } from '@omdc/slipkit-react';
 import {
   serializeSlipFile,
   type SlipFile,
   type SlipTemplateFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import { createBlankTemplate } from './slip-template';
 
@@ -362,12 +362,12 @@ The React wrapper's `onSlipChange` receives the changed `SlipFile` object direct
 ```vue
 <script setup lang="ts">
 import { ref, shallowRef } from 'vue';
-import { SlipDesigner } from '@omdc-slipkit/vue';
+import { SlipDesigner } from '@omdc/slipkit-vue';
 import {
   serializeSlipFile,
   type SlipFile,
   type SlipTemplateFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import { createBlankTemplate } from './slip-template';
 
@@ -505,12 +505,12 @@ designer.src = serializeSlipFile(createBlankTemplate());
 </details>
 
 <details>
-<summary><strong>@omdc-slipkit/core can't be found</strong></summary>
+<summary><strong>@omdc/slipkit can't be found</strong></summary>
 
 If your application code imports `core` directly, you must install it as a direct dependency.
 
 ```bash
-npm install @omdc-slipkit/core
+npm install @omdc/slipkit
 ```
 
 </details>

@@ -1,12 +1,12 @@
 # Security Policy
 
-SlipKit is primarily an embeddable library. It provides no accounts and no remote service of its own. The Core and UI packages run inside a host application, in your users' browsers or in your own Node.js process, while `@omdc-slipkit/mcp` runs as a local Node.js process and can optionally expose a loopback-only PDF link server. This document explains what that means for security, and how to report a vulnerability.
+SlipKit is primarily an embeddable library. It provides no accounts and no remote service of its own. The Core and UI packages run inside a host application, in your users' browsers or in your own Node.js process, while `@omdc/slipkit-mcp` runs as a local Node.js process and can optionally expose a loopback-only PDF link server. This document explains what that means for security, and how to report a vulnerability.
 
 ## Reporting a vulnerability
 
 **Do not open a public issue for a security problem.**
 
-Report it privately through GitHub's private vulnerability reporting: open the repository's [Security tab](https://github.com/open-my-dev-com/drawing-report/security) and choose **Report a vulnerability**. If that is unavailable to you, open a regular issue that says only that you have a security report and asks for a private channel — no details.
+Report it privately through GitHub's private vulnerability reporting: open the repository's [Security tab](https://github.com/open-my-dev-com/slipkit/security) and choose **Report a vulnerability**. If that is unavailable to you, open a regular issue that says only that you have a security report and asks for a private channel — no details.
 
 Please include what you have:
 
@@ -19,7 +19,7 @@ We aim to acknowledge reports within **7 days**. After reviewing a report we wil
 
 ## Supported versions
 
-The `@omdc-slipkit/*` packages are not yet published to the npm registry, and the `.slip` schema is at the pre-release version `0.1.0`. Until the first release, **only the default branch is supported** — fixes land there, and there are no backports.
+The `@omdc/slipkit` and `@omdc/slipkit-*` packages are not yet published to the npm registry, and the `.slip` schema is at the pre-release version `0.1.0`. Until the first release, **only the default branch is supported** — fixes land there, and there are no backports.
 
 | Version | Supported |
 |---|---|
@@ -32,10 +32,10 @@ This table will be replaced with a real version policy at the first release.
 
 In scope — vulnerabilities in this repository:
 
-- `@omdc-slipkit/core` — parsing, validation, formula evaluation, page planning, PDF generation, encryption
-- `@omdc-slipkit/elements` — the designer, entry form, and viewer components, and browser storage
-- `@omdc-slipkit/react` and `@omdc-slipkit/vue` — the framework wrappers
-- `@omdc-slipkit/mcp` — the local MCP server, its file access, and its local PDF link server
+- `@omdc/slipkit` — parsing, validation, formula evaluation, page planning, PDF generation, encryption
+- `@omdc/slipkit-elements` — the designer, entry form, and viewer components, and browser storage
+- `@omdc/slipkit-react` and `@omdc/slipkit-vue` — the framework wrappers
+- `@omdc/slipkit-mcp` — the local MCP server, its file access, and its local PDF link server
 - The bundled presets, fonts, and JSON Schemas
 
 Dependency vulnerabilities may be reported here when they affect SlipKit. Fixing one may require coordination with the upstream project.

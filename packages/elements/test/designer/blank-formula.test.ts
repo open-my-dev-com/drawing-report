@@ -2,9 +2,9 @@
 // 공백뿐인 수식의 화면 계약 — 디자이너 캔버스·자동 병합·경고 목록과 작성 폼이 PDF 변환처럼 빈 값으로 다룹니다.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
+vi.mock('@omdc/slipkit', async () => {
   // 파싱과 렌더링만 모의하고 수식 엔진은 실제 구현을 사용합니다.
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return {
     ...actual,
     parseSlipFile: vi.fn(),
@@ -18,7 +18,7 @@ vi.mock('../../src/default-fonts.js', () => ({
   loadDefaultFonts: () => Promise.resolve([{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }]),
 }));
 
-import type { SlipFile } from '@omdc-slipkit/core';
+import type { SlipFile } from '@omdc/slipkit';
 import { isBlankFormula } from '../../src/formula-blank.js';
 import { checkFormula } from '../../src/designer/formula-check.js';
 import { SlipForm } from '../../src/slip-form.js';

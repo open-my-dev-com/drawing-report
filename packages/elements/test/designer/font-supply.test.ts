@@ -2,8 +2,8 @@
 // 호스트 폰트 조회 실패와 재시도 과정에서 디자이너와 PDF가 같은 출처를 쓰는지 확인합니다.
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+vi.mock('@omdc/slipkit', async () => {
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return {
     ...actual,
     parseSlipFile: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock('../../src/default-fonts.js', () => ({
     Promise.resolve([{ name: 'Pretendard', data: new Uint8Array([1]), fallback: true }]),
 }));
 
-import { createSlipKit, type SlipFile, type SlipKit } from '@omdc-slipkit/core';
+import { createSlipKit, type SlipFile, type SlipKit } from '@omdc/slipkit';
 import {
   strings,
   parseSlipFileMock,

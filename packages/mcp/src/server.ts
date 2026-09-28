@@ -16,7 +16,7 @@ import {
   type SlipFile,
   type SlipFont,
   type SlipKit,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import {
   FileSystemStorage,
   assertInsideRootReal,
@@ -177,7 +177,7 @@ export function createSlipMcpServer(options: SlipMcpServerOptions): {
     // 대체 폰트를 선택합니다.
     getFonts: async () => {
       if (customFonts !== undefined && customFonts.length > 0) return customFonts;
-      const { loadDefaultFonts } = await import('@omdc-slipkit/elements/default-fonts');
+      const { loadDefaultFonts } = await import('@omdc/slipkit-elements/default-fonts');
       return loadDefaultFonts(locale?.toLowerCase().startsWith('ja') ? 'ja' : 'ko');
     },
     ...(locale === undefined ? {} : { locale }),

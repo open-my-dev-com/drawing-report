@@ -20,7 +20,7 @@ vi.mock('../src/fonts/noto-sans-jp.js', () => {
   return { NOTO_SANS_JP_FONTS, default: NOTO_SANS_JP_FONTS };
 });
 
-import { createSlipKit, type SlipFont, type SlipKit } from '@omdc-slipkit/core';
+import { createSlipKit, type SlipFont, type SlipKit } from '@omdc/slipkit';
 import { resolveFonts } from '../src/settings.js';
 
 const HOST_FONTS: readonly SlipFont[] = [{ name: 'Host Sans', data: new Uint8Array([7]), fallback: true }];

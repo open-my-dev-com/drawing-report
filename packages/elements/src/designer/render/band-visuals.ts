@@ -7,7 +7,7 @@
  */
 
 import type { TemplateResult } from 'lit';
-import type { GridBandPlacement } from '@omdc-slipkit/core';
+import type { GridBandPlacement } from '@omdc/slipkit';
 import { icons } from '../../icons.js';
 import type { DesignerStrings } from '../../strings.js';
 

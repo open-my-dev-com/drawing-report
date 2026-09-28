@@ -1,6 +1,6 @@
 // 되돌리기 기록의 크기 예산 — 개수 상한과 별개로 보관하는 스냅샷 전체 크기를 제한합니다.
 import { describe, expect, it } from 'vitest';
-import type { SlipTemplateFile } from '@omdc-slipkit/core';
+import type { SlipTemplateFile } from '@omdc/slipkit';
 import { HistoryController, MAX_SNAPSHOT_CHARS } from '../../src/designer/controllers/history.js';
 
 /** 본문 크기를 마음대로 정할 수 있는 양식 — 이미지를 담은 큰 양식을 대신합니다. */

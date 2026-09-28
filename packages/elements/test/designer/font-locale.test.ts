@@ -2,8 +2,8 @@
 // 동봉 기본 폰트의 로케일 기준 — 캔버스와 PDF가 같은 대체 폰트를 고르는지 확인합니다.
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('@omdc-slipkit/core', async () => {
-  const actual = await vi.importActual<typeof import('@omdc-slipkit/core')>('@omdc-slipkit/core');
+vi.mock('@omdc/slipkit', async () => {
+  const actual = await vi.importActual<typeof import('@omdc/slipkit')>('@omdc/slipkit');
   return {
     ...actual,
     parseSlipFile: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock('../../src/default-fonts.js', () => ({
         ]),
 }));
 
-import type { SlipFile, SlipKit } from '@omdc-slipkit/core';
+import type { SlipFile, SlipKit } from '@omdc/slipkit';
 import { getStrings } from '../../src/strings.js';
 import {
   parseSlipFileMock,

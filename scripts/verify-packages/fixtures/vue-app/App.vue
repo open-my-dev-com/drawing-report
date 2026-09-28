@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { createSlipKit, type SlipFile } from '@omdc-slipkit/core';
-import { SlipDesigner, SlipViewer } from '@omdc-slipkit/vue';
+import { createSlipKit, type SlipFile } from '@omdc/slipkit';
+import { SlipDesigner, SlipViewer } from '@omdc/slipkit-vue';
 import { template } from '../template.mjs';
 
 const slipkit = createSlipKit({ locale: 'en' });

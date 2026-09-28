@@ -4,7 +4,7 @@
  * 화면을 그리는 방법은 프레임워크마다 다르지만, 무엇을 저장하고 언제 이어 쓰며
  * 어떤 문구를 보여줄지는 같습니다. 그 공통 부분만 여기에 두고 각 데모는 화면만 만듭니다.
  */
-import { getPresets, IndexedDbStorage, SlipFileExchange } from '@omdc-slipkit/elements';
+import { getPresets, IndexedDbStorage, SlipFileExchange } from '@omdc/slipkit-elements';
 import {
   SlipStorageError,
   type SlipFile,
@@ -12,7 +12,7 @@ import {
   type SlipTemplateFile,
   type SlipVoucherFile,
   type StorageAdapter,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 /** 양식, 작성 중 전표, 발행된 전표를 구분하는 자동 저장 키입니다. */
 export const TEMPLATE_KEY = 'autosave-template';

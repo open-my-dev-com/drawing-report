@@ -8,7 +8,7 @@ import {
   evaluateFormula,
   formatReferencePath,
   type SlipTemplateFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import {
   FormulaDraftController,
   columnSuggestion,

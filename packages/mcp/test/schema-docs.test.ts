@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CURRENT_SCHEMA_VERSION, MAX_IMAGE_BYTES, SLIP_LIMITS, slipElementSchema } from '@omdc-slipkit/core';
+import { CURRENT_SCHEMA_VERSION, MAX_IMAGE_BYTES, SLIP_LIMITS, slipElementSchema } from '@omdc/slipkit';
 import { SCHEMA_TOPICS, schemaTopicText } from '../src/schema-docs.js';
 
 describe('slip_schema 안내문', () => {

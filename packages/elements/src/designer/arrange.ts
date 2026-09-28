@@ -7,7 +7,7 @@
  * 바뀌지 않도록 선택 전체에 같은 이동량을 적용합니다.
  */
 
-import { elementBounds, type SlipElement } from '@omdc-slipkit/core';
+import { elementBounds, type SlipElement } from '@omdc/slipkit';
 import { round1 } from './geometry.js';
 
 /** 용지 위의 사각 영역(mm)입니다. */

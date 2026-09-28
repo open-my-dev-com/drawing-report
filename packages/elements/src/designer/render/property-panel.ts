@@ -6,7 +6,7 @@
  */
 
 import { html, nothing } from 'lit';
-import type { SlipElement } from '@omdc-slipkit/core';
+import type { SlipElement } from '@omdc/slipkit';
 import { icons } from '../../icons.js';
 import { ANCHORS, boxOf, round1 } from '../geometry.js';
 import { inItemBand } from '../grid-model.js';

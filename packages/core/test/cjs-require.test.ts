@@ -13,8 +13,8 @@ const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
  */
 function makeCjsProject(): { require: ReturnType<typeof createRequire>; cleanup: () => void } {
   const base = mkdtempSync(join(tmpdir(), 'slipkit-cjs-'));
-  mkdirSync(join(base, 'node_modules', '@omdc-slipkit'), { recursive: true });
-  symlinkSync(packageRoot, join(base, 'node_modules', '@omdc-slipkit', 'core'), 'dir');
+  mkdirSync(join(base, 'node_modules', '@omdc'), { recursive: true });
+  symlinkSync(packageRoot, join(base, 'node_modules', '@omdc', 'slipkit'), 'dir');
   const entry = join(base, 'main.cjs');
   writeFileSync(entry, '');
   return {
@@ -45,12 +45,12 @@ describe('CommonJS 소비 (ADR-057)', () => {
   // Windows에서 링크 생성 권한이 없을 때만 건너뜁니다.
   it.skipIf(symlinksUnavailable())('설치 상태에서 패키지 이름으로 require할 수 있다', () => {
     if (!existsSync(join(packageRoot, 'dist', 'index.js'))) {
-      throw new Error('dist/index.js가 없습니다. 먼저 @omdc-slipkit/core를 빌드한 뒤 실행해야 합니다.');
+      throw new Error('dist/index.js가 없습니다. 먼저 @omdc/slipkit를 빌드한 뒤 실행해야 합니다.');
     }
     const { require, cleanup } = makeCjsProject();
     try {
       // CommonJS 진입점은 ESM 전용 코드나 top-level await를 포함할 수 없습니다.
-      const core = require('@omdc-slipkit/core') as typeof import('../src/index.js');
+      const core = require('@omdc/slipkit') as typeof import('../src/index.js');
       expect(typeof core.parseSlipFile).toBe('function');
       expect(typeof core.createSlipKit).toBe('function');
       expect(typeof core.renderSlipToPdf).toBe('function');

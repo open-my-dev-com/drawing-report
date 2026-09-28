@@ -12,7 +12,7 @@
 - 以降の保存・伝票作成機能を接続する準備をする
 
 > [!IMPORTANT]
-> SlipKit は現在、公開前のレビュー段階であり、`@omdc-slipkit/*` パッケージはまだ npm レジストリに公開されていません。
+> SlipKit は現在、公開前のレビュー段階であり、`@omdc/slipkit` と `@omdc/slipkit-*` パッケージはまだ npm レジストリに公開されていません。
 > 今すぐ実行するには、リポジトリをクローンして同梱デモを使用してください。
 
 ## 実行方法の選択
@@ -44,8 +44,8 @@ node --version
 依存関係をインストールする前に Corepack を有効にします。リポジトリ内で `pnpm` を実行すると、Corepack が `packageManager` フィールドで指定された pnpm 10.33.0 を選択します。
 
 ```bash
-git clone https://github.com/open-my-dev-com/drawing-report.git
-cd drawing-report
+git clone https://github.com/open-my-dev-com/slipkit.git
+cd slipkit
 corepack enable
 pnpm --version
 pnpm install
@@ -126,7 +126,7 @@ VITE_SLIPKIT_LOCALE=ja pnpm demo
 ## 外部プロジェクトに接続
 
 > [!WARNING]
-> この節のインストールコマンドは、`@omdc-slipkit/*` パッケージが npm に公開されたあとに使用できます。
+> この節のインストールコマンドは、`@omdc/slipkit` と `@omdc/slipkit-*` パッケージが npm に公開されたあとに使用できます。
 > 現在実行すると `404 Not Found` エラーが発生します。
 
 以下の例は、ESM と TypeScript をサポートする Vite などのビルド環境を前提とします。
@@ -139,7 +139,7 @@ VITE_SLIPKIT_LOCALE=ja pnpm demo
 <summary><strong>Web Component</strong></summary>
 
 ```bash
-npm install @omdc-slipkit/core @omdc-slipkit/elements
+npm install @omdc/slipkit @omdc/slipkit-elements
 ```
 
 </details>
@@ -148,7 +148,7 @@ npm install @omdc-slipkit/core @omdc-slipkit/elements
 <summary><strong>React</strong></summary>
 
 ```bash
-npm install @omdc-slipkit/core @omdc-slipkit/react
+npm install @omdc/slipkit @omdc/slipkit-react
 ```
 
 React 19 以上が必要です。既存のプロジェクトに React がなければ一緒にインストールします。
@@ -163,7 +163,7 @@ npm install react react-dom
 <summary><strong>Vue</strong></summary>
 
 ```bash
-npm install @omdc-slipkit/core @omdc-slipkit/vue
+npm install @omdc/slipkit @omdc/slipkit-vue
 ```
 
 Vue 3.4 以上が必要です。既存のプロジェクトに Vue がなければ一緒にインストールします。
@@ -176,7 +176,7 @@ npm install vue
 
 > [!TIP]
 > `elements`、`react`、`vue` パッケージは内部的に `core` を使用します。
-> ただし、アプリケーションコードで `@omdc-slipkit/core` を直接 import する場合は、`core` も直接の依存関係としてインストールする必要があります。
+> ただし、アプリケーションコードで `@omdc/slipkit` を直接 import する場合は、`core` も直接の依存関係としてインストールする必要があります。
 
 ### 2. 開始テンプレートを作る
 
@@ -188,7 +188,7 @@ npm install vue
 import {
   CURRENT_SCHEMA_VERSION,
   type SlipTemplateFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 export function createBlankTemplate(): SlipTemplateFile {
   return {
@@ -265,13 +265,13 @@ HTML にデザイナーを表示する領域を追加します。
 `src/main.ts`:
 
 ```ts
-import '@omdc-slipkit/elements';
+import '@omdc/slipkit-elements';
 
 import {
   serializeSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
-import type { SlipDesigner } from '@omdc-slipkit/elements';
+} from '@omdc/slipkit';
+import type { SlipDesigner } from '@omdc/slipkit-elements';
 
 import { createBlankTemplate } from './slip-template';
 
@@ -311,12 +311,12 @@ Web Component では `slip-change` が `CustomEvent` として渡され、変更
 
 ```tsx
 import { useRef, useState } from 'react';
-import { SlipDesigner } from '@omdc-slipkit/react';
+import { SlipDesigner } from '@omdc/slipkit-react';
 import {
   serializeSlipFile,
   type SlipFile,
   type SlipTemplateFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import { createBlankTemplate } from './slip-template';
 
@@ -362,12 +362,12 @@ React ラッパーの `onSlipChange` には、`CustomEvent` ではなく変更�
 ```vue
 <script setup lang="ts">
 import { ref, shallowRef } from 'vue';
-import { SlipDesigner } from '@omdc-slipkit/vue';
+import { SlipDesigner } from '@omdc/slipkit-vue';
 import {
   serializeSlipFile,
   type SlipFile,
   type SlipTemplateFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import { createBlankTemplate } from './slip-template';
 
@@ -505,12 +505,12 @@ designer.src = serializeSlipFile(createBlankTemplate());
 </details>
 
 <details>
-<summary><strong>@omdc-slipkit/core が見つかりません</strong></summary>
+<summary><strong>@omdc/slipkit が見つかりません</strong></summary>
 
 アプリケーションコードで `core` を直接 import する場合は、直接の依存関係としてインストールする必要があります。
 
 ```bash
-npm install @omdc-slipkit/core
+npm install @omdc/slipkit
 ```
 
 </details>

@@ -1,5 +1,5 @@
 {
-  "name": "@omdc-slipkit/vue",
+  "name": "@omdc/slipkit-vue",
   "version": "0.0.1",
   "description": "Vue wrappers for the SlipKit Web Components",
   "keywords": [
@@ -10,14 +10,14 @@
     "pdf",
     "vue"
   ],
-  "homepage": "https://github.com/open-my-dev-com/drawing-report#readme",
+  "homepage": "https://github.com/open-my-dev-com/slipkit#readme",
   "bugs": {
-    "url": "https://github.com/open-my-dev-com/drawing-report/issues"
+    "url": "https://github.com/open-my-dev-com/slipkit/issues"
   },
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/open-my-dev-com/drawing-report.git",
+    "url": "git+https://github.com/open-my-dev-com/slipkit.git",
     "directory": "packages/vue"
   },
   "publishConfig": {
@@ -45,8 +45,8 @@
     "node": ">=22.13"
   },
   "dependencies": {
-    "@omdc-slipkit/core": "workspace:*",
-    "@omdc-slipkit/elements": "workspace:*"
+    "@omdc/slipkit": "workspace:*",
+    "@omdc/slipkit-elements": "workspace:*"
   },
   "peerDependencies": {
     "vue": ">=3.4"

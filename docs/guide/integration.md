@@ -63,7 +63,7 @@ A voucher stores the template as it was at creation time in `templateSnapshot`. 
 Pass `src` a JSON string produced by `serializeSlipFile`, not a `SlipFile` object.
 
 ```ts
-import { serializeSlipFile } from '@omdc-slipkit/core';
+import { serializeSlipFile } from '@omdc/slipkit';
 
 designer.src = serializeSlipFile(template);
 form.src = serializeSlipFile(template);
@@ -122,7 +122,7 @@ The React and Vue wrappers unwrap the `CustomEvent` and pass the `SlipFile` obje
 
 </details>
 
-The React wrapper also accepts `ref` (the underlying `slip-*` element) and standard HTML attributes such as `className`, `style` and `aria-*`, so you do not need an extra wrapping element to size or label the component. See [`@omdc-slipkit/react`](api-reference.md#omdc-slipkitreact) in the API reference.
+The React wrapper also accepts `ref` (the underlying `slip-*` element) and standard HTML attributes such as `className`, `style` and `aria-*`, so you do not need an extra wrapping element to size or label the component. See [`@omdc/slipkit-react`](api-reference.md#omdcslipkit-react) in the API reference.
 
 <details>
 <summary><strong>Vue</strong></summary>
@@ -176,19 +176,19 @@ Prepare each component in the HTML.
 Manage the template and voucher states in the application.
 
 ```ts
-import '@omdc-slipkit/elements';
+import '@omdc/slipkit-elements';
 
 import {
   serializeSlipFile,
   type SlipFile,
   type SlipTemplateFile,
   type SlipVoucherFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import type {
   SlipDesigner,
   SlipForm,
   SlipViewer,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 import { createBlankTemplate } from './slip-template';
 
@@ -396,7 +396,7 @@ import {
   parseSlipFile,
   serializeSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 const json = serializeSlipFile(file);
 const restored = parseSlipFile(json);
@@ -413,7 +413,7 @@ import {
   parseSlipFile,
   serializeSlipFile,
   type SlipFile,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 export async function saveSlip(
   id: string,
@@ -463,7 +463,7 @@ export async function loadSlip(
 `slip-change` can be delivered every time an edit or input occurs. Instead of sending a server request each time, you can delay saving until input pauses for a moment.
 
 ```ts
-import type { SlipFile } from '@omdc-slipkit/core';
+import type { SlipFile } from '@omdc/slipkit';
 
 function createSaveScheduler(
   id: string,
@@ -553,8 +553,8 @@ When you pass a `StorageAdapter` to `<slip-designer>`'s `storage` property, the 
 To use the browser's IndexedDB, connect it like this.
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
-import { IndexedDbStorage } from '@omdc-slipkit/elements';
+import { createSlipKit } from '@omdc/slipkit';
+import { IndexedDbStorage } from '@omdc/slipkit-elements';
 
 const slipkit = createSlipKit({
   locale: 'en-US',
@@ -606,7 +606,7 @@ import {
   type SlipFile,
   type SlipListPage,
   type StorageAdapter,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 async function requireSuccess(
   response: Response,
@@ -706,7 +706,7 @@ The server must not trust the JSON received in a save request; it should validat
 `SlipFileExchange` provides the browser's file picker and download features. It uses the same `SlipKit` instance as the components and IndexedDB storage.
 
 ```ts
-import { SlipFileExchange } from '@omdc-slipkit/elements';
+import { SlipFileExchange } from '@omdc/slipkit-elements';
 
 const fileExchange = new SlipFileExchange(slipkit, {
   encryptOnSave: true,

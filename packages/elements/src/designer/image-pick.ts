@@ -5,7 +5,7 @@
  * 이미지 값은 Base64 `data:` URL만 다룹니다. 외부 URL은 호스트에서 변환해 전달해야 합니다.
  */
 
-import type { SlipTemplateFile } from '@omdc-slipkit/core';
+import type { SlipTemplateFile } from '@omdc/slipkit';
 import { formatBytes, type ImagePickResult } from '../image-file.js';
 
 /** 이미지를 선택하지 않은 요소에 사용하는 투명한 1×1 PNG입니다. */

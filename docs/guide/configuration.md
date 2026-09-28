@@ -51,13 +51,13 @@ Strings and numbers can be passed as HTML attributes.
 Object settings are passed as JavaScript properties.
 
 ```ts
-import '@omdc-slipkit/elements';
-import { createSlipKit } from '@omdc-slipkit/core';
+import '@omdc/slipkit-elements';
+import { createSlipKit } from '@omdc/slipkit';
 
 import type {
   SlipDesigner,
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const designer =
   document.querySelector<SlipDesigner>(
@@ -106,11 +106,11 @@ import { useMemo } from 'react';
 
 import {
   SlipDesigner,
-} from '@omdc-slipkit/react';
+} from '@omdc/slipkit-react';
 
 import type {
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 export function DesignerScreen() {
   const settings =
@@ -148,11 +148,11 @@ In the Vue wrapper, also pass them as object props.
 <script setup lang="ts">
 import {
   SlipDesigner,
-} from '@omdc-slipkit/vue';
+} from '@omdc/slipkit-vue';
 
 import type {
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const settings: SlipDesignerSettings = {
   getPaperSizes: () => appPaperSizes,
@@ -232,7 +232,7 @@ The Japanese default font is a subset that includes common kana, kanji, and Lati
 Configure custom fonts once with the `getFonts` option of `createSlipKit`, then pass the same instance to each component.
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
+import { createSlipKit } from '@omdc/slipkit';
 
 const slipkit = createSlipKit({
   getFonts: () => [
@@ -258,7 +258,7 @@ designer.slipkit = slipkit;
 UI components supply bundled fonts when `getFonts` is absent, but Core's `slipkit.render()` does not load fonts bundled with Elements. Configure `getFonts` when direct Core rendering and component previews must use the same custom fonts.
 
 ```ts
-import { createSlipKit, type SlipFont } from '@omdc-slipkit/core';
+import { createSlipKit, type SlipFont } from '@omdc/slipkit';
 
 async function loadFont(
   url: string,
@@ -356,7 +356,7 @@ If `getFonts` returns a non-empty array, the bundled default fonts are not added
 Use `loadDefaultFonts(locale)` when you want the same bundled set that the components use by default. It already contains both bundled families and selects one fallback by locale. Use the font subpaths only when you need a single family or set `fallback` yourself. Each subpath list marks its own font as `fallback: true`, so spreading both lists unchanged fails with `Only one fallback font can be specified`.
 
 ```ts
-import { loadDefaultFonts } from '@omdc-slipkit/elements';
+import { loadDefaultFonts } from '@omdc/slipkit-elements';
 
 const slipkit = createSlipKit({
   getFonts: () => loadDefaultFonts('en'),
@@ -366,14 +366,14 @@ const slipkit = createSlipKit({
 To use the bundled fonts together with your own fonts, import them directly from the font subpaths.
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
+import { createSlipKit } from '@omdc/slipkit';
 import {
   PRETENDARD_FONTS,
-} from '@omdc-slipkit/elements/fonts/pretendard';
+} from '@omdc/slipkit-elements/fonts/pretendard';
 
 import {
   NOTO_SANS_JP_FONTS,
-} from '@omdc-slipkit/elements/fonts/noto-sans-jp';
+} from '@omdc/slipkit-elements/fonts/noto-sans-jp';
 
 const slipkit = createSlipKit({
   getFonts: () => [
@@ -403,7 +403,7 @@ The bundled Pretendard and Noto Sans JP are each covered by the SIL Open Font Li
 ```ts
 import type {
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const designerSettings:
   SlipDesignerSettings = {
@@ -434,7 +434,7 @@ Add application-specific paper sizes with `getPaperSizes`.
 import type {
   PaperSize,
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const paperSizes: PaperSize[] = [
   {
@@ -530,11 +530,11 @@ To show only the types your application uses, implement `getBarcodeKinds`.
 ```ts
 import type {
   BarcodeKind,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import type {
   SlipDesignerSettings,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const barcodeKinds: BarcodeKind[] = [
   'qrcode',
@@ -562,11 +562,11 @@ To provide application-specific presets, pass an array of `SlipPreset` to `prese
 ```ts
 import {
   CURRENT_SCHEMA_VERSION,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 import type {
   SlipPreset,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const shippingLabelPreset:
   SlipPreset = {
@@ -655,7 +655,7 @@ To show both together, get the bundled presets for the current locale with `getP
 ```ts
 import {
   getPresets,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const appPresets = [
   ...getPresets('en'),
@@ -691,8 +691,8 @@ To store templates in the browser, you can use `IndexedDbStorage`.
 ```ts
 import {
   IndexedDbStorage,
-} from '@omdc-slipkit/elements';
-import { createSlipKit } from '@omdc-slipkit/core';
+} from '@omdc/slipkit-elements';
+import { createSlipKit } from '@omdc/slipkit';
 
 const slipkit = createSlipKit({
   locale: 'en-US',
@@ -781,7 +781,7 @@ If the title is also sensitive information, you must use a separate storage impl
 ```ts
 import {
   SlipFileExchange,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const files =
   new SlipFileExchange(slipkit, {
@@ -862,12 +862,12 @@ When deciding on the image size to allow in your application, also consider the 
 
 ## Core settings
 
-In `@omdc-slipkit/core`, pass common settings to `createSlipKit`.
+In `@omdc/slipkit`, pass common settings to `createSlipKit`.
 
 ```ts
 import {
   createSlipKit,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 
 const slip = createSlipKit({
   getFonts: () => appFonts,
@@ -906,13 +906,13 @@ If you use the same settings across your entire application, we recommend creati
 `src/slipkit-config.ts`:
 
 ```ts
-import { createSlipKit } from '@omdc-slipkit/core';
+import { createSlipKit } from '@omdc/slipkit';
 import {
   IndexedDbStorage,
   getPresets,
   type SlipDesignerSettings,
   type SlipPreset,
-} from '@omdc-slipkit/elements';
+} from '@omdc/slipkit-elements';
 
 const fontPromise =
   loadAppFonts();

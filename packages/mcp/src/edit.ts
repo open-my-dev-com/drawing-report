@@ -14,7 +14,7 @@ import {
   type ImageMimeType,
   type SlipFile,
   type SlipTemplateBody,
-} from '@omdc-slipkit/core';
+} from '@omdc/slipkit';
 import { allElementIds, bodyOf, findElement } from './summary.js';
 
 export { MAX_IMAGE_BYTES };
