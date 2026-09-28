@@ -12,7 +12,7 @@
 
 | 날짜 | 구분 | 변경 내용 |
 | --- | --- | --- |
-| 2026-09-28 | 신규 작성 | 73개 설계 대상을 등록하고 공통·데이터·인터페이스·기능 설계 52개의 기술 검토를 마쳤습니다. |
+| 2026-09-28 | 신규 작성 | 73개 설계 대상을 등록하고 디자이너 화면을 포함한 65개의 기술 검토를 마쳤습니다. |
 
 ## 상태 기준
 
@@ -65,19 +65,19 @@
 
 | 식별자 | 설계 대상 | 파일 | 상태 | 주요 근거 |
 | --- | --- | --- | --- | --- |
-| SCR-001 | 디자이너 기본 화면 | `docs/design/10-screen/SCR-001-designer-main.md` | 예정 | SlipDesigner, REQUIREMENTS 5 |
-| SCR-002 | 캔버스와 용지 편집 | `docs/design/10-screen/SCR-002-designer-canvas.md` | 예정 | designer/render/canvas, F-01~F-27 |
-| SCR-003 | 요소 목록과 추가 | `docs/design/10-screen/SCR-003-element-sidebar.md` | 예정 | designer/render/sidebar·toolbar |
-| SCR-004 | 속성 패널 | `docs/design/10-screen/SCR-004-property-panel.md` | 예정 | designer/render/property-panel |
-| SCR-005 | 페이지 관리 | `docs/design/10-screen/SCR-005-page-management.md` | 예정 | SlipDesigner 페이지 조작, ADR-026 |
-| SCR-006 | 그리드 행·셀 편집 | `docs/design/10-screen/SCR-006-grid-editor.md` | 예정 | grid-props·grid-model·grid-edit |
-| SCR-007 | 수식 편집 모달 | `docs/design/10-screen/SCR-007-formula-dialog.md` | 예정 | formula-modal, ADR-068 |
-| SCR-008 | 조건부 서식 편집 | `docs/design/10-screen/SCR-008-conditional-format.md` | 예정 | conditional-formats, ADR-062 |
-| SCR-009 | 파라미터 관리 | `docs/design/10-screen/SCR-009-parameter-management.md` | 예정 | form-props·parameters, ADR-047 |
-| SCR-010 | 샘플 값 편집 모달 | `docs/design/10-screen/SCR-010-sample-values-dialog.md` | 예정 | sampleModal·sample-draft |
-| SCR-011 | 이미지 선택 모달 | `docs/design/10-screen/SCR-011-image-dialog.md` | 예정 | imageModal·image-pick |
-| SCR-012 | 내 양식 저장·목록·삭제 모달 | `docs/design/10-screen/SCR-012-saved-forms-dialogs.md` | 예정 | saveModal·myFormsModal·confirmDeleteModal |
-| SCR-013 | 출력 결과 미리보기 | `docs/design/10-screen/SCR-013-output-preview.md` | 예정 | SlipDesigner PDF 미리보기 |
+| SCR-001 | 디자이너 기본 화면 | `docs/design/10-screen/SCR-001-designer-main.md` | 검토 완료 | SlipDesigner, REQUIREMENTS 5 |
+| SCR-002 | 캔버스와 용지 편집 | `docs/design/10-screen/SCR-002-designer-canvas.md` | 검토 완료 | designer/render/canvas, F-01~F-27 |
+| SCR-003 | 요소 목록과 추가 | `docs/design/10-screen/SCR-003-element-sidebar.md` | 검토 완료 | designer/render/sidebar·toolbar |
+| SCR-004 | 속성 패널 | `docs/design/10-screen/SCR-004-property-panel.md` | 검토 완료 | designer/render/property-panel |
+| SCR-005 | 페이지 관리 | `docs/design/10-screen/SCR-005-page-management.md` | 검토 완료 | SlipDesigner 페이지 조작, ADR-026 |
+| SCR-006 | 그리드 행·셀 편집 | `docs/design/10-screen/SCR-006-grid-editor.md` | 검토 완료 | grid-props·grid-model·grid-edit |
+| SCR-007 | 수식 편집 모달 | `docs/design/10-screen/SCR-007-formula-dialog.md` | 검토 완료 | formula-modal, ADR-068 |
+| SCR-008 | 조건부 서식 편집 | `docs/design/10-screen/SCR-008-conditional-format.md` | 검토 완료 | conditional-formats, ADR-062 |
+| SCR-009 | 파라미터 관리 | `docs/design/10-screen/SCR-009-parameter-management.md` | 검토 완료 | form-props·parameters, ADR-047 |
+| SCR-010 | 샘플 값 편집 모달 | `docs/design/10-screen/SCR-010-sample-values-dialog.md` | 검토 완료 | sampleModal·sample-draft |
+| SCR-011 | 이미지 선택 모달 | `docs/design/10-screen/SCR-011-image-dialog.md` | 검토 완료 | imageModal·image-pick |
+| SCR-012 | 내 양식 저장·목록·삭제 모달 | `docs/design/10-screen/SCR-012-saved-forms-dialogs.md` | 검토 완료 | saveModal·myFormsModal·confirmDeleteModal |
+| SCR-013 | 출력 결과 미리보기 | `docs/design/10-screen/SCR-013-output-preview.md` | 검토 완료 | SlipDesigner PDF 미리보기 |
 | SCR-014 | 전표 작성 폼 | `docs/design/10-screen/SCR-014-voucher-form.md` | 예정 | SlipForm, REQUIREMENTS 6 |
 | SCR-015 | 전표 뷰어 | `docs/design/10-screen/SCR-015-voucher-viewer.md` | 예정 | SlipViewer, REQUIREMENTS 7 |
 | SCR-016 | 데모 저장 안내와 데이터 삭제 | `docs/design/10-screen/SCR-016-demo-storage-controls.md` | 예정 | examples/shared, ADR-084 |
