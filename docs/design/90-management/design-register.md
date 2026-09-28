@@ -12,7 +12,7 @@
 
 | 날짜 | 구분 | 변경 내용 |
 | --- | --- | --- |
-| 2026-09-28 | 신규 작성 | 73개 설계 대상을 등록하고 공통·데이터·인터페이스·Core 기능 45개의 기술 검토를 마쳤습니다. |
+| 2026-09-28 | 신규 작성 | 73개 설계 대상을 등록하고 공통·데이터·인터페이스·기능 설계 52개의 기술 검토를 마쳤습니다. |
 
 ## 상태 기준
 
@@ -104,13 +104,13 @@
 | FNC-016 | 저장소 조회와 변경 | `docs/design/20-function/FNC-016-storage-workflow.md` | 검토 완료 | storage/adapter, ADR-021·025 |
 | FNC-017 | IndexedDB 저장 | `docs/design/20-function/FNC-017-indexeddb-storage.md` | 검토 완료 | indexeddb-storage, ADR-045 |
 | FNC-018 | 파일 열기와 내려받기 | `docs/design/20-function/FNC-018-file-exchange.md` | 검토 완료 | file-exchange |
-| FNC-019 | 디자이너 문서 편집 | `docs/design/20-function/FNC-019-designer-document-editing.md` | 예정 | SlipDesigner·patch·geometry |
-| FNC-020 | 선택·이동과 실행 취소 | `docs/design/20-function/FNC-020-designer-history-selection.md` | 예정 | selection·history·canvas-pointer·keyboard-nudge |
-| FNC-021 | 그리드·파라미터·수식 편집 | `docs/design/20-function/FNC-021-designer-structured-editing.md` | 예정 | grid-commands·parameters·formula-target |
-| FNC-022 | 미리보기·작성·보기 출력 조정 | `docs/design/20-function/FNC-022-ui-output-orchestration.md` | 예정 | SlipDesigner·SlipForm·SlipViewer |
-| FNC-023 | 데모 자동 저장과 데이터 삭제 | `docs/design/20-function/FNC-023-demo-persistence.md` | 예정 | examples/shared, ADR-084 |
-| FNC-024 | MCP 파일 접근과 목록 캐시 | `docs/design/20-function/FNC-024-mcp-storage-list-cache.md` | 예정 | mcp/storage·list-cache·file-queue |
-| FNC-025 | MCP 읽기·수정·전표·PDF 도구 | `docs/design/20-function/FNC-025-mcp-tool-workflows.md` | 예정 | mcp/server·edit·http·summary |
+| FNC-019 | 디자이너 문서 편집 | `docs/design/20-function/FNC-019-designer-document-editing.md` | 검토 완료 | SlipDesigner·patch·geometry |
+| FNC-020 | 선택·이동과 실행 취소 | `docs/design/20-function/FNC-020-designer-history-selection.md` | 검토 완료 | selection·history·canvas-pointer·keyboard-nudge |
+| FNC-021 | 그리드·파라미터·수식 편집 | `docs/design/20-function/FNC-021-designer-structured-editing.md` | 검토 완료 | grid-commands·parameters·formula-target |
+| FNC-022 | 미리보기·작성·보기 출력 조정 | `docs/design/20-function/FNC-022-ui-output-orchestration.md` | 검토 완료 | SlipDesigner·SlipForm·SlipViewer |
+| FNC-023 | 데모 자동 저장과 데이터 삭제 | `docs/design/20-function/FNC-023-demo-persistence.md` | 검토 완료 | examples/shared, ADR-084 |
+| FNC-024 | MCP 파일 접근과 목록 캐시 | `docs/design/20-function/FNC-024-mcp-storage-list-cache.md` | 검토 완료 | mcp/storage·list-cache·file-queue |
+| FNC-025 | MCP 읽기·수정·전표·PDF 도구 | `docs/design/20-function/FNC-025-mcp-tool-workflows.md` | 검토 완료 | mcp/server·edit·http·summary |
 
 ## 데이터 설계
 
