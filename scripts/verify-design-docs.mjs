@@ -32,6 +32,25 @@ const DESIGN_ID = /^(SYS|SCR|FNC|DAT|IF|ERR)-\d{3}$/;
 const REGISTER_ROW = /^\|\s*((?:SYS|SCR|FNC|DAT|IF|ERR)-\d{3})\s*\|/;
 const ALLOWED_STATUSES = new Set(['예정', '작성 중', '작성 완료', '검토 완료']);
 const MERMAID_DECLARATION = /^(?:flowchart|graph|sequenceDiagram|stateDiagram(?:-v2)?|classDiagram|erDiagram)\b/;
+const SCREEN_SECTIONS = [
+  '진입·종료 조건',
+  '화면 이미지',
+  '화면 구성',
+  '이벤트와 호출 기능',
+  '상태별 표시',
+  '입력 검증과 오류 표시',
+  '화면 전이',
+  '관련 데이터·인터페이스·오류',
+  '근거',
+];
+
+const SCREEN_TABLE_HEADERS = [
+  '| 번호 | 화면 항목 | 표시 내용 | 표시 조건 | 활성화 조건 |',
+  '| 화면 항목 | 사용자 동작 | 호출 기능 | 결과 | 실행할 수 없는 조건 |',
+  '| 상태 | 진입 조건 | 표시 내용 | 허용 동작 |',
+  '| 검사 대상 | 실패 조건 | 표시 위치와 표현 | 문서·화면 처리 | 복구 방법 |',
+  '| 시작 상태 | 사용자 동작 | 도착 화면·상태 | 유지 항목 | 초기화 항목 |',
+];
 
 function markdownFiles(root) {
   if (!existsSync(root)) return [];
@@ -118,6 +137,92 @@ function validateMermaid(file, source, errors) {
     const declaration = block[1].split('\n').map((line) => line.trim()).find(Boolean) ?? '';
     if (!MERMAID_DECLARATION.test(declaration)) {
       errors.push(`${file}: 지원하지 않는 Mermaid 다이어그램 선언입니다: ${declaration || '(비어 있음)'}`);
+    }
+  }
+}
+
+function markdownTableRows(section) {
+  return section
+    .split('\n')
+    .filter((line) => /^\|.+\|\s*$/.test(line))
+    .filter((line) => !/^\|\s*-/.test(line));
+}
+
+function sectionBody(source, heading) {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const section = new RegExp(`^## ${escaped}\\s*$`, 'm').exec(source);
+  if (section === null) return '';
+  const start = section.index + section[0].length;
+  const next = /^##\s+/m.exec(source.slice(start));
+  const end = next === null ? source.length : start + next.index;
+  return source.slice(start, end);
+}
+
+function tableCells(row) {
+  return row.slice(1, row.endsWith('|') ? -1 : undefined).split('|').map((cell) => cell.trim());
+}
+
+function annotatedImageNumbers(file, imageBody) {
+  const numbers = new Set();
+  for (const match of imageBody.matchAll(/!\[[^\]]*\]\(([^)]+-annotated\.svg)\)/g)) {
+    const target = decodeURIComponent(match[1].trim());
+    const absolute = path.resolve(path.dirname(file), target);
+    if (!existsSync(absolute)) continue;
+    const svg = readFileSync(absolute, 'utf8');
+    for (const number of svg.matchAll(/<text\b[^>]*>\s*(\d+)\s*<\/text>/g)) {
+      numbers.add(Number(number[1]));
+    }
+  }
+  return numbers;
+}
+
+function validateScreenDesign(file, label, source, errors) {
+  const headings = [...source.matchAll(/^##\s+(.+?)\s*$/gm)].map((match) => match[1]);
+  let previous = 1;
+  for (const section of SCREEN_SECTIONS) {
+    const index = headings.indexOf(section);
+    if (index < 0) {
+      errors.push(`${label}: 화면 설계 필수 절 '${section}'이 없습니다.`);
+      continue;
+    }
+    if (index <= previous) errors.push(`${label}: 화면 설계 절 '${section}'의 순서가 올바르지 않습니다.`);
+    previous = index;
+  }
+
+  const id = source.match(/^#\s+(SCR-\d{3})\b/m)?.[1];
+  const imageBody = sectionBody(source, '화면 이미지');
+  if (id !== undefined && !new RegExp(`!\\[[^\\]]*\\]\\([^)]*${id}[^)]*-annotated\\.svg\\)`).test(imageBody)) {
+    errors.push(`${label}: 화면 번호와 설명을 연결한 ${id} 주석 이미지가 필요합니다.`);
+  }
+
+  for (const header of SCREEN_TABLE_HEADERS) {
+    if (!source.includes(header)) errors.push(`${label}: 화면 설계 표 머리말이 없습니다: ${header}`);
+  }
+
+  for (const section of SCREEN_SECTIONS.slice(2, 7)) {
+    const rows = markdownTableRows(sectionBody(source, section));
+    if (rows.length < 2) errors.push(`${label}: '${section}' 표에는 내용 행이 하나 이상 필요합니다.`);
+  }
+
+  const configurationRows = markdownTableRows(sectionBody(source, '화면 구성')).slice(1);
+  const configurationNumbers = configurationRows.map((row) => Number(tableCells(row)[0]));
+  const expectedNumbers = configurationNumbers.map((_, index) => index + 1);
+  if (configurationNumbers.some((number) => !Number.isInteger(number)) ||
+      configurationNumbers.some((number, index) => number !== expectedNumbers[index])) {
+    errors.push(`${label}: 화면 구성 번호는 1부터 빠짐없이 순서대로 적습니다.`);
+  }
+  const imageNumbers = annotatedImageNumbers(file, imageBody);
+  for (const number of expectedNumbers) {
+    if (!imageNumbers.has(number)) {
+      errors.push(`${label}: 화면 구성 ${number}번을 표시한 주석 이미지 번호가 없습니다.`);
+    }
+  }
+
+  const eventRows = markdownTableRows(sectionBody(source, '이벤트와 호출 기능')).slice(1);
+  for (const row of eventRows) {
+    const cells = tableCells(row);
+    if (/[·]|거나|이전 또는 다음/.test(cells[1] ?? '')) {
+      errors.push(`${label}: 사용자 동작은 한 행에 하나만 적습니다: ${cells[1]}`);
     }
   }
 }
@@ -211,6 +316,7 @@ export function verifyDesignDocs(repoRoot = process.cwd()) {
       if (entry.file !== label) errors.push(`${label}: 등록부의 파일 경로 ${entry.file}과 다릅니다.`);
       const titleId = readFileSync(file, 'utf8').match(/^#\s+((?:SYS|SCR|FNC|DAT|IF|ERR)-\d{3})\b/m)?.[1];
       if (titleId !== id) errors.push(`${label}: 제목의 식별자 ${titleId ?? '(없음)'}가 파일명과 다릅니다.`);
+      if (prefix === 'SCR') validateScreenDesign(file, label, readFileSync(file, 'utf8'), errors);
     }
   }
 
