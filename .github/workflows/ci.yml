@@ -117,8 +117,8 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
       - name: core 빌드와 JSON Schema 재생성
         run: |
-          corepack pnpm --filter @omdc-slipkit/core run build
-          corepack pnpm --filter @omdc-slipkit/core run generate:schemas
+          corepack pnpm --filter @omdc/slipkit --fail-if-no-match run build
+          corepack pnpm --filter @omdc/slipkit --fail-if-no-match run generate:schemas
       - name: 재생성 결과가 커밋된 스키마와 같은지 확인
         run: |
           status="$(git status --porcelain -- packages/core/schemas)"
@@ -220,6 +220,6 @@ jobs:
         run: |
           node --test scripts/bench-all/orchestrator.test.mjs scripts/hooks/bash-guard.test.mjs
       - name: MCP와 의존 패키지 빌드
-        run: corepack pnpm --filter "@omdc-slipkit/mcp..." run build
+        run: corepack pnpm --filter "@omdc/slipkit-mcp..." --fail-if-no-match run build
       - name: MCP 테스트 (Windows 경로 처리 포함)
-        run: corepack pnpm --filter @omdc-slipkit/mcp run test
+        run: corepack pnpm --filter @omdc/slipkit-mcp --fail-if-no-match run test
