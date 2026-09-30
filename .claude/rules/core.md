@@ -3,9 +3,9 @@ paths:
   - "packages/core/**"
 ---
 
-# @omdc-slipkit/core 규칙
+# @omdc/slipkit 규칙
 
-- `@omdc-slipkit/core`는 순수 TypeScript로 유지합니다. `window`, `document`, DOM API, 브라우저 전역,
+- `@omdc/slipkit`는 순수 TypeScript로 유지합니다. `window`, `document`, DOM API, 브라우저 전역,
   프레임워크 API를 사용하지 않습니다(ADR-002). Node.js 전용 API도 라이브러리 코드에서는 사용하지
   않으며 `scripts/`와 테스트만 예외로 둡니다.
 - **`eval`, `new Function`, 문자열로 경로를 조합한 동적 import를 사용하지 않습니다.** 수식은
@@ -17,7 +17,7 @@ paths:
   1. `docs/SPEC.md` 갱신(SPEC이 규범이므로 구현과 어긋나면 SPEC을 우선합니다.)
   2. `src/format/version.ts`의 `CURRENT_SCHEMA_VERSION` 상향
   3. `src/format/migrate.ts`에 이전 버전에서 현재 버전으로 변환하는 단계와 관련 시험 추가
-  4. JSON Schema 재생성: `pnpm --filter @omdc-slipkit/core build && pnpm --filter @omdc-slipkit/core generate:schemas`,
+  4. JSON Schema 재생성: `pnpm --filter @omdc/slipkit --fail-if-no-match run build && pnpm --filter @omdc/slipkit --fail-if-no-match run generate:schemas`,
      `schemas/` 산출물 커밋
 - **pdfme는 외부에 공개하지 않습니다**(ADR-016). pdfme 타입과 API를 공개 API인 `src/index.ts`
   export에 포함하지 않습니다. pdfme 의존성은 렌더러 인터페이스 구현 내부에서만 사용하고,

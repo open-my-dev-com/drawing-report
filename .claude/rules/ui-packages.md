@@ -8,7 +8,7 @@ paths:
 # UI 패키지 규칙(elements·react·vue)
 
 - UI 패키지는 core를 사용합니다(ADR-003). 파일 형식 파싱과 검증, 수식 평가, 레이아웃 계산,
-  PDF 생성은 `@omdc-slipkit/core`를 호출해 처리합니다.
+  PDF 생성은 `@omdc/slipkit`를 호출해 처리합니다.
 - `elements`는 **Lit** 웹 컴포넌트입니다(ADR-015). 커스텀 엘리먼트 태그에는 `slip-*` 접두사를
   사용합니다(ADR-018).
 - `react`와 `vue`는 `elements`를 감싸는 얇은 래퍼만 제공합니다. 자체 렌더링이나 상태 로직을
